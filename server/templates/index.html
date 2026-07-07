@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Featherframe</title>
+  <style>
+    :root {
+      --paper: #f4f1ea; --card: #fbfaf6; --ink: #232019; --soft: #6b6559;
+      --line: #d9d3c6; --accent: #4a4436; --shadow: rgba(40,34,22,.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--paper); color: var(--ink);
+      font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 64px; }
+    header { text-align: center; margin-bottom: 28px; }
+    h1 {
+      font-family: Georgia, "Times New Roman", serif; font-weight: 600;
+      font-variant: small-caps; letter-spacing: .14em; font-size: 30px; margin: 0;
+    }
+    header .sub { color: var(--soft); font-size: 13px; letter-spacing: .04em; margin-top: 4px; }
+    .grid { display: grid; grid-template-columns: 360px 1fr; gap: 32px; align-items: start; }
+    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+
+    /* preview */
+    .preview { position: sticky; top: 24px; }
+    .frame {
+      background: #fff; padding: 14px; border: 1px solid var(--line);
+      box-shadow: 0 8px 30px var(--shadow); border-radius: 2px;
+    }
+    .frame img { display: block; width: 100%; height: auto; border: 1px solid #eee; }
+    .preview .actions { display: flex; gap: 10px; margin-top: 14px; }
+
+    /* status */
+    .status { margin-top: 18px; font-size: 13px; color: var(--soft); }
+    .status dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+    .status dt { color: var(--soft); }
+    .status dd { margin: 0; color: var(--ink); text-align: right; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; }
+    .dot.ok { background: #4a7c3f; } .dot.bad { background: #a2432f; }
+
+    /* form */
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+      padding: 22px 24px; margin-bottom: 20px;
+    }
+    .card h2 {
+      font-family: Georgia, serif; font-variant: small-caps; letter-spacing: .08em;
+      font-weight: 600; font-size: 16px; margin: 0 0 16px; color: var(--accent);
+      border-bottom: 1px solid var(--line); padding-bottom: 8px;
+    }
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label { display: block; font-size: 13px; color: var(--soft); margin-bottom: 5px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    input[type=text], input[type=number], input[type=time], select, textarea {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 3px;
+      background: #fff; color: var(--ink); font: inherit; font-size: 14px;
+    }
+    textarea { resize: vertical; min-height: 72px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+    .check { display: flex; align-items: center; gap: 8px; }
+    .check input { width: 16px; height: 16px; }
+    .check label { margin: 0; }
+    .hint { font-size: 12px; color: var(--soft); margin-top: 4px; }
+    button {
+      font: inherit; font-size: 14px; padding: 9px 18px; border-radius: 3px;
+      border: 1px solid var(--accent); cursor: pointer;
+    }
+    button.primary { background: var(--accent); color: #f6f3ec; }
+    button.ghost { background: #fff; color: var(--accent); }
+    .save-bar { display: flex; justify-content: flex-end; gap: 10px; }
+    footer { text-align: center; color: var(--soft); font-size: 12px; margin-top: 32px; }
+    form.inline { display: inline; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Featherframe</h1>
+    <div class="sub">the birds in the backyard, as museum plates</div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: live preview + status -->
+    <div class="preview">
+      <div class="frame">
+        <img id="preview" src="/api/preview.png" alt="Current frame">
+      </div>
+      <div class="actions">
+        <form class="inline" method="post" action="/api/test-detection">
+          <button class="ghost" type="submit">Test detection</button>
+        </form>
+        <button class="ghost" type="button" onclick="refreshPreview()">Refresh preview</button>
+      </div>
+
+      <div class="status">
+        <dl>
+          <dt>BirdNET</dt>
+          <dd>
+            <span class="dot {{ 'ok' if status.birdnet_available else 'bad' }}"></span>
+            {{ 'connected' if status.birdnet_available else 'not found' }}
+          </dd>
+          {% if status.last_detection %}
+          <dt>Last detection</dt>
+          <dd>{{ status.last_detection.common }} · {{ status.last_detection.confidence }}</dd>
+          <dt></dt><dd>{{ status.last_detection.at }}</dd>
+          {% endif %}
+          <dt>Now showing</dt>
+          <dd>{{ status.current.label or '—' }}</dd>
+          <dt>Species (all-time)</dt>
+          <dd>{{ status.species_all_time }}</dd>
+          <dt>Plates loaded</dt>
+          <dd>{{ status.plates_loaded }}</dd>
+          <dt>Device check-in</dt>
+          <dd>{{ status.device.last_checkin or 'never' }}</dd>
+          {% if status.device.battery_voltage %}
+          <dt>Battery</dt>
+          <dd>{{ '%.2f'|format(status.device.battery_voltage) }} V{% if status.device.battery_percent %} · {{ status.device.battery_percent }}%{% endif %}</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+
+    <!-- RIGHT: settings -->
+    <form method="post" action="/settings">
+      <div class="card">
+        <h2>Display</h2>
+        <div class="field">
+          <label>Mode</label>
+          <select name="mode">
+            <option value="single"  {{ 'selected' if config.mode=='single'  else '' }}>Single — most recent detection</option>
+            <option value="collage" {{ 'selected' if config.mode=='collage' else '' }}>Collage — the day's top species</option>
+            <option value="auto"    {{ 'selected' if config.mode=='auto'    else '' }}>Auto — single by day, review overnight</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Confidence threshold</label>
+            <input type="number" name="confidence_threshold" min="0" max="1" step="0.05" value="{{ config.confidence_threshold }}">
+          </div>
+          <div class="field">
+            <label>Refresh debounce (min)</label>
+            <input type="number" name="refresh_debounce_minutes" min="1" max="720" value="{{ config.refresh_debounce_minutes }}">
+          </div>
+        </div>
+        <div class="field">
+          <label>Device wake interval (min)</label>
+          <input type="number" name="wake_interval_minutes" min="1" max="720" value="{{ config.wake_interval_minutes }}">
+          <div class="hint">Advisory — the firmware's deep-sleep timer. Affects battery life.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Quiet hours</h2>
+        <div class="field check">
+          <input type="checkbox" id="qh" name="quiet_hours_enabled" {{ 'checked' if config.quiet_hours_enabled else '' }}>
+          <label for="qh">Hold the image overnight (no refreshes)</label>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Start</label>
+            <input type="time" name="quiet_hours_start" value="{{ config.quiet_hours_start }}">
+          </div>
+          <div class="field">
+            <label>End</label>
+            <input type="time" name="quiet_hours_end" value="{{ config.quiet_hours_end }}">
+          </div>
+        </div>
+        <div class="field check">
+          <input type="checkbox" id="qhc" name="quiet_hours_render_collage" {{ 'checked' if config.quiet_hours_render_collage else '' }}>
+          <label for="qhc">Render a "day in review" collage at quiet-hours start</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Rendering</h2>
+        <div class="row">
+          <div class="field">
+            <label>Grayscale</label>
+            <select name="gray_mode">
+              <option value="16" {{ 'selected' if config.gray_mode=='16' else '' }}>16 levels (full)</option>
+              <option value="1"  {{ 'selected' if config.gray_mode=='1'  else '' }}>1-bit (fallback)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Dithering</label>
+            <select name="dither">
+              <option value="bluenoise" {{ 'selected' if config.dither=='bluenoise' else '' }}>Blue-noise (fast)</option>
+              <option value="stucki"    {{ 'selected' if config.dither=='stucki'    else '' }}>Stucki (slow, richer)</option>
+              <option value="none"      {{ 'selected' if config.dither=='none'      else '' }}>None</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field check">
+            <input type="checkbox" id="pn" name="show_plate_number" {{ 'checked' if config.show_plate_number else '' }}>
+            <label for="pn">Show plate number ("No. 47")</label>
+          </div>
+          <div class="field">
+            <label>Collage rebuilds / day</label>
+            <input type="number" name="collage_rebuilds_per_day" min="1" max="24" value="{{ config.collage_rebuilds_per_day }}">
+          </div>
+        </div>
+        <div class="field">
+          <label>Panel rotation</label>
+          <select name="panel_rotation">
+            {% for r in [0, 90, 180, 270] %}
+            <option value="{{ r }}" {{ 'selected' if config.panel_rotation==r else '' }}>{{ r }}°</option>
+            {% endfor %}
+          </select>
+          <div class="hint">If the image is sideways or upside-down on the panel, change this — no reflash needed.</div>
+        </div>
+        <div class="hint">Changing grayscale, dithering, or rotation re-renders the current frame.</div>
+      </div>
+
+      <div class="card">
+        <h2>Ingest &amp; curation</h2>
+        <div class="field">
+          <label>BirdNET-Pi database path</label>
+          <input type="text" name="birdnet_db_path" value="{{ config.birdnet_db_path }}">
+          <div class="hint">Read-only. Default: ~/BirdNET-Pi/scripts/birds.db</div>
+        </div>
+        <div class="field">
+          <label>Poll interval (seconds)</label>
+          <input type="number" name="poll_interval_seconds" min="5" max="300" value="{{ config.poll_interval_seconds }}">
+        </div>
+        <div class="field">
+          <label>Species blocklist</label>
+          <textarea name="species_blocklist" placeholder="One per line — common or scientific name">{{ config.species_blocklist|join('\n') }}</textarea>
+          <div class="hint">e.g. House Sparrow — these are never shown.</div>
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <button class="primary" type="submit">Save settings</button>
+      </div>
+    </form>
+  </div>
+
+  <footer>
+    Featherframe v{{ version }} · LAN-only, no authentication · current frame etag
+    <code>{{ status.current.etag or '—' }}</code>
+  </footer>
+</div>
+
+<script>
+  function refreshPreview() {
+    document.getElementById('preview').src = '/api/preview.png?t=' + Date.now();
+  }
+  // Gently refresh the preview so a new detection appears without a reload.
+  setInterval(refreshPreview, 15000);
+</script>
+</body>
+</html>

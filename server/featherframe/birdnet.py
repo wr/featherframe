@@ -1,0 +1,217 @@
+"""Read-only ingest from BirdNET-Pi's SQLite database.
+
+We are a guest on BirdNET's disk. Rules:
+  * open strictly read-only (``file:...?mode=ro``) — never write, never lock;
+  * poll with a rowid high-water mark, so a query is a cheap indexed range scan;
+  * treat a missing DB or unexpected schema as a *soft* failure — log and carry
+    on serving the current frame. Priority #2: never a broken frame.
+
+Schema (Nachtzuster/BirdNET-Pi fork, verified against createdb.sh):
+    detections(Date TEXT 'YYYY-MM-DD', Time TEXT 'HH:MM:SS', Sci_Name, Com_Name,
+               Confidence REAL, Lat, Lon, Cutoff, Week, Sens, Overlap, File_Name)
+There is no declared primary key; ``rowid`` is the only per-row handle and rows
+are appended in detection order, so ``WHERE rowid > :cursor`` is our cursor.
+"""
+from __future__ import annotations
+
+import logging
+import os
+import sqlite3
+from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import date as ddate
+from datetime import datetime
+from typing import Iterator, Optional
+
+log = logging.getLogger("featherframe.birdnet")
+
+# Columns we require to consider the schema usable.
+_REQUIRED_COLUMNS = {"Date", "Time", "Sci_Name", "Com_Name", "Confidence"}
+
+
+@dataclass(frozen=True)
+class Detection:
+    rowid: int
+    date: str
+    time: str
+    common_name: str
+    scientific_name: str
+    confidence: float
+
+    @property
+    def timestamp(self) -> datetime:
+        try:
+            return datetime.strptime(f"{self.date} {self.time}", "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return datetime.min
+
+    @property
+    def key(self) -> str:
+        """Stable species identity for debounce / same-species comparison."""
+        return self.scientific_name.strip().lower()
+
+
+class SchemaError(RuntimeError):
+    pass
+
+
+class BirdNetDB:
+    def __init__(self, db_path: str, query_timeout_s: float = 5.0) -> None:
+        self.db_path = os.path.expanduser(db_path)
+        self._query_timeout_s = query_timeout_s
+
+    # -- connection --------------------------------------------------------
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        if not os.path.exists(self.db_path):
+            raise FileNotFoundError(self.db_path)
+        uri = f"file:{self.db_path}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True, timeout=self._query_timeout_s)
+        try:
+            conn.row_factory = sqlite3.Row
+            # Don't block if BirdNET is mid-write; we'll just retry next poll.
+            conn.execute("PRAGMA busy_timeout = 2000")
+            yield conn
+        finally:
+            conn.close()
+
+    def available(self) -> bool:
+        """True if the DB exists and the detections schema looks as expected."""
+        try:
+            with self._connect() as conn:
+                cols = {r["name"] for r in conn.execute("PRAGMA table_info(detections)")}
+            if not cols:
+                return False
+            missing = _REQUIRED_COLUMNS - cols
+            if missing:
+                log.warning("BirdNET detections table missing columns: %s", missing)
+                return False
+            return True
+        except (sqlite3.Error, FileNotFoundError) as exc:
+            log.debug("BirdNET DB unavailable: %s", exc)
+            return False
+
+    # -- reads (all soft-fail to a safe default) ---------------------------
+    def _row_to_detection(self, r: sqlite3.Row) -> Detection:
+        return Detection(
+            rowid=r["rowid"],
+            date=r["Date"] or "",
+            time=r["Time"] or "",
+            common_name=(r["Com_Name"] or "").strip(),
+            scientific_name=(r["Sci_Name"] or "").strip(),
+            confidence=float(r["Confidence"] or 0.0),
+        )
+
+    def max_rowid(self) -> int:
+        """Current tail rowid, for initialising the cursor without replaying
+        history. Returns 0 on any failure."""
+        try:
+            with self._connect() as conn:
+                row = conn.execute("SELECT MAX(rowid) AS m FROM detections").fetchone()
+            return int(row["m"]) if row and row["m"] is not None else 0
+        except (sqlite3.Error, FileNotFoundError) as exc:
+            log.debug("max_rowid failed: %s", exc)
+            return 0
+
+    def new_since(self, cursor: int, min_confidence: float = 0.0,
+                  limit: int = 500) -> list[Detection]:
+        """Detections with rowid > cursor and confidence >= threshold, oldest
+        first. Empty on failure."""
+        try:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    "SELECT rowid, Date, Time, Com_Name, Sci_Name, Confidence "
+                    "FROM detections WHERE rowid > ? AND Confidence >= ? "
+                    "ORDER BY rowid ASC LIMIT ?",
+                    (cursor, min_confidence, limit),
+                ).fetchall()
+            return [self._row_to_detection(r) for r in rows]
+        except (sqlite3.Error, FileNotFoundError) as exc:
+            log.warning("new_since failed (keeping current frame): %s", exc)
+            return []
+
+    def latest(self, min_confidence: float = 0.0, scan: int = 25) -> Optional[Detection]:
+        """Most recent detection at/above the confidence threshold. None on
+        failure or empty DB. Returns a small window so the caller can skip
+        blocklisted species without another query."""
+        recent = self.latest_many(min_confidence=min_confidence, limit=scan)
+        return recent[0] if recent else None
+
+    def latest_many(self, min_confidence: float = 0.0, limit: int = 25) -> list[Detection]:
+        """Recent detections, newest first."""
+        try:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    "SELECT rowid, Date, Time, Com_Name, Sci_Name, Confidence "
+                    "FROM detections WHERE Confidence >= ? "
+                    "ORDER BY Date DESC, Time DESC, rowid DESC LIMIT ?",
+                    (min_confidence, limit),
+                ).fetchall()
+            return [self._row_to_detection(r) for r in rows]
+        except (sqlite3.Error, FileNotFoundError) as exc:
+            log.warning("latest_many failed: %s", exc)
+            return []
+
+    def top_species_today(self, on_date: Optional[ddate] = None,
+                          min_confidence: float = 0.0, limit: int = 6) -> list[dict]:
+        """Day's most-frequent species: [{common, scientific, count}], desc."""
+        day = (on_date or ddate.today()).strftime("%Y-%m-%d")
+        try:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    "SELECT Com_Name AS common, Sci_Name AS scientific, COUNT(*) AS count "
+                    "FROM detections WHERE Date = ? AND Confidence >= ? "
+                    "GROUP BY Sci_Name ORDER BY count DESC, MAX(Time) DESC LIMIT ?",
+                    (day, min_confidence, limit),
+                ).fetchall()
+            return [dict(r) for r in rows]
+        except (sqlite3.Error, FileNotFoundError) as exc:
+            log.warning("top_species_today failed: %s", exc)
+            return []
+
+    def all_time_species_count(self) -> int:
+        """Distinct species ever seen. 0 on failure."""
+        try:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT COUNT(DISTINCT Sci_Name) AS c FROM detections"
+                ).fetchone()
+            return int(row["c"]) if row else 0
+        except (sqlite3.Error, FileNotFoundError) as exc:
+            log.debug("all_time_species_count failed: %s", exc)
+            return 0
+
+    def first_seen_date(self, scientific_name: str) -> Optional[str]:
+        """Earliest date ('YYYY-MM-DD') this species was recorded. None if unknown."""
+        try:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT MIN(Date) AS d FROM detections WHERE Sci_Name = ?",
+                    (scientific_name,),
+                ).fetchone()
+            return row["d"] if row and row["d"] else None
+        except (sqlite3.Error, FileNotFoundError) as exc:
+            log.debug("first_seen_date failed: %s", exc)
+            return None
+
+    def species_ordinal(self, scientific_name: str) -> Optional[int]:
+        """1-based rank of a species among all-time-unique species ordered by
+        first appearance — the 'No. 47' plate number. None if unknown/failure."""
+        try:
+            with self._connect() as conn:
+                row = conn.execute(
+                    """
+                    WITH firsts AS (
+                        SELECT Sci_Name, MIN(Date || ' ' || Time) AS first_seen
+                        FROM detections GROUP BY Sci_Name
+                    )
+                    SELECT COUNT(*) AS ordinal FROM firsts
+                    WHERE first_seen <= (SELECT first_seen FROM firsts WHERE Sci_Name = ?)
+                    """,
+                    (scientific_name,),
+                ).fetchone()
+            n = int(row["ordinal"]) if row else 0
+            return n or None
+        except (sqlite3.Error, FileNotFoundError) as exc:
+            log.debug("species_ordinal failed: %s", exc)
+            return None

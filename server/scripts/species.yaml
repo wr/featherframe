@@ -1,0 +1,84 @@
+# Featherframe — curated species list and Audubon plate crosswalk.
+#
+# This is the editable source of truth for `fetch_plates.py`. Each entry pins a
+# modern species (as BirdNET reports it) to a specific Havell-edition plate in
+# John James Audubon's "Birds of America" (public domain).
+#
+# Fields:
+#   common      modern common name (matches BirdNET's Com_Name)
+#   scientific  modern binomial (matches BirdNET's Sci_Name)
+#   plate       Havell plate number 1..435, or `none` if Audubon never painted it
+#   audubon_title  Audubon's 1830s plate title (informational; captions use the
+#                  modern name). Handy because many are archaic.
+#   composite   true if the plate shows several species — the composer then
+#               shows the whole plate rather than risk cropping to a wrong bird.
+#   sci_synonyms  older binomials BirdNET might emit (taxonomic splits/renames).
+#   crop_box    optional [x, y, w, h] in 0..1 to hand-place the crop (rarely needed).
+#
+# Every plate below was verified against the actual plate index, not guessed.
+# To add a species: add an entry. If you omit `plate`, fetch_plates will suggest
+# one by title match and print it for you to pin here.
+
+species:
+  # --- The stars: cardinals, jays, chickadees, titmice ------------------
+  - {common: "Northern Cardinal",      scientific: "Cardinalis cardinalis", plate: 159, audubon_title: "Cardinal Grosbeak"}
+  - {common: "Blue Jay",               scientific: "Cyanocitta cristata",   plate: 102, audubon_title: "Blue Jay"}
+  - {common: "Black-capped Chickadee", scientific: "Poecile atricapillus",  plate: 353, audubon_title: "Black-capt Titmouse (composite)", composite: true}
+  - {common: "Carolina Chickadee",     scientific: "Poecile carolinensis",  plate: 160, audubon_title: "Carolina Titmouse"}
+  - {common: "Tufted Titmouse",        scientific: "Baeolophus bicolor",    plate: 39,  audubon_title: "Crested Titmouse"}
+
+  # --- Nuthatches, wrens ------------------------------------------------
+  - {common: "White-breasted Nuthatch", scientific: "Sitta carolinensis",  plate: 152, audubon_title: "White-breasted Black-capped Nuthatch"}
+  - {common: "Red-breasted Nuthatch",   scientific: "Sitta canadensis",    plate: 105, audubon_title: "Red-breasted Nuthatch"}
+  - {common: "Carolina Wren",           scientific: "Thryothorus ludovicianus", plate: 78, audubon_title: "Great Carolina Wren"}
+  - {common: "House Wren",              scientific: "Troglodytes aedon",   plate: 83,  audubon_title: "House Wren"}
+
+  # --- Woodpeckers ------------------------------------------------------
+  - {common: "Downy Woodpecker",       scientific: "Dryobates pubescens",  plate: 112, audubon_title: "Downy Woodpecker", sci_synonyms: ["Picoides pubescens"]}
+  - {common: "Hairy Woodpecker",       scientific: "Dryobates villosus",   plate: 416, audubon_title: "Hairy Woodpecker (composite)", composite: true, sci_synonyms: ["Picoides villosus"]}
+  - {common: "Red-bellied Woodpecker", scientific: "Melanerpes carolinus", plate: 416, audubon_title: "Red-bellied Woodpecker (composite)", composite: true}
+  - {common: "Northern Flicker",       scientific: "Colaptes auratus",     plate: 37,  audubon_title: "Golden-winged Woodpecker"}
+  - {common: "Pileated Woodpecker",    scientific: "Dryocopus pileatus",   plate: 111, audubon_title: "Pileated Woodpecker"}
+
+  # --- Finches, goldfinch, junco ---------------------------------------
+  - {common: "American Goldfinch",     scientific: "Spinus tristis",       plate: 33,  audubon_title: "American Goldfinch", sci_synonyms: ["Carduelis tristis"]}
+  - {common: "House Finch",            scientific: "Haemorhous mexicanus", plate: 424, audubon_title: "Crimson-necked Bull-Finch (composite)", composite: true, sci_synonyms: ["Carpodacus mexicanus"]}
+  - {common: "Purple Finch",           scientific: "Haemorhous purpureus", plate: 4,   audubon_title: "Purple Finch", sci_synonyms: ["Carpodacus purpureus"]}
+  - {common: "Dark-eyed Junco",        scientific: "Junco hyemalis",       plate: 13,  audubon_title: "Snow Bird"}
+
+  # --- Sparrows & towhee ------------------------------------------------
+  - {common: "Song Sparrow",           scientific: "Melospiza melodia",    plate: 25,  audubon_title: "Song Sparrow"}
+  - {common: "White-throated Sparrow", scientific: "Zonotrichia albicollis", plate: 8, audubon_title: "White-throated Sparrow"}
+  - {common: "Chipping Sparrow",       scientific: "Spizella passerina",   plate: 104, audubon_title: "Chipping Sparrow"}
+  - {common: "Fox Sparrow",            scientific: "Passerella iliaca",    plate: 108, audubon_title: "Fox-coloured Sparrow"}
+  - {common: "Eastern Towhee",         scientific: "Pipilo erythrophthalmus", plate: 29, audubon_title: "Towee Bunting"}
+
+  # --- Dove --------------------------------------------------------------
+  - {common: "Mourning Dove",          scientific: "Zenaida macroura",     plate: 17,  audubon_title: "Carolina Pigeon"}
+
+  # --- Blackbirds, grackle, cowbird, oriole -----------------------------
+  - {common: "Common Grackle",         scientific: "Quiscalus quiscula",   plate: 7,   audubon_title: "Purple Grakle, or Common Crow Blackbird"}
+  - {common: "Red-winged Blackbird",   scientific: "Agelaius phoeniceus",  plate: 67,  audubon_title: "Red-winged Starling, or Marsh Blackbird"}
+  - {common: "Brown-headed Cowbird",   scientific: "Molothrus ater",       plate: 99,  audubon_title: "Cow-pen Bird"}
+  - {common: "Baltimore Oriole",       scientific: "Icterus galbula",      plate: 12,  audubon_title: "Baltimore Oriole"}
+
+  # --- Mimids, waxwing, thrushes ---------------------------------------
+  - {common: "Gray Catbird",           scientific: "Dumetella carolinensis", plate: 128, audubon_title: "Cat Bird"}
+  - {common: "Northern Mockingbird",   scientific: "Mimus polyglottos",    plate: 21,  audubon_title: "Mocking Bird"}
+  - {common: "Brown Thrasher",         scientific: "Toxostoma rufum",      plate: 116, audubon_title: "Ferruginous Thrush"}
+  - {common: "Cedar Waxwing",          scientific: "Bombycilla cedrorum",  plate: 43,  audubon_title: "Cedar Bird"}
+  - {common: "American Robin",         scientific: "Turdus migratorius",   plate: 131, audubon_title: "American Robin"}
+  - {common: "Eastern Bluebird",       scientific: "Sialia sialis",        plate: 113, audubon_title: "Blue-bird"}
+
+  # --- Hummingbird, grosbeak, bunting, crow -----------------------------
+  - {common: "Ruby-throated Hummingbird", scientific: "Archilochus colubris", plate: 47, audubon_title: "Ruby-throated Humming Bird"}
+  - {common: "Rose-breasted Grosbeak", scientific: "Pheucticus ludovicianus", plate: 127, audubon_title: "Rose-breasted Grosbeak"}
+  - {common: "Indigo Bunting",         scientific: "Passerina cyanea",     plate: 74,  audubon_title: "Indigo Bird"}
+  - {common: "American Crow",          scientific: "Corvus brachyrhynchos", plate: 156, audubon_title: "American Crow"}
+
+  # --- Present, but Audubon never painted them (introduced after his time)
+  # These deliberately have no plate: the pipeline renders a typographic
+  # fallback so we never show a wrong bird. Leave them here so the mapping is
+  # explicit rather than a surprising miss.
+  - {common: "European Starling",      scientific: "Sturnus vulgaris",     plate: none, audubon_title: "(not painted — introduced to N. America 1890)"}
+  - {common: "House Sparrow",          scientific: "Passer domesticus",    plate: none, audubon_title: "(not painted — introduced to N. America 1851)"}

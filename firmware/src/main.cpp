@@ -265,7 +265,9 @@ void setup() {
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
   bool buttonWake = (cause == ESP_SLEEP_WAKEUP_EXT1);
   bool fromDeepSleep = (cause == ESP_SLEEP_WAKEUP_TIMER || cause == ESP_SLEEP_WAKEUP_EXT1);
-  Serial.printf("\nFeatherframe wake: cause=%d (%s)\n", cause, buttonWake ? "button" : "timer/boot");
+  Serial.printf("\nFeatherframe wake: cause=%d (%s) fw=%s\n",
+                cause, buttonWake ? "button" : "timer/boot",
+                ESP.getSketchMD5().substring(0, 8).c_str());
 
   prefs.begin("featherframe", false);
   prefs.getString("server", DEFAULT_SERVER_URL).toCharArray(g_serverUrl, sizeof(g_serverUrl));

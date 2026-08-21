@@ -5,6 +5,7 @@ page and a handful of endpoints.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -79,6 +80,25 @@ async def api_frame(request: Request, view: Optional[str] = None):
     if status == 304:
         return Response(status_code=304, headers=headers)
     return Response(content=body, media_type="application/octet-stream", headers=headers)
+
+
+# -- firmware OTA ----------------------------------------------------------
+# The device offers its running sketch MD5 on every wake. If data/firmware.bin
+# exists and differs, it gets the new build; otherwise 304. Deploy = drop a new
+# firmware.bin in the data dir (`make ota` does build + copy).
+@app.get("/api/firmware")
+async def api_firmware(request: Request):
+    bin_path = paths.data_dir() / "firmware.bin"
+    if not bin_path.exists():
+        return Response(status_code=404, content=b"no firmware hosted")
+    blob = bin_path.read_bytes()
+    md5 = hashlib.md5(blob).hexdigest()
+    if request.headers.get("x-firmware-md5", "").lower() == md5:
+        return Response(status_code=304)
+    log.info("serving firmware.bin (%d bytes, md5=%s) to %s",
+             len(blob), md5, request.headers.get("user-agent", "?"))
+    return Response(content=blob, media_type="application/octet-stream",
+                    headers={"X-MD5": md5, "Cache-Control": "no-store"})
 
 
 # -- config page -----------------------------------------------------------

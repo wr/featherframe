@@ -15,6 +15,7 @@
 #include <HTTPClient.h>
 #include <WiFiManager.h>
 #include <Preferences.h>
+#include <Update.h>
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
 
@@ -149,17 +150,18 @@ void displayFrame(const uint8_t* data, size_t len) {
 // rotation 3 here. Region is blank paper margin, so clearing it back to the
 // field tone restores the plate visually.
 void showToast(const char* msg) {
-  epaper.initGrayMode(GRAY_LEVEL16);
+  // updataPartial() only understands the default 1-bit sprite (its row math is
+  // mono), so the toast is plain black-on-white — fine for two seconds.
   epaper.setRotation(3);                 // draw in upright portrait coords
-  int x = (PANEL_W - TOAST_W) / 2 & ~1;  // keep even for 4bpp packing
-  epaper.fillRect(x, TOAST_Y, TOAST_W, TOAST_H, TFT_GRAY_14);   // paper field
-  epaper.setTextColor(TFT_GRAY_1);
+  int x = (PANEL_W - TOAST_W) / 2 & ~1;
+  epaper.fillRect(x, TOAST_Y, TOAST_W, TOAST_H, TFT_WHITE);
+  epaper.setTextColor(TFT_BLACK);
   epaper.setTextDatum(MC_DATUM);
   epaper.setTextSize(2);
   epaper.drawString(msg, PANEL_W / 2, TOAST_Y + TOAST_H / 2, 4);
   epaper.updataPartial(x, TOAST_Y, TOAST_W, TOAST_H);
   delay(TOAST_MS);
-  epaper.fillRect(x, TOAST_Y, TOAST_W, TOAST_H, TFT_GRAY_14);   // wipe it
+  epaper.fillRect(x, TOAST_Y, TOAST_W, TOAST_H, TFT_WHITE);     // wipe it
   epaper.updataPartial(x, TOAST_Y, TOAST_W, TOAST_H);
   epaper.setRotation(0);                 // displayFrame() needs rotation 0
 }
@@ -227,6 +229,35 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct)
   return FETCH_UPDATED;
 }
 
+// ---------------------------------------------------------------- ota
+// Pull-based OTA on every wake: offer the running sketch's MD5; the server
+// answers 304 (same build hosted) or 200 with a new firmware.bin, which we
+// stream into the spare OTA slot and reboot into. No USB, no user.
+void maybeOTA() {
+  HTTPClient http;
+  String url = String(g_serverUrl) + FIRMWARE_PATH;
+  if (!http.begin(url)) return;
+  http.setTimeout(HTTP_TIMEOUT_MS);
+  http.setUserAgent("Featherframe-ESP32/1.0");
+  http.addHeader("X-Firmware-MD5", ESP.getSketchMD5());
+  int code = http.GET();
+  Serial.printf("OTA check -> %d\n", code);
+  if (code != HTTP_CODE_OK) { http.end(); return; }
+
+  int len = http.getSize();
+  if (len <= 0 || !Update.begin(len)) { http.end(); return; }
+  Serial.printf("OTA: flashing %d bytes\n", len);
+  size_t written = Update.writeStream(*http.getStreamPtr());
+  http.end();
+  if (written == (size_t)len && Update.end()) {
+    Serial.println("OTA ok — rebooting into new firmware");
+    Serial.flush();
+    ESP.restart();
+  }
+  Serial.printf("OTA failed: %s\n", Update.errorString());
+  Update.abort();
+}
+
 // ---------------------------------------------------------------- setup
 void setup() {
   Serial.begin(115200);
@@ -285,6 +316,8 @@ void setup() {
   }
   if (buttonWake && r == FETCH_ERROR) showToast("Can't reach the server");
   Serial.printf("fetch: %d\n", r);
+
+  maybeOTA();   // reboots into new firmware if the server hosts a different build
 
   goToSleep(g_wakeMinutes);
 }

@@ -33,6 +33,7 @@
 #define FRAME_PATH             "/api/frame"
 #define VIEW_COLLAGE_PATH      "/api/frame?view=collage"
 #define VIEW_STATUS_PATH       "/api/frame?view=status"
+#define FIRMWARE_PATH          "/api/firmware"
 
 // Hold KEY2 this long after a button wake to open the settings portal instead
 // of the status page.

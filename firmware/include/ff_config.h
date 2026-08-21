@@ -34,7 +34,7 @@
 
 // HTTP + wifi timeouts (ms)
 #define WIFI_CONNECT_TIMEOUT_MS   20000
-#define PORTAL_TIMEOUT_S          180
+#define PORTAL_TIMEOUT_S          600
 #define HTTP_TIMEOUT_MS           30000
 
 // Panel geometry (portrait, as the frame hangs)

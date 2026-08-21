@@ -29,7 +29,7 @@
 
 // --- Behaviour defaults (overridable via NVS / server) ---
 #define DEFAULT_WAKE_MINUTES   15
-#define DEFAULT_SERVER_URL     "http://featherframe.local:8080"
+#define DEFAULT_SERVER_URL     "http://10.0.2.15:8090"
 #define FRAME_PATH             "/api/frame"
 
 // HTTP + wifi timeouts (ms)

@@ -58,6 +58,9 @@ async def api_frame(request: Request, view: Optional[str] = None):
     inm = _strip_etag(request.headers.get("if-none-match"))
     volt = _float_header(request.headers.get("x-battery-voltage"))
     pct = _int_header(request.headers.get("x-battery-percent"))
+    wake = request.headers.get("x-wake")
+    if wake:
+        log.info("device wake: %s (view=%s)", wake, view)
 
     # On-demand button views: rendered fresh, never the resident frame, no 304s.
     if view in ("collage", "status"):

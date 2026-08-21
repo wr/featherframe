@@ -39,13 +39,10 @@
 // of the status page.
 #define PORTAL_HOLD_MS         3000
 
-// Toast (partial-refresh acknowledgement) geometry, in portrait coordinates.
-// Sits inside the bottom margin, below the caption block. Width/x must stay
-// even (4bpp packs 2 px/byte).
-#define TOAST_W    760
-#define TOAST_H    72
-#define TOAST_Y    (PANEL_H - 96)
-#define TOAST_MS   2500
+// Whole-cycle watchdog: any hang (panel busy-wait, network stall) reboots the
+// board instead of stranding it. Deep sleep is the normal exit and disarms it.
+// Must comfortably exceed portal timeout + a full OTA download.
+#define WDT_TIMEOUT_S  (PORTAL_TIMEOUT_S + 120)
 
 // HTTP + wifi timeouts (ms)
 #define WIFI_CONNECT_TIMEOUT_MS   20000

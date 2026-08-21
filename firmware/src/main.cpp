@@ -17,6 +17,7 @@
 #include <Preferences.h>
 #include <Update.h>
 #include <esp_sleep.h>
+#include <esp_task_wdt.h>
 #include <driver/rtc_io.h>
 
 #include "ff_config.h"
@@ -40,6 +41,7 @@ WiFiManager wm;
 char     g_serverUrl[128];
 char     g_etag[40];
 uint32_t g_wakeMinutes = DEFAULT_WAKE_MINUTES;
+char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent to the server for debugging
 
 // ---------------------------------------------------------------- battery
 float readBatteryVoltage() {
@@ -142,28 +144,20 @@ void displayFrame(const uint8_t* data, size_t len) {
   Serial.println("panel updated");
 }
 
-// ---------------------------------------------------------------- toast
-// A small partial-refresh acknowledgement in the bottom margin, so a button
-// press is never silent even when the picture doesn't change. Drawn in the
-// portrait frame the plate hangs in: the server pre-rotates content 90° CCW
-// into the native buffer (panel_rotation=90 default), which is sprite
-// rotation 3 here. Region is blank paper margin, so clearing it back to the
-// field tone restores the plate visually.
-void showToast(const char* msg) {
-  // updataPartial() only understands the default 1-bit sprite (its row math is
-  // mono), so the toast is plain black-on-white — fine for two seconds.
-  epaper.setRotation(3);                 // draw in upright portrait coords
-  int x = (PANEL_W - TOAST_W) / 2 & ~1;
-  epaper.fillRect(x, TOAST_Y, TOAST_W, TOAST_H, TFT_WHITE);
-  epaper.setTextColor(TFT_BLACK);
-  epaper.setTextDatum(MC_DATUM);
-  epaper.setTextSize(2);
-  epaper.drawString(msg, PANEL_W / 2, TOAST_Y + TOAST_H / 2, 4);
-  epaper.updataPartial(x, TOAST_Y, TOAST_W, TOAST_H);
-  delay(TOAST_MS);
-  epaper.fillRect(x, TOAST_Y, TOAST_W, TOAST_H, TFT_WHITE);     // wipe it
-  epaper.updataPartial(x, TOAST_Y, TOAST_W, TOAST_H);
-  epaper.setRotation(0);                 // displayFrame() needs rotation 0
+// ---------------------------------------------------------------- press ack
+// Button-press acknowledgement when the glass doesn't change. The library's
+// partial refresh (updataPartial) hangs the IT8951 when called on a fast-wake
+// session — verified on hardware, it stranded the frame until a physical
+// reset — so the ack is the XIAO's user LED instead: cheap, instant, safe.
+// 2 blinks = checked, nothing new. 4 blinks = couldn't do it (no Wi-Fi/server).
+void ackBlink(int blinks) {
+  pinMode(LED_BUILTIN, OUTPUT);
+  for (int i = 0; i < blinks; i++) {
+    digitalWrite(LED_BUILTIN, LOW);   // active low on the XIAO ESP32-S3
+    delay(140);
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(140);
+  }
 }
 
 // ---------------------------------------------------------------- fetch
@@ -183,6 +177,7 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct)
   http.addHeader("X-Battery-Voltage", String(vbat, 3));
   http.addHeader("X-Battery-Percent", String(pct));
   http.addHeader("X-Wifi-RSSI", String(WiFi.RSSI()));
+  http.addHeader("X-Wake", g_wakeInfo);
   const char* collect[] = {"ETag"};
   http.collectHeaders(collect, 1);
 
@@ -269,6 +264,12 @@ void setup() {
                 cause, buttonWake ? "button" : "timer/boot",
                 ESP.getSketchMD5().substring(0, 8).c_str());
 
+  // Dead-man's switch: if anything in this wake cycle hangs (panel busy-wait,
+  // network stall), reboot instead of stranding the frame until a hand reset.
+  // goToSleep() is the normal exit; deep sleep disarms the watchdog.
+  esp_task_wdt_init(WDT_TIMEOUT_S, true);   // true = panic (reboot) on expiry
+  esp_task_wdt_add(NULL);
+
   prefs.begin("featherframe", false);
   prefs.getString("server", DEFAULT_SERVER_URL).toCharArray(g_serverUrl, sizeof(g_serverUrl));
   prefs.getString("etag", "").toCharArray(g_etag, sizeof(g_etag));
@@ -280,6 +281,8 @@ void setup() {
   bool keyCheck   = keyBits & (1ULL << PIN_KEY0);
   bool keyCollage = keyBits & (1ULL << PIN_KEY1);
   bool keyStatus  = keyBits & (1ULL << PIN_KEY2);
+  snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d keys=0x%llx", (int)cause,
+           (unsigned long long)keyBits);
 
   // Hold KEY2 at cold boot -> wipe settings and force the setup portal.
   // Hold KEY2 for PORTAL_HOLD_MS after a button wake -> same thing.
@@ -301,7 +304,7 @@ void setup() {
 
   if (!ensureWifi(forcePortal)) {
     Serial.println("no wifi — sleeping");
-    if (buttonWake) showToast("No Wi-Fi");
+    if (buttonWake) ackBlink(4);
     goToSleep(g_wakeMinutes);
     return;
   }
@@ -309,14 +312,14 @@ void setup() {
   FetchResult r;
   if (keyCollage) {
     r = fetchAndRender(VIEW_COLLAGE_PATH, false, vbat, pct);
-    if (r == FETCH_NOTFOUND) showToast("Not enough birds for a collage yet");
+    if (r == FETCH_NOTFOUND) ackBlink(4);   // not enough birds for a collage yet
   } else if (keyStatus) {
     r = fetchAndRender(VIEW_STATUS_PATH, false, vbat, pct);
   } else {
     r = fetchAndRender(FRAME_PATH, true, vbat, pct);
-    if (keyCheck && r == FETCH_NOCHANGE) showToast("No new bird since the last look");
+    if (keyCheck && r == FETCH_NOCHANGE) ackBlink(2);   // checked; nothing new
   }
-  if (buttonWake && r == FETCH_ERROR) showToast("Can't reach the server");
+  if (buttonWake && r == FETCH_ERROR) ackBlink(4);
   Serial.printf("fetch: %d\n", r);
 
   maybeOTA();   // reboots into new firmware if the server hosts a different build

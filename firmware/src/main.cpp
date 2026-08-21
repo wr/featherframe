@@ -141,24 +141,53 @@ void displayFrame(const uint8_t* data, size_t len) {
   Serial.println("panel updated");
 }
 
-// ---------------------------------------------------------------- fetch
-enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_ERROR };
+// ---------------------------------------------------------------- toast
+// A small partial-refresh acknowledgement in the bottom margin, so a button
+// press is never silent even when the picture doesn't change. Drawn in the
+// portrait frame the plate hangs in: the server pre-rotates content 90° CCW
+// into the native buffer (panel_rotation=90 default), which is sprite
+// rotation 3 here. Region is blank paper margin, so clearing it back to the
+// field tone restores the plate visually.
+void showToast(const char* msg) {
+  epaper.initGrayMode(GRAY_LEVEL16);
+  epaper.setRotation(3);                 // draw in upright portrait coords
+  int x = (PANEL_W - TOAST_W) / 2 & ~1;  // keep even for 4bpp packing
+  epaper.fillRect(x, TOAST_Y, TOAST_W, TOAST_H, TFT_GRAY_14);   // paper field
+  epaper.setTextColor(TFT_GRAY_1);
+  epaper.setTextDatum(MC_DATUM);
+  epaper.setTextSize(2);
+  epaper.drawString(msg, PANEL_W / 2, TOAST_Y + TOAST_H / 2, 4);
+  epaper.updataPartial(x, TOAST_Y, TOAST_W, TOAST_H);
+  delay(TOAST_MS);
+  epaper.fillRect(x, TOAST_Y, TOAST_W, TOAST_H, TFT_GRAY_14);   // wipe it
+  epaper.updataPartial(x, TOAST_Y, TOAST_W, TOAST_H);
+  epaper.setRotation(0);                 // displayFrame() needs rotation 0
+}
 
-FetchResult fetchAndRender(float vbat, int pct) {
+// ---------------------------------------------------------------- fetch
+enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_ERROR };
+
+// Fetch a frame. `path`: endpoint under the server URL. `resident`: true for
+// the normal current-bird frame (ETag conditional GET + store the new ETag);
+// false for transient button views (no conditional, and the stored ETag is
+// CLEARED so the next timer wake re-fetches the resident bird over the view).
+FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct) {
   HTTPClient http;
-  String url = String(g_serverUrl) + FRAME_PATH;
+  String url = String(g_serverUrl) + path;
   if (!http.begin(url)) return FETCH_ERROR;
   http.setTimeout(HTTP_TIMEOUT_MS);
   http.setUserAgent("Featherframe-ESP32/1.0");
-  if (strlen(g_etag)) http.addHeader("If-None-Match", String("\"") + g_etag + "\"");
+  if (resident && strlen(g_etag)) http.addHeader("If-None-Match", String("\"") + g_etag + "\"");
   http.addHeader("X-Battery-Voltage", String(vbat, 3));
   http.addHeader("X-Battery-Percent", String(pct));
+  http.addHeader("X-Wifi-RSSI", String(WiFi.RSSI()));
   const char* collect[] = {"ETag"};
   http.collectHeaders(collect, 1);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
   if (code == HTTP_CODE_NOT_MODIFIED) { http.end(); return FETCH_NOCHANGE; }
+  if (code == HTTP_CODE_NOT_FOUND) { http.end(); return FETCH_NOTFOUND; }
   if (code != HTTP_CODE_OK) { http.end(); return FETCH_ERROR; }
 
   int len = http.getSize();
@@ -185,9 +214,16 @@ FetchResult fetchAndRender(float vbat, int pct) {
   displayFrame(buf, len);
   free(buf);
 
-  // Store the new ETag (strip quotes/W-prefix).
-  newEtag.replace("W/", ""); newEtag.replace("\"", ""); newEtag.trim();
-  if (newEtag.length()) { strlcpy(g_etag, newEtag.c_str(), sizeof(g_etag)); prefs.putString("etag", g_etag); }
+  if (resident) {
+    // Store the new ETag (strip quotes/W-prefix).
+    newEtag.replace("W/", ""); newEtag.replace("\"", ""); newEtag.trim();
+    if (newEtag.length()) { strlcpy(g_etag, newEtag.c_str(), sizeof(g_etag)); prefs.putString("etag", g_etag); }
+  } else {
+    // A transient view is on the glass; forget the resident ETag so the next
+    // timer wake redraws the current bird instead of 304-ing forever.
+    g_etag[0] = 0;
+    prefs.putString("etag", "");
+  }
   return FETCH_UPDATED;
 }
 
@@ -205,9 +241,22 @@ void setup() {
   prefs.getString("etag", "").toCharArray(g_etag, sizeof(g_etag));
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);
 
-  // Hold KEY2 at boot -> wipe settings and force the setup portal.
+  // Which button woke us? (KEY0 = check now, KEY1 = collage, KEY2 = status,
+  // KEY2 held = settings portal.)
+  uint64_t keyBits = buttonWake ? esp_sleep_get_ext1_wakeup_status() : 0;
+  bool keyCheck   = keyBits & (1ULL << PIN_KEY0);
+  bool keyCollage = keyBits & (1ULL << PIN_KEY1);
+  bool keyStatus  = keyBits & (1ULL << PIN_KEY2);
+
+  // Hold KEY2 at cold boot -> wipe settings and force the setup portal.
+  // Hold KEY2 for PORTAL_HOLD_MS after a button wake -> same thing.
   pinMode(PIN_PORTAL_RESET, INPUT_PULLUP);
-  bool forcePortal = (digitalRead(PIN_PORTAL_RESET) == LOW);
+  bool forcePortal = (!buttonWake && digitalRead(PIN_PORTAL_RESET) == LOW);
+  if (keyStatus) {
+    uint32_t t0 = millis();
+    while (digitalRead(PIN_PORTAL_RESET) == LOW && millis() - t0 < PORTAL_HOLD_MS) delay(20);
+    if (millis() - t0 >= PORTAL_HOLD_MS) { forcePortal = true; keyStatus = false; }
+  }
   if (forcePortal) { Serial.println("portal reset requested"); wm.resetSettings(); }
 
   // Fast re-init (ED103TC2_Init_Wake.h) after a deep-sleep wake; full init cold.
@@ -219,11 +268,22 @@ void setup() {
 
   if (!ensureWifi(forcePortal)) {
     Serial.println("no wifi — sleeping");
+    if (buttonWake) showToast("No Wi-Fi");
     goToSleep(g_wakeMinutes);
     return;
   }
 
-  FetchResult r = fetchAndRender(vbat, pct);
+  FetchResult r;
+  if (keyCollage) {
+    r = fetchAndRender(VIEW_COLLAGE_PATH, false, vbat, pct);
+    if (r == FETCH_NOTFOUND) showToast("Not enough birds for a collage yet");
+  } else if (keyStatus) {
+    r = fetchAndRender(VIEW_STATUS_PATH, false, vbat, pct);
+  } else {
+    r = fetchAndRender(FRAME_PATH, true, vbat, pct);
+    if (keyCheck && r == FETCH_NOCHANGE) showToast("No new bird since the last look");
+  }
+  if (buttonWake && r == FETCH_ERROR) showToast("Can't reach the server");
   Serial.printf("fetch: %d\n", r);
 
   goToSleep(g_wakeMinutes);

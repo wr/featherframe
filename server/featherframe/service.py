@@ -12,10 +12,11 @@ device, and the ingest cursor is persisted so we don't replay history.
 from __future__ import annotations
 
 import logging
+import socket
 import threading
 from dataclasses import asdict, dataclass
 from datetime import date as ddate
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from . import paths
@@ -24,6 +25,7 @@ from .config import Config, load_config, save_config
 from .db import Database
 from .render import collage as collage_mod
 from .render import pipeline
+from .render import statuspage
 from .render.compose import SingleSpec
 from .render.pipeline import RenderResult
 from .render.provider import AudubonProvider
@@ -179,23 +181,30 @@ class FeatherframeService:
         if self._build_collage(now, now.date(), title="The Day in Review"):
             self.db.set("quiet_collage_for", stamp)
 
-    def _build_collage(self, now: datetime, on_date: ddate, title: str = "A Day in the Garden") -> bool:
+    def _collage_result(self, on_date: ddate,
+                        title: str = "A Day in the Garden") -> Optional[RenderResult]:
+        """Render a collage for one day, or None if fewer than 2 species."""
         rows = self.birdnet.top_species_today(on_date, self.config.confidence_threshold, limit=6)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         if len(rows) < 2:
+            return None
+        cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
+        img = collage_mod.render_collage(cells, self.provider, when=on_date,
+                                         total_detections=sum(r["count"] for r in rows),
+                                         title=title)
+        return pipeline.render_image(img, self.config, "collage", f"{len(cells)} species")
+
+    def _build_collage(self, now: datetime, on_date: ddate, title: str = "A Day in the Garden") -> bool:
+        result = self._collage_result(on_date, title)
+        if result is None:
             # Not enough for a grid: fall back to single for the day.
             latest = self._first_allowed(self.birdnet.latest_many(self.config.confidence_threshold))
             if latest:
                 self._render_single(latest, now, reason="collage-fallback")
             return False
-        cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
-        img = collage_mod.render_collage(cells, self.provider, when=on_date,
-                                         total_detections=sum(r["count"] for r in rows),
-                                         title=title)
-        result = pipeline.render_image(img, self.config, "collage", f"{len(cells)} species")
         self._commit(result, now, mode="collage", species_key=None,
-                     label=f"{len(cells)}-species collage")
-        log.info("rendered collage (%d species), etag=%s", len(cells), result.etag)
+                     label=result.label)
+        log.info("rendered collage (%s), etag=%s", result.label, result.etag)
         return True
 
     # -- test detection ----------------------------------------------------
@@ -222,6 +231,52 @@ class FeatherframeService:
             self._build_collage(datetime.now(), ddate.today())
         elif meta.get("label"):
             self._single_tick(datetime.now())
+
+    # -- on-demand views (frame buttons) -----------------------------------
+    def render_collage_on_demand(self) -> Optional[RenderResult]:
+        """Button view: yesterday's day-in-review, falling back to today.
+
+        Transient — never committed as the current frame, so the next timer
+        wake restores the resident bird.
+        """
+        today = ddate.today()
+        for day in (today - timedelta(days=1), today):
+            result = self._collage_result(day)
+            if result is not None:
+                log.info("on-demand collage for %s (%s)", day, result.label)
+                return result
+        return None
+
+    def render_status_page(self, battery_voltage: Optional[float] = None,
+                           battery_percent: Optional[int] = None,
+                           wifi_rssi: Optional[int] = None) -> RenderResult:
+        """Button view: a status plate. Transient, like the collage view."""
+        last = self.birdnet.latest(self.config.confidence_threshold)
+        today_rows = self.birdnet.top_species_today(
+            ddate.today(), self.config.confidence_threshold, limit=50)
+        info = statuspage.StatusInfo(
+            battery_voltage=battery_voltage,
+            battery_percent=battery_percent,
+            wifi_rssi=wifi_rssi,
+            last_common=last.common_name if last else None,
+            last_when=last.timestamp if last else None,
+            species_today=len(today_rows),
+            species_all_time=self.birdnet.all_time_species_count(),
+            server_label=socket.gethostname(),
+            wake_minutes=self.config.wake_interval_minutes,
+        )
+        img = statuspage.render_status(info)
+        result = pipeline.render_image(img, self.config, "status", "status page")
+        log.info("on-demand status page, etag=%s", result.etag)
+        return result
+
+    def record_view_checkin(self, user_agent: str,
+                            battery_voltage: Optional[float],
+                            battery_percent: Optional[int], view: str) -> None:
+        with self._lock:
+            etag = self._etag
+        self._record_checkin(user_agent, battery_voltage, battery_percent, etag,
+                             served=view)
 
     # -- device-facing -----------------------------------------------------
     def get_frame(self, if_none_match: Optional[str], user_agent: str = "",

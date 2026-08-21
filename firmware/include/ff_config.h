@@ -31,6 +31,20 @@
 #define DEFAULT_WAKE_MINUTES   15
 #define DEFAULT_SERVER_URL     "http://10.0.2.15:8090"
 #define FRAME_PATH             "/api/frame"
+#define VIEW_COLLAGE_PATH      "/api/frame?view=collage"
+#define VIEW_STATUS_PATH       "/api/frame?view=status"
+
+// Hold KEY2 this long after a button wake to open the settings portal instead
+// of the status page.
+#define PORTAL_HOLD_MS         3000
+
+// Toast (partial-refresh acknowledgement) geometry, in portrait coordinates.
+// Sits inside the bottom margin, below the caption block. Width/x must stay
+// even (4bpp packs 2 px/byte).
+#define TOAST_W    760
+#define TOAST_H    72
+#define TOAST_Y    (PANEL_H - 96)
+#define TOAST_MS   2500
 
 // HTTP + wifi timeouts (ms)
 #define WIFI_CONNECT_TIMEOUT_MS   20000

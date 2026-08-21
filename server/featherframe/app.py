@@ -52,11 +52,25 @@ def _strip_etag(value: Optional[str]) -> Optional[str]:
 
 # -- device endpoint -------------------------------------------------------
 @app.get("/api/frame")
-async def api_frame(request: Request):
+async def api_frame(request: Request, view: Optional[str] = None):
     svc = _svc(request)
     inm = _strip_etag(request.headers.get("if-none-match"))
     volt = _float_header(request.headers.get("x-battery-voltage"))
     pct = _int_header(request.headers.get("x-battery-percent"))
+
+    # On-demand button views: rendered fresh, never the resident frame, no 304s.
+    if view in ("collage", "status"):
+        if view == "collage":
+            result = svc.render_collage_on_demand()
+            if result is None:
+                return Response(status_code=404, content=b"not enough birds for a collage")
+        else:
+            rssi = _int_header(request.headers.get("x-wifi-rssi"))
+            result = svc.render_status_page(volt, pct, rssi)
+        svc.record_view_checkin(request.headers.get("user-agent", ""), volt, pct, view)
+        return Response(content=result.frame, media_type="application/octet-stream",
+                        headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store"})
+
     status, body, etag = svc.get_frame(inm, request.headers.get("user-agent", ""), volt, pct)
 
     if status == 503:

@@ -20,6 +20,16 @@ void setup() {
   }
 }
 
+// Periodic state dump so a late-attaching serial reader still sees the levels.
+static uint32_t lastDump = 0;
+void dumpStates() {
+  if (millis() - lastDump < 2000) return;
+  lastDump = millis();
+  Serial.print("states:");
+  for (int i = 0; i < N; i++) Serial.printf(" %d=%d", CANDIDATES[i], digitalRead(CANDIDATES[i]));
+  Serial.println();
+}
+
 void loop() {
   for (int i = 0; i < N; i++) {
     int v = digitalRead(CANDIDATES[i]);
@@ -28,5 +38,6 @@ void loop() {
       last[i] = v;
     }
   }
+  dumpStates();
   delay(10);
 }

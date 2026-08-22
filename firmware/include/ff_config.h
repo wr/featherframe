@@ -4,10 +4,9 @@
 // SPI pins are owned by Seeed_GFX (Setup511); these are the *app* pins: the
 // three user buttons and the battery sense divider.
 //
-// NOTE: the button/ADC pins below come from Seeed's shared EE0x example code.
-// EE03 uniquely adds an SHT40 on I2C for waveform temperature comp, which may
-// share GPIO5/6 — verify KEY2 and the ADC-enable pin against the EE03 schematic
-// on first bring-up if the buttons or battery reading misbehave.
+// The button and ADC pins below are verified against the EE03 V1.0 schematic
+// and confirmed on hardware (W-574 keyscan). The SHT40 sits on its own I2C bus
+// at GPIO41/42, so it does not touch KEY2 (GPIO5) or the ADC-enable (GPIO6).
 
 #pragma once
 

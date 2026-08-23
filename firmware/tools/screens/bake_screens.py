@@ -12,7 +12,32 @@ drawBitmap. Run after changing the art, copy, or layout:
 """
 import os
 import sys
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+# 8x8 ordered (Bayer) dither matrix. Ordered dithering is POSITION-stable: a given
+# grey at a given (x,y) always maps to the same bit, no matter what's beside it.
+# That's what lets the firmware partial-refresh — the shared birdhouse is byte-for-
+# byte identical across screens, so only the bird/pill/card boxes ever change.
+_BAYER8 = np.array([
+    [ 0, 48, 12, 60,  3, 51, 15, 63],
+    [32, 16, 44, 28, 35, 19, 47, 31],
+    [ 8, 56,  4, 52, 11, 59,  7, 55],
+    [40, 24, 36, 20, 43, 27, 39, 23],
+    [ 2, 50, 14, 62,  1, 49, 13, 61],
+    [34, 18, 46, 30, 33, 17, 45, 29],
+    [10, 58,  6, 54,  9, 57,  5, 53],
+    [42, 26, 38, 22, 41, 25, 37, 21],
+], dtype=np.float32)
+
+def to_1bit(im):
+    """Grey L image -> 1-bit via ordered dither (deterministic per pixel)."""
+    a = np.asarray(im.convert("L"), dtype=np.float32)
+    h, w = a.shape
+    thresh = (_BAYER8 + 0.5) / 64.0 * 255.0
+    tile = np.tile(thresh, ((h + 7) // 8, (w + 7) // 8))[:h, :w]
+    bw = (a > tile).astype(np.uint8) * 255      # 255 = white
+    return Image.fromarray(bw, mode="L").convert("1")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
@@ -38,7 +63,7 @@ def font(size, italic=False, weight=None):
     return f
 
 ARTS = {k: Image.open(os.path.join(ART, f"{k}.png")).convert("L")
-        for k in ("house", "fly", "wren")}
+        for k in ("house", "fly", "wren", "bird")}
 
 def new_canvas():
     c = Image.new("L", (W, H), 255)
@@ -50,6 +75,16 @@ def paste_art(canvas, key, cx, top, target_h):
     tw = int(w * target_h / h)
     a = art.resize((tw, target_h), Image.LANCZOS)
     canvas.paste(a, (int(cx - tw / 2), int(top)), Image.eval(a, lambda p: 255 - p).convert("L"))
+
+def paste_at(canvas, key, right, top, target_h):
+    # Paste an art by its RIGHT edge + top (used for the fly-in bird, which sits
+    # to the left of the house). The bird is a cut-out so the house stays identical
+    # to the splash — the firmware then repaints only the little bird box.
+    art = ARTS[key]
+    w, h = art.size
+    tw = int(w * target_h / h)
+    a = art.resize((tw, target_h), Image.LANCZOS)
+    canvas.paste(a, (int(right - tw), int(top)), Image.eval(a, lambda p: 255 - p).convert("L"))
 
 def text_v(draw, x, yc, s, fnt, fill=0):
     asc, desc = fnt.getmetrics()
@@ -91,10 +126,15 @@ WORDMARK = "FEATHERFRAME"
 def draw_wordmark(draw, y):
     tracked(draw, W / 2, y, WORDMARK, font(96, weight=520), track=26, fill=0)
 
+# Shared placement for the splash + boot states, so only the bottom strip (footer
+# vs pill) changes between them — that lets the firmware partial-refresh just that
+# band and leave the birdhouse untouched (no flash).
+BOOT_ART_TOP, BOOT_ART_H, BOOT_WORDMARK_Y = 220, 770, 1185
+
 def screen_splash():
     c, d = new_canvas()
-    paste_art(c, "house", W / 2, 250, 780)
-    draw_wordmark(d, 1200)
+    paste_art(c, "house", W / 2, BOOT_ART_TOP, BOOT_ART_H)
+    draw_wordmark(d, BOOT_WORDMARK_Y)
     fitn = font(40, italic=True)
     lw = d.textlength(VERSION, font=fitn); rw = d.textlength(BUILD, font=fitn)
     gap = 120; total = lw + gap + rw; x0 = W / 2 - total / 2
@@ -102,10 +142,12 @@ def screen_splash():
     text_v(d, x0 + lw + gap, 1740, BUILD, fitn)
     return c
 
-def screen_boot(art_key, text):
+def screen_boot(text, bird=False):
     c, d = new_canvas()
-    paste_art(c, art_key, W / 2, 210, 760)
-    draw_wordmark(d, 1150)
+    paste_art(c, "house", W / 2, BOOT_ART_TOP, BOOT_ART_H)   # same house as splash
+    if bird:
+        paste_at(c, "bird", 470, 300, 330)                  # flies in from the left
+    draw_wordmark(d, BOOT_WORDMARK_Y)
     fnt = font(50, italic=True)
     tw = d.textlength(text, font=fnt)
     padx, icon = 60, 70
@@ -144,9 +186,11 @@ def screen_setup():
             y += 150
     return c
 
-def screen_check(states, art_key="house"):
+def screen_check(states, bird=False):
     c, d = new_canvas()
-    paste_art(c, art_key, W / 2, 150, 660)
+    paste_art(c, "house", W / 2, 150, 660)
+    if bird:
+        paste_at(c, "bird", 500, 250, 280)
     rows = ["Connecting to wi-fi...", "Connecting to BirdNET...", "Downloading image..."]
     x0, y0, x1 = 260, 1300, W - 260
     rowh = 130; y1 = y0 + rowh * len(rows) + 60
@@ -163,11 +207,11 @@ def screen_check(states, art_key="house"):
 # (enum name, image) — order defines FF_SCR_* indices
 SCREENS = [
     ("SPLASH",        screen_splash()),
-    ("BOOT_WIFI",     screen_boot("fly", "Connecting to Wi-Fi...")),
-    ("BOOT_BIRDNET",  screen_boot("house", "Connecting to BirdNET...")),
-    ("BOOT_DOWNLOAD", screen_boot("house", "Downloading image...")),
+    ("BOOT_WIFI",     screen_boot("Connecting to Wi-Fi...", bird=True)),
+    ("BOOT_BIRDNET",  screen_boot("Connecting to BirdNET...")),
+    ("BOOT_DOWNLOAD", screen_boot("Downloading image...")),
     ("SETUP",         screen_setup()),
-    ("CHK1",          screen_check(["now", "pending", "pending"], "fly")),
+    ("CHK1",          screen_check(["now", "pending", "pending"], bird=True)),
     ("CHK2",          screen_check(["done", "now", "pending"])),
     ("CHK3",          screen_check(["done", "done", "now"])),
 ]
@@ -193,7 +237,7 @@ def packbits(data: bytes) -> bytes:
     return bytes(out)
 
 def packed(im: Image.Image) -> bytes:
-    raw = im.convert("1").tobytes()          # 1 = white, MSB = left, byte-aligned rows
+    raw = to_1bit(im).tobytes()              # 1 = white, MSB = left, byte-aligned rows
     assert len(raw) == NBYTES, len(raw)
     return packbits(bytes((~b) & 0xFF for b in raw))   # invert: bit 1 = ink
 
@@ -252,7 +296,7 @@ def write_preview():
     sheet = Image.new("L", (cols * tw + (cols + 1) * pad, rows * (th + 70) + pad), 235)
     sd = ImageDraw.Draw(sheet)
     for idx, (name, im) in enumerate(SCREENS):
-        one = im.convert("1").convert("L").resize((tw, th), Image.LANCZOS)
+        one = to_1bit(im).convert("L").resize((tw, th), Image.LANCZOS)
         r, cc = divmod(idx, cols)
         x = pad + cc * (tw + pad); y = pad + r * (th + 70)
         sheet.paste(one, (x, y)); sd.rectangle([x, y, x + tw, y + th], outline=0)

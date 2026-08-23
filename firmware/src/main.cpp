@@ -13,6 +13,9 @@
 
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <FS.h>            // WebServer.h (via WiFiManager) uses unqualified FS on
+using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before it
+#include <WebServer.h>
 #include <WiFiManager.h>
 #include <Preferences.h>
 #include <Update.h>
@@ -42,6 +45,7 @@ char     g_serverUrl[128];
 char     g_etag[40];
 uint32_t g_wakeMinutes = DEFAULT_WAKE_MINUTES;
 char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent to the server for debugging
+bool     g_gray = false;        // is the sprite currently in 4-bit gray mode?
 
 // ---------------------------------------------------------------- battery
 float readBatteryVoltage() {
@@ -134,9 +138,11 @@ void displayFrame(const uint8_t* data, size_t len) {
 
   if (h.bpp == 4) {
     epaper.initGrayMode(GRAY_LEVEL16);      // reallocates the 4bpp gray sprite
+    g_gray = true;
     epaper.fillSprite(TFT_GRAY_15);         // white ground (buffer was realloc'd)
     epaper.pushImage(0, 0, w, hh, (uint16_t*)body);
   } else {                                  // 1-bit fallback (default sprite depth)
+    g_gray = false;
     epaper.fillScreen(TFT_WHITE);
     epaper.pushImage(0, 0, w, hh, (uint16_t*)body);
   }
@@ -160,41 +166,92 @@ void ackBlink(int blinks) {
   }
 }
 
-// A centered black rounded-pill toast at the bottom of the frame, drawn into the
-// 1-bit sprite and pushed with a partial refresh so the plate above is untouched.
-// We draw in portrait coords (rotation 1) so text is upright and horizontal;
-// updataPartial maps those coords back to the native-landscape buffer. If the
-// pill lands on the wrong edge or upside down, change TOAST_ROT (1 or 3).
-#define TOAST_ROT   1
+// A dark rounded pill with white text at the bottom of the frame, pushed via a
+// fast 1-bit partial refresh so only the pill's own box is touched — no full-width
+// band. The panel is fully inited once at boot (no per-toast begin), so this is
+// sub-second and never hangs. Change TOAST_ROT if the pill lands wrong-way-up.
+#define TOAST_ROT   3
+struct ToastBox { bool active; uint32_t shownAt; int x, y, w, h; };
+static ToastBox g_toast = {false, 0, 0, 0, 0};
+
+// updataPartial reads the sprite as 1-bit; the plate is drawn in 4-bit gray, so
+// drop back to 1-bit before drawing a pill. The next displayFrame re-inits gray.
+static void ensure1bit() {
+#ifdef USE_MUTIGRAY_EPAPER
+  if (g_gray) { epaper.deinitGrayMode(); g_gray = false; }
+#endif
+}
+
 void showToast(const char* text) {
-  // The fast-wake init (begin(1)) leaves the IT8951 TCON only half-configured, so
-  // the partial-refresh completion wait hangs. A full init reconfigures it without
-  // wiping the retained plate (e-paper holds its image through a controller reset).
-  epaper.begin(0);
+  ensure1bit();
   const uint8_t savedRot = epaper.getRotation();
   epaper.setRotation(TOAST_ROT);
-  const int W = epaper.width();      // 1404 portrait
-  const int H = epaper.height();     // 1872 portrait
-  const int stripH = 170;            // band height at the bottom
-  const int y0 = H - stripH;
-
-  epaper.fillRect(0, y0, W, stripH, TFT_WHITE);     // white band
+  const int W = epaper.width();       // 1404 portrait
 
   epaper.setTextDatum(MC_DATUM);
   epaper.setTextFont(4);
   epaper.setTextSize(2);
   const int tw = epaper.textWidth(text);
-  const int pillW = tw + 90;
+  const int pillW = tw + 96;
   const int pillH = 96;
   const int pillX = (W - pillW) / 2;
-  const int pillY = y0 + (stripH - pillH) / 2;
+  const int pillY = epaper.height() - pillH - 54;   // sit in the bottom margin
+
+  // Only the pill's box is refreshed. Its corners go white; they land in the
+  // plate's light bottom margin, so they blend rather than reading as a box.
+  epaper.fillRect(pillX, pillY, pillW, pillH, TFT_WHITE);
   epaper.fillRoundRect(pillX, pillY, pillW, pillH, pillH / 2, TFT_BLACK);
   epaper.setTextColor(TFT_WHITE, TFT_BLACK);
   epaper.drawString(text, W / 2, pillY + pillH / 2);
-
-  epaper.updataPartial(0, y0, W, stripH);
+  epaper.updataPartial(pillX, pillY, pillW, pillH);
   epaper.setRotation(savedRot);
+
+  g_toast = {true, millis(), pillX, pillY, pillW, pillH};
   Serial.printf("toast: %s\n", text);
+}
+
+// Wipe the pill back to white (restores the bottom margin) and forget it.
+void clearToast() {
+  if (!g_toast.active) return;
+  ensure1bit();
+  const uint8_t savedRot = epaper.getRotation();
+  epaper.setRotation(TOAST_ROT);
+  epaper.fillRect(g_toast.x, g_toast.y, g_toast.w, g_toast.h, TFT_WHITE);
+  epaper.updataPartial(g_toast.x, g_toast.y, g_toast.w, g_toast.h);
+  epaper.setRotation(savedRot);
+  g_toast.active = false;
+  Serial.println("toast cleared");
+}
+
+// ---------------------------------------------------------------- splash
+// Shown as early as possible on boot so the device visibly reacts. Uses the same
+// proven path as the toast: draw 1-bit at rotation TOAST_ROT and push with a
+// full-screen partial refresh (full 1-bit update() doesn't render on this panel,
+// and rotating the gray sprite crashes). The plate paint replaces it soon after.
+void showSplash(const char* line2, int pct) {
+  // Use the plate's proven path: 4-bit gray, native rotation (0), full update().
+  // Rotating the gray sprite crashes and full 1-bit/partial renders don't cover
+  // the screen, so this is the one reliable way to repaint the whole panel.
+#ifdef USE_MUTIGRAY_EPAPER
+  epaper.initGrayMode(GRAY_LEVEL16);
+  g_gray = true;
+#endif
+  const int W = epaper.width();     // 1872 native landscape
+  const int H = epaper.height();    // 1404 native landscape
+  epaper.fillSprite(TFT_GRAY_15);                 // white ground
+  epaper.fillRect(W / 2 - 640, H / 2 - 200, 1280, 400, TFT_BLACK);
+  epaper.setTextColor(TFT_GRAY_15, TFT_BLACK);    // white on the black bar
+  epaper.setTextDatum(MC_DATUM);
+  epaper.setTextFont(4);
+  epaper.setTextSize(5);
+  epaper.drawString("FEATHERFRAME", W / 2, H / 2 - 40);
+  epaper.setTextSize(3);
+  char b[64];
+  snprintf(b, sizeof(b), "build %s   batt %d%%",
+           ESP.getSketchMD5().substring(0, 8).c_str(), pct);
+  epaper.drawString(b, W / 2, H / 2 + 90);
+  epaper.update();
+  Serial.printf("splash: %s / %s\n", line2, b);
 }
 
 // ---------------------------------------------------------------- fetch
@@ -294,6 +351,8 @@ void maybeOTA() {
 void setup() {
   Serial.begin(115200);
   delay(50);
+  // TEMP boot-ping: 6s of prints after USB settles, so a late reader confirms the
+  // app is actually running and where setup gets to. Remove once serial is trusted.
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
   bool buttonWake = (cause == ESP_SLEEP_WAKEUP_EXT1);
   bool fromDeepSleep = (cause == ESP_SLEEP_WAKEUP_TIMER || cause == ESP_SLEEP_WAKEUP_EXT1);
@@ -318,31 +377,56 @@ void setup() {
   }
 #endif
 
-  // Dead-man's switch: if anything in this wake cycle hangs (panel busy-wait,
-  // network stall), reboot instead of stranding the frame until a hand reset.
-  // goToSleep() is the normal exit; deep sleep disarms the watchdog.
-  esp_task_wdt_init(WDT_TIMEOUT_S, true);   // true = panic (reboot) on expiry
-  esp_task_wdt_add(NULL);
-
   prefs.begin("featherframe", false);
   prefs.getString("server", DEFAULT_SERVER_URL).toCharArray(g_serverUrl, sizeof(g_serverUrl));
   prefs.getString("etag", "").toCharArray(g_etag, sizeof(g_etag));
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);
 
-  // Which button woke us? (KEY0 = check now, KEY1 = collage, KEY2 = status,
-  // KEY2 held = settings portal.)
+  // NOTE: the panel (Seeed_GFX) owns GPIO43 during init/refresh, so do NOT force it
+  // here — that breaks the power sequencing and updates stop reaching the glass. We
+  // re-assert it HIGH only in the idle loop, after rendering, to keep buttons alive.
+
+  // Release the button pins from any lingering RTC-IO / hold state left by a prior
+  // deep-sleep (ext1 wake config), then set them up as digital inputs with pullups.
+  for (gpio_num_t p : {PIN_KEY0, PIN_KEY1, PIN_KEY2}) {
+    rtc_gpio_hold_dis(p);
+    rtc_gpio_deinit(p);
+    pinMode(p, INPUT_PULLUP);
+  }
+
+#if FF_NO_SLEEP
+  // --- Always-awake dev model: splash now, then Wi-Fi, then poll buttons in loop().
+  epaper.begin(0);                          // full init once; the panel stays warm
+
+  float vbat = readBatteryVoltage();
+  int pct = batteryPercent(vbat);
+  Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);
+  showSplash(buttonWake ? "button wake" : "booting", pct);
+
+  // Hold KEY2 at boot -> wipe Wi-Fi/server settings and open the setup portal.
+  bool forcePortal = (digitalRead(PIN_PORTAL_RESET) == LOW);
+  if (forcePortal) { Serial.println("portal reset requested"); wm.resetSettings(); }
+
+  snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d nosleep", (int)cause);
+  if (ensureWifi(forcePortal)) {
+    fetchAndRender(FRAME_PATH, true, vbat, pct);   // paint the current bird
+    maybeOTA();
+  } else {
+    showToast("No Wi-Fi");
+  }
+  Serial.println("ready — polling buttons");
+#else
+  // --- Deep-sleep model: decode the waking button, act once, sleep.
+  esp_task_wdt_init(WDT_TIMEOUT_S, true);   // reboot if a wake cycle hangs
+  esp_task_wdt_add(NULL);
+
   uint64_t keyBits = buttonWake ? esp_sleep_get_ext1_wakeup_status() : 0;
   bool keyCheck   = keyBits & (1ULL << PIN_KEY0);
   bool keyCollage = keyBits & (1ULL << PIN_KEY1);
   bool keyStatus  = keyBits & (1ULL << PIN_KEY2);
   snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d keys=0x%llx", (int)cause,
            (unsigned long long)keyBits);
-  Serial.printf("wake keys=0x%llx check=%d collage=%d status=%d\n",
-                (unsigned long long)keyBits, keyCheck, keyCollage, keyStatus);
 
-  // Hold KEY2 at cold boot -> wipe settings and force the setup portal.
-  // Hold KEY2 for PORTAL_HOLD_MS after a button wake -> same thing.
-  pinMode(PIN_PORTAL_RESET, INPUT_PULLUP);
   bool forcePortal = (!buttonWake && digitalRead(PIN_PORTAL_RESET) == LOW);
   if (keyStatus) {
     uint32_t t0 = millis();
@@ -351,9 +435,7 @@ void setup() {
   }
   if (forcePortal) { Serial.println("portal reset requested"); wm.resetSettings(); }
 
-  // Fast re-init (ED103TC2_Init_Wake.h) after a deep-sleep wake; full init cold.
   epaper.begin(fromDeepSleep ? 1 : 0);
-
   float vbat = readBatteryVoltage();
   int pct = batteryPercent(vbat);
   Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);
@@ -368,19 +450,90 @@ void setup() {
   FetchResult r;
   if (keyCollage) {
     r = fetchAndRender(VIEW_COLLAGE_PATH, false, vbat, pct);
-    if (r == FETCH_NOTFOUND) ackBlink(4);   // not enough birds for a collage yet
+    if (r == FETCH_NOTFOUND) ackBlink(4);
   } else if (keyStatus) {
     r = fetchAndRender(VIEW_STATUS_PATH, false, vbat, pct);
   } else {
     r = fetchAndRender(FRAME_PATH, true, vbat, pct);
-    if (keyCheck && r == FETCH_NOCHANGE) showToast("Up to date");   // checked; nothing new
+    if (keyCheck && r == FETCH_NOCHANGE) showToast("Up to date");
   }
   if (buttonWake && r == FETCH_ERROR) ackBlink(4);
-  Serial.printf("fetch: %d\n", r);
-
-  maybeOTA();   // reboots into new firmware if the server hosts a different build
-
+  maybeOTA();
   goToSleep(g_wakeMinutes);
+#endif
 }
 
+#if FF_NO_SLEEP
+// Run a button's action: an instant pill for feedback, then fetch + paint. A new
+// plate paints over the pill; on a no-change check the pill becomes "Up to date".
+void doButton(int key) {
+  float vbat = readBatteryVoltage();
+  int pct = batteryPercent(vbat);
+  if (key == 0) {                             // KEY0: check now
+    showToast("Checking");
+    FetchResult r = fetchAndRender(FRAME_PATH, true, vbat, pct);
+    if (r == FETCH_NOCHANGE)      showToast("Up to date");
+    else if (r == FETCH_UPDATED)  g_toast.active = false;   // new plate replaced it
+    else                          showToast("Check failed");
+  } else if (key == 1) {                      // KEY1: collage
+    showToast("Collage");
+    FetchResult r = fetchAndRender(VIEW_COLLAGE_PATH, false, vbat, pct);
+    if (r == FETCH_NOTFOUND)      showToast("No collage yet");
+    else if (r == FETCH_UPDATED)  g_toast.active = false;
+    else                          showToast("Collage failed");
+  } else {                                    // KEY2 tap: status
+    showToast("Status");
+    FetchResult r = fetchAndRender(VIEW_STATUS_PATH, false, vbat, pct);
+    if (r == FETCH_UPDATED)       g_toast.active = false;
+    else                          showToast("Status failed");
+  }
+  Serial.printf("button %d handled\n", key);
+}
+
+// Debounced active-low edge detect. Returns 0/1/2 on a fresh press, else -1.
+int pollButton() {
+  static uint8_t prev[3] = {HIGH, HIGH, HIGH};
+  const int pins[3] = {PIN_KEY0, PIN_KEY1, PIN_KEY2};
+  for (int i = 0; i < 3; i++) {
+    int v = digitalRead(pins[i]);
+    if (v == LOW && prev[i] == HIGH) {
+      delay(15);
+      if (digitalRead(pins[i]) == LOW) { prev[i] = LOW; return i; }
+    } else if (v == HIGH) {
+      prev[i] = HIGH;
+    }
+  }
+  return -1;
+}
+
+void loop() {
+  int k = pollButton();
+  if (k == 2) {
+    // KEY2: hold PORTAL_HOLD_MS -> setup portal; a quick tap -> status view.
+    uint32_t t0 = millis();
+    while (digitalRead(PIN_KEY2) == LOW && millis() - t0 < PORTAL_HOLD_MS) delay(20);
+    if (millis() - t0 >= PORTAL_HOLD_MS) {
+      showToast("Setup portal");
+      wm.resetSettings();
+      if (ensureWifi(true)) {
+        fetchAndRender(FRAME_PATH, true, readBatteryVoltage(), batteryPercent(readBatteryVoltage()));
+      }
+    } else {
+      doButton(2);
+    }
+  } else if (k >= 0) {
+    doButton(k);
+  }
+  if (g_toast.active && millis() - g_toast.shownAt >= TOAST_HOLD_MS) clearToast();
+
+  // The buttons' pull-up rail is powered by the panel's enable line (GPIO43). The
+  // panel's update() drops it to sleep the T-CON, which also kills the buttons, so
+  // re-assert it HIGH here (in the idle loop, after any render) to keep presses alive.
+  static bool pwrInit = false;
+  if (!pwrInit) { pinMode(PIN_PANEL_PWR, OUTPUT); pwrInit = true; }
+  digitalWrite(PIN_PANEL_PWR, HIGH);
+  delay(10);
+}
+#else
 void loop() {}   // never reached — deep sleep model
+#endif

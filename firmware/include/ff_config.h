@@ -19,12 +19,24 @@
 // Hold KEY2 during boot to clear WiFi/server settings and re-open the portal.
 #define PIN_PORTAL_RESET PIN_KEY2
 
+// Panel/board power-enable rail (Seeed_GFX TFT_ENABLE). Also powers the button
+// pull-up rail, so it must be HIGH for presses to register while awake.
+#define PIN_PANEL_PWR   43
+
 // --- Battery sense ---
 #define PIN_BATTERY_ADC     1   // A0 / GPIO1
 #define PIN_BATTERY_ENABLE  6   // GPIO6 — drive HIGH to enable the divider
 // Volts-per-count multiplier: (ADC/4095) * VBAT_SCALE. Starts from Seeed's
 // ~2:1 divider + Vref term; CALIBRATE against a meter on your unit.
 #define VBAT_SCALE          7.16f
+
+// --- Dev mode: stay awake instead of deep-sleeping between actions ---
+// Keeps Wi-Fi up and polls the buttons in loop(), so a press is instant and the
+// panel never re-inits. Set to 0 to restore the battery-saving deep-sleep model.
+#define FF_NO_SLEEP  1
+
+// How long the "Up to date" pill stays on the glass before it clears (ms).
+#define TOAST_HOLD_MS  10000
 
 // --- Behaviour defaults (overridable via NVS / server) ---
 #define DEFAULT_WAKE_MINUTES   15

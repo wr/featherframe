@@ -96,8 +96,28 @@ void goToSleep(uint32_t minutes) {
 }
 
 // ---------------------------------------------------------------- wifi
+// Paper/ink restyle for the WiFiManager captive portal — injected into <head>,
+// overrides the stock blue theme. Kept in PROGMEM to save RAM.
+static const char PORTAL_CSS[] PROGMEM = R"CSS(<style>
+:root{--bg:#efeae0;--card:#fbf9f4;--ink:#20201d;--muted:#6f685c;--accent:#3f5e46;--line:#ddd6c8}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:ui-serif,Georgia,'Times New Roman',serif;margin:0;padding:26px 16px 60px;line-height:1.5}
+h1,h2,h3{font-weight:600;letter-spacing:.01em}
+h1{font-size:1.7rem;text-align:center;margin:.1em 0 .6em}
+h3{color:var(--muted);font-weight:500}
+div,dt,dd{color:var(--ink)}
+button{background:var(--accent);color:#fff;border:0;border-radius:12px;padding:13px 16px;font-size:1.02rem;width:100%;margin-top:12px;cursor:pointer}
+button:hover{filter:brightness(1.07)}
+input,select{background:var(--card);border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:12px;width:100%;font-size:1rem}
+a,a:visited{color:var(--accent);text-decoration:none}
+.msg{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;color:var(--muted)}
+.q{filter:grayscale(1) opacity(.7)}
+</style>)CSS";
+
 bool ensureWifi(bool openPortal) {
   WiFi.mode(WIFI_STA);
+  wm.setTitle("Featherframe");
+  wm.setCustomHeadElement(PORTAL_CSS);
   WiFiManagerParameter serverParam("server", "Featherframe server URL",
                                    g_serverUrl, sizeof(g_serverUrl));
   wm.addParameter(&serverParam);
@@ -229,28 +249,36 @@ void clearToast() {
 // full-screen partial refresh (full 1-bit update() doesn't render on this panel,
 // and rotating the gray sprite crashes). The plate paint replaces it soon after.
 void showSplash(const char* line2, int pct) {
-  // Use the plate's proven path: 4-bit gray, native rotation (0), full update().
-  // Rotating the gray sprite crashes and full 1-bit/partial renders don't cover
-  // the screen, so this is the one reliable way to repaint the whole panel.
-#ifdef USE_MUTIGRAY_EPAPER
-  epaper.initGrayMode(GRAY_LEVEL16);
-  g_gray = true;
-#endif
-  const int W = epaper.width();     // 1872 native landscape
-  const int H = epaper.height();    // 1404 native landscape
-  epaper.fillSprite(TFT_GRAY_15);                 // white ground
-  epaper.fillRect(W / 2 - 640, H / 2 - 200, 1280, 400, TFT_BLACK);
-  epaper.setTextColor(TFT_GRAY_15, TFT_BLACK);    // white on the black bar
+  // 1-bit so it can be drawn upright (gray-mode drawPixel ignores rotation and
+  // writes out of bounds); full 1-bit update() is Seeed's own HelloWorld path.
+  ensure1bit();
+  const uint8_t savedRot = epaper.getRotation();
+  epaper.setRotation(TOAST_ROT);       // upright portrait
+  const int W = epaper.width();        // 1404
+  const int H = epaper.height();       // 1872
+  const int cx = W / 2, cy = H / 2;
+  epaper.fillScreen(TFT_WHITE);
+  epaper.setTextColor(TFT_BLACK, TFT_WHITE);
   epaper.setTextDatum(MC_DATUM);
+
   epaper.setTextFont(4);
   epaper.setTextSize(5);
-  epaper.drawString("FEATHERFRAME", W / 2, H / 2 - 40);
+  epaper.drawString("Featherframe", cx, cy - 150);          // wordmark
+  epaper.fillRect(cx - 280, cy - 55, 560, 3, TFT_BLACK);    // hairline rule
+  epaper.setTextSize(2);
+  epaper.drawString("the birds you heard, as plates", cx, cy + 5);
+
   epaper.setTextSize(3);
+  epaper.drawString(line2, cx, cy + 170);                   // status
+
   char b[64];
-  snprintf(b, sizeof(b), "build %s   batt %d%%",
+  snprintf(b, sizeof(b), "build %s   -   battery %d%%",
            ESP.getSketchMD5().substring(0, 8).c_str(), pct);
-  epaper.drawString(b, W / 2, H / 2 + 90);
+  epaper.setTextSize(2);
+  epaper.drawString(b, cx, H - 150);                        // footer
+
   epaper.update();
+  epaper.setRotation(savedRot);
   Serial.printf("splash: %s / %s\n", line2, b);
 }
 
@@ -409,6 +437,7 @@ void setup() {
 
   snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d nosleep", (int)cause);
   if (ensureWifi(forcePortal)) {
+    g_etag[0] = 0;   // force a fresh paint so the plate replaces the splash (not a 304)
     fetchAndRender(FRAME_PATH, true, vbat, pct);   // paint the current bird
     maybeOTA();
   } else {

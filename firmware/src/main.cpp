@@ -145,10 +145,10 @@ void displayFrame(const uint8_t* data, size_t len) {
 }
 
 // ---------------------------------------------------------------- press ack
-// Button-press acknowledgement when the glass doesn't change. The library's
-// partial refresh (updataPartial) hangs the IT8951 when called on a fast-wake
-// session — verified on hardware, it stranded the frame until a physical
-// reset — so the ack is the XIAO's user LED instead: cheap, instant, safe.
+// Button-press acknowledgement when the glass doesn't change. The XIAO's user
+// LED sits on the driver board, hidden behind a wall-mounted frame — useless as
+// feedback. Instead we drop a small pill toast at the bottom of the frame with a
+// fast partial refresh, so a press always shows a visible result.
 // 2 blinks = checked, nothing new. 4 blinks = couldn't do it (no Wi-Fi/server).
 void ackBlink(int blinks) {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -158,6 +158,43 @@ void ackBlink(int blinks) {
     digitalWrite(LED_BUILTIN, HIGH);
     delay(140);
   }
+}
+
+// A centered black rounded-pill toast at the bottom of the frame, drawn into the
+// 1-bit sprite and pushed with a partial refresh so the plate above is untouched.
+// We draw in portrait coords (rotation 1) so text is upright and horizontal;
+// updataPartial maps those coords back to the native-landscape buffer. If the
+// pill lands on the wrong edge or upside down, change TOAST_ROT (1 or 3).
+#define TOAST_ROT   1
+void showToast(const char* text) {
+  // The fast-wake init (begin(1)) leaves the IT8951 TCON only half-configured, so
+  // the partial-refresh completion wait hangs. A full init reconfigures it without
+  // wiping the retained plate (e-paper holds its image through a controller reset).
+  epaper.begin(0);
+  const uint8_t savedRot = epaper.getRotation();
+  epaper.setRotation(TOAST_ROT);
+  const int W = epaper.width();      // 1404 portrait
+  const int H = epaper.height();     // 1872 portrait
+  const int stripH = 170;            // band height at the bottom
+  const int y0 = H - stripH;
+
+  epaper.fillRect(0, y0, W, stripH, TFT_WHITE);     // white band
+
+  epaper.setTextDatum(MC_DATUM);
+  epaper.setTextFont(4);
+  epaper.setTextSize(2);
+  const int tw = epaper.textWidth(text);
+  const int pillW = tw + 90;
+  const int pillH = 96;
+  const int pillX = (W - pillW) / 2;
+  const int pillY = y0 + (stripH - pillH) / 2;
+  epaper.fillRoundRect(pillX, pillY, pillW, pillH, pillH / 2, TFT_BLACK);
+  epaper.setTextColor(TFT_WHITE, TFT_BLACK);
+  epaper.drawString(text, W / 2, pillY + pillH / 2);
+
+  epaper.updataPartial(0, y0, W, stripH);
+  epaper.setRotation(savedRot);
+  Serial.printf("toast: %s\n", text);
 }
 
 // ---------------------------------------------------------------- fetch
@@ -264,6 +301,23 @@ void setup() {
                 cause, buttonWake ? "button" : "timer/boot",
                 ESP.getSketchMD5().substring(0, 8).c_str());
 
+#ifdef FF_DEBUG_TOAST
+  // On-bench toast harness: no Wi-Fi, no sleep, no watchdog. Loops the partial-
+  // refresh toast so we can confirm it completes (prints an elapsed-ms line) or
+  // hangs (no line). Flash with `pio run -e toastdebug -t upload`.
+  Serial.println("DEBUG_TOAST: awake, looping toast every 3s");
+  epaper.begin(0);
+  for (int n = 0; ; n++) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "Up to date  %d", n);
+    Serial.printf("[%d] showToast start\n", n);
+    uint32_t t0 = millis();
+    showToast(buf);
+    Serial.printf("[%d] showToast done in %lu ms\n", n, (unsigned long)(millis() - t0));
+    delay(3000);
+  }
+#endif
+
   // Dead-man's switch: if anything in this wake cycle hangs (panel busy-wait,
   // network stall), reboot instead of stranding the frame until a hand reset.
   // goToSleep() is the normal exit; deep sleep disarms the watchdog.
@@ -283,6 +337,8 @@ void setup() {
   bool keyStatus  = keyBits & (1ULL << PIN_KEY2);
   snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d keys=0x%llx", (int)cause,
            (unsigned long long)keyBits);
+  Serial.printf("wake keys=0x%llx check=%d collage=%d status=%d\n",
+                (unsigned long long)keyBits, keyCheck, keyCollage, keyStatus);
 
   // Hold KEY2 at cold boot -> wipe settings and force the setup portal.
   // Hold KEY2 for PORTAL_HOLD_MS after a button wake -> same thing.
@@ -317,7 +373,7 @@ void setup() {
     r = fetchAndRender(VIEW_STATUS_PATH, false, vbat, pct);
   } else {
     r = fetchAndRender(FRAME_PATH, true, vbat, pct);
-    if (keyCheck && r == FETCH_NOCHANGE) ackBlink(2);   // checked; nothing new
+    if (keyCheck && r == FETCH_NOCHANGE) showToast("Up to date");   // checked; nothing new
   }
   if (buttonWake && r == FETCH_ERROR) ackBlink(4);
   Serial.printf("fetch: %d\n", r);

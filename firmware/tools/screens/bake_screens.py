@@ -142,9 +142,11 @@ def screen_splash():
     text_v(d, x0 + lw + gap, 1740, BUILD, fitn)
     return c
 
-def screen_boot(text, bird=False):
+def screen_boot(text, bird=False, home=False):
     c, d = new_canvas()
-    paste_art(c, "house", W / 2, BOOT_ART_TOP, BOOT_ART_H)   # same house as splash
+    # "home" swaps to the wren-in-the-hole drawing (the bird has arrived); otherwise
+    # the same empty house as the splash, optionally with the wren flying in.
+    paste_art(c, "wren" if home else "house", W / 2, BOOT_ART_TOP, BOOT_ART_H)
     if bird:
         paste_at(c, "bird", 470, 300, 330)                  # flies in from the left
     draw_wordmark(d, BOOT_WORDMARK_Y)
@@ -186,9 +188,9 @@ def screen_setup():
             y += 150
     return c
 
-def screen_check(states, bird=False):
+def screen_check(states, bird=False, home=False):
     c, d = new_canvas()
-    paste_art(c, "house", W / 2, 150, 660)
+    paste_art(c, "wren" if home else "house", W / 2, 150, 660)
     if bird:
         paste_at(c, "bird", 500, 250, 280)
     rows = ["Connecting to wi-fi...", "Connecting to BirdNET...", "Downloading image..."]
@@ -208,12 +210,12 @@ def screen_check(states, bird=False):
 SCREENS = [
     ("SPLASH",        screen_splash()),
     ("BOOT_WIFI",     screen_boot("Connecting to Wi-Fi...", bird=True)),
-    ("BOOT_BIRDNET",  screen_boot("Connecting to BirdNET...")),
-    ("BOOT_DOWNLOAD", screen_boot("Downloading image...")),
+    ("BOOT_BIRDNET",  screen_boot("Connecting to BirdNET...", home=True)),
+    ("BOOT_DOWNLOAD", screen_boot("Downloading image...", home=True)),
     ("SETUP",         screen_setup()),
     ("CHK1",          screen_check(["now", "pending", "pending"], bird=True)),
-    ("CHK2",          screen_check(["done", "now", "pending"])),
-    ("CHK3",          screen_check(["done", "done", "now"])),
+    ("CHK2",          screen_check(["done", "now", "pending"], home=True)),
+    ("CHK3",          screen_check(["done", "done", "now"], home=True)),
 ]
 
 def packbits(data: bytes) -> bytes:

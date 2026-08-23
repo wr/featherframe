@@ -24,6 +24,7 @@ using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before i
 #include <driver/rtc_io.h>
 
 #include "ff_config.h"
+#include "ff_screens.h"    // baked 1-bit boot/setup panel screens (1404x1872)
 
 // ---- Featherframe Frame (FFF) wire format ----
 struct FFFHeader {
@@ -46,6 +47,7 @@ char     g_etag[40];
 uint32_t g_wakeMinutes = DEFAULT_WAKE_MINUTES;
 char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent to the server for debugging
 bool     g_gray = false;        // is the sprite currently in 4-bit gray mode?
+bool     g_viaPortal = false;   // did this boot go through the setup portal?
 
 // ---------------------------------------------------------------- battery
 float readBatteryVoltage() {
@@ -96,9 +98,8 @@ void goToSleep(uint32_t minutes) {
 }
 
 // ---------------------------------------------------------------- wifi
-// Panel screens for the Wi-Fi flow (defined later, near the splash).
-void showPortalInstructions(const char* apName);
-void showWifiStatus(const char* title, const char* detail);
+// Baked panel screens (defined later, near the splash).
+void showScreen(int idx);
 
 // Paper/ink restyle for the WiFiManager captive portal — injected into <head>,
 // overrides the stock blue theme. Kept in PROGMEM to save RAM.
@@ -128,23 +129,24 @@ bool ensureWifi(bool openPortal) {
   wm.setConfigPortalTimeout(PORTAL_TIMEOUT_S);
   wm.setConnectTimeout(WIFI_CONNECT_TIMEOUT_MS / 1000);
 
-  // Panel: show setup steps when the captive portal (AP) opens, and "Connecting"
-  // the moment the user saves their network from it.
-  wm.setAPCallback([](WiFiManager*) { showPortalInstructions("Featherframe-Setup"); });
-  wm.setSaveConfigCallback([]() { showWifiStatus("Connecting", ""); });
+  // Panel: the setup steps appear when the captive portal (AP) opens; the moment
+  // the user saves their network we switch to the onboarding checklist. Entering
+  // the portal (here or as autoConnect's fallback) marks the boot as "via portal"
+  // so the caller shows the onboarding checklist rather than the plain boot flow.
+  g_viaPortal = openPortal;
+  wm.setAPCallback([](WiFiManager*) { g_viaPortal = true; showScreen(FF_SCR_SETUP); });
+  wm.setSaveConfigCallback([]() { showScreen(FF_SCR_CHK1); });
 
   bool ok;
   if (openPortal) {
     ok = wm.startConfigPortal("Featherframe-Setup");
   } else {
-    String ss = wm.getWiFiSSID();                 // stored network, if any
-    showWifiStatus("Connecting", ss.length() ? ss.c_str() : "");
+    showScreen(FF_SCR_BOOT_WIFI);                 // "Connecting to Wi-Fi…"
     ok = wm.autoConnect("Featherframe-Setup");    // portal (AP callback) only if it fails
   }
   if (ok) {
-    showWifiStatus("Connected", WiFi.localIP().toString().c_str());
-    delay(1500);                                  // let it read before the plate paints
-    // Persist the (possibly updated) server URL.
+    // Wi-Fi up: the caller drives the "Connecting to BirdNET…"/"Downloading…"
+    // steps next. Persist the (possibly updated) server URL.
     strlcpy(g_serverUrl, serverParam.getValue(), sizeof(g_serverUrl));
     prefs.putString("server", g_serverUrl);
   }
@@ -256,96 +258,35 @@ void clearToast() {
   Serial.println("toast cleared");
 }
 
-// ---------------------------------------------------------------- splash
-// Shown as early as possible on boot so the device visibly reacts. Uses the same
-// proven path as the toast: draw 1-bit at rotation TOAST_ROT and push with a
-// full-screen partial refresh (full 1-bit update() doesn't render on this panel,
-// and rotating the gray sprite crashes). The plate paint replaces it soon after.
-void showSplash(const char* line2, int pct) {
-  // 1-bit so it can be drawn upright (gray-mode drawPixel ignores rotation and
-  // writes out of bounds); full 1-bit update() is Seeed's own HelloWorld path.
-  ensure1bit();
-  const uint8_t savedRot = epaper.getRotation();
-  epaper.setRotation(TOAST_ROT);       // upright portrait
-  const int W = epaper.width();        // 1404
-  const int H = epaper.height();       // 1872
-  const int cx = W / 2, cy = H / 2;
-  epaper.fillScreen(TFT_WHITE);
-  epaper.setTextColor(TFT_BLACK, TFT_WHITE);
-  epaper.setTextDatum(MC_DATUM);
-
-  epaper.setTextFont(4);
-  epaper.setTextSize(5);
-  epaper.drawString("Featherframe", cx, cy - 150);          // wordmark
-  epaper.fillRect(cx - 280, cy - 55, 560, 3, TFT_BLACK);    // hairline rule
-  epaper.setTextSize(2);
-  epaper.drawString("the birds you heard, as plates", cx, cy + 5);
-
-  epaper.setTextSize(3);
-  epaper.drawString(line2, cx, cy + 170);                   // status
-
-  char b[64];
-  snprintf(b, sizeof(b), "build %s   -   battery %d%%",
-           ESP.getSketchMD5().substring(0, 8).c_str(), pct);
-  epaper.setTextSize(2);
-  epaper.drawString(b, cx, H - 150);                        // footer
-
-  epaper.update();
-  epaper.setRotation(savedRot);
-  Serial.printf("splash: %s / %s\n", line2, b);
-}
-
-// A big centered status word with an optional detail line (Connecting / Connected).
-void showWifiStatus(const char* title, const char* detail) {
-  ensure1bit();
-  const uint8_t savedRot = epaper.getRotation();
-  epaper.setRotation(TOAST_ROT);
-  const int cx = epaper.width() / 2, cy = epaper.height() / 2;
-  epaper.fillScreen(TFT_WHITE);
-  epaper.setTextColor(TFT_BLACK, TFT_WHITE);
-  epaper.setTextDatum(MC_DATUM);
-  epaper.setTextFont(4);
-  epaper.setTextSize(5);
-  epaper.drawString(title, cx, detail && detail[0] ? cy - 50 : cy);
-  if (detail && detail[0]) {
-    epaper.setTextSize(3);
-    epaper.drawString(detail, cx, cy + 90);
+// ---------------------------------------------------------------- screens
+// The boot + first-time-setup art (splash, "Connecting…", setup steps, checklist)
+// is baked at full 1404x1872 into ff_screens.h and drawn here. Same proven path as
+// the toast/splash: draw 1-bit at rotation TOAST_ROT and full-refresh (full 1-bit
+// update() is Seeed's HelloWorld path; the gray sprite can't be rotated). Each
+// screen is PackBits-packed in flash; we expand it once into a PSRAM buffer and
+// blit it with drawBitmap. The plate paint replaces it once the bird is fetched.
+void showScreen(int idx) {
+  if (idx < 0 || idx >= FF_SCR_COUNT) return;
+  static uint8_t* buf = nullptr;
+  if (!buf) {
+    buf = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);   // ~322 KB, PSRAM
+    if (!buf) buf = (uint8_t*)malloc(FF_SCREEN_BYTES);
+    if (!buf) { Serial.println("screen: no buffer"); return; }
   }
-  epaper.update();
-  epaper.setRotation(savedRot);
-  Serial.printf("panel: %s %s\n", title, detail ? detail : "");
-}
+  ff_unpack(ff_screens[idx].data, ff_screens[idx].len, buf);
 
-// Step-by-step instructions shown on the glass while the setup portal is open.
-void showPortalInstructions(const char* apName) {
   ensure1bit();
   const uint8_t savedRot = epaper.getRotation();
-  epaper.setRotation(TOAST_ROT);
-  const int W = epaper.width(), cx = W / 2;
+  epaper.setRotation(TOAST_ROT);                  // upright portrait
   epaper.fillScreen(TFT_WHITE);
-  epaper.setTextColor(TFT_BLACK, TFT_WHITE);
-  epaper.setTextDatum(MC_DATUM);
-
-  epaper.setTextFont(4);
-  epaper.setTextSize(4);
-  epaper.drawString("Set up Wi-Fi", cx, 320);
-  epaper.fillRect(cx - 250, 400, 500, 3, TFT_BLACK);
-
-  epaper.setTextSize(2);
-  epaper.drawString("On your phone or laptop,", cx, 560);
-  epaper.drawString("join this Wi-Fi network:", cx, 630);
-  epaper.setTextSize(4);
-  epaper.drawString(apName, cx, 760);
-
-  epaper.setTextSize(2);
-  epaper.drawString("A setup page opens automatically.", cx, 950);
-  epaper.drawString("If not, visit  192.168.4.1", cx, 1020);
-  epaper.drawString("Then pick your home network.", cx, 1160);
-
+  epaper.drawBitmap(0, 0, buf, FF_SCREEN_W, FF_SCREEN_H, TFT_BLACK);
   epaper.update();
   epaper.setRotation(savedRot);
-  Serial.printf("panel: portal instructions (%s)\n", apName);
+  Serial.printf("screen %d\n", idx);
 }
+
+// Kept for the boot call site; the battery/build args are now baked in the art.
+void showSplash(const char*, int) { showScreen(FF_SCR_SPLASH); }
 
 // ---------------------------------------------------------------- fetch
 enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_ERROR };
@@ -503,6 +444,8 @@ void setup() {
   snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d nosleep", (int)cause);
   if (ensureWifi(forcePortal)) {
     g_etag[0] = 0;   // force a fresh paint so the plate replaces the splash (not a 304)
+    showScreen(g_viaPortal ? FF_SCR_CHK2 : FF_SCR_BOOT_BIRDNET);   // reaching the server
+    showScreen(g_viaPortal ? FF_SCR_CHK3 : FF_SCR_BOOT_DOWNLOAD);  // fetching the image
     fetchAndRender(FRAME_PATH, true, vbat, pct);   // paint the current bird
     maybeOTA();
   } else {
@@ -548,6 +491,10 @@ void setup() {
   } else if (keyStatus) {
     r = fetchAndRender(VIEW_STATUS_PATH, false, vbat, pct);
   } else {
+    if (!buttonWake || g_viaPortal) {   // fresh boot / just finished setup
+      showScreen(g_viaPortal ? FF_SCR_CHK2 : FF_SCR_BOOT_BIRDNET);
+      showScreen(g_viaPortal ? FF_SCR_CHK3 : FF_SCR_BOOT_DOWNLOAD);
+    }
     r = fetchAndRender(FRAME_PATH, true, vbat, pct);
     if (keyCheck && r == FETCH_NOCHANGE) showToast("Up to date");
   }
@@ -607,9 +554,10 @@ void loop() {
     uint32_t t0 = millis();
     while (digitalRead(PIN_KEY2) == LOW && millis() - t0 < PORTAL_HOLD_MS) delay(20);
     if (millis() - t0 >= PORTAL_HOLD_MS) {
-      showToast("Setup portal");
       wm.resetSettings();
-      if (ensureWifi(true)) {
+      if (ensureWifi(true)) {           // shows setup steps + checklist screens
+        showScreen(FF_SCR_CHK2);
+        showScreen(FF_SCR_CHK3);
         fetchAndRender(FRAME_PATH, true, readBatteryVoltage(), batteryPercent(readBatteryVoltage()));
       }
     } else {

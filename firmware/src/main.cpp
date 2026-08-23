@@ -263,72 +263,27 @@ void clearToast() {
 // is baked at full 1404x1872 into ff_screens.h and drawn here. Same proven path as
 // the toast/splash: draw 1-bit at rotation TOAST_ROT and full-refresh (full 1-bit
 // update() is Seeed's HelloWorld path; the gray sprite can't be rotated). Each
-// screen is PackBits-packed in flash; we expand it once into a PSRAM buffer and
-// blit it with drawBitmap. The plate paint replaces it once the bird is fetched.
-// The birdhouse + wordmark are identical across a flow's screens (splash/boot, or
-// setup/checklist), so most transitions change only the bottom strip. We keep the
-// previously-drawn screen, diff it against the new one, and partial-refresh just
-// the bounding box that changed — no full-panel flash. SPLASH and SETUP are the
-// entry screens of each flow (everything above them differs), so they full-refresh;
-// the first screen after boot also full-refreshes because there's no previous.
+// screen is PackBits-packed in flash; we expand it into a PSRAM buffer and push it
+// through displayFrame — the exact same 16-level gray path as the bird plates. The
+// panel's 1-bit path can't render the full panel width (the bottom quarter comes up
+// black), so the screens are baked as gray. Full refresh each; the plate replaces
+// the last one once the bird is fetched.
 void showScreen(int idx) {
   if (idx < 0 || idx >= FF_SCR_COUNT) return;
-  static uint8_t* buf  = nullptr;
-  static uint8_t* prev = nullptr;
-  static bool havePrev = false;
+  static uint8_t* buf = nullptr;                   // FFF header + decoded 4bpp body
+  const size_t total = FFF_HEADER_SIZE + FF_SCREEN_BYTES;
   if (!buf) {
-    buf  = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);   // ~322 KB each, PSRAM
-    prev = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
-    if (!buf)  buf  = (uint8_t*)malloc(FF_SCREEN_BYTES);
-    if (!prev) prev = (uint8_t*)malloc(FF_SCREEN_BYTES);
-    if (!buf || !prev) { Serial.println("screen: no buffer"); return; }
+    buf = (uint8_t*)ps_malloc(total);              // ~1.3 MB, PSRAM
+    if (!buf) buf = (uint8_t*)malloc(total);
+    if (!buf) { Serial.println("screen: no buffer"); return; }
+    FFFHeader h = {};
+    memcpy(h.magic, "FFF1", 4);
+    h.version = 1; h.bpp = 4; h.width = FF_NATIVE_W; h.height = FF_NATIVE_H;
+    memcpy(buf, &h, FFF_HEADER_SIZE);              // header is constant; write once
   }
-  ff_unpack(ff_screens[idx].data, ff_screens[idx].len, buf);
-
-  ensure1bit();
-  const uint8_t savedRot = epaper.getRotation();
-  epaper.setRotation(TOAST_ROT);                   // upright portrait
-  epaper.fillScreen(TFT_WHITE);
-  epaper.drawBitmap(0, 0, buf, FF_SCREEN_W, FF_SCREEN_H, TFT_BLACK);
-
-  const bool entry = (idx == FF_SCR_SPLASH || idx == FF_SCR_SETUP);
-  if (havePrev && !entry) {
-    // Refresh each contiguous group of changed rows as its own tight rectangle, so
-    // two far-apart changes (the fly-in bird up top and the pill at the bottom)
-    // don't get merged into one big box. Rows within BAND_GAP of each other join
-    // the same band. Each is a partial-waveform update — no full-panel flash.
-    const int BAND_GAP = 48;
-    int bands = 0, y = 0;
-    while (y < FF_SCREEN_H) {
-      if (memcmp(prev + y * FF_SCREEN_STRIDE, buf + y * FF_SCREEN_STRIDE, FF_SCREEN_STRIDE) == 0) {
-        y++; continue;                             // clean row
-      }
-      int y0 = y, y1 = y, gap = 0, minC = FF_SCREEN_STRIDE, maxC = -1;
-      for (int yy = y; yy < FF_SCREEN_H; yy++) {
-        const uint8_t* a = prev + yy * FF_SCREEN_STRIDE;
-        const uint8_t* b = buf  + yy * FF_SCREEN_STRIDE;
-        bool dirty = false;
-        for (int c = 0; c < FF_SCREEN_STRIDE; c++) {
-          if (a[c] != b[c]) { dirty = true; if (c < minC) minC = c; if (c > maxC) maxC = c; }
-        }
-        if (dirty) { y1 = yy; gap = 0; }
-        else if (++gap > BAND_GAP) break;
-      }
-      int x = minC * 8, w = (maxC - minC + 1) * 8;
-      if (x + w > FF_SCREEN_W) w = FF_SCREEN_W - x;
-      epaper.updataPartial(x, y0, w, y1 - y0 + 1);
-      Serial.printf("  band x=%d y=%d w=%d h=%d\n", x, y0, w, y1 - y0 + 1);
-      bands++;
-      y = y1 + 1;
-    }
-    Serial.printf("screen %d: %d partial band(s)\n", idx, bands);
-  } else {
-    epaper.update();                               // full refresh (entry / first)
-    Serial.printf("screen %d full\n", idx);
-  }
-  memcpy(prev, buf, FF_SCREEN_BYTES);
-  havePrev = true;
-  epaper.setRotation(savedRot);
+  ff_unpack(ff_screens[idx].data, ff_screens[idx].len, buf + FFF_HEADER_SIZE);
+  displayFrame(buf, total);                        // proven gray path (== bird plates)
+  Serial.printf("screen %d\n", idx);
 }
 
 // Kept for the boot call site; the battery/build args are now baked in the art.

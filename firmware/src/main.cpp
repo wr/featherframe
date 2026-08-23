@@ -96,6 +96,10 @@ void goToSleep(uint32_t minutes) {
 }
 
 // ---------------------------------------------------------------- wifi
+// Panel screens for the Wi-Fi flow (defined later, near the splash).
+void showPortalInstructions(const char* apName);
+void showWifiStatus(const char* title, const char* detail);
+
 // Paper/ink restyle for the WiFiManager captive portal — injected into <head>,
 // overrides the stock blue theme. Kept in PROGMEM to save RAM.
 static const char PORTAL_CSS[] PROGMEM = R"CSS(<style>
@@ -124,13 +128,22 @@ bool ensureWifi(bool openPortal) {
   wm.setConfigPortalTimeout(PORTAL_TIMEOUT_S);
   wm.setConnectTimeout(WIFI_CONNECT_TIMEOUT_MS / 1000);
 
+  // Panel: show setup steps when the captive portal (AP) opens, and "Connecting"
+  // the moment the user saves their network from it.
+  wm.setAPCallback([](WiFiManager*) { showPortalInstructions("Featherframe-Setup"); });
+  wm.setSaveConfigCallback([]() { showWifiStatus("Connecting", ""); });
+
   bool ok;
   if (openPortal) {
     ok = wm.startConfigPortal("Featherframe-Setup");
   } else {
-    ok = wm.autoConnect("Featherframe-Setup");   // portal only if no creds/fail
+    String ss = wm.getWiFiSSID();                 // stored network, if any
+    showWifiStatus("Connecting", ss.length() ? ss.c_str() : "");
+    ok = wm.autoConnect("Featherframe-Setup");    // portal (AP callback) only if it fails
   }
   if (ok) {
+    showWifiStatus("Connected", WiFi.localIP().toString().c_str());
+    delay(1500);                                  // let it read before the plate paints
     // Persist the (possibly updated) server URL.
     strlcpy(g_serverUrl, serverParam.getValue(), sizeof(g_serverUrl));
     prefs.putString("server", g_serverUrl);
@@ -280,6 +293,58 @@ void showSplash(const char* line2, int pct) {
   epaper.update();
   epaper.setRotation(savedRot);
   Serial.printf("splash: %s / %s\n", line2, b);
+}
+
+// A big centered status word with an optional detail line (Connecting / Connected).
+void showWifiStatus(const char* title, const char* detail) {
+  ensure1bit();
+  const uint8_t savedRot = epaper.getRotation();
+  epaper.setRotation(TOAST_ROT);
+  const int cx = epaper.width() / 2, cy = epaper.height() / 2;
+  epaper.fillScreen(TFT_WHITE);
+  epaper.setTextColor(TFT_BLACK, TFT_WHITE);
+  epaper.setTextDatum(MC_DATUM);
+  epaper.setTextFont(4);
+  epaper.setTextSize(5);
+  epaper.drawString(title, cx, detail && detail[0] ? cy - 50 : cy);
+  if (detail && detail[0]) {
+    epaper.setTextSize(3);
+    epaper.drawString(detail, cx, cy + 90);
+  }
+  epaper.update();
+  epaper.setRotation(savedRot);
+  Serial.printf("panel: %s %s\n", title, detail ? detail : "");
+}
+
+// Step-by-step instructions shown on the glass while the setup portal is open.
+void showPortalInstructions(const char* apName) {
+  ensure1bit();
+  const uint8_t savedRot = epaper.getRotation();
+  epaper.setRotation(TOAST_ROT);
+  const int W = epaper.width(), cx = W / 2;
+  epaper.fillScreen(TFT_WHITE);
+  epaper.setTextColor(TFT_BLACK, TFT_WHITE);
+  epaper.setTextDatum(MC_DATUM);
+
+  epaper.setTextFont(4);
+  epaper.setTextSize(4);
+  epaper.drawString("Set up Wi-Fi", cx, 320);
+  epaper.fillRect(cx - 250, 400, 500, 3, TFT_BLACK);
+
+  epaper.setTextSize(2);
+  epaper.drawString("On your phone or laptop,", cx, 560);
+  epaper.drawString("join this Wi-Fi network:", cx, 630);
+  epaper.setTextSize(4);
+  epaper.drawString(apName, cx, 760);
+
+  epaper.setTextSize(2);
+  epaper.drawString("A setup page opens automatically.", cx, 950);
+  epaper.drawString("If not, visit  192.168.4.1", cx, 1020);
+  epaper.drawString("Then pick your home network.", cx, 1160);
+
+  epaper.update();
+  epaper.setRotation(savedRot);
+  Serial.printf("panel: portal instructions (%s)\n", apName);
 }
 
 // ---------------------------------------------------------------- fetch

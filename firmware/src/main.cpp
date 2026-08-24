@@ -172,11 +172,7 @@ void displayFrame(const uint8_t* data, size_t len) {
   Serial.printf("frame %dx%d bpp=%d\n", w, hh, h.bpp);
 
   if (h.bpp == 4) {
-    // Force a clean gray re-init. initGrayMode() no-ops when already gray, which
-    // carries over the T-CON/sprite state left by the boot's windowed partials and
-    // makes this full refresh re-show the old screen. Cycling gray off/on reloads it.
-    epaper.deinitGrayMode();
-    epaper.initGrayMode(GRAY_LEVEL16);       // fresh 4bpp gray sprite + waveform
+    epaper.initGrayMode(GRAY_LEVEL16);       // reallocates the 4bpp gray sprite
     g_gray = true;
     epaper.fillSprite(TFT_GRAY_15);          // white ground (buffer was realloc'd)
     epaper.pushImage(0, 0, w, hh, (uint16_t*)body);
@@ -275,12 +271,27 @@ void clearToast() {
 // stride 936, so a byte column = 2 px.
 #define FF_GRAY_STRIDE (FF_NATIVE_W / 2)           // 936 bytes/row
 
+// The three ~1.3 MB screen buffers live at file scope so they can be released before
+// the plate loads: the IT8951 full-image write mallocs its own 1.31 MB mirror buffer,
+// and if PSRAM is too fragmented for it, it silently drops the frame (the plate never
+// appears). freeScreenBuffers() hands that space back once the boot art is done.
+static uint8_t* g_scrBuf  = nullptr;               // FFF header + decoded 4bpp body
+static uint8_t* g_scrPrev = nullptr;               // last screen's body, for diffing
+static uint8_t* g_scrWin  = nullptr;               // extracted window for a partial
+static bool     g_scrHavePrev = false;
+
+void freeScreenBuffers() {
+  free(g_scrBuf); free(g_scrPrev); free(g_scrWin);
+  g_scrBuf = g_scrPrev = g_scrWin = nullptr;
+  g_scrHavePrev = false;
+}
+
 void showScreen(int idx) {
   if (idx < 0 || idx >= FF_SCR_COUNT) return;
-  static uint8_t* buf  = nullptr;                  // FFF header + decoded 4bpp body
-  static uint8_t* prev = nullptr;                  // last screen's body, for diffing
-  static uint8_t* win  = nullptr;                  // extracted window for a partial
-  static bool havePrev = false;
+  uint8_t*& buf  = g_scrBuf;                        // aliases onto the file-scope bufs
+  uint8_t*& prev = g_scrPrev;
+  uint8_t*& win  = g_scrWin;
+  bool&     havePrev = g_scrHavePrev;
   const size_t total = FFF_HEADER_SIZE + FF_SCREEN_BYTES;
   if (!buf) {
     buf  = (uint8_t*)ps_malloc(total);             // ~1.3 MB each, PSRAM
@@ -361,6 +372,11 @@ enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_ERROR };
 // false for transient button views (no conditional, and the stored ETag is
 // CLEARED so the next timer wake re-fetches the resident bird over the view).
 FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct) {
+  // Release the boot-art buffers first: the IT8951 full-image write needs ~1.31 MB of
+  // contiguous PSRAM for its mirror buffer, and if the boot buffers still hold it the
+  // plate silently fails to load. (Safe here — this path renders network data, not the
+  // boot art; the splash uses displayFrame directly without going through here.)
+  freeScreenBuffers();
   HTTPClient http;
   String url = String(g_serverUrl) + path;
   if (!http.begin(url)) return FETCH_ERROR;

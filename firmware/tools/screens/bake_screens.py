@@ -286,9 +286,10 @@ VERSION_IM  = _blacken(_SPL.crop((585, 1692, 822, 1716)))   # "VERSION 1.0.1 <> 
 # its entrance hole is at (600,390) in the PNG, so the wren-in-hole lands at HOUSE_XY +
 # that. House + wordmark are identical on every screen, so only bird/wren/pill repaint.
 HOUSE_XY = (1, 40)
-HOLE = (HOUSE_XY[0] + 600, HOUSE_XY[1] + 390)
 FLY_XY  = (70, 150)                                    # flies in, to the upper-left
-PEEK_XY = (HOLE[0] - PEEK.width // 2, HOLE[1] - PEEK.height // 2)
+# birdpeek is a full patch cut from the same drawing (bird + hole arc + wood grain), so
+# it must align pixel-for-pixel over the hole — top-left template-matched to the house.
+PEEK_XY = (HOUSE_XY[0] + 493, HOUSE_XY[1] + 353)
 WORDMARK_XY = ((W - WORDMARK_IM.width) // 2, 1240)
 VERSION_XY  = ((W - VERSION_IM.width) // 2, 1772)
 

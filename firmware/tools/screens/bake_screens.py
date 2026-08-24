@@ -283,7 +283,10 @@ def _ink_box(name, xlo, xhi, ylo, yhi):
             min(xs.max() + pad, W), min(ys.max() + pad, H))
 
 BIRD_BOX = _ink_box("wifi", 0, 560, 300, 1000)      # fly-in bird, left of the house
-WREN_BOX = _ink_box("download", 380, 1040, 260, 820)  # wren peeking from the hole
+# Tight box around the wren body ONLY. The old auto-box keyed off any >40 diff, which
+# rsvg's sub-pixel house rasterization spread across the whole house front — so the
+# wren refresh flashed a huge rectangle. This is the strong-ink (>80) wren region.
+WREN_BOX = (483, 521, 666, 675)
 # The pill is drawn (draw_pill), not transferred from the SVG, so there is no PILL_BOX.
 
 def _paste_box(out, panel, box, darken=1.0):
@@ -303,35 +306,43 @@ PILL_TEXT = {
     "download": "Downloading image…",
 }
 
-# Rectangular pill geometry. Square corners (not rounded) so the pill FILLS the
-# firmware's GC16/GL16 refresh window edge-to-edge. A rounded pill left white
-# corners inside that window, and those flashed as a rectangular halo around it.
-PILL_H, PILL_Y, PILL_PAD_X, PILL_ICON = 116, 1560, 60, 70
+# Rectangular pill geometry, matched to the SVG spec (measured pill body: y1648-1729,
+# center ~1688, height ~81). Square corners so the pill FILLS its refresh window with
+# no white-corner halo. Sized/positioned to the spec — the first pass drew it too tall
+# (116) and too high (center 1618).
+PILL_H, PILL_CY, PILL_PAD_X, PILL_ICON = 88, 1688, 46, 58
 
 def draw_pill(im, text):
     d = ImageDraw.Draw(im)
-    fnt = font(50, italic=True)
+    fnt = font(44, italic=True)
     tw = d.textlength(text, font=fnt)
-    pillw = tw + PILL_PAD_X * 2 + PILL_ICON
-    px = (W - pillw) / 2
-    d.rectangle([px, PILL_Y, px + pillw, PILL_Y + PILL_H], fill=0)   # square corners
-    spinner(d, px + PILL_PAD_X + PILL_ICON * 0.4, PILL_Y + PILL_H / 2, 26)
-    text_v(d, px + PILL_PAD_X + PILL_ICON + 6, PILL_Y + PILL_H / 2, text, fnt, fill=255)
+    pillw = int(tw + PILL_PAD_X * 2 + PILL_ICON)
+    px = int((W - pillw) / 2)
+    top = int(PILL_CY - PILL_H / 2)
+    d.rectangle([px, top, px + pillw, top + PILL_H], fill=0)         # square corners
+    spinner(d, px + PILL_PAD_X + PILL_ICON * 0.4, PILL_CY, 22)
+    text_v(d, px + PILL_PAD_X + PILL_ICON + 4, PILL_CY, text, fnt, fill=255)
 
 def _compose(name):
     if name == "splash":
-        return _BOOT["splash"]                  # keep the footer on the splash itself
-    out = _BASE.copy()
-    if name == "wifi":
-        _paste_box(out, name, BIRD_BOX, darken=0.82)   # deepen the pale flying wren
-    elif name == "download":
-        # Full-copy the hole box: the wren's feathered body is LIGHTER than the empty
-        # dark hole, so an ink-only transfer drops all its detail into a black blob.
-        x0, y0, x1, y1 = WREN_BOX
-        out[y0:y1, x0:x1] = np.asarray(_BOOT["download"].convert("L"))[y0:y1, x0:x1]
-    im = Image.fromarray(out)
-    draw_pill(im, PILL_TEXT[name])              # our square pill, over the SVG's rounded one
-    return im
+        im = _BOOT["splash"].convert("L").copy()
+    else:
+        out = _BASE.copy()
+        if name == "wifi":
+            _paste_box(out, name, BIRD_BOX, darken=0.82)   # fly-in bird (dithered below)
+        elif name == "download":
+            # Full-copy the tight wren box: the wren's body is lighter than the empty
+            # hole, so an ink-only transfer would blob it into black. (Dithered below.)
+            x0, y0, x1, y1 = WREN_BOX
+            out[y0:y1, x0:x1] = np.asarray(_BOOT["download"].convert("L"))[y0:y1, x0:x1]
+        im = Image.fromarray(out)
+        draw_pill(im, PILL_TEXT[name])
+    # Dither the WHOLE boot screen to 1-bit: one consistent black/white look across the
+    # house, bird, wren and pill, and every partial window is then 1-bit so the firmware
+    # refreshes it with the non-flashing DU waveform. Ordered dither is position-stable,
+    # so the shared house stays byte-identical across screens and only the bird/wren/pill
+    # pixels differ — the wren then updates with no visible box.
+    return to_1bit(apply_curve(im)).convert("L")
 
 SCREENS = [
     ("SPLASH",        _compose("splash")),

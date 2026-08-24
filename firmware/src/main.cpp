@@ -316,7 +316,8 @@ void showScreen(int idx) {
     // pill box — and in native orientation those are separated along X (byte columns),
     // so we band by column: a run of changed columns is one window. DU waveform =
     // non-flashing (the content is high-contrast line art / pills). Byte column = 2 px.
-    const int GAP = 64;
+    const int GAP = 24;   // small: keep art contiguous but don't merge the pill with
+                          // the erasing footer into one oversized window
     int nwin = 0, c = 0;
     epaper.wake();
     while (c < FF_GRAY_STRIDE) {
@@ -338,11 +339,21 @@ void showScreen(int idx) {
       int nx = c0 * 2, nw = (c1 - c0 + 1) * 2, ny = rmin, nh = rmax - rmin + 1;
       for (int r = 0; r < nh; r++)
         memcpy(win + r * (nw / 2), body + (ny + r) * FF_GRAY_STRIDE + c0, nw / 2);
-      // GL16 (16-gray) for everything: it keeps all 16 levels (so the pencil bird/wren
-      // don't wash out the way the 1-bit DU waveform does) but skips GC16's hard drive
-      // to black, so the bird/wren/pill fade in instead of flashing black. Only this
-      // small window updates; the house never moves.
-      int mode = 3;
+      // Pick the waveform by content. A window that's essentially pure black/white —
+      // the pill, the dithered wren-in-hole — refreshes with DU (mode 1), which is fast
+      // and does NOT flash. Gray line art (the fly-in bird) needs GC16 (mode 2); DU
+      // renders gray too faint. Count mid-gray nibbles; <5% => treat as 1-bit => DU.
+      // (GL16/mode 3 isn't in this panel's waveform table — it paints flat gray blocks.)
+      long nonbin = 0; const long totpx = (long)nw * nh;
+      for (int i = 0, nb = (nw / 2) * nh; i < nb; i++) {
+        uint8_t hi = win[i] >> 4, lo = win[i] & 0xF;
+        if (hi != 0 && hi != 15) nonbin++;
+        if (lo != 0 && lo != 15) nonbin++;
+      }
+      // <20% mid-gray => 1-bit content => DU. Generous so a small box's ~6px byte-align
+      // border of gray house doesn't tip it into GC16 (that kept the tiny wren box on
+      // GC16 while the larger bird box went DU). Real gray art is >50% mid-gray.
+      int mode = (nonbin * 5 < totpx) ? 1 : 2;
       // The display mirrors X (invisible at full width, where the full refresh runs);
       // place the window at the mirrored X so it lands where the full render put it.
       int mx = FF_NATIVE_W - nx - nw;

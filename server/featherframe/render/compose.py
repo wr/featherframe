@@ -65,7 +65,7 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     # Composites read better filling the frame; single subjects sit slightly high.
     _place_art(field, art.image, art_box, v_align=0.5 if art.composite else 0.44)
 
-    typography.caption_block(draw, theme.WIDTH / 2, caption_top,
+    typography.caption_block(draw, theme.WIDTH / 2, caption_top + theme.CAPTION_DROP,
                              spec.common_name, spec.scientific_name, spec.when)
 
     if show_plate_number and spec.plate_number:

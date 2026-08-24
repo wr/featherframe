@@ -206,7 +206,7 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
     if meta_override is not None:
         if meta_override:
             draw_ot_tracked(draw, center_x, meta_baseline, meta_override.lower(),
-                            date_font, theme.INK_SOFT, theme.DATE_FEATURES, tracking_px)
+                            date_font, theme.INK_MEDIUM, theme.DATE_FEATURES, tracking_px)
         else:
             return rule_y + theme.RULE_THICKNESS
     elif when:
@@ -221,13 +221,13 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
         total = date_w + gap + orn_w + gap + time_w
         x = center_x - total / 2
         draw_ot_tracked(draw, x + date_w / 2, meta_baseline, date_str, date_font,
-                        theme.INK_SOFT, theme.DATE_FEATURES, tracking_px)
+                        theme.INK_MEDIUM, theme.DATE_FEATURES, tracking_px)
         x += date_w + gap
         draw.text((x, meta_baseline), theme.DATE_ORNAMENT, font=date_font,
-                  fill=theme.INK_SOFT, anchor="ls")
+                  fill=theme.INK_MEDIUM, anchor="ls")
         x += orn_w + gap
         draw_ot_tracked(draw, x + time_w / 2, meta_baseline, time_str, date_font,
-                        theme.INK_SOFT, theme.DATE_FEATURES, tracking_px)
+                        theme.INK_MEDIUM, theme.DATE_FEATURES, tracking_px)
     else:
         return rule_y + theme.RULE_THICKNESS
     return meta_baseline
@@ -258,24 +258,35 @@ def _caption_block_faux(draw: ImageDraw.ImageDraw, center_x: float, top_y: float
     if meta:
         meta_baseline = rule_y + 30 + theme.META_SIZE
         draw_smallcaps(draw, center_x, meta_baseline, meta, book, theme.META_SIZE,
-                       theme.INK_SOFT, theme.META_TRACKING, weight_caps=500, weight_small=520)
+                       theme.INK_MEDIUM, theme.META_TRACKING, weight_caps=500, weight_small=520)
         return meta_baseline
     return rule_y + theme.RULE_THICKNESS
 
 
 def plate_number_mark(draw: ImageDraw.ImageDraw, ordinal: int,
                       book: FontBook = FONTS) -> None:
-    """Engraved 'No. 47' in the top-right corner, counting unique species seen."""
+    """Engraved '№ 47' in the top-right corner, counting unique species seen.
+    Italic numero + old-style figures, aligned to the top and right margins."""
+    x_right = theme.WIDTH - theme.MARGIN_X
+    if HAS_RAQM:
+        text = f"{theme.PLATE_NO_NUMERO} {ordinal}"
+        font = book.get(theme.PLATE_NO_SIZE, italic=True, weight=theme.DATE_WEIGHT)
+        feats = _feat(theme.PLATE_NO_FEATURES)
+        # Align the glyph's ink top (not the ascender line) to the top margin:
+        # getbbox's top is the ascender->ink gap for this string.
+        top_gap = font.getbbox(text, features=feats)[1]
+        draw.text((x_right, theme.MARGIN_TOP - top_gap), text, font=font,
+                  fill=theme.INK_MEDIUM, anchor="ra", features=feats)
+        return
+    # Faux fallback: plain "No. 47".
     text = f"No. {ordinal}"
     font = book.get(theme.PLATE_NO_SIZE, weight=520)
     tracking_px = theme.PLATE_NO_SIZE * theme.PLATE_NO_TRACKING
     total = tracked_width(font, text, tracking_px)
-    x_right = theme.WIDTH - theme.MARGIN_X
-    baseline = theme.MARGIN_TOP - 24
-    # right-align: start so the text ends at x_right
     x = x_right - total
+    baseline = theme.MARGIN_TOP + theme.PLATE_NO_SIZE
     for ch in text:
-        draw.text((x, baseline), ch, font=font, fill=theme.INK_SOFT, anchor="ls")
+        draw.text((x, baseline), ch, font=font, fill=theme.INK_MEDIUM, anchor="ls")
         x += _len(font, ch) + tracking_px
 
 

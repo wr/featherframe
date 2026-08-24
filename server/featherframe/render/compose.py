@@ -122,7 +122,7 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
             date_font = typography.FONTS.get(theme.DATE_SIZE, italic=True,
                                              weight=theme.DATE_WEIGHT)
             typography.draw_ot_tracked(draw, cx, rule_y + 54, pretty, date_font,
-                                       theme.INK_SOFT, theme.DATE_FEATURES,
+                                       theme.INK_MEDIUM, theme.DATE_FEATURES,
                                        theme.DATE_SIZE * theme.DATE_TRACKING)
     else:
         typography.draw_smallcaps(draw, cx, block_top, spec.common_name,
@@ -138,7 +138,7 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
         if pretty:
             typography.draw_smallcaps(draw, cx, rule_y + 54,
                                       pretty.replace("first recorded", "First recorded"),
-                                      typography.FONTS, theme.META_SIZE, theme.INK_SOFT,
+                                      typography.FONTS, theme.META_SIZE, theme.INK_MEDIUM,
                                       theme.META_TRACKING, weight_caps=500, weight_small=520)
 
     if show_plate_number and spec.plate_number:

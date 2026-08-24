@@ -12,8 +12,28 @@ drawBitmap. Run after changing the art, copy, or layout:
 """
 import os
 import sys
+import subprocess
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+# The panel's 16 gray levels render lighter than the source, so darken the midtones
+# before quantizing (gamma > 1). This MUST be a fixed, content-independent curve —
+# a mean-based contrast (ImageEnhance) maps the identical birdhouse to different
+# values per screen, which would make the whole house diff and flash. Tune on-panel.
+WHITE_PT = 246      # anything this light snaps to pure white (the v2 art's ~253 bg
+                    # would otherwise quantize to a faint gray box behind the house)
+GRAY_GAMMA = 1.4    # >1 darkens the midtones the panel renders too light
+def _build_lut():
+    lut = []
+    for i in range(256):
+        v = min(255.0, i * 255.0 / WHITE_PT)      # white-point stretch
+        v = (v / 255.0) ** GRAY_GAMMA * 255.0      # darken midtones
+        lut.append(min(255, round(v)))
+    return lut
+_GAMMA_LUT = _build_lut()
+
+def apply_curve(im):
+    return im.convert("L").point(_GAMMA_LUT)
 
 # 8x8 ordered (Bayer) dither matrix. Ordered dithering is POSITION-stable: a given
 # grey at a given (x,y) always maps to the same bit, no matter what's beside it.
@@ -227,15 +247,70 @@ def screen_check(states, bird=False, home=False):
     return c
 
 # (enum name, image) — order defines FF_SCR_* indices
+# The four boot/loading screens come straight from the designer's boot_v2.svg (text
+# is vector paths there, so every OpenType effect — the swash italic wordmark, the
+# old-style figures in VERSION 1.0.1 — renders exactly as drawn). Each panel is a
+# 1404x1872 region; the birdhouse + wordmark are byte-identical across them, so only
+# the fly-in bird / wren-in-hole / pill change (partial-refresh friendly).
+def render_boot_panels():
+    svg = os.path.join(HERE, "boot_v2.svg")
+    out = os.path.join(HERE, "_boot_v2_render.png")
+    subprocess.run(["rsvg-convert", "-w", "6228", svg, "-o", out], check=True)
+    full = Image.open(out).convert("L")
+    os.remove(out)
+    xs = {"splash": 159, "wifi": 1600, "birdnet": 3041, "download": 4482}
+    return {n: full.crop((x, 270, x + W, 270 + H)) for n, x in xs.items()}
+
+# rsvg rasterizes each panel's birdhouse a hair differently (sub-pixel), which would
+# make the firmware diff span the whole house and flash it. So take ONE birdhouse +
+# wordmark (the splash panel) as the shared base, then transfer only the strong ink
+# from each panel WITHIN a tight box for the thing that actually changes (fly-in bird,
+# wren-in-hole, pill). Everything outside the boxes is byte-identical, so only those
+# little boxes repaint.
+_BOOT = render_boot_panels()
+_SPL = np.asarray(_BOOT["splash"].convert("L"))
+_BASE = _SPL.copy()
+_BASE[1540:, :] = 255                           # drop the splash footer for the others
+
+def _ink_box(name, xlo, xhi, ylo, yhi):
+    """bbox of pixels where this panel is much darker than splash, within a region."""
+    p = np.asarray(_BOOT[name].convert("L"))
+    m = (_SPL.astype(int) - p.astype(int)) > 40
+    m[:ylo] = False; m[yhi:] = False; m[:, :xlo] = False; m[:, xhi:] = False
+    ys, xs = np.where(m)
+    pad = 8
+    return (max(xs.min() - pad, 0), max(ys.min() - pad, 0),
+            min(xs.max() + pad, W), min(ys.max() + pad, H))
+
+BIRD_BOX = _ink_box("wifi", 0, 560, 300, 1000)      # fly-in bird, left of the house
+WREN_BOX = _ink_box("download", 380, 1040, 260, 820)  # wren peeking from the hole
+PILL_BOX = (170, 1524, 1234, 1792)                  # bottom pill strip
+
+def _paste_box(out, panel, box):
+    x0, y0, x1, y1 = box
+    reg = np.asarray(_BOOT[panel].convert("L"))[y0:y1, x0:x1].astype(int)
+    b = out[y0:y1, x0:x1]
+    out[y0:y1, x0:x1] = np.where(reg < b.astype(int) - 30, reg, b)  # transfer ink only
+
+def _compose(name):
+    if name == "splash":
+        return _BOOT["splash"]                  # keep the footer on the splash itself
+    out = _BASE.copy()
+    boxes = {"wifi": [BIRD_BOX, PILL_BOX], "birdnet": [PILL_BOX],
+             "download": [WREN_BOX, PILL_BOX]}[name]
+    for box in boxes:
+        _paste_box(out, name, box)
+    return Image.fromarray(out)
+
 SCREENS = [
-    ("SPLASH",        screen_splash()),
-    ("BOOT_WIFI",     screen_boot("Connecting to Wi-Fi...", bird=True)),
-    ("BOOT_BIRDNET",  screen_boot("Connecting to BirdNET...", home=True)),
-    ("BOOT_DOWNLOAD", screen_boot("Downloading image...", home=True)),
+    ("SPLASH",        _compose("splash")),
+    ("BOOT_WIFI",     _compose("wifi")),        # wren flies in
+    ("BOOT_BIRDNET",  _compose("birdnet")),     # empty house
+    ("BOOT_DOWNLOAD", _compose("download")),    # wren in the hole
     ("SETUP",         screen_setup()),
-    ("CHK1",          screen_check(["now", "pending", "pending"], bird=True)),
-    ("CHK2",          screen_check(["done", "now", "pending"], home=True)),
-    ("CHK3",          screen_check(["done", "done", "now"], home=True)),
+    ("CHK1",          screen_check(["now", "pending", "pending"])),
+    ("CHK2",          screen_check(["done", "now", "pending"])),
+    ("CHK3",          screen_check(["done", "done", "now"])),
 ]
 
 def packbits(data: bytes) -> bytes:
@@ -266,7 +341,8 @@ GRAY_BYTES = NATIVE_W * NATIVE_H // 2     # 1,314,144
 PANEL_ROTATION = 90
 
 def packed(im: Image.Image) -> bytes:
-    a = np.asarray(im.convert("L"), dtype=np.uint8)          # portrait 1404x1872
+    im = apply_curve(im)
+    a = np.asarray(im, dtype=np.uint8)                        # portrait 1404x1872
     idx = (a.astype(np.uint16) * 15 // 255).astype(np.uint8)  # 16 levels, 0..15
     native = np.rot90(idx, k=(PANEL_ROTATION // 90) % 4)      # -> [1404, 1872]
     hi = native[:, 0::2].astype(np.uint8) << 4
@@ -331,7 +407,9 @@ def write_preview():
     sheet = Image.new("L", (cols * tw + (cols + 1) * pad, rows * (th + 70) + pad), 235)
     sd = ImageDraw.Draw(sheet)
     for idx, (name, im) in enumerate(SCREENS):
-        one = to_1bit(im).convert("L").resize((tw, th), Image.LANCZOS)
+        g = apply_curve(im)
+        g = g.point(lambda p: (p * 15 // 255) * 255 // 15)   # simulate 16 gray levels
+        one = g.resize((tw, th), Image.LANCZOS)
         r, cc = divmod(idx, cols)
         x = pad + cc * (tw + pad); y = pad + r * (th + 70)
         sheet.paste(one, (x, y)); sd.rectangle([x, y, x + tw, y + th], outline=0)

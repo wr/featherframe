@@ -491,9 +491,6 @@ void setup() {
   // --- Always-awake dev model: splash now, then Wi-Fi, then poll buttons in loop().
   epaper.begin(0);                          // full init once; the panel stays warm
 
-  { uint16_t info[24] = {0}; epaper.getTconInfo(info);
-    Serial.printf("TCON panelW=%u panelH=%u imgbuf=0x%X\n", info[0], info[1], info[2] | (info[3] << 16)); }
-
   float vbat = readBatteryVoltage();
   int pct = batteryPercent(vbat);
   Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);

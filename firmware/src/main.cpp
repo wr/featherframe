@@ -383,6 +383,25 @@ void showScreen(int idx) {
 // Kept for the boot call site; the battery/build args are now baked in the art.
 void showSplash(const char*, int) { showScreen(FF_SCR_SPLASH); }
 
+// ---------------------------------------------------------------- download blink
+// The "Downloading image…" pill carries a solid loader square (baked white). The
+// connect/download steps are blocking and single-threaded, so a spinning pinwheel
+// could never animate — but a solid square only needs two states, and pure black/
+// white refreshes with the fast DU waveform (mode 1, sub-second, no full-panel flash).
+// So we pulse just that box black<->white a few times while the plate streams. Coords
+// come from the bake (FF_DL_SQ_*) in native mirrored space — the same transform
+// showScreen() uses to place its windows — so the box lands exactly on the baked square.
+#ifdef FF_DL_SQ_X
+void blinkDownloadSquare(bool white) {
+  static uint8_t sq[(FF_DL_SQ_W / 2) * FF_DL_SQ_H];   // 4bpp gray: 2 px/byte
+  memset(sq, white ? 0xFF : 0x00, sizeof(sq));        // 0xFF = two white px, 0x00 = black
+  epaper.wake();
+  epaper.tconLoadImage(sq, FF_DL_SQ_X, FF_DL_SQ_Y, FF_DL_SQ_W, FF_DL_SQ_H, false);
+  epaper.tconDisplayArea(FF_DL_SQ_X, FF_DL_SQ_Y, FF_DL_SQ_W, FF_DL_SQ_H, 1);   // DU
+  epaper.tconWaitForDisplayReady();
+}
+#endif
+
 // ---------------------------------------------------------------- fetch
 enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_ERROR };
 
@@ -390,7 +409,8 @@ enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_ERROR };
 // the normal current-bird frame (ETag conditional GET + store the new ETag);
 // false for transient button views (no conditional, and the stored ETag is
 // CLEARED so the next timer wake re-fetches the resident bird over the view).
-FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct) {
+FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct,
+                           bool loader = false) {
   // Release the boot-art buffers first: the IT8951 full-image write needs ~1.31 MB of
   // contiguous PSRAM for its mirror buffer, and if the boot buffers still hold it the
   // plate silently fails to load. (Safe here — this path renders network data, not the
@@ -424,12 +444,25 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct)
   WiFiClient* stream = http.getStreamPtr();
   int got = 0;
   uint32_t t0 = millis();
+#ifdef FF_DL_SQ_X
+  uint32_t tBlink = millis();
+  bool sqWhite = true;   // baked resting state is white; first toggle drops to black
+#endif
   while (got < len && (millis() - t0) < HTTP_TIMEOUT_MS) {
     if (stream->available()) {
       got += stream->readBytes(buf + got, len - got);
     } else {
       delay(2);
     }
+#ifdef FF_DL_SQ_X
+    // Pulse the loader square between reads. The DU partial blocks ~200ms, so gate it
+    // on FF_DL_BLINK_MS to keep most of the loop reading the socket.
+    if (loader && millis() - tBlink >= FF_DL_BLINK_MS) {
+      sqWhite = !sqWhite;
+      blinkDownloadSquare(sqWhite);
+      tBlink = millis();
+    }
+#endif
   }
   String newEtag = http.header("ETag");
   http.end();
@@ -546,7 +579,9 @@ void setup() {
     g_etag[0] = 0;   // force a fresh paint so the plate replaces the splash (not a 304)
     showScreen(g_viaPortal ? FF_SCR_CHK2 : FF_SCR_BOOT_BIRDNET);   // reaching the server
     showScreen(g_viaPortal ? FF_SCR_CHK3 : FF_SCR_BOOT_DOWNLOAD);  // fetching the image
-    fetchAndRender(FRAME_PATH, true, vbat, pct);   // paint the current bird
+    // Pulse the loader square only when the download screen (not the onboarding CHK3
+    // pill, which has its own mark elsewhere) is the one on the glass.
+    fetchAndRender(FRAME_PATH, true, vbat, pct, !g_viaPortal);   // paint the current bird
     maybeOTA();
   } else {
     showToast("No Wi-Fi");
@@ -595,7 +630,9 @@ void setup() {
       showScreen(g_viaPortal ? FF_SCR_CHK2 : FF_SCR_BOOT_BIRDNET);
       showScreen(g_viaPortal ? FF_SCR_CHK3 : FF_SCR_BOOT_DOWNLOAD);
     }
-    r = fetchAndRender(FRAME_PATH, true, vbat, pct);
+    // Pulse only when the BOOT_DOWNLOAD screen is actually up (fresh timer/boot wake,
+    // not a button view and not the onboarding CHK3 pill).
+    r = fetchAndRender(FRAME_PATH, true, vbat, pct, !buttonWake && !g_viaPortal);
     if (keyCheck && r == FETCH_NOCHANGE) showToast("Up to date");
   }
   if (buttonWake && r == FETCH_ERROR) ackBlink(4);

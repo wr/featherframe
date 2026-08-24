@@ -38,6 +38,11 @@
 // How long the "Up to date" pill stays on the glass before it clears (ms).
 #define TOAST_HOLD_MS  10000
 
+// Half-period of the download loader square's black<->white pulse (ms): the box
+// toggles this often while the plate streams. ~200ms/toggle of panel time, so keep
+// this comfortably above that to leave the socket read time.
+#define FF_DL_BLINK_MS  400
+
 // --- Behaviour defaults (overridable via NVS / server) ---
 #define DEFAULT_WAKE_MINUTES   15
 #define DEFAULT_SERVER_URL     "http://10.0.2.15:8090"

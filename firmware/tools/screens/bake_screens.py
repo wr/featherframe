@@ -271,8 +271,16 @@ def _svg_splash():
     full = Image.open(out).convert("L"); os.remove(out)
     return full.crop((159, 270, 159 + W, 270 + H))
 _SPL = _svg_splash()
-WORDMARK_IM = _SPL.crop((438, 1456, 975, 1558))        # swash "Featherframe"
-VERSION_IM  = _SPL.crop((585, 1692, 822, 1716))        # "VERSION 1.0.1  <> BUILD ..."
+
+def _blacken(im, bp=50):
+    # The SVG renders its type at #222 (darkest px = 34), so after the panel gamma it
+    # lands on a dark-gray level, not black. Lift the black point: ink <= bp -> pure
+    # black (level 0), lighter values stretch — so the logo/version read solid black
+    # while keeping smooth anti-aliased edges (not a hard 1-bit threshold).
+    return im.point(lambda p: 0 if p <= bp else round((p - bp) * 255 / (255 - bp)))
+
+WORDMARK_IM = _blacken(_SPL.crop((438, 1456, 975, 1558)))   # swash "Featherframe"
+VERSION_IM  = _blacken(_SPL.crop((585, 1692, 822, 1716)))   # "VERSION 1.0.1 <> BUILD ..."
 
 # Layout (portrait 1404x1872). birdhouse.png (1402x1122) sits full width near the top;
 # its entrance hole is at (600,390) in the PNG, so the wren-in-hole lands at HOUSE_XY +

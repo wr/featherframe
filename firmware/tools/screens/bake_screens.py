@@ -285,11 +285,14 @@ VERSION_IM  = _blacken(_SPL.crop((585, 1692, 822, 1716)))   # "VERSION 1.0.1 <> 
 # Layout (portrait 1404x1872). birdhouse.png (1402x1122) sits full width near the top;
 # its entrance hole is at (600,390) in the PNG, so the wren-in-hole lands at HOUSE_XY +
 # that. House + wordmark are identical on every screen, so only bird/wren/pill repaint.
-HOUSE_XY = (1, 40)
-FLY_XY  = (1, 403)                                     # designer-specified top-left
-PEEK_XY = (501, 546)                                   # designer-specified top-left
-WORDMARK_XY = ((W - WORDMARK_IM.width) // 2, 1240)
-VERSION_XY  = ((W - VERSION_IM.width) // 2, 1772)
+# All placements are the designer's, read off the reference frames in Desktop/stils
+# (Frame 12-15.svg): house rect (1,200,1402,1122); bird (1,403); wren backing (501,546);
+# wordmark and version are pasted back at the exact spot they were cropped from.
+HOUSE_XY    = (1, 200)
+FLY_XY      = (1, 403)
+PEEK_XY     = (501, 546)
+WORDMARK_XY = (438, 1456)
+VERSION_XY  = (585, 1692)
 
 def _ink_paste(im, overlay, xy):
     im.paste(overlay, xy, Image.eval(overlay, lambda p: 255 - p))   # dark ink only
@@ -300,20 +303,22 @@ PILL_TEXT = {
     "download": "Downloading image…",
 }
 
-# Rectangular pill geometry. Square corners so the pill FILLS its refresh window with no
-# white-corner halo; sized/positioned to sit below the wordmark in the new layout.
-PILL_H, PILL_CY, PILL_PAD_X, PILL_ICON = 88, 1590, 46, 58
+# Pill geometry from the frames: y=1648, height 82, centered, rounded (rx = h/2), with a
+# 42px spinner icon 20px in from the left and the text after it. Drawn pure black (not the
+# frames' #222 fill) so it reads solid black on the panel; DU refreshes it flash-less
+# regardless of the rounded corners.
+PILL_Y, PILL_H, PILL_PAD, PILL_ICON, PILL_GAP = 1648, 82, 20, 42, 14
 
 def draw_pill(im, text):
     d = ImageDraw.Draw(im)
     fnt = font(44, italic=True)
     tw = d.textlength(text, font=fnt)
-    pillw = int(tw + PILL_PAD_X * 2 + PILL_ICON)
-    px = int((W - pillw) / 2)
-    top = int(PILL_CY - PILL_H / 2)
-    d.rectangle([px, top, px + pillw, top + PILL_H], fill=0)         # square corners
-    spinner(d, px + PILL_PAD_X + PILL_ICON * 0.4, PILL_CY, 22)
-    text_v(d, px + PILL_PAD_X + PILL_ICON + 4, PILL_CY, text, fnt, fill=255)
+    pillw = int(PILL_PAD + PILL_ICON + PILL_GAP + tw + PILL_PAD + 8)
+    px = int(W / 2 - pillw / 2)
+    cy = PILL_Y + PILL_H / 2
+    d.rounded_rectangle([px, PILL_Y, px + pillw, PILL_Y + PILL_H], radius=PILL_H / 2, fill=0)
+    spinner(d, px + PILL_PAD + PILL_ICON / 2, cy, 21)
+    text_v(d, px + PILL_PAD + PILL_ICON + PILL_GAP, cy, text, fnt, fill=255)
 
 def _compose(name):
     c = Image.new("RGBA", (W, H), (255, 255, 255, 255))

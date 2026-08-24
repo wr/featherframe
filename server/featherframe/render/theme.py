@@ -19,7 +19,8 @@ FIELD = 255        # pure-white paper field, matching the v2 designer frame.
                    # plate paper also tops out at 255, so the darken-composite
                    # blends seamlessly with no paste seam.
 INK = 26           # primary type (near black, not pure — softer on e-ink)
-INK_SOFT = 96      # secondary type (date/time, plate credit)
+INK_SOFT = 96      # tertiary type (faint)
+INK_MEDIUM = 64    # dark gray: date/time line + the plate-number mark
 RULE = 40          # hairline rule
 FALLBACK_TINT = 236  # very light panel behind a fallback plate's name
 
@@ -39,8 +40,10 @@ NAME_TRACKING = 0.10   # extra letter-spacing as a fraction of size
 SCI_SIZE = 46          # scientific name, italic
 META_SIZE = 30         # date / time line
 META_TRACKING = 0.22
-PLATE_NO_SIZE = 32     # "No. 47" corner mark
+PLATE_NO_SIZE = 32     # "№ 47" corner mark — same size as the date line
 PLATE_NO_TRACKING = 0.18
+PLATE_NO_NUMERO = "№"          # numero sign, then the ordinal in oldstyle figures
+PLATE_NO_FEATURES = ("onum", "kern")
 
 SMALLCAP_RATIO = 0.76  # small-cap glyph height as a fraction of full caps
 

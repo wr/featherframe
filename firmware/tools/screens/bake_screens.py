@@ -252,65 +252,50 @@ def screen_check(states, bird=False, home=False):
 # old-style figures in VERSION 1.0.1 — renders exactly as drawn). Each panel is a
 # 1404x1872 region; the birdhouse + wordmark are byte-identical across them, so only
 # the fly-in bird / wren-in-hole / pill change (partial-refresh friendly).
-def render_boot_panels():
-    svg = os.path.join(HERE, "boot_v2.svg")
+# The house, fly-in bird and wren-in-hole are the designer's clean pen-and-ink line art
+# (black hatching on transparent), used at native size — do NOT rescale birdhouse.png,
+# it is 1402 wide by design. Because it is real line art, a plain threshold to black/
+# white is crisp (no dither), which also makes every partial window 1-bit so the firmware
+# refreshes it with the non-flashing DU waveform.
+HOUSE = Image.open(os.path.join(ART, "birdhouse.png")).convert("RGBA")
+FLY   = Image.open(os.path.join(ART, "birdfly.png")).convert("RGBA")
+PEEK  = Image.open(os.path.join(ART, "birdpeek.png")).convert("RGBA")
+
+# The swash "Featherframe" wordmark + old-style VERSION figures stay vector-crisp by
+# cropping them out of the designer's boot_v2.svg (drawing them in PIL would lose the
+# swash). Rendered once; the crops are pasted as ink onto every boot screen.
+def _svg_splash():
     out = os.path.join(HERE, "_boot_v2_render.png")
-    subprocess.run(["rsvg-convert", "-w", "6228", svg, "-o", out], check=True)
-    full = Image.open(out).convert("L")
-    os.remove(out)
-    xs = {"splash": 159, "wifi": 1600, "birdnet": 3041, "download": 4482}
-    return {n: full.crop((x, 270, x + W, 270 + H)) for n, x in xs.items()}
+    subprocess.run(["rsvg-convert", "-w", "6228", os.path.join(HERE, "boot_v2.svg"),
+                    "-o", out], check=True)
+    full = Image.open(out).convert("L"); os.remove(out)
+    return full.crop((159, 270, 159 + W, 270 + H))
+_SPL = _svg_splash()
+WORDMARK_IM = _SPL.crop((438, 1456, 975, 1558))        # swash "Featherframe"
+VERSION_IM  = _SPL.crop((585, 1692, 822, 1716))        # "VERSION 1.0.1  <> BUILD ..."
 
-# rsvg rasterizes each panel's birdhouse a hair differently (sub-pixel), which would
-# make the firmware diff span the whole house and flash it. So take ONE birdhouse +
-# wordmark (the splash panel) as the shared base, then transfer only the strong ink
-# from each panel WITHIN a tight box for the thing that actually changes (fly-in bird,
-# wren-in-hole, pill). Everything outside the boxes is byte-identical, so only those
-# little boxes repaint.
-_BOOT = render_boot_panels()
-_SPL = np.asarray(_BOOT["splash"].convert("L"))
-_BASE = _SPL.copy()
-_BASE[1540:, :] = 255                           # drop the splash footer for the others
+# Layout (portrait 1404x1872). birdhouse.png (1402x1122) sits full width near the top;
+# its entrance hole is at (600,390) in the PNG, so the wren-in-hole lands at HOUSE_XY +
+# that. House + wordmark are identical on every screen, so only bird/wren/pill repaint.
+HOUSE_XY = (1, 40)
+HOLE = (HOUSE_XY[0] + 600, HOUSE_XY[1] + 390)
+FLY_XY  = (70, 150)                                    # flies in, to the upper-left
+PEEK_XY = (HOLE[0] - PEEK.width // 2, HOLE[1] - PEEK.height // 2)
+WORDMARK_XY = ((W - WORDMARK_IM.width) // 2, 1240)
+VERSION_XY  = ((W - VERSION_IM.width) // 2, 1772)
 
-def _ink_box(name, xlo, xhi, ylo, yhi):
-    """bbox of pixels where this panel is much darker than splash, within a region."""
-    p = np.asarray(_BOOT[name].convert("L"))
-    m = (_SPL.astype(int) - p.astype(int)) > 40
-    m[:ylo] = False; m[yhi:] = False; m[:, :xlo] = False; m[:, xhi:] = False
-    ys, xs = np.where(m)
-    pad = 8
-    return (max(xs.min() - pad, 0), max(ys.min() - pad, 0),
-            min(xs.max() + pad, W), min(ys.max() + pad, H))
+def _ink_paste(im, overlay, xy):
+    im.paste(overlay, xy, Image.eval(overlay, lambda p: 255 - p))   # dark ink only
 
-BIRD_BOX = _ink_box("wifi", 0, 560, 300, 1000)      # fly-in bird, left of the house
-# Tight box around the wren body ONLY. The old auto-box keyed off any >40 diff, which
-# rsvg's sub-pixel house rasterization spread across the whole house front — so the
-# wren refresh flashed a huge rectangle. This is the strong-ink (>80) wren region.
-WREN_BOX = (483, 521, 666, 675)
-# The pill is drawn (draw_pill), not transferred from the SVG, so there is no PILL_BOX.
-
-def _paste_box(out, panel, box, darken=1.0):
-    x0, y0, x1, y1 = box
-    reg = np.asarray(_BOOT[panel].convert("L"))[y0:y1, x0:x1].astype(float)
-    b = out[y0:y1, x0:x1].astype(int)
-    ink = reg < b - 30                          # where this panel adds darker ink
-    val = np.clip(reg * darken, 0, 255)         # darken<1 deepens faint line art
-    out[y0:y1, x0:x1] = np.where(ink, val, b).astype(np.uint8)
-
-# The status pill copy per boot screen (the SVG pill is rounded; we draw our own
-# square-corner rectangle so the firmware's refresh window is fully inked — see
-# draw_pill).
 PILL_TEXT = {
     "wifi":     "Connecting to Wi-Fi…",
     "birdnet":  "Connecting to BirdNET…",
     "download": "Downloading image…",
 }
 
-# Rectangular pill geometry, matched to the SVG spec (measured pill body: y1648-1729,
-# center ~1688, height ~81). Square corners so the pill FILLS its refresh window with
-# no white-corner halo. Sized/positioned to the spec — the first pass drew it too tall
-# (116) and too high (center 1618).
-PILL_H, PILL_CY, PILL_PAD_X, PILL_ICON = 88, 1688, 46, 58
+# Rectangular pill geometry. Square corners so the pill FILLS its refresh window with no
+# white-corner halo; sized/positioned to sit below the wordmark in the new layout.
+PILL_H, PILL_CY, PILL_PAD_X, PILL_ICON = 88, 1590, 46, 58
 
 def draw_pill(im, text):
     d = ImageDraw.Draw(im)
@@ -324,25 +309,22 @@ def draw_pill(im, text):
     text_v(d, px + PILL_PAD_X + PILL_ICON + 4, PILL_CY, text, fnt, fill=255)
 
 def _compose(name):
+    c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    c.alpha_composite(HOUSE, HOUSE_XY)
+    if name == "wifi":
+        c.alpha_composite(FLY, FLY_XY)                 # bird flies in
+    elif name == "download":
+        c.alpha_composite(PEEK, PEEK_XY)               # wren in the hole
+    im = c.convert("L")
+    _ink_paste(im, WORDMARK_IM, WORDMARK_XY)
     if name == "splash":
-        im = _BOOT["splash"].convert("L").copy()
+        _ink_paste(im, VERSION_IM, VERSION_XY)
     else:
-        out = _BASE.copy()
-        if name == "wifi":
-            _paste_box(out, name, BIRD_BOX, darken=0.82)   # fly-in bird (dithered below)
-        elif name == "download":
-            # Full-copy the tight wren box: the wren's body is lighter than the empty
-            # hole, so an ink-only transfer would blob it into black. (Dithered below.)
-            x0, y0, x1, y1 = WREN_BOX
-            out[y0:y1, x0:x1] = np.asarray(_BOOT["download"].convert("L"))[y0:y1, x0:x1]
-        im = Image.fromarray(out)
         draw_pill(im, PILL_TEXT[name])
-    # Dither the WHOLE boot screen to 1-bit: one consistent black/white look across the
-    # house, bird, wren and pill, and every partial window is then 1-bit so the firmware
-    # refreshes it with the non-flashing DU waveform. Ordered dither is position-stable,
-    # so the shared house stays byte-identical across screens and only the bird/wren/pill
-    # pixels differ — the wren then updates with no visible box.
-    return to_1bit(apply_curve(im)).convert("L")
+    # Threshold the line art to pure black/white: a crisp, consistent 1-bit look, and
+    # every partial window is 1-bit so the firmware uses the non-flashing DU waveform.
+    # The house + wordmark are identical across screens, so partials stay tiny.
+    return im.point(lambda p: 0 if p < 150 else 255)
 
 SCREENS = [
     ("SPLASH",        _compose("splash")),

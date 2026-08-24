@@ -18,10 +18,10 @@ FIELD = 255        # pure-white paper field, matching the v2 designer frame.
                    # dithers to a solid, stipple-free white; the normalised
                    # plate paper also tops out at 255, so the darken-composite
                    # blends seamlessly with no paste seam.
-INK = 26           # primary type (near black, not pure — softer on e-ink)
+INK = 17           # main text (title) — #111
 INK_SOFT = 96      # tertiary type (faint)
-INK_MEDIUM = 64    # dark gray: date/time line + the plate-number mark
-RULE = 40          # hairline rule
+INK_MEDIUM = 51    # secondary text (sci name, date, number) — #333
+RULE = 68          # divider line — #444
 FALLBACK_TINT = 236  # very light panel behind a fallback plate's name
 
 # -- geometry (px) ---------------------------------------------------------
@@ -31,7 +31,7 @@ MARGIN_BOTTOM = 95
 
 # The caption block reserves this much height at the bottom of a single frame;
 # the bird art gets everything above it.
-CAPTION_BLOCK_H = 278
+CAPTION_BLOCK_H = 322
 CAPTION_GAP = 64   # gap between the art and the caption block
 
 # Caption typography (point-ish sizes at native panel resolution)
@@ -40,7 +40,7 @@ NAME_TRACKING = 0.10   # extra letter-spacing as a fraction of size
 SCI_SIZE = 46          # scientific name, italic
 META_SIZE = 30         # date / time line
 META_TRACKING = 0.22
-PLATE_NO_SIZE = 32     # "№ 47" corner mark — same size as the date line
+PLATE_NO_SIZE = 42     # "№ 47" corner mark — same size as the date line
 PLATE_NO_TRACKING = 0.18
 PLATE_NO_NUMERO = "№"          # numero sign, then the ordinal in oldstyle figures
 PLATE_NO_FEATURES = ("onum", "kern")
@@ -55,14 +55,14 @@ TITLE_SIZE = 96           # common name, swash italic (auto-fit to width)
 TITLE_WEIGHT = 500
 TITLE_FEATURES = ("swsh", "dlig", "hlig", "hist", "liga", "calt", "kern")
 
-SUBTITLE_SIZE = 31         # scientific name, italic small caps
+SUBTITLE_SIZE = 42         # scientific name, italic small caps
 SUBTITLE_WEIGHT = 500
 SUBTITLE_TRACKING = 0.14
 SUBTITLE_FEATURES = ("smcp", "onum", "liga", "dlig", "hlig", "ordn", "kern")
 
-DATE_SIZE = 32             # date / time line, italic small caps + oldstyle figs
+DATE_SIZE = 42             # date / time line, italic small caps + oldstyle figs
 DATE_WEIGHT = 500
-DATE_TRACKING = 0.19
+DATE_TRACKING = 0.14
 DATE_FEATURES = ("smcp", "onum", "ordn", "liga", "kern")
 DATE_ORNAMENT = "❧"   # ❧ hedera leaf between date and time
 

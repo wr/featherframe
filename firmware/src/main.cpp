@@ -172,9 +172,13 @@ void displayFrame(const uint8_t* data, size_t len) {
   Serial.printf("frame %dx%d bpp=%d\n", w, hh, h.bpp);
 
   if (h.bpp == 4) {
-    epaper.initGrayMode(GRAY_LEVEL16);      // reallocates the 4bpp gray sprite
+    // Force a clean gray re-init. initGrayMode() no-ops when already gray, which
+    // carries over the T-CON/sprite state left by the boot's windowed partials and
+    // makes this full refresh re-show the old screen. Cycling gray off/on reloads it.
+    epaper.deinitGrayMode();
+    epaper.initGrayMode(GRAY_LEVEL16);       // fresh 4bpp gray sprite + waveform
     g_gray = true;
-    epaper.fillSprite(TFT_GRAY_15);         // white ground (buffer was realloc'd)
+    epaper.fillSprite(TFT_GRAY_15);          // white ground (buffer was realloc'd)
     epaper.pushImage(0, 0, w, hh, (uint16_t*)body);
   } else {                                  // 1-bit fallback (default sprite depth)
     g_gray = false;
@@ -337,7 +341,9 @@ void showScreen(int idx) {
       nwin++;
       c = c1 + 1;
     }
-    epaper.sleep();
+    // NOTE: do NOT sleep() here. The panel stays awake through the boot so the plate's
+    // full update() later refreshes from a live gray state (sleeping mid-boot left the
+    // T-CON in a state where the plate's GC16 re-showed the old screen).
     Serial.printf("screen %d: %d partial window(s)\n", idx, nwin);
   }
   memcpy(prev, body, FF_SCREEN_BYTES);

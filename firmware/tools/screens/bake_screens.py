@@ -304,7 +304,10 @@ def _compose(name):
     elif name == "birdnet":
         _paste_box(out, name, PILL_BOX)
     elif name == "download":
-        _paste_box(out, name, WREN_BOX, darken=0.78)   # deepen but keep the wren's detail
+        # Full-copy the hole box: the wren's feathered body is LIGHTER than the empty
+        # dark hole, so an ink-only transfer drops all its detail into a black blob.
+        x0, y0, x1, y1 = WREN_BOX
+        out[y0:y1, x0:x1] = np.asarray(_BOOT["download"].convert("L"))[y0:y1, x0:x1]
         _paste_box(out, name, PILL_BOX)
     return Image.fromarray(out)
 

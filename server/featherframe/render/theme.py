@@ -43,8 +43,27 @@ PLATE_NO_TRACKING = 0.18
 
 SMALLCAP_RATIO = 0.76  # small-cap glyph height as a fraction of full caps
 
+# -- v2 caption typography (real OpenType via RAQM) ------------------------
+# The common name is set as a flowing swash italic; the scientific name and
+# date as real small caps with old-style figures. These need libraqm at render
+# time; typography.py degrades to faux small caps if it's absent.
+TITLE_SIZE = 118           # common name, swash italic (auto-fit to width)
+TITLE_WEIGHT = 500
+TITLE_FEATURES = ("swsh", "dlig", "hlig", "hist", "liga", "calt", "kern")
+
+SUBTITLE_SIZE = 42         # scientific name, italic small caps
+SUBTITLE_WEIGHT = 500
+SUBTITLE_TRACKING = 0.16
+SUBTITLE_FEATURES = ("smcp", "onum", "liga", "dlig", "hlig", "ordn", "kern")
+
+DATE_SIZE = 32             # date / time line, italic small caps + oldstyle figs
+DATE_WEIGHT = 500
+DATE_TRACKING = 0.16
+DATE_FEATURES = ("smcp", "onum", "ordn", "liga", "kern")
+DATE_ORNAMENT = "❦"   # ❦ floral fleuron between date and time
+
 # Hairline rule under the scientific name
-RULE_WIDTH = 300
+RULE_WIDTH = 200
 RULE_THICKNESS = 2
 
 CONTENT_W = WIDTH - 2 * MARGIN_X

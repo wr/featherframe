@@ -1,20 +1,20 @@
 """Type. This is where a hobby project becomes an heirloom, per the spec.
 
-We use EB Garamond (OFL) as a variable font: real italics from the italic
-face, and *faux* small caps synthesised by drawing lowercase letters as
-smaller capitals. Faux small caps (rather than the OpenType ``smcp`` feature)
-is a deliberate portability choice — applying OT features through Pillow needs
-libraqm, which isn't reliably present on a Pi. Done carefully, with the right
-size ratio and tracking, it reads like a real museum plate.
+We use EB Garamond (OFL) as a variable font. When libraqm is present we shape
+real OpenType features — swash italics for the common name, true small caps
+with old-style figures for the scientific name and date. When it is absent
+(some Pis ship without it) we fall back to *faux* small caps: lowercase drawn
+as smaller capitals. Both read like a museum plate; the OT path just adds the
+swashes and old-style figures.
 """
 from __future__ import annotations
 
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
-from PIL import ImageDraw, ImageFont
+from PIL import ImageDraw, ImageFont, features as _pil_features
 
 from .. import paths
 from . import theme
@@ -22,6 +22,10 @@ from . import theme
 _FONTS = paths.fonts_dir()
 _ROMAN = _FONTS / "EBGaramond[wght].ttf"
 _ITALIC = _FONTS / "EBGaramond-Italic[wght].ttf"
+
+# Real OpenType shaping (swashes, small caps, old-style figures) needs libraqm.
+HAS_RAQM = bool(_pil_features.check("raqm"))
+_LAYOUT = ImageFont.Layout.RAQM if HAS_RAQM else ImageFont.Layout.BASIC
 
 
 class FontBook:
@@ -35,7 +39,7 @@ class FontBook:
         font = self._cache.get(key)
         if font is None:
             path = _ITALIC if italic else _ROMAN
-            font = ImageFont.truetype(str(path), int(size))
+            font = ImageFont.truetype(str(path), int(size), layout_engine=_LAYOUT)
             try:
                 font.set_variation_by_axes([weight])
             except Exception:
@@ -46,6 +50,41 @@ class FontBook:
 
 # One shared book for the process.
 FONTS = FontBook()
+
+
+# -- OpenType (RAQM) drawing ----------------------------------------------
+def _feat(features: Sequence[str]) -> Optional[list[str]]:
+    return list(features) if HAS_RAQM else None
+
+
+def ot_length(font: ImageFont.FreeTypeFont, text: str,
+              features: Sequence[str]) -> float:
+    return font.getlength(text, features=_feat(features))
+
+
+def draw_ot(draw: ImageDraw.ImageDraw, x: float, baseline_y: float, text: str,
+            font: ImageFont.FreeTypeFont, fill: int, features: Sequence[str],
+            anchor: str = "ls") -> None:
+    """Draw one shaped run (ligatures, swashes, kerning intact). No tracking."""
+    draw.text((x, baseline_y), text, font=font, fill=fill, anchor=anchor,
+              features=_feat(features))
+
+
+def draw_ot_tracked(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
+                    text: str, font: ImageFont.FreeTypeFont, fill: int,
+                    features: Sequence[str], tracking_px: float) -> float:
+    """Centered, letter-spaced run. Each glyph is shaped on its own so features
+    like ``smcp``/``onum`` still apply; contextual joins are dropped, which is
+    invisible once the letters are tracked apart. Returns the drawn width."""
+    feats = _feat(features)
+    widths = [font.getlength(ch, features=feats) for ch in text]
+    total = sum(widths) + tracking_px * max(0, len(text) - 1)
+    x = center_x - total / 2
+    for ch, w in zip(text, widths):
+        draw.text((x, baseline_y), ch, font=font, fill=fill, anchor="ls",
+                  features=feats)
+        x += w + tracking_px
+    return total
 
 
 # -- low-level drawing -----------------------------------------------------
@@ -116,32 +155,105 @@ def format_when(when: datetime) -> str:
     return f"{when.day} {month} {when.year}  ·  {hour}:{when.minute:02d} {ampm}"
 
 
+def _when_parts(when: datetime) -> tuple[str, str]:
+    """Lowercase (date, time) parts so ``smcp`` renders them as small caps and
+    ``onum`` gives the figures their old-style shapes."""
+    month = when.strftime("%B").lower()
+    hour = when.hour % 12 or 12
+    ampm = "am" if when.hour < 12 else "pm"
+    return (f"{when.day} {month} {when.year}", f"{hour}:{when.minute:02d} {ampm}")
+
+
 # -- caption block ---------------------------------------------------------
 def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
                   common_name: str, scientific_name: str, when: Optional[datetime],
                   book: FontBook = FONTS, meta_override: Optional[str] = None) -> float:
-    """Render the museum caption: common name (small caps), scientific name
-    (italic), hairline rule, then date/time. Returns the bottom y."""
-    # Common name — the anchor of the block.
+    """Render the museum caption: common name (swash italic), scientific name
+    (small caps), hairline rule, then date/time. Returns the bottom y."""
+    if not HAS_RAQM:
+        return _caption_block_faux(draw, center_x, top_y, common_name,
+                                   scientific_name, when, book, meta_override)
+
+    # Common name — swash italic, auto-fit to the content width.
+    size = theme.TITLE_SIZE
+    while size > 60:
+        title_font = book.get(size, italic=True, weight=theme.TITLE_WEIGHT)
+        if ot_length(title_font, common_name, theme.TITLE_FEATURES) <= theme.CONTENT_W:
+            break
+        size -= 3
+    ascent, _ = title_font.getmetrics()
+    baseline = top_y + int(ascent * 0.92)
+    draw_ot(draw, center_x, baseline, common_name, title_font, theme.INK,
+            theme.TITLE_FEATURES, anchor="ms")
+
+    # Scientific name — italic small caps with old-style figures.
+    sci_font = book.get(theme.SUBTITLE_SIZE, italic=True, weight=theme.SUBTITLE_WEIGHT)
+    baseline += size * 0.24 + theme.SUBTITLE_SIZE
+    draw_ot_tracked(draw, center_x, baseline, scientific_name.lower(), sci_font,
+                    theme.INK, theme.SUBTITLE_FEATURES,
+                    theme.SUBTITLE_SIZE * theme.SUBTITLE_TRACKING)
+
+    # Hairline rule.
+    rule_y = baseline + theme.SUBTITLE_SIZE * 0.60 + 34
+    half = theme.RULE_WIDTH / 2
+    draw.rectangle([center_x - half, rule_y, center_x + half, rule_y + theme.RULE_THICKNESS - 1],
+                   fill=theme.RULE)
+
+    # Date / time, split around a floral fleuron.
+    date_font = book.get(theme.DATE_SIZE, italic=True, weight=theme.DATE_WEIGHT)
+    tracking_px = theme.DATE_SIZE * theme.DATE_TRACKING
+    meta_baseline = rule_y + 34 + theme.DATE_SIZE
+    if meta_override is not None:
+        if meta_override:
+            draw_ot_tracked(draw, center_x, meta_baseline, meta_override.lower(),
+                            date_font, theme.INK_SOFT, theme.DATE_FEATURES, tracking_px)
+        else:
+            return rule_y + theme.RULE_THICKNESS
+    elif when:
+        date_str, time_str = _when_parts(when)
+        feats = _feat(theme.DATE_FEATURES)
+        gap = theme.DATE_SIZE * 0.7
+        orn_w = date_font.getlength(theme.DATE_ORNAMENT)
+        date_w = sum(date_font.getlength(c, features=feats) for c in date_str) + \
+            tracking_px * max(0, len(date_str) - 1)
+        time_w = sum(date_font.getlength(c, features=feats) for c in time_str) + \
+            tracking_px * max(0, len(time_str) - 1)
+        total = date_w + gap + orn_w + gap + time_w
+        x = center_x - total / 2
+        draw_ot_tracked(draw, x + date_w / 2, meta_baseline, date_str, date_font,
+                        theme.INK_SOFT, theme.DATE_FEATURES, tracking_px)
+        x += date_w + gap
+        draw.text((x, meta_baseline), theme.DATE_ORNAMENT, font=date_font,
+                  fill=theme.INK_SOFT, anchor="ls")
+        x += orn_w + gap
+        draw_ot_tracked(draw, x + time_w / 2, meta_baseline, time_str, date_font,
+                        theme.INK_SOFT, theme.DATE_FEATURES, tracking_px)
+    else:
+        return rule_y + theme.RULE_THICKNESS
+    return meta_baseline
+
+
+def _caption_block_faux(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
+                        common_name: str, scientific_name: str,
+                        when: Optional[datetime], book: FontBook,
+                        meta_override: Optional[str]) -> float:
+    """No-libraqm fallback: the original faux small-caps caption."""
     name_font = book.get(theme.NAME_SIZE, weight=600)
     ascent, _ = name_font.getmetrics()
     baseline = top_y + ascent
     draw_smallcaps(draw, center_x, baseline, common_name, book,
                    theme.NAME_SIZE, theme.INK, theme.NAME_TRACKING)
 
-    # Scientific name — italic, sentence case as given (Genus species).
     sci_font = book.get(theme.SCI_SIZE, italic=True, weight=460)
     baseline += theme.NAME_SIZE * 0.30 + theme.SCI_SIZE
     draw.text((center_x, baseline), scientific_name, font=sci_font,
               fill=theme.INK, anchor="ms")
 
-    # Hairline rule.
     rule_y = baseline + theme.SCI_SIZE * 0.55 + 34
     half = theme.RULE_WIDTH / 2
     draw.rectangle([center_x - half, rule_y, center_x + half, rule_y + theme.RULE_THICKNESS - 1],
                    fill=theme.RULE)
 
-    # Date / time.
     meta = meta_override if meta_override is not None else (format_when(when) if when else "")
     if meta:
         meta_baseline = rule_y + 30 + theme.META_SIZE

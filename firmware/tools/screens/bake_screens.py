@@ -321,10 +321,12 @@ def _compose(name):
         _ink_paste(im, VERSION_IM, VERSION_XY)
     else:
         draw_pill(im, PILL_TEXT[name])
-    # Threshold the line art to pure black/white: a crisp, consistent 1-bit look, and
-    # every partial window is 1-bit so the firmware uses the non-flashing DU waveform.
-    # The house + wordmark are identical across screens, so partials stay tiny.
-    return im.point(lambda p: 0 if p < 150 else 255)
+    # Keep the art in 16-level gray (packed() applies the panel gamma + quantize). The
+    # smooth grayscale reads far better than a hard threshold. Cost: the gray bird/wren
+    # windows refresh with GC16 (a flash) since DU is 1-bit only; the pill stays black/
+    # white so it still refreshes flash-less with DU. House + wordmark are identical
+    # across screens, so only the bird/wren/pill boxes ever repaint.
+    return im
 
 SCREENS = [
     ("SPLASH",        _compose("splash")),

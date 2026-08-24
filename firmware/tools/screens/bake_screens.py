@@ -289,7 +289,7 @@ HOUSE_XY = (1, 40)
 FLY_XY  = (70, 150)                                    # flies in, to the upper-left
 # birdpeek is a full patch cut from the same drawing (bird + hole arc + wood grain), so
 # it must align pixel-for-pixel over the hole — top-left template-matched to the house.
-PEEK_XY = (HOUSE_XY[0] + 493, HOUSE_XY[1] + 353)
+PEEK_XY = (HOUSE_XY[0] + 493, HOUSE_XY[1] + 350)
 WORDMARK_XY = ((W - WORDMARK_IM.width) // 2, 1240)
 VERSION_XY  = ((W - VERSION_IM.width) // 2, 1772)
 

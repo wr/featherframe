@@ -319,8 +319,9 @@ void showScreen(int idx) {
     const int GAP = 24;   // small: keep art contiguous but don't merge the pill with
                           // the erasing footer into one oversized window
     int nwin = 0, c = 0;
+    int wmx[8], wny[8], wnw[8], wnh[8], wmode[8];   // deferred display areas
     epaper.wake();
-    while (c < FF_GRAY_STRIDE) {
+    while (c < FF_GRAY_STRIDE && nwin < 8) {
       bool dirty = false;
       for (int r = 0; r < FF_NATIVE_H && !dirty; r++)
         if (prev[r * FF_GRAY_STRIDE + c] != body[r * FF_GRAY_STRIDE + c]) dirty = true;
@@ -357,13 +358,19 @@ void showScreen(int idx) {
       // The display mirrors X (invisible at full width, where the full refresh runs);
       // place the window at the mirrored X so it lands where the full render put it.
       int mx = FF_NATIVE_W - nx - nw;
+      // Load each window into the controller now, but DEFER the display trigger. Firing
+      // them one-at-a-time (load, display, wait) made the bird box and the pill box
+      // repaint a couple seconds apart. Loading all first, then firing every display
+      // area back-to-back, lets the IT8951 refresh the (non-overlapping) regions together.
       epaper.tconLoadImage(win, mx, ny, nw, nh, false);   // gray load — no 1bpp flip bug
-      epaper.tconDisplayArea(mx, ny, nw, nh, mode);
-      epaper.tconWaitForDisplayReady();
+      wmx[nwin] = mx; wny[nwin] = ny; wnw[nwin] = nw; wnh[nwin] = nh; wmode[nwin] = mode;
       Serial.printf("  win x=%d y=%d w=%d h=%d mode=%d\n", nx, ny, nw, nh, mode);
       nwin++;
       c = c1 + 1;
     }
+    for (int i = 0; i < nwin; i++)                  // all changes appear at once
+      epaper.tconDisplayArea(wmx[i], wny[i], wnw[i], wnh[i], wmode[i]);
+    epaper.tconWaitForDisplayReady();
     // NOTE: do NOT sleep() here. The panel stays awake through the boot so the plate's
     // full update() later refreshes from a live gray state (sleeping mid-boot left the
     // T-CON in a state where the plate's GC16 re-showed the old screen).

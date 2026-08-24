@@ -286,20 +286,26 @@ BIRD_BOX = _ink_box("wifi", 0, 560, 300, 1000)      # fly-in bird, left of the h
 WREN_BOX = _ink_box("download", 380, 1040, 260, 820)  # wren peeking from the hole
 PILL_BOX = (170, 1524, 1234, 1792)                  # bottom pill strip
 
-def _paste_box(out, panel, box):
+def _paste_box(out, panel, box, darken=1.0):
     x0, y0, x1, y1 = box
-    reg = np.asarray(_BOOT[panel].convert("L"))[y0:y1, x0:x1].astype(int)
-    b = out[y0:y1, x0:x1]
-    out[y0:y1, x0:x1] = np.where(reg < b.astype(int) - 30, reg, b)  # transfer ink only
+    reg = np.asarray(_BOOT[panel].convert("L"))[y0:y1, x0:x1].astype(float)
+    b = out[y0:y1, x0:x1].astype(int)
+    ink = reg < b - 30                          # where this panel adds darker ink
+    val = np.clip(reg * darken, 0, 255)         # darken<1 deepens faint line art
+    out[y0:y1, x0:x1] = np.where(ink, val, b).astype(np.uint8)
 
 def _compose(name):
     if name == "splash":
         return _BOOT["splash"]                  # keep the footer on the splash itself
     out = _BASE.copy()
-    boxes = {"wifi": [BIRD_BOX, PILL_BOX], "birdnet": [PILL_BOX],
-             "download": [WREN_BOX, PILL_BOX]}[name]
-    for box in boxes:
-        _paste_box(out, name, box)
+    if name == "wifi":
+        _paste_box(out, name, BIRD_BOX, darken=0.82)   # deepen the pale flying wren
+        _paste_box(out, name, PILL_BOX)
+    elif name == "birdnet":
+        _paste_box(out, name, PILL_BOX)
+    elif name == "download":
+        _paste_box(out, name, WREN_BOX, darken=0.78)   # deepen but keep the wren's detail
+        _paste_box(out, name, PILL_BOX)
     return Image.fromarray(out)
 
 SCREENS = [

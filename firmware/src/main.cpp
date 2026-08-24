@@ -323,9 +323,9 @@ void showScreen(int idx) {
       int nx = c0 * 2, nw = (c1 - c0 + 1) * 2, ny = rmin, nh = rmax - rmin + 1;
       for (int r = 0; r < nh; r++)
         memcpy(win + r * (nw / 2), body + (ny + r) * FF_GRAY_STRIDE + c0, nw / 2);
-      // GC16 (16-gray) so the bird's fine lines show and the Garamond pill text stays
-      // smooth. DU (mode 1) is faster/flash-free but 1-bit, which jags the type. This
-      // flashes only the small changed window; the birdhouse never repaints.
+      // GC16 (16-gray) for everything: the pencil bird/wren are fine gray line art
+      // that the 1-bit DU waveform renders too faint (and ghosts on erase), and it
+      // keeps the pill type smooth. Only this small window flashes; the house doesn't.
       int mode = 2;
       // The display mirrors X (invisible at full width, where the full refresh runs);
       // place the window at the mirrored X so it lands where the full render put it.

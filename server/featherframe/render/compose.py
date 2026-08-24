@@ -110,7 +110,7 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
         sci_font = typography.FONTS.get(48, italic=True, weight=theme.SUBTITLE_WEIGHT)
         sci_baseline = block_top + size * 0.30 + 48
         typography.draw_ot_tracked(draw, cx, sci_baseline, spec.scientific_name.lower(),
-                                   sci_font, theme.INK, theme.SUBTITLE_FEATURES,
+                                   sci_font, theme.INK_MEDIUM, theme.SUBTITLE_FEATURES,
                                    48 * theme.SUBTITLE_TRACKING)
 
         rule_y = sci_baseline + 74

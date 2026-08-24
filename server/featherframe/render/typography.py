@@ -190,7 +190,7 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
     sci_font = book.get(theme.SUBTITLE_SIZE, italic=True, weight=theme.SUBTITLE_WEIGHT)
     baseline += size * 0.28 + theme.SUBTITLE_SIZE
     draw_ot_tracked(draw, center_x, baseline, scientific_name.lower(), sci_font,
-                    theme.INK, theme.SUBTITLE_FEATURES,
+                    theme.INK_MEDIUM, theme.SUBTITLE_FEATURES,
                     theme.SUBTITLE_SIZE * theme.SUBTITLE_TRACKING)
 
     # Hairline rule.

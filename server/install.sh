@@ -39,6 +39,16 @@ echo "    data dir   : $DATA_DIR"
 echo "    run as     : $RUN_USER"
 echo "    port       : $PORT"
 
+# --- system libs ---------------------------------------------------------
+# libraqm gives Pillow real OpenType shaping (swash italics + true small caps
+# on the plate caption). Without it the caption degrades to faux small caps —
+# still fine, just plainer. Best-effort; never fail the install over it.
+if command -v apt-get >/dev/null 2>&1; then
+  echo "==> Ensuring libraqm (for OpenType caption shaping)…"
+  sudo apt-get install -y libraqm0 >/dev/null 2>&1 || \
+    echo "    libraqm install skipped — caption will use faux small caps."
+fi
+
 # --- venv + deps ---------------------------------------------------------
 echo "==> Creating venv and installing dependencies…"
 python3 -m venv "$SERVER_DIR/.venv"

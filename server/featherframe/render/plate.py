@@ -117,17 +117,22 @@ def _norm_box(gray: Image.Image, box: list[float]) -> tuple[int, int, int, int]:
 
 
 def paper_normalize(gray: Image.Image) -> Image.Image:
-    """Levels stretch: lift aged cream to near-white and deepen the ink, with a
-    gentle gamma so midtones keep detail. Turns a foxed scan into a crisp plate."""
+    """Levels stretch + gentle S-curve: lift aged cream to clean paper and deepen
+    the ink so the plate reads with punch on e-ink (the flat 16-level panel
+    otherwise makes a raw scan look washed out). Turns a foxed scan into a crisp
+    plate while a shallow S keeps engraving detail in the midtones."""
     arr = np.asarray(gray, dtype=np.float32)
-    lo = np.percentile(arr, 2.0)
-    hi = np.percentile(arr, 97.0)
+    lo = np.percentile(arr, 3.5)               # tighter than before -> more separation
+    hi = np.percentile(arr, 90.0)              # clip more paper to pure white
     if hi - lo < 1e-3:
         return gray
     norm = np.clip((arr - lo) / (hi - lo), 0, 1)
-    norm = np.power(norm, 1.0 / 1.06)          # mild gamma
-    out = 12 + norm * (250 - 12)               # map into [12, 250]
-    return Image.fromarray(out.astype(np.uint8), mode="L")
+    # Shallow S-curve (blend toward smoothstep): darkens the ink, brightens the
+    # paper, leaves the midtone engraving lines mostly alone.
+    s = norm * norm * (3.0 - 2.0 * norm)
+    norm = norm * 0.62 + s * 0.38
+    out = 6 + norm * (255 - 6)                  # deep black point, paper -> pure white
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="L")
 
 
 def _trim_marginalia(gray: Image.Image) -> Image.Image:

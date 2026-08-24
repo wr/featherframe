@@ -123,7 +123,7 @@ def paper_normalize(gray: Image.Image) -> Image.Image:
     plate while a shallow S keeps engraving detail in the midtones."""
     arr = np.asarray(gray, dtype=np.float32)
     lo = np.percentile(arr, 3.5)               # tighter than before -> more separation
-    hi = np.percentile(arr, 95.0)
+    hi = np.percentile(arr, 90.0)              # clip more paper to pure white
     if hi - lo < 1e-3:
         return gray
     norm = np.clip((arr - lo) / (hi - lo), 0, 1)
@@ -131,7 +131,7 @@ def paper_normalize(gray: Image.Image) -> Image.Image:
     # paper, leaves the midtone engraving lines mostly alone.
     s = norm * norm * (3.0 - 2.0 * norm)
     norm = norm * 0.62 + s * 0.38
-    out = 6 + norm * (252 - 6)                  # deeper black point, cleaner paper
+    out = 6 + norm * (255 - 6)                  # deep black point, paper -> pure white
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="L")
 
 

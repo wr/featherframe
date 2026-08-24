@@ -188,7 +188,7 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
 
     # Scientific name — italic small caps with old-style figures.
     sci_font = book.get(theme.SUBTITLE_SIZE, italic=True, weight=theme.SUBTITLE_WEIGHT)
-    baseline += size * 0.24 + theme.SUBTITLE_SIZE
+    baseline += size * 0.28 + theme.SUBTITLE_SIZE
     draw_ot_tracked(draw, center_x, baseline, scientific_name.lower(), sci_font,
                     theme.INK, theme.SUBTITLE_FEATURES,
                     theme.SUBTITLE_SIZE * theme.SUBTITLE_TRACKING)
@@ -202,7 +202,7 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
     # Date / time, split around a floral fleuron.
     date_font = book.get(theme.DATE_SIZE, italic=True, weight=theme.DATE_WEIGHT)
     tracking_px = theme.DATE_SIZE * theme.DATE_TRACKING
-    meta_baseline = rule_y + 34 + theme.DATE_SIZE
+    meta_baseline = rule_y + 47 + theme.DATE_SIZE
     if meta_override is not None:
         if meta_override:
             draw_ot_tracked(draw, center_x, meta_baseline, meta_override.lower(),

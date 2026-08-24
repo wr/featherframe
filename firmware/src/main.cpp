@@ -263,27 +263,85 @@ void clearToast() {
 // is baked at full 1404x1872 into ff_screens.h and drawn here. Same proven path as
 // the toast/splash: draw 1-bit at rotation TOAST_ROT and full-refresh (full 1-bit
 // update() is Seeed's HelloWorld path; the gray sprite can't be rotated). Each
-// screen is PackBits-packed in flash; we expand it into a PSRAM buffer and push it
-// through displayFrame — the exact same 16-level gray path as the bird plates. The
-// panel's 1-bit path can't render the full panel width (the bottom quarter comes up
-// black), so the screens are baked as gray. Full refresh each; the plate replaces
-// the last one once the bird is fetched.
+// Screens are baked as 16-level gray in native 1872x1404 (the panel's 1-bit path
+// can't address the full width — the bottom quarter comes up black — but the gray
+// load path can). An entry screen (splash/setup) does a full gray refresh via
+// displayFrame; every following screen repaints ONLY the region that changed, as a
+// windowed gray update, so the birdhouse never flashes. Native 4bpp: 2 px/byte,
+// stride 936, so a byte column = 2 px.
+#define FF_GRAY_STRIDE (FF_NATIVE_W / 2)           // 936 bytes/row
+
 void showScreen(int idx) {
   if (idx < 0 || idx >= FF_SCR_COUNT) return;
-  static uint8_t* buf = nullptr;                   // FFF header + decoded 4bpp body
+  static uint8_t* buf  = nullptr;                  // FFF header + decoded 4bpp body
+  static uint8_t* prev = nullptr;                  // last screen's body, for diffing
+  static uint8_t* win  = nullptr;                  // extracted window for a partial
+  static bool havePrev = false;
   const size_t total = FFF_HEADER_SIZE + FF_SCREEN_BYTES;
   if (!buf) {
-    buf = (uint8_t*)ps_malloc(total);              // ~1.3 MB, PSRAM
-    if (!buf) buf = (uint8_t*)malloc(total);
-    if (!buf) { Serial.println("screen: no buffer"); return; }
+    buf  = (uint8_t*)ps_malloc(total);             // ~1.3 MB each, PSRAM
+    prev = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
+    win  = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
+    if (!buf || !prev || !win) { Serial.println("screen: no buffer"); return; }
     FFFHeader h = {};
     memcpy(h.magic, "FFF1", 4);
     h.version = 1; h.bpp = 4; h.width = FF_NATIVE_W; h.height = FF_NATIVE_H;
     memcpy(buf, &h, FFF_HEADER_SIZE);              // header is constant; write once
   }
-  ff_unpack(ff_screens[idx].data, ff_screens[idx].len, buf + FFF_HEADER_SIZE);
-  displayFrame(buf, total);                        // proven gray path (== bird plates)
-  Serial.printf("screen %d\n", idx);
+  uint8_t* body = buf + FFF_HEADER_SIZE;
+  ff_unpack(ff_screens[idx].data, ff_screens[idx].len, body);
+
+  const bool entry = (idx == FF_SCR_SPLASH || idx == FF_SCR_SETUP);
+  if (entry || !havePrev) {
+    displayFrame(buf, total);                      // full gray refresh (== bird plates)
+    Serial.printf("screen %d full\n", idx);
+  } else {
+    // Repaint each changed region as its own tight window. The birdhouse is static
+    // (identical between screens), so a transition only touches the bird box and the
+    // pill box — and in native orientation those are separated along X (byte columns),
+    // so we band by column: a run of changed columns is one window. DU waveform =
+    // non-flashing (the content is high-contrast line art / pills). Byte column = 2 px.
+    const int GAP = 64;
+    int nwin = 0, c = 0;
+    epaper.wake();
+    while (c < FF_GRAY_STRIDE) {
+      bool dirty = false;
+      for (int r = 0; r < FF_NATIVE_H && !dirty; r++)
+        if (prev[r * FF_GRAY_STRIDE + c] != body[r * FF_GRAY_STRIDE + c]) dirty = true;
+      if (!dirty) { c++; continue; }
+      int c0 = c, c1 = c, gap = 0, rmin = FF_NATIVE_H, rmax = -1;
+      for (int cc = c; cc < FF_GRAY_STRIDE; cc++) {
+        bool cd = false;
+        for (int r = 0; r < FF_NATIVE_H; r++)
+          if (prev[r * FF_GRAY_STRIDE + cc] != body[r * FF_GRAY_STRIDE + cc]) {
+            cd = true; if (r < rmin) rmin = r; if (r > rmax) rmax = r;
+          }
+        if (cd) { c1 = cc; gap = 0; }
+        else if (++gap > GAP) break;
+      }
+      c0 &= ~3; c1 |= 3;                            // align X to 8 px (4 bytes)
+      int nx = c0 * 2, nw = (c1 - c0 + 1) * 2, ny = rmin, nh = rmax - rmin + 1;
+      for (int r = 0; r < nh; r++)
+        memcpy(win + r * (nw / 2), body + (ny + r) * FF_GRAY_STRIDE + c0, nw / 2);
+      // GC16 (16-gray) so the bird's fine lines show and the Garamond pill text stays
+      // smooth. DU (mode 1) is faster/flash-free but 1-bit, which jags the type. This
+      // flashes only the small changed window; the birdhouse never repaints.
+      int mode = 2;
+      // The display mirrors X (invisible at full width, where the full refresh runs);
+      // place the window at the mirrored X so it lands where the full render put it.
+      int mx = FF_NATIVE_W - nx - nw;
+      epaper.tconLoadImage(win, mx, ny, nw, nh, false);   // gray load — no 1bpp flip bug
+      epaper.tconDisplayArea(mx, ny, nw, nh, mode);
+      epaper.tconWaitForDisplayReady();
+      Serial.printf("  win x=%d y=%d w=%d h=%d mode=%d\n", nx, ny, nw, nh, mode);
+      nwin++;
+      c = c1 + 1;
+    }
+    epaper.sleep();
+    Serial.printf("screen %d: %d partial window(s)\n", idx, nwin);
+  }
+  memcpy(prev, body, FF_SCREEN_BYTES);
+  havePrev = true;
 }
 
 // Kept for the boot call site; the battery/build args are now baked in the art.
@@ -432,6 +490,9 @@ void setup() {
 #if FF_NO_SLEEP
   // --- Always-awake dev model: splash now, then Wi-Fi, then poll buttons in loop().
   epaper.begin(0);                          // full init once; the panel stays warm
+
+  { uint16_t info[24] = {0}; epaper.getTconInfo(info);
+    Serial.printf("TCON panelW=%u panelH=%u imgbuf=0x%X\n", info[0], info[1], info[2] | (info[3] << 16)); }
 
   float vbat = readBatteryVoltage();
   int pct = batteryPercent(vbat);

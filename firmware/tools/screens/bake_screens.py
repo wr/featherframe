@@ -63,7 +63,12 @@ def font(size, italic=False, weight=None):
     return f
 
 ARTS = {k: Image.open(os.path.join(ART, f"{k}.png")).convert("L")
-        for k in ("house", "fly", "wren", "bird")}
+        for k in ("house", "fly", "wren", "bird", "wren_hole")}
+
+# wren_hole is a cut-out of the wren peeking from the entrance, aligned to house.png's
+# hole (both drawings share the hole position), so "arrived" screens keep the exact
+# same house and only the little hole box changes.
+WREN_HOLE_AT = (145, 235)          # top-left in house.png pixel space (670x990)
 
 def new_canvas():
     c = Image.new("L", (W, H), 255)
@@ -75,6 +80,19 @@ def paste_art(canvas, key, cx, top, target_h):
     tw = int(w * target_h / h)
     a = art.resize((tw, target_h), Image.LANCZOS)
     canvas.paste(a, (int(cx - tw / 2), int(top)), Image.eval(a, lambda p: 255 - p).convert("L"))
+
+def paste_wren_hole(canvas, cx, top, target_h):
+    # Overlay the wren-in-the-hole onto the (already-pasted) house, scaled/positioned
+    # to match. house.png is the reference frame for WREN_HOLE_AT.
+    house = ARTS["house"]
+    scale = target_h / house.height
+    house_left = cx - (house.width * scale) / 2
+    a = ARTS["wren_hole"]
+    tw = int(a.width * scale); th = int(a.height * scale)
+    a = a.resize((tw, th), Image.LANCZOS)
+    x = int(house_left + WREN_HOLE_AT[0] * scale)
+    y = int(top + WREN_HOLE_AT[1] * scale)
+    canvas.paste(a, (x, y), Image.eval(a, lambda p: 255 - p).convert("L"))
 
 def paste_at(canvas, key, right, top, target_h):
     # Paste an art by its RIGHT edge + top (used for the fly-in bird, which sits
@@ -144,11 +162,11 @@ def screen_splash():
 
 def screen_boot(text, bird=False, home=False):
     c, d = new_canvas()
-    # "home" swaps to the wren-in-the-hole drawing (the bird has arrived); otherwise
-    # the same empty house as the splash, optionally with the wren flying in.
-    paste_art(c, "wren" if home else "house", W / 2, BOOT_ART_TOP, BOOT_ART_H)
+    paste_art(c, "house", W / 2, BOOT_ART_TOP, BOOT_ART_H)   # same house as the splash
     if bird:
         paste_at(c, "bird", 470, 300, 330)                  # flies in from the left
+    if home:
+        paste_wren_hole(c, W / 2, BOOT_ART_TOP, BOOT_ART_H)  # arrived: wren in the hole
     draw_wordmark(d, BOOT_WORDMARK_Y)
     fnt = font(50, italic=True)
     tw = d.textlength(text, font=fnt)
@@ -190,9 +208,11 @@ def screen_setup():
 
 def screen_check(states, bird=False, home=False):
     c, d = new_canvas()
-    paste_art(c, "wren" if home else "house", W / 2, 150, 660)
+    paste_art(c, "house", W / 2, 150, 660)
     if bird:
         paste_at(c, "bird", 500, 250, 280)
+    if home:
+        paste_wren_hole(c, W / 2, 150, 660)
     rows = ["Connecting to wi-fi...", "Connecting to BirdNET...", "Downloading image..."]
     x0, y0, x1 = 260, 1300, W - 260
     rowh = 130; y1 = y0 + rowh * len(rows) + 60

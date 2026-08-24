@@ -338,10 +338,11 @@ void showScreen(int idx) {
       int nx = c0 * 2, nw = (c1 - c0 + 1) * 2, ny = rmin, nh = rmax - rmin + 1;
       for (int r = 0; r < nh; r++)
         memcpy(win + r * (nw / 2), body + (ny + r) * FF_GRAY_STRIDE + c0, nw / 2);
-      // GC16 (16-gray) for everything: the pencil bird/wren are fine gray line art
-      // that the 1-bit DU waveform renders too faint (and ghosts on erase), and it
-      // keeps the pill type smooth. Only this small window flashes; the house doesn't.
-      int mode = 2;
+      // GL16 (16-gray) for everything: it keeps all 16 levels (so the pencil bird/wren
+      // don't wash out the way the 1-bit DU waveform does) but skips GC16's hard drive
+      // to black, so the bird/wren/pill fade in instead of flashing black. Only this
+      // small window updates; the house never moves.
+      int mode = 3;
       // The display mirrors X (invisible at full width, where the full refresh runs);
       // place the window at the mirrored X so it lands where the full render put it.
       int mx = FF_NATIVE_W - nx - nw;

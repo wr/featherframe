@@ -284,7 +284,7 @@ def _ink_box(name, xlo, xhi, ylo, yhi):
 
 BIRD_BOX = _ink_box("wifi", 0, 560, 300, 1000)      # fly-in bird, left of the house
 WREN_BOX = _ink_box("download", 380, 1040, 260, 820)  # wren peeking from the hole
-PILL_BOX = (170, 1524, 1234, 1792)                  # bottom pill strip
+# The pill is drawn (draw_pill), not transferred from the SVG, so there is no PILL_BOX.
 
 def _paste_box(out, panel, box, darken=1.0):
     x0, y0, x1, y1 = box
@@ -294,22 +294,44 @@ def _paste_box(out, panel, box, darken=1.0):
     val = np.clip(reg * darken, 0, 255)         # darken<1 deepens faint line art
     out[y0:y1, x0:x1] = np.where(ink, val, b).astype(np.uint8)
 
+# The status pill copy per boot screen (the SVG pill is rounded; we draw our own
+# square-corner rectangle so the firmware's refresh window is fully inked — see
+# draw_pill).
+PILL_TEXT = {
+    "wifi":     "Connecting to Wi-Fi…",
+    "birdnet":  "Connecting to BirdNET…",
+    "download": "Downloading image…",
+}
+
+# Rectangular pill geometry. Square corners (not rounded) so the pill FILLS the
+# firmware's GC16/GL16 refresh window edge-to-edge. A rounded pill left white
+# corners inside that window, and those flashed as a rectangular halo around it.
+PILL_H, PILL_Y, PILL_PAD_X, PILL_ICON = 116, 1560, 60, 70
+
+def draw_pill(im, text):
+    d = ImageDraw.Draw(im)
+    fnt = font(50, italic=True)
+    tw = d.textlength(text, font=fnt)
+    pillw = tw + PILL_PAD_X * 2 + PILL_ICON
+    px = (W - pillw) / 2
+    d.rectangle([px, PILL_Y, px + pillw, PILL_Y + PILL_H], fill=0)   # square corners
+    spinner(d, px + PILL_PAD_X + PILL_ICON * 0.4, PILL_Y + PILL_H / 2, 26)
+    text_v(d, px + PILL_PAD_X + PILL_ICON + 6, PILL_Y + PILL_H / 2, text, fnt, fill=255)
+
 def _compose(name):
     if name == "splash":
         return _BOOT["splash"]                  # keep the footer on the splash itself
     out = _BASE.copy()
     if name == "wifi":
         _paste_box(out, name, BIRD_BOX, darken=0.82)   # deepen the pale flying wren
-        _paste_box(out, name, PILL_BOX)
-    elif name == "birdnet":
-        _paste_box(out, name, PILL_BOX)
     elif name == "download":
         # Full-copy the hole box: the wren's feathered body is LIGHTER than the empty
         # dark hole, so an ink-only transfer drops all its detail into a black blob.
         x0, y0, x1, y1 = WREN_BOX
         out[y0:y1, x0:x1] = np.asarray(_BOOT["download"].convert("L"))[y0:y1, x0:x1]
-        _paste_box(out, name, PILL_BOX)
-    return Image.fromarray(out)
+    im = Image.fromarray(out)
+    draw_pill(im, PILL_TEXT[name])              # our square pill, over the SVG's rounded one
+    return im
 
 SCREENS = [
     ("SPLASH",        _compose("splash")),

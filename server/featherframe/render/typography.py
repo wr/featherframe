@@ -270,7 +270,7 @@ def plate_number_mark(draw: ImageDraw.ImageDraw, ordinal: int,
     x_right = theme.WIDTH - theme.MARGIN_X
     if HAS_RAQM:
         text = f"{theme.PLATE_NO_NUMERO} {ordinal}"
-        font = book.get(theme.PLATE_NO_SIZE, italic=True, weight=theme.DATE_WEIGHT)
+        font = book.get(theme.PLATE_NO_SIZE, italic=True, weight=theme.PLATE_NO_WEIGHT)
         feats = _feat(theme.PLATE_NO_FEATURES)
         # Align the glyph's ink top (not the ascender line) to the top margin:
         # getbbox's top is the ascender->ink gap for this string.

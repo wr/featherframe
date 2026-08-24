@@ -33,6 +33,7 @@ MARGIN_BOTTOM = 95
 # the bird art gets everything above it.
 CAPTION_BLOCK_H = 322
 CAPTION_GAP = 64   # gap between the art and the caption block
+CAPTION_DROP = 30  # push the name section down without moving the art
 
 # Caption typography (point-ish sizes at native panel resolution)
 NAME_SIZE = 78         # common name, faux small caps
@@ -44,6 +45,7 @@ PLATE_NO_SIZE = 42     # "№ 47" corner mark — same size as the date line
 PLATE_NO_TRACKING = 0.18
 PLATE_NO_NUMERO = "№"          # numero sign, then the ordinal in oldstyle figures
 PLATE_NO_FEATURES = ("onum", "kern")
+PLATE_NO_WEIGHT = 600          # semibold corner mark
 
 SMALLCAP_RATIO = 0.76  # small-cap glyph height as a fraction of full caps
 
@@ -60,7 +62,7 @@ SUBTITLE_WEIGHT = 500
 SUBTITLE_TRACKING = 0.14
 SUBTITLE_FEATURES = ("smcp", "onum", "liga", "dlig", "hlig", "ordn", "kern")
 
-DATE_SIZE = 42             # date / time line, italic small caps + oldstyle figs
+DATE_SIZE = 36             # date / time line, italic small caps + oldstyle figs
 DATE_WEIGHT = 500
 DATE_TRACKING = 0.14
 DATE_FEATURES = ("smcp", "onum", "ordn", "liga", "kern")

@@ -1,15 +1,9 @@
-"""The detection-source seam.
+"""The detection-source interface.
 
-A ``DetectionSource`` is where the birds come from. BirdNET-Pi (local SQLite),
-BirdNET-Go (local REST), and later BirdWeather (cloud REST) all implement this
-one interface, so ``service.tick()`` never learns which backend it's talking to.
-
-The contract mirrors what the scheduler actually asks for, and every method
-*soft-fails* to a safe default (None / [] / 0) — a missing or odd source keeps
-the current frame on the wall instead of crashing. Priority: never a broken frame.
-
-The cursor is an opaque monotonic ``int`` (a rowid for Pi, a detection ``id`` for
-Go); it's persisted by the service so we never replay history.
+BirdNET-Pi (local SQLite) and BirdNET-Go (local REST) implement ``DetectionSource``;
+``service.tick()`` uses it without knowing the backend. Every method soft-fails to
+a safe default (None / [] / 0). The cursor is an opaque monotonic ``int`` (a rowid
+for Pi, a detection ``id`` for Go), persisted by the service.
 """
 from __future__ import annotations
 
@@ -76,10 +70,8 @@ class DetectionSource(abc.ABC):
         """Recent detections, newest first. Empty on failure."""
 
     def latest(self, min_confidence: float = 0.0, scan: int = 25) -> Optional[Detection]:
-        """Most recent detection at/above the threshold. None on empty/failure.
-
-        Returns a small window's head so callers can skip blocklisted species
-        without another query — a concrete impl may override for efficiency."""
+        """Most recent detection at/above the threshold, or None. Concrete
+        implementations may override."""
         recent = self.latest_many(min_confidence=min_confidence, limit=scan)
         return recent[0] if recent else None
 

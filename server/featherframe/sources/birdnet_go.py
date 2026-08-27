@@ -1,18 +1,12 @@
-"""BirdNET-Go as a DetectionSource, over its REST API.
+"""BirdNET-Go as a DetectionSource, over its ``/api/v2`` REST API.
 
-We talk to BirdNET-Go's ``/api/v2`` HTTP API, never its database — the SQLite
-schema is normalised and actively churning, while the API is stable and, on
-localhost, auth-free for reads.
-
-Two endpoints cover everything:
+Two endpoints:
   * ``GET /api/v2/detections`` — newest-first, paginated. Each row carries an
-    integer ``id`` (our cursor), local ``date``/``time``, names, and confidence.
+    integer ``id`` (the cursor), local ``date``/``time``, names, and confidence.
   * ``GET /api/v2/analytics/species/summary`` — per-species ``count`` and
-    ``first_heard``, which give the all-time count, first-seen date, and the
-    'No. 47' ordinal (rank by first appearance).
+    ``first_heard`` (the all-time count, first-seen date, and first-appearance rank).
 
-Every method soft-fails to a safe default, exactly like the BirdNET-Pi source:
-a flaky network keeps the current frame on the wall.
+Every method soft-fails to a safe default.
 """
 from __future__ import annotations
 
@@ -27,9 +21,9 @@ from .base import Detection, DetectionSource
 
 log = logging.getLogger("featherframe.birdnet_go")
 
-_SUMMARY_TTL_S = 60.0   # the summary is all-species; don't refetch it every render
-_PAGE = 100             # detections page size when walking the cursor
-_MAX_PAGES = 5          # bound the work per poll (500 rows) — a 20s poll never nears this
+_SUMMARY_TTL_S = 60.0   # summary/threshold cache lifetime (seconds)
+_PAGE = 100             # detections page size
+_MAX_PAGES = 5          # max pages walked per new_since call
 
 
 class BirdNetGoSource(DetectionSource):
@@ -39,9 +33,7 @@ class BirdNetGoSource(DetectionSource):
                  defer_confidence: bool = True) -> None:
         self.base_url = (base_url or "").rstrip("/")
         self._timeout_s = timeout_s
-        # Defer the confidence bar to BirdNET-Go itself: read its own
-        # /birdnet/threshold and filter by that, so there's one place to tune it
-        # (BirdNET-Go) rather than a second, redundant bar here.
+        # When set, filter by BirdNET-Go's own /birdnet/threshold instead of the caller's.
         self.defer_confidence = defer_confidence
         self._summary: Optional[list[dict]] = None
         self._summary_at: float = 0.0

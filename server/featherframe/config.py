@@ -27,11 +27,10 @@ class Config:
     # Display behaviour ----------------------------------------------------
     mode: str = "single"  # "single" | "collage" | "auto"
     confidence_threshold: float = 0.7
-    # Single mode: always show the most recent qualifying detection, so a fetch
-    # always returns the newest bird. False restores the debounce + same-species
-    # suppression below (fewer repaints, but not always the latest).
+    # Single mode shows the most recent qualifying detection. False applies
+    # refresh_debounce_minutes and same-species suppression instead.
     single_show_latest: bool = True
-    refresh_debounce_minutes: int = 15  # only used when single_show_latest is False
+    refresh_debounce_minutes: int = 15  # applies when single_show_latest is False
     wake_interval_minutes: int = 15  # advisory: how often the device wakes
 
     # Quiet hours ----------------------------------------------------------
@@ -52,8 +51,8 @@ class Config:
     detection_backend: str = "birdnet_pi"  # "birdnet_pi" | "birdnet_go"
     birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"  # birdnet_pi backend
     birdnet_go_url: str = "http://localhost:8080"           # birdnet_go backend
-    # Defer the confidence bar to BirdNET-Go's own setting (one knob, not two).
-    # When on, Featherframe's confidence_threshold is ignored for this backend.
+    # When on, the BirdNET-Go source filters by BirdNET-Go's own confidence
+    # threshold and ignores confidence_threshold.
     birdnet_go_defer_confidence: bool = True
     poll_interval_seconds: int = 20  # 10-30s per spec
 
@@ -66,12 +65,8 @@ class Config:
     # Which way depends on how the frame is hung — fix it here, no reflash needed.
     panel_rotation: int = 90  # 0 | 90 | 180 | 270 degrees
 
-    # The frame's mat opening (8x6) is smaller than the panel's glass, so a strip
-    # of every edge sits behind the mat. Shrink the whole composition by this much
-    # per edge (as a % of the panel dimension) and center it on white paper, so the
-    # visible art fits inside the opening with a thin print margin. Panel and mat
-    # share the same 0.75 aspect, so one uniform scale keeps proportions exact.
-    mat_inset_pct: float = 4.0  # 0 disables; ~4% per edge -> art at 92%
+    # Shrink the composition by this percent per edge and center it on white.
+    mat_inset_pct: float = 4.0  # 0 disables
 
     # Collage --------------------------------------------------------------
     collage_rebuilds_per_day: int = 3

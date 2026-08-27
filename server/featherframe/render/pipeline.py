@@ -17,13 +17,8 @@ from .provider import ArtProvider
 
 
 def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
-    """Shrink the composition so it clears the frame's mat opening.
-
-    The 8x6 mat hides a strip of every panel edge. We scale the whole frame down
-    by `mat_inset_pct` per edge and center it on the white paper field, so the
-    visible art lands inside the opening. Panel and mat share the 0.75 aspect, so
-    one uniform scale keeps the composition's proportions exact.
-    """
+    """Scale the composition down by `mat_inset_pct` per edge and center it on the
+    white field. Returns the image unchanged when the inset is 0."""
     pct = getattr(config, "mat_inset_pct", 0.0)
     if pct <= 0:
         return img

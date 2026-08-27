@@ -146,6 +146,10 @@
             <input type="number" name="refresh_debounce_minutes" min="1" max="720" value="{{ config.refresh_debounce_minutes }}">
           </div>
         </div>
+        <div class="field check">
+          <input type="checkbox" id="ssl" name="single_show_latest" {{ 'checked' if config.single_show_latest else '' }}>
+          <label for="ssl">Always show the most recent detection (ignore debounce &amp; same-species)</label>
+        </div>
         <div class="field">
           <label>Device wake interval (min)</label>
           <input type="number" name="wake_interval_minutes" min="1" max="720" value="{{ config.wake_interval_minutes }}">

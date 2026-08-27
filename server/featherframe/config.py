@@ -27,7 +27,11 @@ class Config:
     # Display behaviour ----------------------------------------------------
     mode: str = "single"  # "single" | "collage" | "auto"
     confidence_threshold: float = 0.7
-    refresh_debounce_minutes: int = 15  # never repaint the panel more often
+    # Single mode: always show the most recent qualifying detection, so a fetch
+    # always returns the newest bird. False restores the debounce + same-species
+    # suppression below (fewer repaints, but not always the latest).
+    single_show_latest: bool = True
+    refresh_debounce_minutes: int = 15  # only used when single_show_latest is False
     wake_interval_minutes: int = 15  # advisory: how often the device wakes
 
     # Quiet hours ----------------------------------------------------------

@@ -35,7 +35,7 @@ species:
 
   # --- Woodpeckers ------------------------------------------------------
   - {common: "Downy Woodpecker",       scientific: "Dryobates pubescens",  plate: 112, audubon_title: "Downy Woodpecker", sci_synonyms: ["Picoides pubescens"]}
-  - {common: "Hairy Woodpecker",       scientific: "Dryobates villosus",   plate: 416, audubon_title: "Hairy Woodpecker (composite)", composite: true, sci_synonyms: ["Picoides villosus"]}
+  - {common: "Hairy Woodpecker",       scientific: "Dryobates villosus",   plate: 416, audubon_title: "Hairy Woodpecker (composite)", composite: true, sci_synonyms: ["Picoides villosus", "Leuconotopicus villosus", "Picus villosus"]}
   - {common: "Red-bellied Woodpecker", scientific: "Melanerpes carolinus", plate: 416, audubon_title: "Red-bellied Woodpecker (composite)", composite: true}
   - {common: "Northern Flicker",       scientific: "Colaptes auratus",     plate: 37,  audubon_title: "Golden-winged Woodpecker"}
   - {common: "Pileated Woodpecker",    scientific: "Dryocopus pileatus",   plate: 111, audubon_title: "Pileated Woodpecker"}
@@ -82,3 +82,112 @@ species:
   # explicit rather than a surprising miss.
   - {common: "European Starling",      scientific: "Sturnus vulgaris",     plate: none, audubon_title: "(not painted — introduced to N. America 1890)"}
   - {common: "House Sparrow",          scientific: "Passer domesticus",    plate: none, audubon_title: "(not painted — introduced to N. America 1851)"}
+
+  # --- Catalog expansion: every detected species Audubon painted -------
+  # NB: the mirror's data.json 'name' column is shifted +1 for plates 361-399
+  # (it duplicates 'Winter Wren and Rock Wren' at 360/361 and omits 399). Its
+  # fileName column follows TRUE Havell numbering, which is what these pins
+  # use. fetch_plates warns when it sees that disagreement.
+  # Added 2026-08 from a verified research pass (research + adversarial
+  # verify against the Havell title index; anything uncertain became
+  # 'plate: none' below rather than risk a wrong bird).
+  - {common: "Acadian Flycatcher", scientific: "Empidonax virescens", plate: 144, audubon_title: "Small Green Crested Flycatcher", sci_synonyms: ["Empidonax acadicus", "Muscicapa acadica"]}
+  - {common: "Alder Flycatcher", scientific: "Empidonax alnorum", plate: 45, audubon_title: "Traill's Flycatcher", sci_synonyms: ["Empidonax traillii"]}
+  - {common: "American Kestrel", scientific: "Falco sparverius", plate: 142, audubon_title: "American Sparrow Hawk"}
+  - {common: "American Redstart", scientific: "Setophaga ruticilla", plate: 40, audubon_title: "American Redstart", sci_synonyms: ["Muscicapa ruticilla"]}
+  - {common: "American Tree Sparrow", scientific: "Spizelloides arborea", plate: 188, audubon_title: "Tree Sparrow", sci_synonyms: ["Spizella arborea", "Passerella arborea"]}
+  - {common: "American Woodcock", scientific: "Scolopax minor", plate: 268, audubon_title: "American Woodcock", sci_synonyms: ["Philohela minor", "Microptera americana"]}
+  - {common: "Bald Eagle", scientific: "Haliaeetus leucocephalus", plate: 31, audubon_title: "White-headed Eagle", sci_synonyms: ["Falco leucocephalus"]}
+  - {common: "Barn Swallow", scientific: "Hirundo rustica", plate: 173, audubon_title: "Barn Swallow", sci_synonyms: ["Hirundo erythrogaster", "Hirundo americana"]}
+  - {common: "Barred Owl", scientific: "Strix varia", plate: 46, audubon_title: "Barred Owl"}
+  - {common: "Bay-breasted Warbler", scientific: "Setophaga castanea", plate: 69, audubon_title: "Bay-breasted Warbler", sci_synonyms: ["Dendroica castanea"]}
+  - {common: "Belted Kingfisher", scientific: "Megaceryle alcyon", plate: 77, audubon_title: "Belted Kingfisher", sci_synonyms: ["Ceryle alcyon", "Alcedo alcyon"]}
+  - {common: "Black-and-white Warbler", scientific: "Mniotilta varia", plate: 90, audubon_title: "Black & White Creeper", sci_synonyms: ["Certhia varia", "Motacilla varia"]}
+  - {common: "Black-bellied Plover", scientific: "Pluvialis squatarola", plate: 334, audubon_title: "Black-bellied Plover", sci_synonyms: ["Squatarola squatarola", "Charadrius squatarola"]}
+  - {common: "Black-billed Cuckoo", scientific: "Coccyzus erythropthalmus", plate: 32, audubon_title: "Black-billed Cuckoo", sci_synonyms: ["Coccyzus erythrophthalmus"]}
+  - {common: "Blackburnian Warbler", scientific: "Setophaga fusca", plate: 135, audubon_title: "Blackburnian Warbler", sci_synonyms: ["Dendroica fusca"]}
+  - {common: "Blackpoll Warbler", scientific: "Setophaga striata", plate: 133, audubon_title: "Black-poll Warbler", sci_synonyms: ["Dendroica striata", "Sylvia striata"]}
+  - {common: "Blue-headed Vireo", scientific: "Vireo solitarius", plate: 28, audubon_title: "Vireo Solitarius"}
+  - {common: "Boat-tailed Grackle", scientific: "Quiscalus major", plate: 187, audubon_title: "Boat-tailed Grackle", sci_synonyms: ["Cassidix major"]}
+  - {common: "Broad-winged Hawk", scientific: "Buteo platypterus", plate: 91, audubon_title: "Broad-winged Hawk", sci_synonyms: ["Falco pennsylvanicus"]}
+  - {common: "Brown Creeper", scientific: "Certhia americana", plate: 415, audubon_title: "Brown Creeper and Californian Nuthatch (composite)", composite: true, sci_synonyms: ["Certhia familiaris"]}
+  - {common: "Canada Goose", scientific: "Branta canadensis", plate: 201, audubon_title: "Canada Goose", sci_synonyms: ["Anser canadensis", "Anas canadensis"]}
+  - {common: "Chimney Swift", scientific: "Chaetura pelagica", plate: 158, audubon_title: "American Swift", sci_synonyms: ["Chaetura pelasgia", "Cypselus pelasgius"]}
+  - {common: "Common Eider", scientific: "Somateria mollissima", plate: 246, audubon_title: "Eider Duck"}
+  - {common: "Common Loon", scientific: "Gavia immer", plate: 306, audubon_title: "Great Northern Diver, or Loon", sci_synonyms: ["Colymbus immer", "Colymbus glacialis"]}
+  - {common: "Common Raven", scientific: "Corvus corax", plate: 101, audubon_title: "Raven"}
+  - {common: "Common Yellowthroat", scientific: "Geothlypis trichas", plate: 23, audubon_title: "Yellow-breasted Warbler", sci_synonyms: ["Sylvia trichas", "Turdus trichas"]}
+  - {common: "Cooper's Hawk", scientific: "Accipiter cooperii", plate: 36, audubon_title: "Stanley Hawk", sci_synonyms: ["Astur cooperii"]}
+  - {common: "Dickcissel", scientific: "Spiza americana", plate: 384, audubon_title: "Black-throated Bunting", sci_synonyms: ["Emberiza americana"]}
+  - {common: "Dunlin", scientific: "Calidris alpina", plate: 290, audubon_title: "Red backed Sandpiper", sci_synonyms: ["Erolia alpina", "Pelidna alpina", "Tringa alpina"]}
+  - {common: "Eastern Kingbird", scientific: "Tyrannus tyrannus", plate: 79, audubon_title: "Tyrant Fly-catcher", sci_synonyms: ["Muscicapa tyrannus", "Lanius tyrannus"]}
+  - {common: "Eastern Phoebe", scientific: "Sayornis phoebe", plate: 120, audubon_title: "Pewit Flycatcher", sci_synonyms: ["Muscicapa fusca", "Sayornis fuscus"]}
+  - {common: "Eastern Screech-Owl", scientific: "Megascops asio", plate: 97, audubon_title: "Little Screech Owl", sci_synonyms: ["Otus asio"]}
+  - {common: "Eastern Wood-Pewee", scientific: "Contopus virens", plate: 115, audubon_title: "Wood Pewee", sci_synonyms: ["Myiochanes virens", "Muscicapa virens"]}
+  - {common: "Eurasian Whimbrel", scientific: "Numenius phaeopus", plate: 237, audubon_title: "Hudsonian Curlew", sci_synonyms: ["Numenius hudsonicus", "Numenius phaeopus hudsonicus"]}
+  - {common: "European Herring Gull", scientific: "Larus argentatus", plate: 291, audubon_title: "Herring Gull", sci_synonyms: ["Larus smithsonianus", "Larus argentatus smithsonianus"]}
+  - {common: "Fish Crow", scientific: "Corvus ossifragus", plate: 146, audubon_title: "Fish Crow"}
+  - {common: "Gadwall", scientific: "Mareca strepera", plate: 348, audubon_title: "Gadwall Duck", sci_synonyms: ["Anas strepera", "Chaulelasmus streperus"]}
+  - {common: "Golden-crowned Kinglet", scientific: "Regulus satrapa", plate: 183, audubon_title: "American Golden crested-Wren"}
+  - {common: "Grasshopper Sparrow", scientific: "Ammodramus savannarum", plate: 130, audubon_title: "Yellow-winged Sparrow", sci_synonyms: ["Coturniculus savannarum", "Fringilla passerina"]}
+  - {common: "Great Black-backed Gull", scientific: "Larus marinus", plate: 241, audubon_title: "Black Backed Gull"}
+  - {common: "Great Blue Heron", scientific: "Ardea herodias", plate: 211, audubon_title: "Great blue Heron"}
+  - {common: "Great Crested Flycatcher", scientific: "Myiarchus crinitus", plate: 129, audubon_title: "Great Crested Flycatcher", sci_synonyms: ["Muscicapa crinita"]}
+  - {common: "Great Horned Owl", scientific: "Bubo virginianus", plate: 61, audubon_title: "Great Horned Owl", sci_synonyms: ["Strix virginiana"]}
+  - {common: "Greater Yellowlegs", scientific: "Tringa melanoleuca", plate: 308, audubon_title: "Tell-tale Godwit, or Snipe", sci_synonyms: ["Totanus melanoleucus", "Scolopax melanoleuca"]}
+  - {common: "Green Heron", scientific: "Butorides virescens", plate: 333, audubon_title: "Green Heron", sci_synonyms: ["Butorides striatus", "Butorides striata", "Ardea virescens"]}
+  - {common: "Green-winged Teal", scientific: "Anas crecca", plate: 228, audubon_title: "Green winged Teal", sci_synonyms: ["Anas carolinensis"]}
+  - {common: "Hermit Thrush", scientific: "Catharus guttatus", plate: 58, audubon_title: "Hermit Thrush", sci_synonyms: ["Hylocichla guttata", "Turdus solitarius"]}
+  - {common: "Horned Lark", scientific: "Eremophila alpestris", plate: 200, audubon_title: "Shore Lark", sci_synonyms: ["Otocoris alpestris", "Alauda alpestris"]}
+  - {common: "Killdeer", scientific: "Charadrius vociferus", plate: 225, audubon_title: "Kildeer Plover", sci_synonyms: ["Oxyechus vociferus"]}
+  - {common: "Lesser Yellowlegs", scientific: "Tringa flavipes", plate: 288, audubon_title: "Yellow Shank", sci_synonyms: ["Totanus flavipes"]}
+  - {common: "Louisiana Waterthrush", scientific: "Parkesia motacilla", plate: 19, audubon_title: "Louisiana Water Thrush", sci_synonyms: ["Seiurus motacilla"]}
+  - {common: "Magnolia Warbler", scientific: "Setophaga magnolia", plate: 50, audubon_title: "Black & Yellow Warbler", sci_synonyms: ["Dendroica magnolia", "Sylvia magnolia", "Sylvia maculosa"]}
+  - {common: "Mallard", scientific: "Anas platyrhynchos", plate: 221, audubon_title: "Mallard Duck", sci_synonyms: ["Anas boschas"]}
+  - {common: "Marsh Wren", scientific: "Cistothorus palustris", plate: 100, audubon_title: "Marsh Wren", sci_synonyms: ["Telmatodytes palustris", "Troglodytes palustris", "Certhia palustris"]}
+  - {common: "Osprey", scientific: "Pandion haliaetus", plate: 81, audubon_title: "Fish Hawk, or Osprey", sci_synonyms: ["Pandion carolinensis"]}
+  - {common: "Ovenbird", scientific: "Seiurus aurocapilla", plate: 143, audubon_title: "Golden-crowned Thrush", sci_synonyms: ["Seiurus aurocapillus"]}
+  - {common: "Palm Warbler", scientific: "Setophaga palmarum", plate: 163, audubon_title: "Palm Warbler", sci_synonyms: ["Dendroica palmarum"]}
+  - {common: "Peregrine Falcon", scientific: "Falco peregrinus", plate: 16, audubon_title: "Great-footed Hawk (composite)", composite: true, sci_synonyms: ["Falco anatum"]}
+  - {common: "Pine Siskin", scientific: "Spinus pinus", plate: 180, audubon_title: "Pine Finch", sci_synonyms: ["Carduelis pinus"]}
+  - {common: "Pine Warbler", scientific: "Setophaga pinus", plate: 140, audubon_title: "Pine Creeping Warbler", sci_synonyms: ["Dendroica pinus"]}
+  - {common: "Purple Martin", scientific: "Progne subis", plate: 22, audubon_title: "Purple Martin"}
+  - {common: "Red-shouldered Hawk", scientific: "Buteo lineatus", plate: 56, audubon_title: "Red-shouldered Hawk", sci_synonyms: ["Falco lineatus"]}
+  - {common: "Red-tailed Hawk", scientific: "Buteo jamaicensis", plate: 51, audubon_title: "Red-tailed Hawk", sci_synonyms: ["Buteo borealis", "Falco borealis"]}
+  - {common: "Redpoll", scientific: "Acanthis flammea", plate: 375, audubon_title: "Lesser Red-Poll", sci_synonyms: ["Carduelis flammea", "Fringilla linaria", "Acanthis hornemanni", "Carduelis hornemanni", "Acanthis cabaret", "Carduelis cabaret"]}
+  - {common: "Ring-billed Gull", scientific: "Larus delawarensis", plate: 212, audubon_title: "Common American Gull"}
+  - {common: "Ruby-crowned Kinglet", scientific: "Corthylio calendula", plate: 195, audubon_title: "Ruby crowned Wren", sci_synonyms: ["Regulus calendula", "Motacilla calendula"]}
+  - {common: "Rusty Blackbird", scientific: "Euphagus carolinus", plate: 157, audubon_title: "Rusty Grakle", sci_synonyms: ["Scolecophagus carolinus", "Scolecophagus ferrugineus", "Quiscalus ferrugineus"]}
+  - {common: "Scarlet Tanager", scientific: "Piranga olivacea", plate: 354, audubon_title: "Louisiana Tanager and Scarlet Tanager (composite)", composite: true, sci_synonyms: ["Piranga erythromelas"]}
+  - {common: "Snow Bunting", scientific: "Plectrophenax nivalis", plate: 189, audubon_title: "Snow Bunting", sci_synonyms: ["Emberiza nivalis", "Passerina nivalis"]}
+  - {common: "Solitary Sandpiper", scientific: "Tringa solitaria", plate: 289, audubon_title: "Solitary Sandpiper", sci_synonyms: ["Totanus solitarius", "Helodromas solitarius", "Totanus chloropygius"]}
+  - {common: "Spotted Sandpiper", scientific: "Actitis macularius", plate: 310, audubon_title: "Spotted Sandpiper", sci_synonyms: ["Actitis macularia", "Tringa macularia", "Totanus macularius"]}
+  - {common: "Summer Tanager", scientific: "Piranga rubra", plate: 44, audubon_title: "Summer Red Bird", sci_synonyms: ["Piranga aestiva"]}
+  - {common: "Tree Swallow", scientific: "Tachycineta bicolor", plate: 98, audubon_title: "White-bellied Swallow", sci_synonyms: ["Iridoprocne bicolor", "Hirundo bicolor"]}
+  - {common: "Tundra Swan", scientific: "Cygnus columbianus", plate: 411, audubon_title: "Common American Swan", sci_synonyms: ["Olor columbianus", "Cygnus bewickii", "Cygnus americanus"]}
+  - {common: "Warbling Vireo", scientific: "Vireo gilvus", plate: 118, audubon_title: "Warbling Flycatcher", sci_synonyms: ["Muscicapa gilva", "Vireosylva gilva"]}
+  - {common: "Willow Flycatcher", scientific: "Empidonax traillii", plate: 45, audubon_title: "Traill's Flycatcher", sci_synonyms: ["Muscicapa traillii", "Empidonax trailli"]}
+  - {common: "Winter Wren", scientific: "Troglodytes hiemalis", plate: 360, audubon_title: "Winter Wren and Rock Wren (composite)", composite: true, sci_synonyms: ["Troglodytes troglodytes", "Troglodytes troglodytes hiemalis", "Nannus hiemalis"]}
+  - {common: "Wood Duck", scientific: "Aix sponsa", plate: 206, audubon_title: "Summer, or Wood Duck", sci_synonyms: ["Anas sponsa"]}
+  - {common: "Wood Thrush", scientific: "Hylocichla mustelina", plate: 73, audubon_title: "Wood Thrush", sci_synonyms: ["Turdus mustelinus"]}
+  - {common: "Yellow-bellied Sapsucker", scientific: "Sphyrapicus varius", plate: 190, audubon_title: "Yellow bellied Woodpecker", sci_synonyms: ["Picus varius"]}
+  - {common: "Yellow-billed Cuckoo", scientific: "Coccyzus americanus", plate: 2, audubon_title: "Yellow-billed Cuckoo"}
+  - {common: "Yellow-rumped Warbler", scientific: "Setophaga coronata", plate: 153, audubon_title: "Yellow-crown Warbler", sci_synonyms: ["Dendroica coronata", "Sylvia coronata"]}
+  - {common: "Yellow-throated Vireo", scientific: "Vireo flavifrons", plate: 119, audubon_title: "Yellow-throated Vireo", sci_synonyms: ["Lanivireo flavifrons"]}
+
+  # --- Confirmed plate-less: Audubon never painted these ---------------
+  # The AI-generation provider covers them (introduced species, bats,
+  # insects, and post-1838 vagrants).
+  - {common: "Bank Swallow", scientific: "Riparia riparia", plate: 385, audubon_title: "Bank Swallow and Violet-green Swallow (composite)", composite: true, sci_synonyms: ["Hirundo riparia"]}
+  - {common: "Black-headed Gull", scientific: "Chroicocephalus ridibundus", plate: none, audubon_title: "(not painted)", sci_synonyms: ["Larus ridibundus"]}
+  - {common: "Caspian Tern", scientific: "Hydroprogne caspia", plate: none, audubon_title: "(not painted)", sci_synonyms: ["Sterna caspia"]}
+  - {common: "Least Flycatcher", scientific: "Empidonax minimus", plate: none, audubon_title: "(not painted)", sci_synonyms: ["Tyrannula minima"]}
+  - {common: "Mute Swan", scientific: "Cygnus olor", plate: none, audubon_title: "(not painted)"}
+  - {common: "Nelson's Sparrow", scientific: "Ammospiza nelsoni", plate: none, audubon_title: "(not painted)", sci_synonyms: ["Ammodramus nelsoni"]}
+  - {common: "Northern Dog-day Cicada", scientific: "Neotibicen canicularis", plate: none, audubon_title: "(not painted)", sci_synonyms: ["Tibicen canicularis"]}
+  - {common: "Northern Rough-winged Swallow", scientific: "Stelgidopteryx serripennis", plate: none, audubon_title: "(not painted)", sci_synonyms: ["Stelgidopteryx ruficollis"]}
+  - {common: "Oblong-winged Katydid", scientific: "Amblycorypha oblongifolia", plate: none, audubon_title: "(not painted)"}
+  - {common: "Rock Pigeon", scientific: "Columba livia", plate: none, audubon_title: "(not painted)"}
+  - {common: "Southeastern myotis", scientific: "Myotis austroriparius", plate: none, audubon_title: "(not painted)"}
+  - {common: "Veery", scientific: "Catharus fuscescens", plate: none, audubon_title: "(not painted)", sci_synonyms: ["Hylocichla fuscescens", "Turdus fuscescens", "Turdus wilsonii"]}
+  - {common: "Yellow-bellied Flycatcher", scientific: "Empidonax flaviventris", plate: none, audubon_title: "(not painted)", sci_synonyms: ["Tyrannula flaviventris"]}

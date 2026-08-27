@@ -63,7 +63,31 @@ def load_catalog(session: requests.Session, cache: Path, force: bool = False) ->
         raw = resp.json()
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(raw))
-    return {int(e["plate"]): e for e in raw}
+    catalog = {int(e["plate"]): e for e in raw}
+    _warn_name_file_disagreements(catalog)
+    return catalog
+
+
+def _warn_name_file_disagreements(catalog: dict[int, dict]) -> None:
+    """The mirror's data.json is known to shift its 'name' column +1 for plates
+    361-399 while 'fileName' follows true Havell numbering. Downloads key off
+    fileName (correct), but titles and fuzzy suggestions come from 'name' — so
+    surface any disagreement instead of trusting it silently."""
+    import re as _re
+    bad = []
+    for plate, meta in sorted(catalog.items()):
+        m = _re.match(r"plate-\d+-(.+)\.jpg", meta.get("fileName", ""))
+        if not m:
+            continue
+        slug_words = m.group(1).split("-")
+        name_words = _re.sub(r"[^a-z0-9]+", " ", meta.get("name", "").lower()).split()
+        hits = sum(1 for w in slug_words if w in name_words)
+        if slug_words and hits / len(slug_words) < 0.5:
+            bad.append(plate)
+    if bad:
+        print(f"  !  catalog 'name' disagrees with fileName for plates "
+              f"{bad[0]}-{bad[-1]} ({len(bad)} plates) — titles there are "
+              f"unreliable; trust pinned numbers + fileName, not fuzzy matches.")
 
 
 def resolve_plate(entry: dict, catalog: dict[int, dict]) -> int | None:

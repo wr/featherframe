@@ -35,11 +35,41 @@ _MAX_PAGES = 5          # bound the work per poll (500 rows) — a 20s poll neve
 class BirdNetGoSource(DetectionSource):
     name = "birdnet_go"
 
-    def __init__(self, base_url: str, timeout_s: float = 5.0) -> None:
+    def __init__(self, base_url: str, timeout_s: float = 5.0,
+                 defer_confidence: bool = True) -> None:
         self.base_url = (base_url or "").rstrip("/")
         self._timeout_s = timeout_s
+        # Defer the confidence bar to BirdNET-Go itself: read its own
+        # /birdnet/threshold and filter by that, so there's one place to tune it
+        # (BirdNET-Go) rather than a second, redundant bar here.
+        self.defer_confidence = defer_confidence
         self._summary: Optional[list[dict]] = None
         self._summary_at: float = 0.0
+        self._threshold: Optional[float] = None
+        self._threshold_at: float = 0.0
+
+    def _birdnet_threshold(self) -> Optional[float]:
+        """BirdNET-Go's own configured confidence threshold (settings.birdnet.threshold),
+        cached. None if unavailable."""
+        now = time.time()
+        if self._threshold is not None and (now - self._threshold_at) < _SUMMARY_TTL_S:
+            return self._threshold
+        payload = self._get("/api/v2/settings")
+        try:
+            self._threshold = float(payload["birdnet"]["threshold"])
+        except (TypeError, KeyError, ValueError):
+            self._threshold = None
+        self._threshold_at = now
+        return self._threshold
+
+    def _eff_min(self, min_confidence: float) -> float:
+        """The effective confidence floor: BirdNET-Go's own threshold when deferring
+        (falling back to the caller's value if it can't be read), else the caller's."""
+        if self.defer_confidence:
+            t = self._birdnet_threshold()
+            if t is not None:
+                return t
+        return min_confidence
 
     # -- HTTP --------------------------------------------------------------
     def _get(self, path: str, params: Optional[dict] = None) -> Optional[Any]:
@@ -91,6 +121,7 @@ class BirdNetGoSource(DetectionSource):
                   limit: int = 500) -> list[Detection]:
         """Walk newest-first pages, collecting id > cursor, until we cross the
         cursor or hit the page cap; return oldest-first, confidence-filtered."""
+        min_confidence = self._eff_min(min_confidence)
         collected: list[Detection] = []
         for page_idx in range(_MAX_PAGES):
             page = self._detections_page(offset=page_idx * _PAGE, num=_PAGE)
@@ -112,6 +143,7 @@ class BirdNetGoSource(DetectionSource):
         return collected[:limit]
 
     def latest_many(self, min_confidence: float = 0.0, limit: int = 25) -> list[Detection]:
+        min_confidence = self._eff_min(min_confidence)
         # Over-fetch so confidence filtering still leaves ~limit rows.
         page = self._detections_page(num=min(200, max(limit * 4, 25)))
         out: list[Detection] = []

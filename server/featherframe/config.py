@@ -52,6 +52,9 @@ class Config:
     detection_backend: str = "birdnet_pi"  # "birdnet_pi" | "birdnet_go"
     birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"  # birdnet_pi backend
     birdnet_go_url: str = "http://localhost:8080"           # birdnet_go backend
+    # Defer the confidence bar to BirdNET-Go's own setting (one knob, not two).
+    # When on, Featherframe's confidence_threshold is ignored for this backend.
+    birdnet_go_defer_confidence: bool = True
     poll_interval_seconds: int = 20  # 10-30s per spec
 
     # Rendering ------------------------------------------------------------

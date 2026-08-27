@@ -18,10 +18,10 @@ import logging
 import os
 import sqlite3
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import date as ddate
-from datetime import datetime
 from typing import Iterator, Optional
+
+from .sources.base import Detection, DetectionSource
 
 log = logging.getLogger("featherframe.birdnet")
 
@@ -29,33 +29,15 @@ log = logging.getLogger("featherframe.birdnet")
 _REQUIRED_COLUMNS = {"Date", "Time", "Sci_Name", "Com_Name", "Confidence"}
 
 
-@dataclass(frozen=True)
-class Detection:
-    rowid: int
-    date: str
-    time: str
-    common_name: str
-    scientific_name: str
-    confidence: float
-
-    @property
-    def timestamp(self) -> datetime:
-        try:
-            return datetime.strptime(f"{self.date} {self.time}", "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            return datetime.min
-
-    @property
-    def key(self) -> str:
-        """Stable species identity for debounce / same-species comparison."""
-        return self.scientific_name.strip().lower()
-
-
 class SchemaError(RuntimeError):
     pass
 
 
-class BirdNetDB:
+class BirdNetDB(DetectionSource):
+    """BirdNET-Pi's read-only SQLite database as a DetectionSource."""
+
+    name = "birdnet_pi"
+
     def __init__(self, db_path: str, query_timeout_s: float = 5.0) -> None:
         self.db_path = os.path.expanduser(db_path)
         self._query_timeout_s = query_timeout_s
@@ -215,3 +197,7 @@ class BirdNetDB:
         except (sqlite3.Error, FileNotFoundError) as exc:
             log.debug("species_ordinal failed: %s", exc)
             return None
+
+
+# Source-neutral alias (the DetectionSource factory prefers this name).
+BirdNetPiSource = BirdNetDB

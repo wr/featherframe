@@ -43,7 +43,11 @@ class Config:
     species_blocklist: list[str] = field(default_factory=list)
 
     # Ingest ---------------------------------------------------------------
-    birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"
+    # Where detections come from. "birdnet_pi" reads a local SQLite DB;
+    # "birdnet_go" polls BirdNET-Go's REST API.
+    detection_backend: str = "birdnet_pi"  # "birdnet_pi" | "birdnet_go"
+    birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"  # birdnet_pi backend
+    birdnet_go_url: str = "http://localhost:8080"           # birdnet_go backend
     poll_interval_seconds: int = 20  # 10-30s per spec
 
     # Rendering ------------------------------------------------------------
@@ -69,6 +73,9 @@ class Config:
         self.refresh_debounce_minutes = int(_clamp(self.refresh_debounce_minutes, 1, 720))
         self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
         self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 5, 300))
+        if self.detection_backend not in ("birdnet_pi", "birdnet_go"):
+            self.detection_backend = "birdnet_pi"
+        self.birdnet_go_url = str(self.birdnet_go_url or "").strip().rstrip("/") or "http://localhost:8080"
         if self.gray_mode not in ("16", "1"):
             self.gray_mode = "16"
         if self.dither not in ("stucki", "bluenoise", "none"):

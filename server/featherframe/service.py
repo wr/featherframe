@@ -19,8 +19,8 @@ from datetime import datetime
 from typing import Optional
 
 from . import paths
-from .birdnet import BirdNetDB, Detection
 from .config import Config, load_config, save_config
+from .sources import Detection, make_source
 from .db import Database
 from .render import collage as collage_mod
 from .render import pipeline
@@ -49,7 +49,7 @@ class FeatherframeService:
         self.db = db or Database()
         self.config: Config = load_config(self.db)
         self.provider = AudubonProvider()
-        self.birdnet = BirdNetDB(self.config.birdnet_db_path)
+        self.source = make_source(self.config)
 
         self._lock = threading.RLock()
         self._stop = threading.Event()
@@ -95,8 +95,10 @@ class FeatherframeService:
     def reload_config(self) -> None:
         with self._lock:
             new = load_config(self.db)
-            if new.birdnet_db_path != self.config.birdnet_db_path:
-                self.birdnet = BirdNetDB(new.birdnet_db_path)
+            if (new.detection_backend != self.config.detection_backend
+                    or new.birdnet_db_path != self.config.birdnet_db_path
+                    or new.birdnet_go_url != self.config.birdnet_go_url):
+                self.source = make_source(new)
             self.config = new
 
     def update_config(self, config: Config) -> None:
@@ -116,7 +118,7 @@ class FeatherframeService:
                 self._maybe_quiet_collage(now)
             return
 
-        if not self.birdnet.available():
+        if not self.source.available():
             return  # soft fail; keep serving the current frame
 
         if self.config.mode == "collage":
@@ -130,14 +132,14 @@ class FeatherframeService:
         if cursor is None:
             # First run: start at the tail so we don't replay history, but show
             # the most recent existing detection once.
-            self._set_cursor(self.birdnet.max_rowid())
+            self._set_cursor(self.source.max_rowid())
             if self._frame_bytes is None:
-                latest = self._first_allowed(self.birdnet.latest_many(self.config.confidence_threshold))
+                latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
                 if latest:
                     self._render_single(latest, now, reason="startup")
             return
 
-        new = self.birdnet.new_since(cursor, self.config.confidence_threshold)
+        new = self.source.new_since(cursor, self.config.confidence_threshold)
         if new:
             self._set_cursor(new[-1].rowid)
         candidate = self._first_allowed(list(reversed(new)))  # newest allowed
@@ -153,7 +155,7 @@ class FeatherframeService:
         self._render_single(candidate, now, reason="detection")
 
     def _render_single(self, det: Detection, now: datetime, reason: str) -> None:
-        ordinal = self.birdnet.species_ordinal(det.scientific_name) if self.config.show_plate_number else None
+        ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else None
         first_seen = self._first_seen(det.scientific_name)
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=det.timestamp if det.timestamp != datetime.min else now,
@@ -180,11 +182,11 @@ class FeatherframeService:
             self.db.set("quiet_collage_for", stamp)
 
     def _build_collage(self, now: datetime, on_date: ddate, title: str = "A Day in the Garden") -> bool:
-        rows = self.birdnet.top_species_today(on_date, self.config.confidence_threshold, limit=6)
+        rows = self.source.top_species_today(on_date, self.config.confidence_threshold, limit=6)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         if len(rows) < 2:
             # Not enough for a grid: fall back to single for the day.
-            latest = self._first_allowed(self.birdnet.latest_many(self.config.confidence_threshold))
+            latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
             if latest:
                 self._render_single(latest, now, reason="collage-fallback")
             return False
@@ -205,7 +207,7 @@ class FeatherframeService:
         det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"), time=now.strftime("%H:%M:%S"),
                         common_name="Northern Cardinal", scientific_name="Cardinalis cardinalis",
                         confidence=0.99)
-        ordinal = self.birdnet.species_ordinal(det.scientific_name) if self.config.show_plate_number else 1
+        ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else 1
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=now, plate_number=ordinal or 1, first_seen=now.strftime("%Y-%m-%d"))
         result = pipeline.render_single(spec, self.provider, self.config)
@@ -246,7 +248,7 @@ class FeatherframeService:
     def status(self) -> dict:
         with self._lock:
             meta = dict(self._meta)
-        latest = self.birdnet.latest(self.config.confidence_threshold)
+        latest = self.source.latest(self.config.confidence_threshold)
         return {
             "current": {
                 "etag": self._etag,
@@ -259,8 +261,8 @@ class FeatherframeService:
                 "confidence": round(latest.confidence, 3),
                 "at": f"{latest.date} {latest.time}",
             } if latest else None,
-            "birdnet_available": self.birdnet.available(),
-            "species_all_time": self.birdnet.all_time_species_count(),
+            "birdnet_available": self.source.available(),
+            "species_all_time": self.source.all_time_species_count(),
             "plates_loaded": self.provider.species_count,
             "device": asdict(self.device),
             "config": self.config.to_dict(),
@@ -327,4 +329,4 @@ class FeatherframeService:
         return None
 
     def _first_seen(self, scientific_name: str) -> Optional[str]:
-        return self.birdnet.first_seen_date(scientific_name)
+        return self.source.first_seen_date(scientific_name)

@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, Form, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -73,7 +74,8 @@ async def index(request: Request):
     svc = _svc(request)
     return templates.TemplateResponse(
         request, "index.html",
-        {"status": svc.status(), "config": svc.config, "version": __version__})
+        {"status": svc.status(), "config": svc.config, "version": __version__,
+         "generated": svc.genart.cached_species() if svc.genart else []})
 
 
 @app.post("/settings")
@@ -111,6 +113,13 @@ async def save_settings(request: Request):
         collage_rebuilds_per_day=i("collage_rebuilds_per_day", cur["collage_rebuilds_per_day"]),
         panel_rotation=i("panel_rotation", cur["panel_rotation"]),
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
+        imagegen_enabled=b("imagegen_enabled"),
+        imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
+        imagegen_model=s("imagegen_model", cur["imagegen_model"]),
+        imagegen_quality=s("imagegen_quality", cur["imagegen_quality"]),
+        # A blank key field means "keep the stored key"; the checkbox clears it.
+        imagegen_api_key="" if b("imagegen_clear_key")
+        else (str(form.get("imagegen_api_key", "") or "").strip() or cur["imagegen_api_key"]),
     )
     render_affecting = (new.gray_mode != svc.config.gray_mode
                         or new.dither != svc.config.dither
@@ -126,11 +135,61 @@ async def save_settings(request: Request):
 @app.post("/api/test-detection")
 async def test_detection(request: Request):
     svc = _svc(request)
-    svc.force_test_detection()
-    # form POST from the page -> redirect back; API callers can read /api/status
+    form = await request.form()
+    common = str(form.get("common", "") or "").strip() or "Northern Cardinal"
+    sci = str(form.get("scientific", "") or "").strip()
+    if not sci:
+        sci = _known_scientific(svc, common) or ("Cardinalis cardinalis"
+                                                 if common == "Northern Cardinal" else "")
+    # Threadpool: a plate-less species may generate art (up to ~2 min).
+    await run_in_threadpool(svc.force_test_detection, common, sci)
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": True, "etag": svc._etag})
+
+
+def _known_scientific(svc, common: str) -> Optional[str]:
+    """Best-effort common -> scientific from the curated index."""
+    entry = svc.audubon._index._by_common.get(common.strip().lower())  # noqa: SLF001
+    return entry.get("scientific") if entry else None
+
+
+# -- AI-generated plates ---------------------------------------------------
+@app.get("/api/generated")
+async def generated_list(request: Request):
+    svc = _svc(request)
+    return JSONResponse({"cached": svc.genart.cached_species() if svc.genart else []})
+
+
+@app.get("/api/generated/{slug}.png")
+async def generated_png(request: Request, slug: str):
+    svc = _svc(request)
+    if svc.genart is None or not slug.replace("-", "").isalnum():
+        return Response(status_code=404)
+    png = svc.genart._png(slug)  # noqa: SLF001 (same package, path is validated)
+    if not png.exists():
+        return Response(status_code=404)
+    return Response(content=png.read_bytes(), media_type="image/png",
+                    headers={"Cache-Control": "no-cache"})
+
+
+@app.post("/api/generated/regenerate")
+async def generated_regenerate(request: Request,
+                               common: str = Form(""), scientific: str = Form(...)):
+    svc = _svc(request)
+    ok = await run_in_threadpool(svc.regenerate_generated, common or scientific, scientific)
+    if "text/html" in request.headers.get("accept", ""):
+        return RedirectResponse("/", status_code=303)
+    return JSONResponse({"ok": ok})
+
+
+@app.post("/api/generated/delete")
+async def generated_delete(request: Request, scientific: str = Form(...)):
+    svc = _svc(request)
+    ok = svc.delete_generated(scientific)
+    if "text/html" in request.headers.get("accept", ""):
+        return RedirectResponse("/", status_code=303)
+    return JSONResponse({"ok": ok})
 
 
 @app.get("/api/preview.png")

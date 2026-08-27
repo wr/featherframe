@@ -25,8 +25,9 @@ from .db import Database
 from .render import collage as collage_mod
 from .render import pipeline
 from .render.compose import SingleSpec
+from .render.genart import GeneratedArtProvider, make_image_model
 from .render.pipeline import RenderResult
-from .render.provider import AudubonProvider
+from .render.provider import ArtProvider, AudubonProvider, ChainedProvider
 
 log = logging.getLogger("featherframe.service")
 
@@ -48,7 +49,9 @@ class FeatherframeService:
     def __init__(self, db: Optional[Database] = None) -> None:
         self.db = db or Database()
         self.config: Config = load_config(self.db)
-        self.provider = AudubonProvider()
+        self.audubon = AudubonProvider()
+        self.genart: Optional[GeneratedArtProvider] = None
+        self.provider: ArtProvider = self._build_provider(self.config)
         self.source = make_source(self.config)
 
         self._lock = threading.RLock()
@@ -91,6 +94,22 @@ class FeatherframeService:
                 log.exception("scheduler tick failed (keeping current frame)")
             self._stop.wait(self.config.poll_interval_seconds)
 
+    # -- providers ---------------------------------------------------------
+    def _build_provider(self, config: Config) -> ArtProvider:
+        """Audubon first, AI-generated second, typographic fallback implied.
+        Without a key the generated link is cache-only (never calls out)."""
+        if not config.imagegen_enabled:
+            self.genart = None
+            return self.audubon
+        self.genart = GeneratedArtProvider(make_image_model(config))
+        return ChainedProvider([self.audubon, self.genart])
+
+    @staticmethod
+    def _imagegen_fields(config: Config) -> tuple:
+        return (config.imagegen_enabled, config.imagegen_provider,
+                config.imagegen_model, config.imagegen_quality,
+                config.imagegen_api_key)
+
     # -- config ------------------------------------------------------------
     def reload_config(self) -> None:
         with self._lock:
@@ -99,6 +118,8 @@ class FeatherframeService:
                     or new.birdnet_db_path != self.config.birdnet_db_path
                     or new.birdnet_go_url != self.config.birdnet_go_url):
                 self.source = make_source(new)
+            if self._imagegen_fields(new) != self._imagegen_fields(self.config):
+                self.provider = self._build_provider(new)
             self.config = new
 
     def update_config(self, config: Config) -> None:
@@ -200,19 +221,40 @@ class FeatherframeService:
         log.info("rendered collage (%d species), etag=%s", len(cells), result.etag)
         return True
 
+    # -- generated-plate management (config page) --------------------------
+    def regenerate_generated(self, common_name: str, scientific_name: str) -> bool:
+        """Explicit user request for a fresh AI plate. If the frame currently
+        shows this species, re-render it with the new art."""
+        if self.genart is None:
+            return False
+        ok = self.genart.regenerate(common_name, scientific_name)
+        if ok and self._meta.get("species_key") == scientific_name.strip().lower():
+            now = datetime.now()
+            det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"),
+                            time=now.strftime("%H:%M:%S"), common_name=common_name,
+                            scientific_name=scientific_name, confidence=1.0)
+            self._render_single(det, now, reason="regenerated")
+        return ok
+
+    def delete_generated(self, scientific_name: str) -> bool:
+        return self.genart.delete(scientific_name) if self.genart else False
+
     # -- test detection ----------------------------------------------------
-    def force_test_detection(self) -> RenderResult:
-        """Inject a fake Northern Cardinal and render it now (bypasses debounce)."""
+    def force_test_detection(self, common_name: str = "Northern Cardinal",
+                             scientific_name: str = "Cardinalis cardinalis") -> RenderResult:
+        """Inject a fake detection and render it now (bypasses debounce). The
+        default is the Cardinal; any species name exercises the full provider
+        chain, including AI generation for plate-less species."""
         now = datetime.now()
         det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"), time=now.strftime("%H:%M:%S"),
-                        common_name="Northern Cardinal", scientific_name="Cardinalis cardinalis",
+                        common_name=common_name, scientific_name=scientific_name,
                         confidence=0.99)
         ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else 1
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=now, plate_number=ordinal or 1, first_seen=now.strftime("%Y-%m-%d"))
         result = pipeline.render_single(spec, self.provider, self.config)
         self._commit(result, now, mode="single", species_key=det.key,
-                     label="Northern Cardinal (test)")
+                     label=f"{det.common_name} (test)")
         log.info("rendered TEST detection, etag=%s", result.etag)
         return result
 
@@ -263,10 +305,18 @@ class FeatherframeService:
             } if latest else None,
             "birdnet_available": self.source.available(),
             "species_all_time": self.source.all_time_species_count(),
-            "plates_loaded": self.provider.species_count,
+            "plates_loaded": self.audubon.species_count,
+            "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
             "device": asdict(self.device),
-            "config": self.config.to_dict(),
+            "config": self._masked_config(),
         }
+
+    def _masked_config(self) -> dict:
+        """Config for display: never leak the API key past this process."""
+        cfg = self.config.to_dict()
+        key = cfg.get("imagegen_api_key") or ""
+        cfg["imagegen_api_key"] = f"…{key[-4:]}" if key else ""
+        return cfg
 
     # -- internal state helpers -------------------------------------------
     def _commit(self, result: RenderResult, now: datetime, mode: str,

@@ -71,6 +71,16 @@ class Config:
     # Collage --------------------------------------------------------------
     collage_rebuilds_per_day: int = 3
 
+    # AI-generated plates --------------------------------------------------
+    # For species Audubon never painted. A plate is generated once on first
+    # detection and cached forever; only a manual regenerate replaces it.
+    # Without an API key this degrades to serving already-cached plates.
+    imagegen_enabled: bool = True
+    imagegen_provider: str = "openai"      # seam for other vendors later
+    imagegen_model: str = "gpt-image-2"
+    imagegen_quality: str = "high"         # low | medium | high | auto
+    imagegen_api_key: str = ""             # user-provided; lives only in our DB
+
     def __post_init__(self) -> None:
         self.sanitize()
 
@@ -93,6 +103,12 @@ class Config:
         if self.panel_rotation not in (0, 90, 180, 270):
             self.panel_rotation = 90
         self.mat_inset_pct = _clamp(float(self.mat_inset_pct), 0.0, 20.0)
+        if self.imagegen_provider not in ("openai",):
+            self.imagegen_provider = "openai"
+        self.imagegen_model = str(self.imagegen_model or "").strip() or "gpt-image-2"
+        if self.imagegen_quality not in ("low", "medium", "high", "auto"):
+            self.imagegen_quality = "high"
+        self.imagegen_api_key = str(self.imagegen_api_key or "").strip()
         # Normalise quiet-hours strings to HH:MM
         self.quiet_hours_start = _fmt(_parse_hhmm(self.quiet_hours_start, "22:00"))
         self.quiet_hours_end = _fmt(_parse_hhmm(self.quiet_hours_end, "06:00"))

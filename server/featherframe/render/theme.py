@@ -55,7 +55,9 @@ SMALLCAP_RATIO = 0.76  # small-cap glyph height as a fraction of full caps
 # time; typography.py degrades to faux small caps if it's absent.
 TITLE_SIZE = 96           # common name, swash italic (auto-fit to width)
 TITLE_WEIGHT = 500
-TITLE_FEATURES = ("swsh", "dlig", "hlig", "hist", "liga", "calt", "kern")
+# No "hist" (Historical Forms): it swaps J→I and s→long-s, which misreads modern
+# bird names ("Jay" → "Iay", "Sparrow" → "∫parrow"). Keep the swash + ligatures.
+TITLE_FEATURES = ("swsh", "dlig", "hlig", "liga", "calt", "kern")
 
 SUBTITLE_SIZE = 42         # scientific name, italic small caps
 SUBTITLE_WEIGHT = 500

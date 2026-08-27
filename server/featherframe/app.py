@@ -93,6 +93,7 @@ async def save_settings(request: Request):
     new = Config(
         mode=s("mode", cur["mode"]),
         confidence_threshold=f("confidence_threshold", cur["confidence_threshold"]),
+        single_show_latest=b("single_show_latest"),
         refresh_debounce_minutes=i("refresh_debounce_minutes", cur["refresh_debounce_minutes"]),
         wake_interval_minutes=i("wake_interval_minutes", cur["wake_interval_minutes"]),
         quiet_hours_enabled=b("quiet_hours_enabled"),

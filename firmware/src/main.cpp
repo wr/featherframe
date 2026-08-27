@@ -705,6 +705,15 @@ void loop() {
   }
   if (g_toast.active && millis() - g_toast.shownAt >= TOAST_HOLD_MS) clearToast();
 
+  // Auto-refresh on a timer so the panel tracks the latest bird without a button
+  // press. fetchAndRender sends the stored ETag, so an unchanged frame comes back
+  // 304 and the panel isn't touched — it only repaints when a new bird lands.
+  static uint32_t lastPoll = 0;
+  if (millis() - lastPoll >= FF_POLL_INTERVAL_MS) {
+    lastPoll = millis();
+    fetchAndRender(FRAME_PATH, true, readBatteryVoltage(), batteryPercent(readBatteryVoltage()));
+  }
+
   // The buttons' pull-up rail is powered by the panel's enable line (GPIO43). The
   // panel's update() drops it to sleep the T-CON, which also kills the buttons, so
   // re-assert it HIGH here (in the idle loop, after any render) to keep presses alive.

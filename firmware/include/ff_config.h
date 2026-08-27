@@ -35,6 +35,11 @@
 // panel never re-inits. Set to 0 to restore the battery-saving deep-sleep model.
 #define FF_NO_SLEEP  1
 
+// Always-awake auto-refresh: how often loop() re-fetches the frame so the panel
+// tracks the latest bird on its own (not just on a button press). The ETag makes
+// an unchanged frame a 304, so the panel only repaints when there's a new bird.
+#define FF_POLL_INTERVAL_MS  15000
+
 // How long the "Up to date" pill stays on the glass before it clears (ms).
 #define TOAST_HOLD_MS  10000
 

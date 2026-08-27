@@ -153,26 +153,6 @@ void displayFrame(const uint8_t* data, size_t len) {
   Serial.println("panel updated");
 }
 
-// A local boot splash — proves the panel powers and renders with no server. Drawn
-// on a cold power-up so the frame visibly comes alive on its own. update() drives
-// the panel-power rail (TFT_ENABLE) via the ED103TC2 init, so the amber lights.
-void drawSplash(const char* status) {
-  epaper.initGrayMode(GRAY_LEVEL16);
-  epaper.fillSprite(TFT_GRAY_15);                 // white paper ground
-  epaper.setTextColor(TFT_BLACK, TFT_GRAY_15);
-  epaper.setTextDatum(MC_DATUM);                  // middle-centre
-  const int cx = epaper.width() / 2, cy = epaper.height() / 2;
-  epaper.fillRect(cx - 520, cy - 150, 1040, 6, TFT_BLACK);   // top rule
-  epaper.fillRect(cx - 520, cy + 150, 1040, 6, TFT_BLACK);   // bottom rule
-  epaper.setTextFont(4);
-  epaper.setTextSize(4);
-  epaper.drawString("Featherframe", cx, cy - 50);
-  epaper.setTextSize(2);
-  epaper.drawString(status, cx, cy + 70);
-  epaper.update();
-  Serial.println("splash drawn");
-}
-
 // ---------------------------------------------------------------- fetch
 enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_ERROR };
 
@@ -253,10 +233,6 @@ void setup() {
 
   // Fast re-init (ED103TC2_Init_Wake.h) after a deep-sleep wake; full init cold.
   epaper.begin(fromDeepSleep ? 1 : 0);
-
-  // On a real power-up (not a timer/button deep-sleep wake), paint a splash so the
-  // frame visibly boots on its own — no Wi-Fi, no server needed.
-  if (!fromDeepSleep) drawSplash("Starting up");
 
   float vbat = readBatteryVoltage();
   int pct = batteryPercent(vbat);

@@ -45,7 +45,7 @@
 
 // --- Behaviour defaults (overridable via NVS / server) ---
 #define DEFAULT_WAKE_MINUTES   15
-#define DEFAULT_SERVER_URL     "http://10.0.2.15:8090"
+#define DEFAULT_SERVER_URL     "http://10.0.1.73:8081"
 #define FRAME_PATH             "/api/frame"
 #define VIEW_COLLAGE_PATH      "/api/frame?view=collage"
 #define VIEW_STATUS_PATH       "/api/frame?view=status"

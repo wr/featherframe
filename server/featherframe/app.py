@@ -109,11 +109,13 @@ async def save_settings(request: Request):
         show_plate_number=b("show_plate_number"),
         collage_rebuilds_per_day=i("collage_rebuilds_per_day", cur["collage_rebuilds_per_day"]),
         panel_rotation=i("panel_rotation", cur["panel_rotation"]),
+        mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
     )
     render_affecting = (new.gray_mode != svc.config.gray_mode
                         or new.dither != svc.config.dither
                         or new.show_plate_number != svc.config.show_plate_number
-                        or new.panel_rotation != svc.config.panel_rotation)
+                        or new.panel_rotation != svc.config.panel_rotation
+                        or new.mat_inset_pct != svc.config.mat_inset_pct)
     svc.update_config(new)
     if render_affecting:
         svc.rerender_current()

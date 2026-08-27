@@ -8,6 +8,13 @@
 // The device knows only Wi-Fi creds + the server URL, provisioned once via a
 // captive portal (WiFiManager) and kept in NVS. Everything else is server-side.
 
+// FS.h FIRST: Seeed_GFX's ESP32-S3 header #defines FS_NO_GLOBALS, which would
+// suppress the global `FS`/`File` aliases and then break WiFiManager's WebServer.h
+// ("'FS' was not declared"). Including FS.h up front establishes the globals
+// before that #define lands (FS.h is include-guarded, so the later re-include
+// is a no-op).
+#include <FS.h>
+
 #include "driver.h"        // Seeed_GFX board/panel selection — include FIRST
 #include "TFT_eSPI.h"      // Seeed_GFX is a TFT_eSPI fork; EPaper lives here
 
@@ -201,6 +208,15 @@ void setup() {
   Serial.printf("\nFeatherframe wake: cause=%d (%s)\n", cause, buttonWake ? "button" : "timer/boot");
 
   prefs.begin("featherframe", false);
+  // One-shot server-URL provisioning: adopt the baked DEFAULT_SERVER_URL once when
+  // SERVER_URL_PROVISION is newer than the stored generation (see ff_config.h).
+#if SERVER_URL_PROVISION > 0
+  if ((int)prefs.getUInt("url_gen", 0) < SERVER_URL_PROVISION) {
+    prefs.putString("server", DEFAULT_SERVER_URL);
+    prefs.putUInt("url_gen", SERVER_URL_PROVISION);
+    Serial.printf("provisioned server URL -> %s\n", DEFAULT_SERVER_URL);
+  }
+#endif
   prefs.getString("server", DEFAULT_SERVER_URL).toCharArray(g_serverUrl, sizeof(g_serverUrl));
   prefs.getString("etag", "").toCharArray(g_etag, sizeof(g_etag));
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);

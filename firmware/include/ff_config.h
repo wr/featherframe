@@ -29,8 +29,19 @@
 
 // --- Behaviour defaults (overridable via NVS / server) ---
 #define DEFAULT_WAKE_MINUTES   15
+// Overridable at build time so a deployment can bake its own server URL.
+#ifndef DEFAULT_SERVER_URL
 #define DEFAULT_SERVER_URL     "http://featherframe.local:8080"
+#endif
 #define FRAME_PATH             "/api/frame"
+
+// Flash-time provisioning generation. Bump this (e.g. -DSERVER_URL_PROVISION=1)
+// to force the stored server URL to DEFAULT_SERVER_URL exactly once on next boot
+// — repoints an already-provisioned frame without opening the captive portal.
+// It writes only when the stored generation is older, so later portal edits stick.
+#ifndef SERVER_URL_PROVISION
+#define SERVER_URL_PROVISION   0
+#endif
 
 // HTTP + wifi timeouts (ms)
 #define WIFI_CONNECT_TIMEOUT_MS   20000

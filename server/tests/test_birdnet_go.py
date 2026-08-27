@@ -14,6 +14,7 @@ class _FakeHTTP:
         # detections: list newest-first (dicts with id/date/time/names/confidence)
         self.detections = detections
         self.summary = summary
+        self.threshold = None   # BirdNET-Go's /birdnet/threshold, if set
         self.fail = False
 
     def get(self, url, params=None, timeout=None):
@@ -29,6 +30,8 @@ class _FakeResp:
         self.status_code = 200 if not http.fail else 500
 
     def json(self):
+        if "/settings" in self._url:
+            return {"birdnet": {"threshold": self._http.threshold}} if self._http.threshold is not None else {}
         if "/analytics/species/summary" in self._url:
             return self._http.summary
         # /api/v2/detections — honor offset + numResults, newest-first
@@ -130,3 +133,22 @@ def test_soft_fail_returns_safe_defaults(go):
     assert src.all_time_species_count() == 0
     assert src.species_ordinal("x") is None
     assert src.top_species_today() == []
+
+
+def test_defer_confidence_uses_birdnet_threshold(go):
+    src, fake = go
+    fake.threshold = 0.88          # BirdNET-Go's own bar
+    # defer_confidence is on by default -> the passed 0.0 is ignored, 0.88 applies.
+    got = [d.common_name for d in src.latest_many(0.0)]
+    assert got == ["Northern Cardinal"]          # only the 0.90 clears 0.88
+
+
+def test_defer_off_uses_passed_confidence(monkeypatch):
+    from featherframe.sources.birdnet_go import BirdNetGoSource
+    dets = [_det(2, "Blue Jay", "Cyanocitta cristata", 0.85),
+            _det(1, "Northern Cardinal", "Cardinalis cardinalis", 0.90)]
+    fake = _FakeHTTP(dets, []); fake.threshold = 0.88
+    src = BirdNetGoSource("http://x", defer_confidence=False)
+    monkeypatch.setattr("featherframe.sources.birdnet_go.requests", fake)
+    # defer off -> BirdNET-Go's 0.88 ignored; the passed 0.5 applies (both pass).
+    assert len(src.latest_many(0.5)) == 2

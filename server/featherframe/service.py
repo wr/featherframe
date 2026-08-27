@@ -146,15 +146,10 @@ class FeatherframeService:
         if candidate is None:
             return
 
-        # Default: always track the most recent qualifying detection, so a device
-        # fetch (button or timer) shows the newest bird. The device's own wake
-        # interval limits how often the panel actually repaints. Set
-        # single_show_latest=False for the old behaviour that suppresses churn.
         if not self.config.single_show_latest:
-            # same species already up? leave it — churn is the enemy.
+            # skip if the same species is already shown
             if candidate.key == self._meta.get("species_key"):
                 return
-            # debounce: never repaint more often than the configured window
             if self._within_debounce(now):
                 return
         self._render_single(candidate, now, reason="detection")

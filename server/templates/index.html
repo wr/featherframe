@@ -213,7 +213,12 @@
           </select>
           <div class="hint">If the image is sideways or upside-down on the panel, change this — no reflash needed.</div>
         </div>
-        <div class="hint">Changing grayscale, dithering, or rotation re-renders the current frame.</div>
+        <div class="field">
+          <label>Mat inset (% per edge)</label>
+          <input type="number" name="mat_inset_pct" min="0" max="20" step="0.5" value="{{ config.mat_inset_pct }}">
+          <div class="hint">Shrinks the art onto white paper so it clears the frame's mat opening. 0 fills the whole panel; ~4 suits an 8×6 mat.</div>
+        </div>
+        <div class="hint">Changing grayscale, dithering, rotation, or mat inset re-renders the current frame.</div>
       </div>
 
       <div class="card">

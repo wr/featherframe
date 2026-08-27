@@ -219,9 +219,22 @@
       <div class="card">
         <h2>Ingest &amp; curation</h2>
         <div class="field">
+          <label>Detection source</label>
+          <select name="detection_backend">
+            <option value="birdnet_pi" {{ 'selected' if config.detection_backend=='birdnet_pi' else '' }}>BirdNET-Pi — local database</option>
+            <option value="birdnet_go" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go — REST API</option>
+          </select>
+          <div class="hint">Where the birds come from. Switching re-reads from the new source on the next poll.</div>
+        </div>
+        <div class="field">
           <label>BirdNET-Pi database path</label>
           <input type="text" name="birdnet_db_path" value="{{ config.birdnet_db_path }}">
-          <div class="hint">Read-only. Default: ~/BirdNET-Pi/scripts/birds.db</div>
+          <div class="hint">Read-only. Used by the BirdNET-Pi source. Default: ~/BirdNET-Pi/scripts/birds.db</div>
+        </div>
+        <div class="field">
+          <label>BirdNET-Go URL</label>
+          <input type="text" name="birdnet_go_url" value="{{ config.birdnet_go_url }}">
+          <div class="hint">Used by the BirdNET-Go source. Default: http://localhost:8080</div>
         </div>
         <div class="field">
           <label>Poll interval (seconds)</label>

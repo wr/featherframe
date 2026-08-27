@@ -46,24 +46,53 @@ PROMPT_VERSION = 1
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
+# Tuned over four blind-judging rounds against real plates (see W-582): the
+# clauses on claws, printed structure, and staging each remove a specific tell
+# that expert judges used to spot earlier generations. Change with care and
+# re-run a blind comparison before shipping a new version.
 _STYLE_PROMPT = (
-    "A 19th-century hand-colored aquatint engraving in the exact style of John James "
-    "Audubon's 'The Birds of America' (Havell edition, 1827-1838). The subject is a "
-    "life-size {subject}, rendered with ornithological accuracy in a "
-    "characteristic natural pose on a botanically accurate perch or ground element of "
-    "its native habitat, with fine engraved linework under delicate watercolor washes, "
-    "a muted natural palette, and soft aquatint tonal gradations. Plain aged cream "
-    "wove-paper background with generous empty margins around the subject, faint paper "
-    "grain, subtle uneven hand-coloring. Absolutely no text, no lettering, no numbers, "
-    "no signature, no border, no frame line."
+    "A scanned antique plate from John James Audubon's 'The Birds of America' "
+    "(Havell edition, 1827-1838): a hand-colored aquatint engraving of a life-size "
+    "{subject}, drawn with a naturalist's accuracy in a characteristic, subtly "
+    "animated pose — alert, mid-gesture, observed alive in the field.\n\n"
+    "The sheet is a REPRODUCTION of a painting by a copperplate process, and that "
+    "printed skeleton must show through everywhere: fine engraved directional "
+    "linework following every feather vane and every fur tract, irregular aquatint "
+    "reticulation filling the mid-tones, and hand-applied translucent watercolor "
+    "washes over the printed structure that pool and bleed slightly at their edges, "
+    "gently uneven where the colorist's hand varied. No passage may be pure paint: "
+    "even soft body tones carry the engraved line and grain beneath the wash. No two "
+    "markings identical anywhere. Deep darks only as small accents; edges carry the "
+    "faint softness of an impression on damp paper. No digital smoothness, no "
+    "airbrush gradients, no uniform synthetic grain. The eye is a matte period eye — "
+    "a small dark bead with at most one tiny dry fleck of light, never a glossy "
+    "modern catchlight.\n\n"
+    "Feet and claws must be exactly those of the living species, at honest scale: "
+    "songbirds and pigeons have SHORT, stout toes and SHORT, modestly curved blunt "
+    "claws — never long sickle talons, never beaded ornamental scutes. Each foot "
+    "shows its toes distinctly, every claw attached to its own toe, nothing tangled, "
+    "nothing extra. Wings read as real feather tracts — coverts, secondaries, "
+    "primaries in plausible layers — never as repeating decorative texture.\n\n"
+    "Stage the subject as Audubon staged it: a setting true to the species — "
+    "identifiable grasses or seed heads for a ground forager, a weathered stone for "
+    "a town bird, reeds for a marsh bird, a bare twig only where the species truly "
+    "perches — the subject placed with the easy asymmetry of a field study, off the "
+    "sheet's center line. Any plants are recognizable species drawn with the same "
+    "committed engraved-and-washed treatment as the subject, kept minimal. If the "
+    "species is commonly shown paired, a male and female may share the sheet in "
+    "different postures.\n\n"
+    "Most of the sheet stays blank: aged cream wove paper, faint paper grain, "
+    "generous margins. Absolutely no text, no lettering, no numbers, no signature, "
+    "no border, no frame line, no heavy foliage masses."
 )
 
-# Style references for the edits endpoint: iconic, single-species plates that are
-# in the curated set, in preference order. Only files present on disk are used.
+# Style references for the edits endpoint: airy single-species plates whose
+# sparse compositions steered generations best in blind testing (dense showcase
+# plates like the Cardinal pulled generations toward heavy Victorian foliage).
 _PREFERRED_REFS = [
-    "Cardinalis cardinalis",   # plate 159 — bird + branch, classic composition
-    "Cyanocitta cristata",     # plate 102 — several birds, rich foliage
-    "Turdus migratorius",      # plate 131 — bird + fruiting branch
+    "Melospiza melodia",        # plate 25 — Song Sparrow, sparse flowering sprigs
+    "Spizella passerina",       # plate 104 — Chipping Sparrow, minimal ground
+    "Zonotrichia albicollis",   # plate 8 — White-throated Sparrow
 ]
 _REF_MAX_SIDE = 1024
 
@@ -115,10 +144,15 @@ class OpenAIImageModel(ImageModel):
 
     @staticmethod
     def _ref_bytes(path: Path) -> bytes:
-        """Downscale a plate scan to a reasonable reference size."""
-        img = plate.load_gray(path, max_side=_REF_MAX_SIDE).convert("RGB")
+        """Downscale a plate scan to a reasonable reference size. Kept in COLOR:
+        the references anchor the palette to real hand-coloring, and the cached
+        result stays color so a color panel can use it — grayscale happens only
+        at render time, exactly as for a real scan."""
+        with Image.open(path) as img:
+            ref = img.convert("RGB")
+            ref.thumbnail((_REF_MAX_SIDE, _REF_MAX_SIDE), Image.LANCZOS)
         buf = io.BytesIO()
-        img.save(buf, "JPEG", quality=90)
+        ref.save(buf, "JPEG", quality=90)
         return buf.getvalue()
 
     def generate(self, prompt: str, size: str, refs: list[Path]) -> bytes:

@@ -229,6 +229,10 @@ prompted with real plates from your own set as style references.
 - **Same treatment as a scan**: the cached PNG goes through the identical crop
   and paper-normalise pipeline, so it hangs next to the real plates without a
   seam.
+- **Cached in full color.** Plates are generated with real hand-colored plates
+  as palette references and cached as color PNGs; today's 16-gray panel
+  grayscales them at render time exactly like a real scan, and a color e-paper
+  build gets the same cached plates for free — nothing regenerates.
 - **Fails soft.** No key, no network, model refuses — the typographic fallback
   renders, and the species retries later (with a cooldown, so a dead key is
   never hammered).

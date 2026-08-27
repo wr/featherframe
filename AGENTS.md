@@ -79,10 +79,18 @@ from the Nachtzuster fork.
 **Render pipeline (`render/`).** `pipeline.py` orchestrates:
 `compose.render_single` (or `collage.render_collage`) → `finish.to_levels`
 (dither) → `framebuffer.pack`. The provider seam is `provider.py`: `ArtProvider`
-returns bird artwork or `None`; `AudubonProvider` is v1 (swap here for an
-AI-gen provider later). `plate.py` does the content-aware crop; `typography.py`
-does EB Garamond faux small caps and the caption block; `theme.py` holds all
-geometry/tone constants.
+returns bird artwork or `None`. The live chain is
+`ChainedProvider([AudubonProvider, GeneratedArtProvider])` → typographic
+fallback. `genart.py` is the AI side: `ImageModel` is the vendor seam
+(`OpenAIImageModel` first, plain `requests`, default `gpt-image-2` via
+`/v1/images/edits` with real plates as style references); generated plates are
+cached forever in `data/generated/` (PNG + JSON sidecar) and only a manual
+regenerate from the config page replaces one; failures soft-fail to the
+fallback with a per-species cooldown. The user's API key lives only in our DB
+and is masked in `status()` and the UI. `plate.py` does the content-aware crop
+(generated PNGs go through the same `plate.extract` as real scans);
+`typography.py` does EB Garamond faux small caps and the caption block;
+`theme.py` holds all geometry/tone constants.
 
 **Non-obvious invariants — do not break one side of these without the other:**
 

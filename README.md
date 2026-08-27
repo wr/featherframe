@@ -214,6 +214,27 @@ Matching keys on scientific name first (stable), then common name, with a few
 old-binomial synonyms for taxonomic renames. If it's not confident, it falls
 back rather than guess.
 
+### AI plates (species Audubon never painted)
+
+For species with `plate: none` — introduced birds, bats, even the yard's loud
+insects — the server can generate a plate in the Havell style with an image
+model and show that instead of the typographic fallback. Bring your own OpenAI
+API key (config page → *AI plates*); the default model is `gpt-image-2`,
+prompted with real plates from your own set as style references.
+
+- **One purchase per species.** A generated plate is cached in
+  `data/generated/` and reused forever. Nothing regenerates on its own.
+- **Regenerate / remove** per species from the gallery on the config page
+  (regenerating costs one image, ~$0.17 at high quality).
+- **Same treatment as a scan**: the cached PNG goes through the identical crop
+  and paper-normalise pipeline, so it hangs next to the real plates without a
+  seam.
+- **Fails soft.** No key, no network, model refuses — the typographic fallback
+  renders, and the species retries later (with a cooldown, so a dead key is
+  never hammered).
+- The key lives only in Featherframe's own database on the device and is
+  masked everywhere the UI or API shows config.
+
 ---
 
 ## Project layout

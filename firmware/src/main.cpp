@@ -705,9 +705,8 @@ void loop() {
   }
   if (g_toast.active && millis() - g_toast.shownAt >= TOAST_HOLD_MS) clearToast();
 
-  // Auto-refresh on a timer so the panel tracks the latest bird without a button
-  // press. fetchAndRender sends the stored ETag, so an unchanged frame comes back
-  // 304 and the panel isn't touched — it only repaints when a new bird lands.
+  // Re-fetch every FF_POLL_INTERVAL_MS. fetchAndRender sends the stored ETag, so
+  // an unchanged frame returns 304 and the panel is not repainted.
   static uint32_t lastPoll = 0;
   if (millis() - lastPoll >= FF_POLL_INTERVAL_MS) {
     lastPoll = millis();

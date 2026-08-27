@@ -55,6 +55,13 @@ class Config:
     # Which way depends on how the frame is hung — fix it here, no reflash needed.
     panel_rotation: int = 90  # 0 | 90 | 180 | 270 degrees
 
+    # The frame's mat opening (8x6) is smaller than the panel's glass, so a strip
+    # of every edge sits behind the mat. Shrink the whole composition by this much
+    # per edge (as a % of the panel dimension) and center it on white paper, so the
+    # visible art fits inside the opening with a thin print margin. Panel and mat
+    # share the same 0.75 aspect, so one uniform scale keeps proportions exact.
+    mat_inset_pct: float = 4.0  # 0 disables; ~4% per edge -> art at 92%
+
     # Collage --------------------------------------------------------------
     collage_rebuilds_per_day: int = 3
 
@@ -76,6 +83,7 @@ class Config:
         self.collage_rebuilds_per_day = int(_clamp(self.collage_rebuilds_per_day, 1, 24))
         if self.panel_rotation not in (0, 90, 180, 270):
             self.panel_rotation = 90
+        self.mat_inset_pct = _clamp(float(self.mat_inset_pct), 0.0, 20.0)
         # Normalise quiet-hours strings to HH:MM
         self.quiet_hours_start = _fmt(_parse_hhmm(self.quiet_hours_start, "22:00"))
         self.quiet_hours_end = _fmt(_parse_hhmm(self.quiet_hours_end, "06:00"))

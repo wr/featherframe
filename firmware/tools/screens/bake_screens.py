@@ -79,8 +79,7 @@ ITALIC = os.path.join(FONTS, "EBGaramond-Italic[wght].ttf")
 SANS = os.path.join(HERE, "fonts", "Inter-Medium.otf")
 
 # Firmware version baked into the splash footer. Bump and re-run on release.
-VERSION = "VERSION 1.0.1"
-BUILD = "BUILD A1B4321"
+VERSION = "v 1.0.1"
 
 def font(size, italic=False, weight=None):
     f = ImageFont.truetype(ITALIC if italic else ROMAN, size)
@@ -197,7 +196,7 @@ def screen_setup():
 def screen_check(name, states):
     c, d = new_canvas()
     paste_art(c, "house", W / 2, 150, 660)
-    rows = ["Connecting to wi-fi...", "Connecting to BirdNET...", "Downloading image..."]
+    rows = ["Connecting to wi-fi", "Connecting to server", "Downloading image"]
     x0, y0, x1 = 260, 1300, W - 260
     rowh = 130; y1 = y0 + rowh * len(rows) + 60
     d.rounded_rectangle([x0, y0, x1, y1], radius=24, fill=0)
@@ -239,7 +238,6 @@ WORDMARK_BASELINE = 1534
 # engraved capitals (Adorn Engraved, theme.SUBTITLE_SIZE).
 HEDERA_BASELINE  = 1632
 VERSION_BASELINE = 1718
-VERSION_GAP = 110          # gap between VERSION and BUILD, diamond in the middle
 
 def draw_wordmark(im):
     d = ImageDraw.Draw(im)
@@ -251,20 +249,13 @@ def draw_version(im):
     d = ImageDraw.Draw(im)
     d.text((W / 2, HEDERA_BASELINE), theme.DATE_ORNAMENT,
            font=font(36, italic=True, weight=500), fill=0, anchor="ms")
-    size = theme.SUBTITLE_SIZE
-    lw = typography.engraved_width(VERSION, size)
-    rw = typography.engraved_width(BUILD, size)
-    x0 = W / 2 - (lw + VERSION_GAP + rw) / 2
-    typography.draw_engraved(d, x0 + lw / 2, VERSION_BASELINE, VERSION, size, 0)
-    typography.draw_engraved(d, x0 + lw + VERSION_GAP + rw / 2, VERSION_BASELINE,
-                             BUILD, size, 0)
-    cap = size * theme.ENGRAVED_CAP
-    diamond(d, x0 + lw + VERSION_GAP / 2, VERSION_BASELINE - cap / 2, 7)
+    typography.draw_engraved(d, W / 2, VERSION_BASELINE, VERSION,
+                             theme.SUBTITLE_SIZE, 0)
 
 PILL_TEXT = {
-    "wifi":     "Connecting to Wi-Fi…",
-    "birdnet":  "Connecting to BirdNET…",
-    "download": "Downloading image…",
+    "wifi":     "Connecting to Wi-Fi",
+    "birdnet":  "Connecting to server",
+    "download": "Downloading image",
 }
 
 # Pill geometry: y=1648, height 82, centered, rounded (rx = h/2). The loading
@@ -272,7 +263,7 @@ PILL_TEXT = {
 # Medium) for at-a-glance readability against all the Garamond around it.
 # Drawn pure black/white so the window refreshes flash-less with DU.
 PILL_Y, PILL_H, PILL_PAD, PILL_GAP = 1648, 82, 30, 22
-PILL_TEXT_SIZE = 38
+PILL_TEXT_SIZE = 34
 
 def draw_pill(im, text):
     # Returns the loading mark's portrait center so the bake can emit its

@@ -47,12 +47,16 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 3
+PROMPT_VERSION = 4
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
-# v3: v2 plus Wells's blind-test debrief (28/40 against 20 fresh fakes):
+# v4: v3 plus the second blind sitting: the hand's limits are the signature
+# (nothing rendered past what brush and burin can hold), the sheet must
+# exhibit its subject (no camouflage or concealment poses), and botany varies
+# with the species instead of repeating stock plants.
+# v3 was Wells's first blind-test debrief (28/40 against 20 fresh fakes):
 # the medium must be discernible (wash or line, never airbrush), saturation is
 # pigment not light, no frontal eye contact, bill gape and energy must match
 # the species' real voice and character, and showcase-chaotic botany is an
@@ -70,7 +74,10 @@ _STYLE_PROMPT = (
     "The printed process shows everywhere: transparent watercolor washes sit over visible "
     "engraved feather line-work and irregular aquatint grain; washes pool and bleed "
     "slightly at their edges; hand-coloring is gently uneven and no two markings repeat "
-    "exactly. Edges carry the faint softness of an impression on damp paper — never "
+    "exactly. Detail resolves only as far as the hand tools allow: every berry, leaf, "
+    "and eye is a brush's honest approximation of something observed in the field — "
+    "simplified, slightly irregular — never an object rendered past what watercolor "
+    "and burin can hold. Edges carry the faint softness of an impression on damp paper — never "
     "digital smoothness, never airbrush gradients. Every passage must declare its "
     "medium: brush-laid wash with granulation and pooling, or engraved line — an "
     "ambiguous airbrushed surface belongs to no 19th-century process. Saturation is "
@@ -93,7 +100,9 @@ _STYLE_PROMPT = (
     "must be true to this particular species as a naturalist knows it: the bill opens "
     "only as far as its real voice demands, posture and energy match its living "
     "temperament, and any contortion follows Audubon's theatrical grammar rather than "
-    "generic distortion. "
+    "generic distortion. And the sheet exists to EXHIBIT the animal: however dramatic "
+    "the moment, the subject stays conspicuous with its diagnostic features displayed "
+    "— a pose that conceals or camouflages the subject defeats the plate's purpose. "
     "Arrange the figures on one long diagonal or S-curve armature — a branch, stem, or "
     "bank entering from the sheet edge and cut off flush — at staggered heights, facing "
     "opposite directions; a very large bird is instead bent in the period manner (neck "
@@ -105,7 +114,8 @@ _STYLE_PROMPT = (
     "ONE identifiable host plant tied to its real diet or season, drawn to "
     "botanical-plate standard with individually veined leaves that carry the incidental "
     "imperfections of field-gathered specimens — most leaves whole, damage the "
-    "exception that proves the specimen real; "
+    "exception that proves the specimen real, and chosen fresh from that species' own "
+    "world rather than from a painter's stock of favorites; "
     "a trunk forager gets dead lichen-crusted wood, no leaves; a ground bird gets a "
     "painted ground band of moss, rocks, and particular grasses in the lower third only, "
     "its edge cut hard so it floats on the paper, bare-paper sky above; a waterbird or "

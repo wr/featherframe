@@ -33,7 +33,7 @@ def _db_with_today(path, species_count):
 
 
 def test_collage_on_demand_from_todays_birds(svc, tmp_path):
-    svc.birdnet.db_path = str(_db_with_today(tmp_path / "birds.db", 4))
+    svc.source.db_path = str(_db_with_today(tmp_path / "birds.db", 4))
     result = svc.render_collage_on_demand()
     assert result is not None
     assert result.frame[:4] == b"FFF1"
@@ -43,12 +43,12 @@ def test_collage_on_demand_from_todays_birds(svc, tmp_path):
 
 
 def test_collage_on_demand_none_when_too_few(svc, tmp_path):
-    svc.birdnet.db_path = str(_db_with_today(tmp_path / "birds.db", 1))
+    svc.source.db_path = str(_db_with_today(tmp_path / "birds.db", 1))
     assert svc.render_collage_on_demand() is None
 
 
 def test_status_page_renders_fff(svc, tmp_path):
-    svc.birdnet.db_path = str(_db_with_today(tmp_path / "birds.db", 2))
+    svc.source.db_path = str(_db_with_today(tmp_path / "birds.db", 2))
     result = svc.render_status_page(battery_voltage=3.9, battery_percent=62,
                                     wifi_rssi=-64)
     assert result.frame[:4] == b"FFF1"
@@ -57,6 +57,6 @@ def test_status_page_renders_fff(svc, tmp_path):
 
 
 def test_status_page_with_no_birdnet(svc, tmp_path):
-    svc.birdnet.db_path = str(tmp_path / "missing.db")
+    svc.source.db_path = str(tmp_path / "missing.db")
     result = svc.render_status_page()
     assert result.frame[:4] == b"FFF1"

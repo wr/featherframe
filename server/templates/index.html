@@ -74,6 +74,19 @@
     .save-bar { display: flex; justify-content: flex-end; gap: 10px; }
     footer { text-align: center; color: var(--soft); font-size: 12px; margin-top: 32px; }
     form.inline { display: inline; }
+    .actions form.inline { display: flex; gap: 8px; flex: 1; }
+    .actions form.inline input[type=text] { flex: 1; min-width: 0; }
+
+    /* AI plate gallery */
+    .gen-list { display: flex; flex-direction: column; gap: 12px; }
+    .gen-item { display: flex; gap: 14px; align-items: center; border: 1px solid var(--line); border-radius: 3px; background: #fff; padding: 10px 12px; }
+    .gen-item img { width: 72px; height: 96px; object-fit: cover; border: 1px solid var(--line); background: #fff; }
+    .gen-item .who { flex: 1; min-width: 0; }
+    .gen-item .who .common { font-weight: 600; }
+    .gen-item .who .sci { font-style: italic; color: var(--soft); font-size: 13px; }
+    .gen-item .who .meta { color: var(--soft); font-size: 12px; margin-top: 2px; }
+    .gen-item .ops { display: flex; gap: 8px; }
+    .gen-item .ops button { padding: 6px 12px; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -90,10 +103,22 @@
         <img id="preview" src="/api/preview.png" alt="Current frame">
       </div>
       <div class="actions">
-        <form class="inline" method="post" action="/api/test-detection">
+        <form class="inline" method="post" action="/api/test-detection"
+              onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Rendering…';">
+          <input type="text" name="common" placeholder="Northern Cardinal"
+                 title="Species to test. A species with no Audubon plate exercises AI generation (may take a minute).">
           <button class="ghost" type="submit">Test detection</button>
         </form>
         <button class="ghost" type="button" onclick="refreshPreview()">Refresh preview</button>
+      </div>
+      <div class="actions">
+        <form class="inline" method="post" action="/api/collage/day-review"
+              onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Painting…';">
+          <button class="ghost" type="submit" title="Render today's day-in-review composite now. Reuses today's sheet if one exists.">Day in review</button>
+          <label class="check" style="font-size: 12px; color: var(--soft); gap: 5px;">
+            <input type="checkbox" name="repaint" title="Buy a fresh sheet even if today's exists (~17¢)"> repaint
+          </label>
+        </form>
       </div>
 
       <div class="status">
@@ -114,6 +139,8 @@
           <dd>{{ status.species_all_time }}</dd>
           <dt>Plates loaded</dt>
           <dd>{{ status.plates_loaded }}</dd>
+          <dt>AI plates cached</dt>
+          <dd>{{ status.generated_cached }}</dd>
           <dt>Device check-in</dt>
           <dd>{{ status.device.last_checkin or 'never' }}</dd>
           {% if status.device.battery_voltage %}
@@ -125,6 +152,7 @@
     </div>
 
     <!-- RIGHT: settings -->
+    <div>
     <form method="post" action="/settings">
       <div class="card">
         <h2>Display</h2>
@@ -145,6 +173,10 @@
             <label>Refresh debounce (min)</label>
             <input type="number" name="refresh_debounce_minutes" min="1" max="720" value="{{ config.refresh_debounce_minutes }}">
           </div>
+        </div>
+        <div class="field check">
+          <input type="checkbox" id="ssl" name="single_show_latest" {{ 'checked' if config.single_show_latest else '' }}>
+          <label for="ssl">Always show the most recent detection (ignore debounce &amp; same-species)</label>
         </div>
         <div class="field">
           <label>Device wake interval (min)</label>
@@ -213,15 +245,33 @@
           </select>
           <div class="hint">If the image is sideways or upside-down on the panel, change this — no reflash needed.</div>
         </div>
-        <div class="hint">Changing grayscale, dithering, or rotation re-renders the current frame.</div>
+        <div class="field">
+          <label>Mat inset (% per edge)</label>
+          <input type="number" name="mat_inset_pct" min="0" max="20" step="0.5" value="{{ config.mat_inset_pct }}">
+          <div class="hint">Shrinks the art onto white paper so it clears the frame's mat opening. 0 fills the whole panel; ~4 suits an 8×6 mat.</div>
+        </div>
+        <div class="hint">Changing grayscale, dithering, rotation, or mat inset re-renders the current frame.</div>
       </div>
 
       <div class="card">
         <h2>Ingest &amp; curation</h2>
         <div class="field">
+          <label>Detection source</label>
+          <select name="detection_backend">
+            <option value="birdnet_pi" {{ 'selected' if config.detection_backend=='birdnet_pi' else '' }}>BirdNET-Pi — local database</option>
+            <option value="birdnet_go" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go — REST API</option>
+          </select>
+          <div class="hint">Where the birds come from. Switching re-reads from the new source on the next poll.</div>
+        </div>
+        <div class="field">
           <label>BirdNET-Pi database path</label>
           <input type="text" name="birdnet_db_path" value="{{ config.birdnet_db_path }}">
-          <div class="hint">Read-only. Default: ~/BirdNET-Pi/scripts/birds.db</div>
+          <div class="hint">Read-only. Used by the BirdNET-Pi source. Default: ~/BirdNET-Pi/scripts/birds.db</div>
+        </div>
+        <div class="field">
+          <label>BirdNET-Go URL</label>
+          <input type="text" name="birdnet_go_url" value="{{ config.birdnet_go_url }}">
+          <div class="hint">Used by the BirdNET-Go source. Default: http://localhost:8080</div>
         </div>
         <div class="field">
           <label>Poll interval (seconds)</label>
@@ -234,10 +284,81 @@
         </div>
       </div>
 
+      <div class="card">
+        <h2>AI plates</h2>
+        <div class="field check">
+          <input type="checkbox" id="ig" name="imagegen_enabled" {{ 'checked' if config.imagegen_enabled else '' }}>
+          <label for="ig">Generate a plate when a species has no Audubon plate (already-generated plates always show)</label>
+        </div>
+        <div class="field">
+          <label>OpenAI API key</label>
+          <input type="password" name="imagegen_api_key" autocomplete="off"
+                 placeholder="{{ ('configured (' + status.config.imagegen_api_key + ') — leave blank to keep') if status.config.imagegen_api_key else 'sk-…' }}">
+          <div class="hint">Stored only on this device. Each new species is generated once (~$0.17) and kept forever; without a key, already-cached plates still show.</div>
+        </div>
+        <div class="field check">
+          <input type="checkbox" id="igc" name="imagegen_clear_key">
+          <label for="igc">Clear the stored key</label>
+        </div>
+        <div class="field check">
+          <input type="checkbox" id="cg" name="collage_generated" {{ 'checked' if config.collage_generated else '' }}>
+          <label for="cg">Paint the nightly "day in review" as one composite plate (~17¢/night; falls back to the plate grid)</label>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Model</label>
+            <select name="imagegen_model">
+              {% for m in ['gpt-image-2', 'gpt-image-1.5', 'gpt-image-1', 'gpt-image-1-mini'] %}
+              <option value="{{ m }}" {{ 'selected' if config.imagegen_model==m else '' }}>{{ m }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>Quality</label>
+            <select name="imagegen_quality">
+              {% for q in ['high', 'medium', 'low', 'auto'] %}
+              <option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ q }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div class="save-bar">
         <button class="primary" type="submit">Save settings</button>
       </div>
     </form>
+
+    {% if generated %}
+    <div class="card" style="margin-top: 20px;">
+      <h2>AI plates on file</h2>
+      <div class="gen-list">
+        {% for g in generated %}
+        <div class="gen-item">
+          <img src="/api/generated/{{ g.slug }}.png?v={{ g.created_at | urlencode }}" alt="{{ g.common }}" loading="lazy">
+          <div class="who">
+            <div class="common">{{ g.common }}</div>
+            <div class="sci">{{ g.scientific }}</div>
+            <div class="meta">{{ g.model }} · {{ g.created_at[:10] }}</div>
+          </div>
+          <div class="ops">
+            <form class="inline" method="post" action="/api/generated/regenerate"
+                  onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Generating…';">
+              <input type="hidden" name="slug" value="{{ g.slug }}">
+              <button class="ghost" type="submit" title="Generate a fresh plate for this species (costs one image)">Regenerate</button>
+            </form>
+            <form class="inline" method="post" action="/api/generated/delete">
+              <input type="hidden" name="slug" value="{{ g.slug }}">
+              <button class="ghost" type="submit" title="Remove the cached plate; the next detection generates a new one">Remove</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="hint" style="margin-top: 10px;">A cached plate is never regenerated on its own — only from here.</div>
+    </div>
+    {% endif %}
+    </div>
   </div>
 
   <footer>

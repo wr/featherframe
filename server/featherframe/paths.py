@@ -41,6 +41,21 @@ def db_path() -> Path:
     return _env_path("FEATHERFRAME_DB", data_dir() / "featherframe.db")
 
 
+def generated_dir() -> Path:
+    """AI-generated plate cache. Lives under data_dir so a generated plate is
+    state that survives deploys and is never re-bought."""
+    d = data_dir() / "generated"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def collages_dir() -> Path:
+    """Nightly day-in-review composite sheets, one per date."""
+    d = data_dir() / "collages"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def plates_dir() -> Path:
     d = _env_path("FEATHERFRAME_PLATES_DIR", _REPO_SERVER_DIR / "plates")
     return d

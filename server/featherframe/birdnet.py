@@ -1,16 +1,13 @@
 """Read-only ingest from BirdNET-Pi's SQLite database.
 
-We are a guest on BirdNET's disk. Rules:
-  * open strictly read-only (``file:...?mode=ro``) — never write, never lock;
-  * poll with a rowid high-water mark, so a query is a cheap indexed range scan;
-  * treat a missing DB or unexpected schema as a *soft* failure — log and carry
-    on serving the current frame. Priority #2: never a broken frame.
+Opens the DB read-only (``file:...?mode=ro``) and polls with a rowid high-water
+mark. A missing DB or unexpected schema is a soft failure.
 
-Schema (Nachtzuster/BirdNET-Pi fork, verified against createdb.sh):
+Schema (Nachtzuster/BirdNET-Pi fork):
     detections(Date TEXT 'YYYY-MM-DD', Time TEXT 'HH:MM:SS', Sci_Name, Com_Name,
                Confidence REAL, Lat, Lon, Cutoff, Week, Sens, Overlap, File_Name)
-There is no declared primary key; ``rowid`` is the only per-row handle and rows
-are appended in detection order, so ``WHERE rowid > :cursor`` is our cursor.
+There is no primary key; rows are appended in detection order, so
+``WHERE rowid > :cursor`` is the cursor.
 """
 from __future__ import annotations
 
@@ -18,10 +15,10 @@ import logging
 import os
 import sqlite3
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import date as ddate
-from datetime import datetime
 from typing import Iterator, Optional
+
+from .sources.base import Detection, DetectionSource
 
 log = logging.getLogger("featherframe.birdnet")
 
@@ -29,33 +26,15 @@ log = logging.getLogger("featherframe.birdnet")
 _REQUIRED_COLUMNS = {"Date", "Time", "Sci_Name", "Com_Name", "Confidence"}
 
 
-@dataclass(frozen=True)
-class Detection:
-    rowid: int
-    date: str
-    time: str
-    common_name: str
-    scientific_name: str
-    confidence: float
-
-    @property
-    def timestamp(self) -> datetime:
-        try:
-            return datetime.strptime(f"{self.date} {self.time}", "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            return datetime.min
-
-    @property
-    def key(self) -> str:
-        """Stable species identity for debounce / same-species comparison."""
-        return self.scientific_name.strip().lower()
-
-
 class SchemaError(RuntimeError):
     pass
 
 
-class BirdNetDB:
+class BirdNetDB(DetectionSource):
+    """BirdNET-Pi's read-only SQLite database as a DetectionSource."""
+
+    name = "birdnet_pi"
+
     def __init__(self, db_path: str, query_timeout_s: float = 5.0) -> None:
         self.db_path = os.path.expanduser(db_path)
         self._query_timeout_s = query_timeout_s
@@ -215,3 +194,7 @@ class BirdNetDB:
         except (sqlite3.Error, FileNotFoundError) as exc:
             log.debug("species_ordinal failed: %s", exc)
             return None
+
+
+# Source-neutral alias (the DetectionSource factory prefers this name).
+BirdNetPiSource = BirdNetDB

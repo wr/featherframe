@@ -59,7 +59,7 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     field = _new_field()
     draw = ImageDraw.Draw(field)
 
-    caption_top = theme.HEIGHT - theme.MARGIN_BOTTOM - theme.CAPTION_BLOCK_H
+    caption_top = theme.HEIGHT - theme.CAPTION_BLOCK_H
     art_box = (theme.MARGIN_X, theme.MARGIN_TOP,
                theme.WIDTH - theme.MARGIN_X, caption_top - theme.CAPTION_GAP)
     # Composites read better filling the frame; single subjects sit slightly high.
@@ -83,32 +83,62 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
     draw = ImageDraw.Draw(field)
     cx = theme.WIDTH / 2
 
-    # A pair of thin rules top and bottom of the type gives it a plate-like frame.
-    block_top = theme.HEIGHT * 0.34
-    typography.draw_smallcaps(draw, cx, block_top, spec.common_name,
-                              typography.FONTS, 104, theme.INK, theme.NAME_TRACKING)
-
-    sci_font = typography.FONTS.get(58, italic=True, weight=460)
-    sci_baseline = block_top + 92
-    draw.text((cx, sci_baseline), spec.scientific_name, font=sci_font,
-              fill=theme.INK, anchor="ms")
-
-    # hairline
-    rule_y = sci_baseline + 74
-    half = theme.RULE_WIDTH / 2
-    draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],
-                   fill=theme.RULE)
-
     when = spec.first_seen or (spec.when.strftime("%Y-%m-%d") if spec.when else None)
+    pretty = None
     if when:
         try:
             d = datetime.strptime(when, "%Y-%m-%d")
-            pretty = f"First recorded {d.day} {d.strftime('%B')} {d.year}"
+            pretty = f"first recorded {d.day} {d.strftime('%B').lower()} {d.year}"
         except ValueError:
-            pretty = f"First recorded {when}"
-        typography.draw_smallcaps(draw, cx, rule_y + 54, pretty, typography.FONTS,
-                                  theme.META_SIZE, theme.INK_SOFT, theme.META_TRACKING,
-                                  weight_caps=500, weight_small=520)
+            pretty = f"first recorded {when}"
+
+    block_top = theme.HEIGHT * 0.34
+
+    if typography.HAS_RAQM:
+        # Common name — swash italic, tightened, auto-fit.
+        size = 132
+        while size > 60:
+            title_font = typography.FONTS.get(size, italic=True, weight=theme.TITLE_WEIGHT)
+            if typography.title_width(title_font, spec.common_name,
+                                      size * theme.TITLE_TRACKING) <= theme.CONTENT_W:
+                break
+            size -= 3
+        typography.draw_title(draw, cx, block_top, spec.common_name, title_font,
+                              theme.INK, size * theme.TITLE_TRACKING)
+
+        # Scientific name — engraved capitals.
+        sci_baseline = block_top + size * 0.30 + 48
+        typography.draw_engraved(draw, cx, sci_baseline, spec.scientific_name.upper(),
+                                 38, theme.INK_MEDIUM)
+
+        rule_y = sci_baseline + 74
+        half = theme.RULE_WIDTH / 2
+        draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],
+                       fill=theme.RULE)
+
+        if pretty:
+            date_font = typography.FONTS.get(theme.DATE_SIZE, italic=True,
+                                             weight=theme.DATE_WEIGHT)
+            typography.draw_ot_tracked(draw, cx, rule_y + 54, pretty, date_font,
+                                       theme.INK_MEDIUM, theme.FALLBACK_META_FEATURES,
+                                       theme.DATE_SIZE * theme.FALLBACK_META_TRACKING)
+    else:
+        name_size = typography.fit_smallcaps_size(spec.common_name, typography.FONTS,
+                                                  104, theme.NAME_TRACKING, theme.CONTENT_W)
+        typography.draw_smallcaps(draw, cx, block_top, spec.common_name,
+                                  typography.FONTS, name_size, theme.INK, theme.NAME_TRACKING)
+        sci_baseline = block_top + 92
+        typography.draw_engraved(draw, cx, sci_baseline, spec.scientific_name.upper(),
+                                 38, theme.INK_MEDIUM)
+        rule_y = sci_baseline + 74
+        half = theme.RULE_WIDTH / 2
+        draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],
+                       fill=theme.RULE)
+        if pretty:
+            typography.draw_smallcaps(draw, cx, rule_y + 54,
+                                      pretty.replace("first recorded", "First recorded"),
+                                      typography.FONTS, theme.META_SIZE, theme.INK_MEDIUM,
+                                      theme.META_TRACKING, weight_caps=500, weight_small=520)
 
     if show_plate_number and spec.plate_number:
         typography.plate_number_mark(draw, spec.plate_number)

@@ -27,7 +27,10 @@ class Config:
     # Display behaviour ----------------------------------------------------
     mode: str = "single"  # "single" | "collage" | "auto"
     confidence_threshold: float = 0.7
-    refresh_debounce_minutes: int = 15  # never repaint the panel more often
+    # Single mode shows the most recent qualifying detection. False applies
+    # refresh_debounce_minutes and same-species suppression instead.
+    single_show_latest: bool = True
+    refresh_debounce_minutes: int = 15  # applies when single_show_latest is False
     wake_interval_minutes: int = 15  # advisory: how often the device wakes
 
     # Quiet hours ----------------------------------------------------------
@@ -43,7 +46,14 @@ class Config:
     species_blocklist: list[str] = field(default_factory=list)
 
     # Ingest ---------------------------------------------------------------
-    birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"
+    # Where detections come from. "birdnet_pi" reads a local SQLite DB;
+    # "birdnet_go" polls BirdNET-Go's REST API.
+    detection_backend: str = "birdnet_pi"  # "birdnet_pi" | "birdnet_go"
+    birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"  # birdnet_pi backend
+    birdnet_go_url: str = "http://localhost:8080"           # birdnet_go backend
+    # When on, the BirdNET-Go source filters by BirdNET-Go's own confidence
+    # threshold and ignores confidence_threshold.
+    birdnet_go_defer_confidence: bool = True
     poll_interval_seconds: int = 20  # 10-30s per spec
 
     # Rendering ------------------------------------------------------------
@@ -55,8 +65,24 @@ class Config:
     # Which way depends on how the frame is hung — fix it here, no reflash needed.
     panel_rotation: int = 90  # 0 | 90 | 180 | 270 degrees
 
+    # Shrink the composition by this percent per edge and center it on white.
+    mat_inset_pct: float = 4.0  # 0 disables
+
     # Collage --------------------------------------------------------------
     collage_rebuilds_per_day: int = 3
+
+    # AI-generated plates --------------------------------------------------
+    # For species Audubon never painted. A plate is generated once on first
+    # detection and cached forever; only a manual regenerate replaces it.
+    # Without an API key this degrades to serving already-cached plates.
+    imagegen_enabled: bool = True
+    imagegen_provider: str = "openai"      # seam for other vendors later
+    imagegen_model: str = "gpt-image-2"
+    imagegen_quality: str = "high"         # low | medium | high | auto
+    imagegen_api_key: str = ""             # user-provided; lives only in our DB
+    # The nightly "day in review" as one generated composite plate (the
+    # folio's totem manner). Once per date; the grid collage is the fallback.
+    collage_generated: bool = True
 
     def __post_init__(self) -> None:
         self.sanitize()
@@ -69,6 +95,9 @@ class Config:
         self.refresh_debounce_minutes = int(_clamp(self.refresh_debounce_minutes, 1, 720))
         self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
         self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 5, 300))
+        if self.detection_backend not in ("birdnet_pi", "birdnet_go"):
+            self.detection_backend = "birdnet_pi"
+        self.birdnet_go_url = str(self.birdnet_go_url or "").strip().rstrip("/") or "http://localhost:8080"
         if self.gray_mode not in ("16", "1"):
             self.gray_mode = "16"
         if self.dither not in ("stucki", "bluenoise", "none"):
@@ -76,6 +105,13 @@ class Config:
         self.collage_rebuilds_per_day = int(_clamp(self.collage_rebuilds_per_day, 1, 24))
         if self.panel_rotation not in (0, 90, 180, 270):
             self.panel_rotation = 90
+        self.mat_inset_pct = _clamp(float(self.mat_inset_pct), 0.0, 20.0)
+        if self.imagegen_provider not in ("openai",):
+            self.imagegen_provider = "openai"
+        self.imagegen_model = str(self.imagegen_model or "").strip() or "gpt-image-2"
+        if self.imagegen_quality not in ("low", "medium", "high", "auto"):
+            self.imagegen_quality = "high"
+        self.imagegen_api_key = str(self.imagegen_api_key or "").strip()
         # Normalise quiet-hours strings to HH:MM
         self.quiet_hours_start = _fmt(_parse_hhmm(self.quiet_hours_start, "22:00"))
         self.quiet_hours_end = _fmt(_parse_hhmm(self.quiet_hours_end, "06:00"))

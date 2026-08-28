@@ -49,6 +49,103 @@ def _grid(n: int) -> tuple[int, int]:
     return cols, rows
 
 
+def _title_band(field: Image.Image, when: ddate, title: str) -> int:
+    """One italic header line — "Sightings ~ August 27" — swash, tightened,
+    auto-fit to the content width. Returns the y where the art may begin."""
+    draw = ImageDraw.Draw(field)
+    cx = theme.WIDTH / 2
+    text = f"{title} ~ {when.strftime('%B')} {when.day}"
+    if typography.HAS_RAQM:
+        size = theme.COLLAGE_TITLE_SIZE
+        while size > 60:
+            font = typography.FONTS.get(size, italic=True, weight=theme.TITLE_WEIGHT)
+            if typography.title_width(font, text,
+                                      size * theme.TITLE_TRACKING) <= theme.CONTENT_W:
+                break
+            size -= 3
+        typography.draw_title(draw, cx, theme.COLLAGE_TITLE_BASELINE, text, font,
+                              theme.INK, size * theme.TITLE_TRACKING)
+    else:
+        size = typography.fit_smallcaps_size(text, typography.FONTS, 58, 0.12,
+                                             theme.CONTENT_W)
+        typography.draw_smallcaps(draw, cx, theme.COLLAGE_TITLE_BASELINE, text,
+                                  typography.FONTS, size, theme.INK, 0.12)
+    return theme.COLLAGE_ART_TOP
+
+
+def _fit_key(entries: list[str], max_w: float) -> tuple[int, list[list[str]]]:
+    """(font size, entry lines) for the key: the widest line must fit the
+    sheet. Long BirdNET names (hyphenated warblers and swallows) would
+    otherwise clip silently at the panel edges. Tries fewer lines at larger
+    sizes first, then one entry per line, then scales below the size floor —
+    the fit is a guarantee, not a preference."""
+    if not entries:
+        return theme.KEY_SIZES[-1], []
+
+    def width(chunk: list[str], size: int) -> float:
+        gap = size * theme.KEY_ENTRY_GAP
+        return sum(typography.engraved_width(e, size, theme.KEY_TRACKING)
+                   for e in chunk) + gap * (len(chunk) - 1)
+
+    for size in theme.KEY_SIZES:
+        for lines in range(1, len(entries) + 1):
+            per = -(-len(entries) // lines)  # ceil
+            chunks = [c for c in (entries[i * per:(i + 1) * per]
+                                  for i in range(lines)) if c]
+            if max(width(c, size) for c in chunks) <= max_w:
+                return size, chunks
+    # Even one entry per line overflows at the floor: scale to the widest.
+    size = theme.KEY_SIZES[-1]
+    widest = max(width([e], size) for e in entries)
+    size = max(12, math.floor(size * max_w / widest))
+    return size, [[e] for e in entries]
+
+
+def _draw_key(draw: ImageDraw.ImageDraw, key_size: int,
+              key_lines: list[list[str]]) -> int:
+    """Engraved-caps key lines, bottom-anchored and centered, each line's
+    entries separated by a wide gap. Returns the key's ink top."""
+    if not key_lines:
+        return theme.HEIGHT - theme.MARGIN_BOTTOM
+    cx = theme.WIDTH / 2
+    line_h = round(key_size * theme.KEY_LINE_H)
+    gap = key_size * theme.KEY_ENTRY_GAP
+    first_baseline = theme.HEIGHT - theme.KEY_BOTTOM - (len(key_lines) - 1) * line_h
+    for li, chunk in enumerate(key_lines):
+        widths = [typography.engraved_width(e, key_size, theme.KEY_TRACKING)
+                  for e in chunk]
+        total = sum(widths) + gap * (len(chunk) - 1)
+        x = cx - total / 2
+        baseline = first_baseline + li * line_h
+        for entry, w in zip(chunk, widths):
+            typography.draw_engraved(draw, x + w / 2, baseline, entry, key_size,
+                                     theme.INK, theme.KEY_TRACKING)
+            x += w + gap
+    return first_baseline - round(key_size * theme.ENGRAVED_CAP)
+
+
+def render_generated_collage(art: Image.Image, cells: list[CollageCell],
+                             when: Optional[ddate] = None, total_detections: int = 0,
+                             title: str = "The Day in Review") -> Image.Image:
+    """The generated composite sheet: title band, the one generated artwork
+    where the grid would be, and a key matching the sheet's figure numerals —
+    '1. Species ×count' in prominence order."""
+    when = when or ddate.today()
+    field = _new_field()
+    draw = ImageDraw.Draw(field)
+
+    art_top = _title_band(field, when, title)
+
+    entries = [f"{i}. {c.common_name.upper()}" for i, c in enumerate(cells, start=1)]
+    key_size, key_lines = _fit_key(entries, theme.WIDTH - 2 * 60)
+    key_top = _draw_key(draw, key_size, key_lines)
+    art_bottom = key_top - theme.KEY_ART_GAP
+    _paste_art(field, art,
+               (theme.MARGIN_X, art_top, theme.WIDTH - theme.MARGIN_X, art_bottom),
+               v_align=0.5)
+    return field
+
+
 def render_collage(cells: list[CollageCell], provider: ArtProvider,
                    when: Optional[ddate] = None, total_detections: int = 0,
                    title: str = "A Day in the Garden") -> Image.Image:
@@ -58,29 +155,9 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
 
     field = _new_field()
     draw = ImageDraw.Draw(field)
-    cx = theme.WIDTH / 2
-
-    # -- title band --------------------------------------------------------
-    title_font_baseline = theme.MARGIN_TOP + 44
-    typography.draw_smallcaps(draw, cx, title_font_baseline, title,
-                              typography.FONTS, 58, theme.INK, 0.12)
-    # date + totals subtitle
-    d = when
-    date_str = f"{d.day} {d.strftime('%B')} {d.year}"
-    n_species = len([c for c in cells])
-    sub = f"{date_str}   ·   {n_species} species"
-    if total_detections:
-        sub += f"   ·   {total_detections} detections"
-    typography.draw_smallcaps(draw, cx, title_font_baseline + 52, sub,
-                              typography.FONTS, theme.META_SIZE, theme.INK_SOFT,
-                              theme.META_TRACKING, weight_caps=500, weight_small=520)
-    rule_y = title_font_baseline + 92
-    half = theme.RULE_WIDTH / 2
-    draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],
-                   fill=theme.RULE)
 
     # -- grid --------------------------------------------------------------
-    grid_top = rule_y + 60
+    grid_top = _title_band(field, when, title)
     grid_bottom = theme.HEIGHT - theme.MARGIN_BOTTOM
     grid_left = theme.MARGIN_X
     grid_right = theme.WIDTH - theme.MARGIN_X

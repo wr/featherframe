@@ -19,7 +19,8 @@ from .config import Config
 from .names import SpeciesIndex
 from .render import pipeline
 from .render.compose import SingleSpec
-from .render.provider import AudubonProvider
+from .render.genart import GeneratedArtProvider
+from .render.provider import AudubonProvider, ChainedProvider
 
 
 def _now() -> datetime:
@@ -48,7 +49,9 @@ def main() -> int:
         config.gray_mode = args.gray
 
     index = SpeciesIndex.load()
-    provider = AudubonProvider(index)
+    # Cache-only generated link (no API key in previews): a species with a
+    # cached AI plate previews exactly as the server would render it.
+    provider = ChainedProvider([AudubonProvider(index), GeneratedArtProvider(None)])
     out = paths.test_output_dir()
 
     if args.collage:

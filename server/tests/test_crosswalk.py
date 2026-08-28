@@ -22,6 +22,24 @@ EXPECTED = {
     "Red-winged Blackbird": 67,   # filed under "...Starling..."
     "European Starling": None,    # not painted -> fallback
     "House Sparrow": None,        # not painted -> fallback
+    # Catalog expansion (2026-08). The mirror's data.json 'name' column is
+    # shifted +1 for plates 361-399; these pins follow TRUE Havell numbering
+    # (matching the mirror's fileName column, which is what downloads use).
+    "Redpoll": 375,               # "Lesser Red-Poll" — mirror name sits at 376
+    "Dickcissel": 384,            # "Black-throated Bunting" — mirror name at 385
+    "Bank Swallow": 385,          # "Bank Swallow and Violet-green Swallow"
+    "Chimney Swift": 158,         # "American Swift"
+    "Cooper's Hawk": 36,          # "Stanley Hawk"
+    "Eastern Phoebe": 120,        # "Pewit Flycatcher"
+    "Willow Flycatcher": 45,      # both split from "Traill's Flycatcher"
+    "Alder Flycatcher": 45,
+    "Winter Wren": 360,           # "Winter Wren and Rock Wren"
+    # Never a wrong bird: confirmed plate-less -> AI generation candidates.
+    "Veery": None,                # plate 164's bird is disputed (Halley 2018)
+    "Rock Pigeon": None,          # not painted
+    "Southeastern myotis": None,  # a bat
+    "Mute Swan": None,            # introduced
+    "Least Flycatcher": None,     # described 1843, post-Havell
 }
 
 
@@ -49,5 +67,14 @@ def test_composites_flagged():
     doc = yaml.safe_load(SPECIES_YAML.read_text())
     by_common = {s["common"]: s for s in doc["species"]}
     for name in ("Black-capped Chickadee", "House Finch", "Hairy Woodpecker",
-                 "Red-bellied Woodpecker"):
+                 "Red-bellied Woodpecker", "Bank Swallow", "Winter Wren",
+                 "Scarlet Tanager", "Brown Creeper"):
         assert by_common[name].get("composite") is True, f"{name} should be composite"
+
+
+def test_hairy_woodpecker_matches_birdnet_taxonomy():
+    """BirdNET-Go reports the Hairy Woodpecker as Leuconotopicus villosus;
+    the entry must carry it as a synonym or the live match misses."""
+    doc = yaml.safe_load(SPECIES_YAML.read_text())
+    hairy = next(s for s in doc["species"] if s["common"] == "Hairy Woodpecker")
+    assert "Leuconotopicus villosus" in (hairy.get("sci_synonyms") or [])

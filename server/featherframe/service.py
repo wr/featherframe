@@ -17,23 +17,40 @@ import threading
 from dataclasses import asdict, dataclass
 from datetime import date as ddate
 from datetime import datetime, timedelta
+from datetime import time as dtime
 from typing import Optional
 
 from . import paths
-from .birdnet import BirdNetDB, Detection
 from .config import Config, load_config, save_config
+from .sources import Detection, make_source
 from .db import Database
 from .render import collage as collage_mod
 from .render import pipeline
 from .render import statuspage
 from .render.compose import SingleSpec
+from .render.genart import GeneratedArtProvider, make_image_model
 from .render.pipeline import RenderResult
-from .render.provider import AudubonProvider
+from .render.provider import ArtProvider, AudubonProvider, ChainedProvider
 
 log = logging.getLogger("featherframe.service")
 
 _CURRENT_FFF = "current.fff"
 _CURRENT_PNG = "current.png"
+
+
+def review_date_for(now: datetime, quiet_start: str, quiet_end: str) -> ddate:
+    """The date a day-in-review covers: the day the quiet window started.
+    With a midnight-wrapping window (the default 22:00-06:00), a tick after
+    00:00 still reviews yesterday."""
+    try:
+        sh, sm = (int(x) for x in quiet_start.split(":"))
+        eh, em = (int(x) for x in quiet_end.split(":"))
+        start, end = dtime(sh, sm), dtime(eh, em)
+    except (ValueError, TypeError):
+        return now.date()
+    if start > end and now.time() < end:  # wrapped window, after midnight
+        return now.date() - timedelta(days=1)
+    return now.date()
 
 
 @dataclass
@@ -50,8 +67,10 @@ class FeatherframeService:
     def __init__(self, db: Optional[Database] = None) -> None:
         self.db = db or Database()
         self.config: Config = load_config(self.db)
-        self.provider = AudubonProvider()
-        self.birdnet = BirdNetDB(self.config.birdnet_db_path)
+        self.audubon = AudubonProvider()
+        self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
+        self.provider: ArtProvider = self._build_provider(self.config)
+        self.source = make_source(self.config)
 
         self._lock = threading.RLock()
         self._stop = threading.Event()
@@ -93,12 +112,31 @@ class FeatherframeService:
                 log.exception("scheduler tick failed (keeping current frame)")
             self._stop.wait(self.config.poll_interval_seconds)
 
+    # -- providers ---------------------------------------------------------
+    def _build_provider(self, config: Config) -> ArtProvider:
+        """Audubon first, AI-generated second, typographic fallback implied.
+        The generated link always serves already-bought plates from its cache;
+        imagegen_enabled (and a key) only govern whether NEW plates are bought
+        — turning the feature off must never hide art the user paid for."""
+        self.genart = GeneratedArtProvider(make_image_model(config))
+        return ChainedProvider([self.audubon, self.genart])
+
+    @staticmethod
+    def _imagegen_fields(config: Config) -> tuple:
+        return (config.imagegen_enabled, config.imagegen_provider,
+                config.imagegen_model, config.imagegen_quality,
+                config.imagegen_api_key)
+
     # -- config ------------------------------------------------------------
     def reload_config(self) -> None:
         with self._lock:
             new = load_config(self.db)
-            if new.birdnet_db_path != self.config.birdnet_db_path:
-                self.birdnet = BirdNetDB(new.birdnet_db_path)
+            if (new.detection_backend != self.config.detection_backend
+                    or new.birdnet_db_path != self.config.birdnet_db_path
+                    or new.birdnet_go_url != self.config.birdnet_go_url):
+                self.source = make_source(new)
+            if self._imagegen_fields(new) != self._imagegen_fields(self.config):
+                self.provider = self._build_provider(new)
             self.config = new
 
     def update_config(self, config: Config) -> None:
@@ -118,7 +156,7 @@ class FeatherframeService:
                 self._maybe_quiet_collage(now)
             return
 
-        if not self.birdnet.available():
+        if not self.source.available():
             return  # soft fail; keep serving the current frame
 
         if self.config.mode == "collage":
@@ -132,30 +170,30 @@ class FeatherframeService:
         if cursor is None:
             # First run: start at the tail so we don't replay history, but show
             # the most recent existing detection once.
-            self._set_cursor(self.birdnet.max_rowid())
+            self._set_cursor(self.source.max_rowid())
             if self._frame_bytes is None:
-                latest = self._first_allowed(self.birdnet.latest_many(self.config.confidence_threshold))
+                latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
                 if latest:
                     self._render_single(latest, now, reason="startup")
             return
 
-        new = self.birdnet.new_since(cursor, self.config.confidence_threshold)
+        new = self.source.new_since(cursor, self.config.confidence_threshold)
         if new:
             self._set_cursor(new[-1].rowid)
         candidate = self._first_allowed(list(reversed(new)))  # newest allowed
         if candidate is None:
             return
 
-        # same species already up? leave it — churn is the enemy.
-        if candidate.key == self._meta.get("species_key"):
-            return
-        # debounce: never repaint more often than the configured window
-        if self._within_debounce(now):
-            return
+        if not self.config.single_show_latest:
+            # skip if the same species is already shown
+            if candidate.key == self._meta.get("species_key"):
+                return
+            if self._within_debounce(now):
+                return
         self._render_single(candidate, now, reason="detection")
 
     def _render_single(self, det: Detection, now: datetime, reason: str) -> None:
-        ordinal = self.birdnet.species_ordinal(det.scientific_name) if self.config.show_plate_number else None
+        ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else None
         first_seen = self._first_seen(det.scientific_name)
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=det.timestamp if det.timestamp != datetime.min else now,
@@ -175,16 +213,24 @@ class FeatherframeService:
         self._build_collage(now, ddate.today())
 
     def _maybe_quiet_collage(self, now: datetime) -> None:
-        stamp = now.date().isoformat()
+        # The review covers the day the quiet window STARTED: after midnight
+        # (default quiet hours wrap it) tonight's review is yesterday's day.
+        # Keying by now.date() would clobber the held sheet at 00:00, buy a
+        # pre-dawn sheet of two owls, and skip the real review every evening.
+        review = review_date_for(now, self.config.quiet_hours_start,
+                                 self.config.quiet_hours_end)
+        stamp = review.isoformat()
         if self.db.get("quiet_collage_for") == stamp:
-            return  # already rendered tonight's review
-        if self._build_collage(now, now.date(), title="The Day in Review"):
+            return  # already rendered this window's review
+        if self._build_collage(now, review, title="Sightings",
+                               generated_ok=True):
             self.db.set("quiet_collage_for", stamp)
 
     def _collage_result(self, on_date: ddate,
                         title: str = "A Day in the Garden") -> Optional[RenderResult]:
-        """Render a collage for one day, or None if fewer than 2 species."""
-        rows = self.birdnet.top_species_today(on_date, self.config.confidence_threshold, limit=6)
+        """Render a plain (non-generated) collage for one day, or None if
+        fewer than 2 species. Used by the transient button view."""
+        rows = self.source.top_species_today(on_date, self.config.confidence_threshold, limit=6)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         if len(rows) < 2:
             return None
@@ -194,32 +240,92 @@ class FeatherframeService:
                                          title=title)
         return pipeline.render_image(img, self.config, "collage", f"{len(cells)} species")
 
-    def _build_collage(self, now: datetime, on_date: ddate, title: str = "A Day in the Garden") -> bool:
-        result = self._collage_result(on_date, title)
-        if result is None:
+    def force_day_review(self, repaint: bool = False) -> bool:
+        """The config-page button: render today's day-in-review now. Reuses
+        today's cached sheet unless repaint buys a fresh one."""
+        now = datetime.now()
+        review = review_date_for(now, self.config.quiet_hours_start,
+                                 self.config.quiet_hours_end)
+        return self._build_collage(now, review, title="Sightings",
+                                   generated_ok=True, force_generated=repaint)
+
+    def _build_collage(self, now: datetime, on_date: ddate,
+                       title: str = "A Day in the Garden",
+                       generated_ok: bool = False,
+                       force_generated: bool = False) -> bool:
+        rows = self.source.top_species_today(on_date, self.config.confidence_threshold, limit=6)
+        rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
+        if len(rows) < 2:
             # Not enough for a grid: fall back to single for the day.
-            latest = self._first_allowed(self.birdnet.latest_many(self.config.confidence_threshold))
+            latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
             if latest:
                 self._render_single(latest, now, reason="collage-fallback")
             return False
-        self._commit(result, now, mode="collage", species_key=None,
-                     label=result.label)
-        log.info("rendered collage (%s), etag=%s", result.label, result.etag)
+        cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
+        total = sum(r["count"] for r in rows)
+
+        img = None
+        label = f"{len(cells)}-species collage"
+        # The generated composite is reserved for the nightly review (and the
+        # explicit button): daytime collage rebuilds stay free.
+        if generated_ok and self.config.collage_generated and self.genart is not None:
+            top = cells[:5]  # the totem manner holds four or five species well
+            sheet = self.genart.day_composite(top, on_date, force=force_generated)
+            if sheet is not None:
+                # The key must name what was PAINTED: on a cache hit the cells
+                # come from the sheet's sidecar, not tonight's fresh tally.
+                art, painted = sheet
+                img = collage_mod.render_generated_collage(
+                    art, painted, when=on_date,
+                    total_detections=sum(c.count for c in painted), title=title)
+                label = f"day in review ({len(painted)} species)"
+        if img is None:
+            img = collage_mod.render_collage(cells, self.provider, when=on_date,
+                                             total_detections=total, title=title)
+        result = pipeline.render_image(img, self.config, "collage", label)
+        self._commit(result, now, mode="collage", species_key=None, label=label)
+        log.info("rendered collage (%s), etag=%s", label, result.etag)
         return True
 
+    # -- generated-plate management (config page) --------------------------
+    def regenerate_generated(self, slug: str) -> bool:
+        """Explicit user request for a fresh AI plate, addressed by cache slug.
+        If the frame currently shows this species, re-render with the new art."""
+        meta = next((m for m in self.genart.cached_species()
+                     if m.get("slug") == slug), None)
+        if meta is None:
+            return False
+        common = meta.get("common") or slug
+        sci = meta.get("scientific") or ""
+        ok = self.genart.regenerate(common, sci)
+        current = (sci or common).strip().lower()
+        if ok and current and self._meta.get("species_key") == current:
+            now = datetime.now()
+            det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"),
+                            time=now.strftime("%H:%M:%S"), common_name=common,
+                            scientific_name=sci, confidence=1.0)
+            self._render_single(det, now, reason="regenerated")
+        return ok
+
+    def delete_generated(self, slug: str) -> bool:
+        return self.genart.delete(slug)
+
     # -- test detection ----------------------------------------------------
-    def force_test_detection(self) -> RenderResult:
-        """Inject a fake Northern Cardinal and render it now (bypasses debounce)."""
+    def force_test_detection(self, common_name: str = "Northern Cardinal",
+                             scientific_name: str = "Cardinalis cardinalis") -> RenderResult:
+        """Inject a fake detection and render it now (bypasses debounce). The
+        default is the Cardinal; any species name exercises the full provider
+        chain, including AI generation for plate-less species."""
         now = datetime.now()
         det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"), time=now.strftime("%H:%M:%S"),
-                        common_name="Northern Cardinal", scientific_name="Cardinalis cardinalis",
+                        common_name=common_name, scientific_name=scientific_name,
                         confidence=0.99)
-        ordinal = self.birdnet.species_ordinal(det.scientific_name) if self.config.show_plate_number else 1
+        ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else 1
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=now, plate_number=ordinal or 1, first_seen=now.strftime("%Y-%m-%d"))
         result = pipeline.render_single(spec, self.provider, self.config)
         self._commit(result, now, mode="single", species_key=det.key,
-                     label="Northern Cardinal (test)")
+                     label=f"{det.common_name} (test)")
         log.info("rendered TEST detection, etag=%s", result.etag)
         return result
 
@@ -227,10 +333,30 @@ class FeatherframeService:
         """Re-render the current subject after a config change (e.g. dither/gray)."""
         with self._lock:
             meta = dict(self._meta)
+        now = datetime.now()
         if meta.get("mode") == "collage":
-            self._build_collage(datetime.now(), ddate.today())
-        elif meta.get("label"):
-            self._single_tick(datetime.now())
+            # Preserve what is showing: a day-in-review re-renders as one
+            # (reusing the cached sheet for free), a grid as a grid.
+            is_review = str(meta.get("label") or "").startswith("day in review")
+            on_date = (review_date_for(now, self.config.quiet_hours_start,
+                                       self.config.quiet_hours_end)
+                       if is_review else ddate.today())
+            self._build_collage(now, on_date,
+                                title="Sightings" if is_review
+                                else "A Day in the Garden",
+                                generated_ok=is_review)
+            return
+        if not meta.get("label"):
+            return
+        # At a settings save no fresh detection is waiting (the tick already
+        # consumed the cursor), so rebuild the subject the frame is showing.
+        common = str(meta["label"]).removesuffix(" (test)")
+        key = str(meta.get("species_key") or "")
+        sci = (key[:1].upper() + key[1:]) if " " in key else ""
+        det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"),
+                        time=now.strftime("%H:%M:%S"), common_name=common,
+                        scientific_name=sci, confidence=1.0)
+        self._render_single(det, now, reason="settings")
 
     # -- on-demand views (frame buttons) -----------------------------------
     def render_collage_on_demand(self) -> Optional[RenderResult]:
@@ -251,8 +377,8 @@ class FeatherframeService:
                            battery_percent: Optional[int] = None,
                            wifi_rssi: Optional[int] = None) -> RenderResult:
         """Button view: a status plate. Transient, like the collage view."""
-        last = self.birdnet.latest(self.config.confidence_threshold)
-        today_rows = self.birdnet.top_species_today(
+        last = self.source.latest(self.config.confidence_threshold)
+        today_rows = self.source.top_species_today(
             ddate.today(), self.config.confidence_threshold, limit=50)
         info = statuspage.StatusInfo(
             battery_voltage=battery_voltage,
@@ -261,7 +387,7 @@ class FeatherframeService:
             last_common=last.common_name if last else None,
             last_when=last.timestamp if last else None,
             species_today=len(today_rows),
-            species_all_time=self.birdnet.all_time_species_count(),
+            species_all_time=self.source.all_time_species_count(),
             server_label=socket.gethostname(),
             wake_minutes=self.config.wake_interval_minutes,
         )
@@ -301,7 +427,7 @@ class FeatherframeService:
     def status(self) -> dict:
         with self._lock:
             meta = dict(self._meta)
-        latest = self.birdnet.latest(self.config.confidence_threshold)
+        latest = self.source.latest(self.config.confidence_threshold)
         return {
             "current": {
                 "etag": self._etag,
@@ -314,12 +440,20 @@ class FeatherframeService:
                 "confidence": round(latest.confidence, 3),
                 "at": f"{latest.date} {latest.time}",
             } if latest else None,
-            "birdnet_available": self.birdnet.available(),
-            "species_all_time": self.birdnet.all_time_species_count(),
-            "plates_loaded": self.provider.species_count,
+            "birdnet_available": self.source.available(),
+            "species_all_time": self.source.all_time_species_count(),
+            "plates_loaded": self.audubon.species_count,
+            "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
             "device": asdict(self.device),
-            "config": self.config.to_dict(),
+            "config": self._masked_config(),
         }
+
+    def _masked_config(self) -> dict:
+        """Config for display: never leak the API key past this process."""
+        cfg = self.config.to_dict()
+        key = cfg.get("imagegen_api_key") or ""
+        cfg["imagegen_api_key"] = f"…{key[-4:]}" if key else ""
+        return cfg
 
     # -- internal state helpers -------------------------------------------
     def _commit(self, result: RenderResult, now: datetime, mode: str,
@@ -382,4 +516,4 @@ class FeatherframeService:
         return None
 
     def _first_seen(self, scientific_name: str) -> Optional[str]:
-        return self.birdnet.first_seen_date(scientific_name)
+        return self.source.first_seen_date(scientific_name)

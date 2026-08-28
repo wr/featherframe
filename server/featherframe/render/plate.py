@@ -159,3 +159,12 @@ def extract(path: str | Path, composite: bool = False,
         box = content_box(gray)
     crop = gray.crop(box)
     return paper_normalize(crop)
+
+
+def extract_generated(path: str | Path) -> Image.Image:
+    """A generated sheet is born clean: there is no printed marginalia to trim
+    and the composition already fills the sheet deliberately, so the scan-era
+    crops can only cut into art — a pale head on bright paper carries no ink
+    and gets cropped as 'margin' (it decapitated a tern). Load and normalise
+    only; tone treatment stays identical to a real scan."""
+    return paper_normalize(load_gray(path))

@@ -47,54 +47,98 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
-# Tuned over four blind-judging rounds against real plates (see W-582): the
-# clauses on claws, printed structure, and staging each remove a specific tell
-# that expert judges used to spot earlier generations. Change with care and
-# re-run a blind comparison before shipping a new version.
+# v2: distilled from a study of all 120 plates in the local collection
+# (sub-style frequencies, multi-figure composition rules, environment rules,
+# measured color data) plus five blind-judging rounds against real plates
+# (W-582). Every clause removes a tell judges actually used. Change with care
+# and re-run a blind comparison before shipping a new version.
 _STYLE_PROMPT = (
-    "A scanned antique plate from John James Audubon's 'The Birds of America' "
-    "(Havell edition, 1827-1838): a hand-colored aquatint engraving of a life-size "
-    "{subject}, drawn with a naturalist's accuracy in a characteristic, subtly "
-    "animated pose — alert, mid-gesture, observed alive in the field.\n\n"
-    "The sheet is a REPRODUCTION of a painting by a copperplate process, and that "
-    "printed skeleton must show through everywhere: fine engraved directional "
-    "linework following every feather vane and every fur tract, irregular aquatint "
-    "reticulation filling the mid-tones, and hand-applied translucent watercolor "
-    "washes over the printed structure that pool and bleed slightly at their edges, "
-    "gently uneven where the colorist's hand varied. No passage may be pure paint: "
-    "even soft body tones carry the engraved line and grain beneath the wash. No two "
-    "markings identical anywhere. Deep darks only as small accents; edges carry the "
-    "faint softness of an impression on damp paper. No digital smoothness, no "
-    "airbrush gradients, no uniform synthetic grain. The eye is a matte period eye — "
-    "a small dark bead with at most one tiny dry fleck of light, never a glossy "
-    "modern catchlight.\n\n"
-    "Feet and claws must be exactly those of the living species, at honest scale: "
-    "songbirds and pigeons have SHORT, stout toes and SHORT, modestly curved blunt "
-    "claws — never long sickle talons, never beaded ornamental scutes. Each foot "
-    "shows its toes distinctly, every claw attached to its own toe, nothing tangled, "
-    "nothing extra. Wings read as real feather tracts — coverts, secondaries, "
-    "primaries in plausible layers — never as repeating decorative texture.\n\n"
-    "Stage the subject as Audubon staged it: a setting true to the species — "
-    "identifiable grasses or seed heads for a ground forager, a weathered stone for "
-    "a town bird, reeds for a marsh bird, a bare twig only where the species truly "
-    "perches — the subject placed with the easy asymmetry of a field study, off the "
-    "sheet's center line. Any plants are recognizable species drawn with the same "
-    "committed engraved-and-washed treatment as the subject, kept minimal. If the "
-    "species is commonly shown paired, a male and female may share the sheet in "
-    "different postures.\n\n"
-    "Most of the sheet stays blank: aged cream wove paper, faint paper grain, "
-    "generous margins. Absolutely no text, no lettering, no numbers, no signature, "
-    "no border, no frame line, no heavy foliage masses."
+    "A hand-colored copperplate engraving with aquatint in the exact style of John James "
+    "Audubon's 'The Birds of America' (Havell edition, 1827-1838), depicting {subject} "
+    "life-size, drawn with a naturalist's accuracy. The background is bright, near-white "
+    "wove paper left completely untouched — no sepia tint, no cream wash, no aging, no "
+    "vignette, no border.\n\n"
+    "The printed process shows everywhere: transparent watercolor washes sit over visible "
+    "engraved feather line-work and irregular aquatint grain; washes pool and bleed "
+    "slightly at their edges; hand-coloring is gently uneven and no two markings repeat "
+    "exactly. Edges carry the faint softness of an impression on damp paper — never "
+    "digital smoothness, never airbrush gradients. Eyes are matte period eyes: a small "
+    "dark bead with at most one tiny dry fleck of light.\n\n"
+    "Color as the colorists actually worked: bodies are low-chroma umber, olive, and gray "
+    "built from engraved line — but where the species wears color, the washes are "
+    "CONFIDENTLY SATURATED: one or two vivid accents (scarlet, cobalt, chrome yellow, "
+    "blood-red bill) that blaze against the drab bulk. A genuinely drab species stays "
+    "near-monochrome, its chroma delegated to plant, berries, bare parts, or eye — "
+    "drabness is correct, timidity is not. Foliage greens are muted sage-olive, never "
+    "grass-green. Whites are reserved bare paper with gray modeling, never opaque paint. "
+    "Black plumage is glazed with blue-violet iridescence, never flat gray.\n\n"
+    "Compose as Audubon composed. Use two or three figures of the species when sexes or "
+    "ages differ or a second view adds information — one clean closed-wing profile plus "
+    "one bird with wings and tail fully spread, or dorsal set against ventral — poses "
+    "never repeating, at least one figure contorted or animated in a characteristic "
+    "behavior (singing open-billed, foraging head-down, lunging, banking in flight). "
+    "Arrange the figures on one long diagonal or S-curve armature — a branch, stem, or "
+    "bank entering from the sheet edge and cut off flush — at staggered heights, facing "
+    "opposite directions; a very large bird is instead bent in the period manner (neck "
+    "recurved) to fit the sheet life-size. Half to two-thirds of the sheet stays bare "
+    "paper, asymmetrically. A single figure is right when one plumage tells everything — "
+    "then catch it mid-action. Beside each bird on a multi-figure sheet sits only a tiny "
+    "engraved italic numeral (1., 2.) in the period manner.\n\n"
+    "The setting is specific and nameable, never generic filler: a foliage songbird gets "
+    "ONE identifiable host plant tied to its real diet or season, drawn to "
+    "botanical-plate standard with individually veined, insect-chewed, imperfect leaves; "
+    "a trunk forager gets dead lichen-crusted wood, no leaves; a ground bird gets a "
+    "painted ground band of moss, rocks, and particular grasses in the lower third only, "
+    "its edge cut hard so it floats on the paper, bare-paper sky above; a waterbird or "
+    "wader gets a specific muted shore or marsh with a low horizon, the distance receding "
+    "by desaturation into gray; an aerial species flies on open paper.\n\n"
+    "Anatomy must survive a naturalist's magnifying glass: feet and claws exactly those "
+    "of the living species at honest scale — songbirds with short stout toes and short "
+    "modestly curved claws, never sickle talons, every claw attached to its own toe, "
+    "nothing tangled or extra. Wings read as true feather tracts — graded covert rows, "
+    "then secondaries, then primaries crossing at their own angle, each flight feather "
+    "with its shaft — never a uniform stack of nested crescents.\n\n"
+    "No text beyond the tiny figure numerals: no title, no names, no lettering, no "
+    "signature, no border, no frame line."
 )
 
-# Style references for the edits endpoint: airy single-species plates whose
-# sparse compositions steered generations best in blind testing (dense showcase
-# plates like the Cardinal pulled generations toward heavy Victorian foliage).
+# Style references for the edits endpoint, matched to the subject's group so
+# the model sees the right sub-style: Audubon staged waterfowl in water scenes,
+# trunk foragers on dead snags, swallows in flight over a low bank — a swan
+# prompted with sparrow references drifts to the wrong conventions. Keys are
+# regexes over the common name; values are scientific names looked up in the
+# curated index (only plates on disk are used).
+_REF_GROUPS: list[tuple[str, list[str]]] = [
+    (r"swan|goose|duck|teal|loon|grebe|merganser|gadwall|mallard",
+     ["Cygnus columbianus", "Branta canadensis", "Anas platyrhynchos"]),
+    (r"gull|tern|skimmer|jaeger",
+     ["Larus argentatus", "Larus marinus", "Larus delawarensis"]),
+    (r"heron|egret|bittern|crane|sandpiper|plover|yellowlegs|godwit|curlew|"
+     r"dunlin|woodcock|snipe|killdeer|whimbrel|rail",
+     ["Ardea herodias", "Actitis macularius", "Scolopax minor"]),
+    (r"hawk|eagle|falcon|kestrel|kite|osprey|harrier",
+     ["Buteo lineatus", "Falco sparverius", "Buteo jamaicensis"]),
+    (r"owl", ["Strix varia", "Megascops asio", "Bubo virginianus"]),
+    (r"woodpecker|sapsucker|flicker|nuthatch|creeper",
+     ["Dryocopus pileatus", "Sphyrapicus varius", "Certhia americana"]),
+    (r"swallow|martin|swift|nighthawk",
+     ["Hirundo rustica", "Riparia riparia", "Tachycineta bicolor"]),
+    (r"thrush|veery|robin|bluebird",
+     ["Catharus guttatus", "Hylocichla mustelina", "Turdus migratorius"]),
+    (r"crow|raven|jay|magpie",
+     ["Corvus brachyrhynchos", "Corvus corax", "Cyanocitta cristata"]),
+    (r"starling|blackbird|grackle|cowbird|oriole",
+     ["Agelaius phoeniceus", "Quiscalus quiscula", "Euphagus carolinus"]),
+    (r"pigeon|dove",
+     ["Zenaida macroura", "Passerella iliaca", "Pipilo erythrophthalmus"]),
+]
+# Default: airy single-species songbird plates (dense showcase plates like the
+# Cardinal pulled generations toward heavy Victorian foliage in blind testing).
 _PREFERRED_REFS = [
     "Melospiza melodia",        # plate 25 — Song Sparrow, sparse flowering sprigs
     "Spizella passerina",       # plate 104 — Chipping Sparrow, minimal ground
@@ -208,9 +252,10 @@ def make_image_model(config) -> Optional[ImageModel]:
     return None
 
 
-def pick_reference_plates(k: int = 3) -> list[Path]:
-    """Real plates to hand the model as style references: preferred icons first,
-    then any single-species plate on disk. Empty list if none exist yet."""
+def pick_reference_plates(common_name: str = "", k: int = 3) -> list[Path]:
+    """Real plates to hand the model as style references: the subject's own
+    group first (so a swan sees water scenes, not sparrow sprigs), then the
+    airy songbird defaults, then any plate on disk. Empty list if none exist."""
     try:
         idx = json.loads(paths.plate_index_path().read_text())
     except (OSError, ValueError):
@@ -220,8 +265,10 @@ def pick_reference_plates(k: int = 3) -> list[Path]:
 
     chosen: list[Path] = []
 
-    def _try(entry) -> None:
-        if not entry or len(chosen) >= k or entry.get("composite"):
+    def _try(entry, allow_composite: bool = False) -> None:
+        if not entry or len(chosen) >= k:
+            return
+        if entry.get("composite") and not allow_composite:
             return
         image = entry.get("image")
         if not image:
@@ -230,6 +277,13 @@ def pick_reference_plates(k: int = 3) -> list[Path]:
         if p.exists() and p not in chosen:
             chosen.append(p)
 
+    name = (common_name or "").lower()
+    for pattern, scis in _REF_GROUPS:
+        # Word boundaries matter: "Southeastern myotis" must not match "tern".
+        if re.search(rf"\b(?:{pattern})\b", name):
+            for sci in scis:
+                _try(by_sci.get(sci), allow_composite=True)
+            break
     for sci in _PREFERRED_REFS:
         _try(by_sci.get(sci))
     for entry in idx.get("species", []):
@@ -321,7 +375,7 @@ class GeneratedArtProvider(ArtProvider):
     # -- internals ----------------------------------------------------------
     def _from_cache(self, slug: str) -> Optional[Artwork]:
         try:
-            img = plate.extract(self._png(slug), composite=False)
+            img = plate.extract_generated(self._png(slug))
         except (OSError, ValueError) as exc:
             # A cached file that no longer decodes (torn write after a power
             # cut, disk-full) would otherwise wedge the species on the
@@ -346,7 +400,8 @@ class GeneratedArtProvider(ArtProvider):
             if not force and self._png(slug).exists():
                 return True
             prompt = build_prompt(common_name, scientific_name)
-            refs = self._refs if self._refs is not None else pick_reference_plates()
+            refs = (self._refs if self._refs is not None
+                    else pick_reference_plates(common_name))
             started = time.time()
             try:
                 png_bytes = self._model.generate(prompt, GEN_SIZE, refs)

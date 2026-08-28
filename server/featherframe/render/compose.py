@@ -59,13 +59,13 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     field = _new_field()
     draw = ImageDraw.Draw(field)
 
-    caption_top = theme.HEIGHT - theme.MARGIN_BOTTOM - theme.CAPTION_BLOCK_H
+    caption_top = theme.HEIGHT - theme.CAPTION_BLOCK_H
     art_box = (theme.MARGIN_X, theme.MARGIN_TOP,
                theme.WIDTH - theme.MARGIN_X, caption_top - theme.CAPTION_GAP)
     # Composites read better filling the frame; single subjects sit slightly high.
     _place_art(field, art.image, art_box, v_align=0.5 if art.composite else 0.44)
 
-    typography.caption_block(draw, theme.WIDTH / 2, caption_top + theme.CAPTION_DROP,
+    typography.caption_block(draw, theme.WIDTH / 2, caption_top,
                              spec.common_name, spec.scientific_name, spec.when)
 
     if show_plate_number and spec.plate_number:
@@ -95,23 +95,21 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
     block_top = theme.HEIGHT * 0.34
 
     if typography.HAS_RAQM:
-        # Common name — swash italic, auto-fit.
+        # Common name — swash italic, tightened, auto-fit.
         size = 132
         while size > 60:
             title_font = typography.FONTS.get(size, italic=True, weight=theme.TITLE_WEIGHT)
-            if typography.ot_length(title_font, spec.common_name,
-                                    theme.TITLE_FEATURES) <= theme.CONTENT_W:
+            if typography.title_width(title_font, spec.common_name,
+                                      size * theme.TITLE_TRACKING) <= theme.CONTENT_W:
                 break
             size -= 3
-        typography.draw_ot(draw, cx, block_top, spec.common_name, title_font,
-                           theme.INK, theme.TITLE_FEATURES, anchor="ms")
+        typography.draw_title(draw, cx, block_top, spec.common_name, title_font,
+                              theme.INK, size * theme.TITLE_TRACKING)
 
-        # Scientific name — italic small caps.
-        sci_font = typography.FONTS.get(48, italic=True, weight=theme.SUBTITLE_WEIGHT)
+        # Scientific name — engraved capitals.
         sci_baseline = block_top + size * 0.30 + 48
-        typography.draw_ot_tracked(draw, cx, sci_baseline, spec.scientific_name.lower(),
-                                   sci_font, theme.INK_MEDIUM, theme.SUBTITLE_FEATURES,
-                                   48 * theme.SUBTITLE_TRACKING)
+        typography.draw_engraved(draw, cx, sci_baseline, spec.scientific_name.upper(),
+                                 38, theme.INK_MEDIUM)
 
         rule_y = sci_baseline + 74
         half = theme.RULE_WIDTH / 2
@@ -122,15 +120,16 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
             date_font = typography.FONTS.get(theme.DATE_SIZE, italic=True,
                                              weight=theme.DATE_WEIGHT)
             typography.draw_ot_tracked(draw, cx, rule_y + 54, pretty, date_font,
-                                       theme.INK_MEDIUM, theme.DATE_FEATURES,
-                                       theme.DATE_SIZE * theme.DATE_TRACKING)
+                                       theme.INK_MEDIUM, theme.FALLBACK_META_FEATURES,
+                                       theme.DATE_SIZE * theme.FALLBACK_META_TRACKING)
     else:
+        name_size = typography.fit_smallcaps_size(spec.common_name, typography.FONTS,
+                                                  104, theme.NAME_TRACKING, theme.CONTENT_W)
         typography.draw_smallcaps(draw, cx, block_top, spec.common_name,
-                                  typography.FONTS, 104, theme.INK, theme.NAME_TRACKING)
-        sci_font = typography.FONTS.get(58, italic=True, weight=460)
+                                  typography.FONTS, name_size, theme.INK, theme.NAME_TRACKING)
         sci_baseline = block_top + 92
-        draw.text((cx, sci_baseline), spec.scientific_name, font=sci_font,
-                  fill=theme.INK, anchor="ms")
+        typography.draw_engraved(draw, cx, sci_baseline, spec.scientific_name.upper(),
+                                 38, theme.INK_MEDIUM)
         rule_y = sci_baseline + 74
         half = theme.RULE_WIDTH / 2
         draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],

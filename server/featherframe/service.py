@@ -220,7 +220,7 @@ class FeatherframeService:
         stamp = review.isoformat()
         if self.db.get("quiet_collage_for") == stamp:
             return  # already rendered this window's review
-        if self._build_collage(now, review, title="The Day in Review",
+        if self._build_collage(now, review, title="Sightings",
                                generated_ok=True):
             self.db.set("quiet_collage_for", stamp)
 
@@ -230,7 +230,7 @@ class FeatherframeService:
         now = datetime.now()
         review = review_date_for(now, self.config.quiet_hours_start,
                                  self.config.quiet_hours_end)
-        return self._build_collage(now, review, title="The Day in Review",
+        return self._build_collage(now, review, title="Sightings",
                                    generated_ok=True, force_generated=repaint)
 
     def _build_collage(self, now: datetime, on_date: ddate,
@@ -326,7 +326,7 @@ class FeatherframeService:
                                        self.config.quiet_hours_end)
                        if is_review else ddate.today())
             self._build_collage(now, on_date,
-                                title="The Day in Review" if is_review
+                                title="Sightings" if is_review
                                 else "A Day in the Garden",
                                 generated_ok=is_review)
             return

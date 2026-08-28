@@ -137,6 +137,7 @@ async def save_settings(request: Request):
         panel_rotation=i("panel_rotation", cur["panel_rotation"]),
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
         imagegen_enabled=b("imagegen_enabled"),
+        collage_generated=b("collage_generated"),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
         imagegen_quality=s("imagegen_quality", cur["imagegen_quality"]),
@@ -191,6 +192,20 @@ def _known_scientific(svc, common: str) -> Optional[str]:
             if normalize(str(row.get("common_name", ""))) == want:
                 return row.get("scientific_name")
     return None
+
+
+@app.post("/api/collage/day-review")
+async def day_review(request: Request):
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    svc = _svc(request)
+    form = await request.form()
+    repaint = "repaint" in form
+    # Threadpool: a fresh sheet is a ~1-2 minute generation.
+    ok = await run_in_threadpool(svc.force_day_review, repaint)
+    if "text/html" in request.headers.get("accept", ""):
+        return RedirectResponse("/", status_code=303)
+    return JSONResponse({"ok": ok})
 
 
 # -- AI-generated plates ---------------------------------------------------

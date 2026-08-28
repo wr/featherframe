@@ -49,25 +49,15 @@ def _grid(n: int) -> tuple[int, int]:
     return cols, rows
 
 
-def render_collage(cells: list[CollageCell], provider: ArtProvider,
-                   when: Optional[ddate] = None, total_detections: int = 0,
-                   title: str = "A Day in the Garden") -> Image.Image:
-    when = when or ddate.today()
-    cells = cells[:6]
-    cols, rows = _grid(len(cells))
-
-    field = _new_field()
+def _title_band(field: Image.Image, when: ddate, n_species: int,
+                total_detections: int, title: str) -> int:
+    """Draw the title, date subtitle, and rule; return the y below the rule."""
     draw = ImageDraw.Draw(field)
     cx = theme.WIDTH / 2
-
-    # -- title band --------------------------------------------------------
     title_font_baseline = theme.MARGIN_TOP + 44
     typography.draw_smallcaps(draw, cx, title_font_baseline, title,
                               typography.FONTS, 58, theme.INK, 0.12)
-    # date + totals subtitle
-    d = when
-    date_str = f"{d.day} {d.strftime('%B')} {d.year}"
-    n_species = len([c for c in cells])
+    date_str = f"{when.day} {when.strftime('%B')} {when.year}"
     sub = f"{date_str}   ·   {n_species} species"
     if total_detections:
         sub += f"   ·   {total_detections} detections"
@@ -78,6 +68,71 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
     half = theme.RULE_WIDTH / 2
     draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],
                    fill=theme.RULE)
+    return rule_y
+
+
+def _fit_key(entries: list[str], max_w: float) -> tuple[int, list[str]]:
+    """(font size, line texts) for the key: the widest line must fit the sheet.
+    Long BirdNET names (hyphenated warblers and swallows) would otherwise clip
+    silently at the panel edges. Tries fewer lines at larger sizes first."""
+    last = (22, entries)
+    for size in (30, 27, 24, 22):
+        tracking_px = size * 0.05
+        for lines in (1, 2, 3):
+            per = -(-len(entries) // lines)  # ceil
+            chunks = [entries[i * per:(i + 1) * per] for i in range(lines)]
+            texts = ["    ".join(c) for c in chunks if c]
+            widths = [typography.smallcaps_width(
+                typography.smallcaps_plan(t, typography.FONTS, size, 520, 520),
+                tracking_px) for t in texts]
+            last = (size, texts)
+            if max(widths) <= max_w:
+                return size, texts
+    return last
+
+
+def render_generated_collage(art: Image.Image, cells: list[CollageCell],
+                             when: Optional[ddate] = None, total_detections: int = 0,
+                             title: str = "The Day in Review") -> Image.Image:
+    """The generated composite sheet: title band, the one generated artwork
+    where the grid would be, and a key matching the sheet's figure numerals —
+    '1. Species ×count' in prominence order."""
+    when = when or ddate.today()
+    field = _new_field()
+    draw = ImageDraw.Draw(field)
+    cx = theme.WIDTH / 2
+
+    rule_y = _title_band(field, when, len(cells), total_detections, title)
+
+    entries = [f"{i}. {c.common_name} ×{c.count}" for i, c in enumerate(cells, start=1)]
+    key_size, key_texts = _fit_key(entries, theme.WIDTH - 2 * 60)
+    line_h = key_size + 14
+    key_h = 40 + len(key_texts) * line_h
+    art_top = rule_y + 60
+    art_bottom = theme.HEIGHT - theme.MARGIN_BOTTOM - key_h
+    _paste_art(field, art,
+               (theme.MARGIN_X, art_top, theme.WIDTH - theme.MARGIN_X, art_bottom),
+               v_align=0.5)
+
+    for li, text in enumerate(key_texts):
+        baseline = art_bottom + 44 + li * line_h
+        typography.draw_smallcaps(draw, cx, baseline, text,
+                                  typography.FONTS, key_size, theme.INK_SOFT, 0.05,
+                                  weight_caps=520, weight_small=520)
+    return field
+
+
+def render_collage(cells: list[CollageCell], provider: ArtProvider,
+                   when: Optional[ddate] = None, total_detections: int = 0,
+                   title: str = "A Day in the Garden") -> Image.Image:
+    when = when or ddate.today()
+    cells = cells[:6]
+    cols, rows = _grid(len(cells))
+
+    field = _new_field()
+    draw = ImageDraw.Draw(field)
+
+    rule_y = _title_band(field, when, len(cells), total_detections, title)
 
     # -- grid --------------------------------------------------------------
     grid_top = rule_y + 60

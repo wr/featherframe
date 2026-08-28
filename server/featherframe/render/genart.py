@@ -47,12 +47,16 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 2
+PROMPT_VERSION = 3
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
-# v2: distilled from a study of all 120 plates in the local collection
+# v3: v2 plus Wells's blind-test debrief (28/40 against 20 fresh fakes):
+# the medium must be discernible (wash or line, never airbrush), saturation is
+# pigment not light, no frontal eye contact, bill gape and energy must match
+# the species' real voice and character, and showcase-chaotic botany is an
+# allowed minority mode. v2 was distilled from a study of all 120 plates
 # (sub-style frequencies, multi-figure composition rules, environment rules,
 # measured color data) plus five blind-judging rounds against real plates
 # (W-582). Every clause removes a tell judges actually used. Change with care
@@ -67,8 +71,12 @@ _STYLE_PROMPT = (
     "engraved feather line-work and irregular aquatint grain; washes pool and bleed "
     "slightly at their edges; hand-coloring is gently uneven and no two markings repeat "
     "exactly. Edges carry the faint softness of an impression on damp paper — never "
-    "digital smoothness, never airbrush gradients. Eyes are matte period eyes: a small "
-    "dark bead with at most one tiny dry fleck of light.\n\n"
+    "digital smoothness, never airbrush gradients. Every passage must declare its "
+    "medium: brush-laid wash with granulation and pooling, or engraved line — an "
+    "ambiguous airbrushed surface belongs to no 19th-century process. Saturation is "
+    "always pigment, never light: nothing glows, nothing has a specular sheen. Eyes "
+    "are matte period eyes: a small dark bead with at most one tiny dry fleck of "
+    "light, and the subject never makes frontal eye contact with the viewer.\n\n"
     "Color as the colorists actually worked: bodies are low-chroma umber, olive, and gray "
     "built from engraved line — but where the species wears color, the washes are "
     "CONFIDENTLY SATURATED: one or two vivid accents (scarlet, cobalt, chrome yellow, "
@@ -81,7 +89,11 @@ _STYLE_PROMPT = (
     "ages differ or a second view adds information — one clean closed-wing profile plus "
     "one bird with wings and tail fully spread, or dorsal set against ventral — poses "
     "never repeating, at least one figure contorted or animated in a characteristic "
-    "behavior (singing open-billed, foraging head-down, lunging, banking in flight). "
+    "behavior (singing, foraging head-down, lunging, banking in flight). Behavior "
+    "must be true to the species' actual character: the bill opens only as far as its "
+    "real voice demands (a finch pips with a barely parted bill; only a true songster "
+    "throws its head back), a restless species is drawn restless, and any contortion "
+    "follows Audubon's theatrical grammar rather than generic distortion. "
     "Arrange the figures on one long diagonal or S-curve armature — a branch, stem, or "
     "bank entering from the sheet edge and cut off flush — at staggered heights, facing "
     "opposite directions; a very large bird is instead bent in the period manner (neck "
@@ -96,7 +108,9 @@ _STYLE_PROMPT = (
     "painted ground band of moss, rocks, and particular grasses in the lower third only, "
     "its edge cut hard so it floats on the paper, bare-paper sky above; a waterbird or "
     "wader gets a specific muted shore or marsh with a low horizon, the distance receding "
-    "by desaturation into gray; an aerial species flies on open paper.\n\n"
+    "by desaturation into gray; an aerial species flies on open paper. Occasionally the "
+    "botany may run riot in the folio's showcase manner — a fruiting, flowering tangle "
+    "that nearly upstages the bird — but most sheets stay sparse.\n\n"
     "Anatomy must survive a naturalist's magnifying glass: feet and claws exactly those "
     "of the living species at honest scale — songbirds with short stout toes and short "
     "modestly curved claws, never sickle talons, every claw attached to its own toe, "

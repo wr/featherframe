@@ -41,10 +41,10 @@
 // How long the "Up to date" pill stays on the glass before it clears (ms).
 #define TOAST_HOLD_MS  10000
 
-// Half-period of the download loader square's black<->white pulse (ms): the box
-// toggles this often while the plate streams. ~200ms/toggle of panel time, so keep
-// this comfortably above that to leave the socket read time.
-#define FF_DL_BLINK_MS  400
+// Step period of the loading mark's diamond sweep (ms). Each step is a tiny DU
+// partial (~200ms of panel time) pushed from its own task; keep this above that
+// so the panel and SPI bus spend most of their time free.
+#define FF_LOADER_STEP_MS  400
 
 // --- Behaviour defaults (overridable via NVS / server) ---
 #define DEFAULT_WAKE_MINUTES   15

@@ -17,14 +17,20 @@ Boot sequence on the panel:
 ## How it's built
 **Bake pipeline** — `bake_screens.py` (run with the server venv):
 `server/.venv/bin/python firmware/tools/screens/bake_screens.py [--preview]`
-- The 4 **boot** screens come from `boot_v2.svg` (the designer's file; text is vector
-  paths, so the swash italic "Featherframe" wordmark + old‑style figures render exactly).
-  rsvg-convert renders it; each 1404×1872 panel is cropped.
-- To keep the birdhouse **byte‑identical across screens** (so partials stay tiny), the
-  splash panel is the shared base; the bird / wren / pill are transferred onto it per
-  screen. Bird & pill use an ink‑only transfer (`_paste_box`); the **wren‑in‑hole is a
-  FULL COPY** of the hole box (its feathers are lighter than the empty hole, so ink‑only
-  transfer turns it into a black blob — do not change this back).
+- Type is set by the SERVER's own typography module (`sys.path` → `server/`): the
+  wordmark IS the plate title (EB Garamond swash italic at `theme.TITLE_SIZE`, v3
+  weight/tracking, via `typography.draw_title` — descenders intact), and the splash
+  version line is the plates' engraved capitals (`typography.draw_engraved`, Adorn
+  Engraved at `theme.SUBTITLE_SIZE`) under a hedera. A plate-typography change on the
+  server re-bakes straight into the boot face. `boot_v2.svg` is now reference-only.
+- Pills: Inter Medium (vendored in `./fonts`, OFL) for readability, with a
+  three-diamond **loading mark** — the solid diamond sweeps left→right. The bake
+  emits per-screen animation tiles + native mirrored coords (`FfLoader` in the
+  header); baked screens carry frame 0, and tiles are byte-checked against them.
+- The bird / wren / pill boxes are baked **binary on purpose** so their windows
+  refresh with DU (no flash): the fly-in bird is thresholded line art on empty sky;
+  the **wren‑in‑hole is Bayer-dithered** (its light feathers would threshold into a
+  black blob — do not change this back). Everything else stays 16-level gray.
 - The 4 **onboarding** screens are composed in PIL (`screen_setup`, `screen_check`) on
   `art/house.png` (the darker v2 birdhouse).
 - Gray output: fixed white‑point + gamma LUT `apply_curve()` (`WHITE_PT=246`,
@@ -36,9 +42,16 @@ Boot sequence on the panel:
 **Firmware** — `src/main.cpp`:
 - `showScreen(idx)`: entry screens (SPLASH/SETUP) do a full `displayFrame` (gray). Every
   other screen diffs vs the previous baked body, bands the changed native COLUMNS, and
-  does a **windowed IT8951 update** per box (`tconLoadImage` + `tconDisplayArea`). All
-  windows use **GC16** (mode 2) — DU (1‑bit) renders the pencil line art too faint and
-  ghosts on erase.
+  does a **windowed IT8951 update** per box (`tconLoadImage` + `tconDisplayArea`). The
+  waveform is chosen per window by content: binary boxes (bird, wren, pills — baked
+  that way on purpose) take **DU** (no flash); windows with real grays take **GC16**.
+  With the current bake, every boot transition is DU — nothing flashes until the
+  plate's own full refresh.
+- `loaderTask` (FreeRTOS, core 1) sweeps the loading mark: it pushes the baked
+  `ff_loader[]` tiles as ~200ms DU partials every `FF_LOADER_STEP_MS` while
+  `g_loaderAnim.on` — through Wi‑Fi connect, server connect, and the download, which
+  all block the main task. `g_panelMutex` (recursive) serializes every panel touch
+  (`showScreen`/`displayFrame`/toasts vs the task); a full refresh disarms the mark.
 - Coordinates are **mirrored** (`mx = FF_NATIVE_W - nx - nw`): the panel flips X, which is
   invisible at full width but not for a window.
 - The 3 screen buffers (`g_scrBuf/g_scrPrev/g_scrWin`, ~1.3 MB each) are file‑scope and
@@ -60,13 +73,6 @@ Boot sequence on the panel:
    stable download port. Reading serial with DTR/RTS toggling can bounce it to download.
 
 ## Remaining work
-- **Rectangular pills (issue #2, NOT done).** The pills are rounded, so the GC16 refresh
-  box shows a white halo larger than the pill. Wanted: pills as filled rectangles that
-  fill their refresh window, so only the pill area flashes. This means overlaying
-  rectangular pills in the bake (the SVG pills are rounded) and keeping the firmware
-  window tight to the pill.
-- **Spinner spin** — panel does ~3–6 fps small partials, but the connect/download steps
-  are blocking single‑threaded, so spinning *during* them needs non‑blocking networking.
 - **Onboarding v2** — only boot got the v2 redesign; onboarding reuses the older layout on
   the new darker birdhouse.
 - **`FF_NO_SLEEP=1`** is still set (dev mode, Wi‑Fi always on → ~4–5 days battery). Flip to
@@ -81,9 +87,11 @@ Read serial without bouncing to download mode: open the port with dtr/rts held i
 pulse RTS once to reset. `screen N` / `win …` / `frame …` / `panel updated` trace the boot.
 
 ## Files
-- `bake_screens.py` — the whole bake (SVG boot panels + PIL onboarding → ff_screens.h).
-- `boot_v2.svg` — designer's boot screens (source of truth for boot art + type).
+- `bake_screens.py` — the whole bake (art + server typography → ff_screens.h).
+- `boot_v2.svg` — designer's boot screens (reference only; type is drawn live now).
 - `art/` — `birdhouse.png` (v2 dark house, = `house.png`), `birdfly.png`, `birdpeek.png`
   (v2 wren); `fly.png`/`wren.png`/`bird.png`/`wren_hole.png` are the older v1 cut‑outs.
+- `fonts/` — vendored Inter Medium (pill text; OFL, see fonts/OFL.txt).
 - `src/ff_screens.h` — generated; don't hand‑edit.
-- `src/main.cpp` — `showScreen`, `freeScreenBuffers`, `displayFrame`, boot flow in `setup()`.
+- `src/main.cpp` — `showScreen`, `loaderTask`, `freeScreenBuffers`, `displayFrame`,
+  boot flow in `setup()`.

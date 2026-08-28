@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Bake the boot + first-time-setup panel screens into firmware/src/ff_screens.h.
 
-Renders 8 screens at the panel's native 1404x1872 using EB Garamond (from the
-server) and the pen-and-ink birdhouse art in ./art, dithers each to 1-bit like the
-e-paper, then PackBits-compresses them into a C header the firmware blits with
-drawBitmap. Run after changing the art, copy, or layout:
+Renders 8 screens at the panel's native 1404x1872 and PackBits-compresses them
+into a C header the firmware blits. The boot screens compose the designer's
+pen-and-ink birdhouse art (./art) with type set by the SERVER's own typography
+module — the wordmark is the plate title style (swash italic, theme.TITLE_SIZE)
+and the version line is the plates' engraved capitals — so the boot face always
+matches the plates. Pills use Inter (./fonts) for legibility at a glance.
+Run after changing the art, copy, or layout:
 
     server/.venv/bin/python firmware/tools/screens/bake_screens.py [--preview]
 
@@ -12,9 +15,14 @@ drawBitmap. Run after changing the art, copy, or layout:
 """
 import os
 import sys
-import subprocess
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
+sys.path.insert(0, os.path.join(REPO, "server"))
+
+from featherframe.render import theme, typography  # noqa: E402  (needs sys.path)
 
 # The panel's 16 gray levels render lighter than the source, so darken the midtones
 # before quantizing (gamma > 1). This MUST be a fixed, content-independent curve —
@@ -35,10 +43,10 @@ _GAMMA_LUT = _build_lut()
 def apply_curve(im):
     return im.convert("L").point(_GAMMA_LUT)
 
-# 8x8 ordered (Bayer) dither matrix. Ordered dithering is POSITION-stable: a given
-# grey at a given (x,y) always maps to the same bit, no matter what's beside it.
-# That's what lets the firmware partial-refresh — the shared birdhouse is byte-for-
-# byte identical across screens, so only the bird/pill/card boxes ever change.
+# 8x8 ordered (Bayer) dither, POSITION-stable: a given grey at a given (x,y)
+# always maps to the same bit no matter what's beside it — so a dithered box
+# stays byte-identical wherever the screens share content. Used only where a
+# box must be binary (=> DU, no flash) but the art is tonal, like the wren.
 _BAYER8 = np.array([
     [ 0, 48, 12, 60,  3, 51, 15, 63],
     [32, 16, 44, 28, 35, 19, 47, 31],
@@ -50,26 +58,25 @@ _BAYER8 = np.array([
     [42, 26, 38, 22, 41, 25, 37, 21],
 ], dtype=np.float32)
 
-def to_1bit(im):
-    """Grey L image -> 1-bit via ordered dither (deterministic per pixel)."""
+def to_1bit(im, phase=(0, 0)):
+    """Grey L image -> 0/255 via ordered dither. `phase` = the crop's top-left
+    in canvas coords, so a cropped region dithers exactly as it would in situ."""
     a = np.asarray(im.convert("L"), dtype=np.float32)
     h, w = a.shape
     thresh = (_BAYER8 + 0.5) / 64.0 * 255.0
-    tile = np.tile(thresh, ((h + 7) // 8, (w + 7) // 8))[:h, :w]
+    ty, tx = phase[1] % 8, phase[0] % 8
+    tile = np.tile(thresh, ((h + 15) // 8, (w + 15) // 8))[ty:ty + h, tx:tx + w]
     bw = (a > tile).astype(np.uint8) * 255      # 255 = white
-    return Image.fromarray(bw, mode="L").convert("1")
+    return Image.fromarray(bw, mode="L")
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 ART = os.path.join(HERE, "art")
 FONTS = os.path.join(REPO, "server", "featherframe", "fonts")
 OUT_H = os.path.join(REPO, "firmware", "src", "ff_screens.h")
 
 W, H = 1404, 1872
-STRIDE = (W + 7) // 8
-NBYTES = STRIDE * H
 ROMAN = os.path.join(FONTS, "EBGaramond[wght].ttf")
 ITALIC = os.path.join(FONTS, "EBGaramond-Italic[wght].ttf")
+SANS = os.path.join(HERE, "fonts", "Inter-Medium.otf")
 
 # Firmware version baked into the splash footer. Bump and re-run on release.
 VERSION = "VERSION 1.0.1"
@@ -82,13 +89,46 @@ def font(size, italic=False, weight=None):
         except Exception: pass
     return f
 
+def sans(size):
+    return ImageFont.truetype(SANS, size)
+
+def text_v(draw, x, yc, s, fnt, fill=0):
+    asc, desc = fnt.getmetrics()
+    draw.text((x, yc - (asc + desc) / 2), s, font=fnt, fill=fill)
+
+def diamond(draw, cx, cy, r, fill=0):
+    draw.polygon([(cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)], fill=fill)
+
+def wifi_glyph(draw, cx, cy, s, fill=0):
+    for rad in (s, s * 0.62, s * 0.30):
+        draw.arc([cx - rad, cy - rad, cx + rad, cy + rad], 225, 315,
+                 fill=fill, width=max(3, int(s * 0.12)))
+    draw.ellipse([cx - s * 0.07, cy - s * 0.07, cx + s * 0.07, cy + s * 0.07], fill=fill)
+
+def check(draw, cx, cy, s, fill=255, width=6):
+    draw.line([(cx - s * 0.5, cy), (cx - s * 0.1, cy + s * 0.45), (cx + s * 0.6, cy - s * 0.55)],
+              fill=fill, width=width, joint="curve")
+
+# -- the loading mark --------------------------------------------------------
+# Three small diamonds (the splash footer's separator motif): the active one is
+# solid, the others hollow rings. The firmware sweeps the solid diamond left to
+# right as a fast DU partial (pure black/white, so no flash) — motion, not a
+# blink, is what reads as "loading, not stuck" on a panel this slow. Frame k of
+# FF_LOADER_FRAMES lights diamond k; the baked screens carry frame 0.
+LOADER_R = 9          # half-height of one diamond
+LOADER_PITCH = 30     # diamond center-to-center
+LOADER_SLOT_W = LOADER_PITCH * 2 + LOADER_R * 2
+LOADER_FRAMES = 3
+
+def draw_loader_mark(draw, cx, cy, frame=0):
+    for k in range(3):
+        x = cx + (k - 1) * LOADER_PITCH
+        diamond(draw, x, cy, LOADER_R, fill=255)
+        if k != frame:
+            diamond(draw, x, cy, LOADER_R - 3.5, fill=0)
+
 ARTS = {k: Image.open(os.path.join(ART, f"{k}.png")).convert("L")
         for k in ("house", "fly", "wren", "bird", "wren_hole")}
-
-# wren_hole is a cut-out of the wren peeking from the entrance, aligned to house.png's
-# hole (both drawings share the hole position), so "arrived" screens keep the exact
-# same house and only the little hole box changes.
-WREN_HOLE_AT = (145, 235)          # top-left in house.png pixel space (670x990)
 
 def new_canvas():
     c = Image.new("L", (W, H), 255)
@@ -115,95 +155,16 @@ def paste_wren_hole(canvas, cx, top, target_h):
     canvas.paste(a, (x, y), Image.eval(a, lambda p: 255 - p).convert("L"))
 
 def paste_at(canvas, key, right, top, target_h):
-    # Paste an art by its RIGHT edge + top (used for the fly-in bird, which sits
-    # to the left of the house). The bird is a cut-out so the house stays identical
-    # to the splash — the firmware then repaints only the little bird box.
     art = ARTS[key]
     w, h = art.size
     tw = int(w * target_h / h)
     a = art.resize((tw, target_h), Image.LANCZOS)
     canvas.paste(a, (int(right - tw), int(top)), Image.eval(a, lambda p: 255 - p).convert("L"))
 
-def text_v(draw, x, yc, s, fnt, fill=0):
-    asc, desc = fnt.getmetrics()
-    draw.text((x, yc - (asc + desc) / 2), s, font=fnt, fill=fill)
-
-def tracked(draw, cx, y, text, fnt, track, fill=0):
-    widths = [draw.textlength(c, font=fnt) for c in text]
-    total = sum(widths) + track * (len(text) - 1)
-    x = cx - total / 2
-    for c, wch in zip(text, widths):
-        text_v(draw, x, y, c, fnt, fill)
-        x += wch + track
-
-def diamond(draw, cx, cy, r, fill=0):
-    draw.polygon([(cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)], fill=fill)
-
-def wifi_glyph(draw, cx, cy, s, fill=0):
-    for rad in (s, s * 0.62, s * 0.30):
-        draw.arc([cx - rad, cy - rad, cx + rad, cy + rad], 225, 315,
-                 fill=fill, width=max(3, int(s * 0.12)))
-    draw.ellipse([cx - s * 0.07, cy - s * 0.07, cx + s * 0.07, cy + s * 0.07], fill=fill)
-
-def spinner(draw, cx, cy, r, fill=255):
-    import math
-    for k in range(4):
-        a0 = math.radians(90 * k)
-        pts = [(cx, cy)]
-        for t in range(0, 60, 6):
-            ang = a0 + math.radians(t)
-            pts.append((cx + r * math.cos(ang), cy + r * math.sin(ang)))
-        draw.polygon(pts, fill=fill)
-
-def square(draw, cx, cy, s, fill=255):
-    # The loading mark: a solid square. The panel can't animate a spinning pinwheel
-    # (the connect/download steps block single-threaded), but the firmware CAN pulse a
-    # solid square black<->white as a fast DU partial. Baked white = its resting state.
-    r = s / 2
-    draw.rectangle([cx - r, cy - r, cx + r, cy + r], fill=fill)
-
-def check(draw, cx, cy, s, fill=255, width=6):
-    draw.line([(cx - s * 0.5, cy), (cx - s * 0.1, cy + s * 0.45), (cx + s * 0.6, cy - s * 0.55)],
-              fill=fill, width=width, joint="curve")
-
-WORDMARK = "FEATHERFRAME"
-
-def draw_wordmark(draw, y):
-    tracked(draw, W / 2, y, WORDMARK, font(96, weight=520), track=26, fill=0)
-
-# Shared placement for the splash + boot states, so only the bottom strip (footer
-# vs pill) changes between them — that lets the firmware partial-refresh just that
-# band and leave the birdhouse untouched (no flash).
-BOOT_ART_TOP, BOOT_ART_H, BOOT_WORDMARK_Y = 220, 770, 1185
-
-def screen_splash():
-    c, d = new_canvas()
-    paste_art(c, "house", W / 2, BOOT_ART_TOP, BOOT_ART_H)
-    draw_wordmark(d, BOOT_WORDMARK_Y)
-    fitn = font(40, italic=True)
-    lw = d.textlength(VERSION, font=fitn); rw = d.textlength(BUILD, font=fitn)
-    gap = 120; total = lw + gap + rw; x0 = W / 2 - total / 2
-    text_v(d, x0, 1740, VERSION, fitn); diamond(d, x0 + lw + gap / 2, 1740, 9)
-    text_v(d, x0 + lw + gap, 1740, BUILD, fitn)
-    return c
-
-def screen_boot(text, bird=False, home=False):
-    c, d = new_canvas()
-    paste_art(c, "house", W / 2, BOOT_ART_TOP, BOOT_ART_H)   # same house as the splash
-    if bird:
-        paste_at(c, "bird", 470, 300, 330)                  # flies in from the left
-    if home:
-        paste_wren_hole(c, W / 2, BOOT_ART_TOP, BOOT_ART_H)  # arrived: wren in the hole
-    draw_wordmark(d, BOOT_WORDMARK_Y)
-    fnt = font(50, italic=True)
-    tw = d.textlength(text, font=fnt)
-    padx, icon = 60, 70
-    pillw = tw + padx * 2 + icon; pillh = 116
-    px = (W - pillw) / 2; py = 1560
-    d.rounded_rectangle([px, py, px + pillw, py + pillh], radius=pillh / 2, fill=0)
-    spinner(d, px + padx + icon * 0.4, py + pillh / 2, 26)
-    text_v(d, px + padx + icon + 6, py + pillh / 2, text, fnt, fill=255)
-    return c
+# wren_hole is a cut-out of the wren peeking from the entrance, aligned to house.png's
+# hole (both drawings share the hole position), so "arrived" screens keep the exact
+# same house and only the little hole box changes.
+WREN_HOLE_AT = (145, 235)          # top-left in house.png pixel space (670x990)
 
 def screen_setup():
     c, d = new_canvas()
@@ -233,13 +194,9 @@ def screen_setup():
             y += 150
     return c
 
-def screen_check(states, bird=False, home=False):
+def screen_check(name, states):
     c, d = new_canvas()
     paste_art(c, "house", W / 2, 150, 660)
-    if bird:
-        paste_at(c, "bird", 500, 250, 280)
-    if home:
-        paste_wren_hole(c, W / 2, 150, 660)
     rows = ["Connecting to wi-fi...", "Connecting to BirdNET...", "Downloading image..."]
     x0, y0, x1 = 260, 1300, W - 260
     rowh = 130; y1 = y0 + rowh * len(rows) + 60
@@ -247,62 +204,62 @@ def screen_check(states, bird=False, home=False):
     fnt = font(48); y = y0 + 90
     for r, st in zip(rows, states):
         ix = x0 + 90
-        if st == "done": check(d, ix, y, 34)
-        elif st == "now": spinner(d, ix, y, 26)
+        if st == "done":
+            check(d, ix, y, 34)
+        elif st == "now":
+            draw_loader_mark(d, ix, y)
+            LOADER_AT[name] = (ix, y)
         text_v(d, x0 + 170, y, r, fnt, fill=255 if st != "pending" else 150)
         y += rowh
     return c
 
-# (enum name, image) — order defines FF_SCR_* indices
-# The four boot/loading screens come straight from the designer's boot_v2.svg (text
-# is vector paths there, so every OpenType effect — the swash italic wordmark, the
-# old-style figures in VERSION 1.0.1 — renders exactly as drawn). Each panel is a
-# 1404x1872 region; the birdhouse + wordmark are byte-identical across them, so only
-# the fly-in bird / wren-in-hole / pill change (partial-refresh friendly).
-# The house, fly-in bird and wren-in-hole are the designer's clean pen-and-ink line art
-# (black hatching on transparent), used at native size — do NOT rescale birdhouse.png,
-# it is 1402 wide by design. Because it is real line art, a plain threshold to black/
-# white is crisp (no dither), which also makes every partial window 1-bit so the firmware
-# refreshes it with the non-flashing DU waveform.
+# The four boot/loading screens compose the designer's clean pen-and-ink line art
+# (black hatching on transparent) at native size — do NOT rescale birdhouse.png,
+# it is 1402 wide by design.
 HOUSE = Image.open(os.path.join(ART, "birdhouse.png")).convert("RGBA")
 FLY   = Image.open(os.path.join(ART, "birdfly.png")).convert("RGBA")
 PEEK  = Image.open(os.path.join(ART, "birdpeek.png")).convert("RGBA")
 
-# The swash "Featherframe" wordmark + old-style VERSION figures stay vector-crisp by
-# cropping them out of the designer's boot_v2.svg (drawing them in PIL would lose the
-# swash). Rendered once; the crops are pasted as ink onto every boot screen.
-def _svg_splash():
-    out = os.path.join(HERE, "_boot_v2_render.png")
-    subprocess.run(["rsvg-convert", "-w", "6228", os.path.join(HERE, "boot_v2.svg"),
-                    "-o", out], check=True)
-    full = Image.open(out).convert("L"); os.remove(out)
-    return full.crop((159, 270, 159 + W, 270 + H))
-_SPL = _svg_splash()
+# Layout (portrait 1404x1872). birdhouse.png (1402x1122) sits full width near the
+# top; its entrance hole is at (600,390) in the PNG, so the wren-in-hole lands at
+# HOUSE_XY + that. House + wordmark are identical on every screen, so only the
+# bird/wren/pill boxes ever repaint. House/bird/wren placements are the designer's,
+# read off the reference frames in Desktop/stils (Frame 12-15.svg).
+HOUSE_XY = (1, 200)
+FLY_XY   = (1, 403)
+PEEK_XY  = (501, 546)
 
-def _blacken(im, bp=50):
-    # The SVG renders its type at #222 (darkest px = 34), so after the panel gamma it
-    # lands on a dark-gray level, not black. Lift the black point: ink <= bp -> pure
-    # black (level 0), lighter values stretch — so the logo/version read solid black
-    # while keeping smooth anti-aliased edges (not a hard 1-bit threshold).
-    return im.point(lambda p: 0 if p <= bp else round((p - bp) * 255 / (255 - bp)))
+# The wordmark is the plate title, verbatim: EB Garamond swash italic at
+# theme.TITLE_SIZE with the v3 weight/tracking, drawn by the server's own
+# draw_title so any future plate-title change re-bakes into the boot face.
+# The baseline keeps the descenders (the swash f's) well clear of the pill.
+WORDMARK_BASELINE = 1534
+# Splash footer: a hedera between the wordmark and the version line (the same
+# ornament the plates' date line uses), then the version in the plates'
+# engraved capitals (Adorn Engraved, theme.SUBTITLE_SIZE).
+HEDERA_BASELINE  = 1632
+VERSION_BASELINE = 1718
+VERSION_GAP = 110          # gap between VERSION and BUILD, diamond in the middle
 
-WORDMARK_IM = _blacken(_SPL.crop((438, 1456, 975, 1558)))   # swash "Featherframe"
-VERSION_IM  = _blacken(_SPL.crop((585, 1692, 822, 1716)))   # "VERSION 1.0.1 <> BUILD ..."
+def draw_wordmark(im):
+    d = ImageDraw.Draw(im)
+    f = font(theme.TITLE_SIZE, italic=True, weight=theme.TITLE_WEIGHT)
+    typography.draw_title(d, W / 2, WORDMARK_BASELINE, "Featherframe", f, 0,
+                          theme.TITLE_SIZE * theme.TITLE_TRACKING)
 
-# Layout (portrait 1404x1872). birdhouse.png (1402x1122) sits full width near the top;
-# its entrance hole is at (600,390) in the PNG, so the wren-in-hole lands at HOUSE_XY +
-# that. House + wordmark are identical on every screen, so only bird/wren/pill repaint.
-# All placements are the designer's, read off the reference frames in Desktop/stils
-# (Frame 12-15.svg): house rect (1,200,1402,1122); bird (1,403); wren backing (501,546);
-# wordmark and version are pasted back at the exact spot they were cropped from.
-HOUSE_XY    = (1, 200)
-FLY_XY      = (1, 403)
-PEEK_XY     = (501, 546)
-WORDMARK_XY = (438, 1456)
-VERSION_XY  = (585, 1692)
-
-def _ink_paste(im, overlay, xy):
-    im.paste(overlay, xy, Image.eval(overlay, lambda p: 255 - p))   # dark ink only
+def draw_version(im):
+    d = ImageDraw.Draw(im)
+    d.text((W / 2, HEDERA_BASELINE), theme.DATE_ORNAMENT,
+           font=font(36, italic=True, weight=500), fill=0, anchor="ms")
+    size = theme.SUBTITLE_SIZE
+    lw = typography.engraved_width(VERSION, size)
+    rw = typography.engraved_width(BUILD, size)
+    x0 = W / 2 - (lw + VERSION_GAP + rw) / 2
+    typography.draw_engraved(d, x0 + lw / 2, VERSION_BASELINE, VERSION, size, 0)
+    typography.draw_engraved(d, x0 + lw + VERSION_GAP + rw / 2, VERSION_BASELINE,
+                             BUILD, size, 0)
+    cap = size * theme.ENGRAVED_CAP
+    diamond(d, x0 + lw + VERSION_GAP / 2, VERSION_BASELINE - cap / 2, 7)
 
 PILL_TEXT = {
     "wifi":     "Connecting to Wi-Fi…",
@@ -310,33 +267,36 @@ PILL_TEXT = {
     "download": "Downloading image…",
 }
 
-# Pill geometry from the frames: y=1648, height 82, centered, rounded (rx = h/2), with a
-# 42px spinner icon 20px in from the left and the text after it. Drawn pure black (not the
-# frames' #222 fill) so it reads solid black on the panel; DU refreshes it flash-less
-# regardless of the rounded corners.
-PILL_Y, PILL_H, PILL_PAD, PILL_ICON, PILL_GAP = 1648, 82, 20, 42, 14
-PILL_SQUARE = 34            # side of the loader square; the firmware pulses it on download
+# Pill geometry: y=1648, height 82, centered, rounded (rx = h/2). The loading
+# mark sits in a slot at the left, the text after it — a plain sans (Inter
+# Medium) for at-a-glance readability against all the Garamond around it.
+# Drawn pure black/white so the window refreshes flash-less with DU.
+PILL_Y, PILL_H, PILL_PAD, PILL_GAP = 1648, 82, 30, 22
+PILL_TEXT_SIZE = 38
 
 def draw_pill(im, text):
-    # Returns the loader square's portrait bbox (x0,y0,x1,y1) so the bake can emit its
-    # native panel coords for the firmware to pulse (see write_header / FF_DL_SQ_*).
+    # Returns the loading mark's portrait center so the bake can emit its
+    # native panel coords for the firmware to animate (see FfLoader).
     d = ImageDraw.Draw(im)
-    fnt = font(44, italic=True)
+    fnt = sans(PILL_TEXT_SIZE)
     tw = d.textlength(text, font=fnt)
-    pillw = int(PILL_PAD + PILL_ICON + PILL_GAP + tw + PILL_PAD + 8)
+    pillw = int(PILL_PAD + LOADER_SLOT_W + PILL_GAP + tw + PILL_PAD + 4)
     px = int(W / 2 - pillw / 2)
     cy = PILL_Y + PILL_H / 2
     d.rounded_rectangle([px, PILL_Y, px + pillw, PILL_Y + PILL_H], radius=PILL_H / 2, fill=0)
-    scx = px + PILL_PAD + PILL_ICON / 2
-    square(d, scx, cy, PILL_SQUARE, fill=255)
-    text_v(d, px + PILL_PAD + PILL_ICON + PILL_GAP, cy, text, fnt, fill=255)
-    r = PILL_SQUARE / 2
-    return (int(scx - r), int(cy - r), int(scx + r), int(cy + r))
+    lcx = px + PILL_PAD + LOADER_SLOT_W / 2
+    draw_loader_mark(d, lcx, cy)
+    # Optically center the text on its cap height (metric centering sits low —
+    # Inter's tall ascent/descent box isn't where the ink is).
+    capbox = fnt.getbbox("H")
+    baseline = cy + (capbox[3] - capbox[1]) / 2
+    d.text((px + PILL_PAD + LOADER_SLOT_W + PILL_GAP, baseline), text,
+           font=fnt, fill=255, anchor="ls")
+    return (lcx, cy)
 
-DL_SQ_PORTRAIT = None       # download screen's loader-square bbox, set in _compose
+LOADER_AT = {}      # screen name -> loading mark's portrait center (cx, cy)
 
 def _compose(name):
-    global DL_SQ_PORTRAIT
     c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
     c.alpha_composite(HOUSE, HOUSE_XY)
     if name == "wifi":
@@ -344,18 +304,31 @@ def _compose(name):
     elif name == "download":
         c.alpha_composite(PEEK, PEEK_XY)               # wren in the hole
     im = c.convert("L")
-    _ink_paste(im, WORDMARK_IM, WORDMARK_XY)
+    if name == "wifi":
+        # Threshold the fly-in bird's box to pure black/white (it is line art on
+        # empty sky — nothing else lives in the box). A binary window refreshes
+        # with DU both coming and going, so the bird appears and leaves without
+        # the GC16 white-black-white flash.
+        x0, y0 = FLY_XY; x1, y1 = x0 + FLY.width, y0 + FLY.height
+        box = im.crop((x0, y0, x1, y1)).point(lambda p: 0 if p < 176 else 255)
+        im.paste(box, (x0, y0))
+    elif name == "download":
+        # The wren is tonal (its light feathers threshold into a black blob),
+        # so its box goes binary by ordered dither instead — the gamma curve
+        # first, so the stipple density matches the gray it replaces.
+        x0, y0 = PEEK_XY; x1, y1 = x0 + PEEK.width, y0 + PEEK.height
+        box = to_1bit(apply_curve(im.crop((x0, y0, x1, y1))), phase=(x0, y0))
+        im.paste(box, (x0, y0))
+    draw_wordmark(im)
     if name == "splash":
-        _ink_paste(im, VERSION_IM, VERSION_XY)
+        draw_version(im)
     else:
-        rect = draw_pill(im, PILL_TEXT[name])
-        if name == "download":
-            DL_SQ_PORTRAIT = rect
-    # Keep the art in 16-level gray (packed() applies the panel gamma + quantize). The
-    # smooth grayscale reads far better than a hard threshold. Cost: the gray bird/wren
-    # windows refresh with GC16 (a flash) since DU is 1-bit only; the pill stays black/
-    # white so it still refreshes flash-less with DU. House + wordmark are identical
-    # across screens, so only the bird/wren/pill boxes ever repaint.
+        LOADER_AT[name] = draw_pill(im, PILL_TEXT[name])
+    # Keep the art in 16-level gray (packed() applies the panel gamma + quantize):
+    # smooth grayscale reads far better than a hard threshold. The bird box above
+    # and the pills are the exception — binary on purpose, so their windows take
+    # the non-flashing DU waveform. House + wordmark are identical across screens,
+    # so only the bird/wren/pill boxes ever repaint.
     return im
 
 SCREENS = [
@@ -364,9 +337,9 @@ SCREENS = [
     ("BOOT_BIRDNET",  _compose("birdnet")),     # empty house
     ("BOOT_DOWNLOAD", _compose("download")),    # wren in the hole
     ("SETUP",         screen_setup()),
-    ("CHK1",          screen_check(["now", "pending", "pending"])),
-    ("CHK2",          screen_check(["done", "now", "pending"])),
-    ("CHK3",          screen_check(["done", "done", "now"])),
+    ("CHK1",          screen_check("CHK1", ["now", "pending", "pending"])),
+    ("CHK2",          screen_check("CHK2", ["done", "now", "pending"])),
+    ("CHK3",          screen_check("CHK3", ["done", "done", "now"])),
 ]
 
 def packbits(data: bytes) -> bytes:
@@ -396,36 +369,62 @@ NATIVE_W, NATIVE_H = H, W                 # 1872 x 1404
 GRAY_BYTES = NATIVE_W * NATIVE_H // 2     # 1,314,144
 PANEL_ROTATION = 90
 
-def packed(im: Image.Image) -> bytes:
-    im = apply_curve(im)
-    a = np.asarray(im, dtype=np.uint8)                        # portrait 1404x1872
+def _to_native_nibbles(im: Image.Image) -> np.ndarray:
+    a = np.asarray(apply_curve(im), dtype=np.uint8)
     idx = (a.astype(np.uint16) * 15 // 255).astype(np.uint8)  # 16 levels, 0..15
-    native = np.rot90(idx, k=(PANEL_ROTATION // 90) % 4)      # -> [1404, 1872]
+    return np.rot90(idx, k=(PANEL_ROTATION // 90) % 4)
+
+def _pack_nibbles(native: np.ndarray) -> bytes:
     hi = native[:, 0::2].astype(np.uint8) << 4
     lo = native[:, 1::2].astype(np.uint8)
-    body = (hi | lo).tobytes()
+    return (hi | lo).tobytes()
+
+def packed(im: Image.Image) -> bytes:
+    body = _pack_nibbles(_to_native_nibbles(im))
     assert len(body) == GRAY_BYTES, len(body)
     return packbits(body)
 
-def dl_square_native():
-    # Map the download loader square from portrait (1404x1872) into the panel's native
-    # windowed-update coords, applying the SAME rot90 as packed() and the SAME X-mirror
-    # the firmware's showScreen() uses (mx = NATIVE_W - nx - nw). Align to 8px so the
-    # 4bpp windowed write is nibble/byte safe. Result is what firmware feeds tconLoadImage.
-    sx0, sy0, sx1, sy1 = DL_SQ_PORTRAIT
+# Loader animation tiles. For each screen with a loading mark, cut a fixed-size
+# window around the mark out of the baked screen and re-draw it once per frame
+# (the sweep position changes, everything else in the tile — the black pill —
+# stays). The firmware pushes one tile per step as a windowed DU update. Tile
+# coords go through the SAME rot90 as packed() and the SAME X-mirror the
+# firmware's showScreen() uses (mx = FF_NATIVE_W - nx - nw); portrait-8-aligned
+# corners stay 8-aligned through both (all dims are multiples of 8).
+TILE_W, TILE_H = 112, 40      # portrait px, multiples of 8
+
+def loader_tiles(im: Image.Image, cx, cy):
+    px0 = (int(cx) - TILE_W // 2) & ~7
+    py0 = (int(cy) - TILE_H // 2) & ~7
+    tiles = []
+    for k in range(LOADER_FRAMES):
+        t = im.crop((px0, py0, px0 + TILE_W, py0 + TILE_H)).copy()
+        d = ImageDraw.Draw(t)
+        mx, my = cx - px0, cy - py0
+        d.rectangle([mx - LOADER_SLOT_W / 2 - 2, my - LOADER_R - 2,
+                     mx + LOADER_SLOT_W / 2 + 2, my + LOADER_R + 2], fill=0)
+        draw_loader_mark(d, mx, my, frame=k)
+        tiles.append(_pack_nibbles(_to_native_nibbles(t)))
+    # Portrait -> native -> mirrored native, as in showScreen().
     mask = np.zeros((H, W), dtype=np.uint8)
-    mask[sy0:sy1 + 1, sx0:sx1 + 1] = 1
-    nat = np.rot90(mask, k=(PANEL_ROTATION // 90) % 4)     # -> (NATIVE_H, NATIVE_W)
+    mask[py0:py0 + TILE_H, px0:px0 + TILE_W] = 1
+    nat = np.rot90(mask, k=(PANEL_ROTATION // 90) % 4)
     rows, cols = np.any(nat, axis=1), np.any(nat, axis=0)
-    ny0, ny1 = int(np.argmax(rows)), len(rows) - 1 - int(np.argmax(rows[::-1]))
-    nx0, nx1 = int(np.argmax(cols)), len(cols) - 1 - int(np.argmax(cols[::-1]))
-    nx0 &= ~7; nx1 |= 7; ny0 &= ~7; ny1 |= 7               # 8px align
-    nw, nh = nx1 - nx0 + 1, ny1 - ny0 + 1
-    mx = NATIVE_W - nx0 - nw                                # firmware mirrors X
-    return mx, ny0, nw, nh
+    ny0 = int(np.argmax(rows)); nx0 = int(np.argmax(cols))
+    nw, nh = TILE_H, TILE_W                      # portrait w/h swap under rot90
+    mx0 = NATIVE_W - nx0 - nw                    # firmware mirrors X
+    return (mx0, ny0), tiles
 
 def write_header():
-    dlx, dly, dlw, dlh = dl_square_native()
+    screens = {name: im for name, im in SCREENS}
+    loaders = {name: loader_tiles(screens[name], cx, cy)
+               for name, (cx, cy) in
+               (("BOOT_WIFI", LOADER_AT["wifi"]),
+                ("BOOT_BIRDNET", LOADER_AT["birdnet"]),
+                ("BOOT_DOWNLOAD", LOADER_AT["download"]),
+                ("CHK1", LOADER_AT["CHK1"]),
+                ("CHK2", LOADER_AT["CHK2"]),
+                ("CHK3", LOADER_AT["CHK3"]))}
     L = ["// GENERATED by firmware/tools/screens/bake_screens.py — do not edit by hand.",
          "// Boot + first-time-setup panel screens, baked as 16-level gray in the",
          "// panel's native 1872x1404 orientation (4bpp), pushed via the same gray",
@@ -434,33 +433,55 @@ def write_header():
          "#pragma once", "#include <stdint.h>", "",
          f"#define FF_NATIVE_W       {NATIVE_W}", f"#define FF_NATIVE_H       {NATIVE_H}",
          f"#define FF_SCREEN_BYTES   {GRAY_BYTES}   // decoded 4bpp body, per screen", "",
-         "// Download-screen loader square, in native mirrored panel coords (see",
-         "// dl_square_native). The firmware pulses this box black<->white during the",
-         "// plate download as a fast DU partial — the only animation the blocking",
-         "// single-threaded connect/download allows.",
-         f"#define FF_DL_SQ_X        {dlx}", f"#define FF_DL_SQ_Y        {dly}",
-         f"#define FF_DL_SQ_W        {dlw}", f"#define FF_DL_SQ_H        {dlh}", "",
+         "// Loading-mark animation: per-screen window tiles in native mirrored",
+         "// panel coords (see loader_tiles). The firmware sweeps the frames as",
+         "// fast DU partials while it connects/downloads — the tiles are pure",
+         "// black/white so the sweep never flashes. Frame 0 == the baked screen.",
+         f"#define FF_LOADER_FRAMES  {LOADER_FRAMES}",
+         f"#define FF_LOADER_NW      {TILE_H}   // native px (portrait h)",
+         f"#define FF_LOADER_NH      {TILE_W}   // native px (portrait w)",
+         "#define FF_LOADER_BYTES   (FF_LOADER_NW / 2 * FF_LOADER_NH)", "",
          "enum FfScreen {"]
     for i, (name, _) in enumerate(SCREENS):
         L.append(f"  FF_SCR_{name} = {i},")
     L += [f"  FF_SCR_COUNT = {len(SCREENS)},", "};", ""]
-    refs = []
-    for name, im in SCREENS:
-        pb = packed(im); arr = f"ff_scr_{name.lower()}"; refs.append((arr, len(pb)))
-        L.append(f"// {name}: {len(pb)} bytes packed")
-        L.append(f"static const uint8_t {arr}[] = {{")
+
+    def emit_array(arr_name, data, comment=None):
+        if comment:
+            L.append(f"// {comment}")
+        L.append(f"static const uint8_t {arr_name}[] = {{")
         row = "  "
-        for b in pb:
+        for b in data:
             row += f"{b},"
             if len(row) >= 116:
                 L.append(row); row = "  "
         if row.strip():
             L.append(row)
-        L += ["};", ""]
+        L.extend(["};", ""])
+
+    refs = []
+    for name, im in SCREENS:
+        pb = packed(im); arr = f"ff_scr_{name.lower()}"; refs.append((arr, len(pb)))
+        emit_array(arr, pb, f"{name}: {len(pb)} bytes packed")
+    for name, (_, tiles) in loaders.items():
+        for k, t in enumerate(tiles):
+            emit_array(f"ff_ldr_{name.lower()}_{k}", t)
     L += ["struct FfScreenAsset { const uint8_t* data; uint32_t len; };",
           "static const FfScreenAsset ff_screens[FF_SCR_COUNT] = {"]
     for arr, ln in refs:
         L.append(f"  {{ {arr}, {ln} }},")
+    L += ["};", "",
+          "// Loading-mark window per screen (x,y = native mirrored top-left;",
+          "// x < 0 = this screen has no animated mark).",
+          "struct FfLoader { int16_t x, y; const uint8_t* frames[FF_LOADER_FRAMES]; };",
+          "static const FfLoader ff_loader[FF_SCR_COUNT] = {"]
+    for name, _ in SCREENS:
+        if name in loaders:
+            (x, y), _tiles = loaders[name]
+            fr = ", ".join(f"ff_ldr_{name.lower()}_{k}" for k in range(LOADER_FRAMES))
+            L.append(f"  {{ {x}, {y}, {{ {fr} }} }},")
+        else:
+            L.append("  { -1, -1, { 0 } },")
     L += ["};", "",
           "// PackBits decode into a caller buffer of FF_SCREEN_BYTES. Returns bytes written.",
           "static inline uint32_t ff_unpack(const uint8_t* src, uint32_t len, uint8_t* dst) {",
@@ -479,7 +500,8 @@ def write_header():
     with open(OUT_H, "w") as f:
         f.write("\n".join(L))
     total = sum(ln for _, ln in refs)
-    print(f"wrote {OUT_H}: {len(SCREENS)} gray screens, {total/1024:.0f}K packed")
+    print(f"wrote {OUT_H}: {len(SCREENS)} gray screens + "
+          f"{len(loaders)}x{LOADER_FRAMES} loader tiles, {total/1024:.0f}K packed")
 
 def write_preview():
     cols, rows, pad, tw = 4, 2, 30, 520

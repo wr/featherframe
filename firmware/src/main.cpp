@@ -80,8 +80,47 @@ int batteryPercent(float v) {
   return 0;
 }
 
+// ---------------------------------------------------------------- loader anim
+// The loading mark on the boot pills / onboarding checklist: three diamonds,
+// the solid one sweeping left to right. The connect/download steps run
+// blocking on the main task, so a FreeRTOS task pushes the baked frames
+// (ff_loader[], tiny pure-black/white tiles) as windowed DU partials — real
+// motion through the whole boot, no flash, no main-path changes. g_panelMutex
+// serializes every panel touch between this task and the rest of the app.
+static SemaphoreHandle_t g_panelMutex;
+struct LoaderAnim { volatile bool on; int16_t x, y; const uint8_t* const* frames; };
+static LoaderAnim g_loaderAnim = {false, 0, 0, nullptr};
+
+static void panelLock()   { if (g_panelMutex) xSemaphoreTakeRecursive(g_panelMutex, portMAX_DELAY); }
+static void panelUnlock() { if (g_panelMutex) xSemaphoreGiveRecursive(g_panelMutex); }
+
+static void loaderTask(void*) {
+  int frame = 0;
+  for (;;) {
+    if (g_loaderAnim.on) {
+      panelLock();
+      if (g_loaderAnim.on) {     // re-check: a full refresh may have landed
+        epaper.wake();
+        epaper.tconLoadImage((uint8_t*)g_loaderAnim.frames[frame],
+                             g_loaderAnim.x, g_loaderAnim.y,
+                             FF_LOADER_NW, FF_LOADER_NH, false);
+        epaper.tconDisplayArea(g_loaderAnim.x, g_loaderAnim.y,
+                               FF_LOADER_NW, FF_LOADER_NH, 1);   // DU: no flash
+        epaper.tconWaitForDisplayReady();
+        frame = (frame + 1) % FF_LOADER_FRAMES;
+      }
+      panelUnlock();
+    } else {
+      frame = 0;   // next sweep starts from the baked resting state
+    }
+    vTaskDelay(pdMS_TO_TICKS(FF_LOADER_STEP_MS));
+  }
+}
+
 // ---------------------------------------------------------------- sleep
 void goToSleep(uint32_t minutes) {
+  g_loaderAnim.on = false;
+  panelLock();               // let an in-flight loader step finish first
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
   // update() already put the T-CON to sleep; e-paper holds its image with the
@@ -166,6 +205,8 @@ void displayFrame(const uint8_t* data, size_t len) {
   FFFHeader h;
   memcpy(&h, data, FFF_HEADER_SIZE);
   if (memcmp(h.magic, "FFF1", 4) != 0) { Serial.println("bad frame magic"); return; }
+  g_loaderAnim.on = false;      // a full refresh replaces any loading screen
+  panelLock();
 
   const uint16_t* body = (const uint16_t*)(data + FFF_HEADER_SIZE);
   const int w = h.width, hh = h.height;   // native: 1872 x 1404
@@ -182,6 +223,7 @@ void displayFrame(const uint8_t* data, size_t len) {
     epaper.pushImage(0, 0, w, hh, (uint16_t*)body);
   }
   epaper.update();                          // full refresh; brackets its own power
+  panelUnlock();
   Serial.println("panel updated");
 }
 
@@ -218,6 +260,7 @@ static void ensure1bit() {
 }
 
 void showToast(const char* text) {
+  panelLock();
   ensure1bit();
   const uint8_t savedRot = epaper.getRotation();
   epaper.setRotation(TOAST_ROT);
@@ -240,6 +283,7 @@ void showToast(const char* text) {
   epaper.drawString(text, W / 2, pillY + pillH / 2);
   epaper.updataPartial(pillX, pillY, pillW, pillH);
   epaper.setRotation(savedRot);
+  panelUnlock();
 
   g_toast = {true, millis(), pillX, pillY, pillW, pillH};
   Serial.printf("toast: %s\n", text);
@@ -248,12 +292,14 @@ void showToast(const char* text) {
 // Wipe the pill back to white (restores the bottom margin) and forget it.
 void clearToast() {
   if (!g_toast.active) return;
+  panelLock();
   ensure1bit();
   const uint8_t savedRot = epaper.getRotation();
   epaper.setRotation(TOAST_ROT);
   epaper.fillRect(g_toast.x, g_toast.y, g_toast.w, g_toast.h, TFT_WHITE);
   epaper.updataPartial(g_toast.x, g_toast.y, g_toast.w, g_toast.h);
   epaper.setRotation(savedRot);
+  panelUnlock();
   g_toast.active = false;
   Serial.println("toast cleared");
 }
@@ -306,6 +352,8 @@ void showScreen(int idx) {
   uint8_t* body = buf + FFF_HEADER_SIZE;
   ff_unpack(ff_screens[idx].data, ff_screens[idx].len, body);
 
+  g_loaderAnim.on = false;        // pause the sweep while the glass changes
+  panelLock();
   const bool entry = (idx == FF_SCR_SPLASH || idx == FF_SCR_SETUP);
   if (entry || !havePrev) {
     displayFrame(buf, total);                      // full gray refresh (== bird plates)
@@ -378,29 +426,17 @@ void showScreen(int idx) {
   }
   memcpy(prev, body, FF_SCREEN_BYTES);
   havePrev = true;
+  // Arm the loading-mark sweep if this screen carries one (see bake_screens.py).
+  const FfLoader& ld = ff_loader[idx];
+  if (ld.x >= 0) {
+    g_loaderAnim.x = ld.x; g_loaderAnim.y = ld.y; g_loaderAnim.frames = ld.frames;
+    g_loaderAnim.on = true;
+  }
+  panelUnlock();
 }
 
 // Kept for the boot call site; the battery/build args are now baked in the art.
 void showSplash(const char*, int) { showScreen(FF_SCR_SPLASH); }
-
-// ---------------------------------------------------------------- download blink
-// The "Downloading image…" pill carries a solid loader square (baked white). The
-// connect/download steps are blocking and single-threaded, so a spinning pinwheel
-// could never animate — but a solid square only needs two states, and pure black/
-// white refreshes with the fast DU waveform (mode 1, sub-second, no full-panel flash).
-// So we pulse just that box black<->white a few times while the plate streams. Coords
-// come from the bake (FF_DL_SQ_*) in native mirrored space — the same transform
-// showScreen() uses to place its windows — so the box lands exactly on the baked square.
-#ifdef FF_DL_SQ_X
-void blinkDownloadSquare(bool white) {
-  static uint8_t sq[(FF_DL_SQ_W / 2) * FF_DL_SQ_H];   // 4bpp gray: 2 px/byte
-  memset(sq, white ? 0xFF : 0x00, sizeof(sq));        // 0xFF = two white px, 0x00 = black
-  epaper.wake();
-  epaper.tconLoadImage(sq, FF_DL_SQ_X, FF_DL_SQ_Y, FF_DL_SQ_W, FF_DL_SQ_H, false);
-  epaper.tconDisplayArea(FF_DL_SQ_X, FF_DL_SQ_Y, FF_DL_SQ_W, FF_DL_SQ_H, 1);   // DU
-  epaper.tconWaitForDisplayReady();
-}
-#endif
 
 // ---------------------------------------------------------------- fetch
 enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_ERROR };
@@ -409,8 +445,7 @@ enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_ERROR };
 // the normal current-bird frame (ETag conditional GET + store the new ETag);
 // false for transient button views (no conditional, and the stored ETag is
 // CLEARED so the next timer wake re-fetches the resident bird over the view).
-FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct,
-                           bool loader = false) {
+FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct) {
   // Release the boot-art buffers first: the IT8951 full-image write needs ~1.31 MB of
   // contiguous PSRAM for its mirror buffer, and if the boot buffers still hold it the
   // plate silently fails to load. (Safe here — this path renders network data, not the
@@ -444,25 +479,12 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct,
   WiFiClient* stream = http.getStreamPtr();
   int got = 0;
   uint32_t t0 = millis();
-#ifdef FF_DL_SQ_X
-  uint32_t tBlink = millis();
-  bool sqWhite = true;   // baked resting state is white; first toggle drops to black
-#endif
   while (got < len && (millis() - t0) < HTTP_TIMEOUT_MS) {
     if (stream->available()) {
       got += stream->readBytes(buf + got, len - got);
     } else {
       delay(2);
     }
-#ifdef FF_DL_SQ_X
-    // Pulse the loader square between reads. The DU partial blocks ~200ms, so gate it
-    // on FF_DL_BLINK_MS to keep most of the loop reading the socket.
-    if (loader && millis() - tBlink >= FF_DL_BLINK_MS) {
-      sqWhite = !sqWhite;
-      blinkDownloadSquare(sqWhite);
-      tBlink = millis();
-    }
-#endif
   }
   String newEtag = http.header("ETag");
   http.end();
@@ -553,6 +575,12 @@ void setup() {
   // here — that breaks the power sequencing and updates stop reaching the glass. We
   // re-assert it HIGH only in the idle loop, after rendering, to keep buttons alive.
 
+  // Panel arbitration + the loading-mark sweep task. Created before any screen
+  // shows so the mark animates through Wi-Fi connect, server connect, and the
+  // download alike; it idles (no panel traffic) whenever no loader is armed.
+  g_panelMutex = xSemaphoreCreateRecursiveMutex();
+  xTaskCreatePinnedToCore(loaderTask, "ffloader", 4096, nullptr, 1, nullptr, 1);
+
   // Release the button pins from any lingering RTC-IO / hold state left by a prior
   // deep-sleep (ext1 wake config), then set them up as digital inputs with pullups.
   for (gpio_num_t p : {PIN_KEY0, PIN_KEY1, PIN_KEY2}) {
@@ -579,9 +607,7 @@ void setup() {
     g_etag[0] = 0;   // force a fresh paint so the plate replaces the splash (not a 304)
     showScreen(g_viaPortal ? FF_SCR_CHK2 : FF_SCR_BOOT_BIRDNET);   // reaching the server
     showScreen(g_viaPortal ? FF_SCR_CHK3 : FF_SCR_BOOT_DOWNLOAD);  // fetching the image
-    // Pulse the loader square only when the download screen (not the onboarding CHK3
-    // pill, which has its own mark elsewhere) is the one on the glass.
-    fetchAndRender(FRAME_PATH, true, vbat, pct, !g_viaPortal);   // paint the current bird
+    fetchAndRender(FRAME_PATH, true, vbat, pct);   // paint the current bird
     maybeOTA();
   } else {
     showToast("No Wi-Fi");
@@ -630,9 +656,7 @@ void setup() {
       showScreen(g_viaPortal ? FF_SCR_CHK2 : FF_SCR_BOOT_BIRDNET);
       showScreen(g_viaPortal ? FF_SCR_CHK3 : FF_SCR_BOOT_DOWNLOAD);
     }
-    // Pulse only when the BOOT_DOWNLOAD screen is actually up (fresh timer/boot wake,
-    // not a button view and not the onboarding CHK3 pill).
-    r = fetchAndRender(FRAME_PATH, true, vbat, pct, !buttonWake && !g_viaPortal);
+    r = fetchAndRender(FRAME_PATH, true, vbat, pct);
     if (keyCheck && r == FETCH_NOCHANGE) showToast("Up to date");
   }
   if (buttonWake && r == FETCH_ERROR) ackBlink(4);

@@ -56,10 +56,14 @@ def _same_origin(request: Request) -> bool:
     """True unless the request carries a foreign Origin header. There is no
     auth on the LAN page, but state-changing POSTs (some of which spend the
     user's API credit) must at least not be triggerable cross-site by any web
-    page the user happens to visit. Non-browser clients send no Origin."""
+    page the user happens to visit. Non-browser clients send no Origin.
+    "null" is foreign: sandboxed iframes and file:// pages send exactly that,
+    and a hostile page can wrap its POST in a sandboxed iframe."""
     origin = request.headers.get("origin")
-    if not origin or origin == "null":
+    if not origin:
         return True
+    if origin == "null":
+        return False
     host = request.headers.get("host", "")
     return origin.split("://", 1)[-1].split("/", 1)[0] == host
 

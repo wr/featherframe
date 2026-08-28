@@ -322,7 +322,7 @@
       <div class="gen-list">
         {% for g in generated %}
         <div class="gen-item">
-          <img src="/api/generated/{{ g.slug }}.png" alt="{{ g.common }}" loading="lazy">
+          <img src="/api/generated/{{ g.slug }}.png?v={{ g.created_at | urlencode }}" alt="{{ g.common }}" loading="lazy">
           <div class="who">
             <div class="common">{{ g.common }}</div>
             <div class="sci">{{ g.scientific }}</div>

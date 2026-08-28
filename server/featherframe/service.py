@@ -266,10 +266,21 @@ class FeatherframeService:
         """Re-render the current subject after a config change (e.g. dither/gray)."""
         with self._lock:
             meta = dict(self._meta)
+        now = datetime.now()
         if meta.get("mode") == "collage":
-            self._build_collage(datetime.now(), ddate.today())
-        elif meta.get("label"):
-            self._single_tick(datetime.now())
+            self._build_collage(now, ddate.today())
+            return
+        if not meta.get("label"):
+            return
+        # At a settings save no fresh detection is waiting (the tick already
+        # consumed the cursor), so rebuild the subject the frame is showing.
+        common = str(meta["label"]).removesuffix(" (test)")
+        key = str(meta.get("species_key") or "")
+        sci = (key[:1].upper() + key[1:]) if " " in key else ""
+        det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"),
+                        time=now.strftime("%H:%M:%S"), common_name=common,
+                        scientific_name=sci, confidence=1.0)
+        self._render_single(det, now, reason="settings")
 
     # -- device-facing -----------------------------------------------------
     def get_frame(self, if_none_match: Optional[str], user_agent: str = "",

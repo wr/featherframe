@@ -286,8 +286,13 @@ def pick_reference_plates(common_name: str = "", k: int = 3) -> list[Path]:
         idx = json.loads(paths.plate_index_path().read_text())
     except (OSError, ValueError):
         return []
+    if not isinstance(idx, dict):
+        return []
+    species = idx.get("species")
+    if not isinstance(species, list):
+        species = []
     images_dir = Path(idx.get("images_dir", paths.plate_images_dir()))
-    by_sci = {e.get("scientific"): e for e in idx.get("species", [])}
+    by_sci = {e.get("scientific"): e for e in species if isinstance(e, dict)}
 
     chosen: list[Path] = []
 
@@ -312,8 +317,9 @@ def pick_reference_plates(common_name: str = "", k: int = 3) -> list[Path]:
             break
     for sci in _PREFERRED_REFS:
         _try(by_sci.get(sci))
-    for entry in idx.get("species", []):
-        _try(entry)
+    for entry in species:
+        if isinstance(entry, dict):
+            _try(entry)
     return chosen[:k]
 
 
@@ -393,25 +399,37 @@ class GeneratedArtProvider(ArtProvider):
                 meta = json.loads(sidecar.read_text())
             except (OSError, ValueError):
                 continue
+            if not isinstance(meta, dict):
+                continue  # foreign file in the cache dir; never crash the page
             if self._png(meta.get("slug", sidecar.stem)).exists():
                 out.append(meta)
-        out.sort(key=lambda m: m.get("created_at", ""), reverse=True)
+        out.sort(key=lambda m: str(m.get("created_at") or ""), reverse=True)
         return out
 
     # -- internals ----------------------------------------------------------
     def _from_cache(self, slug: str) -> Optional[Artwork]:
         try:
             img = plate.extract_generated(self._png(slug))
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError):
             # A cached file that no longer decodes (torn write after a power
             # cut, disk-full) would otherwise wedge the species on the
             # fallback forever: exists() gates generation. Self-heal by
-            # deleting it so the next detection buys a fresh plate.
-            log.warning("corrupt generated cache for %s (%s) — removing so it "
-                        "can regenerate", slug, exc)
-            self._png(slug).unlink(missing_ok=True)
-            self._sidecar(slug).unlink(missing_ok=True)
-            return None
+            # deleting it — but only after a second read fails under the
+            # generation lock, so a transient I/O hiccup (a tired SD card)
+            # can't delete a paid plate and a concurrent regenerate can't
+            # have its fresh file deleted mid-replace.
+            with _GEN_LOCK:
+                try:
+                    img = plate.extract_generated(self._png(slug))
+                except (OSError, ValueError) as exc:
+                    log.warning("corrupt generated cache for %s (%s) — removing "
+                                "so it can regenerate", slug, exc)
+                    try:
+                        self._png(slug).unlink(missing_ok=True)
+                        self._sidecar(slug).unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    return None
         return Artwork(image=img, audubon_plate=None, composite=False, generated=True)
 
     def _in_cooldown(self, slug: str) -> bool:
@@ -450,9 +468,24 @@ class GeneratedArtProvider(ArtProvider):
                 "elapsed_s": round(time.time() - started, 1),
                 "reference_plates": [p.name for p in refs],
             }, indent=2)
-            self._dir().mkdir(parents=True, exist_ok=True)
-            self._write_atomic(self._png(slug), png_bytes)
-            self._write_atomic(self._sidecar(slug), sidecar_payload.encode())
+            try:
+                # Sidecar first: a crash between the two writes then leaves an
+                # orphan sidecar (which cached_species skips), never a PNG the
+                # frame serves but the gallery can't see or manage.
+                self._dir().mkdir(parents=True, exist_ok=True)
+                self._write_atomic(self._sidecar(slug), sidecar_payload.encode())
+                self._write_atomic(self._png(slug), png_bytes)
+            except OSError as exc:
+                # The image is already paid for; without the cooldown a full
+                # disk would re-bill on every detection until it frees.
+                self._failed_at[slug] = time.time()
+                log.warning("cache write failed for %s after a paid generation: %s",
+                            scientific_name, exc)
+                try:
+                    self._sidecar(slug).unlink(missing_ok=True)
+                except OSError:
+                    pass
+                return False
             self._failed_at.pop(slug, None)
             log.info("generated plate for %s in %.1fs", scientific_name,
                      time.time() - started)

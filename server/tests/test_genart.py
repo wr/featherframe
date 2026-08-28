@@ -138,6 +138,49 @@ def test_delete_removes_cache(data_dir):
     assert provider.delete("turdus-nemo") is False
 
 
+def test_cache_write_failure_sets_cooldown_and_never_raises(data_dir):
+    """A paid generation whose cache write fails (full disk) must engage the
+    cooldown — otherwise every detection re-bills — and regenerate must return
+    False instead of raising."""
+    model = FakeModel()
+    provider = GeneratedArtProvider(model)
+    gen_dir = data_dir / "generated"
+    gen_dir.mkdir(parents=True, exist_ok=True)
+    gen_dir.chmod(0o500)  # unwritable: every write attempt raises
+    try:
+        assert provider.artwork("House Sparrow", "Passer domesticus") is None
+        assert model.calls == 1
+        # Cooldown engaged: the next detection must not buy again.
+        assert provider.artwork("House Sparrow", "Passer domesticus") is None
+        assert model.calls == 1
+        assert provider.regenerate("House Sparrow", "Passer domesticus") is False
+    finally:
+        gen_dir.chmod(0o700)
+
+
+def test_cached_species_skips_foreign_and_malformed_sidecars(data_dir):
+    provider = GeneratedArtProvider(FakeModel())
+    provider.artwork("House Sparrow", "Passer domesticus")
+    gen_dir = data_dir / "generated"
+    (gen_dir / "stray-export.json").write_text("[]")          # valid JSON, not a dict
+    (gen_dir / "sturnus-vulgaris.json").write_text(json.dumps(
+        {"slug": "sturnus-vulgaris", "common": "European Starling",
+         "scientific": "Sturnus vulgaris", "created_at": None}))
+    (gen_dir / "sturnus-vulgaris.png").write_bytes(_plate_png())
+    listed = provider.cached_species()  # must not raise
+    assert {e["slug"] for e in listed} == {"passer-domesticus", "sturnus-vulgaris"}
+
+
+def test_pick_reference_plates_survives_malformed_index(data_dir, monkeypatch, tmp_path):
+    from featherframe import paths as ffpaths
+    from featherframe.render.genart import pick_reference_plates
+    bad = tmp_path / "index.json"
+    for payload in ("[]", '{"species": null}'):
+        bad.write_text(payload)
+        monkeypatch.setattr(ffpaths, "plate_index_path", lambda: bad)
+        assert pick_reference_plates("House Sparrow") == []
+
+
 def test_corrupt_cache_self_heals(data_dir):
     model = FakeModel()
     provider = GeneratedArtProvider(model)

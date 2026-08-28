@@ -15,7 +15,8 @@ import logging
 import threading
 from dataclasses import asdict, dataclass
 from datetime import date as ddate
-from datetime import datetime
+from datetime import datetime, timedelta
+from datetime import time as dtime
 from typing import Optional
 
 from . import paths
@@ -33,6 +34,21 @@ log = logging.getLogger("featherframe.service")
 
 _CURRENT_FFF = "current.fff"
 _CURRENT_PNG = "current.png"
+
+
+def review_date_for(now: datetime, quiet_start: str, quiet_end: str) -> ddate:
+    """The date a day-in-review covers: the day the quiet window started.
+    With a midnight-wrapping window (the default 22:00-06:00), a tick after
+    00:00 still reviews yesterday."""
+    try:
+        sh, sm = (int(x) for x in quiet_start.split(":"))
+        eh, em = (int(x) for x in quiet_end.split(":"))
+        start, end = dtime(sh, sm), dtime(eh, em)
+    except (ValueError, TypeError):
+        return now.date()
+    if start > end and now.time() < end:  # wrapped window, after midnight
+        return now.date() - timedelta(days=1)
+    return now.date()
 
 
 @dataclass
@@ -195,10 +211,16 @@ class FeatherframeService:
         self._build_collage(now, ddate.today())
 
     def _maybe_quiet_collage(self, now: datetime) -> None:
-        stamp = now.date().isoformat()
+        # The review covers the day the quiet window STARTED: after midnight
+        # (default quiet hours wrap it) tonight's review is yesterday's day.
+        # Keying by now.date() would clobber the held sheet at 00:00, buy a
+        # pre-dawn sheet of two owls, and skip the real review every evening.
+        review = review_date_for(now, self.config.quiet_hours_start,
+                                 self.config.quiet_hours_end)
+        stamp = review.isoformat()
         if self.db.get("quiet_collage_for") == stamp:
-            return  # already rendered tonight's review
-        if self._build_collage(now, now.date(), title="The Day in Review",
+            return  # already rendered this window's review
+        if self._build_collage(now, review, title="The Day in Review",
                                generated_ok=True):
             self.db.set("quiet_collage_for", stamp)
 
@@ -206,7 +228,9 @@ class FeatherframeService:
         """The config-page button: render today's day-in-review now. Reuses
         today's cached sheet unless repaint buys a fresh one."""
         now = datetime.now()
-        return self._build_collage(now, now.date(), title="The Day in Review",
+        review = review_date_for(now, self.config.quiet_hours_start,
+                                 self.config.quiet_hours_end)
+        return self._build_collage(now, review, title="The Day in Review",
                                    generated_ok=True, force_generated=repaint)
 
     def _build_collage(self, now: datetime, on_date: ddate,
@@ -230,11 +254,15 @@ class FeatherframeService:
         # explicit button): daytime collage rebuilds stay free.
         if generated_ok and self.config.collage_generated and self.genart is not None:
             top = cells[:5]  # the totem manner holds four or five species well
-            art = self.genart.day_composite(top, on_date, force=force_generated)
-            if art is not None:
+            sheet = self.genart.day_composite(top, on_date, force=force_generated)
+            if sheet is not None:
+                # The key must name what was PAINTED: on a cache hit the cells
+                # come from the sheet's sidecar, not tonight's fresh tally.
+                art, painted = sheet
                 img = collage_mod.render_generated_collage(
-                    art, top, when=on_date, total_detections=total, title=title)
-                label = f"day in review ({len(top)} species)"
+                    art, painted, when=on_date,
+                    total_detections=sum(c.count for c in painted), title=title)
+                label = f"day in review ({len(painted)} species)"
         if img is None:
             img = collage_mod.render_collage(cells, self.provider, when=on_date,
                                              total_detections=total, title=title)
@@ -291,7 +319,16 @@ class FeatherframeService:
             meta = dict(self._meta)
         now = datetime.now()
         if meta.get("mode") == "collage":
-            self._build_collage(now, ddate.today())
+            # Preserve what is showing: a day-in-review re-renders as one
+            # (reusing the cached sheet for free), a grid as a grid.
+            is_review = str(meta.get("label") or "").startswith("day in review")
+            on_date = (review_date_for(now, self.config.quiet_hours_start,
+                                       self.config.quiet_hours_end)
+                       if is_review else ddate.today())
+            self._build_collage(now, on_date,
+                                title="The Day in Review" if is_review
+                                else "A Day in the Garden",
+                                generated_ok=is_review)
             return
         if not meta.get("label"):
             return

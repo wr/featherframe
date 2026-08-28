@@ -35,6 +35,7 @@ from PIL import Image
 
 from .. import paths
 from . import plate
+from .collage import CollageCell
 from .provider import ArtProvider, Artwork
 
 log = logging.getLogger("featherframe.genart")
@@ -493,30 +494,40 @@ class GeneratedArtProvider(ArtProvider):
         return out
 
     # -- the nightly day-in-review composite --------------------------------
-    def day_composite(self, cells, when, force: bool = False) -> Optional[Image.Image]:
+    _KEEP_SHEETS = 60  # pruned oldest-first; the SD card is finite
+
+    def day_composite(self, cells, when, force: bool = False):
         """One generated composite sheet for the day's top species, in the
-        manner of the folio's late totem plates. Bought at most once per date:
-        the cache is keyed by day alone, so re-renders (settings changes, the
-        nightly pass after a manual render) reuse the sheet instead of
-        re-billing. Returns the tone-treated art, or None (caller falls back
-        to the grid collage). Never raises."""
+        manner of the folio's late totem plates. Bought at most once per date.
+        Returns (art, cells_as_painted) — on a cache hit the cells come from
+        the sidecar, so the key under the sheet always names the figures that
+        were actually painted — or None (caller falls back to the grid).
+        Never raises."""
         day = when.isoformat()
         png = paths.collages_dir() / f"{day}.png"
         sidecar = paths.collages_dir() / f"{day}.json"
         key = f"collage-{day}"
         try:
             if png.exists() and not force:
-                return self._read_sheet(png, sidecar)
+                return self._read_sheet(png, sidecar, cells)
             if self._model is None:
-                return None
+                return self._read_sheet(png, sidecar, cells) if png.exists() else None
             if not force and self._in_cooldown(key):
                 return None
             subjects = [(c.common_name, c.scientific_name) for c in cells]
             prompt = build_composite_prompt(subjects)
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
-                if png.exists() and not force:
-                    return self._read_sheet(png, sidecar)
+                if png.exists():
+                    if not force:
+                        return self._read_sheet(png, sidecar, cells, locked=True)
+                    # Repaint debounce: two racing repaints (double-click, two
+                    # tabs) must not both bill. A sheet younger than 3 minutes
+                    # IS the repaint the second caller asked for.
+                    if self._sheet_age_s(sidecar) < 180:
+                        return self._read_sheet(png, sidecar, cells, locked=True)
+                if not force and self._in_cooldown(key):
+                    return None
                 started = time.time()
                 try:
                     png_bytes = self._model.generate(prompt, GEN_SIZE, refs)
@@ -525,6 +536,10 @@ class GeneratedArtProvider(ArtProvider):
                     self._failed_at[key] = time.time()
                     log.warning("day composite failed for %s (%s): %s", day,
                                 getattr(self._model, "name", "?"), exc)
+                    # A failed repaint keeps showing the good sheet it meant
+                    # to replace, rather than falling to the grid.
+                    if png.exists():
+                        return self._read_sheet(png, sidecar, cells, locked=True)
                     return None
                 payload = json.dumps({
                     "date": day,
@@ -534,6 +549,7 @@ class GeneratedArtProvider(ArtProvider):
                     "quality": getattr(self._model, "quality", None),
                     "prompt_version": PROMPT_VERSION,
                     "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    "created_ts": round(time.time(), 1),
                     "elapsed_s": round(time.time() - started, 1),
                 }, indent=2)
                 try:
@@ -549,30 +565,77 @@ class GeneratedArtProvider(ArtProvider):
                         pass
                     return None
                 self._failed_at.pop(key, None)
+                self._prune_sheets()
                 log.info("generated day composite for %s (%d species) in %.1fs",
                          day, len(cells), time.time() - started)
-            return self._read_sheet(png, sidecar)
+                return self._read_sheet(png, sidecar, cells, locked=True)
         except Exception:
             log.exception("day composite failed for %s", when)
             return None
 
-    def _read_sheet(self, png: Path, sidecar: Path) -> Optional[Image.Image]:
-        """Read a cached generated sheet; self-heal a torn file (re-verified
-        under the generation lock, as in _from_cache)."""
+    @staticmethod
+    def _sheet_age_s(sidecar: Path) -> float:
         try:
+            meta = json.loads(sidecar.read_text())
+            return max(0.0, time.time() - float(meta.get("created_ts") or 0))
+        except (OSError, ValueError, TypeError):
+            return float("inf")
+
+    def _read_sheet(self, png: Path, sidecar: Path, fallback_cells,
+                    locked: bool = False):
+        """Read a cached sheet plus the cells it was painted from. Self-heals a
+        torn file — re-verified before deleting, and without re-acquiring the
+        (non-reentrant) generation lock when the caller already holds it."""
+        def _attempt():
             return plate.extract_generated(png)
+
+        try:
+            art = _attempt()
         except (OSError, ValueError):
-            with _GEN_LOCK:
-                try:
-                    return plate.extract_generated(png)
-                except (OSError, ValueError) as exc:
-                    log.warning("corrupt cached sheet %s (%s) — removing", png.name, exc)
-                    try:
-                        png.unlink(missing_ok=True)
-                        sidecar.unlink(missing_ok=True)
-                    except OSError:
-                        pass
-                    return None
+            if not locked:
+                with _GEN_LOCK:
+                    art = self._retry_or_heal(_attempt, png, sidecar)
+            else:
+                art = self._retry_or_heal(_attempt, png, sidecar)
+            if art is None:
+                return None
+        return art, self._sheet_cells(sidecar, fallback_cells)
+
+    def _retry_or_heal(self, attempt, png: Path, sidecar: Path):
+        try:
+            return attempt()
+        except (OSError, ValueError) as exc:
+            log.warning("corrupt cached sheet %s (%s) — removing", png.name, exc)
+            try:
+                png.unlink(missing_ok=True)
+                sidecar.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return None
+
+    @staticmethod
+    def _sheet_cells(sidecar: Path, fallback_cells) -> list[CollageCell]:
+        try:
+            meta = json.loads(sidecar.read_text())
+            cells = meta.get("cells") if isinstance(meta, dict) else None
+            if isinstance(cells, list) and cells:
+                return [CollageCell(str(c.get("common") or ""),
+                                    str(c.get("scientific") or ""),
+                                    int(c.get("count") or 0))
+                        for c in cells if isinstance(c, dict)]
+        except (OSError, ValueError, TypeError):
+            pass
+        return list(fallback_cells)
+
+    def _prune_sheets(self) -> None:
+        """The per-day cache is unbounded by nature; keep the newest N."""
+        try:
+            sheets = sorted(paths.collages_dir().glob("????-??-??.png"))
+            for old in sheets[:-self._KEEP_SHEETS]:
+                old.unlink(missing_ok=True)
+                old.with_suffix(".json").unlink(missing_ok=True)
+        except OSError:
+            pass
 
     # -- internals ----------------------------------------------------------
     def _from_cache(self, slug: str) -> Optional[Artwork]:

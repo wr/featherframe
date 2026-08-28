@@ -27,6 +27,7 @@ class Artwork:
     image: Image.Image          # grayscale 'L', the bird art (no caption)
     audubon_plate: Optional[int]  # source Havell plate number, if any
     composite: bool = False
+    generated: bool = False     # True when the art is AI-generated, not a scan
 
 
 class ArtProvider(ABC):
@@ -36,6 +37,24 @@ class ArtProvider(ABC):
     def artwork(self, common_name: str, scientific_name: str) -> Optional[Artwork]:
         """Return bird artwork for the species, or None if unavailable."""
         raise NotImplementedError
+
+
+class ChainedProvider(ArtProvider):
+    """First provider with art wins. The chain preserves the never-a-wrong-bird
+    contract: every link returns None rather than guess, so a full miss still
+    ends in the typographic fallback."""
+
+    name = "chain"
+
+    def __init__(self, providers: list[ArtProvider]) -> None:
+        self.providers = list(providers)
+
+    def artwork(self, common_name: str, scientific_name: str) -> Optional[Artwork]:
+        for p in self.providers:
+            art = p.artwork(common_name, scientific_name)
+            if art is not None:
+                return art
+        return None
 
 
 class AudubonProvider(ArtProvider):

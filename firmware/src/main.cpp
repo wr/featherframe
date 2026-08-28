@@ -189,7 +189,11 @@ bool ensureWifi(bool openPortal) {
     strlcpy(g_serverUrl, serverParam.getValue(), sizeof(g_serverUrl));
     prefs.putString("server", g_serverUrl);
   }
-  return ok && WiFi.status() == WL_CONNECTED;
+  bool connected = ok && WiFi.status() == WL_CONNECTED;
+  // A dead end (portal timeout, connect failure) can leave a checklist screen
+  // armed via the save callback; stop the sweep — there is no progress to show.
+  if (!connected) g_loaderAnim.on = false;
+  return connected;
 }
 
 // ---------------------------------------------------------------- display
@@ -445,7 +449,7 @@ enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_ERROR };
 // the normal current-bird frame (ETag conditional GET + store the new ETag);
 // false for transient button views (no conditional, and the stored ETag is
 // CLEARED so the next timer wake re-fetches the resident bird over the view).
-FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct) {
+static FetchResult fetchFrame(const char* path, bool resident, float vbat, int pct) {
   // Release the boot-art buffers first: the IT8951 full-image write needs ~1.31 MB of
   // contiguous PSRAM for its mirror buffer, and if the boot buffers still hold it the
   // plate silently fails to load. (Safe here — this path renders network data, not the
@@ -505,6 +509,17 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct)
     prefs.putString("etag", "");
   }
   return FETCH_UPDATED;
+}
+
+// The fetch attempt is the loading mark's last leg: on success displayFrame has
+// already replaced the loading screen (and disarmed the sweep); on a 304 or any
+// failure the attempt is over, so stop the sweep rather than keep implying
+// progress on a stale screen — in the always-awake model nothing else would,
+// and it would burn ~200ms DU partials every FF_LOADER_STEP_MS forever.
+FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct) {
+  FetchResult r = fetchFrame(path, resident, vbat, pct);
+  g_loaderAnim.on = false;
+  return r;
 }
 
 // ---------------------------------------------------------------- ota
@@ -719,6 +734,7 @@ void loop() {
       if (ensureWifi(true)) {           // shows setup steps + checklist screens
         showScreen(FF_SCR_CHK2);
         showScreen(FF_SCR_CHK3);
+        g_etag[0] = 0;   // force a fresh paint so the plate replaces the checklist
         fetchAndRender(FRAME_PATH, true, readBatteryVoltage(), batteryPercent(readBatteryVoltage()));
       }
     } else {

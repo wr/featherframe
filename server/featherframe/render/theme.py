@@ -29,11 +29,10 @@ MARGIN_X = 100     # left/right breathing room (art fills wider, per v2)
 MARGIN_TOP = 78
 MARGIN_BOTTOM = 95
 
-# The caption block reserves this much height at the bottom of a single frame;
-# the bird art gets everything above it.
-CAPTION_BLOCK_H = 322
+# The caption block reserves this much height at the bottom of a single frame
+# (its top edge is the title's cap top); the bird art gets everything above it.
+CAPTION_BLOCK_H = 338
 CAPTION_GAP = 64   # gap between the art and the caption block
-CAPTION_DROP = 30  # push the name section down without moving the art
 
 # Caption typography (point-ish sizes at native panel resolution)
 NAME_SIZE = 78         # common name, faux small caps
@@ -49,28 +48,61 @@ PLATE_NO_WEIGHT = 600          # semibold corner mark
 
 SMALLCAP_RATIO = 0.76  # small-cap glyph height as a fraction of full caps
 
-# -- v2 caption typography (real OpenType via RAQM) ------------------------
-# The common name is set as a flowing swash italic; the scientific name and
-# date as real small caps with old-style figures. These need libraqm at render
-# time; typography.py degrades to faux small caps if it's absent.
-TITLE_SIZE = 96           # common name, swash italic (auto-fit to width)
+# -- v3 caption typography (real OpenType via RAQM) ------------------------
+# The common name is a flowing swash italic, gently tightened; the scientific
+# name is engraved capitals (Adorn Engraved); the date is mixed-case italic
+# with old-style figures. Shaping needs libraqm at render time; typography.py
+# degrades to faux small caps if it's absent.
+TITLE_SIZE = 100          # common name, swash italic (auto-fit to width)
 TITLE_WEIGHT = 500
-# Swash, ligatures, contextual alternates. No "hist" (Historical Forms).
-TITLE_FEATURES = ("swsh", "dlig", "hlig", "liga", "calt", "kern")
+TITLE_TRACKING = -0.02    # tightened letter-spacing, fraction of size
+# Swash + standard ligatures + contextual alternates. No discretionary or
+# historical ligatures: the st/ct arcs read too precious at display size.
+TITLE_FEATURES = ("swsh", "liga", "calt", "kern")
+TITLE_NO_SWASH = ("J",)   # capitals that keep their plain form under "swsh"
+TITLE_CAP = 0.74          # block top -> title baseline, fraction of size
+                          # (cap height plus the swash capitals' overshoot)
 
-SUBTITLE_SIZE = 42         # scientific name, italic small caps
-SUBTITLE_WEIGHT = 500
-SUBTITLE_TRACKING = 0.14
-SUBTITLE_FEATURES = ("smcp", "onum", "liga", "dlig", "hlig", "ordn", "kern")
+SUBTITLE_SIZE = 35         # scientific name, engraved capitals
+SUBTITLE_TRACKING = 0.155
+ENGRAVED_CAP = 0.775       # Adorn Engraved cap height as a fraction of size
 
-DATE_SIZE = 36             # date / time line, italic small caps + oldstyle figs
+DATE_SIZE = 36             # date / time line, italic + oldstyle figures
 DATE_WEIGHT = 500
-DATE_TRACKING = 0.14
-DATE_FEATURES = ("smcp", "onum", "ordn", "liga", "kern")
+DATE_TRACKING = 0.09
+DATE_FEATURES = ("onum", "liga", "kern")           # "17 May 2026"
+TIME_FEATURES = ("smcp", "onum", "liga", "kern")   # "8:14 am" -> small-cap AM
 DATE_ORNAMENT = "❧"   # ❧ hedera leaf between date and time
+DATE_ORNAMENT_GAP = 1.15   # gap on each side of the hedera, fraction of size
+
+# Baseline rhythm inside the caption block, from the title baseline down.
+# Offsets scale with the title's fitted size so long names stay balanced.
+CAPTION_SCI_DROP = 0.75    # title baseline -> sci baseline, fraction of title size
+CAPTION_RULE_DROP = 42     # sci baseline -> rule
+CAPTION_DATE_DROP = 62     # rule -> date baseline
+
+# The no-plate fallback's "first recorded ..." line keeps the older all-small-
+# caps voice.
+FALLBACK_META_FEATURES = ("smcp", "onum", "ordn", "liga", "kern")
+FALLBACK_META_TRACKING = 0.14
 
 # Hairline rule under the scientific name
 RULE_WIDTH = 200
 RULE_THICKNESS = 2
+
+# -- collage sheet ----------------------------------------------------------
+# One italic header line ("Sightings ~ August 27"), art, and an engraved-caps
+# key along the bottom. No subtitle, no rule: the sheet stays quiet.
+COLLAGE_TITLE_SIZE = 105       # header, swash italic (auto-fit to width)
+COLLAGE_TITLE_BASELINE = 140   # header baseline from the top of the panel
+COLLAGE_ART_TOP = 200          # top of the art box, below the header
+
+KEY_SIZE = 34                  # bottom key, engraved capitals
+KEY_SIZES = (34, 30, 27, 24)   # shrink steps when the widest line won't fit
+KEY_TRACKING = 0.035
+KEY_LINE_H = 1.3               # baseline pitch, fraction of key size
+KEY_ENTRY_GAP = 1.9            # gap between entries on a line, fraction of size
+KEY_BOTTOM = 45                # last key baseline above the panel bottom
+KEY_ART_GAP = 53               # gap between the art box and the key's ink top
 
 CONTENT_W = WIDTH - 2 * MARGIN_X

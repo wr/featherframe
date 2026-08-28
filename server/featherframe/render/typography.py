@@ -1,13 +1,16 @@
 """Type. This is where a hobby project becomes an heirloom, per the spec.
 
-We use EB Garamond (OFL) as a variable font. When libraqm is present we shape
-real OpenType features — swash italics for the common name, true small caps
-with old-style figures for the scientific name and date. When it is absent
-(some Pis ship without it) we fall back to *faux* small caps: lowercase drawn
-as smaller capitals. Both read like a museum plate; the OT path just adds the
-swashes and old-style figures.
+Two faces. EB Garamond (OFL, variable) carries the italic voice: the swash
+common name, the date line, the corner mark. Adorn Engraved carries the
+letterspaced capitals: the scientific name and the collage key. When libraqm
+is present we shape real OpenType features — swashes, small caps, old-style
+figures. When it is absent (some Pis ship without it) the Garamond runs fall
+back to *faux* small caps: lowercase drawn as smaller capitals. The engraved
+capitals need no shaping, so they render the same either way.
 """
 from __future__ import annotations
+
+import re
 
 from datetime import datetime
 from functools import lru_cache
@@ -22,6 +25,7 @@ from . import theme
 _FONTS = paths.fonts_dir()
 _ROMAN = _FONTS / "EBGaramond[wght].ttf"
 _ITALIC = _FONTS / "EBGaramond-Italic[wght].ttf"
+_ENGRAVED = _FONTS / "Adorn-Engraved.ttf"
 
 # Real OpenType shaping (swashes, small caps, old-style figures) needs libraqm.
 HAS_RAQM = bool(_pil_features.check("raqm"))
@@ -52,22 +56,58 @@ class FontBook:
 FONTS = FontBook()
 
 
+# Characters Adorn Engraved's cmap lacks, mapped to glyphs it has (the okina
+# in Hawaiian bird names would otherwise vanish into a bare .notdef advance).
+_ENGRAVED_SUBS = str.maketrans({"ʻ": "'", "ʼ": "'"})
+
+
+@lru_cache(maxsize=8)
+def engraved(size: int) -> Optional[ImageFont.FreeTypeFont]:
+    """Adorn Engraved at `size`. A static all-caps face: no variation axes,
+    no features, so it renders identically with or without libraqm. Returns
+    None when the file is absent — the explicit is_file() check matters,
+    because PIL would otherwise silently load a same-named system font."""
+    if not _ENGRAVED.is_file():
+        return None
+    try:
+        return ImageFont.truetype(str(_ENGRAVED), int(size), layout_engine=_LAYOUT)
+    except OSError:
+        return None
+
+
+def draw_engraved(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
+                  text: str, size: int, fill: int,
+                  tracking: float = theme.SUBTITLE_TRACKING) -> float:
+    """Centered engraved capitals with letter-spacing. Falls back to Garamond
+    faux small caps if the engraved face is missing, so a bad deploy degrades
+    instead of freezing the panel. Returns the drawn width."""
+    text = text.translate(_ENGRAVED_SUBS)
+    font = engraved(size)
+    if font is None:
+        return draw_smallcaps(draw, center_x, baseline_y, text, FONTS, size,
+                              fill, tracking, weight_caps=520, weight_small=520)
+    tracking_px = size * tracking
+    total = tracked_width(font, text, tracking_px)
+    x = center_x - total / 2
+    for ch in text:
+        draw.text((x, baseline_y), ch, font=font, fill=fill, anchor="ls")
+        x += _len(font, ch) + tracking_px
+    return total
+
+
+def engraved_width(text: str, size: int,
+                   tracking: float = theme.SUBTITLE_TRACKING) -> float:
+    text = text.translate(_ENGRAVED_SUBS)
+    font = engraved(size)
+    if font is None:
+        plan = smallcaps_plan(text, FONTS, size, 520, 520)
+        return smallcaps_width(plan, size * tracking)
+    return tracked_width(font, text, size * tracking)
+
+
 # -- OpenType (RAQM) drawing ----------------------------------------------
 def _feat(features: Sequence[str]) -> Optional[list[str]]:
     return list(features) if HAS_RAQM else None
-
-
-def ot_length(font: ImageFont.FreeTypeFont, text: str,
-              features: Sequence[str]) -> float:
-    return font.getlength(text, features=_feat(features))
-
-
-def draw_ot(draw: ImageDraw.ImageDraw, x: float, baseline_y: float, text: str,
-            font: ImageFont.FreeTypeFont, fill: int, features: Sequence[str],
-            anchor: str = "ls") -> None:
-    """Draw one shaped run (ligatures, swashes, kerning intact). No tracking."""
-    draw.text((x, baseline_y), text, font=font, fill=fill, anchor=anchor,
-              features=_feat(features))
 
 
 def draw_ot_tracked(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
@@ -85,6 +125,61 @@ def draw_ot_tracked(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: floa
                   features=feats)
         x += w + tracking_px
     return total
+
+
+# -- the swash italic title -------------------------------------------------
+# Sequences kept whole while tracking, so their ligatures still form.
+_LIG_GLUE = re.compile(r"f+[bhijklt]?|Th")
+
+
+def _title_segments(text: str) -> list[tuple[int, str]]:
+    """(start index, run) pairs: single characters, except ligature sequences."""
+    segs, i = [], 0
+    while i < len(text):
+        m = _LIG_GLUE.match(text, i)
+        if m and m.end() - i > 1:
+            segs.append((i, text[i:m.end()]))
+            i = m.end()
+        else:
+            segs.append((i, text[i]))
+            i += 1
+    return segs
+
+
+def _title_features(text: str) -> list[str]:
+    """Title features, with "swsh" range-disabled on the capitals that should
+    keep their plain form (the J's swash overwhelms short names)."""
+    feats = list(theme.TITLE_FEATURES)
+    for i, ch in enumerate(text):
+        if ch in theme.TITLE_NO_SWASH:
+            feats.append(f"swsh[{i}:{i + 1}]=0")
+    return feats
+
+
+def title_width(font: ImageFont.FreeTypeFont, text: str, tracking_px: float) -> float:
+    segs = _title_segments(text)
+    return font.getlength(text, features=_feat(_title_features(text))) + \
+        tracking_px * max(0, len(segs) - 1)
+
+
+def draw_title(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
+               text: str, font: ImageFont.FreeTypeFont, fill: int,
+               tracking_px: float) -> None:
+    """Centered swash italic with tightened tracking. Runs are placed by
+    "whole minus suffix" widths so cross-run kerning survives; ligature
+    sequences stay glued so their glyphs still form."""
+    segs = _title_segments(text)
+    full = font.getlength(text, features=_feat(_title_features(text)))
+    total = full + tracking_px * max(0, len(segs) - 1)
+    x0 = center_x - total / 2
+    for k, (i, seg) in enumerate(segs):
+        suffix = text[i:]
+        x = full - font.getlength(suffix, features=_feat(_title_features(suffix)))
+        seg_feats = list(theme.TITLE_FEATURES)
+        if seg in theme.TITLE_NO_SWASH:
+            seg_feats.append("-swsh")
+        draw.text((x0 + x + k * tracking_px, baseline_y), seg, font=font,
+                  fill=fill, anchor="ls", features=_feat(seg_feats))
 
 
 # -- low-level drawing -----------------------------------------------------
@@ -132,6 +227,19 @@ def smallcaps_width(plan, tracking_px: float) -> float:
     return w + tracking_px * (len(plan) - 1)
 
 
+def fit_smallcaps_size(text: str, book: FontBook, start: int, tracking: float,
+                       max_w: float, floor: int = 42) -> int:
+    """Largest faux-small-caps size (from `start` down) whose run fits `max_w`.
+    Long BirdNET names (hyphenated warblers and swallows) clip at a fixed size."""
+    size = start
+    while size > floor:
+        plan = smallcaps_plan(text, book, size, 600, 620)
+        if smallcaps_width(plan, size * tracking) <= max_w:
+            break
+        size -= 3
+    return size
+
+
 def draw_smallcaps(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
                    text: str, book: FontBook, size: int, fill: int,
                    tracking: float = theme.NAME_TRACKING,
@@ -156,9 +264,10 @@ def format_when(when: datetime) -> str:
 
 
 def _when_parts(when: datetime) -> tuple[str, str]:
-    """Lowercase (date, time) parts so ``smcp`` renders them as small caps and
+    """(date, time) runs: the date keeps its case ("17 May 2026" in true
+    italic), the time's lowercase am/pm becomes small caps under ``smcp``;
     ``onum`` gives the figures their old-style shapes."""
-    month = when.strftime("%B").lower()
+    month = when.strftime("%B")
     hour = when.hour % 12 or 12
     ampm = "am" if when.hour < 12 else "pm"
     return (f"{when.day} {month} {when.year}", f"{hour}:{when.minute:02d} {ampm}")
@@ -174,27 +283,30 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
         return _caption_block_faux(draw, center_x, top_y, common_name,
                                    scientific_name, when, book, meta_override)
 
-    # Common name — swash italic, auto-fit to the content width.
+    # Common name — swash italic, tightened, auto-fit to the content width.
+    # top_y is the cap top, so the block starts exactly where the ink does.
     size = theme.TITLE_SIZE
     while size > 60:
         title_font = book.get(size, italic=True, weight=theme.TITLE_WEIGHT)
-        if ot_length(title_font, common_name, theme.TITLE_FEATURES) <= theme.CONTENT_W:
+        if title_width(title_font, common_name,
+                       size * theme.TITLE_TRACKING) <= theme.CONTENT_W:
             break
         size -= 3
-    ascent, _ = title_font.getmetrics()
-    baseline = top_y + int(ascent * 0.92)
-    draw_ot(draw, center_x, baseline, common_name, title_font, theme.INK,
-            theme.TITLE_FEATURES, anchor="ms")
+    baseline = top_y + round(size * theme.TITLE_CAP)
+    draw_title(draw, center_x, baseline, common_name, title_font, theme.INK,
+               size * theme.TITLE_TRACKING)
 
-    # Scientific name — italic small caps with old-style figures.
-    sci_font = book.get(theme.SUBTITLE_SIZE, italic=True, weight=theme.SUBTITLE_WEIGHT)
-    baseline += size * 0.28 + theme.SUBTITLE_SIZE
-    draw_ot_tracked(draw, center_x, baseline, scientific_name.lower(), sci_font,
-                    theme.INK_MEDIUM, theme.SUBTITLE_FEATURES,
-                    theme.SUBTITLE_SIZE * theme.SUBTITLE_TRACKING)
+    # Scientific name — engraved capitals, letterspaced.
+    baseline += round(size * theme.CAPTION_SCI_DROP)
+    sci_size = theme.SUBTITLE_SIZE
+    while sci_size > 24 and engraved_width(scientific_name.upper(),
+                                           sci_size) > theme.CONTENT_W:
+        sci_size -= 1
+    draw_engraved(draw, center_x, baseline, scientific_name.upper(), sci_size,
+                  theme.INK_MEDIUM)
 
     # Hairline rule.
-    rule_y = baseline + theme.SUBTITLE_SIZE * 0.60 + 34
+    rule_y = baseline + theme.CAPTION_RULE_DROP
     half = theme.RULE_WIDTH / 2
     draw.rectangle([center_x - half, rule_y, center_x + half, rule_y + theme.RULE_THICKNESS - 1],
                    fill=theme.RULE)
@@ -202,21 +314,22 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
     # Date / time, split around a floral fleuron.
     date_font = book.get(theme.DATE_SIZE, italic=True, weight=theme.DATE_WEIGHT)
     tracking_px = theme.DATE_SIZE * theme.DATE_TRACKING
-    meta_baseline = rule_y + 47 + theme.DATE_SIZE
+    meta_baseline = rule_y + theme.CAPTION_DATE_DROP
     if meta_override is not None:
         if meta_override:
-            draw_ot_tracked(draw, center_x, meta_baseline, meta_override.lower(),
+            draw_ot_tracked(draw, center_x, meta_baseline, meta_override,
                             date_font, theme.INK_MEDIUM, theme.DATE_FEATURES, tracking_px)
         else:
             return rule_y + theme.RULE_THICKNESS
     elif when:
         date_str, time_str = _when_parts(when)
-        feats = _feat(theme.DATE_FEATURES)
-        gap = theme.DATE_SIZE * 0.7
+        date_feats = _feat(theme.DATE_FEATURES)
+        time_feats = _feat(theme.TIME_FEATURES)
+        gap = theme.DATE_SIZE * theme.DATE_ORNAMENT_GAP
         orn_w = date_font.getlength(theme.DATE_ORNAMENT)
-        date_w = sum(date_font.getlength(c, features=feats) for c in date_str) + \
+        date_w = sum(date_font.getlength(c, features=date_feats) for c in date_str) + \
             tracking_px * max(0, len(date_str) - 1)
-        time_w = sum(date_font.getlength(c, features=feats) for c in time_str) + \
+        time_w = sum(date_font.getlength(c, features=time_feats) for c in time_str) + \
             tracking_px * max(0, len(time_str) - 1)
         total = date_w + gap + orn_w + gap + time_w
         x = center_x - total / 2
@@ -227,7 +340,7 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
                   fill=theme.INK_MEDIUM, anchor="ls")
         x += orn_w + gap
         draw_ot_tracked(draw, x + time_w / 2, meta_baseline, time_str, date_font,
-                        theme.INK_MEDIUM, theme.DATE_FEATURES, tracking_px)
+                        theme.INK_MEDIUM, theme.TIME_FEATURES, tracking_px)
     else:
         return rule_y + theme.RULE_THICKNESS
     return meta_baseline
@@ -238,16 +351,17 @@ def _caption_block_faux(draw: ImageDraw.ImageDraw, center_x: float, top_y: float
                         when: Optional[datetime], book: FontBook,
                         meta_override: Optional[str]) -> float:
     """No-libraqm fallback: the original faux small-caps caption."""
-    name_font = book.get(theme.NAME_SIZE, weight=600)
+    name_size = fit_smallcaps_size(common_name, book, theme.NAME_SIZE,
+                                   theme.NAME_TRACKING, theme.CONTENT_W)
+    name_font = book.get(name_size, weight=600)
     ascent, _ = name_font.getmetrics()
     baseline = top_y + ascent
     draw_smallcaps(draw, center_x, baseline, common_name, book,
-                   theme.NAME_SIZE, theme.INK, theme.NAME_TRACKING)
+                   name_size, theme.INK, theme.NAME_TRACKING)
 
-    sci_font = book.get(theme.SCI_SIZE, italic=True, weight=460)
     baseline += theme.NAME_SIZE * 0.30 + theme.SCI_SIZE
-    draw.text((center_x, baseline), scientific_name, font=sci_font,
-              fill=theme.INK, anchor="ms")
+    draw_engraved(draw, center_x, baseline, scientific_name.upper(),
+                  theme.SUBTITLE_SIZE, theme.INK_MEDIUM)
 
     rule_y = baseline + theme.SCI_SIZE * 0.55 + 34
     half = theme.RULE_WIDTH / 2

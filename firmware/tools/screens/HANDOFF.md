@@ -6,13 +6,21 @@ IT8951, 1404×1872 portrait / 1872×1404 native landscape). Branch
 
 ## Current status — working, flashed
 Boot sequence on the panel:
-`splash → "Connecting to Wi‑Fi…" (wren flies in) → "Connecting to BirdNET…" (empty house)
-→ "Downloading image…" (wren in the hole) → server bird plate`.
+`splash → "Connecting to Wi-Fi" (wren flies in) → "Connecting to server" (empty house)
+→ "Downloading image" (wren in the hole) → server bird plate`. First run shows the
+setup-portal steps instead, then hands over to the SAME flow after one full repaint —
+there is no separate onboarding checklist.
 - Splash + each connecting screen render; the birdhouse + wordmark hold steady and only
   the changed box (bird / wren / pill) repaints.
 - The plate (e.g. American Goldfinch from `10.0.2.15:8090`) loads ~10–12 s after
   "Downloading…" (server render + transfer time).
-- Onboarding (Wi‑Fi setup) flow: `setup steps → 3‑step checklist`, same darker birdhouse.
+- Error states (W-587): a dead-ended attempt swaps the pill band in place (outlined
+  pill + slashed icon; HTTP 503 keeps the solid pill as "Waiting for the first bird")
+  with a "Trying again in N min" line beneath; over a painted plate only a small
+  slashed glyph appears in the margin corner past ≥4 fails and ≥30 min. Backoff:
+  deep-sleep 1→5→15 min capped (RTC-tracked); always-awake 15 s→60 s. The portal
+  never auto-opens when credentials exist (first run / KEY2-hold only), and the
+  watchdog is armed in both power models.
 
 ## How it's built
 **Bake pipeline** — `bake_screens.py` (run with the server venv):
@@ -31,8 +39,8 @@ Boot sequence on the panel:
   refresh with DU (no flash): the fly-in bird is thresholded line art on empty sky;
   the **wren‑in‑hole is Bayer-dithered** (its light feathers would threshold into a
   black blob — do not change this back). Everything else stays 16-level gray.
-- The 4 **onboarding** screens are composed in PIL (`screen_setup`, `screen_check`) on
-  `art/house.png` (the darker v2 birdhouse).
+- The single **setup** screen (`screen_setup`) shares the splash birdhouse and fits
+  its card to the widest line; error/retry/corner tiles come from `error_assets()`.
 - Gray output: fixed white‑point + gamma LUT `apply_curve()` (`WHITE_PT=246`,
   `GRAY_GAMMA=1.4`). MUST stay content‑independent — a mean‑based contrast maps the same
   birdhouse to different values per screen and makes the whole thing diff/flash.
@@ -73,8 +81,6 @@ Boot sequence on the panel:
    stable download port. Reading serial with DTR/RTS toggling can bounce it to download.
 
 ## Remaining work
-- **Onboarding v2** — only boot got the v2 redesign; onboarding reuses the older layout on
-  the new darker birdhouse.
 - **`FF_NO_SLEEP=1`** is still set (dev mode, Wi‑Fi always on → ~4–5 days battery). Flip to
   0 in `include/ff_config.h` for the deep‑sleep model (~8+ months on 10 000 mAh).
 

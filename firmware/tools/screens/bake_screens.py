@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bake the boot + first-time-setup panel screens into firmware/src/ff_screens.h.
 
-Renders 8 screens at the panel's native 1404x1872 and PackBits-compresses them
+Renders 5 screens at the panel's native 1404x1872 and PackBits-compresses them
 into a C header the firmware blits. The boot screens compose the designer's
 pen-and-ink birdhouse art (./art) with type set by the SERVER's own typography
 module — the wordmark is the plate title style (swash italic, theme.TITLE_SIZE)
@@ -126,6 +126,24 @@ def draw_loader_mark(draw, cx, cy, frame=0):
         if k != frame:
             diamond(draw, x, cy, LOADER_R - 3.5, fill=0)
 
+def slash(draw, cx, cy, s):
+    # white casing under the black stroke so the slash reads over any glyph
+    draw.line([(cx - s, cy + s), (cx + s, cy - s)], fill=255, width=14)
+    draw.line([(cx - s, cy + s), (cx + s, cy - s)], fill=0, width=6)
+
+def wifi_slash(draw, cx, cy, s):
+    wifi_glyph(draw, cx, cy + s * 0.55, s, fill=0)
+    slash(draw, cx, cy, s * 0.78)
+
+def server_slash(draw, cx, cy, s):
+    w, h, gap = s * 1.5, s * 0.52, s * 0.22
+    y0 = cy - h - gap / 2
+    for k in range(2):
+        y = y0 + k * (h + gap)
+        draw.rounded_rectangle([cx - w / 2, y, cx + w / 2, y + h], radius=5, outline=0, width=5)
+        draw.ellipse([cx - w / 2 + 10, y + h / 2 - 4, cx - w / 2 + 18, y + h / 2 + 4], fill=0)
+    slash(draw, cx, cy, s * 0.85)
+
 ARTS = {k: Image.open(os.path.join(ART, f"{k}.png")).convert("L")
         for k in ("house", "fly", "wren", "bird", "wren_hole")}
 
@@ -166,51 +184,48 @@ def paste_at(canvas, key, right, top, target_h):
 WREN_HOLE_AT = (145, 235)          # top-left in house.png pixel space (670x990)
 
 def screen_setup():
-    c, d = new_canvas()
-    paste_art(c, "house", W / 2, 150, 660)
-    x0, y0, x1, y1 = 150, 1140, W - 150, 1740
-    d.rounded_rectangle([x0, y0, x1, y1], radius=24, fill=0)
+    # First-run instructions. Shares the splash birdhouse (smaller) and hands
+    # over to the normal boot flow once a network is saved — there is no
+    # separate onboarding checklist. The card fits its widest line.
+    c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    hs = 800
+    hw = int(HOUSE.width * hs / HOUSE.height)
+    c.alpha_composite(HOUSE.resize((hw, hs), Image.LANCZOS), ((W - hw) // 2, 100))
+    im = c.convert("L")
+    d = ImageDraw.Draw(im)
     steps = [
         "From your computer or smartphone,\njoin the wi-fi hotspot:",
         "Choose a wi-fi network for Featherframe\nto join.",
         "Fill in the IP address of your BirdNET\ndevice, if not auto-detected.",
     ]
     fnt = font(46); numf = font(34, weight=600)
-    y = y0 + 70
+    maxw = max(d.textlength(ln, font=fnt) for s in steps for ln in s.split("\n"))
+    cardw = int(140 + maxw + 64)
+    x0 = (W - cardw) // 2
+    y0, y1 = 1060, 1806
+    d.rounded_rectangle([x0, y0, x0 + cardw, y1], radius=24, fill=0)
+    y = y0 + 78
+    R = 26
     for i, s in enumerate(steps, 1):
-        d.ellipse([x0 + 50, y - 4, x0 + 50 + 52, y + 48], fill=255)
-        d.text((x0 + 50 + 26, y + 22), str(i), font=numf, fill=0, anchor="mm")
-        d.multiline_text((x0 + 140, y - 4), s, font=fnt, fill=255, spacing=12)
+        # number dot centered on the whole step's text block
+        bb = d.multiline_textbbox((x0 + 140, y - 4), s, font=fnt, spacing=14)
+        cyc = (bb[1] + bb[3]) / 2
+        d.ellipse([x0 + 50, cyc - R, x0 + 50 + 2 * R, cyc + R], fill=255)
+        d.text((x0 + 50 + R, cyc), str(i), font=numf, fill=0, anchor="mm")
+        d.multiline_text((x0 + 140, y - 4), s, font=fnt, fill=255, spacing=14)
         if i == 1:
-            chipf = font(46, weight=600); ct = "Featherframe-Setup"
-            ctw = d.textlength(ct, font=chipf); chy = y + 96; iconw = 64
-            chw = iconw + ctw + 60
-            d.rounded_rectangle([x0 + 140, chy, x0 + 140 + chw, chy + 76], radius=14, fill=255)
-            wifi_glyph(d, x0 + 140 + 40, chy + 42, 22)
-            d.text((x0 + 140 + iconw + 18, chy + 38), ct, font=chipf, fill=0, anchor="lm")
-            y = chy + 128
+            chipf = sans(33); ct = "Featherframe-Setup"
+            ctw = d.textlength(ct, font=chipf); chy = y + 130; chh = 76; iconw = 60
+            chw = iconw + ctw + 58
+            d.rounded_rectangle([x0 + 140, chy, x0 + 140 + chw, chy + chh], radius=chh / 2, fill=255)
+            wifi_glyph(d, x0 + 140 + 40, chy + chh / 2 + 7, 18)
+            cb = chipf.getbbox("H")
+            d.text((x0 + 140 + iconw + 12, chy + chh / 2 + (cb[3] - cb[1]) / 2), ct,
+                   font=chipf, fill=0, anchor="ls")
+            y = chy + chh + 72
         else:
-            y += 150
-    return c
-
-def screen_check(name, states):
-    c, d = new_canvas()
-    paste_art(c, "house", W / 2, 150, 660)
-    rows = ["Connecting to wi-fi", "Connecting to server", "Downloading image"]
-    x0, y0, x1 = 260, 1300, W - 260
-    rowh = 130; y1 = y0 + rowh * len(rows) + 60
-    d.rounded_rectangle([x0, y0, x1, y1], radius=24, fill=0)
-    fnt = font(48); y = y0 + 90
-    for r, st in zip(rows, states):
-        ix = x0 + 90
-        if st == "done":
-            check(d, ix, y, 34)
-        elif st == "now":
-            draw_loader_mark(d, ix, y)
-            LOADER_AT[name] = (ix, y)
-        text_v(d, x0 + 170, y, r, fnt, fill=255 if st != "pending" else 150)
-        y += rowh
-    return c
+            y += 160
+    return im
 
 # The four boot/loading screens compose the designer's clean pen-and-ink line art
 # (black hatching on transparent) at native size — do NOT rescale birdhouse.png,
@@ -328,9 +343,6 @@ SCREENS = [
     ("BOOT_BIRDNET",  _compose("birdnet")),     # empty house
     ("BOOT_DOWNLOAD", _compose("download")),    # wren in the hole
     ("SETUP",         screen_setup()),
-    ("CHK1",          screen_check("CHK1", ["now", "pending", "pending"])),
-    ("CHK2",          screen_check("CHK2", ["done", "now", "pending"])),
-    ("CHK3",          screen_check("CHK3", ["done", "done", "now"])),
 ]
 
 def packbits(data: bytes) -> bytes:
@@ -406,16 +418,110 @@ def loader_tiles(im: Image.Image, cx, cy):
     mx0 = NATIVE_W - nx0 - nw                    # firmware mirrors X
     return (mx0, ny0), tiles
 
+# -- error states ------------------------------------------------------------
+# When a connect/fetch attempt dead-ends, the firmware swaps the pill band in
+# place (windowed DU): true errors get an OUTLINED pill with a slashed icon —
+# unmistakably not the loading state — while "waiting for the first bird"
+# (HTTP 503: server up, no detection yet) keeps the normal solid pill with the
+# mark parked. A "Trying again …" line sits in its own band beneath, swapped
+# separately so the three backoff stages don't multiply the pill tiles. Over a
+# painted plate the firmware shows only a small slashed glyph in the margin
+# corner (see FF_CORNER_*). All tiles are pure black/white on white => DU.
+ERR_TEXTS = [("Can't reach Wi-Fi", "wifi"), ("Can't reach server", "server")]
+WAIT_TEXT = "Waiting for the first bird"
+RETRY_TEXTS = ["Trying again in 1 minute", "Trying again in 5 minutes",
+               "Trying again in 15 minutes", "Trying again shortly"]
+ERR_ICON_SLOT = 56
+RETRY_SIZE = 28
+RETRY_BASELINE = 1790
+CORNER_CX, CORNER_CY, CORNER_S = W - 118 - 34, 1806, 26
+
+def _err_icon(kind):
+    return wifi_slash if kind == "wifi" else server_slash
+
+def _draw_error_pill(d, text, kind):
+    fnt = sans(PILL_TEXT_SIZE)
+    tw = d.textlength(text, font=fnt)
+    pillw = int(26 + ERR_ICON_SLOT + 18 + tw + 30)
+    px = int(W / 2 - pillw / 2)
+    cy = PILL_Y + PILL_H / 2
+    d.rounded_rectangle([px, PILL_Y, px + pillw, PILL_Y + PILL_H],
+                        radius=PILL_H / 2, fill=255, outline=0, width=5)
+    _err_icon(kind)(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22)
+    capbox = fnt.getbbox("H")
+    d.text((px + 26 + ERR_ICON_SLOT + 18, cy + (capbox[3] - capbox[1]) / 2),
+           text, font=fnt, fill=0, anchor="ls")
+
+def _draw_wait_pill(d):
+    fnt = sans(PILL_TEXT_SIZE)
+    tw = d.textlength(WAIT_TEXT, font=fnt)
+    pillw = int(PILL_PAD + LOADER_SLOT_W + PILL_GAP + tw + PILL_PAD + 4)
+    px = int(W / 2 - pillw / 2)
+    cy = PILL_Y + PILL_H / 2
+    d.rounded_rectangle([px, PILL_Y, px + pillw, PILL_Y + PILL_H], radius=PILL_H / 2, fill=0)
+    draw_loader_mark(d, px + PILL_PAD + LOADER_SLOT_W / 2, cy, frame=-1)   # parked
+    capbox = fnt.getbbox("H")
+    d.text((px + PILL_PAD + LOADER_SLOT_W + PILL_GAP, cy + (capbox[3] - capbox[1]) / 2),
+           WAIT_TEXT, font=fnt, fill=255, anchor="ls")
+
+def _canvas(fn):
+    im = Image.new("L", (W, H), 255)
+    fn(ImageDraw.Draw(im))
+    return im
+
+def _ink_cols(im, ry0, ry1):
+    a = np.asarray(im)[ry0:ry1, :]
+    cols = np.where((a < 250).any(axis=0))[0]
+    return (int(cols.min()), int(cols.max())) if len(cols) else (W // 2, W // 2)
+
+def _aligned_region(canvases, ry0, ry1, pad=8):
+    x0 = min(_ink_cols(c, ry0, ry1)[0] for c in canvases) - pad
+    x1 = max(_ink_cols(c, ry0, ry1)[1] for c in canvases) + pad
+    x0 &= ~7; x1 = (x1 + 8) & ~7
+    return x0, ry0, x1 - x0, ry1 - ry0
+
+def _region_tiles(region, canvases):
+    x0, y0, rw, rh = region
+    tiles = [_pack_nibbles(_to_native_nibbles(c.crop((x0, y0, x0 + rw, y0 + rh))))
+             for c in canvases]
+    mask = np.zeros((H, W), dtype=np.uint8)
+    mask[y0:y0 + rh, x0:x0 + rw] = 1
+    nat = np.rot90(mask, k=(PANEL_ROTATION // 90) % 4)
+    ny0 = int(np.argmax(np.any(nat, axis=1)))
+    nx0 = int(np.argmax(np.any(nat, axis=0)))
+    nw, nh = rh, rw                                # portrait w/h swap under rot90
+    return (NATIVE_W - nx0 - nw, ny0, nw, nh), tiles
+
+def error_assets():
+    # The pill band must also ERASE whichever normal pill it replaces, so its
+    # union includes the three boot screens' own pill rows.
+    boot = [im for name, im in SCREENS
+            if name in ("BOOT_WIFI", "BOOT_BIRDNET", "BOOT_DOWNLOAD")]
+    pills = [_canvas(lambda d, t=t, k=k: _draw_error_pill(d, t, k)) for t, k in ERR_TEXTS]
+    pills.append(_canvas(_draw_wait_pill))
+    band = _aligned_region(boot + pills, 1640, 1736)
+    err_geo, err_tiles = _region_tiles(band, pills)
+
+    retries = [_canvas(lambda d, t=t: d.text((W / 2, RETRY_BASELINE), t,
+                                             font=sans(RETRY_SIZE), fill=0, anchor="ms"))
+               for t in RETRY_TEXTS]
+    rband = _aligned_region(retries, 1744, 1808)
+    retry_geo, retry_tiles = _region_tiles(rband, retries + [Image.new("L", (W, H), 255)])
+
+    corners = [_canvas(lambda d: wifi_slash(d, CORNER_CX, CORNER_CY, CORNER_S)),
+               _canvas(lambda d: server_slash(d, CORNER_CX, CORNER_CY, CORNER_S))]
+    cband = _aligned_region(corners, 1752, 1856)
+    corner_geo, corner_tiles = _region_tiles(cband, corners + [Image.new("L", (W, H), 255)])
+    return ((err_geo, err_tiles), (retry_geo, retry_tiles), (corner_geo, corner_tiles))
+
 def write_header():
     screens = {name: im for name, im in SCREENS}
+    (err_geo, err_tiles), (retry_geo, retry_tiles), (corner_geo, corner_tiles) = error_assets()
     loaders = {name: loader_tiles(screens[name], cx, cy)
                for name, (cx, cy) in
                (("BOOT_WIFI", LOADER_AT["wifi"]),
                 ("BOOT_BIRDNET", LOADER_AT["birdnet"]),
-                ("BOOT_DOWNLOAD", LOADER_AT["download"]),
-                ("CHK1", LOADER_AT["CHK1"]),
-                ("CHK2", LOADER_AT["CHK2"]),
-                ("CHK3", LOADER_AT["CHK3"]))}
+                ("BOOT_DOWNLOAD", LOADER_AT["download"]))}
     L = ["// GENERATED by firmware/tools/screens/bake_screens.py — do not edit by hand.",
          "// Boot + first-time-setup panel screens, baked as 16-level gray in the",
          "// panel's native 1872x1404 orientation (4bpp), pushed via the same gray",
@@ -432,6 +538,27 @@ def write_header():
          f"#define FF_LOADER_NW      {TILE_H}   // native px (portrait h)",
          f"#define FF_LOADER_NH      {TILE_W}   // native px (portrait w)",
          "#define FF_LOADER_BYTES   (FF_LOADER_NW / 2 * FF_LOADER_NH)", "",
+         "// Error-state tiles (see the error-states section of the bake).",
+         "// ff_err_tiles: 0 = can't reach Wi-Fi (outlined + slashed wifi),",
+         "// 1 = can't reach server (outlined + slashed server), 2 = waiting",
+         "// for the first bird (solid pill, parked mark). The window also",
+         "// erases whichever normal pill it replaces.",
+         f"#define FF_ERR_X          {err_geo[0]}",
+         f"#define FF_ERR_Y          {err_geo[1]}",
+         f"#define FF_ERR_W          {err_geo[2]}",
+         f"#define FF_ERR_H          {err_geo[3]}",
+         "// ff_retry_tiles: 0/1/2 = trying again in 1/5/15 minutes, 3 =",
+         "// 'shortly' (always-awake), 4 = blank (erases the line).",
+         f"#define FF_RETRY_X        {retry_geo[0]}",
+         f"#define FF_RETRY_Y        {retry_geo[1]}",
+         f"#define FF_RETRY_W        {retry_geo[2]}",
+         f"#define FF_RETRY_H        {retry_geo[3]}",
+         "// ff_corner_tiles: 0 = slashed wifi, 1 = slashed server, 2 = blank",
+         "// (erase). Shown over a painted plate in the bottom-right margin.",
+         f"#define FF_CORNER_X       {corner_geo[0]}",
+         f"#define FF_CORNER_Y       {corner_geo[1]}",
+         f"#define FF_CORNER_W       {corner_geo[2]}",
+         f"#define FF_CORNER_H       {corner_geo[3]}", "",
          "enum FfScreen {"]
     for i, (name, _) in enumerate(SCREENS):
         L.append(f"  FF_SCR_{name} = {i},")
@@ -457,6 +584,12 @@ def write_header():
     for name, (_, tiles) in loaders.items():
         for k, t in enumerate(tiles):
             emit_array(f"ff_ldr_{name.lower()}_{k}", t)
+    for k, t in enumerate(err_tiles):
+        emit_array(f"ff_err_{k}", t)
+    for k, t in enumerate(retry_tiles):
+        emit_array(f"ff_retry_{k}", t)
+    for k, t in enumerate(corner_tiles):
+        emit_array(f"ff_corner_{k}", t)
     L += ["struct FfScreenAsset { const uint8_t* data; uint32_t len; };",
           "static const FfScreenAsset ff_screens[FF_SCR_COUNT] = {"]
     for arr, ln in refs:
@@ -474,6 +607,9 @@ def write_header():
         else:
             L.append("  { -1, -1, { 0 } },")
     L += ["};", "",
+          "static const uint8_t* const ff_err_tiles[3] = { ff_err_0, ff_err_1, ff_err_2 };",
+          "static const uint8_t* const ff_retry_tiles[5] = { ff_retry_0, ff_retry_1, ff_retry_2, ff_retry_3, ff_retry_4 };",
+          "static const uint8_t* const ff_corner_tiles[3] = { ff_corner_0, ff_corner_1, ff_corner_2 };", "",
           "// PackBits decode into a caller buffer of FF_SCREEN_BYTES. Returns bytes written.",
           "static inline uint32_t ff_unpack(const uint8_t* src, uint32_t len, uint8_t* dst) {",
           "  uint32_t si = 0, di = 0;",

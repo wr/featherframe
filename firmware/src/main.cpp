@@ -117,6 +117,94 @@ static void loaderTask(void*) {
   }
 }
 
+// ---------------------------------------------------------------- error states
+// Failure presentation (design: Linear W-587). On a boot pill screen the pill
+// band is swapped in place — outlined pill + slashed icon for real errors, the
+// solid pill for "waiting for the first bird" — with a "Trying again …" line
+// beneath. Over a painted plate only a small slashed glyph appears in the
+// margin corner, and only past the FF_MARK_* thresholds. All tiles are baked
+// pure black/white and pushed as windowed DU partials (no flash). The state
+// survives deep sleep in RTC memory.
+enum ErrKind { ERRK_WIFI = 0, ERRK_SERVER = 1, ERRK_NOFRAME = 2 };
+RTC_DATA_ATTR int16_t  g_failCount = 0;     // consecutive failed cycles
+RTC_DATA_ATTR uint16_t g_failMinutes = 0;   // ~minutes since the last success
+RTC_DATA_ATTR int8_t   g_glassScreen = -1;  // baked screen on the glass; -1 = a plate
+RTC_DATA_ATTR uint8_t  g_cornerMark = 0;    // 0 none, 1 wifi, 2 server
+RTC_DATA_ATTR int8_t   g_bandKind = -1;     // error band on the glass (-1 none)
+RTC_DATA_ATTR int8_t   g_bandStage = -1;    // its retry-line stage
+static uint32_t g_lastSuccessMs = 0;        // always-awake model: for g_failMinutes
+
+static void bumpFail() { if (g_failCount < 30000) g_failCount++; }
+
+static void pushTile(const uint8_t* tile, int x, int y, int w, int h) {
+  panelLock();
+  epaper.wake();
+  epaper.tconLoadImage((uint8_t*)tile, x, y, w, h, false);
+  epaper.tconDisplayArea(x, y, w, h, 1);        // DU: no flash
+  epaper.tconWaitForDisplayReady();
+  panelUnlock();
+}
+
+// Backoff: 1 -> 5 -> 15 min, capped — deliberately decoupled from the wake
+// interval so the baked "Trying again in N minutes" line is always true.
+uint32_t retryDelayMinutes() {
+  return g_failCount <= 1 ? 1 : g_failCount == 2 ? 5 : 15;
+}
+
+void showErrorState(int kind) {
+  bool bootPill = (g_glassScreen == FF_SCR_BOOT_WIFI ||
+                   g_glassScreen == FF_SCR_BOOT_BIRDNET ||
+                   g_glassScreen == FF_SCR_BOOT_DOWNLOAD);
+  if (bootPill) {
+#if FF_NO_SLEEP
+    int stage = 3;                              // polls retry in seconds: "shortly"
+#else
+    int stage = g_failCount <= 1 ? 0 : g_failCount == 2 ? 1 : 2;
+#endif
+    if (g_bandKind != kind || g_bandStage != stage) {   // repeated fails: no re-push
+      pushTile(ff_err_tiles[kind], FF_ERR_X, FF_ERR_Y, FF_ERR_W, FF_ERR_H);
+      pushTile(ff_retry_tiles[stage], FF_RETRY_X, FF_RETRY_Y, FF_RETRY_W, FF_RETRY_H);
+      g_bandKind = (int8_t)kind; g_bandStage = (int8_t)stage;
+    }
+  } else if (g_glassScreen < 0 &&
+             g_failCount >= FF_MARK_FAILS && g_failMinutes >= FF_MARK_MINUTES) {
+    uint8_t mark = (kind == ERRK_WIFI) ? 1 : 2;
+    if (g_cornerMark != mark) {
+      pushTile(ff_corner_tiles[mark - 1], FF_CORNER_X, FF_CORNER_Y, FF_CORNER_W, FF_CORNER_H);
+      g_cornerMark = mark;
+    }
+  }
+}
+
+// A cycle succeeded: erase the corner mark if one is up (a 304 keeps the
+// plate, so the mark needs an explicit wipe) and reset the accounting.
+void noteSuccess() {
+  if (g_cornerMark) {
+    pushTile(ff_corner_tiles[2], FF_CORNER_X, FF_CORNER_Y, FF_CORNER_W, FF_CORNER_H);
+    g_cornerMark = 0;
+    // The mark's box white-washed a corner of the plate; drop the ETag so the
+    // next fetch repaints the whole glass instead of 304-ing over the scar.
+    g_etag[0] = 0;
+    prefs.putString("etag", "");
+  }
+  g_failCount = 0;
+  g_failMinutes = 0;
+  g_lastSuccessMs = millis();
+}
+
+// ---------------------------------------------------------------- watchdog
+// Whole-cycle watchdog in BOTH power models: a wedged panel busy-wait or a
+// stuck socket reboots the board instead of stranding the frame.
+static void armWatchdog() {
+  esp_task_wdt_config_t cfg = {};
+  cfg.timeout_ms = WDT_TIMEOUT_S * 1000;
+  cfg.idle_core_mask = 0;
+  cfg.trigger_panic = true;
+  if (esp_task_wdt_init(&cfg) == ESP_ERR_INVALID_STATE)
+    esp_task_wdt_reconfigure(&cfg);             // the Arduino core may arm it first
+  esp_task_wdt_add(NULL);
+}
+
 // ---------------------------------------------------------------- sleep
 void goToSleep(uint32_t minutes) {
   g_loaderAnim.on = false;
@@ -139,6 +227,7 @@ void goToSleep(uint32_t minutes) {
 // ---------------------------------------------------------------- wifi
 // Baked panel screens (defined later, near the splash).
 void showScreen(int idx);
+void showScreenFull(int idx);
 
 // Paper/ink restyle for the WiFiManager captive portal — injected into <head>,
 // overrides the stock blue theme. Kept in PROGMEM to save RAM.
@@ -158,7 +247,7 @@ a,a:visited{color:var(--accent);text-decoration:none}
 .q{filter:grayscale(1) opacity(.7)}
 </style>)CSS";
 
-bool ensureWifi(bool openPortal) {
+bool ensureWifi(bool openPortal, bool showBoot) {
   WiFi.mode(WIFI_STA);
   wm.setTitle("Featherframe");
   wm.setCustomHeadElement(PORTAL_CSS);
@@ -168,20 +257,37 @@ bool ensureWifi(bool openPortal) {
   wm.setConfigPortalTimeout(PORTAL_TIMEOUT_S);
   wm.setConnectTimeout(WIFI_CONNECT_TIMEOUT_MS / 1000);
 
-  // Panel: the setup steps appear when the captive portal (AP) opens; the moment
-  // the user saves their network we switch to the onboarding checklist. Entering
-  // the portal (here or as autoConnect's fallback) marks the boot as "via portal"
-  // so the caller shows the onboarding checklist rather than the plain boot flow.
+  // With saved credentials a failed connect must NOT fall into the portal — a
+  // router blip would otherwise swap the glass to setup steps and burn ten
+  // minutes of AP mode per attempt. The portal is for first run (no saved
+  // network) and the explicit KEY2-hold only.
+  wm.setEnableConfigPortal(openPortal || !wm.getWiFiIsSaved());
+
+  // Panel: the setup steps appear when the captive portal (AP) opens; the
+  // moment the user's network is saved and connected, hand straight over to
+  // the normal boot flow (one full repaint — the setup layout shares nothing
+  // with the boot screens). There is no separate onboarding checklist.
   g_viaPortal = openPortal;
   wm.setAPCallback([](WiFiManager*) { g_viaPortal = true; showScreen(FF_SCR_SETUP); });
-  wm.setSaveConfigCallback([]() { showScreen(FF_SCR_CHK1); });
+  wm.setSaveConfigCallback([]() { showScreenFull(FF_SCR_BOOT_WIFI); });
 
   bool ok;
   if (openPortal) {
     ok = wm.startConfigPortal("Featherframe-Setup");
   } else {
-    showScreen(FF_SCR_BOOT_WIFI);                 // "Connecting to Wi-Fi…"
-    ok = wm.autoConnect("Featherframe-Setup");    // portal (AP callback) only if it fails
+    // Deep-sleep wakes connect silently (showBoot false): the resident plate
+    // stays on the glass and a 304 wake never repaints anything.
+    if (showBoot) showScreen(FF_SCR_BOOT_WIFI);   // "Connecting to Wi-Fi"
+    ok = wm.autoConnect("Featherframe-Setup");
+  }
+  // First run: no network saved yet — keep the portal open until one is. The
+  // loop lives HERE because serverParam is stack-allocated and WiFiManager
+  // keeps the registered pointer: ensureWifi must not be re-entered for
+  // retries. The watchdog outlasts one portal round and is fed between.
+  while (!ok && !wm.getWiFiIsSaved()) {
+    esp_task_wdt_reset();
+    g_viaPortal = true;
+    ok = wm.startConfigPortal("Featherframe-Setup");
   }
   if (ok) {
     // Wi-Fi up: the caller drives the "Connecting to BirdNET…"/"Downloading…"
@@ -228,6 +334,9 @@ void displayFrame(const uint8_t* data, size_t len) {
   }
   epaper.update();                          // full refresh; brackets its own power
   panelUnlock();
+  g_glassScreen = -1;                       // a full paint owns the whole glass
+  g_cornerMark = 0;
+  g_bandKind = g_bandStage = -1;
   Serial.println("panel updated");
 }
 
@@ -436,14 +545,23 @@ void showScreen(int idx) {
     g_loaderAnim.x = ld.x; g_loaderAnim.y = ld.y; g_loaderAnim.frames = ld.frames;
     g_loaderAnim.on = true;
   }
+  g_glassScreen = (int8_t)idx;
+  g_bandKind = g_bandStage = -1;            // fresh screen: no error band on it
   panelUnlock();
+}
+
+// Force a full gray repaint on the next screen — used when the glass doesn't
+// share the boot layout (leaving the setup portal).
+void showScreenFull(int idx) {
+  g_scrHavePrev = false;
+  showScreen(idx);
 }
 
 // Kept for the boot call site; the battery/build args are now baked in the art.
 void showSplash(const char*, int) { showScreen(FF_SCR_SPLASH); }
 
 // ---------------------------------------------------------------- fetch
-enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_ERROR };
+enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_NOFRAME, FETCH_ERROR };
 
 // Fetch a frame. `path`: endpoint under the server URL. `resident`: true for
 // the normal current-bird frame (ETag conditional GET + store the new ETag);
@@ -459,6 +577,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   String url = String(g_serverUrl) + path;
   if (!http.begin(url)) return FETCH_ERROR;
   http.setTimeout(HTTP_TIMEOUT_MS);
+  http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
   http.setUserAgent("Featherframe-ESP32/1.0");
   if (resident && strlen(g_etag)) http.addHeader("If-None-Match", String("\"") + g_etag + "\"");
   http.addHeader("X-Battery-Voltage", String(vbat, 3));
@@ -472,6 +591,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
   if (code == HTTP_CODE_NOT_MODIFIED) { http.end(); return FETCH_NOCHANGE; }
   if (code == HTTP_CODE_NOT_FOUND) { http.end(); return FETCH_NOTFOUND; }
+  if (code == HTTP_CODE_SERVICE_UNAVAILABLE) { http.end(); return FETCH_NOFRAME; }  // server up, no bird yet
   if (code != HTTP_CODE_OK) { http.end(); return FETCH_ERROR; }
 
   int len = http.getSize();
@@ -517,9 +637,24 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
 // progress on a stale screen — in the always-awake model nothing else would,
 // and it would burn ~200ms DU partials every FF_LOADER_STEP_MS forever.
 FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct) {
+  // A resident fetch while a baked screen (or its error band) holds the glass
+  // must actually paint: drop the ETag so a healthy server answers 200, not a
+  // 304 that would strand the boot art until the bird changes.
+  if (resident && g_glassScreen >= 0) g_etag[0] = 0;
   FetchResult r = fetchFrame(path, resident, vbat, pct);
   g_loaderAnim.on = false;
   return r;
+}
+
+// Resident-fetch accounting: success clears the error state, failure advances
+// it and updates the glass. Transient button views don't count — they are user
+// actions, not frame health. Callers keep g_failMinutes current beforehand.
+void noteFetchOutcome(FetchResult r) {
+  if (r == FETCH_UPDATED || r == FETCH_NOCHANGE) { noteSuccess(); return; }
+  bumpFail();
+  int kind = (WiFi.status() != WL_CONNECTED) ? ERRK_WIFI
+           : (r == FETCH_NOFRAME ? ERRK_NOFRAME : ERRK_SERVER);
+  showErrorState(kind);
 }
 
 // ---------------------------------------------------------------- ota
@@ -607,6 +742,7 @@ void setup() {
 #if FF_NO_SLEEP
   // --- Always-awake dev model: splash now, then Wi-Fi, then poll buttons in loop().
   epaper.begin(0);                          // full init once; the panel stays warm
+  armWatchdog();
 
   float vbat = readBatteryVoltage();
   int pct = batteryPercent(vbat);
@@ -618,20 +754,24 @@ void setup() {
   if (forcePortal) { Serial.println("portal reset requested"); wm.resetSettings(); }
 
   snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d nosleep", (int)cause);
-  if (ensureWifi(forcePortal)) {
+  ensureWifi(forcePortal, true);   // loops the portal itself until first-run setup
+  g_lastSuccessMs = millis();
+  if (WiFi.status() == WL_CONNECTED) {
     g_etag[0] = 0;   // force a fresh paint so the plate replaces the splash (not a 304)
-    showScreen(g_viaPortal ? FF_SCR_CHK2 : FF_SCR_BOOT_BIRDNET);   // reaching the server
-    showScreen(g_viaPortal ? FF_SCR_CHK3 : FF_SCR_BOOT_DOWNLOAD);  // fetching the image
-    fetchAndRender(FRAME_PATH, true, vbat, pct);   // paint the current bird
+    showScreen(FF_SCR_BOOT_BIRDNET);          // reaching the server
+    showScreen(FF_SCR_BOOT_DOWNLOAD);         // fetching the image
+    noteFetchOutcome(fetchAndRender(FRAME_PATH, true, vbat, pct));
     maybeOTA();
   } else {
-    showToast("No Wi-Fi");
+    // Saved network unreachable right now: say so on the glass and let the
+    // poll loop retry.
+    bumpFail();
+    showErrorState(ERRK_WIFI);
   }
   Serial.println("ready — polling buttons");
 #else
   // --- Deep-sleep model: decode the waking button, act once, sleep.
-  esp_task_wdt_init(WDT_TIMEOUT_S, true);   // reboot if a wake cycle hangs
-  esp_task_wdt_add(NULL);
+  armWatchdog();                            // reboot if a wake cycle hangs
 
   uint64_t keyBits = buttonWake ? esp_sleep_get_ext1_wakeup_status() : 0;
   bool keyCheck   = keyBits & (1ULL << PIN_KEY0);
@@ -653,28 +793,47 @@ void setup() {
   int pct = batteryPercent(vbat);
   Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);
 
-  if (!ensureWifi(forcePortal)) {
-    Serial.println("no wifi — sleeping");
+  if (!ensureWifi(forcePortal, !fromDeepSleep)) {
     if (buttonWake) ackBlink(4);
-    goToSleep(g_wakeMinutes);
+    bumpFail();
+    uint32_t mins = retryDelayMinutes();
+    showErrorState(ERRK_WIFI);
+    uint32_t nm = (uint32_t)g_failMinutes + mins;
+    g_failMinutes = nm > 65535 ? 65535 : (uint16_t)nm;
+    Serial.printf("no wifi — retrying in %u min\n", mins);
+    goToSleep(mins);
     return;
   }
 
   FetchResult r;
+  bool residentFetch = !keyCollage && !keyStatus;
   if (keyCollage) {
     r = fetchAndRender(VIEW_COLLAGE_PATH, false, vbat, pct);
     if (r == FETCH_NOTFOUND) ackBlink(4);
   } else if (keyStatus) {
     r = fetchAndRender(VIEW_STATUS_PATH, false, vbat, pct);
   } else {
-    if (!buttonWake || g_viaPortal) {   // fresh boot / just finished setup
-      showScreen(g_viaPortal ? FF_SCR_CHK2 : FF_SCR_BOOT_BIRDNET);
-      showScreen(g_viaPortal ? FF_SCR_CHK3 : FF_SCR_BOOT_DOWNLOAD);
+    // Boot screens only on a true cold boot or straight out of setup — a
+    // deep-sleep wake leaves the resident plate alone and fetches silently.
+    if (!fromDeepSleep || g_viaPortal) {
+      showScreen(FF_SCR_BOOT_BIRDNET);
+      showScreen(FF_SCR_BOOT_DOWNLOAD);
     }
     r = fetchAndRender(FRAME_PATH, true, vbat, pct);
     if (keyCheck && r == FETCH_NOCHANGE) showToast("Up to date");
   }
-  if (buttonWake && r == FETCH_ERROR) ackBlink(4);
+  if (buttonWake && (r == FETCH_ERROR || r == FETCH_NOFRAME)) ackBlink(4);
+  if (residentFetch) {
+    noteFetchOutcome(r);
+    if (r != FETCH_UPDATED && r != FETCH_NOCHANGE) {
+      uint32_t mins = retryDelayMinutes();
+      uint32_t nm = (uint32_t)g_failMinutes + mins;
+      g_failMinutes = nm > 65535 ? 65535 : (uint16_t)nm;
+      maybeOTA();
+      goToSleep(mins);
+      return;
+    }
+  }
   maybeOTA();
   goToSleep(g_wakeMinutes);
 #endif
@@ -724,6 +883,7 @@ int pollButton() {
 }
 
 void loop() {
+  esp_task_wdt_reset();
   int k = pollButton();
   if (k == 2) {
     // KEY2: hold PORTAL_HOLD_MS -> setup portal; a quick tap -> status view.
@@ -731,11 +891,12 @@ void loop() {
     while (digitalRead(PIN_KEY2) == LOW && millis() - t0 < PORTAL_HOLD_MS) delay(20);
     if (millis() - t0 >= PORTAL_HOLD_MS) {
       wm.resetSettings();
-      if (ensureWifi(true)) {           // shows setup steps + checklist screens
-        showScreen(FF_SCR_CHK2);
-        showScreen(FF_SCR_CHK3);
-        g_etag[0] = 0;   // force a fresh paint so the plate replaces the checklist
-        fetchAndRender(FRAME_PATH, true, readBatteryVoltage(), batteryPercent(readBatteryVoltage()));
+      if (ensureWifi(true, false)) {    // setup steps, then the normal boot flow
+        showScreen(FF_SCR_BOOT_BIRDNET);
+        showScreen(FF_SCR_BOOT_DOWNLOAD);
+        g_etag[0] = 0;   // force a fresh paint so the plate replaces the boot screen
+        noteFetchOutcome(fetchAndRender(FRAME_PATH, true, readBatteryVoltage(),
+                                        batteryPercent(readBatteryVoltage())));
       }
     } else {
       doButton(2);
@@ -746,11 +907,18 @@ void loop() {
   if (g_toast.active && millis() - g_toast.shownAt >= TOAST_HOLD_MS) clearToast();
 
   // Re-fetch every FF_POLL_INTERVAL_MS. fetchAndRender sends the stored ETag, so
-  // an unchanged frame returns 304 and the panel is not repainted.
+  // an unchanged frame returns 304 and the panel is not repainted. Failed polls
+  // back off to FF_POLL_BACKOFF_MS and keep the error state current.
   static uint32_t lastPoll = 0;
-  if (millis() - lastPoll >= FF_POLL_INTERVAL_MS) {
+  uint32_t interval = (g_failCount >= FF_MARK_FAILS) ? FF_POLL_BACKOFF_MS
+                                                     : FF_POLL_INTERVAL_MS;
+  if (millis() - lastPoll >= interval) {
     lastPoll = millis();
-    fetchAndRender(FRAME_PATH, true, readBatteryVoltage(), batteryPercent(readBatteryVoltage()));
+    FetchResult r = fetchAndRender(FRAME_PATH, true, readBatteryVoltage(),
+                                   batteryPercent(readBatteryVoltage()));
+    uint32_t mins = (millis() - g_lastSuccessMs) / 60000UL;
+    g_failMinutes = mins > 65535 ? 65535 : (uint16_t)mins;
+    noteFetchOutcome(r);
   }
 
   // The buttons' pull-up rail is powered by the panel's enable line (GPIO43). The

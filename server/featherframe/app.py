@@ -80,6 +80,7 @@ async def api_frame(request: Request, view: Optional[str] = None):
     inm = _strip_etag(request.headers.get("if-none-match"))
     volt = _float_header(request.headers.get("x-battery-voltage"))
     pct = _int_header(request.headers.get("x-battery-percent"))
+    rssi = _int_header(request.headers.get("x-wifi-rssi"))
     wake = request.headers.get("x-wake")
     if wake:
         log.info("device wake: %s (view=%s)", wake, view)
@@ -91,13 +92,14 @@ async def api_frame(request: Request, view: Optional[str] = None):
             if result is None:
                 return Response(status_code=404, content=b"not enough birds for a collage")
         else:
-            rssi = _int_header(request.headers.get("x-wifi-rssi"))
             result = svc.render_status_page(volt, pct, rssi)
-        svc.record_view_checkin(request.headers.get("user-agent", ""), volt, pct, view)
+        svc.record_view_checkin(request.headers.get("user-agent", ""), volt, pct, view,
+                                wifi_rssi=rssi)
         return Response(content=result.frame, media_type="application/octet-stream",
                         headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store"})
 
-    status, body, etag = svc.get_frame(inm, request.headers.get("user-agent", ""), volt, pct)
+    status, body, etag = svc.get_frame(inm, request.headers.get("user-agent", ""), volt, pct,
+                                       wifi_rssi=rssi)
 
     if status == 503:
         return Response(status_code=503, content=b"no frame yet")

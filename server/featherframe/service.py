@@ -58,9 +58,58 @@ class DeviceStatus:
     last_checkin: Optional[str] = None
     battery_voltage: Optional[float] = None
     battery_percent: Optional[int] = None
-    last_result: Optional[str] = None      # "304" | "frame"
+    wifi_rssi: Optional[int] = None
+    last_result: Optional[str] = None      # "304" | "frame" | view name
     etag_served: Optional[str] = None
     user_agent: Optional[str] = None
+
+
+def _ago(then: datetime, now: datetime) -> str:
+    """Relative time for the config page: "just now", "7 min ago", …"""
+    secs = max(0.0, (now - then).total_seconds())
+    if secs < 60:
+        return "just now"
+    mins = int(secs // 60)
+    if mins < 60:
+        return f"{mins} min ago"
+    hours = mins // 60
+    if hours < 24:
+        return f"{hours} h ago"
+    days = hours // 24
+    return f"{days} day ago" if days == 1 else f"{days} days ago"
+
+
+def _served_words(result: Optional[str]) -> Optional[str]:
+    if result == "304":
+        return "up to date (304)"
+    if result == "frame":
+        return "new frame"
+    return f"{result} view" if result else None
+
+
+def frame_card(device: DeviceStatus, wake_interval_minutes: int,
+               now: Optional[datetime] = None) -> dict:
+    """The wall frame's health, pre-chewed for the config page: ready-to-print
+    strings plus one overdue flag. Overdue means the device has missed two
+    consecutive wake intervals — one 304 skipped is normal jitter, two is a
+    dead battery or lost Wi-Fi."""
+    now = now or datetime.now()
+    card = {"seen": False, "overdue": False,
+            "expected_minutes": wake_interval_minutes, "last_seen": None,
+            "battery": None, "served": None, "wifi_rssi": None}
+    try:
+        then = datetime.fromisoformat(device.last_checkin or "")
+    except ValueError:
+        return card
+    card["seen"] = True
+    card["last_seen"] = _ago(then, now)
+    card["overdue"] = (now - then).total_seconds() > 2 * wake_interval_minutes * 60
+    if device.battery_voltage is not None:
+        pct = f" · {device.battery_percent}%" if device.battery_percent is not None else ""
+        card["battery"] = f"{device.battery_voltage:.2f} V{pct}"
+    card["served"] = _served_words(device.last_result)
+    card["wifi_rssi"] = device.wifi_rssi
+    return card
 
 
 class FeatherframeService:
@@ -398,22 +447,25 @@ class FeatherframeService:
 
     def record_view_checkin(self, user_agent: str,
                             battery_voltage: Optional[float],
-                            battery_percent: Optional[int], view: str) -> None:
+                            battery_percent: Optional[int], view: str,
+                            wifi_rssi: Optional[int] = None) -> None:
         with self._lock:
             etag = self._etag
         self._record_checkin(user_agent, battery_voltage, battery_percent, etag,
-                             served=view)
+                             served=view, rssi=wifi_rssi)
 
     # -- device-facing -----------------------------------------------------
     def get_frame(self, if_none_match: Optional[str], user_agent: str = "",
                   battery_voltage: Optional[float] = None,
-                  battery_percent: Optional[int] = None) -> tuple[int, Optional[bytes], Optional[str]]:
+                  battery_percent: Optional[int] = None,
+                  wifi_rssi: Optional[int] = None) -> tuple[int, Optional[bytes], Optional[str]]:
         """Return (http_status, body_or_None, etag). Records the check-in."""
         with self._lock:
             etag = self._etag
             body = self._frame_bytes
         self._record_checkin(user_agent, battery_voltage, battery_percent, etag,
-                             served="304" if (etag and if_none_match == etag) else "frame")
+                             served="304" if (etag and if_none_match == etag) else "frame",
+                             rssi=wifi_rssi)
         if etag is None or body is None:
             return 503, None, None
         if if_none_match is not None and if_none_match == etag:
@@ -445,6 +497,7 @@ class FeatherframeService:
             "plates_loaded": self.audubon.species_count,
             "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
             "device": asdict(self.device),
+            "frame_card": frame_card(self.device, self.config.wake_interval_minutes),
             "config": self._masked_config(),
         }
 
@@ -485,11 +538,11 @@ class FeatherframeService:
             return
         self.tick()
 
-    def _record_checkin(self, ua, volt, pct, etag, served) -> None:
+    def _record_checkin(self, ua, volt, pct, etag, served, rssi=None) -> None:
         with self._lock:
             self.device = DeviceStatus(
                 last_checkin=datetime.now().isoformat(timespec="seconds"),
-                battery_voltage=volt, battery_percent=pct,
+                battery_voltage=volt, battery_percent=pct, wifi_rssi=rssi,
                 last_result=served, etag_served=etag, user_agent=ua[:120] if ua else None)
             self.db.set("device_status", asdict(self.device))
 

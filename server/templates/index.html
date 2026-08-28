@@ -34,6 +34,23 @@
     .frame img { display: block; width: 100%; height: auto; border: 1px solid #eee; }
     .preview .actions { display: flex; gap: 10px; margin-top: 14px; }
 
+    /* frame health */
+    .frame-card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+      padding: 10px 14px; margin-bottom: 14px; font-size: 13px;
+    }
+    .frame-card .head { display: flex; align-items: baseline; gap: 8px; }
+    .frame-card .head .title {
+      font-family: Georgia, serif; font-variant: small-caps; letter-spacing: .08em;
+      font-weight: 600; color: var(--accent);
+    }
+    .frame-card .head .when { margin-left: auto; color: var(--ink); }
+    .frame-card .detail { color: var(--soft); margin-top: 2px; }
+    .frame-card.overdue { border-color: #c9a24b; background: #f8f1df; }
+    .frame-card.overdue .note { color: #8a6a1c; margin-top: 2px; }
+    .dot.warn { background: #b98c2a; }
+    .dot.off { background: var(--line); }
+
     /* status */
     .status { margin-top: 18px; font-size: 13px; color: var(--soft); }
     .status dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
@@ -99,6 +116,31 @@
   <div class="grid">
     <!-- LEFT: live preview + status -->
     <div class="preview">
+      {% set card = status.frame_card %}
+      <div class="frame-card{{ ' overdue' if card.overdue else '' }}">
+        {% if card.seen %}
+        <div class="head">
+          <span class="dot {{ 'warn' if card.overdue else 'ok' }}"></span>
+          <span class="title">Frame</span>
+          <span class="when">{{ card.last_seen }}</span>
+        </div>
+        <div class="detail">
+          {%- if card.battery %}{{ card.battery }}{% endif -%}
+          {%- if card.wifi_rssi is not none %}{% if card.battery %} · {% endif %}{{ card.wifi_rssi }} dBm{% endif -%}
+          {%- if card.served %}{% if card.battery or card.wifi_rssi is not none %} · {% endif %}{{ card.served }}{% endif -%}
+        </div>
+        {% if card.overdue %}
+        <div class="note">overdue — expected every {{ card.expected_minutes }} min</div>
+        {% endif %}
+        {% else %}
+        <div class="head">
+          <span class="dot off"></span>
+          <span class="title">Frame</span>
+          <span class="when">never</span>
+        </div>
+        <div class="detail">The frame hasn't connected yet.</div>
+        {% endif %}
+      </div>
       <div class="frame">
         <img id="preview" src="/api/preview.png" alt="Current frame">
       </div>
@@ -141,12 +183,6 @@
           <dd>{{ status.plates_loaded }}</dd>
           <dt>AI plates cached</dt>
           <dd>{{ status.generated_cached }}</dd>
-          <dt>Device check-in</dt>
-          <dd>{{ status.device.last_checkin or 'never' }}</dd>
-          {% if status.device.battery_voltage %}
-          <dt>Battery</dt>
-          <dd>{{ '%.2f'|format(status.device.battery_voltage) }} V{% if status.device.battery_percent %} · {{ status.device.battery_percent }}%{% endif %}</dd>
-          {% endif %}
         </dl>
       </div>
     </div>

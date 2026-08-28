@@ -63,10 +63,21 @@
 // Must comfortably exceed portal timeout + a full OTA download.
 #define WDT_TIMEOUT_S  (PORTAL_TIMEOUT_S + 120)
 
-// HTTP + wifi timeouts (ms)
+// HTTP + wifi timeouts (ms). The split connect timeout makes a dead host
+// fail fast; the total still bounds a slow stream.
 #define WIFI_CONNECT_TIMEOUT_MS   20000
 #define PORTAL_TIMEOUT_S          600
 #define HTTP_TIMEOUT_MS           30000
+#define HTTP_CONNECT_TIMEOUT_MS   10000
+
+// Error-state thresholds. Over a painted plate the corner mark appears only
+// after this many consecutive failed cycles AND this many minutes since the
+// last success — a router blip never marks the art.
+#define FF_MARK_FAILS     4
+#define FF_MARK_MINUTES   30
+// Always-awake model: failed polls back off to this interval after
+// FF_MARK_FAILS consecutive failures.
+#define FF_POLL_BACKOFF_MS  60000
 
 // Panel geometry (portrait, as the frame hangs)
 #define PANEL_W  1404

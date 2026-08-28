@@ -198,10 +198,21 @@ class FeatherframeService:
         stamp = now.date().isoformat()
         if self.db.get("quiet_collage_for") == stamp:
             return  # already rendered tonight's review
-        if self._build_collage(now, now.date(), title="The Day in Review"):
+        if self._build_collage(now, now.date(), title="The Day in Review",
+                               generated_ok=True):
             self.db.set("quiet_collage_for", stamp)
 
-    def _build_collage(self, now: datetime, on_date: ddate, title: str = "A Day in the Garden") -> bool:
+    def force_day_review(self, repaint: bool = False) -> bool:
+        """The config-page button: render today's day-in-review now. Reuses
+        today's cached sheet unless repaint buys a fresh one."""
+        now = datetime.now()
+        return self._build_collage(now, now.date(), title="The Day in Review",
+                                   generated_ok=True, force_generated=repaint)
+
+    def _build_collage(self, now: datetime, on_date: ddate,
+                       title: str = "A Day in the Garden",
+                       generated_ok: bool = False,
+                       force_generated: bool = False) -> bool:
         rows = self.source.top_species_today(on_date, self.config.confidence_threshold, limit=6)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         if len(rows) < 2:
@@ -211,13 +222,25 @@ class FeatherframeService:
                 self._render_single(latest, now, reason="collage-fallback")
             return False
         cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
-        img = collage_mod.render_collage(cells, self.provider, when=on_date,
-                                         total_detections=sum(r["count"] for r in rows),
-                                         title=title)
-        result = pipeline.render_image(img, self.config, "collage", f"{len(cells)} species")
-        self._commit(result, now, mode="collage", species_key=None,
-                     label=f"{len(cells)}-species collage")
-        log.info("rendered collage (%d species), etag=%s", len(cells), result.etag)
+        total = sum(r["count"] for r in rows)
+
+        img = None
+        label = f"{len(cells)}-species collage"
+        # The generated composite is reserved for the nightly review (and the
+        # explicit button): daytime collage rebuilds stay free.
+        if generated_ok and self.config.collage_generated and self.genart is not None:
+            top = cells[:5]  # the totem manner holds four or five species well
+            art = self.genart.day_composite(top, on_date, force=force_generated)
+            if art is not None:
+                img = collage_mod.render_generated_collage(
+                    art, top, when=on_date, total_detections=total, title=title)
+                label = f"day in review ({len(top)} species)"
+        if img is None:
+            img = collage_mod.render_collage(cells, self.provider, when=on_date,
+                                             total_detections=total, title=title)
+        result = pipeline.render_image(img, self.config, "collage", label)
+        self._commit(result, now, mode="collage", species_key=None, label=label)
+        log.info("rendered collage (%s), etag=%s", label, result.etag)
         return True
 
     # -- generated-plate management (config page) --------------------------

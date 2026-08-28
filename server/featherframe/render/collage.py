@@ -49,25 +49,15 @@ def _grid(n: int) -> tuple[int, int]:
     return cols, rows
 
 
-def render_collage(cells: list[CollageCell], provider: ArtProvider,
-                   when: Optional[ddate] = None, total_detections: int = 0,
-                   title: str = "A Day in the Garden") -> Image.Image:
-    when = when or ddate.today()
-    cells = cells[:6]
-    cols, rows = _grid(len(cells))
-
-    field = _new_field()
+def _title_band(field: Image.Image, when: ddate, n_species: int,
+                total_detections: int, title: str) -> int:
+    """Draw the title, date subtitle, and rule; return the y below the rule."""
     draw = ImageDraw.Draw(field)
     cx = theme.WIDTH / 2
-
-    # -- title band --------------------------------------------------------
     title_font_baseline = theme.MARGIN_TOP + 44
     typography.draw_smallcaps(draw, cx, title_font_baseline, title,
                               typography.FONTS, 58, theme.INK, 0.12)
-    # date + totals subtitle
-    d = when
-    date_str = f"{d.day} {d.strftime('%B')} {d.year}"
-    n_species = len([c for c in cells])
+    date_str = f"{when.day} {when.strftime('%B')} {when.year}"
     sub = f"{date_str}   ·   {n_species} species"
     if total_detections:
         sub += f"   ·   {total_detections} detections"
@@ -78,6 +68,55 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
     half = theme.RULE_WIDTH / 2
     draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],
                    fill=theme.RULE)
+    return rule_y
+
+
+def render_generated_collage(art: Image.Image, cells: list[CollageCell],
+                             when: Optional[ddate] = None, total_detections: int = 0,
+                             title: str = "The Day in Review") -> Image.Image:
+    """The generated composite sheet: title band, the one generated artwork
+    where the grid would be, and a key line matching the sheet's figure
+    numerals — '1. Species ×count' in prominence order."""
+    when = when or ddate.today()
+    field = _new_field()
+    draw = ImageDraw.Draw(field)
+    cx = theme.WIDTH / 2
+
+    rule_y = _title_band(field, when, len(cells), total_detections, title)
+
+    key_lines = 1 if len(cells) <= 3 else 2
+    key_h = 40 + key_lines * 44
+    art_top = rule_y + 60
+    art_bottom = theme.HEIGHT - theme.MARGIN_BOTTOM - key_h
+    _paste_art(field, art,
+               (theme.MARGIN_X, art_top, theme.WIDTH - theme.MARGIN_X, art_bottom),
+               v_align=0.5)
+
+    # the key, in the numeral order the sheet uses
+    entries = [f"{i}. {c.common_name} ×{c.count}" for i, c in enumerate(cells, start=1)]
+    per_line = -(-len(entries) // key_lines)  # ceil
+    for li in range(key_lines):
+        chunk = entries[li * per_line:(li + 1) * per_line]
+        if not chunk:
+            continue
+        baseline = art_bottom + 44 + li * 44
+        typography.draw_smallcaps(draw, cx, baseline, "    ".join(chunk),
+                                  typography.FONTS, 30, theme.INK_SOFT, 0.05,
+                                  weight_caps=520, weight_small=520)
+    return field
+
+
+def render_collage(cells: list[CollageCell], provider: ArtProvider,
+                   when: Optional[ddate] = None, total_detections: int = 0,
+                   title: str = "A Day in the Garden") -> Image.Image:
+    when = when or ddate.today()
+    cells = cells[:6]
+    cols, rows = _grid(len(cells))
+
+    field = _new_field()
+    draw = ImageDraw.Draw(field)
+
+    rule_y = _title_band(field, when, len(cells), total_detections, title)
 
     # -- grid --------------------------------------------------------------
     grid_top = rule_y + 60

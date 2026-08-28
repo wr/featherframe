@@ -80,6 +80,9 @@ class Config:
     imagegen_model: str = "gpt-image-2"
     imagegen_quality: str = "high"         # low | medium | high | auto
     imagegen_api_key: str = ""             # user-provided; lives only in our DB
+    # The nightly "day in review" as one generated composite plate (the
+    # folio's totem manner). Once per date; the grid collage is the fallback.
+    collage_generated: bool = True
 
     def __post_init__(self) -> None:
         self.sanitize()

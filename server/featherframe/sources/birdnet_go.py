@@ -188,7 +188,28 @@ class BirdNetGoSource(DetectionSource):
 
     def top_species_today(self, on_date=None, min_confidence: float = 0.0,
                           limit: int = 6) -> list[dict]:
-        # The summary endpoint is all-time, and grouping a busy day's detections
-        # client-side is too heavy for a poll. Collage mode degrades to single on
-        # BirdNET-Go until a date-scoped endpoint is wired up.
-        return []
+        """The day's species by count, via the date-scoped summary endpoint.
+        A species whose best detection never crossed the confidence bar is
+        dropped — one lucky low-confidence guess shouldn't lead the day."""
+        eff = self._eff_min(min_confidence)
+        day = (on_date or datetime.now().date()).isoformat()
+        payload = self._get("/api/v2/analytics/species/summary",
+                            {"start_date": day, "end_date": day})
+        if not isinstance(payload, list):
+            return []
+        rows = []
+        for s in payload:
+            if not isinstance(s, dict):
+                continue
+            try:
+                count = int(s.get("count") or 0)
+                max_conf = float(s.get("max_confidence") or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if count <= 0 or max_conf < eff:
+                continue
+            rows.append({"common": str(s.get("common_name") or "").strip(),
+                         "scientific": str(s.get("scientific_name") or "").strip(),
+                         "count": count})
+        rows.sort(key=lambda r: -r["count"])
+        return rows[:limit]

@@ -35,6 +35,7 @@ from PIL import Image
 
 from .. import paths
 from . import plate
+from .collage import CollageCell
 from .provider import ArtProvider, Artwork
 
 log = logging.getLogger("featherframe.genart")
@@ -65,12 +66,14 @@ GEN_SIZE = "1024x1536"
 # measured color data) plus five blind-judging rounds against real plates
 # (W-582). Every clause removes a tell judges actually used. Change with care
 # and re-run a blind comparison before shipping a new version.
-_STYLE_PROMPT = (
+_P_OPEN = (
     "A hand-colored copperplate engraving with aquatint in the exact style of John James "
     "Audubon's 'The Birds of America' (Havell edition, 1827-1838), depicting {subject} "
     "life-size, drawn with a naturalist's accuracy. The background is bright, near-white "
     "wove paper left completely untouched — no sepia tint, no cream wash, no aging, no "
     "vignette, no border.\n\n"
+)
+_P_PROCESS = (
     "The printed process shows everywhere: transparent watercolor washes sit over visible "
     "engraved feather line-work and irregular aquatint grain; washes pool and bleed "
     "slightly at their edges; hand-coloring is gently uneven and no two markings repeat "
@@ -84,6 +87,8 @@ _STYLE_PROMPT = (
     "always pigment, never light: nothing glows, nothing has a specular sheen. Eyes "
     "are matte period eyes: a small dark bead with at most one tiny dry fleck of "
     "light, and the subject never makes frontal eye contact with the viewer.\n\n"
+)
+_P_COLOR = (
     "Color as the colorists actually worked: bodies are low-chroma umber, olive, and gray "
     "built from engraved line — but where the species wears color, the washes are "
     "CONFIDENTLY SATURATED: one or two vivid accents (scarlet, cobalt, chrome yellow, "
@@ -92,6 +97,8 @@ _STYLE_PROMPT = (
     "drabness is correct, timidity is not. Foliage greens are muted sage-olive, never "
     "grass-green. Whites are reserved bare paper with gray modeling, never opaque paint. "
     "Black plumage is glazed with blue-violet iridescence, never flat gray.\n\n"
+)
+_P_COMPOSE = (
     "Compose as Audubon composed. Use two or three figures of the species when sexes or "
     "ages differ or a second view adds information — one clean closed-wing profile plus "
     "one bird with wings and tail fully spread, or dorsal set against ventral — poses "
@@ -110,6 +117,8 @@ _STYLE_PROMPT = (
     "paper, asymmetrically. A single figure is right when one plumage tells everything — "
     "then catch it mid-action. Beside each bird on a multi-figure sheet sits only a tiny "
     "engraved italic numeral (1., 2.) in the period manner.\n\n"
+)
+_P_SETTING = (
     "The setting is specific and nameable, never generic filler: a foliage songbird gets "
     "ONE identifiable host plant tied to its real diet or season, drawn to "
     "botanical-plate standard with individually veined leaves that carry the incidental "
@@ -123,15 +132,93 @@ _STYLE_PROMPT = (
     "by desaturation into gray; an aerial species flies on open paper. Commit to one "
     "botanical register for the sheet: usually sparse, though a showy fruiting plant "
     "may earn the folio's exuberant showcase treatment.\n\n"
+)
+_P_ANATOMY = (
     "Anatomy must survive a naturalist's magnifying glass: feet and claws exactly those "
     "of the living species at honest scale — songbirds with short stout toes and short "
     "modestly curved claws, never sickle talons, every claw attached to its own toe, "
     "nothing tangled or extra. Wings read as true feather tracts — graded covert rows, "
     "then secondaries, then primaries crossing at their own angle, each flight feather "
     "with its shaft — never a uniform stack of nested crescents.\n\n"
+)
+_P_FOOTER = (
     "No text beyond the tiny figure numerals: no title, no names, no lettering, no "
     "signature, no border, no frame line."
 )
+
+_STYLE_PROMPT = _P_OPEN + _P_PROCESS + _P_COLOR + _P_COMPOSE + _P_SETTING + _P_ANATOMY + _P_FOOTER
+
+# The folio's late composite ("totem") plates — several species sharing one
+# sheet — are the model for the nightly day-in-review.
+_P_COMPOSITE_TEMPLATE = (
+    "A hand-colored copperplate engraving with aquatint in the exact style of John James "
+    "Audubon's 'The Birds of America' (Havell edition, 1827-1838). This sheet is one of "
+    "the folio's late COMPOSITE plates, presenting {n} different species together as one "
+    "specimen sheet: {subjects}. The background is bright, near-white wove paper left "
+    "completely untouched — no sepia tint, no cream wash, no aging, no vignette, no "
+    "border.\n\n"
+    "One shared armature — a single bare, branching bough entering from the sheet edge "
+    "and cut off flush — carries every figure. Each species holds its own station at a "
+    "staggered height, drawn in TRUE RELATIVE SCALE to the others (a large species "
+    "dwarfs a small one, as in life), in its own characteristic pose and direction, the "
+    "figures never interacting. The first-listed species takes the most commanding "
+    "station; each later one a quieter perch. Beside each bird sits its tiny engraved "
+    "italic numeral in the listed order (1., 2., 3., ...) and nothing else. The bough "
+    "stays botanically simple — a few sprigs at most — so the birds carry the sheet, "
+    "and at least a third of the sheet stays bare paper, asymmetrically.\n\n"
+)
+
+
+def build_composite_prompt(subjects: list[tuple[str, str]]) -> str:
+    """Prompt for the day-in-review sheet: the day's species as one composite
+    plate. `subjects` is (common, scientific) in prominence order."""
+    listed = "; ".join(
+        f"{i}. {common} ({sci})" if sci else f"{i}. {common}"
+        for i, (common, sci) in enumerate(subjects, start=1))
+    opener = _P_COMPOSITE_TEMPLATE.format(n=len(subjects), subjects=listed)
+    return opener + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
+
+
+# Real composite plates to hand the model as references, preference order.
+_PREFERRED_COMPOSITE_REFS = [
+    "Dryobates villosus",       # plate 416 — five woodpecker species, one snag
+    "Poecile atricapillus",     # plate 353 — the titmouse composite
+    "Haemorhous mexicanus",     # plate 424 — the finch/bunting totem
+]
+
+
+def pick_composite_reference_plates(k: int = 3) -> list[Path]:
+    """Composite plates on disk, preferred totems first."""
+    try:
+        idx = json.loads(paths.plate_index_path().read_text())
+    except (OSError, ValueError):
+        return []
+    if not isinstance(idx, dict):
+        return []
+    species = idx.get("species")
+    if not isinstance(species, list):
+        species = []
+    images_dir = Path(idx.get("images_dir", paths.plate_images_dir()))
+    by_sci = {e.get("scientific"): e for e in species if isinstance(e, dict)}
+
+    chosen: list[Path] = []
+
+    def _try(entry) -> None:
+        if not entry or len(chosen) >= k or not entry.get("composite"):
+            return
+        image = entry.get("image")
+        if not image:
+            return
+        p = images_dir / image
+        if p.exists() and p not in chosen:
+            chosen.append(p)
+
+    for sci in _PREFERRED_COMPOSITE_REFS:
+        _try(by_sci.get(sci))
+    for entry in species:
+        if isinstance(entry, dict):
+            _try(entry)
+    return chosen[:k]
 
 # Style references for the edits endpoint, matched to the subject's group so
 # the model sees the right sub-style: Audubon staged waterfowl in water scenes,
@@ -405,6 +492,150 @@ class GeneratedArtProvider(ArtProvider):
                 out.append(meta)
         out.sort(key=lambda m: str(m.get("created_at") or ""), reverse=True)
         return out
+
+    # -- the nightly day-in-review composite --------------------------------
+    _KEEP_SHEETS = 60  # pruned oldest-first; the SD card is finite
+
+    def day_composite(self, cells, when, force: bool = False):
+        """One generated composite sheet for the day's top species, in the
+        manner of the folio's late totem plates. Bought at most once per date.
+        Returns (art, cells_as_painted) — on a cache hit the cells come from
+        the sidecar, so the key under the sheet always names the figures that
+        were actually painted — or None (caller falls back to the grid).
+        Never raises."""
+        day = when.isoformat()
+        png = paths.collages_dir() / f"{day}.png"
+        sidecar = paths.collages_dir() / f"{day}.json"
+        key = f"collage-{day}"
+        try:
+            if png.exists() and not force:
+                return self._read_sheet(png, sidecar, cells)
+            if self._model is None:
+                return self._read_sheet(png, sidecar, cells) if png.exists() else None
+            if not force and self._in_cooldown(key):
+                return None
+            subjects = [(c.common_name, c.scientific_name) for c in cells]
+            prompt = build_composite_prompt(subjects)
+            refs = self._refs if self._refs is not None else pick_composite_reference_plates()
+            with _GEN_LOCK:
+                if png.exists():
+                    if not force:
+                        return self._read_sheet(png, sidecar, cells, locked=True)
+                    # Repaint debounce: two racing repaints (double-click, two
+                    # tabs) must not both bill. A sheet younger than 3 minutes
+                    # IS the repaint the second caller asked for.
+                    if self._sheet_age_s(sidecar) < 180:
+                        return self._read_sheet(png, sidecar, cells, locked=True)
+                if not force and self._in_cooldown(key):
+                    return None
+                started = time.time()
+                try:
+                    png_bytes = self._model.generate(prompt, GEN_SIZE, refs)
+                    Image.open(io.BytesIO(png_bytes)).verify()
+                except Exception as exc:
+                    self._failed_at[key] = time.time()
+                    log.warning("day composite failed for %s (%s): %s", day,
+                                getattr(self._model, "name", "?"), exc)
+                    # A failed repaint keeps showing the good sheet it meant
+                    # to replace, rather than falling to the grid.
+                    if png.exists():
+                        return self._read_sheet(png, sidecar, cells, locked=True)
+                    return None
+                payload = json.dumps({
+                    "date": day,
+                    "cells": [{"common": c.common_name, "scientific": c.scientific_name,
+                               "count": c.count} for c in cells],
+                    "model": getattr(self._model, "name", "unknown"),
+                    "quality": getattr(self._model, "quality", None),
+                    "prompt_version": PROMPT_VERSION,
+                    "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    "created_ts": round(time.time(), 1),
+                    "elapsed_s": round(time.time() - started, 1),
+                }, indent=2)
+                try:
+                    self._write_atomic(sidecar, payload.encode())
+                    self._write_atomic(png, png_bytes)
+                except OSError as exc:
+                    self._failed_at[key] = time.time()
+                    log.warning("day-composite cache write failed for %s after a "
+                                "paid generation: %s", day, exc)
+                    try:
+                        sidecar.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    return None
+                self._failed_at.pop(key, None)
+                self._prune_sheets()
+                log.info("generated day composite for %s (%d species) in %.1fs",
+                         day, len(cells), time.time() - started)
+                return self._read_sheet(png, sidecar, cells, locked=True)
+        except Exception:
+            log.exception("day composite failed for %s", when)
+            return None
+
+    @staticmethod
+    def _sheet_age_s(sidecar: Path) -> float:
+        try:
+            meta = json.loads(sidecar.read_text())
+            return max(0.0, time.time() - float(meta.get("created_ts") or 0))
+        except (OSError, ValueError, TypeError):
+            return float("inf")
+
+    def _read_sheet(self, png: Path, sidecar: Path, fallback_cells,
+                    locked: bool = False):
+        """Read a cached sheet plus the cells it was painted from. Self-heals a
+        torn file — re-verified before deleting, and without re-acquiring the
+        (non-reentrant) generation lock when the caller already holds it."""
+        def _attempt():
+            return plate.extract_generated(png)
+
+        try:
+            art = _attempt()
+        except (OSError, ValueError):
+            if not locked:
+                with _GEN_LOCK:
+                    art = self._retry_or_heal(_attempt, png, sidecar)
+            else:
+                art = self._retry_or_heal(_attempt, png, sidecar)
+            if art is None:
+                return None
+        return art, self._sheet_cells(sidecar, fallback_cells)
+
+    def _retry_or_heal(self, attempt, png: Path, sidecar: Path):
+        try:
+            return attempt()
+        except (OSError, ValueError) as exc:
+            log.warning("corrupt cached sheet %s (%s) — removing", png.name, exc)
+            try:
+                png.unlink(missing_ok=True)
+                sidecar.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return None
+
+    @staticmethod
+    def _sheet_cells(sidecar: Path, fallback_cells) -> list[CollageCell]:
+        try:
+            meta = json.loads(sidecar.read_text())
+            cells = meta.get("cells") if isinstance(meta, dict) else None
+            if isinstance(cells, list) and cells:
+                return [CollageCell(str(c.get("common") or ""),
+                                    str(c.get("scientific") or ""),
+                                    int(c.get("count") or 0))
+                        for c in cells if isinstance(c, dict)]
+        except (OSError, ValueError, TypeError):
+            pass
+        return list(fallback_cells)
+
+    def _prune_sheets(self) -> None:
+        """The per-day cache is unbounded by nature; keep the newest N."""
+        try:
+            sheets = sorted(paths.collages_dir().glob("????-??-??.png"))
+            for old in sheets[:-self._KEEP_SHEETS]:
+                old.unlink(missing_ok=True)
+                old.with_suffix(".json").unlink(missing_ok=True)
+        except OSError:
+            pass
 
     # -- internals ----------------------------------------------------------
     def _from_cache(self, slug: str) -> Optional[Artwork]:

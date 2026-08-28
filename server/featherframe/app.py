@@ -11,12 +11,13 @@ from typing import Optional
 
 from fastapi import FastAPI, Form, Request, Response
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import __version__, paths
 from .config import Config
+from .names import normalize
 from .service import FeatherframeService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -51,6 +52,22 @@ def _strip_etag(value: Optional[str]) -> Optional[str]:
     return value.strip().strip('"').removeprefix("W/").strip('"')
 
 
+def _same_origin(request: Request) -> bool:
+    """True unless the request carries a foreign Origin header. There is no
+    auth on the LAN page, but state-changing POSTs (some of which spend the
+    user's API credit) must at least not be triggerable cross-site by any web
+    page the user happens to visit. Non-browser clients send no Origin."""
+    origin = request.headers.get("origin")
+    if not origin or origin == "null":
+        return True
+    host = request.headers.get("host", "")
+    return origin.split("://", 1)[-1].split("/", 1)[0] == host
+
+
+def _forbidden_cross_origin() -> JSONResponse:
+    return JSONResponse({"error": "cross-origin request refused"}, status_code=403)
+
+
 # -- device endpoint -------------------------------------------------------
 @app.get("/api/frame")
 async def api_frame(request: Request):
@@ -80,6 +97,8 @@ async def index(request: Request):
 
 @app.post("/settings")
 async def save_settings(request: Request):
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
     svc = _svc(request)
     form = await request.form()
     cur = svc.config.to_dict()
@@ -117,9 +136,10 @@ async def save_settings(request: Request):
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
         imagegen_quality=s("imagegen_quality", cur["imagegen_quality"]),
-        # A blank key field means "keep the stored key"; the checkbox clears it.
-        imagegen_api_key="" if b("imagegen_clear_key")
-        else (str(form.get("imagegen_api_key", "") or "").strip() or cur["imagegen_api_key"]),
+        # A typed key always wins; blank means "keep the stored key" unless
+        # the clear checkbox is ticked.
+        imagegen_api_key=(str(form.get("imagegen_api_key", "") or "").strip()
+                          or ("" if b("imagegen_clear_key") else cur["imagegen_api_key"])),
     )
     render_affecting = (new.gray_mode != svc.config.gray_mode
                         or new.dither != svc.config.dither
@@ -128,12 +148,16 @@ async def save_settings(request: Request):
                         or new.mat_inset_pct != svc.config.mat_inset_pct)
     svc.update_config(new)
     if render_affecting:
-        svc.rerender_current()
+        # Threadpool: the provider chain may generate art over the network now,
+        # and a blocking render here would stall every endpoint on the loop.
+        await run_in_threadpool(svc.rerender_current)
     return RedirectResponse("/", status_code=303)
 
 
 @app.post("/api/test-detection")
 async def test_detection(request: Request):
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
     svc = _svc(request)
     form = await request.form()
     common = str(form.get("common", "") or "").strip() or "Northern Cardinal"
@@ -149,44 +173,66 @@ async def test_detection(request: Request):
 
 
 def _known_scientific(svc, common: str) -> Optional[str]:
-    """Best-effort common -> scientific from the curated index."""
-    entry = svc.audubon._index._by_common.get(common.strip().lower())  # noqa: SLF001
-    return entry.get("scientific") if entry else None
+    """Best-effort common -> scientific, so a test detection caches under the
+    same slug a real detection of that species will use. Tries the curated
+    index (normalized: hyphens and apostrophes must not break the lookup),
+    then the detection source's own species list."""
+    entry = svc.audubon._index._by_common.get(normalize(common))  # noqa: SLF001
+    if entry and entry.get("scientific"):
+        return entry["scientific"]
+    summary = getattr(svc.source, "_species_summary", None)
+    if callable(summary):
+        want = normalize(common)
+        for row in summary():
+            if normalize(str(row.get("common_name", ""))) == want:
+                return row.get("scientific_name")
+    return None
 
 
 # -- AI-generated plates ---------------------------------------------------
+def _valid_slug(slug: str) -> bool:
+    return bool(slug) and slug.replace("-", "").isalnum()
+
+
 @app.get("/api/generated")
 async def generated_list(request: Request):
     svc = _svc(request)
-    return JSONResponse({"cached": svc.genart.cached_species() if svc.genart else []})
+    return JSONResponse({"cached": svc.genart.cached_species()})
 
 
 @app.get("/api/generated/{slug}.png")
 async def generated_png(request: Request, slug: str):
     svc = _svc(request)
-    if svc.genart is None or not slug.replace("-", "").isalnum():
+    if not _valid_slug(slug):
         return Response(status_code=404)
     png = svc.genart._png(slug)  # noqa: SLF001 (same package, path is validated)
     if not png.exists():
         return Response(status_code=404)
-    return Response(content=png.read_bytes(), media_type="image/png",
-                    headers={"Cache-Control": "no-cache"})
+    # FileResponse streams and stamps Last-Modified; a short max-age keeps the
+    # gallery from re-downloading megabytes of PNG on every page view.
+    return FileResponse(png, media_type="image/png",
+                        headers={"Cache-Control": "max-age=300"})
 
 
 @app.post("/api/generated/regenerate")
-async def generated_regenerate(request: Request,
-                               common: str = Form(""), scientific: str = Form(...)):
+async def generated_regenerate(request: Request, slug: str = Form(...)):
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
     svc = _svc(request)
-    ok = await run_in_threadpool(svc.regenerate_generated, common or scientific, scientific)
+    ok = False
+    if _valid_slug(slug):
+        ok = await run_in_threadpool(svc.regenerate_generated, slug)
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": ok})
 
 
 @app.post("/api/generated/delete")
-async def generated_delete(request: Request, scientific: str = Form(...)):
+async def generated_delete(request: Request, slug: str = Form(...)):
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
     svc = _svc(request)
-    ok = svc.delete_generated(scientific)
+    ok = svc.delete_generated(slug) if _valid_slug(slug) else False
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": ok})

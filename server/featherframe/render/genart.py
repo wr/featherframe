@@ -21,6 +21,7 @@ import base64
 import io
 import json
 import logging
+import os
 import re
 import threading
 import time
@@ -37,6 +38,11 @@ from . import plate
 from .provider import ArtProvider, Artwork
 
 log = logging.getLogger("featherframe.genart")
+
+# One generation at a time, process-wide. Module-level on purpose: config
+# changes rebuild the provider instance, and a per-instance lock would let an
+# old and a new provider generate (and write the same cache file) concurrently.
+_GEN_LOCK = threading.Lock()
 
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
@@ -147,8 +153,11 @@ class OpenAIImageModel(ImageModel):
         """Downscale a plate scan to a reasonable reference size. Kept in COLOR:
         the references anchor the palette to real hand-coloring, and the cached
         result stays color so a color panel can use it — grayscale happens only
-        at render time, exactly as for a real scan."""
+        at render time, exactly as for a real scan. draft() before any convert
+        keeps the 25MP+ scans from being decoded at full resolution (the Pi
+        target has 512MB)."""
         with Image.open(path) as img:
+            img.draft("RGB", (_REF_MAX_SIDE, _REF_MAX_SIDE))
             ref = img.convert("RGB")
             ref.thumbnail((_REF_MAX_SIDE, _REF_MAX_SIDE), Image.LANCZOS)
         buf = io.BytesIO()
@@ -243,9 +252,6 @@ class GeneratedArtProvider(ArtProvider):
         self._refs = refs
         self._cooldown_s = cooldown_s
         self._failed_at: dict[str, float] = {}
-        # One generation at a time: the API rate limit is per-minute anyway,
-        # and it keeps a tick and a manual regenerate from racing on a species.
-        self._gen_lock = threading.Lock()
 
     # -- paths -------------------------------------------------------------
     def _dir(self) -> Path:
@@ -288,10 +294,10 @@ class GeneratedArtProvider(ArtProvider):
         if not slug or self._model is None:
             return False
         self._failed_at.pop(slug, None)
-        return self._generate_to_cache(slug, common_name, scientific_name)
+        return self._generate_to_cache(slug, common_name, scientific_name, force=True)
 
-    def delete(self, scientific_name: str) -> bool:
-        slug = slugify(scientific_name)
+    def delete(self, slug: str) -> bool:
+        slug = slugify(slug)
         png, sidecar = self._png(slug), self._sidecar(slug)
         if not png.exists():
             return False
@@ -314,7 +320,18 @@ class GeneratedArtProvider(ArtProvider):
 
     # -- internals ----------------------------------------------------------
     def _from_cache(self, slug: str) -> Optional[Artwork]:
-        img = plate.extract(self._png(slug), composite=False)
+        try:
+            img = plate.extract(self._png(slug), composite=False)
+        except (OSError, ValueError) as exc:
+            # A cached file that no longer decodes (torn write after a power
+            # cut, disk-full) would otherwise wedge the species on the
+            # fallback forever: exists() gates generation. Self-heal by
+            # deleting it so the next detection buys a fresh plate.
+            log.warning("corrupt generated cache for %s (%s) — removing so it "
+                        "can regenerate", slug, exc)
+            self._png(slug).unlink(missing_ok=True)
+            self._sidecar(slug).unlink(missing_ok=True)
+            return None
         return Artwork(image=img, audubon_plate=None, composite=False, generated=True)
 
     def _in_cooldown(self, slug: str) -> bool:
@@ -322,8 +339,12 @@ class GeneratedArtProvider(ArtProvider):
         return failed is not None and (time.time() - failed) < self._cooldown_s
 
     def _generate_to_cache(self, slug: str, common_name: str,
-                           scientific_name: str) -> bool:
-        with self._gen_lock:
+                           scientific_name: str, force: bool = False) -> bool:
+        with _GEN_LOCK:
+            # Re-check under the lock: a caller that queued while another
+            # thread generated this species must not buy it a second time.
+            if not force and self._png(slug).exists():
+                return True
             prompt = build_prompt(common_name, scientific_name)
             refs = self._refs if self._refs is not None else pick_reference_plates()
             started = time.time()
@@ -337,9 +358,7 @@ class GeneratedArtProvider(ArtProvider):
                             scientific_name, getattr(self._model, "name", "?"), exc)
                 return False
 
-            self._dir().mkdir(parents=True, exist_ok=True)
-            self._png(slug).write_bytes(png_bytes)
-            self._sidecar(slug).write_text(json.dumps({
+            sidecar_payload = json.dumps({
                 "slug": slug,
                 "common": common_name,
                 "scientific": scientific_name,
@@ -349,8 +368,19 @@ class GeneratedArtProvider(ArtProvider):
                 "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "elapsed_s": round(time.time() - started, 1),
                 "reference_plates": [p.name for p in refs],
-            }, indent=2))
+            }, indent=2)
+            self._dir().mkdir(parents=True, exist_ok=True)
+            self._write_atomic(self._png(slug), png_bytes)
+            self._write_atomic(self._sidecar(slug), sidecar_payload.encode())
             self._failed_at.pop(slug, None)
             log.info("generated plate for %s in %.1fs", scientific_name,
                      time.time() - started)
             return True
+
+    @staticmethod
+    def _write_atomic(dest: Path, data: bytes) -> None:
+        """Temp file + rename: a power cut mid-write must never leave a
+        truncated cache file behind (exists() gates regeneration)."""
+        tmp = dest.with_suffix(dest.suffix + ".tmp")
+        tmp.write_bytes(data)
+        os.replace(tmp, dest)

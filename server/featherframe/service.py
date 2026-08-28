@@ -50,7 +50,7 @@ class FeatherframeService:
         self.db = db or Database()
         self.config: Config = load_config(self.db)
         self.audubon = AudubonProvider()
-        self.genart: Optional[GeneratedArtProvider] = None
+        self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
         self.source = make_source(self.config)
 
@@ -97,10 +97,9 @@ class FeatherframeService:
     # -- providers ---------------------------------------------------------
     def _build_provider(self, config: Config) -> ArtProvider:
         """Audubon first, AI-generated second, typographic fallback implied.
-        Without a key the generated link is cache-only (never calls out)."""
-        if not config.imagegen_enabled:
-            self.genart = None
-            return self.audubon
+        The generated link always serves already-bought plates from its cache;
+        imagegen_enabled (and a key) only govern whether NEW plates are bought
+        — turning the feature off must never hide art the user paid for."""
         self.genart = GeneratedArtProvider(make_image_model(config))
         return ChainedProvider([self.audubon, self.genart])
 
@@ -222,22 +221,27 @@ class FeatherframeService:
         return True
 
     # -- generated-plate management (config page) --------------------------
-    def regenerate_generated(self, common_name: str, scientific_name: str) -> bool:
-        """Explicit user request for a fresh AI plate. If the frame currently
-        shows this species, re-render it with the new art."""
-        if self.genart is None:
+    def regenerate_generated(self, slug: str) -> bool:
+        """Explicit user request for a fresh AI plate, addressed by cache slug.
+        If the frame currently shows this species, re-render with the new art."""
+        meta = next((m for m in self.genart.cached_species()
+                     if m.get("slug") == slug), None)
+        if meta is None:
             return False
-        ok = self.genart.regenerate(common_name, scientific_name)
-        if ok and self._meta.get("species_key") == scientific_name.strip().lower():
+        common = meta.get("common") or slug
+        sci = meta.get("scientific") or ""
+        ok = self.genart.regenerate(common, sci)
+        current = (sci or common).strip().lower()
+        if ok and current and self._meta.get("species_key") == current:
             now = datetime.now()
             det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"),
-                            time=now.strftime("%H:%M:%S"), common_name=common_name,
-                            scientific_name=scientific_name, confidence=1.0)
+                            time=now.strftime("%H:%M:%S"), common_name=common,
+                            scientific_name=sci, confidence=1.0)
             self._render_single(det, now, reason="regenerated")
         return ok
 
-    def delete_generated(self, scientific_name: str) -> bool:
-        return self.genart.delete(scientific_name) if self.genart else False
+    def delete_generated(self, slug: str) -> bool:
+        return self.genart.delete(slug)
 
     # -- test detection ----------------------------------------------------
     def force_test_detection(self, common_name: str = "Northern Cardinal",

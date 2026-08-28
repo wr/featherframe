@@ -133,9 +133,40 @@ def test_regenerate_replaces_cache(data_dir):
 def test_delete_removes_cache(data_dir):
     provider = GeneratedArtProvider(FakeModel())
     provider.artwork("House Sparrow", "Passer domesticus")
-    assert provider.delete("Passer domesticus") is True
+    assert provider.delete("passer-domesticus") is True
     assert provider.artwork("House Sparrow", "Passer domesticus") is not None  # regenerates
-    assert provider.delete("Turdus nemo") is False
+    assert provider.delete("turdus-nemo") is False
+
+
+def test_corrupt_cache_self_heals(data_dir):
+    model = FakeModel()
+    provider = GeneratedArtProvider(model)
+    provider.artwork("House Sparrow", "Passer domesticus")
+    # Simulate a torn write (power cut mid-write on the wall frame).
+    png = data_dir / "generated" / "passer-domesticus.png"
+    png.write_bytes(png.read_bytes()[:100])
+
+    cache_only = GeneratedArtProvider(None)
+    assert cache_only.artwork("House Sparrow", "Passer domesticus") is None
+    assert not png.exists()  # corrupt file removed so the species can retry
+
+    # With a model available the species regenerates instead of wedging.
+    assert provider.artwork("House Sparrow", "Passer domesticus") is not None
+    assert model.calls == 2
+
+
+def test_no_double_purchase_after_lock_wait(data_dir):
+    model = FakeModel()
+    provider = GeneratedArtProvider(model)
+    provider.artwork("House Sparrow", "Passer domesticus")
+    # A caller that queued on the generation lock while another thread bought
+    # the plate must see the fresh cache and not buy again.
+    assert provider._generate_to_cache("passer-domesticus", "House Sparrow",
+                                       "Passer domesticus") is True
+    assert model.calls == 1
+    # The explicit regenerate path still forces a purchase.
+    assert provider.regenerate("House Sparrow", "Passer domesticus") is True
+    assert model.calls == 2
 
 
 def test_cached_species_listing(data_dir):
@@ -236,22 +267,23 @@ def test_service_masks_key_and_counts_cache(data_dir, tmp_path, monkeypatch):
     assert svc.genart is not None
 
 
-def test_service_provider_is_chained_only_when_enabled(data_dir, tmp_path, monkeypatch):
+def test_service_serves_paid_plates_even_when_disabled(data_dir, tmp_path, monkeypatch):
+    """Turning generation off must never hide plates the user already bought:
+    the chain stays, only the model goes away (cache-only)."""
     monkeypatch.setenv("FEATHERFRAME_DB", str(tmp_path / "ff.db"))
     from featherframe.config import save_config
     from featherframe.db import Database
     from featherframe.service import FeatherframeService
 
+    GeneratedArtProvider(FakeModel()).artwork("House Sparrow", "Passer domesticus")
+
     db = Database(tmp_path / "ff.db")
     save_config(db, Config(imagegen_enabled=False))
     svc = FeatherframeService(db)
-    assert svc.genart is None
-    assert not isinstance(svc.provider, ChainedProvider)
-
-    save_config(db, Config(imagegen_enabled=True))
-    svc.reload_config()
-    assert svc.genart is not None
     assert isinstance(svc.provider, ChainedProvider)
+    assert svc.genart._model is None
+    art = svc.provider.artwork("House Sparrow", "Passer domesticus")
+    assert art is not None and art.generated
 
 
 # -- prompt -----------------------------------------------------------------

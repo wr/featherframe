@@ -279,7 +279,7 @@
         <h2>AI plates</h2>
         <div class="field check">
           <input type="checkbox" id="ig" name="imagegen_enabled" {{ 'checked' if config.imagegen_enabled else '' }}>
-          <label for="ig">Generate a plate when a species has no Audubon plate</label>
+          <label for="ig">Generate a plate when a species has no Audubon plate (already-generated plates always show)</label>
         </div>
         <div class="field">
           <label>OpenAI API key</label>
@@ -331,12 +331,11 @@
           <div class="ops">
             <form class="inline" method="post" action="/api/generated/regenerate"
                   onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Generating…';">
-              <input type="hidden" name="common" value="{{ g.common }}">
-              <input type="hidden" name="scientific" value="{{ g.scientific }}">
+              <input type="hidden" name="slug" value="{{ g.slug }}">
               <button class="ghost" type="submit" title="Generate a fresh plate for this species (costs one image)">Regenerate</button>
             </form>
             <form class="inline" method="post" action="/api/generated/delete">
-              <input type="hidden" name="scientific" value="{{ g.scientific }}">
+              <input type="hidden" name="slug" value="{{ g.slug }}">
               <button class="ghost" type="submit" title="Remove the cached plate; the next detection generates a new one">Remove</button>
             </form>
           </div>

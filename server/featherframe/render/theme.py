@@ -31,7 +31,7 @@ MARGIN_BOTTOM = 95
 
 # The caption block reserves this much height at the bottom of a single frame
 # (its top edge is the title's cap top); the bird art gets everything above it.
-CAPTION_BLOCK_H = 338
+CAPTION_BLOCK_H = 356
 CAPTION_GAP = 64   # gap between the art and the caption block
 
 # Caption typography (point-ish sizes at native panel resolution)
@@ -53,7 +53,7 @@ SMALLCAP_RATIO = 0.76  # small-cap glyph height as a fraction of full caps
 # name is engraved capitals (Adorn Engraved); the date is mixed-case italic
 # with old-style figures. Shaping needs libraqm at render time; typography.py
 # degrades to faux small caps if it's absent.
-TITLE_SIZE = 100          # common name, swash italic (auto-fit to width)
+TITLE_SIZE = 112          # common name, swash italic (auto-fit to width)
 TITLE_WEIGHT = 500
 TITLE_TRACKING = -0.02    # tightened letter-spacing, fraction of size
 # Swash + standard ligatures + contextual alternates. No discretionary or
@@ -93,9 +93,9 @@ RULE_THICKNESS = 2
 # -- collage sheet ----------------------------------------------------------
 # One italic header line ("Sightings ~ August 27"), art, and an engraved-caps
 # key along the bottom. No subtitle, no rule: the sheet stays quiet.
-COLLAGE_TITLE_SIZE = 105       # header, swash italic (auto-fit to width)
-COLLAGE_TITLE_BASELINE = 140   # header baseline from the top of the panel
-COLLAGE_ART_TOP = 200          # top of the art box, below the header
+COLLAGE_TITLE_SIZE = 118       # header, swash italic (auto-fit to width)
+COLLAGE_TITLE_BASELINE = 152   # header baseline from the top of the panel
+COLLAGE_ART_TOP = 212          # top of the art box, below the header
 
 KEY_SIZE = 34                  # bottom key, engraved capitals
 KEY_SIZES = (34, 30, 27, 24)   # shrink steps when the widest line won't fit

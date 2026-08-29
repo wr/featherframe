@@ -22,6 +22,7 @@ import io
 import json
 import logging
 import os
+import random
 import re
 import threading
 import time
@@ -48,11 +49,18 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 4
+PROMPT_VERSION = 5
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
+# v5: subject identity + sampled art direction. The figure must be the very
+# animal the names denote (the detector hands us katydids, cicadas, and bats;
+# they were coming back birdified), with anatomy fidelity generalized past
+# feathers. The always-on "incidental imperfections" clause is gone — the
+# model obeyed it on every sheet (tattered leaves ~100%) — replaced by
+# per-sheet SAMPLED direction axes weighted toward restraint (see
+# _DIRECTION_AXES), recorded in the sidecar. Blind re-comparison pending.
 # v4: v3 plus the second blind sitting: the hand's limits are the signature
 # (nothing rendered past what brush and burin can hold), the sheet must
 # exhibit its subject (no camouflage or concealment poses), and botany varies
@@ -69,7 +77,11 @@ GEN_SIZE = "1024x1536"
 _P_OPEN = (
     "A hand-colored copperplate engraving with aquatint in the exact style of John James "
     "Audubon's 'The Birds of America' (Havell edition, 1827-1838), depicting {subject} "
-    "life-size, drawn with a naturalist's accuracy. The background is bright, near-white "
+    "life-size, drawn with a naturalist's accuracy. The figure is exactly the animal "
+    "those names denote — its true kind, scale, and anatomy — never translated into a "
+    "bird or any other creature; a species outside the folio's birds is presented as "
+    "the period's natural-history engravers would have drawn it, in this same plate "
+    "manner. The background is bright, near-white "
     "wove paper left completely untouched — no sepia tint, no cream wash, no aging, no "
     "vignette, no border.\n\n"
 )
@@ -100,46 +112,44 @@ _P_COLOR = (
 )
 _P_COMPOSE = (
     "Compose as Audubon composed. Use two or three figures of the species when sexes or "
-    "ages differ or a second view adds information — one clean closed-wing profile plus "
-    "one bird with wings and tail fully spread, or dorsal set against ventral — poses "
-    "never repeating, at least one figure contorted or animated in a characteristic "
-    "behavior (singing, foraging head-down, lunging, banking in flight). Behavior "
-    "must be true to this particular species as a naturalist knows it: the bill opens "
-    "only as far as its real voice demands, posture and energy match its living "
-    "temperament, and any contortion follows Audubon's theatrical grammar rather than "
-    "generic distortion. And the sheet exists to EXHIBIT the animal: however dramatic "
+    "ages differ or a second view adds information — one at rest in clean profile plus "
+    "one displaying its full extent as its body allows, or dorsal set against ventral — "
+    "poses never repeating, at least one figure holding a characteristic living "
+    "attitude. Behavior must be true to this particular species as a naturalist knows "
+    "it: any voice, gape, or display goes only as far as the real animal's does, "
+    "posture and energy match its living temperament, and any contortion follows "
+    "Audubon's theatrical grammar rather than generic distortion. And the sheet exists to EXHIBIT the animal: however dramatic "
     "the moment, the subject stays conspicuous with its diagnostic features displayed "
     "— a pose that conceals or camouflages the subject defeats the plate's purpose. "
     "Arrange the figures on one long diagonal or S-curve armature — a branch, stem, or "
     "bank entering from the sheet edge and cut off flush — at staggered heights, facing "
-    "opposite directions; a very large bird is instead bent in the period manner (neck "
-    "recurved) to fit the sheet life-size. Half to two-thirds of the sheet stays bare "
-    "paper, asymmetrically. A single figure is right when one plumage tells everything — "
-    "then catch it mid-action. Beside each bird on a multi-figure sheet sits only a tiny "
-    "engraved italic numeral (1., 2.) in the period manner.\n\n"
+    "opposite directions; a very large species is instead bent in the period manner "
+    "to fit the sheet life-size. Half to two-thirds of the sheet stays bare "
+    "paper, asymmetrically. A single figure is right when one view tells everything — "
+    "then catch it mid-action. Beside each figure on a multi-figure sheet sits only a "
+    "tiny engraved italic numeral (1., 2.) in the period manner.\n\n"
 )
 _P_SETTING = (
-    "The setting is specific and nameable, never generic filler: a foliage songbird gets "
+    "The setting is specific and nameable, never generic filler: a foliage dweller gets "
     "ONE identifiable host plant tied to its real diet or season, drawn to "
-    "botanical-plate standard with individually veined leaves that carry the incidental "
-    "imperfections of field-gathered specimens — most leaves whole, damage the "
-    "exception that proves the specimen real, and chosen fresh from that species' own "
-    "world rather than from a painter's stock of favorites; "
-    "a trunk forager gets dead lichen-crusted wood, no leaves; a ground bird gets a "
+    "botanical-plate standard with individually veined leaves, chosen fresh from that "
+    "species' own world rather than from a painter's stock of favorites; "
+    "a trunk forager gets dead lichen-crusted wood, no leaves; a ground dweller gets a "
     "painted ground band of moss, rocks, and particular grasses in the lower third only, "
     "its edge cut hard so it floats on the paper, bare-paper sky above; a waterbird or "
     "wader gets a specific muted shore or marsh with a low horizon, the distance receding "
-    "by desaturation into gray; an aerial species flies on open paper. Commit to one "
-    "botanical register for the sheet: usually sparse, though a showy fruiting plant "
-    "may earn the folio's exuberant showcase treatment.\n\n"
+    "by desaturation into gray; an aerial species flies on open paper.\n\n"
 )
 _P_ANATOMY = (
-    "Anatomy must survive a naturalist's magnifying glass: feet and claws exactly those "
-    "of the living species at honest scale — songbirds with short stout toes and short "
-    "modestly curved claws, never sickle talons, every claw attached to its own toe, "
-    "nothing tangled or extra. Wings read as true feather tracts — graded covert rows, "
-    "then secondaries, then primaries crossing at their own angle, each flight feather "
-    "with its shaft — never a uniform stack of nested crescents.\n\n"
+    "Anatomy must survive a naturalist's magnifying glass. A bird's feet and claws are "
+    "exactly those of the living species at honest scale — songbirds with short stout "
+    "toes and short modestly curved claws, never sickle talons, every claw attached to "
+    "its own toe, nothing tangled or extra — and its wings read as true feather tracts "
+    "— graded covert rows, then secondaries, then primaries crossing at their own "
+    "angle, each flight feather with its shaft — never a uniform stack of nested "
+    "crescents. Any other kind of animal receives the same fidelity in its own terms: "
+    "limb count, segmentation, venation, membrane, and surface exactly the species' "
+    "own, at honest scale, nothing invented and nothing borrowed from birds.\n\n"
 )
 _P_FOOTER = (
     "No text beyond the tiny figure numerals: no title, no names, no lettering, no "
@@ -161,10 +171,11 @@ _P_COMPOSITE_TEMPLATE = (
     "and cut off flush — carries every figure. Each species holds its own station at a "
     "staggered height, drawn in TRUE RELATIVE SCALE to the others (a large species "
     "dwarfs a small one, as in life), in its own characteristic pose and direction, the "
-    "figures never interacting. The first-listed species takes the most commanding "
-    "station; each later one a quieter perch. Beside each bird sits its tiny engraved "
+    "figures never interacting. Each figure is exactly the species its names denote — "
+    "its true kind and anatomy, never translated into another creature. The first-listed species takes the most commanding "
+    "station; each later one a quieter perch. Beside each figure sits its tiny engraved "
     "italic numeral in the listed order (1., 2., 3., ...) and nothing else. The bough "
-    "stays botanically simple — a few sprigs at most — so the birds carry the sheet, "
+    "stays botanically simple — a few sprigs at most — so the figures carry the sheet, "
     "and at least a third of the sheet stays bare paper, asymmetrically.\n\n"
 )
 
@@ -266,9 +277,61 @@ def slugify(name: str) -> str:
     return s.strip("-")
 
 
-def build_prompt(common_name: str, scientific_name: str) -> str:
+# Art direction is SAMPLED, never fixed: a constant clause reads as a command
+# and the model obeys it on every sheet (the always-on "incidental
+# imperfections" line came back as tattered leaves on ~every plate). Each axis
+# contributes one principled, example-free sentence, weighted hard toward
+# restraint, so variety emerges across the cache and every regeneration is a
+# fresh draw. The picks land in the sidecar for the audit trail.
+_DIRECTION_AXES = [
+    ("condition", (
+        (0.70, "All plant material on the sheet is fresh and whole."),
+        (0.25, "The botany is healthy overall; at most one modest, natural sign of "
+               "field wear may appear, and the rest stays whole."),
+        (0.05, "The botany may carry honest visible weathering, truthful to a "
+               "gathered specimen and never decorative."),
+    )),
+    ("foliage", (
+        (0.50, "Keep the setting spare: the fewest botanical elements that still "
+               "identify the plant."),
+        (0.35, "Give the setting moderate fullness, the bare paper still clearly "
+               "dominant."),
+        (0.15, "Let the plant take the folio's exuberant showcase treatment for "
+               "once, the subject still commanding the sheet."),
+    )),
+    ("energy", (
+        (0.40, "Hold the sheet's temper to composed stillness; even the animated "
+               "figure moves gently."),
+        (0.40, "Pitch the sheet's temper at quiet activity — characteristic "
+               "behavior caught mid-motion, nothing forced."),
+        (0.20, "Allow the sheet a full theatrical moment in the folio's dramatic "
+               "manner."),
+    )),
+]
+
+
+def _sample_direction(rng: random.Random) -> tuple[str, dict]:
+    picks = {}
+    for axis, choices in _DIRECTION_AXES:
+        roll, acc = rng.random(), 0.0
+        for weight, sentence in choices:
+            acc += weight
+            if roll <= acc:
+                picks[axis] = sentence
+                break
+        else:
+            picks[axis] = choices[0][1]
+    return " ".join(picks.values()), picks
+
+
+def build_prompt(common_name: str, scientific_name: str, direction: str = "") -> str:
     subject = common_name if not scientific_name else f"{common_name} ({scientific_name})"
-    return _STYLE_PROMPT.format(subject=subject)
+    parts = [_P_OPEN, _P_PROCESS, _P_COLOR, _P_COMPOSE, _P_SETTING]
+    if direction:
+        parts.append("Art direction for this sheet, chosen for it alone: "
+                     + direction + "\n\n")
+    parts += [_P_ANATOMY, _P_FOOTER]
+    return "".join(parts).format(subject=subject)
 
 
 class GenerationError(RuntimeError):
@@ -674,7 +737,8 @@ class GeneratedArtProvider(ArtProvider):
             # thread generated this species must not buy it a second time.
             if not force and self._png(slug).exists():
                 return True
-            prompt = build_prompt(common_name, scientific_name)
+            direction, picks = _sample_direction(random.Random())
+            prompt = build_prompt(common_name, scientific_name, direction)
             refs = (self._refs if self._refs is not None
                     else pick_reference_plates(common_name))
             started = time.time()
@@ -695,6 +759,7 @@ class GeneratedArtProvider(ArtProvider):
                 "model": getattr(self._model, "name", "unknown"),
                 "quality": getattr(self._model, "quality", None),
                 "prompt_version": PROMPT_VERSION,
+                "art_direction": picks,
                 "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "elapsed_s": round(time.time() - started, 1),
                 "reference_plates": [p.name for p in refs],

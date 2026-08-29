@@ -141,7 +141,7 @@ async def index(request: Request):
     return templates.TemplateResponse(
         request, "index.html",
         {"status": svc.status(), "config": svc.config, "version": __version__,
-         "generated": svc.genart.cached_species() if svc.genart else []})
+         "generated": svc.generated_listing() if svc.genart else []})
 
 
 @app.post("/settings")
@@ -263,7 +263,12 @@ def _valid_slug(slug: str) -> bool:
 @app.get("/api/generated")
 async def generated_list(request: Request):
     svc = _svc(request)
-    return JSONResponse({"cached": svc.genart.cached_species()})
+    # Each entry carries regenerating/regen_error; the top-level list is what
+    # the page's poller checks to decide whether to keep polling.
+    cached = svc.generated_listing()
+    return JSONResponse({"cached": cached,
+                         "regenerating": [m["slug"] for m in cached
+                                          if m.get("regenerating")]})
 
 
 @app.get("/api/generated/{slug}.png")
@@ -285,9 +290,12 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
+    # Fire-and-forget: the generation runs in a service worker thread and the
+    # page polls /api/generated for the outcome, so this returns immediately.
+    # Threadpool only for the small cache-listing read (SD cards stall).
     ok = False
     if _valid_slug(slug):
-        ok = await run_in_threadpool(svc.regenerate_generated, slug)
+        ok = await run_in_threadpool(svc.start_regenerate, slug)
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": ok})

@@ -330,6 +330,40 @@ def test_service_serves_paid_plates_even_when_disabled(data_dir, tmp_path, monke
 
 
 # -- prompt -----------------------------------------------------------------
+def test_prompt_never_commands_imperfections():
+    # The always-on imperfection clause came back as tattered leaves on every
+    # sheet; damage may only arrive via the rare weathered direction bucket.
+    p = build_prompt("House Sparrow", "Passer domesticus")
+    assert "imperfection" not in p.lower()
+    assert "damage" not in p.lower()
+
+
+def test_direction_sampling_weighted_toward_restraint():
+    import random as _random
+    from featherframe.render.genart import _sample_direction
+    picks = [_sample_direction(_random.Random(i))[1] for i in range(300)]
+    weathered = sum(1 for p in picks if "weathering" in p["condition"])
+    fresh = sum(1 for p in picks if "fresh and whole" in p["condition"])
+    assert weathered < 40      # the ~5% bucket stays the exception
+    assert fresh > 150         # restraint dominates
+
+
+def test_direction_lands_in_prompt_only_when_drawn():
+    import random as _random
+    from featherframe.render.genart import _sample_direction
+    direction, _ = _sample_direction(_random.Random(1))
+    with_dir = build_prompt("House Sparrow", "Passer domesticus", direction)
+    without = build_prompt("House Sparrow", "Passer domesticus")
+    assert direction in with_dir
+    assert "Art direction for this sheet" in with_dir
+    assert "Art direction for this sheet" not in without
+
+
+def test_prompt_pins_subject_identity():
+    p = build_prompt("Greater Anglewing", "Microcentrum rhombifolium")
+    assert "never translated into a" in p
+
+
 def test_prompt_mentions_species_and_bans_text():
     p = build_prompt("Southeastern myotis", "Myotis austroriparius")
     assert "Southeastern myotis" in p

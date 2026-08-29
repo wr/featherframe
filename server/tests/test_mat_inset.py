@@ -1,5 +1,6 @@
-"""The mat inset shrinks the composition onto white paper so the visible art
-clears the frame's 8x6 mat opening. See pipeline._apply_mat_inset."""
+"""The mat inset shrinks the composition so the visible art clears the
+frame's 8x6 mat opening; the surround is painted MAT_BORDER — the ring the
+physical mat should exactly cover. See pipeline._apply_mat_inset."""
 from __future__ import annotations
 
 from PIL import Image
@@ -14,21 +15,27 @@ def _solid_black() -> Image.Image:
     return Image.new("L", (PANEL_WIDTH, PANEL_HEIGHT), 0)
 
 
-def test_inset_keeps_canvas_size_and_adds_white_border():
+def test_inset_keeps_canvas_size_and_paints_mat_ring():
     out = _apply_mat_inset(_solid_black(), Config(mat_inset_pct=4.0))
     assert out.size == (PANEL_WIDTH, PANEL_HEIGHT)
-    # The corners fall in the reserved border, so they are the white field.
-    assert out.getpixel((0, 0)) == theme.FIELD
-    assert out.getpixel((PANEL_WIDTH - 1, PANEL_HEIGHT - 1)) == theme.FIELD
+    # The corners fall in the mat allowance, painted the registration gray.
+    assert out.getpixel((0, 0)) == theme.MAT_BORDER
+    assert out.getpixel((PANEL_WIDTH - 1, PANEL_HEIGHT - 1)) == theme.MAT_BORDER
     # The center is still the black composition.
     assert out.getpixel((PANEL_WIDTH // 2, PANEL_HEIGHT // 2)) == 0
 
 
+def test_mat_ring_tone_sits_on_a_gray_level():
+    # A tone off the 16-level grid would dither to stipple instead of a flat
+    # ring (the same constraint that pins FIELD).
+    assert theme.MAT_BORDER % 17 == 0
+
+
 def test_inset_scale_matches_pct():
     out = _apply_mat_inset(_solid_black(), Config(mat_inset_pct=4.0))
-    # 4% per edge -> a white band roughly 4% of each dimension wide.
+    # 4% per edge -> a mat-gray band roughly 4% of each dimension wide.
     band = round(PANEL_WIDTH * 0.04)
-    assert out.getpixel((band // 2, PANEL_HEIGHT // 2)) == theme.FIELD
+    assert out.getpixel((band // 2, PANEL_HEIGHT // 2)) == theme.MAT_BORDER
     assert out.getpixel((band + 10, PANEL_HEIGHT // 2)) == 0
 
 

@@ -23,6 +23,11 @@ INK_SOFT = 96      # tertiary type (faint)
 INK_MEDIUM = 51    # secondary text (sci name, date, number) — #333
 RULE = 68          # divider line — #444
 FALLBACK_TINT = 236  # very light panel behind a fallback plate's name
+MAT_BORDER = 204   # the mat allowance ring around the inset composition — a
+                   # quiet gray the physical mat should exactly cover, so a
+                   # sliver of it on the glass means "adjust mat_inset_pct".
+                   # Multiple of 17 so it sits ON a 16-level gray (no stipple),
+                   # same rationale as FIELD.
 
 # -- geometry (px) ---------------------------------------------------------
 MARGIN_X = 100     # left/right breathing room (art fills wider, per v2)

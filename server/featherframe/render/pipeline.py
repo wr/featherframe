@@ -17,8 +17,10 @@ from .provider import ArtProvider
 
 
 def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
-    """Scale the composition down by `mat_inset_pct` per edge and center it on the
-    white field. Returns the image unchanged when the inset is 0."""
+    """Scale the composition down by `mat_inset_pct` per edge and center it.
+    The surround is painted MAT_BORDER — the ring the physical mat should
+    exactly cover, visible in the preview and, if the inset is dialed wrong,
+    as a sliver on the glass. Returns the image unchanged when the inset is 0."""
     pct = getattr(config, "mat_inset_pct", 0.0)
     if pct <= 0:
         return img
@@ -26,7 +28,7 @@ def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
     w, h = img.size
     sw, sh = max(1, round(w * scale)), max(1, round(h * scale))
     shrunk = img.resize((sw, sh), Image.LANCZOS)
-    canvas = Image.new(img.mode, (w, h), theme.FIELD)
+    canvas = Image.new(img.mode, (w, h), theme.MAT_BORDER)
     canvas.paste(shrunk, ((w - sw) // 2, (h - sh) // 2))
     return canvas
 

@@ -125,6 +125,14 @@ class FeatherframeService:
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
+        # Background regenerations (config page). The page polls the listing
+        # for this state, so it must be readable from any thread — and it is
+        # the server's memory of an in-flight repaint, which is what lets a
+        # refreshed page pick the indicator back up.
+        self._regen_lock = threading.Lock()
+        self._regen_inflight: set[str] = set()
+        self._regen_errors: dict[str, str] = {}
+
         # in-memory current frame
         self._frame_bytes: Optional[bytes] = None
         self._etag: Optional[str] = None
@@ -355,6 +363,57 @@ class FeatherframeService:
                             scientific_name=sci, confidence=1.0)
             self._render_single(det, now, reason="regenerated")
         return ok
+
+    def start_regenerate(self, slug: str) -> bool:
+        """Kick off a regeneration in a worker thread and return immediately
+        (a generation is a 30-60 s network call — the web handler must not
+        wait on it). True means a job is now running for this slug; a request
+        while one is already in flight joins it rather than buying a second
+        image. False means the slug isn't cached. genart's module-level
+        generation lock serializes the actual purchases, so concurrent slugs
+        form a queue of one."""
+        if not any(m.get("slug") == slug for m in self.genart.cached_species()):
+            return False
+        with self._regen_lock:
+            if slug in self._regen_inflight:
+                return True
+            self._regen_inflight.add(slug)
+            self._regen_errors.pop(slug, None)
+        threading.Thread(target=self._regen_worker, args=(slug,),
+                         name=f"ff-regen-{slug}", daemon=True).start()
+        return True
+
+    def _regen_worker(self, slug: str) -> None:
+        """Runs regenerate_generated off the request thread. The in-flight
+        flag must clear on every exit path — a stuck flag would pin the page
+        on "Repainting…" and block further repaints of the species."""
+        error: Optional[str] = None
+        try:
+            if not self.regenerate_generated(slug):
+                error = "generation failed — the previous plate is kept"
+        except Exception as exc:
+            log.exception("background regeneration failed for %s", slug)
+            error = f"{type(exc).__name__}: {exc}"[:200]
+        with self._regen_lock:
+            self._regen_inflight.discard(slug)
+            if error:
+                self._regen_errors[slug] = error
+
+    def generated_listing(self) -> list[dict]:
+        """cached_species() plus live regeneration state, for the config page
+        and its polling. Copies each sidecar dict so the flags never leak
+        into the provider's own metadata."""
+        with self._regen_lock:
+            inflight = set(self._regen_inflight)
+            errors = dict(self._regen_errors)
+        out = []
+        for meta in self.genart.cached_species():
+            m = dict(meta)
+            slug = str(m.get("slug") or "")
+            m["regenerating"] = slug in inflight
+            m["regen_error"] = errors.get(slug)
+            out.append(m)
+        return out
 
     def delete_generated(self, slug: str) -> bool:
         return self.genart.delete(slug)

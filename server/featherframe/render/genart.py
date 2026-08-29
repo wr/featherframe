@@ -22,6 +22,7 @@ import io
 import json
 import logging
 import os
+import random
 import re
 import threading
 import time
@@ -48,11 +49,39 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 4
+PROMPT_VERSION = 8
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
+# v8: regenerates must LOOK regenerated. The image model has no memory — the
+# sameness came from us sending a near-identical packet each time. Three
+# changes: a forced regenerate excludes the previous draw's plant, tableau,
+# foliage, figure count, and armature; the style references are shuffled
+# within the eligible pool (the species-group ref keeps slot one); and the
+# composition skeleton (figure count + armature form) moved out of the fixed
+# clause into sampled axes.
+# v7: the brief also names the botany. The image model paints generic
+# deciduous-with-catkins when it doesn't know a species' real associates, so
+# the text model now returns a POOL of real host/associate plants in season
+# (flowering ones included when truthful — Audubon drew a lot of flowers) and
+# each generation samples ONE: regenerates vary, species don't converge on
+# the same stock foliage, and the plant is a named fact, not a prior.
+# v6: the naturalist's brief + tableau/dressing axes. The image model knows
+# what things look like, not what names mean (an obscure leaf-winged katydid
+# came back as a moth), so a text model that DOES know taxonomy briefs the
+# illustrator first — cached per species, injected as fact, asserting what the
+# subject IS rather than what it isn't. New sampled axes: tableau (nest with
+# young, feeding, a juvenile, a dispute — all Audubon subjects; nest/juvenile
+# bird-gated) and surface dressing (lichen was a commanded constant and grew
+# on everything; now it and moss are uncommon draws).
+# v5: subject identity + sampled art direction. The figure must be the very
+# animal the names denote (the detector hands us katydids, cicadas, and bats;
+# they were coming back birdified), with anatomy fidelity generalized past
+# feathers. The always-on "incidental imperfections" clause is gone — the
+# model obeyed it on every sheet (tattered leaves ~100%) — replaced by
+# per-sheet SAMPLED direction axes weighted toward restraint (see
+# _DIRECTION_AXES), recorded in the sidecar. Blind re-comparison pending.
 # v4: v3 plus the second blind sitting: the hand's limits are the signature
 # (nothing rendered past what brush and burin can hold), the sheet must
 # exhibit its subject (no camouflage or concealment poses), and botany varies
@@ -69,7 +98,11 @@ GEN_SIZE = "1024x1536"
 _P_OPEN = (
     "A hand-colored copperplate engraving with aquatint in the exact style of John James "
     "Audubon's 'The Birds of America' (Havell edition, 1827-1838), depicting {subject} "
-    "life-size, drawn with a naturalist's accuracy. The background is bright, near-white "
+    "life-size, drawn with a naturalist's accuracy. The figure is exactly the animal "
+    "those names denote — its true kind, scale, and anatomy — never translated into a "
+    "bird or any other creature; a species outside the folio's birds is presented as "
+    "the period's natural-history engravers would have drawn it, in this same plate "
+    "manner. The background is bright, near-white "
     "wove paper left completely untouched — no sepia tint, no cream wash, no aging, no "
     "vignette, no border.\n\n"
 )
@@ -99,47 +132,43 @@ _P_COLOR = (
     "Black plumage is glazed with blue-violet iridescence, never flat gray.\n\n"
 )
 _P_COMPOSE = (
-    "Compose as Audubon composed. Use two or three figures of the species when sexes or "
-    "ages differ or a second view adds information — one clean closed-wing profile plus "
-    "one bird with wings and tail fully spread, or dorsal set against ventral — poses "
-    "never repeating, at least one figure contorted or animated in a characteristic "
-    "behavior (singing, foraging head-down, lunging, banking in flight). Behavior "
-    "must be true to this particular species as a naturalist knows it: the bill opens "
-    "only as far as its real voice demands, posture and energy match its living "
-    "temperament, and any contortion follows Audubon's theatrical grammar rather than "
-    "generic distortion. And the sheet exists to EXHIBIT the animal: however dramatic "
+    "Compose as Audubon composed. A second or third figure of the species earns its "
+    "place when sexes or ages differ or another view adds information — one at rest in "
+    "clean profile against one displaying its full extent as its body allows, or dorsal "
+    "against ventral — poses never repeating, at least one figure holding a "
+    "characteristic living attitude. Behavior must be true to this particular species as a naturalist knows "
+    "it: any voice, gape, or display goes only as far as the real animal's does, "
+    "posture and energy match its living temperament, and any contortion follows "
+    "Audubon's theatrical grammar rather than generic distortion. And the sheet exists to EXHIBIT the animal: however dramatic "
     "the moment, the subject stays conspicuous with its diagnostic features displayed "
     "— a pose that conceals or camouflages the subject defeats the plate's purpose. "
-    "Arrange the figures on one long diagonal or S-curve armature — a branch, stem, or "
-    "bank entering from the sheet edge and cut off flush — at staggered heights, facing "
-    "opposite directions; a very large bird is instead bent in the period manner (neck "
-    "recurved) to fit the sheet life-size. Half to two-thirds of the sheet stays bare "
-    "paper, asymmetrically. A single figure is right when one plumage tells everything — "
-    "then catch it mid-action. Beside each bird on a multi-figure sheet sits only a tiny "
-    "engraved italic numeral (1., 2.) in the period manner.\n\n"
+    "Multiple figures share one continuous armature — a branch, stem, or bank — at "
+    "staggered heights, facing opposite directions; a very large species is instead "
+    "bent in the period manner to fit the sheet life-size. Half to two-thirds of the sheet stays bare "
+    "paper, asymmetrically. Beside each figure on a multi-figure sheet sits only a "
+    "tiny engraved italic numeral (1., 2.) in the period manner.\n\n"
 )
 _P_SETTING = (
-    "The setting is specific and nameable, never generic filler: a foliage songbird gets "
+    "The setting is specific and nameable, never generic filler: a foliage dweller gets "
     "ONE identifiable host plant tied to its real diet or season, drawn to "
-    "botanical-plate standard with individually veined leaves that carry the incidental "
-    "imperfections of field-gathered specimens — most leaves whole, damage the "
-    "exception that proves the specimen real, and chosen fresh from that species' own "
-    "world rather than from a painter's stock of favorites; "
-    "a trunk forager gets dead lichen-crusted wood, no leaves; a ground bird gets a "
+    "botanical-plate standard with individually veined leaves, chosen fresh from that "
+    "species' own world rather than from a painter's stock of favorites; "
+    "a trunk forager gets dead weathered wood, no leaves; a ground dweller gets a "
     "painted ground band of moss, rocks, and particular grasses in the lower third only, "
     "its edge cut hard so it floats on the paper, bare-paper sky above; a waterbird or "
     "wader gets a specific muted shore or marsh with a low horizon, the distance receding "
-    "by desaturation into gray; an aerial species flies on open paper. Commit to one "
-    "botanical register for the sheet: usually sparse, though a showy fruiting plant "
-    "may earn the folio's exuberant showcase treatment.\n\n"
+    "by desaturation into gray; an aerial species flies on open paper.\n\n"
 )
 _P_ANATOMY = (
-    "Anatomy must survive a naturalist's magnifying glass: feet and claws exactly those "
-    "of the living species at honest scale — songbirds with short stout toes and short "
-    "modestly curved claws, never sickle talons, every claw attached to its own toe, "
-    "nothing tangled or extra. Wings read as true feather tracts — graded covert rows, "
-    "then secondaries, then primaries crossing at their own angle, each flight feather "
-    "with its shaft — never a uniform stack of nested crescents.\n\n"
+    "Anatomy must survive a naturalist's magnifying glass. A bird's feet and claws are "
+    "exactly those of the living species at honest scale — songbirds with short stout "
+    "toes and short modestly curved claws, never sickle talons, every claw attached to "
+    "its own toe, nothing tangled or extra — and its wings read as true feather tracts "
+    "— graded covert rows, then secondaries, then primaries crossing at their own "
+    "angle, each flight feather with its shaft — never a uniform stack of nested "
+    "crescents. Any other kind of animal receives the same fidelity in its own terms: "
+    "limb count, segmentation, venation, membrane, and surface exactly the species' "
+    "own, at honest scale, nothing invented and nothing borrowed from birds.\n\n"
 )
 _P_FOOTER = (
     "No text beyond the tiny figure numerals: no title, no names, no lettering, no "
@@ -161,19 +190,29 @@ _P_COMPOSITE_TEMPLATE = (
     "and cut off flush — carries every figure. Each species holds its own station at a "
     "staggered height, drawn in TRUE RELATIVE SCALE to the others (a large species "
     "dwarfs a small one, as in life), in its own characteristic pose and direction, the "
-    "figures never interacting. The first-listed species takes the most commanding "
-    "station; each later one a quieter perch. Beside each bird sits its tiny engraved "
+    "figures never interacting. Each figure is exactly the species its names denote — "
+    "its true kind and anatomy, never translated into another creature. The first-listed species takes the most commanding "
+    "station; each later one a quieter perch. Beside each figure sits its tiny engraved "
     "italic numeral in the listed order (1., 2., 3., ...) and nothing else. The bough "
-    "stays botanically simple — a few sprigs at most — so the birds carry the sheet, "
+    "stays botanically simple — a few sprigs at most — so the figures carry the sheet, "
     "and at least a third of the sheet stays bare paper, asymmetrically.\n\n"
 )
 
 
-def build_composite_prompt(subjects: list[tuple[str, str]]) -> str:
+def build_composite_prompt(subjects: list[tuple[str, str]],
+                           briefs: Optional[dict] = None) -> str:
     """Prompt for the day-in-review sheet: the day's species as one composite
-    plate. `subjects` is (common, scientific) in prominence order."""
+    plate. `subjects` is (common, scientific) in prominence order; `briefs`
+    maps a scientific name to a naturalist's one-line description so the
+    model draws katydids as katydids."""
+    def line(i, common, sci):
+        s = f"{i}. {common} ({sci})" if sci else f"{i}. {common}"
+        brief = (briefs or {}).get(sci or common, "")
+        if brief:
+            s += " — " + brief.split(". ")[0].rstrip(".") + "."
+        return s
     listed = "; ".join(
-        f"{i}. {common} ({sci})" if sci else f"{i}. {common}"
+        line(i, common, sci)
         for i, (common, sci) in enumerate(subjects, start=1))
     opener = _P_COMPOSITE_TEMPLATE.format(n=len(subjects), subjects=listed)
     return opener + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
@@ -266,13 +305,205 @@ def slugify(name: str) -> str:
     return s.strip("-")
 
 
-def build_prompt(common_name: str, scientific_name: str) -> str:
+# Art direction is SAMPLED, never fixed: a constant clause reads as a command
+# and the model obeys it on every sheet (the always-on "incidental
+# imperfections" line came back as tattered leaves on ~every plate). Each axis
+# contributes one principled, example-free sentence, weighted hard toward
+# restraint, so variety emerges across the cache and every regeneration is a
+# fresh draw. The picks land in the sidecar for the audit trail.
+_DIRECTION_AXES = [
+    ("condition", (
+        (0.70, "All plant material on the sheet is fresh and whole."),
+        (0.25, "The botany is healthy overall; at most one modest, natural sign of "
+               "field wear may appear, and the rest stays whole."),
+        (0.05, "The botany may carry honest visible weathering, truthful to a "
+               "gathered specimen and never decorative."),
+    )),
+    ("foliage", (
+        (0.50, "Keep the setting spare: the fewest botanical elements that still "
+               "identify the plant."),
+        (0.35, "Give the setting moderate fullness, the bare paper still clearly "
+               "dominant."),
+        (0.15, "Let the plant take the folio's exuberant showcase treatment for "
+               "once, the subject still commanding the sheet."),
+    )),
+    ("energy", (
+        (0.40, "Hold the sheet's temper to composed stillness; even the animated "
+               "figure moves gently."),
+        (0.40, "Pitch the sheet's temper at quiet activity — characteristic "
+               "behavior caught mid-motion, nothing forced."),
+        (0.20, "Allow the sheet a full theatrical moment in the folio's dramatic "
+               "manner."),
+    )),
+    ("dressing", (
+        (0.70, "Perches and surfaces stay plain: clean bark, stone, or stem, "
+               "undressed."),
+        (0.15, "Moss may dress the perch or ground, sparingly."),
+        (0.15, "Lichen may crust the older wood, sparingly."),
+    )),
+]
+
+# The tableau axis chooses what the sheet is ABOUT — all subjects Audubon
+# himself painted. Nest and juvenile draws only make sense for birds; the
+# text model's is_bird verdict gates them.
+_TABLEAU_BIRD = (
+    (0.55, "The sheet is a straightforward exhibit of the species itself."),
+    (0.15, "Build the moment around the species feeding in its true manner, "
+           "prey or forage rendered honestly."),
+    (0.12, "Build the sheet around the species' own nest — its real "
+           "architecture and site — with eggs or dependent young as the season "
+           "allows, a parent attending."),
+    (0.10, "Set a juvenile beside the adult, its immature plumage honestly "
+           "distinct."),
+    (0.08, "Stage a true-to-life dispute — rivalry, theft, or defense — in the "
+           "folio's dramatic manner."),
+)
+_FIGURES = (
+    (0.40, "Let one figure carry the sheet alone, caught in a telling attitude."),
+    (0.40, "Set two figures on the sheet, their poses and directions never "
+           "repeating."),
+    (0.20, "Set three figures at staggered stations, each on its own errand."),
+)
+_ARMATURE = (
+    (0.35, "Build the sheet on one long diagonal armature entering from the "
+           "sheet edge and cut off flush."),
+    (0.30, "Build the sheet on a sinuous S-curve armature entering from the "
+           "sheet edge and cut off flush."),
+    (0.20, "Build the sheet on a single upright stem rising through it, cut "
+           "off flush at the edge."),
+    (0.15, "Give the sheet open air: the least support the species allows, "
+           "the figures commanding bare paper."),
+)
+_TABLEAU_OTHER = (
+    (0.70, "The sheet is a straightforward exhibit of the species itself."),
+    (0.20, "Build the moment around the species feeding in its true manner, "
+           "prey or forage rendered honestly."),
+    (0.10, "Stage a true-to-life defensive or rival encounter in the folio's "
+           "dramatic manner."),
+)
+
+
+def _pick(rng: random.Random, choices) -> str:
+    total = sum(w for w, _ in choices)
+    roll, acc = rng.random() * total, 0.0
+    for weight, sentence in choices:
+        acc += weight
+        if roll <= acc:
+            return sentence
+    return choices[-1][1]
+
+
+def _sample_direction(rng: random.Random, is_bird: bool = True,
+                      avoid: Optional[dict] = None) -> tuple[str, dict]:
+    """One directive per axis. `avoid` maps an axis to the sentence the LAST
+    sheet drew — a forced regenerate passes it so the repaint is guaranteed
+    to change subject-matter, not just brushstrokes."""
+    avoid = avoid or {}
+
+    def choose(axis, choices):
+        kept = tuple(c for c in choices if c[1] != avoid.get(axis)) or choices
+        return _pick(rng, kept)
+
+    picks = {"tableau": choose("tableau",
+                               _TABLEAU_BIRD if is_bird else _TABLEAU_OTHER)}
+    fig_choices = _FIGURES[1:] if "juvenile" in picks["tableau"] else _FIGURES
+    picks["figures"] = choose("figures", fig_choices)
+    picks["armature"] = choose("armature", _ARMATURE)
+    for axis, choices in _DIRECTION_AXES:
+        if "dispute" in picks["tableau"] or "encounter" in picks["tableau"]:
+            if axis == "energy":
+                # A staged dispute cannot sit inside composed stillness.
+                picks[axis] = _pick(rng, choices[1:])
+                continue
+        picks[axis] = choose(axis, choices)
+    return " ".join(picks.values()), picks
+
+
+def build_prompt(common_name: str, scientific_name: str, direction: str = "",
+                 description: str = "", plant: Optional[dict] = None) -> str:
     subject = common_name if not scientific_name else f"{common_name} ({scientific_name})"
-    return _STYLE_PROMPT.format(subject=subject)
+    # Only the constant template goes through .format — the brief and the
+    # plant line are model-authored text, and a brace in them must be a
+    # brace, not a format field.
+    parts = [_P_OPEN.format(subject=subject)]
+    if description:
+        parts.append("The subject, precisely, as a naturalist briefs an "
+                     "illustrator who has never seen one: " + description + "\n\n")
+    parts += [_P_PROCESS, _P_COLOR, _P_COMPOSE, _P_SETTING]
+    if plant:
+        parts.append("For this sheet the one plant is "
+                     + str(plant.get("name", "")) + ": "
+                     + str(plant.get("look", "")).rstrip(".")
+                     + ". Draw it true to that species and that season.\n\n")
+    if direction:
+        parts.append("Art direction for this sheet, chosen for it alone: "
+                     + direction + "\n\n")
+    parts += [_P_ANATOMY, _P_FOOTER]
+    return "".join(parts)
 
 
 class GenerationError(RuntimeError):
     pass
+
+
+# descriptions.json is a whole-file read-modify-write reached from the regen
+# worker, the scheduler tick (composite briefs), and request threads — held
+# across the text call so a concurrent buyer can't overwrite a paid brief.
+_DESC_LOCK = threading.Lock()
+
+
+# The image model knows what things look like, not what names mean; the brief
+# asserts what the subject IS, in drawable terms, from a model that knows.
+DESCRIBE_PROMPT = (
+    "Brief an illustrator who has never seen {subject} and cannot look it up. "
+    "First, in at most 80 words of plain prose: its taxonomic group in "
+    "everyday terms, overall body plan and true size, the diagnostic features "
+    "that separate it from similar-looking groups, and its characteristic "
+    "posture or carriage. Then list 4 to 6 REAL plants genuinely tied to this "
+    "species — food, host, nest site, or a plant of its true habitat — each "
+    "with a one-line drawable description of how that plant looks in the "
+    "season this species is most active (leaf shape, growth habit, and its "
+    "flower or fruit state then). Make the list botanically varied, and "
+    "include flowering or fruiting associates whenever that is truthful. "
+    "State only established fact. Reply as JSON: "
+    '{{"is_bird": true or false, "description": "...", '
+    '"plants": [{{"name": "...", "look": "..."}}]}}'
+)
+
+
+class TextModel(ABC):
+    """One text-completion backend for the naturalist's brief."""
+
+    name: str = "text"
+
+    @abstractmethod
+    def complete_json(self, prompt: str) -> dict:
+        """Return the model's JSON reply as a dict. May raise."""
+
+
+class OpenAITextModel(TextModel):
+    API_BASE = "https://api.openai.com/v1"
+
+    def __init__(self, api_key: str, model: str = "gpt-5.6-luna",
+                 timeout_s: float = 60.0) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.timeout_s = timeout_s
+        self.name = model
+
+    def complete_json(self, prompt: str) -> dict:
+        r = requests.post(
+            f"{self.API_BASE}/chat/completions",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={"model": self.model,
+                  "messages": [{"role": "user", "content": prompt}],
+                  "response_format": {"type": "json_object"}},
+            timeout=self.timeout_s)
+        r.raise_for_status()
+        out = json.loads(r.json()["choices"][0]["message"]["content"])
+        if not isinstance(out, dict):
+            raise GenerationError("text model returned non-object JSON")
+        return out
 
 
 class ImageModel(ABC):
@@ -351,6 +582,19 @@ class OpenAIImageModel(ImageModel):
             raise GenerationError(f"unexpected response shape: {exc}") from exc
 
 
+def make_text_model(config) -> Optional[TextModel]:
+    """The naturalist's-brief backend, gated exactly like the image model."""
+    if not getattr(config, "imagegen_enabled", False):
+        return None
+    key = (getattr(config, "imagegen_api_key", "") or "").strip()
+    if not key:
+        return None
+    if getattr(config, "imagegen_provider", "openai") == "openai":
+        return OpenAITextModel(key, model=getattr(config, "imagegen_text_model",
+                                                  "gpt-5.6-luna"))
+    return None
+
+
 def make_image_model(config) -> Optional[ImageModel]:
     """Build the configured image model, or None when generation can't run
     (disabled, no key, unknown provider). None means cache-only."""
@@ -365,7 +609,8 @@ def make_image_model(config) -> Optional[ImageModel]:
     return None
 
 
-def pick_reference_plates(common_name: str = "", k: int = 3) -> list[Path]:
+def pick_reference_plates(common_name: str = "", k: int = 3,
+                          rng: Optional[random.Random] = None) -> list[Path]:
     """Real plates to hand the model as style references: the subject's own
     group first (so a swan sees water scenes, not sparrow sprigs), then the
     airy songbird defaults, then any plate on disk. Empty list if none exist."""
@@ -402,11 +647,16 @@ def pick_reference_plates(common_name: str = "", k: int = 3) -> list[Path]:
             for sci in scis:
                 _try(by_sci.get(sci), allow_composite=True)
             break
-    for sci in _PREFERRED_REFS:
-        _try(by_sci.get(sci))
-    for entry in species:
-        if isinstance(entry, dict):
-            _try(entry)
+    # Fill the remaining slots. Without an rng this is the deterministic
+    # preferred-first order; with one, the fill is shuffled so consecutive
+    # generations of a species don't anchor to the very same sheets.
+    fill = [by_sci.get(sci) for sci in _PREFERRED_REFS]
+    fill += [e for e in species if isinstance(e, dict)]
+    if rng is not None:
+        fill = list(fill)
+        rng.shuffle(fill)
+    for entry in fill:
+        _try(entry)
     return chosen[:k]
 
 
@@ -419,8 +669,10 @@ class GeneratedArtProvider(ArtProvider):
     def __init__(self, model: Optional[ImageModel],
                  cache_dir: Optional[Path] = None,
                  refs: Optional[list[Path]] = None,
-                 cooldown_s: float = 900.0) -> None:
+                 cooldown_s: float = 900.0,
+                 text_model: Optional[TextModel] = None) -> None:
         self._model = model
+        self._text_model = text_model
         self._cache_dir = Path(cache_dir) if cache_dir else None
         self._refs = refs
         self._cooldown_s = cooldown_s
@@ -435,6 +687,60 @@ class GeneratedArtProvider(ArtProvider):
 
     def _sidecar(self, slug: str) -> Path:
         return self._dir() / f"{slug}.json"
+
+    def _descriptions_path(self) -> Path:
+        # Lives beside (not inside) the plate cache: cached_species globs the
+        # cache dir's *.json and must not list the briefs as a phantom plate.
+        return self._dir().parent / "descriptions.json"
+
+    def _describe(self, common_name: str,
+                  scientific_name: str) -> tuple[str, bool, list]:
+        """The cached naturalist's brief, the is-it-a-bird verdict, and the
+        pool of real associate plants. Bought once per species (an old entry
+        without plants is re-bought once to upgrade it); soft-fails to
+        ("", True, []) so a text-model outage never blocks a plate."""
+        key = slugify(scientific_name or common_name)
+        path = self._descriptions_path()
+        with _DESC_LOCK:
+            return self._describe_locked(key, path, common_name, scientific_name)
+
+    def _describe_locked(self, key: str, path: Path, common_name: str,
+                         scientific_name: str) -> tuple[str, bool, list]:
+        try:
+            cache = json.loads(path.read_text())
+        except (OSError, ValueError):
+            cache = {}
+        hit = cache.get(key)
+        if isinstance(hit, dict) and hit.get("description") and (
+                "plants" in hit or self._text_model is None):
+            return (str(hit["description"]), bool(hit.get("is_bird", True)),
+                    list(hit.get("plants") or []))
+        if self._text_model is None:
+            return "", True, []
+        subject = (f"{common_name} ({scientific_name})"
+                   if scientific_name else common_name)
+        try:
+            out = self._text_model.complete_json(
+                DESCRIBE_PROMPT.format(subject=subject))
+            description = str(out.get("description", "")).strip()
+            is_bird = bool(out.get("is_bird", True))
+            plants = [p for p in (out.get("plants") or [])
+                      if isinstance(p, dict) and p.get("name") and p.get("look")]
+        except Exception as exc:
+            log.warning("describe failed for %s (%s): %s", subject,
+                        getattr(self._text_model, "name", "?"), exc)
+            return "", True, []
+        if description:
+            cache[key] = {
+                "description": description,
+                "is_bird": is_bird,
+                "plants": plants,
+                "model": getattr(self._text_model, "name", "unknown"),
+                "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            }
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._write_atomic(path, json.dumps(cache, indent=2).encode())
+        return description, is_bird, plants
 
     @staticmethod
     def _slug_for(common_name: str, scientific_name: str) -> str:
@@ -515,7 +821,9 @@ class GeneratedArtProvider(ArtProvider):
             if not force and self._in_cooldown(key):
                 return None
             subjects = [(c.common_name, c.scientific_name) for c in cells]
-            prompt = build_composite_prompt(subjects)
+            briefs = {sci or common: self._describe(common, sci)[0]
+                      for common, sci in subjects}  # description only
+            prompt = build_composite_prompt(subjects, briefs)
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
                 if png.exists():
@@ -674,9 +982,26 @@ class GeneratedArtProvider(ArtProvider):
             # thread generated this species must not buy it a second time.
             if not force and self._png(slug).exists():
                 return True
-            prompt = build_prompt(common_name, scientific_name)
+            description, is_bird, plants = self._describe(common_name, scientific_name)
+            rng = random.Random()
+            # A forced regenerate must not repeat the last sheet's draw.
+            avoid, prev_plant = None, None
+            if force:
+                try:
+                    prev = json.loads(self._sidecar(slug).read_text())
+                    prev_dir = prev.get("art_direction") or {}
+                    avoid = {k: prev_dir.get(k)
+                             for k in ("tableau", "foliage", "figures", "armature")}
+                    prev_plant = (prev.get("plant") or {}).get("name")
+                except (OSError, ValueError):
+                    pass
+            pool = [p for p in plants if p.get("name") != prev_plant] or plants
+            plant = rng.choice(pool) if pool else None
+            direction, picks = _sample_direction(rng, is_bird, avoid)
+            prompt = build_prompt(common_name, scientific_name, direction,
+                                  description, plant)
             refs = (self._refs if self._refs is not None
-                    else pick_reference_plates(common_name))
+                    else pick_reference_plates(common_name, rng=rng))
             started = time.time()
             try:
                 png_bytes = self._model.generate(prompt, GEN_SIZE, refs)
@@ -695,10 +1020,20 @@ class GeneratedArtProvider(ArtProvider):
                 "model": getattr(self._model, "name", "unknown"),
                 "quality": getattr(self._model, "quality", None),
                 "prompt_version": PROMPT_VERSION,
+                "art_direction": picks,
+                "description": description,
+                "plant": plant,
                 "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "elapsed_s": round(time.time() - started, 1),
                 "reference_plates": [p.name for p in refs],
             }, indent=2)
+            # On a forced regenerate a good plate already exists; keep its
+            # sidecar bytes so a failed write restores it instead of orphaning
+            # the surviving PNG forever.
+            try:
+                old_sidecar = self._sidecar(slug).read_bytes()
+            except OSError:
+                old_sidecar = None
             try:
                 # Sidecar first: a crash between the two writes then leaves an
                 # orphan sidecar (which cached_species skips), never a PNG the
@@ -713,7 +1048,10 @@ class GeneratedArtProvider(ArtProvider):
                 log.warning("cache write failed for %s after a paid generation: %s",
                             scientific_name, exc)
                 try:
-                    self._sidecar(slug).unlink(missing_ok=True)
+                    if old_sidecar is not None:
+                        self._write_atomic(self._sidecar(slug), old_sidecar)
+                    else:
+                        self._sidecar(slug).unlink(missing_ok=True)
                 except OSError:
                     pass
                 return False

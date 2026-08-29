@@ -44,6 +44,14 @@ serve:
 test:
 	cd server && ../$(PY) -m pytest
 
+# Build the firmware and hand it to the Pi; the frame flashes itself on its
+# next wake (<= wake interval, default 15 min). No USB needed.
+PI ?= wells@10.0.2.15
+ota:
+	cd firmware && pio run -e xiao_ee03
+	scp firmware/.pio/build/xiao_ee03/firmware.bin $(PI):~/featherframe/server/data/firmware.bin
+	@echo "Hosted. The frame updates itself on its next check-in."
+
 clean:
 	rm -rf server/.venv server/data test_output/*.png test_output/*.fff
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +

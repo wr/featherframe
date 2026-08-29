@@ -131,6 +131,11 @@ static uint32_t g_lastSuccessMs = 0;        // always-awake model: for g_failMin
 
 static void bumpFail() { if (g_failCount < 30000) g_failCount++; }
 
+// The last painted frame body, kept so a cleared toast can restore the band
+// it covered byte-for-byte (a windowed DU, no flash, no white scar). Lost
+// across deep sleep — the sleep model repaints via an ETag drop instead.
+static uint8_t* g_lastFrame = nullptr;
+
 // Dark mode: the server inverts the plates it serves and announces the mode
 // via X-FF-Invert; the firmware mirrors it onto everything baked (screens and
 // tiles) by flipping every 4bpp nibble (v -> 15-v == byte ^ 0xFF).
@@ -142,6 +147,15 @@ static const uint8_t* maybeInvert(const uint8_t* t, size_t n) {
   if (!g_invert) return t;
   for (size_t i = 0; i < n; i++) g_tileBuf[i] = t[i] ^ 0xFF;
   return g_tileBuf;
+}
+
+static void pushTileRaw(const uint8_t* tile, int x, int y, int w, int h) {
+  panelLock();
+  epaper.wake();
+  epaper.tconLoadImage((uint8_t*)tile, x, y, w, h, false);
+  epaper.tconDisplayArea(x, y, w, h, 1);        // DU: no flash
+  epaper.tconWaitForDisplayReady();
+  panelUnlock();
 }
 
 static void pushTile(const uint8_t* tile, int x, int y, int w, int h) {
@@ -340,6 +354,8 @@ void displayFrame(const uint8_t* data, size_t len) {
     epaper.pushImage(0, 0, w, hh, (uint16_t*)body);
   }
   epaper.update();                          // full refresh; brackets its own power
+  if (!g_lastFrame) g_lastFrame = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
+  if (g_lastFrame) memcpy(g_lastFrame, body, FF_SCREEN_BYTES);
   panelUnlock();
   g_glassScreen = -1;                       // a full paint owns the whole glass
   g_cornerMark = 0;
@@ -383,14 +399,33 @@ void showToast(int t) {
     }
   }
   g_toast = {true, millis()};
+#if !FF_NO_SLEEP
+  // No loop() ever clears this toast; drop the ETag so the next wake's fetch
+  // returns 200 and repaints the plate over it.
+  g_etag[0] = 0;
+  prefs.putString("etag", "");
+#endif
   Serial.printf("toast: %d\n", t);
 }
 
-// Wipe the pill band back to white and forget it.
+// Clear the toast: restore the band the pill covered from the retained frame
+// (byte-for-byte — the plate's caption comes back intact). The white blank is
+// only the fallback when no frame copy exists.
 void clearToast() {
   if (!g_toast.active) return;
   g_loaderAnim.on = false;
-  pushTile(ff_toast_tiles[FF_TOAST_BLANK], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+  if (g_lastFrame && g_glassScreen < 0) {
+    panelLock();                              // g_tileBuf is shared under the lock
+    const int nx = FF_NATIVE_W - FF_TOAST_X - FF_TOAST_W;
+    for (int r = 0; r < FF_TOAST_H; r++)
+      memcpy(g_tileBuf + r * (FF_TOAST_W / 2),
+             g_lastFrame + (uint32_t)(FF_TOAST_Y + r) * (FF_NATIVE_W / 2) + nx / 2,
+             FF_TOAST_W / 2);
+    pushTileRaw(g_tileBuf, FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+    panelUnlock();
+  } else {
+    pushTile(ff_toast_tiles[FF_TOAST_BLANK], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+  }
   g_toast.active = false;
   Serial.println("toast cleared");
 }

@@ -1,8 +1,9 @@
 """On-demand status plate (button 3 on the frame).
 
-Typeset in the same museum idiom as the species plates: small caps, hairline
-rules, generous margins. The device supplies its own numbers (battery, Wi-Fi)
-via request headers; the server adds what it knows (last bird, counts).
+Typeset in the plates' v3 idiom: the swash italic wordmark over a hedera,
+engraved-capital labels, and old-style italic values. The device supplies its
+own numbers (battery, Wi-Fi) via request headers; the server adds what it
+knows (last bird, counts).
 """
 from __future__ import annotations
 
@@ -55,18 +56,19 @@ def render_status(info: StatusInfo, now: Optional[datetime] = None) -> Image.Ima
     draw = ImageDraw.Draw(field)
     cx = theme.WIDTH / 2
 
-    top = theme.HEIGHT * 0.22
-    typography.draw_smallcaps(draw, cx, top, "Featherframe", typography.FONTS,
-                              104, theme.INK, theme.NAME_TRACKING)
-
-    half = theme.RULE_WIDTH / 2
-    rule_y = top + 74
-    draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],
-                   fill=theme.RULE)
+    # The wordmark, exactly as the boot splash sets it, over a small hedera.
+    title_font = typography.FONTS.get(theme.TITLE_SIZE, italic=True,
+                                      weight=theme.TITLE_WEIGHT)
+    title_baseline = theme.HEIGHT * 0.20
+    typography.draw_title(draw, cx, title_baseline, "Featherframe", title_font,
+                          theme.INK, theme.TITLE_SIZE * theme.TITLE_TRACKING)
+    hedera_font = typography.FONTS.get(36, italic=True, weight=500)
+    draw.text((cx, title_baseline + 92), theme.DATE_ORNAMENT, font=hedera_font,
+              fill=theme.INK_MEDIUM, anchor="ms")
 
     if info.last_common and info.last_when:
         when = info.last_when
-        stamp = (when.strftime("%-I:%M %p") if when.date() == now.date()
+        stamp = (when.strftime("%-I:%M %p").lower() if when.date() == now.date()
                  else f"{when.day} {when.strftime('%b')}")
         last_bird = f"{info.last_common} · {stamp}"
     else:
@@ -82,25 +84,50 @@ def render_status(info: StatusInfo, now: Optional[datetime] = None) -> Image.Ima
         ("Server", info.server_label or "—"),
     ]
 
-    y = rule_y + 150
-    label_font = typography.FONTS.get(40, weight=560)
+    # Two columns about the center line: engraved-capital labels on the left,
+    # old-style italic values on the right — the plates' label/value voice.
+    y = title_baseline + 250
+    label_size = 32
+    value_feats = ["onum", "liga", "kern"] if typography.HAS_RAQM else None
     max_value_w = theme.WIDTH - (cx + 40) - theme.MARGIN_X
     for label, value in rows:
-        draw.text((cx - 40, y), label.upper(), font=label_font,
-                  fill=theme.INK_SOFT, anchor="rs")
-        # Shrink long values to fit the column; ellipsize as a last resort.
+        lw = typography.engraved_width(label.upper(), label_size,
+                                       theme.KEY_TRACKING)
+        typography.draw_engraved(draw, cx - 40 - lw / 2, y, label.upper(),
+                                 label_size, theme.INK_MEDIUM, theme.KEY_TRACKING)
         size = 46
-        value_font = typography.FONTS.get(size, weight=430)
+        value_font = typography.FONTS.get(size, italic=True, weight=500)
         while value_font.getlength(value) > max_value_w and size > 32:
             size -= 2
-            value_font = typography.FONTS.get(size, weight=430)
+            value_font = typography.FONTS.get(size, italic=True, weight=500)
         while value_font.getlength(value) > max_value_w and len(value) > 4:
             value = value[:-2].rstrip() + "…"
-        draw.text((cx + 40, y), value, font=value_font, fill=theme.INK, anchor="ls")
-        y += 110
+        draw.text((cx + 40, y), value, font=value_font, fill=theme.INK,
+                  anchor="ls", features=value_feats)
+        y += 112
 
-    typography.draw_smallcaps(draw, cx, y + 60,
-                              f"As of {typography.format_when(now)}",
-                              typography.FONTS, theme.META_SIZE, theme.INK_SOFT,
-                              theme.META_TRACKING, weight_caps=500, weight_small=520)
+    # "as of" footer in the old date-line voice: time, hedera, date.
+    date_font = typography.FONTS.get(theme.DATE_SIZE, italic=True,
+                                     weight=theme.DATE_WEIGHT)
+    tracking_px = theme.DATE_SIZE * theme.DATE_TRACKING
+    hour = now.hour % 12 or 12
+    stamp = f"{hour}:{now.minute:02d} {'am' if now.hour < 12 else 'pm'}"
+    datestr = f"{now.day} {now.strftime('%B')}"
+    if typography.HAS_RAQM:
+        gap = theme.DATE_SIZE * theme.DATE_ORNAMENT_GAP
+        orn_w = date_font.getlength(theme.DATE_ORNAMENT)
+        t_w = sum(date_font.getlength(c, features=["smcp", "onum"]) for c in stamp) +             tracking_px * max(0, len(stamp) - 1)
+        d_w = sum(date_font.getlength(c, features=["onum"]) for c in datestr) +             tracking_px * max(0, len(datestr) - 1)
+        x = cx - (t_w + gap + orn_w + gap + d_w) / 2
+        typography.draw_ot_tracked(draw, x + t_w / 2, y + 60, stamp, date_font,
+                                   theme.INK_MEDIUM, theme.TIME_FEATURES, tracking_px)
+        x += t_w + gap
+        draw.text((x, y + 60), theme.DATE_ORNAMENT, font=date_font,
+                  fill=theme.INK_MEDIUM, anchor="ls")
+        x += orn_w + gap
+        typography.draw_ot_tracked(draw, x + d_w / 2, y + 60, datestr, date_font,
+                                   theme.INK_MEDIUM, theme.DATE_FEATURES, tracking_px)
+    else:
+        draw.text((cx, y + 60), f"as of {stamp} · {datestr}", font=date_font,
+                  fill=theme.INK_MEDIUM, anchor="ms")
     return field

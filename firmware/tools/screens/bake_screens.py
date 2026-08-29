@@ -528,11 +528,11 @@ def error_assets():
 # toast position over the plate's bottom margin, pushed as windowed DU tiles:
 # in-progress toasts carry the loading mark (the firmware sweeps it), success
 # carries a check, failures use the outlined+slashed error language.
-TOAST_Y = 1710
+TOAST_Y = 1648            # same rest position as the boot pills
 TOASTS = [
-    ("CHECKING",       "Checking",       "progress"),
-    ("COLLAGE",        "Collage",        "progress"),
-    ("STATUS",         "Status",         "progress"),
+    ("CHECKING",       "Checking",              "progress"),
+    ("COLLAGE",        "Making the collage",    "progress"),
+    ("STATUS",         "Making the status page", "progress"),
     ("UP_TO_DATE",     "Up to date",     "done"),
     ("NO_COLLAGE",     "No collage yet", "plain"),
     ("CHECK_FAILED",   "Check failed",   "fail"),
@@ -579,7 +579,7 @@ def toast_assets():
         im = Image.new("L", (W, H), 255)
         centers.append(_draw_toast(ImageDraw.Draw(im), text, style))
         canvases.append(im)
-    band = _aligned_region(canvases, 1704, 1800)
+    band = _aligned_region(canvases, 1640, 1736)
     geo, tiles = _region_tiles(band, canvases + [Image.new("L", (W, H), 255)])
     loaders = [loader_tiles(c, *ctr) if ctr else None
                for c, ctr in zip(canvases, centers)]

@@ -308,16 +308,17 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
     return baseline
 
 
-def date_corner_mark(draw: ImageDraw.ImageDraw, when: datetime,
+def time_corner_mark(draw: ImageDraw.ImageDraw, when: datetime,
                      book: FontBook = FONTS) -> None:
-    """Italic old-style date ("28 August") at the top-left margin, mirroring
-    the № mark. Day and month only: the time lives on the status page, and a
-    date-only mark keeps a same-day re-render of the same species
-    byte-identical — the device 304s instead of flashing a non-update."""
-    text = f"{when.day} {when.strftime('%B')}"
+    """Italic old-style time ("8:14 am", small-cap am) at the top-left margin,
+    mirroring the № mark. The plate's bird is almost always today's, so the
+    time says something the date wouldn't. Repeats of the same species never
+    re-render (the tick skips them), so the glass still only moves when the
+    bird does."""
+    _, text = _when_parts(when)
     font = book.get(theme.PLATE_NO_SIZE, italic=True, weight=theme.PLATE_NO_WEIGHT)
     if HAS_RAQM:
-        feats = _feat(theme.DATE_FEATURES)
+        feats = _feat(theme.TIME_FEATURES)
         top_gap = font.getbbox(text, features=feats)[1]
         draw.text((theme.MARGIN_X, theme.MARGIN_TOP - top_gap), text, font=font,
                   fill=theme.INK_MEDIUM, anchor="la", features=feats)

@@ -190,10 +190,12 @@ def screen_setup():
     # First-run instructions. Shares the splash birdhouse (smaller) and hands
     # over to the normal boot flow once a network is saved — there is no
     # separate onboarding checklist. The card fits its widest line.
+    # Balanced inside the mat's visible window (~75..1797): even margins above
+    # the house and below the card, instead of both hugging the mat edges.
     c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
-    hs = 800
+    hs = 720
     hw = int(HOUSE.width * hs / HOUSE.height)
-    c.alpha_composite(HOUSE.resize((hw, hs), Image.LANCZOS), ((W - hw) // 2, 100))
+    c.alpha_composite(HOUSE.resize((hw, hs), Image.LANCZOS), ((W - hw) // 2, 146))
     im = c.convert("L")
     d = ImageDraw.Draw(im)
     steps = [
@@ -201,13 +203,14 @@ def screen_setup():
         "Choose a wi-fi network for Featherframe\nto join.",
         "Fill in the IP address of your BirdNET\ndevice, if not auto-detected.",
     ]
-    fnt = font(46); numf = font(34, weight=600)
+    fnt = font(46, weight=600)   # semibold: reversed type on e-ink loses weight
+    numf = font(34, weight=600)
     maxw = max(d.textlength(ln, font=fnt) for s in steps for ln in s.split("\n"))
     cardw = int(140 + maxw + 64)
     x0 = (W - cardw) // 2
-    y0, y1 = 1054, 1792
+    y0, y1 = 966, 1682
     d.rounded_rectangle([x0, y0, x0 + cardw, y1], radius=24, fill=0)
-    y = y0 + 78
+    y = y0 + 68
     R = 26
     for i, s in enumerate(steps, 1):
         # number dot centered on the whole step's text block
@@ -218,16 +221,16 @@ def screen_setup():
         d.multiline_text((x0 + 140, y - 4), s, font=fnt, fill=255, spacing=14)
         if i == 1:
             chipf = sans(33); ct = "Featherframe-Setup"
-            ctw = d.textlength(ct, font=chipf); chy = y + 130; chh = 76; iconw = 60
+            ctw = d.textlength(ct, font=chipf); chy = y + 124; chh = 76; iconw = 60
             chw = iconw + ctw + 58
             d.rounded_rectangle([x0 + 140, chy, x0 + 140 + chw, chy + chh], radius=chh / 2, fill=255)
             wifi_glyph(d, x0 + 140 + 40, chy + chh / 2 + 7, 18)
             cb = chipf.getbbox("H")
             d.text((x0 + 140 + iconw + 12, chy + chh / 2 + (cb[3] - cb[1]) / 2), ct,
                    font=chipf, fill=0, anchor="ls")
-            y = chy + chh + 72
+            y = chy + chh + 64
         else:
-            y += 160
+            y += 154
     return im
 
 # The four boot/loading screens compose the designer's clean pen-and-ink line art

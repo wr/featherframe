@@ -297,12 +297,26 @@ small{color:var(--muted)}
 </style>)CSS";
 
 bool ensureWifi(bool openPortal, bool showBoot) {
+  // The portal blocks here for its whole session, and WiFiManager extends
+  // its own timeout on every captive-portal probe — a phone parked on the
+  // hotspot keeps it alive indefinitely, far past WDT_TIMEOUT_S. Setup is
+  // user-driven; stand the watchdog down for it and re-arm on the way out.
+  esp_task_wdt_delete(NULL);
   WiFi.mode(WIFI_STA);
   wm.setTitle("Featherframe");
   wm.setCustomHeadElement(PORTAL_CSS);
-  WiFiManagerParameter serverParam("server", "Featherframe server URL",
-                                   g_serverUrl, sizeof(g_serverUrl));
-  wm.addParameter(&serverParam);
+  // WiFiManager keeps the registered pointer forever and never dedupes, and
+  // ensureWifi is re-entered from loop()'s KEY2 handler — so the parameter
+  // lives in static storage and registers exactly once.
+  static WiFiManagerParameter serverParam("server", "Featherframe server URL",
+                                          g_serverUrl, sizeof(g_serverUrl));
+  static bool paramRegistered = false;
+  if (!paramRegistered) {
+    wm.addParameter(&serverParam);
+    paramRegistered = true;
+  } else {
+    serverParam.setValue(g_serverUrl, sizeof(g_serverUrl));
+  }
   wm.setConfigPortalTimeout(PORTAL_TIMEOUT_S);
   wm.setConnectTimeout(WIFI_CONNECT_TIMEOUT_MS / 1000);
 
@@ -352,9 +366,10 @@ bool ensureWifi(bool openPortal, bool showBoot) {
     prefs.putString("server", g_serverUrl);
   }
   bool connected = ok && WiFi.status() == WL_CONNECTED;
-  // A dead end (portal timeout, connect failure) can leave a checklist screen
+  // A dead end (portal timeout, connect failure) can leave a boot screen
   // armed via the save callback; stop the sweep — there is no progress to show.
   if (!connected) g_loaderAnim.on = false;
+  esp_task_wdt_add(NULL);
   return connected;
 }
 
@@ -432,6 +447,10 @@ static ToastState g_toast = {false, 0};
 
 void showToast(int t) {
   if (t < 0 || t >= FF_TOAST_COUNT) return;
+  // A baked screen's own pills carry its state; a toast there would sit on
+  // the error band's columns and its later blank-clear would punch a white
+  // hole the band-dedup latch never repairs.
+  if (g_glassScreen >= 0) return;
   g_loaderAnim.on = false;
   pushTile(ff_toast_tiles[t], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
   if (t < (int)(sizeof(ff_toast_loader) / sizeof(ff_toast_loader[0]))) {
@@ -456,6 +475,10 @@ void showToast(int t) {
 // only the fallback when no frame copy exists.
 void clearToast() {
   if (!g_toast.active) return;
+  if (g_glassScreen >= 0) {         // a baked paint already covered the toast
+    g_toast.active = false;
+    return;
+  }
   g_loaderAnim.on = false;
   if (g_lastFrame && g_glassScreen < 0) {
     panelLock();                              // g_tileBuf is shared under the lock
@@ -507,6 +530,12 @@ void showScreen(int idx) {
   bool&     havePrev = g_scrHavePrev;
   const size_t total = FFF_HEADER_SIZE + FF_SCREEN_BYTES;
   if (!buf) {
+    // The retained frame copy exists only to restore toast bands over a
+    // plate; once boot screens own the glass it is stale, and its 1.3 MB
+    // would push the entry screen's full write past the PSRAM mirror cliff
+    // (handoff gotcha #2) exactly as splash-time retention once did.
+    free(g_lastFrame);
+    g_lastFrame = nullptr;
     buf  = (uint8_t*)ps_malloc(total);             // ~1.3 MB each, PSRAM
     prev = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
     win  = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
@@ -905,12 +934,19 @@ void setup() {
 }
 
 #if FF_NO_SLEEP
+// The always-awake poll clock and the button-view hold. A transient view's
+// fetch clears the resident ETag, so without the hold the very next poll
+// would repaint the bird over the collage the user just asked for.
+static uint32_t g_lastPoll = 0;
+static uint32_t g_viewHoldUntil = 0;
+
 // Run a button's action: an instant pill for feedback, then fetch + paint. A new
 // plate paints over the pill; on a no-change check the pill becomes "Up to date".
 void doButton(int key) {
   float vbat = readBatteryVoltage();
   int pct = batteryPercent(vbat);
   if (key == 0) {                             // KEY0: check now
+    g_viewHoldUntil = 0;                      // asking for the bird ends a view hold
     showToast(FF_TOAST_CHECKING);
     FetchResult r = fetchAndRender(FRAME_PATH, true, vbat, pct);
     if (r == FETCH_NOCHANGE)      showToast(FF_TOAST_UP_TO_DATE);
@@ -920,14 +956,15 @@ void doButton(int key) {
     showToast(FF_TOAST_COLLAGE);
     FetchResult r = fetchAndRender(VIEW_COLLAGE_PATH, false, vbat, pct);
     if (r == FETCH_NOTFOUND)      showToast(FF_TOAST_NO_COLLAGE);
-    else if (r == FETCH_UPDATED)  g_toast.active = false;
+    else if (r == FETCH_UPDATED)  { g_toast.active = false; g_viewHoldUntil = millis() + FF_VIEW_HOLD_MS; }
     else                          showToast(FF_TOAST_COLLAGE_FAILED);
   } else {                                    // KEY2 tap: status
     showToast(FF_TOAST_STATUS);
     FetchResult r = fetchAndRender(VIEW_STATUS_PATH, false, vbat, pct);
-    if (r == FETCH_UPDATED)       g_toast.active = false;
+    if (r == FETCH_UPDATED)       { g_toast.active = false; g_viewHoldUntil = millis() + FF_VIEW_HOLD_MS; }
     else                          showToast(FF_TOAST_STATUS_FAILED);
   }
+  g_lastPoll = millis();                      // the render leg may exceed the poll gap
   Serial.printf("button %d handled\n", key);
 }
 
@@ -986,12 +1023,16 @@ void loop() {
 
   // Re-fetch every FF_POLL_INTERVAL_MS. fetchAndRender sends the stored ETag, so
   // an unchanged frame returns 304 and the panel is not repainted. Failed polls
-  // back off to FF_POLL_BACKOFF_MS and keep the error state current.
-  static uint32_t lastPoll = 0;
+  // back off to FF_POLL_BACKOFF_MS and keep the error state current. A button-
+  // requested view holds the glass for FF_VIEW_HOLD_MS first — the view fetch
+  // clears the ETag, so an eager poll would repaint the bird within seconds of
+  // the press that asked for the collage.
   uint32_t interval = (g_failCount >= FF_MARK_FAILS) ? FF_POLL_BACKOFF_MS
                                                      : FF_POLL_INTERVAL_MS;
-  if (millis() - lastPoll >= interval) {
-    lastPoll = millis();
+  if (g_viewHoldUntil && (int32_t)(millis() - g_viewHoldUntil) < 0) {
+    // transient view on the glass
+  } else if (millis() - g_lastPoll >= interval) {
+    g_lastPoll = millis();
     FetchResult r = fetchAndRender(FRAME_PATH, true, readBatteryVoltage(),
                                    batteryPercent(readBatteryVoltage()));
     uint32_t mins = (millis() - g_lastSuccessMs) / 60000UL;

@@ -504,3 +504,48 @@ def test_ref_shuffle_varies_and_default_stays_deterministic(tmp_path, monkeypatc
     seen = {tuple(pick_reference_plates(rng=_random.Random(i)) or [])
             for i in range(12)}
     assert len(seen) > 1                             # rng: the fill varies
+
+
+# -- review fixes (PR #17 opus panel) ---------------------------------------
+def test_braces_in_model_text_are_literal():
+    p = build_prompt("Big Brown Bat", "Eptesicus fuscus",
+                     description="Forearm {38-50 mm}; a stocky vespertilionid.",
+                     plant={"name": "Ilex", "look": "berries {scarlet} in autumn"})
+    assert "{38-50 mm}" in p and "{scarlet}" in p
+
+
+def test_failed_regenerate_restores_the_old_sidecar(tmp_path, monkeypatch):
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=FakeTextModel())
+    assert provider.artwork("House Sparrow", "Passer domesticus")
+    sidecar = tmp_path / "generated" / "passer-domesticus.json"
+    before = sidecar.read_bytes()
+    calls = {"n": 0}
+    real_write = GeneratedArtProvider._write_atomic
+
+    def failing_write(path, data):
+        calls["n"] += 1
+        if str(path).endswith(".png") and calls["n"] > 0:
+            raise OSError("disk full")
+        return real_write(path, data)
+
+    monkeypatch.setattr(GeneratedArtProvider, "_write_atomic",
+                        staticmethod(failing_write))
+    assert not provider.regenerate("House Sparrow", "Passer domesticus")
+    # The surviving plate keeps a matching sidecar; nothing is orphaned.
+    assert sidecar.read_bytes() == before
+    assert (tmp_path / "generated" / "passer-domesticus.png").exists()
+
+
+def test_brief_model_change_rebuilds_provider(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from featherframe.service import FeatherframeService
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    svc = FeatherframeService()
+    cfg = replace(svc.config, imagegen_enabled=True, imagegen_api_key="k",
+                  imagegen_text_model="gpt-5.6-luna")
+    svc.update_config(cfg)
+    assert svc.genart._text_model.model == "gpt-5.6-luna"
+    svc.update_config(replace(cfg, imagegen_text_model="gpt-5.6-sol"))
+    assert svc.genart._text_model.model == "gpt-5.6-sol"

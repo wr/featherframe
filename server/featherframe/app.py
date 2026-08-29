@@ -89,14 +89,17 @@ async def api_frame(request: Request, view: Optional[str] = None):
     # always knows whether to invert its baked boot screens.
     invert = "1" if svc.config.dark_mode else "0"
 
-    # On-demand button views: rendered fresh, never the resident frame, no 304s.
+    # On-demand button views: rendered fresh, never the resident frame, no
+    # 304s. Threadpool: the collage leg walks the provider chain (which may
+    # generate art over the network) and a blocking render here would stall
+    # every endpoint on the loop.
     if view in ("collage", "status"):
         if view == "collage":
-            result = svc.render_collage_on_demand()
+            result = await run_in_threadpool(svc.render_collage_on_demand)
             if result is None:
                 return Response(status_code=404, content=b"not enough birds for a collage")
         else:
-            result = svc.render_status_page(volt, pct, rssi)
+            result = await run_in_threadpool(svc.render_status_page, volt, pct, rssi)
         svc.record_view_checkin(request.headers.get("user-agent", ""), volt, pct, view,
                                 wifi_rssi=rssi)
         return Response(content=result.frame, media_type="application/octet-stream",

@@ -41,6 +41,10 @@
 // How long the "Up to date" pill stays on the glass before it clears (ms).
 #define TOAST_HOLD_MS  10000
 
+// How long a button-requested view (collage / status) holds the glass before
+// the always-awake poll may repaint the resident bird over it.
+#define FF_VIEW_HOLD_MS  300000
+
 // Step period of the loading mark's diamond sweep (ms). Each step is a tiny DU
 // partial (~200ms of panel time) pushed from its own task; keep this above that
 // so the panel and SPI bus spend most of their time free.

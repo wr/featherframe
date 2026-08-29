@@ -422,7 +422,10 @@ def _sample_direction(rng: random.Random, is_bird: bool = True,
 def build_prompt(common_name: str, scientific_name: str, direction: str = "",
                  description: str = "", plant: Optional[dict] = None) -> str:
     subject = common_name if not scientific_name else f"{common_name} ({scientific_name})"
-    parts = [_P_OPEN]
+    # Only the constant template goes through .format — the brief and the
+    # plant line are model-authored text, and a brace in them must be a
+    # brace, not a format field.
+    parts = [_P_OPEN.format(subject=subject)]
     if description:
         parts.append("The subject, precisely, as a naturalist briefs an "
                      "illustrator who has never seen one: " + description + "\n\n")
@@ -436,11 +439,17 @@ def build_prompt(common_name: str, scientific_name: str, direction: str = "",
         parts.append("Art direction for this sheet, chosen for it alone: "
                      + direction + "\n\n")
     parts += [_P_ANATOMY, _P_FOOTER]
-    return "".join(parts).format(subject=subject)
+    return "".join(parts)
 
 
 class GenerationError(RuntimeError):
     pass
+
+
+# descriptions.json is a whole-file read-modify-write reached from the regen
+# worker, the scheduler tick (composite briefs), and request threads — held
+# across the text call so a concurrent buyer can't overwrite a paid brief.
+_DESC_LOCK = threading.Lock()
 
 
 # The image model knows what things look like, not what names mean; the brief
@@ -692,6 +701,11 @@ class GeneratedArtProvider(ArtProvider):
         ("", True, []) so a text-model outage never blocks a plate."""
         key = slugify(scientific_name or common_name)
         path = self._descriptions_path()
+        with _DESC_LOCK:
+            return self._describe_locked(key, path, common_name, scientific_name)
+
+    def _describe_locked(self, key: str, path: Path, common_name: str,
+                         scientific_name: str) -> tuple[str, bool, list]:
         try:
             cache = json.loads(path.read_text())
         except (OSError, ValueError):
@@ -1013,6 +1027,13 @@ class GeneratedArtProvider(ArtProvider):
                 "elapsed_s": round(time.time() - started, 1),
                 "reference_plates": [p.name for p in refs],
             }, indent=2)
+            # On a forced regenerate a good plate already exists; keep its
+            # sidecar bytes so a failed write restores it instead of orphaning
+            # the surviving PNG forever.
+            try:
+                old_sidecar = self._sidecar(slug).read_bytes()
+            except OSError:
+                old_sidecar = None
             try:
                 # Sidecar first: a crash between the two writes then leaves an
                 # orphan sidecar (which cached_species skips), never a PNG the
@@ -1027,7 +1048,10 @@ class GeneratedArtProvider(ArtProvider):
                 log.warning("cache write failed for %s after a paid generation: %s",
                             scientific_name, exc)
                 try:
-                    self._sidecar(slug).unlink(missing_ok=True)
+                    if old_sidecar is not None:
+                        self._write_atomic(self._sidecar(slug), old_sidecar)
+                    else:
+                        self._sidecar(slug).unlink(missing_ok=True)
                 except OSError:
                     pass
                 return False

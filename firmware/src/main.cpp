@@ -252,22 +252,47 @@ void goToSleep(uint32_t minutes) {
 void showScreen(int idx);
 void showScreenFull(int idx);
 
-// Paper/ink restyle for the WiFiManager captive portal — injected into <head>,
-// overrides the stock blue theme. Kept in PROGMEM to save RAM.
+// Paper/ink restyle for the WiFiManager captive portal — injected into
+// <head> after the stock style, so these rules win the cascade (the stock
+// sheet still supplies the signal-strength sprite). The swash "Featherframe"
+// wordmark is a 3.4 KB WOFF subset of EB Garamond italic (glyphs of the name
+// + the hedera, swsh retained) embedded as a data URI — the captive portal
+// has no internet, so the face must travel with the page. Kept in PROGMEM.
 static const char PORTAL_CSS[] PROGMEM = R"CSS(<style>
-:root{--bg:#efeae0;--card:#fbf9f4;--ink:#20201d;--muted:#6f685c;--accent:#3f5e46;--line:#ddd6c8}
+@font-face{font-family:'FFSwash';src:url(data:font/woff;base64,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) format('woff');font-style:italic;font-weight:500}
+:root{--bg:#efeae0;--card:#fbf9f4;--ink:#20201d;--muted:#6f685c;--accent:#3f5e46;--err:#8a4a3a;--line:#ddd6c8}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font-family:ui-serif,Georgia,'Times New Roman',serif;margin:0;padding:26px 16px 60px;line-height:1.5}
-h1,h2,h3{font-weight:600;letter-spacing:.01em}
-h1{font-size:1.7rem;text-align:center;margin:.1em 0 .6em}
-h3{color:var(--muted);font-weight:500}
-div,dt,dd{color:var(--ink)}
-button{background:var(--accent);color:#fff;border:0;border-radius:12px;padding:13px 16px;font-size:1.02rem;width:100%;margin-top:12px;cursor:pointer}
-button:hover{filter:brightness(1.07)}
-input,select{background:var(--card);border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:12px;width:100%;font-size:1rem}
-a,a:visited{color:var(--accent);text-decoration:none}
-.msg{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;color:var(--muted)}
-.q{filter:grayscale(1) opacity(.7)}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;margin:0;padding:28px 18px 60px;line-height:1.5;text-align:center}
+.wrap{text-align:left;display:inline-block;width:100%;min-width:260px;max-width:430px}
+h1{font-family:'FFSwash',Georgia,serif;font-style:italic;font-weight:500;font-size:2.6rem;text-align:center;margin:.4em 0 0;letter-spacing:.01em;font-feature-settings:'swsh' 1}
+h1:after{content:'\2767';display:block;font-size:1.1rem;color:var(--muted);margin-top:10px}
+h3{display:none}
+h2,label{font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+label{display:block;margin:16px 2px 6px}
+div,input,select{box-sizing:border-box}
+input,select{background:var(--card);border:1px solid var(--line);border-radius:14px;color:var(--ink);padding:13px 14px;width:100%;font-size:1rem;margin:2px 0}
+input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+input[type=radio],input[type=checkbox]{width:auto;accent-color:var(--accent);margin-right:6px}
+button,input[type='button'],input[type='submit']{cursor:pointer;border:0;border-radius:999px;background:var(--ink);color:var(--bg);line-height:2.9rem;font-size:1.02rem;font-weight:600;width:100%;margin:6px 0}
+button:hover{filter:brightness(1.25)}
+button:active{opacity:.5}
+button.D{background:transparent;color:var(--err);border:2px solid var(--err);line-height:2.65rem}
+form{margin:0}
+a{color:var(--ink);font-weight:600;text-decoration:none}
+a:hover{color:var(--accent)}
+/* network list rows */
+.wrap>div>div,.ffnet{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin:8px 0}
+.wrap>div>div a{font-family:Georgia,'Times New Roman',serif;font-size:1.08rem;display:inline-block;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.q{height:16px;margin:2px 0 0;padding:0 5px;text-align:right;min-width:38px;float:right;opacity:.75}
+.msg{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:0 12px 12px 0;padding:16px 18px;margin:18px 0;color:var(--ink)}
+.msg.P{border-left-color:var(--accent)}
+.msg.D{border-left-color:var(--err)}
+.msg.S{border-left-color:var(--accent)}
+dt{font-weight:600}dd{margin:0;padding:0 0 .5em;min-height:12px;color:var(--muted)}
+td{vertical-align:top}
+hr{border:0;border-top:1px solid var(--line);margin:22px 0}
+small{color:var(--muted)}
+.h{display:none}:disabled{opacity:.5}
 </style>)CSS";
 
 bool ensureWifi(bool openPortal, bool showBoot) {
@@ -919,8 +944,14 @@ void loop() {
     uint32_t t0 = millis();
     while (digitalRead(PIN_KEY2) == LOW && millis() - t0 < PORTAL_HOLD_MS) delay(20);
     if (millis() - t0 >= PORTAL_HOLD_MS) {
-      wm.resetSettings();
-      if (ensureWifi(true, false)) {    // setup steps, then the normal boot flow
+      // The runtime hold does NOT wipe credentials — the portal itself can
+      // change networks, and an accidental three-second press must not orphan
+      // a wall-mounted frame. The destructive wipe lives only on the power-on
+      // hold (the factory-reset gesture in setup()).
+      bool ok = ensureWifi(true, false);  // setup steps, then the normal boot flow
+      if (!ok && wm.getWiFiIsSaved())
+        ok = ensureWifi(false, false);    // portal timed out: rejoin the saved network
+      if (ok) {
         showScreen(FF_SCR_BOOT_BIRDNET);
         showScreen(FF_SCR_BOOT_DOWNLOAD);
         g_etag[0] = 0;   // force a fresh paint so the plate replaces the boot screen

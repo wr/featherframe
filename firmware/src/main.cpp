@@ -251,6 +251,7 @@ void goToSleep(uint32_t minutes) {
 // Baked panel screens (defined later, near the splash).
 void showScreen(int idx);
 void showScreenFull(int idx);
+void showToast(int t);
 
 // Paper/ink restyle for the WiFiManager captive portal — injected into
 // <head> after the stock style, so these rules win the cascade (the stock
@@ -316,7 +317,14 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // the normal boot flow (one full repaint — the setup layout shares nothing
   // with the boot screens). There is no separate onboarding checklist.
   g_viaPortal = openPortal;
-  wm.setAPCallback([](WiFiManager*) { g_viaPortal = true; showScreen(FF_SCR_SETUP); });
+  // With a plate on the glass the portal announces itself as a pill (the art
+  // stays; a timed-out portal just clears it). With nothing painted yet, the
+  // full setup instructions take the glass.
+  wm.setAPCallback([](WiFiManager*) {
+    g_viaPortal = true;
+    if (g_glassScreen < 0) showToast(FF_TOAST_PORTAL);
+    else showScreen(FF_SCR_SETUP);
+  });
   wm.setSaveConfigCallback([]() { showScreenFull(FF_SCR_BOOT_WIFI); });
 
   bool ok;
@@ -840,7 +848,10 @@ void setup() {
     while (digitalRead(PIN_PORTAL_RESET) == LOW && millis() - t0 < PORTAL_HOLD_MS) delay(20);
     if (millis() - t0 >= PORTAL_HOLD_MS) { forcePortal = true; keyStatus = false; }
   }
-  if (forcePortal) { Serial.println("portal reset requested"); wm.resetSettings(); }
+  if (forcePortal && !fromDeepSleep) {
+    Serial.println("factory reset requested");   // power-on + held KEY2 only
+    wm.resetSettings();
+  }
 
   epaper.begin(fromDeepSleep ? 1 : 0);
   float vbat = readBatteryVoltage();
@@ -948,15 +959,22 @@ void loop() {
       // change networks, and an accidental three-second press must not orphan
       // a wall-mounted frame. The destructive wipe lives only on the power-on
       // hold (the factory-reset gesture in setup()).
-      bool ok = ensureWifi(true, false);  // setup steps, then the normal boot flow
+      bool ok = ensureWifi(true, false);
       if (!ok && wm.getWiFiIsSaved())
         ok = ensureWifi(false, false);    // portal timed out: rejoin the saved network
       if (ok) {
-        showScreen(FF_SCR_BOOT_BIRDNET);
-        showScreen(FF_SCR_BOOT_DOWNLOAD);
-        g_etag[0] = 0;   // force a fresh paint so the plate replaces the boot screen
-        noteFetchOutcome(fetchAndRender(FRAME_PATH, true, readBatteryVoltage(),
-                                        batteryPercent(readBatteryVoltage())));
+        if (g_glassScreen >= 0) {
+          // The portal saved a network (the save callback repainted the boot
+          // screen): run the normal flow through to a fresh plate.
+          showScreen(FF_SCR_BOOT_BIRDNET);
+          showScreen(FF_SCR_BOOT_DOWNLOAD);
+          g_etag[0] = 0;
+          noteFetchOutcome(fetchAndRender(FRAME_PATH, true, readBatteryVoltage(),
+                                          batteryPercent(readBatteryVoltage())));
+          g_toast.active = false;         // the full repaint took the pill with it
+        } else {
+          clearToast();                   // peeked and left: the plate stays put
+        }
       }
     } else {
       doButton(2);

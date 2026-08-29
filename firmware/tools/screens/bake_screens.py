@@ -541,6 +541,7 @@ TOASTS = [
     ("CHECK_FAILED",   "Check failed",   "fail"),
     ("COLLAGE_FAILED", "Collage failed", "fail"),
     ("STATUS_FAILED",  "Status failed",  "fail"),
+    ("PORTAL",         "Join Featherframe-Setup", "wifi"),
 ]
 
 def _draw_toast(d, text, style):
@@ -556,6 +557,18 @@ def _draw_toast(d, text, style):
                             radius=PILL_H / 2, fill=255, outline=0, width=5)
         cloud_slash(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22)
         d.text((px + 26 + ERR_ICON_SLOT + 18, baseline), text, font=fnt, fill=0, anchor="ls")
+        return None
+    if style == "wifi":
+        # The setup-portal announcement over a plate: the setup card's hotspot
+        # chip, inverted.
+        slot = 48
+        pillw = int(PILL_PAD + slot + PILL_GAP + tw + PILL_PAD + 4)
+        px = int(W / 2 - pillw / 2)
+        d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
+                            radius=PILL_H / 2, fill=0)
+        wifi_glyph(d, px + PILL_PAD + slot / 2, cy + 8, 19, fill=255)
+        d.text((px + PILL_PAD + slot + PILL_GAP, baseline), text, font=fnt,
+               fill=255, anchor="ls")
         return None
     if style == "plain":
         pillw = int(PILL_PAD + tw + PILL_PAD + 8)

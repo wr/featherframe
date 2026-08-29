@@ -333,7 +333,12 @@ bool ensureWifi(bool openPortal, bool showBoot) {
 // EPaper is a TFT_eSprite whose buffer uses that same layout, so we can push the
 // whole thing with pushImage() (a per-row memcpy at rotation 0 / even width) and
 // then update() for a full refresh — no per-pixel work.
-void displayFrame(const uint8_t* data, size_t len) {
+// `retain` keeps a copy for toast-band restore. Only the FETCH path may set
+// it: it runs after freeScreenBuffers(), where PSRAM has room. Retaining on a
+// baked entry screen (splash/setup) adds 1.3 MB while the three boot buffers
+// are still resident, and the IT8951 full write then can't find a contiguous
+// mirror block — it drops the frame SILENTLY (gotcha #2 in the handoff).
+void displayFrame(const uint8_t* data, size_t len, bool retain = false) {
   if (len < FFF_HEADER_SIZE) return;
   FFFHeader h;
   memcpy(&h, data, FFF_HEADER_SIZE);
@@ -353,9 +358,14 @@ void displayFrame(const uint8_t* data, size_t len) {
     epaper.fillScreen(TFT_WHITE);
     epaper.pushImage(0, 0, w, hh, (uint16_t*)body);
   }
+  // The mirror-buffer failure mode is silent; make the headroom visible.
+  Serial.printf("psram largest free %u\n",
+                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
   epaper.update();                          // full refresh; brackets its own power
-  if (!g_lastFrame) g_lastFrame = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
-  if (g_lastFrame) memcpy(g_lastFrame, body, FF_SCREEN_BYTES);
+  if (retain && h.bpp == 4) {               // a 1-bit body is smaller than this copy
+    if (!g_lastFrame) g_lastFrame = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
+    if (g_lastFrame) memcpy(g_lastFrame, body, FF_SCREEN_BYTES);
+  }
   panelUnlock();
   g_glassScreen = -1;                       // a full paint owns the whole glass
   g_cornerMark = 0;
@@ -635,7 +645,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
 
   if (got != len) { Serial.printf("short read %d/%d\n", got, len); free(buf); return FETCH_ERROR; }
 
-  displayFrame(buf, len);
+  displayFrame(buf, len, true);             // retain: the toast band restores from it
   free(buf);
 
   if (resident) {

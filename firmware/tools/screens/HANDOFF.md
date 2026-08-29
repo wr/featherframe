@@ -78,7 +78,11 @@ there is no separate onboarding checklist.
 2. **Plate silently fails if PSRAM is fragmented.** `tconHostAreaPackedPixelWrite` mallocs
    a ~1.31 MB mirror buffer for the full write; if the largest free block is under that it
    `return`s without loading and the panel keeps the old screen. Keep boot buffers freed
-   before any full plate load.
+   before any full plate load — and never grow the boot-time PSRAM budget: retaining the
+   frame copy (`g_lastFrame`) at the splash paint once pushed the SETUP screen's full
+   write past the cliff and the portal instructions never reached the glass. Retention is
+   fetch-path-only for this reason; `displayFrame` logs `psram largest free` so the
+   failure is no longer silent.
 3. **Panel needs pioarduino Arduino‑ESP32 v3** to cold‑init, and a **real power‑on**
    (soft/RTS resets don't cold‑init). See memory `panel-needs-pioarduino-v3`.
 4. **"Panel dead" is usually the USB cable** (power‑only / flaky) — no amber boot LED,

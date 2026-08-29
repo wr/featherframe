@@ -5,6 +5,7 @@ page and a handful of endpoints.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -74,19 +75,66 @@ def _forbidden_cross_origin() -> JSONResponse:
 
 # -- device endpoint -------------------------------------------------------
 @app.get("/api/frame")
-async def api_frame(request: Request):
+async def api_frame(request: Request, view: Optional[str] = None):
     svc = _svc(request)
     inm = _strip_etag(request.headers.get("if-none-match"))
     volt = _float_header(request.headers.get("x-battery-voltage"))
     pct = _int_header(request.headers.get("x-battery-percent"))
-    status, body, etag = svc.get_frame(inm, request.headers.get("user-agent", ""), volt, pct)
+    rssi = _int_header(request.headers.get("x-wifi-rssi"))
+    wake = request.headers.get("x-wake")
+    if wake:
+        log.info("device wake: %s (view=%s)", wake, view)
+
+    # Dark mode rides along on every response — a 304 included — so the device
+    # always knows whether to invert its baked boot screens.
+    invert = "1" if svc.config.dark_mode else "0"
+
+    # On-demand button views: rendered fresh, never the resident frame, no
+    # 304s. Threadpool: the collage leg walks the provider chain (which may
+    # generate art over the network) and a blocking render here would stall
+    # every endpoint on the loop.
+    if view in ("collage", "status"):
+        if view == "collage":
+            result = await run_in_threadpool(svc.render_collage_on_demand)
+            if result is None:
+                return Response(status_code=404, content=b"not enough birds for a collage")
+        else:
+            result = await run_in_threadpool(svc.render_status_page, volt, pct, rssi)
+        svc.record_view_checkin(request.headers.get("user-agent", ""), volt, pct, view,
+                                wifi_rssi=rssi)
+        return Response(content=result.frame, media_type="application/octet-stream",
+                        headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store",
+                                 "X-FF-Invert": invert})
+
+    status, body, etag = svc.get_frame(inm, request.headers.get("user-agent", ""), volt, pct,
+                                       wifi_rssi=rssi)
 
     if status == 503:
-        return Response(status_code=503, content=b"no frame yet")
-    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache"}
+        return Response(status_code=503, content=b"no frame yet",
+                        headers={"X-FF-Invert": invert})
+    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache", "X-FF-Invert": invert}
     if status == 304:
         return Response(status_code=304, headers=headers)
     return Response(content=body, media_type="application/octet-stream", headers=headers)
+
+
+# -- firmware OTA ----------------------------------------------------------
+# The device offers its running sketch MD5 on every wake. If data/firmware.bin
+# exists and differs, it gets the new build; otherwise 304. Deploy = drop a new
+# firmware.bin in the data dir (`make ota` does build + copy).
+@app.get("/api/firmware")
+async def api_firmware(request: Request):
+    bin_path = paths.data_dir() / "firmware.bin"
+    if not bin_path.exists():
+        return Response(status_code=404, content=b"no firmware hosted")
+    blob = bin_path.read_bytes()
+    md5 = hashlib.md5(blob).hexdigest()
+    if request.headers.get("x-firmware-md5", "").lower() == md5:
+        return Response(status_code=304)
+    log.info("serving firmware.bin (%d bytes, md5=%s) to %s",
+             len(blob), md5, request.headers.get("user-agent", "?"))
+    return Response(content=blob, media_type="application/octet-stream",
+                    headers={"X-MD5": md5, "Cache-Control": "no-store"})
 
 
 # -- config page -----------------------------------------------------------
@@ -96,7 +144,7 @@ async def index(request: Request):
     return templates.TemplateResponse(
         request, "index.html",
         {"status": svc.status(), "config": svc.config, "version": __version__,
-         "generated": svc.genart.cached_species() if svc.genart else []})
+         "generated": svc.generated_listing() if svc.genart else []})
 
 
 @app.post("/settings")
@@ -136,10 +184,14 @@ async def save_settings(request: Request):
         collage_rebuilds_per_day=i("collage_rebuilds_per_day", cur["collage_rebuilds_per_day"]),
         panel_rotation=i("panel_rotation", cur["panel_rotation"]),
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
+        mat_offset_x_px=i("mat_offset_x_px", cur["mat_offset_x_px"]),
+        mat_offset_y_px=i("mat_offset_y_px", cur["mat_offset_y_px"]),
+        dark_mode=b("dark_mode"),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
+        imagegen_text_model=s("imagegen_text_model", cur["imagegen_text_model"]),
         imagegen_quality=s("imagegen_quality", cur["imagegen_quality"]),
         # A typed key always wins; blank means "keep the stored key" unless
         # the clear checkbox is ticked.
@@ -150,7 +202,10 @@ async def save_settings(request: Request):
                         or new.dither != svc.config.dither
                         or new.show_plate_number != svc.config.show_plate_number
                         or new.panel_rotation != svc.config.panel_rotation
-                        or new.mat_inset_pct != svc.config.mat_inset_pct)
+                        or new.mat_inset_pct != svc.config.mat_inset_pct
+                        or new.mat_offset_x_px != svc.config.mat_offset_x_px
+                        or new.mat_offset_y_px != svc.config.mat_offset_y_px
+                        or new.dark_mode != svc.config.dark_mode)
     svc.update_config(new)
     if render_affecting:
         # Threadpool: the provider chain may generate art over the network now,
@@ -216,7 +271,12 @@ def _valid_slug(slug: str) -> bool:
 @app.get("/api/generated")
 async def generated_list(request: Request):
     svc = _svc(request)
-    return JSONResponse({"cached": svc.genart.cached_species()})
+    # Each entry carries regenerating/regen_error; the top-level list is what
+    # the page's poller checks to decide whether to keep polling.
+    cached = svc.generated_listing()
+    return JSONResponse({"cached": cached,
+                         "regenerating": [m["slug"] for m in cached
+                                          if m.get("regenerating")]})
 
 
 @app.get("/api/generated/{slug}.png")
@@ -238,9 +298,12 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
+    # Fire-and-forget: the generation runs in a service worker thread and the
+    # page polls /api/generated for the outcome, so this returns immediately.
+    # Threadpool only for the small cache-listing read (SD cards stall).
     ok = False
     if _valid_slug(slug):
-        ok = await run_in_threadpool(svc.regenerate_generated, slug)
+        ok = await run_in_threadpool(svc.start_regenerate, slug)
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": ok})

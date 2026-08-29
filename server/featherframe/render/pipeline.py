@@ -17,8 +17,10 @@ from .provider import ArtProvider
 
 
 def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
-    """Scale the composition down by `mat_inset_pct` per edge and center it on the
-    white field. Returns the image unchanged when the inset is 0."""
+    """Scale the composition down by `mat_inset_pct` per edge and center it.
+    The surround is painted MAT_BORDER — the ring the physical mat should
+    exactly cover, visible in the preview and, if the inset is dialed wrong,
+    as a sliver on the glass. Returns the image unchanged when the inset is 0."""
     pct = getattr(config, "mat_inset_pct", 0.0)
     if pct <= 0:
         return img
@@ -26,8 +28,12 @@ def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
     w, h = img.size
     sw, sh = max(1, round(w * scale)), max(1, round(h * scale))
     shrunk = img.resize((sw, sh), Image.LANCZOS)
-    canvas = Image.new(img.mode, (w, h), theme.FIELD)
-    canvas.paste(shrunk, ((w - sw) // 2, (h - sh) // 2))
+    canvas = Image.new(img.mode, (w, h), theme.MAT_BORDER)
+    # The physical mat is rarely mounted dead-center; the offsets move the
+    # composition to meet it, and the asymmetric ring shows the correction.
+    dx = int(getattr(config, "mat_offset_x_px", 0))
+    dy = int(getattr(config, "mat_offset_y_px", 0))
+    canvas.paste(shrunk, ((w - sw) // 2 + dx, (h - sh) // 2 + dy))
     return canvas
 
 
@@ -53,6 +59,10 @@ def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderRe
     levels = 16 if config.bit_depth == 4 else 2
     img = _apply_mat_inset(img, config)                             # clear the mat opening
     indices = finish.to_levels(img, levels, config.dither)          # portrait, upright
+    if getattr(config, "dark_mode", False):
+        # Flip every level end-to-end (black field, white ink) after dithering,
+        # so the packed frame and the PNG preview invert identically.
+        indices = (levels - 1 - indices).astype(np.uint8)
     preview = finish.levels_to_image(indices, levels)              # what the wall shows
     # The panel canvas is fixed landscape (1872x1404) and can't rotate itself, so
     # we rotate the framebuffer into native orientation here. np.rot90 is CCW.

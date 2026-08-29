@@ -116,3 +116,22 @@ def test_fuzzy_would_mismatch_starling_hence_not_used_live():
 
 def test_fuzzy_no_match_returns_empty():
     assert fuzzy_resolve_plate("Emperor Penguin", CATALOG) == []
+
+
+def test_load_ignores_foreign_images_dir(tmp_path):
+    # index.json generated on another machine records an absolute images_dir
+    # that doesn't exist here; load() must fall back to img/ beside the index.
+    import json
+    img = tmp_path / "img"
+    img.mkdir()
+    (img / "cardinal.jpg").write_bytes(b"\xff\xd8\xff\xd9")
+    index_path = tmp_path / "index.json"
+    index_path.write_text(json.dumps({
+        "images_dir": "/Users/someone-else/does/not/exist",
+        "species": [{"common": "Northern Cardinal",
+                     "scientific": "Cardinalis cardinalis",
+                     "plate": 159, "image": "cardinal.jpg"}],
+    }))
+    idx = SpeciesIndex.load(index_path)
+    m = idx.match("Northern Cardinal", "Cardinalis cardinalis")
+    assert m is not None and m.has_image

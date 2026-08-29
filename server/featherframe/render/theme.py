@@ -23,6 +23,11 @@ INK_SOFT = 96      # tertiary type (faint)
 INK_MEDIUM = 51    # secondary text (sci name, date, number) — #333
 RULE = 68          # divider line — #444
 FALLBACK_TINT = 236  # very light panel behind a fallback plate's name
+MAT_BORDER = 204   # the mat allowance ring around the inset composition — a
+                   # quiet gray the physical mat should exactly cover, so a
+                   # sliver of it on the glass means "adjust mat_inset_pct".
+                   # Multiple of 17 so it sits ON a 16-level gray (no stipple),
+                   # same rationale as FIELD.
 
 # -- geometry (px) ---------------------------------------------------------
 MARGIN_X = 100     # left/right breathing room (art fills wider, per v2)
@@ -31,8 +36,11 @@ MARGIN_BOTTOM = 95
 
 # The caption block reserves this much height at the bottom of a single frame
 # (its top edge is the title's cap top); the bird art gets everything above it.
-CAPTION_BLOCK_H = 356
-CAPTION_GAP = 64   # gap between the art and the caption block
+# v4: name + scientific name only — the rule and date line are gone (the
+# detection date is a corner mark now), so the block is shallower and the pair
+# breathes inside it.
+CAPTION_BLOCK_H = 264
+CAPTION_GAP = 84   # gap between the art and the caption block
 
 # Caption typography (point-ish sizes at native panel resolution)
 NAME_SIZE = 78         # common name, faux small caps
@@ -77,9 +85,7 @@ DATE_ORNAMENT_GAP = 1.15   # gap on each side of the hedera, fraction of size
 
 # Baseline rhythm inside the caption block, from the title baseline down.
 # Offsets scale with the title's fitted size so long names stay balanced.
-CAPTION_SCI_DROP = 0.75    # title baseline -> sci baseline, fraction of title size
-CAPTION_RULE_DROP = 42     # sci baseline -> rule
-CAPTION_DATE_DROP = 62     # rule -> date baseline
+CAPTION_SCI_DROP = 0.80    # title baseline -> sci baseline, fraction of title size
 
 # The no-plate fallback's "first recorded ..." line keeps the older all-small-
 # caps voice.

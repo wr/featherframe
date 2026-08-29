@@ -95,7 +95,13 @@ class SpeciesIndex:
         if not index_path.exists():
             return cls([], images_dir=paths.plate_images_dir())
         data = json.loads(index_path.read_text())
-        return cls(data.get("species", []), images_dir=Path(data.get("images_dir", paths.plate_images_dir())))
+        images_dir = Path(data.get("images_dir") or paths.plate_images_dir())
+        if not images_dir.is_dir():
+            # index.json may have been generated on another machine; its
+            # recorded absolute path is meaningless here. The images always
+            # live in img/ next to the index itself.
+            images_dir = index_path.parent / "img"
+        return cls(data.get("species", []), images_dir=images_dir)
 
     @property
     def count(self) -> int:

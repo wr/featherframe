@@ -12,6 +12,7 @@ device, and the ingest cursor is persisted so we don't replay history.
 from __future__ import annotations
 
 import logging
+import socket
 import threading
 from dataclasses import asdict, dataclass
 from datetime import date as ddate
@@ -25,8 +26,9 @@ from .sources import Detection, make_source
 from .db import Database
 from .render import collage as collage_mod
 from .render import pipeline
+from .render import statuspage
 from .render.compose import SingleSpec
-from .render.genart import GeneratedArtProvider, make_image_model
+from .render.genart import GeneratedArtProvider, make_image_model, make_text_model
 from .render.pipeline import RenderResult
 from .render.provider import ArtProvider, AudubonProvider, ChainedProvider
 
@@ -56,9 +58,58 @@ class DeviceStatus:
     last_checkin: Optional[str] = None
     battery_voltage: Optional[float] = None
     battery_percent: Optional[int] = None
-    last_result: Optional[str] = None      # "304" | "frame"
+    wifi_rssi: Optional[int] = None
+    last_result: Optional[str] = None      # "304" | "frame" | view name
     etag_served: Optional[str] = None
     user_agent: Optional[str] = None
+
+
+def _ago(then: datetime, now: datetime) -> str:
+    """Relative time for the config page: "just now", "7 min ago", …"""
+    secs = max(0.0, (now - then).total_seconds())
+    if secs < 60:
+        return "just now"
+    mins = int(secs // 60)
+    if mins < 60:
+        return f"{mins} min ago"
+    hours = mins // 60
+    if hours < 24:
+        return f"{hours} h ago"
+    days = hours // 24
+    return f"{days} day ago" if days == 1 else f"{days} days ago"
+
+
+def _served_words(result: Optional[str]) -> Optional[str]:
+    if result == "304":
+        return "up to date (304)"
+    if result == "frame":
+        return "new frame"
+    return f"{result} view" if result else None
+
+
+def frame_card(device: DeviceStatus, wake_interval_minutes: int,
+               now: Optional[datetime] = None) -> dict:
+    """The wall frame's health, pre-chewed for the config page: ready-to-print
+    strings plus one overdue flag. Overdue means the device has missed two
+    consecutive wake intervals — one 304 skipped is normal jitter, two is a
+    dead battery or lost Wi-Fi."""
+    now = now or datetime.now()
+    card = {"seen": False, "overdue": False,
+            "expected_minutes": wake_interval_minutes, "last_seen": None,
+            "battery": None, "served": None, "wifi_rssi": None}
+    try:
+        then = datetime.fromisoformat(device.last_checkin or "")
+    except ValueError:
+        return card
+    card["seen"] = True
+    card["last_seen"] = _ago(then, now)
+    card["overdue"] = (now - then).total_seconds() > 2 * wake_interval_minutes * 60
+    if device.battery_voltage is not None:
+        pct = f" · {device.battery_percent}%" if device.battery_percent is not None else ""
+        card["battery"] = f"{device.battery_voltage:.2f} V{pct}"
+    card["served"] = _served_words(device.last_result)
+    card["wifi_rssi"] = device.wifi_rssi
+    return card
 
 
 class FeatherframeService:
@@ -73,6 +124,14 @@ class FeatherframeService:
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
+
+        # Background regenerations (config page). The page polls the listing
+        # for this state, so it must be readable from any thread — and it is
+        # the server's memory of an in-flight repaint, which is what lets a
+        # refreshed page pick the indicator back up.
+        self._regen_lock = threading.Lock()
+        self._regen_inflight: set[str] = set()
+        self._regen_errors: dict[str, str] = {}
 
         # in-memory current frame
         self._frame_bytes: Optional[bytes] = None
@@ -116,14 +175,15 @@ class FeatherframeService:
         The generated link always serves already-bought plates from its cache;
         imagegen_enabled (and a key) only govern whether NEW plates are bought
         — turning the feature off must never hide art the user paid for."""
-        self.genart = GeneratedArtProvider(make_image_model(config))
+        self.genart = GeneratedArtProvider(make_image_model(config),
+                                           text_model=make_text_model(config))
         return ChainedProvider([self.audubon, self.genart])
 
     @staticmethod
     def _imagegen_fields(config: Config) -> tuple:
         return (config.imagegen_enabled, config.imagegen_provider,
                 config.imagegen_model, config.imagegen_quality,
-                config.imagegen_api_key)
+                config.imagegen_text_model, config.imagegen_api_key)
 
     # -- config ------------------------------------------------------------
     def reload_config(self) -> None:
@@ -224,6 +284,20 @@ class FeatherframeService:
                                generated_ok=True):
             self.db.set("quiet_collage_for", stamp)
 
+    def _collage_result(self, on_date: ddate,
+                        title: str = "A Day in the Garden") -> Optional[RenderResult]:
+        """Render a plain (non-generated) collage for one day, or None if
+        fewer than 2 species. Used by the transient button view."""
+        rows = self.source.top_species_today(on_date, self.config.confidence_threshold, limit=6)
+        rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
+        if len(rows) < 2:
+            return None
+        cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
+        img = collage_mod.render_collage(cells, self.provider, when=on_date,
+                                         total_detections=sum(r["count"] for r in rows),
+                                         title=title)
+        return pipeline.render_image(img, self.config, "collage", f"{len(cells)} species")
+
     def force_day_review(self, repaint: bool = False) -> bool:
         """The config-page button: render today's day-in-review now. Reuses
         today's cached sheet unless repaint buys a fresh one."""
@@ -291,6 +365,57 @@ class FeatherframeService:
             self._render_single(det, now, reason="regenerated")
         return ok
 
+    def start_regenerate(self, slug: str) -> bool:
+        """Kick off a regeneration in a worker thread and return immediately
+        (a generation is a 30-60 s network call — the web handler must not
+        wait on it). True means a job is now running for this slug; a request
+        while one is already in flight joins it rather than buying a second
+        image. False means the slug isn't cached. genart's module-level
+        generation lock serializes the actual purchases, so concurrent slugs
+        form a queue of one."""
+        if not any(m.get("slug") == slug for m in self.genart.cached_species()):
+            return False
+        with self._regen_lock:
+            if slug in self._regen_inflight:
+                return True
+            self._regen_inflight.add(slug)
+            self._regen_errors.pop(slug, None)
+        threading.Thread(target=self._regen_worker, args=(slug,),
+                         name=f"ff-regen-{slug}", daemon=True).start()
+        return True
+
+    def _regen_worker(self, slug: str) -> None:
+        """Runs regenerate_generated off the request thread. The in-flight
+        flag must clear on every exit path — a stuck flag would pin the page
+        on "Repainting…" and block further repaints of the species."""
+        error: Optional[str] = None
+        try:
+            if not self.regenerate_generated(slug):
+                error = "generation failed — the previous plate is kept"
+        except Exception as exc:
+            log.exception("background regeneration failed for %s", slug)
+            error = f"{type(exc).__name__}: {exc}"[:200]
+        with self._regen_lock:
+            self._regen_inflight.discard(slug)
+            if error:
+                self._regen_errors[slug] = error
+
+    def generated_listing(self) -> list[dict]:
+        """cached_species() plus live regeneration state, for the config page
+        and its polling. Copies each sidecar dict so the flags never leak
+        into the provider's own metadata."""
+        with self._regen_lock:
+            inflight = set(self._regen_inflight)
+            errors = dict(self._regen_errors)
+        out = []
+        for meta in self.genart.cached_species():
+            m = dict(meta)
+            slug = str(m.get("slug") or "")
+            m["regenerating"] = slug in inflight
+            m["regen_error"] = errors.get(slug)
+            out.append(m)
+        return out
+
     def delete_generated(self, slug: str) -> bool:
         return self.genart.delete(slug)
 
@@ -342,16 +467,65 @@ class FeatherframeService:
                         scientific_name=sci, confidence=1.0)
         self._render_single(det, now, reason="settings")
 
+    # -- on-demand views (frame buttons) -----------------------------------
+    def render_collage_on_demand(self) -> Optional[RenderResult]:
+        """Button view: yesterday's day-in-review, falling back to today.
+
+        Transient — never committed as the current frame, so the next timer
+        wake restores the resident bird.
+        """
+        today = ddate.today()
+        for day in (today - timedelta(days=1), today):
+            result = self._collage_result(day)
+            if result is not None:
+                log.info("on-demand collage for %s (%s)", day, result.label)
+                return result
+        return None
+
+    def render_status_page(self, battery_voltage: Optional[float] = None,
+                           battery_percent: Optional[int] = None,
+                           wifi_rssi: Optional[int] = None) -> RenderResult:
+        """Button view: a status plate. Transient, like the collage view."""
+        last = self.source.latest(self.config.confidence_threshold)
+        today_rows = self.source.top_species_today(
+            ddate.today(), self.config.confidence_threshold, limit=50)
+        info = statuspage.StatusInfo(
+            battery_voltage=battery_voltage,
+            battery_percent=battery_percent,
+            wifi_rssi=wifi_rssi,
+            last_common=last.common_name if last else None,
+            last_when=last.timestamp if last else None,
+            species_today=len(today_rows),
+            species_all_time=self.source.all_time_species_count(),
+            server_label=socket.gethostname(),
+            wake_minutes=self.config.wake_interval_minutes,
+        )
+        img = statuspage.render_status(info)
+        result = pipeline.render_image(img, self.config, "status", "status page")
+        log.info("on-demand status page, etag=%s", result.etag)
+        return result
+
+    def record_view_checkin(self, user_agent: str,
+                            battery_voltage: Optional[float],
+                            battery_percent: Optional[int], view: str,
+                            wifi_rssi: Optional[int] = None) -> None:
+        with self._lock:
+            etag = self._etag
+        self._record_checkin(user_agent, battery_voltage, battery_percent, etag,
+                             served=view, rssi=wifi_rssi)
+
     # -- device-facing -----------------------------------------------------
     def get_frame(self, if_none_match: Optional[str], user_agent: str = "",
                   battery_voltage: Optional[float] = None,
-                  battery_percent: Optional[int] = None) -> tuple[int, Optional[bytes], Optional[str]]:
+                  battery_percent: Optional[int] = None,
+                  wifi_rssi: Optional[int] = None) -> tuple[int, Optional[bytes], Optional[str]]:
         """Return (http_status, body_or_None, etag). Records the check-in."""
         with self._lock:
             etag = self._etag
             body = self._frame_bytes
         self._record_checkin(user_agent, battery_voltage, battery_percent, etag,
-                             served="304" if (etag and if_none_match == etag) else "frame")
+                             served="304" if (etag and if_none_match == etag) else "frame",
+                             rssi=wifi_rssi)
         if etag is None or body is None:
             return 503, None, None
         if if_none_match is not None and if_none_match == etag:
@@ -383,6 +557,7 @@ class FeatherframeService:
             "plates_loaded": self.audubon.species_count,
             "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
             "device": asdict(self.device),
+            "frame_card": frame_card(self.device, self.config.wake_interval_minutes),
             "config": self._masked_config(),
         }
 
@@ -423,11 +598,11 @@ class FeatherframeService:
             return
         self.tick()
 
-    def _record_checkin(self, ua, volt, pct, etag, served) -> None:
+    def _record_checkin(self, ua, volt, pct, etag, served, rssi=None) -> None:
         with self._lock:
             self.device = DeviceStatus(
                 last_checkin=datetime.now().isoformat(timespec="seconds"),
-                battery_voltage=volt, battery_percent=pct,
+                battery_voltage=volt, battery_percent=pct, wifi_rssi=rssi,
                 last_result=served, etag_served=etag, user_agent=ua[:120] if ua else None)
             self.db.set("device_status", asdict(self.device))
 

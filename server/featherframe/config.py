@@ -67,6 +67,14 @@ class Config:
 
     # Shrink the composition by this percent per edge and center it on white.
     mat_inset_pct: float = 4.0  # 0 disables
+    # The physical mat is rarely mounted dead-center; shift the inset
+    # composition to meet it. Positive = right / down, in panel pixels.
+    mat_offset_x_px: int = 0
+    mat_offset_y_px: int = 0
+
+    # Invert the finished frame end-to-end: black field, white ink. The device
+    # is told via X-FF-Invert so its baked boot screens match.
+    dark_mode: bool = False
 
     # Collage --------------------------------------------------------------
     collage_rebuilds_per_day: int = 3
@@ -80,6 +88,7 @@ class Config:
     imagegen_model: str = "gpt-image-2"
     imagegen_quality: str = "high"         # low | medium | high | auto
     imagegen_api_key: str = ""             # user-provided; lives only in our DB
+    imagegen_text_model: str = "gpt-5.6-luna"  # writes the naturalist's brief
     # The nightly "day in review" as one generated composite plate (the
     # folio's totem manner). Once per date; the grid collage is the fallback.
     collage_generated: bool = True
@@ -106,12 +115,16 @@ class Config:
         if self.panel_rotation not in (0, 90, 180, 270):
             self.panel_rotation = 90
         self.mat_inset_pct = _clamp(float(self.mat_inset_pct), 0.0, 20.0)
+        self.mat_offset_x_px = int(_clamp(int(self.mat_offset_x_px), -120, 120))
+        self.mat_offset_y_px = int(_clamp(int(self.mat_offset_y_px), -120, 120))
         if self.imagegen_provider not in ("openai",):
             self.imagegen_provider = "openai"
         self.imagegen_model = str(self.imagegen_model or "").strip() or "gpt-image-2"
         if self.imagegen_quality not in ("low", "medium", "high", "auto"):
             self.imagegen_quality = "high"
         self.imagegen_api_key = str(self.imagegen_api_key or "").strip()
+        self.imagegen_text_model = (str(self.imagegen_text_model or "").strip()
+                                    or "gpt-5.6-luna")
         # Normalise quiet-hours strings to HH:MM
         self.quiet_hours_start = _fmt(_parse_hhmm(self.quiet_hours_start, "22:00"))
         self.quiet_hours_end = _fmt(_parse_hhmm(self.quiet_hours_end, "06:00"))

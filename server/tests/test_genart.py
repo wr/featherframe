@@ -36,9 +36,11 @@ class FakeModel(ImageModel):
     def __init__(self, fail: bool = False) -> None:
         self.calls = 0
         self.fail = fail
+        self.prompts: list[str] = []
 
     def generate(self, prompt: str, size: str, refs) -> bytes:
         self.calls += 1
+        self.prompts.append(prompt)
         if self.fail:
             raise RuntimeError("boom")
         return _plate_png()
@@ -330,8 +332,220 @@ def test_service_serves_paid_plates_even_when_disabled(data_dir, tmp_path, monke
 
 
 # -- prompt -----------------------------------------------------------------
+def test_prompt_never_commands_imperfections():
+    # The always-on imperfection clause came back as tattered leaves on every
+    # sheet; damage may only arrive via the rare weathered direction bucket.
+    p = build_prompt("House Sparrow", "Passer domesticus")
+    assert "imperfection" not in p.lower()
+    assert "damage" not in p.lower()
+
+
+def test_direction_sampling_weighted_toward_restraint():
+    import random as _random
+    from featherframe.render.genart import _sample_direction
+    picks = [_sample_direction(_random.Random(i))[1] for i in range(300)]
+    weathered = sum(1 for p in picks if "weathering" in p["condition"])
+    fresh = sum(1 for p in picks if "fresh and whole" in p["condition"])
+    assert weathered < 40      # the ~5% bucket stays the exception
+    assert fresh > 150         # restraint dominates
+
+
+def test_direction_lands_in_prompt_only_when_drawn():
+    import random as _random
+    from featherframe.render.genart import _sample_direction
+    direction, _ = _sample_direction(_random.Random(1))
+    with_dir = build_prompt("House Sparrow", "Passer domesticus", direction)
+    without = build_prompt("House Sparrow", "Passer domesticus")
+    assert direction in with_dir
+    assert "Art direction for this sheet" in with_dir
+    assert "Art direction for this sheet" not in without
+
+
+def test_prompt_pins_subject_identity():
+    p = build_prompt("Greater Anglewing", "Microcentrum rhombifolium")
+    assert "never translated into a" in p
+
+
 def test_prompt_mentions_species_and_bans_text():
     p = build_prompt("Southeastern myotis", "Myotis austroriparius")
     assert "Southeastern myotis" in p
     assert "Myotis austroriparius" in p
     assert "no text" in p.lower() or "no lettering" in p.lower()
+
+
+# -- the naturalist's brief -------------------------------------------------
+class FakeTextModel:
+    name = "fake-text"
+
+    def __init__(self, is_bird=False, description="A large leaf-green katydid.",
+                 plants=None, fail=False):
+        self.is_bird = is_bird
+        self.description = description
+        self.plants = plants if plants is not None else [
+            {"name": "American elm", "look": "serrate ovate leaves on arching twigs"},
+            {"name": "wild plum", "look": "white five-petaled blossom clusters"},
+        ]
+        self.fail = fail
+        self.calls = 0
+
+    def complete_json(self, prompt):
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("no brief today")
+        return {"is_bird": self.is_bird, "description": self.description,
+                "plants": self.plants}
+
+
+def test_brief_lands_in_prompt_and_sidecar(tmp_path):
+    model = FakeModel()
+    text = FakeTextModel()
+    provider = GeneratedArtProvider(model, cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=text)
+    assert provider.artwork("Greater Anglewing", "Microcentrum rhombifolium")
+    assert "leaf-green katydid" in model.prompts[-1]
+    import json as _json
+    meta = _json.loads((tmp_path / "generated" /
+                        "microcentrum-rhombifolium.json").read_text())
+    assert "katydid" in meta["description"]
+    # One plant from the pool was drawn, named in the prompt, and recorded.
+    assert meta["plant"]["name"] in ("American elm", "wild plum")
+    assert meta["plant"]["name"] in model.prompts[-1]
+
+
+def test_empty_plant_pool_is_respected_not_rebought(tmp_path):
+    text = FakeTextModel(plants=[])
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=text)
+    provider._describe("Chimney Swift", "Chaetura pelagica")
+    provider._describe("Chimney Swift", "Chaetura pelagica")
+    assert text.calls == 1
+
+
+def test_brief_is_bought_once_and_cached(tmp_path):
+    text = FakeTextModel()
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=text)
+    provider._describe("Greater Anglewing", "Microcentrum rhombifolium")
+    provider._describe("Greater Anglewing", "Microcentrum rhombifolium")
+    assert text.calls == 1
+    # The cache file lives beside the plate cache, never inside it.
+    assert (tmp_path / "descriptions.json").exists()
+    assert not (tmp_path / "generated" / "descriptions.json").exists()
+
+
+def test_brief_failure_never_blocks_a_plate(tmp_path):
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=FakeTextModel(fail=True))
+    assert provider.artwork("House Sparrow", "Passer domesticus")
+
+
+def test_nonbird_tableau_never_offers_nests():
+    import random as _random
+    from featherframe.render.genart import _sample_direction
+    for i in range(300):
+        _, picks = _sample_direction(_random.Random(i), is_bird=False)
+        assert "own nest" not in picks["tableau"]
+        assert "juvenile" not in picks["tableau"]
+
+
+def test_lichen_is_not_commanded():
+    p = build_prompt("Brown Creeper", "Certhia americana")
+    assert "lichen" not in p.lower()
+
+
+# -- regeneration variety ---------------------------------------------------
+def test_forced_regenerate_avoids_the_previous_draw(tmp_path):
+    model = FakeModel()
+    provider = GeneratedArtProvider(model, cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=FakeTextModel())
+    assert provider.artwork("Greater Anglewing", "Microcentrum rhombifolium")
+    import json as _json
+    sidecar = tmp_path / "generated" / "microcentrum-rhombifolium.json"
+    first = _json.loads(sidecar.read_text())
+    # Several forced repaints: none may repeat the previous plant or the
+    # previous tableau/foliage/figures/armature sentences.
+    prev = first
+    for _ in range(6):
+        assert provider.regenerate("Greater Anglewing", "Microcentrum rhombifolium")
+        cur = _json.loads(sidecar.read_text())
+        assert cur["plant"]["name"] != prev["plant"]["name"]
+        for axis in ("tableau", "foliage", "figures", "armature"):
+            assert cur["art_direction"][axis] != prev["art_direction"][axis]
+        prev = cur
+
+
+def test_juvenile_tableau_never_draws_a_single_figure():
+    import random as _random
+    from featherframe.render.genart import _sample_direction
+    for i in range(500):
+        _, picks = _sample_direction(_random.Random(i))
+        if "juvenile" in picks["tableau"]:
+            assert "alone" not in picks["figures"]
+
+
+def test_ref_shuffle_varies_and_default_stays_deterministic(tmp_path, monkeypatch):
+    import random as _random
+    from featherframe.render.genart import pick_reference_plates
+    from featherframe import paths as _paths
+    idx_dir = tmp_path / "plates"
+    img_dir = idx_dir / "img"
+    img_dir.mkdir(parents=True)
+    species = []
+    for i in range(8):
+        (img_dir / f"p{i}.jpg").write_bytes(b"x")
+        species.append({"scientific": f"Sci {i}", "image": f"p{i}.jpg"})
+    import json as _json
+    (idx_dir / "index.json").write_text(_json.dumps(
+        {"images_dir": str(img_dir), "species": species}))
+    monkeypatch.setattr(_paths, "plate_index_path", lambda: idx_dir / "index.json")
+    a = pick_reference_plates()
+    b = pick_reference_plates()
+    assert a == b                                    # no rng: stable anchor
+    seen = {tuple(pick_reference_plates(rng=_random.Random(i)) or [])
+            for i in range(12)}
+    assert len(seen) > 1                             # rng: the fill varies
+
+
+# -- review fixes (PR #17 opus panel) ---------------------------------------
+def test_braces_in_model_text_are_literal():
+    p = build_prompt("Big Brown Bat", "Eptesicus fuscus",
+                     description="Forearm {38-50 mm}; a stocky vespertilionid.",
+                     plant={"name": "Ilex", "look": "berries {scarlet} in autumn"})
+    assert "{38-50 mm}" in p and "{scarlet}" in p
+
+
+def test_failed_regenerate_restores_the_old_sidecar(tmp_path, monkeypatch):
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=FakeTextModel())
+    assert provider.artwork("House Sparrow", "Passer domesticus")
+    sidecar = tmp_path / "generated" / "passer-domesticus.json"
+    before = sidecar.read_bytes()
+    calls = {"n": 0}
+    real_write = GeneratedArtProvider._write_atomic
+
+    def failing_write(path, data):
+        calls["n"] += 1
+        if str(path).endswith(".png") and calls["n"] > 0:
+            raise OSError("disk full")
+        return real_write(path, data)
+
+    monkeypatch.setattr(GeneratedArtProvider, "_write_atomic",
+                        staticmethod(failing_write))
+    assert not provider.regenerate("House Sparrow", "Passer domesticus")
+    # The surviving plate keeps a matching sidecar; nothing is orphaned.
+    assert sidecar.read_bytes() == before
+    assert (tmp_path / "generated" / "passer-domesticus.png").exists()
+
+
+def test_brief_model_change_rebuilds_provider(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from featherframe.service import FeatherframeService
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    svc = FeatherframeService()
+    cfg = replace(svc.config, imagegen_enabled=True, imagegen_api_key="k",
+                  imagegen_text_model="gpt-5.6-luna")
+    svc.update_config(cfg)
+    assert svc.genart._text_model.model == "gpt-5.6-luna"
+    svc.update_config(replace(cfg, imagegen_text_model="gpt-5.6-sol"))
+    assert svc.genart._text_model.model == "gpt-5.6-sol"

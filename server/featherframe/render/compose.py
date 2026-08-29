@@ -66,7 +66,9 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     _place_art(field, art.image, art_box, v_align=0.5 if art.composite else 0.44)
 
     typography.caption_block(draw, theme.WIDTH / 2, caption_top,
-                             spec.common_name, spec.scientific_name, spec.when)
+                             spec.common_name, spec.scientific_name)
+    if spec.when:
+        typography.time_corner_mark(draw, spec.when)
 
     if show_plate_number and spec.plate_number:
         typography.plate_number_mark(draw, spec.plate_number)

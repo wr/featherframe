@@ -49,11 +49,18 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 7
+PROMPT_VERSION = 8
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
+# v8: regenerates must LOOK regenerated. The image model has no memory — the
+# sameness came from us sending a near-identical packet each time. Three
+# changes: a forced regenerate excludes the previous draw's plant, tableau,
+# foliage, figure count, and armature; the style references are shuffled
+# within the eligible pool (the species-group ref keeps slot one); and the
+# composition skeleton (figure count + armature form) moved out of the fixed
+# clause into sampled axes.
 # v7: the brief also names the botany. The image model paints generic
 # deciduous-with-catkins when it doesn't know a species' real associates, so
 # the text model now returns a POOL of real host/associate plants in season
@@ -125,22 +132,20 @@ _P_COLOR = (
     "Black plumage is glazed with blue-violet iridescence, never flat gray.\n\n"
 )
 _P_COMPOSE = (
-    "Compose as Audubon composed. Use two or three figures of the species when sexes or "
-    "ages differ or a second view adds information — one at rest in clean profile plus "
-    "one displaying its full extent as its body allows, or dorsal set against ventral — "
-    "poses never repeating, at least one figure holding a characteristic living "
-    "attitude. Behavior must be true to this particular species as a naturalist knows "
+    "Compose as Audubon composed. A second or third figure of the species earns its "
+    "place when sexes or ages differ or another view adds information — one at rest in "
+    "clean profile against one displaying its full extent as its body allows, or dorsal "
+    "against ventral — poses never repeating, at least one figure holding a "
+    "characteristic living attitude. Behavior must be true to this particular species as a naturalist knows "
     "it: any voice, gape, or display goes only as far as the real animal's does, "
     "posture and energy match its living temperament, and any contortion follows "
     "Audubon's theatrical grammar rather than generic distortion. And the sheet exists to EXHIBIT the animal: however dramatic "
     "the moment, the subject stays conspicuous with its diagnostic features displayed "
     "— a pose that conceals or camouflages the subject defeats the plate's purpose. "
-    "Arrange the figures on one long diagonal or S-curve armature — a branch, stem, or "
-    "bank entering from the sheet edge and cut off flush — at staggered heights, facing "
-    "opposite directions; a very large species is instead bent in the period manner "
-    "to fit the sheet life-size. Half to two-thirds of the sheet stays bare "
-    "paper, asymmetrically. A single figure is right when one view tells everything — "
-    "then catch it mid-action. Beside each figure on a multi-figure sheet sits only a "
+    "Multiple figures share one continuous armature — a branch, stem, or bank — at "
+    "staggered heights, facing opposite directions; a very large species is instead "
+    "bent in the period manner to fit the sheet life-size. Half to two-thirds of the sheet stays bare "
+    "paper, asymmetrically. Beside each figure on a multi-figure sheet sits only a "
     "tiny engraved italic numeral (1., 2.) in the period manner.\n\n"
 )
 _P_SETTING = (
@@ -353,6 +358,22 @@ _TABLEAU_BIRD = (
     (0.08, "Stage a true-to-life dispute — rivalry, theft, or defense — in the "
            "folio's dramatic manner."),
 )
+_FIGURES = (
+    (0.40, "Let one figure carry the sheet alone, caught in a telling attitude."),
+    (0.40, "Set two figures on the sheet, their poses and directions never "
+           "repeating."),
+    (0.20, "Set three figures at staggered stations, each on its own errand."),
+)
+_ARMATURE = (
+    (0.35, "Build the sheet on one long diagonal armature entering from the "
+           "sheet edge and cut off flush."),
+    (0.30, "Build the sheet on a sinuous S-curve armature entering from the "
+           "sheet edge and cut off flush."),
+    (0.20, "Build the sheet on a single upright stem rising through it, cut "
+           "off flush at the edge."),
+    (0.15, "Give the sheet open air: the least support the species allows, "
+           "the figures commanding bare paper."),
+)
 _TABLEAU_OTHER = (
     (0.70, "The sheet is a straightforward exhibit of the species itself."),
     (0.20, "Build the moment around the species feeding in its true manner, "
@@ -363,23 +384,38 @@ _TABLEAU_OTHER = (
 
 
 def _pick(rng: random.Random, choices) -> str:
-    roll, acc = rng.random(), 0.0
+    total = sum(w for w, _ in choices)
+    roll, acc = rng.random() * total, 0.0
     for weight, sentence in choices:
         acc += weight
         if roll <= acc:
             return sentence
-    return choices[0][1]
+    return choices[-1][1]
 
 
-def _sample_direction(rng: random.Random, is_bird: bool = True) -> tuple[str, dict]:
-    picks = {"tableau": _pick(rng, _TABLEAU_BIRD if is_bird else _TABLEAU_OTHER)}
+def _sample_direction(rng: random.Random, is_bird: bool = True,
+                      avoid: Optional[dict] = None) -> tuple[str, dict]:
+    """One directive per axis. `avoid` maps an axis to the sentence the LAST
+    sheet drew — a forced regenerate passes it so the repaint is guaranteed
+    to change subject-matter, not just brushstrokes."""
+    avoid = avoid or {}
+
+    def choose(axis, choices):
+        kept = tuple(c for c in choices if c[1] != avoid.get(axis)) or choices
+        return _pick(rng, kept)
+
+    picks = {"tableau": choose("tableau",
+                               _TABLEAU_BIRD if is_bird else _TABLEAU_OTHER)}
+    fig_choices = _FIGURES[1:] if "juvenile" in picks["tableau"] else _FIGURES
+    picks["figures"] = choose("figures", fig_choices)
+    picks["armature"] = choose("armature", _ARMATURE)
     for axis, choices in _DIRECTION_AXES:
-        if axis == "energy" and "dispute" in picks["tableau"] or \
-           axis == "energy" and "encounter" in picks["tableau"]:
-            # A staged dispute cannot sit inside composed stillness.
-            picks[axis] = _pick(rng, choices[1:])
-            continue
-        picks[axis] = _pick(rng, choices)
+        if "dispute" in picks["tableau"] or "encounter" in picks["tableau"]:
+            if axis == "energy":
+                # A staged dispute cannot sit inside composed stillness.
+                picks[axis] = _pick(rng, choices[1:])
+                continue
+        picks[axis] = choose(axis, choices)
     return " ".join(picks.values()), picks
 
 
@@ -564,7 +600,8 @@ def make_image_model(config) -> Optional[ImageModel]:
     return None
 
 
-def pick_reference_plates(common_name: str = "", k: int = 3) -> list[Path]:
+def pick_reference_plates(common_name: str = "", k: int = 3,
+                          rng: Optional[random.Random] = None) -> list[Path]:
     """Real plates to hand the model as style references: the subject's own
     group first (so a swan sees water scenes, not sparrow sprigs), then the
     airy songbird defaults, then any plate on disk. Empty list if none exist."""
@@ -601,11 +638,16 @@ def pick_reference_plates(common_name: str = "", k: int = 3) -> list[Path]:
             for sci in scis:
                 _try(by_sci.get(sci), allow_composite=True)
             break
-    for sci in _PREFERRED_REFS:
-        _try(by_sci.get(sci))
-    for entry in species:
-        if isinstance(entry, dict):
-            _try(entry)
+    # Fill the remaining slots. Without an rng this is the deterministic
+    # preferred-first order; with one, the fill is shuffled so consecutive
+    # generations of a species don't anchor to the very same sheets.
+    fill = [by_sci.get(sci) for sci in _PREFERRED_REFS]
+    fill += [e for e in species if isinstance(e, dict)]
+    if rng is not None:
+        fill = list(fill)
+        rng.shuffle(fill)
+    for entry in fill:
+        _try(entry)
     return chosen[:k]
 
 
@@ -928,12 +970,24 @@ class GeneratedArtProvider(ArtProvider):
                 return True
             description, is_bird, plants = self._describe(common_name, scientific_name)
             rng = random.Random()
-            plant = rng.choice(plants) if plants else None
-            direction, picks = _sample_direction(rng, is_bird)
+            # A forced regenerate must not repeat the last sheet's draw.
+            avoid, prev_plant = None, None
+            if force:
+                try:
+                    prev = json.loads(self._sidecar(slug).read_text())
+                    prev_dir = prev.get("art_direction") or {}
+                    avoid = {k: prev_dir.get(k)
+                             for k in ("tableau", "foliage", "figures", "armature")}
+                    prev_plant = (prev.get("plant") or {}).get("name")
+                except (OSError, ValueError):
+                    pass
+            pool = [p for p in plants if p.get("name") != prev_plant] or plants
+            plant = rng.choice(pool) if pool else None
+            direction, picks = _sample_direction(rng, is_bird, avoid)
             prompt = build_prompt(common_name, scientific_name, direction,
                                   description, plant)
             refs = (self._refs if self._refs is not None
-                    else pick_reference_plates(common_name))
+                    else pick_reference_plates(common_name, rng=rng))
             started = time.time()
             try:
                 png_bytes = self._model.generate(prompt, GEN_SIZE, refs)

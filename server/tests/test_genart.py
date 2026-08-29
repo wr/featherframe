@@ -451,3 +451,56 @@ def test_nonbird_tableau_never_offers_nests():
 def test_lichen_is_not_commanded():
     p = build_prompt("Brown Creeper", "Certhia americana")
     assert "lichen" not in p.lower()
+
+
+# -- regeneration variety ---------------------------------------------------
+def test_forced_regenerate_avoids_the_previous_draw(tmp_path):
+    model = FakeModel()
+    provider = GeneratedArtProvider(model, cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=FakeTextModel())
+    assert provider.artwork("Greater Anglewing", "Microcentrum rhombifolium")
+    import json as _json
+    sidecar = tmp_path / "generated" / "microcentrum-rhombifolium.json"
+    first = _json.loads(sidecar.read_text())
+    # Several forced repaints: none may repeat the previous plant or the
+    # previous tableau/foliage/figures/armature sentences.
+    prev = first
+    for _ in range(6):
+        assert provider.regenerate("Greater Anglewing", "Microcentrum rhombifolium")
+        cur = _json.loads(sidecar.read_text())
+        assert cur["plant"]["name"] != prev["plant"]["name"]
+        for axis in ("tableau", "foliage", "figures", "armature"):
+            assert cur["art_direction"][axis] != prev["art_direction"][axis]
+        prev = cur
+
+
+def test_juvenile_tableau_never_draws_a_single_figure():
+    import random as _random
+    from featherframe.render.genart import _sample_direction
+    for i in range(500):
+        _, picks = _sample_direction(_random.Random(i))
+        if "juvenile" in picks["tableau"]:
+            assert "alone" not in picks["figures"]
+
+
+def test_ref_shuffle_varies_and_default_stays_deterministic(tmp_path, monkeypatch):
+    import random as _random
+    from featherframe.render.genart import pick_reference_plates
+    from featherframe import paths as _paths
+    idx_dir = tmp_path / "plates"
+    img_dir = idx_dir / "img"
+    img_dir.mkdir(parents=True)
+    species = []
+    for i in range(8):
+        (img_dir / f"p{i}.jpg").write_bytes(b"x")
+        species.append({"scientific": f"Sci {i}", "image": f"p{i}.jpg"})
+    import json as _json
+    (idx_dir / "index.json").write_text(_json.dumps(
+        {"images_dir": str(img_dir), "species": species}))
+    monkeypatch.setattr(_paths, "plate_index_path", lambda: idx_dir / "index.json")
+    a = pick_reference_plates()
+    b = pick_reference_plates()
+    assert a == b                                    # no rng: stable anchor
+    seen = {tuple(pick_reference_plates(rng=_random.Random(i)) or [])
+            for i in range(12)}
+    assert len(seen) > 1                             # rng: the fill varies

@@ -49,11 +49,19 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 5
+PROMPT_VERSION = 6
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
+# v6: the naturalist's brief + tableau/dressing axes. The image model knows
+# what things look like, not what names mean (an obscure leaf-winged katydid
+# came back as a moth), so a text model that DOES know taxonomy briefs the
+# illustrator first — cached per species, injected as fact, asserting what the
+# subject IS rather than what it isn't. New sampled axes: tableau (nest with
+# young, feeding, a juvenile, a dispute — all Audubon subjects; nest/juvenile
+# bird-gated) and surface dressing (lichen was a commanded constant and grew
+# on everything; now it and moss are uncommon draws).
 # v5: subject identity + sampled art direction. The figure must be the very
 # animal the names denote (the detector hands us katydids, cicadas, and bats;
 # they were coming back birdified), with anatomy fidelity generalized past
@@ -134,7 +142,7 @@ _P_SETTING = (
     "ONE identifiable host plant tied to its real diet or season, drawn to "
     "botanical-plate standard with individually veined leaves, chosen fresh from that "
     "species' own world rather than from a painter's stock of favorites; "
-    "a trunk forager gets dead lichen-crusted wood, no leaves; a ground dweller gets a "
+    "a trunk forager gets dead weathered wood, no leaves; a ground dweller gets a "
     "painted ground band of moss, rocks, and particular grasses in the lower third only, "
     "its edge cut hard so it floats on the paper, bare-paper sky above; a waterbird or "
     "wader gets a specific muted shore or marsh with a low horizon, the distance receding "
@@ -180,11 +188,20 @@ _P_COMPOSITE_TEMPLATE = (
 )
 
 
-def build_composite_prompt(subjects: list[tuple[str, str]]) -> str:
+def build_composite_prompt(subjects: list[tuple[str, str]],
+                           briefs: Optional[dict] = None) -> str:
     """Prompt for the day-in-review sheet: the day's species as one composite
-    plate. `subjects` is (common, scientific) in prominence order."""
+    plate. `subjects` is (common, scientific) in prominence order; `briefs`
+    maps a scientific name to a naturalist's one-line description so the
+    model draws katydids as katydids."""
+    def line(i, common, sci):
+        s = f"{i}. {common} ({sci})" if sci else f"{i}. {common}"
+        brief = (briefs or {}).get(sci or common, "")
+        if brief:
+            s += " — " + brief.split(". ")[0].rstrip(".") + "."
+        return s
     listed = "; ".join(
-        f"{i}. {common} ({sci})" if sci else f"{i}. {common}"
+        line(i, common, sci)
         for i, (common, sci) in enumerate(subjects, start=1))
     opener = _P_COMPOSITE_TEMPLATE.format(n=len(subjects), subjects=listed)
     return opener + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
@@ -307,26 +324,67 @@ _DIRECTION_AXES = [
         (0.20, "Allow the sheet a full theatrical moment in the folio's dramatic "
                "manner."),
     )),
+    ("dressing", (
+        (0.70, "Perches and surfaces stay plain: clean bark, stone, or stem, "
+               "undressed."),
+        (0.15, "Moss may dress the perch or ground, sparingly."),
+        (0.15, "Lichen may crust the older wood, sparingly."),
+    )),
 ]
 
+# The tableau axis chooses what the sheet is ABOUT — all subjects Audubon
+# himself painted. Nest and juvenile draws only make sense for birds; the
+# text model's is_bird verdict gates them.
+_TABLEAU_BIRD = (
+    (0.55, "The sheet is a straightforward exhibit of the species itself."),
+    (0.15, "Build the moment around the species feeding in its true manner, "
+           "prey or forage rendered honestly."),
+    (0.12, "Build the sheet around the species' own nest — its real "
+           "architecture and site — with eggs or dependent young as the season "
+           "allows, a parent attending."),
+    (0.10, "Set a juvenile beside the adult, its immature plumage honestly "
+           "distinct."),
+    (0.08, "Stage a true-to-life dispute — rivalry, theft, or defense — in the "
+           "folio's dramatic manner."),
+)
+_TABLEAU_OTHER = (
+    (0.70, "The sheet is a straightforward exhibit of the species itself."),
+    (0.20, "Build the moment around the species feeding in its true manner, "
+           "prey or forage rendered honestly."),
+    (0.10, "Stage a true-to-life defensive or rival encounter in the folio's "
+           "dramatic manner."),
+)
 
-def _sample_direction(rng: random.Random) -> tuple[str, dict]:
-    picks = {}
+
+def _pick(rng: random.Random, choices) -> str:
+    roll, acc = rng.random(), 0.0
+    for weight, sentence in choices:
+        acc += weight
+        if roll <= acc:
+            return sentence
+    return choices[0][1]
+
+
+def _sample_direction(rng: random.Random, is_bird: bool = True) -> tuple[str, dict]:
+    picks = {"tableau": _pick(rng, _TABLEAU_BIRD if is_bird else _TABLEAU_OTHER)}
     for axis, choices in _DIRECTION_AXES:
-        roll, acc = rng.random(), 0.0
-        for weight, sentence in choices:
-            acc += weight
-            if roll <= acc:
-                picks[axis] = sentence
-                break
-        else:
-            picks[axis] = choices[0][1]
+        if axis == "energy" and "dispute" in picks["tableau"] or \
+           axis == "energy" and "encounter" in picks["tableau"]:
+            # A staged dispute cannot sit inside composed stillness.
+            picks[axis] = _pick(rng, choices[1:])
+            continue
+        picks[axis] = _pick(rng, choices)
     return " ".join(picks.values()), picks
 
 
-def build_prompt(common_name: str, scientific_name: str, direction: str = "") -> str:
+def build_prompt(common_name: str, scientific_name: str, direction: str = "",
+                 description: str = "") -> str:
     subject = common_name if not scientific_name else f"{common_name} ({scientific_name})"
-    parts = [_P_OPEN, _P_PROCESS, _P_COLOR, _P_COMPOSE, _P_SETTING]
+    parts = [_P_OPEN]
+    if description:
+        parts.append("The subject, precisely, as a naturalist briefs an "
+                     "illustrator who has never seen one: " + description + "\n\n")
+    parts += [_P_PROCESS, _P_COLOR, _P_COMPOSE, _P_SETTING]
     if direction:
         parts.append("Art direction for this sheet, chosen for it alone: "
                      + direction + "\n\n")
@@ -336,6 +394,53 @@ def build_prompt(common_name: str, scientific_name: str, direction: str = "") ->
 
 class GenerationError(RuntimeError):
     pass
+
+
+# The image model knows what things look like, not what names mean; the brief
+# asserts what the subject IS, in drawable terms, from a model that knows.
+DESCRIBE_PROMPT = (
+    "Brief an illustrator who has never seen {subject} and cannot look it up. "
+    "In at most 80 words of plain prose: its taxonomic group in everyday "
+    "terms, overall body plan and true size, the diagnostic features that "
+    "separate it from similar-looking groups, and its characteristic posture "
+    "or carriage. State only established fact. "
+    'Reply as JSON: {{"is_bird": true or false, "description": "..."}}'
+)
+
+
+class TextModel(ABC):
+    """One text-completion backend for the naturalist's brief."""
+
+    name: str = "text"
+
+    @abstractmethod
+    def complete_json(self, prompt: str) -> dict:
+        """Return the model's JSON reply as a dict. May raise."""
+
+
+class OpenAITextModel(TextModel):
+    API_BASE = "https://api.openai.com/v1"
+
+    def __init__(self, api_key: str, model: str = "gpt-5.6-luna",
+                 timeout_s: float = 60.0) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.timeout_s = timeout_s
+        self.name = model
+
+    def complete_json(self, prompt: str) -> dict:
+        r = requests.post(
+            f"{self.API_BASE}/chat/completions",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={"model": self.model,
+                  "messages": [{"role": "user", "content": prompt}],
+                  "response_format": {"type": "json_object"}},
+            timeout=self.timeout_s)
+        r.raise_for_status()
+        out = json.loads(r.json()["choices"][0]["message"]["content"])
+        if not isinstance(out, dict):
+            raise GenerationError("text model returned non-object JSON")
+        return out
 
 
 class ImageModel(ABC):
@@ -414,6 +519,19 @@ class OpenAIImageModel(ImageModel):
             raise GenerationError(f"unexpected response shape: {exc}") from exc
 
 
+def make_text_model(config) -> Optional[TextModel]:
+    """The naturalist's-brief backend, gated exactly like the image model."""
+    if not getattr(config, "imagegen_enabled", False):
+        return None
+    key = (getattr(config, "imagegen_api_key", "") or "").strip()
+    if not key:
+        return None
+    if getattr(config, "imagegen_provider", "openai") == "openai":
+        return OpenAITextModel(key, model=getattr(config, "imagegen_text_model",
+                                                  "gpt-5.6-luna"))
+    return None
+
+
 def make_image_model(config) -> Optional[ImageModel]:
     """Build the configured image model, or None when generation can't run
     (disabled, no key, unknown provider). None means cache-only."""
@@ -482,8 +600,10 @@ class GeneratedArtProvider(ArtProvider):
     def __init__(self, model: Optional[ImageModel],
                  cache_dir: Optional[Path] = None,
                  refs: Optional[list[Path]] = None,
-                 cooldown_s: float = 900.0) -> None:
+                 cooldown_s: float = 900.0,
+                 text_model: Optional[TextModel] = None) -> None:
         self._model = model
+        self._text_model = text_model
         self._cache_dir = Path(cache_dir) if cache_dir else None
         self._refs = refs
         self._cooldown_s = cooldown_s
@@ -498,6 +618,48 @@ class GeneratedArtProvider(ArtProvider):
 
     def _sidecar(self, slug: str) -> Path:
         return self._dir() / f"{slug}.json"
+
+    def _descriptions_path(self) -> Path:
+        # Lives beside (not inside) the plate cache: cached_species globs the
+        # cache dir's *.json and must not list the briefs as a phantom plate.
+        return self._dir().parent / "descriptions.json"
+
+    def _describe(self, common_name: str, scientific_name: str) -> tuple[str, bool]:
+        """The cached naturalist's brief + the is-it-a-bird verdict. Bought
+        once per species; soft-fails to ("", True) so a text-model outage
+        never blocks a plate."""
+        key = slugify(scientific_name or common_name)
+        path = self._descriptions_path()
+        try:
+            cache = json.loads(path.read_text())
+        except (OSError, ValueError):
+            cache = {}
+        hit = cache.get(key)
+        if isinstance(hit, dict) and hit.get("description"):
+            return str(hit["description"]), bool(hit.get("is_bird", True))
+        if self._text_model is None:
+            return "", True
+        subject = (f"{common_name} ({scientific_name})"
+                   if scientific_name else common_name)
+        try:
+            out = self._text_model.complete_json(
+                DESCRIBE_PROMPT.format(subject=subject))
+            description = str(out.get("description", "")).strip()
+            is_bird = bool(out.get("is_bird", True))
+        except Exception as exc:
+            log.warning("describe failed for %s (%s): %s", subject,
+                        getattr(self._text_model, "name", "?"), exc)
+            return "", True
+        if description:
+            cache[key] = {
+                "description": description,
+                "is_bird": is_bird,
+                "model": getattr(self._text_model, "name", "unknown"),
+                "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            }
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._write_atomic(path, json.dumps(cache, indent=2).encode())
+        return description, is_bird
 
     @staticmethod
     def _slug_for(common_name: str, scientific_name: str) -> str:
@@ -578,7 +740,9 @@ class GeneratedArtProvider(ArtProvider):
             if not force and self._in_cooldown(key):
                 return None
             subjects = [(c.common_name, c.scientific_name) for c in cells]
-            prompt = build_composite_prompt(subjects)
+            briefs = {sci or common: self._describe(common, sci)[0]
+                      for common, sci in subjects}
+            prompt = build_composite_prompt(subjects, briefs)
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
                 if png.exists():
@@ -737,8 +901,9 @@ class GeneratedArtProvider(ArtProvider):
             # thread generated this species must not buy it a second time.
             if not force and self._png(slug).exists():
                 return True
-            direction, picks = _sample_direction(random.Random())
-            prompt = build_prompt(common_name, scientific_name, direction)
+            description, is_bird = self._describe(common_name, scientific_name)
+            direction, picks = _sample_direction(random.Random(), is_bird)
+            prompt = build_prompt(common_name, scientific_name, direction, description)
             refs = (self._refs if self._refs is not None
                     else pick_reference_plates(common_name))
             started = time.time()
@@ -760,6 +925,7 @@ class GeneratedArtProvider(ArtProvider):
                 "quality": getattr(self._model, "quality", None),
                 "prompt_version": PROMPT_VERSION,
                 "art_direction": picks,
+                "description": description,
                 "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "elapsed_s": round(time.time() - started, 1),
                 "reference_plates": [p.name for p in refs],

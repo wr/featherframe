@@ -29,7 +29,11 @@ def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
     sw, sh = max(1, round(w * scale)), max(1, round(h * scale))
     shrunk = img.resize((sw, sh), Image.LANCZOS)
     canvas = Image.new(img.mode, (w, h), theme.MAT_BORDER)
-    canvas.paste(shrunk, ((w - sw) // 2, (h - sh) // 2))
+    # The physical mat is rarely mounted dead-center; the offsets move the
+    # composition to meet it, and the asymmetric ring shows the correction.
+    dx = int(getattr(config, "mat_offset_x_px", 0))
+    dy = int(getattr(config, "mat_offset_y_px", 0))
+    canvas.paste(shrunk, ((w - sw) // 2 + dx, (h - sh) // 2 + dy))
     return canvas
 
 

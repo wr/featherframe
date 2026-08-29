@@ -28,7 +28,7 @@ from .render import collage as collage_mod
 from .render import pipeline
 from .render import statuspage
 from .render.compose import SingleSpec
-from .render.genart import GeneratedArtProvider, make_image_model
+from .render.genart import GeneratedArtProvider, make_image_model, make_text_model
 from .render.pipeline import RenderResult
 from .render.provider import ArtProvider, AudubonProvider, ChainedProvider
 
@@ -175,7 +175,8 @@ class FeatherframeService:
         The generated link always serves already-bought plates from its cache;
         imagegen_enabled (and a key) only govern whether NEW plates are bought
         — turning the feature off must never hide art the user paid for."""
-        self.genart = GeneratedArtProvider(make_image_model(config))
+        self.genart = GeneratedArtProvider(make_image_model(config),
+                                           text_model=make_text_model(config))
         return ChainedProvider([self.audubon, self.genart])
 
     @staticmethod

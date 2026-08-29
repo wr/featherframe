@@ -42,3 +42,22 @@ def test_inset_scale_matches_pct():
 def test_zero_pct_is_a_noop():
     src = _solid_black()
     assert _apply_mat_inset(src, Config(mat_inset_pct=0.0)) is src
+
+
+def test_mat_offset_shifts_the_composition():
+    out = _apply_mat_inset(_solid_black(),
+                           Config(mat_inset_pct=4.0, mat_offset_x_px=40,
+                                  mat_offset_y_px=-30))
+    band = round(PANEL_WIDTH * 0.04)
+    # Shifted right: the left ring widens by the offset, the right one thins.
+    assert out.getpixel((band + 20, PANEL_HEIGHT // 2)) == theme.MAT_BORDER
+    assert out.getpixel((band + 60, PANEL_HEIGHT // 2)) == 0
+    # Shifted up: content reaches into the former top ring.
+    vband = round(PANEL_HEIGHT * 0.04)
+    assert out.getpixel((PANEL_WIDTH // 2, vband - 10)) == 0
+
+
+def test_mat_offset_is_clamped():
+    cfg = Config(mat_offset_x_px=999, mat_offset_y_px=-999)
+    assert cfg.mat_offset_x_px == 120
+    assert cfg.mat_offset_y_px == -120

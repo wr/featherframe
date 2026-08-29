@@ -181,11 +181,14 @@ async def save_settings(request: Request):
         collage_rebuilds_per_day=i("collage_rebuilds_per_day", cur["collage_rebuilds_per_day"]),
         panel_rotation=i("panel_rotation", cur["panel_rotation"]),
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
+        mat_offset_x_px=i("mat_offset_x_px", cur["mat_offset_x_px"]),
+        mat_offset_y_px=i("mat_offset_y_px", cur["mat_offset_y_px"]),
         dark_mode=b("dark_mode"),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
+        imagegen_text_model=s("imagegen_text_model", cur["imagegen_text_model"]),
         imagegen_quality=s("imagegen_quality", cur["imagegen_quality"]),
         # A typed key always wins; blank means "keep the stored key" unless
         # the clear checkbox is ticked.
@@ -197,6 +200,8 @@ async def save_settings(request: Request):
                         or new.show_plate_number != svc.config.show_plate_number
                         or new.panel_rotation != svc.config.panel_rotation
                         or new.mat_inset_pct != svc.config.mat_inset_pct
+                        or new.mat_offset_x_px != svc.config.mat_offset_x_px
+                        or new.mat_offset_y_px != svc.config.mat_offset_y_px
                         or new.dark_mode != svc.config.dark_mode)
     svc.update_config(new)
     if render_affecting:

@@ -36,9 +36,11 @@ class FakeModel(ImageModel):
     def __init__(self, fail: bool = False) -> None:
         self.calls = 0
         self.fail = fail
+        self.prompts: list[str] = []
 
     def generate(self, prompt: str, size: str, refs) -> bytes:
         self.calls += 1
+        self.prompts.append(prompt)
         if self.fail:
             raise RuntimeError("boom")
         return _plate_png()
@@ -369,3 +371,66 @@ def test_prompt_mentions_species_and_bans_text():
     assert "Southeastern myotis" in p
     assert "Myotis austroriparius" in p
     assert "no text" in p.lower() or "no lettering" in p.lower()
+
+
+# -- the naturalist's brief -------------------------------------------------
+class FakeTextModel:
+    name = "fake-text"
+
+    def __init__(self, is_bird=False, description="A large leaf-green katydid.",
+                 fail=False):
+        self.is_bird = is_bird
+        self.description = description
+        self.fail = fail
+        self.calls = 0
+
+    def complete_json(self, prompt):
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("no brief today")
+        return {"is_bird": self.is_bird, "description": self.description}
+
+
+def test_brief_lands_in_prompt_and_sidecar(tmp_path):
+    model = FakeModel()
+    text = FakeTextModel()
+    provider = GeneratedArtProvider(model, cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=text)
+    assert provider.artwork("Greater Anglewing", "Microcentrum rhombifolium")
+    assert "leaf-green katydid" in model.prompts[-1]
+    import json as _json
+    meta = _json.loads((tmp_path / "generated" /
+                        "microcentrum-rhombifolium.json").read_text())
+    assert "katydid" in meta["description"]
+
+
+def test_brief_is_bought_once_and_cached(tmp_path):
+    text = FakeTextModel()
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=text)
+    provider._describe("Greater Anglewing", "Microcentrum rhombifolium")
+    provider._describe("Greater Anglewing", "Microcentrum rhombifolium")
+    assert text.calls == 1
+    # The cache file lives beside the plate cache, never inside it.
+    assert (tmp_path / "descriptions.json").exists()
+    assert not (tmp_path / "generated" / "descriptions.json").exists()
+
+
+def test_brief_failure_never_blocks_a_plate(tmp_path):
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=FakeTextModel(fail=True))
+    assert provider.artwork("House Sparrow", "Passer domesticus")
+
+
+def test_nonbird_tableau_never_offers_nests():
+    import random as _random
+    from featherframe.render.genart import _sample_direction
+    for i in range(300):
+        _, picks = _sample_direction(_random.Random(i), is_bird=False)
+        assert "own nest" not in picks["tableau"]
+        assert "juvenile" not in picks["tableau"]
+
+
+def test_lichen_is_not_commanded():
+    p = build_prompt("Brown Creeper", "Certhia americana")
+    assert "lichen" not in p.lower()

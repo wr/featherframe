@@ -323,7 +323,15 @@
           <input type="number" name="mat_inset_pct" min="0" max="20" step="0.5" value="{{ config.mat_inset_pct }}">
           <div class="hint">Shrinks the art onto white paper so it clears the frame's mat opening. 0 fills the whole panel; ~4 suits an 8×6 mat.</div>
         </div>
-        <div class="hint">Changing grayscale, dithering, dark mode, rotation, or mat inset re-renders the current frame.</div>
+        <div class="field">
+          <label>Mat offset (px)</label>
+          <div style="display:flex;gap:10px">
+            <input type="number" name="mat_offset_x_px" min="-120" max="120" step="1" value="{{ config.mat_offset_x_px }}" title="x — positive moves right">
+            <input type="number" name="mat_offset_y_px" min="-120" max="120" step="1" value="{{ config.mat_offset_y_px }}" title="y — positive moves down">
+          </div>
+          <div class="hint">For a mat that isn't mounted dead-center: shifts the art to meet it (x right, y down, ~9 px per mm). The gray ring shows the correction.</div>
+        </div>
+        <div class="hint">Changing grayscale, dithering, dark mode, rotation, or the mat re-renders the current frame.</div>
       </div>
 
       <div class="card">
@@ -385,6 +393,11 @@
               <option value="{{ m }}" {{ 'selected' if config.imagegen_model==m else '' }}>{{ m }}</option>
               {% endfor %}
             </select>
+          </div>
+          <div class="field">
+            <label>Brief model</label>
+            <input type="text" name="imagegen_text_model" value="{{ config.imagegen_text_model }}">
+            <div class="hint">Writes the naturalist's brief telling the image model what the species actually is.</div>
           </div>
           <div class="field">
             <label>Quality</label>

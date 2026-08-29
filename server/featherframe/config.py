@@ -68,6 +68,10 @@ class Config:
     # Shrink the composition by this percent per edge and center it on white.
     mat_inset_pct: float = 4.0  # 0 disables
 
+    # Invert the finished frame end-to-end: black field, white ink. The device
+    # is told via X-FF-Invert so its baked boot screens match.
+    dark_mode: bool = False
+
     # Collage --------------------------------------------------------------
     collage_rebuilds_per_day: int = 3
 

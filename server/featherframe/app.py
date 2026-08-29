@@ -85,6 +85,10 @@ async def api_frame(request: Request, view: Optional[str] = None):
     if wake:
         log.info("device wake: %s (view=%s)", wake, view)
 
+    # Dark mode rides along on every response — a 304 included — so the device
+    # always knows whether to invert its baked boot screens.
+    invert = "1" if svc.config.dark_mode else "0"
+
     # On-demand button views: rendered fresh, never the resident frame, no 304s.
     if view in ("collage", "status"):
         if view == "collage":
@@ -96,14 +100,16 @@ async def api_frame(request: Request, view: Optional[str] = None):
         svc.record_view_checkin(request.headers.get("user-agent", ""), volt, pct, view,
                                 wifi_rssi=rssi)
         return Response(content=result.frame, media_type="application/octet-stream",
-                        headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store"})
+                        headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store",
+                                 "X-FF-Invert": invert})
 
     status, body, etag = svc.get_frame(inm, request.headers.get("user-agent", ""), volt, pct,
                                        wifi_rssi=rssi)
 
     if status == 503:
-        return Response(status_code=503, content=b"no frame yet")
-    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache"}
+        return Response(status_code=503, content=b"no frame yet",
+                        headers={"X-FF-Invert": invert})
+    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache", "X-FF-Invert": invert}
     if status == 304:
         return Response(status_code=304, headers=headers)
     return Response(content=body, media_type="application/octet-stream", headers=headers)
@@ -175,6 +181,7 @@ async def save_settings(request: Request):
         collage_rebuilds_per_day=i("collage_rebuilds_per_day", cur["collage_rebuilds_per_day"]),
         panel_rotation=i("panel_rotation", cur["panel_rotation"]),
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
+        dark_mode=b("dark_mode"),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
@@ -189,7 +196,8 @@ async def save_settings(request: Request):
                         or new.dither != svc.config.dither
                         or new.show_plate_number != svc.config.show_plate_number
                         or new.panel_rotation != svc.config.panel_rotation
-                        or new.mat_inset_pct != svc.config.mat_inset_pct)
+                        or new.mat_inset_pct != svc.config.mat_inset_pct
+                        or new.dark_mode != svc.config.dark_mode)
     svc.update_config(new)
     if render_affecting:
         # Threadpool: the provider chain may generate art over the network now,

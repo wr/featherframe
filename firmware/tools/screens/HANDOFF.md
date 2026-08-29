@@ -14,6 +14,12 @@ there is no separate onboarding checklist.
   the changed box (bird / wren / pill) repaints.
 - The plate (e.g. American Goldfinch from `10.0.2.15:8090`) loads ~10–12 s after
   "Downloading…" (server render + transfer time).
+- Button toasts are baked pills too (`toast_assets`): in-progress toasts carry the
+  sweeping mark, "Up to date" a check, failures the outlined+slashed language — all
+  pushed as DU tiles at the toast band over the plate margin (the old GFX-font
+  1-bit toast path is gone). Dark mode: the server serves inverted plates and
+  announces `X-FF-Invert`; the firmware flips every baked screen/tile (byte ^ 0xFF)
+  per the NVS-persisted flag. Type keeps clear of the mat (~4%/edge); art bleeds.
 - Error states (W-587): a dead-ended attempt swaps the pill band in place (outlined
   pill + slashed icon; HTTP 503 keeps the solid pill as "Waiting for the first bird")
   with a "Trying again in N min" line beneath; over a painted plate only a small

@@ -275,13 +275,14 @@ def _when_parts(when: datetime) -> tuple[str, str]:
 
 # -- caption block ---------------------------------------------------------
 def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
-                  common_name: str, scientific_name: str, when: Optional[datetime],
-                  book: FontBook = FONTS, meta_override: Optional[str] = None) -> float:
-    """Render the museum caption: common name (swash italic), scientific name
-    (small caps), hairline rule, then date/time. Returns the bottom y."""
+                  common_name: str, scientific_name: str,
+                  book: FontBook = FONTS) -> float:
+    """Render the museum caption: common name (swash italic) over the
+    scientific name (engraved capitals), nothing else — the detection date
+    lives in the corner (date_corner_mark). Returns the sci baseline."""
     if not HAS_RAQM:
         return _caption_block_faux(draw, center_x, top_y, common_name,
-                                   scientific_name, when, book, meta_override)
+                                   scientific_name, book)
 
     # Common name — swash italic, tightened, auto-fit to the content width.
     # top_y is the cap top, so the block starts exactly where the ink does.
@@ -304,78 +305,39 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
         sci_size -= 1
     draw_engraved(draw, center_x, baseline, scientific_name.upper(), sci_size,
                   theme.INK_MEDIUM)
+    return baseline
 
-    # Hairline rule.
-    rule_y = baseline + theme.CAPTION_RULE_DROP
-    half = theme.RULE_WIDTH / 2
-    draw.rectangle([center_x - half, rule_y, center_x + half, rule_y + theme.RULE_THICKNESS - 1],
-                   fill=theme.RULE)
 
-    # Date / time, split around a floral fleuron.
-    date_font = book.get(theme.DATE_SIZE, italic=True, weight=theme.DATE_WEIGHT)
-    tracking_px = theme.DATE_SIZE * theme.DATE_TRACKING
-    meta_baseline = rule_y + theme.CAPTION_DATE_DROP
-    if meta_override is not None:
-        if meta_override:
-            draw_ot_tracked(draw, center_x, meta_baseline, meta_override,
-                            date_font, theme.INK_MEDIUM, theme.DATE_FEATURES, tracking_px)
-        else:
-            return rule_y + theme.RULE_THICKNESS
-    elif when:
-        date_str, time_str = _when_parts(when)
-        date_feats = _feat(theme.DATE_FEATURES)
-        time_feats = _feat(theme.TIME_FEATURES)
-        gap = theme.DATE_SIZE * theme.DATE_ORNAMENT_GAP
-        orn_w = date_font.getlength(theme.DATE_ORNAMENT)
-        date_w = sum(date_font.getlength(c, features=date_feats) for c in date_str) + \
-            tracking_px * max(0, len(date_str) - 1)
-        time_w = sum(date_font.getlength(c, features=time_feats) for c in time_str) + \
-            tracking_px * max(0, len(time_str) - 1)
-        total = date_w + gap + orn_w + gap + time_w
-        x = center_x - total / 2
-        draw_ot_tracked(draw, x + date_w / 2, meta_baseline, date_str, date_font,
-                        theme.INK_MEDIUM, theme.DATE_FEATURES, tracking_px)
-        x += date_w + gap
-        draw.text((x, meta_baseline), theme.DATE_ORNAMENT, font=date_font,
-                  fill=theme.INK_MEDIUM, anchor="ls")
-        x += orn_w + gap
-        draw_ot_tracked(draw, x + time_w / 2, meta_baseline, time_str, date_font,
-                        theme.INK_MEDIUM, theme.TIME_FEATURES, tracking_px)
-    else:
-        return rule_y + theme.RULE_THICKNESS
-    return meta_baseline
+def date_corner_mark(draw: ImageDraw.ImageDraw, when: datetime,
+                     book: FontBook = FONTS) -> None:
+    """Italic old-style date ("28 August") at the top-left margin, mirroring
+    the № mark. Day and month only: the time lives on the status page, and a
+    date-only mark keeps a same-day re-render of the same species
+    byte-identical — the device 304s instead of flashing a non-update."""
+    text = f"{when.day} {when.strftime('%B')}"
+    font = book.get(theme.PLATE_NO_SIZE, italic=True, weight=theme.PLATE_NO_WEIGHT)
+    if HAS_RAQM:
+        feats = _feat(theme.DATE_FEATURES)
+        top_gap = font.getbbox(text, features=feats)[1]
+        draw.text((theme.MARGIN_X, theme.MARGIN_TOP - top_gap), text, font=font,
+                  fill=theme.INK_MEDIUM, anchor="la", features=feats)
+        return
+    draw.text((theme.MARGIN_X, theme.MARGIN_TOP), text, font=font,
+              fill=theme.INK_MEDIUM, anchor="la")
 
 
 def _caption_block_faux(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
                         common_name: str, scientific_name: str,
-                        when: Optional[datetime], book: FontBook,
-                        meta_override: Optional[str]) -> float:
-    """No-libraqm fallback: the original faux small-caps caption."""
+                        book: FontBook = FONTS) -> float:
+    """caption_block without RAQM: faux small caps stand in for the swash."""
     name_size = fit_smallcaps_size(common_name, book, theme.NAME_SIZE,
                                    theme.NAME_TRACKING, theme.CONTENT_W)
-    name_font = book.get(name_size, weight=600)
-    ascent, _ = name_font.getmetrics()
-    baseline = top_y + ascent
-    draw_smallcaps(draw, center_x, baseline, common_name, book,
+    draw_smallcaps(draw, center_x, top_y + name_size, common_name, book,
                    name_size, theme.INK, theme.NAME_TRACKING)
-
-    baseline += theme.NAME_SIZE * 0.30 + theme.SCI_SIZE
+    baseline = top_y + name_size + round(name_size * theme.CAPTION_SCI_DROP)
     draw_engraved(draw, center_x, baseline, scientific_name.upper(),
                   theme.SUBTITLE_SIZE, theme.INK_MEDIUM)
-
-    rule_y = baseline + theme.SCI_SIZE * 0.55 + 34
-    half = theme.RULE_WIDTH / 2
-    draw.rectangle([center_x - half, rule_y, center_x + half, rule_y + theme.RULE_THICKNESS - 1],
-                   fill=theme.RULE)
-
-    meta = meta_override if meta_override is not None else (format_when(when) if when else "")
-    if meta:
-        meta_baseline = rule_y + 30 + theme.META_SIZE
-        draw_smallcaps(draw, center_x, meta_baseline, meta, book, theme.META_SIZE,
-                       theme.INK_MEDIUM, theme.META_TRACKING, weight_caps=500, weight_small=520)
-        return meta_baseline
-    return rule_y + theme.RULE_THICKNESS
-
+    return baseline
 
 def plate_number_mark(draw: ImageDraw.ImageDraw, ordinal: int,
                       book: FontBook = FONTS) -> None:

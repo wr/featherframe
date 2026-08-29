@@ -135,14 +135,17 @@ def wifi_slash(draw, cx, cy, s):
     wifi_glyph(draw, cx, cy + s * 0.55, s, fill=0)
     slash(draw, cx, cy, s * 0.78)
 
-def server_slash(draw, cx, cy, s):
-    w, h, gap = s * 1.5, s * 0.52, s * 0.22
-    y0 = cy - h - gap / 2
-    for k in range(2):
-        y = y0 + k * (h + gap)
-        draw.rounded_rectangle([cx - w / 2, y, cx + w / 2, y + h], radius=5, outline=0, width=5)
-        draw.ellipse([cx - w / 2 + 10, y + h / 2 - 4, cx - w / 2 + 18, y + h / 2 + 4], fill=0)
-    slash(draw, cx, cy, s * 0.85)
+def cloud_slash(draw, cx, cy, s):
+    # A solid cloud (union of lobes over a flat base) reads at small sizes
+    # where an outlined rack of boxes turns to mush.
+    lobes = [(cx - 0.52 * s, cy + 0.10 * s, 0.38 * s),
+             (cx + 0.02 * s, cy - 0.18 * s, 0.52 * s),
+             (cx + 0.55 * s, cy + 0.12 * s, 0.36 * s)]
+    for (x, y, r) in lobes:
+        draw.ellipse([x - r, y - r, x + r, y + r], fill=0)
+    draw.rounded_rectangle([cx - 0.72 * s, cy + 0.05 * s, cx + 0.80 * s, cy + 0.48 * s],
+                           radius=int(0.2 * s), fill=0)
+    slash(draw, cx, cy, s * 0.95)
 
 ARTS = {k: Image.open(os.path.join(ART, f"{k}.png")).convert("L")
         for k in ("house", "fly", "wren", "bird", "wren_hole")}
@@ -202,7 +205,7 @@ def screen_setup():
     maxw = max(d.textlength(ln, font=fnt) for s in steps for ln in s.split("\n"))
     cardw = int(140 + maxw + 64)
     x0 = (W - cardw) // 2
-    y0, y1 = 1060, 1806
+    y0, y1 = 1054, 1792
     d.rounded_rectangle([x0, y0, x0 + cardw, y1], radius=24, fill=0)
     y = y0 + 78
     R = 26
@@ -433,11 +436,15 @@ RETRY_TEXTS = ["Trying again in 1 minute", "Trying again in 5 minutes",
                "Trying again in 15 minutes", "Trying again shortly"]
 ERR_ICON_SLOT = 56
 RETRY_SIZE = 28
-RETRY_BASELINE = 1790
-CORNER_CX, CORNER_CY, CORNER_S = W - 118 - 34, 1806, 26
+# The physical mat covers ~4% per edge (config.mat_inset_pct default): the
+# plate pipeline scales its whole render to clear it, but boot screens push
+# full-bleed — so art may bleed under the mat, type must stay inside
+# (usable bottom ≈ 1797, right ≈ 1348).
+RETRY_BASELINE = 1776
+CORNER_CX, CORNER_CY, CORNER_S = 1290, 1742, 26
 
 def _err_icon(kind):
-    return wifi_slash if kind == "wifi" else server_slash
+    return wifi_slash if kind == "wifi" else cloud_slash
 
 def _draw_error_pill(d, text, kind):
     fnt = sans(PILL_TEXT_SIZE)
@@ -505,18 +512,85 @@ def error_assets():
     retries = [_canvas(lambda d, t=t: d.text((W / 2, RETRY_BASELINE), t,
                                              font=sans(RETRY_SIZE), fill=0, anchor="ms"))
                for t in RETRY_TEXTS]
-    rband = _aligned_region(retries, 1744, 1808)
+    rband = _aligned_region(retries, 1736, 1792)
     retry_geo, retry_tiles = _region_tiles(rband, retries + [Image.new("L", (W, H), 255)])
 
     corners = [_canvas(lambda d: wifi_slash(d, CORNER_CX, CORNER_CY, CORNER_S)),
-               _canvas(lambda d: server_slash(d, CORNER_CX, CORNER_CY, CORNER_S))]
-    cband = _aligned_region(corners, 1752, 1856)
+               _canvas(lambda d: cloud_slash(d, CORNER_CX, CORNER_CY, CORNER_S))]
+    cband = _aligned_region(corners, 1688, 1792)
     corner_geo, corner_tiles = _region_tiles(cband, corners + [Image.new("L", (W, H), 255)])
     return ((err_geo, err_tiles), (retry_geo, retry_tiles), (corner_geo, corner_tiles))
+
+# -- button toasts ------------------------------------------------------------
+# The button-press pills (check now / collage / status) used to be drawn by the
+# firmware in a stock GFX font — rough, and refreshed through the 1-bit path.
+# They are now baked exactly like the boot pills (Inter, same geometry) at the
+# toast position over the plate's bottom margin, pushed as windowed DU tiles:
+# in-progress toasts carry the loading mark (the firmware sweeps it), success
+# carries a check, failures use the outlined+slashed error language.
+TOAST_Y = 1710
+TOASTS = [
+    ("CHECKING",       "Checking",       "progress"),
+    ("COLLAGE",        "Collage",        "progress"),
+    ("STATUS",         "Status",         "progress"),
+    ("UP_TO_DATE",     "Up to date",     "done"),
+    ("NO_COLLAGE",     "No collage yet", "plain"),
+    ("CHECK_FAILED",   "Check failed",   "fail"),
+    ("COLLAGE_FAILED", "Collage failed", "fail"),
+    ("STATUS_FAILED",  "Status failed",  "fail"),
+]
+
+def _draw_toast(d, text, style):
+    fnt = sans(PILL_TEXT_SIZE)
+    tw = d.textlength(text, font=fnt)
+    cy = TOAST_Y + PILL_H / 2
+    capbox = fnt.getbbox("H")
+    baseline = cy + (capbox[3] - capbox[1]) / 2
+    if style == "fail":
+        pillw = int(26 + ERR_ICON_SLOT + 18 + tw + 30)
+        px = int(W / 2 - pillw / 2)
+        d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
+                            radius=PILL_H / 2, fill=255, outline=0, width=5)
+        cloud_slash(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22)
+        d.text((px + 26 + ERR_ICON_SLOT + 18, baseline), text, font=fnt, fill=0, anchor="ls")
+        return None
+    if style == "plain":
+        pillw = int(PILL_PAD + tw + PILL_PAD + 8)
+        px = int(W / 2 - pillw / 2)
+        d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
+                            radius=PILL_H / 2, fill=0)
+        d.text((px + PILL_PAD + 4, baseline), text, font=fnt, fill=255, anchor="ls")
+        return None
+    pillw = int(PILL_PAD + LOADER_SLOT_W + PILL_GAP + tw + PILL_PAD + 4)
+    px = int(W / 2 - pillw / 2)
+    d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
+                        radius=PILL_H / 2, fill=0)
+    if style == "done":
+        check(d, px + PILL_PAD + LOADER_SLOT_W / 2, cy, 26)
+    else:
+        draw_loader_mark(d, px + PILL_PAD + LOADER_SLOT_W / 2, cy)
+    d.text((px + PILL_PAD + LOADER_SLOT_W + PILL_GAP, baseline), text,
+           font=fnt, fill=255, anchor="ls")
+    return (px + PILL_PAD + LOADER_SLOT_W / 2, cy) if style == "progress" else None
+
+def toast_assets():
+    canvases, centers = [], []
+    for _, text, style in TOASTS:
+        im = Image.new("L", (W, H), 255)
+        centers.append(_draw_toast(ImageDraw.Draw(im), text, style))
+        canvases.append(im)
+    band = _aligned_region(canvases, 1704, 1800)
+    geo, tiles = _region_tiles(band, canvases + [Image.new("L", (W, H), 255)])
+    loaders = [loader_tiles(c, *ctr) if ctr else None
+               for c, ctr in zip(canvases, centers)]
+    return geo, tiles, loaders
 
 def write_header():
     screens = {name: im for name, im in SCREENS}
     (err_geo, err_tiles), (retry_geo, retry_tiles), (corner_geo, corner_tiles) = error_assets()
+    toast_geo, toast_tiles, toast_loaders = toast_assets()
+    max_tile = max(len(t) for t in
+                   err_tiles + retry_tiles + corner_tiles + toast_tiles)
     loaders = {name: loader_tiles(screens[name], cx, cy)
                for name, (cx, cy) in
                (("BOOT_WIFI", LOADER_AT["wifi"]),
@@ -559,7 +633,19 @@ def write_header():
          f"#define FF_CORNER_Y       {corner_geo[1]}",
          f"#define FF_CORNER_W       {corner_geo[2]}",
          f"#define FF_CORNER_H       {corner_geo[3]}", "",
-         "enum FfScreen {"]
+         "// Button toasts, baked in the boot-pill style at the toast position",
+         "// over the plate's bottom margin. FF_TOAST_BLANK erases the band.",
+         f"#define FF_TOAST_X        {toast_geo[0]}",
+         f"#define FF_TOAST_Y        {toast_geo[1]}",
+         f"#define FF_TOAST_W        {toast_geo[2]}",
+         f"#define FF_TOAST_H        {toast_geo[3]}", "",
+         f"#define FF_MAX_TILE_BYTES {max_tile}   // largest uncompressed tile",
+         "", "enum FfToast {"]
+    for i, (tname, _, _) in enumerate(TOASTS):
+        L.append(f"  FF_TOAST_{tname} = {i},")
+    L += [f"  FF_TOAST_BLANK = {len(TOASTS)},",
+          f"  FF_TOAST_COUNT = {len(TOASTS) + 1},", "};", ""]
+    L += ["enum FfScreen {"]
     for i, (name, _) in enumerate(SCREENS):
         L.append(f"  FF_SCR_{name} = {i},")
     L += [f"  FF_SCR_COUNT = {len(SCREENS)},", "};", ""]
@@ -590,6 +676,12 @@ def write_header():
         emit_array(f"ff_retry_{k}", t)
     for k, t in enumerate(corner_tiles):
         emit_array(f"ff_corner_{k}", t)
+    for k, t in enumerate(toast_tiles):
+        emit_array(f"ff_toast_{k}", t)
+    for i, ld in enumerate(toast_loaders):
+        if ld:
+            for k, t in enumerate(ld[1]):
+                emit_array(f"ff_tldr_{i}_{k}", t)
     L += ["struct FfScreenAsset { const uint8_t* data; uint32_t len; };",
           "static const FfScreenAsset ff_screens[FF_SCR_COUNT] = {"]
     for arr, ln in refs:
@@ -609,7 +701,15 @@ def write_header():
     L += ["};", "",
           "static const uint8_t* const ff_err_tiles[3] = { ff_err_0, ff_err_1, ff_err_2 };",
           "static const uint8_t* const ff_retry_tiles[5] = { ff_retry_0, ff_retry_1, ff_retry_2, ff_retry_3, ff_retry_4 };",
-          "static const uint8_t* const ff_corner_tiles[3] = { ff_corner_0, ff_corner_1, ff_corner_2 };", "",
+          "static const uint8_t* const ff_corner_tiles[3] = { ff_corner_0, ff_corner_1, ff_corner_2 };",
+          "static const uint8_t* const ff_toast_tiles[FF_TOAST_COUNT] = {",
+          "  " + ", ".join(f"ff_toast_{k}" for k in range(len(toast_tiles))) + " };",
+          "// Loading-mark window per toast (in-progress toasts only).",
+          "static const FfLoader ff_toast_loader[" + str(len(TOASTS)) + "] = {"] + [
+          (f"  {{ {ld[0][0]}, {ld[0][1]}, {{ " +
+           ", ".join(f"ff_tldr_{i}_{k}" for k in range(LOADER_FRAMES)) + " } },")
+          if ld else "  { -1, -1, { 0 } },"
+          for i, ld in enumerate(toast_loaders)] + ["};", "",
           "// PackBits decode into a caller buffer of FF_SCREEN_BYTES. Returns bytes written.",
           "static inline uint32_t ff_unpack(const uint8_t* src, uint32_t len, uint8_t* dst) {",
           "  uint32_t si = 0, di = 0;",

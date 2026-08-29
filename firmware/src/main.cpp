@@ -46,7 +46,6 @@ char     g_serverUrl[128];
 char     g_etag[40];
 uint32_t g_wakeMinutes = DEFAULT_WAKE_MINUTES;
 char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent to the server for debugging
-bool     g_gray = false;        // is the sprite currently in 4-bit gray mode?
 bool     g_viaPortal = false;   // did this boot go through the setup portal?
 
 // ---------------------------------------------------------------- battery
@@ -93,6 +92,7 @@ static LoaderAnim g_loaderAnim = {false, 0, 0, nullptr};
 
 static void panelLock()   { if (g_panelMutex) xSemaphoreTakeRecursive(g_panelMutex, portMAX_DELAY); }
 static void panelUnlock() { if (g_panelMutex) xSemaphoreGiveRecursive(g_panelMutex); }
+static void pushTile(const uint8_t* tile, int x, int y, int w, int h);
 
 static void loaderTask(void*) {
   int frame = 0;
@@ -100,13 +100,8 @@ static void loaderTask(void*) {
     if (g_loaderAnim.on) {
       panelLock();
       if (g_loaderAnim.on) {     // re-check: a full refresh may have landed
-        epaper.wake();
-        epaper.tconLoadImage((uint8_t*)g_loaderAnim.frames[frame],
-                             g_loaderAnim.x, g_loaderAnim.y,
-                             FF_LOADER_NW, FF_LOADER_NH, false);
-        epaper.tconDisplayArea(g_loaderAnim.x, g_loaderAnim.y,
-                               FF_LOADER_NW, FF_LOADER_NH, 1);   // DU: no flash
-        epaper.tconWaitForDisplayReady();
+        pushTile(g_loaderAnim.frames[frame], g_loaderAnim.x, g_loaderAnim.y,
+                 FF_LOADER_NW, FF_LOADER_NH);
         frame = (frame + 1) % FF_LOADER_FRAMES;
       }
       panelUnlock();
@@ -136,9 +131,23 @@ static uint32_t g_lastSuccessMs = 0;        // always-awake model: for g_failMin
 
 static void bumpFail() { if (g_failCount < 30000) g_failCount++; }
 
+// Dark mode: the server inverts the plates it serves and announces the mode
+// via X-FF-Invert; the firmware mirrors it onto everything baked (screens and
+// tiles) by flipping every 4bpp nibble (v -> 15-v == byte ^ 0xFF).
+bool g_invert = false;
+static uint8_t g_tileBuf[FF_MAX_TILE_BYTES];
+
+// Only call while holding the panel mutex — g_tileBuf is shared.
+static const uint8_t* maybeInvert(const uint8_t* t, size_t n) {
+  if (!g_invert) return t;
+  for (size_t i = 0; i < n; i++) g_tileBuf[i] = t[i] ^ 0xFF;
+  return g_tileBuf;
+}
+
 static void pushTile(const uint8_t* tile, int x, int y, int w, int h) {
   panelLock();
   epaper.wake();
+  tile = maybeInvert(tile, (size_t)(w / 2) * h);
   epaper.tconLoadImage((uint8_t*)tile, x, y, w, h, false);
   epaper.tconDisplayArea(x, y, w, h, 1);        // DU: no flash
   epaper.tconWaitForDisplayReady();
@@ -324,11 +333,9 @@ void displayFrame(const uint8_t* data, size_t len) {
 
   if (h.bpp == 4) {
     epaper.initGrayMode(GRAY_LEVEL16);       // reallocates the 4bpp gray sprite
-    g_gray = true;
     epaper.fillSprite(TFT_GRAY_15);          // white ground (buffer was realloc'd)
     epaper.pushImage(0, 0, w, hh, (uint16_t*)body);
   } else {                                  // 1-bit fallback (default sprite depth)
-    g_gray = false;
     epaper.fillScreen(TFT_WHITE);
     epaper.pushImage(0, 0, w, hh, (uint16_t*)body);
   }
@@ -356,72 +363,41 @@ void ackBlink(int blinks) {
   }
 }
 
-// A dark rounded pill with white text at the bottom of the frame, pushed via a
-// fast 1-bit partial refresh so only the pill's own box is touched — no full-width
-// band. The panel is fully inited once at boot (no per-toast begin), so this is
-// sub-second and never hangs. Change TOAST_ROT if the pill lands wrong-way-up.
-#define TOAST_ROT   3
-struct ToastBox { bool active; uint32_t shownAt; int x, y, w, h; };
-static ToastBox g_toast = {false, 0, 0, 0, 0};
+// Button toasts are baked pills (ff_toast_tiles, same design language as the
+// boot pills) pushed as windowed DU partials over the plate's bottom margin.
+// In-progress toasts carry the loading mark and the sweep task animates them;
+// FF_TOAST_BLANK wipes the band (its white box lands in the plate's light
+// margin, where it blends — same trade the old GFX toast made).
+struct ToastState { bool active; uint32_t shownAt; };
+static ToastState g_toast = {false, 0};
 
-// updataPartial reads the sprite as 1-bit; the plate is drawn in 4-bit gray, so
-// drop back to 1-bit before drawing a pill. The next displayFrame re-inits gray.
-static void ensure1bit() {
-#ifdef USE_MUTIGRAY_EPAPER
-  if (g_gray) { epaper.deinitGrayMode(); g_gray = false; }
-#endif
+void showToast(int t) {
+  if (t < 0 || t >= FF_TOAST_COUNT) return;
+  g_loaderAnim.on = false;
+  pushTile(ff_toast_tiles[t], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+  if (t < (int)(sizeof(ff_toast_loader) / sizeof(ff_toast_loader[0]))) {
+    const FfLoader& ld = ff_toast_loader[t];
+    if (ld.x >= 0) {
+      g_loaderAnim.x = ld.x; g_loaderAnim.y = ld.y; g_loaderAnim.frames = ld.frames;
+      g_loaderAnim.on = true;
+    }
+  }
+  g_toast = {true, millis()};
+  Serial.printf("toast: %d\n", t);
 }
 
-void showToast(const char* text) {
-  panelLock();
-  ensure1bit();
-  const uint8_t savedRot = epaper.getRotation();
-  epaper.setRotation(TOAST_ROT);
-  const int W = epaper.width();       // 1404 portrait
-
-  epaper.setTextDatum(MC_DATUM);
-  epaper.setTextFont(4);
-  epaper.setTextSize(2);
-  const int tw = epaper.textWidth(text);
-  const int pillW = tw + 96;
-  const int pillH = 96;
-  const int pillX = (W - pillW) / 2;
-  const int pillY = epaper.height() - pillH - 54;   // sit in the bottom margin
-
-  // Only the pill's box is refreshed. Its corners go white; they land in the
-  // plate's light bottom margin, so they blend rather than reading as a box.
-  epaper.fillRect(pillX, pillY, pillW, pillH, TFT_WHITE);
-  epaper.fillRoundRect(pillX, pillY, pillW, pillH, pillH / 2, TFT_BLACK);
-  epaper.setTextColor(TFT_WHITE, TFT_BLACK);
-  epaper.drawString(text, W / 2, pillY + pillH / 2);
-  epaper.updataPartial(pillX, pillY, pillW, pillH);
-  epaper.setRotation(savedRot);
-  panelUnlock();
-
-  g_toast = {true, millis(), pillX, pillY, pillW, pillH};
-  Serial.printf("toast: %s\n", text);
-}
-
-// Wipe the pill back to white (restores the bottom margin) and forget it.
+// Wipe the pill band back to white and forget it.
 void clearToast() {
   if (!g_toast.active) return;
-  panelLock();
-  ensure1bit();
-  const uint8_t savedRot = epaper.getRotation();
-  epaper.setRotation(TOAST_ROT);
-  epaper.fillRect(g_toast.x, g_toast.y, g_toast.w, g_toast.h, TFT_WHITE);
-  epaper.updataPartial(g_toast.x, g_toast.y, g_toast.w, g_toast.h);
-  epaper.setRotation(savedRot);
-  panelUnlock();
+  g_loaderAnim.on = false;
+  pushTile(ff_toast_tiles[FF_TOAST_BLANK], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
   g_toast.active = false;
   Serial.println("toast cleared");
 }
 
 // ---------------------------------------------------------------- screens
-// The boot + first-time-setup art (splash, "Connecting…", setup steps, checklist)
-// is baked at full 1404x1872 into ff_screens.h and drawn here. Same proven path as
-// the toast/splash: draw 1-bit at rotation TOAST_ROT and full-refresh (full 1-bit
-// update() is Seeed's HelloWorld path; the gray sprite can't be rotated). Each
+// The boot + first-time-setup art (splash, "Connecting…", setup steps) is baked
+// at full 1404x1872 into ff_screens.h and drawn here.
 // Screens are baked as 16-level gray in native 1872x1404 (the panel's 1-bit path
 // can't address the full width — the bottom quarter comes up black — but the gray
 // load path can). An entry screen (splash/setup) does a full gray refresh via
@@ -464,6 +440,8 @@ void showScreen(int idx) {
   }
   uint8_t* body = buf + FFF_HEADER_SIZE;
   ff_unpack(ff_screens[idx].data, ff_screens[idx].len, body);
+  if (g_invert)
+    for (uint32_t i = 0; i < FF_SCREEN_BYTES; i++) body[i] ^= 0xFF;
 
   g_loaderAnim.on = false;        // pause the sweep while the glass changes
   panelLock();
@@ -584,11 +562,18 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Battery-Percent", String(pct));
   http.addHeader("X-Wifi-RSSI", String(WiFi.RSSI()));
   http.addHeader("X-Wake", g_wakeInfo);
-  const char* collect[] = {"ETag"};
-  http.collectHeaders(collect, 1);
+  const char* collect[] = {"ETag", "X-FF-Invert"};
+  http.collectHeaders(collect, 2);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
+  // The server announces dark mode on every response; remember it for the
+  // baked screens/tiles (the plates arrive already inverted).
+  String inv = http.header("X-FF-Invert");
+  if (inv.length()) {
+    bool v = (inv == "1");
+    if (v != g_invert) { g_invert = v; prefs.putBool("invert", v); }
+  }
   if (code == HTTP_CODE_NOT_MODIFIED) { http.end(); return FETCH_NOCHANGE; }
   if (code == HTTP_CODE_NOT_FOUND) { http.end(); return FETCH_NOTFOUND; }
   if (code == HTTP_CODE_SERVICE_UNAVAILABLE) { http.end(); return FETCH_NOFRAME; }  // server up, no bird yet
@@ -706,11 +691,9 @@ void setup() {
   Serial.println("DEBUG_TOAST: awake, looping toast every 3s");
   epaper.begin(0);
   for (int n = 0; ; n++) {
-    char buf[32];
-    snprintf(buf, sizeof(buf), "Up to date  %d", n);
     Serial.printf("[%d] showToast start\n", n);
     uint32_t t0 = millis();
-    showToast(buf);
+    showToast(n % 2 ? FF_TOAST_UP_TO_DATE : FF_TOAST_CHECKING);
     Serial.printf("[%d] showToast done in %lu ms\n", n, (unsigned long)(millis() - t0));
     delay(3000);
   }
@@ -720,6 +703,7 @@ void setup() {
   prefs.getString("server", DEFAULT_SERVER_URL).toCharArray(g_serverUrl, sizeof(g_serverUrl));
   prefs.getString("etag", "").toCharArray(g_etag, sizeof(g_etag));
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);
+  g_invert = prefs.getBool("invert", false);
 
   // NOTE: the panel (Seeed_GFX) owns GPIO43 during init/refresh, so do NOT force it
   // here — that breaks the power sequencing and updates stop reaching the glass. We
@@ -820,7 +804,7 @@ void setup() {
       showScreen(FF_SCR_BOOT_DOWNLOAD);
     }
     r = fetchAndRender(FRAME_PATH, true, vbat, pct);
-    if (keyCheck && r == FETCH_NOCHANGE) showToast("Up to date");
+    if (keyCheck && r == FETCH_NOCHANGE) showToast(FF_TOAST_UP_TO_DATE);
   }
   if (buttonWake && (r == FETCH_ERROR || r == FETCH_NOFRAME)) ackBlink(4);
   if (residentFetch) {
@@ -846,22 +830,22 @@ void doButton(int key) {
   float vbat = readBatteryVoltage();
   int pct = batteryPercent(vbat);
   if (key == 0) {                             // KEY0: check now
-    showToast("Checking");
+    showToast(FF_TOAST_CHECKING);
     FetchResult r = fetchAndRender(FRAME_PATH, true, vbat, pct);
-    if (r == FETCH_NOCHANGE)      showToast("Up to date");
+    if (r == FETCH_NOCHANGE)      showToast(FF_TOAST_UP_TO_DATE);
     else if (r == FETCH_UPDATED)  g_toast.active = false;   // new plate replaced it
-    else                          showToast("Check failed");
+    else                          showToast(FF_TOAST_CHECK_FAILED);
   } else if (key == 1) {                      // KEY1: collage
-    showToast("Collage");
+    showToast(FF_TOAST_COLLAGE);
     FetchResult r = fetchAndRender(VIEW_COLLAGE_PATH, false, vbat, pct);
-    if (r == FETCH_NOTFOUND)      showToast("No collage yet");
+    if (r == FETCH_NOTFOUND)      showToast(FF_TOAST_NO_COLLAGE);
     else if (r == FETCH_UPDATED)  g_toast.active = false;
-    else                          showToast("Collage failed");
+    else                          showToast(FF_TOAST_COLLAGE_FAILED);
   } else {                                    // KEY2 tap: status
-    showToast("Status");
+    showToast(FF_TOAST_STATUS);
     FetchResult r = fetchAndRender(VIEW_STATUS_PATH, false, vbat, pct);
     if (r == FETCH_UPDATED)       g_toast.active = false;
-    else                          showToast("Status failed");
+    else                          showToast(FF_TOAST_STATUS_FAILED);
   }
   Serial.printf("button %d handled\n", key);
 }

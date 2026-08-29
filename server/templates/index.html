@@ -272,6 +272,10 @@
             <input type="number" name="collage_rebuilds_per_day" min="1" max="24" value="{{ config.collage_rebuilds_per_day }}">
           </div>
         </div>
+        <div class="field check">
+          <input type="checkbox" id="dm" name="dark_mode" {{ 'checked' if config.dark_mode else '' }}>
+          <label for="dm">Dark mode (invert everything: black field, white ink)</label>
+        </div>
         <div class="field">
           <label>Panel rotation</label>
           <select name="panel_rotation">
@@ -286,7 +290,7 @@
           <input type="number" name="mat_inset_pct" min="0" max="20" step="0.5" value="{{ config.mat_inset_pct }}">
           <div class="hint">Shrinks the art onto white paper so it clears the frame's mat opening. 0 fills the whole panel; ~4 suits an 8×6 mat.</div>
         </div>
-        <div class="hint">Changing grayscale, dithering, rotation, or mat inset re-renders the current frame.</div>
+        <div class="hint">Changing grayscale, dithering, dark mode, rotation, or mat inset re-renders the current frame.</div>
       </div>
 
       <div class="card">

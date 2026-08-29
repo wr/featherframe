@@ -49,11 +49,17 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 6
+PROMPT_VERSION = 7
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
+# v7: the brief also names the botany. The image model paints generic
+# deciduous-with-catkins when it doesn't know a species' real associates, so
+# the text model now returns a POOL of real host/associate plants in season
+# (flowering ones included when truthful — Audubon drew a lot of flowers) and
+# each generation samples ONE: regenerates vary, species don't converge on
+# the same stock foliage, and the plant is a named fact, not a prior.
 # v6: the naturalist's brief + tableau/dressing axes. The image model knows
 # what things look like, not what names mean (an obscure leaf-winged katydid
 # came back as a moth), so a text model that DOES know taxonomy briefs the
@@ -378,13 +384,18 @@ def _sample_direction(rng: random.Random, is_bird: bool = True) -> tuple[str, di
 
 
 def build_prompt(common_name: str, scientific_name: str, direction: str = "",
-                 description: str = "") -> str:
+                 description: str = "", plant: Optional[dict] = None) -> str:
     subject = common_name if not scientific_name else f"{common_name} ({scientific_name})"
     parts = [_P_OPEN]
     if description:
         parts.append("The subject, precisely, as a naturalist briefs an "
                      "illustrator who has never seen one: " + description + "\n\n")
     parts += [_P_PROCESS, _P_COLOR, _P_COMPOSE, _P_SETTING]
+    if plant:
+        parts.append("For this sheet the one plant is "
+                     + str(plant.get("name", "")) + ": "
+                     + str(plant.get("look", "")).rstrip(".")
+                     + ". Draw it true to that species and that season.\n\n")
     if direction:
         parts.append("Art direction for this sheet, chosen for it alone: "
                      + direction + "\n\n")
@@ -400,11 +411,18 @@ class GenerationError(RuntimeError):
 # asserts what the subject IS, in drawable terms, from a model that knows.
 DESCRIBE_PROMPT = (
     "Brief an illustrator who has never seen {subject} and cannot look it up. "
-    "In at most 80 words of plain prose: its taxonomic group in everyday "
-    "terms, overall body plan and true size, the diagnostic features that "
-    "separate it from similar-looking groups, and its characteristic posture "
-    "or carriage. State only established fact. "
-    'Reply as JSON: {{"is_bird": true or false, "description": "..."}}'
+    "First, in at most 80 words of plain prose: its taxonomic group in "
+    "everyday terms, overall body plan and true size, the diagnostic features "
+    "that separate it from similar-looking groups, and its characteristic "
+    "posture or carriage. Then list 4 to 6 REAL plants genuinely tied to this "
+    "species — food, host, nest site, or a plant of its true habitat — each "
+    "with a one-line drawable description of how that plant looks in the "
+    "season this species is most active (leaf shape, growth habit, and its "
+    "flower or fruit state then). Make the list botanically varied, and "
+    "include flowering or fruiting associates whenever that is truthful. "
+    "State only established fact. Reply as JSON: "
+    '{{"is_bird": true or false, "description": "...", '
+    '"plants": [{{"name": "...", "look": "..."}}]}}'
 )
 
 
@@ -624,10 +642,12 @@ class GeneratedArtProvider(ArtProvider):
         # cache dir's *.json and must not list the briefs as a phantom plate.
         return self._dir().parent / "descriptions.json"
 
-    def _describe(self, common_name: str, scientific_name: str) -> tuple[str, bool]:
-        """The cached naturalist's brief + the is-it-a-bird verdict. Bought
-        once per species; soft-fails to ("", True) so a text-model outage
-        never blocks a plate."""
+    def _describe(self, common_name: str,
+                  scientific_name: str) -> tuple[str, bool, list]:
+        """The cached naturalist's brief, the is-it-a-bird verdict, and the
+        pool of real associate plants. Bought once per species (an old entry
+        without plants is re-bought once to upgrade it); soft-fails to
+        ("", True, []) so a text-model outage never blocks a plate."""
         key = slugify(scientific_name or common_name)
         path = self._descriptions_path()
         try:
@@ -635,10 +655,12 @@ class GeneratedArtProvider(ArtProvider):
         except (OSError, ValueError):
             cache = {}
         hit = cache.get(key)
-        if isinstance(hit, dict) and hit.get("description"):
-            return str(hit["description"]), bool(hit.get("is_bird", True))
+        if isinstance(hit, dict) and hit.get("description") and (
+                "plants" in hit or self._text_model is None):
+            return (str(hit["description"]), bool(hit.get("is_bird", True)),
+                    list(hit.get("plants") or []))
         if self._text_model is None:
-            return "", True
+            return "", True, []
         subject = (f"{common_name} ({scientific_name})"
                    if scientific_name else common_name)
         try:
@@ -646,20 +668,23 @@ class GeneratedArtProvider(ArtProvider):
                 DESCRIBE_PROMPT.format(subject=subject))
             description = str(out.get("description", "")).strip()
             is_bird = bool(out.get("is_bird", True))
+            plants = [p for p in (out.get("plants") or [])
+                      if isinstance(p, dict) and p.get("name") and p.get("look")]
         except Exception as exc:
             log.warning("describe failed for %s (%s): %s", subject,
                         getattr(self._text_model, "name", "?"), exc)
-            return "", True
+            return "", True, []
         if description:
             cache[key] = {
                 "description": description,
                 "is_bird": is_bird,
+                "plants": plants,
                 "model": getattr(self._text_model, "name", "unknown"),
                 "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             }
             path.parent.mkdir(parents=True, exist_ok=True)
             self._write_atomic(path, json.dumps(cache, indent=2).encode())
-        return description, is_bird
+        return description, is_bird, plants
 
     @staticmethod
     def _slug_for(common_name: str, scientific_name: str) -> str:
@@ -741,7 +766,7 @@ class GeneratedArtProvider(ArtProvider):
                 return None
             subjects = [(c.common_name, c.scientific_name) for c in cells]
             briefs = {sci or common: self._describe(common, sci)[0]
-                      for common, sci in subjects}
+                      for common, sci in subjects}  # description only
             prompt = build_composite_prompt(subjects, briefs)
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
@@ -901,9 +926,12 @@ class GeneratedArtProvider(ArtProvider):
             # thread generated this species must not buy it a second time.
             if not force and self._png(slug).exists():
                 return True
-            description, is_bird = self._describe(common_name, scientific_name)
-            direction, picks = _sample_direction(random.Random(), is_bird)
-            prompt = build_prompt(common_name, scientific_name, direction, description)
+            description, is_bird, plants = self._describe(common_name, scientific_name)
+            rng = random.Random()
+            plant = rng.choice(plants) if plants else None
+            direction, picks = _sample_direction(rng, is_bird)
+            prompt = build_prompt(common_name, scientific_name, direction,
+                                  description, plant)
             refs = (self._refs if self._refs is not None
                     else pick_reference_plates(common_name))
             started = time.time()
@@ -926,6 +954,7 @@ class GeneratedArtProvider(ArtProvider):
                 "prompt_version": PROMPT_VERSION,
                 "art_direction": picks,
                 "description": description,
+                "plant": plant,
                 "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "elapsed_s": round(time.time() - started, 1),
                 "reference_plates": [p.name for p in refs],

@@ -378,9 +378,13 @@ class FakeTextModel:
     name = "fake-text"
 
     def __init__(self, is_bird=False, description="A large leaf-green katydid.",
-                 fail=False):
+                 plants=None, fail=False):
         self.is_bird = is_bird
         self.description = description
+        self.plants = plants if plants is not None else [
+            {"name": "American elm", "look": "serrate ovate leaves on arching twigs"},
+            {"name": "wild plum", "look": "white five-petaled blossom clusters"},
+        ]
         self.fail = fail
         self.calls = 0
 
@@ -388,7 +392,8 @@ class FakeTextModel:
         self.calls += 1
         if self.fail:
             raise RuntimeError("no brief today")
-        return {"is_bird": self.is_bird, "description": self.description}
+        return {"is_bird": self.is_bird, "description": self.description,
+                "plants": self.plants}
 
 
 def test_brief_lands_in_prompt_and_sidecar(tmp_path):
@@ -402,6 +407,18 @@ def test_brief_lands_in_prompt_and_sidecar(tmp_path):
     meta = _json.loads((tmp_path / "generated" /
                         "microcentrum-rhombifolium.json").read_text())
     assert "katydid" in meta["description"]
+    # One plant from the pool was drawn, named in the prompt, and recorded.
+    assert meta["plant"]["name"] in ("American elm", "wild plum")
+    assert meta["plant"]["name"] in model.prompts[-1]
+
+
+def test_empty_plant_pool_is_respected_not_rebought(tmp_path):
+    text = FakeTextModel(plants=[])
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=text)
+    provider._describe("Chimney Swift", "Chaetura pelagica")
+    provider._describe("Chimney Swift", "Chaetura pelagica")
+    assert text.calls == 1
 
 
 def test_brief_is_bought_once_and_cached(tmp_path):

@@ -606,7 +606,7 @@
               {% if has_key %}<button class="btn" type="button" id="key-cancel">Cancel</button>{% endif %}
             </div>
             <input type="checkbox" name="imagegen_clear_key" id="key-clear" hidden>
-            <div class="hint">Each new species is generated once and kept forever; without a key, already-cached plates still show.</div>
+            <div class="hint">Create an API key at <a id="key-link" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>, then paste it here.</div>
           </div>
           <div class="field" data-provider="a1111" {{ '' if config.imagegen_provider=='a1111' else 'hidden' }}>
             <label class="lab">Endpoint URL</label>
@@ -618,8 +618,8 @@
               <label class="switch"><input type="checkbox" id="cg" name="collage_generated" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label>
               <span class="txt">Combine the nightly “day in review” into a single image</span>
             </div>
-            <div class="hint" id="dayreview-cost"></div>
-            <div class="hint" style="margin-top:3px"><a class="ex" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)."><span class="ex-t">example</span><svg class="ex-mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></div>
+            <div class="hint" id="dayreview-cost" style="margin-left:55px"></div>
+            <div class="hint" style="margin-top:3px;margin-left:55px"><a class="ex" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)."><span class="ex-t">example</span><svg class="ex-mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></div>
           </div>
           <div class="row2">
             <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
@@ -695,7 +695,7 @@
             </form>
             <form class="inline del-form" method="post" action="/api/generated/delete">
               <input type="hidden" name="slug" value="{{ g.slug }}">
-              <button class="btn mini danger" type="submit" title="Remove the cached plate">Remove</button>
+              <button class="btn icon danger" type="submit" title="Remove the cached plate" aria-label="Remove the cached plate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
             </form>
           </div>
         </div>
@@ -831,7 +831,15 @@
         a1111: 'free — runs on your own GPU'
       };
       var costEl = document.getElementById('dayreview-cost');
-      if (costEl) costEl.textContent = 'Day-in-review cost: ' + (COST[p] || '');
+      if (costEl) costEl.textContent = COST[p] || '';
+      // Point the "create an API key" link at the chosen provider's console.
+      var KEYURL = {
+        openai: ['https://platform.openai.com/api-keys', 'platform.openai.com'],
+        gemini: ['https://aistudio.google.com/apikey', 'aistudio.google.com'],
+        replicate: ['https://replicate.com/account/api-tokens', 'replicate.com']
+      };
+      var keyLink = document.getElementById('key-link');
+      if (keyLink && KEYURL[p]) { keyLink.href = KEYURL[p][0]; keyLink.textContent = KEYURL[p][1]; }
       // On a real switch, replace a model id that belongs to another provider
       // so the saved value can't mismatch the provider.
       if (resetModel && modelField && !modelFits(p, modelField.value)) {

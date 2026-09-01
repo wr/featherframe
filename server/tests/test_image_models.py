@@ -156,3 +156,31 @@ def test_a1111_img2img_with_reference(monkeypatch):
     assert out == _PNG
     assert calls["url"].endswith("/sdapi/v1/img2img")
     assert calls["json"]["init_images"] == ["QUJD"] and "denoising_strength" in calls["json"]
+
+
+# -- live model listing (W-623) ---------------------------------------------
+def test_list_models_openai_live_filters_image(monkeypatch):
+    def fake_get(url, headers=None, timeout=None):
+        return _Resp(200, {"data": [{"id": "gpt-image-2"}, {"id": "gpt-4o"}, {"id": "gpt-image-1"}]})
+    monkeypatch.setattr(genart.requests, "get", fake_get)
+    out = genart.list_image_models(Config(imagegen_provider="openai", imagegen_api_key="k"))
+    assert out["live"] is True and out["free_text"] is False
+    assert out["models"] == ["gpt-image-1", "gpt-image-2"]
+
+
+def test_list_models_fallback_without_key():
+    out = genart.list_image_models(Config(imagegen_provider="gemini", imagegen_api_key=""))
+    assert out["live"] is False and "gemini-2.5-flash-image" in out["models"]
+
+
+def test_list_models_replicate_is_curated():
+    out = genart.list_image_models(Config(imagegen_provider="replicate", imagegen_api_key="k"))
+    assert out["free_text"] is False and any("flux-kontext" in m for m in out["models"])
+
+
+def test_list_models_a1111_is_free_text(monkeypatch):
+    def fake_get(url, timeout=None):
+        return _Resp(200, [{"model_name": "sd_xl_base"}, {"model_name": "dreamshaper"}])
+    monkeypatch.setattr(genart.requests, "get", fake_get)
+    out = genart.list_image_models(Config(imagegen_provider="a1111", imagegen_base_url="http://gpu:7860"))
+    assert out["free_text"] is True and "sd_xl_base" in out["models"]

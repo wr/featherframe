@@ -775,6 +775,57 @@ def make_image_model(config) -> Optional[ImageModel]:
     return None
 
 
+# Static fallbacks when a provider can't be queried (no key, offline, or no
+# list endpoint). Replicate has no practical "list image models" call, so it's
+# always a curated set.
+_MODEL_FALLBACKS = {
+    "openai": ["gpt-image-2", "gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"],
+    "gemini": ["gemini-2.5-flash-image", "gemini-3-pro-image"],
+    "replicate": ["black-forest-labs/flux-kontext-pro", "black-forest-labs/flux-kontext-max",
+                  "black-forest-labs/flux-1.1-pro", "stability-ai/stable-diffusion-3.5-large"],
+    "a1111": [],
+}
+
+
+def list_image_models(config) -> dict:
+    """Best-effort list of image models for the configured provider, for the
+    config page's dropdown. Returns {"models": [...], "live": bool, "free_text":
+    bool}. Never raises."""
+    provider = getattr(config, "imagegen_provider", "openai")
+    key = (getattr(config, "imagegen_api_key", "") or "").strip()
+    fallback = _MODEL_FALLBACKS.get(provider, [])
+    try:
+        if provider == "openai" and key:
+            r = requests.get("https://api.openai.com/v1/models",
+                             headers={"Authorization": f"Bearer {key}"}, timeout=8)
+            if r.status_code == 200:
+                ids = sorted(m["id"] for m in r.json().get("data", [])
+                             if str(m.get("id", "")).startswith("gpt-image"))
+                if ids:
+                    return {"models": ids, "live": True, "free_text": False}
+        elif provider == "gemini" and key:
+            r = requests.get("https://generativelanguage.googleapis.com/v1beta/models",
+                             headers={"x-goog-api-key": key}, timeout=8)
+            if r.status_code == 200:
+                ids = sorted(m["name"].split("/")[-1] for m in r.json().get("models", [])
+                             if "image" in str(m.get("name", "")))
+                if ids:
+                    return {"models": ids, "live": True, "free_text": False}
+        elif provider == "a1111":
+            base = (getattr(config, "imagegen_base_url", "") or "").strip().rstrip("/")
+            if base:
+                r = requests.get(f"{base}/sdapi/v1/sd-models", timeout=8)
+                if r.status_code == 200:
+                    names = [m.get("model_name") or m.get("title") for m in r.json()]
+                    names = [n for n in names if n]
+                    # self-hosted stays free-text (checkpoint names vary); offer
+                    # what's installed as suggestions.
+                    return {"models": names, "live": True, "free_text": True}
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        pass
+    return {"models": fallback, "live": False, "free_text": provider == "a1111"}
+
+
 def pick_reference_plates(common_name: str = "", k: int = 3,
                           rng: Optional[random.Random] = None) -> list[Path]:
     """Real plates to hand the model as style references: the subject's own

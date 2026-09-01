@@ -218,9 +218,38 @@
 
     @media (prefers-reduced-motion:no-preference){ .wrap{ animation:fade .4s ease both; } }
     @keyframes fade { from{opacity:0} to{opacity:1} }
+    /* custom select with icons — progressive enhancement over a native select */
+    .cselect { position:relative; }
+    .cselect-native.enhanced { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .cselect-btn { width:100%; display:flex; align-items:center; gap:9px; text-align:left; cursor:pointer;
+      padding:9px 12px; border:1px solid var(--border-strong); border-radius:6px; background:#fff;
+      color:var(--ink); font:inherit; font-size:14px; box-shadow:var(--sh-sm); }
+    .cselect-btn:focus-visible { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-ring); }
+    .cselect-btn .cs-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cselect-btn .cs-caret { color:var(--muted); flex:none; width:12px; height:8px; }
+    .cselect-ic { width:16px; height:16px; flex:none; display:inline-flex; color:var(--ink-2); }
+    .cselect-ic svg { width:16px; height:16px; }
+    .cselect-list { position:absolute; z-index:20; left:0; right:0; top:calc(100% + 4px); margin:0; padding:4px;
+      list-style:none; background:#fff; border:1px solid var(--border-strong); border-radius:8px;
+      box-shadow:0 10px 28px rgba(74,54,28,.18); max-height:264px; overflow:auto; }
+    .cselect-list[hidden] { display:none; }
+    .cselect-list li { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:5px;
+      font-size:14px; cursor:pointer; color:var(--ink-2); white-space:nowrap; }
+    .cselect-list li[aria-selected="true"] { color:var(--ink); font-weight:500; }
+    .cselect-list li.active, .cselect-list li:hover { background:var(--inset); }
+    .cs-sprite { position:absolute; width:0; height:0; overflow:hidden; }
   </style>
 </head>
 <body>
+<svg class="cs-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-openai" viewBox="0 0 24 24"><path fill="currentColor" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></symbol>
+  <symbol id="ic-gemini" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c.85 5.35 3.8 8.3 9.15 9.15C15.8 12 12.85 14.95 12 20.3 11.15 14.95 8.2 12 2.85 11.15 8.2 10.3 11.15 7.35 12 2Z"/></symbol>
+  <symbol id="ic-replicate" viewBox="0 0 24 24"><path fill="currentColor" d="M24 10.262v2.712h-9.518V24h-3.034V10.262zm0-5.131v2.717H8.755V24H5.722V5.131zM24 0v2.717H3.034V24H0V0z"/></symbol>
+  <symbol id="ic-chip" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 7V4M14 7V4M10 20v-3M14 20v-3M7 10H4M7 14H4M20 10h-3M20 14h-3"/></g></symbol>
+  <symbol id="ic-bird" viewBox="0 0 24 24"><path fill="currentColor" d="M22 6.1c-.8.36-1.6.6-2.5.7a4.3 4.3 0 0 0-1.9-2.16c-1.5-.83-3.4-.5-4.6.7a4.5 4.5 0 0 0-1.3 3.9C8.3 8.8 5.4 7.2 3.5 4.6c-1 1.7-.5 4 1.1 5.1-.6 0-1.2-.18-1.7-.45v.05c0 2.1 1.5 3.9 3.5 4.3-.5.15-1.1.17-1.7.07.5 1.7 2 2.9 3.8 2.95A8.7 8.7 0 0 1 2 18.5 12.3 12.3 0 0 0 8.6 20.4c8 0 12.4-6.7 12.4-12.5v-.57C21.8 7.7 22 6.9 22 6.1Z"/></symbol>
+  <symbol id="ic-waves" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5.5" cy="18.5" r="1.4" fill="currentColor" stroke="none"/><path d="M4 13.5a9 9 0 0 1 6.5 6.5"/><path d="M4 9a13 13 0 0 1 11 11"/><path d="M4 4.5a17 17 0 0 1 15.5 15.5"/></g></symbol>
+  <symbol id="ic-db" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6"/><path d="M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></g></symbol>
+</svg>
 <div class="wrap">
   <header>
     <h1 class="wordmark">Featherframe</h1>
@@ -413,12 +442,14 @@
           <h2 class="sec-head">Detection source</h2>
           <div class="field">
             <label class="lab">Source</label>
-            <select class="sel" name="detection_backend" id="src-sel">
-              <option value="birdnet_go" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go — API</option>
-              <option value="apprise" {{ 'selected' if config.detection_backend=='apprise' else '' }}>BirdNET-Pi — Apprise</option>
-              <option value="birdweather" {{ 'selected' if config.detection_backend=='birdweather' else '' }}>BirdWeather — Station ID</option>
-              <option value="custom" {{ 'selected' if config.detection_backend=='custom' else '' }}>Custom — local database</option>
+            <div class="cselect">
+            <select class="sel cselect-native" name="detection_backend" id="src-sel">
+              <option value="birdnet_go" data-icon="ic-bird" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go — API</option>
+              <option value="apprise" data-icon="ic-bird" {{ 'selected' if config.detection_backend=='apprise' else '' }}>BirdNET-Pi — Apprise</option>
+              <option value="birdweather" data-icon="ic-waves" {{ 'selected' if config.detection_backend=='birdweather' else '' }}>BirdWeather — Station ID</option>
+              <option value="custom" data-icon="ic-db" {{ 'selected' if config.detection_backend=='custom' else '' }}>Custom — local database</option>
             </select>
+            </div>
           </div>
           <div class="field" data-src="birdnet_go" {{ '' if config.detection_backend=='birdnet_go' else 'hidden' }}>
             <label class="lab">BirdNET-Go URL</label>
@@ -462,12 +493,14 @@
           </div>
           <div class="field">
             <label class="lab">Provider</label>
-            <select class="sel" name="imagegen_provider" id="ig-provider">
-              <option value="openai" {{ 'selected' if config.imagegen_provider=='openai' else '' }}>OpenAI — gpt-image</option>
-              <option value="gemini" {{ 'selected' if config.imagegen_provider=='gemini' else '' }}>Google Gemini</option>
-              <option value="replicate" {{ 'selected' if config.imagegen_provider=='replicate' else '' }}>Replicate — FLUX Kontext &amp; others</option>
-              <option value="a1111" {{ 'selected' if config.imagegen_provider=='a1111' else '' }}>Self-hosted — AUTOMATIC1111 / ComfyUI</option>
+            <div class="cselect">
+            <select class="sel cselect-native" name="imagegen_provider" id="ig-provider">
+              <option value="openai" data-icon="ic-openai" {{ 'selected' if config.imagegen_provider=='openai' else '' }}>OpenAI — gpt-image</option>
+              <option value="gemini" data-icon="ic-gemini" {{ 'selected' if config.imagegen_provider=='gemini' else '' }}>Google Gemini</option>
+              <option value="replicate" data-icon="ic-replicate" {{ 'selected' if config.imagegen_provider=='replicate' else '' }}>Replicate — FLUX Kontext &amp; others</option>
+              <option value="a1111" data-icon="ic-chip" {{ 'selected' if config.imagegen_provider=='a1111' else '' }}>Self-hosted — AUTOMATIC1111 / ComfyUI</option>
             </select>
+            </div>
           </div>
           <div class="field" data-provider="openai gemini replicate" {{ 'hidden' if config.imagegen_provider=='a1111' else '' }}>
             <label class="lab">API key <span style="color:var(--muted);font-weight:400">· stored only on this device</span></label>
@@ -501,8 +534,8 @@
             <div class="hint" id="dayreview-cost"></div>
           </div>
           <div class="row2">
-            <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><div class="hint" id="ig-model-hint"></div></div>
-            <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab">Quality</label><select class="sel" name="imagegen_quality">{% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ q }}</option>{% endfor %}</select><div class="hint">Higher looks better but costs more (high ≈ $0.17/plate).</div></div>
+            <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
+            <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab">Quality</label><div class="cselect"><select class="sel cselect-native" name="imagegen_quality">{% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ q }}</option>{% endfor %}</select></div><div class="hint">Higher looks better but costs more (high ≈ $0.17/plate).</div></div>
           </div>
           <div class="field" data-provider="openai gemini" style="margin-top:20px;" {{ 'hidden' if config.imagegen_provider in ['replicate','a1111'] else '' }}>
             <label class="lab">Text model</label>
@@ -835,6 +868,89 @@
     window.addEventListener('resize', replaceAll);
     // Web-font metrics land after first paint; realign once they do.
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(replaceAll);
+  })();
+
+  // -- custom selects: icon dropdowns over a native <select> ----------------
+  (function () {
+    var closeCurrent = null;
+    function iconHTML(id) {
+      return id ? '<span class="cselect-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#' + id + '"/></svg></span>' : '';
+    }
+    document.querySelectorAll('.cselect').forEach(function (root) {
+      var sel = root.querySelector('.cselect-native');
+      if (!sel) return;
+      sel.classList.add('enhanced'); sel.tabIndex = -1; sel.setAttribute('aria-hidden', 'true');
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'cselect-btn';
+      btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false');
+      if (sel.id) btn.setAttribute('aria-label', (sel.previousElementSibling && sel.previousElementSibling.textContent) || 'Select');
+      var list = document.createElement('ul');
+      list.className = 'cselect-list'; list.hidden = true; list.setAttribute('role', 'listbox');
+      var active = -1;
+      [].forEach.call(sel.options, function (o, i) {
+        var li = document.createElement('li'); li.setAttribute('role', 'option');
+        li.innerHTML = iconHTML(o.getAttribute('data-icon')) + '<span>' + o.textContent + '</span>';
+        li.addEventListener('mousedown', function (e) { e.preventDefault(); choose(i); });
+        list.appendChild(li);
+      });
+      function render() {
+        var o = sel.options[sel.selectedIndex] || sel.options[0];
+        btn.innerHTML = iconHTML(o && o.getAttribute('data-icon')) +
+          '<span class="cs-label">' + (o ? o.textContent : '') + '</span>' +
+          '<svg class="cs-caret" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        [].forEach.call(list.children, function (li, i) { li.setAttribute('aria-selected', i === sel.selectedIndex ? 'true' : 'false'); });
+      }
+      function setActive(i) {
+        active = Math.max(0, Math.min(i, list.children.length - 1));
+        [].forEach.call(list.children, function (li, j) { li.classList.toggle('active', j === active); });
+        if (list.children[active]) list.children[active].scrollIntoView({ block: 'nearest' });
+      }
+      function open() {
+        if (closeCurrent) closeCurrent();
+        list.hidden = false; btn.setAttribute('aria-expanded', 'true');
+        setActive(sel.selectedIndex < 0 ? 0 : sel.selectedIndex);
+        closeCurrent = close;
+        setTimeout(function () { document.addEventListener('mousedown', outside); }, 0);
+      }
+      function close() {
+        list.hidden = true; btn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('mousedown', outside);
+        if (closeCurrent === close) closeCurrent = null;
+      }
+      function outside(e) { if (!root.contains(e.target)) close(); }
+      function choose(i) {
+        if (sel.selectedIndex !== i) { sel.selectedIndex = i; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+        render(); close(); btn.focus();
+      }
+      btn.addEventListener('click', function () { list.hidden ? open() : close(); });
+      btn.addEventListener('keydown', function (e) {
+        if (list.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(); return; }
+        if (!list.hidden) {
+          if (e.key === 'ArrowDown') { e.preventDefault(); setActive(active + 1); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(active - 1); }
+          else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(active); }
+          else if (e.key === 'Escape') { e.preventDefault(); close(); }
+        }
+      });
+      root.appendChild(btn); root.appendChild(list); render();
+    });
+  })();
+
+  // -- image-model suggestions from the provider's live list ----------------
+  (function () {
+    var prov = document.getElementById('ig-provider');
+    var dl = document.getElementById('ig-model-list');
+    if (!prov || !dl) return;
+    function load() {
+      fetch('/api/imagegen/models?provider=' + encodeURIComponent(prov.value))
+        .then(function (r) { return r.json(); })
+        .then(function (out) {
+          dl.innerHTML = '';
+          (out.models || []).forEach(function (m) { var o = document.createElement('option'); o.value = m; dl.appendChild(o); });
+        }).catch(function () {});
+    }
+    prov.addEventListener('change', load);
+    load();
   })();
 
   // -- generated plates: delete in place, keeping scroll position -----------

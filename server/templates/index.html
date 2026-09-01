@@ -117,10 +117,49 @@
     .gen-item .who .meta { color: var(--soft); font-size: 12px; margin-top: 2px; }
     .gen-item .ops { display: flex; gap: 8px; }
     .gen-item .ops button { padding: 6px 12px; font-size: 13px; }
-    .gen-item.regenerating img { animation: repaint-pulse 1.6s ease-in-out infinite; }
-    @keyframes repaint-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-    .gen-item .regen-status { font-size: 12px; color: var(--accent); margin-top: 2px; }
+    /* repaint: a light sweeps across the thumbnail (the chatgpt-image idiom) */
+    .gen-item.regenerating .plate-link { position: relative; overflow: hidden; }
+    .gen-item.regenerating img { filter: saturate(.55) brightness(.98); }
+    .gen-item.regenerating .plate-link::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(105deg, transparent 32%, rgba(255,255,255,.7) 50%, transparent 68%);
+      transform: translateX(-120%);
+      animation: shine 1.5s ease-in-out infinite;
+    }
+    @keyframes shine { to { transform: translateX(120%); } }
+    .gen-item .regen-status { font-size: 12px; color: var(--accent); margin-top: 2px; font-weight: 600; }
     .gen-item.regen-failed .regen-status { color: #a2432f; }
+    /* the "Repainting…" label itself shimmers while a repaint is in flight */
+    .gen-item.regenerating .regen-status {
+      background: linear-gradient(90deg, var(--soft) 0%, var(--ink) 25%, var(--soft) 50%);
+      background-size: 200% 100%; background-clip: text; -webkit-background-clip: text;
+      color: transparent; -webkit-text-fill-color: transparent;
+      animation: text-shimmer 1.8s linear infinite;
+    }
+    @keyframes text-shimmer { to { background-position: -200% 0; } }
+
+    /* left-column background job (test detection / day in review) progress */
+    .preview.working .frame { position: relative; overflow: hidden; }
+    .preview.working .frame::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.55) 50%, transparent 65%);
+      transform: translateX(-120%); animation: shine 1.6s ease-in-out infinite;
+    }
+    .task-status { font-size: 12px; color: var(--accent); margin-top: 8px; font-weight: 600; min-height: 1em; }
+    .task-status:empty { margin-top: 0; }
+    .task-status.failed { color: #a2432f; }
+
+    /* an Advanced disclosure tucks rarely-touched settings out of the way */
+    details.adv { margin-top: 4px; }
+    details.adv > summary {
+      cursor: pointer; font-size: 12px; color: var(--soft); letter-spacing: .04em;
+      list-style: none; user-select: none; padding: 4px 0;
+    }
+    details.adv > summary::-webkit-details-marker { display: none; }
+    details.adv > summary::before { content: "▸ "; color: var(--soft); }
+    details.adv[open] > summary::before { content: "▾ "; }
+    details.adv > summary:hover { color: var(--accent); }
+    details.adv > .adv-body { padding-top: 10px; }
 
     /* lightbox: any plate image opens full-size on click */
     .plate-link { display: block; cursor: zoom-in; }
@@ -178,23 +217,24 @@
       </div>
       <div class="hint" style="margin-top: 8px;">The gray ring is the mat allowance — tune Mat inset until the physical mat just hides it.</div>
       <div class="actions">
-        <form class="inline" method="post" action="/api/test-detection"
-              onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Rendering…';">
+        {% if dev_mode %}
+        <form class="inline task-form" data-task="test-detection" method="post" action="/api/test-detection">
           <input type="text" name="common" placeholder="Northern Cardinal"
                  title="Species to test. A species with no Audubon plate exercises AI generation (may take a minute).">
           <button class="ghost" type="submit">Test detection</button>
         </form>
+        {% endif %}
         <button class="ghost" type="button" onclick="refreshPreview()">Refresh preview</button>
       </div>
       <div class="actions">
-        <form class="inline" method="post" action="/api/collage/day-review"
-              onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Painting…';">
+        <form class="inline task-form" data-task="day-review" method="post" action="/api/collage/day-review">
           <button class="ghost" type="submit" title="Render today's day-in-review composite now. Reuses today's sheet if one exists.">Day in review</button>
           <label class="check" style="font-size: 12px; color: var(--soft); gap: 5px;">
             <input type="checkbox" name="repaint" title="Buy a fresh sheet even if today's exists (~17¢)"> repaint
           </label>
         </form>
       </div>
+      <div class="task-status" id="task-status"></div>
 
       <div class="status">
         <dl>
@@ -233,16 +273,6 @@
             <option value="auto"    {{ 'selected' if config.mode=='auto'    else '' }}>Auto — single by day, review overnight</option>
           </select>
         </div>
-        <div class="row">
-          <div class="field">
-            <label>Confidence threshold</label>
-            <input type="number" name="confidence_threshold" min="0" max="1" step="0.05" value="{{ config.confidence_threshold }}">
-          </div>
-          <div class="field">
-            <label>Refresh debounce (min)</label>
-            <input type="number" name="refresh_debounce_minutes" min="1" max="720" value="{{ config.refresh_debounce_minutes }}">
-          </div>
-        </div>
         <div class="field check">
           <input type="checkbox" id="ssl" name="single_show_latest" {{ 'checked' if config.single_show_latest else '' }}>
           <label for="ssl">Always show the most recent detection (ignore debounce &amp; same-species)</label>
@@ -252,6 +282,23 @@
           <input type="number" name="wake_interval_minutes" min="1" max="720" value="{{ config.wake_interval_minutes }}">
           <div class="hint">Advisory — the firmware's deep-sleep timer. Affects battery life.</div>
         </div>
+        <details class="adv">
+          <summary>Advanced</summary>
+          <div class="adv-body">
+            <div class="row">
+              <div class="field">
+                <label>Confidence threshold</label>
+                <input type="number" name="confidence_threshold" min="0" max="1" step="0.05" value="{{ config.confidence_threshold }}">
+                <div class="hint">Minimum detection confidence to show a bird.</div>
+              </div>
+              <div class="field">
+                <label>Refresh debounce (min)</label>
+                <input type="number" name="refresh_debounce_minutes" min="1" max="720" value="{{ config.refresh_debounce_minutes }}">
+                <div class="hint">Least time between refreshes for a new bird — only applies when "Always show the most recent" is off.</div>
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
 
       <div class="card">
@@ -335,9 +382,9 @@
       </div>
 
       <div class="card">
-        <h2>Ingest &amp; curation</h2>
+        <h2>Detection source</h2>
         <div class="field">
-          <label>Detection source</label>
+          <label>Source</label>
           <select name="detection_backend">
             <option value="birdnet_pi" {{ 'selected' if config.detection_backend=='birdnet_pi' else '' }}>BirdNET-Pi — local database</option>
             <option value="birdnet_go" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go — REST API</option>
@@ -366,10 +413,11 @@
       </div>
 
       <div class="card">
-        <h2>AI plates</h2>
+        <h2>Image generation</h2>
+        <p class="hint" style="margin: -6px 0 16px;">When a bird has no Audubon plate, Featherframe paints one in the same lithograph style — so the frame shows the right species instead of falling back to type. Plates it has already made always show, key or not.</p>
         <div class="field check">
           <input type="checkbox" id="ig" name="imagegen_enabled" {{ 'checked' if config.imagegen_enabled else '' }}>
-          <label for="ig">Generate a plate when a species has no Audubon plate (already-generated plates always show)</label>
+          <label for="ig">Enable image generation for species without an existing image</label>
         </div>
         <div class="field">
           <label>OpenAI API key</label>
@@ -395,9 +443,9 @@
             </select>
           </div>
           <div class="field">
-            <label>Brief model</label>
+            <label>Brief model (text)</label>
             <input type="text" name="imagegen_text_model" value="{{ config.imagegen_text_model }}">
-            <div class="hint">Writes the naturalist's brief telling the image model what the species actually is.</div>
+            <div class="hint">A text model that writes the naturalist's brief — the species' taxonomy, plumage, and typical plants — that guides the image model. A better brief means a more accurate bird.</div>
           </div>
           <div class="field">
             <label>Quality</label>
@@ -406,6 +454,7 @@
               <option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ q }}</option>
               {% endfor %}
             </select>
+            <div class="hint">Image-model effort: higher looks better but costs more and takes longer (high ≈ $0.17/plate). <em>Auto</em> lets the model decide.</div>
           </div>
         </div>
       </div>
@@ -451,15 +500,13 @@
         </div>
         {% endfor %}
       </div>
-      <div class="hint" style="margin-top: 10px;">A cached plate is never regenerated on its own — only from here.</div>
     </div>
     {% endif %}
     </div>
   </div>
 
   <footer>
-    Featherframe v{{ version }} · LAN-only, no authentication · current frame etag
-    <code>{{ status.current.etag or '—' }}</code>
+    Featherframe v{{ version }}
   </footer>
 </div>
 
@@ -588,6 +635,78 @@
       painting[el.getAttribute('data-slug')] = true;
     });
     if (Object.keys(painting).length) startPolling();
+  })();
+
+  // -- left-column background jobs: test detection & day-in-review ----------
+  // These can take a minute (a plate-less species generates art), so the POST
+  // is fire-and-forget and we poll /api/tasks for the outcome instead of
+  // blocking the request — which is what used to 504.
+  (function () {
+    var LABEL = { 'test-detection': 'Rendering…', 'day-review': 'Painting…' };
+    var forms = {};  // task -> { button, idle }
+    var statusEl = document.getElementById('task-status');
+    var preview = document.querySelector('.preview');
+    var timer = null, active = false;
+
+    function beginUI(task) {
+      active = true;
+      var f = forms[task];
+      if (f && f.button) { f.button.disabled = true; f.button.textContent = LABEL[task] || 'Working…'; }
+      if (preview) preview.classList.add('working');
+      if (statusEl) {
+        statusEl.classList.remove('failed');
+        statusEl.textContent = (task === 'day-review' ? 'Painting the day in review' : 'Rendering the plate')
+          + ' — this can take a minute.';
+      }
+    }
+    function idleUI(task) {
+      var f = forms[task];
+      if (f && f.button) { f.button.disabled = false; f.button.textContent = f.idle; }
+    }
+    function finish(errors) {
+      if (timer) { clearInterval(timer); timer = null; }
+      if (preview) preview.classList.remove('working');
+      if (!active) return;  // nothing we started — ignore any stale error
+      active = false;
+      var keys = Object.keys(errors || {});
+      if (keys.length && statusEl) {
+        statusEl.textContent = 'Failed — ' + errors[keys[0]];
+        statusEl.classList.add('failed');
+      } else {
+        if (statusEl) { statusEl.textContent = ''; statusEl.classList.remove('failed'); }
+        refreshPreview();  // the fresh frame is ready — pull it into view
+      }
+    }
+    function apply(state) {
+      var running = state.running || [];
+      Object.keys(forms).forEach(function (task) {
+        if (running.indexOf(task) === -1) idleUI(task);
+        else if (!active) beginUI(task);  // resume a job started before load
+      });
+      if (running.length === 0) finish(state.errors);
+    }
+    function poll() {
+      fetch('/api/tasks').then(function (r) { return r.json(); }).then(apply).catch(function () {});
+    }
+    function startPolling() { if (!timer) { timer = setInterval(poll, 3000); } }
+
+    document.querySelectorAll('.task-form').forEach(function (form) {
+      var task = form.getAttribute('data-task');
+      var button = form.querySelector('button[type="submit"]');
+      forms[task] = { button: button, idle: button ? button.textContent : '' };
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        beginUI(task);
+        fetch(form.action, { method: 'POST', body: new FormData(form) })
+          .then(function (r) { return r.json(); })
+          .then(function () { startPolling(); })
+          .catch(function () { form.submit(); });  // no fetch? plain POST + reload
+      });
+    });
+    // Resume if a job was already running when the page loaded.
+    fetch('/api/tasks').then(function (r) { return r.json(); }).then(function (state) {
+      if ((state.running || []).length) { apply(state); startPolling(); }
+    }).catch(function () {});
   })();
 </script>
 </body>

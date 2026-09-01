@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -25,6 +26,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname
 log = logging.getLogger("featherframe.app")
 
 templates = Jinja2Templates(directory=str(paths.templates_dir()))
+
+# Dev-only affordances (e.g. the Test-detection button) are hidden in a normal
+# install; `make serve` sets FEATHERFRAME_DEV=1. Anything truthy-ish enables.
+DEV_MODE = os.environ.get("FEATHERFRAME_DEV", "").strip().lower() in ("1", "true", "yes", "on")
 
 
 @asynccontextmanager
@@ -144,6 +149,7 @@ async def index(request: Request):
     return templates.TemplateResponse(
         request, "index.html",
         {"status": svc.status(), "config": svc.config, "version": __version__,
+         "dev_mode": DEV_MODE,
          "generated": svc.generated_listing() if svc.genart else []})
 
 
@@ -225,11 +231,13 @@ async def test_detection(request: Request):
     if not sci:
         sci = _known_scientific(svc, common) or ("Cardinalis cardinalis"
                                                  if common == "Northern Cardinal" else "")
-    # Threadpool: a plate-less species may generate art (up to ~2 min).
-    await run_in_threadpool(svc.force_test_detection, common, sci)
+    # Fire-and-forget: a plate-less species may generate art (up to ~2 min),
+    # which would 504 a synchronous request. The job runs on a service worker
+    # thread and the page polls /api/tasks; this returns immediately.
+    svc.start_test_detection(common, sci)
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
-    return JSONResponse({"ok": True, "etag": svc._etag})
+    return JSONResponse({"ok": True, "running": True})
 
 
 def _known_scientific(svc, common: str) -> Optional[str]:
@@ -256,11 +264,12 @@ async def day_review(request: Request):
     svc = _svc(request)
     form = await request.form()
     repaint = "repaint" in form
-    # Threadpool: a fresh sheet is a ~1-2 minute generation.
-    ok = await run_in_threadpool(svc.force_day_review, repaint)
+    # Fire-and-forget: a fresh sheet is a ~1-2 minute generation. Same contract
+    # as test-detection — run it on a worker thread and let the page poll.
+    svc.start_day_review(repaint)
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
-    return JSONResponse({"ok": ok})
+    return JSONResponse({"ok": True, "running": True})
 
 
 # -- AI-generated plates ---------------------------------------------------
@@ -333,6 +342,13 @@ async def preview_png(request: Request):
 @app.get("/api/status")
 async def status(request: Request):
     return JSONResponse(_svc(request).status())
+
+
+@app.get("/api/tasks")
+async def tasks(request: Request):
+    # Live state of the background one-shot jobs (test detection, day-in-review)
+    # so the config page can show progress and clear its spinner on completion.
+    return JSONResponse(_svc(request).task_status())
 
 
 # -- header parsing helpers -----------------------------------------------

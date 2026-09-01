@@ -184,3 +184,32 @@ def test_list_models_a1111_is_free_text(monkeypatch):
     monkeypatch.setattr(genart.requests, "get", fake_get)
     out = genart.list_image_models(Config(imagegen_provider="a1111", imagegen_base_url="http://gpu:7860"))
     assert out["free_text"] is True and "sd_xl_base" in out["models"]
+
+
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _clear_model_cache():
+    genart._MODEL_CACHE.clear()
+    yield
+    genart._MODEL_CACHE.clear()
+
+
+def test_imagegen_models_endpoint(tmp_path, monkeypatch):
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    from starlette.testclient import TestClient
+    from featherframe.app import app
+    from featherframe.service import FeatherframeService
+    svc = FeatherframeService()
+    app.state.service = svc
+    c = TestClient(app)
+    # saved provider is openai with no key -> static fallback list
+    r = c.get("/api/imagegen/models")
+    assert r.status_code == 200
+    body = r.json()
+    assert "gpt-image-2" in body["models"] and body["live"] is False
+    # a different provider than the saved one -> that provider's fallback
+    r2 = c.get("/api/imagegen/models?provider=replicate")
+    assert any("flux-kontext" in m for m in r2.json()["models"])

@@ -787,12 +787,29 @@ _MODEL_FALLBACKS = {
 }
 
 
+_MODEL_CACHE: dict = {}   # (provider, key, base_url) -> (timestamp, result)
+_MODEL_TTL_S = 300.0
+
+
 def list_image_models(config) -> dict:
     """Best-effort list of image models for the configured provider, for the
     config page's dropdown. Returns {"models": [...], "live": bool, "free_text":
-    bool}. Never raises."""
+    bool}. Cached per (provider, key, base) so repeated page loads don't re-hit
+    the provider. Never raises."""
     provider = getattr(config, "imagegen_provider", "openai")
     key = (getattr(config, "imagegen_api_key", "") or "").strip()
+    base = (getattr(config, "imagegen_base_url", "") or "").strip().rstrip("/")
+    cache_key = (provider, key, base)
+    now = time.time()
+    cached = _MODEL_CACHE.get(cache_key)
+    if cached and (now - cached[0]) < _MODEL_TTL_S:
+        return cached[1]
+    result = _query_image_models(provider, key, base)
+    _MODEL_CACHE[cache_key] = (now, result)
+    return result
+
+
+def _query_image_models(provider: str, key: str, base: str) -> dict:
     fallback = _MODEL_FALLBACKS.get(provider, [])
     try:
         if provider == "openai" and key:
@@ -812,7 +829,6 @@ def list_image_models(config) -> dict:
                 if ids:
                     return {"models": ids, "live": True, "free_text": False}
         elif provider == "a1111":
-            base = (getattr(config, "imagegen_base_url", "") or "").strip().rstrip("/")
             if base:
                 r = requests.get(f"{base}/sdapi/v1/sd-models", timeout=8)
                 if r.status_code == 200:

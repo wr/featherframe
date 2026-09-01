@@ -883,27 +883,32 @@
       var btn = document.createElement('button');
       btn.type = 'button'; btn.className = 'cselect-btn';
       btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false');
+      var uid = 'cs-' + (sel.name || sel.id || 'x');
       if (sel.id) btn.setAttribute('aria-label', (sel.previousElementSibling && sel.previousElementSibling.textContent) || 'Select');
       var list = document.createElement('ul');
-      list.className = 'cselect-list'; list.hidden = true; list.setAttribute('role', 'listbox');
+      list.className = 'cselect-list'; list.hidden = true; list.id = uid + '-list';
+      list.setAttribute('role', 'listbox');
+      btn.setAttribute('aria-controls', list.id);
       var active = -1;
       [].forEach.call(sel.options, function (o, i) {
-        var li = document.createElement('li'); li.setAttribute('role', 'option');
-        li.innerHTML = iconHTML(o.getAttribute('data-icon')) + '<span>' + o.textContent + '</span>';
+        var li = document.createElement('li'); li.setAttribute('role', 'option'); li.id = uid + '-opt' + i;
+        li.innerHTML = iconHTML(o.getAttribute('data-icon'));
+        var lab = document.createElement('span'); lab.textContent = o.textContent; li.appendChild(lab);
         li.addEventListener('mousedown', function (e) { e.preventDefault(); choose(i); });
         list.appendChild(li);
       });
+      var caret = '<svg class="cs-caret" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       function render() {
         var o = sel.options[sel.selectedIndex] || sel.options[0];
-        btn.innerHTML = iconHTML(o && o.getAttribute('data-icon')) +
-          '<span class="cs-label">' + (o ? o.textContent : '') + '</span>' +
-          '<svg class="cs-caret" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        btn.innerHTML = iconHTML(o && o.getAttribute('data-icon')) + '<span class="cs-label"></span>' + caret;
+        btn.querySelector('.cs-label').textContent = o ? o.textContent : '';
         [].forEach.call(list.children, function (li, i) { li.setAttribute('aria-selected', i === sel.selectedIndex ? 'true' : 'false'); });
       }
       function setActive(i) {
         active = Math.max(0, Math.min(i, list.children.length - 1));
         [].forEach.call(list.children, function (li, j) { li.classList.toggle('active', j === active); });
-        if (list.children[active]) list.children[active].scrollIntoView({ block: 'nearest' });
+        var cur = list.children[active];
+        if (cur) { cur.scrollIntoView({ block: 'nearest' }); btn.setAttribute('aria-activedescendant', cur.id); }
       }
       function open() {
         if (closeCurrent) closeCurrent();
@@ -914,6 +919,7 @@
       }
       function close() {
         list.hidden = true; btn.setAttribute('aria-expanded', 'false');
+        btn.removeAttribute('aria-activedescendant');
         document.removeEventListener('mousedown', outside);
         if (closeCurrent === close) closeCurrent = null;
       }

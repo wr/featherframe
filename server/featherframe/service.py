@@ -119,7 +119,7 @@ class FeatherframeService:
         self.audubon = AudubonProvider()
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
-        self.source = make_source(self.config)
+        self.source = make_source(self.config, self.db)
 
         self._lock = threading.RLock()
         self._stop = threading.Event()
@@ -198,8 +198,9 @@ class FeatherframeService:
             new = load_config(self.db)
             if (new.detection_backend != self.config.detection_backend
                     or new.birdnet_db_path != self.config.birdnet_db_path
-                    or new.birdnet_go_url != self.config.birdnet_go_url):
-                self.source = make_source(new)
+                    or new.birdnet_go_url != self.config.birdnet_go_url
+                    or new.birdweather_station_id != self.config.birdweather_station_id):
+                self.source = make_source(new, self.db)
             if self._imagegen_fields(new) != self._imagegen_fields(self.config):
                 self.provider = self._build_provider(new)
             self.config = new

@@ -18,10 +18,28 @@ def test_birdnet_go_selected():
     assert src.base_url == "http://x:8080"
 
 
-def test_unknown_backend_falls_back_to_pi():
+def test_unknown_backend_falls_back_to_custom():
     cfg = Config(detection_backend="nonsense")
-    assert cfg.detection_backend == "birdnet_pi"  # sanitized
+    assert cfg.detection_backend == "custom"  # sanitized
     assert isinstance(make_source(cfg), BirdNetDB)
+
+
+def test_legacy_birdnet_pi_migrates_to_custom():
+    cfg = Config(detection_backend="birdnet_pi")
+    assert cfg.detection_backend == "custom"          # the raw DB reader is now "custom"
+    assert isinstance(make_source(cfg), BirdNetDB)
+
+
+def test_birdweather_selected():
+    from featherframe.sources.birdweather import BirdWeatherSource
+    src = make_source(Config(detection_backend="birdweather", birdweather_station_id="abc123"))
+    assert isinstance(src, BirdWeatherSource)
+    assert src.station_id == "abc123"
+
+
+def test_apprise_selected():
+    from featherframe.sources.apprise_push import AppriseSource
+    assert isinstance(make_source(Config(detection_backend="apprise")), AppriseSource)
 
 
 def test_config_roundtrips_new_fields():

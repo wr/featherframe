@@ -6,6 +6,7 @@ page and a handful of endpoints.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -183,6 +184,8 @@ async def save_settings(request: Request):
         detection_backend=s("detection_backend", cur["detection_backend"]),
         birdnet_db_path=s("birdnet_db_path", cur["birdnet_db_path"]),
         birdnet_go_url=s("birdnet_go_url", cur["birdnet_go_url"]),
+        birdweather_station_id=s("birdweather_station_id", cur["birdweather_station_id"]),
+        apprise_token=s("apprise_token", cur["apprise_token"]),
         poll_interval_seconds=i("poll_interval_seconds", cur["poll_interval_seconds"]),
         gray_mode=s("gray_mode", cur["gray_mode"]),
         dither=s("dither", cur["dither"]),
@@ -270,6 +273,45 @@ async def day_review(request: Request):
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": True, "running": True})
+
+
+# -- push ingest (BirdNET-Pi via Apprise) ----------------------------------
+def _apprise_detection(payload) -> dict:
+    """Pull the detection object out of an Apprise envelope. Apprise posts
+    {version, title, message, type} with our JSON body in `message`; BirdNET-Pi
+    may append text after it, so extract the {...} span rather than parse whole.
+    Falls back to a top-level object if someone posts the fields directly."""
+    if not isinstance(payload, dict):
+        return {}
+    msg = payload.get("message")
+    if isinstance(msg, str) and "{" in msg and "}" in msg:
+        try:
+            obj = json.loads(msg[msg.index("{"): msg.rindex("}") + 1])
+            if isinstance(obj, dict):
+                return obj
+        except ValueError:
+            pass
+    return payload
+
+
+@app.post("/api/ingest/apprise")
+@app.post("/api/ingest/apprise/{token}")
+async def ingest_apprise(request: Request, token: str = ""):
+    """Webhook for the Apprise (BirdNET-Pi push) source. Point Apprise at
+    json://<host>/api/ingest/apprise[/<token>] with a JSON detection body."""
+    svc = _svc(request)
+    expected = getattr(svc.config, "apprise_token", "")
+    if expected and token != expected:
+        return JSONResponse({"error": "bad token"}, status_code=403)
+    ingest = getattr(svc.source, "ingest", None)
+    if not callable(ingest):
+        return JSONResponse({"error": "detection source is not Apprise"}, status_code=409)
+    try:
+        payload = await request.json()
+    except (ValueError, UnicodeDecodeError):
+        payload = {}
+    det = await run_in_threadpool(ingest, _apprise_detection(payload))
+    return JSONResponse({"ok": det is not None})
 
 
 # -- AI-generated plates ---------------------------------------------------

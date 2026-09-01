@@ -363,7 +363,7 @@
         <p class="grp">Frame</p>
         <dl>
           <dt>Last seen</dt>
-          <dd>
+          <dd{% if status.device.last_wake %} title="last wake: {{ status.device.last_wake }}{% if status.device.wake_detail %} · {{ status.device.wake_detail }}{% endif %}"{% endif %}>
             {% if card.seen %}
               <span class="pill-status"><span class="d {{ 'warn' if card.overdue else 'good' }}"></span>{{ card.last_seen }}</span>
             {% else %}
@@ -399,14 +399,6 @@
           <dd{% if status.device.sketch_md5 %} title="build {{ status.device.sketch_md5[:8] }}"{% endif %}>
             {{ status.device.fw_version or status.device.user_agent or '—' }}
           </dd>
-          {% if status.device.last_wake %}
-          <dt>Last wake</dt>
-          <dd{% if status.device.wake_detail %} title="{{ status.device.wake_detail }}"{% endif %}>{{ status.device.last_wake }}</dd>
-          {% endif %}
-          {% if status.device.refresh_count is not none %}
-          <dt>Refreshes</dt>
-          <dd class="tnum"{% if status.device.boot_count is not none %} title="{{ status.device.boot_count }} wakes since power-up"{% endif %}>{{ status.device.refresh_count }}</dd>
-          {% endif %}
           <dt>Panel</dt><dd>{{ status.device.panel or '10.3″ · 1404×1872 · grayscale' }}</dd>
           <dt>Board</dt><dd>{{ status.device.board or 'XIAO ESP32-S3 · EE03' }}</dd>
         </dl>

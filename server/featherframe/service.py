@@ -199,7 +199,8 @@ class FeatherframeService:
         return (config.imagegen_enabled, config.imagegen_provider,
                 config.imagegen_model, config.imagegen_quality,
                 config.imagegen_text_model, config.imagegen_api_key,
-                config.imagegen_base_url)
+                config.imagegen_base_url, config.imagegen_text_provider,
+                config.imagegen_text_key, config.imagegen_text_base_url)
 
     # -- config ------------------------------------------------------------
     def reload_config(self) -> None:
@@ -636,14 +637,14 @@ class FeatherframeService:
     def _masked_config(self) -> dict:
         """Config for display: never leak the API key past this process."""
         cfg = self.config.to_dict()
-        key = cfg.get("imagegen_api_key") or ""
-        # Show a bit of each end so it's recognizable, but never the middle.
-        if len(key) > 12:
-            cfg["imagegen_api_key"] = f"{key[:5]}…{key[-4:]}"
-        elif key:
-            cfg["imagegen_api_key"] = f"…{key[-4:]}"
-        else:
-            cfg["imagegen_api_key"] = ""
+
+        def _mask(key: str) -> str:
+            if len(key) > 12:
+                return f"{key[:5]}…{key[-4:]}"
+            return f"…{key[-4:]}" if key else ""
+
+        cfg["imagegen_api_key"] = _mask(cfg.get("imagegen_api_key") or "")
+        cfg["imagegen_text_key"] = _mask(cfg.get("imagegen_text_key") or "")
         return cfg
 
     # -- internal state helpers -------------------------------------------

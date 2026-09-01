@@ -213,3 +213,59 @@ def test_imagegen_models_endpoint(tmp_path, monkeypatch):
     # a different provider than the saved one -> that provider's fallback
     r2 = c.get("/api/imagegen/models?provider=replicate")
     assert any("flux-kontext" in m for m in r2.json()["models"])
+
+
+# -- text-model providers (W-628) -------------------------------------------
+from featherframe.render.genart import AnthropicTextModel, LocalTextModel  # noqa: E402
+
+
+def test_make_text_model_independent_provider():
+    # explicit anthropic with its own key, even when the image provider has none
+    m = genart.make_text_model(Config(imagegen_provider="a1111", imagegen_base_url="http://x",
+                                      imagegen_text_provider="anthropic", imagegen_text_key="k"))
+    assert isinstance(m, AnthropicTextModel)
+    # local needs a base URL, not a key
+    assert isinstance(genart.make_text_model(Config(imagegen_text_provider="local",
+                      imagegen_text_base_url="http://gpu:11434")), LocalTextModel)
+    assert genart.make_text_model(Config(imagegen_text_provider="local", imagegen_text_base_url="")) is None
+    # "" follows the image provider + its key
+    assert isinstance(genart.make_text_model(Config(imagegen_provider="openai", imagegen_api_key="k",
+                      imagegen_text_provider="")), OpenAITextModel)
+
+
+def test_anthropic_model_defaults_to_claude():
+    assert AnthropicTextModel("k", model="gpt-5.6-luna").model == "claude-opus-5"
+    assert AnthropicTextModel("k", model="claude-haiku-4-5").model == "claude-haiku-4-5"
+
+
+def test_anthropic_complete_json(monkeypatch):
+    def fake_post(url, headers=None, json=None, timeout=None):
+        assert url.endswith("/messages") and headers["x-api-key"] == "k"
+        return _Resp(200, {"content": [{"type": "text", "text": '{"is_bird": true, "description": "d", "plants": []}'}]})
+    monkeypatch.setattr(genart.requests, "post", fake_post)
+    out = AnthropicTextModel("k").complete_json("brief")
+    assert out["is_bird"] is True and out["description"] == "d"
+
+
+def test_local_complete_json_tolerates_prose(monkeypatch):
+    def fake_post(url, headers=None, json=None, timeout=None):
+        assert url.endswith("/v1/chat/completions")
+        return _Resp(200, {"choices": [{"message": {"content": 'ok {"is_bird": false, "description": "x", "plants": []}'}}]})
+    monkeypatch.setattr(genart.requests, "post", fake_post)
+    out = LocalTextModel("http://gpu:11434", model="llama3").complete_json("brief")
+    assert out["is_bird"] is False and out["description"] == "x"
+
+
+def test_source_test_endpoint_apprise(tmp_path, monkeypatch):
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    from starlette.testclient import TestClient
+    from featherframe.app import app
+    from featherframe.service import FeatherframeService
+    from featherframe.config import save_config
+    svc = FeatherframeService()
+    save_config(svc.db, Config(detection_backend="apprise"))
+    svc.reload_config()
+    app.state.service = svc
+    r = TestClient(app).get("/api/source/test")
+    assert r.status_code == 200 and r.json()["ok"] is True

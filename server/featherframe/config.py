@@ -136,6 +136,12 @@ class Config:
     # ComfyUI-compatible /sdapi endpoint. Ignored by hosted providers.
     imagegen_base_url: str = "http://localhost:7860"
     imagegen_text_model: str = "gpt-5.6-luna"  # writes the naturalist's brief
+    # The text ("brief") model can use a different provider/key than the image
+    # model. "" means "follow the image provider" (back-compat). Otherwise:
+    # "openai" | "gemini" | "anthropic" | "local" (OpenAI-compatible endpoint).
+    imagegen_text_provider: str = ""
+    imagegen_text_key: str = ""                # key for the text provider when it differs
+    imagegen_text_base_url: str = "http://localhost:11434"  # "local" text provider base URL
     # The nightly "day in review" as one generated composite plate (the
     # folio's totem manner). Once per date; the grid collage is the fallback.
     collage_generated: bool = True
@@ -187,6 +193,10 @@ class Config:
         self.imagegen_api_key = str(self.imagegen_api_key or "").strip()
         self.imagegen_text_model = (str(self.imagegen_text_model or "").strip()
                                     or "gpt-5.6-luna")
+        if self.imagegen_text_provider not in ("", "openai", "gemini", "anthropic", "local"):
+            self.imagegen_text_provider = ""
+        self.imagegen_text_key = str(self.imagegen_text_key or "").strip()
+        self.imagegen_text_base_url = str(self.imagegen_text_base_url or "").strip().rstrip("/")
         # Dark mode: migrate a legacy bool, then validate the enum.
         if isinstance(self.dark_mode, bool):
             self.dark_mode = "on" if self.dark_mode else "off"

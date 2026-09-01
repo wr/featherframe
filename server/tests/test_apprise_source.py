@@ -119,3 +119,47 @@ def test_webhook_rejects_foreign_origin(apprise_client):
                     headers={"Origin": "http://evil.example", "Host": "testserver"})
     assert r.status_code == 403
     assert svc.source.max_rowid() == 0
+
+
+# -- source connection test (W-625) -----------------------------------------
+class _StubSource:
+    def __init__(self, avail=True, latest=None, raises=False):
+        self._a, self._l, self._raises = avail, latest, raises
+
+    def available(self):
+        if self._raises:
+            raise RuntimeError("boom")
+        return self._a
+
+    def latest(self, min_confidence=0.0):
+        return self._l
+
+
+class _StubCfg:
+    detection_backend = "birdnet_go"
+
+
+class _StubSvc:
+    def __init__(self, src):
+        self.source, self.config = src, _StubCfg()
+
+
+def test_source_test_reachable_with_latest():
+    from featherframe.app import _source_test
+    from featherframe.sources.base import Detection
+    det = Detection(rowid=1, date="2026-08-31", time="08:00:00",
+                    common_name="American Robin", scientific_name="Turdus migratorius", confidence=0.9)
+    out = _source_test(_StubSvc(_StubSource(True, det)))
+    assert out["ok"] is True and "American Robin" in out["detail"]
+
+
+def test_source_test_unreachable():
+    from featherframe.app import _source_test
+    out = _source_test(_StubSvc(_StubSource(False)))
+    assert out["ok"] is False and "reachable" in out["detail"].lower()
+
+
+def test_source_test_error_path():
+    from featherframe.app import _source_test
+    out = _source_test(_StubSvc(_StubSource(raises=True)))
+    assert out["ok"] is False

@@ -156,3 +156,60 @@ def test_a1111_img2img_with_reference(monkeypatch):
     assert out == _PNG
     assert calls["url"].endswith("/sdapi/v1/img2img")
     assert calls["json"]["init_images"] == ["QUJD"] and "denoising_strength" in calls["json"]
+
+
+# -- live model listing (W-623) ---------------------------------------------
+def test_list_models_openai_live_filters_image(monkeypatch):
+    def fake_get(url, headers=None, timeout=None):
+        return _Resp(200, {"data": [{"id": "gpt-image-2"}, {"id": "gpt-4o"}, {"id": "gpt-image-1"}]})
+    monkeypatch.setattr(genart.requests, "get", fake_get)
+    out = genart.list_image_models(Config(imagegen_provider="openai", imagegen_api_key="k"))
+    assert out["live"] is True and out["free_text"] is False
+    assert out["models"] == ["gpt-image-1", "gpt-image-2"]
+
+
+def test_list_models_fallback_without_key():
+    out = genart.list_image_models(Config(imagegen_provider="gemini", imagegen_api_key=""))
+    assert out["live"] is False and "gemini-2.5-flash-image" in out["models"]
+
+
+def test_list_models_replicate_is_curated():
+    out = genart.list_image_models(Config(imagegen_provider="replicate", imagegen_api_key="k"))
+    assert out["free_text"] is False and any("flux-kontext" in m for m in out["models"])
+
+
+def test_list_models_a1111_is_free_text(monkeypatch):
+    def fake_get(url, timeout=None):
+        return _Resp(200, [{"model_name": "sd_xl_base"}, {"model_name": "dreamshaper"}])
+    monkeypatch.setattr(genart.requests, "get", fake_get)
+    out = genart.list_image_models(Config(imagegen_provider="a1111", imagegen_base_url="http://gpu:7860"))
+    assert out["free_text"] is True and "sd_xl_base" in out["models"]
+
+
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _clear_model_cache():
+    genart._MODEL_CACHE.clear()
+    yield
+    genart._MODEL_CACHE.clear()
+
+
+def test_imagegen_models_endpoint(tmp_path, monkeypatch):
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    from starlette.testclient import TestClient
+    from featherframe.app import app
+    from featherframe.service import FeatherframeService
+    svc = FeatherframeService()
+    app.state.service = svc
+    c = TestClient(app)
+    # saved provider is openai with no key -> static fallback list
+    r = c.get("/api/imagegen/models")
+    assert r.status_code == 200
+    body = r.json()
+    assert "gpt-image-2" in body["models"] and body["live"] is False
+    # a different provider than the saved one -> that provider's fallback
+    r2 = c.get("/api/imagegen/models?provider=replicate")
+    assert any("flux-kontext" in m for m in r2.json()["models"])

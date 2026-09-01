@@ -392,6 +392,20 @@ async def status(request: Request):
     return JSONResponse(_svc(request).status())
 
 
+@app.get("/api/imagegen/models")
+async def imagegen_models(request: Request, provider: Optional[str] = None):
+    """Model choices for the image-generation dropdown. Only the saved
+    provider can be queried live (we hold only its key); a different provider
+    passed by the switching UI gets the static fallback list."""
+    from .render import genart
+    svc = _svc(request)
+    if provider and provider != svc.config.imagegen_provider:
+        fb = genart._MODEL_FALLBACKS.get(provider, [])  # noqa: SLF001
+        return JSONResponse({"models": fb, "live": False, "free_text": provider == "a1111"})
+    out = await run_in_threadpool(genart.list_image_models, svc.config)
+    return JSONResponse(out)
+
+
 @app.get("/api/tasks")
 async def tasks(request: Request):
     # Live state of the background one-shot jobs (test detection, day-in-review)

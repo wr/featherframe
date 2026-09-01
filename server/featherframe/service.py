@@ -265,14 +265,25 @@ class FeatherframeService:
     # -- single mode -------------------------------------------------------
     def _single_tick(self, now: datetime) -> None:
         cursor = self._cursor()
-        if cursor is None:
-            # First run: start at the tail so we don't replay history, but show
-            # the most recent existing detection once.
-            self._set_cursor(self.source.max_rowid())
-            if self._frame_bytes is None:
+        max_rowid = self.source.max_rowid()
+        # A cursor left *ahead* of every real rowid can never see anything "new",
+        # so the frame freezes forever. This happens when the detection id scheme
+        # changes under the stored cursor (e.g. a BirdNET SQLite → BirdNET-Go REST
+        # switch leaves a huge timestamp-like value behind). Treat it as stale and
+        # restart at the tail. Guard on max_rowid > 0 so a transient source blip
+        # (soft-fails to 0) never trips it.
+        stale = cursor is not None and max_rowid > 0 and cursor > max_rowid
+        if cursor is None or stale:
+            # First run or stale reset: start at the tail so we don't replay
+            # history. Show the most recent detection once — on a cold start only
+            # if we have no frame, but on a stale reset always, otherwise the
+            # frozen frame would persist until the next brand-new detection.
+            self._set_cursor(max_rowid)
+            if self._frame_bytes is None or stale:
                 latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
                 if latest:
-                    self._render_single(latest, now, reason="startup")
+                    self._render_single(latest, now,
+                                        reason="cursor-reset" if stale else "startup")
             return
 
         new = self.source.new_since(cursor, self.config.confidence_threshold)

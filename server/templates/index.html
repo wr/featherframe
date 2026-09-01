@@ -32,8 +32,11 @@
     .wrap { max-width:960px; margin:0 auto; padding:44px 26px 88px; }
 
     header { margin-bottom:32px; padding-left:2px; }
-    .wordmark { font-family:var(--serif); font-style:italic; font-weight:500; font-size:28px; line-height:1; margin:0;
-      font-feature-settings:"liga" 1,"dlig" 1,"calt" 1,"kern" 1; letter-spacing:.005em; text-rendering:optimizeLegibility; }
+    /* the wordmark uses the same swash EB Garamond italic the firmware renders */
+    @font-face { font-family:"Featherframe Wordmark"; src:url("/static/fonts/featherframe-wordmark.ttf") format("truetype");
+      font-style:italic; font-weight:400 700; font-display:swap; }
+    .wordmark { font-family:"Featherframe Wordmark", var(--serif); font-style:italic; font-weight:500; font-size:28px; line-height:1; margin:0;
+      font-feature-settings:"swsh" 1,"liga" 1,"calt" 1,"kern" 1; letter-spacing:-0.02em; text-rendering:optimizeLegibility; }
     header p { margin:7px 0 0; font-size:13px; color:var(--muted); }
     header p a { color:var(--ink-2); text-decoration:none; }
     header p a:hover { color:var(--accent); }

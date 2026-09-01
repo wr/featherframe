@@ -102,6 +102,7 @@ class Config:
     gray_mode: str = "16"  # "16" (4bpp) or "1" (1-bit fallback)
     dither: str = "bluenoise"  # "bluenoise" (fast, Pi-friendly) | "stucki" | "none"
     show_plate_number: bool = True
+    show_battery: bool = True  # show the Battery % row on the config page's Frame card
     # The panel's native canvas is landscape 1872x1404 and its setRotation() is a
     # no-op, so we rotate the portrait art into native orientation server-side.
     # Which way depends on how the frame is hung — fix it here, no reflash needed.

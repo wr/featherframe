@@ -204,6 +204,7 @@ async def save_settings(request: Request):
         gray_mode=s("gray_mode", cur["gray_mode"]),
         dither=s("dither", cur["dither"]),
         show_plate_number=b("show_plate_number"),
+        show_battery=b("show_battery"),
         collage_rebuilds_per_day=i("collage_rebuilds_per_day", cur["collage_rebuilds_per_day"]),
         panel_rotation=i("panel_rotation", cur["panel_rotation"]),
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),

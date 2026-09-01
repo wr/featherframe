@@ -436,6 +436,15 @@
             <span class="txt">Enable image generation for species without an existing image</span>
           </div>
           <div class="field">
+            <label class="lab">Provider</label>
+            <select class="sel" name="imagegen_provider" id="ig-provider">
+              <option value="openai" {{ 'selected' if config.imagegen_provider=='openai' else '' }}>OpenAI — gpt-image</option>
+              <option value="gemini" {{ 'selected' if config.imagegen_provider=='gemini' else '' }}>Google Gemini</option>
+              <option value="replicate" {{ 'selected' if config.imagegen_provider=='replicate' else '' }}>Replicate — FLUX Kontext &amp; others</option>
+              <option value="a1111" {{ 'selected' if config.imagegen_provider=='a1111' else '' }}>Self-hosted — AUTOMATIC1111 / ComfyUI</option>
+            </select>
+          </div>
+          <div class="field" data-provider="openai gemini replicate" {{ 'hidden' if config.imagegen_provider=='a1111' else '' }}>
             <label class="lab">API key <span style="color:var(--muted);font-weight:400">· stored only on this device</span></label>
             {% set has_key = status.config.imagegen_api_key %}
             <div class="keyline" id="key-display" {{ 'hidden' if not has_key else '' }}>
@@ -444,24 +453,29 @@
               <button class="btn danger" type="button" id="key-delete">Delete</button>
             </div>
             <div class="keyline" id="key-entry" {{ '' if not has_key else 'hidden' }}>
-              <input type="password" name="imagegen_api_key" autocomplete="off" placeholder="sk-…" aria-label="New API key">
+              <input type="password" name="imagegen_api_key" autocomplete="off" placeholder="paste key" aria-label="New API key">
               {% if has_key %}<button class="btn" type="button" id="key-cancel">Cancel</button>{% endif %}
             </div>
             <input type="checkbox" name="imagegen_clear_key" id="key-clear" hidden>
-            <div class="hint">Each new species is generated once (~$0.17) and kept forever; without a key, already-cached plates still show.</div>
+            <div class="hint">Each new species is generated once and kept forever; without a key, already-cached plates still show.</div>
+          </div>
+          <div class="field" data-provider="a1111" {{ '' if config.imagegen_provider=='a1111' else 'hidden' }}>
+            <label class="lab">Endpoint URL</label>
+            <input type="text" name="imagegen_base_url" value="{{ config.imagegen_base_url }}" placeholder="http://localhost:7860">
+            <div class="hint">Your AUTOMATIC1111 / ComfyUI server's <code>/sdapi</code> base URL. No key needed.</div>
           </div>
           <div class="field torow">
             <label class="switch"><input type="checkbox" id="cg" name="collage_generated" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label>
             <span class="txt">Paint the nightly “day in review” as one composite plate</span>
           </div>
           <div class="row2">
-            <div><label class="lab">Model</label><select class="sel" name="imagegen_model">{% for m in ['gpt-image-2','gpt-image-1.5','gpt-image-1','gpt-image-1-mini'] %}<option value="{{ m }}" {{ 'selected' if config.imagegen_model==m else '' }}>{{ m }}</option>{% endfor %}</select></div>
-            <div><label class="lab">Quality</label><select class="sel" name="imagegen_quality">{% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ q }}</option>{% endfor %}</select><div class="hint">Higher looks better but costs more (high ≈ $0.17/plate).</div></div>
+            <div><label class="lab">Model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><div class="hint" id="ig-model-hint"></div></div>
+            <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab">Quality</label><select class="sel" name="imagegen_quality">{% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ q }}</option>{% endfor %}</select><div class="hint">Higher looks better but costs more (high ≈ $0.17/plate).</div></div>
           </div>
-          <div class="field" style="margin-top:20px;">
+          <div class="field" data-provider="openai gemini" style="margin-top:20px;" {{ 'hidden' if config.imagegen_provider in ['replicate','a1111'] else '' }}>
             <label class="lab">Brief model <span style="color:var(--muted);font-weight:400">· text</span></label>
             <input type="text" name="imagegen_text_model" value="{{ config.imagegen_text_model }}">
-            <div class="hint">A text model that writes the naturalist's brief — the species' taxonomy, plumage, and typical plants — that guides the image model.</div>
+            <div class="hint">A text model that writes the naturalist's brief — the species' taxonomy, plumage, and typical plants — that guides the image model. OpenAI &amp; Gemini only.</div>
           </div>
         </section>
       </div>
@@ -569,6 +583,24 @@
     }
     if (tokenField) tokenField.addEventListener('input', syncApprise);
     syncApprise();
+    // image-generation provider: show the fields that provider uses
+    var prov = document.getElementById('ig-provider');
+    var modelHint = document.getElementById('ig-model-hint');
+    var HINTS = {
+      openai: 'e.g. gpt-image-2',
+      gemini: 'e.g. gemini-2.5-flash-image',
+      replicate: 'owner/model, e.g. black-forest-labs/flux-kontext-pro',
+      a1111: 'optional — a checkpoint name your server knows'
+    };
+    function syncProvider() {
+      var p = prov.value;
+      document.querySelectorAll('[data-provider]').forEach(function (el) {
+        el.hidden = el.getAttribute('data-provider').split(' ').indexOf(p) === -1;
+      });
+      if (modelHint) modelHint.textContent = HINTS[p] || '';
+    }
+    prov.addEventListener('change', syncProvider);
+    syncProvider();
     // "hold overnight" only matters for collage / auto
     var holdRow = document.getElementById('hold-row');
     function syncHold() {

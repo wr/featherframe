@@ -50,10 +50,10 @@
     /* left column: plate hero + status */
     .stage { position:sticky; top:28px; display:flex; flex-direction:column; gap:16px; }
     .plate-card { padding:16px; }
-    .plate { border:1px solid var(--border-strong); border-radius:4px; padding:12px; background:#ffffff;
-             box-shadow:inset 0 0 0 6px #fff, inset 0 0 0 7px #e7e6e2; }
-    .plate img { display:block; width:100%; height:auto; border-radius:1px; }
-    .mat-note { font-size:11.5px; color:var(--muted); margin-top:11px; line-height:1.45; }
+    /* the rendered frame already carries its own white mat allowance — no CSS chrome */
+    .plate { border-radius:2px; background:#fff; overflow:hidden; }
+    .plate img { display:block; width:100%; height:auto; transition:opacity .15s; }
+    .plate.loading img { opacity:.45; }
     .plate-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center; }
     .plate-actions form.inline { display:flex; gap:8px; margin:0; }
     .plate-actions input[type=text] { width:118px; }
@@ -130,9 +130,14 @@
     @media (prefers-reduced-motion:reduce){ .seg-ind { transition:none; } }
     .seg input:focus-visible + span { outline:2px solid var(--accent); outline-offset:2px; }
 
-    /* toggle — green when on */
+    /* toggle — green when on. switch is vertically centered against the label+subtext block */
     .torow { display:flex; align-items:center; gap:13px; }
     .torow.disabled { opacity:.5; }
+    .totext { display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .tolabel { font-size:14px; color:var(--ink-2); line-height:1.35; }
+    .tosub { font-size:12.5px; color:var(--muted); line-height:1.45; }
+    .tosub:empty { display:none; }
+    .tosub a { color:var(--accent); }
     .switch { position:relative; display:inline-block; width:42px; height:25px; flex:none; }
     .switch input { opacity:0; width:0; height:0; }
     .switch .track { position:absolute; inset:0; background:#d8cdb8; border-radius:999px; transition:background .16s; box-shadow:inset 0 1px 2px rgba(74,54,28,.16); }
@@ -140,7 +145,6 @@
     .switch input:checked + .track { background:var(--good); }
     .switch input:checked + .track::before { transform:translateX(17px); }
     .switch input:focus-visible + .track { box-shadow:0 0 0 3px var(--accent-ring); }
-    .torow .txt { font-size:14px; color:var(--ink-2); }
 
     /* buttons */
     .btn { font:inherit; font-size:13px; font-weight:500; padding:8px 14px; border-radius:6px; cursor:pointer;
@@ -168,11 +172,13 @@
     }
     .save:hover { background:linear-gradient(#6f4c2c,var(--accent-press)); }
     .save:active { transform:translateY(1px); box-shadow:inset 0 2px 4px rgba(40,26,10,.4); filter:brightness(.96); }
-    .savebar { position:sticky; bottom:0; display:flex; align-items:center; gap:14px;
+    /* the save bar only sticks to the viewport once there's something to save */
+    .savebar { display:flex; align-items:center; justify-content:flex-end; gap:14px;
                padding:16px 26px; border-top:1px solid var(--border);
                background:rgba(252,252,251,.86); backdrop-filter:blur(8px); border-radius:0 0 9px 9px; }
-    .savebar .note { margin-right:auto; font-size:12.5px; color:var(--muted); }
-    .savebar.dirty .note { color:var(--accent); font-weight:500; }
+    .savebar.dirty { position:sticky; bottom:0; animation:savebar-in .3s cubic-bezier(.2,.7,.2,1); }
+    @keyframes savebar-in { from { transform:translateY(120%); opacity:0; } to { transform:translateY(0); opacity:1; } }
+    @media (prefers-reduced-motion:reduce){ .savebar.dirty { animation:none; } }
 
     details.adv > summary { cursor:pointer; font-size:12.5px; color:var(--accent); font-weight:500; list-style:none; user-select:none; margin-top:4px; }
     details.adv > summary::-webkit-details-marker { display:none; }
@@ -229,9 +235,10 @@
     a.ex .ex-t { text-decoration:underline dotted; text-underline-offset:2px; }
     a.ex:hover .ex-t { text-decoration-style:solid; }
     a.ex .ex-mag { width:13px; height:13px; flex:none; }
-    /* the magnifier in a segment is a preview trigger */
-    .seg-ex { display:inline-flex; align-items:center; color:var(--muted); cursor:zoom-in; border-radius:4px; }
-    .seg-ex:hover { color:var(--accent); }
+    /* the magnifier in a segment is a preview trigger — reads as a link: dotted underline + hover */
+    .seg-ex { display:inline-flex; align-items:center; color:var(--muted); cursor:zoom-in;
+              padding-bottom:1px; border-bottom:1px dotted currentColor; transition:color .13s; }
+    .seg-ex:hover { color:var(--accent); border-bottom-style:solid; }
     .seg-ex svg { width:14px; height:14px; }
     /* reserve the bold width so selecting a segment never reflows it */
     .seg.seg-measuring label span { font-weight:700; }
@@ -326,7 +333,7 @@
           </a>
         </div>
         <div class="plate-actions">
-          <button class="btn mini" type="button" onclick="refreshPreview()">Refresh</button>
+          <button class="btn mini" type="button" onclick="manualRefresh(this)">Refresh</button>
           <form class="inline task-form" data-task="day-review" method="post" action="/api/collage/day-review">
             <button class="btn mini" type="submit" title="Create today's “day in review” image now">Day in review</button>
           </form>
@@ -338,7 +345,6 @@
           </form>
           {% endif %}
         </div>
-        <div class="mat-note">The white border is the mat allowance — tune Mat inset (under Display &rsaquo; Advanced) until the physical mat just hides it.</div>
         <div class="task-status" id="task-status"></div>
       </div>
 
@@ -375,8 +381,6 @@
           </dd>
           <dt>IP address</dt><dd class="tnum">{{ status.device.ip or '—' }}</dd>
           <dt>Firmware</dt><dd>{{ status.device.user_agent or '—' }}</dd>
-          <dt>Panel</dt><dd>10.3&Prime; · 1404×1872 · grayscale</dd>
-          <dt>Board</dt><dd>XIAO ESP32-S3 · EE03</dd>
         </dl>
 
         <p class="grp second">Source</p>
@@ -419,9 +423,11 @@
           <div class="field">
             <div class="torow">
               <label class="switch"><input type="checkbox" id="ssl" name="single_show_latest" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label>
-              <span class="txt">Always show the most recent detection</span>
+              <div class="totext">
+                <span class="tolabel">Always show the most recent detection</span>
+                <span class="tosub">When off, the frame waits the refresh debounce between changes and won't redraw a species it's already showing.</span>
+              </div>
             </div>
-            <div class="hint">When off, the frame waits the refresh debounce between changes and won't redraw a species it's already showing.</div>
           </div>
           <div class="field">
             <label class="lab">Wake interval</label>
@@ -456,10 +462,13 @@
               </div>
               <div class="field torow" style="margin:0;">
                 <label class="switch"><input type="checkbox" id="pn" name="show_plate_number" {{ 'checked' if config.show_plate_number else '' }}><span class="track"></span></label>
-                <span class="txt">Show the plate number (“No. 47”)</span>
+                <div class="totext">
+                  <span class="tolabel">Show the plate number (“No. 47”)</span>
+                  <span class="tosub">Printed in the caption, matching the Havell plate.</span>
+                </div>
               </div>
               <div class="row2">
-                <div><label class="lab">Mat inset (% per edge)</label><input type="number" name="mat_inset_pct" min="0" max="20" step="0.5" value="{{ config.mat_inset_pct }}"><div class="hint">Shrinks the art onto white so it clears the mat opening. ~4 suits an 8×6 mat.</div></div>
+                <div><label class="lab">Mat inset (% per edge)</label><input type="number" name="mat_inset_pct" min="0" max="20" step="0.5" value="{{ config.mat_inset_pct }}"><div class="hint">The white border around the live preview is this mat allowance — the art is shrunk onto white so it clears the mat opening. Raise it until the physical mat just hides the white; ~4 suits an 8×6 mat.</div></div>
                 <div><label class="lab">Mat offset (px)</label><div style="display:flex;gap:8px"><input type="number" name="mat_offset_x_px" min="-120" max="120" value="{{ config.mat_offset_x_px }}" title="x — positive moves right"><input type="number" name="mat_offset_y_px" min="-120" max="120" value="{{ config.mat_offset_y_px }}" title="y — positive moves down"></div><div class="hint">For a mat that isn't dead-center.</div></div>
               </div>
             </div>
@@ -483,9 +492,11 @@
           <div class="field">
             <div class="torow" id="hold-row">
               <label class="switch"><input type="checkbox" id="qhc" name="quiet_hours_render_collage" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label>
-              <span class="txt">Show a “day in review” summary overnight</span>
+              <div class="totext">
+                <span class="tolabel">Show a “day in review” summary overnight</span>
+                <span class="tosub">One image combining the day's top species, shown overnight in either mode. <a class="ex seg-ex" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held overnight." title="Preview an example" aria-label="Preview example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span>
+              </div>
             </div>
-            <div class="hint">One image combining the day's top species, shown overnight in either mode. <a class="ex seg-ex" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held overnight." title="Preview an example" aria-label="Preview example" style="vertical-align:-3px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></div>
           </div>
         </section>
 
@@ -575,10 +586,10 @@
           <p class="intro">When a bird has no Audubon plate, Featherframe generates one in the same lithograph style, so the frame shows the right species instead of a text-only card.</p>
           <div class="field torow">
             <label class="switch"><input type="checkbox" id="ig" name="imagegen_enabled" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label>
-            <span class="txt">Enable image generation for species without an existing image</span>
+            <div class="totext"><span class="tolabel">Enable image generation for species without an existing image</span></div>
           </div>
           <div class="field">
-            <label class="lab">Provider</label>
+            <label class="lab">Image gen provider</label>
             <div class="cselect">
             <select class="sel cselect-native" name="imagegen_provider" id="ig-provider">
               <option value="openai" data-icon="ic-openai" {{ 'selected' if config.imagegen_provider=='openai' else '' }}>OpenAI</option>
@@ -615,10 +626,11 @@
           <div class="field">
             <div class="torow">
               <label class="switch"><input type="checkbox" id="cg" name="collage_generated" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label>
-              <span class="txt">Combine the nightly “day in review” into a single image</span>
-              <a class="ex seg-ex" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a>
+              <div class="totext">
+                <span class="tolabel">Combine the nightly “day in review” into a single image <a class="ex seg-ex" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example" style="vertical-align:-2px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span>
+                <span class="tosub" id="dayreview-cost"></span>
+              </div>
             </div>
-            <div class="hint" id="dayreview-cost" style="margin-left:55px;margin-top:4px"></div>
           </div>
           <div class="row2">
             <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
@@ -627,7 +639,7 @@
               {% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
           </div>
           <div class="field" style="margin-top:20px;">
-            <label class="lab">Text model <span style="color:var(--muted);font-weight:400">· writes the notes</span></label>
+            <label class="lab">Image prompt provider</label>
             <div class="cselect">
             <select class="sel cselect-native" name="imagegen_text_provider" id="ig-text-provider">
               <option value="" {{ 'selected' if config.imagegen_text_provider=='' else '' }}>Same as image provider</option>
@@ -637,7 +649,6 @@
               <option value="local" data-icon="ic-chip" {{ 'selected' if config.imagegen_text_provider=='local' else '' }}>Local — OpenAI-compatible</option>
             </select>
             </div>
-            <div class="hint">Writes the species' taxonomy, plumage, and typical plants so the image model draws the right bird. Replicate has no text model — pick another provider here, or leave it without notes.</div>
             {% set tk = status.config.imagegen_text_key %}
             <div class="field" data-textprov="openai gemini anthropic local" style="margin-top:12px" {{ '' if config.imagegen_text_provider in ['openai','gemini','anthropic','local'] else 'hidden' }}>
               <label class="lab">Text-model key <span data-textprov="local" style="color:var(--muted);font-weight:400">· optional for local</span></label>
@@ -659,13 +670,13 @@
               <label class="lab">Model</label>
               <input type="text" name="imagegen_text_model" id="ig-text-model" list="ig-text-model-list" value="{{ config.imagegen_text_model }}">
               <datalist id="ig-text-model-list"></datalist>
+              <div class="hint">Writes the species' taxonomy, plumage, and typical plants so the image model draws the right bird. Replicate has no text model — pick another provider above, or leave it without notes.</div>
             </div>
           </div>
         </section>
       </div>
 
       <div class="savebar" id="save-bar">
-        <span class="note" id="save-note">All changes saved.</span>
         <button class="save" type="submit">Save settings</button>
       </div>
     </form>
@@ -723,16 +734,37 @@
   }
   setInterval(refreshPreview, 15000);
 
-  // floating save bar: emphasize once anything is edited
+  // manual Refresh: actually re-render the frame server-side (rebuilds its bytes
+  // + ETag so the panel picks it up on its next wake), then reload the preview.
+  async function manualRefresh(btn) {
+    if (btn.disabled) return;
+    var img = document.getElementById('preview');
+    var plate = img.closest('.plate');
+    var orig = btn.dataset.orig || (btn.dataset.orig = btn.textContent);
+    btn.disabled = true; btn.textContent = 'Refreshing…';
+    if (plate) plate.classList.add('loading');
+    var minWait = new Promise(function (r) { setTimeout(r, 650); });
+    try { await fetch('/api/refresh', { method: 'POST' }); } catch (e) {}
+    await minWait;
+    await new Promise(function (res) {
+      function done() { img.removeEventListener('load', done); img.removeEventListener('error', done); res(); }
+      img.addEventListener('load', done); img.addEventListener('error', done);
+      setTimeout(done, 3000);
+      img.src = '/api/preview.png?t=' + Date.now();
+    });
+    if (plate) plate.classList.remove('loading');
+    btn.textContent = 'Refreshed';
+    setTimeout(function () { btn.textContent = orig; btn.disabled = false; }, 1000);
+  }
+
+  // save bar: only sticks to the viewport once something is edited
   (function () {
     var form = document.querySelector('form[action="/settings"]');
     var bar = document.getElementById('save-bar');
-    var note = document.getElementById('save-note');
     var dirty = false, saving = false;
     function markDirty() {
       if (dirty) return;
       dirty = true; bar.classList.add('dirty');
-      note.textContent = 'Unsaved changes — Save to apply';
     }
     form.addEventListener('input', markDirty);
     form.addEventListener('change', markDirty);

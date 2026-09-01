@@ -174,7 +174,15 @@ class FeatherframeService:
                 self.tick()
             except Exception:
                 log.exception("scheduler tick failed (keeping current frame)")
-            self._stop.wait(self.config.poll_interval_seconds)
+            self._stop.wait(self._effective_poll_seconds())
+
+    def _effective_poll_seconds(self) -> int:
+        """Poll cadence, floored for cloud sources so we don't hammer them —
+        BirdWeather is a public API, so never poll it faster than 60s."""
+        interval = self.config.poll_interval_seconds
+        if self.config.detection_backend == "birdweather":
+            return max(interval, 60)
+        return interval
 
     # -- providers ---------------------------------------------------------
     def _build_provider(self, config: Config) -> ArtProvider:
@@ -230,7 +238,7 @@ class FeatherframeService:
         if self.config.in_quiet_hours(now.time()):
             # Quiet hours: hold the image. Optionally render one day-in-review
             # collage at the start of the window (also implied by 'auto' mode).
-            if self.config.quiet_hours_render_collage or self.config.mode == "auto":
+            if self.config.quiet_hours_render_collage:
                 self._maybe_quiet_collage(now)
             return
 

@@ -55,7 +55,7 @@ class Config:
     """All user-facing settings. Persisted whole; edited via the config page."""
 
     # Display behaviour ----------------------------------------------------
-    mode: str = "single"  # "single" | "collage" | "auto"
+    mode: str = "single"  # "single" | "collage" (legacy "auto" migrates to single)
     confidence_threshold: float = 0.7
     # Single mode shows the most recent qualifying detection. False applies
     # refresh_debounce_minutes and same-species suppression instead.
@@ -145,7 +145,12 @@ class Config:
 
     # -- validation --------------------------------------------------------
     def sanitize(self) -> "Config":
-        if self.mode not in ("single", "collage", "auto"):
+        # "auto" was single-by-day + overnight review; that's now Single mode
+        # with the overnight day-in-review toggle on. Migrate it.
+        if self.mode == "auto":
+            self.mode = "single"
+            self.quiet_hours_render_collage = True
+        if self.mode not in ("single", "collage"):
             self.mode = "single"
         self.confidence_threshold = _clamp(float(self.confidence_threshold), 0.0, 1.0)
         self.refresh_debounce_minutes = int(_clamp(self.refresh_debounce_minutes, 1, 720))
@@ -157,7 +162,11 @@ class Config:
         if self.detection_backend not in ("birdnet_go", "apprise", "birdweather", "custom"):
             self.detection_backend = "custom"
         self.birdnet_go_url = str(self.birdnet_go_url or "").strip().rstrip("/") or "http://localhost:8080"
-        self.birdweather_station_id = str(self.birdweather_station_id or "").strip()
+        # Accept a full station URL (…/stations/XXXXX) or a bare ID/token.
+        bw = str(self.birdweather_station_id or "").strip()
+        if "/" in bw:
+            bw = bw.split("?", 1)[0].split("#", 1)[0].rstrip("/").rsplit("/", 1)[-1]
+        self.birdweather_station_id = bw
         self.apprise_token = str(self.apprise_token or "").strip()
         if self.gray_mode not in ("16", "1"):
             self.gray_mode = "16"

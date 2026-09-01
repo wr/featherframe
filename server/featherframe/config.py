@@ -127,10 +127,14 @@ class Config:
     # detection and cached forever; only a manual regenerate replaces it.
     # Without an API key this degrades to serving already-cached plates.
     imagegen_enabled: bool = True
-    imagegen_provider: str = "openai"      # seam for other vendors later
-    imagegen_model: str = "gpt-image-2"
-    imagegen_quality: str = "high"         # low | medium | high | auto
+    # "openai" | "gemini" | "replicate" (aggregator) | "a1111" (self-hosted).
+    imagegen_provider: str = "openai"
+    imagegen_model: str = "gpt-image-2"    # provider-specific model id
+    imagegen_quality: str = "high"         # low | medium | high | auto (OpenAI)
     imagegen_api_key: str = ""             # user-provided; lives only in our DB
+    # Base URL for the self-hosted ("a1111") provider — an AUTOMATIC1111 /
+    # ComfyUI-compatible /sdapi endpoint. Ignored by hosted providers.
+    imagegen_base_url: str = "http://localhost:7860"
     imagegen_text_model: str = "gpt-5.6-luna"  # writes the naturalist's brief
     # The nightly "day in review" as one generated composite plate (the
     # folio's totem manner). Once per date; the grid collage is the fallback.
@@ -165,8 +169,9 @@ class Config:
         self.mat_inset_pct = _clamp(float(self.mat_inset_pct), 0.0, 20.0)
         self.mat_offset_x_px = int(_clamp(int(self.mat_offset_x_px), -120, 120))
         self.mat_offset_y_px = int(_clamp(int(self.mat_offset_y_px), -120, 120))
-        if self.imagegen_provider not in ("openai",):
+        if self.imagegen_provider not in ("openai", "gemini", "replicate", "a1111"):
             self.imagegen_provider = "openai"
+        self.imagegen_base_url = str(self.imagegen_base_url or "").strip().rstrip("/")
         self.imagegen_model = str(self.imagegen_model or "").strip() or "gpt-image-2"
         if self.imagegen_quality not in ("low", "medium", "high", "auto"):
             self.imagegen_quality = "high"

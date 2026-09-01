@@ -190,7 +190,8 @@ class FeatherframeService:
     def _imagegen_fields(config: Config) -> tuple:
         return (config.imagegen_enabled, config.imagegen_provider,
                 config.imagegen_model, config.imagegen_quality,
-                config.imagegen_text_model, config.imagegen_api_key)
+                config.imagegen_text_model, config.imagegen_api_key,
+                config.imagegen_base_url)
 
     # -- config ------------------------------------------------------------
     def reload_config(self) -> None:

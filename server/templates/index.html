@@ -231,6 +231,18 @@
     .cselect-btn:focus-visible { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-ring); }
     .cselect-btn .cs-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .cselect-btn.cs-placeholder .cs-label { color:var(--muted); }
+    /* combobox: a free-text field with a browsable dropdown of suggestions */
+    .combo { position:relative; display:flex; }
+    .combo input { flex:1; padding-right:38px; }
+    .combo-caret { position:absolute; right:0; top:0; bottom:0; width:34px; display:flex; align-items:center; justify-content:center;
+                   background:transparent; border:none; border-left:1px solid var(--border); cursor:pointer; color:var(--muted); border-radius:0 8px 8px 0; }
+    .combo-caret:hover { color:var(--ink-2); }
+    .combo-caret svg { width:12px; height:8px; }
+    .combo-list { position:absolute; z-index:30; top:calc(100% + 4px); left:0; right:0; margin:0; padding:4px; list-style:none;
+                  background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; box-shadow:0 8px 24px rgba(74,54,28,.16); max-height:230px; overflow:auto; }
+    .combo-list li { padding:7px 10px; border-radius:5px; cursor:pointer; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .combo-list li:hover { background:var(--inset); }
+    .combo-list li.combo-empty { color:var(--muted); cursor:default; }
     .cselect-btn .cs-caret { color:var(--muted); flex:none; width:12px; height:8px; }
     .cselect-ic { width:16px; height:16px; flex:none; display:inline-flex; color:var(--ink-2); }
     .cselect-ic svg { width:16px; height:16px; }
@@ -1108,6 +1120,55 @@
     tp.addEventListener('change', fill);
     if (img) img.addEventListener('change', fill);
     fill();
+  })();
+
+  // -- comboboxes: give each model field a browsable dropdown ---------------
+  // Keeps the native <datalist> typeahead and free-text entry; the caret just
+  // lets people who don't know what to type browse and pick. Reads the datalist
+  // live on open, so provider-driven list changes are always reflected.
+  (function () {
+    var CARET = '<svg viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    document.querySelectorAll('input[list]').forEach(function (input) {
+      var dl = document.getElementById(input.getAttribute('list'));
+      if (!dl) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'combo';
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+      var caret = document.createElement('button');
+      caret.type = 'button'; caret.className = 'combo-caret';
+      caret.setAttribute('aria-label', 'Show suggestions'); caret.setAttribute('aria-expanded', 'false');
+      caret.innerHTML = CARET;
+      wrap.appendChild(caret);
+      var list = document.createElement('ul');
+      list.className = 'combo-list'; list.hidden = true;
+      wrap.appendChild(list);
+      function render() {
+        list.innerHTML = '';
+        var opts = [].slice.call(dl.options);
+        if (!opts.length) {
+          var e = document.createElement('li'); e.className = 'combo-empty';
+          e.textContent = 'No suggestions — type a model name'; list.appendChild(e);
+          return;
+        }
+        opts.forEach(function (o) {
+          var li = document.createElement('li');
+          li.textContent = o.value; li.title = o.value;
+          li.addEventListener('mousedown', function (ev) {
+            ev.preventDefault();
+            input.value = o.value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            close();
+          });
+          list.appendChild(li);
+        });
+      }
+      function open() { render(); list.hidden = false; caret.setAttribute('aria-expanded', 'true'); setTimeout(function () { document.addEventListener('mousedown', outside); }, 0); }
+      function close() { list.hidden = true; caret.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', outside); }
+      function outside(e) { if (!wrap.contains(e.target)) close(); }
+      caret.addEventListener('click', function () { list.hidden ? open() : close(); });
+    });
   })();
 
   // -- image-model suggestions from the provider's live list ----------------

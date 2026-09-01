@@ -20,13 +20,19 @@ from featherframe.render import framebuffer, pipeline
 
 # -- config ----------------------------------------------------------------
 def test_dark_mode_defaults_off():
-    assert Config().dark_mode is False
+    assert Config().dark_mode == "off"
+
+
+def test_dark_mode_migrates_legacy_bool():
+    # Installs from before the enum stored a bool; it maps to on/off.
+    assert Config(dark_mode=True).dark_mode == "on"
+    assert Config(dark_mode=False).dark_mode == "off"
 
 
 def test_dark_mode_survives_persistence_round_trip(tmp_path):
     db = Database(str(tmp_path / "ff.db"))
-    save_config(db, Config(dark_mode=True))
-    assert load_config(db).dark_mode is True
+    save_config(db, Config(dark_mode="on"))
+    assert load_config(db).dark_mode == "on"
 
 
 # -- pipeline --------------------------------------------------------------
@@ -91,7 +97,7 @@ def _seed_frame(client) -> str:
     return svc._etag
 
 
-@pytest.mark.parametrize("dark,flag", [(False, "0"), (True, "1")])
+@pytest.mark.parametrize("dark,flag", [("off", "0"), ("on", "1")])
 def test_frame_response_carries_invert_header(client, dark, flag):
     etag = _seed_frame(client)
     client.app.state.service.config.dark_mode = dark
@@ -107,7 +113,7 @@ def test_frame_response_carries_invert_header(client, dark, flag):
 
 def test_view_variant_carries_invert_header(client):
     svc = client.app.state.service
-    svc.config.dark_mode = True
+    svc.config.dark_mode = "on"
     svc.config.dither = "none"  # keep the on-demand render cheap
     r = client.get("/api/frame", params={"view": "status"})
     assert r.status_code == 200
@@ -116,7 +122,7 @@ def test_view_variant_carries_invert_header(client):
 
 # Checkboxes that default on: omitting one from the form would turn it off and
 # muddy the render_affecting comparison, so every POST carries them.
-_BASE_FORM = {"single_show_latest": "on", "quiet_hours_enabled": "on",
+_BASE_FORM = {"single_show_latest": "on", "quiet_hours_mode": "custom",
               "show_plate_number": "on", "imagegen_enabled": "on",
               "collage_generated": "on"}
 
@@ -130,7 +136,7 @@ def test_settings_toggle_is_render_affecting(client, monkeypatch):
     r = client.post("/settings", data={**_BASE_FORM, "dark_mode": "on"},
                     follow_redirects=False)
     assert r.status_code == 303
-    assert svc.config.dark_mode is True
+    assert svc.config.dark_mode == "on"
     assert len(calls) == 1
 
     # Re-submitting the same settings does not.
@@ -139,6 +145,7 @@ def test_settings_toggle_is_render_affecting(client, monkeypatch):
     assert len(calls) == 1
 
     # Flipping it back off re-renders again.
-    client.post("/settings", data=_BASE_FORM, follow_redirects=False)
-    assert svc.config.dark_mode is False
+    client.post("/settings", data={**_BASE_FORM, "dark_mode": "off"},
+                follow_redirects=False)
+    assert svc.config.dark_mode == "off"
     assert len(calls) == 2

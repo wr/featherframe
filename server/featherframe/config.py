@@ -6,8 +6,9 @@ SQLite DB. Everything the config UI touches lives here. Defaults match the spec.
 from __future__ import annotations
 
 import dataclasses
+import math
 from dataclasses import dataclass, field
-from datetime import time as dtime
+from datetime import date, datetime, time as dtime
 from typing import Any
 
 
@@ -18,6 +19,35 @@ def _parse_hhmm(value: str, fallback: str) -> dtime:
     except (ValueError, AttributeError):
         hh, mm = fallback.split(":")
         return dtime(int(hh), int(mm))
+
+
+# Default latitude for the timezone-derived "sunset -> sunrise" window. The
+# timezone alone can't give latitude, so we assume a temperate mid-latitude;
+# seasonal drift is still modeled. A configurable lat/long is the follow-up
+# (W-601) for exact times.
+_SUN_LAT_DEG = 40.0
+
+
+def _sun_window(on_date: date | None = None) -> tuple[dtime, dtime]:
+    """Approximate (sunset, sunrise) local times for the given day — the night
+    window for "sunset -> sunrise" quiet hours. Zero-config and network-free:
+    models the seasonal swing at a default mid-latitude. Falls back to a fixed
+    22:00 -> 06:00 window inside the polar day/night edge cases."""
+    n = (on_date or date.today()).timetuple().tm_yday
+    lat = math.radians(_SUN_LAT_DEG)
+    decl = math.radians(23.44) * math.sin(2 * math.pi / 365.0 * (n + 284))
+    cos_h = -math.tan(lat) * math.tan(decl)
+    if cos_h <= -1.0 or cos_h >= 1.0:
+        return dtime(22, 0), dtime(6, 0)  # sun never sets / never rises here
+    h = math.degrees(math.acos(cos_h)) / 15.0  # half-day length in hours
+    sunrise = 12.0 - h
+    sunset = 12.0 + h
+
+    def _t(hours: float) -> dtime:
+        hours %= 24
+        return dtime(int(hours), int(hours * 60) % 60)
+
+    return _t(sunset), _t(sunrise)
 
 
 @dataclass
@@ -34,6 +64,10 @@ class Config:
     wake_interval_minutes: int = 15  # advisory: how often the device wakes
 
     # Quiet hours ----------------------------------------------------------
+    # "off" | "custom" (the start/end below) | "sun" (sunset -> sunrise,
+    # derived from the system timezone; see _sun_window). quiet_hours_enabled
+    # is kept for back-compat and mirrors (mode != "off").
+    quiet_hours_mode: str = "custom"
     quiet_hours_enabled: bool = True
     quiet_hours_start: str = "22:00"
     quiet_hours_end: str = "06:00"
@@ -73,8 +107,10 @@ class Config:
     mat_offset_y_px: int = 0
 
     # Invert the finished frame end-to-end: black field, white ink. The device
-    # is told via X-FF-Invert so its baked boot screens match.
-    dark_mode: bool = False
+    # is told the effective state via X-FF-Invert so its baked boot screens
+    # match. "off" | "on" | "quiet" (inverted only during quiet hours). A
+    # legacy bool is migrated in sanitize().
+    dark_mode: str = "off"
 
     # Collage --------------------------------------------------------------
     collage_rebuilds_per_day: int = 3
@@ -125,6 +161,16 @@ class Config:
         self.imagegen_api_key = str(self.imagegen_api_key or "").strip()
         self.imagegen_text_model = (str(self.imagegen_text_model or "").strip()
                                     or "gpt-5.6-luna")
+        # Dark mode: migrate a legacy bool, then validate the enum.
+        if isinstance(self.dark_mode, bool):
+            self.dark_mode = "on" if self.dark_mode else "off"
+        if self.dark_mode not in ("off", "on", "quiet"):
+            self.dark_mode = "off"
+        # Quiet hours: mode drives behaviour; migrate the legacy enabled flag,
+        # then keep enabled in sync as a mirror of (mode != "off").
+        if self.quiet_hours_mode not in ("off", "custom", "sun"):
+            self.quiet_hours_mode = "custom" if self.quiet_hours_enabled else "off"
+        self.quiet_hours_enabled = self.quiet_hours_mode != "off"
         # Normalise quiet-hours strings to HH:MM
         self.quiet_hours_start = _fmt(_parse_hhmm(self.quiet_hours_start, "22:00"))
         self.quiet_hours_end = _fmt(_parse_hhmm(self.quiet_hours_end, "06:00"))
@@ -152,18 +198,32 @@ class Config:
     def in_quiet_hours(self, now: dtime) -> bool:
         """True if `now` (a datetime.time) falls in quiet hours.
 
-        Handles the usual wrap-around-midnight window (e.g. 22:00 -> 06:00).
+        "sun" mode uses the timezone-derived sunset -> sunrise window; "custom"
+        uses the start/end below. Handles the wrap-around-midnight window
+        (e.g. 22:00 -> 06:00), which the night window always is.
         """
-        if not self.quiet_hours_enabled:
+        if self.quiet_hours_mode == "off":
             return False
-        start = _parse_hhmm(self.quiet_hours_start, "22:00")
-        end = _parse_hhmm(self.quiet_hours_end, "06:00")
+        if self.quiet_hours_mode == "sun":
+            start, end = _sun_window()
+        else:
+            start = _parse_hhmm(self.quiet_hours_start, "22:00")
+            end = _parse_hhmm(self.quiet_hours_end, "06:00")
         if start == end:
             return False
         if start < end:
             return start <= now < end
         # wraps past midnight
         return now >= start or now < end
+
+    def dark_now(self, now: dtime | None = None) -> bool:
+        """Effective inversion right now: always in "on", never in "off", and
+        only during quiet hours in "quiet"."""
+        if self.dark_mode == "on":
+            return True
+        if self.dark_mode == "quiet":
+            return self.in_quiet_hours(now or datetime.now().time())
+        return False
 
     # -- serialisation -----------------------------------------------------
     def to_dict(self) -> dict[str, Any]:

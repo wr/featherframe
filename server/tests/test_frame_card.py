@@ -104,16 +104,16 @@ def _render_page(svc) -> str:
 
 
 def test_page_never_seen(svc):
-    assert "connected yet" in _render_page(svc)
+    # Unseen frame: the Frame card shows "never" with an off dot.
+    assert "never" in _render_page(svc)
 
 
 def test_page_fresh(svc):
     svc.get_frame(None, "esp32-featherframe", 3.95, 72, wifi_rssi=-61)
     html = _render_page(svc)
     assert "just now" in html
-    assert "3.95 V · 72%" in html
-    assert "connected yet" not in html
-    assert "overdue — expected" not in html
+    assert "72%" in html          # battery shown as percent only (W-607)
+    assert "overdue —" not in html
 
 
 def test_page_overdue(svc):
@@ -122,4 +122,4 @@ def test_page_overdue(svc):
                               battery_voltage=3.6, battery_percent=31,
                               last_result="304")
     html = _render_page(svc)
-    assert f"overdue — expected every {svc.config.wake_interval_minutes} min" in html
+    assert f"overdue — wakes every {svc.config.wake_interval_minutes} min" in html

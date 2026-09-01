@@ -283,14 +283,15 @@ async def day_review(request: Request):
 
 @app.post("/api/refresh")
 async def api_refresh(request: Request):
-    """Re-render the current subject now, so its bytes (and ETag) are rebuilt.
-    The panel is deep-asleep and can't be pushed to — it picks up the result on
+    """Re-render the frame that should be showing right now (per config), so its
+    bytes (and ETag) are rebuilt — and so it recovers from a stale held collage.
+    The panel is deep-asleep and can't be pushed to: it picks up the result on
     its next scheduled wake, and only redraws if the content actually changed
     (identical pixels hash to the same ETag → a 304, no wasteful refresh)."""
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
-    svc.rerender_current()
+    svc.refresh_now()
     st = svc.status()
     return JSONResponse({"ok": True,
                          "etag": st.get("current", {}).get("etag"),

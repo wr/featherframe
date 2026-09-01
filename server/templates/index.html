@@ -114,7 +114,7 @@
     .seg.wide { display:flex; }
     .seg label { flex:1; position:relative; z-index:1; }
     .seg input { position:absolute; opacity:0; width:0; height:0; }
-    .seg label > span {
+    .seg label span {
       display:flex; flex-direction:row; align-items:center; gap:6px; justify-content:center;
       padding:7px 15px; font-size:13px; font-weight:500; color:var(--muted);
       border-radius:5px; cursor:pointer; white-space:nowrap; transition:color .13s; text-align:center;
@@ -240,14 +240,8 @@
               padding-bottom:1px; border-bottom:1px dotted currentColor; transition:color .13s; }
     .seg-ex:hover { color:var(--accent); border-bottom-style:solid; }
     .seg-ex svg { width:14px; height:14px; }
-    /* mode glyph — a mini-preview, centred above the label in the Mode picker */
-    .seg-ic { flex:none; }
-    #mode-seg label > span { flex-direction:column; gap:10px; padding:16px 12px; }
-    #mode-seg .seg-ic { width:46px; height:46px; opacity:.85; transition:opacity .13s; }
-    #mode-seg input:checked + span .seg-ic { opacity:1; }
-    #mode-seg .seg-lbl { display:inline-flex; flex-direction:row; align-items:center; gap:4px; padding:0; white-space:nowrap; }
     /* reserve the bold width so selecting a segment never reflows it */
-    .seg.seg-measuring label > span { font-weight:700; }
+    .seg.seg-measuring label span { font-weight:700; }
     /* bold the current selection */
     .seg input:checked + span { font-weight:700; }
     .combo-list li[aria-selected="true"] { font-weight:600; }
@@ -421,8 +415,8 @@
           <div class="field">
             <label class="lab">Mode</label>
             <div class="seg wide" role="radiogroup" aria-label="Mode" id="mode-seg">
-              <label><input type="radio" name="mode" value="single" {{ 'checked' if config.mode=='single' else '' }}><span><svg class="seg-ic" viewBox="0 0 48 48" fill="currentColor"><path d="M7 18l14 6-6 5z"/><ellipse cx="26" cy="26" rx="11" ry="8"/><circle cx="34.5" cy="17" r="5.6"/><path d="M39 13l7 1.7-7 3z"/><path d="M24 33.5l-1.5 6M29 33.5l1.5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span class="seg-lbl">Single<a class="ex seg-ex" data-ex="single" data-cap="Single — the most recent detection, shown as one plate." title="Preview an example" aria-label="Preview a Single example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span></span></label>
-              <label><input type="radio" name="mode" value="collage" {{ 'checked' if config.mode=='collage' else '' }}><span><svg class="seg-ic" viewBox="0 0 48 48" fill="currentColor"><g><ellipse cx="13" cy="16" rx="6" ry="4.8"/><circle cx="17.5" cy="12.5" r="3.4"/><path d="M20.5 11.4l4 .6-3.3 2.6z"/></g><g><ellipse cx="35" cy="15" rx="6" ry="4.8"/><circle cx="30.5" cy="11.5" r="3.4"/><path d="M27.5 10.4l-4 .6 3.3 2.6z"/></g><g><ellipse cx="12.6" cy="36" rx="5.4" ry="4.3"/><circle cx="16.6" cy="32.7" r="3"/><path d="M19.2 31.8l3.6 .5-3 2.4z"/></g><g><ellipse cx="35.4" cy="35" rx="6" ry="4.8"/><circle cx="30.9" cy="31.5" r="3.4"/><path d="M27.9 30.4l-4 .6 3.3 2.6z"/></g></svg><span class="seg-lbl">Collage<a class="ex seg-ex" data-ex="collage" data-cap="Collage — a grid of the day's most-heard species, rebuilt through the day." title="Preview an example" aria-label="Preview a Collage example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span></span></label>
+              <label><input type="radio" name="mode" value="single" {{ 'checked' if config.mode=='single' else '' }}><span>Single<a class="ex seg-ex" data-ex="single" data-cap="Single — the most recent detection, shown as one plate." title="Preview an example" aria-label="Preview a Single example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span></label>
+              <label><input type="radio" name="mode" value="collage" {{ 'checked' if config.mode=='collage' else '' }}><span>Collage<a class="ex seg-ex" data-ex="collage" data-cap="Collage — a grid of the day's most-heard species, rebuilt through the day." title="Preview an example" aria-label="Preview a Collage example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span></label>
             </div>
             <div class="hint" id="mode-hint"></div>
           </div>

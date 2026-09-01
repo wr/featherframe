@@ -200,6 +200,7 @@ async def save_settings(request: Request):
         collage_generated=b("collage_generated"),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
+        imagegen_base_url=s("imagegen_base_url", cur["imagegen_base_url"]),
         imagegen_text_model=s("imagegen_text_model", cur["imagegen_text_model"]),
         imagegen_quality=s("imagegen_quality", cur["imagegen_quality"]),
         # A typed key always wins; blank means "keep the stored key" unless

@@ -506,6 +506,35 @@ class OpenAITextModel(TextModel):
         return out
 
 
+class GeminiTextModel(TextModel):
+    """Gemini writes the naturalist's brief (JSON mode) for Gemini image users."""
+
+    API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash",
+                 timeout_s: float = 60.0) -> None:
+        self.api_key = api_key
+        # The shared imagegen_text_model default is an OpenAI id; fall back to a
+        # real Gemini text model unless the user set a gemini-* one.
+        self.model = model if model.startswith("gemini") else "gemini-2.5-flash"
+        self.timeout_s = timeout_s
+        self.name = self.model
+
+    def complete_json(self, prompt: str) -> dict:
+        r = requests.post(
+            f"{self.API_BASE}/models/{self.model}:generateContent",
+            headers={"x-goog-api-key": self.api_key},
+            json={"contents": [{"parts": [{"text": prompt}]}],
+                  "generationConfig": {"responseMimeType": "application/json"}},
+            timeout=self.timeout_s)
+        r.raise_for_status()
+        text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        out = json.loads(text)
+        if not isinstance(out, dict):
+            raise GenerationError("text model returned non-object JSON")
+        return out
+
+
 class ImageModel(ABC):
     """One image-generation backend. ``generate`` returns raw PNG bytes."""
 
@@ -582,30 +611,167 @@ class OpenAIImageModel(ImageModel):
             raise GenerationError(f"unexpected response shape: {exc}") from exc
 
 
+def _ref_jpeg_b64(path: Path) -> str:
+    """A downscaled reference plate as base64 JPEG, for JSON image APIs."""
+    return base64.b64encode(OpenAIImageModel._ref_bytes(path)).decode()  # noqa: SLF001
+
+
+class GeminiImageModel(ImageModel):
+    """Google Gemini image generation (the "Nano Banana" line) via
+    generateContent, with reference plates passed as inline images."""
+
+    API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash-image",
+                 timeout_s: float = 240.0) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.timeout_s = timeout_s
+        self.name = model
+
+    def generate(self, prompt: str, size: str, refs: list[Path]) -> bytes:
+        parts: list[dict] = [{"text": prompt}]
+        for p in refs:
+            parts.append({"inline_data": {"mime_type": "image/jpeg",
+                                          "data": _ref_jpeg_b64(p)}})
+        resp = requests.post(
+            f"{self.API_BASE}/models/{self.model}:generateContent",
+            headers={"x-goog-api-key": self.api_key},
+            json={"contents": [{"parts": parts}],
+                  "generationConfig": {"responseModalities": ["IMAGE"]}},
+            timeout=self.timeout_s)
+        if resp.status_code != 200:
+            raise GenerationError(f"HTTP {resp.status_code}: {resp.text[:300]}")
+        try:
+            for part in resp.json()["candidates"][0]["content"]["parts"]:
+                blob = part.get("inline_data") or part.get("inlineData") or {}
+                if blob.get("data"):
+                    return base64.b64decode(blob["data"])
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise GenerationError(f"unexpected response shape: {exc}") from exc
+        raise GenerationError("no image in Gemini response")
+
+
+class ReplicateImageModel(ImageModel):
+    """Replicate — one key, many models (default FLUX.1 Kontext). Creates a
+    prediction, polls to completion, downloads the resulting image."""
+
+    API_BASE = "https://api.replicate.com/v1"
+
+    def __init__(self, api_key: str, model: str = "black-forest-labs/flux-kontext-pro",
+                 timeout_s: float = 240.0) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.timeout_s = timeout_s
+        self.name = model
+
+    def _headers(self) -> dict:
+        return {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
+
+    def generate(self, prompt: str, size: str, refs: list[Path]) -> bytes:
+        inp: dict = {"prompt": prompt}
+        if refs:
+            inp["input_image"] = f"data:image/jpeg;base64,{_ref_jpeg_b64(refs[0])}"
+        # "owner/name" -> the model's own endpoint; a bare version hash -> predictions.
+        if "/" in self.model and ":" not in self.model:
+            url, body = f"{self.API_BASE}/models/{self.model}/predictions", {"input": inp}
+        else:
+            url, body = f"{self.API_BASE}/predictions", {"version": self.model, "input": inp}
+        resp = requests.post(url, headers=self._headers(), json=body, timeout=self.timeout_s)
+        if resp.status_code not in (200, 201):
+            raise GenerationError(f"HTTP {resp.status_code}: {resp.text[:300]}")
+        pred = resp.json()
+        get_url = (pred.get("urls") or {}).get("get")
+        for _ in range(60):  # ~2 min at 2s
+            status = pred.get("status")
+            if status == "succeeded":
+                break
+            if status in ("failed", "canceled"):
+                raise GenerationError(f"replicate {status}: {pred.get('error')}")
+            if not get_url:
+                break
+            time.sleep(2)
+            pr = requests.get(get_url, headers=self._headers(), timeout=self.timeout_s)
+            pr.raise_for_status()
+            pred = pr.json()
+        out = pred.get("output")
+        img_url = out[-1] if isinstance(out, list) and out else (out if isinstance(out, str) else None)
+        if not img_url:
+            raise GenerationError(f"replicate: no output (status {pred.get('status')})")
+        ir = requests.get(img_url, timeout=self.timeout_s)
+        ir.raise_for_status()
+        return ir.content
+
+
+class A1111ImageModel(ImageModel):
+    """A self-hosted AUTOMATIC1111 / ComfyUI-compatible endpoint (/sdapi/v1).
+    No API key — the base URL points at the user's own GPU box."""
+
+    def __init__(self, base_url: str, model: str = "", timeout_s: float = 240.0) -> None:
+        self.base_url = (base_url or "").rstrip("/")
+        self.model = model
+        self.timeout_s = timeout_s
+        self.name = "a1111"
+
+    def generate(self, prompt: str, size: str, refs: list[Path]) -> bytes:
+        try:
+            w, h = (int(x) for x in str(size).lower().split("x"))
+        except (ValueError, TypeError):
+            w, h = 1024, 1024
+        body: dict = {"prompt": prompt, "width": w, "height": h, "steps": 30}
+        if refs:
+            body["init_images"] = [_ref_jpeg_b64(refs[0])]
+            body["denoising_strength"] = 0.75
+            path = "/sdapi/v1/img2img"
+        else:
+            path = "/sdapi/v1/txt2img"
+        resp = requests.post(self.base_url + path, json=body, timeout=self.timeout_s)
+        if resp.status_code != 200:
+            raise GenerationError(f"HTTP {resp.status_code}: {resp.text[:300]}")
+        try:
+            return base64.b64decode(resp.json()["images"][0])
+        except (KeyError, IndexError, ValueError, TypeError) as exc:
+            raise GenerationError(f"unexpected response shape: {exc}") from exc
+
+
 def make_text_model(config) -> Optional[TextModel]:
-    """The naturalist's-brief backend, gated exactly like the image model."""
+    """The naturalist's-brief backend. Follows the image provider and its key;
+    only OpenAI and Gemini offer a brief model, so replicate/a1111 return None
+    (plates still generate, just brief-less)."""
     if not getattr(config, "imagegen_enabled", False):
         return None
+    provider = getattr(config, "imagegen_provider", "openai")
     key = (getattr(config, "imagegen_api_key", "") or "").strip()
-    if not key:
-        return None
-    if getattr(config, "imagegen_provider", "openai") == "openai":
-        return OpenAITextModel(key, model=getattr(config, "imagegen_text_model",
-                                                  "gpt-5.6-luna"))
+    text_model = getattr(config, "imagegen_text_model", "gpt-5.6-luna")
+    if provider == "openai" and key:
+        return OpenAITextModel(key, model=text_model)
+    if provider == "gemini" and key:
+        return GeminiTextModel(key, model=text_model)
     return None
 
 
 def make_image_model(config) -> Optional[ImageModel]:
     """Build the configured image model, or None when generation can't run
-    (disabled, no key, unknown provider). None means cache-only."""
+    (disabled, missing key/URL, unknown provider). None means cache-only."""
     if not getattr(config, "imagegen_enabled", False):
         return None
+    provider = getattr(config, "imagegen_provider", "openai")
     key = (getattr(config, "imagegen_api_key", "") or "").strip()
-    if not key:
-        return None
-    if config.imagegen_provider == "openai":
-        return OpenAIImageModel(key, model=config.imagegen_model,
-                                quality=config.imagegen_quality)
+    model = getattr(config, "imagegen_model", "") or ""
+    if provider == "openai":
+        # Guard a model id left over from another provider (the field carries
+        # across a provider switch) so OpenAI never gets e.g. a gemini id.
+        m = model if model.startswith("gpt-image") else "gpt-image-2"
+        return OpenAIImageModel(key, model=m, quality=config.imagegen_quality) if key else None
+    if provider == "gemini":
+        m = model if model.startswith("gemini") else "gemini-2.5-flash-image"
+        return GeminiImageModel(key, model=m) if key else None
+    if provider == "replicate":
+        m = model if ("/" in model or ":" in model) else "black-forest-labs/flux-kontext-pro"
+        return ReplicateImageModel(key, model=m) if key else None
+    if provider == "a1111":
+        base = (getattr(config, "imagegen_base_url", "") or "").strip()
+        return A1111ImageModel(base, model=model) if base else None
     return None
 
 

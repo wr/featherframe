@@ -45,8 +45,18 @@ WiFiManager wm;
 char     g_serverUrl[128];
 char     g_etag[40];
 uint32_t g_wakeMinutes = DEFAULT_WAKE_MINUTES;
-char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent to the server for debugging
+char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent as X-Wake-Detail (debug)
+char     g_wakeToken[16] = "";  // stable token ("timer"|"button"|"coldboot") — X-Wake
 bool     g_viaPortal = false;   // did this boot go through the setup portal?
+
+// Wake cause -> a stable token the server can show without parsing ESP enums.
+static const char* wakeToken(esp_sleep_wakeup_cause_t cause) {
+  switch (cause) {
+    case ESP_SLEEP_WAKEUP_TIMER: return "timer";
+    case ESP_SLEEP_WAKEUP_EXT1:  return "button";
+    default:                     return "coldboot";   // power-on / reset
+  }
+}
 
 // ---------------------------------------------------------------- battery
 float readBatteryVoltage() {
@@ -60,7 +70,13 @@ float readBatteryVoltage() {
   for (int i = 0; i < N; i++) { acc += analogRead(PIN_BATTERY_ADC); delay(2); }
   digitalWrite(PIN_BATTERY_ENABLE, LOW);    // save idle current
   float counts = acc / (float)N;
-  return (counts / 4095.0f) * VBAT_SCALE;
+  float v = (counts / 4095.0f) * VBAT_SCALE;
+  // Calibration aid (spec §2): put a meter on the JST, read this line, then set
+  // VBAT_SCALE = V_meter * (4095 / counts) = V_meter * the printed factor.
+  Serial.printf("battery ADC: counts=%.1f scale=%.3f -> %.3f V | "
+                "VBAT_SCALE = V_meter * %.4f\n",
+                counts, VBAT_SCALE, v, 4095.0f / counts);
+  return v;
 }
 
 int batteryPercent(float v) {
@@ -123,6 +139,10 @@ static void loaderTask(void*) {
 enum ErrKind { ERRK_WIFI = 0, ERRK_SERVER = 1, ERRK_NOFRAME = 2 };
 RTC_DATA_ATTR int16_t  g_failCount = 0;     // consecutive failed cycles
 RTC_DATA_ATTR uint16_t g_failMinutes = 0;   // ~minutes since the last success
+// Longevity counters (spec §5). RTC-backed: survive deep sleep, reset only on a
+// power pull. bootCount ++ every wake; refreshCount ++ on every full panel redraw.
+RTC_DATA_ATTR uint32_t g_bootCount = 0;
+RTC_DATA_ATTR uint32_t g_refreshCount = 0;
 RTC_DATA_ATTR int8_t   g_glassScreen = -1;  // baked screen on the glass; -1 = a plate
 RTC_DATA_ATTR uint8_t  g_cornerMark = 0;    // 0 none, 1 wifi, 2 server
 RTC_DATA_ATTR int8_t   g_bandKind = -1;     // error band on the glass (-1 none)
@@ -410,6 +430,7 @@ void displayFrame(const uint8_t* data, size_t len, bool retain = false) {
   Serial.printf("psram largest free %u\n",
                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
   epaper.update();                          // full refresh; brackets its own power
+  g_refreshCount++;                         // panel-wear tally (spec §5)
   if (retain && h.bpp == 4) {               // a 1-bit body is smaller than this copy
     if (!g_lastFrame) g_lastFrame = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
     if (g_lastFrame) memcpy(g_lastFrame, body, FF_SCREEN_BYTES);
@@ -665,10 +686,25 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
   http.setUserAgent("Featherframe-ESP32/1.0");
   if (resident && strlen(g_etag)) http.addHeader("If-None-Match", String("\"") + g_etag + "\"");
+#if FF_NO_BATTERY
+  // USB-powered, no pack fitted: omit the battery headers entirely. The server
+  // renders "USB power" when no percent arrives, instead of a meaningless value
+  // read off the floating VBAT rail. (void the unused reads.)
+  (void)vbat; (void)pct;
+  http.addHeader("X-Battery-State", "usb");
+#else
   http.addHeader("X-Battery-Voltage", String(vbat, 3));
   http.addHeader("X-Battery-Percent", String(pct));
+#endif
   http.addHeader("X-Wifi-RSSI", String(WiFi.RSSI()));
-  http.addHeader("X-Wake", g_wakeInfo);
+  http.addHeader("X-Wake", g_wakeToken);            // stable token (spec §3)
+  http.addHeader("X-Wake-Detail", g_wakeInfo);      // cause=N keys=0xM (debug)
+  http.addHeader("X-FF-Version", FF_FW_VERSION);    // human build id (spec §1)
+  http.addHeader("X-FF-Sketch-MD5", ESP.getSketchMD5());  // exact binary id
+  http.addHeader("X-Boot-Count", String(g_bootCount));    // spec §5
+  http.addHeader("X-Refresh-Count", String(g_refreshCount));
+  http.addHeader("X-Panel", "ED103TC2 1404x1872 gray16"); // spec §6
+  http.addHeader("X-Board", "XIAO-ESP32S3 EE03");
   const char* collect[] = {"ETag", "X-FF-Invert"};
   http.collectHeaders(collect, 2);
 
@@ -785,6 +821,8 @@ void setup() {
   // TEMP boot-ping: 6s of prints after USB settles, so a late reader confirms the
   // app is actually running and where setup gets to. Remove once serial is trusted.
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+  g_bootCount++;                                    // wake tally (spec §5)
+  strlcpy(g_wakeToken, wakeToken(cause), sizeof(g_wakeToken));
   bool buttonWake = (cause == ESP_SLEEP_WAKEUP_EXT1);
   bool fromDeepSleep = (cause == ESP_SLEEP_WAKEUP_TIMER || cause == ESP_SLEEP_WAKEUP_EXT1);
   Serial.printf("\nFeatherframe wake: cause=%d (%s) fw=%s\n",

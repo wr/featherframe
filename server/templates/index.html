@@ -70,6 +70,8 @@
     .pill-status { display:inline-flex; align-items:center; gap:5px; }
     .pill-status .d { width:7px; height:7px; border-radius:50%; }
     .d.good{ background:var(--good);} .d.warn{ background:var(--warn);} .d.bad{ background:var(--bad);} .d.off{ background:var(--faint);}
+    .pwr { display:inline-flex; align-items:center; gap:6px; }
+    .pwr svg { width:14px; height:14px; color:var(--muted); }
     .batt { display:inline-flex; align-items:center; gap:6px; }
     .batt .cell { width:18px; height:11px; border:1.4px solid var(--border-strong); border-radius:2.5px; position:relative; }
     .batt .cell::after{ content:""; position:absolute; right:-3.5px; top:3px; width:2.5px; height:4px; background:var(--border-strong); border-radius:0 1px 1px 0; }
@@ -78,7 +80,15 @@
     .bars span { width:3px; background:var(--faint); border-radius:1px; }
     .bars span.on { background:var(--good); }
     .bars span:nth-child(1){ height:4px;} .bars span:nth-child(2){ height:7px;} .bars span:nth-child(3){ height:10px;} .bars span:nth-child(4){ height:13px;}
-    .overdue-note { color:var(--warn); }
+    /* Overdue warning: same tinted-box language as the "Test connection" error
+       (.test-box.bad), in amber, but smaller and spanning the row width so it
+       reads as attached to "Last seen" above it. */
+    .status-card .overdue-note { grid-column:1/-1; justify-content:flex-start; text-align:left;
+      gap:7px; align-items:center; margin-top:-2px; padding:6px 10px; border-radius:7px;
+      font-size:12px; line-height:1.4; color:var(--ink-2);
+      background:color-mix(in srgb, var(--warn) 13%, var(--surface));
+      border:1px solid color-mix(in srgb, var(--warn) 34%, var(--border)); }
+    .status-card .overdue-note svg { flex:none; width:14px; height:14px; color:var(--warn); }
 
     /* right column: settings */
     .settings { padding:0; }
@@ -361,14 +371,19 @@
             {% endif %}
           </dd>
           {% if card.overdue %}
-          <dt></dt><dd class="overdue-note">overdue — wakes every {{ card.expected_minutes }} min</dd>
+          <dd class="overdue-note">
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.9 15 14.4H1L8 1.9Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.75" r=".9" fill="currentColor"/></svg>
+            <span>Overdue — wakes every {{ card.expected_minutes }} min</span>
+          </dd>
           {% endif %}
-          <dt>Battery</dt>
+          {% set pct = status.device.battery_percent %}
+          <dt>{{ 'Battery' if pct is not none else 'Power' }}</dt>
           <dd>
-            {% set pct = status.device.battery_percent %}
             {% if pct is not none %}
               <span class="batt"><span class="cell"><i style="width:{{ pct }}%;{% if pct <= 20 %}background:var(--bad){% endif %}"></i></span><span class="tnum">{{ pct }}%</span></span>
-            {% else %}USB power{% endif %}
+            {% else %}
+              <span class="pwr"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 1.75V4.25M10 1.75V4.25"/><path d="M4.4 4.25h7.2V6.4a3.6 3.6 0 0 1-7.2 0V4.25Z"/><path d="M8 10v4.4"/></svg>USB</span>
+            {% endif %}
           </dd>
           <dt>Wi-Fi</dt>
           <dd>
@@ -380,7 +395,20 @@
             {% else %}—{% endif %}
           </dd>
           <dt>IP address</dt><dd class="tnum">{{ status.device.ip or '—' }}</dd>
-          <dt>Firmware</dt><dd>{{ status.device.user_agent or '—' }}</dd>
+          <dt>Firmware</dt>
+          <dd{% if status.device.sketch_md5 %} title="build {{ status.device.sketch_md5[:8] }}"{% endif %}>
+            {{ status.device.fw_version or status.device.user_agent or '—' }}
+          </dd>
+          {% if status.device.last_wake %}
+          <dt>Last wake</dt>
+          <dd{% if status.device.wake_detail %} title="{{ status.device.wake_detail }}"{% endif %}>{{ status.device.last_wake }}</dd>
+          {% endif %}
+          {% if status.device.refresh_count is not none %}
+          <dt>Refreshes</dt>
+          <dd class="tnum"{% if status.device.boot_count is not none %} title="{{ status.device.boot_count }} wakes since power-up"{% endif %}>{{ status.device.refresh_count }}</dd>
+          {% endif %}
+          <dt>Panel</dt><dd>{{ status.device.panel or '10.3″ · 1404×1872 · grayscale' }}</dd>
+          <dt>Board</dt><dd>{{ status.device.board or 'XIAO ESP32-S3 · EE03' }}</dd>
         </dl>
 
         <p class="grp second">Source</p>

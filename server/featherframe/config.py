@@ -79,14 +79,22 @@ class Config:
     species_blocklist: list[str] = field(default_factory=list)
 
     # Ingest ---------------------------------------------------------------
-    # Where detections come from. "birdnet_pi" reads a local SQLite DB;
-    # "birdnet_go" polls BirdNET-Go's REST API.
-    detection_backend: str = "birdnet_pi"  # "birdnet_pi" | "birdnet_go"
-    birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"  # birdnet_pi backend
-    birdnet_go_url: str = "http://localhost:8080"           # birdnet_go backend
+    # Where detections come from:
+    #   "birdnet_go"  — poll BirdNET-Go's REST API
+    #   "apprise"     — BirdNET-Pi pushes each detection to our webhook (push)
+    #   "birdweather" — poll a BirdWeather station by its ID/token
+    #   "custom"      — read a local BirdNET-Pi SQLite DB directly
+    # The legacy id "birdnet_pi" is migrated to "custom" in sanitize().
+    detection_backend: str = "custom"
+    birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"   # custom (SQLite) backend
+    birdnet_go_url: str = "http://localhost:8080"            # birdnet_go backend
     # When on, the BirdNET-Go source filters by BirdNET-Go's own confidence
     # threshold and ignores confidence_threshold.
     birdnet_go_defer_confidence: bool = True
+    birdweather_station_id: str = ""    # birdweather backend: station token / ID
+    # Optional shared secret in the Apprise webhook path (/api/ingest/apprise/<token>).
+    # Empty accepts any LAN post, matching the app's no-auth LAN posture.
+    apprise_token: str = ""
     poll_interval_seconds: int = 20  # 10-30s per spec
 
     # Rendering ------------------------------------------------------------
@@ -139,9 +147,14 @@ class Config:
         self.refresh_debounce_minutes = int(_clamp(self.refresh_debounce_minutes, 1, 720))
         self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
         self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 5, 300))
-        if self.detection_backend not in ("birdnet_pi", "birdnet_go"):
-            self.detection_backend = "birdnet_pi"
+        # The raw SQLite reader is now "custom"; migrate the legacy id.
+        if self.detection_backend == "birdnet_pi":
+            self.detection_backend = "custom"
+        if self.detection_backend not in ("birdnet_go", "apprise", "birdweather", "custom"):
+            self.detection_backend = "custom"
         self.birdnet_go_url = str(self.birdnet_go_url or "").strip().rstrip("/") or "http://localhost:8080"
+        self.birdweather_station_id = str(self.birdweather_station_id or "").strip()
+        self.apprise_token = str(self.apprise_token or "").strip()
         if self.gray_mode not in ("16", "1"):
             self.gray_mode = "16"
         if self.dither not in ("stucki", "bluenoise", "none"):

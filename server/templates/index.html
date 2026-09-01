@@ -390,17 +390,34 @@
             <label class="lab">Source</label>
             <select class="sel" name="detection_backend" id="src-sel">
               <option value="birdnet_go" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go — API</option>
-              <option value="birdnet_pi" {{ 'selected' if config.detection_backend=='birdnet_pi' else '' }}>BirdNET-Pi — local database</option>
+              <option value="apprise" {{ 'selected' if config.detection_backend=='apprise' else '' }}>BirdNET-Pi — Apprise</option>
+              <option value="birdweather" {{ 'selected' if config.detection_backend=='birdweather' else '' }}>BirdWeather — Station ID</option>
+              <option value="custom" {{ 'selected' if config.detection_backend=='custom' else '' }}>Custom — local database</option>
             </select>
           </div>
           <div class="field" data-src="birdnet_go" {{ '' if config.detection_backend=='birdnet_go' else 'hidden' }}>
             <label class="lab">BirdNET-Go URL</label>
             <input type="text" name="birdnet_go_url" value="{{ config.birdnet_go_url }}">
           </div>
-          <div class="field" data-src="birdnet_pi" {{ '' if config.detection_backend=='birdnet_pi' else 'hidden' }}>
+          <div class="field" data-src="apprise" {{ '' if config.detection_backend=='apprise' else 'hidden' }}>
+            <div class="hint" style="margin-top:0">In BirdNET-Pi → Notifications, add an Apprise URL pointing here and set the notification body to the JSON template below.</div>
+            <label class="lab" style="margin-top:12px">Apprise URL (paste into BirdNET-Pi)</label>
+            <input type="text" id="apprise-url" readonly value="json://…" style="font-family:var(--serif)">
+            <label class="lab" style="margin-top:12px">Shared secret <span style="color:var(--muted);font-weight:400">· optional</span></label>
+            <input type="text" name="apprise_token" id="apprise-token" value="{{ config.apprise_token }}" placeholder="leave blank to accept any LAN post">
+            <div class="hint">Notification body to paste into BirdNET-Pi:
+              <code style="display:block;white-space:pre-wrap;word-break:break-all;margin-top:5px;font-size:11.5px">{"comname":"$comname","sciname":"$sciname","confidence":$confidence,"date":"$date","time":"$time"}</code>
+            </div>
+          </div>
+          <div class="field" data-src="birdweather" {{ '' if config.detection_backend=='birdweather' else 'hidden' }}>
+            <label class="lab">BirdWeather Station ID</label>
+            <input type="text" name="birdweather_station_id" value="{{ config.birdweather_station_id }}" placeholder="station token">
+            <div class="hint">Your station's token, from its BirdWeather settings.</div>
+          </div>
+          <div class="field" data-src="custom" {{ '' if config.detection_backend=='custom' else 'hidden' }}>
             <label class="lab">BirdNET-Pi database path</label>
             <input type="text" name="birdnet_db_path" value="{{ config.birdnet_db_path }}">
-            <div class="hint">Read-only. Default: ~/BirdNET-Pi/scripts/birds.db</div>
+            <div class="hint">Read-only, a local BirdNET-Pi SQLite DB. Default: ~/BirdNET-Pi/scripts/birds.db</div>
           </div>
           <details class="adv">
             <summary>Advanced</summary>
@@ -541,6 +558,17 @@
       });
     }
     sel.addEventListener('change', syncSrc);
+    // Build the Apprise webhook URL from this host + the optional secret.
+    var urlField = document.getElementById('apprise-url');
+    var tokenField = document.getElementById('apprise-token');
+    function syncApprise() {
+      if (!urlField) return;
+      var scheme = location.protocol === 'https:' ? 'jsons://' : 'json://';
+      var tok = tokenField && tokenField.value.trim();
+      urlField.value = scheme + location.host + '/api/ingest/apprise' + (tok ? '/' + tok : '');
+    }
+    if (tokenField) tokenField.addEventListener('input', syncApprise);
+    syncApprise();
     // "hold overnight" only matters for collage / auto
     var holdRow = document.getElementById('hold-row');
     function syncHold() {

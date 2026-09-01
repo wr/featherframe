@@ -154,6 +154,10 @@
     .btn.icon svg { width:15px; height:15px; }
     .keyline { display:flex; gap:8px; }
     .keyline input { flex:1; font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:13px; letter-spacing:0; }
+    /* a connection field + its inline Test button on one row */
+    .data-row { display:flex; gap:10px; align-items:stretch; }
+    .data-row input { flex:1; min-width:0; }
+    .data-row .btn { flex:none; white-space:nowrap; }
 
     .save {
       padding:9px 20px; border-radius:6px; border:1px solid var(--accent-press); cursor:pointer;
@@ -455,25 +459,21 @@
           <h2 class="sec-head">Detection source</h2>
           <div class="field">
             <label class="lab">Source</label>
-            <div class="src-row" style="display:flex; gap:10px; align-items:stretch;">
-              <div class="cselect" style="flex:1; min-width:0;">
+            <div class="cselect">
               <select class="sel cselect-native" name="detection_backend" id="src-sel">
                 <option value="birdnet_go" data-icon="ic-birdnet-go" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go — API</option>
                 <option value="apprise" data-icon="ic-birdnet-pi" {{ 'selected' if config.detection_backend=='apprise' else '' }}>BirdNET-Pi — Apprise</option>
                 <option value="birdweather" data-icon="ic-birdweather" {{ 'selected' if config.detection_backend=='birdweather' else '' }}>BirdWeather — Station ID</option>
                 <option value="custom" data-icon="ic-db" {{ 'selected' if config.detection_backend=='custom' else '' }}>Custom — local database</option>
               </select>
-              </div>
-              <button class="btn mini" type="button" id="src-test" style="flex:none; white-space:nowrap;">Test connection</button>
             </div>
-            <div class="torow" style="margin-top:8px;">
-              <span class="hint" id="src-test-result" style="margin:0"></span>
-            </div>
-            <div class="hint" id="src-test-note">Tests the currently saved source — save first if you just changed it.</div>
           </div>
           <div class="field" data-src="birdnet_go" {{ '' if config.detection_backend=='birdnet_go' else 'hidden' }}>
             <label class="lab">BirdNET-Go URL</label>
-            <input type="text" name="birdnet_go_url" value="{{ config.birdnet_go_url }}">
+            <div class="data-row">
+              <input type="text" name="birdnet_go_url" value="{{ config.birdnet_go_url }}">
+              <button class="btn mini src-test" type="button">Test connection</button>
+            </div>
           </div>
           <div class="field" data-src="apprise" {{ '' if config.detection_backend=='apprise' else 'hidden' }}>
             <ol class="steps">
@@ -489,7 +489,7 @@
                   <button class="btn icon copy-btn" type="button" data-copy="#apprise-body" title="Copy" aria-label="Copy body"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
                 </div>
               </li>
-              <li>Save. New detections push here on their own — hit <strong>Test connection</strong> above once one arrives.</li>
+              <li>Save. New detections push here on their own; the status below shows how many have arrived.</li>
             </ol>
             <div class="field" style="margin-top:14px">
               <label class="lab">Shared secret <span style="color:var(--muted);font-weight:400">· optional</span></label>
@@ -499,14 +499,22 @@
           </div>
           <div class="field" data-src="birdweather" {{ '' if config.detection_backend=='birdweather' else 'hidden' }}>
             <label class="lab">BirdWeather station</label>
-            <input type="text" name="birdweather_station_id" value="{{ config.birdweather_station_id }}" placeholder="https://app.birdweather.com/stations/XXXXX">
+            <div class="data-row">
+              <input type="text" name="birdweather_station_id" value="{{ config.birdweather_station_id }}" placeholder="https://app.birdweather.com/stations/XXXXX">
+              <button class="btn mini src-test" type="button">Test connection</button>
+            </div>
             <div class="hint">Paste your station's URL (<code>https://app.birdweather.com/stations/XXXXX</code>) or just the ID. Find yours at <a href="https://app.birdweather.com/stations" target="_blank" rel="noopener">app.birdweather.com</a>.</div>
           </div>
           <div class="field" data-src="custom" {{ '' if config.detection_backend=='custom' else 'hidden' }}>
             <label class="lab">BirdNET-Pi database path</label>
-            <input type="text" name="birdnet_db_path" value="{{ config.birdnet_db_path }}">
+            <div class="data-row">
+              <input type="text" name="birdnet_db_path" value="{{ config.birdnet_db_path }}">
+              <button class="btn mini src-test" type="button">Test connection</button>
+            </div>
             <div class="hint">Read-only, a local BirdNET-Pi SQLite DB. Default: ~/BirdNET-Pi/scripts/birds.db</div>
           </div>
+          <div class="torow" style="margin-top:2px;"><span class="hint" id="src-test-result" style="margin:0"></span></div>
+          <div class="hint" id="src-test-note"></div>
           <details class="adv">
             <summary>Advanced</summary>
             <div class="adv-body">
@@ -1137,12 +1145,13 @@
   })();
 
   // -- detection-source connection test (tests the typed values) ------------
+  // The Test button lives beside each source's data field (URL / station / path);
+  // only the active source's field — and so its button — is visible.
   (function () {
-    var btn = document.getElementById('src-test');
     var out = document.getElementById('src-test-result');
     var note = document.getElementById('src-test-note');
     var sel = document.getElementById('src-sel');
-    if (!btn || !sel) return;
+    if (!sel) return;
     function val(name) { var el = document.querySelector('[name="' + name + '"]'); return el ? el.value : ''; }
     function body() {
       var p = new URLSearchParams();
@@ -1152,24 +1161,25 @@
       p.set('birdnet_db_path', val('birdnet_db_path'));
       return p;
     }
-    function run(busy) {
-      if (busy) { btn.disabled = true; btn.textContent = 'Testing…'; }
+    function run(btn, busy) {
+      if (busy && btn) { btn.disabled = true; btn.textContent = 'Testing…'; }
       if (out) { out.textContent = ''; out.classList.remove('failed', 'ok'); }
       return fetch('/api/source/test', { method: 'POST', body: body() }).then(function (r) { return r.json(); }).then(function (o) {
         if (out) { out.textContent = o.detail || ''; out.classList.add(o.ok ? 'ok' : 'failed'); }
       }).catch(function () { if (out) { out.textContent = 'Test failed.'; out.classList.add('failed'); } })
-        .then(function () { btn.disabled = false; btn.textContent = 'Test connection'; });
+        .then(function () { if (btn) { btn.disabled = false; btn.textContent = 'Test connection'; } });
     }
-    btn.addEventListener('click', function () { run(true); });
-    // A push source (Apprise) can't be probed — hide the button and just show
-    // how many detections have arrived so far.
+    document.querySelectorAll('.src-test').forEach(function (b) {
+      b.addEventListener('click', function () { run(b, true); });
+    });
+    // A push source (Apprise) can't be probed — it has no Test button; show how
+    // many detections have arrived instead.
     function syncTest() {
       var apprise = sel.value === 'apprise';
-      btn.hidden = apprise;
       if (note) note.textContent = apprise
         ? 'BirdNET-Pi pushes detections here on its own — nothing to test; the count updates as they arrive.'
         : 'Tests the values entered above — no need to save first.';
-      if (apprise) { run(false); }
+      if (apprise) { run(null, false); }
       else if (out) { out.textContent = ''; out.classList.remove('failed', 'ok'); }
     }
     sel.addEventListener('change', syncTest);

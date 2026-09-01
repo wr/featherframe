@@ -35,7 +35,7 @@
     /* the wordmark uses the same swash EB Garamond italic the firmware renders */
     @font-face { font-family:"Featherframe Wordmark"; src:url("/static/fonts/featherframe-wordmark.ttf") format("truetype");
       font-style:italic; font-weight:400 700; font-display:swap; }
-    .wordmark { font-family:"Featherframe Wordmark", var(--serif); font-style:italic; font-weight:500; font-size:28px; line-height:1; margin:0;
+    .wordmark { font-family:"Featherframe Wordmark", var(--serif); font-style:italic; font-weight:500; font-size:40px; line-height:1; margin:0;
       font-feature-settings:"swsh" 1,"liga" 1,"calt" 1,"kern" 1; letter-spacing:-0.02em; text-rendering:optimizeLegibility; }
     header p { margin:7px 0 0; font-size:13px; color:var(--muted); }
     header p a { color:var(--ink-2); text-decoration:none; }
@@ -192,7 +192,8 @@
     .gen-item .who .common { font-weight:600; font-size:14px; }
     .gen-item .who .sci { font-family:var(--serif); font-style:italic; color:var(--muted); font-size:13px; }
     .gen-item .who .meta { color:var(--faint); font-size:11.5px; margin-top:2px; }
-    .gen-item .ops { display:flex; gap:8px; }
+    .gen-item .ops { display:flex; gap:8px; align-items:stretch; }
+    .gen-item .ops form { display:flex; margin:0; }
     .gen-item .regen-status { font-size:12px; color:var(--accent); margin-top:3px; font-weight:600; }
     .gen-item.regen-failed .regen-status { color:var(--bad); }
     /* repaint: a light sweeps the thumbnail; the label shimmers */
@@ -236,9 +237,7 @@
     .seg.seg-measuring label span { font-weight:700; }
     /* bold the current selection */
     .seg input:checked + span { font-weight:700; }
-    .cselect-btn .cs-label { font-weight:600; }
-    .cselect-btn.cs-placeholder .cs-label { font-weight:400; }
-    .cselect-list li[aria-selected="true"] { font-weight:600; }
+    .combo-list li[aria-selected="true"] { font-weight:600; }
 
     @media (prefers-reduced-motion:no-preference){ .wrap{ animation:fade .4s ease both; } }
     @keyframes fade { from{opacity:0} to{opacity:1} }
@@ -255,7 +254,7 @@
     .combo { position:relative; display:flex; }
     .combo input { flex:1; padding-right:38px; }
     .combo-caret { position:absolute; right:0; top:0; bottom:0; width:34px; display:flex; align-items:center; justify-content:center;
-                   background:transparent; border:none; border-left:1px solid var(--border); cursor:pointer; color:var(--muted); border-radius:0 8px 8px 0; }
+                   background:transparent; border:none; cursor:pointer; color:var(--muted); border-radius:0 8px 8px 0; }
     .combo-caret:hover { color:var(--ink-2); }
     .combo-caret svg { width:12px; height:8px; }
     .combo-list { position:absolute; z-index:30; top:calc(100% + 4px); left:0; right:0; margin:0; padding:4px; list-style:none;
@@ -272,7 +271,7 @@
     .cselect-list[hidden] { display:none; }
     .cselect-list li { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:5px;
       font-size:14px; cursor:pointer; color:var(--ink-2); white-space:nowrap; }
-    .cselect-list li[aria-selected="true"] { color:var(--ink); font-weight:500; }
+    .cselect-list li[aria-selected="true"] { color:var(--ink); font-weight:600; }
     .cselect-list li.active, .cselect-list li:hover { background:var(--inset); }
     .cs-sprite { position:absolute; width:0; height:0; overflow:hidden; }
     /* instruction steps + copyable strings (Apprise setup) */
@@ -486,7 +485,7 @@
               <label class="switch"><input type="checkbox" id="qhc" name="quiet_hours_render_collage" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label>
               <span class="txt">Show a “day in review” summary overnight</span>
             </div>
-            <div class="hint">One image combining the day's top species, shown overnight in either mode. <a class="ex" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held overnight."><span class="ex-t">example</span><svg class="ex-mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></div>
+            <div class="hint">One image combining the day's top species, shown overnight in either mode. <a class="ex seg-ex" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held overnight." title="Preview an example" aria-label="Preview example" style="vertical-align:-3px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></div>
           </div>
         </section>
 
@@ -611,15 +610,15 @@
           <div class="field" data-provider="a1111" {{ '' if config.imagegen_provider=='a1111' else 'hidden' }}>
             <label class="lab">Endpoint URL</label>
             <input type="text" name="imagegen_base_url" value="{{ config.imagegen_base_url }}" placeholder="http://localhost:7860">
-            <div class="hint">Your AUTOMATIC1111 / ComfyUI server's <code>/sdapi</code> base URL. No key needed.</div>
+            <div class="hint">Your AUTOMATIC1111 / ComfyUI server's <code>/sdapi</code> base URL.</div>
           </div>
           <div class="field">
             <div class="torow">
               <label class="switch"><input type="checkbox" id="cg" name="collage_generated" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label>
               <span class="txt">Combine the nightly “day in review” into a single image</span>
+              <a class="ex seg-ex" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a>
             </div>
-            <div class="hint" id="dayreview-cost" style="margin-left:55px"></div>
-            <div class="hint" style="margin-top:3px;margin-left:55px"><a class="ex" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)."><span class="ex-t">example</span><svg class="ex-mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></div>
+            <div class="hint" id="dayreview-cost" style="margin-left:55px;margin-top:4px"></div>
           </div>
           <div class="row2">
             <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>

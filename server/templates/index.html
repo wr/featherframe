@@ -368,9 +368,9 @@
             <div><label class="lab">Start</label><input type="time" name="quiet_hours_start" value="{{ config.quiet_hours_start }}"></div>
             <div><label class="lab">End</label><input type="time" name="quiet_hours_end" value="{{ config.quiet_hours_end }}"></div>
           </div>
-          <div class="field torow" id="hold-row">
+          <div class="field torow" id="hold-row" {{ '' if config.mode in ['collage', 'auto'] else 'hidden' }}>
             <label class="switch"><input type="checkbox" id="qhc" name="quiet_hours_render_collage" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label>
-            <span class="txt">Paint a “day in review” at nightfall and hold it<br><span class="hint" style="margin:0" id="hold-note"></span></span>
+            <span class="txt">Paint a “day in review” at nightfall and hold it</span>
           </div>
         </section>
 
@@ -543,13 +543,11 @@
     sel.addEventListener('change', syncSrc);
     // "hold overnight" only matters for collage / auto
     var holdRow = document.getElementById('hold-row');
-    var holdNote = document.getElementById('hold-note');
     function syncHold() {
+      // Hide (not disable) when irrelevant: a disabled checkbox wouldn't
+      // submit, silently clearing the stored value on the next save.
       var mode = (document.querySelector('input[name="mode"]:checked') || {}).value;
-      var ok = (mode === 'collage' || mode === 'auto');
-      holdRow.classList.toggle('disabled', !ok);
-      holdRow.querySelector('input').disabled = !ok;
-      holdNote.textContent = ok ? '' : 'Available in Collage & Auto modes.';
+      holdRow.hidden = !(mode === 'collage' || mode === 'auto');
     }
     document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.addEventListener('change', syncHold); });
     syncHold();

@@ -65,10 +65,9 @@ class Config:
 
     # Quiet hours ----------------------------------------------------------
     # "off" | "custom" (the start/end below) | "sun" (sunset -> sunrise,
-    # derived from the system timezone; see _sun_window). quiet_hours_enabled
-    # is kept for back-compat and mirrors (mode != "off").
+    # derived from the system timezone; see _sun_window). A legacy
+    # quiet_hours_enabled bool is migrated to this in from_dict().
     quiet_hours_mode: str = "custom"
-    quiet_hours_enabled: bool = True
     quiet_hours_start: str = "22:00"
     quiet_hours_end: str = "06:00"
     # If true, render a "day in review" collage once at quiet-hours start,
@@ -169,8 +168,7 @@ class Config:
         # Quiet hours: mode drives behaviour; migrate the legacy enabled flag,
         # then keep enabled in sync as a mirror of (mode != "off").
         if self.quiet_hours_mode not in ("off", "custom", "sun"):
-            self.quiet_hours_mode = "custom" if self.quiet_hours_enabled else "off"
-        self.quiet_hours_enabled = self.quiet_hours_mode != "off"
+            self.quiet_hours_mode = "custom"
         # Normalise quiet-hours strings to HH:MM
         self.quiet_hours_start = _fmt(_parse_hhmm(self.quiet_hours_start, "22:00"))
         self.quiet_hours_end = _fmt(_parse_hhmm(self.quiet_hours_end, "06:00"))
@@ -232,6 +230,11 @@ class Config:
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "Config":
         data = data or {}
+        # Migrate a legacy quiet_hours_enabled bool (configs from before the
+        # mode enum) into quiet_hours_mode.
+        if "quiet_hours_mode" not in data and "quiet_hours_enabled" in data:
+            data = {**data,
+                    "quiet_hours_mode": "custom" if data["quiet_hours_enabled"] else "off"}
         fields = {f.name for f in dataclasses.fields(cls)}
         known = {k: v for k, v in data.items() if k in fields}
         return cls(**known)

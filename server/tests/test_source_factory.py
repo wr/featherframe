@@ -47,3 +47,17 @@ def test_config_roundtrips_new_fields():
     restored = Config.from_dict(cfg.to_dict())
     assert restored.detection_backend == "birdnet_go"
     assert restored.birdnet_go_url == "http://host:9000"  # trailing slash trimmed
+
+
+def test_mode_auto_migrates_to_single_with_overnight():
+    c = Config(mode="auto")
+    assert c.mode == "single"
+    assert c.quiet_hours_render_collage is True
+
+
+def test_birdweather_station_url_parsed_to_id():
+    full = Config(detection_backend="birdweather",
+                  birdweather_station_id="https://app.birdweather.com/stations/12345/")
+    assert full.birdweather_station_id == "12345"
+    bare = Config(detection_backend="birdweather", birdweather_station_id="12345")
+    assert bare.birdweather_station_id == "12345"

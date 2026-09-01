@@ -252,6 +252,18 @@
     .copy-btn.copied { color:var(--good); border-color:var(--good); }
     .hint.failed { color:var(--bad); }
     .hint.ok { color:var(--good); }
+    /* source-test result: a light rounded box with a status icon */
+    .test-box { display:none; align-items:flex-start; gap:9px; margin-top:10px; padding:9px 12px;
+                border-radius:8px; font-size:13px; line-height:1.45; border:1px solid var(--border);
+                background:var(--inset); color:var(--ink); }
+    .test-box.show { display:flex; }
+    .test-box .test-ic { flex:none; width:18px; height:18px; margin-top:1px; color:var(--muted); }
+    .test-box .test-ic svg { width:18px; height:18px; display:block; }
+    .test-box.ok  { background:color-mix(in srgb, var(--good) 12%, var(--surface)); border-color:color-mix(in srgb, var(--good) 32%, var(--border)); }
+    .test-box.ok  .test-ic { color:var(--good); }
+    .test-box.bad { background:color-mix(in srgb, var(--bad) 11%, var(--surface)); border-color:color-mix(in srgb, var(--bad) 30%, var(--border)); }
+    .test-box.bad .test-ic { color:var(--bad); }
+    .test-box a.tb-link { color:var(--accent); text-decoration:underline; white-space:nowrap; }
   </style>
 </head>
 <body>
@@ -461,10 +473,10 @@
             <label class="lab">Source</label>
             <div class="cselect">
               <select class="sel cselect-native" name="detection_backend" id="src-sel">
-                <option value="birdnet_go" data-icon="ic-birdnet-go" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go — API</option>
-                <option value="apprise" data-icon="ic-birdnet-pi" {{ 'selected' if config.detection_backend=='apprise' else '' }}>BirdNET-Pi — Apprise</option>
-                <option value="birdweather" data-icon="ic-birdweather" {{ 'selected' if config.detection_backend=='birdweather' else '' }}>BirdWeather — Station ID</option>
-                <option value="custom" data-icon="ic-db" {{ 'selected' if config.detection_backend=='custom' else '' }}>Custom — local database</option>
+                <option value="birdnet_go" data-icon="ic-birdnet-go" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go</option>
+                <option value="apprise" data-icon="ic-birdnet-pi" {{ 'selected' if config.detection_backend=='apprise' else '' }}>BirdNET-Pi</option>
+                <option value="birdweather" data-icon="ic-birdweather" {{ 'selected' if config.detection_backend=='birdweather' else '' }}>BirdWeather</option>
+                <option value="custom" data-icon="ic-db" {{ 'selected' if config.detection_backend=='custom' else '' }}>Custom</option>
               </select>
             </div>
           </div>
@@ -513,8 +525,10 @@
             </div>
             <div class="hint">Read-only, a local BirdNET-Pi SQLite DB. Default: ~/BirdNET-Pi/scripts/birds.db</div>
           </div>
-          <div class="torow" style="margin-top:2px;"><span class="hint" id="src-test-result" style="margin:0"></span></div>
-          <div class="hint" id="src-test-note"></div>
+          <div class="test-box" id="src-test-result" role="status" aria-live="polite">
+            <span class="test-ic" aria-hidden="true"></span>
+            <span class="test-msg"></span>
+          </div>
           <details class="adv">
             <summary>Advanced</summary>
             <div class="adv-body">
@@ -1148,10 +1162,14 @@
   // The Test button lives beside each source's data field (URL / station / path);
   // only the active source's field — and so its button — is visible.
   (function () {
-    var out = document.getElementById('src-test-result');
-    var note = document.getElementById('src-test-note');
+    var box = document.getElementById('src-test-result');
     var sel = document.getElementById('src-sel');
-    if (!sel) return;
+    if (!sel || !box) return;
+    var icEl = box.querySelector('.test-ic');
+    var msgEl = box.querySelector('.test-msg');
+    var TROUBLE = 'https://github.com/wr/featherframe/blob/main/docs/troubleshooting-sources.md';
+    var IC_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    var IC_BAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>';
     function val(name) { var el = document.querySelector('[name="' + name + '"]'); return el ? el.value : ''; }
     function body() {
       var p = new URLSearchParams();
@@ -1161,12 +1179,24 @@
       p.set('birdnet_db_path', val('birdnet_db_path'));
       return p;
     }
+    function hide() { box.classList.remove('show', 'ok', 'bad'); msgEl.textContent = ''; icEl.innerHTML = ''; }
+    function show(ok, detail) {
+      box.classList.remove('ok', 'bad'); box.classList.add('show', ok ? 'ok' : 'bad');
+      icEl.innerHTML = ok ? IC_OK : IC_BAD;
+      msgEl.textContent = detail || (ok ? 'Connected.' : 'Could not connect.');
+      if (!ok) {
+        var a = document.createElement('a');
+        a.className = 'tb-link'; a.href = TROUBLE; a.target = '_blank'; a.rel = 'noopener';
+        a.textContent = 'Troubleshooting';
+        msgEl.appendChild(document.createTextNode(' '));
+        msgEl.appendChild(a);
+      }
+    }
     function run(btn, busy) {
       if (busy && btn) { btn.disabled = true; btn.textContent = 'Testing…'; }
-      if (out) { out.textContent = ''; out.classList.remove('failed', 'ok'); }
       return fetch('/api/source/test', { method: 'POST', body: body() }).then(function (r) { return r.json(); }).then(function (o) {
-        if (out) { out.textContent = o.detail || ''; out.classList.add(o.ok ? 'ok' : 'failed'); }
-      }).catch(function () { if (out) { out.textContent = 'Test failed.'; out.classList.add('failed'); } })
+        show(!!o.ok, o.detail);
+      }).catch(function () { show(false, 'Test failed — the server did not respond.'); })
         .then(function () { if (btn) { btn.disabled = false; btn.textContent = 'Test connection'; } });
     }
     document.querySelectorAll('.src-test').forEach(function (b) {
@@ -1175,12 +1205,8 @@
     // A push source (Apprise) can't be probed — it has no Test button; show how
     // many detections have arrived instead.
     function syncTest() {
-      var apprise = sel.value === 'apprise';
-      if (note) note.textContent = apprise
-        ? 'BirdNET-Pi pushes detections here on its own — nothing to test; the count updates as they arrive.'
-        : 'Tests the values entered above — no need to save first.';
-      if (apprise) { run(null, false); }
-      else if (out) { out.textContent = ''; out.classList.remove('failed', 'ok'); }
+      if (sel.value === 'apprise') { run(null, false); }
+      else { hide(); }
     }
     sel.addEventListener('change', syncTest);
     syncTest();

@@ -63,6 +63,16 @@ class DeviceStatus:
     etag_served: Optional[str] = None
     user_agent: Optional[str] = None
     ip: Optional[str] = None
+    # Device-reported identity/telemetry (all optional on the wire — old firmware
+    # omits them and the card degrades gracefully). See docs/firmware-device-stats.md.
+    fw_version: Optional[str] = None       # §1 X-FF-Version, e.g. "2026.09.01+a1b2c3d"
+    sketch_md5: Optional[str] = None       # §1 X-FF-Sketch-MD5 (exact binary id)
+    last_wake: Optional[str] = None        # §3 X-Wake token: timer|button|coldboot
+    wake_detail: Optional[str] = None      # §3 X-Wake-Detail: cause=N keys=0xM
+    boot_count: Optional[int] = None       # §5 X-Boot-Count
+    refresh_count: Optional[int] = None    # §5 X-Refresh-Count
+    panel: Optional[str] = None            # §6 X-Panel
+    board: Optional[str] = None            # §6 X-Board
 
 
 def _ago(then: datetime, now: datetime) -> str:
@@ -609,25 +619,27 @@ class FeatherframeService:
                             battery_voltage: Optional[float],
                             battery_percent: Optional[int], view: str,
                             wifi_rssi: Optional[int] = None,
-                            ip: Optional[str] = None) -> None:
+                            ip: Optional[str] = None,
+                            device_extra: Optional[dict] = None) -> None:
         with self._lock:
             etag = self._etag
         self._record_checkin(user_agent, battery_voltage, battery_percent, etag,
-                             served=view, rssi=wifi_rssi, ip=ip)
+                             served=view, rssi=wifi_rssi, ip=ip, extra=device_extra)
 
     # -- device-facing -----------------------------------------------------
     def get_frame(self, if_none_match: Optional[str], user_agent: str = "",
                   battery_voltage: Optional[float] = None,
                   battery_percent: Optional[int] = None,
                   wifi_rssi: Optional[int] = None,
-                  ip: Optional[str] = None) -> tuple[int, Optional[bytes], Optional[str]]:
+                  ip: Optional[str] = None,
+                  device_extra: Optional[dict] = None) -> tuple[int, Optional[bytes], Optional[str]]:
         """Return (http_status, body_or_None, etag). Records the check-in."""
         with self._lock:
             etag = self._etag
             body = self._frame_bytes
         self._record_checkin(user_agent, battery_voltage, battery_percent, etag,
                              served="304" if (etag and if_none_match == etag) else "frame",
-                             rssi=wifi_rssi, ip=ip)
+                             rssi=wifi_rssi, ip=ip, extra=device_extra)
         if etag is None or body is None:
             return 503, None, None
         if if_none_match is not None and if_none_match == etag:
@@ -707,13 +719,20 @@ class FeatherframeService:
             return
         self.tick()
 
-    def _record_checkin(self, ua, volt, pct, etag, served, rssi=None, ip=None) -> None:
+    def _record_checkin(self, ua, volt, pct, etag, served, rssi=None, ip=None,
+                        extra=None) -> None:
+        # `extra` carries the optional device-reported fields (fw_version, last_wake,
+        # counters, panel/board) parsed from headers; unknown/missing keys default to
+        # None on DeviceStatus, so old firmware simply leaves them unset.
+        allowed = DeviceStatus.__dataclass_fields__
+        fields = {k: v for k, v in (extra or {}).items()
+                  if v is not None and k in allowed}
         with self._lock:
             self.device = DeviceStatus(
                 last_checkin=datetime.now().isoformat(timespec="seconds"),
                 battery_voltage=volt, battery_percent=pct, wifi_rssi=rssi,
                 last_result=served, etag_served=etag, user_agent=ua[:120] if ua else None,
-                ip=ip or None)
+                ip=ip or None, **fields)
             self.db.set("device_status", asdict(self.device))
 
     def _cursor(self) -> Optional[int]:

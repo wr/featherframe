@@ -92,6 +92,19 @@ async def api_frame(request: Request, view: Optional[str] = None):
     if wake:
         log.info("device wake: %s (view=%s)", wake, view)
 
+    # Optional device-reported identity/telemetry (docs/firmware-device-stats.md).
+    # Every field is optional on the wire; absent headers leave the row unchanged.
+    device_extra = {
+        "fw_version": request.headers.get("x-ff-version"),
+        "sketch_md5": request.headers.get("x-ff-sketch-md5"),
+        "last_wake": wake,
+        "wake_detail": request.headers.get("x-wake-detail"),
+        "boot_count": _int_header(request.headers.get("x-boot-count")),
+        "refresh_count": _int_header(request.headers.get("x-refresh-count")),
+        "panel": request.headers.get("x-panel"),
+        "board": request.headers.get("x-board"),
+    }
+
     # Dark mode rides along on every response — a 304 included — so the device
     # always knows whether to invert its baked boot screens.
     invert = "1" if svc.config.dark_now() else "0"
@@ -108,13 +121,13 @@ async def api_frame(request: Request, view: Optional[str] = None):
         else:
             result = await run_in_threadpool(svc.render_status_page, volt, pct, rssi)
         svc.record_view_checkin(request.headers.get("user-agent", ""), volt, pct, view,
-                                wifi_rssi=rssi, ip=client_ip)
+                                wifi_rssi=rssi, ip=client_ip, device_extra=device_extra)
         return Response(content=result.frame, media_type="application/octet-stream",
                         headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store",
                                  "X-FF-Invert": invert})
 
     status, body, etag = svc.get_frame(inm, request.headers.get("user-agent", ""), volt, pct,
-                                       wifi_rssi=rssi, ip=client_ip)
+                                       wifi_rssi=rssi, ip=client_ip, device_extra=device_extra)
 
     if status == 503:
         return Response(status_code=503, content=b"no frame yet",

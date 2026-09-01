@@ -10,6 +10,15 @@
 
 #pragma once
 
+// --- Build identity ---
+// Normally injected from git by tools/fw_version.py at compile time
+// (e.g. "2026.09.01+a1b2c3d"), reported to the server as X-FF-Version so the
+// config page shows which build is on the wall. This fallback only applies when
+// git is unavailable at build time; a bare `pio run` is still stamped by the hook.
+#ifndef FF_FW_VERSION
+#define FF_FW_VERSION "dev"
+#endif
+
 // --- User buttons (active-low, RTC-capable for deep-sleep wake) ---
 #define PIN_KEY0        GPIO_NUM_2
 #define PIN_KEY1        GPIO_NUM_3
@@ -29,6 +38,16 @@
 // Volts-per-count multiplier: (ADC/4095) * VBAT_SCALE. Starts from Seeed's
 // ~2:1 divider + Vref term; CALIBRATE against a meter on your unit.
 #define VBAT_SCALE          7.16f
+
+// --- Battery presence ---
+// 0 = a pack is fitted: report X-Battery-Voltage/Percent as usual.
+// 1 = the unit runs on USB with no battery: omit those headers (and send
+//     X-Battery-State: usb) so the config page shows "USB power" instead of a
+//     meaningless percent read off the floating VBAT rail. Set per build in
+//     platformio.ini; leave 0 as the product default.
+#ifndef FF_NO_BATTERY
+#define FF_NO_BATTERY 0
+#endif
 
 // --- Dev mode: stay awake instead of deep-sleeping between actions ---
 // Keeps Wi-Fi up and polls the buttons in loop(), so a press is instant and the

@@ -299,6 +299,11 @@ def _apprise_detection(payload) -> dict:
 async def ingest_apprise(request: Request, token: str = ""):
     """Webhook for the Apprise (BirdNET-Pi push) source. Point Apprise at
     json://<host>/api/ingest/apprise[/<token>] with a JSON detection body."""
+    # Same-origin guard like every other state-changing POST: a detection can
+    # trigger a render (and a paid generation), so a hostile web page must not
+    # be able to inject one cross-site. Apprise sends no Origin, so it passes.
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
     svc = _svc(request)
     expected = getattr(svc.config, "apprise_token", "")
     if expected and token != expected:

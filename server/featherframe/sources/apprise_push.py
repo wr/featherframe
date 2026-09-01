@@ -27,6 +27,29 @@ log = logging.getLogger("featherframe.apprise")
 _STORE_KEY = "apprise_queue"
 _MAX_ITEMS = 1000   # retained window; oldest trimmed past this
 
+# BirdNET-Pi's $date/$time formats aren't guaranteed; normalize to the canonical
+# strings the rest of the app (and top_species_today's day match) expect.
+_DATE_FMTS = ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%d.%m.%Y", "%Y/%m/%d")
+_TIME_FMTS = ("%H:%M:%S", "%H:%M", "%I:%M:%S %p", "%I:%M %p")
+
+
+def _norm_date(value: str, now: datetime) -> str:
+    for fmt in _DATE_FMTS:
+        try:
+            return datetime.strptime(value, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return now.strftime("%Y-%m-%d")
+
+
+def _norm_time(value: str, now: datetime) -> str:
+    for fmt in _TIME_FMTS:
+        try:
+            return datetime.strptime(value, fmt).strftime("%H:%M:%S")
+        except ValueError:
+            continue
+    return now.strftime("%H:%M:%S")
+
 
 class AppriseSource(DetectionSource):
     name = "apprise"
@@ -59,8 +82,8 @@ class AppriseSource(DetectionSource):
         except (TypeError, ValueError):
             confidence = 0.0
         now = datetime.now()
-        date = str(payload.get("date") or "").strip() or now.strftime("%Y-%m-%d")
-        tm = str(payload.get("time") or "").strip() or now.strftime("%H:%M:%S")
+        date = _norm_date(str(payload.get("date") or "").strip(), now)
+        tm = _norm_time(str(payload.get("time") or "").strip(), now)
         with self._lock:
             self._counter += 1
             item = {"id": self._counter, "date": date, "time": tm,

@@ -99,8 +99,18 @@ class BirdWeatherSource(DetectionSource):
 
     # -- reads -------------------------------------------------------------
     def available(self) -> bool:
-        rows, _ = self._detections_page(limit=1)
-        return bool(self.station_id) and isinstance(rows, list)
+        # Inspect the raw response, not the error-swallowed page: a wrong or
+        # unreachable station 404s (-> _get None) and must read as unavailable,
+        # while a valid station with no detections yet ({"detections": []})
+        # must read as available.
+        if not self.station_id:
+            return False
+        payload = self._get(f"/stations/{self.station_id}/detections", {"limit": 1})
+        if isinstance(payload, list):
+            return True
+        if isinstance(payload, dict):
+            return isinstance(payload.get("detections"), list) or isinstance(payload.get("data"), list)
+        return False
 
     def max_rowid(self) -> int:
         rows, _ = self._detections_page(limit=1)

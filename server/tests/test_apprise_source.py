@@ -101,3 +101,21 @@ def test_webhook_bad_token_rejected(apprise_client, tmp_path):
     assert client.post("/api/ingest/apprise/wrong", json={"message": "{}"}).status_code == 403
     ok = client.post("/api/ingest/apprise/secret", json={"message": '{"comname":"Robin"}'})
     assert ok.status_code == 200 and ok.json()["ok"] is True
+
+
+def test_ingest_normalizes_nonstandard_date_time():
+    s = AppriseSource()
+    d = s.ingest({"comname": "Blue Jay", "sciname": "Cyanocitta cristata",
+                  "confidence": 0.8, "date": "08/31/2026", "time": "1:14 PM"})
+    assert d.date == "2026-08-31" and d.time == "13:14:00"
+    # And that normalized date groups under "today" for the collage path.
+    top = s.top_species_today(on_date=__import__("datetime").date(2026, 8, 31))
+    assert top and top[0]["common"] == "Blue Jay"
+
+
+def test_webhook_rejects_foreign_origin(apprise_client):
+    client, svc = apprise_client
+    r = client.post("/api/ingest/apprise", json={"message": '{"comname":"Robin"}'},
+                    headers={"Origin": "http://evil.example", "Host": "testserver"})
+    assert r.status_code == 403
+    assert svc.source.max_rowid() == 0

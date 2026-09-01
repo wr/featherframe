@@ -115,13 +115,11 @@
     .seg label { flex:1; position:relative; z-index:1; }
     .seg input { position:absolute; opacity:0; width:0; height:0; }
     .seg label span {
-      display:flex; flex-direction:column; align-items:center; gap:5px; justify-content:center;
-      padding:7px 15px; font-size:13px; font-weight:500; color:var(--ink-2);
+      display:flex; flex-direction:row; align-items:center; gap:6px; justify-content:center;
+      padding:7px 15px; font-size:13px; font-weight:500; color:var(--muted);
       border-radius:5px; cursor:pointer; white-space:nowrap; transition:color .13s; text-align:center;
     }
-    .seg label span svg { color:var(--muted); transition:color .13s; }
     .seg input:checked + span { color:var(--ink); }
-    .seg input:checked + span svg { color:var(--accent); }
     .seg-ind {
       position:absolute; z-index:0; border-radius:5px; background:#ffffff; box-shadow:var(--sh-pill);
       transition:left .22s cubic-bezier(.4,0,.2,1), top .22s cubic-bezier(.4,0,.2,1),
@@ -230,9 +228,12 @@
     a.ex .ex-t { text-decoration:underline dotted; text-underline-offset:2px; }
     a.ex:hover .ex-t { text-decoration-style:solid; }
     a.ex .ex-mag { width:13px; height:13px; flex:none; }
-    /* the mode glyph doubles as a preview trigger */
-    .seg-ex { color:inherit; cursor:zoom-in; border-radius:5px; padding:2px; margin:-2px; display:inline-flex; }
-    .seg-ex:hover svg { color:var(--accent); }
+    /* the magnifier in a segment is a preview trigger */
+    .seg-ex { display:inline-flex; align-items:center; color:var(--muted); cursor:zoom-in; border-radius:4px; }
+    .seg-ex:hover { color:var(--accent); }
+    .seg-ex svg { width:14px; height:14px; }
+    /* reserve the bold width so selecting a segment never reflows it */
+    .seg.seg-measuring label span { font-weight:700; }
     /* bold the current selection */
     .seg input:checked + span { font-weight:700; }
     .cselect-btn .cs-label { font-weight:600; }
@@ -411,12 +412,8 @@
           <div class="field">
             <label class="lab">Mode</label>
             <div class="seg wide" role="radiogroup" aria-label="Mode" id="mode-seg">
-              <label><input type="radio" name="mode" value="single" {{ 'checked' if config.mode=='single' else '' }}><span>
-                <a class="ex seg-ex" data-ex="single" data-cap="Single — the most recent detection, shown as one plate." title="Preview an example" aria-label="Preview a Single example"><svg width="20" height="24" viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="18" height="22" rx="2"/><circle cx="10" cy="11" r="4"/></svg></a>
-                Single</span></label>
-              <label><input type="radio" name="mode" value="collage" {{ 'checked' if config.mode=='collage' else '' }}><span>
-                <a class="ex seg-ex" data-ex="collage" data-cap="Collage — a grid of the day's most-heard species, rebuilt through the day." title="Preview an example" aria-label="Preview a Collage example"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="9.5" height="9.5" rx="1.5"/><rect x="13.5" y="1" width="9.5" height="9.5" rx="1.5"/><rect x="1" y="13.5" width="9.5" height="9.5" rx="1.5"/><rect x="13.5" y="13.5" width="9.5" height="9.5" rx="1.5"/></svg></a>
-                Collage</span></label>
+              <label><input type="radio" name="mode" value="single" {{ 'checked' if config.mode=='single' else '' }}><span>Single<a class="ex seg-ex" data-ex="single" data-cap="Single — the most recent detection, shown as one plate." title="Preview an example" aria-label="Preview a Single example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span></label>
+              <label><input type="radio" name="mode" value="collage" {{ 'checked' if config.mode=='collage' else '' }}><span>Collage<a class="ex seg-ex" data-ex="collage" data-cap="Collage — a grid of the day's most-heard species, rebuilt through the day." title="Preview an example" aria-label="Preview a Collage example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span></label>
             </div>
             <div class="hint" id="mode-hint"></div>
           </div>
@@ -1028,18 +1025,29 @@
         setTimeout(on, 60);
       }
     }
+    function reserveWidths(seg) {
+      // Pin each label to its bold width so selecting one never changes widths.
+      var labels = seg.querySelectorAll('label');
+      labels.forEach(function (l) { l.style.minWidth = ''; });
+      seg.classList.add('seg-measuring');
+      var widths = [];
+      labels.forEach(function (l) { widths.push(Math.ceil(l.getBoundingClientRect().width)); });
+      seg.classList.remove('seg-measuring');
+      labels.forEach(function (l, i) { l.style.minWidth = widths[i] + 'px'; });
+    }
     var segs = [].slice.call(document.querySelectorAll('.seg'));
     segs.forEach(function (seg) {
       var ind = document.createElement('span');
       ind.className = 'seg-ind init';
       seg.insertBefore(ind, seg.firstChild);
       seg._ind = ind;
+      reserveWidths(seg);
       place(seg, false);
       seg.querySelectorAll('input').forEach(function (inp) {
         inp.addEventListener('change', function () { place(seg, true); });
       });
     });
-    function replaceAll() { segs.forEach(function (seg) { place(seg, false); }); }
+    function replaceAll() { segs.forEach(function (seg) { reserveWidths(seg); place(seg, false); }); }
     window.addEventListener('resize', replaceAll);
     // Web-font metrics land after first paint; realign once they do.
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(replaceAll);

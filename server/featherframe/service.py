@@ -214,6 +214,17 @@ class FeatherframeService:
         self.reload_config()
         now = datetime.now()
 
+        # Dark-mode "quiet" inverts only during quiet hours: when the effective
+        # state no longer matches the resident frame, re-flip it once. Requires
+        # a rendered subject (a label) so rerender_current actually commits the
+        # updated "dark" marker — otherwise the guard would fire every tick and
+        # starve the decision path below. Runs before the quiet-hours hold so
+        # the transition itself gets applied.
+        if (self._frame_bytes is not None and self._meta.get("label")
+                and self._meta.get("dark") != self.config.dark_now(now.time())):
+            self.rerender_current()
+            return
+
         if self.config.in_quiet_hours(now.time()):
             # Quiet hours: hold the image. Optionally render one day-in-review
             # collage at the start of the window (also implied by 'auto' mode).
@@ -628,6 +639,7 @@ class FeatherframeService:
             self._meta = {
                 "etag": result.etag, "mode": mode, "label": label,
                 "species_key": species_key, "rendered_at": now.isoformat(timespec="seconds"),
+                "dark": self.config.dark_now(now.time()),
                 "collage_at": now.isoformat(timespec="seconds") if mode == "collage"
                 else self._meta.get("collage_at"),
             }

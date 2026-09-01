@@ -92,7 +92,7 @@ async def api_frame(request: Request, view: Optional[str] = None):
 
     # Dark mode rides along on every response — a 304 included — so the device
     # always knows whether to invert its baked boot screens.
-    invert = "1" if svc.config.dark_mode else "0"
+    invert = "1" if svc.config.dark_now() else "0"
 
     # On-demand button views: rendered fresh, never the resident frame, no
     # 304s. Threadpool: the collage leg walks the provider chain (which may
@@ -175,7 +175,7 @@ async def save_settings(request: Request):
         single_show_latest=b("single_show_latest"),
         refresh_debounce_minutes=i("refresh_debounce_minutes", cur["refresh_debounce_minutes"]),
         wake_interval_minutes=i("wake_interval_minutes", cur["wake_interval_minutes"]),
-        quiet_hours_enabled=b("quiet_hours_enabled"),
+        quiet_hours_mode=s("quiet_hours_mode", cur["quiet_hours_mode"]),
         quiet_hours_start=s("quiet_hours_start", cur["quiet_hours_start"]),
         quiet_hours_end=s("quiet_hours_end", cur["quiet_hours_end"]),
         quiet_hours_render_collage=b("quiet_hours_render_collage"),
@@ -192,7 +192,7 @@ async def save_settings(request: Request):
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
         mat_offset_x_px=i("mat_offset_x_px", cur["mat_offset_x_px"]),
         mat_offset_y_px=i("mat_offset_y_px", cur["mat_offset_y_px"]),
-        dark_mode=b("dark_mode"),
+        dark_mode=s("dark_mode", cur["dark_mode"]),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),

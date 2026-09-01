@@ -59,7 +59,7 @@ def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderRe
     levels = 16 if config.bit_depth == 4 else 2
     img = _apply_mat_inset(img, config)                             # clear the mat opening
     indices = finish.to_levels(img, levels, config.dither)          # portrait, upright
-    if getattr(config, "dark_mode", False):
+    if config.dark_now():
         # Flip every level end-to-end (black field, white ink) after dithering,
         # so the packed frame and the PNG preview invert identically.
         indices = (levels - 1 - indices).astype(np.uint8)

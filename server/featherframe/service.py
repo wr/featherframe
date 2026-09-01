@@ -637,7 +637,13 @@ class FeatherframeService:
         """Config for display: never leak the API key past this process."""
         cfg = self.config.to_dict()
         key = cfg.get("imagegen_api_key") or ""
-        cfg["imagegen_api_key"] = f"…{key[-4:]}" if key else ""
+        # Show a bit of each end so it's recognizable, but never the middle.
+        if len(key) > 12:
+            cfg["imagegen_api_key"] = f"{key[:5]}…{key[-4:]}"
+        elif key:
+            cfg["imagegen_api_key"] = f"…{key[-4:]}"
+        else:
+            cfg["imagegen_api_key"] = ""
         return cfg
 
     # -- internal state helpers -------------------------------------------

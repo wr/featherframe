@@ -541,6 +541,32 @@ class FeatherframeService:
                         scientific_name=sci, confidence=1.0)
         self._render_single(det, now, reason="settings")
 
+    def refresh_now(self) -> None:
+        """Manual Refresh button: re-render the frame that *should* be showing
+        right now, per config. Unlike rerender_current (which preserves the
+        resident subject for a settings-driven re-render), this re-decides — so
+        it also recovers from a stale held collage once single mode is due
+        again, instead of re-committing the collage."""
+        self.reload_config()
+        now = datetime.now()
+        if self.config.in_quiet_hours(now.time()):
+            # held overnight: keep the day-in-review if enabled, else the image
+            if self.config.quiet_hours_render_collage:
+                self._maybe_quiet_collage(now)
+            else:
+                self.rerender_current()
+            return
+        if self.config.mode == "collage":
+            self._build_collage(now, ddate.today())
+            return
+        # single: commit the most recent qualifying detection now
+        latest = self._first_allowed(
+            self.source.latest_many(self.config.confidence_threshold))
+        if latest is not None:
+            self._render_single(latest, now, reason="refresh")
+        else:
+            self.rerender_current()
+
     # -- on-demand views (frame buttons) -----------------------------------
     def render_collage_on_demand(self) -> Optional[RenderResult]:
         """Button view: yesterday's day-in-review, falling back to today.

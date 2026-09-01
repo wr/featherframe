@@ -122,3 +122,37 @@ def test_gemini_generate_raises_on_http_error(monkeypatch):
         assert False, "expected GenerationError"
     except genart.GenerationError:
         pass
+
+
+# -- review follow-ups ------------------------------------------------------
+def test_openai_model_guard_rejects_foreign_id():
+    # A model id left over from another provider must not reach OpenAI.
+    m = genart.make_image_model(Config(imagegen_provider="openai", imagegen_api_key="k",
+                                       imagegen_model="gemini-2.5-flash-image"))
+    assert m.model == "gpt-image-2"
+
+
+def test_gemini_text_model_complete_json(monkeypatch):
+    def fake_post(url, headers=None, json=None, timeout=None):
+        assert ":generateContent" in url
+        return _Resp(200, {"candidates": [{"content": {"parts": [
+            {"text": '{"is_bird": true, "description": "x", "plants": []}'}]}}]})
+
+    monkeypatch.setattr(genart.requests, "post", fake_post)
+    out = GeminiTextModel("k", "gemini-2.5-flash").complete_json("brief")
+    assert out["is_bird"] is True and out["description"] == "x"
+
+
+def test_a1111_img2img_with_reference(monkeypatch):
+    import pathlib
+    calls = {}
+    monkeypatch.setattr(genart, "_ref_jpeg_b64", lambda p: "QUJD")  # skip file IO
+    def fake_post(url, json=None, timeout=None):
+        calls.update(url=url, json=json)
+        return _Resp(200, {"images": [base64.b64encode(_PNG).decode()]})
+
+    monkeypatch.setattr(genart.requests, "post", fake_post)
+    out = A1111ImageModel("http://gpu:7860").generate("p", "1024x1536", [pathlib.Path("ref.png")])
+    assert out == _PNG
+    assert calls["url"].endswith("/sdapi/v1/img2img")
+    assert calls["json"]["init_images"] == ["QUJD"] and "denoising_strength" in calls["json"]

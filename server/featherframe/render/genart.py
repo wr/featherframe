@@ -759,8 +759,10 @@ def make_image_model(config) -> Optional[ImageModel]:
     key = (getattr(config, "imagegen_api_key", "") or "").strip()
     model = getattr(config, "imagegen_model", "") or ""
     if provider == "openai":
-        return OpenAIImageModel(key, model=model or "gpt-image-2",
-                                quality=config.imagegen_quality) if key else None
+        # Guard a model id left over from another provider (the field carries
+        # across a provider switch) so OpenAI never gets e.g. a gemini id.
+        m = model if model.startswith("gpt-image") else "gpt-image-2"
+        return OpenAIImageModel(key, model=m, quality=config.imagegen_quality) if key else None
     if provider == "gemini":
         m = model if model.startswith("gemini") else "gemini-2.5-flash-image"
         return GeminiImageModel(key, model=m) if key else None

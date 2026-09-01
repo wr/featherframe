@@ -523,7 +523,7 @@
     <a href="https://github.com/wr/featherframe" target="_blank" rel="noopener">GitHub</a>
     <a href="https://github.com/wr/featherframe/issues/new" target="_blank" rel="noopener">Open an issue</a>
     <a href="https://github.com/wr/featherframe#hardware" target="_blank" rel="noopener">Hardware guide</a>
-    <a href="https://github.com/sponsors/wr" target="_blank" rel="noopener">Donate</a>
+    <a href="https://buymeacoffee.com/wellsworkshop" target="_blank" rel="noopener">Donate</a>
     <span class="ver">Featherframe v{{ version }}</span>
   </footer>
 </div>
@@ -585,6 +585,7 @@
     syncApprise();
     // image-generation provider: show the fields that provider uses
     var prov = document.getElementById('ig-provider');
+    var modelField = document.getElementById('ig-model');
     var modelHint = document.getElementById('ig-model-hint');
     var HINTS = {
       openai: 'e.g. gpt-image-2',
@@ -592,15 +593,31 @@
       replicate: 'owner/model, e.g. black-forest-labs/flux-kontext-pro',
       a1111: 'optional — a checkpoint name your server knows'
     };
-    function syncProvider() {
+    var DEFAULT_MODEL = {
+      openai: 'gpt-image-2', gemini: 'gemini-2.5-flash-image',
+      replicate: 'black-forest-labs/flux-kontext-pro', a1111: ''
+    };
+    function modelFits(p, m) {
+      if (!m) return true;  // empty is fine — the server fills a default
+      if (p === 'openai') return m.indexOf('gpt-image') === 0;
+      if (p === 'gemini') return m.indexOf('gemini') === 0;
+      if (p === 'replicate') return m.indexOf('/') >= 0 || m.indexOf(':') >= 0;
+      return true;  // a1111 checkpoint name is free-form
+    }
+    function syncProvider(resetModel) {
       var p = prov.value;
       document.querySelectorAll('[data-provider]').forEach(function (el) {
         el.hidden = el.getAttribute('data-provider').split(' ').indexOf(p) === -1;
       });
       if (modelHint) modelHint.textContent = HINTS[p] || '';
+      // On a real switch, replace a model id that belongs to another provider
+      // so the saved value can't mismatch the provider.
+      if (resetModel && modelField && !modelFits(p, modelField.value)) {
+        modelField.value = DEFAULT_MODEL[p];
+      }
     }
-    prov.addEventListener('change', syncProvider);
-    syncProvider();
+    prov.addEventListener('change', function () { syncProvider(true); });
+    syncProvider(false);
     // "hold overnight" only matters for collage / auto
     var holdRow = document.getElementById('hold-row');
     function syncHold() {

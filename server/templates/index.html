@@ -222,12 +222,18 @@
     .lightbox img { max-width:100%; max-height:calc(100vh - 120px); background:#fff; box-shadow:0 16px 60px rgba(0,0,0,.5); }
     .lightbox-cap { color:#f3f1ec; font-size:13px; text-align:center; max-width:440px; line-height:1.45; }
     .lightbox-cap[hidden] { display:none; }
-    a.ex { color:var(--accent); text-decoration:underline; cursor:pointer; }
-    .lab-row { display:flex; align-items:center; gap:7px; margin-bottom:8px; }
-    a.ex.ex-ic { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
-                 vertical-align:middle; color:var(--muted); text-decoration:none; border-radius:5px; }
-    a.ex.ex-ic:hover { color:var(--accent); background:var(--inset); }
-    a.ex.ex-ic svg { width:16px; height:16px; }
+    /* preview triggers: "Label" with a dotted underline + a small magnifier */
+    a.ex { display:inline-flex; align-items:center; gap:4px; color:var(--accent); cursor:pointer; text-decoration:none; }
+    a.ex .ex-t { text-decoration:underline dotted; text-underline-offset:2px; }
+    a.ex:hover .ex-t { text-decoration-style:solid; }
+    a.ex .ex-mag { width:13px; height:13px; flex:none; }
+    .lab-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .ex-group { margin-left:auto; display:inline-flex; gap:16px; font-size:12.5px; }
+    /* bold the current selection */
+    .seg input:checked + span { font-weight:700; }
+    .cselect-btn .cs-label { font-weight:600; }
+    .cselect-btn.cs-placeholder .cs-label { font-weight:400; }
+    .cselect-list li[aria-selected="true"] { font-weight:600; }
 
     @media (prefers-reduced-motion:no-preference){ .wrap{ animation:fade .4s ease both; } }
     @keyframes fade { from{opacity:0} to{opacity:1} }
@@ -401,7 +407,10 @@
           <div class="field">
             <div class="lab-row">
               <label class="lab" style="margin:0">Mode</label>
-              <a class="ex ex-ic" id="mode-preview" title="Preview the selected mode" aria-label="Preview the selected mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></a>
+              <span class="ex-group">
+                <a class="ex" data-ex="single" data-cap="Single — the most recent detection, shown as one plate."><span class="ex-t">Single</span><svg class="ex-mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a>
+                <a class="ex" data-ex="collage" data-cap="Collage — a grid of the day's most-heard species, rebuilt through the day."><span class="ex-t">Collage</span><svg class="ex-mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a>
+              </span>
             </div>
             <div class="seg wide" role="radiogroup" aria-label="Mode" id="mode-seg">
               <label><input type="radio" name="mode" value="single" {{ 'checked' if config.mode=='single' else '' }}><span>
@@ -482,7 +491,7 @@
               <label class="switch"><input type="checkbox" id="qhc" name="quiet_hours_render_collage" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label>
               <span class="txt">Show a “day in review” summary overnight</span>
             </div>
-            <div class="hint">One image combining the day's top species, shown overnight in either mode. <a class="ex ex-ic" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held overnight." title="Preview" aria-label="Preview example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></a></div>
+            <div class="hint">One image combining the day's top species, shown overnight in either mode. <a class="ex" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held overnight."><span class="ex-t">example</span><svg class="ex-mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></div>
           </div>
         </section>
 
@@ -615,7 +624,7 @@
               <span class="txt">Combine the nightly “day in review” into a single image</span>
             </div>
             <div class="hint" id="dayreview-cost"></div>
-            <div class="hint" style="margin-top:3px"><a class="ex ex-ic" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview" aria-label="Preview example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></a></div>
+            <div class="hint" style="margin-top:3px"><a class="ex" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)."><span class="ex-t">example</span><svg class="ex-mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></div>
           </div>
           <div class="row2">
             <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
@@ -842,15 +851,9 @@
       single: "Shows the most recent detection that meets the confidence threshold.",
       collage: "A grid of the day's most-heard species, updated through the day."
     };
-    var MODE_CAP = {
-      single: "Single — the most recent detection, shown as one plate.",
-      collage: "Collage — a grid of the day's most-heard species, rebuilt through the day."
-    };
-    var modePreview = document.getElementById('mode-preview');
     function syncMode() {
       var m = (document.querySelector('input[name="mode"]:checked') || {}).value;
       if (modeHintEl) modeHintEl.textContent = MODE_HINT[m] || '';
-      if (modePreview && m) { modePreview.setAttribute('data-ex', m); modePreview.setAttribute('data-cap', MODE_CAP[m] || ''); }
     }
     document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.addEventListener('change', syncMode); });
     syncMode();
@@ -1157,38 +1160,46 @@
     fill();
   })();
 
-  // -- comboboxes: give each model field a browsable dropdown ---------------
-  // Keeps the native <datalist> typeahead and free-text entry; the caret just
-  // lets people who don't know what to type browse and pick. Reads the datalist
-  // live on open, so provider-driven list changes are always reflected.
+  // -- comboboxes: model field with a click-open, type-to-filter dropdown ---
+  // We own the dropdown (drop the native <datalist> popup so there aren't two):
+  // clicking the field opens the list, typing filters it, and picking fills the
+  // field — while normal text selection and free-text entry still work.
   (function () {
     var CARET = '<svg viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     document.querySelectorAll('input[list]').forEach(function (input) {
       var dl = document.getElementById(input.getAttribute('list'));
       if (!dl) return;
+      input.removeAttribute('list');            // suppress the native popup; we render our own
+      input.setAttribute('autocomplete', 'off');
       var wrap = document.createElement('div');
       wrap.className = 'combo';
       input.parentNode.insertBefore(wrap, input);
       wrap.appendChild(input);
       var caret = document.createElement('button');
-      caret.type = 'button'; caret.className = 'combo-caret';
+      caret.type = 'button'; caret.className = 'combo-caret'; caret.tabIndex = -1;
       caret.setAttribute('aria-label', 'Show suggestions'); caret.setAttribute('aria-expanded', 'false');
       caret.innerHTML = CARET;
       wrap.appendChild(caret);
       var list = document.createElement('ul');
       list.className = 'combo-list'; list.hidden = true;
       wrap.appendChild(list);
-      function render() {
+      var isOpen = false;
+      dl.addEventListener('ff:options', function () { if (isOpen) render(false); });
+      function render(useFilter) {
+        var q = useFilter ? input.value.trim().toLowerCase() : '';
         list.innerHTML = '';
-        var opts = [].slice.call(dl.options);
+        var all = [].slice.call(dl.options);
+        var opts = all.filter(function (o) { return !q || o.value.toLowerCase().indexOf(q) >= 0; });
         if (!opts.length) {
           var e = document.createElement('li'); e.className = 'combo-empty';
-          e.textContent = 'No suggestions — type a model name'; list.appendChild(e);
+          e.textContent = all.length ? 'No match — keep typing to use a custom name' : 'No suggestions — type a model name';
+          list.appendChild(e);
           return;
         }
         opts.forEach(function (o) {
           var li = document.createElement('li');
           li.textContent = o.value + (o.dataset && o.dataset.recommended ? '   (recommended)' : ''); li.title = o.value;
+          if (o.value === input.value) li.setAttribute('aria-selected', 'true');
           li.addEventListener('mousedown', function (ev) {
             ev.preventDefault();
             input.value = o.value;
@@ -1199,10 +1210,16 @@
           list.appendChild(li);
         });
       }
-      function open() { render(); list.hidden = false; caret.setAttribute('aria-expanded', 'true'); setTimeout(function () { document.addEventListener('mousedown', outside); }, 0); }
-      function close() { list.hidden = true; caret.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', outside); }
+      function open(useFilter) { render(useFilter); if (!isOpen) { list.hidden = false; isOpen = true; caret.setAttribute('aria-expanded', 'true'); setTimeout(function () { document.addEventListener('mousedown', outside); }, 0); } }
+      function close() { list.hidden = true; isOpen = false; caret.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', outside); }
       function outside(e) { if (!wrap.contains(e.target)) close(); }
-      caret.addEventListener('click', function () { list.hidden ? open() : close(); });
+      // Opening (focus/click/caret) shows the whole list to browse; typing filters it.
+      input.addEventListener('focus', function () { open(false); });
+      input.addEventListener('click', function () { open(false); });
+      input.addEventListener('input', function () { open(true); });
+      input.addEventListener('keydown', function (e) { if (e.key === 'Escape' && isOpen) { e.stopPropagation(); close(); } });
+      caret.addEventListener('mousedown', function (e) { e.preventDefault(); });  // don't steal focus
+      caret.addEventListener('click', function () { isOpen ? close() : (input.focus(), open(false)); });
     });
   })();
 
@@ -1218,6 +1235,7 @@
           dl.innerHTML = '';
           var REC = { openai: 'gpt-image-2', gemini: 'gemini-2.5-flash-image', replicate: 'black-forest-labs/flux-kontext-pro', a1111: '' };
           (out.models || []).forEach(function (m) { var o = document.createElement('option'); o.value = m; if (m === REC[prov.value]) o.dataset.recommended = '1'; dl.appendChild(o); });
+          dl.dispatchEvent(new Event('ff:options'));   // let an open combo refresh
         }).catch(function () {});
     }
     prov.addEventListener('change', load);

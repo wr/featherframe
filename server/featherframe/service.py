@@ -156,8 +156,16 @@ class FeatherframeService:
         self._etag: Optional[str] = None
         self._meta: dict = self.db.get("current_frame", {}) or {}
         self._load_current_from_disk()
+        # Verify the persisted ingest cursor isn't stale on the first single-tick
+        # after start (see _single_tick); cheaper than checking every tick.
+        self._cursor_verified = False
 
-        self.device = DeviceStatus(**(self.db.get("device_status", {}) or {}))
+        # Restore the last device check-in, filtering to known fields so a rollback
+        # to a build with fewer DeviceStatus fields can't crash startup on an
+        # unexpected key.
+        _allowed = DeviceStatus.__dataclass_fields__
+        self.device = DeviceStatus(**{k: v for k, v in (self.db.get("device_status", {}) or {}).items()
+                                      if k in _allowed})
 
     # -- lifecycle ---------------------------------------------------------
     def start(self) -> None:
@@ -265,26 +273,34 @@ class FeatherframeService:
     # -- single mode -------------------------------------------------------
     def _single_tick(self, now: datetime) -> None:
         cursor = self._cursor()
-        max_rowid = self.source.max_rowid()
-        # A cursor left *ahead* of every real rowid can never see anything "new",
-        # so the frame freezes forever. This happens when the detection id scheme
-        # changes under the stored cursor (e.g. a BirdNET SQLite → BirdNET-Go REST
-        # switch leaves a huge timestamp-like value behind). Treat it as stale and
-        # restart at the tail. Guard on max_rowid > 0 so a transient source blip
-        # (soft-fails to 0) never trips it.
-        stale = cursor is not None and max_rowid > 0 and cursor > max_rowid
-        if cursor is None or stale:
-            # First run or stale reset: start at the tail so we don't replay
-            # history. Show the most recent detection once — on a cold start only
-            # if we have no frame, but on a stale reset always, otherwise the
-            # frozen frame would persist until the next brand-new detection.
-            self._set_cursor(max_rowid)
-            if self._frame_bytes is None or stale:
+        if cursor is None:
+            # First run: start at the tail so we don't replay history, but show
+            # the most recent existing detection once.
+            self._set_cursor(self.source.max_rowid())
+            if self._frame_bytes is None:
                 latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
                 if latest:
-                    self._render_single(latest, now,
-                                        reason="cursor-reset" if stale else "startup")
+                    self._render_single(latest, now, reason="startup")
             return
+
+        # One-time stale-cursor guard. A cursor left *ahead* of every real rowid
+        # can never see anything "new", freezing the frame forever — it happens
+        # when the detection id scheme changes under the stored cursor (e.g. a
+        # BirdNET SQLite → BirdNET-Go REST switch leaves a huge timestamp-like
+        # value behind). That is a between-runs condition (mid-run the cursor only
+        # advances to real rowids), so check it once at startup rather than paying
+        # a max_rowid() call — a network round-trip for the live source — on every
+        # tick. Guard on max_rowid > 0 so a transient source blip (soft-fails to 0)
+        # never trips it.
+        if not self._cursor_verified:
+            self._cursor_verified = True
+            max_rowid = self.source.max_rowid()
+            if max_rowid > 0 and cursor > max_rowid:
+                self._set_cursor(max_rowid)
+                latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
+                if latest:
+                    self._render_single(latest, now, reason="cursor-reset")
+                return
 
         new = self.source.new_since(cursor, self.config.confidence_threshold)
         if new:

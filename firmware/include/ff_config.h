@@ -40,16 +40,6 @@
 // (Was Seeed's uncalibrated 7.16, which overread by ~7%.)
 #define VBAT_SCALE          6.698f
 
-// --- Battery presence ---
-// 0 = a pack is fitted: report X-Battery-Voltage/Percent as usual.
-// 1 = the unit runs on USB with no battery: omit those headers (and send
-//     X-Battery-State: usb) so the config page shows "USB power" instead of a
-//     meaningless percent read off the floating VBAT rail. Set per build in
-//     platformio.ini; leave 0 as the product default.
-#ifndef FF_NO_BATTERY
-#define FF_NO_BATTERY 0
-#endif
-
 // --- Dev mode: stay awake instead of deep-sleeping between actions ---
 // Keeps Wi-Fi up and polls the buttons in loop(), so a press is instant and the
 // panel never re-inits. Set to 0 to restore the battery-saving deep-sleep model.

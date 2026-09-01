@@ -123,3 +123,25 @@ def test_page_overdue(svc):
                               last_result="304")
     html = _render_page(svc)
     assert f"Overdue — wakes every {svc.config.wake_interval_minutes} min" in html
+
+
+# -- device_extra plumbing + show_battery gating ----------------------------
+def test_device_extra_recorded_from_get_frame(svc):
+    # The optional device-reported headers must land on DeviceStatus so the card
+    # can show firmware version, panel/board, wake, and counters.
+    svc.get_frame(None, "ua", 3.9, 60, wifi_rssi=-60, device_extra={
+        "fw_version": "2026.09.01+abc", "sketch_md5": "deadbeef", "last_wake": "timer",
+        "boot_count": 3, "refresh_count": 7, "panel": "P", "board": "B"})
+    d = svc.device
+    assert d.fw_version == "2026.09.01+abc"
+    assert (d.boot_count, d.refresh_count) == (3, 7)
+    assert (d.panel, d.board, d.last_wake) == ("P", "B", "timer")
+
+
+def test_show_battery_toggle_gates_the_row(svc):
+    svc.get_frame(None, "ua", 3.9, 60, wifi_rssi=-60)
+    svc.config.show_battery = False
+    assert "<dt>Battery</dt>" not in _render_page(svc)
+    svc.config.show_battery = True
+    html = _render_page(svc)
+    assert "<dt>Battery</dt>" in html and "60%" in html

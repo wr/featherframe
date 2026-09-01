@@ -560,7 +560,7 @@ class AnthropicTextModel(TextModel):
             f"{self.API_BASE}/messages",
             headers={"x-api-key": self.api_key, "anthropic-version": "2023-06-01",
                      "content-type": "application/json"},
-            json={"model": self.model, "max_tokens": 1024,
+            json={"model": self.model, "max_tokens": 2048,
                   "system": "Reply with only the JSON object requested, no prose.",
                   "messages": [{"role": "user", "content": prompt}]},
             timeout=self.timeout_s)

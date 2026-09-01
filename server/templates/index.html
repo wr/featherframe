@@ -223,6 +223,11 @@
     .lightbox-cap { color:#f3f1ec; font-size:13px; text-align:center; max-width:440px; line-height:1.45; }
     .lightbox-cap[hidden] { display:none; }
     a.ex { color:var(--accent); text-decoration:underline; cursor:pointer; }
+    .lab-row { display:flex; align-items:center; gap:7px; margin-bottom:8px; }
+    a.ex.ex-ic { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
+                 vertical-align:middle; color:var(--muted); text-decoration:none; border-radius:5px; }
+    a.ex.ex-ic:hover { color:var(--accent); background:var(--inset); }
+    a.ex.ex-ic svg { width:16px; height:16px; }
 
     @media (prefers-reduced-motion:no-preference){ .wrap{ animation:fade .4s ease both; } }
     @keyframes fade { from{opacity:0} to{opacity:1} }
@@ -394,7 +399,10 @@
         <section class="sec">
           <h2 class="sec-head">Display</h2>
           <div class="field">
-            <label class="lab">Mode</label>
+            <div class="lab-row">
+              <label class="lab" style="margin:0">Mode</label>
+              <a class="ex ex-ic" id="mode-preview" title="Preview the selected mode" aria-label="Preview the selected mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></a>
+            </div>
             <div class="seg wide" role="radiogroup" aria-label="Mode" id="mode-seg">
               <label><input type="radio" name="mode" value="single" {{ 'checked' if config.mode=='single' else '' }}><span>
                 <svg width="20" height="24" viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="18" height="22" rx="2"/><circle cx="10" cy="11" r="4"/></svg>
@@ -404,7 +412,6 @@
                 Collage</span></label>
             </div>
             <div class="hint" id="mode-hint"></div>
-            <div class="hint" style="margin-top:3px">See an example: <a class="ex" data-ex="single" data-cap="Single — the most recent detection, shown as one plate.">Single</a> · <a class="ex" data-ex="collage" data-cap="Collage — a grid of the day's most-heard species, rebuilt through the day.">Collage</a></div>
           </div>
           <div class="field">
             <div class="torow">
@@ -475,7 +482,7 @@
               <label class="switch"><input type="checkbox" id="qhc" name="quiet_hours_render_collage" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label>
               <span class="txt">Show a “day in review” summary overnight</span>
             </div>
-            <div class="hint">One image combining the day's top species, shown overnight in either mode. <a class="ex" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held overnight.">See example</a></div>
+            <div class="hint">One image combining the day's top species, shown overnight in either mode. <a class="ex ex-ic" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held overnight." title="Preview" aria-label="Preview example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></a></div>
           </div>
         </section>
 
@@ -608,7 +615,7 @@
               <span class="txt">Combine the nightly “day in review” into a single image</span>
             </div>
             <div class="hint" id="dayreview-cost"></div>
-            <div class="hint" style="margin-top:3px"><a class="ex" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation).">See example</a></div>
+            <div class="hint" style="margin-top:3px"><a class="ex ex-ic" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview" aria-label="Preview example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></a></div>
           </div>
           <div class="row2">
             <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
@@ -835,9 +842,15 @@
       single: "Shows the most recent detection that meets the confidence threshold.",
       collage: "A grid of the day's most-heard species, updated through the day."
     };
+    var MODE_CAP = {
+      single: "Single — the most recent detection, shown as one plate.",
+      collage: "Collage — a grid of the day's most-heard species, rebuilt through the day."
+    };
+    var modePreview = document.getElementById('mode-preview');
     function syncMode() {
       var m = (document.querySelector('input[name="mode"]:checked') || {}).value;
       if (modeHintEl) modeHintEl.textContent = MODE_HINT[m] || '';
+      if (modePreview && m) { modePreview.setAttribute('data-ex', m); modePreview.setAttribute('data-cap', MODE_CAP[m] || ''); }
     }
     document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.addEventListener('change', syncMode); });
     syncMode();

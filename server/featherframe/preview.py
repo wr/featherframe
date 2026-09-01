@@ -39,6 +39,8 @@ def main() -> int:
                     help="render a daily collage of N species (2-6)")
     ap.add_argument("--dither", default=None, choices=["bluenoise", "stucki", "none"])
     ap.add_argument("--gray", default=None, choices=["16", "1"])
+    ap.add_argument("--mat-inset", type=float, default=None,
+                    help="override mat inset %% per edge (0 = full-bleed, no mat allowance)")
     ap.add_argument("--plate-number", type=int, default=42)
     args = ap.parse_args()
 
@@ -47,6 +49,8 @@ def main() -> int:
         config.dither = args.dither
     if args.gray:
         config.gray_mode = args.gray
+    if args.mat_inset is not None:
+        config.mat_inset_pct = args.mat_inset
 
     index = SpeciesIndex.load()
     # Cache-only generated link (no API key in previews): a species with a

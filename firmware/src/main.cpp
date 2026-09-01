@@ -686,16 +686,8 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
   http.setUserAgent("Featherframe-ESP32/1.0");
   if (resident && strlen(g_etag)) http.addHeader("If-None-Match", String("\"") + g_etag + "\"");
-#if FF_NO_BATTERY
-  // USB-powered, no pack fitted: omit the battery headers entirely. The server
-  // renders "USB power" when no percent arrives, instead of a meaningless value
-  // read off the floating VBAT rail. (void the unused reads.)
-  (void)vbat; (void)pct;
-  http.addHeader("X-Battery-State", "usb");
-#else
   http.addHeader("X-Battery-Voltage", String(vbat, 3));
   http.addHeader("X-Battery-Percent", String(pct));
-#endif
   http.addHeader("X-Wifi-RSSI", String(WiFi.RSSI()));
   http.addHeader("X-Wake", g_wakeToken);            // stable token (spec §3)
   http.addHeader("X-Wake-Detail", g_wakeInfo);      // cause=N keys=0xM (debug)
@@ -1044,8 +1036,8 @@ void loop() {
           showScreen(FF_SCR_BOOT_BIRDNET);
           showScreen(FF_SCR_BOOT_DOWNLOAD);
           g_etag[0] = 0;
-          noteFetchOutcome(fetchAndRender(FRAME_PATH, true, readBatteryVoltage(),
-                                          batteryPercent(readBatteryVoltage())));
+          float vb = readBatteryVoltage();
+          noteFetchOutcome(fetchAndRender(FRAME_PATH, true, vb, batteryPercent(vb)));
           g_toast.active = false;         // the full repaint took the pill with it
         } else {
           clearToast();                   // peeked and left: the plate stays put
@@ -1071,8 +1063,8 @@ void loop() {
     // transient view on the glass
   } else if (millis() - g_lastPoll >= interval) {
     g_lastPoll = millis();
-    FetchResult r = fetchAndRender(FRAME_PATH, true, readBatteryVoltage(),
-                                   batteryPercent(readBatteryVoltage()));
+    float vb = readBatteryVoltage();
+    FetchResult r = fetchAndRender(FRAME_PATH, true, vb, batteryPercent(vb));
     uint32_t mins = (millis() - g_lastSuccessMs) / 60000UL;
     g_failMinutes = mins > 65535 ? 65535 : (uint16_t)mins;
     noteFetchOutcome(r);

@@ -280,7 +280,7 @@
         <div class="plate-actions">
           <button class="btn mini" type="button" onclick="refreshPreview()">Refresh</button>
           <form class="inline task-form" data-task="day-review" method="post" action="/api/collage/day-review">
-            <button class="btn mini" type="submit" title="Render today's day-in-review composite now">Day in review</button>
+            <button class="btn mini" type="submit" title="Create today's “day in review” image now">Day in review</button>
           </form>
           {% if dev_mode %}
           <form class="inline task-form" data-task="test-detection" method="post" action="/api/test-detection">
@@ -372,7 +372,7 @@
               <label class="switch"><input type="checkbox" id="ssl" name="single_show_latest" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label>
               <span class="txt">Always show the most recent detection</span>
             </div>
-            <div class="hint">When off, the frame waits the refresh debounce between changes and won't re-paint a species it's already showing.</div>
+            <div class="hint">When off, the frame waits the refresh debounce between changes and won't redraw a species it's already showing.</div>
           </div>
           <div class="field">
             <label class="lab">Wake interval</label>
@@ -434,9 +434,9 @@
           <div class="field">
             <div class="torow" id="hold-row">
               <label class="switch"><input type="checkbox" id="qhc" name="quiet_hours_render_collage" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label>
-              <span class="txt">Paint a “day in review” at nightfall and hold it till morning</span>
+              <span class="txt">Show a “day in review” summary overnight</span>
             </div>
-            <div class="hint">A single composite of the day's top species, shown overnight — in either mode.</div>
+            <div class="hint">One image combining the day's top species, shown overnight in either mode.</div>
           </div>
         </section>
 
@@ -447,7 +447,7 @@
             <label><input type="radio" name="dark_mode" value="on" {{ 'checked' if config.dark_mode=='on' else '' }}><span>On</span></label>
             <label><input type="radio" name="dark_mode" value="quiet" {{ 'checked' if config.dark_mode=='quiet' else '' }}><span>Quiet hours</span></label>
           </div>
-          <div class="hint">Invert the plate to white ink on a black field. “Quiet hours” dims it only overnight.</div>
+          <div class="hint">Show the plate as white ink on a black background. “Quiet hours” applies it only overnight.</div>
         </section>
 
         <section class="sec">
@@ -515,7 +515,7 @@
 
         <section class="sec">
           <h2 class="sec-head">Image generation</h2>
-          <p class="intro">When a bird has no Audubon plate, Featherframe paints one in the same lithograph style — so the frame shows the right species instead of falling back to type.</p>
+          <p class="intro">When a bird has no Audubon plate, Featherframe generates one in the same lithograph style, so the frame shows the right species instead of a text-only card.</p>
           <div class="field torow">
             <label class="switch"><input type="checkbox" id="ig" name="imagegen_enabled" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label>
             <span class="txt">Enable image generation for species without an existing image</span>
@@ -524,10 +524,10 @@
             <label class="lab">Provider</label>
             <div class="cselect">
             <select class="sel cselect-native" name="imagegen_provider" id="ig-provider">
-              <option value="openai" data-icon="ic-openai" {{ 'selected' if config.imagegen_provider=='openai' else '' }}>OpenAI — gpt-image</option>
+              <option value="openai" data-icon="ic-openai" {{ 'selected' if config.imagegen_provider=='openai' else '' }}>OpenAI</option>
               <option value="gemini" data-icon="ic-gemini" {{ 'selected' if config.imagegen_provider=='gemini' else '' }}>Google Gemini</option>
-              <option value="replicate" data-icon="ic-replicate" {{ 'selected' if config.imagegen_provider=='replicate' else '' }}>Replicate — FLUX Kontext &amp; others</option>
-              <option value="a1111" data-icon="ic-chip" {{ 'selected' if config.imagegen_provider=='a1111' else '' }}>Self-hosted — AUTOMATIC1111 / ComfyUI</option>
+              <option value="replicate" data-icon="ic-replicate" {{ 'selected' if config.imagegen_provider=='replicate' else '' }}>Replicate</option>
+              <option value="a1111" data-icon="ic-chip" {{ 'selected' if config.imagegen_provider=='a1111' else '' }}>Self-hosted</option>
             </select>
             </div>
           </div>
@@ -558,7 +558,7 @@
           <div class="field">
             <div class="torow">
               <label class="switch"><input type="checkbox" id="cg" name="collage_generated" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label>
-              <span class="txt">Paint the nightly “day in review” as one composite plate</span>
+              <span class="txt">Combine the nightly “day in review” into a single image</span>
             </div>
             <div class="hint" id="dayreview-cost"></div>
           </div>
@@ -567,7 +567,7 @@
             <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab">Quality</label><div class="cselect"><select class="sel cselect-native" name="imagegen_quality">{% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ q }}</option>{% endfor %}</select></div><div class="hint">Higher looks better but costs more (high ≈ $0.17/plate).</div></div>
           </div>
           <div class="field" style="margin-top:20px;">
-            <label class="lab">Text model <span style="color:var(--muted);font-weight:400">· writes the field notes</span></label>
+            <label class="lab">Text model <span style="color:var(--muted);font-weight:400">· writes the notes</span></label>
             <div class="cselect">
             <select class="sel cselect-native" name="imagegen_text_provider" id="ig-text-provider">
               <option value="" {{ 'selected' if config.imagegen_text_provider=='' else '' }}>Same as image provider</option>
@@ -577,7 +577,7 @@
               <option value="local" data-icon="ic-chip" {{ 'selected' if config.imagegen_text_provider=='local' else '' }}>Local — OpenAI-compatible</option>
             </select>
             </div>
-            <div class="hint">Writes the species' taxonomy, plumage, and typical plants so the image model draws the right bird. Replicate has no text model — pick another provider here, or leave brief-less.</div>
+            <div class="hint">Writes the species' taxonomy, plumage, and typical plants so the image model draws the right bird. Replicate has no text model — pick another provider here, or leave it without notes.</div>
             {% set tk = status.config.imagegen_text_key %}
             <div class="field" data-textprov="openai gemini anthropic local" style="margin-top:12px" {{ '' if config.imagegen_text_provider in ['openai','gemini','anthropic','local'] else 'hidden' }}>
               <label class="lab">Text-model key <span data-textprov="local" style="color:var(--muted);font-weight:400">· optional for local</span></label>
@@ -755,8 +755,8 @@
     // Mode description under the segmented control.
     var modeHintEl = document.getElementById('mode-hint');
     var MODE_HINT = {
-      single: "One bird at a time — the latest detection above the confidence bar.",
-      collage: "A sheet of the day's most-heard species, rebuilt through the day."
+      single: "Shows the most recent detection that meets the confidence threshold.",
+      collage: "A grid of the day's most-heard species, updated through the day."
     };
     function syncMode() {
       var m = (document.querySelector('input[name="mode"]:checked') || {}).value;
@@ -856,7 +856,7 @@
 
   // left-column background jobs (test detection / day in review), fire-and-forget
   (function () {
-    var LABEL = { 'test-detection': 'Rendering…', 'day-review': 'Painting…' };
+    var LABEL = { 'test-detection': 'Rendering…', 'day-review': 'Working…' };
     var forms = {};
     var statusEl = document.getElementById('task-status');
     var timer = null, active = false;
@@ -864,7 +864,7 @@
       active = true;
       var f = forms[task];
       if (f && f.button) { f.button.disabled = true; f.button.textContent = LABEL[task] || 'Working…'; }
-      if (statusEl) { statusEl.classList.remove('failed'); statusEl.textContent = (task === 'day-review' ? 'Painting the day in review' : 'Rendering the plate') + ' — this can take a minute.'; }
+      if (statusEl) { statusEl.classList.remove('failed'); statusEl.textContent = (task === 'day-review' ? 'Creating the day in review' : 'Rendering the plate') + ' — this can take a minute.'; }
     }
     function idleUI(task) { var f = forms[task]; if (f && f.button) { f.button.disabled = false; f.button.textContent = f.idle; } }
     function finish(errors) {

@@ -133,6 +133,13 @@ class FeatherframeService:
         self._regen_inflight: set[str] = set()
         self._regen_errors: dict[str, str] = {}
 
+        # Background one-shot jobs (test detection, day-in-review) the config
+        # page kicks off and polls — same fire-and-forget contract as repaints,
+        # so a ~2-minute generation never blocks (and never 504s) the request.
+        self._task_lock = threading.Lock()
+        self._tasks_inflight: set[str] = set()
+        self._task_errors: dict[str, str] = {}
+
         # in-memory current frame
         self._frame_bytes: Optional[bytes] = None
         self._etag: Optional[str] = None
@@ -418,6 +425,50 @@ class FeatherframeService:
 
     def delete_generated(self, slug: str) -> bool:
         return self.genart.delete(slug)
+
+    # -- background one-shot jobs (config page) ----------------------------
+    def _start_task(self, key: str, fn, *args) -> bool:
+        """Run fn(*args) on a worker thread, tracked under `key` so the page
+        can poll task_status(). Starting a job that's already in flight joins
+        the running one rather than launching a duplicate (and buying a second
+        image); genart's own generation lock serializes the actual purchases."""
+        with self._task_lock:
+            if key in self._tasks_inflight:
+                return True
+            self._tasks_inflight.add(key)
+            self._task_errors.pop(key, None)
+        threading.Thread(target=self._task_worker, args=(key, fn, args),
+                         name=f"ff-task-{key}", daemon=True).start()
+        return True
+
+    def _task_worker(self, key: str, fn, args: tuple) -> None:
+        """Runs a job off the request thread. The in-flight flag clears on
+        every exit path — a stuck flag would pin the page on a spinner and
+        block the next run of that job."""
+        error: Optional[str] = None
+        try:
+            fn(*args)
+        except Exception as exc:
+            log.exception("background task %s failed", key)
+            error = f"{type(exc).__name__}: {exc}"[:200]
+        with self._task_lock:
+            self._tasks_inflight.discard(key)
+            if error:
+                self._task_errors[key] = error
+
+    def start_test_detection(self, common_name: str, scientific_name: str) -> bool:
+        return self._start_task("test-detection", self.force_test_detection,
+                                common_name, scientific_name)
+
+    def start_day_review(self, repaint: bool = False) -> bool:
+        return self._start_task("day-review", self.force_day_review, repaint)
+
+    def task_status(self) -> dict:
+        """Live state of the background one-shot jobs, for the config page's
+        poller: which are running and any last error per job."""
+        with self._task_lock:
+            return {"running": sorted(self._tasks_inflight),
+                    "errors": dict(self._task_errors)}
 
     # -- test detection ----------------------------------------------------
     def force_test_detection(self, common_name: str = "Northern Cardinal",

@@ -39,7 +39,7 @@ preview-fallback:
 	cd server && ../$(PY) -m featherframe.preview --fallback
 
 serve:
-	cd server && ../$(PY) -m featherframe
+	cd server && FEATHERFRAME_DEV=1 ../$(PY) -m featherframe
 
 test:
 	cd server && ../$(PY) -m pytest

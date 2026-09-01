@@ -1144,17 +1144,18 @@
     var sel = document.getElementById('src-sel');
     if (!btn || !sel) return;
     function val(name) { var el = document.querySelector('[name="' + name + '"]'); return el ? el.value : ''; }
-    function query() {
-      var p = new URLSearchParams({ backend: sel.value });
+    function body() {
+      var p = new URLSearchParams();
+      p.set('backend', sel.value);
       p.set('birdnet_go_url', val('birdnet_go_url'));
       p.set('birdweather_station_id', val('birdweather_station_id'));
       p.set('birdnet_db_path', val('birdnet_db_path'));
-      return p.toString();
+      return p;
     }
     function run(busy) {
       if (busy) { btn.disabled = true; btn.textContent = 'Testing…'; }
       if (out) { out.textContent = ''; out.classList.remove('failed', 'ok'); }
-      return fetch('/api/source/test?' + query()).then(function (r) { return r.json(); }).then(function (o) {
+      return fetch('/api/source/test', { method: 'POST', body: body() }).then(function (r) { return r.json(); }).then(function (o) {
         if (out) { out.textContent = o.detail || ''; out.classList.add(o.ok ? 'ok' : 'failed'); }
       }).catch(function () { if (out) { out.textContent = 'Test failed.'; out.classList.add('failed'); } })
         .then(function () { btn.disabled = false; btn.textContent = 'Test connection'; });

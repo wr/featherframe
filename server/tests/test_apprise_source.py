@@ -167,3 +167,20 @@ def test_source_test_apprise_reports_count():
             return 7
     out = _source_test(_Q(), "apprise")
     assert out["ok"] is True and "7 detection" in out["detail"]
+
+
+def test_source_test_endpoint_uses_typed_values(apprise_client):
+    # Posted connection fields are tested, not the saved config.
+    client, _ = apprise_client
+    r = client.post("/api/source/test",
+                    data={"backend": "custom", "birdnet_db_path": "/nope/missing.db"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is False and "reachable" in body["detail"].lower()
+
+
+def test_source_test_endpoint_refuses_cross_origin(apprise_client):
+    client, _ = apprise_client
+    r = client.post("/api/source/test", data={"backend": "custom"},
+                    headers={"Origin": "http://evil.example", "Host": "testserver"})
+    assert r.status_code == 403

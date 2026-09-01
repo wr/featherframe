@@ -412,15 +412,19 @@ def _source_test(source, backend: str) -> dict:
         return {"ok": False, "detail": f"{type(exc).__name__}: {exc}"[:160]}
 
 
-@app.get("/api/source/test")
-async def source_test(request: Request, backend: Optional[str] = None,
-                      birdnet_go_url: Optional[str] = None,
-                      birdweather_station_id: Optional[str] = None,
-                      birdnet_db_path: Optional[str] = None):
+@app.post("/api/source/test")
+async def source_test(request: Request, backend: Optional[str] = Form(None),
+                      birdnet_go_url: Optional[str] = Form(None),
+                      birdweather_station_id: Optional[str] = Form(None),
+                      birdnet_db_path: Optional[str] = Form(None)):
     """Test a detection source using the values currently typed on the config
     page — no save required. Builds a throwaway source from the posted fields
     layered over a copy of the saved config. Only non-secret connection fields
-    are accepted (never the Apprise shared secret)."""
+    are accepted (never the Apprise shared secret). Guarded like the app's other
+    state endpoints: this probe makes an outbound request to a user-supplied URL,
+    so it must not be triggerable cross-site (SSRF)."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
     import dataclasses
     from .sources import make_source
     svc = _svc(request)
@@ -433,10 +437,14 @@ async def source_test(request: Request, backend: Optional[str] = None,
         overrides["birdweather_station_id"] = birdweather_station_id
     if birdnet_db_path is not None:
         overrides["birdnet_db_path"] = birdnet_db_path
-    cfg = dataclasses.replace(svc.config, **overrides)  # __post_init__ re-sanitizes
 
     def run():
-        return _source_test(make_source(cfg, svc.db), cfg.detection_backend)
+        try:
+            cfg = dataclasses.replace(svc.config, **overrides)  # __post_init__ re-sanitizes
+            source = make_source(cfg, svc.db)
+        except Exception as exc:  # a diagnostic must never 500
+            return {"ok": False, "detail": f"{type(exc).__name__}: {exc}"[:160]}
+        return _source_test(source, cfg.detection_backend)
     return JSONResponse(await run_in_threadpool(run))
 
 

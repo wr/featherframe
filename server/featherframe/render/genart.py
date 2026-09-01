@@ -529,10 +529,70 @@ class GeminiTextModel(TextModel):
             timeout=self.timeout_s)
         r.raise_for_status()
         text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-        out = json.loads(text)
-        if not isinstance(out, dict):
-            raise GenerationError("text model returned non-object JSON")
-        return out
+        return _loads_json_object(text)
+
+
+def _loads_json_object(text: str) -> dict:
+    """Parse a model's reply as a JSON object, tolerating prose around it."""
+    s = (text or "").strip()
+    if "{" in s and "}" in s:
+        s = s[s.index("{"): s.rindex("}") + 1]
+    out = json.loads(s)
+    if not isinstance(out, dict):
+        raise GenerationError("text model returned non-object JSON")
+    return out
+
+
+class AnthropicTextModel(TextModel):
+    """Claude writes the naturalist's brief via the Messages API (raw HTTP, to
+    match the other providers here rather than pull in the SDK)."""
+
+    API_BASE = "https://api.anthropic.com/v1"
+
+    def __init__(self, api_key: str, model: str = "claude-opus-5", timeout_s: float = 60.0) -> None:
+        self.api_key = api_key
+        self.model = model if model.startswith("claude") else "claude-opus-5"
+        self.timeout_s = timeout_s
+        self.name = self.model
+
+    def complete_json(self, prompt: str) -> dict:
+        r = requests.post(
+            f"{self.API_BASE}/messages",
+            headers={"x-api-key": self.api_key, "anthropic-version": "2023-06-01",
+                     "content-type": "application/json"},
+            json={"model": self.model, "max_tokens": 1024,
+                  "system": "Reply with only the JSON object requested, no prose.",
+                  "messages": [{"role": "user", "content": prompt}]},
+            timeout=self.timeout_s)
+        r.raise_for_status()
+        text = "".join(b.get("text", "") for b in r.json().get("content", [])
+                       if b.get("type") == "text")
+        return _loads_json_object(text)
+
+
+class LocalTextModel(TextModel):
+    """A self-hosted OpenAI-compatible chat endpoint (Ollama, LM Studio,
+    llama.cpp, ...). The API key is optional."""
+
+    def __init__(self, base_url: str, api_key: str = "", model: str = "",
+                 timeout_s: float = 60.0) -> None:
+        self.base_url = (base_url or "").rstrip("/")
+        self.api_key = api_key
+        self.model = model
+        self.timeout_s = timeout_s
+        self.name = "local:" + (model or "?")
+
+    def complete_json(self, prompt: str) -> dict:
+        headers = {"content-type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        r = requests.post(
+            f"{self.base_url}/v1/chat/completions", headers=headers,
+            json={"model": self.model or "local",
+                  "messages": [{"role": "user", "content": prompt}]},
+            timeout=self.timeout_s)
+        r.raise_for_status()
+        return _loads_json_object(r.json()["choices"][0]["message"]["content"])
 
 
 class ImageModel(ABC):
@@ -735,18 +795,30 @@ class A1111ImageModel(ImageModel):
 
 
 def make_text_model(config) -> Optional[TextModel]:
-    """The naturalist's-brief backend. Follows the image provider and its key;
-    only OpenAI and Gemini offer a brief model, so replicate/a1111 return None
-    (plates still generate, just brief-less)."""
+    """The naturalist's-brief backend. By default it follows the image provider
+    and its key; set imagegen_text_provider to run the brief on a different
+    provider (OpenAI / Gemini / Anthropic / local) with its own key/URL.
+    Returns None (brief-less) when the chosen provider has no text model or no
+    credentials — plates still generate."""
     if not getattr(config, "imagegen_enabled", False):
         return None
-    provider = getattr(config, "imagegen_provider", "openai")
-    key = (getattr(config, "imagegen_api_key", "") or "").strip()
-    text_model = getattr(config, "imagegen_text_model", "gpt-5.6-luna")
-    if provider == "openai" and key:
-        return OpenAITextModel(key, model=text_model)
-    if provider == "gemini" and key:
-        return GeminiTextModel(key, model=text_model)
+    tp = (getattr(config, "imagegen_text_provider", "") or "").strip()
+    if not tp:  # follow the image provider + its credentials
+        tp = getattr(config, "imagegen_provider", "openai")
+        key = (getattr(config, "imagegen_api_key", "") or "").strip()
+        base = (getattr(config, "imagegen_base_url", "") or "").strip()
+    else:
+        key = (getattr(config, "imagegen_text_key", "") or "").strip()
+        base = (getattr(config, "imagegen_text_base_url", "") or "").strip()
+    model = getattr(config, "imagegen_text_model", "gpt-5.6-luna")
+    if tp == "openai" and key:
+        return OpenAITextModel(key, model=model)
+    if tp == "gemini" and key:
+        return GeminiTextModel(key, model=model)
+    if tp == "anthropic" and key:
+        return AnthropicTextModel(key, model=model)
+    if tp == "local" and base:
+        return LocalTextModel(base, api_key=key, model=model)
     return None
 
 

@@ -202,11 +202,15 @@ async def save_settings(request: Request):
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
         imagegen_base_url=s("imagegen_base_url", cur["imagegen_base_url"]),
         imagegen_text_model=s("imagegen_text_model", cur["imagegen_text_model"]),
+        imagegen_text_provider=s("imagegen_text_provider", cur["imagegen_text_provider"]),
+        imagegen_text_base_url=s("imagegen_text_base_url", cur["imagegen_text_base_url"]),
         imagegen_quality=s("imagegen_quality", cur["imagegen_quality"]),
-        # A typed key always wins; blank means "keep the stored key" unless
-        # the clear checkbox is ticked.
+        # A typed key always wins; blank means "keep the stored key" unless the
+        # matching clear checkbox is ticked.
         imagegen_api_key=(str(form.get("imagegen_api_key", "") or "").strip()
                           or ("" if b("imagegen_clear_key") else cur["imagegen_api_key"])),
+        imagegen_text_key=(str(form.get("imagegen_text_key", "") or "").strip()
+                           or ("" if b("imagegen_text_clear_key") else cur["imagegen_text_key"])),
     )
     render_affecting = (new.gray_mode != svc.config.gray_mode
                         or new.dither != svc.config.dither
@@ -390,6 +394,30 @@ async def preview_png(request: Request):
 @app.get("/api/status")
 async def status(request: Request):
     return JSONResponse(_svc(request).status())
+
+
+def _source_test(svc) -> dict:
+    """Probe the saved detection source and describe what it found."""
+    src = svc.source
+    backend = getattr(svc.config, "detection_backend", "")
+    try:
+        if backend == "apprise":
+            n = src.max_rowid() if hasattr(src, "max_rowid") else 0
+            return {"ok": True, "detail": f"Webhook ready — {n} detection(s) received so far."}
+        if not src.available():
+            return {"ok": False, "detail": "Not reachable — check the settings above and save."}
+        latest = src.latest(0.0)
+        if latest and latest.common_name:
+            return {"ok": True, "detail": f"Connected — most recent: {latest.common_name}."}
+        return {"ok": True, "detail": "Connected — no detections yet."}
+    except Exception as exc:  # never raise from a diagnostic
+        return {"ok": False, "detail": f"{type(exc).__name__}: {exc}"[:160]}
+
+
+@app.get("/api/source/test")
+async def source_test(request: Request):
+    """Test the saved detection source's connection, for the config page."""
+    return JSONResponse(await run_in_threadpool(_source_test, _svc(request)))
 
 
 @app.get("/api/imagegen/models")

@@ -238,6 +238,16 @@
     .cselect-list li[aria-selected="true"] { color:var(--ink); font-weight:500; }
     .cselect-list li.active, .cselect-list li:hover { background:var(--inset); }
     .cs-sprite { position:absolute; width:0; height:0; overflow:hidden; }
+    /* instruction steps + copyable strings (Apprise setup) */
+    .steps { margin:0; padding-left:1.3em; display:flex; flex-direction:column; gap:12px; font-size:13px; color:var(--ink-2); }
+    .steps li { line-height:1.5; }
+    .steps strong { color:var(--ink); font-weight:600; }
+    .copyrow { display:flex; gap:8px; margin-top:6px; }
+    .copyrow input { flex:1; min-width:0; font-family:ui-monospace, Menlo, monospace; font-size:12px;
+      padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px; background:#fff; color:var(--ink); box-shadow:var(--sh-sm); }
+    .copy-btn.copied { color:var(--good); border-color:var(--good); }
+    .hint.failed { color:var(--bad); }
+    .hint.ok { color:var(--good); }
   </style>
 </head>
 <body>
@@ -245,6 +255,7 @@
   <symbol id="ic-openai" viewBox="0 0 24 24"><path fill="currentColor" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></symbol>
   <symbol id="ic-gemini" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c.85 5.35 3.8 8.3 9.15 9.15C15.8 12 12.85 14.95 12 20.3 11.15 14.95 8.2 12 2.85 11.15 8.2 10.3 11.15 7.35 12 2Z"/></symbol>
   <symbol id="ic-replicate" viewBox="0 0 24 24"><path fill="currentColor" d="M24 10.262v2.712h-9.518V24h-3.034V10.262zm0-5.131v2.717H8.755V24H5.722V5.131zM24 0v2.717H3.034V24H0V0z"/></symbol>
+  <symbol id="ic-anthropic" viewBox="0 0 24 24"><path fill="currentColor" d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z"/></symbol>
   <symbol id="ic-chip" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 7V4M14 7V4M10 20v-3M14 20v-3M7 10H4M7 14H4M20 10h-3M20 14h-3"/></g></symbol>
   <symbol id="ic-bird" viewBox="0 0 24 24"><path fill="currentColor" d="M22 6.1c-.8.36-1.6.6-2.5.7a4.3 4.3 0 0 0-1.9-2.16c-1.5-.83-3.4-.5-4.6.7a4.5 4.5 0 0 0-1.3 3.9C8.3 8.8 5.4 7.2 3.5 4.6c-1 1.7-.5 4 1.1 5.1-.6 0-1.2-.18-1.7-.45v.05c0 2.1 1.5 3.9 3.5 4.3-.5.15-1.1.17-1.7.07.5 1.7 2 2.9 3.8 2.95A8.7 8.7 0 0 1 2 18.5 12.3 12.3 0 0 0 8.6 20.4c8 0 12.4-6.7 12.4-12.5v-.57C21.8 7.7 22 6.9 22 6.1Z"/></symbol>
   <symbol id="ic-waves" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5.5" cy="18.5" r="1.4" fill="currentColor" stroke="none"/><path d="M4 13.5a9 9 0 0 1 6.5 6.5"/><path d="M4 9a13 13 0 0 1 11 11"/><path d="M4 4.5a17 17 0 0 1 15.5 15.5"/></g></symbol>
@@ -450,19 +461,36 @@
               <option value="custom" data-icon="ic-db" {{ 'selected' if config.detection_backend=='custom' else '' }}>Custom — local database</option>
             </select>
             </div>
+            <div class="torow" style="margin-top:10px; gap:10px;">
+              <button class="btn mini" type="button" id="src-test">Test connection</button>
+              <span class="hint" id="src-test-result" style="margin:0"></span>
+            </div>
+            <div class="hint">Tests the currently saved source — save first if you just changed it.</div>
           </div>
           <div class="field" data-src="birdnet_go" {{ '' if config.detection_backend=='birdnet_go' else 'hidden' }}>
             <label class="lab">BirdNET-Go URL</label>
             <input type="text" name="birdnet_go_url" value="{{ config.birdnet_go_url }}">
           </div>
           <div class="field" data-src="apprise" {{ '' if config.detection_backend=='apprise' else 'hidden' }}>
-            <div class="hint" style="margin-top:0">In BirdNET-Pi → Notifications, add an Apprise URL pointing here and set the notification body to the JSON template below.</div>
-            <label class="lab" style="margin-top:12px">Apprise URL (paste into BirdNET-Pi)</label>
-            <input type="text" id="apprise-url" readonly value="json://…" style="font-family:var(--serif)">
-            <label class="lab" style="margin-top:12px">Shared secret <span style="color:var(--muted);font-weight:400">· optional</span></label>
-            <input type="text" name="apprise_token" id="apprise-token" value="{{ config.apprise_token }}" placeholder="leave blank to accept any LAN post">
-            <div class="hint">Notification body to paste into BirdNET-Pi:
-              <code style="display:block;white-space:pre-wrap;word-break:break-all;margin-top:5px;font-size:11.5px">{"comname":"$comname","sciname":"$sciname","confidence":$confidence,"date":"$date","time":"$time"}</code>
+            <ol class="steps">
+              <li>In BirdNET-Pi, open <strong>Tools → Settings → Notifications</strong> and add this Apprise URL:
+                <div class="copyrow">
+                  <input type="text" id="apprise-url" readonly value="json://…">
+                  <button class="btn icon copy-btn" type="button" data-copy="#apprise-url" title="Copy" aria-label="Copy URL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
+                </div>
+              </li>
+              <li>Set that notification's <strong>body</strong> to exactly this:
+                <div class="copyrow">
+                  <input type="text" id="apprise-body" readonly value='{"comname":"$comname","sciname":"$sciname","confidence":$confidence,"date":"$date","time":"$time"}'>
+                  <button class="btn icon copy-btn" type="button" data-copy="#apprise-body" title="Copy" aria-label="Copy body"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
+                </div>
+              </li>
+              <li>Save. New detections push here on their own — hit <strong>Test connection</strong> above once one arrives.</li>
+            </ol>
+            <div class="field" style="margin-top:14px">
+              <label class="lab">Shared secret <span style="color:var(--muted);font-weight:400">· optional</span></label>
+              <input type="text" name="apprise_token" id="apprise-token" value="{{ config.apprise_token }}" placeholder="leave blank to accept any LAN post">
+              <div class="hint">If set, it's woven into the URL above as a path segment so only your Pi can post.</div>
             </div>
           </div>
           <div class="field" data-src="birdweather" {{ '' if config.detection_backend=='birdweather' else 'hidden' }}>
@@ -537,10 +565,34 @@
             <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
             <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab">Quality</label><div class="cselect"><select class="sel cselect-native" name="imagegen_quality">{% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ q }}</option>{% endfor %}</select></div><div class="hint">Higher looks better but costs more (high ≈ $0.17/plate).</div></div>
           </div>
-          <div class="field" data-provider="openai gemini" style="margin-top:20px;" {{ 'hidden' if config.imagegen_provider in ['replicate','a1111'] else '' }}>
-            <label class="lab">Text model</label>
-            <input type="text" name="imagegen_text_model" value="{{ config.imagegen_text_model }}">
-            <div class="hint">Writes the field notes — the species' taxonomy, plumage, and typical plants — that tell the image model what to draw. OpenAI &amp; Gemini only.</div>
+          <div class="field" style="margin-top:20px;">
+            <label class="lab">Text model <span style="color:var(--muted);font-weight:400">· writes the field notes</span></label>
+            <div class="cselect">
+            <select class="sel cselect-native" name="imagegen_text_provider" id="ig-text-provider">
+              <option value="" {{ 'selected' if config.imagegen_text_provider=='' else '' }}>Same as image provider</option>
+              <option value="openai" data-icon="ic-openai" {{ 'selected' if config.imagegen_text_provider=='openai' else '' }}>OpenAI</option>
+              <option value="gemini" data-icon="ic-gemini" {{ 'selected' if config.imagegen_text_provider=='gemini' else '' }}>Google Gemini</option>
+              <option value="anthropic" data-icon="ic-anthropic" {{ 'selected' if config.imagegen_text_provider=='anthropic' else '' }}>Anthropic — Claude</option>
+              <option value="local" data-icon="ic-chip" {{ 'selected' if config.imagegen_text_provider=='local' else '' }}>Local — OpenAI-compatible</option>
+            </select>
+            </div>
+            <div class="hint">Writes the species' taxonomy, plumage, and typical plants so the image model draws the right bird. Replicate has no text model — pick another provider here, or leave brief-less.</div>
+            {% set tk = status.config.imagegen_text_key %}
+            <div class="field" data-textprov="openai gemini anthropic local" style="margin-top:12px" {{ '' if config.imagegen_text_provider in ['openai','gemini','anthropic','local'] else 'hidden' }}>
+              <label class="lab">Text-model key <span data-textprov="local" style="color:var(--muted);font-weight:400">· optional for local</span></label>
+              <div class="keyline">
+                <input type="password" name="imagegen_text_key" autocomplete="off" placeholder="{{ (tk ~ ' — leave blank to keep') if tk else 'paste key' }}">
+              </div>
+            </div>
+            <div class="field" data-textprov="local" style="margin-top:12px" {{ '' if config.imagegen_text_provider=='local' else 'hidden' }}>
+              <label class="lab">Local endpoint URL</label>
+              <input type="text" name="imagegen_text_base_url" value="{{ config.imagegen_text_base_url }}" placeholder="http://localhost:11434">
+              <div class="hint">An OpenAI-compatible <code>/v1/chat/completions</code> server (Ollama, LM Studio, llama.cpp).</div>
+            </div>
+            <div class="field" style="margin-top:12px">
+              <label class="lab">Model</label>
+              <input type="text" name="imagegen_text_model" id="ig-text-model" value="{{ config.imagegen_text_model }}">
+            </div>
           </div>
         </section>
       </div>
@@ -957,6 +1009,49 @@
     }
     prov.addEventListener('change', load);
     load();
+  })();
+
+  // -- text-model provider: show key / endpoint fields for the chosen provider
+  (function () {
+    var tp = document.getElementById('ig-text-provider');
+    if (!tp) return;
+    function sync() {
+      var v = tp.value;
+      document.querySelectorAll('[data-textprov]').forEach(function (el) {
+        el.hidden = el.getAttribute('data-textprov').split(' ').indexOf(v) === -1;
+      });
+    }
+    tp.addEventListener('change', sync);
+    sync();
+  })();
+
+  // -- copy buttons ---------------------------------------------------------
+  (function () {
+    document.querySelectorAll('.copy-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var el = document.querySelector(btn.getAttribute('data-copy'));
+        if (!el) return;
+        function done() { btn.classList.add('copied'); setTimeout(function () { btn.classList.remove('copied'); }, 1200); }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(el.value).then(done, function () { el.select(); document.execCommand('copy'); done(); });
+        } else { el.select(); document.execCommand('copy'); done(); }
+      });
+    });
+  })();
+
+  // -- detection-source connection test -------------------------------------
+  (function () {
+    var btn = document.getElementById('src-test');
+    var out = document.getElementById('src-test-result');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Testing…';
+      if (out) { out.textContent = ''; out.classList.remove('failed', 'ok'); }
+      fetch('/api/source/test').then(function (r) { return r.json(); }).then(function (o) {
+        if (out) { out.textContent = o.detail || ''; out.classList.add(o.ok ? 'ok' : 'failed'); }
+      }).catch(function () { if (out) { out.textContent = 'Test failed.'; out.classList.add('failed'); } })
+        .then(function () { btn.disabled = false; btn.textContent = orig; });
+    });
   })();
 
   // -- generated plates: delete in place, keeping scroll position -----------

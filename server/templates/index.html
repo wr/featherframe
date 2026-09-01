@@ -230,6 +230,7 @@
       color:var(--ink); font:inherit; font-size:14px; box-shadow:var(--sh-sm); }
     .cselect-btn:focus-visible { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-ring); }
     .cselect-btn .cs-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cselect-btn.cs-placeholder .cs-label { color:var(--muted); }
     .cselect-btn .cs-caret { color:var(--muted); flex:none; width:12px; height:8px; }
     .cselect-ic { width:16px; height:16px; flex:none; display:inline-flex; color:var(--ink-2); }
     .cselect-ic svg { width:16px; height:16px; }
@@ -462,7 +463,7 @@
           <div class="seg" role="radiogroup" aria-label="Dark mode">
             <label><input type="radio" name="dark_mode" value="off" {{ 'checked' if config.dark_mode=='off' else '' }}><span>Off</span></label>
             <label><input type="radio" name="dark_mode" value="on" {{ 'checked' if config.dark_mode=='on' else '' }}><span>On</span></label>
-            <label><input type="radio" name="dark_mode" value="quiet" {{ 'checked' if config.dark_mode=='quiet' else '' }}><span>Quiet hours</span></label>
+            <label><input type="radio" name="dark_mode" value="quiet" {{ 'checked' if config.dark_mode=='quiet' else '' }}><span>Quiet hours only</span></label>
           </div>
           <div class="hint" id="dark-hint"></div>
         </section>
@@ -589,7 +590,9 @@
           </div>
           <div class="row2">
             <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
-            <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab">Quality</label><div class="cselect"><select class="sel cselect-native" name="imagegen_quality">{% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ q }}</option>{% endfor %}</select></div><div class="hint">Higher looks better but costs more — low ≈ $0.02, high ≈ $0.17 per plate.</div></div>
+            <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab">Quality</label><div class="cselect"><select class="sel cselect-native" name="imagegen_quality">
+              {% set qlabels = {'high':'High · ~$0.17/image', 'medium':'Medium · ~$0.07/image', 'low':'Low · ~$0.02/image', 'auto':'Auto'} %}
+              {% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
           </div>
           <div class="field" style="margin-top:20px;">
             <label class="lab">Text model <span style="color:var(--muted);font-weight:400">· writes the notes</span></label>
@@ -729,9 +732,9 @@
     syncQuiet();
     // dark-mode hint follows the selected mode
     var DARK_HINT = {
-      off: "Plates show as black ink on white.",
-      on: "Plates show as white ink on a black background.",
-      quiet: "White ink on black, but only during quiet hours."
+      off: "Normal — black ink on a white background.",
+      on: "Invert colors and use a dark background.",
+      quiet: "Invert colors only during quiet hours."
     };
     var darkHintEl = document.getElementById('dark-hint');
     function syncDark() {
@@ -1072,11 +1075,15 @@
     if (!img || !txt) return;
     var NAME = { openai: 'OpenAI', gemini: 'Google Gemini', replicate: 'Replicate', a1111: 'Self-hosted' };
     var root = txt.closest('.cselect');
+    var btnEl = root ? root.querySelector('.cselect-btn') : null;
     function sync() {
       txt.options[0].textContent = 'Same as image (' + (NAME[img.value] || 'image provider') + ')';
       if (root && root._cselectSync) root._cselectSync();
+      // The inherit default reads as placeholder text, not an explicit choice.
+      if (btnEl) btnEl.classList.toggle('cs-placeholder', txt.value === '');
     }
     img.addEventListener('change', sync);
+    txt.addEventListener('change', sync);
     sync();
   })();
 

@@ -267,5 +267,5 @@ def test_source_test_endpoint_apprise(tmp_path, monkeypatch):
     save_config(svc.db, Config(detection_backend="apprise"))
     svc.reload_config()
     app.state.service = svc
-    r = TestClient(app).get("/api/source/test")
+    r = TestClient(app).post("/api/source/test", data={"backend": "apprise"})
     assert r.status_code == 200 and r.json()["ok"] is True

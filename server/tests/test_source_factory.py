@@ -49,10 +49,20 @@ def test_config_roundtrips_new_fields():
     assert restored.birdnet_go_url == "http://host:9000"  # trailing slash trimmed
 
 
-def test_mode_auto_migrates_to_single_with_overnight():
+def test_mode_auto_migrates_to_single():
+    # Legacy "auto" becomes plain Single mode; the overnight "day in review"
+    # stays opt-in (default off) rather than being force-enabled by migration.
     c = Config(mode="auto")
     assert c.mode == "single"
-    assert c.quiet_hours_render_collage is True
+    assert c.quiet_hours_render_collage is False
+
+
+def test_apprise_token_defaults_to_generated_secret():
+    a, b = Config(), Config()
+    assert a.apprise_token and len(a.apprise_token) >= 8
+    assert a.apprise_token != b.apprise_token  # a fresh secret per new config
+    # An explicitly-empty token is preserved (accept-any LAN posture).
+    assert Config.from_dict({"apprise_token": ""}).apprise_token == ""
 
 
 def test_birdweather_station_url_parsed_to_id():

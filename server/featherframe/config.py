@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import secrets
 from dataclasses import dataclass, field
 from datetime import date, datetime, time as dtime
 from typing import Any
@@ -94,7 +95,7 @@ class Config:
     birdweather_station_id: str = ""    # birdweather backend: station token / ID
     # Optional shared secret in the Apprise webhook path (/api/ingest/apprise/<token>).
     # Empty accepts any LAN post, matching the app's no-auth LAN posture.
-    apprise_token: str = ""
+    apprise_token: str = field(default_factory=lambda: secrets.token_urlsafe(9))
     poll_interval_seconds: int = 20  # 10-30s per spec
 
     # Rendering ------------------------------------------------------------
@@ -151,11 +152,10 @@ class Config:
 
     # -- validation --------------------------------------------------------
     def sanitize(self) -> "Config":
-        # "auto" was single-by-day + overnight review; that's now Single mode
-        # with the overnight day-in-review toggle on. Migrate it.
+        # "auto" was single-by-day + overnight review; it's now plain Single
+        # mode. The overnight "day in review" is an opt-in toggle (default off).
         if self.mode == "auto":
             self.mode = "single"
-            self.quiet_hours_render_collage = True
         if self.mode not in ("single", "collage"):
             self.mode = "single"
         self.confidence_threshold = _clamp(float(self.confidence_threshold), 0.0, 1.0)

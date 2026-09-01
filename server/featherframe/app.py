@@ -396,17 +396,15 @@ async def status(request: Request):
     return JSONResponse(_svc(request).status())
 
 
-def _source_test(svc) -> dict:
-    """Probe the saved detection source and describe what it found."""
-    src = svc.source
-    backend = getattr(svc.config, "detection_backend", "")
+def _source_test(source, backend: str) -> dict:
+    """Describe what a detection source reports. Never raises."""
     try:
         if backend == "apprise":
-            n = src.max_rowid() if hasattr(src, "max_rowid") else 0
+            n = source.max_rowid() if hasattr(source, "max_rowid") else 0
             return {"ok": True, "detail": f"Webhook ready — {n} detection(s) received so far."}
-        if not src.available():
-            return {"ok": False, "detail": "Not reachable — check the settings above and save."}
-        latest = src.latest(0.0)
+        if not source.available():
+            return {"ok": False, "detail": "Not reachable — check the settings above."}
+        latest = source.latest(0.0)
         if latest and latest.common_name:
             return {"ok": True, "detail": f"Connected — most recent: {latest.common_name}."}
         return {"ok": True, "detail": "Connected — no detections yet."}
@@ -415,9 +413,31 @@ def _source_test(svc) -> dict:
 
 
 @app.get("/api/source/test")
-async def source_test(request: Request):
-    """Test the saved detection source's connection, for the config page."""
-    return JSONResponse(await run_in_threadpool(_source_test, _svc(request)))
+async def source_test(request: Request, backend: Optional[str] = None,
+                      birdnet_go_url: Optional[str] = None,
+                      birdweather_station_id: Optional[str] = None,
+                      birdnet_db_path: Optional[str] = None):
+    """Test a detection source using the values currently typed on the config
+    page — no save required. Builds a throwaway source from the posted fields
+    layered over a copy of the saved config. Only non-secret connection fields
+    are accepted (never the Apprise shared secret)."""
+    import dataclasses
+    from .sources import make_source
+    svc = _svc(request)
+    overrides = {}
+    if backend:
+        overrides["detection_backend"] = backend
+    if birdnet_go_url is not None:
+        overrides["birdnet_go_url"] = birdnet_go_url
+    if birdweather_station_id is not None:
+        overrides["birdweather_station_id"] = birdweather_station_id
+    if birdnet_db_path is not None:
+        overrides["birdnet_db_path"] = birdnet_db_path
+    cfg = dataclasses.replace(svc.config, **overrides)  # __post_init__ re-sanitizes
+
+    def run():
+        return _source_test(make_source(cfg, svc.db), cfg.detection_backend)
+    return JSONResponse(await run_in_threadpool(run))
 
 
 @app.get("/api/imagegen/models")

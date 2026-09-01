@@ -67,7 +67,10 @@ def apprise_client(tmp_path, monkeypatch):
     from featherframe.app import app
     from featherframe.service import FeatherframeService
     svc = FeatherframeService()
-    save_config(svc.db, Config(detection_backend="apprise"))
+    # apprise_token="" opts into the accept-any-LAN-post path these tests probe;
+    # the bad-token test sets its own secret. (Fresh configs now get a random
+    # default token — see test_config.)
+    save_config(svc.db, Config(detection_backend="apprise", apprise_token=""))
     svc.reload_config()
     app.state.service = svc
     return TestClient(app), svc
@@ -135,31 +138,32 @@ class _StubSource:
         return self._l
 
 
-class _StubCfg:
-    detection_backend = "birdnet_go"
-
-
-class _StubSvc:
-    def __init__(self, src):
-        self.source, self.config = src, _StubCfg()
-
-
 def test_source_test_reachable_with_latest():
     from featherframe.app import _source_test
     from featherframe.sources.base import Detection
     det = Detection(rowid=1, date="2026-08-31", time="08:00:00",
                     common_name="American Robin", scientific_name="Turdus migratorius", confidence=0.9)
-    out = _source_test(_StubSvc(_StubSource(True, det)))
+    out = _source_test(_StubSource(True, det), "birdnet_go")
     assert out["ok"] is True and "American Robin" in out["detail"]
 
 
 def test_source_test_unreachable():
     from featherframe.app import _source_test
-    out = _source_test(_StubSvc(_StubSource(False)))
+    out = _source_test(_StubSource(False), "birdnet_go")
     assert out["ok"] is False and "reachable" in out["detail"].lower()
 
 
 def test_source_test_error_path():
     from featherframe.app import _source_test
-    out = _source_test(_StubSvc(_StubSource(raises=True)))
+    out = _source_test(_StubSource(raises=True), "birdnet_go")
     assert out["ok"] is False
+
+
+def test_source_test_apprise_reports_count():
+    from featherframe.app import _source_test
+
+    class _Q:
+        def max_rowid(self):
+            return 7
+    out = _source_test(_Q(), "apprise")
+    assert out["ok"] is True and "7 detection" in out["detail"]

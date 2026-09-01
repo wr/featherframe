@@ -314,7 +314,7 @@
             {% set pct = status.device.battery_percent %}
             {% if pct is not none %}
               <span class="batt"><span class="cell"><i style="width:{{ pct }}%;{% if pct <= 20 %}background:var(--bad){% endif %}"></i></span><span class="tnum">{{ pct }}%</span></span>
-            {% else %}—{% endif %}
+            {% else %}USB power{% endif %}
           </dd>
           <dt>Wi-Fi</dt>
           <dd>
@@ -600,7 +600,8 @@
             </div>
             <div class="field" style="margin-top:12px">
               <label class="lab">Model</label>
-              <input type="text" name="imagegen_text_model" id="ig-text-model" value="{{ config.imagegen_text_model }}">
+              <input type="text" name="imagegen_text_model" id="ig-text-model" list="ig-text-model-list" value="{{ config.imagegen_text_model }}">
+              <datalist id="ig-text-model-list"></datalist>
             </div>
           </div>
         </section>
@@ -1057,6 +1058,29 @@
     sync();
   })();
 
+  // -- text-model suggestions: a bundled curated list, no key needed --------
+  (function () {
+    var tp = document.getElementById('ig-text-provider');
+    var img = document.getElementById('ig-provider');
+    var dl = document.getElementById('ig-text-model-list');
+    if (!tp || !dl) return;
+    var TEXT_MODELS = {
+      openai: ['gpt-5.6-luna', 'gpt-5.1', 'gpt-4.1-mini', 'o4-mini'],
+      gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+      anthropic: ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
+      local: ['llama3.2', 'qwen2.5', 'mistral-nemo', 'phi3.5']
+    };
+    function fill() {
+      var p = tp.value || (img ? img.value : '');  // "" inherits the image provider
+      var list = TEXT_MODELS[p] || [];
+      dl.innerHTML = '';
+      list.forEach(function (m) { var o = document.createElement('option'); o.value = m; dl.appendChild(o); });
+    }
+    tp.addEventListener('change', fill);
+    if (img) img.addEventListener('change', fill);
+    fill();
+  })();
+
   // -- image-model suggestions from the provider's live list ----------------
   (function () {
     var prov = document.getElementById('ig-provider');
@@ -1112,19 +1136,43 @@
     });
   })();
 
-  // -- detection-source connection test -------------------------------------
+  // -- detection-source connection test (tests the typed values) ------------
   (function () {
     var btn = document.getElementById('src-test');
     var out = document.getElementById('src-test-result');
-    if (!btn) return;
-    btn.addEventListener('click', function () {
-      btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Testing…';
+    var note = document.getElementById('src-test-note');
+    var sel = document.getElementById('src-sel');
+    if (!btn || !sel) return;
+    function val(name) { var el = document.querySelector('[name="' + name + '"]'); return el ? el.value : ''; }
+    function query() {
+      var p = new URLSearchParams({ backend: sel.value });
+      p.set('birdnet_go_url', val('birdnet_go_url'));
+      p.set('birdweather_station_id', val('birdweather_station_id'));
+      p.set('birdnet_db_path', val('birdnet_db_path'));
+      return p.toString();
+    }
+    function run(busy) {
+      if (busy) { btn.disabled = true; btn.textContent = 'Testing…'; }
       if (out) { out.textContent = ''; out.classList.remove('failed', 'ok'); }
-      fetch('/api/source/test').then(function (r) { return r.json(); }).then(function (o) {
+      return fetch('/api/source/test?' + query()).then(function (r) { return r.json(); }).then(function (o) {
         if (out) { out.textContent = o.detail || ''; out.classList.add(o.ok ? 'ok' : 'failed'); }
       }).catch(function () { if (out) { out.textContent = 'Test failed.'; out.classList.add('failed'); } })
-        .then(function () { btn.disabled = false; btn.textContent = orig; });
-    });
+        .then(function () { btn.disabled = false; btn.textContent = 'Test connection'; });
+    }
+    btn.addEventListener('click', function () { run(true); });
+    // A push source (Apprise) can't be probed — hide the button and just show
+    // how many detections have arrived so far.
+    function syncTest() {
+      var apprise = sel.value === 'apprise';
+      btn.hidden = apprise;
+      if (note) note.textContent = apprise
+        ? 'BirdNET-Pi pushes detections here on its own — nothing to test; the count updates as they arrive.'
+        : 'Tests the values entered above — no need to save first.';
+      if (apprise) { run(false); }
+      else if (out) { out.textContent = ''; out.classList.remove('failed', 'ok'); }
+    }
+    sel.addEventListener('change', syncTest);
+    syncTest();
   })();
 
   // -- generated plates: delete in place, keeping scroll position -----------

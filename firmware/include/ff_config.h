@@ -35,9 +35,10 @@
 // --- Battery sense ---
 #define PIN_BATTERY_ADC     1   // A0 / GPIO1
 #define PIN_BATTERY_ENABLE  6   // GPIO6 — drive HIGH to enable the divider
-// Volts-per-count multiplier: (ADC/4095) * VBAT_SCALE. Starts from Seeed's
-// ~2:1 divider + Vref term; CALIBRATE against a meter on your unit.
-#define VBAT_SCALE          7.16f
+// Volts-per-count multiplier: (ADC/4095) * VBAT_SCALE. Calibrated 2026-09-01
+// against a meter on this unit: 3.865 V at 2363 counts -> 3.865 * 4095/2363.
+// (Was Seeed's uncalibrated 7.16, which overread by ~7%.)
+#define VBAT_SCALE          6.698f
 
 // --- Battery presence ---
 // 0 = a pack is fitted: report X-Battery-Voltage/Percent as usual.

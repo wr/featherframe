@@ -88,6 +88,7 @@ async def api_frame(request: Request, view: Optional[str] = None):
     pct = _int_header(request.headers.get("x-battery-percent"))
     rssi = _int_header(request.headers.get("x-wifi-rssi"))
     wake = request.headers.get("x-wake")
+    client_ip = request.client.host if request.client else None
     if wake:
         log.info("device wake: %s (view=%s)", wake, view)
 
@@ -107,13 +108,13 @@ async def api_frame(request: Request, view: Optional[str] = None):
         else:
             result = await run_in_threadpool(svc.render_status_page, volt, pct, rssi)
         svc.record_view_checkin(request.headers.get("user-agent", ""), volt, pct, view,
-                                wifi_rssi=rssi)
+                                wifi_rssi=rssi, ip=client_ip)
         return Response(content=result.frame, media_type="application/octet-stream",
                         headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store",
                                  "X-FF-Invert": invert})
 
     status, body, etag = svc.get_frame(inm, request.headers.get("user-agent", ""), volt, pct,
-                                       wifi_rssi=rssi)
+                                       wifi_rssi=rssi, ip=client_ip)
 
     if status == 503:
         return Response(status_code=503, content=b"no frame yet",

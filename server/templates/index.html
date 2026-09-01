@@ -218,7 +218,11 @@
     .lightbox { position:fixed; inset:0; z-index:30; background:rgba(32,30,26,.8);
                 display:flex; align-items:center; justify-content:center; padding:28px; cursor:zoom-out; }
     .lightbox[hidden] { display:none; }
-    .lightbox img { max-width:100%; max-height:100%; background:#fff; box-shadow:0 16px 60px rgba(0,0,0,.5); }
+    .lightbox-inner { display:flex; flex-direction:column; align-items:center; gap:14px; max-height:100%; }
+    .lightbox img { max-width:100%; max-height:calc(100vh - 120px); background:#fff; box-shadow:0 16px 60px rgba(0,0,0,.5); }
+    .lightbox-cap { color:#f3f1ec; font-size:13px; text-align:center; max-width:440px; line-height:1.45; }
+    .lightbox-cap[hidden] { display:none; }
+    a.ex { color:var(--accent); text-decoration:underline; cursor:pointer; }
 
     @media (prefers-reduced-motion:no-preference){ .wrap{ animation:fade .4s ease both; } }
     @keyframes fade { from{opacity:0} to{opacity:1} }
@@ -354,6 +358,9 @@
               <span class="pill-status"><span class="bars">{% for i in range(1,5) %}<span class="{{ 'on' if i <= bars else '' }}"></span>{% endfor %}</span>{{ word }}</span>
             {% else %}—{% endif %}
           </dd>
+          <dt>IP address</dt><dd class="tnum">{{ status.device.ip or '—' }}</dd>
+          <dt>Panel</dt><dd>10.3&Prime; · 1404×1872 · 16-level gray</dd>
+          <dt>Board</dt><dd>XIAO ESP32-S3 · EE03</dd>
         </dl>
 
         <p class="grp second">Source</p>
@@ -396,6 +403,7 @@
                 Collage</span></label>
             </div>
             <div class="hint" id="mode-hint"></div>
+            <div class="hint" style="margin-top:3px">See an example: <a class="ex" data-ex="single" data-cap="Single — the most recent detection, shown as one plate.">Single</a> · <a class="ex" data-ex="collage" data-cap="Collage — a grid of the day's most-heard species, rebuilt through the day.">Collage</a></div>
           </div>
           <div class="field">
             <div class="torow">
@@ -466,7 +474,7 @@
               <label class="switch"><input type="checkbox" id="qhc" name="quiet_hours_render_collage" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label>
               <span class="txt">Show a “day in review” summary overnight</span>
             </div>
-            <div class="hint">One image combining the day's top species, shown overnight in either mode.</div>
+            <div class="hint">One image combining the day's top species, shown overnight in either mode. <a class="ex" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held overnight.">See example</a></div>
           </div>
         </section>
 
@@ -599,6 +607,7 @@
               <span class="txt">Combine the nightly “day in review” into a single image</span>
             </div>
             <div class="hint" id="dayreview-cost"></div>
+            <div class="hint" style="margin-top:3px"><a class="ex" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation).">See example</a></div>
           </div>
           <div class="row2">
             <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
@@ -695,7 +704,7 @@
   </footer>
 </div>
 
-<div class="lightbox" id="lightbox" hidden><img alt=""></div>
+<div class="lightbox" id="lightbox" hidden><div class="lightbox-inner"><img alt=""><div class="lightbox-cap" hidden></div></div></div>
 
 <script>
   function refreshPreview() {
@@ -861,15 +870,27 @@
   (function () {
     var box = document.getElementById('lightbox');
     var full = box.querySelector('img');
-    function close() { box.hidden = true; full.src = ''; }
+    var cap = box.querySelector('.lightbox-cap');
+    function close() { box.hidden = true; full.src = ''; cap.textContent = ''; cap.hidden = true; }
     box.addEventListener('click', close);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !box.hidden) close(); });
     document.addEventListener('click', function (e) {
+      // mode/option example links
+      var ex = e.target.closest && e.target.closest('a.ex');
+      if (ex) {
+        e.preventDefault();
+        full.src = '/static/examples/' + ex.getAttribute('data-ex') + '.png';
+        var c = ex.getAttribute('data-cap') || '';
+        full.alt = c; cap.textContent = c; cap.hidden = !c;
+        box.hidden = false;
+        return;
+      }
       var a = e.target.closest && e.target.closest('a.plate-link');
       if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
       var thumb = a.querySelector('img');
       full.src = (thumb && thumb.src) || a.href; full.alt = (thumb && thumb.alt) || '';
+      cap.textContent = ''; cap.hidden = true;
       box.hidden = false;
     });
   })();

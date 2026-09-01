@@ -62,6 +62,7 @@ class DeviceStatus:
     last_result: Optional[str] = None      # "304" | "frame" | view name
     etag_served: Optional[str] = None
     user_agent: Optional[str] = None
+    ip: Optional[str] = None
 
 
 def _ago(then: datetime, now: datetime) -> str:
@@ -581,24 +582,26 @@ class FeatherframeService:
     def record_view_checkin(self, user_agent: str,
                             battery_voltage: Optional[float],
                             battery_percent: Optional[int], view: str,
-                            wifi_rssi: Optional[int] = None) -> None:
+                            wifi_rssi: Optional[int] = None,
+                            ip: Optional[str] = None) -> None:
         with self._lock:
             etag = self._etag
         self._record_checkin(user_agent, battery_voltage, battery_percent, etag,
-                             served=view, rssi=wifi_rssi)
+                             served=view, rssi=wifi_rssi, ip=ip)
 
     # -- device-facing -----------------------------------------------------
     def get_frame(self, if_none_match: Optional[str], user_agent: str = "",
                   battery_voltage: Optional[float] = None,
                   battery_percent: Optional[int] = None,
-                  wifi_rssi: Optional[int] = None) -> tuple[int, Optional[bytes], Optional[str]]:
+                  wifi_rssi: Optional[int] = None,
+                  ip: Optional[str] = None) -> tuple[int, Optional[bytes], Optional[str]]:
         """Return (http_status, body_or_None, etag). Records the check-in."""
         with self._lock:
             etag = self._etag
             body = self._frame_bytes
         self._record_checkin(user_agent, battery_voltage, battery_percent, etag,
                              served="304" if (etag and if_none_match == etag) else "frame",
-                             rssi=wifi_rssi)
+                             rssi=wifi_rssi, ip=ip)
         if etag is None or body is None:
             return 503, None, None
         if if_none_match is not None and if_none_match == etag:
@@ -678,12 +681,13 @@ class FeatherframeService:
             return
         self.tick()
 
-    def _record_checkin(self, ua, volt, pct, etag, served, rssi=None) -> None:
+    def _record_checkin(self, ua, volt, pct, etag, served, rssi=None, ip=None) -> None:
         with self._lock:
             self.device = DeviceStatus(
                 last_checkin=datetime.now().isoformat(timespec="seconds"),
                 battery_voltage=volt, battery_percent=pct, wifi_rssi=rssi,
-                last_result=served, etag_served=etag, user_agent=ua[:120] if ua else None)
+                last_result=served, etag_served=etag, user_agent=ua[:120] if ua else None,
+                ip=ip or None)
             self.db.set("device_status", asdict(self.device))
 
     def _cursor(self) -> Optional[int]:

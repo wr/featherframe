@@ -47,6 +47,7 @@ char     g_serverUrl[128];
 char     g_etag[40];
 uint32_t g_wakeMinutes = DEFAULT_WAKE_MINUTES;
 char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent as X-Wake-Detail (debug)
+char     g_battRaw[48] = "";    // last ADC read: raw counts, first/last sample, eFuse mV
 char     g_wakeToken[16] = "";  // stable token ("timer"|"button"|"coldboot") — X-Wake
 bool     g_viaPortal = false;   // did this boot go through the setup portal?
 
@@ -85,17 +86,29 @@ float readBatteryVoltage() {
   delay(10);
   analogReadResolution(12);
   // median-of-several to reject ADC noise
-  uint32_t acc = 0;
+  uint32_t acc = 0, accMv = 0, first = 0, last = 0;
   const int N = 16;
-  for (int i = 0; i < N; i++) { acc += analogRead(PIN_BATTERY_ADC); delay(2); }
+  for (int i = 0; i < N; i++) {
+    uint32_t c = analogRead(PIN_BATTERY_ADC);
+    if (i == 0) first = c;
+    last = c;
+    acc += c;
+    accMv += analogReadMilliVolts(PIN_BATTERY_ADC);   // eFuse-calibrated; the measurement
+    delay(2);
+  }
   digitalWrite(PIN_BATTERY_ENABLE, LOW);    // save idle current
   float counts = acc / (float)N;
-  float v = (counts / 4095.0f) * VBAT_SCALE;
-  // Calibration aid (spec §2): put a meter on the JST, read this line, then set
-  // VBAT_SCALE = V_meter * (4095 / counts) = V_meter * the printed factor.
-  Serial.printf("battery ADC: counts=%.1f scale=%.3f -> %.3f V | "
-                "VBAT_SCALE = V_meter * %.4f\n",
-                counts, VBAT_SCALE, v, 4095.0f / counts);
+  float mv = accMv / (float)N;
+  // The calibrated millivolt path is the measurement; raw counts are kept in
+  // the diagnostic only (see VBAT_DIVIDER in ff_config.h for why).
+  float v = (mv / 1000.0f) * VBAT_DIVIDER * VBAT_TRIM;
+  snprintf(g_battRaw, sizeof(g_battRaw), "adc=%u first=%u last=%u mv=%u",
+           (unsigned)(counts + 0.5f), (unsigned)first, (unsigned)last, (unsigned)(mv + 0.5f));
+  // Calibration aid: put a meter on the JST, read this line, then set
+  // VBAT_TRIM = V_meter / the printed untrimmed volts.
+  Serial.printf("battery ADC: counts=%.1f mv=%.0f -> %.3f V untrimmed, %.3f V | "
+                "VBAT_TRIM = V_meter / %.3f\n",
+                counts, mv, (mv / 1000.0f) * VBAT_DIVIDER, v, (mv / 1000.0f) * VBAT_DIVIDER);
   return v;
 }
 
@@ -767,7 +780,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Battery-Percent", String(pct));
   http.addHeader("X-Wifi-RSSI", String(WiFi.RSSI()));
   http.addHeader("X-Wake", g_wakeToken);            // stable token (spec §3)
-  http.addHeader("X-Wake-Detail", g_wakeInfo);      // cause=N keys=0xM (debug)
+  http.addHeader("X-Wake-Detail", String(g_wakeInfo) + " " + g_battRaw);   // cause=N keys=0xM + ADC diag (debug)
   http.addHeader("X-FF-Version", FF_FW_VERSION);    // human build id (spec §1)
   http.addHeader("X-FF-Sketch-MD5", ESP.getSketchMD5());  // exact binary id
   http.addHeader("X-Boot-Count", String(g_bootCount));    // spec §5

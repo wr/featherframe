@@ -63,6 +63,16 @@ _INGEST_PAGE = 500
 # query and only runs for a first-seen-today species below the confidence bar.
 _CORROBORATE_SCAN = 200
 
+# Novelty classes, best first. A first-ever species (never heard before today)
+# outranks a first-today one (known, but its first call today), which outranks
+# a repeat. Selection among a tick's detections is by class, then newest —
+# so a first-ever bird is not lost to the cardinal that called after it.
+_NOVELTY_RANK = {"first-ever": 2, "first-today": 1, "repeat": 0}
+_NOVEL = ("first-ever", "first-today")
+# How much of the day's tally / render log a novelty check reads. A busy
+# feeder is a few dozen species a day; the render log holds 200 rows.
+_TODAY_SCAN = 200
+
 
 def _as_time(v) -> dtime:
     if isinstance(v, dtime):
@@ -291,6 +301,11 @@ class FeatherframeService:
         # page says it is waiting on; kept OFF the frame meta because it is
         # not what the glass shows. None = nothing waiting.
         self._pending: Optional[dict] = self.db.get("pending_species", None) or None
+        # Per-tick memo for the novelty lookups (first-seen dates, the day's
+        # tally, what was rendered today): one source call per question per
+        # tick at most, however many candidates a page holds. Reset at the
+        # top of every single-mode tick and keyed by the tick's `now`.
+        self._tick_memo: dict = {}
         # With no detection on record at all, the alarm clock starts here —
         # the earliest moment we can vouch for silence.
         self._started_at = datetime.now()
@@ -480,6 +495,7 @@ class FeatherframeService:
 
     # -- single mode -------------------------------------------------------
     def _single_tick(self, now: datetime) -> None:
+        self._memo(now)
         self._expire_pending(now)
         cursor = self._cursor()
         if cursor is None:
@@ -529,16 +545,29 @@ class FeatherframeService:
             latest = self.source.latest_many(self.config.confidence_threshold)
             if latest:
                 self._set_cursor(max(self.source.max_rowid(), new[-1].rowid))
-                candidate = self._first_showable(latest, now)
+                candidate = self._best_showable(latest, now)
             else:
                 # Can't see the tail right now: fall back to the page we have.
                 self._set_cursor(new[-1].rowid)
-                candidate = self._first_showable(list(reversed(new)), now)
+                candidate = self._best_showable(list(reversed(new)), now)
         else:
             if new:
                 self._set_cursor(new[-1].rowid)
-            candidate = self._first_showable(list(reversed(new)), now)  # newest showable
+            candidate = self._best_showable(list(reversed(new)), now)  # most novel, then newest
         if candidate is None:
+            return
+
+        # Dwell: a new bird keeps the frame against repeats of common birds.
+        # Only a repeat of ANOTHER species is turned away — the held bird may
+        # re-render (the clock moves with it), and a novel bird takes over
+        # (newest novel wins). The cursor has already advanced: the repeat is
+        # simply not shown, which is the point.
+        holding = self._holding(self._meta, now)
+        if (holding and self._novelty(candidate, now) == "repeat"
+                and candidate.key != self._meta.get("species_key")):
+            log.info("holding %s (%s) against %s for %d more min",
+                     self._meta.get("label"), self._meta.get("novelty"),
+                     candidate.common_name, holding["minutes_left"])
             return
 
         if not self.config.single_show_latest:
@@ -552,14 +581,17 @@ class FeatherframeService:
     def _render_single(self, det: Detection, now: datetime, reason: str) -> None:
         ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else None
         first_seen = self._first_seen(det.scientific_name)
+        novelty = self._novelty(det, now)
         note = self._note_text()
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=det.timestamp if det.timestamp != datetime.min else now,
-                          plate_number=ordinal, first_seen=first_seen, note=note)
+                          plate_number=ordinal, first_seen=first_seen, note=note,
+                          first_ever=novelty == "first-ever")
         result = pipeline.render_single(spec, self.provider, self.config)
         self._commit(result, now, mode="single", species_key=det.key,
-                     label=det.common_name, note=note)
-        log.info("rendered single %s (%s), etag=%s", det.common_name, reason, result.etag)
+                     label=det.common_name, note=note, novelty=novelty)
+        log.info("rendered single %s (%s, %s), etag=%s", det.common_name, reason, novelty,
+                 result.etag)
         # The bird the page said it was waiting on is now on the wall.
         if self._pending and self._pending.get("key") == det.key:
             self._set_pending(None)
@@ -800,12 +832,15 @@ class FeatherframeService:
         # A test bird is injected, not heard: the source is still silent, so
         # the footnote (if on) stays truthful.
         note = self._note_text()
+        # The plate says "first recorded today" when the source has never
+        # heard the species; the meta carries no novelty, so a test bird
+        # never holds the frame against the real ones (and bypasses any hold).
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=now, plate_number=ordinal or 1, first_seen=now.strftime("%Y-%m-%d"),
-                          note=note)
+                          note=note, first_ever=self._is_new_species(det.scientific_name, now.date()))
         result = pipeline.render_single(spec, self.provider, self.config)
         self._commit(result, now, mode="single", species_key=det.key,
-                     label=f"{det.common_name} (test)", note=note)
+                     label=f"{det.common_name} (test)", note=note, novelty=None)
         log.info("rendered TEST detection, etag=%s", result.etag)
         return result
 
@@ -982,6 +1017,8 @@ class FeatherframeService:
                 "label": meta.get("label"),
                 "title": frame_title(meta),
                 "rendered_at": meta.get("rendered_at"),
+                "novelty": meta.get("novelty"),
+                "holding": self._holding(meta, now),
             },
             "last_detection": {
                 "common": latest.common_name, "scientific": latest.scientific_name,
@@ -1017,13 +1054,29 @@ class FeatherframeService:
     # -- internal state helpers -------------------------------------------
     def _commit(self, result: RenderResult, now: datetime, mode: str,
                 species_key: Optional[str], label: str,
-                note: Optional[str] = None) -> None:
+                note: Optional[str] = None, novelty: Optional[str] = None) -> None:
         with self._lock:
+            prev = self._meta
+            # The dwell clock (held_since) starts when a novel bird takes the
+            # frame and carries across its own re-renders: a first-today robin
+            # calling again at 8:05 is classed a repeat, but it must not lose
+            # the hold it earned at 8:00 — nor restart it. Its label carries
+            # too, so the page keeps saying what earned the hold.
+            same = (mode == "single" and species_key is not None
+                    and prev.get("mode") == "single" and prev.get("species_key") == species_key)
+            carried = same and prev.get("held_since") and prev.get("novelty") in _NOVEL
+            if novelty in _NOVEL:
+                held_since = prev["held_since"] if carried else now.isoformat(timespec="seconds")
+            elif carried:
+                novelty, held_since = prev["novelty"], prev["held_since"]
+            else:
+                held_since = None
             self._frame_bytes = result.frame
             self._etag = result.etag
             self._meta = {
                 "etag": result.etag, "mode": mode, "label": label,
                 "species_key": species_key, "rendered_at": now.isoformat(timespec="seconds"),
+                "novelty": novelty, "held_since": held_since,
                 "dark": self.config.dark_now(now.time()),
                 "quiet_note": note is not None,   # what the glass says, for tick()'s flip
                 "collage_at": now.isoformat(timespec="seconds") if mode == "collage"
@@ -1122,7 +1175,81 @@ class FeatherframeService:
                 and self._meta.get("species_key") == det.key)
 
     def _first_seen(self, scientific_name: str) -> Optional[str]:
-        return self.source.first_seen_date(scientific_name)
+        """first_seen_date, asked of the source once per species per tick."""
+        memo = self._tick_memo.setdefault("first_seen", {})
+        key = scientific_name.strip().lower()
+        if key not in memo:
+            memo[key] = self.source.first_seen_date(scientific_name)
+        return memo[key]
+
+    # -- novelty ------------------------------------------------------------
+    def _novelty(self, det: Detection, now: datetime) -> str:
+        """Which of "first-ever" / "first-today" / "repeat" this detection is.
+        First-ever: the source first heard the species today — or can't say,
+        which (as in _is_new_species) counts as new. First-today: a known
+        species whose only detection today is this one, per the day's tally;
+        when the source can't tally (a push feed), per the render log — no
+        plate of it rendered today. Everything else is a repeat."""
+        if self._is_new_species(det.scientific_name, now.date()):
+            return "first-ever"
+        counts = self._today_counts(now)
+        if counts is not None:
+            return "first-today" if counts.get(det.key, 0) <= 1 else "repeat"
+        rendered = self._rendered_today(now)
+        return "repeat" if det.common_name.strip().lower() in rendered else "first-today"
+
+    def _memo(self, now: datetime) -> dict:
+        """The per-tick memo, fresh whenever the caller's `now` moves on — so
+        a Refresh or a settings save between ticks never reads a stale tally."""
+        if self._tick_memo.get("now") != now:
+            self._tick_memo = {"now": now}
+        return self._tick_memo
+
+    def _today_counts(self, now: datetime) -> Optional[dict[str, int]]:
+        """{species key: detections today} from the source's tally, memoised
+        per tick; None when the source can't answer."""
+        memo = self._memo(now)
+        if "today_counts" not in memo:
+            rows = self.source.top_species_today(now.date(), self.config.confidence_threshold,
+                                                 limit=_TODAY_SCAN)
+            memo["today_counts"] = ({str(r.get("scientific") or "").strip().lower():
+                                     int(r.get("count") or 0) for r in rows}
+                                    if rows else None)
+        return memo["today_counts"]
+
+    def _rendered_today(self, now: datetime) -> set[str]:
+        """Lowercased common names with a single plate in today's render log
+        (the log stores the label, not the species key) — the fallback tally
+        for a source with no history."""
+        memo = self._memo(now)
+        if "rendered_today" not in memo:
+            today = now.date().isoformat()
+            keys: set[str] = set()
+            for row in self.db.render_history(_TODAY_SCAN):
+                if row.get("mode") != "single" or not str(row.get("rendered_at") or "").startswith(today):
+                    continue
+                label = str(row.get("species") or "").removesuffix(" (test)").strip().lower()
+                if label:
+                    keys.add(label)
+            memo["rendered_today"] = keys
+        return memo["rendered_today"]
+
+    def _holding(self, meta: dict, now: datetime) -> Optional[dict]:
+        """The dwell hold on the resident frame, or None: a single plate of a
+        novel species, held since less than dwell_minutes ago."""
+        dwell = int(self.config.dwell_minutes)
+        if dwell <= 0 or meta.get("mode") != "single" or meta.get("novelty") not in _NOVEL:
+            return None
+        try:
+            since = datetime.fromisoformat(str(meta.get("held_since") or meta.get("rendered_at")))
+        except (TypeError, ValueError):
+            return None
+        until = since + timedelta(minutes=dwell)
+        if now >= until:
+            return None
+        return {"until": until.isoformat(timespec="seconds"),
+                "minutes_left": int(math.ceil((until - now).total_seconds() / 60)),
+                "reason": "new species"}
 
     # -- new-species corroboration ------------------------------------------
     # One 0.71 hit of a rare species is routinely a car horn. Unchecked it
@@ -1137,17 +1264,37 @@ class FeatherframeService:
         back for corroboration. The first held-back one becomes the pending
         record the page shows — even when an older, corroborated bird renders
         this tick, the new one is still waiting on its second hit."""
+        return self._pick_showable(detections, now, by_novelty=False)
+
+    def _best_showable(self, detections: list[Detection],
+                       now: datetime) -> Optional[Detection]:
+        """Newest-first: the showable detection of the highest novelty class,
+        newest within a class — a first-ever bird at 8:05 beats the cardinal
+        at 8:10. Same corroboration gate and pending bookkeeping as
+        _first_showable."""
+        return self._pick_showable(detections, now, by_novelty=True)
+
+    def _pick_showable(self, detections: list[Detection], now: datetime,
+                       by_novelty: bool) -> Optional[Detection]:
         pending: Optional[dict] = None
         chosen: Optional[Detection] = None
+        best = -1
         for d in detections:
             if self.config.is_blocked(d.common_name, d.scientific_name):
                 continue
             ok, record = self._corroborated(d, now)
-            if ok:
+            if not ok:
+                if pending is None:
+                    pending = record
+                continue
+            if not by_novelty:
                 chosen = d
                 break
-            if pending is None:
-                pending = record
+            rank = _NOVELTY_RANK[self._novelty(d, now)]
+            if rank > best:           # strictly: newest wins within a class
+                chosen, best = d, rank
+            if best == max(_NOVELTY_RANK.values()):
+                break                 # nothing older can outrank a first-ever
         if pending is not None:
             self._set_pending(pending)
         return chosen
@@ -1157,7 +1304,7 @@ class FeatherframeService:
         or can't say (a push feed has no history), which is treated as new
         because an unknown history is exactly when a stray hit can't be
         checked against anything else."""
-        first = self.source.first_seen_date(scientific_name)
+        first = self._first_seen(scientific_name)
         return first is None or str(first) == on_date.isoformat()
 
     def _corroborated(self, det: Detection, now: datetime) -> tuple[bool, Optional[dict]]:

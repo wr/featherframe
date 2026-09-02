@@ -5,6 +5,7 @@
     python -m featherframe.preview --fallback          # typographic fallback plate
     python -m featherframe.preview --all               # one PNG per curated species
     python -m featherframe.preview --note "Nothing heard since 11:27 pm"  # gone-quiet footnote
+    python -m featherframe.preview --first-ever        # "first recorded today" under the Latin name
 
 Writes a PNG (exactly what the panel will show) and the packed .fff framebuffer
 to test_output/, so compositions can be reviewed by eye. `make preview` calls
@@ -45,6 +46,8 @@ def main() -> int:
     ap.add_argument("--plate-number", type=int, default=42)
     ap.add_argument("--note", default=None, metavar="TEXT",
                     help='footnote in the bottom margin, e.g. "Nothing heard since 11:27 pm"')
+    ap.add_argument("--first-ever", action="store_true",
+                    help='render as a species never heard before today ("first recorded today")')
     args = ap.parse_args()
 
     config = Config()
@@ -104,7 +107,7 @@ def main() -> int:
         sci = args.scientific or _guess_scientific(index, args.species)
         spec = SingleSpec(common_name=args.species, scientific_name=sci, when=_now(),
                           plate_number=args.plate_number, first_seen="2026-05-17",
-                          note=args.note)
+                          note=args.note, first_ever=args.first_ever)
         result = pipeline.render_single(spec, provider, config)
 
     name = (args.species if not args.fallback else "fallback").lower().replace(" ", "_")

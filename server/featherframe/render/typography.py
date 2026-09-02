@@ -279,7 +279,7 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
                   book: FontBook = FONTS) -> float:
     """Render the museum caption: common name (swash italic) over the
     scientific name (engraved capitals), nothing else — the detection date
-    lives in the corner (date_corner_mark). Returns the sci baseline."""
+    lives in the corner (time_corner_mark). Returns the sci baseline."""
     if not HAS_RAQM:
         return _caption_block_faux(draw, center_x, top_y, common_name,
                                    scientific_name, book)
@@ -308,23 +308,56 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
     return baseline
 
 
+def _corner_parts(when: datetime) -> tuple[str, str]:
+    """("1 Sep", "8:14 am") for the corner mark: day + abbreviated month, then
+    the time. The date is always shown so a three-day-old plate reads as
+    three days old, not as this morning's."""
+    _, clock = _when_parts(when)
+    return f"{when.day} {when.strftime('%b')}", clock
+
+
 def time_corner_mark(draw: ImageDraw.ImageDraw, when: datetime,
                      book: FontBook = FONTS) -> None:
-    """Italic old-style time ("8:14 am", small-cap am) at the top-left margin,
-    mirroring the № mark. The plate's bird is almost always today's, so the
-    time says something the date wouldn't. Repeats of the same species never
-    re-render (the tick skips them), so the glass still only moves when the
-    bird does."""
-    _, text = _when_parts(when)
+    """Italic old-style date and time ("1 Sep · 8:14 am", small-cap am) at the
+    top-left margin, mirroring the № mark. Repeats of a species DO re-render
+    (the owner wants the clock to move with the bird), and a held or quiet
+    frame can sit for days — so the mark always carries the date: a stale
+    plate must look stale. The date keeps its case; the time takes the
+    small-cap am/pm, so the two are shaped as separate runs."""
+    date_text, clock = _corner_parts(when)
     font = book.get(theme.PLATE_NO_SIZE, italic=True, weight=theme.PLATE_NO_WEIGHT)
     if HAS_RAQM:
-        feats = _feat(theme.TIME_FEATURES)
-        top_gap = font.getbbox(text, features=feats)[1]
-        draw.text((theme.MARGIN_X, theme.MARGIN_TOP - top_gap), text, font=font,
-                  fill=theme.INK_MEDIUM, anchor="la", features=feats)
+        date_feats = _feat(theme.DATE_FEATURES)
+        time_feats = _feat(theme.TIME_FEATURES)
+        mid = f" {theme.CORNER_SEP} "
+        # Align the run's ink top (the taller of the two runs) to the top margin.
+        top_gap = min(font.getbbox(date_text + mid, features=date_feats)[1],
+                      font.getbbox(clock, features=time_feats)[1])
+        y = theme.MARGIN_TOP - top_gap
+        draw.text((theme.MARGIN_X, y), date_text + mid, font=font,
+                  fill=theme.INK_MEDIUM, anchor="la", features=date_feats)
+        x = theme.MARGIN_X + font.getlength(date_text + mid, features=date_feats)
+        draw.text((x, y), clock, font=font, fill=theme.INK_MEDIUM, anchor="la",
+                  features=time_feats)
         return
-    draw.text((theme.MARGIN_X, theme.MARGIN_TOP), text, font=font,
+    draw.text((theme.MARGIN_X, theme.MARGIN_TOP),
+              f"{date_text} {theme.CORNER_SEP} {clock}", font=font,
               fill=theme.INK_MEDIUM, anchor="la")
+
+
+def first_recorded_line(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
+                        text: str = "first recorded today", book: FontBook = FONTS) -> None:
+    """The fallback plate's "first recorded ..." voice — italic small caps with
+    old-style figures — for a real plate's line under the scientific name.
+    Same helpers as render_fallback, one step smaller."""
+    size = theme.FIRST_LINE_SIZE
+    if HAS_RAQM:
+        font = book.get(size, italic=True, weight=theme.DATE_WEIGHT)
+        draw_ot_tracked(draw, center_x, baseline_y, text, font, theme.INK_MEDIUM,
+                        theme.FALLBACK_META_FEATURES, size * theme.FALLBACK_META_TRACKING)
+        return
+    draw_smallcaps(draw, center_x, baseline_y, text[:1].upper() + text[1:], book, size,
+                   theme.INK_MEDIUM, theme.META_TRACKING, weight_caps=500, weight_small=520)
 
 
 def _caption_block_faux(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,

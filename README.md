@@ -57,8 +57,13 @@ The kit ships pre-flashed with SenseCraft HMI — we replace that firmware.
 3. Battery: plug the LiPo into the JST connector. Charging happens over the
    XIAO's USB-C.
 4. Mount in the frame with the panel portrait. The three user buttons stay
-   reachable — one triggers an immediate refresh; holding one during boot
-   re-opens Wi-Fi setup (see below).
+   reachable: KEY0 checks for a new image now, KEY1 shows today's collage,
+   KEY2 shows a status page (hold it 3 s to re-open Wi-Fi setup — see below).
+5. Battery safety: use a protected 1S cell with a JST-PH lead, charge it over
+   USB-C where you can see it, and keep the cell away from the panel's
+   driver board. The firmware stops using Wi-Fi below 3.45 V and sleeps four
+   hours at a time until the cell is charged; the config page flags a low
+   battery before that.
 
 The firmware sets rotation so the image is portrait as it hangs; you don't wire
 anything for orientation.
@@ -118,11 +123,16 @@ combo 511 for the 10.3" ED103TC2). Battery calibration and button pins are in
 
 ### First boot — Wi-Fi
 
-On first boot (or after holding the reset button), the frame starts a Wi-Fi
-hotspot named **`Featherframe-Setup`**. Join it from your phone, pick your
-network, and enter the server URL from the install step
-(`http://<your-pi>.local:8080`). Credentials and URL are saved to NVS; you only
-do this once.
+On first boot, the frame starts a Wi-Fi hotspot named **`Featherframe-Setup`**.
+Join it from your phone, pick your network, and enter the server URL from the
+install step (`http://<your-pi>.local:8080` — include the `http://` and the
+port; `.local` names work). Credentials and URL are saved to NVS; you only do
+this once.
+
+To change them later: hold **KEY2 for 3 s** while the frame is running to
+re-open the hotspot with your settings kept, or hold **KEY2 while powering on**
+to wipe Wi-Fi and server settings and start over. The setup screen on the panel
+walks through the same three steps.
 
 ---
 
@@ -131,18 +141,25 @@ do this once.
 The page at `http://<your-pi>:8080/` is the whole UI:
 
 - **Live preview** — the current frame, exactly as the panel shows it.
-- **Mode** — *single* (most recent detection), *collage* (the day's top
-  species in a grid), or *auto* (single by day, a "day in review" collage
-  overnight).
-- **Confidence threshold** (default 0.7), **refresh debounce** (default 15 min —
-  the panel never repaints more often, and won't repaint for the same species
-  it's already showing), **wake interval**, **quiet hours** (default 22:00–06:00,
-  hold the image overnight).
-- **Rendering** — 16-level grayscale or the 1-bit fallback; blue-noise dither
-  (fast, Pi-friendly) or Stucki (slower, richer).
+- **Mode** — *single* (most recent detection) or *collage* (the day's top
+  species in a grid). Under *Quiet hours* you can also turn on a "day in
+  review" sheet that hangs overnight in either mode.
+- **Always show the most recent detection** (default on) repaints on every
+  qualifying detection. Turn it off to get the calmer behaviour: a **refresh
+  debounce** (default 15 min) between repaints and no repaint for a species
+  that is already showing.
+- **Confidence threshold** (default 0.7), **wake interval**, **quiet hours**
+  (default 22:00–06:00, hold the image overnight).
+- **Rendering** — blue-noise dither (fast, Pi-friendly) or Stucki (slower,
+  richer); **panel rotation** (90° or 270° — the panel is landscape-native,
+  so if the image hangs upside down, switch it).
 - **Species blocklist** — one name per line, common or scientific. Ban the house
   sparrows if you like.
-- **Status** — last detection, last device check-in, battery voltage.
+- **Detection source** — a local BirdNET-Pi database (default), a BirdNET-Go
+  server (its HTTP API), a BirdWeather station, or an Apprise webhook that
+  BirdNET-Pi pushes detections to. *Test connection* checks it from the page.
+- **Frame card** — last check-in, battery, Wi-Fi signal, firmware version, and
+  an "overdue" warning when the frame has missed two wake intervals.
 - **Test detection** — injects a fake Northern Cardinal so you can exercise the
   whole pipeline with no birds and no hardware.
 
@@ -185,8 +202,11 @@ Wi-Fi + HTTP per wake at ~90 mA; ~20 panel refreshes/day at ~0.5 mAh each):
 
 Quiet hours (no wakes overnight) push these further. The biggest lever is the
 wake interval — Wi-Fi assoc dominates each wake, so fewer wakes ≈ proportionally
-longer life. These are estimates; the config page shows the real battery voltage
-the firmware reports, so watch it on your unit and adjust.
+longer life. These are estimates for the deep-sleep build (`FF_NO_SLEEP 0` in
+`firmware/include/ff_config.h`). The always-awake development build
+(`FF_NO_SLEEP 1`, Wi-Fi up and polling every 15 s) lasts about 4–5 days on the
+same cell. The config page shows the real battery voltage the firmware reports,
+so watch it on your unit and adjust.
 
 Longest life: run *auto* mode with a 30–60 min interval and quiet hours on. Best
 freshness: 15 min. On USB power, none of this matters — set 15 min and forget it.
@@ -282,7 +302,13 @@ firmware/
 - **Frame never updates** — quiet hours, the debounce window, or "same species
   already showing" can all be intentional. Hit *Test detection* to force one.
 - **Device never checks in** — confirm it joined Wi-Fi (serial monitor) and that
-  the server URL it has matches the Pi. Hold a button during boot to redo setup.
+  the server URL it has matches the Pi. Hold KEY2 for 3 s to redo setup.
+- **Panel shows "Can't reach server" but the server is up** — the URL needs a
+  scheme and port (`http://host:8080`); the firmware now adds `http://` and
+  strips a trailing slash, but a wrong host still fails.
+- **Frame stopped updating and the page says "overdue"** — the battery is flat
+  or Wi-Fi is gone. A frame under 3.45 V deliberately stops waking to fetch;
+  charge it and it resumes on its own.
 - **Plates missing** — re-run `python scripts/fetch_plates.py`; the mirror is
   occasionally flaky and the script is idempotent.
 - **Slow renders on a Pi Zero** — use blue-noise dither (the default), not

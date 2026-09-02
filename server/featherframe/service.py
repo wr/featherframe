@@ -12,6 +12,9 @@ device, and the ingest cursor is persisted so we don't replay history.
 from __future__ import annotations
 
 import logging
+import math
+import os
+import re
 import socket
 import threading
 from dataclasses import asdict, dataclass
@@ -25,6 +28,7 @@ from .config import Config, load_config, save_config
 from .sources import Detection, make_source
 from .db import Database
 from .render import collage as collage_mod
+from .render import framebuffer
 from .render import pipeline
 from .render import statuspage
 from .render.compose import SingleSpec
@@ -37,16 +41,26 @@ log = logging.getLogger("featherframe.service")
 _CURRENT_FFF = "current.fff"
 _CURRENT_PNG = "current.png"
 
+# One new_since page. A FULL page means a backlog (the server was down a
+# while): the newest row of that page is hours stale, and paging through the
+# rest one tick at a time would show a parade of old birds. See _single_tick.
+_INGEST_PAGE = 500
 
-def review_date_for(now: datetime, quiet_start: str, quiet_end: str) -> ddate:
+
+def _as_time(v) -> dtime:
+    if isinstance(v, dtime):
+        return v
+    hh, mm = (int(x) for x in v.split(":"))
+    return dtime(hh, mm)
+
+
+def review_date_for(now: datetime, quiet_start, quiet_end) -> ddate:
     """The date a day-in-review covers: the day the quiet window started.
     With a midnight-wrapping window (the default 22:00-06:00), a tick after
-    00:00 still reviews yesterday."""
+    00:00 still reviews yesterday. The bounds are "HH:MM" strings or times."""
     try:
-        sh, sm = (int(x) for x in quiet_start.split(":"))
-        eh, em = (int(x) for x in quiet_end.split(":"))
-        start, end = dtime(sh, sm), dtime(eh, em)
-    except (ValueError, TypeError):
+        start, end = _as_time(quiet_start), _as_time(quiet_end)
+    except (ValueError, TypeError, AttributeError):
         return now.date()
     if start > end and now.time() < end:  # wrapped window, after midnight
         return now.date() - timedelta(days=1)
@@ -73,6 +87,71 @@ class DeviceStatus:
     refresh_count: Optional[int] = None    # §5 X-Refresh-Count
     panel: Optional[str] = None            # §6 X-Panel
     board: Optional[str] = None            # §6 X-Board
+
+
+# Plausible telemetry, (lo, hi). Values are device-reported over the LAN and
+# are persisted, then serialised to JSON for the config page: a NaN or an
+# absurd number must never reach the row — an old build let "nan" through and
+# every /api/status 500'd until the DB was hand-edited.
+_DEVICE_RANGES = {
+    "battery_voltage": (0.0, 6.0),
+    "battery_percent": (0, 100),
+    "wifi_rssi": (-120, 0),
+    "boot_count": (0, 2**31),
+    "refresh_count": (0, 2**31),
+}
+_DEVICE_STR_MAX = 120
+
+
+def _clean_device_fields(raw: Optional[dict]) -> dict:
+    """DeviceStatus kwargs from an untrusted dict (a request's headers or a
+    persisted row): known fields only, numbers finite and in range, strings
+    bounded. Anything else is dropped — reads as "not reported"."""
+    allowed = DeviceStatus.__dataclass_fields__
+    out: dict = {}
+    for k, v in (raw or {}).items():
+        if k not in allowed or v is None:
+            continue
+        if k in _DEVICE_RANGES:
+            lo, hi = _DEVICE_RANGES[k]
+            try:
+                f = float(v)
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(f) or not (lo <= f <= hi):
+                continue
+            out[k] = f if k == "battery_voltage" else int(f)
+        elif isinstance(v, str):
+            out[k] = v[:_DEVICE_STR_MAX] or None
+    return out
+
+
+# A resting 1S cell at this voltage is ~15%: the config page flags it so the
+# owner charges before the firmware's own low-battery hold kicks in (3.45 V).
+_BATTERY_LOW_V = 3.55
+# Below this the divider is reading an empty JST socket (USB-only unit), which
+# the firmware also ignores (FF_BATT_ABSENT_V): no pack, not a flat one.
+_BATTERY_ABSENT_V = 2.5
+
+
+def frame_title(meta: dict) -> Optional[str]:
+    """A display-ready name for what is on the glass. The stored label is a
+    log string ("day in review (5 species)", "6-species collage",
+    "Northern Cardinal (test)"); the page shows this instead."""
+    label = meta.get("label")
+    if not label:
+        return None
+    label = str(label)
+    m = re.match(r"^day in review \((\d+) species\)$", label)
+    if m:
+        return f"Day in review · {m.group(1)} species"
+    m = re.match(r"^(\d+)-species collage$", label)
+    if m:
+        return f"Collage · {m.group(1)} species"
+    m = re.match(r"^(.*) \(test\)$", label)
+    if m:
+        return f"{m.group(1)} (test)"
+    return label
 
 
 def _ago(then: datetime, now: datetime) -> str:
@@ -107,17 +186,21 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
     now = now or datetime.now()
     card = {"seen": False, "overdue": False,
             "expected_minutes": wake_interval_minutes, "last_seen": None,
-            "battery": None, "served": None, "wifi_rssi": None}
+            "last_checkin_iso": None, "battery": None, "battery_low": False,
+            "served": None, "wifi_rssi": None}
     try:
         then = datetime.fromisoformat(device.last_checkin or "")
-    except ValueError:
+    except (ValueError, TypeError):
         return card
     card["seen"] = True
     card["last_seen"] = _ago(then, now)
+    card["last_checkin_iso"] = then.isoformat(timespec="seconds")
     card["overdue"] = (now - then).total_seconds() > 2 * wake_interval_minutes * 60
-    if device.battery_voltage is not None:
+    if device.battery_voltage is not None and device.battery_voltage >= _BATTERY_ABSENT_V:
         pct = f" · {device.battery_percent}%" if device.battery_percent is not None else ""
         card["battery"] = f"{device.battery_voltage:.2f} V{pct}"
+        card["battery_low"] = ((device.battery_percent is not None and device.battery_percent <= 20)
+                               or device.battery_voltage <= _BATTERY_LOW_V)
     card["served"] = _served_words(device.last_result)
     card["wifi_rssi"] = device.wifi_rssi
     return card
@@ -162,10 +245,9 @@ class FeatherframeService:
 
         # Restore the last device check-in, filtering to known fields so a rollback
         # to a build with fewer DeviceStatus fields can't crash startup on an
-        # unexpected key.
-        _allowed = DeviceStatus.__dataclass_fields__
-        self.device = DeviceStatus(**{k: v for k, v in (self.db.get("device_status", {}) or {}).items()
-                                      if k in _allowed})
+        # unexpected key — and sanitising values, so a row poisoned by an older
+        # build (a NaN voltage) heals on start instead of 500ing /api/status.
+        self.device = DeviceStatus(**_clean_device_fields(self.db.get("device_status", {})))
 
     # -- lifecycle ---------------------------------------------------------
     def start(self) -> None:
@@ -302,10 +384,27 @@ class FeatherframeService:
                     self._render_single(latest, now, reason="cursor-reset")
                 return
 
-        new = self.source.new_since(cursor, self.config.confidence_threshold)
-        if new:
-            self._set_cursor(new[-1].rowid)
-        candidate = self._first_allowed(list(reversed(new)))  # newest allowed
+        new = self.source.new_since(cursor, self.config.confidence_threshold,
+                                    limit=_INGEST_PAGE)
+        if len(new) >= _INGEST_PAGE:
+            # Backlog: the page is full, so its newest row is not the newest
+            # bird. Show the actual latest detection and jump the cursor to
+            # the tail, instead of a stale bird now and another one per tick.
+            # The cursor moves only once a candidate is in hand: latest_many
+            # soft-fails to [] on a blip, and jumping first would swallow the
+            # whole backlog and render nothing.
+            latest = self.source.latest_many(self.config.confidence_threshold)
+            candidate = self._first_allowed(latest)
+            if candidate is not None:
+                self._set_cursor(max(self.source.max_rowid(), new[-1].rowid))
+            else:
+                # Can't see the tail right now: fall back to the page we have.
+                self._set_cursor(new[-1].rowid)
+                candidate = self._first_allowed(list(reversed(new)))
+        else:
+            if new:
+                self._set_cursor(new[-1].rowid)
+            candidate = self._first_allowed(list(reversed(new)))  # newest allowed
         if candidate is None:
             return
 
@@ -332,18 +431,28 @@ class FeatherframeService:
     def _maybe_daytime_collage(self, now: datetime) -> None:
         interval = 24 * 3600 / max(1, self.config.collage_rebuilds_per_day)
         last = self._meta.get("collage_at")
-        if last and (now - datetime.fromisoformat(last)).total_seconds() < interval \
+        try:
+            last_at = datetime.fromisoformat(last) if last else None
+        except (ValueError, TypeError):
+            last_at = None  # an unreadable stamp must not kill every tick
+        if last_at and (now - last_at).total_seconds() < interval \
                 and self._meta.get("mode") == "collage":
             return
         self._build_collage(now, ddate.today())
+
+    def _review_date(self, now: datetime) -> ddate:
+        """The day tonight's review covers, per the ACTIVE quiet window — in
+        "sun" mode that is sunset->sunrise, not the custom start/end fields
+        (which may be left at a non-wrapping daytime window)."""
+        start, end = self.config.quiet_window(now.date())
+        return review_date_for(now, start, end)
 
     def _maybe_quiet_collage(self, now: datetime) -> None:
         # The review covers the day the quiet window STARTED: after midnight
         # (default quiet hours wrap it) tonight's review is yesterday's day.
         # Keying by now.date() would clobber the held sheet at 00:00, buy a
         # pre-dawn sheet of two owls, and skip the real review every evening.
-        review = review_date_for(now, self.config.quiet_hours_start,
-                                 self.config.quiet_hours_end)
+        review = self._review_date(now)
         stamp = review.isoformat()
         if self.db.get("quiet_collage_for") == stamp:
             return  # already rendered this window's review
@@ -369,8 +478,7 @@ class FeatherframeService:
         """The config-page button: render today's day-in-review now. Reuses
         today's cached sheet unless repaint buys a fresh one."""
         now = datetime.now()
-        review = review_date_for(now, self.config.quiet_hours_start,
-                                 self.config.quiet_hours_end)
+        review = self._review_date(now)
         return self._build_collage(now, review, title="Sightings",
                                    generated_ok=True, force_generated=repaint)
 
@@ -381,9 +489,13 @@ class FeatherframeService:
         rows = self.source.top_species_today(on_date, self.config.confidence_threshold, limit=6)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         if len(rows) < 2:
-            # Not enough for a grid: fall back to single for the day.
+            # Not enough for a grid: fall back to single for the day. This
+            # runs on every tick while the day has one species, so skip the
+            # render when that bird is already on the glass — otherwise it is
+            # a full-panel render every 20 s all day (and all night in quiet
+            # hours), and last_render_at churn breaks the debounce.
             latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
-            if latest:
+            if latest and not self._showing_single(latest):
                 self._render_single(latest, now, reason="collage-fallback")
             return False
         cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
@@ -558,9 +670,7 @@ class FeatherframeService:
             # Preserve what is showing: a day-in-review re-renders as one
             # (reusing the cached sheet for free), a grid as a grid.
             is_review = str(meta.get("label") or "").startswith("day in review")
-            on_date = (review_date_for(now, self.config.quiet_hours_start,
-                                       self.config.quiet_hours_end)
-                       if is_review else ddate.today())
+            on_date = self._review_date(now) if is_review else ddate.today()
             self._build_collage(now, on_date,
                                 title="Sightings" if is_review
                                 else "A Day in the Garden",
@@ -677,6 +787,16 @@ class FeatherframeService:
         png = paths.frames_dir() / _CURRENT_PNG
         return png.read_bytes() if png.exists() else None
 
+    def current_etag(self) -> Optional[str]:
+        with self._lock:
+            return self._etag
+
+    def current_info(self) -> dict:
+        """etag/rendered_at of the resident frame without the source probes
+        that status() makes."""
+        with self._lock:
+            return {"etag": self._etag, "rendered_at": self._meta.get("rendered_at")}
+
     def status(self) -> dict:
         with self._lock:
             meta = dict(self._meta)
@@ -686,6 +806,7 @@ class FeatherframeService:
                 "etag": self._etag,
                 "mode": meta.get("mode"),
                 "label": meta.get("label"),
+                "title": frame_title(meta),
                 "rendered_at": meta.get("rendered_at"),
             },
             "last_detection": {
@@ -729,7 +850,11 @@ class FeatherframeService:
                 else self._meta.get("collage_at"),
             }
             frames = paths.frames_dir()
-            (frames / _CURRENT_FFF).write_bytes(result.frame)
+            # Write-then-rename: a power cut mid-write must leave the previous
+            # complete frame on disk, never a torn one.
+            tmp = frames / (_CURRENT_FFF + ".tmp")
+            tmp.write_bytes(result.frame)
+            os.replace(tmp, frames / _CURRENT_FFF)
             result.preview.save(frames / _CURRENT_PNG)
             self.db.set("current_frame", self._meta)
             self.db.set("last_render_at", now.isoformat())
@@ -738,8 +863,20 @@ class FeatherframeService:
     def _load_current_from_disk(self) -> None:
         fff = paths.frames_dir() / _CURRENT_FFF
         if fff.exists() and self._meta.get("etag"):
-            self._frame_bytes = fff.read_bytes()
-            self._etag = self._meta.get("etag")
+            data = fff.read_bytes()
+            if not framebuffer.is_complete(data):
+                # Torn or foreign file: serving it would hand the device a
+                # container it rejects on every wake. Leave _frame_bytes None
+                # so _ensure_initial_frame renders a fresh one.
+                log.warning("%s is not a complete frame (%d bytes); re-rendering",
+                            fff.name, len(data))
+                return
+            self._frame_bytes = data
+            # The ETag is a content hash; derive it from the bytes actually on
+            # disk rather than trusting the meta row (a crash between the two
+            # writes in _commit would otherwise serve a tag for other pixels).
+            self._etag = framebuffer.etag_for(self._frame_bytes)
+            self._meta["etag"] = self._etag
 
     def _ensure_initial_frame(self) -> None:
         if self._frame_bytes is not None:
@@ -750,16 +887,17 @@ class FeatherframeService:
                         extra=None) -> None:
         # `extra` carries the optional device-reported fields (fw_version, last_wake,
         # counters, panel/board) parsed from headers; unknown/missing keys default to
-        # None on DeviceStatus, so old firmware simply leaves them unset.
-        allowed = DeviceStatus.__dataclass_fields__
-        fields = {k: v for k, v in (extra or {}).items()
-                  if v is not None and k in allowed}
+        # None on DeviceStatus, so old firmware simply leaves them unset. Every
+        # value is re-validated here (finite, in range, bounded) — this row is
+        # persisted and rendered, and the headers come off the LAN.
+        fields = _clean_device_fields({
+            **(extra or {}),
+            "last_checkin": datetime.now().isoformat(timespec="seconds"),
+            "battery_voltage": volt, "battery_percent": pct, "wifi_rssi": rssi,
+            "last_result": served, "etag_served": etag, "user_agent": ua or None,
+            "ip": ip or None})
         with self._lock:
-            self.device = DeviceStatus(
-                last_checkin=datetime.now().isoformat(timespec="seconds"),
-                battery_voltage=volt, battery_percent=pct, wifi_rssi=rssi,
-                last_result=served, etag_served=etag, user_agent=ua[:120] if ua else None,
-                ip=ip or None, **fields)
+            self.device = DeviceStatus(**fields)
             self.db.set("device_status", asdict(self.device))
 
     def _cursor(self) -> Optional[int]:
@@ -777,6 +915,12 @@ class FeatherframeService:
         except ValueError:
             return False
         return elapsed < self.config.refresh_debounce_minutes * 60
+
+    def _showing_single(self, det: Detection) -> bool:
+        """True if the resident frame is already a single plate of this species."""
+        return (self._frame_bytes is not None
+                and self._meta.get("mode") == "single"
+                and self._meta.get("species_key") == det.key)
 
     def _first_allowed(self, detections: list[Detection]) -> Optional[Detection]:
         for d in detections:

@@ -179,6 +179,11 @@ class BirdWeatherSource(DetectionSource):
 
     def top_species_today(self, on_date=None, min_confidence: float = 0.0,
                           limit: int = 6) -> list[dict]:
+        # period=day is TODAY. The station API has no cheap per-date tally, so
+        # a request for another day is "can't answer" ([]) — never today's
+        # birds under yesterday's date on the sheet.
+        if on_date is not None and on_date != datetime.now().date():
+            return []
         payload = self._get(f"/stations/{self.station_id}/species",
                             {"period": "day", "sort": "top", "order": "desc", "limit": limit})
         rows = payload if isinstance(payload, list) else (

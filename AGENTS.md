@@ -65,9 +65,11 @@ packed framebuffer + ETag → firmware GET /api/frame (If-None-Match) → panel`
 **`service.py` is the hub.** `FeatherframeService` holds the *single current
 frame* (bytes + ETag), persisted to `data/frames/current.fff` so a restart never
 blanks the device. A background thread runs `tick()` on the poll interval;
-`tick()` is the whole decision tree — quiet hours, mode (single/collage/auto),
-confidence, debounce, same-species skip, blocklist — and renders *at most one*
-frame per decision. Every web handler just reads the current frame. The default
+`tick()` is the whole decision tree — quiet hours (+ optional day-in-review
+sheet), mode (single/collage; "auto" was removed and migrates to single),
+confidence, debounce and same-species skip (only when `single_show_latest` is
+False — the default is True), blocklist — and renders *at most one* frame per
+decision. Every web handler just reads the current frame. The default
 path is to do nothing (priority: few panel refreshes).
 
 **Ingest (`birdnet.py`) is strictly read-only.** Opens `?mode=ro`, never writes
@@ -107,9 +109,10 @@ and is masked in `status()` and the UI. `plate.py` does the content-aware crop
   packed pixels: 4bpp = 2px/byte, **high nibble = left pixel, 0=black 15=white**
   (identical to Seeed's sprite). The server emits **native landscape 1872×1404**
   because the panel's `setRotation()` is a no-op — rotation happens in
-  `pipeline._finish` via `config.panel_rotation`, while the PNG preview stays
-  upright portrait. `framebuffer.py` and `firmware/src/main.cpp displayFrame()`
-  must agree.
+  `pipeline._finish` via `config.panel_rotation` (90 or 270 only — the
+  firmware's `displayFrame()` rejects anything that isn't native 1872×1404),
+  while the PNG preview stays upright portrait. `framebuffer.py` and
+  `firmware/src/main.cpp displayFrame()` must agree.
 - **Config** is one flat `Config` dataclass (`config.py`), persisted as a JSON
   blob in our own SQLite (`db.py`, a kv store, separate from BirdNET's DB).
 - **Dithering:** blue-noise is the default (vectorized, Pi-friendly); Stucki is a
@@ -125,7 +128,11 @@ and is masked in `status()` and the UI. `plate.py` does the content-aware crop
 button) → `GET /api/frame` with stored ETag → 304 sleeps, else `pushImage` +
 `update()` (full refresh) → deep sleep (timer + button ext1 wake). Uses Seeed's
 `Seeed_GFX` via `TFT_eSPI.h`; `begin(1)` is the fast re-init after a sleep wake.
-Panel/board selection is `lib/driver/driver.h` (combo 511). Three on-hardware
-unknowns to confirm on bring-up: `panel_rotation` direction (set on the config
-page, no reflash), `VBAT_SCALE` calibration, and the EE03 button/ADC pins (the
-SHT40 may share I2C) — all noted in `include/ff_config.h`.
+Panel/board selection is `lib/driver/driver.h` (combo 511). `VBAT_SCALE` is
+calibrated (6.698) and the button pins are known (KEY0=2, KEY1=3, KEY2=5,
+active-low); the remaining on-hardware unknown is whether ext1 button wake
+works from deep sleep at all — the keys read only while the panel's T-CON is
+awake (see `PIN_PANEL_PWR` in `include/ff_config.h`). `FF_NO_SLEEP 1` (always
+awake, 15 s polling) is what is flashed today; `0` is the battery model and
+the less-tested branch of `setup()`. Low battery (< 3.45 V) skips Wi-Fi and
+sleeps 4 h at a time; OTA is refused under 3.70 V and a bad image rolls back.

@@ -28,8 +28,12 @@
 // Hold KEY2 during boot to clear WiFi/server settings and re-open the portal.
 #define PIN_PORTAL_RESET PIN_KEY2
 
-// Panel/board power-enable rail (Seeed_GFX TFT_ENABLE). Also powers the button
-// pull-up rail, so it must be HIGH for presses to register while awake.
+// Panel/board power-enable rail (Seeed_GFX TFT_ENABLE). Seeed_GFX drives it
+// HIGH in init and never lowers it; what kills the buttons after a refresh is
+// update() putting the IT8951 to SLEEP (the key pull-ups hang off the T-CON
+// side), so presses only register while the panel side is powered and awake.
+// Consequence for the deep-sleep model: ext1 button wake is UNVERIFIED on this
+// board — with the T-CON asleep the keys may be electrically invisible.
 #define PIN_PANEL_PWR   43
 
 // --- Battery sense ---
@@ -40,6 +44,25 @@
 // (Was Seeed's uncalibrated 7.16, which overread by ~7%.)
 #define VBAT_SCALE          6.698f
 
+// --- Low battery ---
+// Below FF_LOW_BATT_V (resting, read before the radio starts) the frame skips
+// Wi-Fi entirely and sleeps FF_LOW_BATT_SLEEP_MIN at a time: a Wi-Fi burst on
+// a nearly empty 1S cell sags the 3.3 V rail into the S3's brownout detector
+// and the board reboots in a loop until the pack's protection IC cuts it off.
+// Service resumes once the cell rests at FF_LOW_BATT_RESUME_V (hysteresis).
+// Readings under FF_BATT_ABSENT_V mean no pack is fitted and are ignored.
+#define FF_LOW_BATT_V          3.45f
+#define FF_LOW_BATT_RESUME_V   3.60f
+#define FF_BATT_ABSENT_V       2.50f
+#define FF_LOW_BATT_SLEEP_MIN  240
+// OTA is refused below this: a brownout mid-write leaves the spare slot half
+// written (harmless — the boot slot is untouched) but burns the download.
+#define FF_OTA_MIN_BATT_V      3.70f
+
+// Deep-sleep timer bounds: a 0 in NVS would arm a zero-length timer (wake storm).
+#define FF_MIN_SLEEP_MINUTES   1
+#define FF_MAX_SLEEP_MINUTES   720
+
 // --- Dev mode: stay awake instead of deep-sleeping between actions ---
 // Keeps Wi-Fi up and polls the buttons in loop(), so a press is instant and the
 // panel never re-inits. Set to 0 to restore the battery-saving deep-sleep model.
@@ -47,6 +70,8 @@
 
 // How often loop() re-fetches the frame (always-awake auto-refresh), in ms.
 #define FF_POLL_INTERVAL_MS  15000
+// Always-awake build: how often the poll loop also asks for hosted firmware.
+#define FF_OTA_CHECK_MS      (15UL * 60UL * 1000UL)
 
 // How long the "Up to date" pill stays on the glass before it clears (ms).
 #define TOAST_HOLD_MS  10000

@@ -26,6 +26,7 @@ log = logging.getLogger("featherframe.apprise")
 
 _STORE_KEY = "apprise_queue"
 _MAX_ITEMS = 1000   # retained window; oldest trimmed past this
+_NAME_MAX = 200     # a species name; anything longer is not one
 
 # BirdNET-Pi's $date/$time formats aren't guaranteed; normalize to the canonical
 # strings the rest of the app (and top_species_today's day match) expect.
@@ -51,6 +52,16 @@ def _norm_time(value: str, now: datetime) -> str:
     return now.strftime("%H:%M:%S")
 
 
+def _name(*candidates) -> str:
+    """The first candidate that is a non-blank string, trimmed and bounded.
+    A list or object under a name key is not a bird (str() of it would be
+    rendered as one) — it is skipped, never coerced."""
+    for v in candidates:
+        if isinstance(v, str) and v.strip():
+            return v.strip()[:_NAME_MAX]
+    return ""
+
+
 class AppriseSource(DetectionSource):
     name = "apprise"
 
@@ -63,7 +74,16 @@ class AppriseSource(DetectionSource):
             saved = db.get(_STORE_KEY, {}) or {}
             try:
                 self._counter = int(saved.get("counter") or 0)
-                self._items = [i for i in (saved.get("items") or []) if isinstance(i, dict)]
+                # Keep only items every reader can turn into a Detection: one
+                # malformed persisted item would otherwise raise out of
+                # new_since on every tick, forever.
+                for i in (saved.get("items") or []):
+                    if isinstance(i, dict):
+                        try:
+                            self._to_detection(i)
+                        except (KeyError, TypeError, ValueError):
+                            continue
+                        self._items.append(i)
             except (TypeError, ValueError):
                 self._counter, self._items = 0, []
 
@@ -71,10 +91,10 @@ class AppriseSource(DetectionSource):
     def ingest(self, payload: dict) -> Optional[Detection]:
         """Normalize one pushed detection, queue it, and return it — or None if
         the payload lacks a usable species (guards 'never a wrong bird')."""
-        common = str(payload.get("comname") or payload.get("common")
-                     or payload.get("commonName") or "").strip()
-        sci = str(payload.get("sciname") or payload.get("scientific")
-                  or payload.get("scientificName") or "").strip()
+        common = _name(payload.get("comname"), payload.get("common"),
+                       payload.get("commonName"))
+        sci = _name(payload.get("sciname"), payload.get("scientific"),
+                    payload.get("scientificName"))
         if not common and not sci:
             return None
         try:

@@ -1284,9 +1284,13 @@ class GeneratedArtProvider(ArtProvider):
                            scientific_name: str, force: bool = False) -> bool:
         with _GEN_LOCK:
             # Re-check under the lock: a caller that queued while another
-            # thread generated this species must not buy it a second time.
+            # thread generated this species must not buy it a second time —
+            # and one that queued while the other thread FAILED must honour
+            # the cooldown that failure set, not fire straight at a dead key.
             if not force and self._png(slug).exists():
                 return True
+            if not force and self._in_cooldown(slug):
+                return False
             description, is_bird, plants = self._describe(common_name, scientific_name)
             rng = random.Random()
             # A forced regenerate must not repeat the last sheet's draw.

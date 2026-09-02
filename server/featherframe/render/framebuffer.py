@@ -65,6 +65,19 @@ def etag_for(frame: bytes) -> str:
     return hashlib.sha1(frame).hexdigest()[:16]
 
 
+def is_complete(frame: bytes) -> bool:
+    """True if `frame` is a whole FFF container: a valid header whose body is
+    exactly as long as the header promises. A file torn by a crash mid-write
+    fails this and must never be served (the firmware would reject it on
+    every wake, and the device's own good image would be lost)."""
+    if len(frame) < HEADER_SIZE:
+        return False
+    magic, version, bpp, w, h, _flags = HEADER.unpack_from(frame, 0)
+    if magic != MAGIC or version != VERSION or bpp not in (1, 4) or not w or not h:
+        return False
+    return len(frame) - HEADER_SIZE == row_stride(w, bpp) * h
+
+
 def row_stride(width: int, bit_depth: int) -> int:
     if bit_depth == 4:
         return (width + 1) // 2

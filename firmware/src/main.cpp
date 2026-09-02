@@ -740,7 +740,11 @@ void showScreenFull(int idx) {
 void showSplash(const char*, int) { showScreen(FF_SCR_SPLASH); }
 
 // ---------------------------------------------------------------- fetch
-enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_NOFRAME, FETCH_ERROR };
+// FETCH_REJECTED: the server answered 200 but the container failed displayFrame's
+// checks (wrong size/version). It is an error for the glass and the backoff, but
+// the server IS reachable — so OTA still runs, because a format mismatch is
+// exactly the thing only a firmware update can fix.
+enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_NOFRAME, FETCH_ERROR, FETCH_REJECTED };
 
 // Fetch a frame. `path`: endpoint under the server URL. `resident`: true for
 // the normal current-bird frame (ETag conditional GET + store the new ETag);
@@ -817,7 +821,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
 
   bool painted = displayFrame(buf, len, true);   // retain: the toast band restores from it
   free(buf);
-  if (!painted) return FETCH_ERROR;          // rejected container: keep the ETag unset so we retry
+  if (!painted) return FETCH_REJECTED;       // rejected container: keep the ETag unset so we retry
 
   if (resident) {
     // Store the new ETag (strip quotes/W-prefix).
@@ -851,6 +855,12 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct)
 // it and updates the glass. Transient button views don't count — they are user
 // actions, not frame health. Callers keep g_failMinutes current beforehand.
 void noteFetchOutcome(FetchResult r) {
+  // Any answer from the server proves the build can boot, join Wi-Fi and talk
+  // HTTP: that is the rollback bar. ensureWifi() marks it too, but the
+  // always-awake build only calls ensureWifi once; a slow router on the first
+  // post-OTA boot would otherwise leave the image PENDING_VERIFY for its whole
+  // uptime and roll it back on the next hard reset.
+  if (r != FETCH_ERROR) markFirmwareGood();
   if (r == FETCH_UPDATED || r == FETCH_NOCHANGE) { noteSuccess(); return; }
   bumpFail();
   int kind = (WiFi.status() != WL_CONNECTED) ? ERRK_WIFI
@@ -986,6 +996,18 @@ void setup() {
     pinMode(p, INPUT_PULLUP);
   }
 
+  // Battery first, BEFORE the panel: the ADC needs only its own two pins, and
+  // a low-battery hold must not leave the IT8951 awake (begin() wakes it and
+  // only update() puts it back to sleep) through a four-hour deep sleep. This
+  // also samples the cell at rest, not under the panel-init load. The cost:
+  // a power-on KEY2 hold on a flat cell is not honoured until it is charged.
+  float vbat = readBatteryVoltage();
+  int pct = batteryPercent(vbat);
+  Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);
+  // Even the always-awake build sleeps on an empty cell — the alternative is
+  // a brownout loop. It comes back on its own once the pack is charged.
+  if (lowBatteryHold(vbat)) { goToSleep(FF_LOW_BATT_SLEEP_MIN); return; }
+
 #if FF_NO_SLEEP
   // --- Always-awake dev model: splash now, then Wi-Fi, then poll buttons in loop().
   epaper.begin(0);                          // full init once; the panel stays warm
@@ -995,13 +1017,6 @@ void setup() {
   // Read it here, right after begin(): the splash's update() puts the T-CON
   // to sleep, and the keys don't register while it is (see PIN_PANEL_PWR).
   bool forcePortal = (digitalRead(PIN_PORTAL_RESET) == LOW);
-
-  float vbat = readBatteryVoltage();
-  int pct = batteryPercent(vbat);
-  Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);
-  // Even the always-awake build sleeps on an empty cell — the alternative is
-  // a brownout loop. It comes back on its own once the pack is charged.
-  if (lowBatteryHold(vbat)) { goToSleep(FF_LOW_BATT_SLEEP_MIN); return; }
   showSplash(buttonWake ? "button wake" : "booting", pct);
 
   if (forcePortal) { Serial.println("portal reset requested"); wm.resetSettings(); }
@@ -1034,14 +1049,10 @@ void setup() {
   snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d keys=0x%llx", (int)cause,
            (unsigned long long)keyBits);
 
-  // Panel first: the keys only read while the panel side is powered and the
-  // T-CON awake (see PIN_PANEL_PWR), so the power-on hold and the 3 s KEY2
-  // hold below can't be sampled before begin().
+  // Panel next (battery was read above, before it): the keys only read while
+  // the panel side is powered and the T-CON awake (see PIN_PANEL_PWR), so the
+  // power-on hold and the 3 s KEY2 hold below can't be sampled before begin().
   epaper.begin(fromDeepSleep ? 1 : 0);
-  float vbat = readBatteryVoltage();
-  int pct = batteryPercent(vbat);
-  Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);
-  if (lowBatteryHold(vbat)) { goToSleep(FF_LOW_BATT_SLEEP_MIN); return; }
 
   bool forcePortal = (!buttonWake && digitalRead(PIN_PORTAL_RESET) == LOW);
   if (keyStatus) {
@@ -1083,7 +1094,7 @@ void setup() {
     r = fetchAndRender(FRAME_PATH, true, vbat, pct);
     if (keyCheck && r == FETCH_NOCHANGE) showToast(FF_TOAST_UP_TO_DATE);
   }
-  if (buttonWake && (r == FETCH_ERROR || r == FETCH_NOFRAME)) ackBlink(4);
+  if (buttonWake && (r == FETCH_ERROR || r == FETCH_REJECTED || r == FETCH_NOFRAME)) ackBlink(4);
   if (residentFetch) {
     noteFetchOutcome(r);
     if (r != FETCH_UPDATED && r != FETCH_NOCHANGE) {
@@ -1105,6 +1116,7 @@ void setup() {
 // fetch clears the resident ETag, so without the hold the very next poll
 // would repaint the bird over the collage the user just asked for.
 static uint32_t g_lastPoll = 0;
+static uint32_t g_lastOta = 0;    // last hosted-firmware check from the poll loop
 static uint32_t g_viewHoldUntil = 0;
 
 // Run a button's action: an instant pill for feedback, then fetch + paint. A new
@@ -1205,6 +1217,12 @@ void loop() {
     uint32_t mins = (millis() - g_lastSuccessMs) / 60000UL;
     g_failMinutes = mins > 65535 ? 65535 : (uint16_t)mins;
     noteFetchOutcome(r);
+    // The boot-time OTA check is skipped when the server is unreachable; the
+    // always-awake build never reboots on its own, so re-check from here.
+    if (r != FETCH_ERROR && millis() - g_lastOta >= FF_OTA_CHECK_MS) {
+      g_lastOta = millis();
+      maybeOTA(vb);
+    }
   }
 
   // The buttons' pull-up rail is powered by the panel's enable line (GPIO43). The

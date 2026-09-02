@@ -154,40 +154,46 @@ async def api_firmware(request: Request):
     bin_path = paths.data_dir() / "firmware.bin"
     if not bin_path.exists():
         return Response(status_code=404, content=b"no firmware hosted")
-    blob, md5 = _hosted_firmware(bin_path)
-    if blob is None:
+    md5 = _hosted_firmware_md5(bin_path)
+    if md5 is None:
         return Response(status_code=404, content=b"no firmware hosted")
     if request.headers.get("x-firmware-md5", "").lower() == md5:
         return Response(status_code=304)
     log.info("serving firmware.bin (%d bytes, md5=%s) to %s",
-             len(blob), md5, request.headers.get("user-agent", "?"))
-    return Response(content=blob, media_type="application/octet-stream",
-                    headers={"X-MD5": md5, "Cache-Control": "no-store"})
+             bin_path.stat().st_size, md5, request.headers.get("user-agent", "?"))
+    return FileResponse(bin_path, media_type="application/octet-stream",
+                        headers={"X-MD5": md5, "Cache-Control": "no-store"})
 
 
-_FW_CACHE: dict = {}   # (mtime_ns, size) -> (bytes, md5)
+_FW_CACHE: dict = {}   # (mtime_ns, size) -> md5
 
 
-def _hosted_firmware(bin_path):
-    """The hosted image and its digest, re-read only when the file changes:
-    the device asks on every wake and hashing 1.5 MB each time on a Pi Zero
-    is wasteful. A file with a valid ESP image header only (0xE9 magic), so
-    a stray file dropped in data/ is not pushed to the frame."""
+def _hosted_firmware_md5(bin_path) -> Optional[str]:
+    """Digest of the hosted image, recomputed only when the file changes: the
+    device asks on every wake and hashing 1.5 MB each time on a Pi Zero is
+    wasteful (the bytes themselves are streamed from disk, never pinned in
+    memory). Only a file with a valid ESP image header (0xE9 magic) is
+    hosted, so a stray file dropped in data/ is not pushed to the frame."""
     try:
         st = bin_path.stat()
     except OSError:
-        return None, None
+        return None
     key = (st.st_mtime_ns, st.st_size)
-    hit = _FW_CACHE.get(key)
-    if hit is None:
-        blob = bin_path.read_bytes()
-        if not blob or blob[0] != 0xE9:
-            log.warning("data/firmware.bin is not an ESP image (bad magic); not hosting it")
-            return None, None
-        hit = (blob, hashlib.md5(blob).hexdigest())
+    md5 = _FW_CACHE.get(key)
+    if md5 is None:
+        h = hashlib.md5()
+        with open(bin_path, "rb") as fh:
+            first = fh.read(1)
+            if first != b"\xe9":
+                log.warning("data/firmware.bin is not an ESP image (bad magic); not hosting it")
+                return None
+            h.update(first)
+            for chunk in iter(lambda: fh.read(64 * 1024), b""):
+                h.update(chunk)
+        md5 = h.hexdigest()
         _FW_CACHE.clear()
-        _FW_CACHE[key] = hit
-    return hit
+        _FW_CACHE[key] = md5
+    return md5
 
 
 # -- config page -----------------------------------------------------------
@@ -394,10 +400,9 @@ async def api_refresh(request: Request):
     # including the device's own frame fetch.
     before = svc.current_etag()
     await run_in_threadpool(svc.refresh_now)
-    st = await run_in_threadpool(svc.status)
-    etag = st.get("current", {}).get("etag")
-    return JSONResponse({"ok": True, "etag": etag, "changed": etag != before,
-                         "rendered_at": st.get("current", {}).get("rendered_at")})
+    cur = svc.current_info()
+    return JSONResponse({"ok": True, "etag": cur["etag"], "changed": cur["etag"] != before,
+                         "rendered_at": cur["rendered_at"]})
 
 
 # -- push ingest (BirdNET-Pi via Apprise) ----------------------------------
@@ -431,17 +436,24 @@ async def ingest_apprise(request: Request, token: str = ""):
         return _forbidden_cross_origin()
     svc = _svc(request)
     expected = getattr(svc.config, "apprise_token", "")
-    if expected and not hmac.compare_digest(token, expected):
+    # compare_digest refuses non-ASCII str; compare bytes so an accented
+    # secret is a 403 on mismatch, never a 500 on every push.
+    if expected and not hmac.compare_digest(token.encode("utf-8"), expected.encode("utf-8")):
         return JSONResponse({"error": "bad token"}, status_code=403)
     ingest = getattr(svc.source, "ingest", None)
     if not callable(ingest):
         return JSONResponse({"error": "detection source is not Apprise"}, status_code=409)
     # A detection is a few hundred bytes; don't buffer an arbitrary body into
     # a Pi Zero's memory (the queue is persisted, so bloat would be too).
-    if _to_int(request.headers.get("content-length"), 0) > _MAX_INGEST_BYTES:
-        return JSONResponse({"error": "body too large"}, status_code=413)
+    # Enforced on the stream, not the header: a chunked request carries no
+    # Content-Length and would otherwise be buffered whole.
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > _MAX_INGEST_BYTES:
+            return JSONResponse({"error": "body too large"}, status_code=413)
     try:
-        payload = await request.json()
+        payload = json.loads(bytes(body).decode("utf-8")) if body else {}
     except (ValueError, UnicodeDecodeError):
         payload = {}
     det = await run_in_threadpool(ingest, _apprise_detection(payload))

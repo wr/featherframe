@@ -70,6 +70,8 @@
 
 // How often loop() re-fetches the frame (always-awake auto-refresh), in ms.
 #define FF_POLL_INTERVAL_MS  15000
+// Always-awake build: how often the poll loop also asks for hosted firmware.
+#define FF_OTA_CHECK_MS      (15UL * 60UL * 1000UL)
 
 // How long the "Up to date" pill stays on the glass before it clears (ms).
 #define TOAST_HOLD_MS  10000

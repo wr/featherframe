@@ -348,3 +348,82 @@ def test_queued_generation_respects_cooldown_set_while_waiting(tmp_path):
     p._failed_at[slug] = __import__("time").time()
     assert p._generate_to_cache(slug, "House Sparrow", "Passer domesticus") is False
     assert model.calls == 0
+
+
+# -- second-pass review regressions -------------------------------------------
+def test_backlog_keeps_cursor_when_latest_many_blips(svc, monkeypatch):
+    # The tail jump must not happen before a candidate is in hand: latest_many
+    # soft-fails to [] on a blip, and jumping first would swallow the backlog
+    # and render nothing. Fall back to the page we already have.
+    page = [_det(i, "Old Bird", f"old bird {i}") for i in range(1, 501)]
+    tail = _det(900, "Newest Bird", "newest bird")
+    src = _PagedSource(page, tail, page_limit=500)
+    src.latest_many = lambda min_confidence=0.0, limit=25: []
+    svc.source = src
+    svc._frame_bytes = b"resident"
+    svc._set_cursor(0)
+    svc._cursor_verified = True
+
+    rendered = []
+    monkeypatch.setattr(svc, "_render_single",
+                        lambda det, now, reason: rendered.append(det.common_name))
+    svc._single_tick(datetime(2026, 9, 1, 8, 0, 0))
+
+    assert rendered == ["Old Bird"]          # something, not nothing
+    assert svc._cursor() == 500              # the page, not the unseen tail
+
+
+def test_torn_current_fff_is_not_served(tmp_path, monkeypatch):
+    # A crash mid-write leaves a truncated frame; loading it under a fresh
+    # ETag would hand the device a container it rejects on every wake.
+    from featherframe import paths
+    from featherframe.db import Database
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    db = Database()
+    db.set("current_frame", {"etag": "deadbeefcafef00d", "mode": "single", "label": "x"})
+    (paths.frames_dir() / "current.fff").write_bytes(b"FFF1" + b"\x00" * 200)
+    service = FeatherframeService(db)
+    assert service._frame_bytes is None
+    assert service.current_etag() is None
+
+
+def test_commit_writes_frame_atomically(svc, tmp_path):
+    from featherframe import paths
+    from featherframe.render.framebuffer import is_complete
+    svc.force_test_detection("Northern Cardinal", "Cardinalis cardinalis")
+    data = (paths.frames_dir() / "current.fff").read_bytes()
+    assert is_complete(data)
+    assert not (paths.frames_dir() / "current.fff.tmp").exists()
+
+
+def test_non_ascii_apprise_token_is_403_not_500(client, svc):
+    from featherframe.sources.apprise_push import AppriseSource
+    svc.config.apprise_token = "pájaro"
+    svc.source = AppriseSource(svc.db)
+    bad = client.post("/api/ingest/apprise/p%C3%A1jara", json={"comname": "Blue Jay"})
+    assert bad.status_code == 403
+    good = client.post("/api/ingest/apprise/p%C3%A1jaro",
+                       json={"comname": "Blue Jay", "sciname": "Cyanocitta cristata"})
+    assert good.status_code == 200
+
+
+def test_chunked_ingest_body_is_capped(client, svc):
+    from featherframe.sources.apprise_push import AppriseSource
+    svc.config.apprise_token = ""
+    svc.source = AppriseSource(svc.db)
+
+    def chunks():
+        for _ in range(80):
+            yield b"x" * 1024
+    r = client.post("/api/ingest/apprise", content=chunks(),
+                    headers={"Content-Type": "application/json"})
+    assert r.status_code == 413
+
+
+def test_usb_only_unit_is_not_flagged_low_battery(client, svc):
+    # An empty JST socket reads ~0 V; that is "no pack", not a flat one.
+    client.get("/api/frame", headers={"X-Battery-Voltage": "0.031", "X-Battery-Percent": "0"})
+    card = client.get("/api/status").json()["frame_card"]
+    assert card["battery"] is None
+    assert card["battery_low"] is False

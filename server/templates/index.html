@@ -465,7 +465,7 @@
             <span class="pill-status"><span class="d {{ 'good' if status.birdnet_available else 'bad' }}" id="fc-src-dot"></span><span id="fc-src-text">{{ 'Connected' if status.birdnet_available else 'Not reachable' }}</span></span>
           </dd>
           <dt>Last heard</dt><dd id="fc-heard">{{ status.last_detection.common if status.last_detection else '—' }}</dd>
-          <dt>Now showing</dt><dd id="fc-showing">{{ status.current.label or '—' }}</dd>
+          <dt>Now showing</dt><dd id="fc-showing">{{ status.current.title or status.current.label or '—' }}</dd>
           <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
           <dt>Plates on file</dt><dd class="tnum" id="fc-plates">{{ status.plates_loaded }} Audubon · {{ status.generated_cached }} generated</dd>
         </dl>
@@ -604,7 +604,7 @@
           <div class="field" data-src="birdnet_go" {{ '' if config.detection_backend=='birdnet_go' else 'hidden' }}>
             <label class="lab" for="f-go-url">BirdNET-Go URL</label>
             <div class="data-row">
-              <input type="url" id="f-go-url" name="birdnet_go_url" value="{{ config.birdnet_go_url }}" placeholder="http://birdnet-go.local:8080" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
+              <input type="text" inputmode="url" id="f-go-url" name="birdnet_go_url" value="{{ config.birdnet_go_url }}" placeholder="http://birdnet-go.local:8080" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
               <button class="btn src-test" type="button">Test connection</button>
             </div>
           </div>
@@ -698,7 +698,7 @@
           </div>
           <div class="field" data-provider="a1111" {{ '' if config.imagegen_provider=='a1111' else 'hidden' }}>
             <label class="lab" for="f-a1111">Endpoint URL</label>
-            <input type="url" id="f-a1111" name="imagegen_base_url" value="{{ config.imagegen_base_url }}" placeholder="http://localhost:7860" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
+            <input type="text" inputmode="url" id="f-a1111" name="imagegen_base_url" value="{{ config.imagegen_base_url }}" placeholder="http://localhost:7860" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
             <div class="hint">Your AUTOMATIC1111 / ComfyUI server's <code>/sdapi</code> base URL.</div>
           </div>
           <div class="field">
@@ -751,7 +751,7 @@
               </div>
               <div class="field" data-textprov="local" {{ '' if config.imagegen_text_provider=='local' else 'hidden' }}>
                 <label class="lab" for="f-text-url">Local endpoint URL</label>
-                <input type="url" id="f-text-url" name="imagegen_text_base_url" value="{{ config.imagegen_text_base_url }}" placeholder="http://localhost:11434" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
+                <input type="text" inputmode="url" id="f-text-url" name="imagegen_text_base_url" value="{{ config.imagegen_text_base_url }}" placeholder="http://localhost:11434" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
                 <div class="hint">An OpenAI-compatible <code>/v1/chat/completions</code> server (Ollama, LM Studio, llama.cpp).</div>
               </div>
               <div class="field">
@@ -873,8 +873,7 @@
     flash.classList.remove('show', 'ok', 'bad', 'warn'); flashKind = null;
     flash.querySelector('.test-msg').textContent = '';
   }
-  // The save round-trip reports back through the URL (/?saved=1&adjusted=…
-  // or /?error=…); sessionStorage is the fallback when the server is older.
+  // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
   var FIELD_NAMES = { confidence_threshold: 'Confidence threshold', refresh_debounce_minutes: 'Refresh debounce',
     wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval',
     collage_rebuilds_per_day: 'Collage rebuilds per day', mat_inset_pct: 'Mat inset',
@@ -891,11 +890,6 @@
     if (q.has('saved') || q.has('error') || q.has('adjusted')) {
       try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* fine */ }
     }
-    try {
-      var pending = sessionStorage.getItem('ff-saved');
-      if (pending) sessionStorage.removeItem('ff-saved');
-      if (pending && !shown) showFlash('ok', 'Settings saved.', 'ic-check');
-    } catch (e) { /* storage may be unavailable; the save still happened */ }
   })();
 
   // -- live preview -----------------------------------------------------------
@@ -986,7 +980,7 @@
     setDot('fc-src-dot', st.birdnet_available ? 'good' : 'bad');
     setText('fc-src-text', st.birdnet_available ? 'Connected' : 'Not reachable');
     setText('fc-heard', (st.last_detection && st.last_detection.common) || '—');
-    setText('fc-showing', cur.label || '—');
+    setText('fc-showing', cur.title || cur.label || '—');
     setText('fc-species', st.species_all_time + ' all-time');
     setText('fc-plates', st.plates_loaded + ' Audubon · ' + st.generated_cached + ' generated');
   }
@@ -1017,7 +1011,6 @@
     form.addEventListener('change', markDirty);
     form.addEventListener('submit', function () {
       saving = true;
-      try { sessionStorage.setItem('ff-saved', '1'); } catch (e) { /* no storage: no banner */ }
       if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
     });
     // A field the browser rejects (min/max/step) may sit inside a closed
@@ -1267,7 +1260,7 @@
         setState(el, slug, { regenerating: true });
         jsonFetch(regenForm.action, { method: 'POST', body: new FormData(regenForm) })
           .then(function (out) {
-            if (!out.ok) throw new Error('this plate is no longer cached');
+            if (!out.ok) throw new Error(out.error || 'this plate is no longer cached');
             startPolling();
           })
           .catch(function (err) { setState(el, slug, { regen_error: 'could not start (' + errText(err) + ')' }); });
@@ -1286,7 +1279,7 @@
         var status = item && item.querySelector('.regen-status');
         jsonFetch(delForm.action, { method: 'POST', body: new FormData(delForm) })
           .then(function (out) {
-            if (!out.ok) throw new Error('the plate was not found');
+            if (!out.ok) throw new Error(out.error || 'the plate was not found');
             if (item) item.remove();
             var card = $('gen-card');
             if (card && !card.querySelector('.gen-item')) card.remove();

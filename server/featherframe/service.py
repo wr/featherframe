@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import re
 import socket
 import threading
@@ -128,6 +129,9 @@ def _clean_device_fields(raw: Optional[dict]) -> dict:
 # A resting 1S cell at this voltage is ~15%: the config page flags it so the
 # owner charges before the firmware's own low-battery hold kicks in (3.45 V).
 _BATTERY_LOW_V = 3.55
+# Below this the divider is reading an empty JST socket (USB-only unit), which
+# the firmware also ignores (FF_BATT_ABSENT_V): no pack, not a flat one.
+_BATTERY_ABSENT_V = 2.5
 
 
 def frame_title(meta: dict) -> Optional[str]:
@@ -192,7 +196,7 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
     card["last_seen"] = _ago(then, now)
     card["last_checkin_iso"] = then.isoformat(timespec="seconds")
     card["overdue"] = (now - then).total_seconds() > 2 * wake_interval_minutes * 60
-    if device.battery_voltage is not None:
+    if device.battery_voltage is not None and device.battery_voltage >= _BATTERY_ABSENT_V:
         pct = f" · {device.battery_percent}%" if device.battery_percent is not None else ""
         card["battery"] = f"{device.battery_voltage:.2f} V{pct}"
         card["battery_low"] = ((device.battery_percent is not None and device.battery_percent <= 20)
@@ -384,12 +388,19 @@ class FeatherframeService:
                                     limit=_INGEST_PAGE)
         if len(new) >= _INGEST_PAGE:
             # Backlog: the page is full, so its newest row is not the newest
-            # bird. Jump the cursor to the tail and show the actual latest
-            # detection, instead of a stale bird now and another one per tick.
-            tail = self.source.max_rowid()
-            self._set_cursor(max(tail, new[-1].rowid))
-            candidate = self._first_allowed(
-                self.source.latest_many(self.config.confidence_threshold))
+            # bird. Show the actual latest detection and jump the cursor to
+            # the tail, instead of a stale bird now and another one per tick.
+            # The cursor moves only once a candidate is in hand: latest_many
+            # soft-fails to [] on a blip, and jumping first would swallow the
+            # whole backlog and render nothing.
+            latest = self.source.latest_many(self.config.confidence_threshold)
+            candidate = self._first_allowed(latest)
+            if candidate is not None:
+                self._set_cursor(max(self.source.max_rowid(), new[-1].rowid))
+            else:
+                # Can't see the tail right now: fall back to the page we have.
+                self._set_cursor(new[-1].rowid)
+                candidate = self._first_allowed(list(reversed(new)))
         else:
             if new:
                 self._set_cursor(new[-1].rowid)
@@ -780,6 +791,12 @@ class FeatherframeService:
         with self._lock:
             return self._etag
 
+    def current_info(self) -> dict:
+        """etag/rendered_at of the resident frame without the source probes
+        that status() makes."""
+        with self._lock:
+            return {"etag": self._etag, "rendered_at": self._meta.get("rendered_at")}
+
     def status(self) -> dict:
         with self._lock:
             meta = dict(self._meta)
@@ -833,7 +850,11 @@ class FeatherframeService:
                 else self._meta.get("collage_at"),
             }
             frames = paths.frames_dir()
-            (frames / _CURRENT_FFF).write_bytes(result.frame)
+            # Write-then-rename: a power cut mid-write must leave the previous
+            # complete frame on disk, never a torn one.
+            tmp = frames / (_CURRENT_FFF + ".tmp")
+            tmp.write_bytes(result.frame)
+            os.replace(tmp, frames / _CURRENT_FFF)
             result.preview.save(frames / _CURRENT_PNG)
             self.db.set("current_frame", self._meta)
             self.db.set("last_render_at", now.isoformat())
@@ -842,7 +863,15 @@ class FeatherframeService:
     def _load_current_from_disk(self) -> None:
         fff = paths.frames_dir() / _CURRENT_FFF
         if fff.exists() and self._meta.get("etag"):
-            self._frame_bytes = fff.read_bytes()
+            data = fff.read_bytes()
+            if not framebuffer.is_complete(data):
+                # Torn or foreign file: serving it would hand the device a
+                # container it rejects on every wake. Leave _frame_bytes None
+                # so _ensure_initial_frame renders a fresh one.
+                log.warning("%s is not a complete frame (%d bytes); re-rendering",
+                            fff.name, len(data))
+                return
+            self._frame_bytes = data
             # The ETag is a content hash; derive it from the bytes actually on
             # disk rather than trusting the meta row (a crash between the two
             # writes in _commit would otherwise serve a tag for other pixels).

@@ -58,6 +58,11 @@ _QUIET_MAX_SPAN = timedelta(days=30)
 # rest one tick at a time would show a parade of old birds. See _single_tick.
 _INGEST_PAGE = 500
 
+# New-species corroboration looks for a second hit among this many recent
+# detections. A day of a busy feeder is a few hundred rows; the scan is one
+# query and only runs for a first-seen-today species below the confidence bar.
+_CORROBORATE_SCAN = 200
+
 
 def _as_time(v) -> dtime:
     if isinstance(v, dtime):
@@ -281,6 +286,11 @@ class FeatherframeService:
         # Gone-quiet alarm, computed once per tick (status() is polled, and
         # the walk plus a source query is not free). None = no alarm.
         self._quiet: Optional[dict] = None
+        # A first-seen-today species held back for a second detection (see
+        # _corroborated). Persisted so a restart doesn't forget the bird the
+        # page says it is waiting on; kept OFF the frame meta because it is
+        # not what the glass shows. None = nothing waiting.
+        self._pending: Optional[dict] = self.db.get("pending_species", None) or None
         # With no detection on record at all, the alarm clock starts here —
         # the earliest moment we can vouch for silence.
         self._started_at = datetime.now()
@@ -470,13 +480,15 @@ class FeatherframeService:
 
     # -- single mode -------------------------------------------------------
     def _single_tick(self, now: datetime) -> None:
+        self._expire_pending(now)
         cursor = self._cursor()
         if cursor is None:
             # First run: start at the tail so we don't replay history, but show
             # the most recent existing detection once.
             self._set_cursor(self.source.max_rowid())
             if self._frame_bytes is None:
-                latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
+                latest = self._first_showable(
+                    self.source.latest_many(self.config.confidence_threshold), now)
                 if latest:
                     self._render_single(latest, now, reason="startup")
             return
@@ -495,32 +507,37 @@ class FeatherframeService:
             max_rowid = self.source.max_rowid()
             if max_rowid > 0 and cursor > max_rowid:
                 self._set_cursor(max_rowid)
-                latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
+                latest = self._first_showable(
+                    self.source.latest_many(self.config.confidence_threshold), now)
                 if latest:
                     self._render_single(latest, now, reason="cursor-reset")
                 return
 
+        # The cursor always advances past the page, corroborated or not: a
+        # held-back bird gets its second chance because its second detection
+        # is a NEW row that arrives later and, corroborated by the first via
+        # latest_many, passes the gate then.
         new = self.source.new_since(cursor, self.config.confidence_threshold,
                                     limit=_INGEST_PAGE)
         if len(new) >= _INGEST_PAGE:
             # Backlog: the page is full, so its newest row is not the newest
             # bird. Show the actual latest detection and jump the cursor to
             # the tail, instead of a stale bird now and another one per tick.
-            # The cursor moves only once a candidate is in hand: latest_many
+            # The cursor moves only once the tail is in hand: latest_many
             # soft-fails to [] on a blip, and jumping first would swallow the
             # whole backlog and render nothing.
             latest = self.source.latest_many(self.config.confidence_threshold)
-            candidate = self._first_allowed(latest)
-            if candidate is not None:
+            if latest:
                 self._set_cursor(max(self.source.max_rowid(), new[-1].rowid))
+                candidate = self._first_showable(latest, now)
             else:
                 # Can't see the tail right now: fall back to the page we have.
                 self._set_cursor(new[-1].rowid)
-                candidate = self._first_allowed(list(reversed(new)))
+                candidate = self._first_showable(list(reversed(new)), now)
         else:
             if new:
                 self._set_cursor(new[-1].rowid)
-            candidate = self._first_allowed(list(reversed(new)))  # newest allowed
+            candidate = self._first_showable(list(reversed(new)), now)  # newest showable
         if candidate is None:
             return
 
@@ -543,6 +560,9 @@ class FeatherframeService:
         self._commit(result, now, mode="single", species_key=det.key,
                      label=det.common_name, note=note)
         log.info("rendered single %s (%s), etag=%s", det.common_name, reason, result.etag)
+        # The bird the page said it was waiting on is now on the wall.
+        if self._pending and self._pending.get("key") == det.key:
+            self._set_pending(None)
 
     # -- collage mode ------------------------------------------------------
     def _maybe_daytime_collage(self, now: datetime) -> None:
@@ -605,13 +625,15 @@ class FeatherframeService:
                        force_generated: bool = False) -> bool:
         rows = self.source.top_species_today(on_date, self.config.confidence_threshold, limit=6)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
+        rows = self._corroborated_rows(rows, on_date)
         if len(rows) < 2:
             # Not enough for a grid: fall back to single for the day. This
             # runs on every tick while the day has one species, so skip the
             # render when that bird is already on the glass — otherwise it is
             # a full-panel render every 20 s all day (and all night in quiet
             # hours), and last_render_at churn breaks the debounce.
-            latest = self._first_allowed(self.source.latest_many(self.config.confidence_threshold))
+            latest = self._first_showable(
+                self.source.latest_many(self.config.confidence_threshold), now)
             if latest and not self._showing_single(latest):
                 self._render_single(latest, now, reason="collage-fallback")
             return False
@@ -767,7 +789,9 @@ class FeatherframeService:
                              scientific_name: str = "Cardinalis cardinalis") -> RenderResult:
         """Inject a fake detection and render it now (bypasses debounce). The
         default is the Cardinal; any species name exercises the full provider
-        chain, including AI generation for plate-less species."""
+        chain, including AI generation for plate-less species. It also bypasses
+        the new-species corroboration gate: this is a deliberate injection
+        from the config page, not a detector guess, so a plate may be bought."""
         now = datetime.now()
         det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"), time=now.strftime("%H:%M:%S"),
                         common_name=common_name, scientific_name=scientific_name,
@@ -831,8 +855,8 @@ class FeatherframeService:
             self._build_collage(now, ddate.today())
             return
         # single: commit the most recent qualifying detection now
-        latest = self._first_allowed(
-            self.source.latest_many(self.config.confidence_threshold))
+        latest = self._first_showable(
+            self.source.latest_many(self.config.confidence_threshold), now)
         if latest is not None:
             self._render_single(latest, now, reason="refresh")
         else:
@@ -967,6 +991,7 @@ class FeatherframeService:
                               if latest.timestamp != datetime.min else ""),
             } if latest else None,
             "quiet": quiet,
+            "pending": self.pending_view(now),
             "birdnet_available": self.source.available(),
             "species_all_time": self.source.all_time_species_count(),
             "plates_loaded": self.audubon.species_count,
@@ -1096,11 +1121,142 @@ class FeatherframeService:
                 and self._meta.get("mode") == "single"
                 and self._meta.get("species_key") == det.key)
 
-    def _first_allowed(self, detections: list[Detection]) -> Optional[Detection]:
-        for d in detections:
-            if not self.config.is_blocked(d.common_name, d.scientific_name):
-                return d
-        return None
-
     def _first_seen(self, scientific_name: str) -> Optional[str]:
         return self.source.first_seen_date(scientific_name)
+
+    # -- new-species corroboration ------------------------------------------
+    # One 0.71 hit of a rare species is routinely a car horn. Unchecked it
+    # becomes the wall at once and, for a plate-less species, buys a generated
+    # plate of a bird that was never there (GeneratedArtProvider.artwork()
+    # generates from inside the render, so NOT rendering is what prevents the
+    # purchase). A species heard for the first time today must earn the wall.
+
+    def _first_showable(self, detections: list[Detection],
+                        now: datetime) -> Optional[Detection]:
+        """Newest-first: the first detection that is neither blocked nor held
+        back for corroboration. The first held-back one becomes the pending
+        record the page shows — even when an older, corroborated bird renders
+        this tick, the new one is still waiting on its second hit."""
+        pending: Optional[dict] = None
+        chosen: Optional[Detection] = None
+        for d in detections:
+            if self.config.is_blocked(d.common_name, d.scientific_name):
+                continue
+            ok, record = self._corroborated(d, now)
+            if ok:
+                chosen = d
+                break
+            if pending is None:
+                pending = record
+        if pending is not None:
+            self._set_pending(pending)
+        return chosen
+
+    def _is_new_species(self, scientific_name: str, on_date: ddate) -> bool:
+        """A species is "new" when the source first heard it on `on_date` —
+        or can't say (a push feed has no history), which is treated as new
+        because an unknown history is exactly when a stray hit can't be
+        checked against anything else."""
+        first = self.source.first_seen_date(scientific_name)
+        return first is None or str(first) == on_date.isoformat()
+
+    def _corroborated(self, det: Detection, now: datetime) -> tuple[bool, Optional[dict]]:
+        """(True, None) when `det` may be shown; (False, pending) when it is a
+        new species still waiting on a second detection. A new species passes
+        alone at/above corroborate_confidence, or with two detections inside
+        the window at least the minimum gap apart — a genuine bird calls again;
+        a car horn's two triggers land seconds apart."""
+        cfg = self.config
+        if not cfg.corroborate_new_species:
+            return True, None
+        if not self._is_new_species(det.scientific_name, now.date()):
+            return True, None
+        if det.confidence >= cfg.corroborate_confidence:
+            return True, None
+        window = timedelta(hours=cfg.corroborate_window_hours)
+        recent = self.source.latest_many(min_confidence=cfg.confidence_threshold,
+                                         limit=_CORROBORATE_SCAN)
+        # The candidate itself counts once (latest_many may not include it —
+        # a page fed from new_since, or a source whose tail lags).
+        hits = {d.rowid: d for d in recent if d.key == det.key}
+        hits.setdefault(det.rowid, det)
+        stamps = [d.timestamp for d in hits.values()
+                  if d.timestamp != datetime.min and d.timestamp >= now - window]
+        best = max(d.confidence for d in hits.values())
+        if best >= cfg.corroborate_confidence:
+            return True, None   # a confident hit in the window vouches for the rest
+        if len(stamps) >= 2 and (max(stamps) - min(stamps)) >= timedelta(
+                minutes=cfg.corroborate_min_gap_minutes):
+            return True, None
+        first_at = min(stamps) if stamps else (det.timestamp if det.timestamp != datetime.min else now)
+        last_at = max(stamps) if stamps else first_at
+        return False, {
+            "key": det.key, "common": det.common_name, "scientific": det.scientific_name,
+            "hits": max(1, len(stamps)), "confidence": round(best, 3),
+            "first_at": first_at.isoformat(timespec="seconds"),
+            "last_at": last_at.isoformat(timespec="seconds"),
+        }
+
+    def _corroborated_rows(self, rows: list[dict], on_date: ddate) -> list[dict]:
+        """Collage gate: drop a species heard once on `on_date`, first heard
+        that day, whose best detection never reached corroborate_confidence.
+        One latest_many scan per build, not per row. force_test_detection is
+        not a row here, so it is unaffected."""
+        cfg = self.config
+        if not cfg.corroborate_new_species:
+            return rows
+        suspects = [r for r in rows
+                    if int(r.get("count") or 0) == 1
+                    and self._is_new_species(r["scientific"], on_date)]
+        if not suspects:
+            return rows
+        recent = self.source.latest_many(min_confidence=cfg.confidence_threshold,
+                                         limit=_CORROBORATE_SCAN)
+        best: dict[str, float] = {}
+        for d in recent:
+            best[d.key] = max(best.get(d.key, 0.0), d.confidence)
+        keep = []
+        for r in rows:
+            key = str(r["scientific"]).strip().lower()
+            if any(r is s for s in suspects) and best.get(key, 0.0) < cfg.corroborate_confidence:
+                log.info("collage: holding back new species %s (1 hit, best %.2f)",
+                         r["common"], best.get(key, 0.0))
+                continue
+            keep.append(r)
+        return keep
+
+    def _set_pending(self, record: Optional[dict]) -> None:
+        with self._lock:
+            self._pending = record
+            self.db.set("pending_species", record)
+
+    def _expire_pending(self, now: datetime) -> None:
+        """Forget a held-back bird once its window has closed without a second
+        hit: the page should not keep waiting on yesterday's car horn."""
+        if self._pending and self.pending_view(now) is None:
+            self._set_pending(None)
+
+    def pending_view(self, now: Optional[datetime] = None) -> Optional[dict]:
+        """The pending record for status(), with a ready-to-print line, or
+        None when nothing is waiting (or the wait has expired)."""
+        with self._lock:
+            p = dict(self._pending) if self._pending else None
+        if not p:
+            return None
+        now = now or datetime.now()
+        try:
+            last_at = datetime.fromisoformat(str(p.get("last_at") or p.get("first_at")))
+        except (TypeError, ValueError):
+            return None
+        if now - last_at > timedelta(hours=self.config.corroborate_window_hours):
+            return None
+        hits = int(p.get("hits") or 1)
+        conf = float(p.get("confidence") or 0.0)
+        if hits <= 1:
+            waiting = f"1 hit at {conf:.2f} · waiting for a second"
+        else:
+            waiting = (f"{hits} hits at {conf:.2f} · waiting for one "
+                       f"{self.config.corroborate_min_gap_minutes} min apart")
+        return {"common": p.get("common"), "scientific": p.get("scientific"),
+                "hits": hits, "confidence": conf, "first_at": p.get("first_at"),
+                "waiting_text": waiting}

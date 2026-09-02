@@ -103,6 +103,19 @@ class Config:
     # Common or scientific names, matched case-insensitively.
     species_blocklist: list[str] = field(default_factory=list)
 
+    # New-species corroboration -------------------------------------------
+    # BirdNET at 0.7 routinely produces single-shot false positives of rare
+    # species (a car horn as a Bald Eagle). Unchecked, one such hit becomes
+    # the wall — and, for a species with no plate, BUYS a generated plate of
+    # a bird that was never there. A species heard for the first time today
+    # must therefore earn the wall: one detection at/above
+    # corroborate_confidence, or two detections inside the window at least
+    # the minimum gap apart. Known species are unaffected.
+    corroborate_new_species: bool = True
+    corroborate_confidence: float = 0.85     # 0..1; this alone is enough
+    corroborate_window_hours: int = 24       # 1..168; look-back for the second hit
+    corroborate_min_gap_minutes: int = 10    # 0..720; the two hits must be this far apart
+
     # Ingest ---------------------------------------------------------------
     # Where detections come from:
     #   "birdnet_go"  — poll BirdNET-Go's REST API
@@ -190,6 +203,10 @@ class Config:
         self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
         self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 5, 300))
         self.quiet_alarm_hours = int(_clamp(_finite(self.quiet_alarm_hours, 6), 0, 168))
+        self.corroborate_new_species = bool(self.corroborate_new_species)
+        self.corroborate_confidence = _clamp(_finite(self.corroborate_confidence, 0.85), 0.0, 1.0)
+        self.corroborate_window_hours = int(_clamp(_finite(self.corroborate_window_hours, 24), 1, 168))
+        self.corroborate_min_gap_minutes = int(_clamp(_finite(self.corroborate_min_gap_minutes, 10), 0, 720))
         # The raw SQLite reader is now "custom"; migrate the legacy id.
         if self.detection_backend == "birdnet_pi":
             self.detection_backend = "custom"

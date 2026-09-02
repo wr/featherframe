@@ -476,6 +476,10 @@
           </dd>
           {% set ld = status.last_detection %}
           <dt>Last heard</dt><dd id="fc-heard"{% if ld %} title="{{ ld.at }}"{% endif %}>{{ (ld.common ~ (' · ' ~ ld.when_text if ld.when_text else '')) if ld else '—' }}</dd>
+          {# A first-seen-today species held back for a second detection
+             (W-691). Both halves of the row hide when nothing is waiting. #}
+          {% set pend = status.pending %}
+          <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }}{% if pend %} title="{{ pend.first_at }}"{% endif %}>{{ (pend.common ~ ' · ' ~ pend.waiting_text) if pend else '' }}</dd>
           <dt>Now showing</dt><dd id="fc-showing">{{ status.current.title or status.current.label or '—' }}</dd>
           <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
           <dt>Plates on file</dt><dd class="tnum" id="fc-plates">{{ status.plates_loaded }} Audubon · {{ status.generated_cached }} generated</dd>
@@ -555,6 +559,19 @@
               <div class="row2">
                 <div><label class="lab" for="f-conf">Confidence threshold</label><input type="number" id="f-conf" name="confidence_threshold" min="0" max="1" step="0.01" inputmode="decimal" value="{{ config.confidence_threshold }}"><div class="hint">0 to 1. Minimum detection confidence to show a bird.</div></div>
                 <div><label class="lab" for="f-deb">Refresh debounce (minutes)</label><input type="number" id="f-deb" name="refresh_debounce_minutes" min="1" max="720" step="1" inputmode="numeric" value="{{ config.refresh_debounce_minutes }}"><div class="hint">Only applies when “Always show the most recent detection” is off.</div></div>
+              </div>
+              <p class="adv-group">New species</p>
+              <div class="field torow" style="margin:0;">
+                <label class="switch"><input type="checkbox" role="switch" id="cns" name="corroborate_new_species" aria-describedby="cns-sub" {{ 'checked' if config.corroborate_new_species else '' }}><span class="track"></span></label>
+                <div class="totext">
+                  <label class="tolabel" for="cns">Ask for a second detection before showing a new species</label>
+                  <span class="tosub" id="cns-sub">A species heard for the first time today must be heard twice (or once, confidently) before it is shown — or painted. One stray hit of a rare bird is usually a car horn.</span>
+                </div>
+              </div>
+              <div class="row2" id="cns-fields" {{ '' if config.corroborate_new_species else 'hidden' }}>
+                <div><label class="lab" for="f-cconf">Confident enough alone</label><input type="number" id="f-cconf" name="corroborate_confidence" min="0" max="1" step="0.01" inputmode="decimal" value="{{ config.corroborate_confidence }}"><div class="hint">A single detection at or above this confidence is enough.</div></div>
+                <div><label class="lab" for="f-cwin">Window (hours)</label><input type="number" id="f-cwin" name="corroborate_window_hours" min="1" max="168" step="1" inputmode="numeric" value="{{ config.corroborate_window_hours }}"><div class="hint">Look back this many hours for the second detection.</div></div>
+                <div><label class="lab" for="f-cgap">Minimum gap (minutes)</label><input type="number" id="f-cgap" name="corroborate_min_gap_minutes" min="0" max="720" step="1" inputmode="numeric" value="{{ config.corroborate_min_gap_minutes }}"><div class="hint">The two detections must be at least this far apart.</div></div>
               </div>
               <p class="adv-group">Rendering</p>
               {# The panel's colour capability comes from what the device reports (X-Panel);
@@ -915,7 +932,9 @@
   var FIELD_NAMES = { confidence_threshold: 'Confidence threshold', refresh_debounce_minutes: 'Refresh debounce',
     wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval', quiet_alarm_hours: 'Gone-quiet alarm',
     collage_rebuilds_per_day: 'Collage rebuilds per day', mat_inset_pct: 'Mat inset',
-    mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation' };
+    mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation',
+    corroborate_confidence: 'New species: confident enough alone', corroborate_window_hours: 'New species: window',
+    corroborate_min_gap_minutes: 'New species: minimum gap' };
   (function () {
     var q = new URLSearchParams(location.search), shown = false;
     if (q.get('error')) { showFlash('bad', q.get('error'), 'ic-warn'); shown = true; }
@@ -1027,6 +1046,14 @@
       banner.classList.toggle('show', !!q);
       setText('quiet-text', q ? 'Nothing heard since ' + q.since_text + ' (' + q.hours_text + '). Is the detector running?' : '');
     }
+    // Pending: a new species held back for a second detection. Text only —
+    // the row is server-rendered and merely kept current here.
+    var pend = st.pending, pendEl = $('fc-pending');
+    if (pendEl) {
+      setHidden('fc-pending-dt', !pend); setHidden('fc-pending', !pend);
+      pendEl.textContent = pend ? (pend.common + ' · ' + pend.waiting_text) : '';
+      pendEl.title = (pend && pend.first_at) || '';
+    }
     refreshHistory(cur.etag || '');
     setText('fc-showing', cur.title || cur.label || '—');
     setText('fc-species', st.species_all_time + ' all-time');
@@ -1125,6 +1152,12 @@
     }
     document.querySelectorAll('input[name="quiet_hours_mode"]').forEach(function (r) { r.addEventListener('change', syncQuiet); });
     syncQuiet();
+    // New-species corroboration: the three numbers only mean something while
+    // the toggle is on, so they follow it (same as the quiet-hours custom times).
+    var cnsToggle = $('cns'), cnsFields = $('cns-fields');
+    function syncCorroborate() { if (cnsFields) cnsFields.hidden = !(cnsToggle && cnsToggle.checked); }
+    if (cnsToggle) cnsToggle.addEventListener('change', syncCorroborate);
+    syncCorroborate();
     // The day-in-review preview should match the combine toggle: a
     // single combined AI plate when it's on, the grid collage when off.
     var cgToggle = $('cg');

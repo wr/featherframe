@@ -346,18 +346,31 @@ def time_corner_mark(draw: ImageDraw.ImageDraw, when: datetime,
 
 
 def first_recorded_line(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
-                        text: str = "first recorded today", book: FontBook = FONTS) -> None:
-    """The fallback plate's "first recorded ..." voice — italic small caps with
-    old-style figures — for a real plate's line under the scientific name.
-    Same helpers as render_fallback, one step smaller."""
+                        text: str = "First recorded today", book: FontBook = FONTS) -> None:
+    """The "first recorded ..." annotation under the scientific name: the
+    corner date's italic voice (old-style figures) in the full ink, a pair of
+    hederae either side in the medium ink. Centred on the text, not the run,
+    so it lines up with the caption whatever the ornaments' widths."""
     size = theme.FIRST_LINE_SIZE
-    if HAS_RAQM:
-        font = book.get(size, italic=True, weight=theme.DATE_WEIGHT)
-        draw_ot_tracked(draw, center_x, baseline_y, text, font, theme.INK_MEDIUM,
-                        theme.FALLBACK_META_FEATURES, size * theme.FALLBACK_META_TRACKING)
+    if not HAS_RAQM:
+        # Faux: upright small caps at the same weight, no ornaments (the
+        # hedera is an OpenType glyph we can't rely on shaping).
+        draw_smallcaps(draw, center_x, baseline_y, text, book, size - 6, theme.INK,
+                       theme.META_TRACKING, weight_caps=500, weight_small=520)
         return
-    draw_smallcaps(draw, center_x, baseline_y, text[:1].upper() + text[1:], book, size,
-                   theme.INK_MEDIUM, theme.META_TRACKING, weight_caps=500, weight_small=520)
+    font = book.get(size, italic=True, weight=theme.FIRST_LINE_WEIGHT)
+    feats = _feat(theme.FIRST_LINE_FEATURES)
+    width = font.getlength(text, features=feats)
+    draw.text((center_x, baseline_y), text, font=font, fill=theme.INK, anchor="ms",
+              features=feats)
+    left, right = theme.FIRST_LINE_ORNAMENTS
+    gap = size * theme.FIRST_LINE_ORNAMENT_GAP
+    if left:
+        draw.text((center_x - width / 2 - gap, baseline_y), left, font=font,
+                  fill=theme.INK_MEDIUM, anchor="rs")
+    if right:
+        draw.text((center_x + width / 2 + gap, baseline_y), right, font=font,
+                  fill=theme.INK_MEDIUM, anchor="ls")
 
 
 def _caption_block_faux(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,

@@ -245,6 +245,7 @@ async def save_settings(request: Request):
         confidence_threshold=f("confidence_threshold", cur["confidence_threshold"]),
         single_show_latest=b("single_show_latest"),
         refresh_debounce_minutes=i("refresh_debounce_minutes", cur["refresh_debounce_minutes"]),
+        dwell_minutes=i("dwell_minutes", cur["dwell_minutes"]),
         wake_interval_minutes=i("wake_interval_minutes", cur["wake_interval_minutes"]),
         quiet_hours_mode=s("quiet_hours_mode", cur["quiet_hours_mode"]),
         quiet_hours_start=t("quiet_hours_start", cur["quiet_hours_start"]),
@@ -313,7 +314,8 @@ async def save_settings(request: Request):
                             status_code=303)
 
 
-_NUMERIC_FORM_FIELDS = ("confidence_threshold", "refresh_debounce_minutes", "wake_interval_minutes",
+_NUMERIC_FORM_FIELDS = ("confidence_threshold", "refresh_debounce_minutes", "dwell_minutes",
+                        "wake_interval_minutes",
                         "poll_interval_seconds", "quiet_alarm_hours", "collage_rebuilds_per_day",
                         "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation",
                         "corroborate_confidence", "corroborate_window_hours",

@@ -132,6 +132,7 @@
     .field:last-child { margin-bottom:0; }
     label.lab { display:block; font-size:13px; font-weight:500; color:var(--ink-2); margin-bottom:8px; }
     .hint { font-size:12.5px; color:var(--muted); margin-top:8px; line-height:1.5; }
+    .hint-inline { color:var(--muted); }
     .intro { font-size:13px; color:var(--muted); margin:-4px 0 16px; line-height:1.5; max-width:62ch; }
 
     input[type=text], input[type=url], input[type=number], input[type=password], input[type=time], textarea, select.sel {
@@ -480,7 +481,9 @@
              (W-691). Both halves of the row hide when nothing is waiting. #}
           {% set pend = status.pending %}
           <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }}{% if pend %} title="{{ pend.first_at }}"{% endif %}>{{ (pend.common ~ ' · ' ~ pend.waiting_text) if pend else '' }}</dd>
-          <dt>Now showing</dt><dd id="fc-showing">{{ status.current.title or status.current.label or '—' }}</dd>
+          {# "· holding 40 min" while a new bird keeps the frame against repeats (dwell_minutes). #}
+          {% set hold = status.current.holding %}
+          <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="hint-inline" id="fc-holding">{{ (' · holding ' ~ hold.minutes_left ~ ' min') if hold else '' }}</span></dd>
           <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
           <dt>Plates on file</dt><dd class="tnum" id="fc-plates">{{ status.plates_loaded }} Audubon · {{ status.generated_cached }} generated</dd>
         </dl>
@@ -559,6 +562,9 @@
               <div class="row2">
                 <div><label class="lab" for="f-conf">Confidence threshold</label><input type="number" id="f-conf" name="confidence_threshold" min="0" max="1" step="0.01" inputmode="decimal" value="{{ config.confidence_threshold }}"><div class="hint">0 to 1. Minimum detection confidence to show a bird.</div></div>
                 <div><label class="lab" for="f-deb">Refresh debounce (minutes)</label><input type="number" id="f-deb" name="refresh_debounce_minutes" min="1" max="720" step="1" inputmode="numeric" value="{{ config.refresh_debounce_minutes }}"><div class="hint">Only applies when “Always show the most recent detection” is off.</div></div>
+              </div>
+              <div class="row2">
+                <div><label class="lab" for="f-dwell">Hold a new bird for (minutes)</label><input type="number" id="f-dwell" name="dwell_minutes" min="0" max="720" step="1" inputmode="numeric" value="{{ config.dwell_minutes }}"><div class="hint">A first-ever or first-today species keeps the frame this long against repeats of common birds. Another new bird can still take over. 0 turns it off.</div></div>
               </div>
               <p class="adv-group">New species</p>
               <div class="field torow" style="margin:0;">
@@ -930,6 +936,7 @@
   }
   // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
   var FIELD_NAMES = { confidence_threshold: 'Confidence threshold', refresh_debounce_minutes: 'Refresh debounce',
+    dwell_minutes: 'Hold a new bird',
     wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval', quiet_alarm_hours: 'Gone-quiet alarm',
     collage_rebuilds_per_day: 'Collage rebuilds per day', mat_inset_pct: 'Mat inset',
     mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation',
@@ -1056,6 +1063,7 @@
     }
     refreshHistory(cur.etag || '');
     setText('fc-showing', cur.title || cur.label || '—');
+    setText('fc-holding', cur.holding ? ' \u00b7 holding ' + cur.holding.minutes_left + ' min' : '');
     setText('fc-species', st.species_all_time + ' all-time');
     setText('fc-plates', st.plates_loaded + ' Audubon · ' + st.generated_cached + ' generated');
   }

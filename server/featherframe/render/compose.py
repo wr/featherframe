@@ -24,6 +24,11 @@ class SingleSpec:
     when: Optional[datetime] = None
     plate_number: Optional[int] = None   # all-time species ordinal -> "No. NN"
     first_seen: Optional[str] = None      # 'YYYY-MM-DD', for the fallback plate
+    # A species never heard before today. The service sets it from the
+    # novelty class (not derived from first_seen here, because a source that
+    # can't give a first-seen date still knows the class); the real plate
+    # then carries "first recorded today" under the scientific name.
+    first_ever: bool = False
     # One italic footnote in the bottom margin ("Nothing heard since 11:27 pm").
     # Set only by the gone-quiet alarm; None draws nothing.
     note: Optional[str] = None
@@ -62,14 +67,22 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     field = _new_field()
     draw = ImageDraw.Draw(field)
 
+    # A first-ever plate's extra line grows the block upward, so the caption's
+    # own rhythm is untouched and the footnote below keeps its clearance.
     caption_top = theme.HEIGHT - theme.CAPTION_BLOCK_H
+    if spec.first_ever:
+        caption_top -= theme.FIRST_LINE_EXTRA
     art_box = (theme.MARGIN_X, theme.MARGIN_TOP,
                theme.WIDTH - theme.MARGIN_X, caption_top - theme.CAPTION_GAP)
     # Composites read better filling the frame; single subjects sit slightly high.
     _place_art(field, art.image, art_box, v_align=0.5 if art.composite else 0.44)
 
-    typography.caption_block(draw, theme.WIDTH / 2, caption_top,
-                             spec.common_name, spec.scientific_name)
+    sci_baseline = typography.caption_block(draw, theme.WIDTH / 2, caption_top,
+                                            spec.common_name, spec.scientific_name)
+    if spec.first_ever:
+        typography.first_recorded_line(
+            draw, theme.WIDTH / 2,
+            sci_baseline + round(theme.FIRST_LINE_SIZE * theme.FIRST_LINE_DROP))
     if spec.when:
         typography.time_corner_mark(draw, spec.when)
 

@@ -79,6 +79,11 @@ class Config:
     # refresh_debounce_minutes and same-species suppression instead.
     single_show_latest: bool = True
     refresh_debounce_minutes: int = 15  # applies when single_show_latest is False
+    # Dwell: a first-ever or first-today species keeps the frame this long
+    # against repeats of common birds (another new bird can still take over,
+    # and the held bird may re-render). Without it a first-ever bird lost the
+    # glass to the next cardinal within minutes. 0 disables.
+    dwell_minutes: int = 90
     wake_interval_minutes: int = 15  # advisory: how often the device wakes
 
     # Quiet hours ----------------------------------------------------------
@@ -200,6 +205,7 @@ class Config:
         # is False) — and can't be serialised for the status JSON. Refuse it.
         self.confidence_threshold = _clamp(_finite(self.confidence_threshold, 0.7), 0.0, 1.0)
         self.refresh_debounce_minutes = int(_clamp(self.refresh_debounce_minutes, 1, 720))
+        self.dwell_minutes = int(_clamp(_finite(self.dwell_minutes, 90), 0, 720))
         self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
         self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 5, 300))
         self.quiet_alarm_hours = int(_clamp(_finite(self.quiet_alarm_hours, 6), 0, 168))

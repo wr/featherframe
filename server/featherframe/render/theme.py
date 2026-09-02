@@ -80,6 +80,7 @@ DATE_WEIGHT = 500
 DATE_TRACKING = 0.09
 DATE_FEATURES = ("onum", "liga", "kern")           # "17 May 2026"
 TIME_FEATURES = ("smcp", "onum", "liga", "kern")   # "8:14 am" -> small-cap AM
+CORNER_SEP = "·"           # between date and time in the corner mark ("1 Sep · 8:14 am")
 DATE_ORNAMENT = "❧"   # ❧ hedera leaf between date and time
 DATE_ORNAMENT_GAP = 1.15   # gap on each side of the hedera, fraction of size
 
@@ -91,6 +92,14 @@ CAPTION_SCI_DROP = 0.80    # title baseline -> sci baseline, fraction of title s
 # caps voice.
 FALLBACK_META_FEATURES = ("smcp", "onum", "ordn", "liga", "kern")
 FALLBACK_META_TRACKING = 0.14
+
+# "First recorded today" under the scientific name of a first-ever species on
+# a REAL plate: the fallback's small-caps voice, a step smaller than its line.
+# The caption block grows by FIRST_LINE_EXTRA so the line sits in the block's
+# own rhythm and never meets the gone-quiet footnote below it.
+FIRST_LINE_SIZE = 28
+FIRST_LINE_DROP = 1.7          # sci baseline -> first-recorded baseline, fraction of size
+FIRST_LINE_EXTRA = 52          # caption block height added for the line
 
 # Hairline rule under the scientific name
 RULE_WIDTH = 200

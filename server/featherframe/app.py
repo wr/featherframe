@@ -263,6 +263,7 @@ async def save_settings(request: Request):
         apprise_token=s("apprise_token", cur["apprise_token"]),
         poll_interval_seconds=i("poll_interval_seconds", cur["poll_interval_seconds"]),
         quiet_alarm_hours=i("quiet_alarm_hours", cur["quiet_alarm_hours"]),
+        source_alarm_minutes=i("source_alarm_minutes", cur["source_alarm_minutes"]),
         gray_mode=s("gray_mode", cur["gray_mode"]),
         dither=s("dither", cur["dither"]),
         show_plate_number=b("show_plate_number"),
@@ -315,7 +316,8 @@ async def save_settings(request: Request):
 
 _NUMERIC_FORM_FIELDS = ("confidence_threshold", "refresh_debounce_minutes", "dwell_minutes",
                         "wake_interval_minutes",
-                        "poll_interval_seconds", "quiet_alarm_hours", "collage_rebuilds_per_day",
+                        "poll_interval_seconds", "quiet_alarm_hours", "source_alarm_minutes",
+                        "collage_rebuilds_per_day",
                         "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation",
                         "corroborate_confidence", "corroborate_window_hours",
                         "corroborate_min_gap_minutes")

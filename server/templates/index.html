@@ -559,6 +559,14 @@
       <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
       <span class="test-msg" id="quiet-text">{% if quiet %}Nothing heard since {{ quiet.since_text }} ({{ quiet.hours_text }}). Is the detector running?{% endif %}</span>
     </div>
+    {# Source outage (W-696): unreachable past source_alarm_minutes. The frame
+       carries the same fact as a footnote; the two alarms never show together. #}
+    {% set outage = status.source_outage %}
+    {% set srcname = _srcnames.get(config.detection_backend, 'The detector') %}
+    <div class="test-box bad quiet-banner{{ ' show' if outage else '' }}" id="outage-banner" role="status" aria-live="polite" data-src="{{ srcname }}">
+      <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
+      <span class="test-msg" id="outage-text">{% if outage %}{{ srcname }} unreachable since {{ outage.since_text }} ({{ outage.hours_text }}). Check the source settings below.{% endif %}</span>
+    </div>
     <div class="card">
     <form method="post" action="/settings">
       <div class="settings">
@@ -749,6 +757,7 @@
             <div class="adv-body">
               <div><label class="lab" for="f-poll">Poll interval (seconds)</label><input type="number" id="f-poll" name="poll_interval_seconds" min="5" max="300" step="1" inputmode="numeric" value="{{ config.poll_interval_seconds }}"><div class="hint">5 to 300. How often Featherframe checks the source for new detections (BirdWeather is never polled faster than every 60 s).</div></div>
               <div><label class="lab" for="f-alarm">Alert when nothing is heard for (hours)</label><input type="number" id="f-alarm" name="quiet_alarm_hours" min="0" max="168" step="1" inputmode="numeric" value="{{ config.quiet_alarm_hours }}"><div class="hint">0 = off. Counts only hours outside quiet hours, so a silent night doesn't trip it. The frame gets a footnote and this page a banner.</div></div>
+              <div><label class="lab" for="f-outage">Note on the frame when the source is unreachable for (minutes)</label><input type="number" id="f-outage" name="source_alarm_minutes" min="0" max="10080" step="1" inputmode="numeric" value="{{ config.source_alarm_minutes }}"><div class="hint">0 = off. The Source card says “Not reachable” at once; after this long the frame itself gets a footnote, dropped on the next good read. Long enough that a router reboot doesn't repaint the wall.</div></div>
               <div><label class="lab" for="f-block">Species blocklist</label><textarea id="f-block" name="species_blocklist" placeholder="One species per line">{{ config.species_blocklist|join('\n') }}</textarea><div class="hint">One species per line (common or scientific name); matches are never shown.</div></div>
             </div>
           </details>
@@ -972,6 +981,7 @@
   var FIELD_NAMES = { confidence_threshold: 'Confidence threshold', refresh_debounce_minutes: 'Refresh debounce',
     dwell_minutes: 'Hold a new bird',
     wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval', quiet_alarm_hours: 'Gone-quiet alarm',
+    source_alarm_minutes: 'Source-outage note',
     collage_rebuilds_per_day: 'Collage rebuilds per day', mat_inset_pct: 'Mat inset',
     mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation',
     corroborate_confidence: 'New species: confident enough alone', corroborate_window_hours: 'New species: window',
@@ -1092,6 +1102,11 @@
     if (banner) {
       banner.classList.toggle('show', !!q);
       setText('quiet-text', q ? 'Nothing heard since ' + q.since_text + ' (' + q.hours_text + '). Is the detector running?' : '');
+    }
+    var o = st.source_outage, obanner = $('outage-banner');
+    if (obanner) {
+      obanner.classList.toggle('show', !!o);
+      setText('outage-text', o ? (obanner.dataset.src || 'The detector') + ' unreachable since ' + o.since_text + ' (' + o.hours_text + '). Check the source settings below.' : '');
     }
     // Pending: a new species held back for a second detection. Text only —
     // the row is server-rendered and merely kept current here.

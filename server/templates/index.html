@@ -585,7 +585,6 @@
           {% set pend = status.pending %}
           <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }} data-tip="{{ (pend.first_at.replace('T', ' ')) if pend else '' }}">{% if pend %}<span class="who">{{ pend.common }}</span><span class="when">{{ pend.waiting_text }}</span>{% endif %}</dd>
           <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
-          <dt>Plates on file</dt><dd class="tnum" id="fc-plates">{{ status.plates_loaded }} Audubon · {{ status.generated_cached }} generated</dd>
         </dl>
       </div>
 
@@ -1209,7 +1208,6 @@
     setText('fc-showing', cur.title || cur.label || '—');
     setText('fc-holding', cur.holding ? 'holding ' + cur.holding.minutes_left + ' min' : '');
     setText('fc-species', st.species_all_time + ' all-time');
-    setText('fc-plates', st.plates_loaded + ' Audubon · ' + st.generated_cached + ' generated');
   }
   // -- History strip: rebuilt only when the current frame's ETag moves ------
   var histCard = $('history-card'), histStrip = $('hist-strip');

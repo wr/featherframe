@@ -132,6 +132,11 @@
     .sc-more > summary:hover { color:var(--ink-2); }
     .sc-more dl { margin-top:8px; }
     .sc-foot { margin:12px 0 0; font-size:12px; color:var(--muted); line-height:1.5; }
+    /* stacked rows: small label over a left-aligned value that may wrap whole */
+    .status-card dl.stack { grid-template-columns:1fr; gap:2px 0; }
+    .status-card dl.stack dt { font-size:11px; }
+    .status-card dl.stack dd { text-align:left; justify-content:flex-start; flex-wrap:wrap; gap:0 4px; margin-bottom:9px; line-height:1.4; }
+    .status-card dl.stack dd:last-child { margin-bottom:0; }
     .pill-status { display:inline-flex; align-items:center; gap:5px; }
     .pill-status .d { width:7px; height:7px; border-radius:50%; }
     .d.good{ background:var(--good);} .d.warn{ background:var(--warn);} .d.bad{ background:var(--bad);} .d.off{ background:var(--faint);}
@@ -570,7 +575,9 @@
           <h2 class="grp">{{ _srcnames.get(config.detection_backend, 'Source') }}</h2>
           <span class="pill-status"><span class="d {{ 'good' if status.birdnet_available else 'bad' }}" id="fc-src-dot"></span><span id="fc-src-text">{{ 'Connected' if status.birdnet_available else 'Not reachable' }}</span></span>
         </div>
-        <dl>
+        {# Label over value: a species name plus a time is too long for a
+           two-column row on a 300 px card and wrapped mid-value. #}
+        <dl class="stack">
           {# "· holding 40 min" while a new bird keeps the frame against repeats (dwell_minutes). #}
           {% set hold = status.current.holding %}
           <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="hint-inline" id="fc-holding">{{ (' · holding ' ~ hold.minutes_left ~ ' min') if hold else '' }}</span></dd>
@@ -581,7 +588,7 @@
           {% set pend = status.pending %}
           <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }} data-tip="{{ (pend.first_at.replace('T', ' ')) if pend else '' }}">{{ (pend.common ~ ' · ' ~ pend.waiting_text) if pend else '' }}</dd>
         </dl>
-        <p class="sc-foot"><span class="tnum" id="fc-species">{{ status.species_all_time }} all-time</span> species · <span class="tnum" id="fc-plates">{{ status.plates_loaded }} Audubon · {{ status.generated_cached }} generated</span> plates</p>
+        <p class="sc-foot"><span class="tnum" id="fc-species">{{ status.species_all_time }} all-time</span> species<br><span class="tnum" id="fc-plates">{{ status.plates_loaded }} Audubon · {{ status.generated_cached }} generated</span> plates</p>
       </div>
 
       {# Past frames, newest first. Rebuilt from /api/history by the status poll

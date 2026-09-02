@@ -371,3 +371,12 @@ def test_review_zero_means_every_species(svc, monkeypatch):
     _collage_cells(svc, monkeypatch)
     assert svc._build_collage(NOW, NOW.date(), generated_ok=True) is True
     assert len(painted[0]) == 26
+
+
+# -- the day-review buttons -------------------------------------------------
+def test_day_review_button_reuses_and_repaint_buys(svc, client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(svc, "start_day_review", lambda repaint=False: calls.append(repaint) or True)
+    assert client.post("/api/collage/day-review", data={}).status_code == 200
+    assert client.post("/api/collage/day-review", data={"repaint": "1"}).status_code == 200
+    assert calls == [False, True]

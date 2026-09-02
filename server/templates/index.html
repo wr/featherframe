@@ -478,7 +478,8 @@
         <div class="plate-actions">
           <button class="btn" type="button" id="refresh-btn" title="Re-render the frame now. The panel picks it up on its next wake.">Refresh</button>
           <form class="inline task-form" data-task="day-review" method="post" action="/api/collage/day-review">
-            <button class="btn" type="submit" title="Create today's “day in review” image now">Day in review</button>
+            <button class="btn" type="submit" title="Show today's “day in review” now (reuses today's sheet if one exists)">Day in review</button>
+            <button class="btn" type="submit" name="repaint" value="1" title="Paint today's sheet again from today's species — one image generation">Repaint</button>
           </form>
           {% if dev_mode %}
           <form class="inline task-form" data-task="test-detection" method="post" action="/api/test-detection">
@@ -1696,10 +1697,15 @@
     function beginUI(task) {
       active = true;
       var f = forms[task];
+      if (f && f.all) f.all.forEach(function (b) { b.disabled = true; });
       if (f && f.button) { f.button.disabled = true; f.button.textContent = LABEL[task] || 'Working…'; }
       setTaskStatus((task === 'day-review' ? 'Creating the day in review' : 'Rendering the plate') + ' — this can take a minute.');
     }
-    function idleUI(task) { var f = forms[task]; if (f && f.button) { f.button.disabled = false; f.button.textContent = f.idle; } }
+    function idleUI(task) {
+      var f = forms[task];
+      if (f && f.all) f.all.forEach(function (b) { b.disabled = false; });
+      if (f && f.button) { f.button.disabled = false; f.button.textContent = f.idle; }
+    }
     function finish(errors) {
       if (timer) { clearInterval(timer); timer = null; }
       if (!active) return; active = false;
@@ -1717,10 +1723,15 @@
     document.querySelectorAll('.task-form').forEach(function (taskForm) {
       var task = taskForm.getAttribute('data-task');
       var button = taskForm.querySelector('button[type="submit"]');
-      forms[task] = { button: button, idle: button ? button.textContent : '' };
+      forms[task] = { button: button, idle: button ? button.textContent : '', all: taskForm.querySelectorAll('button[type="submit"]') };
       taskForm.addEventListener('submit', function (e) {
-        e.preventDefault(); beginUI(task);
-        jsonFetch(taskForm.action, { method: 'POST', body: new FormData(taskForm) })
+        e.preventDefault();
+        // The submitter decides the job (the Repaint button carries name=repaint);
+        // FormData(form) alone drops the button that was clicked.
+        forms[task].button = e.submitter || button;
+        forms[task].idle = forms[task].button.textContent;
+        beginUI(task);
+        jsonFetch(taskForm.action, { method: 'POST', body: new FormData(taskForm, e.submitter) })
           .then(function () { startPolling(); })
           .catch(function (err) { active = false; idleUI(task); setTaskStatus('Could not start — ' + errText(err) + '.', true); });
       });

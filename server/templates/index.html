@@ -96,8 +96,12 @@
     .batt .cell { width:18px; height:11px; border:1.4px solid var(--border-strong); border-radius:2.5px; position:relative; }
     .batt .cell::after{ content:""; position:absolute; right:-3.5px; top:3px; width:2.5px; height:4px; background:var(--border-strong); border-radius:0 1px 1px 0; }
     .batt .cell i{ position:absolute; left:1.5px; top:1.5px; bottom:1.5px; background:var(--good); border-radius:1.5px; max-width:calc(100% - 3px); }
-    .batt .power { color:var(--muted); font-size:12px; }
-    .spark-row { grid-column:1 / -1; display:flex; align-items:center; gap:8px; margin-top:-2px; }
+    .pw { display:inline-flex; align-items:center; gap:6px; }
+    .pw .pw-ic { height:11px; width:auto; color:var(--ink-2); }
+    #fc-batt { position:relative; }
+    .spark-pop { position:absolute; right:0; top:calc(100% + 6px); z-index:5; display:flex; align-items:center; gap:10px;
+                 padding:8px 10px; background:var(--surface); border:1px solid var(--border-strong); border-radius:7px;
+                 box-shadow:0 8px 24px rgba(74,54,28,.16); }
     .spark { width:160px; height:30px; flex:none; overflow:visible; }
     .spark .line { fill:none; stroke:var(--ink-2); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
     .spark .fill { fill:var(--ink-2); opacity:.08; }
@@ -392,6 +396,8 @@
   <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
   <symbol id="ic-warn" viewBox="0 0 16 16" fill="none"><path d="M8 1.9 15 14.4H1L8 1.9Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.75" r=".9" fill="currentColor"/></symbol>
   <symbol id="ic-info" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="currentColor"/></symbol>
+  <symbol id="ic-plug" viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6h3"/><rect x="4" y="2" width="8" height="8" rx="1.6"/><path d="M12 4.2h3M12 7.8h3"/><path d="M15 3.2h2.2c1 0 1.8.8 1.8 1.8v2c0 1-.8 1.8-1.8 1.8H15z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="ic-cell-bolt" viewBox="0 0 22 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="1" y="1" width="17" height="10" rx="2.4"/><path d="M18.5 4.2h1.4a.8.8 0 0 1 .8.8v2a.8.8 0 0 1-.8.8h-1.4z" fill="currentColor" stroke="none"/><path d="M10.6 2.4 7.4 6.6h2.4l-.9 3 3.3-4.2H9.8z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="ic-caret" viewBox="0 0 12 8"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 <div class="wrap">
@@ -453,17 +459,26 @@
           {# Telemetry rows mean nothing until the first check-in: keep them out of
              the never-seen state rather than printing a column of dashes. #}
           <div class="fc-telemetry" id="fc-telemetry" style="display:contents" {{ '' if card.seen else 'hidden' }}>
+          {# Power source: the state is inferred from the voltage trend (no USB
+             line on the board). On USB the cell is held full by the charger and
+             while charging its terminal voltage runs high, so a percent would
+             mislead in both — it is shown only on battery. #}
           {% set pct = status.device.battery_percent %}
-          <dt>Battery</dt>
+          {% set pstate = (card.power.state if card.power else 'unknown') %}
+          <dt>Power source</dt>
           <dd id="fc-batt" {% if card.battery %}title="{{ card.battery }}"{% endif %}>
-            <span class="batt" id="fc-batt-wrap" {{ '' if pct is not none else 'hidden' }}><span class="cell"><i id="fc-batt-bar" style="width:{{ pct or 0 }}%;{% if card.battery_low %}background:var(--bad){% endif %}"></i></span><span class="tnum" id="fc-batt-text">{{ (pct ~ '%') if pct is not none else '' }}</span><span class="power" id="fc-power">{{ card.power.text if card.power else '' }}</span></span><span id="fc-batt-none" {{ 'hidden' if pct is not none else '' }}>—</span>
-          </dd>
-          {# 24 h voltage trend. Single series, so no legend: the row above names
-             it. Hover reads the value into the caption instead of a floating
-             tooltip so it works on touch too. #}
-          <dd class="spark-row" id="fc-spark-row" hidden>
-            <svg class="spark" id="fc-spark" viewBox="0 0 160 30" preserveAspectRatio="none" role="img" aria-label="Battery voltage over the last 24 hours"></svg>
-            <span class="spark-cap" id="fc-spark-cap" aria-live="polite">24 h</span>
+            <span class="pw" id="pw-usb" {{ '' if pstate == 'usb' else 'hidden' }}><svg class="pw-ic" viewBox="0 0 20 12" aria-hidden="true"><use href="#ic-plug"/></svg>USB</span>
+            <span class="pw" id="pw-chg" {{ '' if pstate == 'charging' else 'hidden' }}><svg class="pw-ic" viewBox="0 0 22 12" aria-hidden="true"><use href="#ic-cell-bolt"/></svg>Charging</span>
+            <span class="batt" id="fc-batt-wrap" {{ '' if (pct is not none and pstate not in ('usb', 'charging')) else 'hidden' }}><span class="cell"><i id="fc-batt-bar" style="width:{{ pct or 0 }}%;{% if card.battery_low %}background:var(--bad){% endif %}"></i></span><span class="tnum" id="fc-batt-text">{{ (pct ~ '%') if pct is not none else '' }}</span></span>
+            <span id="fc-batt-none" {{ 'hidden' if (pct is not none or pstate in ('usb', 'charging')) else '' }}>—</span>
+            {# 24 h voltage trend, in a popover that opens after resting on the
+               row for half a second (tap toggles it on touch). Single series,
+               so no legend: the row names it. Moving along the line reads the
+               value into the caption. #}
+            <div class="spark-pop" id="fc-spark-row" role="tooltip" hidden>
+              <svg class="spark" id="fc-spark" viewBox="0 0 160 30" preserveAspectRatio="none" role="img" aria-label="Battery voltage over the last 24 hours"></svg>
+              <span class="spark-cap" id="fc-spark-cap" aria-live="polite">24 h</span>
+            </div>
           </dd>
           <dt>Wi-Fi</dt>
           <dd id="fc-wifi">
@@ -1030,11 +1045,13 @@
     var pct = dev.battery_percent, bar = $('fc-batt-bar');
     if (bar) {
       var has = pct !== null && pct !== undefined;
-      setHidden('fc-batt-wrap', !has); setHidden('fc-batt-none', has);
+      var pstate = (card.power && card.power.state) || 'unknown';
+      var onPower = pstate === 'usb' || pstate === 'charging';
+      setHidden('pw-usb', pstate !== 'usb'); setHidden('pw-chg', pstate !== 'charging');
+      setHidden('fc-batt-wrap', !has || onPower); setHidden('fc-batt-none', has || onPower);
       bar.style.width = (has ? pct : 0) + '%';
       bar.style.background = (has && card.battery_low) ? 'var(--bad)' : '';
       setText('fc-batt-text', has ? pct + '%' : '');
-      setText('fc-power', (card.power && card.power.text) || '');
       var battDd = $('fc-batt'); if (battDd) battDd.title = card.battery || '';
     }
     var rssi = dev.wifi_rssi, wifiWrap = $('fc-wifi-wrap');
@@ -1106,8 +1123,20 @@
 
   // -- battery trend: one line, fixed 3.3-4.25 V scale so days compare, a
   // dotted rule at the "on USB" level, the newest reading marked. ---------
-  var BATTERY_MS = 5 * 60000;
-  var sparkPts = [];
+  var BATTERY_MS = 5 * 60000, SPARK_DELAY_MS = 500;
+  var sparkPts = [], sparkReady = false, sparkTimer = null;
+  // The popover opens after the pointer rests on the row for half a second,
+  // closes when it leaves, and toggles on tap where there is no hover.
+  (function () {
+    var host = $('fc-batt'), pop = $('fc-spark-row');
+    if (!host || !pop) return;
+    function open() { if (sparkReady) pop.hidden = false; }
+    function close() { clearTimeout(sparkTimer); sparkTimer = null; pop.hidden = true; }
+    host.addEventListener('mouseenter', function () { clearTimeout(sparkTimer); sparkTimer = setTimeout(open, SPARK_DELAY_MS); });
+    host.addEventListener('mouseleave', close);
+    host.addEventListener('click', function () { if (pop.hidden) open(); else close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  })();
   function sparkTime(iso) {
     var d = new Date(iso.replace(' ', 'T'));
     if (isNaN(d.getTime())) return iso;
@@ -1119,8 +1148,8 @@
     var items = (data && data.items) || [];
     sparkPts = [];
     while (svg.firstChild) svg.removeChild(svg.firstChild);
-    if (items.length < 2) { row.hidden = true; return; }
-    row.hidden = false;
+    sparkReady = items.length >= 2;
+    if (!sparkReady) { row.hidden = true; return; }
     var W = 160, H = 30, LO = 3.3, HI = 4.25;
     var t0 = new Date(items[0].at.replace(' ', 'T')).getTime();
     var t1 = new Date(items[items.length - 1].at.replace(' ', 'T')).getTime();

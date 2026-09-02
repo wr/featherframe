@@ -143,5 +143,5 @@ def test_battery_row_always_renders(svc):
     # the voltage trend instead, so the row is always meaningful.
     svc.get_frame(None, "ua", 3.9, 60, wifi_rssi=-60)
     html = _render_page(svc)
-    assert "<dt>Battery</dt>" in html and "60%" in html
+    assert "<dt>Power source</dt>" in html and "60%" in html
     assert 'name="show_battery"' not in html

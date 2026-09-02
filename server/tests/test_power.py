@@ -107,6 +107,25 @@ def test_battery_endpoint_shape(client, svc):
     assert client.get("/api/battery?hours=99999").json()["hours"] == 24 * 7
 
 
+def test_power_row_hides_percent_on_usb_and_shows_it_on_battery(client, svc):
+    from featherframe.app import templates
+    def page():
+        return client.get("/").text
+    client.get("/api/frame", headers={"X-Battery-Voltage": "4.21", "X-Battery-Percent": "100"})
+    html = page()
+    assert "<dt>Power source</dt>" in html
+    usb = html.split('id="pw-usb"')[1].split(">")[0]
+    wrap = html.split('id="fc-batt-wrap"')[1].split(">")[0]
+    assert "hidden" not in usb and "hidden" in wrap          # USB: icon + word, no percent
+    # A fresh service with a mid-charge cell and no history reads as on battery.
+    svc.db._conn.execute("DELETE FROM battery_log"); svc.db._conn.commit()
+    client.get("/api/frame", headers={"X-Battery-Voltage": "3.90", "X-Battery-Percent": "65"})
+    html = page()
+    usb = html.split('id="pw-usb"')[1].split(">")[0]
+    wrap = html.split('id="fc-batt-wrap"')[1].split(">")[0]
+    assert "hidden" in usb and "hidden" not in wrap and "65%" in html
+
+
 def test_settings_post_without_show_battery_is_fine(client, svc):
     r = client.post("/settings", data={"mode": "single", "wake_interval_minutes": "15"},
                     follow_redirects=False)

@@ -93,21 +93,22 @@ float readBatteryVoltage() {
     if (i == 0) first = c;
     last = c;
     acc += c;
-    // The eFuse-calibrated path (W-693 diagnostic): if this tracks the meter
-    // while the raw counts do not, the raw path is the problem.
-    accMv += analogReadMilliVolts(PIN_BATTERY_ADC);
+    accMv += analogReadMilliVolts(PIN_BATTERY_ADC);   // eFuse-calibrated; the measurement
     delay(2);
   }
   digitalWrite(PIN_BATTERY_ENABLE, LOW);    // save idle current
   float counts = acc / (float)N;
-  float v = (counts / 4095.0f) * VBAT_SCALE;
+  float mv = accMv / (float)N;
+  // The calibrated millivolt path is the measurement; raw counts are kept in
+  // the diagnostic only (see VBAT_DIVIDER in ff_config.h for why).
+  float v = (mv / 1000.0f) * VBAT_DIVIDER * VBAT_TRIM;
   snprintf(g_battRaw, sizeof(g_battRaw), "adc=%u first=%u last=%u mv=%u",
-           (unsigned)(counts + 0.5f), (unsigned)first, (unsigned)last, (unsigned)(accMv / N));
-  // Calibration aid (spec §2): put a meter on the JST, read this line, then set
-  // VBAT_SCALE = V_meter * (4095 / counts) = V_meter * the printed factor.
-  Serial.printf("battery ADC: counts=%.1f scale=%.3f -> %.3f V | "
-                "VBAT_SCALE = V_meter * %.4f\n",
-                counts, VBAT_SCALE, v, 4095.0f / counts);
+           (unsigned)(counts + 0.5f), (unsigned)first, (unsigned)last, (unsigned)(mv + 0.5f));
+  // Calibration aid: put a meter on the JST, read this line, then set
+  // VBAT_TRIM = V_meter / the printed untrimmed volts.
+  Serial.printf("battery ADC: counts=%.1f mv=%.0f -> %.3f V untrimmed, %.3f V | "
+                "VBAT_TRIM = V_meter / %.3f\n",
+                counts, mv, (mv / 1000.0f) * VBAT_DIVIDER, v, (mv / 1000.0f) * VBAT_DIVIDER);
   return v;
 }
 

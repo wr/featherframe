@@ -39,10 +39,16 @@
 // --- Battery sense ---
 #define PIN_BATTERY_ADC     1   // A0 / GPIO1
 #define PIN_BATTERY_ENABLE  6   // GPIO6 — drive HIGH to enable the divider
-// Volts-per-count multiplier: (ADC/4095) * VBAT_SCALE. Calibrated 2026-09-01
-// against a meter on this unit: 3.865 V at 2363 counts -> 3.865 * 4095/2363.
-// (Was Seeed's uncalibrated 7.16, which overread by ~7%.)
-#define VBAT_SCALE          6.698f
+// The EE03 divider is 10k/10k behind a TPS22916 load switch (schematic sheet
+// 4, "BAT ADC DETE"), so the pin sees VBAT/2. The voltage is read with the
+// eFuse-calibrated analogReadMilliVolts(): the raw analogRead() counts on the
+// ESP32-S3 flatten near the top of the range — on this unit the same ~2360
+// counts came back at 3.87 V and at 4.13 V (W-693), which is why a single
+// point fit (the old VBAT_SCALE = 6.698) read a full cell as 3.83 V / 55%.
+#define VBAT_DIVIDER        2.0f
+// Residual trim after the calibrated read, from a meter on the JST leads:
+// meter / (2 * mV). 2026-09-02: 4.13 V metered, 2036 mV at the pin -> 1.014.
+#define VBAT_TRIM           1.014f
 
 // --- Low battery ---
 // Below FF_LOW_BATT_V (resting, read before the radio starts) the frame skips

@@ -128,8 +128,9 @@ and is masked in `status()` and the UI. `plate.py` does the content-aware crop
 button) → `GET /api/frame` with stored ETag → 304 sleeps, else `pushImage` +
 `update()` (full refresh) → deep sleep (timer + button ext1 wake). Uses Seeed's
 `Seeed_GFX` via `TFT_eSPI.h`; `begin(1)` is the fast re-init after a sleep wake.
-Panel/board selection is `lib/driver/driver.h` (combo 511). `VBAT_SCALE` is
-calibrated (6.698) and the button pins are known (KEY0=2, KEY1=3, KEY2=5,
+Panel/board selection is `lib/driver/driver.h` (combo 511). Battery voltage is
+`analogReadMilliVolts(A0) * 2 * VBAT_TRIM` (10k/10k divider; raw counts flatten
+near a full cell, see W-693) and the button pins are known (KEY0=2, KEY1=3, KEY2=5,
 active-low); the remaining on-hardware unknown is whether ext1 button wake
 works from deep sleep at all — the keys read only while the panel's T-CON is
 awake (see `PIN_PANEL_PWR` in `include/ff_config.h`). `FF_NO_SLEEP 1` (always

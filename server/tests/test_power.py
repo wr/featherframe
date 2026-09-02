@@ -150,6 +150,7 @@ def test_power_row_hides_percent_on_usb_and_shows_it_on_battery(client, svc):
     assert "hidden" not in usb and "hidden" in wrap          # USB: icon + word, no percent
     # A fresh service with a mid-charge cell and no history reads as on battery.
     svc.db._conn.execute("DELETE FROM battery_log"); svc.db._conn.commit()
+    svc._battery_live = []
     client.get("/api/frame", headers={"X-Battery-Voltage": "3.90", "X-Battery-Percent": "65"})
     html = page()
     usb = html.split('id="pw-usb"')[1].split(">")[0]

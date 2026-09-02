@@ -118,6 +118,7 @@
     .spark .end { fill:var(--ink-2); }
     .spark .cursor { stroke:var(--accent); stroke-width:1; vector-effect:non-scaling-stroke; }
     .spark-cap { font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .spark-axis { display:flex; justify-content:space-between; gap:12px; margin-top:-2px; font-size:11px; color:var(--faint); font-variant-numeric:tabular-nums; white-space:nowrap; }
     .wifi { width:18px; height:15px; flex:none; }
     .wifi .arc { stroke:var(--faint); fill:none; }
     .wifi .arc.lit { stroke:var(--good); }
@@ -488,6 +489,7 @@
             <div class="spark-pop" id="fc-spark-row" role="tooltip" hidden>
               <span class="spark-cap" id="fc-spark-cap" aria-live="polite" data-summary="{{ card.battery or '' }}">{{ card.battery or '' }}</span>
               <svg class="spark" id="fc-spark" viewBox="0 0 160 30" preserveAspectRatio="none" role="img" aria-label="Battery voltage over the last 24 hours"></svg>
+              <div class="spark-axis" aria-hidden="true"><span id="fc-spark-t0"></span><span id="fc-spark-t1"></span></div>
             </div>
           </dd>
           <dt>Wi-Fi</dt>
@@ -1196,6 +1198,15 @@
     if (isNaN(d.getTime())) return iso;
     return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
+  // Axis stamps: the time alone if it is today, else the day as well.
+  function sparkStamp(iso) {
+    var d = new Date(iso.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return iso;
+    var t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    var today = new Date();
+    if (d.toDateString() === today.toDateString()) return t;
+    return d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' \u00b7 ' + t;
+  }
   function drawSpark(data) {
     var svg = $('fc-spark'), row = $('fc-spark-row'), cap = $('fc-spark-cap');
     if (!svg || !row) return;
@@ -1227,6 +1238,9 @@
     svg.appendChild(el('circle', { 'class': 'end', cx: last.x.toFixed(1), cy: y(last.v).toFixed(1), r: 2.2 }));
     var cursor = el('line', { 'class': 'cursor', x1: 0, x2: 0, y1: 0, y2: H, visibility: 'hidden' });
     svg.appendChild(cursor);
+    var t0El = $('fc-spark-t0'), t1El = $('fc-spark-t1');
+    if (t0El) t0El.textContent = sparkStamp(items[0].at);
+    if (t1El) t1El.textContent = sparkStamp(items[items.length - 1].at);
     function summary() { return (cap && cap.dataset.summary) || ((data.hours || 24) + ' h'); }
     if (cap) cap.textContent = summary();
     function nearest(evt) {

@@ -266,7 +266,6 @@ async def save_settings(request: Request):
         gray_mode=s("gray_mode", cur["gray_mode"]),
         dither=s("dither", cur["dither"]),
         show_plate_number=b("show_plate_number"),
-        show_battery=b("show_battery"),
         collage_rebuilds_per_day=i("collage_rebuilds_per_day", cur["collage_rebuilds_per_day"]),
         panel_rotation=i("panel_rotation", cur["panel_rotation"]),
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
@@ -552,6 +551,15 @@ async def preview_png(request: Request):
         return Response(status_code=404, content=b"no frame yet")
     return Response(content=png, media_type="image/png",
                     headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/api/battery")
+async def api_battery(request: Request, hours: int = 24):
+    """Voltage readings for the Frame card's trend line, plus the power state
+    the server infers from them (there is no USB-present line on the board)."""
+    svc = _svc(request)
+    hours = max(1, min(int(hours), 24 * 7))
+    return JSONResponse(await run_in_threadpool(svc.battery_view, hours))
 
 
 @app.get("/api/status")

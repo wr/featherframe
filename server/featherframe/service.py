@@ -160,6 +160,51 @@ _BATTERY_LOW_V = 3.55
 # the firmware also ignores (FF_BATT_ABSENT_V): no pack, not a flat one.
 _BATTERY_ABSENT_V = 2.5
 
+# Power-state inference. Nothing on the EE03 tells the XIAO whether USB is
+# plugged in (the charger's status pins go to an LED and a test point), but the
+# voltage does: on USB the BQ24070 holds the pack at ~4.2 V and the reading
+# never falls; a cell on its own never sits at or above _USB_V for long and
+# drifts down. "Charging" is a rise over the last hour that a cell can't do by
+# itself. The baseline is a median over a window, because the calibrated ADC
+# path wanders ±30 mV between check-ins.
+_USB_V = 4.19
+_CHARGE_RISE_V = 0.04
+_TREND_BASELINE = (timedelta(minutes=45), timedelta(minutes=90))
+_TREND_RECENT = timedelta(minutes=15)
+_TREND_STALE = timedelta(minutes=20)
+
+_POWER_TEXT = {"usb": "on USB", "charging": "charging", "battery": "on battery", "unknown": ""}
+
+
+def _median(vals: list[float]) -> Optional[float]:
+    if not vals:
+        return None
+    vals = sorted(vals)
+    n = len(vals)
+    return vals[n // 2] if n % 2 else (vals[n // 2 - 1] + vals[n // 2]) / 2
+
+
+def power_state(history: list[dict], now: datetime) -> dict:
+    """{"state": usb|charging|battery|unknown, "text": ...} from battery_log
+    rows (oldest first, ISO `at` + `voltage`). See the constants above."""
+    pts = []
+    for r in history:
+        try:
+            pts.append((datetime.fromisoformat(str(r["at"])), float(r["voltage"])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not pts or now - pts[-1][0] > _TREND_STALE:
+        return {"state": "unknown", "text": ""}
+    recent = _median([v for t, v in pts if now - t <= _TREND_RECENT]) or pts[-1][1]
+    base = _median([v for t, v in pts if _TREND_BASELINE[0] <= now - t <= _TREND_BASELINE[1]])
+    if recent >= _USB_V:
+        state = "usb"
+    elif base is not None and recent - base >= _CHARGE_RISE_V:
+        state = "charging"
+    else:
+        state = "battery"
+    return {"state": state, "text": _POWER_TEXT[state]}
+
 
 def frame_title(meta: dict) -> Optional[str]:
     """A display-ready name for what is on the glass. The stored label is a
@@ -228,7 +273,8 @@ def _served_words(result: Optional[str]) -> Optional[str]:
 
 
 def frame_card(device: DeviceStatus, wake_interval_minutes: int,
-               now: Optional[datetime] = None) -> dict:
+               now: Optional[datetime] = None,
+               battery_history: Optional[list[dict]] = None) -> dict:
     """The wall frame's health, pre-chewed for the config page: ready-to-print
     strings plus one overdue flag. Overdue means the device has missed two
     consecutive wake intervals — one 304 skipped is normal jitter, two is a
@@ -237,6 +283,7 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
     card = {"seen": False, "overdue": False,
             "expected_minutes": wake_interval_minutes, "last_seen": None,
             "last_checkin_iso": None, "battery": None, "battery_low": False,
+            "power": {"state": "unknown", "text": ""},
             "served": None, "wifi_rssi": None}
     try:
         then = datetime.fromisoformat(device.last_checkin or "")
@@ -251,6 +298,12 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
         card["battery"] = f"{device.battery_voltage:.2f} V{pct}"
         card["battery_low"] = ((device.battery_percent is not None and device.battery_percent <= 20)
                                or device.battery_voltage <= _BATTERY_LOW_V)
+        card["power"] = power_state(battery_history or [], now)
+        if card["power"]["text"]:
+            card["battery"] += f" · {card['power']['text']}"
+        # Full and held there by the charger is not "low", whatever the percent says.
+        if card["power"]["state"] in ("usb", "charging"):
+            card["battery_low"] = False
     card["served"] = _served_words(device.last_result)
     card["wifi_rssi"] = device.wifi_rssi
     return card
@@ -974,6 +1027,21 @@ class FeatherframeService:
         with self._lock:
             return self._etag
 
+    def _battery_recent(self, hours: float = 2) -> list[dict]:
+        since = (datetime.now() - timedelta(hours=hours)).isoformat(timespec="seconds")
+        try:
+            return self.db.battery_history(since)
+        except Exception:  # noqa: BLE001
+            return []
+
+    def battery_view(self, hours: int = 24) -> dict:
+        """Readings for the trend line plus the inferred power state."""
+        now = datetime.now()
+        rows = self._battery_recent(hours)
+        return {"items": [{"at": r["at"], "voltage": round(float(r["voltage"]), 3),
+                           "percent": r.get("percent")} for r in rows],
+                "power": power_state(rows, now), "usb_v": _USB_V, "hours": hours}
+
     def current_info(self) -> dict:
         """etag/rendered_at of the resident frame without the source probes
         that status() makes."""
@@ -1034,7 +1102,8 @@ class FeatherframeService:
             "plates_loaded": self.audubon.species_count,
             "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
             "device": asdict(self.device),
-            "frame_card": frame_card(self.device, self.config.wake_interval_minutes),
+            "frame_card": frame_card(self.device, self.config.wake_interval_minutes,
+                                     battery_history=self._battery_recent()),
             "config": self._masked_config(),
         }
 
@@ -1151,6 +1220,12 @@ class FeatherframeService:
         with self._lock:
             self.device = DeviceStatus(**fields)
             self.db.set("device_status", asdict(self.device))
+        volt = fields.get("battery_voltage")
+        if volt is not None and volt >= _BATTERY_ABSENT_V:
+            try:
+                self.db.log_battery(fields["last_checkin"], volt, fields.get("battery_percent"))
+            except Exception:  # noqa: BLE001 — a log row must never fail a check-in
+                log.debug("battery log write failed", exc_info=True)
 
     def _cursor(self) -> Optional[int]:
         return self.db.get("ingest_cursor", None)

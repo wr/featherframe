@@ -96,6 +96,15 @@
     .batt .cell { width:18px; height:11px; border:1.4px solid var(--border-strong); border-radius:2.5px; position:relative; }
     .batt .cell::after{ content:""; position:absolute; right:-3.5px; top:3px; width:2.5px; height:4px; background:var(--border-strong); border-radius:0 1px 1px 0; }
     .batt .cell i{ position:absolute; left:1.5px; top:1.5px; bottom:1.5px; background:var(--good); border-radius:1.5px; max-width:calc(100% - 3px); }
+    .batt .power { color:var(--muted); font-size:12px; }
+    .spark-row { grid-column:1 / -1; display:flex; align-items:center; gap:8px; margin-top:-2px; }
+    .spark { width:160px; height:30px; flex:none; overflow:visible; }
+    .spark .line { fill:none; stroke:var(--ink-2); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+    .spark .fill { fill:var(--ink-2); opacity:.08; }
+    .spark .usb { stroke:var(--border-strong); stroke-width:1; stroke-dasharray:2 3; vector-effect:non-scaling-stroke; }
+    .spark .end { fill:var(--ink-2); }
+    .spark .cursor { stroke:var(--accent); stroke-width:1; vector-effect:non-scaling-stroke; }
+    .spark-cap { font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
     .wifi { width:18px; height:15px; flex:none; }
     .wifi .arc { stroke:var(--faint); fill:none; }
     .wifi .arc.lit { stroke:var(--good); }
@@ -444,13 +453,18 @@
           {# Telemetry rows mean nothing until the first check-in: keep them out of
              the never-seen state rather than printing a column of dashes. #}
           <div class="fc-telemetry" id="fc-telemetry" style="display:contents" {{ '' if card.seen else 'hidden' }}>
-          {% if config.show_battery %}
           {% set pct = status.device.battery_percent %}
           <dt>Battery</dt>
-          <dd id="fc-batt">
-            <span class="batt" id="fc-batt-wrap" {{ '' if pct is not none else 'hidden' }}><span class="cell"><i id="fc-batt-bar" style="width:{{ pct or 0 }}%;{% if card.battery_low %}background:var(--bad){% endif %}"></i></span><span class="tnum" id="fc-batt-text">{{ (pct ~ '%') if pct is not none else '' }}</span></span><span id="fc-batt-none" {{ 'hidden' if pct is not none else '' }}>—</span>
+          <dd id="fc-batt" {% if card.battery %}title="{{ card.battery }}"{% endif %}>
+            <span class="batt" id="fc-batt-wrap" {{ '' if pct is not none else 'hidden' }}><span class="cell"><i id="fc-batt-bar" style="width:{{ pct or 0 }}%;{% if card.battery_low %}background:var(--bad){% endif %}"></i></span><span class="tnum" id="fc-batt-text">{{ (pct ~ '%') if pct is not none else '' }}</span><span class="power" id="fc-power">{{ card.power.text if card.power else '' }}</span></span><span id="fc-batt-none" {{ 'hidden' if pct is not none else '' }}>—</span>
           </dd>
-          {% endif %}
+          {# 24 h voltage trend. Single series, so no legend: the row above names
+             it. Hover reads the value into the caption instead of a floating
+             tooltip so it works on touch too. #}
+          <dd class="spark-row" id="fc-spark-row" hidden>
+            <svg class="spark" id="fc-spark" viewBox="0 0 160 30" preserveAspectRatio="none" role="img" aria-label="Battery voltage over the last 24 hours"></svg>
+            <span class="spark-cap" id="fc-spark-cap" aria-live="polite">24 h</span>
+          </dd>
           <dt>Wi-Fi</dt>
           <dd id="fc-wifi">
             {% set rssi = card.wifi_rssi %}
@@ -596,13 +610,6 @@
                 <div class="totext">
                   <label class="tolabel" for="pn">Show the plate number (“No. 47”)</label>
                   <span class="tosub" id="pn-sub">Printed in the caption, matching the Havell plate.</span>
-                </div>
-              </div>
-              <div class="field torow" style="margin:0;">
-                <label class="switch"><input type="checkbox" role="switch" id="sb" name="show_battery" aria-describedby="sb-sub" {{ 'checked' if config.show_battery else '' }}><span class="track"></span></label>
-                <div class="totext">
-                  <label class="tolabel" for="sb">Show the battery percentage</label>
-                  <span class="tosub" id="sb-sub">The Frame card's Battery row. Turn off if the frame runs on USB.</span>
                 </div>
               </div>
               <div class="row2">
@@ -1027,6 +1034,8 @@
       bar.style.width = (has ? pct : 0) + '%';
       bar.style.background = (has && card.battery_low) ? 'var(--bad)' : '';
       setText('fc-batt-text', has ? pct + '%' : '');
+      setText('fc-power', (card.power && card.power.text) || '');
+      var battDd = $('fc-batt'); if (battDd) battDd.title = card.battery || '';
     }
     var rssi = dev.wifi_rssi, wifiWrap = $('fc-wifi-wrap');
     if (wifiWrap) {
@@ -1094,6 +1103,66 @@
     histEtag = etag;
     jsonFetch('/api/history').then(function (out) { buildHistory(out.items || []); }).catch(function () {});
   }
+
+  // -- battery trend: one line, fixed 3.3-4.25 V scale so days compare, a
+  // dotted rule at the "on USB" level, the newest reading marked. ---------
+  var BATTERY_MS = 5 * 60000;
+  var sparkPts = [];
+  function sparkTime(iso) {
+    var d = new Date(iso.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+  function drawSpark(data) {
+    var svg = $('fc-spark'), row = $('fc-spark-row'), cap = $('fc-spark-cap');
+    if (!svg || !row) return;
+    var items = (data && data.items) || [];
+    sparkPts = [];
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    if (items.length < 2) { row.hidden = true; return; }
+    row.hidden = false;
+    var W = 160, H = 30, LO = 3.3, HI = 4.25;
+    var t0 = new Date(items[0].at.replace(' ', 'T')).getTime();
+    var t1 = new Date(items[items.length - 1].at.replace(' ', 'T')).getTime();
+    var span = Math.max(1, t1 - t0);
+    function x(t) { return ((t - t0) / span) * (W - 6) + 3; }
+    function y(v) { var c = Math.max(LO, Math.min(HI, v)); return H - 3 - ((c - LO) / (HI - LO)) * (H - 6); }
+    var NS = 'http://www.w3.org/2000/svg';
+    function el(name, attrs) { var e = document.createElementNS(NS, name); Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); }); return e; }
+    var usb = data.usb_v || 4.19;
+    svg.appendChild(el('line', { 'class': 'usb', x1: 0, x2: W, y1: y(usb), y2: y(usb) }));
+    var d = '', area = '';
+    items.forEach(function (it, i) {
+      var t = new Date(it.at.replace(' ', 'T')).getTime(), px = x(t), py = y(it.voltage);
+      sparkPts.push({ x: px, v: it.voltage, at: it.at, pct: it.percent });
+      d += (i ? ' L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1);
+    });
+    area = d + ' L' + x(t1).toFixed(1) + ' ' + (H - 3) + ' L' + x(t0).toFixed(1) + ' ' + (H - 3) + ' Z';
+    svg.appendChild(el('path', { 'class': 'fill', d: area }));
+    svg.appendChild(el('path', { 'class': 'line', d: d }));
+    var last = sparkPts[sparkPts.length - 1];
+    svg.appendChild(el('circle', { 'class': 'end', cx: last.x.toFixed(1), cy: y(last.v).toFixed(1), r: 2.2 }));
+    var cursor = el('line', { 'class': 'cursor', x1: 0, x2: 0, y1: 0, y2: H, visibility: 'hidden' });
+    svg.appendChild(cursor);
+    var summary = (data.hours || 24) + ' h';
+    if (cap) cap.textContent = summary;
+    function nearest(evt) {
+      var r = svg.getBoundingClientRect(), fx = ((evt.clientX - r.left) / r.width) * W, best = sparkPts[0];
+      sparkPts.forEach(function (p) { if (Math.abs(p.x - fx) < Math.abs(best.x - fx)) best = p; });
+      return best;
+    }
+    svg.onmousemove = function (evt) {
+      var p = nearest(evt);
+      cursor.setAttribute('x1', p.x.toFixed(1)); cursor.setAttribute('x2', p.x.toFixed(1)); cursor.setAttribute('visibility', 'visible');
+      if (cap) cap.textContent = p.v.toFixed(2) + ' V' + (p.pct != null ? ' \u00b7 ' + p.pct + '%' : '') + ' \u00b7 ' + sparkTime(p.at);
+    };
+    svg.onmouseleave = function () { cursor.setAttribute('visibility', 'hidden'); if (cap) cap.textContent = summary; };
+  }
+  function loadBattery() {
+    if (document.hidden || !$('fc-spark')) return;
+    jsonFetch('/api/battery?hours=24').then(drawSpark).catch(function () { /* the row simply stays as it was */ });
+  }
+  if ($('fc-spark')) { loadBattery(); setInterval(loadBattery, BATTERY_MS); }
 
   function pollStatus() {
     if (document.hidden) return;

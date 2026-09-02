@@ -112,6 +112,16 @@
       background:color-mix(in srgb, var(--warn) 13%, var(--surface));
       border-color:color-mix(in srgb, var(--warn) 34%, var(--border)); }
     .status-card .note.warn svg { color:var(--warn); }
+    /* History: a horizontal strip of past-frame thumbnails; captions match the card's dt type */
+    .hist-strip { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; }
+    .hist-strip:empty { display:none; }
+    .hist-item { flex:none; width:72px; display:flex; flex-direction:column; gap:3px; text-decoration:none; color:inherit; cursor:zoom-in; }
+    .hist-item img { display:block; width:72px; height:auto; border-radius:2px; background:var(--white); border:1px solid var(--border); }
+    .hist-item span { font-size:11px; line-height:1.3; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hist-item .hist-when { margin-top:2px; }
+    .hist-empty { font-size:12.5px; color:var(--muted); line-height:1.5; }
+    /* the gone-quiet banner heads the settings column; the column's gap spaces it */
+    .quiet-banner { margin:0; }
 
     /* right column: settings */
     .settings { padding:0; }
@@ -464,16 +474,43 @@
           <dd>
             <span class="pill-status"><span class="d {{ 'good' if status.birdnet_available else 'bad' }}" id="fc-src-dot"></span><span id="fc-src-text">{{ 'Connected' if status.birdnet_available else 'Not reachable' }}</span></span>
           </dd>
-          <dt>Last heard</dt><dd id="fc-heard">{{ status.last_detection.common if status.last_detection else '—' }}</dd>
+          {% set ld = status.last_detection %}
+          <dt>Last heard</dt><dd id="fc-heard"{% if ld %} title="{{ ld.at }}"{% endif %}>{{ (ld.common ~ (' · ' ~ ld.when_text if ld.when_text else '')) if ld else '—' }}</dd>
           <dt>Now showing</dt><dd id="fc-showing">{{ status.current.title or status.current.label or '—' }}</dd>
           <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
           <dt>Plates on file</dt><dd class="tnum" id="fc-plates">{{ status.plates_loaded }} Audubon · {{ status.generated_cached }} generated</dd>
         </dl>
       </div>
+
+      {# Past frames, newest first. Rebuilt from /api/history by the status poll
+         whenever the current ETag changes; rows without a thumbnail on disk
+         (older than the cap, or from before thumbnails existed) are skipped. #}
+      {% set shown = (history or [])[:24] | selectattr('thumb') | list %}
+      <div class="card status-card" id="history-card" data-etag="{{ status.current.etag or '' }}">
+        <h2 class="grp">History</h2>
+        <div class="hist-strip" id="hist-strip">
+          {% for h in shown %}
+          {% set htitle = h.title or h.label or '' %}
+          <a class="hist-item" href="{{ h.thumb }}" data-cap="{{ htitle }} · {{ h.when_text }}" title="{{ h.rendered_at }}">
+            <img src="{{ h.thumb }}" alt="{{ htitle }}" width="72" height="96" loading="lazy">
+            <span class="hist-when">{{ h.when_text }}</span>
+            <span class="hist-title">{{ htitle }}</span>
+          </a>
+          {% endfor %}
+        </div>
+        <div class="hist-empty" id="hist-empty" {{ 'hidden' if shown else '' }}>Nothing rendered yet.</div>
+      </div>
     </div>
 
     <!-- RIGHT: settings -->
     <div class="col-right">
+    {# Gone-quiet alarm: the detector has been silent through too many active
+       hours. Server-rendered, then kept current by the status poll. #}
+    {% set quiet = status.quiet %}
+    <div class="test-box warn quiet-banner{{ ' show' if quiet else '' }}" id="quiet-banner" role="status" aria-live="polite">
+      <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
+      <span class="test-msg" id="quiet-text">{% if quiet %}Nothing heard since {{ quiet.since_text }} ({{ quiet.hours_text }}). Is the detector running?{% endif %}</span>
+    </div>
     <div class="card">
     <form method="post" action="/settings">
       <div class="settings">
@@ -654,6 +691,7 @@
             <summary>Advanced</summary>
             <div class="adv-body">
               <div><label class="lab" for="f-poll">Poll interval (seconds)</label><input type="number" id="f-poll" name="poll_interval_seconds" min="5" max="300" step="1" inputmode="numeric" value="{{ config.poll_interval_seconds }}"><div class="hint">5 to 300. How often Featherframe checks the source for new detections (BirdWeather is never polled faster than every 60 s).</div></div>
+              <div><label class="lab" for="f-alarm">Alert when nothing is heard for (hours)</label><input type="number" id="f-alarm" name="quiet_alarm_hours" min="0" max="168" step="1" inputmode="numeric" value="{{ config.quiet_alarm_hours }}"><div class="hint">0 = off. Counts only hours outside quiet hours, so a silent night doesn't trip it. The frame gets a footnote and this page a banner.</div></div>
               <div><label class="lab" for="f-block">Species blocklist</label><textarea id="f-block" name="species_blocklist" placeholder="One species per line">{{ config.species_blocklist|join('\n') }}</textarea><div class="hint">One species per line (common or scientific name); matches are never shown.</div></div>
             </div>
           </details>
@@ -875,7 +913,7 @@
   }
   // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
   var FIELD_NAMES = { confidence_threshold: 'Confidence threshold', refresh_debounce_minutes: 'Refresh debounce',
-    wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval',
+    wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval', quiet_alarm_hours: 'Gone-quiet alarm',
     collage_rebuilds_per_day: 'Collage rebuilds per day', mat_inset_pct: 'Mat inset',
     mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation' };
   (function () {
@@ -979,11 +1017,49 @@
     setText('fc-fw', dev.fw_version || dev.user_agent || '—');
     setDot('fc-src-dot', st.birdnet_available ? 'good' : 'bad');
     setText('fc-src-text', st.birdnet_available ? 'Connected' : 'Not reachable');
-    setText('fc-heard', (st.last_detection && st.last_detection.common) || '—');
+    var ld = st.last_detection, heard = $('fc-heard');
+    if (heard) {
+      heard.textContent = ld ? (ld.common + (ld.when_text ? ' \u00b7 ' + ld.when_text : '')) : '\u2014';
+      heard.title = (ld && ld.at) || '';
+    }
+    var q = st.quiet, banner = $('quiet-banner');
+    if (banner) {
+      banner.classList.toggle('show', !!q);
+      setText('quiet-text', q ? 'Nothing heard since ' + q.since_text + ' (' + q.hours_text + '). Is the detector running?' : '');
+    }
+    refreshHistory(cur.etag || '');
     setText('fc-showing', cur.title || cur.label || '—');
     setText('fc-species', st.species_all_time + ' all-time');
     setText('fc-plates', st.plates_loaded + ' Audubon · ' + st.generated_cached + ' generated');
   }
+  // -- History strip: rebuilt only when the current frame's ETag moves ------
+  var histCard = $('history-card'), histStrip = $('hist-strip');
+  var histEtag = histCard ? histCard.getAttribute('data-etag') : '';
+  function buildHistory(items) {
+    while (histStrip.firstChild) histStrip.removeChild(histStrip.firstChild);
+    var shown = 0;
+    items.slice(0, 24).forEach(function (h) {
+      if (!h.thumb) return;
+      var title = h.title || h.label || '';
+      var a = document.createElement('a');
+      a.className = 'hist-item'; a.href = h.thumb;
+      a.setAttribute('data-cap', title + ' \u00b7 ' + (h.when_text || ''));
+      a.title = h.rendered_at || '';
+      var img = document.createElement('img');
+      img.src = h.thumb; img.alt = title; img.width = 72; img.height = 96; img.loading = 'lazy';
+      var when = document.createElement('span'); when.className = 'hist-when'; when.textContent = h.when_text || '';
+      var t = document.createElement('span'); t.className = 'hist-title'; t.textContent = title;
+      a.appendChild(img); a.appendChild(when); a.appendChild(t);
+      histStrip.appendChild(a); shown += 1;
+    });
+    setHidden('hist-empty', shown > 0);
+  }
+  function refreshHistory(etag) {
+    if (!histStrip || etag === histEtag) return;
+    histEtag = etag;
+    jsonFetch('/api/history').then(function (out) { buildHistory(out.items || []); }).catch(function () {});
+  }
+
   function pollStatus() {
     if (document.hidden) return;
     jsonFetch('/api/status').then(function (st) {
@@ -1203,6 +1279,12 @@
       if (ex) {
         e.preventDefault();
         open('/static/examples/' + ex.getAttribute('data-ex') + '.png', ex.getAttribute('data-cap') || '');
+        return;
+      }
+      var hist = e.target.closest('a.hist-item');
+      if (hist && !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)) {
+        e.preventDefault();
+        open(hist.href, hist.getAttribute('data-cap') || '');
         return;
       }
       var a = e.target.closest('a.plate-link');

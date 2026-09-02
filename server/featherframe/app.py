@@ -11,6 +11,7 @@ import json
 import logging
 import math
 import os
+import re
 from contextlib import asynccontextmanager
 from typing import Optional
 from urllib.parse import quote
@@ -205,10 +206,11 @@ async def index(request: Request):
     # blocking the loop here would stall the device's /api/frame fetch.
     status = await run_in_threadpool(svc.status)
     generated = await run_in_threadpool(svc.generated_listing) if svc.genart else []
+    history = await run_in_threadpool(svc.render_history)
     return templates.TemplateResponse(
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
-         "dev_mode": DEV_MODE, "generated": generated})
+         "dev_mode": DEV_MODE, "generated": generated, "history": history})
 
 
 @app.post("/settings")
@@ -255,6 +257,7 @@ async def save_settings(request: Request):
         birdweather_station_id=s("birdweather_station_id", cur["birdweather_station_id"]),
         apprise_token=s("apprise_token", cur["apprise_token"]),
         poll_interval_seconds=i("poll_interval_seconds", cur["poll_interval_seconds"]),
+        quiet_alarm_hours=i("quiet_alarm_hours", cur["quiet_alarm_hours"]),
         gray_mode=s("gray_mode", cur["gray_mode"]),
         dither=s("dither", cur["dither"]),
         show_plate_number=b("show_plate_number"),
@@ -307,8 +310,8 @@ async def save_settings(request: Request):
 
 
 _NUMERIC_FORM_FIELDS = ("confidence_threshold", "refresh_debounce_minutes", "wake_interval_minutes",
-                        "poll_interval_seconds", "collage_rebuilds_per_day", "mat_inset_pct",
-                        "mat_offset_x_px", "mat_offset_y_px", "panel_rotation")
+                        "poll_interval_seconds", "quiet_alarm_hours", "collage_rebuilds_per_day",
+                        "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation")
 
 
 def _adjusted_fields(form, cfg: Config) -> list[str]:
@@ -548,6 +551,29 @@ async def status(request: Request):
     # Threadpool: status() probes the detection source (network for the
     # HTTP backends) — never on the loop.
     return JSONResponse(await run_in_threadpool(_svc(request).status))
+
+
+# -- render history --------------------------------------------------------
+_ETAG_RE = re.compile(r"^[0-9a-f]{16}$")
+
+
+@app.get("/api/history")
+async def history(request: Request):
+    # Threadpool: a DB read plus one stat per thumbnail on the SD card.
+    return JSONResponse({"items": await run_in_threadpool(_svc(request).render_history)})
+
+
+@app.get("/api/history/{etag}.png")
+async def history_png(request: Request, etag: str):
+    # The ETag is a content hash and the only path segment we accept, so the
+    # file is immutable and safe to cache for a day.
+    if not _ETAG_RE.match(etag):
+        return Response(status_code=404)
+    png = paths.history_dir() / f"{etag}.png"
+    if not await run_in_threadpool(png.exists):
+        return Response(status_code=404)
+    return FileResponse(png, media_type="image/png",
+                        headers={"Cache-Control": "max-age=86400"})
 
 
 def _source_test(source, backend: str) -> dict:

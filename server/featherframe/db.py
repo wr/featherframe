@@ -81,6 +81,15 @@ class Database:
             )
             self._conn.commit()
 
+    def render_history(self, limit: int = 60) -> list[dict[str, Any]]:
+        """Newest-first render log rows, for the config page's History strip."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT rendered_at, mode, species, etag FROM render_log "
+                "ORDER BY id DESC LIMIT ?", (max(0, int(limit)),)
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def last_render(self) -> dict[str, Any] | None:
         with self._lock:
             row = self._conn.execute(

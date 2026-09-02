@@ -102,15 +102,16 @@ def _fit_key(entries: list[str], max_w: float) -> tuple[int, list[list[str]]]:
 
 
 def _draw_key(draw: ImageDraw.ImageDraw, key_size: int,
-              key_lines: list[list[str]]) -> int:
+              key_lines: list[list[str]], bottom: int = theme.KEY_BOTTOM) -> int:
     """Engraved-caps key lines, bottom-anchored and centered, each line's
-    entries separated by a wide gap. Returns the key's ink top."""
+    entries separated by a wide gap. `bottom` is the last baseline's height
+    above the panel edge. Returns the key's ink top."""
     if not key_lines:
         return theme.HEIGHT - theme.MARGIN_BOTTOM
     cx = theme.WIDTH / 2
     line_h = round(key_size * theme.KEY_LINE_H)
     gap = key_size * theme.KEY_ENTRY_GAP
-    first_baseline = theme.HEIGHT - theme.KEY_BOTTOM - (len(key_lines) - 1) * line_h
+    first_baseline = theme.HEIGHT - bottom - (len(key_lines) - 1) * line_h
     for li, chunk in enumerate(key_lines):
         widths = [typography.engraved_width(e, key_size, theme.KEY_TRACKING)
                   for e in chunk]
@@ -126,10 +127,12 @@ def _draw_key(draw: ImageDraw.ImageDraw, key_size: int,
 
 def render_generated_collage(art: Image.Image, cells: list[CollageCell],
                              when: Optional[ddate] = None, total_detections: int = 0,
-                             title: str = "The Day in Review") -> Image.Image:
+                             title: str = "The Day in Review",
+                             note: Optional[str] = None) -> Image.Image:
     """The generated composite sheet: title band, the one generated artwork
     where the grid would be, and a key matching the sheet's figure numerals —
-    '1. Species ×count' in prominence order."""
+    '1. Species ×count' in prominence order. A `note` (the gone-quiet
+    footnote) lifts the key so the two never share the bottom margin."""
     when = when or ddate.today()
     field = _new_field()
     draw = ImageDraw.Draw(field)
@@ -138,17 +141,21 @@ def render_generated_collage(art: Image.Image, cells: list[CollageCell],
 
     entries = [f"{i}. {c.common_name.upper()}" for i, c in enumerate(cells, start=1)]
     key_size, key_lines = _fit_key(entries, theme.WIDTH - 2 * 60)
-    key_top = _draw_key(draw, key_size, key_lines)
+    key_top = _draw_key(draw, key_size, key_lines,
+                        bottom=theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0))
     art_bottom = key_top - theme.KEY_ART_GAP
     _paste_art(field, art,
                (theme.MARGIN_X, art_top, theme.WIDTH - theme.MARGIN_X, art_bottom),
                v_align=0.5)
+    if note:
+        typography.note_line(draw, note)
     return field
 
 
 def render_collage(cells: list[CollageCell], provider: ArtProvider,
                    when: Optional[ddate] = None, total_detections: int = 0,
-                   title: str = "A Day in the Garden") -> Image.Image:
+                   title: str = "A Day in the Garden",
+                   note: Optional[str] = None) -> Image.Image:
     when = when or ddate.today()
     cells = cells[:6]
     cols, rows = _grid(len(cells))
@@ -191,4 +198,7 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
         draw.text((ccx, name_baseline + 40), f"×{cell.count}", font=count_font,
                   fill=theme.INK_SOFT, anchor="ms")
 
+    # The grid stops at MARGIN_BOTTOM, well above the note's baseline.
+    if note:
+        typography.note_line(draw, note)
     return field

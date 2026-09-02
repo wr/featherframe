@@ -24,6 +24,9 @@ class SingleSpec:
     when: Optional[datetime] = None
     plate_number: Optional[int] = None   # all-time species ordinal -> "No. NN"
     first_seen: Optional[str] = None      # 'YYYY-MM-DD', for the fallback plate
+    # One italic footnote in the bottom margin ("Nothing heard since 11:27 pm").
+    # Set only by the gone-quiet alarm; None draws nothing.
+    note: Optional[str] = None
 
 
 def _new_field() -> Image.Image:
@@ -72,6 +75,8 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
 
     if show_plate_number and spec.plate_number:
         typography.plate_number_mark(draw, spec.plate_number)
+    if spec.note:
+        typography.note_line(draw, spec.note)
     return field
 
 
@@ -144,4 +149,6 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
 
     if show_plate_number and spec.plate_number:
         typography.plate_number_mark(draw, spec.plate_number)
+    if spec.note:
+        typography.note_line(draw, spec.note)
     return field

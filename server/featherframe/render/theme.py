@@ -96,6 +96,16 @@ FALLBACK_META_TRACKING = 0.14
 RULE_WIDTH = 200
 RULE_THICKNESS = 2
 
+# -- gone-quiet footnote ----------------------------------------------------
+# One small italic line centred in the bottom margin ("Nothing heard since
+# 11:27 pm"), below the caption block. Anchored to the panel's bottom edge so
+# it never chases the caption's baselines, which move with the title's size.
+NOTE_SIZE = 32
+NOTE_WEIGHT = 500
+NOTE_FEATURES = ("onum", "liga", "kern")
+NOTE_BASELINE = HEIGHT - 40    # note baseline above the panel bottom
+NOTE_CLEAR = 46                # how far a collage key lifts to make room for it
+
 # -- collage sheet ----------------------------------------------------------
 # One italic header line ("Sightings ~ August 27"), art, and an engraved-caps
 # key along the bottom. No subtitle, no rule: the sheet stays quiet.

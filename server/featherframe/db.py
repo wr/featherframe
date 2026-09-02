@@ -42,6 +42,12 @@ class Database:
                     species     TEXT,
                     etag        TEXT
                 );
+                CREATE TABLE IF NOT EXISTS battery_log (
+                    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    at      TEXT NOT NULL,
+                    voltage REAL NOT NULL,
+                    percent INTEGER
+                );
                 """
             )
             self._conn.commit()
@@ -88,6 +94,44 @@ class Database:
                 "SELECT rendered_at, mode, species, etag FROM render_log "
                 "ORDER BY id DESC LIMIT ?", (max(0, int(limit)),)
             ).fetchall()
+        return [dict(r) for r in rows]
+
+    # -- battery log -------------------------------------------------------
+    # One row per BATTERY_LOG_STEP_S at most (the awake build checks in every
+    # 15 s), kept BATTERY_LOG_KEEP_DAYS: enough to draw a day and to read the
+    # trend that says whether the frame is on USB.
+    BATTERY_LOG_STEP_S = 300
+    BATTERY_LOG_KEEP_DAYS = 7
+
+    def log_battery(self, at: str, voltage: float, percent: int | None) -> bool:
+        """Append a reading unless the last one is younger than the step.
+        Returns True when a row was written."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT at FROM battery_log ORDER BY id DESC LIMIT 1").fetchone()
+            if row:
+                try:
+                    from datetime import datetime as _dt
+                    if (_dt.fromisoformat(at) - _dt.fromisoformat(row["at"])).total_seconds() \
+                            < self.BATTERY_LOG_STEP_S:
+                        return False
+                except ValueError:
+                    pass
+            self._conn.execute(
+                "INSERT INTO battery_log(at, voltage, percent) VALUES(?,?,?)",
+                (at, float(voltage), None if percent is None else int(percent)))
+            self._conn.execute(
+                "DELETE FROM battery_log WHERE at < datetime(?, ?)",
+                (at, f"-{self.BATTERY_LOG_KEEP_DAYS} days"))
+            self._conn.commit()
+            return True
+
+    def battery_history(self, since: str) -> list[dict[str, Any]]:
+        """Readings at or after `since` (ISO), oldest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT at, voltage, percent FROM battery_log WHERE at >= ? ORDER BY id ASC",
+                (since,)).fetchall()
         return [dict(r) for r in rows]
 
     def last_render(self) -> dict[str, Any] | None:

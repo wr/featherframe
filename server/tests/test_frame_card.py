@@ -48,7 +48,7 @@ def test_fresh_checkin():
     assert card["seen"] is True
     assert card["overdue"] is False
     assert card["last_seen"] == "7 min ago"
-    assert card["battery"] == "3.95 V · 72%"
+    assert card["battery"].startswith("3.95 V · 72%")   # "· on battery" etc. follows (W-694)
     assert card["served"] == "up to date (304)"
 
 
@@ -91,7 +91,7 @@ def test_device_checkin_flows_to_card(svc):
     assert card["seen"] is True
     assert card["overdue"] is False
     assert card["last_seen"] == "just now"
-    assert card["battery"] == "3.95 V · 72%"
+    assert card["battery"].startswith("3.95 V · 72%")   # "· on battery" etc. follows (W-694)
     assert card["wifi_rssi"] == -61
 
 
@@ -138,10 +138,10 @@ def test_device_extra_recorded_from_get_frame(svc):
     assert (d.panel, d.board, d.last_wake) == ("P", "B", "timer")
 
 
-def test_show_battery_toggle_gates_the_row(svc):
+def test_battery_row_always_renders(svc):
+    # The old "show battery" toggle is gone: the power state is inferred from
+    # the voltage trend instead, so the row is always meaningful.
     svc.get_frame(None, "ua", 3.9, 60, wifi_rssi=-60)
-    svc.config.show_battery = False
-    assert "<dt>Battery</dt>" not in _render_page(svc)
-    svc.config.show_battery = True
     html = _render_page(svc)
-    assert "<dt>Battery</dt>" in html and "60%" in html
+    assert "<dt>Power source</dt>" in html and "60%" in html
+    assert 'name="show_battery"' not in html

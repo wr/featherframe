@@ -382,7 +382,9 @@ def test_first_ever_plate_says_so_under_the_latin_name():
     # With the gone-quiet footnote too, the note stays clear of the new line.
     noted = compose.render_single(_spec(first_ever=True, note="Nothing heard since 11:27 pm"),
                                   _BlankArt())
-    gap = (theme.MARGIN_X, line + 6, theme.WIDTH - theme.MARGIN_X, theme.NOTE_BASELINE - 34)
+    # The line is mixed-case italic now, so allow for its descenders ("y").
+    descent = round(theme.FIRST_LINE_SIZE * 0.3)
+    gap = (theme.MARGIN_X, line + descent, theme.WIDTH - theme.MARGIN_X, theme.NOTE_BASELINE - 34)
     assert _ink(noted, gap) == 0
     assert _ink(noted, (theme.MARGIN_X, theme.NOTE_BASELINE - 30, theme.WIDTH - theme.MARGIN_X,
                         theme.NOTE_BASELINE + 8)) > 100

@@ -88,18 +88,20 @@ DATE_ORNAMENT_GAP = 1.15   # gap on each side of the hedera, fraction of size
 # Offsets scale with the title's fitted size so long names stay balanced.
 CAPTION_SCI_DROP = 0.80    # title baseline -> sci baseline, fraction of title size
 
-# The no-plate fallback's "first recorded ..." line keeps the older all-small-
-# caps voice.
-FALLBACK_META_FEATURES = ("smcp", "onum", "ordn", "liga", "kern")
-FALLBACK_META_TRACKING = 0.14
-
 # "First recorded today" under the scientific name of a first-ever species on
-# a REAL plate: the fallback's small-caps voice, a step smaller than its line.
+# a REAL plate (and "First recorded 17 May 2026" on the no-plate fallback):
+# the corner date's italic voice, larger and in the full ink, flanked by a
+# pair of hederae. A first-ever bird is an event, and the line must read
+# from across the room — the small italic caps it replaced did not (W-695).
 # The caption block grows by FIRST_LINE_EXTRA so the line sits in the block's
 # own rhythm and never meets the gone-quiet footnote below it.
-FIRST_LINE_SIZE = 28
-FIRST_LINE_DROP = 1.7          # sci baseline -> first-recorded baseline, fraction of size
-FIRST_LINE_EXTRA = 52          # caption block height added for the line
+FIRST_LINE_SIZE = 42
+FIRST_LINE_WEIGHT = 500
+FIRST_LINE_FEATURES = ("onum", "liga", "kern")
+FIRST_LINE_ORNAMENTS = ("☙", "❧")   # left and right hedera; ("", "") for none
+FIRST_LINE_ORNAMENT_GAP = 0.45      # ornament -> text gap, fraction of size
+FIRST_LINE_DROP = 1.65         # sci baseline -> first-recorded baseline, fraction of size
+FIRST_LINE_EXTRA = 80          # caption block height added for the line
 
 # Hairline rule under the scientific name
 RULE_WIDTH = 200

@@ -108,9 +108,9 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
     if when:
         try:
             d = datetime.strptime(when, "%Y-%m-%d")
-            pretty = f"first recorded {d.day} {d.strftime('%B').lower()} {d.year}"
+            pretty = f"First recorded {d.day} {d.strftime('%B')} {d.year}"
         except ValueError:
-            pretty = f"first recorded {when}"
+            pretty = f"First recorded {when}"
 
     block_top = theme.HEIGHT * 0.34
 
@@ -137,11 +137,7 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
                        fill=theme.RULE)
 
         if pretty:
-            date_font = typography.FONTS.get(theme.DATE_SIZE, italic=True,
-                                             weight=theme.DATE_WEIGHT)
-            typography.draw_ot_tracked(draw, cx, rule_y + 54, pretty, date_font,
-                                       theme.INK_MEDIUM, theme.FALLBACK_META_FEATURES,
-                                       theme.DATE_SIZE * theme.FALLBACK_META_TRACKING)
+            typography.first_recorded_line(draw, cx, rule_y + 62, pretty)
     else:
         name_size = typography.fit_smallcaps_size(spec.common_name, typography.FONTS,
                                                   104, theme.NAME_TRACKING, theme.CONTENT_W)
@@ -155,10 +151,7 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
         draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],
                        fill=theme.RULE)
         if pretty:
-            typography.draw_smallcaps(draw, cx, rule_y + 54,
-                                      pretty.replace("first recorded", "First recorded"),
-                                      typography.FONTS, theme.META_SIZE, theme.INK_MEDIUM,
-                                      theme.META_TRACKING, weight_caps=500, weight_small=520)
+            typography.first_recorded_line(draw, cx, rule_y + 62, pretty)
 
     if show_plate_number and spec.plate_number:
         typography.plate_number_mark(draw, spec.plate_number)

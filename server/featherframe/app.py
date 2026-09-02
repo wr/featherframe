@@ -6,11 +6,14 @@ page and a handful of endpoints.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
+import math
 import os
 from contextlib import asynccontextmanager
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import FastAPI, Form, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -19,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import __version__, paths
-from .config import Config
+from .config import Config, valid_hhmm
 from .names import normalize
 from .service import FeatherframeService
 
@@ -84,10 +87,14 @@ def _forbidden_cross_origin() -> JSONResponse:
 async def api_frame(request: Request, view: Optional[str] = None):
     svc = _svc(request)
     inm = _strip_etag(request.headers.get("if-none-match"))
-    volt = _float_header(request.headers.get("x-battery-voltage"))
-    pct = _int_header(request.headers.get("x-battery-percent"))
-    rssi = _int_header(request.headers.get("x-wifi-rssi"))
-    wake = request.headers.get("x-wake")
+    # Telemetry is untrusted input from the LAN: "nan"/"inf" parse as floats
+    # but a NaN persisted into device_status makes every /api/status 500
+    # (JSON can't carry it), and int(float("inf")) raises. Only plausible,
+    # finite values are kept; anything else reads as "not reported".
+    volt = _ranged_float(request.headers.get("x-battery-voltage"), 0.0, 6.0)
+    pct = _ranged_int(request.headers.get("x-battery-percent"), 0, 100)
+    rssi = _ranged_int(request.headers.get("x-wifi-rssi"), -120, 0)
+    wake = _str_header(request.headers.get("x-wake"))
     client_ip = request.client.host if request.client else None
     if wake:
         log.info("device wake: %s (view=%s)", wake, view)
@@ -95,14 +102,14 @@ async def api_frame(request: Request, view: Optional[str] = None):
     # Optional device-reported identity/telemetry (docs/firmware-device-stats.md).
     # Every field is optional on the wire; absent headers leave the row unchanged.
     device_extra = {
-        "fw_version": request.headers.get("x-ff-version"),
-        "sketch_md5": request.headers.get("x-ff-sketch-md5"),
+        "fw_version": _str_header(request.headers.get("x-ff-version")),
+        "sketch_md5": _str_header(request.headers.get("x-ff-sketch-md5")),
         "last_wake": wake,
-        "wake_detail": request.headers.get("x-wake-detail"),
-        "boot_count": _int_header(request.headers.get("x-boot-count")),
-        "refresh_count": _int_header(request.headers.get("x-refresh-count")),
-        "panel": request.headers.get("x-panel"),
-        "board": request.headers.get("x-board"),
+        "wake_detail": _str_header(request.headers.get("x-wake-detail")),
+        "boot_count": _ranged_int(request.headers.get("x-boot-count"), 0, 2**31),
+        "refresh_count": _ranged_int(request.headers.get("x-refresh-count"), 0, 2**31),
+        "panel": _str_header(request.headers.get("x-panel")),
+        "board": _str_header(request.headers.get("x-board")),
     }
 
     # Dark mode rides along on every response — a 304 included — so the device
@@ -147,8 +154,9 @@ async def api_firmware(request: Request):
     bin_path = paths.data_dir() / "firmware.bin"
     if not bin_path.exists():
         return Response(status_code=404, content=b"no firmware hosted")
-    blob = bin_path.read_bytes()
-    md5 = hashlib.md5(blob).hexdigest()
+    blob, md5 = _hosted_firmware(bin_path)
+    if blob is None:
+        return Response(status_code=404, content=b"no firmware hosted")
     if request.headers.get("x-firmware-md5", "").lower() == md5:
         return Response(status_code=304)
     log.info("serving firmware.bin (%d bytes, md5=%s) to %s",
@@ -157,15 +165,44 @@ async def api_firmware(request: Request):
                     headers={"X-MD5": md5, "Cache-Control": "no-store"})
 
 
+_FW_CACHE: dict = {}   # (mtime_ns, size) -> (bytes, md5)
+
+
+def _hosted_firmware(bin_path):
+    """The hosted image and its digest, re-read only when the file changes:
+    the device asks on every wake and hashing 1.5 MB each time on a Pi Zero
+    is wasteful. A file with a valid ESP image header only (0xE9 magic), so
+    a stray file dropped in data/ is not pushed to the frame."""
+    try:
+        st = bin_path.stat()
+    except OSError:
+        return None, None
+    key = (st.st_mtime_ns, st.st_size)
+    hit = _FW_CACHE.get(key)
+    if hit is None:
+        blob = bin_path.read_bytes()
+        if not blob or blob[0] != 0xE9:
+            log.warning("data/firmware.bin is not an ESP image (bad magic); not hosting it")
+            return None, None
+        hit = (blob, hashlib.md5(blob).hexdigest())
+        _FW_CACHE.clear()
+        _FW_CACHE[key] = hit
+    return hit
+
+
 # -- config page -----------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     svc = _svc(request)
+    # Threadpool: status() probes the detection source (a 5 s-timeout HTTP
+    # call for BirdNET-Go/BirdWeather) and the listing reads the SD card;
+    # blocking the loop here would stall the device's /api/frame fetch.
+    status = await run_in_threadpool(svc.status)
+    generated = await run_in_threadpool(svc.generated_listing) if svc.genart else []
     return templates.TemplateResponse(
         request, "index.html",
-        {"status": svc.status(), "config": svc.config, "version": __version__,
-         "dev_mode": DEV_MODE,
-         "generated": svc.generated_listing() if svc.genart else []})
+        {"status": status, "config": svc.config, "version": __version__,
+         "dev_mode": DEV_MODE, "generated": generated})
 
 
 @app.post("/settings")
@@ -173,15 +210,26 @@ async def save_settings(request: Request):
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
-    form = await request.form()
+    try:
+        form = await request.form()
+    except Exception:  # noqa: BLE001 — a malformed body must land on the page, not a 500
+        return RedirectResponse("/?error=" + quote("Could not read the form."), status_code=303)
     cur = svc.config.to_dict()
 
-    def s(key, default): return form.get(key, default)
-    def f(key, default): return _to_float(form.get(key), default)
-    def i(key, default): return _to_int(form.get(key), default)
+    # A multipart file part under a text field's name comes back as an
+    # UploadFile, which Config can't sanitize or serialise: only real strings
+    # are accepted, anything else keeps the stored value.
+    def s(key, default):
+        v = form.get(key)
+        return v if isinstance(v, str) else default
+    def f(key, default): return _to_float(s(key, None), default)
+    def i(key, default): return _to_int(s(key, None), default)
     def b(key): return key in form  # checkbox present -> true
+    # A clock time that isn't one ("99:99") keeps the stored value rather
+    # than being coerced to some other time or reset to the default.
+    def t(key, default): return s(key, default) if valid_hhmm(s(key, None)) else default
 
-    blocklist_raw = str(form.get("species_blocklist", "") or "")
+    blocklist_raw = s("species_blocklist", "")
     blocklist = [x.strip() for x in blocklist_raw.replace(",", "\n").splitlines() if x.strip()]
 
     new = Config(
@@ -191,8 +239,8 @@ async def save_settings(request: Request):
         refresh_debounce_minutes=i("refresh_debounce_minutes", cur["refresh_debounce_minutes"]),
         wake_interval_minutes=i("wake_interval_minutes", cur["wake_interval_minutes"]),
         quiet_hours_mode=s("quiet_hours_mode", cur["quiet_hours_mode"]),
-        quiet_hours_start=s("quiet_hours_start", cur["quiet_hours_start"]),
-        quiet_hours_end=s("quiet_hours_end", cur["quiet_hours_end"]),
+        quiet_hours_start=t("quiet_hours_start", cur["quiet_hours_start"]),
+        quiet_hours_end=t("quiet_hours_end", cur["quiet_hours_end"]),
         quiet_hours_render_collage=b("quiet_hours_render_collage"),
         species_blocklist=blocklist,
         detection_backend=s("detection_backend", cur["detection_backend"]),
@@ -222,9 +270,9 @@ async def save_settings(request: Request):
         imagegen_quality=s("imagegen_quality", cur["imagegen_quality"]),
         # A typed key always wins; blank means "keep the stored key" unless the
         # matching clear checkbox is ticked.
-        imagegen_api_key=(str(form.get("imagegen_api_key", "") or "").strip()
+        imagegen_api_key=(s("imagegen_api_key", "").strip()
                           or ("" if b("imagegen_clear_key") else cur["imagegen_api_key"])),
-        imagegen_text_key=(str(form.get("imagegen_text_key", "") or "").strip()
+        imagegen_text_key=(s("imagegen_text_key", "").strip()
                            or ("" if b("imagegen_text_clear_key") else cur["imagegen_text_key"])),
     )
     render_affecting = (new.gray_mode != svc.config.gray_mode
@@ -235,12 +283,47 @@ async def save_settings(request: Request):
                         or new.mat_offset_x_px != svc.config.mat_offset_x_px
                         or new.mat_offset_y_px != svc.config.mat_offset_y_px
                         or new.dark_mode != svc.config.dark_mode)
-    svc.update_config(new)
-    if render_affecting:
-        # Threadpool: the provider chain may generate art over the network now,
-        # and a blocking render here would stall every endpoint on the loop.
-        await run_in_threadpool(svc.rerender_current)
-    return RedirectResponse("/", status_code=303)
+    # Config.sanitize() clamps silently; tell the page which fields it changed
+    # so the user isn't left staring at a different number than they typed.
+    adjusted = _adjusted_fields(form, new)
+    try:
+        svc.update_config(new)
+        if render_affecting:
+            # Threadpool: the provider chain may generate art over the network now,
+            # and a blocking render here would stall every endpoint on the loop.
+            await run_in_threadpool(svc.rerender_current)
+    except Exception as exc:  # noqa: BLE001 — surface it on the page, keep the old config
+        log.exception("saving settings failed")
+        return RedirectResponse("/?error=" + quote(f"Settings were not saved: {exc}"),
+                                status_code=303)
+    return RedirectResponse("/?saved=1" + ("&adjusted=" + ",".join(adjusted) if adjusted else ""),
+                            status_code=303)
+
+
+_NUMERIC_FORM_FIELDS = ("confidence_threshold", "refresh_debounce_minutes", "wake_interval_minutes",
+                        "poll_interval_seconds", "collage_rebuilds_per_day", "mat_inset_pct",
+                        "mat_offset_x_px", "mat_offset_y_px", "panel_rotation")
+
+
+def _adjusted_fields(form, cfg: Config) -> list[str]:
+    """Form fields whose submitted number differs from what sanitize() kept."""
+    out = []
+    saved = cfg.to_dict()
+    for key in _NUMERIC_FORM_FIELDS:
+        raw = form.get(key)
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        want = _to_float(raw, None)
+        if want is None:
+            out.append(key)
+            continue
+        try:
+            got = float(saved[key])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if abs(want - got) > 1e-9:
+            out.append(key)
+    return out
 
 
 @app.post("/api/test-detection")
@@ -249,8 +332,9 @@ async def test_detection(request: Request):
         return _forbidden_cross_origin()
     svc = _svc(request)
     form = await request.form()
-    common = str(form.get("common", "") or "").strip() or "Northern Cardinal"
-    sci = str(form.get("scientific", "") or "").strip()
+    # Names become a caption and a cache filename; keep them a sane length.
+    common = str(form.get("common", "") or "").strip()[:200] or "Northern Cardinal"
+    sci = str(form.get("scientific", "") or "").strip()[:200]
     if not sci:
         sci = _known_scientific(svc, common) or ("Cardinalis cardinalis"
                                                  if common == "Northern Cardinal" else "")
@@ -305,10 +389,14 @@ async def api_refresh(request: Request):
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
-    svc.refresh_now()
-    st = svc.status()
-    return JSONResponse({"ok": True,
-                         "etag": st.get("current", {}).get("etag"),
+    # Threadpool: this is a full render (and possibly a multi-minute art
+    # generation) — on the loop it would block every other endpoint,
+    # including the device's own frame fetch.
+    before = svc.current_etag()
+    await run_in_threadpool(svc.refresh_now)
+    st = await run_in_threadpool(svc.status)
+    etag = st.get("current", {}).get("etag")
+    return JSONResponse({"ok": True, "etag": etag, "changed": etag != before,
                          "rendered_at": st.get("current", {}).get("rendered_at")})
 
 
@@ -343,11 +431,15 @@ async def ingest_apprise(request: Request, token: str = ""):
         return _forbidden_cross_origin()
     svc = _svc(request)
     expected = getattr(svc.config, "apprise_token", "")
-    if expected and token != expected:
+    if expected and not hmac.compare_digest(token, expected):
         return JSONResponse({"error": "bad token"}, status_code=403)
     ingest = getattr(svc.source, "ingest", None)
     if not callable(ingest):
         return JSONResponse({"error": "detection source is not Apprise"}, status_code=409)
+    # A detection is a few hundred bytes; don't buffer an arbitrary body into
+    # a Pi Zero's memory (the queue is persisted, so bloat would be too).
+    if _to_int(request.headers.get("content-length"), 0) > _MAX_INGEST_BYTES:
+        return JSONResponse({"error": "body too large"}, status_code=413)
     try:
         payload = await request.json()
     except (ValueError, UnicodeDecodeError):
@@ -394,12 +486,21 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
     # Fire-and-forget: the generation runs in a service worker thread and the
     # page polls /api/generated for the outcome, so this returns immediately.
     # Threadpool only for the small cache-listing read (SD cards stall).
-    ok = False
+    ok, error = False, "Not a valid plate name."
     if _valid_slug(slug):
-        ok = await run_in_threadpool(svc.start_regenerate, slug)
+        listing = {m.get("slug"): m for m in await run_in_threadpool(svc.generated_listing)}
+        if slug not in listing:
+            error = "No cached plate by that name."
+        elif listing[slug].get("regenerating"):
+            error = "Already regenerating."
+        elif not svc.config.imagegen_enabled:
+            error = "Image generation is off — enable it first."
+        else:
+            ok = await run_in_threadpool(svc.start_regenerate, slug)
+            error = None if ok else "Could not start — is this plate still on file?"
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
-    return JSONResponse({"ok": ok})
+    return JSONResponse({"ok": ok, "error": error})
 
 
 @app.post("/api/generated/delete")
@@ -407,10 +508,17 @@ async def generated_delete(request: Request, slug: str = Form(...)):
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
-    ok = svc.delete_generated(slug) if _valid_slug(slug) else False
+    ok, error = False, "Not a valid plate name."
+    if _valid_slug(slug):
+        listing = {m.get("slug"): m for m in await run_in_threadpool(svc.generated_listing)}
+        if listing.get(slug, {}).get("regenerating"):
+            error = "Still regenerating — try again when it finishes."
+        else:
+            ok = await run_in_threadpool(svc.delete_generated, slug)
+            error = None if ok else "No cached plate by that name."
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
-    return JSONResponse({"ok": ok})
+    return JSONResponse({"ok": ok, "error": error})
 
 
 @app.get("/api/preview.png")
@@ -425,7 +533,9 @@ async def preview_png(request: Request):
 
 @app.get("/api/status")
 async def status(request: Request):
-    return JSONResponse(_svc(request).status())
+    # Threadpool: status() probes the detection source (network for the
+    # HTTP backends) — never on the loop.
+    return JSONResponse(await run_in_threadpool(_svc(request).status))
 
 
 def _source_test(source, backend: str) -> dict:
@@ -502,23 +612,46 @@ async def tasks(request: Request):
 
 
 # -- header parsing helpers -----------------------------------------------
-def _float_header(v: Optional[str]) -> Optional[float]:
-    return _to_float(v, None)
+_MAX_INGEST_BYTES = 64 * 1024
+_HEADER_STR_MAX = 120
 
 
-def _int_header(v: Optional[str]) -> Optional[int]:
-    return _to_int(v, None)
+def _str_header(v: Optional[str], limit: int = _HEADER_STR_MAX) -> Optional[str]:
+    """Free-text device headers are stored and rendered; bound their size."""
+    if v is None:
+        return None
+    # Control characters have no business in a caption or a kv row.
+    v = "".join(ch for ch in v if ch.isprintable()).strip()[:limit]
+    return v or None
+
+
+def _ranged_float(v, lo: float, hi: float) -> Optional[float]:
+    """A finite float within [lo, hi], else None ("not reported")."""
+    f = _to_float(v, None)
+    return f if f is not None and lo <= f <= hi else None
+
+
+def _ranged_int(v, lo: int, hi: int) -> Optional[int]:
+    i = _to_int(v, None)
+    return i if i is not None and lo <= i <= hi else None
 
 
 def _to_float(v, default):
+    """float(v), or default when it isn't a finite number. NaN and ±inf are
+    refused: they parse, but can't be clamped, compared, or serialised to
+    JSON (Starlette's JSONResponse raises on them)."""
     try:
-        return float(v)
+        f = float(v)
     except (TypeError, ValueError):
         return default
+    return f if math.isfinite(f) else default
 
 
 def _to_int(v, default):
+    f = _to_float(v, None)
+    if f is None:
+        return default
     try:
-        return int(float(v))
-    except (TypeError, ValueError):
+        return int(f)
+    except (OverflowError, ValueError):
         return default

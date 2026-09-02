@@ -9,8 +9,8 @@ Wire format (little-endian):
     0       4     magic  b'FFF1'
     4       1     version (1)
     5       1     bpp     (4 = 16-level grayscale, 1 = 1-bit)
-    6       2     width   (pixels, 1404)
-    8       2     height  (pixels, 1872)
+    6       2     width   (pixels; 1872 in the native landscape frame)
+    8       2     height  (pixels; 1404 in the native landscape frame)
     10      1     flags   (0)
     11      5     reserved (zero)
     16      ...   pixel data, row-major, top-to-bottom
@@ -21,9 +21,10 @@ Pixel packing:
     1bpp  eight pixels per byte, MSB = left pixel. Bit set = white.
           Row stride = ceil(width/8) bytes (rows are byte-padded).
 
-The image is always portrait 1404x1872 as the frame hangs; the firmware owns
-panel rotation, so the server never has to think about the panel's landscape
-native orientation.
+The art is composed portrait 1404x1872 as the frame hangs, but the panel's
+setRotation() is a no-op, so pipeline._finish rotates into the panel's native
+landscape 1872x1404 (per config.panel_rotation) BEFORE packing: the header's
+width/height describe the frame as packed. The firmware pushes it verbatim.
 """
 from __future__ import annotations
 

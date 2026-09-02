@@ -21,6 +21,7 @@ using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before i
 #include <Update.h>
 #include <esp_sleep.h>
 #include <esp_task_wdt.h>
+#include <esp_ota_ops.h>
 #include <driver/rtc_io.h>
 
 #include "ff_config.h"
@@ -48,6 +49,25 @@ uint32_t g_wakeMinutes = DEFAULT_WAKE_MINUTES;
 char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent as X-Wake-Detail (debug)
 char     g_wakeToken[16] = "";  // stable token ("timer"|"button"|"coldboot") — X-Wake
 bool     g_viaPortal = false;   // did this boot go through the setup portal?
+
+// The server URL as typed into the portal is user input: trim it, give it a
+// scheme (HTTPClient::begin() rejects a bare host:port), and drop trailing
+// slashes — "http://pi:8081/" + "/api/frame" is "//api/frame", which the
+// server routes as 404 and the glass reports as "Can't reach server". An
+// empty field keeps whatever was there before.
+static void normalizeServerUrl(char* url, size_t n, const char* fallback) {
+  char tmp[128];
+  strlcpy(tmp, url, sizeof(tmp));
+  char* s = tmp;
+  while (*s == ' ' || *s == '\t') s++;
+  size_t len = strlen(s);
+  while (len && (s[len - 1] == ' ' || s[len - 1] == '\t' || s[len - 1] == '/')) s[--len] = 0;
+  if (!len) { strlcpy(url, fallback, n); return; }
+  if (strncmp(s, "http://", 7) != 0 && strncmp(s, "https://", 8) != 0)
+    snprintf(url, n, "http://%s", s);
+  else
+    strlcpy(url, s, n);
+}
 
 // Wake cause -> a stable token the server can show without parsing ESP enums.
 static const char* wakeToken(esp_sleep_wakeup_cause_t cause) {
@@ -257,9 +277,19 @@ void goToSleep(uint32_t minutes) {
   // update() already put the T-CON to sleep; e-paper holds its image with the
   // rails off, so there's nothing else to power down.
 
-  // Wake on the user buttons (active-low) and on a timer.
-  for (gpio_num_t p : {PIN_KEY0, PIN_KEY1, PIN_KEY2}) rtc_gpio_pullup_en(p);
+  // Wake on the user buttons (active-low) and on a timer. The internal RTC
+  // pull-ups only hold the keys high in deep sleep while the RTC peripheral
+  // domain stays powered (esp_sleep.h: "internal pullups don't work when RTC
+  // peripherals are powered off") — without it the pins float and ext1
+  // ANY_LOW either never fires or fires at once.
+  for (gpio_num_t p : {PIN_KEY0, PIN_KEY1, PIN_KEY2}) {
+    rtc_gpio_pulldown_dis(p);
+    rtc_gpio_pullup_en(p);
+  }
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
   esp_sleep_enable_ext1_wakeup(BUTTON_WAKE_MASK, ESP_EXT1_WAKEUP_ANY_LOW);
+  if (minutes < FF_MIN_SLEEP_MINUTES) minutes = FF_MIN_SLEEP_MINUTES;   // 0 => wake storm
+  if (minutes > FF_MAX_SLEEP_MINUTES) minutes = FF_MAX_SLEEP_MINUTES;
   esp_sleep_enable_timer_wakeup((uint64_t)minutes * 60ULL * 1000000ULL);
 
   Serial.printf("Sleeping for %u min (or button)\n", minutes);
@@ -267,11 +297,29 @@ void goToSleep(uint32_t minutes) {
   esp_deep_sleep_start();
 }
 
+// ---------------------------------------------------------------- low battery
+// A nearly empty 1S cell can't take a Wi-Fi burst without sagging the 3.3 V
+// rail into the brownout detector; the reboot loop that follows runs the pack
+// down to its protection cutoff. Decide before the radio starts, with
+// hysteresis so a cell resting back up to 3.5 V doesn't flap the frame on and
+// off. RTC-backed so the decision survives the long sleep it triggers.
+RTC_DATA_ATTR bool g_lowBatt = false;
+
+static bool lowBatteryHold(float vbat) {
+  if (vbat < FF_BATT_ABSENT_V) { g_lowBatt = false; return false; }   // no pack (USB-only)
+  if (g_lowBatt) { if (vbat >= FF_LOW_BATT_RESUME_V) g_lowBatt = false; }
+  else if (vbat < FF_LOW_BATT_V) g_lowBatt = true;
+  if (g_lowBatt) Serial.printf("battery low (%.2f V): skipping Wi-Fi, sleeping %d min\n",
+                               vbat, FF_LOW_BATT_SLEEP_MIN);
+  return g_lowBatt;
+}
+
 // ---------------------------------------------------------------- wifi
 // Baked panel screens (defined later, near the splash).
 void showScreen(int idx);
 void showScreenFull(int idx);
 void showToast(int t);
+void markFirmwareGood();
 
 // Paper/ink restyle for the WiFiManager captive portal — injected into
 // <head> after the stock style, so these rules win the cascade (the stock
@@ -381,11 +429,15 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   }
   if (ok) {
     // Wi-Fi up: the caller drives the "Connecting to BirdNET…"/"Downloading…"
-    // steps next. Persist the (possibly updated) server URL.
+    // steps next. Persist the (possibly updated, user-typed) server URL.
+    char prev[sizeof(g_serverUrl)];
+    strlcpy(prev, g_serverUrl, sizeof(prev));
     strlcpy(g_serverUrl, serverParam.getValue(), sizeof(g_serverUrl));
+    normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), prev);
     prefs.putString("server", g_serverUrl);
   }
   bool connected = ok && WiFi.status() == WL_CONNECTED;
+  if (connected) markFirmwareGood();   // a build that gets this far is not a brick
   // A dead end (portal timeout, connect failure) can leave a boot screen
   // armed via the save callback; stop the sweep — there is no progress to show.
   if (!connected) g_loaderAnim.on = false;
@@ -406,11 +458,31 @@ bool ensureWifi(bool openPortal, bool showBoot) {
 // baked entry screen (splash/setup) adds 1.3 MB while the three boot buffers
 // are still resident, and the IT8951 full write then can't find a contiguous
 // mirror block — it drops the frame SILENTLY (gotcha #2 in the handoff).
-void displayFrame(const uint8_t* data, size_t len, bool retain = false) {
-  if (len < FFF_HEADER_SIZE) return;
+// Returns false (and leaves the glass untouched) if the container isn't a
+// frame this panel can take: wrong magic/version/bpp, not the native
+// 1872x1404 (e.g. the server's panel_rotation set to 0/180, which emits
+// portrait), or a body that doesn't match the header. pushImage would clip a
+// wrong-sized image into garbage rather than fault, so the check lives here.
+bool displayFrame(const uint8_t* data, size_t len, bool retain = false) {
+  if (len < FFF_HEADER_SIZE) return false;
   FFFHeader h;
   memcpy(&h, data, FFF_HEADER_SIZE);
-  if (memcmp(h.magic, "FFF1", 4) != 0) { Serial.println("bad frame magic"); return; }
+  if (memcmp(h.magic, "FFF1", 4) != 0) { Serial.println("bad frame magic"); return false; }
+  if (h.version != 1 || (h.bpp != 4 && h.bpp != 1)) {
+    Serial.printf("bad frame: version=%d bpp=%d\n", h.version, h.bpp);
+    return false;
+  }
+  if (h.width != FF_NATIVE_W || h.height != FF_NATIVE_H) {
+    Serial.printf("bad frame: %dx%d, panel is %dx%d native (server panel_rotation?)\n",
+                  h.width, h.height, FF_NATIVE_W, FF_NATIVE_H);
+    return false;
+  }
+  const size_t stride = (h.bpp == 4) ? (h.width + 1) / 2 : (h.width + 7) / 8;
+  if (len - FFF_HEADER_SIZE < stride * h.height) {
+    Serial.printf("bad frame: body %u < %u\n", (unsigned)(len - FFF_HEADER_SIZE),
+                  (unsigned)(stride * h.height));
+    return false;
+  }
   g_loaderAnim.on = false;      // a full refresh replaces any loading screen
   panelLock();
 
@@ -440,6 +512,7 @@ void displayFrame(const uint8_t* data, size_t len, bool retain = false) {
   g_cornerMark = 0;
   g_bandKind = g_bandStage = -1;
   Serial.println("panel updated");
+  return true;
 }
 
 // ---------------------------------------------------------------- press ack
@@ -714,8 +787,13 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   if (code == HTTP_CODE_SERVICE_UNAVAILABLE) { http.end(); return FETCH_NOFRAME; }  // server up, no bird yet
   if (code != HTTP_CODE_OK) { http.end(); return FETCH_ERROR; }
 
-  int len = http.getSize();
+  int len = http.getSize();                 // -1 = chunked/no Content-Length: refuse
   if (len <= (int)FFF_HEADER_SIZE) { http.end(); return FETCH_ERROR; }
+  // A frame is at most header + one native 4bpp body; anything bigger is not
+  // ours and must not be handed to ps_malloc on a 512 KB-headroom heap.
+  if (len > (int)(FFF_HEADER_SIZE + FF_SCREEN_BYTES)) {
+    Serial.printf("frame too big: %d\n", len); http.end(); return FETCH_ERROR;
+  }
 
   uint8_t* buf = (uint8_t*)ps_malloc(len);        // frame lives in PSRAM
   if (!buf) { Serial.println("ps_malloc failed"); http.end(); return FETCH_ERROR; }
@@ -726,6 +804,8 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   while (got < len && (millis() - t0) < HTTP_TIMEOUT_MS) {
     if (stream->available()) {
       got += stream->readBytes(buf + got, len - got);
+    } else if (!stream->connected()) {
+      break;                                // server hung up mid-body: don't sit out the timeout
     } else {
       delay(2);
     }
@@ -735,8 +815,9 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
 
   if (got != len) { Serial.printf("short read %d/%d\n", got, len); free(buf); return FETCH_ERROR; }
 
-  displayFrame(buf, len, true);             // retain: the toast band restores from it
+  bool painted = displayFrame(buf, len, true);   // retain: the toast band restores from it
   free(buf);
+  if (!painted) return FETCH_ERROR;          // rejected container: keep the ETag unset so we retry
 
   if (resident) {
     // Store the new ETag (strip quotes/W-prefix).
@@ -781,19 +862,57 @@ void noteFetchOutcome(FetchResult r) {
 // Pull-based OTA on every wake: offer the running sketch's MD5; the server
 // answers 304 (same build hosted) or 200 with a new firmware.bin, which we
 // stream into the spare OTA slot and reboot into. No USB, no user.
-void maybeOTA() {
+//
+// Rollback: the build has CONFIG_APP_ROLLBACK_ENABLE, but the Arduino core
+// marks every new image valid during init unless verifyRollbackLater() says
+// otherwise — so by default a build that hangs in setup() is never rolled
+// back. Defer it: the image is marked good only once it has joined Wi-Fi
+// (markFirmwareGood). A build that never gets there sleeps or watchdogs, the
+// bootloader sees PENDING_VERIFY on the next boot, and boots the previous slot.
+extern "C" bool verifyRollbackLater() { return true; }
+
+void markFirmwareGood() {
+  const esp_partition_t* running = esp_ota_get_running_partition();
+  esp_ota_img_states_t st;
+  if (running && esp_ota_get_state_partition(running, &st) == ESP_OK &&
+      st == ESP_OTA_IMG_PENDING_VERIFY) {
+    esp_ota_mark_app_valid_cancel_rollback();
+    Serial.println("OTA: new build verified, rollback cancelled");
+  }
+}
+
+void maybeOTA(float vbat) {
+  // A flash write is the one thing worth refusing on a weak cell.
+  if (vbat > FF_BATT_ABSENT_V && vbat < FF_OTA_MIN_BATT_V) {
+    Serial.printf("OTA skipped: battery %.2f V\n", vbat);
+    return;
+  }
   HTTPClient http;
   String url = String(g_serverUrl) + FIRMWARE_PATH;
   if (!http.begin(url)) return;
   http.setTimeout(HTTP_TIMEOUT_MS);
+  http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
   http.setUserAgent("Featherframe-ESP32/1.0");
   http.addHeader("X-Firmware-MD5", ESP.getSketchMD5());
+  const char* collect[] = {"X-MD5"};
+  http.collectHeaders(collect, 1);
   int code = http.GET();
   Serial.printf("OTA check -> %d\n", code);
   if (code != HTTP_CODE_OK) { http.end(); return; }
 
+  // The server names the image; an image that already failed to flash is not
+  // downloaded again every wake (1.5 MB per cycle, forever, on battery).
+  String md5 = http.header("X-MD5");
+  md5.toLowerCase();
+  if (md5.length() && md5 == prefs.getString("ota_bad", "")) {
+    Serial.println("OTA: hosted image previously failed, skipping");
+    http.end();
+    return;
+  }
+
   int len = http.getSize();
   if (len <= 0 || !Update.begin(len)) { http.end(); return; }
+  if (md5.length() == 32) Update.setMD5(md5.c_str());   // end() then verifies the stream
   Serial.printf("OTA: flashing %d bytes\n", len);
   size_t written = Update.writeStream(*http.getStreamPtr());
   http.end();
@@ -803,7 +922,13 @@ void maybeOTA() {
     ESP.restart();
   }
   Serial.printf("OTA failed: %s\n", Update.errorString());
+  uint8_t err = Update.getError();
   Update.abort();
+  // Only a COMPLETE, checksum-matching stream that still fails is a bad
+  // image; a short read or an MD5 mismatch is the network (or a torn copy on
+  // the server) and must be retried, not remembered forever.
+  if (md5.length() && written == (size_t)len && err != UPDATE_ERROR_MD5)
+    prefs.putString("ota_bad", md5);
 }
 
 // ---------------------------------------------------------------- setup
@@ -838,6 +963,7 @@ void setup() {
 
   prefs.begin("featherframe", false);
   prefs.getString("server", DEFAULT_SERVER_URL).toCharArray(g_serverUrl, sizeof(g_serverUrl));
+  normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), DEFAULT_SERVER_URL);   // older saves may carry a trailing '/'
   prefs.getString("etag", "").toCharArray(g_etag, sizeof(g_etag));
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);
   g_invert = prefs.getBool("invert", false);
@@ -865,13 +991,19 @@ void setup() {
   epaper.begin(0);                          // full init once; the panel stays warm
   armWatchdog();
 
+  // Hold KEY2 at boot -> wipe Wi-Fi/server settings and open the setup portal.
+  // Read it here, right after begin(): the splash's update() puts the T-CON
+  // to sleep, and the keys don't register while it is (see PIN_PANEL_PWR).
+  bool forcePortal = (digitalRead(PIN_PORTAL_RESET) == LOW);
+
   float vbat = readBatteryVoltage();
   int pct = batteryPercent(vbat);
   Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);
+  // Even the always-awake build sleeps on an empty cell — the alternative is
+  // a brownout loop. It comes back on its own once the pack is charged.
+  if (lowBatteryHold(vbat)) { goToSleep(FF_LOW_BATT_SLEEP_MIN); return; }
   showSplash(buttonWake ? "button wake" : "booting", pct);
 
-  // Hold KEY2 at boot -> wipe Wi-Fi/server settings and open the setup portal.
-  bool forcePortal = (digitalRead(PIN_PORTAL_RESET) == LOW);
   if (forcePortal) { Serial.println("portal reset requested"); wm.resetSettings(); }
 
   snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d nosleep", (int)cause);
@@ -881,8 +1013,9 @@ void setup() {
     g_etag[0] = 0;   // force a fresh paint so the plate replaces the splash (not a 304)
     showScreen(FF_SCR_BOOT_BIRDNET);          // reaching the server
     showScreen(FF_SCR_BOOT_DOWNLOAD);         // fetching the image
-    noteFetchOutcome(fetchAndRender(FRAME_PATH, true, vbat, pct));
-    maybeOTA();
+    FetchResult r = fetchAndRender(FRAME_PATH, true, vbat, pct);
+    noteFetchOutcome(r);
+    if (r != FETCH_ERROR) maybeOTA(vbat);     // unreachable server: don't burn a second connect timeout
   } else {
     // Saved network unreachable right now: say so on the glass and let the
     // poll loop retry.
@@ -901,6 +1034,15 @@ void setup() {
   snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d keys=0x%llx", (int)cause,
            (unsigned long long)keyBits);
 
+  // Panel first: the keys only read while the panel side is powered and the
+  // T-CON awake (see PIN_PANEL_PWR), so the power-on hold and the 3 s KEY2
+  // hold below can't be sampled before begin().
+  epaper.begin(fromDeepSleep ? 1 : 0);
+  float vbat = readBatteryVoltage();
+  int pct = batteryPercent(vbat);
+  Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);
+  if (lowBatteryHold(vbat)) { goToSleep(FF_LOW_BATT_SLEEP_MIN); return; }
+
   bool forcePortal = (!buttonWake && digitalRead(PIN_PORTAL_RESET) == LOW);
   if (keyStatus) {
     uint32_t t0 = millis();
@@ -911,11 +1053,6 @@ void setup() {
     Serial.println("factory reset requested");   // power-on + held KEY2 only
     wm.resetSettings();
   }
-
-  epaper.begin(fromDeepSleep ? 1 : 0);
-  float vbat = readBatteryVoltage();
-  int pct = batteryPercent(vbat);
-  Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);
 
   if (!ensureWifi(forcePortal, !fromDeepSleep)) {
     if (buttonWake) ackBlink(4);
@@ -953,12 +1090,12 @@ void setup() {
       uint32_t mins = retryDelayMinutes();
       uint32_t nm = (uint32_t)g_failMinutes + mins;
       g_failMinutes = nm > 65535 ? 65535 : (uint16_t)nm;
-      maybeOTA();
+      if (r != FETCH_ERROR) maybeOTA(vbat);   // the server answered (404/503): worth the check
       goToSleep(mins);
       return;
     }
   }
-  maybeOTA();
+  maybeOTA(vbat);
   goToSleep(g_wakeMinutes);
 #endif
 }

@@ -3,6 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {# The page has one (light) palette; pin native controls (time pickers,
+     confirm dialogs) to it so a dark-OS user doesn't get dark widgets on a
+     light card. #}
+  <meta name="color-scheme" content="light">
   <title>Featherframe</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,500;1,500&display=swap">
@@ -14,6 +18,10 @@
       --border:#e6e4dd; --border-strong:#d5d2ca;
       --accent:#6b4a2c; --accent-press:#523821; --accent-ring:rgba(107,74,44,.24);
       --good:#5c8a46; --warn:#b0781d; --bad:#b6472e;
+      /* the few literal colours that repeat: white surfaces, text on walnut, the off-switch track */
+      --white:#ffffff; --on-accent:#f7efe2; --switch-off:#d8cdb8;
+      --accent-grad:linear-gradient(#7d5836, var(--accent));
+      --accent-grad-hover:linear-gradient(#6f4c2c, var(--accent-press));
       --serif:"EB Garamond", Georgia, serif;
       --sans:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       --sh-sm:0 1px 1px rgba(74,54,28,.05);
@@ -40,9 +48,16 @@
     header p { margin:7px 0 0; font-size:13px; color:var(--muted); }
     header p a { color:var(--ink-2); text-decoration:none; }
     header p a:hover { color:var(--accent); }
+    /* one-shot "Settings saved" banner after the POST/redirect round trip */
+    .flash { margin:-12px 0 24px; }
+
+    /* keyboard focus: one accent ring everywhere (inputs get theirs below) */
+    a:focus-visible, button:focus-visible, summary:focus-visible, .seg-ex:focus-visible {
+      outline:2px solid var(--accent); outline-offset:2px; border-radius:4px;
+    }
 
     .grid { display:grid; grid-template-columns:300px 1fr; gap:24px; align-items:start; }
-    @media (max-width:820px){ .grid{ grid-template-columns:1fr; } }
+    @media (max-width:820px){ .grid{ grid-template-columns:1fr; } .stage{ position:static; } }
     .col-right { display:flex; flex-direction:column; gap:24px; min-width:0; }
 
     .card { background:var(--surface); border:1px solid var(--border); border-radius:9px; box-shadow:var(--sh-card); }
@@ -51,18 +66,25 @@
     .stage { position:sticky; top:28px; display:flex; flex-direction:column; gap:16px; }
     .plate-card { padding:16px; }
     /* the rendered frame already carries its own white mat allowance — no CSS chrome */
-    .plate { border-radius:2px; background:#fff; overflow:hidden; }
+    .plate { border-radius:2px; background:var(--white); overflow:hidden; }
     .plate img { display:block; width:100%; height:auto; transition:opacity .15s; }
     .plate.loading img { opacity:.45; }
+    /* no frame rendered yet (preview 404s): a portrait placeholder in the panel's aspect */
+    .plate-empty { aspect-ratio:1404 / 1872; display:flex; align-items:center; justify-content:center;
+      padding:24px; text-align:center; font-size:12.5px; line-height:1.5; color:var(--muted);
+      background:var(--inset); border:1px dashed var(--border-strong); border-radius:2px; }
+    .plate.empty img { display:none; }
+    .plate:not(.empty) .plate-empty { display:none; }
     .plate-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center; }
     .plate-actions form.inline { display:flex; gap:8px; margin:0; }
-    .plate-actions input[type=text] { width:118px; }
+    .plate-actions input[type=text] { width:118px; padding:7px 10px; font-size:13px; }
     .task-status { font-size:12px; color:var(--accent); font-weight:600; margin-top:10px; min-height:1em; }
     .task-status:empty { margin-top:0; min-height:0; }
     .task-status.failed { color:var(--bad); }
 
     .status-card { padding:16px 18px; }
-    .status-card .grp { font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin:0 0 10px; }
+    /* group eyebrow — the same spec as .adv-group in the settings column */
+    .status-card .grp { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; margin:0 0 10px; }
     .status-card .grp.second { margin:18px -18px 10px; padding:16px 18px 0; border-top:1px solid var(--border); }
     .status-card dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:9px 0; }
     .status-card dt { color:var(--muted); font-size:13px; }
@@ -78,15 +100,18 @@
     .wifi .arc { stroke:var(--faint); fill:none; }
     .wifi .arc.lit { stroke:var(--good); }
     .wifi .dot { fill:var(--good); stroke:none; }
-    /* Overdue warning: same tinted-box language as the "Test connection" error
-       (.test-box.bad), in amber, but smaller and spanning the row width so it
-       reads as attached to "Last seen" above it. */
-    .status-card .overdue-note { grid-column:1/-1; justify-content:flex-start; text-align:left;
-      gap:7px; align-items:center; margin-top:-2px; padding:6px 10px; border-radius:7px;
+    /* Row-spanning note under "Last seen": same tinted-box language as the
+       "Test connection" result (.test-box), smaller, attached to the row above.
+       Neutral by default (never checked in); .warn for overdue. */
+    .status-card .note { grid-column:1/-1; justify-content:flex-start; text-align:left;
+      gap:7px; align-items:flex-start; margin-top:-2px; padding:6px 10px; border-radius:7px;
       font-size:12px; line-height:1.4; color:var(--ink-2);
+      background:var(--inset); border:1px solid var(--border); }
+    .status-card .note svg { flex:none; width:14px; height:14px; margin-top:2px; color:var(--muted); }
+    .status-card .note.warn {
       background:color-mix(in srgb, var(--warn) 13%, var(--surface));
-      border:1px solid color-mix(in srgb, var(--warn) 34%, var(--border)); }
-    .status-card .overdue-note svg { flex:none; width:14px; height:14px; color:var(--warn); }
+      border-color:color-mix(in srgb, var(--warn) 34%, var(--border)); }
+    .status-card .note.warn svg { color:var(--warn); }
 
     /* right column: settings */
     .settings { padding:0; }
@@ -99,9 +124,9 @@
     .hint { font-size:12.5px; color:var(--muted); margin-top:8px; line-height:1.5; }
     .intro { font-size:13px; color:var(--muted); margin:-4px 0 16px; line-height:1.5; max-width:62ch; }
 
-    input[type=text], input[type=number], input[type=password], input[type=time], textarea, select.sel {
+    input[type=text], input[type=url], input[type=number], input[type=password], input[type=time], textarea, select.sel {
       width:100%; padding:9px 12px; border:1px solid var(--border-strong); border-radius:6px;
-      background:#ffffff; color:var(--ink); font:inherit; font-size:14px;
+      background:var(--white); color:var(--ink); font:inherit; font-size:14px;
       box-shadow:var(--sh-sm); transition:border-color .12s, box-shadow .12s;
     }
     textarea { resize:vertical; min-height:60px; }
@@ -113,6 +138,9 @@
     input:focus-visible, textarea:focus-visible, select.sel:focus-visible {
       outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-ring);
     }
+    /* native validation (min/max/step) — the bubble names the problem; the ring says where */
+    input:user-invalid { border-color:var(--bad); }
+    .lab .opt { color:var(--muted); font-weight:400; }
     .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     @media (max-width:480px){ .row2{ grid-template-columns:1fr; } }
 
@@ -129,7 +157,7 @@
     }
     .seg input:checked + span { color:var(--ink); }
     .seg-ind {
-      position:absolute; z-index:0; border-radius:5px; background:#ffffff; box-shadow:var(--sh-pill);
+      position:absolute; z-index:0; border-radius:5px; background:var(--white); box-shadow:var(--sh-pill);
       transition:left .22s cubic-bezier(.4,0,.2,1), top .22s cubic-bezier(.4,0,.2,1),
                  width .22s cubic-bezier(.4,0,.2,1), height .22s cubic-bezier(.4,0,.2,1);
       pointer-events:none;
@@ -138,58 +166,60 @@
     @media (prefers-reduced-motion:reduce){ .seg-ind { transition:none; } }
     .seg input:focus-visible + span { outline:2px solid var(--accent); outline-offset:2px; }
 
-    /* toggle — green when on. switch is vertically centered against the label+subtext block */
+    /* toggle — green when on. switch is vertically centered against the label+subtext block.
+       The visible text is a <label for> too, so the whole row is the tap target. */
     .torow { display:flex; align-items:center; gap:13px; }
-    .torow.disabled { opacity:.5; }
     .totext { display:flex; flex-direction:column; gap:2px; min-width:0; }
-    .tolabel { font-size:14px; color:var(--ink-2); line-height:1.35; }
+    .tolabel { font-size:14px; color:var(--ink-2); line-height:1.35; cursor:pointer; }
     .tosub { font-size:12.5px; color:var(--muted); line-height:1.45; }
     .tosub:empty { display:none; }
     .tosub a { color:var(--accent); }
     .switch { position:relative; display:inline-block; width:42px; height:25px; flex:none; }
     .switch input { opacity:0; width:0; height:0; }
-    .switch .track { position:absolute; inset:0; background:#d8cdb8; border-radius:999px; transition:background .16s; box-shadow:inset 0 1px 2px rgba(74,54,28,.16); }
-    .switch .track::before { content:""; position:absolute; width:19px; height:19px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform .16s; box-shadow:0 1px 2px rgba(74,54,28,.3); }
+    .switch .track { position:absolute; inset:0; background:var(--switch-off); border-radius:999px; transition:background .16s; box-shadow:inset 0 1px 2px rgba(74,54,28,.16); }
+    .switch .track::before { content:""; position:absolute; width:19px; height:19px; left:3px; top:3px; background:var(--white); border-radius:50%; transition:transform .16s; box-shadow:0 1px 2px rgba(74,54,28,.3); }
     .switch input:checked + .track { background:var(--good); }
     .switch input:checked + .track::before { transform:translateX(17px); }
     .switch input:focus-visible + .track { box-shadow:0 0 0 3px var(--accent-ring); }
 
-    /* buttons */
-    .btn { font:inherit; font-size:13px; font-weight:500; padding:8px 14px; border-radius:6px; cursor:pointer;
-           border:1px solid var(--border-strong); background:linear-gradient(#ffffff,#eeeeec); color:var(--ink-2);
-           box-shadow:var(--sh-sm); transition:.12s; }
-    .btn:hover { background:linear-gradient(#ffffff,#e7e7e5); color:var(--ink); }
+    /* buttons — one base size for every inline action; .lg for the form's Save;
+       .primary for the walnut fill; .icon for a square glyph; .danger tints red */
+    .btn { font:inherit; font-size:13px; font-weight:500; padding:7px 12px; border-radius:6px; cursor:pointer;
+           border:1px solid var(--border-strong); background:linear-gradient(var(--white),#eeeeec); color:var(--ink-2);
+           box-shadow:var(--sh-sm); transition:.12s; white-space:nowrap; }
+    .btn:hover { background:linear-gradient(var(--white),#e7e7e5); color:var(--ink); }
     .btn:active { box-shadow:inset 0 1px 2px rgba(74,54,28,.12); }
     .btn:disabled { opacity:.55; cursor:default; }
-    .btn.mini { font-size:12.5px; padding:7px 12px; }
     .btn.danger { color:var(--bad); }
     .btn.icon { width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; flex:none; }
     .btn.icon svg { width:15px; height:15px; }
-    .btn.primary { background:linear-gradient(#7d5836,var(--accent)); border-color:var(--accent-press); color:#f7efe2; }
-    .btn.primary:hover { background:linear-gradient(#6f4c2c,var(--accent-press)); color:#f7efe2; }
+    .btn.primary { background:var(--accent-grad); border-color:var(--accent-press); color:var(--on-accent);
+      box-shadow:0 1px 2px rgba(74,54,28,.24), inset 0 1px 0 rgba(255,255,255,.15); }
+    .btn.primary:hover { background:var(--accent-grad-hover); color:var(--on-accent); }
+    .btn.primary:active { box-shadow:inset 0 2px 4px rgba(40,26,10,.4); }
+    .btn.lg { font-size:14px; padding:9px 20px; }
+    /* bigger targets on touch screens; unchanged with a mouse */
+    @media (pointer:coarse){
+      .btn { min-height:40px; } .btn.icon { width:40px; }
+      .seg label span { min-height:36px; }
+    }
     /* The stored key is masked and not editable — show it visibly disabled, not just read-only. */
-    #key-display input:disabled { color:var(--muted); -webkit-text-fill-color:var(--muted); opacity:1;
+    .key-display input:disabled { color:var(--muted); -webkit-text-fill-color:var(--muted); opacity:1;
       background:var(--inset); cursor:not-allowed; }
     .keyline { display:flex; gap:8px; }
-    .keyline input { flex:1; font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:13px; letter-spacing:0; }
+    .keyline input { flex:1; min-width:0; font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:13px; letter-spacing:0; }
     /* a connection field + its inline Test button on one row */
     .data-row { display:flex; gap:10px; align-items:stretch; }
     .data-row input { flex:1; min-width:0; }
-    .data-row .btn { flex:none; white-space:nowrap; }
+    .data-row .btn { flex:none; }
 
-    .save {
-      padding:9px 20px; border-radius:6px; border:1px solid var(--accent-press); cursor:pointer;
-      background:linear-gradient(#7d5836,var(--accent)); color:#f7efe2; font:inherit; font-size:14px; font-weight:500;
-      box-shadow:0 1px 2px rgba(74,54,28,.24), inset 0 1px 0 rgba(255,255,255,.15);
-      transition:transform .06s ease, filter .12s ease;
-    }
-    .save:hover { background:linear-gradient(#6f4c2c,var(--accent-press)); }
-    .save:active { transform:translateY(1px); box-shadow:inset 0 2px 4px rgba(40,26,10,.4); filter:brightness(.96); }
     /* the save bar only sticks to the viewport once there's something to save */
     .savebar { display:flex; align-items:center; justify-content:flex-end; gap:14px;
                padding:16px 26px; border-top:1px solid var(--border);
                background:rgba(252,252,251,.86); backdrop-filter:blur(8px); border-radius:0 0 9px 9px; }
+    .savebar .unsaved { display:none; margin-right:auto; font-size:12.5px; color:var(--muted); }
     .savebar.dirty { position:sticky; bottom:0; animation:savebar-in .3s cubic-bezier(.2,.7,.2,1); }
+    .savebar.dirty .unsaved { display:block; }
     @keyframes savebar-in { from { transform:translateY(120%); opacity:0; } to { transform:translateY(0); opacity:1; } }
     @media (prefers-reduced-motion:reduce){ .savebar.dirty { animation:none; } }
 
@@ -199,18 +229,18 @@
     details.adv[open] > summary::after { content:" \2013"; }
     details.adv > summary:hover { color:var(--accent-press); }
     .adv-body { padding-top:18px; display:flex; flex-direction:column; gap:18px; }
-    .adv-group { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); margin:4px 0 -6px; }
+    .adv-group { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; margin:4px 0 -6px; }
     .adv-group:first-child { margin-top:0; }
 
     /* generated-plate gallery */
     .gen-list { display:flex; flex-direction:column; gap:10px; }
-    .gen-item { display:flex; gap:14px; align-items:center; border:1px solid var(--border); border-radius:7px; background:#fff; padding:10px 12px; }
+    .gen-item { display:flex; gap:14px; align-items:center; border:1px solid var(--border); border-radius:7px; background:var(--white); padding:10px 12px; }
     .gen-item .plate-link { display:block; position:relative; overflow:hidden; border-radius:3px; flex:none; }
-    .gen-item img { width:64px; height:85px; object-fit:cover; border:1px solid var(--border); background:#fff; display:block; }
+    .gen-item img { width:64px; height:85px; object-fit:cover; border:1px solid var(--border); background:var(--white); display:block; }
     .gen-item .who { flex:1; min-width:0; }
     .gen-item .who .common { font-weight:600; font-size:14px; }
     .gen-item .who .sci { font-family:var(--serif); font-style:italic; color:var(--muted); font-size:13px; }
-    .gen-item .who .meta { color:var(--faint); font-size:11.5px; margin-top:2px; }
+    .gen-item .who .meta { color:var(--muted); font-size:12px; margin-top:2px; }
     .gen-item .ops { display:flex; gap:8px; align-items:stretch; }
     .gen-item .ops form { display:flex; margin:0; }
     .gen-item .regen-status { font-size:12px; color:var(--accent); margin-top:3px; font-weight:600; }
@@ -229,6 +259,10 @@
       color:transparent; -webkit-text-fill-color:transparent; animation:text-shimmer 1.8s linear infinite;
     }
     @keyframes text-shimmer { to { background-position:-200% 0; } }
+    @media (prefers-reduced-motion:reduce){
+      .gen-item.regenerating .plate-link::after { animation:none; }
+      .gen-item.regenerating .regen-status { animation:none; background:none; color:var(--accent); -webkit-text-fill-color:var(--accent); }
+    }
 
     footer { margin-top:22px; display:flex; gap:20px; align-items:center; flex-wrap:wrap; font-size:12.5px; color:var(--muted); padding:0 4px; }
     footer a { color:var(--ink-2); text-decoration:none; }
@@ -240,19 +274,16 @@
                 display:flex; align-items:center; justify-content:center; padding:28px; cursor:zoom-out; }
     .lightbox[hidden] { display:none; }
     .lightbox-inner { display:flex; flex-direction:column; align-items:center; gap:14px; max-height:100%; }
-    .lightbox img { max-width:100%; max-height:calc(100vh - 120px); background:#fff; box-shadow:0 16px 60px rgba(0,0,0,.5); }
+    .lightbox img { max-width:100%; max-height:calc(100vh - 120px); background:var(--white); box-shadow:0 16px 60px rgba(0,0,0,.5); }
     .lightbox-cap { color:#f3f1ec; font-size:13px; text-align:center; max-width:440px; line-height:1.45; }
     .lightbox-cap[hidden] { display:none; }
-    /* preview triggers: "Label" with a dotted underline + a small magnifier */
-    a.ex { display:inline-flex; align-items:center; gap:4px; color:var(--accent); cursor:pointer; text-decoration:none; }
-    a.ex .ex-t { text-decoration:underline dotted; text-underline-offset:2px; }
-    a.ex:hover .ex-t { text-decoration-style:solid; }
-    a.ex .ex-mag { width:13px; height:13px; flex:none; }
-    /* the magnifier in a segment is a preview trigger — reads as a link: dotted underline + hover */
-    .seg-ex { display:inline-flex; align-items:center; color:var(--muted); cursor:zoom-in;
+    /* example-preview trigger: a small magnifier that reads as a link (dotted underline + hover).
+       It is a real <a href> to the example PNG, so it is focusable and works without JS. */
+    .seg-ex { display:inline-flex; align-items:center; color:var(--muted); cursor:zoom-in; text-decoration:none;
               padding-bottom:1px; border-bottom:1px dotted currentColor; transition:color .13s; }
     .seg-ex:hover { color:var(--accent); border-bottom-style:solid; }
     .seg-ex svg { width:14px; height:14px; }
+    .tolabel .seg-ex { vertical-align:-2px; }
     /* reserve the bold width so selecting a segment never reflows it */
     .seg.seg-measuring label span { font-weight:700; }
     /* bold the current selection */
@@ -265,7 +296,7 @@
     .cselect { position:relative; }
     .cselect-native.enhanced { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
     .cselect-btn { width:100%; display:flex; align-items:center; gap:9px; text-align:left; cursor:pointer;
-      padding:9px 12px; border:1px solid var(--border-strong); border-radius:6px; background:#fff;
+      padding:9px 12px; border:1px solid var(--border-strong); border-radius:6px; background:var(--white);
       color:var(--ink); font:inherit; font-size:14px; box-shadow:var(--sh-sm); }
     .cselect-btn:focus-visible { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-ring); }
     .cselect-btn .cs-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -282,11 +313,12 @@
     .combo-list li { padding:7px 10px; border-radius:5px; cursor:pointer; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .combo-list li:hover { background:var(--inset); }
     .combo-list li.combo-empty { color:var(--muted); cursor:default; }
-    .cselect-btn .cs-caret { color:var(--muted); flex:none; width:12px; height:8px; }
+    .cselect-btn .cs-caret { color:var(--muted); flex:none; width:12px; height:8px; display:inline-flex; }
+    .cselect-btn .cs-caret svg { width:12px; height:8px; display:block; }
     .cselect-ic { width:16px; height:16px; flex:none; display:inline-flex; color:var(--ink-2); }
     .cselect-ic svg { width:16px; height:16px; }
     .cselect-list { position:absolute; z-index:20; left:0; right:0; top:calc(100% + 4px); margin:0; padding:4px;
-      list-style:none; background:#fff; border:1px solid var(--border-strong); border-radius:8px;
+      list-style:none; background:var(--white); border:1px solid var(--border-strong); border-radius:8px;
       box-shadow:0 10px 28px rgba(74,54,28,.18); max-height:264px; overflow:auto; }
     .cselect-list[hidden] { display:none; }
     .cselect-list li { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:5px;
@@ -300,11 +332,9 @@
     .steps strong { color:var(--ink); font-weight:600; }
     .copyrow { display:flex; gap:8px; margin-top:6px; }
     .copyrow input { flex:1; min-width:0; font-family:ui-monospace, Menlo, monospace; font-size:12px;
-      padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px; background:#fff; color:var(--ink); box-shadow:var(--sh-sm); }
+      padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--white); color:var(--ink); box-shadow:var(--sh-sm); }
     .copy-btn.copied { color:var(--good); border-color:var(--good); }
-    .hint.failed { color:var(--bad); }
-    .hint.ok { color:var(--good); }
-    /* source-test result: a light rounded box with a status icon */
+    /* status result boxes (source test, saved banner, server-unreachable): a light rounded box with a status icon */
     .test-box { display:none; align-items:flex-start; gap:9px; margin-top:10px; padding:9px 12px;
                 border-radius:8px; font-size:13px; line-height:1.45; border:1px solid var(--border);
                 background:var(--inset); color:var(--ink); }
@@ -315,7 +345,11 @@
     .test-box.ok  .test-ic { color:var(--good); }
     .test-box.bad { background:color-mix(in srgb, var(--bad) 11%, var(--surface)); border-color:color-mix(in srgb, var(--bad) 30%, var(--border)); }
     .test-box.bad .test-ic { color:var(--bad); }
+    .test-box.warn { background:color-mix(in srgb, var(--warn) 12%, var(--surface)); border-color:color-mix(in srgb, var(--warn) 34%, var(--border)); }
+    .test-box.warn .test-ic { color:var(--warn); }
     .test-box a.tb-link { color:var(--accent); text-decoration:underline; white-space:nowrap; }
+    /* the Frame card is a snapshot; while the server can't be reached it is dimmed under the banner */
+    .stale { opacity:.6; }
   </style>
 </head>
 <body>
@@ -329,100 +363,111 @@
   <symbol id="ic-birdnet-pi" viewBox="0 0 24 24"><image href="data:image/png;base64,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" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/></symbol>
   <symbol id="ic-birdweather" viewBox="0 0 24 24"><image href="data:image/png;base64,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" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/></symbol>
   <symbol id="ic-db" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6"/><path d="M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></g></symbol>
+  {# UI glyphs, defined once and referenced with <use> #}
+  <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="ic-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+  <symbol id="ic-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="ic-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
+  <symbol id="ic-warn" viewBox="0 0 16 16" fill="none"><path d="M8 1.9 15 14.4H1L8 1.9Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.75" r=".9" fill="currentColor"/></symbol>
+  <symbol id="ic-info" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="currentColor"/></symbol>
+  <symbol id="ic-caret" viewBox="0 0 12 8"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 <div class="wrap">
   <header>
     <h1 class="wordmark">Featherframe</h1>
-    <p><a href="https://github.com/wr/featherframe" target="_blank" rel="noopener">github.com/wr/featherframe</a> · v{{ version }}</p>
+    <p><a href="https://github.com/wr/featherframe" target="_blank" rel="noopener">github.com/wr/featherframe</a></p>
   </header>
 
-  <div class="grid">
+  {# One slot for page-level notices: "Settings saved" after the redirect, and
+     "Can't reach Featherframe" when the status poll fails. Text is set from JS
+     via textContent only. #}
+  <div class="test-box flash" id="flash" role="status" aria-live="polite">
+    <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-check"/></svg></span>
+    <span class="test-msg"></span>
+  </div>
+
+  <main class="grid">
     <!-- LEFT: live plate + status -->
     <div class="stage">
       <div class="card plate-card">
-        <div class="plate">
+        <div class="plate{{ '' if status.current.etag else ' empty' }}" id="plate">
           <a class="plate-link" href="/api/preview.png" target="_blank" rel="noopener">
-            <img id="preview" src="/api/preview.png" alt="Current frame">
+            <img id="preview" src="/api/preview.png" alt="{{ ('Current frame: ' ~ status.current.label) if status.current.label else 'Current frame' }}">
           </a>
+          <div class="plate-empty">Nothing rendered yet.<br>The first detection that clears the confidence threshold will appear here.</div>
         </div>
         <div class="plate-actions">
-          <button class="btn mini" type="button" onclick="manualRefresh(this)">Refresh</button>
+          <button class="btn" type="button" id="refresh-btn" title="Re-render the frame now. The panel picks it up on its next wake.">Refresh</button>
           <form class="inline task-form" data-task="day-review" method="post" action="/api/collage/day-review">
-            <button class="btn mini" type="submit" title="Create today's “day in review” image now">Day in review</button>
+            <button class="btn" type="submit" title="Create today's “day in review” image now">Day in review</button>
           </form>
           {% if dev_mode %}
           <form class="inline task-form" data-task="test-detection" method="post" action="/api/test-detection">
-            <input type="text" name="common" class="btn" style="background:#fff" placeholder="Test species"
+            <input type="text" name="common" placeholder="Test species" aria-label="Test species"
                    title="Render a test detection. A species with no Audubon plate exercises image generation.">
-            <button class="btn mini" type="submit">Test</button>
+            <button class="btn" type="submit">Test</button>
           </form>
           {% endif %}
         </div>
-        <div class="task-status" id="task-status"></div>
+        <div class="task-status" id="task-status" role="status" aria-live="polite"></div>
       </div>
 
-      <div class="card status-card">
+      <div class="card status-card" id="frame-card">
         {% set card = status.frame_card %}
-        <p class="grp">Frame</p>
+        <h2 class="grp">Frame</h2>
         <dl>
           <dt>Last seen</dt>
-          <dd{% if status.device.last_wake %} title="last wake: {{ status.device.last_wake }}{% if status.device.wake_detail %} · {{ status.device.wake_detail }}{% endif %}"{% endif %}>
-            {% if card.seen %}
-              <span class="pill-status"><span class="d {{ 'warn' if card.overdue else 'good' }}"></span>{{ card.last_seen }}</span>
-            {% else %}
-              <span class="pill-status"><span class="d off"></span>never</span>
-            {% endif %}
+          <dd id="fc-seen"{% if status.device.last_wake %} title="last wake: {{ status.device.last_wake }}{% if status.device.wake_detail %} · {{ status.device.wake_detail }}{% endif %}"{% endif %}>
+            <span class="pill-status"><span class="d {{ ('warn' if card.overdue else 'good') if card.seen else 'off' }}" id="fc-seen-dot"></span><span id="fc-seen-text">{{ card.last_seen if card.seen else 'never' }}</span></span>
           </dd>
-          {% if card.overdue %}
-          <dd class="overdue-note">
-            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.9 15 14.4H1L8 1.9Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.75" r=".9" fill="currentColor"/></svg>
-            <span>Overdue — wakes every {{ card.expected_minutes }} min</span>
+          <dd class="note warn" id="fc-overdue" {{ '' if card.overdue else 'hidden' }}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><use href="#ic-warn"/></svg>
+            <span id="fc-overdue-text">{% if card.overdue %}Overdue — wakes every {{ card.expected_minutes }} min{% endif %}</span>
           </dd>
-          {% endif %}
+          <dd class="note" id="fc-never" {{ 'hidden' if card.seen else '' }}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><use href="#ic-info"/></svg>
+            <span>The frame hasn't checked in yet. Power it on; on first boot it opens a Wi-Fi network called <strong>Featherframe-Setup</strong> — join it and point it at this server.</span>
+          </dd>
+          {# Telemetry rows mean nothing until the first check-in: keep them out of
+             the never-seen state rather than printing a column of dashes. #}
+          <div class="fc-telemetry" id="fc-telemetry" style="display:contents" {{ '' if card.seen else 'hidden' }}>
           {% if config.show_battery %}
           {% set pct = status.device.battery_percent %}
           <dt>Battery</dt>
-          <dd>
-            {% if pct is not none %}
-              <span class="batt"><span class="cell"><i style="width:{{ pct }}%;{% if pct <= 20 %}background:var(--bad){% endif %}"></i></span><span class="tnum">{{ pct }}%</span></span>
-            {% else %}—{% endif %}
+          <dd id="fc-batt">
+            <span class="batt" id="fc-batt-wrap" {{ '' if pct is not none else 'hidden' }}><span class="cell"><i id="fc-batt-bar" style="width:{{ pct or 0 }}%;{% if card.battery_low %}background:var(--bad){% endif %}"></i></span><span class="tnum" id="fc-batt-text">{{ (pct ~ '%') if pct is not none else '' }}</span></span><span id="fc-batt-none" {{ 'hidden' if pct is not none else '' }}>—</span>
           </dd>
           {% endif %}
           <dt>Wi-Fi</dt>
-          <dd>
+          <dd id="fc-wifi">
             {% set rssi = card.wifi_rssi %}
-            {% if rssi is not none %}
-              {% set bars = 4 if rssi >= -55 else (3 if rssi >= -67 else (2 if rssi >= -75 else 1)) %}
-              {% set word = 'Excellent' if bars == 4 else ('Good' if bars == 3 else ('Fair' if bars == 2 else 'Weak')) %}
-              <span class="pill-status"><svg class="wifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path class="arc{{ ' lit' if bars >= 4 }}" d="M2 7.3a15 15 0 0 1 20 0"/><path class="arc{{ ' lit' if bars >= 3 }}" d="M5.2 11.2a11 11 0 0 1 13.6 0"/><path class="arc{{ ' lit' if bars >= 2 }}" d="M8.6 15a6 6 0 0 1 6.8 0"/><circle class="dot" cx="12" cy="18.6" r="1.4"/></svg>{{ word }}</span>
-            {% else %}—{% endif %}
+            {% set bars = (4 if rssi >= -55 else (3 if rssi >= -67 else (2 if rssi >= -75 else 1))) if rssi is not none else 0 %}
+            {% set word = 'Excellent' if bars == 4 else ('Good' if bars == 3 else ('Fair' if bars == 2 else 'Weak')) %}
+            <span class="pill-status" id="fc-wifi-wrap" {{ '' if rssi is not none else 'hidden' }} title="{{ rssi }} dBm"><svg class="wifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path class="arc{{ ' lit' if bars >= 4 }}" d="M2 7.3a15 15 0 0 1 20 0"/><path class="arc{{ ' lit' if bars >= 3 }}" d="M5.2 11.2a11 11 0 0 1 13.6 0"/><path class="arc{{ ' lit' if bars >= 2 }}" d="M8.6 15a6 6 0 0 1 6.8 0"/><circle class="dot" cx="12" cy="18.6" r="1.4"/></svg><span id="fc-wifi-text">{{ word }}</span></span><span id="fc-wifi-none" {{ 'hidden' if rssi is not none else '' }}>—</span>
           </dd>
-          <dt>IP address</dt><dd class="tnum">{{ status.device.ip or '—' }}</dd>
+          <dt>IP address</dt><dd class="tnum" id="fc-ip">{{ status.device.ip or '—' }}</dd>
           <dt>Firmware</dt>
-          <dd{% if status.device.sketch_md5 %} title="build {{ status.device.sketch_md5[:8] }}"{% endif %}>
+          <dd id="fc-fw"{% if status.device.sketch_md5 %} title="build {{ status.device.sketch_md5[:8] }}"{% endif %}>
             {{ status.device.fw_version or status.device.user_agent or '—' }}
           </dd>
           <dt>Panel</dt><dd>{{ status.device.panel or '10.3″ · 1404×1872 · grayscale' }}</dd>
           <dt>Board</dt><dd>{{ status.device.board or 'XIAO ESP32-S3 · EE03' }}</dd>
+          </div>
         </dl>
 
-        <p class="grp second">Source</p>
+        <h2 class="grp second">Source</h2>
         <dl>
           {% set _srcnames = {'birdnet_go':'BirdNET-Go','apprise':'BirdNET-Pi','birdweather':'BirdWeather','custom':'Local database'} %}
           <dt>{{ _srcnames.get(config.detection_backend, 'Source') }}</dt>
           <dd>
-            {% if status.birdnet_available %}
-              <span class="pill-status"><span class="d good"></span>Connected</span>
-            {% else %}
-              <span class="pill-status"><span class="d bad"></span>Not found</span>
-            {% endif %}
+            <span class="pill-status"><span class="d {{ 'good' if status.birdnet_available else 'bad' }}" id="fc-src-dot"></span><span id="fc-src-text">{{ 'Connected' if status.birdnet_available else 'Not reachable' }}</span></span>
           </dd>
-          {% if status.last_detection %}
-          <dt>Last heard</dt><dd>{{ status.last_detection.common }}</dd>
-          {% endif %}
-          <dt>Now showing</dt><dd>{{ status.current.label or '—' }}</dd>
-          <dt>Species</dt><dd class="tnum">{{ status.species_all_time }} all-time</dd>
-          <dt>Plates</dt><dd class="tnum">{{ status.plates_loaded }} + {{ status.generated_cached }} generated</dd>
+          <dt>Last heard</dt><dd id="fc-heard">{{ status.last_detection.common if status.last_detection else '—' }}</dd>
+          <dt>Now showing</dt><dd id="fc-showing">{{ status.current.label or '—' }}</dd>
+          <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
+          <dt>Plates on file</dt><dd class="tnum" id="fc-plates">{{ status.plates_loaded }} Audubon · {{ status.generated_cached }} generated</dd>
         </dl>
       </div>
     </div>
@@ -436,32 +481,32 @@
         <section class="sec">
           <h2 class="sec-head">Display</h2>
           <div class="field">
-            <label class="lab">Mode</label>
-            <div class="seg wide" role="radiogroup" aria-label="Mode" id="mode-seg">
-              <label><input type="radio" name="mode" value="single" {{ 'checked' if config.mode=='single' else '' }}><span>Single<a class="ex seg-ex" data-ex="single" data-cap="Single — the most recent detection, shown as one plate." title="Preview an example" aria-label="Preview a Single example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span></label>
-              <label><input type="radio" name="mode" value="collage" {{ 'checked' if config.mode=='collage' else '' }}><span>Collage<a class="ex seg-ex" data-ex="collage" data-cap="Collage — a grid of the day's most-heard species, rebuilt through the day." title="Preview an example" aria-label="Preview a Collage example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span></label>
+            <span class="lab" id="mode-lab">Mode</span>
+            <div class="seg wide" role="radiogroup" aria-labelledby="mode-lab" id="mode-seg">
+              <label><input type="radio" name="mode" value="single" {{ 'checked' if config.mode=='single' else '' }}><span>Single<a class="ex seg-ex" href="/static/examples/single.png" data-ex="single" data-cap="Single — the most recent detection, shown as one plate." title="Preview an example" aria-label="Preview a Single example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></span></label>
+              <label><input type="radio" name="mode" value="collage" {{ 'checked' if config.mode=='collage' else '' }}><span>Collage<a class="ex seg-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Collage — a grid of the day's most-heard species, rebuilt through the day." title="Preview an example" aria-label="Preview a Collage example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></span></label>
             </div>
             <div class="hint" id="mode-hint"></div>
           </div>
           <div class="field">
             <div class="torow">
-              <label class="switch"><input type="checkbox" id="ssl" name="single_show_latest" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label>
+              <label class="switch"><input type="checkbox" role="switch" id="ssl" name="single_show_latest" aria-describedby="ssl-sub" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label>
               <div class="totext">
-                <span class="tolabel">Always show the most recent detection</span>
-                <span class="tosub">When off, the frame waits the refresh debounce between changes and won't redraw a species it's already showing.</span>
+                <label class="tolabel" for="ssl">Always show the most recent detection</label>
+                <span class="tosub" id="ssl-sub">When off, the frame waits the refresh debounce between changes and won't redraw a species it's already showing.</span>
               </div>
             </div>
           </div>
           <div class="field">
-            <label class="lab">Wake interval</label>
+            <span class="lab" id="wake-lab">Wake interval</span>
             {% set presets = [1, 5, 15, 30, 60] %}
             {% set wv = config.wake_interval_minutes %}
-            <div class="seg" role="radiogroup" aria-label="Wake interval">
+            <div class="seg" role="radiogroup" aria-labelledby="wake-lab">
               {% for p in presets %}
-              <label><input type="radio" name="wake_interval_minutes" value="{{ p }}" {{ 'checked' if wv==p else '' }}><span>{{ (p ~ 'm') if p < 60 else '1h' }}</span></label>
+              <label><input type="radio" name="wake_interval_minutes" value="{{ p }}" {{ 'checked' if wv==p else '' }}><span>{{ (p ~ ' min') if p < 60 else '1 h' }}</span></label>
               {% endfor %}
               {% if wv not in presets %}
-              <label><input type="radio" name="wake_interval_minutes" value="{{ wv }}" checked><span>{{ wv }}m</span></label>
+              <label><input type="radio" name="wake_interval_minutes" value="{{ wv }}" checked><span>{{ wv }} min</span></label>
               {% endif %}
             </div>
             <div class="hint">How often the frame wakes to check in. Longer means better battery life.</div>
@@ -471,47 +516,47 @@
             <div class="adv-body">
               <p class="adv-group">Detection</p>
               <div class="row2">
-                <div><label class="lab">Confidence threshold</label><input type="number" name="confidence_threshold" min="0" max="1" step="0.05" value="{{ config.confidence_threshold }}"><div class="hint">Minimum detection confidence to show a bird.</div></div>
-                <div><label class="lab">Refresh debounce (min)</label><input type="number" name="refresh_debounce_minutes" min="1" max="720" value="{{ config.refresh_debounce_minutes }}"><div class="hint">Only applies when "Always show the most recent" is off.</div></div>
+                <div><label class="lab" for="f-conf">Confidence threshold</label><input type="number" id="f-conf" name="confidence_threshold" min="0" max="1" step="0.01" inputmode="decimal" value="{{ config.confidence_threshold }}"><div class="hint">0 to 1. Minimum detection confidence to show a bird.</div></div>
+                <div><label class="lab" for="f-deb">Refresh debounce (minutes)</label><input type="number" id="f-deb" name="refresh_debounce_minutes" min="1" max="720" step="1" inputmode="numeric" value="{{ config.refresh_debounce_minutes }}"><div class="hint">Only applies when “Always show the most recent detection” is off.</div></div>
               </div>
               <p class="adv-group">Rendering</p>
               {# The panel's colour capability comes from what the device reports (X-Panel);
                  a grayscale panel disables the Color tone. Absent report -> assume grayscale. #}
-              {% set panel_gray = (not status.device.panel) or ('gray' in status.device.panel|lower) %}
               <div class="row2">
-                <div><label class="lab">Tone</label><select class="sel" name="gray_mode"><option value="16" {{ 'selected' if config.gray_mode=='16' else '' }}>Grayscale (16-level)</option><option value="1" {{ 'selected' if config.gray_mode=='1' else '' }}>Black &amp; white (1-bit)</option><option value="color" {{ 'selected' if config.gray_mode=='color' else '' }} {{ 'disabled' if panel_gray else '' }}>Color{{ ' — needs a color panel' if panel_gray else '' }}</option></select><div class="hint">{% if panel_gray %}This panel is monochrome — Color is unavailable. Grayscale is the full 16-level range.{% else %}Color renders full-color plates on a color-capable panel.{% endif %}</div></div>
-                <div><label class="lab">Dithering</label><select class="sel" name="dither"><option value="bluenoise" {{ 'selected' if config.dither=='bluenoise' else '' }}>Blue-noise (fast)</option><option value="stucki" {{ 'selected' if config.dither=='stucki' else '' }}>Stucki (slow, richer)</option><option value="none" {{ 'selected' if config.dither=='none' else '' }}>None</option></select></div>
+                {% set panel_gray = (not status.device.panel) or ('gray' in status.device.panel|lower) %}
+                <div><label class="lab" for="f-tone">Tone</label><select class="sel" id="f-tone" name="gray_mode"><option value="16" {{ 'selected' if config.gray_mode=='16' else '' }}>Grayscale (16-level)</option><option value="1" {{ 'selected' if config.gray_mode=='1' else '' }}>Black &amp; white (1-bit)</option><option value="color" {{ 'selected' if config.gray_mode=='color' else '' }} {{ 'disabled' if panel_gray else '' }}>Color{{ ' — needs a color panel' if panel_gray else '' }}</option></select><div class="hint">{% if panel_gray %}This panel is monochrome — Color is unavailable. Grayscale is the full 16-level range.{% else %}Color renders full-color plates on a color-capable panel.{% endif %}</div></div>
+                <div><label class="lab" for="f-dither">Dithering</label><select class="sel" id="f-dither" name="dither"><option value="bluenoise" {{ 'selected' if config.dither=='bluenoise' else '' }}>Blue-noise (fast)</option><option value="stucki" {{ 'selected' if config.dither=='stucki' else '' }}>Stucki (slow, richer)</option><option value="none" {{ 'selected' if config.dither=='none' else '' }}>None</option></select><div class="hint">How 16 grays stand in for the plate's tones. Blue-noise suits a Pi Zero.</div></div>
               </div>
               <div class="row2">
-                <div><label class="lab">Panel rotation</label><select class="sel" name="panel_rotation">{% for r in [0,90,180,270] %}<option value="{{ r }}" {{ 'selected' if config.panel_rotation==r else '' }}>{{ r }}°</option>{% endfor %}</select><div class="hint">If the image is sideways on the panel, change this — no reflash.</div></div>
-                <div><label class="lab">Collage rebuilds / day</label><input type="number" name="collage_rebuilds_per_day" min="1" max="24" value="{{ config.collage_rebuilds_per_day }}"><div class="hint">In Collage mode, how many times a day the daytime sheet is re-rendered as new species arrive.</div></div>
+                <div><label class="lab" for="f-rot">Panel rotation</label><select class="sel" id="f-rot" name="panel_rotation">{% for r in [90,270] %}<option value="{{ r }}" {{ 'selected' if config.panel_rotation==r else '' }}>{{ r }}°</option>{% endfor %}</select><div class="hint">If the image is upside down on the panel, switch this — no reflash. The panel is landscape-native, so only these two orientations exist.</div></div>
+                <div><label class="lab" for="f-rebuilds">Collage rebuilds per day</label><input type="number" id="f-rebuilds" name="collage_rebuilds_per_day" min="1" max="24" step="1" inputmode="numeric" value="{{ config.collage_rebuilds_per_day }}"><div class="hint">In Collage mode, how many times a day the daytime sheet is re-rendered as new species arrive.</div></div>
               </div>
               <div class="field torow" style="margin:0;">
-                <label class="switch"><input type="checkbox" id="pn" name="show_plate_number" {{ 'checked' if config.show_plate_number else '' }}><span class="track"></span></label>
+                <label class="switch"><input type="checkbox" role="switch" id="pn" name="show_plate_number" aria-describedby="pn-sub" {{ 'checked' if config.show_plate_number else '' }}><span class="track"></span></label>
                 <div class="totext">
-                  <span class="tolabel">Show the plate number (“No. 47”)</span>
-                  <span class="tosub">Printed in the caption, matching the Havell plate.</span>
+                  <label class="tolabel" for="pn">Show the plate number (“No. 47”)</label>
+                  <span class="tosub" id="pn-sub">Printed in the caption, matching the Havell plate.</span>
                 </div>
               </div>
               <div class="field torow" style="margin:0;">
-                <label class="switch"><input type="checkbox" id="sb" name="show_battery" {{ 'checked' if config.show_battery else '' }}><span class="track"></span></label>
+                <label class="switch"><input type="checkbox" role="switch" id="sb" name="show_battery" aria-describedby="sb-sub" {{ 'checked' if config.show_battery else '' }}><span class="track"></span></label>
                 <div class="totext">
-                  <span class="tolabel">Show the battery percentage</span>
-                  <span class="tosub">The Frame card's Battery row. Turn off if the frame runs on USB.</span>
+                  <label class="tolabel" for="sb">Show the battery percentage</label>
+                  <span class="tosub" id="sb-sub">The Frame card's Battery row. Turn off if the frame runs on USB.</span>
                 </div>
               </div>
               <div class="row2">
-                <div><label class="lab">Mat inset (% per edge)</label><input type="number" name="mat_inset_pct" min="0" max="20" step="0.5" value="{{ config.mat_inset_pct }}"><div class="hint">The white border around the live preview is this mat allowance — the art is shrunk onto white so it clears the mat opening. Raise it until the physical mat just hides the white; ~4 suits an 8×6 mat.</div></div>
-                <div><label class="lab">Mat offset (px)</label><div style="display:flex;gap:8px"><input type="number" name="mat_offset_x_px" min="-120" max="120" value="{{ config.mat_offset_x_px }}" title="x — positive moves right"><input type="number" name="mat_offset_y_px" min="-120" max="120" value="{{ config.mat_offset_y_px }}" title="y — positive moves down"></div><div class="hint">For a mat that isn't dead-center.</div></div>
+                <div><label class="lab" for="f-inset">Mat inset (% per edge)</label><input type="number" id="f-inset" name="mat_inset_pct" min="0" max="20" step="0.1" inputmode="decimal" value="{{ config.mat_inset_pct }}"><div class="hint">The white border around the live preview is this mat allowance — the art is shrunk onto white so it clears the mat opening. Raise it until the physical mat just hides the white; ~4 suits an 8×6 mat.</div></div>
+                <div><span class="lab" id="offset-lab">Mat offset (px)</span><div class="row2" style="gap:8px" role="group" aria-labelledby="offset-lab"><input type="number" name="mat_offset_x_px" min="-120" max="120" step="1" inputmode="numeric" value="{{ config.mat_offset_x_px }}" placeholder="x" aria-label="Horizontal offset, positive moves right" title="x — positive moves right"><input type="number" name="mat_offset_y_px" min="-120" max="120" step="1" inputmode="numeric" value="{{ config.mat_offset_y_px }}" placeholder="y" aria-label="Vertical offset, positive moves down" title="y — positive moves down"></div><div class="hint">x then y, −120 to 120. For a mat that isn't dead-center.</div></div>
               </div>
             </div>
           </details>
         </section>
 
         <section class="sec">
-          <h2 class="sec-head">Quiet hours</h2>
+          <h2 class="sec-head" id="quiet-lab">Quiet hours</h2>
           <div class="field">
-            <div class="seg" role="radiogroup" aria-label="Quiet hours" id="quiet-seg">
+            <div class="seg" role="radiogroup" aria-labelledby="quiet-lab" id="quiet-seg">
               <label><input type="radio" name="quiet_hours_mode" value="off" {{ 'checked' if config.quiet_hours_mode=='off' else '' }}><span>Off</span></label>
               <label><input type="radio" name="quiet_hours_mode" value="sun" {{ 'checked' if config.quiet_hours_mode=='sun' else '' }}><span>Sunset → Sunrise</span></label>
               <label><input type="radio" name="quiet_hours_mode" value="custom" {{ 'checked' if config.quiet_hours_mode=='custom' else '' }}><span>Custom</span></label>
@@ -519,23 +564,23 @@
             <div class="hint" id="quiet-hint"></div>
           </div>
           <div class="field row2" id="quiet-custom" {{ '' if config.quiet_hours_mode=='custom' else 'hidden' }}>
-            <div><label class="lab">Start</label><input type="time" name="quiet_hours_start" value="{{ config.quiet_hours_start }}"></div>
-            <div><label class="lab">End</label><input type="time" name="quiet_hours_end" value="{{ config.quiet_hours_end }}"></div>
+            <div><label class="lab" for="f-qstart">Start</label><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}"></div>
+            <div><label class="lab" for="f-qend">End</label><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}"></div>
           </div>
           <div class="field" id="hold-field" {{ 'hidden' if config.quiet_hours_mode=='off' else '' }}>
             <div class="torow" id="hold-row">
-              <label class="switch"><input type="checkbox" id="qhc" name="quiet_hours_render_collage" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label>
+              <label class="switch"><input type="checkbox" role="switch" id="qhc" name="quiet_hours_render_collage" aria-describedby="qhc-sub" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label>
               <div class="totext">
-                <span class="tolabel">Show a “day in review” summary during quiet hours</span>
-                <span class="tosub">One image combining the day's top species, shown during quiet hours in either mode. <a class="ex seg-ex" id="dayreview-ex" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span>
+                <label class="tolabel" for="qhc">Show a “day in review” summary during quiet hours</label>
+                <span class="tosub" id="qhc-sub">One image combining the day's top species, shown during quiet hours in either mode. <a class="ex seg-ex" id="dayreview-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a day-in-review example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></span>
               </div>
             </div>
           </div>
         </section>
 
         <section class="sec">
-          <h2 class="sec-head">Dark mode</h2>
-          <div class="seg" role="radiogroup" aria-label="Dark mode">
+          <h2 class="sec-head" id="dark-lab">Dark mode</h2>
+          <div class="seg" role="radiogroup" aria-labelledby="dark-lab">
             <label><input type="radio" name="dark_mode" value="off" {{ 'checked' if config.dark_mode=='off' else '' }}><span>Off</span></label>
             <label><input type="radio" name="dark_mode" value="on" {{ 'checked' if config.dark_mode=='on' else '' }}><span>On</span></label>
             <label><input type="radio" name="dark_mode" value="quiet" {{ 'checked' if config.dark_mode=='quiet' else '' }}><span>Quiet hours only</span></label>
@@ -546,60 +591,60 @@
         <section class="sec">
           <h2 class="sec-head">Detection source</h2>
           <div class="field">
-            <label class="lab">Source</label>
+            <label class="lab" for="src-sel">Source</label>
             <div class="cselect">
               <select class="sel cselect-native" name="detection_backend" id="src-sel">
                 <option value="birdnet_go" data-icon="ic-birdnet-go" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go</option>
                 <option value="apprise" data-icon="ic-birdnet-pi" {{ 'selected' if config.detection_backend=='apprise' else '' }}>BirdNET-Pi</option>
                 <option value="birdweather" data-icon="ic-birdweather" {{ 'selected' if config.detection_backend=='birdweather' else '' }}>BirdWeather</option>
-                <option value="custom" data-icon="ic-db" {{ 'selected' if config.detection_backend=='custom' else '' }}>Custom</option>
+                <option value="custom" data-icon="ic-db" {{ 'selected' if config.detection_backend=='custom' else '' }}>Local database</option>
               </select>
             </div>
           </div>
           <div class="field" data-src="birdnet_go" {{ '' if config.detection_backend=='birdnet_go' else 'hidden' }}>
-            <label class="lab">BirdNET-Go URL</label>
+            <label class="lab" for="f-go-url">BirdNET-Go URL</label>
             <div class="data-row">
-              <input type="text" name="birdnet_go_url" value="{{ config.birdnet_go_url }}">
-              <button class="btn mini src-test" type="button">Test connection</button>
+              <input type="url" id="f-go-url" name="birdnet_go_url" value="{{ config.birdnet_go_url }}" placeholder="http://birdnet-go.local:8080" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
+              <button class="btn src-test" type="button">Test connection</button>
             </div>
           </div>
           <div class="field" data-src="apprise" {{ '' if config.detection_backend=='apprise' else 'hidden' }}>
             <ol class="steps">
               <li>In BirdNET-Pi, open <strong>Tools → Settings → Notifications</strong> and add this Apprise URL:
                 <div class="copyrow">
-                  <input type="text" id="apprise-url" readonly value="json://…">
-                  <button class="btn icon copy-btn" type="button" data-copy="#apprise-url" title="Copy" aria-label="Copy URL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
+                  <input type="text" id="apprise-url" readonly value="json://…" aria-label="Apprise URL">
+                  <button class="btn icon copy-btn" type="button" data-copy="#apprise-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
                 </div>
               </li>
               <li>Set that notification's <strong>body</strong> to exactly this:
                 <div class="copyrow">
-                  <input type="text" id="apprise-body" readonly value='{"comname":"$comname","sciname":"$sciname","confidence":$confidence,"date":"$date","time":"$time"}'>
-                  <button class="btn icon copy-btn" type="button" data-copy="#apprise-body" title="Copy" aria-label="Copy body"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
+                  <input type="text" id="apprise-body" readonly value='{"comname":"$comname","sciname":"$sciname","confidence":$confidence,"date":"$date","time":"$time"}' aria-label="Notification body">
+                  <button class="btn icon copy-btn" type="button" data-copy="#apprise-body" title="Copy body" aria-label="Copy body"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
                 </div>
               </li>
               <li>Save. New detections push here on their own; the status below shows how many have arrived.</li>
             </ol>
             <div class="field" style="margin-top:14px">
-              <label class="lab">Shared secret <span style="color:var(--muted);font-weight:400">· optional</span></label>
-              <input type="text" name="apprise_token" id="apprise-token" value="{{ config.apprise_token }}" placeholder="leave blank to accept any LAN post">
+              <label class="lab" for="apprise-token">Shared secret <span class="opt">· optional</span></label>
+              <input type="text" name="apprise_token" id="apprise-token" value="{{ config.apprise_token }}" placeholder="Leave blank to accept any LAN post" autocapitalize="off" autocorrect="off" spellcheck="false">
               <div class="hint">If set, it's woven into the URL above as a path segment so only your Pi can post.</div>
             </div>
           </div>
           <div class="field" data-src="birdweather" {{ '' if config.detection_backend=='birdweather' else 'hidden' }}>
-            <label class="lab">BirdWeather station</label>
+            <label class="lab" for="f-bw">BirdWeather station</label>
             <div class="data-row">
-              <input type="text" name="birdweather_station_id" value="{{ config.birdweather_station_id }}" placeholder="https://app.birdweather.com/stations/XXXXX">
-              <button class="btn mini src-test" type="button">Test connection</button>
+              <input type="text" id="f-bw" name="birdweather_station_id" value="{{ config.birdweather_station_id }}" placeholder="https://app.birdweather.com/stations/XXXXX" autocapitalize="off" autocorrect="off" spellcheck="false">
+              <button class="btn src-test" type="button">Test connection</button>
             </div>
             <div class="hint">Paste your station's URL (<code>https://app.birdweather.com/stations/XXXXX</code>) or just the ID. Find yours at <a href="https://app.birdweather.com/stations" target="_blank" rel="noopener">app.birdweather.com</a>.</div>
           </div>
           <div class="field" data-src="custom" {{ '' if config.detection_backend=='custom' else 'hidden' }}>
-            <label class="lab">BirdNET-Pi database path</label>
+            <label class="lab" for="f-dbpath">BirdNET-Pi database path</label>
             <div class="data-row">
-              <input type="text" name="birdnet_db_path" value="{{ config.birdnet_db_path }}">
-              <button class="btn mini src-test" type="button">Test connection</button>
+              <input type="text" id="f-dbpath" name="birdnet_db_path" value="{{ config.birdnet_db_path }}" placeholder="~/BirdNET-Pi/scripts/birds.db" autocapitalize="off" autocorrect="off" spellcheck="false">
+              <button class="btn src-test" type="button">Test connection</button>
             </div>
-            <div class="hint">Read-only, a local BirdNET-Pi SQLite DB. Default: ~/BirdNET-Pi/scripts/birds.db</div>
+            <div class="hint">Read-only: a local BirdNET-Pi SQLite database on this machine. Default: <code>~/BirdNET-Pi/scripts/birds.db</code>.</div>
           </div>
           <div class="test-box" id="src-test-result" role="status" aria-live="polite">
             <span class="test-ic" aria-hidden="true"></span>
@@ -608,8 +653,8 @@
           <details class="adv">
             <summary>Advanced</summary>
             <div class="adv-body">
-              <div><label class="lab">Poll interval (seconds)</label><input type="number" name="poll_interval_seconds" min="5" max="300" value="{{ config.poll_interval_seconds }}"><div class="hint">How often Featherframe checks the source for new detections.</div></div>
-              <div><label class="lab">Species blocklist</label><textarea name="species_blocklist" placeholder="One species per line">{{ config.species_blocklist|join('\n') }}</textarea><div class="hint">One species per line (common or scientific name); matches are never shown.</div></div>
+              <div><label class="lab" for="f-poll">Poll interval (seconds)</label><input type="number" id="f-poll" name="poll_interval_seconds" min="5" max="300" step="1" inputmode="numeric" value="{{ config.poll_interval_seconds }}"><div class="hint">5 to 300. How often Featherframe checks the source for new detections (BirdWeather is never polled faster than every 60 s).</div></div>
+              <div><label class="lab" for="f-block">Species blocklist</label><textarea id="f-block" name="species_blocklist" placeholder="One species per line">{{ config.species_blocklist|join('\n') }}</textarea><div class="hint">One species per line (common or scientific name); matches are never shown.</div></div>
             </div>
           </details>
         </section>
@@ -618,11 +663,11 @@
           <h2 class="sec-head">Image generation</h2>
           <p class="intro">When a bird has no Audubon plate, Featherframe generates one in the same lithograph style, so the frame shows the right species instead of a text-only card.</p>
           <div class="field torow">
-            <label class="switch"><input type="checkbox" id="ig" name="imagegen_enabled" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label>
-            <div class="totext"><span class="tolabel">Enable image generation for species without an existing image</span></div>
+            <label class="switch"><input type="checkbox" role="switch" id="ig" name="imagegen_enabled" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label>
+            <div class="totext"><label class="tolabel" for="ig">Generate a plate for species Audubon never painted</label></div>
           </div>
           <div class="field">
-            <label class="lab">Image gen provider</label>
+            <label class="lab" for="ig-provider">Image provider</label>
             <div class="cselect">
             <select class="sel cselect-native" name="imagegen_provider" id="ig-provider">
               <option value="openai" data-icon="ic-openai" {{ 'selected' if config.imagegen_provider=='openai' else '' }}>OpenAI</option>
@@ -632,94 +677,105 @@
             </select>
             </div>
           </div>
-          <div class="field" data-provider="openai gemini replicate" {{ 'hidden' if config.imagegen_provider=='a1111' else '' }}>
-            <label class="lab">API key <span style="color:var(--muted);font-weight:400">· stored only on this device</span></label>
-            {% set has_key = status.config.imagegen_api_key %}
-            <div class="keyline" id="key-display" {{ 'hidden' if not has_key else '' }}>
-              <input type="text" value="{{ has_key or '' }}" disabled aria-label="Stored API key">
-              <button class="btn icon" type="button" id="key-replace" title="Replace key" aria-label="Replace key">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-              </button>
-              <button class="btn icon danger" type="button" id="key-delete" title="Delete key" aria-label="Delete key">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-              </button>
+          {# Both stored secrets use the same "keyfield" component: a masked,
+             disabled display with Replace / Delete, or an entry row with Save /
+             Cancel. The JS is generic over data-key. #}
+          {% set has_key = status.config.imagegen_api_key %}
+          <div class="field keyfield" data-key="image" data-provider="openai gemini replicate" {{ 'hidden' if config.imagegen_provider=='a1111' else '' }}>
+            <label class="lab" for="key-image-input">API key <span class="opt">· stored only on this device</span></label>
+            <div class="keyline key-display" {{ 'hidden' if not has_key else '' }}>
+              <input type="text" value="{{ has_key or '' }}" disabled aria-label="Stored API key (masked)">
+              <button class="btn icon key-replace" type="button" title="Replace key" aria-label="Replace key"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-edit"/></svg></button>
+              <button class="btn icon danger key-delete" type="button" title="Delete key" aria-label="Delete key"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-trash"/></svg></button>
             </div>
-            <div class="keyline" id="key-entry" {{ '' if not has_key else 'hidden' }}>
-              <input type="password" name="imagegen_api_key" autocomplete="off" placeholder="paste key" aria-label="New API key">
-              <button class="btn primary" type="submit" id="key-save">Save</button>
-              {% if has_key %}<button class="btn" type="button" id="key-cancel">Cancel</button>{% endif %}
+            <div class="keyline key-entry" {{ '' if not has_key else 'hidden' }}>
+              <input type="password" id="key-image-input" name="imagegen_api_key" autocomplete="off" placeholder="Paste key" aria-label="New API key">
+              <button class="btn primary" type="submit">Save</button>
+              {% if has_key %}<button class="btn key-cancel" type="button">Cancel</button>{% endif %}
             </div>
-            <input type="checkbox" name="imagegen_clear_key" id="key-clear" hidden>
-            <div class="hint">Create an API key at <a id="key-link" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>, then paste it here.</div>
+            <input type="checkbox" class="key-clear" name="imagegen_clear_key" hidden aria-hidden="true" tabindex="-1">
+            <div class="hint">Create an API key at <a id="key-link" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>, then paste it here. Without one, only already-generated plates are shown.</div>
           </div>
           <div class="field" data-provider="a1111" {{ '' if config.imagegen_provider=='a1111' else 'hidden' }}>
-            <label class="lab">Endpoint URL</label>
-            <input type="text" name="imagegen_base_url" value="{{ config.imagegen_base_url }}" placeholder="http://localhost:7860">
+            <label class="lab" for="f-a1111">Endpoint URL</label>
+            <input type="url" id="f-a1111" name="imagegen_base_url" value="{{ config.imagegen_base_url }}" placeholder="http://localhost:7860" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
             <div class="hint">Your AUTOMATIC1111 / ComfyUI server's <code>/sdapi</code> base URL.</div>
           </div>
           <div class="field">
             <div class="torow">
-              <label class="switch"><input type="checkbox" id="cg" name="collage_generated" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label>
+              <label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" aria-describedby="dayreview-cost" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label>
               <div class="totext">
-                <span class="tolabel">Combine the nightly “day in review” into a single image <a class="ex seg-ex" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example" style="vertical-align:-2px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span>
+                <label class="tolabel" for="cg">Combine the nightly “day in review” into a single image <a class="ex seg-ex" href="/static/examples/single.png" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></label>
                 <span class="tosub" id="dayreview-cost"></span>
               </div>
             </div>
           </div>
-          <div class="row2">
-            <div><label class="lab">Image model</label><input type="text" class="sel" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" style="font-family:var(--sans)"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
-            <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab">Quality</label><div class="cselect"><select class="sel cselect-native" name="imagegen_quality">
-              {% set qlabels = {'high':'High · ~$0.17/image', 'medium':'Medium · ~$0.07/image', 'low':'Low · ~$0.02/image', 'auto':'Auto'} %}
-              {% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
-          </div>
-          <div class="field" style="margin-top:20px;">
-            <label class="lab">Image prompt provider</label>
-            <div class="cselect">
-            <select class="sel cselect-native" name="imagegen_text_provider" id="ig-text-provider">
-              <option value="" {{ 'selected' if config.imagegen_text_provider=='' else '' }}>Same as image provider</option>
-              <option value="openai" data-icon="ic-openai" {{ 'selected' if config.imagegen_text_provider=='openai' else '' }}>OpenAI</option>
-              <option value="gemini" data-icon="ic-gemini" {{ 'selected' if config.imagegen_text_provider=='gemini' else '' }}>Google Gemini</option>
-              <option value="anthropic" data-icon="ic-anthropic" {{ 'selected' if config.imagegen_text_provider=='anthropic' else '' }}>Anthropic — Claude</option>
-              <option value="local" data-icon="ic-chip" {{ 'selected' if config.imagegen_text_provider=='local' else '' }}>Local — OpenAI-compatible</option>
-            </select>
-            </div>
-            {% set tk = status.config.imagegen_text_key %}
-            <div class="field" data-textprov="openai gemini anthropic local" style="margin-top:12px" {{ '' if config.imagegen_text_provider in ['openai','gemini','anthropic','local'] else 'hidden' }}>
-              <label class="lab">Text-model key <span data-textprov="local" style="color:var(--muted);font-weight:400">· optional for local</span></label>
-              <div class="keyline">
-                <input type="password" name="imagegen_text_key" autocomplete="off" placeholder="{{ (tk ~ ' — leave blank to keep') if tk else 'paste key' }}">
+          <details class="adv">
+            <summary>Advanced</summary>
+            <div class="adv-body">
+              <p class="adv-group">Image model</p>
+              <div class="row2">
+                <div><label class="lab" for="ig-model">Image model</label><input type="text" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" autocapitalize="off" autocorrect="off" spellcheck="false"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
+                <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab" for="ig-quality">Quality</label><div class="cselect"><select class="sel cselect-native" name="imagegen_quality" id="ig-quality">
+                  {% set qlabels = {'high':'High · ~$0.17/image', 'medium':'Medium · ~$0.07/image', 'low':'Low · ~$0.02/image', 'auto':'Auto'} %}
+                  {% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
               </div>
-              {% if tk %}
-              <label class="check" style="margin-top:8px;font-size:12px;color:var(--muted)">
-                <input type="checkbox" name="imagegen_text_clear_key"> Clear the stored key
-              </label>
-              {% endif %}
+              <p class="adv-group">Text model</p>
+              <div class="field">
+                <label class="lab" for="ig-text-provider">Text provider</label>
+                <div class="cselect">
+                <select class="sel cselect-native" name="imagegen_text_provider" id="ig-text-provider">
+                  <option value="" {{ 'selected' if config.imagegen_text_provider=='' else '' }}>Same as image provider</option>
+                  <option value="openai" data-icon="ic-openai" {{ 'selected' if config.imagegen_text_provider=='openai' else '' }}>OpenAI</option>
+                  <option value="gemini" data-icon="ic-gemini" {{ 'selected' if config.imagegen_text_provider=='gemini' else '' }}>Google Gemini</option>
+                  <option value="anthropic" data-icon="ic-anthropic" {{ 'selected' if config.imagegen_text_provider=='anthropic' else '' }}>Anthropic — Claude</option>
+                  <option value="local" data-icon="ic-chip" {{ 'selected' if config.imagegen_text_provider=='local' else '' }}>Local — OpenAI-compatible</option>
+                </select>
+                </div>
+                <div class="hint">Writes the species' taxonomy, plumage, and typical plants so the image model draws the right bird. Replicate has no text model — pick another provider here, or leave it without notes.</div>
+              </div>
+              {% set tk = status.config.imagegen_text_key %}
+              <div class="field keyfield" data-key="text" data-textprov="openai gemini anthropic local" {{ '' if config.imagegen_text_provider in ['openai','gemini','anthropic','local'] else 'hidden' }}>
+                <label class="lab" for="key-text-input">Text API key <span class="opt" data-textprov="local" {{ '' if config.imagegen_text_provider=='local' else 'hidden' }}>· optional for local</span></label>
+                <div class="keyline key-display" {{ 'hidden' if not tk else '' }}>
+                  <input type="text" value="{{ tk or '' }}" disabled aria-label="Stored text API key (masked)">
+                  <button class="btn icon key-replace" type="button" title="Replace key" aria-label="Replace key"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-edit"/></svg></button>
+                  <button class="btn icon danger key-delete" type="button" title="Delete key" aria-label="Delete key"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-trash"/></svg></button>
+                </div>
+                <div class="keyline key-entry" {{ '' if not tk else 'hidden' }}>
+                  <input type="password" id="key-text-input" name="imagegen_text_key" autocomplete="off" placeholder="Paste key" aria-label="New text API key">
+                  <button class="btn primary" type="submit">Save</button>
+                  {% if tk %}<button class="btn key-cancel" type="button">Cancel</button>{% endif %}
+                </div>
+                <input type="checkbox" class="key-clear" name="imagegen_text_clear_key" hidden aria-hidden="true" tabindex="-1">
+              </div>
+              <div class="field" data-textprov="local" {{ '' if config.imagegen_text_provider=='local' else 'hidden' }}>
+                <label class="lab" for="f-text-url">Local endpoint URL</label>
+                <input type="url" id="f-text-url" name="imagegen_text_base_url" value="{{ config.imagegen_text_base_url }}" placeholder="http://localhost:11434" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
+                <div class="hint">An OpenAI-compatible <code>/v1/chat/completions</code> server (Ollama, LM Studio, llama.cpp).</div>
+              </div>
+              <div class="field">
+                <label class="lab" for="ig-text-model">Text model</label>
+                <input type="text" name="imagegen_text_model" id="ig-text-model" list="ig-text-model-list" value="{{ config.imagegen_text_model }}" autocapitalize="off" autocorrect="off" spellcheck="false">
+                <datalist id="ig-text-model-list"></datalist>
+              </div>
             </div>
-            <div class="field" data-textprov="local" style="margin-top:12px" {{ '' if config.imagegen_text_provider=='local' else 'hidden' }}>
-              <label class="lab">Local endpoint URL</label>
-              <input type="text" name="imagegen_text_base_url" value="{{ config.imagegen_text_base_url }}" placeholder="http://localhost:11434">
-              <div class="hint">An OpenAI-compatible <code>/v1/chat/completions</code> server (Ollama, LM Studio, llama.cpp).</div>
-            </div>
-            <div class="field" style="margin-top:12px">
-              <label class="lab">Model</label>
-              <input type="text" name="imagegen_text_model" id="ig-text-model" list="ig-text-model-list" value="{{ config.imagegen_text_model }}">
-              <datalist id="ig-text-model-list"></datalist>
-              <div class="hint">Writes the species' taxonomy, plumage, and typical plants so the image model draws the right bird. Replicate has no text model — pick another provider above, or leave it without notes.</div>
-            </div>
-          </div>
+          </details>
         </section>
       </div>
 
       <div class="savebar" id="save-bar">
-        <button class="save" type="submit">Save settings</button>
+        <span class="unsaved" id="unsaved-note">Unsaved changes</span>
+        <button class="btn primary lg" type="submit" id="save-btn">Save settings</button>
       </div>
     </form>
     </div>
 
     {% if generated %}
-    <div class="card">
+    <div class="card" id="gen-card">
     <div class="settings"><section class="sec">
       <h2 class="sec-head">Generated plates on file</h2>
+      <p class="intro">Plates Featherframe has generated and cached. Regenerate buys a fresh image; Remove deletes the cached one and the next detection of that species generates a new plate.</p>
       <div class="gen-list">
         {% for g in generated %}
         <div class="gen-item{{ ' regenerating' if g.regenerating else '' }}{{ ' regen-failed' if g.regen_error else '' }}" data-slug="{{ g.slug }}">
@@ -730,16 +786,16 @@
             <div class="common">{{ g.common }}</div>
             <div class="sci">{{ g.scientific }}</div>
             <div class="meta">{{ g.model }} · {{ g.created_at[:10] }}</div>
-            <div class="regen-status">{%- if g.regenerating %}Repainting…{% elif g.regen_error %}Repaint failed — {{ g.regen_error }}{% endif -%}</div>
+            <div class="regen-status" role="status" aria-live="polite">{%- if g.regenerating %}Regenerating…{% elif g.regen_error %}Regeneration failed — {{ g.regen_error }}{% endif -%}</div>
           </div>
           <div class="ops">
             <form class="inline regen-form" method="post" action="/api/generated/regenerate">
               <input type="hidden" name="slug" value="{{ g.slug }}">
-              <button class="btn mini" type="submit" title="Generate a fresh plate (costs one image)" {{ 'disabled' if g.regenerating else '' }}>{{ 'Repainting…' if g.regenerating else 'Regenerate' }}</button>
+              <button class="btn" type="submit" title="Generate a fresh plate (costs one image)" {{ 'disabled' if g.regenerating else '' }}>{{ 'Regenerating…' if g.regenerating else 'Regenerate' }}</button>
             </form>
             <form class="inline del-form" method="post" action="/api/generated/delete">
               <input type="hidden" name="slug" value="{{ g.slug }}">
-              <button class="btn icon danger" type="submit" title="Remove the cached plate" aria-label="Remove the cached plate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+              <button class="btn icon danger" type="submit" title="Remove the cached plate" aria-label="Remove the cached plate for {{ g.common }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-trash"/></svg></button>
             </form>
           </div>
         </div>
@@ -749,7 +805,7 @@
     </div>
     {% endif %}
     </div>
-  </div>
+  </main>
 
   <footer>
     <a href="https://github.com/wr/featherframe" target="_blank" rel="noopener">GitHub</a>
@@ -760,56 +816,226 @@
   </footer>
 </div>
 
-<div class="lightbox" id="lightbox" hidden><div class="lightbox-inner"><img alt=""><div class="lightbox-cap" hidden></div></div></div>
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Example preview — click or press Escape to close" hidden><div class="lightbox-inner"><img alt=""><div class="lightbox-cap" hidden></div></div></div>
 
 <script>
-  function refreshPreview() {
-    document.getElementById('preview').src = '/api/preview.png?t=' + Date.now();
-  }
-  setInterval(refreshPreview, 15000);
+(function () {
+  'use strict';
+  // Everything server-supplied (species names, labels, device strings, error
+  // text) is written with textContent / setAttribute only. The only innerHTML
+  // below carries our own static SVG markup keyed by ids we define.
 
-  // manual Refresh: actually re-render the frame server-side (rebuilds its bytes
-  // + ETag so the panel picks it up on its next wake), then reload the preview.
-  async function manualRefresh(btn) {
-    if (btn.disabled) return;
-    var img = document.getElementById('preview');
-    var plate = img.closest('.plate');
-    var orig = btn.dataset.orig || (btn.dataset.orig = btn.textContent);
-    btn.disabled = true; btn.textContent = 'Refreshing…';
+  var $ = function (id) { return document.getElementById(id); };
+  var POLL_MS = 4000;          // background-job pollers (regenerate, tasks)
+  var PREVIEW_MS = 15000;      // live preview image
+  var STATUS_MS = 30000;       // Frame card refresh
+  var CARET = '<svg viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg>';
+  function iconHTML(id, cls) {
+    // `id` is always one of our sprite symbols; never a server string.
+    return id ? '<span class="' + (cls || 'cselect-ic') + '"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#' + id + '"/></svg></span>' : '';
+  }
+  function setText(id, text) { var el = $(id); if (el) el.textContent = text; }
+  function setHidden(id, hidden) { var el = $(id); if (el) el.hidden = !!hidden; }
+  function setDot(id, state) { var el = $(id); if (el) el.className = 'd ' + state; }
+  function fmtTime(d) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+
+  // fetch that rejects on a non-2xx and parses JSON; the error message is
+  // fit to print (the server's own text when it sends one).
+  function jsonFetch(url, opts) {
+    return fetch(url, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) {
+          var e = new Error(data.error || data.detail || ('server error ' + r.status));
+          e.status = r.status; throw e;
+        }
+        return data;
+      });
+    });
+  }
+  function errText(e) { return (e && e.message) ? e.message : 'the server did not respond'; }
+
+  // -- page-level flash: "Settings saved" / "Can't reach Featherframe" --------
+  // One slot; an offline notice outranks a transient one.
+  var flash = $('flash'), flashKind = null, flashTimer = null;
+  function showFlash(kind, text, iconId, sticky) {
+    if (!flash) return;
+    if (flashKind === 'offline' && kind !== 'offline') return;
+    flashKind = kind;
+    flash.classList.remove('ok', 'bad', 'warn');
+    flash.classList.add('show', kind === 'ok' ? 'ok' : (kind === 'offline' ? 'warn' : 'bad'));
+    flash.querySelector('.test-ic').innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#' + iconId + '"/></svg>';
+    flash.querySelector('.test-msg').textContent = text;
+    if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
+    if (!sticky) flashTimer = setTimeout(hideFlash, 5000);
+  }
+  function hideFlash() {
+    if (!flash) return;
+    flash.classList.remove('show', 'ok', 'bad', 'warn'); flashKind = null;
+    flash.querySelector('.test-msg').textContent = '';
+  }
+  // The save round-trip reports back through the URL (/?saved=1&adjusted=…
+  // or /?error=…); sessionStorage is the fallback when the server is older.
+  var FIELD_NAMES = { confidence_threshold: 'Confidence threshold', refresh_debounce_minutes: 'Refresh debounce',
+    wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval',
+    collage_rebuilds_per_day: 'Collage rebuilds per day', mat_inset_pct: 'Mat inset',
+    mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation' };
+  (function () {
+    var q = new URLSearchParams(location.search), shown = false;
+    if (q.get('error')) { showFlash('bad', q.get('error'), 'ic-warn'); shown = true; }
+    else if (q.get('saved')) {
+      var adj = (q.get('adjusted') || '').split(',').filter(Boolean).map(function (k) { return FIELD_NAMES[k] || k; });
+      if (adj.length) showFlash('warn', 'Settings saved, but these were adjusted to their allowed range: ' + adj.join(', ') + '.', 'ic-warn');
+      else showFlash('ok', 'Settings saved.', 'ic-check');
+      shown = true;
+    }
+    if (q.has('saved') || q.has('error') || q.has('adjusted')) {
+      try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* fine */ }
+    }
+    try {
+      var pending = sessionStorage.getItem('ff-saved');
+      if (pending) sessionStorage.removeItem('ff-saved');
+      if (pending && !shown) showFlash('ok', 'Settings saved.', 'ic-check');
+    } catch (e) { /* storage may be unavailable; the save still happened */ }
+  })();
+
+  // -- live preview -----------------------------------------------------------
+  var preview = $('preview'), plate = $('plate');
+  function refreshPreview() {
+    if (document.hidden || !preview) return;
+    preview.src = '/api/preview.png?t=' + Date.now();
+  }
+  if (preview && plate) {
+    // A 404 means "no frame yet" only while the status poll agrees; a server
+    // outage keeps the last good image rather than faking an empty state.
+    preview.addEventListener('error', function () { if (!plate.dataset.hasFrame) plate.classList.add('empty'); });
+    preview.addEventListener('load', function () { plate.classList.remove('empty'); });
+    setInterval(refreshPreview, PREVIEW_MS);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshPreview(); });
+  }
+
+  // manual Refresh: re-render the frame server-side (rebuilds its bytes + ETag
+  // so the panel picks it up on its next wake), then reload the preview.
+  var taskStatus = $('task-status');
+  function setTaskStatus(text, failed) {
+    if (!taskStatus) return;
+    taskStatus.textContent = text || '';
+    taskStatus.classList.toggle('failed', !!failed);
+  }
+  var refreshBtn = $('refresh-btn');
+  if (refreshBtn) refreshBtn.addEventListener('click', function () {
+    if (refreshBtn.disabled) return;
+    var orig = refreshBtn.textContent;
+    refreshBtn.disabled = true; refreshBtn.textContent = 'Refreshing…';
     if (plate) plate.classList.add('loading');
     var minWait = new Promise(function (r) { setTimeout(r, 650); });
-    try { await fetch('/api/refresh', { method: 'POST' }); } catch (e) {}
-    await minWait;
-    await new Promise(function (res) {
-      function done() { img.removeEventListener('load', done); img.removeEventListener('error', done); res(); }
-      img.addEventListener('load', done); img.addEventListener('error', done);
-      setTimeout(done, 3000);
-      img.src = '/api/preview.png?t=' + Date.now();
+    jsonFetch('/api/refresh', { method: 'POST' }).then(function (res) {
+      var changed = !res || res.changed !== false;
+      return minWait.then(function () {
+        return new Promise(function (res) {
+          function done() { preview.removeEventListener('load', done); preview.removeEventListener('error', done); res(); }
+          preview.addEventListener('load', done); preview.addEventListener('error', done);
+          setTimeout(done, 3000);
+          preview.src = '/api/preview.png?t=' + Date.now();
+        });
+      }).then(function () { setTaskStatus(''); refreshBtn.textContent = changed ? 'Refreshed' : 'Already up to date'; });
+    }).catch(function (e) {
+      setTaskStatus('Refresh failed — ' + errText(e) + '.', true);
+      refreshBtn.textContent = 'Failed';
+    }).then(function () {
+      if (plate) plate.classList.remove('loading');
+      setTimeout(function () { refreshBtn.textContent = orig; refreshBtn.disabled = false; }, 1000);
     });
-    if (plate) plate.classList.remove('loading');
-    btn.textContent = 'Refreshed';
-    setTimeout(function () { btn.textContent = orig; btn.disabled = false; }, 1000);
-  }
+  });
 
-  // save bar: only sticks to the viewport once something is edited
-  (function () {
-    var form = document.querySelector('form[action="/settings"]');
-    var bar = document.getElementById('save-bar');
-    var dirty = false, saving = false;
-    function markDirty() {
-      if (dirty) return;
-      dirty = true; bar.classList.add('dirty');
+  // -- Frame card: keep the snapshot current, and say so when we can't -------
+  var frameCard = $('frame-card'), statusFailures = 0, statusLastOk = new Date();
+  var WIFI_WORDS = ['Weak', 'Weak', 'Fair', 'Good', 'Excellent'];
+  function wifiBars(rssi) { return rssi >= -55 ? 4 : (rssi >= -67 ? 3 : (rssi >= -75 ? 2 : 1)); }
+  function applyStatus(st) {
+    var card = st.frame_card || {}, dev = st.device || {}, cur = st.current || {};
+    if (plate) { plate.dataset.hasFrame = cur.etag ? '1' : ''; if (cur.etag) plate.classList.remove('empty'); }
+    setText('fc-seen-text', card.seen ? (card.last_seen || '') : 'never');
+    var seenEl = $('fc-seen-text'); if (seenEl) seenEl.title = card.last_checkin_iso ? card.last_checkin_iso.replace('T', ' ') : '';
+    setDot('fc-seen-dot', card.seen ? (card.overdue ? 'warn' : 'good') : 'off');
+    setHidden('fc-overdue', !card.overdue);
+    // (em dash escaped: the literal must only appear in the page when actually overdue)
+    setText('fc-overdue-text', card.overdue ? 'Overdue \u2014 wakes every ' + card.expected_minutes + ' min' : '');
+    setHidden('fc-never', card.seen);
+    setHidden('fc-telemetry', !card.seen);
+    var pct = dev.battery_percent, bar = $('fc-batt-bar');
+    if (bar) {
+      var has = pct !== null && pct !== undefined;
+      setHidden('fc-batt-wrap', !has); setHidden('fc-batt-none', has);
+      bar.style.width = (has ? pct : 0) + '%';
+      bar.style.background = (has && card.battery_low) ? 'var(--bad)' : '';
+      setText('fc-batt-text', has ? pct + '%' : '');
     }
+    var rssi = dev.wifi_rssi, wifiWrap = $('fc-wifi-wrap');
+    if (wifiWrap) {
+      var hasWifi = rssi !== null && rssi !== undefined;
+      setHidden('fc-wifi-wrap', !hasWifi); setHidden('fc-wifi-none', hasWifi);
+      if (hasWifi) {
+        var bars = wifiBars(rssi);
+        wifiWrap.setAttribute('title', rssi + ' dBm');
+        [].forEach.call(wifiWrap.querySelectorAll('.arc'), function (arc, i) { arc.classList.toggle('lit', bars >= 4 - i); });
+        setText('fc-wifi-text', WIFI_WORDS[bars]);
+      }
+    }
+    setText('fc-ip', dev.ip || '—');
+    setText('fc-fw', dev.fw_version || dev.user_agent || '—');
+    setDot('fc-src-dot', st.birdnet_available ? 'good' : 'bad');
+    setText('fc-src-text', st.birdnet_available ? 'Connected' : 'Not reachable');
+    setText('fc-heard', (st.last_detection && st.last_detection.common) || '—');
+    setText('fc-showing', cur.label || '—');
+    setText('fc-species', st.species_all_time + ' all-time');
+    setText('fc-plates', st.plates_loaded + ' Audubon · ' + st.generated_cached + ' generated');
+  }
+  function pollStatus() {
+    if (document.hidden) return;
+    jsonFetch('/api/status').then(function (st) {
+      statusFailures = 0; statusLastOk = new Date();
+      if (frameCard) frameCard.classList.remove('stale');
+      if (flashKind === 'offline') hideFlash();
+      applyStatus(st);
+    }).catch(function () {
+      // Two misses in a row (a minute) before we call it: one can be a blip.
+      statusFailures += 1;
+      if (statusFailures < 2) return;
+      if (frameCard) frameCard.classList.add('stale');
+      showFlash('offline', 'Can’t reach Featherframe — showing the last update from ' + fmtTime(statusLastOk) + '.', 'ic-warn', true);
+    });
+  }
+  if (frameCard) setInterval(pollStatus, STATUS_MS);
+
+  // -- settings form: dirty tracking, save feedback, validation ---------------
+  var form = document.querySelector('form[action="/settings"]');
+  var bar = $('save-bar'), saveBtn = $('save-btn');
+  var dirty = false, saving = false;
+  function markDirty() { if (dirty) return; dirty = true; if (bar) bar.classList.add('dirty'); }
+  if (form) {
     form.addEventListener('input', markDirty);
     form.addEventListener('change', markDirty);
-    form.addEventListener('submit', function () { saving = true; });
+    form.addEventListener('submit', function () {
+      saving = true;
+      try { sessionStorage.setItem('ff-saved', '1'); } catch (e) { /* no storage: no banner */ }
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    });
+    // A field the browser rejects (min/max/step) may sit inside a closed
+    // Advanced disclosure; open it so the validation bubble has somewhere to point.
+    form.addEventListener('invalid', function (e) {
+      var d = e.target.closest('details'); if (d) d.open = true;
+    }, true);
     window.addEventListener('beforeunload', function (e) {
       if (!dirty || saving) return;
       e.preventDefault(); e.returnValue = '';
     });
-  })();
+  }
+  function submitForm(f) {
+    // requestSubmit fires the submit event (and validation); submit() does not.
+    if (f.requestSubmit) f.requestSubmit(); else { saving = true; f.submit(); }
+  }
 
-  // conditional fields
+  // -- conditional fields -----------------------------------------------------
   (function () {
     // quiet-hours: custom times + hint follow the selected mode
     var QUIET_HINT = {
@@ -817,29 +1043,28 @@
       sun: "Holds one image from sunset to sunrise, based on your timezone (approximate).",
       custom: "Holds one image during the hours you set below."
     };
-    var quietHintEl = document.getElementById('quiet-hint');
+    var quietHintEl = $('quiet-hint');
     function syncQuiet() {
       var v = (document.querySelector('input[name="quiet_hours_mode"]:checked') || {}).value;
-      var custom = document.getElementById('quiet-custom');
+      var custom = $('quiet-custom');
       if (custom) custom.hidden = (v !== 'custom');
       // The "day in review" only fires during quiet hours, so hide its toggle
       // entirely when quiet hours is off — it would do nothing.
-      var hold = document.getElementById('hold-field');
+      var hold = $('hold-field');
       if (hold) hold.hidden = (v === 'off');
       if (quietHintEl) quietHintEl.textContent = QUIET_HINT[v] || '';
     }
-    document.querySelectorAll('input[name="quiet_hours_mode"]').forEach(function (r) {
-      r.addEventListener('change', syncQuiet);
-    });
+    document.querySelectorAll('input[name="quiet_hours_mode"]').forEach(function (r) { r.addEventListener('change', syncQuiet); });
     syncQuiet();
     // The day-in-review preview should match the combine toggle: a
     // single combined AI plate when it's on, the grid collage when off.
-    var cgToggle = document.getElementById('cg');
-    var drEx = document.getElementById('dayreview-ex');
+    var cgToggle = $('cg');
+    var drEx = $('dayreview-ex');
     function syncDayReviewEx() {
       if (!drEx) return;
       var combined = cgToggle && cgToggle.checked;
       drEx.setAttribute('data-ex', combined ? 'single' : 'collage');
+      drEx.setAttribute('href', '/static/examples/' + (combined ? 'single' : 'collage') + '.png');
       drEx.setAttribute('data-cap', combined
         ? "Day in review — the day's species merged into a single plate."
         : "Day in review — the day's top species on one sheet, held during quiet hours.");
@@ -852,87 +1077,34 @@
       on: "Invert colors and use a dark background.",
       quiet: "Invert colors only during quiet hours."
     };
-    var darkHintEl = document.getElementById('dark-hint');
+    var darkHintEl = $('dark-hint');
     function syncDark() {
       var v = (document.querySelector('input[name="dark_mode"]:checked') || {}).value;
       if (darkHintEl) darkHintEl.textContent = DARK_HINT[v] || '';
     }
-    document.querySelectorAll('input[name="dark_mode"]').forEach(function (r) {
-      r.addEventListener('change', syncDark);
-    });
+    document.querySelectorAll('input[name="dark_mode"]').forEach(function (r) { r.addEventListener('change', syncDark); });
     syncDark();
     // detection-source fields follow the select
-    var sel = document.getElementById('src-sel');
+    var sel = $('src-sel');
     function syncSrc() {
       document.querySelectorAll('[data-src]').forEach(function (el) {
         el.hidden = (el.getAttribute('data-src') !== sel.value);
       });
     }
-    sel.addEventListener('change', syncSrc);
+    if (sel) sel.addEventListener('change', syncSrc);
     // Build the Apprise webhook URL from this host + the optional secret.
-    var urlField = document.getElementById('apprise-url');
-    var tokenField = document.getElementById('apprise-token');
+    var urlField = $('apprise-url');
+    var tokenField = $('apprise-token');
     function syncApprise() {
       if (!urlField) return;
       var scheme = location.protocol === 'https:' ? 'jsons://' : 'json://';
       var tok = tokenField && tokenField.value.trim();
-      urlField.value = scheme + location.host + '/api/ingest/apprise' + (tok ? '/' + tok : '');
+      urlField.value = scheme + location.host + '/api/ingest/apprise' + (tok ? '/' + encodeURIComponent(tok) : '');
     }
     if (tokenField) tokenField.addEventListener('input', syncApprise);
     syncApprise();
-    // image-generation provider: show the fields that provider uses
-    var prov = document.getElementById('ig-provider');
-    var modelField = document.getElementById('ig-model');
-    var modelHint = document.getElementById('ig-model-hint');
-    var HINTS = {
-      openai: 'e.g. gpt-image-2',
-      gemini: 'e.g. gemini-2.5-flash-image',
-      replicate: 'owner/model, e.g. black-forest-labs/flux-kontext-pro',
-      a1111: 'optional — a checkpoint name your server knows'
-    };
-    var DEFAULT_MODEL = {
-      openai: 'gpt-image-2', gemini: 'gemini-2.5-flash-image',
-      replicate: 'black-forest-labs/flux-kontext-pro', a1111: ''
-    };
-    function modelFits(p, m) {
-      if (!m) return true;  // empty is fine — the server fills a default
-      if (p === 'openai') return m.indexOf('gpt-image') === 0;
-      if (p === 'gemini') return m.indexOf('gemini') === 0;
-      if (p === 'replicate') return m.indexOf('/') >= 0 || m.indexOf(':') >= 0;
-      return true;  // a1111 checkpoint name is free-form
-    }
-    function syncProvider(resetModel) {
-      var p = prov.value;
-      document.querySelectorAll('[data-provider]').forEach(function (el) {
-        el.hidden = el.getAttribute('data-provider').split(' ').indexOf(p) === -1;
-      });
-      if (modelHint) modelHint.textContent = HINTS[p] || '';
-      var COST = {
-        openai: '≈ $0.60/mo (low) to $5/mo (high), one image a night',
-        gemini: '≈ $0.30/mo (low) to $1/mo (high), one image a night',
-        replicate: '≈ $2 to $5/mo depending on model, one image a night',
-        a1111: 'free — runs on your own GPU'
-      };
-      var costEl = document.getElementById('dayreview-cost');
-      if (costEl) costEl.textContent = COST[p] || '';
-      // Point the "create an API key" link at the chosen provider's console.
-      var KEYURL = {
-        openai: ['https://platform.openai.com/api-keys', 'platform.openai.com'],
-        gemini: ['https://aistudio.google.com/apikey', 'aistudio.google.com'],
-        replicate: ['https://replicate.com/account/api-tokens', 'replicate.com']
-      };
-      var keyLink = document.getElementById('key-link');
-      if (keyLink && KEYURL[p]) { keyLink.href = KEYURL[p][0]; keyLink.textContent = KEYURL[p][1]; }
-      // On a real switch, replace a model id that belongs to another provider
-      // so the saved value can't mismatch the provider.
-      if (resetModel && modelField && !modelFits(p, modelField.value)) {
-        modelField.value = DEFAULT_MODEL[p];
-      }
-    }
-    prov.addEventListener('change', function () { syncProvider(true); });
-    syncProvider(false);
     // Mode description under the segmented control.
-    var modeHintEl = document.getElementById('mode-hint');
+    var modeHintEl = $('mode-hint');
     var MODE_HINT = {
       single: "Shows the most recent detection that meets the confidence threshold.",
       collage: "A grid of the day's most-heard species, updated through the day."
@@ -945,69 +1117,125 @@
     syncMode();
   })();
 
-  // API key: Replace / Delete
+  // -- image-generation provider: show the fields that provider uses ---------
+  // One table per provider: recommended model, hint, monthly-cost estimate,
+  // and where to mint a key. The model dropdowns reuse RECOMMENDED below.
+  var PROVIDERS = {
+    openai:    { model: 'gpt-image-2', hint: 'e.g. gpt-image-2',
+                 cost: '≈ $0.60/mo (low) to $5/mo (high), one image a night',
+                 key: ['https://platform.openai.com/api-keys', 'platform.openai.com'] },
+    gemini:    { model: 'gemini-2.5-flash-image', hint: 'e.g. gemini-2.5-flash-image',
+                 cost: '≈ $0.30/mo (low) to $1/mo (high), one image a night',
+                 key: ['https://aistudio.google.com/apikey', 'aistudio.google.com'] },
+    replicate: { model: 'black-forest-labs/flux-kontext-pro', hint: 'owner/model, e.g. black-forest-labs/flux-kontext-pro',
+                 cost: '≈ $2 to $5/mo depending on model, one image a night',
+                 key: ['https://replicate.com/account/api-tokens', 'replicate.com'] },
+    a1111:     { model: '', hint: 'optional — a checkpoint name your server knows',
+                 cost: 'free — runs on your own GPU', key: null }
+  };
+  var prov = $('ig-provider');
   (function () {
-    var display = document.getElementById('key-display');
-    var entry = document.getElementById('key-entry');
-    var clear = document.getElementById('key-clear');
-    var replace = document.getElementById('key-replace');
-    var del = document.getElementById('key-delete');
-    var cancel = document.getElementById('key-cancel');
-    if (replace) replace.addEventListener('click', function () {
-      display.hidden = true; entry.hidden = false; clear.checked = false;
-      var f = entry.querySelector('input'); if (f) f.focus();
-    });
-    if (cancel) cancel.addEventListener('click', function () {
-      entry.hidden = true; display.hidden = false;
-      var f = entry.querySelector('input'); if (f) f.value = '';
-    });
-    if (del) del.addEventListener('click', function () {
-      if (!confirm('Delete the stored API key? Already-cached plates still show.')) return;
-      clear.checked = true;
-      var f = entry.querySelector('input'); if (f) f.value = '';
-      del.closest('form').submit();
-    });
+    if (!prov) return;
+    var modelField = $('ig-model');
+    var modelHint = $('ig-model-hint');
+    function modelFits(p, m) {
+      if (!m) return true;  // empty is fine — the server fills a default
+      if (p === 'openai') return m.indexOf('gpt-image') === 0;
+      if (p === 'gemini') return m.indexOf('gemini') === 0;
+      if (p === 'replicate') return m.indexOf('/') >= 0 || m.indexOf(':') >= 0;
+      return true;  // a1111 checkpoint name is free-form
+    }
+    function syncProvider(resetModel) {
+      var p = prov.value, info = PROVIDERS[p] || {};
+      document.querySelectorAll('[data-provider]').forEach(function (el) {
+        el.hidden = el.getAttribute('data-provider').split(' ').indexOf(p) === -1;
+      });
+      if (modelHint) modelHint.textContent = info.hint || '';
+      var costEl = $('dayreview-cost');
+      if (costEl) costEl.textContent = info.cost || '';
+      // Point the "create an API key" link at the chosen provider's console.
+      var keyLink = $('key-link');
+      if (keyLink && info.key) { keyLink.href = info.key[0]; keyLink.textContent = info.key[1]; }
+      // On a real switch, replace a model id that belongs to another provider
+      // so the saved value can't mismatch the provider.
+      if (resetModel && modelField && !modelFits(p, modelField.value)) modelField.value = info.model || '';
+    }
+    prov.addEventListener('change', function () { syncProvider(true); });
+    syncProvider(false);
   })();
 
-  // lightbox
+  // -- stored secrets: Replace / Delete / Cancel, generic over .keyfield ------
+  document.querySelectorAll('.keyfield').forEach(function (kf) {
+    var display = kf.querySelector('.key-display'), entry = kf.querySelector('.key-entry');
+    var clear = kf.querySelector('.key-clear'), field = entry && entry.querySelector('input');
+    var rep = kf.querySelector('.key-replace'), del = kf.querySelector('.key-delete'), cancel = kf.querySelector('.key-cancel');
+    if (!display || !entry || !field) return;
+    if (rep) rep.addEventListener('click', function () {
+      display.hidden = true; entry.hidden = false; if (clear) clear.checked = false; field.focus();
+    });
+    if (cancel) cancel.addEventListener('click', function () {
+      entry.hidden = true; display.hidden = false; field.value = ''; if (rep) rep.focus();
+    });
+    if (del) del.addEventListener('click', function () {
+      if (!confirm('Delete the stored key? Plates already generated are kept.')) return;
+      if (clear) clear.checked = true;
+      field.value = '';
+      submitForm(kf.closest('form'));
+    });
+  });
+
+  // -- lightbox ---------------------------------------------------------------
   (function () {
-    var box = document.getElementById('lightbox');
+    var box = $('lightbox');
+    if (!box) return;
     var full = box.querySelector('img');
     var cap = box.querySelector('.lightbox-cap');
-    function close() { box.hidden = true; full.src = ''; cap.textContent = ''; cap.hidden = true; }
+    var opener = null;
+    box.tabIndex = -1;
+    function open(src, caption) {
+      opener = document.activeElement;
+      full.src = src; full.alt = caption || ''; cap.textContent = caption || ''; cap.hidden = !caption;
+      box.hidden = false; box.focus();
+    }
+    function close() {
+      box.hidden = true; full.src = ''; cap.textContent = ''; cap.hidden = true;
+      if (opener && opener.focus) opener.focus(); opener = null;
+    }
     box.addEventListener('click', close);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !box.hidden) close(); });
     document.addEventListener('click', function (e) {
+      if (!e.target.closest) return;
       // mode/option example links
-      var ex = e.target.closest && e.target.closest('a.ex');
+      var ex = e.target.closest('a.ex');
       if (ex) {
         e.preventDefault();
-        full.src = '/static/examples/' + ex.getAttribute('data-ex') + '.png';
-        var c = ex.getAttribute('data-cap') || '';
-        full.alt = c; cap.textContent = c; cap.hidden = !c;
-        box.hidden = false;
+        open('/static/examples/' + ex.getAttribute('data-ex') + '.png', ex.getAttribute('data-cap') || '');
         return;
       }
-      var a = e.target.closest && e.target.closest('a.plate-link');
+      var a = e.target.closest('a.plate-link');
       if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (plate && plate.classList.contains('empty') && a.contains(preview)) { e.preventDefault(); return; }
       e.preventDefault();
       var thumb = a.querySelector('img');
-      full.src = (thumb && thumb.src) || a.href; full.alt = (thumb && thumb.alt) || '';
-      cap.textContent = ''; cap.hidden = true;
-      box.hidden = false;
+      open((thumb && thumb.src) || a.href, '');
+      full.alt = (thumb && thumb.alt) || '';
     });
   })();
 
-  // background repaints: poll the listing only while one is in flight
+  // -- generated plates: regenerate in the background, poll while in flight --
   (function () {
     var timer = null, painting = {};
+    function itemFor(slug) {
+      var sel = '.gen-item[data-slug="' + (window.CSS && CSS.escape ? CSS.escape(slug) : String(slug).replace(/[^a-z0-9-]/gi, '')) + '"]';
+      return document.querySelector(sel);
+    }
     function setState(el, slug, entry) {
       var status = el.querySelector('.regen-status');
       var button = el.querySelector('.regen-form button');
       if (entry.regenerating) {
         painting[slug] = true; el.classList.add('regenerating'); el.classList.remove('regen-failed');
-        if (status) status.textContent = 'Repainting…';
-        if (button) { button.disabled = true; button.textContent = 'Repainting…'; }
+        if (status) status.textContent = 'Regenerating…';
+        if (button) { button.disabled = true; button.textContent = 'Regenerating…'; }
         return;
       }
       var finished = painting[slug]; delete painting[slug];
@@ -1015,80 +1243,107 @@
       if (button) { button.disabled = false; button.textContent = 'Regenerate'; }
       if (entry.regen_error) {
         el.classList.add('regen-failed');
-        if (status) status.textContent = 'Repaint failed — ' + entry.regen_error;
+        if (status) status.textContent = 'Regeneration failed — ' + entry.regen_error;
       } else {
         el.classList.remove('regen-failed');
         if (status) status.textContent = '';
-        if (finished) { var t = el.querySelector('img'); if (t) t.src = '/api/generated/' + slug + '.png?t=' + Date.now(); }
+        if (finished) { var t = el.querySelector('img'); if (t) t.src = '/api/generated/' + encodeURIComponent(slug) + '.png?t=' + Date.now(); }
       }
     }
     function apply(listing) {
       (listing.cached || []).forEach(function (entry) {
-        var el = document.querySelector('.gen-item[data-slug="' + entry.slug + '"]');
+        var el = itemFor(entry.slug);
         if (el) setState(el, entry.slug, entry);
       });
       if ((listing.regenerating || []).length === 0 && timer) { clearInterval(timer); timer = null; }
     }
-    function poll() { fetch('/api/generated').then(function (r) { return r.json(); }).then(apply).catch(function () {}); }
-    function startPolling() { if (!timer) timer = setInterval(poll, 4000); }
-    document.querySelectorAll('.regen-form').forEach(function (form) {
-      form.addEventListener('submit', function (e) {
+    function poll() { if (document.hidden) return; jsonFetch('/api/generated').then(apply).catch(function () {}); }
+    function startPolling() { if (!timer) timer = setInterval(poll, POLL_MS); }
+    document.querySelectorAll('.regen-form').forEach(function (regenForm) {
+      regenForm.addEventListener('submit', function (e) {
         e.preventDefault();
-        var el = form.closest('.gen-item'); var slug = el && el.getAttribute('data-slug');
-        fetch(form.action, { method: 'POST', body: new FormData(form) })
-          .then(function (r) { return r.json(); })
-          .then(function (out) { if (out.ok && el) setState(el, slug, { regenerating: true }); startPolling(); })
-          .catch(function () { form.submit(); });
+        var el = regenForm.closest('.gen-item'); var slug = el && el.getAttribute('data-slug');
+        if (!el) return;
+        setState(el, slug, { regenerating: true });
+        jsonFetch(regenForm.action, { method: 'POST', body: new FormData(regenForm) })
+          .then(function (out) {
+            if (!out.ok) throw new Error('this plate is no longer cached');
+            startPolling();
+          })
+          .catch(function (err) { setState(el, slug, { regen_error: 'could not start (' + errText(err) + ')' }); });
       });
     });
     document.querySelectorAll('.gen-item.regenerating').forEach(function (el) { painting[el.getAttribute('data-slug')] = true; });
     if (Object.keys(painting).length) startPolling();
+
+    // delete in place, keeping scroll position
+    document.querySelectorAll('.del-form').forEach(function (delForm) {
+      delForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var item = delForm.closest('.gen-item');
+        var name = item ? (item.querySelector('.common') || {}).textContent : '';
+        if (!confirm('Remove the ' + (name || 'cached') + ' plate? The next detection generates a fresh one (costs one image).')) return;
+        var status = item && item.querySelector('.regen-status');
+        jsonFetch(delForm.action, { method: 'POST', body: new FormData(delForm) })
+          .then(function (out) {
+            if (!out.ok) throw new Error('the plate was not found');
+            if (item) item.remove();
+            var card = $('gen-card');
+            if (card && !card.querySelector('.gen-item')) card.remove();
+          })
+          .catch(function (err) {
+            if (item) item.classList.add('regen-failed');
+            if (status) status.textContent = 'Remove failed — ' + errText(err);
+          });
+      });
+    });
   })();
 
-  // left-column background jobs (test detection / day in review), fire-and-forget
+  // -- left-column background jobs (test detection / day in review) ----------
   (function () {
     var LABEL = { 'test-detection': 'Rendering…', 'day-review': 'Working…' };
     var forms = {};
-    var statusEl = document.getElementById('task-status');
     var timer = null, active = false;
     function beginUI(task) {
       active = true;
       var f = forms[task];
       if (f && f.button) { f.button.disabled = true; f.button.textContent = LABEL[task] || 'Working…'; }
-      if (statusEl) { statusEl.classList.remove('failed'); statusEl.textContent = (task === 'day-review' ? 'Creating the day in review' : 'Rendering the plate') + ' — this can take a minute.'; }
+      setTaskStatus((task === 'day-review' ? 'Creating the day in review' : 'Rendering the plate') + ' — this can take a minute.');
     }
     function idleUI(task) { var f = forms[task]; if (f && f.button) { f.button.disabled = false; f.button.textContent = f.idle; } }
     function finish(errors) {
       if (timer) { clearInterval(timer); timer = null; }
       if (!active) return; active = false;
       var keys = Object.keys(errors || {});
-      if (keys.length && statusEl) { statusEl.textContent = 'Failed — ' + errors[keys[0]]; statusEl.classList.add('failed'); }
-      else { if (statusEl) { statusEl.textContent = ''; statusEl.classList.remove('failed'); } refreshPreview(); }
+      if (keys.length) setTaskStatus('Failed — ' + errors[keys[0]], true);
+      else { setTaskStatus(''); refreshPreview(); }
     }
     function apply(state) {
       var running = state.running || [];
       Object.keys(forms).forEach(function (task) { if (running.indexOf(task) === -1) idleUI(task); else if (!active) beginUI(task); });
       if (running.length === 0) finish(state.errors);
     }
-    function poll() { fetch('/api/tasks').then(function (r) { return r.json(); }).then(apply).catch(function () {}); }
-    function startPolling() { if (!timer) timer = setInterval(poll, 3000); }
-    document.querySelectorAll('.task-form').forEach(function (form) {
-      var task = form.getAttribute('data-task');
-      var button = form.querySelector('button[type="submit"]');
+    function poll() { if (document.hidden) return; jsonFetch('/api/tasks').then(apply).catch(function () {}); }
+    function startPolling() { if (!timer) timer = setInterval(poll, POLL_MS); }
+    document.querySelectorAll('.task-form').forEach(function (taskForm) {
+      var task = taskForm.getAttribute('data-task');
+      var button = taskForm.querySelector('button[type="submit"]');
       forms[task] = { button: button, idle: button ? button.textContent : '' };
-      form.addEventListener('submit', function (e) {
+      taskForm.addEventListener('submit', function (e) {
         e.preventDefault(); beginUI(task);
-        fetch(form.action, { method: 'POST', body: new FormData(form) })
-          .then(function (r) { return r.json(); }).then(function () { startPolling(); })
-          .catch(function () { form.submit(); });
+        jsonFetch(taskForm.action, { method: 'POST', body: new FormData(taskForm) })
+          .then(function () { startPolling(); })
+          .catch(function (err) { active = false; idleUI(task); setTaskStatus('Could not start — ' + errText(err) + '.', true); });
       });
     });
-    fetch('/api/tasks').then(function (r) { return r.json(); }).then(function (state) {
-      if ((state.running || []).length) { apply(state); startPolling(); }
-    }).catch(function () {});
+    if (Object.keys(forms).length) {
+      jsonFetch('/api/tasks').then(function (state) {
+        if ((state.running || []).length) { apply(state); startPolling(); }
+      }).catch(function () {});
+    }
   })();
 
-  // -- segmented controls: slide one indicator under the checked label ------
+  // -- segmented controls: slide one indicator under the checked label -------
   (function () {
     function place(seg, animate) {
       var checked = seg.querySelector('input:checked');
@@ -1136,12 +1391,9 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(replaceAll);
   })();
 
-  // -- custom selects: icon dropdowns over a native <select> ----------------
+  // -- custom selects: icon dropdowns over a native <select> ------------------
   (function () {
     var closeCurrent = null;
-    function iconHTML(id) {
-      return id ? '<span class="cselect-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#' + id + '"/></svg></span>' : '';
-    }
     document.querySelectorAll('.cselect').forEach(function (root) {
       var sel = root.querySelector('.cselect-native');
       if (!sel) return;
@@ -1150,7 +1402,10 @@
       btn.type = 'button'; btn.className = 'cselect-btn';
       btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false');
       var uid = 'cs-' + (sel.name || sel.id || 'x');
-      if (sel.id) btn.setAttribute('aria-label', (sel.previousElementSibling && sel.previousElementSibling.textContent) || 'Select');
+      // The visible <label for> names the native select; hand that name to the button.
+      var lab = sel.id ? document.querySelector('label[for="' + sel.id + '"]') : null;
+      if (lab) { if (!lab.id) lab.id = uid + '-label'; btn.setAttribute('aria-labelledby', lab.id); }
+      else btn.setAttribute('aria-label', 'Select');
       var list = document.createElement('ul');
       list.className = 'cselect-list'; list.hidden = true; list.id = uid + '-list';
       list.setAttribute('role', 'listbox');
@@ -1159,14 +1414,13 @@
       [].forEach.call(sel.options, function (o, i) {
         var li = document.createElement('li'); li.setAttribute('role', 'option'); li.id = uid + '-opt' + i;
         li.innerHTML = iconHTML(o.getAttribute('data-icon'));
-        var lab = document.createElement('span'); lab.textContent = o.textContent; li.appendChild(lab);
+        var span = document.createElement('span'); span.textContent = o.textContent; li.appendChild(span);
         li.addEventListener('mousedown', function (e) { e.preventDefault(); choose(i); });
         list.appendChild(li);
       });
-      var caret = '<svg class="cs-caret" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       function render() {
         var o = sel.options[sel.selectedIndex] || sel.options[0];
-        btn.innerHTML = iconHTML(o && o.getAttribute('data-icon')) + '<span class="cs-label"></span>' + caret;
+        btn.innerHTML = iconHTML(o && o.getAttribute('data-icon')) + '<span class="cs-label"></span><span class="cs-caret">' + CARET + '</span>';
         btn.querySelector('.cs-label').textContent = o ? o.textContent : '';
         [].forEach.call(list.children, function (li, i) { li.setAttribute('aria-selected', i === sel.selectedIndex ? 'true' : 'false'); });
       }
@@ -1202,6 +1456,7 @@
           else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(active - 1); }
           else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(active); }
           else if (e.key === 'Escape') { e.preventDefault(); close(); }
+          else if (e.key === 'Tab') close();
         }
       });
       root.appendChild(btn); root.appendChild(list); render();
@@ -1215,30 +1470,28 @@
     });
   })();
 
-  // -- text provider: the "inherit" option names the live image provider ----
+  // -- text provider: the "inherit" option names the live image provider ------
   (function () {
-    var img = document.getElementById('ig-provider');
-    var txt = document.getElementById('ig-text-provider');
-    if (!img || !txt) return;
+    var txt = $('ig-text-provider');
+    if (!prov || !txt) return;
     var NAME = { openai: 'OpenAI', gemini: 'Google Gemini', replicate: 'Replicate', a1111: 'Self-hosted' };
     var root = txt.closest('.cselect');
     var btnEl = root ? root.querySelector('.cselect-btn') : null;
     function sync() {
-      txt.options[0].textContent = 'Same as image (' + (NAME[img.value] || 'image provider') + ')';
+      txt.options[0].textContent = 'Same as image (' + (NAME[prov.value] || 'image provider') + ')';
       if (root && root._cselectSync) root._cselectSync();
       // The inherit default reads as placeholder text, not an explicit choice.
       if (btnEl) btnEl.classList.toggle('cs-placeholder', txt.value === '');
     }
-    img.addEventListener('change', sync);
+    prov.addEventListener('change', sync);
     txt.addEventListener('change', sync);
     sync();
   })();
 
-  // -- text-model suggestions: a bundled curated list, no key needed --------
+  // -- text-model suggestions: a bundled curated list, no key needed ----------
   (function () {
-    var tp = document.getElementById('ig-text-provider');
-    var img = document.getElementById('ig-provider');
-    var dl = document.getElementById('ig-text-model-list');
+    var tp = $('ig-text-provider');
+    var dl = $('ig-text-model-list');
     if (!tp || !dl) return;
     var TEXT_MODELS = {
       openai: ['gpt-5.6-luna', 'gpt-5.1', 'gpt-4.1-mini', 'o4-mini'],
@@ -1247,24 +1500,24 @@
       local: ['llama3.2', 'qwen2.5', 'mistral-nemo', 'phi3.5']
     };
     function fill() {
-      var p = tp.value || (img ? img.value : '');  // "" inherits the image provider
+      var p = tp.value || (prov ? prov.value : '');  // "" inherits the image provider
       var list = TEXT_MODELS[p] || [];
       dl.innerHTML = '';
       list.forEach(function (m, i) { var o = document.createElement('option'); o.value = m; if (i === 0) o.dataset.recommended = '1'; dl.appendChild(o); });
+      dl.dispatchEvent(new Event('ff:options'));
     }
     tp.addEventListener('change', fill);
-    if (img) img.addEventListener('change', fill);
+    if (prov) prov.addEventListener('change', fill);
     fill();
   })();
 
-  // -- comboboxes: model field with a click-open, type-to-filter dropdown ---
+  // -- comboboxes: model field with a click-open, type-to-filter dropdown -----
   // We own the dropdown (drop the native <datalist> popup so there aren't two):
   // clicking the field opens the list, typing filters it, and picking fills the
   // field — while normal text selection and free-text entry still work.
   (function () {
-    var CARET = '<svg viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     document.querySelectorAll('input[list]').forEach(function (input) {
-      var dl = document.getElementById(input.getAttribute('list'));
+      var dl = $(input.getAttribute('list'));
       if (!dl) return;
       input.removeAttribute('list');            // suppress the native popup; we render our own
       input.setAttribute('autocomplete', 'off');
@@ -1314,26 +1567,25 @@
       input.addEventListener('focus', function () { open(false); });
       input.addEventListener('click', function () { open(false); });
       input.addEventListener('input', function () { open(true); });
+      input.addEventListener('blur', function () { setTimeout(close, 120); });
       input.addEventListener('keydown', function (e) { if (e.key === 'Escape' && isOpen) { e.stopPropagation(); close(); } });
       caret.addEventListener('mousedown', function (e) { e.preventDefault(); });  // don't steal focus
       caret.addEventListener('click', function () { isOpen ? close() : (input.focus(), open(false)); });
     });
   })();
 
-  // -- image-model suggestions from the provider's live list ----------------
+  // -- image-model suggestions from the provider's live list ------------------
   (function () {
-    var prov = document.getElementById('ig-provider');
-    var dl = document.getElementById('ig-model-list');
+    var dl = $('ig-model-list');
     if (!prov || !dl) return;
     function load() {
-      fetch('/api/imagegen/models?provider=' + encodeURIComponent(prov.value))
-        .then(function (r) { return r.json(); })
+      var p = prov.value, rec = (PROVIDERS[p] || {}).model;
+      jsonFetch('/api/imagegen/models?provider=' + encodeURIComponent(p))
         .then(function (out) {
           dl.innerHTML = '';
-          var REC = { openai: 'gpt-image-2', gemini: 'gemini-2.5-flash-image', replicate: 'black-forest-labs/flux-kontext-pro', a1111: '' };
-          (out.models || []).forEach(function (m) { var o = document.createElement('option'); o.value = m; if (m === REC[prov.value]) o.dataset.recommended = '1'; dl.appendChild(o); });
+          (out.models || []).forEach(function (m) { var o = document.createElement('option'); o.value = m; if (m === rec) o.dataset.recommended = '1'; dl.appendChild(o); });
           dl.dispatchEvent(new Event('ff:options'));   // let an open combo refresh
-        }).catch(function () {});
+        }).catch(function () { dl.innerHTML = ''; dl.dispatchEvent(new Event('ff:options')); });
     }
     prov.addEventListener('change', load);
     load();
@@ -1341,8 +1593,8 @@
 
   // -- text-model provider: show key / endpoint fields for the chosen provider
   (function () {
-    var tp = document.getElementById('ig-text-provider');
-    var model = document.getElementById('ig-text-model');
+    var tp = $('ig-text-provider');
+    var model = $('ig-text-model');
     if (!tp) return;
     var DEF = { openai: 'gpt-5.6-luna', gemini: 'gemini-2.5-flash', anthropic: 'claude-opus-5', local: '' };
     function fits(v, m) {
@@ -1363,32 +1615,32 @@
     sync(false);
   })();
 
-  // -- copy buttons ---------------------------------------------------------
-  (function () {
-    document.querySelectorAll('.copy-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var el = document.querySelector(btn.getAttribute('data-copy'));
-        if (!el) return;
-        function done() { btn.classList.add('copied'); setTimeout(function () { btn.classList.remove('copied'); }, 1200); }
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(el.value).then(done, function () { el.select(); document.execCommand('copy'); done(); });
-        } else { el.select(); document.execCommand('copy'); done(); }
-      });
+  // -- copy buttons -----------------------------------------------------------
+  document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var el = document.querySelector(btn.getAttribute('data-copy'));
+      if (!el) return;
+      var orig = btn.getAttribute('aria-label') || 'Copy';
+      function done() {
+        btn.classList.add('copied'); btn.setAttribute('aria-label', 'Copied');
+        setTimeout(function () { btn.classList.remove('copied'); btn.setAttribute('aria-label', orig); }, 1200);
+      }
+      function legacy() { el.select(); try { document.execCommand('copy'); } catch (e) { /* nothing to do */ } done(); }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(el.value).then(done, legacy);
+      else legacy();
     });
-  })();
+  });
 
-  // -- detection-source connection test (tests the typed values) ------------
+  // -- detection-source connection test (tests the typed values) --------------
   // The Test button lives beside each source's data field (URL / station / path);
   // only the active source's field — and so its button — is visible.
   (function () {
-    var box = document.getElementById('src-test-result');
-    var sel = document.getElementById('src-sel');
+    var box = $('src-test-result');
+    var sel = $('src-sel');
     if (!sel || !box) return;
     var icEl = box.querySelector('.test-ic');
     var msgEl = box.querySelector('.test-msg');
     var TROUBLE = 'https://github.com/wr/featherframe/blob/main/docs/troubleshooting-sources.md';
-    var IC_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
-    var IC_BAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>';
     function val(name) { var el = document.querySelector('[name="' + name + '"]'); return el ? el.value : ''; }
     function body() {
       var p = new URLSearchParams();
@@ -1401,7 +1653,7 @@
     function hide() { box.classList.remove('show', 'ok', 'bad'); msgEl.textContent = ''; icEl.innerHTML = ''; }
     function show(ok, detail) {
       box.classList.remove('ok', 'bad'); box.classList.add('show', ok ? 'ok' : 'bad');
-      icEl.innerHTML = ok ? IC_OK : IC_BAD;
+      icEl.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#' + (ok ? 'ic-check' : 'ic-x') + '"/></svg>';
       msgEl.textContent = detail || (ok ? 'Connected.' : 'Could not connect.');
       if (!ok) {
         var a = document.createElement('a');
@@ -1413,9 +1665,9 @@
     }
     function run(btn, busy) {
       if (busy && btn) { btn.disabled = true; btn.textContent = 'Testing…'; }
-      return fetch('/api/source/test', { method: 'POST', body: body() }).then(function (r) { return r.json(); }).then(function (o) {
+      return jsonFetch('/api/source/test', { method: 'POST', body: body() }).then(function (o) {
         show(!!o.ok, o.detail);
-      }).catch(function () { show(false, 'Test failed — the server did not respond.'); })
+      }).catch(function (e) { show(false, 'Test failed — ' + errText(e) + '.'); })
         .then(function () { if (btn) { btn.disabled = false; btn.textContent = 'Test connection'; } });
     }
     document.querySelectorAll('.src-test').forEach(function (b) {
@@ -1430,21 +1682,7 @@
     sel.addEventListener('change', syncTest);
     syncTest();
   })();
-
-  // -- generated plates: delete in place, keeping scroll position -----------
-  (function () {
-    document.querySelectorAll('.del-form').forEach(function (form) {
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        if (!confirm('Remove this plate? The next detection generates a fresh one.')) return;
-        var item = form.closest('.gen-item');
-        fetch(form.action, { method: 'POST', body: new FormData(form) })
-          .then(function (r) { return r.json(); })
-          .then(function (out) { if (out.ok && item) item.remove(); })
-          .catch(function () { form.submit(); });  // no fetch? fall back to reload
-      });
-    });
-  })();
+})();
 </script>
 </body>
 </html>

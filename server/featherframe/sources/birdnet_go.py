@@ -153,7 +153,10 @@ class BirdNetGoSource(DetectionSource):
         if self._summary is not None and (now - self._summary_at) < _SUMMARY_TTL_S:
             return self._summary
         payload = self._get("/api/v2/analytics/species/summary")
-        self._summary = payload if isinstance(payload, list) else []
+        # Only dict rows: the readers below call .get() on each, and a stray
+        # scalar in the list would raise out of a method that promises not to.
+        self._summary = ([s for s in payload if isinstance(s, dict)]
+                         if isinstance(payload, list) else [])
         self._summary_at = now
         return self._summary
 
@@ -177,8 +180,10 @@ class BirdNetGoSource(DetectionSource):
 
     def species_ordinal(self, scientific_name: str) -> Optional[int]:
         summary = self._species_summary()
+        # Sort only ISO strings: a non-string first_heard in one row would make
+        # the sort raise (str vs int) and take the whole tick down with it.
         ordered = sorted(
-            (s for s in summary if s.get("first_heard")),
+            (s for s in summary if isinstance(s.get("first_heard"), str) and s["first_heard"]),
             key=lambda s: s["first_heard"],
         )
         for i, s in enumerate(ordered, start=1):

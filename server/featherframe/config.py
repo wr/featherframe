@@ -14,12 +14,29 @@ from typing import Any
 
 
 def _parse_hhmm(value: str, fallback: str) -> dtime:
+    """"HH:MM" -> time, or the fallback when it isn't a real clock time. An
+    out-of-range field is rejected, not wrapped: "99:99" used to become
+    03:39 silently, which is nobody's quiet hours."""
+    t = valid_hhmm(value)
+    if t is not None:
+        return t
+    hh, mm = fallback.split(":")
+    return dtime(int(hh), int(mm))
+
+
+def valid_hhmm(value) -> dtime | None:
+    """The time a "HH:MM" string names, or None if it doesn't name one."""
     try:
         hh, mm = value.strip().split(":")
-        return dtime(int(hh) % 24, int(mm) % 60)
-    except (ValueError, AttributeError):
-        hh, mm = fallback.split(":")
-        return dtime(int(hh), int(mm))
+        return dtime(int(hh), int(mm))  # dtime() range-checks both
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
+# Blocklist bounds: the config blob is loaded on every tick, so it must stay
+# small; a species name is never this long, and nobody blocks 500 species.
+_BLOCKLIST_MAX_ENTRIES = 500
+_BLOCKLIST_MAX_CHARS = 64
 
 
 # Default latitude for the timezone-derived "sunset -> sunrise" window. The
@@ -106,7 +123,7 @@ class Config:
     # The panel's native canvas is landscape 1872x1404 and its setRotation() is a
     # no-op, so we rotate the portrait art into native orientation server-side.
     # Which way depends on how the frame is hung — fix it here, no reflash needed.
-    panel_rotation: int = 90  # 0 | 90 | 180 | 270 degrees
+    panel_rotation: int = 90  # 90 | 270 degrees (landscape only; see sanitize)
 
     # Shrink the composition by this percent per edge and center it on white.
     mat_inset_pct: float = 4.0  # 0 disables
@@ -159,7 +176,9 @@ class Config:
             self.mode = "single"
         if self.mode not in ("single", "collage"):
             self.mode = "single"
-        self.confidence_threshold = _clamp(float(self.confidence_threshold), 0.0, 1.0)
+        # NaN slips through float() and then through _clamp (every comparison
+        # is False) — and can't be serialised for the status JSON. Refuse it.
+        self.confidence_threshold = _clamp(_finite(self.confidence_threshold, 0.7), 0.0, 1.0)
         self.refresh_debounce_minutes = int(_clamp(self.refresh_debounce_minutes, 1, 720))
         self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
         self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 5, 300))
@@ -180,9 +199,17 @@ class Config:
         if self.dither not in ("stucki", "bluenoise", "none"):
             self.dither = "stucki"
         self.collage_rebuilds_per_day = int(_clamp(self.collage_rebuilds_per_day, 1, 24))
-        if self.panel_rotation not in (0, 90, 180, 270):
+        # The panel's native canvas is landscape and the firmware rejects a
+        # portrait frame (pushImage would clip it into garbage), so only the
+        # two landscape orientations are valid. Old 0/180 values migrate to
+        # the landscape orientation with the same relative flip.
+        try:
+            self.panel_rotation = {0: 90, 180: 270}.get(int(self.panel_rotation), int(self.panel_rotation))
+        except (TypeError, ValueError):
             self.panel_rotation = 90
-        self.mat_inset_pct = _clamp(float(self.mat_inset_pct), 0.0, 20.0)
+        if self.panel_rotation not in (90, 270):
+            self.panel_rotation = 90
+        self.mat_inset_pct = _clamp(_finite(self.mat_inset_pct, 4.0), 0.0, 20.0)
         self.mat_offset_x_px = int(_clamp(int(self.mat_offset_x_px), -120, 120))
         self.mat_offset_y_px = int(_clamp(int(self.mat_offset_y_px), -120, 120))
         if self.imagegen_provider not in ("openai", "gemini", "replicate", "a1111"):
@@ -214,11 +241,13 @@ class Config:
         seen = set()
         cleaned = []
         for s in self.species_blocklist or []:
-            s = str(s).strip()
+            s = str(s).strip()[:_BLOCKLIST_MAX_CHARS]
             key = s.lower()
             if s and key not in seen:
                 seen.add(key)
                 cleaned.append(s)
+            if len(cleaned) >= _BLOCKLIST_MAX_ENTRIES:
+                break
         self.species_blocklist = cleaned
         return self
 
@@ -231,6 +260,17 @@ class Config:
         block = {b.lower() for b in self.species_blocklist}
         return common_name.lower() in block or sci_name.lower() in block
 
+    def quiet_window(self, on_date: date | None = None) -> tuple[dtime, dtime]:
+        """(start, end) of the ACTIVE quiet window: sunset -> sunrise in "sun"
+        mode, else the custom start/end fields. The one place that knows which
+        applies — callers that reason about the window (is it wrapping
+        midnight? which day did it start?) must use this, not the raw fields,
+        which may hold a stale non-wrapping window while "sun" is selected."""
+        if self.quiet_hours_mode == "sun":
+            return _sun_window(on_date)
+        return (_parse_hhmm(self.quiet_hours_start, "22:00"),
+                _parse_hhmm(self.quiet_hours_end, "06:00"))
+
     def in_quiet_hours(self, now: dtime) -> bool:
         """True if `now` (a datetime.time) falls in quiet hours.
 
@@ -240,11 +280,7 @@ class Config:
         """
         if self.quiet_hours_mode == "off":
             return False
-        if self.quiet_hours_mode == "sun":
-            start, end = _sun_window()
-        else:
-            start = _parse_hhmm(self.quiet_hours_start, "22:00")
-            end = _parse_hhmm(self.quiet_hours_end, "06:00")
+        start, end = self.quiet_window()
         if start == end:
             return False
         if start < end:
@@ -290,6 +326,15 @@ def save_config(db, config: Config) -> None:
 
 def _clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
+
+
+def _finite(v: Any, default: float) -> float:
+    """float(v) if it is a finite number, else default."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return default
+    return f if math.isfinite(f) else default
 
 
 def _fmt(t: dtime) -> str:

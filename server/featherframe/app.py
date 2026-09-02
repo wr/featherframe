@@ -251,6 +251,10 @@ async def save_settings(request: Request):
         quiet_hours_end=t("quiet_hours_end", cur["quiet_hours_end"]),
         quiet_hours_render_collage=b("quiet_hours_render_collage"),
         species_blocklist=blocklist,
+        corroborate_new_species=b("corroborate_new_species"),
+        corroborate_confidence=f("corroborate_confidence", cur["corroborate_confidence"]),
+        corroborate_window_hours=i("corroborate_window_hours", cur["corroborate_window_hours"]),
+        corroborate_min_gap_minutes=i("corroborate_min_gap_minutes", cur["corroborate_min_gap_minutes"]),
         detection_backend=s("detection_backend", cur["detection_backend"]),
         birdnet_db_path=s("birdnet_db_path", cur["birdnet_db_path"]),
         birdnet_go_url=s("birdnet_go_url", cur["birdnet_go_url"]),
@@ -311,7 +315,9 @@ async def save_settings(request: Request):
 
 _NUMERIC_FORM_FIELDS = ("confidence_threshold", "refresh_debounce_minutes", "wake_interval_minutes",
                         "poll_interval_seconds", "quiet_alarm_hours", "collage_rebuilds_per_day",
-                        "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation")
+                        "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation",
+                        "corroborate_confidence", "corroborate_window_hours",
+                        "corroborate_min_gap_minutes")
 
 
 def _adjusted_fields(form, cfg: Config) -> list[str]:

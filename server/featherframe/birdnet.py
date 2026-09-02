@@ -71,15 +71,32 @@ class BirdNetDB(DetectionSource):
             return False
 
     # -- reads (all soft-fail to a safe default) ---------------------------
-    def _row_to_detection(self, r: sqlite3.Row) -> Detection:
-        return Detection(
-            rowid=r["rowid"],
-            date=r["Date"] or "",
-            time=r["Time"] or "",
-            common_name=(r["Com_Name"] or "").strip(),
-            scientific_name=(r["Sci_Name"] or "").strip(),
-            confidence=float(r["Confidence"] or 0.0),
-        )
+    def _row_to_detection(self, r: sqlite3.Row) -> Optional[Detection]:
+        """One row, or None if it can't be read as a detection. SQLite is
+        dynamically typed: text in the FLOAT Confidence column sorts above
+        every number, passes `Confidence >= ?`, and then float() raises —
+        which, uncaught, would kill every tick until the cursor moved past
+        it (it never would). A bad row is skipped, never fatal."""
+        try:
+            return Detection(
+                rowid=int(r["rowid"]),
+                date=str(r["Date"] or ""),
+                time=str(r["Time"] or ""),
+                common_name=str(r["Com_Name"] or "").strip(),
+                scientific_name=str(r["Sci_Name"] or "").strip(),
+                confidence=float(r["Confidence"] or 0.0),
+            )
+        except (TypeError, ValueError, IndexError) as exc:
+            log.debug("skipping malformed detection row: %s", exc)
+            return None
+
+    def _rows_to_detections(self, rows) -> list[Detection]:
+        out = []
+        for r in rows:
+            det = self._row_to_detection(r)
+            if det is not None:
+                out.append(det)
+        return out
 
     def max_rowid(self) -> int:
         """Current tail rowid, for initialising the cursor without replaying
@@ -104,7 +121,7 @@ class BirdNetDB(DetectionSource):
                     "ORDER BY rowid ASC LIMIT ?",
                     (cursor, min_confidence, limit),
                 ).fetchall()
-            return [self._row_to_detection(r) for r in rows]
+            return self._rows_to_detections(rows)
         except (sqlite3.Error, FileNotFoundError) as exc:
             log.warning("new_since failed (keeping current frame): %s", exc)
             return []
@@ -126,7 +143,7 @@ class BirdNetDB(DetectionSource):
                     "ORDER BY Date DESC, Time DESC, rowid DESC LIMIT ?",
                     (min_confidence, limit),
                 ).fetchall()
-            return [self._row_to_detection(r) for r in rows]
+            return self._rows_to_detections(rows)
         except (sqlite3.Error, FileNotFoundError) as exc:
             log.warning("latest_many failed: %s", exc)
             return []

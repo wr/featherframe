@@ -49,7 +49,9 @@ test:
 PI ?= wells@10.0.2.15
 ota:
 	cd firmware && pio run -e xiao_ee03
-	scp firmware/.pio/build/xiao_ee03/firmware.bin $(PI):~/featherframe/server/data/firmware.bin
+	# Copy to a temp name and rename: a device fetching mid-copy must never see a torn image.
+	scp firmware/.pio/build/xiao_ee03/firmware.bin $(PI):~/featherframe/server/data/firmware.bin.tmp
+	ssh $(PI) 'mv ~/featherframe/server/data/firmware.bin.tmp ~/featherframe/server/data/firmware.bin'
 	@echo "Hosted. The frame updates itself on its next check-in."
 
 clean:

@@ -104,6 +104,9 @@
     .pw .pw-outline { fill:none; stroke:currentColor; stroke-width:1.5; }
     .pw .pw-bolt-ring { fill:var(--surface); stroke:var(--surface); stroke-width:2.6; stroke-linejoin:round; }
     #fc-batt { position:relative; }
+    .tip { position:absolute; z-index:6; padding:5px 9px; font-size:12px; color:var(--ink-2); background:var(--surface);
+           border:1px solid var(--border-strong); border-radius:6px; box-shadow:0 8px 24px rgba(74,54,28,.16); white-space:nowrap;
+           font-variant-numeric:tabular-nums; pointer-events:none; }
     .spark-pop { position:absolute; right:0; top:calc(100% + 6px); z-index:5; display:flex; align-items:center; gap:10px;
                  padding:8px 10px; background:var(--surface); border:1px solid var(--border-strong); border-radius:7px;
                  box-shadow:0 8px 24px rgba(74,54,28,.16); }
@@ -448,7 +451,7 @@
         <h2 class="grp">Frame</h2>
         <dl>
           <dt>Last seen</dt>
-          <dd id="fc-seen"{% if status.device.last_wake %} title="last wake: {{ status.device.last_wake }}{% if status.device.wake_detail %} · {{ status.device.wake_detail }}{% endif %}"{% endif %}>
+          <dd id="fc-seen" data-tip="{% if card.last_checkin_iso %}Checked in {{ card.last_checkin_iso.replace('T', ' ') }}{% endif %}{% if status.device.last_wake %} · wake: {{ status.device.last_wake }}{% endif %}">
             <span class="pill-status"><span class="d {{ ('warn' if card.overdue else 'good') if card.seen else 'off' }}" id="fc-seen-dot"></span><span id="fc-seen-text">{{ card.last_seen if card.seen else 'never' }}</span></span>
           </dd>
           <dd class="note warn" id="fc-overdue" {{ '' if card.overdue else 'hidden' }}>
@@ -469,7 +472,7 @@
           {% set pct = status.device.battery_percent %}
           {% set pstate = (card.power.state if card.power else 'unknown') %}
           <dt>Power source</dt>
-          <dd id="fc-batt" {% if card.battery %}title="{{ card.battery }}"{% endif %}>
+          <dd id="fc-batt">
             {# Both icons are filled shapes, not hairlines: at 11 px a stroke
                smears. The bolt breaks out of the cell top and bottom with a
                surface-coloured ring so it reads as sitting in front. #}
@@ -483,7 +486,7 @@
                value into the caption. #}
             <div class="spark-pop" id="fc-spark-row" role="tooltip" hidden>
               <svg class="spark" id="fc-spark" viewBox="0 0 160 30" preserveAspectRatio="none" role="img" aria-label="Battery voltage over the last 24 hours"></svg>
-              <span class="spark-cap" id="fc-spark-cap" aria-live="polite">24 h</span>
+              <span class="spark-cap" id="fc-spark-cap" aria-live="polite" data-summary="{{ card.battery or '' }}">{{ card.battery or '' }}</span>
             </div>
           </dd>
           <dt>Wi-Fi</dt>
@@ -491,11 +494,11 @@
             {% set rssi = card.wifi_rssi %}
             {% set bars = (4 if rssi >= -55 else (3 if rssi >= -67 else (2 if rssi >= -75 else 1))) if rssi is not none else 0 %}
             {% set word = 'Excellent' if bars == 4 else ('Good' if bars == 3 else ('Fair' if bars == 2 else 'Weak')) %}
-            <span class="pill-status" id="fc-wifi-wrap" {{ '' if rssi is not none else 'hidden' }} title="{{ rssi }} dBm"><svg class="wifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path class="arc{{ ' lit' if bars >= 4 }}" d="M2 7.3a15 15 0 0 1 20 0"/><path class="arc{{ ' lit' if bars >= 3 }}" d="M5.2 11.2a11 11 0 0 1 13.6 0"/><path class="arc{{ ' lit' if bars >= 2 }}" d="M8.6 15a6 6 0 0 1 6.8 0"/><circle class="dot" cx="12" cy="18.6" r="1.4"/></svg><span id="fc-wifi-text">{{ word }}</span></span><span id="fc-wifi-none" {{ 'hidden' if rssi is not none else '' }}>—</span>
+            <span class="pill-status" id="fc-wifi-wrap" {{ '' if rssi is not none else 'hidden' }} data-tip="{{ rssi }} dBm"><svg class="wifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path class="arc{{ ' lit' if bars >= 4 }}" d="M2 7.3a15 15 0 0 1 20 0"/><path class="arc{{ ' lit' if bars >= 3 }}" d="M5.2 11.2a11 11 0 0 1 13.6 0"/><path class="arc{{ ' lit' if bars >= 2 }}" d="M8.6 15a6 6 0 0 1 6.8 0"/><circle class="dot" cx="12" cy="18.6" r="1.4"/></svg><span id="fc-wifi-text">{{ word }}</span></span><span id="fc-wifi-none" {{ 'hidden' if rssi is not none else '' }}>—</span>
           </dd>
           <dt>IP address</dt><dd class="tnum" id="fc-ip">{{ status.device.ip or '—' }}</dd>
           <dt>Firmware</dt>
-          <dd id="fc-fw"{% if status.device.sketch_md5 %} title="build {{ status.device.sketch_md5[:8] }}"{% endif %}>
+          <dd id="fc-fw" data-tip="{% if status.device.sketch_md5 %}build {{ status.device.sketch_md5[:8] }}{% endif %}">
             {{ status.device.fw_version or status.device.user_agent or '—' }}
           </dd>
           <dt>Panel</dt><dd>{{ status.device.panel or '10.3″ · 1404×1872 · grayscale' }}</dd>
@@ -511,11 +514,11 @@
             <span class="pill-status"><span class="d {{ 'good' if status.birdnet_available else 'bad' }}" id="fc-src-dot"></span><span id="fc-src-text">{{ 'Connected' if status.birdnet_available else 'Not reachable' }}</span></span>
           </dd>
           {% set ld = status.last_detection %}
-          <dt>Last heard</dt><dd id="fc-heard"{% if ld %} title="{{ ld.at }}"{% endif %}>{{ (ld.common ~ (' · ' ~ ld.when_text if ld.when_text else '')) if ld else '—' }}</dd>
+          <dt>Last heard</dt><dd id="fc-heard" data-tip="{{ ld.at if ld else '' }}">{{ (ld.common ~ (' · ' ~ ld.when_text if ld.when_text else '')) if ld else '—' }}</dd>
           {# A first-seen-today species held back for a second detection
              (W-691). Both halves of the row hide when nothing is waiting. #}
           {% set pend = status.pending %}
-          <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }}{% if pend %} title="{{ pend.first_at }}"{% endif %}>{{ (pend.common ~ ' · ' ~ pend.waiting_text) if pend else '' }}</dd>
+          <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }} data-tip="{{ (pend.first_at.replace('T', ' ')) if pend else '' }}">{{ (pend.common ~ ' · ' ~ pend.waiting_text) if pend else '' }}</dd>
           {# "· holding 40 min" while a new bird keeps the frame against repeats (dwell_minutes). #}
           {% set hold = status.current.holding %}
           <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="hint-inline" id="fc-holding">{{ (' · holding ' ~ hold.minutes_left ~ ' min') if hold else '' }}</span></dd>
@@ -533,7 +536,7 @@
         <div class="hist-strip" id="hist-strip">
           {% for h in shown %}
           {% set htitle = h.title or h.label or '' %}
-          <a class="hist-item" href="{{ h.thumb }}" data-cap="{{ htitle }} · {{ h.when_text }}" title="{{ h.rendered_at }}">
+          <a class="hist-item" href="{{ h.thumb }}" data-cap="{{ htitle }} · {{ h.when_text }}" data-tip="{{ h.rendered_at.replace('T', ' ') if h.rendered_at else '' }}">
             <img src="{{ h.thumb }}" alt="{{ htitle }}" width="72" height="96" loading="lazy">
             <span class="hist-when">{{ h.when_text }}</span>
             <span class="hist-title">{{ htitle }}</span>
@@ -1041,7 +1044,8 @@
     var card = st.frame_card || {}, dev = st.device || {}, cur = st.current || {};
     if (plate) { plate.dataset.hasFrame = cur.etag ? '1' : ''; if (cur.etag) plate.classList.remove('empty'); }
     setText('fc-seen-text', card.seen ? (card.last_seen || '') : 'never');
-    var seenEl = $('fc-seen-text'); if (seenEl) seenEl.title = card.last_checkin_iso ? card.last_checkin_iso.replace('T', ' ') : '';
+    var seenDd = $('fc-seen');
+    if (seenDd) seenDd.dataset.tip = (card.last_checkin_iso ? 'Checked in ' + card.last_checkin_iso.replace('T', ' ') : '') + (dev.last_wake ? ' \u00b7 wake: ' + dev.last_wake : '');
     setDot('fc-seen-dot', card.seen ? (card.overdue ? 'warn' : 'good') : 'off');
     setHidden('fc-overdue', !card.overdue);
     // (em dash escaped: the literal must only appear in the page when actually overdue)
@@ -1058,7 +1062,8 @@
       bar.style.width = (has ? pct : 0) + '%';
       bar.style.background = (has && card.battery_low) ? 'var(--bad)' : '';
       setText('fc-batt-text', has ? pct + '%' : '');
-      var battDd = $('fc-batt'); if (battDd) battDd.title = card.battery || '';
+      var capEl = $('fc-spark-cap');
+      if (capEl) { capEl.dataset.summary = card.battery || ''; if (!sparkHover) capEl.textContent = card.battery || ''; }
     }
     var rssi = dev.wifi_rssi, wifiWrap = $('fc-wifi-wrap');
     if (wifiWrap) {
@@ -1066,7 +1071,7 @@
       setHidden('fc-wifi-wrap', !hasWifi); setHidden('fc-wifi-none', hasWifi);
       if (hasWifi) {
         var bars = wifiBars(rssi);
-        wifiWrap.setAttribute('title', rssi + ' dBm');
+        wifiWrap.dataset.tip = rssi + ' dBm';
         [].forEach.call(wifiWrap.querySelectorAll('.arc'), function (arc, i) { arc.classList.toggle('lit', bars >= 4 - i); });
         setText('fc-wifi-text', WIFI_WORDS[bars]);
       }
@@ -1078,7 +1083,7 @@
     var ld = st.last_detection, heard = $('fc-heard');
     if (heard) {
       heard.textContent = ld ? (ld.common + (ld.when_text ? ' \u00b7 ' + ld.when_text : '')) : '\u2014';
-      heard.title = (ld && ld.at) || '';
+      heard.dataset.tip = (ld && ld.at) || '';
     }
     var q = st.quiet, banner = $('quiet-banner');
     if (banner) {
@@ -1091,7 +1096,7 @@
     if (pendEl) {
       setHidden('fc-pending-dt', !pend); setHidden('fc-pending', !pend);
       pendEl.textContent = pend ? (pend.common + ' · ' + pend.waiting_text) : '';
-      pendEl.title = (pend && pend.first_at) || '';
+      pendEl.dataset.tip = (pend && pend.first_at) ? pend.first_at.replace('T', ' ') : '';
     }
     refreshHistory(cur.etag || '');
     setText('fc-showing', cur.title || cur.label || '—');
@@ -1111,7 +1116,7 @@
       var a = document.createElement('a');
       a.className = 'hist-item'; a.href = h.thumb;
       a.setAttribute('data-cap', title + ' \u00b7 ' + (h.when_text || ''));
-      a.title = h.rendered_at || '';
+      a.dataset.tip = h.rendered_at ? h.rendered_at.replace('T', ' ') : '';
       var img = document.createElement('img');
       img.src = h.thumb; img.alt = title; img.width = 72; img.height = 96; img.loading = 'lazy';
       var when = document.createElement('span'); when.className = 'hist-when'; when.textContent = h.when_text || '';
@@ -1130,7 +1135,49 @@
   // -- battery trend: one line, fixed 3.3-4.25 V scale so days compare, a
   // dotted rule at the "on USB" level, the newest reading marked. ---------
   var BATTERY_MS = 5 * 60000, SPARK_DELAY_MS = 500;
-  var sparkPts = [], sparkReady = false, sparkTimer = null;
+  var sparkPts = [], sparkReady = false, sparkTimer = null, sparkHover = false;
+
+  // -- data tooltips: one small popover, same look as the chart's, for every
+  // [data-tip] on the cards. Opens after the pointer rests 0.5 s, closes on
+  // leave/scroll/Escape, toggles on tap. Replaces the browser's own title
+  // bubbles so hovering data feels like one thing.
+  (function () {
+    var tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; tip.setAttribute('role', 'tooltip');
+    document.body.appendChild(tip);
+    var timer = null, current = null;
+    function place(host) {
+      var r = host.getBoundingClientRect();
+      tip.style.top = (window.scrollY + r.bottom + 6) + 'px';
+      tip.style.left = ''; tip.style.right = '';
+      var w = tip.offsetWidth;
+      var left = r.right - w; if (left < 8) left = 8;
+      tip.style.left = (window.scrollX + left) + 'px';
+    }
+    function show(host) {
+      var text = host.dataset.tip; if (!text) return;
+      tip.textContent = text; tip.hidden = false; current = host; place(host);
+    }
+    function hide() { clearTimeout(timer); timer = null; tip.hidden = true; current = null; }
+    document.addEventListener('mouseover', function (e) {
+      var host = e.target.closest && e.target.closest('[data-tip]');
+      if (!host || host === current) return;
+      if (host.id === 'fc-batt') return;   // the power row has its own popover
+      clearTimeout(timer); timer = setTimeout(function () { show(host); }, SPARK_DELAY_MS);
+    });
+    document.addEventListener('mouseout', function (e) {
+      var host = e.target.closest && e.target.closest('[data-tip]');
+      if (!host) return;
+      var to = e.relatedTarget; if (to && host.contains(to)) return;
+      hide();
+    });
+    document.addEventListener('click', function (e) {
+      var host = e.target.closest && e.target.closest('[data-tip]');
+      if (host && host.id !== 'fc-batt' && !host.matches('a, button')) { if (current === host) hide(); else show(host); }
+      else if (!tip.contains(e.target)) hide();
+    });
+    window.addEventListener('scroll', hide, { passive: true });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+  })();
   // The popover opens after the pointer rests on the row for half a second,
   // closes when it leaves, and toggles on tap where there is no hover.
   (function () {
@@ -1179,19 +1226,20 @@
     svg.appendChild(el('circle', { 'class': 'end', cx: last.x.toFixed(1), cy: y(last.v).toFixed(1), r: 2.2 }));
     var cursor = el('line', { 'class': 'cursor', x1: 0, x2: 0, y1: 0, y2: H, visibility: 'hidden' });
     svg.appendChild(cursor);
-    var summary = (data.hours || 24) + ' h';
-    if (cap) cap.textContent = summary;
+    function summary() { return (cap && cap.dataset.summary) || ((data.hours || 24) + ' h'); }
+    if (cap) cap.textContent = summary();
     function nearest(evt) {
       var r = svg.getBoundingClientRect(), fx = ((evt.clientX - r.left) / r.width) * W, best = sparkPts[0];
       sparkPts.forEach(function (p) { if (Math.abs(p.x - fx) < Math.abs(best.x - fx)) best = p; });
       return best;
     }
     svg.onmousemove = function (evt) {
+      sparkHover = true;
       var p = nearest(evt);
       cursor.setAttribute('x1', p.x.toFixed(1)); cursor.setAttribute('x2', p.x.toFixed(1)); cursor.setAttribute('visibility', 'visible');
       if (cap) cap.textContent = p.v.toFixed(2) + ' V' + (p.pct != null ? ' \u00b7 ' + p.pct + '%' : '') + ' \u00b7 ' + sparkTime(p.at);
     };
-    svg.onmouseleave = function () { cursor.setAttribute('visibility', 'hidden'); if (cap) cap.textContent = summary; };
+    svg.onmouseleave = function () { sparkHover = false; cursor.setAttribute('visibility', 'hidden'); if (cap) cap.textContent = summary(); };
   }
   function loadBattery() {
     if (document.hidden || !$('fc-spark')) return;

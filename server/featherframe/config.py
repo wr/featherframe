@@ -92,6 +92,13 @@ class Config:
     # then hold it overnight. If false, just hold whatever was showing.
     quiet_hours_render_collage: bool = False
 
+    # Gone-quiet alarm -----------------------------------------------------
+    # Flag the frame (a plate footnote + a page banner) when nothing has been
+    # heard for this many ACTIVE hours — hours inside quiet hours don't count,
+    # so a silent night never trips it. 0 disables. The common month-two
+    # failure (mic unplugged, BirdNET stopped) is otherwise silent everywhere.
+    quiet_alarm_hours: int = 6
+
     # Curation -------------------------------------------------------------
     # Common or scientific names, matched case-insensitively.
     species_blocklist: list[str] = field(default_factory=list)
@@ -182,6 +189,7 @@ class Config:
         self.refresh_debounce_minutes = int(_clamp(self.refresh_debounce_minutes, 1, 720))
         self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
         self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 5, 300))
+        self.quiet_alarm_hours = int(_clamp(_finite(self.quiet_alarm_hours, 6), 0, 168))
         # The raw SQLite reader is now "custom"; migrate the legacy id.
         if self.detection_backend == "birdnet_pi":
             self.detection_backend = "custom"

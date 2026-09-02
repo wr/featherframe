@@ -41,6 +41,18 @@ log = logging.getLogger("featherframe.service")
 _CURRENT_FFF = "current.fff"
 _CURRENT_PNG = "current.png"
 
+# History thumbnails: 1/8-scale previews keyed by ETag, capped on disk (a
+# Pi's SD card) and matched to what /api/history can list.
+_HISTORY_MAX = 60
+_HISTORY_SCALE = 8
+_ETAG_RE = re.compile(r"^[0-9a-f]{16}$")
+
+# Gone-quiet alarm: the active-minutes walk steps at this granularity, and
+# never further back than this — anything older is an alarm regardless, and
+# the walk must stay cheap on a tick.
+_QUIET_STEP = timedelta(minutes=10)
+_QUIET_MAX_SPAN = timedelta(days=30)
+
 # One new_since page. A FULL page means a backlog (the server was down a
 # while): the newest row of that page is hours stale, and paging through the
 # rest one tick at a time would show a parade of old birds. See _single_tick.
@@ -154,6 +166,29 @@ def frame_title(meta: dict) -> Optional[str]:
     return label
 
 
+def when_text(then: datetime, now: Optional[datetime] = None) -> str:
+    """Clock time for the page and the plate: "11:27 pm" today, "1 Sep
+    11:27 pm" otherwise — the date only when it says something."""
+    now = now or datetime.now()
+    hour = then.hour % 12 or 12
+    clock = f"{hour}:{then.minute:02d} {'am' if then.hour < 12 else 'pm'}"
+    if then.date() == now.date():
+        return clock
+    return f"{then.day} {then.strftime('%b')} {clock}"
+
+
+def when_short(then: datetime, now: Optional[datetime] = None) -> str:
+    """History-strip caption: the time today, else just the date."""
+    now = now or datetime.now()
+    if then.date() == now.date():
+        return when_text(then, now)
+    return f"{then.day} {then.strftime('%b')}"
+
+
+def _hours_text(hours: float) -> str:
+    return f"{int(hours)} h" if float(hours).is_integer() else f"{hours:.1f} h"
+
+
 def _ago(then: datetime, now: datetime) -> str:
     """Relative time for the config page: "just now", "7 min ago", …"""
     secs = max(0.0, (now - then).total_seconds())
@@ -243,6 +278,13 @@ class FeatherframeService:
         # after start (see _single_tick); cheaper than checking every tick.
         self._cursor_verified = False
 
+        # Gone-quiet alarm, computed once per tick (status() is polled, and
+        # the walk plus a source query is not free). None = no alarm.
+        self._quiet: Optional[dict] = None
+        # With no detection on record at all, the alarm clock starts here —
+        # the earliest moment we can vouch for silence.
+        self._started_at = datetime.now()
+
         # Restore the last device check-in, filtering to known fields so a rollback
         # to a build with fewer DeviceStatus fields can't crash startup on an
         # unexpected key — and sanitising values, so a row poisoned by an older
@@ -325,6 +367,11 @@ class FeatherframeService:
     def tick(self) -> None:
         self.reload_config()
         now = datetime.now()
+        available = self.source.available()
+        # Computed first so any render this tick — including the flips below —
+        # carries the right footnote.
+        self._quiet = self.quiet_state(now, available=available)
+        resident = self._frame_bytes is not None and bool(self._meta.get("label"))
 
         # Dark-mode "quiet" inverts only during quiet hours: when the effective
         # state no longer matches the resident frame, re-flip it once. Requires
@@ -332,11 +379,32 @@ class FeatherframeService:
         # updated "dark" marker — otherwise the guard would fire every tick and
         # starve the decision path below. Runs before the quiet-hours hold so
         # the transition itself gets applied.
-        if (self._frame_bytes is not None and self._meta.get("label")
-                and self._meta.get("dark") != self.config.dark_now(now.time())):
+        if resident and self._meta.get("dark") != self.config.dark_now(now.time()):
             self.rerender_current()
             return
 
+        # Gone-quiet footnote: re-render the resident subject once when the
+        # alarm flips on. When it flips off, prefer the decision path's own
+        # render (a fresh bird is what usually clears it) and only re-render
+        # to drop the note if nothing else replaced the frame — one render
+        # per tick either way. An outage reads as "unknown", so the note is
+        # never dropped (or added) while the source is unreachable.
+        want = self._quiet is not None
+        have = bool(self._meta.get("quiet_note"))
+        if resident and want and not have:
+            self.rerender_current()
+            return
+        if resident and have and not want and available:
+            before = self._etag
+            self._decide(now, available)
+            if self._etag == before:
+                self.rerender_current()
+            return
+
+        self._decide(now, available)
+
+    def _decide(self, now: datetime, available: bool) -> None:
+        """The decision tree proper: quiet hours, mode, detections."""
         if self.config.in_quiet_hours(now.time()):
             # Quiet hours: hold the image. Optionally render one day-in-review
             # collage at the start of the window (also implied by 'auto' mode).
@@ -344,13 +412,61 @@ class FeatherframeService:
                 self._maybe_quiet_collage(now)
             return
 
-        if not self.source.available():
+        if not available:
             return  # soft fail; keep serving the current frame
 
         if self.config.mode == "collage":
             self._maybe_daytime_collage(now)
         else:  # single or auto -> single during the day
             self._single_tick(now)
+
+    # -- gone-quiet alarm --------------------------------------------------
+    def quiet_state(self, now: datetime,
+                    available: Optional[bool] = None) -> Optional[dict]:
+        """The alarm, or None. Counts ACTIVE minutes since the last qualifying
+        detection — minutes outside quiet hours — so a silent night never
+        trips it. With no detection on record the clock starts at service
+        start (the earliest silence we can vouch for). An unreachable source
+        is "unknown", not "quiet": the Source card already says "Not
+        reachable", and alarming on an outage would be a second, wrong
+        diagnosis."""
+        hours = int(self.config.quiet_alarm_hours)
+        if hours <= 0:
+            return None
+        if available is None:
+            available = self.source.available()
+        if not available:
+            return None
+        latest = self.source.latest(self.config.confidence_threshold)
+        since = latest.timestamp if latest else self._started_at
+        if since == datetime.min or since > now:
+            return None  # unparseable stamp, or a clock skew we can't reason about
+        active = self._active_minutes(since, now)
+        if active < hours * 60:
+            return None
+        hours_active = round(active / 60, 1)
+        return {"since": since.isoformat(timespec="seconds"),
+                "since_text": when_text(since, now),
+                "hours": hours_active, "hours_text": _hours_text(hours_active)}
+
+    def _active_minutes(self, since: datetime, now: datetime) -> float:
+        """Minutes between `since` and `now` that fall outside quiet hours,
+        sampled every _QUIET_STEP. Walks at most _QUIET_MAX_SPAN back: past
+        that the alarm is on whatever the answer, and the hours shown are a
+        floor."""
+        t = max(since, now - _QUIET_MAX_SPAN)
+        active = 0.0
+        while t < now:
+            if not self.config.in_quiet_hours(t.time()):
+                active += min(_QUIET_STEP, now - t).total_seconds() / 60
+            t += _QUIET_STEP
+        return active
+
+    def _note_text(self) -> Optional[str]:
+        """The plate footnote while the alarm is on. Derived from the state
+        cached at the top of this tick, which already reflects any detection
+        the tick is about to render — so a fresh bird never carries it."""
+        return f"Nothing heard since {self._quiet['since_text']}" if self._quiet else None
 
     # -- single mode -------------------------------------------------------
     def _single_tick(self, now: datetime) -> None:
@@ -419,12 +535,13 @@ class FeatherframeService:
     def _render_single(self, det: Detection, now: datetime, reason: str) -> None:
         ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else None
         first_seen = self._first_seen(det.scientific_name)
+        note = self._note_text()
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=det.timestamp if det.timestamp != datetime.min else now,
-                          plate_number=ordinal, first_seen=first_seen)
+                          plate_number=ordinal, first_seen=first_seen, note=note)
         result = pipeline.render_single(spec, self.provider, self.config)
         self._commit(result, now, mode="single", species_key=det.key,
-                     label=det.common_name)
+                     label=det.common_name, note=note)
         log.info("rendered single %s (%s), etag=%s", det.common_name, reason, result.etag)
 
     # -- collage mode ------------------------------------------------------
@@ -500,6 +617,7 @@ class FeatherframeService:
             return False
         cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
         total = sum(r["count"] for r in rows)
+        note = self._note_text()
 
         img = None
         label = f"{len(cells)}-species collage"
@@ -514,13 +632,15 @@ class FeatherframeService:
                 art, painted = sheet
                 img = collage_mod.render_generated_collage(
                     art, painted, when=on_date,
-                    total_detections=sum(c.count for c in painted), title=title)
+                    total_detections=sum(c.count for c in painted), title=title,
+                    note=note)
                 label = f"day in review ({len(painted)} species)"
         if img is None:
             img = collage_mod.render_collage(cells, self.provider, when=on_date,
-                                             total_detections=total, title=title)
+                                             total_detections=total, title=title,
+                                             note=note)
         result = pipeline.render_image(img, self.config, "collage", label)
-        self._commit(result, now, mode="collage", species_key=None, label=label)
+        self._commit(result, now, mode="collage", species_key=None, label=label, note=note)
         log.info("rendered collage (%s), etag=%s", label, result.etag)
         return True
 
@@ -653,11 +773,15 @@ class FeatherframeService:
                         common_name=common_name, scientific_name=scientific_name,
                         confidence=0.99)
         ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else 1
+        # A test bird is injected, not heard: the source is still silent, so
+        # the footnote (if on) stays truthful.
+        note = self._note_text()
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
-                          when=now, plate_number=ordinal or 1, first_seen=now.strftime("%Y-%m-%d"))
+                          when=now, plate_number=ordinal or 1, first_seen=now.strftime("%Y-%m-%d"),
+                          note=note)
         result = pipeline.render_single(spec, self.provider, self.config)
         self._commit(result, now, mode="single", species_key=det.key,
-                     label=f"{det.common_name} (test)")
+                     label=f"{det.common_name} (test)", note=note)
         log.info("rendered TEST detection, etag=%s", result.etag)
         return result
 
@@ -797,9 +921,35 @@ class FeatherframeService:
         with self._lock:
             return {"etag": self._etag, "rendered_at": self._meta.get("rendered_at")}
 
+    def render_history(self, limit: int = _HISTORY_MAX) -> list[dict]:
+        """Newest-first past frames for the config page: the render log rows
+        with a display title and, where the file still exists, a thumb URL."""
+        now = datetime.now()
+        hist = paths.history_dir()
+        out = []
+        for row in self.db.render_history(limit):
+            etag = str(row.get("etag") or "")
+            has_thumb = bool(_ETAG_RE.match(etag)) and (hist / f"{etag}.png").exists()
+            try:
+                then = datetime.fromisoformat(str(row.get("rendered_at") or ""))
+            except ValueError:
+                then = None
+            out.append({
+                "rendered_at": row.get("rendered_at"),
+                "mode": row.get("mode"),
+                "label": row.get("species"),
+                "title": frame_title({"label": row.get("species")}),
+                "etag": etag,
+                "thumb": f"/api/history/{etag}.png" if has_thumb else None,
+                "when_text": when_short(then, now) if then else "",
+            })
+        return out
+
     def status(self) -> dict:
         with self._lock:
             meta = dict(self._meta)
+            quiet = dict(self._quiet) if self._quiet else None
+        now = datetime.now()
         latest = self.source.latest(self.config.confidence_threshold)
         return {
             "current": {
@@ -813,7 +963,10 @@ class FeatherframeService:
                 "common": latest.common_name, "scientific": latest.scientific_name,
                 "confidence": round(latest.confidence, 3),
                 "at": f"{latest.date} {latest.time}",
+                "when_text": (when_text(latest.timestamp, now)
+                              if latest.timestamp != datetime.min else ""),
             } if latest else None,
+            "quiet": quiet,
             "birdnet_available": self.source.available(),
             "species_all_time": self.source.all_time_species_count(),
             "plates_loaded": self.audubon.species_count,
@@ -838,7 +991,8 @@ class FeatherframeService:
 
     # -- internal state helpers -------------------------------------------
     def _commit(self, result: RenderResult, now: datetime, mode: str,
-                species_key: Optional[str], label: str) -> None:
+                species_key: Optional[str], label: str,
+                note: Optional[str] = None) -> None:
         with self._lock:
             self._frame_bytes = result.frame
             self._etag = result.etag
@@ -846,6 +1000,7 @@ class FeatherframeService:
                 "etag": result.etag, "mode": mode, "label": label,
                 "species_key": species_key, "rendered_at": now.isoformat(timespec="seconds"),
                 "dark": self.config.dark_now(now.time()),
+                "quiet_note": note is not None,   # what the glass says, for tick()'s flip
                 "collage_at": now.isoformat(timespec="seconds") if mode == "collage"
                 else self._meta.get("collage_at"),
             }
@@ -859,6 +1014,25 @@ class FeatherframeService:
             self.db.set("current_frame", self._meta)
             self.db.set("last_render_at", now.isoformat())
         self.db.log_render(now.isoformat(timespec="seconds"), mode, label, result.etag)
+        self._save_history_thumb(result)
+
+    @staticmethod
+    def _save_history_thumb(result: RenderResult) -> None:
+        """A 1/8-scale thumbnail under frames/history/<etag>.png, pruning the
+        oldest past _HISTORY_MAX. Best-effort: a full card or a bad file must
+        never block the commit the device is waiting on."""
+        try:
+            hist = paths.history_dir()
+            # Same content, same file: a re-render of identical pixels is free.
+            target = hist / f"{result.etag}.png"
+            if not target.exists():
+                result.preview.reduce(_HISTORY_SCALE).save(target)
+            thumbs = sorted((p for p in hist.glob("*.png") if _ETAG_RE.match(p.stem)),
+                            key=lambda p: p.stat().st_mtime, reverse=True)
+            for stale in thumbs[_HISTORY_MAX:]:
+                stale.unlink(missing_ok=True)
+        except Exception:  # noqa: BLE001 — a thumbnail is never worth a failed commit
+            log.warning("history thumbnail for %s not saved", result.etag, exc_info=True)
 
     def _load_current_from_disk(self) -> None:
         fff = paths.frames_dir() / _CURRENT_FFF

@@ -471,7 +471,7 @@
              line on the board). On USB the cell is held full by the charger and
              while charging its terminal voltage runs high, so a percent would
              mislead in both — it is shown only on battery. #}
-          {% set pct = status.device.battery_percent %}
+          {% set pct = card.battery_percent if card.battery_percent is defined and card.battery_percent is not none else status.device.battery_percent %}
           {% set pstate = (card.power.state if card.power else 'unknown') %}
           <dt>Power source</dt>
           <dd id="fc-batt">
@@ -1055,7 +1055,7 @@
     setText('fc-overdue-text', card.overdue ? 'Overdue \u2014 wakes every ' + card.expected_minutes + ' min' : '');
     setHidden('fc-never', card.seen);
     setHidden('fc-telemetry', !card.seen);
-    var pct = dev.battery_percent, bar = $('fc-batt-bar');
+    var pct = (card.battery_percent !== null && card.battery_percent !== undefined) ? card.battery_percent : dev.battery_percent, bar = $('fc-batt-bar');
     if (bar) {
       var has = pct !== null && pct !== undefined;
       var pstate = (card.power && card.power.state) || 'unknown';

@@ -42,9 +42,31 @@ def test_full_and_flat_is_on_usb():
     assert st["state"] == "usb" and st["text"] == "on USB"
 
 
-def test_rising_is_charging():
-    st = power_state(_hist((80, 3.90), (60, 3.92), (30, 3.97), (10, 4.02), (0, 4.03)), NOW)
+def test_sustained_climb_is_charging():
+    st = power_state(_hist((38, 3.90), (32, 3.91), (28, 3.93), (22, 3.94), (18, 3.96),
+                           (12, 3.97), (8, 3.99), (2, 4.00)), NOW)
     assert st["state"] == "charging"
+
+
+def test_step_then_flat_is_recovery_not_charging():
+    # A cell relaxing after a heavy load rises once and then holds; that is
+    # not a charger.
+    st = power_state(_hist((38, 3.90), (32, 3.90), (28, 3.97), (22, 3.97), (18, 3.97),
+                           (12, 3.97), (8, 3.97), (2, 3.97)), NOW)
+    assert st["state"] == "battery"
+
+
+def test_live_readings_decide_usb_within_minutes():
+    # The log still says 4.08 (last row 4 min ago) but the frame has been
+    # reporting 4.23 for the last two minutes: that is USB, now.
+    live = _hist((2, 4.23), (1.5, 4.22), (1, 4.23), (0.5, 4.23), (0, 4.23))
+    st = power_state(_hist((34, 4.08), (29, 4.08), (24, 4.08), (19, 4.08), (14, 4.08), (9, 4.08), (4, 4.08)),
+                     NOW, live)
+    assert st["state"] == "usb"
+    # ...and the moment it is unplugged the live median drops it again.
+    live2 = _hist((2, 4.23), (1.5, 4.09), (1, 4.06), (0.5, 4.09), (0, 4.06))
+    st2 = power_state(_hist((34, 4.08), (4, 4.23)), NOW, live2)
+    assert st2["state"] != "usb"
 
 
 def test_falling_or_flat_below_full_is_on_battery():
@@ -62,6 +84,15 @@ def test_noise_does_not_read_as_charging():
 def test_no_baseline_falls_back_to_level():
     assert power_state(_hist((5, 4.21), (0, 4.20)), NOW)["state"] == "usb"
     assert power_state(_hist((5, 3.95), (0, 3.94)), NOW)["state"] == "battery"
+
+
+def test_card_shows_the_live_median_not_the_flicker(client, svc):
+    for v, p in (("4.09", "89"), ("4.06", "86"), ("4.09", "89"), ("4.06", "86"), ("4.09", "89")):
+        client.get("/api/frame", headers={"X-Battery-Voltage": v, "X-Battery-Percent": p})
+    card = client.get("/api/status").json()["frame_card"]
+    assert card["battery"].startswith("4.09 V · 89%")
+    body = client.get("/api/battery").json()
+    assert body["items"][-1]["voltage"] == pytest.approx(4.09)   # the line ends on the shown value
 
 
 def test_stale_or_empty_history_is_unknown():

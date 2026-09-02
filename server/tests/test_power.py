@@ -144,7 +144,7 @@ def test_power_row_hides_percent_on_usb_and_shows_it_on_battery(client, svc):
         return client.get("/").text
     client.get("/api/frame", headers={"X-Battery-Voltage": "4.21", "X-Battery-Percent": "100"})
     html = page()
-    assert "<dt>Power source</dt>" in html
+    assert 'id="fc-batt"' in html
     usb = html.split('id="pw-usb"')[1].split(">")[0]
     wrap = html.split('id="fc-batt-wrap"')[1].split(">")[0]
     assert "hidden" not in usb and "hidden" in wrap          # USB: icon + word, no percent

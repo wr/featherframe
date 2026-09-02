@@ -131,5 +131,6 @@ KEY_LINE_H = 1.3               # baseline pitch, fraction of key size
 KEY_ENTRY_GAP = 1.9            # gap between entries on a line, fraction of size
 KEY_BOTTOM = 45                # last key baseline above the panel bottom
 KEY_ART_GAP = 53               # gap between the art box and the key's ink top
+KEY_MAX_H = 480                # the key's ink height cap; the art keeps the rest
 
 CONTENT_W = WIDTH - 2 * MARGIN_X

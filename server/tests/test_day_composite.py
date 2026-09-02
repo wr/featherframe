@@ -191,3 +191,55 @@ def test_config_collage_generated_roundtrip():
     assert c.collage_generated is True
     again = Config.from_dict(Config(collage_generated=False).to_dict())
     assert again.collage_generated is False
+
+
+# -- how many species the sheet carries ------------------------------------
+def _many(n):
+    return [CollageCell(f"Species Number {i}", f"Genus species{i}", 100 - i)
+            for i in range(1, n + 1)]
+
+
+def test_config_review_species_max_clamps_and_roundtrips():
+    assert Config().review_species_max == 10
+    assert Config(review_species_max=-3).review_species_max == 0   # 0 = every species
+    assert Config(review_species_max=999).review_species_max == 60
+    again = Config.from_dict(Config(review_species_max=0).to_dict())
+    assert again.review_species_max == 0
+
+
+def test_composite_prompt_counts_every_subject():
+    p = build_composite_prompt([(c.common_name, c.scientific_name) for c in _many(12)])
+    assert "12 different species" in p
+    assert "12. Species Number 12" in p
+    # A crowded sheet is told so; the five-bird sheet is not.
+    assert "crowded" in p.lower()
+    assert "crowded" not in build_composite_prompt(
+        [(c.common_name, c.scientific_name) for c in CELLS]).lower()
+
+
+def test_key_never_eats_the_art(data_dir):
+    """A 37-species key must leave the art most of the sheet, and every key
+    line must still fit the width."""
+    from featherframe.render.collage import _fit_key
+    from featherframe.render import typography
+    entries = [f"{i}. {c.common_name.upper()}" for i, c in enumerate(_many(37), start=1)]
+    size, rows = _fit_key(entries, theme.CONTENT_W, max_h=theme.KEY_MAX_H)
+    line_h = round(size * theme.KEY_LINE_H)
+    assert (len(rows) - 1) * line_h + size <= theme.KEY_MAX_H
+    assert sum(len(r) for r in rows) == 37
+    assert [e for r in rows for e in r] != entries or len(rows) == 37  # column-major when packed
+    for r in rows:
+        w = sum(typography.engraved_width(e, size, theme.KEY_TRACKING) for e in r)
+        w += size * theme.KEY_ENTRY_GAP * (len(r) - 1)
+        assert w <= theme.CONTENT_W
+    art = Image.open(__import__("io").BytesIO(_plate_png())).convert("L")
+    field = collage_mod.render_generated_collage(art, _many(37), when=DAY, title="Sightings")
+    assert field.size == (theme.WIDTH, theme.HEIGHT)
+
+
+def test_key_short_list_still_one_centered_column():
+    from featherframe.render.collage import _fit_key
+    entries = [f"{i}. {c.common_name.upper()}" for i, c in enumerate(CELLS, start=1)]
+    size, rows = _fit_key(entries, theme.CONTENT_W, max_h=theme.KEY_MAX_H)
+    assert size == theme.KEY_SIZES[0]
+    assert [e for r in rows for e in r] == entries

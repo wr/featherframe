@@ -331,3 +331,43 @@ def test_page_shows_the_settings_group_and_the_pending_row(client, svc, monkeypa
 
     svc.config.corroborate_new_species = False
     assert 'id="cns-fields" hidden' in client.get("/").text
+
+
+# -- the day-in-review species cap ------------------------------------------
+def _painted_cells(svc, monkeypatch):
+    """Capture what the generated composite is asked to paint."""
+    seen = []
+
+    class FakeGenart:
+        def day_composite(self, cells, when, force=False):
+            seen.append([c.common_name for c in cells])
+            return None  # fall through to the grid
+    svc.genart = FakeGenart()
+    svc.config.collage_generated = True
+    svc.config.corroborate_new_species = False
+    return seen
+
+
+def _rows(n):
+    return [{"common": f"Bird {i}", "scientific": f"Genus b{i}", "count": 100 - i}
+            for i in range(1, n + 1)]
+
+
+def test_review_paints_up_to_the_cap(svc, monkeypatch):
+    svc.config.review_species_max = 10
+    svc.source = _GateSource([], today=_rows(26))
+    painted = _painted_cells(svc, monkeypatch)
+    grid = _collage_cells(svc, monkeypatch)
+    assert svc._build_collage(NOW, NOW.date(), generated_ok=True) is True
+    assert painted == [[f"Bird {i}" for i in range(1, 11)]]
+    assert grid == [[f"Bird {i}" for i in range(1, 7)]]        # the grid stays six
+    assert svc._meta["label"] == "6-species collage"
+
+
+def test_review_zero_means_every_species(svc, monkeypatch):
+    svc.config.review_species_max = 0
+    svc.source = _GateSource([], today=_rows(26))
+    painted = _painted_cells(svc, monkeypatch)
+    _collage_cells(svc, monkeypatch)
+    assert svc._build_collage(NOW, NOW.date(), generated_ok=True) is True
+    assert len(painted[0]) == 26

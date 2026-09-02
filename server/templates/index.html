@@ -872,6 +872,9 @@
               </div>
             </div>
           </div>
+          <div class="row2">
+            <div><label class="lab" for="f-review-max">Species on the sheet</label><input type="number" id="f-review-max" name="review_species_max" min="0" max="60" step="1" inputmode="numeric" value="{{ config.review_species_max }}"><div class="hint">The day's most-heard species, most first. 0 paints every species heard that day. The grid fallback always shows six.</div></div>
+          </div>
           <details class="adv">
             <summary>Advanced</summary>
             <div class="adv-body">
@@ -1048,7 +1051,8 @@
     dwell_minutes: 'Hold a new bird',
     wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval', quiet_alarm_hours: 'Gone-quiet alarm',
     source_alarm_minutes: 'Source-outage note',
-    collage_rebuilds_per_day: 'Collage rebuilds per day', mat_inset_pct: 'Mat inset',
+    collage_rebuilds_per_day: 'Collage rebuilds per day', review_species_max: 'Species on the sheet',
+    mat_inset_pct: 'Mat inset',
     mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation',
     corroborate_confidence: 'New species: confident enough alone', corroborate_window_hours: 'New species: window',
     corroborate_min_gap_minutes: 'New species: minimum gap' };

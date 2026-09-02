@@ -73,55 +73,80 @@ def _title_band(field: Image.Image, when: ddate, title: str) -> int:
     return theme.COLLAGE_ART_TOP
 
 
-def _fit_key(entries: list[str], max_w: float) -> tuple[int, list[list[str]]]:
-    """(font size, entry lines) for the key: the widest line must fit the
-    sheet. Long BirdNET names (hyphenated warblers and swallows) would
-    otherwise clip silently at the panel edges. Tries fewer lines at larger
-    sizes first, then one entry per line, then scales below the size floor —
-    the fit is a guarantee, not a preference."""
+def _fit_key(entries: list[str], max_w: float,
+             max_h: Optional[int] = None) -> tuple[int, list[list[str]]]:
+    """(font size, rows) for the key. Rows are filled column-major — entry
+    k+1 sits under entry k — so a long day's key reads down each column like
+    a plate key. The widest row must fit `max_w`: long BirdNET names
+    (hyphenated warblers and swallows) would otherwise clip silently at the
+    panel edges. With `max_h` the block's ink height must fit too, so a
+    thirty-species night can't push the art off the sheet. Tries fewer
+    columns at larger sizes first, then more columns, then scales below the
+    size floor — the fit is a guarantee, not a preference."""
     if not entries:
         return theme.KEY_SIZES[-1], []
 
-    def width(chunk: list[str], size: int) -> float:
-        gap = size * theme.KEY_ENTRY_GAP
-        return sum(typography.engraved_width(e, size, theme.KEY_TRACKING)
-                   for e in chunk) + gap * (len(chunk) - 1)
+    def rows_for(cols: int) -> list[list[str]]:
+        per = -(-len(entries) // cols)  # ceil
+        columns = [c for c in (entries[i * per:(i + 1) * per] for i in range(cols)) if c]
+        return [[c[r] for c in columns if r < len(c)] for r in range(per)]
+
+    def width(rows: list[list[str]], size: int) -> float:
+        ncols = max(len(r) for r in rows)
+        col_w = [max(typography.engraved_width(r[c], size, theme.KEY_TRACKING)
+                     for r in rows if c < len(r)) for c in range(ncols)]
+        return sum(col_w) + size * theme.KEY_ENTRY_GAP * (ncols - 1)
+
+    def height(rows: list[list[str]], size: int) -> int:
+        return (len(rows) - 1) * round(size * theme.KEY_LINE_H) + size
+
+    def fits(rows: list[list[str]], size: int) -> bool:
+        return width(rows, size) <= max_w and (max_h is None or height(rows, size) <= max_h)
 
     for size in theme.KEY_SIZES:
-        for lines in range(1, len(entries) + 1):
-            per = -(-len(entries) // lines)  # ceil
-            chunks = [c for c in (entries[i * per:(i + 1) * per]
-                                  for i in range(lines)) if c]
-            if max(width(c, size) for c in chunks) <= max_w:
-                return size, chunks
-    # Even one entry per line overflows at the floor: scale to the widest.
-    size = theme.KEY_SIZES[-1]
-    widest = max(width([e], size) for e in entries)
-    size = max(12, math.floor(size * max_w / widest))
-    return size, [[e] for e in entries]
+        for cols in range(1, len(entries) + 1):
+            rows = rows_for(cols)
+            if fits(rows, size):
+                return size, rows
+    # Nothing fits at the floor: for each column count, the largest size that
+    # satisfies both bounds; keep the layout that stays largest.
+    floor = theme.KEY_SIZES[-1]
+    best = (0.0, [])
+    for cols in range(1, len(entries) + 1):
+        rows = rows_for(cols)
+        size = floor * max_w / width(rows, floor)
+        if max_h is not None:
+            size = min(size, max_h / (theme.KEY_LINE_H * (len(rows) - 1) + 1))
+        if size > best[0]:
+            best = (size, rows)
+    return max(12, math.floor(best[0])), best[1]
 
 
 def _draw_key(draw: ImageDraw.ImageDraw, key_size: int,
-              key_lines: list[list[str]], bottom: int = theme.KEY_BOTTOM) -> int:
-    """Engraved-caps key lines, bottom-anchored and centered, each line's
-    entries separated by a wide gap. `bottom` is the last baseline's height
-    above the panel edge. Returns the key's ink top."""
-    if not key_lines:
+              key_rows: list[list[str]], bottom: int = theme.KEY_BOTTOM) -> int:
+    """Engraved-caps key, bottom-anchored and centered. A single column reads
+    centered line by line; a packed key becomes aligned columns, each entry
+    flush to its column's left edge, the block centered as a whole. `bottom`
+    is the last baseline's height above the panel edge. Returns the key's
+    ink top."""
+    if not key_rows:
         return theme.HEIGHT - theme.MARGIN_BOTTOM
     cx = theme.WIDTH / 2
     line_h = round(key_size * theme.KEY_LINE_H)
     gap = key_size * theme.KEY_ENTRY_GAP
-    first_baseline = theme.HEIGHT - bottom - (len(key_lines) - 1) * line_h
-    for li, chunk in enumerate(key_lines):
-        widths = [typography.engraved_width(e, key_size, theme.KEY_TRACKING)
-                  for e in chunk]
-        total = sum(widths) + gap * (len(chunk) - 1)
-        x = cx - total / 2
+    first_baseline = theme.HEIGHT - bottom - (len(key_rows) - 1) * line_h
+    ncols = max(len(r) for r in key_rows)
+    col_w = [max(typography.engraved_width(r[c], key_size, theme.KEY_TRACKING)
+                 for r in key_rows if c < len(r)) for c in range(ncols)]
+    x0 = cx - (sum(col_w) + gap * (ncols - 1)) / 2
+    for li, row in enumerate(key_rows):
         baseline = first_baseline + li * line_h
-        for entry, w in zip(chunk, widths):
-            typography.draw_engraved(draw, x + w / 2, baseline, entry, key_size,
-                                     theme.INK, theme.KEY_TRACKING)
-            x += w + gap
+        x = x0
+        for c, entry in enumerate(row):
+            w = typography.engraved_width(entry, key_size, theme.KEY_TRACKING)
+            typography.draw_engraved(draw, cx if ncols == 1 else x + w / 2, baseline,
+                                     entry, key_size, theme.INK, theme.KEY_TRACKING)
+            x += col_w[c] + gap
     return first_baseline - round(key_size * theme.ENGRAVED_CAP)
 
 
@@ -140,8 +165,8 @@ def render_generated_collage(art: Image.Image, cells: list[CollageCell],
     art_top = _title_band(field, when, title)
 
     entries = [f"{i}. {c.common_name.upper()}" for i, c in enumerate(cells, start=1)]
-    key_size, key_lines = _fit_key(entries, theme.WIDTH - 2 * 60)
-    key_top = _draw_key(draw, key_size, key_lines,
+    key_size, key_rows = _fit_key(entries, theme.WIDTH - 2 * 60, max_h=theme.KEY_MAX_H)
+    key_top = _draw_key(draw, key_size, key_rows,
                         bottom=theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0))
     art_bottom = key_top - theme.KEY_ART_GAP
     _paste_art(field, art,

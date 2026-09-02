@@ -813,7 +813,9 @@ class FeatherframeService:
                        title: str = "A Day in the Garden",
                        generated_ok: bool = False,
                        force_generated: bool = False) -> bool:
-        rows = self.source.top_species_today(on_date, self.config.confidence_threshold, limit=6)
+        cap = self.config.review_species_max  # 0 = every species heard today
+        rows = self.source.top_species_today(on_date, self.config.confidence_threshold,
+                                             limit=max(6, cap) if cap else 500)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         rows = self._corroborated_rows(rows, on_date)
         if len(rows) < 2:
@@ -828,15 +830,15 @@ class FeatherframeService:
                 self._render_single(latest, now, reason="collage-fallback")
             return False
         cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
-        total = sum(r["count"] for r in rows)
+        grid = cells[:6]  # the grid holds six; the generated sheet takes the cap
         note = self._note_text()
 
         img = None
-        label = f"{len(cells)}-species collage"
+        label = f"{len(grid)}-species collage"
         # The generated composite is reserved for the nightly review (and the
         # explicit button): daytime collage rebuilds stay free.
         if generated_ok and self.config.collage_generated and self.genart is not None:
-            top = cells[:5]  # the totem manner holds four or five species well
+            top = cells[:cap] if cap else cells
             sheet = self.genart.day_composite(top, on_date, force=force_generated)
             if sheet is not None:
                 # The key must name what was PAINTED: on a cache hit the cells
@@ -848,9 +850,9 @@ class FeatherframeService:
                     note=note)
                 label = f"day in review ({len(painted)} species)"
         if img is None:
-            img = collage_mod.render_collage(cells, self.provider, when=on_date,
-                                             total_detections=total, title=title,
-                                             note=note)
+            img = collage_mod.render_collage(grid, self.provider, when=on_date,
+                                             total_detections=sum(c.count for c in grid),
+                                             title=title, note=note)
         result = pipeline.render_image(img, self.config, "collage", label)
         self._commit(result, now, mode="collage", species_key=None, label=label, note=note)
         log.info("rendered collage (%s), etag=%s", label, result.etag)

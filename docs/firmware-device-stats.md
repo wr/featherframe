@@ -76,18 +76,22 @@ store `fw_version` (and optionally `sketch_md5`) on `DeviceStatus`, and render
 
 ## 2. Battery percent — calibration
 
-**Problem.** `batteryPercent()` maps voltage → percent with a reasonable 1S
-Li-ion curve, but the voltage feeding it is `(ADC/4095) * VBAT_SCALE` with
-`VBAT_SCALE = 7.16f` — Seeed's starting divider ratio, flagged as an on-hardware
-unknown in `ff_config.h`. Until it's measured on a real EE03, the percent (and
-the low-battery red bar) can be off by enough to matter.
+**Status (2026-09-02, W-693): done.** The EE03 divider is 10 kΩ/10 kΩ behind a
+TPS22916 load switch (EN = GPIO6, ADC = GPIO1; schematic sheet 4 "BAT ADC
+DETE"), so the pin sees VBAT/2. The firmware reads it with the eFuse-calibrated
+`analogReadMilliVolts()` and multiplies by `VBAT_DIVIDER` (2.0) and a residual
+`VBAT_TRIM` from a meter on the JST leads.
 
-**Firmware change (one-time bring-up).**
-1. Measure actual pack voltage at the JST with a meter while reading the raw ADC
-   counts over serial. `VBAT_SCALE = V_meter / (counts / 4095)`.
-2. Take two points (e.g. a near-full and a near-empty pack) to confirm the
-   divider is linear; set `VBAT_SCALE` to the fit.
-3. Keep the median-of-16 read that's already there — it's good.
+Why not raw counts: the original `(ADC/4095) * VBAT_SCALE` fit was calibrated
+at one point (3.865 V ↔ 2363 counts) and read a full 4.13 V cell as 3.83 V /
+55%, because raw `analogRead()` counts on this ESP32-S3 flatten near the top
+of the range — the same ~2360 counts came back at 3.87 V and at 4.13 V, while
+the calibrated path reported 2036 mV at the pin (4.07 V) for the same cell.
+
+**Re-calibrating.** Every check-in carries `X-Wake-Detail: … adc=<counts>
+first=<n> last=<n> mv=<pin mV>`, so no serial cable is needed: meter the leads,
+read `mv` from the config page's Frame card tooltip (or `/api/status →
+device.wake_detail`), and set `VBAT_TRIM = V_meter / (2 * mV / 1000)`.
 
 **Optional accuracy add.** If a charge line is sensed (USB present / `CHG` pin),
 send `X-Battery-State: charging|discharging|full` so the card can stop showing a

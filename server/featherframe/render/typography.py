@@ -367,6 +367,21 @@ def plate_number_mark(draw: ImageDraw.ImageDraw, ordinal: int,
         x += _len(font, ch) + tracking_px
 
 
+def note_line(draw: ImageDraw.ImageDraw, text: str, book: FontBook = FONTS) -> None:
+    """One italic footnote centred in the bottom margin, in the medium ink —
+    the gone-quiet note. Sits on its own fixed baseline near the panel's
+    bottom edge so it clears the caption above it whatever the title's size;
+    shrinks rather than clips if the text is ever wider than the content."""
+    size = theme.NOTE_SIZE
+    feats = _feat(theme.NOTE_FEATURES)
+    font = book.get(size, italic=True, weight=theme.NOTE_WEIGHT)
+    while size > 18 and font.getlength(text, features=feats) > theme.CONTENT_W:
+        size -= 2
+        font = book.get(size, italic=True, weight=theme.NOTE_WEIGHT)
+    draw.text((theme.WIDTH / 2, theme.NOTE_BASELINE), text, font=font,
+              fill=theme.INK_MEDIUM, anchor="ms", features=feats)
+
+
 def wrap_to_width(text: str, font: ImageFont.FreeTypeFont, max_w: float) -> list[str]:
     words = text.split()
     lines, cur = [], ""

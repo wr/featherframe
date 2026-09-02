@@ -6,6 +6,7 @@ Layout (defaults):
     featherframe.db         our own config/state DB
     frames/current.fff      last packed framebuffer served to the device
     frames/current.png      human-viewable preview of the current frame
+    frames/history/*.png    thumbnails of recent frames, keyed by ETag
   plates_dir/               FEATHERFRAME_PLATES_DIR (downloaded plate assets)
     index.json              species -> plate mapping (written by fetch_plates)
     img/plate-XXX-*.jpg     the plate images
@@ -33,6 +34,14 @@ def data_dir() -> Path:
 
 def frames_dir() -> Path:
     d = data_dir() / "frames"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def history_dir() -> Path:
+    """Thumbnails of past frames, one per ETag, capped by the service so the
+    SD card never fills with them."""
+    d = frames_dir() / "history"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

@@ -436,5 +436,5 @@ def test_page_shows_the_field_and_the_holding_text(client, svc):
     _hold(svc, "first-ever", minutes_ago=50, at=datetime.now())
     html = client.get("/").text
     assert '<span id="fc-showing">Bald Eagle</span>' in html
-    assert '<span class="hint-inline" id="fc-holding"> · holding 40 min</span>' in html
+    assert '<span class="when" id="fc-holding">holding 40 min</span>' in html
     assert client.get("/api/status").json()["current"]["holding"]["minutes_left"] == 40

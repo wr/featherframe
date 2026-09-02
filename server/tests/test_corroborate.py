@@ -326,7 +326,7 @@ def test_page_shows_the_settings_group_and_the_pending_row(client, svc, monkeypa
     svc._single_tick(NOW)
     html = client.get("/").text
     assert 'id="fc-pending-dt" >Pending' in html
-    assert "Bald Eagle · 1 hit at 0.71 · waiting for a second" in html
+    assert '<span class="who">Bald Eagle</span><span class="when">1 hit at 0.71 · waiting for a second' in html
     assert client.get("/api/status").json()["pending"]["common"] == "Bald Eagle"
 
     svc.config.corroborate_new_species = False

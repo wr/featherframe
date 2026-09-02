@@ -117,7 +117,7 @@
     .sc-head.second { margin:16px -18px 10px; padding:14px 18px 0; border-top:1px solid var(--border); }
     .status-card dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:9px 0; }
     .status-card dt { color:var(--muted); font-size:13px; }
-    .status-card dd { margin:0; text-align:right; font-size:13px; color:var(--ink-2); display:flex; gap:7px; justify-content:flex-end; align-items:center; min-width:0; }
+    .status-card dd { margin:0; text-align:right; font-size:13px; color:var(--ink-2); display:flex; flex-wrap:wrap; gap:1px 7px; justify-content:flex-end; align-items:center; min-width:0; line-height:1.45; }
     /* vitals: the two live readings as tiles, label over value */
     .vitals { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
     .vital { display:flex; flex-direction:column; gap:3px; padding:8px 10px; background:var(--inset); border-radius:7px; min-width:0; }
@@ -131,12 +131,8 @@
     .sc-more[open] > summary::after { content:" \2013"; }
     .sc-more > summary:hover { color:var(--ink-2); }
     .sc-more dl { margin-top:8px; }
-    .sc-foot { margin:12px 0 0; font-size:12px; color:var(--muted); line-height:1.5; }
-    /* stacked rows: small label over a left-aligned value that may wrap whole */
-    .status-card dl.stack { grid-template-columns:1fr; gap:2px 0; }
-    .status-card dl.stack dt { font-size:11px; }
-    .status-card dl.stack dd { text-align:left; justify-content:flex-start; flex-wrap:wrap; gap:0 4px; margin-bottom:9px; line-height:1.4; }
-    .status-card dl.stack dd:last-child { margin-bottom:0; }
+    /* name + time values: the time is muted and may drop under a long name */
+    .status-card dd .when { color:var(--muted); white-space:nowrap; }
     .pill-status { display:inline-flex; align-items:center; gap:5px; }
     .pill-status .d { width:7px; height:7px; border-radius:50%; }
     .d.good{ background:var(--good);} .d.warn{ background:var(--warn);} .d.bad{ background:var(--bad);} .d.off{ background:var(--faint);}
@@ -575,20 +571,22 @@
           <h2 class="grp">{{ _srcnames.get(config.detection_backend, 'Source') }}</h2>
           <span class="pill-status"><span class="d {{ 'good' if status.birdnet_available else 'bad' }}" id="fc-src-dot"></span><span id="fc-src-text">{{ 'Connected' if status.birdnet_available else 'Not reachable' }}</span></span>
         </div>
-        {# Label over value: a species name plus a time is too long for a
-           two-column row on a 300 px card and wrapped mid-value. #}
-        <dl class="stack">
+        {# Values that carry a name AND a time are two spans: when a long name
+           forces a wrap, the time drops under it right-aligned instead of a
+           dangling "·" ending the first line. #}
+        <dl>
           {# "· holding 40 min" while a new bird keeps the frame against repeats (dwell_minutes). #}
           {% set hold = status.current.holding %}
-          <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="hint-inline" id="fc-holding">{{ (' · holding ' ~ hold.minutes_left ~ ' min') if hold else '' }}</span></dd>
+          <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="when" id="fc-holding">{{ ('holding ' ~ hold.minutes_left ~ ' min') if hold else '' }}</span></dd>
           {% set ld = status.last_detection %}
-          <dt>Last heard</dt><dd id="fc-heard" data-tip="{{ ld.at if ld else '' }}">{{ (ld.common ~ (' · ' ~ ld.when_text if ld.when_text else '')) if ld else '—' }}</dd>
+          <dt>Last heard</dt><dd id="fc-heard" data-tip="{{ ld.at if ld else '' }}">{% if ld %}<span class="who">{{ ld.common }}</span>{% if ld.when_text %}<span class="when">{{ ld.when_text }}</span>{% endif %}{% else %}—{% endif %}</dd>
           {# A first-seen-today species held back for a second detection
              (W-691). Both halves of the row hide when nothing is waiting. #}
           {% set pend = status.pending %}
-          <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }} data-tip="{{ (pend.first_at.replace('T', ' ')) if pend else '' }}">{{ (pend.common ~ ' · ' ~ pend.waiting_text) if pend else '' }}</dd>
+          <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }} data-tip="{{ (pend.first_at.replace('T', ' ')) if pend else '' }}">{% if pend %}<span class="who">{{ pend.common }}</span><span class="when">{{ pend.waiting_text }}</span>{% endif %}</dd>
+          <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
+          <dt>Plates on file</dt><dd class="tnum" id="fc-plates">{{ status.plates_loaded }} Audubon · {{ status.generated_cached }} generated</dd>
         </dl>
-        <p class="sc-foot"><span class="tnum" id="fc-species">{{ status.species_all_time }} all-time</span> species<br><span class="tnum" id="fc-plates">{{ status.plates_loaded }} Audubon · {{ status.generated_cached }} generated</span> plates</p>
       </div>
 
       {# Past frames, newest first. Rebuilt from /api/history by the status poll
@@ -1002,6 +1000,14 @@
   function setText(id, text) { var el = $(id); if (el) el.textContent = text; }
   function setHidden(id, hidden) { var el = $(id); if (el) el.hidden = !!hidden; }
   function setDot(id, state) { var el = $(id); if (el) el.className = 'd ' + state; }
+  // A "name + time" value as two spans (see the Source rows in the template).
+  function setWhoWhen(el, who, when, empty) {
+    if (!el) return;
+    el.textContent = '';
+    if (!who) { el.textContent = empty; return; }
+    var a = document.createElement('span'); a.className = 'who'; a.textContent = who; el.appendChild(a);
+    if (when) { var b = document.createElement('span'); b.className = 'when'; b.textContent = when; el.appendChild(b); }
+  }
   function fmtTime(d) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
   // fetch that rejects on a non-2xx and parses JSON; the error message is
@@ -1178,7 +1184,7 @@
     setText('fc-src-text', st.birdnet_available ? 'Connected' : 'Not reachable');
     var ld = st.last_detection, heard = $('fc-heard');
     if (heard) {
-      heard.textContent = ld ? (ld.common + (ld.when_text ? ' \u00b7 ' + ld.when_text : '')) : '\u2014';
+      setWhoWhen(heard, ld && ld.common, ld && ld.when_text, '\u2014');
       heard.dataset.tip = (ld && ld.at) || '';
     }
     var q = st.quiet, banner = $('quiet-banner');
@@ -1196,12 +1202,12 @@
     var pend = st.pending, pendEl = $('fc-pending');
     if (pendEl) {
       setHidden('fc-pending-dt', !pend); setHidden('fc-pending', !pend);
-      pendEl.textContent = pend ? (pend.common + ' · ' + pend.waiting_text) : '';
+      setWhoWhen(pendEl, pend && pend.common, pend && pend.waiting_text, '');
       pendEl.dataset.tip = (pend && pend.first_at) ? pend.first_at.replace('T', ' ') : '';
     }
     refreshHistory(cur.etag || '');
     setText('fc-showing', cur.title || cur.label || '—');
-    setText('fc-holding', cur.holding ? ' \u00b7 holding ' + cur.holding.minutes_left + ' min' : '');
+    setText('fc-holding', cur.holding ? 'holding ' + cur.holding.minutes_left + ' min' : '');
     setText('fc-species', st.species_all_time + ' all-time');
     setText('fc-plates', st.plates_loaded + ' Audubon · ' + st.generated_cached + ' generated');
   }

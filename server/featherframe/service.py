@@ -391,6 +391,16 @@ class FeatherframeService:
         # Gone-quiet alarm, computed once per tick (status() is polled, and
         # the walk plus a source query is not free). None = no alarm.
         self._quiet: Optional[dict] = None
+        # Source-outage note (W-696): when the source first went unreachable
+        # (persisted, so a restart mid-outage keeps the clock), and the alarm
+        # derived from it once per tick. None = reachable / no alarm.
+        self._source_down_since: Optional[datetime] = None
+        try:
+            stored = self.db.get("source_down_since", None)
+            self._source_down_since = datetime.fromisoformat(stored) if stored else None
+        except (TypeError, ValueError):
+            self._source_down_since = None
+        self._outage: Optional[dict] = None
         # A first-seen-today species held back for a second detection (see
         # _corroborated). Persisted so a restart doesn't forget the bird the
         # page says it is waiting on; kept OFF the frame meta because it is
@@ -490,7 +500,9 @@ class FeatherframeService:
         available = self.source.available()
         # Computed first so any render this tick — including the flips below —
         # carries the right footnote.
+        self._track_source(now, available)
         self._quiet = self.quiet_state(now, available=available)
+        self._outage = self.outage_state(now)
         resident = self._frame_bytes is not None and bool(self._meta.get("label"))
 
         # Dark-mode "quiet" inverts only during quiet hours: when the effective
@@ -503,23 +515,27 @@ class FeatherframeService:
             self.rerender_current()
             return
 
-        # Gone-quiet footnote: re-render the resident subject once when the
-        # alarm flips on. When it flips off, prefer the decision path's own
-        # render (a fresh bird is what usually clears it) and only re-render
-        # to drop the note if nothing else replaced the frame — one render
-        # per tick either way. An outage reads as "unknown", so the note is
-        # never dropped (or added) while the source is unreachable.
-        want = self._quiet is not None
-        have = bool(self._meta.get("quiet_note"))
-        if resident and want and not have:
-            self.rerender_current()
-            return
-        if resident and have and not want and available:
-            before = self._etag
-            self._decide(now, available)
-            if self._etag == before:
+        # The footnote (gone-quiet, or a source outage): re-render the resident
+        # subject once when a note flips on or switches kind. When one flips
+        # off, prefer the decision path's own render (a fresh bird is what
+        # usually clears it) and only re-render to drop the note if nothing
+        # else replaced the frame — one render per tick either way. An outage
+        # under its threshold reads as "unknown": nothing is dropped or added
+        # while the source is unreachable and no outage note is due.
+        want = self._note_kind()
+        have = self._meta.get("note_kind") or ("quiet" if self._meta.get("quiet_note") else None)
+        if resident and want != have:
+            if want is None and not available:
+                pass
+            elif want is not None and (have is None or not available):
                 self.rerender_current()
-            return
+                return
+            else:
+                before = self._etag
+                self._decide(now, available)
+                if self._etag == before:
+                    self.rerender_current()
+                return
 
         self._decide(now, available)
 
@@ -582,11 +598,58 @@ class FeatherframeService:
             t += _QUIET_STEP
         return active
 
+    # -- source-outage note ------------------------------------------------
+    def _track_source(self, now: datetime, available: bool) -> None:
+        """Start the outage clock on the first unreachable tick, stop it on
+        the first good one. Persisted so a restart mid-outage (the usual
+        shape: the whole box rebooted) keeps counting from the real start."""
+        if available:
+            if self._source_down_since is not None:
+                self._source_down_since = None
+                self.db.set("source_down_since", None)
+            return
+        if self._source_down_since is None:
+            self._source_down_since = now
+            self.db.set("source_down_since", now.isoformat(timespec="seconds"))
+
+    def outage_state(self, now: datetime) -> Optional[dict]:
+        """The source-outage alarm, or None: the source has been unreachable
+        for at least `source_alarm_minutes`. Same shape as quiet_state so the
+        page and the plate share one footnote path."""
+        minutes = int(self.config.source_alarm_minutes)
+        since = self._source_down_since
+        if minutes <= 0 or since is None:
+            return None
+        if since > now:
+            return None  # a clock we can't reason about
+        elapsed = (now - since).total_seconds() / 60
+        if elapsed < minutes:
+            return None
+        hours = round(elapsed / 60, 1)
+        return {"since": since.isoformat(timespec="seconds"),
+                "since_text": when_text(since, now),
+                "hours": hours, "hours_text": _hours_text(hours)}
+
+    def _note_kind(self) -> Optional[str]:
+        """Which footnote the glass should carry right now: "quiet" (nothing
+        heard), "outage" (source unreachable), or None. Mutually exclusive
+        by construction — quiet_state is None while the source is down."""
+        if self._quiet:
+            return "quiet"
+        if self._outage:
+            return "outage"
+        return None
+
     def _note_text(self) -> Optional[str]:
-        """The plate footnote while the alarm is on. Derived from the state
+        """The plate footnote while an alarm is on. Derived from the state
         cached at the top of this tick, which already reflects any detection
         the tick is about to render — so a fresh bird never carries it."""
-        return f"Nothing heard since {self._quiet['since_text']}" if self._quiet else None
+        kind = self._note_kind()
+        if kind == "quiet":
+            return f"Nothing heard since {self._quiet['since_text']}"
+        if kind == "outage":
+            return f"Detector unreachable since {self._outage['since_text']}"
+        return None
 
     # -- single mode -------------------------------------------------------
     def _single_tick(self, now: datetime) -> None:
@@ -1129,6 +1192,7 @@ class FeatherframeService:
         with self._lock:
             meta = dict(self._meta)
             quiet = dict(self._quiet) if self._quiet else None
+            outage = dict(self._outage) if self._outage else None
         now = datetime.now()
         latest = self.source.latest(self.config.confidence_threshold)
         return {
@@ -1149,6 +1213,7 @@ class FeatherframeService:
                               if latest.timestamp != datetime.min else ""),
             } if latest else None,
             "quiet": quiet,
+            "source_outage": outage,
             "pending": self.pending_view(now),
             "birdnet_available": self.source.available(),
             "species_all_time": self.source.all_time_species_count(),
@@ -1202,6 +1267,7 @@ class FeatherframeService:
                 "novelty": novelty, "held_since": held_since,
                 "dark": self.config.dark_now(now.time()),
                 "quiet_note": note is not None,   # what the glass says, for tick()'s flip
+                "note_kind": self._note_kind() if note is not None else None,
                 "collage_at": now.isoformat(timespec="seconds") if mode == "collage"
                 else self._meta.get("collage_at"),
             }

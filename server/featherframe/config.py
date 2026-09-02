@@ -104,6 +104,15 @@ class Config:
     # failure (mic unplugged, BirdNET stopped) is otherwise silent everywhere.
     quiet_alarm_hours: int = 6
 
+    # Source-outage note ---------------------------------------------------
+    # The Source card says "Not reachable" the moment a poll fails, but the
+    # glass keeps its last plate with nothing to say why. After this many
+    # minutes unreachable the resident plate is re-rendered once with a
+    # footnote ("Detector unreachable since 8:00 am"); it drops on the first
+    # good read. 0 disables. An hour by default: a router reboot or a
+    # BirdNET restart must not repaint the wall.
+    source_alarm_minutes: int = 60
+
     # Curation -------------------------------------------------------------
     # Common or scientific names, matched case-insensitively.
     species_blocklist: list[str] = field(default_factory=list)
@@ -208,6 +217,7 @@ class Config:
         self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
         self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 5, 300))
         self.quiet_alarm_hours = int(_clamp(_finite(self.quiet_alarm_hours, 6), 0, 168))
+        self.source_alarm_minutes = int(_clamp(_finite(self.source_alarm_minutes, 60), 0, 10080))
         self.corroborate_new_species = bool(self.corroborate_new_species)
         self.corroborate_confidence = _clamp(_finite(self.corroborate_confidence, 0.85), 0.0, 1.0)
         self.corroborate_window_hours = int(_clamp(_finite(self.corroborate_window_hours, 24), 1, 168))

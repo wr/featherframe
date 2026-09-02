@@ -197,6 +197,17 @@ def _hosted_firmware_md5(bin_path) -> Optional[str]:
     return md5
 
 
+# Browsers ask for /favicon.ico regardless of the page's <link>s; a 404 in
+# the log on every visit is noise, so serve the ICO from the static dir.
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    ico = paths.static_dir() / "favicon.ico"
+    if not ico.is_file():
+        return Response(status_code=404)
+    return FileResponse(ico, media_type="image/x-icon",
+                        headers={"Cache-Control": "max-age=86400"})
+
+
 # -- config page -----------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):

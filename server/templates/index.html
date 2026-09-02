@@ -165,6 +165,11 @@
     .btn.danger { color:var(--bad); }
     .btn.icon { width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; flex:none; }
     .btn.icon svg { width:15px; height:15px; }
+    .btn.primary { background:linear-gradient(#7d5836,var(--accent)); border-color:var(--accent-press); color:#f7efe2; }
+    .btn.primary:hover { background:linear-gradient(#6f4c2c,var(--accent-press)); color:#f7efe2; }
+    /* The stored key is masked and not editable — show it visibly disabled, not just read-only. */
+    #key-display input:disabled { color:var(--muted); -webkit-text-fill-color:var(--muted); opacity:1;
+      background:var(--inset); cursor:not-allowed; }
     .keyline { display:flex; gap:8px; }
     .keyline input { flex:1; font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:13px; letter-spacing:0; }
     /* a connection field + its inline Test button on one row */
@@ -517,12 +522,12 @@
             <div><label class="lab">Start</label><input type="time" name="quiet_hours_start" value="{{ config.quiet_hours_start }}"></div>
             <div><label class="lab">End</label><input type="time" name="quiet_hours_end" value="{{ config.quiet_hours_end }}"></div>
           </div>
-          <div class="field">
+          <div class="field" id="hold-field" {{ 'hidden' if config.quiet_hours_mode=='off' else '' }}>
             <div class="torow" id="hold-row">
               <label class="switch"><input type="checkbox" id="qhc" name="quiet_hours_render_collage" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label>
               <div class="totext">
-                <span class="tolabel">Show a “day in review” summary overnight</span>
-                <span class="tosub">One image combining the day's top species, shown overnight in either mode. <a class="ex seg-ex" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held overnight." title="Preview an example" aria-label="Preview example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span>
+                <span class="tolabel">Show a “day in review” summary during quiet hours</span>
+                <span class="tosub">One image combining the day's top species, shown during quiet hours in either mode. <a class="ex seg-ex" id="dayreview-ex" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></a></span>
               </div>
             </div>
           </div>
@@ -631,7 +636,7 @@
             <label class="lab">API key <span style="color:var(--muted);font-weight:400">· stored only on this device</span></label>
             {% set has_key = status.config.imagegen_api_key %}
             <div class="keyline" id="key-display" {{ 'hidden' if not has_key else '' }}>
-              <input type="text" value="{{ has_key or '' }}" readonly aria-label="Stored API key">
+              <input type="text" value="{{ has_key or '' }}" disabled aria-label="Stored API key">
               <button class="btn icon" type="button" id="key-replace" title="Replace key" aria-label="Replace key">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
               </button>
@@ -641,6 +646,7 @@
             </div>
             <div class="keyline" id="key-entry" {{ '' if not has_key else 'hidden' }}>
               <input type="password" name="imagegen_api_key" autocomplete="off" placeholder="paste key" aria-label="New API key">
+              <button class="btn primary" type="submit" id="key-save">Save</button>
               {% if has_key %}<button class="btn" type="button" id="key-cancel">Cancel</button>{% endif %}
             </div>
             <input type="checkbox" name="imagegen_clear_key" id="key-clear" hidden>
@@ -816,12 +822,30 @@
       var v = (document.querySelector('input[name="quiet_hours_mode"]:checked') || {}).value;
       var custom = document.getElementById('quiet-custom');
       if (custom) custom.hidden = (v !== 'custom');
+      // The "day in review" only fires during quiet hours, so hide its toggle
+      // entirely when quiet hours is off — it would do nothing.
+      var hold = document.getElementById('hold-field');
+      if (hold) hold.hidden = (v === 'off');
       if (quietHintEl) quietHintEl.textContent = QUIET_HINT[v] || '';
     }
     document.querySelectorAll('input[name="quiet_hours_mode"]').forEach(function (r) {
       r.addEventListener('change', syncQuiet);
     });
     syncQuiet();
+    // The day-in-review preview should match the combine toggle: a
+    // single combined AI plate when it's on, the grid collage when off.
+    var cgToggle = document.getElementById('cg');
+    var drEx = document.getElementById('dayreview-ex');
+    function syncDayReviewEx() {
+      if (!drEx) return;
+      var combined = cgToggle && cgToggle.checked;
+      drEx.setAttribute('data-ex', combined ? 'single' : 'collage');
+      drEx.setAttribute('data-cap', combined
+        ? "Day in review — the day's species merged into a single plate."
+        : "Day in review — the day's top species on one sheet, held during quiet hours.");
+    }
+    if (cgToggle) cgToggle.addEventListener('change', syncDayReviewEx);
+    syncDayReviewEx();
     // dark-mode hint follows the selected mode
     var DARK_HINT = {
       off: "Normal — black ink on a white background.",

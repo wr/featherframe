@@ -40,6 +40,7 @@ EXPECTED = {
     "Least Bittern": 210,
     "Upland Sandpiper": 303,      # "Bartram Sandpiper"
     "Great Egret": 386,           # "White Heron" (281 is the Great Blue's white morph)
+    "Northern Parula": 15,        # "Blue Yellow-backed Warbler" — typed by its 1830s title on 3 Sep, got an AI plate
     # Never a wrong bird: confirmed plate-less -> AI generation candidates.
     "Veery": None,                # plate 164's bird is disputed (Halley 2018)
     "Rock Pigeon": None,          # not painted

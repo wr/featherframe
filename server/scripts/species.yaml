@@ -148,6 +148,7 @@ species:
   - {common: "Magnolia Warbler", scientific: "Setophaga magnolia", plate: 50, audubon_title: "Black & Yellow Warbler", sci_synonyms: ["Dendroica magnolia", "Sylvia magnolia", "Sylvia maculosa"]}
   - {common: "Mallard", scientific: "Anas platyrhynchos", plate: 221, audubon_title: "Mallard Duck", sci_synonyms: ["Anas boschas"]}
   - {common: "Marsh Wren", scientific: "Cistothorus palustris", plate: 100, audubon_title: "Marsh Wren", sci_synonyms: ["Telmatodytes palustris", "Troglodytes palustris", "Certhia palustris"]}
+  - {common: "Northern Parula", scientific: "Setophaga americana", plate: 15, audubon_title: "Blue Yellow-backed Warbler", sci_synonyms: ["Parula americana", "Sylvia americana", "Compsothlypis americana"]}
   - {common: "Osprey", scientific: "Pandion haliaetus", plate: 81, audubon_title: "Fish Hawk, or Osprey", sci_synonyms: ["Pandion carolinensis"]}
   - {common: "Ovenbird", scientific: "Seiurus aurocapilla", plate: 143, audubon_title: "Golden-crowned Thrush", sci_synonyms: ["Seiurus aurocapillus"]}
   - {common: "Palm Warbler", scientific: "Setophaga palmarum", plate: 163, audubon_title: "Palm Warbler", sci_synonyms: ["Dendroica palmarum"]}

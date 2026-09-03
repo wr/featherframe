@@ -49,7 +49,7 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 13
+PROMPT_VERSION = 12
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
@@ -221,56 +221,10 @@ _P_COMPOSITE_CROWDED = (
 )
 _COMPOSITE_CROWDED_FROM = 7  # figures
 
-# The sheet's event and fullness are SAMPLED per sheet, as the single plates'
-# are: a fixed clause reads as a command and every night stages the same
-# thing. The tableau names the kind of event the armature clause promises;
-# the rest of the company carries on. No species are named anywhere.
-_COMPOSITE_TABLEAU = (
-    (0.35, "The event is a feeding: several of the company at the plant's own bounty "
-           "in their true manner, others drawn toward it."),
-    (0.30, "The event is an alarm: a predator among them has just been noticed, and "
-           "alarm passes through the company in each species' true manner — crests "
-           "raised, bodies turned, voices open — while the predator holds its ground."),
-    (0.20, "The event is a dispute: two of the company contest a perch or a prize in "
-           "the folio's dramatic manner, the nearest figures attending."),
-    (0.15, "The event is a quiet hour: the company at rest and at its ordinary business, "
-           "the sheet's temper composed stillness."),
-)
-_COMPOSITE_FOLIAGE = (
-    (0.35, "Keep the plant spare: the fewest leaves, flowers, and fruit that still "
-           "identify it, bare paper clearly dominant between the figures."),
-    (0.40, "Give the plant moderate fullness, bare paper still showing through."),
-    (0.25, "Let the plant take the folio's exuberant showcase treatment, the figures "
-           "still commanding the sheet."),
-)
-_COMPOSITE_CONDITION = (
-    (0.80, "All plant material on the sheet is fresh and whole."),
-    (0.20, "The botany is healthy overall; at most one modest, natural sign of field "
-           "wear may appear, and the rest stays whole."),
-)
-
-
-def _sample_composite_direction(rng: random.Random,
-                                avoid: Optional[dict] = None) -> tuple[str, dict]:
-    """One sentence per axis for the composite sheet. `avoid` maps an axis to
-    the last sheet's pick, so a repaint changes the event, not just the
-    brushstrokes."""
-    avoid = avoid or {}
-
-    def choose(axis, choices):
-        kept = tuple(c for c in choices if c[1] != avoid.get(axis)) or choices
-        return _pick(rng, kept)
-
-    picks = {"tableau": choose("tableau", _COMPOSITE_TABLEAU),
-             "foliage": choose("foliage", _COMPOSITE_FOLIAGE),
-             "condition": choose("condition", _COMPOSITE_CONDITION)}
-    return " ".join(picks.values()), picks
-
 
 def build_composite_prompt(subjects: list[tuple[str, str]],
                            briefs: Optional[dict] = None,
-                           plant: Optional[dict] = None,
-                           direction: str = "") -> str:
+                           plant: Optional[dict] = None) -> str:
     """Prompt for the day-in-review sheet: the day's species as one composite
     plate. `subjects` is (common, scientific) in prominence order; `briefs`
     maps a scientific name to a naturalist's one-line description so the
@@ -295,10 +249,7 @@ def build_composite_prompt(subjects: list[tuple[str, str]],
     # model-authored and a brace in it must stay a brace.
     armature = _P_COMPOSITE_ARMATURE.replace("{plant}", plant_line)
     crowded = _P_COMPOSITE_CROWDED if len(subjects) >= _COMPOSITE_CROWDED_FROM else ""
-    directed = ("Art direction for this sheet, chosen for it alone: " + direction + "\n\n"
-                if direction else "")
-    return (opener + armature + crowded + directed
-            + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER)
+    return opener + armature + crowded + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
 
 
 # Real composite plates to hand the model as references, preference order.
@@ -1218,8 +1169,7 @@ class GeneratedArtProvider(ArtProvider):
             # then the next species' if the lead has none; a repaint avoids
             # the plant the last sheet used so the subject changes, not just
             # the brushstrokes.
-            prev = self._sheet_meta(sidecar) if force else {}
-            prev_plant = (prev.get("plant") or {}).get("name")
+            prev_plant = self._sheet_plant(sidecar) if force else None
             rng = random.Random(f"{day}:{time.time() if force else ''}")
             plant = None
             for pool in pools:
@@ -1227,8 +1177,7 @@ class GeneratedArtProvider(ArtProvider):
                 if pool:
                     plant = rng.choice(pool)
                     break
-            direction, picks = _sample_composite_direction(rng, prev.get("direction"))
-            prompt = build_composite_prompt(subjects, briefs, plant, direction)
+            prompt = build_composite_prompt(subjects, briefs, plant)
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
                 if png.exists():
@@ -1260,7 +1209,6 @@ class GeneratedArtProvider(ArtProvider):
                     "cells": [{"common": c.common_name, "scientific": c.scientific_name,
                                "count": c.count} for c in cells],
                     "plant": plant,
-                    "direction": picks,
                     "model": getattr(self._model, "name", "unknown"),
                     "quality": getattr(self._model, "quality", None),
                     "prompt_version": PROMPT_VERSION,
@@ -1290,13 +1238,13 @@ class GeneratedArtProvider(ArtProvider):
             return None
 
     @staticmethod
-    def _sheet_meta(sidecar: Path) -> dict:
-        """The cached sheet's sidecar (plant, direction picks), or {}."""
+    def _sheet_plant(sidecar: Path) -> Optional[str]:
+        """The plant the cached sheet was built on, if its sidecar says."""
         try:
             meta = json.loads(sidecar.read_text())
-            return meta if isinstance(meta, dict) else {}
-        except (OSError, ValueError, TypeError):
-            return {}
+            return (meta.get("plant") or {}).get("name") or None
+        except (OSError, ValueError, TypeError, AttributeError):
+            return None
 
     @staticmethod
     def _sheet_age_s(sidecar: Path) -> float:

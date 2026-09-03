@@ -1,3 +1,5 @@
+**NOTE: this project is still a work in progress :)**
+
 <h1 align="center">Featherframe</h1>
 
 <p align="center">
@@ -13,16 +15,18 @@
   <a href="#license">License</a>
 </p>
 
-<p align="center"><em>Northern Cardinal · Cardinalis cardinalis · rendered to the panel's 16 grays</em></p>
+<center><img width="600" alt="featherframe" src="https://github.com/user-attachments/assets/22e61eee-6bd7-49b2-96bb-d9fbfed88f1a" /></center>
 
 ---
 
 ## What is it?
 
-Your BirdNET-Pi hears a bird; a few minutes later it's hanging on the wall as a
-museum plate — cropped from its Audubon lithograph, captioned in EB Garamond,
-dithered to the panel's 16 grays. Then the frame goes back to sleep. Set it and
-forget it.
+BirdNET is a free local AI model that identifies bird calls in your backyard. Featherframe is an eink display that pulls live bird detection data from BirdNET and shows it as a beautiful [Audubon lithograph print](https://www.audubon.org/art/birds-of-america)... in color or grayscale.
+
+Featherframe also has a custom `gpt-image` prompt that can automatically generate high-quality (read: not AI slop) lithograph plates *in the Audubon style* for birds not found in the original 435 prints from the 1800's. It can also generate a "day in review" that shows all of the creatures your BirdNET setup detected that day.
+
+<center><img width="600" alt="IMG_1899" src="https://github.com/user-attachments/assets/95d46050-47f6-4af5-8e1a-6dfe1475b7b2" /></center>
+
 
 - **`server/`** — a small Python (FastAPI) service that runs *on the BirdNET-Pi
   itself*. It reads detections, renders plates, and serves a packed framebuffer

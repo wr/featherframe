@@ -4,12 +4,13 @@
 PY := server/.venv/bin/python
 PIP := server/.venv/bin/pip
 
-.PHONY: help venv plates preview preview-all preview-collage preview-fallback serve test clean
+.PHONY: help venv plates plates-all preview preview-all preview-collage preview-fallback serve test clean
 
 help:
 	@echo "Featherframe targets:"
 	@echo "  make venv             create the server venv and install deps"
 	@echo "  make plates           download Audubon plates (species.yaml)"
+	@echo "  make plates-all       cache every Havell plate (~2.9 GB, idempotent)"
 	@echo "  make preview          render a fake Northern Cardinal -> PNG + .fff in test_output/"
 	@echo "  make preview-all      render every curated species"
 	@echo "  make preview-collage  render a daily collage"
@@ -23,6 +24,10 @@ venv:
 
 plates:
 	cd server && ../$(PY) scripts/fetch_plates.py
+
+# The whole edition, so a new species.yaml entry never needs the network.
+plates-all:
+	cd server && ../$(PY) scripts/fetch_plates.py --all
 
 # The headline deliverable: end-to-end, no hardware.
 preview:

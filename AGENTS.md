@@ -29,6 +29,7 @@ All Make targets run from the repo root; they drive `server/.venv`.
 ```bash
 make venv              # create server venv + install requirements
 make plates            # download Audubon plates (scripts/fetch_plates.py)
+make plates-all        # cache every Havell plate (~2.9 GB, idempotent, retries)
 make preview           # END-TO-END render of a fake Cardinal -> test_output/*.png + *.fff
 make preview-all       # one PNG per curated species
 make preview-collage   # a daily collage

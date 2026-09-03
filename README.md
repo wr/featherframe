@@ -216,11 +216,13 @@ freshness: 15 min. On USB power, none of this matters — set 15 min and forget 
 ## Species & plates
 
 `server/scripts/species.yaml` is the editable crosswalk: modern species →
-Audubon Havell plate. It ships with ~125 Eastern US species pinned to a plate,
-each number verified by hand (Audubon's 1830s titles are archaic — the
-Northern Cardinal is his "Cardinal Grosbeak", the junco his "Snow Bird"), plus
-explicit `plate: none` entries for everything the frame has heard that he
-never painted.
+Audubon Havell plate. It covers the whole edition: every species Audubon
+painted (~430 species across 400 plates), each number checked against the
+plate's own title (his 1830s titles are archaic — the Northern Cardinal is his
+"Cardinal Grosbeak", the junco his "Snow Bird"), plus explicit `plate: none`
+entries for everything the frame has heard that he never painted. Eight
+disputed or invalid birds (the "Bird of Washington", "Carbonated Warbler" and
+the like) are deliberately unpinned.
 
 - **Add a species**: add an entry. Omit `plate:` and `fetch_plates.py` will
   suggest one by title match for you to pin.

@@ -280,6 +280,8 @@ def test_day_composite_generates_at_the_sheet_size(data_dir):
 def test_crowded_prompt_fills_the_sheet():
     p = build_composite_prompt([(c.common_name, c.scientific_name) for c in _many(12)])
     assert "full width" in p and "no bare margin" in p
+    assert "where the bough meets earth" in p          # a station for the ground-dwellers
+    assert "sizes follow life alone" in p               # prominence is placement, not size
 
 
 def test_sheet_key_widens_before_it_deepens():
@@ -295,7 +297,7 @@ def test_sheet_key_widens_before_it_deepens():
 def test_sheet_carries_the_date_above_the_key():
     """"SEPTEMBER 2" in wide-tracked engraved caps between the art and the
     key; the art box gives up that line."""
-    assert collage_mod.sheet_date_text(date(2026, 9, 2)) == "SEPTEMBER 2"
+    assert collage_mod.sheet_date_text(date(2026, 9, 2)) == "WEDNESDAY, SEPTEMBER 2, 2026"
     art = Image.new("L", collage_mod.sheet_art_size(CELLS), 128)
     field = collage_mod.render_generated_collage(art, CELLS, when=date(2026, 9, 2))
     baseline = collage_mod.sheet_date_baseline(CELLS)

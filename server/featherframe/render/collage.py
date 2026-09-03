@@ -177,8 +177,8 @@ def _key_ink_top(key_size: int, key_rows: list[list[str]], bottom: int) -> int:
 
 
 def sheet_date_text(when: ddate) -> str:
-    """The sheet's date, as the key is set: "SEPTEMBER 2"."""
-    return f"{when.strftime('%B')} {when.day}".upper()
+    """The sheet's date, as the key is set: "WEDNESDAY, SEPTEMBER 2, 2026"."""
+    return f"{when.strftime('%A, %B')} {when.day}, {when.year}".upper()
 
 
 def _sheet_date_baseline(key_size: int, key_rows: list[list[str]], bottom: int) -> int:

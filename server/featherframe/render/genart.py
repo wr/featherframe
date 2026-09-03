@@ -49,7 +49,7 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 10
+PROMPT_VERSION = 11
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
@@ -205,16 +205,22 @@ _P_COMPOSITE_ARMATURE = (
 # Past that, a crowded sheet: the bough may divide as far as the figures need,
 # and the legibility of every figure and numeral outranks bare paper.
 _P_COMPOSITE_ARMATURE_CROWDED = (
-    "This is a crowded sheet. One shared armature — a single bare bough entering from "
-    "the sheet edge, cut off flush, and dividing into as many limbs as the figures need — "
-    "carries every figure, the limbs spreading so the figures tier across the whole height "
-    "and width of the sheet, none overlapping and none hidden behind another. Each species "
-    "holds its own station, drawn in TRUE RELATIVE SCALE to the others (a large species "
-    "dwarfs a small one, as in life), in its own characteristic pose and direction, the "
-    "figures never interacting. Each figure is exactly the species its names denote — its "
-    "true kind and anatomy, never translated into another creature. The first-listed "
-    "species takes the most commanding station; each later one a quieter perch. Beside "
-    "each figure sits its tiny engraved italic numeral in the listed order (1., 2., 3., ...) "
+    "This is a crowded sheet. The armature is whatever this company truly needs. Each "
+    "figure holds the station its kind holds in life: those that perch, on the bough; "
+    "those that walk, on the ground at its foot, where the bough meets earth; those that "
+    "fly, on open paper. A single bare bough enters from the sheet edge, cut off flush, "
+    "and divides into as many limbs as the figures need, and the ground rises to meet it, "
+    "so every creature stands where a naturalist would find it. The figures tier across "
+    "the whole height and width of the sheet, none overlapping and none hidden behind "
+    "another, each in its own characteristic pose and direction, never interacting. Each "
+    "figure is exactly the species its names denote — its true kind and anatomy, never "
+    "translated into another creature. Prominence is a matter of placement, never of "
+    "size: the first-listed species takes the sheet's most prominent station and each "
+    "later one a quieter place, while sizes follow life alone, every figure drawn in TRUE "
+    "RELATIVE SCALE to the others, so the largest creature present is the largest figure "
+    "however far down the list it falls, and a small bird stays small beside a large one. "
+    "Beside each figure sits its tiny engraved italic numeral in the listed order "
+    "(1., 2., 3., ...) "
     "and nothing else — every figure numbered, every numeral legible. The bough stays "
     "botanically bare so the figures carry the sheet, and the figures fill the sheet to "
     "its edges, across its full width and height, with no bare margin.\n\n"

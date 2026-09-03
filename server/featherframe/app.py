@@ -286,6 +286,7 @@ async def save_settings(request: Request):
         dark_mode=s("dark_mode", cur["dark_mode"]),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
+        review_species_max=i("review_species_max", cur["review_species_max"]),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
         imagegen_base_url=s("imagegen_base_url", cur["imagegen_base_url"]),
@@ -328,7 +329,7 @@ async def save_settings(request: Request):
 _NUMERIC_FORM_FIELDS = ("confidence_threshold", "refresh_debounce_minutes", "dwell_minutes",
                         "wake_interval_minutes",
                         "poll_interval_seconds", "quiet_alarm_hours", "source_alarm_minutes",
-                        "collage_rebuilds_per_day",
+                        "collage_rebuilds_per_day", "review_species_max",
                         "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation",
                         "corroborate_confidence", "corroborate_window_hours",
                         "corroborate_min_gap_minutes")

@@ -197,6 +197,9 @@ class Config:
     # The nightly "day in review" as one generated composite plate (the
     # folio's totem manner). Once per date; the grid collage is the fallback.
     collage_generated: bool = True
+    # How many of the day's species the generated sheet carries, most-heard
+    # first. 0 = every species heard that day. The grid fallback always holds six.
+    review_species_max: int = 10
 
     def __post_init__(self) -> None:
         self.sanitize()
@@ -239,6 +242,7 @@ class Config:
         if self.dither not in ("stucki", "bluenoise", "none"):
             self.dither = "stucki"
         self.collage_rebuilds_per_day = int(_clamp(self.collage_rebuilds_per_day, 1, 24))
+        self.review_species_max = int(_clamp(self.review_species_max, 0, 60))
         # The panel's native canvas is landscape and the firmware rejects a
         # portrait frame (pushImage would clip it into garbage), so only the
         # two landscape orientations are valid. Old 0/180 values migrate to

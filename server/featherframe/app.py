@@ -10,7 +10,6 @@ import hmac
 import json
 import logging
 import math
-import os
 import re
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -34,7 +33,6 @@ templates = Jinja2Templates(directory=str(paths.templates_dir()))
 
 # Dev-only affordances (e.g. the Test-detection button) are hidden in a normal
 # install; `make serve` sets FEATHERFRAME_DEV=1. Anything truthy-ish enables.
-DEV_MODE = os.environ.get("FEATHERFRAME_DEV", "").strip().lower() in ("1", "true", "yes", "on")
 
 
 @asynccontextmanager
@@ -221,7 +219,7 @@ async def index(request: Request):
     return templates.TemplateResponse(
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
-         "dev_mode": DEV_MODE, "generated": generated, "history": history})
+         "generated": generated, "history": history})
 
 
 @app.post("/settings")

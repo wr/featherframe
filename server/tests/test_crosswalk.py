@@ -41,6 +41,18 @@ EXPECTED = {
     "Upland Sandpiper": 303,      # "Bartram Sandpiper"
     "Great Egret": 386,           # "White Heron" (281 is the Great Blue's white morph)
     "Northern Parula": 15,        # "Blue Yellow-backed Warbler" — typed by its 1830s title on 3 Sep, got an AI plate
+    # Full edition (2026-09): archaic titles that a title-match would get wrong.
+    "Brown Noddy": 275,           # "Noddy Tern" — Commons had it as Black Noddy
+    "Sandhill Crane": 261,        # Audubon's juvenile "Hooping Crane"
+    "Whooping Crane": 226,
+    "Reddish Egret": 256,         # "Purple Heron"
+    "Laughing Gull": 314,         # Audubon's "Black-headed Gull" is NOT Chroicocephalus
+    "Yellow Warbler": 95,         # "Yellow-poll Warbler"; 35/65 are juveniles
+    "Northern Harrier": 356,      # "Marsh Hawk"
+    "Canada Warbler": 103,        # not 5 "Bonaparte's Flycatcher" (a female)
+    "Merlin": 92,                 # "Pigeon Hawk", not 75 "Le Petit Caporal"
+    "Swainson's Hawk": 372,       # "Common Buzzard"
+    "Red Knot": 315,              # "Red-breasted Sandpiper"
     # Never a wrong bird: confirmed plate-less -> AI generation candidates.
     "Veery": None,                # plate 164's bird is disputed (Halley 2018)
     "Rock Pigeon": None,          # not painted
@@ -48,6 +60,7 @@ EXPECTED = {
     "Mute Swan": None,            # introduced
     "Least Flycatcher": None,     # described 1843, post-Havell
     "Ring-necked Pheasant": None, # introduced 1881
+    "Baikal Teal": None,          # 338 "Bemaculated Duck" is a presumed hybrid — never pinned
     "European Goldfinch": None,   # introduced
 }
 
@@ -87,3 +100,45 @@ def test_hairy_woodpecker_matches_birdnet_taxonomy():
     doc = yaml.safe_load(SPECIES_YAML.read_text())
     hairy = next(s for s in doc["species"] if s["common"] == "Hairy Woodpecker")
     assert "Leuconotopicus villosus" in (hairy.get("sci_synonyms") or [])
+
+
+def test_no_dispute_plates_pinned():
+    """Audubon's invalid or disputed birds must never be mapped to a species."""
+    doc = yaml.safe_load(SPECIES_YAML.read_text())
+    pinned = {s["plate"] for s in doc["species"] if isinstance(s.get("plate"), int)}
+    for plate in (11, 55, 60, 164, 184, 338, 407):
+        assert plate not in pinned, f"plate {plate} is disputed/invalid and must not be pinned"
+
+
+def test_every_pin_matches_the_mirror_slug():
+    """Structural guard against plate-number slips: each pinned entry's
+    audubon_title must share a word with the mirror's fileName slug for that
+    plate (the slug follows true Havell numbering even where the mirror's
+    'name' column is shifted). Skips when the catalog isn't on disk."""
+    import json
+    import os
+    from featherframe import paths
+    cat = Path(os.environ.get("FEATHERFRAME_PLATES_DIR") or paths.plates_dir()) / "data.json"
+    if not cat.exists():
+        pytest.skip("mirror catalog not downloaded")
+    slugs = {e["plate"]: set(e["fileName"][:-4].split("-")[2:]) for e in json.loads(cat.read_text())}
+    # The mirror titles three plates by an alternative name for the same bird.
+    aliases = {170: {"gray", "tyrant"}, 230: {"ruddy", "plover"}, 245: {"thick", "billed", "murre"}}
+    doc = yaml.safe_load(SPECIES_YAML.read_text())
+    bad = []
+    for s in doc["species"]:
+        p = s.get("plate")
+        if not isinstance(p, int):
+            continue
+        words = {w for w in "".join(c if c.isalnum() else " " for c in s["audubon_title"].lower()).split() if len(w) > 2}
+        if not (words & slugs[p]) and not (words & aliases.get(p, set())):
+            bad.append((s["common"], p, s["audubon_title"], sorted(slugs[p])))
+    assert not bad, f"title/slug mismatch (wrong plate number?): {bad}"
+
+
+def test_kittlitzs_murrelet_not_pinned():
+    """Plate 402 shows four alcids per Pitt and NYHS; Commons adds a fifth
+    (Kittlitz's Murrelet) that the curatorial sources do not — so it stays
+    unpinned rather than risk a wrong bird."""
+    doc = yaml.safe_load(SPECIES_YAML.read_text())
+    assert not any(s["common"] == "Kittlitz's Murrelet" for s in doc["species"])

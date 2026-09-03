@@ -290,3 +290,18 @@ def test_sheet_key_widens_before_it_deepens():
     assert len(rows) == theme.SHEET_KEY_MAX_ROWS
     _, short = collage_mod.sheet_key(CELLS)
     assert max(len(r) for r in short) == 1
+
+
+def test_sheet_carries_the_date_above_the_key():
+    """"SEPTEMBER 2" in wide-tracked engraved caps between the art and the
+    key; the art box gives up that line."""
+    assert collage_mod.sheet_date_text(date(2026, 9, 2)) == "SEPTEMBER 2"
+    art = Image.new("L", collage_mod.sheet_art_size(CELLS), 128)
+    field = collage_mod.render_generated_collage(art, CELLS, when=date(2026, 9, 2))
+    baseline = collage_mod.sheet_date_baseline(CELLS)
+    y = baseline - 6  # inside the caps
+    xs = range(theme.WIDTH // 2 - 200, theme.WIDTH // 2 + 200, 2)
+    assert any(field.getpixel((x, y)) < 100 for x in xs)      # ink from the date
+    assert all(field.getpixel((x, baseline + 4)) > 200 for x in xs)  # clear below it
+    box = collage_mod.sheet_art_box(CELLS)
+    assert box[3] < baseline - theme.SHEET_KEY_SIZES[0]        # art ends above the date

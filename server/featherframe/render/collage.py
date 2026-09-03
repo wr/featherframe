@@ -176,12 +176,33 @@ def _key_ink_top(key_size: int, key_rows: list[list[str]], bottom: int) -> int:
     return first_baseline - round(key_size * theme.ENGRAVED_CAP)
 
 
+def sheet_date_text(when: ddate) -> str:
+    """The sheet's date, as the key is set: "SEPTEMBER 2"."""
+    return f"{when.strftime('%B')} {when.day}".upper()
+
+
+def _sheet_date_baseline(key_size: int, key_rows: list[list[str]], bottom: int) -> int:
+    """The date line sits one open line above the key's first baseline."""
+    key_ink_top = _key_ink_top(key_size, key_rows, bottom)
+    first_baseline = key_ink_top + round(key_size * theme.ENGRAVED_CAP)
+    return first_baseline - round(key_size * theme.SHEET_DATE_GAP)
+
+
+def sheet_date_baseline(cells: list[CollageCell], note: bool = False) -> int:
+    key_size, key_rows = sheet_key(cells, note)
+    return _sheet_date_baseline(key_size, key_rows,
+                                theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0))
+
+
 def sheet_art_box(cells: list[CollageCell], note: bool = False) -> tuple[int, int, int, int]:
     """The art box on the generated sheet for these cells: the top margin
-    down to the key, full width less the sheet margins. There is no header."""
+    down to the date line above the key, full width less the sheet margins.
+    There is no header."""
     key_size, key_rows = sheet_key(cells, note)
     bottom = theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0)
-    art_bottom = _key_ink_top(key_size, key_rows, bottom) - theme.SHEET_KEY_ART_GAP
+    date_ink_top = (_sheet_date_baseline(key_size, key_rows, bottom)
+                    - round(key_size * theme.ENGRAVED_CAP))
+    art_bottom = date_ink_top - theme.SHEET_KEY_ART_GAP
     return (theme.SHEET_MARGIN_X, theme.SHEET_MARGIN_TOP,
             theme.WIDTH - theme.SHEET_MARGIN_X, art_bottom)
 
@@ -203,21 +224,22 @@ def render_generated_collage(art: Image.Image, cells: list[CollageCell],
                              note: Optional[str] = None) -> Image.Image:
     """The generated composite sheet: the one generated artwork from the top
     margin down, and a small key matching the sheet's figure numerals —
-    '1. Species' in prominence order — packed along the bottom. No header:
-    the art is the sheet. `when` and `title` are accepted for the caller's
-    convenience and print nothing. A `note` (the gone-quiet footnote) lifts
-    the key so the two never share the bottom margin."""
+    '1. Species' in prominence order — packed along the bottom, with the
+    date ("SEPTEMBER 2") set the same way, spaced wide, on its own line
+    above the key. No header: the art is the sheet. `title` is accepted for
+    the caller's convenience and prints nothing. A `note` (the gone-quiet
+    footnote) lifts the key so the two never share the bottom margin."""
+    when = when or ddate.today()
     field = _new_field()
     draw = ImageDraw.Draw(field)
 
+    bottom = theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0)
     key_size, key_rows = sheet_key(cells, bool(note))
-    key_top = _draw_key(draw, key_size, key_rows,
-                        bottom=theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0))
-    art_bottom = key_top - theme.SHEET_KEY_ART_GAP
-    _paste_art(field, art,
-               (theme.SHEET_MARGIN_X, theme.SHEET_MARGIN_TOP,
-                theme.WIDTH - theme.SHEET_MARGIN_X, art_bottom),
-               v_align=0.5)
+    _draw_key(draw, key_size, key_rows, bottom=bottom)
+    date_baseline = _sheet_date_baseline(key_size, key_rows, bottom)
+    typography.draw_engraved(draw, theme.WIDTH / 2, date_baseline, sheet_date_text(when),
+                             key_size, theme.INK, theme.SHEET_DATE_TRACKING)
+    _paste_art(field, art, sheet_art_box(cells, bool(note)), v_align=0.5)
     if note:
         typography.note_line(draw, note)
     return field

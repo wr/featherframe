@@ -1,344 +1,181 @@
-# Featherframe
+<h1 align="center">Featherframe</h1>
 
-A wall-mounted e-paper frame that shows the birds heard in your backyard, drawn
-as Audubon lithograph plates. It listens to your BirdNET-Pi, renders the most
-recent detection as a museum plate, and otherwise disappears into the wall. Set
-it and forget it.
+<p align="center">
+  <strong>A wall-mounted e-paper frame that shows the birds in your backyard as Audubon lithograph plates.</strong>
+</p>
+
+<p align="center">
+  <a href="#what-is-it">What is it?</a> ⬪
+  <a href="#shopping-list">Shopping list</a> ⬪
+  <a href="#install">Install</a> ⬪
+  <a href="#configure-it">Configure</a> ⬪
+  <a href="#species--plates">Species & plates</a> ⬪
+  <a href="#license">License</a>
+</p>
 
 <p align="center"><em>Northern Cardinal · Cardinalis cardinalis · rendered to the panel's 16 grays</em></p>
 
-Two parts:
-
-- **`server/`** — a small Python (FastAPI) service that runs *on the BirdNET-Pi
-  itself*, next to BirdNET. It reads detections, renders plates, and serves a
-  packed framebuffer plus a LAN config page. It does all the image work.
-- **`firmware/`** — a deliberately dumb ESP32-S3 client. It wakes, asks the
-  server for a frame, pushes it to the panel, and goes back to sleep.
-
 ---
 
-## How it works
+## What is it?
+
+Your BirdNET-Pi hears a bird; a few minutes later it's hanging on the wall as a
+museum plate — cropped from its Audubon lithograph, captioned in EB Garamond,
+dithered to the panel's 16 grays. Then the frame goes back to sleep. Set it and
+forget it.
+
+- **`server/`** — a small Python (FastAPI) service that runs *on the BirdNET-Pi
+  itself*. It reads detections, renders plates, and serves a packed framebuffer
+  plus a LAN config page.
+- **`firmware/`** — a deliberately dumb ESP32-S3 client. It wakes, asks the
+  server for a frame, pushes it to the panel, and goes back to sleep.
 
 ```
  BirdNET-Pi  ──reads──▶  Featherframe server  ──HTTP /api/frame──▶  ESP32-S3 ──▶ 10.3" e-paper
  (birds.db, read-only)   (FastAPI, systemd)     (packed framebuffer)  (deep sleep)
 ```
 
-1. The server polls BirdNET's SQLite DB read-only, using a rowid cursor, every
-   ~20 s. It never writes to or locks BirdNET's database.
-2. A new detection above the confidence threshold triggers one render: crop the
-   bird from its Audubon plate, lay it on an off-white field, set a museum
-   caption in EB Garamond, and dither to the panel's 16 grays.
-3. The frame gets a content hash (ETag). The device wakes on a timer (default
-   15 min) or a button press, sends `GET /api/frame` with `If-None-Match`, and
-   gets either `304 Not Modified` (sleep) or the new framebuffer (paint, then
-   sleep).
+The server polls BirdNET's database read-only and renders once per qualifying
+detection. The frame wakes on a timer or a button and either sleeps (`304`) or
+paints.
 
-Everything the frame needs is Wi-Fi + the server URL. Everything else is
-configured on the server's web page.
+## Shopping list
 
----
+- **Seeed XIAO ePaper DIY Kit EE03** — XIAO ESP32-S3 Plus, EE03 driver board,
+  and a 10.3" 1404 × 1872 16-gray panel (E-Ink ED103TC2, IT8951). We replace
+  the SenseCraft firmware it ships with.
+- A protected 1S LiPo with a JST-PH lead — or just run it on USB-C.
+- A frame and mat. Matting it like a print sells the effect.
+- A BirdNET-Pi you already have running.
 
-## Hardware
+Seat the XIAO on the driver board, latch the panel's flat cable, plug in the
+battery, and mount portrait with the buttons reachable: **KEY0** fetches now,
+**KEY1** shows today's collage, **KEY2** shows status (hold 3 s to redo Wi-Fi).
 
-- **Seeed XIAO ePaper DIY Kit EE03** — a XIAO ESP32-S3 Plus on the EE03 driver
-  board, driving a **10.3" monochrome panel, 1404 × 1872, 16-level grayscale**
-  (E-Ink ED103TC2, IT8951 controller).
-- A 1S LiPo with a JST-PH connector for the battery build (or run it on USB-C).
-- A frame/mat. The panel is portrait; matting it like a print sells the effect.
+## Install
 
-The kit ships pre-flashed with SenseCraft HMI — we replace that firmware.
-
-### Assembly
-
-1. Seat the XIAO ESP32-S3 Plus on the EE03 driver board (USB-C facing out).
-2. Connect the panel's flat cable to the driver board's FPC connector (mind the
-   contact orientation and latch).
-3. Battery: plug the LiPo into the JST connector. Charging happens over the
-   XIAO's USB-C.
-4. Mount in the frame with the panel portrait. The three user buttons stay
-   reachable: KEY0 checks for a new image now, KEY1 shows today's collage,
-   KEY2 shows a status page (hold it 3 s to re-open Wi-Fi setup — see below).
-5. Battery safety: use a protected 1S cell with a JST-PH lead, charge it over
-   USB-C where you can see it, and keep the cell away from the panel's
-   driver board. The firmware stops using Wi-Fi below 3.45 V and sleeps four
-   hours at a time until the cell is charged; the config page flags a low
-   battery before that.
-
-The firmware sets rotation so the image is portrait as it hangs; you don't wire
-anything for orientation.
-
----
-
-## Install the server (on the BirdNET-Pi)
-
-BirdNET-Pi installs bare-metal, so Featherframe does too — no Docker.
+### 1. Server (on the BirdNET-Pi)
 
 ```bash
-git clone <this repo> ~/featherframe
+git clone https://github.com/wr/featherframe ~/featherframe
 cd ~/featherframe/server
 ./install.sh
 ```
 
-`install.sh` creates a venv, installs deps, downloads the Audubon plates
-(~220 MB, one time), and installs + starts a `featherframe.service` systemd
-unit that runs as you (not root), niced and idle-IO so it stays out of BirdNET's
-way. When it finishes it prints a URL:
+That creates a venv, downloads the Audubon plates (~220 MB), and installs a
+`featherframe.service` systemd unit, niced to stay out of BirdNET's way. It
+prints the config page URL when done: `http://<your-pi>.local:8080/`.
 
-```
-http://<your-pi>.local:8080/
-```
+Options: `--skip-plates`, `--all-plates` (the whole Havell edition, ~2.9 GB),
+`--port 9000`, `--no-service`.
 
-Open it. That's the whole setup on the Pi side.
+> **No auth.** It's LAN-only with no login. Keep it on your home network.
 
-Options: `./install.sh --skip-plates` (fetch plates later),
-`--port 9000`, `--no-service` (venv only). If your BirdNET DB isn't at
-`~/BirdNET-Pi/scripts/birds.db`, set the path on the config page.
-
-> **No auth.** v1 is LAN-only with no login. Keep it on your home network.
-
----
-
-## Flash the firmware
+### 2. Firmware
 
 With [PlatformIO](https://platformio.org/) installed:
 
 ```bash
 cd firmware
 pio run -t upload        # build + flash over USB-C
-pio device monitor       # watch the serial log (115200)
+pio device monitor       # serial log, 115200
 ```
 
-The panel/driver selection lives in `firmware/lib/driver/driver.h` (Seeed_GFX
-combo 511 for the 10.3" ED103TC2). Battery calibration and button pins are in
-`firmware/include/ff_config.h`.
+Battery calibration and button pins live in `firmware/include/ff_config.h`.
+`FF_NO_SLEEP 1` keeps the frame awake and polling every 15 s (fine on USB);
+`0` is the deep-sleep battery build.
 
-> On-hardware note: the framebuffer format matches Seeed_GFX's sprite exactly
-> (4bpp, high-nibble-left, 0=black; pushed with `pushImage` + `update`), so the
-> only thing to check on first flash is orientation — the panel can't rotate
-> itself, so the server sends it pre-rotated. If the image is sideways or
-> upside-down as it hangs, change **Panel rotation** on the config page (no
-> reflash). Everything upstream of the panel push is hardware-independent and
-> already verified via `make preview`.
+### 3. First boot
 
-### First boot — Wi-Fi
+The frame starts a hotspot named **`Featherframe-Setup`**. Join it from your
+phone, pick your Wi-Fi, and enter the server URL from step 1 (include `http://`
+and the port). To redo it later, hold **KEY2 for 3 s**; hold KEY2 while
+powering on to wipe everything.
 
-On first boot, the frame starts a Wi-Fi hotspot named **`Featherframe-Setup`**.
-Join it from your phone, pick your network, and enter the server URL from the
-install step (`http://<your-pi>.local:8080` — include the `http://` and the
-port; `.local` names work). Credentials and URL are saved to NVS; you only do
-this once.
-
-To change them later: hold **KEY2 for 3 s** while the frame is running to
-re-open the hotspot with your settings kept, or hold **KEY2 while powering on**
-to wipe Wi-Fi and server settings and start over. The setup screen on the panel
-walks through the same three steps.
-
----
+If the image hangs sideways, change **Panel rotation** on the config page — no
+reflash.
 
 ## Configure it
 
 The page at `http://<your-pi>:8080/` is the whole UI:
 
-- **Live preview** — the current frame, exactly as the panel shows it.
-- **Mode** — *single* (most recent detection) or *collage* (the day's top
-  species in a grid). Under *Quiet hours* you can also turn on a "day in
-  review" sheet that hangs overnight in either mode.
-- **Always show the most recent detection** (default on) repaints on every
-  qualifying detection. Turn it off to get the calmer behaviour: a **refresh
-  debounce** (default 15 min) between repaints and no repaint for a species
-  that is already showing.
-- **Confidence threshold** (default 0.7), **wake interval**, **quiet hours**
-  (default 22:00–06:00, hold the image overnight).
-- **Rendering** — blue-noise dither (fast, Pi-friendly) or Stucki (slower,
-  richer); **panel rotation** (90° or 270° — the panel is landscape-native,
-  so if the image hangs upside down, switch it).
-- **Species blocklist** — one name per line, common or scientific. Ban the house
-  sparrows if you like.
-- **Detection source** — a local BirdNET-Pi database (default), a BirdNET-Go
-  server (its HTTP API), a BirdWeather station, or an Apprise webhook that
-  BirdNET-Pi pushes detections to. *Test connection* checks it from the page.
-- **Frame card** — last check-in, battery, Wi-Fi signal, firmware version, and
-  an "overdue" warning when the frame has missed two wake intervals.
-- **Test detection** — injects a fake Northern Cardinal so you can exercise the
-  whole pipeline with no birds and no hardware.
-
-Settings persist to a small SQLite DB in the data dir (separate from BirdNET's).
-
----
-
-## Preview without hardware
-
-The whole art pipeline runs on your laptop:
-
-```bash
-make venv
-make plates              # downloads the Audubon plates
-make preview             # renders a fake Northern Cardinal
-make preview-all         # one PNG per curated species
-make preview-collage     # a daily collage
-make preview-fallback    # the typographic fallback plate
-```
-
-Output lands in `test_output/` as PNGs (exactly what the panel shows) plus the
-packed `.fff` framebuffer. `make test` runs the unit tests.
-
----
+- **Live preview** of the current frame, plus a **Test detection** button that
+  injects a fake Cardinal so you can exercise everything with no birds.
+- **Mode** — *single* (latest detection) or *collage* (the day's top species),
+  plus an optional overnight "day in review" sheet.
+- **Confidence threshold** (0.7), **wake interval** (15 min), **quiet hours**
+  (22:00–06:00), and an optional debounce between repaints for a calmer frame.
+- **Species blocklist** — one name per line. Ban the house sparrows if you like.
+- **Detection source** — BirdNET-Pi DB (default), BirdNET-Go, BirdWeather, or
+  an Apprise webhook, with a *Test connection* button.
+- **Frame card** — last check-in, battery, Wi-Fi signal, overdue warning.
 
 ## Battery life
 
-E-paper holds its image with zero power, so between wakes the frame draws almost
-nothing. The cost is per wake — mostly the Wi-Fi association, plus the panel
-refresh when the image actually changes.
+E-paper holds its image with zero power; the cost is per wake, mostly Wi-Fi.
+Rough model for a 2000 mAh cell and ~20 refreshes a day:
 
-Rough model (2000 mAh 1S LiPo, ~1700 mAh usable; ~100 µA deep sleep; ~8 s of
-Wi-Fi + HTTP per wake at ~90 mA; ~20 panel refreshes/day at ~0.5 mAh each):
+| Wake interval | Runtime    |
+|--------------:|-----------:|
+| 15 min        | ~7–8 weeks |
+| 30 min        | ~11 weeks  |
+| 60 min        | ~14 weeks  |
 
-| Wake interval | Wakes/day | Est. daily draw | Runtime on 2000 mAh |
-|--------------:|----------:|----------------:|--------------------:|
-| 15 min        | 96        | ~32 mAh         | ~7–8 weeks          |
-| 30 min        | 48        | ~22 mAh         | ~11 weeks           |
-| 60 min        | 24        | ~17 mAh         | ~14 weeks           |
-
-Quiet hours (no wakes overnight) push these further. The biggest lever is the
-wake interval — Wi-Fi assoc dominates each wake, so fewer wakes ≈ proportionally
-longer life. These are estimates for the deep-sleep build (`FF_NO_SLEEP 0` in
-`firmware/include/ff_config.h`). The always-awake development build
-(`FF_NO_SLEEP 1`, Wi-Fi up and polling every 15 s) lasts about 4–5 days on the
-same cell. The config page shows the real battery voltage the firmware reports,
-so watch it on your unit and adjust.
-
-Longest life: run *auto* mode with a 30–60 min interval and quiet hours on. Best
-freshness: 15 min. On USB power, none of this matters — set 15 min and forget it.
-
----
+Quiet hours push these further; the always-awake build lasts 4–5 days. Below
+3.45 V the frame stops using Wi-Fi until it's charged.
 
 ## Species & plates
 
-`server/scripts/species.yaml` is the editable crosswalk: modern species →
-Audubon Havell plate. It covers the whole edition: every species Audubon
-painted (~430 species across 400 plates), each number checked against the
-plate's own title (his 1830s titles are archaic — the Northern Cardinal is his
-"Cardinal Grosbeak", the junco his "Snow Bird"), plus explicit `plate: none`
-entries for everything the frame has heard that he never painted. Eight
-disputed or invalid birds (the "Bird of Washington", "Carbonated Warbler" and
-the like) are deliberately unpinned.
+`server/scripts/species.yaml` maps modern species to Audubon Havell plate
+numbers — every species he painted, each checked against the plate's own
+archaic title (the Northern Cardinal is his "Cardinal Grosbeak"). The rule is
+**never a wrong bird**: anything unsure falls back rather than guesses.
 
-- **Add a species**: add an entry. Omit `plate:` and `fetch_plates.py` will
-  suggest one by title match for you to pin.
-- **Composites**: some plates show several species (the chickadees share one).
-  Those are flagged `composite: true` and shown whole rather than cropped — a
-  crop might land on the wrong bird, and rule #2 is *never a wrong bird*.
-- **No plate**: some common birds postdate Audubon (European Starling
-  introduced 1890, House Sparrow 1851), and the yard's cicadas, crickets, bats
-  and squirrels were never in the folio. They're pinned `plate: none` and go
-  to the AI provider or render a clean typographic plate — the name set large,
-  "First recorded <date>" beneath. Any species with no match falls back the
-  same way.
-- **Cache the whole edition**: `make plates-all` (or `install.sh --all-plates`)
-  fetches all 435 Havell plates (~2.9 GB) instead of only the curated ones. It
-  is idempotent and retries the mirror, so a new `species.yaml` entry is then
-  an index rewrite with no network, and the AI provider has every plate to
-  draw style references from. See [docs/plate-sources.md](docs/plate-sources.md)
-  for the other public-domain folios that could extend coverage further.
+Birds Audubon never painted — the European Starling, the House Sparrow, your
+yard's bats and cicadas — are pinned `plate: none` and get a clean typographic
+plate instead: the name set large, "First recorded <date>" beneath.
 
-Matching keys on scientific name first (stable), then common name, with a few
-old-binomial synonyms for taxonomic renames. If it's not confident, it falls
-back rather than guess.
+### AI plates
 
-### AI plates (species Audubon never painted)
+Optionally, the server can paint those missing species in the Havell style.
+Add an OpenAI API key on the config page and it prompts `gpt-image-2` with real
+plates from your set as style references. One image per species (~$0.17),
+cached forever, cropped like a real scan; regenerate or remove from the
+gallery. No key just means the typographic fallback.
 
-For species with `plate: none` — introduced birds, bats, even the yard's loud
-insects — the server can generate a plate in the Havell style with an image
-model and show that instead of the typographic fallback. Bring your own OpenAI
-API key (config page → *AI plates*); the default model is `gpt-image-2`,
-prompted with real plates from your own set as style references.
+## Preview without hardware
 
-- **One purchase per species.** A generated plate is cached in
-  `data/generated/` and reused forever. Nothing regenerates on its own.
-- **Regenerate / remove** per species from the gallery on the config page
-  (regenerating costs one image, ~$0.17 at high quality).
-- **Same treatment as a scan**: the cached PNG goes through the identical crop
-  and paper-normalise pipeline, so it hangs next to the real plates without a
-  seam.
-- **Cached in full color.** Plates are generated with real hand-colored plates
-  as palette references and cached as color PNGs; today's 16-gray panel
-  grayscales them at render time exactly like a real scan, and a color e-paper
-  build gets the same cached plates for free — nothing regenerates.
-- **Fails soft.** No key, no network, model refuses — the typographic fallback
-  renders, and the species retries later (with a cooldown, so a dead key is
-  never hammered).
-- The key lives only in Featherframe's own database on the device and is
-  masked everywhere the UI or API shows config.
-
----
-
-## Project layout
-
+```bash
+make venv && make plates
+make preview     # renders a fake Northern Cardinal to test_output/
 ```
-server/
-  featherframe/            the package
-    birdnet.py             read-only ingest + rowid cursor
-    names.py               species -> plate matching (+ synonyms, fallback)
-    config.py  db.py       settings + our own small SQLite
-    service.py             the scheduler: poll, debounce, quiet hours, render
-    app.py                 FastAPI: /api/frame (ETag), config page, status
-    render/
-      plate.py             plate load, content-aware crop, paper normalise
-      typography.py        EB Garamond, faux small caps, caption block
-      compose.py           single-detection composition + fallback plate
-      collage.py           daily grid
-      finish.py            contrast + blue-noise / Stucki dithering
-      framebuffer.py       pack to the panel's native FFF wire format + ETag
-      pipeline.py          orchestration (used by scheduler + `make preview`)
-    fonts/                 EB Garamond (OFL)
-  scripts/
-    fetch_plates.py        one-time plate downloader
-    species.yaml           the species -> plate crosswalk (editable)
-  tests/                   cursor logic + name matching + framebuffer
-  install.sh               venv + deps + systemd on the Pi
-firmware/
-  src/main.cpp             wake -> fetch -> paint -> sleep
-  lib/driver/driver.h      Seeed_GFX panel selection (combo 511)
-  include/ff_config.h      pins, battery calibration, defaults
-  platformio.ini
-```
-
----
 
 ## Troubleshooting
 
-- **Config page shows "BirdNET: not found"** — check the DB path on the page.
-  Default is `~/BirdNET-Pi/scripts/birds.db`; confirm with
-  `sqlite3 ~/BirdNET-Pi/scripts/birds.db '.schema detections'`.
+- **"BirdNET: not found"** — check the DB path on the config page. Default is
+  `~/BirdNET-Pi/scripts/birds.db`.
 - **Frame never updates** — quiet hours, the debounce window, or "same species
-  already showing" can all be intentional. Hit *Test detection* to force one.
-- **Device never checks in** — confirm it joined Wi-Fi (serial monitor) and that
-  the server URL it has matches the Pi. Hold KEY2 for 3 s to redo setup.
-- **Panel shows "Can't reach server" but the server is up** — the URL needs a
-  scheme and port (`http://host:8080`); the firmware now adds `http://` and
-  strips a trailing slash, but a wrong host still fails.
-- **Frame stopped updating and the page says "overdue"** — the battery is flat
-  or Wi-Fi is gone. A frame under 3.45 V deliberately stops waking to fetch;
-  charge it and it resumes on its own.
-- **Plates missing** — re-run `python scripts/fetch_plates.py` (or `--all`);
-  the mirror is occasionally flaky and the script is idempotent, retrying each
-  file before giving up on it.
-- **Slow renders on a Pi Zero** — use blue-noise dither (the default), not
-  Stucki.
+  already showing" are all intentional. Hit *Test detection* to force one.
+- **Device never checks in** — check the serial monitor; the server URL needs
+  a scheme and port. Hold KEY2 for 3 s to redo setup.
+- **Plates missing** — re-run `python scripts/fetch_plates.py`; it's idempotent.
 
----
+## Credits
 
-## Credits & license
+- Plates: John James Audubon, *The Birds of America* — public domain, via
+  [nathanbuchar/audubon-bird-plates](https://github.com/nathanbuchar/audubon-bird-plates).
+  *Courtesy of the John James Audubon Center at Mill Grove, Montgomery County
+  Audubon Collection, and Zebra Publishing.*
+- [EB Garamond](https://github.com/octaviopardo/EBGaramond12) (SIL OFL) ·
+  [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) (Nachtzuster fork) ·
+  [Seeed_GFX](https://github.com/Seeed-Studio/Seeed_GFX)
 
-- Plate images: John James Audubon, *The Birds of America* — public domain,
-  via the [nathanbuchar/audubon-bird-plates](https://github.com/nathanbuchar/audubon-bird-plates)
-  mirror of audubon.org. Credit line: *Courtesy of the John James Audubon Center
-  at Mill Grove, Montgomery County Audubon Collection, and Zebra Publishing.*
-- Typeface: [EB Garamond](https://github.com/octaviopardo/EBGaramond12) by Georg
-  Duffner / Octavio Pardo (SIL Open Font License).
-- Detections: [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi)
-  (Nachtzuster fork).
-- Display library: [Seeed_GFX](https://github.com/Seeed-Studio/Seeed_GFX).
+## Donate
+
+While Featherframe is free and open source, donations are deeply appreciated,
+and make ongoing development and support possible.
+[Donate now](https://www.buymeacoffee.com/wellsworkshop)
+
+## License
 
 Featherframe's own code: do what you like with it.

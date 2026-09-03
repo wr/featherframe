@@ -191,3 +191,119 @@ def test_config_collage_generated_roundtrip():
     assert c.collage_generated is True
     again = Config.from_dict(Config(collage_generated=False).to_dict())
     assert again.collage_generated is False
+
+
+# -- how many species the sheet carries ------------------------------------
+def _many(n):
+    return [CollageCell(f"Species Number {i}", f"Genus species{i}", 100 - i)
+            for i in range(1, n + 1)]
+
+
+def test_config_review_species_max_clamps_and_roundtrips():
+    assert Config().review_species_max == 10
+    assert Config(review_species_max=-3).review_species_max == 0   # 0 = every species
+    assert Config(review_species_max=999).review_species_max == 60
+    again = Config.from_dict(Config(review_species_max=0).to_dict())
+    assert again.review_species_max == 0
+
+
+def test_composite_prompt_counts_every_subject():
+    p = build_composite_prompt([(c.common_name, c.scientific_name) for c in _many(12)])
+    assert "12 different species" in p
+    assert "12. Species Number 12" in p
+    # A crowded sheet is told so; the five-bird sheet is not.
+    assert "crowded" in p.lower()
+    assert "crowded" not in build_composite_prompt(
+        [(c.common_name, c.scientific_name) for c in CELLS]).lower()
+
+
+def test_key_never_eats_the_art(data_dir):
+    """A 37-species key must leave the art most of the sheet, and every key
+    line must still fit the width."""
+    from featherframe.render.collage import _fit_key
+    from featherframe.render import typography
+    entries = [f"{i}. {c.common_name.upper()}" for i, c in enumerate(_many(37), start=1)]
+    size, rows = _fit_key(entries, theme.CONTENT_W, max_h=theme.KEY_MAX_H)
+    line_h = round(size * theme.KEY_LINE_H)
+    assert (len(rows) - 1) * line_h + size <= theme.KEY_MAX_H
+    assert sum(len(r) for r in rows) == 37
+    assert [e for r in rows for e in r] != entries or len(rows) == 37  # column-major when packed
+    for r in rows:
+        w = sum(typography.engraved_width(e, size, theme.KEY_TRACKING) for e in r)
+        w += size * theme.KEY_ENTRY_GAP * (len(r) - 1)
+        assert w <= theme.CONTENT_W
+    art = Image.open(__import__("io").BytesIO(_plate_png())).convert("L")
+    field = collage_mod.render_generated_collage(art, _many(37), when=DAY, title="Sightings")
+    assert field.size == (theme.WIDTH, theme.HEIGHT)
+
+
+def test_key_short_list_still_one_centered_column():
+    from featherframe.render.collage import _fit_key
+    entries = [f"{i}. {c.common_name.upper()}" for i, c in enumerate(CELLS, start=1)]
+    size, rows = _fit_key(entries, theme.CONTENT_W, max_h=theme.KEY_MAX_H)
+    assert size == theme.KEY_SIZES[0]
+    assert [e for r in rows for e in r] == entries
+
+
+# -- the sheet: no header, small packed key, art sized to the box ---------------
+def test_sheet_has_no_title_band(data_dir):
+    """Flat gray art must reach the top margin — nothing is printed above it."""
+    art = Image.new("L", collage_mod.sheet_art_size(CELLS), 128)  # fills the box
+    field = collage_mod.render_generated_collage(art, CELLS, when=DAY, title="Sightings")
+    y = theme.SHEET_MARGIN_TOP + 10
+    xs = range(theme.WIDTH // 3, 2 * theme.WIDTH // 3, 8)
+    inked = sum(1 for x in xs if field.getpixel((x, y)) < 200)
+    assert inked > 0.9 * len(xs)
+
+
+def test_sheet_key_is_smaller_and_packed():
+    size, rows = collage_mod.sheet_key(_many(24))
+    assert size <= theme.SHEET_KEY_SIZES[0] <= 24
+    assert len(rows) <= 8
+
+
+def test_sheet_art_size_matches_the_box():
+    for cells in (CELLS, _many(24)):
+        w, h = collage_mod.sheet_art_size(cells)
+        assert w % 16 == 0 and h % 16 == 0 and w * h >= 655_360
+        l, t, r, b = collage_mod.sheet_art_box(cells)
+        assert abs(w / h - (r - l) / (b - t)) < 0.03
+    assert collage_mod.sheet_art_size(CELLS) != collage_mod.sheet_art_size(_many(24))
+
+
+def test_day_composite_generates_at_the_sheet_size(data_dir):
+    model = FakeModel()
+    GeneratedArtProvider(model).day_composite(CELLS, DAY)
+    assert model.sizes == ["%dx%d" % collage_mod.sheet_art_size(CELLS)]
+
+
+def test_crowded_prompt_fills_the_sheet():
+    p = build_composite_prompt([(c.common_name, c.scientific_name) for c in _many(12)])
+    assert "full width" in p and "no bare margin" in p
+    assert "single bare bough" in p                     # one unified conceit (W-699)
+    assert "sizes follow life alone" in p               # prominence is placement, not size
+
+
+def test_sheet_key_widens_before_it_deepens():
+    """A long key takes more columns rather than more rows: 24 entries sit in
+    three columns of eight, while a short key stays a single column."""
+    size, rows = collage_mod.sheet_key(_many(24))
+    assert max(len(r) for r in rows) == 3
+    assert len(rows) == theme.SHEET_KEY_MAX_ROWS
+    _, short = collage_mod.sheet_key(CELLS)
+    assert max(len(r) for r in short) == 1
+
+
+def test_sheet_carries_the_date_above_the_key():
+    """"SEPTEMBER 2" in wide-tracked engraved caps between the art and the
+    key; the art box gives up that line."""
+    assert collage_mod.sheet_date_text(date(2026, 9, 2)) == "WEDNESDAY, SEPTEMBER 2, 2026"
+    art = Image.new("L", collage_mod.sheet_art_size(CELLS), 128)
+    field = collage_mod.render_generated_collage(art, CELLS, when=date(2026, 9, 2))
+    baseline = collage_mod.sheet_date_baseline(CELLS)
+    y = baseline - 6  # inside the caps
+    xs = range(theme.WIDTH // 2 - 200, theme.WIDTH // 2 + 200, 2)
+    assert any(field.getpixel((x, y)) < 100 for x in xs)      # ink from the date
+    assert all(field.getpixel((x, baseline + 4)) > 200 for x in xs)  # clear below it
+    box = collage_mod.sheet_art_box(CELLS)
+    assert box[3] < baseline - theme.SHEET_KEY_SIZES[0]        # art ends above the date

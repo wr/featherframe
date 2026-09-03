@@ -36,7 +36,7 @@ from PIL import Image
 
 from .. import paths
 from . import plate
-from .collage import CollageCell
+from .collage import CollageCell, sheet_art_size
 from .provider import ArtProvider, Artwork
 
 log = logging.getLogger("featherframe.genart")
@@ -49,7 +49,7 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 8
+PROMPT_VERSION = 14
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
@@ -186,6 +186,10 @@ _P_COMPOSITE_TEMPLATE = (
     "specimen sheet: {subjects}. The background is bright, near-white wove paper left "
     "completely untouched — no sepia tint, no cream wash, no aging, no vignette, no "
     "border.\n\n"
+)
+
+# Up to a handful of figures: the folio's own totem manner.
+_P_COMPOSITE_ARMATURE = (
     "One shared armature — a single bare, branching bough entering from the sheet edge "
     "and cut off flush — carries every figure. Each species holds its own station at a "
     "staggered height, drawn in TRUE RELATIVE SCALE to the others (a large species "
@@ -197,6 +201,30 @@ _P_COMPOSITE_TEMPLATE = (
     "stays botanically simple — a few sprigs at most — so the figures carry the sheet, "
     "and at least a third of the sheet stays bare paper, asymmetrically.\n\n"
 )
+
+# Past that, a crowded sheet: one bare bough dividing as far as the figures
+# need, every figure on it. (Prompts 11-13 tried stations by habit, a living
+# tree in leaf, and a sampled event; all three read as busier and less
+# unified than this, and this is what Wells picked — W-699.)
+_P_COMPOSITE_ARMATURE_CROWDED = (
+    "This is a crowded sheet. One shared armature — a single bare bough entering from "
+    "the sheet edge, cut off flush, and dividing into as many limbs as the figures need — "
+    "carries every figure, the limbs spreading so the figures tier across the whole height "
+    "and width of the sheet, none overlapping and none hidden behind another. Each species "
+    "holds its own station, in its own characteristic pose and direction, the figures "
+    "never interacting. Each figure is exactly the species its names denote — its true "
+    "kind and anatomy, never translated into another creature. Prominence is a matter of placement, never of "
+    "size: the first-listed species takes the sheet's most prominent station and each "
+    "later one a quieter place, while sizes follow life alone, every figure drawn in TRUE "
+    "RELATIVE SCALE to the others, so the largest creature present is the largest figure "
+    "however far down the list it falls, and a small bird stays small beside a large one. "
+    "Beside each figure sits its tiny engraved italic numeral in the listed order "
+    "(1., 2., 3., ...) "
+    "and nothing else — every figure numbered, every numeral legible. The bough stays "
+    "botanically bare so the figures carry the sheet, and the figures fill the sheet to "
+    "its edges, across its full width and height, with no bare margin.\n\n"
+)
+_COMPOSITE_CROWDED_FROM = 7  # figures; the totem manner holds up to six
 
 
 def build_composite_prompt(subjects: list[tuple[str, str]],
@@ -215,7 +243,9 @@ def build_composite_prompt(subjects: list[tuple[str, str]],
         line(i, common, sci)
         for i, (common, sci) in enumerate(subjects, start=1))
     opener = _P_COMPOSITE_TEMPLATE.format(n=len(subjects), subjects=listed)
-    return opener + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
+    armature = (_P_COMPOSITE_ARMATURE_CROWDED if len(subjects) >= _COMPOSITE_CROWDED_FROM
+                else _P_COMPOSITE_ARMATURE)
+    return opener + armature + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
 
 
 # Real composite plates to hand the model as references, preference order.
@@ -1142,8 +1172,9 @@ class GeneratedArtProvider(ArtProvider):
                 if not force and self._in_cooldown(key):
                     return None
                 started = time.time()
+                size = "%dx%d" % sheet_art_size(cells)  # the sheet's own art box
                 try:
-                    png_bytes = self._model.generate(prompt, GEN_SIZE, refs)
+                    png_bytes = self._model.generate(prompt, size, refs)
                     Image.open(io.BytesIO(png_bytes)).verify()
                 except Exception as exc:
                     self._failed_at[key] = time.time()

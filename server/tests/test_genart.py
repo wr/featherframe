@@ -37,10 +37,12 @@ class FakeModel(ImageModel):
         self.calls = 0
         self.fail = fail
         self.prompts: list[str] = []
+        self.sizes: list[str] = []
 
     def generate(self, prompt: str, size: str, refs) -> bytes:
         self.calls += 1
         self.prompts.append(prompt)
+        self.sizes.append(size)
         if self.fail:
             raise RuntimeError("boom")
         return _plate_png()

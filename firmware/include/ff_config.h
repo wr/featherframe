@@ -113,6 +113,11 @@
 #define WIFI_CONNECT_TIMEOUT_MS   20000
 #define PORTAL_TIMEOUT_S          600
 #define HTTP_TIMEOUT_MS           30000
+// Deadline for streaming a frame body once the headers are in. The link is
+// slow for the first minute after association (measured 41-85 KB/s on 3 Sep
+// 2026, i.e. 15-32 s for a frame), so a 30 s cap discarded a nearly complete
+// body and retried from scratch; 90 s still fails over on a dead link.
+#define FF_BODY_TIMEOUT_MS        90000
 #define HTTP_CONNECT_TIMEOUT_MS   10000
 
 // Error-state thresholds. Over a painted plate the corner mark appears only

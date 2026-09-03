@@ -763,12 +763,26 @@ enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_NOFRAME,
 // the normal current-bird frame (ETag conditional GET + store the new ETag);
 // false for transient button views (no conditional, and the stored ETag is
 // CLEARED so the next timer wake re-fetches the resident bird over the view).
+// Wi-Fi modem sleep (the Arduino default) parks the radio between beacons, so
+// every TCP round trip waits for a wake: ~80 ms on a quiet AP, several hundred
+// on a busy one. lwIP's receive window is a fixed 5760 bytes with no scaling,
+// so a 1.3 MB frame is ~230 round trips — 15 s at best and 1–2 min of
+// "Downloading image" at worst (measured 3 Sep 2026). With power save off the
+// round trip is ~2 ms and the same body arrives in a couple of seconds. The
+// guard restores modem sleep on every exit so the always-awake build keeps its
+// idle current between polls.
+struct RadioAwake {
+  RadioAwake()  { WiFi.setSleep(false); }
+  ~RadioAwake() { WiFi.setSleep(true); }
+};
+
 static FetchResult fetchFrame(const char* path, bool resident, float vbat, int pct) {
   // Release the boot-art buffers first: the IT8951 full-image write needs ~1.31 MB of
   // contiguous PSRAM for its mirror buffer, and if the boot buffers still hold it the
   // plate silently fails to load. (Safe here — this path renders network data, not the
   // boot art; the splash uses displayFrame directly without going through here.)
   freeScreenBuffers();
+  RadioAwake radio;                          // full-power Wi-Fi for the transfer
   HTTPClient http;
   String url = String(g_serverUrl) + path;
   if (!http.begin(url)) return FETCH_ERROR;
@@ -818,9 +832,17 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   WiFiClient* stream = http.getStreamPtr();
   int got = 0;
   uint32_t t0 = millis();
-  while (got < len && (millis() - t0) < HTTP_TIMEOUT_MS) {
-    if (stream->available()) {
-      got += stream->readBytes(buf + got, len - got);
+  // Block copies, never Stream::readBytes: that walks the body a byte at a
+  // time through timedRead()/read() (~4 s of CPU for a frame — 20 s at boot
+  // with the loader task sharing the core) and blocks inside itself until the
+  // whole remainder arrives, so the deadline check below never ran on a
+  // slow-but-steady link. read(buf, n) is a memcpy out of the socket buffer and
+  // returns as soon as what is there is copied, so the loop bounds the transfer.
+  while (got < len && (millis() - t0) < FF_BODY_TIMEOUT_MS) {
+    int avail = stream->available();
+    if (avail > 0) {
+      int n = stream->read(buf + got, (size_t)min(avail, len - got));
+      if (n > 0) got += n;
     } else if (!stream->connected()) {
       break;                                // server hung up mid-body: don't sit out the timeout
     } else {

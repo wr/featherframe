@@ -835,10 +835,10 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   // Block copies, never Stream::readBytes: that walks the body a byte at a
   // time through timedRead()/read() (~4 s of CPU for a frame — 20 s at boot
   // with the loader task sharing the core) and blocks inside itself until the
-  // whole remainder arrives, so the HTTP_TIMEOUT_MS check below never ran on a
+  // whole remainder arrives, so the deadline check below never ran on a
   // slow-but-steady link. read(buf, n) is a memcpy out of the socket buffer and
   // returns as soon as what is there is copied, so the loop bounds the transfer.
-  while (got < len && (millis() - t0) < HTTP_TIMEOUT_MS) {
+  while (got < len && (millis() - t0) < FF_BODY_TIMEOUT_MS) {
     int avail = stream->available();
     if (avail > 0) {
       int n = stream->read(buf + got, (size_t)min(avail, len - got));

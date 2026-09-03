@@ -141,6 +141,7 @@ SHEET_MARGIN_X = 44
 SHEET_MARGIN_TOP = 56
 SHEET_KEY_SIZES = (24, 22, 20, 18)
 SHEET_KEY_MAX_H = 300
+SHEET_KEY_MAX_ROWS = 8         # widen into another column before going deeper
 SHEET_KEY_ART_GAP = 40
 SHEET_GEN_W = 1024             # generated width; height follows the box aspect
 

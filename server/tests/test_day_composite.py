@@ -280,3 +280,13 @@ def test_day_composite_generates_at_the_sheet_size(data_dir):
 def test_crowded_prompt_fills_the_sheet():
     p = build_composite_prompt([(c.common_name, c.scientific_name) for c in _many(12)])
     assert "full width" in p and "no bare margin" in p
+
+
+def test_sheet_key_widens_before_it_deepens():
+    """A long key takes more columns rather than more rows: 24 entries sit in
+    three columns of eight, while a short key stays a single column."""
+    size, rows = collage_mod.sheet_key(_many(24))
+    assert max(len(r) for r in rows) == 3
+    assert len(rows) == theme.SHEET_KEY_MAX_ROWS
+    _, short = collage_mod.sheet_key(CELLS)
+    assert max(len(r) for r in short) == 1

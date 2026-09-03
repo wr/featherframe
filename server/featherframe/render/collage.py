@@ -75,7 +75,8 @@ def _title_band(field: Image.Image, when: ddate, title: str) -> int:
 
 def _fit_key(entries: list[str], max_w: float,
              max_h: Optional[int] = None,
-             sizes: tuple[int, ...] = theme.KEY_SIZES) -> tuple[int, list[list[str]]]:
+             sizes: tuple[int, ...] = theme.KEY_SIZES,
+             max_rows: Optional[int] = None) -> tuple[int, list[list[str]]]:
     """(font size, rows) for the key. Rows are filled column-major — entry
     k+1 sits under entry k — so a long day's key reads down each column like
     a plate key. The widest row must fit `max_w`: long BirdNET names
@@ -83,7 +84,10 @@ def _fit_key(entries: list[str], max_w: float,
     panel edges. With `max_h` the block's ink height must fit too, so a
     thirty-species night can't push the art off the sheet. Tries fewer
     columns at larger sizes first, then more columns, then scales below the
-    size floor — the fit is a guarantee, not a preference."""
+    size floor — the fit is a guarantee, not a preference. `max_rows` is a
+    preference: a layout within it wins over any deeper one, so a long key
+    widens into another column before it deepens; if nothing fits within
+    it, the search runs again without it."""
     if not entries:
         return sizes[-1], []
 
@@ -104,11 +108,14 @@ def _fit_key(entries: list[str], max_w: float,
     def fits(rows: list[list[str]], size: int) -> bool:
         return width(rows, size) <= max_w and (max_h is None or height(rows, size) <= max_h)
 
-    for size in sizes:
-        for cols in range(1, len(entries) + 1):
-            rows = rows_for(cols)
-            if fits(rows, size):
-                return size, rows
+    for row_cap in ((max_rows, None) if max_rows else (None,)):
+        for size in sizes:
+            for cols in range(1, len(entries) + 1):
+                rows = rows_for(cols)
+                if row_cap is not None and len(rows) > row_cap:
+                    continue
+                if fits(rows, size):
+                    return size, rows
     # Nothing fits at the floor: for each column count, the largest size that
     # satisfies both bounds; keep the layout that stays largest.
     floor = sizes[-1]
@@ -156,7 +163,8 @@ def sheet_key(cells: list[CollageCell], note: bool = False) -> tuple[int, list[l
     before it grows tall, so the art keeps the sheet."""
     entries = [f"{i}. {c.common_name.upper()}" for i, c in enumerate(cells, start=1)]
     return _fit_key(entries, theme.WIDTH - 2 * theme.SHEET_MARGIN_X,
-                    max_h=theme.SHEET_KEY_MAX_H, sizes=theme.SHEET_KEY_SIZES)
+                    max_h=theme.SHEET_KEY_MAX_H, sizes=theme.SHEET_KEY_SIZES,
+                    max_rows=theme.SHEET_KEY_MAX_ROWS)
 
 
 def _key_ink_top(key_size: int, key_rows: list[list[str]], bottom: int) -> int:

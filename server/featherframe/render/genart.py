@@ -49,7 +49,7 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 11
+PROMPT_VERSION = 12
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
@@ -188,52 +188,48 @@ _P_COMPOSITE_TEMPLATE = (
     "border.\n\n"
 )
 
-# Up to a handful of figures: the folio's own totem manner.
+# The armature is one living tree or shrub from the lead species' own world,
+# in leaf and in season — the folio's botany, not a dead snag — and the sheet
+# holds one event, not an inventory. Principles only, no named examples: a
+# named example becomes the only thing the model draws.
 _P_COMPOSITE_ARMATURE = (
-    "One shared armature — a single bare, branching bough entering from the sheet edge "
-    "and cut off flush — carries every figure. Each species holds its own station at a "
-    "staggered height, drawn in TRUE RELATIVE SCALE to the others (a large species "
-    "dwarfs a small one, as in life), in its own characteristic pose and direction, the "
-    "figures never interacting. Each figure is exactly the species its names denote — "
-    "its true kind and anatomy, never translated into another creature. The first-listed species takes the most commanding "
-    "station; each later one a quieter perch. Beside each figure sits its tiny engraved "
-    "italic numeral in the listed order (1., 2., 3., ...) and nothing else. The bough "
-    "stays botanically simple — a few sprigs at most — so the figures carry the sheet, "
-    "and at least a third of the sheet stays bare paper, asymmetrically.\n\n"
+    "One living tree or shrub is the whole world of this sheet, and every figure "
+    "belongs to it — on its limbs, among its leaves, at its foot, or in the air about "
+    "it. {plant}Its wood is alive and in leaf throughout, drawn to botanical-plate "
+    "standard with individually veined leaves and the flower or fruit the season truly "
+    "gives it, entering from the sheet edge, cut off flush, and dividing into as many "
+    "limbs as the figures need. The sheet holds a moment, not an inventory: one true "
+    "event of the kind a naturalist witnesses passes through this company, staged in "
+    "the folio's theatrical grammar — a few figures caught in it, the rest carrying on "
+    "their own true business — and every figure still shows its diagnostic features "
+    "plainly. Each figure is exactly the species its names denote — its true kind and "
+    "anatomy, never translated into another creature — in its own characteristic pose "
+    "and direction, none hidden behind another. Prominence is a matter of placement, "
+    "never of size: the first-listed species takes the sheet's most prominent station "
+    "and each later one a quieter place, while sizes follow life alone, every figure in "
+    "TRUE RELATIVE SCALE to the others, the largest creature present the largest figure "
+    "however far down the list it falls. Beside each figure sits its tiny engraved "
+    "italic numeral in the listed order (1., 2., 3., ...) and nothing else — every "
+    "figure numbered, every numeral legible. The composition fills the sheet to its "
+    "edges, across its full width and height.\n\n"
 )
-
-# Past that, a crowded sheet: the bough may divide as far as the figures need,
-# and the legibility of every figure and numeral outranks bare paper.
-_P_COMPOSITE_ARMATURE_CROWDED = (
-    "This is a crowded sheet. The armature is whatever this company truly needs. Each "
-    "figure holds the station its kind holds in life: those that perch, on the bough; "
-    "those that walk, on the ground at its foot, where the bough meets earth; those that "
-    "fly, on open paper. A single bare bough enters from the sheet edge, cut off flush, "
-    "and divides into as many limbs as the figures need, and the ground rises to meet it, "
-    "so every creature stands where a naturalist would find it. The figures tier across "
-    "the whole height and width of the sheet, none overlapping and none hidden behind "
-    "another, each in its own characteristic pose and direction, never interacting. Each "
-    "figure is exactly the species its names denote — its true kind and anatomy, never "
-    "translated into another creature. Prominence is a matter of placement, never of "
-    "size: the first-listed species takes the sheet's most prominent station and each "
-    "later one a quieter place, while sizes follow life alone, every figure drawn in TRUE "
-    "RELATIVE SCALE to the others, so the largest creature present is the largest figure "
-    "however far down the list it falls, and a small bird stays small beside a large one. "
-    "Beside each figure sits its tiny engraved italic numeral in the listed order "
-    "(1., 2., 3., ...) "
-    "and nothing else — every figure numbered, every numeral legible. The bough stays "
-    "botanically bare so the figures carry the sheet, and the figures fill the sheet to "
-    "its edges, across its full width and height, with no bare margin.\n\n"
+_P_COMPOSITE_PLANT_UNKNOWN = ("It is one real tree or shrub of these creatures' own "
+                              "country, in its true state for the season. ")
+_P_COMPOSITE_CROWDED = (
+    "This is a crowded sheet: the figures tier across the whole height and width of "
+    "the plant, none overlapping.\n\n"
 )
-_COMPOSITE_CROWDED_FROM = 7  # figures; the totem manner holds up to six
+_COMPOSITE_CROWDED_FROM = 7  # figures
 
 
 def build_composite_prompt(subjects: list[tuple[str, str]],
-                           briefs: Optional[dict] = None) -> str:
+                           briefs: Optional[dict] = None,
+                           plant: Optional[dict] = None) -> str:
     """Prompt for the day-in-review sheet: the day's species as one composite
     plate. `subjects` is (common, scientific) in prominence order; `briefs`
     maps a scientific name to a naturalist's one-line description so the
-    model draws katydids as katydids."""
+    model draws katydids as katydids; `plant` is the one real associate
+    plant the sheet is built on ({name, look}), or None for an unnamed one."""
     def line(i, common, sci):
         s = f"{i}. {common} ({sci})" if sci else f"{i}. {common}"
         brief = (briefs or {}).get(sci or common, "")
@@ -244,9 +240,16 @@ def build_composite_prompt(subjects: list[tuple[str, str]],
         line(i, common, sci)
         for i, (common, sci) in enumerate(subjects, start=1))
     opener = _P_COMPOSITE_TEMPLATE.format(n=len(subjects), subjects=listed)
-    armature = (_P_COMPOSITE_ARMATURE_CROWDED if len(subjects) >= _COMPOSITE_CROWDED_FROM
-                else _P_COMPOSITE_ARMATURE)
-    return opener + armature + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
+    if plant and plant.get("name"):
+        plant_line = (f"It is {plant['name']}: "
+                      + str(plant.get("look", "")).rstrip(".") + ". ")
+    else:
+        plant_line = _P_COMPOSITE_PLANT_UNKNOWN
+    # Only the constant template goes through .format — the plant text is
+    # model-authored and a brace in it must stay a brace.
+    armature = _P_COMPOSITE_ARMATURE.replace("{plant}", plant_line)
+    crowded = _P_COMPOSITE_CROWDED if len(subjects) >= _COMPOSITE_CROWDED_FROM else ""
+    return opener + armature + crowded + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
 
 
 # Real composite plates to hand the model as references, preference order.
@@ -1157,9 +1160,24 @@ class GeneratedArtProvider(ArtProvider):
             if not force and self._in_cooldown(key):
                 return None
             subjects = [(c.common_name, c.scientific_name) for c in cells]
-            briefs = {sci or common: self._describe(common, sci)[0]
-                      for common, sci in subjects}  # description only
-            prompt = build_composite_prompt(subjects, briefs)
+            briefs, pools = {}, []
+            for common, sci in subjects:
+                description, _is_bird, plants = self._describe(common, sci)
+                briefs[sci or common] = description
+                pools.append(plants)
+            # The sheet's plant comes from the lead species' own associates,
+            # then the next species' if the lead has none; a repaint avoids
+            # the plant the last sheet used so the subject changes, not just
+            # the brushstrokes.
+            prev_plant = self._sheet_plant(sidecar) if force else None
+            rng = random.Random(f"{day}:{time.time() if force else ''}")
+            plant = None
+            for pool in pools:
+                pool = [p for p in pool if p.get("name") and p.get("name") != prev_plant]
+                if pool:
+                    plant = rng.choice(pool)
+                    break
+            prompt = build_composite_prompt(subjects, briefs, plant)
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
                 if png.exists():
@@ -1190,6 +1208,7 @@ class GeneratedArtProvider(ArtProvider):
                     "date": day,
                     "cells": [{"common": c.common_name, "scientific": c.scientific_name,
                                "count": c.count} for c in cells],
+                    "plant": plant,
                     "model": getattr(self._model, "name", "unknown"),
                     "quality": getattr(self._model, "quality", None),
                     "prompt_version": PROMPT_VERSION,
@@ -1216,6 +1235,15 @@ class GeneratedArtProvider(ArtProvider):
                 return self._read_sheet(png, sidecar, cells, locked=True)
         except Exception:
             log.exception("day composite failed for %s", when)
+            return None
+
+    @staticmethod
+    def _sheet_plant(sidecar: Path) -> Optional[str]:
+        """The plant the cached sheet was built on, if its sidecar says."""
+        try:
+            meta = json.loads(sidecar.read_text())
+            return (meta.get("plant") or {}).get("name") or None
+        except (OSError, ValueError, TypeError, AttributeError):
             return None
 
     @staticmethod

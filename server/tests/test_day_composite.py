@@ -279,9 +279,30 @@ def test_day_composite_generates_at_the_sheet_size(data_dir):
 
 def test_crowded_prompt_fills_the_sheet():
     p = build_composite_prompt([(c.common_name, c.scientific_name) for c in _many(12)])
-    assert "full width" in p and "no bare margin" in p
-    assert "where the bough meets earth" in p          # a station for the ground-dwellers
+    assert "fills the sheet to its edges" in p
+    assert "living tree or shrub" in p                  # one living conceit, in leaf
+    assert "holds a moment, not an inventory" in p      # drama between figures
     assert "sizes follow life alone" in p               # prominence is placement, not size
+    assert "own country" in p                           # no plant known: unnamed but real
+
+
+def test_composite_prompt_names_the_sheet_plant():
+    subs = [(c.common_name, c.scientific_name) for c in CELLS]
+    p = build_composite_prompt(subs, plant={"name": "Northern Red Oak",
+                                            "look": "broad lobed leaves, acorns ripening"})
+    assert "It is Northern Red Oak: broad lobed leaves, acorns ripening." in p
+    assert "own country" not in p
+
+
+def test_day_composite_records_its_plant(data_dir, monkeypatch):
+    provider = GeneratedArtProvider(FakeModel())
+    oak = {"name": "Northern Red Oak", "look": "lobed leaves"}
+    monkeypatch.setattr(provider, "_describe",
+                        lambda common, sci: ("a jay", True, [oak]))
+    provider.day_composite(CELLS, DAY)
+    meta = json.loads((data_dir / "collages" / f"{DAY.isoformat()}.json").read_text())
+    assert meta["plant"] == oak
+    assert "It is Northern Red Oak" in provider._model.prompts[-1]
 
 
 def test_sheet_key_widens_before_it_deepens():

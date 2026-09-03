@@ -36,7 +36,7 @@ from PIL import Image
 
 from .. import paths
 from . import plate
-from .collage import CollageCell
+from .collage import CollageCell, sheet_art_size
 from .provider import ArtProvider, Artwork
 
 log = logging.getLogger("featherframe.genart")
@@ -49,7 +49,7 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 9
+PROMPT_VERSION = 10
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
@@ -216,8 +216,8 @@ _P_COMPOSITE_ARMATURE_CROWDED = (
     "species takes the most commanding station; each later one a quieter perch. Beside "
     "each figure sits its tiny engraved italic numeral in the listed order (1., 2., 3., ...) "
     "and nothing else — every figure numbered, every numeral legible. The bough stays "
-    "botanically bare so the figures carry the sheet, and whatever paper remains stays "
-    "bare, asymmetrically.\n\n"
+    "botanically bare so the figures carry the sheet, and the figures fill the sheet to "
+    "its edges, across its full width and height, with no bare margin.\n\n"
 )
 _COMPOSITE_CROWDED_FROM = 7  # figures; the totem manner holds up to six
 
@@ -1167,8 +1167,9 @@ class GeneratedArtProvider(ArtProvider):
                 if not force and self._in_cooldown(key):
                     return None
                 started = time.time()
+                size = "%dx%d" % sheet_art_size(cells)  # the sheet's own art box
                 try:
-                    png_bytes = self._model.generate(prompt, GEN_SIZE, refs)
+                    png_bytes = self._model.generate(prompt, size, refs)
                     Image.open(io.BytesIO(png_bytes)).verify()
                 except Exception as exc:
                     self._failed_at[key] = time.time()

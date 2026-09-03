@@ -243,3 +243,40 @@ def test_key_short_list_still_one_centered_column():
     size, rows = _fit_key(entries, theme.CONTENT_W, max_h=theme.KEY_MAX_H)
     assert size == theme.KEY_SIZES[0]
     assert [e for r in rows for e in r] == entries
+
+
+# -- the sheet: no header, small packed key, art sized to the box ---------------
+def test_sheet_has_no_title_band(data_dir):
+    """Flat gray art must reach the top margin — nothing is printed above it."""
+    art = Image.new("L", collage_mod.sheet_art_size(CELLS), 128)  # fills the box
+    field = collage_mod.render_generated_collage(art, CELLS, when=DAY, title="Sightings")
+    y = theme.SHEET_MARGIN_TOP + 10
+    xs = range(theme.WIDTH // 3, 2 * theme.WIDTH // 3, 8)
+    inked = sum(1 for x in xs if field.getpixel((x, y)) < 200)
+    assert inked > 0.9 * len(xs)
+
+
+def test_sheet_key_is_smaller_and_packed():
+    size, rows = collage_mod.sheet_key(_many(24))
+    assert size <= theme.SHEET_KEY_SIZES[0] <= 24
+    assert len(rows) <= 8
+
+
+def test_sheet_art_size_matches_the_box():
+    for cells in (CELLS, _many(24)):
+        w, h = collage_mod.sheet_art_size(cells)
+        assert w % 16 == 0 and h % 16 == 0 and w * h >= 655_360
+        l, t, r, b = collage_mod.sheet_art_box(cells)
+        assert abs(w / h - (r - l) / (b - t)) < 0.03
+    assert collage_mod.sheet_art_size(CELLS) != collage_mod.sheet_art_size(_many(24))
+
+
+def test_day_composite_generates_at_the_sheet_size(data_dir):
+    model = FakeModel()
+    GeneratedArtProvider(model).day_composite(CELLS, DAY)
+    assert model.sizes == ["%dx%d" % collage_mod.sheet_art_size(CELLS)]
+
+
+def test_crowded_prompt_fills_the_sheet():
+    p = build_composite_prompt([(c.common_name, c.scientific_name) for c in _many(12)])
+    assert "full width" in p and "no bare margin" in p

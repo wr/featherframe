@@ -74,7 +74,8 @@ def _title_band(field: Image.Image, when: ddate, title: str) -> int:
 
 
 def _fit_key(entries: list[str], max_w: float,
-             max_h: Optional[int] = None) -> tuple[int, list[list[str]]]:
+             max_h: Optional[int] = None,
+             sizes: tuple[int, ...] = theme.KEY_SIZES) -> tuple[int, list[list[str]]]:
     """(font size, rows) for the key. Rows are filled column-major — entry
     k+1 sits under entry k — so a long day's key reads down each column like
     a plate key. The widest row must fit `max_w`: long BirdNET names
@@ -84,7 +85,7 @@ def _fit_key(entries: list[str], max_w: float,
     columns at larger sizes first, then more columns, then scales below the
     size floor — the fit is a guarantee, not a preference."""
     if not entries:
-        return theme.KEY_SIZES[-1], []
+        return sizes[-1], []
 
     def rows_for(cols: int) -> list[list[str]]:
         per = -(-len(entries) // cols)  # ceil
@@ -103,14 +104,14 @@ def _fit_key(entries: list[str], max_w: float,
     def fits(rows: list[list[str]], size: int) -> bool:
         return width(rows, size) <= max_w and (max_h is None or height(rows, size) <= max_h)
 
-    for size in theme.KEY_SIZES:
+    for size in sizes:
         for cols in range(1, len(entries) + 1):
             rows = rows_for(cols)
             if fits(rows, size):
                 return size, rows
     # Nothing fits at the floor: for each column count, the largest size that
     # satisfies both bounds; keep the layout that stays largest.
-    floor = theme.KEY_SIZES[-1]
+    floor = sizes[-1]
     best = (0.0, [])
     for cols in range(1, len(entries) + 1):
         rows = rows_for(cols)
@@ -150,27 +151,64 @@ def _draw_key(draw: ImageDraw.ImageDraw, key_size: int,
     return first_baseline - round(key_size * theme.ENGRAVED_CAP)
 
 
+def sheet_key(cells: list[CollageCell], note: bool = False) -> tuple[int, list[list[str]]]:
+    """The generated sheet's key: small engraved caps, packed into columns
+    before it grows tall, so the art keeps the sheet."""
+    entries = [f"{i}. {c.common_name.upper()}" for i, c in enumerate(cells, start=1)]
+    return _fit_key(entries, theme.WIDTH - 2 * theme.SHEET_MARGIN_X,
+                    max_h=theme.SHEET_KEY_MAX_H, sizes=theme.SHEET_KEY_SIZES)
+
+
+def _key_ink_top(key_size: int, key_rows: list[list[str]], bottom: int) -> int:
+    """Where a key drawn with `_draw_key` would put its ink top, without drawing."""
+    if not key_rows:
+        return theme.HEIGHT - theme.MARGIN_BOTTOM
+    line_h = round(key_size * theme.KEY_LINE_H)
+    first_baseline = theme.HEIGHT - bottom - (len(key_rows) - 1) * line_h
+    return first_baseline - round(key_size * theme.ENGRAVED_CAP)
+
+
+def sheet_art_box(cells: list[CollageCell], note: bool = False) -> tuple[int, int, int, int]:
+    """The art box on the generated sheet for these cells: the top margin
+    down to the key, full width less the sheet margins. There is no header."""
+    key_size, key_rows = sheet_key(cells, note)
+    bottom = theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0)
+    art_bottom = _key_ink_top(key_size, key_rows, bottom) - theme.SHEET_KEY_ART_GAP
+    return (theme.SHEET_MARGIN_X, theme.SHEET_MARGIN_TOP,
+            theme.WIDTH - theme.SHEET_MARGIN_X, art_bottom)
+
+
+def sheet_art_size(cells: list[CollageCell]) -> tuple[int, int]:
+    """The size to generate the sheet's art at: the art box's own aspect, so
+    the image fills the box instead of leaving bare paper down both sides.
+    Multiples of 16 (the image API's grid); the key's height decides it, so a
+    five-species night gets a taller image than a twenty-four-species one."""
+    left, top, right, bottom = sheet_art_box(cells)
+    w = theme.SHEET_GEN_W
+    h = round(w * (bottom - top) / (right - left) / 16) * 16
+    return w, h
+
+
 def render_generated_collage(art: Image.Image, cells: list[CollageCell],
                              when: Optional[ddate] = None, total_detections: int = 0,
                              title: str = "The Day in Review",
                              note: Optional[str] = None) -> Image.Image:
-    """The generated composite sheet: title band, the one generated artwork
-    where the grid would be, and a key matching the sheet's figure numerals —
-    '1. Species ×count' in prominence order. A `note` (the gone-quiet
-    footnote) lifts the key so the two never share the bottom margin."""
-    when = when or ddate.today()
+    """The generated composite sheet: the one generated artwork from the top
+    margin down, and a small key matching the sheet's figure numerals —
+    '1. Species' in prominence order — packed along the bottom. No header:
+    the art is the sheet. `when` and `title` are accepted for the caller's
+    convenience and print nothing. A `note` (the gone-quiet footnote) lifts
+    the key so the two never share the bottom margin."""
     field = _new_field()
     draw = ImageDraw.Draw(field)
 
-    art_top = _title_band(field, when, title)
-
-    entries = [f"{i}. {c.common_name.upper()}" for i, c in enumerate(cells, start=1)]
-    key_size, key_rows = _fit_key(entries, theme.WIDTH - 2 * 60, max_h=theme.KEY_MAX_H)
+    key_size, key_rows = sheet_key(cells, bool(note))
     key_top = _draw_key(draw, key_size, key_rows,
                         bottom=theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0))
-    art_bottom = key_top - theme.KEY_ART_GAP
+    art_bottom = key_top - theme.SHEET_KEY_ART_GAP
     _paste_art(field, art,
-               (theme.MARGIN_X, art_top, theme.WIDTH - theme.MARGIN_X, art_bottom),
+               (theme.SHEET_MARGIN_X, theme.SHEET_MARGIN_TOP,
+                theme.WIDTH - theme.SHEET_MARGIN_X, art_bottom),
                v_align=0.5)
     if note:
         typography.note_line(draw, note)

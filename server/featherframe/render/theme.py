@@ -133,4 +133,15 @@ KEY_BOTTOM = 45                # last key baseline above the panel bottom
 KEY_ART_GAP = 53               # gap between the art box and the key's ink top
 KEY_MAX_H = 480                # the key's ink height cap; the art keeps the rest
 
+# -- generated sheet (the day in review) ------------------------------------
+# No header: the art starts at the top margin and takes everything the key
+# leaves it. The key is set small and packs into columns before it grows
+# tall, and the image is generated at the art box's own aspect.
+SHEET_MARGIN_X = 44
+SHEET_MARGIN_TOP = 56
+SHEET_KEY_SIZES = (24, 22, 20, 18)
+SHEET_KEY_MAX_H = 300
+SHEET_KEY_ART_GAP = 40
+SHEET_GEN_W = 1024             # generated width; height follows the box aspect
+
 CONTENT_W = WIDTH - 2 * MARGIN_X

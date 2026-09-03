@@ -303,6 +303,24 @@ def test_day_composite_records_its_plant(data_dir, monkeypatch):
     meta = json.loads((data_dir / "collages" / f"{DAY.isoformat()}.json").read_text())
     assert meta["plant"] == oak
     assert "It is Northern Red Oak" in provider._model.prompts[-1]
+    # ...and the sampled direction, which a repaint then steers away from.
+    assert set(meta["direction"]) == {"tableau", "foliage", "condition"}
+    assert "Art direction for this sheet, chosen for it alone: " in provider._model.prompts[-1]
+    first = meta["direction"]["tableau"]
+    monkeypatch.setattr(GeneratedArtProvider, "_sheet_age_s",
+                        staticmethod(lambda sidecar: 9999.0))  # past the repaint debounce
+    provider.day_composite(CELLS, DAY, force=True)
+    again = json.loads((data_dir / "collages" / f"{DAY.isoformat()}.json").read_text())
+    assert again["direction"]["tableau"] != first
+
+
+def test_composite_direction_avoids_the_last_event():
+    import random
+    from featherframe.render.genart import _sample_composite_direction, _COMPOSITE_TABLEAU
+    for seed in range(20):
+        _, picks = _sample_composite_direction(random.Random(seed),
+                                               {"tableau": _COMPOSITE_TABLEAU[0][1]})
+        assert picks["tableau"] != _COMPOSITE_TABLEAU[0][1]
 
 
 def test_sheet_key_widens_before_it_deepens():

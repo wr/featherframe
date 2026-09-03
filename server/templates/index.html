@@ -102,7 +102,9 @@
     .plate:not(.empty) .plate-empty { display:none; }
     .plate-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center; }
     .plate-actions form.inline { display:flex; gap:8px; margin:0; }
-    .plate-actions input[type=text] { width:118px; padding:7px 10px; font-size:13px; }
+    /* "Show a critter": two names and a button on their own line under the actions */
+    .critter-form { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 0; align-items:center; }
+    .critter-form input[type=text] { flex:1 1 140px; width:auto; min-width:0; padding:7px 10px; font-size:13px; }
     .task-status { font-size:12px; color:var(--accent); font-weight:600; margin-top:10px; min-height:1em; }
     .task-status:empty { margin-top:0; min-height:0; }
     .task-status.failed { color:var(--bad); }
@@ -481,14 +483,19 @@
             <button class="btn" type="submit" title="Show today's “day in review” now (reuses today's sheet if one exists)">Day in review</button>
             <button class="btn" type="submit" name="repaint" value="1" title="Paint today's sheet again from today's species — one image generation">Repaint</button>
           </form>
-          {% if dev_mode %}
-          <form class="inline task-form" data-task="test-detection" method="post" action="/api/test-detection">
-            <input type="text" name="common" placeholder="Test species" aria-label="Test species"
-                   title="Render a test detection. A species with no Audubon plate exercises image generation.">
-            <button class="btn" type="submit">Test</button>
-          </form>
-          {% endif %}
         </div>
+        {# Put any animal on the wall: a fake detection through the full
+           provider chain. A creature Audubon never painted buys a generated
+           plate (one image generation, cached forever). The next real bird
+           replaces it. #}
+        <form class="critter-form task-form" data-task="test-detection" method="post" action="/api/test-detection">
+          <input type="text" name="common" placeholder="Common name" aria-label="Common name" required
+                 title="Any animal, not just a bird. A species without an Audubon plate is painted (one image generation).">
+          <input type="text" name="scientific" placeholder="Scientific name (optional)" aria-label="Scientific name"
+                 title="Optional. Sets the Latin line on the plate and the name the painting is cached under.">
+          <button class="btn" type="submit" title="Render this creature now. The panel picks it up on its next wake.">Show</button>
+        </form>
+        <p class="hint">Put any creature on the wall, bird or not. One without an Audubon plate is painted once (one image generation) and kept; the next real detection takes over.</p>
         <div class="task-status" id="task-status" role="status" aria-live="polite"></div>
       </div>
 

@@ -280,7 +280,7 @@ def test_day_composite_generates_at_the_sheet_size(data_dir):
 def test_crowded_prompt_fills_the_sheet():
     p = build_composite_prompt([(c.common_name, c.scientific_name) for c in _many(12)])
     assert "full width" in p and "no bare margin" in p
-    assert "where the bough meets earth" in p          # a station for the ground-dwellers
+    assert "single bare bough" in p                     # one unified conceit (W-699)
     assert "sizes follow life alone" in p               # prominence is placement, not size
 
 

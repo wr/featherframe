@@ -216,19 +216,29 @@ freshness: 15 min. On USB power, none of this matters — set 15 min and forget 
 ## Species & plates
 
 `server/scripts/species.yaml` is the editable crosswalk: modern species →
-Audubon Havell plate. It ships with ~40 common Eastern US backyard birds, each
-plate number verified by hand (Audubon's 1830s titles are archaic — the
-Northern Cardinal is his "Cardinal Grosbeak", the junco his "Snow Bird").
+Audubon Havell plate. It ships with ~125 Eastern US species pinned to a plate,
+each number verified by hand (Audubon's 1830s titles are archaic — the
+Northern Cardinal is his "Cardinal Grosbeak", the junco his "Snow Bird"), plus
+explicit `plate: none` entries for everything the frame has heard that he
+never painted.
 
 - **Add a species**: add an entry. Omit `plate:` and `fetch_plates.py` will
   suggest one by title match for you to pin.
 - **Composites**: some plates show several species (the chickadees share one).
   Those are flagged `composite: true` and shown whole rather than cropped — a
   crop might land on the wrong bird, and rule #2 is *never a wrong bird*.
-- **No plate**: a couple of common birds postdate Audubon (European Starling
-  introduced 1890, House Sparrow 1851). They're pinned `plate: none` and render
-  a clean typographic plate — the name set large, "First recorded <date>"
-  beneath. Any species with no match falls back the same way.
+- **No plate**: some common birds postdate Audubon (European Starling
+  introduced 1890, House Sparrow 1851), and the yard's cicadas, crickets, bats
+  and squirrels were never in the folio. They're pinned `plate: none` and go
+  to the AI provider or render a clean typographic plate — the name set large,
+  "First recorded <date>" beneath. Any species with no match falls back the
+  same way.
+- **Cache the whole edition**: `make plates-all` (or `install.sh --all-plates`)
+  fetches all 435 Havell plates (~2.9 GB) instead of only the curated ones. It
+  is idempotent and retries the mirror, so a new `species.yaml` entry is then
+  an index rewrite with no network, and the AI provider has every plate to
+  draw style references from. See [docs/plate-sources.md](docs/plate-sources.md)
+  for the other public-domain folios that could extend coverage further.
 
 Matching keys on scientific name first (stable), then common name, with a few
 old-binomial synonyms for taxonomic renames. If it's not confident, it falls
@@ -309,8 +319,9 @@ firmware/
 - **Frame stopped updating and the page says "overdue"** — the battery is flat
   or Wi-Fi is gone. A frame under 3.45 V deliberately stops waking to fetch;
   charge it and it resumes on its own.
-- **Plates missing** — re-run `python scripts/fetch_plates.py`; the mirror is
-  occasionally flaky and the script is idempotent.
+- **Plates missing** — re-run `python scripts/fetch_plates.py` (or `--all`);
+  the mirror is occasionally flaky and the script is idempotent, retrying each
+  file before giving up on it.
 - **Slow renders on a Pi Zero** — use blue-noise dither (the default), not
   Stucki.
 

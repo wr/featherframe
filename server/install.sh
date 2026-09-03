@@ -10,6 +10,7 @@
 #
 # Options:
 #   --skip-plates   don't download plates now (run scripts/fetch_plates.py later)
+#   --all-plates    cache the whole Havell edition (~2.9 GB) instead of just the curated species
 #   --port N        listen port (default 8080)
 #   --no-service    set up the venv only; don't touch systemd
 #
@@ -19,6 +20,7 @@ SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_DIR="${FEATHERFRAME_DATA_DIR:-$SERVER_DIR/data}"
 PORT=8080
 DO_PLATES=1
+ALL_PLATES=0
 DO_SERVICE=1
 # The service should run as the human user who owns BirdNET-Pi, not root.
 RUN_USER="${SUDO_USER:-$(id -un)}"
@@ -26,6 +28,7 @@ RUN_USER="${SUDO_USER:-$(id -un)}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --skip-plates) DO_PLATES=0 ;;
+    --all-plates)  ALL_PLATES=1 ;;
     --no-service)  DO_SERVICE=0 ;;
     --port)        PORT="$2"; shift ;;
     *) echo "unknown option: $1"; exit 1 ;;
@@ -61,9 +64,15 @@ mkdir -p "$DATA_DIR"
 
 # --- plates --------------------------------------------------------------
 if [ "$DO_PLATES" -eq 1 ]; then
-  echo "==> Downloading Audubon plates (~220 MB, one time)…"
+  PLATE_ARGS=()
+  if [ "$ALL_PLATES" -eq 1 ]; then
+    PLATE_ARGS+=(--all)
+    echo "==> Caching the whole Havell edition (~2.9 GB, one time)…"
+  else
+    echo "==> Downloading Audubon plates (~700 MB, one time)…"
+  fi
   FEATHERFRAME_DATA_DIR="$DATA_DIR" "$SERVER_DIR/.venv/bin/python" \
-    "$SERVER_DIR/scripts/fetch_plates.py" || {
+    "$SERVER_DIR/scripts/fetch_plates.py" "${PLATE_ARGS[@]}" || {
       echo "    plate download had issues — re-run scripts/fetch_plates.py later."; }
 else
   echo "==> Skipping plate download (run scripts/fetch_plates.py before first use)."

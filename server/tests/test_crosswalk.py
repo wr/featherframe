@@ -34,12 +34,20 @@ EXPECTED = {
     "Willow Flycatcher": 45,      # both split from "Traill's Flycatcher"
     "Alder Flycatcher": 45,
     "Winter Wren": 360,           # "Winter Wren and Rock Wren"
+    # Heard at the house, added 2026-09. Plate 386's mirror name is shifted
+    # (reads "Bank Swallow..."); its fileName plate-386-white-heron.jpg is right.
+    "Common Nighthawk": 147,      # "Night Hawk"
+    "Least Bittern": 210,
+    "Upland Sandpiper": 303,      # "Bartram Sandpiper"
+    "Great Egret": 386,           # "White Heron" (281 is the Great Blue's white morph)
     # Never a wrong bird: confirmed plate-less -> AI generation candidates.
     "Veery": None,                # plate 164's bird is disputed (Halley 2018)
     "Rock Pigeon": None,          # not painted
     "Southeastern myotis": None,  # a bat
     "Mute Swan": None,            # introduced
     "Least Flycatcher": None,     # described 1843, post-Havell
+    "Ring-necked Pheasant": None, # introduced 1881
+    "European Goldfinch": None,   # introduced
 }
 
 

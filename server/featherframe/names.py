@@ -36,6 +36,17 @@ _STOPWORDS = {
 }
 
 
+def display_common_name(name: str) -> str:
+    """A typed name, set like a field-guide entry: each word capitalised,
+    the rest lowered, and only the first half of a hyphenated word takes a
+    capital ("Black-capped Chickadee"). Species the curated index knows are
+    spelled its way instead (SpeciesIndex.canonical_common)."""
+    words = (name or "").split()
+    return " ".join("-".join(seg.capitalize() if i == 0 else seg.lower()
+                             for i, seg in enumerate(w.split("-")))
+                    for w in words)
+
+
 def normalize(name: str) -> str:
     """Lowercase, drop punctuation, collapse whitespace. Hyphens -> spaces."""
     if not name:
@@ -108,6 +119,12 @@ class SpeciesIndex:
     def count(self) -> int:
         # Unique entries (a species is registered under both keys).
         return len({id(v) for v in self._by_sci.values()})
+
+    def canonical_common(self, common_name: str) -> Optional[str]:
+        """The index's own spelling of a common name, matched loosely
+        (case, hyphens, apostrophes), or None if the species is unknown."""
+        entry = self._by_common.get(normalize(common_name))
+        return str(entry["common"]) if entry and entry.get("common") else None
 
     def match(self, common_name: str, scientific_name: str = "") -> Optional[PlateMatch]:
         """Return a PlateMatch with a usable image, or None (-> fallback)."""

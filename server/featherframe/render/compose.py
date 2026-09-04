@@ -110,10 +110,12 @@ def caption_height(n_lines: int, first_ever: bool = False) -> int:
     """Height reserved at the bottom for the caption: title ink top to the
     panel bottom, for `n_lines` legend lines (plus the first-recorded line)."""
     lines = n_lines + (1 if first_ever else 0)
-    # With no legend the Latin name still keeps a pitch of air above the
-    # corner marks (LATIN_TO_LEGEND - LEGEND_PITCH), so it never sits on them.
+    # With no legend the Latin name still keeps LATIN_BOTTOM_CLEAR of air
+    # above the corner marks, so it never sits on them.
+    below_latin = (theme.LATIN_TO_LEGEND + theme.LEGEND_PITCH * (lines - 1) if lines
+                   else theme.LATIN_BOTTOM_CLEAR)
     return (round(theme.SCRIPT_TITLE_SIZE * theme.SCRIPT_TITLE_ASCENT) + theme.TITLE_TO_LATIN
-            + theme.LATIN_TO_LEGEND + theme.LEGEND_PITCH * (lines - 1) + theme.CAPTION_BOTTOM)
+            + below_latin + theme.CAPTION_BOTTOM)
 
 
 FIRST_EVER_LINE = "First recorded today."

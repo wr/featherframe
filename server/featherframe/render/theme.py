@@ -45,24 +45,30 @@ CAPTION_GAP = 96       # air between the art and the title: the script capitals
 # its period, as Audubon printed it), then the plate's own legend lines —
 # "Male, 1. Female, 2." / "Black berry. Rubus villosus." — in the small
 # script, and the date · time / "No. NN" tucked into the bottom corners in
-# that same script. Sizes and baseline gaps were tuned on the glass, 4 Sep 2026.
-SCRIPT_TITLE_SIZE = 90         # common name, auto-fit down to SCRIPT_TITLE_MIN
-SCRIPT_TITLE_MIN = 56
+# that same script. Sizes and baseline gaps were tuned on the glass for
+# Kapakana (W-713, 4 Sep 2026): its x-height is small, so everything runs
+# ~1.4x the sizes Avaleia wore, and the title got two more bumps on the wall.
+SCRIPT_TITLE_SIZE = 180        # common name, auto-fit down to SCRIPT_TITLE_MIN
+SCRIPT_TITLE_MIN = 77
 SCRIPT_TITLE_ASCENT = 0.62     # block top -> title baseline, fraction of size
-TITLE_TO_LATIN = 72            # title baseline -> Latin baseline
+TITLE_TO_LATIN = 97            # title baseline -> Latin baseline
 LATIN_TO_LEGEND = 68           # Latin baseline -> first legend baseline
-LEGEND_SIZE = 30
-LEGEND_PITCH = 44              # baseline pitch of the legend lines
+LATIN_BOTTOM_CLEAR = 24        # Latin baseline -> caption bottom when there is no legend
+LEGEND_SIZE = 41
+LEGEND_PITCH = 60              # baseline pitch of the legend lines
 TITLE_STROKE = 0.0             # synthetic bold, px per edge: the script has one weight
-LEGEND_STROKE = 0.75           # and its small lines read thin on e-ink (Avaleia; 4 Sep 2026)
+LEGEND_STROKE = 0.5            # and its small lines read thin on e-ink (0.75 read bolder
+                               # than the title's hairlines; 0.5 matches them)
 CAPTION_BOTTOM = 52            # last caption baseline above the panel bottom
 LATIN_PERIOD = "."             # Audubon's trailing period on the Latin name
 
-CORNER_SIZE = 26               # date · time (left) and "No. NN" (right)
+CORNER_SIZE = 36               # date · time (left) and "No. NN" (right)
 CORNER_INSET = 36              # from the side edges
 MARKS_BASELINE = HEIGHT - 30
 PLATE_NO_PREFIX = "No."        # the script has no numero glyph
 CORNER_SEP = "·"               # between date and time ("1 Sep · 8:14 am")
+COLON_KERN = -0.12             # pulls the run after a colon in, fraction of size
+                               # (Kapakana's colon has a wide right bearing: "8: 14")
 
 NAME_TRACKING = 0.10   # faux small caps letter-spacing (no-RAQM fallback)
 SMALLCAP_RATIO = 0.76  # small-cap glyph height as a fraction of full caps
@@ -100,7 +106,7 @@ RULE_THICKNESS = 2
 # One small script line ("Nothing heard since 11:27 pm") centred on the corner
 # marks' baseline, between them; shrinks rather than clips.
 NOTE_SIZE = CORNER_SIZE
-NOTE_MIN_SIZE = 18
+NOTE_MIN_SIZE = 25
 NOTE_MARK_GAP = 40             # clearance between the footnote and either mark
 NOTE_CLEAR = 46                # how far a collage key lifts to make room for it
 

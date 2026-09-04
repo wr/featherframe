@@ -551,3 +551,70 @@ def test_brief_model_change_rebuilds_provider(tmp_path, monkeypatch):
     assert svc.genart._text_model.model == "gpt-5.6-luna"
     svc.update_config(replace(cfg, imagegen_text_model="gpt-5.6-sol"))
     assert svc.genart._text_model.model == "gpt-5.6-sol"
+
+
+# -- legend under a generated sheet (W-709) --------------------------------------
+from featherframe.render import genart as _genart  # noqa: E402
+
+
+def _picks(figures: int, tableau: str = "exhibit") -> dict:
+    fig = {1: _genart._FIGURES[0][1], 2: _genart._FIGURES[1][1], 3: _genart._FIGURES[2][1]}[figures]
+    tab = {"exhibit": _genart._TABLEAU_BIRD[0][1], "nest": _genart._TABLEAU_BIRD[2][1],
+           "juvenile": _genart._TABLEAU_BIRD[3][1]}[tableau]
+    return {"tableau": tab, "figures": fig}
+
+
+PLANT = {"name": "Chestnut Oak", "look": "broad crenate leaves", "latin": "Quercus prinus"}
+
+
+def test_figure_key_follows_the_sampled_figures_and_tableau():
+    assert _genart.figure_key(_picks(1), is_bird=True) == "Male."
+    assert _genart.figure_key(_picks(2), is_bird=True) == "Male, 1. Female, 2."
+    assert _genart.figure_key(_picks(3), is_bird=True) == "Male, 1. Female, 2. Young, 3."
+    assert _genart.figure_key(_picks(2, "juvenile"), is_bird=True) == "Male, 1. Young, 2."
+    assert _genart.figure_key(_picks(2, "nest"), is_bird=True) == "Male, 1. Female, 2. (and Nest.)"
+    assert _genart.figure_key(_picks(2), is_bird=False) == ""
+
+
+def test_legend_lines_pair_the_key_with_the_plant():
+    assert _genart.legend_lines(_picks(2), True, PLANT) == [
+        "Male, 1. Female, 2.", "Chestnut Oak. Quercus prinus."]
+    # A brief cached before binomials were asked for: the common name alone.
+    assert _genart.legend_lines(_picks(1), True, {"name": "wild plum", "look": "x"}) == [
+        "Male.", "Wild plum."]
+    assert _genart.legend_lines(_picks(2), False, PLANT) == ["Chestnut Oak. Quercus prinus."]
+    assert _genart.legend_lines(_picks(1), True, None) == ["Male."]
+
+
+def test_prompt_names_the_numbered_figures():
+    p = _genart.build_prompt("American Robin", "Turdus migratorius",
+                             figures=["Male", "Female", "Young"])
+    assert "1. the Male" in p and "2. the Female" in p and "3. the Young" in p
+    assert "the Male" not in _genart.build_prompt("American Robin", "Turdus migratorius",
+                                                  figures=["Male"])
+
+
+def test_generated_sidecar_carries_the_legend_and_the_artwork_reads_it(tmp_path):
+    text = FakeTextModel(is_bird=True, plants=[PLANT])
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=text)
+    art = provider.artwork("American Robin", "Turdus migratorius")
+    import json as _json
+    meta = _json.loads((tmp_path / "generated" / "turdus-migratorius.json").read_text())
+    assert meta["legend"][-1] == "Chestnut Oak. Quercus prinus."
+    assert art.legend == meta["legend"]
+    assert meta["prompt_version"] == _genart.PROMPT_VERSION
+
+
+def test_old_sidecar_without_legend_gets_the_plant_line_only(tmp_path):
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated", refs=[])
+    d = tmp_path / "generated"; d.mkdir()
+    (d / "passer-domesticus.png").write_bytes(_plate_png())
+    import json as _json
+    (d / "passer-domesticus.json").write_text(_json.dumps({
+        "slug": "passer-domesticus", "plant": {"name": "wild plum", "look": "x"},
+        "art_direction": {"figures": _genart._FIGURES[1][1]}}))
+    art = provider.artwork("House Sparrow", "Passer domesticus")
+    assert art.legend == ["Wild plum."]
+    (d / "passer-domesticus.json").write_text(_json.dumps({"slug": "passer-domesticus"}))
+    assert provider.artwork("House Sparrow", "Passer domesticus").legend == []

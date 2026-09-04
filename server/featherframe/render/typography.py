@@ -278,19 +278,23 @@ def _when_parts(when: datetime) -> tuple[str, str]:
 
 
 # -- script caption (W-708) -------------------------------------------------
-# The caption's voice is a monoline script. The file comes from the box's data
-# dir first (data/fonts/script.ttf — a licensed face that must not ship in the
-# public repo), then the bundled open-licence Ms Madi, and if neither loads,
-# Garamond italic, so a missing font degrades the look, never the frame.
-_SCRIPT_BUNDLED = _FONTS / "MsMadi-Regular.ttf"
+# The caption's voice is a monoline script (Avaleia, a licensed face that must
+# not ship in the public repo). It lives in the box's data dir as
+# data/fonts/script.ttf; if it is missing or fails to load, Garamond italic
+# stands in, so a missing font degrades the look, never the frame.
 _SCRIPT_DATA_NAME = "script.ttf"
 
 
 def script_font_path() -> Path:
-    for cand in (paths.data_dir() / "fonts" / _SCRIPT_DATA_NAME, _SCRIPT_BUNDLED):
-        if cand.exists():
-            return cand
-    return _ITALIC
+    cand = paths.data_dir() / "fonts" / _SCRIPT_DATA_NAME
+    return cand if cand.exists() else _ITALIC
+
+
+def has_script_font() -> bool:
+    """True when the licensed script is installed (the dashboard serves it to
+    the browser only then; otherwise the page falls back to Garamond italic
+    exactly as the plates do)."""
+    return script_font_path() != _ITALIC
 
 
 @functools.lru_cache(maxsize=None)

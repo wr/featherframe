@@ -19,20 +19,24 @@ from featherframe.render.provider import ArtProvider, Artwork
 def test_script_font_prefers_the_data_dir_file(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "data_dir", lambda: tmp_path)
     (tmp_path / "fonts").mkdir()
-    shutil.copy(paths.fonts_dir() / "MsMadi-Regular.ttf", tmp_path / "fonts" / "script.ttf")
+    # Any TrueType file stands in for the licensed script, which never ships in git.
+    shutil.copy(paths.fonts_dir() / "EBGaramond-Italic[wght].ttf", tmp_path / "fonts" / "script.ttf")
     typography.script_font.cache_clear()
     assert typography.script_font(30).path == str(tmp_path / "fonts" / "script.ttf")
+    assert typography.has_script_font()
 
 
-def test_script_font_falls_back_to_the_bundled_open_font(tmp_path, monkeypatch):
+def test_script_font_falls_back_to_garamond_italic_without_the_data_dir_file(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "data_dir", lambda: tmp_path)
     typography.script_font.cache_clear()
-    assert typography.script_font(30).path == str(paths.fonts_dir() / "MsMadi-Regular.ttf")
+    assert "EBGaramond-Italic" in typography.script_font(30).path
+    assert not typography.has_script_font()
 
 
-def test_script_font_falls_back_to_garamond_italic_when_nothing_else_loads(tmp_path, monkeypatch):
+def test_script_font_falls_back_to_garamond_italic_when_the_file_will_not_load(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "data_dir", lambda: tmp_path)
-    monkeypatch.setattr(typography, "_SCRIPT_BUNDLED", tmp_path / "missing.ttf")
+    (tmp_path / "fonts").mkdir()
+    (tmp_path / "fonts" / "script.ttf").write_bytes(b"not a font")
     typography.script_font.cache_clear()
     assert "EBGaramond-Italic" in typography.script_font(30).path
 

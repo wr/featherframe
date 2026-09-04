@@ -24,6 +24,7 @@ from fastapi.templating import Jinja2Templates
 from . import __version__, paths
 from .config import Config, valid_hhmm
 from .names import display_common_name, normalize
+from .render import typography
 from .service import FeatherframeService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -203,6 +204,18 @@ async def favicon():
     if not ico.is_file():
         return Response(status_code=404)
     return FileResponse(ico, media_type="image/x-icon",
+                        headers={"Cache-Control": "max-age=86400"})
+
+
+# The dashboard's wordmark is set in the plates' script, which is a licensed
+# face living in the data dir (never in the repo). Serve it to the browser
+# straight from there; when it isn't installed the page's CSS falls back to
+# Garamond italic, exactly as the plates themselves do.
+@app.get("/fonts/script.ttf", include_in_schema=False)
+async def script_font():
+    if not typography.has_script_font():
+        return Response(status_code=404)
+    return FileResponse(typography.script_font_path(), media_type="font/ttf",
                         headers={"Cache-Control": "max-age=86400"})
 
 

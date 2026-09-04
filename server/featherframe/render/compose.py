@@ -1,9 +1,10 @@
 """Single-detection composition: one bird, museum-plate styling.
 
 Field + full-bleed bird art (seamlessly darken-composited so the plate's paper
-melts into our field) + caption block + a footer line with the date and the
-'№ NN' mark. When the provider has no art, we render a typographic fallback
-plate instead — never a wrong bird.
+melts into our field) + the script caption (title, Latin name, the plate's own
+legend lines) + the date and 'No. NN' marks in the bottom corners. When the
+provider has no art, we render a typographic fallback plate instead — never a
+wrong bird.
 
 The art box runs to the panel's top and side edges (the mat inset in the
 pipeline then scales the whole composition, so "full bleed" means to the mat
@@ -18,7 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops
 
 from . import plate, theme, typography
 from .provider import ArtProvider
@@ -100,9 +101,22 @@ def _cover_loss(art: Image.Image, box: tuple[int, int, int, int]) -> float:
 
 
 def note_width() -> float:
-    """Room for the footnote between the widest possible date and № marks."""
+    """Room for the footnote between the widest possible date and No. marks."""
     reserve = max(typography.date_mark_max_width(), typography.plate_number_max_width())
-    return theme.WIDTH - 2 * (theme.MARGIN_X + reserve + theme.NOTE_MARK_GAP)
+    return theme.WIDTH - 2 * (theme.CORNER_INSET + reserve + theme.NOTE_MARK_GAP)
+
+
+def caption_height(n_lines: int, first_ever: bool = False) -> int:
+    """Height reserved at the bottom for the caption: title ink top to the
+    panel bottom, for `n_lines` legend lines (plus the first-recorded line)."""
+    lines = n_lines + (1 if first_ever else 0)
+    # With no legend the Latin name still keeps a pitch of air above the
+    # corner marks (LATIN_TO_LEGEND - LEGEND_PITCH), so it never sits on them.
+    return (round(theme.SCRIPT_TITLE_SIZE * theme.SCRIPT_TITLE_ASCENT) + theme.TITLE_TO_LATIN
+            + theme.LATIN_TO_LEGEND + theme.LEGEND_PITCH * (lines - 1) + theme.CAPTION_BOTTOM)
+
+
+FIRST_EVER_LINE = "First recorded today."
 
 
 def render_single(spec: SingleSpec, provider: ArtProvider,
@@ -112,13 +126,11 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
         return render_fallback(spec, show_plate_number=show_plate_number)
 
     field = _new_field()
-    draw = ImageDraw.Draw(field)
 
-    # A first-ever plate's extra line grows the block upward, so the caption's
-    # own rhythm is untouched and the footnote below keeps its clearance.
-    caption_top = theme.HEIGHT - theme.CAPTION_BLOCK_H
+    lines = list(art.legend)
     if spec.first_ever:
-        caption_top -= theme.FIRST_LINE_EXTRA
+        lines.append(FIRST_EVER_LINE)
+    caption_top = theme.HEIGHT - caption_height(len(art.legend), spec.first_ever)
     art_box = (0, 0, theme.WIDTH, caption_top - theme.CAPTION_GAP)
     img = art.image
     # A composite is always shown whole (never a wrong bird); anything else
@@ -134,84 +146,35 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     else:
         _place_art(field, img, art_box)
 
-    sci_baseline = typography.caption_block(draw, theme.WIDTH / 2, caption_top,
-                                            spec.common_name, spec.scientific_name)
-    if spec.first_ever:
-        typography.first_recorded_line(
-            draw, theme.WIDTH / 2,
-            sci_baseline + round(theme.FIRST_LINE_SIZE * theme.FIRST_LINE_DROP))
+    typography.caption(field, caption_top, spec.common_name, spec.scientific_name, lines)
     if spec.when:
-        typography.date_mark(draw, spec.when)
-
+        typography.date_mark(field, spec.when)
     if show_plate_number and spec.plate_number:
-        typography.plate_number_mark(draw, spec.plate_number)
+        typography.plate_number_mark(field, spec.plate_number)
     if spec.note:
-        typography.note_line(draw, spec.note, max_w=note_width())
+        typography.note_line(field, spec.note, max_w=note_width())
     return field
 
 
 def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.Image:
     """Typographic plate for a species we have no illustration for.
 
-    Just the name, set large and well, with 'First recorded <date>' beneath.
-    Honest and quiet — the museum's way of saying 'no plate for this one'.
+    Just the name, set in the caption's own voice, with 'First recorded
+    <date>' beneath. Honest and quiet — the museum's way of saying 'no plate
+    for this one'.
     """
     field = _new_field()
-    draw = ImageDraw.Draw(field)
-    cx = theme.WIDTH / 2
-
     when = spec.first_seen or (spec.when.strftime("%Y-%m-%d") if spec.when else None)
-    pretty = None
+    lines: list[str] = []
     if when:
         try:
             d = datetime.strptime(when, "%Y-%m-%d")
-            pretty = f"First recorded {d.day} {d.strftime('%B')} {d.year}"
+            lines.append(f"First recorded {d.day} {d.strftime('%B')} {d.year}.")
         except ValueError:
-            pretty = f"First recorded {when}"
-
-    block_top = theme.HEIGHT * 0.34
-
-    if typography.HAS_RAQM:
-        # Common name — swash italic, tightened, auto-fit.
-        size = 132
-        while size > 60:
-            title_font = typography.FONTS.get(size, italic=True, weight=theme.TITLE_WEIGHT)
-            if typography.title_width(title_font, spec.common_name,
-                                      size * theme.TITLE_TRACKING) <= theme.CONTENT_W:
-                break
-            size -= 3
-        typography.draw_title(draw, cx, block_top, spec.common_name, title_font,
-                              theme.INK, size * theme.TITLE_TRACKING)
-
-        # Scientific name — engraved capitals.
-        sci_baseline = block_top + size * 0.30 + 48
-        typography.draw_engraved(draw, cx, sci_baseline, spec.scientific_name.upper(),
-                                 38, theme.INK_MEDIUM)
-
-        rule_y = sci_baseline + 74
-        half = theme.RULE_WIDTH / 2
-        draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],
-                       fill=theme.RULE)
-
-        if pretty:
-            typography.first_recorded_line(draw, cx, rule_y + 62, pretty)
-    else:
-        name_size = typography.fit_smallcaps_size(spec.common_name, typography.FONTS,
-                                                  104, theme.NAME_TRACKING, theme.CONTENT_W)
-        typography.draw_smallcaps(draw, cx, block_top, spec.common_name,
-                                  typography.FONTS, name_size, theme.INK, theme.NAME_TRACKING)
-        sci_baseline = block_top + 92
-        typography.draw_engraved(draw, cx, sci_baseline, spec.scientific_name.upper(),
-                                 38, theme.INK_MEDIUM)
-        rule_y = sci_baseline + 74
-        half = theme.RULE_WIDTH / 2
-        draw.rectangle([cx - half, rule_y, cx + half, rule_y + theme.RULE_THICKNESS - 1],
-                       fill=theme.RULE)
-        if pretty:
-            typography.first_recorded_line(draw, cx, rule_y + 62, pretty)
-
+            lines.append(f"First recorded {when}.")
+    typography.caption(field, theme.HEIGHT * 0.34, spec.common_name, spec.scientific_name, lines)
     if show_plate_number and spec.plate_number:
-        typography.plate_number_mark(draw, spec.plate_number)
+        typography.plate_number_mark(field, spec.plate_number)
     if spec.note:
-        typography.note_line(draw, spec.note, max_w=note_width())
+        typography.note_line(field, spec.note, max_w=note_width())
     return field

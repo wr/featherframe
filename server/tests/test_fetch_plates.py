@@ -139,3 +139,19 @@ def test_index_catalog_records_cached_images(fp, tmp_path):
         {"plate": 1, "name": "Bird 1", "image": cat[1]["fileName"]},
         {"plate": 2, "name": "Bird 2", "image": None},
     ]
+
+
+def test_species_legend_reduces_a_composite_to_the_species_key(fp):
+    plate_legends = {353: {"composite": True, "lines": [
+        "Chesnut-backed Titmouse, 1. Male, 2. Female.",
+        "Black-capt Titmouse, 3. Male, 4. Female.",
+        "Willow Oak ~ Quercus Phellos. L."]},
+        159: {"composite": False, "lines": ["Male, 1. Female, 2.", "Wild Almond."]}}
+    chick = {"common": "Black-capped Chickadee", "audubon_title": "Black-capt Titmouse (composite)",
+             "composite": True}
+    assert fp.species_legend(chick, 353, plate_legends) == [
+        "3. Male, 4. Female.", "Willow Oak ~ Quercus Phellos. L."]
+    card = {"common": "Northern Cardinal", "audubon_title": "Cardinal Grosbeak"}
+    assert fp.species_legend(card, 159, plate_legends) == ["Male, 1. Female, 2.", "Wild Almond."]
+    assert fp.species_legend(card, 999, plate_legends) == []
+    assert fp.species_legend(card, None, plate_legends) == []

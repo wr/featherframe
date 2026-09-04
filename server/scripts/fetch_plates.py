@@ -40,13 +40,14 @@ import yaml
 
 # Make the featherframe package importable when run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from featherframe import paths  # noqa: E402
+from featherframe import legends, paths  # noqa: E402
 from featherframe.names import fuzzy_resolve_plate  # noqa: E402
 
 RAW_BASE = "https://raw.githubusercontent.com/nathanbuchar/audubon-bird-plates/master"
 DATA_JSON_URL = f"{RAW_BASE}/data.json"
 AUDUBON_MEDIA = "https://media.audubon.org/boa_illustration"
 DEFAULT_SPECIES_YAML = Path(__file__).resolve().parent / "species.yaml"
+DEFAULT_LEGENDS_YAML = Path(__file__).resolve().parent / "legends.yaml"
 USER_AGENT = "Featherframe/1.0 (+https://github.com; personal e-paper art frame)"
 
 # Transient failures (connection/DNS errors, 5xx) are retried per URL with
@@ -104,6 +105,20 @@ def _warn_name_file_disagreements(catalog: dict[int, dict]) -> None:
         print(f"  !  catalog 'name' disagrees with fileName for plates "
               f"{bad[0]}-{bad[-1]} ({len(bad)} plates) — titles there are "
               f"unreliable; trust pinned numbers + fileName, not fuzzy matches.")
+
+
+def species_legend(entry: dict, plate: int | None,
+                   plate_legends: dict[int, dict]) -> list[str]:
+    """The legend lines printed under this species on its plate: the plate's
+    transcribed lines, reduced to this species' own figure key on a composite
+    sheet (legends.resolve). Empty when the plate has no transcription."""
+    if plate is None:
+        return []
+    rec = plate_legends.get(int(plate))
+    if not rec:
+        return []
+    composite = bool(entry.get("composite", False)) or bool(rec.get("composite", False))
+    return legends.resolve(entry.get("audubon_title", ""), composite, rec.get("lines", []))
 
 
 def resolve_plate(entry: dict, catalog: dict[int, dict]) -> int | None:
@@ -227,6 +242,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Download Audubon plates for Featherframe.")
     ap.add_argument("--species", type=Path, default=DEFAULT_SPECIES_YAML,
                     help="species list YAML (default: scripts/species.yaml)")
+    ap.add_argument("--legends", type=Path, default=DEFAULT_LEGENDS_YAML,
+                    help="plate legends YAML (default: scripts/legends.yaml)")
     ap.add_argument("--dry-run", action="store_true", help="resolve plates but download nothing")
     ap.add_argument("--force", action="store_true", help="re-download even if present")
     ap.add_argument("--all", action="store_true",
@@ -235,6 +252,7 @@ def main() -> int:
 
     doc = yaml.safe_load(args.species.read_text()) or {}
     species = doc.get("species", [])
+    plate_legends = legends.load(args.legends)
     if not species:
         print(f"No species found in {args.species}")
         return 1
@@ -264,6 +282,7 @@ def main() -> int:
             "crop_box": entry.get("crop_box"),
             "sci_synonyms": entry.get("sci_synonyms", []),
             "image": None,
+            "legend": species_legend(entry, plate, plate_legends),
         }
         if plate is None:
             print(f"  ·  {common}: typographic fallback (no plate)")

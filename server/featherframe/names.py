@@ -60,6 +60,7 @@ class PlateMatch:
     composite: bool = False
     crop_box: Optional[list] = None  # normalised [x, y, w, h] in 0..1, or None
     matched_by: str = "exact"
+    legend: list = field(default_factory=list)   # Audubon's printed figure key / plant lines
 
     @property
     def has_image(self) -> bool:
@@ -130,6 +131,7 @@ class SpeciesIndex:
             composite=bool(entry.get("composite", False)),
             crop_box=entry.get("crop_box"),
             matched_by="exact",
+            legend=[str(x) for x in (entry.get("legend") or [])],
         )
         # If the image is missing on disk, degrade to fallback rather than crash.
         if not m.has_image:

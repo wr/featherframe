@@ -98,8 +98,13 @@ placement survives. The art is full-bleed to the mat opening (W-707):
 `compose.py` cover-fits a plate whose edges are inked (Snowy Owl) only if
 that crops ≤ 25 % of it, else contain-fits it centred; the date and № marks
 share one footer baseline with the gone-quiet note;
-`typography.py` does EB Garamond faux small caps and the caption block;
-`theme.py` holds all geometry/tone constants.
+`typography.py` sets the caption (W-708): a monoline script title (Ms Madi,
+OFL, bundled; `data/fonts/script.ttf` overrides it; Garamond italic is the
+last resort), the engraved Latin name, and the plate's own legend lines from
+`scripts/legends.yaml` (Audubon's printed figure key and plant, transcribed
+per Havell plate; `featherframe/legends.py` reduces a composite sheet to the
+detected species' line); the date · time and "No. NN" sit in the bottom
+corners in the same script. `theme.py` holds all geometry/tone constants.
 
 **Non-obvious invariants — do not break one side of these without the other:**
 

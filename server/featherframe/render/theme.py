@@ -37,7 +37,8 @@ MARGIN_BOTTOM = 95
 # i.e. to the mat opening, since the mat inset scales the whole composition —
 # and only the caption block below it is reserved. The block's height follows
 # its line count (compose.caption_height).
-CAPTION_GAP = 48       # gap between the art and the title's ink top
+CAPTION_GAP = 96       # air between the art and the title: the script capitals
+                       # swash well above their nominal cap line (4 Sep 2026)
 
 # -- script caption (W-708) --------------------------------------------------
 # Wells's mockup: a monoline script title over the engraved Latin name (with

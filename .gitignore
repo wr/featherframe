@@ -22,6 +22,3 @@ firmware/.piolibdeps/
 
 # OS
 .DS_Store
-
-# Generated from the licensed script font (firmware/tools/portal_font.py)
-firmware/src/ff_portal_font.h

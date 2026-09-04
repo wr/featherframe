@@ -2,9 +2,8 @@
 """Render the config page's favicon set from the wordmark font.
 
 The icon is the script "F" of the Featherframe wordmark (the plates' script,
-the same face the firmware splash and the page header use — resolved by the
-server's own typography module, so it needs data/fonts/script.ttf installed
-locally), cream on a walnut rounded square — the page's one concentrated
+the same bundled face the firmware splash and the page header use, resolved
+by the server's own typography module), cream on a walnut rounded square — the page's one concentrated
 accent, and the pair that still reads at 16 px in both a dark and a light tab
 strip (a black glyph on paper did not). Rendered at 8x and downsampled so the
 small sizes keep the script's hairlines.
@@ -57,7 +56,7 @@ def icon(size: int, rounded: bool = True) -> Image.Image:
 
 def main() -> None:
     if not typography.has_script_font():
-        sys.exit("data/fonts/script.ttf is not installed; the favicon must be the script F")
+        sys.exit("the bundled script font is missing; the favicon must be the script F")
     STATIC.mkdir(exist_ok=True)
     icon(32).save(STATIC / "favicon-32.png")
     icon(192).save(STATIC / "favicon-192.png")

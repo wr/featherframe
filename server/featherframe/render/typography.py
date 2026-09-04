@@ -277,22 +277,21 @@ def _when_parts(when: datetime) -> tuple[str, str]:
     return (f"{when.day} {month} {when.year}", f"{hour}:{when.minute:02d} {ampm}")
 
 
-# -- script caption (W-708) -------------------------------------------------
-# The caption's voice is a monoline script (Avaleia, a licensed face that must
-# not ship in the public repo). It lives in the box's data dir as
-# data/fonts/script.ttf; if it is missing or fails to load, Garamond italic
-# stands in, so a missing font degrades the look, never the frame.
-_SCRIPT_DATA_NAME = "script.ttf"
+# -- script caption (W-708, W-713) ------------------------------------------
+# The caption's voice is a copperplate script: Kapakana (OFL, bundled), chosen
+# on the glass over Avaleia and five others on 4 Sep 2026. If the bundled
+# file is missing or fails to load, Garamond italic stands in, so a missing
+# font degrades the look, never the frame.
+_SCRIPT = _FONTS / "Kapakana-Regular.ttf"
 
 
 def script_font_path() -> Path:
-    cand = paths.data_dir() / "fonts" / _SCRIPT_DATA_NAME
-    return cand if cand.exists() else _ITALIC
+    return _SCRIPT if _SCRIPT.exists() else _ITALIC
 
 
 def has_script_font() -> bool:
-    """True when the licensed script is installed (the dashboard serves it to
-    the browser only then; otherwise the page falls back to Garamond italic
+    """True when the bundled script is present (the dashboard serves it to the
+    browser only then; otherwise the page falls back to Garamond italic
     exactly as the plates do)."""
     return script_font_path() != _ITALIC
 
@@ -308,8 +307,24 @@ def script_font(size: int) -> ImageFont.FreeTypeFont:
     return FONTS.get(size, italic=True, weight=500)
 
 
+def _script_runs(text: str, font: ImageFont.FreeTypeFont, size: float):
+    """Split `text` after each colon so the run that follows can be pulled in
+    by theme.COLON_KERN (a fraction of `size`, negative = tighter): the
+    script's colon carries a wide right bearing that opens "8: 14" in the
+    clock. Returns ([(piece, x_offset)], total_width)."""
+    kern = theme.COLON_KERN * size
+    pieces = text.split(":")
+    runs, x = [], 0.0
+    for i, piece in enumerate(pieces):
+        last = i == len(pieces) - 1
+        piece = piece if last else piece + ":"
+        runs.append((piece, x))
+        x += font.getlength(piece) + (0 if last else kern)
+    return runs, x
+
+
 def script_width(text: str, size: int) -> float:
-    return script_font(size).getlength(text)
+    return _script_runs(text, script_font(size), size)[1]
 
 
 def draw_script(field: Image.Image, x: float, baseline: float, text: str, size: int,
@@ -321,19 +336,24 @@ def draw_script(field: Image.Image, x: float, baseline: float, text: str, size: 
     horizontal anchor at x: "ms" centred, "ls" left, "rs" right. Returns the
     text width."""
     font = script_font(size)
-    width = font.getlength(text)
+    runs, width = _script_runs(text, font, size)
     left = {"ms": x - width / 2, "ls": x, "rs": x - width}[anchor]
     if stroke <= 0:
-        ImageDraw.Draw(field).text((left, baseline), text, font=font, fill=fill, anchor="ls")
+        draw = ImageDraw.Draw(field)
+        for piece, dx in runs:
+            draw.text((left + dx, baseline), piece, font=font, fill=fill, anchor="ls")
         return width
     ss = 4
     big = script_font(size * ss)
+    big_runs, big_w = _script_runs(text, big, size * ss)
     pad = int(size * 0.6) * ss
-    w = int(big.getlength(text)) + 2 * pad
+    w = int(big_w) + 2 * pad
     h = int(size * ss * 1.7)
     layer = Image.new("L", (w, h), 255)
-    ImageDraw.Draw(layer).text((pad, size * ss * 1.2), text, font=big, fill=fill, anchor="ls",
-                               stroke_width=round(stroke * ss), stroke_fill=fill)
+    draw = ImageDraw.Draw(layer)
+    for piece, dx in big_runs:
+        draw.text((pad + dx, size * ss * 1.2), piece, font=big, fill=fill, anchor="ls",
+                  stroke_width=round(stroke * ss), stroke_fill=fill)
     small = layer.resize((w // ss, h // ss), Image.LANCZOS)
     ox, oy = int(round(left - pad / ss)), int(round(baseline - size * 1.2))
     region = field.crop((ox, oy, ox + small.width, oy + small.height))

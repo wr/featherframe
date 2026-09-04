@@ -91,7 +91,13 @@ cached forever in `data/generated/` (PNG + JSON sidecar) and only a manual
 regenerate from the config page replaces one; failures soft-fail to the
 fallback with a per-species cooldown. The user's API key lives only in our DB
 and is masked in `status()` and the UI. `plate.py` does the content-aware crop
-(generated PNGs go through the same `plate.extract` as real scans);
+(generated PNGs go through the same `plate.extract` as real scans): the
+heaviest ink band, extended through faint contiguous ink (hanging straw) up
+to a real paper gap, then mirrored about the plate centre so Audubon's own
+placement survives. The art is full-bleed to the mat opening (W-707):
+`compose.py` cover-fits a plate whose edges are inked (Snowy Owl) only if
+that crops ≤ 25 % of it, else contain-fits it centred; the date and № marks
+share one footer baseline with the gone-quiet note;
 `typography.py` does EB Garamond faux small caps and the caption block;
 `theme.py` holds all geometry/tone constants.
 

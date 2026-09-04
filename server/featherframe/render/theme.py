@@ -30,17 +30,17 @@ MAT_BORDER = 204   # the mat allowance ring around the inset composition — a
                    # same rationale as FIELD.
 
 # -- geometry (px) ---------------------------------------------------------
-MARGIN_X = 100     # left/right breathing room (art fills wider, per v2)
-MARGIN_TOP = 78
+MARGIN_X = 100     # left/right inset of the caption's marks and footnote
 MARGIN_BOTTOM = 95
 
-# The caption block reserves this much height at the bottom of a single frame
-# (its top edge is the title's cap top); the bird art gets everything above it.
-# v4: name + scientific name only — the rule and date line are gone (the
-# detection date is a corner mark now), so the block is shallower and the pair
-# breathes inside it.
-CAPTION_BLOCK_H = 264
-CAPTION_GAP = 84   # gap between the art and the caption block
+# The art is full-bleed (W-707): it runs to the panel's top and side edges —
+# i.e. to the mat opening, since the mat inset scales the whole composition —
+# and only the caption block below it is reserved. The block's top edge is
+# the title's cap top; name + scientific name only, with the date and № on
+# one footer line under them (they were top-corner marks, and got lost
+# against dark plates).
+CAPTION_BLOCK_H = 270
+CAPTION_GAP = 48   # gap between the art and the caption block
 
 # Caption typography (point-ish sizes at native panel resolution)
 NAME_SIZE = 78         # common name, faux small caps
@@ -48,7 +48,7 @@ NAME_TRACKING = 0.10   # extra letter-spacing as a fraction of size
 SCI_SIZE = 46          # scientific name, italic
 META_SIZE = 30         # date / time line
 META_TRACKING = 0.22
-PLATE_NO_SIZE = 42     # "№ 47" corner mark — same size as the date line
+PLATE_NO_SIZE = 42     # "№ 47" and the date · time mark (footer line)
 PLATE_NO_TRACKING = 0.18
 PLATE_NO_NUMERO = "№"          # numero sign, then the ordinal in oldstyle figures
 PLATE_NO_FEATURES = ("onum", "kern")
@@ -80,7 +80,7 @@ DATE_WEIGHT = 500
 DATE_TRACKING = 0.09
 DATE_FEATURES = ("onum", "liga", "kern")           # "17 May 2026"
 TIME_FEATURES = ("smcp", "onum", "liga", "kern")   # "8:14 am" -> small-cap AM
-CORNER_SEP = "·"           # between date and time in the corner mark ("1 Sep · 8:14 am")
+CORNER_SEP = "·"           # between date and time in the footer mark ("1 Sep · 8:14 am")
 DATE_ORNAMENT = "❧"   # ❧ hedera leaf between date and time
 DATE_ORNAMENT_GAP = 1.15   # gap on each side of the hedera, fraction of size
 
@@ -90,7 +90,7 @@ CAPTION_SCI_DROP = 0.80    # title baseline -> sci baseline, fraction of title s
 
 # "First recorded today" under the scientific name of a first-ever species on
 # a REAL plate (and "First recorded 17 May 2026" on the no-plate fallback):
-# the corner date's italic voice, larger and in the full ink, flanked by a
+# the date mark's italic voice, larger and in the full ink, flanked by a
 # pair of hederae. A first-ever bird is an event, and the line must read
 # from across the room — the small italic caps it replaced did not (W-695).
 # The caption block grows by FIRST_LINE_EXTRA so the line sits in the block's
@@ -107,14 +107,18 @@ FIRST_LINE_EXTRA = 80          # caption block height added for the line
 RULE_WIDTH = 200
 RULE_THICKNESS = 2
 
-# -- gone-quiet footnote ----------------------------------------------------
-# One small italic line centred in the bottom margin ("Nothing heard since
-# 11:27 pm"), below the caption block. Anchored to the panel's bottom edge so
-# it never chases the caption's baselines, which move with the title's size.
+# -- footer line: date · time, footnote, № ----------------------------------
+# One baseline near the panel's bottom edge carries the italic date/time mark
+# at the left margin, the № mark at the right, and — between them, centred —
+# the gone-quiet footnote ("Nothing heard since 11:27 pm"). Anchored to the
+# panel bottom so it never chases the caption's baselines, which move with
+# the title's size.
+MARKS_BASELINE = HEIGHT - 40
 NOTE_SIZE = 32
 NOTE_WEIGHT = 500
 NOTE_FEATURES = ("onum", "liga", "kern")
-NOTE_BASELINE = HEIGHT - 40    # note baseline above the panel bottom
+NOTE_BASELINE = MARKS_BASELINE
+NOTE_MARK_GAP = 48             # clearance between the footnote and either mark
 NOTE_CLEAR = 46                # how far a collage key lifts to make room for it
 
 # -- collage sheet ----------------------------------------------------------

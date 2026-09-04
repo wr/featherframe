@@ -16,9 +16,9 @@ from featherframe.render.provider import ArtProvider, Artwork
 
 
 # -- font chain ----------------------------------------------------------------
-def test_script_font_is_the_bundled_kapakana():
+def test_script_font_is_the_bundled_pinyon_script():
     typography.script_font.cache_clear()
-    assert typography.script_font(30).path == str(paths.fonts_dir() / "Kapakana-Regular.ttf")
+    assert typography.script_font(30).path == str(paths.fonts_dir() / "PinyonScript-Regular.ttf")
     assert typography.has_script_font()
 
 
@@ -39,7 +39,8 @@ def test_script_font_falls_back_to_garamond_italic_when_the_file_will_not_load(t
     typography.script_font.cache_clear()
 
 
-def test_colon_kern_tightens_the_clock():
+def test_colon_kern_tightens_the_clock(monkeypatch):
+    monkeypatch.setattr(theme, "COLON_KERN", -0.12)
     assert typography.script_width("8:14", 36) < typography.script_font(36).getlength("8:14")
     assert typography.script_width("814", 36) == typography.script_font(36).getlength("814")
 

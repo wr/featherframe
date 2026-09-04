@@ -45,13 +45,13 @@
     .wrap { max-width:960px; margin:0 auto; padding:44px 26px 88px; }
 
     header { margin-bottom:32px; padding-left:2px; }
-    /* The wordmark is the plates' script title (Kapakana, served from the
-       server's bundled fonts at /fonts/script.ttf); declared italic so a box
-       without it falls back to Garamond italic un-slanted, the same stand-in
-       the plates use. Its x-height is small, hence the size. */
+    /* The wordmark is the plates' script title (Pinyon Script, served from
+       the server's bundled fonts at /fonts/script.ttf); declared italic so a
+       box without it falls back to Garamond italic un-slanted, the same
+       stand-in the plates use. */
     @font-face { font-family:"Featherframe Script"; src:url("/fonts/script.ttf") format("truetype");
       font-style:italic; font-weight:400 700; font-display:swap; }
-    .wordmark { font-family:"Featherframe Script", var(--serif); font-style:italic; font-weight:500; font-size:54px; line-height:1; margin:0;
+    .wordmark { font-family:"Featherframe Script", var(--serif); font-style:italic; font-weight:500; font-size:44px; line-height:1; margin:0;
       font-feature-settings:"liga" 1,"calt" 1,"kern" 1; text-rendering:optimizeLegibility; }
     header p { margin:7px 0 0; font-size:13px; color:var(--muted); }
     header p a { color:var(--ink-2); text-decoration:none; }
@@ -74,7 +74,7 @@
     @media (max-width:600px){
       .wrap { padding:28px 14px 64px; }
       header { margin-bottom:22px; }
-      .wordmark { font-size:46px; }
+      .wordmark { font-size:38px; }
       .status-card { padding:14px 16px; }
       .sc-head.second { margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; }
       section.sec { padding:20px 16px; }

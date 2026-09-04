@@ -277,12 +277,13 @@ def _when_parts(when: datetime) -> tuple[str, str]:
     return (f"{when.day} {month} {when.year}", f"{hour}:{when.minute:02d} {ampm}")
 
 
-# -- script caption (W-708, W-713) ------------------------------------------
-# The caption's voice is a copperplate script: Kapakana (OFL, bundled), chosen
-# on the glass over Avaleia and five others on 4 Sep 2026. If the bundled
-# file is missing or fails to load, Garamond italic stands in, so a missing
-# font degrades the look, never the frame.
-_SCRIPT = _FONTS / "Kapakana-Regular.ttf"
+# -- script caption (W-708, W-713, W-714) -----------------------------------
+# The caption's voice is a copperplate script: Pinyon Script (OFL, bundled),
+# chosen on the glass on 4 Sep 2026 — Kapakana had the look but no kerning
+# at all (its W's flourish overhangs its advance), Pinyon has ~10k pairs. If
+# the bundled file is missing or fails to load, Garamond italic stands in, so
+# a missing font degrades the look, never the frame.
+_SCRIPT = _FONTS / "PinyonScript-Regular.ttf"
 
 
 def script_font_path() -> Path:

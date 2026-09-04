@@ -32,7 +32,7 @@ there is no separate onboarding checklist.
 **Bake pipeline** — `bake_screens.py` (run with the server venv):
 `server/.venv/bin/python firmware/tools/screens/bake_screens.py [--preview]`
 - Type is set by the SERVER's own typography module (`sys.path` → `server/`): the
-  wordmark IS the plate title (the bundled script, Kapakana, at the plates' auto-fit
+  wordmark IS the plate title (the bundled script, Pinyon Script, at the plates' auto-fit
   `theme.SCRIPT_TITLE_SIZE`, via `typography.draw_script`), and the splash
   version line is the plates' engraved capitals (`typography.draw_engraved`, Adorn
   Engraved at `theme.SUBTITLE_SIZE`) under a hedera. A plate-typography change on the

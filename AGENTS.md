@@ -99,7 +99,7 @@ placement survives. The art is full-bleed to the mat opening (W-707):
 that crops ≤ 25 % of it, else contain-fits it centred; the date and № marks
 share one footer baseline with the gone-quiet note;
 `typography.py` sets the caption (W-708): a copperplate script title
-(Kapakana, OFL, bundled in `featherframe/fonts/`; Garamond italic is the
+(Pinyon Script, OFL, bundled in `featherframe/fonts/`; Garamond italic is the
 stand-in if it is ever absent), the engraved
 Latin name, and the plate's own legend lines from
 `scripts/legends.yaml` (Audubon's printed figure key and plant, transcribed

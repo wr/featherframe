@@ -48,7 +48,7 @@ CAPTION_GAP = 96       # air between the art and the title: the script capitals
 # that same script. Sizes and baseline gaps were tuned on the glass for
 # Kapakana (W-713, 4 Sep 2026): its x-height is small, so everything runs
 # ~1.4x the sizes Avaleia wore, and the title got two more bumps on the wall.
-SCRIPT_TITLE_SIZE = 180        # common name, auto-fit down to SCRIPT_TITLE_MIN
+SCRIPT_TITLE_SIZE = 160        # common name, auto-fit down to SCRIPT_TITLE_MIN
 SCRIPT_TITLE_MIN = 77
 SCRIPT_TITLE_ASCENT = 0.62     # block top -> title baseline, fraction of size
 TITLE_TO_LATIN = 97            # title baseline -> Latin baseline

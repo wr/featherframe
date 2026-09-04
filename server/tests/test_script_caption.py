@@ -16,29 +16,32 @@ from featherframe.render.provider import ArtProvider, Artwork
 
 
 # -- font chain ----------------------------------------------------------------
-def test_script_font_prefers_the_data_dir_file(tmp_path, monkeypatch):
-    monkeypatch.setattr(paths, "data_dir", lambda: tmp_path)
-    (tmp_path / "fonts").mkdir()
-    # Any TrueType file stands in for the licensed script, which never ships in git.
-    shutil.copy(paths.fonts_dir() / "EBGaramond-Italic[wght].ttf", tmp_path / "fonts" / "script.ttf")
+def test_script_font_is_the_bundled_kapakana():
     typography.script_font.cache_clear()
-    assert typography.script_font(30).path == str(tmp_path / "fonts" / "script.ttf")
+    assert typography.script_font(30).path == str(paths.fonts_dir() / "Kapakana-Regular.ttf")
     assert typography.has_script_font()
 
 
-def test_script_font_falls_back_to_garamond_italic_without_the_data_dir_file(tmp_path, monkeypatch):
-    monkeypatch.setattr(paths, "data_dir", lambda: tmp_path)
+def test_script_font_falls_back_to_garamond_italic_without_the_bundled_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(typography, "_SCRIPT", tmp_path / "missing.ttf")
     typography.script_font.cache_clear()
     assert "EBGaramond-Italic" in typography.script_font(30).path
     assert not typography.has_script_font()
+    typography.script_font.cache_clear()
 
 
 def test_script_font_falls_back_to_garamond_italic_when_the_file_will_not_load(tmp_path, monkeypatch):
-    monkeypatch.setattr(paths, "data_dir", lambda: tmp_path)
-    (tmp_path / "fonts").mkdir()
-    (tmp_path / "fonts" / "script.ttf").write_bytes(b"not a font")
+    bad = tmp_path / "bad.ttf"
+    bad.write_bytes(b"not a font")
+    monkeypatch.setattr(typography, "_SCRIPT", bad)
     typography.script_font.cache_clear()
     assert "EBGaramond-Italic" in typography.script_font(30).path
+    typography.script_font.cache_clear()
+
+
+def test_colon_kern_tightens_the_clock():
+    assert typography.script_width("8:14", 36) < typography.script_font(36).getlength("8:14")
+    assert typography.script_width("814", 36) == typography.script_font(36).getlength("814")
 
 
 def _ink(img, box=None):
@@ -78,14 +81,18 @@ def _blank(legend=()):
 
 
 def _dark(legend=()):
-    return _Art(Image.new("L", (720, 1000), 30), legend)
+    # Square so it cover-fits (fills) the art box whatever the caption height:
+    # the art's bottom edge is then exactly the box bottom.
+    return _Art(Image.new("L", (900, 900), 30), legend)
 
 
 LEGEND = ["Male, 1. Female, 2. Young, 3.", "Chestnut Oak. Quercus prinus."]
 
 
 def test_caption_height_follows_the_legend_line_count():
-    assert compose.caption_height(2) - compose.caption_height(0) == 2 * theme.LEGEND_PITCH
+    assert compose.caption_height(2) - compose.caption_height(1) == theme.LEGEND_PITCH
+    assert (compose.caption_height(1) - compose.caption_height(0)
+            == theme.LATIN_TO_LEGEND - theme.LATIN_BOTTOM_CLEAR)
     assert compose.caption_height(0) > theme.CAPTION_BOTTOM
 
 
@@ -93,9 +100,14 @@ def test_art_gives_way_to_a_longer_legend():
     short = compose.render_single(_spec(), _dark())
     long = compose.render_single(_spec(), _dark(LEGEND))
     def art_bottom(img):
-        ys = np.where(np.asarray(img)[:, 10] < 128)[0]   # a dark column at the left edge
-        return int(ys.max())
-    assert art_bottom(short) - art_bottom(long) == 2 * theme.LEGEND_PITCH
+        # The art is the dark run from the top of the mid-plate column; the
+        # caption's own ink sits below a white gap.
+        col = np.asarray(img)[:, theme.WIDTH // 2] < 128
+        y = int(np.argmax(col))
+        while y + 1 < len(col) and col[y + 1]:
+            y += 1
+        return y
+    assert art_bottom(short) - art_bottom(long) == compose.caption_height(2) - compose.caption_height(0)
 
 
 def test_legend_lines_are_drawn_under_the_latin_name():
@@ -107,7 +119,8 @@ def test_legend_lines_are_drawn_under_the_latin_name():
     assert _ink(with_legend, band) > 500
     # On the no-legend plate nothing sits between the Latin name and the
     # corner marks (which are outside this x-range).
-    assert _ink(without, (300, theme.HEIGHT - 72, theme.WIDTH - 300, theme.HEIGHT - 44)) == 0
+    clear = theme.CORNER_INSET + typography.date_mark_max_width() + 20
+    assert _ink(without, (clear, theme.HEIGHT - 72, theme.WIDTH - clear, theme.HEIGHT - 44)) == 0
 
 
 def test_marks_sit_in_the_bottom_corners():

@@ -337,11 +337,11 @@ void markFirmwareGood();
 // Paper/ink restyle for the WiFiManager captive portal — injected into
 // <head> after the stock style, so these rules win the cascade (the stock
 // sheet still supplies the signal-strength sprite). The "Featherframe"
-// wordmark is the plates' script: a ~4.7 KB WOFF subset of the licensed face
-// (never in git) embedded as a data URI by tools/portal_font.py into
-// ff_portal_font.h — the captive portal has no internet, so the face must
-// travel with the page. Without that header the @font-face is empty and the
-// h1 falls back to Georgia italic. Kept in PROGMEM.
+// wordmark is the plates' script: a WOFF subset of the bundled face
+// embedded as a data URI by tools/portal_font.py into ff_portal_font.h — the
+// captive portal has no internet, so the face must travel with the page.
+// Without that header the @font-face is empty and the h1 falls back to
+// Georgia italic. Kept in PROGMEM.
 #if __has_include("ff_portal_font.h")
 #include "ff_portal_font.h"
 #else

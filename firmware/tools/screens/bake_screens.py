@@ -4,9 +4,8 @@
 Renders 5 screens at the panel's native 1404x1872 and PackBits-compresses them
 into a C header the firmware blits. The boot screens compose the designer's
 pen-and-ink birdhouse art (./art) with type set by the SERVER's own typography
-module — the wordmark is the plate title style (the script, at the plates'
-auto-fit title size; needs data/fonts/script.ttf installed locally, the licensed
-face that never ships in git) and the version line is the plates' engraved
+module — the wordmark is the plate title style (the bundled script at the
+plates' auto-fit title size) and the version line is the plates' engraved
 capitals — so the boot face always matches the plates. Pills use Inter
 (./fonts) for legibility at a glance.
 Run after changing the art, copy, or layout:
@@ -264,7 +263,7 @@ VERSION_BASELINE = 1718
 
 def draw_wordmark(im):
     if not typography.has_script_font():
-        sys.exit("data/fonts/script.ttf is not installed; the wordmark must be the plates' script")
+        sys.exit("the bundled script font is missing; the wordmark must be the plates' script")
     size = typography.fit_script_title("Featherframe", theme.CONTENT_W)
     typography.draw_script(im, W / 2, WORDMARK_BASELINE, "Featherframe", size, 0,
                            stroke=theme.TITLE_STROKE)

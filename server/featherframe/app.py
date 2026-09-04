@@ -207,10 +207,9 @@ async def favicon():
                         headers={"Cache-Control": "max-age=86400"})
 
 
-# The dashboard's wordmark is set in the plates' script, which is a licensed
-# face living in the data dir (never in the repo). Serve it to the browser
-# straight from there; when it isn't installed the page's CSS falls back to
-# Garamond italic, exactly as the plates themselves do.
+# The dashboard's wordmark is set in the plates' script; serve the bundled
+# face so the page and the frame share one file. If it is ever missing the
+# CSS falls back to Garamond italic, exactly as the plates themselves do.
 @app.get("/fonts/script.ttf", include_in_schema=False)
 async def script_font():
     if not typography.has_script_font():

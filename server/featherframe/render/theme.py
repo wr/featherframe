@@ -52,8 +52,8 @@ TITLE_TO_LATIN = 72            # title baseline -> Latin baseline
 LATIN_TO_LEGEND = 68           # Latin baseline -> first legend baseline
 LEGEND_SIZE = 30
 LEGEND_PITCH = 44              # baseline pitch of the legend lines
-TITLE_STROKE = 0.25            # synthetic bold, px per edge: the script has one weight
-LEGEND_STROKE = 0.5            # and reads thin on e-ink (Ms Madi; tuned 4 Sep 2026)
+TITLE_STROKE = 0.0             # synthetic bold, px per edge: the script has one weight
+LEGEND_STROKE = 0.75           # and its small lines read thin on e-ink (Avaleia; 4 Sep 2026)
 CAPTION_BOTTOM = 52            # last caption baseline above the panel bottom
 LATIN_PERIOD = "."             # Audubon's trailing period on the Latin name
 

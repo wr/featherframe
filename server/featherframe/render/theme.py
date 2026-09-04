@@ -73,30 +73,15 @@ COLON_KERN = 0.0               # pulls the run after a colon in, fraction of siz
 NAME_TRACKING = 0.10   # faux small caps letter-spacing (no-RAQM fallback)
 SMALLCAP_RATIO = 0.76  # small-cap glyph height as a fraction of full caps
 
-# -- v3 caption typography (real OpenType via RAQM) ------------------------
-# The common name is a flowing swash italic, gently tightened; the scientific
-# name is engraved capitals (Adorn Engraved); the date is mixed-case italic
-# with old-style figures. Shaping needs libraqm at render time; typography.py
+# -- engraved capitals ------------------------------------------------------
+# The scientific name, key entries, and status labels are engraved capitals
+# (Adorn Engraved). Shaping needs libraqm at render time; typography.py
 # degrades to faux small caps if it's absent.
-TITLE_SIZE = 112          # common name, swash italic (auto-fit to width)
-TITLE_WEIGHT = 500
-TITLE_TRACKING = -0.02    # tightened letter-spacing, fraction of size
-# Swash + standard ligatures + contextual alternates. No discretionary or
-# historical ligatures: the st/ct arcs read too precious at display size.
-TITLE_FEATURES = ("swsh", "liga", "calt", "kern")
-TITLE_NO_SWASH = ("J",)   # capitals that keep their plain form under "swsh"
-
 SUBTITLE_SIZE = 35         # scientific name, engraved capitals
 SUBTITLE_TRACKING = 0.155
 ENGRAVED_CAP = 0.775       # Adorn Engraved cap height as a fraction of size
 
-DATE_SIZE = 36             # date / time line, italic + oldstyle figures
-DATE_WEIGHT = 500
-DATE_TRACKING = 0.09
-DATE_FEATURES = ("onum", "liga", "kern")           # "17 May 2026"
-TIME_FEATURES = ("smcp", "onum", "liga", "kern")   # "8:14 am" -> small-cap AM
-DATE_ORNAMENT = "❧"   # ❧ hedera leaf between date and time
-DATE_ORNAMENT_GAP = 1.15   # gap on each side of the hedera, fraction of size
+DATE_ORNAMENT = "❧"   # ❧ hedera leaf under the splash / status wordmark (Garamond's)
 
 # Hairline rule under the scientific name
 RULE_WIDTH = 200
@@ -110,12 +95,19 @@ NOTE_MIN_SIZE = 19
 NOTE_MARK_GAP = 40             # clearance between the footnote and either mark
 NOTE_CLEAR = 46                # how far a collage key lifts to make room for it
 
+# -- status plate -----------------------------------------------------------
+STATUS_VALUE_SIZE = 44         # the values, in the script (shrink to fit)
+STATUS_FOOT_SIZE = 34          # "8:14 pm · 4 September" under the rows
+
+
 # -- collage sheet ----------------------------------------------------------
-# One italic header line ("Sightings ~ August 27"), art, and an engraved-caps
-# key along the bottom. No subtitle, no rule: the sheet stays quiet.
-COLLAGE_TITLE_SIZE = 118       # header, swash italic (auto-fit to width)
+# One script header line ("A Day in the Garden ~ August 27", auto-fit like a
+# plate title), art, and an engraved-caps key along the bottom. No subtitle,
+# no rule: the sheet stays quiet.
 COLLAGE_TITLE_BASELINE = 152   # header baseline from the top of the panel
 COLLAGE_ART_TOP = 212          # top of the art box, below the header
+COLLAGE_NAME_SIZE = 36         # grid cell: common name in the script (shrink to fit)
+COLLAGE_COUNT_SIZE = 28        # grid cell: "×14" under the name
 
 KEY_SIZE = 34                  # bottom key, engraved capitals
 KEY_SIZES = (34, 30, 27, 24)   # shrink steps when the widest line won't fit

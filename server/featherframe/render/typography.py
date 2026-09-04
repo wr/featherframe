@@ -1,19 +1,19 @@
 """Type. This is where a hobby project becomes an heirloom, per the spec.
 
-Two faces. EB Garamond (OFL, variable) carries the italic voice: the swash
-common name, the date line, the corner mark. Adorn Engraved carries the
-letterspaced capitals: the scientific name and the collage key. When libraqm
-is present we shape real OpenType features — swashes, small caps, old-style
-figures. When it is absent (some Pis ship without it) the Garamond runs fall
-back to *faux* small caps: lowercase drawn as smaller capitals. The engraved
-capitals need no shaping, so they render the same either way.
+Three faces. Pinyon Script (OFL) is the plates' voice: the common name, the
+legend lines, the corner marks, every wordmark. Adorn Engraved carries the
+letterspaced capitals: the scientific name, the collage key, status labels.
+EB Garamond (OFL, variable) is the stand-in if the script is ever missing,
+and lends the hedera. When libraqm is present we shape real OpenType
+features (kerning, small caps); when it is absent (some Pis ship without it)
+the Garamond runs fall back to *faux* small caps. The engraved capitals need
+no shaping, so they render the same either way.
 """
 from __future__ import annotations
 
 import functools
 import logging
 
-import re
 
 from datetime import datetime
 from functools import lru_cache
@@ -112,78 +112,6 @@ def engraved_width(text: str, size: int,
 # -- OpenType (RAQM) drawing ----------------------------------------------
 def _feat(features: Sequence[str]) -> Optional[list[str]]:
     return list(features) if HAS_RAQM else None
-
-
-def draw_ot_tracked(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
-                    text: str, font: ImageFont.FreeTypeFont, fill: int,
-                    features: Sequence[str], tracking_px: float) -> float:
-    """Centered, letter-spaced run. Each glyph is shaped on its own so features
-    like ``smcp``/``onum`` still apply; contextual joins are dropped, which is
-    invisible once the letters are tracked apart. Returns the drawn width."""
-    feats = _feat(features)
-    widths = [font.getlength(ch, features=feats) for ch in text]
-    total = sum(widths) + tracking_px * max(0, len(text) - 1)
-    x = center_x - total / 2
-    for ch, w in zip(text, widths):
-        draw.text((x, baseline_y), ch, font=font, fill=fill, anchor="ls",
-                  features=feats)
-        x += w + tracking_px
-    return total
-
-
-# -- the swash italic title -------------------------------------------------
-# Sequences kept whole while tracking, so their ligatures still form.
-_LIG_GLUE = re.compile(r"f+[bhijklt]?|Th")
-
-
-def _title_segments(text: str) -> list[tuple[int, str]]:
-    """(start index, run) pairs: single characters, except ligature sequences."""
-    segs, i = [], 0
-    while i < len(text):
-        m = _LIG_GLUE.match(text, i)
-        if m and m.end() - i > 1:
-            segs.append((i, text[i:m.end()]))
-            i = m.end()
-        else:
-            segs.append((i, text[i]))
-            i += 1
-    return segs
-
-
-def _title_features(text: str) -> list[str]:
-    """Title features, with "swsh" range-disabled on the capitals that should
-    keep their plain form (the J's swash overwhelms short names)."""
-    feats = list(theme.TITLE_FEATURES)
-    for i, ch in enumerate(text):
-        if ch in theme.TITLE_NO_SWASH:
-            feats.append(f"swsh[{i}:{i + 1}]=0")
-    return feats
-
-
-def title_width(font: ImageFont.FreeTypeFont, text: str, tracking_px: float) -> float:
-    segs = _title_segments(text)
-    return font.getlength(text, features=_feat(_title_features(text))) + \
-        tracking_px * max(0, len(segs) - 1)
-
-
-def draw_title(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
-               text: str, font: ImageFont.FreeTypeFont, fill: int,
-               tracking_px: float) -> None:
-    """Centered swash italic with tightened tracking. Runs are placed by
-    "whole minus suffix" widths so cross-run kerning survives; ligature
-    sequences stay glued so their glyphs still form."""
-    segs = _title_segments(text)
-    full = font.getlength(text, features=_feat(_title_features(text)))
-    total = full + tracking_px * max(0, len(segs) - 1)
-    x0 = center_x - total / 2
-    for k, (i, seg) in enumerate(segs):
-        suffix = text[i:]
-        x = full - font.getlength(suffix, features=_feat(_title_features(suffix)))
-        seg_feats = list(theme.TITLE_FEATURES)
-        if seg in theme.TITLE_NO_SWASH:
-            seg_feats.append("-swsh")
-        draw.text((x0 + x + k * tracking_px, baseline_y), seg, font=font,
-                  fill=fill, anchor="ls", features=_feat(seg_feats))
 
 
 # -- low-level drawing -----------------------------------------------------

@@ -18,7 +18,7 @@ from datetime import datetime
 
 from . import paths
 from .config import Config
-from .names import SpeciesIndex
+from .names import SpeciesIndex, normalize
 from .render import pipeline
 from .render.compose import SingleSpec
 from .render.genart import GeneratedArtProvider
@@ -126,7 +126,7 @@ def _load_index_species() -> list[dict]:
 
 
 def _guess_scientific(index: SpeciesIndex, common: str) -> str:
-    entry = index._by_common.get(common.strip().lower())  # noqa: SLF001 (internal ok here)
+    entry = index._by_common.get(normalize(common))  # noqa: SLF001 (internal ok here)
     return entry.get("scientific", "") if entry else ""
 
 

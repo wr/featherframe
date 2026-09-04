@@ -53,6 +53,11 @@ EXPECTED = {
     "Merlin": 92,                 # "Pigeon Hawk", not 75 "Le Petit Caporal"
     "Swainson's Hawk": 372,       # "Common Buzzard"
     "Red Knot": 315,              # "Red-breasted Sandpiper"
+    # Plate 50's mirror name ("Black & Yellow Warbler") is its 1828 first-state
+    # lettering; the scan is the re-lettered state captioned "Swainson's
+    # Warbler". The Black & Yellow (Magnolia) pair is 123 — read off the plate.
+    "Magnolia Warbler": 123,      # "Black & Yellow Warbler", Sylvia maculosa
+    "Swainson's Warbler": 198,    # "Brown headed Worm eating Warbler"; scan says Swainson's
     # Never a wrong bird: confirmed plate-less -> AI generation candidates.
     "Veery": None,                # plate 164's bird is disputed (Halley 2018)
     "Rock Pigeon": None,          # not painted
@@ -142,3 +147,12 @@ def test_kittlitzs_murrelet_not_pinned():
     unpinned rather than risk a wrong bird."""
     doc = yaml.safe_load(SPECIES_YAML.read_text())
     assert not any(s["common"] == "Kittlitz's Murrelet" for s in doc["species"])
+
+
+def test_plate_50_is_swainsons_not_magnolia():
+    """The cached plate-50 scan reads 'Swainson's Warbler' despite the mirror's
+    'Black & Yellow Warbler' name (a first-state title). Pinning it to any
+    species but Swainson's Warbler would put the wrong bird on the wall."""
+    doc = yaml.safe_load(SPECIES_YAML.read_text())
+    on_50 = [s["common"] for s in doc["species"] if s.get("plate") == 50]
+    assert on_50 in ([], ["Swainson's Warbler"]), f"plate 50 pinned to {on_50}"

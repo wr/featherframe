@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from PIL import Image
@@ -28,6 +28,7 @@ class Artwork:
     audubon_plate: Optional[int]  # source Havell plate number, if any
     composite: bool = False
     generated: bool = False     # True when the art is AI-generated, not a scan
+    legend: list = field(default_factory=list)   # printed figure key / plant lines
 
 
 class ArtProvider(ABC):
@@ -84,4 +85,5 @@ class AudubonProvider(ArtProvider):
             log.warning("plate extract failed for %s (%s): %s",
                         common_name, match.image_path, exc)
             return None
-        return Artwork(image=img, audubon_plate=match.plate_number, composite=match.composite)
+        return Artwork(image=img, audubon_plate=match.plate_number, composite=match.composite,
+                       legend=list(match.legend))

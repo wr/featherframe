@@ -35,25 +35,35 @@ MARGIN_BOTTOM = 95
 
 # The art is full-bleed (W-707): it runs to the panel's top and side edges —
 # i.e. to the mat opening, since the mat inset scales the whole composition —
-# and only the caption block below it is reserved. The block's top edge is
-# the title's cap top; name + scientific name only, with the date and № on
-# one footer line under them (they were top-corner marks, and got lost
-# against dark plates).
-CAPTION_BLOCK_H = 270
-CAPTION_GAP = 48   # gap between the art and the caption block
+# and only the caption block below it is reserved. The block's height follows
+# its line count (compose.caption_height).
+CAPTION_GAP = 48       # gap between the art and the title's ink top
 
-# Caption typography (point-ish sizes at native panel resolution)
-NAME_SIZE = 78         # common name, faux small caps
-NAME_TRACKING = 0.10   # extra letter-spacing as a fraction of size
-SCI_SIZE = 46          # scientific name, italic
-META_SIZE = 30         # date / time line
-META_TRACKING = 0.22
-PLATE_NO_SIZE = 42     # "№ 47" and the date · time mark (footer line)
-PLATE_NO_TRACKING = 0.18
-PLATE_NO_NUMERO = "№"          # numero sign, then the ordinal in oldstyle figures
-PLATE_NO_FEATURES = ("onum", "kern")
-PLATE_NO_WEIGHT = 600          # semibold corner mark
+# -- script caption (W-708) --------------------------------------------------
+# Wells's mockup: a monoline script title over the engraved Latin name (with
+# its period, as Audubon printed it), then the plate's own legend lines —
+# "Male, 1. Female, 2." / "Black berry. Rubus villosus." — in the small
+# script, and the date · time / "No. NN" tucked into the bottom corners in
+# that same script. Sizes and baseline gaps were tuned on the glass, 4 Sep 2026.
+SCRIPT_TITLE_SIZE = 90         # common name, auto-fit down to SCRIPT_TITLE_MIN
+SCRIPT_TITLE_MIN = 56
+SCRIPT_TITLE_ASCENT = 0.62     # block top -> title baseline, fraction of size
+TITLE_TO_LATIN = 72            # title baseline -> Latin baseline
+LATIN_TO_LEGEND = 68           # Latin baseline -> first legend baseline
+LEGEND_SIZE = 30
+LEGEND_PITCH = 44              # baseline pitch of the legend lines
+TITLE_STROKE = 0.25            # synthetic bold, px per edge: the script has one weight
+LEGEND_STROKE = 0.5            # and reads thin on e-ink (Ms Madi; tuned 4 Sep 2026)
+CAPTION_BOTTOM = 52            # last caption baseline above the panel bottom
+LATIN_PERIOD = "."             # Audubon's trailing period on the Latin name
 
+CORNER_SIZE = 26               # date · time (left) and "No. NN" (right)
+CORNER_INSET = 36              # from the side edges
+MARKS_BASELINE = HEIGHT - 30
+PLATE_NO_PREFIX = "No."        # the script has no numero glyph
+CORNER_SEP = "·"               # between date and time ("1 Sep · 8:14 am")
+
+NAME_TRACKING = 0.10   # faux small caps letter-spacing (no-RAQM fallback)
 SMALLCAP_RATIO = 0.76  # small-cap glyph height as a fraction of full caps
 
 # -- v3 caption typography (real OpenType via RAQM) ------------------------
@@ -68,8 +78,6 @@ TITLE_TRACKING = -0.02    # tightened letter-spacing, fraction of size
 # historical ligatures: the st/ct arcs read too precious at display size.
 TITLE_FEATURES = ("swsh", "liga", "calt", "kern")
 TITLE_NO_SWASH = ("J",)   # capitals that keep their plain form under "swsh"
-TITLE_CAP = 0.74          # block top -> title baseline, fraction of size
-                          # (cap height plus the swash capitals' overshoot)
 
 SUBTITLE_SIZE = 35         # scientific name, engraved capitals
 SUBTITLE_TRACKING = 0.155
@@ -80,45 +88,19 @@ DATE_WEIGHT = 500
 DATE_TRACKING = 0.09
 DATE_FEATURES = ("onum", "liga", "kern")           # "17 May 2026"
 TIME_FEATURES = ("smcp", "onum", "liga", "kern")   # "8:14 am" -> small-cap AM
-CORNER_SEP = "·"           # between date and time in the footer mark ("1 Sep · 8:14 am")
 DATE_ORNAMENT = "❧"   # ❧ hedera leaf between date and time
 DATE_ORNAMENT_GAP = 1.15   # gap on each side of the hedera, fraction of size
-
-# Baseline rhythm inside the caption block, from the title baseline down.
-# Offsets scale with the title's fitted size so long names stay balanced.
-CAPTION_SCI_DROP = 0.80    # title baseline -> sci baseline, fraction of title size
-
-# "First recorded today" under the scientific name of a first-ever species on
-# a REAL plate (and "First recorded 17 May 2026" on the no-plate fallback):
-# the date mark's italic voice, larger and in the full ink, flanked by a
-# pair of hederae. A first-ever bird is an event, and the line must read
-# from across the room — the small italic caps it replaced did not (W-695).
-# The caption block grows by FIRST_LINE_EXTRA so the line sits in the block's
-# own rhythm and never meets the gone-quiet footnote below it.
-FIRST_LINE_SIZE = 42
-FIRST_LINE_WEIGHT = 500
-FIRST_LINE_FEATURES = ("onum", "liga", "kern")
-FIRST_LINE_ORNAMENTS = ("☙", "❧")   # left and right hedera; ("", "") for none
-FIRST_LINE_ORNAMENT_GAP = 0.45      # ornament -> text gap, fraction of size
-FIRST_LINE_DROP = 1.65         # sci baseline -> first-recorded baseline, fraction of size
-FIRST_LINE_EXTRA = 80          # caption block height added for the line
 
 # Hairline rule under the scientific name
 RULE_WIDTH = 200
 RULE_THICKNESS = 2
 
-# -- footer line: date · time, footnote, № ----------------------------------
-# One baseline near the panel's bottom edge carries the italic date/time mark
-# at the left margin, the № mark at the right, and — between them, centred —
-# the gone-quiet footnote ("Nothing heard since 11:27 pm"). Anchored to the
-# panel bottom so it never chases the caption's baselines, which move with
-# the title's size.
-MARKS_BASELINE = HEIGHT - 40
-NOTE_SIZE = 32
-NOTE_WEIGHT = 500
-NOTE_FEATURES = ("onum", "liga", "kern")
-NOTE_BASELINE = MARKS_BASELINE
-NOTE_MARK_GAP = 48             # clearance between the footnote and either mark
+# -- gone-quiet footnote ----------------------------------------------------
+# One small script line ("Nothing heard since 11:27 pm") centred on the corner
+# marks' baseline, between them; shrinks rather than clips.
+NOTE_SIZE = CORNER_SIZE
+NOTE_MIN_SIZE = 18
+NOTE_MARK_GAP = 40             # clearance between the footnote and either mark
 NOTE_CLEAR = 46                # how far a collage key lifts to make room for it
 
 # -- collage sheet ----------------------------------------------------------

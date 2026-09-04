@@ -241,7 +241,7 @@ def render_generated_collage(art: Image.Image, cells: list[CollageCell],
                              key_size, theme.INK, theme.SHEET_DATE_TRACKING)
     _paste_art(field, art, sheet_art_box(cells, bool(note)), v_align=0.5)
     if note:
-        typography.note_line(draw, note)
+        typography.note_line(field, note)
     return field
 
 
@@ -293,5 +293,5 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
 
     # The grid stops at MARGIN_BOTTOM, well above the note's baseline.
     if note:
-        typography.note_line(draw, note)
+        typography.note_line(field, note)
     return field

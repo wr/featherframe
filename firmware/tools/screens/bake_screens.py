@@ -2,8 +2,9 @@
 """Bake the boot + first-time-setup panel screens into firmware/src/ff_screens.h.
 
 Renders 5 screens at the panel's native 1404x1872 and PackBits-compresses them
-into a C header the firmware blits. The boot screens compose the designer's
-pen-and-ink birdhouse art (./art) with type set by the SERVER's own typography
+into a C header the firmware blits. The boot screens compose the birdhouse art
+(./art/plate_*.png — drawn through the plates' own image pipeline by
+boot_art.py, in the Havell manner) with type set by the SERVER's own typography
 module — the wordmark is the plate title style (the bundled script at the
 plates' auto-fit title size) and the version line is the plates' engraved
 capitals — so the boot face always matches the plates. Pills use Inter
@@ -14,6 +15,7 @@ Run after changing the art, copy, or layout:
 
 --preview also writes contact_sheet.png next to this script for eyeballing.
 """
+import json
 import os
 import sys
 import numpy as np
@@ -148,44 +150,9 @@ def cloud_slash(draw, cx, cy, s):
                            radius=int(0.2 * s), fill=0)
     slash(draw, cx, cy, s * 0.95)
 
-ARTS = {k: Image.open(os.path.join(ART, f"{k}.png")).convert("L")
-        for k in ("house", "fly", "wren", "bird", "wren_hole")}
-
 def new_canvas():
     c = Image.new("L", (W, H), 255)
     return c, ImageDraw.Draw(c)
-
-def paste_art(canvas, key, cx, top, target_h):
-    art = ARTS[key]
-    w, h = art.size
-    tw = int(w * target_h / h)
-    a = art.resize((tw, target_h), Image.LANCZOS)
-    canvas.paste(a, (int(cx - tw / 2), int(top)), Image.eval(a, lambda p: 255 - p).convert("L"))
-
-def paste_wren_hole(canvas, cx, top, target_h):
-    # Overlay the wren-in-the-hole onto the (already-pasted) house, scaled/positioned
-    # to match. house.png is the reference frame for WREN_HOLE_AT.
-    house = ARTS["house"]
-    scale = target_h / house.height
-    house_left = cx - (house.width * scale) / 2
-    a = ARTS["wren_hole"]
-    tw = int(a.width * scale); th = int(a.height * scale)
-    a = a.resize((tw, th), Image.LANCZOS)
-    x = int(house_left + WREN_HOLE_AT[0] * scale)
-    y = int(top + WREN_HOLE_AT[1] * scale)
-    canvas.paste(a, (x, y), Image.eval(a, lambda p: 255 - p).convert("L"))
-
-def paste_at(canvas, key, right, top, target_h):
-    art = ARTS[key]
-    w, h = art.size
-    tw = int(w * target_h / h)
-    a = art.resize((tw, target_h), Image.LANCZOS)
-    canvas.paste(a, (int(right - tw), int(top)), Image.eval(a, lambda p: 255 - p).convert("L"))
-
-# wren_hole is a cut-out of the wren peeking from the entrance, aligned to house.png's
-# hole (both drawings share the hole position), so "arrived" screens keep the exact
-# same house and only the little hole box changes.
-WREN_HOLE_AT = (145, 235)          # top-left in house.png pixel space (670x990)
 
 def screen_setup():
     # First-run instructions. Shares the splash birdhouse (smaller) and hands
@@ -234,21 +201,26 @@ def screen_setup():
             y += 154
     return im
 
-# The four boot/loading screens compose the designer's clean pen-and-ink line art
-# (black hatching on transparent) at native size — do NOT rescale birdhouse.png,
-# it is 1402 wide by design.
-HOUSE = Image.open(os.path.join(ART, "birdhouse.png")).convert("RGBA")
-FLY   = Image.open(os.path.join(ART, "birdfly.png")).convert("RGBA")
-PEEK  = Image.open(os.path.join(ART, "birdpeek.png")).convert("RGBA")
+# The four boot/loading screens compose the Audubon-manner birdhouse from
+# boot_art.py at native size — the cut step already resampled the sheets to
+# screen scale, and the peek patch only lands on the hole pixel-for-pixel if
+# nothing here rescales. plate_layout.json carries where the flying wren and
+# the hole patch sit, in plate_house.png pixel space.
+HOUSE = Image.open(os.path.join(ART, "plate_house.png")).convert("RGBA")
+FLY   = Image.open(os.path.join(ART, "plate_fly.png")).convert("RGBA")
+PEEK  = Image.open(os.path.join(ART, "plate_peek.png")).convert("RGBA")
+with open(os.path.join(ART, "plate_layout.json")) as _f:
+    LAYOUT = json.load(_f)
 
-# Layout (portrait 1404x1872). birdhouse.png (1402x1122) sits full width near the
-# top; its entrance hole is at (600,390) in the PNG, so the wren-in-hole lands at
-# HOUSE_XY + that. House + wordmark are identical on every screen, so only the
-# bird/wren/pill boxes ever repaint. House/bird/wren placements are the designer's,
-# read off the reference frames in Desktop/stils (Frame 12-15.svg).
-HOUSE_XY = (1, 200)
-FLY_XY   = (1, 403)
-PEEK_XY  = (501, 546)
+# Layout (portrait 1404x1872). The house BODY sits centred (the crop's vine
+# sprawls to one side, so the layout's body_cx, not the crop's middle, goes
+# under the wordmark), its roof near the top; the post is cut flush at the
+# art's foot, well clear of the wordmark. The wren flies in at the left,
+# its box kept inside the mat's ~4 % inset. House + wordmark are identical on
+# every screen, so only the bird/wren/pill boxes ever repaint.
+HOUSE_XY = (W // 2 - LAYOUT["body_cx"], 240)
+FLY_XY   = (HOUSE_XY[0] + LAYOUT["fly_at"][0],  HOUSE_XY[1] + LAYOUT["fly_at"][1])
+PEEK_XY  = (HOUSE_XY[0] + LAYOUT["peek_at"][0], HOUSE_XY[1] + LAYOUT["peek_at"][1])
 
 # The wordmark is the plate title, verbatim: the script at the plates' auto-fit
 # title size (theme.SCRIPT_TITLE_SIZE), drawn by the server's own draw_script so
@@ -318,19 +290,16 @@ def _compose(name):
     elif name == "download":
         c.alpha_composite(PEEK, PEEK_XY)               # wren in the hole
     im = c.convert("L")
-    if name == "wifi":
-        # Threshold the fly-in bird's box to pure black/white (it is line art on
-        # empty sky — nothing else lives in the box). A binary window refreshes
-        # with DU both coming and going, so the bird appears and leaves without
-        # the GC16 white-black-white flash.
-        x0, y0 = FLY_XY; x1, y1 = x0 + FLY.width, y0 + FLY.height
-        box = im.crop((x0, y0, x1, y1)).point(lambda p: 0 if p < 176 else 255)
-        im.paste(box, (x0, y0))
-    elif name == "download":
-        # The wren is tonal (its light feathers threshold into a black blob),
-        # so its box goes binary by ordered dither instead — the gamma curve
-        # first, so the stipple density matches the gray it replaces.
-        x0, y0 = PEEK_XY; x1, y1 = x0 + PEEK.width, y0 + PEEK.height
+    if name in ("wifi", "download"):
+        # The bird boxes go binary so their windows refresh with DU (no
+        # flash) both coming and going. Both birds are tonal engraving (wash
+        # over line), so a hard threshold would blob them; ordered dither
+        # instead — the gamma curve first, so the stipple density matches the
+        # gray it replaces. The fly box is line art on empty sky; the peek box
+        # takes some house grain with it, and that grain re-dithers
+        # identically on every screen the box appears on.
+        art, (x0, y0) = (FLY, FLY_XY) if name == "wifi" else (PEEK, PEEK_XY)
+        x1, y1 = x0 + art.width, y0 + art.height
         box = to_1bit(apply_curve(im.crop((x0, y0, x1, y1))), phase=(x0, y0))
         im.paste(box, (x0, y0))
     draw_wordmark(im)

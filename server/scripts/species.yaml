@@ -145,7 +145,11 @@ species:
   - {common: "Least Bittern", scientific: "Ixobrychus exilis", plate: 210, audubon_title: "Least Bittern", sci_synonyms: ["Botaurus exilis", "Ardea exilis"]}
   - {common: "Lesser Yellowlegs", scientific: "Tringa flavipes", plate: 288, audubon_title: "Yellow Shank", sci_synonyms: ["Totanus flavipes"]}
   - {common: "Louisiana Waterthrush", scientific: "Parkesia motacilla", plate: 19, audubon_title: "Louisiana Water Thrush", sci_synonyms: ["Seiurus motacilla"]}
-  - {common: "Magnolia Warbler", scientific: "Setophaga magnolia", plate: 50, audubon_title: "Black & Yellow Warbler", sci_synonyms: ["Dendroica magnolia", "Sylvia magnolia", "Sylvia maculosa"]}
+  # Plate 50 is NOT the Magnolia: the mirror names it "Black & Yellow Warbler"
+  # (its 1828 first-state lettering) but the scan is the re-lettered state,
+  # captioned "Swainson's Warbler, Sylvicola swainsonia, White Oak". The
+  # Black & Yellow Warbler (Sylvia maculosa) pair is plate 123.
+  - {common: "Magnolia Warbler", scientific: "Setophaga magnolia", plate: 123, audubon_title: "Black & Yellow Warbler", sci_synonyms: ["Dendroica magnolia", "Sylvia magnolia", "Sylvia maculosa"]}
   - {common: "Mallard", scientific: "Anas platyrhynchos", plate: 221, audubon_title: "Mallard Duck", sci_synonyms: ["Anas boschas"]}
   - {common: "Marsh Wren", scientific: "Cistothorus palustris", plate: 100, audubon_title: "Marsh Wren", sci_synonyms: ["Telmatodytes palustris", "Troglodytes palustris", "Certhia palustris"]}
   - {common: "Northern Parula", scientific: "Setophaga americana", plate: 15, audubon_title: "Blue Yellow-backed Warbler", sci_synonyms: ["Parula americana", "Sylvia americana", "Compsothlypis americana"]}
@@ -281,6 +285,9 @@ species:
   - {common: "Boreal Chickadee", scientific: "Poecile hudsonicus", plate: 194, audubon_title: "Canadian Titmouse"}
   - {common: "Gyrfalcon", scientific: "Falco rusticolus", plate: 196, audubon_title: "Labrador Falcon"}
   - {common: "Red Crossbill", scientific: "Loxia curvirostra", plate: 197, audubon_title: "American Crossbill"}
+  # Scan is captioned "Swainsons Warbler, Sylvia swainsonii, Azalea"; the mirror
+  # keeps Audubon's Ornithological Biography name. Plate 50 (re-lettered) shows
+  # the same bird — see the Magnolia Warbler note above.
   - {common: "Swainson's Warbler", scientific: "Limnothlypis swainsonii", plate: 198, audubon_title: "Brown headed Worm eating Warbler"}
   - {common: "Northern Saw-whet Owl", scientific: "Aegolius acadicus", plate: 199, audubon_title: "Little Owl"}
   - {common: "Red-throated Loon", scientific: "Gavia stellata", plate: 202, audubon_title: "Red-Throated Diver"}

@@ -347,10 +347,11 @@ def test_corner_mark_carries_the_date():
     b = pipeline.render_single(_spec(when=datetime(2026, 8, 30, 8, 14)), _BlankArt(), cfg)
     assert a.etag != b.etag                       # same time of day, different date: different plate
     # The composition itself (before the mat inset moves everything): the
-    # mark region has ink on both, and the two marks differ inside it.
+    # mark region (left half of the footer line) has ink on both, and the
+    # two marks differ inside it.
     ca = compose.render_single(_spec(), _BlankArt())
     cb = compose.render_single(_spec(when=datetime(2026, 8, 30, 8, 14)), _BlankArt())
-    mark = (theme.MARGIN_X, theme.MARGIN_TOP - 10, theme.MARGIN_X + 600, theme.MARGIN_TOP + 60)
+    mark = (theme.MARGIN_X, theme.MARKS_BASELINE - 50, theme.MARGIN_X + 600, theme.MARKS_BASELINE + 4)
     assert _ink(ca, mark) > 200 and _ink(cb, mark) > 200
     assert ca.crop(mark).tobytes() != cb.crop(mark).tobytes()
 
@@ -376,7 +377,9 @@ def test_first_ever_plate_says_so_under_the_latin_name():
     line = sci_first + round(theme.FIRST_LINE_SIZE * theme.FIRST_LINE_DROP)
     band = (theme.MARGIN_X, line - theme.FIRST_LINE_SIZE, theme.WIDTH - theme.MARGIN_X, line + 4)
     assert _ink(first, band) > 100
-    below = (theme.MARGIN_X, sci_known + 10, theme.WIDTH - theme.MARGIN_X, theme.NOTE_BASELINE - 30)
+    # (Between the footer marks, which share the footnote's baseline.)
+    mid_l, mid_r = theme.MARGIN_X + 450, theme.WIDTH - theme.MARGIN_X - 450
+    below = (mid_l, sci_known + 10, mid_r, theme.NOTE_BASELINE - 30)
     assert _ink(known, below) == 0
 
     # With the gone-quiet footnote too, the note stays clear of the new line.
@@ -384,10 +387,9 @@ def test_first_ever_plate_says_so_under_the_latin_name():
                                   _BlankArt())
     # The line is mixed-case italic now, so allow for its descenders ("y").
     descent = round(theme.FIRST_LINE_SIZE * 0.3)
-    gap = (theme.MARGIN_X, line + descent, theme.WIDTH - theme.MARGIN_X, theme.NOTE_BASELINE - 34)
+    gap = (mid_l, line + descent, mid_r, theme.NOTE_BASELINE - 34)
     assert _ink(noted, gap) == 0
-    assert _ink(noted, (theme.MARGIN_X, theme.NOTE_BASELINE - 30, theme.WIDTH - theme.MARGIN_X,
-                        theme.NOTE_BASELINE + 8)) > 100
+    assert _ink(noted, (mid_l, theme.NOTE_BASELINE - 30, mid_r, theme.NOTE_BASELINE + 8)) > 100
 
     cfg = Config(dither="none")
     assert (pipeline.render_single(_spec(), _BlankArt(), cfg).etag

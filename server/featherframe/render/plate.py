@@ -6,6 +6,11 @@ at the very bottom. The content crop isolates the subject band and drops that
 marginalia; composites (several birds on one plate) skip the crop and show the
 whole plate, because a "densest region" crop could land on the wrong bird — and
 priority #2 is never a wrong bird.
+
+The crop is then made symmetric about the plate's centre (W-707): Audubon
+centred his compositions on the sheet, so mirroring the farthest content edge
+keeps his balance — the Barn Swallow keeps its headroom because its nest's
+straw hangs far below centre, instead of the bird being jammed against the top.
 """
 from __future__ import annotations
 
@@ -22,10 +27,21 @@ log = logging.getLogger("featherframe.plate")
 # big ones (the robin is ~109 MP) open without a warning.
 Image.MAX_IMAGE_PIXELS = None
 
-# We never display more than ~1200 px of bird, so cap working resolution to
-# stay memory-frugal on a Pi Zero.
-WORK_MAX_SIDE = 1500
+# The art now fills the panel's width (1404 px) from a crop that is often only
+# ~60% of the plate, so the working plate must be ~2200 px on its long side to
+# stay sharp; a 2200×1700 'L' plate is under 4 MB, still fine on a Pi Zero.
+WORK_MAX_SIDE = 2200
 ANALYSIS_W = 380
+
+# Extending the crop through faint ink (hanging straw, a plank's fading
+# shading): a row/column counts as content when this fraction of it is at
+# least FAINT_INK darker than paper; a run of blank rows/columns this tall
+# (fraction of the plate) is a real gap and stops the extension — which is
+# what keeps the printed "No. 32 / PLATE CLIX" line out on plates where the
+# marginalia trim misses it.
+FAINT_INK = 12
+FAINT_FRAC = 0.002
+GAP_PCT = 0.02
 
 
 def load_gray(path: str | Path, max_side: int = WORK_MAX_SIDE) -> Image.Image:
@@ -48,12 +64,34 @@ def _ink_map(gray: Image.Image) -> tuple[np.ndarray, float]:
     return ink, gray.width / ANALYSIS_W
 
 
-def content_box(gray: Image.Image, pad: float = 0.04) -> tuple[int, int, int, int]:
-    """Bounding box (in `gray` pixel coords) of the main subject mass.
+def _extend(frac: np.ndarray, lo: int, hi: int, thr: float, gap: int) -> tuple[int, int]:
+    """Grow [lo, hi) outward through rows/columns whose inked fraction exceeds
+    `thr`, stopping at the first run of `gap` blank ones."""
+    n = len(frac)
+    while hi < n:
+        nxt = np.where(frac[hi:hi + gap] > thr)[0]
+        if nxt.size == 0:
+            break
+        hi = hi + int(nxt[-1]) + 1
+    while lo > 0:
+        start = max(0, lo - gap)
+        prv = np.where(frac[start:lo] > thr)[0]
+        if prv.size == 0:
+            break
+        lo = start + int(prv[0])
+    return lo, hi
 
-    Vertical extent = the single contiguous band of inked rows carrying the most
-    ink (this drops the separated caption band and the top marginalia).
-    Horizontal extent = significant columns within that band.
+
+def content_box(gray: Image.Image, pad: float = 0.015) -> tuple[int, int, int, int]:
+    """Bounding box (in `gray` pixel coords) of the subject, symmetric about
+    the plate centre.
+
+    1. Vertical extent = the single contiguous band of inked rows carrying the
+       most ink (this drops the separated caption band and the top marginalia),
+       then extended through faint contiguous ink until a real paper gap.
+    2. Horizontal extent = significant columns within that band, extended the
+       same way.
+    3. Mirrored about the plate centre per axis, out to the farther edge.
     """
     ink, back = _ink_map(gray)
     row_mass = ink.sum(axis=1)
@@ -68,6 +106,11 @@ def content_box(gray: Image.Image, pad: float = 0.04) -> tuple[int, int, int, in
         return _fallback_box(gray)
     t0, t1 = max(runs, key=lambda r: row_mass[r[0]:r[1]].sum())
 
+    inked = ink > FAINT_INK
+    gap_rows = max(3, int(ink.shape[0] * GAP_PCT))
+    gap_cols = max(3, int(ink.shape[1] * GAP_PCT))
+    t0, t1 = _extend(inked.mean(axis=1), t0, t1, FAINT_FRAC, gap_rows)
+
     band = ink[t0:t1, :]
     col_mass = band.sum(axis=0)
     cthr = 0.05 * col_mass.max() if col_mass.max() > 0 else 0
@@ -75,20 +118,47 @@ def content_box(gray: Image.Image, pad: float = 0.04) -> tuple[int, int, int, in
     if cols.size == 0:
         return _fallback_box(gray)
     c0, c1 = int(cols.min()), int(cols.max()) + 1
+    c0, c1 = _extend(inked[t0:t1].mean(axis=0), c0, c1, FAINT_FRAC, gap_cols)
 
     # scale back to `gray` coords and pad
     l, r = c0 * back, c1 * back
     tt, bb = t0 * back, t1 * back
     pw, ph = (r - l) * pad, (bb - tt) * pad
-    l, r = l - pw, r + pw
-    tt, bb = tt - ph, bb + ph
-    box = (int(max(0, l)), int(max(0, tt)),
-           int(min(gray.width, r)), int(min(gray.height, bb)))
+    l, r = max(0.0, l - pw), min(float(gray.width), r + pw)
+    tt, bb = max(0.0, tt - ph), min(float(gray.height), bb + ph)
     # sanity: reject degenerate / tiny crops
-    area = (box[2] - box[0]) * (box[3] - box[1])
-    if area < 0.18 * gray.width * gray.height:
+    if (r - l) * (bb - tt) < 0.18 * gray.width * gray.height:
         return _fallback_box(gray)
-    return box
+
+    # Symmetric about the plate centre, out to the farther content edge.
+    cx, cy = gray.width / 2, gray.height / 2
+    hw, hh = max(cx - l, r - cx), max(cy - tt, bb - cy)
+    return (int(max(0, cx - hw)), int(max(0, cy - hh)),
+            int(min(gray.width, cx + hw)), int(min(gray.height, cy + hh)))
+
+
+def trim_paper(art: Image.Image, thr: int = 200, min_ink: float = 0.002) -> Image.Image:
+    """Strip edge rows/columns that carry (almost) no ink: the scan's own
+    paper border, which would otherwise show as a white sliver when a
+    full-bleed plate is fitted to the mat opening."""
+    a = np.asarray(art)
+    inked = a < thr
+    cols = np.where(inked.mean(axis=0) >= min_ink)[0]
+    rows = np.where(inked.mean(axis=1) >= min_ink)[0]
+    if cols.size == 0 or rows.size == 0:
+        return art
+    return art.crop((int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1))
+
+
+def edge_ink_fraction(art: Image.Image, frac: float = 0.02, thr: int = 200) -> float:
+    """Fraction of the outer border band (each side `frac` of the short side)
+    that is inked. High on a plate whose picture runs to its edges (Snowy Owl's
+    night sky); near zero on a bird on bare paper."""
+    a = np.asarray(art)
+    h, w = a.shape
+    b = max(2, int(min(h, w) * frac))
+    border = np.concatenate([a[:b].ravel(), a[-b:].ravel(), a[:, :b].ravel(), a[:, -b:].ravel()])
+    return float((border < thr).mean())
 
 
 def _runs(mask: np.ndarray) -> list[tuple[int, int]]:

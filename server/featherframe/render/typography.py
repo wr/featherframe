@@ -279,7 +279,7 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
                   book: FontBook = FONTS) -> float:
     """Render the museum caption: common name (swash italic) over the
     scientific name (engraved capitals), nothing else — the detection date
-    lives in the corner (time_corner_mark). Returns the sci baseline."""
+    lives on the footer line (date_mark). Returns the sci baseline."""
     if not HAS_RAQM:
         return _caption_block_faux(draw, center_x, top_y, common_name,
                                    scientific_name, book)
@@ -309,40 +309,51 @@ def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
 
 
 def _corner_parts(when: datetime) -> tuple[str, str]:
-    """("1 Sep", "8:14 am") for the corner mark: day + abbreviated month, then
+    """("1 Sep", "8:14 am") for the date mark: day + abbreviated month, then
     the time. The date is always shown so a three-day-old plate reads as
     three days old, not as this morning's."""
     _, clock = _when_parts(when)
     return f"{when.day} {when.strftime('%b')}", clock
 
 
-def time_corner_mark(draw: ImageDraw.ImageDraw, when: datetime,
-                     book: FontBook = FONTS) -> None:
+def _mark_font(book: FontBook) -> ImageFont.FreeTypeFont:
+    return book.get(theme.PLATE_NO_SIZE, italic=True, weight=theme.PLATE_NO_WEIGHT)
+
+
+def date_mark(draw: ImageDraw.ImageDraw, when: datetime,
+              book: FontBook = FONTS) -> float:
     """Italic old-style date and time ("1 Sep · 8:14 am", small-cap am) at the
-    top-left margin, mirroring the № mark. Repeats of a species DO re-render
-    (the owner wants the clock to move with the bird), and a held or quiet
-    frame can sit for days — so the mark always carries the date: a stale
-    plate must look stale. The date keeps its case; the time takes the
-    small-cap am/pm, so the two are shaped as separate runs."""
+    left margin on the footer baseline, mirroring the № mark at the right.
+    Repeats of a species DO re-render (the owner wants the clock to move with
+    the bird), and a held or quiet frame can sit for days — so the mark always
+    carries the date: a stale plate must look stale. The date keeps its case;
+    the time takes the small-cap am/pm, so the two are shaped as separate runs.
+    Returns the mark's width."""
     date_text, clock = _corner_parts(when)
-    font = book.get(theme.PLATE_NO_SIZE, italic=True, weight=theme.PLATE_NO_WEIGHT)
+    font = _mark_font(book)
+    x, y = theme.MARGIN_X, theme.MARKS_BASELINE
     if HAS_RAQM:
         date_feats = _feat(theme.DATE_FEATURES)
         time_feats = _feat(theme.TIME_FEATURES)
-        mid = f" {theme.CORNER_SEP} "
-        # Align the run's ink top (the taller of the two runs) to the top margin.
-        top_gap = min(font.getbbox(date_text + mid, features=date_feats)[1],
-                      font.getbbox(clock, features=time_feats)[1])
-        y = theme.MARGIN_TOP - top_gap
-        draw.text((theme.MARGIN_X, y), date_text + mid, font=font,
-                  fill=theme.INK_MEDIUM, anchor="la", features=date_feats)
-        x = theme.MARGIN_X + font.getlength(date_text + mid, features=date_feats)
-        draw.text((x, y), clock, font=font, fill=theme.INK_MEDIUM, anchor="la",
+        lead = f"{date_text} {theme.CORNER_SEP} "
+        lead_w = font.getlength(lead, features=date_feats)
+        draw.text((x, y), lead, font=font, fill=theme.INK_MEDIUM, anchor="ls",
+                  features=date_feats)
+        draw.text((x + lead_w, y), clock, font=font, fill=theme.INK_MEDIUM, anchor="ls",
                   features=time_feats)
-        return
-    draw.text((theme.MARGIN_X, theme.MARGIN_TOP),
-              f"{date_text} {theme.CORNER_SEP} {clock}", font=font,
-              fill=theme.INK_MEDIUM, anchor="la")
+        return lead_w + font.getlength(clock, features=time_feats)
+    text = f"{date_text} {theme.CORNER_SEP} {clock}"
+    draw.text((x, y), text, font=font, fill=theme.INK_MEDIUM, anchor="ls")
+    return font.getlength(text)
+
+
+def date_mark_max_width(book: FontBook = FONTS) -> float:
+    """The widest date mark that can occur, for laying out the footnote
+    between the marks without knowing the date."""
+    font = _mark_font(book)
+    widest = f"30 Sep {theme.CORNER_SEP} 12:44 pm"
+    feats = _feat(theme.DATE_FEATURES) if HAS_RAQM else None
+    return font.getlength(widest, features=feats)
 
 
 def first_recorded_line(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
@@ -387,41 +398,48 @@ def _caption_block_faux(draw: ImageDraw.ImageDraw, center_x: float, top_y: float
     return baseline
 
 def plate_number_mark(draw: ImageDraw.ImageDraw, ordinal: int,
-                      book: FontBook = FONTS) -> None:
-    """Engraved '№ 47' in the top-right corner, counting unique species seen.
-    Italic numero + old-style figures, aligned to the top and right margins."""
-    x_right = theme.WIDTH - theme.MARGIN_X
+                      book: FontBook = FONTS) -> float:
+    """Engraved '№ 47' at the right margin on the footer baseline, counting
+    unique species seen. Italic numero + old-style figures. Returns the
+    mark's width."""
+    x_right, y = theme.WIDTH - theme.MARGIN_X, theme.MARKS_BASELINE
     if HAS_RAQM:
         text = f"{theme.PLATE_NO_NUMERO} {ordinal}"
-        font = book.get(theme.PLATE_NO_SIZE, italic=True, weight=theme.PLATE_NO_WEIGHT)
+        font = _mark_font(book)
         feats = _feat(theme.PLATE_NO_FEATURES)
-        # Align the glyph's ink top (not the ascender line) to the top margin:
-        # getbbox's top is the ascender->ink gap for this string.
-        top_gap = font.getbbox(text, features=feats)[1]
-        draw.text((x_right, theme.MARGIN_TOP - top_gap), text, font=font,
-                  fill=theme.INK_MEDIUM, anchor="ra", features=feats)
-        return
+        draw.text((x_right, y), text, font=font, fill=theme.INK_MEDIUM, anchor="rs",
+                  features=feats)
+        return font.getlength(text, features=feats)
     # Faux fallback: plain "No. 47".
     text = f"No. {ordinal}"
     font = book.get(theme.PLATE_NO_SIZE, weight=520)
     tracking_px = theme.PLATE_NO_SIZE * theme.PLATE_NO_TRACKING
     total = tracked_width(font, text, tracking_px)
     x = x_right - total
-    baseline = theme.MARGIN_TOP + theme.PLATE_NO_SIZE
     for ch in text:
-        draw.text((x, baseline), ch, font=font, fill=theme.INK_MEDIUM, anchor="ls")
+        draw.text((x, y), ch, font=font, fill=theme.INK_MEDIUM, anchor="ls")
         x += _len(font, ch) + tracking_px
+    return total
 
 
-def note_line(draw: ImageDraw.ImageDraw, text: str, book: FontBook = FONTS) -> None:
-    """One italic footnote centred in the bottom margin, in the medium ink —
-    the gone-quiet note. Sits on its own fixed baseline near the panel's
+def plate_number_max_width(book: FontBook = FONTS) -> float:
+    font = _mark_font(book)
+    text = f"{theme.PLATE_NO_NUMERO} 888"
+    feats = _feat(theme.PLATE_NO_FEATURES) if HAS_RAQM else None
+    return font.getlength(text, features=feats)
+
+
+def note_line(draw: ImageDraw.ImageDraw, text: str, book: FontBook = FONTS,
+              max_w: float = theme.CONTENT_W) -> None:
+    """One italic footnote centred on the footer line, in the medium ink —
+    the gone-quiet note. Sits on the fixed footer baseline near the panel's
     bottom edge so it clears the caption above it whatever the title's size;
-    shrinks rather than clips if the text is ever wider than the content."""
+    shrinks rather than clips if the text is ever wider than `max_w` (the
+    room between the date and № marks when they are drawn)."""
     size = theme.NOTE_SIZE
     feats = _feat(theme.NOTE_FEATURES)
     font = book.get(size, italic=True, weight=theme.NOTE_WEIGHT)
-    while size > 18 and font.getlength(text, features=feats) > theme.CONTENT_W:
+    while size > 18 and font.getlength(text, features=feats) > max_w:
         size -= 2
         font = book.get(size, italic=True, weight=theme.NOTE_WEIGHT)
     draw.text((theme.WIDTH / 2, theme.NOTE_BASELINE), text, font=font,

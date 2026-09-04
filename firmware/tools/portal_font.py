@@ -2,7 +2,7 @@
 """Embed the plates' script in the captive portal as firmware/src/ff_portal_font.h.
 
 The portal's "Featherframe" wordmark is set in the same script as the plates
-(Kapakana, OFL, bundled with the server). The @font-face rule carrying it is
+(Pinyon Script, OFL, bundled with the server). The @font-face rule carrying it is
 generated here — a WOFF subset of just the wordmark's glyphs, base64 as a
 data URI (the portal has no internet, so the face must travel with the page)
 — into a committed header. main.cpp includes it when present

@@ -10,6 +10,9 @@ capitals need no shaping, so they render the same either way.
 """
 from __future__ import annotations
 
+import functools
+import logging
+
 import re
 
 from datetime import datetime
@@ -17,11 +20,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Sequence
 
-from PIL import ImageDraw, ImageFont, features as _pil_features
+from PIL import Image, ImageChops, ImageDraw, ImageFont, features as _pil_features
 
 from .. import paths
 from . import theme
 
+log = logging.getLogger("featherframe.typography")
 _FONTS = paths.fonts_dir()
 _ROMAN = _FONTS / "EBGaramond[wght].ttf"
 _ITALIC = _FONTS / "EBGaramond-Italic[wght].ttf"
@@ -273,38 +277,97 @@ def _when_parts(when: datetime) -> tuple[str, str]:
     return (f"{when.day} {month} {when.year}", f"{hour}:{when.minute:02d} {ampm}")
 
 
-# -- caption block ---------------------------------------------------------
-def caption_block(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
-                  common_name: str, scientific_name: str,
-                  book: FontBook = FONTS) -> float:
-    """Render the museum caption: common name (swash italic) over the
-    scientific name (engraved capitals), nothing else — the detection date
-    lives on the footer line (date_mark). Returns the sci baseline."""
-    if not HAS_RAQM:
-        return _caption_block_faux(draw, center_x, top_y, common_name,
-                                   scientific_name, book)
+# -- script caption (W-708) -------------------------------------------------
+# The caption's voice is a monoline script. The file comes from the box's data
+# dir first (data/fonts/script.ttf — a licensed face that must not ship in the
+# public repo), then the bundled open-licence Ms Madi, and if neither loads,
+# Garamond italic, so a missing font degrades the look, never the frame.
+_SCRIPT_BUNDLED = _FONTS / "MsMadi-Regular.ttf"
+_SCRIPT_DATA_NAME = "script.ttf"
 
-    # Common name — swash italic, tightened, auto-fit to the content width.
-    # top_y is the cap top, so the block starts exactly where the ink does.
-    size = theme.TITLE_SIZE
-    while size > 60:
-        title_font = book.get(size, italic=True, weight=theme.TITLE_WEIGHT)
-        if title_width(title_font, common_name,
-                       size * theme.TITLE_TRACKING) <= theme.CONTENT_W:
-            break
-        size -= 3
-    baseline = top_y + round(size * theme.TITLE_CAP)
-    draw_title(draw, center_x, baseline, common_name, title_font, theme.INK,
-               size * theme.TITLE_TRACKING)
 
-    # Scientific name — engraved capitals, letterspaced.
-    baseline += round(size * theme.CAPTION_SCI_DROP)
+def script_font_path() -> Path:
+    for cand in (paths.data_dir() / "fonts" / _SCRIPT_DATA_NAME, _SCRIPT_BUNDLED):
+        if cand.exists():
+            return cand
+    return _ITALIC
+
+
+@functools.lru_cache(maxsize=None)
+def script_font(size: int) -> ImageFont.FreeTypeFont:
+    path = script_font_path()
+    if path != _ITALIC:
+        try:
+            return ImageFont.truetype(str(path), size)
+        except OSError:
+            log.warning("script font %s failed to load; using Garamond italic", path)
+    return FONTS.get(size, italic=True, weight=500)
+
+
+def script_width(text: str, size: int) -> float:
+    return script_font(size).getlength(text)
+
+
+def draw_script(field: Image.Image, x: float, baseline: float, text: str, size: int,
+                fill: int, stroke: float = 0.0, anchor: str = "ms") -> float:
+    """Draw `text` in the script onto `field` (an 'L' image), darken-composited
+    so it sits on art as well as on paper. `stroke` is a synthetic bold — the
+    script has one weight and reads thin on e-ink — in pixels added to every
+    edge; fractional strokes come from a 4x supersample. `anchor` is the
+    horizontal anchor at x: "ms" centred, "ls" left, "rs" right. Returns the
+    text width."""
+    font = script_font(size)
+    width = font.getlength(text)
+    left = {"ms": x - width / 2, "ls": x, "rs": x - width}[anchor]
+    if stroke <= 0:
+        ImageDraw.Draw(field).text((left, baseline), text, font=font, fill=fill, anchor="ls")
+        return width
+    ss = 4
+    big = script_font(size * ss)
+    pad = int(size * 0.6) * ss
+    w = int(big.getlength(text)) + 2 * pad
+    h = int(size * ss * 1.7)
+    layer = Image.new("L", (w, h), 255)
+    ImageDraw.Draw(layer).text((pad, size * ss * 1.2), text, font=big, fill=fill, anchor="ls",
+                               stroke_width=round(stroke * ss), stroke_fill=fill)
+    small = layer.resize((w // ss, h // ss), Image.LANCZOS)
+    ox, oy = int(round(left - pad / ss)), int(round(baseline - size * 1.2))
+    region = field.crop((ox, oy, ox + small.width, oy + small.height))
+    field.paste(ImageChops.darker(region, small), (ox, oy))
+    return width
+
+
+def fit_script_title(text: str, max_w: float) -> int:
+    size = theme.SCRIPT_TITLE_SIZE
+    while size > theme.SCRIPT_TITLE_MIN and script_width(text, size) > max_w:
+        size -= 2
+    return size
+
+
+def caption(field: Image.Image, top_y: float, common_name: str, scientific_name: str,
+            lines: list[str]) -> float:
+    """The script caption: title (auto-fit), engraved Latin name with its
+    period, then `lines` — the plate legend, plus any extra line the caller
+    adds — in the small script. `top_y` is the title's ink top. Returns the
+    last baseline drawn."""
+    cx = theme.WIDTH / 2
+    size = fit_script_title(common_name, theme.CONTENT_W)
+    baseline = top_y + round(size * theme.SCRIPT_TITLE_ASCENT)
+    draw_script(field, cx, baseline, common_name, size, theme.INK, stroke=theme.TITLE_STROKE)
+    baseline += theme.TITLE_TO_LATIN
+    latin = scientific_name.upper() + theme.LATIN_PERIOD
     sci_size = theme.SUBTITLE_SIZE
-    while sci_size > 24 and engraved_width(scientific_name.upper(),
-                                           sci_size) > theme.CONTENT_W:
+    while sci_size > 24 and engraved_width(latin, sci_size) > theme.CONTENT_W:
         sci_size -= 1
-    draw_engraved(draw, center_x, baseline, scientific_name.upper(), sci_size,
-                  theme.INK_MEDIUM)
+    draw_engraved(ImageDraw.Draw(field), cx, baseline, latin, sci_size, theme.INK_MEDIUM)
+    first = True
+    for line in lines:
+        baseline += theme.LATIN_TO_LEGEND if first else theme.LEGEND_PITCH
+        first = False
+        size = theme.LEGEND_SIZE
+        while size > 18 and script_width(line, size) > theme.CONTENT_W:
+            size -= 1
+        draw_script(field, cx, baseline, line, size, theme.INK_MEDIUM, stroke=theme.LEGEND_STROKE)
     return baseline
 
 
@@ -316,134 +379,46 @@ def _corner_parts(when: datetime) -> tuple[str, str]:
     return f"{when.day} {when.strftime('%b')}", clock
 
 
-def _mark_font(book: FontBook) -> ImageFont.FreeTypeFont:
-    return book.get(theme.PLATE_NO_SIZE, italic=True, weight=theme.PLATE_NO_WEIGHT)
+def date_text(when: datetime) -> str:
+    date_part, clock = _corner_parts(when)
+    return f"{date_part} {theme.CORNER_SEP} {clock}"
 
 
-def date_mark(draw: ImageDraw.ImageDraw, when: datetime,
-              book: FontBook = FONTS) -> float:
-    """Italic old-style date and time ("1 Sep · 8:14 am", small-cap am) at the
-    left margin on the footer baseline, mirroring the № mark at the right.
-    Repeats of a species DO re-render (the owner wants the clock to move with
-    the bird), and a held or quiet frame can sit for days — so the mark always
-    carries the date: a stale plate must look stale. The date keeps its case;
-    the time takes the small-cap am/pm, so the two are shaped as separate runs.
-    Returns the mark's width."""
-    date_text, clock = _corner_parts(when)
-    font = _mark_font(book)
-    x, y = theme.MARGIN_X, theme.MARKS_BASELINE
-    if HAS_RAQM:
-        date_feats = _feat(theme.DATE_FEATURES)
-        time_feats = _feat(theme.TIME_FEATURES)
-        lead = f"{date_text} {theme.CORNER_SEP} "
-        lead_w = font.getlength(lead, features=date_feats)
-        draw.text((x, y), lead, font=font, fill=theme.INK_MEDIUM, anchor="ls",
-                  features=date_feats)
-        draw.text((x + lead_w, y), clock, font=font, fill=theme.INK_MEDIUM, anchor="ls",
-                  features=time_feats)
-        return lead_w + font.getlength(clock, features=time_feats)
-    text = f"{date_text} {theme.CORNER_SEP} {clock}"
-    draw.text((x, y), text, font=font, fill=theme.INK_MEDIUM, anchor="ls")
-    return font.getlength(text)
+def date_mark(field: Image.Image, when: datetime) -> float:
+    """"4 Sep · 11:34 am" in the small script, tucked into the bottom-left
+    corner. Repeats of a species DO re-render (the owner wants the clock to
+    move with the bird), and a held or quiet frame can sit for days — so the
+    mark always carries the date: a stale plate must look stale. Returns
+    the mark's width."""
+    return draw_script(field, theme.CORNER_INSET, theme.MARKS_BASELINE, date_text(when),
+                       theme.CORNER_SIZE, theme.INK_MEDIUM, stroke=theme.LEGEND_STROKE,
+                       anchor="ls")
 
 
-def date_mark_max_width(book: FontBook = FONTS) -> float:
-    """The widest date mark that can occur, for laying out the footnote
-    between the marks without knowing the date."""
-    font = _mark_font(book)
-    widest = f"30 Sep {theme.CORNER_SEP} 12:44 pm"
-    feats = _feat(theme.DATE_FEATURES) if HAS_RAQM else None
-    return font.getlength(widest, features=feats)
+def date_mark_max_width() -> float:
+    return script_width(f"30 Sep {theme.CORNER_SEP} 12:44 pm", theme.CORNER_SIZE)
 
 
-def first_recorded_line(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float,
-                        text: str = "First recorded today", book: FontBook = FONTS) -> None:
-    """The "first recorded ..." annotation under the scientific name: the
-    corner date's italic voice (old-style figures) in the full ink, a pair of
-    hederae either side in the medium ink. Centred on the text, not the run,
-    so it lines up with the caption whatever the ornaments' widths."""
-    size = theme.FIRST_LINE_SIZE
-    if not HAS_RAQM:
-        # Faux: upright small caps at the same weight, no ornaments (the
-        # hedera is an OpenType glyph we can't rely on shaping).
-        draw_smallcaps(draw, center_x, baseline_y, text, book, size - 6, theme.INK,
-                       theme.META_TRACKING, weight_caps=500, weight_small=520)
-        return
-    font = book.get(size, italic=True, weight=theme.FIRST_LINE_WEIGHT)
-    feats = _feat(theme.FIRST_LINE_FEATURES)
-    width = font.getlength(text, features=feats)
-    draw.text((center_x, baseline_y), text, font=font, fill=theme.INK, anchor="ms",
-              features=feats)
-    left, right = theme.FIRST_LINE_ORNAMENTS
-    gap = size * theme.FIRST_LINE_ORNAMENT_GAP
-    if left:
-        draw.text((center_x - width / 2 - gap, baseline_y), left, font=font,
-                  fill=theme.INK_MEDIUM, anchor="rs")
-    if right:
-        draw.text((center_x + width / 2 + gap, baseline_y), right, font=font,
-                  fill=theme.INK_MEDIUM, anchor="ls")
+def plate_number_mark(field: Image.Image, ordinal: int) -> float:
+    """"No. 47" in the bottom-right corner, counting unique species seen."""
+    return draw_script(field, theme.WIDTH - theme.CORNER_INSET, theme.MARKS_BASELINE,
+                       f"{theme.PLATE_NO_PREFIX} {ordinal}", theme.CORNER_SIZE,
+                       theme.INK_MEDIUM, stroke=theme.LEGEND_STROKE, anchor="rs")
 
 
-def _caption_block_faux(draw: ImageDraw.ImageDraw, center_x: float, top_y: float,
-                        common_name: str, scientific_name: str,
-                        book: FontBook = FONTS) -> float:
-    """caption_block without RAQM: faux small caps stand in for the swash."""
-    name_size = fit_smallcaps_size(common_name, book, theme.NAME_SIZE,
-                                   theme.NAME_TRACKING, theme.CONTENT_W)
-    draw_smallcaps(draw, center_x, top_y + name_size, common_name, book,
-                   name_size, theme.INK, theme.NAME_TRACKING)
-    baseline = top_y + name_size + round(name_size * theme.CAPTION_SCI_DROP)
-    draw_engraved(draw, center_x, baseline, scientific_name.upper(),
-                  theme.SUBTITLE_SIZE, theme.INK_MEDIUM)
-    return baseline
-
-def plate_number_mark(draw: ImageDraw.ImageDraw, ordinal: int,
-                      book: FontBook = FONTS) -> float:
-    """Engraved '№ 47' at the right margin on the footer baseline, counting
-    unique species seen. Italic numero + old-style figures. Returns the
-    mark's width."""
-    x_right, y = theme.WIDTH - theme.MARGIN_X, theme.MARKS_BASELINE
-    if HAS_RAQM:
-        text = f"{theme.PLATE_NO_NUMERO} {ordinal}"
-        font = _mark_font(book)
-        feats = _feat(theme.PLATE_NO_FEATURES)
-        draw.text((x_right, y), text, font=font, fill=theme.INK_MEDIUM, anchor="rs",
-                  features=feats)
-        return font.getlength(text, features=feats)
-    # Faux fallback: plain "No. 47".
-    text = f"No. {ordinal}"
-    font = book.get(theme.PLATE_NO_SIZE, weight=520)
-    tracking_px = theme.PLATE_NO_SIZE * theme.PLATE_NO_TRACKING
-    total = tracked_width(font, text, tracking_px)
-    x = x_right - total
-    for ch in text:
-        draw.text((x, y), ch, font=font, fill=theme.INK_MEDIUM, anchor="ls")
-        x += _len(font, ch) + tracking_px
-    return total
+def plate_number_max_width() -> float:
+    return script_width(f"{theme.PLATE_NO_PREFIX} 888", theme.CORNER_SIZE)
 
 
-def plate_number_max_width(book: FontBook = FONTS) -> float:
-    font = _mark_font(book)
-    text = f"{theme.PLATE_NO_NUMERO} 888"
-    feats = _feat(theme.PLATE_NO_FEATURES) if HAS_RAQM else None
-    return font.getlength(text, features=feats)
-
-
-def note_line(draw: ImageDraw.ImageDraw, text: str, book: FontBook = FONTS,
-              max_w: float = theme.CONTENT_W) -> None:
-    """One italic footnote centred on the footer line, in the medium ink —
-    the gone-quiet note. Sits on the fixed footer baseline near the panel's
-    bottom edge so it clears the caption above it whatever the title's size;
-    shrinks rather than clips if the text is ever wider than `max_w` (the
-    room between the date and № marks when they are drawn)."""
+def note_line(field: Image.Image, text: str, max_w: float = theme.CONTENT_W) -> None:
+    """One small script line centred on the corner marks' baseline — the
+    gone-quiet note. Shrinks rather than clips if wider than `max_w` (the room
+    between the marks)."""
     size = theme.NOTE_SIZE
-    feats = _feat(theme.NOTE_FEATURES)
-    font = book.get(size, italic=True, weight=theme.NOTE_WEIGHT)
-    while size > 18 and font.getlength(text, features=feats) > max_w:
-        size -= 2
-        font = book.get(size, italic=True, weight=theme.NOTE_WEIGHT)
-    draw.text((theme.WIDTH / 2, theme.NOTE_BASELINE), text, font=font,
-              fill=theme.INK_MEDIUM, anchor="ms", features=feats)
+    while size > theme.NOTE_MIN_SIZE and script_width(text, size) > max_w:
+        size -= 1
+    draw_script(field, theme.WIDTH / 2, theme.MARKS_BASELINE, text, size, theme.INK_MEDIUM,
+                stroke=theme.LEGEND_STROKE)
 
 
 def wrap_to_width(text: str, font: ImageFont.FreeTypeFont, max_w: float) -> list[str]:

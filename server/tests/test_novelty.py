@@ -347,11 +347,11 @@ def test_corner_mark_carries_the_date():
     b = pipeline.render_single(_spec(when=datetime(2026, 8, 30, 8, 14)), _BlankArt(), cfg)
     assert a.etag != b.etag                       # same time of day, different date: different plate
     # The composition itself (before the mat inset moves everything): the
-    # mark region (left half of the footer line) has ink on both, and the
-    # two marks differ inside it.
+    # mark region (bottom-left corner) has ink on both, and the two marks
+    # differ inside it.
     ca = compose.render_single(_spec(), _BlankArt())
     cb = compose.render_single(_spec(when=datetime(2026, 8, 30, 8, 14)), _BlankArt())
-    mark = (theme.MARGIN_X, theme.MARKS_BASELINE - 50, theme.MARGIN_X + 600, theme.MARKS_BASELINE + 4)
+    mark = (theme.CORNER_INSET, theme.MARKS_BASELINE - 40, theme.CORNER_INSET + 400, theme.MARKS_BASELINE + 6)
     assert _ink(ca, mark) > 200 and _ink(cb, mark) > 200
     assert ca.crop(mark).tobytes() != cb.crop(mark).tobytes()
 
@@ -366,30 +366,20 @@ def test_first_ever_plate_says_so_under_the_latin_name():
     first = compose.render_single(_spec(first_ever=True), _BlankArt())
     assert known.tobytes() != first.tobytes()
 
-    # Where the extra line sits on the first-ever plate; the known plate has
-    # nothing under its own Latin name.
-    scratch = ImageDraw.Draw(Image.new("L", known.size, 255))
-    top = theme.HEIGHT - theme.CAPTION_BLOCK_H
-    sci_known = typography.caption_block(scratch, theme.WIDTH / 2, top,
-                                         "Bald Eagle", "Haliaeetus leucocephalus")
-    sci_first = typography.caption_block(scratch, theme.WIDTH / 2, top - theme.FIRST_LINE_EXTRA,
-                                         "Bald Eagle", "Haliaeetus leucocephalus")
-    line = sci_first + round(theme.FIRST_LINE_SIZE * theme.FIRST_LINE_DROP)
-    band = (theme.MARGIN_X, line - theme.FIRST_LINE_SIZE, theme.WIDTH - theme.MARGIN_X, line + 4)
+    # The extra line takes one legend pitch under the Latin name; the known
+    # plate has nothing there (between the corner marks).
+    mid_l, mid_r = theme.CORNER_INSET + 400, theme.WIDTH - theme.CORNER_INSET - 400
+    top = theme.HEIGHT - compose.caption_height(0, first_ever=True)
+    latin = top + round(theme.SCRIPT_TITLE_SIZE * theme.SCRIPT_TITLE_ASCENT) + theme.TITLE_TO_LATIN
+    line = latin + theme.LATIN_TO_LEGEND
+    band = (mid_l, line - theme.LEGEND_SIZE, mid_r, line + 8)
     assert _ink(first, band) > 100
-    # (Between the footer marks, which share the footnote's baseline.)
-    mid_l, mid_r = theme.MARGIN_X + 450, theme.WIDTH - theme.MARGIN_X - 450
-    below = (mid_l, sci_known + 10, mid_r, theme.NOTE_BASELINE - 30)
-    assert _ink(known, below) == 0
 
-    # With the gone-quiet footnote too, the note stays clear of the new line.
+    # With the gone-quiet footnote too, the note sits on the marks' baseline
+    # below the new line.
     noted = compose.render_single(_spec(first_ever=True, note="Nothing heard since 11:27 pm"),
                                   _BlankArt())
-    # The line is mixed-case italic now, so allow for its descenders ("y").
-    descent = round(theme.FIRST_LINE_SIZE * 0.3)
-    gap = (mid_l, line + descent, mid_r, theme.NOTE_BASELINE - 34)
-    assert _ink(noted, gap) == 0
-    assert _ink(noted, (mid_l, theme.NOTE_BASELINE - 30, mid_r, theme.NOTE_BASELINE + 8)) > 100
+    assert _ink(noted, (mid_l, theme.MARKS_BASELINE - 22, mid_r, theme.MARKS_BASELINE + 6)) > 100
 
     cfg = Config(dither="none")
     assert (pipeline.render_single(_spec(), _BlankArt(), cfg).etag

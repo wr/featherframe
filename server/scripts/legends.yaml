@@ -1,0 +1,1531 @@
+# Audubon's printed plate legends — the lines engraved under each plate's title
+# and Latin name in the Havell edition: the figure key ("Male, 1. Female, 2.") and
+# the plant or setting ("Black berry. Rubus villosus."). Keyed by Havell plate
+# number. Transcribed from the scans' caption bands on 4 Sep 2026 (W-708); spelling
+# and punctuation are Audubon's own ("Chesnut", "Black berry"). The title line, the
+# Latin name and the engraver credits are never included.
+#
+#   lines      legend lines in reading order (may be empty: some plates carry
+#              nothing beyond the title and Latin name)
+#   composite  true when several species share the sheet; then each species'
+#              figure key is prefixed with its printed title ("Black-capt
+#              Titmouse, 3. Male, 4. Female.") and featherframe.legends picks the
+#              detected species' line at index time
+#   uncertain  the type was faint, tiny, or the scan is cut off below the Latin
+#              line; the reading is a best effort (see note)
+#
+# fetch_plates.py merges these into plates/index.json as each species' "legend".
+legends:
+  1:
+    lines:
+    - Male.
+    - American Cane.
+    - Miegia macrosperma.
+  2:
+    lines:
+    - Male. 1. Female. 2.
+    - Papaw Tree. Porcelia triloba.
+  3:
+    lines:
+    - Male. 1. Female. 2.
+    - Cane Vine.
+  4:
+    lines:
+    - Male, 1, 2. Female, 3.
+    - Red Larch - Larix americana.
+  7:
+    lines:
+    - Male, 1. Female, 2.
+    - Maize or Indian Corn. Zea Mays.
+  8:
+    lines:
+    - 1. Male 2. Female
+    - Plant Cornus Florida - Vulgo Dog Wood.
+  10:
+    lines:
+    - 1. Male. 2. Female.
+  12:
+    lines:
+    - Adult Male, 1. Male two years old, 2. Female, 3.
+    - Tulip Tree Liriodendron tulipifera.
+  13:
+    lines:
+    - 1. Male. ..... 2. Female.
+    - Plant Vulgo. Great Swamp Ash.
+  14:
+    lines:
+    - 1. Male.... 2. Female.
+    - Plant Vulgo. Buffaloe Grass.
+  15:
+    lines:
+    - (1. Male. 2. F.)
+    - Plant, Vulgo. Louisiana Flag.
+  16:
+    lines:
+    - Male, 1. Female, 2.
+    - Green-winged Teal and Gadwal.
+  17:
+    lines:
+    - Male 1. F. 2.
+    - Plant. Steuartia Malacodrendron.
+  18:
+    lines:
+    - Plant Vulgo. Iron Wood.
+  19:
+    lines:
+    - Plant Vulgo. Indian Turnip.
+  20:
+    lines:
+    - Male 1. F. 2.
+    - Plant Vulgo. Wild Althea.
+  21:
+    lines:
+    - Males, 1. Females, 2.
+    - Florida Jessamine. Gelseminum nitidum.
+  22:
+    lines:
+    - 1. Males 2. F.
+    - Nest, a Gourd.
+  23:
+    lines:
+    - Male, 1. Female, 2.
+    - 1. Snow-drop Tree, Halesia tetraptera. 2. Bitter-wood Tree, Viburnum prunifolium.
+  25:
+    lines:
+    - Male 1. F. 2.
+    - Plant Vulgo. Wortle Berry.
+  26:
+    lines:
+    - Males 1. F. 2. Young 3.
+    - Plant Vulgo. Cuckle Burr.
+  27:
+    lines:
+    - Male, 1. F. 2. Young, 3. 4. 5.
+  28:
+    lines:
+    - Male. 1. F. 2.
+    - Plant. Vulgo Cane.
+  29:
+    lines:
+    - Male. 1. F. 2.
+    - Plant. Vulgo, Black-berry.
+  31:
+    lines:
+    - Male.
+    - Yellow Cat-fish.
+  32:
+    lines:
+    - Male 1. F. 2.
+    - Plant, Magnolia grandiflora.
+  33:
+    lines:
+    - Male 1. F. 2.
+    - Plant. Cnicus lanceolatus. Vulgo Common Thistle.
+  34:
+    lines:
+    - Male 1. F. 2.
+    - Plant. Phytolacca decandra. Vulgo. Poke-berry.
+  36:
+    lines:
+    - Male 1. F. 2.
+  37:
+    lines:
+    - Male 1. F. 2.
+  38:
+    lines:
+    - Male. 1. F. 2.
+    - Plant Magnolia auriculata.
+  39:
+    lines:
+    - Male 1. F. 2.
+    - Plant, Pinus Strobus.
+  40:
+    lines:
+    - Male 1. F. 2.
+    - Plant Vulgo. Scrub Elm.
+    - Ostrya Virginica.
+  41:
+    lines:
+    - Male, 1 & 2. F. 3.
+    - Vulgo. Pheasant.
+  42:
+    lines:
+    - Male 1. 2. adult. 3 & 4. 2nd. and 3d. Year. 5. Female.
+    - Plant Vulgo, honey Locust.
+    - Gleditschia triacanthos.
+  43:
+    lines:
+    - Male. 1. F. 2.
+    - Plant Vulgo, Red Cedar.
+    - Juniper Virginiana
+  44:
+    lines:
+    - Male old 1. Young 2. F. 3.
+    - Plant Vulgo Wild Muscadine.
+    - Vitis rotundifolia.
+  45:
+    lines:
+    - Plant Vulgo, Sweet Gum.
+    - Liquidamber Styraciflua.
+  46:
+    lines:
+    - Male, adult.
+    - Grey Squirrel.
+    - Scurius Cinereus.
+  47:
+    lines:
+    - Male 1. F. 2. Young 3.
+    - Plant, Bignania radicans
+    - Vulgo, Trumpet Flower.
+  48:
+    lines:
+    - Male 1. F. 2.
+    - Plant Vulgo. Bear-berry.
+    - Ilex Dahon.
+  50:
+    lines:
+    - Male.
+    - Tree, Vulgo. White Oak.
+    note: The crop shows 'Swainson's Warbler. SYLVICOLA SWAINSONIA.' (Havell 198), not Black & Yellow Warbler; the image appears
+      to be the wrong plate. Transcribed what is printed.
+    uncertain: true
+  51:
+    lines:
+    - Male, 1. Female, 2.
+    - American Hare. Lepus americanus.
+  52:
+    lines:
+    - Male, 1. Female, 2.
+    - Harlequin Snake.
+  53:
+    lines:
+    - 1, 2, Old Males, 3, M. of 1st Year, 4, 2nd Year, 5, Female.
+    - Chickasaw Plum. Prunus Chicasa.
+  54:
+    lines:
+    - Male, 1. Female, 2.
+    - Red Maple. Acer rubrum.
+  56:
+    lines:
+    - Male, 1. Female, 2.
+  57:
+    lines:
+    - Male, 1. Female, 2.
+    - Green Briar or Round-leaved Smilax. Smilax rotundifolia.
+  58:
+    lines:
+    - Male, 1. Female, 2.
+  59:
+    lines:
+    - Male, 1. Female, 2.
+    - Moth Mullein. Verbascum Blattaria.
+  61:
+    lines:
+    - Male, 1. Female, 2.
+  62:
+    lines:
+    - Male, 1. Female, 2.
+  63:
+    lines:
+    - Male,
+    - Pride of China or Bead-tree Melia Azedarach.
+  64:
+    lines:
+    - Male.
+    - May-apple. Podophyllum peltatum.
+  66:
+    lines:
+    - Male, 1. Female, 2, 3.
+  67:
+    lines:
+    - Adult Male, 1. Young Male, 2. Female Old, 3. Young, 4.
+    - Red Maple, or Swamp Maple. Acer rubrum.
+  68:
+    lines:
+    - Male, 1. Female 2. Egg, 3. Nests 4.
+  69:
+    lines:
+    - Male, 1. Female, 2.
+    - Highland Cotton-plant. Gossypium herbaceum.
+  70:
+    lines:
+    - Male.
+    - Indian Pink-root or Worm-grass. Spigelia marilandica.
+    - Shape of Tail.
+  72:
+    lines:
+    - Male.
+    - Garter Snake.
+  73:
+    lines:
+    - Male, 1. Female, 2.
+    - Dogwood. Cornus florida.
+  74:
+    lines:
+    - Male Adult, 1. M. first year 2. 2nd. 3. Female, 4.
+    - Wild Sarsaparilla Schisandra coccinea.
+  76:
+    lines:
+    - Male Adult, 1. Young, 2. Female Adult, 3. Young, 4. very young Birds, 5.
+  77:
+    lines:
+    - Male, 1, 2. Female, 3.
+  78:
+    lines:
+    - 1. M. & 2. Female.
+    - Dwarf Buck-eye. Aesculus Pavia.
+  79:
+    lines:
+    - 1. M. & 2. Female.
+    - Cotton-wood, Populus candicans.
+  81:
+    lines:
+    - Male.
+    - Weak Fish.
+  82:
+    lines:
+    - Male, 1. Female, 2, 3.
+    - Black Oak or Quercitron. Quercus tinctoria.
+  83:
+    lines:
+    - Male, 1. Female, 2. Young, 3, 4, 5.
+  84:
+    lines:
+    - Male 1. Female 2.
+    - Black Walnut. Juglans nigra.
+  85:
+    lines:
+    - Male.
+    - Chinquapin. Castenea pumila.
+  87:
+    lines:
+    - Male, 1. Female, 2.
+    - Persimon Tree. Diospyros virginiana.
+  89:
+    lines:
+    - Male, 1. Female, 2.
+    - Swamp Spice. Ilex prinoides.
+  90:
+    lines:
+    - Male
+    - Black Larch Pinus pendula.
+  91:
+    lines:
+    - Male, 1. Female, 2.
+    - Pig-nut Hickory. Juglans porcina.
+  92:
+    lines:
+    - Male, 1. Female, 2.
+  93:
+    lines:
+    - 1. M. & 2. Female.
+    - Carolina Rose. Rosa Carolina.
+  94:
+    lines:
+    - Male.
+    - Prickly Pear or Indian Fig. Cactus Opuntia.
+  95:
+    lines:
+    - Plant Wisterea.
+  96:
+    lines:
+    - Male, 1. Female, 2.
+  97:
+    lines:
+    - Adult, 1. Young, 2, 3.
+    - Jersey Pine. Pinus inops.
+  98:
+    lines:
+    - Male, 1. Female, 2.
+  99:
+    lines:
+    - Male, 1. Female, 2.
+  100:
+    lines:
+    - Male, 1. Female, 2, 3. Nest, 4.
+  101:
+    lines:
+    - Male.
+    - Thick Shell-bark Hickory. Juglans laciniosa.
+  102:
+    lines:
+    - Male. 1. Female. 2. 3.
+  103:
+    lines:
+    - Male, 1. Female, 2.
+    - Big Laurel. Rhododendron maximum.
+  104:
+    lines:
+    - Male.
+    - Black Locust. Robinia Pseudacacia.
+  105:
+    lines:
+    - Male. 1. Female. 2.
+  106:
+    lines:
+    - Male 1 and Female 2.
+    - American Deer. Cervus virginianus.
+  107:
+    lines:
+    - Male 1. Female 2.
+    - White Oak. Quercus alba.
+  108:
+    lines:
+    - Male, 1. Female, 2.
+  109:
+    lines:
+    - Male, 1. Female, 2.
+    - 1. Spigelia Marilandiea. 2. Phlox aristata.
+  110:
+    lines:
+    - Male 1. Female 2.
+  111:
+    lines:
+    - Adult Male, 1. Adult Female, 2. Young Males, 3, 4.
+    - Racoon Grape. Vitis aestivalis.
+  112:
+    lines:
+    - Male. 1. Female. 2.
+    - Bignonia capreolata.
+  113:
+    lines:
+    - Male 1. Female 2. Young 3.
+    - Great Mullein, Verbascum Thapsus.
+  114:
+    lines:
+    - Male, 1. Female, 2.
+    - Summer Grape. Vitis Aestivalis.
+  115:
+    lines:
+    - Male.
+    - Swamp Honeysuckle. Azalea viscosa.
+  116:
+    lines:
+    - Male, 1. Female, 2.
+    - Black-jack Oak. Quercus nigra.
+    - Black Snake.
+  117:
+    lines:
+    - Male, 1. Female, 2.
+  118:
+    lines:
+    - Male, 1. Female, 2.
+    - Swamp Magnolia. Magnolia glauca.
+  119:
+    lines:
+    - Male.
+    - Swamp Snow-ball. Hydrangea quercifolia.
+  120:
+    lines:
+    - Male, 1. Female, 2.
+    - Cotton plant. Gossypium.
+  121:
+    lines:
+    - Male, 1. Female, 2.
+  122:
+    lines:
+    - Male, 1. Female, 2. Young, 3.
+    - Dog-wood Cornus florida.
+  124:
+    lines:
+    - Male, 1. Female, 2.
+    - Snake's-head. Chelone glabra.
+  125:
+    lines:
+    - Male, 1. Female, 2.
+  127:
+    lines:
+    - Male, 1. Female, 2. Young in autum, 3. Young, 4.
+    - Ground Hemlock, Taxus canadensis.
+  128:
+    lines:
+    - Male, 1. Female, 2.
+    - Black-berry. Rubus villosus.
+  129:
+    lines:
+    - Males.
+  130:
+    lines:
+    - Male.
+    - Phlox subulata.
+  131:
+    lines:
+    - Male, 1. Female, 2. Young, 3.
+    - Chestnut oak. Quercus Prinus.
+  132:
+    lines:
+    - Males, 1. Female, 2.
+  133:
+    lines:
+    - Males, 1. Female, 2.
+    - Black Gum Tree. Nyssa aquatica.
+  135:
+    lines:
+    - Male.
+    - Phlox maculata.
+  136:
+    lines:
+    - Males, 1. Females, 2.
+    - Gerardia flava.
+  137:
+    lines:
+    - Males, 1. Female, 2.
+    - Sweet Briar. Rosa rubiginosa.
+  138:
+    lines:
+    - Male, 1. Female, 2.
+    - Gentiana saponaria.
+  139:
+    lines:
+    - Male.
+    - Calopogon pulchellum & Vaccinium tenellum.
+  140:
+    lines:
+    - Male, 1. Female, 2.
+    - Yellow Pine.
+  141:
+    composite: true
+    lines:
+    - Goshawk, Adult Male, 1. Young, 2.
+    - Stanley Hawk, Adult, 3.
+  142:
+    lines:
+    - Male, 1. Female, 2.
+    - Butter-nut or White walnut. Juglans cinerea.
+  143:
+    lines:
+    - Male 1 Female 2
+    - Woody Nightshade. Solanum Dulcamara.
+  144:
+    lines:
+    - Male, 1. Female, 2.
+    - Sassafras. Laurus Sassafras.
+  146:
+    lines:
+    - Male, 1. Female, 2.
+    - Vulgo Honey Locust. Gleditschia triacanthos.
+  147:
+    lines:
+    - Male, 1. Female, 2.
+    - White Oak. Quercus alba.
+  149:
+    lines:
+    - Male 1. Female 2.
+  150:
+    lines:
+    - Male.
+    - Honey-locust Gleditschia triacanthos
+  151:
+    lines:
+    - Male, 1. Young, 2.
+  152:
+    lines:
+    - Male, 1. Female, 2.
+  153:
+    lines:
+    - Male, 1. Young, 2.
+    - Iris versicolor.
+  154:
+    lines:
+    - Male
+    - Prunus. Sp.
+  155:
+    lines:
+    - Male.
+    - Canadian Columbine. Aquilegia canadensis.
+  156:
+    lines:
+    - Male.
+    - Black Walnut. Juglans nigra.
+    - Nest of the Ruby-throated Humming Bird.
+  157:
+    lines:
+    - Male, 1. Female, 2. Young, 3.
+    - Black Haw.
+  158:
+    lines:
+    - Male, 1. Female, 2.
+    - Nests.
+  159:
+    lines:
+    - Male, 1. Female, 2.
+    - Wild Almond.
+  160:
+    lines:
+    - Male, 1. Female, 2.
+    - Supple-jack.
+  161:
+    lines: []
+  162:
+    lines:
+    - Male 1. Female 2.
+    - Anona.
+  163:
+    lines:
+    - Male, 1. Young, 2.
+    - Wild Orange.
+  165:
+    lines:
+    - Male.
+    - Pinckneya pubescens.
+    note: Scan is the Bowen octavo lithograph ('Bachman's Pinewood-Finch', Lith. Printed & Col. by J.T. Bowen, Philad.), not
+      the Havell plate; faint text.
+    uncertain: true
+  166:
+    lines:
+    - Male.
+  167:
+    lines:
+    - Male 1. Female 2.
+  168:
+    lines:
+    - Male.
+    - Gordonia Lasianthus.
+  169:
+    lines:
+    - Male.
+  170:
+    lines:
+    - Agati grandiflora.
+  171:
+    lines:
+    - Male, 1. Female, 2.
+    - Ground Squirrel. Sciurus striatus.
+  172:
+    lines:
+    - Male 1. Female 2.
+  173:
+    lines:
+    - Male, 1. Female, 2.
+  174:
+    lines:
+    - Male, 1. Female, 2.
+    - Pinus Balsamea. Fir Balsam.
+  175:
+    lines:
+    - Male, 1. Female, 2.
+  176:
+    lines:
+    - Males, 1. Females, 2.
+    - 3 Trillium pictum, 4 Streptopus distortus.
+  177:
+    lines:
+    - Male, 1. Female, 2.
+    - Cordia Sebestena.
+  178:
+    lines:
+    - Male, 1. Female, 2.
+    - Vaccinium
+  180:
+    lines:
+    - Male, 1. Female, 2.
+    - Pinus pendula. Black Larch.
+  181:
+    lines:
+    - Female adult.
+    - Northern Hare.
+  182:
+    lines:
+    - Males, 1, 2, 3. Female, 4. Young, 5.
+    - Wild Orange.
+  183:
+    lines:
+    - Male, 1. Female, 2.
+    - Thalia dealbata
+  185:
+    lines:
+    - Male, 1. Female, 2.
+    - Gordonia pubescens.
+  186:
+    lines:
+    - Males, 1. 2. Female, 3.
+    - Lilium Superbum.
+  187:
+    lines:
+    - Male, 1. Female, 2.
+    - Live Oak. Quercus virens.
+  188:
+    lines:
+    - Male, 1. Female, 2.
+    - Berberis Canadensis.
+  189:
+    lines:
+    - Adult, 1, 2. Young, 3.
+  190:
+    lines:
+    - Male, 1. Female, 2.
+    - Prunus caroliniana.
+  191:
+    lines:
+    - Male, 1. Female, 2. & Young.
+    - Labrador Tea, 1. Sea pea, 2.
+  192:
+    lines:
+    - Male, 1. F. 2. Summer Plumage Do. 3. Young or Winter Do. F. 4.
+    - Crataegus apiifolia.
+    note: Very small text on one long line; title printed as 'Great cinereous Shrike or Butcher Bird'.
+    uncertain: true
+  193:
+    lines:
+    - Male, 1. Female, 2.
+    - 1. Cornus Suissica. 2. Rubus Chamaerus. 3. Kalmia glauca.
+  194:
+    lines:
+    - Male, 1. Female, 2. Young, 3.
+  195:
+    lines:
+    - Male, 1. Female, 2. Summer plumage.
+    - Kalmia Angustifolia.
+  196:
+    lines:
+    - Male, 1. Female, 2. adult.
+  197:
+    lines:
+    - Male adult, 1. Young Male, 2, 3. Female adult, 4. Young Female, 5.
+    - Hemlock.
+  198:
+    lines:
+    - Azalea Calendulacea. Orange-coloured Azalea.
+    - Bill hind toe & claw of the present species
+  199:
+    lines:
+    - Male, 1. Female, 2.
+    - Common Mouse.
+  200:
+    lines:
+    - Male adult Summer plumage, 1. F. 2. Male Winter plumage, 3. Young, 4. 5. 6.
+  201:
+    lines:
+    - Male, 1. Female, 2.
+  202:
+    lines:
+    - Male adult summer plumage, 1. Do. Winter plumage, 2. Adult Female, 3. Young, 4.
+  203:
+    lines:
+    - Male spring plumage, 1. Young autumnal plumage, 2.
+  204:
+    lines:
+    - 1. Male adult spring plumage. 2. Female.
+  205:
+    lines:
+    - Male, 1. Female, 2. Young autumnal plumage, 3.
+  206:
+    lines:
+    - 1, 2. Males. 3, 4. Females.
+    - Platanus occidentalis. - Button Wood Tree.
+  207:
+    lines: []
+  208:
+    lines:
+    - Male, 1. Female, 2.
+  209:
+    lines:
+    - 1. Male. 2. Female.
+  210:
+    lines:
+    - 1. Male. 2. Female. 3. Young.
+  211:
+    lines:
+    - Male.
+  212:
+    lines:
+    - 1. Adult. 2. Young.
+  213:
+    lines:
+    - 1. Male. 2. Female.
+  214:
+    lines:
+    - 1. Male. 2. Female.
+  215:
+    lines:
+    - 1. Male adult spring plumage. 2. Female Do. 3. Young autumnal plumage.
+  216:
+    lines: []
+  217:
+    lines:
+    - Male adult.
+  218:
+    lines:
+    - 1. Adult summer plumage Male. 2. Female.
+  219:
+    lines:
+    - 1. Adult summer plumage. 2. Do. Winter plumage. 3. Young.
+  220:
+    lines:
+    - 1. Male. 2. Female.
+  221:
+    lines:
+    - 1. Males. 2. Females.
+  222:
+    lines:
+    - 1. Adult. 2. Young in Autumn.
+  223:
+    lines: []
+  224:
+    lines:
+    - 1. Adult. 2. Young.
+  225:
+    lines:
+    - 1. Male. 2. Female.
+  226:
+    lines:
+    - Adult Male.
+  227:
+    lines:
+    - Male, 1. Female 2.
+  228:
+    lines:
+    - 1. Male. 2. Female.
+  229:
+    lines:
+    - 1 Male 2 Female
+  230:
+    lines:
+    - 1. Male. 2. Female.
+  231:
+    lines:
+    - 1. Male. 2. Female.
+    - City of Charleston.
+  232:
+    lines:
+    - 1. Male. 2. Female.
+  233:
+    lines:
+    - 1. Male. 2. Female. 3. Young.
+  234:
+    lines:
+    - 1. Male. 2. Female.
+  235:
+    lines: []
+  236:
+    lines:
+    - Adult 1. and Young 2.
+  237:
+    lines: []
+  238:
+    lines:
+    - 1 Male. 2 Female.
+  239:
+    lines: []
+  240:
+    lines: []
+  241:
+    lines: []
+  242:
+    lines:
+    - Male adult Spring plumage.
+    - Rice Plantation South Carolina.
+  243:
+    lines:
+    - Male 1. Female 2, 3.
+    - South Carolina Plantation near Charleston.
+  244:
+    lines:
+    - Male Adult.
+  245:
+    lines: []
+    note: Crop shows only the Latin name line 'URIA BRUNNICHII.'; title line is above the crop and no legend is visible below.
+    uncertain: true
+  246:
+    lines:
+    - Male 1. Female 2.
+  247:
+    lines:
+    - Male, 1. Female, 2.
+  248:
+    lines: []
+  249:
+    lines:
+    - Male, 1. Female, 2.
+  250:
+    lines: []
+  251:
+    lines:
+    - Male Adult.
+  253:
+    lines: []
+  254:
+    lines:
+    - Male Adult, 1. Female 2.
+  255:
+    lines:
+    - Adult Male, 1. Adult Female, 2. Winter Plumage, 3.
+  256:
+    lines:
+    - Adult full spring plumage, 1. Young two Years old in spring plumage, 2.
+  257:
+    lines:
+    - Male adult spring plumage.
+  258:
+    lines:
+    - Male, 1. Young Female, 2. Summer plumage.
+  259:
+    lines:
+    - Adult Male 1. Female Winter plumage 2.
+  260:
+    lines:
+    - Male 1. Female 2.
+  261:
+    lines:
+    - Young.
+    - the Interior of the Floridas with sand Hills in t
+    note: The scan is cut off at the bottom edge mid-line; only this fragment of the view line is visible (the start of the
+      line, if any, and its ending are lost).
+    uncertain: true
+  262:
+    lines:
+    - Male 1. Female 2.
+  263:
+    lines:
+    - Adult Male, 1. Young, 2.
+  264:
+    lines:
+    - Male adult Summer plumage.
+  265:
+    lines:
+    - 1. Male. 2. Female.
+  266:
+    lines:
+    - Male adult spring plumage, 1. Female, 2. Young, 3.
+    note: Legend line is very faint in the scan.
+    uncertain: true
+  267:
+    lines: []
+  268:
+    lines:
+    - Male 1. Female 2. Young Autumn. 3.
+  269:
+    lines:
+    - View of St. Augustine & Spanish Fort East Fl.
+    note: Small blurred type; 'St' printed with superscript t; last word read as 'Fl' (Florida).
+    uncertain: true
+  270:
+    lines:
+    - Male 1. Female 2.
+    note: Caption is extremely faint on this scan; legend read as best possible.
+    uncertain: true
+  271:
+    lines:
+    - Male Adult.
+  272:
+    lines:
+    - Male adult, 1. Young in Sepr. 2.
+  273:
+    lines:
+    - Male Adult. Spring plumage.
+  274:
+    lines:
+    - Male Adult Spring plumage 1. Female Adult Winter plumage 2.
+  275:
+    lines:
+    - Male Adult.
+  276:
+    lines:
+    - Male, 1. Female, 2.
+  277:
+    lines: []
+    note: Crop ends at the Latin name line (ANSER HUTCHINSII, Rich'd & Swain.); any figure legend below it is outside the
+      crop.
+    uncertain: true
+  278:
+    lines:
+    - View on the East Coast of Florida.
+  279:
+    lines:
+    - Florida Cray Fish.
+  280:
+    lines:
+    - Adult, 1. Young in Autumn, 2.
+  282:
+    lines:
+    - 1. Male summer plumage. 2. Young in Winter.
+  283:
+    lines:
+    - Male.
+  284:
+    lines:
+    - 1. Male Summer plumage. 2. Female Winter. 3. Charadrius Wilsonius.
+  285:
+    lines:
+    - 1. Male Summer plumage. 2. Tringa arenaria Male Spring plumage.
+  286:
+    lines:
+    - 1. Male. 2. Female.
+  287:
+    lines:
+    - 1. Adult Male. 2. Young Second Autumn.
+    note: Caption is very faint on this scan.
+    uncertain: true
+  288:
+    lines:
+    - Male Summer plumage
+    - View in South Carolina.
+  289:
+    lines:
+    - 1. Male. 2. Female.
+  290:
+    lines:
+    - 1. Summer plumage. 2. Winter plumage.
+  291:
+    lines:
+    - 1. Adult Male Spring plumage. 2. Young in November.
+    - Raccoon Oysters & View of the entrance into St Augustine.
+    note: Low-resolution scan; second line is faint small type, reading is a best effort.
+    uncertain: true
+  292:
+    lines:
+    - Adult Male spring plumage, 1. Young first Winter.
+    note: No figure number visible after 'Young first Winter'.
+    uncertain: true
+  293:
+    lines:
+    - 1. Male. 2. Female.
+  294:
+    lines:
+    - 1. Male. 2. Female.
+  295:
+    lines:
+    - Male Bird.
+  296:
+    lines:
+    - 1. Male. 2. Female.
+  297:
+    lines:
+    - 1. Old Male. 2. Female. 3. Young Male third Year.
+  298:
+    lines:
+    - 1. Adult Male spring plumage. 2. Winter plumage.
+  299:
+    lines:
+    - Male in Spring.
+  300:
+    lines:
+    - 1. Summer plumage. 2. Winter. 3. Variety in March.
+  301:
+    lines:
+    - 1. 2. Male. 3. Female.
+    - View of Baltimore.
+  302:
+    lines:
+    - 1. Male. 2. Female.
+  303:
+    lines:
+    - 1. Male. 2. Female.
+  304:
+    lines:
+    - 1. Summer plumage. 2. Winter.
+  305:
+    lines:
+    - Adult Male spring plumage.
+  306:
+    lines:
+    - Adult, 1. Young in Winter, 2.
+  307:
+    lines:
+    - 1. Adult Male spring plumage. 2. Young second Year.
+    - View near Charlestone S. C.
+  308:
+    lines:
+    - Male 1. F. 2. View in East Florida.
+  309:
+    lines:
+    - Male Spring Plumage.
+  310:
+    lines:
+    - 1. Adult Male. 2. Female.
+    - View on Bayou Sarah, Louisiana.
+  311:
+    lines:
+    - Male Adult.
+  312:
+    lines:
+    - 1. Male, Summer plumage. 2. Male Winter. 3. Female Young.
+  313:
+    lines:
+    - Male, 1. Female, 2.
+  314:
+    lines:
+    - Adult Male Spring Plumage 1. Young first Autumn 2.
+  315:
+    lines:
+    - Summer Plumage 1. Winter 2.
+  316:
+    lines: []
+    note: Latin line sits at the very bottom edge of the crop; any legend below it would be cut off.
+    uncertain: true
+  317:
+    lines:
+    - Male Adult 1. _ Female 2.
+  318:
+    lines:
+    - Young in first Winter Plumage 1.
+    - Adult 2.
+  319:
+    lines:
+    - Adult Spring Plumage 1. Young in Sepr. 2.
+  320:
+    lines:
+    - Male Adult Summer plumage 1. F. 2.
+  321:
+    lines:
+    - Male Adult.
+  322:
+    lines:
+    - Male 1. _ Female 2.
+  323:
+    lines:
+    - Male.
+  324:
+    lines:
+    - Male Spring Plumage, 1. Female, 2.
+    - Young first Autumn, 3.
+  325:
+    lines:
+    - Male 1. Female 2.
+  326:
+    lines:
+    - Adult Male 1. Young first Winter 2.
+    - Gannet Rock, Gulph of St. Lawrence.
+    note: Very small, blurred type; second line is a best reading.
+    uncertain: true
+  327:
+    lines:
+    - Male 1. Female 2.
+  328:
+    lines:
+    - Male.
+  329:
+    lines:
+    - Male Adult, Spring.
+  330:
+    lines:
+    - Adult Male 1. Young in August 2.
+  331:
+    lines:
+    - Male, 1. Female, 2.
+    - Cohoes Falls. State of New York.
+  332:
+    lines:
+    - Male Adult, 1. Female, 2.
+  333:
+    lines:
+    - Adult Male, 1. Young in September, 2.
+  334:
+    lines:
+    - Adult Male, Spring Plumage, 1. Young in Autumn, 2.
+    - Nestling, 3.
+  335:
+    lines:
+    - Spring Plumage 1. Winter 2.
+  336:
+    lines:
+    - Adult Male Spring Plumage, 1.
+    - Young in October, 2.
+  337:
+    lines:
+    - Male 1. Female 2.
+  339:
+    lines:
+    - Male 1. Female 2.
+  340:
+    lines:
+    - Male, 1. Female, 2.
+  341:
+    lines: []
+  342:
+    lines:
+    - Male, 1. Female, 2.
+  343:
+    lines:
+    - Male adult, 1. Female adult, 2. Young Male second spring, 3. Young 1st autumn, 4.
+  344:
+    lines:
+    - Spring plumage. 1. Winter. 2.
+  345:
+    lines:
+    - Male, 1. Female, 2.
+  346:
+    lines:
+    - Male 1. Female 2. Young in October. 3.
+  347:
+    lines:
+    - Male 1. Female, 2.
+  348:
+    lines:
+    - Male, 1. Female, 2.
+  349:
+    lines:
+    - 1. Male. 2. Young Adult.
+  350:
+    lines:
+    - Adult Female.
+  351:
+    lines:
+    - Female Adult.
+    note: very faint impression; legend read as 'Female Adult.'
+    uncertain: true
+  352:
+    lines:
+    - Male, 1. Female, 2.
+  353:
+    composite: true
+    lines:
+    - Chesnut-backed Titmouse, 1. Male, 2. Female.
+    - Black-capt Titmouse, 3. Male, 4. Female.
+    - Chesnut-crowned Titmouse, 5. Male, 6. Female.
+    - (and Nest.)
+    - Willow Oak ~ Quercus Phellos. L.
+  354:
+    composite: true
+    lines:
+    - Louisiana Tanager, 1 & 2. Males Spring Plumage.
+    - Scarlet Tanager, 3. Old Male, Spring Plumage. 4. Old Female Do. Do.
+    - Plant, Laurus Carolinensis.
+  356:
+    lines: []
+    note: The scan is cut off directly below the Latin name; any figure legend printed beneath it is not visible.
+    uncertain: true
+  357:
+    lines:
+    - Male 1. Female 2.
+  358:
+    lines:
+    - Male Adult, Spring Plumage, 1. Female, 2. Young first Winter, 3.
+  359:
+    composite: true
+    lines:
+    - Arkansaw Flycatcher, 1. Male. 2. Female.
+    - Swallow-Tailed Flycatcher, 3. Male.
+    - Says Flycatcher, 4. Male. 5. Female.
+  360:
+    composite: true
+    lines:
+    - Winter Wren, Male 1. Female 2. Young in Autumn 3.
+    - Rock Wren, Female 4.
+  361:
+    lines:
+    - Male, 1. Female, 2.
+  362:
+    composite: true
+    lines:
+    - 1. Yellow-billed Magpie.
+    - 2. Stellers Jay.
+    - 3. Ultramarine Jay.
+    - 4. 5. Clarks Crow.
+    - Plant, Platanus racemosus. Nuttall.
+    - Acorn of Quercus macrocarpa. Mich.
+  363:
+    lines:
+    - Male 1. Female. 2.
+    - Pyrus Americanus Canadian Service Tree
+  364:
+    lines:
+    - Male adult, 1. 2. Female adult, 3. Young F. 4.
+    - New Foundland alder.
+  365:
+    lines:
+    - Male Spring Plumage, 1. Male in Winter, 2. Female, 3.
+  367:
+    lines:
+    - 1. Male. 2. Female.
+    - Plant Nuttall Cornel.
+    - Cornus Nuttallii. Aud.
+  368:
+    lines:
+    - Male in Winter, 1. Female Summer Plumage, 2. Young in August, 3.
+  369:
+    composite: true
+    lines:
+    - 1. Mountain Mocking bird, Male
+    - 2. 3. Varied Thrush, Male & Female
+    - Plant Misletoe
+    - Viscum Verticillatum.
+  370:
+    lines:
+    - Male, 1. Female, 2.
+  371:
+    lines:
+    - Male 1. Female 2.
+  372:
+    lines:
+    - Female.
+    - Marsh Hare. Female.
+    - Lepus Palustris. Bachman.
+  373:
+    composite: true
+    lines:
+    - Evening Grosbeak, Old Male 1.
+    - Spotted Grosbeak, Male. 2. 3. Female. 4.
+  374:
+    lines:
+    - Male, 1. Female, 2.
+  375:
+    lines:
+    - Male 1. Female 2.
+    - Plant, Snow Berry.
+    - Symphoricarpos Racemosus.
+  376:
+    lines:
+    - Young.
+  377:
+    lines: []
+  378:
+    lines:
+    - Male, 1. Female, 2.
+  379:
+    lines:
+    - 1. 2. Males. 3. Female & Nest.
+    - Plant. Cleome heptaphylla.
+  380:
+    lines:
+    - Male 1. Female 2.
+  381:
+    lines:
+    - Adult Male, 1. Young Female first Winter, 2.
+  382:
+    lines:
+    - Male. 1. Female. 2.
+  383:
+    lines:
+    - Male.
+  384:
+    lines:
+    - Male, 1. Female, 2.
+  385:
+    composite: true
+    lines:
+    - Bank Swallow, Male, 1. Female, 2. Young, 3.
+    - Violet-Green Swallow, Male, 4. Female, 5.
+  386:
+    lines:
+    - Male Spring Plumage.
+    - Horned Agama. Tapayaxin of Hernandes.
+  387:
+    lines:
+    - Male Adult.
+  388:
+    composite: true
+    lines:
+    - Nuttall's Starling, 1. Adult Male.
+    - Yellow-headed Troopial, 2. Adult Male. 3. Do. Female. 4. head of Young Male.
+    - Bullock's Oriole, 5. Adult Male.
+  389:
+    lines:
+    - Males, 1. Female, 2.
+  390:
+    composite: true
+    lines:
+    - Lark Finch, Male, 1.
+    - Prairie Finch, 2. Male. 3. Female.
+    - Brown Song Sparrow, 4. Male.
+  391:
+    lines:
+    - 1. Male. 2. Female.
+  392:
+    lines:
+    - Adult Female.
+  393:
+    composite: true
+    lines:
+    - Townsend's Warbler, 1. Male.
+    - Arctic Blue-bird, 2. Male. 3. Female.
+    - Western Blue-bird, 4. Male. 5. Female.
+    - Plant. Carolina Allspice. Calycanthus Floridus.
+  394:
+    composite: true
+    lines:
+    - Chestnut-coloured Finch, 1. Male, Spring.
+    - Black-headed Siskin, 2. Old Male.
+    - Black crown Bunting, 3. Adult Male.
+    - Arctic Ground-Finch, 4. Male. 5. Female.
+  395:
+    composite: true
+    lines:
+    - Audubons Warbler, 1. Male, 2. Female.
+    - Hermit Warbler, 3. Male, 4. Female.
+    - Black-throated gray Warbler, 5 and 6. Males.
+    - Plant, Strawberry Tree.
+    - EUYONIMUS AMERICANA.
+  396:
+    lines:
+    - 1. Adult Male. 2. Young first Autumn.
+    note: Small faint text; 'Young first Autumn' is best reading.
+    uncertain: true
+  397:
+    lines:
+    - 1. Adult Male. 2. Young Second Autumn.
+  398:
+    composite: true
+    lines:
+    - Lazuli Finch, 1. Male Spring Plumage.
+    - Clay Coloured Finch, 2. Male.
+    - Oregon Snow Finch, 3. Male. 4. Female.
+    - Plant. Liberty Bush. Azalea Nudiflora.
+  399:
+    composite: true
+    lines:
+    - Black-throated green Warbler, 1. Male. 2. Female.
+    - Blackburnian W., 3. Female.
+    - Mourning Warbler, 4. Male. 5. Female.
+  400:
+    composite: true
+    lines:
+    - Arkansaw Siskin, 1. Male.
+    - Mealy Red-poll, 2. Male.
+    - Louisiana Tanager, 3. Female.
+    - Townsend's Finch, 4. Male.
+    - Buff-breasted Finch, 5. Male.
+  401:
+    lines:
+    - Male 1. Female 2.
+    - Plant, Sarracenia flava.
+    note: Plant line is cut off at the bottom edge of the crop; 'Sarracenia flava' is a best reading.
+    uncertain: true
+  402:
+    composite: true
+    lines:
+    - Black-throated Guillemot, 1. Adult. 2. Young.
+    - Nobbed-billed Auk, 3.
+    - Curled-Crested Auk, 4.
+    - Horned-billed Guillemot, 5.
+  403:
+    lines:
+    - Male, Summer Plumage.
+  404:
+    lines:
+    - 1. Adult. 2. Young first Winter.
+  405:
+    lines: []
+    note: Crop ends at the Latin name line (TRINGA SEMIPALMATA, Wils.); any figure legend below it is outside the crop.
+    uncertain: true
+  408:
+    lines:
+    - Male, 1. Female 2.
+  409:
+    composite: true
+    lines:
+    - Havell's Tern, 1.
+    - Trudeau's Tern, 2.
+  410:
+    lines:
+    - Male. Summer Plumage.
+  411:
+    lines:
+    - Nymphea flava - Leitner.
+  412:
+    composite: true
+    lines:
+    - Violet-green Cormorant, Female in Winter.
+    - Townsend's Cormorant, Male.
+    note: tiny faint legend; 'Female in Winter' is best reading
+    uncertain: true
+  413:
+    lines:
+    - Male, 1. Female, 2.
+  414:
+    composite: true
+    lines:
+    - Golden-winged Warbler, Male, 1. Female, 2.
+    - Cape May Warbler, Male, 3. Female, 4.
+  415:
+    composite: true
+    lines:
+    - Brown Creeper, Male 1. Female. 2.
+    - Californian Nuthatch, 3. 4.
+  416:
+    composite: true
+    lines:
+    - Hairy Woodpecker, 1. Male. 2. Female.
+    - Red-bellied Woodpecker, 3. Male. 4. Female.
+    - Red-shafted Woodpecker, 5. Male. 6. Female.
+    - Lewis' Woodpecker, 7. Male. 8. Female.
+    - Red-breasted Woodpecker, 9. Male. 10. Female.
+  418:
+    composite: true
+    lines:
+    - American Ptarmigan, 1. Male. Spring Plumage.
+    - White-tailed Grous, 2. Winter Plumage.
+  419:
+    composite: true
+    lines:
+    - Little Tawny Thrush, 1. Male.
+    - Ptiliogony's Townsendi, 2. Female.
+    - Canada Jay, 3. Young Male.
+  423:
+    composite: true
+    lines:
+    - Plumed-Partridge, 2. Male. 3. Female.
+    - Thick-legged Partridge, 1. Supposed Young Male.
+  424:
+    composite: true
+    lines:
+    - Lazuli Finch, 1. Female.
+    - Crimson-necked Bull-finch, 2. Male.
+    - Grey-crowned Linnet, 3. Male.
+    - Cow-pen Bird, 4. Young Male.
+    - Evening Grosbeak, 5. Female, 6. Young Male.
+    - Brown Longspur, 7. Female.
+    note: second-row legends are clipped at the crop edge; figure numbers 4-7 read from partial glyphs
+    uncertain: true
+  425:
+    lines:
+    - 1. 2. 3. 4. Male. 5. Female and Nest.
+    - Plant, Hibiscus Virginicus.
+  426:
+    lines:
+    - Old Male.
+  427:
+    composite: true
+    lines:
+    - White-legged Oyster-catcher, 1. Male.
+    - Slender-billed Oyster-catcher, 2. Female.
+    note: Very small faint text at the crop edge; figure numbers read as 1 and 2.
+    uncertain: true
+  428:
+    lines:
+    - Females.
+  429:
+    lines: []
+  430:
+    lines:
+    - 1. Male. 2. Female.
+  431:
+    lines:
+    - Old Male.
+    - 1. Profile view of Bill at its greatest extension.
+    - 2. Superior front view of upper Mandible.
+    - 3. Interior front view of upper Mandible.
+    - 4. Inferior front view of lower Mandible.
+    - 5. Interior front view of lower Mandible with the Tongue in.
+    - 6. Profile view of Tongue.
+    - 7. Superior front view of Tongue.
+    - 8. Inferior front view of Tongue.
+    - 9. Perpendicular front view of the foot fully expanded.
+  432:
+    composite: true
+    lines:
+    - Burrowing Owl, 1. Male.
+    - Large-headed Burrowing Owl, 2. Male.
+    - Little night Owl, 3. Female.
+    - Columbian Owl, 4. 5. Males.
+    - Short-eared Owl, 6. Male.
+    note: Very faint, small type; figure numbers and sexes are a best reading.
+    uncertain: true
+  433:
+    composite: true
+    lines:
+    - Bullock's Oriole, 1. Young Male. 2. Old Female.
+    - Baltimore Oriole, 3. Old Female.
+    - Mexican Goldfinch, 4. Male. 5. Female.
+    - Varied Thrush, 6. Female.
+    - Common Water Thrush, 7. Male.
+  434:
+    composite: true
+    lines:
+    - Small-headed Fly-catcher, Male, 2.
+    - Blue Mountain Warbler, 3. Male.
+    - Bartram's Vireo, 4. Male.
+    - Short-legged Pewee, 5. Male.
+    - Rocky Mountain Flycatcher, 6. Male.
+    note: No legend for Little Tyrant Fly-catcher (fig. 1) is visible in the crop; the plate has no plant line in the crop.
+    uncertain: true

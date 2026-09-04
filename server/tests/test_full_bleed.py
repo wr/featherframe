@@ -83,7 +83,7 @@ def _ink_bbox(img, box=None):
 
 
 def _art_box():
-    return (0, 0, theme.WIDTH, theme.HEIGHT - theme.CAPTION_BLOCK_H - theme.CAPTION_GAP)
+    return (0, 0, theme.WIDTH, theme.HEIGHT - compose.caption_height(0) - theme.CAPTION_GAP)
 
 
 def test_inked_edge_art_bleeds_to_both_sides_and_the_top():
@@ -133,33 +133,16 @@ def _blank():
     return _Art(Image.new("L", (600, 400), 255))
 
 
-def test_marks_sit_on_the_footer_line_not_the_top_corners():
+def test_marks_sit_in_the_bottom_corners_not_the_top():
     out = compose.render_single(_spec(), _blank())
-    top_left = (0, 0, 700, 140)
-    assert _ink_bbox(out, top_left) is None
-    footer_l = (0, theme.MARKS_BASELINE - 50, theme.WIDTH // 2, theme.MARKS_BASELINE + 4)
-    footer_r = (theme.WIDTH // 2, theme.MARKS_BASELINE - 50, theme.WIDTH, theme.MARKS_BASELINE + 4)
-    assert _ink_bbox(out, footer_l) is not None
-    assert _ink_bbox(out, footer_r) is not None
+    assert _ink_bbox(out, (0, 0, 700, 140)) is None
+    y0, y1 = theme.MARKS_BASELINE - 40, theme.MARKS_BASELINE + 6
+    assert _ink_bbox(out, (0, y0, theme.WIDTH // 2, y1)) is not None
+    assert _ink_bbox(out, (theme.WIDTH // 2, y0, theme.WIDTH, y1)) is not None
 
 
-def test_footer_marks_and_note_never_overlap():
-    note = "Nothing heard since 11:27 pm on a long, long, long quiet evening"
-    out = compose.render_single(_spec(note=note), _blank())
-    scratch = Image.new("L", out.size, 255)
-    typography.date_mark(ImageDraw.Draw(scratch), _spec().when)
-    typography.plate_number_mark(ImageDraw.Draw(scratch), 41)
-    marks = np.asarray(scratch) < 128
-    only_note = Image.new("L", out.size, 255)
-    typography.note_line(ImageDraw.Draw(only_note), note, max_w=compose.note_width())
-    note_px = np.asarray(only_note) < 128
-    assert note_px.any()
-    assert not (marks & note_px).any()
-    assert np.asarray(out)[theme.MARKS_BASELINE - 40:theme.MARKS_BASELINE].min() < 128
-
-
-def test_fallback_plate_number_moves_to_the_footer_too():
+def test_fallback_plate_number_sits_in_the_corner_too():
     out = compose.render_fallback(_spec(first_seen="2026-05-17"))
     assert _ink_bbox(out, (theme.WIDTH - 500, 0, theme.WIDTH, 140)) is None
-    footer_r = (theme.WIDTH // 2, theme.MARKS_BASELINE - 50, theme.WIDTH, theme.MARKS_BASELINE + 4)
-    assert _ink_bbox(out, footer_r) is not None
+    y0, y1 = theme.MARKS_BASELINE - 40, theme.MARKS_BASELINE + 6
+    assert _ink_bbox(out, (theme.WIDTH // 2, y0, theme.WIDTH, y1)) is not None

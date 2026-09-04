@@ -23,7 +23,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import __version__, paths
 from .config import Config, valid_hhmm
-from .names import normalize
+from .names import display_common_name, normalize
 from .service import FeatherframeService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -362,7 +362,12 @@ async def test_detection(request: Request):
     form = await request.form()
     # Names become a caption and a cache filename; keep them a sane length.
     common = str(form.get("common", "") or "").strip()[:200] or "Northern Cardinal"
+    # The typed name becomes the caption: the index's spelling if it knows
+    # the species, else title-cased like a field-guide entry (W-711).
+    common = svc.audubon._index.canonical_common(common) or display_common_name(common)  # noqa: SLF001
     sci = str(form.get("scientific", "") or "").strip()[:200]
+    if sci:
+        sci = sci[:1].upper() + sci[1:].lower()   # Genus species
     if not sci:
         sci = _known_scientific(svc, common) or ("Cardinalis cardinalis"
                                                  if common == "Northern Cardinal" else "")

@@ -49,11 +49,16 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 14
+PROMPT_VERSION = 15
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
+# v15 (W-709): the sheet gets a legend under its Latin name like a real
+# plate ("Male, 1. Female, 2." / "Chestnut Oak. Quercus prinus."), derived
+# from the sampled figure count and tableau — so on a multi-figure sheet the
+# prompt now says which numeral marks which figure, and the brief asks for
+# each plant's binomial. Versions 9-14 were prompt-wording iterations.
 # v8: regenerates must LOOK regenerated. The image model has no memory — the
 # sameness came from us sending a near-identical packet each time. Three
 # changes: a forced regenerate excludes the previous draw's plant, tableau,
@@ -449,8 +454,58 @@ def _sample_direction(rng: random.Random, is_bird: bool = True,
     return " ".join(picks.values()), picks
 
 
+def _figure_count(picks: dict) -> int:
+    sentence = str((picks or {}).get("figures") or "")
+    for word, n in (("three", 3), ("two", 2), ("one", 1)):
+        if word in sentence:
+            return n
+    return 1
+
+
+def figures_for(picks: dict, is_bird: bool) -> list[str]:
+    """What the numbered figures ARE, from the sampled direction: the first
+    is the male, the second the female, the third young — a juvenile tableau
+    makes the last figure the young one. Empty for a non-bird subject, whose
+    sexes the period plates did not key."""
+    if not is_bird:
+        return []
+    n = _figure_count(picks)
+    names = ["Male", "Female", "Young"][:n]
+    if "juvenile" in str((picks or {}).get("tableau") or "") and n >= 2:
+        names[-1] = "Young"
+    return names
+
+
+def figure_key(picks: dict, is_bird: bool) -> str:
+    """The legend's figure key in Audubon's form: "Male, 1. Female, 2."; a
+    lone figure is just "Male."; a nest tableau adds "(and Nest.)"."""
+    names = figures_for(picks, is_bird)
+    if not names:
+        return ""
+    key = "Male." if len(names) == 1 else " ".join(f"{n}, {i}." for i, n in enumerate(names, 1))
+    # A word match: the juvenile tableau's "honestly" would otherwise nest.
+    if re.search(r"\bnest\b", str((picks or {}).get("tableau") or "")):
+        key += " (and Nest.)"
+    return key
+
+
+def _plant_line(plant: Optional[dict]) -> str:
+    if not plant or not plant.get("name"):
+        return ""
+    name = str(plant["name"]).strip().rstrip(".")
+    name = name[:1].upper() + name[1:]
+    latin = str(plant.get("latin") or "").strip().rstrip(".")
+    return f"{name}. {latin}." if latin else f"{name}."
+
+
+def legend_lines(picks: dict, is_bird: bool, plant: Optional[dict]) -> list[str]:
+    """The lines printed under a generated sheet's Latin name."""
+    return [line for line in (figure_key(picks, is_bird), _plant_line(plant)) if line]
+
+
 def build_prompt(common_name: str, scientific_name: str, direction: str = "",
-                 description: str = "", plant: Optional[dict] = None) -> str:
+                 description: str = "", plant: Optional[dict] = None,
+                 figures: Optional[list[str]] = None) -> str:
     subject = common_name if not scientific_name else f"{common_name} ({scientific_name})"
     # Only the constant template goes through .format — the brief and the
     # plant line are model-authored text, and a brace in them must be a
@@ -468,6 +523,10 @@ def build_prompt(common_name: str, scientific_name: str, direction: str = "",
     if direction:
         parts.append("Art direction for this sheet, chosen for it alone: "
                      + direction + "\n\n")
+    if figures and len(figures) > 1:
+        parts.append("The tiny numerals name the figures, in this order: "
+                     + ", ".join(f"{i}. the {name}" for i, name in enumerate(figures, 1))
+                     + ".\n\n")
     parts += [_P_ANATOMY, _P_FOOTER]
     return "".join(parts)
 
@@ -491,13 +550,14 @@ DESCRIBE_PROMPT = (
     "that separate it from similar-looking groups, and its characteristic "
     "posture or carriage. Then list 4 to 6 REAL plants genuinely tied to this "
     "species — food, host, nest site, or a plant of its true habitat — each "
-    "with a one-line drawable description of how that plant looks in the "
+    "with its common name, its Latin binomial, and a one-line drawable "
+    "description of how that plant looks in the "
     "season this species is most active (leaf shape, growth habit, and its "
     "flower or fruit state then). Make the list botanically varied, and "
     "include flowering or fruiting associates whenever that is truthful. "
     "State only established fact. Reply as JSON: "
     '{{"is_bird": true or false, "description": "...", '
-    '"plants": [{{"name": "...", "look": "..."}}]}}'
+    '"plants": [{{"name": "...", "latin": "...", "look": "..."}}]}}'
 )
 
 
@@ -1305,7 +1365,23 @@ class GeneratedArtProvider(ArtProvider):
                     except OSError:
                         pass
                     return None
-        return Artwork(image=img, audubon_plate=None, composite=False, generated=True)
+        return Artwork(image=img, audubon_plate=None, composite=False, generated=True,
+                       legend=self._cached_legend(slug))
+
+    def _cached_legend(self, slug: str) -> list[str]:
+        """The sidecar's legend; a sidecar from before W-709 yields the plant
+        line alone — never a figure key the drawing was not asked to honour."""
+        try:
+            meta = json.loads(self._sidecar(slug).read_text())
+        except (OSError, ValueError):
+            return []
+        if not isinstance(meta, dict):
+            return []
+        legend = meta.get("legend")
+        if isinstance(legend, list):
+            return [str(x) for x in legend]
+        line = _plant_line(meta.get("plant") if isinstance(meta.get("plant"), dict) else None)
+        return [line] if line else []
 
     def _in_cooldown(self, slug: str) -> bool:
         failed = self._failed_at.get(slug)
@@ -1338,8 +1414,9 @@ class GeneratedArtProvider(ArtProvider):
             pool = [p for p in plants if p.get("name") != prev_plant] or plants
             plant = rng.choice(pool) if pool else None
             direction, picks = _sample_direction(rng, is_bird, avoid)
+            figures = figures_for(picks, is_bird)
             prompt = build_prompt(common_name, scientific_name, direction,
-                                  description, plant)
+                                  description, plant, figures)
             refs = (self._refs if self._refs is not None
                     else pick_reference_plates(common_name, rng=rng))
             started = time.time()
@@ -1363,6 +1440,8 @@ class GeneratedArtProvider(ArtProvider):
                 "art_direction": picks,
                 "description": description,
                 "plant": plant,
+                "figures": figures,
+                "legend": legend_lines(picks, is_bird, plant),
                 "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "elapsed_s": round(time.time() - started, 1),
                 "reference_plates": [p.name for p in refs],

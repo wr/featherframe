@@ -43,9 +43,18 @@ there is no separate onboarding checklist.
   (offsets in house-PNG space, body centre, hole ellipse). The raw colour draws and
   their prompt sidecars live in `art/raw/` so the art can be re-cut without re-buying.
   Generate runs on the box (`--key-from-db`, the key never leaves it); cut runs
-  anywhere with plates. `--foot 1150` cuts the post on a vine-free row;
-  `--fly-gap` slides the bird's box toward the house as far as bare paper allows —
-  the box must hold nothing but the bird or its DU window would take house grain.
+  anywhere with plates. The shipped cut is `--foot 1150 --fly-gap 16 --lift 0.7
+  --scale 0.95`: the foot cuts the post on a vine-free row; `--fly-gap` slides the
+  bird's box toward the house as far as bare paper allows (the box must hold
+  nothing but the bird or its DU window would take house grain); `--lift` is a
+  gamma on the output only — wash-over-line wood reads far darker on the glass
+  than pen-and-ink, and the bake's panel curve darkens it again; `--scale` is
+  what keeps the wren's box inside the mat's ~4 % inset. The peek patch is a
+  feathered RECTANGLE round the hole plus the bird's dark parts (the pale cheek is
+  the boards' own tone, so no pixel rule can trace it — and the bake dithers the
+  whole rectangle anyway). The house brief asks for thin transparent washes and a
+  pale, sun-silvered box; the fly brief for the top of the upstroke, wings raised;
+  the peek brief for the wren leaning OUT of the hole, bill past the rim.
 - Type is set by the SERVER's own typography module (`sys.path` → `server/`): the
   wordmark IS the plate title (the bundled script, Pinyon Script, at the plates' auto-fit
   `theme.SCRIPT_TITLE_SIZE`, via `typography.draw_script`), and the splash

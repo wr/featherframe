@@ -98,12 +98,14 @@ placement survives. The art is full-bleed to the mat opening (W-707):
 `compose.py` cover-fits a plate whose edges are inked (Snowy Owl) only if
 that crops ≤ 25 % of it, else contain-fits it centred; the date and № marks
 share one footer baseline with the gone-quiet note;
-`typography.py` sets the caption (W-708): a monoline script title (Ms Madi,
-OFL, bundled; `data/fonts/script.ttf` overrides it; Garamond italic is the
-last resort), the engraved Latin name, and the plate's own legend lines from
+`typography.py` sets the caption (W-708): a monoline script title (Avaleia, a
+licensed face that never ships in git: `data/fonts/script.ttf` on the box and
+locally; Garamond italic is the stand-in when it is absent), the engraved
+Latin name, and the plate's own legend lines from
 `scripts/legends.yaml` (Audubon's printed figure key and plant, transcribed
 per Havell plate; `featherframe/legends.py` reduces a composite sheet to the
-detected species' line); the date · time and "No. NN" sit in the bottom
+detected species' line);
+the date · time and "No. NN" sit in the bottom
 corners in the same script. `theme.py` holds all geometry/tone constants.
 
 **Non-obvious invariants — do not break one side of these without the other:**
@@ -134,6 +136,15 @@ corners in the same script. `theme.py` holds all geometry/tone constants.
 - Paths are env-overridable: `FEATHERFRAME_DATA_DIR`, `FEATHERFRAME_PLATES_DIR`,
   `FEATHERFRAME_DB`, `FEATHERFRAME_PORT` (see `paths.py`). `install.sh` sets these
   in the systemd unit.
+
+**The wordmark is the plate title, everywhere.** The dashboard serves the
+script from the data dir at `/fonts/script.ttf` (404 → Garamond italic), the
+favicon is its F (`server/scripts/make_favicon.py`), the baked boot screens
+draw it through `typography.draw_script` (`firmware/tools/screens/bake_screens.py`),
+and the captive portal embeds a WOFF subset generated into the gitignored
+`firmware/src/ff_portal_font.h` by `firmware/tools/portal_font.py` — run both
+tools before a firmware build after a font change; a clone without the font
+still builds (Georgia italic in the portal).
 
 **Firmware (`firmware/src/main.cpp`).** Deep-sleep model: all logic in `setup()`,
 `loop()` empty. Wake → Wi-Fi (WiFiManager captive portal on first boot / held

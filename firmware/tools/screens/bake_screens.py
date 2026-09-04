@@ -4,9 +4,11 @@
 Renders 5 screens at the panel's native 1404x1872 and PackBits-compresses them
 into a C header the firmware blits. The boot screens compose the designer's
 pen-and-ink birdhouse art (./art) with type set by the SERVER's own typography
-module — the wordmark is the plate title style (swash italic, theme.TITLE_SIZE)
-and the version line is the plates' engraved capitals — so the boot face always
-matches the plates. Pills use Inter (./fonts) for legibility at a glance.
+module — the wordmark is the plate title style (the script, at the plates'
+auto-fit title size; needs data/fonts/script.ttf installed locally, the licensed
+face that never ships in git) and the version line is the plates' engraved
+capitals — so the boot face always matches the plates. Pills use Inter
+(./fonts) for legibility at a glance.
 Run after changing the art, copy, or layout:
 
     server/.venv/bin/python firmware/tools/screens/bake_screens.py [--preview]
@@ -249,10 +251,10 @@ HOUSE_XY = (1, 200)
 FLY_XY   = (1, 403)
 PEEK_XY  = (501, 546)
 
-# The wordmark is the plate title, verbatim: EB Garamond swash italic at
-# theme.TITLE_SIZE with the v3 weight/tracking, drawn by the server's own
-# draw_title so any future plate-title change re-bakes into the boot face.
-# The baseline keeps the descenders (the swash f's) well clear of the pill.
+# The wordmark is the plate title, verbatim: the script at the plates' auto-fit
+# title size (theme.SCRIPT_TITLE_SIZE), drawn by the server's own draw_script so
+# any future plate-title change re-bakes into the boot face. The baseline keeps
+# the descenders (the script f's) well clear of the pill.
 WORDMARK_BASELINE = 1534
 # Splash footer: a hedera between the wordmark and the version line (the same
 # ornament the plates' date line uses), then the version in the plates'
@@ -261,10 +263,11 @@ HEDERA_BASELINE  = 1632
 VERSION_BASELINE = 1718
 
 def draw_wordmark(im):
-    d = ImageDraw.Draw(im)
-    f = font(theme.TITLE_SIZE, italic=True, weight=theme.TITLE_WEIGHT)
-    typography.draw_title(d, W / 2, WORDMARK_BASELINE, "Featherframe", f, 0,
-                          theme.TITLE_SIZE * theme.TITLE_TRACKING)
+    if not typography.has_script_font():
+        sys.exit("data/fonts/script.ttf is not installed; the wordmark must be the plates' script")
+    size = typography.fit_script_title("Featherframe", theme.CONTENT_W)
+    typography.draw_script(im, W / 2, WORDMARK_BASELINE, "Featherframe", size, 0,
+                           stroke=theme.TITLE_STROKE)
 
 def draw_version(im):
     d = ImageDraw.Draw(im)

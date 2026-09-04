@@ -31,6 +31,21 @@ there is no separate onboarding checklist.
 ## How it's built
 **Bake pipeline** — `bake_screens.py` (run with the server venv):
 `server/.venv/bin/python firmware/tools/screens/bake_screens.py [--preview]`
+- **Art** — `boot_art.py`, the birdhouse in the plates' own Audubon manner (since
+  W-716, 4 Sep 2026): `generate` buys three draws through the server's
+  `OpenAIImageModel` (`/v1/images/edits`, the folio's wren plates 83/78/18 as style
+  references) — the empty house, then an edit adding a Carolina Wren flying in, then
+  an edit with the wren's head in the hole; `cut` normalises the paper like a scan
+  (`plate.extract_generated`), registers each edit onto the house (scale + shift by
+  phase correlation, the model redraws the box smaller and shifted to make room),
+  lifts the bird off bare paper and the head out of the hole's ellipse, and writes
+  `art/plate_house.png` / `plate_fly.png` / `plate_peek.png` + `plate_layout.json`
+  (offsets in house-PNG space, body centre, hole ellipse). The raw colour draws and
+  their prompt sidecars live in `art/raw/` so the art can be re-cut without re-buying.
+  Generate runs on the box (`--key-from-db`, the key never leaves it); cut runs
+  anywhere with plates. `--foot 1150` cuts the post on a vine-free row;
+  `--fly-gap` slides the bird's box toward the house as far as bare paper allows —
+  the box must hold nothing but the bird or its DU window would take house grain.
 - Type is set by the SERVER's own typography module (`sys.path` → `server/`): the
   wordmark IS the plate title (the bundled script, Pinyon Script, at the plates' auto-fit
   `theme.SCRIPT_TITLE_SIZE`, via `typography.draw_script`), and the splash
@@ -42,9 +57,9 @@ there is no separate onboarding checklist.
   emits per-screen animation tiles + native mirrored coords (`FfLoader` in the
   header); baked screens carry frame 0, and tiles are byte-checked against them.
 - The bird / wren / pill boxes are baked **binary on purpose** so their windows
-  refresh with DU (no flash): the fly-in bird is thresholded line art on empty sky;
-  the **wren‑in‑hole is Bayer-dithered** (its light feathers would threshold into a
-  black blob — do not change this back). Everything else stays 16-level gray.
+  refresh with DU (no flash): both bird boxes are **Bayer-dithered** (the engraved
+  wren is wash over line; a threshold blobs it — do not change this back).
+  Everything else stays 16-level gray.
 - The single **setup** screen (`screen_setup`) shares the splash birdhouse and fits
   its card to the widest line; error/retry/corner tiles come from `error_assets()`.
 - Gray output: fixed white‑point + gamma LUT `apply_curve()` (`WHITE_PT=246`,
@@ -105,8 +120,10 @@ pulse RTS once to reset. `screen N` / `win …` / `frame …` / `panel updated` 
 ## Files
 - `bake_screens.py` — the whole bake (art + server typography → ff_screens.h).
 - `boot_v2.svg` — designer's boot screens (reference only; type is drawn live now).
-- `art/` — `birdhouse.png` (v2 dark house, = `house.png`), `birdfly.png`, `birdpeek.png`
-  (v2 wren); `fly.png`/`wren.png`/`bird.png`/`wren_hole.png` are the older v1 cut‑outs.
+- `boot_art.py` — draws + cuts the art (see **Art** above).
+- `art/` — `plate_house.png`, `plate_fly.png`, `plate_peek.png`, `plate_layout.json`
+  (the cut art the bake composites 1:1); `art/raw/` the colour draws + prompt sidecars.
+  The designer's pen-and-ink v1/v2 art is in git history before this change.
 - `fonts/` — vendored Inter Medium (pill text; OFL, see fonts/OFL.txt).
 - `src/ff_screens.h` — generated; don't hand‑edit.
 - `src/main.cpp` — `showScreen`, `loaderTask`, `freeScreenBuffers`, `displayFrame`,

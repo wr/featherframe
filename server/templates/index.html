@@ -8,7 +8,7 @@
      light card. #}
   <meta name="color-scheme" content="light">
   <title>Featherframe</title>
-  {# The swash F of the wordmark on walnut; rendered by scripts/make_favicon.py. #}
+  {# The script F of the wordmark on walnut; rendered by scripts/make_favicon.py. #}
   <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/static/favicon-192.png">
@@ -45,11 +45,14 @@
     .wrap { max-width:960px; margin:0 auto; padding:44px 26px 88px; }
 
     header { margin-bottom:32px; padding-left:2px; }
-    /* the wordmark uses the same swash EB Garamond italic the firmware renders */
-    @font-face { font-family:"Featherframe Wordmark"; src:url("/static/fonts/featherframe-wordmark.ttf") format("truetype");
+    /* The wordmark is the plates' script title. The face is licensed and lives
+       only on the box (served from its data dir at /fonts/script.ttf); declared
+       italic so a box without it falls back to Garamond italic un-slanted,
+       the same stand-in the plates use. */
+    @font-face { font-family:"Featherframe Script"; src:url("/fonts/script.ttf") format("truetype");
       font-style:italic; font-weight:400 700; font-display:swap; }
-    .wordmark { font-family:"Featherframe Wordmark", var(--serif); font-style:italic; font-weight:500; font-size:40px; line-height:1; margin:0;
-      font-feature-settings:"swsh" 1,"liga" 1,"calt" 1,"kern" 1; letter-spacing:-0.02em; text-rendering:optimizeLegibility; }
+    .wordmark { font-family:"Featherframe Script", var(--serif); font-style:italic; font-weight:500; font-size:40px; line-height:1; margin:0;
+      font-feature-settings:"liga" 1,"calt" 1,"kern" 1; text-rendering:optimizeLegibility; }
     header p { margin:7px 0 0; font-size:13px; color:var(--muted); }
     header p a { color:var(--ink-2); text-decoration:none; }
     header p a:hover { color:var(--accent); }

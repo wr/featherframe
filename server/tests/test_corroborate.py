@@ -26,6 +26,7 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
+    service._clock = lambda: NOW          # pin the wall clock to the fixtures' day
     service.config.dither = "none"
     service._frame_bytes = b"resident"
     service._set_cursor(0)

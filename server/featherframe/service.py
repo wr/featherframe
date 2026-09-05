@@ -349,6 +349,9 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
 
 class FeatherframeService:
     def __init__(self, db: Optional[Database] = None) -> None:
+        # The service's one wall clock. Every "now" inside the class reads
+        # it, so tests pin the clock instead of racing the calendar.
+        self._clock = datetime.now
         self.db = db or Database()
         self.config: Config = load_config(self.db)
         self.audubon = AudubonProvider()
@@ -413,7 +416,7 @@ class FeatherframeService:
         self._tick_memo: dict = {}
         # With no detection on record at all, the alarm clock starts here —
         # the earliest moment we can vouch for silence.
-        self._started_at = datetime.now()
+        self._started_at = self._clock()
 
         # Restore the last device check-in, filtering to known fields so a rollback
         # to a build with fewer DeviceStatus fields can't crash startup on an
@@ -496,7 +499,7 @@ class FeatherframeService:
     # -- the decision loop -------------------------------------------------
     def tick(self) -> None:
         self.reload_config()
-        now = datetime.now()
+        now = self._clock()
         available = self.source.available()
         # Computed first so any render this tick — including the flips below —
         # carries the right footnote.
@@ -804,7 +807,7 @@ class FeatherframeService:
     def force_day_review(self, repaint: bool = False) -> bool:
         """The config-page button: render today's day-in-review now. Reuses
         today's cached sheet unless repaint buys a fresh one."""
-        now = datetime.now()
+        now = self._clock()
         review = self._review_date(now)
         return self._build_collage(now, review, title="Sightings",
                                    generated_ok=True, force_generated=repaint)
@@ -871,7 +874,7 @@ class FeatherframeService:
         ok = self.genart.regenerate(common, sci)
         current = (sci or common).strip().lower()
         if ok and current and self._meta.get("species_key") == current:
-            now = datetime.now()
+            now = self._clock()
             det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"),
                             time=now.strftime("%H:%M:%S"), common_name=common,
                             scientific_name=sci, confidence=1.0)
@@ -984,7 +987,7 @@ class FeatherframeService:
         chain, including AI generation for plate-less species. It also bypasses
         the new-species corroboration gate: this is a deliberate injection
         from the config page, not a detector guess, so a plate may be bought."""
-        now = datetime.now()
+        now = self._clock()
         det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"), time=now.strftime("%H:%M:%S"),
                         common_name=common_name, scientific_name=scientific_name,
                         confidence=0.99)
@@ -1008,7 +1011,7 @@ class FeatherframeService:
         """Re-render the current subject after a config change (e.g. dither/gray)."""
         with self._lock:
             meta = dict(self._meta)
-        now = datetime.now()
+        now = self._clock()
         if meta.get("mode") == "collage":
             # Preserve what is showing: a day-in-review re-renders as one
             # (reusing the cached sheet for free), a grid as a grid.
@@ -1038,7 +1041,7 @@ class FeatherframeService:
         it also recovers from a stale held collage once single mode is due
         again, instead of re-committing the collage."""
         self.reload_config()
-        now = datetime.now()
+        now = self._clock()
         if self.config.in_quiet_hours(now.time()):
             # held overnight: keep the day-in-review if enabled, else the image
             if self.config.quiet_hours_render_collage:
@@ -1135,7 +1138,7 @@ class FeatherframeService:
             return self._etag
 
     def _battery_recent(self, hours: float = 2) -> list[dict]:
-        since = (datetime.now() - timedelta(hours=hours)).isoformat(timespec="seconds")
+        since = (self._clock() - timedelta(hours=hours)).isoformat(timespec="seconds")
         try:
             return self.db.battery_history(since)
         except Exception:  # noqa: BLE001
@@ -1148,7 +1151,7 @@ class FeatherframeService:
     def battery_view(self, hours: int = 24) -> dict:
         """Readings for the trend line plus the inferred power state. The
         line ends on the live median so it agrees with the row above it."""
-        now = datetime.now()
+        now = self._clock()
         rows = self._battery_recent(hours)
         live = self._battery_live_copy()
         items = [{"at": r["at"], "voltage": round(float(r["voltage"]), 3),
@@ -1169,7 +1172,7 @@ class FeatherframeService:
     def render_history(self, limit: int = _HISTORY_MAX) -> list[dict]:
         """Newest-first past frames for the config page: the render log rows
         with a display title and, where the file still exists, a thumb URL."""
-        now = datetime.now()
+        now = self._clock()
         hist = paths.history_dir()
         out = []
         for row in self.db.render_history(limit):
@@ -1195,7 +1198,7 @@ class FeatherframeService:
             meta = dict(self._meta)
             quiet = dict(self._quiet) if self._quiet else None
             outage = dict(self._outage) if self._outage else None
-        now = datetime.now()
+        now = self._clock()
         latest = self.source.latest(self.config.confidence_threshold)
         return {
             "current": {
@@ -1335,7 +1338,7 @@ class FeatherframeService:
         # persisted and rendered, and the headers come off the LAN.
         fields = _clean_device_fields({
             **(extra or {}),
-            "last_checkin": datetime.now().isoformat(timespec="seconds"),
+            "last_checkin": self._clock().isoformat(timespec="seconds"),
             "battery_voltage": volt, "battery_percent": pct, "wifi_rssi": rssi,
             "last_result": served, "etag_served": etag, "user_agent": ua or None,
             "ip": ip or None})
@@ -1594,7 +1597,7 @@ class FeatherframeService:
             p = dict(self._pending) if self._pending else None
         if not p:
             return None
-        now = now or datetime.now()
+        now = now or self._clock()
         try:
             last_at = datetime.fromisoformat(str(p.get("last_at") or p.get("first_at")))
         except (TypeError, ValueError):

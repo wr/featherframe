@@ -565,6 +565,10 @@ class TextModel(ABC):
     """One text-completion backend for the naturalist's brief."""
 
     name: str = "text"
+    #: Normalized token usage of the most recent call ({"input_tokens",
+    #: "output_tokens"}), or None when the vendor reported none. Reset on
+    #: every call so a cache hit never inherits a previous species' numbers.
+    last_usage: Optional[dict] = None
 
     @abstractmethod
     def complete_json(self, prompt: str) -> dict:
@@ -590,7 +594,9 @@ class OpenAITextModel(TextModel):
                   "response_format": {"type": "json_object"}},
             timeout=self.timeout_s)
         r.raise_for_status()
-        out = json.loads(r.json()["choices"][0]["message"]["content"])
+        body = r.json()
+        self.last_usage = _usage_openai_chat(body.get("usage"))
+        out = json.loads(body["choices"][0]["message"]["content"])
         if not isinstance(out, dict):
             raise GenerationError("text model returned non-object JSON")
         return out
@@ -618,7 +624,9 @@ class GeminiTextModel(TextModel):
                   "generationConfig": {"responseMimeType": "application/json"}},
             timeout=self.timeout_s)
         r.raise_for_status()
-        text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        body = r.json()
+        self.last_usage = _usage_gemini(body.get("usageMetadata"))
+        text = body["candidates"][0]["content"]["parts"][0]["text"]
         return _loads_json_object(text)
 
 
@@ -655,7 +663,9 @@ class AnthropicTextModel(TextModel):
                   "messages": [{"role": "user", "content": prompt}]},
             timeout=self.timeout_s)
         r.raise_for_status()
-        text = "".join(b.get("text", "") for b in r.json().get("content", [])
+        body = r.json()
+        self.last_usage = _usage_anthropic(body.get("usage"))
+        text = "".join(b.get("text", "") for b in body.get("content", [])
                        if b.get("type") == "text")
         return _loads_json_object(text)
 
@@ -682,13 +692,87 @@ class LocalTextModel(TextModel):
                   "messages": [{"role": "user", "content": prompt}]},
             timeout=self.timeout_s)
         r.raise_for_status()
-        return _loads_json_object(r.json()["choices"][0]["message"]["content"])
+        body = r.json()
+        self.last_usage = _usage_openai_chat(body.get("usage"))
+        return _loads_json_object(body["choices"][0]["message"]["content"])
+
+
+def _tok(v) -> int:
+    try:
+        return int(v or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _usage_openai_chat(u) -> Optional[dict]:
+    """OpenAI chat completions ``usage`` (also Ollama/LM Studio/llama.cpp)."""
+    if not isinstance(u, dict):
+        return None
+    return {"input_tokens": _tok(u.get("prompt_tokens")),
+            "output_tokens": _tok(u.get("completion_tokens"))}
+
+
+def _usage_openai_images(u) -> Optional[dict]:
+    """OpenAI Images API ``usage``: the input split (text vs reference
+    image tokens) is what the rate table bills differently."""
+    if not isinstance(u, dict):
+        return None
+    det = u.get("input_tokens_details") or {}
+    out = {"input_tokens": _tok(u.get("input_tokens")),
+           "output_tokens": _tok(u.get("output_tokens"))}
+    if isinstance(det, dict) and det:
+        out["input_text_tokens"] = _tok(det.get("text_tokens"))
+        out["input_image_tokens"] = _tok(det.get("image_tokens"))
+    return out
+
+
+def _usage_anthropic(u) -> Optional[dict]:
+    if not isinstance(u, dict):
+        return None
+    return {"input_tokens": _tok(u.get("input_tokens")),
+            "output_tokens": _tok(u.get("output_tokens"))}
+
+
+def _usage_gemini(u) -> Optional[dict]:
+    """Gemini ``usageMetadata`` (text and image endpoints alike)."""
+    if not isinstance(u, dict):
+        return None
+    return {"input_tokens": _tok(u.get("promptTokenCount")),
+            "output_tokens": _tok(u.get("candidatesTokenCount"))}
+
+
+#: USD per million tokens: (text in, image in, image out). Only the models
+#: whose list price is known get an estimate; everything else shows none.
+IMAGE_RATES_USD_PER_M: dict[str, tuple[float, float, float]] = {
+    "gpt-image-2": (5.0, 8.0, 30.0),
+    "gpt-image-1.5": (5.0, 8.0, 32.0),
+}
+
+
+def estimate_cost_usd(model: str, usage: Optional[dict]) -> Optional[float]:
+    """An estimate of one image call from the rate table, or None when the
+    model is not priced or no usage was reported. Without the input split
+    every input token is billed as text (the cheaper rate)."""
+    rates = IMAGE_RATES_USD_PER_M.get(str(model or ""))
+    if not rates or not isinstance(usage, dict) or not usage:
+        return None
+    text_in, image_in, image_out = rates
+    if "input_text_tokens" in usage or "input_image_tokens" in usage:
+        text = _tok(usage.get("input_text_tokens"))
+        image = _tok(usage.get("input_image_tokens"))
+    else:
+        text, image = _tok(usage.get("input_tokens")), 0
+    return (text * text_in + image * image_in
+            + _tok(usage.get("output_tokens")) * image_out) / 1e6
 
 
 class ImageModel(ABC):
     """One image-generation backend. ``generate`` returns raw PNG bytes."""
 
     name: str = "model"
+    #: Normalized token usage of the most recent generate() (see TextModel),
+    #: or None. Kept on the instance so the seam stays "bytes in, bytes out".
+    last_usage: Optional[dict] = None
 
     @abstractmethod
     def generate(self, prompt: str, size: str, refs: list[Path]) -> bytes:
@@ -752,12 +836,15 @@ class OpenAIImageModel(ImageModel):
                                  headers=self._headers(), json=body,
                                  timeout=self.timeout_s)
 
+        self.last_usage = None
         if resp.status_code != 200:
             raise GenerationError(f"HTTP {resp.status_code}: {resp.text[:300]}")
         try:
-            b64 = resp.json()["data"][0]["b64_json"]
+            body = resp.json()
+            self.last_usage = _usage_openai_images(body.get("usage"))
+            b64 = body["data"][0]["b64_json"]
             return base64.b64decode(b64)
-        except (KeyError, IndexError, ValueError, TypeError) as exc:
+        except (KeyError, IndexError, ValueError, TypeError, AttributeError) as exc:
             raise GenerationError(f"unexpected response shape: {exc}") from exc
 
 
@@ -790,10 +877,13 @@ class GeminiImageModel(ImageModel):
             json={"contents": [{"parts": parts}],
                   "generationConfig": {"responseModalities": ["IMAGE"]}},
             timeout=self.timeout_s)
+        self.last_usage = None
         if resp.status_code != 200:
             raise GenerationError(f"HTTP {resp.status_code}: {resp.text[:300]}")
         try:
-            for part in resp.json()["candidates"][0]["content"]["parts"]:
+            body = resp.json()
+            self.last_usage = _usage_gemini(body.get("usageMetadata"))
+            for part in body["candidates"][0]["content"]["parts"]:
                 blob = part.get("inline_data") or part.get("inlineData") or {}
                 if blob.get("data"):
                     return base64.b64decode(blob["data"])
@@ -1089,18 +1179,19 @@ class GeneratedArtProvider(ArtProvider):
         return self._dir().parent / "descriptions.json"
 
     def _describe(self, common_name: str,
-                  scientific_name: str) -> tuple[str, bool, list]:
-        """The cached naturalist's brief, the is-it-a-bird verdict, and the
-        pool of real associate plants. Bought once per species (an old entry
+                  scientific_name: str) -> tuple[str, bool, list, Optional[dict]]:
+        """The cached naturalist's brief, the is-it-a-bird verdict, the pool
+        of real associate plants, and the text call's token usage (None on a
+        cache hit or a failure). Bought once per species (an old entry
         without plants is re-bought once to upgrade it); soft-fails to
-        ("", True, []) so a text-model outage never blocks a plate."""
+        ("", True, [], None) so a text-model outage never blocks a plate."""
         key = slugify(scientific_name or common_name)
         path = self._descriptions_path()
         with _DESC_LOCK:
             return self._describe_locked(key, path, common_name, scientific_name)
 
     def _describe_locked(self, key: str, path: Path, common_name: str,
-                         scientific_name: str) -> tuple[str, bool, list]:
+                         scientific_name: str) -> tuple[str, bool, list, Optional[dict]]:
         try:
             cache = json.loads(path.read_text())
         except (OSError, ValueError):
@@ -1109,9 +1200,9 @@ class GeneratedArtProvider(ArtProvider):
         if isinstance(hit, dict) and hit.get("description") and (
                 "plants" in hit or self._text_model is None):
             return (str(hit["description"]), bool(hit.get("is_bird", True)),
-                    list(hit.get("plants") or []))
+                    list(hit.get("plants") or []), None)
         if self._text_model is None:
-            return "", True, []
+            return "", True, [], None
         subject = (f"{common_name} ({scientific_name})"
                    if scientific_name else common_name)
         try:
@@ -1124,18 +1215,20 @@ class GeneratedArtProvider(ArtProvider):
         except Exception as exc:
             log.warning("describe failed for %s (%s): %s", subject,
                         getattr(self._text_model, "name", "?"), exc)
-            return "", True, []
+            return "", True, [], None
+        usage = getattr(self._text_model, "last_usage", None)
         if description:
             cache[key] = {
                 "description": description,
                 "is_bird": is_bird,
                 "plants": plants,
                 "model": getattr(self._text_model, "name", "unknown"),
+                "usage": usage,
                 "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             }
             path.parent.mkdir(parents=True, exist_ok=True)
             self._write_atomic(path, json.dumps(cache, indent=2).encode())
-        return description, is_bird, plants
+        return description, is_bird, plants, usage
 
     @staticmethod
     def _slug_for(common_name: str, scientific_name: str) -> str:
@@ -1245,12 +1338,16 @@ class GeneratedArtProvider(ArtProvider):
                     if png.exists():
                         return self._read_sheet(png, sidecar, cells, locked=True)
                     return None
+                model_name = getattr(self._model, "name", "unknown")
+                image_usage = getattr(self._model, "last_usage", None)
                 payload = json.dumps({
                     "date": day,
                     "cells": [{"common": c.common_name, "scientific": c.scientific_name,
                                "count": c.count} for c in cells],
-                    "model": getattr(self._model, "name", "unknown"),
+                    "model": model_name,
                     "quality": getattr(self._model, "quality", None),
+                    "usage": {"image": image_usage, "text": None},
+                    "cost_usd": estimate_cost_usd(model_name, image_usage),
                     "prompt_version": PROMPT_VERSION,
                     "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                     "created_ts": round(time.time(), 1),
@@ -1398,7 +1495,8 @@ class GeneratedArtProvider(ArtProvider):
                 return True
             if not force and self._in_cooldown(slug):
                 return False
-            description, is_bird, plants = self._describe(common_name, scientific_name)
+            description, is_bird, plants, text_usage = self._describe(
+                common_name, scientific_name)
             rng = random.Random()
             # A forced regenerate must not repeat the last sheet's draw.
             avoid, prev_plant = None, None
@@ -1430,12 +1528,16 @@ class GeneratedArtProvider(ArtProvider):
                             scientific_name, getattr(self._model, "name", "?"), exc)
                 return False
 
+            model_name = getattr(self._model, "name", "unknown")
+            image_usage = getattr(self._model, "last_usage", None)
             sidecar_payload = json.dumps({
                 "slug": slug,
                 "common": common_name,
                 "scientific": scientific_name,
-                "model": getattr(self._model, "name", "unknown"),
+                "model": model_name,
                 "quality": getattr(self._model, "quality", None),
+                "usage": {"image": image_usage, "text": text_usage},
+                "cost_usd": estimate_cost_usd(model_name, image_usage),
                 "prompt_version": PROMPT_VERSION,
                 "art_direction": picks,
                 "description": description,

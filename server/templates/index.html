@@ -961,7 +961,7 @@
           <div class="who">
             <div class="common">{{ g.common }}</div>
             <div class="sci">{{ g.scientific }}</div>
-            <div class="meta">{{ g.model }} · {{ g.created_at[:10] }}</div>
+            <div class="meta">{{ g.model }} · {{ g.created_at[:10] }}{% if g.cost_usd is not none %} · <span class="cost" title="Estimated from the tokens the model reported, at list price">≈ ${{ '%.2f' | format(g.cost_usd) }}</span>{% endif %}</div>
             <div class="regen-status" role="status" aria-live="polite">{%- if g.regenerating %}Regenerating…{% elif g.regen_error %}Regeneration failed — {{ g.regen_error }}{% endif -%}</div>
           </div>
           <div class="ops">

@@ -1,33 +1,36 @@
 #!/usr/bin/env python3
 """Draw the boot-screen art through the plates' own image pipeline.
 
-The boot sequence is four screens on one birdhouse: the house alone, a wren
-flying in, the house alone again, the wren's head in the entrance hole. The
-house must be PIXEL-IDENTICAL on all four — the firmware diffs consecutive
-screens and repaints only the changed windows — so the art is three files:
+The boot sequence is four screens on one bare bough — the folio's own
+armature, the perch on which every Audubon bird sits: the bough alone
+(splash / setup), a wren arriving on the wing (Wi-Fi), the wren perched
+(server, download). The bough must be PIXEL-IDENTICAL on every screen — the
+firmware diffs consecutive screens and repaints only the changed windows —
+so the art is three files:
 
-    plate_house.png   the birdhouse (black ink on transparent, like the old art)
+    plate_base.png    the bough (black ink on transparent)
     plate_fly.png     the wren in flight, a cut-out that lands on bare paper
-    plate_peek.png    the entrance hole with the wren's head in it, a disc-
-                      masked patch that lands exactly over the empty hole
-    plate_layout.json where the fly and peek patches sit, in plate_house.png
-                      pixel space, plus the hole's disc
+    plate_perch.png   the wren perched, a feathered rectangle that carries
+                      its bit of twig with it
+    plate_layout.json where the two bird patches sit, in plate_base.png
+                      pixel space
 
 Two phases:
 
     generate   buys the images from the configured image model, the same
                ``OpenAIImageModel`` + ``/v1/images/edits`` with real Havell
                plates as style references that draws the frame's AI plates.
-               Draw 1: the empty house (refs: the folio's wren plates).
+               Draw 1: the empty bough (refs: the folio's wren plates).
                Draw 2: an edit of draw 1 adding a wren in flight.
-               Draw 3: an edit of draw 1 with the wren's head in the hole.
+               Draw 3: an edit of draw 1 with the wren perched.
                The image model has no notion of "unchanged", so draws 2 and 3
                come back as whole re-drawn sheets — only the bird is taken
-               from each, which is why the house is drawn once and reused.
+               from each, which is why the bough is drawn once and reused.
     cut        deterministic: normalises the paper like a real scan
-               (``plate.extract_generated``), aligns each edit to the house by
-               phase correlation, lifts the flying bird off the bare paper and
-               the head out of the hole disc, and writes the four files above.
+               (``plate.extract_generated``), registers each edit onto the
+               bough (scale + shift by phase correlation), lifts the flying
+               bird off the bare paper and the perched bird with its twig,
+               and writes the four files above at screen scale.
 
     server/.venv/bin/python firmware/tools/screens/boot_art.py generate --out art/raw
     server/.venv/bin/python firmware/tools/screens/boot_art.py cut --raw art/raw
@@ -61,7 +64,7 @@ from featherframe import paths  # noqa: E402
 from featherframe.render import genart, plate  # noqa: E402
 
 ART = HERE / "art"
-GEN_SIZE = "1024x1536"          # portrait: the box high, the post running off the foot
+GEN_SIZE = "1536x1024"          # landscape: the bough spans the panel's width
 
 # The folio's own wrens, style references for every draw: plate 83 is the House
 # Wren at a nest cavity (an old hat on a snag), plate 78 the Carolina Wren, plate
@@ -72,79 +75,68 @@ BIRD = "Carolina Wren (Thryothorus ludovicianus)"
 # -- prompts -----------------------------------------------------------------
 # Principles, never examples (see the genart prompt history): the model treats
 # any named instance as a target to hit.
-_HOUSE_OPEN = (
+_BASE_OPEN = (
     "A hand-colored copperplate engraving with aquatint in the exact style of John James "
-    "Audubon's 'The Birds of America' (Havell edition, 1827-1838), depicting a small "
-    "wooden nest box — a birdhouse — on a squared wooden post, drawn as the period's "
-    "engravers drew a nesting site: with a naturalist's accuracy and a carpenter's plain "
-    "honesty. The background is bright, near-white wove paper left completely untouched — "
+    "Audubon's 'The Birds of America' (Havell edition, 1827-1838), depicting the folio's "
+    "own armature and nothing else: a single bare bough of one real, identifiable tree, "
+    "drawn as the engravers drew a perch — the sheet on which a bird is about to be "
+    "placed. The background is bright, near-white wove paper left completely untouched — "
     "no sepia tint, no cream wash, no aging, no vignette, no border.\n\n"
 )
-_HOUSE_COLOR = (
-    "Color and tone as the colorists actually worked, and LIGHT: the whole box is laid in "
-    "thin transparent washes with the bright paper glowing through every plank, the "
-    "boards pale, dry and sun-silvered, their grain carried by fine engraved line rather "
-    "than by dark wash; the shadowed side and the underside of the roof are only a shade "
-    "deeper than the lit faces, never heavy, never black; the entrance hole's interior is "
-    "the one deep dark on the sheet. The wood in low-chroma pale umber, ochre and gray, "
-    "the vine's greens muted sage-olive, never grass-green; whites are reserved bare "
-    "paper with gray modeling, never opaque paint; nothing glows.\n\n"
+_BASE_COLOR = (
+    "Color and tone as the colorists actually worked, and LIGHT: the bough is laid in thin "
+    "transparent washes of pale umber and gray with the bright paper glowing through, its "
+    "bark carried by fine engraved line rather than by dark wash; nothing heavy, nothing "
+    "black, nothing glows; whites are reserved bare paper.\n\n"
 )
-_HOUSE_COMPOSE = (
-    "The nest box is the sheet's whole subject and fills it. It is a simple gabled box of "
-    "sawn boards with a pitched plank roof, one round entrance hole set high in the front "
-    "face under the eaves, and a short perch peg below the hole; the box is fastened to a "
-    "squared post that runs straight down and off the bottom edge of the sheet, cut flush. "
-    "The box is seen a little from below and turned slightly so that its front face looks "
-    "toward the left of the sheet, the front face the largest plane, one side wall and the "
-    "roof's edge reading in honest perspective. The entrance hole is EMPTY: the box is "
-    "unoccupied, there is no bird anywhere on the sheet, and the hole's interior is a plain "
-    "deep dark. A single climbing vine of one real, identifiable species, its leaves "
-    "individually veined, twines up the post and along the box's underside, drawn to "
-    "botanical-plate standard and kept spare so the box carries the sheet. Bare paper "
-    "surrounds the box above and on both sides; only the post touches the bottom edge. The "
-    "wood is drawn as engraved grain and plank lines, weathered as a real box on a real "
-    "post weathers, never decorated.\n\n"
+_BASE_COMPOSE = (
+    "The bough enters the sheet from the LEFT edge, cut off flush there, and rises gently "
+    "toward the right, dividing once or twice into finer twigs; the main twig ends in open "
+    "paper a little right of the sheet's centre and near mid-height — a perch waiting for "
+    "its bird. It is leafless and bare, at most a few tight buds true to its species: no "
+    "leaf, no flower, no fruit, no lichen, no moss, no insect, and NO BIRD anywhere on the "
+    "sheet. Bark, buds and twig scars are drawn to botanical-plate standard. The bough is "
+    "slender and never fills the sheet: at least four-fifths of the sheet stays bare "
+    "paper. No ground, no sky, no horizon, no shadow.\n\n"
 )
 _FOOTER = (
     "No text: no title, no names, no lettering, no numerals, no signature, no border, "
     "no frame line."
 )
-HOUSE_PROMPT = _HOUSE_OPEN + genart._P_PROCESS + _HOUSE_COLOR + _HOUSE_COMPOSE + _FOOTER
+BASE_PROMPT = _BASE_OPEN + genart._P_PROCESS + _BASE_COLOR + _BASE_COMPOSE + _FOOTER
 
 _EDIT_OPEN = (
-    "The first image is a finished sheet from this folio: a wooden nest box on a post with "
-    "an empty entrance hole. Reproduce that sheet exactly — every board, plank line, grain "
-    "stroke, the vine, and their placement on the paper unchanged, the same size on the "
-    "same bright untouched paper — "
+    "The first image is a finished sheet from this folio: a single bare bough on bright "
+    "untouched paper, entering from the left edge. Reproduce that sheet exactly — every "
+    "twig, bud and engraved stroke, and their placement on the paper unchanged, the same "
+    "size on the same paper — "
 )
 FLY_PROMPT = (
     _EDIT_OPEN
-    + "and add one figure only: a " + BIRD + " in full flight, arriving at the box from "
-    "the open paper on the LEFT of the sheet, caught at the top of the upstroke — both "
-    "wings raised high above the back, spread to their full extent, the tail fanned and "
-    "cocked, the feet tucked, bill pointed toward the entrance hole — life-size relative "
-    "to the box as a real wren is beside a real nest box. The bird stays entirely on "
-    "bare paper at about the height of the entrance hole — clear of the box, the roof, "
-    "the post and the vine, overlapping nothing, a clear gap of paper between it and the "
-    "box. The entrance hole stays empty. Draw the bird in the very same engraved-and-"
-    "washed manner as the rest of the sheet, exactly as the other images show the folio "
-    "drew this species.\n\n"
+    + "and add one figure only: a " + BIRD + " in full flight, arriving at the bough's "
+    "tip from the open paper on the RIGHT of the sheet and flying leftward toward it, "
+    "caught at the top of the upstroke — both wings raised high above the back and spread "
+    "to their full extent, the tail fanned and cocked, the feet tucked, the bill pointed "
+    "at the twig — life-size relative to the bough. The bird stays entirely on bare paper "
+    "— clear of the bough and of every twig, overlapping nothing, a clear gap of paper "
+    "between it and the twig's tip. Draw the bird in the very same engraved-and-washed "
+    "manner as the bough, exactly as the other images show the folio drew this "
+    "species.\n\n"
     + genart._P_PROCESS + genart._P_ANATOMY + _FOOTER
 )
-PEEK_PROMPT = (
+PERCH_PROMPT = (
     _EDIT_OPEN
-    + "with one change only: a " + BIRD + " now occupies the box and leans OUT of the "
-    "round entrance hole — its whole head, neck and the top of its breast thrust forward "
-    "past the rim of the opening, the bill pointing out and to the left, the bold pale "
-    "stripe over the eye and the eye itself plainly visible, the bird as large in the "
-    "opening as a real wren is in a real nest-box hole, its head filling the opening's "
-    "width. The wren is drawn crisply and legibly, its plumage light against the dark of "
-    "the interior behind it. No bird appears anywhere else on the sheet, and nothing "
-    "else changes. Draw the bird in the very same engraved-and-washed manner as the rest "
-    "of the sheet, exactly as the other images show the folio drew this species.\n\n"
+    + "and add one figure only: a " + BIRD + " perched on the main twig near its tip, "
+    "its feet gripping the twig, in the folio's characteristic wren attitude — body "
+    "angled upward, tail cocked high, head turned and alert, the bold pale stripe over "
+    "the eye plainly visible — life-size relative to the bough, in clean profile, drawn "
+    "crisply. Nothing else on the sheet changes and no other bird appears. Draw the bird "
+    "in the very same engraved-and-washed manner as the bough, exactly as the other "
+    "images show the folio drew this species.\n\n"
     + genart._P_PROCESS + genart._P_ANATOMY + _FOOTER
 )
+STEPS = ("base", "fly", "perch")
+PROMPTS = {"base": BASE_PROMPT, "fly": FLY_PROMPT, "perch": PERCH_PROMPT}
 
 
 # -- generate ----------------------------------------------------------------
@@ -182,26 +174,25 @@ def generate(args) -> None:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     refs = reference_plates()
-    steps = ["house", "fly", "peek"] if args.step == "all" else [args.step]
+    steps = list(STEPS) if args.step == "all" else [args.step]
     if args.dry_run:
         print("refs:", *[p.name for p in refs], sep="\n  ")
         for s in steps:
-            print(f"\n==== {s} ====\n" + {"house": HOUSE_PROMPT, "fly": FLY_PROMPT,
-                                           "peek": PEEK_PROMPT}[s])
+            print(f"\n==== {s} ====\n" + PROMPTS[s])
         return
     model = genart.OpenAIImageModel(api_key(args), model=args.model, quality=args.quality)
-    house = Path(args.house) if args.house else out / "house.png"
+    base = Path(args.base) if args.base else out / "base.png"
     for step in steps:
         for n in range(args.candidates):
             suffix = "" if args.candidates == 1 else f"-{n + 1}"
             dest = out / f"{step}{suffix}.png"
-            if step == "house":
-                prompt, step_refs = HOUSE_PROMPT, refs
+            if step == "base":
+                step_refs = refs
             else:
-                if not house.exists():
-                    sys.exit(f"{house} missing: draw the house first (or pass --house)")
-                prompt = FLY_PROMPT if step == "fly" else PEEK_PROMPT
-                step_refs = [house] + refs[:2]
+                if not base.exists():
+                    sys.exit(f"{base} missing: draw the bough first (or pass --base)")
+                step_refs = [base] + refs[:2]
+            prompt = PROMPTS[step]
             started = time.time()
             print(f"drawing {dest.name} ({model.name}, {model.quality}) …", flush=True)
             png = model.generate(prompt, GEN_SIZE, step_refs)
@@ -216,9 +207,16 @@ def generate(args) -> None:
 
 # -- cut ---------------------------------------------------------------------
 def _gray(path: Path) -> Image.Image:
-    """The generated sheet the way the frame would show it: paper normalised
-    like a real scan, no crop."""
-    return plate.extract_generated(path)
+    """The generated sheet as gray with clean paper. The plates' own
+    normaliser sets its black point at the 3.5th percentile, which on a
+    sheet that is nine-tenths bare paper lands in the middle of the ink and
+    turns a washed bough into a silhouette — so: paper (the 90th
+    percentile) to white, the darkest ink (0.1th) to black, linear."""
+    arr = np.asarray(plate.load_gray(path), dtype=np.float32)
+    lo, hi = np.percentile(arr, 0.1), np.percentile(arr, 90.0)
+    if hi - lo < 1e-3:
+        return Image.fromarray(arr.astype(np.uint8))
+    return Image.fromarray(np.clip((arr - lo) / (hi - lo) * 255.0, 0, 255).astype(np.uint8))
 
 
 def _align(base: np.ndarray, other: np.ndarray, window=None) -> tuple[int, int]:
@@ -348,54 +346,6 @@ def _ink_bbox(arr: np.ndarray, thr: int = 235) -> tuple[int, int, int, int]:
     return int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
 
 
-def find_hole(house: np.ndarray) -> tuple[int, int, int, int]:
-    """The entrance hole: the roundest near-black blob in the upper half of
-    the sheet, as an ellipse (cx, cy, rx, ry) — the box is drawn in
-    perspective, so the round hole is an upright ellipse on the sheet. The
-    normalised paper puts the hole's interior at the black point and the
-    shadowed wall a little above it, so the threshold sits just over black."""
-    dark = _open(house < 15, 2)
-    best = None
-    for comp, (x0, y0, x1, y1) in _components(dark):
-        w, h = x1 - x0, y1 - y0
-        area = int(comp.sum())
-        if y0 > house.shape[0] * 0.6 or w < 20 or h < 20:
-            continue
-        roundness = area / (np.pi * (w / 2) * (h / 2))   # ~1 for a filled ellipse
-        if roundness < 0.75 or max(w, h) / min(w, h) > 2.2:
-            continue
-        if best is None or area > best[0]:
-            best = (area, (x0 + x1) // 2, (y0 + y1) // 2, w // 2, h // 2)
-    if best is None:
-        sys.exit("could not find the entrance hole (no filled dark ellipse)")
-    return best[1:]
-
-
-def _refine(base: np.ndarray, other: np.ndarray, cx: int, cy: int, rx: int, ry: int,
-            reach: int = 10) -> tuple[int, int]:
-    """Small (dx, dy) that best matches `other` to `base` on an elliptical
-    ring around the hole — the hole interior is excluded because that is
-    exactly where the two are meant to differ."""
-    R = max(rx, ry)
-    y0, y1 = max(0, cy - 3 * R), min(base.shape[0], cy + 3 * R)
-    x0, x1 = max(0, cx - 3 * R), min(base.shape[1], cx + 3 * R)
-    yy, xx = np.mgrid[y0:y1, x0:x1]
-    e = ((xx - cx) / (rx + 3)) ** 2 + ((yy - cy) / (ry + 3)) ** 2
-    ring = (e > 1.0) & (e < 6.0)
-    ref = base[y0:y1, x0:x1].astype(np.float32)
-    best = (None, 0, 0)
-    for dy in range(-reach, reach + 1):
-        for dx in range(-reach, reach + 1):
-            sy0, sx0 = y0 - dy, x0 - dx
-            if sy0 < 0 or sx0 < 0 or sy0 + (y1 - y0) > other.shape[0] or sx0 + (x1 - x0) > other.shape[1]:
-                continue
-            cand = other[sy0:sy0 + (y1 - y0), sx0:sx0 + (x1 - x0)].astype(np.float32)
-            err = float(np.abs(cand - ref)[ring].mean())
-            if best[0] is None or err < best[0]:
-                best = (err, dx, dy)
-    return best[1], best[2]
-
-
 def _rgba_ink(gray: np.ndarray) -> Image.Image:
     """Black ink on transparent: alpha = darkness, as the old boot art is."""
     a = (255 - gray).astype(np.uint8)
@@ -404,192 +354,219 @@ def _rgba_ink(gray: np.ndarray) -> Image.Image:
     return Image.fromarray(rgba, "RGBA")
 
 
+def _added_bird(E: np.ndarray, H: np.ndarray, thr: int, clearance: int, pad: int,
+                touching_ok: bool, twig: int = 5, detail: int = 10
+                ) -> tuple[np.ndarray, tuple[int, int, int, int]]:
+    """The bird an edit added, as (mask, bbox): the edit's ink off the base
+    sheet's own ink (grown by `clearance`), largest blob first. The model
+    also redraws twigs a little — a lengthened twig is ink off the base that
+    TOUCHES it, so for a bird that must fly on bare paper those blobs are
+    dropped (`touching_ok=False`); a perched bird stands on its twig and
+    keeps the largest blob regardless."""
+    base = _dilate(H < thr, clearance)
+    off = (E < thr) & ~base
+    # A lengthened twig reaches the bird and would join it into one blob;
+    # opening at twig thickness separates bodies from twigs, and the bird's
+    # own fine parts (bill, toes, feather tips) come back from `off` within
+    # `detail` px of its body.
+    body = _open(off, twig)
+    comps = _components(body)
+    if not comps:
+        sys.exit("no added bird found in the edit")
+    # The bird is the biggest body by far; twig remnants are small. (The
+    # bird may overlap a base twig the model erased — the caller moves its
+    # box onto bare paper afterwards — so touching is no ground to drop it.)
+    bird, _ = comps[0]
+    bird = bird | (off & _dilate(bird, detail))
+    ys, xs = np.nonzero(bird)
+    x0, y0, x1, y1 = int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+    # Detached feather tips and the like: small satellites within reach.
+    for comp, (cx0, cy0, cx1, cy1) in comps[1:]:
+        if (comp.sum() < bird.sum() * 0.05
+                and cx0 < x1 + 2 * pad and cx1 > x0 - 2 * pad
+                and cy0 < y1 + 2 * pad and cy1 > y0 - 2 * pad):
+            bird |= comp
+            x0, y0 = min(x0, cx0), min(y0, cy0)
+            x1, y1 = max(x1, cx1), max(y1, cy1)
+    box = (max(0, x0 - pad), max(0, y0 - pad), min(E.shape[1], x1 + pad), min(E.shape[0], y1 + pad))
+    return bird, box
+
+
+def _refine_local(base: np.ndarray, other: np.ndarray, box, reach: int = 40,
+                  margin: int = 20) -> tuple[int, int]:
+    """Small (dx, dy) that best lays `other`'s twig onto `base`'s around
+    `box` (the added bird): mean |diff| over the base's own ink in a window
+    round the box. The bird itself sits on base paper, so it is outside the
+    mask and cannot bias the fit."""
+    x0, y0, x1, y1 = box
+    wx0, wy0 = max(reach, x0 - margin), max(reach, y0 - margin)
+    wx1, wy1 = min(base.shape[1] - reach, x1 + margin), min(base.shape[0] - reach, y1 + margin)
+    ref = base[wy0:wy1, wx0:wx1].astype(np.float32)
+    mask = ref < 235
+    if not mask.any():
+        return 0, 0
+    best = None
+    for dy in range(-reach, reach + 1):
+        for dx in range(-reach, reach + 1):
+            cand = other[wy0 - dy:wy1 - dy, wx0 - dx:wx1 - dx].astype(np.float32)
+            err = float(np.abs(cand - ref)[mask].mean())
+            if best is None or err < best[0]:
+                best = (err, dx, dy)
+    return best[1], best[2]
+
+
 def cut(args) -> None:
     raw = Path(args.raw)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    house_g = _gray(raw / args.house_file)
-    fly_g = _gray(raw / args.fly_file)
-    peek_g = _gray(raw / args.peek_file)
-    H0 = np.asarray(house_g)
-    # The edits were told to reproduce the sheet in place at the same size;
-    # what comes back is redrawn a little smaller and shifted, so register
-    # each one (scale + translation) onto the house before cutting.
-    fly_reg = _register(H0, np.asarray(fly_g))
-    peek_reg = _register(H0, np.asarray(peek_g))
-    cx, cy, rx, ry = find_hole(H0)
-    PADX = args.padx
-    H = np.full((H0.shape[0], H0.shape[1] + PADX), 255, dtype=np.uint8)
-    H[:, PADX:] = H0
-    F = _place(np.asarray(fly_g), *fly_reg, H0.shape, PADX)
-    P = _place(np.asarray(peek_g), *peek_reg, H0.shape, PADX)
-    cx += PADX
-    # The global fit is the whole sheet's best compromise; the hole patch
-    # needs the wood right around the hole to sit exactly, so refine the
-    # peek's offset on the ring of grain just outside the ellipse.
-    ddx, ddy = _refine(H, P, cx, cy, rx, ry)
+    H = np.asarray(_gray(raw / args.base_file))
+    fly_g = np.asarray(_gray(raw / args.fly_file))
+    perch_g = np.asarray(_gray(raw / args.perch_file))
+    # The edits were told to reproduce the sheet in place at the same size.
+    # A thin bough gives phase correlation too little to lock a SCALE on
+    # (the search wandered 90 px off), so the sheets are registered by
+    # translation only — the model keeps the sheet's scale for a sparse
+    # subject — and the perched bird's twig is then refined locally.
+    scales = np.arange(0.84, 1.17, 0.01) if args.scale_search else (1.0,)
+    fly_reg = _register(H, fly_g, scales=scales)
+    perch_reg = _register(H, perch_g, scales=scales)
+    F = _place(fly_g, *fly_reg, H.shape, 0)
+    P = _place(perch_g, *perch_reg, H.shape, 0)
+    _, rough = _added_bird(P, H, 235, args.clearance, args.pad, touching_ok=True)
+    ddx, ddy = _refine_local(H, P, rough)
     P = _place(P, 1.0, ddx, ddy, P.shape, 0)
-    print(f"hole at ({cx - PADX},{cy}) rx={rx} ry={ry}; fly (scale,dx,dy)={fly_reg}, "
-          f"peek={peek_reg} refined by ({ddx},{ddy})")
-    if args.foot:
-        foot = args.foot
-        H, F, P = H[:foot], F[:foot], P[:foot]
-    # Tone lift (gamma < 1) for the OUTPUT only: a wash-over-line box reads
-    # far darker on the glass than the pen-and-ink it replaced, and the bake's
-    # own panel curve darkens it again. Analysis below stays on the
-    # normalised sheets so thresholds mean what they say; the same curve goes
-    # on all three cuts so they still match, and the black point stays put.
-    _lift_lut = np.clip(255.0 * (np.arange(256) / 255.0) ** args.lift, 0, 255).astype(np.uint8)
-    def lifted(a: np.ndarray) -> np.ndarray:
-        return _lift_lut[a]
+    print(f"fly (scale,dx,dy)={fly_reg}, perch={perch_reg} refined by ({ddx},{ddy})")
     if args.scale != 1.0:
         # Scale the whole sheets now, so every cut below shares one
-        # resampling and the peek patch lands on the hole pixel-for-pixel.
+        # resampling and the perch patch lands on the twig pixel-for-pixel.
         H, F, P = (_resample(a, args.scale) for a in (H, F, P))
-        cx, cy = round(cx * args.scale), round(cy * args.scale)
-        rx, ry = round(rx * args.scale), round(ry * args.scale)
+    _lift_lut = np.clip(255.0 * (np.arange(256) / 255.0) ** args.lift, 0, 255).astype(np.uint8)
 
-    # -- house: crop to its ink, keep the post cut flush at the foot ----------
+    def lifted(a: np.ndarray) -> np.ndarray:
+        # Output-only gamma: analysis stays on the normalised sheets, so
+        # the thresholds below don't drift with the lift.
+        return _lift_lut[a]
+
     pad = args.pad
+    # -- base: the bough, cut flush at the sheet's left edge -----------------
     x0, y0, x1, y1 = _ink_bbox(H)
-    x0, y0 = max(0, x0 - pad), max(0, y0 - pad)
-    x1 = min(H.shape[1], x1 + pad)
-    y1 = H.shape[0] if y1 >= H.shape[0] - 2 else min(H.shape[0], y1 + pad)
-    house_crop = H[y0:y1, x0:x1]
-    _rgba_ink(lifted(house_crop)).save(out / "plate_house.png")
+    x0 = 0 if x0 < 3 * pad else x0 - pad          # entering from the edge stays flush
+    y0, x1, y1 = max(0, y0 - pad), min(H.shape[1], x1 + pad), min(H.shape[0], y1 + pad)
+    _rgba_ink(lifted(H[y0:y1, x0:x1])).save(out / "plate_base.png")
 
-    # -- fly: the ink that sits where the house sheet is bare paper -----------
-    house_ink = _dilate(H < 235, args.clearance)
-    fly_ink = _open((F < 235) & ~house_ink, 1)
-    comps = _components(fly_ink)
-    if not comps:
-        sys.exit("no flying bird found on bare paper in the fly edit")
-    bird, (bx0, by0, bx1, by1) = comps[0]
-    # Detached feather tips and the like: any smaller component within reach.
-    for comp, (cx0, cy0, cx1, cy1) in comps[1:]:
-        if (cx0 < bx1 + 2 * pad and cx1 > bx0 - 2 * pad
-                and cy0 < by1 + 2 * pad and cy1 > by0 - 2 * pad):
-            bird |= comp
-            bx0, by0 = min(bx0, cx0), min(by0, cy0)
-            bx1, by1 = max(bx1, cx1), max(by1, cy1)
-    bx0, by0 = max(0, bx0 - pad), max(0, by0 - pad)
-    bx1, by1 = min(H.shape[1], bx1 + pad), min(H.shape[0], by1 + pad)
-    fly_box = np.where(bird[by0:by1, bx0:bx1] | ~house_ink[by0:by1, bx0:bx1],
-                       F[by0:by1, bx0:bx1], 255)
+    # -- fly: the ink that sits where the bough sheet is bare paper -----------
+    bird, (bx0, by0, bx1, by1) = _added_bird(F, H, 235, args.clearance, pad, touching_ok=False)
+    soft = _dilate(bird, 2)                       # keep the wash edge round the ink
+    fly_box = np.where(soft[by0:by1, bx0:bx1], F[by0:by1, bx0:bx1], 255)
     _rgba_ink(lifted(fly_box)).save(out / "plate_fly.png")
-    # The model leaves the bird a generous gap; slide its box toward the
-    # house as far as the sheet stays bare paper under the whole box (the
-    # box must hold nothing but the bird, or its binary window would take
-    # house grain with it), minus --fly-gap.
-    shift = 0
-    # First back away leftward if the box already sits over house ink (the
-    # edit's own box was drawn smaller, so the bird landed too close) …
-    while bx0 + shift > 0 and not (H[by0:by1, bx0 + shift:bx1 + shift] >= 250).all():
-        shift -= 1
-    # … then slide toward the house as far as the paper stays bare.
-    while (bx1 + shift + 1 <= H.shape[1]
-           and (H[by0:by1, bx0 + shift + 1:bx1 + shift + 1] >= 250).all()):
-        shift += 1
-    shift -= args.fly_gap
-    bx0, bx1 = bx0 + shift, bx1 + shift
-    if (H[by0:by1, bx0:bx1] < 250).any():
-        print("warning: the fly box overlaps house ink — the bird will paint over it")
+    # The edit's bird must land on bare paper in the BASE sheet — the model
+    # shortens or moves twigs to make room, and in the base frame the bird
+    # may sit over a twig that isn't there in the edit. Find the nearest
+    # place (prefer moving away from the bough, then vertically) where the
+    # whole box is paper and still inside the panel's mat, then slide it
+    # back toward the bough to --fly-gap.
+    bw, bh = bx1 - bx0, by1 - by0
+    inset = int(H.shape[1] * args.mat_inset)
+    toward = -1 if (bx0 + bx1) / 2 > (x0 + x1) / 2 else 1
 
-    # -- peek: the hole's ellipse plus whatever of the bird leans past its rim --
-    # The model redraws the opening a little larger and off-centre to fit the
-    # bird, and the bird's bill pokes past the rim, so the patch is the base
-    # ellipse UNION the edit's non-wood mass touching it: everything darker
-    # than the boards (bird + cavity), grain lines opened away, gaps in a
-    # pale breast closed back up. The edit's own rim rides along with it,
-    # which is what keeps the seam honest where the two holes disagree.
-    RX, RY = rx + args.disc_grow, ry + args.disc_grow
-    reach = int(max(RX, RY) * 1.8)
-    px0, py0 = max(0, cx - reach), max(0, cy - reach)
-    px1, py1 = min(H.shape[1], cx + reach), min(H.shape[0], cy + reach)
-    yy, xx = np.mgrid[py0:py1, px0:px1]
-    inside = (((xx - cx) / RX) ** 2 + ((yy - cy) / RY) ** 2) <= 1.0
-    pb = P[py0:py1, px0:px1]
-    # Grow the ellipse outward through "bird" pixels — darker than the boards
-    # OR different from the empty house — for a bounded distance. Growing from
-    # the ellipse (where the head certainly is) needs no component bookkeeping,
-    # and the bound keeps a stray grain line from carrying the mask away;
-    # thin grain lines are opened off first so a 5 px bill still counts.
-    hb = H[py0:py1, px0:px1].astype(np.int16)
-    cand = _open((pb < args.peek_thr) | (np.abs(pb.astype(np.int16) - hb) > args.peek_diff), 1)
-    # The bird leans out sideways at hole height; the roof shadow above and
-    # the perch below are not it, so growth stays in a band about the hole.
-    cand &= np.abs(yy - cy) <= RY * 1.25
-    bh, bw = cand.shape
-    bird = inside.copy()
-    for _ in range(args.peek_grow):
-        grown = _dilate(bird, 1) & cand
-        if not (grown & ~bird).any():
-            break
-        bird |= grown
-    # The pale cheek and throat are the boards' own tone, so no pixel rule
-    # can trace the bird's soft edge — and it need not: the bake dithers the
-    # whole peek rectangle to binary anyway, so the patch is simply the
-    # rectangle round the bird's dark parts and the hole, its edges feathered
-    # into the base wood. Everything inside comes from the edit.
-    ys, xs = np.where(bird)
-    m = args.pad
-    rx0, ry0 = max(0, xs.min() - m), max(0, ys.min() - m)
-    rx1, ry1 = min(bw, xs.max() + 1 + m), min(bh, ys.max() + 1 + m)
-    mask = np.zeros(bird.shape, dtype=np.float32)
-    mask[ry0:ry1, rx0:rx1] = 1.0
-    if args.feather > 0:
-        yy2, xx2 = np.mgrid[0:bh, 0:bw]
-        edge = np.minimum.reduce([xx2 - rx0, rx1 - 1 - xx2, yy2 - ry0, ry1 - 1 - yy2]).astype(np.float32)
-        mask = np.clip((edge + 1) / (args.feather + 1), 0, 1) * mask
-    # Trim the patch to the mask's extent.
-    ys, xs = np.where(mask > 0.02)
-    tx0, ty0, tx1, ty1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
-    patch = np.zeros((ty1 - ty0, tx1 - tx0, 4), dtype=np.uint8)
-    g = lifted(P[py0 + ty0:py0 + ty1, px0 + tx0:px0 + tx1])
+    def clear(dx, dy):
+        a, b, c, d = bx0 + dx, bx1 + dx, by0 + dy, by1 + dy
+        return (inset <= a and b <= H.shape[1] - inset and 0 <= c and d <= H.shape[0]
+                and (H[c:d, a:b] >= 235).all())
+    best = None
+    for dy in range(-args.fly_reach, args.fly_reach + 1):
+        for dx in range(0, args.fly_reach + 1):
+            ddx = -toward * dx                     # away from the bough only
+            if clear(ddx, dy):
+                cost = abs(dx) + 1.5 * abs(dy)
+                if best is None or cost < best[0]:
+                    best = (cost, ddx, dy)
+    if best is None:
+        print("warning: no clear paper for the fly box — the bird will paint over twig")
+        ddx, dy = 0, 0
+    else:
+        _, ddx, dy = best
+        while clear(ddx + toward, dy):
+            ddx += toward
+        ddx -= toward * args.fly_gap
+    bx0, bx1, by0, by1 = bx0 + ddx, bx1 + ddx, by0 + dy, by1 + dy
+    print(f"fly box moved by ({ddx},{dy}) to clear paper")
+
+    # -- perch: the bird alone, the base's own twig showing through ----------
+    # The model redraws the bough on its own line, so the edit's twig can't
+    # be carried over; after the local fit the edit's twig lies within a few
+    # px of the base's, and the bird is cut as ink OFF the base's (grown)
+    # twig — its toes end where the base twig begins, which reads as a bird
+    # standing on it. The base twig fills the rest of the window.
+    bird, (qx0, qy0, qx1, qy1) = _added_bird(P, H, args.perch_thr, args.perch_clearance, pad,
+                                             touching_ok=True)
+    bird = _erode(_dilate(bird, 4), 4)            # close gaps in pale plumage
+    # Stand the bird on the BASE twig by its feet: the lowest ink of the
+    # bird is its toes; find the base twig's top edge nearest below them
+    # and shift the bird (and its box) so the toes rest on it.
+    ys, xs = np.nonzero(bird)
+    foot_y = int(ys.max())
+    foot_x = int(np.median(xs[ys >= foot_y - 4]))
+    base_ink = H < 235
+    best = None
+    for dx in range(-args.perch_reach, args.perch_reach + 1):
+        col = foot_x + dx
+        if not (0 <= col < H.shape[1]):
+            continue
+        rows = np.nonzero(base_ink[max(0, foot_y - 40):foot_y + 120, col])[0]
+        if len(rows):
+            top = int(rows[0]) + max(0, foot_y - 40)
+            cost = abs(dx) + 0.5 * abs(top - foot_y)
+            if best is None or cost < best[0]:
+                best = (cost, dx, top - foot_y - 1)
+    if best is None:
+        print("warning: no base twig under the perched bird's feet — leaving it where drawn")
+        sdx, sdy = 0, 0
+    else:
+        _, sdx, sdy = best
+    print(f"perched bird stood on the twig by ({sdx},{sdy})")
+    P = _place(P, 1.0, sdx, sdy, P.shape, 0)
+    bird = _place(bird.astype(np.uint8), 1.0, sdx, sdy, bird.shape, 0).astype(bool) if False else \
+        np.roll(np.roll(bird, sdy, axis=0), sdx, axis=1)
+    qx0, qx1, qy0, qy1 = qx0 + sdx, qx1 + sdx, qy0 + sdy, qy1 + sdy
+    soft = _dilate(bird, 2)
+    g = lifted(P[qy0:qy1, qx0:qx1])
+    a = np.asarray(Image.fromarray(soft[qy0:qy1, qx0:qx1].astype(np.uint8) * 255)
+                   .filter(ImageFilter.GaussianBlur(1)), dtype=np.uint8)
+    patch = np.zeros(g.shape + (4,), dtype=np.uint8)
     patch[..., 0] = patch[..., 1] = patch[..., 2] = g
-    patch[..., 3] = (mask[ty0:ty1, tx0:tx1] * 255).astype(np.uint8)
-    Image.fromarray(patch, "RGBA").save(out / "plate_peek.png")
-    if args.debug:
-        dbg = Image.new("L", (3 * (px1 - px0), py1 - py0), 255)
-        for i, a in enumerate((H[py0:py1, px0:px1], P[py0:py1, px0:px1],
-                               (mask * 255).astype(np.uint8))):
-            dbg.paste(Image.fromarray(a), (i * (px1 - px0), 0))
-        dbg.resize((dbg.width * 4, dbg.height * 4), Image.NEAREST).save(out / "debug_peek.png")
-    px0, py0 = px0 + tx0, py0 + ty0
+    patch[..., 3] = np.where(bird[qy0:qy1, qx0:qx1], 255, a)
+    Image.fromarray(patch, "RGBA").save(out / "plate_perch.png")
 
-    # The roof's widest row is the house body's visual centre: the bake
-    # centres on that, not on the crop, whose vine sprawls to one side.
-    top = house_crop[: house_crop.shape[0] * 2 // 5]
-    widths = [(np.where(row < 235)[0]) for row in top]
-    widest = max((w for w in widths if len(w)), key=lambda w: w.max() - w.min())
-    body_cx = int((widest.min() + widest.max()) // 2)
     layout = {
         "sheet": [int(H.shape[1]), int(H.shape[0])],
-        "body_cx": body_cx,
         "scale": args.scale,
-        "foot": args.foot,
-        "house_crop": [int(x0), int(y0), int(x1), int(y1)],
-        "hole": {"cx": int(cx - x0), "cy": int(cy - y0), "rx": int(rx), "ry": int(ry)},
+        "lift": args.lift,
+        "base_crop": [int(x0), int(y0), int(x1), int(y1)],
         "fly_at": [int(bx0 - x0), int(by0 - y0)],
-        "peek_at": [int(px0 - x0), int(py0 - y0)],
+        "perch_at": [int(qx0 - x0), int(qy0 - y0)],
     }
     (out / "plate_layout.json").write_text(json.dumps(layout, indent=2))
     print(json.dumps(layout))
     if args.preview:
-        fx, fy = layout["fly_at"]
-        ox, oy = max(0, -fx), max(0, -fy)
-        cw = max(x1 - x0, fx + (bx1 - bx0)) + ox
-        ch = max(y1 - y0, fy + (by1 - by0)) + oy
+        base = Image.open(out / "plate_base.png")
+        # Room for patches that fall outside the base crop.
+        ox = max(0, -layout["fly_at"][0], -layout["perch_at"][0])
+        oy = max(0, -layout["fly_at"][1], -layout["perch_at"][1])
+        cw = ox + max(base.width, layout["fly_at"][0] + Image.open(out / "plate_fly.png").width,
+                      layout["perch_at"][0] + Image.open(out / "plate_perch.png").width)
+        ch = oy + max(base.height, layout["fly_at"][1] + Image.open(out / "plate_fly.png").height,
+                      layout["perch_at"][1] + Image.open(out / "plate_perch.png").height)
         sheet = Image.new("RGBA", (cw, ch), (255, 255, 255, 255))
-        sheet.alpha_composite(Image.open(out / "plate_house.png"), (ox, oy))
-        fly_sheet = sheet.copy()
-        fly_sheet.alpha_composite(Image.open(out / "plate_fly.png"), (ox + fx, oy + fy))
-        peek_sheet = sheet.copy()
-        px, py = layout["peek_at"]
-        peek_sheet.alpha_composite(Image.open(out / "plate_peek.png"), (ox + px, oy + py))
+        sheet.alpha_composite(base, (ox, oy))
+        panels = [sheet.copy()]
+        for name, at in (("plate_fly.png", layout["fly_at"]), ("plate_perch.png", layout["perch_at"])):
+            s = sheet.copy()
+            s.alpha_composite(Image.open(out / name), (ox + at[0], oy + at[1]))
+            panels.append(s)
         strip = Image.new("RGB", (3 * cw, ch), "white")
-        for i, sh in enumerate((sheet, fly_sheet, peek_sheet)):
-            strip.paste(sh.convert("RGB"), (i * cw, 0))
+        for i, s in enumerate(panels):
+            strip.paste(s.convert("RGB"), (i * cw, 0))
         strip.save(out / "plate_preview.png")
         print(f"preview: {out / 'plate_preview.png'}")
 
@@ -599,8 +576,8 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     g = sub.add_parser("generate", help="buy the three raw draws")
     g.add_argument("--out", default=str(ART / "raw"))
-    g.add_argument("--step", choices=["all", "house", "fly", "peek"], default="all")
-    g.add_argument("--house", help="raw house PNG to edit (default: <out>/house.png)")
+    g.add_argument("--step", choices=["all", *STEPS], default="all")
+    g.add_argument("--base", help="raw bough PNG to edit (default: <out>/base.png)")
     g.add_argument("--candidates", type=int, default=1, help="draws per step")
     g.add_argument("--model", default="gpt-image-2")
     g.add_argument("--quality", default="high")
@@ -611,34 +588,32 @@ def main() -> None:
     c = sub.add_parser("cut", help="cut the boot art out of the raw draws")
     c.add_argument("--raw", default=str(ART / "raw"))
     c.add_argument("--out", default=str(ART))
-    c.add_argument("--house-file", default="house.png")
+    c.add_argument("--base-file", default="base.png")
     c.add_argument("--fly-file", default="fly.png")
-    c.add_argument("--peek-file", default="peek.png")
+    c.add_argument("--perch-file", default="perch.png")
+    c.add_argument("--scale", type=float, default=1404 / 1536,
+                   help="resample the sheets to this factor before cutting (default: the "
+                        "sheet's width to the panel's; the bake composites the art 1:1)")
+    c.add_argument("--scale-search", action="store_true",
+                   help="also search the edits' scale when registering (off: translation only)")
     c.add_argument("--lift", type=float, default=1.0,
-                   help="gamma applied to the normalised sheets (<1 lightens the wood)")
-    c.add_argument("--scale", type=float, default=1.0,
-                   help="resample the sheets to this factor before cutting (the bake "
-                        "composites the art 1:1)")
-    c.add_argument("--foot", type=int, default=0,
-                   help="sheet row (before scaling) where the post is cut flush")
-    c.add_argument("--padx", type=int, default=512,
-                   help="white columns added left of the sheet so a bird the edit put "
-                        "beyond the sheet's origin still lands")
+                   help="output-only gamma (<1 lightens the wood on the glass)")
     c.add_argument("--pad", type=int, default=6, help="px of paper kept round each cut")
-    c.add_argument("--fly-gap", type=int, default=24,
-                   help="px of bare paper kept between the flying wren's box and the house")
+    c.add_argument("--fly-gap", type=int, default=16,
+                   help="px of bare paper kept between the flying wren's box and the bough")
+    c.add_argument("--fly-reach", type=int, default=260,
+                   help="px the flying wren may be moved to find bare paper for its box")
+    c.add_argument("--mat-inset", type=float, default=0.04,
+                   help="fraction of the sheet's width under the mat at each side")
     c.add_argument("--clearance", type=int, default=10,
-                   help="px the house's ink is grown by before hunting the flying bird")
-    c.add_argument("--disc-grow", type=int, default=3, help="px the hole disc mask grows")
-    c.add_argument("--feather", type=int, default=6, help="px of soft edge on the peek patch")
-    c.add_argument("--peek-thr", type=int, default=150,
-                   help="gray below which an edit pixel may join the bird (plumage, cavity)")
-    c.add_argument("--peek-diff", type=int, default=40,
-                   help="gray difference from the empty house that also counts as bird")
-    c.add_argument("--peek-grow", type=int, default=60,
-                   help="px the bird may extend past the hole's ellipse")
+                   help="px the bough's ink is grown by before hunting the flying bird")
+    c.add_argument("--perch-thr", type=int, default=225,
+                   help="gray below which the edit's pixels can count as the perched bird")
+    c.add_argument("--perch-reach", type=int, default=80,
+                   help="px the perched wren may slide sideways to find the base twig under its feet")
+    c.add_argument("--perch-clearance", type=int, default=4,
+                   help="px the base twig is grown by before cutting the perched bird off it")
     c.add_argument("--preview", action="store_true", help="also write plate_preview.png")
-    c.add_argument("--debug", action="store_true", help="also write debug_peek.png (house / edit / mask)")
     c.set_defaults(fn=cut)
     args = ap.parse_args()
     args.fn(args)

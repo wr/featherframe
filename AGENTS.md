@@ -141,9 +141,9 @@ corners in the same script. `theme.py` holds all geometry/tone constants.
 bundled script at `/fonts/script.ttf`, the favicon is its F
 (`server/scripts/make_favicon.py`), the baked boot screens draw it through
 `typography.draw_script` (`firmware/tools/screens/bake_screens.py`; the
-birdhouse and wren under it come from `boot_art.py`, three draws through the
+bough and wren under it come from `boot_art.py`, three draws through the
 same `OpenAIImageModel` + Havell-plate references as the AI plates, cut so the
-house stays pixel-identical across the four boot screens), and the
+bough stays pixel-identical across the four boot screens), and the
 captive portal embeds a WOFF subset generated into the committed
 `firmware/src/ff_portal_font.h` by `firmware/tools/portal_font.py` — run the
 favicon, bake, and portal tools after any change to the script face or its

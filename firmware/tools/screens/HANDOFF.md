@@ -31,25 +31,26 @@ there is no separate onboarding checklist.
 ## How it's built
 **Bake pipeline** — `bake_screens.py` (run with the server venv):
 `server/.venv/bin/python firmware/tools/screens/bake_screens.py [--preview]`
-- **Art** — `boot_art.py`, a plate's own setting in the Audubon manner (W-716, 4 Sep
-  2026): a limb of real weight entering from the lower left and sweeping up to a bare
-  tip, one real plant (leaves + berries) as counter-mass, a Carolina Wren arriving on the
-  wing, then perched at the tip. It is laid out exactly as a single-species plate is:
-  full-bleed art from the panel's top to the caption gap above the wordmark (rows
-  0..1361), the limb and leaves cut flush at that edge like a plate's stems. `generate`
-  buys three square gpt-image-2 draws through the server's `OpenAIImageModel`
-  (`/v1/images/edits`, wren plates 83/78/18 as style references) — the setting, an edit
-  adding the wren in flight, an edit with it perched; `cut` writes `art/plate_base.png` /
-  `plate_fly.png` / `plate_perch.png` + `plate_layout.json` at panel width with 60 rows of
-  paper added on top so the composition clears the mat. Things learned the hard way, all in
-  the script: the plates' paper normaliser crushes a mostly-paper sheet to a silhouette (own
-  linear levels instead); thin armatures give phase correlation no scale to lock on
-  (translation only); the model moves twigs to make room for a bird, so the flying wren is
-  *added ink* off the setting with its DU box moved by search to bare paper inside the mat,
-  and the perched wren is cut as ink off the base twig and stood on that twig by its feet.
-  Raw colour draws + prompt sidecars live in `art/raw/`; generate runs on the box
-  (`--key-from-db`), cut anywhere with plates. Screens: splash/setup = setting, Wi-Fi =
-  arriving, server + download = perched (only the pill differs).
+- **Art** — `boot_art.py`, a plate's own setting in the Audubon manner (W-716, 4–5 Sep
+  2026): a lichened hawthorn limb entering from the RIGHT, one bough climbing bare to the
+  upper left and a lower limb ending bare toward the left, blossom and leaves at the fork
+  as counter-mass; a Carolina Wren arrives on the wing (Wi-Fi), perches clear on the upper
+  tip (server), and its mate joins on the lower limb (download) — the folio's pair. Laid
+  out exactly as a single-species plate: full-bleed art from the panel's top to the caption
+  gap above the wordmark (rows 0..1361), stems cut flush at that edge. `generate` buys four
+  square gpt-image-2 draws through the server's `OpenAIImageModel` (`/v1/images/edits`, wren
+  plates 83/78/18 as style references) — the setting, an edit adding the flying wren, an
+  edit with it perched, and an edit of THAT sheet adding the mate; `cut` writes
+  `art/plate_base/fly/perch/second.png` + `plate_layout.json` at panel width with 60 rows of
+  paper on top so the composition clears the mat. Things learned the hard way, all in the
+  script: the plates' paper normaliser crushes a mostly-paper sheet to a silhouette (own
+  linear levels); thin armatures give phase correlation no scale to lock on (translation
+  only); the model moves twigs to make room for a bird, so the flying wren is *added ink*
+  off the setting with its DU box moved by search to bare paper inside the mat, and each
+  perched wren is cut as ink off the base twig and stood on that twig by its feet (the
+  mate is the added blob that isn't the first bird). Raw colour draws + prompt sidecars
+  live in `art/raw/`; generate runs on the box (`--key-from-db`), cut anywhere with plates.
+  Screens: splash/setup = setting, Wi-Fi = arriving, server = perched, download = the pair.
 - Type is set by the SERVER's own typography module (`sys.path` → `server/`): the
   wordmark IS the plate title (the bundled script, Pinyon Script, at the plates' auto-fit
   `theme.SCRIPT_TITLE_SIZE`, via `typography.draw_script`), and the splash
@@ -126,7 +127,7 @@ pulse RTS once to reset. `screen N` / `win …` / `frame …` / `panel updated` 
 - `bake_screens.py` — the whole bake (art + server typography → ff_screens.h).
 - `boot_v2.svg` — designer's boot screens (reference only; type is drawn live now).
 - `boot_art.py` — draws + cuts the art (see **Art** above).
-- `art/` — `plate_base.png`, `plate_fly.png`, `plate_perch.png`, `plate_layout.json`
+- `art/` — `plate_base.png`, `plate_fly.png`, `plate_perch.png`, `plate_second.png`, `plate_layout.json`
   (the cut art the bake composites 1:1); `art/raw/` the colour draws + prompt sidecars.
   The birdhouse versions (pen-and-ink, then Audubon-manner) and the first bare-bough cut are in git history.
 - `fonts/` — vendored Inter Medium (pill text; OFL, see fonts/OFL.txt).

@@ -238,3 +238,16 @@ def test_config_page_omits_cost_when_unknown(client, data_dir):
     r = client.get("/")
     assert r.status_code == 200
     assert 'class="cost"' not in r.text
+
+
+def test_config_page_survives_a_sidecar_without_cost(client, data_dir):
+    # Plates generated before usage was recorded have no cost_usd key at all
+    # (not a null): the page must render, not 500 on an undefined attribute.
+    provider = GeneratedArtProvider(UsageModel(None), refs=[])
+    provider.artwork("House Sparrow", "Passer domesticus")
+    meta = json.loads(provider._sidecar(SLUG).read_text())
+    del meta["cost_usd"], meta["usage"]
+    provider._sidecar(SLUG).write_text(json.dumps(meta))
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'class="cost"' not in r.text

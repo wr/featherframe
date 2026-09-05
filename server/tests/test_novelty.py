@@ -34,6 +34,7 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
+    service._clock = lambda: NOW          # pin the wall clock to the fixtures' day
     service.config.dither = "none"
     service._frame_bytes = b"resident"
     service._set_cursor(0)
@@ -279,7 +280,7 @@ def test_commit_carries_the_hold_across_the_held_birds_own_repeats(svc):
 # -- status() -----------------------------------------------------------------
 def test_status_reports_novelty_and_the_hold(svc):
     svc.source = _GateSource([], first_seen=KNOWN)
-    real_now = datetime.now()
+    real_now = NOW
     _hold(svc, "first-ever", minutes_ago=10, at=real_now)
     cur = svc.status()["current"]
     assert cur["novelty"] == "first-ever"
@@ -307,14 +308,14 @@ def test_manual_refresh_and_test_detection_bypass_the_hold(svc, monkeypatch):
     # of quiet hours whenever this runs.
     svc.config.quiet_hours_mode = "off"
     svc.update_config(svc.config)
-    _hold(svc, "first-ever", minutes_ago=10, at=datetime.now())
+    _hold(svc, "first-ever", minutes_ago=10, at=NOW)
     _cardinal_repeat(svc)
     rendered = _capture_renders(svc, monkeypatch)
     svc.refresh_now()
     assert rendered == ["Northern Cardinal"]
 
     monkeypatch.undo()
-    _hold(svc, "first-ever", minutes_ago=10, at=datetime.now())
+    _hold(svc, "first-ever", minutes_ago=10, at=NOW)
     svc.force_test_detection(*CARDINAL)
     assert svc._meta["label"] == "Northern Cardinal (test)"
     assert svc._meta["novelty"] is None          # a test bird never holds the frame
@@ -425,7 +426,7 @@ def test_page_shows_the_field_and_the_holding_text(client, svc):
     assert 'name="dwell_minutes"' in html
     assert 'id="fc-holding"></span>' in html          # nothing held
 
-    _hold(svc, "first-ever", minutes_ago=50, at=datetime.now())
+    _hold(svc, "first-ever", minutes_ago=50, at=NOW)
     html = client.get("/").text
     assert '<span id="fc-showing">Bald Eagle</span>' in html
     assert '<span class="when" id="fc-holding">holding 40 min</span>' in html

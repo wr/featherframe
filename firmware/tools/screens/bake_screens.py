@@ -213,6 +213,9 @@ FLY   = Image.open(os.path.join(ART, "plate_fly.png")).convert("RGBA")
 PERCH = Image.open(os.path.join(ART, "plate_perch.png")).convert("RGBA")
 with open(os.path.join(ART, "plate_layout.json")) as _f:
     LAYOUT = json.load(_f)
+# The second wren (the pair) joins on the download screen, if the cut made one.
+SECOND = (Image.open(os.path.join(ART, "plate_second.png")).convert("RGBA")
+          if LAYOUT.get("second_at") else None)
 
 # Layout (portrait 1404x1872): the plate's own. The art is full-bleed from
 # the top of the panel to the caption gap above the wordmark, exactly the
@@ -223,6 +226,8 @@ with open(os.path.join(ART, "plate_layout.json")) as _f:
 BASE_XY  = (0, 0)
 FLY_XY   = (BASE_XY[0] + LAYOUT["fly_at"][0],   BASE_XY[1] + LAYOUT["fly_at"][1])
 PERCH_XY = (BASE_XY[0] + LAYOUT["perch_at"][0], BASE_XY[1] + LAYOUT["perch_at"][1])
+SECOND_XY = ((BASE_XY[0] + LAYOUT["second_at"][0], BASE_XY[1] + LAYOUT["second_at"][1])
+             if SECOND else None)
 
 # The wordmark is the plate title, verbatim: the script at the plates' auto-fit
 # title size (theme.SCRIPT_TITLE_SIZE), drawn by the server's own draw_script so
@@ -287,22 +292,25 @@ LOADER_AT = {}      # screen name -> loading mark's portrait center (cx, cy)
 def _compose(name):
     c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
     c.alpha_composite(BASE, BASE_XY)
-    art = None
+    arts = []
     if name == "wifi":
-        art, xy = FLY, FLY_XY                      # the wren arrives on the wing
-    elif name in ("birdnet", "download"):
-        art, xy = PERCH, PERCH_XY                  # and settles on the bough
-    if art is not None:
+        arts = [(FLY, FLY_XY)]                     # the wren arrives on the wing
+    elif name == "birdnet":
+        arts = [(PERCH, PERCH_XY)]                 # and settles on the bough
+    elif name == "download":
+        arts = [(PERCH, PERCH_XY)]                 # its mate joins it
+        if SECOND:
+            arts.append((SECOND, SECOND_XY))
+    for art, xy in arts:
         c.alpha_composite(art, xy)
     im = c.convert("L")
-    if art is not None:
+    for art, (x0, y0) in arts:
         # The bird boxes go binary so their windows refresh with DU (no
         # flash) both coming and going. The engraved wren is tonal (wash over
         # line), so a hard threshold would blob it; ordered dither instead —
         # the gamma curve first, so the stipple density matches the gray it
-        # replaces. The perch box takes its bit of twig with it, and that
-        # twig re-dithers identically on every screen the box appears on.
-        x0, y0 = xy
+        # replaces. A perch box takes its bit of twig with it, and that twig
+        # re-dithers identically on every screen the box appears on.
         x1, y1 = x0 + art.width, y0 + art.height
         box = to_1bit(apply_curve(im.crop((x0, y0, x1, y1))), phase=(x0, y0))
         im.paste(box, (x0, y0))
@@ -322,7 +330,7 @@ SCREENS = [
     ("SPLASH",        _compose("splash")),
     ("BOOT_WIFI",     _compose("wifi")),        # wren flies in
     ("BOOT_BIRDNET",  _compose("birdnet")),     # wren perched
-    ("BOOT_DOWNLOAD", _compose("download")),    # wren perched, pill changes
+    ("BOOT_DOWNLOAD", _compose("download")),    # the pair: second wren joins
     ("SETUP",         screen_setup()),
 ]
 

@@ -91,17 +91,19 @@ _BASE_COLOR = (
     "accent; nothing heavy, nothing black, nothing glows; whites are reserved bare paper.\n\n"
 )
 _BASE_COMPOSE = (
-    "Compose as Audubon composed. A limb of real weight enters the sheet from the LOWER "
-    "LEFT, cut off flush at the sheet's edge, and sweeps upward across the sheet in one "
-    "living curve, forking once: a lesser twig reaches back toward the upper left, and the "
-    "main twig climbs to end in open paper in the upper right third of the sheet, its last "
-    "span bare — a perch waiting for its bird, with clear paper all round it. One real, "
-    "identifiable plant of a wren's own world dresses the LOWER part of the limb as the "
-    "sheet's counter-mass — a few leaves and a spray of berries or blossom, drawn to "
-    "botanical-plate standard with individually veined leaves, chosen fresh from that "
-    "world rather than from a painter's stock — and thins to nothing before the perch. "
-    "Half to two-thirds of the sheet stays bare paper, asymmetrically. There is NO BIRD "
-    "anywhere on the sheet, no nest, no insect. No ground, no sky, no horizon, no shadow.\n\n"
+    "Compose as Audubon composed. A limb of real weight enters the sheet from the RIGHT "
+    "edge at about a third of the way up, cut off flush at the sheet's edge, and travels "
+    "leftward across the sheet in one living gesture — a twist, a rise — before dividing: "
+    "one bough climbs steeply to end bare in open paper in the upper LEFT quarter of the "
+    "sheet, the other continues gently toward the left and ends bare a little below the "
+    "sheet's middle height — two perches at two heights, each with clear paper round its "
+    "last span, the way the folio seats a pair. One real, identifiable plant of a wren's "
+    "own world dresses the limb where it enters and around the fork as the sheet's "
+    "counter-mass — leaves and a spray of blossom or fruit, drawn to botanical-plate "
+    "standard with individually veined leaves, chosen fresh from that world rather than "
+    "from a painter's stock — and thins to nothing before either perch. Half to "
+    "two-thirds of the sheet stays bare paper, asymmetrically. There is NO BIRD anywhere "
+    "on the sheet, no nest, no insect. No ground, no sky, no horizon, no shadow.\n\n"
 )
 _FOOTER = (
     "No text: no title, no names, no lettering, no numerals, no signature, no border, "
@@ -111,36 +113,53 @@ BASE_PROMPT = _BASE_OPEN + genart._P_PROCESS + _BASE_COLOR + _BASE_COMPOSE + _FO
 
 _EDIT_OPEN = (
     "The first image is a finished sheet from this folio: a limb with its plant on bright "
-    "untouched paper, its bare main twig ending in open paper in the upper right. "
-    "Reproduce that sheet exactly — every twig, leaf and engraved stroke, and their "
-    "placement on the paper unchanged, the same size on the same paper — "
+    "untouched paper, entering from the right, one bare bough climbing to end in open "
+    "paper in the upper left and a lower limb ending bare toward the left. Reproduce that "
+    "sheet exactly — every twig, leaf and engraved stroke, and their placement on the "
+    "paper unchanged, the same size on the same paper — "
 )
 FLY_PROMPT = (
     _EDIT_OPEN
-    + "and add one figure only: a " + BIRD + " in full flight, arriving at the bare "
-    "twig's tip from the open paper above and to the right of it, flying down toward it, "
-    "caught at the top of the upstroke — both wings raised high above the back and spread "
-    "to their full extent, the tail fanned and cocked, the feet tucked, the bill pointed "
-    "at the twig — life-size relative to the bough. The bird stays entirely on bare paper "
-    "— clear of the bough and of every twig, overlapping nothing, a clear gap of paper "
-    "between it and the twig's tip. Draw the bird in the very same engraved-and-washed "
-    "manner as the bough, exactly as the other images show the folio drew this "
-    "species.\n\n"
+    + "and add one figure only: a " + BIRD + " in full flight, arriving at the upper "
+    "bough's bare tip from the open paper above and to the left of it, caught at the top "
+    "of the upstroke — both wings raised high above the back and spread to their full "
+    "extent, the tail fanned and cocked, the feet tucked, the bill pointed at the twig — "
+    "life-size relative to the limb. The bird stays entirely on bare paper — clear of "
+    "every twig and leaf, overlapping nothing, a clear gap of paper between it and the "
+    "tip. Draw the bird in the very same engraved-and-washed manner as the limb, exactly "
+    "as the other images show the folio drew this species.\n\n"
     + genart._P_PROCESS + genart._P_ANATOMY + _FOOTER
 )
 PERCH_PROMPT = (
     _EDIT_OPEN
-    + "and add one figure only: a " + BIRD + " perched on the bare main twig near its tip, "
-    "its feet gripping the twig, in the folio's characteristic wren attitude — body "
-    "angled upward, tail cocked high, head turned and alert, the bold pale stripe over "
-    "the eye plainly visible — life-size relative to the bough, in clean profile, drawn "
-    "crisply. Nothing else on the sheet changes and no other bird appears. Draw the bird "
-    "in the very same engraved-and-washed manner as the bough, exactly as the other "
-    "images show the folio drew this species.\n\n"
+    + "and add one figure only: a " + BIRD + " perched ON TOP of the upper bough's bare "
+    "last span, its feet gripping the twig from above, the whole bird standing clear "
+    "above the twig so that head, breast and tail are seen against bare paper and no "
+    "part of the bird lies over the wood — in the folio's characteristic wren attitude, "
+    "body angled upward, tail cocked high, head turned and alert in clean profile, the "
+    "bold pale stripe over the eye plainly visible — life-size relative to the limb, "
+    "drawn crisply and legibly. Nothing else on the sheet changes and no other bird "
+    "appears. Draw the bird in the very same engraved-and-washed manner as the limb, "
+    "exactly as the other images show the folio drew this species.\n\n"
     + genart._P_PROCESS + genart._P_ANATOMY + _FOOTER
 )
-STEPS = ("base", "fly", "perch")
-PROMPTS = {"base": BASE_PROMPT, "fly": FLY_PROMPT, "perch": PERCH_PROMPT}
+SECOND_PROMPT = (
+    "The first image is a finished sheet from this folio: a limb with its plant on bright "
+    "untouched paper and one " + BIRD + " perched on the upper bough. Reproduce that sheet "
+    "exactly — the limb, the plant, the perched bird, every engraved stroke and their "
+    "placement unchanged, the same size on the same paper — and add one figure only: a "
+    "second " + BIRD + ", its mate, perched ON TOP of the lower limb's bare end toward "
+    "the left, standing clear above the wood so the whole bird is seen against bare "
+    "paper, FACING THE OPPOSITE DIRECTION to the first bird and in a different attitude "
+    "— the pair composed as the folio composed a pair, one at rest in clean profile "
+    "against one animated — life-size, drawn crisply and legibly. Nothing else changes. "
+    "Draw it in the very same engraved-and-washed manner, exactly as the other images "
+    "show the folio drew this species.\n\n"
+    + genart._P_PROCESS + genart._P_ANATOMY + _FOOTER
+)
+STEPS = ("base", "fly", "perch", "second")
+PROMPTS = {"base": BASE_PROMPT, "fly": FLY_PROMPT, "perch": PERCH_PROMPT,
+           "second": SECOND_PROMPT}
 
 
 # -- generate ----------------------------------------------------------------
@@ -186,12 +205,17 @@ def generate(args) -> None:
         return
     model = genart.OpenAIImageModel(api_key(args), model=args.model, quality=args.quality)
     base = Path(args.base) if args.base else out / "base.png"
+    perch = Path(args.perch) if args.perch else out / "perch.png"
     for step in steps:
         for n in range(args.candidates):
             suffix = "" if args.candidates == 1 else f"-{n + 1}"
             dest = out / f"{step}{suffix}.png"
             if step == "base":
                 step_refs = refs
+            elif step == "second":
+                if not perch.exists():
+                    sys.exit(f"{perch} missing: draw the perched wren first (or pass --perch)")
+                step_refs = [perch] + refs[:2]           # the pair is drawn onto the perched sheet
             else:
                 if not base.exists():
                     sys.exit(f"{base} missing: draw the bough first (or pass --base)")
@@ -396,6 +420,26 @@ def _added_bird(E: np.ndarray, H: np.ndarray, thr: int, clearance: int, pad: int
     return bird, box
 
 
+def _added_blobs(E: np.ndarray, H: np.ndarray, thr: int, clearance: int, pad: int,
+                 twig: int = 5, detail: int = 10
+                 ) -> list[tuple[np.ndarray, tuple[int, int, int, int]]]:
+    """Every body an edit added (see _added_bird), largest first, each with
+    its fine parts restored and a padded bbox."""
+    base = _dilate(H < thr, clearance)
+    off = (E < thr) & ~base
+    body = _open(off, twig)
+    out = []
+    for comp, _ in _components(body):
+        if comp.sum() < 400:
+            break
+        bird = comp | (off & _dilate(comp, detail))
+        ys, xs = np.nonzero(bird)
+        x0, y0, x1, y1 = int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+        out.append((bird, (max(0, x0 - pad), max(0, y0 - pad),
+                           min(E.shape[1], x1 + pad), min(E.shape[0], y1 + pad))))
+    return out
+
+
 def _refine_local(base: np.ndarray, other: np.ndarray, box, reach: int = 40,
                   margin: int = 20) -> tuple[int, int]:
     """Small (dx, dy) that best lays `other`'s twig onto `base`'s around
@@ -426,6 +470,8 @@ def cut(args) -> None:
     H = np.asarray(_gray(raw / args.base_file))
     fly_g = np.asarray(_gray(raw / args.fly_file))
     perch_g = np.asarray(_gray(raw / args.perch_file))
+    second_g = np.asarray(_gray(raw / args.second_file)) if args.second_file else None
+    S = None
     # The edits were told to reproduce the sheet in place at the same size.
     # A thin bough gives phase correlation too little to lock a SCALE on
     # (the search wandered 90 px off), so the sheets are registered by
@@ -440,16 +486,22 @@ def cut(args) -> None:
     ddx, ddy = _refine_local(H, P, rough)
     P = _place(P, 1.0, ddx, ddy, P.shape, 0)
     print(f"fly (scale,dx,dy)={fly_reg}, perch={perch_reg} refined by ({ddx},{ddy})")
+    if second_g is not None:
+        second_reg = _register(H, second_g, scales=scales)
+        S = _place(second_g, *second_reg, H.shape, 0)
+        print(f"second (scale,dx,dy)={second_reg}")
+    sheets = [H, F, P] + ([S] if S is not None else [])
     if args.scale != 1.0:
         # Scale the whole sheets now, so every cut below shares one
         # resampling and the perch patch lands on the twig pixel-for-pixel.
-        H, F, P = (_resample(a, args.scale) for a in (H, F, P))
+        sheets = [_resample(a, args.scale) for a in sheets]
     if args.top_pad:
         # The model composes to the sheet's very top and the mat hides the
         # first ~4 %: drop the whole composition by this much paper.
-        def _pad(a):
-            return np.concatenate([np.full((args.top_pad, a.shape[1]), 255, np.uint8), a])
-        H, F, P = _pad(H), _pad(F), _pad(P)
+        sheets = [np.concatenate([np.full((args.top_pad, a.shape[1]), 255, np.uint8), a])
+                  for a in sheets]
+    H, F, P = sheets[:3]
+    S = sheets[3] if S is not None else None
     _lift_lut = np.clip(255.0 * (np.arange(256) / 255.0) ** args.lift, 0, 255).astype(np.uint8)
 
     def lifted(a: np.ndarray) -> np.ndarray:
@@ -500,51 +552,62 @@ def cut(args) -> None:
     bx0, bx1, by0, by1 = bx0 + ddx, bx1 + ddx, by0 + dy, by1 + dy
     print(f"fly box moved by ({ddx},{dy}) to clear paper")
 
-    # -- perch: the bird alone, the base's own twig showing through ----------
-    # The model redraws the bough on its own line, so the edit's twig can't
-    # be carried over; after the local fit the edit's twig lies within a few
-    # px of the base's, and the bird is cut as ink OFF the base's (grown)
-    # twig — its toes end where the base twig begins, which reads as a bird
-    # standing on it. The base twig fills the rest of the window.
-    bird, (qx0, qy0, qx1, qy1) = _added_bird(P, H, args.perch_thr, args.perch_clearance, pad,
-                                             touching_ok=True)
-    bird = _erode(_dilate(bird, 4), 4)            # close gaps in pale plumage
-    # Stand the bird on the BASE twig by its feet: the lowest ink of the
-    # bird is its toes; find the base twig's top edge nearest below them
-    # and shift the bird (and its box) so the toes rest on it.
-    ys, xs = np.nonzero(bird)
-    foot_y = int(ys.max())
-    foot_x = int(np.median(xs[ys >= foot_y - 4]))
-    base_ink = H < 235
-    best = None
-    for dx in range(-args.perch_reach, args.perch_reach + 1):
-        col = foot_x + dx
-        if not (0 <= col < H.shape[1]):
-            continue
-        rows = np.nonzero(base_ink[max(0, foot_y - 40):foot_y + 120, col])[0]
-        if len(rows):
-            top = int(rows[0]) + max(0, foot_y - 40)
-            cost = abs(dx) + 0.5 * abs(top - foot_y)
-            if best is None or cost < best[0]:
-                best = (cost, dx, top - foot_y - 1)
-    if best is None:
-        print("warning: no base twig under the perched bird's feet — leaving it where drawn")
-        sdx, sdy = 0, 0
-    else:
-        _, sdx, sdy = best
-    print(f"perched bird stood on the twig by ({sdx},{sdy})")
-    P = _place(P, 1.0, sdx, sdy, P.shape, 0)
-    bird = _place(bird.astype(np.uint8), 1.0, sdx, sdy, bird.shape, 0).astype(bool) if False else \
-        np.roll(np.roll(bird, sdy, axis=0), sdx, axis=1)
-    qx0, qx1, qy0, qy1 = qx0 + sdx, qx1 + sdx, qy0 + sdy, qy1 + sdy
-    soft = _dilate(bird, 2)
-    g = lifted(P[qy0:qy1, qx0:qx1])
-    a = np.asarray(Image.fromarray(soft[qy0:qy1, qx0:qx1].astype(np.uint8) * 255)
-                   .filter(ImageFilter.GaussianBlur(1)), dtype=np.uint8)
-    patch = np.zeros(g.shape + (4,), dtype=np.uint8)
-    patch[..., 0] = patch[..., 1] = patch[..., 2] = g
-    patch[..., 3] = np.where(bird[qy0:qy1, qx0:qx1], 255, a)
-    Image.fromarray(patch, "RGBA").save(out / "plate_perch.png")
+    # -- perched birds: the bird alone, the base's own twig showing through --
+    # The model redraws twigs on their own line, so an edit's twig can't be
+    # carried over; the bird is cut as ink OFF the base's (grown) twig and
+    # then stood on the base twig by its feet — its toes end where the twig
+    # begins, which reads as a bird standing on it.
+    def perched(E, name, avoid=None):
+        comps = _added_blobs(E, H, args.perch_thr, args.perch_clearance, pad)
+        if avoid is not None:
+            ax0, ay0, ax1, ay1 = avoid
+            comps = [(m, b) for m, b in comps
+                     if not (b[0] < ax1 and b[2] > ax0 and b[1] < ay1 and b[3] > ay0)]
+        if not comps:
+            sys.exit(f"no added bird found for {name}")
+        bird, (qx0, qy0, qx1, qy1) = comps[0]
+        bird = _erode(_dilate(bird, 4), 4)            # close gaps in pale plumage
+        ys, xs = np.nonzero(bird)
+        foot_y = int(ys.max())
+        foot_x = int(np.median(xs[ys >= foot_y - 4]))
+        base_ink = H < 235
+        best = None
+        for dx in range(-args.perch_reach, args.perch_reach + 1):
+            col = foot_x + dx
+            if not (0 <= col < H.shape[1]):
+                continue
+            rows = np.nonzero(base_ink[max(0, foot_y - 40):foot_y + 120, col])[0]
+            if len(rows):
+                top = int(rows[0]) + max(0, foot_y - 40)
+                cost = abs(dx) + 0.5 * abs(top - foot_y)
+                if best is None or cost < best[0]:
+                    best = (cost, dx, top - foot_y - 1)
+        if best is None:
+            print(f"warning: no base twig under {name}'s feet — leaving it where drawn")
+            sdx, sdy = 0, 0
+        else:
+            _, sdx, sdy = best
+        print(f"{name} stood on the twig by ({sdx},{sdy})")
+        E2 = _place(E, 1.0, sdx, sdy, E.shape, 0)
+        bird = np.roll(np.roll(bird, sdy, axis=0), sdx, axis=1)
+        qx0, qx1, qy0, qy1 = qx0 + sdx, qx1 + sdx, qy0 + sdy, qy1 + sdy
+        soft = _dilate(bird, 2)
+        g = lifted(E2[qy0:qy1, qx0:qx1])
+        a = np.asarray(Image.fromarray(soft[qy0:qy1, qx0:qx1].astype(np.uint8) * 255)
+                       .filter(ImageFilter.GaussianBlur(1)), dtype=np.uint8)
+        patch = np.zeros(g.shape + (4,), dtype=np.uint8)
+        patch[..., 0] = patch[..., 1] = patch[..., 2] = g
+        patch[..., 3] = np.where(bird[qy0:qy1, qx0:qx1], 255, a)
+        Image.fromarray(patch, "RGBA").save(out / f"plate_{name}.png")
+        return (qx0, qy0, qx1, qy1)
+
+    qx0, qy0, qx1, qy1 = perched(P, "perch")
+    second_at = None
+    if S is not None:
+        # The second sheet carries both birds; the first is where the perch
+        # stage found it, so the blob overlapping that box is not the newcomer.
+        sx0, sy0, _, _ = perched(S, "second", avoid=(qx0, qy0, qx1, qy1))
+        second_at = [int(sx0 - x0), int(sy0 - y0)]
 
     layout = {
         "sheet": [int(H.shape[1]), int(H.shape[0])],
@@ -553,6 +616,7 @@ def cut(args) -> None:
         "base_crop": [int(x0), int(y0), int(x1), int(y1)],
         "fly_at": [int(bx0 - x0), int(by0 - y0)],
         "perch_at": [int(qx0 - x0), int(qy0 - y0)],
+        "second_at": second_at,
     }
     (out / "plate_layout.json").write_text(json.dumps(layout, indent=2))
     print(json.dumps(layout))
@@ -572,7 +636,11 @@ def cut(args) -> None:
             s = sheet.copy()
             s.alpha_composite(Image.open(out / name), (ox + at[0], oy + at[1]))
             panels.append(s)
-        strip = Image.new("RGB", (3 * cw, ch), "white")
+        if second_at:
+            s = panels[-1].copy()
+            s.alpha_composite(Image.open(out / "plate_second.png"), (ox + second_at[0], oy + second_at[1]))
+            panels.append(s)
+        strip = Image.new("RGB", (len(panels) * cw, ch), "white")
         for i, s in enumerate(panels):
             strip.paste(s.convert("RGB"), (i * cw, 0))
         strip.save(out / "plate_preview.png")
@@ -585,7 +653,9 @@ def main() -> None:
     g = sub.add_parser("generate", help="buy the three raw draws")
     g.add_argument("--out", default=str(ART / "raw"))
     g.add_argument("--step", choices=["all", *STEPS], default="all")
-    g.add_argument("--base", help="raw bough PNG to edit (default: <out>/base.png)")
+    g.add_argument("--base", help="raw setting PNG to edit (default: <out>/base.png)")
+    g.add_argument("--perch", help="raw perched-wren PNG the second bird is drawn onto "
+                                    "(default: <out>/perch.png)")
     g.add_argument("--candidates", type=int, default=1, help="draws per step")
     g.add_argument("--model", default="gpt-image-2")
     g.add_argument("--quality", default="high")
@@ -599,6 +669,8 @@ def main() -> None:
     c.add_argument("--base-file", default="base.png")
     c.add_argument("--fly-file", default="fly.png")
     c.add_argument("--perch-file", default="perch.png")
+    c.add_argument("--second-file", default="second.png",
+                   help="the edit with the second wren (empty string: no second bird)")
     c.add_argument("--top-pad", type=int, default=60,
                    help="rows of paper added above the sheet so its top clears the mat")
     c.add_argument("--art-bottom", type=int, default=1361,

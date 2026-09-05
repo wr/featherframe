@@ -64,7 +64,7 @@ from featherframe import paths  # noqa: E402
 from featherframe.render import genart, plate  # noqa: E402
 
 ART = HERE / "art"
-GEN_SIZE = "1536x1024"          # landscape: the bough spans the panel's width
+GEN_SIZE = "1024x1024"          # the boot plate's art box is all but square (1404 x 1361)
 
 # The folio's own wrens, style references for every draw: plate 83 is the House
 # Wren at a nest cavity (an old hat on a snag), plate 78 the Carolina Wren, plate
@@ -77,27 +77,31 @@ BIRD = "Carolina Wren (Thryothorus ludovicianus)"
 # any named instance as a target to hit.
 _BASE_OPEN = (
     "A hand-colored copperplate engraving with aquatint in the exact style of John James "
-    "Audubon's 'The Birds of America' (Havell edition, 1827-1838), depicting the folio's "
-    "own armature and nothing else: a single bare bough of one real, identifiable tree, "
-    "drawn as the engravers drew a perch — the sheet on which a bird is about to be "
-    "placed. The background is bright, near-white wove paper left completely untouched — "
-    "no sepia tint, no cream wash, no aging, no vignette, no border.\n\n"
+    "Audubon's 'The Birds of America' (Havell edition, 1827-1838): a finished plate's "
+    "setting with its bird not yet placed — the armature and the plant, composed as "
+    "Audubon composed a sheet for one small songbird, drawn with the engraver's exactness. "
+    "The background is bright, near-white wove paper left completely untouched — no sepia "
+    "tint, no cream wash, no aging, no vignette, no border.\n\n"
 )
 _BASE_COLOR = (
-    "Color and tone as the colorists actually worked, and LIGHT: the bough is laid in thin "
-    "transparent washes of pale umber and gray with the bright paper glowing through, its "
-    "bark carried by fine engraved line rather than by dark wash; nothing heavy, nothing "
-    "black, nothing glows; whites are reserved bare paper.\n\n"
+    "Color and tone as the colorists actually worked, and LIGHT: the wood in thin "
+    "transparent washes of pale umber and gray with the paper glowing through, its bark "
+    "carried by fine engraved line rather than by dark wash; foliage greens muted "
+    "sage-olive, never grass-green; any berry or blossom a single confident pigment "
+    "accent; nothing heavy, nothing black, nothing glows; whites are reserved bare paper.\n\n"
 )
 _BASE_COMPOSE = (
-    "The bough enters the sheet from the LEFT edge, cut off flush there, and rises gently "
-    "toward the right, dividing once or twice into finer twigs; the main twig ends in open "
-    "paper a little right of the sheet's centre and near mid-height — a perch waiting for "
-    "its bird. It is leafless and bare, at most a few tight buds true to its species: no "
-    "leaf, no flower, no fruit, no lichen, no moss, no insect, and NO BIRD anywhere on the "
-    "sheet. Bark, buds and twig scars are drawn to botanical-plate standard. The bough is "
-    "slender and never fills the sheet: at least four-fifths of the sheet stays bare "
-    "paper. No ground, no sky, no horizon, no shadow.\n\n"
+    "Compose as Audubon composed. A limb of real weight enters the sheet from the LOWER "
+    "LEFT, cut off flush at the sheet's edge, and sweeps upward across the sheet in one "
+    "living curve, forking once: a lesser twig reaches back toward the upper left, and the "
+    "main twig climbs to end in open paper in the upper right third of the sheet, its last "
+    "span bare — a perch waiting for its bird, with clear paper all round it. One real, "
+    "identifiable plant of a wren's own world dresses the LOWER part of the limb as the "
+    "sheet's counter-mass — a few leaves and a spray of berries or blossom, drawn to "
+    "botanical-plate standard with individually veined leaves, chosen fresh from that "
+    "world rather than from a painter's stock — and thins to nothing before the perch. "
+    "Half to two-thirds of the sheet stays bare paper, asymmetrically. There is NO BIRD "
+    "anywhere on the sheet, no nest, no insect. No ground, no sky, no horizon, no shadow.\n\n"
 )
 _FOOTER = (
     "No text: no title, no names, no lettering, no numerals, no signature, no border, "
@@ -106,15 +110,15 @@ _FOOTER = (
 BASE_PROMPT = _BASE_OPEN + genart._P_PROCESS + _BASE_COLOR + _BASE_COMPOSE + _FOOTER
 
 _EDIT_OPEN = (
-    "The first image is a finished sheet from this folio: a single bare bough on bright "
-    "untouched paper, entering from the left edge. Reproduce that sheet exactly — every "
-    "twig, bud and engraved stroke, and their placement on the paper unchanged, the same "
-    "size on the same paper — "
+    "The first image is a finished sheet from this folio: a limb with its plant on bright "
+    "untouched paper, its bare main twig ending in open paper in the upper right. "
+    "Reproduce that sheet exactly — every twig, leaf and engraved stroke, and their "
+    "placement on the paper unchanged, the same size on the same paper — "
 )
 FLY_PROMPT = (
     _EDIT_OPEN
-    + "and add one figure only: a " + BIRD + " in full flight, arriving at the bough's "
-    "tip from the open paper on the RIGHT of the sheet and flying leftward toward it, "
+    + "and add one figure only: a " + BIRD + " in full flight, arriving at the bare "
+    "twig's tip from the open paper above and to the right of it, flying down toward it, "
     "caught at the top of the upstroke — both wings raised high above the back and spread "
     "to their full extent, the tail fanned and cocked, the feet tucked, the bill pointed "
     "at the twig — life-size relative to the bough. The bird stays entirely on bare paper "
@@ -126,7 +130,7 @@ FLY_PROMPT = (
 )
 PERCH_PROMPT = (
     _EDIT_OPEN
-    + "and add one figure only: a " + BIRD + " perched on the main twig near its tip, "
+    + "and add one figure only: a " + BIRD + " perched on the bare main twig near its tip, "
     "its feet gripping the twig, in the folio's characteristic wren attitude — body "
     "angled upward, tail cocked high, head turned and alert, the bold pale stripe over "
     "the eye plainly visible — life-size relative to the bough, in clean profile, drawn "
@@ -440,6 +444,12 @@ def cut(args) -> None:
         # Scale the whole sheets now, so every cut below shares one
         # resampling and the perch patch lands on the twig pixel-for-pixel.
         H, F, P = (_resample(a, args.scale) for a in (H, F, P))
+    if args.top_pad:
+        # The model composes to the sheet's very top and the mat hides the
+        # first ~4 %: drop the whole composition by this much paper.
+        def _pad(a):
+            return np.concatenate([np.full((args.top_pad, a.shape[1]), 255, np.uint8), a])
+        H, F, P = _pad(H), _pad(F), _pad(P)
     _lift_lut = np.clip(255.0 * (np.arange(256) / 255.0) ** args.lift, 0, 255).astype(np.uint8)
 
     def lifted(a: np.ndarray) -> np.ndarray:
@@ -448,10 +458,8 @@ def cut(args) -> None:
         return _lift_lut[a]
 
     pad = args.pad
-    # -- base: the bough, cut flush at the sheet's left edge -----------------
-    x0, y0, x1, y1 = _ink_bbox(H)
-    x0 = 0 if x0 < 3 * pad else x0 - pad          # entering from the edge stays flush
-    y0, x1, y1 = max(0, y0 - pad), min(H.shape[1], x1 + pad), min(H.shape[0], y1 + pad)
+    # -- base: the whole sheet — the bake lays it full-bleed like a plate ----
+    x0, y0, x1, y1 = 0, 0, H.shape[1], min(H.shape[0], args.art_bottom or H.shape[0])
     _rgba_ink(lifted(H[y0:y1, x0:x1])).save(out / "plate_base.png")
 
     # -- fly: the ink that sits where the bough sheet is bare paper -----------
@@ -471,7 +479,7 @@ def cut(args) -> None:
 
     def clear(dx, dy):
         a, b, c, d = bx0 + dx, bx1 + dx, by0 + dy, by1 + dy
-        return (inset <= a and b <= H.shape[1] - inset and 0 <= c and d <= H.shape[0]
+        return (inset <= a and b <= H.shape[1] - inset and inset <= c and d <= y1
                 and (H[c:d, a:b] >= 235).all())
     best = None
     for dy in range(-args.fly_reach, args.fly_reach + 1):
@@ -591,7 +599,12 @@ def main() -> None:
     c.add_argument("--base-file", default="base.png")
     c.add_argument("--fly-file", default="fly.png")
     c.add_argument("--perch-file", default="perch.png")
-    c.add_argument("--scale", type=float, default=1404 / 1536,
+    c.add_argument("--top-pad", type=int, default=60,
+                   help="rows of paper added above the sheet so its top clears the mat")
+    c.add_argument("--art-bottom", type=int, default=1361,
+                   help="rows of the scaled sheet the plate's art box shows (the wordmark's "
+                        "caption gap begins there)")
+    c.add_argument("--scale", type=float, default=1404 / 1024,
                    help="resample the sheets to this factor before cutting (default: the "
                         "sheet's width to the panel's; the bake composites the art 1:1)")
     c.add_argument("--scale-search", action="store_true",

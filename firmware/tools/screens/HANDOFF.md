@@ -31,21 +31,25 @@ there is no separate onboarding checklist.
 ## How it's built
 **Bake pipeline** — `bake_screens.py` (run with the server venv):
 `server/.venv/bin/python firmware/tools/screens/bake_screens.py [--preview]`
-- **Art** — `boot_art.py`, the folio's own armature in the plates' Audubon manner
-  (W-716, 4 Sep 2026): a bare bough entering from under the mat at the left, a Carolina
-  Wren arriving on the wing, then perched. `generate` buys three gpt-image-2 draws through
-  the server's `OpenAIImageModel` (`/v1/images/edits`, wren plates 83/78/18 as style
-  references) — the empty bough, an edit adding the wren in flight, an edit with it
-  perched; `cut` turns them into `art/plate_base.png` / `plate_fly.png` / `plate_perch.png`
-  + `plate_layout.json` at panel width. Things learned the hard way, all in the script:
-  the plates' paper normaliser crushes a nine-tenths-paper sheet to a silhouette (own
-  linear levels instead); a thin bough gives phase correlation no scale to lock on
-  (translation only); the model shortens/moves twigs to make room for a bird, so the
-  flying wren is *added ink* off the bough with its DU box moved by search to bare paper
-  inside the mat, and the perched wren is cut as ink off the base twig and stood on that
-  twig by its feet. Raw colour draws + prompt sidecars live in `art/raw/`; generate runs on
-  the box (`--key-from-db`), cut anywhere with plates. Screens: splash/setup = bough,
-  Wi-Fi = arriving, server + download = perched (only the pill differs).
+- **Art** — `boot_art.py`, a plate's own setting in the Audubon manner (W-716, 4 Sep
+  2026): a limb of real weight entering from the lower left and sweeping up to a bare
+  tip, one real plant (leaves + berries) as counter-mass, a Carolina Wren arriving on the
+  wing, then perched at the tip. It is laid out exactly as a single-species plate is:
+  full-bleed art from the panel's top to the caption gap above the wordmark (rows
+  0..1361), the limb and leaves cut flush at that edge like a plate's stems. `generate`
+  buys three square gpt-image-2 draws through the server's `OpenAIImageModel`
+  (`/v1/images/edits`, wren plates 83/78/18 as style references) — the setting, an edit
+  adding the wren in flight, an edit with it perched; `cut` writes `art/plate_base.png` /
+  `plate_fly.png` / `plate_perch.png` + `plate_layout.json` at panel width with 60 rows of
+  paper added on top so the composition clears the mat. Things learned the hard way, all in
+  the script: the plates' paper normaliser crushes a mostly-paper sheet to a silhouette (own
+  linear levels instead); thin armatures give phase correlation no scale to lock on
+  (translation only); the model moves twigs to make room for a bird, so the flying wren is
+  *added ink* off the setting with its DU box moved by search to bare paper inside the mat,
+  and the perched wren is cut as ink off the base twig and stood on that twig by its feet.
+  Raw colour draws + prompt sidecars live in `art/raw/`; generate runs on the box
+  (`--key-from-db`), cut anywhere with plates. Screens: splash/setup = setting, Wi-Fi =
+  arriving, server + download = perched (only the pill differs).
 - Type is set by the SERVER's own typography module (`sys.path` → `server/`): the
   wordmark IS the plate title (the bundled script, Pinyon Script, at the plates' auto-fit
   `theme.SCRIPT_TITLE_SIZE`, via `typography.draw_script`), and the splash
@@ -124,7 +128,7 @@ pulse RTS once to reset. `screen N` / `win …` / `frame …` / `panel updated` 
 - `boot_art.py` — draws + cuts the art (see **Art** above).
 - `art/` — `plate_base.png`, `plate_fly.png`, `plate_perch.png`, `plate_layout.json`
   (the cut art the bake composites 1:1); `art/raw/` the colour draws + prompt sidecars.
-  The birdhouse versions (pen-and-ink, then Audubon-manner) are in git history.
+  The birdhouse versions (pen-and-ink, then Audubon-manner) and the first bare-bough cut are in git history.
 - `fonts/` — vendored Inter Medium (pill text; OFL, see fonts/OFL.txt).
 - `src/ff_screens.h` — generated; don't hand‑edit.
 - `src/main.cpp` — `showScreen`, `loaderTask`, `freeScreenBuffers`, `displayFrame`,

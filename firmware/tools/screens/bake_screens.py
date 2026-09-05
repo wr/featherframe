@@ -161,9 +161,11 @@ def screen_setup():
     # Balanced inside the mat's visible window (~75..1797): even margins above
     # the house and below the card, instead of both hugging the mat edges.
     c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
-    sw = 1100
-    sh = int(BASE.height * sw / BASE.width)
-    c.alpha_composite(BASE.resize((sw, sh), Image.LANCZOS), ((W - sw) // 2, 146 + (720 - sh) // 2))
+    # The plate art, reduced to the band above the card (it is nearly
+    # square, so a height fit leaves paper at the sides).
+    sh = 800
+    sw = int(BASE.width * sh / BASE.height)
+    c.alpha_composite(BASE.resize((sw, sh), Image.LANCZOS), ((W - sw) // 2, 110))
     im = c.convert("L")
     d = ImageDraw.Draw(im)
     steps = [
@@ -212,14 +214,13 @@ PERCH = Image.open(os.path.join(ART, "plate_perch.png")).convert("RGBA")
 with open(os.path.join(ART, "plate_layout.json")) as _f:
     LAYOUT = json.load(_f)
 
-# Layout (portrait 1404x1872). The bough is cut at the panel's width and
-# enters from under the mat at the left, like a plate's own armature; it
-# sits centred in the band above the wordmark. Bough + wordmark are
-# identical on every screen, so only the bird boxes and the pill ever
-# repaint.
-ART_TOP, ART_BOTTOM = 200, 1330
-assert LAYOUT["sheet"][0] == W, "the cut must be at the panel's width (boot_art.py cut --scale)"
-BASE_XY  = (LAYOUT["base_crop"][0], ART_TOP + (ART_BOTTOM - ART_TOP - BASE.height) // 2)
+# Layout (portrait 1404x1872): the plate's own. The art is full-bleed from
+# the top of the panel to the caption gap above the wordmark, exactly the
+# art box a single-species plate gets (compose.render_single with no legend
+# lines and the title where the wordmark sits); the limb is cut flush at the
+# sheet's edges like a plate's stems. Art + wordmark are identical on every
+# screen, so only the bird boxes and the pill ever repaint.
+BASE_XY  = (0, 0)
 FLY_XY   = (BASE_XY[0] + LAYOUT["fly_at"][0],   BASE_XY[1] + LAYOUT["fly_at"][1])
 PERCH_XY = (BASE_XY[0] + LAYOUT["perch_at"][0], BASE_XY[1] + LAYOUT["perch_at"][1])
 

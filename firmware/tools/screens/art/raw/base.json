@@ -1,0 +1,14 @@
+{
+  "step": "base",
+  "model": "gpt-image-2",
+  "quality": "high",
+  "size": "1536x1024",
+  "prompt": "A hand-colored copperplate engraving with aquatint in the exact style of John James Audubon's 'The Birds of America' (Havell edition, 1827-1838), depicting the folio's own armature and nothing else: a single bare bough of one real, identifiable tree, drawn as the engravers drew a perch \u2014 the sheet on which a bird is about to be placed. The background is bright, near-white wove paper left completely untouched \u2014 no sepia tint, no cream wash, no aging, no vignette, no border.\n\nThe printed process shows everywhere: transparent watercolor washes sit over visible engraved feather line-work and irregular aquatint grain; washes pool and bleed slightly at their edges; hand-coloring is gently uneven and no two markings repeat exactly. Detail resolves only as far as the hand tools allow: every berry, leaf, and eye is a brush's honest approximation of something observed in the field \u2014 simplified, slightly irregular \u2014 never an object rendered past what watercolor and burin can hold. Edges carry the faint softness of an impression on damp paper \u2014 never digital smoothness, never airbrush gradients. Every passage must declare its medium: brush-laid wash with granulation and pooling, or engraved line \u2014 an ambiguous airbrushed surface belongs to no 19th-century process. Saturation is always pigment, never light: nothing glows, nothing has a specular sheen. Eyes are matte period eyes: a small dark bead with at most one tiny dry fleck of light, and the subject never makes frontal eye contact with the viewer.\n\nColor and tone as the colorists actually worked, and LIGHT: the bough is laid in thin transparent washes of pale umber and gray with the bright paper glowing through, its bark carried by fine engraved line rather than by dark wash; nothing heavy, nothing black, nothing glows; whites are reserved bare paper.\n\nThe bough enters the sheet from the LEFT edge, cut off flush there, and rises gently toward the right, dividing once or twice into finer twigs; the main twig ends in open paper a little right of the sheet's centre and near mid-height \u2014 a perch waiting for its bird. It is leafless and bare, at most a few tight buds true to its species: no leaf, no flower, no fruit, no lichen, no moss, no insect, and NO BIRD anywhere on the sheet. Bark, buds and twig scars are drawn to botanical-plate standard. The bough is slender and never fills the sheet: at least four-fifths of the sheet stays bare paper. No ground, no sky, no horizon, no shadow.\n\nNo text: no title, no names, no lettering, no numerals, no signature, no border, no frame line.",
+  "reference_images": [
+    "plate-83-house-wren.jpg",
+    "plate-78-great-carolina-wren.jpg",
+    "plate-18-bewicks-wren.jpg"
+  ],
+  "created_at": "2026-09-05T02:55:55+00:00",
+  "elapsed_s": 71.0
+}

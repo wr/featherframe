@@ -2,8 +2,8 @@
 """Bake the boot + first-time-setup panel screens into firmware/src/ff_screens.h.
 
 Renders 5 screens at the panel's native 1404x1872 and PackBits-compresses them
-into a C header the firmware blits. The boot screens compose the birdhouse art
-(./art/plate_*.png — drawn through the plates' own image pipeline by
+into a C header the firmware blits. The boot screens compose the bough-and-wren
+art (./art/plate_*.png — drawn through the plates' own image pipeline by
 boot_art.py, in the Havell manner) with type set by the SERVER's own typography
 module — the wordmark is the plate title style (the bundled script at the
 plates' auto-fit title size) and the version line is the plates' engraved
@@ -161,9 +161,9 @@ def screen_setup():
     # Balanced inside the mat's visible window (~75..1797): even margins above
     # the house and below the card, instead of both hugging the mat edges.
     c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
-    hs = 720
-    hw = int(HOUSE.width * hs / HOUSE.height)
-    c.alpha_composite(HOUSE.resize((hw, hs), Image.LANCZOS), ((W - hw) // 2, 146))
+    sw = 1100
+    sh = int(BASE.height * sw / BASE.width)
+    c.alpha_composite(BASE.resize((sw, sh), Image.LANCZOS), ((W - sw) // 2, 146 + (720 - sh) // 2))
     im = c.convert("L")
     d = ImageDraw.Draw(im)
     steps = [
@@ -201,26 +201,27 @@ def screen_setup():
             y += 154
     return im
 
-# The four boot/loading screens compose the Audubon-manner birdhouse from
+# The four boot/loading screens compose the Audubon-manner bough from
 # boot_art.py at native size — the cut step already resampled the sheets to
-# screen scale, and the peek patch only lands on the hole pixel-for-pixel if
-# nothing here rescales. plate_layout.json carries where the flying wren and
-# the hole patch sit, in plate_house.png pixel space.
-HOUSE = Image.open(os.path.join(ART, "plate_house.png")).convert("RGBA")
+# screen scale, and the perch patch only lands on its twig pixel-for-pixel if
+# nothing here rescales. plate_layout.json carries where the flying and the
+# perched wren sit, in plate_base.png pixel space.
+BASE  = Image.open(os.path.join(ART, "plate_base.png")).convert("RGBA")
 FLY   = Image.open(os.path.join(ART, "plate_fly.png")).convert("RGBA")
-PEEK  = Image.open(os.path.join(ART, "plate_peek.png")).convert("RGBA")
+PERCH = Image.open(os.path.join(ART, "plate_perch.png")).convert("RGBA")
 with open(os.path.join(ART, "plate_layout.json")) as _f:
     LAYOUT = json.load(_f)
 
-# Layout (portrait 1404x1872). The house BODY sits centred (the crop's vine
-# sprawls to one side, so the layout's body_cx, not the crop's middle, goes
-# under the wordmark), its roof near the top; the post is cut flush at the
-# art's foot, well clear of the wordmark. The wren flies in at the left,
-# its box kept inside the mat's ~4 % inset. House + wordmark are identical on
-# every screen, so only the bird/wren/pill boxes ever repaint.
-HOUSE_XY = (W // 2 - LAYOUT["body_cx"], 240)
-FLY_XY   = (HOUSE_XY[0] + LAYOUT["fly_at"][0],  HOUSE_XY[1] + LAYOUT["fly_at"][1])
-PEEK_XY  = (HOUSE_XY[0] + LAYOUT["peek_at"][0], HOUSE_XY[1] + LAYOUT["peek_at"][1])
+# Layout (portrait 1404x1872). The bough is cut at the panel's width and
+# enters from under the mat at the left, like a plate's own armature; it
+# sits centred in the band above the wordmark. Bough + wordmark are
+# identical on every screen, so only the bird boxes and the pill ever
+# repaint.
+ART_TOP, ART_BOTTOM = 200, 1330
+assert LAYOUT["sheet"][0] == W, "the cut must be at the panel's width (boot_art.py cut --scale)"
+BASE_XY  = (LAYOUT["base_crop"][0], ART_TOP + (ART_BOTTOM - ART_TOP - BASE.height) // 2)
+FLY_XY   = (BASE_XY[0] + LAYOUT["fly_at"][0],   BASE_XY[1] + LAYOUT["fly_at"][1])
+PERCH_XY = (BASE_XY[0] + LAYOUT["perch_at"][0], BASE_XY[1] + LAYOUT["perch_at"][1])
 
 # The wordmark is the plate title, verbatim: the script at the plates' auto-fit
 # title size (theme.SCRIPT_TITLE_SIZE), drawn by the server's own draw_script so
@@ -284,21 +285,23 @@ LOADER_AT = {}      # screen name -> loading mark's portrait center (cx, cy)
 
 def _compose(name):
     c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
-    c.alpha_composite(HOUSE, HOUSE_XY)
+    c.alpha_composite(BASE, BASE_XY)
+    art = None
     if name == "wifi":
-        c.alpha_composite(FLY, FLY_XY)                 # bird flies in
-    elif name == "download":
-        c.alpha_composite(PEEK, PEEK_XY)               # wren in the hole
+        art, xy = FLY, FLY_XY                      # the wren arrives on the wing
+    elif name in ("birdnet", "download"):
+        art, xy = PERCH, PERCH_XY                  # and settles on the bough
+    if art is not None:
+        c.alpha_composite(art, xy)
     im = c.convert("L")
-    if name in ("wifi", "download"):
+    if art is not None:
         # The bird boxes go binary so their windows refresh with DU (no
-        # flash) both coming and going. Both birds are tonal engraving (wash
-        # over line), so a hard threshold would blob them; ordered dither
-        # instead — the gamma curve first, so the stipple density matches the
-        # gray it replaces. The fly box is line art on empty sky; the peek box
-        # takes some house grain with it, and that grain re-dithers
-        # identically on every screen the box appears on.
-        art, (x0, y0) = (FLY, FLY_XY) if name == "wifi" else (PEEK, PEEK_XY)
+        # flash) both coming and going. The engraved wren is tonal (wash over
+        # line), so a hard threshold would blob it; ordered dither instead —
+        # the gamma curve first, so the stipple density matches the gray it
+        # replaces. The perch box takes its bit of twig with it, and that
+        # twig re-dithers identically on every screen the box appears on.
+        x0, y0 = xy
         x1, y1 = x0 + art.width, y0 + art.height
         box = to_1bit(apply_curve(im.crop((x0, y0, x1, y1))), phase=(x0, y0))
         im.paste(box, (x0, y0))
@@ -317,8 +320,8 @@ def _compose(name):
 SCREENS = [
     ("SPLASH",        _compose("splash")),
     ("BOOT_WIFI",     _compose("wifi")),        # wren flies in
-    ("BOOT_BIRDNET",  _compose("birdnet")),     # empty house
-    ("BOOT_DOWNLOAD", _compose("download")),    # wren in the hole
+    ("BOOT_BIRDNET",  _compose("birdnet")),     # wren perched
+    ("BOOT_DOWNLOAD", _compose("download")),    # wren perched, pill changes
     ("SETUP",         screen_setup()),
 ]
 

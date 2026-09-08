@@ -129,7 +129,7 @@ def test_openai_model_guard_rejects_foreign_id():
     # A model id left over from another provider must not reach OpenAI.
     m = genart.make_image_model(Config(imagegen_provider="openai", imagegen_api_key="k",
                                        imagegen_model="gemini-2.5-flash-image"))
-    assert m.model == "gpt-image-2"
+    assert m.model == "gpt-image-2.5-sunburst"
 
 
 def test_gemini_text_model_complete_json(monkeypatch):

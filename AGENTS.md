@@ -85,10 +85,11 @@ from the Nachtzuster fork.
 returns bird artwork or `None`. The live chain is
 `ChainedProvider([AudubonProvider, GeneratedArtProvider])` → typographic
 fallback. `genart.py` is the AI side: `ImageModel` is the vendor seam
-(`OpenAIImageModel` first, plain `requests`, default `gpt-image-2` via
-`/v1/images/edits` with real plates as style references; `gpt-image-2.5-flare`
-and `-sunburst` are selectable and are the only models that accept the `xhigh`
-and `max` qualities — `OpenAIImageModel.effective_quality` clamps those to
+(`OpenAIImageModel` first, plain `requests`, default `gpt-image-2.5-sunburst`
+via `/v1/images/edits` with real plates as style references — chosen over
+`-flare` in the W-726 bake-off, which pads a lone figure into a pair and so
+desyncs the printed legend; the 2.5 pair are the only models that accept the
+`xhigh` and `max` qualities — `OpenAIImageModel.effective_quality` clamps those to
 `high` on anything older, since the stored config outlives a model switch);
 generated plates are
 cached forever in `data/generated/` (PNG + JSON sidecar) and only a manual

@@ -618,3 +618,110 @@ def test_old_sidecar_without_legend_gets_the_plant_line_only(tmp_path):
     assert art.legend == ["Wild plum."]
     (d / "passer-domesticus.json").write_text(_json.dumps({"slug": "passer-domesticus"}))
     assert provider.artwork("House Sparrow", "Passer domesticus").legend == []
+
+
+# -- prompt v16 (W-727) ------------------------------------------------------
+def test_regard_axis_only_where_there_is_company():
+    import random as _random
+    import re as _re
+    from featherframe.render.genart import _sample_direction, _figure_count
+    lone_plain = lone_company = multi = 0
+    for i in range(600):
+        _, picks = _sample_direction(_random.Random(i))
+        # \bnest\b, not "nest": the feeding tableau's "honestly" contains it.
+        company = bool(_re.search(r"\bnest\b|juvenile", picks["tableau"]))
+        if _figure_count(picks) >= 2:
+            assert "regard" in picks
+            multi += 1
+        elif company:
+            # A lone figure at a nest still has young to regard.
+            assert "regard" in picks
+            lone_company += 1
+        else:
+            assert "regard" not in picks
+            lone_plain += 1
+    assert multi and lone_plain, (multi, lone_plain)
+
+
+def test_figures_no_longer_ordered_to_face_apart():
+    from featherframe.render.genart import _P_COMPOSE
+    assert "facing opposite directions" not in _P_COMPOSE
+    assert "attention require" in _P_COMPOSE
+
+
+def test_sheet_states_one_season_and_one_paintbox():
+    from featherframe.render.genart import _P_SETTING, _P_COLOR
+    assert "one moment in one season" in _P_SETTING
+    assert "one small paintbox" in _P_COLOR
+
+
+def test_plant_clause_names_the_season_when_the_brief_gave_one():
+    from featherframe.render.genart import build_prompt
+    with_season = build_prompt("Veery", "Catharus fuscescens", plant={
+        "name": "Trumpet honeysuckle", "season": "late spring",
+        "look": "a twining vine carrying scarlet trumpets"})
+    assert "as it stands in late spring" in with_season
+    # A brief cached before `season` existed still reads correctly.
+    without = build_prompt("Veery", "Catharus fuscescens", plant={
+        "name": "Trumpet honeysuckle", "look": "a twining vine"})
+    assert "Trumpet honeysuckle:" in without and "as it stands in" not in without
+
+
+def test_stale_brief_is_rebought_once_then_cached(tmp_path):
+    import json as _json
+    from featherframe.render.genart import DESCRIBE_VERSION
+    text = FakeTextModel()
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=text)
+    provider._describe("Greater Anglewing", "Microcentrum rhombifolium")
+    assert text.calls == 1
+    # Age the cached brief the way a DESCRIBE_VERSION bump does.
+    path = tmp_path / "descriptions.json"
+    cache = _json.loads(path.read_text())
+    key = next(iter(cache))
+    cache[key]["describe_version"] = DESCRIBE_VERSION - 1
+    path.write_text(_json.dumps(cache))
+
+    provider._describe("Greater Anglewing", "Microcentrum rhombifolium")
+    assert text.calls == 2                      # re-bought once
+    provider._describe("Greater Anglewing", "Microcentrum rhombifolium")
+    assert text.calls == 2                      # and not again
+    assert _json.loads(path.read_text())[key]["describe_version"] == DESCRIBE_VERSION
+
+
+def test_stale_brief_survives_a_rebuy_that_returns_no_plants(tmp_path):
+    import json as _json
+    from featherframe.render.genart import DESCRIBE_VERSION
+    text = FakeTextModel()
+    provider = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                    refs=[], text_model=text)
+    provider._describe("Greater Anglewing", "Microcentrum rhombifolium")
+    path = tmp_path / "descriptions.json"
+    cache = _json.loads(path.read_text())
+    key = next(iter(cache))
+    cache[key]["describe_version"] = DESCRIBE_VERSION - 1
+    path.write_text(_json.dumps(cache))
+
+    text.plants = []            # the re-buy comes back empty
+    _, _, plants, _ = provider._describe("Greater Anglewing", "Microcentrum rhombifolium")
+    assert [p["name"] for p in plants] == ["American elm", "wild plum"]
+
+
+def test_stale_brief_is_served_when_no_text_model_is_configured(tmp_path):
+    import json as _json
+    from featherframe.render.genart import DESCRIBE_VERSION
+    text = FakeTextModel()
+    GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated", refs=[],
+                         text_model=text)._describe("Greater Anglewing",
+                                                    "Microcentrum rhombifolium")
+    path = tmp_path / "descriptions.json"
+    cache = _json.loads(path.read_text())
+    key = next(iter(cache))
+    cache[key]["describe_version"] = DESCRIBE_VERSION - 1
+    path.write_text(_json.dumps(cache))
+
+    offline = GeneratedArtProvider(FakeModel(), cache_dir=tmp_path / "generated",
+                                   refs=[], text_model=None)
+    desc, _, plants, _ = offline._describe("Greater Anglewing",
+                                           "Microcentrum rhombifolium")
+    assert desc and plants          # stale beats nothing

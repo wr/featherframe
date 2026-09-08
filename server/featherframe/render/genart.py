@@ -49,11 +49,29 @@ _GEN_LOCK = threading.Lock()
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
 # picks up the current prompt.
-PROMPT_VERSION = 15
+PROMPT_VERSION = 16
 
 # Portrait, matching the plates' aspect closely enough for the content crop.
 GEN_SIZE = "1024x1536"
 
+# v16 (W-727): five faults Wells called from the gpt-image-2.5 bake-off, each
+# fixed as a principle rather than a prohibition. (a) The sheet is ONE moment
+# in one season, and the brief now describes each plant at a single stage of
+# its year and names that season — nesting birds were being set in autumn
+# foliage, and one branch carried blossom and ripe fruit together, because the
+# plant's season was chosen per species before the sheet's subject was known.
+# (b) That brief also leans its pool to flowering shrubs, vines, brambles and
+# herbs instead of filling up with trees. (c) A second figure now earns its
+# place by holding an ASPECT or a state of motion the first cannot, sex and age
+# being only one such reason; profile plus a figure in motion is the norm.
+# (d) New sampled `regard` axis, and the standing order that multiple figures
+# face OPPOSITE directions is gone — it was a command to disengage, which is
+# why attending parents and their young read as neighbours rather than family.
+# The axis is dropped for a lone figure. (e) The whole sheet is colored out of
+# one small paintbox, hues carrying between animal, plant and ground, the
+# colorist harmonizing rather than matching nature exactly.
+# NOTE: DESCRIBE_VERSION gates (a) and (b) — a species with a cached brief
+# re-buys it once, or the new wording never reaches it.
 # v15 (W-709): the sheet gets a legend under its Latin name like a real
 # plate ("Male, 1. Female, 2." / "Chestnut Oak. Quercus prinus."), derived
 # from the sampled figure count and tableau — so on a multi-figure sheet the
@@ -134,21 +152,29 @@ _P_COLOR = (
     "near-monochrome, its chroma delegated to plant, berries, bare parts, or eye — "
     "drabness is correct, timidity is not. Foliage greens are muted sage-olive, never "
     "grass-green. Whites are reserved bare paper with gray modeling, never opaque paint. "
-    "Black plumage is glazed with blue-violet iridescence, never flat gray.\n\n"
+    "Black plumage is glazed with blue-violet iridescence, never flat gray. The whole "
+    "sheet is colored out of one small paintbox, the way the folio's colorists "
+    "worked: the same few greens, earths, and blues carry from the animal to the "
+    "plant to the ground, so every hue on the sheet is a relative of the others. "
+    "Where a living color falls between the pigments to hand, the nearest one stands "
+    "in and the sheet stays harmonious — a colorist's judgment governs, not a "
+    "literal match.\n\n"
 )
 _P_COMPOSE = (
     "Compose as Audubon composed. A second or third figure of the species earns its "
-    "place when sexes or ages differ or another view adds information — one at rest in "
-    "clean profile against one displaying its full extent as its body allows, or dorsal "
-    "against ventral — poses never repeating, at least one figure holding a "
-    "characteristic living attitude. Behavior must be true to this particular species as a naturalist knows "
+    "place by holding an aspect or a state of motion the first cannot — a difference of "
+    "sex or age is one such reason and never the only one. Across a multi-figure sheet "
+    "at least one figure sits in clean profile and at least one is caught in motion or "
+    "bent to its work, the body turned, reaching, stooping, or extended as far as the "
+    "living animal truly goes, dorsal set against ventral where those views differ; "
+    "poses and directions never repeat. Behavior must be true to this particular species as a naturalist knows "
     "it: any voice, gape, or display goes only as far as the real animal's does, "
     "posture and energy match its living temperament, and any contortion follows "
     "Audubon's theatrical grammar rather than generic distortion. And the sheet exists to EXHIBIT the animal: however dramatic "
     "the moment, the subject stays conspicuous with its diagnostic features displayed "
     "— a pose that conceals or camouflages the subject defeats the plate's purpose. "
     "Multiple figures share one continuous armature — a branch, stem, or bank — at "
-    "staggered heights, facing opposite directions; a very large species is instead "
+    "staggered heights, each turned as its own errand and attention require; a very large species is instead "
     "bent in the period manner to fit the sheet life-size. Half to two-thirds of the sheet stays bare "
     "paper, asymmetrically. Beside each figure on a multi-figure sheet sits only a "
     "tiny engraved italic numeral (1., 2.) in the period manner.\n\n"
@@ -162,7 +188,9 @@ _P_SETTING = (
     "painted ground band of moss, rocks, and particular grasses in the lower third only, "
     "its edge cut hard so it floats on the paper, bare-paper sky above; a waterbird or "
     "wader gets a specific muted shore or marsh with a low horizon, the distance receding "
-    "by desaturation into gray; an aerial species flies on open paper.\n\n"
+    "by desaturation into gray; an aerial species flies on open paper. The whole sheet "
+    "is one moment in one season: the plant shows the single stage it truly holds "
+    "then, and the animals' behavior belongs to those same weeks of the year.\n\n"
 )
 _P_ANATOMY = (
     "Anatomy must survive a naturalist's magnifying glass. A bird's feet and claws are "
@@ -376,6 +404,16 @@ _DIRECTION_AXES = [
         (0.15, "Moss may dress the perch or ground, sparingly."),
         (0.15, "Lichen may crust the older wood, sparingly."),
     )),
+    # Whether the figures are company or merely neighbours. Sampled, and only
+    # on a sheet that HAS more than one figure — the axis is dropped for a
+    # lone figure, where a sentence about the others is nonsense.
+    ("regard", (
+        (0.55, "Each figure keeps to its own errand, the others no concern of its."),
+        (0.30, "The figures are aware of one another, attention carrying between "
+               "them across the sheet."),
+        (0.15, "The figures are directly engaged with one another, the sheet's "
+               "moment passing between them."),
+    )),
 ]
 
 # The tableau axis chooses what the sheet is ABOUT — all subjects Audubon
@@ -444,7 +482,13 @@ def _sample_direction(rng: random.Random, is_bird: bool = True,
     fig_choices = _FIGURES[1:] if "juvenile" in picks["tableau"] else _FIGURES
     picks["figures"] = choose("figures", fig_choices)
     picks["armature"] = choose("armature", _ARMATURE)
+    lone = _figure_count(picks) < 2
     for axis, choices in _DIRECTION_AXES:
+        if axis == "regard" and lone:
+            # Nobody to regard. A nest or juvenile tableau still brings company
+            # onto the sheet, so those keep the axis.
+            if not re.search(r"\bnest\b|juvenile", str(picks["tableau"])):
+                continue
         if "dispute" in picks["tableau"] or "encounter" in picks["tableau"]:
             if axis == "energy":
                 # A staged dispute cannot sit inside composed stillness.
@@ -516,10 +560,15 @@ def build_prompt(common_name: str, scientific_name: str, direction: str = "",
                      "illustrator who has never seen one: " + description + "\n\n")
     parts += [_P_PROCESS, _P_COLOR, _P_COMPOSE, _P_SETTING]
     if plant:
+        # The season is optional: a brief cached before it existed still reads
+        # correctly, just without naming the moment.
+        season = str(plant.get("season") or "").strip().rstrip(".")
         parts.append("For this sheet the one plant is "
-                     + str(plant.get("name", "")) + ": "
+                     + str(plant.get("name", ""))
+                     + (f", as it stands in {season}" if season else "") + ": "
                      + str(plant.get("look", "")).rstrip(".")
-                     + ". Draw it true to that species and that season.\n\n")
+                     + ". Draw it true to that species and that moment, and let "
+                       "the animals' season agree with it.\n\n")
     if direction:
         parts.append("Art direction for this sheet, chosen for it alone: "
                      + direction + "\n\n")
@@ -543,6 +592,11 @@ _DESC_LOCK = threading.Lock()
 
 # The image model knows what things look like, not what names mean; the brief
 # asserts what the subject IS, in drawable terms, from a model that knows.
+#: Bump when DESCRIBE_PROMPT changes materially. A cached brief carries its
+#: stamp; an older one is re-bought once (a text model must be configured —
+#: without one the stale brief still beats no brief at all).
+DESCRIBE_VERSION = 2
+
 DESCRIBE_PROMPT = (
     "Brief an illustrator who has never seen {subject} and cannot look it up. "
     "First, in at most 80 words of plain prose: its taxonomic group in "
@@ -550,14 +604,16 @@ DESCRIBE_PROMPT = (
     "that separate it from similar-looking groups, and its characteristic "
     "posture or carriage. Then list 4 to 6 REAL plants genuinely tied to this "
     "species — food, host, nest site, or a plant of its true habitat — each "
-    "with its common name, its Latin binomial, and a one-line drawable "
-    "description of how that plant looks in the "
-    "season this species is most active (leaf shape, growth habit, and its "
-    "flower or fruit state then). Make the list botanically varied, and "
-    "include flowering or fruiting associates whenever that is truthful. "
+    "with its common name, its Latin binomial, the season it is described in, "
+    "and a one-line drawable description of the plant at ONE single stage of "
+    "its year — leaf shape, growth habit, and whichever one of bud, flower, or "
+    "fruit it genuinely carries at that stage. Let the list run to varied "
+    "growth habits, and lean it toward flowering shrubs, vines, brambles, and "
+    "herbaceous plants wherever that is truthful for this species rather than "
+    "filling it with trees. "
     "State only established fact. Reply as JSON: "
     '{{"is_bird": true or false, "description": "...", '
-    '"plants": [{{"name": "...", "latin": "...", "look": "..."}}]}}'
+    '"plants": [{{"name": "...", "latin": "...", "season": "...", "look": "..."}}]}}'
 )
 
 
@@ -1197,8 +1253,10 @@ class GeneratedArtProvider(ArtProvider):
         except (OSError, ValueError):
             cache = {}
         hit = cache.get(key)
+        current = (isinstance(hit, dict) and "plants" in hit
+                   and int(hit.get("describe_version") or 1) >= DESCRIBE_VERSION)
         if isinstance(hit, dict) and hit.get("description") and (
-                "plants" in hit or self._text_model is None):
+                current or self._text_model is None):
             return (str(hit["description"]), bool(hit.get("is_bird", True)),
                     list(hit.get("plants") or []), None)
         if self._text_model is None:
@@ -1212,6 +1270,10 @@ class GeneratedArtProvider(ArtProvider):
             is_bird = bool(out.get("is_bird", True))
             plants = [p for p in (out.get("plants") or [])
                       if isinstance(p, dict) and p.get("name") and p.get("look")]
+            if not plants and isinstance(hit, dict) and hit.get("plants"):
+                # A re-buy that came back without a usable pool must not
+                # destroy the pool the cache already had.
+                plants = list(hit["plants"])
         except Exception as exc:
             log.warning("describe failed for %s (%s): %s", subject,
                         getattr(self._text_model, "name", "?"), exc)
@@ -1222,6 +1284,7 @@ class GeneratedArtProvider(ArtProvider):
                 "description": description,
                 "is_bird": is_bird,
                 "plants": plants,
+                "describe_version": DESCRIBE_VERSION,
                 "model": getattr(self._text_model, "name", "unknown"),
                 "usage": usage,
                 "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

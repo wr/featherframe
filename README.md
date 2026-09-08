@@ -142,7 +142,8 @@ plate instead: the name set large, "First recorded <date>" beneath.
 ### AI plates
 
 Optionally, the server can paint those missing species in the Havell style.
-Add an OpenAI API key on the config page and it prompts `gpt-image-2` with real
+Add an OpenAI API key on the config page and it prompts `gpt-image-2` (or
+`gpt-image-2.5-flare` / `-sunburst`) with real
 plates from your set as style references. One image per species (~$0.17),
 cached forever, cropped like a real scan; regenerate or remove from the
 gallery. No key just means the typographic fallback.

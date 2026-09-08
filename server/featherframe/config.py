@@ -182,7 +182,7 @@ class Config:
     # "openai" | "gemini" | "replicate" (aggregator) | "a1111" (self-hosted).
     imagegen_provider: str = "openai"
     imagegen_model: str = "gpt-image-2"    # provider-specific model id
-    imagegen_quality: str = "high"         # low | medium | high | auto (OpenAI)
+    imagegen_quality: str = "high"         # low|medium|high|auto, +xhigh|max on gpt-image-2.5
     imagegen_api_key: str = ""             # user-provided; lives only in our DB
     # Base URL for the self-hosted ("a1111") provider — an AUTOMATIC1111 /
     # ComfyUI-compatible /sdapi endpoint. Ignored by hosted providers.
@@ -260,7 +260,11 @@ class Config:
             self.imagegen_provider = "openai"
         self.imagegen_base_url = str(self.imagegen_base_url or "").strip().rstrip("/")
         self.imagegen_model = str(self.imagegen_model or "").strip() or "gpt-image-2"
-        if self.imagegen_quality not in ("low", "medium", "high", "auto"):
+        # xhigh/max exist only on gpt-image-2.5; they are kept here so the
+        # choice survives a model switch, and clamped to high at request time
+        # by OpenAIImageModel for anything older.
+        if self.imagegen_quality not in ("low", "medium", "high", "auto",
+                                         "xhigh", "max"):
             self.imagegen_quality = "high"
         self.imagegen_api_key = str(self.imagegen_api_key or "").strip()
         self.imagegen_text_model = (str(self.imagegen_text_model or "").strip()

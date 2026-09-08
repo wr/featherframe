@@ -893,7 +893,7 @@
               <div class="row2">
                 <div><label class="lab" for="ig-model">Image model</label><input type="text" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" autocapitalize="off" autocorrect="off" spellcheck="false"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
                 <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab" for="ig-quality">Quality</label><div class="cselect"><select class="sel cselect-native" name="imagegen_quality" id="ig-quality">
-                  {% set qlabels = {'max':'Max · 2.5 only', 'xhigh':'Extra high · 2.5 only', 'high':'High · ~$0.17/image', 'medium':'Medium · ~$0.07/image', 'low':'Low · ~$0.02/image', 'auto':'Auto'} %}
+                  {% set qlabels = {'max':'Max · 2.5 only', 'xhigh':'Extra high · 2.5 only', 'high':'High · ~$0.07/image', 'medium':'Medium · ~$0.04/image', 'low':'Low · ~$0.03/image', 'auto':'Auto'} %}
                   {% for q in ['max','xhigh','high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }} {{ 'data-25only' if q in ('max','xhigh') else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
               </div>
               <p class="adv-group">Text model</p>
@@ -1515,8 +1515,8 @@
   // One table per provider: recommended model, hint, monthly-cost estimate,
   // and where to mint a key. The model dropdowns reuse RECOMMENDED below.
   var PROVIDERS = {
-    openai:    { model: 'gpt-image-2', hint: 'e.g. gpt-image-2 or gpt-image-2.5-sunburst',
-                 cost: '≈ $0.60/mo (low) to $5/mo (high), one image a night',
+    openai:    { model: 'gpt-image-2.5-sunburst', hint: 'e.g. gpt-image-2.5-sunburst or gpt-image-2',
+                 cost: '≈ $1/mo (low) to $2/mo (high), one image a night',
                  key: ['https://platform.openai.com/api-keys', 'platform.openai.com'] },
     gemini:    { model: 'gemini-2.5-flash-image', hint: 'e.g. gemini-2.5-flash-image',
                  cost: '≈ $0.30/mo (low) to $1/mo (high), one image a night',

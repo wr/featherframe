@@ -884,7 +884,7 @@ class OpenAIImageModel(ImageModel):
     #: at request time rather than trusted.
     EXTRA_QUALITIES = ("xhigh", "max")
 
-    def __init__(self, api_key: str, model: str = "gpt-image-2",
+    def __init__(self, api_key: str, model: str = "gpt-image-2.5-sunburst",
                  quality: str = "high", timeout_s: float = 240.0) -> None:
         self.api_key = api_key
         self.model = model
@@ -1120,7 +1120,7 @@ def make_image_model(config) -> Optional[ImageModel]:
     if provider == "openai":
         # Guard a model id left over from another provider (the field carries
         # across a provider switch) so OpenAI never gets e.g. a gemini id.
-        m = model if model.startswith("gpt-image") else "gpt-image-2"
+        m = model if model.startswith("gpt-image") else "gpt-image-2.5-sunburst"
         return OpenAIImageModel(key, model=m, quality=config.imagegen_quality) if key else None
     if provider == "gemini":
         m = model if model.startswith("gemini") else "gemini-2.5-flash-image"

@@ -725,3 +725,48 @@ def test_stale_brief_is_served_when_no_text_model_is_configured(tmp_path):
     desc, _, plants, _ = offline._describe("Greater Anglewing",
                                            "Microcentrum rhombifolium")
     assert desc and plants          # stale beats nothing
+
+
+def test_nest_tableau_prefers_a_plant_in_its_own_season():
+    import random as _random
+    from featherframe.render.genart import _pick_plant
+    pool = [{"name": "autumn vine", "season": "autumn"},
+            {"name": "late fruiter", "season": "late summer"},
+            {"name": "spring shrub", "season": "late spring"}]
+    nest = {"tableau": "Build the sheet around the species' own nest — its real "
+                       "architecture and site — with eggs or dependent young."}
+    picked = {_pick_plant(_random.Random(i), pool, nest)["name"] for i in range(60)}
+    assert picked == {"spring shrub"}
+
+
+def test_plain_tableau_still_draws_from_the_whole_pool():
+    import random as _random
+    from featherframe.render.genart import _pick_plant
+    pool = [{"name": "autumn vine", "season": "autumn"},
+            {"name": "spring shrub", "season": "late spring"}]
+    plain = {"tableau": "The sheet is a straightforward exhibit of the species itself."}
+    picked = {_pick_plant(_random.Random(i), pool, plain)["name"] for i in range(60)}
+    assert picked == {"autumn vine", "spring shrub"}
+
+
+def test_nest_tableau_keeps_a_plant_when_the_pool_is_all_late():
+    import random as _random
+    from featherframe.render.genart import _pick_plant
+    pool = [{"name": "autumn vine", "season": "autumn"},
+            {"name": "late fruiter", "season": "late summer"}]
+    nest = {"tableau": "the species' own nest with dependent young"}
+    assert _pick_plant(_random.Random(3), pool, nest)["name"] in {"autumn vine",
+                                                                 "late fruiter"}
+    assert _pick_plant(_random.Random(3), [], nest) is None
+
+
+def test_feeding_tableau_is_not_treated_as_a_nest():
+    import random as _random
+    from featherframe.render.genart import _pick_plant
+    # "honestly" contains "nest"; the season filter must not fire on it.
+    pool = [{"name": "autumn vine", "season": "autumn"},
+            {"name": "spring shrub", "season": "late spring"}]
+    feeding = {"tableau": "Build the moment around the species feeding in its "
+                          "true manner, prey or forage rendered honestly."}
+    picked = {_pick_plant(_random.Random(i), pool, feeding)["name"] for i in range(60)}
+    assert picked == {"autumn vine", "spring shrub"}

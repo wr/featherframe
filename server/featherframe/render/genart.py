@@ -456,6 +456,30 @@ _TABLEAU_OTHER = (
 )
 
 
+#: Seasons in which a nest holds eggs or dependent young. Compared exactly
+#: against the brief's own season word.
+_NESTING_SEASONS = frozenset({"early spring", "spring", "late spring",
+                              "early summer", "summer"})
+
+
+def _pick_plant(rng: random.Random, pool: list, picks: dict) -> Optional[dict]:
+    """One plant for the sheet. A tableau that pins the time of year — young
+    in the nest, a juvenile beside the adult — prefers a plant whose own
+    season agrees with it, because the brief's pool leans to fruiting
+    associates and a uniform draw puts nestlings in autumn foliage. The
+    preference only narrows the pool while something survives it, so a species
+    whose every associate fruits late still gets a plant.
+    """
+    if not pool:
+        return None
+    if re.search(r"\bnest\b|juvenile", str((picks or {}).get("tableau") or "")):
+        agree = [p for p in pool
+                 if str(p.get("season") or "").strip().lower() in _NESTING_SEASONS]
+        if agree:
+            pool = agree
+    return rng.choice(pool)
+
+
 def _pick(rng: random.Random, choices) -> str:
     total = sum(w for w, _ in choices)
     roll, acc = rng.random() * total, 0.0
@@ -1573,8 +1597,10 @@ class GeneratedArtProvider(ArtProvider):
                 except (OSError, ValueError):
                     pass
             pool = [p for p in plants if p.get("name") != prev_plant] or plants
-            plant = rng.choice(pool) if pool else None
+            # Direction before plant: the tableau decides which seasons the
+            # plant may be in.
             direction, picks = _sample_direction(rng, is_bird, avoid)
+            plant = _pick_plant(rng, pool, picks)
             figures = figures_for(picks, is_bird)
             prompt = build_prompt(common_name, scientific_name, direction,
                                   description, plant, figures)

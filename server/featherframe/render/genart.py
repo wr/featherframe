@@ -744,16 +744,27 @@ def _usage_gemini(u) -> Optional[dict]:
 #: USD per million tokens: (text in, image in, image out). Only the models
 #: whose list price is known get an estimate; everything else shows none.
 IMAGE_RATES_USD_PER_M: dict[str, tuple[float, float, float]] = {
+    "gpt-image-2.5-flare": (5.0, 8.0, 30.0),
+    "gpt-image-2.5-sunburst": (5.0, 8.0, 30.0),
     "gpt-image-2": (5.0, 8.0, 30.0),
     "gpt-image-1.5": (5.0, 8.0, 32.0),
 }
+
+
+def _rates_for(model: str) -> Optional[tuple[float, float, float]]:
+    """The rate row for a model id. A dated snapshot ("gpt-image-2.5-flare-2026-09-08") bills at its family's rate, so fall back to the longest table key
+the id starts with rather than dropping the estimate."""
+    if model in IMAGE_RATES_USD_PER_M:
+        return IMAGE_RATES_USD_PER_M[model]
+    hit = [k for k in IMAGE_RATES_USD_PER_M if model.startswith(k + "-")]
+    return IMAGE_RATES_USD_PER_M[max(hit, key=len)] if hit else None
 
 
 def estimate_cost_usd(model: str, usage: Optional[dict]) -> Optional[float]:
     """An estimate of one image call from the rate table, or None when the
     model is not priced or no usage was reported. Without the input split
     every input token is billed as text (the cheaper rate)."""
-    rates = IMAGE_RATES_USD_PER_M.get(str(model or ""))
+    rates = _rates_for(str(model or ""))
     if not rates or not isinstance(usage, dict) or not usage:
         return None
     text_in, image_in, image_out = rates
@@ -787,6 +798,12 @@ class OpenAIImageModel(ImageModel):
 
     API_BASE = "https://api.openai.com/v1"
 
+    #: Qualities only the 2.5 line accepts. Sent to an older model they are a
+    #: 400, and a config can outlive the model it was chosen for (switch back
+    #: to gpt-image-2 and the stored quality comes along), so they are clamped
+    #: at request time rather than trusted.
+    EXTRA_QUALITIES = ("xhigh", "max")
+
     def __init__(self, api_key: str, model: str = "gpt-image-2",
                  quality: str = "high", timeout_s: float = 240.0) -> None:
         self.api_key = api_key
@@ -794,6 +811,15 @@ class OpenAIImageModel(ImageModel):
         self.quality = quality
         self.timeout_s = timeout_s
         self.name = model
+
+    @property
+    def effective_quality(self) -> str:
+        """The quality actually sent: xhigh/max degrade to high on any model
+        older than 2.5."""
+        if (self.quality in self.EXTRA_QUALITIES
+                and not self.model.startswith("gpt-image-2.5")):
+            return "high"
+        return self.quality
 
     # -- HTTP --------------------------------------------------------------
     def _headers(self) -> dict:
@@ -820,9 +846,10 @@ class OpenAIImageModel(ImageModel):
             files = [("image[]", (f"ref{i}.jpg", self._ref_bytes(p), "image/jpeg"))
                      for i, p in enumerate(refs)]
             data = {"model": self.model, "prompt": prompt, "size": size,
-                    "quality": self.quality, "n": "1", "output_format": "png"}
-            # input_fidelity applies to gpt-image-1/1.5 only; gpt-image-2
-            # always processes references at high fidelity and rejects it.
+                    "quality": self.effective_quality, "n": "1",
+                    "output_format": "png"}
+            # input_fidelity applies to gpt-image-1/1.5 only; gpt-image-2 and
+            # 2.5 always process references at high fidelity, and 2 rejects it.
             if self.model.startswith(("gpt-image-1", "gpt-image-1.5")):
                 data["input_fidelity"] = "high"
             resp = requests.post(f"{self.API_BASE}/images/edits",
@@ -830,8 +857,8 @@ class OpenAIImageModel(ImageModel):
                                  timeout=self.timeout_s)
         else:
             body = {"model": self.model, "prompt": prompt, "size": size,
-                    "quality": self.quality, "n": 1, "output_format": "png",
-                    "moderation": "low"}
+                    "quality": self.effective_quality, "n": 1,
+                    "output_format": "png", "moderation": "low"}
             resp = requests.post(f"{self.API_BASE}/images/generations",
                                  headers=self._headers(), json=body,
                                  timeout=self.timeout_s)
@@ -1031,7 +1058,8 @@ def make_image_model(config) -> Optional[ImageModel]:
 # list endpoint). Replicate has no practical "list image models" call, so it's
 # always a curated set.
 _MODEL_FALLBACKS = {
-    "openai": ["gpt-image-2", "gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"],
+    "openai": ["gpt-image-2.5-flare", "gpt-image-2.5-sunburst", "gpt-image-2",
+               "gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"],
     "gemini": ["gemini-2.5-flash-image", "gemini-3-pro-image"],
     "replicate": ["black-forest-labs/flux-kontext-pro", "black-forest-labs/flux-kontext-max",
                   "black-forest-labs/flux-1.1-pro", "stability-ai/stable-diffusion-3.5-large"],

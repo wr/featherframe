@@ -86,7 +86,11 @@ returns bird artwork or `None`. The live chain is
 `ChainedProvider([AudubonProvider, GeneratedArtProvider])` → typographic
 fallback. `genart.py` is the AI side: `ImageModel` is the vendor seam
 (`OpenAIImageModel` first, plain `requests`, default `gpt-image-2` via
-`/v1/images/edits` with real plates as style references); generated plates are
+`/v1/images/edits` with real plates as style references; `gpt-image-2.5-flare`
+and `-sunburst` are selectable and are the only models that accept the `xhigh`
+and `max` qualities — `OpenAIImageModel.effective_quality` clamps those to
+`high` on anything older, since the stored config outlives a model switch);
+generated plates are
 cached forever in `data/generated/` (PNG + JSON sidecar) and only a manual
 regenerate from the config page replaces one; failures soft-fail to the
 fallback with a per-species cooldown. The user's API key lives only in our DB

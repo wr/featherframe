@@ -269,3 +269,52 @@ def test_source_test_endpoint_apprise(tmp_path, monkeypatch):
     app.state.service = svc
     r = TestClient(app).post("/api/source/test", data={"backend": "apprise"})
     assert r.status_code == 200 and r.json()["ok"] is True
+
+
+# -- gpt-image-2.5 (W-726) ---------------------------------------------------
+def test_openai_2_5_ids_pass_the_provider_guard():
+    for mid in ("gpt-image-2.5-flare", "gpt-image-2.5-sunburst"):
+        m = genart.make_image_model(Config(imagegen_provider="openai",
+                                           imagegen_api_key="k", imagegen_model=mid))
+        assert m.model == mid
+
+
+def test_xhigh_quality_clamped_for_pre_2_5_models(monkeypatch):
+    sent = {}
+    def fake_post(url, headers=None, data=None, json=None, files=None, timeout=None):
+        sent.update(data or json or {})
+        return _Resp(200, {"data": [{"b64_json": base64.b64encode(_PNG).decode()}]})
+    monkeypatch.setattr(genart.requests, "post", fake_post)
+
+    genart.OpenAIImageModel("k", model="gpt-image-2", quality="xhigh").generate(
+        "p", "1024x1536", [])
+    assert sent["quality"] == "high"
+
+    genart.OpenAIImageModel("k", model="gpt-image-2.5-sunburst", quality="xhigh").generate(
+        "p", "1024x1536", [])
+    assert sent["quality"] == "xhigh"
+
+
+def test_2_5_does_not_send_input_fidelity(monkeypatch, tmp_path):
+    sent = {}
+    monkeypatch.setattr(genart.OpenAIImageModel, "_ref_bytes", staticmethod(lambda p: b"jpg"))
+    def fake_post(url, headers=None, data=None, files=None, timeout=None):
+        sent.update(data)
+        return _Resp(200, {"data": [{"b64_json": base64.b64encode(_PNG).decode()}]})
+    monkeypatch.setattr(genart.requests, "post", fake_post)
+    genart.OpenAIImageModel("k", model="gpt-image-2.5-flare").generate(
+        "p", "1024x1536", [tmp_path / "ref.png"])
+    assert "input_fidelity" not in sent
+
+
+def test_config_keeps_xhigh_quality():
+    assert Config(imagegen_quality="xhigh").imagegen_quality == "xhigh"
+    assert Config(imagegen_quality="max").imagegen_quality == "max"
+    assert Config(imagegen_quality="ultra").imagegen_quality == "high"
+
+
+def test_model_fallback_list_offers_2_5():
+    out = genart.list_image_models(Config(imagegen_provider="openai", imagegen_api_key=""))
+    assert out["live"] is False
+    assert "gpt-image-2.5-flare" in out["models"]
+    assert "gpt-image-2.5-sunburst" in out["models"]

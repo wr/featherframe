@@ -165,6 +165,21 @@ def test_estimate_cost_without_detail_bills_input_as_text():
     assert cost == pytest.approx(1000 * 5 / 1e6)
 
 
+def test_estimate_cost_gpt_image_2_5():
+    # Both 2.5 variants bill at gpt-image-2's rates.
+    for m in ("gpt-image-2.5-flare", "gpt-image-2.5-sunburst"):
+        assert estimate_cost_usd(m, IMG_USAGE) == pytest.approx(
+            (400 * 5 + 800 * 8 + 6240 * 30) / 1e6)
+
+
+def test_estimate_cost_dated_snapshot_uses_family_rate():
+    # A pinned snapshot must still be priced, at its own family's rate.
+    assert estimate_cost_usd("gpt-image-2.5-flare-2026-09-08", IMG_USAGE) == pytest.approx(
+        (400 * 5 + 800 * 8 + 6240 * 30) / 1e6)
+    assert estimate_cost_usd("gpt-image-1.5-2025-10-01", IMG_USAGE) == pytest.approx(
+        (400 * 5 + 800 * 8 + 6240 * 32) / 1e6)
+
+
 def test_estimate_cost_unknown_model_or_usage_is_none():
     assert estimate_cost_usd("gemini-2.5-flash-image", IMG_USAGE) is None
     assert estimate_cost_usd("gpt-image-2", None) is None

@@ -893,8 +893,8 @@
               <div class="row2">
                 <div><label class="lab" for="ig-model">Image model</label><input type="text" name="imagegen_model" id="ig-model" list="ig-model-list" value="{{ config.imagegen_model }}" autocapitalize="off" autocorrect="off" spellcheck="false"><datalist id="ig-model-list"></datalist><div class="hint" id="ig-model-hint"></div></div>
                 <div data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}><label class="lab" for="ig-quality">Quality</label><div class="cselect"><select class="sel cselect-native" name="imagegen_quality" id="ig-quality">
-                  {% set qlabels = {'high':'High · ~$0.17/image', 'medium':'Medium · ~$0.07/image', 'low':'Low · ~$0.02/image', 'auto':'Auto'} %}
-                  {% for q in ['high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
+                  {% set qlabels = {'max':'Max · 2.5 only', 'xhigh':'Extra high · 2.5 only', 'high':'High · ~$0.17/image', 'medium':'Medium · ~$0.07/image', 'low':'Low · ~$0.02/image', 'auto':'Auto'} %}
+                  {% for q in ['max','xhigh','high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }} {{ 'data-25only' if q in ('max','xhigh') else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
               </div>
               <p class="adv-group">Text model</p>
               <div class="field">
@@ -1515,7 +1515,7 @@
   // One table per provider: recommended model, hint, monthly-cost estimate,
   // and where to mint a key. The model dropdowns reuse RECOMMENDED below.
   var PROVIDERS = {
-    openai:    { model: 'gpt-image-2', hint: 'e.g. gpt-image-2',
+    openai:    { model: 'gpt-image-2', hint: 'e.g. gpt-image-2 or gpt-image-2.5-sunburst',
                  cost: '≈ $0.60/mo (low) to $5/mo (high), one image a night',
                  key: ['https://platform.openai.com/api-keys', 'platform.openai.com'] },
     gemini:    { model: 'gemini-2.5-flash-image', hint: 'e.g. gemini-2.5-flash-image',
@@ -1554,8 +1554,25 @@
       // so the saved value can't mismatch the provider.
       if (resetModel && modelField && !modelFits(p, modelField.value)) modelField.value = info.model || '';
     }
-    prov.addEventListener('change', function () { syncProvider(true); });
+    // xhigh/max exist only on gpt-image-2.5. Hide them for any other model so
+    // the picker can't offer a setting the API would 400 on (the server also
+    // clamps, but a visible dead option is a bug report waiting to happen).
+    var qualSel = $('ig-quality');
+    function syncQuality() {
+      if (!qualSel || !modelField) return;
+      var is25 = modelField.value.indexOf('gpt-image-2.5') === 0;
+      qualSel.querySelectorAll('option[data-25only]').forEach(function (o) {
+        o.hidden = !is25;
+        o.disabled = !is25;
+        if (!is25 && o.selected) qualSel.value = 'high';
+      });
+    }
+    prov.addEventListener('change', function () { syncProvider(true); syncQuality(); });
+    if (modelField) ['change', 'input'].forEach(function (e) {
+      modelField.addEventListener(e, syncQuality);
+    });
     syncProvider(false);
+    syncQuality();
   })();
 
   // -- stored secrets: Replace / Delete / Cancel, generic over .keyfield ------

@@ -500,7 +500,12 @@ def cut(args) -> None:
     P = _place(perch_g, *perch_reg, H.shape, 0)
     _, rough = _added_bird(P, H, 235, args.clearance, args.pad, touching_ok=True)
     ddx, ddy = _refine_local(H, P, rough)
-    P = _place(P, 1.0, ddx, ddy, P.shape, 0)
+    # Place once more from the ORIGINAL sheet with both offsets summed: the
+    # first placement clipped the sheet to the canvas, so anything the
+    # registration pushed over the top edge (a bird perched near the
+    # sheet's top — W-745 lost its head to a -37 then +39) was gone before
+    # the refinement could bring it back.
+    P = _place(perch_g, perch_reg[0], perch_reg[1] + ddx, perch_reg[2] + ddy, H.shape, 0)
     print(f"fly (scale,dx,dy)={fly_reg}, perch={perch_reg} refined by ({ddx},{ddy})")
     if second_g is not None:
         second_reg = _register(H, second_g, scales=scales)
@@ -573,8 +578,9 @@ def cut(args) -> None:
     # carried over; the bird is cut as ink OFF the base's (grown) twig and
     # then stood on the base twig by its feet — its toes end where the twig
     # begins, which reads as a bird standing on it.
-    def perched(E, name, avoid=None):
-        comps = _added_blobs(E, H, args.perch_thr, args.perch_clearance, pad)
+    def perched(E, name, avoid=None, mode="stand"):
+        comps = _added_blobs(E, H, args.perch_thr, args.perch_clearance, pad,
+                             detail=args.perch_detail)
         if avoid is not None:
             ax0, ay0, ax1, ay1 = avoid
             comps = [(m, b) for m, b in comps
@@ -583,6 +589,86 @@ def cut(args) -> None:
             sys.exit(f"no added bird found for {name}")
         bird, (qx0, qy0, qx1, qy1) = comps[0]
         bird = _erode(_dilate(bird, 4), 4)            # close gaps in pale plumage
+        def stand_offset(mask):
+            """(dx, dy) that puts the mask's lowest ink (the toes) on the
+            nearest top of base ink below/beside it, or (0, 0)."""
+            ys, xs = np.nonzero(mask)
+            fy = int(ys.max())
+            fx = int(np.median(xs[ys >= fy - 4]))
+            base_ink = H < 235
+            best = None
+            for dx in range(-args.perch_reach, args.perch_reach + 1):
+                col = fx + dx
+                if not (0 <= col < H.shape[1]):
+                    continue
+                rows = np.nonzero(base_ink[max(0, fy - 40):fy + 120, col])[0]
+                if len(rows):
+                    top = int(rows[0]) + max(0, fy - 40)
+                    cost = abs(dx) + 0.5 * abs(top - fy)
+                    if best is None or cost < best[0]:
+                        best = (cost, dx, top - fy - 1)
+            return (best[1], best[2]) if best else (0, 0)
+
+        if mode == "head":
+            # The edit redraws the twig to seat the bird: it shortens the
+            # base's tip, and the head can sit where that tip was — so ink
+            # off the base loses the head (W-745). Above the feet, take the
+            # edit's ink as the bird regardless of the base; below them keep
+            # ink off a widely grown base twig (the edit's own twig, a few px
+            # off the base's, would dither to dots beside it), then keep the
+            # one connected figure and paper over what remains of the base's
+            # tip past the head. The bird is left where the edit drew it.
+            zone = _dilate(bird, args.perch_zone)
+            edit_ink = E < args.perch_thr
+            base_wide = _dilate(H < 235, args.perch_twig_clearance)
+            body = _open(zone & edit_ink & ~base_wide, 5)
+            comps2 = _components(body)
+            core = comps2[0][0] if comps2 else bird
+            cys, cxs = np.nonzero(core)
+            foot_y = int(cys.max())                    # the body's underside
+            above = np.zeros_like(bird)
+            above[:max(0, foot_y - 6), :] = True
+            # Below the body only a band under the legs counts: the legs and
+            # toes, not the edit's twig curling away beside them. The legs
+            # are the classic cut's ink just under the body.
+            lys, lxs = np.nonzero(bird & ~above)
+            foot_x = int(np.median(lxs[lys <= foot_y + 40])) if len(lxs) else int(np.median(cxs))
+            band = np.zeros_like(bird)
+            band[:, max(0, foot_x - args.perch_toe_band):foot_x + args.perch_toe_band] = True
+            below = zone & edit_ink & ~above & band & ~base_wide
+            legs = below & ~_open(below, args.perch_leg_px)   # legs are thin; a limb piece is not
+            bird = _erode(_dilate((zone & edit_ink & above) | legs, 4), 4)
+            figure = _components(bird)
+            if figure:
+                main = figure[0][0]
+                bird = main | (bird & _dilate(main, 6))       # the figure and what touches it
+            # Stand the bird on the base twig by its toes when the twig is
+            # straight below them (a sideways find is other ink).
+            sdx, sdy = stand_offset(bird)
+            if abs(sdx) > 10 or abs(sdy) > args.perch_stand_max:
+                print(f"{name}: stand offset ({sdx},{sdy}) out of bounds, ignored")
+                sdx, sdy = 0, 0
+            print(f"{name} stood on the twig by ({sdx},{sdy})")
+            E = _place(E, 1.0, sdx, sdy, E.shape, 0)
+            bird = np.roll(np.roll(bird, sdy, axis=0), sdx, axis=1)
+            above = np.roll(above, sdy, axis=0)
+            # Paper over the base's tip where it runs on just past the head.
+            erase = _dilate(bird, 12) & above & (H < 235) & ~bird
+            keep = bird | erase
+            ys, xs = np.nonzero(keep)
+            qx0, qy0 = max(0, int(xs.min()) - pad), max(0, int(ys.min()) - pad)
+            qx1 = min(E.shape[1], int(xs.max()) + 1 + pad)
+            qy1 = min(E.shape[0], int(ys.max()) + 1 + pad)
+            print(f"{name} cut with its head ({qx1 - qx0}x{qy1 - qy0}), "
+                  f"{int(erase.sum())} px of the base's tip papered over")
+            g = lifted(E[qy0:qy1, qx0:qx1])
+            a = np.asarray(Image.fromarray(_dilate(keep, 2)[qy0:qy1, qx0:qx1].astype(np.uint8) * 255)
+                           .filter(ImageFilter.GaussianBlur(1)), dtype=np.uint8)
+            patch = np.zeros(g.shape + (4,), dtype=np.uint8)
+            patch[..., 0] = patch[..., 1] = patch[..., 2] = g
+            patch[..., 3] = np.where(keep[qy0:qy1, qx0:qx1], 255, a)
+            Image.fromarray(patch, "RGBA").save(out / f"plate_{name}.png")
+            return (qx0, qy0, qx1, qy1)
         ys, xs = np.nonzero(bird)
         foot_y = int(ys.max())
         foot_x = int(np.median(xs[ys >= foot_y - 4]))
@@ -603,6 +689,11 @@ def cut(args) -> None:
             sdx, sdy = 0, 0
         else:
             _, sdx, sdy = best
+            if abs(sdx) > args.perch_stand_max or abs(sdy) > args.perch_stand_max:
+                # The sheet was registered and refined to the base; a long
+                # move means the search found other ink, not the toes' twig.
+                print(f"{name}: stand offset ({sdx},{sdy}) beyond {args.perch_stand_max}, ignored")
+                sdx, sdy = 0, 0
         print(f"{name} stood on the twig by ({sdx},{sdy})")
         E2 = _place(E, 1.0, sdx, sdy, E.shape, 0)
         bird = np.roll(np.roll(bird, sdy, axis=0), sdx, axis=1)
@@ -617,12 +708,12 @@ def cut(args) -> None:
         Image.fromarray(patch, "RGBA").save(out / f"plate_{name}.png")
         return (qx0, qy0, qx1, qy1)
 
-    qx0, qy0, qx1, qy1 = perched(P, "perch")
+    qx0, qy0, qx1, qy1 = perched(P, "perch", mode=args.perch_mode)
     second_at = None
     if S is not None:
         # The second sheet carries both birds; the first is where the perch
         # stage found it, so the blob overlapping that box is not the newcomer.
-        sx0, sy0, _, _ = perched(S, "second", avoid=(qx0, qy0, qx1, qy1))
+        sx0, sy0, _, _ = perched(S, "second", avoid=(qx0, qy0, qx1, qy1), mode=args.second_mode)
         second_at = [int(sx0 - x0), int(sy0 - y0)]
 
     layout = {
@@ -710,8 +801,30 @@ def main() -> None:
                    help="px the bough's ink is grown by before hunting the flying bird")
     c.add_argument("--perch-thr", type=int, default=225,
                    help="gray below which the edit's pixels can count as the perched bird")
+    c.add_argument("--perch-mode", choices=["head", "stand"], default="head",
+                   help="head: the bird as the edit's ink above its feet (a head drawn over "
+                        "the base twig's tip is kept, the tip papered over) and ink off the "
+                        "base below them; stand: ink off the base only, stood on the twig")
+    c.add_argument("--perch-zone", type=int, default=70,
+                   help="head mode: px round the bird's body within which the edit's ink "
+                        "counts as the bird")
+    c.add_argument("--perch-twig-clearance", type=int, default=26,
+                   help="head mode: px the base twig is grown by below the bird's feet, wide "
+                        "enough to swallow the edit's own redrawn twig")
+    c.add_argument("--second-mode", choices=["head", "stand"], default="head",
+                   help="the mate's cut (head: as the perch; stand: the plain cut)")
+    c.add_argument("--perch-toe-band", type=int, default=30,
+                   help="head mode: half-width of the band under the body within which ink "
+                        "below the feet counts (legs and toes)")
+    c.add_argument("--perch-leg-px", type=int, default=6,
+                   help="head mode: below the body, ink thicker than twice this is a piece of the "
+                        "edit's redrawn twig, not a leg, and is dropped")
+    c.add_argument("--perch-stand-max", type=int, default=60,
+                   help="the largest downward move allowed to stand a bird on the base twig")
     c.add_argument("--perch-reach", type=int, default=80,
                    help="px the perched wren may slide sideways to find the base twig under its feet")
+    c.add_argument("--perch-detail", type=int, default=10,
+                   help="px from a perched bird's body its fine parts are recovered within")
     c.add_argument("--perch-clearance", type=int, default=4,
                    help="px the base twig is grown by before cutting the perched bird off it")
     c.add_argument("--preview", action="store_true", help="also write plate_preview.png")

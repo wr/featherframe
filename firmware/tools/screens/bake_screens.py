@@ -155,18 +155,16 @@ def new_canvas():
     return c, ImageDraw.Draw(c)
 
 def screen_setup():
-    # First-run instructions. Shares the splash birdhouse (smaller) and hands
-    # over to the normal boot flow once a network is saved — there is no
-    # separate onboarding checklist. The card fits its widest line.
-    # Balanced inside the mat's visible window (~75..1797): even margins above
-    # the house and below the card, instead of both hugging the mat edges.
+    # First-run instructions. The splash's own setting, pixel for pixel —
+    # the limb full-bleed off the right edge and the wordmark beneath it —
+    # with the card laid over the lower half of the art (W-742), so the
+    # handover to the boot flow keeps the art where it was. A paper halo
+    # keeps the card's shape where its edge crosses the limb's own black.
+    # There is no separate onboarding checklist. The card fits its widest line.
     c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
-    # The plate art, reduced to the band above the card (it is nearly
-    # square, so a height fit leaves paper at the sides).
-    sh = 800
-    sw = int(BASE.width * sh / BASE.height)
-    c.alpha_composite(BASE.resize((sw, sh), Image.LANCZOS), ((W - sw) // 2, 110))
+    c.alpha_composite(BASE, BASE_XY)
     im = c.convert("L")
+    draw_wordmark(im)
     d = ImageDraw.Draw(im)
     steps = [
         "From your computer or smartphone,\njoin the wi-fi hotspot:",
@@ -178,7 +176,11 @@ def screen_setup():
     maxw = max(d.textlength(ln, font=fnt) for s in steps for ln in s.split("\n"))
     cardw = int(140 + maxw + 64)
     x0 = (W - cardw) // 2
-    y0, y1 = 966, 1682
+    # Over the lower half of the art, ending clear of the wordmark's capitals.
+    y0, y1 = SETUP_CARD_Y0, SETUP_CARD_Y0 + 716
+    halo = SETUP_CARD_HALO
+    d.rounded_rectangle([x0 - halo, y0 - halo, x0 + cardw + halo, y1 + halo],
+                        radius=24 + halo, fill=255)
     d.rounded_rectangle([x0, y0, x0 + cardw, y1], radius=24, fill=0)
     y = y0 + 68
     R = 26
@@ -234,6 +236,11 @@ SECOND_XY = ((BASE_XY[0] + LAYOUT["second_at"][0], BASE_XY[1] + LAYOUT["second_a
 # any future plate-title change re-bakes into the boot face. The baseline keeps
 # the descenders (the script f's) well clear of the pill.
 WORDMARK_BASELINE = 1534
+# The setup card (W-742) sits over the lower half of the limb: its top clears
+# the upper bough and blossom, its bottom stops above the wordmark's capitals
+# (baseline 1534, cap height ~110). The halo is the paper ring around it.
+SETUP_CARD_Y0 = 680
+SETUP_CARD_HALO = 10
 # Splash footer: a hedera between the wordmark and the version line (the same
 # ornament the plates' date line uses), then the version in the plates'
 # engraved capitals (Adorn Engraved, theme.SUBTITLE_SIZE).

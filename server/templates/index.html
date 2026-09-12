@@ -105,12 +105,15 @@
     .plate:not(.empty) .plate-empty { display:none; }
     .plate-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center; }
     .plate-actions form.inline { display:flex; gap:8px; margin:0; }
+    .plate-actions .hold-ctl { display:flex; gap:6px; align-items:center; }
+    .plate-actions select.hold-dur { width:auto; padding:7px 30px 7px 10px; font-size:13px; box-shadow:none; }
     /* "Show a critter": two names and a button on their own line under the actions */
     .critter-form { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 0; align-items:center; }
     .critter-form input[type=text] { flex:1 1 140px; width:auto; min-width:0; padding:7px 10px; font-size:13px; }
     .task-status { font-size:12px; color:var(--accent); font-weight:600; margin-top:10px; min-height:1em; }
     .task-status:empty { margin-top:0; min-height:0; }
     .task-status.failed { color:var(--bad); }
+    .task-status button.linkish { background:none; border:0; padding:0; margin:0; color:inherit; font:inherit; text-decoration:underline; cursor:pointer; }
 
     .status-card { padding:16px 18px; }
     /* group eyebrow — the same spec as .adv-group in the settings column */
@@ -486,6 +489,19 @@
             <button class="btn" type="submit" title="Show today's “day in review” now (reuses today's sheet if one exists)">Day in review</button>
             <button class="btn" type="submit" name="repaint" value="1" title="Paint today's sheet again from today's species — one image generation">Repaint</button>
           </form>
+          {# W-735: pin this plate, or never show this species again. The
+             hold controls swap for a single Release button while a hold is on. #}
+          {% set uh = status.hold %}
+          <div class="inline hold-ctl" id="hold-ctl" {{ 'hidden' if uh else '' }}>
+            <select class="sel hold-dur" id="hold-dur" aria-label="Hold this plate for">
+              <option value="day">a day</option>
+              <option value="week">a week</option>
+              <option value="forever">until released</option>
+            </select>
+            <button class="btn" type="button" id="hold-btn" title="Keep this plate on the wall. Nothing replaces it until the hold ends.">Hold</button>
+          </div>
+          <button class="btn" type="button" id="release-btn" {{ '' if uh else 'hidden' }} title="End the hold and show whatever should be on the wall now">Release</button>
+          <button class="btn" type="button" id="block-btn" title="Never show this species again (it goes on the blocklist) and move on">Block this bird</button>
         </div>
         {# Put any animal on the wall: a fake detection through the full
            provider chain. A creature Audubon never painted buys a generated
@@ -588,7 +604,7 @@
         <dl>
           {# "· holding 40 min" while a new bird keeps the frame against repeats (dwell_minutes). #}
           {% set hold = status.current.holding %}
-          <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="when" id="fc-holding">{{ ('holding ' ~ hold.minutes_left ~ ' min') if hold else '' }}</span></dd>
+          <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="when" id="fc-holding">{{ ('held ' ~ status.hold.until_text) if status.hold else (('holding ' ~ hold.minutes_left ~ ' min') if hold else '') }}</span></dd>
           {% set ld = status.last_detection %}
           <dt>Last heard</dt><dd id="fc-heard" data-tip="{{ ld.at if ld else '' }}">{% if ld %}<span class="who">{{ ld.common }}</span>{% if ld.when_text %}<span class="when">{{ ld.when_text }}</span>{% endif %}{% else %}—{% endif %}</dd>
           {# A first-seen-today species held back for a second detection
@@ -1130,6 +1146,56 @@
     });
   });
 
+  // -- hold this plate / block what's showing (W-735) -----------------------
+  var holdBtn = $('hold-btn'), holdDur = $('hold-dur'), releaseBtn = $('release-btn'), blockBtn = $('block-btn');
+  function formBody(o) { var b = new URLSearchParams(); Object.keys(o).forEach(function (k) { b.append(k, o[k]); }); return b; }
+  function reloadPreviewSoon() { if (preview) setTimeout(function () { preview.src = '/api/preview.png?t=' + Date.now(); }, 400); }
+  function blocklistLines() { var bl = $('f-block'); return bl ? bl.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean) : null; }
+  function setBlocklist(lines) { var bl = $('f-block'); if (bl) bl.value = lines.join('\n'); }
+  if (holdBtn) holdBtn.addEventListener('click', function () {
+    holdBtn.disabled = true;
+    jsonFetch('/api/hold', { method: 'POST', body: formBody({ duration: holdDur ? holdDur.value : 'day' }) }).then(function (res) {
+      var until = (res.hold && res.hold.until_text) || '';
+      setTaskStatus('Held ' + until + '. Nothing replaces this plate until then.');
+      setText('fc-holding', 'held ' + until);
+      setHidden('hold-ctl', true); setHidden('release-btn', false);
+    }).catch(function (e) { setTaskStatus('Hold failed — ' + errText(e) + '.', true); })
+      .then(function () { holdBtn.disabled = false; });
+  });
+  if (releaseBtn) releaseBtn.addEventListener('click', function () {
+    releaseBtn.disabled = true; releaseBtn.textContent = 'Releasing…';
+    jsonFetch('/api/hold/release', { method: 'POST' }).then(function (res) {
+      setTaskStatus(res.changed ? 'Released. The wall catches up on its next check-in.' : 'Released.');
+      setHidden('hold-ctl', false); setHidden('release-btn', true); setText('fc-holding', '');
+      reloadPreviewSoon();
+    }).catch(function (e) { setTaskStatus('Release failed — ' + errText(e) + '.', true); })
+      .then(function () { releaseBtn.disabled = false; releaseBtn.textContent = 'Release'; });
+  });
+  if (blockBtn) blockBtn.addEventListener('click', function () {
+    blockBtn.disabled = true; var orig = blockBtn.textContent; blockBtn.textContent = 'Blocking…';
+    jsonFetch('/api/block-current', { method: 'POST' }).then(function (res) {
+      // The settings form carries the whole blocklist: keep its textarea in
+      // step so a later Save does not quietly undo the block.
+      var lines = blocklistLines();
+      if (lines && lines.map(function (s) { return s.toLowerCase(); }).indexOf(res.blocked.toLowerCase()) < 0) setBlocklist(lines.concat([res.blocked]));
+      if (!taskStatus) return;
+      taskStatus.textContent = ''; taskStatus.classList.remove('failed');
+      taskStatus.appendChild(document.createTextNode('Blocked ' + res.blocked + '. '));
+      var undo = document.createElement('button'); undo.type = 'button'; undo.className = 'linkish'; undo.textContent = 'Undo';
+      undo.addEventListener('click', function () {
+        undo.disabled = true;
+        jsonFetch('/api/unblock', { method: 'POST', body: formBody({ name: res.blocked }) }).then(function () {
+          var now = blocklistLines();
+          if (now) setBlocklist(now.filter(function (s) { return s.toLowerCase() !== res.blocked.toLowerCase(); }));
+          setTaskStatus('Unblocked ' + res.blocked + '. It can hang again on its next detection.');
+        }).catch(function (e) { setTaskStatus('Undo failed — ' + errText(e) + '.', true); });
+      });
+      taskStatus.appendChild(undo);
+      reloadPreviewSoon();
+    }).catch(function (e) { setTaskStatus('Block failed — ' + errText(e) + '.', true); })
+      .then(function () { blockBtn.disabled = false; blockBtn.textContent = orig; });
+  });
+
   // -- left column: sticky only as far as it fits ---------------------------
   // With the History card filled in the stage is taller than a laptop
   // viewport, and a column stuck at the top hid its own bottom until the
@@ -1221,7 +1287,9 @@
     }
     refreshHistory(cur.etag || '');
     setText('fc-showing', cur.title || cur.label || '—');
-    setText('fc-holding', cur.holding ? 'holding ' + cur.holding.minutes_left + ' min' : '');
+    setText('fc-holding', st.hold ? 'held ' + st.hold.until_text
+                         : (cur.holding ? 'holding ' + cur.holding.minutes_left + ' min' : ''));
+    setHidden('hold-ctl', !!st.hold); setHidden('release-btn', !st.hold);
     setText('fc-species', st.species_all_time + ' all-time');
   }
   // -- History strip: rebuilt only when the current frame's ETag moves ------

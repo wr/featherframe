@@ -31,6 +31,7 @@ from .render import collage as collage_mod
 from .render import framebuffer
 from .render import pipeline
 from .render import statuspage
+from .render import welcome as welcome_mod
 from .render.compose import SingleSpec
 from .render.genart import GeneratedArtProvider, make_image_model, make_text_model
 from .render.pipeline import RenderResult
@@ -506,6 +507,18 @@ class FeatherframeService:
         self._track_source(now, available)
         self._quiet = self.quiet_state(now, available=available)
         self._outage = self.outage_state(now)
+
+        # The welcome plate (W-734) is not a subject: no footnotes, no dwell,
+        # no dark-mode flip of "the bird". It re-renders only when what it
+        # says would change, else the decision path below may replace it.
+        if self._frame_bytes is not None and self._meta.get("mode") == "welcome":
+            if (bool(self._meta.get("source_ok")) != available
+                    or self._meta.get("dark") != self.config.dark_now(now.time())):
+                self._render_welcome(now, available)
+                return
+            self._decide(now, available)
+            return
+
         resident = self._frame_bytes is not None and bool(self._meta.get("label"))
 
         # Dark-mode "quiet" inverts only during quiet hours: when the effective
@@ -1012,6 +1025,9 @@ class FeatherframeService:
         with self._lock:
             meta = dict(self._meta)
         now = self._clock()
+        if meta.get("mode") == "welcome":
+            self._render_welcome(now, self.source.available())
+            return
         if meta.get("mode") == "collage":
             # Preserve what is showing: a day-in-review re-renders as one
             # (reusing the cached sheet for free), a grid as a grid.
@@ -1247,7 +1263,10 @@ class FeatherframeService:
     # -- internal state helpers -------------------------------------------
     def _commit(self, result: RenderResult, now: datetime, mode: str,
                 species_key: Optional[str], label: str,
-                note: Optional[str] = None, novelty: Optional[str] = None) -> None:
+                note: Optional[str] = None, novelty: Optional[str] = None,
+                extra: Optional[dict] = None) -> None:
+        """`extra`: mode-specific keys carried in the meta row (the welcome
+        plate's `source_ok`), persisted with the rest."""
         with self._lock:
             prev = self._meta
             # The dwell clock (held_since) starts when a novel bird takes the
@@ -1275,6 +1294,7 @@ class FeatherframeService:
                 "note_kind": self._note_kind() if note is not None else None,
                 "collage_at": now.isoformat(timespec="seconds") if mode == "collage"
                 else self._meta.get("collage_at"),
+                **(extra or {}),
             }
             frames = paths.frames_dir()
             # Write-then-rename: a power cut mid-write must leave the previous
@@ -1328,6 +1348,22 @@ class FeatherframeService:
         if self._frame_bytes is not None:
             return
         self.tick()
+        if self._frame_bytes is None:
+            # Nothing heard yet (or no source): hang the welcome plate rather
+            # than answer 503 — the device paints it and 304s on it after.
+            self._render_welcome(self._clock(), self.source.available())
+
+    def _render_welcome(self, now: datetime, available: bool) -> None:
+        since = self.db.get("welcome_since")
+        if not since:
+            since = now.isoformat(timespec="seconds")
+            self.db.set("welcome_since", since)
+        img = welcome_mod.render_welcome(datetime.fromisoformat(since), available, now)
+        result = pipeline.render_image(img, self.config, "welcome", welcome_mod.LABEL)
+        self._commit(result, now, mode="welcome", species_key=None, label=welcome_mod.LABEL,
+                     extra={"source_ok": available})
+        log.info("rendered welcome plate (source %s), etag=%s",
+                 "up" if available else "down", result.etag)
 
     def _record_checkin(self, ua, volt, pct, etag, served, rssi=None, ip=None,
                         extra=None) -> None:

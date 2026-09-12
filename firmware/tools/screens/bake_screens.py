@@ -176,8 +176,8 @@ def screen_setup():
     maxw = max(d.textlength(ln, font=fnt) for s in steps for ln in s.split("\n"))
     cardw = int(140 + maxw + 64)
     x0 = (W - cardw) // 2
-    # Over the lower half of the art, ending clear of the wordmark's capitals.
-    y0, y1 = SETUP_CARD_Y0, SETUP_CARD_Y0 + 716
+    # Centred on the panel, over the art, clear of the wordmark's capitals.
+    y0, y1 = SETUP_CARD_Y0, SETUP_CARD_Y0 + SETUP_CARD_H
     halo = SETUP_CARD_HALO
     d.rounded_rectangle([x0 - halo, y0 - halo, x0 + cardw + halo, y1 + halo],
                         radius=24 + halo, fill=255)
@@ -236,10 +236,11 @@ SECOND_XY = ((BASE_XY[0] + LAYOUT["second_at"][0], BASE_XY[1] + LAYOUT["second_a
 # any future plate-title change re-bakes into the boot face. The baseline keeps
 # the descenders (the script f's) well clear of the pill.
 WORDMARK_BASELINE = 1534
-# The setup card (W-742) sits over the lower half of the limb: its top clears
-# the upper bough and blossom, its bottom stops above the wordmark's capitals
-# (baseline 1534, cap height ~110). The halo is the paper ring around it.
-SETUP_CARD_Y0 = 680
+# The setup card (W-742) is centred on the panel over the limb, so it sits
+# clear of the wordmark below it (baseline 1534) and of the upper bough's
+# tip. 716 px tall. The halo is the paper ring around it.
+SETUP_CARD_H = 716
+SETUP_CARD_Y0 = (H - SETUP_CARD_H) // 2
 SETUP_CARD_HALO = 10
 # Splash footer: a hedera between the wordmark and the version line (the same
 # ornament the plates' date line uses), then the version in the plates'

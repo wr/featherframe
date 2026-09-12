@@ -429,6 +429,15 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   });
   wm.setSaveConfigCallback([]() { showScreenFull(FF_SCR_BOOT_WIFI); });
 
+  // Join the strongest AP carrying the SSID, not the first one to answer. The
+  // core default (WIFI_FAST_SCAN) takes whichever AP replies first, so on a
+  // multi-AP network the frame can land on a weak one for the whole session;
+  // every transfer is RTT-bound (5760-byte window, see fetchFrame), so the
+  // AP choice sets the fetch time. Costs one all-channel scan (~1-2 s) per
+  // join. Both settings feed WiFi.begin(), which WiFiManager calls for us.
+  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
+
   bool ok;
   if (openPortal) {
     ok = wm.startConfigPortal("Featherframe-Setup");
@@ -954,6 +963,7 @@ void maybeOTA(float vbat) {
     Serial.printf("OTA skipped: battery %.2f V\n", vbat);
     return;
   }
+  RadioAwake radio;     // a 2.5 MB image is RTT-bound like the frame: 30+ s with modem sleep on
   HTTPClient http;
   String url = String(g_serverUrl) + FIRMWARE_PATH;
   if (!http.begin(url)) return;

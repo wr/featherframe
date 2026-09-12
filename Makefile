@@ -49,14 +49,19 @@ serve:
 test:
 	cd server && ../$(PY) -m pytest
 
-# Build the firmware and hand it to the Pi; the frame flashes itself on its
-# next wake (<= wake interval, default 15 min). No USB needed.
-PI ?= wells@10.0.2.15
+# Build the firmware and host it on the server box; the frame flashes itself on
+# its next check-in (right after a boot fetch, then every 15 min). No USB needed.
+# The box is an LXC on Proxmox: copy to the host, then `pct push` into the
+# container. Override BOX_HOST / BOX_CT / BOX_DATA for another install.
+BOX_HOST ?= pve
+BOX_CT   ?= 113
+BOX_DATA ?= /opt/featherframe/data
 ota:
 	cd firmware && pio run -e xiao_ee03
-	# Copy to a temp name and rename: a device fetching mid-copy must never see a torn image.
-	scp firmware/.pio/build/xiao_ee03/firmware.bin $(PI):~/featherframe/server/data/firmware.bin.tmp
-	ssh $(PI) 'mv ~/featherframe/server/data/firmware.bin.tmp ~/featherframe/server/data/firmware.bin'
+	# Push to a temp name and rename: a device fetching mid-copy must never see a torn image.
+	scp -q firmware/.pio/build/xiao_ee03/firmware.bin $(BOX_HOST):/tmp/ff-firmware.bin
+	ssh $(BOX_HOST) 'pct push $(BOX_CT) /tmp/ff-firmware.bin $(BOX_DATA)/firmware.bin.tmp \
+	  && pct exec $(BOX_CT) -- mv $(BOX_DATA)/firmware.bin.tmp $(BOX_DATA)/firmware.bin'
 	@echo "Hosted. The frame updates itself on its next check-in."
 
 clean:

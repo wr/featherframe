@@ -531,6 +531,54 @@ def cut(args) -> None:
         return _lift_lut[a]
 
     pad = args.pad
+    perch_box = None
+    if args.base_from == "perch":
+        # The perched sheet carries the twig exactly as the bird stands on
+        # it (the model redraws the tip to seat the bird), so the empty
+        # bough is that sheet with the bird erased, and the perch screen is
+        # the sheet whole: legs, toes and tip as drawn, no seam to hide. The
+        # mate was drawn onto this sheet, so it matches; the flying wren is
+        # cut against it like any edit. The old setting only tells the bird
+        # from the wood here.
+        core, _ = _added_bird(P, H, args.perch_thr, args.perch_clearance, pad, touching_ok=True)
+        zone = _dilate(core, args.perch_zone)
+        edit_ink = P < args.perch_thr
+        wide = _dilate(H < 235, args.perch_twig_clearance)
+        body = _open(zone & edit_ink & ~wide, 5)
+        comps2 = _components(body)
+        core2 = comps2[0][0] if comps2 else core
+        foot_y = int(np.nonzero(core2)[0].max())
+        above = np.zeros_like(core)
+        above[:max(0, foot_y - 6), :] = True
+        below = zone & edit_ink & ~above & ~wide
+        legs = below & ~_open(below, args.perch_leg_px)
+        bird = _erode(_dilate((zone & edit_ink & above) | legs, 4), 4)
+        fig = _components(bird)
+        if fig:
+            bird = fig[0][0] | (bird & _dilate(fig[0][0], 6))
+        # Inside the bird's box the empty bough takes the drawn setting's own
+        # twig (no toes on it); the perch patch is that box of the perched
+        # sheet, opaque, so the two screens differ only there.
+        footing = _dilate(bird, args.perch_footing)
+        ys, xs = np.nonzero(footing)
+        qx0, qy0 = max(0, int(xs.min())), max(0, int(ys.min()))
+        qx1 = min(P.shape[1], int(xs.max()) + 1)
+        qy1 = min(P.shape[0], int(ys.max()) + 1)
+        # The empty bough is the perched sheet with the box papered down to
+        # the toes: the twig ends where the bird stood (a little shorter than
+        # under the bird, and never a seam with the drawn setting's twig,
+        # which runs a few px off this sheet's).
+        toe_y = int(np.nonzero(legs)[0].max()) if legs.any() else foot_y
+        H = P.copy()
+        H[qy0:min(qy1, toe_y + 3), qx0:qx1] = 255
+        g = lifted(P[qy0:qy1, qx0:qx1])
+        patch = np.zeros(g.shape + (4,), dtype=np.uint8)
+        patch[..., 0] = patch[..., 1] = patch[..., 2] = g
+        patch[..., 3] = 255
+        Image.fromarray(patch, "RGBA").save(out / "plate_perch.png")
+        perch_box = (qx0, qy0, qx1, qy1)
+        print(f"base from the perched sheet; the bird's box ({qx1 - qx0}x{qy1 - qy0}) "
+              f"keeps the drawn setting's twig")
     # -- base: the whole sheet — the bake lays it full-bleed like a plate ----
     x0, y0, x1, y1 = 0, 0, H.shape[1], min(H.shape[0], args.art_bottom or H.shape[0])
     _rgba_ink(lifted(H[y0:y1, x0:x1])).save(out / "plate_base.png")
@@ -708,7 +756,7 @@ def cut(args) -> None:
         Image.fromarray(patch, "RGBA").save(out / f"plate_{name}.png")
         return (qx0, qy0, qx1, qy1)
 
-    qx0, qy0, qx1, qy1 = perched(P, "perch", mode=args.perch_mode)
+    qx0, qy0, qx1, qy1 = perch_box if perch_box else perched(P, "perch", mode=args.perch_mode)
     second_at = None
     if S is not None:
         # The second sheet carries both birds; the first is where the perch
@@ -811,6 +859,13 @@ def main() -> None:
     c.add_argument("--perch-twig-clearance", type=int, default=26,
                    help="head mode: px the base twig is grown by below the bird's feet, wide "
                         "enough to swallow the edit's own redrawn twig")
+    c.add_argument("--base-from", choices=["perch", "base"], default="perch",
+                   help="perch: the empty bough is the perched sheet with the bird erased and the "
+                        "perch screen is that sheet whole (no seam, legs kept); base: the drawn "
+                        "setting, with the perched bird cut onto it")
+    c.add_argument("--perch-footing", type=int, default=24,
+                   help="base-from perch: px round the bird that its box takes in, so the toes "
+                        "and the twig they grip go with it")
     c.add_argument("--second-mode", choices=["head", "stand"], default="head",
                    help="the mate's cut (head: as the perch; stand: the plain cut)")
     c.add_argument("--perch-toe-band", type=int, default=30,

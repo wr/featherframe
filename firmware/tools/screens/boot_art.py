@@ -130,17 +130,32 @@ FLY_PROMPT = (
     "as the other images show the folio drew this species.\n\n"
     + genart._P_PROCESS + genart._P_ANATOMY + _FOOTER
 )
+# The bird as the folio draws a wren on a whole sheet: a real figure, not an
+# ornament at a twig's end. Its scale, its stance clear of the wood, and its
+# tone (light, carried by line) are what let it read once the sheet is on
+# e-paper in gray — a small dark bird astride a twig becomes one mass.
+_BIRD_SCALE = (
+    "Draw the bird at the scale the folio gives its subject on a whole sheet — about a "
+    "fifth of the sheet's height from bill to tail-tip, plainly the sheet's subject — "
+    "never a small ornament at the end of a twig. "
+)
+_BIRD_TONE = (
+    "Its plumage in the colorists' light warm washes with the paper glowing through, every "
+    "bar and the bold pale stripe over the eye carried by fine engraved line rather than by "
+    "dark wash, so the figure stays light and its outline is crisp against the paper on "
+    "every side; the bill closed, drawn as one clean stroke. "
+)
 PERCH_PROMPT = (
     _EDIT_OPEN
-    + "and add one figure only: a " + BIRD + " perched ON TOP of the upper bough's bare "
-    "last span, its feet gripping the twig from above, the whole bird standing clear "
-    "above the twig so that head, breast and tail are seen against bare paper and no "
-    "part of the bird lies over the wood — in the folio's characteristic wren attitude, "
-    "body angled upward, tail cocked high, head turned and alert in clean profile, the "
-    "bold pale stripe over the eye plainly visible — life-size relative to the limb, "
-    "drawn crisply and legibly. Nothing else on the sheet changes and no other bird "
-    "appears. Draw the bird in the very same engraved-and-washed manner as the limb, "
-    "exactly as the other images show the folio drew this species.\n\n"
+    + "and add one figure only: a " + BIRD + " perched ON TOP of the upper bough where its "
+    "last span is still a firm twig, the feet gripping it from above and the whole body "
+    "held clear above the wood — head, breast, belly and tail all seen against bare paper, "
+    "no part of the bird lying over or behind the twig, and no twig passing behind the "
+    "bird — in the species' own attitude: body broadside to the viewer in clean profile, "
+    "tail cocked high, head up and alert. " + _BIRD_SCALE + _BIRD_TONE
+    + "Nothing else on the sheet changes and no other bird appears. Draw the bird in the "
+    "very same engraved-and-washed manner as the limb, exactly as the other images show "
+    "the folio drew this species.\n\n"
     + genart._P_PROCESS + genart._P_ANATOMY + _FOOTER
 )
 SECOND_PROMPT = (
@@ -149,12 +164,13 @@ SECOND_PROMPT = (
     "exactly — the limb, the plant, the perched bird, every engraved stroke and their "
     "placement unchanged, the same size on the same paper — and add one figure only: a "
     "second " + BIRD + ", its mate, perched ON TOP of the lower limb's bare end toward "
-    "the left, standing clear above the wood so the whole bird is seen against bare "
-    "paper, FACING THE OPPOSITE DIRECTION to the first bird and in a different attitude "
-    "— the pair composed as the folio composed a pair, one at rest in clean profile "
-    "against one animated — life-size, drawn crisply and legibly. Nothing else changes. "
-    "Draw it in the very same engraved-and-washed manner, exactly as the other images "
-    "show the folio drew this species.\n\n"
+    "the left, feet gripping the wood from above and the whole body held clear above it, "
+    "seen against bare paper on every side, turned the other way from the first bird and "
+    "in a different attitude — the pair composed as the folio composed a pair, one at "
+    "rest in clean profile against one animated, the second in three-quarter view with "
+    "its tail cocked. " + _BIRD_SCALE + _BIRD_TONE
+    + "Nothing else changes. Draw it in the very same engraved-and-washed manner, exactly "
+    "as the other images show the folio drew this species.\n\n"
     + genart._P_PROCESS + genart._P_ANATOMY + _FOOTER
 )
 STEPS = ("base", "fly", "perch", "second")

@@ -40,6 +40,8 @@ from .render.provider import ArtProvider, AudubonProvider, ChainedProvider
 log = logging.getLogger("featherframe.service")
 
 _CURRENT_FFF = "current.fff"
+_USER_HOLD_KEY = "user_hold"          # W-735: the owner's pin on the current plate
+_HOLD_DAYS = {"day": 1, "week": 7, "forever": None}
 _CURRENT_PNG = "current.png"
 
 # History thumbnails: 1/8-scale previews keyed by ETag, capped on disk (a
@@ -517,6 +519,18 @@ class FeatherframeService:
                 self._render_welcome(now, available)
                 return
             self._decide(now, available)
+            return
+
+        # The owner pinned this plate (W-735): nothing replaces it until the
+        # hold ends. Dark mode and the footnotes still track, through the
+        # re-render that keeps the subject; an expired hold clears itself in
+        # user_hold() and the tick falls through to the decision path.
+        if self._frame_bytes is not None and self.user_hold(now) is not None:
+            want = self._note_kind()
+            have = self._meta.get("note_kind") or ("quiet" if self._meta.get("quiet_note") else None)
+            dark_flip = self._meta.get("dark") != self.config.dark_now(now.time())
+            if dark_flip or (want != have and not (want is None and not available)):
+                self.rerender_current()
             return
 
         resident = self._frame_bytes is not None and bool(self._meta.get("label"))
@@ -1236,6 +1250,7 @@ class FeatherframeService:
             "quiet": quiet,
             "source_outage": outage,
             "pending": self.pending_view(now),
+            "hold": self.hold_view(now),
             "birdnet_available": self.source.available(),
             "species_all_time": self.source.all_time_species_count(),
             "plates_loaded": self.audubon.species_count,
@@ -1476,6 +1491,88 @@ class FeatherframeService:
                     keys.add(label)
             memo["rendered_today"] = keys
         return memo["rendered_today"]
+
+    # -- the owner's hold and block (W-735) --------------------------------
+    def user_hold(self, now: Optional[datetime] = None) -> Optional[dict]:
+        """The owner's pin on the current plate, or None. An expired hold is
+        cleared here, so every reader sees the same answer."""
+        now = now or self._clock()
+        hold = self.db.get(_USER_HOLD_KEY)
+        if not hold:
+            return None
+        until = hold.get("until")
+        if until:
+            try:
+                if datetime.fromisoformat(str(until)) <= now:
+                    self.db.set(_USER_HOLD_KEY, None)
+                    return None
+            except ValueError:
+                self.db.set(_USER_HOLD_KEY, None)
+                return None
+        return hold
+
+    def hold_current(self, duration: str) -> Optional[dict]:
+        """Pin what is on the glass for `duration` ("day", "week", or
+        "forever" = until released). None when nothing is showing yet."""
+        now = self._clock()
+        with self._lock:
+            meta = dict(self._meta)
+            showing = self._frame_bytes is not None
+        if not showing or meta.get("mode") in (None, "welcome") or not meta.get("label"):
+            return None
+        days = _HOLD_DAYS.get(duration, 1)
+        hold = {
+            "since": now.isoformat(timespec="seconds"),
+            "until": (now + timedelta(days=days)).isoformat(timespec="seconds") if days else None,
+            "label": meta.get("label"),
+            "title": frame_title(meta),
+        }
+        self.db.set(_USER_HOLD_KEY, hold)
+        log.info("hold: %s for %s", hold["title"], duration)
+        return hold
+
+    def release_hold(self) -> None:
+        """Drop the pin and repaint whatever should be showing now."""
+        self.db.set(_USER_HOLD_KEY, None)
+        self.refresh_now()
+
+    def hold_view(self, now: Optional[datetime] = None) -> Optional[dict]:
+        hold = self.user_hold(now)
+        if hold is None:
+            return None
+        until = hold.get("until")
+        if until:
+            when = datetime.fromisoformat(str(until))
+            text = f"until {when.strftime('%a')} {when.day} {when.strftime('%b')}"
+        else:
+            text = "until released"
+        return {**hold, "until_text": text}
+
+    def block_current(self) -> Optional[str]:
+        """Add the species on the glass to the blocklist and move past it.
+        Returns the blocked name, or None when a single plate is not showing."""
+        with self._lock:
+            meta = dict(self._meta)
+        if meta.get("mode") != "single" or not meta.get("label"):
+            return None
+        common = str(meta["label"]).removesuffix(" (test)")
+        if not self.config.is_blocked(common, common):
+            cfg = self.config
+            cfg.species_blocklist = [*cfg.species_blocklist, common]
+            self.update_config(cfg)
+        log.info("blocked %s from the dashboard", common)
+        self.refresh_now()
+        return common
+
+    def unblock(self, name: str) -> bool:
+        """Undo for block_current. True when the name was on the list."""
+        cfg = self.config
+        kept = [b for b in cfg.species_blocklist if b.lower() != name.strip().lower()]
+        if len(kept) == len(cfg.species_blocklist):
+            return False
+        cfg.species_blocklist = kept
+        self.update_config(cfg)
+        return True
 
     def _holding(self, meta: dict, now: datetime) -> Optional[dict]:
         """The dwell hold on the resident frame, or None: a single plate of a

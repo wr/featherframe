@@ -56,7 +56,7 @@ there is no separate onboarding checklist.
   `theme.SCRIPT_TITLE_SIZE`, via `typography.draw_script`), and the splash
   version line is the plates' engraved capitals (`typography.draw_engraved`, Adorn
   Engraved at `theme.SUBTITLE_SIZE`) under a hedera. A plate-typography change on the
-  server re-bakes straight into the boot face. `boot_v2.svg` is now reference-only.
+  server re-bakes straight into the boot face. The designer's original `boot_v2.svg` (7.6 MB) left the repo in W-738; every clone before it still carries it.
 - Pills: Inter Medium (vendored in `./fonts`, OFL) for readability, with a
   three-diamond **loading mark** — the solid diamond sweeps left→right. The bake
   emits per-screen animation tiles + native mirrored coords (`FfLoader` in the
@@ -125,7 +125,6 @@ pulse RTS once to reset. `screen N` / `win …` / `frame …` / `panel updated` 
 
 ## Files
 - `bake_screens.py` — the whole bake (art + server typography → ff_screens.h).
-- `boot_v2.svg` — designer's boot screens (reference only; type is drawn live now).
 - `boot_art.py` — draws + cuts the art (see **Art** above).
 - `art/` — `plate_base.png`, `plate_fly.png`, `plate_perch.png`, `plate_second.png`, `plate_layout.json`
   (the cut art the bake composites 1:1); `art/raw/` the colour draws + prompt sidecars.

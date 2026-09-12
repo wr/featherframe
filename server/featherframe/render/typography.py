@@ -365,28 +365,22 @@ def plate_number_max_width() -> float:
 
 def first_ever_rule(field: Image.Image) -> None:
     """A rule around the whole sheet at the mat edge (W-744), the folio's way
-    of marking a plate of note, with "[ NEW ]" let into the middle of its
-    top edge in the engraved capitals: the rule runs up to a bracket on
-    either side of the word."""
+    of marking a plate of note, with a small "NEW" pill — the system voice,
+    Inter semibold reversed on black — set into the middle of its top edge,
+    a paper gap on either side so the pill reads as its own shape."""
+    from . import system   # late: system imports this module for the card's fonts
     d = ImageDraw.Draw(field)
     i, w = theme.FIRST_EVER_RULE_INSET, theme.FIRST_EVER_RULE_WIDTH
     d.rectangle([i, i, theme.WIDTH - 1 - i, theme.HEIGHT - 1 - i], outline=theme.INK, width=w)
-    # The label: paper over the top rule, brackets, the word.
-    size, pad = theme.FIRST_EVER_LABEL_SIZE, theme.FIRST_EVER_LABEL_PAD
-    text = theme.FIRST_EVER_LABEL
-    tw = engraved_width(text, size, theme.SUBTITLE_TRACKING)
     cx, cy = theme.WIDTH / 2, i + w / 2
-    half = tw / 2 + pad
-    d.rectangle([cx - half - w, i - 2, cx + half + w, i + w + 2], fill=theme.FIELD)
-    cap = size * 0.72                                   # the capitals' height, about
-    # Brackets: a vertical stroke with short feet, the rule's own weight.
-    for sx, sign in ((cx - half, 1), (cx + half, -1)):
-        d.rectangle([sx - w / 2, cy - cap / 2 - w, sx + w / 2, cy + cap / 2 + w], fill=theme.INK)
-        d.rectangle([min(sx, sx + sign * w * 2), cy - cap / 2 - w,
-                     max(sx, sx + sign * w * 2), cy - cap / 2], fill=theme.INK)
-        d.rectangle([min(sx, sx + sign * w * 2), cy + cap / 2,
-                     max(sx, sx + sign * w * 2), cy + cap / 2 + w], fill=theme.INK)
-    draw_engraved(d, cx, cy + cap / 2, text, size, theme.INK, theme.SUBTITLE_TRACKING)
+    h, size, pad = theme.FIRST_EVER_PILL_H, theme.FIRST_EVER_LABEL_SIZE, theme.FIRST_EVER_LABEL_PAD
+    text = theme.FIRST_EVER_LABEL
+    tw = (system.sans(size, "semibold").getlength(text)
+          + theme.FIRST_EVER_LABEL_TRACKING * size * (len(text) - 1))
+    half = (pad + tw + pad + 4) / 2 + theme.FIRST_EVER_PILL_GAP
+    d.rectangle([cx - half, i - 2, cx + half, i + w + 2], fill=theme.FIELD)
+    system.pill(d, cx, cy, text, h=h, pad=pad, size=size, weight="semibold",
+                tracking=theme.FIRST_EVER_LABEL_TRACKING)
 
 
 def generated_mark(field: Image.Image, right_x: float) -> None:

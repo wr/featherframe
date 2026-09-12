@@ -17,12 +17,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from functools import lru_cache
 from typing import Optional
 
 from PIL import Image, ImageChops, ImageDraw
 
+from .. import paths
 from . import plate, theme, typography
-from .provider import ArtProvider
+from .provider import ArtProvider, Artwork
 
 # A plate whose outer border is this inked (fraction) is full-bleed art, not
 # a bird on paper, and gets cover-fitted to the mat opening — but only if
@@ -134,7 +136,13 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     art = provider.artwork(spec.common_name, spec.scientific_name)
     if art is None:
         return render_fallback(spec, show_plate_number=show_plate_number)
+    return _render_art(spec, art, show_plate_number)
 
+
+def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool) -> Image.Image:
+    """The plate layout proper: art in the box above the caption, the
+    caption, the corner marks, the footnote. Shared by a real or generated
+    plate and by the fallback's empty bough, so the type never moves."""
     field = _new_field()
 
     lines = list(art.legend)
@@ -175,14 +183,20 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     return field
 
 
-def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.Image:
-    """Typographic plate for a species we have no illustration for.
+@lru_cache(maxsize=1)
+def bough() -> Image.Image:
+    """The empty hawthorn bough from the boot screens' setting (W-743): a
+    plate's own art box with no bird on it."""
+    return Image.open(paths.art_dir() / "bough.png").convert("L")
 
-    Just the name, set in the caption's own voice, with 'First recorded
-    <date>' beneath. Honest and quiet — the museum's way of saying 'no plate
-    for this one'.
+
+def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.Image:
+    """The plate for a species we have no illustration for: the empty bough
+    where the bird would be, the name in the caption's own voice, 'First
+    recorded <date>' as its legend line. The same layout as a real plate,
+    so the type sits where it always does — the museum's way of saying
+    'no plate for this one' without moving the furniture.
     """
-    field = _new_field()
     when = spec.first_seen or (spec.when.strftime("%Y-%m-%d") if spec.when else None)
     lines: list[str] = []
     if when:
@@ -191,9 +205,7 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
             lines.append(f"First recorded {d.day} {d.strftime('%B')} {d.year}.")
         except ValueError:
             lines.append(f"First recorded {when}.")
-    typography.caption(field, theme.HEIGHT * 0.34, spec.common_name, spec.scientific_name, lines)
-    if show_plate_number and spec.plate_number:
-        typography.plate_number_mark(field, spec.plate_number)
-    if spec.note:
-        typography.note_line(field, spec.note, max_w=note_width(), kind=spec.note_kind)
-    return field
+    # composite=True: shown whole, never cover-cropped, though the limb runs
+    # off the sheet's edge exactly as a plate's stems do.
+    art = Artwork(image=bough(), audubon_plate=None, composite=True, legend=lines)
+    return _render_art(spec, art, show_plate_number)

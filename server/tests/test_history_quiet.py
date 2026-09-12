@@ -272,9 +272,12 @@ def test_tick_keeps_the_note_through_an_outage(svc, monkeypatch):
 # -- the plate note ----------------------------------------------------------
 def test_note_renders_in_the_bottom_margin(svc):
     config = Config(dither="none", mat_inset_pct=0)
-    provider = AudubonProvider()                # no plates -> typographic fallback
+    provider = AudubonProvider()                # no plates -> the bough fallback
+    # No `when`: with one the fallback sets "First recorded <date>." as a
+    # legend line on the caption's last baseline (W-743), inside the band
+    # the note is checked in below.
     base = SingleSpec(common_name="Painted Bunting", scientific_name="Passerina ciris",
-                      when=datetime(2026, 9, 2, 8, 14), plate_number=3)
+                      plate_number=3)
     plain = pipeline.render_single(base, provider, config)
     noted = pipeline.render_single(
         SingleSpec(**{**base.__dict__, "note": "Nothing heard since 11:27 pm"}),

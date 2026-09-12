@@ -82,6 +82,12 @@ def fonts_dir() -> Path:
     return _PKG_DIR / "fonts"
 
 
+def art_dir() -> Path:
+    """Bundled artwork that is ours, not a plate: the empty bough behind the
+    typographic fallback (W-743), cut from the boot screens' setting."""
+    return _PKG_DIR / "art"
+
+
 def templates_dir() -> Path:
     return _REPO_SERVER_DIR / "templates"
 

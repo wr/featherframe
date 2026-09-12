@@ -19,6 +19,7 @@ from .. import paths
 from . import theme, typography
 
 _SANS = paths.fonts_dir() / "Inter-Medium.otf"
+_SANS_SEMIBOLD = paths.fonts_dir() / "Inter-SemiBold.otf"
 
 # The firmware's toast: PILL_H 82, text 34, side padding 30 (bake_screens.py).
 PILL_H, PILL_PAD, PILL_TEXT = 82, 30, 34
@@ -32,8 +33,9 @@ OUTLINE_W = 5
 
 
 @lru_cache(maxsize=16)
-def sans(size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(str(_SANS), int(size))
+def sans(size: int, weight: str = "medium") -> ImageFont.FreeTypeFont:
+    path = _SANS_SEMIBOLD if weight == "semibold" and _SANS_SEMIBOLD.exists() else _SANS
+    return ImageFont.truetype(str(path), int(size))
 
 
 def sans_width(text: str, size: int) -> float:
@@ -73,17 +75,20 @@ def wifi_slash(d: ImageDraw.ImageDraw, cx: float, cy: float, s: float, ink: int,
 def pill(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, *,
          h: int = PILL_H, pad: int = PILL_PAD, size: int = PILL_TEXT,
          style: str = "solid", icon: Optional[str] = None,
-         max_w: Optional[float] = None) -> tuple[float, float]:
+         max_w: Optional[float] = None, weight: str = "medium",
+         tracking: float = 0.0) -> tuple[float, float]:
     """One line in a rounded pill centred on (cx, cy). `style` "solid" is the
     firmware's black toast (white type); "outline" is its error pill (paper,
     ink outline, slashed icon). Shrinks the type rather than clip when wider
-    than `max_w`. Returns the pill's x-extent."""
+    than `max_w`. `tracking` is extra letter-spacing as a fraction of the
+    size, for a short label in capitals. Returns the pill's x-extent."""
     ink, paper = theme.INK, theme.FIELD
     icon_slot = int(h * 0.68) if icon else 0
     gap = int(pad * 0.6) if icon else 0
     while True:
-        fnt = sans(size)
-        tw = fnt.getlength(text)
+        fnt = sans(size, weight)
+        track = tracking * size
+        tw = fnt.getlength(text) + track * max(0, len(text) - 1)
         w = pad + icon_slot + gap + tw + pad + 4
         if max_w is None or w <= max_w or size <= 16:
             break
@@ -106,7 +111,13 @@ def pill(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, *,
             cloud_slash(d, icx, cy, s, fg, bg)
         x += icon_slot + gap
     cap = fnt.getbbox("H")
-    d.text((x + 2, cy + (cap[3] - cap[1]) / 2), text, font=fnt, fill=fg, anchor="ls")
+    baseline = cy + (cap[3] - cap[1]) / 2
+    if track:
+        for ch in text:
+            d.text((x + 2, baseline), ch, font=fnt, fill=fg, anchor="ls")
+            x += fnt.getlength(ch) + track
+    else:
+        d.text((x + 2, baseline), text, font=fnt, fill=fg, anchor="ls")
     return x0, x0 + w
 
 

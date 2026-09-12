@@ -444,6 +444,62 @@ async def api_refresh(request: Request):
                          "rendered_at": cur["rendered_at"]})
 
 
+# -- hold this plate / block what's showing (W-735) --------------------------
+@app.post("/api/hold")
+async def api_hold(request: Request):
+    """Pin the current plate for a day, a week, or until released."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    svc = _svc(request)
+    form = await request.form()
+    duration = str(form.get("duration", "day") or "day")
+    hold = svc.hold_current(duration)
+    if hold is None:
+        return JSONResponse({"ok": False, "error": "Nothing on the wall to hold yet."},
+                            status_code=409)
+    return JSONResponse({"ok": True, "hold": svc.hold_view()})
+
+
+@app.post("/api/hold/release")
+async def api_hold_release(request: Request):
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    svc = _svc(request)
+    before = svc.current_etag()
+    await run_in_threadpool(svc.release_hold)      # repaints: a render, off the loop
+    cur = svc.current_info()
+    return JSONResponse({"ok": True, "etag": cur["etag"], "changed": cur["etag"] != before})
+
+
+@app.post("/api/block-current")
+async def api_block_current(request: Request):
+    """Blocklist the species on the glass and move past it."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    svc = _svc(request)
+    before = svc.current_etag()
+    name = await run_in_threadpool(svc.block_current)   # refreshes: a render
+    if name is None:
+        return JSONResponse({"ok": False, "error": "No single plate is showing."},
+                            status_code=409)
+    cur = svc.current_info()
+    return JSONResponse({"ok": True, "blocked": name, "etag": cur["etag"],
+                         "changed": cur["etag"] != before})
+
+
+@app.post("/api/unblock")
+async def api_unblock(request: Request):
+    """Undo for block-current: take one name off the blocklist."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    svc = _svc(request)
+    form = await request.form()
+    name = str(form.get("name", "") or "").strip()[:200]
+    if not name:
+        return JSONResponse({"ok": False, "error": "name required"}, status_code=400)
+    return JSONResponse({"ok": True, "removed": svc.unblock(name)})
+
+
 # -- push ingest (BirdNET-Pi via Apprise) ----------------------------------
 def _apprise_detection(payload) -> dict:
     """Pull the detection object out of an Apprise envelope. Apprise posts

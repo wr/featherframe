@@ -71,4 +71,4 @@ def test_welcome_plate_says_when_and_whether_the_source_is_up():
     up = welcome.render_welcome(since, source_ok=True, now=since)
     assert _ink(down) > 2000 and _ink(up) > 2000
     assert down.tobytes() != up.tobytes()
-    assert welcome.since_words(since) == "Listening since 11 September, 11:32 pm."
+    assert welcome.since_words(since) == "Listening since 11 September, 11:32 pm"

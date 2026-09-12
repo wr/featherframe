@@ -28,6 +28,7 @@ class Artwork:
     audubon_plate: Optional[int]  # source Havell plate number, if any
     composite: bool = False
     generated: bool = False     # True when the art is AI-generated, not a scan
+    generated_by: Optional[str] = None   # who drew it ("OpenAI"), for the provenance line
     legend: list = field(default_factory=list)   # printed figure key / plant lines
 
 

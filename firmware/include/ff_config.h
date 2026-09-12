@@ -113,11 +113,16 @@
 #define WIFI_CONNECT_TIMEOUT_MS   20000
 #define PORTAL_TIMEOUT_S          600
 #define HTTP_TIMEOUT_MS           30000
-// Deadline for streaming a frame body once the headers are in. The link is
-// slow for the first minute after association (measured 41-85 KB/s on 3 Sep
-// 2026, i.e. 15-32 s for a frame), so a 30 s cap discarded a nearly complete
-// body and retried from scratch; 90 s still fails over on a dead link.
-#define FF_BODY_TIMEOUT_MS        90000
+// Streaming a frame body once the headers are in. The link is slow for the
+// first minute after association (41-85 KB/s measured 3 Sep 2026, 15-32 s for
+// a frame) and far slower after an OTA reboot (~15 KB/s, ~90 s, 4 Sep, W-718),
+// so any fixed total deadline eventually discards a nearly complete body and
+// retries from scratch — and while a boot screen holds the glass every retry
+// is another full fetch, a loop that ran 6.5 h. Give up only when the bytes
+// stop (no progress for FF_BODY_STALL_MS: a dead link fails over as fast as
+// before), with a hard cap that keeps a crawling link inside the watchdog.
+#define FF_BODY_STALL_MS          15000
+#define FF_BODY_MAX_MS            300000
 #define HTTP_CONNECT_TIMEOUT_MS   10000
 
 // Error-state thresholds. Over a painted plate the corner mark appears only

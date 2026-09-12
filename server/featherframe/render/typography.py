@@ -363,6 +363,43 @@ def plate_number_max_width() -> float:
     return script_width(f"{theme.PLATE_NO_PREFIX} 888", theme.CORNER_SIZE)
 
 
+def first_ever_rule(field: Image.Image) -> None:
+    """A rule around the whole sheet at the mat edge (W-744), the folio's way
+    of marking a plate of note, with "[ NEW ]" let into the middle of its
+    top edge in the engraved capitals: the rule runs up to a bracket on
+    either side of the word."""
+    d = ImageDraw.Draw(field)
+    i, w = theme.FIRST_EVER_RULE_INSET, theme.FIRST_EVER_RULE_WIDTH
+    d.rectangle([i, i, theme.WIDTH - 1 - i, theme.HEIGHT - 1 - i], outline=theme.INK, width=w)
+    # The label: paper over the top rule, brackets, the word.
+    size, pad = theme.FIRST_EVER_LABEL_SIZE, theme.FIRST_EVER_LABEL_PAD
+    text = theme.FIRST_EVER_LABEL
+    tw = engraved_width(text, size, theme.SUBTITLE_TRACKING)
+    cx, cy = theme.WIDTH / 2, i + w / 2
+    half = tw / 2 + pad
+    d.rectangle([cx - half - w, i - 2, cx + half + w, i + w + 2], fill=theme.FIELD)
+    cap = size * 0.72                                   # the capitals' height, about
+    # Brackets: a vertical stroke with short feet, the rule's own weight.
+    for sx, sign in ((cx - half, 1), (cx + half, -1)):
+        d.rectangle([sx - w / 2, cy - cap / 2 - w, sx + w / 2, cy + cap / 2 + w], fill=theme.INK)
+        d.rectangle([min(sx, sx + sign * w * 2), cy - cap / 2 - w,
+                     max(sx, sx + sign * w * 2), cy - cap / 2], fill=theme.INK)
+        d.rectangle([min(sx, sx + sign * w * 2), cy + cap / 2,
+                     max(sx, sx + sign * w * 2), cy + cap / 2 + w], fill=theme.INK)
+    draw_engraved(d, cx, cy + cap / 2, text, size, theme.INK, theme.SUBTITLE_TRACKING)
+
+
+def generated_mark(field: Image.Image, right_x: float) -> None:
+    """A four-point star (✦) in the corner marks' ink, its right edge at
+    `right_x`, on the marks' line before "No. NN": this sheet was generated."""
+    r = theme.CORNER_SIZE * 0.40
+    cx, cy = right_x - r, theme.MARKS_BASELINE - theme.CORNER_SIZE * 0.36
+    k = 0.28                                            # waist of the four points
+    pts = [(cx, cy - r), (cx + r * k, cy - r * k), (cx + r, cy), (cx + r * k, cy + r * k),
+           (cx, cy + r), (cx - r * k, cy + r * k), (cx - r, cy), (cx - r * k, cy - r * k)]
+    ImageDraw.Draw(field).polygon(pts, fill=theme.INK_MEDIUM)
+
+
 def note_line(field: Image.Image, text: str, max_w: float = theme.CONTENT_W,
               kind: Optional[str] = None) -> None:
     """The footnote between the corner marks: a system-voice pill (W-741),

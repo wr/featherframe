@@ -93,9 +93,13 @@ def test_welcome_uses_the_system_voice_not_the_script():
     assert down.tobytes() != up.tobytes()
     assert welcome.HEADLINE == "No detections yet"
     assert welcome.since_words(since) == "Listening since 11 September, 11:32 pm"
-    # The card is a black box: a solid band of ink in the middle of the panel.
-    mid = down.crop((0, int(theme.HEIGHT * 0.42), theme.WIDTH, int(theme.HEIGHT * 0.42) + 60))
+    # The card is a black box centred on the panel: a solid band of ink at mid-height.
+    mid = down.crop((0, theme.HEIGHT // 2 - 30, theme.WIDTH, theme.HEIGHT // 2 + 30))
     assert _ink(mid) > 10000
+    # The fault pill rests where the firmware rests its toasts; no date footer.
+    band = down.crop((0, system.TOAST_Y, theme.WIDTH, system.TOAST_Y + system.PILL_H))
+    assert _ink(band) > 500
+    assert _ink(down, (0, theme.HEIGHT - 40, theme.WIDTH, theme.HEIGHT)) == 0
 
 
 def test_vendor_label_names_the_drawer():

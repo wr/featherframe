@@ -125,12 +125,6 @@ def caption_height(n_lines: int, first_ever: bool = False) -> int:
 FIRST_EVER_LINE = "First recorded today."
 
 
-def provenance_text(art) -> str:
-    """"Generated using OpenAI", or "Generated" when the drawer is unknown."""
-    return (f"{theme.GENERATED_PREFIX} {art.generated_by}" if art.generated_by
-            else theme.GENERATED_BARE)
-
-
 def render_single(spec: SingleSpec, provider: ArtProvider,
                   show_plate_number: bool = True) -> Image.Image:
     art = provider.artwork(spec.common_name, spec.scientific_name)
@@ -146,17 +140,12 @@ def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool) -> Imag
     field = _new_field()
 
     lines = list(art.legend)
-    # A species never heard before today: the script line, or a mark on the
-    # sheet (W-744: a rule at the mat edge and/or a star before the number).
-    mark = theme.FIRST_EVER_MARK
-    first_line = spec.first_ever and mark == "line"
+    # A species never heard before today: a rule around the sheet (W-744),
+    # or the old script line when the theme asks for it.
+    first_line = spec.first_ever and theme.FIRST_EVER_MARK == "line"
     if first_line:
         lines.append(FIRST_EVER_LINE)
-    # A synthetic sheet never passes as a scan: its provenance takes one more
-    # line under the legend, in the system voice (W-741), drawn after the
-    # script lines below.
-    extra = 1 if art.generated else 0
-    caption_top = theme.HEIGHT - caption_height(len(art.legend) + extra, first_line)
+    caption_top = theme.HEIGHT - caption_height(len(art.legend), first_line)
     art_box = (0, 0, theme.WIDTH, caption_top - theme.CAPTION_GAP)
     img = art.image
     # A composite is always shown whole (never a wrong bird); anything else
@@ -172,21 +161,17 @@ def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool) -> Imag
     else:
         _place_art(field, img, art_box)
 
-    last = typography.caption(field, caption_top, spec.common_name, spec.scientific_name, lines)
-    if art.generated:
-        from . import system
-        baseline = last + (theme.LATIN_TO_LEGEND if not lines else theme.LEGEND_PITCH)
-        system.line(ImageDraw.Draw(field), theme.WIDTH / 2, baseline, provenance_text(art),
-                    size=system.NOTE_TEXT)
+    typography.caption(field, caption_top, spec.common_name, spec.scientific_name, lines)
     if spec.when:
         typography.date_mark(field, spec.when)
     if show_plate_number and spec.plate_number:
         typography.plate_number_mark(field, spec.plate_number)
-        if spec.first_ever and mark in ("star", "both"):
+        if art.generated:
+            # A synthetic sheet never passes as a scan (W-733): ✦ before the number.
             left = theme.WIDTH - theme.CORNER_INSET - typography.script_width(
                 f"{theme.PLATE_NO_PREFIX} {spec.plate_number}", theme.CORNER_SIZE)
-            typography.first_ever_star(field, left - theme.FIRST_EVER_STAR_GAP)
-    if spec.first_ever and mark in ("rule", "both"):
+            typography.generated_mark(field, left - theme.GENERATED_MARK_GAP)
+    if spec.first_ever and not first_line:
         typography.first_ever_rule(field)
     if spec.note:
         typography.note_line(field, spec.note, max_w=note_width(), kind=spec.note_kind)

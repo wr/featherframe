@@ -47,21 +47,15 @@ def render_welcome(since: datetime, source_ok: bool,
     draw.text((cx, title_baseline + 92), theme.DATE_ORNAMENT, font=hedera_font,
               fill=theme.INK_MEDIUM, anchor="ms")
 
-    # The message: the setup card's box, then the pill for a fault.
-    bottom = system.card(draw, cx, theme.HEIGHT * 0.42,
-                         [(HEADLINE, 54, 600), (since_words(since), 38, 500)])
-    y = bottom + 74
+    # The message: the setup card's box, centred on the panel, and the fault
+    # (or the plain hint) at the bottom where the firmware rests its pills.
+    lines = [(HEADLINE, 54, 600), (since_words(since), 38, 500)]
+    _, card_h = system.card_size(lines)
+    system.card(draw, cx, (theme.HEIGHT - card_h) / 2, lines)
     if source_ok:
-        system.line(draw, cx, y + 10, SOURCE_UP_HINT, size=30)
+        system.line(draw, cx, system.TOAST_Y + system.PILL_H * 0.72, SOURCE_UP_HINT, size=30)
     else:
-        system.pill(draw, cx, y + system.PILL_H / 2, SOURCE_DOWN, style="outline", icon="cloud",
-                    max_w=theme.CONTENT_W)
-        system.line(draw, cx, y + system.PILL_H + 58, SOURCE_DOWN_HINT, size=28)
-
-    # "as of" footer in the corner marks' voice, like the status plate.
-    hour = now.hour % 12 or 12
-    stamp = f"{hour}:{now.minute:02d} {'am' if now.hour < 12 else 'pm'}"
-    footer = f"{stamp} {theme.CORNER_SEP} {now.day} {now.strftime('%B')}"
-    typography.draw_script(field, cx, theme.HEIGHT - theme.CAPTION_BOTTOM, footer,
-                           theme.STATUS_FOOT_SIZE, theme.INK_MEDIUM, stroke=theme.LEGEND_STROKE)
+        system.pill(draw, cx, system.TOAST_Y + system.PILL_H / 2, SOURCE_DOWN,
+                    style="outline", icon="cloud", max_w=theme.CONTENT_W)
+        system.line(draw, cx, system.RETRY_BASELINE, SOURCE_DOWN_HINT, size=system.RETRY_TEXT)
     return field

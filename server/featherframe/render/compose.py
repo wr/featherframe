@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageDraw
 
 from . import plate, theme, typography
 from .provider import ArtProvider
@@ -45,9 +45,11 @@ class SingleSpec:
     # can't give a first-seen date still knows the class); the real plate
     # then carries "first recorded today" under the scientific name.
     first_ever: bool = False
-    # One italic footnote in the bottom margin ("Nothing heard since 11:27 pm").
-    # Set only by the gone-quiet alarm; None draws nothing.
+    # One footnote in the bottom margin ("Nothing heard since 11:27 pm"), in
+    # the system voice. Set only by an alarm; None draws nothing. `note_kind`
+    # picks the pill: "outage" is a fault (outlined, slashed), else information.
     note: Optional[str] = None
+    note_kind: Optional[str] = None
 
 
 def _new_field() -> Image.Image:
@@ -121,6 +123,12 @@ def caption_height(n_lines: int, first_ever: bool = False) -> int:
 FIRST_EVER_LINE = "First recorded today."
 
 
+def provenance_text(art) -> str:
+    """"Generated using OpenAI", or "Generated" when the drawer is unknown."""
+    return (f"{theme.GENERATED_PREFIX} {art.generated_by}" if art.generated_by
+            else theme.GENERATED_BARE)
+
+
 def render_single(spec: SingleSpec, provider: ArtProvider,
                   show_plate_number: bool = True) -> Image.Image:
     art = provider.artwork(spec.common_name, spec.scientific_name)
@@ -130,11 +138,13 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     field = _new_field()
 
     lines = list(art.legend)
-    if art.generated:
-        lines.append(theme.GENERATED_LINE)     # never a synthetic sheet passing as a scan
     if spec.first_ever:
         lines.append(FIRST_EVER_LINE)
-    caption_top = theme.HEIGHT - caption_height(len(lines) - int(spec.first_ever), spec.first_ever)
+    # A synthetic sheet never passes as a scan: its provenance takes one more
+    # line under the legend, in the system voice (W-741), drawn after the
+    # script lines below.
+    extra = 1 if art.generated else 0
+    caption_top = theme.HEIGHT - caption_height(len(art.legend) + extra, spec.first_ever)
     art_box = (0, 0, theme.WIDTH, caption_top - theme.CAPTION_GAP)
     img = art.image
     # A composite is always shown whole (never a wrong bird); anything else
@@ -150,13 +160,18 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     else:
         _place_art(field, img, art_box)
 
-    typography.caption(field, caption_top, spec.common_name, spec.scientific_name, lines)
+    last = typography.caption(field, caption_top, spec.common_name, spec.scientific_name, lines)
+    if art.generated:
+        from . import system
+        baseline = last + (theme.LATIN_TO_LEGEND if not lines else theme.LEGEND_PITCH)
+        system.line(ImageDraw.Draw(field), theme.WIDTH / 2, baseline, provenance_text(art),
+                    size=system.NOTE_TEXT)
     if spec.when:
         typography.date_mark(field, spec.when)
     if show_plate_number and spec.plate_number:
         typography.plate_number_mark(field, spec.plate_number)
     if spec.note:
-        typography.note_line(field, spec.note, max_w=note_width())
+        typography.note_line(field, spec.note, max_w=note_width(), kind=spec.note_kind)
     return field
 
 
@@ -180,5 +195,5 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
     if show_plate_number and spec.plate_number:
         typography.plate_number_mark(field, spec.plate_number)
     if spec.note:
-        typography.note_line(field, spec.note, max_w=note_width())
+        typography.note_line(field, spec.note, max_w=note_width(), kind=spec.note_kind)
     return field

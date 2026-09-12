@@ -156,37 +156,65 @@ def test_first_ever_adds_a_line_after_the_legend():
     assert compose.caption_height(2, first_ever=True) - compose.caption_height(2) == theme.LEGEND_PITCH
 
 
-# -- provenance (W-733): a generated plate says so, a scan says nothing ---------
-def _caption_lines(monkeypatch, provider, **spec):
+# -- provenance (W-733 / W-741): a generated plate says who drew it, in the
+# system voice under the legend; a scan says nothing --------------------------
+def _provenance(monkeypatch, provider, **spec):
+    from featherframe.render import system
     seen = {}
 
-    def spy(field, top_y, common, sci, lines):
+    def caption_spy(field, top_y, common, sci, lines):
         seen["lines"] = list(lines)
         seen["top"] = top_y
         return top_y
 
-    monkeypatch.setattr(typography, "caption", spy)
+    def line_spy(d, cx, baseline, text, size=28, fill=None):
+        seen["line"] = text
+        seen["line_baseline"] = baseline
+
+    monkeypatch.setattr(typography, "caption", caption_spy)
+    monkeypatch.setattr(system, "line", line_spy)
     compose.render_single(_spec(**spec), provider)
     return seen
 
 
-def test_generated_art_carries_a_provenance_line_after_the_legend(monkeypatch):
-    gen = _caption_lines(monkeypatch, _Art(Image.new("L", (600, 400), 255), LEGEND, generated=True))
-    assert gen["lines"] == LEGEND + [theme.GENERATED_LINE]
-    scan = _caption_lines(monkeypatch, _blank(LEGEND))
-    assert scan["lines"] == LEGEND
+def _gen(legend=(), by="OpenAI"):
+    art = _Art(Image.new("L", (600, 400), 255), legend, generated=True)
+    real = art.artwork
+
+    def artwork(common, sci):
+        a = real(common, sci)
+        a.generated_by = by
+        return a
+
+    art.artwork = artwork
+    return art
+
+
+def test_generated_art_says_who_drew_it_under_the_legend(monkeypatch):
+    gen = _provenance(monkeypatch, _gen(LEGEND))
+    assert gen["lines"] == LEGEND                     # the script lines are the plate's own
+    assert gen["line"] == "Generated using OpenAI"    # the provenance is the system's
+    assert gen["line_baseline"] == gen["top"] + theme.LEGEND_PITCH
+    scan = _provenance(monkeypatch, _blank(LEGEND))
+    assert "line" not in scan
     # The caption block grows by one line so the art gives way, not the marks.
     assert scan["top"] - gen["top"] == theme.LEGEND_PITCH
 
 
-def test_provenance_line_comes_before_first_recorded(monkeypatch):
-    gen = _caption_lines(monkeypatch, _Art(Image.new("L", (600, 400), 255), generated=True),
-                         first_ever=True)
-    assert gen["lines"] == [theme.GENERATED_LINE, compose.FIRST_EVER_LINE]
+def test_provenance_without_a_known_drawer_is_just_generated(monkeypatch):
+    gen = _provenance(monkeypatch, _gen(by=None))
+    assert gen["line"] == "Generated"
 
 
-def test_the_generated_line_fits_the_caption_width():
-    assert typography.script_width(theme.GENERATED_LINE, theme.LEGEND_SIZE) < theme.CONTENT_W
+def test_provenance_follows_first_recorded(monkeypatch):
+    gen = _provenance(monkeypatch, _gen(), first_ever=True)
+    assert gen["lines"] == [compose.FIRST_EVER_LINE]
+    assert gen["line"] == "Generated using OpenAI"
+
+
+def test_the_provenance_line_fits_the_caption_width():
+    from featherframe.render import system
+    assert system.sans_width("Generated using black-forest-labs/flux-1.1-pro", system.NOTE_TEXT) < theme.CONTENT_W
 
 
 def test_fallback_plate_keeps_the_corner_number():

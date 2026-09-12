@@ -676,9 +676,9 @@ class FeatherframeService:
         the tick is about to render — so a fresh bird never carries it."""
         kind = self._note_kind()
         if kind == "quiet":
-            return f"Nothing heard since {self._quiet['since_text']}"
+            return f"No detections since {self._quiet['since_text']}"
         if kind == "outage":
-            return f"Detector unreachable since {self._outage['since_text']}"
+            return f"Detection source unreachable since {self._outage['since_text']}"
         return None
 
     # -- single mode -------------------------------------------------------
@@ -774,6 +774,7 @@ class FeatherframeService:
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=det.timestamp if det.timestamp != datetime.min else now,
                           plate_number=ordinal, first_seen=first_seen, note=note,
+                          note_kind=self._note_kind() if note else None,
                           first_ever=novelty == "first-ever")
         result = pipeline.render_single(spec, self.provider, self.config)
         self._commit(result, now, mode="single", species_key=det.key,
@@ -877,12 +878,13 @@ class FeatherframeService:
                 img = collage_mod.render_generated_collage(
                     art, painted, when=on_date,
                     total_detections=sum(c.count for c in painted), title=title,
-                    note=note)
+                    note=note, note_kind=self._note_kind() if note else None)
                 label = f"day in review ({len(painted)} species)"
         if img is None:
             img = collage_mod.render_collage(grid, self.provider, when=on_date,
                                              total_detections=sum(c.count for c in grid),
-                                             title=title, note=note)
+                                             title=title, note=note,
+                                             note_kind=self._note_kind() if note else None)
         result = pipeline.render_image(img, self.config, "collage", label)
         self._commit(result, now, mode="collage", species_key=None, label=label, note=note)
         log.info("rendered collage (%s), etag=%s", label, result.etag)
@@ -1027,7 +1029,8 @@ class FeatherframeService:
         # never holds the frame against the real ones (and bypasses any hold).
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=now, plate_number=ordinal or 1, first_seen=now.strftime("%Y-%m-%d"),
-                          note=note, first_ever=self._is_new_species(det.scientific_name, now.date()))
+                          note=note, note_kind=self._note_kind() if note else None,
+                          first_ever=self._is_new_species(det.scientific_name, now.date()))
         result = pipeline.render_single(spec, self.provider, self.config)
         self._commit(result, now, mode="single", species_key=det.key,
                      label=f"{det.common_name} (test)", note=note, novelty=None)

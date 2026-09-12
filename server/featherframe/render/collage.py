@@ -208,7 +208,8 @@ def sheet_art_size(cells: list[CollageCell]) -> tuple[int, int]:
 def render_generated_collage(art: Image.Image, cells: list[CollageCell],
                              when: Optional[ddate] = None, total_detections: int = 0,
                              title: str = "The Day in Review",
-                             note: Optional[str] = None) -> Image.Image:
+                             note: Optional[str] = None,
+                             note_kind: Optional[str] = None) -> Image.Image:
     """The generated composite sheet: the one generated artwork from the top
     margin down, and a small key matching the sheet's figure numerals —
     '1. Species' in prominence order — packed along the bottom, with the
@@ -228,14 +229,15 @@ def render_generated_collage(art: Image.Image, cells: list[CollageCell],
                              key_size, theme.INK, theme.SHEET_DATE_TRACKING)
     _paste_art(field, art, sheet_art_box(cells, bool(note)), v_align=0.5)
     if note:
-        typography.note_line(field, note)
+        typography.note_line(field, note, kind=note_kind)
     return field
 
 
 def render_collage(cells: list[CollageCell], provider: ArtProvider,
                    when: Optional[ddate] = None, total_detections: int = 0,
                    title: str = "A Day in the Garden",
-                   note: Optional[str] = None) -> Image.Image:
+                   note: Optional[str] = None,
+                   note_kind: Optional[str] = None) -> Image.Image:
     when = when or ddate.today()
     cells = cells[:6]
     cols, rows = _grid(len(cells))
@@ -287,5 +289,5 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
 
     # The grid stops at MARGIN_BOTTOM, well above the note's baseline.
     if note:
-        typography.note_line(field, note)
+        typography.note_line(field, note, kind=note_kind)
     return field

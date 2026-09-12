@@ -363,15 +363,14 @@ def plate_number_max_width() -> float:
     return script_width(f"{theme.PLATE_NO_PREFIX} 888", theme.CORNER_SIZE)
 
 
-def note_line(field: Image.Image, text: str, max_w: float = theme.CONTENT_W) -> None:
-    """One small script line centred on the corner marks' baseline — the
-    gone-quiet note. Shrinks rather than clips if wider than `max_w` (the room
-    between the marks)."""
-    size = theme.NOTE_SIZE
-    while size > theme.NOTE_MIN_SIZE and script_width(text, size) > max_w:
-        size -= 1
-    draw_script(field, theme.WIDTH / 2, theme.MARKS_BASELINE, text, size, theme.INK_MEDIUM,
-                stroke=theme.LEGEND_STROKE)
+def note_line(field: Image.Image, text: str, max_w: float = theme.CONTENT_W,
+              kind: Optional[str] = None) -> None:
+    """The footnote between the corner marks: a system-voice pill (W-741),
+    solid for information ("nothing heard"), outlined and slashed for a
+    fault (`kind` "outage"). Shrinks rather than clips if wider than `max_w`
+    (the room between the marks)."""
+    from . import system   # late: system imports this module for the card's fonts
+    system.note_pill(ImageDraw.Draw(field), text, kind, max_w)
 
 
 def wrap_to_width(text: str, font: ImageFont.FreeTypeFont, max_w: float) -> list[str]:

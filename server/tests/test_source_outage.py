@@ -166,7 +166,7 @@ def test_note_text_names_the_detector(svc):
     svc.source = _Source(svc.source.latest(), available=False)
     svc._source_down_since = datetime.now() - timedelta(hours=2)
     svc.tick()
-    assert svc._note_text().startswith("Detector unreachable since ")
+    assert svc._note_text().startswith("Detection source unreachable since ")
 
 
 def test_tick_drops_the_note_in_one_render_when_the_source_returns(svc, monkeypatch):
@@ -207,7 +207,7 @@ def test_outage_note_replaces_the_quiet_note(svc, monkeypatch):
     svc._source_down_since = datetime.now() - timedelta(hours=2)
     svc.tick()
     assert svc._meta.get("note_kind") == "outage"
-    assert svc._note_text().startswith("Detector unreachable")
+    assert svc._note_text().startswith("Detection source unreachable")
 
     # Back, and still silent: the quiet note returns.
     svc.source = _Source(_det_at(datetime.now() - timedelta(hours=7)), available=True)

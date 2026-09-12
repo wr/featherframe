@@ -1,0 +1,7 @@
+Inter-Medium.otf — Inter, v3.019
+Copyright © 2020 The Inter Project Authors (https://github.com/rsms/inter)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+The full license text is available with a FAQ at: https://scripts.sil.org/OFL
+A copy of the same license accompanies the EB Garamond and Adorn Engraved
+faces in server/featherframe/fonts/OFL.txt.

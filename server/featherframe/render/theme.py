@@ -68,6 +68,15 @@ LATIN_PERIOD = "."             # Audubon's trailing period on the Latin name
 GENERATED_PREFIX = "Generated using"
 GENERATED_BARE = "Generated"
 
+# A species never heard before today (W-744). "line" is the old script
+# legend line; "rule" draws a hairline around the whole sheet at the mat
+# edge, the folio's way of marking a plate of note; "star" sets an engraved
+# star before "No. NN"; "both" does both.
+FIRST_EVER_MARK = "line"
+FIRST_EVER_RULE_INSET = 14     # from the composition's edges (the mat opening)
+FIRST_EVER_RULE_WIDTH = 3
+FIRST_EVER_STAR_GAP = 14       # star -> "No." in the corner
+
 CORNER_SIZE = 28               # date · time (left) and "No. NN" (right)
 CORNER_INSET = 36              # from the side edges
 MARKS_BASELINE = HEIGHT - 30

@@ -146,13 +146,17 @@ def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool) -> Imag
     field = _new_field()
 
     lines = list(art.legend)
-    if spec.first_ever:
+    # A species never heard before today: the script line, or a mark on the
+    # sheet (W-744: a rule at the mat edge and/or a star before the number).
+    mark = theme.FIRST_EVER_MARK
+    first_line = spec.first_ever and mark == "line"
+    if first_line:
         lines.append(FIRST_EVER_LINE)
     # A synthetic sheet never passes as a scan: its provenance takes one more
     # line under the legend, in the system voice (W-741), drawn after the
     # script lines below.
     extra = 1 if art.generated else 0
-    caption_top = theme.HEIGHT - caption_height(len(art.legend) + extra, spec.first_ever)
+    caption_top = theme.HEIGHT - caption_height(len(art.legend) + extra, first_line)
     art_box = (0, 0, theme.WIDTH, caption_top - theme.CAPTION_GAP)
     img = art.image
     # A composite is always shown whole (never a wrong bird); anything else
@@ -178,6 +182,12 @@ def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool) -> Imag
         typography.date_mark(field, spec.when)
     if show_plate_number and spec.plate_number:
         typography.plate_number_mark(field, spec.plate_number)
+        if spec.first_ever and mark in ("star", "both"):
+            left = theme.WIDTH - theme.CORNER_INSET - typography.script_width(
+                f"{theme.PLATE_NO_PREFIX} {spec.plate_number}", theme.CORNER_SIZE)
+            typography.first_ever_star(field, left - theme.FIRST_EVER_STAR_GAP)
+    if spec.first_ever and mark in ("rule", "both"):
+        typography.first_ever_rule(field)
     if spec.note:
         typography.note_line(field, spec.note, max_w=note_width(), kind=spec.note_kind)
     return field

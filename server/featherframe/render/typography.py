@@ -363,6 +363,28 @@ def plate_number_max_width() -> float:
     return script_width(f"{theme.PLATE_NO_PREFIX} 888", theme.CORNER_SIZE)
 
 
+def first_ever_rule(field: Image.Image) -> None:
+    """A hairline around the whole sheet at the mat edge (W-744): the
+    folio's way of marking a plate of note, readable from across the room."""
+    i, w = theme.FIRST_EVER_RULE_INSET, theme.FIRST_EVER_RULE_WIDTH
+    ImageDraw.Draw(field).rectangle([i, i, theme.WIDTH - 1 - i, theme.HEIGHT - 1 - i],
+                                    outline=theme.INK, width=w)
+
+
+def first_ever_star(field: Image.Image, right_x: float) -> None:
+    """A five-point star in the corner marks' ink, its right edge at
+    `right_x`, sitting on the marks' line before "No. NN"."""
+    import math
+    r = theme.CORNER_SIZE * 0.42
+    cx, cy = right_x - r, theme.MARKS_BASELINE - theme.CORNER_SIZE * 0.36
+    pts = []
+    for k in range(10):
+        rad = r if k % 2 == 0 else r * 0.42
+        a = -math.pi / 2 + k * math.pi / 5
+        pts.append((cx + rad * math.cos(a), cy + rad * math.sin(a)))
+    ImageDraw.Draw(field).polygon(pts, fill=theme.INK_MEDIUM)
+
+
 def note_line(field: Image.Image, text: str, max_w: float = theme.CONTENT_W,
               kind: Optional[str] = None) -> None:
     """The footnote between the corner marks: a system-voice pill (W-741),

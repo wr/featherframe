@@ -61,6 +61,10 @@ LEGEND_STROKE = 0.5            # and its small lines read thin on e-ink (0.75 re
                                # than the title's hairlines; 0.5 matches them)
 CAPTION_BOTTOM = 52            # last caption baseline above the panel bottom
 LATIN_PERIOD = "."             # Audubon's trailing period on the Latin name
+# Provenance for an AI-drawn plate (W-733): one more legend line, in the
+# legend's own script and ink, so a synthetic sheet never hangs as a Havell
+# scan. Sits after the figure key / plant line, before "First recorded today."
+GENERATED_LINE = "Imagined after Audubon."
 
 CORNER_SIZE = 28               # date · time (left) and "No. NN" (right)
 CORNER_INSET = 36              # from the side edges

@@ -62,12 +62,13 @@ def test_draw_script_centres_and_the_stroke_adds_weight():
 
 # -- layout --------------------------------------------------------------------
 class _Art(ArtProvider):
-    def __init__(self, img, legend=(), composite=False):
+    def __init__(self, img, legend=(), composite=False, generated=False):
         self._img, self._legend, self._composite = img, list(legend), composite
+        self._generated = generated
 
     def artwork(self, common_name, scientific_name):
         return Artwork(image=self._img, audubon_plate=None, composite=self._composite,
-                       legend=list(self._legend))
+                       generated=self._generated, legend=list(self._legend))
 
 
 def _spec(**kw):
@@ -153,6 +154,39 @@ def test_first_ever_adds_a_line_after_the_legend():
     first = compose.render_single(_spec(first_ever=True), _blank(LEGEND))
     assert plain.tobytes() != first.tobytes()
     assert compose.caption_height(2, first_ever=True) - compose.caption_height(2) == theme.LEGEND_PITCH
+
+
+# -- provenance (W-733): a generated plate says so, a scan says nothing ---------
+def _caption_lines(monkeypatch, provider, **spec):
+    seen = {}
+
+    def spy(field, top_y, common, sci, lines):
+        seen["lines"] = list(lines)
+        seen["top"] = top_y
+        return top_y
+
+    monkeypatch.setattr(typography, "caption", spy)
+    compose.render_single(_spec(**spec), provider)
+    return seen
+
+
+def test_generated_art_carries_a_provenance_line_after_the_legend(monkeypatch):
+    gen = _caption_lines(monkeypatch, _Art(Image.new("L", (600, 400), 255), LEGEND, generated=True))
+    assert gen["lines"] == LEGEND + [theme.GENERATED_LINE]
+    scan = _caption_lines(monkeypatch, _blank(LEGEND))
+    assert scan["lines"] == LEGEND
+    # The caption block grows by one line so the art gives way, not the marks.
+    assert scan["top"] - gen["top"] == theme.LEGEND_PITCH
+
+
+def test_provenance_line_comes_before_first_recorded(monkeypatch):
+    gen = _caption_lines(monkeypatch, _Art(Image.new("L", (600, 400), 255), generated=True),
+                         first_ever=True)
+    assert gen["lines"] == [theme.GENERATED_LINE, compose.FIRST_EVER_LINE]
+
+
+def test_the_generated_line_fits_the_caption_width():
+    assert typography.script_width(theme.GENERATED_LINE, theme.LEGEND_SIZE) < theme.CONTENT_W
 
 
 def test_fallback_plate_keeps_the_corner_number():

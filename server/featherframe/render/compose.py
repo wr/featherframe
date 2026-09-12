@@ -130,9 +130,11 @@ def render_single(spec: SingleSpec, provider: ArtProvider,
     field = _new_field()
 
     lines = list(art.legend)
+    if art.generated:
+        lines.append(theme.GENERATED_LINE)     # never a synthetic sheet passing as a scan
     if spec.first_ever:
         lines.append(FIRST_EVER_LINE)
-    caption_top = theme.HEIGHT - caption_height(len(art.legend), spec.first_ever)
+    caption_top = theme.HEIGHT - caption_height(len(lines) - int(spec.first_ever), spec.first_ever)
     art_box = (0, 0, theme.WIDTH, caption_top - theme.CAPTION_GAP)
     img = art.image
     # A composite is always shown whole (never a wrong bird); anything else

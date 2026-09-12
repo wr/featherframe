@@ -508,9 +508,16 @@ def cut(args) -> None:
     P = _place(perch_g, perch_reg[0], perch_reg[1] + ddx, perch_reg[2] + ddy, H.shape, 0)
     print(f"fly (scale,dx,dy)={fly_reg}, perch={perch_reg} refined by ({ddx},{ddy})")
     if second_g is not None:
-        second_reg = _register(H, second_g, scales=scales)
-        S = _place(second_g, *second_reg, H.shape, 0)
-        print(f"second (scale,dx,dy)={second_reg}")
+        if args.base_from == "perch":
+            # The mate was drawn onto the perched sheet, and the empty bough
+            # will be that sheet: place it exactly as the perched sheet is.
+            second_reg = _register(P, second_g, scales=scales)
+            S = _place(second_g, *second_reg, H.shape, 0)
+            print(f"second registered to the perched sheet (scale,dx,dy)={second_reg}")
+        else:
+            second_reg = _register(H, second_g, scales=scales)
+            S = _place(second_g, *second_reg, H.shape, 0)
+            print(f"second (scale,dx,dy)={second_reg}")
     sheets = [H, F, P] + ([S] if S is not None else [])
     if args.scale != 1.0:
         # Scale the whole sheets now, so every cut below shares one
@@ -532,6 +539,7 @@ def cut(args) -> None:
 
     pad = args.pad
     perch_box = None
+    second_box = None
     if args.base_from == "perch":
         # The perched sheet carries the twig exactly as the bird stands on
         # it (the model redraws the tip to seat the bird), so the empty
@@ -578,7 +586,43 @@ def cut(args) -> None:
         Image.fromarray(patch, "RGBA").save(out / "plate_perch.png")
         perch_box = (qx0, qy0, qx1, qy1)
         print(f"base from the perched sheet; the bird's box ({qx1 - qx0}x{qy1 - qy0}) "
-              f"keeps the drawn setting's twig")
+              f"papered down to the toes")
+        if S is not None:
+            # The mate the same way: the model raised the limb's end under
+            # her, so her box on the empty bough is her own sheet (limb as
+            # she stands on it) papered down to her toes, and her screen is
+            # that box of her sheet. Outside the perch's box S and P agree.
+            core, _ = _added_bird(S, H, args.perch_thr, args.perch_clearance, pad, touching_ok=True)
+            zone = _dilate(core, args.perch_zone)
+            edit_ink = S < args.perch_thr
+            wide = _dilate(H < 235, args.perch_twig_clearance)
+            body = _open(zone & edit_ink & ~wide, 5)
+            comps2 = _components(body)
+            core2 = comps2[0][0] if comps2 else core
+            foot_y = int(np.nonzero(core2)[0].max())
+            above = np.zeros_like(core)
+            above[:max(0, foot_y - 6), :] = True
+            below = zone & edit_ink & ~above & ~wide
+            legs = below & ~_open(below, args.perch_leg_px)
+            bird = _erode(_dilate((zone & edit_ink & above) | legs, 4), 4)
+            fig = _components(bird)
+            if fig:
+                bird = fig[0][0] | (bird & _dilate(fig[0][0], 6))
+            footing = _dilate(bird, args.perch_footing)
+            ys, xs = np.nonzero(footing)
+            sx0, sy0 = max(0, int(xs.min())), max(0, int(ys.min()))
+            sx1 = min(S.shape[1], int(xs.max()) + 1)
+            sy1 = min(S.shape[0], int(ys.max()) + 1)
+            toe_y = int(np.nonzero(legs)[0].max()) if legs.any() else foot_y
+            H[sy0:sy1, sx0:sx1] = S[sy0:sy1, sx0:sx1]
+            H[sy0:min(sy1, toe_y + 3), sx0:sx1] = 255
+            g = lifted(S[sy0:sy1, sx0:sx1])
+            patch = np.zeros(g.shape + (4,), dtype=np.uint8)
+            patch[..., 0] = patch[..., 1] = patch[..., 2] = g
+            patch[..., 3] = 255
+            Image.fromarray(patch, "RGBA").save(out / "plate_second.png")
+            second_box = (sx0, sy0, sx1, sy1)
+            print(f"the mate's box ({sx1 - sx0}x{sy1 - sy0}) from her own sheet, papered down to the toes")
     # -- base: the whole sheet — the bake lays it full-bleed like a plate ----
     x0, y0, x1, y1 = 0, 0, H.shape[1], min(H.shape[0], args.art_bottom or H.shape[0])
     _rgba_ink(lifted(H[y0:y1, x0:x1])).save(out / "plate_base.png")
@@ -761,7 +805,7 @@ def cut(args) -> None:
     if S is not None:
         # The second sheet carries both birds; the first is where the perch
         # stage found it, so the blob overlapping that box is not the newcomer.
-        sx0, sy0, _, _ = perched(S, "second", avoid=(qx0, qy0, qx1, qy1), mode=args.second_mode)
+        sx0, sy0 = second_box[:2] if second_box else perched(S, "second", avoid=(qx0, qy0, qx1, qy1), mode=args.second_mode)[:2]
         second_at = [int(sx0 - x0), int(sy0 - y0)]
 
     layout = {
@@ -866,7 +910,7 @@ def main() -> None:
     c.add_argument("--perch-footing", type=int, default=24,
                    help="base-from perch: px round the bird that its box takes in, so the toes "
                         "and the twig they grip go with it")
-    c.add_argument("--second-mode", choices=["head", "stand"], default="head",
+    c.add_argument("--second-mode", choices=["head", "stand"], default="stand",
                    help="the mate's cut (head: as the perch; stand: the plain cut)")
     c.add_argument("--perch-toe-band", type=int, default=30,
                    help="head mode: half-width of the band under the body within which ink "

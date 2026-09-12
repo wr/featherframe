@@ -67,14 +67,18 @@ LATIN_PERIOD = "."             # Audubon's trailing period on the Latin name
 GENERATED_MARK_GAP = 12        # star -> "No." in the corner
 
 # A species never heard before today (W-744): a rule around the whole sheet
-# at the mat edge, the folio's way of marking a plate of note, with a "NEW"
-# label let into its top edge. ("line" keeps the old script legend line.)
+# at the mat edge, the folio's way of marking a plate of note, with a small
+# "NEW" pill — the system voice, Inter semibold on black — set into its top
+# edge. ("line" keeps the old script legend line.)
 FIRST_EVER_MARK = "rule"
 FIRST_EVER_RULE_INSET = 14     # from the composition's edges (the mat opening)
 FIRST_EVER_RULE_WIDTH = 6
 FIRST_EVER_LABEL = "NEW"
-FIRST_EVER_LABEL_SIZE = 30     # engraved capitals, like the Latin name
-FIRST_EVER_LABEL_PAD = 26      # paper on either side of the label, inside the rule's gap
+FIRST_EVER_LABEL_SIZE = 22     # Inter semibold capitals
+FIRST_EVER_LABEL_TRACKING = 0.08   # letter-spacing, fraction of the size
+FIRST_EVER_LABEL_PAD = 18      # pill side padding
+FIRST_EVER_PILL_H = 44
+FIRST_EVER_PILL_GAP = 14       # paper between the pill and the rule on either side
 
 CORNER_SIZE = 28               # date · time (left) and "No. NN" (right)
 CORNER_INSET = 36              # from the side edges

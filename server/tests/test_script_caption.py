@@ -149,17 +149,38 @@ def test_note_sits_between_the_corner_marks_without_touching_them():
     assert abs((xs.min() + xs.max()) / 2 - theme.WIDTH / 2) < 8
 
 
-def test_first_ever_adds_a_line_after_the_legend():
-    plain = compose.render_single(_spec(), _blank(LEGEND))
-    first = compose.render_single(_spec(first_ever=True), _blank(LEGEND))
-    assert plain.tobytes() != first.tobytes()
+def test_first_ever_draws_the_rule_with_its_label_and_keeps_the_caption_put(monkeypatch):
+    """W-744: a never-before-heard species gets a rule around the sheet with
+    "[ NEW ]" let into its top edge, not another legend line."""
+    seen = {}
+    monkeypatch.setattr(typography, "caption",
+                        lambda field, top_y, c, s, lines: seen.update(top=top_y, lines=list(lines)) or top_y)
+    compose.render_single(_spec(first_ever=True), _blank(LEGEND))
+    assert seen["lines"] == LEGEND                     # no "First recorded today." line
+    plain_top = seen["top"]
+    compose.render_single(_spec(), _blank(LEGEND))
+    assert seen["top"] == plain_top                    # the caption does not move
+    out = compose.render_single(_spec(first_ever=True), _blank(LEGEND))
+    i, w = theme.FIRST_EVER_RULE_INSET, theme.FIRST_EVER_RULE_WIDTH
+    assert _ink(out, (i, 300, i + w, 900)) >= w * 600 * 0.95          # the left rule
+    assert _ink(out, (theme.WIDTH - i - w, 300, theme.WIDTH - i, 900)) >= w * 600 * 0.95
+    assert _ink(out, (theme.WIDTH // 2 - 40, i - 4, theme.WIDTH // 2 + 40, i + w + 4)) > 60  # "NEW"
+    assert _ink(compose.render_single(_spec(), _blank(LEGEND)), (i, 300, i + w, 900)) == 0
+
+
+def test_the_old_first_recorded_line_is_still_there_behind_the_theme_switch(monkeypatch):
+    monkeypatch.setattr(theme, "FIRST_EVER_MARK", "line")
+    seen = {}
+    monkeypatch.setattr(typography, "caption",
+                        lambda field, top_y, c, s, lines: seen.update(lines=list(lines)) or top_y)
+    compose.render_single(_spec(first_ever=True), _blank(LEGEND))
+    assert seen["lines"] == LEGEND + [compose.FIRST_EVER_LINE]
     assert compose.caption_height(2, first_ever=True) - compose.caption_height(2) == theme.LEGEND_PITCH
 
 
-# -- provenance (W-733 / W-741): a generated plate says who drew it, in the
-# system voice under the legend; a scan says nothing --------------------------
+# -- provenance (W-733): a generated plate carries ✦ before its number; a scan
+# does not, and the caption is the plate's own either way ---------------------
 def _provenance(monkeypatch, provider, **spec):
-    from featherframe.render import system
     seen = {}
 
     def caption_spy(field, top_y, common, sci, lines):
@@ -167,54 +188,30 @@ def _provenance(monkeypatch, provider, **spec):
         seen["top"] = top_y
         return top_y
 
-    def line_spy(d, cx, baseline, text, size=28, fill=None):
-        seen["line"] = text
-        seen["line_baseline"] = baseline
+    def mark_spy(field, right_x):
+        seen["mark_right"] = right_x
 
     monkeypatch.setattr(typography, "caption", caption_spy)
-    monkeypatch.setattr(system, "line", line_spy)
+    monkeypatch.setattr(typography, "generated_mark", mark_spy)
     compose.render_single(_spec(**spec), provider)
     return seen
 
 
-def _gen(legend=(), by="OpenAI"):
-    art = _Art(Image.new("L", (600, 400), 255), legend, generated=True)
-    real = art.artwork
-
-    def artwork(common, sci):
-        a = real(common, sci)
-        a.generated_by = by
-        return a
-
-    art.artwork = artwork
-    return art
-
-
-def test_generated_art_says_who_drew_it_under_the_legend(monkeypatch):
-    gen = _provenance(monkeypatch, _gen(LEGEND))
-    assert gen["lines"] == LEGEND                     # the script lines are the plate's own
-    assert gen["line"] == "Generated using OpenAI"    # the provenance is the system's
-    assert gen["line_baseline"] == gen["top"] + theme.LEGEND_PITCH
+def test_generated_art_gets_the_star_before_its_number(monkeypatch):
+    gen = _provenance(monkeypatch, _Art(Image.new("L", (600, 400), 255), LEGEND, generated=True))
+    assert gen["lines"] == LEGEND                      # the caption is the plate's own
+    number_left = theme.WIDTH - theme.CORNER_INSET - typography.script_width("No. 43", theme.CORNER_SIZE)
+    assert gen["mark_right"] == number_left - theme.GENERATED_MARK_GAP
     scan = _provenance(monkeypatch, _blank(LEGEND))
-    assert "line" not in scan
-    # The caption block grows by one line so the art gives way, not the marks.
-    assert scan["top"] - gen["top"] == theme.LEGEND_PITCH
+    assert "mark_right" not in scan
+    assert scan["top"] == gen["top"]                   # and nothing moves
 
 
-def test_provenance_without_a_known_drawer_is_just_generated(monkeypatch):
-    gen = _provenance(monkeypatch, _gen(by=None))
-    assert gen["line"] == "Generated"
-
-
-def test_provenance_follows_first_recorded(monkeypatch):
-    gen = _provenance(monkeypatch, _gen(), first_ever=True)
-    assert gen["lines"] == [compose.FIRST_EVER_LINE]
-    assert gen["line"] == "Generated using OpenAI"
-
-
-def test_the_provenance_line_fits_the_caption_width():
-    from featherframe.render import system
-    assert system.sans_width("Generated using black-forest-labs/flux-1.1-pro", system.NOTE_TEXT) < theme.CONTENT_W
+def test_the_star_sits_on_the_marks_line_inside_the_panel():
+    out = compose.render_single(_spec(), _Art(Image.new("L", (600, 400), 255), LEGEND, generated=True))
+    y0, y1 = theme.MARKS_BASELINE - 30, theme.MARKS_BASELINE + 2
+    x1 = theme.WIDTH - theme.CORNER_INSET - typography.script_width("No. 43", theme.CORNER_SIZE) - theme.GENERATED_MARK_GAP
+    assert _ink(out, (int(x1) - 30, y0, int(x1) + 1, y1)) > 60
 
 
 def test_fallback_plate_keeps_the_corner_number():

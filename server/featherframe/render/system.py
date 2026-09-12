@@ -22,6 +22,9 @@ _SANS = paths.fonts_dir() / "Inter-Medium.otf"
 
 # The firmware's toast: PILL_H 82, text 34, side padding 30 (bake_screens.py).
 PILL_H, PILL_PAD, PILL_TEXT = 82, 30, 34
+# Where the firmware rests its pills: the toast band over the bottom margin,
+# and the "Trying again in 5 min" line beneath it (TOAST_Y / RETRY_BASELINE).
+TOAST_Y, RETRY_BASELINE, RETRY_TEXT = 1648, 1776, 28
 # The footer note between the corner marks: the same pill, two-thirds size.
 NOTE_H, NOTE_PAD, NOTE_TEXT = 52, 22, 24
 CARD_RADIUS = 24
@@ -121,12 +124,7 @@ def note_pill(d: ImageDraw.ImageDraw, text: str, kind: Optional[str], max_w: flo
 
 
 # -- the card ----------------------------------------------------------------
-def card(d: ImageDraw.ImageDraw, cx: float, top: float,
-         lines: list[tuple[str, int, int]], *, pad_x: int = 64, pad_y: int = 54,
-         gap: int = 26, max_w: float = theme.CONTENT_W) -> float:
-    """The setup card's black box holding `lines` of (text, size, weight) in
-    the plate's Garamond, reversed and semibold as the firmware sets it (light
-    type loses weight on e-ink). Fits its widest line. Returns the bottom."""
+def _card_metrics(lines, pad_x, pad_y, gap, max_w):
     fonts = []
     for text, size, weight in lines:
         f = typography.FONTS.get(size, weight=weight)
@@ -135,9 +133,26 @@ def card(d: ImageDraw.ImageDraw, cx: float, top: float,
             f = typography.FONTS.get(size, weight=weight)
         fonts.append(f)
     widest = max(f.getlength(t) for (t, _, _), f in zip(lines, fonts))
-    w = widest + 2 * pad_x
     heights = [f.getbbox("Hg")[3] - f.getbbox("Hg")[1] for f in fonts]
+    w = widest + 2 * pad_x
     h = pad_y * 2 + sum(heights) + gap * (len(lines) - 1)
+    return fonts, heights, w, h
+
+
+def card_size(lines: list[tuple[str, int, int]], *, pad_x: int = 64, pad_y: int = 54,
+              gap: int = 26, max_w: float = theme.CONTENT_W) -> tuple[float, float]:
+    """(width, height) the card will take, so a caller can centre it."""
+    _, _, w, h = _card_metrics(lines, pad_x, pad_y, gap, max_w)
+    return w, h
+
+
+def card(d: ImageDraw.ImageDraw, cx: float, top: float,
+         lines: list[tuple[str, int, int]], *, pad_x: int = 64, pad_y: int = 54,
+         gap: int = 26, max_w: float = theme.CONTENT_W) -> float:
+    """The setup card's black box holding `lines` of (text, size, weight) in
+    the plate's Garamond, reversed and semibold as the firmware sets it (light
+    type loses weight on e-ink). Fits its widest line. Returns the bottom."""
+    fonts, heights, w, h = _card_metrics(lines, pad_x, pad_y, gap, max_w)
     x0, y0 = cx - w / 2, top
     d.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=CARD_RADIUS, fill=theme.INK)
     y = y0 + pad_y

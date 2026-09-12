@@ -61,12 +61,20 @@ LEGEND_STROKE = 0.5            # and its small lines read thin on e-ink (0.75 re
                                # than the title's hairlines; 0.5 matches them)
 CAPTION_BOTTOM = 52            # last caption baseline above the panel bottom
 LATIN_PERIOD = "."             # Audubon's trailing period on the Latin name
-# Provenance for an AI-drawn plate (W-733, W-741): one more line under the
-# legend, in the system voice (plain Inter, the medium ink: a fact, not a
-# status), so a synthetic sheet never hangs as a Havell scan. "Generated
-# using OpenAI"; just "Generated" when the sidecar names no model.
-GENERATED_PREFIX = "Generated using"
-GENERATED_BARE = "Generated"
+# Provenance for an AI-drawn plate (W-733): a four-point star before the
+# number in the corner, so a synthetic sheet never hangs as a Havell scan
+# and the caption keeps the plate's own lines only.
+GENERATED_MARK_GAP = 12        # star -> "No." in the corner
+
+# A species never heard before today (W-744): a rule around the whole sheet
+# at the mat edge, the folio's way of marking a plate of note, with a "NEW"
+# label let into its top edge. ("line" keeps the old script legend line.)
+FIRST_EVER_MARK = "rule"
+FIRST_EVER_RULE_INSET = 14     # from the composition's edges (the mat opening)
+FIRST_EVER_RULE_WIDTH = 6
+FIRST_EVER_LABEL = "NEW"
+FIRST_EVER_LABEL_SIZE = 30     # engraved capitals, like the Latin name
+FIRST_EVER_LABEL_PAD = 26      # paper on either side of the label, inside the rule's gap
 
 CORNER_SIZE = 28               # date · time (left) and "No. NN" (right)
 CORNER_INSET = 36              # from the side edges

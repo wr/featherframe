@@ -48,6 +48,7 @@ char     g_etag[40];
 uint32_t g_wakeMinutes = DEFAULT_WAKE_MINUTES;
 char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent as X-Wake-Detail (debug)
 char     g_battRaw[48] = "";    // last ADC read: raw counts, first/last sample, eFuse mV
+char     g_lastXfer[40] = "";   // last frame body transfer: "xfer=got/lenB ms [stall|cap|hangup]"
 char     g_wakeToken[16] = "";  // stable token ("timer"|"button"|"coldboot") — X-Wake
 bool     g_viaPortal = false;   // did this boot go through the setup portal?
 
@@ -800,7 +801,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Battery-Percent", String(pct));
   http.addHeader("X-Wifi-RSSI", String(WiFi.RSSI()));
   http.addHeader("X-Wake", g_wakeToken);            // stable token (spec §3)
-  http.addHeader("X-Wake-Detail", String(g_wakeInfo) + " " + g_battRaw);   // cause=N keys=0xM + ADC diag (debug)
+  http.addHeader("X-Wake-Detail", String(g_wakeInfo) + " " + g_battRaw + " " + g_lastXfer);   // cause=N keys=0xM + ADC diag + last transfer (debug)
   http.addHeader("X-FF-Version", FF_FW_VERSION);    // human build id (spec §1)
   http.addHeader("X-FF-Sketch-MD5", ESP.getSketchMD5());  // exact binary id
   http.addHeader("X-Boot-Count", String(g_bootCount));    // spec §5
@@ -844,21 +845,36 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   // whole remainder arrives, so the deadline check below never ran on a
   // slow-but-steady link. read(buf, n) is a memcpy out of the socket buffer and
   // returns as soon as what is there is copied, so the loop bounds the transfer.
-  while (got < len && (millis() - t0) < FF_BODY_TIMEOUT_MS) {
+  // The deadline is a stall, not a total: a body that is still arriving is
+  // never abandoned short of FF_BODY_MAX_MS, because the retry starts over
+  // from byte zero (see FF_BODY_STALL_MS in ff_config.h).
+  uint32_t lastProgress = t0;
+  const char* why = nullptr;
+  while (got < len) {
+    uint32_t now = millis();
+    if (now - lastProgress >= FF_BODY_STALL_MS) { why = "stall"; break; }
+    if (now - t0 >= FF_BODY_MAX_MS)           { why = "cap";   break; }
     int avail = stream->available();
     if (avail > 0) {
       int n = stream->read(buf + got, (size_t)min(avail, len - got));
-      if (n > 0) got += n;
+      if (n > 0) { got += n; lastProgress = now; }
     } else if (!stream->connected()) {
-      break;                                // server hung up mid-body: don't sit out the timeout
+      why = "hangup"; break;                // server hung up mid-body: don't sit out the timeout
     } else {
       delay(2);
     }
   }
+  uint32_t ms = millis() - t0;
   String newEtag = http.header("ETag");
   http.end();
 
-  if (got != len) { Serial.printf("short read %d/%d\n", got, len); free(buf); return FETCH_ERROR; }
+  // Transfer stats: on serial now, and on the next request's X-Wake-Detail so
+  // the server journal shows the rate without a USB attach (which reboots the board).
+  snprintf(g_lastXfer, sizeof(g_lastXfer), "xfer=%d/%dB %lums%s%s",
+           got, len, (unsigned long)ms, why ? " " : "", why ? why : "");
+  Serial.printf("body %d/%d bytes in %lu ms (%.1f KB/s)%s%s\n", got, len, (unsigned long)ms,
+                ms ? got / 1.024f / ms : 0.0f, why ? " " : "", why ? why : "");
+  if (got != len) { free(buf); return FETCH_ERROR; }
 
   bool painted = displayFrame(buf, len, true);   // retain: the toast band restores from it
   free(buf);

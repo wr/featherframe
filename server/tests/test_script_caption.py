@@ -221,4 +221,23 @@ def test_fallback_plate_keeps_the_corner_number():
     out = compose.render_fallback(_spec(first_seen="2026-05-17"))
     y0, y1 = theme.MARKS_BASELINE - 30, theme.MARKS_BASELINE + 8
     assert _ink(out, (theme.WIDTH - theme.CORNER_INSET - 140, y0, theme.WIDTH - theme.CORNER_INSET, y1)) > 60
-    assert _ink(out, (0, 0, theme.WIDTH, 200)) == 0
+
+
+def test_fallback_hangs_the_empty_bough_with_the_caption_where_a_plates_is(monkeypatch):
+    """W-743: the fallback runs through the plate layout with the bough as
+    its art, so the title sits exactly where a one-legend-line plate's does."""
+    seen = {}
+
+    def spy(field, top_y, common, sci, lines):
+        seen.setdefault("tops", []).append(top_y)
+        seen.setdefault("lines", []).append(list(lines))
+        return top_y
+
+    monkeypatch.setattr(typography, "caption", spy)
+    compose.render_fallback(_spec(first_seen="2026-05-17"))
+    compose.render_single(_spec(), _blank(["Male, 1. Female, 2."]))
+    assert seen["tops"][0] == seen["tops"][1]
+    assert seen["lines"][0] == ["First recorded 17 May 2026."]
+    out = compose.render_fallback(_spec(first_seen="2026-05-17"))
+    assert _ink(out, (0, 0, theme.WIDTH, 700)) > 5000        # the bough is there (its upper tip is thin)
+    assert compose.bough().size == (theme.WIDTH, 1361)        # a plate's art box, no bird

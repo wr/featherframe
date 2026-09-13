@@ -10,6 +10,7 @@ import hmac
 import json
 import logging
 import math
+import os
 import re
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -21,7 +22,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__, paths
+from . import __version__, discovery, paths
 from .config import Config, valid_hhmm
 from .names import display_common_name, normalize
 from .render import typography
@@ -41,9 +42,16 @@ async def lifespan(app: FastAPI):
     service = FeatherframeService()
     app.state.service = service
     service.start()
+    # Advertise _featherframe._tcp so a frame with no typed URL finds us
+    # (W-763). __main__ exports the bound port; systemd sets it directly.
+    advertiser = discovery.Advertiser(
+        port=int(os.environ.get("FEATHERFRAME_PORT", "8080")), version=__version__)
+    app.state.advertiser = advertiser
+    await run_in_threadpool(advertiser.start)
     try:
         yield
     finally:
+        advertiser.stop()
         service.stop()
 
 
@@ -651,7 +659,10 @@ async def api_battery(request: Request, hours: int = 24):
 async def status(request: Request):
     # Threadpool: status() probes the detection source (network for the
     # HTTP backends) — never on the loop.
-    return JSONResponse(await run_in_threadpool(_svc(request).status))
+    body = await run_in_threadpool(_svc(request).status)
+    adv = getattr(request.app.state, "advertiser", None)
+    body["mdns"] = adv.status() if adv else None
+    return JSONResponse(body)
 
 
 # -- render history --------------------------------------------------------

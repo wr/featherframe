@@ -13,6 +13,7 @@
 
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <ESPmDNS.h>
 #include <FS.h>            // WebServer.h (via WiFiManager) uses unqualified FS on
 using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before it
 #include <WebServer.h>
@@ -50,6 +51,7 @@ char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent as X-Wake-Detail 
 char     g_battRaw[48] = "";    // last ADC read: raw counts, first/last sample, eFuse mV
 char     g_lastXfer[40] = "";   // last frame body transfer: "xfer=got/lenB ms [stall|cap|hangup]"
 char     g_wakeToken[16] = "";  // stable token ("timer"|"button"|"coldboot") — X-Wake
+char     g_mdnsNote[12] = "";   // last discovery: "mdns=new|same|miss" — rides X-Wake-Detail
 bool     g_viaPortal = false;   // did this boot go through the setup portal?
 
 // The server URL as typed into the portal is user input: trim it, give it a
@@ -69,6 +71,44 @@ static void normalizeServerUrl(char* url, size_t n, const char* fallback) {
     snprintf(url, n, "http://%s", s);
   else
     strlcpy(url, s, n);
+}
+
+// Ask the LAN where the server is: one PTR query for _featherframe._tcp
+// (blocks ~3 s). Fills url ("http://ip:port") and returns true on a hit.
+static bool discoverServer(char* url, size_t n) {
+  if (!MDNS.begin("featherframe-frame")) { Serial.println("mDNS: begin failed"); return false; }
+  int found = MDNS.queryService(FF_MDNS_SERVICE, FF_MDNS_PROTO);
+  bool ok = false;
+  if (found > 0) {
+    IPAddress ip = MDNS.address(0);
+    uint16_t port = MDNS.port(0);
+    if (ip != IPAddress((uint32_t)0) && port) {
+      snprintf(url, n, "http://%s:%u", ip.toString().c_str(), (unsigned)port);
+      ok = true;
+    }
+  }
+  MDNS.end();
+  Serial.printf("mDNS: %d service(s)%s%s\n", found, ok ? " -> " : "", ok ? url : "");
+  return ok;
+}
+
+// Discover and, if it differs from what we have, adopt the server URL. Called
+// with no URL yet (a fresh unit) and after a connect failure (the box moved).
+// Rate-limited so an outage in the always-awake poll loop doesn't spend 3 s
+// on every 15 s poll.
+static bool adoptDiscoveredServer() {
+  static bool tried = false;
+  static uint32_t lastTry = 0;
+  if (tried && millis() - lastTry < FF_MDNS_RETRY_MS) return false;
+  tried = true; lastTry = millis();
+  char found[sizeof(g_serverUrl)];
+  if (!discoverServer(found, sizeof(found))) { strlcpy(g_mdnsNote, "mdns=miss", sizeof(g_mdnsNote)); return false; }
+  if (strcmp(found, g_serverUrl) == 0)       { strlcpy(g_mdnsNote, "mdns=same", sizeof(g_mdnsNote)); return false; }
+  strlcpy(g_mdnsNote, "mdns=new", sizeof(g_mdnsNote));
+  Serial.printf("server: %s -> %s\n", g_serverUrl[0] ? g_serverUrl : "(none)", found);
+  strlcpy(g_serverUrl, found, sizeof(g_serverUrl));
+  prefs.putString("server", g_serverUrl);
+  return true;
 }
 
 // Wake cause -> a stable token the server can show without parsing ESP enums.
@@ -396,7 +436,8 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // WiFiManager keeps the registered pointer forever and never dedupes, and
   // ensureWifi is re-entered from loop()'s KEY2 handler — so the parameter
   // lives in static storage and registers exactly once.
-  static WiFiManagerParameter serverParam("server", "Featherframe server URL",
+  static WiFiManagerParameter serverParam("server",
+                                          "Featherframe server URL (leave blank to find it automatically)",
                                           g_serverUrl, sizeof(g_serverUrl));
   static bool paramRegistered = false;
   if (!paramRegistered) {
@@ -810,7 +851,8 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Battery-Percent", String(pct));
   http.addHeader("X-Wifi-RSSI", String(WiFi.RSSI()));
   http.addHeader("X-Wake", g_wakeToken);            // stable token (spec §3)
-  http.addHeader("X-Wake-Detail", String(g_wakeInfo) + " " + g_battRaw + " " + g_lastXfer);   // cause=N keys=0xM + ADC diag + last transfer (debug)
+  http.addHeader("X-Wake-Detail", String(g_wakeInfo) + " " + g_battRaw + " " + g_lastXfer
+                                  + (g_mdnsNote[0] ? String(" ") + g_mdnsNote : String("")));   // cause=N keys=0xM + ADC diag + last transfer + last mDNS (debug)
   http.addHeader("X-FF-Version", FF_FW_VERSION);    // human build id (spec §1)
   http.addHeader("X-FF-Sketch-MD5", ESP.getSketchMD5());  // exact binary id
   http.addHeader("X-Boot-Count", String(g_bootCount));    // spec §5
@@ -912,7 +954,14 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct)
   // must actually paint: drop the ETag so a healthy server answers 200, not a
   // 304 that would strand the boot art until the bird changes.
   if (resident && g_glassScreen >= 0) g_etag[0] = 0;
-  FetchResult r = fetchFrame(path, resident, vbat, pct);
+  // No URL yet (fresh unit, blank portal field): find the server first.
+  if (!g_serverUrl[0] && WiFi.status() == WL_CONNECTED) adoptDiscoveredServer();
+  FetchResult r = g_serverUrl[0] ? fetchFrame(path, resident, vbat, pct) : FETCH_ERROR;
+  // Couldn't reach it: maybe the box got a new address. One mDNS query, and a
+  // single retry if it names somewhere new. A typed URL that still works is
+  // never replaced; one that has stopped answering is.
+  if (r == FETCH_ERROR && WiFi.status() == WL_CONNECTED && adoptDiscoveredServer())
+    r = fetchFrame(path, resident, vbat, pct);
   g_loaderAnim.on = false;
   return r;
 }

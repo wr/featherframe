@@ -97,9 +97,12 @@ Battery calibration and button pins live in `firmware/include/ff_config.h`.
 ### 3. First boot
 
 The frame starts a hotspot named **`Featherframe-Setup`**. Join it from your
-phone, pick your Wi-Fi, and enter the server URL from step 1 (include `http://`
-and the port). To redo it later, hold **KEY2 for 3 s**; hold KEY2 while
-powering on to wipe everything.
+phone and pick your Wi-Fi. Leave the server URL blank: the frame finds the
+server by mDNS (the server advertises `_featherframe._tcp`), and finds it
+again on its own if the box ever changes address. Type the URL from step 1
+(include `http://` and the port) only on a network that blocks multicast.
+To redo it later, hold **KEY2 for 3 s**; hold KEY2 while powering on to wipe
+everything.
 
 If the image hangs sideways, change **Panel rotation** on the config page — no
 reflash.
@@ -166,8 +169,10 @@ make preview     # renders a fake Northern Cardinal to test_output/
   `~/BirdNET-Pi/scripts/birds.db`.
 - **Frame never updates** — quiet hours, the debounce window, or "same species
   already showing" are all intentional. Hit *Test detection* to force one.
-- **Device never checks in** — check the serial monitor; the server URL needs
-  a scheme and port. Hold KEY2 for 3 s to redo setup.
+- **Device never checks in** — `/api/status` shows `mdns.advertised`; if it is
+  false the box has no LAN route or `zeroconf` is missing (re-run
+  `install.sh`). On a network that blocks multicast, hold KEY2 for 3 s and type
+  the server URL (scheme and port) into the portal.
 - **Plates missing** — re-run `python scripts/fetch_plates.py`; it's idempotent.
 
 ## Credits

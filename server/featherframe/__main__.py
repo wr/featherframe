@@ -11,6 +11,8 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=int(os.environ.get("FEATHERFRAME_PORT", "8080")))
     args = ap.parse_args()
 
+    os.environ["FEATHERFRAME_PORT"] = str(args.port)   # the mDNS record needs the bound port
+
     import uvicorn
     # Single worker on purpose: one render thread, memory-frugal, one source of
     # truth for the current frame.

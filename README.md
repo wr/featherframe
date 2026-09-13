@@ -118,9 +118,10 @@ The page at `http://<your-pi>:8080/` is the whole UI:
   plus an optional overnight "day in review" sheet.
 - **Confidence threshold** (0.7), **quiet hours** (22:00–06:00), and an
   optional debounce between repaints for a calmer frame.
-- **Power** — *always awake* (Wi-Fi up, checks every 15 s, instant buttons; for
-  USB) or *deep sleep* (wakes on the **wake interval**, 15 min by default, or a
-  button; for battery). The frame picks up a change on its next check-in.
+- **Power** — *always awake* (Wi-Fi up, asks for a new plate every few seconds,
+  instant buttons; for USB) or *deep sleep* (wakes on the **wake interval**,
+  15 min by default, or a button; for battery). *Check every* sets the awake
+  poll (3 s by default). The frame picks up a change on its next check-in.
 - **Species blocklist** — one name per line. Ban the house sparrows if you like.
 - **Detection source** — BirdNET-Pi DB (default), BirdNET-Go, BirdWeather, or
   an Apprise webhook, with a *Test connection* button.

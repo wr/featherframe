@@ -171,6 +171,7 @@ runtime setting (W-736): the server sends `X-Power-Mode` (awake|sleep) and
 NVS, and `setup()` branches on `g_alwaysAwake`; a switch takes effect at the
 end of the cycle that learned it (awake→sleep from `loop()`, sleep→awake by a
 restart). `FF_DEFAULT_ALWAYS_AWAKE` is only the mode of a unit with no stored
-value. The wall runs always-awake (15 s polling) today; deep sleep is the
+value; `X-Poll-Seconds` sets the awake poll gap the same way (3 s default).
+The wall runs always-awake today; deep sleep is the
 less-tested branch. Low battery (< 3.45 V) skips Wi-Fi and
 sleeps 4 h at a time; OTA is refused under 3.70 V and a bad image rolls back.

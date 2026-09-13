@@ -606,7 +606,7 @@
               </div>
             </div>
             <div class="frow" id="hold-ctl" {{ 'hidden' if uh else '' }}>
-              <div class="frow-text"><span class="lab">Keep this plate up</span><div class="hint">Holds it on the wall until the hold ends, then the latest bird takes over.</div></div>
+              <div class="frow-text"><span class="lab">Keep this plate up</span><div class="hint">Holds it on the wall until the hold ends, then the latest detection takes over.</div></div>
               <div class="frow-ctl">
                 <select class="sel hold-dur" id="hold-dur" aria-label="Hold this plate for">
                   <option value="day">a day</option>
@@ -622,7 +622,7 @@
             </div>
             {# Put any animal on the wall: a fake detection through the full
                provider chain. A creature Audubon never painted buys a generated
-               plate (one image generation, cached forever). The next real bird
+               plate (one image generation, cached forever). The next real detection
                replaces it. #}
             <div class="frow stack">
               <div class="frow-text"><span class="lab">Manual override</span><div class="hint">Shows any species now. One without a plate is painted once. The next real detection takes over.</div></div>
@@ -722,7 +722,7 @@
            forces a wrap, the time drops under it right-aligned instead of a
            dangling "·" ending the first line. #}
         <dl>
-          {# "· holding 40 min" while a new bird keeps the frame against repeats (dwell_minutes). #}
+          {# "· holding 40 min" while a new species keeps the frame against repeats (dwell_minutes). #}
           {% set hold = status.current.holding %}
           <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="when" id="fc-holding">{{ ('held ' ~ status.hold.until_text) if status.hold else (('holding ' ~ hold.minutes_left ~ ' min') if hold else '') }}</span></dd>
           {% set ld = status.last_detection %}
@@ -790,11 +790,11 @@
             </div>
           </div>
           <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="ssl">Always show the most recent detection</label><div class="hint" id="ssl-sub">Each new bird replaces the last. Turn off for a calmer wall: changes wait the debounce, and a bird already showing isn't redrawn.</div></div>
+            <div class="frow-text"><label class="lab" for="ssl">Always show the most recent detection</label><div class="hint" id="ssl-sub">Each new detection replaces the last. Turn off for a calmer wall: updates wait the debounce, and a species already showing isn't redrawn.</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ssl" name="single_show_latest" aria-describedby="ssl-sub" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label></div>
           </div>
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint">Always awake on USB: instant buttons, a bird shows within seconds. Deep sleep on battery: the frame wakes on a schedule or a button press.</div></div>
+            <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint">Always awake on USB: instant buttons, a detection shows within seconds. Deep sleep on battery: the frame wakes on a schedule or a button press.</div></div>
             <div class="frow-ctl">
               {% set pm = config.power_mode %}
               <div class="seg" role="radiogroup" aria-labelledby="power-lab">
@@ -805,7 +805,7 @@
           </div>
           <div class="reveal{{ '' if config.power_mode=='awake' else ' collapsed' }}" id="poll-field" {{ '' if config.power_mode=='awake' else 'hidden' }}><div class="reveal-body">
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="poll-lab">Check every</span><div class="hint">How soon a new bird can reach the wall. Leave it unless Wi-Fi is struggling.</div></div>
+            <div class="frow-text"><span class="lab" id="poll-lab">Check every</span><div class="hint">How soon a new detection can reach the wall. Leave it unless Wi-Fi is struggling.</div></div>
             <div class="frow-ctl">
               {% set pv = config.device_poll_seconds %}
               <div class="seg" role="radiogroup" aria-labelledby="poll-lab">
@@ -821,7 +821,7 @@
           </div></div>
           <div class="reveal{{ '' if config.power_mode=='sleep' else ' collapsed' }}" id="wake-field" {{ '' if config.power_mode=='sleep' else 'hidden' }}><div class="reveal-body">
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How long the frame sleeps between check-ins. Longer means months more battery; a bird may wait that long to show.</div></div>
+            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How long the frame sleeps between check-ins. Longer means months more battery; an update may wait that long to show.</div></div>
             <div class="frow-ctl">
               {% set presets = [1, 5, 15, 30, 60] %}
               {% set wv = config.wake_interval_minutes %}
@@ -852,7 +852,7 @@
             <div class="disc-body"><div class="adv-body">
               <p class="adv-group">Detection</p>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-conf">Confidence threshold</label><div class="hint">How sure BirdNET must be before a bird is shown, 0 to 1. Raise it if you see birds that aren't there; lower it if quiet ones are missed.</div></div>
+                <div class="frow-text"><label class="lab" for="f-conf">Confidence threshold</label><div class="hint">How sure BirdNET must be before a detection is shown, 0 to 1. Raise it if you see species that aren't there; lower it if quiet ones are missed.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-conf" name="confidence_threshold" min="0" max="1" step="0.01" inputmode="decimal" value="{{ config.confidence_threshold }}"></div>
               </div>
               <div class="frow">
@@ -860,7 +860,7 @@
                 <div class="frow-ctl"><input type="number" id="f-deb" name="refresh_debounce_minutes" min="1" max="720" step="1" inputmode="numeric" value="{{ config.refresh_debounce_minutes }}"></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-dwell">Hold a new bird for (minutes)</label><div class="hint">A bird new today stays up this long, even as the regulars keep calling. 0 turns it off.</div></div>
+                <div class="frow-text"><label class="lab" for="f-dwell">Hold a new species for (minutes)</label><div class="hint">A species new today stays up this long, even as the regulars keep calling. 0 turns it off.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-dwell" name="dwell_minutes" min="0" max="720" step="1" inputmode="numeric" value="{{ config.dwell_minutes }}"></div>
               </div>
               <p class="adv-group">New species</p>
@@ -940,7 +940,7 @@
           </div></div>
           <div class="reveal{{ ' collapsed' if config.quiet_hours_mode=='off' else '' }}" id="hold-field" {{ 'hidden' if config.quiet_hours_mode=='off' else '' }}><div class="reveal-body">
           <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="qhc">Show a “day in review” during quiet hours</label><div class="hint" id="qhc-sub">Puts the day's top species on one sheet for the night, instead of the last bird heard. <a class="ex seg-ex" id="dayreview-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a day-in-review example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></div></div>
+            <div class="frow-text"><label class="lab" for="qhc">Show a “day in review” during quiet hours</label><div class="hint" id="qhc-sub">Puts the day's top species on one sheet for the night, instead of the last species heard. <a class="ex seg-ex" id="dayreview-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a day-in-review example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="qhc" name="quiet_hours_render_collage" aria-describedby="qhc-sub" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label></div>
           </div>
           </div></div>
@@ -1023,7 +1023,7 @@
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="disc-body"><div class="adv-body">
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-poll">Poll interval (seconds)</label><div class="hint">How often new detections are fetched. Lower means a bird shows sooner. BirdWeather is never polled faster than every 60 s.</div></div>
+                <div class="frow-text"><label class="lab" for="f-poll">Poll interval (seconds)</label><div class="hint">How often new detections are fetched. Lower means an update shows sooner. BirdWeather is never polled faster than every 60 s.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-poll" name="poll_interval_seconds" min="2" max="300" step="1" inputmode="numeric" value="{{ config.poll_interval_seconds }}"></div>
               </div>
               <div class="frow">
@@ -1046,7 +1046,7 @@
       <div class="card">
         <section class="sec">
           <h2 class="sec-head">Image generation</h2>
-          <p class="intro">When a bird has no Audubon plate, Featherframe generates one in the same lithograph style, so the frame shows the right species instead of a text-only card.</p>
+          <p class="intro">When a species has no Audubon plate, Featherframe generates one in the same lithograph style, so the frame shows the right species instead of a text-only card.</p>
           <div class="frow toggle">
             <div class="frow-text"><label class="lab" for="ig">Generate a plate for species Audubon never painted</label></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ig" name="imagegen_enabled" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label></div>
@@ -1112,7 +1112,7 @@
               </div>
               <p class="adv-group">Text model</p>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Writes the species' plumage and plants so the image model draws the right bird. Replicate has no text model.</div></div>
+                <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Writes the species' plumage and plants so the image model draws the right one. Replicate has no text model.</div></div>
                 <div class="frow-ctl">
                   <div class="cselect">
                   <select class="sel cselect-native" name="imagegen_text_provider" id="ig-text-provider">
@@ -1281,7 +1281,7 @@
   }
   // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
   var FIELD_NAMES = { confidence_threshold: 'Confidence threshold', refresh_debounce_minutes: 'Refresh debounce',
-    dwell_minutes: 'Hold a new bird',
+    dwell_minutes: 'Hold a new species',
     power_mode: 'Power', device_poll_seconds: 'Check every', wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval', quiet_alarm_hours: 'Gone-quiet alarm',
     source_alarm_minutes: 'Source-outage note',
     collage_rebuilds_per_day: 'Collage rebuilds per day', review_species_max: 'Species on the sheet',

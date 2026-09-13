@@ -93,7 +93,14 @@
 
 // --- Behaviour defaults (overridable via NVS / server) ---
 #define DEFAULT_WAKE_MINUTES   15
-#define DEFAULT_SERVER_URL     "http://10.0.1.73:8081"
+// No server is baked in: the frame finds it by mDNS (_featherframe._tcp, which
+// the server advertises) on first boot and again whenever the stored URL
+// stops answering. A URL typed into the portal is used as-is until it fails.
+// A LAN that blocks multicast needs the typed URL.
+#define DEFAULT_SERVER_URL     ""
+#define FF_MDNS_SERVICE        "featherframe"
+#define FF_MDNS_PROTO          "tcp"
+#define FF_MDNS_RETRY_MS       60000     // don't re-query mDNS more often than this while awake
 #define FRAME_PATH             "/api/frame"
 #define VIEW_COLLAGE_PATH      "/api/frame?view=collage"
 #define VIEW_STATUS_PATH       "/api/frame?view=status"

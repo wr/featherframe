@@ -280,6 +280,9 @@
     .lab { display:block; font-size:14px; font-weight:500; color:var(--ink); line-height:1.4; }
     label.lab { cursor:pointer; }
     .hint { font-size:12.5px; color:var(--muted); margin-top:3px; line-height:1.5; }
+    /* A hint that contrasts two choices reads better as two bullets. */
+    .hint ul { margin:0; padding-left:1.1em; }
+    .hint li { margin:0; }
     .hint:empty { display:none; }
     .hint-inline { color:var(--muted); }
     .intro { font-size:13px; color:var(--muted); margin:-4px 0 16px; line-height:1.5; max-width:62ch; }
@@ -794,7 +797,7 @@
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ssl" name="single_show_latest" aria-describedby="ssl-sub" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label></div>
           </div>
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint">Always awake on USB: instant buttons, a detection shows within seconds. Deep sleep on battery: the frame wakes on a schedule or a button press.</div></div>
+            <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint"><ul><li>Always awake on USB: instant buttons, a detection shows within seconds.</li><li>Deep sleep on battery: the frame wakes on a schedule or a button press.</li></ul></div></div>
             <div class="frow-ctl">
               {% set pm = config.power_mode %}
               <div class="seg" role="radiogroup" aria-labelledby="power-lab">
@@ -821,7 +824,7 @@
           </div></div>
           <div class="reveal{{ '' if config.power_mode=='sleep' else ' collapsed' }}" id="wake-field" {{ '' if config.power_mode=='sleep' else 'hidden' }}><div class="reveal-body">
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How long the frame sleeps between check-ins. Longer means months more battery; an update may wait that long to show.</div></div>
+            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How long the frame sleeps between check-ins. Longer means months more battery; an update waits up to that long to show.</div></div>
             <div class="frow-ctl">
               {% set presets = [1, 5, 15, 30, 60] %}
               {% set wv = config.wake_interval_minutes %}

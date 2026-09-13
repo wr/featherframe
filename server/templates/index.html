@@ -396,6 +396,13 @@
     /* the bottom breathing room lives inside the clipped body, so it collapses with it */
     details.disc > .disc-body > *::after { content:""; display:block; height:var(--pad); }
     @media (prefers-reduced-motion:reduce){ details.disc > summary .chev, details.disc > .disc-body { transition:none; } }
+    /* Dependent rows (wake interval under Power, the quiet-hours times): slide
+       open and shut with the same grid-rows trick; JS sets [hidden] once shut. */
+    .reveal { display:grid; grid-template-rows:1fr; transition:grid-template-rows .22s ease; }
+    .reveal.collapsed { grid-template-rows:0fr; }
+    .reveal > .reveal-body { min-height:0; overflow:hidden; }
+    section.sec > .reveal:last-child .frow { padding-bottom:0; }
+    @media (prefers-reduced-motion:reduce){ .reveal { transition:none; } }
     .adv-body { padding:0 var(--pad); }
     @media (max-width:600px){ details.adv { --pad:16px; margin-top:12px; } }
     .adv-group { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; margin:0; padding:18px 0 10px; }
@@ -645,7 +652,7 @@
         </div>
         <div class="note warn" id="fc-overdue" {{ '' if card.overdue else 'hidden' }}>
           <svg viewBox="0 0 16 16" aria-hidden="true"><use href="#ic-warn"/></svg>
-          <span id="fc-overdue-text">{% if card.overdue %}Overdue — wakes every {{ card.expected_minutes }} min{% endif %}</span>
+          <span id="fc-overdue-text">{% if card.overdue %}{{ card.overdue_text }}{% endif %}</span>
         </div>
         <div class="note" id="fc-never" {{ 'hidden' if card.seen else '' }}>
           <svg viewBox="0 0 16 16" aria-hidden="true"><use href="#ic-info"/></svg>
@@ -787,7 +794,7 @@
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ssl" name="single_show_latest" aria-describedby="ssl-sub" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label></div>
           </div>
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint">Always awake keeps Wi-Fi up and checks every 15 s; buttons answer at once. Fine on USB. Deep sleep wakes on the interval below or a button press; it is the battery model.</div></div>
+            <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint">Always awake keeps Wi-Fi up and checks every 15 s; buttons answer at once. Fine on USB. Deep sleep wakes on an interval or a button press; it is the battery model.</div></div>
             <div class="frow-ctl">
               {% set pm = config.power_mode %}
               <div class="seg" role="radiogroup" aria-labelledby="power-lab">
@@ -796,8 +803,9 @@
               </div>
             </div>
           </div>
+          <div class="reveal{{ '' if config.power_mode=='sleep' else ' collapsed' }}" id="wake-field" {{ '' if config.power_mode=='sleep' else 'hidden' }}><div class="reveal-body">
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How often a deep-sleeping frame wakes to check in. Longer means better battery life. The frame picks up a change on its next check-in.</div></div>
+            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How often the frame wakes to check in. Longer means better battery life. The frame picks up a change on its next check-in.</div></div>
             <div class="frow-ctl">
               {% set presets = [1, 5, 15, 30, 60] %}
               {% set wv = config.wake_interval_minutes %}
@@ -811,6 +819,7 @@
               </div>
             </div>
           </div>
+          </div></div>
           {# The frame's own dark mode (inverted ink on the panel) — not the page theme in the footer. #}
           <div class="frow">
             <div class="frow-text"><span class="lab" id="dark-lab">Dark mode</span><div class="hint" id="dark-hint"></div></div>
@@ -907,14 +916,18 @@
               </div>
             </div>
           </div>
-          <div class="frow" id="quiet-custom" {{ '' if config.quiet_hours_mode=='custom' else 'hidden' }}>
+          <div class="reveal{{ '' if config.quiet_hours_mode=='custom' else ' collapsed' }}" id="quiet-custom" {{ '' if config.quiet_hours_mode=='custom' else 'hidden' }}><div class="reveal-body">
+          <div class="frow">
             <div class="frow-text"><span class="lab" id="quiet-between-lab">Between</span><div class="hint">Start and end, on the frame's clock.</div></div>
             <div class="frow-ctl pair" role="group" aria-labelledby="quiet-between-lab"><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}" aria-label="Start"><span class="pair-sep" aria-hidden="true">–</span><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}" aria-label="End"></div>
           </div>
-          <div class="frow toggle" id="hold-field" {{ 'hidden' if config.quiet_hours_mode=='off' else '' }}>
+          </div></div>
+          <div class="reveal{{ ' collapsed' if config.quiet_hours_mode=='off' else '' }}" id="hold-field" {{ 'hidden' if config.quiet_hours_mode=='off' else '' }}><div class="reveal-body">
+          <div class="frow toggle">
             <div class="frow-text"><label class="lab" for="qhc">Show a “day in review” during quiet hours</label><div class="hint" id="qhc-sub">The day's top species on one sheet, held through quiet hours. <a class="ex seg-ex" id="dayreview-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a day-in-review example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="qhc" name="quiet_hours_render_collage" aria-describedby="qhc-sub" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label></div>
           </div>
+          </div></div>
         </section>
       </div>
 
@@ -1408,7 +1421,7 @@
     setDot('fc-seen-dot', card.seen ? (card.overdue ? 'warn' : 'good') : 'off');
     setHidden('fc-overdue', !card.overdue);
     // (em dash escaped: the literal must only appear in the page when actually overdue)
-    setText('fc-overdue-text', card.overdue ? 'Overdue \u2014 wakes every ' + card.expected_minutes + ' min' : '');
+    setText('fc-overdue-text', card.overdue ? (card.overdue_text || '') : '');
     setHidden('fc-never', card.seen);
     setHidden('fc-telemetry', !card.seen);
     var pct = (card.battery_percent !== null && card.battery_percent !== undefined) ? card.battery_percent : dev.battery_percent, bar = $('fc-batt-bar');
@@ -1714,19 +1727,45 @@
       sun: "Holds one image from sunset to sunrise, based on your timezone (approximate).",
       custom: "Holds one image during the hours you set below."
     };
+    // Dependent rows slide open and shut like the disclosures: [hidden] goes
+    // on only once the slide has finished, and comes off before it starts.
+    function setRevealed(el, show) {
+      if (!el) return;
+      if (show) {
+        if (!el.hidden && !el.classList.contains('collapsed')) return;
+        el.hidden = false; el.classList.add('collapsed');
+        void el.offsetHeight;
+        el.classList.remove('collapsed');
+      } else {
+        if (el.hidden) return;
+        el.classList.add('collapsed');
+        var done = function () {
+          el.removeEventListener('transitionend', done);
+          if (el.classList.contains('collapsed')) el.hidden = true;
+        };
+        el.addEventListener('transitionend', done);
+        setTimeout(done, 300);
+      }
+    }
     var quietHintEl = $('quiet-hint');
     function syncQuiet() {
       var v = (document.querySelector('input[name="quiet_hours_mode"]:checked') || {}).value;
-      var custom = $('quiet-custom');
-      if (custom) custom.hidden = (v !== 'custom');
+      setRevealed($('quiet-custom'), v === 'custom');
       // The "day in review" only fires during quiet hours, so hide its toggle
       // entirely when quiet hours is off — it would do nothing.
-      var hold = $('hold-field');
-      if (hold) hold.hidden = (v === 'off');
+      setRevealed($('hold-field'), v !== 'off');
       if (quietHintEl) quietHintEl.textContent = QUIET_HINT[v] || '';
     }
     document.querySelectorAll('input[name="quiet_hours_mode"]').forEach(function (r) { r.addEventListener('change', syncQuiet); });
     syncQuiet();
+    // The wake interval only means something in deep sleep (always awake polls
+    // every 15 s), so the row follows the Power choice, like quiet hours.
+    function syncPower() {
+      var v = (document.querySelector('input[name="power_mode"]:checked') || {}).value;
+      setRevealed($('wake-field'), v === 'sleep');
+    }
+    document.querySelectorAll('input[name="power_mode"]').forEach(function (r) { r.addEventListener('change', syncPower); });
+    syncPower();
     // New-species corroboration: the three numbers only mean something while
     // the toggle is on, so they follow it (same as the quiet-hours custom times).
     var cnsToggle = $('cns'), cnsFields = $('cns-fields');

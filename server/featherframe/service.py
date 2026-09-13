@@ -304,17 +304,29 @@ def _served_words(result: Optional[str]) -> Optional[str]:
     return f"{result} view" if result else None
 
 
+# An always-awake frame polls every 15 s (FF_POLL_INTERVAL_MS) and backs off
+# after repeated failures; a few minutes of silence is a real outage.
+_AWAKE_OVERDUE_MINUTES = 5
+
+
 def frame_card(device: DeviceStatus, wake_interval_minutes: int,
                now: Optional[datetime] = None,
                battery_history: Optional[list[dict]] = None,
-               battery_live: Optional[list[dict]] = None) -> dict:
+               battery_live: Optional[list[dict]] = None,
+               power_mode: str = "sleep") -> dict:
     """The wall frame's health, pre-chewed for the config page: ready-to-print
-    strings plus one overdue flag. Overdue means the device has missed two
-    consecutive wake intervals — one 304 skipped is normal jitter, two is a
-    dead battery or lost Wi-Fi."""
+    strings plus one overdue flag. In deep sleep, overdue means the device has
+    missed two consecutive wake intervals — one 304 skipped is normal jitter,
+    two is a dead battery or lost Wi-Fi. Always awake, it polls every 15 s, so
+    the bar is a fixed few minutes and the interval setting does not apply."""
     now = now or datetime.now()
+    awake = (power_mode == "awake")
+    expected = _AWAKE_OVERDUE_MINUTES if awake else 2 * wake_interval_minutes
     card = {"seen": False, "overdue": False,
-            "expected_minutes": wake_interval_minutes, "last_seen": None,
+            "expected_minutes": wake_interval_minutes,
+            "overdue_text": ("Overdue — checks in every 15 s" if awake
+                             else f"Overdue — wakes every {wake_interval_minutes} min"),
+            "last_seen": None,
             "last_checkin_iso": None, "battery": None, "battery_low": False,
             "power": {"state": "unknown", "text": ""},
             "served": None, "wifi_rssi": None}
@@ -325,7 +337,7 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
     card["seen"] = True
     card["last_seen"] = _ago(then, now)
     card["last_checkin_iso"] = then.isoformat(timespec="seconds")
-    card["overdue"] = (now - then).total_seconds() > 2 * wake_interval_minutes * 60
+    card["overdue"] = (now - then).total_seconds() > expected * 60
     if device.battery_voltage is not None and device.battery_voltage >= _BATTERY_ABSENT_V:
         # Display the last few minutes' median, not the single newest reading,
         # so the percent stops flickering between two values every 15 s.
@@ -1261,7 +1273,8 @@ class FeatherframeService:
             "device": asdict(self.device),
             "frame_card": frame_card(self.device, self.config.wake_interval_minutes,
                                      battery_history=self._battery_recent(),
-                                     battery_live=self._battery_live_copy()),
+                                     battery_live=self._battery_live_copy(),
+                                     power_mode=self.config.power_mode),
             "config": self._masked_config(),
         }
 

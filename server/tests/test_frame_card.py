@@ -117,6 +117,7 @@ def test_page_fresh(svc):
 
 
 def test_page_overdue(svc):
+    svc.config.power_mode = "sleep"   # the interval-based bar; awake is a fixed few minutes
     late = datetime.now() - timedelta(minutes=svc.config.wake_interval_minutes * 2 + 5)
     svc.device = DeviceStatus(last_checkin=late.isoformat(timespec="seconds"),
                               battery_voltage=3.6, battery_percent=31,

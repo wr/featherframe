@@ -25,7 +25,7 @@
       --accent:#6b4a2c; --accent-press:#523821; --accent-ring:rgba(107,74,44,.24);
       --good:#5c8a46; --warn:#b0781d; --bad:#b6472e;
       /* the few literal colours that repeat: white surfaces, text on walnut, the off-switch track */
-      --white:#ffffff; --on-accent:#f7efe2; --switch-off:#dcdbd6;
+      --white:#ffffff; --on-accent:#f7efe2; --switch-off:#e6e5e0;
       --btn-end:#eeeeec; --btn-end-hover:#e7e7e5; --glass:rgba(252,252,251,.86);
       --accent-grad:linear-gradient(#7d5836, var(--accent));
       --accent-grad-hover:linear-gradient(#6f4c2c, var(--accent-press));
@@ -140,20 +140,13 @@
             padding:8px 10px; border:1px solid var(--border); border-radius:7px; background:var(--inset); font-size:13px; color:var(--ink-2); }
     .held-text { font-weight:500; }
     /* the plate's tools, folded away by default */
-    details.tools { margin-top:10px; }
-    details.tools > summary { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 2px 0;
-      cursor:pointer; list-style:none; user-select:none; font-size:12.5px; color:var(--muted); }
-    details.tools > summary::-webkit-details-marker { display:none; }
-    details.tools > summary:hover { color:var(--ink-2); }
-    details.tools > summary .chev { width:11px; height:7px; transition:transform .18s; }
-    details.tools[open] > summary .chev { transform:rotate(180deg); }
-    @media (prefers-reduced-motion:reduce){ details.tools > summary .chev { transition:none; } }
-    .tools-body { padding-top:2px; }
+    details.tools { --pad:16px; margin-top:12px; }
+    .tools-body { padding:0 var(--pad); }
     /* the plate column is narrow: each tool stacks its control under its text */
     .tools-body .frow { padding:10px 0; grid-template-columns:1fr; row-gap:8px; }
     .tools-body .frow-ctl { justify-self:start; justify-content:flex-start; }
     .tools-body .frow.stack .frow-ctl { justify-self:stretch; }
-    .tools-body .frow:first-child { border-top:0; padding-top:6px; }
+    .tools-body .frow:first-child { border-top:0; padding-top:4px; }
     .tools-body .lab { font-size:13px; }
     .tools-body .hint { font-size:12px; margin-top:2px; }
     .tools-body form.inline { display:flex; gap:6px; margin:0; }
@@ -335,7 +328,7 @@
     /* toggle — green when on. The visible text is a <label for>, so the whole
        label is a tap target. */
     .hint a { color:var(--accent); }
-    .switch { position:relative; display:inline-block; width:42px; height:25px; flex:none; }
+    .switch { position:relative; display:inline-block; width:42px; height:25px; flex:none; cursor:pointer; }
     .switch input { opacity:0; width:0; height:0; }
     .switch .track { position:absolute; inset:0; background:var(--switch-off); border-radius:999px; transition:background .16s; box-shadow:inset 0 0 0 1px rgba(74,54,28,.08), inset 0 1px 2px rgba(74,54,28,.1); }
     .switch .track::before { content:""; position:absolute; width:19px; height:19px; left:3px; top:3px; background:var(--white); border-radius:50%; transition:transform .16s; box-shadow:0 1px 2px rgba(74,54,28,.3); }
@@ -385,18 +378,26 @@
     @media (prefers-reduced-motion:reduce){ .savebar.dirty { animation:none; } }
 
     /* Advanced: a full-width disclosure row with the same weight as the fields */
-    details.adv { margin:14px -26px -26px; border-top:1px solid var(--hair); }
-    details.adv > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 26px; border-radius:0 0 9px 9px;
+    /* Disclosures (Advanced, Tools): a quiet full-width row at the foot of a
+       card, bleeding to its edges by --pad; the body slides open and closed
+       (the grid-rows trick; JS holds the <details> open until the slide ends). */
+    details.disc { --pad:26px; margin:14px calc(-1 * var(--pad)) calc(-1 * var(--pad)); border-top:1px solid var(--hair); }
+    details.disc > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px var(--pad); border-radius:0 0 9px 9px;
       cursor:pointer; list-style:none; user-select:none; font-size:13px; font-weight:500; color:var(--muted); transition:color .12s, background .12s; }
-    details.adv > summary::-webkit-details-marker { display:none; }
-    details.adv > summary .chev { width:11px; height:7px; transition:transform .18s; }
-    details.adv[open] > summary .chev { transform:rotate(180deg); }
-    details.adv > summary:hover { color:var(--ink); background:color-mix(in srgb, var(--ink) 3%, transparent); }
-    details.adv[open] > summary { border-radius:0; }
-    details.adv[open] > summary { color:var(--ink-2); }
-    @media (prefers-reduced-motion:reduce){ details.adv > summary .chev { transition:none; } }
-    .adv-body { padding:0 26px 26px; }
-    @media (max-width:600px){ details.adv { margin:12px -16px -22px; } details.adv > summary { padding-left:16px; padding-right:16px; } .adv-body { padding:0 16px 22px; } }
+    details.disc > summary::-webkit-details-marker { display:none; }
+    details.disc > summary .chev { width:11px; height:7px; transition:transform .22s; }
+    details.disc[open] > summary .chev { transform:rotate(180deg); }
+    details.disc.closing > summary .chev { transform:none; }
+    details.disc > summary:hover { color:var(--ink); background:color-mix(in srgb, var(--ink) 3%, transparent); }
+    details.disc[open] > summary { border-radius:0; color:var(--ink-2); }
+    details.disc > .disc-body { display:grid; grid-template-rows:1fr; transition:grid-template-rows .22s ease; }
+    details.disc.closing > .disc-body { grid-template-rows:0fr; }
+    details.disc > .disc-body > * { overflow:hidden; min-height:0; }
+    /* the bottom breathing room lives inside the clipped body, so it collapses with it */
+    details.disc > .disc-body > *::after { content:""; display:block; height:var(--pad); }
+    @media (prefers-reduced-motion:reduce){ details.disc > summary .chev, details.disc > .disc-body { transition:none; } }
+    .adv-body { padding:0 var(--pad); }
+    @media (max-width:600px){ details.adv { --pad:16px; margin-top:12px; } }
     .adv-group { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; margin:0; padding:18px 0 10px; }
     .adv-body > .adv-group:first-child { padding-top:12px; }
 
@@ -580,9 +581,10 @@
           <span class="held-text">Holding this plate <span id="held-until">{{ uh.until_text if uh else '' }}</span></span>
           <button class="btn" type="button" id="release-btn" title="End the hold and show whatever should be on the wall now">Release</button>
         </div>
-        <details class="tools" id="plate-tools">
+        <div class="task-status" id="task-status" role="status" aria-live="polite"></div>
+        <details class="disc tools" id="plate-tools">
           <summary><span>Tools</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
-          <div class="tools-body">
+          <div class="disc-body"><div class="tools-body">
             <div class="frow">
               <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Re-render the frame now. The panel picks it up on its next wake.</div></div>
               <div class="frow-ctl"><button class="btn" type="button" id="refresh-btn">Refresh</button></div>
@@ -616,7 +618,7 @@
                plate (one image generation, cached forever). The next real bird
                replaces it. #}
             <div class="frow stack">
-              <div class="frow-text"><span class="lab">Show any creature</span><div class="hint">Bird or not. One without an Audubon plate is painted once and kept; the next real detection takes over.</div></div>
+              <div class="frow-text"><span class="lab">Manual override</span><div class="hint">One without an Audubon plate is painted once and kept; the next real detection takes over.</div></div>
               <div class="frow-ctl">
                 <form class="critter-form task-form" data-task="test-detection" method="post" action="/api/test-detection">
                   <input type="text" name="common" placeholder="Common name" aria-label="Common name" required>
@@ -625,9 +627,8 @@
                 </form>
               </div>
             </div>
-          </div>
+          </div></div>
         </details>
-        <div class="task-status" id="task-status" role="status" aria-live="polite"></div>
       </div>
 
       {# Two sections, each headed by its name and ONE status pill: whether the
@@ -811,9 +812,9 @@
               </div>
             </div>
           </div>
-          <details class="adv">
+          <details class="disc adv">
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
-            <div class="adv-body">
+            <div class="disc-body"><div class="adv-body">
               <p class="adv-group">Detection</p>
               <div class="frow">
                 <div class="frow-text"><label class="lab" for="f-conf">Confidence threshold</label><div class="hint">0 to 1. Minimum detection confidence to show a bird.</div></div>
@@ -878,7 +879,7 @@
                 <div class="frow-text"><span class="lab" id="offset-lab">Mat offset (px)</span><div class="hint">x then y, −120 to 120. For a mat that isn't dead-center.</div></div>
                 <div class="frow-ctl pair" role="group" aria-labelledby="offset-lab"><input type="number" name="mat_offset_x_px" min="-120" max="120" step="1" inputmode="numeric" value="{{ config.mat_offset_x_px }}" placeholder="x" aria-label="Horizontal offset, positive moves right" title="x — positive moves right"><input type="number" name="mat_offset_y_px" min="-120" max="120" step="1" inputmode="numeric" value="{{ config.mat_offset_y_px }}" placeholder="y" aria-label="Vertical offset, positive moves down" title="y — positive moves down"></div>
               </div>
-            </div>
+            </div></div>
           </details>
         </section>
       </div>
@@ -979,9 +980,9 @@
             <span class="test-ic" aria-hidden="true"></span>
             <span class="test-msg"></span>
           </div>
-          <details class="adv">
+          <details class="disc adv">
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
-            <div class="adv-body">
+            <div class="disc-body"><div class="adv-body">
               <div class="frow">
                 <div class="frow-text"><label class="lab" for="f-poll">Poll interval (seconds)</label><div class="hint">How often the source is checked. BirdWeather is never polled faster than every 60 s.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-poll" name="poll_interval_seconds" min="5" max="300" step="1" inputmode="numeric" value="{{ config.poll_interval_seconds }}"></div>
@@ -998,7 +999,7 @@
                 <div class="frow-text"><label class="lab" for="f-block">Species blocklist</label><div class="hint">One species per line (common or scientific name); matches are never shown.</div></div>
                 <div class="frow-ctl"><textarea id="f-block" name="species_blocklist" placeholder="One species per line">{{ config.species_blocklist|join('\n') }}</textarea></div>
               </div>
-            </div>
+            </div></div>
           </details>
         </section>
       </div>
@@ -1056,9 +1057,9 @@
             <div class="frow-text"><label class="lab" for="f-review-max">Species on the sheet</label><div class="hint">Most-heard first. 0 paints every species heard that day.</div></div>
             <div class="frow-ctl"><input type="number" id="f-review-max" name="review_species_max" min="0" max="60" step="1" inputmode="numeric" value="{{ config.review_species_max }}"></div>
           </div>
-          <details class="adv">
+          <details class="disc adv">
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
-            <div class="adv-body">
+            <div class="disc-body"><div class="adv-body">
               <p class="adv-group">Image model</p>
               <div class="frow stack">
                 <div class="frow-text"><label class="lab" for="ig-model">Image model</label><div class="hint" id="ig-model-hint"></div></div>
@@ -1110,7 +1111,7 @@
                 <div class="frow-text"><label class="lab" for="ig-text-model">Text model</label></div>
                 <div class="frow-ctl"><input type="text" name="imagegen_text_model" id="ig-text-model" list="ig-text-model-list" value="{{ config.imagegen_text_model }}" autocapitalize="off" autocorrect="off" spellcheck="false"><datalist id="ig-text-model-list"></datalist></div>
               </div>
-            </div>
+            </div></div>
           </details>
         </section>
       </div>
@@ -1630,6 +1631,28 @@
     });
   }
   if (frameCard) setInterval(pollStatus, STATUS_MS);
+
+  // -- disclosures: slide the body open and closed ---------------------------
+  // <details> can't animate on its own: on close, keep it open while the body
+  // slides shut, then close it; on open, open it shut and let it slide.
+  document.querySelectorAll('details.disc').forEach(function (d) {
+    var sum = d.querySelector(':scope > summary'), body = d.querySelector(':scope > .disc-body');
+    if (!sum || !body) return;
+    sum.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (d.classList.contains('closing')) return;
+      if (d.open) {
+        d.classList.add('closing');
+        var done = function () { body.removeEventListener('transitionend', done); d.open = false; d.classList.remove('closing'); };
+        body.addEventListener('transitionend', done);
+        setTimeout(done, 300);
+      } else {
+        d.classList.add('closing'); d.open = true;
+        void body.offsetHeight;
+        d.classList.remove('closing');
+      }
+    });
+  });
 
   // -- page theme: light / dark / system, kept in this browser ----------------
   (function () {

@@ -593,11 +593,11 @@
           <summary><span>Tools</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
           <div class="disc-body"><div class="tools-body">
             <div class="frow">
-              <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Re-render the frame now. The panel picks it up on its next wake.</div></div>
+              <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Redraws the plate now. The wall updates on its next check-in.</div></div>
               <div class="frow-ctl"><button class="btn" type="button" id="refresh-btn">Refresh</button></div>
             </div>
             <div class="frow">
-              <div class="frow-text"><span class="lab">Day in review</span><div class="hint">Show today's sheet now. Repaint paints it again from today's species (one image).</div></div>
+              <div class="frow-text"><span class="lab">Day in review</span><div class="hint">Puts today's sheet on the wall now. Repaint rebuilds it from today's species.</div></div>
               <div class="frow-ctl">
                 <form class="inline task-form" data-task="day-review" method="post" action="/api/collage/day-review">
                   <button class="btn" type="submit">Show</button>
@@ -606,7 +606,7 @@
               </div>
             </div>
             <div class="frow" id="hold-ctl" {{ 'hidden' if uh else '' }}>
-              <div class="frow-text"><span class="lab">Keep this plate up</span><div class="hint">Nothing replaces it until the hold ends; then the wall catches up.</div></div>
+              <div class="frow-text"><span class="lab">Keep this plate up</span><div class="hint">Holds it on the wall until the hold ends, then the latest bird takes over.</div></div>
               <div class="frow-ctl">
                 <select class="sel hold-dur" id="hold-dur" aria-label="Hold this plate for">
                   <option value="day">a day</option>
@@ -617,7 +617,7 @@
               </div>
             </div>
             <div class="frow">
-              <div class="frow-text"><span class="lab">Block this species</span><div class="hint">Never shown again; it goes on the blocklist.</div></div>
+              <div class="frow-text"><span class="lab">Block this species</span><div class="hint">Adds it to the blocklist, so it's never shown again.</div></div>
               <div class="frow-ctl"><button class="btn" type="button" id="block-btn">Block</button></div>
             </div>
             {# Put any animal on the wall: a fake detection through the full
@@ -625,7 +625,7 @@
                plate (one image generation, cached forever). The next real bird
                replaces it. #}
             <div class="frow stack">
-              <div class="frow-text"><span class="lab">Manual override</span><div class="hint">One without an Audubon plate is painted once and kept; the next real detection takes over.</div></div>
+              <div class="frow-text"><span class="lab">Manual override</span><div class="hint">Shows any species now. One without a plate is painted once. The next real detection takes over.</div></div>
               <div class="frow-ctl">
                 <form class="critter-form task-form" data-task="test-detection" method="post" action="/api/test-detection">
                   <input type="text" name="common" placeholder="Common name" aria-label="Common name" required>
@@ -790,11 +790,11 @@
             </div>
           </div>
           <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="ssl">Always show the most recent detection</label><div class="hint" id="ssl-sub">When off, changes wait the refresh debounce and a species already showing isn't redrawn.</div></div>
+            <div class="frow-text"><label class="lab" for="ssl">Always show the most recent detection</label><div class="hint" id="ssl-sub">Each new bird replaces the last. Turn off for a calmer wall: changes wait the debounce, and a bird already showing isn't redrawn.</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ssl" name="single_show_latest" aria-describedby="ssl-sub" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label></div>
           </div>
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint">Always awake keeps Wi-Fi up and checks in every few seconds; buttons answer at once. Fine on USB. Deep sleep wakes on an interval or a button press; it is the battery model.</div></div>
+            <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint">Always awake on USB: instant buttons, a bird shows within seconds. Deep sleep on battery: the frame wakes on a schedule or a button press.</div></div>
             <div class="frow-ctl">
               {% set pm = config.power_mode %}
               <div class="seg" role="radiogroup" aria-labelledby="power-lab">
@@ -805,7 +805,7 @@
           </div>
           <div class="reveal{{ '' if config.power_mode=='awake' else ' collapsed' }}" id="poll-field" {{ '' if config.power_mode=='awake' else 'hidden' }}><div class="reveal-body">
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="poll-lab">Check every</span><div class="hint">How often an awake frame asks for a new plate. Faster means a bird shows sooner after it calls; the ask is tiny when nothing has changed.</div></div>
+            <div class="frow-text"><span class="lab" id="poll-lab">Check every</span><div class="hint">How soon a new bird can reach the wall. Leave it unless Wi-Fi is struggling.</div></div>
             <div class="frow-ctl">
               {% set pv = config.device_poll_seconds %}
               <div class="seg" role="radiogroup" aria-labelledby="poll-lab">
@@ -821,7 +821,7 @@
           </div></div>
           <div class="reveal{{ '' if config.power_mode=='sleep' else ' collapsed' }}" id="wake-field" {{ '' if config.power_mode=='sleep' else 'hidden' }}><div class="reveal-body">
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How often the frame wakes to check in. Longer means better battery life. The frame picks up a change on its next check-in.</div></div>
+            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How long the frame sleeps between check-ins. Longer means months more battery; a bird may wait that long to show.</div></div>
             <div class="frow-ctl">
               {% set presets = [1, 5, 15, 30, 60] %}
               {% set wv = config.wake_interval_minutes %}
@@ -852,33 +852,33 @@
             <div class="disc-body"><div class="adv-body">
               <p class="adv-group">Detection</p>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-conf">Confidence threshold</label><div class="hint">0 to 1. Minimum detection confidence to show a bird.</div></div>
+                <div class="frow-text"><label class="lab" for="f-conf">Confidence threshold</label><div class="hint">How sure BirdNET must be before a bird is shown, 0 to 1. Raise it if you see birds that aren't there; lower it if quiet ones are missed.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-conf" name="confidence_threshold" min="0" max="1" step="0.01" inputmode="decimal" value="{{ config.confidence_threshold }}"></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-deb">Refresh debounce (minutes)</label><div class="hint">Only applies when “Always show the most recent detection” is off.</div></div>
+                <div class="frow-text"><label class="lab" for="f-deb">Refresh debounce (minutes)</label><div class="hint">Minimum time between repaints. Only used when “Always show the most recent detection” is off.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-deb" name="refresh_debounce_minutes" min="1" max="720" step="1" inputmode="numeric" value="{{ config.refresh_debounce_minutes }}"></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-dwell">Hold a new bird for (minutes)</label><div class="hint">A first-ever or first-today species keeps the frame this long against repeats. 0 turns it off.</div></div>
+                <div class="frow-text"><label class="lab" for="f-dwell">Hold a new bird for (minutes)</label><div class="hint">A bird new today stays up this long, even as the regulars keep calling. 0 turns it off.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-dwell" name="dwell_minutes" min="0" max="720" step="1" inputmode="numeric" value="{{ config.dwell_minutes }}"></div>
               </div>
               <p class="adv-group">New species</p>
               <div class="frow toggle">
-                <div class="frow-text"><label class="lab" for="cns">Ask for a second detection before showing a new species</label><div class="hint" id="cns-sub">A species new today must be heard twice, or once confidently, before it's shown or painted.</div></div>
+                <div class="frow-text"><label class="lab" for="cns">Ask for a second detection before showing a new species</label><div class="hint" id="cns-sub">Keeps one-off misidentifications off the wall and out of the paint budget. A species new today must be heard twice, or once confidently.</div></div>
                 <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cns" name="corroborate_new_species" aria-describedby="cns-sub" {{ 'checked' if config.corroborate_new_species else '' }}><span class="track"></span></label></div>
               </div>
               <div id="cns-fields" {{ '' if config.corroborate_new_species else 'hidden' }}>
                 <div class="frow">
-                  <div class="frow-text"><label class="lab" for="f-cconf">Confident enough alone</label><div class="hint">A single detection at or above this confidence is enough.</div></div>
+                  <div class="frow-text"><label class="lab" for="f-cconf">Confident enough alone</label><div class="hint">One detection at or above this confidence skips the wait.</div></div>
                   <div class="frow-ctl"><input type="number" id="f-cconf" name="corroborate_confidence" min="0" max="1" step="0.01" inputmode="decimal" value="{{ config.corroborate_confidence }}"></div>
                 </div>
                 <div class="frow">
-                  <div class="frow-text"><label class="lab" for="f-cwin">Window (hours)</label><div class="hint">Look back this many hours for the second detection.</div></div>
+                  <div class="frow-text"><label class="lab" for="f-cwin">Window (hours)</label><div class="hint">How long the first detection waits for a second.</div></div>
                   <div class="frow-ctl"><input type="number" id="f-cwin" name="corroborate_window_hours" min="1" max="168" step="1" inputmode="numeric" value="{{ config.corroborate_window_hours }}"></div>
                 </div>
                 <div class="frow">
-                  <div class="frow-text"><label class="lab" for="f-cgap">Minimum gap (minutes)</label><div class="hint">The two detections must be at least this far apart.</div></div>
+                  <div class="frow-text"><label class="lab" for="f-cgap">Minimum gap (minutes)</label><div class="hint">The two detections must be at least this far apart, so one long song doesn't count twice.</div></div>
                   <div class="frow-ctl"><input type="number" id="f-cgap" name="corroborate_min_gap_minutes" min="0" max="720" step="1" inputmode="numeric" value="{{ config.corroborate_min_gap_minutes }}"></div>
                 </div>
               </div>
@@ -891,27 +891,27 @@
                 <div class="frow-ctl"><select class="sel" id="f-tone" name="gray_mode"><option value="16" {{ 'selected' if config.gray_mode=='16' else '' }}>Grayscale (16-level)</option><option value="1" {{ 'selected' if config.gray_mode=='1' else '' }}>Black &amp; white (1-bit)</option><option value="color" {{ 'selected' if config.gray_mode=='color' else '' }} {{ 'disabled' if panel_gray else '' }}>Color{{ ' — needs a color panel' if panel_gray else '' }}</option></select></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-dither">Dithering</label><div class="hint">How 16 grays stand in for the plate's tones. Blue-noise suits a Pi Zero.</div></div>
+                <div class="frow-text"><label class="lab" for="f-dither">Dithering</label><div class="hint">How the plate's tones are rendered in 16 grays. Blue-noise is quick and looks right; Stucki is slower and a touch finer.</div></div>
                 <div class="frow-ctl"><select class="sel" id="f-dither" name="dither"><option value="bluenoise" {{ 'selected' if config.dither=='bluenoise' else '' }}>Blue-noise (fast)</option><option value="stucki" {{ 'selected' if config.dither=='stucki' else '' }}>Stucki (slow, richer)</option><option value="none" {{ 'selected' if config.dither=='none' else '' }}>None</option></select></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-rot">Panel rotation</label><div class="hint">If the panel shows the image upside down, switch this. No reflash.</div></div>
+                <div class="frow-text"><label class="lab" for="f-rot">Panel rotation</label><div class="hint">Switch this if the plate is upside down on the wall.</div></div>
                 <div class="frow-ctl"><select class="sel" id="f-rot" name="panel_rotation">{% for r in [90,270] %}<option value="{{ r }}" {{ 'selected' if config.panel_rotation==r else '' }}>{{ r }}°</option>{% endfor %}</select></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-rebuilds">Collage rebuilds per day</label><div class="hint">How many times a day the daytime sheet is re-rendered as species arrive.</div></div>
+                <div class="frow-text"><label class="lab" for="f-rebuilds">Collage rebuilds per day</label><div class="hint">How often the day's sheet is redrawn as new species arrive. More rebuilds, more repaints.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-rebuilds" name="collage_rebuilds_per_day" min="1" max="24" step="1" inputmode="numeric" value="{{ config.collage_rebuilds_per_day }}"></div>
               </div>
               <div class="frow toggle">
-                <div class="frow-text"><label class="lab" for="pn">Show the plate number (“No. 47”)</label><div class="hint" id="pn-sub">Printed in the caption, matching the Havell plate.</div></div>
+                <div class="frow-text"><label class="lab" for="pn">Show the plate number (“No. 47”)</label><div class="hint" id="pn-sub">Prints Audubon's plate number in the caption, as on the Havell edition.</div></div>
                 <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="pn" name="show_plate_number" aria-describedby="pn-sub" {{ 'checked' if config.show_plate_number else '' }}><span class="track"></span></label></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-inset">Mat inset (% per edge)</label><div class="hint">The white border in the preview is the mat allowance. Raise it until the mat just hides the white; ~4 suits an 8×6 mat.</div></div>
+                <div class="frow-text"><label class="lab" for="f-inset">Mat inset (% per edge)</label><div class="hint">How much of each edge your mat covers. Raise it until the mat just hides the white border in the preview; about 4 for an 8×6 mat.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-inset" name="mat_inset_pct" min="0" max="20" step="0.1" inputmode="decimal" value="{{ config.mat_inset_pct }}"></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><span class="lab" id="offset-lab">Mat offset (px)</span><div class="hint">x then y, −120 to 120. For a mat that isn't dead-center.</div></div>
+                <div class="frow-text"><span class="lab" id="offset-lab">Mat offset (px)</span><div class="hint">Nudges the art if your mat opening isn't centered. x then y, −120 to 120.</div></div>
                 <div class="frow-ctl pair" role="group" aria-labelledby="offset-lab"><input type="number" name="mat_offset_x_px" min="-120" max="120" step="1" inputmode="numeric" value="{{ config.mat_offset_x_px }}" placeholder="x" aria-label="Horizontal offset, positive moves right" title="x — positive moves right"><input type="number" name="mat_offset_y_px" min="-120" max="120" step="1" inputmode="numeric" value="{{ config.mat_offset_y_px }}" placeholder="y" aria-label="Vertical offset, positive moves down" title="y — positive moves down"></div>
               </div>
             </div></div>
@@ -940,7 +940,7 @@
           </div></div>
           <div class="reveal{{ ' collapsed' if config.quiet_hours_mode=='off' else '' }}" id="hold-field" {{ 'hidden' if config.quiet_hours_mode=='off' else '' }}><div class="reveal-body">
           <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="qhc">Show a “day in review” during quiet hours</label><div class="hint" id="qhc-sub">The day's top species on one sheet, held through quiet hours. <a class="ex seg-ex" id="dayreview-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a day-in-review example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></div></div>
+            <div class="frow-text"><label class="lab" for="qhc">Show a “day in review” during quiet hours</label><div class="hint" id="qhc-sub">Puts the day's top species on one sheet for the night, instead of the last bird heard. <a class="ex seg-ex" id="dayreview-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a day-in-review example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="qhc" name="quiet_hours_render_collage" aria-describedby="qhc-sub" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label></div>
           </div>
           </div></div>
@@ -1007,7 +1007,7 @@
             </div>
           </div>
           <div class="frow stack" data-src="custom" {{ '' if config.detection_backend=='custom' else 'hidden' }}>
-            <div class="frow-text"><label class="lab" for="f-dbpath">BirdNET-Pi database path</label><div class="hint">Read-only: a local BirdNET-Pi SQLite database on this machine. Default: <code>~/BirdNET-Pi/scripts/birds.db</code>.</div></div>
+            <div class="frow-text"><label class="lab" for="f-dbpath">BirdNET-Pi database path</label><div class="hint">The BirdNET-Pi database on this machine, read only. Default: <code>~/BirdNET-Pi/scripts/birds.db</code>.</div></div>
             <div class="frow-ctl">
               <div class="data-row">
                 <input type="text" id="f-dbpath" name="birdnet_db_path" value="{{ config.birdnet_db_path }}" placeholder="~/BirdNET-Pi/scripts/birds.db" autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -1023,19 +1023,19 @@
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="disc-body"><div class="adv-body">
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-poll">Poll interval (seconds)</label><div class="hint">How often the source is checked. BirdWeather is never polled faster than every 60 s.</div></div>
+                <div class="frow-text"><label class="lab" for="f-poll">Poll interval (seconds)</label><div class="hint">How often new detections are fetched. Lower means a bird shows sooner. BirdWeather is never polled faster than every 60 s.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-poll" name="poll_interval_seconds" min="2" max="300" step="1" inputmode="numeric" value="{{ config.poll_interval_seconds }}"></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-alarm">Alert when nothing is heard for (hours)</label><div class="hint">0 = off. Counts only hours outside quiet hours. The frame gets a footnote and this page a banner.</div></div>
+                <div class="frow-text"><label class="lab" for="f-alarm">Alert when nothing is heard for (hours)</label><div class="hint">Adds a footnote to the frame and a banner here when the mic may have gone quiet. Counts hours outside quiet hours. 0 turns it off.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-alarm" name="quiet_alarm_hours" min="0" max="168" step="1" inputmode="numeric" value="{{ config.quiet_alarm_hours }}"></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-outage">Note on the frame when the source is unreachable for (minutes)</label><div class="hint">0 = off. After this long unreachable, the frame gets a footnote, dropped on the next good read.</div></div>
+                <div class="frow-text"><label class="lab" for="f-outage">Note on the frame when the source is unreachable for (minutes)</label><div class="hint">Adds a footnote to the frame when BirdNET can't be reached for this long; it clears on the next good read. 0 turns it off.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-outage" name="source_alarm_minutes" min="0" max="10080" step="1" inputmode="numeric" value="{{ config.source_alarm_minutes }}"></div>
               </div>
               <div class="frow stack">
-                <div class="frow-text"><label class="lab" for="f-block">Species blocklist</label><div class="hint">One species per line (common or scientific name); matches are never shown.</div></div>
+                <div class="frow-text"><label class="lab" for="f-block">Species blocklist</label><div class="hint">One species per line, common or scientific name. Never shown.</div></div>
                 <div class="frow-ctl"><textarea id="f-block" name="species_blocklist" placeholder="One species per line">{{ config.species_blocklist|join('\n') }}</textarea></div>
               </div>
             </div></div>
@@ -1740,7 +1740,7 @@
     // quiet-hours: custom times + hint follow the selected mode
     var QUIET_HINT = {
       off: "The frame updates all day and night.",
-      sun: "Holds one image from sunset to sunrise, based on your timezone (approximate).",
+      sun: "Holds one image from sunset to sunrise (approximate, from your timezone).",
       custom: "Holds one image during the hours you set below."
     };
     // Dependent rows slide open and shut like the disclosures: [hidden] goes

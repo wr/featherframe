@@ -48,6 +48,7 @@ char     g_serverUrl[128];
 char     g_etag[40];
 uint32_t g_wakeMinutes = DEFAULT_WAKE_MINUTES;
 bool     g_alwaysAwake = FF_DEFAULT_ALWAYS_AWAKE;   // power model, served by the server (NVS "awake")
+uint32_t g_pollMs = FF_POLL_INTERVAL_MS;            // always-awake poll gap, served by the server (NVS "poll_s")
 char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent as X-Wake-Detail (debug)
 char     g_battRaw[48] = "";    // last ADC read: raw counts, first/last sample, eFuse mV
 char     g_lastXfer[40] = "";   // last frame body transfer: "xfer=got/lenB ms [stall|cap|hangup]"
@@ -96,7 +97,7 @@ static bool discoverServer(char* url, size_t n) {
 // Discover and, if it differs from what we have, adopt the server URL. Called
 // with no URL yet (a fresh unit) and after a connect failure (the box moved).
 // Rate-limited so an outage in the always-awake poll loop doesn't spend 3 s
-// on every 15 s poll.
+// on every poll.
 static bool adoptDiscoveredServer() {
   static bool tried = false;
   static uint32_t lastTry = 0;
@@ -835,7 +836,15 @@ struct RadioAwake {
 
 // X-Power-Mode / X-Wake-Minutes from the server -> NVS + globals. Absent or
 // malformed headers change nothing (an older server, a proxy).
-static void applyServedPower(const String& mode, const String& minutes) {
+static void applyServedPower(const String& mode, const String& minutes, const String& pollSecs) {
+  if (pollSecs.length()) {
+    long p = pollSecs.toInt();
+    if (p >= FF_POLL_MIN_S && p <= FF_POLL_MAX_S && (uint32_t)p * 1000UL != g_pollMs) {
+      g_pollMs = (uint32_t)p * 1000UL;
+      prefs.putUInt("poll_s", (uint32_t)p);
+      Serial.printf("power: poll every %ld s\n", p);
+    }
+  }
   if (mode == "awake" || mode == "sleep") {
     bool awake = (mode == "awake");
     if (awake != g_alwaysAwake) {
@@ -880,8 +889,8 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Refresh-Count", String(g_refreshCount));
   http.addHeader("X-Panel", "ED103TC2 1404x1872 gray16"); // spec §6
   http.addHeader("X-Board", "XIAO-ESP32S3 EE03");
-  const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes"};
-  http.collectHeaders(collect, 4);
+  const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds"};
+  http.collectHeaders(collect, 5);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
@@ -895,7 +904,8 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   // The power model and wake interval are set on the config page and ride
   // every response (a 304 too). Stored in NVS; the callers act on the new
   // values at the end of this cycle (W-736/W-456).
-  applyServedPower(http.header("X-Power-Mode"), http.header("X-Wake-Minutes"));
+  applyServedPower(http.header("X-Power-Mode"), http.header("X-Wake-Minutes"),
+                   http.header("X-Poll-Seconds"));
   if (code == HTTP_CODE_NOT_MODIFIED) { http.end(); return FETCH_NOCHANGE; }
   if (code == HTTP_CODE_NOT_FOUND) { http.end(); return FETCH_NOTFOUND; }
   if (code == HTTP_CODE_SERVICE_UNAVAILABLE) { http.end(); return FETCH_NOFRAME; }  // server up, no bird yet
@@ -1118,6 +1128,7 @@ void setup() {
   prefs.getString("etag", "").toCharArray(g_etag, sizeof(g_etag));
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);
   g_alwaysAwake = prefs.getBool("awake", FF_DEFAULT_ALWAYS_AWAKE);
+  g_pollMs = prefs.getUInt("poll_s", FF_POLL_INTERVAL_MS / 1000) * 1000UL;
   g_invert = prefs.getBool("invert", false);
   Serial.printf("power: %s, wake %u min\n", g_alwaysAwake ? "always awake" : "deep sleep",
                 (unsigned)g_wakeMinutes);
@@ -1358,14 +1369,14 @@ void loop() {
   }
   if (g_toast.active && millis() - g_toast.shownAt >= TOAST_HOLD_MS) clearToast();
 
-  // Re-fetch every FF_POLL_INTERVAL_MS. fetchAndRender sends the stored ETag, so
+  // Re-fetch every g_pollMs (served by the page). fetchAndRender sends the stored ETag, so
   // an unchanged frame returns 304 and the panel is not repainted. Failed polls
   // back off to FF_POLL_BACKOFF_MS and keep the error state current. A button-
   // requested view holds the glass for FF_VIEW_HOLD_MS first — the view fetch
   // clears the ETag, so an eager poll would repaint the bird within seconds of
   // the press that asked for the collage.
   uint32_t interval = (g_failCount >= FF_MARK_FAILS) ? FF_POLL_BACKOFF_MS
-                                                     : FF_POLL_INTERVAL_MS;
+                                                     : g_pollMs;
   if (g_viewHoldUntil && (int32_t)(millis() - g_viewHoldUntil) < 0) {
     // transient view on the glass
   } else if (millis() - g_lastPoll >= interval) {

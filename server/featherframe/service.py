@@ -324,7 +324,7 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
     expected = _AWAKE_OVERDUE_MINUTES if awake else 2 * wake_interval_minutes
     card = {"seen": False, "overdue": False,
             "expected_minutes": wake_interval_minutes,
-            "overdue_text": ("Overdue — checks in every 15 s" if awake
+            "overdue_text": ("Overdue — checks in every few seconds" if awake
                              else f"Overdue — wakes every {wake_interval_minutes} min"),
             "last_seen": None,
             "last_checkin_iso": None, "battery": None, "battery_low": False,

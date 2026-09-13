@@ -79,7 +79,11 @@
 #define FF_DEFAULT_ALWAYS_AWAKE  1
 
 // How often loop() re-fetches the frame (always-awake auto-refresh), in ms.
-#define FF_POLL_INTERVAL_MS  15000
+// The server serves the live value (X-Poll-Seconds, NVS "poll_s"); this is
+// only what a unit with no stored value starts with.
+#define FF_POLL_INTERVAL_MS  3000
+#define FF_POLL_MIN_S        2
+#define FF_POLL_MAX_S        60
 // Always-awake build: how often the poll loop also asks for hosted firmware.
 #define FF_OTA_CHECK_MS      (15UL * 60UL * 1000UL)
 

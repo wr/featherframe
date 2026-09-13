@@ -90,6 +90,9 @@ class Config:
     # and wakes on the interval or a button (battery).
     power_mode: str = "awake"
     wake_interval_minutes: int = 15
+    # Always awake: how often the frame asks for a new plate (a conditional
+    # GET, 304 with no body when nothing changed). Served as X-Poll-Seconds.
+    device_poll_seconds: int = 3
 
     # Quiet hours ----------------------------------------------------------
     # "off" | "custom" (the start/end below) | "sun" (sunset -> sunrise,
@@ -152,7 +155,7 @@ class Config:
     # Optional shared secret in the Apprise webhook path (/api/ingest/apprise/<token>).
     # Empty accepts any LAN post, matching the app's no-auth LAN posture.
     apprise_token: str = field(default_factory=lambda: secrets.token_urlsafe(9))
-    poll_interval_seconds: int = 20  # 10-30s per spec
+    poll_interval_seconds: int = 5  # how often the detection source is checked
 
     # Rendering ------------------------------------------------------------
     gray_mode: str = "16"  # "16" (4bpp) or "1" (1-bit fallback)
@@ -225,7 +228,8 @@ class Config:
         self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
         if self.power_mode not in ("awake", "sleep"):
             self.power_mode = "awake"
-        self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 5, 300))
+        self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 2, 300))
+        self.device_poll_seconds = int(_clamp(_finite(self.device_poll_seconds, 3), 2, 60))
         self.quiet_alarm_hours = int(_clamp(_finite(self.quiet_alarm_hours, 6), 0, 168))
         self.source_alarm_minutes = int(_clamp(_finite(self.source_alarm_minutes, 60), 0, 10080))
         self.corroborate_new_species = bool(self.corroborate_new_species)

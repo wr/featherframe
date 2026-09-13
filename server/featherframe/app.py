@@ -105,7 +105,9 @@ async def api_frame(request: Request, view: Optional[str] = None):
     wake = _str_header(request.headers.get("x-wake"))
     client_ip = request.client.host if request.client else None
     if wake:
-        log.info("device wake: %s (view=%s)", wake, view)
+        # An always-awake frame polls every few seconds; the per-poll line is
+        # debug, and a paint (200) or a button view is logged below at info.
+        log.debug("device wake: %s (view=%s)", wake, view)
 
     # Optional device-reported identity/telemetry (docs/firmware-device-stats.md).
     # Every field is optional on the wire; absent headers leave the row unchanged.
@@ -127,7 +129,8 @@ async def api_frame(request: Request, view: Optional[str] = None):
     invert = "1" if svc.config.dark_now() else "0"
     device_headers = {"X-FF-Invert": invert,
                       "X-Power-Mode": svc.config.power_mode,
-                      "X-Wake-Minutes": str(svc.config.wake_interval_minutes)}
+                      "X-Wake-Minutes": str(svc.config.wake_interval_minutes),
+                      "X-Poll-Seconds": str(svc.config.device_poll_seconds)}
 
     # On-demand button views: rendered fresh, never the resident frame, no
     # 304s. Threadpool: the collage leg walks the provider chain (which may
@@ -142,6 +145,7 @@ async def api_frame(request: Request, view: Optional[str] = None):
             result = await run_in_threadpool(svc.render_status_page, volt, pct, rssi)
         svc.record_view_checkin(request.headers.get("user-agent", ""), volt, pct, view,
                                 wifi_rssi=rssi, ip=client_ip, device_extra=device_extra)
+        log.info("device view: %s (wake=%s)", view, wake)
         return Response(content=result.frame, media_type="application/octet-stream",
                         headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store",
                                  **device_headers})
@@ -154,6 +158,7 @@ async def api_frame(request: Request, view: Optional[str] = None):
     headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache", **device_headers}
     if status == 304:
         return Response(status_code=304, headers=headers)
+    log.info("device fetched frame %s (wake=%s)", etag, wake)
     return Response(content=body, media_type="application/octet-stream", headers=headers)
 
 
@@ -281,6 +286,7 @@ async def save_settings(request: Request):
         dwell_minutes=i("dwell_minutes", cur["dwell_minutes"]),
         wake_interval_minutes=i("wake_interval_minutes", cur["wake_interval_minutes"]),
         power_mode=s("power_mode", cur["power_mode"]),
+        device_poll_seconds=i("device_poll_seconds", cur["device_poll_seconds"]),
         quiet_hours_mode=s("quiet_hours_mode", cur["quiet_hours_mode"]),
         quiet_hours_start=t("quiet_hours_start", cur["quiet_hours_start"]),
         quiet_hours_end=t("quiet_hours_end", cur["quiet_hours_end"]),

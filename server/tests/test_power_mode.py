@@ -117,7 +117,7 @@ def test_overdue_threshold_follows_power_mode():
     # Always awake polls every 15 s: 8 min of silence is an outage.
     awake = frame_card(dev, 15, now, power_mode="awake")
     assert awake["overdue"] is True
-    assert awake["overdue_text"] == "Overdue — checks in every 15 s"
+    assert awake["overdue_text"] == "Overdue — checks in every few seconds"
 
 
 def test_wake_interval_row_hidden_unless_deep_sleep(client):
@@ -128,3 +128,26 @@ def test_wake_interval_row_hidden_unless_deep_sleep(client):
     _set(client, power_mode="sleep")
     html = client.get("/").text
     assert 'class="reveal" id="wake-field" >' in html
+
+
+# -- device poll interval (W-775) --------------------------------------------
+
+def test_device_poll_seconds_served_and_clamped(client):
+    etag = _seed_frame(client)
+    _set(client, device_poll_seconds=3)
+    r = client.get("/api/frame", headers={"If-None-Match": f'"{etag}"'})
+    assert r.status_code == 304
+    assert r.headers["x-poll-seconds"] == "3"
+    assert Config(device_poll_seconds=0).device_poll_seconds == 2
+    assert Config(device_poll_seconds=999).device_poll_seconds == 60
+    assert Config(poll_interval_seconds=2).poll_interval_seconds == 2
+
+
+def test_check_every_row_shown_only_when_awake(client):
+    _set(client, power_mode="awake")
+    html = client.get("/").text
+    assert 'class="reveal" id="poll-field" >' in html
+    assert 'class="reveal collapsed" id="wake-field" hidden' in html
+    _set(client, power_mode="sleep")
+    html = client.get("/").text
+    assert 'class="reveal collapsed" id="poll-field" hidden' in html

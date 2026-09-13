@@ -307,7 +307,8 @@
 
     /* segmented — recessed track; a single indicator slides under the labels */
     .seg { position:relative; display:inline-flex; background:var(--inset); border-radius:7px; padding:3px;
-           box-shadow:inset 0 1px 2px rgba(74,54,28,.1); gap:2px; max-width:100%; flex-wrap:wrap; }
+           box-shadow:inset 0 1px 2px rgba(74,54,28,.1); gap:2px; max-width:100%; flex-wrap:wrap;
+           isolation:isolate; /* keep the labels' z-index inside the control */ }
     .seg.wide { display:flex; }
     .seg label { flex:1; position:relative; z-index:1; }
     .seg input { position:absolute; opacity:0; width:0; height:0; }
@@ -375,7 +376,9 @@
                padding:14px 20px; border:1px solid var(--border); border-radius:9px; box-shadow:var(--sh-card);
                background:var(--glass); backdrop-filter:blur(8px); }
     .savebar .unsaved { display:none; margin-right:auto; font-size:12.5px; color:var(--muted); }
-    .savebar.dirty { position:sticky; bottom:16px; animation:savebar-in .3s cubic-bezier(.2,.7,.2,1); }
+    /* Above the form (segmented labels carry z-index:1 for their indicator),
+       below dropdown lists (z-index 20+). */
+    .savebar.dirty { position:sticky; bottom:16px; z-index:10; animation:savebar-in .3s cubic-bezier(.2,.7,.2,1); }
     .savebar.dirty .unsaved { display:block; }
     @keyframes savebar-in { from { transform:translateY(120%); opacity:0; } to { transform:translateY(0); opacity:1; } }
     @media (prefers-reduced-motion:reduce){ .savebar.dirty { animation:none; } }

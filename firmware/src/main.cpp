@@ -47,6 +47,7 @@ WiFiManager wm;
 char     g_serverUrl[128];
 char     g_etag[40];
 uint32_t g_wakeMinutes = DEFAULT_WAKE_MINUTES;
+bool     g_alwaysAwake = FF_DEFAULT_ALWAYS_AWAKE;   // power model, served by the server (NVS "awake")
 char     g_wakeInfo[64] = "";   // "cause=N keys=0xM" — sent as X-Wake-Detail (debug)
 char     g_battRaw[48] = "";    // last ADC read: raw counts, first/last sample, eFuse mV
 char     g_lastXfer[40] = "";   // last frame body transfer: "xfer=got/lenB ms [stall|cap|hangup]"
@@ -273,11 +274,8 @@ void showErrorState(int kind) {
                    g_glassScreen == FF_SCR_BOOT_BIRDNET ||
                    g_glassScreen == FF_SCR_BOOT_DOWNLOAD);
   if (bootPill) {
-#if FF_NO_SLEEP
-    int stage = 3;                              // polls retry in seconds: "shortly"
-#else
-    int stage = g_failCount <= 1 ? 0 : g_failCount == 2 ? 1 : 2;
-#endif
+    int stage = g_alwaysAwake ? 3               // polls retry in seconds: "shortly"
+              : g_failCount <= 1 ? 0 : g_failCount == 2 ? 1 : 2;
     if (g_bandKind != kind || g_bandStage != stage) {   // repeated fails: no re-push
       pushTile(ff_err_tiles[kind], FF_ERR_X, FF_ERR_Y, FF_ERR_W, FF_ERR_H);
       pushTile(ff_retry_tiles[stage], FF_RETRY_X, FF_RETRY_Y, FF_RETRY_W, FF_RETRY_H);
@@ -323,8 +321,10 @@ static void armWatchdog() {
 }
 
 // ---------------------------------------------------------------- sleep
+void clearToast();   // defined with the toasts, below
 void goToSleep(uint32_t minutes) {
   g_loaderAnim.on = false;
+  clearToast();              // a pill must not sit on the plate for a whole wake interval
   panelLock();               // let an in-flight loader step finish first
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
@@ -625,12 +625,12 @@ void showToast(int t) {
     }
   }
   g_toast = {true, millis()};
-#if !FF_NO_SLEEP
-  // No loop() ever clears this toast; drop the ETag so the next wake's fetch
-  // returns 200 and repaints the plate over it.
-  g_etag[0] = 0;
-  prefs.putString("etag", "");
-#endif
+  if (!g_alwaysAwake) {
+    // No loop() ever clears this toast; drop the ETag so the next wake's fetch
+    // returns 200 and repaints the plate over it.
+    g_etag[0] = 0;
+    prefs.putString("etag", "");
+  }
   Serial.printf("toast: %d\n", t);
 }
 
@@ -833,6 +833,27 @@ struct RadioAwake {
   ~RadioAwake() { WiFi.setSleep(true); }
 };
 
+// X-Power-Mode / X-Wake-Minutes from the server -> NVS + globals. Absent or
+// malformed headers change nothing (an older server, a proxy).
+static void applyServedPower(const String& mode, const String& minutes) {
+  if (mode == "awake" || mode == "sleep") {
+    bool awake = (mode == "awake");
+    if (awake != g_alwaysAwake) {
+      g_alwaysAwake = awake;
+      prefs.putBool("awake", awake);
+      Serial.printf("power: server says %s\n", awake ? "always awake" : "deep sleep");
+    }
+  }
+  if (minutes.length()) {
+    long m = minutes.toInt();
+    if (m >= FF_MIN_SLEEP_MINUTES && m <= FF_MAX_SLEEP_MINUTES && (uint32_t)m != g_wakeMinutes) {
+      g_wakeMinutes = (uint32_t)m;
+      prefs.putUInt("wake_min", g_wakeMinutes);
+      Serial.printf("power: wake interval now %ld min\n", m);
+    }
+  }
+}
+
 static FetchResult fetchFrame(const char* path, bool resident, float vbat, int pct) {
   // Release the boot-art buffers first: the IT8951 full-image write needs ~1.31 MB of
   // contiguous PSRAM for its mirror buffer, and if the boot buffers still hold it the
@@ -859,8 +880,8 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Refresh-Count", String(g_refreshCount));
   http.addHeader("X-Panel", "ED103TC2 1404x1872 gray16"); // spec §6
   http.addHeader("X-Board", "XIAO-ESP32S3 EE03");
-  const char* collect[] = {"ETag", "X-FF-Invert"};
-  http.collectHeaders(collect, 2);
+  const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes"};
+  http.collectHeaders(collect, 4);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
@@ -871,6 +892,10 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
     bool v = (inv == "1");
     if (v != g_invert) { g_invert = v; prefs.putBool("invert", v); }
   }
+  // The power model and wake interval are set on the config page and ride
+  // every response (a 304 too). Stored in NVS; the callers act on the new
+  // values at the end of this cycle (W-736/W-456).
+  applyServedPower(http.header("X-Power-Mode"), http.header("X-Wake-Minutes"));
   if (code == HTTP_CODE_NOT_MODIFIED) { http.end(); return FETCH_NOCHANGE; }
   if (code == HTTP_CODE_NOT_FOUND) { http.end(); return FETCH_NOTFOUND; }
   if (code == HTTP_CODE_SERVICE_UNAVAILABLE) { http.end(); return FETCH_NOFRAME; }  // server up, no bird yet
@@ -1092,7 +1117,10 @@ void setup() {
   normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), DEFAULT_SERVER_URL);   // older saves may carry a trailing '/'
   prefs.getString("etag", "").toCharArray(g_etag, sizeof(g_etag));
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);
+  g_alwaysAwake = prefs.getBool("awake", FF_DEFAULT_ALWAYS_AWAKE);
   g_invert = prefs.getBool("invert", false);
+  Serial.printf("power: %s, wake %u min\n", g_alwaysAwake ? "always awake" : "deep sleep",
+                (unsigned)g_wakeMinutes);
 
   // NOTE: the panel (Seeed_GFX) owns GPIO43 during init/refresh, so do NOT force it
   // here — that breaks the power sequencing and updates stop reaching the glass. We
@@ -1124,8 +1152,8 @@ void setup() {
   // a brownout loop. It comes back on its own once the pack is charged.
   if (lowBatteryHold(vbat)) { goToSleep(FF_LOW_BATT_SLEEP_MIN); return; }
 
-#if FF_NO_SLEEP
-  // --- Always-awake dev model: splash now, then Wi-Fi, then poll buttons in loop().
+  if (g_alwaysAwake) {
+  // --- Always-awake model: splash now, then Wi-Fi, then poll buttons in loop().
   epaper.begin(0);                          // full init once; the panel stays warm
   armWatchdog();
 
@@ -1154,7 +1182,9 @@ void setup() {
     showErrorState(ERRK_WIFI);
   }
   Serial.println("ready — polling buttons");
-#else
+  return;                                   // loop() takes over
+  }
+
   // --- Deep-sleep model: decode the waking button, act once, sleep.
   armWatchdog();                            // reboot if a wake cycle hangs
 
@@ -1223,11 +1253,17 @@ void setup() {
     }
   }
   maybeOTA(vbat);
+  if (g_alwaysAwake) {
+    // The server switched us to always-awake during this wake. The awake
+    // model wants its own panel init (begin(0)) and boot flow; a restart is
+    // the clean way there and costs one splash.
+    Serial.println("power: switching to always awake — restarting");
+    Serial.flush();
+    ESP.restart();
+  }
   goToSleep(g_wakeMinutes);
-#endif
 }
 
-#if FF_NO_SLEEP
 // The always-awake poll clock and the button-view hold. A transient view's
 // fetch clears the resident ETag, so without the hold the very next poll
 // would repaint the bird over the collage the user just asked for.
@@ -1281,6 +1317,12 @@ int pollButton() {
 
 void loop() {
   esp_task_wdt_reset();
+  if (!g_alwaysAwake) {
+    // The server switched us to deep sleep (the poll that learned it has
+    // finished). goToSleep clears any pill first.
+    Serial.println("power: switching to deep sleep");
+    goToSleep(g_wakeMinutes);
+  }
   int k = pollButton();
   if (k == 2) {
     // KEY2: hold PORTAL_HOLD_MS -> setup portal; a quick tap -> status view.
@@ -1349,6 +1391,3 @@ void loop() {
   digitalWrite(PIN_PANEL_PWR, HIGH);
   delay(10);
 }
-#else
-void loop() {}   // never reached — deep sleep model
-#endif

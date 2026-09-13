@@ -787,7 +787,17 @@
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ssl" name="single_show_latest" aria-describedby="ssl-sub" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label></div>
           </div>
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How often the frame wakes to check in. Longer means better battery life.</div></div>
+            <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint">Always awake keeps Wi-Fi up and checks every 15 s; buttons answer at once. Fine on USB. Deep sleep wakes on the interval below or a button press; it is the battery model.</div></div>
+            <div class="frow-ctl">
+              {% set pm = config.power_mode %}
+              <div class="seg" role="radiogroup" aria-labelledby="power-lab">
+                <label><input type="radio" name="power_mode" value="awake" {{ 'checked' if pm=='awake' else '' }}><span>Always awake</span></label>
+                <label><input type="radio" name="power_mode" value="sleep" {{ 'checked' if pm=='sleep' else '' }}><span>Deep sleep</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How often a deep-sleeping frame wakes to check in. Longer means better battery life. The frame picks up a change on its next check-in.</div></div>
             <div class="frow-ctl">
               {% set presets = [1, 5, 15, 30, 60] %}
               {% set wv = config.wake_interval_minutes %}
@@ -1243,7 +1253,7 @@
   // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
   var FIELD_NAMES = { confidence_threshold: 'Confidence threshold', refresh_debounce_minutes: 'Refresh debounce',
     dwell_minutes: 'Hold a new bird',
-    wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval', quiet_alarm_hours: 'Gone-quiet alarm',
+    power_mode: 'Power', wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval', quiet_alarm_hours: 'Gone-quiet alarm',
     source_alarm_minutes: 'Source-outage note',
     collage_rebuilds_per_day: 'Collage rebuilds per day', review_species_max: 'Species on the sheet',
     mat_inset_pct: 'Mat inset',

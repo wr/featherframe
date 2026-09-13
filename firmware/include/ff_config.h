@@ -69,10 +69,14 @@
 #define FF_MIN_SLEEP_MINUTES   1
 #define FF_MAX_SLEEP_MINUTES   720
 
-// --- Dev mode: stay awake instead of deep-sleeping between actions ---
-// Keeps Wi-Fi up and polls the buttons in loop(), so a press is instant and the
-// panel never re-inits. Set to 0 to restore the battery-saving deep-sleep model.
-#define FF_NO_SLEEP  1
+// --- Power model: the mode a fresh unit boots in until the server says ---
+// The server sends X-Power-Mode (awake|sleep) and X-Wake-Minutes on every
+// /api/frame response; the frame stores both in NVS, so the config page is
+// where the model is chosen (W-736/W-456). "Always awake" keeps Wi-Fi up and
+// polls the buttons in loop(), so a press is instant and the panel never
+// re-inits (USB). "Deep sleep" acts once per wake and sleeps (battery).
+// 1 = a unit with no stored mode starts always-awake.
+#define FF_DEFAULT_ALWAYS_AWAKE  1
 
 // How often loop() re-fetches the frame (always-awake auto-refresh), in ms.
 #define FF_POLL_INTERVAL_MS  15000

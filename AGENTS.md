@@ -165,7 +165,12 @@ Panel/board selection is `lib/driver/driver.h` (combo 511). Battery voltage is
 near a full cell, see W-693) and the button pins are known (KEY0=2, KEY1=3, KEY2=5,
 active-low); the remaining on-hardware unknown is whether ext1 button wake
 works from deep sleep at all — the keys read only while the panel's T-CON is
-awake (see `PIN_PANEL_PWR` in `include/ff_config.h`). `FF_NO_SLEEP 1` (always
-awake, 15 s polling) is what is flashed today; `0` is the battery model and
-the less-tested branch of `setup()`. Low battery (< 3.45 V) skips Wi-Fi and
+awake (see `PIN_PANEL_PWR` in `include/ff_config.h`). The power model is a
+runtime setting (W-736): the server sends `X-Power-Mode` (awake|sleep) and
+`X-Wake-Minutes` on every `/api/frame` response, the firmware stores both in
+NVS, and `setup()` branches on `g_alwaysAwake`; a switch takes effect at the
+end of the cycle that learned it (awake→sleep from `loop()`, sleep→awake by a
+restart). `FF_DEFAULT_ALWAYS_AWAKE` is only the mode of a unit with no stored
+value. The wall runs always-awake (15 s polling) today; deep sleep is the
+less-tested branch. Low battery (< 3.45 V) skips Wi-Fi and
 sleeps 4 h at a time; OTA is refused under 3.70 V and a bad image rolls back.

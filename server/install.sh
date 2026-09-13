@@ -34,6 +34,8 @@ DO_SERVICE=1
 CHECK=0
 # The service should run as the human user who owns BirdNET-Pi, not root.
 RUN_USER=""
+# Root (a container, say) has no sudo and needs none.
+SUDO=""; [ "$(id -u)" -eq 0 ] || SUDO=sudo
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -89,7 +91,7 @@ if command -v apt-get >/dev/null 2>&1; then
     plan "install libraqm0 (apt)"
   else
     echo "==> Ensuring libraqm (for OpenType caption shaping)…"
-    sudo apt-get install -y libraqm0 >/dev/null 2>&1 || \
+    $SUDO apt-get install -y libraqm0 >/dev/null 2>&1 || \
       echo "    libraqm install skipped — caption will use faux small caps."
   fi
 fi
@@ -204,18 +206,18 @@ if [ "$DO_SERVICE" -eq 1 ]; then
   else
     if [ "$UNIT_CHANGED" -eq 1 ]; then
       echo "==> Writing systemd unit at $UNIT (needs sudo)…"
-      printf '%s\n' "$WANT_UNIT" | sudo tee "$UNIT" >/dev/null
-      sudo systemctl daemon-reload
+      printf '%s\n' "$WANT_UNIT" | $SUDO tee "$UNIT" >/dev/null
+      $SUDO systemctl daemon-reload
     else
       echo "==> systemd unit unchanged."
     fi
     # enable --now leaves a running service on its old code; restart is the
     # point of an upgrade.
-    sudo systemctl enable featherframe.service >/dev/null 2>&1 || true
-    sudo systemctl restart featherframe.service
+    $SUDO systemctl enable featherframe.service >/dev/null 2>&1 || true
+    $SUDO systemctl restart featherframe.service
     echo "==> Service enabled and $([ "$EXISTING" -eq 1 ] && echo restarted || echo started)."
     sleep 1
-    sudo systemctl --no-pager --lines=8 status featherframe.service || true
+    $SUDO systemctl --no-pager --lines=8 status featherframe.service || true
   fi
 fi
 

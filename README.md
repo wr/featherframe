@@ -71,7 +71,12 @@ That creates a venv, downloads the Audubon plates (~220 MB), and installs a
 prints the config page URL when done: `http://<your-pi>.local:8080/`.
 
 Options: `--skip-plates`, `--all-plates` (the whole Havell edition, ~2.9 GB),
-`--port 9000`, `--no-service`.
+`--port 9000`, `--no-service`, `--check` (report what a run would change).
+
+**Upgrading** is the same command again: `git pull && ./install.sh`. It reuses
+the venv, fetches only plates a new species needs, keeps the port and data
+directory of the existing install, and restarts the service. Your config,
+frames, and generated plates in `data/` are never touched.
 
 > **No auth.** It's LAN-only with no login. Keep it on your home network.
 

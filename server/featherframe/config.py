@@ -84,7 +84,12 @@ class Config:
     # and the held bird may re-render). Without it a first-ever bird lost the
     # glass to the next cardinal within minutes. 0 disables.
     dwell_minutes: int = 90
-    wake_interval_minutes: int = 15  # advisory: how often the device wakes
+    # Served to the device on every /api/frame response (W-456/W-736): the
+    # power model and, in deep sleep, how long it sleeps between check-ins.
+    # "awake": stays on Wi-Fi and polls every 15 s (USB); "sleep": deep-sleeps
+    # and wakes on the interval or a button (battery).
+    power_mode: str = "awake"
+    wake_interval_minutes: int = 15
 
     # Quiet hours ----------------------------------------------------------
     # "off" | "custom" (the start/end below) | "sun" (sunset -> sunrise,
@@ -218,6 +223,8 @@ class Config:
         self.refresh_debounce_minutes = int(_clamp(self.refresh_debounce_minutes, 1, 720))
         self.dwell_minutes = int(_clamp(_finite(self.dwell_minutes, 90), 0, 720))
         self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
+        if self.power_mode not in ("awake", "sleep"):
+            self.power_mode = "awake"
         self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 5, 300))
         self.quiet_alarm_hours = int(_clamp(_finite(self.quiet_alarm_hours, 6), 0, 168))
         self.source_alarm_minutes = int(_clamp(_finite(self.source_alarm_minutes, 60), 0, 10080))

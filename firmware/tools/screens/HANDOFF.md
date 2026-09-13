@@ -112,8 +112,10 @@ there is no separate onboarding checklist.
    stable download port. Reading serial with DTR/RTS toggling can bounce it to download.
 
 ## Remaining work
-- **`FF_NO_SLEEP=1`** is still set (dev mode, Wi‑Fi always on → ~4–5 days battery). Flip to
-  0 in `include/ff_config.h` for the deep‑sleep model (~8+ months on 10 000 mAh).
+- The power model is now served by the config page (**Power**: always awake /
+  deep sleep, W-736) and stored on the device; nothing to flip in `ff_config.h`.
+  The wall still runs always awake (~4–5 days per charge); deep sleep is untested on
+  the bench (ext1 button wake, sleep current).
 
 ## Build / flash / test
 ```

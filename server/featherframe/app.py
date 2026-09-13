@@ -121,8 +121,13 @@ async def api_frame(request: Request, view: Optional[str] = None):
     }
 
     # Dark mode rides along on every response — a 304 included — so the device
-    # always knows whether to invert its baked boot screens.
+    # always knows whether to invert its baked boot screens. The power model and
+    # wake interval ride the same way (W-456/W-736): the device stores them in
+    # NVS, so the page is the one place either is set.
     invert = "1" if svc.config.dark_now() else "0"
+    device_headers = {"X-FF-Invert": invert,
+                      "X-Power-Mode": svc.config.power_mode,
+                      "X-Wake-Minutes": str(svc.config.wake_interval_minutes)}
 
     # On-demand button views: rendered fresh, never the resident frame, no
     # 304s. Threadpool: the collage leg walks the provider chain (which may
@@ -139,15 +144,14 @@ async def api_frame(request: Request, view: Optional[str] = None):
                                 wifi_rssi=rssi, ip=client_ip, device_extra=device_extra)
         return Response(content=result.frame, media_type="application/octet-stream",
                         headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store",
-                                 "X-FF-Invert": invert})
+                                 **device_headers})
 
     status, body, etag = svc.get_frame(inm, request.headers.get("user-agent", ""), volt, pct,
                                        wifi_rssi=rssi, ip=client_ip, device_extra=device_extra)
 
     if status == 503:
-        return Response(status_code=503, content=b"no frame yet",
-                        headers={"X-FF-Invert": invert})
-    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache", "X-FF-Invert": invert}
+        return Response(status_code=503, content=b"no frame yet", headers=device_headers)
+    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache", **device_headers}
     if status == 304:
         return Response(status_code=304, headers=headers)
     return Response(content=body, media_type="application/octet-stream", headers=headers)
@@ -276,6 +280,7 @@ async def save_settings(request: Request):
         refresh_debounce_minutes=i("refresh_debounce_minutes", cur["refresh_debounce_minutes"]),
         dwell_minutes=i("dwell_minutes", cur["dwell_minutes"]),
         wake_interval_minutes=i("wake_interval_minutes", cur["wake_interval_minutes"]),
+        power_mode=s("power_mode", cur["power_mode"]),
         quiet_hours_mode=s("quiet_hours_mode", cur["quiet_hours_mode"]),
         quiet_hours_start=t("quiet_hours_start", cur["quiet_hours_start"]),
         quiet_hours_end=t("quiet_hours_end", cur["quiet_hours_end"]),

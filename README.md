@@ -91,8 +91,9 @@ pio device monitor       # serial log, 115200
 ```
 
 Battery calibration and button pins live in `firmware/include/ff_config.h`.
-`FF_NO_SLEEP 1` keeps the frame awake and polling every 15 s (fine on USB);
-`0` is the deep-sleep battery build.
+One build serves both power models: the config page's **Power** setting
+(always awake on USB, deep sleep on battery) and the wake interval reach the
+frame on its next check-in and are stored on the device.
 
 ### 3. First boot
 
@@ -115,8 +116,11 @@ The page at `http://<your-pi>:8080/` is the whole UI:
   injects a fake Cardinal so you can exercise everything with no birds.
 - **Mode** — *single* (latest detection) or *collage* (the day's top species),
   plus an optional overnight "day in review" sheet.
-- **Confidence threshold** (0.7), **wake interval** (15 min), **quiet hours**
-  (22:00–06:00), and an optional debounce between repaints for a calmer frame.
+- **Confidence threshold** (0.7), **quiet hours** (22:00–06:00), and an
+  optional debounce between repaints for a calmer frame.
+- **Power** — *always awake* (Wi-Fi up, checks every 15 s, instant buttons; for
+  USB) or *deep sleep* (wakes on the **wake interval**, 15 min by default, or a
+  button; for battery). The frame picks up a change on its next check-in.
 - **Species blocklist** — one name per line. Ban the house sparrows if you like.
 - **Detection source** — BirdNET-Pi DB (default), BirdNET-Go, BirdWeather, or
   an Apprise webhook, with a *Test connection* button.
@@ -133,7 +137,7 @@ Rough model for a 2000 mAh cell and ~20 refreshes a day:
 | 30 min        | ~11 weeks  |
 | 60 min        | ~14 weeks  |
 
-Quiet hours push these further; the always-awake build lasts 4–5 days. Below
+Quiet hours push these further; the always-awake model lasts 4–5 days. Below
 3.45 V the frame stops using Wi-Fi until it's charged.
 
 ## Species & plates

@@ -25,7 +25,7 @@
       --accent:#6b4a2c; --accent-press:#523821; --accent-ring:rgba(107,74,44,.24);
       --good:#5c8a46; --warn:#b0781d; --bad:#b6472e;
       /* the few literal colours that repeat: white surfaces, text on walnut, the off-switch track */
-      --white:#ffffff; --on-accent:#f7efe2; --switch-off:#d8cdb8;
+      --white:#ffffff; --on-accent:#f7efe2; --switch-off:#dcdbd6;
       --btn-end:#eeeeec; --btn-end-hover:#e7e7e5; --glass:rgba(252,252,251,.86);
       --accent-grad:linear-gradient(#7d5836, var(--accent));
       --accent-grad-hover:linear-gradient(#6f4c2c, var(--accent-press));
@@ -45,7 +45,7 @@
       --border:#33312c; --border-strong:#4a463f; --hair:#2b2a26;
       --accent:#cfa878; --accent-press:#e0bc8e; --accent-ring:rgba(207,168,120,.3);
       --good:#7fae66; --warn:#d1993a; --bad:#d9705a;
-      --white:#2c2b27; --on-accent:#1a1916; --switch-off:#4a463f;
+      --white:#2c2b27; --on-accent:#1a1916; --switch-off:#3a3833;
       --btn-end:#262523; --btn-end-hover:#302f2b; --glass:rgba(35,34,32,.86);
       --accent-grad:linear-gradient(#d8b283, var(--accent));
       --accent-grad-hover:linear-gradient(#e6c498, var(--accent-press));
@@ -60,7 +60,7 @@
       --border:#33312c; --border-strong:#4a463f; --hair:#2b2a26;
       --accent:#cfa878; --accent-press:#e0bc8e; --accent-ring:rgba(207,168,120,.3);
       --good:#7fae66; --warn:#d1993a; --bad:#d9705a;
-      --white:#2c2b27; --on-accent:#1a1916; --switch-off:#4a463f;
+      --white:#2c2b27; --on-accent:#1a1916; --switch-off:#3a3833;
       --btn-end:#262523; --btn-end-hover:#302f2b; --glass:rgba(35,34,32,.86);
       --accent-grad:linear-gradient(#d8b283, var(--accent));
       --accent-grad-hover:linear-gradient(#e6c498, var(--accent-press));
@@ -110,8 +110,7 @@
       .wordmark { font-size:38px; }
       .status-card { padding:14px 16px; }
       .sc-head.second { margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; }
-      section.sec { padding:20px 16px; }
-      section.sec:first-child { padding-top:22px; }
+      section.sec { padding:20px 16px 22px; }
       .savebar { padding:12px 16px; }
       .gen-item { flex-wrap:wrap; }
     }
@@ -149,15 +148,20 @@
     details.tools > summary .chev { width:11px; height:7px; transition:transform .18s; }
     details.tools[open] > summary .chev { transform:rotate(180deg); }
     @media (prefers-reduced-motion:reduce){ details.tools > summary .chev { transition:none; } }
-    .tools-body { padding-top:4px; }
-    .plate-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; align-items:center; }
-    .plate-actions form.inline { display:flex; gap:8px; margin:0; }
-    .plate-actions .hold-ctl { display:flex; gap:6px; align-items:center; }
-    .plate-actions select.hold-dur { width:auto; padding:7px 30px 7px 10px; font-size:13px; box-shadow:none; }
-    /* "Show a critter": two names and a button on their own line under the actions */
-    .critter-form { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; align-items:center; }
+    .tools-body { padding-top:2px; }
+    /* the plate column is narrow: each tool stacks its control under its text */
+    .tools-body .frow { padding:10px 0; grid-template-columns:1fr; row-gap:8px; }
+    .tools-body .frow-ctl { justify-self:start; justify-content:flex-start; }
+    .tools-body .frow.stack .frow-ctl { justify-self:stretch; }
+    .tools-body .frow:first-child { border-top:0; padding-top:6px; }
+    .tools-body .lab { font-size:13px; }
+    .tools-body .hint { font-size:12px; margin-top:2px; }
+    .tools-body form.inline { display:flex; gap:6px; margin:0; }
+    .tools-body select.hold-dur { width:auto; padding:7px 30px 7px 10px; font-size:13px; box-shadow:none; }
+    /* "Show any creature": two names and a button */
+    .critter-form { display:flex; flex-wrap:wrap; gap:8px; margin:0; align-items:center; }
     .critter-form input[type=text] { flex:1 1 140px; width:auto; min-width:0; padding:7px 10px; font-size:13px; }
-    .task-status { font-size:12px; color:var(--accent); font-weight:600; margin-top:10px; min-height:1em; }
+    .task-status { font-size:12px; color:var(--accent); font-weight:600; margin-top:8px; min-height:1em; }
     .task-status:empty { margin-top:0; min-height:0; }
     .task-status.failed { color:var(--bad); }
     .task-status button.linkish { background:none; border:0; padding:0; margin:0; color:inherit; font:inherit; text-decoration:underline; cursor:pointer; }
@@ -244,10 +248,10 @@
     /* the gone-quiet banner heads the settings column; the column's gap spaces it */
     .quiet-banner { margin:0; }
 
-    /* right column: settings */
+    /* right column: settings, one card per section */
+    .settings-form { display:flex; flex-direction:column; gap:24px; }
     .settings { padding:0; }
-    section.sec { padding:24px 26px; border-top:1px solid var(--border); }
-    section.sec:first-child { border-top:0; padding-top:26px; }
+    section.sec { padding:24px 26px 26px; }
     .sec-head { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; margin:0 0 18px; }
     /* One row per setting: label + hint left, control right, so the labels
        read straight down the page. Rows are separated by a hairline; the first
@@ -257,7 +261,7 @@
     .sec-head + .frow, .intro + .frow, .adv-group + .frow { border-top:0; padding-top:0; }
     .adv-body > .frow:first-child { border-top:0; }
     section.sec > .frow:last-child, .adv-body > .frow:last-child { padding-bottom:0; }
-    .frow-text { min-width:0; }
+    .frow-text { min-width:0; max-width:420px; }
     .frow-ctl { justify-self:end; min-width:0; max-width:100%; display:flex; align-items:center; justify-content:flex-end; gap:8px; }
     .frow-ctl > * { max-width:100%; }
     /* a wide control (URL, key, textarea, steps) sits under its label at every width */
@@ -316,6 +320,7 @@
       padding:7px 15px; font-size:13px; font-weight:500; color:var(--muted);
       border-radius:5px; cursor:pointer; white-space:nowrap; transition:color .13s; text-align:center;
     }
+    .seg label:hover input:not(:checked) + span { color:var(--ink-2); }
     .seg input:checked + span { color:var(--ink); }
     .seg-ind {
       position:absolute; z-index:0; border-radius:5px; background:var(--white); box-shadow:var(--sh-pill);
@@ -332,7 +337,7 @@
     .hint a { color:var(--accent); }
     .switch { position:relative; display:inline-block; width:42px; height:25px; flex:none; }
     .switch input { opacity:0; width:0; height:0; }
-    .switch .track { position:absolute; inset:0; background:var(--switch-off); border-radius:999px; transition:background .16s; box-shadow:inset 0 1px 2px rgba(74,54,28,.16); }
+    .switch .track { position:absolute; inset:0; background:var(--switch-off); border-radius:999px; transition:background .16s; box-shadow:inset 0 0 0 1px rgba(74,54,28,.08), inset 0 1px 2px rgba(74,54,28,.1); }
     .switch .track::before { content:""; position:absolute; width:19px; height:19px; left:3px; top:3px; background:var(--white); border-radius:50%; transition:transform .16s; box-shadow:0 1px 2px rgba(74,54,28,.3); }
     .switch input:checked + .track { background:var(--good); }
     .switch input:checked + .track::before { transform:translateX(17px); }
@@ -371,29 +376,32 @@
 
     /* the save bar only sticks to the viewport once there's something to save */
     .savebar { display:flex; align-items:center; justify-content:flex-end; gap:14px;
-               padding:16px 26px; border-top:1px solid var(--border);
-               background:var(--glass); backdrop-filter:blur(8px); border-radius:0 0 9px 9px; }
+               padding:14px 20px; border:1px solid var(--border); border-radius:9px; box-shadow:var(--sh-card);
+               background:var(--glass); backdrop-filter:blur(8px); }
     .savebar .unsaved { display:none; margin-right:auto; font-size:12.5px; color:var(--muted); }
-    .savebar.dirty { position:sticky; bottom:0; animation:savebar-in .3s cubic-bezier(.2,.7,.2,1); }
+    .savebar.dirty { position:sticky; bottom:16px; animation:savebar-in .3s cubic-bezier(.2,.7,.2,1); }
     .savebar.dirty .unsaved { display:block; }
     @keyframes savebar-in { from { transform:translateY(120%); opacity:0; } to { transform:translateY(0); opacity:1; } }
     @media (prefers-reduced-motion:reduce){ .savebar.dirty { animation:none; } }
 
     /* Advanced: a full-width disclosure row with the same weight as the fields */
-    details.adv { margin-top:14px; border-top:1px solid var(--hair); }
-    details.adv > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0 0;
-      cursor:pointer; list-style:none; user-select:none; font-size:14px; font-weight:500; color:var(--ink); }
+    details.adv { margin:14px -26px -12px; border-top:1px solid var(--hair); }
+    details.adv > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 26px;
+      cursor:pointer; list-style:none; user-select:none; font-size:13px; font-weight:500; color:var(--muted); transition:color .12s, background .12s; }
     details.adv > summary::-webkit-details-marker { display:none; }
-    details.adv > summary .chev { width:12px; height:8px; color:var(--muted); transition:transform .18s; }
+    details.adv > summary .chev { width:11px; height:7px; transition:transform .18s; }
     details.adv[open] > summary .chev { transform:rotate(180deg); }
-    details.adv > summary:hover .chev { color:var(--ink); }
+    details.adv > summary:hover { color:var(--ink); background:var(--inset); }
+    details.adv[open] > summary { color:var(--ink-2); }
     @media (prefers-reduced-motion:reduce){ details.adv > summary .chev { transition:none; } }
-    .adv-body { padding-top:2px; }
+    .adv-body { padding:0 26px 12px; }
+    @media (max-width:600px){ details.adv { margin-left:-16px; margin-right:-16px; } details.adv > summary { padding-left:16px; padding-right:16px; } .adv-body { padding-left:16px; padding-right:16px; } }
     .adv-group { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; margin:0; padding:18px 0 10px; }
     .adv-body > .adv-group:first-child { padding-top:12px; }
 
     /* generated-plate gallery */
     .gen-list { display:flex; flex-direction:column; gap:10px; }
+    .gen-more { margin-top:12px; width:100%; }
     .gen-item { display:flex; gap:14px; align-items:center; border:1px solid var(--border); border-radius:7px; background:var(--white); padding:10px 12px; }
     .gen-item .plate-link { display:block; position:relative; overflow:hidden; border-radius:3px; flex:none; }
     .gen-item img { width:64px; height:85px; object-fit:cover; border:1px solid var(--border); background:#fff; display:block; }
@@ -568,42 +576,54 @@
            disclosure. #}
         {% set uh = status.hold %}
         <div class="held" id="held-line" {{ '' if uh else 'hidden' }}>
-          <span class="held-text">Held <span id="held-until">{{ uh.until_text if uh else '' }}</span></span>
+          <span class="held-text">Holding this plate <span id="held-until">{{ uh.until_text if uh else '' }}</span></span>
           <button class="btn" type="button" id="release-btn" title="End the hold and show whatever should be on the wall now">Release</button>
         </div>
         <details class="tools" id="plate-tools">
           <summary><span>Tools</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
           <div class="tools-body">
-            <div class="plate-actions">
-              <button class="btn" type="button" id="refresh-btn" title="Re-render the frame now. The panel picks it up on its next wake.">Refresh</button>
-              <form class="inline task-form" data-task="day-review" method="post" action="/api/collage/day-review">
-                <button class="btn" type="submit" title="Show today's “day in review” now (reuses today's sheet if one exists)">Day in review</button>
-                <button class="btn" type="submit" name="repaint" value="1" title="Paint today's sheet again from today's species — one image generation">Repaint</button>
-              </form>
+            <div class="frow">
+              <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Re-render the frame now. The panel picks it up on its next wake.</div></div>
+              <div class="frow-ctl"><button class="btn" type="button" id="refresh-btn">Refresh</button></div>
             </div>
-            <div class="plate-actions">
-              <div class="inline hold-ctl" id="hold-ctl" {{ 'hidden' if uh else '' }}>
+            <div class="frow">
+              <div class="frow-text"><span class="lab">Day in review</span><div class="hint">Show today's sheet now. Repaint paints it again from today's species (one image).</div></div>
+              <div class="frow-ctl">
+                <form class="inline task-form" data-task="day-review" method="post" action="/api/collage/day-review">
+                  <button class="btn" type="submit">Show</button>
+                  <button class="btn" type="submit" name="repaint" value="1">Repaint</button>
+                </form>
+              </div>
+            </div>
+            <div class="frow" id="hold-ctl" {{ 'hidden' if uh else '' }}>
+              <div class="frow-text"><span class="lab">Keep this plate up</span><div class="hint">Nothing replaces it until the hold ends; then the wall catches up.</div></div>
+              <div class="frow-ctl">
                 <select class="sel hold-dur" id="hold-dur" aria-label="Hold this plate for">
                   <option value="day">a day</option>
                   <option value="week">a week</option>
                   <option value="forever">until released</option>
                 </select>
-                <button class="btn" type="button" id="hold-btn" title="Keep this plate on the wall. Nothing replaces it until the hold ends.">Hold</button>
+                <button class="btn" type="button" id="hold-btn">Hold</button>
               </div>
-              <button class="btn" type="button" id="block-btn" title="Never show this species again (it goes on the blocklist) and move on">Block this bird</button>
+            </div>
+            <div class="frow">
+              <div class="frow-text"><span class="lab">Block this species</span><div class="hint">Never shown again; it goes on the blocklist.</div></div>
+              <div class="frow-ctl"><button class="btn" type="button" id="block-btn">Block</button></div>
             </div>
             {# Put any animal on the wall: a fake detection through the full
                provider chain. A creature Audubon never painted buys a generated
                plate (one image generation, cached forever). The next real bird
                replaces it. #}
-            <form class="critter-form task-form" data-task="test-detection" method="post" action="/api/test-detection">
-              <input type="text" name="common" placeholder="Common name" aria-label="Common name" required
-                     title="Any animal, not just a bird. A species without an Audubon plate is painted (one image generation).">
-              <input type="text" name="scientific" placeholder="Scientific name (optional)" aria-label="Scientific name"
-                     title="Optional. Sets the Latin line on the plate and the name the painting is cached under.">
-              <button class="btn" type="submit" title="Render this creature now. The panel picks it up on its next wake.">Show</button>
-            </form>
-            <p class="hint">Put any creature on the wall, bird or not. One without an Audubon plate is painted once (one image generation) and kept; the next real detection takes over.</p>
+            <div class="frow stack">
+              <div class="frow-text"><span class="lab">Show any creature</span><div class="hint">Bird or not. One without an Audubon plate is painted once and kept; the next real detection takes over.</div></div>
+              <div class="frow-ctl">
+                <form class="critter-form task-form" data-task="test-detection" method="post" action="/api/test-detection">
+                  <input type="text" name="common" placeholder="Common name" aria-label="Common name" required>
+                  <input type="text" name="scientific" placeholder="Scientific name (optional)" aria-label="Scientific name">
+                  <button class="btn" type="submit">Show</button>
+                </form>
+              </div>
+            </div>
           </div>
         </details>
         <div class="task-status" id="task-status" role="status" aria-live="polite"></div>
@@ -743,14 +763,12 @@
       <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
       <span class="test-msg" id="outage-text">{% if outage %}{{ srcname }} unreachable since {{ outage.since_text }} ({{ outage.hours_text }}). Check the source settings below.{% endif %}</span>
     </div>
-    <div class="card">
-    <form method="post" action="/settings">
-      <div class="settings">
-
+    <form method="post" action="/settings" class="settings-form">
         {# Every setting is one .frow: label + hint on the left, the control on
            the right, so the label column reads straight down the page. .toggle
            keeps its two columns on a phone (a switch is small); .stack puts a
            wide control (URL, key, textarea) under its label at every width. #}
+      <div class="card">
         <section class="sec">
           <h2 class="sec-head">Display</h2>
           <div class="frow">
@@ -763,7 +781,7 @@
             </div>
           </div>
           <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="ssl">Always show the most recent detection</label><div class="hint" id="ssl-sub">When off, the frame waits the refresh debounce between changes and won't redraw a species it's already showing.</div></div>
+            <div class="frow-text"><label class="lab" for="ssl">Always show the most recent detection</label><div class="hint" id="ssl-sub">When off, changes wait the refresh debounce and a species already showing isn't redrawn.</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ssl" name="single_show_latest" aria-describedby="ssl-sub" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label></div>
           </div>
           <div class="frow">
@@ -805,12 +823,12 @@
                 <div class="frow-ctl"><input type="number" id="f-deb" name="refresh_debounce_minutes" min="1" max="720" step="1" inputmode="numeric" value="{{ config.refresh_debounce_minutes }}"></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-dwell">Hold a new bird for (minutes)</label><div class="hint">A first-ever or first-today species keeps the frame this long against repeats of common birds. Another new bird can still take over. 0 turns it off.</div></div>
+                <div class="frow-text"><label class="lab" for="f-dwell">Hold a new bird for (minutes)</label><div class="hint">A first-ever or first-today species keeps the frame this long against repeats. 0 turns it off.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-dwell" name="dwell_minutes" min="0" max="720" step="1" inputmode="numeric" value="{{ config.dwell_minutes }}"></div>
               </div>
               <p class="adv-group">New species</p>
               <div class="frow toggle">
-                <div class="frow-text"><label class="lab" for="cns">Ask for a second detection before showing a new species</label><div class="hint" id="cns-sub">A species heard for the first time today must be heard twice (or once, confidently) before it is shown — or painted. One stray hit of a rare bird is usually a car horn.</div></div>
+                <div class="frow-text"><label class="lab" for="cns">Ask for a second detection before showing a new species</label><div class="hint" id="cns-sub">A species new today must be heard twice, or once confidently, before it's shown or painted.</div></div>
                 <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cns" name="corroborate_new_species" aria-describedby="cns-sub" {{ 'checked' if config.corroborate_new_species else '' }}><span class="track"></span></label></div>
               </div>
               <div id="cns-fields" {{ '' if config.corroborate_new_species else 'hidden' }}>
@@ -840,11 +858,11 @@
                 <div class="frow-ctl"><select class="sel" id="f-dither" name="dither"><option value="bluenoise" {{ 'selected' if config.dither=='bluenoise' else '' }}>Blue-noise (fast)</option><option value="stucki" {{ 'selected' if config.dither=='stucki' else '' }}>Stucki (slow, richer)</option><option value="none" {{ 'selected' if config.dither=='none' else '' }}>None</option></select></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-rot">Panel rotation</label><div class="hint">If the image is upside down on the panel, switch this — no reflash. The panel is landscape-native, so only these two orientations exist.</div></div>
+                <div class="frow-text"><label class="lab" for="f-rot">Panel rotation</label><div class="hint">If the panel shows the image upside down, switch this. No reflash.</div></div>
                 <div class="frow-ctl"><select class="sel" id="f-rot" name="panel_rotation">{% for r in [90,270] %}<option value="{{ r }}" {{ 'selected' if config.panel_rotation==r else '' }}>{{ r }}°</option>{% endfor %}</select></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-rebuilds">Collage rebuilds per day</label><div class="hint">In Collage mode, how many times a day the daytime sheet is re-rendered as new species arrive.</div></div>
+                <div class="frow-text"><label class="lab" for="f-rebuilds">Collage rebuilds per day</label><div class="hint">How many times a day the daytime sheet is re-rendered as species arrive.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-rebuilds" name="collage_rebuilds_per_day" min="1" max="24" step="1" inputmode="numeric" value="{{ config.collage_rebuilds_per_day }}"></div>
               </div>
               <div class="frow toggle">
@@ -852,7 +870,7 @@
                 <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="pn" name="show_plate_number" aria-describedby="pn-sub" {{ 'checked' if config.show_plate_number else '' }}><span class="track"></span></label></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-inset">Mat inset (% per edge)</label><div class="hint">The white border around the live preview is this mat allowance — the art is shrunk onto white so it clears the mat opening. Raise it until the physical mat just hides the white; ~4 suits an 8×6 mat.</div></div>
+                <div class="frow-text"><label class="lab" for="f-inset">Mat inset (% per edge)</label><div class="hint">The white border in the preview is the mat allowance. Raise it until the mat just hides the white; ~4 suits an 8×6 mat.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-inset" name="mat_inset_pct" min="0" max="20" step="0.1" inputmode="decimal" value="{{ config.mat_inset_pct }}"></div>
               </div>
               <div class="frow">
@@ -862,7 +880,9 @@
             </div>
           </details>
         </section>
+      </div>
 
+      <div class="card">
         <section class="sec">
           <h2 class="sec-head">Quiet hours</h2>
           <div class="frow">
@@ -880,11 +900,13 @@
             <div class="frow-ctl pair" role="group" aria-labelledby="quiet-between-lab"><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}" aria-label="Start"><span class="pair-sep" aria-hidden="true">–</span><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}" aria-label="End"></div>
           </div>
           <div class="frow toggle" id="hold-field" {{ 'hidden' if config.quiet_hours_mode=='off' else '' }}>
-            <div class="frow-text"><label class="lab" for="qhc">Show a “day in review” during quiet hours</label><div class="hint" id="qhc-sub">One image combining the day's top species, shown during quiet hours in either mode. <a class="ex seg-ex" id="dayreview-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a day-in-review example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></div></div>
+            <div class="frow-text"><label class="lab" for="qhc">Show a “day in review” during quiet hours</label><div class="hint" id="qhc-sub">The day's top species on one sheet, held through quiet hours. <a class="ex seg-ex" id="dayreview-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a day-in-review example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="qhc" name="quiet_hours_render_collage" aria-describedby="qhc-sub" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label></div>
           </div>
         </section>
+      </div>
 
+      <div class="card">
         <section class="sec">
           <h2 class="sec-head">Detection source</h2>
           <div class="frow">
@@ -960,15 +982,15 @@
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="adv-body">
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-poll">Poll interval (seconds)</label><div class="hint">5 to 300. How often Featherframe checks the source for new detections (BirdWeather is never polled faster than every 60 s).</div></div>
+                <div class="frow-text"><label class="lab" for="f-poll">Poll interval (seconds)</label><div class="hint">How often the source is checked. BirdWeather is never polled faster than every 60 s.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-poll" name="poll_interval_seconds" min="5" max="300" step="1" inputmode="numeric" value="{{ config.poll_interval_seconds }}"></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-alarm">Alert when nothing is heard for (hours)</label><div class="hint">0 = off. Counts only hours outside quiet hours, so a silent night doesn't trip it. The frame gets a footnote and this page a banner.</div></div>
+                <div class="frow-text"><label class="lab" for="f-alarm">Alert when nothing is heard for (hours)</label><div class="hint">0 = off. Counts only hours outside quiet hours. The frame gets a footnote and this page a banner.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-alarm" name="quiet_alarm_hours" min="0" max="168" step="1" inputmode="numeric" value="{{ config.quiet_alarm_hours }}"></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-outage">Note on the frame when the source is unreachable for (minutes)</label><div class="hint">0 = off. The Source card says “Not reachable” at once; after this long the frame itself gets a footnote, dropped on the next good read. Long enough that a router reboot doesn't repaint the wall.</div></div>
+                <div class="frow-text"><label class="lab" for="f-outage">Note on the frame when the source is unreachable for (minutes)</label><div class="hint">0 = off. After this long unreachable, the frame gets a footnote, dropped on the next good read.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-outage" name="source_alarm_minutes" min="0" max="10080" step="1" inputmode="numeric" value="{{ config.source_alarm_minutes }}"></div>
               </div>
               <div class="frow stack">
@@ -978,7 +1000,9 @@
             </div>
           </details>
         </section>
+      </div>
 
+      <div class="card">
         <section class="sec">
           <h2 class="sec-head">Image generation</h2>
           <p class="intro">When a bird has no Audubon plate, Featherframe generates one in the same lithograph style, so the frame shows the right species instead of a text-only card.</p>
@@ -1028,7 +1052,7 @@
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" aria-describedby="dayreview-cost" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
           </div>
           <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-review-max">Species on the sheet</label><div class="hint">The day's most-heard species, most first. 0 paints every species heard that day. The grid fallback always shows six.</div></div>
+            <div class="frow-text"><label class="lab" for="f-review-max">Species on the sheet</label><div class="hint">Most-heard first. 0 paints every species heard that day.</div></div>
             <div class="frow-ctl"><input type="number" id="f-review-max" name="review_species_max" min="0" max="60" step="1" inputmode="numeric" value="{{ config.review_species_max }}"></div>
           </div>
           <details class="adv">
@@ -1047,7 +1071,7 @@
               </div>
               <p class="adv-group">Text model</p>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Writes the species' taxonomy, plumage, and typical plants so the image model draws the right bird. Replicate has no text model — pick another provider here, or leave it without notes.</div></div>
+                <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Writes the species' plumage and plants so the image model draws the right bird. Replicate has no text model.</div></div>
                 <div class="frow-ctl">
                   <div class="cselect">
                   <select class="sel cselect-native" name="imagegen_text_provider" id="ig-text-provider">
@@ -1095,7 +1119,6 @@
         <button class="btn primary lg" type="submit" id="save-btn">Save settings</button>
       </div>
     </form>
-    </div>
 
     {% if generated %}
     <div class="card" id="gen-card">
@@ -1104,7 +1127,7 @@
       <p class="intro">Plates Featherframe has generated and cached. Regenerate buys a fresh image; Remove deletes the cached one and the next detection of that species generates a new plate.</p>
       <div class="gen-list">
         {% for g in generated %}
-        <div class="gen-item{{ ' regenerating' if g.regenerating else '' }}{{ ' regen-failed' if g.regen_error else '' }}" data-slug="{{ g.slug }}">
+        <div class="gen-item{{ ' regenerating' if g.regenerating else '' }}{{ ' regen-failed' if g.regen_error else '' }}" data-slug="{{ g.slug }}" {{ 'hidden' if loop.index > 5 else '' }}>
           <a class="plate-link" href="/api/generated/{{ g.slug }}.png" target="_blank" rel="noopener">
             <img src="/api/generated/{{ g.slug }}.png?v={{ g.created_at | urlencode }}" alt="{{ g.common }}" loading="lazy">
           </a>
@@ -1127,6 +1150,9 @@
         </div>
         {% endfor %}
       </div>
+      {% if generated|length > 5 %}
+      <button class="btn gen-more" type="button" id="gen-more">Show {{ [generated|length - 5, 5]|min }} more <span class="hint-inline">· {{ generated|length - 5 }} left</span></button>
+      {% endif %}
     </section></div>
     </div>
     {% endif %}
@@ -1859,6 +1885,20 @@
       var thumb = a.querySelector('img');
       open((thumb && thumb.src) || a.href, '');
       full.alt = (thumb && thumb.alt) || '';
+    });
+  })();
+
+  // -- generated plates: five at a time; the rest unfold on demand -----------
+  (function () {
+    var more = $('gen-more'); if (!more) return;
+    more.addEventListener('click', function () {
+      var hidden = [].slice.call(document.querySelectorAll('.gen-item[hidden]'));
+      hidden.slice(0, 5).forEach(function (el) { el.hidden = false; });
+      var left = hidden.length - 5;
+      if (left <= 0) { more.remove(); return; }
+      more.textContent = 'Show ' + Math.min(left, 5) + ' more ';
+      var n = document.createElement('span'); n.className = 'hint-inline'; n.textContent = '· ' + left + ' left';
+      more.appendChild(n);
     });
   })();
 

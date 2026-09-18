@@ -490,6 +490,10 @@ class FeatherframeService:
                     or new.birdnet_go_url != self.config.birdnet_go_url
                     or new.birdweather_station_id != self.config.birdweather_station_id):
                 self.source = make_source(new, self.db)
+                # The stored cursor is in the OLD source's id space (BirdWeather
+                # ids run ~11 billion, BirdNET-Go's ~450k): re-arm the stale
+                # guard so a switch can't leave it above every real rowid.
+                self._cursor_verified = False
             if self._imagegen_fields(new) != self._imagegen_fields(self.config):
                 self.provider = self._build_provider(new)
             self.config = new
@@ -702,7 +706,8 @@ class FeatherframeService:
         # when the detection id scheme changes under the stored cursor (e.g. a
         # BirdNET SQLite → BirdNET-Go REST switch leaves a huge timestamp-like
         # value behind). That is a between-runs condition (mid-run the cursor only
-        # advances to real rowids), so check it once at startup rather than paying
+        # advances to real rowids), so check it once at startup — and again after
+        # a source switch, which reload_config re-arms — rather than paying
         # a max_rowid() call — a network round-trip for the live source — on every
         # tick. Guard on max_rowid > 0 so a transient source blip (soft-fails to 0)
         # never trips it.

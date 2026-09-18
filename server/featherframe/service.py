@@ -401,6 +401,9 @@ class FeatherframeService:
         # Verify the persisted ingest cursor isn't stale on the first single-tick
         # after start (see _single_tick); cheaper than checking every tick.
         self._cursor_verified = False
+        # Set when the detection source changes (see _reset_for_source): the
+        # next single-tick shows the new source's latest detection once.
+        self._source_switched = False
 
         # The last few minutes of raw check-ins (the battery log keeps one row
         # per 5 min): the display median and the USB test read from here.
@@ -502,13 +505,27 @@ class FeatherframeService:
                     or new.birdnet_go_url != self.config.birdnet_go_url
                     or new.birdweather_station_id != self.config.birdweather_station_id):
                 self.source = make_source(new, self.db)
-                # The stored cursor is in the OLD source's id space (BirdWeather
-                # ids run ~11 billion, BirdNET-Go's ~450k): re-arm the stale
-                # guard so a switch can't leave it above every real rowid.
-                self._cursor_verified = False
+                self._reset_for_source()
             if self._imagegen_fields(new) != self._imagegen_fields(self.config):
                 self.provider = self._build_provider(new)
             self.config = new
+
+    def _reset_for_source(self) -> None:
+        """A new detection source starts from a clean slate. Everything
+        transient was about the old one: the cursor is in its id space
+        (BirdWeather ids run ~11 billion, BirdNET-Go's ~450k — a leftover
+        froze the frame for hours), and the hold, the debounce and review
+        clocks, the waiting species and the outage clock all describe birds
+        it heard. The next tick shows the new source's latest detection."""
+        for key in ("ingest_cursor", "pending_species", "last_render_at",
+                    "quiet_collage_for", "source_down_since", _USER_HOLD_KEY):
+            self.db.set(key, None)
+        self._pending = None
+        self._source_down_since = None
+        self._tick_memo = {}
+        self._meta.pop("collage_at", None)
+        self._source_switched = True
+        log.info("detection source changed: starting from a clean slate")
 
     def update_config(self, config: Config) -> None:
         with self._lock:
@@ -703,14 +720,16 @@ class FeatherframeService:
         self._expire_pending(now)
         cursor = self._cursor()
         if cursor is None:
-            # First run: start at the tail so we don't replay history, but show
-            # the most recent existing detection once.
+            # First run, or a new source: start at the tail so we don't replay
+            # history, but show the most recent existing detection once.
             self._set_cursor(self.source.max_rowid())
-            if self._frame_bytes is None:
+            switched, self._source_switched = self._source_switched, False
+            if self._frame_bytes is None or switched:
                 latest = self._first_showable(
                     self.source.latest_many(self.config.confidence_threshold), now)
                 if latest:
-                    self._render_single(latest, now, reason="startup")
+                    self._render_single(latest, now,
+                                        reason="source-switch" if switched else "startup")
             return
 
         # One-time stale-cursor guard. A cursor left *ahead* of every real rowid
@@ -718,8 +737,8 @@ class FeatherframeService:
         # when the detection id scheme changes under the stored cursor (e.g. a
         # BirdNET SQLite → BirdNET-Go REST switch leaves a huge timestamp-like
         # value behind). That is a between-runs condition (mid-run the cursor only
-        # advances to real rowids), so check it once at startup — and again after
-        # a source switch, which reload_config re-arms — rather than paying
+        # advances to real rowids, and a source switch clears it), so check it once
+        # at startup rather than paying
         # a max_rowid() call — a network round-trip for the live source — on every
         # tick. Guard on max_rowid > 0 so a transient source blip (soft-fails to 0)
         # never trips it.

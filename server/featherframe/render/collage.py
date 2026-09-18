@@ -18,7 +18,7 @@ from typing import Optional
 from PIL import Image, ImageChops, ImageDraw
 
 from . import theme, typography
-from .compose import _fit, _new_field
+from .compose import _fit, _new_field, merge_color, new_color_layer
 from .provider import ArtProvider
 
 
@@ -36,7 +36,7 @@ def _paste_art(field: Image.Image, art: Image.Image, box: tuple[int, int, int, i
     x = bl + (br - bl - fitted.width) // 2
     y = bt + int((bb - bt - fitted.height) * v_align)
     region = field.crop((bl, bt, br, bb))
-    layer = Image.new("L", region.size, 255)
+    layer = Image.new(field.mode, region.size, 255 if field.mode == "L" else (255, 255, 255))
     layer.paste(fitted, (x - bl, y - bt))
     field.paste(ImageChops.darker(region, layer), (bl, bt))
 
@@ -220,6 +220,8 @@ def render_generated_collage(art: Image.Image, cells: list[CollageCell],
     when = when or ddate.today()
     field = _new_field()
     draw = ImageDraw.Draw(field)
+    # A colour sheet (colour panel) goes on its own layer under the gray type.
+    layer = new_color_layer() if art.mode == "RGB" else None
 
     bottom = theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0)
     key_size, key_rows = sheet_key(cells, bool(note))
@@ -227,23 +229,25 @@ def render_generated_collage(art: Image.Image, cells: list[CollageCell],
     date_baseline = _sheet_date_baseline(key_size, key_rows, bottom)
     typography.draw_engraved(draw, theme.WIDTH / 2, date_baseline, sheet_date_text(when),
                              key_size, theme.INK, theme.SHEET_DATE_TRACKING)
-    _paste_art(field, art, sheet_art_box(cells, bool(note)), v_align=0.5)
+    _paste_art(layer if layer is not None else field, art,
+               sheet_art_box(cells, bool(note)), v_align=0.5)
     if note:
         typography.note_line(field, note, kind=note_kind)
-    return field
+    return merge_color(field, layer) if layer is not None else field
 
 
 def render_collage(cells: list[CollageCell], provider: ArtProvider,
                    when: Optional[ddate] = None, total_detections: int = 0,
                    title: str = "A Day in the Garden",
                    note: Optional[str] = None,
-                   note_kind: Optional[str] = None) -> Image.Image:
+                   note_kind: Optional[str] = None, color: bool = False) -> Image.Image:
     when = when or ddate.today()
     cells = cells[:6]
     cols, rows = _grid(len(cells))
 
     field = _new_field()
     draw = ImageDraw.Draw(field)
+    layer = new_color_layer() if color else None   # colour panel: see compose.merge_color
 
     # -- grid --------------------------------------------------------------
     grid_top = _title_band(field, when, title)
@@ -263,7 +267,10 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
         ccx = x0 + cell_w / 2
 
         art = provider.artwork(cell.common_name, cell.scientific_name)
-        if art is not None:
+        pair = art.color_pair() if (art is not None and color) else None
+        if pair is not None:
+            _paste_art(layer, pair[1], art_box, v_align=0.5)
+        elif art is not None:
             _paste_art(field, art.image, art_box, v_align=0.5)
         else:
             # Typographic mini: the Latin name in the plates' engraved capitals,
@@ -290,4 +297,4 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
     # The grid stops at MARGIN_BOTTOM, well above the note's baseline.
     if note:
         typography.note_line(field, note, kind=note_kind)
-    return field
+    return merge_color(field, layer) if color else field

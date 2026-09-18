@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, Optional
 
 from PIL import Image
 
@@ -30,6 +30,19 @@ class Artwork:
     generated: bool = False     # True when the art is AI-generated, not a scan
     generated_by: Optional[str] = None   # who drew it ("OpenAI"), for the provenance line
     legend: list = field(default_factory=list)   # printed figure key / plant lines
+    # For a colour panel: loads (gray, colour) of the same art, lazily so a
+    # gray panel never pays for it. None = this art has no colour (the bough).
+    color_loader: Optional[Callable[[], tuple]] = None
+
+    def color_pair(self) -> Optional[tuple]:
+        """(gray 'L', colour 'RGB') at identical size, or None."""
+        if self.color_loader is None:
+            return None
+        try:
+            return self.color_loader()
+        except (OSError, ValueError) as exc:
+            log.warning("colour load failed, showing the gray art: %s", exc)
+            return None
 
 
 class ArtProvider(ABC):
@@ -87,4 +100,7 @@ class AudubonProvider(ArtProvider):
                         common_name, match.image_path, exc)
             return None
         return Artwork(image=img, audubon_plate=match.plate_number, composite=match.composite,
-                       legend=list(match.legend))
+                       legend=list(match.legend),
+                       color_loader=lambda: plate.extract_color(
+                           match.image_path, composite=match.composite,
+                           crop_box=match.crop_box))

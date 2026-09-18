@@ -18,9 +18,13 @@ hears as Audubon lithograph plates. Two components in one repo:
 - **`firmware/`** — ESP32-S3 (PlatformIO), a deliberately dumb deep-sleep client
   that fetches a pre-packed framebuffer and pushes it to the panel.
 
-Hardware is fixed: Seeed XIAO ePaper Kit EE03 (XIAO ESP32-S3 Plus + 10.3"
+The wall frame is a Seeed XIAO ePaper Kit EE03 (XIAO ESP32-S3 Plus + 10.3"
 ED103TC2, 1404×1872, 16-level gray, IT8951). See `README.md` for the full spec,
-wiring, and battery numbers.
+wiring, and battery numbers. A second panel is being ported (W-812): the EE02
+kit's 13.3" E Ink Spectra 6 (T133A01, 1200×1600, six inks, ~30 s full refresh,
+no partial refresh). One server instance drives one panel (`config.panel`,
+`featherframe/panels.py`); it follows the device's `X-Panel` report on first
+check-in, and `FEATHERFRAME_PANEL` seeds a fresh install.
 
 ## Commands
 
@@ -34,6 +38,7 @@ make preview           # END-TO-END render of a fake Cardinal -> test_output/*.p
 make preview-all       # one PNG per curated species
 make preview-collage   # a daily collage
 make preview-fallback  # the typographic (no-plate) fallback
+make preview-ee02      # the Cardinal for the EE02 colour panel (six-ink dither)
 make serve             # run the server on :8080
 make test              # pytest
 ```
@@ -132,6 +137,18 @@ corners in the same script. `theme.py` holds all geometry/tone constants.
   firmware's `displayFrame()` rejects anything that isn't native 1872×1404),
   while the PNG preview stays upright portrait. `framebuffer.py` and
   `firmware/src/main.cpp displayFrame()` must agree.
+- **The colour panel reuses the gray layout.** Both panels are 3:4, so the art
+  is always composed on the theme's 1404×1872 sheet and `pipeline._finish`
+  scales it to the panel. For a colour panel `compose` still makes every layout
+  decision on the gray art and keeps the type on the gray field; the art's
+  colour twin (`Artwork.color_pair`, loaded lazily) goes on a separate RGB
+  layer and `compose.merge_color` lays the type over it. `render/spectra.py`
+  then dithers to the six *measured* inks (convex mix per colour from a cached
+  64³ table, walked against the blue-noise mask): image white is exactly the
+  white ink and a neutral gray is only black + white, so paper never speckles
+  and type never turns to confetti. The wire format is FFF with `FLAG_INKS`:
+  4bpp nibbles are Seeed_GFX's colour-sprite codes (0x0 white, 0xF black —
+  the reverse of the gray levels), native portrait 1200×1600, rotation 0/180.
 - **Config** is one flat `Config` dataclass (`config.py`), persisted as a JSON
   blob in our own SQLite (`db.py`, a kv store, separate from BirdNET's DB).
 - **Dithering:** blue-noise is the default (vectorized, Pi-friendly); Stucki is a

@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import os
 import secrets
 from dataclasses import dataclass, field
 from datetime import date, datetime, time as dtime
 from typing import Any
+
+from . import panels
 
 
 def _parse_hhmm(value: str, fallback: str) -> dtime:
@@ -158,13 +161,21 @@ class Config:
     poll_interval_seconds: int = 5  # how often the detection source is checked
 
     # Rendering ------------------------------------------------------------
+    # Which panel this instance drives (panels.py): "ee03" (10.3" gray) or
+    # "ee02" (13.3" Spectra 6 colour). FEATHERFRAME_PANEL sets a fresh
+    # install's default, so a second instance needs no click to come up right.
+    panel: str = field(default_factory=lambda: os.environ.get("FEATHERFRAME_PANEL", "ee03"))
+    # Colour panel only: chroma boost before the six-ink dither. The inks are
+    # duller than the scans, so a little over 1 reads truer on the glass.
+    color_saturation: float = 1.2
     gray_mode: str = "16"  # "16" (4bpp) or "1" (1-bit fallback)
     dither: str = "bluenoise"  # "bluenoise" (fast, Pi-friendly) | "stucki" | "none"
     show_plate_number: bool = True
     # The panel's native canvas is landscape 1872x1404 and its setRotation() is a
     # no-op, so we rotate the portrait art into native orientation server-side.
     # Which way depends on how the frame is hung — fix it here, no reflash needed.
-    panel_rotation: int = 90  # 90 | 270 degrees (landscape only; see sanitize)
+    # The colour panel's canvas is natively portrait: there it is 0 | 180.
+    panel_rotation: int = 90  # per panel (panels.py rotations; see sanitize)
 
     # Shrink the composition by this percent per edge and center it on white.
     mat_inset_pct: float = 4.0  # 0 disables
@@ -258,12 +269,17 @@ class Config:
         # portrait frame (pushImage would clip it into garbage), so only the
         # two landscape orientations are valid. Old 0/180 values migrate to
         # the landscape orientation with the same relative flip.
+        self.panel = panels.get(self.panel).key
+        valid = panels.get(self.panel).rotations
         try:
-            self.panel_rotation = {0: 90, 180: 270}.get(int(self.panel_rotation), int(self.panel_rotation))
+            rot = int(self.panel_rotation)
         except (TypeError, ValueError):
-            self.panel_rotation = 90
-        if self.panel_rotation not in (90, 270):
-            self.panel_rotation = 90
+            rot = valid[0]
+        if rot not in valid:
+            # The same relative flip on the other panel's axes (0<->90, 180<->270).
+            rot = {0: 90, 180: 270, 90: 0, 270: 180}.get(rot, valid[0])
+        self.panel_rotation = rot if rot in valid else valid[0]
+        self.color_saturation = _clamp(_finite(self.color_saturation, 1.2), 0.0, 2.0)
         self.mat_inset_pct = _clamp(_finite(self.mat_inset_pct, 4.0), 0.0, 20.0)
         self.mat_offset_x_px = int(_clamp(int(self.mat_offset_x_px), -120, 120))
         self.mat_offset_y_px = int(_clamp(int(self.mat_offset_y_px), -120, 120))
@@ -314,7 +330,13 @@ class Config:
     # -- derived -----------------------------------------------------------
     @property
     def bit_depth(self) -> int:
+        if self.panel_spec.color:
+            return 4          # ink nibbles; the 1-bit fallback is a gray-panel thing
         return 4 if self.gray_mode == "16" else 1
+
+    @property
+    def panel_spec(self) -> "panels.Panel":
+        return panels.get(self.panel)
 
     def is_blocked(self, common_name: str, sci_name: str) -> bool:
         block = {b.lower() for b in self.species_blocklist}

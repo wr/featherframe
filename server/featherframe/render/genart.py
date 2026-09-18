@@ -1521,6 +1521,9 @@ class GeneratedArtProvider(ArtProvider):
         torn file — re-verified before deleting, and without re-acquiring the
         (non-reentrant) generation lock when the caller already holds it."""
         def _attempt():
+            # A colour panel (service sets color_sheets) takes the sheet as drawn.
+            if getattr(self, "color_sheets", False):
+                return plate.extract_generated_color(png)[1]
             return plate.extract_generated(png)
 
         try:
@@ -1595,8 +1598,10 @@ class GeneratedArtProvider(ArtProvider):
                     except OSError:
                         pass
                     return None
+        png = self._png(slug)
         return Artwork(image=img, audubon_plate=None, composite=False, generated=True,
-                       generated_by=self._cached_vendor(slug), legend=self._cached_legend(slug))
+                       generated_by=self._cached_vendor(slug), legend=self._cached_legend(slug),
+                       color_loader=lambda: plate.extract_generated_color(png))
 
     def _cached_vendor(self, slug: str) -> Optional[str]:
         """Who drew the cached sheet, from the sidecar's model id, for the

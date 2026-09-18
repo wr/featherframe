@@ -67,14 +67,26 @@ def _fit(img: Image.Image, box_w: int, box_h: int) -> Image.Image:
 def _composite(field: Image.Image, fitted: Image.Image, x: int, y: int) -> None:
     """Darken-composite `fitted` onto `field` so near-white paper blends into
     the field and only the ink shows (no paste seam)."""
-    layer = Image.new("L", field.size, 255)
+    layer = Image.new(field.mode, field.size, 255 if field.mode == "L" else (255, 255, 255))
     layer.paste(fitted, (x, y))
     field.paste(ImageChops.darker(field, layer), (0, 0))
 
 
+def new_color_layer() -> Image.Image:
+    """The colour panel's art layer: white, the size of the field. Colour art
+    is placed here instead of on the gray field, and `merge_color` lays the
+    field's type over it, so the type and layout code stays gray."""
+    return Image.new("RGB", (theme.WIDTH, theme.HEIGHT), (255, 255, 255))
+
+
+def merge_color(field: Image.Image, layer: Image.Image) -> Image.Image:
+    return ImageChops.darker(field.convert("RGB"), layer)
+
+
 def _place_art(field: Image.Image, art: Image.Image, box: tuple[int, int, int, int],
                v_align: float = 0.5) -> None:
-    """Contain-fit `art` into `box` (whole plate visible) and composite it."""
+    """Contain-fit `art` into `box` (whole plate visible) and composite it.
+    `field` is the gray field, or the colour layer when `art` is colour."""
     bl, bt, br, bb = box
     fitted = _fit(art, br - bl, bb - bt)
     x = bl + (br - bl - fitted.width) // 2
@@ -126,18 +138,24 @@ FIRST_EVER_LINE = "First recorded today."
 
 
 def render_single(spec: SingleSpec, provider: ArtProvider,
-                  show_plate_number: bool = True) -> Image.Image:
+                  show_plate_number: bool = True, color: bool = False) -> Image.Image:
     art = provider.artwork(spec.common_name, spec.scientific_name)
     if art is None:
-        return render_fallback(spec, show_plate_number=show_plate_number)
-    return _render_art(spec, art, show_plate_number)
+        return render_fallback(spec, show_plate_number=show_plate_number, color=color)
+    return _render_art(spec, art, show_plate_number, color)
 
 
-def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool) -> Image.Image:
+def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool,
+                color: bool = False) -> Image.Image:
     """The plate layout proper: art in the box above the caption, the
     caption, the corner marks, the footnote. Shared by a real or generated
-    plate and by the fallback's empty bough, so the type never moves."""
+    plate and by the fallback's empty bough, so the type never moves.
+
+    With `color` (a colour panel) the result is 'RGB': every layout decision
+    is still made on the gray art, and its colour twin is what gets placed."""
     field = _new_field()
+    layer = new_color_layer() if color else None
+    pair = art.color_pair() if color else None
 
     lines = list(art.legend)
     # A species never heard before today: a rule around the sheet (W-744),
@@ -147,19 +165,23 @@ def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool) -> Imag
         lines.append(FIRST_EVER_LINE)
     caption_top = theme.HEIGHT - caption_height(len(art.legend), first_line)
     art_box = (0, 0, theme.WIDTH, caption_top - theme.CAPTION_GAP)
-    img = art.image
+    img, twin = pair if pair else (art.image, None)
     # A composite is always shown whole (never a wrong bird); anything else
     # whose picture runs to its own edges fills the opening, unless that
     # would crop too much of it.
     cover = False
     if not art.composite and plate.edge_ink_fraction(img) > COVER_EDGE_INK:
-        trimmed = plate.trim_paper(img)
-        if _cover_loss(trimmed, art_box) <= COVER_MAX_LOSS:
-            img, cover = trimmed, True
+        tbox = plate.trim_box(img)
+        if _cover_loss(img.crop(tbox), art_box) <= COVER_MAX_LOSS:
+            img, cover = img.crop(tbox), True
+            twin = twin.crop(tbox) if twin is not None else None
+    # The colour twin lands on the colour layer; gray art (the bough, or any
+    # art on a gray panel) on the field.
+    target, placed = (layer, twin) if twin is not None else (field, img)
     if cover:
-        _place_cover(field, img, art_box, v_bias=0.5 if img.width > img.height else 0.0)
+        _place_cover(target, placed, art_box, v_bias=0.5 if img.width > img.height else 0.0)
     else:
-        _place_art(field, img, art_box)
+        _place_art(target, placed, art_box)
 
     typography.caption(field, caption_top, spec.common_name, spec.scientific_name, lines)
     if spec.when:
@@ -175,7 +197,7 @@ def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool) -> Imag
         typography.first_ever_rule(field)
     if spec.note:
         typography.note_line(field, spec.note, max_w=note_width(), kind=spec.note_kind)
-    return field
+    return merge_color(field, layer) if color else field
 
 
 @lru_cache(maxsize=1)
@@ -185,7 +207,8 @@ def bough() -> Image.Image:
     return Image.open(paths.art_dir() / "bough.png").convert("L")
 
 
-def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.Image:
+def render_fallback(spec: SingleSpec, show_plate_number: bool = True,
+                    color: bool = False) -> Image.Image:
     """The plate for a species we have no illustration for: the empty bough
     where the bird would be, the name in the caption's own voice, 'First
     recorded <date>' as its legend line. The same layout as a real plate,
@@ -203,4 +226,4 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True) -> Image.I
     # composite=True: shown whole, never cover-cropped, though the limb runs
     # off the sheet's edge exactly as a plate's stems do.
     art = Artwork(image=bough(), audubon_plate=None, composite=True, legend=lines)
-    return _render_art(spec, art, show_plate_number)
+    return _render_art(spec, art, show_plate_number, color)

@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__, discovery, paths
+from . import __version__, discovery, panels, paths
 from .config import Config, valid_hhmm
 from .names import display_common_name, normalize
 from .render import typography
@@ -131,6 +131,10 @@ async def api_frame(request: Request, view: Optional[str] = None):
                       "X-Power-Mode": svc.config.power_mode,
                       "X-Wake-Minutes": str(svc.config.wake_interval_minutes),
                       "X-Poll-Seconds": str(svc.config.device_poll_seconds)}
+
+    if device_extra["panel"]:
+        # Threadpool: a panel switch re-renders the frame.
+        await run_in_threadpool(svc.adopt_panel, device_extra["panel"])
 
     # On-demand button views: rendered fresh, never the resident frame, no
     # 304s. Threadpool: the collage leg walks the provider chain (which may
@@ -248,6 +252,7 @@ async def index(request: Request):
     return templates.TemplateResponse(
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
+         "panels": list(panels.PANELS.values()),
          "generated": generated, "history": history})
 
 
@@ -304,6 +309,8 @@ async def save_settings(request: Request):
         poll_interval_seconds=i("poll_interval_seconds", cur["poll_interval_seconds"]),
         quiet_alarm_hours=i("quiet_alarm_hours", cur["quiet_alarm_hours"]),
         source_alarm_minutes=i("source_alarm_minutes", cur["source_alarm_minutes"]),
+        panel=s("panel", cur["panel"]),
+        color_saturation=f("color_saturation", cur["color_saturation"]),
         gray_mode=s("gray_mode", cur["gray_mode"]),
         dither=s("dither", cur["dither"]),
         show_plate_number=b("show_plate_number"),
@@ -330,7 +337,9 @@ async def save_settings(request: Request):
         imagegen_text_key=(s("imagegen_text_key", "").strip()
                            or ("" if b("imagegen_text_clear_key") else cur["imagegen_text_key"])),
     )
-    render_affecting = (new.gray_mode != svc.config.gray_mode
+    render_affecting = (new.panel != svc.config.panel
+                        or new.color_saturation != svc.config.color_saturation
+                        or new.gray_mode != svc.config.gray_mode
                         or new.dither != svc.config.dither
                         or new.show_plate_number != svc.config.show_plate_number
                         or new.panel_rotation != svc.config.panel_rotation
@@ -360,6 +369,7 @@ _NUMERIC_FORM_FIELDS = ("confidence_threshold", "refresh_debounce_minutes", "dwe
                         "poll_interval_seconds", "quiet_alarm_hours", "source_alarm_minutes",
                         "collage_rebuilds_per_day", "review_species_max",
                         "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation",
+                        "color_saturation",
                         "corroborate_confidence", "corroborate_window_hours",
                         "corroborate_min_gap_minutes")
 

@@ -889,20 +889,33 @@
                 </div>
               </div>
               <p class="adv-group">Rendering</p>
-              {# The panel's colour capability comes from what the device reports (X-Panel);
-                 a grayscale panel disables the Color tone. Absent report -> assume grayscale. #}
-              {% set panel_gray = (not status.device.panel) or ('gray' in status.device.panel|lower) %}
+              {# The panel follows what the device reports (X-Panel) on its first
+                 check-in; the select is for setting it before a device exists. #}
+              {% set panel_color = config.panel_spec.color %}
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-tone">Tone</label><div class="hint">{% if panel_gray %}This panel is monochrome — Color is unavailable. Grayscale is the full 16-level range.{% else %}Color renders full-color plates on a color-capable panel.{% endif %}</div></div>
-                <div class="frow-ctl"><select class="sel" id="f-tone" name="gray_mode"><option value="16" {{ 'selected' if config.gray_mode=='16' else '' }}>Grayscale (16-level)</option><option value="1" {{ 'selected' if config.gray_mode=='1' else '' }}>Black &amp; white (1-bit)</option><option value="color" {{ 'selected' if config.gray_mode=='color' else '' }} {{ 'disabled' if panel_gray else '' }}>Color{{ ' — needs a color panel' if panel_gray else '' }}</option></select></div>
+                <div class="frow-text"><label class="lab" for="f-panel">Panel</label><div class="hint">Which panel this server draws for. It sets itself from the frame's first check-in, so it rarely needs changing.</div></div>
+                <div class="frow-ctl"><select class="sel" id="f-panel" name="panel">{% for p in panels %}<option value="{{ p.key }}" {{ 'selected' if config.panel==p.key else '' }}>{{ p.name }}</option>{% endfor %}</select></div>
               </div>
+              {% if panel_color %}
+              <input type="hidden" name="gray_mode" value="{{ config.gray_mode }}">
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-dither">Dithering</label><div class="hint">How the plate's tones are rendered in 16 grays. Blue-noise is quick and looks right; Stucki is slower and a touch finer.</div></div>
+                <div class="frow-text"><label class="lab" for="f-sat">Color saturation</label><div class="hint">How vivid the plate's colors are before they are mixed from the panel's six inks. The inks are duller than the scans, so a little over 1 reads truer on the glass.</div></div>
+                <div class="frow-ctl"><input type="number" id="f-sat" name="color_saturation" min="0" max="2" step="0.05" inputmode="decimal" value="{{ config.color_saturation }}"></div>
+              </div>
+              {% else %}
+              <input type="hidden" name="color_saturation" value="{{ config.color_saturation }}">
+              <div class="frow">
+                <div class="frow-text"><label class="lab" for="f-tone">Tone</label><div class="hint">Grayscale is the panel's full 16-level range. Black &amp; white is a fallback for a panel that renders grays badly.</div></div>
+                <div class="frow-ctl"><select class="sel" id="f-tone" name="gray_mode"><option value="16" {{ 'selected' if config.gray_mode=='16' else '' }}>Grayscale (16-level)</option><option value="1" {{ 'selected' if config.gray_mode=='1' else '' }}>Black &amp; white (1-bit)</option></select></div>
+              </div>
+              {% endif %}
+              <div class="frow">
+                <div class="frow-text"><label class="lab" for="f-dither">Dithering</label><div class="hint">{% if panel_color %}How the plate's colors are mixed from the panel's six inks. Blue-noise is the only mixing pattern in color; None shows flat inks.{% else %}How the plate's tones are rendered in 16 grays. Blue-noise is quick and looks right; Stucki is slower and a touch finer.{% endif %}</div></div>
                 <div class="frow-ctl"><select class="sel" id="f-dither" name="dither"><option value="bluenoise" {{ 'selected' if config.dither=='bluenoise' else '' }}>Blue-noise (fast)</option><option value="stucki" {{ 'selected' if config.dither=='stucki' else '' }}>Stucki (slow, richer)</option><option value="none" {{ 'selected' if config.dither=='none' else '' }}>None</option></select></div>
               </div>
               <div class="frow">
                 <div class="frow-text"><label class="lab" for="f-rot">Panel rotation</label><div class="hint">Switch this if the plate is upside down on the wall.</div></div>
-                <div class="frow-ctl"><select class="sel" id="f-rot" name="panel_rotation">{% for r in [90,270] %}<option value="{{ r }}" {{ 'selected' if config.panel_rotation==r else '' }}>{{ r }}°</option>{% endfor %}</select></div>
+                <div class="frow-ctl"><select class="sel" id="f-rot" name="panel_rotation">{% for r in config.panel_spec.rotations %}<option value="{{ r }}" {{ 'selected' if config.panel_rotation==r else '' }}>{{ r }}°</option>{% endfor %}</select></div>
               </div>
               <div class="frow">
                 <div class="frow-text"><label class="lab" for="f-rebuilds">Collage rebuilds per day</label><div class="hint">How often the day's sheet is redrawn as new species arrive. More rebuilds, more repaints.</div></div>
@@ -1292,7 +1305,7 @@
     source_alarm_minutes: 'Source-outage note',
     collage_rebuilds_per_day: 'Collage rebuilds per day', review_species_max: 'Species on the sheet',
     mat_inset_pct: 'Mat inset',
-    mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation',
+    mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation', color_saturation: 'Color saturation',
     corroborate_confidence: 'New species: confident enough alone', corroborate_window_hours: 'New species: window',
     corroborate_min_gap_minutes: 'New species: minimum gap' };
   (function () {

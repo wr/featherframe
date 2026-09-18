@@ -391,9 +391,9 @@ def test_render_single_sets_first_ever_from_the_novelty_class(svc, monkeypatch):
     seen = []
     real = compose.render_single
 
-    def spy(spec, provider, show_plate_number=True):
+    def spy(spec, provider, show_plate_number=True, color=False):
         seen.append(spec)
-        return real(spec, provider, show_plate_number)
+        return real(spec, provider, show_plate_number, color)
     monkeypatch.setattr(compose, "render_single", spy)
     svc.source = _GateSource([], first_seen={**KNOWN, EAGLE[1]: TODAY}, today=[_row(*ROBIN, 1)])
     svc._render_single(_det(1, *EAGLE, 0.9, NOW), NOW, reason="test")

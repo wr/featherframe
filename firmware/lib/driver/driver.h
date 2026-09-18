@@ -6,5 +6,15 @@
 //
 // Do not change these unless you swap panels — they must match your hardware.
 
+//
+// -DFF_BOARD_EE02 (the ee02_* envs) selects combo 510 instead: the EE02 driver
+// board with the 13.3" Spectra 6 colour panel (T133A01, 1200x1600, two
+// controllers on CS/CS1), via Setup510_Seeed_XIAO_EPaper_13inch3_colorful.h.
+
+#if defined(FF_BOARD_EE02)
+#define BOARD_SCREEN_COMBO 510
+#define USE_XIAO_EPAPER_DISPLAY_BOARD_EE02
+#else
 #define BOARD_SCREEN_COMBO 511
 #define USE_XIAO_EPAPER_DISPLAY_BOARD_EE03
+#endif

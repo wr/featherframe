@@ -23,6 +23,14 @@ def test_neutral_gray_mixes_only_black_and_white():
     assert set(np.unique(inks)) == {spectra.BLACK, spectra.WHITE}
 
 
+def test_every_neutral_gray_is_black_and_white_only():
+    # The whole ramp, not one sample: an ink pair whose edge merely passes near
+    # the gray axis (blue-yellow) once won some grays (caught baking the EE02
+    # boot screens).
+    ramp = Image.fromarray(np.tile(np.arange(256, dtype=np.uint8), (64, 1))).convert("RGB")
+    assert set(np.unique(spectra.to_inks(ramp))) == {spectra.BLACK, spectra.WHITE}
+
+
 def test_a_saturated_colour_leans_on_its_own_ink():
     for rgb, ink in (((0, 40, 200), spectra.BLUE), ((200, 20, 10), spectra.RED),
                      ((250, 220, 0), spectra.YELLOW), ((20, 120, 40), spectra.GREEN)):
@@ -112,3 +120,28 @@ def test_first_checkin_from_a_colour_frame_turns_the_server_colour(client):
     # unknown report is ignored.
     r = client.get("/api/frame", headers={"X-Panel": "mystery panel"})
     assert svc.config.panel == "ee02"
+
+
+def test_a_live_gray_frame_keeps_its_server(client):
+    # The wall frame polls every few seconds; a colour frame that finds this
+    # server over mDNS must be turned away, not flip the render under it.
+    svc = client.app.state.service
+    svc._render_welcome(svc._clock(), False)
+    assert client.get("/api/frame", headers={"X-Panel": "ED103TC2 1404x1872 gray16"}).status_code == 200
+
+    r = client.get("/api/frame", headers={"X-Panel": "T133A01 1200x1600 spectra6"})
+    assert r.status_code == 409
+    assert svc.config.panel == "ee03"
+    assert "ED103TC2" in svc.device.panel            # the stray frame was not recorded
+
+
+def test_firmware_is_only_served_to_its_own_board(client, tmp_path):
+    from featherframe import paths
+    (paths.data_dir()).mkdir(parents=True, exist_ok=True)
+    (paths.data_dir() / "firmware.bin").write_bytes(b"\xe9" + b"\0" * 64 + b"XIAO-ESP32S3 EE03" + b"\0" * 64)
+    ok = client.get("/api/firmware", headers={"X-Board": "XIAO-ESP32S3 EE03", "X-Firmware-MD5": "0"})
+    assert ok.status_code == 200
+    assert client.get("/api/firmware", headers={"X-Board": "XIAO-ESP32S3 EE02",
+                                                "X-Firmware-MD5": "0"}).status_code == 404
+    # Older firmware sends no X-Board and is served as before.
+    assert client.get("/api/firmware", headers={"X-Firmware-MD5": "0"}).status_code == 200

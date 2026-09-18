@@ -68,10 +68,11 @@ def test_registers_with_a_fake_zeroconf(monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_MDNS", "1")
     monkeypatch.setattr(discovery, "lan_ip", lambda: "192.0.2.7")
 
-    adv = discovery.Advertiser(port=8081, version="1.0.0")
+    adv = discovery.Advertiser(port=8081, version="1.0.0", panel="ee02")
     assert adv.start() is True
     assert adv.advertised is True
     info = calls["info"]
+    assert info["properties"]["panel"] == "ee02"     # a frame adopts only its own panel's server
     assert info["type"] == "_featherframe._tcp.local."
     assert info["name"].endswith("._featherframe._tcp.local.")
     assert info["port"] == 8081
@@ -79,7 +80,7 @@ def test_registers_with_a_fake_zeroconf(monkeypatch):
     assert info["properties"]["path"] == "/api/frame"
     st = adv.status()
     assert st == {"advertised": True, "service": "_featherframe._tcp.local",
-                  "ip": "192.0.2.7", "port": 8081, "error": None}
+                  "ip": "192.0.2.7", "port": 8081, "panel": "ee02", "error": None}
 
     adv.stop()
     assert calls["unregistered"] is calls["registered"]

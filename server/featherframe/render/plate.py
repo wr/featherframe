@@ -54,6 +54,17 @@ def load_gray(path: str | Path, max_side: int = WORK_MAX_SIDE) -> Image.Image:
     return im
 
 
+def load_color(path: str | Path, max_side: int = WORK_MAX_SIDE) -> Image.Image:
+    """load_gray's colour twin: same downscale, 'RGB'."""
+    im = Image.open(path)
+    im.draft("RGB", (max_side, max_side))
+    im = im.convert("RGB")
+    if max(im.size) > max_side:
+        scale = max_side / max(im.size)
+        im = im.resize((round(im.width * scale), round(im.height * scale)), Image.LANCZOS)
+    return im
+
+
 def _ink_map(gray: Image.Image) -> tuple[np.ndarray, float]:
     """Return (inkiness at analysis resolution, scale-back factor to `gray`)."""
     scale = ANALYSIS_W / gray.width
@@ -137,17 +148,22 @@ def content_box(gray: Image.Image, pad: float = 0.015) -> tuple[int, int, int, i
             int(min(gray.width, cx + hw)), int(min(gray.height, cy + hh)))
 
 
-def trim_paper(art: Image.Image, thr: int = 200, min_ink: float = 0.002) -> Image.Image:
-    """Strip edge rows/columns that carry (almost) no ink: the scan's own
-    paper border, which would otherwise show as a white sliver when a
-    full-bleed plate is fitted to the mat opening."""
+def trim_box(art: Image.Image, thr: int = 200, min_ink: float = 0.002) -> tuple[int, int, int, int]:
+    """The box trim_paper crops to (the whole image when it carries no ink)."""
     a = np.asarray(art)
     inked = a < thr
     cols = np.where(inked.mean(axis=0) >= min_ink)[0]
     rows = np.where(inked.mean(axis=1) >= min_ink)[0]
     if cols.size == 0 or rows.size == 0:
-        return art
-    return art.crop((int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1))
+        return (0, 0, art.width, art.height)
+    return (int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1)
+
+
+def trim_paper(art: Image.Image, thr: int = 200, min_ink: float = 0.002) -> Image.Image:
+    """Strip edge rows/columns that carry (almost) no ink: the scan's own
+    paper border, which would otherwise show as a white sliver when a
+    full-bleed plate is fitted to the mat opening."""
+    return art.crop(trim_box(art, thr, min_ink))
 
 
 def edge_ink_fraction(art: Image.Image, frac: float = 0.02, thr: int = 200) -> float:
@@ -205,6 +221,24 @@ def paper_normalize(gray: Image.Image) -> Image.Image:
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="L")
 
 
+def paper_normalize_color(rgb: Image.Image) -> Image.Image:
+    """paper_normalize for a colour panel: the same levels stretch and S-curve,
+    with the white point taken per channel so aged cream paper lands on pure
+    white (one solid ink on the glass, not a yellow stipple) and the black
+    point shared so the ink stays neutral."""
+    arr = np.asarray(rgb, dtype=np.float32)
+    luma = arr @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+    lo = np.percentile(luma, 3.5)
+    hi = np.percentile(arr.reshape(-1, 3), 90.0, axis=0)
+    if (hi - lo).min() < 1e-3:
+        return rgb
+    norm = np.clip((arr - lo) / (hi - lo), 0, 1)
+    s = norm * norm * (3.0 - 2.0 * norm)
+    norm = norm * 0.62 + s * 0.38
+    out = 6 + norm * (255 - 6)
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="RGB")
+
+
 def _trim_marginalia(gray: Image.Image) -> Image.Image:
     """Physically remove the outer printed margin bands of the plate: the
     'N° 32 / PLATE CLIX' line across the top and the engraved species caption
@@ -229,6 +263,27 @@ def extract(path: str | Path, composite: bool = False,
         box = content_box(gray)
     crop = gray.crop(box)
     return paper_normalize(crop)
+
+
+def extract_color(path: str | Path, composite: bool = False,
+                  crop_box: Optional[list] = None) -> tuple[Image.Image, Image.Image]:
+    """extract for a colour panel: (gray, colour) of the same crop. The gray
+    drives every layout decision exactly as on the gray panel; the colour twin
+    is what gets placed."""
+    rgb = _trim_marginalia(load_color(path))
+    gray = rgb.convert("L")
+    if crop_box:
+        box = _norm_box(gray, crop_box)
+    elif composite:
+        box = (0, 0, gray.width, gray.height)
+    else:
+        box = content_box(gray)
+    return paper_normalize(gray.crop(box)), paper_normalize_color(rgb.crop(box))
+
+
+def extract_generated_color(path: str | Path) -> tuple[Image.Image, Image.Image]:
+    rgb = load_color(path)
+    return paper_normalize(rgb.convert("L")), paper_normalize_color(rgb)
 
 
 def extract_generated(path: str | Path) -> Image.Image:

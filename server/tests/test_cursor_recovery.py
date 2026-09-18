@@ -107,3 +107,37 @@ def test_source_blip_zero_rowid_is_not_treated_as_stale(svc, monkeypatch):
 
     assert rendered == []
     assert svc._cursor() == 449927
+
+
+def test_source_switch_rearms_the_stale_cursor_guard(svc, monkeypatch):
+    # Live, 18 Sep 2026: the backend went BirdNET-Go -> BirdWeather -> BirdNET-Go
+    # from the settings page. BirdWeather ids are ~11 billion, so the cursor it
+    # left behind sat above every BirdNET-Go rowid — and the once-per-start guard
+    # had already run, so the frame froze until a restart.
+    from featherframe.config import load_config, save_config
+    import featherframe.service as service_mod
+
+    svc.source = _StubSource(max_rowid=455000, latest=[_det(455000, "X", "x x")])
+    svc._frame_bytes = b"resident"
+    svc._meta = {"species_key": "x x", "label": "X"}
+    svc._set_cursor(455000)
+    rendered = []
+    monkeypatch.setattr(svc, "_render_single",
+                        lambda det, now, reason: rendered.append((det.common_name, reason)))
+    svc._single_tick(datetime(2026, 9, 18, 9, 0, 0))   # the startup check runs, healthy
+    assert rendered == []
+
+    # The other source's id space leaks into the cursor, then the user switches.
+    svc._set_cursor(11_215_147_198)
+    latest = _det(455716, "Black-capped Chickadee", "Poecile atricapillus")
+    monkeypatch.setattr(service_mod, "make_source",
+                        lambda cfg, db: _StubSource(max_rowid=455716, latest=[latest]))
+    cfg = load_config(svc.db)
+    cfg.birdnet_go_url = "http://elsewhere:8080"
+    save_config(svc.db, cfg)
+    svc.reload_config()
+
+    svc._single_tick(datetime(2026, 9, 18, 9, 37, 0))
+
+    assert rendered == [("Black-capped Chickadee", "cursor-reset")]
+    assert svc._cursor() == 455716

@@ -8,16 +8,22 @@ Wire format (little-endian):
     offset  size  field
     0       4     magic  b'FFF1'
     4       1     version (1)
-    5       1     bpp     (4 = 16-level grayscale, 1 = 1-bit)
-    6       2     width   (pixels; 1872 in the native landscape frame)
-    8       2     height  (pixels; 1404 in the native landscape frame)
-    10      1     flags   (0)
+    5       1     bpp     (4 = 16-level grayscale or ink codes, 1 = 1-bit)
+    6       2     width   (pixels; 1872 in the EE03's native landscape frame)
+    8       2     height  (pixels; 1404 in the EE03's native landscape frame)
+    10      1     flags   (bit 0 = FLAG_INKS: the 4bpp nibbles are Spectra 6
+                           ink codes, not gray levels)
     11      5     reserved (zero)
     16      ...   pixel data, row-major, top-to-bottom
 
 Pixel packing:
     4bpp  two pixels per byte, high nibble = left pixel. Values 0..15,
           0 = black, 15 = white. Row stride = ceil(width/2) bytes.
+    inks  (4bpp + FLAG_INKS, the EE02 colour panel, 1200x1600 native portrait)
+          same packing; each nibble is Seeed_GFX's colour-sprite code, pushed
+          verbatim: 0x0 white, 0xF black, 0xB yellow, 0x6 red, 0xD blue,
+          0x2 green (render/spectra.py WIRE_NIBBLE). NOTE black/white are the
+          reverse of the gray levels.
     1bpp  eight pixels per byte, MSB = left pixel. Bit set = white.
           Row stride = ceil(width/8) bytes (rows are byte-padded).
 
@@ -37,16 +43,20 @@ MAGIC = b"FFF1"
 VERSION = 1
 HEADER = struct.Struct("<4sBBHHB5x")  # 16 bytes
 HEADER_SIZE = 16
+FLAG_INKS = 0x01
 
 
-def pack(indices: np.ndarray, bit_depth: int) -> bytes:
-    """indices: uint8 [H,W] of level indices (0..15 for 4bpp, 0/1 for 1bpp)."""
+def pack(indices: np.ndarray, bit_depth: int, inks: bool = False) -> bytes:
+    """indices: uint8 [H,W] of level indices (0..15 for 4bpp, 0/1 for 1bpp),
+    or of wire ink nibbles when `inks` (4bpp only)."""
     h, w = indices.shape
     idx = indices.astype(np.uint8, copy=False)
+    if inks and bit_depth != 4:
+        raise ValueError("ink frames are 4bpp")
 
     if bit_depth == 4:
         if w % 2:  # pad to even with a white pixel
-            idx = np.pad(idx, ((0, 0), (0, 1)), constant_values=15)
+            idx = np.pad(idx, ((0, 0), (0, 1)), constant_values=0 if inks else 15)
         hi = (idx[:, 0::2] << 4).astype(np.uint8)
         lo = idx[:, 1::2].astype(np.uint8)
         body = (hi | lo).tobytes()
@@ -56,7 +66,7 @@ def pack(indices: np.ndarray, bit_depth: int) -> bytes:
     else:
         raise ValueError(f"unsupported bit_depth {bit_depth}")
 
-    header = HEADER.pack(MAGIC, VERSION, bit_depth, w, h, 0)
+    header = HEADER.pack(MAGIC, VERSION, bit_depth, w, h, FLAG_INKS if inks else 0)
     return header + body
 
 

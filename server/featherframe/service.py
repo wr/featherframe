@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 from datetime import time as dtime
 from typing import Optional
 
-from . import paths
+from . import panels, paths
 from .config import Config, load_config, save_config
 from .sources import Detection, make_source
 from .db import Database
@@ -865,7 +865,7 @@ class FeatherframeService:
         cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
         img = collage_mod.render_collage(cells, self.provider, when=on_date,
                                          total_detections=sum(r["count"] for r in rows),
-                                         title=title)
+                                         title=title, color=self.config.panel_spec.color)
         return pipeline.render_image(img, self.config, "collage", f"{len(cells)} species")
 
     def force_day_review(self, repaint: bool = False) -> bool:
@@ -906,6 +906,7 @@ class FeatherframeService:
         # explicit button): daytime collage rebuilds stay free.
         if generated_ok and self.config.collage_generated and self.genart is not None:
             top = cells[:cap] if cap else cells
+            self.genart.color_sheets = self.config.panel_spec.color
             sheet = self.genart.day_composite(top, on_date, force=force_generated)
             if sheet is not None:
                 # The key must name what was PAINTED: on a cache hit the cells
@@ -920,7 +921,8 @@ class FeatherframeService:
             img = collage_mod.render_collage(grid, self.provider, when=on_date,
                                              total_detections=sum(c.count for c in grid),
                                              title=title, note=note,
-                                             note_kind=self._note_kind() if note else None)
+                                             note_kind=self._note_kind() if note else None,
+                                             color=self.config.panel_spec.color)
         result = pipeline.render_image(img, self.config, "collage", label)
         self._commit(result, now, mode="collage", species_key=None, label=label, note=note)
         log.info("rendered collage (%s), etag=%s", label, result.etag)
@@ -1072,6 +1074,21 @@ class FeatherframeService:
                      label=f"{det.common_name} (test)", note=note, novelty=None)
         log.info("rendered TEST detection, etag=%s", result.etag)
         return result
+
+    def adopt_panel(self, reported: Optional[str]) -> bool:
+        """Follow the panel the device says it is (X-Panel): a frame rendered
+        for the other panel is one the firmware can only reject, so the first
+        check-in from a colour frame turns this instance colour — no setting
+        to find. Returns True when the panel changed (and the frame with it)."""
+        panel = panels.from_report(reported)
+        if panel is None or panel.key == self.config.panel:
+            return False
+        log.info("device reports panel %r: switching %s -> %s",
+                 reported, self.config.panel, panel.key)
+        cfg = Config.from_dict({**self.config.to_dict(), "panel": panel.key})
+        self.update_config(cfg)
+        self.rerender_current()
+        return True
 
     def rerender_current(self) -> None:
         """Re-render the current subject after a config change (e.g. dither/gray)."""

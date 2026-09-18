@@ -11,7 +11,7 @@ import numpy as np
 from PIL import Image
 
 from ..config import Config
-from . import compose, finish, framebuffer, theme
+from . import compose, finish, framebuffer, spectra, theme
 from .compose import SingleSpec
 from .provider import ArtProvider
 
@@ -28,7 +28,8 @@ def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
     w, h = img.size
     sw, sh = max(1, round(w * scale)), max(1, round(h * scale))
     shrunk = img.resize((sw, sh), Image.LANCZOS)
-    canvas = Image.new(img.mode, (w, h), theme.MAT_BORDER)
+    border = theme.MAT_BORDER if img.mode == "L" else (theme.MAT_BORDER,) * 3
+    canvas = Image.new(img.mode, (w, h), border)
     # The physical mat is rarely mounted dead-center; the offsets move the
     # composition to meet it, and the asymmetric ring shows the correction.
     dx = int(getattr(config, "mat_offset_x_px", 0))
@@ -39,7 +40,7 @@ def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
 
 @dataclass
 class RenderResult:
-    preview: Image.Image   # 'L' image of exactly what the panel will show
+    preview: Image.Image   # exactly what the panel will show ('L', or 'RGB' in inks)
     frame: bytes           # packed FFF framebuffer
     etag: str
     levels: int
@@ -55,7 +56,27 @@ class RenderResult:
         return png, fff
 
 
+def _finish_inks(img: Image.Image, config: Config, mode: str, label: str) -> RenderResult:
+    """The colour panel's finish: six-ink dither instead of gray levels. The
+    canvas is natively portrait, so rotation is only ever 0 or 180."""
+    img = _apply_mat_inset(img.convert("RGB"), config)
+    dither = "none" if config.dither == "none" else "bluenoise"    # no diffusion in inks
+    inks = spectra.to_inks(img, dither, config.color_saturation)
+    if config.dark_now():
+        inks = spectra.invert(inks)
+    preview = spectra.inks_to_image(inks)
+    native = np.ascontiguousarray(np.rot90(inks, k=(config.panel_rotation // 90) % 4))
+    frame = framebuffer.pack(spectra.to_wire(native), 4, inks=True)
+    return RenderResult(preview, frame, framebuffer.etag_for(frame), 6, mode, label)
+
+
 def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderResult:
+    panel = config.panel_spec
+    if img.size != (panel.width, panel.height):
+        # Composed on the theme's sheet; both panels are 3:4, so this only scales.
+        img = img.resize((panel.width, panel.height), Image.LANCZOS)
+    if panel.color:
+        return _finish_inks(img, config, mode, label)
     levels = 16 if config.bit_depth == 4 else 2
     img = _apply_mat_inset(img, config)                             # clear the mat opening
     indices = finish.to_levels(img, levels, config.dither)          # portrait, upright
@@ -73,7 +94,8 @@ def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderRe
 
 
 def render_single(spec: SingleSpec, provider: ArtProvider, config: Config) -> RenderResult:
-    img = compose.render_single(spec, provider, show_plate_number=config.show_plate_number)
+    img = compose.render_single(spec, provider, show_plate_number=config.show_plate_number,
+                                color=config.panel_spec.color)
     return _finish(img, config, "single", spec.common_name)
 
 

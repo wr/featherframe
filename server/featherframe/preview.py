@@ -41,6 +41,8 @@ def main() -> int:
                     help="render a daily collage of N species (2-6)")
     ap.add_argument("--dither", default=None, choices=["bluenoise", "stucki", "none"])
     ap.add_argument("--gray", default=None, choices=["16", "1"])
+    ap.add_argument("--panel", default=None, choices=["ee03", "ee02"],
+                    help="ee03 = 10.3\" gray (default), ee02 = 13.3\" Spectra 6 colour")
     ap.add_argument("--mat-inset", type=float, default=None,
                     help="override mat inset %% per edge (0 = full-bleed, no mat allowance)")
     ap.add_argument("--plate-number", type=int, default=42)
@@ -55,6 +57,9 @@ def main() -> int:
         config.dither = args.dither
     if args.gray:
         config.gray_mode = args.gray
+    if args.panel:
+        config.panel = args.panel
+        config.sanitize()
     if args.mat_inset is not None:
         config.mat_inset_pct = args.mat_inset
 
@@ -73,7 +78,7 @@ def main() -> int:
                  for i, sp in enumerate(data[:max(2, min(args.collage, 6))])]
         img = collage_mod.render_collage(cells, provider, when=date(2026, 5, 17),
                                          total_detections=sum(c.count for c in cells),
-                                         note=args.note)
+                                         note=args.note, color=config.panel_spec.color)
         result = pipeline.render_image(img, config, "collage", f"{len(cells)} species")
         png, fff = result.save(out, f"collage_{len(cells)}")
         print(f"Rendered collage ({result.levels} levels, etag {result.etag})")
@@ -101,7 +106,8 @@ def main() -> int:
                           note=args.note)
         # Force fallback by not matching: render_fallback directly.
         from .render import compose
-        img = compose.render_fallback(spec, show_plate_number=True)
+        img = compose.render_fallback(spec, show_plate_number=True,
+                                      color=config.panel_spec.color)
         result = pipeline.render_image(img, config, "fallback", common)
     else:
         sci = args.scientific or _guess_scientific(index, args.species)

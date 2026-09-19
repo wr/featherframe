@@ -155,3 +155,24 @@ def test_species_legend_reduces_a_composite_to_the_species_key(fp):
     assert fp.species_legend(card, 159, plate_legends) == ["Male, 1. Female, 2.", "Wild Almond."]
     assert fp.species_legend(card, 999, plate_legends) == []
     assert fp.species_legend(card, None, plate_legends) == []
+
+
+def test_release_restore_skips_a_part_for_a_few_missing_plates(fp, tmp_path, monkeypatch):
+    """An upgrade that needs one new plate must not pull a whole part: only a
+    part missing at least `min_missing` wanted plates is fetched (W-764)."""
+    asked: list[set[int]] = []
+
+    def fake_fetch(session, base, wanted, catalog, images_dir):
+        asked.append(set(wanted))
+        return set(wanted)
+
+    monkeypatch.setattr(fp.plate_release, "fetch_parts", fake_fetch)
+    cat = _catalog(1, 2, 3, 150)
+    (tmp_path / cat[3]["fileName"]).write_bytes(b"x" * 2048)  # already cached
+    got = fp.restore_from_release(FakeSession({}), "https://r.test", {1, 2, 3, 150},
+                                  cat, tmp_path, min_missing=2)
+    assert asked == [{1, 2}] and got == {1, 2}  # 150 is alone in its part; 3 is on disk
+    # The last resort after a mirror failure asks for a single plate.
+    fp.restore_from_release(FakeSession({}), "https://r.test", {150}, cat, tmp_path, min_missing=1)
+    assert asked[-1] == {150}
+    assert fp.restore_from_release(FakeSession({}), None, {150}, cat, tmp_path) == set()

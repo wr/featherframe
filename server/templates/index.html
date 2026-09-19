@@ -539,6 +539,11 @@
     .panel-note { max-width:var(--page-w, 1180px); margin:0 auto 14px; }
     .panel-note .test-msg { display:block; }
     .panel-note-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:9px; }
+    .ignored-frames .hint { margin:6px 0 4px; }
+    .ign-list { list-style:none; margin:0; padding:0; }
+    .ign-list li { margin:0; padding:10px 0 4px; border-top:1px solid var(--border); max-width:none; }
+    .ign-name { display:block; font-size:13px; }
+    .ign-meta { display:block; font-size:12px; color:var(--muted); margin-top:2px; }
     .adv-reset { display:flex; align-items:center; justify-content:space-between; gap:14px; padding-top:16px; }
     .adv-reset .hint { margin:0; }
     .test-box a.tb-link { color:var(--accent); text-decoration:underline; white-space:nowrap; }
@@ -601,16 +606,21 @@
     </span>
   </div>
   {% endif %}
-  {% if pn.refused %}
-  <div class="test-box warn show panel-note" id="panel-refused" role="status">
+  {# Another frame is asking this server for updates. One server draws for one
+     frame, so nothing changes until the owner answers. #}
+  {% for fr in status.frames.pending %}
+  <div class="test-box warn show panel-note" role="status">
     <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
     <span class="test-msg">
-      <strong>A second frame was turned away.</strong>
-      A frame with the {{ pn.refused.name }} panel asked this server for updates while the {{ config.panel_spec.name }} frame is still checking in. One server draws for one panel: give the second frame a server of its own. If it replaces this frame, unplug the old one and it is adopted within two minutes.
-      <span class="panel-note-actions"><button class="btn" type="button" data-panel-action="dismiss-refused">Dismiss</button></span>
+      <strong>Another frame wants to connect.</strong>
+      A frame with the {{ fr.panel_name }} panel ({{ fr.short }}{% if fr.ip %}, {{ fr.ip }}{% endif %}) is asking this server for updates. This server draws for one frame at a time{% if status.frames.active %}, and it is drawing for the {{ status.frames.active.panel_name }} frame{% endif %}. Switching moves the server to the new frame; the current one stops updating.
+      <span class="panel-note-actions">
+        <button class="btn primary" type="button" data-frame-action="switch" data-frame-id="{{ fr.id }}">Switch to this frame</button>
+        <button class="btn" type="button" data-frame-action="ignore" data-frame-id="{{ fr.id }}">Ignore it</button>
+      </span>
     </span>
   </div>
-  {% endif %}
+  {% endfor %}
 
   <main class="grid">
     <!-- LEFT: live plate + status -->
@@ -751,9 +761,27 @@
               </dd>
               <dt>Panel</dt><dd>{{ status.device.panel or '10.3″ · 1404×1872 · grayscale' }}</dd>
               <dt>Board</dt><dd>{{ status.device.board or 'XIAO ESP32-S3 · EE03' }}</dd>
+              {% if status.frames.active %}<dt>Frame ID</dt><dd class="tnum">{{ status.frames.active.id }}</dd>{% endif %}
             </dl>
           </details>
         </div>
+        {% if status.frames.ignored %}
+        <details class="sc-more ignored-frames">
+          <summary>Ignored frames ({{ status.frames.ignored|length }})</summary>
+          <p class="hint">These frames asked this server for updates and were ignored, so they get none. Switching moves the server to that frame; forgetting one lets it ask again.</p>
+          <ul class="ign-list">
+            {% for fr in status.frames.ignored %}
+            <li class="panel-note">
+              <span class="ign-name">{{ fr.panel_name }}<span class="ign-meta tnum">{{ fr.short }}{% if fr.ip %} · {{ fr.ip }}{% endif %}{% if fr.last_seen %} · last asked {{ fr.last_seen.replace('T', ' ') }}{% endif %}</span></span>
+              <span class="panel-note-actions">
+                <button class="btn" type="button" data-frame-action="switch" data-frame-id="{{ fr.id }}">Switch to this frame</button>
+                <button class="btn" type="button" data-frame-action="forget" data-frame-id="{{ fr.id }}">Forget</button>
+              </span>
+            </li>
+            {% endfor %}
+          </ul>
+        </details>
+        {% endif %}
 
         {% set _srcnames = {'birdnet_go':'BirdNET-Go','apprise':'BirdNET-Pi','birdweather':'BirdWeather','custom':'Local database'} %}
         <div class="sc-head second">
@@ -1830,6 +1858,24 @@
           if (b.getAttribute('data-panel-action') === 'defaults') { saving = true; location.href = '/?saved=1'; }
           else box.remove();
         })
+        .catch(function () {
+          box.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
+          showFlash('bad', "That didn't go through. Try again.", 'ic-warn');
+        });
+    });
+  });
+
+  // -- frames: switch to / ignore / forget a frame that is not the active one ----
+  document.querySelectorAll('[data-frame-action]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var box = b.closest('.panel-note');
+      box.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+      var fd = new FormData();
+      fd.append('action', b.getAttribute('data-frame-action'));
+      fd.append('id', b.getAttribute('data-frame-id'));
+      fetch('/api/frames', { method: 'POST', body: fd })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function () { saving = true; location.href = '/'; })   // the card, lists and notices all change
         .catch(function () {
           box.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
           showFlash('bad', "That didn't go through. Try again.", 'ic-warn');

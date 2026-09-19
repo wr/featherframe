@@ -12,6 +12,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -783,6 +784,17 @@ async def generated_export(request: Request):
                         background=BackgroundTask(os.unlink, tmp))
 
 
+def _import_upload(svc: FeatherframeService, backup: UploadFile) -> dict:
+    """Copy the upload to a real file, then import from that. Starlette hands
+    over a SpooledTemporaryFile, which has no seekable() before Python 3.11 —
+    zipfile can't open it there, and 3.9 is the floor. On disk, not in memory:
+    a full gallery is hundreds of MB."""
+    with tempfile.TemporaryFile(prefix=".restore-", dir=paths.data_dir()) as tmp:
+        shutil.copyfileobj(backup.file, tmp, 1 << 20)
+        tmp.seek(0)
+        return svc.import_generated(tmp)
+
+
 @app.post("/api/generated/import")
 async def generated_import(request: Request, backup: UploadFile = File(...)):
     if not _same_origin(request):
@@ -794,9 +806,7 @@ async def generated_import(request: Request, backup: UploadFile = File(...)):
         error = "Generated plates are not available on this install."
     else:
         try:
-            # backup.file is Starlette's spooled temp file: zipfile seeks in it
-            # on disk, so the upload is never held in memory.
-            result = await run_in_threadpool(svc.import_generated, backup.file)
+            result = await run_in_threadpool(_import_upload, svc, backup)
         except ValueError as exc:
             error = str(exc)
     if "text/html" in request.headers.get("accept", ""):

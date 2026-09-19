@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: Server tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.9 is the floor (BirdNET-Pi on Bullseye); 3.12 is a current Pi OS.
+        python: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+      - run: pip install -r server/requirements.txt pytest httpx
+      # Plates are gitignored: the suite must pass without them.
+      - run: python -m pytest server/tests -q
+
+  firmware:
+    name: Firmware build (${{ matrix.env }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [xiao_ee03, ee02]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tools/fw_version.py stamps the build from git
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            firmware/.pio/libdeps
+          key: pio-${{ matrix.env }}-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: pio-${{ matrix.env }}-
+      - run: pip install platformio
+      - run: pio run -d firmware -e ${{ matrix.env }}

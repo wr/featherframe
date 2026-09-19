@@ -60,6 +60,7 @@ cd server
 # Firmware
 cd firmware && pio run -t upload && pio device monitor  # build/flash + serial (115200)
 cd firmware && pio run -e ee02                          # the EE02 colour-panel build (W-812)
+cd firmware && pio run -e release                       # the binary a kit ships with (release_ee02: colour kit)
 ```
 
 Deploy to the Pi: `cd server && ./install.sh` (venv + plates + systemd unit).
@@ -187,7 +188,8 @@ button) → `GET /api/frame` with stored ETag → 304 sleeps, else `pushImage` +
 `Seeed_GFX` via `TFT_eSPI.h`; `begin(1)` is the fast re-init after a sleep wake.
 Panel/board selection is `lib/driver/driver.h` (combo 511). Battery voltage is
 `analogReadMilliVolts(A0) * 2 * VBAT_TRIM` (10k/10k divider; raw counts flatten
-near a full cell, see W-693) and the button pins are known (KEY0=2, KEY1=3, KEY2=5,
+near a full cell, see W-693; the trim defaults to 1.0 so one binary ships to
+every unit, and `FF_VBAT_TRIM=…` in the environment trims a bench build, W-768) and the button pins are known (KEY0=2, KEY1=3, KEY2=5,
 active-low); the remaining on-hardware unknown is whether ext1 button wake
 works from deep sleep at all — the keys read only while the panel's T-CON is
 awake (see `PIN_PANEL_PWR` in `include/ff_config.h`). The power model is a

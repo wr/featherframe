@@ -91,7 +91,11 @@ the calibrated path reported 2036 mV at the pin (4.07 V) for the same cell.
 **Re-calibrating.** Every check-in carries `X-Wake-Detail: … adc=<counts>
 first=<n> last=<n> mv=<pin mV>`, so no serial cable is needed: meter the leads,
 read `mv` from the config page's Frame card tooltip (or `/api/status →
-device.wake_detail`), and set `VBAT_TRIM = V_meter / (2 * mV / 1000)`.
+device.wake_detail`), and build with `FF_VBAT_TRIM=<V_meter / (2 * mV / 1000)>`
+in the environment (`FF_VBAT_TRIM=1.014 make ota`). Since W-768 the default is
+no trim (1.000): one binary ships to every unit, the untrimmed read is within
+about 2 %, and it errs low, so the low-battery hold trips early rather than
+late.
 
 **Optional accuracy add.** If a charge line is sensed (USB present / `CHG` pin),
 send `X-Battery-State: charging|discharging|full` so the card can stop showing a

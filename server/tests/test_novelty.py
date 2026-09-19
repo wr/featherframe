@@ -191,7 +191,8 @@ def test_held_first_ever_bird_turns_away_a_repeat(svc, monkeypatch):
     _cardinal_repeat(svc)
     rendered = _capture_renders(svc, monkeypatch)
     svc._single_tick(NOW)
-    assert rendered == []
+    # The eagle keeps the glass; its one redraw is for the "Just now:" line (W-776).
+    assert rendered == ["Bald Eagle"]
     assert svc._cursor() == 1          # the cursor still advances: the repeat is simply not shown
 
 
@@ -237,18 +238,18 @@ def test_first_today_holds_too_but_a_repeat_or_collage_does_not(svc, monkeypatch
     _hold(svc, "first-today", minutes_ago=10, common=ROBIN[0], sci=ROBIN[1])
     _cardinal_repeat(svc, rowid=1)
     svc._single_tick(NOW)
-    assert rendered == []
+    assert rendered == ["American Robin"]      # held; redrawn once for its "Just now:" line
 
     _hold(svc, "repeat", minutes_ago=10, common=ROBIN[0], sci=ROBIN[1])
     _cardinal_repeat(svc, rowid=2)
     svc._single_tick(NOW + timedelta(seconds=20))
-    assert rendered == ["Northern Cardinal"]
+    assert rendered == ["American Robin", "Northern Cardinal"]
 
     _hold(svc, "first-ever", minutes_ago=10, common="day in review (3 species)",
           sci="", mode="collage")
     _cardinal_repeat(svc, rowid=3)
     svc._single_tick(NOW + timedelta(seconds=40))
-    assert rendered == ["Northern Cardinal", "Northern Cardinal"]
+    assert rendered == ["American Robin", "Northern Cardinal", "Northern Cardinal"]
 
 
 def test_commit_carries_the_hold_across_the_held_birds_own_repeats(svc):
@@ -431,3 +432,69 @@ def test_page_shows_the_field_and_the_holding_text(client, svc):
     assert '<span id="fc-showing">Bald Eagle</span>' in html
     assert '<span class="when" id="fc-holding">holding 40 min</span>' in html
     assert client.get("/api/status").json()["current"]["holding"]["minutes_left"] == 40
+
+
+# -- "Just now:" during a hold (W-776) -------------------------------------------
+def _note_renders(svc, monkeypatch):
+    """Capture (label, footnote) per render without drawing anything."""
+    rendered = []
+
+    def fake(det, now, reason):
+        if reason != "settings":
+            svc._just_now = None
+        rendered.append((det.common_name, svc._note_text()))
+        svc._meta = {**svc._meta, "note_kind": svc._note_kind(), "quiet_note": bool(svc._note_text())}
+
+    monkeypatch.setattr(svc, "_render_single", fake)
+    return rendered
+
+
+def test_a_held_plate_names_the_repeat_it_turned_away(svc, monkeypatch):
+    _hold(svc, "first-ever", minutes_ago=10)
+    svc._meta["held_since"] = (NOW - timedelta(minutes=10)).isoformat(timespec="seconds")
+    _cardinal_repeat(svc)
+    rendered = _note_renders(svc, monkeypatch)
+    svc._single_tick(NOW)
+    assert rendered == [("Bald Eagle", "Just now: Northern Cardinal")]
+    assert svc._note_kind() == "latest"
+
+
+def test_the_line_repaints_only_when_its_species_changes(svc, monkeypatch):
+    _hold(svc, "first-ever", minutes_ago=10)
+    _cardinal_repeat(svc, rowid=1)
+    rendered = _note_renders(svc, monkeypatch)
+    svc._single_tick(NOW)
+    _cardinal_repeat(svc, rowid=2)                       # the chatty cardinal again
+    svc._single_tick(NOW + timedelta(seconds=30))
+    assert len(rendered) == 1
+    svc.source = _GateSource([_det(3, *ROBIN, 0.9, NOW)], first_seen={**KNOWN, EAGLE[1]: TODAY},
+                             today=[_row(*ROBIN, 4), _row(*CARDINAL, 6), _row(*EAGLE, 1)])
+    svc._single_tick(NOW + timedelta(seconds=60))
+    assert rendered[-1] == ("Bald Eagle", "Just now: American Robin") and len(rendered) == 2
+
+
+def test_the_line_clears_when_the_held_species_is_heard_again(svc, monkeypatch):
+    _hold(svc, "first-ever", minutes_ago=10)
+    _cardinal_repeat(svc, rowid=1)
+    rendered = _note_renders(svc, monkeypatch)
+    svc._single_tick(NOW)
+    svc.source = _GateSource([_det(2, *EAGLE, 0.9, NOW)], first_seen={**KNOWN, EAGLE[1]: TODAY},
+                             today=[_row(*EAGLE, 2), _row(*CARDINAL, 5)])
+    svc._single_tick(NOW + timedelta(seconds=30))
+    assert rendered[-1] == ("Bald Eagle", None)
+    assert svc._just_now is None
+
+
+def test_the_line_goes_when_the_hold_ends(svc):
+    _hold(svc, "first-ever", minutes_ago=10)
+    svc._just_now = {"key": CARDINAL[1].lower(), "common": CARDINAL[0]}
+    assert svc._note_kind() == "latest"
+    _hold(svc, "first-ever", minutes_ago=91)
+    assert svc._note_kind() is None
+
+
+def test_an_outage_outranks_the_just_now_line(svc):
+    _hold(svc, "first-ever", minutes_ago=10)
+    svc._just_now = {"key": CARDINAL[1].lower(), "common": CARDINAL[0]}
+    svc._outage = {"since_text": "8:00 am"}
+    assert svc._note_kind() == "outage"

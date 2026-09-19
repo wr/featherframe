@@ -412,6 +412,10 @@ class FeatherframeService:
         # Gone-quiet alarm, computed once per tick (status() is polled, and
         # the walk plus a source query is not free). None = no alarm.
         self._quiet: Optional[dict] = None
+        # The repeat a dwell hold last turned away ({"key", "common"}), named
+        # along the plate's foot as "Just now: …" (W-776). In memory only: a
+        # restart drops the line on its next tick, which is the honest answer.
+        self._just_now: Optional[dict] = None
         # Source-outage note (W-696): when the source first went unreachable
         # (persisted, so a restart mid-outage keeps the clock), and the alarm
         # derived from it once per tick. None = reachable / no alarm.
@@ -701,6 +705,11 @@ class FeatherframeService:
             return "quiet"
         if self._outage:
             return "outage"
+        # "latest": the held plate names what it turned away, for as long as
+        # the hold lasts and the line is about some other species.
+        if (self._just_now and self._just_now.get("key") != self._meta.get("species_key")
+                and self._holding(self._meta, self._clock())):
+            return "latest"
         return None
 
     def _note_text(self) -> Optional[str]:
@@ -712,6 +721,8 @@ class FeatherframeService:
             return f"No detections since {self._quiet['since_text']}"
         if kind == "outage":
             return f"Detection source unreachable since {self._outage['since_text']}"
+        if kind == "latest":
+            return f"Just now: {self._just_now['common']}"
         return None
 
     # -- single mode -------------------------------------------------------
@@ -792,6 +803,13 @@ class FeatherframeService:
             log.info("holding %s (%s) against %s for %d more min",
                      self._meta.get("label"), self._meta.get("novelty"),
                      candidate.common_name, holding["minutes_left"])
+            # The picture holds, but the frame still says what was just heard
+            # (W-776). One repaint per change of species on the line, never
+            # per detection: a chatty chickadee must not repaint the panel
+            # every 30 s, which is also why the line carries no time.
+            if (self._just_now or {}).get("key") != candidate.key:
+                self._just_now = {"key": candidate.key, "common": candidate.common_name}
+                self.rerender_current()
             return
 
         if not self.config.single_show_latest:
@@ -806,6 +824,11 @@ class FeatherframeService:
         ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else None
         first_seen = self._first_seen(det.scientific_name)
         novelty = self._novelty(det, now)
+        # Any render that isn't the resident subject redrawn ("settings") is
+        # news: a new subject, or the held species heard again — either way
+        # the picture now says it, and the "Just now:" line goes.
+        if reason != "settings":
+            self._just_now = None
         note = self._note_text()
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=det.timestamp if det.timestamp != datetime.min else now,

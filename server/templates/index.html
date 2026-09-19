@@ -417,6 +417,9 @@
     /* generated-plate gallery */
     .gen-list { display:flex; flex-direction:column; gap:10px; }
     .gen-more { margin-top:12px; width:100%; }
+    .gen-backup { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+    .gen-backup .btn { text-decoration:none; }
+    .gen-backup + .hint { margin-top:10px; }
     .gen-item { display:flex; gap:14px; align-items:center; border:1px solid var(--border); border-radius:7px; background:var(--white); padding:10px 12px; }
     .gen-item .plate-link { display:block; position:relative; overflow:hidden; border-radius:3px; flex:none; }
     .gen-item img { width:64px; height:85px; object-fit:cover; border:1px solid var(--border); background:#fff; display:block; }
@@ -1248,11 +1251,14 @@
       </div>
     </form>
 
-    {% if generated %}
     <div class="card" id="gen-card">
     <div class="settings"><section class="sec">
       <h2 class="sec-head">Generated plates on file</h2>
+      {% if generated %}
       <p class="intro">Plates Featherframe has generated and cached. Regenerate buys a fresh image; Remove deletes the cached one and the next detection of that species generates a new plate.</p>
+      {% else %}
+      <p class="intro">None on file yet. A species with no Audubon plate gets one generated here when image generation is on.</p>
+      {% endif %}
       <div class="gen-list">
         {% for g in generated %}
         <div class="gen-item{{ ' regenerating' if g.regenerating else '' }}{{ ' regen-failed' if g.regen_error else '' }}" data-slug="{{ g.slug }}" {{ 'hidden' if loop.index > 5 else '' }}>
@@ -1281,9 +1287,16 @@
       {% if generated|length > 5 %}
       <button class="btn gen-more" type="button" id="gen-more">Show {{ [generated|length - 5, 5]|min }} more <span class="hint-inline">· {{ generated|length - 5 }} left</span></button>
       {% endif %}
+      <div class="gen-backup">
+        {% if generated %}<a class="btn" href="/api/generated/export" download>Download a backup</a>{% endif %}
+        <form class="inline" id="gen-import" method="post" action="/api/generated/import" enctype="multipart/form-data">
+          <input type="file" name="backup" id="gen-import-file" accept=".zip,application/zip" hidden>
+          <button class="btn" type="button" id="gen-import-btn">Restore from a backup…</button>
+        </form>
+      </div>
+      <p class="hint">Generated plates live only on this machine, and each one cost an image. Download a backup before you reinstall or move the server. Restoring never replaces a newer plate already on file.</p>
     </section></div>
     </div>
-    {% endif %}
     </div>
   </main>
 
@@ -2211,14 +2224,37 @@
           .then(function (out) {
             if (!out.ok) throw new Error(out.error || 'the plate was not found');
             if (item) item.remove();
+            // The last plate gone: reload into the card's empty state.
             var card = $('gen-card');
-            if (card && !card.querySelector('.gen-item')) card.remove();
+            if (card && !card.querySelector('.gen-item')) location.reload();
           })
           .catch(function (err) {
             if (item) item.classList.add('regen-failed');
             if (status) status.textContent = 'Remove failed — ' + errText(err);
           });
       });
+    });
+  })();
+
+  // -- generated plates: restore a backup zip (W-765) -------------------------
+  (function () {
+    var form = $('gen-import'), file = $('gen-import-file'), btn = $('gen-import-btn');
+    if (!form || !file || !btn) return;
+    btn.addEventListener('click', function () { file.click(); });
+    file.addEventListener('change', function () {
+      if (!file.files || !file.files.length) return;
+      btn.disabled = true; btn.textContent = 'Restoring…';
+      jsonFetch(form.action, { method: 'POST', body: new FormData(form) })
+        .then(function (out) {
+          if (!out.ok) throw new Error(out.error || 'the backup could not be read');
+          var parts = [out.restored + (out.restored === 1 ? ' plate restored' : ' plates restored')];
+          if (out.kept) parts.push(out.kept + ' already on file kept');
+          if (out.skipped) parts.push(out.skipped + ' not recognised');
+          showFlash(out.restored || !out.skipped ? 'ok' : 'bad', parts.join(' · ') + '.', out.restored || !out.skipped ? 'ic-check' : 'ic-warn');
+          if (out.restored) setTimeout(function () { location.reload(); }, 1500);
+        })
+        .catch(function (err) { showFlash('bad', 'Restore failed — ' + errText(err), 'ic-warn'); })
+        .then(function () { btn.disabled = false; btn.textContent = 'Restore from a backup…'; file.value = ''; });
     });
   })();
 

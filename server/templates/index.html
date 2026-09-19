@@ -910,8 +910,8 @@
               </div>
               {% endif %}
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-dither">Dithering</label><div class="hint">{% if panel_color %}How the plate's colors are mixed from the panel's six inks. Blue-noise is the only mixing pattern in color; None shows flat inks.{% else %}How the plate's tones are rendered in 16 grays. Blue-noise is quick and looks right; Stucki is slower and a touch finer.{% endif %}</div></div>
-                <div class="frow-ctl"><select class="sel" id="f-dither" name="dither"><option value="bluenoise" {{ 'selected' if config.dither=='bluenoise' else '' }}>Blue-noise (fast)</option><option value="stucki" {{ 'selected' if config.dither=='stucki' else '' }}>Stucki (slow, richer)</option><option value="none" {{ 'selected' if config.dither=='none' else '' }}>None</option></select></div>
+                <div class="frow-text"><label class="lab" for="f-dither">Dithering</label><div class="hint">{% if panel_color %}How the plate's colors are mixed from the panel's six inks. Automatic uses Stucki, which keeps the engraved lines and the finest grain; Blue-noise renders faster and looks grainier; None shows flat inks.{% else %}How the plate's tones are rendered in 16 grays. Automatic uses Blue-noise, which is quick and looks right; Stucki is slower and a touch finer.{% endif %}</div></div>
+                <div class="frow-ctl"><select class="sel" id="f-dither" name="dither"><option value="auto" {{ 'selected' if config.dither=='auto' else '' }}>Automatic ({{ 'Stucki' if panel_color else 'Blue-noise' }})</option><option value="bluenoise" {{ 'selected' if config.dither=='bluenoise' else '' }}>Blue-noise (fast)</option><option value="stucki" {{ 'selected' if config.dither=='stucki' else '' }}>Stucki (slow, finer)</option><option value="none" {{ 'selected' if config.dither=='none' else '' }}>None</option></select></div>
               </div>
               <div class="frow">
                 <div class="frow-text"><label class="lab" for="f-rot">Panel rotation</label><div class="hint">Switch this if the plate is upside down on the wall.</div></div>

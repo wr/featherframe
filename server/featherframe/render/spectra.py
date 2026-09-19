@@ -170,6 +170,8 @@ def to_inks(img: Image.Image, method: str = "bluenoise", saturation: float = 1.0
     """Return uint8 [H,W] of ink indices (BLACK..WHITE) for an RGB frame."""
     if img.mode != "RGB":
         img = img.convert("RGB")
+    if method == "stucki":
+        return _diffuse_stucki(*_gamut_mapped(img, saturation))
     lut = _lut()
     h, w = img.height, img.width
     mask = finish._bluenoise_mask()
@@ -194,6 +196,98 @@ def to_inks(img: Image.Image, method: str = "bluenoise", saturation: float = 1.0
         else:
             thr = mask_row[np.arange(y0, y0 + bh) % mask.shape[0]]
         out[y0:y0 + bh] = (cum <= thr[..., None]).sum(axis=2).clip(0, 5).astype(np.uint8)
+    return out
+
+
+# Stucki diffusion kernel, weights/42: (dx, dy, weight).
+_STUCKI = ((1, 0, 8), (2, 0, 4),
+           (-2, 1, 2), (-1, 1, 4), (0, 1, 8), (1, 1, 4), (2, 1, 2),
+           (-2, 2, 1), (-1, 2, 2), (0, 2, 4), (1, 2, 2), (2, 2, 1))
+
+
+def _gamut_mapped(img: Image.Image, saturation: float) -> tuple[np.ndarray, np.ndarray]:
+    """The frame in panel-normalised linear RGB (0 = black ink, 1 = white ink
+    per channel), every colour already pulled onto the ink gamut by the same
+    table the ordered dither uses, plus each pixel's ink set as a bitmask (the
+    inks its colour is a mix of). Diffusing an in-gamut image is what keeps
+    the error bounded: an unreachable red would otherwise push its shortfall
+    across the sheet as a smear."""
+    lut = _lut()
+    pal = _palette_linear()
+    pal_n = (pal - pal[BLACK]) / (pal[WHITE] - pal[BLACK])
+    h, w = img.height, img.width
+    out = np.empty((h, w, 3), dtype=np.float32)
+    inkset = np.empty((h, w), dtype=np.uint8)
+    bits = (1 << np.arange(len(pal))).astype(np.uint8)
+    band = 256
+    for y0 in range(0, h, band):
+        rgb = np.asarray(img.crop((0, y0, w, min(h, y0 + band))), dtype=np.float32)
+        if saturation != 1.0:
+            luma = rgb @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+            rgb = np.clip(luma[..., None] + (rgb - luma[..., None]) * saturation, 0, 255)
+        q = np.clip(np.round(_to_linear(rgb) * (_LUT_N - 1)).astype(np.int32), 0, _LUT_N - 1)
+        cum = lut[q[..., 0], q[..., 1], q[..., 2]].astype(np.float32) / 255.0
+        wts = np.diff(cum, axis=2, prepend=0.0)
+        out[y0:y0 + rgb.shape[0]] = wts @ pal_n
+        inkset[y0:y0 + rgb.shape[0]] = ((wts > 0) * bits).sum(axis=2).astype(np.uint8)
+    return out, inkset
+
+
+def _diffuse_stucki(mapped: np.ndarray, inkset: np.ndarray) -> np.ndarray:
+    """Stucki error diffusion to the six inks, serpentine. The error is carried
+    in linear light (so the average stays true); the nearest ink is judged on
+    square-rooted values, closer to how the eye weighs a miss — and only among
+    the pixel's own ink set. Free choice of all six turns a neutral gray into
+    green, blue and red dots (green is the ink nearest mid-gray), which tints
+    the type and casts pale feathers lavender; the ink set keeps gray to black
+    and white, exactly as the ordered dither does. A per-pixel
+    Python loop like finish._dither_stucki — seconds on a PC, slow on a Pi —
+    but clean paper and solid black skip the arithmetic entirely."""
+    h, w, _ = mapped.shape
+    pal = _palette_linear()
+    pal_n = ((pal - pal[BLACK]) / (pal[WHITE] - pal[BLACK])).tolist()
+    pal_q = [[max(c, 0.0) ** 0.5 for c in p] for p in pal_n]
+    choices = [[k for k in range(6) if m >> k & 1] or list(range(6)) for m in range(64)]
+    out = np.empty((h, w), dtype=np.uint8)
+    pad = 2
+    n = (w + 2 * pad) * 3
+    e0, e1, e2 = [0.0] * n, [0.0] * n, [0.0] * n
+    for y in range(h):
+        row = mapped[y].ravel().tolist()
+        sets = inkset[y].tolist()
+        line = [WHITE] * w
+        ltr = (y % 2 == 0)
+        xs = range(w) if ltr else range(w - 1, -1, -1)
+        sgn = 1 if ltr else -1
+        for x in xs:
+            i = (x + pad) * 3
+            er, eg, eb = e0[i], e0[i + 1], e0[i + 2]
+            j = x * 3
+            r, g, b = row[j] + er, row[j + 1] + eg, row[j + 2] + eb
+            if r > 0.995 and g > 0.995 and b > 0.995 and er == 0.0 and eg == 0.0 and eb == 0.0:
+                continue                                  # clean paper: white, no error
+            rq = r ** 0.5 if r > 0.0 else 0.0
+            gq = g ** 0.5 if g > 0.0 else 0.0
+            bq = b ** 0.5 if b > 0.0 else 0.0
+            best, bd = 0, 1e9
+            for k in choices[sets[x]]:
+                q = pal_q[k]
+                d = (rq - q[0]) ** 2 + (gq - q[1]) ** 2 + (bq - q[2]) ** 2
+                if d < bd:
+                    best, bd = k, d
+            line[x] = best
+            p = pal_n[best]
+            dr, dg, db = (r - p[0]) / 42.0, (g - p[1]) / 42.0, (b - p[2]) / 42.0
+            if dr == 0.0 and dg == 0.0 and db == 0.0:
+                continue
+            for dx, dy, wt in _STUCKI:
+                t = (x + pad + dx * sgn) * 3
+                buf = e0 if dy == 0 else e1 if dy == 1 else e2
+                buf[t] += dr * wt
+                buf[t + 1] += dg * wt
+                buf[t + 2] += db * wt
+        out[y] = line
+        e0, e1, e2 = e1, e2, [0.0] * n
     return out
 
 

@@ -60,8 +60,7 @@ def _finish_inks(img: Image.Image, config: Config, mode: str, label: str) -> Ren
     """The colour panel's finish: six-ink dither instead of gray levels. The
     canvas is natively portrait, so rotation is only ever 0 or 180."""
     img = _apply_mat_inset(img.convert("RGB"), config)
-    dither = "none" if config.dither == "none" else "bluenoise"    # no diffusion in inks
-    inks = spectra.to_inks(img, dither, config.color_saturation)
+    inks = spectra.to_inks(img, config.effective_dither, config.color_saturation)
     if config.dark_now():
         inks = spectra.invert(inks)
     preview = spectra.inks_to_image(inks)
@@ -79,7 +78,7 @@ def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderRe
         return _finish_inks(img, config, mode, label)
     levels = 16 if config.bit_depth == 4 else 2
     img = _apply_mat_inset(img, config)                             # clear the mat opening
-    indices = finish.to_levels(img, levels, config.dither)          # portrait, upright
+    indices = finish.to_levels(img, levels, config.effective_dither)          # portrait, upright
     if config.dark_now():
         # Flip every level end-to-end (black field, white ink) after dithering,
         # so the packed frame and the PNG preview invert identically.

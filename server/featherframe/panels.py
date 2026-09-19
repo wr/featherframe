@@ -19,15 +19,21 @@ class Panel:
     color: bool                 # six-ink Spectra vs 16-level gray
     rotations: tuple[int, ...]  # valid config.panel_rotation values; first is the default
     refresh_seconds: int        # a full refresh, roughly: how long the glass is busy
+    dither: str                 # what config.dither "auto" means here
 
 
 # Seeed EE03: E Ink ED103TC2 10.3", IT8951. Native canvas is landscape and
 # setRotation() is a no-op, so the frame is rotated server-side (90 or 270).
-EE03 = Panel("ee03", 'EE03 · 10.3" gray', 1404, 1872, False, (90, 270), 2)
+# Blue-noise: 16 grays leave little to diffuse, and it is vectorised (Pi-friendly).
+EE03 = Panel("ee03", 'EE03 · 10.3" gray', 1404, 1872, False, (90, 270), 2, "bluenoise")
 
 # Seeed EE02: E Ink Spectra 6 13.3" (T133A01). Native canvas is portrait; 180
 # is the frame hung the other way up. No partial refresh.
-EE02 = Panel("ee02", 'EE02 · 13.3" Spectra 6 colour', 1200, 1600, True, (0, 180), 30)
+# Stucki: with only six inks, diffusion holds the engraving lines and grains
+# far tighter than the ordered mix (judged side by side on the glass, 19 Sep
+# 2026). It is a per-pixel Python loop — seconds on a PC, minutes on a Pi
+# Zero — which a panel that takes 30 s to refresh can afford.
+EE02 = Panel("ee02", 'EE02 · 13.3" Spectra 6 colour', 1200, 1600, True, (0, 180), 30, "stucki")
 
 PANELS = {p.key: p for p in (EE03, EE02)}
 DEFAULT = EE03

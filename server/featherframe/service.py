@@ -1002,6 +1002,17 @@ class FeatherframeService:
     def delete_generated(self, slug: str) -> bool:
         return self.genart.delete(slug)
 
+    def export_generated(self, dest: Path) -> int:
+        """Zip the generated-plate cache to `dest` (W-765); the plate count."""
+        return self.genart.export_to(dest)
+
+    def import_generated(self, fileobj) -> dict:
+        """Restore plates from a backup zip. Never replaces a newer plate, nor
+        one that is being regenerated right now. ValueError if it isn't a zip."""
+        with self._regen_lock:
+            busy = set(self._regen_inflight)
+        return self.genart.import_from(fileobj, busy=busy)
+
     # -- background one-shot jobs (config page) ----------------------------
     def _start_task(self, key: str, fn, *args) -> bool:
         """Run fn(*args) on a worker thread, tracked under `key` so the page

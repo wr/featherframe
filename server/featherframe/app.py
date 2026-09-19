@@ -12,15 +12,19 @@ import logging
 import math
 import os
 import re
+import tempfile
 from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
 from urllib.parse import quote
 
-from fastapi import FastAPI, Form, Request, Response
+from fastapi import FastAPI, File, Form, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.background import BackgroundTask
 
 from . import __version__, discovery, panels, paths
 from .config import Config, valid_hhmm
@@ -753,6 +757,51 @@ async def generated_delete(request: Request, slug: str = Form(...)):
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": ok, "error": error})
+
+
+@app.get("/api/generated/export")
+async def generated_export(request: Request):
+    """The generated-plate cache as one zip (W-765): each plate cost an image,
+    and data/generated/ otherwise lives only on this box."""
+    svc = _svc(request)
+    if not svc.genart:
+        return Response(status_code=404)
+    # Built on disk, not in memory: a full gallery is hundreds of MB and the
+    # target is a 512 MB Pi. The temp zip goes once the response has streamed.
+    fd, tmp = tempfile.mkstemp(prefix=".generated-", suffix=".zip.tmp", dir=paths.data_dir())
+    os.close(fd)
+    try:
+        count = await run_in_threadpool(svc.export_generated, Path(tmp))
+    except Exception:
+        os.unlink(tmp)
+        raise
+    if not count:
+        os.unlink(tmp)
+        return Response(status_code=404)
+    name = f"featherframe-generated-plates-{datetime.now():%Y-%m-%d}.zip"
+    return FileResponse(tmp, media_type="application/zip", filename=name,
+                        background=BackgroundTask(os.unlink, tmp))
+
+
+@app.post("/api/generated/import")
+async def generated_import(request: Request, backup: UploadFile = File(...)):
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    svc = _svc(request)
+    result = {"restored": 0, "kept": 0, "skipped": 0}
+    error = None
+    if not svc.genart:
+        error = "Generated plates are not available on this install."
+    else:
+        try:
+            # backup.file is Starlette's spooled temp file: zipfile seeks in it
+            # on disk, so the upload is never held in memory.
+            result = await run_in_threadpool(svc.import_generated, backup.file)
+        except ValueError as exc:
+            error = str(exc)
+    if "text/html" in request.headers.get("accept", ""):
+        return RedirectResponse("/", status_code=303)
+    return JSONResponse({"ok": error is None, "error": error, **result})
 
 
 @app.get("/api/preview.png")

@@ -26,6 +26,7 @@ import random
 import re
 import threading
 import time
+import zipfile
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,13 @@ log = logging.getLogger("featherframe.genart")
 # changes rebuild the provider instance, and a per-instance lock would let an
 # old and a new provider generate (and write the same cache file) concurrently.
 _GEN_LOCK = threading.Lock()
+
+# A backup zip (W-765) is an upload from the LAN page: bound what one member
+# and one archive may unpack to, so a crafted zip can't fill the SD card.
+BACKUP_MAX_MEMBER_BYTES = 64 * 1024 * 1024
+BACKUP_MAX_MEMBERS = 5000
+BACKUP_DESCRIPTIONS = "descriptions.json"
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 # Bump when the style prompt changes materially. Cached plates keep serving
 # regardless — the version is recorded in the sidecar so a manual regenerate
@@ -1419,6 +1427,115 @@ class GeneratedArtProvider(ArtProvider):
                 out.append(meta)
         out.sort(key=lambda m: str(m.get("created_at") or ""), reverse=True)
         return out
+
+    # -- backup (gallery) ----------------------------------------------------
+    def export_to(self, dest: Path) -> int:
+        """Write every cached plate (PNG + sidecar) and the species briefs to
+        a zip at `dest`; returns the plate count. Stored, not deflated: PNGs
+        don't shrink and a Pi Zero shouldn't spend a minute trying."""
+        metas = self.cached_species()
+        with zipfile.ZipFile(dest, "w", zipfile.ZIP_STORED) as z:
+            for meta in metas:
+                slug = meta.get("slug") or ""
+                if slug != slugify(slug):
+                    continue
+                z.write(self._png(slug), f"{slug}.png")
+                z.write(self._sidecar(slug), f"{slug}.json")
+            if self._descriptions_path().exists():
+                z.write(self._descriptions_path(), BACKUP_DESCRIPTIONS)
+        return len(metas)
+
+    def import_from(self, fileobj, busy: Optional[set] = None) -> dict:
+        """Restore plates from a backup zip. A plate already on file is only
+        replaced by a strictly newer one (sidecar created_at), and one being
+        regenerated (`busy`) is left alone. Only flat `<slug>.png` +
+        `<slug>.json` pairs that look like what export_to wrote are taken;
+        everything else is counted as skipped. Raises ValueError when the
+        upload isn't a zip at all."""
+        busy = busy or set()
+        out = {"restored": 0, "kept": 0, "skipped": 0}
+        try:
+            z = zipfile.ZipFile(fileobj)
+        except (zipfile.BadZipFile, OSError) as exc:
+            raise ValueError("That file is not a zip backup.") from exc
+        with z:
+            infos = {i.filename: i for i in z.infolist()[:BACKUP_MAX_MEMBERS] if not i.is_dir()}
+            for name, info in sorted(infos.items()):
+                if not name.endswith(".json") or name == BACKUP_DESCRIPTIONS:
+                    continue
+                slug = name[:-5]
+                png_info = infos.get(f"{slug}.png")
+                if (not slug or slug != slugify(slug) or png_info is None
+                        or max(info.file_size, png_info.file_size) > BACKUP_MAX_MEMBER_BYTES):
+                    out["skipped"] += 1
+                    continue
+                try:
+                    sidecar = z.read(info)
+                    meta = json.loads(sidecar)
+                except (ValueError, zipfile.BadZipFile, OSError):
+                    out["skipped"] += 1
+                    continue
+                if not isinstance(meta, dict) or meta.get("slug") != slug:
+                    out["skipped"] += 1
+                    continue
+                if slug in busy or not self._backup_is_newer(slug, meta):
+                    out["kept"] += 1
+                    continue
+                try:
+                    png = z.read(png_info)
+                except (zipfile.BadZipFile, OSError):
+                    out["skipped"] += 1
+                    continue
+                if not png.startswith(_PNG_MAGIC):
+                    out["skipped"] += 1
+                    continue
+                self._dir().mkdir(parents=True, exist_ok=True)
+                self._write_atomic(self._png(slug), png)
+                self._write_atomic(self._sidecar(slug), sidecar)
+                self._failed_at.pop(slug, None)
+                out["restored"] += 1
+            # A PNG with no sidecar can't be dated or named: not a plate pair.
+            out["skipped"] += sum(1 for n in infos if n.endswith(".png")
+                                  and f"{n[:-4]}.json" not in infos)
+            if BACKUP_DESCRIPTIONS in infos:
+                self._merge_descriptions(z, infos[BACKUP_DESCRIPTIONS])
+        return out
+
+    def _backup_is_newer(self, slug: str, incoming: dict) -> bool:
+        """True when there is no plate on file, or the backup's is strictly
+        newer. An unreadable date on either side keeps what's on file."""
+        if not self._png(slug).exists():
+            return True
+        try:
+            mine = json.loads(self._sidecar(slug).read_text()).get("created_at")
+            return (datetime.fromisoformat(str(incoming.get("created_at")))
+                    > datetime.fromisoformat(str(mine)))
+        except (OSError, ValueError, TypeError, AttributeError):
+            return False
+
+    def _merge_descriptions(self, z: zipfile.ZipFile, info: zipfile.ZipInfo) -> None:
+        """Bring back species briefs the text model was paid for; a brief
+        already on file wins."""
+        if info.file_size > BACKUP_MAX_MEMBER_BYTES:
+            return
+        try:
+            theirs = json.loads(z.read(info))
+        except (ValueError, zipfile.BadZipFile, OSError):
+            return
+        if not isinstance(theirs, dict):
+            return
+        path = self._descriptions_path()
+        with _DESC_LOCK:
+            try:
+                cache = json.loads(path.read_text())
+            except (OSError, ValueError):
+                cache = {}
+            new = {k: v for k, v in theirs.items()
+                   if k not in cache and isinstance(v, dict) and k == slugify(k)}
+            if new:
+                cache.update(new)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                self._write_atomic(path, json.dumps(cache, indent=2).encode())
 
     # -- the nightly day-in-review composite --------------------------------
     _KEEP_SHEETS = 60  # pruned oldest-first; the SD card is finite

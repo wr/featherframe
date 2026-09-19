@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        env: [xiao_ee03, ee02]
+        env: [xiao_ee03, ee02, release]
     steps:
       - uses: actions/checkout@v4
         with:

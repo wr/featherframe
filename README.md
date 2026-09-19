@@ -121,9 +121,12 @@ With [PlatformIO](https://platformio.org/) installed:
 cd firmware
 pio run -t upload        # build + flash over USB-C
 pio device monitor       # serial log, 115200
+pio run -e release       # the binary a kit ships with (release_ee02 for the colour kit)
 ```
 
-Battery calibration and button pins live in `firmware/include/ff_config.h`.
+Nothing per-unit or per-network is compiled in: the frame finds the server by
+mDNS, and the battery read is untrimmed (within about 2 %; see `VBAT_TRIM` in
+`firmware/include/ff_config.h`, where the button pins also live).
 One build serves both power models: the config page's **Power** setting
 (always awake on USB, deep sleep on battery) and the wake interval reach the
 frame on its next check-in and are stored on the device.

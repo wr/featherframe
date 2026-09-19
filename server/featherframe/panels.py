@@ -36,6 +36,11 @@ EE03 = Panel("ee03", 'EE03 · 10.3" gray', 1404, 1872, False, (90, 270), 2, "blu
 EE02 = Panel("ee02", 'EE02 · 13.3" Spectra 6 colour', 1200, 1600, True, (0, 180), 30, "stucki")
 
 PANELS = {p.key: p for p in (EE03, EE02)}
+
+# The settings whose right value depends on the panel (and on the mat in front
+# of it): what "use this panel's defaults" resets after a panel swap.
+PANEL_SETTINGS = ("gray_mode", "color_saturation", "dither", "panel_rotation",
+                  "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px")
 DEFAULT = EE03
 
 

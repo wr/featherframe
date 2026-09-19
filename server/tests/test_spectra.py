@@ -122,17 +122,97 @@ def test_first_checkin_from_a_colour_frame_turns_the_server_colour(client):
     assert svc.config.panel == "ee02"
 
 
-def test_a_live_gray_frame_keeps_its_server(client):
+GRAY = {"X-Panel": "ED103TC2 1404x1872 gray16"}
+COLOUR = {"X-Panel": "T133A01 1200x1600 spectra6"}
+
+
+def _age_checkin(svc, seconds):
+    """Pretend the recorded frame last checked in `seconds` ago."""
+    from dataclasses import replace
+    from datetime import timedelta
+    then = (svc._clock() - timedelta(seconds=seconds)).isoformat(timespec="seconds")
+    svc.device = replace(svc.device, last_checkin=then)
+
+
+def test_a_live_awake_frame_keeps_its_server(client):
     # The wall frame polls every few seconds; a colour frame that finds this
     # server over mDNS must be turned away, not flip the render under it.
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
-    assert client.get("/api/frame", headers={"X-Panel": "ED103TC2 1404x1872 gray16"}).status_code == 200
+    assert client.get("/api/frame", headers=GRAY).status_code == 200
 
-    r = client.get("/api/frame", headers={"X-Panel": "T133A01 1200x1600 spectra6"})
+    r = client.get("/api/frame", headers=COLOUR)
     assert r.status_code == 409
     assert svc.config.panel == "ee03"
     assert "ED103TC2" in svc.device.panel            # the stray frame was not recorded
+    note = svc.panel_notices()["refused"]
+    assert note["panel"] == "ee02" and svc.panel_notices()["swap"] is None
+
+
+def test_a_swapped_frame_is_adopted_with_a_notice(client):
+    # The old frame has gone quiet (unplugged): the new panel takes over, the
+    # render follows at once, and the page offers the new panel's defaults.
+    svc = client.app.state.service
+    svc._render_welcome(svc._clock(), False)
+    assert client.get("/api/frame", headers=GRAY).status_code == 200
+    svc.update_config(Config.from_dict({**svc.config.to_dict(), "dither": "bluenoise",
+                                        "mat_inset_pct": 3.5, "mat_offset_x_px": -10}))
+    _age_checkin(svc, 120)
+
+    r = client.get("/api/frame", headers=COLOUR)
+    assert r.status_code == 200 and svc.config.panel == "ee02"
+    swap = svc.panel_notices()["swap"]
+    assert (swap["from"], swap["to"]) == ("ee03", "ee02")
+    assert {"dither", "mat_inset_pct", "mat_offset_x_px"} <= set(swap["off_default"])
+    assert svc.config.dither == "bluenoise"          # nothing reset behind the owner's back
+
+    ok = client.post("/api/panel-notice", data={"action": "defaults"})
+    assert ok.status_code == 200 and ok.json()["panel_notices"]["swap"] is None
+    assert svc.config.dither == "auto" and svc.config.effective_dither == "stucki"
+    assert svc.config.mat_inset_pct == Config().mat_inset_pct and svc.config.mat_offset_x_px == 0
+    assert svc.config.panel == "ee02" and svc.config.panel_rotation == 0
+
+
+def test_keeping_my_settings_only_clears_the_notice(client):
+    svc = client.app.state.service
+    svc._render_welcome(svc._clock(), False)
+    client.get("/api/frame", headers=GRAY)
+    svc.update_config(Config.from_dict({**svc.config.to_dict(), "mat_inset_pct": 3.5}))
+    _age_checkin(svc, 120)
+    client.get("/api/frame", headers=COLOUR)
+    assert client.post("/api/panel-notice", data={"action": "keep"}).status_code == 200
+    assert svc.panel_notices()["swap"] is None and svc.config.mat_inset_pct == 3.5
+
+
+def test_a_sleeping_frames_server_is_never_refused(client):
+    # A deep-sleep frame is silent for a whole wake interval, so silence proves
+    # nothing: the new panel is adopted rather than locked out for hours.
+    svc = client.app.state.service
+    svc._render_welcome(svc._clock(), False)
+    svc.update_config(Config.from_dict({**svc.config.to_dict(), "power_mode": "sleep"}))
+    client.get("/api/frame", headers=GRAY)
+    assert client.get("/api/frame", headers=COLOUR).status_code == 200
+    assert svc.config.panel == "ee02"
+
+
+def test_first_frame_on_a_fresh_install_raises_no_notice(client):
+    svc = client.app.state.service
+    svc._render_welcome(svc._clock(), False)
+    assert client.get("/api/frame", headers=COLOUR).status_code == 200
+    assert svc.config.panel == "ee02" and svc.panel_notices()["swap"] is None
+
+
+def test_page_offers_defaults_and_reset(client):
+    svc = client.app.state.service
+    svc._render_welcome(svc._clock(), False)
+    client.get("/api/frame", headers=GRAY)
+    svc.update_config(Config.from_dict({**svc.config.to_dict(), "mat_inset_pct": 3.5}))
+    _age_checkin(svc, 120)
+    client.get("/api/frame", headers=COLOUR)
+    html = client.get("/").text
+    assert "New panel connected." in html and "Use this panel's defaults" in html
+    assert 'id="adv-reset"' in html and '"dither": "auto"' in html
+    assert "api_key" not in html.split('id="display-defaults">')[1].split("</script>")[0]
 
 
 def test_firmware_is_only_served_to_its_own_board(client, tmp_path):

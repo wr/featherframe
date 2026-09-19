@@ -336,6 +336,18 @@ class Config:
             return 4          # ink nibbles; the 1-bit fallback is a gray-panel thing
         return 4 if self.gray_mode == "16" else 1
 
+    @classmethod
+    def defaults_for(cls, panel: str) -> "Config":
+        """A factory-fresh config for `panel` (rotation and dither follow it)."""
+        fresh = cls(panel=panels.get(panel).key)
+        fresh.panel_rotation = fresh.panel_spec.rotations[0]
+        return fresh.sanitize()
+
+    def panel_settings_off_default(self) -> list[str]:
+        """The panel-dependent settings that differ from this panel's defaults."""
+        mine, fresh = self.to_dict(), Config.defaults_for(self.panel).to_dict()
+        return [k for k in panels.PANEL_SETTINGS if mine.get(k) != fresh.get(k)]
+
     @property
     def effective_dither(self) -> str:
         return self.panel_spec.dither if self.dither == "auto" else self.dither

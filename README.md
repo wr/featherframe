@@ -33,14 +33,15 @@ Featherframe also has a custom `gpt-image` prompt that can automatically generat
 
 
 - **`server/`** — a small Python (FastAPI) service that runs *on the BirdNET-Pi
-  itself*. It reads detections, renders plates, and serves a packed framebuffer
-  plus a LAN config page.
+  itself*, or anywhere on the LAN beside BirdNET-Go. It reads detections,
+  renders plates, and serves a packed framebuffer plus a LAN config page.
 - **`firmware/`** — a deliberately dumb ESP32-S3 client. It wakes, asks the
   server for a frame, pushes it to the panel, and goes back to sleep.
 
 ```
  BirdNET-Pi  ──reads──▶  Featherframe server  ──HTTP /api/frame──▶  ESP32-S3 ──▶ 10.3" e-paper
  (birds.db, read-only)   (FastAPI, systemd)     (packed framebuffer)  (deep sleep)
+ or BirdNET-Go (its API)
 ```
 
 The server polls BirdNET's database read-only and renders once per qualifying
@@ -54,7 +55,7 @@ paints.
   the SenseCraft firmware it ships with.
 - A protected 1S LiPo with a JST-PH lead — or just run it on USB-C.
 - A frame and mat. Matting it like a print sells the effect.
-- A BirdNET-Pi you already have running.
+- A BirdNET-Pi or BirdNET-Go you already have running.
 
 Seat the XIAO on the driver board, latch the panel's flat cable, plug in the
 battery, and mount portrait with the buttons reachable: **KEY0** fetches now,
@@ -62,23 +63,43 @@ battery, and mount portrait with the buttons reachable: **KEY0** fetches now,
 
 ## Install
 
-### 1. Server (on the BirdNET-Pi)
+### 1. Server
 
-```bash
-git clone https://github.com/wr/featherframe ~/featherframe
-cd ~/featherframe/server
-./install.sh
-```
+**Which BirdNET do you have?**
+
+- **BirdNET-Pi.** Install on the Pi itself; the server reads BirdNET-Pi's
+  `birds.db` read-only.
+
+  ```bash
+  git clone https://github.com/wr/featherframe ~/featherframe
+  cd ~/featherframe/server
+  ./install.sh
+  ```
+
+- **BirdNET-Go.** The server talks to BirdNET-Go's API, so it can run on any
+  Linux machine on your network: the same box, a NAS, a container.
+
+  ```bash
+  git clone https://github.com/wr/featherframe ~/featherframe
+  cd ~/featherframe/server
+  ./install.sh --source birdnet-go --url http://<birdnet-go-host>:8080
+  ```
+
+BirdWeather stations and Apprise notifications are also sources; pick those on
+the config page afterwards. The page's source card shows which source is live
+and when it last produced a detection
+([troubleshooting](docs/troubleshooting-sources.md)).
 
 That creates a venv, downloads the Audubon plates (~2.9 GB, as checksummed
 tarballs from this repo's `plates-v1` release, with the public mirror as the
 fallback), and installs a
 `featherframe.service` systemd unit, niced to stay out of BirdNET's way. It
-prints the config page URL when done: `http://<your-pi>.local:8080/`.
+prints the config page URL when done: `http://<hostname>.local:8080/`.
 
 Options: `--skip-plates`, `--all-plates` (every Havell plate, not only the
 ones `species.yaml` uses),
-`--port 9000`, `--no-service`, `--check` (report what a run would change).
+`--port 9000`, `--no-service`, `--check` (report what a run would change),
+`--source birdnet-pi|birdnet-go` with `--url` (written once, only when given).
 
 **Upgrading** is the same command again: `git pull && ./install.sh`. It reuses
 the venv, fetches only plates a new species needs, keeps the port and data

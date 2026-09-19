@@ -203,3 +203,14 @@ def test_tick_reflips_on_dark_state_change(client, monkeypatch):
                         quiet_hours_start=lo, quiet_hours_end=hi)
     svc.tick()
     assert calls == [1]
+
+
+def test_frame_response_carries_the_rotation(client):
+    # The firmware turns its baked boot screens and pills to match (X-FF-Rotation),
+    # on a 304 too, so a frame flipped on the page is right at its next boot.
+    etag = _seed_frame(client)
+    svc = client.app.state.service
+    svc.config.panel_rotation = 270
+    assert client.get("/api/frame").headers["x-ff-rotation"] == "270"
+    r = client.get("/api/frame", headers={"If-None-Match": f'"{etag}"'})
+    assert r.status_code == 304 and r.headers["x-ff-rotation"] == "270"

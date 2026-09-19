@@ -129,6 +129,9 @@ async def api_frame(request: Request, view: Optional[str] = None):
     # NVS, so the page is the one place either is set.
     invert = "1" if svc.config.dark_now() else "0"
     device_headers = {"X-FF-Invert": invert,
+                      # Which way up the frame hangs: the firmware turns its
+                      # baked boot screens and pills to match the plates.
+                      "X-FF-Rotation": str(svc.config.panel_rotation),
                       "X-Power-Mode": svc.config.power_mode,
                       "X-Wake-Minutes": str(svc.config.wake_interval_minutes),
                       "X-Poll-Seconds": str(svc.config.device_poll_seconds)}

@@ -7,6 +7,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/wr/featherframe/actions/workflows/ci.yml"><img src="https://github.com/wr/featherframe/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+</p>
+
+<p align="center">
   <a href="#what-is-it">What is it?</a> ⬪
   <a href="#shopping-list">Shopping list</a> ⬪
   <a href="#install">Install</a> ⬪

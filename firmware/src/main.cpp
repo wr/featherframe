@@ -266,6 +266,23 @@ static uint8_t* g_lastFrame = nullptr;
 // via X-FF-Invert; the firmware mirrors it onto everything baked (screens and
 // tiles) by flipping every 4bpp nibble (v -> 15-v == byte ^ 0xFF).
 bool g_invert = false;
+// The frame hangs the other way up (config.panel_rotation is not the one the
+// art was baked at): the server rotates the plates, and announces the rotation
+// (X-FF-Rotation, kept in NVS like dark mode) so everything baked follows —
+// a 4bpp buffer turned 180 degrees is its bytes reversed with the nibbles
+// swapped, and a tile's window mirrors to the opposite corner.
+bool g_flip = false;
+static inline uint8_t swapNibbles(uint8_t b) { return (uint8_t)((b << 4) | (b >> 4)); }
+static void rotate180(uint8_t* buf, size_t n) {
+  for (size_t i = 0, j = n - 1; i < j; i++, j--) {
+    uint8_t a = swapNibbles(buf[i]);
+    buf[i] = swapNibbles(buf[j]);
+    buf[j] = a;
+  }
+  if (n & 1) buf[n / 2] = swapNibbles(buf[n / 2]);
+}
+static inline int flipX(int x, int w) { return g_flip ? FF_NATIVE_W - x - w : x; }
+static inline int flipY(int y, int h) { return g_flip ? FF_NATIVE_H - y - h : y; }
 #if FF_PANEL_SPECTRA6
 // Spectra error presentation: a baked full screen, and only when a baked
 // screen already holds the glass (setup, or an earlier error). Over a painted
@@ -288,10 +305,14 @@ void noteSuccess() {
 #else
 static uint8_t g_tileBuf[FF_MAX_TILE_BYTES];
 
-// Only call while holding the panel mutex — g_tileBuf is shared.
+// A baked tile as the glass needs it: inverted for dark mode, turned for a
+// frame hung the other way up. Only call while holding the panel mutex —
+// g_tileBuf is shared.
 static const uint8_t* maybeInvert(const uint8_t* t, size_t n) {
-  if (!g_invert) return t;
-  for (size_t i = 0; i < n; i++) g_tileBuf[i] = t[i] ^ 0xFF;
+  if (!g_invert && !g_flip) return t;
+  const uint8_t x = g_invert ? 0xFF : 0x00;
+  for (size_t i = 0; i < n; i++) g_tileBuf[i] = t[i] ^ x;
+  if (g_flip) rotate180(g_tileBuf, n);
   return g_tileBuf;
 }
 
@@ -308,6 +329,7 @@ static void pushTile(const uint8_t* tile, int x, int y, int w, int h) {
   panelLock();
   epaper.wake();
   tile = maybeInvert(tile, (size_t)(w / 2) * h);
+  x = flipX(x, w); y = flipY(y, h);             // the window mirrors with the art
   epaper.tconLoadImage((uint8_t*)tile, x, y, w, h, false);
   epaper.tconDisplayArea(x, y, w, h, 1);        // DU: no flash
   epaper.tconWaitForDisplayReady();
@@ -737,12 +759,15 @@ void clearToast() {
   g_loaderAnim.on = false;
   if (g_lastFrame && g_glassScreen < 0) {
     panelLock();                              // g_tileBuf is shared under the lock
-    const int nx = FF_NATIVE_W - FF_TOAST_X - FF_TOAST_W;
+    // The pill sits where pushTile put it (mirrored when the frame is hung
+    // the other way up); the retained frame is already in glass orientation.
+    const int tx = flipX(FF_TOAST_X, FF_TOAST_W), ty = flipY(FF_TOAST_Y, FF_TOAST_H);
+    const int nx = FF_NATIVE_W - tx - FF_TOAST_W;
     for (int r = 0; r < FF_TOAST_H; r++)
       memcpy(g_tileBuf + r * (FF_TOAST_W / 2),
-             g_lastFrame + (uint32_t)(FF_TOAST_Y + r) * (FF_NATIVE_W / 2) + nx / 2,
+             g_lastFrame + (uint32_t)(ty + r) * (FF_NATIVE_W / 2) + nx / 2,
              FF_TOAST_W / 2);
-    pushTileRaw(g_tileBuf, FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+    pushTileRaw(g_tileBuf, tx, ty, FF_TOAST_W, FF_TOAST_H);
     panelUnlock();
   } else {
     pushTile(ff_toast_tiles[FF_TOAST_BLANK], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
@@ -789,6 +814,7 @@ void showScreen(int idx) {
   // flip is the same byte inversion as the gray build's.
   if (g_invert)
     for (uint32_t i = 0; i < FF_SCREEN_BYTES; i++) body[i] ^= 0xFF;
+  if (g_flip) rotate180(body, FF_SCREEN_BYTES);
   if (displayFrame(g_scrBuf, total)) {
     g_glassScreen = (int8_t)idx;
     g_etag[0] = 0;
@@ -845,6 +871,7 @@ void showScreen(int idx) {
   ff_unpack(ff_screens[idx].data, ff_screens[idx].len, body);
   if (g_invert)
     for (uint32_t i = 0; i < FF_SCREEN_BYTES; i++) body[i] ^= 0xFF;
+  if (g_flip) rotate180(body, FF_SCREEN_BYTES);   // the partial windows below derive from this body
 
   g_loaderAnim.on = false;        // pause the sweep while the glass changes
   panelLock();
@@ -1024,8 +1051,8 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Device-Id", frameId());         // who we are: one server serves one frame
   http.addHeader("X-Panel", FF_PANEL_ID);           // spec §6; the server renders for it
   http.addHeader("X-Board", FF_BOARD_ID);
-  const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server"};
-  http.collectHeaders(collect, 7);
+  const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation"};
+  http.collectHeaders(collect, 8);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
@@ -1035,6 +1062,12 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   if (inv.length()) {
     bool v = (inv == "1");
     if (v != g_invert) { g_invert = v; prefs.putBool("invert", v); }
+  }
+  // ...and which way up the frame hangs, for the same baked art.
+  String rot = http.header("X-FF-Rotation");
+  if (rot.length()) {
+    bool f = (rot.toInt() != FF_BAKED_ROTATION);
+    if (f != g_flip) { g_flip = f; prefs.putBool("flip", f); }
   }
   // The power model and wake interval are set on the config page and ride
   // every response (a 304 too). Stored in NVS; the callers act on the new
@@ -1294,6 +1327,7 @@ void setup() {
   g_alwaysAwake = prefs.getBool("awake", FF_DEFAULT_ALWAYS_AWAKE);
   g_pollMs = prefs.getUInt("poll_s", FF_POLL_INTERVAL_MS / 1000) * 1000UL;
   g_invert = prefs.getBool("invert", false);
+  g_flip = prefs.getBool("flip", false);
   Serial.printf("power: %s, wake %u min\n", g_alwaysAwake ? "always awake" : "deep sleep",
                 (unsigned)g_wakeMinutes);
 

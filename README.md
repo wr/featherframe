@@ -78,6 +78,11 @@ the venv, fetches only plates a new species needs, keeps the port and data
 directory of the existing install, and restarts the service. Your config,
 frames, and generated plates in `data/` are never touched.
 
+**Before you reinstall or move the server**, open the page's *Generated plates
+on file* card and **Download a backup**: a zip of every generated plate. Each
+one cost an image, and they live only in `data/generated/`. **Restore from a
+backup…** on the new install puts them back, and never replaces a newer plate.
+
 > **No auth.** It's LAN-only with no login. Keep it on your home network.
 
 ### 2. Firmware

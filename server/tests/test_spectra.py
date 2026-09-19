@@ -145,3 +145,26 @@ def test_firmware_is_only_served_to_its_own_board(client, tmp_path):
                                                 "X-Firmware-MD5": "0"}).status_code == 404
     # Older firmware sends no X-Board and is served as before.
     assert client.get("/api/firmware", headers={"X-Firmware-MD5": "0"}).status_code == 200
+
+
+def test_automatic_dither_follows_the_panel():
+    assert Config().sanitize().dither == "auto"
+    assert Config(panel="ee03").sanitize().effective_dither == "bluenoise"
+    assert Config(panel="ee02").sanitize().effective_dither == "stucki"
+    assert Config(panel="ee02", dither="bluenoise").sanitize().effective_dither == "bluenoise"
+    assert Config(dither="nonsense").sanitize().dither == "auto"
+
+
+def test_stucki_inks_keep_paper_and_type_clean():
+    # Clean paper and solid black skip the diffusion entirely; grays stay black + white.
+    assert (spectra.to_inks(_flat((255, 255, 255)), "stucki") == spectra.WHITE).all()
+    assert (spectra.to_inks(_flat((0, 0, 0)), "stucki") == spectra.BLACK).all()
+    gray = spectra.to_inks(_flat((120, 120, 120), (96, 96)), "stucki")
+    assert set(np.unique(gray)) == {spectra.BLACK, spectra.WHITE}
+    # and the mean is kept, in linear light: sRGB 120 is 19 % of the way to white
+    assert abs((gray == spectra.WHITE).mean() - 0.19) < 0.03
+
+
+def test_stucki_leans_on_the_colours_own_ink():
+    counts = np.bincount(spectra.to_inks(_flat((0, 40, 200), (96, 96)), "stucki").ravel(), minlength=6)
+    assert counts[spectra.BLUE] == counts.max()

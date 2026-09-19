@@ -39,7 +39,7 @@ def main() -> int:
     ap.add_argument("--all", action="store_true", help="render every curated species")
     ap.add_argument("--collage", type=int, default=0, metavar="N",
                     help="render a daily collage of N species (2-6)")
-    ap.add_argument("--dither", default=None, choices=["bluenoise", "stucki", "none"])
+    ap.add_argument("--dither", default=None, choices=["auto", "bluenoise", "stucki", "none"])
     ap.add_argument("--gray", default=None, choices=["16", "1"])
     ap.add_argument("--panel", default=None, choices=["ee03", "ee02"],
                     help="ee03 = 10.3\" gray (default), ee02 = 13.3\" Spectra 6 colour")

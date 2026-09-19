@@ -169,7 +169,9 @@ class Config:
     # duller than the scans, so a little over 1 reads truer on the glass.
     color_saturation: float = 1.2
     gray_mode: str = "16"  # "16" (4bpp) or "1" (1-bit fallback)
-    dither: str = "bluenoise"  # "bluenoise" (fast, Pi-friendly) | "stucki" | "none"
+    # "auto" = the panel's own default (panels.py: blue-noise on the gray
+    # panel, Stucki on the colour one) | "bluenoise" | "stucki" | "none"
+    dither: str = "auto"
     show_plate_number: bool = True
     # The panel's native canvas is landscape 1872x1404 and its setRotation() is a
     # no-op, so we rotate the portrait art into native orientation server-side.
@@ -261,8 +263,8 @@ class Config:
         self.apprise_token = str(self.apprise_token or "").strip()
         if self.gray_mode not in ("16", "1"):
             self.gray_mode = "16"
-        if self.dither not in ("stucki", "bluenoise", "none"):
-            self.dither = "stucki"
+        if self.dither not in ("auto", "stucki", "bluenoise", "none"):
+            self.dither = "auto"
         self.collage_rebuilds_per_day = int(_clamp(self.collage_rebuilds_per_day, 1, 24))
         self.review_species_max = int(_clamp(self.review_species_max, 0, 60))
         # The panel's native canvas is landscape and the firmware rejects a
@@ -333,6 +335,10 @@ class Config:
         if self.panel_spec.color:
             return 4          # ink nibbles; the 1-bit fallback is a gray-panel thing
         return 4 if self.gray_mode == "16" else 1
+
+    @property
+    def effective_dither(self) -> str:
+        return self.panel_spec.dither if self.dither == "auto" else self.dither
 
     @property
     def panel_spec(self) -> "panels.Panel":

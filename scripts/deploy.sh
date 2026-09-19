@@ -24,7 +24,9 @@ scp -q "$ARCHIVE" pve:/tmp/ff-server.tar.gz
 ssh pve "pct push 113 /tmp/ff-server.tar.gz /root/ff-server.tar.gz \
   && pct exec 113 -- bash -c 'tar -xzf /root/ff-server.tar.gz -C /opt/featherframe \
        && rm /root/ff-server.tar.gz && systemctl restart featherframe \
-       && sleep 3 && systemctl is-active featherframe' \
+       && sleep 3 && systemctl is-active featherframe \
+       && if systemctl is-enabled -q featherframe1 2>/dev/null; then \
+            systemctl restart featherframe1 && sleep 3 && systemctl is-active featherframe1; fi' \
   && rm /tmp/ff-server.tar.gz"
 
 ssh pve "pct exec 113 -- curl -s http://localhost:8081/api/status" | head -c 300

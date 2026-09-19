@@ -46,9 +46,18 @@
 // counts came back at 3.87 V and at 4.13 V (W-693), which is why a single
 // point fit (the old VBAT_SCALE = 6.698) read a full cell as 3.83 V / 55%.
 #define VBAT_DIVIDER        2.0f
-// Residual trim after the calibrated read, from a meter on the JST leads:
-// meter / (2 * mV). 2026-09-02: 4.13 V metered, 2036 mV at the pin -> 1.014.
-#define VBAT_TRIM           1.014f
+// Residual trim after the calibrated read. One binary ships to every unit
+// (W-768), so the default is none: the eFuse-calibrated read plus 1 % divider
+// resistors lands within about 2 % (one bench unit metered 1.4 % low, 4.13 V
+// on the JST leads against 2036 mV at the pin). That is a few points of charge
+// mid-curve, and it errs toward reading low, so the low-battery hold and the
+// OTA floor trip slightly early rather than late. Most frames run on USB and
+// never read a pack at all. To trim one unit anyway, build with
+//   FF_VBAT_TRIM=1.014 pio run        (meter volts / the untrimmed volts the
+//                                      serial log prints at boot)
+#ifndef VBAT_TRIM
+#define VBAT_TRIM           1.000f
+#endif
 
 // --- Low battery ---
 // Below FF_LOW_BATT_V (resting, read before the radio starts) the frame skips

@@ -245,6 +245,7 @@
     .settings-form { display:flex; flex-direction:column; gap:24px; }
     .settings { padding:0; }
     section.sec { padding:24px 26px 26px; }
+    .sec-head .opt { font-weight:400; letter-spacing:.04em; }
     .sec-head { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; margin:0 0 18px; }
     /* One row per setting: label + hint left, control right, so the labels
        read straight down the page. Rows are separated by a hairline; the first
@@ -1135,9 +1136,14 @@
 
       <div class="card">
         <section class="sec">
-          <h2 class="sec-head">Image generation</h2>
-          <p class="intro">When a species has no Audubon plate, Featherframe generates one in the same lithograph style, so the frame shows the right species instead of a text-only card.</p>
-          <div class="frow toggle">
+          {# W-770: no key is the expected state, not an unfinished setup. Rows
+             that only matter once plates can be bought stay out of the way
+             until a key (or a self-hosted endpoint) is there; hidden inputs
+             still submit, so nothing stored is lost. #}
+          {% set ig_ready = status.config.imagegen_api_key or config.imagegen_provider == 'a1111' %}
+          <h2 class="sec-head">Image generation <span class="opt">· optional</span></h2>
+          <p class="intro">Featherframe is complete without this. A species Audubon never painted gets a typographic plate: its name under an empty bough. Add an API key and those species get a generated plate in the same lithograph style instead, bought once per species and kept.</p>
+          <div class="frow toggle ig-needs-key" {{ '' if ig_ready else 'hidden' }}>
             <div class="frow-text"><label class="lab" for="ig">Generate a plate for species Audubon never painted</label></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ig" name="imagegen_enabled" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label></div>
           </div>
@@ -1159,7 +1165,7 @@
              Cancel. The JS is generic over data-key. #}
           {% set has_key = status.config.imagegen_api_key %}
           <div class="frow stack keyfield" data-key="image" data-provider="openai gemini replicate" {{ 'hidden' if config.imagegen_provider=='a1111' else '' }}>
-            <div class="frow-text"><label class="lab" for="key-image-input">API key <span class="opt">· stored only on this device</span></label><div class="hint">Create an API key at <a id="key-link" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>, then paste it here. Without one, only already-generated plates are shown.</div></div>
+            <div class="frow-text"><label class="lab" for="key-image-input">API key <span class="opt">· stored only on this device</span></label><div class="hint">Create an API key at <a id="key-link" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>, then paste it here. Leave it empty and nothing is ever bought.</div></div>
             <div class="frow-ctl">
               <div class="keyline key-display" {{ 'hidden' if not has_key else '' }}>
                 <input type="text" value="{{ has_key or '' }}" disabled aria-label="Stored API key (masked)">
@@ -1178,15 +1184,15 @@
             <div class="frow-text"><label class="lab" for="f-a1111">Endpoint URL</label><div class="hint">Your AUTOMATIC1111 / ComfyUI server's <code>/sdapi</code> base URL.</div></div>
             <div class="frow-ctl"><input type="text" inputmode="url" id="f-a1111" name="imagegen_base_url" value="{{ config.imagegen_base_url }}" placeholder="http://localhost:7860" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
           </div>
-          <div class="frow toggle">
+          <div class="frow toggle ig-needs-key" {{ '' if ig_ready else 'hidden' }}>
             <div class="frow-text"><label class="lab" for="cg">Combine the nightly “day in review” into a single image <a class="ex seg-ex" href="/static/examples/single.png" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></label><div class="hint" id="dayreview-cost"></div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" aria-describedby="dayreview-cost" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
           </div>
           <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-review-max">Species on the sheet</label><div class="hint">Most-heard first. 0 paints every species heard that day.</div></div>
+            <div class="frow-text"><label class="lab" for="f-review-max">Species on the sheet</label><div class="hint">How many species the nightly day in review shows, most-heard first. 0 shows every species heard that day.</div></div>
             <div class="frow-ctl"><input type="number" id="f-review-max" name="review_species_max" min="0" max="60" step="1" inputmode="numeric" value="{{ config.review_species_max }}"></div>
           </div>
-          <details class="disc adv">
+          <details class="disc adv ig-needs-key" {{ '' if ig_ready else 'hidden' }}>
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="disc-body"><div class="adv-body">
               <p class="adv-group">Image model</p>
@@ -2044,11 +2050,15 @@
       if (p === 'replicate') return m.indexOf('/') >= 0 || m.indexOf(':') >= 0;
       return true;  // a1111 checkpoint name is free-form
     }
+    var HAS_IMAGE_KEY = {{ 'true' if status.config.imagegen_api_key else 'false' }};
     function syncProvider(resetModel) {
       var p = prov.value, info = PROVIDERS[p] || {};
       document.querySelectorAll('[data-provider]').forEach(function (el) {
         el.hidden = el.getAttribute('data-provider').split(' ').indexOf(p) === -1;
       });
+      // Rows that only matter once plates can be bought (W-770).
+      var ready = HAS_IMAGE_KEY || p === 'a1111';
+      document.querySelectorAll('.ig-needs-key').forEach(function (el) { el.hidden = !ready; });
       if (modelHint) modelHint.textContent = info.hint || '';
       var costEl = $('dayreview-cost');
       if (costEl) costEl.textContent = info.cost || '';

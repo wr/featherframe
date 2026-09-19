@@ -133,14 +133,17 @@ async def api_frame(request: Request, view: Optional[str] = None):
                       "X-Wake-Minutes": str(svc.config.wake_interval_minutes),
                       "X-Poll-Seconds": str(svc.config.device_poll_seconds)}
 
+    # One server, one frame: only the active frame is served. Any other is
+    # parked until the owner answers on the page (403; the firmware shows
+    # "Add this frame on the Featherframe page" and keeps asking).
+    seat = svc.admit_frame(_str_header(request.headers.get("x-device-id")),
+                           device_extra["panel"], device_extra["board"], client_ip)
+    if seat != "active":
+        return Response(status_code=403, content=b"this frame is not the active frame",
+                        headers={"Cache-Control": "no-store", "X-FF-Frame": seat})
     if device_extra["panel"]:
         # Threadpool: a panel switch re-renders the frame.
-        verdict = await run_in_threadpool(svc.adopt_panel, device_extra["panel"])
-        if verdict == "refused":
-            # Another panel's frame owns this instance; not recorded, not served.
-            return Response(status_code=409, content=b"this server draws for another panel",
-                            headers={"Cache-Control": "no-store"})
-        if verdict == "adopted":
+        if await run_in_threadpool(svc.adopt_panel, device_extra["panel"]):
             _announce_panel(request, svc)
 
     # On-demand button views: rendered fresh, never the resident frame, no
@@ -523,21 +526,38 @@ async def api_refresh(request: Request):
 async def api_panel_notice(request: Request):
     """Answer the "new panel connected" notice: `action=defaults` resets the
     panel-dependent settings to the new panel's defaults and repaints;
-    `action=keep` just clears the notice. `action=dismiss-refused` clears the
-    "another frame was turned away" note."""
+    `action=keep` just clears the notice."""
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
     form = await request.form()
     action = str(form.get("action", "") or "")
-    if action == "dismiss-refused":
-        svc.db.set("panel_refused", None)
-    elif action in ("defaults", "keep"):
+    if action in ("defaults", "keep"):
         # Threadpool: "defaults" re-renders the frame.
         await run_in_threadpool(svc.answer_panel_notice, action == "defaults")
     else:
         return JSONResponse({"ok": False, "error": "unknown action"}, status_code=400)
     return JSONResponse({"ok": True, "panel_notices": svc.panel_notices()})
+
+
+@app.post("/api/frames")
+async def api_frames(request: Request):
+    """The owner's answer about a frame that is not the active one:
+    `action=switch` (make it the active frame), `ignore`, or `forget`."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    svc = _svc(request)
+    form = await request.form()
+    frame_id = str(form.get("id", "") or "")[:40]
+    action = str(form.get("action", "") or "")
+    # Threadpool: a switch to a frame with another panel re-renders.
+    ok = await run_in_threadpool(svc.answer_frame, frame_id, action)
+    if not ok:
+        return JSONResponse({"ok": False, "error": "unknown frame or action"}, status_code=400)
+    if action == "switch":
+        _announce_panel(request, svc)
+    return JSONResponse({"ok": True, "frames": svc.frames_view(),
+                         "panel_notices": svc.panel_notices()})
 
 
 @app.post("/api/hold")

@@ -426,6 +426,8 @@ def loader_tiles(im: Image.Image, cx, cy):
 # corner (see FF_CORNER_*). All tiles are pure black/white on white => DU.
 ERR_TEXTS = [("Can't reach Wi-Fi", "wifi"), ("Can't reach server", "server")]
 WAIT_TEXT = "Waiting for the first bird"
+# The server serves one frame; another waits for its owner to switch to it.
+PENDING_TEXT = "Add this frame on the Featherframe page"
 RETRY_TEXTS = ["Trying again in 1 minute", "Trying again in 5 minutes",
                "Trying again in 15 minutes", "Trying again shortly"]
 ERR_ICON_SLOT = 56
@@ -453,9 +455,10 @@ def _draw_error_pill(d, text, kind):
     d.text((px + 26 + ERR_ICON_SLOT + 18, cy + (capbox[3] - capbox[1]) / 2),
            text, font=fnt, fill=0, anchor="ls")
 
-def _draw_wait_pill(d):
+def _draw_wait_pill(d, text=None):
+    text = text or WAIT_TEXT
     fnt = sans(PILL_TEXT_SIZE)
-    tw = d.textlength(WAIT_TEXT, font=fnt)
+    tw = d.textlength(text, font=fnt)
     pillw = int(PILL_PAD + LOADER_SLOT_W + PILL_GAP + tw + PILL_PAD + 4)
     px = int(W / 2 - pillw / 2)
     cy = PILL_Y + PILL_H / 2
@@ -463,7 +466,7 @@ def _draw_wait_pill(d):
     draw_loader_mark(d, px + PILL_PAD + LOADER_SLOT_W / 2, cy, frame=-1)   # parked
     capbox = fnt.getbbox("H")
     d.text((px + PILL_PAD + LOADER_SLOT_W + PILL_GAP, cy + (capbox[3] - capbox[1]) / 2),
-           WAIT_TEXT, font=fnt, fill=255, anchor="ls")
+           text, font=fnt, fill=255, anchor="ls")
 
 def _canvas(fn):
     im = Image.new("L", (W, H), 255)
@@ -500,6 +503,7 @@ def error_assets():
             if name in ("BOOT_WIFI", "BOOT_BIRDNET", "BOOT_DOWNLOAD")]
     pills = [_canvas(lambda d, t=t, k=k: _draw_error_pill(d, t, k)) for t, k in ERR_TEXTS]
     pills.append(_canvas(_draw_wait_pill))
+    pills.append(_canvas(lambda d: _draw_wait_pill(d, PENDING_TEXT)))
     band = _aligned_region(boot + pills, 1640, 1736)
     err_geo, err_tiles = _region_tiles(band, pills)
 
@@ -622,7 +626,8 @@ def write_header():
          "// Error-state tiles (see the error-states section of the bake).",
          "// ff_err_tiles: 0 = can't reach Wi-Fi (outlined + slashed wifi),",
          "// 1 = can't reach server (outlined + slashed server), 2 = waiting",
-         "// for the first bird (solid pill, parked mark). The window also",
+         "// for the first bird (solid pill, parked mark), 3 = add this frame on",
+         "// the server page (the server serves another frame). The window also",
          "// erases whichever normal pill it replaces.",
          f"#define FF_ERR_X          {err_geo[0]}",
          f"#define FF_ERR_Y          {err_geo[1]}",
@@ -706,7 +711,7 @@ def write_header():
         else:
             L.append("  { -1, -1, { 0 } },")
     L += ["};", "",
-          "static const uint8_t* const ff_err_tiles[3] = { ff_err_0, ff_err_1, ff_err_2 };",
+          "static const uint8_t* const ff_err_tiles[4] = { ff_err_0, ff_err_1, ff_err_2, ff_err_3 };",
           "static const uint8_t* const ff_retry_tiles[5] = { ff_retry_0, ff_retry_1, ff_retry_2, ff_retry_3, ff_retry_4 };",
           "static const uint8_t* const ff_corner_tiles[3] = { ff_corner_0, ff_corner_1, ff_corner_2 };",
           "static const uint8_t* const ff_toast_tiles[FF_TOAST_COUNT] = {",
@@ -782,6 +787,7 @@ EE02_SCREENS = [
     ("ERR_WIFI", _error_screen(lambda d: _draw_error_pill(d, *ERR_TEXTS[0]), RETRY_TEXTS[3])),
     ("ERR_SERVER", _error_screen(lambda d: _draw_error_pill(d, *ERR_TEXTS[1]), RETRY_TEXTS[3])),
     ("WAITING", _error_screen(_draw_wait_pill)),
+    ("PENDING", _error_screen(lambda d: _draw_wait_pill(d, PENDING_TEXT))),
 ]
 
 def _ee02_inks(im):

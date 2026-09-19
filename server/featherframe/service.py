@@ -441,7 +441,6 @@ class FeatherframeService:
         # unexpected key — and sanitising values, so a row poisoned by an older
         # build (a NaN voltage) heals on start instead of 500ing /api/status.
         self.device = DeviceStatus(**_clean_device_fields(self.db.get("device_status", {})))
-        self._refused_panels: set[str] = set()   # X-Panel strings already warned about
 
     # -- lifecycle ---------------------------------------------------------
     def start(self) -> None:
@@ -1076,68 +1075,145 @@ class FeatherframeService:
         log.info("rendered TEST detection, etag=%s", result.etag)
         return result
 
-    # Panel swaps vs. a second frame. One instance draws for one panel, and it
-    # follows the frame: when a frame with another panel checks in, the render
-    # switches to it (a frame can only reject the other panel's image). The one
-    # case that must not switch is a SECOND frame wandering in while the first
-    # is still on the wall — and only an always-awake frame proves that, by
-    # polling every few seconds. So: a foreign panel is turned away while an
-    # always-awake frame of the current panel has been heard from within a few
-    # poll gaps; otherwise it is a swap, and it is adopted. (Two deep-sleep
-    # frames sharing an instance each get a correct image on their own wake —
-    # wasteful, never wrong.)
-    _OWNER_MIN_WINDOW = timedelta(seconds=90)
-    _REFUSAL_NOTICE_TTL = timedelta(minutes=10)
+    # -- frames ---------------------------------------------------------------
+    # One instance draws for one frame. Every frame names itself (X-Device-Id,
+    # its MAC); the first to check in becomes the active frame, and any other
+    # is parked as "pending" until the owner answers on the page: switch to it,
+    # or ignore it. The frame that was switched away from goes through the same
+    # question when it next checks in. Only the active frame is served, moves
+    # the device card, or decides the panel. Firmware that predates the header
+    # is one frame called "legacy"; it becomes its real ID in place when the
+    # same frame (same panel, same address) first sends one after an update.
+    LEGACY_FRAME = "legacy"
+    _FRAME_TOUCH = timedelta(seconds=60)      # how often a parked frame's row is rewritten
 
-    def _owner_window(self) -> timedelta:
-        if self.config.power_mode != "awake":
-            return timedelta(0)
-        return max(self._OWNER_MIN_WINDOW, timedelta(seconds=4 * self.config.device_poll_seconds))
+    def _frames(self) -> dict:
+        reg = self.db.get("frames", None)
+        if not isinstance(reg, dict) or not isinstance(reg.get("known"), dict):
+            reg = {"active": None, "known": {}}
+        return reg
 
-    def adopt_panel(self, reported: Optional[str]) -> str:
-        """Follow the panel the device says it is (X-Panel): a frame rendered
-        for the other panel is one the firmware can only reject, so the first
-        check-in from a colour frame turns this instance colour — no setting
-        to find. Returns "same" (nothing to do), "adopted" (the panel and the
-        frame changed), or "refused": another panel's frame is live on this
-        instance (the wall frame's server, found over mDNS by a second frame),
-        so the caller must turn this one away without recording it."""
+    def admit_frame(self, frame_id: Optional[str], reported_panel: Optional[str],
+                    board: Optional[str], ip: Optional[str]) -> str:
+        """Who is asking? Returns "active" (serve it), or "pending" / "ignored"
+        (answer 403: not served, not recorded on the device card)."""
+        fid = (frame_id or "").strip()[:40] or self.LEGACY_FRAME
+        now = self._clock()
+        stamp = now.isoformat(timespec="seconds")
+        with self._lock:
+            reg = self._frames()
+            known = reg["known"]
+            active = reg.get("active")
+            row = known.get(fid)
+            dirty = False
+            if (row is None and active == self.LEGACY_FRAME and fid != self.LEGACY_FRAME
+                    and self.LEGACY_FRAME in known):
+                old = known[self.LEGACY_FRAME]
+                same_panel = panels.from_report(reported_panel) is panels.from_report(old.get("panel"))
+                if same_panel and (not ip or not old.get("ip") or ip == old.get("ip")):
+                    row = known.pop(self.LEGACY_FRAME)     # the same frame, updated: keep its seat
+                    row["id"] = fid
+                    known[fid] = row
+                    reg["active"] = active = fid
+                    dirty = True
+            fresh = row is None
+            if fresh:
+                row = known[fid] = {"id": fid, "first_seen": stamp, "status": "pending"}
+            if active is None:
+                reg["active"] = active = fid               # the first frame takes the seat
+                dirty = True
+            if fid == active and row.get("status") != "active":
+                row["status"] = "active"
+                dirty = True
+            changed = fresh or any(row.get(k) != v for k, v in
+                                   (("panel", reported_panel), ("board", board), ("ip", ip)) if v)
+            try:
+                stale = now - datetime.fromisoformat(row.get("last_seen") or "") >= self._FRAME_TOUCH
+            except ValueError:
+                stale = True
+            if dirty or changed or stale:
+                for k, v in (("panel", reported_panel), ("board", board), ("ip", ip)):
+                    if v:
+                        row[k] = v
+                row["last_seen"] = stamp
+                self.db.set("frames", reg)
+            status = row["status"]
+        if fresh and status == "pending":
+            log.info("a new frame is asking to connect: %s (%s) at %s", fid, reported_panel, ip)
+        return status
+
+    def frames_view(self) -> dict:
+        """The registry for the page: the active frame, those waiting for an
+        answer, and those ignored."""
+        reg = self._frames()
+
+        def card(row: dict) -> dict:
+            panel = panels.from_report(row.get("panel"))
+            fid = str(row.get("id") or "")
+            return {"id": fid,
+                    "short": "older firmware" if fid == self.LEGACY_FRAME else fid[-6:],
+                    "panel_name": panel.name if panel else (row.get("panel") or "unknown panel"),
+                    "ip": row.get("ip"), "first_seen": row.get("first_seen"),
+                    "last_seen": row.get("last_seen")}
+        rows = list(reg["known"].values())
+        active = reg["known"].get(reg.get("active") or "")
+        return {"active": card(active) if active else None,
+                "pending": [card(r) for r in rows if r.get("status") == "pending"],
+                "ignored": [card(r) for r in rows if r.get("status") == "ignored"]}
+
+    def answer_frame(self, frame_id: str, action: str) -> bool:
+        """The owner's answer about a frame: "switch" makes it the active frame
+        (the old one is asked about again when it next checks in), "ignore"
+        parks it, "forget" drops it (it asks again if it comes back)."""
+        with self._lock:
+            reg = self._frames()
+            row = reg["known"].get(frame_id)
+            if row is None or action not in ("switch", "ignore", "forget"):
+                return False
+            if action == "switch":
+                old = reg["known"].get(reg.get("active") or "")
+                if old is not None and old is not row:
+                    reg["known"].pop(old["id"], None)      # it asks again if it returns
+                row["status"] = "active"
+                reg["active"] = frame_id
+            elif frame_id == reg.get("active"):
+                return False                               # the active frame is not ignorable
+            elif action == "ignore":
+                row["status"] = "ignored"
+            else:
+                reg["known"].pop(frame_id, None)
+            self.db.set("frames", reg)
+        if action == "switch":
+            # The card belongs to the frame on the wall: start it clean, and
+            # draw for the new frame's panel before it next asks.
+            with self._lock:
+                self.device = DeviceStatus()
+                self.db.set("device_status", asdict(self.device))
+            self.adopt_panel(row.get("panel"), swapped=True)
+        return True
+
+    def adopt_panel(self, reported: Optional[str], swapped: bool = False) -> bool:
+        """Draw for the panel the ACTIVE frame says it has (X-Panel): an image
+        for another panel is one the firmware can only reject. `swapped` (the
+        owner switched frames) raises the "new panel" notice, since the saved
+        display settings were tuned for the old panel; a first frame on a
+        fresh install has nothing to say. True when the panel changed."""
         panel = panels.from_report(reported)
         if panel is None or panel.key == self.config.panel:
-            return "same"
-        owner = panels.from_report(self.device.panel)
-        if owner is not None and owner.key == self.config.panel:
-            try:
-                seen = datetime.fromisoformat(self.device.last_checkin or "")
-            except ValueError:
-                seen = None
-            if seen is not None and self._clock() - seen < self._owner_window():
-                if reported not in self._refused_panels:
-                    self._refused_panels.add(reported)
-                    log.warning("turned away a %r frame: this instance is serving a live %s "
-                                "frame. Give the new frame a server instance of its own.",
-                                reported, self.config.panel)
-                self.db.set("panel_refused", {"panel": panel.key,
-                                              "at": self._clock().isoformat(timespec="seconds")})
-                return "refused"
-        log.info("device reports panel %r: switching %s -> %s",
+            return False
+        log.info("the frame reports panel %r: switching %s -> %s",
                  reported, self.config.panel, panel.key)
-        if self.device.last_checkin:
-            # A frame was here before: this is a swap, and the saved display
-            # settings were tuned for the old panel. Say so on the page (a
-            # first-ever check-in on a fresh install has nothing to say).
+        if swapped or self.device.last_checkin:
             self.db.set("panel_notice", {"from": self.config.panel, "to": panel.key,
                                          "at": self._clock().isoformat(timespec="seconds")})
-        self.db.set("panel_refused", None)
         cfg = Config.from_dict({**self.config.to_dict(), "panel": panel.key})
         self.update_config(cfg)
         self.rerender_current()
-        return "adopted"
+        return True
 
     def panel_notices(self) -> dict:
-        """What the page should say about the panel: a pending swap notice
-        (until it is answered) and a recent turned-away frame."""
-        out: dict = {"swap": None, "refused": None}
+        """The pending "new panel" notice, until it is answered."""
+        out: dict = {"swap": None}
         swap = self.db.get("panel_notice", None)
         if isinstance(swap, dict) and swap.get("to") == self.config.panel:
             out["swap"] = {
@@ -1146,16 +1222,6 @@ class FeatherframeService:
                 "to_name": panels.get(swap.get("to")).name,
                 "off_default": self.config.panel_settings_off_default(),
             }
-        refused = self.db.get("panel_refused", None)
-        if isinstance(refused, dict):
-            try:
-                fresh = self._clock() - datetime.fromisoformat(refused.get("at") or "") \
-                    < self._REFUSAL_NOTICE_TTL
-            except ValueError:
-                fresh = False
-            if fresh and refused.get("panel") != self.config.panel:
-                out["refused"] = {"panel": refused.get("panel"), "at": refused.get("at"),
-                                  "name": panels.get(refused.get("panel")).name}
         return out
 
     def answer_panel_notice(self, use_defaults: bool) -> None:
@@ -1396,6 +1462,7 @@ class FeatherframeService:
                                      power_mode=self.config.power_mode),
             "config": self._masked_config(),
             "panel_notices": self.panel_notices(),
+            "frames": self.frames_view(),
         }
 
     def _masked_config(self) -> dict:

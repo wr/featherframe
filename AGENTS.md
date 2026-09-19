@@ -152,8 +152,15 @@ corners in the same script. `theme.py` holds all geometry/tone constants.
   the reverse of the gray levels), native portrait 1200×1600, rotation 0/180.
 - **Config** is one flat `Config` dataclass (`config.py`), persisted as a JSON
   blob in our own SQLite (`db.py`, a kv store, separate from BirdNET's DB).
-- **Dithering:** blue-noise is the default (vectorized, Pi-friendly); Stucki is a
-  correct but slow per-pixel Python loop — don't make it the default on a Pi Zero.
+- **Dithering:** `config.dither` defaults to `"auto"`, the panel's own default
+  (`panels.py`). Gray: blue-noise (vectorized, Pi-friendly); Stucki there is a
+  correct but slow per-pixel Python loop — don't make it the gray default on a
+  Pi Zero. Colour: Stucki (`spectra._diffuse_stucki`), chosen side by side on
+  the glass (19 Sep 2026) — with six inks, diffusion holds engraving lines and
+  grains much tighter than the ordered mix, and a 30 s panel can afford the
+  loop. It diffuses the gamut-mapped image and picks each pixel's ink only
+  from that pixel's own ink set (its table decomposition): a free choice of
+  all six turns neutral gray into green/blue/red dots.
 - Keep the render single-threaded and memory-frugal (target: Pi Zero 2W, 512MB).
   Plates load downscaled; `Image.MAX_IMAGE_PIXELS` is lifted for the big scans.
 - Paths are env-overridable: `FEATHERFRAME_DATA_DIR`, `FEATHERFRAME_PLATES_DIR`,

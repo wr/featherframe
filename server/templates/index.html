@@ -536,6 +536,11 @@
     .test-box.bad .test-ic { color:var(--bad); }
     .test-box.warn { background:color-mix(in srgb, var(--warn) 12%, var(--surface)); border-color:color-mix(in srgb, var(--warn) 34%, var(--border)); }
     .test-box.warn .test-ic { color:var(--warn); }
+    .panel-note { max-width:var(--page-w, 1180px); margin:0 auto 14px; }
+    .panel-note .test-msg { display:block; }
+    .panel-note-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:9px; }
+    .adv-reset { display:flex; align-items:center; justify-content:space-between; gap:14px; padding-top:16px; }
+    .adv-reset .hint { margin:0; }
     .test-box a.tb-link { color:var(--accent); text-decoration:underline; white-space:nowrap; }
     /* the Frame card is a snapshot; while the server can't be reached it is dimmed under the banner */
     .stale { opacity:.6; }
@@ -575,6 +580,37 @@
     <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-check"/></svg></span>
     <span class="test-msg"></span>
   </div>
+
+  {# Panel notices. A swap: the render already follows the new panel; the
+     saved display settings were tuned for the old one, so offer its defaults.
+     A turned-away frame: a second frame of another panel asked this server. #}
+  <script type="application/json" id="display-defaults">{{ (display_defaults or {})|tojson }}</script>
+  {% set pn = status.panel_notices %}
+  {% if pn.swap %}
+  <div class="test-box warn show panel-note" id="panel-swap" role="status">
+    <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
+    <span class="test-msg">
+      <strong>New panel connected.</strong>
+      The frame now reports the {{ pn.swap.to_name }} panel (it was the {{ pn.swap.from_name }}), and updates are already drawn for it.
+      {% if pn.swap.off_default %}Dithering, rotation and the mat settings are still the ones saved for the old panel.{% else %}The display settings already match this panel's defaults.{% endif %}
+      <span class="panel-note-actions">
+        {% if pn.swap.off_default %}<button class="btn primary" type="button" data-panel-action="defaults">Use this panel's defaults</button>
+        <button class="btn" type="button" data-panel-action="keep">Keep my settings</button>
+        {% else %}<button class="btn" type="button" data-panel-action="keep">Dismiss</button>{% endif %}
+      </span>
+    </span>
+  </div>
+  {% endif %}
+  {% if pn.refused %}
+  <div class="test-box warn show panel-note" id="panel-refused" role="status">
+    <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
+    <span class="test-msg">
+      <strong>A second frame was turned away.</strong>
+      A frame with the {{ pn.refused.name }} panel asked this server for updates while the {{ config.panel_spec.name }} frame is still checking in. One server draws for one panel: give the second frame a server of its own. If it replaces this frame, unplug the old one and it is adopted within two minutes.
+      <span class="panel-note-actions"><button class="btn" type="button" data-panel-action="dismiss-refused">Dismiss</button></span>
+    </span>
+  </div>
+  {% endif %}
 
   <main class="grid">
     <!-- LEFT: live plate + status -->
@@ -932,6 +968,10 @@
               <div class="frow">
                 <div class="frow-text"><span class="lab" id="offset-lab">Mat offset (px)</span><div class="hint">Nudges the art if your mat opening isn't centered. x then y, −120 to 120.</div></div>
                 <div class="frow-ctl pair" role="group" aria-labelledby="offset-lab"><input type="number" name="mat_offset_x_px" min="-120" max="120" step="1" inputmode="numeric" value="{{ config.mat_offset_x_px }}" placeholder="x" aria-label="Horizontal offset, positive moves right" title="x — positive moves right"><input type="number" name="mat_offset_y_px" min="-120" max="120" step="1" inputmode="numeric" value="{{ config.mat_offset_y_px }}" placeholder="y" aria-label="Vertical offset, positive moves down" title="y — positive moves down"></div>
+              </div>
+              <div class="adv-reset">
+                <div class="hint" id="adv-reset-hint">Puts every setting in this Advanced section back to its default for this panel. Nothing changes until you save.</div>
+                <button class="btn" type="button" id="adv-reset" aria-describedby="adv-reset-hint">Reset to defaults</button>
               </div>
             </div></div>
           </details>
@@ -1749,6 +1789,54 @@
       e.preventDefault(); e.returnValue = '';
     });
   }
+  // -- Advanced: reset to defaults ---------------------------------------------
+  // Fills the section's controls with the factory values for the panel in use
+  // and leaves the save to the owner: the Save bar appears, and leaving the
+  // page without saving undoes it. The Panel select is not a preference (it
+  // follows the frame), so it stays put.
+  (function () {
+    var btn = $('adv-reset'), src = $('display-defaults');
+    if (!btn || !src || !form) return;
+    var defaults = {};
+    try { defaults = JSON.parse(src.textContent || '{}'); } catch (e) { return; }
+    btn.addEventListener('click', function () {
+      var body = btn.closest('.adv-body'); if (!body) return;
+      var changed = 0;
+      body.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (el) {
+        var name = el.name;
+        if (name === 'panel' || el.type === 'hidden' || !(name in defaults)) return;
+        var want = defaults[name], before;
+        if (el.type === 'checkbox') { before = el.checked; el.checked = !!want; if (before !== el.checked) changed++; }
+        else if (el.type === 'radio') { before = el.checked; el.checked = (String(want) === el.value); if (before !== el.checked) changed++; }
+        else { before = el.value; el.value = String(want); if (el.value !== before) changed++; }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      if (changed) showFlash('ok', 'Defaults filled in. Save settings to apply them.', 'ic-check');
+      else showFlash('ok', 'These settings are already at their defaults.', 'ic-check');
+    });
+  })();
+
+  // -- panel notices: answer the swap offer / dismiss a turned-away frame -------
+  document.querySelectorAll('[data-panel-action]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var box = b.closest('.panel-note');
+      box.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+      var fd = new FormData(); fd.append('action', b.getAttribute('data-panel-action'));
+      fetch('/api/panel-notice', { method: 'POST', body: fd })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function () {
+          // "defaults" rewrote settings the form is showing: reload to show them.
+          if (b.getAttribute('data-panel-action') === 'defaults') { saving = true; location.href = '/?saved=1'; }
+          else box.remove();
+        })
+        .catch(function () {
+          box.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
+          showFlash('bad', "That didn't go through. Try again.", 'ic-warn');
+        });
+    });
+  });
+
   function submitForm(f) {
     // requestSubmit fires the submit event (and validation); submit() does not.
     if (f.requestSubmit) f.requestSubmit(); else { saving = true; f.submit(); }

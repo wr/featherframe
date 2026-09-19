@@ -5,9 +5,13 @@ Reads server/scripts/species.yaml, downloads each species' Audubon plate from
 the public-domain mirror, and writes plates/index.json — the runtime crosswalk
 the render pipeline uses to turn a detection into a plate.
 
-Source: github.com/nathanbuchar/audubon-bird-plates (mirrors audubon.org's
-public-domain scans, with a plate index at data.json). Falls back to
-media.audubon.org if a raw file is missing.
+Sources, in order: this repo's `plates-v1` GitHub Release (the whole Havell
+edition as checksummed tarballs — featherframe/plate_release.py), then
+github.com/nathanbuchar/audubon-bird-plates (mirrors audubon.org's
+public-domain scans, with a plate index at data.json), then media.audubon.org.
+A part is only worth its few hundred MB when several plates are missing, so a
+fresh install restores from the release and an upgrade that needs one new
+plate asks the mirror — and falls back to the release if the mirror is down.
 
 Usage:
     python scripts/fetch_plates.py                # download everything in species.yaml
@@ -15,6 +19,7 @@ Usage:
     python scripts/fetch_plates.py --species other_list.yaml
     python scripts/fetch_plates.py --force        # re-download even if present
     python scripts/fetch_plates.py --all          # also cache every plate in the catalog (~2.9 GB)
+    python scripts/fetch_plates.py --no-release   # skip the release tarballs, mirror only
 
 `--all` caches the whole Havell edition, not just the curated species, so adding
 a species to species.yaml later is an index rewrite with no network, and every
@@ -30,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -40,10 +46,12 @@ import yaml
 
 # Make the featherframe package importable when run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from featherframe import legends, paths  # noqa: E402
+from featherframe import legends, paths, plate_release  # noqa: E402
 from featherframe.names import fuzzy_resolve_plate  # noqa: E402
 
-RAW_BASE = "https://raw.githubusercontent.com/nathanbuchar/audubon-bird-plates/master"
+RAW_BASE = os.environ.get(
+    "FEATHERFRAME_PLATES_MIRROR_URL",
+    "https://raw.githubusercontent.com/nathanbuchar/audubon-bird-plates/master").rstrip("/")
 DATA_JSON_URL = f"{RAW_BASE}/data.json"
 AUDUBON_MEDIA = "https://media.audubon.org/boa_illustration"
 DEFAULT_SPECIES_YAML = Path(__file__).resolve().parent / "species.yaml"
@@ -58,6 +66,9 @@ RETRIES = 3
 RETRY_BACKOFF_S = 2.0
 MIN_PLATE_BYTES = 1024  # anything smaller is an error page, not a scan
 POLITE_PAUSE_S = 0.15
+# Below this many missing plates in one part, ask the mirror per plate first
+# rather than pull the whole part.
+PART_MIN_MISSING = 8
 
 
 def _bucket(plate: int) -> str:
@@ -69,15 +80,19 @@ def _bucket(plate: int) -> str:
     return f"{lo}-{hi}"
 
 
-def load_catalog(session: requests.Session, cache: Path, force: bool = False) -> dict[int, dict]:
-    """Return {plate_number: {plate, name, slug, fileName}} from the mirror index,
-    caching data.json locally so re-runs work offline."""
+def load_catalog(session: requests.Session, cache: Path, force: bool = False,
+                 release: str | None = None) -> dict[int, dict]:
+    """Return {plate_number: {plate, name, slug, fileName}} from the plate index
+    (the release's copy first, then the mirror's), caching data.json locally so
+    re-runs work offline."""
     if cache.exists() and not force:
         raw = json.loads(cache.read_text())
     else:
-        resp = session.get(DATA_JSON_URL, timeout=30)
-        resp.raise_for_status()
-        raw = resp.json()
+        raw = plate_release.fetch_catalog(session, release) if release else None
+        if raw is None:
+            resp = session.get(DATA_JSON_URL, timeout=30)
+            resp.raise_for_status()
+            raw = resp.json()
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(raw))
     catalog = {int(e["plate"]): e for e in raw}
@@ -121,7 +136,7 @@ def species_legend(entry: dict, plate: int | None,
     return legends.resolve(entry.get("audubon_title", ""), composite, rec.get("lines", []))
 
 
-def resolve_plate(entry: dict, catalog: dict[int, dict]) -> int | None:
+def resolve_plate(entry: dict, catalog: dict[int, dict], quiet: bool = False) -> int | None:
     """Return the plate number for a species entry, or None for 'no plate'.
 
     Honours an explicit `plate:` in the yaml; otherwise suggests one by fuzzy
@@ -134,6 +149,8 @@ def resolve_plate(entry: dict, catalog: dict[int, dict]) -> int | None:
         return plate
     # Not pinned: fuzzy-resolve and report.
     candidates = fuzzy_resolve_plate(entry.get("common", ""), catalog.values())
+    if quiet:
+        return candidates[0]["plate"] if candidates else None
     if not candidates:
         print(f"  !  no plate match for {entry.get('common')!r} — will use typographic fallback")
         return None
@@ -200,6 +217,22 @@ def download_plate(session: requests.Session, plate: int, catalog: dict[int, dic
     return None
 
 
+def restore_from_release(session: requests.Session, release: str | None, wanted: set[int],
+                         catalog: dict[int, dict], images_dir: Path,
+                         min_missing: int = PART_MIN_MISSING) -> set[int]:
+    """Pull release parts for the `wanted` plates that aren't on disk. Only
+    parts missing at least `min_missing` of them are fetched; returns the
+    plates restored."""
+    if not release:
+        return set()
+    missing = {p for p in wanted if p in catalog and not _cached(catalog[p], images_dir)}
+    by_part: dict[str, set[int]] = {}
+    for p in missing:
+        by_part.setdefault(plate_release.part_name(p), set()).add(p)
+    worth = set().union(*(ps for ps in by_part.values() if len(ps) >= min_missing))
+    return plate_release.fetch_parts(session, release, worth, catalog, images_dir)
+
+
 def _cached(meta: dict, images_dir: Path) -> bool:
     f = images_dir / meta.get("fileName", "")
     return bool(meta.get("fileName")) and f.exists() and f.stat().st_size > 0
@@ -248,6 +281,8 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="re-download even if present")
     ap.add_argument("--all", action="store_true",
                     help="also cache every plate in the catalog, not just the curated species (~2.9 GB)")
+    ap.add_argument("--no-release", action="store_true",
+                    help="skip the release tarballs; fetch plate by plate from the mirror")
     args = ap.parse_args()
 
     doc = yaml.safe_load(args.species.read_text()) or {}
@@ -265,8 +300,17 @@ def main() -> int:
     session.headers.update({"User-Agent": USER_AGENT})
 
     print(f"Loading plate catalog…")
-    catalog = load_catalog(session, catalog_cache, force=args.force)
+    release = None if args.no_release else plate_release.base_url()
+    catalog = load_catalog(session, catalog_cache, force=args.force, release=release)
     print(f"Catalog has {len(catalog)} plates. Processing {len(species)} species.\n")
+
+    # --force means "re-download from the source scans", so it skips the release.
+    wanted = set(catalog) if args.all else {
+        p for p in (resolve_plate(e, catalog, quiet=True) for e in species) if p is not None}
+    if not args.dry_run and not args.force:
+        restored = restore_from_release(session, release, wanted, catalog, images_dir)
+        if restored:
+            print(f"  ✓  {len(restored)} plates restored from the {plate_release.RELEASE_TAG} release\n")
 
     index_species = []
     downloaded = fallback = failed = 0
@@ -296,7 +340,12 @@ def main() -> int:
             index_species.append(record)
             continue
 
+        on_disk = _cached(catalog.get(plate, {}), images_dir) and not args.force
         filename = download_plate(session, plate, catalog, images_dir, args.force)
+        if not filename and plate in catalog:
+            # Mirror and audubon.org both failed: the release part is the last resort.
+            if restore_from_release(session, release, {plate}, catalog, images_dir, min_missing=1):
+                filename = catalog[plate]["fileName"]
         if filename:
             record["image"] = filename
             downloaded += 1
@@ -304,11 +353,15 @@ def main() -> int:
         else:
             failed += 1
         index_species.append(record)
-        time.sleep(POLITE_PAUSE_S)  # be polite to the mirror
+        if not on_disk:
+            time.sleep(POLITE_PAUSE_S)  # be polite to the mirror
 
     if args.all:
         print(f"\nCaching the full catalog ({len(catalog)} plates)…")
         all_stats = cache_all(session, catalog, images_dir, args.force, dry_run=args.dry_run)
+        if all_stats["failed"]:
+            all_stats["failed"] -= len(restore_from_release(
+                session, release, set(catalog), catalog, images_dir, min_missing=1))
         failed += all_stats["failed"]
 
     rows = catalog_rows(catalog, images_dir)
@@ -316,7 +369,7 @@ def main() -> int:
     index = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "images_dir": str(images_dir),
-        "source": "github.com/nathanbuchar/audubon-bird-plates",
+        "source": "github.com/nathanbuchar/audubon-bird-plates",  # the scans' origin, whichever host served them
         "credit": ("Courtesy of the John James Audubon Center at Mill Grove, "
                    "Montgomery County Audubon Collection, and Zebra Publishing."),
         "species": index_species,

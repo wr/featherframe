@@ -66,11 +66,14 @@ cd ~/featherframe/server
 ./install.sh
 ```
 
-That creates a venv, downloads the Audubon plates (~220 MB), and installs a
+That creates a venv, downloads the Audubon plates (~2.9 GB, as checksummed
+tarballs from this repo's `plates-v1` release, with the public mirror as the
+fallback), and installs a
 `featherframe.service` systemd unit, niced to stay out of BirdNET's way. It
 prints the config page URL when done: `http://<your-pi>.local:8080/`.
 
-Options: `--skip-plates`, `--all-plates` (the whole Havell edition, ~2.9 GB),
+Options: `--skip-plates`, `--all-plates` (every Havell plate, not only the
+ones `species.yaml` uses),
 `--port 9000`, `--no-service`, `--check` (report what a run would change).
 
 **Upgrading** is the same command again: `git pull && ./install.sh`. It reuses

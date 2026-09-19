@@ -141,7 +141,7 @@ if [ "$DO_PLATES" -eq 1 ]; then
     if [ -r "$SERVER_DIR/plates/index.json" ]; then
       echo "==> Plates present; a run would fetch only what species.yaml newly needs."
     else
-      plan "download Audubon plates ($([ "$ALL_PLATES" -eq 1 ] && echo '~2.9 GB' || echo '~700 MB'))"
+      plan "download Audubon plates ($([ "$ALL_PLATES" -eq 1 ] && echo '~2.9 GB' || echo '~2.9 GB'))"
     fi
   else
     if [ "$ALL_PLATES" -eq 1 ]; then
@@ -149,7 +149,7 @@ if [ "$DO_PLATES" -eq 1 ]; then
     elif [ -r "$SERVER_DIR/plates/index.json" ]; then
       echo "==> Checking plates (only new species are fetched)…"
     else
-      echo "==> Downloading Audubon plates (~700 MB, one time)…"
+      echo "==> Downloading Audubon plates (~2.9 GB, one time)…"
     fi
     FEATHERFRAME_DATA_DIR="$DATA_DIR" "$VENV/bin/python" \
       "$SERVER_DIR/scripts/fetch_plates.py" ${PLATE_ARGS[@]+"${PLATE_ARGS[@]}"} || {

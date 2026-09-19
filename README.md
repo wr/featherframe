@@ -222,7 +222,11 @@ make preview     # renders a fake Northern Cardinal to test_output/
   [nathanbuchar/audubon-bird-plates](https://github.com/nathanbuchar/audubon-bird-plates).
   *Courtesy of the John James Audubon Center at Mill Grove, Montgomery County
   Audubon Collection, and Zebra Publishing.*
-- [EB Garamond](https://github.com/octaviopardo/EBGaramond12) (SIL OFL) ·
+- Type, all SIL OFL and bundled with their licence texts:
+  [Pinyon Script](https://fonts.google.com/specimen/Pinyon+Script),
+  [IM Fell Double Pica SC](https://iginomarini.com/fell/) (Igino Marini's Fell Types),
+  [EB Garamond](https://github.com/octaviopardo/EBGaramond12),
+  [Inter](https://rsms.me/inter/) ·
   [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) (Nachtzuster fork) ·
   [Seeed_GFX](https://github.com/Seeed-Studio/Seeed_GFX)
 

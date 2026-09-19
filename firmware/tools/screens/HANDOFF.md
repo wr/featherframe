@@ -54,8 +54,8 @@ there is no separate onboarding checklist.
 - Type is set by the SERVER's own typography module (`sys.path` → `server/`): the
   wordmark IS the plate title (the bundled script, Pinyon Script, at the plates' auto-fit
   `theme.SCRIPT_TITLE_SIZE`, via `typography.draw_script`), and the splash
-  version line is the plates' engraved capitals (`typography.draw_engraved`, Adorn
-  Engraved at `theme.SUBTITLE_SIZE`) under a hedera. A plate-typography change on the
+  version line is the plates' engraved capitals (`typography.draw_engraved`, IM Fell Double Pica SC
+  at `theme.SUBTITLE_SIZE`) under a hedera. A plate-typography change on the
   server re-bakes straight into the boot face. The designer's original `boot_v2.svg` (7.6 MB) left the repo in W-738; every clone before it still carries it.
 - Pills: Inter Medium (vendored in `./fonts`, OFL) for readability, with a
   three-diamond **loading mark** — the solid diamond sweeps left→right. The bake

@@ -1,8 +1,9 @@
 """Type. This is where a hobby project becomes an heirloom, per the spec.
 
 Three faces. Pinyon Script (OFL) is the plates' voice: the common name, the
-legend lines, the corner marks, every wordmark. Adorn Engraved carries the
-letterspaced capitals: the scientific name, the collage key, status labels.
+legend lines, the corner marks, every wordmark. IM Fell Double Pica SC (OFL,
+Igino Marini's revival of the Fell types) carries the letterspaced capitals:
+the scientific name, the collage key, status labels.
 EB Garamond (OFL, variable) is the stand-in if the script is ever missing,
 and lends the hedera. When libraqm is present we shape real OpenType
 features (kerning, small caps); when it is absent (some Pis ship without it)
@@ -29,7 +30,7 @@ log = logging.getLogger("featherframe.typography")
 _FONTS = paths.fonts_dir()
 _ROMAN = _FONTS / "EBGaramond[wght].ttf"
 _ITALIC = _FONTS / "EBGaramond-Italic[wght].ttf"
-_ENGRAVED = _FONTS / "Adorn-Engraved.ttf"
+_ENGRAVED = _FONTS / "IMFellDoublePicaSC.ttf"
 
 # Real OpenType shaping (swashes, small caps, old-style figures) needs libraqm.
 HAS_RAQM = bool(_pil_features.check("raqm"))
@@ -60,21 +61,26 @@ class FontBook:
 FONTS = FontBook()
 
 
-# Characters Adorn Engraved's cmap lacks, mapped to glyphs it has (the okina
+# Characters the capitals face's cmap lacks, mapped to glyphs it has (the okina
 # in Hawaiian bird names would otherwise vanish into a bare .notdef advance).
 _ENGRAVED_SUBS = str.maketrans({"ʻ": "'", "ʼ": "'"})
 
 
 @lru_cache(maxsize=8)
 def engraved(size: int) -> Optional[ImageFont.FreeTypeFont]:
-    """Adorn Engraved at `size`. A static all-caps face: no variation axes,
-    no features, so it renders identically with or without libraqm. Returns
-    None when the file is absent — the explicit is_file() check matters,
-    because PIL would otherwise silently load a same-named system font."""
+    """The letterspaced capitals at a nominal `size`. Every caller's sizes
+    and trackings were set against a face whose capitals stand
+    theme.ENGRAVED_CAP of the size tall; the file is loaded scaled
+    (theme.ENGRAVED_SCALE) so they still do, and no layout moved when the
+    face changed (W-767). A static face: no variation axes, no features, so
+    it renders identically with or without libraqm. Returns None when the
+    file is absent — the explicit is_file() check matters, because PIL would
+    otherwise silently load a same-named system font."""
     if not _ENGRAVED.is_file():
         return None
     try:
-        return ImageFont.truetype(str(_ENGRAVED), int(size), layout_engine=_LAYOUT)
+        return ImageFont.truetype(str(_ENGRAVED), round(size * theme.ENGRAVED_SCALE),
+                                  layout_engine=_LAYOUT)
     except OSError:
         return None
 

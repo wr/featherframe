@@ -111,9 +111,14 @@ def _decompose(points: np.ndarray, pal: np.ndarray) -> np.ndarray:
             w /= w.sum(axis=1, keepdims=True)
             err = np.linalg.norm(w @ v - points, axis=1)
             spread = (w * dist[:, list(verts)]).sum(axis=1)
+            # More inks must earn their place (a clearly closer colour); among
+            # simplices of the same size the closer wins outright, and only a
+            # true tie (several tetrahedra hold the colour) falls to spread —
+            # a blue-yellow edge that merely passes near the gray axis must
+            # never beat black-white, which lies on it.
             same_k = best_k == k
-            better = ok & ((err < best_err - 2e-3)
-                           | (same_k & (np.abs(err - best_err) <= 2e-3) & (spread < best_spread)))
+            better = ok & (np.where(same_k, err < best_err - 2e-4, err < best_err - 2e-3)
+                           | (same_k & (np.abs(err - best_err) <= 2e-4) & (spread < best_spread)))
             if better.any():
                 best_err[better] = err[better]
                 best_spread[better] = spread[better]
@@ -134,7 +139,7 @@ def _lut() -> np.ndarray:
     global _LUT_CACHE
     if _LUT_CACHE is not None:
         return _LUT_CACHE
-    key = hashlib.sha1(MEASURED.tobytes() + b"v2").hexdigest()[:8]
+    key = hashlib.sha1(MEASURED.tobytes() + b"v3").hexdigest()[:8]
     cache = paths.data_dir() / f"spectra6-lut-{key}.npy"
     if cache.exists():
         try:

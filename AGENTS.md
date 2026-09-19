@@ -59,6 +59,7 @@ cd server
 
 # Firmware
 cd firmware && pio run -t upload && pio device monitor  # build/flash + serial (115200)
+cd firmware && pio run -e ee02                          # the EE02 colour-panel build (W-812)
 ```
 
 Deploy to the Pi: `cd server && ./install.sh` (venv + plates + systemd unit).
@@ -190,5 +191,13 @@ end of the cycle that learned it (awake→sleep from `loop()`, sleep→awake by 
 restart). `FF_DEFAULT_ALWAYS_AWAKE` is only the mode of a unit with no stored
 value; `X-Poll-Seconds` sets the awake poll gap the same way (3 s default).
 The wall runs always-awake today; deep sleep is the
-less-tested branch. Low battery (< 3.45 V) skips Wi-Fi and
+less-tested branch. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
+app with a full-refresh-or-nothing fallback for everything partial: no loading
+sweep, toasts or corner mark, no splash or boot-stage screens (the glass keeps
+its last plate while booting), baked black/white-ink setup + error screens
+(`ff_screens_ee02.h`, from the same bake), and a 180 s floor between resident
+repaints. Two instances on one LAN stay apart three ways: the server's mDNS
+TXT `panel` (a frame adopts only its own), a 409 for another panel's frame
+while the owner is live, and `X-Board` on the OTA request (the server only
+serves an image that contains that board string). Low battery (< 3.45 V) skips Wi-Fi and
 sleeps 4 h at a time; OTA is refused under 3.70 V and a bad image rolls back.

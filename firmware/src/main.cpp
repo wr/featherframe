@@ -26,7 +26,11 @@ using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before i
 #include <driver/rtc_io.h>
 
 #include "ff_config.h"
+#if FF_PANEL_SPECTRA6
+#include "ff_screens_ee02.h"   // baked black/white-ink screens (1200x1600): setup + errors
+#else
 #include "ff_screens.h"    // baked 1-bit boot/setup panel screens (1404x1872)
+#endif
 
 // ---- Featherframe Frame (FFF) wire format ----
 struct FFFHeader {
@@ -40,7 +44,7 @@ struct FFFHeader {
 } __attribute__((packed));
 static const size_t FFF_HEADER_SIZE = 16;
 
-EPaper epaper;                 // Seeed_GFX display object (combo 511)
+EPaper epaper;                 // Seeed_GFX display object (combo 511, or 510 on the EE02)
 Preferences prefs;             // NVS: server URL, wake minutes, last ETag
 WiFiManager wm;
 
@@ -81,10 +85,15 @@ static bool discoverServer(char* url, size_t n) {
   if (!MDNS.begin("featherframe-frame")) { Serial.println("mDNS: begin failed"); return false; }
   int found = MDNS.queryService(FF_MDNS_SERVICE, FF_MDNS_PROTO);
   bool ok = false;
-  if (found > 0) {
-    IPAddress ip = MDNS.address(0);
-    uint16_t port = MDNS.port(0);
-    if (ip != IPAddress((uint32_t)0) && port) {
+  // Two instances can share a LAN (one per panel): take the one whose TXT
+  // "panel" names ours. A server that advertises no panel predates the second
+  // one and draws gray, so only the gray build may take it.
+  for (int i = 0; i < found && !ok; i++) {
+    String panel = MDNS.txt(i, "panel");
+    bool mine = panel.length() ? panel == FF_PANEL_KEY : !FF_PANEL_SPECTRA6;
+    IPAddress ip = MDNS.address(i);
+    uint16_t port = MDNS.port(i);
+    if (mine && ip != IPAddress((uint32_t)0) && port) {
       snprintf(url, n, "http://%s:%u", ip.toString().c_str(), (unsigned)port);
       ok = true;
     }
@@ -184,6 +193,7 @@ static LoaderAnim g_loaderAnim = {false, 0, 0, nullptr};
 
 static void panelLock()   { if (g_panelMutex) xSemaphoreTakeRecursive(g_panelMutex, portMAX_DELAY); }
 static void panelUnlock() { if (g_panelMutex) xSemaphoreGiveRecursive(g_panelMutex); }
+#if !FF_PANEL_SPECTRA6    // no partial refresh on Spectra: no sweep, no tiles
 static void pushTile(const uint8_t* tile, int x, int y, int w, int h);
 
 static void loaderTask(void*) {
@@ -203,6 +213,7 @@ static void loaderTask(void*) {
     vTaskDelay(pdMS_TO_TICKS(FF_LOADER_STEP_MS));
   }
 }
+#endif
 
 // ---------------------------------------------------------------- error states
 // Failure presentation (design: Linear W-587). On a boot pill screen the pill
@@ -236,6 +247,25 @@ static uint8_t* g_lastFrame = nullptr;
 // via X-FF-Invert; the firmware mirrors it onto everything baked (screens and
 // tiles) by flipping every 4bpp nibble (v -> 15-v == byte ^ 0xFF).
 bool g_invert = false;
+#if FF_PANEL_SPECTRA6
+// Spectra error presentation: a baked full screen, and only when a baked
+// screen already holds the glass (setup, or an earlier error). Over a painted
+// plate nothing is drawn — there is no windowed update to put a corner mark
+// down with, and a 30 s full repaint per blip would be worse than the blip.
+void showScreen(int idx);
+void showErrorState(int kind) {
+  int scr = kind == 0 ? FF_SCR_ERR_WIFI : kind == 1 ? FF_SCR_ERR_SERVER : FF_SCR_WAITING;
+  if (g_glassScreen >= 0 && g_glassScreen != scr) showScreen(scr);
+}
+uint32_t retryDelayMinutes() {
+  return g_failCount <= 1 ? 1 : g_failCount == 2 ? 5 : 15;
+}
+void noteSuccess() {
+  g_failCount = 0;
+  g_failMinutes = 0;
+  g_lastSuccessMs = millis();
+}
+#else
 static uint8_t g_tileBuf[FF_MAX_TILE_BYTES];
 
 // Only call while holding the panel mutex — g_tileBuf is shared.
@@ -307,6 +337,7 @@ void noteSuccess() {
   g_failMinutes = 0;
   g_lastSuccessMs = millis();
 }
+#endif  // !FF_PANEL_SPECTRA6
 
 // ---------------------------------------------------------------- watchdog
 // Whole-cycle watchdog in BOTH power models: a wedged panel busy-wait or a
@@ -466,8 +497,12 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // full setup instructions take the glass.
   wm.setAPCallback([](WiFiManager*) {
     g_viaPortal = true;
+#if FF_PANEL_SPECTRA6
+    showScreen(FF_SCR_SETUP);           // no pill to announce it with: the steps take the glass
+#else
     if (g_glassScreen < 0) showToast(FF_TOAST_PORTAL);
     else showScreen(FF_SCR_SETUP);
+#endif
   });
   wm.setSaveConfigCallback([]() { showScreenFull(FF_SCR_BOOT_WIFI); });
 
@@ -534,15 +569,27 @@ bool ensureWifi(bool openPortal, bool showBoot) {
 // 1872x1404 (e.g. the server's panel_rotation set to 0/180, which emits
 // portrait), or a body that doesn't match the header. pushImage would clip a
 // wrong-sized image into garbage rather than fault, so the check lives here.
+static uint32_t g_lastPaintMs = 0;   // Spectra: last full refresh, for the repaint floor
 bool displayFrame(const uint8_t* data, size_t len, bool retain = false) {
   if (len < FFF_HEADER_SIZE) return false;
   FFFHeader h;
   memcpy(&h, data, FFF_HEADER_SIZE);
   if (memcmp(h.magic, "FFF1", 4) != 0) { Serial.println("bad frame magic"); return false; }
-  if (h.version != 1 || (h.bpp != 4 && h.bpp != 1)) {
-    Serial.printf("bad frame: version=%d bpp=%d\n", h.version, h.bpp);
+#if FF_PANEL_SPECTRA6
+  // Only an ink frame (4bpp + FFF_FLAG_INKS): gray levels pushed as ink codes
+  // would paint noise. The server switches its render on our X-Panel, so a
+  // gray frame here means it has not seen this device yet — the retry gets it.
+  if (h.version != 1 || h.bpp != 4 || !(h.flags & FFF_FLAG_INKS)) {
+    Serial.printf("bad frame: version=%d bpp=%d flags=0x%02x (want 4bpp inks)\n",
+                  h.version, h.bpp, h.flags);
     return false;
   }
+#else
+  if (h.version != 1 || (h.bpp != 4 && h.bpp != 1) || (h.flags & FFF_FLAG_INKS)) {
+    Serial.printf("bad frame: version=%d bpp=%d flags=0x%02x\n", h.version, h.bpp, h.flags);
+    return false;
+  }
+#endif
   if (h.width != FF_NATIVE_W || h.height != FF_NATIVE_H) {
     Serial.printf("bad frame: %dx%d, panel is %dx%d native (server panel_rotation?)\n",
                   h.width, h.height, FF_NATIVE_W, FF_NATIVE_H);
@@ -558,9 +605,23 @@ bool displayFrame(const uint8_t* data, size_t len, bool retain = false) {
   panelLock();
 
   const uint16_t* body = (const uint16_t*)(data + FFF_HEADER_SIZE);
-  const int w = h.width, hh = h.height;   // native: 1872 x 1404
+  const int w = h.width, hh = h.height;   // native: 1872 x 1404 (EE02: 1200 x 1600)
   Serial.printf("frame %dx%d bpp=%d\n", w, hh, h.bpp);
 
+#if FF_PANEL_SPECTRA6
+  // The colour sprite is 4bpp from begin(); the nibbles are already Seeed's
+  // ink codes, so the body lands verbatim. update() is the ~30 s full refresh.
+  epaper.pushImage(0, 0, w, hh, (uint16_t*)body);
+  uint32_t t0 = millis();
+  epaper.update();
+  Serial.printf("refresh %lu ms\n", (unsigned long)(millis() - t0));
+  g_refreshCount++;
+  g_lastPaintMs = millis();
+  panelUnlock();
+  g_glassScreen = -1;
+  Serial.println("panel updated");
+  return true;
+#else
   if (h.bpp == 4) {
     epaper.initGrayMode(GRAY_LEVEL16);       // reallocates the 4bpp gray sprite
     epaper.fillSprite(TFT_GRAY_15);          // white ground (buffer was realloc'd)
@@ -584,6 +645,7 @@ bool displayFrame(const uint8_t* data, size_t len, bool retain = false) {
   g_bandKind = g_bandStage = -1;
   Serial.println("panel updated");
   return true;
+#endif
 }
 
 // ---------------------------------------------------------------- press ack
@@ -610,6 +672,13 @@ void ackBlink(int blinks) {
 struct ToastState { bool active; uint32_t shownAt; };
 static ToastState g_toast = {false, 0};
 
+#if FF_PANEL_SPECTRA6
+// No partial refresh, so no pills: a press is acknowledged by what it fetches
+// (a new plate, the collage, the status page), and an up-to-date check by
+// nothing at all. The glass never changes here, so the ETag stays put.
+void showToast(int t) { Serial.printf("toast (not drawn on this panel): %d\n", t); }
+void clearToast() { g_toast.active = false; }
+#else
 void showToast(int t) {
   if (t < 0 || t >= FF_TOAST_COUNT) return;
   // A baked screen's own pills carry its state; a toast there would sit on
@@ -660,6 +729,7 @@ void clearToast() {
   g_toast.active = false;
   Serial.println("toast cleared");
 }
+#endif
 
 // ---------------------------------------------------------------- screens
 // The boot + first-time-setup art (splash, "Connecting…", setup steps) is baked
@@ -670,6 +740,46 @@ void clearToast() {
 // displayFrame; every following screen repaints ONLY the region that changed, as a
 // windowed gray update, so the birdhouse never flashes. Native 4bpp: 2 px/byte,
 // stride 936, so a byte column = 2 px.
+#if FF_PANEL_SPECTRA6
+// Spectra: every screen is a ~30 s full refresh, so only the ones that say
+// something the plate can't are baked (ff_screens_ee02.h): the setup steps and
+// the three error states. The splash and the boot-stage screens have no data
+// there and are skipped — a booting frame keeps showing its last plate until
+// the new one lands. Painting a baked screen drops the ETag, so the next good
+// fetch repaints the plate over it instead of 304-ing.
+static uint8_t* g_scrBuf = nullptr;
+
+void freeScreenBuffers() { free(g_scrBuf); g_scrBuf = nullptr; }
+
+void showScreen(int idx) {
+  if (idx < 0 || idx >= FF_SCR_COUNT || !ff_screens[idx].data) return;
+  if (g_glassScreen == idx) return;                 // already on the glass
+  const size_t total = FFF_HEADER_SIZE + FF_SCREEN_BYTES;
+  if (!g_scrBuf) g_scrBuf = (uint8_t*)ps_malloc(total);
+  if (!g_scrBuf) { Serial.println("screen: no buffer"); return; }
+  FFFHeader h = {};
+  memcpy(h.magic, "FFF1", 4);
+  h.version = 1; h.bpp = 4; h.width = FF_NATIVE_W; h.height = FF_NATIVE_H;
+  h.flags = FFF_FLAG_INKS;
+  memcpy(g_scrBuf, &h, FFF_HEADER_SIZE);
+  uint8_t* body = g_scrBuf + FFF_HEADER_SIZE;
+  ff_unpack(ff_screens[idx].data, ff_screens[idx].len, body);
+  // Baked screens are black and white ink only (0xF / 0x0), so the dark-mode
+  // flip is the same byte inversion as the gray build's.
+  if (g_invert)
+    for (uint32_t i = 0; i < FF_SCREEN_BYTES; i++) body[i] ^= 0xFF;
+  if (displayFrame(g_scrBuf, total)) {
+    g_glassScreen = (int8_t)idx;
+    g_etag[0] = 0;
+    prefs.putString("etag", "");
+    Serial.printf("screen %d full\n", idx);
+  }
+  freeScreenBuffers();                              // 960 KB back before any fetch
+}
+
+void showScreenFull(int idx) { showScreen(idx); }
+void showSplash(const char*, int) {}
+#else
 #define FF_GRAY_STRIDE (FF_NATIVE_W / 2)           // 936 bytes/row
 
 // The three ~1.3 MB screen buffers live at file scope so they can be released before
@@ -809,6 +919,7 @@ void showScreenFull(int idx) {
 
 // Kept for the boot call site; the battery/build args are now baked in the art.
 void showSplash(const char*, int) { showScreen(FF_SCR_SPLASH); }
+#endif  // !FF_PANEL_SPECTRA6
 
 // ---------------------------------------------------------------- fetch
 // FETCH_REJECTED: the server answered 200 but the container failed displayFrame's
@@ -887,8 +998,8 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-FF-Sketch-MD5", ESP.getSketchMD5());  // exact binary id
   http.addHeader("X-Boot-Count", String(g_bootCount));    // spec §5
   http.addHeader("X-Refresh-Count", String(g_refreshCount));
-  http.addHeader("X-Panel", "ED103TC2 1404x1872 gray16"); // spec §6
-  http.addHeader("X-Board", "XIAO-ESP32S3 EE03");
+  http.addHeader("X-Panel", FF_PANEL_ID);           // spec §6; the server renders for it
+  http.addHeader("X-Board", FF_BOARD_ID);
   const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds"};
   http.collectHeaders(collect, 5);
 
@@ -909,6 +1020,15 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   if (code == HTTP_CODE_NOT_MODIFIED) { http.end(); return FETCH_NOCHANGE; }
   if (code == HTTP_CODE_NOT_FOUND) { http.end(); return FETCH_NOTFOUND; }
   if (code == HTTP_CODE_SERVICE_UNAVAILABLE) { http.end(); return FETCH_NOFRAME; }  // server up, no bird yet
+  if (code == 409) {
+    // This server draws for another panel's frame (we found the wrong
+    // instance). Forget it, so the next attempt rediscovers ours over mDNS.
+    Serial.println("server is for another panel — forgetting it");
+    http.end();
+    g_serverUrl[0] = 0;
+    prefs.putString("server", "");
+    return FETCH_ERROR;
+  }
   if (code != HTTP_CODE_OK) { http.end(); return FETCH_ERROR; }
 
   int len = http.getSize();                 // -1 = chunked/no Content-Length: refuse
@@ -1055,6 +1175,7 @@ void maybeOTA(float vbat) {
   http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
   http.setUserAgent("Featherframe-ESP32/1.0");
   http.addHeader("X-Firmware-MD5", ESP.getSketchMD5());
+  http.addHeader("X-Board", FF_BOARD_ID);   // the server never hands over another board's image
   const char* collect[] = {"X-MD5"};
   http.collectHeaders(collect, 1);
   int code = http.GET();
@@ -1141,7 +1262,9 @@ void setup() {
   // shows so the mark animates through Wi-Fi connect, server connect, and the
   // download alike; it idles (no panel traffic) whenever no loader is armed.
   g_panelMutex = xSemaphoreCreateRecursiveMutex();
+#if !FF_PANEL_SPECTRA6
   xTaskCreatePinnedToCore(loaderTask, "ffloader", 4096, nullptr, 1, nullptr, 1);
+#endif
 
   // Release the button pins from any lingering RTC-IO / hold state left by a prior
   // deep-sleep (ext1 wake config), then set them up as digital inputs with pullups.
@@ -1180,7 +1303,12 @@ void setup() {
   ensureWifi(forcePortal, true);   // loops the portal itself until first-run setup
   g_lastSuccessMs = millis();
   if (WiFi.status() == WL_CONNECTED) {
+#if !FF_PANEL_SPECTRA6
     g_etag[0] = 0;   // force a fresh paint so the plate replaces the splash (not a 304)
+#endif
+    // (Spectra shows no splash: the glass still holds the last plate, so its
+    // ETag stands and an unchanged frame costs no 30 s repaint. showScreen
+    // drops the ETag itself whenever a baked screen takes the glass.)
     showScreen(FF_SCR_BOOT_BIRDNET);          // reaching the server
     showScreen(FF_SCR_BOOT_DOWNLOAD);         // fetching the image
     FetchResult r = fetchAndRender(FRAME_PATH, true, vbat, pct);
@@ -1379,6 +1507,11 @@ void loop() {
                                                      : g_pollMs;
   if (g_viewHoldUntil && (int32_t)(millis() - g_viewHoldUntil) < 0) {
     // transient view on the glass
+#if FF_PANEL_SPECTRA6
+  } else if (g_glassScreen < 0 && g_lastPaintMs &&
+             millis() - g_lastPaintMs < FF_SPECTRA_MIN_REPAINT_MS) {
+    // a plate was painted moments ago: let the panel rest before the next one
+#endif
   } else if (millis() - g_lastPoll >= interval) {
     g_lastPoll = millis();
     float vb = readBatteryVoltage();

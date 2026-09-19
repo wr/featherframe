@@ -304,6 +304,7 @@ def test_sheet_carries_the_date_above_the_key():
     y = baseline - 6  # inside the caps
     xs = range(theme.WIDTH // 2 - 200, theme.WIDTH // 2 + 200, 2)
     assert any(field.getpixel((x, y)) < 100 for x in xs)      # ink from the date
-    assert all(field.getpixel((x, baseline + 4)) > 200 for x in xs)  # clear below it
+    # Clear below it, past the comma's tail and the Fell face's old-style figures.
+    assert all(field.getpixel((x, baseline + 14)) > 200 for x in xs)
     box = collage_mod.sheet_art_box(CELLS)
     assert box[3] < baseline - theme.SHEET_KEY_SIZES[0]        # art ends above the date

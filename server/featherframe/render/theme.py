@@ -93,11 +93,12 @@ SMALLCAP_RATIO = 0.76  # small-cap glyph height as a fraction of full caps
 
 # -- engraved capitals ------------------------------------------------------
 # The scientific name, key entries, and status labels are engraved capitals
-# (Adorn Engraved). Shaping needs libraqm at render time; typography.py
-# degrades to faux small caps if it's absent.
+# (IM Fell Double Pica SC, OFL). If the file is ever absent typography.py
+# degrades to Garamond faux small caps.
 SUBTITLE_SIZE = 35         # scientific name, engraved capitals
 SUBTITLE_TRACKING = 0.155
-ENGRAVED_CAP = 0.775       # Adorn Engraved cap height as a fraction of size
+ENGRAVED_CAP = 0.775       # cap height of the capitals as a fraction of the nominal size
+ENGRAVED_SCALE = 0.775 / 0.728   # nominal size -> IM Fell's point size (its caps are 0.728 em)
 
 DATE_ORNAMENT = "❧"   # ❧ hedera leaf under the splash / status wordmark (Garamond's)
 

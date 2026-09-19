@@ -441,6 +441,7 @@ class FeatherframeService:
         # unexpected key — and sanitising values, so a row poisoned by an older
         # build (a NaN voltage) heals on start instead of 500ing /api/status.
         self.device = DeviceStatus(**_clean_device_fields(self.db.get("device_status", {})))
+        self._refused_panels: set[str] = set()   # X-Panel strings already warned about
 
     # -- lifecycle ---------------------------------------------------------
     def start(self) -> None:
@@ -1075,20 +1076,40 @@ class FeatherframeService:
         log.info("rendered TEST detection, etag=%s", result.etag)
         return result
 
-    def adopt_panel(self, reported: Optional[str]) -> bool:
+    # A frame of the configured panel that checked in this recently owns the
+    # instance: a stray frame of the other panel is turned away, not adopted.
+    _PANEL_OWNER_WINDOW = timedelta(minutes=30)
+
+    def adopt_panel(self, reported: Optional[str]) -> str:
         """Follow the panel the device says it is (X-Panel): a frame rendered
         for the other panel is one the firmware can only reject, so the first
         check-in from a colour frame turns this instance colour — no setting
-        to find. Returns True when the panel changed (and the frame with it)."""
+        to find. Returns "same" (nothing to do), "adopted" (the panel and the
+        frame changed), or "refused": another panel's frame is live on this
+        instance (the wall frame's server, found over mDNS by a second frame),
+        so the caller must turn this one away without recording it."""
         panel = panels.from_report(reported)
         if panel is None or panel.key == self.config.panel:
-            return False
+            return "same"
+        owner = panels.from_report(self.device.panel)
+        if owner is not None and owner.key == self.config.panel:
+            try:
+                seen = datetime.fromisoformat(self.device.last_checkin or "")
+            except ValueError:
+                seen = None
+            if seen is not None and self._clock() - seen < self._PANEL_OWNER_WINDOW:
+                if reported not in self._refused_panels:
+                    self._refused_panels.add(reported)
+                    log.warning("turned away a %r frame: this instance is serving a live %s "
+                                "frame. Give the new frame a server instance of its own.",
+                                reported, self.config.panel)
+                return "refused"
         log.info("device reports panel %r: switching %s -> %s",
                  reported, self.config.panel, panel.key)
         cfg = Config.from_dict({**self.config.to_dict(), "panel": panel.key})
         self.update_config(cfg)
         self.rerender_current()
-        return True
+        return "adopted"
 
     def rerender_current(self) -> None:
         """Re-render the current subject after a config change (e.g. dither/gray)."""

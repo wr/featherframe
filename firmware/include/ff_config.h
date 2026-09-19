@@ -149,6 +149,32 @@
 // FF_MARK_FAILS consecutive failures.
 #define FF_POLL_BACKOFF_MS  60000
 
-// Panel geometry (portrait, as the frame hangs)
+// --- Panel ---
+// -DFF_BOARD_EE02 (the ee02 envs) builds for the EE02 board's 13.3" Spectra 6
+// colour panel instead of the EE03's 10.3" gray one. Spectra has no partial
+// refresh and a full one takes ~30 s, so everything the gray build does with
+// windowed updates (the loading sweep, toasts, the corner mark, boot-stage
+// screens) has a full-refresh-or-nothing fallback under FF_PANEL_SPECTRA6.
+// The ID strings ride X-Panel / X-Board; the server picks its render from
+// X-Panel (featherframe/panels.py from_report).
+#if defined(FF_BOARD_EE02)
+#define FF_PANEL_SPECTRA6 1
+#define FF_PANEL_ID  "T133A01 1200x1600 spectra6"
+#define FF_PANEL_KEY "ee02"              // the server's mDNS TXT "panel" for us
+#define FF_BOARD_ID  "XIAO-ESP32S3 EE02"
+#define PANEL_W  1200
+#define PANEL_H  1600
+#else
+#define FF_PANEL_SPECTRA6 0
+#define FF_PANEL_ID  "ED103TC2 1404x1872 gray16"
+#define FF_PANEL_KEY "ee03"
+#define FF_BOARD_ID  "XIAO-ESP32S3 EE03"
 #define PANEL_W  1404
 #define PANEL_H  1872
+#endif
+// Spectra: the floor between two resident repaints from the poll loop (the
+// panel maker's guidance is >= 180 s between refreshes). Button presses and
+// error screens are exempt — they are rare and deliberate.
+#define FF_SPECTRA_MIN_REPAINT_MS  180000UL
+// FFF header flags bit 0: the 4bpp nibbles are Spectra ink codes, not grays.
+#define FFF_FLAG_INKS  0x01

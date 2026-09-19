@@ -45,7 +45,8 @@ async def lifespan(app: FastAPI):
     # Advertise _featherframe._tcp so a frame with no typed URL finds us
     # (W-763). __main__ exports the bound port; systemd sets it directly.
     advertiser = discovery.Advertiser(
-        port=int(os.environ.get("FEATHERFRAME_PORT", "8080")), version=__version__)
+        port=int(os.environ.get("FEATHERFRAME_PORT", "8080")), version=__version__,
+        panel=service.config.panel)
     app.state.advertiser = advertiser
     await run_in_threadpool(advertiser.start)
     try:
@@ -134,7 +135,13 @@ async def api_frame(request: Request, view: Optional[str] = None):
 
     if device_extra["panel"]:
         # Threadpool: a panel switch re-renders the frame.
-        await run_in_threadpool(svc.adopt_panel, device_extra["panel"])
+        verdict = await run_in_threadpool(svc.adopt_panel, device_extra["panel"])
+        if verdict == "refused":
+            # Another panel's frame owns this instance; not recorded, not served.
+            return Response(status_code=409, content=b"this server draws for another panel",
+                            headers={"Cache-Control": "no-store"})
+        if verdict == "adopted":
+            _announce_panel(request, svc)
 
     # On-demand button views: rendered fresh, never the resident frame, no
     # 304s. Threadpool: the collage leg walks the provider chain (which may
@@ -166,6 +173,12 @@ async def api_frame(request: Request, view: Optional[str] = None):
     return Response(content=body, media_type="application/octet-stream", headers=headers)
 
 
+def _announce_panel(request: Request, svc) -> None:
+    adv = getattr(request.app.state, "advertiser", None)
+    if adv is not None:
+        adv.set_panel(svc.config.panel)
+
+
 # -- firmware OTA ----------------------------------------------------------
 # The device offers its running sketch MD5 on every wake. If data/firmware.bin
 # exists and differs, it gets the new build; otherwise 304. Deploy = drop a new
@@ -180,6 +193,15 @@ async def api_firmware(request: Request):
         return Response(status_code=404, content=b"no firmware hosted")
     if request.headers.get("x-firmware-md5", "").lower() == md5:
         return Response(status_code=304)
+    # A frame names its board (X-Board) and every build carries that string, so
+    # an image built for the other board is never handed over: an EE03 image
+    # on an EE02 boots, joins Wi-Fi, passes the rollback bar — and drives the
+    # wrong panel until someone reflashes it over USB.
+    board = (request.headers.get("x-board") or "").strip()
+    if board and not _firmware_is_for(bin_path, board):
+        log.warning("hosted firmware.bin is not a %r build: not serving it to %s",
+                    board, request.client.host if request.client else "?")
+        return Response(status_code=404, content=b"hosted firmware is for another board")
     log.info("serving firmware.bin (%d bytes, md5=%s) to %s",
              bin_path.stat().st_size, md5, request.headers.get("user-agent", "?"))
     return FileResponse(bin_path, media_type="application/octet-stream",
@@ -187,6 +209,19 @@ async def api_firmware(request: Request):
 
 
 _FW_CACHE: dict = {}   # (mtime_ns, size) -> md5
+_FW_BOARD_CACHE: dict = {}   # (mtime_ns, size, board) -> bool
+
+
+def _firmware_is_for(bin_path, board: str) -> bool:
+    try:
+        st = bin_path.stat()
+        key = (st.st_mtime_ns, st.st_size, board)
+        if key not in _FW_BOARD_CACHE:
+            _FW_BOARD_CACHE.clear()
+            _FW_BOARD_CACHE[key] = board.encode("ascii", "ignore") in bin_path.read_bytes()
+        return _FW_BOARD_CACHE[key]
+    except OSError:
+        return False
 
 
 def _hosted_firmware_md5(bin_path) -> Optional[str]:
@@ -352,6 +387,7 @@ async def save_settings(request: Request):
     adjusted = _adjusted_fields(form, new)
     try:
         svc.update_config(new)
+        _announce_panel(request, svc)
         if render_affecting:
             # Threadpool: the provider chain may generate art over the network now,
             # and a blocking render here would stall every endpoint on the loop.

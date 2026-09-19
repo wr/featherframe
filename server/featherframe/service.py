@@ -1076,9 +1076,23 @@ class FeatherframeService:
         log.info("rendered TEST detection, etag=%s", result.etag)
         return result
 
-    # A frame of the configured panel that checked in this recently owns the
-    # instance: a stray frame of the other panel is turned away, not adopted.
-    _PANEL_OWNER_WINDOW = timedelta(minutes=30)
+    # Panel swaps vs. a second frame. One instance draws for one panel, and it
+    # follows the frame: when a frame with another panel checks in, the render
+    # switches to it (a frame can only reject the other panel's image). The one
+    # case that must not switch is a SECOND frame wandering in while the first
+    # is still on the wall — and only an always-awake frame proves that, by
+    # polling every few seconds. So: a foreign panel is turned away while an
+    # always-awake frame of the current panel has been heard from within a few
+    # poll gaps; otherwise it is a swap, and it is adopted. (Two deep-sleep
+    # frames sharing an instance each get a correct image on their own wake —
+    # wasteful, never wrong.)
+    _OWNER_MIN_WINDOW = timedelta(seconds=90)
+    _REFUSAL_NOTICE_TTL = timedelta(minutes=10)
+
+    def _owner_window(self) -> timedelta:
+        if self.config.power_mode != "awake":
+            return timedelta(0)
+        return max(self._OWNER_MIN_WINDOW, timedelta(seconds=4 * self.config.device_poll_seconds))
 
     def adopt_panel(self, reported: Optional[str]) -> str:
         """Follow the panel the device says it is (X-Panel): a frame rendered
@@ -1097,19 +1111,62 @@ class FeatherframeService:
                 seen = datetime.fromisoformat(self.device.last_checkin or "")
             except ValueError:
                 seen = None
-            if seen is not None and self._clock() - seen < self._PANEL_OWNER_WINDOW:
+            if seen is not None and self._clock() - seen < self._owner_window():
                 if reported not in self._refused_panels:
                     self._refused_panels.add(reported)
                     log.warning("turned away a %r frame: this instance is serving a live %s "
                                 "frame. Give the new frame a server instance of its own.",
                                 reported, self.config.panel)
+                self.db.set("panel_refused", {"panel": panel.key,
+                                              "at": self._clock().isoformat(timespec="seconds")})
                 return "refused"
         log.info("device reports panel %r: switching %s -> %s",
                  reported, self.config.panel, panel.key)
+        if self.device.last_checkin:
+            # A frame was here before: this is a swap, and the saved display
+            # settings were tuned for the old panel. Say so on the page (a
+            # first-ever check-in on a fresh install has nothing to say).
+            self.db.set("panel_notice", {"from": self.config.panel, "to": panel.key,
+                                         "at": self._clock().isoformat(timespec="seconds")})
+        self.db.set("panel_refused", None)
         cfg = Config.from_dict({**self.config.to_dict(), "panel": panel.key})
         self.update_config(cfg)
         self.rerender_current()
         return "adopted"
+
+    def panel_notices(self) -> dict:
+        """What the page should say about the panel: a pending swap notice
+        (until it is answered) and a recent turned-away frame."""
+        out: dict = {"swap": None, "refused": None}
+        swap = self.db.get("panel_notice", None)
+        if isinstance(swap, dict) and swap.get("to") == self.config.panel:
+            out["swap"] = {
+                "from": swap.get("from"), "to": swap.get("to"), "at": swap.get("at"),
+                "from_name": panels.get(swap.get("from")).name,
+                "to_name": panels.get(swap.get("to")).name,
+                "off_default": self.config.panel_settings_off_default(),
+            }
+        refused = self.db.get("panel_refused", None)
+        if isinstance(refused, dict):
+            try:
+                fresh = self._clock() - datetime.fromisoformat(refused.get("at") or "") \
+                    < self._REFUSAL_NOTICE_TTL
+            except ValueError:
+                fresh = False
+            if fresh and refused.get("panel") != self.config.panel:
+                out["refused"] = {"panel": refused.get("panel"), "at": refused.get("at"),
+                                  "name": panels.get(refused.get("panel")).name}
+        return out
+
+    def answer_panel_notice(self, use_defaults: bool) -> None:
+        """The owner answered the swap notice: reset the panel-dependent
+        settings to this panel's defaults (and repaint), or keep them."""
+        if use_defaults:
+            fresh = Config.defaults_for(self.config.panel).to_dict()
+            merged = {**self.config.to_dict(), **{k: fresh[k] for k in panels.PANEL_SETTINGS}}
+            self.update_config(Config.from_dict(merged))
+            self.rerender_current()
+        self.db.set("panel_notice", None)
 
     def rerender_current(self) -> None:
         """Re-render the current subject after a config change (e.g. dither/gray)."""
@@ -1338,6 +1395,7 @@ class FeatherframeService:
                                      battery_live=self._battery_live_copy(),
                                      power_mode=self.config.power_mode),
             "config": self._masked_config(),
+            "panel_notices": self.panel_notices(),
         }
 
     def _masked_config(self) -> dict:

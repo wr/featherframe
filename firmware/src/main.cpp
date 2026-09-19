@@ -85,17 +85,20 @@ static bool discoverServer(char* url, size_t n) {
   if (!MDNS.begin("featherframe-frame")) { Serial.println("mDNS: begin failed"); return false; }
   int found = MDNS.queryService(FF_MDNS_SERVICE, FF_MDNS_PROTO);
   bool ok = false;
-  // Two instances can share a LAN (one per panel): take the one whose TXT
-  // "panel" names ours. A server that advertises no panel predates the second
-  // one and draws gray, so only the gray build may take it.
-  for (int i = 0; i < found && !ok; i++) {
-    String panel = MDNS.txt(i, "panel");
-    bool mine = panel.length() ? panel == FF_PANEL_KEY : !FF_PANEL_SPECTRA6;
-    IPAddress ip = MDNS.address(i);
-    uint16_t port = MDNS.port(i);
-    if (mine && ip != IPAddress((uint32_t)0) && port) {
-      snprintf(url, n, "http://%s:%u", ip.toString().c_str(), (unsigned)port);
-      ok = true;
+  // Two instances can share a LAN (one per panel), so prefer the one whose
+  // TXT "panel" names ours. Failing that, take any: a server follows the panel
+  // of the frame that checks in, which is how a frame swapped for one with a
+  // different panel finds the household's one server (it answers 409 instead
+  // if another frame is still live on it).
+  for (int pass = 0; pass < 2 && !ok; pass++) {
+    for (int i = 0; i < found && !ok; i++) {
+      if (pass == 0 && MDNS.txt(i, "panel") != FF_PANEL_KEY) continue;
+      IPAddress ip = MDNS.address(i);
+      uint16_t port = MDNS.port(i);
+      if (ip != IPAddress((uint32_t)0) && port) {
+        snprintf(url, n, "http://%s:%u", ip.toString().c_str(), (unsigned)port);
+        ok = true;
+      }
     }
   }
   MDNS.end();

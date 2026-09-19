@@ -173,6 +173,14 @@ async def api_frame(request: Request, view: Optional[str] = None):
     return Response(content=body, media_type="application/octet-stream", headers=headers)
 
 
+def _display_defaults(cfg: Config) -> dict:
+    """Factory values for the page's "Reset to defaults" (for the panel in
+    use). Secrets never have a default worth sending."""
+    fresh = Config.defaults_for(cfg.panel).to_dict()
+    return {k: v for k, v in fresh.items()
+            if not any(s in k for s in ("key", "token", "secret"))}
+
+
 def _announce_panel(request: Request, svc) -> None:
     adv = getattr(request.app.state, "advertiser", None)
     if adv is not None:
@@ -288,6 +296,7 @@ async def index(request: Request):
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
          "panels": list(panels.PANELS.values()),
+         "display_defaults": _display_defaults(svc.config),
          "generated": generated, "history": history})
 
 
@@ -510,6 +519,27 @@ async def api_refresh(request: Request):
 
 
 # -- hold this plate / block what's showing (W-735) --------------------------
+@app.post("/api/panel-notice")
+async def api_panel_notice(request: Request):
+    """Answer the "new panel connected" notice: `action=defaults` resets the
+    panel-dependent settings to the new panel's defaults and repaints;
+    `action=keep` just clears the notice. `action=dismiss-refused` clears the
+    "another frame was turned away" note."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    svc = _svc(request)
+    form = await request.form()
+    action = str(form.get("action", "") or "")
+    if action == "dismiss-refused":
+        svc.db.set("panel_refused", None)
+    elif action in ("defaults", "keep"):
+        # Threadpool: "defaults" re-renders the frame.
+        await run_in_threadpool(svc.answer_panel_notice, action == "defaults")
+    else:
+        return JSONResponse({"ok": False, "error": "unknown action"}, status_code=400)
+    return JSONResponse({"ok": True, "panel_notices": svc.panel_notices()})
+
+
 @app.post("/api/hold")
 async def api_hold(request: Request):
     """Pin the current plate for a day, a week, or until released."""

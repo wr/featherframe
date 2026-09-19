@@ -139,8 +139,17 @@ async def api_frame(request: Request, view: Optional[str] = None):
     seat = svc.admit_frame(_str_header(request.headers.get("x-device-id")),
                            device_extra["panel"], device_extra["board"], client_ip)
     if seat != "active":
+        headers = {"Cache-Control": "no-store", "X-FF-Frame": seat}
+        # If another instance on the LAN draws for this frame's panel, say so:
+        # the frame moves there instead of waiting here to be added.
+        adv = getattr(request.app.state, "advertiser", None)
+        reported = panels.from_report(device_extra["panel"])
+        if adv is not None and reported is not None and reported.key != svc.config.panel:
+            peer = await run_in_threadpool(adv.find_peer, reported.key)
+            if peer:
+                headers["X-FF-Server"] = peer
         return Response(status_code=403, content=b"this frame is not the active frame",
-                        headers={"Cache-Control": "no-store", "X-FF-Frame": seat})
+                        headers=headers)
     if device_extra["panel"]:
         # Threadpool: a panel switch re-renders the frame.
         if await run_in_threadpool(svc.adopt_panel, device_extra["panel"]):

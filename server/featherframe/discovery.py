@@ -116,6 +116,62 @@ class Advertiser:
         except Exception as e:  # noqa: BLE001 — discovery is a convenience
             log.warning("mDNS panel update failed: %s", e)
 
+    # -- peers ---------------------------------------------------------------
+    # Two instances on one LAN (one per frame). A frame that lands on the wrong
+    # one is parked there (403); this lets that 403 say where the instance for
+    # the frame's panel is. The frame cannot always work it out itself: the
+    # ESP's one-shot mDNS query has been seen to return only one of two
+    # instances advertised from the same host.
+    _PEER_TTL = 120.0
+
+    def find_peer(self, panel: str, wait: float = 2.0) -> Optional[str]:
+        """"http://ip:port" of ANOTHER instance advertising `panel`, or None."""
+        import time
+        if not panel or self._zc is None:
+            return None
+        cache = getattr(self, "_peer_cache", None)
+        if cache is None:
+            cache = self._peer_cache = {}
+        hit = cache.get(panel)
+        if hit and time.monotonic() - hit[0] < self._PEER_TTL:
+            return hit[1]
+        url = None
+        try:
+            from zeroconf import ServiceBrowser
+
+            names: list[str] = []
+
+            class _Listener:
+                def add_service(self, zc, type_, name):
+                    names.append(name)
+
+                def update_service(self, zc, type_, name):
+                    pass
+
+                def remove_service(self, zc, type_, name):
+                    pass
+
+            browser = ServiceBrowser(self._zc, SERVICE_TYPE, _Listener())
+            time.sleep(wait)
+            browser.cancel()
+            for name in names:
+                if name == self.name:
+                    continue
+                info = self._zc.get_service_info(SERVICE_TYPE, name, timeout=1500)
+                if info is None or not info.port:
+                    continue
+                props = {(k.decode() if isinstance(k, bytes) else k):
+                         (v.decode() if isinstance(v, bytes) else v)
+                         for k, v in (info.properties or {}).items()}
+                addrs = info.parsed_addresses() if hasattr(info, "parsed_addresses") else []
+                if props.get("panel") == panel and addrs:
+                    url = f"http://{addrs[0]}:{info.port}"
+                    break
+        except Exception as e:  # noqa: BLE001 — a hint, never a failure
+            log.debug("peer lookup failed: %s", e)
+        cache[panel] = (time.monotonic(), url)
+        return url
+
     def stop(self) -> None:
         zc, info = self._zc, self._info
         self._zc = self._info = None

@@ -276,3 +276,25 @@ def test_stucki_inks_keep_paper_and_type_clean():
 def test_stucki_leans_on_the_colours_own_ink():
     counts = np.bincount(spectra.to_inks(_flat((0, 40, 200), (96, 96)), "stucki").ravel(), minlength=6)
     assert counts[spectra.BLUE] == counts.max()
+
+
+def test_a_parked_frame_is_told_where_its_panels_instance_is(client):
+    # Two instances on one LAN: the wall's server parks the colour frame (403)
+    # and points it at the instance advertising its panel.
+    class _Adv:
+        def find_peer(self, panel):
+            return "http://192.0.2.9:8082" if panel == "ee02" else None
+
+        def set_panel(self, panel):
+            pass
+    client.app.state.advertiser = _Adv()
+    svc = client.app.state.service
+    svc._render_welcome(svc._clock(), False)
+    client.get("/api/frame", headers=GRAY)
+    r = client.get("/api/frame", headers=COLOUR)
+    assert r.status_code == 403 and r.headers["x-ff-server"] == "http://192.0.2.9:8082"
+    # A second frame with the SAME panel has nowhere better to go: no hint.
+    other = {**GRAY, "X-Device-Id": "CCCCCCCCCC03"}
+    r = client.get("/api/frame", headers=other)
+    assert r.status_code == 403 and "x-ff-server" not in r.headers
+    del client.app.state.advertiser

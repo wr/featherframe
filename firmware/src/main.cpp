@@ -59,6 +59,7 @@ char     g_lastXfer[40] = "";   // last frame body transfer: "xfer=got/lenB ms [
 char     g_wakeToken[16] = "";  // stable token ("timer"|"button"|"coldboot") — X-Wake
 char     g_mdnsNote[12] = "";   // last discovery: "mdns=new|same|miss" — rides X-Wake-Detail
 bool     g_viaPortal = false;   // did this boot go through the setup portal?
+char     g_redirect[128] = "";  // a 403's X-FF-Server: the instance that draws for our panel
 
 // The server URL as typed into the portal is user input: trim it, give it a
 // scheme (HTTPClient::begin() rejects a bare host:port), and drop trailing
@@ -81,10 +82,15 @@ static void normalizeServerUrl(char* url, size_t n, const char* fallback) {
 
 // Ask the LAN where the server is: one PTR query for _featherframe._tcp
 // (blocks ~3 s). Fills url ("http://ip:port") and returns true on a hit.
-static bool discoverServer(char* url, size_t n) {
+// `exclude`: a server that has just told us it serves another frame (403) —
+// look past it, or a parked frame would never find the instance meant for it.
+static bool discoverServer(char* url, size_t n, const char* exclude = nullptr) {
   if (!MDNS.begin("featherframe-frame")) { Serial.println("mDNS: begin failed"); return false; }
   int found = MDNS.queryService(FF_MDNS_SERVICE, FF_MDNS_PROTO);
   bool ok = false;
+  for (int i = 0; i < found; i++)
+    Serial.printf("mDNS[%d]: %s:%u panel=%s\n", i, MDNS.address(i).toString().c_str(),
+                  (unsigned)MDNS.port(i), MDNS.txt(i, "panel").c_str());
   // Two instances can share a LAN (one per panel), so prefer the one whose
   // TXT "panel" names ours. Failing that, take any: a server follows the panel
   // of the frame that checks in, which is how a frame swapped for one with a
@@ -95,10 +101,12 @@ static bool discoverServer(char* url, size_t n) {
       if (pass == 0 && MDNS.txt(i, "panel") != FF_PANEL_KEY) continue;
       IPAddress ip = MDNS.address(i);
       uint16_t port = MDNS.port(i);
-      if (ip != IPAddress((uint32_t)0) && port) {
-        snprintf(url, n, "http://%s:%u", ip.toString().c_str(), (unsigned)port);
-        ok = true;
-      }
+      if (ip == IPAddress((uint32_t)0) || !port) continue;
+      char cand[128];
+      snprintf(cand, sizeof(cand), "http://%s:%u", ip.toString().c_str(), (unsigned)port);
+      if (exclude && strcmp(cand, exclude) == 0) continue;
+      strlcpy(url, cand, n);
+      ok = true;
     }
   }
   MDNS.end();
@@ -110,13 +118,13 @@ static bool discoverServer(char* url, size_t n) {
 // with no URL yet (a fresh unit) and after a connect failure (the box moved).
 // Rate-limited so an outage in the always-awake poll loop doesn't spend 3 s
 // on every poll.
-static bool adoptDiscoveredServer() {
+static bool adoptDiscoveredServer(bool lookPastCurrent = false) {
   static bool tried = false;
   static uint32_t lastTry = 0;
   if (tried && millis() - lastTry < FF_MDNS_RETRY_MS) return false;
   tried = true; lastTry = millis();
   char found[sizeof(g_serverUrl)];
-  if (!discoverServer(found, sizeof(found))) { strlcpy(g_mdnsNote, "mdns=miss", sizeof(g_mdnsNote)); return false; }
+  if (!discoverServer(found, sizeof(found), lookPastCurrent ? g_serverUrl : nullptr)) { strlcpy(g_mdnsNote, "mdns=miss", sizeof(g_mdnsNote)); return false; }
   if (strcmp(found, g_serverUrl) == 0)       { strlcpy(g_mdnsNote, "mdns=same", sizeof(g_mdnsNote)); return false; }
   strlcpy(g_mdnsNote, "mdns=new", sizeof(g_mdnsNote));
   Serial.printf("server: %s -> %s\n", g_serverUrl[0] ? g_serverUrl : "(none)", found);
@@ -1016,8 +1024,8 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Device-Id", frameId());         // who we are: one server serves one frame
   http.addHeader("X-Panel", FF_PANEL_ID);           // spec §6; the server renders for it
   http.addHeader("X-Board", FF_BOARD_ID);
-  const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame"};
-  http.collectHeaders(collect, 6);
+  const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server"};
+  http.collectHeaders(collect, 7);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
@@ -1041,7 +1049,13 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
     // to us (yet, or ever: "ignored"). Keep the URL and keep asking — the
     // answer changes the moment they press Switch on the page.
     Serial.printf("not the active frame (%s)\n", http.header("X-FF-Frame").c_str());
+    // The server may know the instance that draws for our panel (X-FF-Server);
+    // our own one-shot mDNS query does not always see both on one host.
+    String other = http.header("X-FF-Server");
     http.end();
+    if (other.length() && other.length() < sizeof(g_serverUrl) && other != g_serverUrl) {
+      strlcpy(g_redirect, other.c_str(), sizeof(g_redirect));
+    }
     return FETCH_PENDING;
   }
   if (code != HTTP_CODE_OK) { http.end(); return FETCH_ERROR; }
@@ -1132,6 +1146,18 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct)
   // never replaced; one that has stopped answering is.
   if (r == FETCH_ERROR && WiFi.status() == WL_CONNECTED && adoptDiscoveredServer())
     r = fetchFrame(path, resident, vbat, pct);
+  // This server serves another frame. If the LAN has a second instance, it is
+  // the one meant for us; with only this one, we stay and wait to be added.
+  if (r == FETCH_PENDING && g_redirect[0]) {
+    Serial.printf("server: %s -> %s (its panel's instance)\n", g_serverUrl, g_redirect);
+    strlcpy(g_serverUrl, g_redirect, sizeof(g_serverUrl));
+    normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), g_serverUrl);
+    prefs.putString("server", g_serverUrl);
+    g_redirect[0] = 0;
+    r = fetchFrame(path, resident, vbat, pct);
+  } else if (r == FETCH_PENDING && adoptDiscoveredServer(true)) {
+    r = fetchFrame(path, resident, vbat, pct);
+  }
   g_loaderAnim.on = false;
   return r;
 }

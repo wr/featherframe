@@ -125,6 +125,14 @@ static bool adoptDiscoveredServer() {
   return true;
 }
 
+// This frame's name to the server: its Wi-Fi MAC, bare hex. The server serves
+// one frame and asks its owner before switching to another (X-Device-Id).
+static String frameId() {
+  String id = WiFi.macAddress();
+  id.replace(":", "");
+  return id;
+}
+
 // Wake cause -> a stable token the server can show without parsing ESP enums.
 static const char* wakeToken(esp_sleep_wakeup_cause_t cause) {
   switch (cause) {
@@ -226,7 +234,7 @@ static void loaderTask(void*) {
 // margin corner, and only past the FF_MARK_* thresholds. All tiles are baked
 // pure black/white and pushed as windowed DU partials (no flash). The state
 // survives deep sleep in RTC memory.
-enum ErrKind { ERRK_WIFI = 0, ERRK_SERVER = 1, ERRK_NOFRAME = 2 };
+enum ErrKind { ERRK_WIFI = 0, ERRK_SERVER = 1, ERRK_NOFRAME = 2, ERRK_PENDING = 3 };
 RTC_DATA_ATTR int16_t  g_failCount = 0;     // consecutive failed cycles
 RTC_DATA_ATTR uint16_t g_failMinutes = 0;   // ~minutes since the last success
 // Longevity counters (spec §5). RTC-backed: survive deep sleep, reset only on a
@@ -257,7 +265,8 @@ bool g_invert = false;
 // down with, and a 30 s full repaint per blip would be worse than the blip.
 void showScreen(int idx);
 void showErrorState(int kind) {
-  int scr = kind == 0 ? FF_SCR_ERR_WIFI : kind == 1 ? FF_SCR_ERR_SERVER : FF_SCR_WAITING;
+  int scr = kind == ERRK_WIFI ? FF_SCR_ERR_WIFI : kind == ERRK_SERVER ? FF_SCR_ERR_SERVER
+          : kind == ERRK_PENDING ? FF_SCR_PENDING : FF_SCR_WAITING;
   if (g_glassScreen >= 0 && g_glassScreen != scr) showScreen(scr);
 }
 uint32_t retryDelayMinutes() {
@@ -308,7 +317,8 @@ void showErrorState(int kind) {
                    g_glassScreen == FF_SCR_BOOT_BIRDNET ||
                    g_glassScreen == FF_SCR_BOOT_DOWNLOAD);
   if (bootPill) {
-    int stage = g_alwaysAwake ? 3               // polls retry in seconds: "shortly"
+    int stage = kind == ERRK_PENDING ? 4        // waiting on a person, not a retry: no line
+              : g_alwaysAwake ? 3               // polls retry in seconds: "shortly"
               : g_failCount <= 1 ? 0 : g_failCount == 2 ? 1 : 2;
     if (g_bandKind != kind || g_bandStage != stage) {   // repeated fails: no re-push
       pushTile(ff_err_tiles[kind], FF_ERR_X, FF_ERR_Y, FF_ERR_W, FF_ERR_H);
@@ -929,7 +939,9 @@ void showSplash(const char*, int) { showScreen(FF_SCR_SPLASH); }
 // checks (wrong size/version). It is an error for the glass and the backoff, but
 // the server IS reachable — so OTA still runs, because a format mismatch is
 // exactly the thing only a firmware update can fix.
-enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_NOFRAME, FETCH_ERROR, FETCH_REJECTED };
+// FETCH_PENDING: the server answered 403 — it serves another frame until its
+// owner switches it to this one. Reachable (so OTA runs), nothing to paint.
+enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_NOFRAME, FETCH_ERROR, FETCH_REJECTED, FETCH_PENDING };
 
 // Fetch a frame. `path`: endpoint under the server URL. `resident`: true for
 // the normal current-bird frame (ETag conditional GET + store the new ETag);
@@ -1001,10 +1013,11 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-FF-Sketch-MD5", ESP.getSketchMD5());  // exact binary id
   http.addHeader("X-Boot-Count", String(g_bootCount));    // spec §5
   http.addHeader("X-Refresh-Count", String(g_refreshCount));
+  http.addHeader("X-Device-Id", frameId());         // who we are: one server serves one frame
   http.addHeader("X-Panel", FF_PANEL_ID);           // spec §6; the server renders for it
   http.addHeader("X-Board", FF_BOARD_ID);
-  const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds"};
-  http.collectHeaders(collect, 5);
+  const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame"};
+  http.collectHeaders(collect, 6);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
@@ -1023,14 +1036,13 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   if (code == HTTP_CODE_NOT_MODIFIED) { http.end(); return FETCH_NOCHANGE; }
   if (code == HTTP_CODE_NOT_FOUND) { http.end(); return FETCH_NOTFOUND; }
   if (code == HTTP_CODE_SERVICE_UNAVAILABLE) { http.end(); return FETCH_NOFRAME; }  // server up, no bird yet
-  if (code == 409) {
-    // This server draws for another panel's frame (we found the wrong
-    // instance). Forget it, so the next attempt rediscovers ours over mDNS.
-    Serial.println("server is for another panel — forgetting it");
+  if (code == HTTP_CODE_FORBIDDEN) {
+    // The server is serving another frame and its owner has not switched it
+    // to us (yet, or ever: "ignored"). Keep the URL and keep asking — the
+    // answer changes the moment they press Switch on the page.
+    Serial.printf("not the active frame (%s)\n", http.header("X-FF-Frame").c_str());
     http.end();
-    g_serverUrl[0] = 0;
-    prefs.putString("server", "");
-    return FETCH_ERROR;
+    return FETCH_PENDING;
   }
   if (code != HTTP_CODE_OK) { http.end(); return FETCH_ERROR; }
 
@@ -1137,7 +1149,8 @@ void noteFetchOutcome(FetchResult r) {
   if (r == FETCH_UPDATED || r == FETCH_NOCHANGE) { noteSuccess(); return; }
   bumpFail();
   int kind = (WiFi.status() != WL_CONNECTED) ? ERRK_WIFI
-           : (r == FETCH_NOFRAME ? ERRK_NOFRAME : ERRK_SERVER);
+           : r == FETCH_NOFRAME ? ERRK_NOFRAME
+           : r == FETCH_PENDING ? ERRK_PENDING : ERRK_SERVER;
   showErrorState(kind);
 }
 
@@ -1179,6 +1192,7 @@ void maybeOTA(float vbat) {
   http.setUserAgent("Featherframe-ESP32/1.0");
   http.addHeader("X-Firmware-MD5", ESP.getSketchMD5());
   http.addHeader("X-Board", FF_BOARD_ID);   // the server never hands over another board's image
+  http.addHeader("X-Device-Id", frameId());
   const char* collect[] = {"X-MD5"};
   http.collectHeaders(collect, 1);
   int code = http.GET();

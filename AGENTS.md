@@ -203,16 +203,21 @@ app with a full-refresh-or-nothing fallback for everything partial: no loading
 sweep, toasts or corner mark, no splash or boot-stage screens (the glass keeps
 its last plate while booting), baked black/white-ink setup + error screens
 (`ff_screens_ee02.h`, from the same bake), and a 180 s floor between resident
-repaints. A server follows the frame's panel (`service.adopt_panel`, from
-`X-Panel`): a swapped-in frame with another panel is adopted at once, the
-render switches, and the page shows a "New panel connected" notice offering
-that panel's defaults for the panel-dependent settings
-(`panels.PANEL_SETTINGS`; nothing is reset unasked). The one thing not adopted
-is a SECOND frame while an always-awake frame of the current panel is still
-polling (seen within ~90 s): that one gets a 409 and the page says so; a
-deep-sleep owner proves nothing by silence, so it never blocks. Discovery
-prefers a server whose mDNS TXT `panel` matches and otherwise takes any, and
-`X-Board` on the OTA request keeps one board's image off the other. The
+repaints. One server serves one frame, and it knows its frames apart
+(`service.admit_frame`): each frame names itself with `X-Device-Id` (its MAC),
+the first to check in becomes the active frame, and any other gets a 403 and
+waits as "pending" until the owner answers on the page — switch to it, or
+ignore it (ignored frames are listed on the Frame card; the frame switched
+away from is asked about again when it next checks in). Only the active frame
+is served, moves the device card, or decides the panel (`adopt_panel`, from
+its `X-Panel`); a switch to a frame with another panel raises the "New panel
+connected" notice offering that panel's defaults (`panels.PANEL_SETTINGS`;
+nothing is reset unasked). Firmware without the header is one frame called
+"legacy", which becomes its real ID in place after an update. A parked frame
+shows "Add this frame on the Featherframe page" (gray: error pill 3; EE02:
+`FF_SCR_PENDING`) and keeps asking. Discovery prefers a server whose mDNS TXT
+`panel` matches and otherwise takes any, and `X-Board` on the OTA request
+keeps one board's image off the other. The
 Display section's Advanced has "Reset to defaults" (client-side fill from
 `Config.defaults_for(panel)`, applied only on Save). Low battery (< 3.45 V) skips Wi-Fi and
 sleeps 4 h at a time; OTA is refused under 3.70 V and a bad image rolls back.

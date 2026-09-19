@@ -122,55 +122,93 @@ def test_first_checkin_from_a_colour_frame_turns_the_server_colour(client):
     assert svc.config.panel == "ee02"
 
 
-GRAY = {"X-Panel": "ED103TC2 1404x1872 gray16"}
-COLOUR = {"X-Panel": "T133A01 1200x1600 spectra6"}
+GRAY = {"X-Panel": "ED103TC2 1404x1872 gray16", "X-Device-Id": "AAAAAAAAAA01"}
+COLOUR = {"X-Panel": "T133A01 1200x1600 spectra6", "X-Device-Id": "BBBBBBBBBB02"}
 
 
-def _age_checkin(svc, seconds):
-    """Pretend the recorded frame last checked in `seconds` ago."""
-    from dataclasses import replace
-    from datetime import timedelta
-    then = (svc._clock() - timedelta(seconds=seconds)).isoformat(timespec="seconds")
-    svc.device = replace(svc.device, last_checkin=then)
+def _answer(client, frame_id, action):
+    r = client.post("/api/frames", data={"id": frame_id, "action": action})
+    assert r.status_code == 200, r.text
+    return r.json()
 
 
-def test_a_live_awake_frame_keeps_its_server(client):
-    # The wall frame polls every few seconds; a colour frame that finds this
-    # server over mDNS must be turned away, not flip the render under it.
+def test_first_frame_takes_the_seat_and_a_second_one_waits(client):
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
     assert client.get("/api/frame", headers=GRAY).status_code == 200
 
     r = client.get("/api/frame", headers=COLOUR)
-    assert r.status_code == 409
-    assert svc.config.panel == "ee03"
-    assert "ED103TC2" in svc.device.panel            # the stray frame was not recorded
-    note = svc.panel_notices()["refused"]
-    assert note["panel"] == "ee02" and svc.panel_notices()["swap"] is None
+    assert r.status_code == 403 and r.headers["x-ff-frame"] == "pending"
+    assert svc.config.panel == "ee03"                 # nothing moved under the wall frame
+    assert "ED103TC2" in svc.device.panel             # and the card is still its card
+    view = svc.frames_view()
+    assert view["active"]["id"] == "AAAAAAAAAA01"
+    assert [f["id"] for f in view["pending"]] == ["BBBBBBBBBB02"] and view["ignored"] == []
+    assert client.get("/api/frame", headers=GRAY).status_code in (200, 304)
 
 
-def test_a_swapped_frame_is_adopted_with_a_notice(client):
-    # The old frame has gone quiet (unplugged): the new panel takes over, the
-    # render follows at once, and the page offers the new panel's defaults.
+def test_switching_frames_follows_the_new_panel_and_offers_its_defaults(client):
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
-    assert client.get("/api/frame", headers=GRAY).status_code == 200
+    client.get("/api/frame", headers=GRAY)
     svc.update_config(Config.from_dict({**svc.config.to_dict(), "dither": "bluenoise",
                                         "mat_inset_pct": 3.5, "mat_offset_x_px": -10}))
-    _age_checkin(svc, 120)
+    client.get("/api/frame", headers=COLOUR)
 
-    r = client.get("/api/frame", headers=COLOUR)
-    assert r.status_code == 200 and svc.config.panel == "ee02"
+    out = _answer(client, "BBBBBBBBBB02", "switch")
+    assert out["frames"]["active"]["id"] == "BBBBBBBBBB02" and out["frames"]["pending"] == []
+    assert svc.config.panel == "ee02" and svc.config.panel_rotation == 0
     swap = svc.panel_notices()["swap"]
     assert (swap["from"], swap["to"]) == ("ee03", "ee02")
     assert {"dither", "mat_inset_pct", "mat_offset_x_px"} <= set(swap["off_default"])
-    assert svc.config.dither == "bluenoise"          # nothing reset behind the owner's back
+    assert svc.config.dither == "bluenoise"           # nothing reset behind the owner's back
+
+    r = client.get("/api/frame", headers=COLOUR)
+    _, _, _, w, h, flags = framebuffer.HEADER.unpack_from(r.content, 0)
+    assert r.status_code == 200 and (w, h, flags) == (1200, 1600, framebuffer.FLAG_INKS)
+
+    # The frame that was switched away from goes through the same question.
+    assert client.get("/api/frame", headers=GRAY).status_code == 403
+    assert [f["id"] for f in svc.frames_view()["pending"]] == ["AAAAAAAAAA01"]
 
     ok = client.post("/api/panel-notice", data={"action": "defaults"})
     assert ok.status_code == 200 and ok.json()["panel_notices"]["swap"] is None
-    assert svc.config.dither == "auto" and svc.config.effective_dither == "stucki"
-    assert svc.config.mat_inset_pct == Config().mat_inset_pct and svc.config.mat_offset_x_px == 0
-    assert svc.config.panel == "ee02" and svc.config.panel_rotation == 0
+    assert svc.config.effective_dither == "stucki" and svc.config.mat_offset_x_px == 0
+
+
+def test_an_ignored_frame_is_listed_and_can_be_switched_to_or_forgotten(client):
+    svc = client.app.state.service
+    svc._render_welcome(svc._clock(), False)
+    client.get("/api/frame", headers=GRAY)
+    client.get("/api/frame", headers=COLOUR)
+    _answer(client, "BBBBBBBBBB02", "ignore")
+    r = client.get("/api/frame", headers=COLOUR)
+    assert r.status_code == 403 and r.headers["x-ff-frame"] == "ignored"
+    view = svc.frames_view()
+    assert view["pending"] == [] and [f["id"] for f in view["ignored"]] == ["BBBBBBBBBB02"]
+    html = client.get("/").text
+    assert "Ignored frames (1)" in html and "Another frame wants to connect." not in html
+
+    _answer(client, "BBBBBBBBBB02", "forget")
+    assert svc.frames_view()["ignored"] == []
+    assert client.get("/api/frame", headers=COLOUR).headers["x-ff-frame"] == "pending"
+    assert "Another frame wants to connect." in client.get("/").text
+    # The active frame cannot be ignored out from under itself.
+    assert client.post("/api/frames", data={"id": "AAAAAAAAAA01", "action": "ignore"}).status_code == 400
+
+
+def test_older_firmware_keeps_its_seat_when_it_starts_sending_an_id(client):
+    # The wall frame predates X-Device-Id; after its update it must not be
+    # asked about as if it were a stranger.
+    svc = client.app.state.service
+    svc._render_welcome(svc._clock(), False)
+    assert client.get("/api/frame", headers={"X-Panel": GRAY["X-Panel"]}).status_code == 200
+    assert svc.frames_view()["active"]["id"] == "legacy"
+    assert client.get("/api/frame", headers=GRAY).status_code in (200, 304)
+    view = svc.frames_view()
+    assert view["active"]["id"] == "AAAAAAAAAA01" and view["pending"] == []
+    # ...while a frame with another panel is still a stranger to a legacy seat.
+    assert client.get("/api/frame", headers=COLOUR).status_code == 403
 
 
 def test_keeping_my_settings_only_clears_the_notice(client):
@@ -178,21 +216,10 @@ def test_keeping_my_settings_only_clears_the_notice(client):
     svc._render_welcome(svc._clock(), False)
     client.get("/api/frame", headers=GRAY)
     svc.update_config(Config.from_dict({**svc.config.to_dict(), "mat_inset_pct": 3.5}))
-    _age_checkin(svc, 120)
     client.get("/api/frame", headers=COLOUR)
+    _answer(client, "BBBBBBBBBB02", "switch")
     assert client.post("/api/panel-notice", data={"action": "keep"}).status_code == 200
     assert svc.panel_notices()["swap"] is None and svc.config.mat_inset_pct == 3.5
-
-
-def test_a_sleeping_frames_server_is_never_refused(client):
-    # A deep-sleep frame is silent for a whole wake interval, so silence proves
-    # nothing: the new panel is adopted rather than locked out for hours.
-    svc = client.app.state.service
-    svc._render_welcome(svc._clock(), False)
-    svc.update_config(Config.from_dict({**svc.config.to_dict(), "power_mode": "sleep"}))
-    client.get("/api/frame", headers=GRAY)
-    assert client.get("/api/frame", headers=COLOUR).status_code == 200
-    assert svc.config.panel == "ee02"
 
 
 def test_first_frame_on_a_fresh_install_raises_no_notice(client):
@@ -207,8 +234,9 @@ def test_page_offers_defaults_and_reset(client):
     svc._render_welcome(svc._clock(), False)
     client.get("/api/frame", headers=GRAY)
     svc.update_config(Config.from_dict({**svc.config.to_dict(), "mat_inset_pct": 3.5}))
-    _age_checkin(svc, 120)
     client.get("/api/frame", headers=COLOUR)
+    assert "Another frame wants to connect." in client.get("/").text
+    _answer(client, "BBBBBBBBBB02", "switch")
     html = client.get("/").text
     assert "New panel connected." in html and "Use this panel's defaults" in html
     assert 'id="adv-reset"' in html and '"dither": "auto"' in html

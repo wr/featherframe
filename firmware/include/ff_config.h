@@ -172,6 +172,15 @@
 #define PANEL_W  1404
 #define PANEL_H  1872
 #endif
+// The rotation the baked art (boot/setup/error screens, pills, toasts, the
+// loading mark) is baked at: the server's default panel_rotation for the panel.
+// The server announces the rotation in use (X-FF-Rotation); when it is the
+// other one, everything baked is turned 180 degrees to match the plates.
+#if FF_PANEL_SPECTRA6
+#define FF_BAKED_ROTATION 0
+#else
+#define FF_BAKED_ROTATION 90
+#endif
 // Spectra: the floor between two resident repaints from the poll loop (the
 // panel maker's guidance is >= 180 s between refreshes). Button presses and
 // error screens are exempt — they are rare and deliberate.

@@ -244,7 +244,7 @@ SETUP_CARD_Y0 = (H - SETUP_CARD_H) // 2
 SETUP_CARD_HALO = 10
 # Splash footer: a hedera between the wordmark and the version line (the same
 # ornament the plates' date line uses), then the version in the plates'
-# engraved capitals (Adorn Engraved, theme.SUBTITLE_SIZE).
+# engraved capitals (IM Fell Double Pica SC, theme.SUBTITLE_SIZE).
 HEDERA_BASELINE  = 1632
 VERSION_BASELINE = 1718
 

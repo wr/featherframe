@@ -164,6 +164,11 @@ def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool,
     if first_line:
         lines.append(FIRST_EVER_LINE)
     caption_top = theme.HEIGHT - caption_height(len(art.legend), first_line)
+    if spec.note and lines:
+        # The footnote pill sits on the footer baseline, which is also the
+        # last legend line's: lift the caption clear of it, as a collage
+        # lifts its key. Without a legend the Latin name already clears it.
+        caption_top -= theme.NOTE_CLEAR
     art_box = (0, 0, theme.WIDTH, caption_top - theme.CAPTION_GAP)
     img, twin = pair if pair else (art.image, None)
     # A composite is always shown whole (never a wrong bird); anything else

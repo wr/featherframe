@@ -14,6 +14,13 @@ Run after changing the art, copy, or layout:
     server/.venv/bin/python firmware/tools/screens/bake_screens.py [--preview]
 
 --preview also writes contact_sheet.png next to this script for eyeballing.
+
+With --size it bakes ONE header instead, for a panel the firmware was not
+written for (W-819, -DFF_GENERIC_PANEL): the EE02's full-refresh set at any
+size, letterboxed on paper when the panel is not 3:4.
+
+    bake_screens.py --size 480x800 --format gray16 --rotation 90 \
+        --out firmware/src/ff_screens_mine.h [--name LABEL] [--preview]
 """
 import json
 import os
@@ -793,9 +800,6 @@ def write_preview():
 # (dithered by the server's own six-ink finish, which keeps neutrals to those
 # two): the firmware's dark-mode flip stays a byte inversion. Native portrait
 # 1200x1600, no rotation; nibbles are Seeed_GFX's colour-sprite codes.
-OUT_H_EE02 = os.path.join(REPO, "firmware", "src", "ff_screens_ee02.h")
-EE02_W, EE02_H = 1200, 1600
-EE02_BYTES = EE02_W * EE02_H // 2
 _WHITE_LUT = [min(255, round(i * 255.0 / WHITE_PT)) for i in range(256)]
 
 def _error_screen(draw_pill_fn, retry=None):
@@ -809,7 +813,7 @@ def _error_screen(draw_pill_fn, retry=None):
 
 BOOT_TEXT = "Connecting"
 
-EE02_SCREENS = [
+FULL_SCREENS = [
     ("SPLASH", None),
     ("BOOT_WIFI", _error_screen(lambda d: _draw_wait_pill(d, BOOT_TEXT))),
     ("BOOT_BIRDNET", None), ("BOOT_DOWNLOAD", None),
@@ -822,44 +826,123 @@ EE02_SCREENS = [
     ("LOW_BATT", _error_screen(lambda d: _draw_toast(d, LOW_BATTERY_TEXT, "battery"))),
 ]
 
-def _ee02_inks(im):
-    from featherframe.render import spectra
-    small = im.convert("L").point(_WHITE_LUT).resize((EE02_W, EE02_H), Image.LANCZOS)
-    inks = spectra.to_inks(small.convert("RGB"))
-    assert set(np.unique(inks)) <= {spectra.BLACK, spectra.WHITE}
-    return inks
 
-# The gray build's windowed tiles, for a panel with no windowed update: the
-# firmware blits one into its retained copy of the plate and repaints the whole
-# glass (W-817). Same canvases and copy as the gray tiles, scaled with the
-# sheet. A window is byte-aligned (even x, even width) so a row lands with one
-# memcpy. The in-progress toasts are not baked: on a ~30 s panel they would
-# land after the answer they announce.
-def _ee02_window(canvases, ry0, ry1, pad=8):
-    x0, y0, w, h = _aligned_region(canvases, ry0, ry1, pad)
-    s = EE02_W / W
-    ex0, ey0 = int(x0 * s) & ~1, int(y0 * s)
-    ex1, ey1 = (int(np.ceil((x0 + w) * s)) + 1) & ~1, int(np.ceil((y0 + h) * s))
-    return ex0, ey0, ex1 - ex0, ey1 - ey0
+# -- any full-refresh panel (W-819) ---------------------------------------------
+# The EE02 set is the right model for a panel the bake has never met: whole
+# screens plus stamp tiles, every change one full refresh, nothing windowed. A
+# Target bakes that set at any size — the sheet scaled to the panel as it
+# hangs, letterboxed on paper when the panel is not 3:4 (the server's
+# pipeline._fit_to_panel), turned into the native canvas by the server's
+# rotation — in the panel's wire format:
+#   spectra6  black and white ink only, Seeed colour-sprite codes (0x0 / 0xF)
+#   gray16    16 levels through the gray bake's own curve, 0 = black
+# Both are 4bpp, high nibble = left pixel, and both invert with a byte flip.
+#
+#   bake_screens.py --size 480x800 --format gray16 --rotation 90 \
+#       --out firmware/src/ff_screens_mine.h [--name "my panel"] [--preview]
+FORMATS = ("gray16", "spectra6")
 
-def _ee02_tile(canvas, win):
-    from featherframe.render import spectra
-    x, y, w, h = win
-    return packbits(_pack_nibbles(spectra.to_wire(_ee02_inks(canvas)[y:y + h, x:x + w])))
 
-def ee02_tile_assets():
-    toasts = []
-    for _, text, style in TOASTS:
-        im = Image.new("L", (W, H), 255)
-        _draw_toast(ImageDraw.Draw(im), text, style)
-        toasts.append(None if style == "progress" else im)
-    drawn = [c for c in toasts if c is not None]
-    twin = _ee02_window(drawn, 1640, 1736)
-    corners = [_canvas(lambda d: wifi_slash(d, CORNER_CX, CORNER_CY, CORNER_S)),
-               _canvas(lambda d: cloud_slash(d, CORNER_CX, CORNER_CY, CORNER_S))]
-    cwin = _ee02_window(corners, 1688, 1792)
-    return (twin, [c and _ee02_tile(c, twin) for c in toasts],
-            cwin, [_ee02_tile(c, cwin) for c in corners])
+class Target:
+    def __init__(self, width, height, fmt, rotation, out, title, about):
+        if fmt not in FORMATS:
+            raise SystemExit(f"--format must be one of {', '.join(FORMATS)} (W-819: gray2 and mono "
+                             "screens are not baked until a panel needs them)")
+        if rotation not in (0, 90, 180, 270):
+            raise SystemExit("--rotation must be 0, 90, 180 or 270")
+        if width % 2 or height % 2:
+            raise SystemExit("--size must be even in both directions (4bpp rows are whole bytes)")
+        self.w, self.h, self.fmt, self.rotation, self.out = width, height, fmt, rotation, out
+        self.title, self.about = title, about
+        self.native_w, self.native_h = (height, width) if rotation in (90, 270) else (width, height)
+        self.bytes = self.native_w * self.native_h // 2
+        # The sheet on the panel: scale, and the paper either side of it.
+        self.scale = min(width / W, height / H)
+        sw, sh = round(W * self.scale), round(H * self.scale)
+        if abs(sw - width) <= 1 and abs(sh - height) <= 1:
+            sw, sh = width, height                       # 3:4, give or take a pixel
+        self.sheet = (sw, sh)
+        self.at = ((width - sw) // 2, (height - sh) // 2)
+
+    def _fit(self, im):
+        small = im.resize(self.sheet, Image.LANCZOS)
+        if self.sheet == (self.w, self.h):
+            return small
+        paper = Image.new("L", (self.w, self.h), 255)
+        paper.paste(small, self.at)
+        return paper
+
+    def levels(self, im):
+        """The sheet as this panel's upright pixel codes (uint8 [h, w])."""
+        if self.fmt == "spectra6":
+            from featherframe.render import spectra
+            inks = spectra.to_inks(self._fit(im.convert("L").point(_WHITE_LUT)).convert("RGB"))
+            assert set(np.unique(inks)) <= {spectra.BLACK, spectra.WHITE}
+            return spectra.to_wire(inks)
+        a = np.asarray(self._fit(apply_curve(im)), dtype=np.uint16)
+        return (a * 15 // 255).astype(np.uint8)
+
+    def look(self, im):
+        """What the glass shows, upright, for the contact sheet."""
+        if self.fmt == "spectra6":
+            return Image.fromarray(np.where(self.levels(im) == 0, 255, 0).astype(np.uint8), "L")
+        return Image.fromarray((self.levels(im).astype(np.uint16) * 17).astype(np.uint8), "L")
+
+    def _turn(self, arr):
+        return np.rot90(arr, k=(self.rotation // 90) % 4)
+
+    def screen(self, im):
+        body = _pack_nibbles(self._turn(self.levels(im)))
+        assert len(body) == self.bytes, len(body)
+        return packbits(body)
+
+    # The gray build's windowed tiles, for a panel with no windowed update: the
+    # firmware blits one into its retained copy of the plate and repaints the
+    # whole glass (W-817). Same canvases and copy as the gray tiles, scaled with
+    # the sheet. A window is byte-aligned in the NATIVE canvas (even x, even
+    # width) so a row lands with one memcpy. The in-progress toasts are not
+    # baked: on a slow panel they would land after the answer they announce.
+    def window(self, canvases, ry0, ry1, pad=8):
+        x0, y0, w, h = _aligned_region(canvases, ry0, ry1, pad)
+        s, (ox, oy) = self.scale, self.at
+        ex0, ey0 = (ox + int(x0 * s)) & ~1, oy + int(y0 * s)
+        ex1, ey1 = (ox + int(np.ceil((x0 + w) * s)) + 1) & ~1, oy + int(np.ceil((y0 + h) * s))
+        return ex0, ey0, ex1 - ex0, ey1 - ey0
+
+    def native_window(self, win):
+        """An upright window as the native canvas has it, still byte-aligned."""
+        x, y, w, h = win
+        mask = np.zeros((self.h, self.w), dtype=bool)
+        mask[y:y + h, x:x + w] = True
+        rows, cols = np.where(self._turn(mask))
+        nx0, nx1 = int(cols.min()) & ~1, (int(cols.max()) + 2) & ~1
+        return nx0, int(rows.min()), nx1 - nx0, int(rows.max()) + 1 - int(rows.min())
+
+    def tile(self, canvas, win):
+        nx, ny, nw, nh = self.native_window(win)
+        return packbits(_pack_nibbles(self._turn(self.levels(canvas))[ny:ny + nh, nx:nx + nw]))
+
+    def tile_assets(self):
+        toasts = []
+        for _, text, style in TOASTS:
+            im = Image.new("L", (W, H), 255)
+            _draw_toast(ImageDraw.Draw(im), text, style)
+            toasts.append(None if style == "progress" else im)
+        drawn = [c for c in toasts if c is not None]
+        twin = self.window(drawn, 1640, 1736)
+        corners = [_canvas(lambda d: wifi_slash(d, CORNER_CX, CORNER_CY, CORNER_S)),
+                   _canvas(lambda d: cloud_slash(d, CORNER_CX, CORNER_CY, CORNER_S))]
+        cwin = self.window(corners, 1688, 1792)
+        return (self.native_window(twin), [c and self.tile(c, twin) for c in toasts],
+                self.native_window(cwin), [self.tile(c, cwin) for c in corners])
+
+
+EE02 = Target(1200, 1600, "spectra6", 0, os.path.join(REPO, "firmware", "src", "ff_screens_ee02.h"),
+              "EE02 (13.3\" Spectra 6) screens",
+              ["// EE02 (13.3\" Spectra 6) screens: boot, setup, the error states and low battery, black and",
+               "// white ink only, native portrait 1200x1600, 4bpp Seeed colour-sprite codes",
+               "// (0x0 white, 0xF black). PackBits-compressed; a screen with no data is one",
+               "// this panel does not show (every screen is a ~30 s full refresh)."])
 
 def _c_array(L, name, data):
     L.append(f"static const uint8_t {name}[] = {{")
@@ -872,28 +955,25 @@ def _c_array(L, name, data):
         L.append(row)
     L += ["};", ""]
 
-def write_header_ee02():
-    from featherframe.render import spectra
-    L = ["// GENERATED by firmware/tools/screens/bake_screens.py — do not edit by hand.",
-         "// EE02 (13.3\" Spectra 6) screens: boot, setup, the error states and low battery, black and",
-         "// white ink only, native portrait 1200x1600, 4bpp Seeed colour-sprite codes",
-         "// (0x0 white, 0xF black). PackBits-compressed; a screen with no data is one",
-         "// this panel does not show (every screen is a ~30 s full refresh).",
-         "#pragma once", "#include <stdint.h>", "",
-         f"#define FF_NATIVE_W       {EE02_W}", f"#define FF_NATIVE_H       {EE02_H}",
-         f"#define FF_SCREEN_BYTES   {EE02_BYTES}   // decoded 4bpp body, per screen", "",
-         "// Toast ids, shared with the gray build's call sites.",
-         "enum FfToast {"]
+def write_header_full(t):
+    L = ["// GENERATED by firmware/tools/screens/bake_screens.py — do not edit by hand."]
+    L += t.about
+    L += ["#pragma once", "#include <stdint.h>", "",
+          f"#define FF_NATIVE_W       {t.native_w}", f"#define FF_NATIVE_H       {t.native_h}",
+          f"#define FF_SCREEN_BYTES   {t.bytes}   // decoded 4bpp body, per screen",
+          f"#define FF_SCREENS_ROTATION {t.rotation}   // the server rotation these are baked at", "",
+          "// Toast ids, shared with the gray build's call sites.",
+          "enum FfToast {"]
     L += [f"  FF_TOAST_{name} = {i}," for i, (name, *_rest) in enumerate(TOASTS)]
     L += [f"  FF_TOAST_BLANK = {len(TOASTS)},", f"  FF_TOAST_COUNT = {len(TOASTS) + 1},", "};", "",
           "enum FfScreen {"]
-    L += [f"  FF_SCR_{name} = {i}," for i, (name, _) in enumerate(EE02_SCREENS)]
-    L += [f"  FF_SCR_COUNT = {len(EE02_SCREENS)},", "};", ""]
+    L += [f"  FF_SCR_{name} = {i}," for i, (name, _) in enumerate(FULL_SCREENS)]
+    L += [f"  FF_SCR_COUNT = {len(FULL_SCREENS)},", "};", ""]
     refs = []
-    for name, im in EE02_SCREENS:
+    for name, im in FULL_SCREENS:
         if im is None:
             refs.append(("nullptr", 0)); continue
-        pb = packbits(_pack_nibbles(spectra.to_wire(_ee02_inks(im))))
+        pb = t.screen(im)
         arr = f"ff_scr_{name.lower()}"; refs.append((arr, len(pb)))
         L.append(f"// {name}: {len(pb)} bytes packed")
         _c_array(L, arr, pb)
@@ -903,7 +983,7 @@ def write_header_ee02():
     L += ["};", ""]
 
     # Stamp tiles: blitted into the retained plate, then one full refresh.
-    twin, toasts, cwin, corners = ee02_tile_assets()
+    twin, toasts, cwin, corners = t.tile_assets()
     L += ["// Stamp tiles (PackBits, black/white ink codes, native coords): the firmware",
           "// blits one into its retained plate and repaints the glass. A toast with no",
           "// data (the in-progress ones) is not drawn on this panel.",
@@ -946,26 +1026,63 @@ def write_header_ee02():
           "static inline uint32_t ff_unpack(const uint8_t* src, uint32_t len, uint8_t* dst) {",
           "  return ff_unpack_n(src, len, dst, FF_SCREEN_BYTES);",
           "}", ""]
-    with open(OUT_H_EE02, "w") as f:
+    with open(t.out, "w") as f:
         f.write("\n".join(L))
-    print(f"wrote {OUT_H_EE02}: {sum(1 for _, im in EE02_SCREENS if im is not None)} ink screens, "
-          f"{sum(ln for _, ln in refs)/1024:.0f}K packed")
+    print(f"wrote {t.out}: {sum(1 for _, im in FULL_SCREENS if im is not None)} {t.fmt} screens "
+          f"at {t.native_w}x{t.native_h} native, {sum(ln for _, ln in refs)/1024:.0f}K packed")
 
-def write_preview_ee02():
-    from featherframe.render import spectra
-    shown = [(n, im) for n, im in EE02_SCREENS if im is not None]
+
+def write_preview_full(t, out):
+    shown = [(n, im) for n, im in FULL_SCREENS if im is not None]
     tw, pad = 450, 24
-    th = tw * EE02_H // EE02_W
+    th = tw * t.h // t.w
     sheet = Image.new("L", (len(shown) * (tw + pad) + pad, th + 2 * pad), 235)
     for i, (name, im) in enumerate(shown):
-        one = spectra.inks_to_image(_ee02_inks(im)).convert("L").resize((tw, th), Image.LANCZOS)
-        sheet.paste(one, (pad + i * (tw + pad), pad))
-    out = os.path.join(HERE, "contact_sheet_ee02.png"); sheet.save(out)
+        sheet.paste(t.look(im).resize((tw, th), Image.LANCZOS), (pad + i * (tw + pad), pad))
+    sheet.save(out)
     print("wrote", out)
 
+
+def _custom_target(argv):
+    """--size WxH --format F --rotation N --out PATH [--name LABEL]: one panel
+    the bake does not know, instead of the two it does."""
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--size", metavar="WxH", help="the panel as it hangs, e.g. 480x800")
+    ap.add_argument("--format", default="gray16", choices=FORMATS)
+    ap.add_argument("--rotation", type=int, default=0,
+                    help="the server rotation that turns the hung panel into its native canvas "
+                         "(the first of the firmware's FF_PANEL_ROTATIONS)")
+    ap.add_argument("--out", help="the header to write, e.g. firmware/src/ff_screens_mine.h")
+    ap.add_argument("--name", default=None, help="a label for the header's comment")
+    ap.add_argument("--preview", action="store_true")
+    args = ap.parse_args(argv)
+    if not args.size:
+        return None, args
+    if not args.out:
+        ap.error("--size needs --out")
+    try:
+        w, h = (int(v) for v in args.size.lower().split("x"))
+    except ValueError:
+        ap.error("--size is WxH, e.g. 480x800")
+    label = args.name or f"{w}x{h} {args.format}"
+    t = Target(w, h, args.format, args.rotation, os.path.abspath(args.out), label,
+               [f"// {label}: boot, setup, the error states and low battery for a panel with no",
+                f"// windowed update. {w}x{h} as it hangs, native {'x'.join(map(str, (h, w) if args.rotation in (90, 270) else (w, h)))}"
+                f" at server rotation {args.rotation}, 4bpp {args.format}.",
+                "// PackBits-compressed; a screen with no data is one this panel does not show."])
+    return t, args
+
+
 if __name__ == "__main__":
+    custom, args = _custom_target(sys.argv[1:])
+    if custom is not None:
+        write_header_full(custom)
+        if args.preview:
+            write_preview_full(custom, os.path.splitext(custom.out)[0] + "_contact_sheet.png")
+        sys.exit(0)
     write_header()
-    write_header_ee02()
-    if "--preview" in sys.argv:
+    write_header_full(EE02)
+    if args.preview:
         write_preview()
-        write_preview_ee02()
+        write_preview_full(EE02, os.path.join(HERE, "contact_sheet_ee02.png"))

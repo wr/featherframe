@@ -126,7 +126,10 @@ def custom(width, height, fmt, rotations=None, name: str | None = None) -> Panel
     shown = f"{label} · {w}×{h} {wire}" if label and f"{w}x{h}" not in label else (label or f"{w}×{h} {wire}")
     return Panel(key, shown, pw, ph, color, rots, 30 if color else 2,
                  "stucki" if color else "bluenoise", fmt=drawn,
-                 unknown_format="" if wire in FORMATS else wire)
+                 unknown_format="" if wire in FORMATS else wire,
+                 # The generic firmware build (FF_GENERIC_PANEL) says "Battery low"
+                 # with a full-screen refresh, so it holds where the EE02 does.
+                 low_battery_volts=EE02.low_battery_volts)
 
 
 def _from_key(key: str) -> Panel | None:

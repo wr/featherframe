@@ -20,6 +20,9 @@ firmware/.pio/
 firmware/.pioenvs/
 firmware/.piolibdeps/
 
+# Screens baked at build time for a generic-panel env (tools/bake_generic.py)
+firmware/src/ff_screens_bench.h
+
 # OS
 .DS_Store
 # Packed plate release assets (scripts/pack_plates.py)

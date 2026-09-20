@@ -9,6 +9,7 @@
 #define FF_NATIVE_W       1200
 #define FF_NATIVE_H       1600
 #define FF_SCREEN_BYTES   960000   // decoded 4bpp body, per screen
+#define FF_SCREENS_ROTATION 0   // the server rotation these are baked at
 
 // Toast ids, shared with the gray build's call sites.
 enum FfToast {

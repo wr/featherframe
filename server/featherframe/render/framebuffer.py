@@ -8,7 +8,8 @@ Wire format (little-endian):
     offset  size  field
     0       4     magic  b'FFF1'
     4       1     version (1)
-    5       1     bpp     (4 = 16-level grayscale or ink codes, 1 = 1-bit)
+    5       1     bpp     (4 = 16-level grayscale or ink codes, 2 = 4-level
+                           grayscale, 1 = 1-bit)
     6       2     width   (pixels; 1872 in the EE03's native landscape frame)
     8       2     height  (pixels; 1404 in the EE03's native landscape frame)
     10      1     flags   (bit 0 = FLAG_INKS: the 4bpp nibbles are Spectra 6
@@ -24,6 +25,9 @@ Pixel packing:
           verbatim: 0x0 white, 0xF black, 0xB yellow, 0x6 red, 0xD blue,
           0x2 green (render/spectra.py WIRE_NIBBLE). NOTE black/white are the
           reverse of the gray levels.
+    2bpp  (a panel reporting X-Panel-Format gray2) four pixels per byte, the
+          highest two bits = left pixel. Values 0..3, 0 = black, 3 = white.
+          Row stride = ceil(width/4) bytes.
     1bpp  eight pixels per byte, MSB = left pixel. Bit set = white.
           Row stride = ceil(width/8) bytes (rows are byte-padded).
 
@@ -47,7 +51,8 @@ FLAG_INKS = 0x01
 
 
 def pack(indices: np.ndarray, bit_depth: int, inks: bool = False) -> bytes:
-    """indices: uint8 [H,W] of level indices (0..15 for 4bpp, 0/1 for 1bpp),
+    """indices: uint8 [H,W] of level indices (0..15 for 4bpp, 0..3 for 2bpp,
+    0/1 for 1bpp),
     or of wire ink nibbles when `inks` (4bpp only)."""
     h, w = indices.shape
     idx = indices.astype(np.uint8, copy=False)
@@ -60,6 +65,11 @@ def pack(indices: np.ndarray, bit_depth: int, inks: bool = False) -> bytes:
         hi = (idx[:, 0::2] << 4).astype(np.uint8)
         lo = idx[:, 1::2].astype(np.uint8)
         body = (hi | lo).tobytes()
+    elif bit_depth == 2:
+        if w % 4:  # pad to a whole byte with white pixels
+            idx = np.pad(idx, ((0, 0), (0, 4 - w % 4)), constant_values=3)
+        body = ((idx[:, 0::4] << 6) | (idx[:, 1::4] << 4)
+                | (idx[:, 2::4] << 2) | idx[:, 3::4]).astype(np.uint8).tobytes()
     elif bit_depth == 1:
         bits = (idx > 0).astype(np.uint8)  # 1 = white
         body = np.packbits(bits, axis=1).tobytes()  # MSB-first, row byte-padded
@@ -83,7 +93,7 @@ def is_complete(frame: bytes) -> bool:
     if len(frame) < HEADER_SIZE:
         return False
     magic, version, bpp, w, h, _flags = HEADER.unpack_from(frame, 0)
-    if magic != MAGIC or version != VERSION or bpp not in (1, 4) or not w or not h:
+    if magic != MAGIC or version != VERSION or bpp not in (1, 2, 4) or not w or not h:
         return False
     return len(frame) - HEADER_SIZE == row_stride(w, bpp) * h
 
@@ -91,6 +101,8 @@ def is_complete(frame: bytes) -> bool:
 def row_stride(width: int, bit_depth: int) -> int:
     if bit_depth == 4:
         return (width + 1) // 2
+    if bit_depth == 2:
+        return (width + 3) // 4
     return (width + 7) // 8
 
 
@@ -108,6 +120,12 @@ def unpack(frame: bytes) -> np.ndarray:
         out = np.empty((h, stride * 2), dtype=np.uint8)
         out[:, 0::2] = hi
         out[:, 1::2] = lo
+        return out[:, :w]
+    elif bpp == 2:
+        rows = np.frombuffer(body, dtype=np.uint8).reshape(h, stride)
+        out = np.empty((h, stride * 4), dtype=np.uint8)
+        for i, shift in enumerate((6, 4, 2, 0)):
+            out[:, i::4] = (rows >> shift) & 0x03
         return out[:, :w]
     else:
         rows = np.frombuffer(body, dtype=np.uint8).reshape(h, stride)

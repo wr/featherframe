@@ -1248,6 +1248,12 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Device-Id", frameId());         // who we are: one server serves one frame
   http.addHeader("X-Panel", FF_PANEL_ID);           // spec §6; the server renders for it
   http.addHeader("X-Board", FF_BOARD_ID);
+  // The panel as facts (W-813): a server that has never heard of FF_PANEL_ID
+  // still draws exactly what displayFrame() accepts.
+  http.addHeader("X-Panel-Width", String(FF_NATIVE_W));
+  http.addHeader("X-Panel-Height", String(FF_NATIVE_H));
+  http.addHeader("X-Panel-Format", FF_PANEL_FORMAT);
+  http.addHeader("X-Panel-Rotations", FF_PANEL_ROTATIONS);
   const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation"};
   http.collectHeaders(collect, 8);
 

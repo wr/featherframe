@@ -41,8 +41,10 @@ def main() -> int:
                     help="render a daily collage of N species (2-6)")
     ap.add_argument("--dither", default=None, choices=["auto", "bluenoise", "stucki", "none"])
     ap.add_argument("--gray", default=None, choices=["16", "1"])
-    ap.add_argument("--panel", default=None, choices=["ee03", "ee02"],
-                    help="ee03 = 10.3\" gray (default), ee02 = 13.3\" Spectra 6 colour")
+    ap.add_argument("--panel", default=None, metavar="KEY",
+                    help="ee03 = 10.3\" gray (default), ee02 = 13.3\" Spectra 6 colour, or a "
+                         "reported panel as custom:WxH:format:rotations "
+                         "(e.g. custom:800x480:gray16:90,270)")
     ap.add_argument("--mat-inset", type=float, default=None,
                     help="override mat inset %% per edge (0 = full-bleed, no mat allowance)")
     ap.add_argument("--plate-number", type=int, default=42)

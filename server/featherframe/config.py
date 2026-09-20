@@ -164,7 +164,14 @@ class Config:
     # Which panel this instance drives (panels.py): "ee03" (10.3" gray) or
     # "ee02" (13.3" Spectra 6 colour). FEATHERFRAME_PANEL sets a fresh
     # install's default, so a second instance needs no click to come up right.
+    # A frame that reports a panel panels.py does not know is drawn for from
+    # its own report (W-813); the key then spells the facts out
+    # ("custom:800x480:gray16:0,180").
     panel: str = field(default_factory=lambda: os.environ.get("FEATHERFRAME_PANEL", "ee03"))
+    # True: `panel` follows what the active frame reports. False: the owner
+    # picked a panel on the page, and it stays until they switch frames or
+    # pick "as reported" again.
+    panel_follow: bool = True
     # Colour panel only: chroma boost before the six-ink dither. The inks are
     # duller than the scans, so a little over 1 reads truer on the glass.
     color_saturation: float = 1.2
@@ -272,6 +279,7 @@ class Config:
         # two landscape orientations are valid. Old 0/180 values migrate to
         # the landscape orientation with the same relative flip.
         self.panel = panels.get(self.panel).key
+        self.panel_follow = bool(self.panel_follow)
         valid = panels.get(self.panel).rotations
         try:
             rot = int(self.panel_rotation)
@@ -332,9 +340,12 @@ class Config:
     # -- derived -----------------------------------------------------------
     @property
     def bit_depth(self) -> int:
-        if self.panel_spec.color:
+        spec = self.panel_spec
+        if spec.color:
             return 4          # ink nibbles; the 1-bit fallback is a gray-panel thing
-        return 4 if self.gray_mode == "16" else 1
+        if spec.fmt == "mono" or self.gray_mode != "16":
+            return 1
+        return 2 if spec.fmt == "gray2" else 4
 
     @classmethod
     def defaults_for(cls, panel: str) -> "Config":

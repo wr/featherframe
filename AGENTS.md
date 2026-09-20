@@ -24,7 +24,17 @@ wiring, and battery numbers. A second panel is being ported (W-812): the EE02
 kit's 13.3" E Ink Spectra 6 (T133A01, 1200×1600, six inks, ~30 s full refresh,
 no partial refresh). One server instance drives one panel (`config.panel`,
 `featherframe/panels.py`); it follows the device's `X-Panel` report on first
-check-in, and `FEATHERFRAME_PANEL` seeds a fresh install.
+check-in, and `FEATHERFRAME_PANEL` seeds a fresh install. A frame also
+describes its panel as facts (W-813: `X-Panel-Width`/`-Height` native canvas,
+`X-Panel-Format` gray16|gray2|mono|spectra6, `X-Panel-Rotations`), so a name
+`panels.py` does not know becomes a `Panel` built from them, keyed
+`custom:WxH:format:rotations` (`panels.custom`; `panels.get` resolves the key,
+so `Config` stays flat). A panel that is not 3:4 gets the same sheet,
+contain-fitted on paper (`pipeline._fit_to_panel`); an unknown format is sent
+gray16 at the right size with a page note, never a wrong-size image. The
+page's Panel select is "As reported by the frame" (`config.panel_follow`); a
+named panel is an override `adopt_panel` leaves alone until the owner switches
+frames. Boot screens are still baked per known panel only.
 
 ## Commands
 

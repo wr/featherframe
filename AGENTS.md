@@ -60,6 +60,7 @@ cd server
 # Firmware
 cd firmware && pio run -t upload && pio device monitor  # build/flash + serial (115200)
 cd firmware && pio run -e ee02                          # the EE02 colour-panel build (W-812)
+cd firmware && pio run -e ee02_bench                    # Spectra 6 refresh-speed bench (serial-driven; test_bench_ee02/)
 cd firmware && pio run -e release                       # the binary a kit ships with (release_ee02: colour kit)
 ```
 

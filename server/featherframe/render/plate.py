@@ -239,15 +239,122 @@ def paper_normalize_color(rgb: Image.Image) -> Image.Image:
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="RGB")
 
 
-def _trim_marginalia(gray: Image.Image) -> Image.Image:
+def _trim_marginalia(plate_img: Image.Image) -> Image.Image:
     """Physically remove the outer printed margin bands of the plate: the
     'N° 32 / PLATE CLIX' line across the top and the engraved species caption
     across the bottom. The bird is always well inside these, so this guarantees
-    no plate lettering leaks into the composition."""
+    no plate lettering leaks into the composition. Works on the gray plate and
+    its colour twin alike, and cleans both in exactly the same place."""
     # Measured across the plates: the top "N° / PLATE" line sits at ~5-6.5% and
     # the printed caption in the bottom ~6-9%. The bird is always below/above.
-    w, h = gray.size
-    return gray.crop((int(w * 0.025), int(h * 0.068), int(w * 0.975), int(h * 0.912)))
+    w, h = plate_img.size
+    trimmed = plate_img.crop((int(w * 0.025), int(h * 0.068), int(w * 0.975), int(h * 0.912)))
+    return _lift_corner_lettering(trimmed)
+
+
+# -- lettering the fixed trim misses (W-812) --------------------------------
+# On some scans the "No. 20." / "PLATE XCVII." line sits lower than the trim,
+# level with the top of the art (the Screech-Owl's pine needles start beside
+# it), so no straight cut removes it without cutting the picture. It is lifted
+# instead: a line of type is a small, isolated, wide-and-short cluster of dark
+# marks in a top corner. Anything connected to the picture, or not shaped like
+# a line of lettering (a far-off bird in the sky), is left alone.
+LETTER_W = 600             # analysis width
+LETTER_BAND = 0.075        # only the top of the (trimmed) plate is searched…
+LETTER_STRIP = 0.16        # …but clusters are traced this far down, to see what joins the art
+LETTER_CORNER = 0.42       # a cluster must sit inside the outer 42 % of the width ("PLATE" starts well in)
+LETTER_MAX_H = 0.017       # at most this tall (fraction of plate height)
+LETTER_MAX_W = 0.20        # and this wide
+LETTER_MIN_ASPECT = 2.2    # wide and short, like a line of type
+LETTER_DARK = 45           # darker than paper by this much: print, not a wash
+LETTER_JOIN = 6            # px (analysis scale) over which letters and words join into one line
+LETTER_MOAT = 7            # px of clear paper a line of type has around it…
+LETTER_MOAT_INK = 0.03     # …meaning under this fraction of even faint ink: a stem tip or a
+                           # knot on a branch is small and dark too, but the picture carries on
+                           # around it in lighter tones
+
+
+def _lift_corner_lettering(trimmed: Image.Image) -> Image.Image:
+    boxes = _corner_lettering_boxes(trimmed.convert("L"))
+    if not boxes:
+        return trimmed
+    out = trimmed.copy()
+    paper = _paper_colour(out)
+    for box in boxes:
+        out.paste(paper, box)
+    return out
+
+
+def _paper_colour(img: Image.Image):
+    """The sheet's own paper, from the top band's lighter half."""
+    band = np.asarray(img.crop((0, 0, img.width, max(8, int(img.height * 0.04)))))
+    flat = band.reshape(-1, band.shape[-1]) if band.ndim == 3 else band.reshape(-1, 1)
+    light = flat[flat.sum(axis=1) >= np.median(flat.sum(axis=1))]
+    med = np.median(light, axis=0).astype(int)
+    return tuple(int(v) for v in med) if band.ndim == 3 else int(med[0])
+
+
+def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]]:
+    """Boxes (in `gray` pixels) around lines of printed lettering in the top
+    corners. Never raises; a plate it can't read yields no boxes."""
+    try:
+        scale = gray.width / LETTER_W
+        strip_h = max(8, int(gray.height * LETTER_STRIP / scale))
+        small = gray.resize((LETTER_W, max(1, int(gray.height / scale))), Image.BILINEAR)
+        a = np.asarray(small.crop((0, 0, LETTER_W, strip_h)), dtype=np.int16)
+        paper = float(np.percentile(a, 90))
+        dark = (paper - a) > LETTER_DARK
+        faint = (paper - a) > FAINT_INK + 4
+        if not dark.any():
+            return []
+        # Join letters into lines: a separable max over LETTER_JOIN px.
+        joined = dark.copy()
+        for k in range(1, LETTER_JOIN + 1):
+            joined[:, k:] |= dark[:, :-k]
+            joined[:, :-k] |= dark[:, k:]
+        for k in (1, 2):
+            joined[k:, :] |= joined[:-k, :].copy()
+        band = int(gray.height * LETTER_BAND / scale)
+        max_h, max_w = gray.height * LETTER_MAX_H / scale, LETTER_W * LETTER_MAX_W
+        seen = np.zeros_like(joined, dtype=bool)
+        boxes = []
+        H, W = joined.shape
+        for y0, x0 in zip(*np.nonzero(joined[:band])):
+            if seen[y0, x0]:
+                continue
+            stack, l, t, r, b = [(y0, x0)], x0, y0, x0, y0
+            seen[y0, x0] = True
+            while stack:
+                y, x = stack.pop()
+                l, r, t, b = min(l, x), max(r, x), min(t, y), max(b, y)
+                for ny, nx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
+                    if 0 <= ny < H and 0 <= nx < W and joined[ny, nx] and not seen[ny, nx]:
+                        seen[ny, nx] = True
+                        stack.append((ny, nx))
+            bw, bh = r - l + 1, b - t + 1
+            in_corner = r < W * LETTER_CORNER or l > W * (1 - LETTER_CORNER)
+            if (in_corner and b < band and bh <= max_h + 3
+                    and bw <= max_w
+                    and bw / bh >= LETTER_MIN_ASPECT):
+                pad = LETTER_JOIN + 1
+                # The ink itself, without its halo, must be line-shaped too: a
+                # stray mark (a gnat, a fleck) is as tall as it is wide.
+                ys, xs = np.nonzero(dark[t:b + 1, l:r + 1])
+                if xs.size == 0 or np.ptp(xs) + 1 < LETTER_MIN_ASPECT * (np.ptp(ys) + 1):
+                    continue
+                oy, ox = max(0, t - LETTER_MOAT), max(0, l - LETTER_MOAT)
+                ring = faint[oy:b + LETTER_MOAT + 1, ox:r + LETTER_MOAT + 1].copy()
+                ring[t - oy:b - oy + 1, l - ox:r - ox + 1] = False
+                inner = (b - t + 1) * (r - l + 1)
+                if ring.size <= inner or ring.sum() / (ring.size - inner) > LETTER_MOAT_INK:
+                    continue
+                boxes.append((max(0, int((l - pad) * scale)), max(0, int((t - pad) * scale)),
+                              min(gray.width, int((r + pad + 1) * scale)),
+                              min(gray.height, int((b + pad + 1) * scale))))
+        return boxes
+    except Exception:  # noqa: BLE001 — a cosmetic pass must never cost a plate
+        log.exception("corner lettering pass failed")
+        return []
 
 
 def extract(path: str | Path, composite: bool = False,

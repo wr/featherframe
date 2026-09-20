@@ -790,9 +790,12 @@ static void markLowBattery(int beginMode) {
   g_etag[0] = 0;
   prefs.putString("etag", "");
 #if FF_PANEL_SPECTRA6
-  // No windowed update to put a pill down with, and a 30 s full refresh is
-  // the wrong thing to ask of an empty cell: the page carries the warning.
-  (void)beginMode;
+  // No windowed update to put a pill down with: the same words as a baked
+  // full screen, one ~30 s refresh. FF_LOW_BATT_V is higher on this panel so
+  // the cell can carry it. (showScreen drops the ETag and sleeps the panel.)
+  if (beginMode >= 0) epaper.begin(beginMode);
+  showScreen(FF_SCR_LOW_BATT);
+  Serial.println("low-battery screen painted");
 #else
   if (beginMode >= 0) epaper.begin(beginMode);
   g_loaderAnim.on = false;

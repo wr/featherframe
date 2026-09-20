@@ -109,6 +109,28 @@ def test_battery_critical_under_ten_percent():
     assert frame_card(DeviceStatus(), 15, NOW)["battery_critical"] is False
 
 
+def test_battery_critical_follows_the_panels_hold():
+    # The colour panel's warning is a 30 s full refresh, so its hold starts
+    # higher; the banner must not wait for a voltage that frame never reports.
+    from featherframe import panels
+    dev = _dev(1, battery_voltage=3.52, battery_percent=14)
+    assert frame_card(dev, 15, NOW)["battery_critical"] is False
+    assert frame_card(dev, 15, NOW, critical_volts=panels.EE02.low_battery_volts)["battery_critical"] is True
+
+
+def test_firmware_hold_matches_the_panels():
+    """`FF_LOW_BATT_V` (per panel, ff_config.h) is the page's critical voltage."""
+    import re
+    from featherframe import panels
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[2] / "firmware" / "include" / "ff_config.h").read_text()
+    spectra, gray = re.search(
+        r"#if FF_PANEL_SPECTRA6\s*\n#define FF_LOW_BATT_V\s+([\d.]+)f.*?\n#else\s*\n#define FF_LOW_BATT_V\s+([\d.]+)f",
+        src, re.S).groups()
+    assert float(gray) == panels.EE03.low_battery_volts
+    assert float(spectra) == panels.EE02.low_battery_volts
+
+
 def _render_page(svc) -> str:
     env = Environment(loader=FileSystemLoader(str(paths.templates_dir())),
                       autoescape=True)

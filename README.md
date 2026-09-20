@@ -238,4 +238,6 @@ and make ongoing development and support possible.
 
 ## License
 
-Featherframe's own code: do what you like with it.
+Featherframe's own code is licensed under the [Apache License 2.0](LICENSE).
+The bundled fonts are SIL OFL, Audubon's plates are in the public domain, and
+the libraries keep their own terms: see [THIRD_PARTY.md](THIRD_PARTY.md).

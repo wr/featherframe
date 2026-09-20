@@ -175,7 +175,9 @@ Rough model for a 2000 mAh cell and ~20 refreshes a day:
 | 60 min        | ~14 weeks  |
 
 Quiet hours push these further; the always-awake model lasts 4–5 days. Below
-3.45 V the frame stops using Wi-Fi until it's charged.
+3.45 V the frame paints "Battery low, charge me" over the plate, once, and
+stops using Wi-Fi until it's charged; the page warns first, with a red banner
+under 10 %.
 
 ## Species & plates
 

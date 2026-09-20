@@ -96,6 +96,19 @@ def test_device_checkin_flows_to_card(svc):
 
 
 # -- the page renders all three states --------------------------------------
+def test_battery_critical_under_ten_percent():
+    # W-736: low (the red bar) starts at 20 %; critical (the page banner) is
+    # the last stretch before the firmware's own 3.45 V hold.
+    low = frame_card(_dev(1, battery_voltage=3.58, battery_percent=18), 15, NOW)
+    assert low["battery_low"] is True and low["battery_critical"] is False
+    assert frame_card(_dev(1, battery_voltage=3.50, battery_percent=9), 15, NOW)["battery_critical"] is True
+    assert frame_card(_dev(1, battery_voltage=3.44), 15, NOW)["battery_critical"] is True
+    # No pack, or no reading at all: nothing to charge.
+    assert frame_card(_dev(1, battery_voltage=0.4), 15, NOW)["battery_critical"] is False
+    assert frame_card(_dev(1), 15, NOW)["battery_critical"] is False
+    assert frame_card(DeviceStatus(), 15, NOW)["battery_critical"] is False
+
+
 def _render_page(svc) -> str:
     env = Environment(loader=FileSystemLoader(str(paths.templates_dir())),
                       autoescape=True)
@@ -146,3 +159,15 @@ def test_battery_row_always_renders(svc):
     html = _render_page(svc)
     assert 'id="fc-batt"' in html and "60%" in html
     assert 'name="show_battery"' not in html
+
+
+def test_page_banner_when_battery_critical(svc):
+    svc.get_frame(None, "esp32-featherframe", 3.95, 72)
+    assert 'id="batt-critical" role="status" hidden' in _render_page(svc)
+    # (set directly: the card shows the last few minutes' median, not one reading)
+    svc._battery_live.clear()
+    svc.device = DeviceStatus(last_checkin=datetime.now().isoformat(timespec="seconds"),
+                              battery_voltage=3.47, battery_percent=6, last_result="304")
+    html = _render_page(svc)
+    assert 'id="batt-critical" role="status">' in html
+    assert "Charge the frame." in html

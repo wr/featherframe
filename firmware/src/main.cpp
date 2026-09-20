@@ -777,6 +777,50 @@ void clearToast() {
 }
 #endif
 
+// The hold says so on the glass, once: a baked "Battery low, charge me" pill
+// over the plate's bottom margin, left up through the hold. "Once" is kept in
+// NVS, and written BEFORE the paint: a cell too flat to survive the paint
+// browns out, loses g_lowBatt with the rest of RTC memory, and must not try
+// again on every reboot. The ETag goes with it, so the first fetch after the
+// charge repaints the whole plate over the pill. `beginMode` is the panel
+// init the caller still owes (0 cold, 1 out of deep sleep), -1 if it is up.
+static void markLowBattery(int beginMode) {
+  if (prefs.getBool("lowmark", false)) return;
+  prefs.putBool("lowmark", true);
+  g_etag[0] = 0;
+  prefs.putString("etag", "");
+#if FF_PANEL_SPECTRA6
+  // No windowed update to put a pill down with, and a 30 s full refresh is
+  // the wrong thing to ask of an empty cell: the page carries the warning.
+  (void)beginMode;
+#else
+  if (beginMode >= 0) epaper.begin(beginMode);
+  g_loaderAnim.on = false;
+  g_toast.active = false;          // goToSleep must not "clear" this one off the glass
+  pushTile(ff_toast_tiles[FF_TOAST_LOW_BATTERY], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+  g_bandKind = g_bandStage = -1;   // over a baked screen the pill took the error band's place
+  epaper.sleep();                  // pushTile leaves the T-CON awake; the hold is four hours
+  Serial.println("low-battery mark painted");
+#endif
+}
+static void clearLowBatteryMark() {
+  if (prefs.getBool("lowmark", false)) prefs.putBool("lowmark", false);
+}
+
+
+// The always-awake model never passes through setup()'s resting read, so it
+// watches its own polls: FF_LOW_BATT_POLLS readings in a row under the
+// threshold (one sagging sample under a Wi-Fi burst is not an empty cell)
+// start the same hold, with the mark, instead of waiting for the brownout.
+static bool lowBatteryWhileAwake(float vbat) {
+  static uint8_t lows = 0;
+  if (vbat < FF_BATT_ABSENT_V || vbat >= FF_LOW_BATT_V) { lows = 0; return false; }
+  if (++lows < FF_LOW_BATT_POLLS) return false;
+  g_lowBatt = true;
+  Serial.printf("battery low (%.2f V, %d polls): holding\n", vbat, (int)lows);
+  return true;
+}
+
 // ---------------------------------------------------------------- screens
 // The boot + first-time-setup art (splash, "Connecting…", setup steps) is baked
 // at full 1404x1872 into ff_screens.h and drawn here.
@@ -1361,7 +1405,12 @@ void setup() {
   Serial.printf("battery: %.3f V (%d%%)\n", vbat, pct);
   // Even the always-awake build sleeps on an empty cell — the alternative is
   // a brownout loop. It comes back on its own once the pack is charged.
-  if (lowBatteryHold(vbat)) { goToSleep(FF_LOW_BATT_SLEEP_MIN); return; }
+  if (lowBatteryHold(vbat)) {
+    markLowBattery(fromDeepSleep ? 1 : 0);
+    goToSleep(FF_LOW_BATT_SLEEP_MIN);
+    return;
+  }
+  clearLowBatteryMark();
 
   if (g_alwaysAwake) {
   // --- Always-awake model: splash now, then Wi-Fi, then poll buttons in loop().
@@ -1592,6 +1641,10 @@ void loop() {
   } else if (millis() - g_lastPoll >= interval) {
     g_lastPoll = millis();
     float vb = readBatteryVoltage();
+    if (lowBatteryWhileAwake(vb)) {
+      markLowBattery(-1);
+      goToSleep(FF_LOW_BATT_SLEEP_MIN);
+    }
     FetchResult r = fetchAndRender(FRAME_PATH, true, vb, batteryPercent(vb));
     uint32_t mins = (millis() - g_lastSuccessMs) / 60000UL;
     g_failMinutes = mins > 65535 ? 65535 : (uint16_t)mins;

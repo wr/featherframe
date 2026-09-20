@@ -226,4 +226,8 @@ shows "Add this frame on the Featherframe page" (gray: error pill 3; EE02:
 keeps one board's image off the other. The
 Display section's Advanced has "Reset to defaults" (client-side fill from
 `Config.defaults_for(panel)`, applied only on Save). Low battery (< 3.45 V) skips Wi-Fi and
-sleeps 4 h at a time; OTA is refused under 3.70 V and a bad image rolls back.
+sleeps 4 h at a time, painting the baked `FF_TOAST_LOW_BATTERY` pill once at
+the crossing (`markLowBattery`; "once" lives in NVS `lowmark`, written before
+the paint so a brownout can't loop it; the always-awake loop enters the same
+hold after `FF_LOW_BATT_POLLS` low polls; gray panel only, W-736), and the
+page shows a red banner at `frame_card.battery_critical` (≤ 10 % or ≤ 3.45 V); OTA is refused under 3.70 V and a bad image rolls back.

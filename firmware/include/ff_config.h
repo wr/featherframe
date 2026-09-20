@@ -190,18 +190,27 @@
 // refresh and a full one takes ~30 s, so everything the gray build does with
 // windowed updates (the loading sweep, toasts, the corner mark, boot-stage
 // screens) has a full-refresh-or-nothing fallback under FF_PANEL_SPECTRA6.
-// The ID strings ride X-Panel / X-Board; the server picks its render from
-// X-Panel (featherframe/panels.py from_report).
+// The ID strings ride X-Panel / X-Board as labels. The server draws for a
+// name it knows (featherframe/panels.py from_report) and, for any other, from
+// the facts sent beside it (W-813): the native canvas (X-Panel-Width/-Height,
+// FF_NATIVE_W/H), FF_PANEL_FORMAT (what the nibbles/bits mean: gray16 | gray2
+// | mono | spectra6) and FF_PANEL_ROTATIONS (the server rotations whose frame
+// displayFrame() accepts, default first). A port to another panel sets these
+// five and its driver; the server needs no change.
 #if defined(FF_BOARD_EE02)
 #define FF_PANEL_ID  "T133A01 1200x1600 spectra6"
 #define FF_PANEL_KEY "ee02"              // the server's mDNS TXT "panel" for us
 #define FF_BOARD_ID  "XIAO-ESP32S3 EE02"
+#define FF_PANEL_FORMAT    "spectra6"
+#define FF_PANEL_ROTATIONS "0,180"
 #define PANEL_W  1200
 #define PANEL_H  1600
 #else
 #define FF_PANEL_ID  "ED103TC2 1404x1872 gray16"
 #define FF_PANEL_KEY "ee03"
 #define FF_BOARD_ID  "XIAO-ESP32S3 EE03"
+#define FF_PANEL_FORMAT    "gray16"
+#define FF_PANEL_ROTATIONS "90,270"
 #define PANEL_W  1404
 #define PANEL_H  1872
 #endif

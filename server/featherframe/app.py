@@ -144,23 +144,30 @@ async def api_frame(request: Request, view: Optional[str] = None):
     # One server, one frame: only the active frame is served. Any other is
     # parked until the owner answers on the page (403; the firmware shows
     # "Add this frame on the Featherframe page" and keeps asking).
+    # The frame describes its panel as facts too (W-813), so a panel this
+    # server has never heard of is still drawn for at its own size and format.
+    panel_facts = {"w": _str_header(request.headers.get("x-panel-width")),
+                   "h": _str_header(request.headers.get("x-panel-height")),
+                   "fmt": _str_header(request.headers.get("x-panel-format")),
+                   "rot": _str_header(request.headers.get("x-panel-rotations"))}
     seat = svc.admit_frame(_str_header(request.headers.get("x-device-id")),
-                           device_extra["panel"], device_extra["board"], client_ip)
+                           device_extra["panel"], device_extra["board"], client_ip,
+                           facts=panel_facts)
     if seat != "active":
         headers = {"Cache-Control": "no-store", "X-FF-Frame": seat}
         # If another instance on the LAN draws for this frame's panel, say so:
         # the frame moves there instead of waiting here to be added.
         adv = getattr(request.app.state, "advertiser", None)
-        reported = panels.from_report(device_extra["panel"])
+        reported = panels.from_report(device_extra["panel"], panel_facts)
         if adv is not None and reported is not None and reported.key != svc.config.panel:
             peer = await run_in_threadpool(adv.find_peer, reported.key)
             if peer:
                 headers["X-FF-Server"] = peer
         return Response(status_code=403, content=b"this frame is not the active frame",
                         headers=headers)
-    if device_extra["panel"]:
+    if device_extra["panel"] or panel_facts["w"]:
         # Threadpool: a panel switch re-renders the frame.
-        if await run_in_threadpool(svc.adopt_panel, device_extra["panel"]):
+        if await run_in_threadpool(svc.adopt_panel, device_extra["panel"], panel_facts):
             _announce_panel(request, svc)
 
     # On-demand button views: rendered fresh, never the resident frame, no
@@ -316,6 +323,7 @@ async def index(request: Request):
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
          "panels": list(panels.PANELS.values()),
+         "reported_panel": svc.reported_panel(),
          "display_defaults": _display_defaults(svc.config),
          "generated": generated, "history": history})
 
@@ -347,6 +355,14 @@ async def save_settings(request: Request):
     blocklist_raw = s("species_blocklist", "")
     blocklist = [x.strip() for x in blocklist_raw.replace(",", "\n").splitlines() if x.strip()]
 
+    # Panel: "auto" follows what the frame reports; a named panel is the
+    # owner's override and stays put (service.adopt_panel).
+    picked = s("panel", "auto" if cur["panel_follow"] else cur["panel"])
+    follow = picked == "auto"
+    if follow:
+        reported = svc.reported_panel()
+        picked = reported.key if reported else cur["panel"]
+
     new = Config(
         mode=s("mode", cur["mode"]),
         confidence_threshold=f("confidence_threshold", cur["confidence_threshold"]),
@@ -373,7 +389,8 @@ async def save_settings(request: Request):
         poll_interval_seconds=i("poll_interval_seconds", cur["poll_interval_seconds"]),
         quiet_alarm_hours=i("quiet_alarm_hours", cur["quiet_alarm_hours"]),
         source_alarm_minutes=i("source_alarm_minutes", cur["source_alarm_minutes"]),
-        panel=s("panel", cur["panel"]),
+        panel=picked,
+        panel_follow=follow,
         color_saturation=f("color_saturation", cur["color_saturation"]),
         gray_mode=s("gray_mode", cur["gray_mode"]),
         dither=s("dither", cur["dither"]),

@@ -1137,9 +1137,12 @@ class FeatherframeService:
         return reg
 
     def admit_frame(self, frame_id: Optional[str], reported_panel: Optional[str],
-                    board: Optional[str], ip: Optional[str]) -> str:
+                    board: Optional[str], ip: Optional[str],
+                    facts: Optional[dict] = None) -> str:
         """Who is asking? Returns "active" (serve it), or "pending" / "ignored"
-        (answer 403: not served, not recorded on the device card)."""
+        (answer 403: not served, not recorded on the device card). `facts` is
+        the frame's own description of its panel (the X-Panel-* headers)."""
+        facts = {k: v for k, v in (facts or {}).items() if v} or None
         fid = (frame_id or "").strip()[:40] or self.LEGACY_FRAME
         now = self._clock()
         stamp = now.isoformat(timespec="seconds")
@@ -1152,7 +1155,8 @@ class FeatherframeService:
             if (row is None and active == self.LEGACY_FRAME and fid != self.LEGACY_FRAME
                     and self.LEGACY_FRAME in known):
                 old = known[self.LEGACY_FRAME]
-                same_panel = panels.from_report(reported_panel) is panels.from_report(old.get("panel"))
+                same_panel = (panels.from_report(reported_panel, facts)
+                              == panels.from_report(old.get("panel"), old.get("facts")))
                 if same_panel and (not ip or not old.get("ip") or ip == old.get("ip")):
                     row = known.pop(self.LEGACY_FRAME)     # the same frame, updated: keep its seat
                     row["id"] = fid
@@ -1168,14 +1172,14 @@ class FeatherframeService:
             if fid == active and row.get("status") != "active":
                 row["status"] = "active"
                 dirty = True
-            changed = fresh or any(row.get(k) != v for k, v in
-                                   (("panel", reported_panel), ("board", board), ("ip", ip)) if v)
+            seen = (("panel", reported_panel), ("board", board), ("ip", ip), ("facts", facts))
+            changed = fresh or any(row.get(k) != v for k, v in seen if v)
             try:
                 stale = now - datetime.fromisoformat(row.get("last_seen") or "") >= self._FRAME_TOUCH
             except ValueError:
                 stale = True
             if dirty or changed or stale:
-                for k, v in (("panel", reported_panel), ("board", board), ("ip", ip)):
+                for k, v in seen:
                     if v:
                         row[k] = v
                 row["last_seen"] = stamp
@@ -1191,7 +1195,7 @@ class FeatherframeService:
         reg = self._frames()
 
         def card(row: dict) -> dict:
-            panel = panels.from_report(row.get("panel"))
+            panel = panels.from_report(row.get("panel"), row.get("facts"))
             fid = str(row.get("id") or "")
             return {"id": fid,
                     "short": "older firmware" if fid == self.LEGACY_FRAME else fid[-6:],
@@ -1232,17 +1236,31 @@ class FeatherframeService:
             with self._lock:
                 self.device = DeviceStatus()
                 self.db.set("device_status", asdict(self.device))
-            self.adopt_panel(row.get("panel"), swapped=True)
+            if not self.config.panel_follow:
+                # A panel picked by hand was picked for the old frame.
+                self.update_config(Config.from_dict({**self.config.to_dict(),
+                                                     "panel_follow": True}))
+            self.adopt_panel(row.get("panel"), row.get("facts"), swapped=True)
         return True
 
-    def adopt_panel(self, reported: Optional[str], swapped: bool = False) -> bool:
-        """Draw for the panel the ACTIVE frame says it has (X-Panel): an image
-        for another panel is one the firmware can only reject. `swapped` (the
-        owner switched frames) raises the "new panel" notice, since the saved
+    def reported_panel(self) -> Optional["panels.Panel"]:
+        """The panel the active frame describes, or None (no frame yet, or one
+        that names no panel we know and sent no size)."""
+        reg = self._frames()
+        row = reg["known"].get(reg.get("active") or "")
+        return panels.from_report(row.get("panel"), row.get("facts")) if row else None
+
+    def adopt_panel(self, reported: Optional[str], facts: Optional[dict] = None,
+                    swapped: bool = False) -> bool:
+        """Draw for the panel the ACTIVE frame says it has (X-Panel, or its
+        X-Panel-* facts when the name is not one we know): an image for another
+        panel is one the firmware can only reject. `swapped` (the owner
+        switched frames) raises the "new panel" notice, since the saved
         display settings were tuned for the old panel; a first frame on a
-        fresh install has nothing to say. True when the panel changed."""
-        panel = panels.from_report(reported)
-        if panel is None or panel.key == self.config.panel:
+        fresh install has nothing to say. A panel the owner picked on the page
+        (`panel_follow` off) is left alone. True when the panel changed."""
+        panel = panels.from_report(reported, facts)
+        if panel is None or panel.key == self.config.panel or not self.config.panel_follow:
             return False
         log.info("the frame reports panel %r: switching %s -> %s",
                  reported, self.config.panel, panel.key)
@@ -1256,7 +1274,20 @@ class FeatherframeService:
 
     def panel_notices(self) -> dict:
         """The pending "new panel" notice, until it is answered."""
-        out: dict = {"swap": None}
+        out: dict = {"swap": None, "unrecognised": None, "unknown_format": None,
+                     "override": None}
+        reg = self._frames()
+        row = reg["known"].get(reg.get("active") or "")
+        reported = panels.from_report(row.get("panel"), row.get("facts")) if row else None
+        spec = self.config.panel_spec
+        if row and row.get("panel") and reported is None:
+            # Taken in, but it names no panel we know and sent no size: every
+            # image is drawn for `spec`, which its firmware may well reject.
+            out["unrecognised"] = {"label": row.get("panel"), "drawing_for": spec.name}
+        elif reported is not None and reported.key != spec.key and not self.config.panel_follow:
+            out["override"] = {"reported": reported.name, "drawing_for": spec.name}
+        if spec.unknown_format:
+            out["unknown_format"] = {"format": spec.unknown_format}
         swap = self.db.get("panel_notice", None)
         if isinstance(swap, dict) and swap.get("to") == self.config.panel:
             out["swap"] = {

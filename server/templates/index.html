@@ -610,6 +610,17 @@
     </span>
   </div>
   {% endif %}
+  {# W-813: what the frame says about its panel does not match what is drawn. #}
+  {% for title, body in [
+      ("This frame did not say what panel it has.", pn.unrecognised and ("It calls its panel “" ~ pn.unrecognised.label ~ "”, which this server does not know, and it reported no size. Updates are drawn for the " ~ pn.unrecognised.drawing_for ~ " panel, which the frame may reject. Update the frame's firmware, or pick its panel under Display, Advanced.")),
+      ("This frame's panel format is not one this server can draw.", pn.unknown_format and ("It reports the format “" ~ pn.unknown_format.format ~ "”. Updates are sent at the panel's size in 16-level gray instead, which the frame may reject.")),
+      ("The panel is set by hand.", pn.override and ("The frame reports the " ~ pn.override.reported ~ " panel, and updates are drawn for the " ~ pn.override.drawing_for ~ " panel. The frame rejects an update drawn for another panel: choose “As reported by the frame” under Display, Advanced to follow it again.")),
+    ] %}{% if body %}
+  <div class="test-box warn show panel-note" role="status">
+    <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
+    <span class="test-msg"><strong>{{ title }}</strong> {{ body }}</span>
+  </div>
+  {% endif %}{% endfor %}
   {# Another frame is asking this server for updates. One server draws for one
      frame, so nothing changes until the owner answers. #}
   {% for fr in status.frames.pending %}
@@ -968,8 +979,8 @@
                  check-in; the select is for setting it before a device exists. #}
               {% set panel_color = config.panel_spec.color %}
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-panel">Panel</label><div class="hint">Which panel this server draws for. It sets itself from the frame's first check-in, so it rarely needs changing.</div></div>
-                <div class="frow-ctl"><select class="sel" id="f-panel" name="panel">{% for p in panels %}<option value="{{ p.key }}" {{ 'selected' if config.panel==p.key else '' }}>{{ p.name }}</option>{% endfor %}</select></div>
+                <div class="frow-text"><label class="lab" for="f-panel">Panel</label><div class="hint">Which panel this server draws for. The frame reports its own size and format, so leave this alone unless the report is wrong: the frame rejects an update drawn for another panel.</div></div>
+                <div class="frow-ctl"><select class="sel" id="f-panel" name="panel"><option value="auto" {{ 'selected' if config.panel_follow else '' }}>As reported by the frame ({{ reported_panel.name if reported_panel else 'nothing yet: ' ~ config.panel_spec.name }})</option>{% for p in panels %}<option value="{{ p.key }}" {{ 'selected' if not config.panel_follow and config.panel==p.key else '' }}>{{ p.name }}</option>{% endfor %}{% if not config.panel_follow and not config.panel_spec.known %}<option value="{{ config.panel }}" selected>{{ config.panel_spec.name }}</option>{% endif %}</select></div>
               </div>
               {% if panel_color %}
               <input type="hidden" name="gray_mode" value="{{ config.gray_mode }}">

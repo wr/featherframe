@@ -69,14 +69,29 @@ def _finish_inks(img: Image.Image, config: Config, mode: str, label: str) -> Ren
     return RenderResult(preview, frame, framebuffer.etag_for(frame), 6, mode, label)
 
 
+def _fit_to_panel(img: Image.Image, width: int, height: int) -> Image.Image:
+    """The theme's sheet at the panel's size. Both known panels are 3:4, so
+    that only scales; a reported panel of another shape (W-813) gets the whole
+    sheet, contain-fitted and centred on the paper field — the layout and the
+    type never fork."""
+    if img.size == (width, height):
+        return img
+    scale = min(width / img.width, height / img.height)
+    w, h = max(1, round(img.width * scale)), max(1, round(img.height * scale))
+    # A pixel of rounding is still "the same shape": fill the panel.
+    if abs(w - width) <= 1 and abs(h - height) <= 1:
+        return img.resize((width, height), Image.LANCZOS)
+    paper = Image.new(img.mode, (width, height), "white")
+    paper.paste(img.resize((w, h), Image.LANCZOS), ((width - w) // 2, (height - h) // 2))
+    return paper
+
+
 def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderResult:
     panel = config.panel_spec
-    if img.size != (panel.width, panel.height):
-        # Composed on the theme's sheet; both panels are 3:4, so this only scales.
-        img = img.resize((panel.width, panel.height), Image.LANCZOS)
+    img = _fit_to_panel(img, panel.width, panel.height)
     if panel.color:
         return _finish_inks(img, config, mode, label)
-    levels = 16 if config.bit_depth == 4 else 2
+    levels = 1 << config.bit_depth
     img = _apply_mat_inset(img, config)                             # clear the mat opening
     indices = finish.to_levels(img, levels, config.effective_dither)          # portrait, upright
     if config.dark_now():

@@ -217,6 +217,24 @@ is cosmetic — skip unless you expect more than one hardware variant.
 | `X-Env-TempC` / `X-Env-RH` | Ambient | §4 |
 | `X-Boot-Count` / `X-Refresh-Count` | Refreshes | §5 |
 | `X-Panel` / `X-Board` | Panel / Board | §6 (optional) |
+| `X-Panel-Width` / `X-Panel-Height` / `X-Panel-Format` / `X-Panel-Rotations` | (what the server draws for) | see below |
+
+### The panel, as facts (W-813)
+
+`X-Panel` is a label. What the server draws for comes from four facts beside
+it, so a port to a panel the server has never heard of needs no server change:
+
+| Header | Value |
+|---|---|
+| `X-Panel-Width` / `X-Panel-Height` | the native canvas, exactly as `displayFrame()` accepts it (EE03: `1872` × `1404`) |
+| `X-Panel-Format` | what the nibbles/bits mean: `gray16` (4 bpp, 0 = black), `gray2` (2 bpp, 4 px/byte, 0 = black, 3 = white), `mono` (1 bpp, set = white), `spectra6` (4 bpp + `FLAG_INKS`, Seeed colour-sprite codes) |
+| `X-Panel-Rotations` | the server rotations whose frame the firmware accepts, default first (`90,270` for a landscape canvas hung portrait, `0,180` for a portrait one) |
+
+A name the server knows keeps its curated entry (`panels.py`); any other is
+built from the facts. The art is always composed on the 3:4 sheet, so a panel
+of another shape gets the whole sheet, centred on paper. A format the server
+does not know is sent 16-level gray at the right size, with a note on the
+page; a colour panel other than Spectra 6 needs its own measured ink table.
 
 Every header is optional on the wire: the server renders a row only when its
 backing header is present, so old firmware degrades to the current card and new

@@ -25,6 +25,13 @@
 // the board off USB — so t and s now reset the panel at 40 s. Treat the forced
 // temperature as unsafe until the CCSET bits are understood.
 //
+// Aborts over a fresh white, same night (judged on the glass by Wells): 1-2 s
+// is the waveform's inverse phase — the card in negative, slate blue on dim
+// white, darker at 2 s; 3.0-3.5 s is positive but low contrast (blue "black",
+// gray "white"); by 4.0 s the yellow phase has begun. There is a brief
+// high-contrast positive moment just before the yellow, but no abort time
+// holds it. Verdict: legible, never good — not worth shipping.
+//
 // An aborted waveform is not DC-balanced and nobody has published what that
 // costs a Spectra 6, so aborts are rationed: 3 between full refreshes, 12 per
 // boot. Each card prints its own parameters, so a photo documents itself.

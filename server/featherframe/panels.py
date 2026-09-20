@@ -20,6 +20,10 @@ class Panel:
     rotations: tuple[int, ...]  # valid config.panel_rotation values; first is the default
     refresh_seconds: int        # a full refresh, roughly: how long the glass is busy
     dither: str                 # what config.dither "auto" means here
+    # The firmware's low-battery hold for this panel (FF_LOW_BATT_V in
+    # ff_config.h; a test keeps the two equal). Under it the frame goes silent,
+    # so it is also where the page's "Charge the frame." banner must be up.
+    low_battery_volts: float = 3.45
 
 
 # Seeed EE03: E Ink ED103TC2 10.3", IT8951. Native canvas is landscape and
@@ -33,7 +37,10 @@ EE03 = Panel("ee03", 'EE03 · 10.3" gray', 1404, 1872, False, (90, 270), 2, "blu
 # far tighter than the ordered mix (judged side by side on the glass, 19 Sep
 # 2026). It is a per-pixel Python loop — seconds on a PC, minutes on a Pi
 # Zero — which a panel that takes 30 s to refresh can afford.
-EE02 = Panel("ee02", 'EE02 · 13.3" Spectra 6 colour', 1200, 1600, True, (0, 180), 30, "stucki")
+EE02 = Panel("ee02", 'EE02 · 13.3" Spectra 6 colour', 1200, 1600, True, (0, 180), 30, "stucki",
+             # Its warning is a 30 s six-ink full refresh, not a sub-second pill:
+             # hold 0.1 V earlier so the cell still has the headroom to paint it.
+             low_battery_volts=3.55)
 
 PANELS = {p.key: p for p in (EE03, EE02)}
 

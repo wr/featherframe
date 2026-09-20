@@ -225,9 +225,13 @@ shows "Add this frame on the Featherframe page" (gray: error pill 3; EE02:
 `panel` matches and otherwise takes any, and `X-Board` on the OTA request
 keeps one board's image off the other. The
 Display section's Advanced has "Reset to defaults" (client-side fill from
-`Config.defaults_for(panel)`, applied only on Save). Low battery (< 3.45 V) skips Wi-Fi and
-sleeps 4 h at a time, painting the baked `FF_TOAST_LOW_BATTERY` pill once at
-the crossing (`markLowBattery`; "once" lives in NVS `lowmark`, written before
-the paint so a brownout can't loop it; the always-awake loop enters the same
-hold after `FF_LOW_BATT_POLLS` low polls; gray panel only, W-736), and the
-page shows a red banner at `frame_card.battery_critical` (≤ 10 % or ≤ 3.45 V); OTA is refused under 3.70 V and a bad image rolls back.
+`Config.defaults_for(panel)`, applied only on Save). Low battery (`FF_LOW_BATT_V`: gray < 3.45 V, EE02 < 3.55 V) skips Wi-Fi and
+sleeps 4 h at a time, saying "Battery low, charge me" on the glass once at
+the crossing (`markLowBattery`: gray paints the baked `FF_TOAST_LOW_BATTERY`
+pill over the plate, the EE02 the baked `FF_SCR_LOW_BATT` full screen, which
+is why its hold starts 0.1 V earlier — a 30 s refresh needs the headroom;
+"once" lives in NVS `lowmark`, written before the paint so a brownout can't
+loop it; the always-awake loop enters the same hold after `FF_LOW_BATT_POLLS`
+low polls, W-736), and the page shows a red banner at
+`frame_card.battery_critical` (≤ 10 % or ≤ the panel's hold,
+`Panel.low_battery_volts`, which a test keeps equal to `FF_LOW_BATT_V`); OTA is refused under 3.70 V and a bad image rolls back.

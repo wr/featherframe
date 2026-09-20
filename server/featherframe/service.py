@@ -159,8 +159,8 @@ def _clean_device_fields(raw: Optional[dict]) -> dict:
 # A resting 1S cell at this voltage is ~15%: the config page flags it so the
 # owner charges before the firmware's own low-battery hold kicks in (3.45 V).
 _BATTERY_LOW_V = 3.55
-# Critical: the last stretch before that hold (FF_LOW_BATT_V), where the frame
-# stops checking in until it is charged. The page says so in a banner, and
+# Critical: the last stretch before that hold (FF_LOW_BATT_V; per panel, see
+# Panel.low_battery_volts), where the frame stops checking in until charged. The page says so in a banner, and
 # keeps saying it while the frame is silent: the last reading stands.
 _BATTERY_CRITICAL_V = 3.45
 _BATTERY_CRITICAL_PCT = 10
@@ -318,7 +318,8 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
                now: Optional[datetime] = None,
                battery_history: Optional[list[dict]] = None,
                battery_live: Optional[list[dict]] = None,
-               power_mode: str = "sleep") -> dict:
+               power_mode: str = "sleep",
+               critical_volts: Optional[float] = None) -> dict:
     """The wall frame's health, pre-chewed for the config page: ready-to-print
     strings plus one overdue flag. In deep sleep, overdue means the device has
     missed two consecutive wake intervals — one 304 skipped is normal jitter,
@@ -358,7 +359,7 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
         card["battery"] = f"{volts:.2f} V{pct}"
         card["battery_low"] = ((percent is not None and percent <= 20) or volts <= _BATTERY_LOW_V)
         card["battery_critical"] = ((percent is not None and percent <= _BATTERY_CRITICAL_PCT)
-                                    or volts <= _BATTERY_CRITICAL_V)
+                                    or volts <= (critical_volts or _BATTERY_CRITICAL_V))
         card["power"] = power_state(battery_history or [], now, battery_live)
         if card["power"]["text"]:
             card["battery"] += f" · {card['power']['text']}"
@@ -1501,7 +1502,8 @@ class FeatherframeService:
             "frame_card": frame_card(self.device, self.config.wake_interval_minutes,
                                      battery_history=self._battery_recent(),
                                      battery_live=self._battery_live_copy(),
-                                     power_mode=self.config.power_mode),
+                                     power_mode=self.config.power_mode,
+                                     critical_volts=panels.get(self.config.panel).low_battery_volts),
             "config": self._masked_config(),
             "panel_notices": self.panel_notices(),
             "frames": self.frames_view(),

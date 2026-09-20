@@ -66,8 +66,18 @@
 // and the board reboots in a loop until the pack's protection IC cuts it off.
 // Service resumes once the cell rests at FF_LOW_BATT_RESUME_V (hysteresis).
 // Readings under FF_BATT_ABSENT_V mean no pack is fitted and are ignored.
+// The hold announces itself on the glass, once ("Battery low, charge me"). On
+// the gray panel that is a sub-second windowed pill; on the Spectra it is a
+// ~30 s six-ink full refresh, so that panel holds 0.1 V earlier, while the
+// cell still has the headroom to paint it. The server's Panel.low_battery_volts
+// mirrors these (a test keeps them equal): it is where the page's banner goes up.
+#if FF_PANEL_SPECTRA6
+#define FF_LOW_BATT_V          3.55f
+#define FF_LOW_BATT_RESUME_V   3.70f
+#else
 #define FF_LOW_BATT_V          3.45f
 #define FF_LOW_BATT_RESUME_V   3.60f
+#endif
 #define FF_BATT_ABSENT_V       2.50f
 #define FF_LOW_BATT_SLEEP_MIN  240
 #define FF_LOW_BATT_POLLS      4     // always awake: consecutive low polls before the hold

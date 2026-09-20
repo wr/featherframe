@@ -70,6 +70,7 @@
 #define FF_LOW_BATT_RESUME_V   3.60f
 #define FF_BATT_ABSENT_V       2.50f
 #define FF_LOW_BATT_SLEEP_MIN  240
+#define FF_LOW_BATT_POLLS      4     // always awake: consecutive low polls before the hold
 // OTA is refused below this: a brownout mid-write leaves the spare slot half
 // written (harmless — the boot slot is untouched) but burns the download.
 #define FF_OTA_MIN_BATT_V      3.70f

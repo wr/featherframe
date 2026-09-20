@@ -626,6 +626,13 @@
   </div>
   {% endfor %}
 
+  {# W-736: the cell is nearly empty. Under 3.45 V the frame stops checking in
+     until it is charged, so the last reading stands and the banner with it. #}
+  <div class="test-box bad show panel-note" id="batt-critical" role="status"{{ '' if status.frame_card.battery_critical else ' hidden' }}>
+    <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
+    <span class="test-msg"><strong>Charge the frame.</strong> Its battery is nearly empty<span id="batt-critical-volts">{{ (' (' ~ status.frame_card.battery ~ ')') if status.frame_card.battery else '' }}</span>. Once the cell is too low for Wi-Fi the frame shows "Battery low, charge me", keeps its last plate, and stops checking in until it is charged.</span>
+  </div>
+
   <main class="grid">
     <!-- LEFT: live plate + status -->
     <div class="stage">
@@ -1555,6 +1562,8 @@
       setHidden('fc-batt-wrap', !has || onPower); setHidden('fc-batt-none', has || onPower);
       bar.style.width = (has ? pct : 0) + '%';
       bar.style.background = (has && card.battery_low) ? 'var(--bad)' : '';
+      setHidden('batt-critical', !card.battery_critical);
+      setText('batt-critical-volts', card.battery ? ' (' + card.battery + ')' : '');
       setText('fc-batt-text', has ? pct + '%' : '');
       var capEl = $('fc-spark-cap');
       if (capEl) { capEl.dataset.summary = card.battery || ''; if (!sparkHover) capEl.textContent = card.battery || ''; }

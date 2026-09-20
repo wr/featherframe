@@ -159,6 +159,11 @@ def _clean_device_fields(raw: Optional[dict]) -> dict:
 # A resting 1S cell at this voltage is ~15%: the config page flags it so the
 # owner charges before the firmware's own low-battery hold kicks in (3.45 V).
 _BATTERY_LOW_V = 3.55
+# Critical: the last stretch before that hold (FF_LOW_BATT_V), where the frame
+# stops checking in until it is charged. The page says so in a banner, and
+# keeps saying it while the frame is silent: the last reading stands.
+_BATTERY_CRITICAL_V = 3.45
+_BATTERY_CRITICAL_PCT = 10
 # Below this the divider is reading an empty JST socket (USB-only unit), which
 # the firmware also ignores (FF_BATT_ABSENT_V): no pack, not a flat one.
 _BATTERY_ABSENT_V = 2.5
@@ -328,6 +333,7 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
                              else f"Overdue — wakes every {wake_interval_minutes} min"),
             "last_seen": None,
             "last_checkin_iso": None, "battery": None, "battery_low": False,
+            "battery_critical": False,
             "power": {"state": "unknown", "text": ""},
             "served": None, "wifi_rssi": None}
     try:
@@ -351,12 +357,14 @@ def frame_card(device: DeviceStatus, wake_interval_minutes: int,
         pct = f" · {percent}%" if percent is not None else ""
         card["battery"] = f"{volts:.2f} V{pct}"
         card["battery_low"] = ((percent is not None and percent <= 20) or volts <= _BATTERY_LOW_V)
+        card["battery_critical"] = ((percent is not None and percent <= _BATTERY_CRITICAL_PCT)
+                                    or volts <= _BATTERY_CRITICAL_V)
         card["power"] = power_state(battery_history or [], now, battery_live)
         if card["power"]["text"]:
             card["battery"] += f" · {card['power']['text']}"
         # Full and held there by the charger is not "low", whatever the percent says.
         if card["power"]["state"] in ("usb", "charging"):
-            card["battery_low"] = False
+            card["battery_low"] = card["battery_critical"] = False
     card["served"] = _served_words(device.last_result)
     card["wifi_rssi"] = device.wifi_rssi
     return card

@@ -20,6 +20,11 @@
 //   a <ms>     black/white card, refresh aborted by reset <ms> after DRF
 //   r          read the temperature register (best effort, needs MISO)
 //
+// First run on the glass (19 Sep 2026): stock is push 2.2 s + DRF 27.2 s. `t 25`
+// hung the controller — BUSY never released after DRF, and one attempt dropped
+// the board off USB — so t and s now reset the panel at 40 s. Treat the forced
+// temperature as unsafe until the CCSET bits are understood.
+//
 // An aborted waveform is not DC-balanced and nobody has published what that
 // costs a Spectra 6, so aborts are rationed: 3 between full refreshes, 12 per
 // boot. Each card prints its own parameters, so a photo documents itself.
@@ -29,7 +34,7 @@
 
 static const uint8_t  ABORTS_PER_FULL   = 3;
 static const uint8_t  ABORTS_PER_BOOT   = 12;
-static const uint32_t BUSY_TIMEOUT_MS   = 90000;
+static const uint32_t BUSY_TIMEOUT_MS   = 40000;   // stock DRF is ~27 s
 static const uint32_t MAKER_MIN_GAP_MS  = 180000;  // the panel maker's guidance
 static const uint32_t SWEEP_GAP_MS      = 60000;
 
@@ -52,16 +57,20 @@ class BenchPaper : public EPaper {
     EPD_PUSH_NEW_COLORS(_width, _height, _img8);
     t.push = millis() - t0;
 
+    step("pushed");
     if (forceTemp >= 0) {
       uint8_t temp = (uint8_t)forceTemp;
       both(RE0_CCSET, CCSET_V_LOCK, sizeof(CCSET_V_LOCK));
       both(RE5_TSSET, &temp, 1);
+      step("temperature forced");
     }
 
     both(R04_PON, nullptr, 0);
     t.pon = waitBusy(t.timedOut);
+    step("PON done");
     delay(30);
     both(R12_DRF, DRF_V, sizeof(DRF_V));
+    step("DRF sent");
     if (abortMs) {
       delay(abortMs);
       t.drf = abortMs;
@@ -71,11 +80,14 @@ class BenchPaper : public EPaper {
     } else {
       t.drf = waitBusy(t.timedOut);
       delay(30);
+      // A controller that never releases BUSY (CCSET 0x03 + TSSET did exactly
+      // that, 19 Sep 2026) is still driving the glass: reset it before POF.
+      if (t.timedOut) { step("BUSY stuck - resetting the panel"); EPD_INIT(); }
     }
     both(R02_POF, POF_V, sizeof(POF_V));
     t.pof = waitBusy(t.timedOut);
     delay(30);
-    EPD_SLEEP();
+    sleepPanel();
     return t;
   }
 
@@ -95,10 +107,22 @@ class BenchPaper : public EPaper {
     out[1] = spi.transfer(0x00);
     digitalWrite(TFT_CS, HIGH);
     spi.endTransaction();
-    EPD_SLEEP();
+    sleepPanel();
   }
 
  private:
+  // Progress on serial, flushed, so a reset mid-refresh shows where it struck.
+  void step(const char* what) { Serial.printf("  .. %s\n", what); Serial.flush(); }
+
+  // EPD_SLEEP with a bounded wait: the macro's CHECK_BUSY spins forever on a
+  // stuck controller, which is how a hung refresh also hung this sketch.
+  void sleepPanel() {
+    writecommanddata(0x07, Sleep_V, sizeof(Sleep_V));
+    delay(1);
+    bool ignored = false;
+    waitBusy(ignored);
+  }
+
   // CS1 low while writecommanddata drives CS: the command reaches both chips.
   void both(uint8_t cmd, const uint8_t* data, uint16_t n) {
     digitalWrite(TFT_CS1, LOW);
@@ -234,6 +258,7 @@ void setup() {
   Serial.begin(115200);
   delay(2000);
   epaper.begin();
+  Serial.printf("bench: reset reason %d\n", (int)esp_reset_reason());
   Serial.printf("bench: %dx%d, psram free %u — idle until a command\n", epaper.width(),
                 epaper.height(), (unsigned)ESP.getFreePsram());
   help();

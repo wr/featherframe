@@ -59,6 +59,15 @@
 #define VBAT_TRIM           1.000f
 #endif
 
+// --- Panel ---
+// Set ahead of everything that branches on it: an undefined macro in an #if is
+// silently 0 (the EE02 shipped with the gray low-battery threshold that way).
+#if defined(FF_BOARD_EE02)
+#define FF_PANEL_SPECTRA6 1
+#else
+#define FF_PANEL_SPECTRA6 0
+#endif
+
 // --- Low battery ---
 // Below FF_LOW_BATT_V (resting, read before the radio starts) the frame skips
 // Wi-Fi entirely and sleeps FF_LOW_BATT_SLEEP_MIN at a time: a Wi-Fi burst on
@@ -108,7 +117,13 @@
 #define FF_OTA_CHECK_MS      (15UL * 60UL * 1000UL)
 
 // How long the "Up to date" pill stays on the glass before it clears (ms).
+// On the Spectra a pill costs a ~30 s refresh to put up and another to take
+// down, so it stays long enough to be seen by someone who looked away.
+#if FF_PANEL_SPECTRA6
+#define TOAST_HOLD_MS  60000
+#else
 #define TOAST_HOLD_MS  10000
+#endif
 
 // How long a button-requested view (collage / status) holds the glass before
 // the always-awake poll may repaint the resident bird over it.
@@ -178,14 +193,12 @@
 // The ID strings ride X-Panel / X-Board; the server picks its render from
 // X-Panel (featherframe/panels.py from_report).
 #if defined(FF_BOARD_EE02)
-#define FF_PANEL_SPECTRA6 1
 #define FF_PANEL_ID  "T133A01 1200x1600 spectra6"
 #define FF_PANEL_KEY "ee02"              // the server's mDNS TXT "panel" for us
 #define FF_BOARD_ID  "XIAO-ESP32S3 EE02"
 #define PANEL_W  1200
 #define PANEL_H  1600
 #else
-#define FF_PANEL_SPECTRA6 0
 #define FF_PANEL_ID  "ED103TC2 1404x1872 gray16"
 #define FF_PANEL_KEY "ee03"
 #define FF_BOARD_ID  "XIAO-ESP32S3 EE03"

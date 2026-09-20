@@ -205,11 +205,18 @@ frame hangs the other way up the firmware turns every baked screen and tile
 180° (`rotate180`, and `flipX`/`flipY` for a tile's window).
 The wall runs always-awake today; deep sleep is the
 less-tested branch. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
-app with a full-refresh-or-nothing fallback for everything partial: no loading
-sweep, toasts or corner mark, no splash or boot-stage screens (the glass keeps
-its last plate while booting), baked black/white-ink setup + error screens
-(`ff_screens_ee02.h`, from the same bake), and a 180 s floor between resident
-repaints. One server serves one frame, and it knows its frames apart
+app with a full-refresh equivalent for everything partial (W-817): the plate
+is retained in PSRAM, and a toast or the corner mark is a baked black/white-ink
+tile blitted into a copy of it, then one ~30 s repaint (`paintPlate`; cleared
+by painting the plate again, 60 s later for a toast). A press fetches first
+and paints one thing, so only the outcome pills exist (the in-progress ones
+have no tile); out of deep sleep there is no retained plate, so "Up to date"
+refetches the plate with the pill armed and the corner mark becomes the full
+error screen. Boot is one baked "Connecting" screen (every boot stage maps to
+`FF_SCR_BOOT_WIFI`, painted while Wi-Fi joins underneath) that gives way to a
+specific error screen only on failure; no loading sweep. Baked screens and
+tiles live in `ff_screens_ee02.h`, from the same bake, and a 180 s floor sits
+between resident repaints. One server serves one frame, and it knows its frames apart
 (`service.admit_frame`): each frame names itself with `X-Device-Id` (its MAC),
 the first to check in becomes the active frame, and any other gets a 403 and
 waits as "pending" until the owner answers on the page — switch to it, or

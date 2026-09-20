@@ -131,6 +131,31 @@ One build serves both power models: the config page's **Power** setting
 (always awake on USB, deep sleep on battery) and the wake interval reach the
 frame on its next check-in and are stored on the device.
 
+#### Another panel
+
+The server draws for whatever panel a frame describes (its size, format and
+the rotations it accepts ride along on every check-in), so a port is a
+firmware job only. Copy the `generic_bench` env in `firmware/platformio.ini`,
+and in the copy:
+
+1. Set the build flags for your glass: `PANEL_W` / `PANEL_H` as it hangs,
+   `FF_PANEL_ID`, `FF_BOARD_ID`, `FF_PANEL_ROTATIONS`, `FF_BAKED_ROTATION`
+   (they are listed in `firmware/include/ff_config.h`, under Panel).
+2. Set `custom_bake` to your size, and `FF_SCREENS_HEADER` to its `--out`: the
+   boot, setup and error screens are baked for your panel when you build.
+3. Pick your panel's Seeed_GFX setup in `firmware/lib/driver/driver.h`. With
+   another driver library, `fullPaint()` in `firmware/src/main.cpp` is the one
+   call to replace.
+
+Every change on the glass is a full refresh on this path, as on the colour
+kit. The panel must take 16-level gray (or Spectra 6 inks, with
+`-DFF_GENERIC_INKS`), and a panel that is not 3:4 shows the same plate,
+centred on paper. To see what the server will send before any hardware exists:
+
+```bash
+cd server && ./.venv/bin/python -m featherframe.preview --panel custom:800x480:gray16:90,270
+```
+
 ### 3. First boot
 
 The frame starts a hotspot named **`Featherframe-Setup`**. Join it from your

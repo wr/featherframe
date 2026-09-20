@@ -34,7 +34,15 @@ contain-fitted on paper (`pipeline._fit_to_panel`); an unknown format is sent
 gray16 at the right size with a page note, never a wrong-size image. The
 page's Panel select is "As reported by the frame" (`config.panel_follow`); a
 named panel is an override `adopt_panel` leaves alone until the owner switches
-frames. Boot screens are still baked per known panel only.
+frames. The firmware side of a port is `-DFF_GENERIC_PANEL` (W-819, the
+`generic_bench` env: the EE03's own glass under a label the server does not
+know): the panel comes from build flags, its screens from
+`bake_screens.py --size WxH --format gray16|spectra6 --rotation N --out …`
+(baked at build time by `tools/bake_generic.py`, not committed), and it runs
+the EE02's full-refresh path. The app branches on two facts, never on the
+panel: `FF_FULL_REFRESH` (no windowed update) and `FF_FRAME_INKS` (nibbles are
+ink codes); `fullPaint()` is the one driver call on that path. `gray2`/`mono`
+have no baked screens or push path yet.
 
 ## Commands
 
@@ -72,6 +80,7 @@ cd firmware && pio run -t upload && pio device monitor  # build/flash + serial (
 cd firmware && pio run -e ee02                          # the EE02 colour-panel build (W-812)
 cd firmware && pio run -e ee02_bench                    # Spectra 6 refresh-speed bench (serial-driven; test_bench_ee02/)
 cd firmware && pio run -e release                       # the binary a kit ships with (release_ee02: colour kit)
+cd firmware && pio run -e generic_bench                 # a panel the server has never heard of (W-819); bakes its own screens
 ```
 
 Deploy to the Pi: `cd server && ./install.sh` (venv + plates + systemd unit).

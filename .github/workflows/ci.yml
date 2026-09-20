@@ -38,7 +38,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        env: [xiao_ee03, ee02, release]
+        # generic_bench bakes its own screens first (tools/bake_generic.py), so
+        # it also proves bake-by-size end to end (W-819).
+        env: [xiao_ee03, ee02, release, generic_bench]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,4 +56,8 @@ jobs:
           key: pio-${{ matrix.env }}-${{ hashFiles('firmware/platformio.ini') }}
           restore-keys: pio-${{ matrix.env }}-
       - run: pip install platformio
+      - if: matrix.env == 'generic_bench'
+        run: pip install -r server/requirements.txt
       - run: pio run -d firmware -e ${{ matrix.env }}
+        env:
+          FF_BAKE_PYTHON: python

@@ -125,10 +125,12 @@ def test_firmware_hold_matches_the_panels():
     from pathlib import Path
     src = (Path(__file__).resolve().parents[2] / "firmware" / "include" / "ff_config.h").read_text()
     spectra, gray = re.search(
-        r"#if FF_PANEL_SPECTRA6\s*\n#define FF_LOW_BATT_V\s+([\d.]+)f.*?\n#else\s*\n#define FF_LOW_BATT_V\s+([\d.]+)f",
+        r"#if FF_FULL_REFRESH\s*\n#define FF_LOW_BATT_V\s+([\d.]+)f.*?\n#else\s*\n#define FF_LOW_BATT_V\s+([\d.]+)f",
         src, re.S).groups()
     assert float(gray) == panels.EE03.low_battery_volts
     assert float(spectra) == panels.EE02.low_battery_volts
+    # A reported panel runs the generic build, which is full-refresh too (W-819).
+    assert float(spectra) == panels.custom(800, 480, "gray16", "90,270").low_battery_volts
 
 
 def _render_page(svc) -> str:

@@ -67,6 +67,26 @@
 #else
 #define FF_PANEL_SPECTRA6 0
 #endif
+// A panel this firmware was not written for (W-819, -DFF_GENERIC_PANEL): it
+// describes itself from build flags (see "Panel" below) and brings its own
+// baked screens, from `bake_screens.py --size`.
+#if defined(FF_GENERIC_PANEL)
+#define FF_PANEL_GENERIC 1
+#else
+#define FF_PANEL_GENERIC 0
+#endif
+// What the app branches on is not the panel but these two facts about it.
+// FF_FULL_REFRESH: no windowed update, so everything the gray build does with
+// one (the loading sweep, toasts, the corner mark, boot-stage screens) has a
+// full-refresh equivalent (W-817). True of the Spectra 6, and assumed of a
+// panel we know nothing about. FF_FRAME_INKS: the 4bpp nibbles are Seeed
+// colour-sprite ink codes (FFF_FLAG_INKS), not gray levels.
+#define FF_FULL_REFRESH (FF_PANEL_SPECTRA6 || FF_PANEL_GENERIC)
+#if FF_PANEL_SPECTRA6 || defined(FF_GENERIC_INKS)
+#define FF_FRAME_INKS 1
+#else
+#define FF_FRAME_INKS 0
+#endif
 
 // --- Low battery ---
 // Below FF_LOW_BATT_V (resting, read before the radio starts) the frame skips
@@ -80,7 +100,7 @@
 // ~30 s six-ink full refresh, so that panel holds 0.1 V earlier, while the
 // cell still has the headroom to paint it. The server's Panel.low_battery_volts
 // mirrors these (a test keeps them equal): it is where the page's banner goes up.
-#if FF_PANEL_SPECTRA6
+#if FF_FULL_REFRESH
 #define FF_LOW_BATT_V          3.55f
 #define FF_LOW_BATT_RESUME_V   3.70f
 #else
@@ -119,7 +139,7 @@
 // How long the "Up to date" pill stays on the glass before it clears (ms).
 // On the Spectra a pill costs a ~30 s refresh to put up and another to take
 // down, so it stays long enough to be seen by someone who looked away.
-#if FF_PANEL_SPECTRA6
+#if FF_FULL_REFRESH
 #define TOAST_HOLD_MS  60000
 #else
 #define TOAST_HOLD_MS  10000
@@ -189,7 +209,7 @@
 // colour panel instead of the EE03's 10.3" gray one. Spectra has no partial
 // refresh and a full one takes ~30 s, so everything the gray build does with
 // windowed updates (the loading sweep, toasts, the corner mark, boot-stage
-// screens) has a full-refresh-or-nothing fallback under FF_PANEL_SPECTRA6.
+// screens) has a full-refresh-or-nothing fallback under FF_FULL_REFRESH.
 // The ID strings ride X-Panel / X-Board as labels. The server draws for a
 // name it knows (featherframe/panels.py from_report) and, for any other, from
 // the facts sent beside it (W-813): the native canvas (X-Panel-Width/-Height,
@@ -197,7 +217,36 @@
 // | mono | spectra6) and FF_PANEL_ROTATIONS (the server rotations whose frame
 // displayFrame() accepts, default first). A port to another panel sets these
 // five and its driver; the server needs no change.
-#if defined(FF_BOARD_EE02)
+//
+// -DFF_GENERIC_PANEL is that port without touching this file (W-819). Its
+// build flags say what the panel is:
+//   -DPANEL_W=480 -DPANEL_H=800          as it hangs
+//   -DFF_PANEL_ID=\"my-panel\"           the label (X-Panel); no name the server knows
+//   -DFF_BOARD_ID=\"my-board\"           X-Board, and what keeps OTA images apart
+//   -DFF_PANEL_ROTATIONS=\"90,270\"      what displayFrame() accepts, default first
+//   -DFF_BAKED_ROTATION=90               the first of those: what the screens are baked at
+//   -DFF_SCREENS_HEADER=\"ff_screens_mine.h\"   from bake_screens.py --size ... --out
+//   -DFF_GENERIC_INKS                    only for a Spectra 6: frames are ink codes
+// The format is gray16 unless FF_GENERIC_INKS; gray2 and mono have no push
+// path here yet. lib/driver/driver.h still picks the Seeed_GFX setup, and
+// fullPaint() in main.cpp is the one call into it.
+#if FF_PANEL_GENERIC
+#if !defined(PANEL_W) || !defined(PANEL_H) || !defined(FF_PANEL_ID) || !defined(FF_BOARD_ID) \
+    || !defined(FF_PANEL_ROTATIONS) || !defined(FF_BAKED_ROTATION) || !defined(FF_SCREENS_HEADER)
+#error "FF_GENERIC_PANEL needs PANEL_W, PANEL_H, FF_PANEL_ID, FF_BOARD_ID, FF_PANEL_ROTATIONS, FF_BAKED_ROTATION and FF_SCREENS_HEADER (see ff_config.h, Panel)"
+#endif
+#if FF_FRAME_INKS
+#define FF_PANEL_FORMAT "spectra6"
+#else
+#define FF_PANEL_FORMAT "gray16"
+#endif
+// The server keys a reported panel by its facts (panels.custom), and
+// advertises that key in its mDNS TXT "panel". FF_NATIVE_W/H come from the
+// screens header, which is included before this is used.
+#define FF_STR_(x) #x
+#define FF_STR(x)  FF_STR_(x)
+#define FF_PANEL_KEY "custom:" FF_STR(FF_NATIVE_W) "x" FF_STR(FF_NATIVE_H) ":" FF_PANEL_FORMAT ":" FF_PANEL_ROTATIONS
+#elif defined(FF_BOARD_EE02)
 #define FF_PANEL_ID  "T133A01 1200x1600 spectra6"
 #define FF_PANEL_KEY "ee02"              // the server's mDNS TXT "panel" for us
 #define FF_BOARD_ID  "XIAO-ESP32S3 EE02"
@@ -218,14 +267,19 @@
 // loading mark) is baked at: the server's default panel_rotation for the panel.
 // The server announces the rotation in use (X-FF-Rotation); when it is the
 // other one, everything baked is turned 180 degrees to match the plates.
-#if FF_PANEL_SPECTRA6
+#if FF_PANEL_GENERIC
+// from the build flags, checked against the screens header in main.cpp
+#elif FF_PANEL_SPECTRA6
 #define FF_BAKED_ROTATION 0
 #else
 #define FF_BAKED_ROTATION 90
 #endif
-// Spectra: the floor between two resident repaints from the poll loop (the
-// panel maker's guidance is >= 180 s between refreshes). Button presses and
-// error screens are exempt — they are rare and deliberate.
-#define FF_SPECTRA_MIN_REPAINT_MS  180000UL
+// Full-refresh panels: the floor between two resident repaints from the poll
+// loop (the Spectra maker's guidance is >= 180 s between refreshes, and a
+// panel we know nothing about gets the same care). Button presses and error
+// screens are exempt — they are rare and deliberate.
+#ifndef FF_MIN_REPAINT_MS
+#define FF_MIN_REPAINT_MS  180000UL
+#endif
 // FFF header flags bit 0: the 4bpp nibbles are Spectra ink codes, not grays.
 #define FFF_FLAG_INKS  0x01

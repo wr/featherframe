@@ -1,0 +1,8 @@
+Featherframe
+Copyright 2026 Wells Riley
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This repository bundles third-party fonts under the SIL Open Font License 1.1
+and builds against third-party libraries under their own terms. See
+THIRD_PARTY.md for the full list and where each licence text lives.

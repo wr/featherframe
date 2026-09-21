@@ -17,7 +17,7 @@ help:
 	@echo "  make preview-collage  render a daily collage"
 	@echo "  make preview-ee02     render the Cardinal for the EE02 colour panel"
 	@echo "  make preview-fallback render the typographic fallback plate"
-	@echo "  make serve            run the server locally on :8080"
+	@echo "  make serve            run the server locally on :8080 (FEATHERFRAME_NO_MDNS=1 for a dev copy)"
 	@echo "  make test             run the unit tests"
 	@echo "  make clean            remove venv, previews, and runtime state"
 
@@ -52,8 +52,11 @@ preview-ee02:
 preview-fallback:
 	cd server && ../$(PY) -m featherframe.preview --fallback
 
+# Advertises _featherframe._tcp over mDNS, as a real install does: a frame on
+# the LAN whose own server is down WILL adopt this one. For a dev copy beside
+# a live frame: FEATHERFRAME_NO_MDNS=1 make serve
 serve:
-	cd server && FEATHERFRAME_DEV=1 ../$(PY) -m featherframe
+	cd server && ../$(PY) -m featherframe
 
 test:
 	cd server && ../$(PY) -m pytest

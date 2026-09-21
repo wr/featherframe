@@ -31,3 +31,12 @@ def _panel_dither_restored():
     from featherframe.render import pipeline
     yield
     pipeline.DITHER_OVERRIDE = None
+
+
+@pytest.fixture(autouse=True)
+def _no_mdns(monkeypatch):
+    """No test advertises _featherframe._tcp on the real LAN (W-827): a wall
+    frame whose server is briefly down adopts whatever answers. Tests of the
+    advertiser itself set FEATHERFRAME_MDNS=1 over a fake zeroconf."""
+    monkeypatch.setenv("FEATHERFRAME_MDNS", "0")
+    monkeypatch.delenv("FEATHERFRAME_NO_MDNS", raising=False)

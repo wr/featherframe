@@ -27,8 +27,10 @@ from typing import Optional
 
 from PIL import Image
 
+from . import frames as frames_mod
 from . import panels, paths
 from .config import Config, load_config, save_config
+from .frames import FrameRegistry
 from .sources import Detection, make_source
 from .db import Database
 from . import viewers as viewers_mod
@@ -433,7 +435,12 @@ class FeatherframeService:
         # it, so tests pin the clock instead of racing the calendar.
         self._clock = datetime.now
         self.db = db or Database()
-        self.viewers = Viewers(self.db)   # screens that are not the frame (W-822)
+        # One registry for every screen (W-833): the kit on the wall, a second
+        # kit, a TRMNL, a tablet. `migrate` folds the stores it replaced into
+        # it on the first start and is a no-op after that.
+        self.frames = FrameRegistry(self.db)
+        self.frames.migrate()
+        self.viewers = Viewers(self.frames)   # screens that are not the frame (W-822)
         self.config: Config = load_config(self.db)
         self.audubon = AudubonProvider()
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
@@ -1211,12 +1218,6 @@ class FeatherframeService:
     LEGACY_FRAME = "legacy"
     _FRAME_TOUCH = timedelta(seconds=60)      # how often a parked frame's row is rewritten
 
-    def _frames(self) -> dict:
-        reg = self.db.get("frames", None)
-        if not isinstance(reg, dict) or not isinstance(reg.get("known"), dict):
-            reg = {"active": None, "known": {}}
-        return reg
-
     def admit_frame(self, frame_id: Optional[str], reported_panel: Optional[str],
                     board: Optional[str], ip: Optional[str],
                     facts: Optional[dict] = None) -> str:
@@ -1229,98 +1230,105 @@ class FeatherframeService:
         fid = (frame_id or "").strip()[:40] or self.LEGACY_FRAME
         now = self._clock()
         stamp = now.isoformat(timespec="seconds")
-        with self._lock:
-            reg = self._frames()
-            known = reg["known"]
-            active = reg.get("active")
-            row = known.get(fid)
+        with self._lock, self.frames.mutate() as rows:
+            row = rows.get(fid)
+            primary = next((r for r in rows.values()
+                            if r.get("primary") and frames_mod.transport_of(r) == "kit"), None)
             dirty = False
-            if (row is None and active == self.LEGACY_FRAME and fid != self.LEGACY_FRAME
-                    and self.LEGACY_FRAME in known):
-                old = known[self.LEGACY_FRAME]
+            if (row is None and fid != self.LEGACY_FRAME
+                    and primary is not None and primary["id"] == self.LEGACY_FRAME):
                 same_panel = (panels.from_report(reported_panel, facts)
-                              == panels.from_report(old.get("panel"), old.get("facts")))
-                if same_panel and (not ip or not old.get("ip") or ip == old.get("ip")):
-                    row = known.pop(self.LEGACY_FRAME)     # the same frame, updated: keep its seat
+                              == frames_mod.panel_of(primary))
+                if same_panel and (not ip or not primary.get("ip") or ip == primary.get("ip")):
+                    row = rows.pop(self.LEGACY_FRAME)      # the same frame, updated: keep its seat
                     row["id"] = fid
-                    known[fid] = row
-                    reg["active"] = active = fid
+                    rows[fid] = primary = row
                     dirty = True
             fresh = row is None
             if fresh:
-                row = known[fid] = {"id": fid, "first_seen": stamp, "status": "pending"}
-            if active is None:
-                reg["active"] = active = fid               # the first frame takes the seat
+                row = rows[fid] = frames_mod.new_row(fid, "kit", stamp)
+            if primary is None:
+                row["primary"] = True                      # the first frame takes the seat
                 dirty = True
-            if fid == active and row.get("status") != "active":
-                row["status"] = "active"
+            if row.get("primary") and row.get("status") != frames_mod.ON:
+                row["status"] = frames_mod.ON
                 dirty = True
-            seen = (("panel", reported_panel), ("board", board), ("ip", ip), ("facts", facts))
-            changed = fresh or any(row.get(k) != v for k, v in seen if v)
+            rep = frames_mod.reported_of(row)
+            seen = (("panel", reported_panel), ("board", board), ("facts", facts))
+            changed = (fresh or any(rep.get(k) != v for k, v in seen if v)
+                       or bool(ip and row.get("ip") != ip))
             try:
                 stale = now - datetime.fromisoformat(row.get("last_seen") or "") >= self._FRAME_TOUCH
             except ValueError:
                 stale = True
             if dirty or changed or stale:
-                for k, v in seen:
-                    if v:
-                        row[k] = v
+                rep.update({k: v for k, v in seen if v})
+                row["reported"] = rep
+                if ip:
+                    row["ip"] = ip
                 row["last_seen"] = stamp
-                self.db.set("frames", reg)
-            status = row["status"]
+            else:
+                rows.unchanged()
+            status = frames_mod.seat(row)
         if fresh and status == "pending":
             log.info("a new frame is asking to connect: %s (%s) at %s", fid, reported_panel, ip)
         return status
 
-    def frames_view(self) -> dict:
-        """The registry for the page: the active frame, those waiting for an
-        answer, and those ignored."""
-        reg = self._frames()
+    def _frame_card(self, row: dict) -> dict:
+        """The identity every frame shows on the page, whatever its seat."""
+        panel = frames_mod.panel_of(row)
+        rep = frames_mod.reported_of(row)
+        fid = str(row.get("id") or "")
+        return {"id": fid,
+                "short": "older firmware" if fid == self.LEGACY_FRAME else fid[-6:],
+                "name": frames_mod.name_of(row),
+                "panel_name": panel.name if panel else (rep.get("panel") or "unknown panel"),
+                "ip": row.get("ip"), "first_seen": row.get("first_seen"),
+                "last_seen": row.get("last_seen")}
 
-        def card(row: dict) -> dict:
-            panel = panels.from_report(row.get("panel"), row.get("facts"))
-            fid = str(row.get("id") or "")
-            return {"id": fid,
-                    "short": "older firmware" if fid == self.LEGACY_FRAME else fid[-6:],
-                    "panel_name": panel.name if panel else (row.get("panel") or "unknown panel"),
-                    "ip": row.get("ip"), "first_seen": row.get("first_seen"),
-                    "last_seen": row.get("last_seen")}
-        rows = list(reg["known"].values())
-        active = reg["known"].get(reg.get("active") or "")
+    def frames_view(self) -> dict:
+        """The kits for the page: the active frame, those beside it, those
+        waiting for an answer, and those ignored."""
+        rows = self.frames.by_transport("kit")
+        active = next((r for r in rows if r.get("primary")), None)
+        card = self._frame_card
         return {"active": card(active) if active else None,
-                "added": [self._added_card(r, card(r)) for r in rows if r.get("status") == "added"],
-                "pending": [card(r) for r in rows if r.get("status") == "pending"],
-                "ignored": [card(r) for r in rows if r.get("status") == "ignored"]}
+                "added": [self._added_card(r, card(r)) for r in rows
+                          if r.get("status") == frames_mod.ON and not r.get("primary")],
+                "pending": [card(r) for r in rows if r.get("status") == frames_mod.ASKING],
+                "ignored": [card(r) for r in rows if r.get("status") == frames_mod.IGNORED]}
 
     def answer_frame(self, frame_id: str, action: str) -> bool:
         """The owner's answer about a frame: "switch" makes it the active frame
         (the old one is asked about again when it next checks in), "ignore"
         parks it, "forget" drops it (it asks again if it comes back)."""
-        with self._lock:
-            reg = self._frames()
-            row = reg["known"].get(frame_id)
-            if row is None or action not in ("switch", "add", "ignore", "forget"):
+        with self._lock, self.frames.mutate() as rows:
+            row = rows.get(frame_id)
+            if (row is None or frames_mod.transport_of(row) != "kit"
+                    or action not in ("switch", "add", "ignore", "forget")):
+                rows.unchanged()
                 return False
             if action == "add":
-                if frame_id == reg.get("active"):
+                if row.get("primary"):
+                    rows.unchanged()
                     return False
                 # Beside the active frame, not instead of it (W-832). It starts
                 # as its own panel would on a fresh install.
-                row["status"] = "added"
+                row["status"] = frames_mod.ON
                 row.setdefault("set", {})
             elif action == "switch":
-                old = reg["known"].get(reg.get("active") or "")
-                if old is not None and old is not row:
-                    reg["known"].pop(old["id"], None)      # it asks again if it returns
-                row["status"] = "active"
-                reg["active"] = frame_id
-            elif frame_id == reg.get("active"):
+                old = next((r for r in rows.values() if r.get("primary") and r is not row), None)
+                if old is not None:
+                    rows.pop(old["id"], None)              # it asks again if it returns
+                row["status"] = frames_mod.ON
+                row["primary"] = True
+            elif row.get("primary"):
+                rows.unchanged()
                 return False                               # the active frame is not ignorable
             elif action == "ignore":
-                row["status"] = "ignored"
+                row["status"] = frames_mod.IGNORED
             else:
-                reg["known"].pop(frame_id, None)
-            self.db.set("frames", reg)
+                rows.pop(frame_id, None)
         if action in ("forget", "ignore", "switch"):
             self._drop_added(frame_id)
         if action == "switch":
@@ -1329,8 +1337,15 @@ class FeatherframeService:
             with self._lock:
                 self.device = DeviceStatus()
                 self.db.set("device_status", asdict(self.device))
-            self.adopt_panel(row.get("panel"), row.get("facts"), swapped=True)
+            rep = frames_mod.reported_of(row)
+            self.adopt_panel(rep.get("panel"), rep.get("facts"), swapped=True)
         return True
+
+    def rename_frame(self, frame_id: str, name) -> bool:
+        """Name any screen in the registry — the wall frame, a second kit, a
+        viewer. Every frame is the owner's to name (W-833)."""
+        with self._lock:
+            return self.frames.rename(frame_id, name) is not None
 
     # -- added frames (W-832) ----------------------------------------------
     # A second kit on the same server. The active frame keeps the resident
@@ -1342,10 +1357,10 @@ class FeatherframeService:
                        "power_mode", "wake_interval_minutes", "device_poll_seconds")
 
     def _added_rows(self) -> list[dict]:
-        return [r for r in self._frames()["known"].values() if r.get("status") == "added"]
+        return self.frames.added()
 
     def _added_panel(self, row: dict) -> "panels.Panel":
-        return panels.from_report(row.get("panel"), row.get("facts")) or panels.DEFAULT
+        return frames_mod.panel_of(row) or panels.DEFAULT
 
     def added_config(self, row: dict) -> Config:
         """The config an added frame is drawn with: the household's, with this
@@ -1367,10 +1382,10 @@ class FeatherframeService:
     def update_added(self, frame_id: str, fields: dict) -> bool:
         """The owner's choices for one added frame. Values go through Config's
         own sanitising; a blank clears the choice."""
-        with self._lock:
-            reg = self._frames()
-            row = reg["known"].get(frame_id)
-            if row is None or row.get("status") != "added":
+        with self._lock, self.frames.mutate() as rows:
+            row = rows.get(frame_id)
+            if frames_mod.seat(row) != "added" or frames_mod.transport_of(row) != "kit":
+                rows.unchanged()
                 return False
             own = dict(row.get("set") or {})
             for key in (*self._ADDED_SETTINGS, "shows", "name"):
@@ -1393,25 +1408,27 @@ class FeatherframeService:
                 if key in own:
                     own[key] = getattr(probe, key)
             row["set"] = own
-            self.db.set("frames", reg)
         return True
 
     def _added_card(self, row: dict, card: dict) -> dict:
-        cfg, dev = self.added_config(row), row.get("device") or {}
+        cfg, dev = self.added_config(row), frames_mod.reported_of(row)
         panel = self._added_panel(row)
         state = self._added.get(row["id"]) or {}
         try:
             seen = _ago(datetime.fromisoformat(str(row.get("last_seen"))), self._clock())
         except (ValueError, TypeError):
             seen = "never"
-        return {**card, "name": (row.get("set") or {}).get("name") or "", "last_seen_text": seen,
+        return {**card, "last_seen_text": seen,
                 "shows": self.added_shows(row), "rotation": cfg.panel_rotation,
-                "rotations": list(panel.rotations), "mat_inset_pct": cfg.mat_inset_pct,
+                # No config fallback: an added kit that named no panel is drawn
+                # for the default one, not for whatever the wall frame has.
+                "rotations": list(frames_mod.capabilities(row)["rotations"]),
+                "mat_inset_pct": cfg.mat_inset_pct,
                 "power_mode": cfg.power_mode, "etag": state.get("etag"),
                 "battery_percent": dev.get("battery_percent"),
                 "battery_voltage": dev.get("battery_voltage"), "wifi_rssi": dev.get("wifi_rssi"),
                 "fw_version": dev.get("fw_version"), "last_result": dev.get("last_result"),
-                "board": row.get("board"), "panel_reported": row.get("panel"),
+                "board": dev.get("board"), "panel_reported": dev.get("panel"),
                 "battery_low": (dev.get("battery_voltage") is not None
                                 and dev["battery_voltage"] <= panel.low_battery_volts)}
 
@@ -1485,12 +1502,15 @@ class FeatherframeService:
         fields = _clean_device_fields({**(telemetry or {}), "last_result": served,
                                        "etag_served": etag,
                                        "last_checkin": self._clock().isoformat(timespec="seconds")})
-        with self._lock:
-            reg = self._frames()
-            row = reg["known"].get(frame_id)
-            if row is not None:
-                row["device"] = {k: v for k, v in fields.items() if v is not None}
-                self.db.set("frames", reg)
+        with self._lock, self.frames.mutate() as rows:
+            row = rows.get(frame_id)
+            if row is None:
+                rows.unchanged()
+            else:
+                # Merged, not replaced: `reported` also holds what the frame
+                # said about its panel and its board.
+                row["reported"] = {**frames_mod.reported_of(row),
+                                   **{k: v for k, v in fields.items() if v is not None}}
         if not etag or not fff.exists():
             return 503, None, None
         if served == "304":
@@ -1527,14 +1547,14 @@ class FeatherframeService:
     def panel_notices(self) -> dict:
         """The pending "new panel" notice, until it is answered."""
         out: dict = {"swap": None, "unrecognised": None, "unknown_format": None}
-        reg = self._frames()
-        row = reg["known"].get(reg.get("active") or "")
-        reported = panels.from_report(row.get("panel"), row.get("facts")) if row else None
+        row = self.frames.primary()
+        rep = frames_mod.reported_of(row)
+        reported = frames_mod.panel_of(row) if row else None
         spec = self.config.panel_spec
-        if row and row.get("panel") and reported is None:
+        if row and rep.get("panel") and reported is None:
             # Taken in, but it names no panel we know and sent no size: every
             # image is drawn for `spec`, which its firmware may well reject.
-            out["unrecognised"] = {"label": row.get("panel"), "drawing_for": spec.name}
+            out["unrecognised"] = {"label": rep.get("panel"), "drawing_for": spec.name}
         if spec.unknown_format:
             out["unknown_format"] = {"format": spec.unknown_format}
         swap = self.db.get("panel_notice", None)

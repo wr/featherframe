@@ -30,6 +30,8 @@ from . import panels, paths
 from .config import Config, load_config, save_config
 from .sources import Detection, make_source
 from .db import Database
+from . import viewers as viewers_mod
+from .viewers import Viewers
 from .render import collage as collage_mod
 from .render import compose as compose_mod
 from .render import framebuffer
@@ -419,6 +421,7 @@ class FeatherframeService:
         # it, so tests pin the clock instead of racing the calendar.
         self._clock = datetime.now
         self.db = db or Database()
+        self.viewers = Viewers(self.db)   # screens that are not the frame (W-822)
         self.config: Config = load_config(self.db)
         self.audubon = AudubonProvider()
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
@@ -1656,6 +1659,12 @@ class FeatherframeService:
             target.unlink(missing_ok=True)
 
     # -- viewers (W-822) ---------------------------------------------------
+    def viewer_refresh_seconds(self) -> int:
+        """How long a viewer is told to sleep: the plate holds still in quiet
+        hours, so it may as well."""
+        quiet = self.config.in_quiet_hours(self._clock().time())
+        return viewers_mod.QUIET_REFRESH_SECONDS if quiet else viewers_mod.REFRESH_SECONDS
+
     def _single_in_color(self, spec: SingleSpec):
         return lambda: compose_mod.render_single(spec, self.provider, color=True)
 
@@ -1741,9 +1750,7 @@ class FeatherframeService:
                 return 404, None, None
             with Image.open(source) as sheet:
                 sheet.load()
-            buf = io.BytesIO()
-            pipeline.render_view(sheet, view).save(buf, format="PNG", optimize=False)
-            png = buf.getvalue()
+            png = pipeline.encode_png(pipeline.render_view(sheet, view), view.fmt)
             try:
                 tmp = cached.with_suffix(".tmp")
                 tmp.write_bytes(png)

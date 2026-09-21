@@ -1,0 +1,153 @@
+"""TRMNL's bring-your-own-server protocol (W-824). A TRMNL, or an e-reader
+running one of TRMNL's clients, pointed at this server is a viewer: it shows
+what the frame shows and never becomes the frame. Request shapes are the
+firmware's own (usetrmnl/trmnl-firmware, lib/trmnl/src/api-client/request_headers.cpp)."""
+from __future__ import annotations
+
+import io
+from datetime import datetime
+from urllib.parse import urlparse
+
+import numpy as np
+import pytest
+from PIL import Image
+from starlette.testclient import TestClient
+
+from featherframe import viewers
+from featherframe.render import pipeline, theme
+from featherframe.render.pipeline import View
+
+X = {"ID": "AA:BB:CC:DD:EE:01", "Model": "x", "Width": "1872", "Height": "1404",
+     "FW-Version": "2.0.1", "Battery-Voltage": "4.02", "Percent-Charged": "88", "RSSI": "-58",
+     "Refresh-Rate": "900", "Content-Type": "application/json"}
+OG = {"ID": "AA:BB:CC:DD:EE:02", "Model": "og", "Width": "800", "Height": "480",
+      "FW-Version": "1.6.9", "Battery-Voltage": "3.9", "RSSI": "-70"}
+KOBO = {"ID": "AA:BB:CC:DD:EE:03", "Battery-Voltage": "4.0", "RSSI": "-61", "FW-Version": "kobo"}
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    from featherframe.app import app
+    from featherframe.service import FeatherframeService
+    pipeline.DITHER_OVERRIDE = "none"
+    svc = FeatherframeService()
+    svc.source.db_path = str(tmp_path / "missing.db")
+    svc._clock = lambda: datetime(2026, 9, 20, 12, 0)
+    svc.config.quiet_hours_mode = "off"
+    app.state.service = svc
+    ramp = np.tile(np.linspace(0, 255, theme.WIDTH, dtype=np.uint8), (theme.HEIGHT, 1))
+    result = pipeline.render_image(Image.fromarray(ramp, mode="L"), svc.config, "single", "x")
+    svc._commit(result, svc._clock(), mode="single", species_key=None, label="x", note=None)
+    return TestClient(app)
+
+
+def _image(client, body):
+    url = urlparse(body["image_url"])
+    r = client.get(url.path)
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+    return r.content
+
+
+def test_setup_hands_a_new_device_its_key(client):
+    r = client.get("/api/setup", headers={"ID": X["ID"], "Model": "x", "FW-Version": "2.0.1"})
+    body = r.json()
+    assert body["status"] == 200 and len(body["api_key"]) >= 16 and body["friendly_id"]
+    # Asking again is the same device, the same key.
+    assert client.get("/api/setup", headers={"ID": X["ID"]}).json()["api_key"] == body["api_key"]
+    assert client.get("/api/setup").status_code == 404
+
+
+def test_display_answers_in_the_firmwares_own_terms(client):
+    svc = client.app.state.service
+    body = client.get("/api/display", headers=X).json()
+    assert body["status"] == 0 and body["update_firmware"] is False
+    assert body["refresh_rate"] == viewers.REFRESH_SECONDS
+    assert body["filename"].startswith(svc.current_etag())
+    assert body["image_url"].startswith("http") and body["image_url"].endswith(".png")
+
+
+def test_a_trmnl_x_gets_the_ee03s_picture_on_its_side(client):
+    """1872x1404 of 16 grays is the EE03's glass: 4-bit PNG, the portrait
+    plate turned into the landscape canvas."""
+    png = _image(client, client.get("/api/display", headers=X).json())
+    assert png[24] == 4
+    assert Image.open(io.BytesIO(png)).size == (1872, 1404)
+    assert viewers.view_of(client.app.state.service.viewers.get(X["ID"])) == View(1872, 1404, "gray16", 90)
+
+
+def test_an_og_gets_two_bit_gray(client):
+    png = _image(client, client.get("/api/display", headers=OG).json())
+    assert png[24] == 2 and Image.open(io.BytesIO(png)).size == (800, 480)
+
+
+def test_a_client_that_reports_no_size_gets_an_e_reader_page_until_the_owner_says(client):
+    png = _image(client, client.get("/api/display", headers=KOBO).json())
+    assert Image.open(io.BytesIO(png)).size == (1072, 1448)
+    r = client.post(f"/api/viewers/{KOBO['ID']}", json={"width": 1264, "height": 1680,
+                                                       "name": "Kitchen Kobo"})
+    assert r.json()["viewer"]["name"] == "Kitchen Kobo"
+    png = _image(client, client.get("/api/display", headers=KOBO).json())
+    assert Image.open(io.BytesIO(png)).size == (1264, 1680)
+
+
+def test_the_owners_rotation_survives_check_ins_and_changes_the_filename(client):
+    before = client.get("/api/display", headers=X).json()["filename"]
+    client.post(f"/api/viewers/{X['ID']}", json={"rotation": 270})
+    after = client.get("/api/display", headers=X).json()
+    assert after["filename"] != before and after["filename"].endswith("-270")
+    # Clearing the choice goes back to the default.
+    client.post(f"/api/viewers/{X['ID']}", json={"rotation": ""})
+    assert client.get("/api/display", headers=X).json()["filename"] == before
+
+
+def test_a_viewer_is_never_the_frame(client):
+    svc = client.app.state.service
+    before = (svc._etag, svc.config.panel, svc.status()["device"], svc.status().get("frames"))
+    client.get("/api/setup", headers=X)
+    _image(client, client.get("/api/display", headers=X).json())
+    assert (svc._etag, svc.config.panel, svc.status()["device"], svc.status().get("frames")) == before
+    # And the frame's own endpoint is not opened by it.
+    assert client.get("/api/frame", headers={"X-Device-Id": "f0:0d"}).status_code == 200
+
+
+def test_quiet_hours_let_a_viewer_sleep_longer(client):
+    svc = client.app.state.service
+    svc.config.quiet_hours_mode = "custom"
+    svc.config.quiet_hours_start, svc.config.quiet_hours_end = "11:00", "13:00"
+    assert client.get("/api/display", headers=X).json()["refresh_rate"] == viewers.QUIET_REFRESH_SECONDS
+
+
+def test_the_list_shows_what_each_viewer_is_and_never_its_key(client):
+    client.get("/api/display", headers=X)
+    client.get("/api/display", headers=OG)
+    rows = client.get("/api/viewers").json()["viewers"]
+    assert [r["id"] for r in rows] == [X["ID"], OG["ID"]]
+    assert rows[0]["reported"]["battery_percent"] == 88 and rows[0]["view"]["format"] == "gray16"
+    assert "token" not in rows[0] and "token" not in str(rows)
+    assert client.post(f"/api/viewers/{OG['ID']}", json={"forget": True}).json()["ok"]
+    assert len(client.get("/api/viewers").json()["viewers"]) == 1
+
+
+def test_junk_from_the_lan_is_bounded(client):
+    svc = client.app.state.service
+    bad = {**X, "ID": "AA:BB:CC:DD:EE:09", "Width": "99999", "Battery-Voltage": "nan",
+           "RSSI": "inf", "Model": "x" * 500}
+    assert client.get("/api/display", headers=bad).status_code == 200
+    row = svc.viewers.get("AA:BB:CC:DD:EE:09")
+    assert "width" not in row["reported"] and "battery_volts" not in row["reported"]
+    assert len(row["reported"]["model"]) <= 40
+    assert client.get("/api/display", headers={"ID": "../../etc"}).status_code == 404
+    for i in range(viewers.MAX_VIEWERS + 5):
+        client.get("/api/display", headers={"ID": f"AA:00:00:00:00:{i:02X}"})
+    assert len(svc.viewers.all()) == viewers.MAX_VIEWERS
+    # A foreign page cannot rename or forget a viewer.
+    r = client.post(f"/api/viewers/{X['ID']}", json={"forget": True},
+                    headers={"Origin": "http://evil.example"})
+    assert r.status_code == 403
+
+
+def test_the_log_is_taken_and_dropped(client):
+    assert client.post("/api/log", headers={"ID": X["ID"]},
+                       json={"logs": [{"message": "A test."}]}).status_code == 204

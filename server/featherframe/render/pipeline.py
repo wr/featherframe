@@ -3,6 +3,9 @@
 """
 from __future__ import annotations
 
+import io
+import struct
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -191,3 +194,40 @@ def render_view(sheet: Image.Image, view: View) -> Image.Image:
     if view.rotation:
         img = img.rotate(view.rotation, expand=True)   # exact for quarter turns; CCW, as np.rot90
     return img
+
+
+_PNG_BITS = {"mono": 1, "gray2": 2, "gray16": 4}
+
+
+def encode_png(img: Image.Image, fmt: str) -> bytes:
+    """A view as the PNG a viewer fetches. The dithered formats are written at
+    their true depth (1, 2 or 4 bits of gray): TRMNL's firmware paints those
+    as they are, but cuts an 8-bit PNG down by truncation, and a small device
+    should not be handed four times the file. Pillow cannot write gray below
+    8 bits, so that one is packed here; the smooth formats are Pillow's."""
+    bits = _PNG_BITS.get(fmt)
+    if bits is None or img.mode != "L":
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    levels = np.asarray(img, dtype=np.uint16)
+    idx = ((levels * ((1 << bits) - 1) + 127) // 255).astype(np.uint8)   # 0..2^bits-1
+    h, w = idx.shape
+    per = 8 // bits
+    pad = (-w) % per
+    if pad:
+        idx = np.pad(idx, ((0, 0), (0, pad)))
+    packed = np.zeros((h, idx.shape[1] // per), dtype=np.uint8)
+    for i in range(per):
+        packed |= idx[:, i::per] << (8 - bits * (i + 1))
+    rows = np.zeros((h, packed.shape[1] + 1), dtype=np.uint8)   # filter byte 0 per row
+    rows[:, 1:] = packed
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return (struct.pack(">I", len(data)) + kind + data
+                + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF))
+
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, bits, 0, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(rows.tobytes(), 6))
+            + chunk(b"IEND", b""))

@@ -117,6 +117,20 @@ same spec, art in colour), which is drawn only while a colour viewer has asked
 within `COLOR_VIEWER_DAYS` (`color_viewer_at` in the DB). The first ask draws
 the twin from the kept `recompose` without touching the wall; after a restart
 it costs one `rerender_current()`. A colour frame's viewers read its own sheet.
+TRMNL's bring-your-own-server protocol is the first viewer client (W-824):
+`GET /api/setup`, `GET /api/display`, `POST /api/log`, shaped by the firmware's
+own source (`usetrmnl/trmnl-firmware`: `request_headers.cpp`, `display.cpp`),
+which also covers TRMNL's Kobo/Kindle/KOReader clients. `viewers.py` keeps one
+row per viewer in the kv store, the device's report apart from the owner's
+choices (`POST /api/viewers/<id>`: name, rotation, size, format), and
+`view_of` turns a row into a `View`: 16-gray models get `gray16`, other
+firmware builds `gray2` (the firmware truncates anything deeper, so we dither),
+a client that reports no size a smooth 1072×1448 page; a landscape canvas
+hangs portrait (rotation 90), as `panels._rotations`. The device repaints only
+when `filename` changes: the frame's ETag plus the variant. Dithered views go
+out at their true PNG depth (`pipeline.encode_png`; Pillow cannot write gray
+below 8 bits). `refresh_rate` is a constant (`viewers.REFRESH_SECONDS`, hourly
+in quiet hours). A viewer never reaches `admit_frame`.
 
 **Ingest (`birdnet.py`) is strictly read-only.** Opens `?mode=ro`, never writes
 or locks BirdNET's DB. The cursor is `WHERE rowid > :last`. Every method

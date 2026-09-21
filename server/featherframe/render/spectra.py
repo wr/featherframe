@@ -302,12 +302,5 @@ def inks_to_image(inks: np.ndarray) -> Image.Image:
     return Image.fromarray(shown[inks], mode="RGB")
 
 
-def invert(inks: np.ndarray) -> np.ndarray:
-    """Dark mode: black and white trade places; the colours stay."""
-    swap = np.arange(6, dtype=np.uint8)
-    swap[BLACK], swap[WHITE] = WHITE, BLACK
-    return swap[inks]
-
-
 def to_wire(inks: np.ndarray) -> np.ndarray:
     return WIRE_NIBBLE[inks]

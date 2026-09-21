@@ -47,14 +47,6 @@ def test_wire_nibbles_are_seeeds_colour_sprite_codes():
     assert spectra.to_wire(inks).tolist() == [[0xF, 0x0, 0xB, 0x6, 0xD, 0x2]]
 
 
-def test_dark_mode_swaps_black_and_white_only():
-    inks = np.arange(6, dtype=np.uint8)[None, :]
-    out = spectra.invert(inks)[0]
-    assert out[spectra.BLACK] == spectra.WHITE and out[spectra.WHITE] == spectra.BLACK
-    for ink in (spectra.BLUE, spectra.GREEN, spectra.RED, spectra.YELLOW):
-        assert out[ink] == ink
-
-
 def test_ee02_frame_is_native_portrait_inks():
     cfg = Config(panel="ee02").sanitize()
     assert cfg.panel_rotation == 0 and cfg.bit_depth == 4

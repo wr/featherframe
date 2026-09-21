@@ -647,7 +647,7 @@
     <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
     <span class="test-msg">
       <strong>Another frame wants to connect.</strong>
-      A frame with the {{ fr.panel_name }} panel ({{ fr.short }}{% if fr.ip %}, {{ fr.ip }}{% endif %}) is asking this server for updates. Add it and both frames update from here, each with its own picture{% if status.frames.active %}; replacing hands this server to the new frame, and the {{ status.frames.active.panel_name }} frame stops updating{% endif %}.
+      A frame with the {{ fr.panel_name }} panel ({{ fr.short }}{% if fr.ip %}, {{ fr.ip }}{% endif %}) is asking this server for updates. Add it and both frames update from here, each with its own picture{% if status.frames.active %}; replacing hands this server to the new frame, and the {{ status.frames.active.name or status.frames.active.panel_name }} frame stops updating{% endif %}.
       <span class="panel-note-actions">
         <button class="btn primary" type="button" data-frame-action="add" data-frame-id="{{ fr.id }}">Add this frame</button>
         {% if status.frames.active %}<button class="btn" type="button" data-frame-action="switch" data-frame-id="{{ fr.id }}">Replace the current frame</button>{% endif %}
@@ -751,7 +751,7 @@
            vitals below are ITS battery and Wi-Fi, not the household's. #}
         {% if status.frames.added and status.frames.active %}
         <div class="fc-active-name">
-          <div class="vw-row"><span class="who">{{ status.frames.active.panel_name }}</span>{{ seen_pill() }}</div>
+          <div class="vw-row"><span class="who">{{ status.frames.active.name or status.frames.active.panel_name }}</span>{{ seen_pill() }}</div>
           <span class="ign-meta tnum">{{ 'Collage' if config.mode == 'collage' else 'Plates' }} · set in Display, on the right</span>
         </div>
         {% endif %}

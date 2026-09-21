@@ -617,7 +617,9 @@ async def api_frames(request: Request):
 @app.post("/api/frames/{frame_id}")
 async def api_frame_settings(request: Request, frame_id: str):
     """An added frame's own settings: what it shows, which way up it hangs,
-    its mat, its power. Everything else is the household's."""
+    its mat, its power. Everything else is the household's. A name is the one
+    thing every frame in the registry has (W-833), including the wall frame and
+    the viewers, so a rename falls through to the registry."""
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
@@ -629,10 +631,12 @@ async def api_frame_settings(request: Request, frame_id: str):
         return JSONResponse({"error": "a JSON object is required"}, status_code=400)
     try:
         ok = await run_in_threadpool(svc.update_added, frame_id[:40], fields)
+        if not ok and "name" in fields:
+            ok = await run_in_threadpool(svc.rename_frame, frame_id[:40], fields["name"])
     except (TypeError, ValueError) as exc:
         return JSONResponse({"error": f"not saved: {exc}"[:200]}, status_code=400)
     if not ok:
-        return JSONResponse({"error": "no such added frame"}, status_code=404)
+        return JSONResponse({"error": "no such frame"}, status_code=404)
     return JSONResponse({"ok": True, "frames": svc.frames_view()})
 
 

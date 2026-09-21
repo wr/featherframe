@@ -6,15 +6,24 @@ blocklist) is the server's and is not here.
 
 A record keeps what the device reported apart from what the owner set, so a
 check-in never undoes a choice made on the page.
+
+The rows live in the one frame registry (W-833): a viewer is a frame fed over
+HTTP instead of over the kit protocol, and `kind` here is that row's
+`transport`. This module is what knows how a viewer's picture is sized, turned
+and dithered; it no longer owns a store.
 """
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 from datetime import datetime
 from typing import Any, Optional
 
+from . import frames
 from .render.pipeline import VIEW_FORMATS, View
+
+log = logging.getLogger("featherframe.viewers")
 
 # How often a viewer is told to come back (TRMNL's `refresh_rate`, seconds).
 # Constants, not settings (W-821): a battery e-ink screen that asks four times
@@ -79,7 +88,7 @@ def view_of(record: dict) -> View:
     sized = bool(width and height)
     if not sized:
         width, height = _DEFAULT_SIZE
-    page = record.get("kind") == "page"
+    page = frames.transport_of(record) == "page"
     fmt = own.get("fmt")
     if fmt not in VIEW_FORMATS:
         if page:
@@ -124,81 +133,106 @@ def page_size(width, height) -> Optional[tuple[int, int]]:
     return max(64, round(w * scale)), max(64, round(h * scale))
 
 
+_KINDS = ("trmnl", "page")
+
+
+def _out(row: dict) -> dict:
+    """A registry row as the viewer code reads it: a copy carrying `kind`, so a
+    caller that holds on to it cannot reach back into the store."""
+    return {**row, "kind": frames.transport_of(row)}
+
+
+def _new(viewer_id: str, kind: str, stamp: str) -> dict:
+    """A viewer nobody has seen before. Viewers are never parked: pointing a
+    screen at the server is the whole of the approval."""
+    row = frames.new_row(viewer_id, kind if kind in _KINDS else "trmnl", stamp,
+                         status=frames.ON)
+    row["token"] = secrets.token_hex(16)
+    return row
+
+
 class Viewers:
-    """The viewer rows, one JSON blob in our kv store (they are few)."""
+    """The viewers, kept in the one frame registry (W-833). Everything here is
+    scoped to the viewer transports: a kit on the same server is not a viewer
+    and must never be listed, renamed or pruned as one."""
 
-    KEY = "viewers"
-
-    def __init__(self, db) -> None:
-        self.db = db
+    def __init__(self, registry: "frames.FrameRegistry") -> None:
+        self.registry = registry
 
     def all(self) -> dict[str, dict]:
-        rows = self.db.get(self.KEY)
-        return rows if isinstance(rows, dict) else {}
+        return {r["id"]: _out(r) for r in self.registry.by_transport(*_KINDS)}
 
     def get(self, viewer_id: str) -> Optional[dict]:
-        return self.all().get(viewer_id)
+        row = self.registry.get(viewer_id)
+        return _out(row) if row is not None and frames.transport_of(row) in _KINDS else None
 
     def checkin(self, viewer_id: str, now: datetime, kind: str = "trmnl",
                 reported: Optional[dict[str, Any]] = None, ip: Optional[str] = None) -> dict:
         """Record that a viewer asked, and what it said about itself. Absent
         facts leave the last report standing."""
-        rows = self.all()
-        row = rows.get(viewer_id) or {"id": viewer_id, "kind": kind, "set": {}, "reported": {},
-                                      "token": secrets.token_hex(16),
-                                      "first_seen": now.isoformat(timespec="seconds")}
-        row["reported"] = {**(row.get("reported") or {}),
-                           **{k: v for k, v in (reported or {}).items() if v is not None}}
-        row["last_seen"] = now.isoformat(timespec="seconds")
-        if ip:
-            row["ip"] = ip
-        rows[viewer_id] = row
-        if len(rows) > MAX_VIEWERS:
-            for stale in sorted(rows, key=lambda k: rows[k].get("last_seen", ""))[:len(rows) - MAX_VIEWERS]:
-                rows.pop(stale, None)
-        self.db.set(self.KEY, rows)
-        return row
+        stamp = now.isoformat(timespec="seconds")
+        with self.registry.mutate() as rows:
+            row = rows.get(viewer_id)
+            if row is not None and frames.transport_of(row) not in _KINDS:
+                # A kit already holds this id. It is being served; something on
+                # the LAN claiming its MAC must not take its seat. Serve the
+                # picture, record nothing.
+                rows.unchanged()
+                log.warning("viewer %s has the same id as a frame; not recorded", viewer_id)
+                return _out(_new(viewer_id, kind, stamp))
+            if row is None:
+                row = rows[viewer_id] = _new(viewer_id, kind, stamp)
+            row["reported"] = {**frames.reported_of(row),
+                               **{k: v for k, v in (reported or {}).items() if v is not None}}
+            row["last_seen"] = stamp
+            if ip:
+                row["ip"] = ip
+            # The LAN is untrusted: junk IDs must not grow the row forever. Only
+            # viewers are ever dropped — a kit is answered for, not aged out.
+            mine = [k for k, r in rows.items() if frames.transport_of(r) in _KINDS]
+            if len(mine) > MAX_VIEWERS:
+                mine.sort(key=lambda k: rows[k].get("last_seen") or "")
+                for stale in mine[:len(mine) - MAX_VIEWERS]:
+                    rows.pop(stale, None)
+        return _out(row)
 
     def update(self, viewer_id: str, fields: dict[str, Any]) -> Optional[dict]:
         """The owner's choices. A blank or invalid value clears that choice
         (back to the report / the default)."""
-        rows = self.all()
-        row = rows.get(viewer_id)
-        if row is None:
-            return None
-        own = dict(row.get("set") or {})
-        for key in _OWNER_FIELDS:
-            if key not in fields:
-                continue
-            raw = fields[key]
-            if key == "name":
-                value = str(raw or "").strip()[:60] or None
-            elif key == "fmt":
-                value = raw if raw in VIEW_FORMATS else None
-            elif key == "shows":
-                value = raw if raw in SHOWS else None
-            elif key == "dark_quiet":
-                value = None if raw in (None, "") else bool(raw) and str(raw).lower() not in ("0", "false", "off")
-            elif key == "rotation":
-                value = _int(raw, 0, 270)
-                value = value if value in (0, 90, 180, 270) else None
-            else:
-                value = _int(raw, 64, 4096)
-            if value is None:
-                own.pop(key, None)
-            else:
-                own[key] = value
-        row["set"] = own
-        rows[viewer_id] = row
-        self.db.set(self.KEY, rows)
-        return row
+        with self.registry.mutate() as rows:
+            row = rows.get(viewer_id)
+            if row is None or frames.transport_of(row) not in _KINDS:
+                rows.unchanged()
+                return None
+            own = dict(frames.settings_of(row))
+            for key in _OWNER_FIELDS:
+                if key not in fields:
+                    continue
+                raw = fields[key]
+                if key == "name":
+                    value = str(raw or "").strip()[:60] or None
+                elif key == "fmt":
+                    value = raw if raw in VIEW_FORMATS else None
+                elif key == "shows":
+                    value = raw if raw in SHOWS else None
+                elif key == "dark_quiet":
+                    value = None if raw in (None, "") else bool(raw) and str(raw).lower() not in ("0", "false", "off")
+                elif key == "rotation":
+                    value = _int(raw, 0, 270)
+                    value = value if value in (0, 90, 180, 270) else None
+                else:
+                    value = _int(raw, 64, 4096)
+                if value is None:
+                    own.pop(key, None)
+                else:
+                    own[key] = value
+            row["set"] = own
+        return _out(row)
 
     def forget(self, viewer_id: str) -> bool:
-        rows = self.all()
-        if rows.pop(viewer_id, None) is None:
+        if self.get(viewer_id) is None:
             return False
-        self.db.set(self.KEY, rows)
-        return True
+        return self.registry.forget(viewer_id)
 
 
 def trmnl_report(headers) -> dict[str, Any]:
@@ -218,12 +252,13 @@ def trmnl_report(headers) -> dict[str, Any]:
 def public(row: dict) -> dict:
     """A row for the page and /api/viewers: never the token."""
     view = view_of(row)
-    return {"id": row["id"], "kind": row.get("kind"), "name": (row.get("set") or {}).get("name"),
+    kind = frames.transport_of(row)
+    return {"id": row["id"], "kind": kind, "name": (row.get("set") or {}).get("name"),
             "reported": row.get("reported") or {}, "set": row.get("set") or {},
             "view": {"width": view.width, "height": view.height, "format": view.fmt,
                      "rotation": view.rotation},
             "shows": shows_of(row),
-            "dark_quiet": dark_in_quiet_hours(row) if row.get("kind") == "page" else None,
+            "dark_quiet": dark_in_quiet_hours(row) if kind == "page" else None,
             "first_seen": row.get("first_seen"), "last_seen": row.get("last_seen"),
             "ip": row.get("ip")}
 
@@ -242,7 +277,7 @@ def card_row(row: dict, ago) -> dict:
     """One viewer as the page shows it. `ago(iso) -> "7 min ago"`."""
     rep, own = row.get("reported") or {}, row.get("set") or {}
     view = view_of(row)
-    page = row.get("kind") == "page"
+    page = frames.transport_of(row) == "page"
     model = str(rep.get("model") or "")
     what = model if page else _MODEL_NAMES.get(model.lower(), model)
     what = what or ("Browser" if page else "TRMNL client")
@@ -255,7 +290,6 @@ def card_row(row: dict, ago) -> dict:
         "last_seen": ago(row.get("last_seen")), "battery": None if page else battery,
         "ip": row.get("ip"), "rotation": view.rotation, "landscape": view.width > view.height,
         "fmt": view.fmt, "dark_quiet": dark_in_quiet_hours(row), "shows": shows_of(row) or "",
-        # A client that says nothing about its screen: the owner has to.
-        "needs_size": not page and not (rep.get("width") and rep.get("height")),
+        "needs_size": frames.capabilities(row)["needs_size"],
         "width": own.get("width") or "", "height": own.get("height") or "",
     }

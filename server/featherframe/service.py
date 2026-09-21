@@ -31,6 +31,7 @@ from .config import Config, load_config, save_config
 from .sources import Detection, make_source
 from .db import Database
 from .render import collage as collage_mod
+from .render import compose as compose_mod
 from .render import framebuffer
 from .render import pipeline
 from .render import statuspage
@@ -47,7 +48,11 @@ _USER_HOLD_KEY = "user_hold"          # W-735: the owner's pin on the current pl
 _HOLD_DAYS = {"day": 1, "week": 7, "forever": None}
 _CURRENT_PNG = "current.png"
 _CURRENT_SHEET = "current_sheet.png"   # the composed sheet viewers are drawn from (W-823)
+_CURRENT_SHEET_COLOR = "current_sheet_color.png"   # its colour twin, while a colour viewer is about
 _VIEWS_MAX = 8                         # cached viewer renders of the resident frame
+# A gray frame's server composes the colour twin only while a colour viewer (a
+# tablet) has asked within this long: nobody watching in colour, nothing paid.
+COLOR_VIEWER_DAYS = 30
 
 # History thumbnails: 1/8-scale previews keyed by ETag, capped on disk (a
 # Pi's SD card) and matched to what /api/history can list.
@@ -423,6 +428,8 @@ class FeatherframeService:
 
         self._lock = threading.RLock()
         self._view_lock = threading.Lock()   # one viewer render at a time
+        self._recompose_color = None    # draws the resident sheet again, in colour
+        self._color_asked_at: Optional[datetime] = None   # cache of the DB's color_viewer_at
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
@@ -870,7 +877,8 @@ class FeatherframeService:
                           first_ever=novelty == "first-ever")
         result = pipeline.render_single(spec, self.provider, self.config)
         self._commit(result, now, mode="single", species_key=det.key,
-                     label=det.common_name, note=note, novelty=novelty)
+                     label=det.common_name, note=note, novelty=novelty,
+                     recompose=self._single_in_color(spec))
         log.info("rendered single %s (%s, %s), etag=%s", det.common_name, reason, novelty,
                  result.etag)
         # The bird the page said it was waiting on is now on the wall.
@@ -956,31 +964,38 @@ class FeatherframeService:
         grid = cells[:6]  # the grid holds six; the generated sheet takes the cap
         note = self._note_text()
 
-        img = None
-        label = f"{len(grid)}-species collage"
-        # The generated composite is reserved for the nightly review (and the
-        # explicit button): daytime collage rebuilds stay free.
-        if generated_ok and self.config.collage_generated and self.genart is not None:
-            top = cells[:cap] if cap else cells
-            self.genart.color_sheets = self.config.panel_spec.color
-            sheet = self.genart.day_composite(top, on_date, force=force_generated)
-            if sheet is not None:
-                # The key must name what was PAINTED: on a cache hit the cells
-                # come from the sheet's sidecar, not tonight's fresh tally.
-                art, painted = sheet
-                img = collage_mod.render_generated_collage(
-                    art, painted, when=on_date,
-                    total_detections=sum(c.count for c in painted), title=title,
-                    note=note, note_kind=self._note_kind() if note else None)
-                label = f"day in review ({len(painted)} species)"
-        if img is None:
-            img = collage_mod.render_collage(grid, self.provider, when=on_date,
-                                             total_detections=sum(c.count for c in grid),
-                                             title=title, note=note,
-                                             note_kind=self._note_kind() if note else None,
-                                             color=self.config.panel_spec.color)
+        note_kind = self._note_kind() if note else None
+        use_generated = (generated_ok and self.config.collage_generated
+                         and self.genart is not None)
+
+        def compose(color: bool, force: bool = False):
+            """(sheet, label) for this day; `color` draws the art's colour twin."""
+            # The generated composite is reserved for the nightly review (and
+            # the explicit button): daytime collage rebuilds stay free.
+            if use_generated:
+                top = cells[:cap] if cap else cells
+                self.genart.color_sheets = color
+                sheet = self.genart.day_composite(top, on_date, force=force)
+                if sheet is not None:
+                    # The key must name what was PAINTED: on a cache hit the cells
+                    # come from the sheet's sidecar, not tonight's fresh tally.
+                    art, painted = sheet
+                    return (collage_mod.render_generated_collage(
+                                art, painted, when=on_date,
+                                total_detections=sum(c.count for c in painted), title=title,
+                                note=note, note_kind=note_kind),
+                            f"day in review ({len(painted)} species)")
+            return (collage_mod.render_collage(grid, self.provider, when=on_date,
+                                               total_detections=sum(c.count for c in grid),
+                                               title=title, note=note, note_kind=note_kind,
+                                               color=color),
+                    f"{len(grid)}-species collage")
+
+        img, label = compose(self.config.panel_spec.color, force=force_generated)
         result = pipeline.render_image(img, self.config, "collage", label)
-        self._commit(result, now, mode="collage", species_key=None, label=label, note=note)
+        # The twin never forces a repaint: it reads the sheet just painted.
+        self._commit(result, now, mode="collage", species_key=None, label=label, note=note,
+                     recompose=lambda: compose(True)[0])
         log.info("rendered collage (%s), etag=%s", label, result.etag)
         return True
 
@@ -1137,7 +1152,8 @@ class FeatherframeService:
                           first_ever=self._is_new_species(det.scientific_name, now.date()))
         result = pipeline.render_single(spec, self.provider, self.config)
         self._commit(result, now, mode="single", species_key=det.key,
-                     label=f"{det.common_name} (test)", note=note, novelty=None)
+                     label=f"{det.common_name} (test)", note=note, novelty=None,
+                     recompose=self._single_in_color(spec))
         log.info("rendered TEST detection, etag=%s", result.etag)
         return result
 
@@ -1571,10 +1587,16 @@ class FeatherframeService:
     def _commit(self, result: RenderResult, now: datetime, mode: str,
                 species_key: Optional[str], label: str,
                 note: Optional[str] = None, novelty: Optional[str] = None,
-                extra: Optional[dict] = None) -> None:
+                extra: Optional[dict] = None, recompose=None) -> None:
         """`extra`: mode-specific keys carried in the meta row (the welcome
-        plate's `source_ok`), persisted with the rest."""
+        plate's `source_ok`), persisted with the rest. `recompose`: draws this
+        same sheet again with the art in colour, for a gray frame's colour
+        viewers; kept so the first one to ask need not repaint the wall."""
+        # Before the lock: composing takes seconds and the frame is polling.
+        if result.color_sheet is None and recompose is not None and self._color_wanted(now):
+            result.color_sheet = self._compose_color(recompose)
         with self._lock:
+            self._recompose_color = recompose
             prev = self._meta
             # The dwell clock (held_since) starts when a novel bird takes the
             # frame and carries across its own re-renders: a first-today robin
@@ -1616,28 +1638,92 @@ class FeatherframeService:
 
     @staticmethod
     def _save_sheet(result: RenderResult) -> None:
-        """Keep the composed sheet beside the frame: every viewer's render is
-        drawn from it. Best-effort, like the thumbnail: without it a view is
-        drawn from the preview PNG instead."""
-        target = paths.frames_dir() / _CURRENT_SHEET
+        """Keep the composed sheet (and its colour twin, when there is one)
+        beside the frame: every viewer's render is drawn from them.
+        Best-effort, like the thumbnail: without it a view is drawn from the
+        preview PNG instead. Never leaves the last frame's sheet behind."""
+        frames = paths.frames_dir()
+        for name, sheet in ((_CURRENT_SHEET, result.sheet),
+                            (_CURRENT_SHEET_COLOR, result.color_sheet)):
+            FeatherframeService._write_sheet(frames / name, sheet)
+
+    @staticmethod
+    def _write_sheet(target, sheet: Optional[Image.Image]) -> None:
         try:
-            if result.sheet is None:
-                target.unlink(missing_ok=True)   # never leave the last frame's sheet behind
+            if sheet is None:
+                target.unlink(missing_ok=True)
                 return
             tmp = target.with_suffix(".tmp")
-            result.sheet.save(tmp, format="PNG", compress_level=1)
+            sheet.save(tmp, format="PNG", compress_level=1)
             os.replace(tmp, target)
         except Exception:  # noqa: BLE001
-            log.warning("sheet for %s not saved", result.etag, exc_info=True)
+            log.warning("%s not saved", target.name, exc_info=True)
             target.unlink(missing_ok=True)
 
     # -- viewers (W-822) ---------------------------------------------------
+    def _single_in_color(self, spec: SingleSpec):
+        return lambda: compose_mod.render_single(spec, self.provider, color=True)
+
+    def _color_wanted(self, now: datetime) -> bool:
+        """A colour viewer has asked lately, and the frame's own sheet is not
+        already colour (a colour frame's viewers read that one)."""
+        if self.config.panel_spec.color:
+            return False
+        asked = self._color_asked_at
+        if asked is None:
+            try:
+                asked = datetime.fromisoformat(str(self.db.get("color_viewer_at")))
+            except (ValueError, TypeError):
+                return False
+            self._color_asked_at = asked
+        return now - asked < timedelta(days=COLOR_VIEWER_DAYS)
+
+    @staticmethod
+    def _compose_color(recompose) -> Optional[Image.Image]:
+        try:
+            sheet = recompose()
+        except Exception:  # noqa: BLE001 — colour is a nicety; the frame is the job
+            log.warning("colour sheet not composed", exc_info=True)
+            return None
+        return sheet if sheet is not None and sheet.mode == "RGB" else None
+
+    def _ensure_color_sheet(self) -> None:
+        """A colour viewer is asking. Remember it (once a day is enough), and
+        if the resident frame has no colour twin yet, draw one now: from the
+        render's own recompose when this process made the frame (the wall is
+        not touched), else by rendering the resident subject again."""
+        now = self._clock()
+        if self.config.panel_spec.color:
+            return
+        if self._color_asked_at is None or now - self._color_asked_at > timedelta(days=1):
+            self._color_asked_at = now
+            self.db.set("color_viewer_at", now.isoformat(timespec="seconds"))
+        target = paths.frames_dir() / _CURRENT_SHEET_COLOR
+        if target.exists():
+            return
+        with self._view_lock:
+            if target.exists():
+                return
+            with self._lock:
+                recompose, etag = self._recompose_color, self._etag
+                mode = self._meta.get("mode")
+            if recompose is not None:
+                sheet = self._compose_color(recompose)
+                with self._lock:
+                    if sheet is not None and self._etag == etag:   # still that frame
+                        self._write_sheet(target, sheet)
+                return
+        if mode in ("single", "collage"):
+            self.rerender_current()   # a restart forgot the recompose: one repaint
+
     def view_png(self, view: "pipeline.View",
                  if_none_match: Optional[str] = None) -> tuple[int, Optional[bytes], Optional[str]]:
         """The resident frame's picture for one viewer: (status, png, etag).
         Read-only by design: a viewer never moves the frame, the device card,
         the panel or the ingest cursor. Rendered once per (frame, variant) and
         kept on disk; a new frame drops the old frame's views."""
+        if view.fmt == "color":
+            self._ensure_color_sheet()
         with self._lock:
             resident = self._etag
         if not resident:
@@ -1653,8 +1739,9 @@ class FeatherframeService:
             if cached.exists():
                 return 200, cached.read_bytes(), etag
             frames = paths.frames_dir()
-            source = next((f for f in (frames / _CURRENT_SHEET, frames / _CURRENT_PNG)
-                           if f.exists()), None)
+            wanted = ((_CURRENT_SHEET_COLOR,) if view.fmt == "color" else ()) \
+                + (_CURRENT_SHEET, _CURRENT_PNG)
+            source = next((frames / n for n in wanted if (frames / n).exists()), None)
             if source is None:
                 return 404, None, None
             with Image.open(source) as sheet:

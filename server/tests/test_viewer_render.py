@@ -156,3 +156,76 @@ def test_bad_asks_are_400s(client):
     assert client.get("/api/view.png?w=10&h=10").status_code == 400
     assert client.get("/api/view.png?w=300&h=400&format=plaid").status_code == 400
     assert client.get("/api/view.png").status_code == 400
+
+
+# -- colour for a gray frame's server ------------------------------------------
+class _ColourArt:
+    """A provider whose art has a colour twin: a red disc on paper."""
+    name = "stub"
+
+    def artwork(self, common_name, scientific_name):
+        from PIL import ImageDraw
+        from featherframe.render.provider import Artwork
+        rgb = Image.new("RGB", (900, 900), "white")
+        ImageDraw.Draw(rgb).ellipse((150, 150, 750, 750), fill=(200, 30, 30))
+        gray = rgb.convert("L")
+        return Artwork(gray, 159, color_loader=lambda: (gray, rgb))
+
+
+def _is_coloured(png: bytes) -> bool:
+    px = np.asarray(Image.open(io.BytesIO(png)).convert("RGB")).astype(int)
+    return bool((np.abs(px[..., 0] - px[..., 1]) > 60).any())
+
+
+def _show_cardinal(svc):
+    from featherframe.sources import Detection
+    svc.provider = _ColourArt()
+    det = Detection(rowid=1, date="2026-09-20", time="08:00:00",
+                    common_name="Northern Cardinal",
+                    scientific_name="Cardinalis cardinalis", confidence=0.9)
+    svc._render_single(det, svc._clock(), reason="detection")
+
+
+def test_nobody_asking_for_colour_costs_the_render_nothing(client, tmp_path):
+    svc = client.app.state.service
+    svc._clock = lambda: datetime(2026, 9, 20, 8, 0)
+    _show_cardinal(svc)
+    assert not (tmp_path / "data" / "frames" / "current_sheet_color.png").exists()
+
+
+def test_the_first_colour_ask_gets_colour_and_later_renders_keep_it(client, tmp_path):
+    svc = client.app.state.service
+    svc._clock = lambda: datetime(2026, 9, 20, 8, 0)
+    _show_cardinal(svc)
+    wall = svc._frame_bytes
+    r = client.get("/api/view.png?w=600&h=800&format=color")
+    assert r.status_code == 200 and _is_coloured(r.content)
+    # The wall's own pixels are what they were: colour is a second sheet.
+    assert svc._frame_bytes == wall
+    # A later render composes the twin without being asked again.
+    (tmp_path / "data" / "frames" / "current_sheet_color.png").unlink()
+    _show_cardinal(svc)
+    assert (tmp_path / "data" / "frames" / "current_sheet_color.png").exists()
+    # And a gray viewer of the same frame is still gray.
+    assert not _is_coloured(client.get("/api/view.png?w=600&h=800&format=gray256").content)
+
+
+def test_colour_stops_being_composed_when_no_colour_viewer_has_asked_for_a_month(client, tmp_path):
+    svc = client.app.state.service
+    svc._clock = lambda: datetime(2026, 9, 20, 8, 0)
+    _show_cardinal(svc)
+    client.get("/api/view.png?w=600&h=800&format=color")
+    svc._clock = lambda: datetime(2026, 11, 1, 8, 0)
+    svc._color_asked_at = None   # as after a restart: only the DB remembers
+    _show_cardinal(svc)
+    assert not (tmp_path / "data" / "frames" / "current_sheet_color.png").exists()
+
+
+def test_after_a_restart_the_first_colour_ask_renders_the_resident_subject_again(client):
+    svc = client.app.state.service
+    svc._clock = lambda: datetime(2026, 9, 20, 8, 0)
+    _show_cardinal(svc)
+    svc._recompose_color = None   # a restart forgets how the frame was composed
+    r = client.get("/api/view.png?w=600&h=800&format=color")
+    assert r.status_code == 200 and _is_coloured(r.content)
+    assert svc._meta["label"] == "Northern Cardinal"

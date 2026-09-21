@@ -124,9 +124,15 @@ def main() -> int:
     print(f"  PNG:   {png}")
     print(f"  Frame: {fff}  ({len(result.frame):,} bytes)")
     if args.views:
+        # A gray frame's server composes the colour twin for its colour viewers.
+        from .render import compose
+        in_color = result.sheet if result.sheet.mode == "RGB" else (
+            compose.render_fallback(spec, color=True) if args.fallback
+            else compose.render_single(spec, provider, color=True))
         for label, view in _VIEWS:
             target = out / f"{name}_view_{label}.png"
-            pipeline.render_view(result.sheet, view).save(target)
+            sheet = in_color if view.fmt == "color" else result.sheet
+            pipeline.render_view(sheet, view).save(target)
             print(f"  View:  {target}  ({view.key})")
     return 0
 

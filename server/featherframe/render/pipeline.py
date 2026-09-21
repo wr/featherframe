@@ -49,6 +49,9 @@ class RenderResult:
     # The composed sheet this was finished from (theme size, before the panel
     # fit, the mat and the dither): what a viewer's render is drawn from.
     sheet: Optional[Image.Image] = None
+    # The same sheet with the art's colour twin, when a gray frame's server has
+    # a colour viewer to draw for (the service composes it; W-823).
+    color_sheet: Optional[Image.Image] = None
 
     def save(self, directory: Path, name: str) -> tuple[Path, Path]:
         directory.mkdir(parents=True, exist_ok=True)

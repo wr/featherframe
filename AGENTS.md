@@ -110,7 +110,13 @@ the mat and the dither) as `data/frames/current_sheet.png`, and
 is the frame's plus the variant; renders are cached in `data/frames/views/`
 (a handful, dropped with the frame). A view never touches the frame, the
 device card, `config.panel` or the cursor. `gray16` at 1404×1872 is the EE03
-preview pixel for pixel (a test holds it): TRMNL X is the same glass.
+preview pixel for pixel (a test holds it): TRMNL X is the same glass. Colour
+for a gray frame's server is a second sheet (`current_sheet_color.png`), never
+the wall's pixels: every committing render hands `_commit` a `recompose` (the
+same spec, art in colour), which is drawn only while a colour viewer has asked
+within `COLOR_VIEWER_DAYS` (`color_viewer_at` in the DB). The first ask draws
+the twin from the kept `recompose` without touching the wall; after a restart
+it costs one `rerender_current()`. A colour frame's viewers read its own sheet.
 
 **Ingest (`birdnet.py`) is strictly read-only.** Opens `?mode=ro`, never writes
 or locks BirdNET's DB. The cursor is `WHERE rowid > :last`. Every method

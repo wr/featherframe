@@ -109,14 +109,6 @@ def test_all_time_species_count(go):
     assert src.all_time_species_count() == 3
 
 
-def test_species_ordinal_by_first_heard(go):
-    src, _ = go
-    assert src.species_ordinal("Cardinalis cardinalis") == 1
-    assert src.species_ordinal("Cyanocitta cristata") == 2
-    assert src.species_ordinal("Turdus migratorius") == 3
-    assert src.species_ordinal("Unknown species") is None
-
-
 def test_first_seen_date(go):
     src, _ = go
     # 2026-01-16 UTC; local date may differ by a day at the extreme, so just check shape
@@ -131,7 +123,6 @@ def test_soft_fail_returns_safe_defaults(go):
     assert src.latest() is None
     assert src.max_rowid() == 0
     assert src.all_time_species_count() == 0
-    assert src.species_ordinal("x") is None
     assert src.top_species_today() == []
 
 

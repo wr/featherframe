@@ -159,9 +159,6 @@ class AppriseSource(DetectionSource):
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         return None  # a push window isn't authoritative for first-seen
 
-    def species_ordinal(self, scientific_name: str) -> Optional[int]:
-        return None  # no authoritative ordering -> no plate number
-
     def top_species_today(self, on_date=None, min_confidence: float = 0.0,
                           limit: int = 6) -> list[dict]:
         day = (on_date or datetime.now().date()).isoformat()

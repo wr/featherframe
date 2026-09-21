@@ -53,8 +53,7 @@ def test_pill_shrinks_its_type_to_fit_max_w():
 
 def test_note_pill_sits_between_the_corner_marks():
     spec = SingleSpec(common_name="American Robin", scientific_name="Turdus migratorius",
-                      when=datetime(2026, 9, 12, 8, 14), plate_number=43,
-                      note="No detections since 11:27 pm", note_kind="quiet")
+                      when=datetime(2026, 9, 12, 8, 14), note="No detections since 11:27 pm", note_kind="quiet")
 
     class _Blank(ArtProvider):
         def artwork(self, c, s):
@@ -62,7 +61,7 @@ def test_note_pill_sits_between_the_corner_marks():
 
     out = compose.render_single(spec, _Blank())
     marks = _field()
-    typography.date_mark(marks, spec.when); typography.plate_number_mark(marks, 43)
+    typography.date_mark(marks, spec.when); typography.plate_mark(marks, 388)
     only = _field(); typography.note_line(only, spec.note, max_w=compose.note_width(), kind="quiet")
     note_px = np.asarray(only) < 128
     assert note_px.any() and not ((np.asarray(marks) < 128) & note_px).any()

@@ -190,28 +190,6 @@ class BirdNetDB(DetectionSource):
             log.debug("first_seen_date failed: %s", exc)
             return None
 
-    def species_ordinal(self, scientific_name: str) -> Optional[int]:
-        """1-based rank of a species among all-time-unique species ordered by
-        first appearance — the 'No. 47' plate number. None if unknown/failure."""
-        try:
-            with self._connect() as conn:
-                row = conn.execute(
-                    """
-                    WITH firsts AS (
-                        SELECT Sci_Name, MIN(Date || ' ' || Time) AS first_seen
-                        FROM detections GROUP BY Sci_Name
-                    )
-                    SELECT COUNT(*) AS ordinal FROM firsts
-                    WHERE first_seen <= (SELECT first_seen FROM firsts WHERE Sci_Name = ?)
-                    """,
-                    (scientific_name,),
-                ).fetchone()
-            n = int(row["ordinal"]) if row else 0
-            return n or None
-        except (sqlite3.Error, FileNotFoundError) as exc:
-            log.debug("species_ordinal failed: %s", exc)
-            return None
-
 
 # Source-neutral alias (the DetectionSource factory prefers this name).
 BirdNetPiSource = BirdNetDB

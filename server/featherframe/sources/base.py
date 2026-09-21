@@ -88,8 +88,3 @@ class DetectionSource(abc.ABC):
     @abc.abstractmethod
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         """Earliest date ('YYYY-MM-DD') this species was recorded. None if unknown."""
-
-    @abc.abstractmethod
-    def species_ordinal(self, scientific_name: str) -> Optional[int]:
-        """1-based rank among all-time species by first appearance — the 'No. 47'
-        plate number. None if unknown/failure."""

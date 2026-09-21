@@ -64,7 +64,6 @@ LATIN_PERIOD = "."             # Audubon's trailing period on the Latin name
 # Provenance for an AI-drawn plate (W-733): a four-point star before the
 # number in the corner, so a synthetic sheet never hangs as a Havell scan
 # and the caption keeps the plate's own lines only.
-GENERATED_MARK_GAP = 12        # star -> "No." in the corner
 
 # A species never heard before today (W-744): a rule around the whole sheet
 # at the mat edge, the folio's way of marking a plate of note, with a small
@@ -80,10 +79,12 @@ FIRST_EVER_LABEL_PAD = 18      # pill side padding
 FIRST_EVER_PILL_H = 44
 FIRST_EVER_PILL_GAP = 14       # paper between the pill and the rule on either side
 
-CORNER_SIZE = 28               # date · time (left) and "No. NN" (right)
+CORNER_SIZE = 28               # date · time (left) and "Plate CLIX" (right)
 CORNER_INSET = 36              # from the side edges
 MARKS_BASELINE = HEIGHT - 30
-PLATE_NO_PREFIX = "No."        # the script has no numero glyph
+PLATE_PREFIX = "Plate"         # then the Havell number, in roman as engraved
+PLATE_NUMERAL_SIZE = 22        # the numeral's engraved capitals, beside the 28 script
+HAVELL_PLATES = 435
 CORNER_SEP = "·"               # between date and time ("1 Sep · 8:14 am")
 COLON_KERN = 0.0               # pulls the run after a colon in, fraction of size
                                # (Kapakana needed -0.12; Pinyon is kerned, so 0)

@@ -57,8 +57,6 @@ class _Source:
     def latest(self, min_confidence=0.0, scan=25):
         return self._latest
 
-    def species_ordinal(self, sci):
-        return None
 
     def first_seen_date(self, sci):
         return None
@@ -258,8 +256,7 @@ def test_note_renders_in_the_bottom_margin(svc):
     # No `when`: with one the fallback sets "First recorded <date>." as a
     # legend line on the caption's last baseline (W-743), inside the band
     # the note is checked in below.
-    base = SingleSpec(common_name="Painted Bunting", scientific_name="Passerina ciris",
-                      plate_number=3)
+    base = SingleSpec(common_name="Painted Bunting", scientific_name="Passerina ciris")
     plain = pipeline.render_single(base, provider, config)
     noted = pipeline.render_single(
         SingleSpec(**{**base.__dict__, "note": "Nothing heard since 11:27 pm"}),

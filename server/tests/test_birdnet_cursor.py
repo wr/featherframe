@@ -95,18 +95,6 @@ def test_all_time_species_count(birds_db):
     assert BirdNetDB(birds_db).all_time_species_count() == 6
 
 
-def test_species_ordinal_by_first_seen(tmp_path):
-    p = create_birds_db(tmp_path / "b.db", _rows([
-        (0, "Northern Cardinal", "Cardinalis cardinalis", 0.9),   # first ever
-        (7, "Blue Jay", "Cyanocitta cristata", 0.9),              # second
-        (14, "American Robin", "Turdus migratorius", 0.9),        # third
-    ]))
-    db = BirdNetDB(str(p))
-    assert db.species_ordinal("Cardinalis cardinalis") == 1
-    assert db.species_ordinal("Cyanocitta cristata") == 2
-    assert db.species_ordinal("Turdus migratorius") == 3
-
-
 def test_first_seen_date(tmp_path):
     from datetime import timedelta
     base = datetime(2026, 5, 15, 6, 0)
@@ -125,7 +113,6 @@ def test_soft_fail_returns_safe_defaults(missing_db):
     assert db.max_rowid() == 0
     assert db.top_species_today() == []
     assert db.all_time_species_count() == 0
-    assert db.species_ordinal("x") is None
 
 
 def test_reader_never_locks_writer(birds_db):

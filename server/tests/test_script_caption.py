@@ -67,13 +67,15 @@ class _Art(ArtProvider):
         self._generated = generated
 
     def artwork(self, common_name, scientific_name):
-        return Artwork(image=self._img, audubon_plate=None, composite=self._composite,
+        # A scan carries its Havell number; a generated sheet has none.
+        return Artwork(image=self._img, audubon_plate=None if self._generated else 131,
+                       composite=self._composite,
                        generated=self._generated, legend=list(self._legend))
 
 
 def _spec(**kw):
     base = dict(common_name="American Robin", scientific_name="Turdus migratorius",
-                when=datetime(2026, 9, 4, 11, 34), plate_number=43)
+                when=datetime(2026, 9, 4, 11, 34))
     base.update(kw)
     return SingleSpec(**base)
 
@@ -139,7 +141,7 @@ def test_note_sits_between_the_corner_marks_without_touching_them():
     out = compose.render_single(_spec(note=note), _blank(LEGEND))
     scratch = Image.new("L", out.size, 255)
     typography.date_mark(scratch, _spec().when)
-    typography.plate_number_mark(scratch, 43)
+    typography.plate_mark(scratch, 388)
     marks = np.asarray(scratch) < 128
     only_note = Image.new("L", out.size, 255)
     typography.note_line(only_note, note, max_w=compose.note_width())
@@ -197,11 +199,10 @@ def _provenance(monkeypatch, provider, **spec):
     return seen
 
 
-def test_generated_art_gets_the_star_before_its_number(monkeypatch):
+def test_generated_art_gets_the_star_where_a_scan_has_its_number(monkeypatch):
     gen = _provenance(monkeypatch, _Art(Image.new("L", (600, 400), 255), LEGEND, generated=True))
     assert gen["lines"] == LEGEND                      # the caption is the plate's own
-    number_left = theme.WIDTH - theme.CORNER_INSET - typography.script_width("No. 43", theme.CORNER_SIZE)
-    assert gen["mark_right"] == number_left - theme.GENERATED_MARK_GAP
+    assert gen["mark_right"] == theme.WIDTH - theme.CORNER_INSET   # Audubon never numbered it
     scan = _provenance(monkeypatch, _blank(LEGEND))
     assert "mark_right" not in scan
     assert scan["top"] == gen["top"]                   # and nothing moves
@@ -210,14 +211,14 @@ def test_generated_art_gets_the_star_before_its_number(monkeypatch):
 def test_the_star_sits_on_the_marks_line_inside_the_panel():
     out = compose.render_single(_spec(), _Art(Image.new("L", (600, 400), 255), LEGEND, generated=True))
     y0, y1 = theme.MARKS_BASELINE - 30, theme.MARKS_BASELINE + 2
-    x1 = theme.WIDTH - theme.CORNER_INSET - typography.script_width("No. 43", theme.CORNER_SIZE) - theme.GENERATED_MARK_GAP
+    x1 = theme.WIDTH - theme.CORNER_INSET
     assert _ink(out, (int(x1) - 30, y0, int(x1) + 1, y1)) > 60
 
 
-def test_fallback_plate_keeps_the_corner_number():
+def test_fallback_plate_has_no_corner_number():
     out = compose.render_fallback(_spec(first_seen="2026-05-17"))
     y0, y1 = theme.MARKS_BASELINE - 30, theme.MARKS_BASELINE + 8
-    assert _ink(out, (theme.WIDTH - theme.CORNER_INSET - 140, y0, theme.WIDTH - theme.CORNER_INSET, y1)) > 60
+    assert _ink(out, (theme.WIDTH - theme.CORNER_INSET - 140, y0, theme.WIDTH - theme.CORNER_INSET, y1)) == 0
 
 
 def test_fallback_hangs_the_empty_bough_with_the_caption_where_a_plates_is(monkeypatch):

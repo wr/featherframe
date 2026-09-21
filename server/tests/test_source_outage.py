@@ -58,8 +58,6 @@ class _Source:
     def latest(self, min_confidence=0.0, scan=25):
         return self._latest
 
-    def species_ordinal(self, sci):
-        return None
 
     def first_seen_date(self, sci):
         return None

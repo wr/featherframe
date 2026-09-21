@@ -84,8 +84,6 @@ class _GateSource:
     def first_seen_date(self, sci):
         return self.first_seen.get(sci)
 
-    def species_ordinal(self, sci):
-        return None
 
 
 def _capture_renders(svc, monkeypatch):

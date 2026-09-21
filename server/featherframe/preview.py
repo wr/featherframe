@@ -47,7 +47,6 @@ def main() -> int:
                          "(e.g. custom:800x480:gray16:90,270)")
     ap.add_argument("--mat-inset", type=float, default=None,
                     help="override mat inset %% per edge (0 = full-bleed, no mat allowance)")
-    ap.add_argument("--plate-number", type=int, default=42)
     ap.add_argument("--note", default=None, metavar="TEXT",
                     help='footnote in the bottom margin, e.g. "Nothing heard since 11:27 pm"')
     ap.add_argument("--first-ever", action="store_true",
@@ -87,9 +86,9 @@ def main() -> int:
 
     if args.all:
         data = _load_index_species()
-        for i, sp in enumerate(data, start=1):
+        for sp in data:
             spec = SingleSpec(common_name=sp["common"], scientific_name=sp["scientific"],
-                              when=_now(), plate_number=i, first_seen="2026-05-17",
+                              when=_now(), first_seen="2026-05-17",
                               note=args.note)
             result = pipeline.render_single(spec, provider, config)
             name = sp["common"].lower().replace(" ", "_")
@@ -102,17 +101,16 @@ def main() -> int:
         common = args.species if args.species != "Northern Cardinal" else "Painted Bunting"
         spec = SingleSpec(common_name=common,
                           scientific_name=args.scientific or "Passerina ciris",
-                          when=_now(), plate_number=args.plate_number, first_seen="2026-05-17",
+                          when=_now(), first_seen="2026-05-17",
                           note=args.note)
         # Force fallback by not matching: render_fallback directly.
         from .render import compose
-        img = compose.render_fallback(spec, show_plate_number=True,
-                                      color=config.panel_spec.color)
+        img = compose.render_fallback(spec, color=config.panel_spec.color)
         result = pipeline.render_image(img, config, "fallback", common)
     else:
         sci = args.scientific or _guess_scientific(index, args.species)
         spec = SingleSpec(common_name=args.species, scientific_name=sci, when=_now(),
-                          plate_number=args.plate_number, first_seen="2026-05-17",
+                          first_seen="2026-05-17",
                           note=args.note, first_ever=args.first_ever)
         result = pipeline.render_single(spec, provider, config)
 

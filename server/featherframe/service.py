@@ -854,7 +854,6 @@ class FeatherframeService:
         self._render_single(candidate, now, reason="detection")
 
     def _render_single(self, det: Detection, now: datetime, reason: str) -> None:
-        ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else None
         first_seen = self._first_seen(det.scientific_name)
         novelty = self._novelty(det, now)
         # Any render that isn't the resident subject redrawn ("settings") is
@@ -865,7 +864,7 @@ class FeatherframeService:
         note = self._note_text()
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=det.timestamp if det.timestamp != datetime.min else now,
-                          plate_number=ordinal, first_seen=first_seen, note=note,
+                          first_seen=first_seen, note=note,
                           note_kind=self._note_kind() if note else None,
                           first_ever=novelty == "first-ever")
         result = pipeline.render_single(spec, self.provider, self.config)
@@ -1125,7 +1124,6 @@ class FeatherframeService:
         det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"), time=now.strftime("%H:%M:%S"),
                         common_name=common_name, scientific_name=scientific_name,
                         confidence=0.99)
-        ordinal = self.source.species_ordinal(det.scientific_name) if self.config.show_plate_number else 1
         # A test bird is injected, not heard: the source is still silent, so
         # the footnote (if on) stays truthful.
         note = self._note_text()
@@ -1133,7 +1131,7 @@ class FeatherframeService:
         # heard the species; the meta carries no novelty, so a test bird
         # never holds the frame against the real ones (and bypasses any hold).
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
-                          when=now, plate_number=ordinal or 1, first_seen=now.strftime("%Y-%m-%d"),
+                          when=now, first_seen=now.strftime("%Y-%m-%d"),
                           note=note, note_kind=self._note_kind() if note else None,
                           first_ever=self._is_new_species(det.scientific_name, now.date()))
         result = pipeline.render_single(spec, self.provider, self.config)

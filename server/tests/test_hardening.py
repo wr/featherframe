@@ -173,8 +173,6 @@ class _PagedSource:
     def latest(self, min_confidence=0.0, scan=25):
         return self._tail
 
-    def species_ordinal(self, sci):
-        return None
 
     def first_seen_date(self, sci):
         return None
@@ -284,8 +282,6 @@ def test_birdnet_go_summary_oddities_do_not_raise(monkeypatch):
         {"scientific_name": "C c", "first_heard": None},
     ])
     assert src.all_time_species_count() == 3
-    assert src.species_ordinal("B b") in (None, 1, 2)
-    assert src.species_ordinal("nope") is None
     assert src.first_seen_date("A a") is None
 
 

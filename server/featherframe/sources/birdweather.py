@@ -174,9 +174,6 @@ class BirdWeatherSource(DetectionSource):
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         return None  # not cheaply available from the station API
 
-    def species_ordinal(self, scientific_name: str) -> Optional[int]:
-        return None  # no per-species first-seen ordering -> no plate number
-
     def top_species_today(self, on_date=None, min_confidence: float = 0.0,
                           limit: int = 6) -> list[dict]:
         # period=day is TODAY. The station API has no cheap per-date tally, so

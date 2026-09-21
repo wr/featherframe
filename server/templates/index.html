@@ -863,6 +863,12 @@
               <div class="vw-fields">
                 <label for="vw-name-{{ loop.index }}">Name</label>
                 <input type="text" id="vw-name-{{ loop.index }}" data-vw="name" maxlength="60" value="{{ v.name }}" placeholder="{{ v.what or v.title }}">
+                <label for="vw-shows-{{ loop.index }}">Shows</label>
+                <select class="sel" id="vw-shows-{{ loop.index }}" data-vw="shows">
+                  <option value="" {{ 'selected' if not v.shows else '' }}>What the frame shows</option>
+                  <option value="plates" {{ 'selected' if v.shows == 'plates' else '' }}>Plates</option>
+                  <option value="collage" {{ 'selected' if v.shows == 'collage' else '' }}>Collage</option>
+                </select>
                 {% if v.page %}
                 <label for="vw-look-{{ loop.index }}">Look</label>
                 <select class="sel" id="vw-look-{{ loop.index }}" data-vw="fmt">

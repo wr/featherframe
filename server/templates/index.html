@@ -848,7 +848,7 @@
           <h2 class="grp">Viewers</h2>
         </div>
         {% if not viewers %}
-        <p class="vw-empty">Other screens can show what the frame shows. On a tablet, open <a href="/view" target="_blank" rel="noopener">{{ request.base_url }}view</a>. A TRMNL, Kobo or Kindle can be pointed at this server too: <a href="https://github.com/wr/featherframe#other-screens-tablets-trmnl-kobo-kindle" target="_blank" rel="noopener">how to add one</a>.</p>
+        <p class="vw-empty">Other screens can show what the frame shows. On a tablet, open <a href="/view" target="_blank" rel="noopener" id="vw-url">this address with /view</a>. A TRMNL, Kobo or Kindle can be pointed at this server too: <a href="https://github.com/wr/featherframe#other-screens-tablets-trmnl-kobo-kindle" target="_blank" rel="noopener">how to add one</a>.</p>
         {% else %}
         <ul class="vw-list">
           {% for v in viewers %}
@@ -1882,6 +1882,8 @@
   });
 
   // -- viewers: a screen's own few settings, saved one viewer at a time ----------
+  // The empty state spells the address out, as the owner must type it on the tablet.
+  if ($('vw-url')) $('vw-url').textContent = location.host + '/view';
   document.querySelectorAll('[data-vw-action]').forEach(function (b) {
     b.addEventListener('click', function () {
       var li = b.closest('[data-viewer]'), body = {};

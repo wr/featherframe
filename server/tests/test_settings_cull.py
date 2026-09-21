@@ -68,7 +68,10 @@ def test_the_page_carries_none_of_the_removed_controls(client):
     html = client.get("/").text
     for name in REMOVED:
         assert f'name="{name}"' not in html, name
-    assert 'name="collage_interval_hours"' in html and 'name="mode"' in html
+    # The household form keeps its own fields; `mode` went with W-833 (what a
+    # screen shows is that screen's, and it says "shows", not "mode").
+    assert 'name="collage_interval_hours"' in html
+    assert 'name="mode"' not in html
 
 
 def test_the_source_is_polled_on_a_constant(client):

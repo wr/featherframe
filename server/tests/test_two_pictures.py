@@ -15,7 +15,7 @@ from starlette.testclient import TestClient
 
 from featherframe.render import pipeline
 from tests._fixtures import create_birds_db, make_row
-from tests._frames import FRAME_ID, add_kit
+from tests._frames import FRAME_ID, add_kit, frame_bytes
 
 NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
@@ -73,7 +73,7 @@ def test_an_ipad_on_the_collage_beside_a_frame_on_plates(client, tmp_path):
     svc = client.app.state.service
     client.get(IPAD)
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
-    wall = (svc._etag, svc._frame_bytes, dict(svc._meta))
+    wall = (svc._etag, frame_bytes(svc), dict(svc._meta))
     svc.tick()
     assert _sheets(svc, "collage") == ["sheet.png"]
     state = client.get(IPAD).json()
@@ -82,7 +82,7 @@ def test_an_ipad_on_the_collage_beside_a_frame_on_plates(client, tmp_path):
     assert not np.array_equal(_png(client, state),
                               np.asarray(Image.open(io.BytesIO(plate)).convert("L")))
     # The wall never noticed.
-    assert (svc._etag, svc._frame_bytes, dict(svc._meta)) == wall
+    assert (svc._etag, frame_bytes(svc), dict(svc._meta)) == wall
     # A new plate on the wall is not news to a screen on the collage: its
     # picture is the collage, which is redrawn on its own interval.
     drawn = svc.pictures["collage"].at
@@ -189,6 +189,7 @@ def test_a_picture_nobody_shows_any_more_is_dropped(client):
 
 
 def test_the_card_offers_shows(client):
+    """Every frame's row offers Shows, the tablet's exactly like the kit's."""
     client.get(IPAD)
-    html = client.get("/").text
-    assert 'data-vw="shows"' in html and "What the frame shows" in html
+    row = client.get("/").text.split('data-frame="PAGE-IPAD"')[1].split(chr(10) + "    </li>")[0]
+    assert 'data-f="shows"' in row and 'value="plates"' in row and 'value="collage"' in row

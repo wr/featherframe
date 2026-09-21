@@ -85,7 +85,7 @@ def test_panel_from_device_report():
 import pytest
 from starlette.testclient import TestClient
 
-from tests._frames import connect
+from tests._frames import connect, device
 
 
 @pytest.fixture
@@ -122,6 +122,10 @@ def _answer(client, frame_id, action):
     return r.json()
 
 
+def _by_status(svc, status: str) -> list:
+    return [f["id"] for f in svc.frames_list() if f["status"] == status]
+
+
 def test_the_first_frame_is_let_in_and_a_second_one_waits(client):
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
@@ -129,10 +133,10 @@ def test_the_first_frame_is_let_in_and_a_second_one_waits(client):
 
     r = client.get("/api/frame", headers=COLOUR)
     assert r.status_code == 403 and r.headers["x-ff-frame"] == "pending"
-    view = svc.frames_view()
-    assert view["active"]["id"] == "AAAAAAAAAA01"
-    assert [f["id"] for f in view["pending"]] == ["BBBBBBBBBB02"] and view["ignored"] == []
-    assert "ED103TC2" in svc.device.panel             # the card is still its card
+    assert _by_status(svc, "on") == ["AAAAAAAAAA01"]
+    assert _by_status(svc, "asking") == ["BBBBBBBBBB02"] and _by_status(svc, "ignored") == []
+    # Each frame's report is its own.
+    assert "ED103TC2" in device(svc, "AAAAAAAAAA01").panel
     assert client.get("/api/frame", headers=GRAY).status_code in (200, 304)
 
 
@@ -156,27 +160,35 @@ def test_two_kits_of_different_panels_are_each_drawn_for_their_own(client):
     assert again.headers["x-ff-rotation"] == "90"
 
 
-def test_switching_hands_the_server_to_the_new_frame(client):
+def test_there_is_no_replacing_a_frame_only_adding_and_removing(client):
+    """W-833: there is no current frame, so "switch" is gone. Handing the
+    server to a new kit is adding it and removing the old one."""
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
     connect(client, GRAY)
     client.get("/api/frame", headers=COLOUR)
 
-    out = _answer(client, "BBBBBBBBBB02", "switch")
-    assert out["frames"]["active"]["id"] == "BBBBBBBBBB02" and out["frames"]["pending"] == []
+    assert client.post("/api/frames", data={"id": "BBBBBBBBBB02",
+                                            "action": "switch"}).status_code == 400
+    out = _answer(client, "BBBBBBBBBB02", "add")
+    assert _by_status(svc, "asking") == []
+    assert [f["id"] for f in out["frames"] if f["status"] == "on"] == ["AAAAAAAAAA01",
+                                                                      "BBBBBBBBBB02"]
+    _answer(client, "AAAAAAAAAA01", "forget")
     svc.tick()
     r = client.get("/api/frame", headers=COLOUR)
     _, _, _, w, h, flags = framebuffer.HEADER.unpack_from(r.content, 0)
     assert r.status_code == 200 and (w, h, flags) == (1200, 1600, framebuffer.FLAG_INKS)
     # Its panel's own defaults, unasked: rotation 0 and the collage (W-821).
-    assert svc.page_config().panel_rotation == 0
-    assert svc.frames_view()["active"]["id"] == "BBBBBBBBBB02"
-    # The frame that was switched away from goes through the same question.
+    assert svc.frame_config(svc.frames.get("BBBBBBBBBB02")).panel_rotation == 0
+    assert _by_status(svc, "on") == ["BBBBBBBBBB02"]
+    # The kit that was removed is let in by itself only while nothing else is
+    # on; with the colour kit serving, it has to be answered for again.
     assert client.get("/api/frame", headers=GRAY).status_code == 403
-    assert [f["id"] for f in svc.frames_view()["pending"]] == ["AAAAAAAAAA01"]
+    assert _by_status(svc, "asking") == ["AAAAAAAAAA01"]
 
 
-def test_an_ignored_frame_is_listed_and_can_be_switched_to_or_forgotten(client):
+def test_an_ignored_frame_is_listed_and_can_be_added_or_forgotten(client):
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
     connect(client, GRAY)
@@ -184,16 +196,16 @@ def test_an_ignored_frame_is_listed_and_can_be_switched_to_or_forgotten(client):
     _answer(client, "BBBBBBBBBB02", "ignore")
     r = client.get("/api/frame", headers=COLOUR)
     assert r.status_code == 403 and r.headers["x-ff-frame"] == "ignored"
-    view = svc.frames_view()
-    assert view["pending"] == [] and [f["id"] for f in view["ignored"]] == ["BBBBBBBBBB02"]
+    assert _by_status(svc, "asking") == [] and _by_status(svc, "ignored") == ["BBBBBBBBBB02"]
     html = client.get("/").text
-    assert "Ignored frames (1)" in html and "Another frame wants to connect." not in html
+    assert "Ignored (1)" in html and "A frame is asking to connect." not in html
 
     _answer(client, "BBBBBBBBBB02", "forget")
-    assert svc.frames_view()["ignored"] == []
+    assert _by_status(svc, "ignored") == []
     assert client.get("/api/frame", headers=COLOUR).headers["x-ff-frame"] == "pending"
-    assert "Another frame wants to connect." in client.get("/").text
-    # The only frame cannot be ignored out from under itself.
+    assert "A frame is asking to connect." in client.get("/").text
+    # The only frame cannot be ignored out from under itself: the first kit to
+    # check in on a server with none is let in again the moment it asks.
     assert client.post("/api/frames", data={"id": "AAAAAAAAAA01",
                                             "action": "ignore"}).status_code == 400
 
@@ -205,22 +217,25 @@ def test_older_firmware_keeps_its_seat_when_it_starts_sending_an_id(client):
     svc._render_welcome(svc._clock(), False)
     legacy = connect(client, {"X-Panel": GRAY["X-Panel"]})
     assert legacy.status_code == 200
-    assert svc.frames_view()["active"]["id"] == "legacy"
+    assert _by_status(svc, "on") == ["legacy"]
     named = client.get("/api/frame", headers=GRAY)
     assert named.status_code == 200 and named.content == legacy.content
-    view = svc.frames_view()
-    assert view["active"]["id"] == "AAAAAAAAAA01" and view["pending"] == []
+    assert _by_status(svc, "on") == ["AAAAAAAAAA01"] and _by_status(svc, "asking") == []
     # ...while a frame with another panel is still a stranger to a legacy seat.
     assert client.get("/api/frame", headers=COLOUR).status_code == 403
 
 
-def test_page_offers_the_panels_defaults_for_the_frame_in_front(client):
+def test_a_rows_advanced_offers_its_own_panels_defaults(client):
+    """Reset is per frame now (W-833): the defaults come from THAT frame's
+    panel, and no secret is ever sent to the page with them."""
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
     connect(client, GRAY)
     html = client.get("/").text
-    assert 'id="adv-reset"' in html and '"mat_inset_pct": 4.0' in html
-    assert "api_key" not in html.split('id="display-defaults">')[1].split("</script>")[0]
+    row = html.split('data-frame="AAAAAAAAAA01"')[1].split(chr(10) + "    </li>")[0]
+    assert 'data-fr-action="reset"' in row
+    assert 'data-f="mat_inset_pct" data-default="4.0"' in row
+    assert "imagegen" not in row      # nothing shared is offered per frame
 
 
 def test_a_fresh_installs_first_colour_frame_starts_on_the_collage(client):

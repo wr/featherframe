@@ -97,13 +97,24 @@
       outline:2px solid var(--accent); outline-offset:2px; border-radius:4px;
     }
 
+    /* Two columns: metadata and health on the left, configuration on the
+       right. On a phone the two columns become one, and the configuration
+       slots BETWEEN the plate and the health card — what a screen shows
+       matters more than how it is doing. `display:contents` dissolves the
+       left column there so the three pieces can be ordered independently. */
     .grid { display:grid; grid-template-columns:300px 1fr; gap:24px; align-items:start; }
     /* A grid item's automatic minimum is its min-content width, and a scroll
        container (the history strip) still contributes its full content width
        to that — so on a phone the left column grew to the whole strip and
        the page scrolled sideways. Let both columns shrink to the track. */
     .grid > * { min-width:0; }
-    @media (max-width:820px){ .grid{ grid-template-columns:1fr; } }
+    .col-left { display:flex; flex-direction:column; gap:24px; min-width:0; position:sticky; top:28px; }
+    .col-aside { display:flex; flex-direction:column; gap:24px; min-width:0; }
+    @media (max-width:820px){
+      .grid{ grid-template-columns:1fr; }
+      .col-left { display:contents; }
+      .stage { order:1; } .col-right { order:2; } .col-aside { order:3; }
+    }
     @media (max-width:600px){
       .wrap { padding:28px 14px 64px; }
       header { margin-bottom:22px; }
@@ -118,12 +129,8 @@
 
     .card { background:var(--surface); border:1px solid var(--border); border-radius:9px; box-shadow:var(--sh-card); }
 
-    /* left column: plate hero + status */
-    .stage { position:sticky; top:28px; display:flex; flex-direction:column; gap:16px; }
-    /* One column on a phone: the stage flows with the page. (This must follow
-       the rule above — an earlier override lost the cascade, so the settings
-       used to scroll underneath a stuck plate.) */
-    @media (max-width:820px){ .stage{ position:static; } }
+    /* left column: the plate hero, then health and history under it */
+    .stage { display:flex; flex-direction:column; gap:16px; min-width:0; }
     .plate-card { padding:16px; }
     /* the rendered frame already carries its own white mat allowance — no CSS chrome */
     .plate { border-radius:2px; background:#fff; overflow:hidden; }
@@ -135,6 +142,15 @@
       background:var(--inset); border:1px dashed var(--border-strong); border-radius:2px; }
     .plate.empty img { display:none; }
     .plate:not(.empty) .plate-empty { display:none; }
+    /* Which frame the preview is of. One chip per frame with something on it;
+       hidden when there is only one, since there is nothing to choose. */
+    .frame-pick { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+    .frame-pick button { font:inherit; font-size:12px; padding:5px 10px; border-radius:999px;
+      border:1px solid var(--border); background:var(--inset); color:var(--muted); cursor:pointer;
+      max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .frame-pick button:hover { color:var(--ink-2); }
+    .frame-pick button[aria-pressed="true"] { background:var(--surface); border-color:var(--border-strong);
+      color:var(--ink); box-shadow:var(--sh-sm); }
     /* an active hold: one line under the plate, with its Release */
     .held { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px;
             padding:8px 10px; border:1px solid var(--border); border-radius:7px; background:var(--inset); font-size:13px; color:var(--ink-2); }
@@ -543,30 +559,56 @@
     .panel-note { max-width:var(--page-w, 1180px); margin:0 auto 14px; }
     .panel-note .test-msg { display:block; }
     .panel-note-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:9px; }
-    .ignored-frames .hint { margin:6px 0 4px; }
+    .ignored-frames .hint { margin:6px 0 10px; }
     .ign-list { list-style:none; margin:0; padding:0; }
     .ign-list li { margin:0; padding:10px 0 4px; border-top:1px solid var(--border); max-width:none; }
     .ign-name { display:block; font-size:13px; }
-    .ign-meta { display:block; font-size:12px; color:var(--muted); margin-top:2px; }
-    /* Viewers (W-826): the frame card's list rows, each opening onto its few controls. */
-    .vw-list { list-style:none; margin:0; padding:0; }
-    .vw-list > li { margin:0; padding:9px 0 3px; border-top:1px solid var(--border); max-width:none; }
-    .vw-list > li:first-child { border-top:0; padding-top:2px; }
-    .added-frames { margin-top:12px; }
-    .fc-active-name { margin:2px 0 10px; }
-    .af-vitals { margin-top:10px; }
-    .added-frames .sc-more.vw-set { margin-top:4px; }
-    .vw-list.added-frames > li:first-child { border-top:1px solid var(--border); padding-top:9px; }
-    .vw-row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:13px; }
-    .vw-row .when { color:var(--muted); font-size:12px; white-space:nowrap; }
-    .vw-set { margin-top:2px; }
-    .vw-fields { display:grid; grid-template-columns:auto 1fr; gap:8px 12px; align-items:center; margin-top:10px; font-size:12.5px; }
-    .vw-fields label, .vw-fields .vw-lab { color:var(--ink-2); }
-    .vw-fields input[type=text], .vw-fields input[type=number], .vw-fields select.sel { width:100%; min-width:0; font-size:13px; padding:5px 8px; }
-    .vw-size { display:flex; align-items:center; gap:6px; }
-    .vw-hint { grid-column:1 / -1; margin:-2px 0 2px; }
-    .vw-empty { font-size:12.5px; color:var(--muted); margin:2px 0 0; }
-    .vw-empty a { color:inherit; }
+    .ign-meta, .sub-meta { display:block; font-size:12px; color:var(--muted); margin-top:2px; }
+    /* A name on the left, one status on the right. The Health rows and the
+       ignored list share it. */
+    .row-line { display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:13px; }
+    .row-line .when { color:var(--muted); font-size:12px; white-space:nowrap; }
+
+    /* Health (W-833): one row per frame, then the detection source. Metadata
+       only — every setting lives in the Frames card on the right. */
+    .hl-list { list-style:none; margin:0; padding:0; }
+    .hl-list > li { margin:0; padding:9px 0 3px; border-top:1px solid var(--border); }
+    .hl-list > li:first-child { border-top:0; padding-top:2px; }
+    .hl-vitals { margin-top:10px; }
+    .hl .sc-more { margin-top:4px; }
+    .hl-empty { font-size:12.5px; color:var(--muted); margin:2px 0 0; line-height:1.5; }
+
+    /* Frames (W-833): ONE row component for every frame, whatever it is —
+       a kit, a second kit, a TRMNL, a tablet. Collapsed it is a name and a
+       one-line summary; open, its own settings and nothing shared. */
+    .fr-list { list-style:none; margin:0; padding:0; }
+    .fr { border-top:1px solid var(--hair); }
+    .fr:first-child { border-top:0; }
+    .fr-head { display:flex; width:100%; align-items:center; gap:12px; padding:14px 0;
+      background:none; border:0; font:inherit; color:inherit; text-align:left; cursor:pointer; }
+    .fr-name { font-size:14px; font-weight:500; color:var(--ink); min-width:0;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .fr-sum { margin-left:auto; font-size:12.5px; color:var(--muted); text-align:right; }
+    .fr-head .chev { width:11px; height:7px; flex:none; color:var(--muted); transition:transform .22s; }
+    .fr-head[aria-expanded="true"] .chev { transform:rotate(180deg); }
+    @media (prefers-reduced-motion:reduce){ .fr-head .chev { transition:none; } }
+    /* On a phone the summary drops under the name rather than squeezing it. */
+    @media (max-width:600px){
+      .fr-head { flex-wrap:wrap; gap:8px 12px; }
+      .fr-name { flex:1; white-space:normal; }
+      .fr-sum { order:3; flex-basis:100%; margin-left:0; text-align:left; }
+    }
+    .fr-body { padding-bottom:18px; }
+    .fr-body > .frow:first-child { border-top:0; padding-top:0; }
+    .fr-body .reveal > .reveal-body > .frow:last-child { padding-bottom:0; }
+    .fr-actions { display:flex; align-items:center; gap:8px; margin-top:18px; }
+    .fr-actions .fr-forget { margin-left:auto; }
+    .fr-note { margin:0 0 14px; }
+    .fr-empty { font-size:13.5px; color:var(--ink-2); line-height:1.6; max-width:62ch; }
+    .fr-empty p { margin:0 0 12px; }
+    .fr-empty ol { margin:0; padding-left:1.25em; display:flex; flex-direction:column; gap:10px; }
+    .fr-empty strong { color:var(--ink); }
+    .fr-empty .addr { font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:13px; color:var(--ink); }
     .adv-reset { display:flex; align-items:center; justify-content:space-between; gap:14px; padding-top:16px; }
     .adv-reset .hint { margin:0; }
     .test-box a.tb-link { color:var(--accent); text-decoration:underline; white-space:nowrap; }
@@ -609,397 +651,246 @@
     <span class="test-msg"></span>
   </div>
 
+  {% set _srcnames = {'birdnet_go':'BirdNET-Go','apprise':'BirdNET-Pi','birdweather':'BirdWeather','custom':'Local database'} %}
+  {% set frames = status.frames.list %}
+  {% set on_frames = frames | selectattr('status', 'equalto', 'on') | list %}
+  {% set asking = frames | selectattr('status', 'equalto', 'asking') | list %}
+  {% set ignored = frames | selectattr('status', 'equalto', 'ignored') | list %}
+  {% set kits = on_frames | selectattr('transport', 'equalto', 'kit') | list %}
+  {% set previewable = on_frames | selectattr('preview_url') | list %}
+
   {# What a frame said about its panel that this server cannot honour. Its
-     panel is simply what it reports (W-833), so there is nothing to answer. #}
-  <script type="application/json" id="display-defaults">{{ (display_defaults or {})|tojson }}</script>
-  {% set pn = status.panel_notices %}
-  {# W-813: what the frame says about its panel does not match what is drawn. #}
-  {% for title, body in [
-      ("This frame did not say what panel it has.", pn.unrecognised and ("It calls its panel “" ~ pn.unrecognised.label ~ "”, which this server does not know, and it reported no size. Updates are drawn for the " ~ pn.unrecognised.drawing_for ~ " panel, which the frame may reject. Update the frame's firmware.")),
-      ("This frame's panel format is not one this server can draw.", pn.unknown_format and ("It reports the format “" ~ pn.unknown_format.format ~ "”. Updates are sent at the panel's size in 16-level gray instead, which the frame may reject.")),
+     panel is simply what it reports (W-833), so there is nothing to answer —
+     the note names the frame it is about (W-813). #}
+  {% for fr in on_frames %}{% for title, body in [
+      (fr.title ~ " did not say what panel it has.", fr.notices.unrecognised and ("It calls its panel “" ~ fr.notices.unrecognised.label ~ "”, which this server does not know, and it reported no size. Updates are drawn for the " ~ fr.notices.unrecognised.drawing_for ~ " panel, which the frame may reject. Update the frame's firmware.")),
+      (fr.title ~ "'s panel format is not one this server can draw.", fr.notices.unknown_format and ("It reports the format “" ~ fr.notices.unknown_format.format ~ "”. Updates are sent at the panel's size in 16-level gray instead, which the frame may reject.")),
     ] %}{% if body %}
   <div class="test-box warn show panel-note" role="status">
     <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
     <span class="test-msg"><strong>{{ title }}</strong> {{ body }}</span>
   </div>
-  {% endif %}{% endfor %}
-  {# Another frame is asking this server for updates. Nothing changes until
-     the owner answers: add it beside the current frame (W-832), hand the
-     server over to it, or ignore it. #}
-  {% for fr in status.frames.pending %}
-  <div class="test-box warn show panel-note" role="status">
-    <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
-    <span class="test-msg">
-      <strong>Another frame wants to connect.</strong>
-      A frame with the {{ fr.panel_name }} panel ({{ fr.short }}{% if fr.ip %}, {{ fr.ip }}{% endif %}) is asking this server for updates. Add it and both frames update from here, each with its own picture{% if status.frames.active %}; replacing hands this server to the new frame, and the {{ status.frames.active.name or status.frames.active.panel_name }} frame stops updating{% endif %}.
-      <span class="panel-note-actions">
-        <button class="btn primary" type="button" data-frame-action="add" data-frame-id="{{ fr.id }}">Add this frame</button>
-        {% if status.frames.active %}<button class="btn" type="button" data-frame-action="switch" data-frame-id="{{ fr.id }}">Replace the current frame</button>{% endif %}
-        <button class="btn" type="button" data-frame-action="ignore" data-frame-id="{{ fr.id }}">Ignore it</button>
-      </span>
-    </span>
-  </div>
-  {% endfor %}
+  {% endif %}{% endfor %}{% endfor %}
 
-  {# W-736: the cell is nearly empty. Under 3.45 V the frame stops checking in
-     until it is charged, so the last reading stands and the banner with it. #}
-  <div class="test-box bad show panel-note" id="batt-critical" role="status"{{ '' if status.frame_card.battery_critical else ' hidden' }}>
-    <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
-    <span class="test-msg"><strong>Charge the frame.</strong> Its battery is nearly empty<span id="batt-critical-volts">{{ (' (' ~ status.frame_card.battery ~ ')') if status.frame_card.battery else '' }}</span>. Once the cell is too low for Wi-Fi the frame shows "Battery low, charge me", keeps its last plate, and stops checking in until it is charged.</span>
+  {# W-736: a cell is nearly empty. Under its panel's hold the frame stops
+     checking in until it is charged, so the last reading stands and the
+     banner with it. One per frame, naming the frame. The status poll rebuilds
+     this list, so a frame that recovers loses its banner without a reload. #}
+  <div id="batt-banners">
+    {% for fr in on_frames if fr.card.battery_critical %}
+    <div class="test-box bad show panel-note" role="status">
+      <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
+      <span class="test-msg"><strong>Charge {{ fr.title }}.</strong> Its battery is nearly empty ({{ fr.card.battery }}). Once the cell is too low for Wi-Fi it shows "Battery low, charge me", keeps its last plate, and stops checking in until it is charged.</span>
+    </div>
+    {% endfor %}
   </div>
 
   <main class="grid">
-    <!-- LEFT: live plate + status -->
-    <div class="stage">
-      <div class="card plate-card">
-        <div class="plate{{ '' if status.current.etag else ' empty' }}" id="plate">
-          <a class="plate-link" href="/api/preview.png" target="_blank" rel="noopener">
-            <img id="preview" src="/api/preview.png" alt="{{ ('Current frame: ' ~ status.current.title) if status.current.title else 'Current frame' }}">
-          </a>
-          <div class="plate-empty">Nothing rendered yet.<br>The first detection will appear here.</div>
-        </div>
-        {# W-735: a live hold is state you need to see, so it stays above the
-           fold; the rest of the plate's controls are tools and sit in a closed
-           disclosure. #}
-        {% set uh = status.hold %}
-        <div class="held" id="held-line" {{ '' if uh else 'hidden' }}>
-          <span class="held-text">Holding this plate <span id="held-until">{{ uh.until_text if uh else '' }}</span></span>
-          <button class="btn" type="button" id="release-btn" title="End the hold and show whatever should be on the wall now">Release</button>
-        </div>
-        <div class="task-status" id="task-status" role="status" aria-live="polite"></div>
-        <details class="disc tools" id="plate-tools">
-          <summary><span>Tools</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
-          <div class="disc-body"><div class="tools-body">
-            <div class="frow">
-              <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Redraws the plate now. The wall updates on its next check-in.</div></div>
-              <div class="frow-ctl"><button class="btn" type="button" id="refresh-btn">Refresh</button></div>
-            </div>
-            <div class="frow">
-              <div class="frow-text"><span class="lab">Collage</span><div class="hint">Puts today's collage on the wall now. Repaint rebuilds it from today's species.</div></div>
-              <div class="frow-ctl">
-                <form class="inline task-form" data-task="collage" method="post" action="/api/collage/now">
-                  <button class="btn" type="submit">Show</button>
-                  <button class="btn" type="submit" name="repaint" value="1">Repaint</button>
-                </form>
-              </div>
-            </div>
-            <div class="frow" id="hold-ctl" {{ 'hidden' if uh else '' }}>
-              <div class="frow-text"><span class="lab">Keep this plate up</span><div class="hint">Holds it on the wall until the hold ends, then the latest detection takes over.</div></div>
-              <div class="frow-ctl">
-                <select class="sel hold-dur" id="hold-dur" aria-label="Hold this plate for">
-                  <option value="day">a day</option>
-                  <option value="week">a week</option>
-                  <option value="forever">until released</option>
-                </select>
-                <button class="btn" type="button" id="hold-btn">Hold</button>
-              </div>
-            </div>
-            <div class="frow">
-              <div class="frow-text"><span class="lab">Block this species</span><div class="hint">Adds it to the blocklist, so it's never shown again.</div></div>
-              <div class="frow-ctl"><button class="btn" type="button" id="block-btn">Block</button></div>
-            </div>
-            {# Put any animal on the wall: a fake detection through the full
-               provider chain. A creature Audubon never painted buys a generated
-               plate (one image generation, cached forever). The next real detection
-               replaces it. #}
-            <div class="frow stack">
-              <div class="frow-text"><span class="lab">Manual override</span><div class="hint">Shows any species now. One without a plate is painted once. The next real detection takes over.</div></div>
-              <div class="frow-ctl">
-                <form class="critter-form task-form" data-task="test-detection" method="post" action="/api/test-detection">
-                  <input type="text" name="common" placeholder="Common name" aria-label="Common name" required>
-                  <input type="text" name="scientific" placeholder="Scientific name (optional)" aria-label="Scientific name">
-                  <button class="btn" type="submit">Show</button>
-                </form>
-              </div>
-            </div>
-          </div></div>
-        </details>
-      </div>
-
-      {# Two sections, each headed by its name and ONE status pill: whether the
-         frame and the source are alive is what a glance should answer. The
-         live facts follow as a couple of short rows; identity that never
-         changes (IP, firmware, panel, board) folds into "Details". #}
-      <div class="card status-card" id="frame-card">
-        {% set card = status.frame_card %}
-        <div class="sc-head">
-          <h2 class="grp">{{ 'Frames' if status.frames.added else 'Frame' }}</h2>
-{% macro seen_pill() %}
-          <span id="fc-seen" data-tip="{% if card.last_checkin_iso %}Checked in {{ card.last_checkin_iso.replace('T', ' ') }}{% endif %}{% if status.device.last_wake %} · wake: {{ status.device.last_wake }}{% endif %}">
-            <span class="pill-status"><span class="d {{ ('warn' if card.overdue else 'good') if card.seen else 'off' }}" id="fc-seen-dot"></span><span id="fc-seen-text">{{ card.last_seen if card.seen else 'never' }}</span></span>
-          </span>
-{% endmacro %}          {# With two frames the pill belongs on the first frame's own row. #}
-          {% if not status.frames.added %}{{ seen_pill() }}{% endif %}
-        </div>
-        {# With a second kit on the server the first one needs a name too: the
-           vitals below are ITS battery and Wi-Fi, not the household's. #}
-        {% if status.frames.added and status.frames.active %}
-        <div class="fc-active-name">
-          <div class="vw-row"><span class="who">{{ status.frames.active.name or status.frames.active.panel_name }}</span>{{ seen_pill() }}</div>
-          <span class="ign-meta tnum">{{ 'Collage' if config.mode == 'collage' else 'Plates' }} · set in Display, on the right</span>
-        </div>
-        {% endif %}
-        <div class="note warn" id="fc-overdue" {{ '' if card.overdue else 'hidden' }}>
-          <svg viewBox="0 0 16 16" aria-hidden="true"><use href="#ic-warn"/></svg>
-          <span id="fc-overdue-text">{% if card.overdue %}{{ card.overdue_text }}{% endif %}</span>
-        </div>
-        <div class="note" id="fc-never" {{ 'hidden' if card.seen else '' }}>
-          <svg viewBox="0 0 16 16" aria-hidden="true"><use href="#ic-info"/></svg>
-          <span>The frame hasn't checked in yet. Power it on; on first boot it opens a Wi-Fi network called <strong>Featherframe-Setup</strong> — join it and point it at this server.</span>
-        </div>
-        {# Telemetry means nothing until the first check-in: keep it out of the
-           never-seen state rather than printing a column of dashes. #}
-        <div class="fc-telemetry" id="fc-telemetry" {{ '' if card.seen else 'hidden' }}>
-          {# Power source: the state is inferred from the voltage trend (no USB
-             line on the board). On USB the cell is held full by the charger and
-             while charging its terminal voltage runs high, so a percent would
-             mislead in both — it is shown only on battery. #}
-          {% set pct = card.battery_percent if card.battery_percent is defined and card.battery_percent is not none else status.device.battery_percent %}
-          {% set pstate = (card.power.state if card.power else 'unknown') %}
-          {% set rssi = card.wifi_rssi %}
-          {% set bars = (4 if rssi >= -55 else (3 if rssi >= -67 else (2 if rssi >= -75 else 1))) if rssi is not none else 0 %}
-          {% set word = 'Excellent' if bars == 4 else ('Good' if bars == 3 else ('Fair' if bars == 2 else 'Weak')) %}
-          <div class="vitals">
-            <div class="vital">
-              <span class="vl">Power</span>
-              <span class="vv" id="fc-batt">
-                {# Both icons are filled shapes, not hairlines: at 11 px a stroke
-                   smears. The bolt breaks out of the cell top and bottom with a
-                   surface-coloured ring so it reads as sitting in front. #}
-                <span class="pw" id="pw-usb" {{ '' if pstate == 'usb' else 'hidden' }}><svg class="pw-ic pw-plug" viewBox="0 0 18 15" aria-hidden="true"><path class="pw-body" d="M7 7C7 4.79086 8.79086 3 11 3H12.1429C12.6162 3 13 3.38376 13 3.85714V10.1429C13 10.6162 12.6162 11 12.1429 11H11C8.79086 11 7 9.20914 7 7Z"/><path class="pw-prong" d="M16 5H11M16 9H11M8 6.99993C5 6.99993 2 6.5 2 10.9999"/></svg>USB</span>
-                <span class="pw" id="pw-chg" {{ '' if pstate == 'charging' else 'hidden' }}><svg class="pw-ic pw-cell" viewBox="0 0 22 14" aria-hidden="true"><rect class="pw-outline" x="1" y="2.5" width="16" height="9" rx="2.4"/><path class="pw-nub" d="M17.6 5.3h1.2a.9.9 0 0 1 .9.9v1.6a.9.9 0 0 1-.9.9h-1.2z"/><path class="pw-bolt-ring" d="M10.6.6 5.9 7.4h2.9l-1.3 6 4.9-7.2H9.6z"/><path class="pw-bolt" d="M10.6.6 5.9 7.4h2.9l-1.3 6 4.9-7.2H9.6z"/></svg>Charging</span>
-                <span class="batt" id="fc-batt-wrap" {{ '' if (pct is not none and pstate not in ('usb', 'charging')) else 'hidden' }}><span class="cell"><i id="fc-batt-bar" style="width:{{ pct or 0 }}%;{% if card.battery_low %}background:var(--bad){% endif %}"></i></span><span class="tnum" id="fc-batt-text">{{ (pct ~ '%') if pct is not none else '' }}</span></span>
-                <span id="fc-batt-none" {{ 'hidden' if (pct is not none or pstate in ('usb', 'charging')) else '' }}>—</span>
-                {# 24 h voltage trend, in a popover that opens after resting on the
-                   tile for half a second (tap toggles it on touch). Single series,
-                   so no legend: the tile names it. Moving along the line reads the
-                   value into the caption. #}
-                <div class="spark-pop" id="fc-spark-row" role="tooltip" hidden>
-                  <span class="spark-cap" id="fc-spark-cap" aria-live="polite" data-summary="{{ card.battery or '' }}">{{ card.battery or '' }}</span>
-                  <svg class="spark" id="fc-spark" viewBox="0 0 160 30" preserveAspectRatio="none" role="img" aria-label="Battery voltage over the last 24 hours"></svg>
-                  <div class="spark-axis" aria-hidden="true"><span id="fc-spark-t0"></span><span id="fc-spark-t1"></span></div>
-                </div>
-              </span>
-            </div>
-            <div class="vital">
-              <span class="vl">Wi-Fi</span>
-              <span class="vv" id="fc-wifi">
-                <span class="pill-status" id="fc-wifi-wrap" {{ '' if rssi is not none else 'hidden' }} data-tip="{{ rssi }} dBm"><svg class="wifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path class="arc{{ ' lit' if bars >= 4 }}" d="M2 7.3a15 15 0 0 1 20 0"/><path class="arc{{ ' lit' if bars >= 3 }}" d="M5.2 11.2a11 11 0 0 1 13.6 0"/><path class="arc{{ ' lit' if bars >= 2 }}" d="M8.6 15a6 6 0 0 1 6.8 0"/><circle class="dot" cx="12" cy="18.6" r="1.4"/></svg><span id="fc-wifi-text">{{ word }}</span></span><span id="fc-wifi-none" {{ 'hidden' if rssi is not none else '' }}>—</span>
-              </span>
-            </div>
+    <!-- LEFT: the plate, then how every screen and the source are doing -->
+    <div class="col-left">
+      <div class="stage">
+        <div class="card plate-card">
+          {# The preview is OF one frame: a kit's own output, a viewer's own
+             view. The picker under it says which, and the choice is kept in this
+             browser. With no frame yet it is the picture itself. #}
+          {% set picked = (previewable | selectattr('transport', 'equalto', 'kit') | list | first)
+                          or (previewable | first) %}
+          <div class="plate{{ '' if status.current.etag else ' empty' }}" id="plate">
+            <a class="plate-link" href="{{ picked.preview_url if picked else '/api/preview.png' }}" target="_blank" rel="noopener">
+              <img id="preview" src="{{ picked.preview_url if picked else '/api/preview.png' }}" alt="{{ ('Current frame: ' ~ status.current.title) if status.current.title else 'Current frame' }}">
+            </a>
+            <div class="plate-empty">Nothing rendered yet.<br>The first detection will appear here.</div>
           </div>
-          <details class="sc-more">
-            <summary>Details</summary>
-            <dl>
-              <dt>IP address</dt><dd class="tnum" id="fc-ip">{{ status.device.ip or '—' }}</dd>
-              <dt>Firmware</dt>
-              <dd id="fc-fw" data-tip="{% if status.device.sketch_md5 %}build {{ status.device.sketch_md5[:8] }}{% endif %}">
-                {{ status.device.fw_version or status.device.user_agent or '—' }}
-              </dd>
-              <dt>Panel</dt><dd>{{ status.device.panel or '10.3″ · 1404×1872 · grayscale' }}</dd>
-              <dt>Board</dt><dd>{{ status.device.board or 'XIAO ESP32-S3 · EE03' }}</dd>
-              {% if status.frames.active %}<dt>Frame ID</dt><dd class="tnum">{{ status.frames.active.id }}</dd>{% endif %}
-            </dl>
+          <div class="frame-pick" id="frame-pick" role="group" aria-label="Which frame this shows" {{ '' if previewable|length > 1 else 'hidden' }}>
+            {% for fr in previewable %}
+            <button type="button" data-pick="{{ fr.id }}" data-src="{{ fr.preview_url }}" aria-pressed="{{ 'true' if picked and fr.id == picked.id else 'false' }}">{{ fr.title }}</button>
+            {% endfor %}
+          </div>
+          {# W-735: a live hold is state you need to see, so it stays above the
+             fold; the rest of the plate's controls are tools and sit in a closed
+             disclosure. #}
+          {% set uh = status.hold %}
+          <div class="held" id="held-line" {{ '' if uh else 'hidden' }}>
+            <span class="held-text">Holding this plate <span id="held-until">{{ uh.until_text if uh else '' }}</span></span>
+            <button class="btn" type="button" id="release-btn" title="End the hold and show whatever should be on the wall now">Release</button>
+          </div>
+          <div class="task-status" id="task-status" role="status" aria-live="polite"></div>
+          <details class="disc tools" id="plate-tools">
+            <summary><span>Tools</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
+            <div class="disc-body"><div class="tools-body">
+              <div class="frow">
+                <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Redraws the plate now. The wall updates on its next check-in.</div></div>
+                <div class="frow-ctl"><button class="btn" type="button" id="refresh-btn">Refresh</button></div>
+              </div>
+              <div class="frow">
+                <div class="frow-text"><span class="lab">Collage</span><div class="hint">Puts today's collage on the wall now. Repaint rebuilds it from today's species.</div></div>
+                <div class="frow-ctl">
+                  <form class="inline task-form" data-task="collage" method="post" action="/api/collage/now">
+                    <button class="btn" type="submit">Show</button>
+                    <button class="btn" type="submit" name="repaint" value="1">Repaint</button>
+                  </form>
+                </div>
+              </div>
+              <div class="frow" id="hold-ctl" {{ 'hidden' if uh else '' }}>
+                <div class="frow-text"><span class="lab">Keep this plate up</span><div class="hint">Holds it on the wall until the hold ends, then the latest detection takes over.</div></div>
+                <div class="frow-ctl">
+                  <select class="sel hold-dur" id="hold-dur" aria-label="Hold this plate for">
+                    <option value="day">a day</option>
+                    <option value="week">a week</option>
+                    <option value="forever">until released</option>
+                  </select>
+                  <button class="btn" type="button" id="hold-btn">Hold</button>
+                </div>
+              </div>
+              <div class="frow">
+                <div class="frow-text"><span class="lab">Block this species</span><div class="hint">Adds it to the blocklist, so it's never shown again.</div></div>
+                <div class="frow-ctl"><button class="btn" type="button" id="block-btn">Block</button></div>
+              </div>
+              {# Put any animal on the wall: a fake detection through the full
+                 provider chain. A creature Audubon never painted buys a generated
+                 plate (one image generation, cached forever). The next real detection
+                 replaces it. #}
+              <div class="frow stack">
+                <div class="frow-text"><span class="lab">Manual override</span><div class="hint">Shows any species now. One without a plate is painted once. The next real detection takes over.</div></div>
+                <div class="frow-ctl">
+                  <form class="critter-form task-form" data-task="test-detection" method="post" action="/api/test-detection">
+                    <input type="text" name="common" placeholder="Common name" aria-label="Common name" required>
+                    <input type="text" name="scientific" placeholder="Scientific name (optional)" aria-label="Scientific name">
+                    <button class="btn" type="submit">Show</button>
+                  </form>
+                </div>
+              </div>
+            </div></div>
           </details>
         </div>
-        {% if status.frames.added %}
-        {# Second kits on this server (W-832). Each has only what is its own:
-           what it shows, which way up it hangs, its mat, its power. #}
-        <ul class="vw-list added-frames">
-          {% for fr in status.frames.added %}
-          <li data-added-frame="{{ fr.id }}" class="panel-note">
-            {# The same blocks as the first frame, in the same order: name,
-               vitals, Details, then its own Display. #}
-            <div class="vw-row">
-              <span class="who">{{ fr.name or fr.panel_name }}</span>
-              <span class="pill-status" data-tip="{{ fr.last_seen.replace('T', ' ') if fr.last_seen else '' }}"><span class="d {{ 'good' if fr.last_seen else 'off' }}"></span>{{ fr.last_seen_text }}</span>
-            </div>
-            <span class="ign-meta tnum">{% if fr.name %}{{ fr.panel_name }} · {% endif %}{{ 'Collage' if fr.shows == 'collage' else 'Plates' }}</span>
-            {% set apct = fr.battery_percent %}
-            {% set arssi = fr.wifi_rssi %}
-            {% set abars = (4 if arssi >= -55 else (3 if arssi >= -67 else (2 if arssi >= -75 else 1))) if arssi is not none else 0 %}
-            {% set aword = 'Excellent' if abars == 4 else ('Good' if abars == 3 else ('Fair' if abars == 2 else 'Weak')) %}
-            <div class="vitals af-vitals">
-              <div class="vital">
-                <span class="vl">Power</span>
-                <span class="vv">
-                  {% if apct is not none %}<span class="batt"><span class="cell"><i style="width:{{ apct }}%;{% if fr.battery_low %}background:var(--bad){% endif %}"></i></span><span class="tnum">{{ apct }}%</span></span>{% else %}—{% endif %}
-                </span>
+
+      </div>
+      <div class="col-aside">
+        {# Health (W-833): one row per frame, then the detection source. Nothing
+           here is a setting — every frame's settings live in the Frames card on
+           the right. Each row opens onto the same Details: its battery, its
+           Wi-Fi, its 24 h voltage trend, and the identity it reported. #}
+        <div class="card status-card" id="health-card">
+          <div class="sc-head"><h2 class="grp">Health</h2></div>
+          <ul class="hl-list" id="hl-list">
+            {% for fr in on_frames %}
+            {% set card = fr.card %}
+            {% set rssi = card.wifi_rssi %}
+            {% set bars = (4 if rssi >= -55 else (3 if rssi >= -67 else (2 if rssi >= -75 else 1))) if rssi is not none else 0 %}
+            {% set word = 'Excellent' if bars == 4 else ('Good' if bars == 3 else ('Fair' if bars == 2 else 'Weak')) %}
+            {% set pct = card.battery_percent %}
+            {% set pstate = (card.power.state if card.power else 'unknown') %}
+            {% set vitals = fr.transport == 'kit' or fr.capabilities.has_battery or rssi is not none %}
+            <li class="hl" data-health="{{ fr.id }}">
+              <div class="row-line">
+                <span class="who">{{ fr.title }}</span>
+                <span class="pill-status" data-h="seen" data-tip="{% if card.last_checkin_iso %}Last asked {{ card.last_checkin_iso.replace('T', ' ') }}{% endif %}"><span class="d {{ ('warn' if card.overdue else 'good') if card.seen else 'off' }}" data-h="dot"></span><span data-h="seen-text">{{ card.last_seen if card.seen else 'never' }}</span></span>
               </div>
-              <div class="vital">
-                <span class="vl">Wi-Fi</span>
-                <span class="vv">
-                  {% if arssi is not none %}<span class="pill-status" data-tip="{{ arssi }} dBm"><svg class="wifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path class="arc{{ ' lit' if abars >= 4 }}" d="M2 7.3a15 15 0 0 1 20 0"/><path class="arc{{ ' lit' if abars >= 3 }}" d="M5.2 11.2a11 11 0 0 1 13.6 0"/><path class="arc{{ ' lit' if abars >= 2 }}" d="M8.6 15a6 6 0 0 1 6.8 0"/><circle class="dot" cx="12" cy="18.6" r="1.4"/></svg>{{ aword }}</span>{% else %}—{% endif %}
-                </span>
+              <span class="sub-meta tnum" data-h="line">{{ card.battery or '' }}</span>
+              <div class="note warn" data-h="overdue" {{ '' if card.overdue else 'hidden' }}>
+                <svg viewBox="0 0 16 16" aria-hidden="true"><use href="#ic-warn"/></svg>
+                <span data-h="overdue-text">{{ card.overdue_text if card.overdue else '' }}</span>
               </div>
-            </div>
-            <details class="sc-more">
-              <summary>Details</summary>
-              <dl>
-                <dt>IP address</dt><dd class="tnum">{{ fr.ip or '—' }}</dd>
-                <dt>Firmware</dt><dd>{{ fr.fw_version or '—' }}</dd>
-                <dt>Panel</dt><dd>{{ fr.panel_reported or fr.panel_name }}</dd>
-                <dt>Board</dt><dd>{{ fr.board or '—' }}</dd>
-                <dt>Frame ID</dt><dd class="tnum">{{ fr.id }}</dd>
-              </dl>
-            </details>
-            <details class="sc-more vw-set">
-              <summary>Display</summary>
-              <div class="vw-fields">
-                <label for="af-name-{{ loop.index }}">Name</label>
-                <input type="text" id="af-name-{{ loop.index }}" data-af="name" maxlength="60" value="{{ fr.name }}" placeholder="{{ fr.panel_name }}">
-                <label for="af-shows-{{ loop.index }}">Shows</label>
-                <select class="sel" id="af-shows-{{ loop.index }}" data-af="shows">
-                  <option value="plates" {{ 'selected' if fr.shows == 'plates' else '' }}>Plates</option>
-                  <option value="collage" {{ 'selected' if fr.shows == 'collage' else '' }}>Collage</option>
-                </select>
-                <label for="af-rot-{{ loop.index }}">Panel rotation</label>
-                <select class="sel" id="af-rot-{{ loop.index }}" data-af="panel_rotation">
-                  {% for r in fr.rotations %}<option value="{{ r }}" {{ 'selected' if fr.rotation == r else '' }}>{{ r }}°</option>{% endfor %}
-                </select>
-                <label for="af-mat-{{ loop.index }}">Mat inset (%)</label>
-                <input type="number" id="af-mat-{{ loop.index }}" data-af="mat_inset_pct" min="0" max="20" step="0.5" inputmode="decimal" value="{{ fr.mat_inset_pct }}">
-                <label for="af-power-{{ loop.index }}">Power</label>
-                <select class="sel" id="af-power-{{ loop.index }}" data-af="power_mode">
-                  <option value="awake" {{ 'selected' if fr.power_mode == 'awake' else '' }}>Always awake</option>
-                  <option value="sleep" {{ 'selected' if fr.power_mode == 'sleep' else '' }}>Deep sleep</option>
-                </select>
-                <div class="hint vw-hint">Only this frame's own settings. Source, quiet hours, the blocklist and image generation are shared with the frame above.</div>
+              {% if not card.seen %}
+              <div class="note">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><use href="#ic-info"/></svg>
+                <span>It hasn't asked for a picture yet.</span>
               </div>
-              <div class="panel-note-actions">
-                <button class="btn" type="button" data-af-action="save">Save</button>
-                <button class="btn" type="button" data-frame-action="forget" data-frame-id="{{ fr.id }}" data-tip="It asks to connect again the next time it checks in.">Remove</button>
-              </div>
-            </details>
-          </li>
-          {% endfor %}
-        </ul>
-        {% endif %}
-        {% if status.frames.ignored %}
-        <details class="sc-more ignored-frames">
-          <summary>Ignored frames ({{ status.frames.ignored|length }})</summary>
-          <p class="hint">These frames asked this server for updates and were ignored, so they get none. Switching moves the server to that frame; forgetting one lets it ask again.</p>
-          <ul class="ign-list">
-            {% for fr in status.frames.ignored %}
-            <li class="panel-note">
-              <span class="ign-name">{{ fr.panel_name }}<span class="ign-meta tnum">{{ fr.short }}{% if fr.ip %} · {{ fr.ip }}{% endif %}{% if fr.last_seen %} · last asked {{ fr.last_seen.replace('T', ' ') }}{% endif %}</span></span>
-              <span class="panel-note-actions">
-                <button class="btn" type="button" data-frame-action="switch" data-frame-id="{{ fr.id }}">Switch to this frame</button>
-                <button class="btn" type="button" data-frame-action="forget" data-frame-id="{{ fr.id }}">Forget</button>
-              </span>
+              {% endif %}
+              <details class="sc-more">
+                <summary>Details</summary>
+                {% if vitals %}
+                {# Power source: the state is inferred from the voltage trend (no
+                   USB line on the board). On USB the cell is held full by the
+                   charger and while charging its terminal voltage runs high, so
+                   a percent would mislead in both — it is shown only on battery. #}
+                <div class="vitals hl-vitals">
+                  <div class="vital">
+                    <span class="vl">Power</span>
+                    <span class="vv" data-h="batt" data-spark-host>
+                      {# Both icons are filled shapes, not hairlines: at 11 px a
+                         stroke smears. The bolt breaks out of the cell top and
+                         bottom with a surface-coloured ring so it reads as sitting
+                         in front. #}
+                      <span class="pw" data-h="usb" {{ '' if pstate == 'usb' else 'hidden' }}><svg class="pw-ic pw-plug" viewBox="0 0 18 15" aria-hidden="true"><path class="pw-body" d="M7 7C7 4.79086 8.79086 3 11 3H12.1429C12.6162 3 13 3.38376 13 3.85714V10.1429C13 10.6162 12.6162 11 12.1429 11H11C8.79086 11 7 9.20914 7 7Z"/><path class="pw-prong" d="M16 5H11M16 9H11M8 6.99993C5 6.99993 2 6.5 2 10.9999"/></svg>USB</span>
+                      <span class="pw" data-h="chg" {{ '' if pstate == 'charging' else 'hidden' }}><svg class="pw-ic pw-cell" viewBox="0 0 22 14" aria-hidden="true"><rect class="pw-outline" x="1" y="2.5" width="16" height="9" rx="2.4"/><path class="pw-nub" d="M17.6 5.3h1.2a.9.9 0 0 1 .9.9v1.6a.9.9 0 0 1-.9.9h-1.2z"/><path class="pw-bolt-ring" d="M10.6.6 5.9 7.4h2.9l-1.3 6 4.9-7.2H9.6z"/><path class="pw-bolt" d="M10.6.6 5.9 7.4h2.9l-1.3 6 4.9-7.2H9.6z"/></svg>Charging</span>
+                      <span class="batt" data-h="batt-wrap" {{ '' if (pct is not none and pstate not in ('usb', 'charging')) else 'hidden' }}><span class="cell"><i data-h="batt-bar" style="width:{{ pct or 0 }}%;{% if card.battery_low %}background:var(--bad){% endif %}"></i></span><span class="tnum" data-h="batt-text">{{ (pct ~ '%') if pct is not none else '' }}</span></span>
+                      <span data-h="batt-none" {{ 'hidden' if (pct is not none or pstate in ('usb', 'charging')) else '' }}>—</span>
+                      {# 24 h voltage trend, in a popover that opens after resting
+                         on the tile for half a second (tap toggles it on touch).
+                         Single series, so no legend: the tile names it. Moving
+                         along the line reads the value into the caption. #}
+                      <div class="spark-pop" data-h="spark-pop" role="tooltip" hidden>
+                        <span class="spark-cap" data-h="spark-cap" aria-live="polite" data-summary="{{ card.battery or '' }}">{{ card.battery or '' }}</span>
+                        <svg class="spark" data-h="spark" viewBox="0 0 160 30" preserveAspectRatio="none" role="img" aria-label="Battery voltage over the last 24 hours"></svg>
+                        <div class="spark-axis" aria-hidden="true"><span data-h="spark-t0"></span><span data-h="spark-t1"></span></div>
+                      </div>
+                    </span>
+                  </div>
+                  <div class="vital">
+                    <span class="vl">Wi-Fi</span>
+                    <span class="vv" data-h="wifi">
+                      <span class="pill-status" data-h="wifi-wrap" {{ '' if rssi is not none else 'hidden' }} data-tip="{{ rssi }} dBm"><svg class="wifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path class="arc{{ ' lit' if bars >= 4 }}" d="M2 7.3a15 15 0 0 1 20 0"/><path class="arc{{ ' lit' if bars >= 3 }}" d="M5.2 11.2a11 11 0 0 1 13.6 0"/><path class="arc{{ ' lit' if bars >= 2 }}" d="M8.6 15a6 6 0 0 1 6.8 0"/><circle class="dot" cx="12" cy="18.6" r="1.4"/></svg><span data-h="wifi-text">{{ word }}</span></span><span data-h="wifi-none" {{ 'hidden' if rssi is not none else '' }}>—</span>
+                    </span>
+                  </div>
+                </div>
+                {% endif %}
+                <dl>
+                  <dt>IP address</dt><dd class="tnum" data-h="ip">{{ fr.details.ip or '—' }}</dd>
+                  <dt>Firmware</dt><dd data-h="fw" data-tip="{% if fr.details.sketch_md5 %}build {{ fr.details.sketch_md5[:8] }}{% endif %}">{{ fr.details.firmware or '—' }}</dd>
+                  <dt>Panel</dt><dd>{{ fr.details.panel or fr.what }}</dd>
+                  {% if fr.transport == 'kit' %}<dt>Board</dt><dd>{{ fr.details.board or '—' }}</dd>{% endif %}
+                  <dt>Frame ID</dt><dd class="tnum">{{ fr.id }}</dd>
+                </dl>
+              </details>
             </li>
             {% endfor %}
           </ul>
-        </details>
-        {% endif %}
+          <p class="hl-empty" id="hl-empty" {{ 'hidden' if on_frames else '' }}>Nothing is showing a picture yet. The Frames card is where a screen is added.</p>
 
-        {% set _srcnames = {'birdnet_go':'BirdNET-Go','apprise':'BirdNET-Pi','birdweather':'BirdWeather','custom':'Local database'} %}
-        <div class="sc-head second">
-          <h2 class="grp">{{ _srcnames.get(config.detection_backend, 'Source') }}</h2>
-          <span class="pill-status"><span class="d {{ 'good' if status.birdnet_available else 'bad' }}" id="fc-src-dot"></span><span id="fc-src-text">{{ 'Connected' if status.birdnet_available else 'Not reachable' }}</span></span>
+          <div class="sc-head second">
+            <h2 class="grp">{{ _srcnames.get(config.detection_backend, 'Source') }}</h2>
+            <span class="pill-status"><span class="d {{ 'good' if status.birdnet_available else 'bad' }}" id="fc-src-dot"></span><span id="fc-src-text">{{ 'Connected' if status.birdnet_available else 'Not reachable' }}</span></span>
+          </div>
+          {# Values that carry a name AND a time are two spans: when a long name
+             forces a wrap, the time drops under it right-aligned instead of a
+             dangling "·" ending the first line. #}
+          <dl>
+            {# "· holding 40 min" while a new species keeps the picture against repeats. #}
+            {% set hold = status.current.holding %}
+            <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="when" id="fc-holding">{{ ('held ' ~ status.hold.until_text) if status.hold else (('holding ' ~ hold.minutes_left ~ ' min') if hold else '') }}</span></dd>
+            {% set ld = status.last_detection %}
+            <dt>Last heard</dt><dd id="fc-heard" data-tip="{{ ld.at if ld else '' }}">{% if ld %}<span class="who">{{ ld.common }}</span>{% if ld.when_text %}<span class="when">{{ ld.when_text }}</span>{% endif %}{% else %}—{% endif %}</dd>
+            {# A first-seen-today species held back for a second detection
+               (W-691). Both halves of the row hide when nothing is waiting. #}
+            {% set pend = status.pending %}
+            <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }} data-tip="{{ (pend.first_at.replace('T', ' ')) if pend else '' }}">{% if pend %}<span class="who">{{ pend.common }}</span><span class="when">{{ pend.waiting_text }}</span>{% endif %}</dd>
+            <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
+          </dl>
         </div>
-        {# Values that carry a name AND a time are two spans: when a long name
-           forces a wrap, the time drops under it right-aligned instead of a
-           dangling "·" ending the first line. #}
-        <dl>
-          {# "· holding 40 min" while a new species keeps the frame against repeats (dwell_minutes). #}
-          {% set hold = status.current.holding %}
-          <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="when" id="fc-holding">{{ ('held ' ~ status.hold.until_text) if status.hold else (('holding ' ~ hold.minutes_left ~ ' min') if hold else '') }}</span></dd>
-          {% set ld = status.last_detection %}
-          <dt>Last heard</dt><dd id="fc-heard" data-tip="{{ ld.at if ld else '' }}">{% if ld %}<span class="who">{{ ld.common }}</span>{% if ld.when_text %}<span class="when">{{ ld.when_text }}</span>{% endif %}{% else %}—{% endif %}</dd>
-          {# A first-seen-today species held back for a second detection
-             (W-691). Both halves of the row hide when nothing is waiting. #}
-          {% set pend = status.pending %}
-          <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }} data-tip="{{ (pend.first_at.replace('T', ' ')) if pend else '' }}">{% if pend %}<span class="who">{{ pend.common }}</span><span class="when">{{ pend.waiting_text }}</span>{% endif %}</dd>
-          <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
-        </dl>
-      </div>
 
-      {# Viewers (W-822): screens that are not the frame. They show what the
-         frame shows, so a viewer has only how the picture sits on its own
-         screen; everything about WHAT is shown stays in the settings. #}
-      <div class="card status-card" id="viewers-card">
-        <div class="sc-head">
-          <h2 class="grp">Viewers</h2>
+        {# Past frames, newest first. Rebuilt from /api/history by the status poll
+           whenever the current ETag changes; rows without a thumbnail on disk
+           (older than the cap, or from before thumbnails existed) are skipped. #}
+        {% set shown = (history or [])[:24] | selectattr('thumb') | list %}
+        <div class="card status-card" id="history-card" data-etag="{{ status.current.etag or '' }}">
+          <h2 class="grp">History</h2>
+          <div class="hist-strip" id="hist-strip">
+            {% for h in shown %}
+            {% set htitle = h.title or h.label or '' %}
+            <a class="hist-item" href="{{ h.thumb }}" data-cap="{{ htitle }} · {{ h.when_text }}" data-tip="{{ h.rendered_at.replace('T', ' ') if h.rendered_at else '' }}">
+              <img src="{{ h.thumb }}" alt="{{ htitle }}" width="72" height="96" loading="lazy">
+              <span class="hist-when">{{ h.when_text }}</span>
+              <span class="hist-title">{{ htitle }}</span>
+            </a>
+            {% endfor %}
+          </div>
+          <div class="hist-empty" id="hist-empty" {{ 'hidden' if shown else '' }}>Nothing rendered yet.</div>
         </div>
-        {% if not viewers %}
-        <p class="vw-empty">Other screens can show what the frame shows. On a tablet, open <a href="/view" target="_blank" rel="noopener" id="vw-url">this address with /view</a>. A TRMNL, Kobo or Kindle can be pointed at this server too: <a href="https://github.com/wr/featherframe#other-screens-tablets-trmnl-kobo-kindle" target="_blank" rel="noopener">how to add one</a>.</p>
-        {% else %}
-        <ul class="vw-list">
-          {% for v in viewers %}
-          <li data-viewer="{{ v.id }}">
-            <div class="vw-row">
-              <span class="who">{{ v.title }}</span>
-              <span class="when">{{ v.last_seen }}</span>
-            </div>
-            <span class="ign-meta tnum">{% if v.what %}{{ v.what }} · {% endif %}{{ v.size }} · {{ v.depth }}{% if v.battery %} · battery {{ v.battery }}{% endif %}</span>
-            <details class="sc-more vw-set">
-              <summary>Display</summary>
-              <div class="vw-fields">
-                <label for="vw-name-{{ loop.index }}">Name</label>
-                <input type="text" id="vw-name-{{ loop.index }}" data-vw="name" maxlength="60" value="{{ v.name }}" placeholder="{{ v.what or v.title }}">
-                <label for="vw-shows-{{ loop.index }}">Shows</label>
-                <select class="sel" id="vw-shows-{{ loop.index }}" data-vw="shows">
-                  <option value="" {{ 'selected' if not v.shows else '' }}>What the frame shows</option>
-                  <option value="plates" {{ 'selected' if v.shows == 'plates' else '' }}>Plates</option>
-                  <option value="collage" {{ 'selected' if v.shows == 'collage' else '' }}>Collage</option>
-                </select>
-                {% if v.page %}
-                <label for="vw-look-{{ loop.index }}">Look</label>
-                <select class="sel" id="vw-look-{{ loop.index }}" data-vw="fmt">
-                  <option value="color" {{ 'selected' if v.fmt == 'color' else '' }}>Color</option>
-                  <option value="gray256" {{ 'selected' if v.fmt != 'color' else '' }}>Paper (gray, like the frame)</option>
-                </select>
-                <label for="vw-dark-{{ loop.index }}">Dark in quiet hours</label>
-                <span><label class="switch"><input type="checkbox" role="switch" id="vw-dark-{{ loop.index }}" data-vw="dark_quiet" {{ 'checked' if v.dark_quiet else '' }}><span class="track"></span></label></span>
-                <div class="hint vw-hint">A lit screen goes black while the frame rests. Turn it off only where a glowing plate at night is welcome.</div>
-                {% else %}
-                <label for="vw-rot-{{ loop.index }}">Turned</label>
-                <select class="sel" id="vw-rot-{{ loop.index }}" data-vw="rotation">
-                  {% for r, word in [(0, 'Upright'), (90, 'On its left side'), (180, 'Upside down'), (270, 'On its right side')] %}
-                  <option value="{{ r }}" {{ 'selected' if v.rotation == r else '' }}>{{ word }}</option>
-                  {% endfor %}
-                </select>
-                <div class="hint vw-hint">{% if v.landscape %}A wide screen gets the plate on its side, for hanging tall. If it lands upside down, pick the other side.{% else %}Change it only if the plate lands the wrong way up.{% endif %}</div>
-                {% if v.needs_size %}
-                <span class="vw-lab">Screen</span>
-                <span class="vw-size"><input type="number" data-vw="width" min="64" max="4096" inputmode="numeric" value="{{ v.width }}" placeholder="1072" aria-label="Screen width in pixels"> × <input type="number" data-vw="height" min="64" max="4096" inputmode="numeric" value="{{ v.height }}" placeholder="1448" aria-label="Screen height in pixels"></span>
-                <div class="hint vw-hint">This device does not say how big its screen is. Its pixel size makes the plate sharp; leave it and the device scales a 1072×1448 page.</div>
-                {% endif %}
-                {% endif %}
-              </div>
-              <div class="panel-note-actions">
-                <button class="btn" type="button" data-vw-action="save">Save</button>
-                <button class="btn" type="button" data-vw-action="forget" data-tip="It comes back if the device asks again.">Forget</button>
-              </div>
-            </details>
-          </li>
-          {% endfor %}
-        </ul>
-        {% endif %}
-      </div>
-
-      {# Past frames, newest first. Rebuilt from /api/history by the status poll
-         whenever the current ETag changes; rows without a thumbnail on disk
-         (older than the cap, or from before thumbnails existed) are skipped. #}
-      {% set shown = (history or [])[:24] | selectattr('thumb') | list %}
-      <div class="card status-card" id="history-card" data-etag="{{ status.current.etag or '' }}">
-        <h2 class="grp">History</h2>
-        <div class="hist-strip" id="hist-strip">
-          {% for h in shown %}
-          {% set htitle = h.title or h.label or '' %}
-          <a class="hist-item" href="{{ h.thumb }}" data-cap="{{ htitle }} · {{ h.when_text }}" data-tip="{{ h.rendered_at.replace('T', ' ') if h.rendered_at else '' }}">
-            <img src="{{ h.thumb }}" alt="{{ htitle }}" width="72" height="96" loading="lazy">
-            <span class="hist-when">{{ h.when_text }}</span>
-            <span class="hist-title">{{ htitle }}</span>
-          </a>
-          {% endfor %}
-        </div>
-        <div class="hist-empty" id="hist-empty" {{ 'hidden' if shown else '' }}>Nothing rendered yet.</div>
       </div>
     </div>
 
-    <!-- RIGHT: settings -->
+    <!-- RIGHT: configuration — the frames first, then the household -->
     <div class="col-right">
     {# Gone-quiet alarm: the detector has been silent through too many active
        hours. Server-rendered, then kept current by the status poll. #}
@@ -1016,91 +907,205 @@
       <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
       <span class="test-msg" id="outage-text">{% if outage %}{{ srcname }} unreachable since {{ outage.since_text }} ({{ outage.hours_text }}). Check the source settings below.{% endif %}</span>
     </div>
+    {# FRAMES (W-833). A frame is a frame: one row component for every screen
+       this server draws for — the kit on the wall, a second kit, a TRMNL, a
+       tablet. A row is collapsed to its name and a one-line summary; open, it
+       shows only what THAT screen has (frames.capabilities). Nothing shared
+       is ever offered here, and no frame setting lives anywhere else. #}
+    {% macro frame_row(fr, i) %}
+    {% set caps = fr.capabilities %}
+    {% set s = fr.settings %}
+    <li class="fr" data-frame="{{ fr.id }}">
+      <button class="fr-head" type="button" aria-expanded="false" aria-controls="fr-body-{{ i }}">
+        <span class="fr-name" data-fr="title">{{ fr.title }}</span>
+        <span class="fr-sum" data-fr="summary">{{ fr.summary }}</span>
+        <svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg>
+      </button>
+      <div class="fr-body" id="fr-body-{{ i }}" hidden>
+        <div class="frow">
+          <div class="frow-text"><label class="lab" for="fr-name-{{ i }}">Name</label><div class="hint">What this screen is called on this page. Leave it blank and it is called what it is.</div></div>
+          <div class="frow-ctl"><input type="text" id="fr-name-{{ i }}" data-f="name" maxlength="60" value="{{ fr.name }}" placeholder="{{ fr.what }}"></div>
+        </div>
+        <div class="frow">
+          <div class="frow-text"><span class="lab" id="fr-shows-lab-{{ i }}">Shows</span><div class="hint">Plates is the species just heard, one at a time. Collage is the day's species on one sheet. Each screen chooses for itself.</div></div>
+          <div class="frow-ctl">
+            <div class="seg" role="radiogroup" aria-labelledby="fr-shows-lab-{{ i }}">
+              <label><input type="radio" name="fr-shows-{{ i }}" value="plates" data-f="shows" {{ 'checked' if s.shows == 'plates' else '' }}><span>Plates</span></label>
+              <label><input type="radio" name="fr-shows-{{ i }}" value="collage" data-f="shows" {{ 'checked' if s.shows == 'collage' else '' }}><span>Collage</span></label>
+            </div>
+          </div>
+        </div>
+        {% if caps.rotations and fr.transport == 'kit' %}
+        <div class="frow">
+          <div class="frow-text"><label class="lab" for="fr-rot-{{ i }}">Panel rotation</label><div class="hint">Which way up this panel hangs. Switch it if the plate is upside down on the wall.</div></div>
+          <div class="frow-ctl"><select class="sel" id="fr-rot-{{ i }}" data-f="rotation">
+            {% for r in caps.rotations %}<option value="{{ r }}" {{ 'selected' if s.rotation == r else '' }}>{{ r }}°</option>{% endfor %}
+          </select></div>
+        </div>
+        {% elif caps.rotations %}
+        <div class="frow">
+          <div class="frow-text"><label class="lab" for="fr-rot-{{ i }}">Turned</label><div class="hint">How this screen hangs. Change it only if the plate lands the wrong way up.</div></div>
+          <div class="frow-ctl"><select class="sel" id="fr-rot-{{ i }}" data-f="rotation">
+            {% for r, word in [(0, 'Upright'), (90, 'On its left side'), (180, 'Upside down'), (270, 'On its right side')] %}
+            <option value="{{ r }}" {{ 'selected' if s.rotation == r else '' }}>{{ word }}</option>{% endfor %}
+          </select></div>
+        </div>
+        {% endif %}
+        {% if caps.power %}
+        <div class="frow">
+          <div class="frow-text"><span class="lab" id="fr-power-lab-{{ i }}">Power</span><div class="hint"><ul><li>Always awake on USB: instant buttons, a detection shows within seconds.</li><li>Deep sleep on battery: it wakes on a schedule or a button press.</li></ul></div></div>
+          <div class="frow-ctl">
+            <div class="seg" role="radiogroup" aria-labelledby="fr-power-lab-{{ i }}">
+              <label><input type="radio" name="fr-power-{{ i }}" value="awake" data-f="power_mode" {{ 'checked' if s.power_mode == 'awake' else '' }}><span>Always awake</span></label>
+              <label><input type="radio" name="fr-power-{{ i }}" value="sleep" data-f="power_mode" {{ 'checked' if s.power_mode == 'sleep' else '' }}><span>Deep sleep</span></label>
+            </div>
+          </div>
+        </div>
+        <div class="reveal{{ '' if s.power_mode == 'awake' else ' collapsed' }}" data-fr-reveal="awake" {{ '' if s.power_mode == 'awake' else 'hidden' }}><div class="reveal-body">
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="fr-poll-lab-{{ i }}">Check every</span><div class="hint">How soon a new detection can reach this screen. Leave it unless Wi-Fi is struggling.</div></div>
+            <div class="frow-ctl">
+              <div class="seg" role="radiogroup" aria-labelledby="fr-poll-lab-{{ i }}">
+                {% for p in [2, 3, 5, 15] %}<label><input type="radio" name="fr-poll-{{ i }}" value="{{ p }}" data-f="device_poll_seconds" {{ 'checked' if s.device_poll_seconds == p else '' }}><span>{{ p }} s</span></label>{% endfor %}
+                {% if s.device_poll_seconds not in [2, 3, 5, 15] %}<label><input type="radio" name="fr-poll-{{ i }}" value="{{ s.device_poll_seconds }}" data-f="device_poll_seconds" checked><span>{{ s.device_poll_seconds }} s</span></label>{% endif %}
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div class="reveal{{ '' if s.power_mode == 'sleep' else ' collapsed' }}" data-fr-reveal="sleep" {{ '' if s.power_mode == 'sleep' else 'hidden' }}><div class="reveal-body">
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="fr-wake-lab-{{ i }}">Wake interval</span><div class="hint">How long it sleeps between check-ins. Longer means months more battery; an update waits up to that long to show.</div></div>
+            <div class="frow-ctl">
+              <div class="seg" role="radiogroup" aria-labelledby="fr-wake-lab-{{ i }}">
+                {% for p in [1, 5, 15, 30, 60] %}<label><input type="radio" name="fr-wake-{{ i }}" value="{{ p }}" data-f="wake_interval_minutes" {{ 'checked' if s.wake_interval_minutes == p else '' }}><span>{{ (p ~ ' min') if p < 60 else '1 h' }}</span></label>{% endfor %}
+                {% if s.wake_interval_minutes not in [1, 5, 15, 30, 60] %}<label><input type="radio" name="fr-wake-{{ i }}" value="{{ s.wake_interval_minutes }}" data-f="wake_interval_minutes" checked><span>{{ s.wake_interval_minutes }} min</span></label>{% endif %}
+              </div>
+            </div>
+          </div>
+        </div></div>
+        {% endif %}
+        {% if caps.look %}
+        <div class="frow">
+          <div class="frow-text"><span class="lab" id="fr-look-lab-{{ i }}">Look</span><div class="hint">Color uses the screen it is on. Paper draws the plate in gray, the way the frame on the wall shows it.</div></div>
+          <div class="frow-ctl">
+            <div class="seg" role="radiogroup" aria-labelledby="fr-look-lab-{{ i }}">
+              <label><input type="radio" name="fr-look-{{ i }}" value="color" data-f="fmt" {{ 'checked' if s.format == 'color' else '' }}><span>Color</span></label>
+              <label><input type="radio" name="fr-look-{{ i }}" value="gray256" data-f="fmt" {{ 'checked' if s.format != 'color' else '' }}><span>Paper</span></label>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% if caps.dark_quiet %}
+        <div class="frow toggle">
+          <div class="frow-text"><label class="lab" for="fr-dark-{{ i }}">Dark in quiet hours</label><div class="hint">A lit screen goes black while the plates rest. Turn it off only where a glowing plate at night is welcome.</div></div>
+          <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="fr-dark-{{ i }}" data-f="dark_quiet" {{ 'checked' if s.dark_quiet else '' }}><span class="track"></span></label></div>
+        </div>
+        {% endif %}
+        {% if caps.needs_size %}
+        <div class="frow">
+          <div class="frow-text"><span class="lab" id="fr-size-lab-{{ i }}">Screen</span><div class="hint">This device does not say how big its screen is. Its pixel size makes the plate sharp; leave it and the device scales a 1072×1448 page.</div></div>
+          <div class="frow-ctl pair" role="group" aria-labelledby="fr-size-lab-{{ i }}"><input type="number" data-f="width" min="64" max="4096" inputmode="numeric" value="{{ s.width }}" placeholder="1072" aria-label="Screen width in pixels"><span class="pair-sep" aria-hidden="true">×</span><input type="number" data-f="height" min="64" max="4096" inputmode="numeric" value="{{ s.height }}" placeholder="1448" aria-label="Screen height in pixels"></div>
+        </div>
+        {% endif %}
+        {% if caps.mat %}
+        <details class="disc adv">
+          <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
+          <div class="disc-body"><div class="adv-body">
+            <div class="frow">
+              <div class="frow-text"><label class="lab" for="fr-inset-{{ i }}">Mat inset (% per edge)</label><div class="hint">How much of each edge this frame's mat covers. Raise it until the mat just hides the white border in the preview; about 4 for an 8×6 mat.</div></div>
+              <div class="frow-ctl"><input type="number" id="fr-inset-{{ i }}" data-f="mat_inset_pct" data-default="{{ fr.defaults.mat_inset_pct }}" min="0" max="20" step="0.1" inputmode="decimal" value="{{ s.mat_inset_pct }}"></div>
+            </div>
+            <div class="frow">
+              <div class="frow-text"><span class="lab" id="fr-offset-lab-{{ i }}">Mat offset (px)</span><div class="hint">Nudges the art if this mat's opening isn't centered. x then y, −120 to 120.</div></div>
+              <div class="frow-ctl pair" role="group" aria-labelledby="fr-offset-lab-{{ i }}"><input type="number" data-f="mat_offset_x_px" data-default="{{ fr.defaults.mat_offset_x_px }}" min="-120" max="120" step="1" inputmode="numeric" value="{{ s.mat_offset_x_px }}" placeholder="x" aria-label="Horizontal offset, positive moves right" title="x — positive moves right"><input type="number" data-f="mat_offset_y_px" data-default="{{ fr.defaults.mat_offset_y_px }}" min="-120" max="120" step="1" inputmode="numeric" value="{{ s.mat_offset_y_px }}" placeholder="y" aria-label="Vertical offset, positive moves down" title="y — positive moves down"></div>
+            </div>
+            <div class="adv-reset">
+              <div class="hint" id="fr-reset-hint-{{ i }}">Puts the mat back to the default for this panel. Nothing changes until you save.</div>
+              <button class="btn" type="button" data-fr-action="reset" aria-describedby="fr-reset-hint-{{ i }}">Reset to this panel's defaults</button>
+            </div>
+          </div></div>
+        </details>
+        {% endif %}
+        <div class="fr-actions">
+          <button class="btn primary" type="button" data-fr-action="save">Save</button>
+          <button class="btn danger fr-forget" type="button" data-fr-action="forget" data-tip="It asks to be added again the next time it checks in.">Remove</button>
+        </div>
+      </div>
+    </li>
+    {% endmacro %}
+
+    <div class="card" id="frames-card">
+      <section class="sec">
+        <h2 class="sec-head">Frames</h2>
+        {# A kit this server has not been told about. Nothing changes until the
+           owner answers; until then it is shown "Add this frame on the
+           Featherframe page" and keeps asking. #}
+        {% for fr in asking %}
+        <div class="test-box warn show fr-note panel-note" role="status">
+          <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
+          <span class="test-msg">
+            <strong>A frame is asking to connect.</strong>
+            {{ fr.what }} ({{ fr.short }}{% if fr.ip %}, {{ fr.ip }}{% endif %}). Add it and it updates from here too, with its own picture and its own settings.
+            <span class="panel-note-actions">
+              <button class="btn primary" type="button" data-frame-action="add" data-frame-id="{{ fr.id }}">Add this frame</button>
+              <button class="btn" type="button" data-frame-action="ignore" data-frame-id="{{ fr.id }}">Ignore it</button>
+            </span>
+          </span>
+        </div>
+        {% endfor %}
+        {% if on_frames %}
+        <ul class="fr-list">
+          {% for fr in on_frames %}{{ frame_row(fr, loop.index) }}{% endfor %}
+        </ul>
+        {% elif not asking %}
+        {# An invitation, not an apology: two roads to a first screen. #}
+        <div class="fr-empty">
+          <p>Nothing is showing plates yet. There are two ways to start.</p>
+          <ol>
+            <li><strong>A screen you already own.</strong> Open <span class="addr" id="fr-view-url">/view</span> in a browser on a tablet or an old phone, and it becomes a frame.</li>
+            <li><strong>The kit.</strong> Build it and power it on. It opens a Wi-Fi network called <strong>Featherframe-Setup</strong> — join it, point it at this server, and it appears here.</li>
+          </ol>
+        </div>
+        {% endif %}
+        {% if ignored %}
+        <details class="sc-more ignored-frames">
+          <summary>Ignored ({{ ignored|length }})</summary>
+          <p class="hint">These asked this server for updates and were turned away, so they get none. Adding one starts drawing for it; forgetting one lets it ask again.</p>
+          <ul class="ign-list">
+            {% for fr in ignored %}
+            <li class="panel-note">
+              <span class="ign-name">{{ fr.title }}<span class="ign-meta tnum">{{ fr.short }}{% if fr.ip %} · {{ fr.ip }}{% endif %}{% if fr.last_seen %} · last asked {{ fr.last_seen.replace('T', ' ') }}{% endif %}</span></span>
+              <span class="panel-note-actions">
+                <button class="btn" type="button" data-frame-action="add" data-frame-id="{{ fr.id }}">Add</button>
+                <button class="btn" type="button" data-frame-action="forget" data-frame-id="{{ fr.id }}">Forget</button>
+              </span>
+            </li>
+            {% endfor %}
+          </ul>
+        </details>
+        {% endif %}
+      </section>
+    </div>
+
     <form method="post" action="/settings" class="settings-form">
         {# Every setting is one .frow: label + hint on the left, the control on
            the right, so the label column reads straight down the page. .toggle
            keeps its two columns on a phone (a switch is small); .stack puts a
-           wide control (URL, key, textarea) under its label at every width. #}
+           wide control (URL, key, textarea) under its label at every width.
+           Everything in this form is the HOUSEHOLD's: the same for every
+           screen. A frame's own settings are in the Frames card above. #}
       <div class="card">
         <section class="sec">
-          <h2 class="sec-head">Display</h2>
+          <h2 class="sec-head">Collage</h2>
+          <p class="intro">The day's species on one sheet. Any screen can be set to show it instead of plates — that choice is in the Frames card — and the nightly one is drawn once, for every screen.</p>
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="mode-lab">Mode</span><div class="hint" id="mode-hint"></div></div>
-            <div class="frow-ctl">
-              <div class="seg" role="radiogroup" aria-labelledby="mode-lab" id="mode-seg">
-                <label><input type="radio" name="mode" value="single" {{ 'checked' if config.mode=='single' else '' }}><span>Single<a class="ex seg-ex" href="/static/examples/single.png" data-ex="single" data-cap="Single — the most recent detection, shown as one plate." title="Preview an example" aria-label="Preview a Single example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></span></label>
-                <label><input type="radio" name="mode" value="collage" {{ 'checked' if config.mode=='collage' else '' }}><span>Collage<a class="ex seg-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Collage — a grid of the day's most-heard species, rebuilt through the day." title="Preview an example" aria-label="Preview a Collage example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></span></label>
-              </div>
-            </div>
-          </div>
-          <div class="frow" id="collage-every-row" {{ '' if config.mode=='collage' else 'hidden' }}>
             <div class="frow-text"><label class="lab" for="f-every">New collage every (hours)</label><div class="hint">How often the sheet is redrawn as the day's species arrive. On the color panel, where an update takes half a minute, a few hours apart suits it.</div></div>
             <div class="frow-ctl"><input type="number" id="f-every" name="collage_interval_hours" min="1" max="24" step="1" inputmode="numeric" value="{{ config.collage_interval_hours }}"></div>
           </div>
           <div class="frow">
-            <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint"><ul><li>Always awake on USB: instant buttons, a detection shows within seconds.</li><li>Deep sleep on battery: the frame wakes on a schedule or a button press.</li></ul></div></div>
-            <div class="frow-ctl">
-              {% set pm = config.power_mode %}
-              <div class="seg" role="radiogroup" aria-labelledby="power-lab">
-                <label><input type="radio" name="power_mode" value="awake" {{ 'checked' if pm=='awake' else '' }}><span>Always awake</span></label>
-                <label><input type="radio" name="power_mode" value="sleep" {{ 'checked' if pm=='sleep' else '' }}><span>Deep sleep</span></label>
-              </div>
-            </div>
+            <div class="frow-text"><label class="lab" for="f-review-max">Species on the sheet</label><div class="hint">How many species the nightly collage shows, most-heard first. 0 shows every species heard that day.</div></div>
+            <div class="frow-ctl"><input type="number" id="f-review-max" name="collage_species_max" min="0" max="60" step="1" inputmode="numeric" value="{{ config.collage_species_max }}"></div>
           </div>
-          <div class="reveal{{ '' if config.power_mode=='awake' else ' collapsed' }}" id="poll-field" {{ '' if config.power_mode=='awake' else 'hidden' }}><div class="reveal-body">
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="poll-lab">Check every</span><div class="hint">How soon a new detection can reach the wall. Leave it unless Wi-Fi is struggling.</div></div>
-            <div class="frow-ctl">
-              {% set pv = config.device_poll_seconds %}
-              <div class="seg" role="radiogroup" aria-labelledby="poll-lab">
-                {% for p in [2, 3, 5, 15] %}
-                <label><input type="radio" name="device_poll_seconds" value="{{ p }}" {{ 'checked' if pv==p else '' }}><span>{{ p }} s</span></label>
-                {% endfor %}
-                {% if pv not in [2, 3, 5, 15] %}
-                <label><input type="radio" name="device_poll_seconds" value="{{ pv }}" checked><span>{{ pv }} s</span></label>
-                {% endif %}
-              </div>
-            </div>
-          </div>
-          </div></div>
-          <div class="reveal{{ '' if config.power_mode=='sleep' else ' collapsed' }}" id="wake-field" {{ '' if config.power_mode=='sleep' else 'hidden' }}><div class="reveal-body">
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="wake-lab">Wake interval</span><div class="hint">How long the frame sleeps between check-ins. Longer means months more battery; an update waits up to that long to show.</div></div>
-            <div class="frow-ctl">
-              {% set presets = [1, 5, 15, 30, 60] %}
-              {% set wv = config.wake_interval_minutes %}
-              <div class="seg" role="radiogroup" aria-labelledby="wake-lab">
-                {% for p in presets %}
-                <label><input type="radio" name="wake_interval_minutes" value="{{ p }}" {{ 'checked' if wv==p else '' }}><span>{{ (p ~ ' min') if p < 60 else '1 h' }}</span></label>
-                {% endfor %}
-                {% if wv not in presets %}
-                <label><input type="radio" name="wake_interval_minutes" value="{{ wv }}" checked><span>{{ wv }} min</span></label>
-                {% endif %}
-              </div>
-            </div>
-          </div>
-          </div></div>
-          <details class="disc adv">
-            <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
-            <div class="disc-body"><div class="adv-body">
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-rot">Panel rotation</label><div class="hint">Switch this if the plate is upside down on the wall.</div></div>
-                <div class="frow-ctl"><select class="sel" id="f-rot" name="panel_rotation">{% for r in config.panel_spec.rotations %}<option value="{{ r }}" {{ 'selected' if config.panel_rotation==r else '' }}>{{ r }}°</option>{% endfor %}</select></div>
-              </div>
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-inset">Mat inset (% per edge)</label><div class="hint">How much of each edge your mat covers. Raise it until the mat just hides the white border in the preview; about 4 for an 8×6 mat.</div></div>
-                <div class="frow-ctl"><input type="number" id="f-inset" name="mat_inset_pct" min="0" max="20" step="0.1" inputmode="decimal" value="{{ config.mat_inset_pct }}"></div>
-              </div>
-              <div class="frow">
-                <div class="frow-text"><span class="lab" id="offset-lab">Mat offset (px)</span><div class="hint">Nudges the art if your mat opening isn't centered. x then y, −120 to 120.</div></div>
-                <div class="frow-ctl pair" role="group" aria-labelledby="offset-lab"><input type="number" name="mat_offset_x_px" min="-120" max="120" step="1" inputmode="numeric" value="{{ config.mat_offset_x_px }}" placeholder="x" aria-label="Horizontal offset, positive moves right" title="x — positive moves right"><input type="number" name="mat_offset_y_px" min="-120" max="120" step="1" inputmode="numeric" value="{{ config.mat_offset_y_px }}" placeholder="y" aria-label="Vertical offset, positive moves down" title="y — positive moves down"></div>
-              </div>
-              <div class="adv-reset">
-                <div class="hint" id="adv-reset-hint">Puts every setting in this Advanced section back to its default for this panel. Nothing changes until you save.</div>
-                <button class="btn" type="button" id="adv-reset" aria-describedby="adv-reset-hint">Reset to defaults</button>
-              </div>
-            </div></div>
-          </details>
         </section>
       </div>
 
@@ -1270,10 +1275,6 @@
             <div class="frow-text"><label class="lab" for="cg">Combine the nightly collage into a single image <a class="ex seg-ex" href="/static/examples/single.png" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></label><div class="hint" id="combine-cost"></div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" aria-describedby="combine-cost" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
           </div>
-          <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-review-max">Species on the sheet</label><div class="hint">How many species the nightly collage shows, most-heard first. 0 shows every species heard that day.</div></div>
-            <div class="frow-ctl"><input type="number" id="f-review-max" name="collage_species_max" min="0" max="60" step="1" inputmode="numeric" value="{{ config.collage_species_max }}"></div>
-          </div>
           <details class="disc adv ig-needs-key" {{ '' if ig_ready else 'hidden' }}>
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="disc-body"><div class="adv-body">
@@ -1432,6 +1433,31 @@
     if (when) { var b = document.createElement('span'); b.className = 'when'; b.textContent = when; el.appendChild(b); }
   }
   function fmtTime(d) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  // Dependent rows (a frame's wake interval under Power, the quiet-hours times)
+  // slide open and shut like the disclosures: [hidden] goes on only once the
+  // slide has finished, and comes off before it starts.
+  function setRevealed(el, show) {
+    if (!el) return;
+    if (show) {
+      if (!el.hidden && !el.classList.contains('collapsed')) return;
+      el.hidden = false; el.classList.add('collapsed');
+      void el.offsetHeight;
+      el.classList.remove('collapsed');
+    } else {
+      if (el.hidden) return;
+      el.classList.add('collapsed');
+      var done = function () {
+        el.removeEventListener('transitionend', done);
+        if (el.classList.contains('collapsed')) el.hidden = true;
+      };
+      el.addEventListener('transitionend', done);
+      setTimeout(done, 300);
+    }
+  }
+  // Re-measures the segmented controls under `root` — a .seg inside a frame
+  // row measures 0 while the row is closed, so its indicator lands nowhere.
+  // Assigned by the segmented-control block near the foot of this script.
+  var refreshSegs = function () {};
 
   // fetch that rejects on a non-2xx and parses JSON; the error message is
   // fit to print (the server's own text when it sends one).
@@ -1468,10 +1494,9 @@
     flash.querySelector('.test-msg').textContent = '';
   }
   // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
-  var FIELD_NAMES = { power_mode: 'Power', device_poll_seconds: 'Check every', wake_interval_minutes: 'Wake interval',
-    collage_interval_hours: 'New collage every', collage_species_max: 'Species on the sheet',
-    mat_inset_pct: 'Mat inset',
-    mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation' };
+  // Household fields only: a frame's own are saved per frame, without a reload.
+  var FIELD_NAMES = { collage_interval_hours: 'New collage every',
+    collage_species_max: 'Species on the sheet' };
   (function () {
     var q = new URLSearchParams(location.search), shown = false;
     if (q.get('error')) { showFlash('bad', q.get('error'), 'ic-warn'); shown = true; }
@@ -1487,11 +1512,36 @@
   })();
 
   // -- live preview -----------------------------------------------------------
+  // The preview is OF one frame. The picker under it says which, and the
+  // choice is kept in this browser (a frame that is gone falls back to the
+  // first one that has a picture).
   var preview = $('preview'), plate = $('plate');
+  var PICK_KEY = 'ff-preview-frame';
+  var previewSrc = preview ? preview.getAttribute('src') : '';
   function refreshPreview() {
-    if (document.hidden || !preview) return;
-    preview.src = '/api/preview.png?t=' + Date.now();
+    if (document.hidden || !preview || !previewSrc) return;
+    preview.src = previewSrc + '?t=' + Date.now();
   }
+  (function () {
+    var pick = $('frame-pick');
+    if (!pick || !preview) return;
+    var chips = [].slice.call(pick.querySelectorAll('button[data-pick]'));
+    if (!chips.length) return;
+    function choose(chip, remember) {
+      chips.forEach(function (c) { c.setAttribute('aria-pressed', String(c === chip)); });
+      previewSrc = chip.getAttribute('data-src');
+      var link = plate && plate.querySelector('a.plate-link');
+      if (link) link.href = previewSrc;
+      if (plate) plate.classList.remove('empty');
+      preview.src = previewSrc + '?t=' + Date.now();
+      if (remember) { try { localStorage.setItem(PICK_KEY, chip.getAttribute('data-pick')); } catch (e) { /* fine */ } }
+    }
+    var want = null;
+    try { want = localStorage.getItem(PICK_KEY); } catch (e) { want = null; }
+    var stored = want && chips.filter(function (c) { return c.getAttribute('data-pick') === want; })[0];
+    if (stored) choose(stored, false);
+    chips.forEach(function (c) { c.addEventListener('click', function () { choose(c, true); }); });
+  })();
   if (preview && plate) {
     // A 404 means "no frame yet" only while the status poll agrees; a server
     // outage keeps the last good image rather than faking an empty state.
@@ -1523,7 +1573,7 @@
           function done() { preview.removeEventListener('load', done); preview.removeEventListener('error', done); res(); }
           preview.addEventListener('load', done); preview.addEventListener('error', done);
           setTimeout(done, 3000);
-          preview.src = '/api/preview.png?t=' + Date.now();
+          preview.src = previewSrc + '?t=' + Date.now();
         });
       }).then(function () { setTaskStatus(''); refreshBtn.textContent = changed ? 'Refreshed' : 'Already up to date'; });
     }).catch(function (e) {
@@ -1538,7 +1588,7 @@
   // -- hold this plate / block what's showing (W-735) -----------------------
   var holdBtn = $('hold-btn'), holdDur = $('hold-dur'), releaseBtn = $('release-btn'), blockBtn = $('block-btn');
   function formBody(o) { var b = new URLSearchParams(); Object.keys(o).forEach(function (k) { b.append(k, o[k]); }); return b; }
-  function reloadPreviewSoon() { if (preview) setTimeout(function () { preview.src = '/api/preview.png?t=' + Date.now(); }, 400); }
+  function reloadPreviewSoon() { if (preview) setTimeout(function () { preview.src = previewSrc + '?t=' + Date.now(); }, 400); }
   function blocklistLines() { var bl = $('f-block'); return bl ? bl.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean) : null; }
   function setBlocklist(lines) { var bl = $('f-block'); if (bl) bl.value = lines.join('\n'); }
   if (holdBtn) holdBtn.addEventListener('click', function () {
@@ -1586,12 +1636,12 @@
   });
 
   // -- left column: sticky only as far as it fits ---------------------------
-  // With the History card filled in the stage is taller than a laptop
+  // With the History card filled in the column is taller than a laptop
   // viewport, and a column stuck at the top hid its own bottom until the
   // settings ran out. When it overflows, pin its BOTTOM instead: the column
   // scrolls with the page until its last card is in view, then holds there.
   (function () {
-    var stage = document.querySelector('.stage');
+    var stage = document.querySelector('.col-left');
     if (!stage) return;
     var TOP = 28, BOTTOM = 24;
     function fit() {
@@ -1607,50 +1657,106 @@
     fit();
   })();
 
-  // -- Frame card: keep the snapshot current, and say so when we can't -------
-  var frameCard = $('frame-card'), statusFailures = 0, statusLastOk = new Date();
+  // -- the status poll: every frame row, every health row, live ---------------
+  // One shape per frame (status.frames.list) drives both cards. Nothing here
+  // reloads the page: a frame appearing or disappearing does (the rows are
+  // server-rendered), everything else is updated in place.
+  var healthCard = $('health-card'), statusFailures = 0, statusLastOk = new Date();
   var WIFI_WORDS = ['Weak', 'Weak', 'Fair', 'Good', 'Excellent'];
   function wifiBars(rssi) { return rssi >= -55 ? 4 : (rssi >= -67 ? 3 : (rssi >= -75 ? 2 : 1)); }
-  function applyStatus(st) {
-    var card = st.frame_card || {}, dev = st.device || {}, cur = st.current || {};
-    if (plate) { plate.dataset.hasFrame = cur.etag ? '1' : ''; if (cur.etag) plate.classList.remove('empty'); }
-    setText('fc-seen-text', card.seen ? (card.last_seen || '') : 'never');
-    var seenDd = $('fc-seen');
-    if (seenDd) seenDd.dataset.tip = (card.last_checkin_iso ? 'Checked in ' + card.last_checkin_iso.replace('T', ' ') : '') + (dev.last_wake ? ' \u00b7 wake: ' + dev.last_wake : '');
-    setDot('fc-seen-dot', card.seen ? (card.overdue ? 'warn' : 'good') : 'off');
-    setHidden('fc-overdue', !card.overdue);
-    // (em dash escaped: the literal must only appear in the page when actually overdue)
-    setText('fc-overdue-text', card.overdue ? (card.overdue_text || '') : '');
-    setHidden('fc-never', card.seen);
-    setHidden('fc-telemetry', !card.seen);
-    var pct = (card.battery_percent !== null && card.battery_percent !== undefined) ? card.battery_percent : dev.battery_percent, bar = $('fc-batt-bar');
+  // Elements inside one row are found by [data-h] / [data-fr], never by id:
+  // a frame is named by its MAC, which is no kind of id.
+  function sub(root, attr, key) { return root ? root.querySelector('[' + attr + '="' + key + '"]') : null; }
+  function subText(root, attr, key, text) { var el = sub(root, attr, key); if (el) el.textContent = text; }
+  function subHidden(root, attr, key, hidden) { var el = sub(root, attr, key); if (el) el.hidden = !!hidden; }
+
+  function applyHealth(li, fr) {
+    var card = fr.card || {};
+    subText(li, 'data-h', 'seen-text', card.seen ? (card.last_seen || '') : 'never');
+    var seen = sub(li, 'data-h', 'seen');
+    if (seen) seen.dataset.tip = card.last_checkin_iso ? 'Last asked ' + card.last_checkin_iso.replace('T', ' ') : '';
+    var dot = sub(li, 'data-h', 'dot');
+    if (dot) dot.className = 'd ' + (card.seen ? (card.overdue ? 'warn' : 'good') : 'off');
+    subHidden(li, 'data-h', 'overdue', !card.overdue);
+    // (em dash escaped: the literal must only appear when actually overdue)
+    subText(li, 'data-h', 'overdue-text', card.overdue ? (card.overdue_text || '') : '');
+    subText(li, 'data-h', 'line', card.battery || '');
+    var bar = sub(li, 'data-h', 'batt-bar');
     if (bar) {
-      var has = pct !== null && pct !== undefined;
+      var pct = (card.battery_percent === null || card.battery_percent === undefined) ? null : card.battery_percent;
+      var has = pct !== null;
       var pstate = (card.power && card.power.state) || 'unknown';
       var onPower = pstate === 'usb' || pstate === 'charging';
-      setHidden('pw-usb', pstate !== 'usb'); setHidden('pw-chg', pstate !== 'charging');
-      setHidden('fc-batt-wrap', !has || onPower); setHidden('fc-batt-none', has || onPower);
+      subHidden(li, 'data-h', 'usb', pstate !== 'usb');
+      subHidden(li, 'data-h', 'chg', pstate !== 'charging');
+      subHidden(li, 'data-h', 'batt-wrap', !has || onPower);
+      subHidden(li, 'data-h', 'batt-none', has || onPower);
       bar.style.width = (has ? pct : 0) + '%';
       bar.style.background = (has && card.battery_low) ? 'var(--bad)' : '';
-      setHidden('batt-critical', !card.battery_critical);
-      setText('batt-critical-volts', card.battery ? ' (' + card.battery + ')' : '');
-      setText('fc-batt-text', has ? pct + '%' : '');
-      var capEl = $('fc-spark-cap');
-      if (capEl) { capEl.dataset.summary = card.battery || ''; if (!sparkHover) capEl.textContent = card.battery || ''; }
+      subText(li, 'data-h', 'batt-text', has ? pct + '%' : '');
+      var cap = sub(li, 'data-h', 'spark-cap');
+      if (cap) { cap.dataset.summary = card.battery || ''; if (sparkHover !== li) cap.textContent = card.battery || ''; }
     }
-    var rssi = dev.wifi_rssi, wifiWrap = $('fc-wifi-wrap');
-    if (wifiWrap) {
+    var rssi = card.wifi_rssi, wrap = sub(li, 'data-h', 'wifi-wrap');
+    if (wrap) {
       var hasWifi = rssi !== null && rssi !== undefined;
-      setHidden('fc-wifi-wrap', !hasWifi); setHidden('fc-wifi-none', hasWifi);
+      subHidden(li, 'data-h', 'wifi-wrap', !hasWifi);
+      subHidden(li, 'data-h', 'wifi-none', hasWifi);
       if (hasWifi) {
         var bars = wifiBars(rssi);
-        wifiWrap.dataset.tip = rssi + ' dBm';
-        [].forEach.call(wifiWrap.querySelectorAll('.arc'), function (arc, i) { arc.classList.toggle('lit', bars >= 4 - i); });
-        setText('fc-wifi-text', WIFI_WORDS[bars]);
+        wrap.dataset.tip = rssi + ' dBm';
+        [].forEach.call(wrap.querySelectorAll('.arc'), function (arc, i) { arc.classList.toggle('lit', bars >= 4 - i); });
+        subText(li, 'data-h', 'wifi-text', WIFI_WORDS[bars]);
       }
     }
-    setText('fc-ip', dev.ip || '—');
-    setText('fc-fw', dev.fw_version || dev.user_agent || '—');
+    var det = fr.details || {};
+    subText(li, 'data-h', 'ip', det.ip || '\u2014');
+    subText(li, 'data-h', 'fw', det.firmware || '\u2014');
+  }
+
+  // "Charge <name>." — one banner per frame whose cell is nearly empty.
+  function applyBattBanners(frames) {
+    var box = $('batt-banners');
+    if (!box) return;
+    var want = frames.filter(function (f) { return f.status === 'on' && f.card && f.card.battery_critical; });
+    var have = box.children.length;
+    if (!want.length && !have) return;
+    while (box.firstChild) box.removeChild(box.firstChild);
+    want.forEach(function (f) {
+      var div = document.createElement('div');
+      div.className = 'test-box bad show panel-note'; div.setAttribute('role', 'status');
+      var ic = document.createElement('span');
+      ic.className = 'test-ic'; ic.setAttribute('aria-hidden', 'true');
+      ic.innerHTML = '<svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg>';
+      var msg = document.createElement('span'); msg.className = 'test-msg';
+      var strong = document.createElement('strong'); strong.textContent = 'Charge ' + f.title + '.';
+      msg.appendChild(strong);
+      msg.appendChild(document.createTextNode(' Its battery is nearly empty (' + (f.card.battery || '') +
+        '). Once the cell is too low for Wi-Fi it shows "Battery low, charge me", keeps its last plate, ' +
+        'and stops checking in until it is charged.'));
+      div.appendChild(ic); div.appendChild(msg);
+      box.appendChild(div);
+    });
+  }
+
+  function applyStatus(st) {
+    var cur = st.current || {}, frames = (st.frames && st.frames.list) || [];
+    if (plate) { plate.dataset.hasFrame = cur.etag ? '1' : ''; if (cur.etag) plate.classList.remove('empty'); }
+    // A frame added, answered or unplugged changes which rows exist: the rows
+    // are server-rendered, so take the new page rather than build them twice.
+    var ids = frames.map(function (f) { return f.id + ':' + f.status; }).join(',');
+    if (knownFrames === null) knownFrames = ids;
+    else if (ids !== knownFrames && !dirty) { knownFrames = ids; location.reload(); return; }
+    frames.forEach(function (fr) {
+      var li = document.querySelector('.hl[data-health="' + cssEscape(fr.id) + '"]');
+      if (li) applyHealth(li, fr);
+      var row = document.querySelector('.fr[data-frame="' + cssEscape(fr.id) + '"]');
+      if (row && !row.dataset.editing) {
+        subText(row, 'data-fr', 'title', fr.title);
+        subText(row, 'data-fr', 'summary', fr.summary);
+      }
+    });
+    applyBattBanners(frames);
     setDot('fc-src-dot', st.birdnet_available ? 'good' : 'bad');
     setText('fc-src-text', st.birdnet_available ? 'Connected' : 'Not reachable');
     var ld = st.last_detection, heard = $('fc-heard');
@@ -1677,12 +1783,16 @@
       pendEl.dataset.tip = (pend && pend.first_at) ? pend.first_at.replace('T', ' ') : '';
     }
     refreshHistory(cur.etag || '');
-    setText('fc-showing', cur.title || cur.label || '—');
+    setText('fc-showing', cur.title || cur.label || '\u2014');
     setText('fc-holding', st.hold ? 'held ' + st.hold.until_text
                          : (cur.holding ? 'holding ' + cur.holding.minutes_left + ' min' : ''));
     setHidden('hold-ctl', !!st.hold); setHidden('held-line', !st.hold);
     if (st.hold) setText('held-until', st.hold.until_text || '');
     setText('fc-species', st.species_all_time + ' all-time');
+  }
+  var knownFrames = null;
+  function cssEscape(s) {
+    return (window.CSS && CSS.escape) ? CSS.escape(String(s)) : String(s).replace(/["\\]/g, '\\$&');
   }
   // -- History strip: rebuilt only when the current frame's ETag moves ------
   var histCard = $('history-card'), histStrip = $('hist-strip');
@@ -1715,7 +1825,11 @@
   // -- battery trend: one line, fixed 3.3-4.25 V scale so days compare, a
   // dotted rule at the "on USB" level, the newest reading marked. ---------
   var BATTERY_MS = 5 * 60000, SPARK_DELAY_MS = 500;
-  var sparkPts = [], sparkReady = false, sparkTimer = null, sparkHover = false;
+  // One trend per frame, drawn the first time that frame's Details is opened
+  // and kept fresh while it stays open: a page with five screens must not ask
+  // for five days of readings nobody looked at. `sparkHover` is the row whose
+  // line the pointer is on, so the poll does not overwrite the reading under it.
+  var sparkTimer = null, sparkHover = null;
 
   // -- data tooltips: one small popover, same look as the chart's, for every
   // [data-tip] on the cards. Opens after the pointer rests 0.5 s, closes on
@@ -1741,7 +1855,7 @@
     document.addEventListener('mouseover', function (e) {
       var host = e.target.closest && e.target.closest('[data-tip]');
       if (!host || host === current) return;
-      if (host.id === 'fc-batt') return;   // the power row has its own popover
+      if (host.hasAttribute('data-spark-host')) return;   // the power tile has its own popover
       clearTimeout(timer); timer = setTimeout(function () { show(host); }, SPARK_DELAY_MS);
     });
     document.addEventListener('mouseout', function (e) {
@@ -1752,24 +1866,26 @@
     });
     document.addEventListener('click', function (e) {
       var host = e.target.closest && e.target.closest('[data-tip]');
-      if (host && host.id !== 'fc-batt' && !host.matches('a, button')) { if (current === host) hide(); else show(host); }
+      if (host && !host.hasAttribute('data-spark-host') && !host.matches('a, button')) { if (current === host) hide(); else show(host); }
       else if (!tip.contains(e.target)) hide();
     });
     window.addEventListener('scroll', hide, { passive: true });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
   })();
-  // The popover opens after the pointer rests on the row for half a second,
-  // closes when it leaves, and toggles on tap where there is no hover.
-  (function () {
-    var host = $('fc-batt'), pop = $('fc-spark-row');
-    if (!host || !pop) return;
-    function open() { if (sparkReady) pop.hidden = false; }
+  // One popover per frame's power tile: it opens after the pointer rests on
+  // the tile for half a second, closes when it leaves, and toggles on tap
+  // where there is no hover.
+  document.querySelectorAll('[data-spark-host]').forEach(function (host) {
+    var li = host.closest('[data-health]');
+    var pop = sub(host, 'data-h', 'spark-pop');
+    if (!li || !pop) return;
+    function open() { if (li.dataset.sparkReady) pop.hidden = false; }
     function close() { clearTimeout(sparkTimer); sparkTimer = null; pop.hidden = true; }
     host.addEventListener('mouseenter', function () { clearTimeout(sparkTimer); sparkTimer = setTimeout(open, SPARK_DELAY_MS); });
     host.addEventListener('mouseleave', close);
     host.addEventListener('click', function () { if (pop.hidden) open(); else close(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
-  })();
+  });
   function sparkTime(iso) {
     var d = new Date(iso.replace(' ', 'T'));
     if (isNaN(d.getTime())) return iso;
@@ -1784,14 +1900,15 @@
     if (d.toDateString() === today.toDateString()) return t;
     return d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' \u00b7 ' + t;
   }
-  function drawSpark(data) {
-    var svg = $('fc-spark'), row = $('fc-spark-row'), cap = $('fc-spark-cap');
+  function drawSpark(li, data) {
+    var svg = sub(li, 'data-h', 'spark'), row = sub(li, 'data-h', 'spark-pop');
+    var cap = sub(li, 'data-h', 'spark-cap');
     if (!svg || !row) return;
     var items = (data && data.items) || [];
-    sparkPts = [];
+    var pts = [];
     while (svg.firstChild) svg.removeChild(svg.firstChild);
-    sparkReady = items.length >= 2;
-    if (!sparkReady) { row.hidden = true; return; }
+    if (items.length < 2) { li.dataset.sparkReady = ''; row.hidden = true; return; }
+    li.dataset.sparkReady = '1';
     var W = 160, H = 30, LO = 3.3, HI = 4.25;
     var t0 = new Date(items[0].at.replace(' ', 'T')).getTime();
     var t1 = new Date(items[items.length - 1].at.replace(' ', 'T')).getTime();
@@ -1805,56 +1922,71 @@
     var d = '', area = '';
     items.forEach(function (it, i) {
       var t = new Date(it.at.replace(' ', 'T')).getTime(), px = x(t), py = y(it.voltage);
-      sparkPts.push({ x: px, v: it.voltage, at: it.at, pct: it.percent });
+      pts.push({ x: px, v: it.voltage, at: it.at, pct: it.percent });
       d += (i ? ' L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1);
     });
     area = d + ' L' + x(t1).toFixed(1) + ' ' + (H - 3) + ' L' + x(t0).toFixed(1) + ' ' + (H - 3) + ' Z';
     svg.appendChild(el('path', { 'class': 'fill', d: area }));
     svg.appendChild(el('path', { 'class': 'line', d: d }));
-    var last = sparkPts[sparkPts.length - 1];
+    var last = pts[pts.length - 1];
     svg.appendChild(el('circle', { 'class': 'end', cx: last.x.toFixed(1), cy: y(last.v).toFixed(1), r: 2.2 }));
     var cursor = el('line', { 'class': 'cursor', x1: 0, x2: 0, y1: 0, y2: H, visibility: 'hidden' });
     svg.appendChild(cursor);
-    var t0El = $('fc-spark-t0'), t1El = $('fc-spark-t1');
+    var t0El = sub(li, 'data-h', 'spark-t0'), t1El = sub(li, 'data-h', 'spark-t1');
     if (t0El) t0El.textContent = sparkStamp(items[0].at);
     if (t1El) t1El.textContent = sparkStamp(items[items.length - 1].at);
     function summary() { return (cap && cap.dataset.summary) || ((data.hours || 24) + ' h'); }
     if (cap) cap.textContent = summary();
     function nearest(evt) {
-      var r = svg.getBoundingClientRect(), fx = ((evt.clientX - r.left) / r.width) * W, best = sparkPts[0];
-      sparkPts.forEach(function (p) { if (Math.abs(p.x - fx) < Math.abs(best.x - fx)) best = p; });
+      var r = svg.getBoundingClientRect(), fx = ((evt.clientX - r.left) / r.width) * W, best = pts[0];
+      pts.forEach(function (p) { if (Math.abs(p.x - fx) < Math.abs(best.x - fx)) best = p; });
       return best;
     }
     svg.onmousemove = function (evt) {
-      sparkHover = true;
+      sparkHover = li;
       var p = nearest(evt);
       cursor.setAttribute('x1', p.x.toFixed(1)); cursor.setAttribute('x2', p.x.toFixed(1)); cursor.setAttribute('visibility', 'visible');
       if (cap) cap.textContent = p.v.toFixed(2) + ' V' + (p.pct != null ? ' \u00b7 ' + p.pct + '%' : '') + ' \u00b7 ' + sparkTime(p.at);
     };
-    svg.onmouseleave = function () { sparkHover = false; cursor.setAttribute('visibility', 'hidden'); if (cap) cap.textContent = summary(); };
+    svg.onmouseleave = function () { sparkHover = null; cursor.setAttribute('visibility', 'hidden'); if (cap) cap.textContent = summary(); };
   }
-  function loadBattery() {
-    if (document.hidden || !$('fc-spark')) return;
-    jsonFetch('/api/battery?hours=24').then(drawSpark).catch(function () { /* the row simply stays as it was */ });
-  }
-  if ($('fc-spark')) { loadBattery(); setInterval(loadBattery, BATTERY_MS); }
+  // A frame's trend is fetched when its Details is first opened, and kept
+  // fresh only while it stays open.
+  (function () {
+    var open = [];
+    function load(li) {
+      if (document.hidden) return;
+      jsonFetch('/api/battery?hours=24&frame=' + encodeURIComponent(li.getAttribute('data-health')))
+        .then(function (data) { drawSpark(li, data); })
+        .catch(function () { /* the tile simply stays as it was */ });
+    }
+    document.querySelectorAll('.hl[data-health] > details.sc-more').forEach(function (d) {
+      var li = d.closest('[data-health]');
+      if (!sub(li, 'data-h', 'spark')) return;
+      d.addEventListener('toggle', function () {
+        if (d.open) { if (open.indexOf(li) < 0) open.push(li); load(li); }
+        else open = open.filter(function (x) { return x !== li; });
+      });
+    });
+    setInterval(function () { open.forEach(load); }, BATTERY_MS);
+  })();
 
   function pollStatus() {
     if (document.hidden) return;
     jsonFetch('/api/status').then(function (st) {
       statusFailures = 0; statusLastOk = new Date();
-      if (frameCard) frameCard.classList.remove('stale');
+      if (healthCard) healthCard.classList.remove('stale');
       if (flashKind === 'offline') hideFlash();
       applyStatus(st);
     }).catch(function () {
       // Two misses in a row (a minute) before we call it: one can be a blip.
       statusFailures += 1;
       if (statusFailures < 2) return;
-      if (frameCard) frameCard.classList.add('stale');
+      if (healthCard) healthCard.classList.add('stale');
       showFlash('offline', 'Can’t reach Featherframe — showing the last update from ' + fmtTime(statusLastOk) + '.', 'ic-warn', true);
     });
   }
-  if (frameCard) setInterval(pollStatus, STATUS_MS);
+  setInterval(pollStatus, STATUS_MS);
 
   // -- disclosures: slide the body open and closed ---------------------------
   // <details> can't animate on its own: on close, keep it open while the body
@@ -1915,73 +2047,111 @@
       e.preventDefault(); e.returnValue = '';
     });
   }
-  // -- Advanced: reset to defaults ---------------------------------------------
-  // Fills the section's controls with the factory values for the panel in use
-  // and leaves the save to the owner: the Save bar appears, and leaving the
-  // page without saving undoes it.
+  // -- the Frames card: one row component, one save, per frame ---------------
+  // A row is a disclosure of its own settings. Saving posts JSON to
+  // /api/frames/<id> and updates the row in place; nothing here reloads the
+  // page unless the set of frames itself changed.
   (function () {
-    var btn = $('adv-reset'), src = $('display-defaults');
-    if (!btn || !src || !form) return;
-    var defaults = {};
-    try { defaults = JSON.parse(src.textContent || '{}'); } catch (e) { return; }
-    btn.addEventListener('click', function () {
-      var body = btn.closest('.adv-body'); if (!body) return;
-      var changed = 0;
-      body.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (el) {
-        var name = el.name;
-        if (el.type === 'hidden' || !(name in defaults)) return;
-        var want = defaults[name], before;
-        if (el.type === 'checkbox') { before = el.checked; el.checked = !!want; if (before !== el.checked) changed++; }
-        else if (el.type === 'radio') { before = el.checked; el.checked = (String(want) === el.value); if (before !== el.checked) changed++; }
-        else { before = el.value; el.value = String(want); if (el.value !== before) changed++; }
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
+    // The empty state spells the address out: the owner has to type it on the tablet.
+    var url = $('fr-view-url');
+    if (url) url.textContent = location.host + '/view';
+
+    function fields(row) {
+      var body = {};
+      row.querySelectorAll('[data-f]').forEach(function (el) {
+        var key = el.getAttribute('data-f');
+        if (el.type === 'radio') { if (el.checked) body[key] = el.value; }
+        else if (el.type === 'checkbox') body[key] = el.checked;
+        else body[key] = el.value;
       });
-      if (changed) showFlash('ok', 'Defaults filled in. Save settings to apply them.', 'ic-check');
-      else showFlash('ok', 'These settings are already at their defaults.', 'ic-check');
+      return body;
+    }
+    function busy(row, on) { row.querySelectorAll('button').forEach(function (b) { b.disabled = on; }); }
+
+    // Check every / Wake interval belong to the power model that is chosen.
+    function syncPower(row) {
+      var pm = row.querySelector('[data-f="power_mode"]:checked');
+      if (!pm) return;
+      ['awake', 'sleep'].forEach(function (mode) {
+        setRevealed(row.querySelector('[data-fr-reveal="' + mode + '"]'), pm.value === mode);
+      });
+    }
+
+    document.querySelectorAll('.fr[data-frame]').forEach(function (row) {
+      var head = row.querySelector('.fr-head'), body = row.querySelector('.fr-body');
+      if (!head || !body) return;
+      head.addEventListener('click', function () {
+        var open = head.getAttribute('aria-expanded') === 'true';
+        if (!open) {
+          // One at a time: two open rows of controls is a form, not a list.
+          document.querySelectorAll('.fr .fr-head[aria-expanded="true"]').forEach(function (h) {
+            h.setAttribute('aria-expanded', 'false');
+            var b = h.parentNode.querySelector('.fr-body'); if (b) b.hidden = true;
+          });
+        }
+        head.setAttribute('aria-expanded', String(!open));
+        body.hidden = open;
+        // A segmented control measures itself, and measures 0 while hidden.
+        if (!open) { refreshSegs(body); syncPower(row); }
+      });
+      row.querySelectorAll('[data-f="power_mode"]').forEach(function (r) {
+        r.addEventListener('change', function () { syncPower(row); });
+      });
+      // While the owner is editing, the poll leaves this row's text alone.
+      body.addEventListener('input', function () { row.dataset.editing = '1'; });
+      body.addEventListener('change', function () { row.dataset.editing = '1'; });
+
+      var reset = row.querySelector('[data-fr-action="reset"]');
+      if (reset) reset.addEventListener('click', function () {
+        var changed = 0;
+        row.querySelectorAll('[data-default]').forEach(function (el) {
+          var want = String(el.getAttribute('data-default'));
+          if (el.value !== want) { el.value = want; changed += 1; }
+        });
+        row.dataset.editing = '1';
+        showFlash('ok', changed ? 'Defaults filled in. Save this frame to apply them.'
+                                : 'This frame is already at its panel’s defaults.', 'ic-check');
+      });
+
+      var save = row.querySelector('[data-fr-action="save"]');
+      if (save) save.addEventListener('click', function () {
+        var label = save.textContent;
+        busy(row, true); save.textContent = 'Saving…';
+        jsonFetch('/api/frames/' + encodeURIComponent(row.getAttribute('data-frame')),
+                  { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fields(row)) })
+          .then(function (out) {
+            var mine = (out.frames || []).filter(function (f) { return f.id === row.getAttribute('data-frame'); })[0];
+            row.dataset.editing = '';
+            if (mine) {
+              subText(row, 'data-fr', 'title', mine.title);
+              subText(row, 'data-fr', 'summary', mine.summary);
+              knownFrames = null;
+            }
+            showFlash('ok', 'Saved. It picks the change up on its next check-in.', 'ic-check');
+          })
+          .catch(function (e) { showFlash('bad', 'Not saved — ' + errText(e) + '.', 'ic-warn'); })
+          .then(function () { busy(row, false); save.textContent = label; });
+      });
+
+      var forget = row.querySelector('[data-fr-action="forget"]');
+      if (forget) forget.addEventListener('click', function () {
+        var who = (sub(row, 'data-fr', 'title') || {}).textContent || 'this frame';
+        if (!confirm('Remove ' + who + '? It asks to be added again the next time it checks in.')) return;
+        busy(row, true);
+        jsonFetch('/api/frames/' + encodeURIComponent(row.getAttribute('data-frame')),
+                  { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ forget: true }) })
+          .then(function () { saving = true; location.href = '/'; })
+          .catch(function (e) {
+            busy(row, false);
+            showFlash('bad', 'Not removed — ' + errText(e) + '.', 'ic-warn');
+          });
+      });
     });
   })();
 
-  // -- viewers: a screen's own few settings, saved one viewer at a time ----------
-  // The empty state spells the address out, as the owner must type it on the tablet.
-  if ($('vw-url')) $('vw-url').textContent = location.host + '/view';
-  document.querySelectorAll('[data-vw-action]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var li = b.closest('[data-viewer]'), body = {};
-      if (b.getAttribute('data-vw-action') === 'forget') body.forget = true;
-      else li.querySelectorAll('[data-vw]').forEach(function (f) {
-        body[f.getAttribute('data-vw')] = f.type === 'checkbox' ? f.checked : f.value;
-      });
-      li.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
-      fetch('/api/viewers/' + encodeURIComponent(li.getAttribute('data-viewer')),
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-        .then(function () { saving = true; location.href = '/'; })
-        .catch(function () {
-          li.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
-          showFlash('bad', "That didn't go through. Try again.", 'ic-warn');
-        });
-    });
-  });
-
-  // -- an added frame's own settings ------------------------------------------
-  document.querySelectorAll('[data-af-action]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var li = b.closest('[data-added-frame]'), body = {};
-      li.querySelectorAll('[data-af]').forEach(function (f) { body[f.getAttribute('data-af')] = f.value; });
-      li.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
-      fetch('/api/frames/' + encodeURIComponent(li.getAttribute('data-added-frame')),
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-        .then(function () { saving = true; location.href = '/'; })
-        .catch(function () {
-          li.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
-          showFlash('bad', "That didn't go through. Try again.", 'ic-warn');
-        });
-    });
-  });
-
-  // -- frames: switch to / ignore / forget a frame that is not the active one ----
+  // -- add / ignore / forget a kit that is asking to connect -------------------
   document.querySelectorAll('[data-frame-action]').forEach(function (b) {
     b.addEventListener('click', function () {
       var box = b.closest('.panel-note');
@@ -1991,7 +2161,7 @@
       fd.append('id', b.getAttribute('data-frame-id'));
       fetch('/api/frames', { method: 'POST', body: fd })
         .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-        .then(function () { saving = true; location.href = '/'; })   // the card, lists and notices all change
+        .then(function () { saving = true; location.href = '/'; })   // the cards and lists all change
         .catch(function () {
           box.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
           showFlash('bad', "That didn't go through. Try again.", 'ic-warn');
@@ -2008,30 +2178,10 @@
   (function () {
     // quiet-hours: custom times + hint follow the selected mode
     var QUIET_HINT = {
-      off: "The frame updates all day and night.",
+      off: "Every screen updates all day and night.",
       sun: "Holds one image from sunset to sunrise (approximate, from your timezone).",
       custom: "Holds one image during the hours you set below."
     };
-    // Dependent rows slide open and shut like the disclosures: [hidden] goes
-    // on only once the slide has finished, and comes off before it starts.
-    function setRevealed(el, show) {
-      if (!el) return;
-      if (show) {
-        if (!el.hidden && !el.classList.contains('collapsed')) return;
-        el.hidden = false; el.classList.add('collapsed');
-        void el.offsetHeight;
-        el.classList.remove('collapsed');
-      } else {
-        if (el.hidden) return;
-        el.classList.add('collapsed');
-        var done = function () {
-          el.removeEventListener('transitionend', done);
-          if (el.classList.contains('collapsed')) el.hidden = true;
-        };
-        el.addEventListener('transitionend', done);
-        setTimeout(done, 300);
-      }
-    }
     var quietHintEl = $('quiet-hint');
     function syncQuiet() {
       var v = (document.querySelector('input[name="quiet_hours_mode"]:checked') || {}).value;
@@ -2043,15 +2193,6 @@
     }
     document.querySelectorAll('input[name="quiet_hours_mode"]').forEach(function (r) { r.addEventListener('change', syncQuiet); });
     syncQuiet();
-    // The wake interval only means something in deep sleep (always awake polls
-    // every few seconds), so the rows follow the Power choice, like quiet hours.
-    function syncPower() {
-      var v = (document.querySelector('input[name="power_mode"]:checked') || {}).value;
-      setRevealed($('wake-field'), v === 'sleep');
-      setRevealed($('poll-field'), v === 'awake');
-    }
-    document.querySelectorAll('input[name="power_mode"]').forEach(function (r) { r.addEventListener('change', syncPower); });
-    syncPower();
     // The nightly collage's example should match the combine toggle: a
     // single combined AI plate when it's on, the grid collage when off.
     var cgToggle = $('cg');
@@ -2086,19 +2227,6 @@
     }
     if (tokenField) tokenField.addEventListener('input', syncApprise);
     syncApprise();
-    // Mode description under the segmented control.
-    var modeHintEl = $('mode-hint');
-    var MODE_HINT = {
-      single: "Shows the most recent detection as one plate.",
-      collage: "A grid of the day's most-heard species, updated through the day."
-    };
-    function syncMode() {
-      var m = (document.querySelector('input[name="mode"]:checked') || {}).value;
-      if (modeHintEl) modeHintEl.textContent = MODE_HINT[m] || '';
-      var every = $('collage-every-row'); if (every) every.hidden = (m !== 'collage');
-    }
-    document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.addEventListener('change', syncMode); });
-    syncMode();
   })();
 
   // -- image-generation provider: show the fields that provider uses ---------
@@ -2444,6 +2572,12 @@
       });
     });
     function replaceAll() { segs.forEach(function (seg) { reserveWidths(seg); place(seg, false); }); }
+    refreshSegs = function (root) {
+      segs.forEach(function (seg) {
+        if (root && !root.contains(seg)) return;
+        reserveWidths(seg); place(seg, false);
+      });
+    };
     window.addEventListener('resize', replaceAll);
     // Web-font metrics land after first paint; realign once they do.
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(replaceAll);

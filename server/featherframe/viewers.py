@@ -263,7 +263,7 @@ def public(row: dict) -> dict:
             "ip": row.get("ip")}
 
 
-# -- the page's Viewers card (W-826) ---------------------------------------------
+# -- how a viewer is named on the page -------------------------------------------
 # `Model` header values (TRMNL firmware's platformio.ini) as an owner knows them.
 _MODEL_NAMES = {"x": "TRMNL X", "og": "TRMNL", "og_4clr": "TRMNL (color)",
                 "reterminal_e1001": "reTerminal E1001", "reterminal_e1002": "reTerminal E1002",
@@ -273,23 +273,14 @@ _DEPTH_NAMES = {"gray16": "16 grays", "gray2": "4 grays", "mono": "black and whi
                 "gray256": "grayscale", "color": "color"}
 
 
-def card_row(row: dict, ago) -> dict:
-    """One viewer as the page shows it. `ago(iso) -> "7 min ago"`."""
-    rep, own = row.get("reported") or {}, row.get("set") or {}
-    view = view_of(row)
-    page = frames.transport_of(row) == "page"
-    model = str(rep.get("model") or "")
-    what = model if page else _MODEL_NAMES.get(model.lower(), model)
-    what = what or ("Browser" if page else "TRMNL client")
-    pct, volts = rep.get("battery_percent"), rep.get("battery_volts")
-    battery = f"{pct}%" if pct is not None else (f"{volts:.2f} V" if volts else None)
-    return {
-        "id": row["id"], "page": page, "name": own.get("name") or "", "title": own.get("name") or what,
-        "what": what if own.get("name") else "",
-        "size": f"{view.width}×{view.height}", "depth": _DEPTH_NAMES.get(view.fmt, view.fmt),
-        "last_seen": ago(row.get("last_seen")), "battery": None if page else battery,
-        "ip": row.get("ip"), "rotation": view.rotation, "landscape": view.width > view.height,
-        "fmt": view.fmt, "dark_quiet": dark_in_quiet_hours(row), "shows": shows_of(row) or "",
-        "needs_size": frames.capabilities(row)["needs_size"],
-        "width": own.get("width") or "", "height": own.get("height") or "",
-    }
+def model_name(row: dict) -> str:
+    """What to call this screen when the owner has not named it."""
+    model = str((row.get("reported") or {}).get("model") or "")
+    if frames.transport_of(row) == "page":
+        return model or "Tablet"
+    return _MODEL_NAMES.get(model.lower(), model) or "TRMNL client"
+
+
+def depth_word(fmt: str) -> str:
+    """How a picture is drawn for this screen, in an owner's words."""
+    return _DEPTH_NAMES.get(fmt, fmt)

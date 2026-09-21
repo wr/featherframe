@@ -63,9 +63,9 @@ def _set(client, **fields):
     if rest:
         svc.update_config(Config(**{**svc.config.to_dict(), **rest}))
     if own:
-        if svc._first_kit() is None:
+        if svc.frames.get(FRAME_ID) is None:
             add_kit(svc)
-        svc.update_frame(str(svc._first_kit()["id"]), own)
+        svc.update_frame(FRAME_ID, own)
 
 
 def test_headers_on_200_and_304(client):
@@ -89,7 +89,8 @@ def test_headers_on_503_before_first_bird(client):
     r = client.get("/api/frame", headers=HEAD)
     assert r.status_code == 503
     assert r.headers["x-power-mode"] == "awake"
-    assert r.headers["x-wake-minutes"] == str(svc.page_config().wake_interval_minutes)
+    assert r.headers["x-wake-minutes"] == str(
+        svc.frame_config(svc.frames.get(FRAME_ID)).wake_interval_minutes)
 
 
 def test_headers_on_button_views(client):
@@ -100,21 +101,31 @@ def test_headers_on_button_views(client):
     assert r.headers["x-power-mode"] == "sleep"
 
 
-# -- settings form -----------------------------------------------------------
+# -- the frame's own row is the only place it is set --------------------------
 
-def test_settings_form_sets_power_mode(client):
+def test_the_frames_endpoint_sets_power_mode(client):
     svc = client.app.state.service
     add_kit(svc)
-    form = {k: str(v) for k, v in svc.page_config().to_dict().items()
-            if isinstance(v, (str, int, float)) and not isinstance(v, bool)}
-    form["power_mode"] = "sleep"
-    form["wake_interval_minutes"] = "60"
-    r = client.post("/settings", data=form, follow_redirects=False)
-    assert r.status_code in (200, 303)
-    assert svc.page_config().power_mode == "sleep"
-    assert svc.page_config().wake_interval_minutes == 60
-    # It is the frame's setting now, not the household's.
+    r = client.post(f"/api/frames/{FRAME_ID}",
+                    json={"power_mode": "sleep", "wake_interval_minutes": 60})
+    assert r.json()["ok"]
+    cfg = svc.frame_config(svc.frames.get(FRAME_ID))
+    assert (cfg.power_mode, cfg.wake_interval_minutes) == ("sleep", 60)
     assert svc.frames.get(FRAME_ID)["set"]["power_mode"] == "sleep"
+
+
+def test_the_household_form_no_longer_takes_them(client):
+    """W-833: the power model is a frame's, so /settings must not move it."""
+    svc = client.app.state.service
+    add_kit(svc)
+    before = svc.frame_config(svc.frames.get(FRAME_ID)).power_mode
+    r = client.post("/settings", data={"power_mode": "sleep",
+                                       "wake_interval_minutes": "60",
+                                       "quiet_hours_mode": "custom"},
+                    follow_redirects=False)
+    assert r.status_code in (200, 303)
+    assert svc.frame_config(svc.frames.get(FRAME_ID)).power_mode == before
+    assert "power_mode" not in svc.frames.get(FRAME_ID)["set"]
 
 
 # -- frame card follows the power model ----------------------------------------
@@ -134,14 +145,16 @@ def test_overdue_threshold_follows_power_mode():
     assert awake["overdue_text"] == "Overdue — checks in every few seconds"
 
 
+def _row(client) -> str:
+    body = client.get("/").text.split("<body")[1]
+    return body.split(f'data-frame="{FRAME_ID}"')[1].split("\n    </li>")[0]
+
+
 def test_wake_interval_row_hidden_unless_deep_sleep(client):
-    svc = client.app.state.service
     _set(client, power_mode="awake")
-    html = client.get("/").text
-    assert 'class="reveal collapsed" id="wake-field" hidden' in html
+    assert 'class="reveal collapsed" data-fr-reveal="sleep" hidden' in _row(client)
     _set(client, power_mode="sleep")
-    html = client.get("/").text
-    assert 'class="reveal" id="wake-field" >' in html
+    assert 'class="reveal" data-fr-reveal="sleep" >' in _row(client)
 
 
 # -- device poll interval (W-775) --------------------------------------------
@@ -158,9 +171,8 @@ def test_device_poll_seconds_served_and_clamped(client):
 
 def test_check_every_row_shown_only_when_awake(client):
     _set(client, power_mode="awake")
-    html = client.get("/").text
-    assert 'class="reveal" id="poll-field" >' in html
-    assert 'class="reveal collapsed" id="wake-field" hidden' in html
+    row = _row(client)
+    assert 'class="reveal" data-fr-reveal="awake" >' in row
+    assert 'class="reveal collapsed" data-fr-reveal="sleep" hidden' in row
     _set(client, power_mode="sleep")
-    html = client.get("/").text
-    assert 'class="reveal collapsed" id="poll-field" hidden' in html
+    assert 'class="reveal collapsed" data-fr-reveal="awake" hidden' in _row(client)

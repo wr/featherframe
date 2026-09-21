@@ -8,6 +8,7 @@ means in one line.
 from __future__ import annotations
 
 from featherframe import frames as frames_mod
+from featherframe.service import device_of
 
 EE03_PANEL = "ED103TC2 1404x1872 gray16"
 EE02_PANEL = "T133A01 1200x1600 spectra6"
@@ -53,6 +54,25 @@ def seed_frame(svc, frame_id: str = FRAME_ID, body: bytes = b"FFF1" + bytes(12),
     """A kit with something already on its glass."""
     add_kit(svc, frame_id, **kw)
     return give_output(svc, frame_id, body, etag)
+
+
+def frame_bytes(svc, frame_id: str = FRAME_ID):
+    """What one frame is being served, without going through a request. The
+    service has no "the frame" of its own any more (W-833): every caller names
+    the frame it means, and so does every test."""
+    return svc._output_bytes(frame_id)
+
+
+def device(svc, frame_id: str = FRAME_ID):
+    """One frame's telemetry as `DeviceStatus`, the shape the health block is
+    built from. The seam the old `service.device` property was."""
+    row = svc.frames.get(frame_id)
+    return device_of(frames_mod.reported_of(row), (row or {}).get("last_seen"))
+
+
+def health(svc, frame_id: str = FRAME_ID) -> dict:
+    """One frame's health block, as /api/status carries it."""
+    return svc.frame_health(svc.frames.get(frame_id))
 
 
 def connect(client, headers: dict):

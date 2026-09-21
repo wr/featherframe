@@ -9,6 +9,7 @@ from starlette.testclient import TestClient
 
 from featherframe.db import Database
 from featherframe.service import FeatherframeService, power_state
+from tests._frames import health
 
 
 @pytest.fixture
@@ -89,9 +90,9 @@ def test_no_baseline_falls_back_to_level():
 def test_card_shows_the_live_median_not_the_flicker(client, svc):
     for v, p in (("4.09", "89"), ("4.06", "86"), ("4.09", "89"), ("4.06", "86"), ("4.09", "89")):
         client.get("/api/frame", headers={"X-Battery-Voltage": v, "X-Battery-Percent": p})
-    card = client.get("/api/status").json()["frame_card"]
+    card = health(svc, svc.LEGACY_FRAME)
     assert card["battery"].startswith("4.09 V · 89%")
-    body = client.get("/api/battery").json()
+    body = client.get("/api/battery?frame=" + svc.LEGACY_FRAME).json()
     assert body["items"][-1]["voltage"] == pytest.approx(4.09)   # the line ends on the shown value
 
 
@@ -118,7 +119,7 @@ def test_checkin_logs_battery_and_card_says_power(client, svc):
     client.get("/api/frame", headers={"X-Battery-Voltage": "4.21", "X-Battery-Percent": "100"})
     rows = svc.db.battery_history("2000-01-01", svc.LEGACY_FRAME)
     assert len(rows) == 1 and rows[0]["voltage"] == pytest.approx(4.21)
-    card = client.get("/api/status").json()["frame_card"]
+    card = health(svc, svc.LEGACY_FRAME)
     assert card["power"]["state"] == "usb"
     assert card["battery"].endswith("on USB")
     assert card["battery_low"] is False
@@ -131,7 +132,7 @@ def test_no_pack_is_not_logged(client, svc):
 
 def test_battery_endpoint_shape(client, svc):
     client.get("/api/frame", headers={"X-Battery-Voltage": "3.95", "X-Battery-Percent": "70"})
-    body = client.get("/api/battery?hours=24").json()
+    body = client.get("/api/battery?hours=24&frame=" + svc.LEGACY_FRAME).json()
     assert body["hours"] == 24 and body["usb_v"] == pytest.approx(4.19)
     assert body["items"][0]["voltage"] == pytest.approx(3.95)
     assert body["power"]["state"] in ("battery", "unknown", "usb", "charging")
@@ -139,27 +140,28 @@ def test_battery_endpoint_shape(client, svc):
 
 
 def test_power_row_hides_percent_on_usb_and_shows_it_on_battery(client, svc):
-    from featherframe.app import templates
-    def page():
-        return client.get("/").text
+    """The Health row's Power tile, per frame (W-833)."""
+    def row():
+        body = client.get("/").text.split("<body")[1]
+        return body.split(f'data-health="{svc.LEGACY_FRAME}"')[1].split(chr(10) + "    </li>")[0]
     client.get("/api/frame", headers={"X-Battery-Voltage": "4.21", "X-Battery-Percent": "100"})
-    html = page()
-    assert 'id="fc-batt"' in html
-    usb = html.split('id="pw-usb"')[1].split(">")[0]
-    wrap = html.split('id="fc-batt-wrap"')[1].split(">")[0]
+    html = row()
+    assert 'data-h="batt"' in html
+    usb = html.split('data-h="usb"')[1].split(">")[0]
+    wrap = html.split('data-h="batt-wrap"')[1].split(">")[0]
     assert "hidden" not in usb and "hidden" in wrap          # USB: icon + word, no percent
     # A fresh service with a mid-charge cell and no history reads as on battery.
     svc.db._conn.execute("DELETE FROM battery_log"); svc.db._conn.commit()
     svc._battery_live = {}
     client.get("/api/frame", headers={"X-Battery-Voltage": "3.90", "X-Battery-Percent": "65"})
-    html = page()
-    usb = html.split('id="pw-usb"')[1].split(">")[0]
-    wrap = html.split('id="fc-batt-wrap"')[1].split(">")[0]
+    html = row()
+    usb = html.split('data-h="usb"')[1].split(">")[0]
+    wrap = html.split('data-h="batt-wrap"')[1].split(">")[0]
     assert "hidden" in usb and "hidden" not in wrap and "65%" in html
 
 
 def test_settings_post_without_show_battery_is_fine(client, svc):
-    r = client.post("/settings", data={"mode": "single", "wake_interval_minutes": "15"},
+    r = client.post("/settings", data={"collage_interval_hours": "3"},
                     follow_redirects=False)
     assert r.status_code == 303
     assert "show_battery" not in svc.config.to_dict()

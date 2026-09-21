@@ -15,6 +15,7 @@ from featherframe.service import FeatherframeService
 from featherframe.sources.base import Detection
 from featherframe.render import pipeline as pipeline  # noqa: E402
 from tests._fixtures import create_birds_db, make_row
+from tests._frames import device, frame_bytes, health
 
 
 @pytest.fixture
@@ -46,9 +47,9 @@ def test_frame_endpoint_survives_non_finite_telemetry(client, svc):
                                           "X-Wifi-RSSI": "-inf",
                                           "X-Boot-Count": "1e999"})
     assert r.status_code in (200, 503)
-    assert svc.device.battery_percent is None
-    assert svc.device.wifi_rssi is None
-    assert svc.device.boot_count is None
+    assert device(svc, svc.LEGACY_FRAME).battery_percent is None
+    assert device(svc, svc.LEGACY_FRAME).wifi_rssi is None
+    assert device(svc, svc.LEGACY_FRAME).boot_count is None
 
 
 def test_nan_battery_voltage_does_not_poison_status(client, svc):
@@ -56,7 +57,7 @@ def test_nan_battery_voltage_does_not_poison_status(client, svc):
     # (JSONResponse refuses NaN) — until the device sends a real number.
     r = client.get("/api/frame", headers={"X-Battery-Voltage": "nan"})
     assert r.status_code in (200, 503)
-    assert svc.device.battery_voltage is None
+    assert device(svc, svc.LEGACY_FRAME).battery_voltage is None
     assert client.get("/api/status").status_code == 200
     assert client.get("/").status_code == 200
 
@@ -73,10 +74,10 @@ def test_poisoned_device_status_heals_on_start(tmp_path, monkeypatch):
     db.set("device_status", {"battery_voltage": float("nan"), "battery_percent": 9999,
                              "wifi_rssi": float("inf"), "last_wake": "w" * 5000})
     service = FeatherframeService(db=db)
-    assert service.device.battery_voltage is None
-    assert service.device.battery_percent is None
-    assert service.device.wifi_rssi is None
-    assert len(service.device.last_wake) <= 120
+    assert device(service, "AA:BB").battery_voltage is None
+    assert device(service, "AA:BB").battery_percent is None
+    assert device(service, "AA:BB").wifi_rssi is None
+    assert len(device(service, "AA:BB").last_wake) <= 120
     from featherframe.app import app
     app.state.service = service
     assert TestClient(app, raise_server_exceptions=False).get("/api/status").status_code == 200
@@ -86,22 +87,22 @@ def test_telemetry_outside_plausible_range_is_dropped(client, svc):
     client.get("/api/frame", headers={"X-Battery-Voltage": "9.5",
                                       "X-Battery-Percent": "9999",
                                       "X-Wifi-RSSI": "40"})
-    assert svc.device.battery_voltage is None
-    assert svc.device.battery_percent is None
-    assert svc.device.wifi_rssi is None
+    assert device(svc, svc.LEGACY_FRAME).battery_voltage is None
+    assert device(svc, svc.LEGACY_FRAME).battery_percent is None
+    assert device(svc, svc.LEGACY_FRAME).wifi_rssi is None
     client.get("/api/frame", headers={"X-Battery-Voltage": "3.87",
                                       "X-Battery-Percent": "62",
                                       "X-Wifi-RSSI": "-61"})
-    assert svc.device.battery_voltage == 3.87
-    assert svc.device.battery_percent == 62
-    assert svc.device.wifi_rssi == -61
+    assert device(svc, svc.LEGACY_FRAME).battery_voltage == 3.87
+    assert device(svc, svc.LEGACY_FRAME).battery_percent == 62
+    assert device(svc, svc.LEGACY_FRAME).wifi_rssi == -61
 
 
 def test_device_string_headers_are_bounded(client, svc):
     client.get("/api/frame", headers={"X-FF-Version": "v" * 5000,
                                       "X-Wake-Detail": "d" * 5000})
-    assert len(svc.device.fw_version or "") <= 120
-    assert len(svc.device.wake_detail or "") <= 120
+    assert len(device(svc, svc.LEGACY_FRAME).fw_version or "") <= 120
+    assert len(device(svc, svc.LEGACY_FRAME).wake_detail or "") <= 120
 
 
 # -- settings form -----------------------------------------------------------
@@ -383,7 +384,7 @@ def test_torn_current_fff_is_not_served(tmp_path, monkeypatch):
     db.set("current_frame", {"etag": "deadbeefcafef00d", "mode": "single", "label": "x"})
     (paths.frames_dir() / "current.fff").write_bytes(b"FFF1" + b"\x00" * 200)
     service = FeatherframeService(db)
-    assert service._frame_bytes is None
+    assert frame_bytes(service, service.LEGACY_FRAME) is None
     assert service.current_etag() is None
 
 
@@ -425,6 +426,6 @@ def test_chunked_ingest_body_is_capped(client, svc):
 def test_usb_only_unit_is_not_flagged_low_battery(client, svc):
     # An empty JST socket reads ~0 V; that is "no pack", not a flat one.
     client.get("/api/frame", headers={"X-Battery-Voltage": "0.031", "X-Battery-Percent": "0"})
-    card = client.get("/api/status").json()["frame_card"]
+    card = health(svc, svc.LEGACY_FRAME)
     assert card["battery"] is None
     assert card["battery_low"] is False

@@ -55,13 +55,14 @@ class Panel:
 # Blue-noise: 16 grays leave little to diffuse, and it is vectorised (Pi-friendly).
 EE03 = Panel("ee03", 'EE03 · 10.3" gray', 1404, 1872, False, (90, 270), 2, "bluenoise")
 
+# The name is shown on the page, whose copy is US English ("color").
 # Seeed EE02: E Ink Spectra 6 13.3" (T133A01). Native canvas is portrait; 180
 # is the frame hung the other way up. No partial refresh.
 # Stucki: with only six inks, diffusion holds the engraving lines and grains
 # far tighter than the ordered mix (judged side by side on the glass, 19 Sep
 # 2026). It is a per-pixel Python loop — seconds on a PC, minutes on a Pi
 # Zero — which a panel that takes 30 s to refresh can afford.
-EE02 = Panel("ee02", 'EE02 · 13.3" Spectra 6 colour', 1200, 1600, True, (0, 180), 30, "stucki",
+EE02 = Panel("ee02", 'EE02 · 13.3" Spectra 6 color', 1200, 1600, True, (0, 180), 30, "stucki",
              # Its warning is a 30 s six-ink full refresh, not a sub-second pill:
              # hold 0.1 V earlier so the cell still has the headroom to paint it.
              low_battery_volts=3.55, fmt="spectra6", mode="collage")

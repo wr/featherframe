@@ -171,28 +171,51 @@ reflash.
 
 ## Configure it
 
-The page at `http://<your-pi>:8080/` is the whole UI:
+The page at `http://<your-pi>:8080/` is the whole UI. It has two halves: on the
+left the **live preview** (with a chip per screen, so you can see what each one
+is showing) and a **Health** card; on the right, everything you can change.
 
-- **Live preview** of the current frame, plus a **Test detection** button that
-  injects a fake Cardinal so you can exercise everything with no birds.
-- **Mode** — *single* (latest detection) or *collage* (the day's top species),
-  plus an optional overnight collage.
-- **Quiet hours** (22:00–06:00, or sunset to sunrise). The confidence
-  threshold is your detector's own: set it in BirdNET-Go, not here.
-- **Power** — *always awake* (Wi-Fi up, asks for a new plate every few seconds,
-  instant buttons; for USB) or *deep sleep* (wakes on the **wake interval**,
-  15 min by default, or a button; for battery). *Check every* sets the awake
-  poll (3 s by default). The frame picks up a change on its next check-in.
+**Frames** is the first card, and every screen this server draws for is one row
+in it — the kit on the wall, a second kit, a TRMNL, a tablet. Open a row and it
+offers only what that screen has:
+
+- **Name** — every frame is yours to name; blank falls back to what it is.
+- **Shows** — *Plates* (the species just heard, one at a time) or *Collage*
+  (the day's species on one sheet). Each screen chooses for itself.
+- **Panel rotation** (a kit) or **Turned** (a TRMNL or e-reader) — which way up
+  it hangs. A kit is offered only the rotations its own panel accepts.
+- **Power** (a kit) — *always awake* (Wi-Fi up, asks for a new plate every few
+  seconds, instant buttons; for USB) or *deep sleep* (wakes on the **wake
+  interval**, 15 min by default, or a button; for battery). *Check every* sets
+  the awake poll (3 s by default). The frame picks it up on its next check-in.
+- **Look** and **Dark in quiet hours** (a tablet) — colour or the gray the
+  frame shows, and whether a lit screen goes black at night.
+- **Screen** — only for a client that does not say how big it is.
+- **Advanced** (a kit) — the mat inset and offsets, with *Reset to this panel's
+  defaults*.
+
+Everything below it is the household's: the same for every screen.
+
+- **Collage** — how often the sheet is redrawn, and how many species it holds.
+- **Quiet hours** (22:00–06:00, or sunset to sunrise), with the optional
+  overnight collage. The confidence threshold is your detector's own: set it in
+  BirdNET-Go, not here.
 - **Species blocklist** — one name per line. Ban the house sparrows if you like.
 - **Detection source** — BirdNET-Pi DB (default), BirdNET-Go, BirdWeather, or
   an Apprise webhook, with a *Test connection* button.
-- **Frame card** — last check-in, battery, Wi-Fi signal, overdue warning.
+- **Image generation** — optional; see below.
+
+**Health**, on the left, is where each frame's last check-in, battery, Wi-Fi
+signal, 24 h voltage trend and overdue warning live, one row per screen, plus
+how the detection source is doing. Nothing there is a setting.
 
 ## Other screens: tablets, TRMNL, Kobo, Kindle
 
-The frame is not the only thing that can show the plate. Any number of
-**viewers** can show whatever the frame is showing, each drawn for its own
-screen. They never change what the frame does, and there is nothing to approve.
+The kit is not the only thing that can show a plate. A frame is a frame: any
+number of tablets, TRMNLs and e-readers can show plates or the collage, each
+drawn for its own screen, and each appears in the **Frames** card as an
+ordinary row. There is nothing to approve — pointing a screen at the server is
+the whole of it.
 
 **iPad or Android tablet**: open `http://<your-pi>:8080/view`. It is the
 plate, edge to edge, in colour, and it follows the frame within seconds. On an
@@ -202,7 +225,7 @@ to the page if little hands are about. On Android,
 [Fully Kiosk Browser](https://www.fully-kiosk.com) pointed at the same address
 keeps the screen on. An e-ink Android tablet (Boox) works the same way; set its
 refresh mode to the clearest one for that app. A lit screen goes black in quiet
-hours; the **Viewers** card on the page has the switch for that, and a *Paper*
+hours; its row in the **Frames** card has the switch for that, and a *Paper*
 look that shows the plate in gray, like the frame.
 
 **TRMNL** (the 10.3" TRMNL X has the same glass as the gray frame, so the plate
@@ -219,16 +242,24 @@ or [trmnl-koreader](https://github.com/usetrmnl/trmnl-koreader)) and give it
 clients do not say how big their screen is, so they get a 1072×1448 page until
 you set the size.
 
-A viewer on a landscape screen gets the plate turned on its side, for hanging
-portrait. Every viewer is listed on the page's **Viewers** card, where you can
-name it, turn it, set a size, or pick a tablet's look. The same from a shell:
+A screen in landscape gets the plate turned on its side, for hanging portrait.
+Every one of them is a row in the **Frames** card, where you can name it, say
+what it shows, turn it, set a size, or pick a tablet's look. The same from a
+shell — one endpoint for every frame, whatever it is fed over:
 
 ```bash
-curl http://<your-pi>:8080/api/viewers                      # who is connected
-curl -X POST http://<your-pi>:8080/api/viewers/<ID> \
+curl http://<your-pi>:8080/api/status | jq '.frames.list[] | {id, title, summary}'
+curl -X POST http://<your-pi>:8080/api/frames/<ID> \
      -H 'Content-Type: application/json' \
-     -d '{"rotation": 270, "name": "Hall TRMNL"}'            # 0, 90, 180 or 270
+     -d '{"name": "Hall TRMNL", "shows": "collage", "rotation": 270}'
+curl -X POST http://<your-pi>:8080/api/frames/<ID> \
+     -H 'Content-Type: application/json' -d '{"forget": true}'
 ```
+
+Only what a screen has is taken: a tablet cannot be given a panel rotation, a
+TRMNL cannot be given a mat. Each frame's own picture is at
+`/api/frames/<ID>/preview.png`, and its battery readings at
+`/api/battery?frame=<ID>`.
 
 Anything else can fetch the plate as a PNG at any size:
 `/api/view.png?w=1072&h=1448&format=gray256` (`gray16`, `gray2` and `mono` are

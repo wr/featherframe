@@ -14,7 +14,7 @@ from starlette.testclient import TestClient
 from featherframe.config import Config
 from featherframe.render import pipeline, theme
 from featherframe.render.pipeline import View
-from tests._frames import add_kit
+from tests._frames import add_kit, device, frame_bytes
 
 
 def _sheet(mode: str = "L") -> Image.Image:
@@ -123,10 +123,10 @@ def test_a_view_never_touches_the_frame(client):
     svc._clock = lambda: datetime(2026, 9, 20, 8, 0)
     resident = _commit(svc)
     svc.tick()
-    before = (svc._etag, svc._frame_bytes, svc.status()["device"])
+    before = (svc._etag, frame_bytes(svc), device(svc))
     client.get("/api/view.png?w=1072&h=1448&format=gray256",
                headers={"X-Device-Id": "aa:bb", "X-Panel": "Kobo Clara"})
-    assert (svc._etag, svc._frame_bytes, svc.status()["device"]) == before
+    assert (svc._etag, frame_bytes(svc), device(svc)) == before
     assert svc._etag == resident.etag
 
 
@@ -200,11 +200,11 @@ def test_the_first_colour_ask_gets_colour_and_later_renders_keep_it(client, tmp_
     add_kit(svc)
     _show_cardinal(svc)
     svc.tick()
-    wall = svc._frame_bytes
+    wall = frame_bytes(svc)
     r = client.get("/api/view.png?w=600&h=800&format=color")
     assert r.status_code == 200 and _is_coloured(r.content)
     # The wall's own pixels are what they were: colour is a second sheet.
-    assert svc._frame_bytes == wall
+    assert frame_bytes(svc) == wall
     # A later render composes the twin without being asked again.
     svc.pictures["plates"].color_sheet_path.unlink()
     _show_cardinal(svc)

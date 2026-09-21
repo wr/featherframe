@@ -58,29 +58,25 @@ def test_frame_response_carries_the_rotation(client):
     assert r.status_code == 304 and r.headers["x-ff-rotation"] == "270"
 
 
-# Checkboxes that default on: omitting one from the form would turn it off.
-_BASE_FORM = {"quiet_hours_mode": "custom", "imagegen_enabled": "on", "collage_generated": "on"}
-
-
 def test_only_a_render_setting_redraws_the_frame(client):
-    """A display setting lands on the frame\'s row; the next tick re-finishes
-    its output from the same picture. Nothing renders in the request."""
+    """A display setting lands on the frame's own row (W-833: POST
+    /api/frames/<id>); the next tick re-finishes its output from the same
+    picture. Nothing renders in the request."""
     svc = client.app.state.service
     _seed_frame(client)
     svc._commit("plates", svc._clock(), sheet=_sheet(), mode="single",
                 species_key=None, label="Blue Jay")
     svc._tick_frames()
     first = svc._out[FRAME_ID]["etag"]
-    client.post("/settings", data={**_BASE_FORM, "panel_rotation": "270"}, follow_redirects=False)
-    assert svc.page_config().panel_rotation == 270
+    client.post(f"/api/frames/{FRAME_ID}", json={"rotation": 270})
+    assert svc.frame_config(svc.frames.get(FRAME_ID)).panel_rotation == 270
     assert svc._out[FRAME_ID]["etag"] == first           # not in the request
     svc._tick_frames()
     turned = svc._out[FRAME_ID]["etag"]
     assert turned != first
-    client.post("/settings", data={**_BASE_FORM, "panel_rotation": "270",
-                                   "wake_interval_minutes": "30"}, follow_redirects=False)
+    client.post(f"/api/frames/{FRAME_ID}", json={"wake_interval_minutes": 30})
     svc._tick_frames()
-    assert svc.page_config().wake_interval_minutes == 30
+    assert svc.frame_config(svc.frames.get(FRAME_ID)).wake_interval_minutes == 30
     assert svc._out[FRAME_ID]["etag"] == turned          # the pixels did not move
 
 

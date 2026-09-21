@@ -87,7 +87,7 @@ def test_a_client_that_reports_no_size_gets_an_e_reader_page_until_the_owner_say
     assert Image.open(io.BytesIO(png)).size == (1072, 1448)
     r = client.post(f"/api/viewers/{KOBO['ID']}", json={"width": 1264, "height": 1680,
                                                        "name": "Kitchen Kobo"})
-    assert r.json()["viewer"]["name"] == "Kitchen Kobo"
+    assert _row(r.json()["frames"], KOBO["ID"])["name"] == "Kitchen Kobo"
     png = _image(client, client.get("/api/display", headers=KOBO).json())
     assert Image.open(io.BytesIO(png)).size == (1264, 1680)
 
@@ -102,17 +102,20 @@ def test_the_owners_rotation_survives_check_ins_and_changes_the_filename(client)
     assert client.get("/api/display", headers=X).json()["filename"] == before
 
 
-def _kits(svc) -> dict:
-    view = svc.status()["frames"]
-    return {k: view[k] for k in ("active", "added", "pending", "ignored")}
+def _row(frames: list, frame_id: str) -> dict:
+    return [f for f in frames if f["id"] == frame_id][0]
+
+
+def _kits(svc) -> list:
+    return [(f["id"], f["status"]) for f in svc.frames_list() if f["transport"] == "kit"]
 
 
 def test_a_viewer_is_never_the_frame(client):
     svc = client.app.state.service
-    before = (svc._etag, svc.status()["device"], _kits(svc))
+    before = (svc._etag, _kits(svc))
     client.get("/api/setup", headers=X)
     _image(client, client.get("/api/display", headers=X).json())
-    assert (svc._etag, svc.status()["device"], _kits(svc)) == before
+    assert (svc._etag, _kits(svc)) == before
     # It is a frame in the registry all the same, fed another way.
     listed = {f["id"]: f for f in svc.status()["frames"]["list"]}
     assert listed[X["ID"]]["transport"] == "trmnl"
@@ -211,39 +214,60 @@ def test_a_page_that_does_not_say_who_it_is_is_refused(client):
     assert client.get("/api/view/state?viewer=PAGE-4&w=x&h=100").status_code == 400
 
 
-# -- the Viewers card (W-826) ------------------------------------------------------
-def test_the_card_says_how_to_add_one_when_there_are_none(client):
+# -- a viewer is a row in the Frames card, like every other frame (W-833) ---------
+def test_the_frames_card_says_how_to_start_when_there_is_nothing(client):
     html = client.get("/").text
-    assert 'id="viewers-card"' in html and "how to add one" in html
+    assert 'id="frames-card"' in html
+    assert "Nothing is showing plates yet" in html
+    assert 'id="fr-view-url"' in html and "Featherframe-Setup" in html
 
 
-def test_the_card_lists_each_viewer_with_only_the_controls_its_screen_has(client):
+def test_each_viewer_is_a_row_with_only_the_controls_its_screen_has(client):
     client.get("/api/display", headers=X)
     client.get("/api/display", headers=KOBO)
     client.get("/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad")
     client.post(f"/api/viewers/{X['ID']}", json={"name": "Hall TRMNL"})
-    html = client.get("/").text
-    card = html.split('id="viewers-card"')[1].split('id="history-card"')[0]
-    assert "Hall TRMNL" in card and "TRMNL X · 1872×1404 · 16 grays · battery 88%" in card
-    assert "iPad" in card and "1536×2048 · color" in card
-    x, kobo, page = (card.split(f'data-viewer="{i}"')[1].split("</li>")[0]
+    card = client.get("/").text.split('id="frames-card"')[1].split("</section>")[0]
+    assert "Hall TRMNL" in card and "iPad" in card
+    x, kobo, page = (card.split(f'data-frame="{i}"')[1].split(chr(10) + "    </li>")[0]
                      for i in (X["ID"], KOBO["ID"], "PAGE-1"))
-    assert 'data-vw="rotation"' in x and 'data-vw="width"' not in x and 'data-vw="dark_quiet"' not in x
-    assert 'data-vw="width"' in kobo                       # it never said how big it is
-    assert 'data-vw="dark_quiet"' in page and 'data-vw="rotation"' not in page
-    # Nothing shared is offered per viewer.
-    for shared in ("quiet_hours", "blocklist", "mode", "detection"):
-        assert f'data-vw="{shared}' not in card
+    assert 'data-f="rotation"' in x and 'data-f="width"' not in x and 'data-f="dark_quiet"' not in x
+    assert 'data-f="width"' in kobo                        # it never said how big it is
+    assert 'data-f="dark_quiet"' in page and 'data-f="rotation"' not in page
+    assert 'data-f="fmt"' in page and 'data-f="fmt"' not in x          # Look is a lit screen's
+    # Every frame is named and every frame shows something.
+    for row in (x, kobo, page):
+        assert 'data-f="name"' in row and 'data-f="shows"' in row
+        # …and nothing a viewer does not have.
+        for absent in ('data-f="power_mode"', 'data-f="mat_inset_pct"'):
+            assert absent not in row
+    # Nothing shared is offered per frame.
+    for shared in ("quiet_hours", "blocklist", "detection"):
+        assert f'data-f="{shared}' not in card
 
 
-def test_the_card_posts_what_the_api_takes(client):
-    """The card sends every field as the form holds it: strings, a checkbox bool."""
+def test_the_row_posts_what_the_api_takes(client):
+    """The row sends every field as the form holds it: strings, a checkbox bool."""
     client.get("/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad")
-    r = client.post("/api/viewers/PAGE-1", json={"name": " Kitchen iPad ", "fmt": "gray256",
-                                                 "dark_quiet": False})
-    v = r.json()["viewer"]
-    assert v["name"] == "Kitchen iPad" and v["view"]["format"] == "gray256" and v["dark_quiet"] is False
+    r = client.post("/api/frames/PAGE-1", json={"name": " Kitchen iPad ", "fmt": "gray256",
+                                                "dark_quiet": False})
+    v = _row(r.json()["frames"], "PAGE-1")
+    assert v["name"] == "Kitchen iPad" and v["settings"]["format"] == "gray256"
+    assert v["settings"]["dark_quiet"] is False
     client.get("/api/display", headers=KOBO)
-    r = client.post(f"/api/viewers/{KOBO['ID']}", json={"name": "", "rotation": "0",
+    r = client.post(f"/api/frames/{KOBO['ID']}", json={"name": "", "rotation": "0",
                                                        "width": "1264", "height": "1680"})
-    assert r.json()["viewer"]["view"] == {"width": 1264, "height": 1680, "format": "gray256", "rotation": 0}
+    s = _row(r.json()["frames"], KOBO["ID"])["settings"]
+    assert (s["width"], s["height"], s["format"], s["rotation"]) == (1264, 1680, "gray256", 0)
+
+
+def test_a_page_is_never_given_a_panel_rotation(client):
+    """Capability validation: a lit screen turns its own picture, so there is
+    no rotation to set — and a post that tries is ignored, not obeyed."""
+    svc = client.app.state.service
+    client.get("/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad")
+    r = client.post("/api/frames/PAGE-1", json={"rotation": 90, "panel_rotation": 90,
+                                                "power_mode": "sleep", "mat_inset_pct": 9})
+    assert r.json()["ok"]
+    own = svc.frames.get("PAGE-1")["set"]
+    assert "rotation" not in own and "power_mode" not in own and "mat_inset_pct" not in own

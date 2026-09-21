@@ -13,7 +13,7 @@ import pytest
 from PIL import Image, ImageDraw
 from starlette.testclient import TestClient
 
-from tests._frames import add_kit
+from tests._frames import add_kit, frame_bytes
 from featherframe.render.genart import GeneratedArtProvider, ImageModel
 from featherframe.render import pipeline as pipeline  # noqa: E402
 
@@ -216,5 +216,5 @@ def test_regenerate_rerenders_current_frame_from_the_worker(svc):
     _wait_done(svc)
     assert svc._etag is not None
     svc._tick_frames()
-    assert svc._frame_bytes is not None and svc._frame_bytes[:4] == b"FFF1"
+    assert frame_bytes(svc) is not None and frame_bytes(svc)[:4] == b"FFF1"
     assert svc._meta.get("mode") == "single"

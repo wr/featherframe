@@ -114,11 +114,12 @@ it reported, else the default (`FEATHERFRAME_PANEL` seeds a fresh install).
 
 *The household* is `Config`: the source, quiet hours, the blocklist, image
 generation, the collage interval — everything that is the same for every
-screen. `Config` still carries the render fields (`panel`, `panel_rotation`,
-`mat_*`, `power_mode`, `wake_interval_minutes`, `device_poll_seconds`, `mode`)
-because that is the shape `pipeline.*` takes, but **the household's stored
-values for them are not read for any frame**, and `Config.mode` / `Config.panel`
-decide nothing. `frames.frame_config(row, household)` is the ONE place a
+screen, and the whole of the `/settings` form. `Config` still carries the
+render fields (`panel`, `panel_rotation`, `mat_*`, `power_mode`,
+`wake_interval_minutes`, `device_poll_seconds`, `mode`) because that is the
+shape `pipeline.*` takes, but **the household's stored values for them are not
+read for any frame and are not fields on the page**, and `Config.mode` /
+`Config.panel` decide nothing. `frames.frame_config(row, household)` is the ONE place a
 frame's effective config comes from: the household's, this frame's panel, that
 panel's display defaults (`panels.PANEL_SETTINGS` bar `mode`), then the row's
 `set` — all through `Config.sanitize`. `frames.shows_of(row)` answers which
@@ -134,9 +135,12 @@ dithered and packed with `frame_config(row)`, kept as `data/frames/out/<id>.fff`
 serves its bytes, its ETag, its own `X-FF-Rotation` / `X-Power-Mode` /
 `X-Wake-Minutes` / `X-Poll-Seconds`, and its button views drawn with its
 config. A viewer's output is the same idea as a PNG (`view_png`), drawn on
-first ask and cached. Telemetry is per frame too: a check-in lands on its own
-row (`_record_checkin`), the battery log carries a `frame_id`, and
-`frame_health(row)` is the health block for any frame that reports one.
+first ask and cached; `GET /api/frames/<id>/preview.png` serves either kind.
+Telemetry is per frame too: a check-in lands on its own row
+(`_record_checkin`), the battery log carries a `frame_id` (`GET
+/api/battery?frame=<id>`), and `frame_health(row)` is the health block for
+every frame. `frames_list()` / `frame_view(row)` is the one shape all of this
+reaches the page in.
 
 The upgrade from the single-frame build runs once (`_migrate_frame_settings`,
 marked by the `frames_own_settings` kv key): the kit the old build drew for
@@ -165,8 +169,10 @@ one re-render of the subject.
 TRMNL's bring-your-own-server protocol is the first viewer client (W-824):
 `GET /api/setup`, `GET /api/display`, `POST /api/log`, shaped by the firmware's
 own source (`usetrmnl/trmnl-firmware`: `request_headers.cpp`, `display.cpp`),
-which also covers TRMNL's Kobo/Kindle/KOReader clients. `viewers.py` reads the viewer rows out of the one frame registry,
-the device's report apart from the owner's choices (`POST /api/viewers/<id>`: name, rotation, size, format), and
+which also covers TRMNL's Kobo/Kindle/KOReader clients. `viewers.py` reads the
+viewer rows out of the one frame registry, the device's report apart from the
+owner's choices (saved through `POST /api/frames/<id>` like any frame's;
+`POST /api/viewers/<id>` is a thin alias kept for W-822's own scripts), and
 `view_of` turns a row into a `View`: 16-gray models get `gray16`, other
 firmware builds `gray2` (the firmware truncates anything deeper, so we dither),
 a client that reports no size a smooth 1072×1448 page; a landscape canvas
@@ -183,13 +189,36 @@ is told which image to cross-fade to and whether to go dark. A page viewer
 (`kind: "page"`) defaults to `color`, upright, long side capped at
 `PAGE_MAX_SIDE`, and black in quiet hours (`dark_quiet`, the one setting a lit
 screen has that paper does not); "paper look" is the owner choosing `gray256`.
-The dashboard's Viewers card (W-826, left column under the Frame card;
-`service.viewer_rows` → `viewers.card_row`) lists them and offers each only
-what its screen has: a name; *Turned* for e-ink; *Look* and *Dark in quiet
-hours* for a page; a pixel size only for a client that reported none. It
-posts JSON to `/api/viewers/<id>` and reloads. Nothing shared is ever offered
-per viewer, and a viewer's format follows what the *device* reported, never
-the owner's size (a Kobo script client stays smooth once sized).
+A viewer has no card of its own any more (W-833 step 3): it is a row in the
+Frames card like every other frame, offered *Turned*, and *Look* and *Dark in
+quiet hours* for a page, and a pixel size only when it reported none. A
+viewer's format follows what the *device* reported, never the owner's size (a
+Kobo script client stays smooth once sized).
+
+**The page (W-833 step 3) is two halves, and one row component.** Left, narrow:
+metadata and health only, never a setting — the live preview with a chip per
+frame under it (the picked frame is kept in `localStorage`; a kit's own
+`out/<id>.png`, a viewer's own view, both at `GET /api/frames/<id>/preview.png`)
+and the plate's tools; a **Health** card of one row per frame (name · battery ·
+last asked, the dot, the overdue note) each opening onto the same Details —
+battery and Wi-Fi tiles, the 24 h voltage trend from `GET /api/battery?frame=`,
+IP, firmware, panel, board, frame id — then the detection source's own half;
+then History. Right, wide: a **Frames** card FIRST, then the household's
+sections (Collage, Quiet hours, Detection source, Image generation, Generated
+plates) in one `/settings` form that carries no frame field at all. Every frame
+is the same row (the `frame_row` macro): collapsed, its name and
+`frames_list()`'s `summary`; open, its own settings **by capability** —
+Shows always, rotation as degrees (kit) or words (viewer), Power with its two
+reveals, Look and Dark in quiet hours, a size only when `needs_size`, the mat
+under Advanced with *Reset to this panel's defaults* — then Save and Remove.
+Saving posts JSON to `POST /api/frames/<id>` and updates the row in place; the
+status poll keeps every summary and every Health row current and reloads only
+when the set of frames itself changes. A kit that is asking is a notice at the
+top of the card (*Add this frame* / *Ignore it*), ignored ones fold at the
+bottom, and with no frames at all the card is an invitation: `<host>/view` on a
+tablet, or build the kit. `status()["frames"]["list"]` is the whole of it, one
+shape per frame; `status()["current"]` is what the pictures are of, not any
+frame's view.
 **Two pictures (`pictures.py`, W-831 rebuilt in W-833).** There are exactly
 two, `plates` and `collage`, and they are the same kind of thing: each owns its
 meta, its ETag, and its composed sheet (`data/frames/pictures/<kind>/
@@ -212,14 +241,16 @@ for a new plate.
 MAC). On a server with no kit `on`, the first to check in is let in by itself;
 any other is answered `asking` (403, and the firmware shows "Add this frame on
 the Featherframe page") until the owner answers on the page: *Add this frame*
-(`answer_frame(…, "add")`), *Replace the current frame* (`"switch"`: turn this
-one on and forget the first kit, which asks again if it returns), *Ignore it*,
-or *forget*. `POST /api/frames/<id>` saves any frame's settings; a rename falls
-through to the registry, since every frame is the owner's to name. Firmware
-without the header is one frame called `"legacy"`, which becomes its real ID in
-place — with its output — after an update. There is no panel-swap notice: a
-frame's panel is simply what it reports, so there is nothing to answer; the
-"unrecognised panel" and "unknown format" notes stay, per frame. OTA serves
+(`answer_frame(…, "add")`), *Ignore it*, or *forget*. There is no "replace":
+there is no current frame to replace (W-833), so handing the server to a new
+kit is adding it and removing the old one. `POST /api/frames/<id>` saves ANY
+frame's settings, whatever it is fed over — only what `frames.capabilities`
+allows is taken, unknown keys are ignored, and `{"forget": true}` removes it.
+Firmware without the header is one frame called `"legacy"`, which becomes its
+real ID in place — with its output — after an update. There is no panel-swap
+notice: a frame's panel is simply what it reports, so there is nothing to
+answer; the "unrecognised panel" and "unknown format" notes stay, per frame
+(`frame_notices`). OTA serves
 each board its own image: `firmware.bin` and any `firmware-*.bin` in the data
 dir are candidates, matched by the board string (`_firmware_for`). mDNS
 advertises the first `on` kit's panel key; a frame whose panel no server claims
@@ -392,25 +423,25 @@ colour art under black/white type, dithered as the server dithers a plate:
 between resident repaints. One server serves as many frames as are added to it, and it knows them apart
 (`service.admit_frame`): each frame names itself with `X-Device-Id` (its MAC).
 On a server with no frame yet the first to check in is let in by itself; any
-other gets a 403 and waits as "pending" until the owner answers on the page —
-add it, switch to it, or ignore it (ignored frames are listed on the Frame
-card; the frame switched away from is asked about again when it next checks
-in). Each frame is drawn for the panel it reports in its own `X-Panel`, so
+other gets a 403 and waits as "pending" until the owner answers at the top of
+the Frames card — add it, or ignore it (ignored frames fold at the bottom of
+that card, where they can be added or forgotten; a frame removed from a row
+asks again the next time it checks in). Each frame is drawn for the panel it reports in its own `X-Panel`, so
 there is no notice to answer when a different kit connects. Firmware without
 the header is one frame called "legacy", which becomes its real ID in place
 after an update. A parked frame
 shows "Add this frame on the Featherframe page" (gray: error pill 3; EE02:
 `FF_SCR_PENDING`) and keeps asking. Discovery prefers a server whose mDNS TXT
 `panel` matches and otherwise takes any, and `X-Board` on the OTA request
-keeps one board's image off the other. The
-Display section's Advanced has "Reset to defaults" (client-side fill from
-`Config.defaults_for(panel)`, applied only on Save). Low battery (`FF_LOW_BATT_V`: gray < 3.45 V, EE02 < 3.55 V) skips Wi-Fi and
+keeps one board's image off the other. A
+kit row's Advanced has "Reset to this panel's defaults" (a client-side fill
+from that frame's own `Config.defaults_for(panel)`, applied only on Save). Low battery (`FF_LOW_BATT_V`: gray < 3.45 V, EE02 < 3.55 V) skips Wi-Fi and
 sleeps 4 h at a time, saying "Battery low, charge me" on the glass once at
 the crossing (`markLowBattery`: gray paints the baked `FF_TOAST_LOW_BATTERY`
 pill over the plate, the EE02 the baked `FF_SCR_LOW_BATT` full screen, which
 is why its hold starts 0.1 V earlier — a 30 s refresh needs the headroom;
 "once" lives in NVS `lowmark`, written before the paint so a brownout can't
 loop it; the always-awake loop enters the same hold after `FF_LOW_BATT_POLLS`
-low polls, W-736), and the page shows a red banner at
-`frame_card.battery_critical` (≤ 10 % or ≤ the panel's hold,
+low polls, W-736), and the page shows a red banner per frame, naming it, at
+that frame's `card.battery_critical` (≤ 10 % or ≤ the panel's hold,
 `Panel.low_battery_volts`, which a test keeps equal to `FF_LOW_BATT_V`); OTA is refused under 3.70 V and a bad image rolls back.

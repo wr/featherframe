@@ -21,7 +21,7 @@ from featherframe.config import Config
 from featherframe.db import Database
 from featherframe.render import framebuffer, pipeline, theme
 from tests._fixtures import create_birds_db, make_row
-from tests._frames import EE02_PANEL, EE03_PANEL, add_kit, connect
+from tests._frames import EE02_PANEL, EE03_PANEL, add_kit, connect, device
 
 NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
@@ -225,7 +225,7 @@ def test_the_frames_list_is_one_shape_for_a_kit_a_trmnl_and_a_page(client, svc):
     assert trmnl["card"]["battery"].startswith("4.02 V")
     page = listed["PAGE-IPAD"]
     assert page["transport"] == "page" and page["settings"]["dark_quiet"] is True
-    assert page["capabilities"]["look"] and page["card"] is None    # no battery to report
+    assert page["capabilities"]["look"] and page["card"]["battery"] is None   # nothing to report
 
 
 # -- the upgrade from the single-frame build -----------------------------------
@@ -310,7 +310,7 @@ def test_the_migration_moves_settings_telemetry_and_the_battery_log(tmp_path, mo
     assert frames_mod.reported_of(row)["battery_percent"] == 64
     assert svc.db.battery_history("2000-01-01", "AA:BB")[0]["voltage"] == pytest.approx(3.88)
     assert svc.db.battery_history("2000-01-01") == []
-    assert svc.device.fw_version == "1.9.0"
+    assert device(svc, "AA:BB").fw_version == "1.9.0"
     # Everything the frame is drawn with now comes off its row.
     cfg = svc.frame_config(row)
     assert (cfg.panel_rotation, cfg.mat_inset_pct, cfg.power_mode) == (270, 3.5, "sleep")

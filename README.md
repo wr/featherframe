@@ -243,6 +243,10 @@ make preview     # renders a fake Northern Cardinal to test_output/
   false the box has no LAN route or `zeroconf` is missing (re-run
   `install.sh`). On a network that blocks multicast, hold KEY2 for 3 s and type
   the server URL (scheme and port) into the portal.
+- **The frame shows another server's plate** — a second Featherframe server on
+  the LAN (a dev copy on a laptop) advertises itself too, and a frame whose own
+  server stops answering adopts it. Run every server that is not the real one
+  with `FEATHERFRAME_NO_MDNS=1`; stop the stray and the frame goes home.
 - **Plates missing** — re-run `python scripts/fetch_plates.py`; it's idempotent.
 
 ## Credits

@@ -11,6 +11,17 @@ Layout (defaults):
     index.json              species -> plate mapping (written by fetch_plates)
     img/plate-XXX-*.jpg     the plate images
   <package>/fonts           bundled EB Garamond (read-only, ships with code)
+
+Other switches read from the environment (not paths, listed here so there is
+one place to look):
+  FEATHERFRAME_PORT         the bound port (also what mDNS advertises)
+  FEATHERFRAME_DB           our own SQLite file
+  FEATHERFRAME_PANEL        seeds a fresh install's panel
+  FEATHERFRAME_NO_MDNS=1    do not advertise _featherframe._tcp (discovery.py).
+                            Set it on every dev, preview and bench server: a
+                            frame whose own server stops answering adopts
+                            whatever else advertises its panel (W-827).
+                            FEATHERFRAME_MDNS=0 is the same switch.
 """
 from __future__ import annotations
 

@@ -9,7 +9,11 @@ Everything here soft-fails: a missing ``zeroconf`` package, a box with no
 route, or a multicast-hostile network only logs a warning. The dashboard and
 the frame's typed URL keep working without it.
 
-Set ``FEATHERFRAME_MDNS=0`` to turn advertising off.
+Set ``FEATHERFRAME_NO_MDNS=1`` (or ``FEATHERFRAME_MDNS=0``) to turn
+advertising off. Every dev, preview and bench server on a LAN that also has a
+real frame must: a frame whose server stops answering adopts whatever else
+advertises its panel, and a wall frame has latched onto a laptop that way
+(W-827).
 """
 from __future__ import annotations
 
@@ -37,8 +41,24 @@ def lan_ip() -> Optional[str]:
         return None
 
 
+_FALSY = ("0", "no", "off", "false")
+
+
+def disabled_by() -> Optional[str]:
+    """The env assignment that turns advertising off, or None. Two spellings
+    of one switch, and either one is enough: a safety switch must not do
+    nothing because it was spelled the other way."""
+    no = os.environ.get("FEATHERFRAME_NO_MDNS", "").strip().lower()
+    if no and no not in _FALSY:
+        return f"FEATHERFRAME_NO_MDNS={no}"
+    on = os.environ.get("FEATHERFRAME_MDNS", "1").strip().lower()
+    if on in _FALSY:
+        return f"FEATHERFRAME_MDNS={on}"
+    return None
+
+
 def enabled() -> bool:
-    return os.environ.get("FEATHERFRAME_MDNS", "1").strip().lower() not in ("0", "no", "off", "false")
+    return disabled_by() is None
 
 
 class Advertiser:
@@ -61,9 +81,10 @@ class Advertiser:
         return self._info is not None
 
     def start(self) -> bool:
-        if not enabled():
-            self.error = "disabled (FEATHERFRAME_MDNS=0)"
-            log.info("mDNS advertising disabled")
+        off = disabled_by()
+        if off:
+            self.error = f"disabled ({off})"
+            log.info("mDNS advertising disabled (%s)", off)
             return False
         try:
             from zeroconf import ServiceInfo, Zeroconf  # optional dependency

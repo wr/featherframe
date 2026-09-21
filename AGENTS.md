@@ -196,6 +196,18 @@ instead, and the bough of a species with no plate carries nothing. `theme.py` ho
 - Paths are env-overridable: `FEATHERFRAME_DATA_DIR`, `FEATHERFRAME_PLATES_DIR`,
   `FEATHERFRAME_DB`, `FEATHERFRAME_PORT` (see `paths.py`). `install.sh` sets these
   in the systemd unit.
+- **A dev server never advertises mDNS (W-827).** Any server you start on the
+  owner's LAN that is not the box — `.claude/launch.json` entries, a bench
+  instance, a one-off `python -m featherframe` — runs with
+  `FEATHERFRAME_NO_MDNS=1` (`discovery.disabled_by`; `FEATHERFRAME_MDNS=0` is
+  the same switch; `/api/status` then says `mdns.advertised: false`, error
+  `disabled (…)`). The firmware rediscovers on its first failed fetch and
+  adopts any server advertising its panel: on 20 Sep 2026 the wall frame
+  latched onto a Mac preview server while the box rebooted. `launch.json` is
+  untracked, so put the variable in each time you write one. The test suite
+  turns advertising off for itself (`conftest._no_mdns`). `make serve`
+  advertises, because it is also how an owner runs the server; a frame on the
+  bench that should find a dev server gets its URL typed into the portal.
 
 **The wordmark is the plate title, everywhere.** The dashboard serves the
 bundled script at `/fonts/script.ttf`, the favicon is its F

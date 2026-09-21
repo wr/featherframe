@@ -38,9 +38,6 @@ log = logging.getLogger("featherframe.app")
 
 templates = Jinja2Templates(directory=str(paths.templates_dir()))
 
-# Dev-only affordances (e.g. the Test-detection button) are hidden in a normal
-# install; `make serve` sets FEATHERFRAME_DEV=1. Anything truthy-ish enables.
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

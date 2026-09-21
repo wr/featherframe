@@ -1410,7 +1410,10 @@ class FeatherframeService:
                 "power_mode": cfg.power_mode, "etag": state.get("etag"),
                 "battery_percent": dev.get("battery_percent"),
                 "battery_voltage": dev.get("battery_voltage"), "wifi_rssi": dev.get("wifi_rssi"),
-                "fw_version": dev.get("fw_version"), "last_result": dev.get("last_result")}
+                "fw_version": dev.get("fw_version"), "last_result": dev.get("last_result"),
+                "board": row.get("board"), "panel_reported": row.get("panel"),
+                "battery_low": (dev.get("battery_voltage") is not None
+                                and dev["battery_voltage"] <= panel.low_battery_volts)}
 
     def _added_paths(self, frame_id: str):
         safe = re.sub(r"[^0-9A-Za-z_-]", "_", frame_id)

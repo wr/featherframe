@@ -266,13 +266,9 @@ static void bumpFail() { if (g_failCount < 30000) g_failCount++; }
 // across deep sleep — the sleep model repaints via an ETag drop instead.
 static uint8_t* g_lastFrame = nullptr;
 
-// Dark mode: the server inverts the plates it serves and announces the mode
-// via X-FF-Invert; the firmware mirrors it onto everything baked (screens and
-// tiles) by flipping every 4bpp nibble (v -> 15-v == byte ^ 0xFF).
-bool g_invert = false;
 // The frame hangs the other way up (config.panel_rotation is not the one the
 // art was baked at): the server rotates the plates, and announces the rotation
-// (X-FF-Rotation, kept in NVS like dark mode) so everything baked follows —
+// (X-FF-Rotation, kept in NVS) so everything baked follows —
 // a 4bpp buffer turned 180 degrees is its bytes reversed with the nibbles
 // swapped, and a tile's window mirrors to the opposite corner.
 bool g_flip = false;
@@ -333,14 +329,12 @@ void noteSuccess() {
 #else
 static uint8_t g_tileBuf[FF_MAX_TILE_BYTES];
 
-// A baked tile as the glass needs it: inverted for dark mode, turned for a
-// frame hung the other way up. Only call while holding the panel mutex —
-// g_tileBuf is shared.
-static const uint8_t* maybeInvert(const uint8_t* t, size_t n) {
-  if (!g_invert && !g_flip) return t;
-  const uint8_t x = g_invert ? 0xFF : 0x00;
-  for (size_t i = 0; i < n; i++) g_tileBuf[i] = t[i] ^ x;
-  if (g_flip) rotate180(g_tileBuf, n);
+// A baked tile as the glass needs it: turned for a frame hung the other way
+// up. Only call while holding the panel mutex — g_tileBuf is shared.
+static const uint8_t* turnedTile(const uint8_t* t, size_t n) {
+  if (!g_flip) return t;
+  memcpy(g_tileBuf, t, n);
+  rotate180(g_tileBuf, n);
   return g_tileBuf;
 }
 
@@ -356,7 +350,7 @@ static void pushTileRaw(const uint8_t* tile, int x, int y, int w, int h) {
 static void pushTile(const uint8_t* tile, int x, int y, int w, int h) {
   panelLock();
   epaper.wake();
-  tile = maybeInvert(tile, (size_t)(w / 2) * h);
+  tile = turnedTile(tile, (size_t)(w / 2) * h);
   x = flipX(x, w); y = flipY(y, h);             // the window mirrors with the art
   epaper.tconLoadImage((uint8_t*)tile, x, y, w, h, false);
   epaper.tconDisplayArea(x, y, w, h, 1);        // DU: no flash
@@ -814,9 +808,7 @@ static void stampTile(uint8_t* body, const FfScreenAsset& t, int x, int y, int w
     free(tile);
     return;
   }
-  // Tiles are black and white ink only, so dark mode is the byte inversion
-  // the baked screens use; a frame hung the other way up mirrors the window.
-  if (g_invert) for (size_t i = 0; i < n; i++) tile[i] ^= 0xFF;
+  // A frame hung the other way up mirrors the window.
   if (g_flip) { rotate180(tile, n); x = flipX(x, w); y = flipY(y, h); }
   for (int r = 0; r < h; r++)
     memcpy(body + (size_t)(y + r) * (FF_NATIVE_W / 2) + x / 2, tile + r * stride, stride);
@@ -1027,10 +1019,6 @@ void showScreen(int idx) {
   memcpy(g_scrBuf, &h, FFF_HEADER_SIZE);
   uint8_t* body = g_scrBuf + FFF_HEADER_SIZE;
   ff_unpack(ff_screens[idx].data, ff_screens[idx].len, body);
-  // Baked screens are black and white ink only (0xF / 0x0), so the dark-mode
-  // flip is the same byte inversion as the gray build's.
-  if (g_invert)
-    for (uint32_t i = 0; i < FF_SCREEN_BYTES; i++) body[i] ^= 0xFF;
   if (g_flip) rotate180(body, FF_SCREEN_BYTES);
   if (displayFrame(g_scrBuf, total)) {
     g_glassScreen = (int8_t)idx;
@@ -1086,8 +1074,6 @@ void showScreen(int idx) {
   }
   uint8_t* body = buf + FFF_HEADER_SIZE;
   ff_unpack(ff_screens[idx].data, ff_screens[idx].len, body);
-  if (g_invert)
-    for (uint32_t i = 0; i < FF_SCREEN_BYTES; i++) body[i] ^= 0xFF;
   if (g_flip) rotate180(body, FF_SCREEN_BYTES);   // the partial windows below derive from this body
 
   g_loaderAnim.on = false;        // pause the sweep while the glass changes
@@ -1274,19 +1260,13 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Panel-Height", String(FF_NATIVE_H));
   http.addHeader("X-Panel-Format", FF_PANEL_FORMAT);
   http.addHeader("X-Panel-Rotations", FF_PANEL_ROTATIONS);
-  const char* collect[] = {"ETag", "X-FF-Invert", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation"};
-  http.collectHeaders(collect, 8);
+  const char* collect[] = {"ETag", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation"};
+  http.collectHeaders(collect, 7);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
-  // The server announces dark mode on every response; remember it for the
-  // baked screens/tiles (the plates arrive already inverted).
-  String inv = http.header("X-FF-Invert");
-  if (inv.length()) {
-    bool v = (inv == "1");
-    if (v != g_invert) { g_invert = v; prefs.putBool("invert", v); }
-  }
-  // ...and which way up the frame hangs, for the same baked art.
+  // The server announces which way up the frame hangs on every response;
+  // remember it for the baked screens/tiles (the plates arrive already turned).
   String rot = http.header("X-FF-Rotation");
   if (rot.length()) {
     bool f = (rot.toInt() != FF_BAKED_ROTATION);
@@ -1564,7 +1544,6 @@ void setup() {
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);
   g_alwaysAwake = prefs.getBool("awake", FF_DEFAULT_ALWAYS_AWAKE);
   g_pollMs = prefs.getUInt("poll_s", FF_POLL_INTERVAL_MS / 1000) * 1000UL;
-  g_invert = prefs.getBool("invert", false);
   g_flip = prefs.getBool("flip", false);
   Serial.printf("power: %s, wake %u min\n", g_alwaysAwake ? "always awake" : "deep sleep",
                 (unsigned)g_wakeMinutes);

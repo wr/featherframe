@@ -798,7 +798,7 @@ def write_preview():
 # for every boot stage; a screen with no data is never painted.
 # The art is monochrome, so the screens use black and white ink only
 # (dithered by the server's own six-ink finish, which keeps neutrals to those
-# two): the firmware's dark-mode flip stays a byte inversion. Native portrait
+# two). Native portrait
 # 1200x1600, no rotation; nibbles are Seeed_GFX's colour-sprite codes.
 _WHITE_LUT = [min(255, round(i * 255.0 / WHITE_PT)) for i in range(256)]
 
@@ -836,7 +836,7 @@ FULL_SCREENS = [
 # rotation — in the panel's wire format:
 #   spectra6  black and white ink only, Seeed colour-sprite codes (0x0 / 0xF)
 #   gray16    16 levels through the gray bake's own curve, 0 = black
-# Both are 4bpp, high nibble = left pixel, and both invert with a byte flip.
+# Both are 4bpp, high nibble = left pixel.
 #
 #   bake_screens.py --size 480x800 --format gray16 --rotation 90 \
 #       --out firmware/src/ff_screens_mine.h [--name "my panel"] [--preview]

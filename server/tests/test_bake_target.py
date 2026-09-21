@@ -81,7 +81,7 @@ def test_a_stamp_tile_lands_on_its_ink_whichever_way_the_canvas_turns(bake, rota
 def test_a_spectra_target_is_black_and_white_ink_codes_only(bake, tmp_path):
     t = bake.Target(480, 800, "spectra6", 0, str(tmp_path / "s.h"), "t", [])
     _, im = next((n, i) for n, i in bake.FULL_SCREENS if i is not None)
-    assert set(np.unique(t.levels(im))) <= {0x0, 0xF}      # so dark mode stays a byte flip
+    assert set(np.unique(t.levels(im))) <= {0x0, 0xF}      # black and white ink, nothing mixed
 
 
 def test_the_header_names_what_it_was_baked_for(bake, tmp_path):

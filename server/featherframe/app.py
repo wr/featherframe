@@ -27,7 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 
-from . import __version__, discovery, panels, paths
+from . import __version__, discovery, panels, paths, viewers
 from .config import Config, valid_hhmm
 from .names import display_common_name, normalize
 from .render import pipeline, typography
@@ -824,6 +824,117 @@ async def view_png(request: Request, w: Optional[str] = None, h: Optional[str] =
     if status == 304:
         return Response(status_code=304, headers=headers)
     return Response(content=png, media_type="image/png", headers=headers)
+
+
+# TRMNL's bring-your-own-server protocol (W-824), as its firmware speaks it
+# (usetrmnl/trmnl-firmware; terminus doc/api.adoc): /api/setup hands a new
+# device a key, /api/display says which image to show and when to come back,
+# /api/log takes its complaints. A TRMNL, or a Kobo/Kindle/KOReader running
+# TRMNL's client, pointed here is a viewer: no approval step, never the frame.
+def _viewer_image_url(request: Request, viewer_id: str, filename: str) -> str:
+    return (str(request.base_url).rstrip("/")
+            + f"/api/viewers/{quote(viewer_id, safe='')}/{filename}.png")
+
+
+@app.get("/api/setup")
+async def trmnl_setup(request: Request):
+    svc = _svc(request)
+    viewer_id = viewers.clean_id(request.headers.get("id"))
+    if viewer_id is None:
+        return JSONResponse({"status": 404, "api_key": "", "friendly_id": "", "image_url": "",
+                             "message": "An ID header (the device's MAC) is required."},
+                            status_code=404)
+    row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "trmnl",
+                                  viewers.trmnl_report(request.headers),
+                                  request.client.host if request.client else None)
+    log.info("viewer %s set up (%s)", viewer_id, row["reported"].get("model") or "TRMNL client")
+    return JSONResponse({"status": 200, "api_key": row["token"],
+                         "friendly_id": viewer_id.replace(":", "")[-6:],
+                         "image_url": "", "message": "Welcome to Featherframe"})
+
+
+@app.get("/api/display")
+async def trmnl_display(request: Request):
+    svc = _svc(request)
+    viewer_id = viewers.clean_id(request.headers.get("id"))
+    if viewer_id is None:
+        # TRMNL's own shell clients (Kobo, Kindle) always send one; a client
+        # that sends only its key is found by it.
+        token = _str_header(request.headers.get("access-token"))
+        viewer_id = next((k for k, r in svc.viewers.all().items()
+                          if token and hmac.compare_digest(str(r.get("token", "")), token)), None)
+    if viewer_id is None:
+        return JSONResponse({"status": 404, "error": "An ID header is required."}, status_code=404)
+    etag = svc.current_etag()
+    if not etag:
+        return Response(status_code=503, content=b"no frame yet")
+    row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "trmnl",
+                                  viewers.trmnl_report(request.headers),
+                                  request.client.host if request.client else None)
+    view = viewers.view_of(row)
+    # The device repaints only when the filename changes: the frame's ETag and
+    # the variant, so a new plate, or a new rotation from the page, is news.
+    filename = f"{etag}-{view.key}"
+    return JSONResponse({"status": 0, "image_url": _viewer_image_url(request, viewer_id, filename),
+                         "filename": filename, "image_url_timeout": 0,
+                         "refresh_rate": svc.viewer_refresh_seconds(),
+                         "update_firmware": False, "firmware_url": None, "reset_firmware": False,
+                         "special_function": "none"})
+
+
+@app.post("/api/log")
+async def trmnl_log(request: Request):
+    body = (await request.body())[:4096]
+    log.debug("viewer %s log: %s", viewers.clean_id(request.headers.get("id")) or "?",
+              body.decode("utf-8", "replace"))
+    return Response(status_code=204)
+
+
+@app.get("/api/viewers/{viewer_id}/{name}.png")
+async def viewer_png(request: Request, viewer_id: str, name: str):
+    """A viewer's image. The name is only what made the device fetch (and what
+    keeps a cache honest); the picture is always the resident frame's."""
+    svc = _svc(request)
+    row = svc.viewers.get(viewers.clean_id(viewer_id) or "")
+    if row is None:
+        return Response(status_code=404, content=b"no such viewer")
+    inm = _strip_etag(request.headers.get("if-none-match"))
+    status, png, etag = await run_in_threadpool(svc.view_png, viewers.view_of(row), inm)
+    if status == 404:
+        return Response(status_code=404, content=b"no frame yet")
+    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache"}
+    if status == 304:
+        return Response(status_code=304, headers=headers)
+    return Response(content=png, media_type="image/png", headers=headers)
+
+
+@app.get("/api/viewers")
+async def viewers_list(request: Request):
+    rows = _svc(request).viewers.all().values()
+    return JSONResponse({"viewers": [viewers.public(r) for r in
+                                     sorted(rows, key=lambda r: r.get("first_seen") or "")]})
+
+
+@app.post("/api/viewers/{viewer_id}")
+async def viewer_update(request: Request, viewer_id: str):
+    """The owner's choices for one viewer: name, rotation, and (for a client
+    that reports no size) width, height and format. `forget` removes the row."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    svc = _svc(request)
+    vid = viewers.clean_id(viewer_id) or ""
+    try:
+        fields = await request.json()
+    except ValueError:
+        fields = None
+    if not isinstance(fields, dict):
+        return JSONResponse({"error": "a JSON object is required"}, status_code=400)
+    if fields.get("forget"):
+        return JSONResponse({"ok": svc.viewers.forget(vid)})
+    row = await run_in_threadpool(svc.viewers.update, vid, fields)
+    if row is None:
+        return JSONResponse({"error": "no such viewer"}, status_code=404)
+    return JSONResponse({"ok": True, "viewer": viewers.public(row)})
 
 
 @app.get("/api/battery")

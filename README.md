@@ -188,6 +188,40 @@ The page at `http://<your-pi>:8080/` is the whole UI:
   an Apprise webhook, with a *Test connection* button.
 - **Frame card** — last check-in, battery, Wi-Fi signal, overdue warning.
 
+## Other screens: TRMNL, Kobo, Kindle
+
+The frame is not the only thing that can show the plate. Any number of
+**viewers** can show whatever the frame is showing, each drawn for its own
+screen. They never change what the frame does, and there is nothing to approve.
+
+**TRMNL** (the 10.3" TRMNL X has the same glass as the gray frame, so the plate
+is pixel for pixel the same; the 7.5" OG works but is small and four grays):
+hold the button on the back for 5 s to reopen Wi-Fi setup, and under the
+advanced options set the server to `http://<your-pi>:8080` (no trailing slash).
+It asks every 15 minutes, hourly in quiet hours.
+
+**Kobo, Kindle, KOReader**: install TRMNL's own client for the device
+([trmnl-kobo](https://github.com/usetrmnl/trmnl-kobo),
+[trmnl-kindle](https://github.com/usetrmnl/trmnl-kindle) — a jailbroken Kindle —
+or [trmnl-koreader](https://github.com/usetrmnl/trmnl-koreader)) and give it
+`http://<your-pi>:8080/api` as its API URL and any text as its token. These
+clients do not say how big their screen is, so they get a 1072×1448 page until
+you set the size.
+
+A viewer on a landscape screen gets the plate turned on its side, for hanging
+portrait. To turn it the other way, keep it upright, name it, or set a size:
+
+```bash
+curl http://<your-pi>:8080/api/viewers                      # who is connected
+curl -X POST http://<your-pi>:8080/api/viewers/<ID> \
+     -H 'Content-Type: application/json' \
+     -d '{"rotation": 270, "name": "Hall TRMNL"}'            # 0, 90, 180 or 270
+```
+
+Anything else can fetch the plate as a PNG at any size:
+`/api/view.png?w=1072&h=1448&format=gray256` (`gray16`, `gray2` and `mono` are
+dithered; `color` is the plate in colour, for a tablet).
+
 ## Battery life
 
 E-paper holds its image with zero power; the cost is per wake, mostly Wi-Fi.

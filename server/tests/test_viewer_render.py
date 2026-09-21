@@ -229,3 +229,20 @@ def test_after_a_restart_the_first_colour_ask_renders_the_resident_subject_again
     r = client.get("/api/view.png?w=600&h=800&format=color")
     assert r.status_code == 200 and _is_coloured(r.content)
     assert svc._meta["label"] == "Northern Cardinal"
+
+
+# -- the PNG on the wire --------------------------------------------------------
+@pytest.mark.parametrize("fmt,bits", [("mono", 1), ("gray2", 2), ("gray16", 4)])
+def test_dithered_views_are_png_at_their_true_depth(fmt, bits):
+    """TRMNL's firmware paints 1/2/4-bit gray as it is and truncates 8-bit."""
+    img = pipeline.render_view(_sheet(), View(301, 400, fmt))   # odd width: row padding
+    png = pipeline.encode_png(img, fmt)
+    assert png[24] == bits and png[25] == 0          # IHDR: bit depth, colour type gray
+    back = Image.open(io.BytesIO(png)).convert("L")
+    assert back.size == (301, 400)
+    assert np.array_equal(np.asarray(back), np.asarray(img))
+
+
+def test_smooth_views_are_ordinary_pngs():
+    img = pipeline.render_view(_sheet(), View(300, 400, "gray256"))
+    assert pipeline.encode_png(img, "gray256")[24] == 8

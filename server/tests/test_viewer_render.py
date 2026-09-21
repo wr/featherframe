@@ -14,6 +14,7 @@ from starlette.testclient import TestClient
 from featherframe.config import Config
 from featherframe.render import pipeline, theme
 from featherframe.render.pipeline import View
+from tests._frames import add_kit
 
 
 def _sheet(mode: str = "L") -> Image.Image:
@@ -90,11 +91,11 @@ def client(tmp_path, monkeypatch):
     return TestClient(app)
 
 
-def _commit(svc, label: str = "x"):
-    result = pipeline.render_image(_sheet(), svc.config, "single", label)
-    svc._commit(result, datetime(2026, 9, 20, 8, 0), mode="single", species_key=None,
-                label=label, note=None)
-    return result
+def _commit(svc, label: str = "x", sheet=None):
+    """Make the plates picture be this sheet, as a render would."""
+    svc._commit("plates", datetime(2026, 9, 20, 8, 0), sheet=sheet if sheet is not None else _sheet(),
+                mode="single", species_key=None, label=label)
+    return svc.pictures["plates"]
 
 
 def test_no_frame_yet_is_a_404(client):
@@ -118,11 +119,14 @@ def test_a_view_is_a_png_at_the_asked_size_with_its_own_etag(client):
 
 def test_a_view_never_touches_the_frame(client):
     svc = client.app.state.service
+    add_kit(svc)
+    svc._clock = lambda: datetime(2026, 9, 20, 8, 0)
     resident = _commit(svc)
-    before = (svc._etag, svc._frame_bytes, svc.config.panel, svc.status()["device"])
+    svc.tick()
+    before = (svc._etag, svc._frame_bytes, svc.status()["device"])
     client.get("/api/view.png?w=1072&h=1448&format=gray256",
                headers={"X-Device-Id": "aa:bb", "X-Panel": "Kobo Clara"})
-    assert (svc._etag, svc._frame_bytes, svc.config.panel, svc.status()["device"]) == before
+    assert (svc._etag, svc._frame_bytes, svc.status()["device"]) == before
     assert svc._etag == resident.etag
 
 
@@ -131,9 +135,7 @@ def test_a_new_frame_is_a_new_view_and_the_old_ones_are_dropped(client, tmp_path
     _commit(svc, "one")
     first = client.get("/api/view.png?w=300&h=400").headers["etag"]
     sheet = Image.fromarray(np.full((theme.HEIGHT, theme.WIDTH), 40, dtype=np.uint8), mode="L")
-    result = pipeline.render_image(sheet, svc.config, "single", "two")
-    svc._commit(result, datetime(2026, 9, 20, 9, 0), mode="single", species_key=None,
-                label="two", note=None)
+    _commit(svc, "two", sheet)
     second = client.get("/api/view.png?w=300&h=400")
     assert second.headers["etag"] != first
     assert np.asarray(Image.open(io.BytesIO(second.content))).max() < 60
@@ -141,14 +143,13 @@ def test_a_new_frame_is_a_new_view_and_the_old_ones_are_dropped(client, tmp_path
     assert len(views) == 1
 
 
-def test_a_frame_from_before_the_sheet_was_kept_still_has_a_view(client, tmp_path):
-    """An install that updates keeps its resident frame; until the next render
-    the view is drawn from the preview PNG it already has."""
+def test_a_picture_with_no_sheet_yet_has_no_view(client, tmp_path):
+    """A view is drawn from the picture\'s composed sheet and nothing else;
+    without one there is nothing honest to send."""
     svc = client.app.state.service
     _commit(svc)
     svc.pictures["plates"].sheet_path.unlink()
-    r = client.get("/api/view.png?w=300&h=400")
-    assert r.status_code == 200 and Image.open(io.BytesIO(r.content)).size == (300, 400)
+    assert client.get("/api/view.png?w=300&h=400").status_code == 404
 
 
 def test_bad_asks_are_400s(client):
@@ -196,7 +197,9 @@ def test_nobody_asking_for_colour_costs_the_render_nothing(client, tmp_path):
 def test_the_first_colour_ask_gets_colour_and_later_renders_keep_it(client, tmp_path):
     svc = client.app.state.service
     svc._clock = lambda: datetime(2026, 9, 20, 8, 0)
+    add_kit(svc)
     _show_cardinal(svc)
+    svc.tick()
     wall = svc._frame_bytes
     r = client.get("/api/view.png?w=600&h=800&format=color")
     assert r.status_code == 200 and _is_coloured(r.content)
@@ -225,7 +228,7 @@ def test_after_a_restart_the_first_colour_ask_renders_the_resident_subject_again
     svc = client.app.state.service
     svc._clock = lambda: datetime(2026, 9, 20, 8, 0)
     _show_cardinal(svc)
-    svc._recompose_color = None   # a restart forgets how the picture was composed
+    svc.pictures["plates"].recompose = None   # a restart forgets how it was composed
     r = client.get("/api/view.png?w=600&h=800&format=color")
     assert r.status_code == 200 and _is_coloured(r.content)
     assert svc._meta["label"] == "Northern Cardinal"

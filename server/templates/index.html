@@ -609,26 +609,10 @@
     <span class="test-msg"></span>
   </div>
 
-  {# Panel notices. A swap: the render already follows the new panel; the
-     saved display settings were tuned for the old one, so offer its defaults.
-     A turned-away frame: a second frame of another panel asked this server. #}
+  {# What a frame said about its panel that this server cannot honour. Its
+     panel is simply what it reports (W-833), so there is nothing to answer. #}
   <script type="application/json" id="display-defaults">{{ (display_defaults or {})|tojson }}</script>
   {% set pn = status.panel_notices %}
-  {% if pn.swap %}
-  <div class="test-box warn show panel-note" id="panel-swap" role="status">
-    <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
-    <span class="test-msg">
-      <strong>New panel connected.</strong>
-      The frame now reports the {{ pn.swap.to_name }} panel (it was the {{ pn.swap.from_name }}), and updates are already drawn for it.
-      {% if pn.swap.off_default %}The mode, rotation and mat settings are still the ones saved for the old panel. This panel's defaults are {{ 'a collage every few hours' if config.panel_spec.mode == 'collage' else 'a plate for each detection' }}, its own rotation and the standard mat.{% else %}The display settings already match this panel's defaults.{% endif %}
-      <span class="panel-note-actions">
-        {% if pn.swap.off_default %}<button class="btn primary" type="button" data-panel-action="defaults">Use this panel's defaults</button>
-        <button class="btn" type="button" data-panel-action="keep">Keep my settings</button>
-        {% else %}<button class="btn" type="button" data-panel-action="keep">Dismiss</button>{% endif %}
-      </span>
-    </span>
-  </div>
-  {% endif %}
   {# W-813: what the frame says about its panel does not match what is drawn. #}
   {% for title, body in [
       ("This frame did not say what panel it has.", pn.unrecognised and ("It calls its panel “" ~ pn.unrecognised.label ~ "”, which this server does not know, and it reported no size. Updates are drawn for the " ~ pn.unrecognised.drawing_for ~ " panel, which the frame may reject. Update the frame's firmware.")),
@@ -1957,26 +1941,6 @@
       else showFlash('ok', 'These settings are already at their defaults.', 'ic-check');
     });
   })();
-
-  // -- panel notices: answer the swap offer / dismiss a turned-away frame -------
-  document.querySelectorAll('[data-panel-action]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var box = b.closest('.panel-note');
-      box.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
-      var fd = new FormData(); fd.append('action', b.getAttribute('data-panel-action'));
-      fetch('/api/panel-notice', { method: 'POST', body: fd })
-        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-        .then(function () {
-          // "defaults" rewrote settings the form is showing: reload to show them.
-          if (b.getAttribute('data-panel-action') === 'defaults') { saving = true; location.href = '/?saved=1'; }
-          else box.remove();
-        })
-        .catch(function () {
-          box.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
-          showFlash('bad', "That didn't go through. Try again.", 'ic-warn');
-        });
-    });
-  });
 
   // -- viewers: a screen's own few settings, saved one viewer at a time ----------
   // The empty state spells the address out, as the owner must type it on the tablet.

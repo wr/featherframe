@@ -7,19 +7,23 @@ reported, never from a table of model names. Before this there were three
 stores (the `frames` kv, the `viewers` kv, and `Config` for the wall frame);
 this module is the one they all now go through.
 
-Step 1 keeps the old vocabulary alive at the edges. `primary` marks the single
-kit the legacy single-frame path — `Config` plus the resident framebuffer —
-still draws for; it goes away once every frame owns its own settings.
+Every frame owns its settings on its own row (step 2b): `frame_config` is the
+one place a frame's effective Config comes from — the household's, with this
+frame's panel, that panel's display defaults, and the owner's choices for this
+frame on top. There is no primary kit and no "active" seat any more: a kit is
+`asking`, `on`, or `ignored`, and every `on` kit is drawn for the same way.
 """
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 import threading
 from contextlib import contextmanager
 from typing import Any, Optional
 
 from . import panels
+from .config import Config
 
 log = logging.getLogger("featherframe.frames")
 
@@ -28,6 +32,9 @@ KEY = "frame_rows"
 # written again; they stay in the DB so a rollback still finds them.
 LEGACY_FRAMES_KEY = "frames"
 LEGACY_VIEWERS_KEY = "viewers"
+# Which kit the single-frame build drew for. Written only by `migrate`, read
+# and removed once by the service's settings migration; no live code has it.
+LEGACY_PRIMARY = "primary"
 
 # How a screen is fed, which is NOT a kind of frame: "kit" speaks the
 # framebuffer protocol (/api/frame), "trmnl" TRMNL's BYOS protocol, "page" the
@@ -39,15 +46,24 @@ ASKING, ON, IGNORED = "asking", "on", "ignored"
 
 MAX_NAME = 60
 
+# What a kit's picture shows. (pictures.KINDS, spelled here so the registry
+# does not have to import the render side.)
+SHOWS = ("plates", "collage")
+
+# The settings a kit owns. Everything else — the source, quiet hours, the
+# blocklist, image generation — is the household's and is shared.
+KIT_SETTINGS = ("panel_rotation", "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px",
+                "power_mode", "wake_interval_minutes", "device_poll_seconds")
+
 # A battery reading, under either spelling: a kit reports `battery_voltage`
-# (DeviceStatus, from the X-Battery-* headers), a TRMNL `battery_volts`.
+# (from the X-Battery-* headers), a TRMNL `battery_volts`.
 _BATTERY_KEYS = ("battery_percent", "battery_volts", "battery_voltage")
 
 
 # -- one row ---------------------------------------------------------------
 def new_row(frame_id: str, transport: str, stamp: str, status: str = ASKING) -> dict:
     """A screen nobody has answered for yet."""
-    return {"id": str(frame_id), "transport": transport, "status": status, "primary": False,
+    return {"id": str(frame_id), "transport": transport, "status": status,
             "reported": {}, "set": {}, "first_seen": stamp, "last_seen": stamp}
 
 
@@ -74,36 +90,59 @@ def name_of(row: Optional[dict]) -> str:
 
 
 def panel_of(row: Optional[dict]) -> Optional["panels.Panel"]:
-    """The panel a kit reported (X-Panel, or its X-Panel-* facts), or None."""
+    """The panel a kit reported (X-Panel, or its X-Panel-* facts), or None.
+    Firmware old enough to report neither falls back to `row["panel"]`, the key
+    the single-frame build kept in the config for it; its next report wins."""
     rep = reported_of(row)
-    return panels.from_report(rep.get("panel"), rep.get("facts"))
+    panel = panels.from_report(rep.get("panel"), rep.get("facts"))
+    if panel is not None:
+        return panel
+    key = (row or {}).get("panel")
+    return panels.get(key) if key else None
 
 
-def seat(row: Optional[dict]) -> str:
-    """The word the frame endpoints still answer in: "active" (the primary
-    kit), "added" (a second kit), "pending", "ignored"."""
-    status = (row or {}).get("status")
-    if status == ON:
-        return "active" if (row or {}).get("primary") else "added"
-    return "pending" if status == ASKING else "ignored"
+def panel_for(row: Optional[dict]) -> "panels.Panel":
+    """The panel this frame is DRAWN for. A kit that has not said yet gets the
+    default one — FEATHERFRAME_PANEL seeds a fresh install, so a second server
+    comes up right unasked."""
+    return panel_of(row) or panels.get(os.environ.get("FEATHERFRAME_PANEL", panels.DEFAULT.key))
+
+
+def shows_of(row: Optional[dict]) -> str:
+    """Which picture this kit shows: the owner's choice, else its panel's own
+    default (a refresh that takes half a minute starts on the collage)."""
+    shows = settings_of(row).get("shows")
+    if shows in SHOWS:
+        return shows
+    return "collage" if panel_for(row).mode == "collage" else "plates"
+
+
+def frame_config(row: Optional[dict], household: Config) -> Config:
+    """The Config one frame is drawn with: the household's, with THIS frame's
+    panel, that panel's own display defaults, and the owner's choices for this
+    frame on top. Everything goes through Config's own sanitising, so a bad
+    stored value is clamped here and not on the glass."""
+    panel = panel_for(row)
+    fresh = Config.defaults_for(panel.key).to_dict()
+    own = settings_of(row)
+    return Config.from_dict({
+        **household.to_dict(), "panel": panel.key,
+        # `mode` is not a frame's setting any more: `shows_of` answers that.
+        **{k: fresh[k] for k in panels.PANEL_SETTINGS if k != "mode"},
+        **{k: v for k, v in own.items() if k in KIT_SETTINGS}})
 
 
 # -- what a screen can be asked for ----------------------------------------
-def capabilities(row: dict, config: Any = None) -> dict:
+def capabilities(row: dict) -> dict:
     """What this screen can do, derived from its transport and from what it
-    reported. `config` is only consulted for a kit that has not reported a
-    panel yet — the wall frame on a fresh install, whose panel lives in the
-    config until step 2 moves it onto the row."""
+    reported — never from a table of model names."""
     transport = transport_of(row)
     kit, page = transport == "kit", transport == "page"
     rep = reported_of(row)
-    panel = panel_of(row) if kit else None
-    if kit and panel is None and config is not None:
-        panel = config.panel_spec
     if kit:
         # Only what the firmware accepts: any other rotation is another native
         # size, which it rejects.
-        rotations = tuple((panel or panels.DEFAULT).rotations)
+        rotations = tuple(panel_for(row).rotations)
     elif page:
         # A tablet turns its own picture when it is turned; there is nothing
         # for the owner to set.
@@ -124,7 +163,7 @@ def capabilities(row: dict, config: Any = None) -> dict:
         # scripts send only an ID): the owner has to.
         "needs_size": transport == "trmnl" and not (rep.get("width") and rep.get("height")),
         "has_battery": any(rep.get(k) is not None for k in _BATTERY_KEYS),
-        "colour": bool(page or (kit and panel is not None and panel.color)),
+        "colour": bool(page or (kit and panel_for(row).color)),
     }
 
 
@@ -165,15 +204,14 @@ class FrameRegistry:
         return [r for r in self.all().values() if r.get("status") == status
                 and (transport is None or transport_of(r) == transport)]
 
-    def primary(self) -> Optional[dict]:
-        """The one kit the resident frame is drawn for."""
-        return next((r for r in self.all().values()
-                     if r.get("primary") and transport_of(r) == "kit"), None)
-
-    def added(self) -> list:
-        """Kits served beside the primary one (W-832)."""
-        return [r for r in self.all().values() if transport_of(r) == "kit"
-                and r.get("status") == ON and not r.get("primary")]
+    def on_kits(self) -> list:
+        """Every kit this server draws for, oldest first. There is no primary:
+        the order is only so the page (and the single-frame shims that survive
+        until step 3) always mean the same one by "the frame"."""
+        rows = [r for r in self.all().values()
+                if transport_of(r) == "kit" and r.get("status") == ON]
+        rows.sort(key=lambda r: (str(r.get("first_seen") or ""), str(r.get("id") or "")))
+        return rows
 
     # -- writing -----------------------------------------------------------
     @contextmanager
@@ -253,9 +291,12 @@ def _kit_row(fid: str, old: dict, is_active: bool) -> dict:
     reported = {k: old[k] for k in ("panel", "board", "facts") if old.get(k)}
     reported.update({k: v for k, v in (old.get("device") or {}).items() if v is not None})
     row = {"id": fid, "transport": "kit", "status": status,
-           "primary": bool(is_active and status == ON),
            "reported": reported, "set": dict(old.get("set") or {}),
            "first_seen": old.get("first_seen"), "last_seen": old.get("last_seen")}
+    if is_active and status == ON:
+        # The kit whose settings still live in Config; the service's settings
+        # migration moves them onto this row and drops the mark.
+        row[LEGACY_PRIMARY] = True
     if old.get("ip"):
         row["ip"] = old["ip"]
     return row
@@ -266,7 +307,7 @@ def _viewer_row(vid: str, old: dict) -> dict:
     already being served, so it is on."""
     kind = old.get("kind")
     row = {"id": vid, "transport": kind if kind in ("trmnl", "page") else "trmnl",
-           "status": ON, "primary": False,
+           "status": ON,
            "reported": dict(old.get("reported") or {}), "set": dict(old.get("set") or {}),
            "token": str(old.get("token") or secrets.token_hex(16)),
            "first_seen": old.get("first_seen"), "last_seen": old.get("last_seen")}

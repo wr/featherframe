@@ -9,6 +9,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from featherframe.config import Config, _sun_window
+from tests._frames import FRAME_ID, seed_frame
 
 
 @pytest.fixture
@@ -26,18 +27,17 @@ def client(tmp_path, monkeypatch):
 
 
 def _seed_frame(client) -> str:
-    svc = client.app.state.service
-    svc._frame_bytes = b"FFF1" + bytes(12)
-    svc._etag = "abc123"
-    return svc._etag
+    """One kit with something already on its glass."""
+    return seed_frame(client.app.state.service)
 
 
 def test_fielded_firmware_is_told_not_to_invert(client):
     """Dark mode is gone, but firmware that still reads X-FF-Invert keeps its
     last value in NVS unless told otherwise: a 304 says "0" too."""
     etag = _seed_frame(client)
-    assert client.get("/api/frame").headers["x-ff-invert"] == "0"
-    r = client.get("/api/frame", headers={"If-None-Match": f'"{etag}"'})
+    head = {"X-Device-Id": FRAME_ID}
+    assert client.get("/api/frame", headers=head).headers["x-ff-invert"] == "0"
+    r = client.get("/api/frame", headers={**head, "If-None-Match": f'"{etag}"'})
     assert r.status_code == 304 and r.headers["x-ff-invert"] == "0"
 
 
@@ -51,9 +51,10 @@ def test_frame_response_carries_the_rotation(client):
     # on a 304 too, so a frame flipped on the page is right at its next boot.
     etag = _seed_frame(client)
     svc = client.app.state.service
-    svc.config.panel_rotation = 270
-    assert client.get("/api/frame").headers["x-ff-rotation"] == "270"
-    r = client.get("/api/frame", headers={"If-None-Match": f'"{etag}"'})
+    svc.update_frame(FRAME_ID, {"panel_rotation": 270})
+    head = {"X-Device-Id": FRAME_ID}
+    assert client.get("/api/frame", headers=head).headers["x-ff-rotation"] == "270"
+    r = client.get("/api/frame", headers={**head, "If-None-Match": f'"{etag}"'})
     assert r.status_code == 304 and r.headers["x-ff-rotation"] == "270"
 
 
@@ -61,17 +62,26 @@ def test_frame_response_carries_the_rotation(client):
 _BASE_FORM = {"quiet_hours_mode": "custom", "imagegen_enabled": "on", "collage_generated": "on"}
 
 
-def test_only_a_render_setting_repaints_on_save(client, monkeypatch):
+def test_only_a_render_setting_redraws_the_frame(client):
+    """A display setting lands on the frame\'s row; the next tick re-finishes
+    its output from the same picture. Nothing renders in the request."""
     svc = client.app.state.service
-    calls = []
-    monkeypatch.setattr(svc, "rerender_current", lambda: calls.append(1))
+    _seed_frame(client)
+    svc._commit("plates", svc._clock(), sheet=_sheet(), mode="single",
+                species_key=None, label="Blue Jay")
+    svc._tick_frames()
+    first = svc._out[FRAME_ID]["etag"]
     client.post("/settings", data={**_BASE_FORM, "panel_rotation": "270"}, follow_redirects=False)
-    assert svc.config.panel_rotation == 270 and len(calls) == 1
-    client.post("/settings", data={**_BASE_FORM, "panel_rotation": "270"}, follow_redirects=False)
-    assert len(calls) == 1                               # nothing changed
+    assert svc.page_config().panel_rotation == 270
+    assert svc._out[FRAME_ID]["etag"] == first           # not in the request
+    svc._tick_frames()
+    turned = svc._out[FRAME_ID]["etag"]
+    assert turned != first
     client.post("/settings", data={**_BASE_FORM, "panel_rotation": "270",
                                    "wake_interval_minutes": "30"}, follow_redirects=False)
-    assert svc.config.wake_interval_minutes == 30 and len(calls) == 1
+    svc._tick_frames()
+    assert svc.page_config().wake_interval_minutes == 30
+    assert svc._out[FRAME_ID]["etag"] == turned          # the pixels did not move
 
 
 def test_sun_window_is_a_seasonal_night():
@@ -99,10 +109,16 @@ def test_legacy_quiet_hours_enabled_migrates():
 
 def test_a_frame_left_inverted_by_the_old_dark_mode_is_redrawn_once(client, monkeypatch):
     svc = client.app.state.service
-    svc._frame_bytes = b"FFF1" + bytes(12)
+    svc._etag = "abc123"
     svc._meta = {"mode": "single", "label": "Blue Jay", "species_key": "cyanocitta cristata",
                  "dark": True}
     calls = []
     monkeypatch.setattr(svc, "rerender_current", lambda: calls.append(1))
     svc.tick(); svc.tick()
     assert calls == [1] and "dark" not in svc._meta
+
+
+def _sheet():
+    from PIL import Image
+    from featherframe.render import theme
+    return Image.new("L", (theme.WIDTH, theme.HEIGHT), 128)

@@ -15,6 +15,7 @@ from starlette.testclient import TestClient
 
 from featherframe.render import pipeline
 from tests._fixtures import create_birds_db, make_row
+from tests._frames import FRAME_ID, add_kit
 
 NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
@@ -39,8 +40,8 @@ def client(tmp_path, monkeypatch):
     svc = FeatherframeService()
     svc._clock = lambda: NOW
     svc.config.quiet_hours_mode = "off"
-    svc.config.mode = "single"
     svc.reload_config = lambda: None     # the test's config is the config
+    add_kit(svc)                         # one kit on the wall, showing plates
     svc.source.db_path = _heard(tmp_path / "birds.db")
     app.state.service = svc
     svc.tick()
@@ -111,7 +112,7 @@ def test_the_collage_is_redrawn_on_its_interval_not_every_tick(client):
 
 def test_a_trmnl_on_plates_beside_a_frame_on_the_collage(client, tmp_path):
     svc = client.app.state.service
-    svc.config.mode = "collage"
+    svc.update_frame(FRAME_ID, {"shows": "collage"})
     svc.tick()
     assert svc._meta["mode"] == "collage"
     trmnl = {"ID": "AA:BB:CC:DD:EE:01", "Model": "x", "Width": "1872", "Height": "1404"}
@@ -155,7 +156,11 @@ def test_there_is_one_collage_the_same_on_every_screen(client):
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage", "dark_quiet": False})
     svc.tick()
     assert svc.pictures["collage"].etag in client.get(IPAD).json()["image"]
-    svc._build_collage(NOW, NOW.date(), generated_ok=True)      # nightfall: the wall takes it
+    # Nightfall: the frame on plates takes that same collage for the window.
+    svc.config.quiet_hours_mode = "custom"
+    svc.config.quiet_hours_start, svc.config.quiet_hours_end = "11:00", "23:30"
+    svc.config.quiet_hours_render_collage = True
+    svc.tick()
     assert svc._meta["mode"] == "collage"
     assert svc._etag == svc.pictures["collage"].etag
     assert svc._etag in client.get(IPAD).json()["image"]

@@ -12,6 +12,7 @@ from starlette.testclient import TestClient
 
 from featherframe.render import pipeline
 from tests._fixtures import create_birds_db, make_row
+from tests._frames import connect
 
 NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
@@ -33,7 +34,6 @@ def client(tmp_path, monkeypatch):
     svc = FeatherframeService()
     svc._clock = lambda: NOW
     svc.config.quiet_hours_mode = "off"
-    svc.config.mode = "single"
     svc.reload_config = lambda: None
     rows = []
     for i, (c, s) in enumerate(SPECIES):
@@ -42,7 +42,7 @@ def client(tmp_path, monkeypatch):
     app.state.service = svc
     svc.tick()
     client = TestClient(app)
-    assert client.get("/api/frame", headers=EE03).status_code == 200     # the first frame takes the seat
+    assert connect(client, EE03).status_code == 200   # the first frame is let in by itself
     return client
 
 
@@ -106,8 +106,9 @@ def test_its_settings_are_its_own(client):
     # A rotation its panel cannot do is refused by the same rules as the page's.
     client.post(f"/api/frames/{fid}", json={"panel_rotation": 90})
     assert svc.frames_view()["added"][0]["rotation"] in (0, 180)
-    # The household's config never moved.
-    assert svc.config.panel == "ee03" and svc.config.mode == "single"
+    # The other frame's settings never moved.
+    first = svc.frame_config(svc.frames.get(EE03["X-Device-Id"]))
+    assert first.panel == "ee03" and first.panel_rotation == 90
     assert svc.pictures["collage"].etag is None      # nobody shows it any more
 
 
@@ -115,19 +116,19 @@ def test_nothing_is_redrawn_until_its_picture_changes(client):
     svc = client.app.state.service
     _add(client)
     svc.tick()                 # a colour kit's first tick also asks for the colour twin
-    drawn = dict(svc._added)
+    drawn = dict(svc._out)
     svc.tick(); svc.tick()
-    assert svc._added == drawn
+    assert svc._out == drawn
 
 
 def test_forgetting_it_takes_its_files_and_its_picture_with_it(client, tmp_path):
     svc = client.app.state.service
     _add(client)
-    added = tmp_path / "data" / "frames" / "added"
-    assert len(list(added.glob("*.fff"))) == 1
+    out = tmp_path / "data" / "frames" / "out"
+    assert len(list(out.glob("*.fff"))) == 2      # one per frame
     client.post("/api/frames", data={"id": EE02["X-Device-Id"], "action": "forget"})
     svc.tick()
-    assert list(added.glob("*")) == [] and svc._added == {}
+    assert len(list(out.glob("*.fff"))) == 1 and EE02["X-Device-Id"] not in svc._out
     assert svc.pictures["collage"].etag is None
     assert client.get("/api/frame", headers=EE02).status_code == 403     # it asks again
 

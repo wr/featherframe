@@ -36,7 +36,7 @@ def svc(tmp_path, monkeypatch):
     service = FeatherframeService()
     service._clock = lambda: NOW          # pin the wall clock to the fixtures' day
     pipeline.DITHER_OVERRIDE = "none"
-    service._frame_bytes = b"resident"
+    service._etag = "resident"
     service._set_cursor(0)
     service._cursor_verified = True
     yield service

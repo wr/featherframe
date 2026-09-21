@@ -32,8 +32,8 @@ describes its panel as facts (W-813: `X-Panel-Width`/`-Height` native canvas,
 so `Config` stays flat). A panel that is not 3:4 gets the same sheet,
 contain-fitted on paper (`pipeline._fit_to_panel`); an unknown format is sent
 gray16 at the right size with a page note, never a wrong-size image. The
-panel is state, not a setting (W-821): `config.panel` always follows the
-active frame (`adopt_panel`) and there is no override on the page. The firmware side of a port is `-DFF_GENERIC_PANEL` (W-819, the
+panel is state, not a setting (W-821/W-833): every frame is drawn for the
+panel IT reports (`frames.panel_for`) and there is no override on the page. The firmware side of a port is `-DFF_GENERIC_PANEL` (W-819, the
 `generic_bench` env: the EE03's own glass under a label the server does not
 know): the panel comes from build flags, its screens from
 `bake_screens.py --size WxH --format gray16|spectra6 --rotation N --out …`
@@ -91,16 +91,59 @@ Deploy to the Pi: `cd server && ./install.sh` (venv + plates + systemd unit).
 packed framebuffer + ETag → firmware GET /api/frame (If-None-Match) → panel`.
 
 **`service.py` is the hub.** A background thread runs `tick()` on the poll
-interval; `tick()` is the whole decision tree — quiet hours (+ optional nightly
-collage), what each frame shows (plates/collage; "auto" was removed and
-migrates to single; a collage is redrawn every `collage_interval_hours`),
-blocklist, new-species corroboration and the dwell hold — and renders *at most
-one* frame per picture per decision. The primary kit's framebuffer is not state
-of its own: it is the picture that kit shows, finished with `self.config`, kept
-as `data/frames/current.fff` (+ `current.png`) so a restart never blanks the
-device, and `_shown` names which picture it is (`svc._meta`/`_etag`/
-`_frame_bytes` read through it). Every web handler just reads bytes. The
-default path is to do nothing (priority: few panel refreshes).
+interval. `tick()` is two passes and nothing else: `_tick_pictures()` decides
+what each picture is OF (quiet hours + the optional nightly collage, the
+collage interval, the blocklist, new-species corroboration, the dwell hold)
+and composes at most one sheet per picture; `_tick_frames()` then finishes
+each picture into one output per frame that shows it. Every web handler just
+reads bytes — nothing is ever rendered in a request. The default path is to do
+nothing (priority: few panel refreshes).
+
+**Frame / Household / Picture / Output (W-833).** Four things, and everything
+else follows from them.
+
+*A frame* is any screen this server draws for: the kit on the wall, a second
+kit, a TRMNL, a tablet. `frames.py` is the one registry (`frame_rows` in the kv
+store) and there is no primary, no "active" seat: a row is `asking`, `on` or
+`ignored`. Each row holds how it is fed (`transport`: kit | trmnl | page),
+what the *device* reported (`reported`), and what the *owner* chose (`set`) —
+kept apart, so a check-in never undoes a choice. `frames.capabilities(row)`
+derives what a screen can be asked for from its transport and its own report,
+never from a table of model names. `frames.panel_for(row)` is its panel: what
+it reported, else the default (`FEATHERFRAME_PANEL` seeds a fresh install).
+
+*The household* is `Config`: the source, quiet hours, the blocklist, image
+generation, the collage interval — everything that is the same for every
+screen. `Config` still carries the render fields (`panel`, `panel_rotation`,
+`mat_*`, `power_mode`, `wake_interval_minutes`, `device_poll_seconds`, `mode`)
+because that is the shape `pipeline.*` takes, but **the household's stored
+values for them are not read for any frame**, and `Config.mode` / `Config.panel`
+decide nothing. `frames.frame_config(row, household)` is the ONE place a
+frame's effective config comes from: the household's, this frame's panel, that
+panel's display defaults (`panels.PANEL_SETTINGS` bar `mode`), then the row's
+`set` — all through `Config.sanitize`. `frames.shows_of(row)` answers which
+picture it shows: the owner's choice, else its panel's own default.
+
+*A picture* is what is drawn (see the two pictures, below). It is composed
+once, as a sheet, whatever any frame's panel is.
+
+*An output* is one frame's picture finished for that frame: fitted, matted,
+dithered and packed with `frame_config(row)`, kept as `data/frames/out/<id>.fff`
+(+ `.png` preview) and redrawn only when its picture or its settings change
+(`_out[id].src` names both). `/api/frame` resolves the asking frame's row and
+serves its bytes, its ETag, its own `X-FF-Rotation` / `X-Power-Mode` /
+`X-Wake-Minutes` / `X-Poll-Seconds`, and its button views drawn with its
+config. A viewer's output is the same idea as a PNG (`view_png`), drawn on
+first ask and cached. Telemetry is per frame too: a check-in lands on its own
+row (`_record_checkin`), the battery log carries a `frame_id`, and
+`frame_health(row)` is the health block for any frame that reports one.
+
+The upgrade from the single-frame build runs once (`_migrate_frame_settings`,
+marked by the `frames_own_settings` kv key): the kit the old build drew for
+gets the household's display settings and `config.mode` written into its `set`,
+`device_status` and the battery log moved onto it, and `current.fff` adopted
+as its first output **byte for byte**, so the wall does not repaint. Its panel
+falls back to the old `config.panel` if the frame was too old to report one.
 
 **Viewers (W-822) are screens that are not the frame** — a TRMNL, an
 e-reader, a tablet. They show what the frame shows and never decide anything:
@@ -110,21 +153,20 @@ the mat and the dither) as the picture's `sheet.png`, and
 `pipeline.render_view`) draws it again at the asked size: `gray16`/`gray2`/
 `mono` blue-noise dithered, `gray256`/`color` smooth, no mat, a PNG. Its ETag
 is the picture's plus the variant; renders are cached in `data/frames/views/`
-(a handful, dropped with the picture). A view never touches the frame, the
-device card, `config.panel` or the cursor. `gray16` at 1404×1872 is the EE03
+(a handful, dropped with the picture). A view never touches a frame's
+output, its row or the cursor. `gray16` at 1404×1872 is the EE03
 preview pixel for pixel (a test holds it): TRMNL X is the same glass. Colour
 for a gray frame's server is a second sheet (the picture's `sheet_color.png`),
-never the wall's pixels: every committing render hands `_commit` a `recompose` (the
-same spec, art in colour), which is drawn only while a colour viewer has asked
-within `COLOR_VIEWER_DAYS` (`color_viewer_at` in the DB). The first ask draws
-the twin from the kept `recompose` without touching the wall; after a restart
-it costs one `rerender_current()`. A colour frame's viewers read its own sheet.
+never any frame's pixels: every render hands `_commit` a `recompose` (the same
+spec, art in colour), drawn while a colour kit shows that picture or a colour
+viewer has asked within `COLOR_VIEWER_DAYS` (`color_viewer_at` in the DB). The
+first ask draws the twin from the kept `recompose`; after a restart it costs
+one re-render of the subject.
 TRMNL's bring-your-own-server protocol is the first viewer client (W-824):
 `GET /api/setup`, `GET /api/display`, `POST /api/log`, shaped by the firmware's
 own source (`usetrmnl/trmnl-firmware`: `request_headers.cpp`, `display.cpp`),
-which also covers TRMNL's Kobo/Kindle/KOReader clients. `viewers.py` keeps one
-row per viewer in the kv store, the device's report apart from the owner's
-choices (`POST /api/viewers/<id>`: name, rotation, size, format), and
+which also covers TRMNL's Kobo/Kindle/KOReader clients. `viewers.py` reads the viewer rows out of the one frame registry,
+the device's report apart from the owner's choices (`POST /api/viewers/<id>`: name, rotation, size, format), and
 `view_of` turns a row into a `View`: 16-gray models get `gray16`, other
 firmware builds `gray2` (the firmware truncates anything deeper, so we dither),
 a client that reports no size a smooth 1072×1448 page; a landscape canvas
@@ -153,37 +195,35 @@ two, `plates` and `collage`, and they are the same kind of thing: each owns its
 meta, its ETag, and its composed sheet (`data/frames/pictures/<kind>/
 sheet[_color].png`; the `pictures` kv row holds the rest, and adopts the old
 `current_frame`/`side_pictures` stores on the first start). A picture is drawn
-only while some frame shows it — the primary kit per `config.mode`, an added
-kit per `added_shows`, a viewer per `viewers.shows_of` and only if it asked
-within `VIEWER_SHOWS_DAYS` — and is dropped when the last one looks away
-(`_kinds_shown`, `_drop_picture`). The one the primary kit shows is finished
-through the pipeline into that kit's framebuffer; every other is a sheet only
-(`_commit` vs `_commit_sheet`). `picture_for(shows, now)` is the ONE place that
+only while some frame shows it — a kit per `frames.shows_of`, a viewer per
+`viewers.shows_of` and only if it asked within `VIEWER_SHOWS_DAYS` — and is
+dropped when the last one looks away (`_kinds_shown`, `_drop_picture`, which
+keeps the one a frame is showing right now and the last one there is, so no
+glass is ever blanked). A picture is only ever composed (`_commit`): the
+gray sheet always, plus the colour twin while some screen showing it draws in
+colour (`_color_wanted`). `picture_for(shows, now)` is the ONE place that
 answers which picture a frame gets: it also carries Wells's rule that in quiet
 hours, once the nightly collage has been drawn, every frame on plates shows
 that same collage picture for the rest of the window (`_kind_for`). A hold pins
 plates and nothing else; the blocklist is global; a frame's ETag/filename is
 its own picture's (`picture_etag`), so a TRMNL on the collage does not repaint
 for a new plate.
-**Several frames on one server (W-832).** `admit_frame` has a fourth status,
-`added`: a second kit beside the active frame, answered on the page with *Add
-this frame* (`answer_frame(…, "add")`; *Replace the current frame* is the old
-switch). The active frame keeps the wall's framebuffer, `config.panel` and the
-device card, untouched. An added frame is drawn in the tick (`_tick_added`,
-never in a request) from the same two pictures — whichever one it shows, its
-colour sheet for a colour panel —
-through `pipeline.render_image` with **its own config** (`added_config`: the
-household's, its panel, that panel's display defaults, then the row's `set`:
-`shows`, rotation, mat, power, wake/poll, name; values pass through
-`Config.sanitize`). Its FFF lives in `data/frames/added/<id>.fff`, redrawn only
-when its picture or settings change (`_added[id].src`); its telemetry lives on
-its row, not the device card; its headers (`X-FF-Rotation`, `X-Power-Mode`, …)
-and button views are its own. `POST /api/frames/<id>` saves its settings. OTA
-serves each board its own image: `firmware.bin` and any `firmware-*.bin` in
-the data dir are candidates, matched by the board string (`_firmware_for`).
-An added frame counts as a screen for `_side_kinds_wanted` and keeps the
-colour twin composed; `_color_tried` stops a frame with no colour to give from
-being recomposed every tick.
+**Adding and removing frames.** A kit names itself with `X-Device-Id` (its
+MAC). On a server with no kit `on`, the first to check in is let in by itself;
+any other is answered `asking` (403, and the firmware shows "Add this frame on
+the Featherframe page") until the owner answers on the page: *Add this frame*
+(`answer_frame(…, "add")`), *Replace the current frame* (`"switch"`: turn this
+one on and forget the first kit, which asks again if it returns), *Ignore it*,
+or *forget*. `POST /api/frames/<id>` saves any frame's settings; a rename falls
+through to the registry, since every frame is the owner's to name. Firmware
+without the header is one frame called `"legacy"`, which becomes its real ID in
+place — with its output — after an update. There is no panel-swap notice: a
+frame's panel is simply what it reports, so there is nothing to answer; the
+"unrecognised panel" and "unknown format" notes stay, per frame. OTA serves
+each board its own image: `firmware.bin` and any `firmware-*.bin` in the data
+dir are candidates, matched by the board string (`_firmware_for`). mDNS
+advertises the first `on` kit's panel key; a frame whose panel no server claims
+takes any that answers.
 
 **Ingest (`birdnet.py`) is strictly read-only.** Opens `?mode=ro`, never writes
 or locks BirdNET's DB. The cursor is `WHERE rowid > :last`. Every method
@@ -349,17 +389,16 @@ specific error screen only on failure; no loading sweep. Baked screens and
 tiles live in `ff_screens_ee02.h`, from the same bake (the screens are the
 colour art under black/white type, dithered as the server dithers a plate:
 `bake_screens.on_color_art`; the stamp tiles stay black/white ink), and a 180 s floor sits
-between resident repaints. One server serves one frame, and it knows its frames apart
-(`service.admit_frame`): each frame names itself with `X-Device-Id` (its MAC),
-the first to check in becomes the active frame, and any other gets a 403 and
-waits as "pending" until the owner answers on the page — switch to it, or
-ignore it (ignored frames are listed on the Frame card; the frame switched
-away from is asked about again when it next checks in). Only the active frame
-is served, moves the device card, or decides the panel (`adopt_panel`, from
-its `X-Panel`); a switch to a frame with another panel raises the "New panel
-connected" notice offering that panel's defaults (`panels.PANEL_SETTINGS`;
-nothing is reset unasked). Firmware without the header is one frame called
-"legacy", which becomes its real ID in place after an update. A parked frame
+between resident repaints. One server serves as many frames as are added to it, and it knows them apart
+(`service.admit_frame`): each frame names itself with `X-Device-Id` (its MAC).
+On a server with no frame yet the first to check in is let in by itself; any
+other gets a 403 and waits as "pending" until the owner answers on the page —
+add it, switch to it, or ignore it (ignored frames are listed on the Frame
+card; the frame switched away from is asked about again when it next checks
+in). Each frame is drawn for the panel it reports in its own `X-Panel`, so
+there is no notice to answer when a different kit connects. Firmware without
+the header is one frame called "legacy", which becomes its real ID in place
+after an update. A parked frame
 shows "Add this frame on the Featherframe page" (gray: error pill 3; EE02:
 `FF_SCR_PENDING`) and keeps asking. Discovery prefers a server whose mDNS TXT
 `panel` matches and otherwise takes any, and `X-Board` on the OTA request

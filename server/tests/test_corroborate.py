@@ -29,7 +29,7 @@ def svc(tmp_path, monkeypatch):
     service = FeatherframeService()
     service._clock = lambda: NOW          # pin the wall clock to the fixtures' day
     pipeline.DITHER_OVERRIDE = "none"
-    service._frame_bytes = b"resident"
+    service._etag = "resident"
     service._set_cursor(0)
     service._cursor_verified = True
     yield service
@@ -294,7 +294,7 @@ def test_review_paints_up_to_the_cap(svc, monkeypatch):
     assert svc._build_collage(NOW, NOW.date(), generated_ok=True) is True
     assert painted == [[f"Bird {i}" for i in range(1, 11)]]
     assert grid == [[f"Bird {i}" for i in range(1, 7)]]        # the grid stays six
-    assert svc._meta["label"] == "6-species collage"
+    assert svc.pictures["collage"].meta["label"] == "6-species collage"
 
 
 def test_review_zero_means_every_species(svc, monkeypatch):

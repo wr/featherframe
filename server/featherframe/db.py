@@ -50,6 +50,11 @@ class Database:
                 );
                 """
             )
+            # Every frame has a battery of its own (W-833). Rows written before
+            # that are the wall frame's; the service stamps them with its id.
+            cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(battery_log)")}
+            if "frame_id" not in cols:
+                self._conn.execute("ALTER TABLE battery_log ADD COLUMN frame_id TEXT")
             self._conn.commit()
 
     # -- generic kv --------------------------------------------------------
@@ -103,12 +108,14 @@ class Database:
     BATTERY_LOG_STEP_S = 300
     BATTERY_LOG_KEEP_DAYS = 7
 
-    def log_battery(self, at: str, voltage: float, percent: int | None) -> bool:
-        """Append a reading unless the last one is younger than the step.
-        Returns True when a row was written."""
+    def log_battery(self, at: str, voltage: float, percent: int | None,
+                    frame_id: str | None = None) -> bool:
+        """Append one frame's reading unless its last one is younger than the
+        step. Returns True when a row was written."""
         with self._lock:
             row = self._conn.execute(
-                "SELECT at FROM battery_log ORDER BY id DESC LIMIT 1").fetchone()
+                "SELECT at FROM battery_log WHERE frame_id IS ? ORDER BY id DESC LIMIT 1",
+                (frame_id,)).fetchone()
             if row:
                 try:
                     from datetime import datetime as _dt
@@ -118,21 +125,31 @@ class Database:
                 except ValueError:
                     pass
             self._conn.execute(
-                "INSERT INTO battery_log(at, voltage, percent) VALUES(?,?,?)",
-                (at, float(voltage), None if percent is None else int(percent)))
+                "INSERT INTO battery_log(at, voltage, percent, frame_id) VALUES(?,?,?,?)",
+                (at, float(voltage), None if percent is None else int(percent), frame_id))
             self._conn.execute(
                 "DELETE FROM battery_log WHERE at < datetime(?, ?)",
                 (at, f"-{self.BATTERY_LOG_KEEP_DAYS} days"))
             self._conn.commit()
             return True
 
-    def battery_history(self, since: str) -> list[dict[str, Any]]:
-        """Readings at or after `since` (ISO), oldest first."""
+    def battery_history(self, since: str, frame_id: str | None = None) -> list[dict[str, Any]]:
+        """One frame's readings at or after `since` (ISO), oldest first."""
         with self._lock:
             rows = self._conn.execute(
-                "SELECT at, voltage, percent FROM battery_log WHERE at >= ? ORDER BY id ASC",
-                (since,)).fetchall()
+                "SELECT at, voltage, percent FROM battery_log "
+                "WHERE at >= ? AND frame_id IS ? ORDER BY id ASC",
+                (since, frame_id)).fetchall()
         return [dict(r) for r in rows]
+
+    def adopt_battery_log(self, frame_id: str) -> int:
+        """Stamp the readings from before the log knew about frames onto the
+        frame they came from. Returns how many rows moved."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE battery_log SET frame_id=? WHERE frame_id IS NULL", (frame_id,))
+            self._conn.commit()
+            return cur.rowcount or 0
 
     def last_render(self) -> dict[str, Any] | None:
         with self._lock:

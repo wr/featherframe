@@ -12,6 +12,7 @@ from starlette.testclient import TestClient
 
 from featherframe.config import Config, load_config, save_config
 from featherframe.db import Database
+from tests._frames import FRAME_ID, add_kit, seed_frame
 
 
 @pytest.fixture
@@ -24,11 +25,12 @@ def client(tmp_path, monkeypatch):
         yield c
 
 
+HEAD = {"X-Device-Id": FRAME_ID}
+
+
 def _seed_frame(client) -> str:
-    svc = client.app.state.service
-    svc._frame_bytes = b"FFF1" + bytes(12)
-    svc._etag = "abc123"
-    return svc._etag
+    """One kit with something already on its glass."""
+    return seed_frame(client.app.state.service)
 
 
 # -- config ----------------------------------------------------------------
@@ -51,22 +53,31 @@ def test_power_mode_round_trips(tmp_path):
 # -- headers ---------------------------------------------------------------
 
 def _set(client, **fields):
-    """Persist through the service so the tick thread's reload can't undo it."""
+    """The frame's own settings live on its row (W-833); the household's rest
+    goes through the service so the tick thread's reload can't undo it."""
     svc = client.app.state.service
-    cfg = Config(**{**svc.config.to_dict(), **fields})
-    svc.update_config(cfg)
+    own = {k: v for k, v in fields.items()
+           if k in ("power_mode", "wake_interval_minutes", "device_poll_seconds",
+                    "panel_rotation", "mat_inset_pct", "shows")}
+    rest = {k: v for k, v in fields.items() if k not in own}
+    if rest:
+        svc.update_config(Config(**{**svc.config.to_dict(), **rest}))
+    if own:
+        if svc._first_kit() is None:
+            add_kit(svc)
+        svc.update_frame(str(svc._first_kit()["id"]), own)
 
 
 def test_headers_on_200_and_304(client):
     etag = _seed_frame(client)
     _set(client, power_mode="sleep", wake_interval_minutes=30)
 
-    r = client.get("/api/frame")
+    r = client.get("/api/frame", headers=HEAD)
     assert r.status_code == 200
     assert r.headers["x-power-mode"] == "sleep"
     assert r.headers["x-wake-minutes"] == "30"
 
-    r = client.get("/api/frame", headers={"If-None-Match": f'"{etag}"'})
+    r = client.get("/api/frame", headers={**HEAD, "If-None-Match": f'"{etag}"'})
     assert r.status_code == 304
     assert r.headers["x-power-mode"] == "sleep"
     assert r.headers["x-wake-minutes"] == "30"
@@ -74,17 +85,17 @@ def test_headers_on_200_and_304(client):
 
 def test_headers_on_503_before_first_bird(client):
     svc = client.app.state.service
-    svc._frame_bytes, svc._etag = None, None
-    r = client.get("/api/frame")
+    add_kit(svc)
+    r = client.get("/api/frame", headers=HEAD)
     assert r.status_code == 503
     assert r.headers["x-power-mode"] == "awake"
-    assert r.headers["x-wake-minutes"] == str(svc.config.wake_interval_minutes)
+    assert r.headers["x-wake-minutes"] == str(svc.page_config().wake_interval_minutes)
 
 
 def test_headers_on_button_views(client):
-    svc = client.app.state.service
+    _seed_frame(client)
     _set(client, power_mode="sleep")
-    r = client.get("/api/frame", params={"view": "status"})
+    r = client.get("/api/frame", params={"view": "status"}, headers=HEAD)
     assert r.status_code == 200
     assert r.headers["x-power-mode"] == "sleep"
 
@@ -93,23 +104,26 @@ def test_headers_on_button_views(client):
 
 def test_settings_form_sets_power_mode(client):
     svc = client.app.state.service
-    form = {k: str(v) for k, v in svc.config.to_dict().items()
+    add_kit(svc)
+    form = {k: str(v) for k, v in svc.page_config().to_dict().items()
             if isinstance(v, (str, int, float)) and not isinstance(v, bool)}
     form["power_mode"] = "sleep"
     form["wake_interval_minutes"] = "60"
     r = client.post("/settings", data=form, follow_redirects=False)
     assert r.status_code in (200, 303)
-    assert svc.config.power_mode == "sleep"
-    assert svc.config.wake_interval_minutes == 60
+    assert svc.page_config().power_mode == "sleep"
+    assert svc.page_config().wake_interval_minutes == 60
+    # It is the frame's setting now, not the household's.
+    assert svc.frames.get(FRAME_ID)["set"]["power_mode"] == "sleep"
 
 
 # -- frame card follows the power model ----------------------------------------
 
 def test_overdue_threshold_follows_power_mode():
     from datetime import datetime, timedelta
-    from featherframe.service import DeviceStatus, frame_card
+    from featherframe.service import frame_card
     now = datetime(2026, 9, 13, 12, 0, 0)
-    dev = DeviceStatus(last_checkin=(now - timedelta(minutes=8)).isoformat())
+    dev = {"last_checkin": (now - timedelta(minutes=8)).isoformat()}
     # Deep sleep on a 15 min interval: 8 min is one skipped wake, not overdue.
     asleep = frame_card(dev, 15, now, power_mode="sleep")
     assert asleep["overdue"] is False
@@ -135,7 +149,7 @@ def test_wake_interval_row_hidden_unless_deep_sleep(client):
 def test_device_poll_seconds_served_and_clamped(client):
     etag = _seed_frame(client)
     _set(client, device_poll_seconds=3)
-    r = client.get("/api/frame", headers={"If-None-Match": f'"{etag}"'})
+    r = client.get("/api/frame", headers={**HEAD, "If-None-Match": f'"{etag}"'})
     assert r.status_code == 304
     assert r.headers["x-poll-seconds"] == "3"
     assert Config(device_poll_seconds=0).device_poll_seconds == 2

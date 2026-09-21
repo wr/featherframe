@@ -10,8 +10,7 @@ across restarts, so the counter must resume above it or freshly-pushed
 detections would look "old" and never show.
 
 Because a push feed only knows what it has received (not BirdNET-Pi's full
-history), all-time/first-seen answers are best-effort over the retained window,
-and the plate ordinal is left unknown (None) rather than shown wrong.
+history), all-time/first-seen answers are best-effort over the retained window.
 """
 from __future__ import annotations
 
@@ -158,9 +157,6 @@ class AppriseSource(DetectionSource):
 
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         return None  # a push window isn't authoritative for first-seen
-
-    def species_ordinal(self, scientific_name: str) -> Optional[int]:
-        return None  # no authoritative ordering -> no plate number
 
     def top_species_today(self, on_date=None, min_confidence: float = 0.0,
                           limit: int = 6) -> list[dict]:

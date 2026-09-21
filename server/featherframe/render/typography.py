@@ -358,15 +358,58 @@ def date_mark_max_width() -> float:
     return script_width(f"30 Sep {theme.CORNER_SEP} 12:44 pm", theme.CORNER_SIZE)
 
 
-def plate_number_mark(field: Image.Image, ordinal: int) -> float:
-    """"No. 47" in the bottom-right corner, counting unique species seen."""
-    return draw_script(field, theme.WIDTH - theme.CORNER_INSET, theme.MARKS_BASELINE,
-                       f"{theme.PLATE_NO_PREFIX} {ordinal}", theme.CORNER_SIZE,
-                       theme.INK_MEDIUM, stroke=theme.LEGEND_STROKE, anchor="rs")
+def roman(n: int) -> str:
+    """159 -> "CLIX". Havell's plates run I to CCCCXXXV, and he engraved four
+    hundred as CCCC, not CD; so does this."""
+    out = []
+    for value, glyphs in ((100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+                          (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")):
+        count, n = divmod(n, value)
+        out.append(glyphs * count)
+    return "".join(out)
 
 
-def plate_number_max_width() -> float:
-    return script_width(f"{theme.PLATE_NO_PREFIX} 888", theme.CORNER_SIZE)
+def _plate_mark_parts(plate: int) -> tuple[str, str]:
+    return f"{theme.PLATE_PREFIX} ", roman(plate)
+
+
+def _numeral_width(numeral: str) -> float:
+    font = engraved(theme.PLATE_NUMERAL_SIZE)
+    if font is None:
+        return script_width(numeral, theme.CORNER_SIZE)
+    return _len(font, numeral)
+
+
+def plate_mark_width(plate: int) -> float:
+    prefix, numeral = _plate_mark_parts(plate)
+    return script_width(prefix, theme.CORNER_SIZE) + _numeral_width(numeral)
+
+
+def plate_mark(field: Image.Image, plate: int) -> float:
+    """"Plate CLIX" in the bottom-right corner: the Havell plate number, as
+    the sheet itself is engraved (W-821). "Plate" is in the corner marks'
+    script; the numeral is in the engraved capitals, because a run of script
+    capitals is a run of swashes nobody can read. Returns the mark's width."""
+    prefix, numeral = _plate_mark_parts(plate)
+    right = theme.WIDTH - theme.CORNER_INSET
+    font = engraved(theme.PLATE_NUMERAL_SIZE)
+    if font is None:
+        return draw_script(field, right, theme.MARKS_BASELINE, prefix + numeral,
+                           theme.CORNER_SIZE, theme.INK_MEDIUM,
+                           stroke=theme.LEGEND_STROKE, anchor="rs")
+    nw = _len(font, numeral)
+    ImageDraw.Draw(field).text((right - nw, theme.MARKS_BASELINE), numeral, font=font,
+                               fill=theme.INK_MEDIUM, anchor="ls")
+    pw = draw_script(field, right - nw, theme.MARKS_BASELINE, prefix, theme.CORNER_SIZE,
+                     theme.INK_MEDIUM, stroke=theme.LEGEND_STROKE, anchor="rs")
+    return pw + nw
+
+
+@lru_cache(maxsize=1)
+def plate_mark_max_width() -> float:
+    """The widest mark any Havell plate can carry (CCCLXXXVIII, give or take
+    the face's own widths): what the footnote must leave room for."""
+    return max(plate_mark_width(n) for n in range(1, theme.HAVELL_PLATES + 1))
 
 
 def first_ever_rule(field: Image.Image) -> None:
@@ -391,7 +434,8 @@ def first_ever_rule(field: Image.Image) -> None:
 
 def generated_mark(field: Image.Image, right_x: float) -> None:
     """A four-point star (✦) in the corner marks' ink, its right edge at
-    `right_x`, on the marks' line before "No. NN": this sheet was generated."""
+    `right_x`, on the marks' line: this sheet was generated. Audubon never
+    numbered it, so the star has the corner to itself."""
     r = theme.CORNER_SIZE * 0.40
     cx, cy = right_x - r, theme.MARKS_BASELINE - theme.CORNER_SIZE * 0.36
     k = 0.28                                            # waist of the four points

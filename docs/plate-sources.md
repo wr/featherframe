@@ -137,7 +137,7 @@ royal octavo plate 51 (1840), outside the Havell mirror but on BHL item 124833.
   `fetch_plates.py` grows a per-source fetcher and writes one
   `plates/<source>/index.json` each. Existing entries are untouched.
 - `Artwork.audubon_plate` becomes `source` + `plate`; the caption's credit
-  line and the `Nº` mark already key off the species ordinal, so only the
-  small-print credit changes per source.
+  line changes per source, and the corner's "Plate CLIX" mark (the Havell
+  number, W-821) would need that folio's own numbering or nothing.
 - Chain order stays Havell → other folios → AI, so a real plate always beats a
   generated one and the never-a-wrong-bird contract is unchanged.

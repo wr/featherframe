@@ -118,7 +118,7 @@ def test_view_variant_carries_invert_header(client):
 # Checkboxes that default on: omitting one from the form would turn it off and
 # muddy the render_affecting comparison, so every POST carries them.
 _BASE_FORM = {"quiet_hours_mode": "custom",
-              "show_plate_number": "on", "imagegen_enabled": "on",
+              "imagegen_enabled": "on",
               "collage_generated": "on"}
 
 

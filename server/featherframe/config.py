@@ -131,7 +131,6 @@ class Config:
     # its own report (W-813); the key then spells the facts out
     # ("custom:800x480:gray16:0,180").
     panel: str = field(default_factory=lambda: os.environ.get("FEATHERFRAME_PANEL", "ee03"))
-    show_plate_number: bool = True
     # The panel's native canvas is landscape 1872x1404 and its setRotation() is a
     # no-op, so we rotate the portrait art into native orientation server-side.
     # Which way depends on how the frame is hung — fix it here, no reflash needed.

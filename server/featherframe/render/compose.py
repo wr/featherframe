@@ -2,7 +2,7 @@
 
 Field + full-bleed bird art (seamlessly darken-composited so the plate's paper
 melts into our field) + the script caption (title, Latin name, the plate's own
-legend lines) + the date and 'No. NN' marks in the bottom corners. When the
+legend lines) + the date and 'Plate CLIX' marks in the bottom corners. When the
 provider has no art, we render a typographic fallback plate instead — never a
 wrong bird.
 
@@ -40,7 +40,6 @@ class SingleSpec:
     common_name: str
     scientific_name: str
     when: Optional[datetime] = None
-    plate_number: Optional[int] = None   # all-time species ordinal -> "No. NN"
     first_seen: Optional[str] = None      # 'YYYY-MM-DD', for the fallback plate
     # A species never heard before today. The service sets it from the
     # novelty class (not derived from first_seen here, because a source that
@@ -117,8 +116,8 @@ def _cover_loss(art: Image.Image, box: tuple[int, int, int, int]) -> float:
 
 
 def note_width() -> float:
-    """Room for the footnote between the widest possible date and No. marks."""
-    reserve = max(typography.date_mark_max_width(), typography.plate_number_max_width())
+    """Room for the footnote between the widest possible date and plate marks."""
+    reserve = max(typography.date_mark_max_width(), typography.plate_mark_max_width())
     return theme.WIDTH - 2 * (theme.CORNER_INSET + reserve + theme.NOTE_MARK_GAP)
 
 
@@ -138,15 +137,14 @@ FIRST_EVER_LINE = "First recorded today."
 
 
 def render_single(spec: SingleSpec, provider: ArtProvider,
-                  show_plate_number: bool = True, color: bool = False) -> Image.Image:
+                  color: bool = False) -> Image.Image:
     art = provider.artwork(spec.common_name, spec.scientific_name)
     if art is None:
-        return render_fallback(spec, show_plate_number=show_plate_number, color=color)
-    return _render_art(spec, art, show_plate_number, color)
+        return render_fallback(spec, color=color)
+    return _render_art(spec, art, color)
 
 
-def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool,
-                color: bool = False) -> Image.Image:
+def _render_art(spec: SingleSpec, art: Artwork, color: bool = False) -> Image.Image:
     """The plate layout proper: art in the box above the caption, the
     caption, the corner marks, the footnote. Shared by a real or generated
     plate and by the fallback's empty bough, so the type never moves.
@@ -191,13 +189,13 @@ def _render_art(spec: SingleSpec, art: Artwork, show_plate_number: bool,
     typography.caption(field, caption_top, spec.common_name, spec.scientific_name, lines)
     if spec.when:
         typography.date_mark(field, spec.when)
-    if show_plate_number and spec.plate_number:
-        typography.plate_number_mark(field, spec.plate_number)
-        if art.generated:
-            # A synthetic sheet never passes as a scan (W-733): ✦ before the number.
-            left = theme.WIDTH - theme.CORNER_INSET - typography.script_width(
-                f"{theme.PLATE_NO_PREFIX} {spec.plate_number}", theme.CORNER_SIZE)
-            typography.generated_mark(field, left - theme.GENERATED_MARK_GAP)
+    # The right corner says where the sheet came from: Havell's own plate
+    # number on a scan, a ✦ on a synthetic sheet, which never passes as one
+    # (W-733). The bough of a species with no plate at all carries neither.
+    if art.audubon_plate:
+        typography.plate_mark(field, art.audubon_plate)
+    elif art.generated:
+        typography.generated_mark(field, theme.WIDTH - theme.CORNER_INSET)
     if spec.first_ever and not first_line:
         typography.first_ever_rule(field)
     if spec.note:
@@ -212,8 +210,7 @@ def bough() -> Image.Image:
     return Image.open(paths.art_dir() / "bough.png").convert("L")
 
 
-def render_fallback(spec: SingleSpec, show_plate_number: bool = True,
-                    color: bool = False) -> Image.Image:
+def render_fallback(spec: SingleSpec, color: bool = False) -> Image.Image:
     """The plate for a species we have no illustration for: the empty bough
     where the bird would be, the name in the caption's own voice, 'First
     recorded <date>' as its legend line. The same layout as a real plate,
@@ -231,4 +228,4 @@ def render_fallback(spec: SingleSpec, show_plate_number: bool = True,
     # composite=True: shown whole, never cover-cropped, though the limb runs
     # off the sheet's edge exactly as a plate's stems do.
     art = Artwork(image=bough(), audubon_plate=None, composite=True, legend=lines)
-    return _render_art(spec, art, show_plate_number, color)
+    return _render_art(spec, art, color)

@@ -53,8 +53,6 @@ class _Source:
     def first_seen_date(self, sci):
         return YESTERDAY          # every species is known: no corroboration gate
 
-    def species_ordinal(self, sci):
-        return None
 
 
 @pytest.fixture

@@ -945,10 +945,6 @@
                 <div class="frow-text"><label class="lab" for="f-rot">Panel rotation</label><div class="hint">Switch this if the plate is upside down on the wall.</div></div>
                 <div class="frow-ctl"><select class="sel" id="f-rot" name="panel_rotation">{% for r in config.panel_spec.rotations %}<option value="{{ r }}" {{ 'selected' if config.panel_rotation==r else '' }}>{{ r }}°</option>{% endfor %}</select></div>
               </div>
-              <div class="frow toggle">
-                <div class="frow-text"><label class="lab" for="pn">Show the plate number (“No. 47”)</label><div class="hint" id="pn-sub">Prints Audubon's plate number in the caption, as on the Havell edition.</div></div>
-                <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="pn" name="show_plate_number" aria-describedby="pn-sub" {{ 'checked' if config.show_plate_number else '' }}><span class="track"></span></label></div>
-              </div>
               <div class="frow">
                 <div class="frow-text"><label class="lab" for="f-inset">Mat inset (% per edge)</label><div class="hint">How much of each edge your mat covers. Raise it until the mat just hides the white border in the preview; about 4 for an 8×6 mat.</div></div>
                 <div class="frow-ctl"><input type="number" id="f-inset" name="mat_inset_pct" min="0" max="20" step="0.1" inputmode="decimal" value="{{ config.mat_inset_pct }}"></div>

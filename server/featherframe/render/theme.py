@@ -44,8 +44,8 @@ CAPTION_GAP = 96       # air between the art and the title: the script capitals
 # Wells's mockup: a monoline script title over the engraved Latin name (with
 # its period, as Audubon printed it), then the plate's own legend lines —
 # "Male, 1. Female, 2." / "Black berry. Rubus villosus." — in the small
-# script, and the date · time / "No. NN" tucked into the bottom corners in
-# that same script. Sizes were tuned on the glass 4 Sep 2026 (W-713/W-714):
+# script, and the date · time / "Plate CLIX" tucked into the bottom corners
+# (the numeral in the engraved capitals). Sizes were tuned on the glass 4 Sep 2026 (W-713/W-714):
 # Kapakana at 160 px set the x-height, Pinyon Script matches it at 124 px and
 # the small sizes scale with it; the title-to-Latin gap is the original 72.
 SCRIPT_TITLE_SIZE = 124        # common name, auto-fit down to SCRIPT_TITLE_MIN
@@ -61,11 +61,6 @@ LEGEND_STROKE = 0.5            # and its small lines read thin on e-ink (0.75 re
                                # than the title's hairlines; 0.5 matches them)
 CAPTION_BOTTOM = 52            # last caption baseline above the panel bottom
 LATIN_PERIOD = "."             # Audubon's trailing period on the Latin name
-# Provenance for an AI-drawn plate (W-733): a four-point star before the
-# number in the corner, so a synthetic sheet never hangs as a Havell scan
-# and the caption keeps the plate's own lines only.
-GENERATED_MARK_GAP = 12        # star -> "No." in the corner
-
 # A species never heard before today (W-744): a rule around the whole sheet
 # at the mat edge, the folio's way of marking a plate of note, with a small
 # "NEW" pill — the system voice, Inter semibold on black — set into its top
@@ -80,10 +75,12 @@ FIRST_EVER_LABEL_PAD = 18      # pill side padding
 FIRST_EVER_PILL_H = 44
 FIRST_EVER_PILL_GAP = 14       # paper between the pill and the rule on either side
 
-CORNER_SIZE = 28               # date · time (left) and "No. NN" (right)
+CORNER_SIZE = 28               # date · time (left) and "Plate CLIX" (right)
 CORNER_INSET = 36              # from the side edges
 MARKS_BASELINE = HEIGHT - 30
-PLATE_NO_PREFIX = "No."        # the script has no numero glyph
+PLATE_PREFIX = "Plate"         # then the Havell number, in roman as engraved
+PLATE_NUMERAL_SIZE = 22        # the numeral's engraved capitals, beside the 28 script
+HAVELL_PLATES = 435
 CORNER_SEP = "·"               # between date and time ("1 Sep · 8:14 am")
 COLON_KERN = 0.0               # pulls the run after a colon in, fraction of size
                                # (Kapakana needed -0.12; Pinyon is kerned, so 0)

@@ -8,8 +8,7 @@ A station is addressed by its ID/token, which goes straight in the path:
     species with counts.
   * ``GET /api/v1/stations/{token}/stats?period=all`` — {detections, species}.
 
-BirdWeather doesn't expose a cheap per-species first-seen, so the "No. 47"
-plate ordinal is left unknown (None). Every method soft-fails to a safe default.
+Every method soft-fails to a safe default.
 """
 from __future__ import annotations
 
@@ -173,9 +172,6 @@ class BirdWeatherSource(DetectionSource):
 
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         return None  # not cheaply available from the station API
-
-    def species_ordinal(self, scientific_name: str) -> Optional[int]:
-        return None  # no per-species first-seen ordering -> no plate number
 
     def top_species_today(self, on_date=None, min_confidence: float = 0.0,
                           limit: int = 6) -> list[dict]:

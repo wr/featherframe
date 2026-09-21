@@ -118,8 +118,7 @@ def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderRe
 
 
 def render_single(spec: SingleSpec, provider: ArtProvider, config: Config) -> RenderResult:
-    img = compose.render_single(spec, provider, show_plate_number=config.show_plate_number,
-                                color=config.panel_spec.color)
+    img = compose.render_single(spec, provider, color=config.panel_spec.color)
     return _finish(img, config, "single", spec.common_name)
 
 

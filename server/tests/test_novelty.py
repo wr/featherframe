@@ -95,8 +95,6 @@ class _GateSource:
     def first_seen_date(self, sci):
         return self.first_seen.get(sci)
 
-    def species_ordinal(self, sci):
-        return None
 
 
 KNOWN = {CARDINAL[1]: YESTERDAY, ROBIN[1]: YESTERDAY}
@@ -329,7 +327,7 @@ def _ink(img: Image.Image, box) -> int:
 
 def _spec(**kw):
     base = dict(common_name="Bald Eagle", scientific_name="Haliaeetus leucocephalus",
-                when=datetime(2026, 9, 2, 8, 14), plate_number=7)
+                when=datetime(2026, 9, 2, 8, 14))
     base.update(kw)
     return SingleSpec(**base)
 
@@ -383,9 +381,9 @@ def test_render_single_sets_first_ever_from_the_novelty_class(svc, monkeypatch):
     seen = []
     real = compose.render_single
 
-    def spy(spec, provider, show_plate_number=True, color=False):
+    def spy(spec, provider, color=False):
         seen.append(spec)
-        return real(spec, provider, show_plate_number, color)
+        return real(spec, provider, color)
     monkeypatch.setattr(compose, "render_single", spy)
     svc.source = _GateSource([], first_seen={**KNOWN, EAGLE[1]: TODAY}, today=[_row(*ROBIN, 1)])
     svc._render_single(_det(1, *EAGLE, 0.9, NOW), NOW, reason="test")

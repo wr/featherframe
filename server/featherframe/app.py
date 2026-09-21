@@ -369,7 +369,6 @@ async def save_settings(request: Request):
         birdweather_station_id=s("birdweather_station_id", cur["birdweather_station_id"]),
         apprise_token=s("apprise_token", cur["apprise_token"]),
         panel=cur["panel"],   # state: follows the frame (service.adopt_panel)
-        show_plate_number=b("show_plate_number"),
         collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
         panel_rotation=i("panel_rotation", cur["panel_rotation"]),
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
@@ -393,8 +392,7 @@ async def save_settings(request: Request):
         imagegen_text_key=(s("imagegen_text_key", "").strip()
                            or ("" if b("imagegen_text_clear_key") else cur["imagegen_text_key"])),
     )
-    render_affecting = (new.show_plate_number != svc.config.show_plate_number
-                        or new.panel_rotation != svc.config.panel_rotation
+    render_affecting = (new.panel_rotation != svc.config.panel_rotation
                         or new.mat_inset_pct != svc.config.mat_inset_pct
                         or new.mat_offset_x_px != svc.config.mat_offset_x_px
                         or new.mat_offset_y_px != svc.config.mat_offset_y_px

@@ -178,19 +178,6 @@ class BirdNetGoSource(DetectionSource):
                 return self._first_heard_local_date(str(s.get("first_heard") or ""))
         return None
 
-    def species_ordinal(self, scientific_name: str) -> Optional[int]:
-        summary = self._species_summary()
-        # Sort only ISO strings: a non-string first_heard in one row would make
-        # the sort raise (str vs int) and take the whole tick down with it.
-        ordered = sorted(
-            (s for s in summary if isinstance(s.get("first_heard"), str) and s["first_heard"]),
-            key=lambda s: s["first_heard"],
-        )
-        for i, s in enumerate(ordered, start=1):
-            if s.get("scientific_name") == scientific_name:
-                return i
-        return None
-
     def top_species_today(self, on_date=None, min_confidence: float = 0.0,
                           limit: int = 6) -> list[dict]:
         """The day's species by count, via the date-scoped summary endpoint.

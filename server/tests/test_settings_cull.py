@@ -58,7 +58,7 @@ def test_a_post_carrying_removed_fields_changes_nothing(client):
     after = svc.config.to_dict()
     assert not set(REMOVED) & set(after)
     # Unticked checkboxes read as off, as on any save; nothing else moved.
-    toggles = {"show_plate_number", "quiet_hours_render_collage", "imagegen_enabled",
+    toggles = {"quiet_hours_render_collage", "imagegen_enabled",
                "collage_generated"}
     assert {k: v for k, v in after.items() if k not in toggles} == \
            {k: v for k, v in before.items() if k not in toggles}

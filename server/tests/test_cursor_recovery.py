@@ -39,8 +39,6 @@ class _StubSource:
     def latest(self, min_confidence=0.0, scan=25):
         return self._latest[0] if self._latest else None
 
-    def species_ordinal(self, scientific_name):
-        return None
 
     def first_seen_date(self, scientific_name):
         return None

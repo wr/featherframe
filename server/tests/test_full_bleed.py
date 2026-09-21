@@ -1,6 +1,6 @@
 """Full-bleed artwork (W-707): the crop keeps faint contiguous ink and is
 symmetric about the plate centre; inked-edge plates cover-fit to the mat
-opening, paper-bordered plates contain-fit centred; the date and № marks
+opening, paper-bordered plates contain-fit centred; the date and plate marks
 sit on one footer line instead of the top corners."""
 from __future__ import annotations
 
@@ -64,12 +64,12 @@ class _Art(ArtProvider):
         self._img, self._composite = img, composite
 
     def artwork(self, common_name, scientific_name):
-        return Artwork(image=self._img, audubon_plate=None, composite=self._composite)
+        return Artwork(image=self._img, audubon_plate=121, composite=self._composite)
 
 
 def _spec(**kw):
     base = dict(common_name="Snowy Owl", scientific_name="Bubo scandiacus",
-                when=datetime(2026, 9, 4, 8, 14), plate_number=41)
+                when=datetime(2026, 9, 4, 8, 14))
     base.update(kw)
     return SingleSpec(**base)
 
@@ -141,8 +141,10 @@ def test_marks_sit_in_the_bottom_corners_not_the_top():
     assert _ink_bbox(out, (theme.WIDTH // 2, y0, theme.WIDTH, y1)) is not None
 
 
-def test_fallback_plate_number_sits_in_the_corner_too():
+def test_fallback_carries_no_plate_mark():
+    """Audubon never numbered a species he never painted (W-821)."""
     out = compose.render_fallback(_spec(first_seen="2026-05-17"))
     assert _ink_bbox(out, (theme.WIDTH - 500, 0, theme.WIDTH, 140)) is None
     y0, y1 = theme.MARKS_BASELINE - 40, theme.MARKS_BASELINE + 6
-    assert _ink_bbox(out, (theme.WIDTH // 2, y0, theme.WIDTH, y1)) is not None
+    assert _ink_bbox(out, (0, y0, theme.WIDTH // 2, y1)) is not None          # the date
+    assert _ink_bbox(out, (theme.WIDTH - theme.CORNER_INSET - 160, y0, theme.WIDTH, y1)) is None

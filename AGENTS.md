@@ -127,7 +127,7 @@ heaviest ink band, extended through faint contiguous ink (hanging straw) up
 to a real paper gap, then mirrored about the plate centre so Audubon's own
 placement survives. The art is full-bleed to the mat opening (W-707):
 `compose.py` cover-fits a plate whose edges are inked (Snowy Owl) only if
-that crops ≤ 25 % of it, else contain-fits it centred; the date and № marks
+that crops ≤ 25 % of it, else contain-fits it centred; the date and plate marks
 share one footer baseline with the gone-quiet note;
 `typography.py` sets the caption (W-708): a copperplate script title
 (Pinyon Script, OFL, bundled in `featherframe/fonts/`; Garamond italic is the
@@ -136,8 +136,11 @@ Latin name, and the plate's own legend lines from
 `scripts/legends.yaml` (Audubon's printed figure key and plant, transcribed
 per Havell plate; `featherframe/legends.py` reduces a composite sheet to the
 detected species' line);
-the date · time and "No. NN" sit in the bottom
-corners in the same script. `theme.py` holds all geometry/tone constants.
+the date · time and "Plate CLIX" sit in the bottom
+corners: the Havell plate number (`Artwork.audubon_plate`, W-821), "Plate" in
+the same script and the roman numeral in the engraved capitals, since a run
+of script capitals is unreadable. A generated sheet carries a ✦ there
+instead, and the bough of a species with no plate carries nothing. `theme.py` holds all geometry/tone constants.
 
 **Non-obvious invariants — do not break one side of these without the other:**
 

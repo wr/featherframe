@@ -49,6 +49,9 @@ def main() -> int:
                     help="override mat inset %% per edge (0 = full-bleed, no mat allowance)")
     ap.add_argument("--note", default=None, metavar="TEXT",
                     help='footnote in the bottom margin, e.g. "Nothing heard since 11:27 pm"')
+    ap.add_argument("--views", action="store_true",
+                    help="also write the plate as viewers get it (W-822): a TRMNL X, "
+                         "a Kobo Clara, a Kindle on its side, a TRMNL OG, a tablet")
     ap.add_argument("--first-ever", action="store_true",
                     help='render as a species never heard before today ("first recorded today")')
     args = ap.parse_args()
@@ -120,7 +123,20 @@ def main() -> int:
           f"etag {result.etag})")
     print(f"  PNG:   {png}")
     print(f"  Frame: {fff}  ({len(result.frame):,} bytes)")
+    if args.views:
+        for label, view in _VIEWS:
+            target = out / f"{name}_view_{label}.png"
+            pipeline.render_view(result.sheet, view).save(target)
+            print(f"  View:  {target}  ({view.key})")
     return 0
+
+
+# The screens `--views` draws for: one per kind of viewer.
+_VIEWS = (("trmnl_x", pipeline.View(1404, 1872, "gray16")),
+          ("kobo_clara", pipeline.View(1072, 1448, "gray256")),
+          ("kindle_pw", pipeline.View(1448, 1072, "gray256", rotation=90)),
+          ("trmnl_og", pipeline.View(800, 480, "gray2")),
+          ("tablet", pipeline.View(1536, 2048, "color")))
 
 
 def _load_index_species() -> list[dict]:

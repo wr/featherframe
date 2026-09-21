@@ -56,6 +56,7 @@ make preview-all       # one PNG per curated species
 make preview-collage   # a daily collage
 make preview-fallback  # the typographic (no-plate) fallback
 make preview-ee02      # the Cardinal for the EE02 colour panel (six-ink dither)
+make preview-views     # the Cardinal as viewers get it (TRMNL X, Kobo, Kindle, TRMNL OG, tablet)
 make serve             # run the server on :8080
 make test              # pytest
 ```
@@ -98,6 +99,18 @@ collage is redrawn every `collage_interval_hours`), blocklist, new-species
 corroboration and the dwell hold — and renders *at most one* frame per
 decision. Every web handler just reads the current frame. The default
 path is to do nothing (priority: few panel refreshes).
+
+**Viewers (W-822) are screens that are not the frame** — a TRMNL, an
+e-reader, a tablet. They show what the frame shows and never decide anything:
+`_commit` keeps the composed sheet (`RenderResult.sheet`, before the panel fit,
+the mat and the dither) as `data/frames/current_sheet.png`, and
+`GET /api/view.png?w=&h=&format=&rotation=` (`service.view_png` →
+`pipeline.render_view`) draws it again at the asked size: `gray16`/`gray2`/
+`mono` blue-noise dithered, `gray256`/`color` smooth, no mat, a PNG. Its ETag
+is the frame's plus the variant; renders are cached in `data/frames/views/`
+(a handful, dropped with the frame). A view never touches the frame, the
+device card, `config.panel` or the cursor. `gray16` at 1404×1872 is the EE03
+preview pixel for pixel (a test holds it): TRMNL X is the same glass.
 
 **Ingest (`birdnet.py`) is strictly read-only.** Opens `?mode=ro`, never writes
 or locks BirdNET's DB. The cursor is `WHERE rowid > :last`. Every method

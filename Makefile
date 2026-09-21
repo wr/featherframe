@@ -4,7 +4,7 @@
 PY := server/.venv/bin/python
 PIP := server/.venv/bin/pip
 
-.PHONY: help venv plates plates-all plates-pack preview preview-all preview-collage preview-ee02 preview-fallback serve test clean
+.PHONY: help venv plates plates-all plates-pack preview preview-all preview-collage preview-ee02 preview-views preview-fallback serve test clean
 
 help:
 	@echo "Featherframe targets:"
@@ -16,6 +16,7 @@ help:
 	@echo "  make preview-all      render every curated species"
 	@echo "  make preview-collage  render a daily collage"
 	@echo "  make preview-ee02     render the Cardinal for the EE02 colour panel"
+	@echo "  make preview-views    the Cardinal as viewers get it (TRMNL, e-readers, a tablet)"
 	@echo "  make preview-fallback render the typographic fallback plate"
 	@echo "  make serve            run the server locally on :8080 (FEATHERFRAME_NO_MDNS=1 for a dev copy)"
 	@echo "  make test             run the unit tests"
@@ -48,6 +49,9 @@ preview-collage:
 
 preview-ee02:
 	cd server && ./.venv/bin/python -m featherframe.preview --panel ee02
+
+preview-views:
+	cd server && ./.venv/bin/python -m featherframe.preview --views --mat-inset 0
 
 preview-fallback:
 	cd server && ../$(PY) -m featherframe.preview --fallback

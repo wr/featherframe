@@ -49,6 +49,14 @@ def frames_dir() -> Path:
     return d
 
 
+def views_dir() -> Path:
+    """Viewer renders of the resident frame (W-823), a handful, dropped when
+    the frame changes."""
+    d = frames_dir() / "views"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def history_dir() -> Path:
     """Thumbnails of past frames, one per ETag, capped by the service so the
     SD card never fills with them."""

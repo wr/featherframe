@@ -142,7 +142,11 @@ def test_when_text_drops_the_date_only_for_today():
 
 
 def test_status_carries_quiet_and_last_heard_time(svc):
-    svc.source = _Source(_det_at(datetime.now() - timedelta(minutes=5)))
+    # A fixed noon: five minutes before the real clock is yesterday for the
+    # first five minutes of every day, and "today" is what this asserts.
+    noon = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
+    svc._clock = lambda: noon
+    svc.source = _Source(_det_at(noon - timedelta(minutes=5)))
     st = svc.status()
     assert "quiet" in st and st["quiet"] is None
     assert st["last_detection"]["when_text"].endswith(("am", "pm"))

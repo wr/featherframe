@@ -46,6 +46,9 @@ class RenderResult:
     levels: int
     mode: str
     label: str             # species / description, for logging & status
+    # The composed sheet this was finished from (theme size, before the panel
+    # fit, the mat and the dither): what a viewer's render is drawn from.
+    sheet: Optional[Image.Image] = None
 
     def save(self, directory: Path, name: str) -> tuple[Path, Path]:
         directory.mkdir(parents=True, exist_ok=True)
@@ -69,12 +72,13 @@ def _dither(config: Config) -> str:
 def _finish_inks(img: Image.Image, config: Config, mode: str, label: str) -> RenderResult:
     """The colour panel's finish: six-ink dither instead of gray levels. The
     canvas is natively portrait, so rotation is only ever 0 or 180."""
+    sheet = img
     img = _apply_mat_inset(img.convert("RGB"), config)
     inks = spectra.to_inks(img, _dither(config), spectra.SATURATION)
     preview = spectra.inks_to_image(inks)
     native = np.ascontiguousarray(np.rot90(inks, k=(config.panel_rotation // 90) % 4))
     frame = framebuffer.pack(spectra.to_wire(native), 4, inks=True)
-    return RenderResult(preview, frame, framebuffer.etag_for(frame), 6, mode, label)
+    return RenderResult(preview, frame, framebuffer.etag_for(frame), 6, mode, label, sheet)
 
 
 def _fit_to_panel(img: Image.Image, width: int, height: int) -> Image.Image:
@@ -96,9 +100,12 @@ def _fit_to_panel(img: Image.Image, width: int, height: int) -> Image.Image:
 
 def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderResult:
     panel = config.panel_spec
+    sheet = img
     img = _fit_to_panel(img, panel.width, panel.height)
     if panel.color:
-        return _finish_inks(img, config, mode, label)
+        result = _finish_inks(img, config, mode, label)
+        result.sheet = sheet
+        return result
     levels = 1 << config.bit_depth
     img = _apply_mat_inset(img, config)                             # clear the mat opening
     indices = finish.to_levels(img, levels, _dither(config))       # portrait, upright
@@ -108,7 +115,7 @@ def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderRe
     native = np.rot90(indices, k=(config.panel_rotation // 90) % 4)
     native = np.ascontiguousarray(native)
     frame = framebuffer.pack(native, config.bit_depth)
-    return RenderResult(preview, frame, framebuffer.etag_for(frame), levels, mode, label)
+    return RenderResult(preview, frame, framebuffer.etag_for(frame), levels, mode, label, sheet)
 
 
 def render_single(spec: SingleSpec, provider: ArtProvider, config: Config) -> RenderResult:
@@ -119,3 +126,65 @@ def render_single(spec: SingleSpec, provider: ArtProvider, config: Config) -> Re
 def render_image(img: Image.Image, config: Config, mode: str, label: str) -> RenderResult:
     """Finish an already-composed frame (used by collage)."""
     return _finish(img, config, mode, label)
+
+
+# -- viewers (W-822) -----------------------------------------------------------
+# A viewer is any screen that is not the frame: a TRMNL, an e-reader, a tablet.
+# It shows what the frame shows, drawn again from the same composed sheet at
+# its own size and depth. No FFF, no mat unless it has one: a PNG.
+VIEW_LEVELS = {"gray16": 16, "gray2": 4, "mono": 2}   # dithered; names as X-Panel-Format
+VIEW_FORMATS = (*VIEW_LEVELS, "gray256", "color")     # these two are sent smooth
+_VIEW_MIN_SIDE, _VIEW_MAX_SIDE = 64, 4096             # as panels.custom
+
+
+@dataclass(frozen=True)
+class View:
+    """What a viewer asked for. `width`x`height` is the image as delivered;
+    `rotation` is how the upright picture is turned inside it (a Kindle wants
+    1448x1072 turned 90), counter-clockwise like `config.panel_rotation`."""
+    width: int
+    height: int
+    fmt: str = "gray256"
+    rotation: int = 0
+    mat_inset_pct: float = 0.0
+
+    @classmethod
+    def parse(cls, width, height, fmt=None, rotation=None) -> "Optional[View]":
+        """From a query string, or None for anything we cannot draw."""
+        try:
+            w, h = int(str(width).strip()), int(str(height).strip())
+            rot = int(str(rotation).strip()) if rotation not in (None, "") else 0
+        except (TypeError, ValueError):
+            return None
+        wire = str(fmt or "gray256").strip().lower()
+        if not (_VIEW_MIN_SIDE <= w <= _VIEW_MAX_SIDE and _VIEW_MIN_SIDE <= h <= _VIEW_MAX_SIDE):
+            return None
+        if wire not in VIEW_FORMATS or rot not in (0, 90, 180, 270):
+            return None
+        return cls(w, h, wire, rot)
+
+    @property
+    def key(self) -> str:
+        """Names the variant in an ETag and a cache file."""
+        mat = f"-m{self.mat_inset_pct:g}" if self.mat_inset_pct else ""
+        return f"{self.width}x{self.height}-{self.fmt}-{self.rotation}{mat}"
+
+
+def render_view(sheet: Image.Image, view: View) -> Image.Image:
+    """The sheet as one viewer shows it. Colour only when the sheet has it (a
+    gray sheet asked for in colour comes back gray); every other format is
+    gray whatever the sheet is."""
+    upright = (view.height, view.width) if view.rotation in (90, 270) else (view.width, view.height)
+    if view.fmt != "color" and sheet.mode != "L":
+        sheet = sheet.convert("L")
+    img = _fit_to_panel(sheet, *upright)
+    img = _apply_mat_inset(img, view)   # reads .mat_inset_pct; a viewer's mat is never offset
+    levels = VIEW_LEVELS.get(view.fmt)
+    if levels:
+        # Blue-noise whatever the frame's own dither: it is the vectorised one,
+        # and a viewer's render must never cost a Pi Zero a Stucki loop.
+        indices = finish.to_levels(img, levels, DITHER_OVERRIDE or "bluenoise")
+        img = finish.levels_to_image(indices, levels)
+    if view.rotation:
+        img = img.rotate(view.rotation, expand=True)   # exact for quarter turns; CCW, as np.rot90
+    return img

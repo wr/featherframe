@@ -30,7 +30,7 @@ from starlette.background import BackgroundTask
 from . import __version__, discovery, panels, paths
 from .config import Config, valid_hhmm
 from .names import display_common_name, normalize
-from .render import typography
+from .render import pipeline, typography
 from .service import FeatherframeService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -803,6 +803,30 @@ async def preview_png(request: Request):
         return Response(status_code=404, content=b"no frame yet")
     return Response(content=png, media_type="image/png",
                     headers={"Cache-Control": "no-cache"})
+
+
+# -- viewers (W-822) ---------------------------------------------------------
+@app.get("/api/view.png")
+async def view_png(request: Request, w: Optional[str] = None, h: Optional[str] = None,
+                   format: Optional[str] = None, rotation: Optional[str] = None):
+    """What the frame is showing, for another screen: a PNG `w`x`h`, in
+    `format` (gray16 | gray2 | mono are dithered; gray256 | color are smooth),
+    the upright picture turned `rotation` inside it. Read-only: asking never
+    moves the frame."""
+    view = pipeline.View.parse(w, h, format, rotation)
+    if view is None:
+        return JSONResponse({"error": "w and h (64-4096) are required; format is one of "
+                             + ", ".join(pipeline.VIEW_FORMATS) + "; rotation 0, 90, 180 or 270"},
+                            status_code=400)
+    inm = _strip_etag(request.headers.get("if-none-match"))
+    # Threadpool: the first ask for a variant dithers a whole sheet.
+    status, png, etag = await run_in_threadpool(_svc(request).view_png, view, inm)
+    if status == 404:
+        return Response(status_code=404, content=b"no frame yet")
+    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache"}
+    if status == 304:
+        return Response(status_code=304, headers=headers)
+    return Response(content=png, media_type="image/png", headers=headers)
 
 
 @app.get("/api/battery")

@@ -11,6 +11,7 @@ device, and the ingest cursor is persisted so we don't replay history.
 """
 from __future__ import annotations
 
+import io
 import logging
 import math
 import os
@@ -22,6 +23,8 @@ from datetime import date as ddate
 from datetime import datetime, timedelta
 from datetime import time as dtime
 from typing import Optional
+
+from PIL import Image
 
 from . import panels, paths
 from .config import Config, load_config, save_config
@@ -43,6 +46,8 @@ _CURRENT_FFF = "current.fff"
 _USER_HOLD_KEY = "user_hold"          # W-735: the owner's pin on the current plate
 _HOLD_DAYS = {"day": 1, "week": 7, "forever": None}
 _CURRENT_PNG = "current.png"
+_CURRENT_SHEET = "current_sheet.png"   # the composed sheet viewers are drawn from (W-823)
+_VIEWS_MAX = 8                         # cached viewer renders of the resident frame
 
 # History thumbnails: 1/8-scale previews keyed by ETag, capped on disk (a
 # Pi's SD card) and matched to what /api/history can list.
@@ -417,6 +422,7 @@ class FeatherframeService:
         self.source = make_source(self.config, self.db)
 
         self._lock = threading.RLock()
+        self._view_lock = threading.Lock()   # one viewer render at a time
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
@@ -1603,9 +1609,71 @@ class FeatherframeService:
             tmp.write_bytes(result.frame)
             os.replace(tmp, frames / _CURRENT_FFF)
             result.preview.save(frames / _CURRENT_PNG)
+            self._save_sheet(result)
             self.db.set("current_frame", self._meta)
         self.db.log_render(now.isoformat(timespec="seconds"), mode, label, result.etag)
         self._save_history_thumb(result)
+
+    @staticmethod
+    def _save_sheet(result: RenderResult) -> None:
+        """Keep the composed sheet beside the frame: every viewer's render is
+        drawn from it. Best-effort, like the thumbnail: without it a view is
+        drawn from the preview PNG instead."""
+        target = paths.frames_dir() / _CURRENT_SHEET
+        try:
+            if result.sheet is None:
+                target.unlink(missing_ok=True)   # never leave the last frame's sheet behind
+                return
+            tmp = target.with_suffix(".tmp")
+            result.sheet.save(tmp, format="PNG", compress_level=1)
+            os.replace(tmp, target)
+        except Exception:  # noqa: BLE001
+            log.warning("sheet for %s not saved", result.etag, exc_info=True)
+            target.unlink(missing_ok=True)
+
+    # -- viewers (W-822) ---------------------------------------------------
+    def view_png(self, view: "pipeline.View",
+                 if_none_match: Optional[str] = None) -> tuple[int, Optional[bytes], Optional[str]]:
+        """The resident frame's picture for one viewer: (status, png, etag).
+        Read-only by design: a viewer never moves the frame, the device card,
+        the panel or the ingest cursor. Rendered once per (frame, variant) and
+        kept on disk; a new frame drops the old frame's views."""
+        with self._lock:
+            resident = self._etag
+        if not resident:
+            return 404, None, None
+        etag = f"{resident}-{view.key}"
+        if if_none_match == etag:
+            return 304, None, etag
+        views = paths.views_dir()
+        cached = views / f"{etag}.png"
+        if cached.exists():
+            return 200, cached.read_bytes(), etag
+        with self._view_lock:   # one viewer render at a time (Pi Zero: memory)
+            if cached.exists():
+                return 200, cached.read_bytes(), etag
+            frames = paths.frames_dir()
+            source = next((f for f in (frames / _CURRENT_SHEET, frames / _CURRENT_PNG)
+                           if f.exists()), None)
+            if source is None:
+                return 404, None, None
+            with Image.open(source) as sheet:
+                sheet.load()
+            buf = io.BytesIO()
+            pipeline.render_view(sheet, view).save(buf, format="PNG", optimize=False)
+            png = buf.getvalue()
+            try:
+                tmp = cached.with_suffix(".tmp")
+                tmp.write_bytes(png)
+                os.replace(tmp, cached)
+                keep = sorted((f for f in views.glob("*.png")
+                               if f.name.startswith(f"{resident}-")),
+                              key=lambda f: f.stat().st_mtime, reverse=True)[:_VIEWS_MAX]
+                for stale in set(views.glob("*.png")) - set(keep):
+                    stale.unlink(missing_ok=True)
+            except OSError:
+                log.warning("view %s not cached", etag, exc_info=True)
+        return 200, png, etag
 
     @staticmethod
     def _save_history_thumb(result: RenderResult) -> None:

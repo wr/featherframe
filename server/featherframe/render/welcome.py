@@ -7,7 +7,7 @@ real frame: the script wordmark, then the message in the system voice
 (W-741: the setup card's black box and the toast pills, not the plate's
 script) so what it says can be read from across the room and acted on. It
 is replaced by the first detection and re-rendered only when what it says
-would change (the source comes up or goes down, dark mode flips).
+would change (the source comes up or goes down).
 """
 from __future__ import annotations
 

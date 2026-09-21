@@ -128,12 +128,14 @@ async def api_frame(request: Request, view: Optional[str] = None):
         "board": _str_header(request.headers.get("x-board")),
     }
 
-    # Dark mode rides along on every response — a 304 included — so the device
-    # always knows whether to invert its baked boot screens. The power model and
-    # wake interval ride the same way (W-456/W-736): the device stores them in
-    # NVS, so the page is the one place either is set.
-    invert = "1" if svc.config.dark_now() else "0"
-    device_headers = {"X-FF-Invert": invert,
+    # The power model and wake interval ride along on every response — a 304
+    # included (W-456/W-736): the device stores them in NVS, so the page is
+    # the one place either is set.
+    device_headers = {# Dark mode is gone (W-821), but fielded firmware keeps the
+                      # last X-FF-Invert it heard in NVS and only updates it
+                      # when the header is present: say "0" until every frame
+                      # runs firmware that no longer asks.
+                      "X-FF-Invert": "0",
                       # Which way up the frame hangs: the firmware turns its
                       # baked boot screens and pills to match the plates.
                       "X-FF-Rotation": str(svc.config.panel_rotation),
@@ -374,7 +376,6 @@ async def save_settings(request: Request):
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
         mat_offset_x_px=i("mat_offset_x_px", cur["mat_offset_x_px"]),
         mat_offset_y_px=i("mat_offset_y_px", cur["mat_offset_y_px"]),
-        dark_mode=s("dark_mode", cur["dark_mode"]),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
         review_species_max=i("review_species_max", cur["review_species_max"]),
@@ -395,8 +396,7 @@ async def save_settings(request: Request):
     render_affecting = (new.panel_rotation != svc.config.panel_rotation
                         or new.mat_inset_pct != svc.config.mat_inset_pct
                         or new.mat_offset_x_px != svc.config.mat_offset_x_px
-                        or new.mat_offset_y_px != svc.config.mat_offset_y_px
-                        or new.dark_mode != svc.config.dark_mode)
+                        or new.mat_offset_y_px != svc.config.mat_offset_y_px)
     # Config.sanitize() clamps silently; tell the page which fields it changed
     # so the user isn't left staring at a different number than they typed.
     adjusted = _adjusted_fields(form, new)

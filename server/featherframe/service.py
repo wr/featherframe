@@ -588,38 +588,33 @@ class FeatherframeService:
         self._quiet = self.quiet_state(now, available=available)
         self._outage = self.outage_state(now)
 
-        # The welcome plate (W-734) is not a subject: no footnotes, no dwell,
-        # no dark-mode flip of "the bird". It re-renders only when what it
-        # says would change, else the decision path below may replace it.
+        # The welcome plate (W-734) is not a subject: no footnotes, no dwell.
+        # It re-renders only when what it says would change, else the
+        # decision path below may replace it.
         if self._frame_bytes is not None and self._meta.get("mode") == "welcome":
-            if (bool(self._meta.get("source_ok")) != available
-                    or self._meta.get("dark") != self.config.dark_now(now.time())):
+            if bool(self._meta.get("source_ok")) != available:
                 self._render_welcome(now, available)
                 return
             self._decide(now, available)
             return
 
         # The owner pinned this plate (W-735): nothing replaces it until the
-        # hold ends. Dark mode and the footnotes still track, through the
-        # re-render that keeps the subject; an expired hold clears itself in
-        # user_hold() and the tick falls through to the decision path.
+        # hold ends. The footnotes still track, through the re-render that
+        # keeps the subject; an expired hold clears itself in user_hold() and
+        # the tick falls through to the decision path.
         if self._frame_bytes is not None and self.user_hold(now) is not None:
             want = self._note_kind()
             have = self._meta.get("note_kind") or ("quiet" if self._meta.get("quiet_note") else None)
-            dark_flip = self._meta.get("dark") != self.config.dark_now(now.time())
-            if dark_flip or (want != have and not (want is None and not available)):
+            if want != have and not (want is None and not available):
                 self.rerender_current()
             return
 
         resident = self._frame_bytes is not None and bool(self._meta.get("label"))
 
-        # Dark-mode "quiet" inverts only during quiet hours: when the effective
-        # state no longer matches the resident frame, re-flip it once. Requires
-        # a rendered subject (a label) so rerender_current actually commits the
-        # updated "dark" marker — otherwise the guard would fire every tick and
-        # starve the decision path below. Runs before the quiet-hours hold so
-        # the transition itself gets applied.
-        if resident and self._meta.get("dark") != self.config.dark_now(now.time()):
+        # A frame rendered inverted before dark mode was removed (W-821) is
+        # redrawn once: the firmware is now told not to invert, and its light
+        # pills would land on a dark plate until the next detection.
+        if self._meta.pop("dark", False) and resident:
             self.rerender_current()
             return
 
@@ -1595,7 +1590,6 @@ class FeatherframeService:
                 "etag": result.etag, "mode": mode, "label": label,
                 "species_key": species_key, "rendered_at": now.isoformat(timespec="seconds"),
                 "novelty": novelty, "held_since": held_since,
-                "dark": self.config.dark_now(now.time()),
                 "quiet_note": note is not None,   # what the glass says, for tick()'s flip
                 "note_kind": self._note_kind() if note is not None else None,
                 "collage_at": now.isoformat(timespec="seconds") if mode == "collage"

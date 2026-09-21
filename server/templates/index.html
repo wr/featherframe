@@ -927,17 +927,6 @@
             </div>
           </div>
           </div></div>
-          {# The frame's own dark mode (inverted ink on the panel) — not the page theme in the footer. #}
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="dark-lab">Dark mode</span><div class="hint" id="dark-hint"></div></div>
-            <div class="frow-ctl">
-              <div class="seg" role="radiogroup" aria-labelledby="dark-lab">
-                <label><input type="radio" name="dark_mode" value="off" {{ 'checked' if config.dark_mode=='off' else '' }}><span>Off</span></label>
-                <label><input type="radio" name="dark_mode" value="on" {{ 'checked' if config.dark_mode=='on' else '' }}><span>On</span></label>
-                <label><input type="radio" name="dark_mode" value="quiet" {{ 'checked' if config.dark_mode=='quiet' else '' }}><span>Quiet hours only</span></label>
-              </div>
-            </div>
-          </div>
           <details class="disc adv">
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="disc-body"><div class="adv-body">
@@ -1906,19 +1895,6 @@
     }
     if (cgToggle) cgToggle.addEventListener('change', syncDayReviewEx);
     syncDayReviewEx();
-    // dark-mode hint follows the selected mode
-    var DARK_HINT = {
-      off: "Normal — black ink on a white background.",
-      on: "Invert colors and use a dark background.",
-      quiet: "Invert colors only during quiet hours."
-    };
-    var darkHintEl = $('dark-hint');
-    function syncDark() {
-      var v = (document.querySelector('input[name="dark_mode"]:checked') || {}).value;
-      if (darkHintEl) darkHintEl.textContent = DARK_HINT[v] || '';
-    }
-    document.querySelectorAll('input[name="dark_mode"]').forEach(function (r) { r.addEventListener('change', syncDark); });
-    syncDark();
     // detection-source fields follow the select
     var sel = $('src-sel');
     function syncSrc() {

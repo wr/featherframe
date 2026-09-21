@@ -71,8 +71,6 @@ def _finish_inks(img: Image.Image, config: Config, mode: str, label: str) -> Ren
     canvas is natively portrait, so rotation is only ever 0 or 180."""
     img = _apply_mat_inset(img.convert("RGB"), config)
     inks = spectra.to_inks(img, _dither(config), spectra.SATURATION)
-    if config.dark_now():
-        inks = spectra.invert(inks)
     preview = spectra.inks_to_image(inks)
     native = np.ascontiguousarray(np.rot90(inks, k=(config.panel_rotation // 90) % 4))
     frame = framebuffer.pack(spectra.to_wire(native), 4, inks=True)
@@ -104,10 +102,6 @@ def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderRe
     levels = 1 << config.bit_depth
     img = _apply_mat_inset(img, config)                             # clear the mat opening
     indices = finish.to_levels(img, levels, _dither(config))       # portrait, upright
-    if config.dark_now():
-        # Flip every level end-to-end (black field, white ink) after dithering,
-        # so the packed frame and the PNG preview invert identically.
-        indices = (levels - 1 - indices).astype(np.uint8)
     preview = finish.levels_to_image(indices, levels)              # what the wall shows
     # The panel canvas is fixed landscape (1872x1404) and can't rotate itself, so
     # we rotate the framebuffer into native orientation here. np.rot90 is CCW.

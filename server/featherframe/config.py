@@ -10,7 +10,7 @@ import math
 import os
 import secrets
 from dataclasses import dataclass, field
-from datetime import date, datetime, time as dtime
+from datetime import date, time as dtime
 from typing import Any
 
 from . import panels
@@ -144,12 +144,6 @@ class Config:
     mat_offset_x_px: int = 0
     mat_offset_y_px: int = 0
 
-    # Invert the finished frame end-to-end: black field, white ink. The device
-    # is told the effective state via X-FF-Invert so its baked boot screens
-    # match. "off" | "on" | "quiet" (inverted only during quiet hours). A
-    # legacy bool is migrated in sanitize().
-    dark_mode: str = "off"
-
     # Collage --------------------------------------------------------------
     # Collage mode draws a new sheet this often. On the colour panel, where a
     # refresh takes half a minute, that beats a plate per detection.
@@ -248,11 +242,6 @@ class Config:
             self.imagegen_text_provider = ""
         self.imagegen_text_key = str(self.imagegen_text_key or "").strip()
         self.imagegen_text_base_url = str(self.imagegen_text_base_url or "").strip().rstrip("/")
-        # Dark mode: migrate a legacy bool, then validate the enum.
-        if isinstance(self.dark_mode, bool):
-            self.dark_mode = "on" if self.dark_mode else "off"
-        if self.dark_mode not in ("off", "on", "quiet"):
-            self.dark_mode = "off"
         # Quiet hours: mode drives behaviour; migrate the legacy enabled flag,
         # then keep enabled in sync as a mirror of (mode != "off").
         if self.quiet_hours_mode not in ("off", "custom", "sun"):
@@ -332,15 +321,6 @@ class Config:
             return start <= now < end
         # wraps past midnight
         return now >= start or now < end
-
-    def dark_now(self, now: dtime | None = None) -> bool:
-        """Effective inversion right now: always in "on", never in "off", and
-        only during quiet hours in "quiet"."""
-        if self.dark_mode == "on":
-            return True
-        if self.dark_mode == "quiet":
-            return self.in_quiet_hours(now or datetime.now().time())
-        return False
 
     # -- serialisation -----------------------------------------------------
     def to_dict(self) -> dict[str, Any]:

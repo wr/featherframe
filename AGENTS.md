@@ -228,7 +228,9 @@ NVS, and `setup()` branches on `g_alwaysAwake`; a switch takes effect at the
 end of the cycle that learned it (awake→sleep from `loop()`, sleep→awake by a
 restart). `FF_DEFAULT_ALWAYS_AWAKE` is only the mode of a unit with no stored
 value; `X-Poll-Seconds` sets the awake poll gap the same way (3 s default). `X-FF-Rotation`
-(the page's panel rotation) rides along too and is kept in NVS like dark mode:
+(the page's panel rotation) rides along too and is kept in NVS (dark mode is
+gone, W-821: the server still says `X-FF-Invert: 0` so fielded firmware
+clears the flag it stored, until every frame runs firmware without it):
 the baked art is baked at one rotation (`FF_BAKED_ROTATION`), so when the
 frame hangs the other way up the firmware turns every baked screen and tile
 180° (`rotate180`, and `flipX`/`flipY` for a tile's window).

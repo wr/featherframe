@@ -15,6 +15,11 @@ so the art is three files:
     plate_layout.json where the two bird patches sit, in plate_base.png
                       pixel space
 
+Each has a colour twin (plate_*_color.png: the same cut from the same draw,
+which is colour; the gray art is its luma) for a colour panel's screens, and
+the setting itself, no bird on it, is the server's fallback-plate art
+(featherframe/art/bough.png + bough_color.png).
+
 Two phases:
 
     generate   buys the images from the configured image model, the same
@@ -263,6 +268,24 @@ def _gray(path: Path) -> Image.Image:
     return Image.fromarray(np.clip((arr - lo) / (hi - lo) * 255.0, 0, 255).astype(np.uint8))
 
 
+_PAPER = 246
+
+
+def _color(path: Path) -> np.ndarray:
+    """`_gray`'s colour twin (the draws are colour; the gray art is their
+    luma): the same black point, the white point per channel so the paper
+    lands on pure white — one solid ink on a colour panel, not a stipple."""
+    rgb = np.asarray(plate.load_color(path), dtype=np.float32)
+    luma = np.asarray(plate.load_gray(path), dtype=np.float32)
+    lo = np.percentile(luma, 0.1)
+    hi = np.percentile(rgb.reshape(-1, 3), 90.0, axis=0)
+    if (hi - lo).min() < 1e-3:
+        return rgb.astype(np.uint8)
+    # The drawn paper sits a few counts under white (~253): anything as light
+    # as _PAPER is paper, as in the gray bake, or six inks stipple the sheet.
+    return np.clip((rgb - lo) / (hi - lo) * 255.0 * 255.0 / _PAPER, 0, 255).astype(np.uint8)
+
+
 def _align(base: np.ndarray, other: np.ndarray, window=None) -> tuple[int, int]:
     """Translation (dx, dy) that moves `other` onto `base`, by phase
     correlation over an optional (x0, y0, x1, y1) window."""
@@ -318,7 +341,7 @@ def _place(other: np.ndarray, scale: float, dx: int, dy: int,
     origin (a bird flying in) survives with negative coordinates."""
     o = _resample(other, scale)
     h, w = shape
-    out = np.full((h, w + padx), 255, dtype=np.uint8)
+    out = np.full((h, w + padx) + o.shape[2:], 255, dtype=np.uint8)   # gray or RGB
     x0, y0 = padx + dx, dy
     sx0, sy0 = max(0, -x0), max(0, -y0)
     tx0, ty0 = max(0, x0), max(0, y0)
@@ -396,6 +419,14 @@ def _rgba_ink(gray: np.ndarray) -> Image.Image:
     rgba = np.zeros(gray.shape + (4,), dtype=np.uint8)
     rgba[..., 3] = a
     return Image.fromarray(rgba, "RGBA")
+
+
+def _rgba_color(rgb: np.ndarray, keep: np.ndarray, soft: np.ndarray = None) -> Image.Image:
+    """A colour cut-out: opaque where `keep`, feathered out through `soft`
+    (default: `keep` itself), so its wash edge melts into the paper."""
+    a = np.asarray(Image.fromarray((keep if soft is None else soft).astype(np.uint8) * 255)
+                   .filter(ImageFilter.GaussianBlur(1)), dtype=np.uint8)
+    return Image.fromarray(np.dstack([rgb, np.where(keep, 255, a)]).astype(np.uint8), "RGBA")
 
 
 def _added_bird(E: np.ndarray, H: np.ndarray, thr: int, clearance: int, pad: int,
@@ -518,7 +549,16 @@ def cut(args) -> None:
             second_reg = _register(H, second_g, scales=scales)
             S = _place(second_g, *second_reg, H.shape, 0)
             print(f"second (scale,dx,dy)={second_reg}")
-    sheets = [H, F, P] + ([S] if S is not None else [])
+    # The colour twins (the draws are colour; everything above and every mask
+    # below is decided on their luma) ride the same registration, so each cut
+    # is one box taken from either sheet.
+    colors = [_color(raw / args.base_file),
+              _place(_color(raw / args.fly_file), *fly_reg, H.shape, 0),
+              _place(_color(raw / args.perch_file), perch_reg[0], perch_reg[1] + ddx,
+                     perch_reg[2] + ddy, H.shape, 0)]
+    if S is not None:
+        colors.append(_place(_color(raw / args.second_file), *second_reg, H.shape, 0))
+    sheets = [H, F, P] + ([S] if S is not None else []) + colors
     if args.scale != 1.0:
         # Scale the whole sheets now, so every cut below shares one
         # resampling and the perch patch lands on the twig pixel-for-pixel.
@@ -526,16 +566,29 @@ def cut(args) -> None:
     if args.top_pad:
         # The model composes to the sheet's very top and the mat hides the
         # first ~4 %: drop the whole composition by this much paper.
-        sheets = [np.concatenate([np.full((args.top_pad, a.shape[1]), 255, np.uint8), a])
+        sheets = [np.concatenate([np.full((args.top_pad,) + a.shape[1:], 255, np.uint8), a])
                   for a in sheets]
+    sheets, colors = sheets[:len(sheets) // 2], sheets[len(sheets) // 2:]
     H, F, P = sheets[:3]
     S = sheets[3] if S is not None else None
+    Hc, Fc, Pc = colors[:3]
+    Sc = colors[3] if S is not None else None
     _lift_lut = np.clip(255.0 * (np.arange(256) / 255.0) ** args.lift, 0, 255).astype(np.uint8)
 
     def lifted(a: np.ndarray) -> np.ndarray:
         # Output-only gamma: analysis stays on the normalised sheets, so
         # the thresholds below don't drift with the lift.
         return _lift_lut[a]
+
+    # The server's fallback plate shows the drawn setting itself, no bird on
+    # it (W-743): the base draw at the art box's size, gray and colour.
+    if args.bough_out:
+        bough_dir = Path(args.bough_out)
+        rows = min(H.shape[0], args.art_bottom or H.shape[0])
+        gray_png = bough_dir / "bough.png"
+        if not (gray_png.exists() and np.array_equal(np.asarray(Image.open(gray_png)), H[:rows])):
+            Image.fromarray(H[:rows]).save(gray_png)
+        Image.fromarray(Hc[:rows], "RGB").save(bough_dir / "bough_color.png")
 
     pad = args.pad
     perch_box = None
@@ -577,13 +630,15 @@ def cut(args) -> None:
         # under the bird, and never a seam with the drawn setting's twig,
         # which runs a few px off this sheet's).
         toe_y = int(np.nonzero(legs)[0].max()) if legs.any() else foot_y
-        H = P.copy()
+        H, Hc = P.copy(), Pc.copy()
         H[qy0:min(qy1, toe_y + 3), qx0:qx1] = 255
+        Hc[qy0:min(qy1, toe_y + 3), qx0:qx1] = 255
         g = lifted(P[qy0:qy1, qx0:qx1])
         patch = np.zeros(g.shape + (4,), dtype=np.uint8)
         patch[..., 0] = patch[..., 1] = patch[..., 2] = g
         patch[..., 3] = 255
         Image.fromarray(patch, "RGBA").save(out / "plate_perch.png")
+        Image.fromarray(lifted(Pc[qy0:qy1, qx0:qx1]), "RGB").save(out / "plate_perch_color.png")
         perch_box = (qx0, qy0, qx1, qy1)
         print(f"base from the perched sheet; the bird's box ({qx1 - qx0}x{qy1 - qy0}) "
               f"papered down to the toes")
@@ -616,22 +671,27 @@ def cut(args) -> None:
             toe_y = int(np.nonzero(legs)[0].max()) if legs.any() else foot_y
             H[sy0:sy1, sx0:sx1] = S[sy0:sy1, sx0:sx1]
             H[sy0:min(sy1, toe_y + 3), sx0:sx1] = 255
+            Hc[sy0:sy1, sx0:sx1] = Sc[sy0:sy1, sx0:sx1]
+            Hc[sy0:min(sy1, toe_y + 3), sx0:sx1] = 255
             g = lifted(S[sy0:sy1, sx0:sx1])
             patch = np.zeros(g.shape + (4,), dtype=np.uint8)
             patch[..., 0] = patch[..., 1] = patch[..., 2] = g
             patch[..., 3] = 255
             Image.fromarray(patch, "RGBA").save(out / "plate_second.png")
+            Image.fromarray(lifted(Sc[sy0:sy1, sx0:sx1]), "RGB").save(out / "plate_second_color.png")
             second_box = (sx0, sy0, sx1, sy1)
             print(f"the mate's box ({sx1 - sx0}x{sy1 - sy0}) from her own sheet, papered down to the toes")
     # -- base: the whole sheet — the bake lays it full-bleed like a plate ----
     x0, y0, x1, y1 = 0, 0, H.shape[1], min(H.shape[0], args.art_bottom or H.shape[0])
     _rgba_ink(lifted(H[y0:y1, x0:x1])).save(out / "plate_base.png")
+    Image.fromarray(lifted(Hc[y0:y1, x0:x1]), "RGB").save(out / "plate_base_color.png")
 
     # -- fly: the ink that sits where the bough sheet is bare paper -----------
     bird, (bx0, by0, bx1, by1) = _added_bird(F, H, 235, args.clearance, pad, touching_ok=False)
     soft = _dilate(bird, 2)                       # keep the wash edge round the ink
     fly_box = np.where(soft[by0:by1, bx0:bx1], F[by0:by1, bx0:bx1], 255)
     _rgba_ink(lifted(fly_box)).save(out / "plate_fly.png")
+    _rgba_color(lifted(Fc[by0:by1, bx0:bx1]), soft[by0:by1, bx0:bx1]).save(out / "plate_fly_color.png")
     # The edit's bird must land on bare paper in the BASE sheet — the model
     # shortens or moves twigs to make room, and in the base frame the bird
     # may sit over a twig that isn't there in the edit. Find the nearest
@@ -670,7 +730,7 @@ def cut(args) -> None:
     # carried over; the bird is cut as ink OFF the base's (grown) twig and
     # then stood on the base twig by its feet — its toes end where the twig
     # begins, which reads as a bird standing on it.
-    def perched(E, name, avoid=None, mode="stand"):
+    def perched(E, Ec, name, avoid=None, mode="stand"):
         comps = _added_blobs(E, H, args.perch_thr, args.perch_clearance, pad,
                              detail=args.perch_detail)
         if avoid is not None:
@@ -741,7 +801,7 @@ def cut(args) -> None:
                 print(f"{name}: stand offset ({sdx},{sdy}) out of bounds, ignored")
                 sdx, sdy = 0, 0
             print(f"{name} stood on the twig by ({sdx},{sdy})")
-            E = _place(E, 1.0, sdx, sdy, E.shape, 0)
+            E, Ec = _place(E, 1.0, sdx, sdy, E.shape, 0), _place(Ec, 1.0, sdx, sdy, E.shape, 0)
             bird = np.roll(np.roll(bird, sdy, axis=0), sdx, axis=1)
             above = np.roll(above, sdy, axis=0)
             # Paper over the base's tip where it runs on just past the head.
@@ -760,6 +820,8 @@ def cut(args) -> None:
             patch[..., 0] = patch[..., 1] = patch[..., 2] = g
             patch[..., 3] = np.where(keep[qy0:qy1, qx0:qx1], 255, a)
             Image.fromarray(patch, "RGBA").save(out / f"plate_{name}.png")
+            _rgba_color(lifted(Ec[qy0:qy1, qx0:qx1]), keep[qy0:qy1, qx0:qx1],
+                        _dilate(keep, 2)[qy0:qy1, qx0:qx1]).save(out / f"plate_{name}_color.png")
             return (qx0, qy0, qx1, qy1)
         ys, xs = np.nonzero(bird)
         foot_y = int(ys.max())
@@ -798,14 +860,16 @@ def cut(args) -> None:
         patch[..., 0] = patch[..., 1] = patch[..., 2] = g
         patch[..., 3] = np.where(bird[qy0:qy1, qx0:qx1], 255, a)
         Image.fromarray(patch, "RGBA").save(out / f"plate_{name}.png")
+        _rgba_color(lifted(_place(Ec, 1.0, sdx, sdy, E.shape, 0)[qy0:qy1, qx0:qx1]),
+                    bird[qy0:qy1, qx0:qx1], soft[qy0:qy1, qx0:qx1]).save(out / f"plate_{name}_color.png")
         return (qx0, qy0, qx1, qy1)
 
-    qx0, qy0, qx1, qy1 = perch_box if perch_box else perched(P, "perch", mode=args.perch_mode)
+    qx0, qy0, qx1, qy1 = perch_box if perch_box else perched(P, Pc, "perch", mode=args.perch_mode)
     second_at = None
     if S is not None:
         # The second sheet carries both birds; the first is where the perch
         # stage found it, so the blob overlapping that box is not the newcomer.
-        sx0, sy0 = second_box[:2] if second_box else perched(S, "second", avoid=(qx0, qy0, qx1, qy1), mode=args.second_mode)[:2]
+        sx0, sy0 = second_box[:2] if second_box else perched(S, Sc, "second", avoid=(qx0, qy0, qx1, qy1), mode=args.second_mode)[:2]
         second_at = [int(sx0 - x0), int(sy0 - y0)]
 
     layout = {
@@ -865,6 +929,8 @@ def main() -> None:
     c = sub.add_parser("cut", help="cut the boot art out of the raw draws")
     c.add_argument("--raw", default=str(ART / "raw"))
     c.add_argument("--out", default=str(ART))
+    c.add_argument("--bough-out", default=str(paths.art_dir()),
+                   help="where the server's bough.png / bough_color.png go (empty string: skip)")
     c.add_argument("--base-file", default="base.png")
     c.add_argument("--fly-file", default="fly.png")
     c.add_argument("--perch-file", default="perch.png")

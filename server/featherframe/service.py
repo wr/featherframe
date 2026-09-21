@@ -611,6 +611,13 @@ class FeatherframeService:
 
         resident = self._frame_bytes is not None and bool(self._meta.get("label"))
 
+        # A frame rendered inverted before dark mode was removed (W-821) is
+        # redrawn once: the firmware is now told not to invert, and its light
+        # pills would land on a dark plate until the next detection.
+        if self._meta.pop("dark", False) and resident:
+            self.rerender_current()
+            return
+
         # The footnote (gone-quiet, or a source outage): re-render the resident
         # subject once when a note flips on or switches kind. When one flips
         # off, prefer the decision path's own render (a fresh bird is what

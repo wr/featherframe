@@ -95,3 +95,14 @@ def test_legacy_quiet_hours_enabled_migrates():
     # Pre-mode configs stored only quiet_hours_enabled.
     assert Config.from_dict({"quiet_hours_enabled": False}).quiet_hours_mode == "off"
     assert Config.from_dict({"quiet_hours_enabled": True}).quiet_hours_mode == "custom"
+
+
+def test_a_frame_left_inverted_by_the_old_dark_mode_is_redrawn_once(client, monkeypatch):
+    svc = client.app.state.service
+    svc._frame_bytes = b"FFF1" + bytes(12)
+    svc._meta = {"mode": "single", "label": "Blue Jay", "species_key": "cyanocitta cristata",
+                 "dark": True}
+    calls = []
+    monkeypatch.setattr(svc, "rerender_current", lambda: calls.append(1))
+    svc.tick(); svc.tick()
+    assert calls == [1] and "dark" not in svc._meta

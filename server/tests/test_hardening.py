@@ -232,22 +232,22 @@ def test_daytime_collage_tolerates_bad_collage_at(svc, monkeypatch):
 
 
 # -- quiet hours: the review date follows the ACTIVE window ------------------
-def test_sun_mode_review_date_uses_sun_window_not_custom_fields(svc):
+def test_sun_mode_collage_date_uses_sun_window_not_custom_fields(svc):
     # Custom fields left at a daytime window, but the active mode is "sun":
     # the sun window wraps midnight, so a 01:00 tick reviews yesterday.
     svc.config = Config(quiet_hours_mode="sun", quiet_hours_start="12:00",
                         quiet_hours_end="14:00")
     start, end = svc.config.quiet_window(date(2026, 6, 21))
     assert start > end                      # sunset -> sunrise wraps midnight
-    assert svc._review_date(datetime(2026, 6, 22, 1, 0)) == date(2026, 6, 21)
-    assert svc._review_date(datetime(2026, 6, 22, 21, 0)) == date(2026, 6, 22)
+    assert svc._collage_date(datetime(2026, 6, 22, 1, 0)) == date(2026, 6, 21)
+    assert svc._collage_date(datetime(2026, 6, 22, 21, 0)) == date(2026, 6, 22)
 
 
-def test_custom_review_date_unchanged(svc):
+def test_custom_collage_date_unchanged(svc):
     svc.config = Config(quiet_hours_mode="custom", quiet_hours_start="22:00",
                         quiet_hours_end="06:00")
-    assert svc._review_date(datetime(2026, 8, 29, 0, 30)) == date(2026, 8, 28)
-    assert svc._review_date(datetime(2026, 8, 29, 7, 0)) == date(2026, 8, 29)
+    assert svc._collage_date(datetime(2026, 8, 29, 0, 30)) == date(2026, 8, 28)
+    assert svc._collage_date(datetime(2026, 8, 29, 7, 0)) == date(2026, 8, 29)
 
 
 # -- sources must not raise --------------------------------------------------

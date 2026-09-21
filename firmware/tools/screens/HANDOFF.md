@@ -41,7 +41,9 @@ there is no separate onboarding checklist.
   plates 83/78/18 as style references) — the setting, an edit adding the flying wren, an
   edit with it perched, and an edit of THAT sheet adding the mate; `cut` writes
   `art/plate_base/fly/perch/second.png` + `plate_layout.json` at panel width with 60 rows of
-  paper on top so the composition clears the mat. Things learned the hard way, all in the
+  paper on top so the composition clears the mat, each with a `_color` twin (the same cut
+  of the same colour draw) that the EE02's screens are baked from, plus the server's
+  fallback-plate bough (`server/featherframe/art/bough.png` + `bough_color.png`). Things learned the hard way, all in the
   script: the plates' paper normaliser crushes a mostly-paper sheet to a silhouette (own
   linear levels); thin armatures give phase correlation no scale to lock on (translation
   only); the model moves twigs to make room for a bird, so the flying wren is *added ink*

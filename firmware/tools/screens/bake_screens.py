@@ -170,16 +170,21 @@ def new_canvas():
     c = Image.new("L", (W, H), 255)
     return c, ImageDraw.Draw(c)
 
-def screen_setup():
+def screen_setup(bare=None):
     # First-run instructions. The splash's own setting, pixel for pixel —
     # the limb full-bleed off the right edge and the wordmark beneath it —
     # with the card laid over the lower half of the art (W-742), so the
     # handover to the boot flow keeps the art where it was. A paper halo
     # keeps the card's shape where its edge crosses the limb's own black.
     # There is no separate onboarding checklist. The card fits its widest line.
-    c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
-    c.alpha_composite(BASE, BASE_XY)
-    im = c.convert("L")
+    # `bare` (a gray level) draws everything but the art, on that gray: see
+    # on_color_art.
+    if bare is None:
+        c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+        c.alpha_composite(BASE, BASE_XY)
+        im = c.convert("L")
+    else:
+        im = Image.new("L", (W, H), bare)
     draw_wordmark(im)
     d = ImageDraw.Draw(im)
     steps = [
@@ -313,9 +318,7 @@ def draw_pill(im, text):
 
 LOADER_AT = {}      # screen name -> loading mark's portrait center (cx, cy)
 
-def _compose(name):
-    c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
-    c.alpha_composite(BASE, BASE_XY)
+def _compose(name, bare=None):
     arts = []
     if name == "wifi":
         arts = [(FLY, FLY_XY)]                     # the wren arrives on the wing
@@ -325,6 +328,11 @@ def _compose(name):
         arts = [(PERCH, PERCH_XY)]                 # its mate joins it
         if SECOND:
             arts.append((SECOND, SECOND_XY))
+    if bare is not None:                           # the type alone, on that gray: see on_color_art
+        c, arts = Image.new("L", (W, H), bare), []
+    else:
+        c = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+        c.alpha_composite(BASE, BASE_XY)
     for art, xy in arts:
         c.alpha_composite(art, xy)
     im = c.convert("L")
@@ -803,28 +811,53 @@ def write_preview():
 _WHITE_LUT = [min(255, round(i * 255.0 / WHITE_PT)) for i in range(256)]
 
 def _error_screen(draw_pill_fn, retry=None):
-    im = _compose("birdnet").copy()
-    d = ImageDraw.Draw(im)
-    d.rectangle([0, 1636, W, 1800], fill=255)          # the stage pill's band
-    draw_pill_fn(d)
-    if retry:
-        d.text((W / 2, RETRY_BASELINE), retry, font=sans(RETRY_SIZE), fill=0, anchor="ms")
-    return im
+    """A whole screen as `make(bare=None)`: the perched wren's screen with its
+    own pill (and a retry line)."""
+    def make(bare=None):
+        im = _compose("birdnet", bare).copy()
+        d = ImageDraw.Draw(im)
+        d.rectangle([0, 1636, W, 1800], fill=255)          # the stage pill's band
+        draw_pill_fn(d)
+        if retry:
+            d.text((W / 2, RETRY_BASELINE), retry, font=sans(RETRY_SIZE), fill=0, anchor="ms")
+        return im
+    return make
 
 BOOT_TEXT = "Connecting"
 
+# (name, make, the birds on its bough); make is None for a screen these panels
+# do not show.
 FULL_SCREENS = [
-    ("SPLASH", None),
-    ("BOOT_WIFI", _error_screen(lambda d: _draw_wait_pill(d, BOOT_TEXT))),
-    ("BOOT_BIRDNET", None), ("BOOT_DOWNLOAD", None),
-    ("SETUP", screen_setup()),
-    ("ERR_WIFI", _error_screen(lambda d: _draw_error_pill(d, *ERR_TEXTS[0]), RETRY_TEXTS[3])),
-    ("ERR_SERVER", _error_screen(lambda d: _draw_error_pill(d, *ERR_TEXTS[1]), RETRY_TEXTS[3])),
-    ("WAITING", _error_screen(_draw_wait_pill)),
-    ("PENDING", _error_screen(lambda d: _draw_wait_pill(d, PENDING_TEXT))),
+    ("SPLASH", None, ()),
+    ("BOOT_WIFI", _error_screen(lambda d: _draw_wait_pill(d, BOOT_TEXT)), ("perch",)),
+    ("BOOT_BIRDNET", None, ()), ("BOOT_DOWNLOAD", None, ()),
+    ("SETUP", screen_setup, ()),
+    ("ERR_WIFI", _error_screen(lambda d: _draw_error_pill(d, *ERR_TEXTS[0]), RETRY_TEXTS[3]), ("perch",)),
+    ("ERR_SERVER", _error_screen(lambda d: _draw_error_pill(d, *ERR_TEXTS[1]), RETRY_TEXTS[3]), ("perch",)),
+    ("WAITING", _error_screen(_draw_wait_pill), ("perch",)),
+    ("PENDING", _error_screen(lambda d: _draw_wait_pill(d, PENDING_TEXT)), ("perch",)),
     # The gray build's low-battery pill (TOASTS), promoted to a whole screen.
-    ("LOW_BATT", _error_screen(lambda d: _draw_toast(d, LOW_BATTERY_TEXT, "battery"))),
+    ("LOW_BATT", _error_screen(lambda d: _draw_toast(d, LOW_BATTERY_TEXT, "battery")), ("perch",)),
 ]
+
+
+# A colour panel gets the same screens over the art's colour twin (boot_art.py
+# cuts both from the same draws). The type is only ever drawn in gray, so it is
+# drawn twice with no art, on black and on white: what differs between the two
+# is how much of the art shows through each pixel, which lays the type (the
+# setup card's white lettering and paper halo included) over the colour exactly
+# as the gray screen lays it over the gray.
+COLOR_ART = {"base": ("plate_base_color.png", BASE_XY), "perch": ("plate_perch_color.png", PERCH_XY)}
+
+def on_color_art(make, birds):
+    art = Image.new("RGB", (W, H), (255, 255, 255))
+    for part in ("base",) + tuple(birds):
+        name, xy = COLOR_ART[part]
+        art.paste(Image.open(os.path.join(ART, name)).convert("RGB"), xy)
+    lo = np.asarray(make(0), dtype=np.float32)[..., None]
+    hi = np.asarray(make(255), dtype=np.float32)[..., None]
+    out = lo + (hi - lo) / 255.0 * np.asarray(art, dtype=np.float32)
+    return Image.fromarray(np.clip(np.round(out), 0, 255).astype(np.uint8), "RGB")
 
 
 # -- any full-refresh panel (W-819) ---------------------------------------------
@@ -868,15 +901,24 @@ class Target:
         small = im.resize(self.sheet, Image.LANCZOS)
         if self.sheet == (self.w, self.h):
             return small
-        paper = Image.new("L", (self.w, self.h), 255)
+        paper = Image.new(im.mode, (self.w, self.h), "white")
         paper.paste(small, self.at)
         return paper
+
+    def full(self, make, birds):
+        """A whole screen for this panel: over the colour art where the panel
+        has colour, the gray screen otherwise."""
+        return on_color_art(make, birds) if self.fmt == "spectra6" else make()
 
     def levels(self, im):
         """The sheet as this panel's upright pixel codes (uint8 [h, w])."""
         if self.fmt == "spectra6":
+            from featherframe import panels
             from featherframe.render import spectra
-            inks = spectra.to_inks(self._fit(im.convert("L").point(_WHITE_LUT)).convert("RGB"))
+            if im.mode == "RGB":                         # a whole screen, as the server draws a plate
+                return spectra.to_wire(spectra.to_inks(self._fit(im), panels.EE02.dither,
+                                                       spectra.SATURATION))
+            inks = spectra.to_inks(self._fit(im.convert("L").point(_WHITE_LUT)).convert("RGB"))   # a stamp tile
             assert set(np.unique(inks)) <= {spectra.BLACK, spectra.WHITE}
             return spectra.to_wire(inks)
         a = np.asarray(self._fit(apply_curve(im)), dtype=np.uint16)
@@ -885,8 +927,11 @@ class Target:
     def look(self, im):
         """What the glass shows, upright, for the contact sheet."""
         if self.fmt == "spectra6":
-            return Image.fromarray(np.where(self.levels(im) == 0, 255, 0).astype(np.uint8), "L")
-        return Image.fromarray((self.levels(im).astype(np.uint16) * 17).astype(np.uint8), "L")
+            from featherframe.render import spectra
+            ink_of = np.zeros(16, dtype=np.uint8)
+            ink_of[spectra.WIRE_NIBBLE] = np.arange(len(spectra.WIRE_NIBBLE))
+            return spectra.inks_to_image(ink_of[self.levels(im)])
+        return Image.fromarray((self.levels(im).astype(np.uint16) * 17).astype(np.uint8), "L").convert("RGB")
 
     def _turn(self, arr):
         return np.rot90(arr, k=(self.rotation // 90) % 4)
@@ -967,13 +1012,13 @@ def write_header_full(t):
     L += [f"  FF_TOAST_{name} = {i}," for i, (name, *_rest) in enumerate(TOASTS)]
     L += [f"  FF_TOAST_BLANK = {len(TOASTS)},", f"  FF_TOAST_COUNT = {len(TOASTS) + 1},", "};", "",
           "enum FfScreen {"]
-    L += [f"  FF_SCR_{name} = {i}," for i, (name, _) in enumerate(FULL_SCREENS)]
+    L += [f"  FF_SCR_{name} = {i}," for i, (name, *_rest) in enumerate(FULL_SCREENS)]
     L += [f"  FF_SCR_COUNT = {len(FULL_SCREENS)},", "};", ""]
     refs = []
-    for name, im in FULL_SCREENS:
-        if im is None:
+    for name, make, birds in FULL_SCREENS:
+        if make is None:
             refs.append(("nullptr", 0)); continue
-        pb = t.screen(im)
+        pb = t.screen(t.full(make, birds))
         arr = f"ff_scr_{name.lower()}"; refs.append((arr, len(pb)))
         L.append(f"// {name}: {len(pb)} bytes packed")
         _c_array(L, arr, pb)
@@ -1028,15 +1073,15 @@ def write_header_full(t):
           "}", ""]
     with open(t.out, "w") as f:
         f.write("\n".join(L))
-    print(f"wrote {t.out}: {sum(1 for _, im in FULL_SCREENS if im is not None)} {t.fmt} screens "
+    print(f"wrote {t.out}: {sum(1 for _, make, _b in FULL_SCREENS if make is not None)} {t.fmt} screens "
           f"at {t.native_w}x{t.native_h} native, {sum(ln for _, ln in refs)/1024:.0f}K packed")
 
 
 def write_preview_full(t, out):
-    shown = [(n, im) for n, im in FULL_SCREENS if im is not None]
+    shown = [(n, t.full(make, birds)) for n, make, birds in FULL_SCREENS if make is not None]
     tw, pad = 450, 24
     th = tw * t.h // t.w
-    sheet = Image.new("L", (len(shown) * (tw + pad) + pad, th + 2 * pad), 235)
+    sheet = Image.new("RGB", (len(shown) * (tw + pad) + pad, th + 2 * pad), (235, 235, 235))
     for i, (name, im) in enumerate(shown):
         sheet.paste(t.look(im).resize((tw, th), Image.LANCZOS), (pad + i * (tw + pad), pad))
     sheet.save(out)

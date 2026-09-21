@@ -670,9 +670,9 @@
               <div class="frow-ctl"><button class="btn" type="button" id="refresh-btn">Refresh</button></div>
             </div>
             <div class="frow">
-              <div class="frow-text"><span class="lab">Day in review</span><div class="hint">Puts today's sheet on the wall now. Repaint rebuilds it from today's species.</div></div>
+              <div class="frow-text"><span class="lab">Collage</span><div class="hint">Puts today's collage on the wall now. Repaint rebuilds it from today's species.</div></div>
               <div class="frow-ctl">
-                <form class="inline task-form" data-task="day-review" method="post" action="/api/collage/day-review">
+                <form class="inline task-form" data-task="collage" method="post" action="/api/collage/now">
                   <button class="btn" type="submit">Show</button>
                   <button class="btn" type="submit" name="repaint" value="1">Repaint</button>
                 </form>
@@ -972,7 +972,7 @@
           </div></div>
           <div class="reveal{{ ' collapsed' if config.quiet_hours_mode=='off' else '' }}" id="hold-field" {{ 'hidden' if config.quiet_hours_mode=='off' else '' }}><div class="reveal-body">
           <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="qhc">Show a “day in review” during quiet hours</label><div class="hint" id="qhc-sub">Puts the day's top species on one sheet for the night, instead of the last species heard. <a class="ex seg-ex" id="dayreview-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Day in review — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a day-in-review example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></div></div>
+            <div class="frow-text"><label class="lab" for="qhc">Show a collage during quiet hours</label><div class="hint" id="qhc-sub">Puts the day's top species on one sheet for the night, instead of the last species heard. <a class="ex seg-ex" id="nightcollage-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Collage — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a nightly collage example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="qhc" name="quiet_hours_render_collage" aria-describedby="qhc-sub" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label></div>
           </div>
           </div></div>
@@ -1114,12 +1114,12 @@
             <div class="frow-ctl"><input type="text" inputmode="url" id="f-a1111" name="imagegen_base_url" value="{{ config.imagegen_base_url }}" placeholder="http://localhost:7860" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
           </div>
           <div class="frow toggle ig-needs-key" {{ '' if ig_ready else 'hidden' }}>
-            <div class="frow-text"><label class="lab" for="cg">Combine the nightly “day in review” into a single image <a class="ex seg-ex" href="/static/examples/single.png" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></label><div class="hint" id="dayreview-cost"></div></div>
-            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" aria-describedby="dayreview-cost" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
+            <div class="frow-text"><label class="lab" for="cg">Combine the nightly collage into a single image <a class="ex seg-ex" href="/static/examples/single.png" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></label><div class="hint" id="combine-cost"></div></div>
+            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" aria-describedby="combine-cost" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
           </div>
           <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-review-max">Species on the sheet</label><div class="hint">How many species the nightly day in review shows, most-heard first. 0 shows every species heard that day.</div></div>
-            <div class="frow-ctl"><input type="number" id="f-review-max" name="review_species_max" min="0" max="60" step="1" inputmode="numeric" value="{{ config.review_species_max }}"></div>
+            <div class="frow-text"><label class="lab" for="f-review-max">Species on the sheet</label><div class="hint">How many species the nightly collage shows, most-heard first. 0 shows every species heard that day.</div></div>
+            <div class="frow-ctl"><input type="number" id="f-review-max" name="collage_species_max" min="0" max="60" step="1" inputmode="numeric" value="{{ config.collage_species_max }}"></div>
           </div>
           <details class="disc adv ig-needs-key" {{ '' if ig_ready else 'hidden' }}>
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
@@ -1316,7 +1316,7 @@
   }
   // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
   var FIELD_NAMES = { power_mode: 'Power', device_poll_seconds: 'Check every', wake_interval_minutes: 'Wake interval',
-    collage_interval_hours: 'New collage every', review_species_max: 'Species on the sheet',
+    collage_interval_hours: 'New collage every', collage_species_max: 'Species on the sheet',
     mat_inset_pct: 'Mat inset',
     mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation' };
   (function () {
@@ -1864,7 +1864,7 @@
     function syncQuiet() {
       var v = (document.querySelector('input[name="quiet_hours_mode"]:checked') || {}).value;
       setRevealed($('quiet-custom'), v === 'custom');
-      // The "day in review" only fires during quiet hours, so hide its toggle
+      // The nightly collage only fires during quiet hours, so hide its toggle
       // entirely when quiet hours is off — it would do nothing.
       setRevealed($('hold-field'), v !== 'off');
       if (quietHintEl) quietHintEl.textContent = QUIET_HINT[v] || '';
@@ -1880,21 +1880,21 @@
     }
     document.querySelectorAll('input[name="power_mode"]').forEach(function (r) { r.addEventListener('change', syncPower); });
     syncPower();
-    // The day-in-review preview should match the combine toggle: a
+    // The nightly collage's example should match the combine toggle: a
     // single combined AI plate when it's on, the grid collage when off.
     var cgToggle = $('cg');
-    var drEx = $('dayreview-ex');
-    function syncDayReviewEx() {
+    var drEx = $('nightcollage-ex');
+    function syncNightCollageEx() {
       if (!drEx) return;
       var combined = cgToggle && cgToggle.checked;
       drEx.setAttribute('data-ex', combined ? 'single' : 'collage');
       drEx.setAttribute('href', '/static/examples/' + (combined ? 'single' : 'collage') + '.png');
       drEx.setAttribute('data-cap', combined
-        ? "Day in review — the day's species merged into a single plate."
-        : "Day in review — the day's top species on one sheet, held during quiet hours.");
+        ? "Collage — the day's species merged into a single plate."
+        : "Collage — the day's top species on one sheet, held during quiet hours.");
     }
-    if (cgToggle) cgToggle.addEventListener('change', syncDayReviewEx);
-    syncDayReviewEx();
+    if (cgToggle) cgToggle.addEventListener('change', syncNightCollageEx);
+    syncNightCollageEx();
     // detection-source fields follow the select
     var sel = $('src-sel');
     function syncSrc() {
@@ -1967,7 +1967,7 @@
       var ready = HAS_IMAGE_KEY || p === 'a1111';
       document.querySelectorAll('.ig-needs-key').forEach(function (el) { el.hidden = !ready; });
       if (modelHint) modelHint.textContent = info.hint || '';
-      var costEl = $('dayreview-cost');
+      var costEl = $('combine-cost');
       if (costEl) costEl.textContent = info.cost || '';
       // Point the "create an API key" link at the chosen provider's console.
       var keyLink = $('key-link');
@@ -2175,9 +2175,9 @@
     });
   })();
 
-  // -- left-column background jobs (test detection / day in review) ----------
+  // -- left-column background jobs (test detection / collage) ----------
   (function () {
-    var LABEL = { 'test-detection': 'Rendering…', 'day-review': 'Working…' };
+    var LABEL = { 'test-detection': 'Rendering…', 'collage': 'Working…' };
     var forms = {};
     var timer = null, active = false;
     function beginUI(task) {
@@ -2185,7 +2185,7 @@
       var f = forms[task];
       if (f && f.all) f.all.forEach(function (b) { b.disabled = true; });
       if (f && f.button) { f.button.disabled = true; f.button.textContent = LABEL[task] || 'Working…'; }
-      setTaskStatus((task === 'day-review' ? 'Creating the day in review' : 'Rendering the plate') + ' — this can take a minute.');
+      setTaskStatus((task === 'collage' ? 'Creating the collage' : 'Rendering the plate') + ' — this can take a minute.');
     }
     function idleUI(task) {
       var f = forms[task];

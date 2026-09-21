@@ -28,13 +28,13 @@ def db(tmp_path):
 
 def test_birdnet_go_is_written_and_nothing_else_moves(ss, db):
     config = load_config(db)
-    config.review_species_max = 17
+    config.collage_species_max = 17
     save_config(db, config)
     out = ss.apply(db, "birdnet-go", url="http://10.0.0.5:8080/")
     assert out == "detection source: birdnet-go (http://10.0.0.5:8080)"
     config = load_config(db)
     assert (config.detection_backend, config.birdnet_go_url) == ("birdnet_go", "http://10.0.0.5:8080")
-    assert config.review_species_max == 17
+    assert config.collage_species_max == 17
 
 
 def test_birdnet_go_needs_a_real_url(ss, db):

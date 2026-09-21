@@ -161,7 +161,7 @@ def test_saving_other_settings_resets_nothing(svc, monkeypatch):
     source = svc.source
 
     cfg = load_config(svc.db)
-    cfg.review_species_max = 12
+    cfg.collage_species_max = 12
     save_config(svc.db, cfg)
     svc.reload_config()
 

@@ -49,8 +49,8 @@ def test_the_ee02_is_the_same_target_it_always_was(bake):
 def test_a_screen_is_the_native_canvas_and_letterboxed_on_paper(bake, rotation, tmp_path):
     t = bake.Target(480, 800, "gray16", rotation, str(tmp_path / "s.h"), "t", [])
     assert (t.native_w, t.native_h) == ((800, 480) if rotation in (90, 270) else (480, 800))
-    name, im = next((n, i) for n, i in bake.FULL_SCREENS if i is not None)
-    body = _unpackbits(t.screen(im))
+    make, birds = next((m, b) for _, m, b in bake.FULL_SCREENS if m is not None)
+    body = _unpackbits(t.screen(t.full(make, birds)))
     assert len(body) == t.bytes == 480 * 800 // 2
     upright = np.rot90(_nibbles(body, t.native_w, t.native_h), k=-(rotation // 90))
     assert upright.shape == (800, 480)
@@ -78,10 +78,32 @@ def test_a_stamp_tile_lands_on_its_ink_whichever_way_the_canvas_turns(bake, rota
     assert np.array_equal(tile, native[ny:ny + nh, nx:nx + nw]) and (tile < 15).any()
 
 
-def test_a_spectra_target_is_black_and_white_ink_codes_only(bake, tmp_path):
+def test_a_spectra_screen_is_the_colour_art_under_black_and_white_type(bake, tmp_path, monkeypatch):
+    import dataclasses
+    from featherframe import panels
+    # Stucki is a slow per-pixel loop; any dither proves the point.
+    monkeypatch.setattr(panels, "EE02", dataclasses.replace(panels.EE02, dither="bluenoise"))
     t = bake.Target(480, 800, "spectra6", 0, str(tmp_path / "s.h"), "t", [])
-    _, im = next((n, i) for n, i in bake.FULL_SCREENS if i is not None)
-    assert set(np.unique(t.levels(im))) <= {0x0, 0xF}      # black and white ink, nothing mixed
+    make, birds = next((m, b) for n, m, b in bake.FULL_SCREENS if n == "SETUP")
+    screen = t.full(make, birds)
+    gray, rgb = np.asarray(make(), dtype=np.int16), np.asarray(screen, dtype=np.int16)
+    # Below the art the colour screen IS the gray one (the wordmark), and so
+    # is the setup card laid over the limb: black, with white lettering.
+    below = slice(bake.LAYOUT["base_crop"][3], None)
+    assert np.array_equal(rgb[below], np.repeat(gray[below][..., None], 3, axis=2))
+    y0, y1 = bake.SETUP_CARD_Y0, bake.SETUP_CARD_Y0 + bake.SETUP_CARD_H
+    card = rgb[y0 + 40:y1 - 40, bake.W // 2 - 200:bake.W // 2 + 200]
+    assert (card.max(axis=2) - card.min(axis=2)).max() == 0 and card.min() == 0 and card.max() == 255
+    assert (rgb.max(axis=2) - rgb.min(axis=2)).max() > 40      # the wood and leaves kept their colour
+    codes = set(np.unique(t.levels(screen)))
+    assert codes <= {0x0, 0xF, 0xD, 0x2, 0x6, 0xB} and len(codes) > 2
+
+
+def test_a_spectra_stamp_tile_is_black_and_white_ink_codes_only(bake, tmp_path):
+    t = bake.Target(480, 800, "spectra6", 0, str(tmp_path / "s.h"), "t", [])
+    canvas = Image.new("L", (bake.W, bake.H), 255)
+    bake._draw_toast(ImageDraw.Draw(canvas), "Up to date", "done")
+    assert set(np.unique(t.levels(canvas))) == {0x0, 0xF}   # black and white ink, nothing mixed
 
 
 def test_the_header_names_what_it_was_baked_for(bake, tmp_path):

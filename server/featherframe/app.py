@@ -375,7 +375,7 @@ async def save_settings(request: Request):
         mat_offset_y_px=i("mat_offset_y_px", cur["mat_offset_y_px"]),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
-        review_species_max=i("review_species_max", cur["review_species_max"]),
+        collage_species_max=i("collage_species_max", cur["collage_species_max"]),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
         imagegen_base_url=s("imagegen_base_url", cur["imagegen_base_url"]),
@@ -413,7 +413,7 @@ async def save_settings(request: Request):
 
 
 _NUMERIC_FORM_FIELDS = ("wake_interval_minutes",
-                        "collage_interval_hours", "review_species_max",
+                        "collage_interval_hours", "collage_species_max",
                         "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation")
 
 
@@ -481,8 +481,8 @@ def _known_scientific(svc, common: str) -> Optional[str]:
     return None
 
 
-@app.post("/api/collage/day-review")
-async def day_review(request: Request):
+@app.post("/api/collage/now")
+async def collage_now(request: Request):
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
@@ -490,7 +490,7 @@ async def day_review(request: Request):
     repaint = "repaint" in form
     # Fire-and-forget: a fresh sheet is a ~1-2 minute generation. Same contract
     # as test-detection — run it on a worker thread and let the page poll.
-    svc.start_day_review(repaint)
+    svc.start_collage(repaint)
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": True, "running": True})
@@ -936,7 +936,7 @@ async def imagegen_models(request: Request, provider: Optional[str] = None):
 
 @app.get("/api/tasks")
 async def tasks(request: Request):
-    # Live state of the background one-shot jobs (test detection, day-in-review)
+    # Live state of the background one-shot jobs (test detection, collage)
     # so the config page can show progress and clear its spinner on completion.
     return JSONResponse(_svc(request).task_status())
 

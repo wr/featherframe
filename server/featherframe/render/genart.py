@@ -219,7 +219,7 @@ _P_FOOTER = (
 _STYLE_PROMPT = _P_OPEN + _P_PROCESS + _P_COLOR + _P_COMPOSE + _P_SETTING + _P_ANATOMY + _P_FOOTER
 
 # The folio's late composite ("totem") plates — several species sharing one
-# sheet — are the model for the nightly day-in-review.
+# sheet — are the model for the combined collage.
 _P_COMPOSITE_TEMPLATE = (
     "A hand-colored copperplate engraving with aquatint in the exact style of John James "
     "Audubon's 'The Birds of America' (Havell edition, 1827-1838). This sheet is one of "
@@ -270,7 +270,7 @@ _COMPOSITE_CROWDED_FROM = 7  # figures; the totem manner holds up to six
 
 def build_composite_prompt(subjects: list[tuple[str, str]],
                            briefs: Optional[dict] = None) -> str:
-    """Prompt for the day-in-review sheet: the day's species as one composite
+    """Prompt for the combined collage sheet: the day's species as one composite
     plate. `subjects` is (common, scientific) in prominence order; `briefs`
     maps a scientific name to a naturalist's one-line description so the
     model draws katydids as katydids."""
@@ -1537,7 +1537,7 @@ class GeneratedArtProvider(ArtProvider):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 self._write_atomic(path, json.dumps(cache, indent=2).encode())
 
-    # -- the nightly day-in-review composite --------------------------------
+    # -- the combined collage (one generated sheet) --------------------------------
     _KEEP_SHEETS = 60  # pruned oldest-first; the SD card is finite
 
     def day_composite(self, cells, when, force: bool = False):

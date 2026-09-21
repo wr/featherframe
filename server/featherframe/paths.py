@@ -78,7 +78,7 @@ def generated_dir() -> Path:
 
 
 def collages_dir() -> Path:
-    """Nightly day-in-review composite sheets, one per date."""
+    """Combined (generated) collage sheets, one per date."""
     d = data_dir() / "collages"
     d.mkdir(parents=True, exist_ok=True)
     return d

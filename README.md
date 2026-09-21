@@ -188,11 +188,22 @@ The page at `http://<your-pi>:8080/` is the whole UI:
   an Apprise webhook, with a *Test connection* button.
 - **Frame card** — last check-in, battery, Wi-Fi signal, overdue warning.
 
-## Other screens: TRMNL, Kobo, Kindle
+## Other screens: tablets, TRMNL, Kobo, Kindle
 
 The frame is not the only thing that can show the plate. Any number of
 **viewers** can show whatever the frame is showing, each drawn for its own
 screen. They never change what the frame does, and there is nothing to approve.
+
+**iPad or Android tablet**: open `http://<your-pi>:8080/view`. It is the
+plate, edge to edge, in colour, and it follows the frame within seconds. On an
+iPad: Share → *Add to Home Screen* (it then opens with no browser bars), and
+Settings → Display & Brightness → Auto-Lock → *Never*; Guided Access locks it
+to the page if little hands are about. On Android,
+[Fully Kiosk Browser](https://www.fully-kiosk.com) pointed at the same address
+keeps the screen on. An e-ink Android tablet (Boox) works the same way; set its
+refresh mode to the clearest one for that app. A lit screen goes black in quiet
+hours; `{"dark_quiet": false}` to the viewer (below) keeps it lit, and
+`{"fmt": "gray256"}` shows the plate in gray, like the paper.
 
 **TRMNL** (the 10.3" TRMNL X has the same glass as the gray frame, so the plate
 is pixel for pixel the same; the 7.5" OG works but is small and four grays):

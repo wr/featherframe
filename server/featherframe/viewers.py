@@ -38,7 +38,14 @@ _GRAY16_SIZES = {(1872, 1404), (1404, 1872)}   # the EE03's glass, whatever it i
 _DEFAULT_SIZE = (1072, 1448)
 
 _ID_RE = re.compile(r"^[0-9A-Za-z:._-]{1,40}$")
-_OWNER_FIELDS = ("name", "width", "height", "fmt", "rotation")
+_OWNER_FIELDS = ("name", "width", "height", "fmt", "rotation", "dark_quiet")
+
+# The kiosk page (W-825) on a lit screen. It asks often because asking is
+# free on mains power, and a tablet should follow the wall within moments.
+PAGE_POLL_SECONDS = 20
+# A page is never drawn larger than this on its long side: the sheet is 1872
+# tall, so more is only upscaling, paid for in render time and megabytes.
+PAGE_MAX_SIDE = 2048
 
 
 def clean_id(value: Optional[str]) -> Optional[str]:
@@ -71,9 +78,12 @@ def view_of(record: dict) -> View:
     sized = bool(width and height)
     if not sized:
         width, height = _DEFAULT_SIZE
+    page = record.get("kind") == "page"
     fmt = own.get("fmt")
     if fmt not in VIEW_FORMATS:
-        if not sized:
+        if page:
+            fmt = "color"   # a lit colour screen; "paper" on the page is gray256
+        elif not sized:
             fmt = "gray256"
         elif str(rep.get("model") or "").lower() in _GRAY16_MODELS or (width, height) in _GRAY16_SIZES:
             fmt = "gray16"
@@ -83,8 +93,25 @@ def view_of(record: dict) -> View:
     if rotation not in (0, 90, 180, 270):
         # As panels._rotations: a landscape canvas hangs portrait. The plate is
         # a portrait sheet; upright on a landscape screen is a postage stamp.
-        rotation = 90 if width > height else 0
+        # A page is upright in whatever the browser gives it: a tablet turns
+        # its own picture when it is turned.
+        rotation = 0 if page else (90 if width > height else 0)
     return View(int(width), int(height), fmt, rotation)
+
+
+def dark_in_quiet_hours(record: dict) -> bool:
+    """A lit screen goes black in quiet hours unless the owner says otherwise:
+    paper can sit in a dark room showing a plate, a tablet glows."""
+    return (record.get("set") or {}).get("dark_quiet", True) is not False
+
+
+def page_size(width, height) -> Optional[tuple[int, int]]:
+    """A browser's device pixels, scaled down to PAGE_MAX_SIDE on the long side."""
+    w, h = _int(width, 64, 16384), _int(height, 64, 16384)
+    if w is None or h is None:
+        return None
+    scale = min(1.0, PAGE_MAX_SIDE / max(w, h))
+    return max(64, round(w * scale)), max(64, round(h * scale))
 
 
 class Viewers:
@@ -138,6 +165,8 @@ class Viewers:
                 value = str(raw or "").strip()[:60] or None
             elif key == "fmt":
                 value = raw if raw in VIEW_FORMATS else None
+            elif key == "dark_quiet":
+                value = None if raw in (None, "") else bool(raw) and str(raw).lower() not in ("0", "false", "off")
             elif key == "rotation":
                 value = _int(raw, 0, 270)
                 value = value if value in (0, 90, 180, 270) else None
@@ -181,5 +210,6 @@ def public(row: dict) -> dict:
             "reported": row.get("reported") or {}, "set": row.get("set") or {},
             "view": {"width": view.width, "height": view.height, "format": view.fmt,
                      "rotation": view.rotation},
+            "dark_quiet": dark_in_quiet_hours(row) if row.get("kind") == "page" else None,
             "first_seen": row.get("first_seen"), "last_seen": row.get("last_seen"),
             "ip": row.get("ip")}

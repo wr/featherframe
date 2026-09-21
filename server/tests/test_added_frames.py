@@ -170,3 +170,15 @@ def test_with_two_frames_the_first_is_named_too(client):
     named = body.split('class="fc-active-name"')[1].split("</div>\n        {% endif %}")[0][:600]
     assert "EE03" in named and "Plates" in named
     assert ">Frames<" in body
+
+
+def test_both_frames_are_laid_out_the_same_way(client):
+    """Name, Power and Wi-Fi tiles, Details, then settings: a second kit is
+    not a lesser kind of row."""
+    _add(client)
+    client.get("/api/frame", headers=EE02)                 # it reports battery and Wi-Fi
+    body = client.get("/").text.split("<body")[1]
+    row = body.split(f'data-added-frame="{EE02["X-Device-Id"]}"')[1].split("</li>")[0]
+    assert 'class="vitals' in row and ">Power<" in row and ">Wi-Fi<" in row
+    assert "71%" in row and "Good" in row and "<summary>Details</summary>" in row
+    assert "1.9.0" in row and EE02["X-Board"] in row

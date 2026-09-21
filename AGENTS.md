@@ -159,6 +159,25 @@ the side one, and when the frame itself shows a collage (the nightly one on a
 plates frame) `side_kind_for` hands every viewer the frame's sheet; a picture
 no screen shows is never drawn. A viewer's ETag/filename is its own picture's
 (`picture_etag`), so a TRMNL on the collage does not repaint for a new plate.
+**Several frames on one server (W-832).** `admit_frame` has a fourth status,
+`added`: a second kit beside the active frame, answered on the page with *Add
+this frame* (`answer_frame(…, "add")`; *Replace the current frame* is the old
+switch). The active frame keeps the resident frame, `config.panel` and the
+device card, untouched. An added frame is drawn in the tick (`_tick_added`,
+never in a request) from the same pictures — the resident sheet, or the side
+picture when it shows the other kind, the colour sheet for a colour panel —
+through `pipeline.render_image` with **its own config** (`added_config`: the
+household's, its panel, that panel's display defaults, then the row's `set`:
+`shows`, rotation, mat, power, wake/poll, name; values pass through
+`Config.sanitize`). Its FFF lives in `data/frames/added/<id>.fff`, redrawn only
+when its picture or settings change (`_added[id].src`); its telemetry lives on
+its row, not the device card; its headers (`X-FF-Rotation`, `X-Power-Mode`, …)
+and button views are its own. `POST /api/frames/<id>` saves its settings. OTA
+serves each board its own image: `firmware.bin` and any `firmware-*.bin` in
+the data dir are candidates, matched by the board string (`_firmware_for`).
+An added frame counts as a screen for `_side_kinds_wanted` and keeps the
+colour twin composed; `_color_tried` stops a frame with no colour to give from
+being recomposed every tick.
 
 **Ingest (`birdnet.py`) is strictly read-only.** Opens `?mode=ro`, never writes
 or locks BirdNET's DB. The cursor is `WHERE rowid > :last`. Every method

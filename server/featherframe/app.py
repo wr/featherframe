@@ -152,6 +152,9 @@ async def api_frame(request: Request, view: Optional[str] = None):
     seat = svc.admit_frame(_str_header(request.headers.get("x-device-id")),
                            device_extra["panel"], device_extra["board"], client_ip,
                            facts=panel_facts)
+    if seat == "added":
+        return await _serve_added_frame(request, svc, view, inm, volt, pct, rssi, wake,
+                                        client_ip, device_extra)
     if seat != "active":
         headers = {"Cache-Control": "no-store", "X-FF-Frame": seat}
         # If another instance on the LAN draws for this frame's panel, say so:
@@ -199,6 +202,42 @@ async def api_frame(request: Request, view: Optional[str] = None):
     return Response(content=body, media_type="application/octet-stream", headers=headers)
 
 
+async def _serve_added_frame(request: Request, svc, view, inm, volt, pct, rssi, wake,
+                             client_ip, device_extra) -> Response:
+    """A second kit on this server (W-832): its own picture, finished for its
+    own panel, and its own rotation and power model on the way out. The device
+    card, the panel and the resident frame stay the active frame's."""
+    frame_id = (_str_header(request.headers.get("x-device-id")) or "")[:40]
+    row = next((r for r in svc._added_rows() if r["id"] == frame_id), None)   # noqa: SLF001
+    if row is None:
+        return Response(status_code=403, content=b"this frame is not on this server")
+    cfg = svc.added_config(row)
+    headers = {"X-FF-Invert": "0", "X-FF-Rotation": str(cfg.panel_rotation),
+               "X-Power-Mode": cfg.power_mode, "X-Wake-Minutes": str(cfg.wake_interval_minutes),
+               "X-Poll-Seconds": str(cfg.device_poll_seconds)}
+    telemetry = {**device_extra, "battery_voltage": volt, "battery_percent": pct,
+                 "wifi_rssi": rssi, "ip": client_ip,
+                 "user_agent": request.headers.get("user-agent", "") or None}
+    if view in ("collage", "status"):
+        # The button views, drawn for this frame's panel. Threadpool: a render.
+        if view == "collage":
+            result = await run_in_threadpool(svc.render_collage_on_demand, cfg)
+            if result is None:
+                return Response(status_code=404, content=b"not enough birds for a collage")
+        else:
+            result = await run_in_threadpool(svc.render_status_page, volt, pct, rssi, cfg)
+        return Response(content=result.frame, media_type="application/octet-stream",
+                        headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store", **headers})
+    status, body, etag = await run_in_threadpool(svc.get_added_frame, frame_id, inm, telemetry)
+    if status == 503:
+        return Response(status_code=503, content=b"no frame yet", headers=headers)
+    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache", **headers}
+    if status == 304:
+        return Response(status_code=304, headers=headers)
+    log.info("added frame %s fetched %s (wake=%s)", frame_id[-6:], etag, wake)
+    return Response(content=body, media_type="application/octet-stream", headers=headers)
+
+
 def _display_defaults(cfg: Config) -> dict:
     """Factory values for the page's "Reset to defaults" (for the panel in
     use). Secrets never have a default worth sending."""
@@ -219,8 +258,8 @@ def _announce_panel(request: Request, svc) -> None:
 # firmware.bin in the data dir (`make ota` does build + copy).
 @app.get("/api/firmware")
 async def api_firmware(request: Request):
-    bin_path = paths.data_dir() / "firmware.bin"
-    if not bin_path.exists():
+    bin_path = _firmware_for(_str_header(request.headers.get("x-board")))
+    if bin_path is None:
         return Response(status_code=404, content=b"no firmware hosted")
     md5 = _hosted_firmware_md5(bin_path)
     if md5 is None:
@@ -242,6 +281,22 @@ async def api_firmware(request: Request):
                         headers={"X-MD5": md5, "Cache-Control": "no-store"})
 
 
+def _firmware_for(board: Optional[str]):
+    """The hosted image for the board that asks. One server may feed two kinds
+    of kit (W-832): `firmware.bin` and any `firmware-*.bin` in the data dir are
+    candidates, and the one that carries the board's own string wins. A frame
+    that names no board gets `firmware.bin`, as before."""
+    data = paths.data_dir()
+    main = data / "firmware.bin"
+    candidates = ([main] if main.exists() else []) + sorted(data.glob("firmware-*.bin"))
+    if not board:
+        return main if main.exists() else None
+    for path in candidates:
+        if _firmware_is_for(path, board):
+            return path
+    return main if main.exists() else None   # the board check below refuses it, and says why
+
+
 _FW_CACHE: dict = {}   # (mtime_ns, size) -> md5
 _FW_BOARD_CACHE: dict = {}   # (mtime_ns, size, board) -> bool
 
@@ -249,9 +304,10 @@ _FW_BOARD_CACHE: dict = {}   # (mtime_ns, size, board) -> bool
 def _firmware_is_for(bin_path, board: str) -> bool:
     try:
         st = bin_path.stat()
-        key = (st.st_mtime_ns, st.st_size, board)
+        key = (str(bin_path), st.st_mtime_ns, st.st_size, board)
         if key not in _FW_BOARD_CACHE:
-            _FW_BOARD_CACHE.clear()
+            if len(_FW_BOARD_CACHE) > 8:
+                _FW_BOARD_CACHE.clear()
             _FW_BOARD_CACHE[key] = board.encode("ascii", "ignore") in bin_path.read_bytes()
         return _FW_BOARD_CACHE[key]
     except OSError:
@@ -268,7 +324,7 @@ def _hosted_firmware_md5(bin_path) -> Optional[str]:
         st = bin_path.stat()
     except OSError:
         return None
-    key = (st.st_mtime_ns, st.st_size)
+    key = (str(bin_path), st.st_mtime_ns, st.st_size)
     md5 = _FW_CACHE.get(key)
     if md5 is None:
         h = hashlib.md5()
@@ -281,7 +337,8 @@ def _hosted_firmware_md5(bin_path) -> Optional[str]:
             for chunk in iter(lambda: fh.read(64 * 1024), b""):
                 h.update(chunk)
         md5 = h.hexdigest()
-        _FW_CACHE.clear()
+        if len(_FW_CACHE) > 8:
+            _FW_CACHE.clear()
         _FW_CACHE[key] = md5
     return md5
 
@@ -539,7 +596,8 @@ async def api_panel_notice(request: Request):
 @app.post("/api/frames")
 async def api_frames(request: Request):
     """The owner's answer about a frame that is not the active one:
-    `action=switch` (make it the active frame), `ignore`, or `forget`."""
+    `action=add` (serve it beside the active frame, W-832), `switch` (make it
+    the active frame), `ignore`, or `forget`."""
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
@@ -554,6 +612,28 @@ async def api_frames(request: Request):
         _announce_panel(request, svc)
     return JSONResponse({"ok": True, "frames": svc.frames_view(),
                          "panel_notices": svc.panel_notices()})
+
+
+@app.post("/api/frames/{frame_id}")
+async def api_frame_settings(request: Request, frame_id: str):
+    """An added frame's own settings: what it shows, which way up it hangs,
+    its mat, its power. Everything else is the household's."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    svc = _svc(request)
+    try:
+        fields = await request.json()
+    except ValueError:
+        fields = None
+    if not isinstance(fields, dict):
+        return JSONResponse({"error": "a JSON object is required"}, status_code=400)
+    try:
+        ok = await run_in_threadpool(svc.update_added, frame_id[:40], fields)
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": f"not saved: {exc}"[:200]}, status_code=400)
+    if not ok:
+        return JSONResponse({"error": "no such added frame"}, status_code=404)
+    return JSONResponse({"ok": True, "frames": svc.frames_view()})
 
 
 @app.post("/api/hold")

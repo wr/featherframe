@@ -159,3 +159,14 @@ def test_the_page_offers_to_add_it_and_then_lists_it(client):
     # Nothing shared is offered per frame.
     for shared in ("quiet_hours", "species_blocklist", "detection_backend", "imagegen"):
         assert shared not in row
+
+
+def test_with_two_frames_the_first_is_named_too(client):
+    """Its vitals sit at the top of the card; unnamed, the card reads as if
+    the added frame were the only one."""
+    assert "fc-active-name" not in client.get("/").text.split("<body")[1]    # one frame: the card as it was
+    _add(client)
+    body = client.get("/").text.split("<body")[1]
+    named = body.split('class="fc-active-name"')[1].split("</div>\n        {% endif %}")[0][:600]
+    assert "EE03" in named and "Plates" in named
+    assert ">Frames<" in body

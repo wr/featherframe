@@ -90,29 +90,31 @@ Deploy to the Pi: `cd server && ./install.sh` (venv + plates + systemd unit).
 **Data flow.** `BirdNET birds.db (read-only) → server ingest cursor → render →
 packed framebuffer + ETag → firmware GET /api/frame (If-None-Match) → panel`.
 
-**`service.py` is the hub.** `FeatherframeService` holds the *single current
-frame* (bytes + ETag), persisted to `data/frames/current.fff` so a restart never
-blanks the device. A background thread runs `tick()` on the poll interval;
-`tick()` is the whole decision tree — quiet hours (+ optional nightly
-collage), mode (single/collage; "auto" was removed and migrates to single; a
-collage is redrawn every `collage_interval_hours`), blocklist, new-species
-corroboration and the dwell hold — and renders *at most one* frame per
-decision. Every web handler just reads the current frame. The default
-path is to do nothing (priority: few panel refreshes).
+**`service.py` is the hub.** A background thread runs `tick()` on the poll
+interval; `tick()` is the whole decision tree — quiet hours (+ optional nightly
+collage), what each frame shows (plates/collage; "auto" was removed and
+migrates to single; a collage is redrawn every `collage_interval_hours`),
+blocklist, new-species corroboration and the dwell hold — and renders *at most
+one* frame per picture per decision. The primary kit's framebuffer is not state
+of its own: it is the picture that kit shows, finished with `self.config`, kept
+as `data/frames/current.fff` (+ `current.png`) so a restart never blanks the
+device, and `_shown` names which picture it is (`svc._meta`/`_etag`/
+`_frame_bytes` read through it). Every web handler just reads bytes. The
+default path is to do nothing (priority: few panel refreshes).
 
 **Viewers (W-822) are screens that are not the frame** — a TRMNL, an
 e-reader, a tablet. They show what the frame shows and never decide anything:
-`_commit` keeps the composed sheet (`RenderResult.sheet`, before the panel fit,
-the mat and the dither) as `data/frames/current_sheet.png`, and
+a commit keeps the composed sheet (`RenderResult.sheet`, before the panel fit,
+the mat and the dither) as the picture's `sheet.png`, and
 `GET /api/view.png?w=&h=&format=&rotation=` (`service.view_png` →
 `pipeline.render_view`) draws it again at the asked size: `gray16`/`gray2`/
 `mono` blue-noise dithered, `gray256`/`color` smooth, no mat, a PNG. Its ETag
-is the frame's plus the variant; renders are cached in `data/frames/views/`
-(a handful, dropped with the frame). A view never touches the frame, the
+is the picture's plus the variant; renders are cached in `data/frames/views/`
+(a handful, dropped with the picture). A view never touches the frame, the
 device card, `config.panel` or the cursor. `gray16` at 1404×1872 is the EE03
 preview pixel for pixel (a test holds it): TRMNL X is the same glass. Colour
-for a gray frame's server is a second sheet (`current_sheet_color.png`), never
-the wall's pixels: every committing render hands `_commit` a `recompose` (the
+for a gray frame's server is a second sheet (the picture's `sheet_color.png`),
+never the wall's pixels: every committing render hands `_commit` a `recompose` (the
 same spec, art in colour), which is drawn only while a colour viewer has asked
 within `COLOR_VIEWER_DAYS` (`color_viewer_at` in the DB). The first ask draws
 the twin from the kept `recompose` without touching the wall; after a restart
@@ -127,7 +129,7 @@ choices (`POST /api/viewers/<id>`: name, rotation, size, format), and
 firmware builds `gray2` (the firmware truncates anything deeper, so we dither),
 a client that reports no size a smooth 1072×1448 page; a landscape canvas
 hangs portrait (rotation 90), as `panels._rotations`. The device repaints only
-when `filename` changes: the frame's ETag plus the variant. Dithered views go
+when `filename` changes: the picture's ETag plus the variant. Dithered views go
 out at their true PNG depth (`pipeline.encode_png`; Pillow cannot write gray
 below 8 bits). `refresh_rate` is a constant (`viewers.REFRESH_SECONDS`, hourly
 in quiet hours). A viewer never reaches `admit_frame`.
@@ -146,26 +148,30 @@ hours* for a page; a pixel size only for a client that reported none. It
 posts JSON to `/api/viewers/<id>` and reloads. Nothing shared is ever offered
 per viewer, and a viewer's format follows what the *device* reported, never
 the owner's size (a Kobo script client stays smooth once sized).
-**Two pictures (W-831, step 1 of Screens, W-830).** The frame shows plates or
-the collage (`config.mode`); a viewer's *Shows* may pick the other, the *side
-picture*: a composed sheet (`side_<kind>_sheet[_color].png`, `service._side`,
-`side_pictures` in the DB), never an FFF, never the frame's state. `tick()` is
-`_tick_frame()` (the old tick, untouched) then `_tick_sides()`, which draws a
-side picture only while a viewer set to it has asked within
-`SIDE_VIEWER_DAYS`, drops it when nobody does, and holds still in quiet hours.
-Wells's rules: a hold pins plates only (the side plate too) and the blocklist
-is global; there is **one collage** — `_collage_composer` draws the frame's and
-the side one, and when the frame itself shows a collage (the nightly one on a
-plates frame) `side_kind_for` hands every viewer the frame's sheet; a picture
-no screen shows is never drawn. A viewer's ETag/filename is its own picture's
-(`picture_etag`), so a TRMNL on the collage does not repaint for a new plate.
+**Two pictures (`pictures.py`, W-831 rebuilt in W-833).** There are exactly
+two, `plates` and `collage`, and they are the same kind of thing: each owns its
+meta, its ETag, and its composed sheet (`data/frames/pictures/<kind>/
+sheet[_color].png`; the `pictures` kv row holds the rest, and adopts the old
+`current_frame`/`side_pictures` stores on the first start). A picture is drawn
+only while some frame shows it — the primary kit per `config.mode`, an added
+kit per `added_shows`, a viewer per `viewers.shows_of` and only if it asked
+within `VIEWER_SHOWS_DAYS` — and is dropped when the last one looks away
+(`_kinds_shown`, `_drop_picture`). The one the primary kit shows is finished
+through the pipeline into that kit's framebuffer; every other is a sheet only
+(`_commit` vs `_commit_sheet`). `picture_for(shows, now)` is the ONE place that
+answers which picture a frame gets: it also carries Wells's rule that in quiet
+hours, once the nightly collage has been drawn, every frame on plates shows
+that same collage picture for the rest of the window (`_kind_for`). A hold pins
+plates and nothing else; the blocklist is global; a frame's ETag/filename is
+its own picture's (`picture_etag`), so a TRMNL on the collage does not repaint
+for a new plate.
 **Several frames on one server (W-832).** `admit_frame` has a fourth status,
 `added`: a second kit beside the active frame, answered on the page with *Add
 this frame* (`answer_frame(…, "add")`; *Replace the current frame* is the old
-switch). The active frame keeps the resident frame, `config.panel` and the
+switch). The active frame keeps the wall's framebuffer, `config.panel` and the
 device card, untouched. An added frame is drawn in the tick (`_tick_added`,
-never in a request) from the same pictures — the resident sheet, or the side
-picture when it shows the other kind, the colour sheet for a colour panel —
+never in a request) from the same two pictures — whichever one it shows, its
+colour sheet for a colour panel —
 through `pipeline.render_image` with **its own config** (`added_config`: the
 household's, its panel, that panel's display defaults, then the row's `set`:
 `shows`, rotation, mat, power, wake/poll, name; values pass through

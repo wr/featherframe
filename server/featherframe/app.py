@@ -172,7 +172,7 @@ async def api_frame(request: Request, view: Optional[str] = None):
         if await run_in_threadpool(svc.adopt_panel, device_extra["panel"], panel_facts):
             _announce_panel(request, svc)
 
-    # On-demand button views: rendered fresh, never the resident frame, no
+    # On-demand button views: rendered fresh, never a picture, no
     # 304s. Threadpool: the collage leg walks the provider chain (which may
     # generate art over the network) and a blocking render here would stall
     # every endpoint on the loop.
@@ -206,7 +206,7 @@ async def _serve_added_frame(request: Request, svc, view, inm, volt, pct, rssi, 
                              client_ip, device_extra) -> Response:
     """A second kit on this server (W-832): its own picture, finished for its
     own panel, and its own rotation and power model on the way out. The device
-    card, the panel and the resident frame stay the active frame's."""
+    card, the panel and the wall's framebuffer stay the active frame's."""
     frame_id = (_str_header(request.headers.get("x-device-id")) or "")[:40]
     row = next((r for r in svc._added_rows() if r["id"] == frame_id), None)   # noqa: SLF001
     if row is None:
@@ -978,7 +978,7 @@ async def trmnl_log(request: Request):
 @app.get("/api/viewers/{viewer_id}/{name}.png")
 async def viewer_png(request: Request, viewer_id: str, name: str):
     """A viewer's image. The name is only what made the device fetch (and what
-    keeps a cache honest); the picture is always the resident frame's."""
+    keeps a cache honest); which picture it is, is `picture_for`'s call."""
     svc = _svc(request)
     row = svc.viewers.get(viewers.clean_id(viewer_id) or "")
     if row is None:

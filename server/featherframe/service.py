@@ -11,7 +11,6 @@ device, and the ingest cursor is persisted so we don't replay history.
 """
 from __future__ import annotations
 
-import hashlib
 import io
 import logging
 import math
@@ -29,6 +28,8 @@ from PIL import Image
 
 from . import frames as frames_mod
 from . import panels, paths
+from . import pictures as pictures_mod
+from .pictures import COLLAGE, PLATES, Pictures
 from .config import Config, load_config, save_config
 from .frames import FrameRegistry
 from .sources import Detection, make_source
@@ -52,19 +53,10 @@ _CURRENT_FFF = "current.fff"
 _USER_HOLD_KEY = "user_hold"          # W-735: the owner's pin on the current plate
 _HOLD_DAYS = {"day": 1, "week": 7, "forever": None}
 _CURRENT_PNG = "current.png"
-_CURRENT_SHEET = "current_sheet.png"   # the composed sheet viewers are drawn from (W-823)
-_CURRENT_SHEET_COLOR = "current_sheet_color.png"   # its colour twin, while a colour viewer is about
-_VIEWS_MAX = 8                         # cached viewer renders of the resident frame
-# The picture the frame is not showing (W-831): the collage beside a frame on
-# plates, the plate beside a frame on the collage. Kept only while a viewer set
-# to it has asked within this long: draw only what some screen shows.
-SIDE_VIEWER_DAYS = 30
-_SIDE_KINDS = ("plates", "collage")
-
-
-def _side_sheet(kind: str, color: bool = False) -> str:
-    return f"side_{kind}_sheet{'_color' if color else ''}.png"
-
+_VIEWS_MAX = 8                         # cached renders of one picture
+# A picture is drawn only while some frame shows it, and a screen that has not
+# asked in this long is not a frame any more — it was unplugged.
+VIEWER_SHOWS_DAYS = 30
 
 # A gray frame's server composes the colour twin only while a colour viewer (a
 # tablet) has asked within this long: nobody watching in colour, nothing paid.
@@ -95,7 +87,7 @@ DWELL_MINUTES = 90
 # silent night never trips it. The common month-two failure (mic unplugged,
 # BirdNET stopped) is otherwise silent everywhere.
 QUIET_ALARM_HOURS = 6
-# Source-outage note: the resident plate is re-rendered once with a footnote
+# Source-outage note: the plate on the glass is re-rendered once with a footnote
 # after this long unreachable. An hour: a router reboot or a BirdNET restart
 # must not repaint the wall.
 SOURCE_ALARM_MINUTES = 60
@@ -449,9 +441,10 @@ class FeatherframeService:
 
         self._lock = threading.RLock()
         self._view_lock = threading.Lock()   # one viewer render at a time
-        self._recompose_color = None    # draws the resident sheet again, in colour
-        self._side_stale: set = set()   # side pictures owed a redraw (a colour viewer arrived)
-        self._color_tried: Optional[str] = None   # the frame ETag whose colour twin was last attempted
+        self._recolor: set = set()      # pictures owed a redraw (a colour screen arrived)
+        # Per picture, the ETag whose colour twin was last attempted: a
+        # picture with no colour to give must not be recomposed per ask.
+        self._color_tried: dict = {}
         self._color_asked_at: Optional[datetime] = None   # cache of the DB's color_viewer_at
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -471,14 +464,12 @@ class FeatherframeService:
         self._tasks_inflight: set[str] = set()
         self._task_errors: dict[str, str] = {}
 
-        # in-memory current frame
-        self._frame_bytes: Optional[bytes] = None
-        self._etag: Optional[str] = None
-        self._meta: dict = self.db.get("current_frame", {}) or {}
+        # The two pictures every frame shows one of (W-833). The wall's frame
+        # is no longer state of its own: it is the output of the picture the
+        # primary kit shows, and `_shown` names which one that is.
+        self.pictures = Pictures(self.db)
         added = self.db.get("added_frames", {})
         self._added: dict = added if isinstance(added, dict) else {}   # frame id -> {etag, src}
-        side = self.db.get("side_pictures", {})
-        self._side: dict = side if isinstance(side, dict) else {}   # kind -> {etag, at, key}
         self._load_current_from_disk()
         # Verify the persisted ingest cursor isn't stale on the first single-tick
         # after start (see _single_tick); cheaper than checking every tick.
@@ -527,6 +518,55 @@ class FeatherframeService:
         # unexpected key — and sanitising values, so a row poisoned by an older
         # build (a NaN voltage) heals on start instead of 500ing /api/status.
         self.device = DeviceStatus(**_clean_device_fields(self.db.get("device_status", {})))
+
+    # -- the picture on the wall -------------------------------------------
+    # The primary kit's framebuffer is not state of its own any more: it is the
+    # output of the picture that kit shows, finished with `self.config`. These
+    # three read it under the names the rest of the server (and the page, and
+    # the tests) already use; step 2b replaces them with one output per frame.
+    @property
+    def _shown(self) -> str:
+        """Which picture is on the primary kit's glass right now."""
+        return self.pictures.shown
+
+    @_shown.setter
+    def _shown(self, kind: str) -> None:
+        self.pictures.shown = kind
+
+    @property
+    def _meta(self) -> dict:
+        return self.pictures[self._shown].meta
+
+    @_meta.setter
+    def _meta(self, meta: dict) -> None:
+        # A test seam as much as anything: assigning a meta says which picture
+        # it is, so `mode` picks the picture it belongs to.
+        self._shown = pictures_mod.kind_of_mode((meta or {}).get("mode"))
+        self.pictures[self._shown].meta = meta
+
+    @property
+    def _etag(self) -> Optional[str]:
+        return self.pictures[self._shown].etag
+
+    @_etag.setter
+    def _etag(self, etag: Optional[str]) -> None:
+        self.pictures[self._shown].etag = etag
+
+    @property
+    def _frame_bytes(self) -> Optional[bytes]:
+        return self.pictures[self._shown].frame
+
+    @_frame_bytes.setter
+    def _frame_bytes(self, data: Optional[bytes]) -> None:
+        self.pictures[self._shown].frame = data
+
+    @property
+    def _recompose_color(self):
+        return self.pictures[self._shown].recompose
+
+    @_recompose_color.setter
+    def _recompose_color(self, fn) -> None:
+        self.pictures[self._shown].recompose = fn
 
     # -- lifecycle ---------------------------------------------------------
     def start(self) -> None:
@@ -608,7 +648,7 @@ class FeatherframeService:
         self._pending = None
         self._source_down_since = None
         self._tick_memo = {}
-        self._meta.pop("collage_at", None)
+        self.pictures[COLLAGE].meta.pop("collage_at", None)
         self._source_switched = True
         log.info("detection source changed: starting from a clean slate")
 
@@ -619,17 +659,13 @@ class FeatherframeService:
 
     # -- the decision loop -------------------------------------------------
     def tick(self) -> None:
-        self._tick_frame()
-        try:
-            self._tick_sides()
-        except Exception:  # noqa: BLE001 — a viewer's picture never costs the frame its tick
-            log.warning("side picture not drawn", exc_info=True)
+        self._tick_pictures()
         try:
             self._tick_added()
-        except Exception:  # noqa: BLE001 — nor does a second frame's
+        except Exception:  # noqa: BLE001 — a second frame never costs the wall its tick
             log.warning("added frame not drawn", exc_info=True)
 
-    def _tick_frame(self) -> None:
+    def _tick_pictures(self) -> None:
         self.reload_config()
         now = self._clock()
         available = self.source.available()
@@ -639,65 +675,73 @@ class FeatherframeService:
         self._quiet = self.quiet_state(now, available=available)
         self._outage = self.outage_state(now)
 
-        # The welcome plate (W-734) is not a subject: no footnotes, no dwell.
-        # It re-renders only when what it says would change, else the
-        # decision path below may replace it.
-        if self._frame_bytes is not None and self._meta.get("mode") == "welcome":
+        wanted = self._kinds_shown(now)
+        for kind in set(pictures_mod.KINDS) - self._kinds_shown(now, resolve=False):
+            self._drop_picture(kind)
+
+        # What the glass itself owes, before either picture's own subject. Each
+        # of these settles a picture for this tick — the ones no frame on the
+        # wall is waiting on are still drawn, for the screens that show them.
+        settled: set = set()
+        showing = self._frame_bytes is not None
+        subject = showing and bool(self._meta.get("label"))
+        want, have = self._note_kind(), self._note_showing()
+
+        if showing and self._meta.get("mode") == "welcome":
+            # The welcome plate (W-734) is not a subject: no footnotes, no
+            # dwell. It re-renders only when what it says would change, else
+            # the decision path below may replace it.
             if bool(self._meta.get("source_ok")) != available:
                 self._render_welcome(now, available)
-                return
-            self._decide(now, available)
-            return
-
-        # The owner pinned this plate (W-735): nothing replaces it until the
-        # hold ends. The footnotes still track, through the re-render that
-        # keeps the subject; an expired hold clears itself in user_hold() and
-        # the tick falls through to the decision path.
-        if self._frame_bytes is not None and self.user_hold(now) is not None:
-            want = self._note_kind()
-            have = self._meta.get("note_kind") or ("quiet" if self._meta.get("quiet_note") else None)
+                settled = {self._shown}
+        elif showing and self.user_hold(now) is not None:
+            # The owner pinned this plate (W-735): nothing replaces it until
+            # the hold ends, and a hold pins the plate and nothing else
+            # (W-830) — the collage keeps being drawn for the screens that
+            # show it. The footnotes still track, through the re-render that
+            # keeps the subject; an expired hold clears itself in user_hold().
             if want != have and not (want is None and not available):
                 self.rerender_current()
-            return
-
-        resident = self._frame_bytes is not None and bool(self._meta.get("label"))
-
-        # A frame rendered inverted before dark mode was removed (W-821) is
-        # redrawn once: the firmware is now told not to invert, and its light
-        # pills would land on a dark plate until the next detection.
-        if self._meta.pop("dark", False) and resident:
+            settled = {PLATES, self._shown}
+        elif self._meta.pop("dark", False) and subject:
+            # A frame rendered inverted before dark mode was removed (W-821) is
+            # redrawn once: the firmware is now told not to invert, and its
+            # light pills would land on a dark plate until the next detection.
             self.rerender_current()
-            return
-
-        # The footnote (gone-quiet, or a source outage): re-render the resident
-        # subject once when a note flips on or switches kind. When one flips
-        # off, prefer the decision path's own render (a fresh bird is what
-        # usually clears it) and only re-render to drop the note if nothing
-        # else replaced the frame — one render per tick either way. An outage
-        # under its threshold reads as "unknown": nothing is dropped or added
-        # while the source is unreachable and no outage note is due.
-        want = self._note_kind()
-        have = self._meta.get("note_kind") or ("quiet" if self._meta.get("quiet_note") else None)
-        if resident and want != have:
-            if want is None and not available:
-                pass
-            elif want is not None and (have is None or not available):
+            settled = {self._shown}
+        elif subject and want != have and not (want is None and not available):
+            # The footnote (gone-quiet, or a source outage): re-render the
+            # subject on the glass once when a note flips on or switches kind.
+            # When one flips off, prefer the decision path's own render (a
+            # fresh bird is what usually clears it) and only re-render to drop
+            # the note if nothing else replaced the frame — one render per
+            # picture per tick either way. An outage under its threshold reads
+            # as "unknown": nothing is dropped or added while the source is
+            # unreachable and no outage note is due.
+            if want is not None and (have is None or not available):
                 self.rerender_current()
-                return
+                settled = {self._shown}
             else:
                 before = self._etag
-                self._decide(now, available)
+                self._draw(wanted, now, available)
                 if self._etag == before:
                     self.rerender_current()
                 return
 
-        self._decide(now, available)
+        self._draw(wanted - settled, now, available)
 
-    def _decide(self, now: datetime, available: bool) -> None:
-        """The decision tree proper: quiet hours, mode, detections."""
+    def _note_showing(self) -> Optional[str]:
+        """The footnote the glass is actually carrying (older frames only said
+        whether there was one)."""
+        return self._meta.get("note_kind") or ("quiet" if self._meta.get("quiet_note") else None)
+
+    def _draw(self, wanted: set, now: datetime, available: bool) -> None:
+        """Draw every picture some frame shows, at most one render each. The
+        one on the glass goes first: if it falls back to the other kind, that
+        one is already drawn and is not drawn again."""
         if self.config.in_quiet_hours(now.time()):
-            # Quiet hours: hold the image. Optionally render one nightly collage
-            # collage at the start of the window (also implied by 'auto' mode).
+            # Quiet hours: the pictures hold still. One nightly collage at the
+            # start of the window, which every frame on plates then shows.
             if self.config.quiet_hours_render_collage:
                 self._maybe_quiet_collage(now)
             return
@@ -705,10 +749,98 @@ class FeatherframeService:
         if not available:
             return  # soft fail; keep serving the current frame
 
-        if self.config.mode == "collage":
-            self._maybe_daytime_collage(now)
-        else:  # single or auto -> single during the day
-            self._single_tick(now)
+        first = self._wall_kind(now)
+        order = [first] + [k for k in pictures_mod.KINDS if k != first]
+        for kind in order:
+            if kind not in wanted:
+                continue
+            if kind != first and kind == self._shown:
+                continue   # the glass took this picture after all: leave it be
+            if kind == COLLAGE:
+                self._maybe_daytime_collage(now)
+            else:
+                self._single_tick(now)
+
+    # -- which picture a frame shows ---------------------------------------
+    def _primary_shows(self) -> str:
+        """The picture the primary kit is set to show. Step 2b moves this onto
+        its row with the rest of its settings."""
+        return COLLAGE if self.config.mode == "collage" else PLATES
+
+    def _nightly_collage_showing(self, now: datetime) -> bool:
+        """Tonight's collage has been drawn and the quiet window is still on.
+        One collage, the same on every screen (W-830): for the rest of the
+        window every frame that shows plates shows it too."""
+        return (self.config.quiet_hours_render_collage
+                and self.config.in_quiet_hours(now.time())
+                and self.db.get("quiet_collage_for") == self._collage_date(now).isoformat())
+
+    def _kind_for(self, shows: Optional[str], now: datetime) -> str:
+        """Which picture a frame that shows `shows` gets. The ONE place the
+        night rule lives; nothing else may decide it."""
+        kind = shows if shows in pictures_mod.KINDS else self._primary_shows()
+        if kind == PLATES and self._nightly_collage_showing(now):
+            kind = COLLAGE
+        return kind
+
+    def _wall_kind(self, now: datetime) -> str:
+        """The picture the primary kit should be showing right now (which is
+        not always `_shown`: a collage with too few species falls back)."""
+        return self._kind_for(self._primary_shows(), now)
+
+    def picture_for(self, shows: Optional[str] = None,
+                    now: Optional[datetime] = None) -> "pictures_mod.Picture":
+        """The picture one frame shows. `shows` is "plates", "collage", or
+        None for whatever the primary kit shows. A picture that has never been
+        drawn falls back to the one on the glass, so a screen always has
+        something."""
+        now = now or self._clock()
+        if shows not in pictures_mod.KINDS:
+            return self.pictures[self._shown]
+        pic = self.pictures[self._kind_for(shows, now)]
+        return pic if pic.etag else self.pictures[self._shown]
+
+    def picture_etag(self, shows: Optional[str] = None) -> Optional[str]:
+        return self.picture_for(shows).etag
+
+    def _shows_of_frames(self, now: datetime) -> list:
+        """What every frame this server draws for shows, as each one asked for
+        it (None = whatever the primary kit shows). A viewer that has not
+        asked in a month is not a frame any more; the primary is always in,
+        since the wall is served from its picture and a server with no frames
+        yet still needs a first one."""
+        cutoff = (now - timedelta(days=VIEWER_SHOWS_DAYS)).isoformat(timespec="seconds")
+        out = [None]
+        for row in self.frames.all().values():
+            if frames_mod.transport_of(row) == "kit":
+                if row.get("status") == frames_mod.ON and not row.get("primary"):
+                    out.append(self.added_shows(row))
+            elif (row.get("last_seen") or "") >= cutoff:
+                out.append(viewers_mod.shows_of(row))
+        return out
+
+    def _kinds_shown(self, now: Optional[datetime] = None, resolve: bool = True) -> set:
+        """The pictures some frame shows, and so the only ones worth drawing.
+        `resolve` applies the night rule (a frame on plates shows the collage);
+        without it, what each frame is SET to — which is what decides whether a
+        picture is still wanted at all, so a plate is not thrown away at
+        nightfall and redrawn at dawn."""
+        now = now or self._clock()
+        if resolve:
+            return {self._kind_for(s, now) for s in self._shows_of_frames(now)}
+        return {s if s in pictures_mod.KINDS else self._primary_shows()
+                for s in self._shows_of_frames(now)}
+
+    def _drop_picture(self, kind: str) -> None:
+        """Nobody shows it any more. The one on the glass is never dropped —
+        that would blank the wall."""
+        if kind == self._shown or not self.pictures[kind].etag:
+            return
+        with self._lock:
+            self.pictures[kind].drop()
+            self._recolor.discard(kind)
+            self.pictures.save()
+        log.info("nobody shows the %s picture any more: dropped", kind)
 
     # -- gone-quiet alarm --------------------------------------------------
     def quiet_state(self, now: datetime,
@@ -782,6 +914,12 @@ class FeatherframeService:
                 "since_text": when_text(since, now),
                 "hours": hours, "hours_text": _hours_text(hours)}
 
+    def _on_wall(self, kind: str, now: datetime) -> bool:
+        """Is this picture the one the primary kit is drawn from? Only then is
+        it finished into a framebuffer; otherwise a composed sheet is all any
+        screen showing it needs."""
+        return self._wall_kind(now) == kind
+
     def _note_kind(self) -> Optional[str]:
         """Which footnote the glass should carry right now: "quiet" (nothing
         heard), "outage" (source unreachable), or None. Mutually exclusive
@@ -810,8 +948,15 @@ class FeatherframeService:
             return f"Just now: {self._just_now['common']}"
         return None
 
-    # -- single mode -------------------------------------------------------
+    # -- the plates picture ------------------------------------------------
     def _single_tick(self, now: datetime) -> None:
+        """The plates picture: the bird that was just heard. Runs once a tick,
+        whether the picture is on the wall or only on a viewer — a plate is a
+        plate, and the cursor, the corroboration gate and the dwell hold are
+        the same decision either way."""
+        pic = self.pictures[PLATES]
+        on_wall = self._on_wall(PLATES, now)
+        empty = self._frame_bytes is None if on_wall else pic.etag is None
         self._memo(now)
         self._expire_pending(now)
         cursor = self._cursor()
@@ -820,7 +965,7 @@ class FeatherframeService:
             # history, but show the most recent existing detection once.
             self._set_cursor(self.source.max_rowid())
             switched, self._source_switched = self._source_switched, False
-            if self._frame_bytes is None or switched:
+            if empty or switched:
                 latest = self._first_showable(
                     self.source.latest_many(CONFIDENCE_FLOOR), now)
                 if latest:
@@ -875,6 +1020,13 @@ class FeatherframeService:
                 self._set_cursor(new[-1].rowid)
             candidate = self._best_showable(list(reversed(new)), now)  # most novel, then newest
         if candidate is None:
+            if empty and not on_wall:
+                # A screen has just been pointed at plates while the cursor was
+                # already past the tail: start it on the latest bird rather
+                # than leave it blank until the next detection.
+                latest = self._first_showable(self.source.latest_many(CONFIDENCE_FLOOR), now)
+                if latest:
+                    self._render_single(latest, now, reason="startup")
             return
 
         # Dwell: a new bird keeps the frame against repeats of common birds.
@@ -882,29 +1034,33 @@ class FeatherframeService:
         # re-render (the clock moves with it), and a novel bird takes over
         # (newest novel wins). The cursor has already advanced: the repeat is
         # simply not shown, which is the point.
-        holding = self._holding(self._meta, now)
+        holding = self._holding(pic.meta, now)
         if (holding and self._novelty(candidate, now) == "repeat"
-                and candidate.key != self._meta.get("species_key")):
+                and candidate.key != pic.meta.get("species_key")):
             log.info("holding %s (%s) against %s for %d more min",
-                     self._meta.get("label"), self._meta.get("novelty"),
+                     pic.meta.get("label"), pic.meta.get("novelty"),
                      candidate.common_name, holding["minutes_left"])
             # The picture holds, but the frame still says what was just heard
             # (W-776). One repaint per change of species on the line, never
             # per detection: a chatty chickadee must not repaint the panel
             # every 30 s, which is also why the line carries no time.
-            if (self._just_now or {}).get("key") != candidate.key:
+            if (self._just_now or {}).get("key") != candidate.key and self._on_wall(PLATES, now):
                 self._just_now = {"key": candidate.key, "common": candidate.common_name}
                 self.rerender_current()
             return
 
         self._render_single(candidate, now, reason="detection")
 
-    def _render_single(self, det: Detection, now: datetime, reason: str) -> None:
+    def _render_single(self, det: Detection, now: datetime, reason: str,
+                       wall: Optional[bool] = None) -> None:
+        """Draw the plates picture of this detection. `wall` overrides whether
+        it is finished for the primary kit (the collage's own fallback needs
+        the plate on the glass even in collage mode)."""
         first_seen = self._first_seen(det.scientific_name)
         novelty = self._novelty(det, now)
-        # Any render that isn't the resident subject redrawn ("settings") is
-        # news: a new subject, or the held species heard again — either way
-        # the picture now says it, and the "Just now:" line goes.
+        # Any render that isn't the subject redrawn ("settings") is news: a new
+        # subject, or the held species heard again — either way the picture now
+        # says it, and the "Just now:" line goes.
         if reason != "settings":
             self._just_now = None
         note = self._note_text()
@@ -913,28 +1069,38 @@ class FeatherframeService:
                           first_seen=first_seen, note=note,
                           note_kind=self._note_kind() if note else None,
                           first_ever=novelty == "first-ever")
-        result = pipeline.render_single(spec, self.provider, self.config)
-        self._commit(result, now, mode="single", species_key=det.key,
-                     label=det.common_name, note=note, novelty=novelty,
-                     recompose=self._single_in_color(spec))
-        log.info("rendered single %s (%s, %s), etag=%s", det.common_name, reason, novelty,
-                 result.etag)
-        # The bird the page said it was waiting on is now on the wall.
+        recompose = self._single_in_color(spec)
+        fields = dict(mode="single", species_key=det.key, label=det.common_name,
+                      note=note, novelty=novelty)
+        if self._on_wall(PLATES, now) if wall is None else wall:
+            result = pipeline.render_single(spec, self.provider, self.config)
+            self._commit(result, now, recompose=recompose,
+                         key=f"{det.key}@{det.rowid}", **fields)
+            etag = result.etag
+        else:
+            etag = self._commit_sheet(
+                PLATES, now, key=f"{det.key}@{det.rowid}", recolor=recompose,
+                sheet=compose_mod.render_single(spec, self.provider, color=False), **fields)
+        log.info("rendered single %s (%s, %s), etag=%s", det.common_name, reason, novelty, etag)
+        # The bird the page said it was waiting on is now on a screen.
         if self._pending and self._pending.get("key") == det.key:
             self._set_pending(None)
 
-    # -- collage mode ------------------------------------------------------
+    # -- the collage picture -----------------------------------------------
     def _maybe_daytime_collage(self, now: datetime) -> None:
+        pic = self.pictures[COLLAGE]
         interval = self.config.collage_interval_hours * 3600
-        last = self._meta.get("collage_at")
+        last = pic.meta.get("collage_at")
         try:
             last_at = datetime.fromisoformat(last) if last else None
         except (ValueError, TypeError):
             last_at = None  # an unreadable stamp must not kill every tick
-        if last_at and (now - last_at).total_seconds() < interval \
-                and self._meta.get("mode") == "collage":
+        today = ddate.today().isoformat()
+        fresh = (last_at is not None and (now - last_at).total_seconds() < interval
+                 and pic.etag is not None and pic.key == today)
+        if fresh and COLLAGE not in self._recolor:
             return
-        self._build_collage(now, ddate.today())
+        self._build_collage(now, ddate.today(), wall=self._on_wall(COLLAGE, now))
 
     def _collage_date(self, now: datetime) -> ddate:
         """The day tonight's collage covers, per the ACTIVE quiet window — in
@@ -948,6 +1114,9 @@ class FeatherframeService:
         # midnight (default quiet hours wrap it) tonight's is yesterday's day.
         # Keying by now.date() would clobber the held sheet at 00:00, buy a
         # pre-dawn sheet of two owls, and skip the real one every evening.
+        # It is drawn ONCE, as the collage picture, and every frame on plates
+        # then shows it for the rest of the window (see `_kind_for`): there is
+        # one collage, and it is the same sheet on every screen.
         on_date = self._collage_date(now)
         stamp = on_date.isoformat()
         if self.db.get("quiet_collage_for") == stamp:
@@ -982,26 +1151,38 @@ class FeatherframeService:
 
     def _build_collage(self, now: datetime, on_date: ddate,
                        generated_ok: bool = False,
-                       force_generated: bool = False) -> bool:
+                       force_generated: bool = False,
+                       wall: bool = True) -> bool:
+        """Draw the collage picture for `on_date`. `wall` is False when no kit
+        shows it — a screen that does needs the sheet, not a framebuffer."""
         composed = self._collage_composer(now, on_date, generated_ok)
         if composed is None:
-            # Not enough for a grid: fall back to single for the day. This
+            # Not enough for a grid: fall back to a plate for the day. This
             # runs on every tick while the day has one species, so skip the
             # render when that bird is already on the glass — otherwise it is
             # a full-panel render every 20 s all day (and all night in quiet
-            # hours).
+            # hours). A screen on the collage keeps the plate too: there is
+            # nothing else to give it.
             latest = self._first_showable(
                 self.source.latest_many(CONFIDENCE_FLOOR), now)
             if latest and not self._showing_single(latest):
-                self._render_single(latest, now, reason="collage-fallback")
+                self._render_single(latest, now, reason="collage-fallback", wall=wall)
             return False
         compose, note = composed
-        img, label = compose(self.config.panel_spec.color, force=force_generated)
-        result = pipeline.render_image(img, self.config, "collage", label)
-        # The twin never forces a repaint: it reads the sheet just painted.
-        self._commit(result, now, mode="collage", species_key=None, label=label, note=note,
-                     recompose=lambda: compose(True)[0])
-        log.info("rendered collage (%s), etag=%s", label, result.etag)
+        fields = dict(mode="collage", species_key=None, note=note)
+        if wall:
+            img, label = compose(self.config.panel_spec.color, force=force_generated)
+            result = pipeline.render_image(img, self.config, "collage", label)
+            # The twin never forces a repaint: it reads the sheet just painted.
+            self._commit(result, now, label=label, key=on_date.isoformat(),
+                         recompose=lambda: compose(True)[0], **fields)
+            etag = result.etag
+        else:
+            sheet, label = compose(False, force=force_generated)
+            etag = self._commit_sheet(COLLAGE, now, sheet=sheet, label=label,
+                                      key=on_date.isoformat(),
+                                      recolor=lambda: compose(True)[0], **fields)
+        log.info("rendered collage (%s), etag=%s", label, etag)
         return True
 
     def _collage_composer(self, now: datetime, on_date: ddate, generated_ok: bool = False):
@@ -1060,7 +1241,7 @@ class FeatherframeService:
         sci = meta.get("scientific") or ""
         ok = self.genart.regenerate(common, sci)
         current = (sci or common).strip().lower()
-        if ok and current and self._meta.get("species_key") == current:
+        if ok and current and self.pictures[PLATES].meta.get("species_key") == current:
             now = self._clock()
             det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"),
                             time=now.strftime("%H:%M:%S"), common_name=common,
@@ -1221,7 +1402,7 @@ class FeatherframeService:
     def admit_frame(self, frame_id: Optional[str], reported_panel: Optional[str],
                     board: Optional[str], ip: Optional[str],
                     facts: Optional[dict] = None) -> str:
-        """Who is asking? Returns "active" (serve it the resident frame),
+        """Who is asking? Returns "active" (serve it the wall's frame),
         "added" (a second kit on this server, W-832: serve it its own), or
         "pending" / "ignored" (answer 403: not served, not recorded on the
         device card). `facts` is the frame's own description of its panel
@@ -1348,11 +1529,11 @@ class FeatherframeService:
             return self.frames.rename(frame_id, name) is not None
 
     # -- added frames (W-832) ----------------------------------------------
-    # A second kit on the same server. The active frame keeps the resident
-    # frame and everything that hangs off it; an added frame is drawn from the
-    # same pictures (the resident sheet, or the side picture when it shows the
-    # other kind), finished for ITS panel, rotation and mat, in the tick, so a
-    # request only ever reads bytes. Its few settings live on its row.
+    # A second kit on the same server. The primary kit keeps the framebuffer
+    # on `current.fff` and everything that hangs off it; an added frame is
+    # drawn from the same two pictures — whichever one it shows — finished for
+    # ITS panel, rotation and mat, in the tick, so a request only ever reads
+    # bytes. Its few settings live on its row.
     _ADDED_SETTINGS = ("panel_rotation", "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px",
                        "power_mode", "wake_interval_minutes", "device_poll_seconds")
 
@@ -1375,7 +1556,7 @@ class FeatherframeService:
 
     def added_shows(self, row: dict) -> str:
         shows = (row.get("set") or {}).get("shows")
-        if shows in _SIDE_KINDS:
+        if shows in pictures_mod.KINDS:
             return shows
         return "collage" if self._added_panel(row).mode == "collage" else "plates"
 
@@ -1395,7 +1576,7 @@ class FeatherframeService:
                 if raw in (None, ""):
                     own.pop(key, None)
                 elif key == "shows":
-                    if raw in _SIDE_KINDS:
+                    if raw in pictures_mod.KINDS:
                         own[key] = raw
                 elif key == "name":
                     own[key] = str(raw).strip()[:60]
@@ -1449,38 +1630,34 @@ class FeatherframeService:
         """Keep every added frame's framebuffer in step with the picture it
         shows. One render at most per frame per tick, and only when its picture
         or its own settings changed."""
+        now = self._clock()
         rows = self._added_rows()
         for stale in set(self._added) - {r["id"] for r in rows}:
             self._drop_added(stale)
         for row in rows:
-            cfg, shows = self.added_config(row), self.added_shows(row)
+            cfg = self.added_config(row)
             color = cfg.panel_spec.color
+            pic = self.picture_for(self.added_shows(row), now)
+            if not pic.etag:
+                continue
             if color and not self.config.panel_spec.color:
                 # A colour kit beside a gray frame reads the colour twin, as a
                 # colour viewer does; asking keeps it composed.
-                self._ensure_color_sheet()
-            side = self.side_kind_for(shows)
-            picture = self.picture_etag(shows)
-            if not picture:
-                continue
-            frames = paths.frames_dir()
-            if side:
-                names = ((_side_sheet(side, True),) if color else ()) + (_side_sheet(side),)
-            else:
-                names = ((_CURRENT_SHEET_COLOR,) if color else ()) + (_CURRENT_SHEET,)
-            source = next((frames / n for n in names if (frames / n).exists()), None)
+                self._want_color(pic)
+            source = next(iter(pic.sheets(color)), None)
             if source is None:
                 continue   # a frame from before sheets were kept: the next render has one
-            variant = "|".join(str(x) for x in (picture, source.name, cfg.panel, cfg.panel_rotation,
-                                                cfg.mat_inset_pct, cfg.mat_offset_x_px,
-                                                cfg.mat_offset_y_px, cfg.bit_depth))
+            variant = "|".join(str(x) for x in (pic.kind, pic.etag, source.name, cfg.panel,
+                                                cfg.panel_rotation, cfg.mat_inset_pct,
+                                                cfg.mat_offset_x_px, cfg.mat_offset_y_px,
+                                                cfg.bit_depth))
             fff, png = self._added_paths(row["id"])
             if (self._added.get(row["id"]) or {}).get("src") == variant and fff.exists():
                 continue
             with Image.open(source) as sheet:
                 sheet.load()
-            result = pipeline.render_image(sheet, cfg, side or self._meta.get("mode") or "single",
-                                           self._meta.get("label") or "")
+            result = pipeline.render_image(sheet, cfg, pic.meta.get("mode") or "single",
+                                           pic.meta.get("label") or "")
             tmp = fff.with_suffix(".tmp")
             tmp.write_bytes(result.frame)
             os.replace(tmp, fff)
@@ -1488,8 +1665,8 @@ class FeatherframeService:
             with self._lock:
                 self._added[row["id"]] = {"etag": result.etag, "src": variant}
                 self.db.set("added_frames", self._added)
-            log.info("drew %s for added frame %s (%s), etag=%s",
-                     side or "the resident picture", row["id"][-6:], cfg.panel, result.etag)
+            log.info("drew the %s picture for added frame %s (%s), etag=%s",
+                     pic.kind, row["id"][-6:], cfg.panel, result.etag)
 
     def get_added_frame(self, frame_id: str, if_none_match: Optional[str],
                         telemetry: Optional[dict] = None) -> tuple[int, Optional[bytes], Optional[str]]:
@@ -1578,7 +1755,8 @@ class FeatherframeService:
         self.db.set("panel_notice", None)
 
     def rerender_current(self) -> None:
-        """Re-render the current subject after a config change (e.g. dither/gray)."""
+        """Re-render what is on the glass after a config change (e.g. the
+        dither, or the mat): the same subject, finished again for the wall."""
         with self._lock:
             meta = dict(self._meta)
         now = self._clock()
@@ -1591,7 +1769,7 @@ class FeatherframeService:
             combined = str(meta.get("label") or "").startswith(
                 ("combined collage", "day in review"))   # the label before the rename
             on_date = self._collage_date(now) if combined else ddate.today()
-            self._build_collage(now, on_date, generated_ok=combined)
+            self._build_collage(now, on_date, generated_ok=combined, wall=True)
             return
         if not meta.get("label"):
             return
@@ -1603,12 +1781,12 @@ class FeatherframeService:
         det = Detection(rowid=-1, date=now.strftime("%Y-%m-%d"),
                         time=now.strftime("%H:%M:%S"), common_name=common,
                         scientific_name=sci, confidence=1.0)
-        self._render_single(det, now, reason="settings")
+        self._render_single(det, now, reason="settings", wall=True)
 
     def refresh_now(self) -> None:
         """Manual Refresh button: re-render the frame that *should* be showing
-        right now, per config. Unlike rerender_current (which preserves the
-        resident subject for a settings-driven re-render), this re-decides — so
+        right now, per config. Unlike rerender_current (which keeps the
+        subject on the glass for a settings-driven re-render), this re-decides — so
         it also recovers from a stale held collage once single mode is due
         again, instead of re-committing the collage."""
         self.reload_config()
@@ -1621,13 +1799,13 @@ class FeatherframeService:
                 self.rerender_current()
             return
         if self.config.mode == "collage":
-            self._build_collage(now, ddate.today())
+            self._build_collage(now, ddate.today(), wall=True)
             return
         # single: commit the most recent qualifying detection now
         latest = self._first_showable(
             self.source.latest_many(CONFIDENCE_FLOOR), now)
         if latest is not None:
-            self._render_single(latest, now, reason="refresh")
+            self._render_single(latest, now, reason="refresh", wall=True)
         else:
             self.rerender_current()
 
@@ -1636,7 +1814,7 @@ class FeatherframeService:
         """Button view: yesterday's collage, falling back to today's.
 
         Transient — never committed as the current frame, so the next timer
-        wake restores the resident bird.
+        wake restores the picture the frame was showing.
         """
         today = ddate.today()
         for day in (today - timedelta(days=1), today):
@@ -1737,7 +1915,7 @@ class FeatherframeService:
                 "usb_v": _USB_V, "hours": hours}
 
     def current_info(self) -> dict:
-        """etag/rendered_at of the resident frame without the source probes
+        """etag/rendered_at of what is on the glass, without the source probes
         that status() makes."""
         with self._lock:
             return {"etag": self._etag, "rendered_at": self._meta.get("rendered_at")}
@@ -1822,47 +2000,64 @@ class FeatherframeService:
         cfg["imagegen_text_key"] = _mask(cfg.get("imagegen_text_key") or "")
         return cfg
 
-    # -- internal state helpers -------------------------------------------
+    # -- committing a picture ---------------------------------------------
+    def _picture_meta(self, pic: "pictures_mod.Picture", now: datetime, etag: str, mode: str,
+                      species_key: Optional[str], label: str, note: Optional[str],
+                      novelty: Optional[str], extra: Optional[dict]) -> dict:
+        """What this picture is now, from what it was. The dwell clock
+        (held_since) starts when a novel bird takes the picture and carries
+        across its own re-renders: a first-today robin calling again at 8:05 is
+        classed a repeat, but it must not lose the hold it earned at 8:00 — nor
+        restart it. Its label carries too, so the page keeps saying what earned
+        the hold."""
+        prev = pic.meta
+        same = (mode == "single" and species_key is not None
+                and prev.get("mode") == "single" and prev.get("species_key") == species_key)
+        carried = same and prev.get("held_since") and prev.get("novelty") in _NOVEL
+        if novelty in _NOVEL:
+            held_since = prev["held_since"] if carried else now.isoformat(timespec="seconds")
+        elif carried:
+            novelty, held_since = prev["novelty"], prev["held_since"]
+        else:
+            held_since = None
+        return {
+            "etag": etag, "mode": mode, "label": label,
+            "species_key": species_key, "rendered_at": now.isoformat(timespec="seconds"),
+            "novelty": novelty, "held_since": held_since,
+            "quiet_note": note is not None,   # what the glass says, for the tick's flip
+            "note_kind": self._note_kind() if note is not None else None,
+            "collage_at": now.isoformat(timespec="seconds") if mode == "collage"
+            else prev.get("collage_at"),
+            **(extra or {}),
+        }
+
     def _commit(self, result: RenderResult, now: datetime, mode: str,
                 species_key: Optional[str], label: str,
                 note: Optional[str] = None, novelty: Optional[str] = None,
-                extra: Optional[dict] = None, recompose=None) -> None:
-        """`extra`: mode-specific keys carried in the meta row (the welcome
-        plate's `source_ok`), persisted with the rest. `recompose`: draws this
-        same sheet again with the art in colour, for a gray frame's colour
-        viewers; kept so the first one to ask need not repaint the wall."""
+                extra: Optional[dict] = None, recompose=None,
+                key: Optional[str] = None) -> None:
+        """A finished render becomes the picture its `mode` names, AND the
+        framebuffer the primary kit is served. `extra`: mode-specific keys
+        carried in the meta (the welcome plate's `source_ok`). `recompose`:
+        draws this same sheet again with the art in colour, for a gray frame's
+        colour screens; kept so the first one to ask need not repaint the wall."""
+        kind = pictures_mod.kind_of_mode(mode)
         # Before the lock: composing takes seconds and the frame is polling.
         if result.color_sheet is None and recompose is not None and self._color_wanted(now):
             result.color_sheet = self._compose_color(recompose)
         with self._lock:
-            self._recompose_color = recompose
-            prev = self._meta
-            # The dwell clock (held_since) starts when a novel bird takes the
-            # frame and carries across its own re-renders: a first-today robin
-            # calling again at 8:05 is classed a repeat, but it must not lose
-            # the hold it earned at 8:00 — nor restart it. Its label carries
-            # too, so the page keeps saying what earned the hold.
-            same = (mode == "single" and species_key is not None
-                    and prev.get("mode") == "single" and prev.get("species_key") == species_key)
-            carried = same and prev.get("held_since") and prev.get("novelty") in _NOVEL
-            if novelty in _NOVEL:
-                held_since = prev["held_since"] if carried else now.isoformat(timespec="seconds")
-            elif carried:
-                novelty, held_since = prev["novelty"], prev["held_since"]
-            else:
-                held_since = None
-            self._frame_bytes = result.frame
-            self._etag = result.etag
-            self._meta = {
-                "etag": result.etag, "mode": mode, "label": label,
-                "species_key": species_key, "rendered_at": now.isoformat(timespec="seconds"),
-                "novelty": novelty, "held_since": held_since,
-                "quiet_note": note is not None,   # what the glass says, for tick()'s flip
-                "note_kind": self._note_kind() if note is not None else None,
-                "collage_at": now.isoformat(timespec="seconds") if mode == "collage"
-                else self._meta.get("collage_at"),
-                **(extra or {}),
-            }
+            pic = self.pictures[kind]
+            meta = self._picture_meta(pic, now, result.etag, mode, species_key, label,
+                                      note, novelty, extra)
+            if self._shown != kind:
+                # The glass has changed picture: the one it left keeps its
+                # sheet (a screen may still show it) but not a framebuffer.
+                self.pictures[self._shown].frame = None
+                self._shown = kind
+            pic.commit(meta, result.etag, now, key=key, sheet=result.sheet,
+                       color_sheet=result.color_sheet, frame=result.frame,
+                       recompose=recompose)
+            self._recolor.discard(kind)
             frames = paths.frames_dir()
             # Write-then-rename: a power cut mid-write must leave the previous
             # complete frame on disk, never a torn one.
@@ -1870,34 +2065,29 @@ class FeatherframeService:
             tmp.write_bytes(result.frame)
             os.replace(tmp, frames / _CURRENT_FFF)
             result.preview.save(frames / _CURRENT_PNG)
-            self._save_sheet(result)
-            self.db.set("current_frame", self._meta)
+            self.pictures.save()
         self.db.log_render(now.isoformat(timespec="seconds"), mode, label, result.etag)
         self._save_history_thumb(result)
 
-    @staticmethod
-    def _save_sheet(result: RenderResult) -> None:
-        """Keep the composed sheet (and its colour twin, when there is one)
-        beside the frame: every viewer's render is drawn from them.
-        Best-effort, like the thumbnail: without it a view is drawn from the
-        preview PNG instead. Never leaves the last frame's sheet behind."""
-        frames = paths.frames_dir()
-        for name, sheet in ((_CURRENT_SHEET, result.sheet),
-                            (_CURRENT_SHEET_COLOR, result.color_sheet)):
-            FeatherframeService._write_sheet(frames / name, sheet)
-
-    @staticmethod
-    def _write_sheet(target, sheet: Optional[Image.Image]) -> None:
-        try:
-            if sheet is None:
-                target.unlink(missing_ok=True)
-                return
-            tmp = target.with_suffix(".tmp")
-            sheet.save(tmp, format="PNG", compress_level=1)
-            os.replace(tmp, target)
-        except Exception:  # noqa: BLE001
-            log.warning("%s not saved", target.name, exc_info=True)
-            target.unlink(missing_ok=True)
+    def _commit_sheet(self, kind: str, now: datetime, sheet: Image.Image, mode: str,
+                      species_key: Optional[str], label: str, key: Optional[str] = None,
+                      note: Optional[str] = None, novelty: Optional[str] = None,
+                      recolor=None) -> str:
+        """A picture no kit shows: the composed sheet is all any screen showing
+        it needs, so nothing is fitted, matted, dithered or packed. Never for
+        the picture on the glass — that one owes the wall a framebuffer."""
+        twin = self._compose_color(recolor) if (recolor and self._color_wanted(now)) else None
+        etag = pictures_mod.etag_for(sheet)
+        with self._lock:
+            pic = self.pictures[kind]
+            meta = self._picture_meta(pic, now, etag, mode, species_key, label,
+                                      note, novelty, None)
+            pic.frame = None
+            pic.commit(meta, etag, now, key=key, sheet=sheet, color_sheet=twin,
+                       recompose=recolor)
+            self._recolor.discard(kind)
+            self.pictures.save()
+        return etag
 
     # -- viewers (W-822) ---------------------------------------------------
     def viewer_rows(self) -> list[dict]:
@@ -1952,151 +2142,51 @@ class FeatherframeService:
             self._color_asked_at = now
             self.db.set("color_viewer_at", now.isoformat(timespec="seconds"))
 
-    # -- the side picture (W-831) ------------------------------------------
-    # The frame shows plates or the collage; a viewer may show the other. That
-    # other picture is a composed sheet kept beside the frame's: never an FFF,
-    # never the frame's state, and drawn only while some viewer shows it.
-    def resident_kind(self) -> Optional[str]:
-        mode = self._meta.get("mode")
-        return {"single": "plates", "collage": "collage"}.get(mode)   # welcome: everyone sees it
-
-    def side_kind_for(self, shows: Optional[str]) -> Optional[str]:
-        """The side picture a viewer set to `shows` gets, or None for the
-        frame's. When the frame itself is showing that kind — a frame on plates
-        holding the nightly collage — the viewer shows the frame's: there is
-        one collage, the same on every screen."""
-        if shows not in _SIDE_KINDS or self.resident_kind() in (None, shows):
-            return None
-        return shows if (self._side.get(shows) or {}).get("etag") else None
-
-    def picture_etag(self, shows: Optional[str] = None) -> Optional[str]:
-        side = self.side_kind_for(shows)
-        return self._side[side]["etag"] if side else self.current_etag()
-
-    def _side_kinds_wanted(self, now: datetime) -> set:
-        since = (now - timedelta(days=SIDE_VIEWER_DAYS)).isoformat(timespec="seconds")
-        viewers = {(r.get("set") or {}).get("shows") for r in self.viewers.all().values()
-                   if (r.get("last_seen") or "") >= since}
-        kits = {self.added_shows(r) for r in self._added_rows()}   # a kit is a screen too
-        return (viewers | kits) & set(_SIDE_KINDS)
-
-    def _tick_sides(self) -> None:
-        now = self._clock()
-        wanted = self._side_kinds_wanted(now)
-        for kind in set(self._side) - wanted:     # nobody shows it: stop paying for it
-            self._drop_side(kind)
-        # The frame's own mode is the frame's picture, never a side one.
-        wanted.discard({"single": "plates", "collage": "collage"}.get(self.config.mode))
-        if not wanted or self.config.in_quiet_hours(now.time()) or not self.source.available():
-            return   # the pictures hold still at night, as the frame's does
-        if "collage" in wanted:
-            self._side_collage(now)
-        if "plates" in wanted:
-            self._side_plate(now)
-
-    def _side_collage(self, now: datetime) -> None:
-        have = self._side.get("collage") or {}
-        try:
-            age = (now - datetime.fromisoformat(have["at"])).total_seconds()
-        except (KeyError, ValueError, TypeError):
-            age = None
-        today = now.date().isoformat()
-        fresh = (age is not None and age < self.config.collage_interval_hours * 3600
-                 and have.get("key") == today)
-        if fresh and "collage" not in self._side_stale:
-            return
-        composed = self._collage_composer(now, now.date())   # the free grid, as the frame's by day
-        if composed is None:
-            return   # under two species: the viewer keeps the plate, as a collage frame would
-        compose = composed[0]
-        self._save_side("collage", now, today, lambda color: compose(color)[0])
-
-    def _side_plate(self, now: datetime) -> None:
-        if self.user_hold(now) is not None and self._side.get("plates"):
-            return   # a hold pins the plate, on every screen that shows plates
-        det = self._first_showable(self.source.latest_many(CONFIDENCE_FLOOR), now)
-        if det is None:
-            return
-        have = self._side.get("plates") or {}
-        if have.get("key") == f"{det.key}@{det.rowid}" and "plates" not in self._side_stale:
-            return
-        note = self._note_text()
-        spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
-                          when=det.timestamp if det.timestamp != datetime.min else now,
-                          first_seen=self._first_seen(det.scientific_name), note=note,
-                          note_kind=self._note_kind() if note else None,
-                          first_ever=self._novelty(det, now) == "first-ever")
-        self._save_side("plates", now, f"{det.key}@{det.rowid}",
-                        lambda color: compose_mod.render_single(spec, self.provider, color=color))
-
-    def _save_side(self, kind: str, now: datetime, key: str, compose) -> None:
-        sheet = compose(False)
-        twin = self._compose_color(lambda: compose(True)) if self._color_wanted(now) else None
-        frames = paths.frames_dir()
-        self._write_sheet(frames / _side_sheet(kind), sheet)
-        self._write_sheet(frames / _side_sheet(kind, color=True), twin)
-        etag = hashlib.sha256(sheet.tobytes()).hexdigest()[:16]
-        with self._lock:
-            self._side[kind] = {"etag": etag, "at": now.isoformat(timespec="seconds"), "key": key}
-            self._side_stale.discard(kind)
-            self.db.set("side_pictures", self._side)
-        log.info("drew the side %s (%s), etag=%s", kind, key, etag)
-
-    def _drop_side(self, kind: str) -> None:
-        with self._lock:
-            self._side.pop(kind, None)
-            self.db.set("side_pictures", self._side)
-        for color in (False, True):
-            (paths.frames_dir() / _side_sheet(kind, color)).unlink(missing_ok=True)
-
-    def _ensure_color_sheet(self) -> None:
-        """A colour viewer is asking. Remember it (once a day is enough), and
-        if the resident frame has no colour twin yet, draw one now: from the
-        render's own recompose when this process made the frame (the wall is
-        not touched), else by rendering the resident subject again."""
+    def _want_color(self, pic: "pictures_mod.Picture") -> None:
+        """A colour screen is asking for this picture. Remember it (once a day
+        is enough), and get it a colour twin: from the render's own recompose
+        when this process drew it (the wall is not touched), else by drawing
+        the subject again — or, for a picture no kit shows, by asking the next
+        tick for it."""
         if self.config.panel_spec.color:
             return
         self._note_color_viewer()
-        target = paths.frames_dir() / _CURRENT_SHEET_COLOR
-        if target.exists() or self._color_tried == self._etag:
-            return   # there, or this frame has no colour to give: never retry per tick
+        if pic.has_color() or self._color_tried.get(pic.kind) == pic.etag:
+            return   # there, or this picture has no colour to give: never retry per tick
+        self._color_tried[pic.kind] = pic.etag
+        if pic.kind != self._shown:
+            self._recolor.add(pic.kind)   # the next tick draws it in colour
+            return
         with self._view_lock:
-            if target.exists():
+            if pic.has_color():
                 return
-            self._color_tried = self._etag
             with self._lock:
-                recompose, etag = self._recompose_color, self._etag
-                mode = self._meta.get("mode")
+                recompose, etag = pic.recompose, pic.etag
+                mode = pic.meta.get("mode")
             if recompose is not None:
                 sheet = self._compose_color(recompose)
                 with self._lock:
-                    if sheet is not None and self._etag == etag:   # still that frame
-                        self._write_sheet(target, sheet)
+                    if sheet is not None and pic.etag == etag:   # still that picture
+                        pictures_mod.write_sheet(pic.color_sheet_path, sheet)
                 return
         if mode in ("single", "collage"):
             self.rerender_current()   # a restart forgot the recompose: one repaint
-            self._color_tried = self._etag
+            self._color_tried[self._shown] = self._etag
 
     def view_png(self, view: "pipeline.View", if_none_match: Optional[str] = None,
                  shows: Optional[str] = None) -> tuple[int, Optional[bytes], Optional[str]]:
-        """A picture for one viewer: (status, png, etag). The frame's, or the
-        side picture when the viewer `shows` the other kind. Read-only by
-        design: a viewer never moves the frame, the device card, the panel or
-        the ingest cursor. Rendered once per (picture, variant) and kept on
+        """One picture for one screen: (status, png, etag). Which picture is
+        `picture_for`'s decision and nothing else's. Read-only by design: a
+        screen fed this way never moves the frame, the device card, the panel
+        or the ingest cursor. Rendered once per (picture, variant) and kept on
         disk; a new picture drops the old one's views."""
-        side = self.side_kind_for(shows)
+        pic = self.picture_for(shows)
         if view.fmt == "color":
-            if side is None:
-                self._ensure_color_sheet()
-            else:
-                self._note_color_viewer()
-                if not (paths.frames_dir() / _side_sheet(side, color=True)).exists():
-                    self._side_stale.add(side)   # the next tick draws it in colour
+            self._want_color(pic)
         with self._lock:
-            resident = self._etag
-        if not resident:
+            picture = pic.etag
+        if not picture:
             return 404, None, None
-        picture = (self._side.get(side) or {}).get("etag") if side else resident
         etag = f"{picture}-{view.key}"
         if if_none_match == etag:
             return 304, None, etag
@@ -2107,14 +2197,12 @@ class FeatherframeService:
         with self._view_lock:   # one viewer render at a time (Pi Zero: memory)
             if cached.exists():
                 return 200, cached.read_bytes(), etag
-            frames = paths.frames_dir()
-            if side:
-                wanted = ((_side_sheet(side, True),) if view.fmt == "color" else ()) \
-                    + (_side_sheet(side),)
-            else:
-                wanted = ((_CURRENT_SHEET_COLOR,) if view.fmt == "color" else ()) \
-                    + (_CURRENT_SHEET, _CURRENT_PNG)
-            source = next((frames / n for n in wanted if (frames / n).exists()), None)
+            sources = pic.sheets(view.fmt == "color")
+            if pic.kind == self._shown:
+                # A frame from before the sheets were kept: until the next
+                # render, the preview it already has is the picture.
+                sources.append(paths.frames_dir() / _CURRENT_PNG)
+            source = next((p for p in sources if p.exists()), None)
             if source is None:
                 return 404, None, None
             with Image.open(source) as sheet:
@@ -2124,8 +2212,7 @@ class FeatherframeService:
                 tmp = cached.with_suffix(".tmp")
                 tmp.write_bytes(png)
                 os.replace(tmp, cached)
-                live = tuple(f"{e}-" for e in
-                             [resident] + [v.get("etag") for v in self._side.values()] if e)
+                live = tuple(f"{p.etag}-" for p in self.pictures.values() if p.etag)
                 keep = sorted((f for f in views.glob("*.png") if f.name.startswith(live)),
                               key=lambda f: f.stat().st_mtime, reverse=True)[:_VIEWS_MAX]
                 for stale in set(views.glob("*.png")) - set(keep):
@@ -2153,22 +2240,29 @@ class FeatherframeService:
             log.warning("history thumbnail for %s not saved", result.etag, exc_info=True)
 
     def _load_current_from_disk(self) -> None:
+        """The picture on the glass keeps its framebuffer across a restart, so
+        the device is never blanked."""
+        pic = self.pictures[self._shown]
+        if not pic.etag:
+            return
         fff = paths.frames_dir() / _CURRENT_FFF
-        if fff.exists() and self._meta.get("etag"):
-            data = fff.read_bytes()
-            if not framebuffer.is_complete(data):
-                # Torn or foreign file: serving it would hand the device a
-                # container it rejects on every wake. Leave _frame_bytes None
-                # so _ensure_initial_frame renders a fresh one.
+        data = fff.read_bytes() if fff.exists() else b""
+        if not framebuffer.is_complete(data):
+            # Torn, foreign or missing: serving it would hand the device a
+            # container it rejects on every wake. The picture keeps its sheet
+            # (a screen may still be drawn from it) but has nothing to serve,
+            # so _ensure_initial_frame renders a fresh frame.
+            if data:
                 log.warning("%s is not a complete frame (%d bytes); re-rendering",
                             fff.name, len(data))
-                return
-            self._frame_bytes = data
-            # The ETag is a content hash; derive it from the bytes actually on
-            # disk rather than trusting the meta row (a crash between the two
-            # writes in _commit would otherwise serve a tag for other pixels).
-            self._etag = framebuffer.etag_for(self._frame_bytes)
-            self._meta["etag"] = self._etag
+            pic.etag = None
+            return
+        pic.frame = data
+        # The ETag is a content hash; derive it from the bytes actually on
+        # disk rather than trusting the meta row (a crash between the two
+        # writes in _commit would otherwise serve a tag for other pixels).
+        pic.etag = framebuffer.etag_for(data)
+        pic.meta["etag"] = pic.etag
 
     def _ensure_initial_frame(self) -> None:
         if self._frame_bytes is not None:
@@ -2228,10 +2322,11 @@ class FeatherframeService:
         self.db.set("ingest_cursor", int(rowid))
 
     def _showing_single(self, det: Detection) -> bool:
-        """True if the resident frame is already a single plate of this species."""
-        return (self._frame_bytes is not None
-                and self._meta.get("mode") == "single"
-                and self._meta.get("species_key") == det.key)
+        """True if the plates picture is already a plate of this species."""
+        pic = self.pictures[PLATES]
+        return (pic.etag is not None
+                and pic.meta.get("mode") == "single"
+                and pic.meta.get("species_key") == det.key)
 
     def _first_seen(self, scientific_name: str) -> Optional[str]:
         """first_seen_date, asked of the source once per species per tick."""
@@ -2376,7 +2471,7 @@ class FeatherframeService:
         return True
 
     def _holding(self, meta: dict, now: datetime) -> Optional[dict]:
-        """The dwell hold on the resident frame, or None: a single plate of a
+        """The dwell hold on a plates picture's meta, or None: a plate of a
         novel species, held since less than DWELL_MINUTES ago."""
         dwell = DWELL_MINUTES
         if meta.get("mode") != "single" or meta.get("novelty") not in _NOVEL:

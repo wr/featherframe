@@ -80,7 +80,7 @@ def test_the_colour_kit_gets_the_collage_for_its_own_panel(client):
     assert r.status_code == 200 and r.headers["x-ff-rotation"] == "0"
     assert sorted(_fff_size(r.content)) == [1200, 1600]
     assert sorted(_fff_size(svc._frame_bytes)) == [1404, 1872]
-    assert svc._meta["mode"] == "single" and svc._side["collage"]["etag"]
+    assert svc._meta["mode"] == "single" and svc.pictures["collage"].etag
     card = svc.frames_view()["added"][0]
     assert card["shows"] == "collage" and card["battery_percent"] == 71 and card["fw_version"] == "1.9.0"
     # It 304s on its own ETag, and the device card is still the wall's.
@@ -108,12 +108,13 @@ def test_its_settings_are_its_own(client):
     assert svc.frames_view()["added"][0]["rotation"] in (0, 180)
     # The household's config never moved.
     assert svc.config.panel == "ee03" and svc.config.mode == "single"
-    assert "side_pictures" and "collage" not in svc._side       # nobody shows it any more
+    assert svc.pictures["collage"].etag is None      # nobody shows it any more
 
 
 def test_nothing_is_redrawn_until_its_picture_changes(client):
     svc = client.app.state.service
     _add(client)
+    svc.tick()                 # a colour kit's first tick also asks for the colour twin
     drawn = dict(svc._added)
     svc.tick(); svc.tick()
     assert svc._added == drawn
@@ -126,7 +127,8 @@ def test_forgetting_it_takes_its_files_and_its_picture_with_it(client, tmp_path)
     assert len(list(added.glob("*.fff"))) == 1
     client.post("/api/frames", data={"id": EE02["X-Device-Id"], "action": "forget"})
     svc.tick()
-    assert list(added.glob("*")) == [] and svc._added == {} and svc._side == {}
+    assert list(added.glob("*")) == [] and svc._added == {}
+    assert svc.pictures["collage"].etag is None
     assert client.get("/api/frame", headers=EE02).status_code == 403     # it asks again
 
 

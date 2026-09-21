@@ -50,8 +50,8 @@ def frames_dir() -> Path:
 
 
 def views_dir() -> Path:
-    """Viewer renders of the resident frame (W-823), a handful, dropped when
-    the frame changes."""
+    """Renders of a picture for one screen (W-823), a handful, dropped when
+    the picture changes."""
     d = frames_dir() / "views"
     d.mkdir(parents=True, exist_ok=True)
     return d

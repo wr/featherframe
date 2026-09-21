@@ -191,7 +191,7 @@ def test_full_backlog_page_shows_the_newest_bird_not_the_oldest_chunk(svc, monke
 
     rendered = []
     monkeypatch.setattr(svc, "_render_single",
-                        lambda det, now, reason: rendered.append(det.common_name))
+                        lambda det, now, reason, **kw: rendered.append(det.common_name))
     svc._single_tick(datetime(2026, 9, 1, 8, 0, 0))
 
     assert rendered == ["Newest Bird"]
@@ -210,9 +210,9 @@ def test_collage_fallback_does_not_rerender_every_tick(svc, tmp_path, monkeypatc
     calls = []
     real = svc._render_single
 
-    def counting(det, now, reason):
+    def counting(det, now, reason, **kw):
         calls.append(reason)
-        real(det, now, reason)
+        real(det, now, reason, **kw)
     monkeypatch.setattr(svc, "_render_single", counting)
 
     now = datetime.now()
@@ -363,7 +363,7 @@ def test_backlog_keeps_cursor_when_latest_many_blips(svc, monkeypatch):
 
     rendered = []
     monkeypatch.setattr(svc, "_render_single",
-                        lambda det, now, reason: rendered.append(det.common_name))
+                        lambda det, now, reason, **kw: rendered.append(det.common_name))
     svc._single_tick(datetime(2026, 9, 1, 8, 0, 0))
 
     assert rendered == ["Old Bird"]          # something, not nothing

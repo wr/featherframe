@@ -67,7 +67,7 @@ def test_stale_cursor_resets_and_renders_latest(svc, monkeypatch):
 
     rendered = []
     monkeypatch.setattr(svc, "_render_single",
-                        lambda det, now, reason: rendered.append((det.common_name, reason)))
+                        lambda det, now, reason, **kw: rendered.append((det.common_name, reason)))
 
     svc._single_tick(datetime(2026, 9, 1, 17, 53, 0))
 
@@ -82,7 +82,7 @@ def test_healthy_cursor_with_no_new_detections_does_nothing(svc, monkeypatch):
 
     rendered = []
     monkeypatch.setattr(svc, "_render_single",
-                        lambda det, now, reason: rendered.append(reason))
+                        lambda det, now, reason, **kw: rendered.append(reason))
 
     svc._single_tick(datetime(2026, 9, 1, 17, 53, 0))
 
@@ -99,7 +99,7 @@ def test_source_blip_zero_rowid_is_not_treated_as_stale(svc, monkeypatch):
 
     rendered = []
     monkeypatch.setattr(svc, "_render_single",
-                        lambda det, now, reason: rendered.append(reason))
+                        lambda det, now, reason, **kw: rendered.append(reason))
 
     svc._single_tick(datetime(2026, 9, 1, 17, 53, 0))
 
@@ -135,7 +135,7 @@ def test_source_switch_starts_from_a_clean_slate(svc, monkeypatch):
     svc._set_pending({"key": "y y", "common": "Y"})
     rendered = []
     monkeypatch.setattr(svc, "_render_single",
-                        lambda det, now, reason: rendered.append((det.common_name, reason)))
+                        lambda det, now, reason, **kw: rendered.append((det.common_name, reason)))
 
     latest = _det(455716, "Black-capped Chickadee", "Poecile atricapillus")
     _switch_source(svc, monkeypatch, _StubSource(max_rowid=455716, latest=[latest]))

@@ -1,7 +1,8 @@
-"""Two pictures (W-831): the frame shows plates or the collage, and a viewer
-may show the other. Wells's rules (W-830): a hold affects plates only and the
-blocklist is global; there is one collage, the same on every screen; and a
-picture no screen shows is never drawn. The wall must not notice any of it."""
+"""Two pictures (W-831, rebuilt on `pictures.py` in W-833): every frame shows
+plates or the collage, and they are the same kind of thing. Wells's rules
+(W-830): a hold affects plates only and the blocklist is global; there is one
+collage, the same on every screen; and a picture no frame shows is never drawn.
+The wall must not notice any of it."""
 from __future__ import annotations
 
 import io
@@ -51,15 +52,20 @@ def _png(client, state) -> np.ndarray:
     return np.asarray(Image.open(io.BytesIO(client.get(state["image"]).content)).convert("L"))
 
 
-def _side_files(tmp_path):
-    return sorted(f.name for f in (tmp_path / "data" / "frames").glob("side_*"))
+def _drawn(svc) -> list:
+    """Which pictures this server is paying to draw, in order."""
+    return [kind for kind in ("plates", "collage") if svc.pictures[kind].etag]
 
 
-def test_a_viewer_follows_the_frame_until_it_is_told_otherwise(client, tmp_path):
+def _sheets(svc, kind) -> list:
+    return sorted(f.name for f in svc.pictures[kind].dir.glob("*.png"))
+
+
+def test_a_viewer_follows_the_frame_until_it_is_told_otherwise(client):
     svc = client.app.state.service
     assert svc.current_etag() in client.get(IPAD).json()["image"]
     svc.tick()
-    assert _side_files(tmp_path) == []          # nobody shows the collage: none is drawn
+    assert _drawn(svc) == ["plates"]             # nobody shows the collage: none is drawn
 
 
 def test_an_ipad_on_the_collage_beside_a_frame_on_plates(client, tmp_path):
@@ -68,24 +74,24 @@ def test_an_ipad_on_the_collage_beside_a_frame_on_plates(client, tmp_path):
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
     wall = (svc._etag, svc._frame_bytes, dict(svc._meta))
     svc.tick()
-    assert "side_collage_sheet.png" in _side_files(tmp_path)
+    assert _sheets(svc, "collage") == ["sheet.png"]
     state = client.get(IPAD).json()
-    assert svc._side["collage"]["etag"] in state["image"] and svc._etag not in state["image"]
+    assert svc.pictures["collage"].etag in state["image"] and svc._etag not in state["image"]
     plate = client.get("/api/view.png?w=600&h=800&format=color").content
     assert not np.array_equal(_png(client, state),
                               np.asarray(Image.open(io.BytesIO(plate)).convert("L")))
     # The wall never noticed.
     assert (svc._etag, svc._frame_bytes, dict(svc._meta)) == wall
     # A new plate on the wall is not news to a screen on the collage: its
-    # picture is named for the collage, which is redrawn on its own interval.
-    drawn = svc._side["collage"]["at"]
+    # picture is the collage, which is redrawn on its own interval.
+    drawn = svc.pictures["collage"].at
     svc.source.db_path = _heard(tmp_path / "later.db", SPECIES[:3] + [("Tufted Titmouse", "Baeolophus bicolor")])
     svc._clock = lambda: NOW + timedelta(minutes=1)
     client.get("/api/view/state?viewer=PAGE-GRAY&w=600&h=800")   # (keeps the colour ask out of it)
-    svc._side_stale.clear()
+    svc._recolor.clear()
     svc.tick()
-    assert svc._side["collage"]["at"] == drawn
-    assert svc._side["collage"]["etag"] in client.get(IPAD).json()["image"]
+    assert svc.pictures["collage"].at == drawn
+    assert svc.pictures["collage"].etag in client.get(IPAD).json()["image"]
 
 
 def test_the_collage_is_redrawn_on_its_interval_not_every_tick(client):
@@ -93,14 +99,14 @@ def test_the_collage_is_redrawn_on_its_interval_not_every_tick(client):
     client.get(IPAD)
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
     svc.tick()
-    drawn = svc._side["collage"]["at"]
+    drawn = svc.pictures["collage"].at
     svc._clock = lambda: NOW + timedelta(minutes=30)
     svc.tick()
-    assert svc._side["collage"]["at"] == drawn
+    assert svc.pictures["collage"].at == drawn
     svc._clock = lambda: NOW + timedelta(hours=svc.config.collage_interval_hours, minutes=1)
     client.get(IPAD)
     svc.tick()
-    assert svc._side["collage"]["at"] != drawn
+    assert svc.pictures["collage"].at != drawn
 
 
 def test_a_trmnl_on_plates_beside_a_frame_on_the_collage(client, tmp_path):
@@ -114,7 +120,7 @@ def test_a_trmnl_on_plates_beside_a_frame_on_the_collage(client, tmp_path):
     wall = svc._etag
     svc.tick()
     body = client.get("/api/display", headers=trmnl).json()
-    assert body["filename"].startswith(svc._side["plates"]["etag"]) and svc._etag == wall
+    assert body["filename"].startswith(svc.pictures["plates"].etag) and svc._etag == wall
     assert client.get(body["image_url"].split("http://testserver")[1]).status_code == 200
     # A hold pins the plate on every screen that shows plates (decision 1)...
     svc.user_hold = lambda now=None: {"until": "later"}
@@ -125,16 +131,33 @@ def test_a_trmnl_on_plates_beside_a_frame_on_the_collage(client, tmp_path):
     assert client.get("/api/display", headers=trmnl).json()["filename"] == body["filename"]
 
 
+def test_a_hold_pins_the_plate_while_the_collage_keeps_being_drawn(client):
+    """Decision 1, the other way round: the wall is held on its plate, a tablet
+    is on the collage, and the collage is still redrawn on its interval."""
+    svc = client.app.state.service
+    svc.config.collage_interval_hours = 1    # (a jump short of the gone-quiet alarm)
+    client.get(IPAD)
+    client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
+    svc.tick()
+    wall, first = svc._etag, svc.pictures["collage"].at
+    svc.user_hold = lambda now=None: {"until": "later"}
+    svc._clock = lambda: NOW + timedelta(hours=1, minutes=1)
+    svc.tick()
+    assert svc._etag == wall                               # the plate is pinned
+    assert svc.pictures["collage"].at != first             # the collage is not
+
+
 def test_there_is_one_collage_the_same_on_every_screen(client):
-    """Decision 2: a frame on plates holding the nightly collage and a viewer
-    on the collage show the identical sheet."""
+    """Decision 2: at night every frame on plates shows the collage picture —
+    the same sheet, drawn once, that the frames on the collage show."""
     svc = client.app.state.service
     client.get(IPAD)
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage", "dark_quiet": False})
     svc.tick()
-    assert svc._side["collage"]["etag"] in client.get(IPAD).json()["image"]
-    svc._build_collage(NOW, NOW.date(), generated_ok=True)      # nightfall: the frame takes the collage
+    assert svc.pictures["collage"].etag in client.get(IPAD).json()["image"]
+    svc._build_collage(NOW, NOW.date(), generated_ok=True)      # nightfall: the wall takes it
     assert svc._meta["mode"] == "collage"
+    assert svc._etag == svc.pictures["collage"].etag
     assert svc._etag in client.get(IPAD).json()["image"]
 
 
@@ -149,15 +172,15 @@ def test_the_blocklist_is_global(client, tmp_path):
     assert svc._first_showable(svc.source.latest_many(0.0), NOW).common_name == "Northern Cardinal"
 
 
-def test_a_picture_nobody_shows_any_more_is_dropped(client, tmp_path):
+def test_a_picture_nobody_shows_any_more_is_dropped(client):
     svc = client.app.state.service
     client.get(IPAD)
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
     svc.tick()
-    assert _side_files(tmp_path)
+    assert _drawn(svc) == ["plates", "collage"]
     client.post("/api/viewers/PAGE-IPAD", json={"shows": ""})
     svc.tick()
-    assert _side_files(tmp_path) == [] and svc._side == {}
+    assert _drawn(svc) == ["plates"] and _sheets(svc, "collage") == []
 
 
 def test_the_card_offers_shows(client):

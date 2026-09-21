@@ -89,7 +89,7 @@ class _GateSource:
 def _capture_renders(svc, monkeypatch):
     rendered = []
     monkeypatch.setattr(svc, "_render_single",
-                        lambda det, now, reason: rendered.append((det.common_name, det.confidence)))
+                        lambda det, now, reason, **kw: rendered.append((det.common_name, det.confidence)))
     return rendered
 
 

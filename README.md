@@ -27,7 +27,7 @@
 
 BirdNET is a free local AI model that identifies bird calls in your backyard. Featherframe is an eink display that pulls live bird detection data from BirdNET and shows it as a beautiful [Audubon lithograph print](https://www.audubon.org/art/birds-of-america)... in color or grayscale.
 
-Featherframe also has a custom `gpt-image` prompt that can automatically generate high-quality (read: not AI slop) lithograph plates *in the Audubon style* for birds not found in the original 435 prints from the 1800's. It can also generate a "day in review" that shows all of the creatures your BirdNET setup detected that day.
+Featherframe also has a custom `gpt-image` prompt that can automatically generate high-quality (read: not AI slop) lithograph plates *in the Audubon style* for birds not found in the original 435 prints from the 1800's. It can also combine a collage into one generated plate that shows all of the creatures your BirdNET setup detected that day.
 
 <center><img width="600" alt="IMG_1899" src="https://github.com/user-attachments/assets/95d46050-47f6-4af5-8e1a-6dfe1475b7b2" /></center>
 
@@ -176,7 +176,7 @@ The page at `http://<your-pi>:8080/` is the whole UI:
 - **Live preview** of the current frame, plus a **Test detection** button that
   injects a fake Cardinal so you can exercise everything with no birds.
 - **Mode** — *single* (latest detection) or *collage* (the day's top species),
-  plus an optional overnight "day in review" sheet.
+  plus an optional overnight collage.
 - **Quiet hours** (22:00–06:00, or sunset to sunrise). The confidence
   threshold is your detector's own: set it in BirdNET-Go, not here.
 - **Power** — *always awake* (Wi-Fi up, asks for a new plate every few seconds,

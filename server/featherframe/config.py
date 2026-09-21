@@ -98,7 +98,7 @@ class Config:
     quiet_hours_mode: str = "custom"
     quiet_hours_start: str = "22:00"
     quiet_hours_end: str = "06:00"
-    # If true, render a "day in review" collage once at quiet-hours start,
+    # If true, render the day's collage once at quiet-hours start,
     # then hold it overnight. If false, just hold whatever was showing.
     quiet_hours_render_collage: bool = False
 
@@ -169,12 +169,12 @@ class Config:
     imagegen_text_provider: str = ""
     imagegen_text_key: str = ""                # key for the text provider when it differs
     imagegen_text_base_url: str = "http://localhost:11434"  # "local" text provider base URL
-    # The nightly "day in review" as one generated composite plate (the
+    # The nightly collage as one generated composite plate (the
     # folio's totem manner). Once per date; the grid collage is the fallback.
     collage_generated: bool = True
     # How many of the day's species the generated sheet carries, most-heard
     # first. 0 = every species heard that day. The grid fallback always holds six.
-    review_species_max: int = 10
+    collage_species_max: int = 10
 
     def __post_init__(self) -> None:
         self.sanitize()
@@ -182,7 +182,7 @@ class Config:
     # -- validation --------------------------------------------------------
     def sanitize(self) -> "Config":
         # "auto" was single-by-day + overnight review; it's now plain Single
-        # mode. The overnight "day in review" is an opt-in toggle (default off).
+        # mode. The overnight collage is an opt-in toggle (default off).
         if self.mode == "auto":
             self.mode = "single"
         if self.mode not in ("single", "collage"):
@@ -206,7 +206,7 @@ class Config:
         self.birdweather_station_id = bw
         self.apprise_token = str(self.apprise_token or "").strip()
         self.collage_interval_hours = int(_clamp(_finite(self.collage_interval_hours, 8), 1, 24))
-        self.review_species_max = int(_clamp(self.review_species_max, 0, 60))
+        self.collage_species_max = int(_clamp(self.collage_species_max, 0, 60))
         # The panel's native canvas is landscape and the firmware rejects a
         # portrait frame (pushImage would clip it into garbage), so only the
         # two landscape orientations are valid. Old 0/180 values migrate to
@@ -338,6 +338,9 @@ class Config:
         if "collage_interval_hours" not in data and "collage_rebuilds_per_day" in data:
             rebuilds = _clamp(_finite(data["collage_rebuilds_per_day"], 3), 1, 24)
             data = {**data, "collage_interval_hours": round(24 / rebuilds)}
+        # The "day in review" is a collage like any other (one name for it).
+        if "collage_species_max" not in data and "review_species_max" in data:
+            data = {**data, "collage_species_max": data["review_species_max"]}
         fields = {f.name for f in dataclasses.fields(cls)}
         known = {k: v for k, v in data.items() if k in fields}
         return cls(**known)

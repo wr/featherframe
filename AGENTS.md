@@ -93,8 +93,8 @@ packed framebuffer + ETag → firmware GET /api/frame (If-None-Match) → panel`
 **`service.py` is the hub.** `FeatherframeService` holds the *single current
 frame* (bytes + ETag), persisted to `data/frames/current.fff` so a restart never
 blanks the device. A background thread runs `tick()` on the poll interval;
-`tick()` is the whole decision tree — quiet hours (+ optional day-in-review
-sheet), mode (single/collage; "auto" was removed and migrates to single; a
+`tick()` is the whole decision tree — quiet hours (+ optional nightly
+collage), mode (single/collage; "auto" was removed and migrates to single; a
 collage is redrawn every `collage_interval_hours`), blocklist, new-species
 corroboration and the dwell hold — and renders *at most one* frame per
 decision. Every web handler just reads the current frame. The default
@@ -235,7 +235,9 @@ bundled script at `/fonts/script.ttf`, the favicon is its F
 limb and wren above it come from `boot_art.py`, three draws through the
 same `OpenAIImageModel` + Havell-plate references as the AI plates, laid out as
 a plate and cut so the setting stays pixel-identical across the four boot
-screens), and the
+screens; the draws are colour, so every cut has a `_color` twin for a colour
+panel's screens, and the setting with no bird on it is the server's
+fallback-plate art, `featherframe/art/bough.png` + `bough_color.png`), and the
 captive portal embeds a WOFF subset generated into the committed
 `firmware/src/ff_portal_font.h` by `firmware/tools/portal_font.py` — run the
 favicon, bake, and portal tools after any change to the script face or its
@@ -277,7 +279,9 @@ refetches the plate with the pill armed and the corner mark becomes the full
 error screen. Boot is one baked "Connecting" screen (every boot stage maps to
 `FF_SCR_BOOT_WIFI`, painted while Wi-Fi joins underneath) that gives way to a
 specific error screen only on failure; no loading sweep. Baked screens and
-tiles live in `ff_screens_ee02.h`, from the same bake, and a 180 s floor sits
+tiles live in `ff_screens_ee02.h`, from the same bake (the screens are the
+colour art under black/white type, dithered as the server dithers a plate:
+`bake_screens.on_color_art`; the stamp tiles stay black/white ink), and a 180 s floor sits
 between resident repaints. One server serves one frame, and it knows its frames apart
 (`service.admit_frame`): each frame names itself with `X-Device-Id` (its MAC),
 the first to check in becomes the active frame, and any other gets a 403 and

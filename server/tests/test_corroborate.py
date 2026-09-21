@@ -287,7 +287,7 @@ def _rows(n):
 
 
 def test_review_paints_up_to_the_cap(svc, monkeypatch):
-    svc.config.review_species_max = 10
+    svc.config.collage_species_max = 10
     svc.source = _GateSource([], today=_rows(26))
     painted = _painted_cells(svc, monkeypatch)
     grid = _collage_cells(svc, monkeypatch)
@@ -298,7 +298,7 @@ def test_review_paints_up_to_the_cap(svc, monkeypatch):
 
 
 def test_review_zero_means_every_species(svc, monkeypatch):
-    svc.config.review_species_max = 0
+    svc.config.collage_species_max = 0
     svc.source = _GateSource([], today=_rows(26))
     painted = _painted_cells(svc, monkeypatch)
     _collage_cells(svc, monkeypatch)
@@ -306,10 +306,10 @@ def test_review_zero_means_every_species(svc, monkeypatch):
     assert len(painted[0]) == 26
 
 
-# -- the day-review buttons -------------------------------------------------
-def test_day_review_button_reuses_and_repaint_buys(svc, client, monkeypatch):
+# -- the collage buttons ----------------------------------------------------
+def test_collage_button_reuses_and_repaint_buys(svc, client, monkeypatch):
     calls = []
-    monkeypatch.setattr(svc, "start_day_review", lambda repaint=False: calls.append(repaint) or True)
-    assert client.post("/api/collage/day-review", data={}).status_code == 200
-    assert client.post("/api/collage/day-review", data={"repaint": "1"}).status_code == 200
+    monkeypatch.setattr(svc, "start_collage", lambda repaint=False: calls.append(repaint) or True)
+    assert client.post("/api/collage/now", data={}).status_code == 200
+    assert client.post("/api/collage/now", data={"repaint": "1"}).status_code == 200
     assert calls == [False, True]

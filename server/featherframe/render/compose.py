@@ -178,8 +178,8 @@ def _render_art(spec: SingleSpec, art: Artwork, color: bool = False) -> Image.Im
         if _cover_loss(img.crop(tbox), art_box) <= COVER_MAX_LOSS:
             img, cover = img.crop(tbox), True
             twin = twin.crop(tbox) if twin is not None else None
-    # The colour twin lands on the colour layer; gray art (the bough, or any
-    # art on a gray panel) on the field.
+    # The colour twin lands on the colour layer; gray art (any art on a gray
+    # panel) on the field.
     target, placed = (layer, twin) if twin is not None else (field, img)
     if cover:
         _place_cover(target, placed, art_box, v_bias=0.5 if img.width > img.height else 0.0)
@@ -210,6 +210,13 @@ def bough() -> Image.Image:
     return Image.open(paths.art_dir() / "bough.png").convert("L")
 
 
+@lru_cache(maxsize=1)
+def _bough_pair() -> tuple:
+    """The bough for a colour panel: (gray, colour), the same cut of the same
+    draw (boot_art.py writes both)."""
+    return bough(), Image.open(paths.art_dir() / "bough_color.png").convert("RGB")
+
+
 def render_fallback(spec: SingleSpec, color: bool = False) -> Image.Image:
     """The plate for a species we have no illustration for: the empty bough
     where the bird would be, the name in the caption's own voice, 'First
@@ -227,5 +234,6 @@ def render_fallback(spec: SingleSpec, color: bool = False) -> Image.Image:
             lines.append(f"First recorded {when}.")
     # composite=True: shown whole, never cover-cropped, though the limb runs
     # off the sheet's edge exactly as a plate's stems do.
-    art = Artwork(image=bough(), audubon_plate=None, composite=True, legend=lines)
+    art = Artwork(image=bough(), audubon_plate=None, composite=True, legend=lines,
+                  color_loader=_bough_pair)
     return _render_art(spec, art, color)

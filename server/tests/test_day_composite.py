@@ -1,4 +1,4 @@
-"""The nightly day-in-review composite plate: per-day cache semantics, grid
+"""The combined collage (one generated composite plate): per-day cache semantics, grid
 fallback, date-scoped species data, and the render layout. No network."""
 from __future__ import annotations
 
@@ -111,15 +111,15 @@ def test_prune_keeps_newest_sheets(data_dir, monkeypatch):
     assert kept == ["2026-08-27.png", "2026-08-28.png"]
 
 
-def test_review_date_wraps_midnight():
+def test_collage_date_wraps_midnight():
     from datetime import datetime
-    from featherframe.service import review_date_for
-    # evening tick reviews today; after-midnight tick reviews yesterday
-    assert review_date_for(datetime(2026, 8, 28, 22, 30), "22:00", "06:00") == date(2026, 8, 28)
-    assert review_date_for(datetime(2026, 8, 29, 0, 30), "22:00", "06:00") == date(2026, 8, 28)
-    assert review_date_for(datetime(2026, 8, 29, 7, 0), "22:00", "06:00") == date(2026, 8, 29)
+    from featherframe.service import collage_date_for
+    # evening tick covers today; after-midnight tick covers yesterday
+    assert collage_date_for(datetime(2026, 8, 28, 22, 30), "22:00", "06:00") == date(2026, 8, 28)
+    assert collage_date_for(datetime(2026, 8, 29, 0, 30), "22:00", "06:00") == date(2026, 8, 28)
+    assert collage_date_for(datetime(2026, 8, 29, 7, 0), "22:00", "06:00") == date(2026, 8, 29)
     # non-wrapping window never shifts
-    assert review_date_for(datetime(2026, 8, 29, 1, 0), "12:00", "14:00") == date(2026, 8, 29)
+    assert collage_date_for(datetime(2026, 8, 29, 1, 0), "12:00", "14:00") == date(2026, 8, 29)
 
 
 def test_key_line_fits_long_names():
@@ -148,7 +148,7 @@ def test_composite_prompt_names_all_species_in_order():
 def test_render_generated_collage_layout(data_dir):
     art = Image.open(__import__("io").BytesIO(_plate_png())).convert("L")
     field = collage_mod.render_generated_collage(
-        art, CELLS, when=DAY, total_detections=1035, title="The Day in Review")
+        art, CELLS, when=DAY, total_detections=1035)
     assert field.size == (theme.WIDTH, theme.HEIGHT)
     assert field.mode == "L"
 
@@ -199,12 +199,23 @@ def _many(n):
             for i in range(1, n + 1)]
 
 
-def test_config_review_species_max_clamps_and_roundtrips():
-    assert Config().review_species_max == 10
-    assert Config(review_species_max=-3).review_species_max == 0   # 0 = every species
-    assert Config(review_species_max=999).review_species_max == 60
-    again = Config.from_dict(Config(review_species_max=0).to_dict())
-    assert again.review_species_max == 0
+def test_config_collage_species_max_clamps_and_roundtrips():
+    assert Config().collage_species_max == 10
+    assert Config(collage_species_max=-3).collage_species_max == 0   # 0 = every species
+    assert Config(collage_species_max=999).collage_species_max == 60
+    again = Config.from_dict(Config(collage_species_max=0).to_dict())
+    assert again.collage_species_max == 0
+
+
+def test_the_day_in_review_is_a_collage_under_its_old_names_too():
+    """One name for it: a config saved as review_species_max keeps its number,
+    and a frame committed as "day in review" still reads as a collage."""
+    from featherframe.service import frame_title
+    assert Config.from_dict({"review_species_max": 17}).collage_species_max == 17
+    assert Config.from_dict({"review_species_max": 17,
+                             "collage_species_max": 4}).collage_species_max == 4
+    for label in ("day in review (5 species)", "combined collage (5 species)", "5-species collage"):
+        assert frame_title({"label": label}) == "Collage · 5 species"
 
 
 def test_composite_prompt_counts_every_subject():
@@ -233,7 +244,7 @@ def test_key_never_eats_the_art(data_dir):
         w += size * theme.KEY_ENTRY_GAP * (len(r) - 1)
         assert w <= theme.CONTENT_W
     art = Image.open(__import__("io").BytesIO(_plate_png())).convert("L")
-    field = collage_mod.render_generated_collage(art, _many(37), when=DAY, title="Sightings")
+    field = collage_mod.render_generated_collage(art, _many(37), when=DAY)
     assert field.size == (theme.WIDTH, theme.HEIGHT)
 
 
@@ -249,7 +260,7 @@ def test_key_short_list_still_one_centered_column():
 def test_sheet_has_no_title_band(data_dir):
     """Flat gray art must reach the top margin — nothing is printed above it."""
     art = Image.new("L", collage_mod.sheet_art_size(CELLS), 128)  # fills the box
-    field = collage_mod.render_generated_collage(art, CELLS, when=DAY, title="Sightings")
+    field = collage_mod.render_generated_collage(art, CELLS, when=DAY)
     y = theme.SHEET_MARGIN_TOP + 10
     xs = range(theme.WIDTH // 3, 2 * theme.WIDTH // 3, 8)
     inked = sum(1 for x in xs if field.getpixel((x, y)) < 200)

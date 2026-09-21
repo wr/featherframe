@@ -234,7 +234,7 @@ def test_first_today_holds_too_but_a_repeat_or_collage_does_not(svc, monkeypatch
     svc._single_tick(NOW + timedelta(seconds=20))
     assert rendered == ["American Robin", "Northern Cardinal"]
 
-    _hold(svc, "first-ever", minutes_ago=10, common="day in review (3 species)",
+    _hold(svc, "first-ever", minutes_ago=10, common="combined collage (3 species)",
           sci="", mode="collage")
     _cardinal_repeat(svc, rowid=3)
     svc._single_tick(NOW + timedelta(seconds=40))

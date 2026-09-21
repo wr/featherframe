@@ -141,6 +141,21 @@ def test_marks_sit_in_the_bottom_corners_not_the_top():
     assert _ink_bbox(out, (theme.WIDTH // 2, y0, theme.WIDTH, y1)) is not None
 
 
+def test_fallback_bough_is_in_colour_on_a_colour_panel():
+    """The bough's colour twin is the same cut of the same draw: same place,
+    its wood and leaves in colour, the type still neutral."""
+    gray = np.asarray(compose.render_fallback(_spec(first_seen="2026-05-17")), dtype=np.int16)
+    rgb = np.asarray(compose.render_fallback(_spec(first_seen="2026-05-17"), color=True),
+                     dtype=np.int16)
+    chroma = rgb.max(axis=2) - rgb.min(axis=2)
+    assert chroma[:theme.HEIGHT // 2].max() > 40                 # the art
+    caption = slice(theme.HEIGHT - 400, None)
+    assert chroma[caption].max() == 0                            # the caption
+    # Where the gray sheet has ink the colour one does, and paper stays paper.
+    assert ((rgb.min(axis=2) < 200) & (gray > 250)).mean() < 0.002
+    assert (rgb[gray == 255] >= 246).mean() > 0.999
+
+
 def test_fallback_carries_no_plate_mark():
     """Audubon never numbered a species he never painted (W-821)."""
     out = compose.render_fallback(_spec(first_seen="2026-05-17"))

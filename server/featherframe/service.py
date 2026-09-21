@@ -127,10 +127,10 @@ def _as_time(v) -> dtime:
     return dtime(hh, mm)
 
 
-def review_date_for(now: datetime, quiet_start, quiet_end) -> ddate:
-    """The date a day-in-review covers: the day the quiet window started.
+def collage_date_for(now: datetime, quiet_start, quiet_end) -> ddate:
+    """The date a nightly collage covers: the day the quiet window started.
     With a midnight-wrapping window (the default 22:00-06:00), a tick after
-    00:00 still reviews yesterday. The bounds are "HH:MM" strings or times."""
+    00:00 still covers yesterday. The bounds are "HH:MM" strings or times."""
     try:
         start, end = _as_time(quiet_start), _as_time(quiet_end)
     except (ValueError, TypeError, AttributeError):
@@ -288,16 +288,15 @@ def power_state(history: list[dict], now: datetime, live: Optional[list[dict]] =
 
 def frame_title(meta: dict) -> Optional[str]:
     """A display-ready name for what is on the glass. The stored label is a
-    log string ("day in review (5 species)", "6-species collage",
+    log string ("combined collage (5 species)", "6-species collage",
     "Northern Cardinal (test)"); the page shows this instead."""
     label = meta.get("label")
     if not label:
         return None
     label = str(label)
-    m = re.match(r"^day in review \((\d+) species\)$", label)
-    if m:
-        return f"Day in review · {m.group(1)} species"
-    m = re.match(r"^(\d+)-species collage$", label)
+    # "day in review" is the combined collage's label from before the rename.
+    m = (re.match(r"^(?:combined collage|day in review) \((\d+) species\)$", label)
+         or re.match(r"^(\d+)-species collage$", label))
     if m:
         return f"Collage · {m.group(1)} species"
     m = re.match(r"^(.*) \(test\)$", label)
@@ -441,7 +440,7 @@ class FeatherframeService:
         self._regen_inflight: set[str] = set()
         self._regen_errors: dict[str, str] = {}
 
-        # Background one-shot jobs (test detection, day-in-review) the config
+        # Background one-shot jobs (test detection, collage) the config
         # page kicks off and polls — same fire-and-forget contract as repaints,
         # so a ~2-minute generation never blocks (and never 504s) the request.
         self._task_lock = threading.Lock()
@@ -572,7 +571,7 @@ class FeatherframeService:
         """A new detection source starts from a clean slate. Everything
         transient was about the old one: the cursor is in its id space
         (BirdWeather ids run ~11 billion, BirdNET-Go's ~450k — a leftover
-        froze the frame for hours), and the hold, the review
+        froze the frame for hours), and the hold, the collage
         clock, the waiting species and the outage clock all describe birds
         it heard. The next tick shows the new source's latest detection."""
         for key in ("ingest_cursor", "pending_species",
@@ -658,7 +657,7 @@ class FeatherframeService:
     def _decide(self, now: datetime, available: bool) -> None:
         """The decision tree proper: quiet hours, mode, detections."""
         if self.config.in_quiet_hours(now.time()):
-            # Quiet hours: hold the image. Optionally render one day-in-review
+            # Quiet hours: hold the image. Optionally render one nightly collage
             # collage at the start of the window (also implied by 'auto' mode).
             if self.config.quiet_hours_render_collage:
                 self._maybe_quiet_collage(now)
@@ -898,28 +897,26 @@ class FeatherframeService:
             return
         self._build_collage(now, ddate.today())
 
-    def _review_date(self, now: datetime) -> ddate:
-        """The day tonight's review covers, per the ACTIVE quiet window — in
+    def _collage_date(self, now: datetime) -> ddate:
+        """The day tonight's collage covers, per the ACTIVE quiet window — in
         "sun" mode that is sunset->sunrise, not the custom start/end fields
         (which may be left at a non-wrapping daytime window)."""
         start, end = self.config.quiet_window(now.date())
-        return review_date_for(now, start, end)
+        return collage_date_for(now, start, end)
 
     def _maybe_quiet_collage(self, now: datetime) -> None:
-        # The review covers the day the quiet window STARTED: after midnight
-        # (default quiet hours wrap it) tonight's review is yesterday's day.
+        # The nightly collage covers the day the quiet window STARTED: after
+        # midnight (default quiet hours wrap it) tonight's is yesterday's day.
         # Keying by now.date() would clobber the held sheet at 00:00, buy a
-        # pre-dawn sheet of two owls, and skip the real review every evening.
-        review = self._review_date(now)
-        stamp = review.isoformat()
+        # pre-dawn sheet of two owls, and skip the real one every evening.
+        on_date = self._collage_date(now)
+        stamp = on_date.isoformat()
         if self.db.get("quiet_collage_for") == stamp:
-            return  # already rendered this window's review
-        if self._build_collage(now, review, title="Sightings",
-                               generated_ok=True):
+            return  # already rendered this window's collage
+        if self._build_collage(now, on_date, generated_ok=True):
             self.db.set("quiet_collage_for", stamp)
 
-    def _collage_result(self, on_date: ddate,
-                        title: str = "A Day in the Garden") -> Optional[RenderResult]:
+    def _collage_result(self, on_date: ddate) -> Optional[RenderResult]:
         """Render a plain (non-generated) collage for one day, or None if
         fewer than 2 species. Used by the transient button view."""
         rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR, limit=6)
@@ -929,22 +926,22 @@ class FeatherframeService:
         cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
         img = collage_mod.render_collage(cells, self.provider, when=on_date,
                                          total_detections=sum(r["count"] for r in rows),
-                                         title=title, color=self.config.panel_spec.color)
+                                         color=self.config.panel_spec.color)
         return pipeline.render_image(img, self.config, "collage", f"{len(cells)} species")
 
-    def force_day_review(self, repaint: bool = False) -> bool:
-        """The config-page button: render today's day-in-review now. Reuses
+    def force_collage(self, repaint: bool = False) -> bool:
+        """The config-page button: render today's collage now, combined into
+        one image when that is on. Reuses
         today's cached sheet unless repaint buys a fresh one."""
         now = self._clock()
-        review = self._review_date(now)
-        return self._build_collage(now, review, title="Sightings",
-                                   generated_ok=True, force_generated=repaint)
+        on_date = self._collage_date(now)
+        return self._build_collage(now, on_date, generated_ok=True,
+                                   force_generated=repaint)
 
     def _build_collage(self, now: datetime, on_date: ddate,
-                       title: str = "A Day in the Garden",
                        generated_ok: bool = False,
                        force_generated: bool = False) -> bool:
-        cap = self.config.review_species_max  # 0 = every species heard today
+        cap = self.config.collage_species_max  # 0 = every species heard today
         rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR,
                                              limit=max(6, cap) if cap else 500)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
@@ -970,7 +967,7 @@ class FeatherframeService:
 
         def compose(color: bool, force: bool = False):
             """(sheet, label) for this day; `color` draws the art's colour twin."""
-            # The generated composite is reserved for the nightly review (and
+            # The generated composite is reserved for the nightly collage (and
             # the explicit button): daytime collage rebuilds stay free.
             if use_generated:
                 top = cells[:cap] if cap else cells
@@ -982,12 +979,12 @@ class FeatherframeService:
                     art, painted = sheet
                     return (collage_mod.render_generated_collage(
                                 art, painted, when=on_date,
-                                total_detections=sum(c.count for c in painted), title=title,
+                                total_detections=sum(c.count for c in painted),
                                 note=note, note_kind=note_kind),
-                            f"day in review ({len(painted)} species)")
+                            f"combined collage ({len(painted)} species)")
             return (collage_mod.render_collage(grid, self.provider, when=on_date,
                                                total_detections=sum(c.count for c in grid),
-                                               title=title, note=note, note_kind=note_kind,
+                                               note=note, note_kind=note_kind,
                                                color=color),
                     f"{len(grid)}-species collage")
 
@@ -1118,8 +1115,8 @@ class FeatherframeService:
         return self._start_task("test-detection", self.force_test_detection,
                                 common_name, scientific_name)
 
-    def start_day_review(self, repaint: bool = False) -> bool:
-        return self._start_task("day-review", self.force_day_review, repaint)
+    def start_collage(self, repaint: bool = False) -> bool:
+        return self._start_task("collage", self.force_collage, repaint)
 
     def task_status(self) -> dict:
         """Live state of the background one-shot jobs, for the config page's
@@ -1347,14 +1344,12 @@ class FeatherframeService:
             self._render_welcome(now, self.source.available())
             return
         if meta.get("mode") == "collage":
-            # Preserve what is showing: a day-in-review re-renders as one
+            # Preserve what is showing: a combined collage re-renders as one
             # (reusing the cached sheet for free), a grid as a grid.
-            is_review = str(meta.get("label") or "").startswith("day in review")
-            on_date = self._review_date(now) if is_review else ddate.today()
-            self._build_collage(now, on_date,
-                                title="Sightings" if is_review
-                                else "A Day in the Garden",
-                                generated_ok=is_review)
+            combined = str(meta.get("label") or "").startswith(
+                ("combined collage", "day in review"))   # the label before the rename
+            on_date = self._collage_date(now) if combined else ddate.today()
+            self._build_collage(now, on_date, generated_ok=combined)
             return
         if not meta.get("label"):
             return
@@ -1377,7 +1372,7 @@ class FeatherframeService:
         self.reload_config()
         now = self._clock()
         if self.config.in_quiet_hours(now.time()):
-            # held overnight: keep the day-in-review if enabled, else the image
+            # held overnight: keep the nightly collage if enabled, else the image
             if self.config.quiet_hours_render_collage:
                 self._maybe_quiet_collage(now)
             else:
@@ -1396,7 +1391,7 @@ class FeatherframeService:
 
     # -- on-demand views (frame buttons) -----------------------------------
     def render_collage_on_demand(self) -> Optional[RenderResult]:
-        """Button view: yesterday's day-in-review, falling back to today.
+        """Button view: yesterday's collage, falling back to today's.
 
         Transient — never committed as the current frame, so the next timer
         wake restores the resident bird.

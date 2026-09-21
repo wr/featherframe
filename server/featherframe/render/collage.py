@@ -207,15 +207,13 @@ def sheet_art_size(cells: list[CollageCell]) -> tuple[int, int]:
 
 def render_generated_collage(art: Image.Image, cells: list[CollageCell],
                              when: Optional[ddate] = None, total_detections: int = 0,
-                             title: str = "The Day in Review",
                              note: Optional[str] = None,
                              note_kind: Optional[str] = None) -> Image.Image:
     """The generated composite sheet: the one generated artwork from the top
     margin down, and a small key matching the sheet's figure numerals —
     '1. Species' in prominence order — packed along the bottom, with the
     date ("SEPTEMBER 2") set the same way, spaced wide, on its own line
-    above the key. No header: the art is the sheet. `title` is accepted for
-    the caller's convenience and prints nothing. A `note` (the gone-quiet
+    above the key. No header: the art is the sheet. A `note` (the gone-quiet
     footnote) lifts the key so the two never share the bottom margin."""
     when = when or ddate.today()
     field = _new_field()

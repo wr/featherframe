@@ -50,7 +50,7 @@ def test_config_roundtrips_new_fields():
 
 
 def test_mode_auto_migrates_to_single():
-    # Legacy "auto" becomes plain Single mode; the overnight "day in review"
+    # Legacy "auto" becomes plain Single mode; the overnight collage
     # stays opt-in (default off) rather than being force-enabled by migration.
     c = Config(mode="auto")
     assert c.mode == "single"

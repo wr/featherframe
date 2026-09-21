@@ -134,7 +134,7 @@ KEY_BOTTOM = 45                # last key baseline above the panel bottom
 KEY_ART_GAP = 53               # gap between the art box and the key's ink top
 KEY_MAX_H = 480                # the key's ink height cap; the art keeps the rest
 
-# -- generated sheet (the day in review) ------------------------------------
+# -- generated sheet (the combined collage) ------------------------------------
 # No header: the art starts at the top margin and takes everything the key
 # leaves it. The key is set small and packs into columns before it grows
 # tall, and the image is generated at the art box's own aspect.

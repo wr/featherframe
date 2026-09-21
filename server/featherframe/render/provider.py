@@ -31,7 +31,7 @@ class Artwork:
     generated_by: Optional[str] = None   # who drew it ("OpenAI"), for the provenance line
     legend: list = field(default_factory=list)   # printed figure key / plant lines
     # For a colour panel: loads (gray, colour) of the same art, lazily so a
-    # gray panel never pays for it. None = this art has no colour (the bough).
+    # gray panel never pays for it. None = this art has no colour.
     color_loader: Optional[Callable[[], tuple]] = None
 
     def color_pair(self) -> Optional[tuple]:

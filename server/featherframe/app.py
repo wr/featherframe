@@ -574,7 +574,11 @@ async def api_frame_settings(request: Request, frame_id: str):
 
 @app.get("/api/frames/{frame_id}/preview.png")
 async def api_frame_preview(request: Request, frame_id: str):
-    """What THIS frame is showing: a kit's own output, a viewer's own view."""
+    """What THIS frame is showing, upright and filling the preview box: a kit's
+    own output, a viewer's own view drawn the way it draws — but never the
+    device's canvas shape or its rotation. A tablet's window is usually
+    landscape and a TRMNL hangs on its side; letterboxing the portrait sheet
+    inside either only shrinks the plate on the page."""
     svc = _svc(request)
     row = svc.frames.get(frame_id[:40])
     if row is None:
@@ -585,13 +589,35 @@ async def api_frame_preview(request: Request, frame_id: str):
             return Response(status_code=404, content=b"nothing drawn for it yet")
         return Response(content=png, media_type="image/png",
                         headers={"Cache-Control": "no-cache"})
+    if row.get("status") != frames_mod.ON:
+        # Not added yet: what is actually on its glass, and no picture is
+        # drawn (or coloured) for a screen nobody has answered for.
+        _, png, etag = await run_in_threadpool(svc.waiting_png, _upright(row),
+                                               svc.frame_short(str(row["id"])))
+        return Response(content=png, media_type="image/png",
+                        headers={"ETag": f'"{etag}"', "Cache-Control": "no-cache"})
     # Threadpool: the first ask for a variant dithers a whole sheet.
-    status, png, etag = await run_in_threadpool(svc.view_png, viewers.view_of(row), None,
+    status, png, etag = await run_in_threadpool(svc.view_png, _upright(row), None,
                                                 viewers.shows_of(row))
     if status != 200 or png is None:
         return Response(status_code=404, content=b"no frame yet")
     return Response(content=png, media_type="image/png",
                     headers={"ETag": f'"{etag}"', "Cache-Control": "no-cache"})
+
+
+# The 3:4 sheet a page frame's preview is drawn at: a browser window has no
+# shape of its own worth previewing.
+_PAGE_PREVIEW = (1200, 1600)
+
+
+def _upright(row: dict) -> pipeline.View:
+    """One viewer's view as the page previews it: its own depth, the picture
+    the right way up, nothing turned."""
+    if frames_mod.transport_of(row) == "page":
+        return pipeline.View(*_PAGE_PREVIEW, "color", 0)
+    view = viewers.view_of(row)
+    w, h = (view.height, view.width) if view.rotation in (90, 270) else (view.width, view.height)
+    return pipeline.View(w, h, view.fmt, 0)
 
 
 # -- hold this plate / block what's showing (W-735) --------------------------
@@ -907,12 +933,25 @@ async def trmnl_display(request: Request):
                           if token and hmac.compare_digest(str(r.get("token", "")), token)), None)
     if viewer_id is None:
         return JSONResponse({"status": 404, "error": "An ID header is required."}, status_code=404)
-    if not svc.current_etag():
-        return Response(status_code=503, content=b"no frame yet")
     row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "trmnl",
                                   viewers.trmnl_report(request.headers),
                                   request.client.host if request.client else None)
     view = viewers.view_of(row)
+    # Every frame is approved on the server (W-833): until the owner answers,
+    # the device is sent the waiting plate, drawn for its own screen, and comes
+    # back soon so it picks the picture up moments after they say yes.
+    if row.get("status") != frames_mod.ON:
+        ignored = row.get("status") == frames_mod.IGNORED
+        filename = f"waiting-{view.key}"
+        return JSONResponse({"status": 0, "image_url": _viewer_image_url(request, viewer_id,
+                                                                         filename),
+                             "filename": filename, "image_url_timeout": 0,
+                             "refresh_rate": (viewers.IGNORED_REFRESH_SECONDS if ignored
+                                              else viewers.WAITING_REFRESH_SECONDS),
+                             "update_firmware": False, "firmware_url": None,
+                             "reset_firmware": False, "special_function": "none"})
+    if not svc.current_etag():
+        return Response(status_code=503, content=b"no frame yet")
     etag = svc.picture_etag(viewers.shows_of(row))   # the plate's or the collage's (W-831)
     # The device repaints only when the filename changes: the frame's ETag and
     # the variant, so a new plate, or a new rotation from the page, is news.
@@ -941,6 +980,15 @@ async def viewer_png(request: Request, viewer_id: str, name: str):
     if row is None:
         return Response(status_code=404, content=b"no such viewer")
     inm = _strip_etag(request.headers.get("if-none-match"))
+    if row.get("status") != frames_mod.ON:
+        # Not added yet: the waiting plate, in this screen's own terms.
+        status, png, etag = await run_in_threadpool(svc.waiting_png, viewers.view_of(row),
+                                                    svc.frame_short(row["id"]))
+        if inm == etag:
+            return Response(status_code=304, headers={"ETag": f'"{etag}"',
+                                                      "Cache-Control": "no-cache"})
+        return Response(content=png, media_type="image/png",
+                        headers={"ETag": f'"{etag}"', "Cache-Control": "no-cache"})
     status, png, etag = await run_in_threadpool(svc.view_png, viewers.view_of(row), inm,
                                                viewers.shows_of(row))
     if status == 404:
@@ -978,11 +1026,19 @@ async def view_state(request: Request, viewer: Optional[str] = None, w: Optional
     size = viewers.page_size(w, h)
     if viewer_id is None or size is None:
         return JSONResponse({"error": "viewer, w and h are required"}, status_code=400)
-    if not svc.current_etag():
-        return JSONResponse({"image": None, "dark": False, "poll": viewers.PAGE_POLL_SECONDS})
     reported = {"width": size[0], "height": size[1], "model": _str_header(device, 40)}
     row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "page", reported,
                                   request.client.host if request.client else None)
+    # Every frame is approved on the server (W-833). A page that has not been
+    # added yet says so on its own glass and keeps asking; the moment the owner
+    # answers, the next poll hands it the picture.
+    if row.get("status") != frames_mod.ON:
+        return JSONResponse({"image": None, "dark": False, "waiting": True,
+                             "id": svc.frame_short(row["id"]),
+                             "poll": viewers.PAGE_POLL_SECONDS},
+                            headers={"Cache-Control": "no-store"})
+    if not svc.current_etag():
+        return JSONResponse({"image": None, "dark": False, "poll": viewers.PAGE_POLL_SECONDS})
     view = viewers.view_of(row)
     etag = svc.picture_etag(viewers.shows_of(row))
     return JSONResponse({

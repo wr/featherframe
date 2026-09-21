@@ -1,9 +1,11 @@
-"""Daily collage: a grid of the day's most-frequent species.
+"""Daily collage: the day's most-frequent species on one sheet.
 
-2 columns, up to 3 rows (so 2x2 or 2x3 per the spec). Each cell is a mini-plate:
-the bird art, its common name in the plates' script, and the day's detection
-count as "×14". A quiet script header up top carries the title and the date. Species
-we have no plate for get a typographic mini-cell — still never a wrong bird.
+Two sheets, one setting. The grid (`render_collage`) lays up to six plates out
+2 columns wide; the generated sheet (`render_generated_collage`) carries one
+painted scene. Both are set the same way below the art: the date in the
+engraved capitals, then a numbered key ("1. BLUE JAY") packed into columns
+along the bottom, and a small figure numeral on each figure. Species we have no
+plate for get a typographic mini-cell — still never a wrong bird.
 
 If the caller only has one species for the day, it should render a single frame
 instead; collage assumes two or more.
@@ -28,6 +30,17 @@ class CollageCell:
     scientific_name: str
     count: int
 
+    @property
+    def species_key(self) -> str:
+        """What this cell is OF, whatever the day's tally says about it."""
+        return (self.scientific_name or self.common_name).strip().lower()
+
+
+def same_species(a: list, b: list) -> bool:
+    """Do two cell lists name the same species, in the same order? The counts
+    move all day; the figures on a sheet do not."""
+    return [c.species_key for c in a] == [c.species_key for c in b]
+
 
 def _paste_art(field: Image.Image, art: Image.Image, box: tuple[int, int, int, int],
                v_align: float = 0.5) -> None:
@@ -47,17 +60,6 @@ def _grid(n: int) -> tuple[int, int]:
     cols = 1 if n == 1 else 2
     rows = math.ceil(n / cols)
     return cols, rows
-
-
-def _title_band(field: Image.Image, when: ddate, title: str) -> int:
-    """One header line — "A Day in the Garden ~ August 27" — in the plates'
-    script, auto-fit to the content width exactly like a plate title. Returns
-    the y where the art may begin."""
-    text = f"{title} ~ {when.strftime('%B')} {when.day}"
-    size = typography.fit_script_title(text, theme.CONTENT_W)
-    typography.draw_script(field, theme.WIDTH / 2, theme.COLLAGE_TITLE_BASELINE, text,
-                           size, theme.INK, stroke=theme.TITLE_STROKE)
-    return theme.COLLAGE_ART_TOP
 
 
 def _fit_key(entries: list[str], max_w: float,
@@ -205,40 +207,61 @@ def sheet_art_size(cells: list[CollageCell]) -> tuple[int, int]:
     return w, h
 
 
-def render_generated_collage(art: Image.Image, cells: list[CollageCell],
-                             when: Optional[ddate] = None, total_detections: int = 0,
-                             note: Optional[str] = None,
-                             note_kind: Optional[str] = None) -> Image.Image:
-    """The generated composite sheet: the one generated artwork from the top
-    margin down, and a small key matching the sheet's figure numerals —
-    '1. Species' in prominence order — packed along the bottom, with the
-    date ("SEPTEMBER 2") set the same way, spaced wide, on its own line
-    above the key. No header: the art is the sheet. A `note` (the gone-quiet
-    footnote) lifts the key so the two never share the bottom margin."""
-    when = when or ddate.today()
-    field = _new_field()
-    draw = ImageDraw.Draw(field)
-    # A colour sheet (colour panel) goes on its own layer under the gray type.
-    layer = new_color_layer() if art.mode == "RGB" else None
-
+def _bottom_block(field: Image.Image, draw: ImageDraw.ImageDraw, cells: list[CollageCell],
+                  when: ddate, note: Optional[str] = None,
+                  note_kind: Optional[str] = None) -> tuple[int, int, int, int]:
+    """How BOTH collages are set below the art: the date, spaced wide in the
+    engraved capitals, on its own line over a numbered key ('1. BLUE JAY') in
+    prominence order, packed into columns along the bottom. A `note` (the
+    gone-quiet footnote) lifts the key so the two never share the bottom
+    margin. Returns the art box the block leaves — there is no header, so the
+    art runs from the top margin down to it."""
     bottom = theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0)
     key_size, key_rows = sheet_key(cells, bool(note))
     _draw_key(draw, key_size, key_rows, bottom=bottom)
     date_baseline = _sheet_date_baseline(key_size, key_rows, bottom)
     typography.draw_engraved(draw, theme.WIDTH / 2, date_baseline, sheet_date_text(when),
                              key_size, theme.INK, theme.SHEET_DATE_TRACKING)
-    _paste_art(layer if layer is not None else field, art,
-               sheet_art_box(cells, bool(note)), v_align=0.5)
     if note:
         typography.note_line(field, note, kind=note_kind)
+    return sheet_art_box(cells, bool(note))
+
+
+def _figure_numeral(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int],
+                    number: int) -> None:
+    """The grid's answer to the painted sheet's figure numerals: the same
+    engraved digit, at the head of the cell, keyed to the same bottom key."""
+    size = theme.COLLAGE_FIGURE_SIZE
+    width = typography.engraved_width(str(number), size, theme.KEY_TRACKING)
+    typography.draw_engraved(draw, box[0] + width / 2, box[1] + round(size * theme.ENGRAVED_CAP),
+                             str(number), size, theme.INK, theme.KEY_TRACKING)
+
+
+def render_generated_collage(art: Image.Image, cells: list[CollageCell],
+                             when: Optional[ddate] = None, total_detections: int = 0,
+                             note: Optional[str] = None,
+                             note_kind: Optional[str] = None) -> Image.Image:
+    """The generated composite sheet: the one generated artwork from the top
+    margin down, over the shared date line and numbered key. No header: the
+    art is the sheet, and its figure numerals are painted into it."""
+    when = when or ddate.today()
+    field = _new_field()
+    draw = ImageDraw.Draw(field)
+    # A colour sheet (colour panel) goes on its own layer under the gray type.
+    layer = new_color_layer() if art.mode == "RGB" else None
+
+    box = _bottom_block(field, draw, cells, when, note, note_kind)
+    _paste_art(layer if layer is not None else field, art, box, v_align=0.5)
     return merge_color(field, layer) if layer is not None else field
 
 
 def render_collage(cells: list[CollageCell], provider: ArtProvider,
                    when: Optional[ddate] = None, total_detections: int = 0,
-                   title: str = "A Day in the Garden",
                    note: Optional[str] = None,
                    note_kind: Optional[str] = None, color: bool = False) -> Image.Image:
+    """The free grid: up to six plates filling the art area the generated
+    sheet's art fills, each with its figure numeral, over the same date line
+    and numbered key. The two sheets are one thing set two ways."""
     when = when or ddate.today()
     cells = cells[:6]
     cols, rows = _grid(len(cells))
@@ -247,23 +270,23 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
     draw = ImageDraw.Draw(field)
     layer = new_color_layer() if color else None   # colour panel: see compose.merge_color
 
-    # -- grid --------------------------------------------------------------
-    grid_top = _title_band(field, when, title)
-    grid_bottom = theme.HEIGHT - theme.MARGIN_BOTTOM
-    grid_left = theme.MARGIN_X
-    grid_right = theme.WIDTH - theme.MARGIN_X
+    # -- grid, inside the art box the key leaves ---------------------------
+    grid_left, grid_top, grid_right, grid_bottom = _bottom_block(
+        field, draw, cells, when, note, note_kind)
     gutter_x, gutter_y = 70, 56
     cell_w = (grid_right - grid_left - gutter_x * (cols - 1)) / cols
     cell_h = (grid_bottom - grid_top - gutter_y * (rows - 1)) / rows
-    caption_h = 96  # reserved at the bottom of each cell for name + count
 
     for i, cell in enumerate(cells):
         r, c = divmod(i, cols)
         x0 = grid_left + c * (cell_w + gutter_x)
         y0 = grid_top + r * (cell_h + gutter_y)
-        art_box = (int(x0), int(y0), int(x0 + cell_w), int(y0 + cell_h - caption_h))
+        art_box = (int(x0), int(y0), int(x0 + cell_w), int(y0 + cell_h))
         ccx = x0 + cell_w / 2
 
+        # The numeral goes down first: the art is composited darker over it,
+        # so it survives wherever the plate's paper is.
+        _figure_numeral(draw, art_box, i + 1)
         art = provider.artwork(cell.common_name, cell.scientific_name)
         pair = art.color_pair() if (art is not None and color) else None
         if pair is not None:
@@ -281,18 +304,4 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
             typography.draw_engraved(draw, ccx, midy + sci_size * theme.ENGRAVED_CAP / 2,
                                      sci, sci_size, theme.INK_SOFT)
 
-        # Cell caption in the plates' script: the common name, then the count.
-        name_baseline = y0 + cell_h - caption_h + 46
-        name_size = theme.COLLAGE_NAME_SIZE
-        while name_size > 20 and typography.script_width(cell.common_name, name_size) > cell_w - 20:
-            name_size -= 1
-        typography.draw_script(field, ccx, name_baseline, cell.common_name, name_size,
-                               theme.INK, stroke=theme.LEGEND_STROKE)
-        typography.draw_script(field, ccx, name_baseline + 42, f"×{cell.count}",
-                               theme.COLLAGE_COUNT_SIZE, theme.INK_MEDIUM,
-                               stroke=theme.LEGEND_STROKE)
-
-    # The grid stops at MARGIN_BOTTOM, well above the note's baseline.
-    if note:
-        typography.note_line(field, note, kind=note_kind)
     return merge_color(field, layer) if color else field

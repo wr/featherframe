@@ -9,7 +9,7 @@ from starlette.testclient import TestClient
 
 from featherframe.db import Database
 from featherframe.service import FeatherframeService, power_state
-from tests._frames import health
+from tests._frames import add_kit, health
 
 
 @pytest.fixture
@@ -18,6 +18,9 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
     service.source.db_path = str(tmp_path / "missing.db")
+    # Firmware too old to name itself is the frame called "legacy"; the owner
+    # has already added it, so a bare check-in is recorded (W-833).
+    add_kit(service, service.LEGACY_FRAME, panel="")
     yield service
 
 
@@ -140,13 +143,13 @@ def test_battery_endpoint_shape(client, svc):
 
 
 def test_power_row_hides_percent_on_usb_and_shows_it_on_battery(client, svc):
-    """The Power tile in that frame's own row (W-833)."""
+    """The battery reading in that frame's own row (W-833)."""
     def row():
         body = client.get("/").text.split("<body")[1]
         return body.split(f'data-frame="{svc.LEGACY_FRAME}"')[1].split(chr(10) + "    </li>")[0]
     client.get("/api/frame", headers={"X-Battery-Voltage": "4.21", "X-Battery-Percent": "100"})
     html = row()
-    assert 'data-h="batt"' in html
+    assert 'data-h="batt-bar"' in html
     usb = html.split('data-h="usb"')[1].split(">")[0]
     wrap = html.split('data-h="batt-wrap"')[1].split(">")[0]
     assert "hidden" not in usb and "hidden" in wrap          # USB: icon + word, no percent

@@ -44,6 +44,17 @@ def test_zero_pct_is_a_noop():
     assert _apply_mat_inset(src, Config(mat_inset_pct=0.0)) is src
 
 
+def test_no_mat_is_the_default_for_every_panel():
+    """A frame with no mat is the common case: the allowance is opt-in."""
+    src = _solid_black()
+    assert Config().mat_inset_pct == 0.0
+    for panel in ("ee03", "ee02"):
+        assert Config.defaults_for(panel).mat_inset_pct == 0.0
+    assert _apply_mat_inset(src, Config()) is src
+    # A value that was stored is untouched by the change of default.
+    assert Config.from_dict({"mat_inset_pct": 4.0}).mat_inset_pct == 4.0
+
+
 def test_mat_offset_shifts_the_composition():
     out = _apply_mat_inset(_solid_black(),
                            Config(mat_inset_pct=4.0, mat_offset_x_px=40,

@@ -596,8 +596,10 @@ class FeatherframeService:
         """What the kits show — plates while any of them is on plates, else the
         collage. With no kit, what the viewers show; with no screen at all, the
         last picture this server drew."""
+        viewers_on = [r for r in self.frames.by_transport("trmnl", "page")
+                      if r.get("status") == frames_mod.ON]
         for rows, asked in ((self._kits_on(), frames_mod.shows_of),
-                            (self.frames.by_transport("trmnl", "page"), viewers_mod.shows_of)):
+                            (viewers_on, viewers_mod.shows_of)):
             kinds = [k for k in (asked(r) for r in rows) if k in pictures_mod.KINDS]
             if kinds:
                 return PLATES if PLATES in kinds else COLLAGE
@@ -869,9 +871,10 @@ class FeatherframeService:
         cutoff = (now - timedelta(days=VIEWER_SHOWS_DAYS)).isoformat(timespec="seconds")
         out = []
         for row in self.frames.all().values():
+            if row.get("status") != frames_mod.ON:
+                continue   # asking or ignored: nothing is drawn for it
             if frames_mod.transport_of(row) == "kit":
-                if row.get("status") == frames_mod.ON:
-                    out.append(frames_mod.shows_of(row))
+                out.append(frames_mod.shows_of(row))
             elif (row.get("last_seen") or "") >= cutoff:
                 out.append(viewers_mod.shows_of(row))
         return out or [None]
@@ -1147,6 +1150,13 @@ class FeatherframeService:
             return
         self._build_collage(now, ddate.today())
 
+    def _collage_day(self, now: datetime) -> ddate:
+        """The day the collage picture is already of (its key), else today."""
+        try:
+            return ddate.fromisoformat(str(self.pictures[COLLAGE].key))
+        except (TypeError, ValueError):
+            return ddate.today()
+
     def _collage_date(self, now: datetime) -> ddate:
         """The day tonight's collage covers, per the ACTIVE quiet window — in
         "sun" mode that is sunset->sunrise, not the custom start/end fields
@@ -1166,7 +1176,7 @@ class FeatherframeService:
         stamp = on_date.isoformat()
         if self.db.get("quiet_collage_for") == stamp:
             return  # already rendered this window's collage
-        if self._build_collage(now, on_date, generated_ok=True):
+        if self._build_collage(now, on_date):
             self.db.set("quiet_collage_for", stamp)
 
     def _collage_result(self, on_date: ddate,
@@ -1191,14 +1201,12 @@ class FeatherframeService:
         today's cached sheet unless repaint buys a fresh one."""
         now = self._clock()
         on_date = self._collage_date(now)
-        return self._build_collage(now, on_date, generated_ok=True,
-                                   force_generated=repaint)
+        return self._build_collage(now, on_date, force_generated=repaint)
 
     def _build_collage(self, now: datetime, on_date: ddate,
-                       generated_ok: bool = False,
                        force_generated: bool = False) -> bool:
         """Draw the collage picture for `on_date`."""
-        composed = self._collage_composer(now, on_date, generated_ok)
+        composed = self._collage_composer(now, on_date)
         if composed is None:
             # Not enough for a grid: fall back to a plate for the day. This
             # runs on every tick while the day has one species, so skip the
@@ -1219,7 +1227,7 @@ class FeatherframeService:
         log.info("rendered collage (%s), etag=%s", label, etag)
         return True
 
-    def _collage_composer(self, now: datetime, on_date: ddate, generated_ok: bool = False):
+    def _collage_composer(self, now: datetime, on_date: ddate):
         """(compose, note) for the day's collage, or None when fewer than two
         species qualify. `compose(color, force=False) -> (sheet, label)`. The
         one collage (W-830): the frame's and a viewer's are drawn by this."""
@@ -1235,13 +1243,15 @@ class FeatherframeService:
         note = self._note_text()
 
         note_kind = self._note_kind() if note else None
-        use_generated = (generated_ok and self.config.collage_generated
-                         and self.genart is not None)
+        # All or nothing: with the toggle on and image generation to hand,
+        # EVERY collage is the generated sheet — the nightly one, a daytime
+        # rebuild, the button, a settings re-render. The cost is bounded by
+        # genart.day_composite, which buys one sheet per day and reuses it
+        # until the day's species list itself changes.
+        use_generated = self.config.collage_generated and self.genart is not None
 
         def compose(color: bool, force: bool = False):
             """(sheet, label) for this day; `color` draws the art's colour twin."""
-            # The generated composite is reserved for the nightly collage (and
-            # the explicit button): daytime collage rebuilds stay free.
             if use_generated:
                 top = cells[:cap] if cap else cells
                 self.genart.color_sheets = color
@@ -1425,11 +1435,13 @@ class FeatherframeService:
     # -- frames ----------------------------------------------------------------
     # A frame is a frame (W-833). Every kit names itself (X-Device-Id, its MAC)
     # and, once it is on, is drawn for exactly like every other: its picture,
-    # finished with its own config, kept as one output file. The first kit to
-    # check in on a server with none is let in by itself; any other asks, and
-    # the owner answers on the page. Firmware that predates the header is one
-    # frame called "legacy"; it becomes its real ID in place when the same
-    # frame (same panel, same address) first sends one after an update.
+    # finished with its own config, kept as one output file. Every frame of
+    # every transport is approved on the server first: a screen pointed at this
+    # server asks, and shows that it is waiting, until the owner answers on the
+    # page — the first kit on a fresh install included. Firmware that predates
+    # the header is one frame called "legacy"; it becomes its real ID in place
+    # when the same frame (same panel, same address) first sends one after an
+    # update.
     LEGACY_FRAME = "legacy"
     _FRAME_TOUCH = timedelta(seconds=60)      # how often a parked frame's row is rewritten
 
@@ -1446,9 +1458,9 @@ class FeatherframeService:
         stamp = now.isoformat(timespec="seconds")
         with self._lock, self.frames.mutate() as rows:
             row = rows.get(fid)
-            on = [r for r in rows.values() if frames_mod.transport_of(r) == "kit"
-                  and r.get("status") == frames_mod.ON]
-            legacy = next((r for r in on if r["id"] == self.LEGACY_FRAME), None)
+            legacy = rows.get(self.LEGACY_FRAME)
+            if legacy is not None and frames_mod.transport_of(legacy) != "kit":
+                legacy = None
             dirty = False
             if row is None and fid != self.LEGACY_FRAME and legacy is not None:
                 same_panel = (panels.from_report(reported_panel, facts)
@@ -1462,11 +1474,6 @@ class FeatherframeService:
             fresh = row is None
             if fresh:
                 row = rows[fid] = frames_mod.new_row(fid, "kit", stamp)
-            if not on and row.get("status") != frames_mod.ON:
-                # Nothing is being served yet: the first kit to arrive is the
-                # owner's own, and asking them about it would be theatre.
-                row["status"] = frames_mod.ON
-                dirty = True
             rep = frames_mod.reported_of(row)
             seen = (("panel", reported_panel), ("board", board), ("facts", facts))
             changed = (fresh or any(rep.get(k) != v for k, v in seen if v)
@@ -1557,26 +1564,18 @@ class FeatherframeService:
     def answer_frame(self, frame_id: str, action: str) -> bool:
         """The owner's answer about a frame that is not on yet: "add" (draw for
         it too), "ignore" (park it), "forget" (drop it, so it asks again the
-        next time it checks in). There is no "replace": there is no current
-        frame to replace (W-833)."""
+        next time it checks in). Every screen is answered for, whatever it is
+        fed over — a tablet on the kiosk page is let in the same way a kit is.
+        There is no "replace": there is no current frame to replace (W-833)."""
         dropped: list = []
         with self._lock, self.frames.mutate() as rows:
             row = rows.get(frame_id)
-            if (row is None or frames_mod.transport_of(row) != "kit"
-                    or action not in ("add", "ignore", "forget")):
+            if row is None or action not in ("add", "ignore", "forget"):
                 rows.unchanged()
                 return False
-            on = [r for r in sorted(rows.values(), key=_kit_order)
-                  if frames_mod.transport_of(r) == "kit" and r.get("status") == frames_mod.ON]
             if action == "add":
                 row["status"] = frames_mod.ON
                 row.setdefault("set", {})
-            elif action == "ignore" and row.get("status") == frames_mod.ON and len(on) <= 1:
-                # Ignoring the only kit would do nothing: the first kit to
-                # check in on a server with none is let in by itself. Forget
-                # it instead, which is what the page offers.
-                rows.unchanged()
-                return False
             elif action == "ignore":
                 row["status"] = frames_mod.IGNORED
                 dropped.append(frame_id)
@@ -1969,6 +1968,12 @@ class FeatherframeService:
         return [self.frame_view(row, now) for row in
                 sorted(self.frames.all().values(), key=_kit_order)]
 
+    def frame_short(self, frame_id: str) -> str:
+        """How the page names a frame in its muted meta — and what a screen
+        that is waiting to be added shows, so two tablets can be told apart."""
+        fid = str(frame_id)
+        return "older firmware" if fid == self.LEGACY_FRAME else fid[-6:]
+
     def frame_view(self, row: dict, now: Optional[datetime] = None) -> dict:
         """One frame, the whole of it, as the page reads it."""
         now = now or self._clock()
@@ -1992,7 +1997,7 @@ class FeatherframeService:
         fresh = Config.defaults_for(frames_mod.panel_for(row).key) if kit else None
         return {
             "id": fid,
-            "short": "older firmware" if fid == self.LEGACY_FRAME else fid[-6:],
+            "short": self.frame_short(fid),
             # Unnamed, a frame is titled by the short of what it is ("EE03",
             # "iPad") and the summary carries the rest, so the collapsed row
             # never says the same thing twice.
@@ -2065,12 +2070,9 @@ class FeatherframeService:
             self._render_welcome(now, self.source.available())
             return
         if meta.get("mode") == "collage":
-            # Preserve what is showing: a combined collage re-renders as one
-            # (reusing the cached sheet for free), a grid as a grid.
-            combined = str(meta.get("label") or "").startswith(
-                ("combined collage", "day in review"))   # the label before the rename
-            on_date = self._collage_date(now) if combined else ddate.today()
-            self._build_collage(now, on_date, generated_ok=combined)
+            # The same day it is already of, so a re-render of the nightly
+            # collage after midnight does not become this morning's.
+            self._build_collage(now, self._collage_day(now))
             return
         if not meta.get("label"):
             return
@@ -2360,6 +2362,33 @@ class FeatherframeService:
                 self._rerender_picture(PLATES)
                 self._color_tried[PLATES] = self.pictures[PLATES].etag
 
+    # A screen waits to be added (W-833). It is fed like any other view — the
+    # device's own size, depth and rotation — but the sheet is the waiting
+    # plate, not a picture, so it never touches one.
+    WAITING_PREFIX = "waiting-"
+
+    def waiting_png(self, view: "pipeline.View",
+                    short_id: str = "") -> tuple[int, Optional[bytes], Optional[str]]:
+        """(status, png, etag) of the waiting plate for one screen."""
+        etag = f"{self.WAITING_PREFIX}{re.sub(r'[^0-9A-Za-z_-]', '', short_id)}-{view.key}"
+        views = paths.views_dir()
+        cached = views / f"{etag}.png"
+        if cached.exists():
+            return 200, cached.read_bytes(), etag
+        with self._view_lock:
+            if cached.exists():
+                return 200, cached.read_bytes(), etag
+            sheet = welcome_mod.render_waiting(short_id)
+            png = pipeline.encode_png(pipeline.render_view(sheet, view), view.fmt)
+            try:
+                tmp = cached.with_suffix(".tmp")
+                tmp.write_bytes(png)
+                os.replace(tmp, cached)
+                self._prune_views()
+            except OSError:
+                log.warning("waiting view %s not cached", etag, exc_info=True)
+        return 200, png, etag
+
     def view_png(self, view: "pipeline.View", if_none_match: Optional[str] = None,
                  shows: Optional[str] = None) -> tuple[int, Optional[bytes], Optional[str]]:
         """One picture for one screen: (status, png, etag). Which picture is
@@ -2395,14 +2424,23 @@ class FeatherframeService:
                 tmp = cached.with_suffix(".tmp")
                 tmp.write_bytes(png)
                 os.replace(tmp, cached)
-                live = tuple(f"{p.etag}-" for p in self.pictures.values() if p.etag)
-                keep = sorted((f for f in views.glob("*.png") if f.name.startswith(live)),
-                              key=lambda f: f.stat().st_mtime, reverse=True)[:_VIEWS_MAX]
-                for stale in set(views.glob("*.png")) - set(keep):
-                    stale.unlink(missing_ok=True)
+                self._prune_views()
             except OSError:
                 log.warning("view %s not cached", etag, exc_info=True)
         return 200, png, etag
+
+    def _prune_views(self) -> None:
+        """A handful of renders per live picture, plus a handful of waiting
+        plates — which belong to no picture, and which a screen still asking
+        must not re-render on every poll."""
+        views = paths.views_dir()
+        live = tuple(f"{p.etag}-" for p in self.pictures.values() if p.etag)
+        def newest(files):
+            return sorted(files, key=lambda f: f.stat().st_mtime, reverse=True)[:_VIEWS_MAX]
+        keep = set(newest([f for f in views.glob("*.png") if live and f.name.startswith(live)]))
+        keep |= set(newest(list(views.glob(f"{self.WAITING_PREFIX}*.png"))))
+        for stale in set(views.glob("*.png")) - keep:
+            stale.unlink(missing_ok=True)
 
     @staticmethod
     def _save_history_thumb(etag: str, sheet: Image.Image) -> None:

@@ -75,9 +75,33 @@ def health(svc, frame_id: str = FRAME_ID) -> dict:
     return svc.frame_health(svc.frames.get(frame_id))
 
 
+def approve(svc, frame_id: str = FRAME_ID) -> bool:
+    """Answer "Add this frame" for it, as the owner does on the page. Every
+    frame of every transport is approved on the server (W-833), so a test that
+    wants a screen being drawn for says so in one line."""
+    return svc.answer_frame(frame_id, "add")
+
+
+def add_page(client, url: str, viewer_id: str):
+    """Point a kiosk page at the server and answer "Add" for it, as the owner
+    does on the page. Until then it is shown the waiting screen."""
+    client.get(url)
+    approve(client.app.state.service, viewer_id)
+    return client.get(url)
+
+
+def add_trmnl(client, headers: dict):
+    """The same for a TRMNL, or an e-reader running one of its clients."""
+    client.get("/api/display", headers=headers)
+    approve(client.app.state.service, headers["ID"])
+    return client.get("/api/display", headers=headers)
+
+
 def connect(client, headers: dict):
-    """Check a kit in and let one tick draw its first frame, as the running
-    server's scheduler does. Nothing is ever rendered in a request."""
-    client.get("/api/frame", headers=headers)
-    client.app.state.service._tick_frames()
+    """Check a kit in, let the owner add it, and let one tick draw its first
+    frame — as the running server does. Nothing is rendered in a request."""
+    svc = client.app.state.service
+    client.get("/api/frame", headers=headers)          # it asks
+    approve(svc, headers.get("X-Device-Id") or svc.LEGACY_FRAME)
+    svc._tick_frames()
     return client.get("/api/frame", headers=headers)

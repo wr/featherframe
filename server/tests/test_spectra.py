@@ -204,10 +204,12 @@ def test_an_ignored_frame_is_listed_and_can_be_added_or_forgotten(client):
     assert _by_status(svc, "ignored") == []
     assert client.get("/api/frame", headers=COLOUR).headers["x-ff-frame"] == "pending"
     assert "wants to connect" in client.get("/").text
-    # The only frame cannot be ignored out from under itself: the first kit to
-    # check in on a server with none is let in again the moment it asks.
+    # Every frame is answered for (W-833), the only one included: ignoring it
+    # parks it, and it has to be added again before it is served.
     assert client.post("/api/frames", data={"id": "AAAAAAAAAA01",
-                                            "action": "ignore"}).status_code == 400
+                                            "action": "ignore"}).status_code == 200
+    assert _by_status(svc, "on") == [] and _by_status(svc, "ignored") == ["AAAAAAAAAA01"]
+    assert client.get("/api/frame", headers=GRAY).status_code == 403
 
 
 def test_older_firmware_keeps_its_seat_when_it_starts_sending_an_id(client):
@@ -234,7 +236,7 @@ def test_a_rows_advanced_offers_its_own_panels_defaults(client):
     html = client.get("/").text
     row = html.split('data-frame="AAAAAAAAAA01"')[1].split(chr(10) + "    </li>")[0]
     assert 'data-fr-action="reset"' in row
-    assert 'data-f="mat_inset_pct" data-default="4.0"' in row
+    assert 'data-f="mat_inset_pct" data-default="0.0"' in row
     assert "imagegen" not in row      # nothing shared is offered per frame
 
 

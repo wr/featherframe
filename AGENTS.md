@@ -92,7 +92,7 @@ packed framebuffer + ETag → firmware GET /api/frame (If-None-Match) → panel`
 
 **`service.py` is the hub.** A background thread runs `tick()` on the poll
 interval. `tick()` is two passes and nothing else: `_tick_pictures()` decides
-what each picture is OF (quiet hours + the optional nightly collage, the
+what each picture is OF (quiet hours + the optional collage held overnight, the
 collage interval, the blocklist, new-species corroboration, the dwell hold)
 and composes at most one sheet per picture; `_tick_frames()` then finishes
 each picture into one output per frame that shows it. Every web handler just
@@ -180,12 +180,22 @@ hangs portrait (rotation 90), as `panels._rotations`. The device repaints only
 when `filename` changes: the picture's ETag plus the variant. Dithered views go
 out at their true PNG depth (`pipeline.encode_png`; Pillow cannot write gray
 below 8 bits). `refresh_rate` is a constant (`viewers.REFRESH_SECONDS`, hourly
-in quiet hours). A viewer never reaches `admit_frame`.
+in quiet hours). A viewer never reaches `admit_frame` — but it is approved on
+the server like every other frame: a new one is `asking`, `/api/setup` still
+hands it its key, and `/api/display` answers `status: 0` with the *waiting
+plate* (`welcome.render_waiting`, the wordmark over "ADD THIS FRAME ON THE
+FEATHERFRAME PAGE" and its short id), drawn for that screen's own size, depth
+and rotation, `filename` `waiting-<variant>`, `refresh_rate`
+`WAITING_REFRESH_SECONDS` (`IGNORED_REFRESH_SECONDS` once it is ignored).
 The kiosk page (W-825) is the second client: `GET /view`
 (`templates/view.html`, ES5 and XHR on purpose, for old iPads; a home-screen
 web app via `/view.webmanifest`) names itself from localStorage, reports its
 device pixels to `GET /api/view/state` every `viewers.PAGE_POLL_SECONDS`, and
-is told which image to cross-fade to. A page viewer (`kind: "page"`) is always
+is told which image to cross-fade to — or, while it is still `asking` or
+`ignored`, `{"waiting": true, "id": …}` and no image, which the page shows as
+the wordmark over "Add this frame on the Featherframe page" and its short id.
+It keeps polling and takes the picture by itself once the owner adds it. A page
+viewer (`kind: "page"`) is always
 `color`, upright, long side capped at `PAGE_MAX_SIDE`, and shows the plate
 whatever the hour — there is no *Look* and no *Dark in quiet hours* any more
 (`/api/view/state` still answers `"dark": false` so a tab open since the old
@@ -198,7 +208,9 @@ never the owner (a Kobo script client stays smooth once sized).
 **The page (W-833 step 3) is two halves, and one row component.** Left, narrow:
 metadata only, never a setting — the live preview with a chip per frame under
 it (the picked frame is kept in `localStorage`; a kit's own `out/<id>.png`, a
-viewer's own view, both at `GET /api/frames/<id>/preview.png`) and the plate's
+viewer's own view — both at `GET /api/frames/<id>/preview.png`, and always the
+upright picture as that frame draws it, never the device's canvas shape or its
+rotation: a TRMNL's is stood up and a page's is the sheet at 3:4) and the plate's
 tools; then the detection source's own small card, titled by the source name;
 then History. **There is no Health card**: a frame's health is the frame's row.
 Right, wide: a **Frames** card FIRST — just the list, no heading — then the
@@ -215,9 +227,15 @@ page not open), the name, an *Overdue* / *Battery low* badge, `frames_list()`'s
 Name, Content, Rotation in degrees, Power, one *Update interval* whose options
 swap with Power (seconds → `device_poll_seconds`, minutes → `wake_interval_minutes`;
 only the shown one is posted), Screen size only when `needs_size` — then
-*Advanced* (the mat, *Reset to defaults*) and *Details*: the Power and Wi-Fi
-tiles, the 24 h voltage trend in place from `GET /api/battery?frame=`, IP,
-firmware, panel, board, frame id. Then Save and Remove. Saving posts JSON to
+*Advanced* (the mat, *Reset to defaults*) and *Details*, which is what this
+frame REPORTED and nothing the row above already says: IP address, firmware,
+panel, board, frame id, each only where the frame reports one. (The Power and
+Wi-Fi tiles and the 24 h voltage trend are gone from the page; `GET
+/api/battery?frame=` and the log behind it are untouched.) Then Remove on the
+left and Save on the right, where the household form's own Save sits. The list
+is flush in its card — the card's vertical padding is 0 and it clips to its own
+radius, so each row's own padding is the spacing and the first and last rows'
+hover backgrounds reach the card's edges. Saving posts JSON to
 `POST /api/frames/<id>` and updates the row in place; the status poll keeps
 every summary, dot, badge and reading current and reloads only when the set of
 frames itself changes. A kit that is asking is a notice at the top of the card
@@ -245,10 +263,12 @@ plates and nothing else; the blocklist is global; a frame's ETag/filename is
 its own picture's (`picture_etag`), so a TRMNL on the collage does not repaint
 for a new plate.
 **Adding and removing frames.** A kit names itself with `X-Device-Id` (its
-MAC). On a server with no kit `on`, the first to check in is let in by itself;
-any other is answered `asking` (403, and the firmware shows "Add this frame on
-the Featherframe page") until the owner answers on the page: *Add this frame*
-(`answer_frame(…, "add")`), *Ignore it*, or *forget*. There is no "replace":
+MAC). **Every frame of every transport is approved on the server**, the first
+kit on a fresh install included: a new row is `asking` until the owner answers
+on the page — *Add this frame* (`answer_frame(…, "add")`, which takes any
+transport), *Ignore it*, or *forget*. A kit that is asking gets a 403 and shows
+its own baked "Add this frame on the Featherframe page"; a viewer gets the
+waiting plate, a page the waiting screen. There is no "replace":
 there is no current frame to replace (W-833), so handing the server to a new
 kit is adding it and removing the old one. `POST /api/frames/<id>` saves ANY
 frame's settings, whatever it is fed over — only what `frames.capabilities`
@@ -268,6 +288,21 @@ or locks BirdNET's DB. The cursor is `WHERE rowid > :last`. Every method
 soft-fails to a safe default (None/[]/0) so a missing or odd DB keeps the current
 frame instead of crashing. Fixture schema in `tests/_fixtures.py` is verbatim
 from the Nachtzuster fork.
+
+**The collage is one sheet set two ways (`render/collage.py`).** The free grid
+(`render_collage`, up to six plates) and the generated composite
+(`render_generated_collage`, one painted scene) share `_bottom_block`: no
+header at all, the art from the top margin down, then the date in the engraved
+capitals, spaced wide, over a numbered key ("1. BLUE JAY") in prominence order
+packed into columns along the bottom. The grid's cells carry the matching
+figure numerals; there are no script names and no "×count" under them. AI
+collages are all or nothing (`config.collage_generated`): with the toggle on
+and image generation to hand, EVERY collage is the generated sheet — a daytime
+rebuild, the nightly one, the button, a settings re-render. `genart.day_composite`
+is what bounds the cost: one sheet per day, reused for every redraw of that day
+and bought again only when the day's *species list* changes under it (a count
+moving is not a change, `collage.same_species`), with the per-key cooldown and
+the soft-fail to the grid intact.
 
 **Render pipeline (`render/`).** `pipeline.py` orchestrates:
 `compose.render_single` (or `collage.render_collage`) → `finish.to_levels`
@@ -429,11 +464,10 @@ colour art under black/white type, dithered as the server dithers a plate:
 `bake_screens.on_color_art`; the stamp tiles stay black/white ink), and a 180 s floor sits
 between resident repaints. One server serves as many frames as are added to it, and it knows them apart
 (`service.admit_frame`): each frame names itself with `X-Device-Id` (its MAC).
-On a server with no frame yet the first to check in is let in by itself; any
-other gets a 403 and waits as "pending" until the owner answers at the top of
-the Frames card — add it, or ignore it (ignored frames fold at the bottom of
-that card, where they can be added or forgotten; a frame removed from a row
-asks again the next time it checks in). Each frame is drawn for the panel it reports in its own `X-Panel`, so
+Every kit gets a 403 and waits as "pending" — the first one on a fresh install
+too — until the owner answers at the top of the Frames card: add it, or ignore
+it (ignored frames fold at the bottom of that card, where they can be added or
+forgotten; a frame removed from a row asks again the next time it checks in). Each frame is drawn for the panel it reports in its own `X-Panel`, so
 there is no notice to answer when a different kit connects. Firmware without
 the header is one frame called "legacy", which becomes its real ID in place
 after an update. A parked frame

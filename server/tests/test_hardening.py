@@ -15,7 +15,7 @@ from featherframe.service import FeatherframeService
 from featherframe.sources.base import Detection
 from featherframe.render import pipeline as pipeline  # noqa: E402
 from tests._fixtures import create_birds_db, make_row
-from tests._frames import device, frame_bytes, health
+from tests._frames import add_kit, device, frame_bytes, health
 
 
 @pytest.fixture
@@ -25,6 +25,9 @@ def svc(tmp_path, monkeypatch):
     service = FeatherframeService()
     service.source.db_path = str(tmp_path / "missing.db")
     pipeline.DITHER_OVERRIDE = "none"
+    # Firmware too old to name itself is the frame called "legacy"; the owner
+    # has already added it, so a bare check-in is recorded (W-833).
+    add_kit(service, service.LEGACY_FRAME, panel="")
     yield service
 
 
@@ -113,8 +116,8 @@ def test_settings_post_survives_inf_and_nan(client, svc):
                     follow_redirects=False)
     assert r.status_code == 303
     assert svc.config.wake_interval_minutes == 15      # default kept
-    assert svc.config.collage_interval_hours == 8      # NaN is not an interval
-    assert svc.config.mat_inset_pct == 4.0
+    assert svc.config.collage_interval_hours == 6      # NaN is not an interval
+    assert svc.config.mat_inset_pct == 0.0
 
 
 def test_invalid_quiet_hours_keep_the_stored_value(client, svc):

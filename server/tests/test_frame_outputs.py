@@ -155,8 +155,13 @@ def test_nothing_renders_in_a_request_handler(client, svc):
                                              "X-Panel": EE03_PANEL}).status_code == 403
 
 
-def test_the_first_kit_is_let_in_and_the_second_one_asks(client, svc):
+def test_every_kit_asks_first_including_the_one_on_a_fresh_install(client, svc):
+    """W-833: no screen connects by itself. The first kit on an empty server
+    asks exactly as the second one does, and is served once it is added."""
     svc.tick()
+    first = client.get("/api/frame", headers=EE03)
+    assert first.status_code == 403 and first.headers["x-ff-frame"] == "pending"
+    assert svc.frames.get(EE03["X-Device-Id"])["status"] == frames_mod.ASKING
     assert connect(client, EE03).status_code == 200
     assert svc.frames.get(EE03["X-Device-Id"])["status"] == frames_mod.ON
     r = client.get("/api/frame", headers=EE02)
@@ -206,6 +211,8 @@ def test_the_frames_list_is_one_shape_for_a_kit_a_trmnl_and_a_page(client, svc):
                                         "Width": "1872", "Height": "1404",
                                         "Battery-Voltage": "4.02"})
     client.get("/api/view/state?viewer=PAGE-IPAD&w=600&h=800&device=iPad")
+    for viewer in ("AA:BB:CC:DD:EE:01", "PAGE-IPAD"):   # the owner adds them
+        assert svc.answer_frame(viewer, "add")
     listed = {f["id"]: f for f in svc.status()["frames"]["list"]}
     assert set(listed) == {EE03["X-Device-Id"], "AA:BB:CC:DD:EE:01", "PAGE-IPAD"}
     keys = {"id", "name", "title", "transport", "status", "shows", "picture_etag",
@@ -337,8 +344,11 @@ def test_a_fresh_install_migrates_to_nothing_and_lets_its_first_kit_in(tmp_path,
     assert svc.frames.all() == {} and svc._out == {}
     svc.source.db_path = str(tmp_path / "missing.db")
     svc._render_welcome(NOW, False)
-    assert svc.admit_frame("AA:BB", EE03_PANEL, None, None) == frames_mod.ON
+    # Every kit asks, the first one included; the owner answers for one of them.
+    assert svc.admit_frame("AA:BB", EE03_PANEL, None, None) == frames_mod.ASKING
     assert svc.admit_frame("CC:DD", EE03_PANEL, None, None) == frames_mod.ASKING
+    assert svc.answer_frame("AA:BB", "add")
+    assert svc.admit_frame("AA:BB", EE03_PANEL, None, None) == frames_mod.ON
     svc.tick()
     assert svc.get_frame("AA:BB", None)[0] == 200
     assert svc.get_frame("CC:DD", None)[0] == 503       # not served until it is answered for

@@ -186,11 +186,6 @@
     .status-card dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:9px 0; }
     .status-card dt { color:var(--muted); font-size:13px; }
     .status-card dd { margin:0; text-align:right; font-size:13px; color:var(--ink-2); display:flex; flex-wrap:wrap; gap:1px 7px; justify-content:flex-end; align-items:center; min-width:0; line-height:1.45; }
-    /* vitals: the two live readings as tiles, label over value */
-    .vitals { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    .vital { display:flex; flex-direction:column; gap:3px; padding:8px 10px; background:var(--inset); border-radius:7px; min-width:0; }
-    .vital .vl { font-size:11px; color:var(--muted); }
-    .vital .vv { display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink-2); position:relative; }
     /* identity that never changes, folded away */
     .sc-more { margin-top:10px; }
     .sc-more > summary { cursor:pointer; list-style:none; user-select:none; font-size:12.5px; color:var(--muted); }
@@ -219,14 +214,6 @@
     .tip { position:absolute; z-index:6; padding:5px 9px; font-size:12px; color:var(--ink-2); background:var(--surface);
            border:1px solid var(--border-strong); border-radius:6px; box-shadow:0 8px 24px rgba(74,54,28,.16); white-space:nowrap;
            font-variant-numeric:tabular-nums; pointer-events:none; }
-    .spark { width:220px; height:36px; flex:none; overflow:visible; display:block; }
-    .spark .line { fill:none; stroke:var(--ink-2); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
-    .spark .fill { fill:var(--ink-2); opacity:.08; }
-    .spark .usb { stroke:var(--border-strong); stroke-width:1; stroke-dasharray:2 3; vector-effect:non-scaling-stroke; }
-    .spark .end { fill:var(--ink-2); }
-    .spark .cursor { stroke:var(--accent); stroke-width:1; vector-effect:non-scaling-stroke; }
-    .spark-cap { font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
-    .spark-axis { display:flex; justify-content:space-between; gap:12px; margin-top:-2px; font-size:11px; color:var(--faint); font-variant-numeric:tabular-nums; white-space:nowrap; }
     .wifi { width:18px; height:15px; flex:none; }
     .wifi .arc { stroke:var(--faint); fill:none; }
     .wifi .arc.lit { stroke:var(--good); }
@@ -568,7 +555,11 @@
        device list's own: a status dot and a name over a muted description on
        the left, then battery, Wi-Fi and last-seen in columns that line up down
        the list. */
-    #frames-card section.sec { padding:11px 26px; }
+    /* The list is flush in its card: no vertical padding of its own, so each
+       row's own padding is the spacing and the first and last rows' hover
+       backgrounds reach the card's edges. Clipped to the card's radius. */
+    #frames-card { overflow:hidden; }
+    #frames-card section.sec { padding:0 26px; }
     .fr-list { list-style:none; margin:0; padding:0; }
     details.disc.fr { margin:0 calc(-1 * var(--pad)); border-top:1px solid var(--hair); }
     /* transparent, not none: every collapsed row is then exactly as tall */
@@ -609,24 +600,21 @@
     /* A fold inside a row bleeds to the card's edges like any other, but keeps
        its bottom edge: Save and Remove come after it. */
     .fr-body > details.disc { margin:14px calc(-1 * var(--pad)) 0; }
-    /* Details: the same tiles, trend and identity list the side column used to
-       carry, inside the row they belong to. */
+    /* Details: what this frame reported about itself — an identity list, and
+       nothing the row above already says. */
     .fr-det { padding:0 var(--pad); }
-    .fr-det .vitals { margin-top:14px; }
     .fr-det dl { margin:14px 0 0; display:grid; grid-template-columns:auto 1fr; gap:9px 0; }
     .fr-det dt { color:var(--muted); font-size:13px; }
     .fr-det dd { margin:0; text-align:right; font-size:13px; color:var(--ink-2);
       overflow:hidden; text-overflow:ellipsis; }
-    .trend { margin-top:10px; padding:9px 11px; background:var(--inset); border-radius:7px;
-      display:flex; flex-direction:column; gap:6px; }
-    .trend .spark { width:100%; height:42px; }
     .fr-actions { display:flex; align-items:center; gap:8px; margin-top:18px; }
     @media (max-width:600px){
-      #frames-card section.sec { padding:11px 16px; }
+      #frames-card section.sec { padding:0 16px; }
       details.disc.fr { --pad:16px; }
     }
     .fr-note, .fr-empty, .ignored-frames { margin:13px 0; }
-    .fr-actions .fr-forget { margin-left:auto; }
+    /* Save sits on the right, as the household form's does; Remove on the left. */
+    .fr-actions [data-fr-action="save"] { margin-left:auto; }
     .fr-empty { font-size:13.5px; color:var(--ink-2); line-height:1.6; max-width:62ch; }
     .fr-empty p { margin:0 0 12px; }
     .fr-empty ol { margin:0; padding-left:1.25em; display:flex; flex-direction:column; gap:10px; }
@@ -853,7 +841,6 @@
     {% set pct = card.battery_percent %}
     {% set pstate = (card.power.state if card.power else 'unknown') %}
     {% set low = card.battery_low or card.battery_critical %}
-    {% set vitals = fr.transport == 'kit' or caps.has_battery or rssi is not none %}
     <li>
     {# The row is the page's own disclosure component, so it hovers, turns its
        chevron and slides open exactly as Advanced does. #}
@@ -959,41 +946,15 @@
           </div></div>
         </details>
         {% endif %}
-        {# Details: what this frame reported about itself. Metadata, never a
-           setting — the same block for every frame that reports one. #}
+        {# Details: what this frame reported about itself, and only that. The
+           battery and the Wi-Fi are already on the row above; repeating them
+           here said the same thing twice. #}
+        {% set has_details = fr.details.ip or fr.details.firmware or fr.details.panel or fr.what
+                             or (fr.transport == 'kit' and fr.details.board) or fr.id %}
+        {% if has_details %}
         <details class="disc det">
           <summary><span>Details</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
           <div class="disc-body"><div class="fr-det">
-            {% if vitals %}
-            {# Power source: the state is inferred from the voltage trend (no
-               USB line on the board). On USB the cell is held full by the
-               charger and while charging its terminal voltage runs high, so
-               a percent would mislead in both — it is shown only on battery. #}
-            <div class="vitals">
-              <div class="vital">
-                <span class="vl">Power</span>
-                <span class="vv" data-h="batt">
-                  <span class="pw" data-h="d-usb" {{ '' if pstate == 'usb' else 'hidden' }}><svg class="pw-ic pw-plug" viewBox="0 0 18 15" aria-hidden="true"><path class="pw-body" d="M7 7C7 4.79086 8.79086 3 11 3H12.1429C12.6162 3 13 3.38376 13 3.85714V10.1429C13 10.6162 12.6162 11 12.1429 11H11C8.79086 11 7 9.20914 7 7Z"/><path class="pw-prong" d="M16 5H11M16 9H11M8 6.99993C5 6.99993 2 6.5 2 10.9999"/></svg>USB</span>
-                  <span class="pw" data-h="d-chg" {{ '' if pstate == 'charging' else 'hidden' }}><svg class="pw-ic pw-cell" viewBox="0 0 22 14" aria-hidden="true"><rect class="pw-outline" x="1" y="2.5" width="16" height="9" rx="2.4"/><path class="pw-nub" d="M17.6 5.3h1.2a.9.9 0 0 1 .9.9v1.6a.9.9 0 0 1-.9.9h-1.2z"/><path class="pw-bolt-ring" d="M10.6.6 5.9 7.4h2.9l-1.3 6 4.9-7.2H9.6z"/><path class="pw-bolt" d="M10.6.6 5.9 7.4h2.9l-1.3 6 4.9-7.2H9.6z"/></svg>Charging</span>
-                  <span class="batt" data-h="d-batt-wrap" {{ '' if (pct is not none and pstate not in ('usb', 'charging')) else 'hidden' }}><span class="cell"><i data-h="d-batt-bar" style="width:{{ pct or 0 }}%;{% if low %}background:var(--bad){% endif %}"></i></span><span class="tnum" data-h="d-batt-text">{{ (pct ~ '%') if pct is not none else '' }}</span></span>
-                  <span data-h="batt-none" {{ 'hidden' if (pct is not none or pstate in ('usb', 'charging')) else '' }}>{{ card.battery or '—' }}</span>
-                </span>
-              </div>
-              <div class="vital">
-                <span class="vl">Wi-Fi</span>
-                <span class="vv" data-h="wifi">
-                  <span class="pill-status" data-h="d-wifi-wrap" {{ '' if rssi is not none else 'hidden' }} data-tip="{{ rssi }} dBm"><svg class="wifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path class="arc{{ ' lit' if bars >= 4 }}" d="M2 7.3a15 15 0 0 1 20 0"/><path class="arc{{ ' lit' if bars >= 3 }}" d="M5.2 11.2a11 11 0 0 1 13.6 0"/><path class="arc{{ ' lit' if bars >= 2 }}" d="M8.6 15a6 6 0 0 1 6.8 0"/><circle class="dot" cx="12" cy="18.6" r="1.4"/></svg><span data-h="wifi-text">{{ word }}</span></span><span data-h="wifi-none" {{ 'hidden' if rssi is not none else '' }}>—</span>
-                </span>
-              </div>
-            </div>
-            {# The last 24 h of cell voltage, in place: moving along the line
-               reads the value into the caption. #}
-            <div class="trend" data-h="trend" hidden>
-              <span class="spark-cap" data-h="spark-cap" aria-live="polite" data-summary="{{ card.battery or '' }}">{{ card.battery or '' }}</span>
-              <svg class="spark" data-h="spark" viewBox="0 0 160 30" preserveAspectRatio="none" role="img" aria-label="Battery voltage over the last 24 hours"></svg>
-              <div class="spark-axis" aria-hidden="true"><span data-h="spark-t0"></span><span data-h="spark-t1"></span></div>
-            </div>
-            {% endif %}
             <dl>
               {% if fr.details.ip %}<dt>IP address</dt><dd class="tnum" data-h="ip">{{ fr.details.ip }}</dd>{% endif %}
               {% if fr.details.firmware %}<dt>Firmware</dt><dd data-h="fw" data-tip="{% if fr.details.sketch_md5 %}build {{ fr.details.sketch_md5[:8] }}{% endif %}">{{ fr.details.firmware }}</dd>{% endif %}
@@ -1003,9 +964,12 @@
             </dl>
           </div></div>
         </details>
+        {% endif %}
+        {# Remove on the left, Save on the right — where the household form's
+           own Save sits. #}
         <div class="fr-actions">
-          <button class="btn primary" type="button" data-fr-action="save">Save</button>
           <button class="btn danger fr-forget" type="button" data-fr-action="forget">Remove</button>
+          <button class="btn primary" type="button" data-fr-action="save">Save</button>
         </div>
       </div></div>
     </details>
@@ -1186,8 +1150,21 @@
         <section class="sec">
           <h2 class="sec-head">Collage</h2>
           <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-every">Update interval (hours)</label><div class="hint">How often the collage is redrawn during the day</div></div>
-            <div class="frow-ctl"><input type="number" id="f-every" name="collage_interval_hours" min="1" max="24" step="1" inputmode="numeric" value="{{ config.collage_interval_hours }}"></div>
+            <div class="frow-text"><label class="lab" for="f-every">Update interval</label><div class="hint">How often the collage is redrawn during the day</div></div>
+            <div class="frow-ctl">
+              <div class="cselect">
+              <select class="sel cselect-native" id="f-every" name="collage_interval_hours">
+                {% for h, word in [(1, 'Every hour'), (4, 'Every 4 hours'), (6, 'Every 6 hours'), (12, 'Every 12 hours'), (24, 'Every 24 hours')] %}
+                <option value="{{ h }}" {{ 'selected' if config.collage_interval_hours == h else '' }}>{{ word }}</option>
+                {% endfor %}
+                {# A stored value from a build that took any number: shown as it
+                   is, so saving the form does not quietly change it. #}
+                {% if config.collage_interval_hours not in [1, 4, 6, 12, 24] %}
+                <option value="{{ config.collage_interval_hours }}" selected>Every {{ config.collage_interval_hours }} hours</option>
+                {% endif %}
+              </select>
+              </div>
+            </div>
           </div>
           <div class="frow">
             {# Stored as 0; an empty field is what "no limit" looks like. #}
@@ -1195,7 +1172,7 @@
             <div class="frow-ctl"><input type="number" id="f-review-max" name="collage_species_max" min="0" max="60" step="1" inputmode="numeric" placeholder="No limit" value="{{ config.collage_species_max or '' }}"></div>
           </div>
           <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="cg">Generate the collage with AI <a class="ex seg-ex" href="/static/examples/single.png" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></label><div class="hint">Draws the nightly collage as a single illustrated scene</div></div>
+            <div class="frow-text"><label class="lab" for="cg">Generate the collage with AI <a class="ex seg-ex" href="/static/examples/single.png" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></label><div class="hint">Draws every collage as a single illustrated scene. Each new one is a paid image.</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
           </div>
           {# The toggle is always on offer; it only needs a key to do anything. #}
@@ -1652,9 +1629,8 @@
   function subText(root, attr, key, text) { var el = sub(root, attr, key); if (el) el.textContent = text; }
   function subHidden(root, attr, key, hidden) { var el = sub(root, attr, key); if (el) el.hidden = !!hidden; }
 
-  // One frame's row: the dot, its badges, and the three readings — in the
-  // collapsed line and, where the same reading has a tile, in Details too
-  // (the "d-" twins).
+  // One frame's row: the dot, its badges, and the three readings in the
+  // collapsed line. Details below carries no reading of its own.
   function applyHealth(row, fr) {
     var card = fr.card || {};
     subText(row, 'data-h', 'seen-text', card.seen ? (card.last_seen || '') : 'never');
@@ -1670,35 +1646,27 @@
     var has = pct !== null;
     var pstate = (card.power && card.power.state) || 'unknown';
     var onPower = pstate === 'usb' || pstate === 'charging';
-    ['', 'd-'].forEach(function (p) {
-      subHidden(row, 'data-h', p + 'usb', pstate !== 'usb');
-      subHidden(row, 'data-h', p + 'chg', pstate !== 'charging');
-      subHidden(row, 'data-h', p + 'batt-wrap', !has || onPower);
-      var bar = sub(row, 'data-h', p + 'batt-bar');
-      if (bar) {
-        bar.style.width = (has ? pct : 0) + '%';
-        bar.style.background = (has && low) ? 'var(--bad)' : '';
-      }
-      subText(row, 'data-h', p + 'batt-text', has ? pct + '%' : '');
-    });
-    subHidden(row, 'data-h', 'batt-none', has || onPower);
-    subText(row, 'data-h', 'batt-none', card.battery || '\u2014');
-    var cap = sub(row, 'data-h', 'spark-cap');
-    if (cap) { cap.dataset.summary = card.battery || ''; if (sparkHover !== row) cap.textContent = card.battery || ''; }
+    subHidden(row, 'data-h', 'usb', pstate !== 'usb');
+    subHidden(row, 'data-h', 'chg', pstate !== 'charging');
+    subHidden(row, 'data-h', 'batt-wrap', !has || onPower);
+    var bar = sub(row, 'data-h', 'batt-bar');
+    if (bar) {
+      bar.style.width = (has ? pct : 0) + '%';
+      bar.style.background = (has && low) ? 'var(--bad)' : '';
+    }
+    subText(row, 'data-h', 'batt-text', has ? pct + '%' : '');
 
     var rssi = card.wifi_rssi;
     var hasWifi = rssi !== null && rssi !== undefined;
     var bars = hasWifi ? wifiBars(rssi) : 0;
-    ['', 'd-'].forEach(function (p) {
-      var wrap = sub(row, 'data-h', p + 'wifi-wrap');
-      if (!wrap) return;
+    var wrap = sub(row, 'data-h', 'wifi-wrap');
+    if (wrap) {
       wrap.hidden = !hasWifi;
-      if (!hasWifi) return;
-      wrap.dataset.tip = p ? (rssi + ' dBm') : (WIFI_WORDS[bars] + ' \u00b7 ' + rssi + ' dBm');
-      [].forEach.call(wrap.querySelectorAll('.arc'), function (arc, i) { arc.classList.toggle('lit', bars >= 4 - i); });
-    });
-    subHidden(row, 'data-h', 'wifi-none', hasWifi);
-    if (hasWifi) subText(row, 'data-h', 'wifi-text', WIFI_WORDS[bars]);
+      if (hasWifi) {
+        wrap.dataset.tip = WIFI_WORDS[bars] + ' \u00b7 ' + rssi + ' dBm';
+        [].forEach.call(wrap.querySelectorAll('.arc'), function (arc, i) { arc.classList.toggle('lit', bars >= 4 - i); });
+      }
+    }
     var det = fr.details || {};
     subText(row, 'data-h', 'ip', det.ip || '\u2014');
     subText(row, 'data-h', 'fw', det.firmware || '\u2014');
@@ -1786,19 +1754,11 @@
     jsonFetch('/api/history').then(function (out) { buildHistory(out.items || []); }).catch(function () {});
   }
 
-  // -- battery trend: one line, fixed 3.3-4.25 V scale so days compare, a
-  // dotted rule at the "on USB" level, the newest reading marked. ---------
-  var BATTERY_MS = 5 * 60000, SPARK_DELAY_MS = 500;
-  // One trend per frame, drawn the first time that frame's Details is opened
-  // and kept fresh while it stays open: a page with five screens must not ask
-  // for five days of readings nobody looked at. `sparkHover` is the row whose
-  // line the pointer is on, so the poll does not overwrite the reading under it.
-  var sparkHover = null;
-
-  // -- data tooltips: one small popover, same look as the chart's, for every
+  // -- data tooltips: one small popover for every
   // [data-tip] on the cards. Opens after the pointer rests 0.5 s, closes on
   // leave/scroll/Escape, toggles on tap. Replaces the browser's own title
   // bubbles so hovering data feels like one thing.
+  var TIP_DELAY_MS = 500;
   (function () {
     var tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; tip.setAttribute('role', 'tooltip');
     document.body.appendChild(tip);
@@ -1819,7 +1779,7 @@
     document.addEventListener('mouseover', function (e) {
       var host = e.target.closest && e.target.closest('[data-tip]');
       if (!host || host === current) return;
-      clearTimeout(timer); timer = setTimeout(function () { show(host); }, SPARK_DELAY_MS);
+      clearTimeout(timer); timer = setTimeout(function () { show(host); }, TIP_DELAY_MS);
     });
     document.addEventListener('mouseout', function (e) {
       var host = e.target.closest && e.target.closest('[data-tip]');
@@ -1835,91 +1795,6 @@
     window.addEventListener('scroll', hide, { passive: true });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
   })();
-  function sparkTime(iso) {
-    var d = new Date(iso.replace(' ', 'T'));
-    if (isNaN(d.getTime())) return iso;
-    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  }
-  // Axis stamps: the time alone if it is today, else the day as well.
-  function sparkStamp(iso) {
-    var d = new Date(iso.replace(' ', 'T'));
-    if (isNaN(d.getTime())) return iso;
-    var t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    var today = new Date();
-    if (d.toDateString() === today.toDateString()) return t;
-    return d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' \u00b7 ' + t;
-  }
-  function drawSpark(li, data) {
-    var svg = sub(li, 'data-h', 'spark'), row = sub(li, 'data-h', 'trend');
-    var cap = sub(li, 'data-h', 'spark-cap');
-    if (!svg || !row) return;
-    var items = (data && data.items) || [];
-    var pts = [];
-    while (svg.firstChild) svg.removeChild(svg.firstChild);
-    if (items.length < 2) { li.dataset.sparkReady = ''; row.hidden = true; return; }
-    li.dataset.sparkReady = '1';
-    row.hidden = false;
-    var W = 160, H = 30, LO = 3.3, HI = 4.25;
-    var t0 = new Date(items[0].at.replace(' ', 'T')).getTime();
-    var t1 = new Date(items[items.length - 1].at.replace(' ', 'T')).getTime();
-    var span = Math.max(1, t1 - t0);
-    function x(t) { return ((t - t0) / span) * (W - 6) + 3; }
-    function y(v) { var c = Math.max(LO, Math.min(HI, v)); return H - 3 - ((c - LO) / (HI - LO)) * (H - 6); }
-    var NS = 'http://www.w3.org/2000/svg';
-    function el(name, attrs) { var e = document.createElementNS(NS, name); Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); }); return e; }
-    var usb = data.usb_v || 4.19;
-    svg.appendChild(el('line', { 'class': 'usb', x1: 0, x2: W, y1: y(usb), y2: y(usb) }));
-    var d = '', area = '';
-    items.forEach(function (it, i) {
-      var t = new Date(it.at.replace(' ', 'T')).getTime(), px = x(t), py = y(it.voltage);
-      pts.push({ x: px, v: it.voltage, at: it.at, pct: it.percent });
-      d += (i ? ' L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1);
-    });
-    area = d + ' L' + x(t1).toFixed(1) + ' ' + (H - 3) + ' L' + x(t0).toFixed(1) + ' ' + (H - 3) + ' Z';
-    svg.appendChild(el('path', { 'class': 'fill', d: area }));
-    svg.appendChild(el('path', { 'class': 'line', d: d }));
-    var last = pts[pts.length - 1];
-    svg.appendChild(el('circle', { 'class': 'end', cx: last.x.toFixed(1), cy: y(last.v).toFixed(1), r: 2.2 }));
-    var cursor = el('line', { 'class': 'cursor', x1: 0, x2: 0, y1: 0, y2: H, visibility: 'hidden' });
-    svg.appendChild(cursor);
-    var t0El = sub(li, 'data-h', 'spark-t0'), t1El = sub(li, 'data-h', 'spark-t1');
-    if (t0El) t0El.textContent = sparkStamp(items[0].at);
-    if (t1El) t1El.textContent = sparkStamp(items[items.length - 1].at);
-    function summary() { return (cap && cap.dataset.summary) || ((data.hours || 24) + ' h'); }
-    if (cap) cap.textContent = summary();
-    function nearest(evt) {
-      var r = svg.getBoundingClientRect(), fx = ((evt.clientX - r.left) / r.width) * W, best = pts[0];
-      pts.forEach(function (p) { if (Math.abs(p.x - fx) < Math.abs(best.x - fx)) best = p; });
-      return best;
-    }
-    svg.onmousemove = function (evt) {
-      sparkHover = li;
-      var p = nearest(evt);
-      cursor.setAttribute('x1', p.x.toFixed(1)); cursor.setAttribute('x2', p.x.toFixed(1)); cursor.setAttribute('visibility', 'visible');
-      if (cap) cap.textContent = p.v.toFixed(2) + ' V' + (p.pct != null ? ' \u00b7 ' + p.pct + '%' : '') + ' \u00b7 ' + sparkTime(p.at);
-    };
-    svg.onmouseleave = function () { sparkHover = null; cursor.setAttribute('visibility', 'hidden'); if (cap) cap.textContent = summary(); };
-  }
-  // A frame's trend is fetched when its Details is first opened, and kept
-  // fresh only while it stays open.
-  (function () {
-    var open = [];
-    function load(li) {
-      jsonFetch('/api/battery?hours=24&frame=' + encodeURIComponent(li.getAttribute('data-frame')))
-        .then(function (data) { drawSpark(li, data); })
-        .catch(function () { /* the tile simply stays as it was */ });
-    }
-    document.querySelectorAll('details.det').forEach(function (d) {
-      var li = d.closest('[data-frame]');
-      if (!li || !sub(li, 'data-h', 'spark')) return;
-      d.addEventListener('toggle', function () {
-        if (d.open) { if (open.indexOf(li) < 0) open.push(li); load(li); }
-        else open = open.filter(function (x) { return x !== li; });
-      });
-    });
-    setInterval(function () { if (!document.hidden) open.forEach(load); }, BATTERY_MS);
-  })();
-
   function pollStatus() {
     if (document.hidden) return;
     jsonFetch('/api/status').then(function (st) {

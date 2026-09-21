@@ -117,13 +117,11 @@ STATUS_FOOT_SIZE = 34          # "8:14 pm · 4 September" under the rows
 
 
 # -- collage sheet ----------------------------------------------------------
-# One script header line ("A Day in the Garden ~ August 27", auto-fit like a
-# plate title), art, and an engraved-caps key along the bottom. No subtitle,
-# no rule: the sheet stays quiet.
-COLLAGE_TITLE_BASELINE = 152   # header baseline from the top of the panel
-COLLAGE_ART_TOP = 212          # top of the art box, below the header
-COLLAGE_NAME_SIZE = 36         # grid cell: common name in the script (shrink to fit)
-COLLAGE_COUNT_SIZE = 28        # grid cell: "×14" under the name
+# No header on either collage: the art runs from the top margin down to the
+# date line and the numbered key along the bottom (the generated sheet's
+# geometry, below, which the grid shares). No subtitle, no rule: the sheet
+# stays quiet.
+COLLAGE_FIGURE_SIZE = 26       # grid cell: its figure numeral, engraved, at the head
 
 KEY_SIZE = 34                  # bottom key, engraved capitals
 KEY_SIZES = (34, 30, 27, 24)   # shrink steps when the widest line won't fit

@@ -31,6 +31,10 @@ log = logging.getLogger("featherframe.viewers")
 # in quiet hours the plate does not change, so it may as well sleep.
 REFRESH_SECONDS = 900
 QUIET_REFRESH_SECONDS = 3600
+# A screen waiting to be added comes back soon, so it picks the picture up
+# moments after the owner says yes; one that was turned away asks rarely.
+WAITING_REFRESH_SECONDS = 300
+IGNORED_REFRESH_SECONDS = 3600
 
 MAX_VIEWERS = 32   # the LAN is untrusted: junk IDs must not grow the row forever
 
@@ -137,10 +141,10 @@ def _out(row: dict) -> dict:
 
 
 def _new(viewer_id: str, kind: str, stamp: str) -> dict:
-    """A viewer nobody has seen before. Viewers are never parked: pointing a
-    screen at the server is the whole of the approval."""
-    row = frames.new_row(viewer_id, kind if kind in _KINDS else "trmnl", stamp,
-                         status=frames.ON)
+    """A viewer nobody has seen before. It asks, like every other frame
+    (W-833): a screen that found the server on the LAN is not the owner
+    saying so, and it shows that it is waiting until they answer on the page."""
+    row = frames.new_row(viewer_id, kind if kind in _KINDS else "trmnl", stamp)
     row["token"] = secrets.token_hex(16)
     return row
 
@@ -183,7 +187,10 @@ class Viewers:
                 row["ip"] = ip
             # The LAN is untrusted: junk IDs must not grow the row forever. Only
             # viewers are ever dropped — a kit is answered for, not aged out.
-            mine = [k for k, r in rows.items() if frames.transport_of(r) in _KINDS]
+            # The owner's own answer outranks the clock: a screen they added or
+            # ignored is kept, and only the ones still asking age out.
+            mine = [k for k, r in rows.items() if frames.transport_of(r) in _KINDS
+                    and r.get("status") == frames.ASKING]
             if len(mine) > MAX_VIEWERS:
                 mine.sort(key=lambda k: rows[k].get("last_seen") or "")
                 for stale in mine[:len(mine) - MAX_VIEWERS]:

@@ -197,7 +197,7 @@ def test_battery_row_always_renders(svc):
     # the voltage trend instead, so the tile is always meaningful.
     _checkin(svc, user_agent="ua", battery_voltage=3.9, battery_percent=60, wifi_rssi=-60)
     html = _render_page(svc)
-    assert 'data-h="batt"' in html and "60%" in html
+    assert 'data-h="batt-bar"' in html and "60%" in html
     assert 'name="show_battery"' not in html
 
 

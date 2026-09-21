@@ -323,6 +323,12 @@ def test_a_migrated_install_keeps_serving_the_frame_it_was_serving(upgraded):
     assert upgraded.get("/api/frame", headers=EE03).status_code == 200
     assert upgraded.get("/api/frame", headers=EE02).status_code == 200
     assert len(upgraded.get("/api/viewers").json()["viewers"]) == 2
+    # Every NEW frame asks now (W-833), but a frame this server was already
+    # drawing for is not asked about again — a viewer included.
+    assert sorted(f["id"] for f in svc.frames_list() if f["status"] == "on") == sorted(
+        [EE03["X-Device-Id"], EE02["X-Device-Id"], *LEGACY_VIEWERS])
+    body = upgraded.get("/api/display", headers=TRMNL).json()
+    assert not body["filename"].startswith("waiting-")
 
 
 def test_nothing_writes_the_legacy_keys_after_the_migration(upgraded):

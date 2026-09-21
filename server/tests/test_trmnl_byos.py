@@ -16,6 +16,7 @@ from starlette.testclient import TestClient
 from featherframe import viewers
 from featherframe.render import pipeline, theme
 from featherframe.render.pipeline import View
+from tests._frames import add_page, add_trmnl
 
 X = {"ID": "AA:BB:CC:DD:EE:01", "Model": "x", "Width": "1872", "Height": "1404",
      "FW-Version": "2.0.1", "Battery-Voltage": "4.02", "Percent-Charged": "88", "RSSI": "-58",
@@ -43,6 +44,11 @@ def client(tmp_path, monkeypatch):
     return TestClient(app)
 
 
+def _added(client, headers):
+    """A TRMNL client the owner has answered "Add" for (W-833)."""
+    return add_trmnl(client, headers).json()
+
+
 def _image(client, body):
     url = urlparse(body["image_url"])
     r = client.get(url.path)
@@ -61,7 +67,7 @@ def test_setup_hands_a_new_device_its_key(client):
 
 def test_display_answers_in_the_firmwares_own_terms(client):
     svc = client.app.state.service
-    body = client.get("/api/display", headers=X).json()
+    body = _added(client, X)
     assert body["status"] == 0 and body["update_firmware"] is False
     assert body["refresh_rate"] == viewers.REFRESH_SECONDS
     assert body["filename"].startswith(svc.current_etag())
@@ -71,19 +77,19 @@ def test_display_answers_in_the_firmwares_own_terms(client):
 def test_a_trmnl_x_gets_the_ee03s_picture_on_its_side(client):
     """1872x1404 of 16 grays is the EE03's glass: 4-bit PNG, the portrait
     plate turned into the landscape canvas."""
-    png = _image(client, client.get("/api/display", headers=X).json())
+    png = _image(client, _added(client, X))
     assert png[24] == 4
     assert Image.open(io.BytesIO(png)).size == (1872, 1404)
     assert viewers.view_of(client.app.state.service.viewers.get(X["ID"])) == View(1872, 1404, "gray16", 90)
 
 
 def test_an_og_gets_two_bit_gray(client):
-    png = _image(client, client.get("/api/display", headers=OG).json())
+    png = _image(client, _added(client, OG))
     assert png[24] == 2 and Image.open(io.BytesIO(png)).size == (800, 480)
 
 
 def test_a_client_that_reports_no_size_gets_an_e_reader_page_until_the_owner_says(client):
-    png = _image(client, client.get("/api/display", headers=KOBO).json())
+    png = _image(client, _added(client, KOBO))
     assert Image.open(io.BytesIO(png)).size == (1072, 1448)
     r = client.post(f"/api/viewers/{KOBO['ID']}", json={"width": 1264, "height": 1680,
                                                        "name": "Kitchen Kobo"})
@@ -93,7 +99,7 @@ def test_a_client_that_reports_no_size_gets_an_e_reader_page_until_the_owner_say
 
 
 def test_the_owners_rotation_survives_check_ins_and_changes_the_filename(client):
-    before = client.get("/api/display", headers=X).json()["filename"]
+    before = _added(client, X)["filename"]
     client.post(f"/api/viewers/{X['ID']}", json={"rotation": 270})
     after = client.get("/api/display", headers=X).json()
     assert after["filename"] != before and after["filename"].endswith("-270")
@@ -114,7 +120,7 @@ def test_a_viewer_is_never_the_frame(client):
     svc = client.app.state.service
     before = (svc._etag, _kits(svc))
     client.get("/api/setup", headers=X)
-    _image(client, client.get("/api/display", headers=X).json())
+    _image(client, _added(client, X))
     assert (svc._etag, _kits(svc)) == before
     # It is a frame in the registry all the same, fed another way.
     listed = {f["id"]: f for f in svc.status()["frames"]["list"]}
@@ -129,12 +135,12 @@ def test_quiet_hours_let_a_viewer_sleep_longer(client):
     svc = client.app.state.service
     svc.config.quiet_hours_mode = "custom"
     svc.config.quiet_hours_start, svc.config.quiet_hours_end = "11:00", "13:00"
-    assert client.get("/api/display", headers=X).json()["refresh_rate"] == viewers.QUIET_REFRESH_SECONDS
+    assert _added(client, X)["refresh_rate"] == viewers.QUIET_REFRESH_SECONDS
 
 
 def test_the_list_shows_what_each_viewer_is_and_never_its_key(client):
-    client.get("/api/display", headers=X)
-    client.get("/api/display", headers=OG)
+    _added(client, X)
+    _added(client, OG)
     rows = client.get("/api/viewers").json()["viewers"]
     assert [r["id"] for r in rows] == [X["ID"], OG["ID"]]
     assert rows[0]["reported"]["battery_percent"] == 88 and rows[0]["view"]["format"] == "gray16"
@@ -177,7 +183,8 @@ def test_the_page_is_served_and_installs_as_an_app(client):
 
 
 def test_a_page_is_told_which_image_to_show_in_colour_at_its_own_size(client):
-    r = client.get("/api/view/state?viewer=PAGE-1A2B3C4D&w=1536&h=2048&device=iPad").json()
+    url = "/api/view/state?viewer=PAGE-1A2B3C4D&w=1536&h=2048&device=iPad"
+    r = add_page(client, url, "PAGE-1A2B3C4D").json()
     assert r["dark"] is False and r["poll"] == viewers.PAGE_POLL_SECONDS
     assert r["image"].endswith("-1536x2048-color-0.png")
     assert Image.open(io.BytesIO(client.get(r["image"]).content)).size == (1536, 2048)
@@ -187,12 +194,12 @@ def test_a_page_is_told_which_image_to_show_in_colour_at_its_own_size(client):
 
 
 def test_a_big_screen_is_not_drawn_bigger_than_the_sheet_is_worth(client):
-    r = client.get("/api/view/state?viewer=PAGE-1&w=2048&h=2732").json()
+    r = add_page(client, "/api/view/state?viewer=PAGE-1&w=2048&h=2732", "PAGE-1").json()
     assert "-1535x2048-color-0" in r["image"]   # the iPad Pro's 2048x2732, long side capped
 
 
 def test_a_landscape_tablet_shows_the_plate_upright(client):
-    r = client.get("/api/view/state?viewer=PAGE-2&w=2048&h=1536").json()
+    r = add_page(client, "/api/view/state?viewer=PAGE-2&w=2048&h=1536", "PAGE-2").json()
     assert r["image"].endswith("-2048x1536-color-0.png")
 
 
@@ -203,7 +210,7 @@ def test_a_page_shows_the_plate_whatever_the_hour_and_is_always_colour(client):
     svc.config.quiet_hours_mode = "custom"
     svc.config.quiet_hours_start, svc.config.quiet_hours_end = "11:00", "13:00"
     url = "/api/view/state?viewer=PAGE-3&w=1536&h=2048"
-    assert client.get(url).json()["dark"] is False
+    assert add_page(client, url, "PAGE-3").json()["dark"] is False
     client.post("/api/viewers/PAGE-3", json={"dark_quiet": True, "fmt": "gray256"})
     assert svc.frames.get("PAGE-3")["set"] == {}
     state = client.get(url).json()
@@ -230,9 +237,9 @@ def test_the_frames_card_says_how_to_start_when_there_is_nothing(client):
 
 
 def test_each_viewer_is_a_row_with_only_the_controls_its_screen_has(client):
-    client.get("/api/display", headers=X)
-    client.get("/api/display", headers=KOBO)
-    client.get("/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad")
+    _added(client, X)
+    _added(client, KOBO)
+    add_page(client, "/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad", "PAGE-1")
     client.post(f"/api/viewers/{X['ID']}", json={"name": "Hall TRMNL"})
     card = client.get("/").text.split('id="frames-card"')[1].split("</section>")[0]
     assert "Hall TRMNL" in card and "iPad" in card
@@ -258,13 +265,13 @@ def test_each_viewer_is_a_row_with_only_the_controls_its_screen_has(client):
 def test_the_row_posts_what_the_api_takes(client):
     """The row sends every field as the form holds it, and the fields no
     screen has any more are simply not taken."""
-    client.get("/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad")
+    add_page(client, "/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad", "PAGE-1")
     r = client.post("/api/frames/PAGE-1", json={"name": " Kitchen iPad ", "fmt": "gray256",
                                                 "dark_quiet": False})
     v = _row(r.json()["frames"], "PAGE-1")
     assert v["name"] == "Kitchen iPad" and v["settings"]["format"] == "color"
     assert "dark_quiet" not in v["settings"]
-    client.get("/api/display", headers=KOBO)
+    _added(client, KOBO)
     r = client.post(f"/api/frames/{KOBO['ID']}", json={"name": "", "rotation": "0",
                                                        "width": "1264", "height": "1680"})
     s = _row(r.json()["frames"], KOBO["ID"])["settings"]
@@ -275,7 +282,7 @@ def test_a_page_is_never_given_a_panel_rotation(client):
     """Capability validation: a lit screen turns its own picture, so there is
     no rotation to set — and a post that tries is ignored, not obeyed."""
     svc = client.app.state.service
-    client.get("/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad")
+    add_page(client, "/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad", "PAGE-1")
     r = client.post("/api/frames/PAGE-1", json={"rotation": 90, "panel_rotation": 90,
                                                 "power_mode": "sleep", "mat_inset_pct": 9})
     assert r.json()["ok"]

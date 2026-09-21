@@ -166,6 +166,11 @@ again on its own if the box ever changes address. Type the URL from step 1
 To redo it later, hold **KEY2 for 3 s**; hold KEY2 while powering on to wipe
 everything.
 
+The frame then shows *Add this frame on the Featherframe page*: open the page,
+and it is waiting at the top of the **Frames** card. Press **Add** and the next
+check-in brings the plate. Every screen is let in this way, the first one
+included.
+
 If the image hangs sideways, change **Panel rotation** on the config page — no
 reflash.
 
@@ -193,8 +198,10 @@ offers only what that screen has:
   up on its next check-in.
 - **Screen size** — only for a client that does not say how big it is.
 - **Advanced** (a kit) — the mat inset and offsets, with *Reset to defaults*.
-- **Details** — battery, Wi-Fi, the 24 h voltage trend, IP, firmware, panel,
-  board and the frame's id. Metadata, never a setting.
+  The inset is 0 by default: turn it up only if you hang the panel behind a
+  mat and want the art to clear the opening.
+- **Details** — what that screen reported about itself: IP address, firmware,
+  panel, board and the frame's id. Metadata, never a setting.
 
 A frame that is overdue or nearly flat wears a badge on its own row; there is
 no banner across the page.
@@ -208,7 +215,9 @@ Everything below the Frames card is the household's: the same for every screen.
   an Apprise webhook, with a *Test connection* button, and the **species
   blocklist** under its Advanced: one name per line.
 - **Collage** — how often it is redrawn, how many species it holds (leave it
-  empty for no limit), and whether to draw it with AI.
+  empty for no limit), and whether to draw it with AI. That switch is all or
+  nothing: with it on, every collage is an illustrated scene, and one image is
+  bought per day — again only if the day's species change.
 - **Image generation** — optional; see below.
 
 ## Other screens: tablets, TRMNL, Kobo, Kindle
@@ -216,8 +225,9 @@ Everything below the Frames card is the household's: the same for every screen.
 The kit is not the only thing that can show a plate. A frame is a frame: any
 number of tablets, TRMNLs and e-readers can show plates or the collage, each
 drawn for its own screen, and each appears in the **Frames** card as an
-ordinary row. There is nothing to approve — pointing a screen at the server is
-the whole of it.
+ordinary row. Every one of them asks first: point a screen at the server and it
+shows *Add this frame on the Featherframe page* until you answer **Add** at the
+top of the Frames card. Then it takes the plate by itself.
 
 **iPad or Android tablet**: open `http://<your-pi>:8080/view`. It is the
 plate, edge to edge, in colour, and it follows the frame within seconds. On an

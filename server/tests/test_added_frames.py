@@ -194,9 +194,9 @@ def test_both_frames_are_the_same_row(client):
                      'data-f="power_mode"', 'data-f="mat_inset_pct"',
                      'data-fr-action="save"', 'data-fr-action="forget"'):
             assert want in row
-        # …and each carries its own health, in the row and in its Details.
+        # …and each carries its own health on the row, over its own Details.
         for want in ('data-h="dot"', 'data-h="seen-text"', 'data-h="batt-wrap"',
-                     'data-h="wifi-wrap"', "<span>Details</span>", ">Power<", ">Wi-Fi<"):
+                     'data-h="wifi-wrap"', "<span>Details</span>", ">Frame ID<"):
             assert want in row, want
     ee02 = rows[1]
     assert "71%" in ee02 and "Good" in ee02 and "1.9.0" in ee02 and EE02["X-Board"] in ee02

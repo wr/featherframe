@@ -44,14 +44,18 @@ def client(tmp_path, monkeypatch):
 
 
 def _populate(client):
-    """One of each kind of screen, all on."""
+    """One of each kind of screen, all asked for and all added — every frame of
+    every transport is approved on the server (W-833)."""
     svc = client.app.state.service
-    client.get("/api/frame", headers=GRAY)                    # the first kit is let in
-    client.get("/api/frame", headers=COLOUR)                  # …and the second asks
-    client.post("/api/frames", data={"id": COLOUR["X-Device-Id"], "action": "add"})
+    client.get("/api/frame", headers=GRAY)
+    client.get("/api/frame", headers=COLOUR)
     client.get("/api/display", headers=TRMNL_X)
     client.get("/api/display", headers=KOBO)
     client.get(PAGE)
+    for fid in (GRAY["X-Device-Id"], COLOUR["X-Device-Id"], TRMNL_X["ID"], KOBO["ID"],
+                "PAGE-TEST"):
+        assert client.post("/api/frames", data={"id": fid, "action": "add"}).status_code == 200
+    client.get("/api/frame", headers=GRAY)                    # its telemetry, now it is on
     svc.tick()
     return svc
 
@@ -260,6 +264,7 @@ def test_a_frame_that_is_asking_is_offered_add_or_ignore(client):
 def test_an_ignored_frame_folds_at_the_bottom_with_add_and_forget(client):
     client.get("/api/frame", headers=GRAY)
     client.get("/api/frame", headers=COLOUR)
+    client.post("/api/frames", data={"id": GRAY["X-Device-Id"], "action": "add"})
     client.post("/api/frames", data={"id": COLOUR["X-Device-Id"], "action": "ignore"})
     card = _card(client)
     assert "Ignored (1)" in card and "wants to connect" not in card
@@ -279,6 +284,22 @@ def test_with_no_frames_at_all_the_card_is_an_invitation(client):
     assert "class=\"fr-list\"" not in card
 
 
+def test_save_sits_on_the_right_of_a_row_and_remove_on_the_left(client):
+    """As the household form's own Save does."""
+    _populate(client)
+    actions = _row(_card(client), GRAY["X-Device-Id"]).split('class="fr-actions"')[1]
+    assert actions.index('data-fr-action="forget"') < actions.index('data-fr-action="save"')
+
+
+def test_the_frames_list_is_flush_in_its_card(client):
+    """No padding of the card's own above the first row or below the last: a
+    row's hover background reaches the card's edge, clipped to its radius."""
+    css = client.get("/").text.split("</style>")[0]
+    assert "#frames-card { overflow:hidden; }" in css
+    assert "#frames-card section.sec { padding:0 26px; }" in css
+    assert "#frames-card section.sec { padding:0 16px; }" in css   # at 375 px
+
+
 # -- per-frame endpoints ------------------------------------------------------
 def test_each_frame_has_its_own_preview(client):
     _populate(client)
@@ -294,6 +315,28 @@ def test_each_frame_has_its_own_preview(client):
     for frame_id in (GRAY["X-Device-Id"], COLOUR["X-Device-Id"], "PAGE-TEST"):
         assert f'data-src="{_listed(svc, frame_id)["preview_url"]}"' in pick, frame_id
     assert 'data-pick=' in pick
+
+
+def test_the_preview_is_upright_and_fills_its_box_for_every_frame(client):
+    """The preview is the picture as that frame draws it — never the device's
+    canvas shape or its rotation, which would letterbox the portrait sheet."""
+    from io import BytesIO
+    from PIL import Image
+    _populate(client)
+
+    def size(frame_id):
+        r = client.get(f"/api/frames/{frame_id}/preview.png")
+        assert r.status_code == 200, frame_id
+        return Image.open(BytesIO(r.content)).size
+
+    for frame_id in (GRAY["X-Device-Id"], COLOUR["X-Device-Id"], TRMNL_X["ID"],
+                     KOBO["ID"], "PAGE-TEST"):
+        w, h = size(frame_id)
+        assert h > w, frame_id                       # upright, every one of them
+    # A TRMNL X hangs on its side; its preview is that glass stood up.
+    assert size(TRMNL_X["ID"]) == (1404, 1872)
+    # A tablet's window has no shape worth previewing: the sheet at 3:4.
+    assert size("PAGE-TEST") == (1200, 1600)
 
 
 def test_the_battery_endpoint_is_per_frame(client):
@@ -320,9 +363,12 @@ def test_the_row_carries_that_frames_health(client):
     assert '"fr-batt"' in gray and "72%" in gray
     assert 'data-h="wifi-wrap"' in gray and "Good · -61 dBm" in gray
     assert 'data-h="seen-text">just now<' in gray
-    # open: the same Details the Health card held
-    assert 'data-h="spark"' in gray                  # its own 24 h trend, in place
+    # open: Details is what this frame reported about itself, and only that —
+    # the battery and the Wi-Fi are already on the row above.
     assert "2026.09.20" in gray and GRAY["X-Board"] in gray and ">Frame ID<" in gray
+    for repeated in ('data-h="spark"', 'class="trend"', 'class="vitals"',
+                     "<span>Power</span>", "<span>Wi-Fi</span>"):
+        assert repeated not in gray, repeated
     # a screen that reports neither leaves those columns empty, and says so
     kobo = _row(card, KOBO["ID"])
     assert 'data-h="batt-wrap" hidden' in kobo and 'data-h="wifi-wrap" hidden' in kobo
@@ -416,16 +462,32 @@ def test_the_collage_section_is_three_settings_and_no_preamble(client):
     _populate(client)
     sec = client.get("/").text.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
     assert 'class="intro"' not in sec
-    assert ">Update interval (hours)<" in sec and ">Species limit<" in sec
+    assert ">Update interval<" in sec and ">Species limit<" in sec
     assert "How often the collage is redrawn during the day" in sec
     assert "The most species shown in one collage" in sec
+    # The interval is a dropdown of the intervals an owner picks.
+    every = sec.split('name="collage_interval_hours"')[1].split("</select>")[0]
+    assert [">Every hour<", ">Every 4 hours<", ">Every 6 hours<",
+            ">Every 12 hours<", ">Every 24 hours<"] == [o for o in
+            (">Every hour<", ">Every 4 hours<", ">Every 6 hours<",
+             ">Every 12 hours<", ">Every 24 hours<") if o in every]
     # The AI collage moved here, always on offer, with its readiness note.
     assert 'name="collage_generated"' in sec
     assert ">Generate the collage with AI " in sec
-    assert "Draws the nightly collage as a single illustrated scene" in sec
+    assert ("Draws every collage as a single illustrated scene. "
+            "Each new one is a paid image." in sec)
     assert 'id="cg-needs-key"' in sec
     ig = client.get("/").text.split('<h2 class="sec-head">Image generation')[1]
     assert 'name="collage_generated"' not in ig
+
+
+def test_a_stored_interval_the_menu_does_not_offer_is_still_shown(client):
+    """Nothing is silently changed under an owner who set an odd number."""
+    svc = _populate(client)
+    svc.config.collage_interval_hours = 3
+    every = (client.get("/").text.split('name="collage_interval_hours"')[1]
+             .split("</select>")[0])
+    assert '<option value="3" selected>Every 3 hours</option>' in every
 
 
 def test_an_empty_species_limit_is_no_limit(client):

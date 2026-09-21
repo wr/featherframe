@@ -24,11 +24,42 @@ SOURCE_DOWN = "Detection source unreachable"
 SOURCE_DOWN_HINT = "Configure the source in the dashboard"
 SOURCE_UP_HINT = "The first detection will appear here"
 
+# What a screen that has not been added yet shows (W-833). The same sentence
+# the kit's own baked screen carries, so the answer is the same wherever the
+# owner reads it.
+WAITING_LINE = "ADD THIS FRAME ON THE FEATHERFRAME PAGE"
+_WAITING_SIZE = 40
+_WAITING_ID_SIZE = 28
+
 
 def since_words(since: datetime) -> str:
     hour = since.hour % 12 or 12
     stamp = f"{hour}:{since.minute:02d} {'am' if since.hour < 12 else 'pm'}"
     return f"Listening since {since.day} {since.strftime('%B')}, {stamp}"
+
+
+def render_waiting(short_id: str = "") -> Image.Image:
+    """What a screen shows while it waits to be added (W-833): the wordmark,
+    and under it the one thing the owner has to do. A TRMNL and an e-reader
+    fetch this as their image; the kiosk page says the same in HTML."""
+    field = Image.new("L", (theme.WIDTH, theme.HEIGHT), theme.FIELD)
+    draw = ImageDraw.Draw(field)
+    cx = theme.WIDTH / 2
+    baseline = theme.HEIGHT * 0.44
+    typography.draw_script(field, cx, baseline, "Featherframe",
+                           typography.fit_script_title("Featherframe", theme.CONTENT_W),
+                           theme.INK, stroke=theme.TITLE_STROKE)
+    hedera_font = typography.FONTS.get(36, italic=True, weight=500)
+    draw.text((cx, baseline + 92), theme.DATE_ORNAMENT, font=hedera_font,
+              fill=theme.INK_MEDIUM, anchor="ms")
+    size = _WAITING_SIZE
+    while size > 22 and typography.engraved_width(WAITING_LINE, size) > theme.CONTENT_W:
+        size -= 1
+    typography.draw_engraved(draw, cx, baseline + 220, WAITING_LINE, size, theme.INK)
+    if short_id:
+        typography.draw_engraved(draw, cx, baseline + 220 + _WAITING_SIZE * 2,
+                                 str(short_id), _WAITING_ID_SIZE, theme.INK_SOFT)
+    return field
 
 
 def render_welcome(since: datetime, source_ok: bool,

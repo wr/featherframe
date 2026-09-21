@@ -16,7 +16,7 @@ from featherframe.render import framebuffer, pipeline
 from featherframe.render.compose import SingleSpec
 from featherframe.sources.base import Detection
 from tests._fixtures import create_birds_db, make_row
-from tests._frames import add_kit, frame_bytes
+from tests._frames import add_kit, approve, frame_bytes
 
 NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
@@ -52,6 +52,7 @@ def _kit(svc, frame_id: str, shows: str) -> dict:
 
 def _viewer(svc, viewer_id: str, shows: str, seen: datetime) -> None:
     svc.viewers.checkin(viewer_id, seen, "page", {"width": 600, "height": 800})
+    approve(svc, viewer_id)           # every frame is answered for (W-833)
     svc.viewers.update(viewer_id, {"shows": shows})
 
 

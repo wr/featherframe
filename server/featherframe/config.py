@@ -143,7 +143,9 @@ class Config:
     panel_rotation: int = 90  # per panel (panels.py rotations; see sanitize)
 
     # Shrink the composition by this percent per edge and center it on white.
-    mat_inset_pct: float = 4.0  # 0 disables
+    # 0 (the default) disables it: a frame with no mat, or one whose opening
+    # the art already meets, needs no allowance ring.
+    mat_inset_pct: float = 0.0
     # The physical mat is rarely mounted dead-center; shift the inset
     # composition to meet it. Positive = right / down, in panel pixels.
     mat_offset_x_px: int = 0
@@ -152,7 +154,7 @@ class Config:
     # Collage --------------------------------------------------------------
     # Collage mode draws a new sheet this often. On the colour panel, where a
     # refresh takes half a minute, that beats a plate per detection.
-    collage_interval_hours: int = 8
+    collage_interval_hours: int = 6   # one of the page's choices: 1, 4, 6, 12, 24
 
     # AI-generated plates --------------------------------------------------
     # For species Audubon never painted. A plate is generated once on first
@@ -210,7 +212,7 @@ class Config:
             bw = bw.split("?", 1)[0].split("#", 1)[0].rstrip("/").rsplit("/", 1)[-1]
         self.birdweather_station_id = bw
         self.apprise_token = str(self.apprise_token or "").strip()
-        self.collage_interval_hours = int(_clamp(_finite(self.collage_interval_hours, 8), 1, 24))
+        self.collage_interval_hours = int(_clamp(_finite(self.collage_interval_hours, 6), 1, 24))
         self.collage_species_max = int(_clamp(self.collage_species_max, 0, 60))
         # The panel's native canvas is landscape and the firmware rejects a
         # portrait frame (pushImage would clip it into garbage), so only the
@@ -226,7 +228,7 @@ class Config:
             # The same relative flip on the other panel's axes (0<->90, 180<->270).
             rot = {0: 90, 180: 270, 90: 0, 270: 180}.get(rot, valid[0])
         self.panel_rotation = rot if rot in valid else valid[0]
-        self.mat_inset_pct = _clamp(_finite(self.mat_inset_pct, 4.0), 0.0, 20.0)
+        self.mat_inset_pct = _clamp(_finite(self.mat_inset_pct, 0.0), 0.0, 20.0)
         self.mat_offset_x_px = int(_clamp(int(self.mat_offset_x_px), -120, 120))
         self.mat_offset_y_px = int(_clamp(int(self.mat_offset_y_px), -120, 120))
         if self.imagegen_provider not in ("openai", "gemini", "replicate", "a1111"):

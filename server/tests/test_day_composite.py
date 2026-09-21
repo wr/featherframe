@@ -48,10 +48,58 @@ def test_composite_generates_once_per_day(data_dir):
     # Same day again with a DIFFERENT tally: cache, no second purchase — and
     # the returned cells are the ones the sheet was painted from, so the key
     # can never name birds that are not in the painting.
-    art2, painted2 = provider.day_composite(CELLS[:1], DAY)
+    louder = [CollageCell(c.common_name, c.scientific_name, c.count * 3) for c in CELLS]
+    art2, painted2 = provider.day_composite(louder, DAY)
     assert art2 is not None
     assert model.calls == 1
     assert [c.scientific_name for c in painted2] == [c.scientific_name for c in CELLS]
+    assert [c.count for c in painted2] == [c.count for c in CELLS]
+
+
+def _age_out(data_dir):
+    """Put the day's sheet past the repaint debounce."""
+    sidecar = data_dir / "collages" / "2026-08-28.json"
+    meta = json.loads(sidecar.read_text())
+    meta["created_ts"] = 0
+    sidecar.write_text(json.dumps(meta))
+
+
+def test_a_redraw_of_the_same_species_never_buys_a_second_sheet(data_dir):
+    """Every collage is the generated one when the toggle is on, so a redraw
+    has to be free: the day's species list is what a sheet is of."""
+    model = FakeModel()
+    provider = GeneratedArtProvider(model)
+    provider.day_composite(CELLS, DAY)
+    _age_out(data_dir)
+    for _ in range(4):
+        assert provider.day_composite(CELLS, DAY) is not None
+    assert model.calls == 1
+
+
+def test_a_new_species_in_the_day_buys_one_fresh_sheet(data_dir):
+    model = FakeModel()
+    provider = GeneratedArtProvider(model)
+    provider.day_composite(CELLS, DAY)
+    _age_out(data_dir)
+    more = CELLS + [CollageCell("Blue Jay", "Cyanocitta cristata", 3)]
+    art, painted = provider.day_composite(more, DAY)
+    assert art is not None and model.calls == 2
+    assert [c.scientific_name for c in painted] == [c.scientific_name for c in more]
+    # …and exactly one: that day is now of those species.
+    _age_out(data_dir)
+    assert provider.day_composite(more, DAY) is not None
+    assert model.calls == 2
+
+
+def test_a_stale_sheet_is_still_better_than_the_grid_while_cooling_down(data_dir):
+    provider = GeneratedArtProvider(FakeModel())
+    provider.day_composite(CELLS, DAY)
+    _age_out(data_dir)
+    provider._model = FakeModel(fail=True)
+    more = CELLS + [CollageCell("Blue Jay", "Cyanocitta cristata", 3)]
+    assert provider.day_composite(more, DAY) is not None      # the buy failed
+    assert provider.day_composite(more, DAY) is not None      # …and the cooldown holds
+    assert provider._model.calls == 1
 
 
 def test_composite_force_regenerates(data_dir):
@@ -319,3 +367,43 @@ def test_sheet_carries_the_date_above_the_key():
     assert all(field.getpixel((x, baseline + 14)) > 200 for x in xs)
     box = collage_mod.sheet_art_box(CELLS)
     assert box[3] < baseline - theme.SHEET_KEY_SIZES[0]        # art ends above the date
+
+
+# -- the grid is set exactly like the generated sheet (W-833 review) -----------
+class _NoArt:
+    """A provider with no plate for anything: the grid's typographic cell."""
+
+    def artwork(self, common_name, scientific_name):
+        return None
+
+
+def test_the_grid_and_the_sheet_share_one_bottom_block():
+    """Same date line, same numbered key, same art box — one helper draws it
+    for both, so the two collages are one thing set two ways."""
+    import numpy as np
+    box = collage_mod.sheet_art_box(CELLS)
+    art = Image.new("L", collage_mod.sheet_art_size(CELLS), 200)
+    sheet = collage_mod.render_generated_collage(art, CELLS, when=DAY)
+    grid = collage_mod.render_collage(CELLS, _NoArt(), when=DAY)
+    below = lambda img: np.asarray(img.convert("L"))[box[3]:, :]   # noqa: E731
+    assert np.array_equal(below(sheet), below(grid))
+    assert collage_mod.sheet_date_text(DAY) == "FRIDAY, AUGUST 28, 2026"
+
+
+def test_the_grid_has_no_title_line_and_numbers_its_cells():
+    import numpy as np
+    grid = np.asarray(collage_mod.render_collage(CELLS, _NoArt(), when=DAY))
+    # Nothing is printed above the art: the top margin is bare paper.
+    assert (grid[:theme.SHEET_MARGIN_TOP, :] == 255).all()
+    # Each cell carries its figure numeral at its head, keyed to the key.
+    left, top, right, _ = collage_mod.sheet_art_box(CELLS)
+    corner = grid[top:top + 2 * theme.COLLAGE_FIGURE_SIZE,
+                  left:left + 2 * theme.COLLAGE_FIGURE_SIZE]
+    assert corner.min() < 128
+    assert [e for r in collage_mod.sheet_key(CELLS)[1] for e in r][0] == "1. GREAT HORNED OWL"
+
+
+def test_a_colour_grid_keeps_its_type_on_the_gray_field():
+    """The colour panel's grid is the same sheet: art in colour, type over it."""
+    img = collage_mod.render_collage(CELLS, _NoArt(), when=DAY, color=True)
+    assert img.mode == "RGB" and img.size == (theme.WIDTH, theme.HEIGHT)

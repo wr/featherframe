@@ -74,6 +74,22 @@ def test_the_page_carries_none_of_the_removed_controls(client):
     assert 'name="mode"' not in html
 
 
+# Copy that has been culled. It must be gone from the page AND from the render
+# that used to print it — a string nobody reads is not "removed".
+REMOVED_STRINGS = ("A Day in the Garden", "Update interval (hours)",
+                   "nightly collage as a single")
+
+
+def test_the_copy_that_was_culled_is_gone(client):
+    from pathlib import Path
+    from featherframe.render import collage as collage_mod
+    html = client.get("/").text
+    src = Path(collage_mod.__file__).read_text()
+    for gone in REMOVED_STRINGS:
+        assert gone not in html, gone
+        assert gone not in src, gone
+
+
 def test_the_source_is_polled_on_a_constant(client):
     svc = client.app.state.service
     assert svc._effective_poll_seconds() == service_mod.POLL_SECONDS == 5

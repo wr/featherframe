@@ -131,6 +131,14 @@ when `filename` changes: the frame's ETag plus the variant. Dithered views go
 out at their true PNG depth (`pipeline.encode_png`; Pillow cannot write gray
 below 8 bits). `refresh_rate` is a constant (`viewers.REFRESH_SECONDS`, hourly
 in quiet hours). A viewer never reaches `admit_frame`.
+The kiosk page (W-825) is the second client: `GET /view`
+(`templates/view.html`, ES5 and XHR on purpose, for old iPads; a home-screen
+web app via `/view.webmanifest`) names itself from localStorage, reports its
+device pixels to `GET /api/view/state` every `viewers.PAGE_POLL_SECONDS`, and
+is told which image to cross-fade to and whether to go dark. A page viewer
+(`kind: "page"`) defaults to `color`, upright, long side capped at
+`PAGE_MAX_SIDE`, and black in quiet hours (`dark_quiet`, the one setting a lit
+screen has that paper does not); "paper look" is the owner choosing `gray256`.
 
 **Ingest (`birdnet.py`) is strictly read-only.** Opens `?mode=ro`, never writes
 or locks BirdNET's DB. The cursor is `WHERE rowid > :last`. Every method

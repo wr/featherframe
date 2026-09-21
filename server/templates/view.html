@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Featherframe</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Featherframe">
+  <meta name="theme-color" content="#ffffff">
+  <!-- A browser left open for months gets a fresh start now and then. -->
+  <meta http-equiv="refresh" content="43200">
+  <link rel="manifest" href="/view.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/favicon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+  <style>
+    @font-face { font-family: "FF Script"; src: url("/fonts/script.ttf") format("truetype"); font-display: block; }
+    html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; cursor: none;
+                 -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+                 -webkit-tap-highlight-color: transparent; }
+    body { transition: background-color 2s ease; }
+    /* Two layers, so a new plate fades in over the old one. Old Safari has no
+       `inset` and no object-fit before iOS 8: the server sends the picture at
+       this screen's own shape, so plain 100% is already right. */
+    img { position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+          object-fit: contain; opacity: 0; transition: opacity 1.2s ease; }
+    img.on { opacity: 1; }
+    #mark { position: absolute; top: 50%; left: 0; width: 100%; margin-top: -0.6em; text-align: center;
+            font: 64px/1.2 "FF Script", "Snell Roundhand", cursive; color: #1a1a1a; opacity: .5;
+            transition: opacity 1s ease; }
+    .lit #mark { opacity: 0; }
+    /* Quiet hours on a lit screen: black, nothing glowing in a dark room. */
+    .dark, .dark body { background: #000; }
+    .dark img.on, .dark #mark { opacity: 0; }
+  </style>
+</head>
+<body>
+  <div id="mark">Featherframe</div>
+  <img id="a" alt=""><img id="b" alt="">
+<script>
+// ES5 on purpose: an iPad from 2013 on a kitchen wall is exactly who this is for.
+(function () {
+  var POLL = {{ poll_seconds }} * 1000;
+  var root = document.documentElement;
+  var layers = [document.getElementById('a'), document.getElementById('b')];
+  var front = 0, showing = null, timer = null;
+
+  function viewerId() {
+    var key = 'ff-viewer', id = null;
+    try { id = window.localStorage.getItem(key); } catch (e) {}
+    if (!id) {
+      id = 'PAGE-';
+      try {
+        for (var i = 0; i < 8; i++) id += Math.floor(Math.random() * 16).toString(16).toUpperCase();
+        window.localStorage.setItem(key, id);
+      } catch (e) {
+        // No storage (private window): the same browser on the same screen
+        // must still be one viewer, not a new row per load.
+        var s = navigator.userAgent + screen.width + 'x' + screen.height, n = 0;
+        for (var j = 0; j < s.length; j++) n = (n * 31 + s.charCodeAt(j)) >>> 0;
+        id = 'PAGE-' + n.toString(16).toUpperCase();
+      }
+    }
+    return id;
+  }
+
+  function device() {
+    var ua = navigator.userAgent, touch = (navigator.maxTouchPoints || 0) > 1;
+    if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch)) return 'iPad';
+    if (/iPhone|iPod/.test(ua)) return 'iPhone';
+    if (/Kindle|Silk/.test(ua)) return 'Kindle browser';
+    if (/Android/.test(ua)) return /Mobile/.test(ua) ? 'Android phone' : 'Android tablet';
+    if (/Macintosh/.test(ua)) return 'Mac';
+    if (/Windows/.test(ua)) return 'Windows PC';
+    return 'Browser';
+  }
+
+  function show(url) {
+    if (url === showing) return;
+    var next = layers[1 - front], img = new Image();
+    img.onload = function () {
+      next.src = url;
+      // Let the layer take the new source before it fades in over the old.
+      setTimeout(function () {
+        next.className = 'on';
+        layers[front].className = '';
+        front = 1 - front;
+        showing = url;
+        root.className = root.className.replace(/\s*lit/g, '') + ' lit';
+      }, 60);
+    };
+    img.src = url;   // a failed load leaves the old plate up
+  }
+
+  function poll() {
+    var dpr = window.devicePixelRatio || 1;
+    var w = Math.round(window.innerWidth * dpr), h = Math.round(window.innerHeight * dpr);
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/view/state?viewer=' + encodeURIComponent(id) + '&w=' + w + '&h=' + h +
+             '&device=' + encodeURIComponent(device()));
+    xhr.timeout = 15000;
+    xhr.onload = function () {
+      if (xhr.status !== 200) return;
+      var state;
+      try { state = JSON.parse(xhr.responseText); } catch (e) { return; }
+      var dark = !!state.dark;
+      root.className = (root.className.replace(/\s*dark/g, '') + (dark ? ' dark' : '')).replace(/^\s+/, '');
+      if (state.image && !dark) show(state.image);
+      if (dark) showing = null;   // fade the plate back in when the night ends
+      if (state.poll) POLL = state.poll * 1000;
+    };
+    xhr.send();
+  }
+
+  function loop() { poll(); timer = setTimeout(loop, POLL); }
+
+  var id = viewerId();
+  var resizing = null;
+  window.addEventListener('resize', function () {   // turned, or a bar appeared
+    clearTimeout(resizing);
+    resizing = setTimeout(poll, 400);
+  });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+  // Keeps the screen on where the browser allows it (HTTPS only; on plain
+  // http the tablet's own Auto-Lock: Never does the job).
+  try {
+    if (navigator.wakeLock && navigator.wakeLock.request) {
+      navigator.wakeLock.request('screen')['catch'](function () {});
+    }
+  } catch (e) {}
+  loop();
+})();
+</script>
+</body>
+</html>

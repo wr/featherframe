@@ -151,3 +151,51 @@ def test_junk_from_the_lan_is_bounded(client):
 def test_the_log_is_taken_and_dropped(client):
     assert client.post("/api/log", headers={"ID": X["ID"]},
                        json={"logs": [{"message": "A test."}]}).status_code == 204
+
+
+# -- the kiosk page (W-825) ------------------------------------------------------
+def test_the_page_is_served_and_installs_as_an_app(client):
+    html = client.get("/view").text
+    assert "/api/view/state" in html and "apple-mobile-web-app-capable" in html
+    # Old iPads run it: no arrow functions, no let/const, no fetch.
+    script = html.split("<script>")[1]
+    assert "=>" not in script and "const " not in script and "fetch(" not in script
+    assert client.get("/view.webmanifest").json()["start_url"] == "/view"
+
+
+def test_a_page_is_told_which_image_to_show_in_colour_at_its_own_size(client):
+    r = client.get("/api/view/state?viewer=PAGE-1A2B3C4D&w=1536&h=2048&device=iPad").json()
+    assert r["dark"] is False and r["poll"] == viewers.PAGE_POLL_SECONDS
+    assert r["image"].endswith("-1536x2048-color-0.png")
+    assert Image.open(io.BytesIO(client.get(r["image"]).content)).size == (1536, 2048)
+    row = client.get("/api/viewers").json()["viewers"][0]
+    assert row["kind"] == "page" and row["reported"]["model"] == "iPad" and row["dark_quiet"] is True
+
+
+def test_a_big_screen_is_not_drawn_bigger_than_the_sheet_is_worth(client):
+    r = client.get("/api/view/state?viewer=PAGE-1&w=2048&h=2732").json()
+    assert "-1535x2048-color-0" in r["image"]   # the iPad Pro's 2048x2732, long side capped
+
+
+def test_a_landscape_tablet_shows_the_plate_upright(client):
+    r = client.get("/api/view/state?viewer=PAGE-2&w=2048&h=1536").json()
+    assert r["image"].endswith("-2048x1536-color-0.png")
+
+
+def test_a_lit_screen_goes_dark_in_quiet_hours_unless_the_owner_says_no(client):
+    svc = client.app.state.service
+    svc.config.quiet_hours_mode = "custom"
+    svc.config.quiet_hours_start, svc.config.quiet_hours_end = "11:00", "13:00"
+    url = "/api/view/state?viewer=PAGE-3&w=1536&h=2048"
+    assert client.get(url).json()["dark"] is True
+    client.post("/api/viewers/PAGE-3", json={"dark_quiet": False})
+    assert client.get(url).json()["dark"] is False
+    # "Paper look" is the owner's format choice.
+    client.post("/api/viewers/PAGE-3", json={"fmt": "gray256"})
+    state = client.get(url).json()
+    assert state["paper"] is True and "-gray256-" in state["image"]
+
+
+def test_a_page_that_does_not_say_who_it_is_is_refused(client):
+    assert client.get("/api/view/state?w=100&h=100").status_code == 400
+    assert client.get("/api/view/state?viewer=PAGE-4&w=x&h=100").status_code == 400

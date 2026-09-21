@@ -908,6 +908,49 @@ async def viewer_png(request: Request, viewer_id: str, name: str):
     return Response(content=png, media_type="image/png", headers=headers)
 
 
+# The kiosk page (W-825): the plate edge to edge in a browser, for a tablet on
+# a stand. The page is dumb on purpose (old iPads run it): it says who it is
+# and how big, and is told which image to show and whether to go dark.
+@app.get("/view", response_class=HTMLResponse)
+async def view_page(request: Request):
+    return templates.TemplateResponse(request, "view.html",
+                                      {"poll_seconds": viewers.PAGE_POLL_SECONDS})
+
+
+@app.get("/view.webmanifest", include_in_schema=False)
+async def view_manifest():
+    return JSONResponse({
+        "name": "Featherframe", "short_name": "Featherframe", "start_url": "/view",
+        "display": "fullscreen", "orientation": "any",
+        "background_color": "#ffffff", "theme_color": "#ffffff",
+        "icons": [{"src": "/static/favicon-192.png", "sizes": "192x192", "type": "image/png"}],
+    }, media_type="application/manifest+json")
+
+
+@app.get("/api/view/state")
+async def view_state(request: Request, viewer: Optional[str] = None, w: Optional[str] = None,
+                     h: Optional[str] = None, device: Optional[str] = None):
+    svc = _svc(request)
+    viewer_id = viewers.clean_id(viewer)
+    size = viewers.page_size(w, h)
+    if viewer_id is None or size is None:
+        return JSONResponse({"error": "viewer, w and h are required"}, status_code=400)
+    etag = svc.current_etag()
+    if not etag:
+        return JSONResponse({"image": None, "dark": False, "poll": viewers.PAGE_POLL_SECONDS})
+    reported = {"width": size[0], "height": size[1], "model": _str_header(device, 40)}
+    row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "page", reported,
+                                  request.client.host if request.client else None)
+    view = viewers.view_of(row)
+    quiet = svc.config.in_quiet_hours(svc._clock().time())
+    return JSONResponse({
+        "image": f"/api/viewers/{quote(viewer_id, safe='')}/{etag}-{view.key}.png",
+        "dark": bool(quiet and viewers.dark_in_quiet_hours(row)),
+        "paper": view.fmt != "color",
+        "poll": viewers.PAGE_POLL_SECONDS,
+    }, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/viewers")
 async def viewers_list(request: Request):
     rows = _svc(request).viewers.all().values()

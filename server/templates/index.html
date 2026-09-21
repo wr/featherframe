@@ -553,6 +553,7 @@
     .vw-list > li { margin:0; padding:9px 0 3px; border-top:1px solid var(--border); max-width:none; }
     .vw-list > li:first-child { border-top:0; padding-top:2px; }
     .added-frames { margin-top:12px; }
+    .fc-active-name { margin:2px 0 10px; }
     .vw-list.added-frames > li:first-child { border-top:1px solid var(--border); padding-top:9px; }
     .vw-row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:13px; }
     .vw-row .when { color:var(--muted); font-size:12px; white-space:nowrap; }
@@ -736,11 +737,19 @@
       <div class="card status-card" id="frame-card">
         {% set card = status.frame_card %}
         <div class="sc-head">
-          <h2 class="grp">Frame</h2>
+          <h2 class="grp">{{ 'Frames' if status.frames.added else 'Frame' }}</h2>
           <span id="fc-seen" data-tip="{% if card.last_checkin_iso %}Checked in {{ card.last_checkin_iso.replace('T', ' ') }}{% endif %}{% if status.device.last_wake %} · wake: {{ status.device.last_wake }}{% endif %}">
             <span class="pill-status"><span class="d {{ ('warn' if card.overdue else 'good') if card.seen else 'off' }}" id="fc-seen-dot"></span><span id="fc-seen-text">{{ card.last_seen if card.seen else 'never' }}</span></span>
           </span>
         </div>
+        {# With a second kit on the server the first one needs a name too: the
+           vitals below are ITS battery and Wi-Fi, not the household's. #}
+        {% if status.frames.added and status.frames.active %}
+        <div class="fc-active-name">
+          <div class="vw-row"><span class="who">{{ status.frames.active.panel_name }}</span></div>
+          <span class="ign-meta tnum">{{ 'Collage' if config.mode == 'collage' else 'Plates' }}{% if status.frames.active.ip %} · {{ status.frames.active.ip }}{% endif %} · its settings are the Display section's</span>
+        </div>
+        {% endif %}
         <div class="note warn" id="fc-overdue" {{ '' if card.overdue else 'hidden' }}>
           <svg viewBox="0 0 16 16" aria-hidden="true"><use href="#ic-warn"/></svg>
           <span id="fc-overdue-text">{% if card.overdue %}{{ card.overdue_text }}{% endif %}</span>

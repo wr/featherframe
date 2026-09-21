@@ -15,6 +15,7 @@ from featherframe.config import Config
 from featherframe.render import theme
 from featherframe.service import FeatherframeService
 from featherframe.sources.base import Detection
+from featherframe.render import pipeline as pipeline  # noqa: E402
 
 NOW = datetime(2026, 9, 2, 8, 0, 0)
 TODAY = NOW.date().isoformat()
@@ -27,7 +28,7 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
     service._clock = lambda: NOW          # pin the wall clock to the fixtures' day
-    service.config.dither = "none"
+    pipeline.DITHER_OVERRIDE = "none"
     service._frame_bytes = b"resident"
     service._set_cursor(0)
     service._cursor_verified = True
@@ -147,15 +148,6 @@ def test_single_known_species_renders_as_before(svc, monkeypatch):
     assert svc.status()["pending"] is None
 
 
-def test_single_toggle_off_renders_as_before(svc, monkeypatch):
-    svc.config.corroborate_new_species = False
-    svc.source = _GateSource([_det(1, *EAGLE, 0.71, NOW - timedelta(minutes=1))],
-                             first_seen={EAGLE[1]: TODAY})
-    rendered = _capture_renders(svc, monkeypatch)
-    svc._single_tick(NOW)
-    assert rendered == [("Bald Eagle", 0.71)]
-
-
 def test_unknown_history_counts_as_new(svc, monkeypatch):
     # A push feed can't say when a species was first heard: treat it as new.
     svc.source = _GateSource([_det(1, *EAGLE, 0.71, NOW - timedelta(minutes=1))])
@@ -249,18 +241,6 @@ def test_collage_drops_a_single_low_confidence_new_species(svc, monkeypatch):
     assert seen == [["Northern Cardinal", "Blue Jay", "Golden Eagle"]]
 
 
-def test_collage_gate_off_keeps_every_row(svc, monkeypatch):
-    svc.config.corroborate_new_species = False
-    today = NOW.date()
-    rows = [{"common": "Northern Cardinal", "scientific": "Cardinalis cardinalis", "count": 5},
-            {"common": "Bald Eagle", "scientific": EAGLE[1], "count": 1}]
-    svc.source = _GateSource([_det(3, *EAGLE, 0.71, NOW)], today=rows,
-                             first_seen={EAGLE[1]: TODAY})
-    seen = _collage_cells(svc, monkeypatch)
-    assert svc._build_collage(NOW, today) is True
-    assert seen == [["Northern Cardinal", "Bald Eagle"]]
-
-
 def test_collage_fallback_single_is_gated_too(svc, monkeypatch):
     # One species today, new and unconfirmed: the < 2 rows fallback must not
     # sneak it onto the wall as a single plate.
@@ -274,54 +254,12 @@ def test_collage_fallback_single_is_gated_too(svc, monkeypatch):
 
 
 # -- config + page ------------------------------------------------------------
-def test_sanitize_clamps_the_corroboration_fields():
-    cfg = Config(corroborate_confidence=5, corroborate_window_hours=0,
-                 corroborate_min_gap_minutes=99999, corroborate_new_species=1)
-    assert cfg.corroborate_confidence == 1.0
-    assert cfg.corroborate_window_hours == 1
-    assert cfg.corroborate_min_gap_minutes == 720
-    assert cfg.corroborate_new_species is True
-    assert Config(corroborate_confidence="nan").corroborate_confidence == 0.85
-    assert Config(corroborate_window_hours=400).corroborate_window_hours == 168
-    d = Config().to_dict()
-    assert (d["corroborate_new_species"], d["corroborate_confidence"],
-            d["corroborate_window_hours"], d["corroborate_min_gap_minutes"]) == (True, 0.85, 24, 10)
-
-
-def test_settings_form_round_trips_the_four_fields(client, svc):
-    r = client.post("/settings", data={"corroborate_new_species": "on",
-                                       "corroborate_confidence": "0.9",
-                                       "corroborate_window_hours": "48",
-                                       "corroborate_min_gap_minutes": "20"},
-                    follow_redirects=False)
-    assert r.status_code == 303 and "adjusted" not in r.headers["location"]
-    assert svc.config.corroborate_new_species is True
-    assert svc.config.corroborate_confidence == 0.9
-    assert svc.config.corroborate_window_hours == 48
-    assert svc.config.corroborate_min_gap_minutes == 20
-
-    # Unticked checkbox -> off; out-of-range numbers are clamped and reported.
-    r = client.post("/settings", data={"corroborate_confidence": "2",
-                                       "corroborate_window_hours": "0",
-                                       "corroborate_min_gap_minutes": "5000"},
-                    follow_redirects=False)
-    assert r.status_code == 303
-    assert svc.config.corroborate_new_species is False
-    assert svc.config.corroborate_confidence == 1.0
-    assert svc.config.corroborate_window_hours == 1
-    assert svc.config.corroborate_min_gap_minutes == 720
-    adjusted = r.headers["location"].split("adjusted=")[1].split(",")
-    assert set(adjusted) == {"corroborate_confidence", "corroborate_window_hours",
-                             "corroborate_min_gap_minutes"}
-
-
-def test_page_shows_the_settings_group_and_the_pending_row(client, svc, monkeypatch):
+def test_page_shows_the_pending_row_and_no_settings_group(client, svc, monkeypatch):
     svc.source = _GateSource([_det(1, *EAGLE, 0.71, NOW - timedelta(minutes=1))],
                              first_seen={EAGLE[1]: TODAY})
     _capture_renders(svc, monkeypatch)
     html = client.get("/").text
-    assert 'name="corroborate_new_species"' in html
-    assert 'id="cns-fields"' in html and 'name="corroborate_min_gap_minutes"' in html
+    assert "corroborate" not in html                   # always on: nothing to set (W-821)
     assert 'id="fc-pending" hidden' in html            # nothing waiting yet
 
     svc._single_tick(NOW)
@@ -329,9 +267,6 @@ def test_page_shows_the_settings_group_and_the_pending_row(client, svc, monkeypa
     assert 'id="fc-pending-dt" >Pending' in html
     assert '<span class="who">Bald Eagle</span><span class="when">1 hit at 0.71 · waiting for a second' in html
     assert client.get("/api/status").json()["pending"]["common"] == "Bald Eagle"
-
-    svc.config.corroborate_new_species = False
-    assert 'id="cns-fields" hidden' in client.get("/").text
 
 
 # -- the day-in-review species cap ------------------------------------------
@@ -345,7 +280,6 @@ def _painted_cells(svc, monkeypatch):
             return None  # fall through to the grid
     svc.genart = FakeGenart()
     svc.config.collage_generated = True
-    svc.config.corroborate_new_species = False
     return seen
 
 

@@ -143,6 +143,16 @@ def test_defer_confidence_uses_birdnet_threshold(go):
     assert got == ["Northern Cardinal"]          # only the 0.90 clears 0.88
 
 
+def test_the_floor_applies_when_birdnet_go_has_no_readable_threshold(go):
+    """W-821: BirdNET-Go's own threshold always wins; the server's floor is
+    only what is left when it can't be read."""
+    from featherframe.service import CONFIDENCE_FLOOR
+    src, fake = go
+    fake.threshold = None
+    names = [d.common_name for d in src.latest_many(CONFIDENCE_FLOOR)]
+    assert names and all(d.confidence >= CONFIDENCE_FLOOR for d in src.latest_many(CONFIDENCE_FLOOR))
+
+
 def test_defer_off_uses_passed_confidence(monkeypatch):
     from featherframe.sources.birdnet_go import BirdNetGoSource
     dets = [_det(2, "Blue Jay", "Cyanocitta cristata", 0.85),

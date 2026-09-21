@@ -76,17 +76,11 @@ class Config:
     """All user-facing settings. Persisted whole; edited via the config page."""
 
     # Display behaviour ----------------------------------------------------
-    mode: str = "single"  # "single" | "collage" (legacy "auto" migrates to single)
-    confidence_threshold: float = 0.7
-    # Single mode shows the most recent qualifying detection. False applies
-    # refresh_debounce_minutes and same-species suppression instead.
-    single_show_latest: bool = True
-    refresh_debounce_minutes: int = 15  # applies when single_show_latest is False
-    # Dwell: a first-ever or first-today species keeps the frame this long
-    # against repeats of common birds (another new bird can still take over,
-    # and the held bird may re-render). Without it a first-ever bird lost the
-    # glass to the next cardinal within minutes. 0 disables.
-    dwell_minutes: int = 90
+    # "single" | "collage" (legacy "auto" migrates to single). A fresh install
+    # starts in its panel's own mode (panels.py): a plate per detection on the
+    # gray panel, a collage every few hours on the slow colour one.
+    mode: str = field(default_factory=lambda: panels.get(
+        os.environ.get("FEATHERFRAME_PANEL", "ee03")).mode)
     # Served to the device on every /api/frame response (W-456/W-736): the
     # power model and, in deep sleep, how long it sleeps between check-ins.
     # "awake": stays on Wi-Fi and polls every 15 s (USB); "sleep": deep-sleeps
@@ -108,38 +102,9 @@ class Config:
     # then hold it overnight. If false, just hold whatever was showing.
     quiet_hours_render_collage: bool = False
 
-    # Gone-quiet alarm -----------------------------------------------------
-    # Flag the frame (a plate footnote + a page banner) when nothing has been
-    # heard for this many ACTIVE hours — hours inside quiet hours don't count,
-    # so a silent night never trips it. 0 disables. The common month-two
-    # failure (mic unplugged, BirdNET stopped) is otherwise silent everywhere.
-    quiet_alarm_hours: int = 6
-
-    # Source-outage note ---------------------------------------------------
-    # The Source card says "Not reachable" the moment a poll fails, but the
-    # glass keeps its last plate with nothing to say why. After this many
-    # minutes unreachable the resident plate is re-rendered once with a
-    # footnote ("Detector unreachable since 8:00 am"); it drops on the first
-    # good read. 0 disables. An hour by default: a router reboot or a
-    # BirdNET restart must not repaint the wall.
-    source_alarm_minutes: int = 60
-
     # Curation -------------------------------------------------------------
     # Common or scientific names, matched case-insensitively.
     species_blocklist: list[str] = field(default_factory=list)
-
-    # New-species corroboration -------------------------------------------
-    # BirdNET at 0.7 routinely produces single-shot false positives of rare
-    # species (a car horn as a Bald Eagle). Unchecked, one such hit becomes
-    # the wall — and, for a species with no plate, BUYS a generated plate of
-    # a bird that was never there. A species heard for the first time today
-    # must therefore earn the wall: one detection at/above
-    # corroborate_confidence, or two detections inside the window at least
-    # the minimum gap apart. Known species are unaffected.
-    corroborate_new_species: bool = True
-    corroborate_confidence: float = 0.85     # 0..1; this alone is enough
-    corroborate_window_hours: int = 24       # 1..168; look-back for the second hit
-    corroborate_min_gap_minutes: int = 10    # 0..720; the two hits must be this far apart
 
     # Ingest ---------------------------------------------------------------
     # Where detections come from:
@@ -151,34 +116,21 @@ class Config:
     detection_backend: str = "custom"
     birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"   # custom (SQLite) backend
     birdnet_go_url: str = "http://localhost:8080"            # birdnet_go backend
-    # When on, the BirdNET-Go source filters by BirdNET-Go's own confidence
-    # threshold and ignores confidence_threshold.
-    birdnet_go_defer_confidence: bool = True
     birdweather_station_id: str = ""    # birdweather backend: station token / ID
     # Optional shared secret in the Apprise webhook path (/api/ingest/apprise/<token>).
     # Empty accepts any LAN post, matching the app's no-auth LAN posture.
     apprise_token: str = field(default_factory=lambda: secrets.token_urlsafe(9))
-    poll_interval_seconds: int = 5  # how often the detection source is checked
 
     # Rendering ------------------------------------------------------------
     # Which panel this instance drives (panels.py): "ee03" (10.3" gray) or
-    # "ee02" (13.3" Spectra 6 colour). FEATHERFRAME_PANEL sets a fresh
-    # install's default, so a second instance needs no click to come up right.
+    # "ee02" (13.3" Spectra 6 colour). State, not a setting: it follows what
+    # the active frame reports (service.adopt_panel), and lives here so the
+    # server remembers the panel between check-ins. FEATHERFRAME_PANEL sets a
+    # fresh install's default, so a second instance comes up right unasked.
     # A frame that reports a panel panels.py does not know is drawn for from
     # its own report (W-813); the key then spells the facts out
     # ("custom:800x480:gray16:0,180").
     panel: str = field(default_factory=lambda: os.environ.get("FEATHERFRAME_PANEL", "ee03"))
-    # True: `panel` follows what the active frame reports. False: the owner
-    # picked a panel on the page, and it stays until they switch frames or
-    # pick "as reported" again.
-    panel_follow: bool = True
-    # Colour panel only: chroma boost before the six-ink dither. The inks are
-    # duller than the scans, so a little over 1 reads truer on the glass.
-    color_saturation: float = 1.2
-    gray_mode: str = "16"  # "16" (4bpp) or "1" (1-bit fallback)
-    # "auto" = the panel's own default (panels.py: blue-noise on the gray
-    # panel, Stucki on the colour one) | "bluenoise" | "stucki" | "none"
-    dither: str = "auto"
     show_plate_number: bool = True
     # The panel's native canvas is landscape 1872x1404 and its setRotation() is a
     # no-op, so we rotate the portrait art into native orientation server-side.
@@ -200,7 +152,9 @@ class Config:
     dark_mode: str = "off"
 
     # Collage --------------------------------------------------------------
-    collage_rebuilds_per_day: int = 3
+    # Collage mode draws a new sheet this often. On the colour panel, where a
+    # refresh takes half a minute, that beats a plate per detection.
+    collage_interval_hours: int = 8
 
     # AI-generated plates --------------------------------------------------
     # For species Audubon never painted. A plate is generated once on first
@@ -242,20 +196,10 @@ class Config:
             self.mode = "single"
         # NaN slips through float() and then through _clamp (every comparison
         # is False) — and can't be serialised for the status JSON. Refuse it.
-        self.confidence_threshold = _clamp(_finite(self.confidence_threshold, 0.7), 0.0, 1.0)
-        self.refresh_debounce_minutes = int(_clamp(self.refresh_debounce_minutes, 1, 720))
-        self.dwell_minutes = int(_clamp(_finite(self.dwell_minutes, 90), 0, 720))
-        self.wake_interval_minutes = int(_clamp(self.wake_interval_minutes, 1, 720))
+        self.wake_interval_minutes = int(_clamp(_finite(self.wake_interval_minutes, 15), 1, 720))
         if self.power_mode not in ("awake", "sleep"):
             self.power_mode = "awake"
-        self.poll_interval_seconds = int(_clamp(self.poll_interval_seconds, 2, 300))
         self.device_poll_seconds = int(_clamp(_finite(self.device_poll_seconds, 3), 2, 60))
-        self.quiet_alarm_hours = int(_clamp(_finite(self.quiet_alarm_hours, 6), 0, 168))
-        self.source_alarm_minutes = int(_clamp(_finite(self.source_alarm_minutes, 60), 0, 10080))
-        self.corroborate_new_species = bool(self.corroborate_new_species)
-        self.corroborate_confidence = _clamp(_finite(self.corroborate_confidence, 0.85), 0.0, 1.0)
-        self.corroborate_window_hours = int(_clamp(_finite(self.corroborate_window_hours, 24), 1, 168))
-        self.corroborate_min_gap_minutes = int(_clamp(_finite(self.corroborate_min_gap_minutes, 10), 0, 720))
         # The raw SQLite reader is now "custom"; migrate the legacy id.
         if self.detection_backend == "birdnet_pi":
             self.detection_backend = "custom"
@@ -268,18 +212,13 @@ class Config:
             bw = bw.split("?", 1)[0].split("#", 1)[0].rstrip("/").rsplit("/", 1)[-1]
         self.birdweather_station_id = bw
         self.apprise_token = str(self.apprise_token or "").strip()
-        if self.gray_mode not in ("16", "1"):
-            self.gray_mode = "16"
-        if self.dither not in ("auto", "stucki", "bluenoise", "none"):
-            self.dither = "auto"
-        self.collage_rebuilds_per_day = int(_clamp(self.collage_rebuilds_per_day, 1, 24))
+        self.collage_interval_hours = int(_clamp(_finite(self.collage_interval_hours, 8), 1, 24))
         self.review_species_max = int(_clamp(self.review_species_max, 0, 60))
         # The panel's native canvas is landscape and the firmware rejects a
         # portrait frame (pushImage would clip it into garbage), so only the
         # two landscape orientations are valid. Old 0/180 values migrate to
         # the landscape orientation with the same relative flip.
         self.panel = panels.get(self.panel).key
-        self.panel_follow = bool(self.panel_follow)
         valid = panels.get(self.panel).rotations
         try:
             rot = int(self.panel_rotation)
@@ -289,7 +228,6 @@ class Config:
             # The same relative flip on the other panel's axes (0<->90, 180<->270).
             rot = {0: 90, 180: 270, 90: 0, 270: 180}.get(rot, valid[0])
         self.panel_rotation = rot if rot in valid else valid[0]
-        self.color_saturation = _clamp(_finite(self.color_saturation, 1.2), 0.0, 2.0)
         self.mat_inset_pct = _clamp(_finite(self.mat_inset_pct, 4.0), 0.0, 20.0)
         self.mat_offset_x_px = int(_clamp(int(self.mat_offset_x_px), -120, 120))
         self.mat_offset_y_px = int(_clamp(int(self.mat_offset_y_px), -120, 120))
@@ -342,15 +280,16 @@ class Config:
     def bit_depth(self) -> int:
         spec = self.panel_spec
         if spec.color:
-            return 4          # ink nibbles; the 1-bit fallback is a gray-panel thing
-        if spec.fmt == "mono" or self.gray_mode != "16":
+            return 4          # ink nibbles
+        if spec.fmt == "mono":
             return 1
         return 2 if spec.fmt == "gray2" else 4
 
     @classmethod
     def defaults_for(cls, panel: str) -> "Config":
-        """A factory-fresh config for `panel` (rotation and dither follow it)."""
+        """A factory-fresh config for `panel` (mode and rotation follow it)."""
         fresh = cls(panel=panels.get(panel).key)
+        fresh.mode = fresh.panel_spec.mode
         fresh.panel_rotation = fresh.panel_spec.rotations[0]
         return fresh.sanitize()
 
@@ -358,10 +297,6 @@ class Config:
         """The panel-dependent settings that differ from this panel's defaults."""
         mine, fresh = self.to_dict(), Config.defaults_for(self.panel).to_dict()
         return [k for k in panels.PANEL_SETTINGS if mine.get(k) != fresh.get(k)]
-
-    @property
-    def effective_dither(self) -> str:
-        return self.panel_spec.dither if self.dither == "auto" else self.dither
 
     @property
     def panel_spec(self) -> "panels.Panel":
@@ -420,6 +355,10 @@ class Config:
         if "quiet_hours_mode" not in data and "quiet_hours_enabled" in data:
             data = {**data,
                     "quiet_hours_mode": "custom" if data["quiet_hours_enabled"] else "off"}
+        # "N rebuilds a day" became "every N hours" (W-821).
+        if "collage_interval_hours" not in data and "collage_rebuilds_per_day" in data:
+            rebuilds = _clamp(_finite(data["collage_rebuilds_per_day"], 3), 1, 24)
+            data = {**data, "collage_interval_hours": round(24 / rebuilds)}
         fields = {f.name for f in dataclasses.fields(cls)}
         known = {k: v for k, v in data.items() if k in fields}
         return cls(**known)

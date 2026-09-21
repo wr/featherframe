@@ -24,7 +24,7 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
     service.source.db_path = str(tmp_path / "missing.db")
-    service.config.dither = "none"
+    pipeline.DITHER_OVERRIDE = "none"
     yield service
 
 
@@ -152,15 +152,9 @@ def test_status_carries_quiet_and_last_heard_time(svc):
 
 
 # -- quiet_state -------------------------------------------------------------
-def test_quiet_state_off_at_zero_hours(svc):
-    svc.config = Config(quiet_alarm_hours=0, quiet_hours_mode="off")
-    svc.source = _Source(_det_at(datetime.now() - timedelta(hours=30)))
-    assert svc.quiet_state(datetime.now()) is None
-
-
 def test_quiet_state_alarms_after_seven_silent_hours(svc):
     now = datetime(2026, 9, 2, 15, 0)
-    svc.config = Config(quiet_alarm_hours=6, quiet_hours_mode="off")
+    svc.config = Config(quiet_hours_mode="off")
     svc.source = _Source(_det_at(now - timedelta(hours=7)))
     q = svc.quiet_state(now)
     assert q is not None
@@ -174,7 +168,7 @@ def test_quiet_state_ignores_quiet_hours(svc):
     # 01:00 -> 08:00 is seven hours, but 01:00 -> 06:00 is inside the night
     # window: only two active hours, under a six-hour threshold.
     now = datetime(2026, 9, 2, 8, 0)
-    svc.config = Config(quiet_alarm_hours=6, quiet_hours_mode="custom",
+    svc.config = Config(quiet_hours_mode="custom",
                         quiet_hours_start="22:00", quiet_hours_end="06:00")
     svc.source = _Source(_det_at(now - timedelta(hours=7)))
     assert svc.quiet_state(now) is None
@@ -185,32 +179,22 @@ def test_quiet_state_ignores_quiet_hours(svc):
 
 def test_quiet_state_is_unknown_when_source_is_down(svc):
     now = datetime(2026, 9, 2, 15, 0)
-    svc.config = Config(quiet_alarm_hours=6, quiet_hours_mode="off")
+    svc.config = Config(quiet_hours_mode="off")
     svc.source = _Source(_det_at(now - timedelta(hours=20)), available=False)
     assert svc.quiet_state(now) is None
     assert svc.quiet_state(now, available=False) is None
 
 
 def test_quiet_state_counts_from_service_start_without_detections(svc):
-    svc.config = Config(quiet_alarm_hours=6, quiet_hours_mode="off")
+    svc.config = Config(quiet_hours_mode="off")
     svc.source = _Source(None)
     assert svc.quiet_state(svc._started_at + timedelta(hours=1)) is None
     q = svc.quiet_state(svc._started_at + timedelta(hours=7))
     assert q is not None and q["hours"] == pytest.approx(7, abs=0.2)
 
 
-def test_quiet_alarm_hours_is_clamped(client, svc):
-    assert Config(quiet_alarm_hours=999).quiet_alarm_hours == 168
-    assert Config(quiet_alarm_hours=-3).quiet_alarm_hours == 0
-    assert Config(quiet_alarm_hours="nan").quiet_alarm_hours == 6
-    r = client.post("/settings", data={"quiet_alarm_hours": "12"}, follow_redirects=False)
-    assert r.status_code == 303
-    assert svc.config.quiet_alarm_hours == 12
-
-
 # -- tick: one re-render per flip --------------------------------------------
 def test_tick_rerenders_once_when_alarm_flips_on(svc, monkeypatch):
-    svc.config.quiet_alarm_hours = 6
     svc.config.quiet_hours_mode = "off"
     svc.update_config(svc.config)
     svc.source = _Source(_det_at(datetime.now() - timedelta(hours=7)))
@@ -235,7 +219,6 @@ def test_tick_rerenders_once_when_alarm_flips_on(svc, monkeypatch):
 
 
 def test_tick_drops_the_note_once_a_bird_is_heard(svc, monkeypatch):
-    svc.config.quiet_alarm_hours = 6
     svc.config.quiet_hours_mode = "off"
     svc.update_config(svc.config)
     svc.source = _Source(_det_at(datetime.now() - timedelta(hours=7)))
@@ -256,7 +239,6 @@ def test_tick_drops_the_note_once_a_bird_is_heard(svc, monkeypatch):
 
 
 def test_tick_keeps_the_note_through_an_outage(svc, monkeypatch):
-    svc.config.quiet_alarm_hours = 6
     svc.config.quiet_hours_mode = "off"
     svc.update_config(svc.config)
     svc.source = _Source(_det_at(datetime.now() - timedelta(hours=7)))
@@ -271,7 +253,7 @@ def test_tick_keeps_the_note_through_an_outage(svc, monkeypatch):
 
 # -- the plate note ----------------------------------------------------------
 def test_note_renders_in_the_bottom_margin(svc):
-    config = Config(dither="none", mat_inset_pct=0)
+    config = Config(mat_inset_pct=0)
     provider = AudubonProvider()                # no plates -> the bough fallback
     # No `when`: with one the fallback sets "First recorded <date>." as a
     # legend line on the caption's last baseline (W-743), inside the band

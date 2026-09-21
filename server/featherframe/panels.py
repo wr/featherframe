@@ -22,7 +22,7 @@ class Panel:
     color: bool                 # six-ink Spectra vs 16-level gray
     rotations: tuple[int, ...]  # valid config.panel_rotation values; first is the default
     refresh_seconds: int        # a full refresh, roughly: how long the glass is busy
-    dither: str                 # what config.dither "auto" means here
+    dither: str                 # the dither this panel's frames are drawn with
     # The firmware's low-battery hold for this panel (FF_LOW_BATT_V in
     # ff_config.h; a test keeps the two equal). Under it the frame goes silent,
     # so it is also where the page's "Charge the frame." banner must be up.
@@ -33,6 +33,9 @@ class Panel:
     # Set when the frame reported a format this server cannot draw: the render
     # falls back to 16-level gray at the right size and the page says so.
     unknown_format: str = ""
+    # A fresh config's mode here. A refresh that takes half a minute makes a
+    # plate per detection a poor fit: the colour panel starts on the collage.
+    mode: str = "single"
 
     @property
     def known(self) -> bool:
@@ -61,13 +64,13 @@ EE03 = Panel("ee03", 'EE03 · 10.3" gray', 1404, 1872, False, (90, 270), 2, "blu
 EE02 = Panel("ee02", 'EE02 · 13.3" Spectra 6 colour', 1200, 1600, True, (0, 180), 30, "stucki",
              # Its warning is a 30 s six-ink full refresh, not a sub-second pill:
              # hold 0.1 V earlier so the cell still has the headroom to paint it.
-             low_battery_volts=3.55, fmt="spectra6")
+             low_battery_volts=3.55, fmt="spectra6", mode="collage")
 
 PANELS = {p.key: p for p in (EE03, EE02)}
 
 # The settings whose right value depends on the panel (and on the mat in front
 # of it): what "use this panel's defaults" resets after a panel swap.
-PANEL_SETTINGS = ("gray_mode", "color_saturation", "dither", "panel_rotation",
+PANEL_SETTINGS = ("mode", "panel_rotation",
                   "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px")
 DEFAULT = EE03
 
@@ -126,6 +129,7 @@ def custom(width, height, fmt, rotations=None, name: str | None = None) -> Panel
     shown = f"{label} · {w}×{h} {wire}" if label and f"{w}x{h}" not in label else (label or f"{w}×{h} {wire}")
     return Panel(key, shown, pw, ph, color, rots, 30 if color else 2,
                  "stucki" if color else "bluenoise", fmt=drawn,
+                 mode="collage" if color else "single",
                  unknown_format="" if wire in FORMATS else wire,
                  # The generic firmware build (FF_GENERIC_PANEL) says "Battery low"
                  # with a full-screen refresh, so it holds where the EE02 does.

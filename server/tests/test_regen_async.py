@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw
 from starlette.testclient import TestClient
 
 from featherframe.render.genart import GeneratedArtProvider, ImageModel
+from featherframe.render import pipeline as pipeline  # noqa: E402
 
 SLUG = "passer-domesticus"
 
@@ -66,7 +67,7 @@ def svc(tmp_path, monkeypatch):
     from featherframe.service import FeatherframeService
     service = FeatherframeService()
     service.source.db_path = str(tmp_path / "missing.db")
-    service.config.dither = "none"  # keep any re-render cheap
+    pipeline.DITHER_OVERRIDE = "none"  # keep any re-render cheap
     yield service
 
 

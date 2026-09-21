@@ -48,7 +48,8 @@ def _half_and_half() -> Image.Image:
 def _cfg(**kw) -> Config:
     # dither "none" + no inset + no rotation: the output is a pure quantise of
     # the input, so pixel assertions are exact.
-    return Config(dither="none", mat_inset_pct=0.0, panel_rotation=0, **kw)
+    pipeline.DITHER_OVERRIDE = "none"
+    return Config(mat_inset_pct=0.0, panel_rotation=0, **kw)
 
 
 def test_pipeline_inverts_preview():
@@ -67,14 +68,6 @@ def test_pipeline_inverts_packed_frame():
     assert np.array_equal(framebuffer.unpack(dark.frame),
                           15 - framebuffer.unpack(light.frame))
     assert dark.etag != light.etag
-
-
-def test_pipeline_inverts_1bit_too():
-    light = pipeline.render_image(_half_and_half(), _cfg(gray_mode="1"), "single", "t")
-    dark = pipeline.render_image(_half_and_half(), _cfg(gray_mode="1", dark_mode=True),
-                                 "single", "t")
-    assert np.array_equal(framebuffer.unpack(dark.frame),
-                          1 - framebuffer.unpack(light.frame))
 
 
 # -- device signal + settings form -----------------------------------------
@@ -116,7 +109,7 @@ def test_frame_response_carries_invert_header(client, dark, flag):
 def test_view_variant_carries_invert_header(client):
     svc = client.app.state.service
     svc.config.dark_mode = "on"
-    svc.config.dither = "none"  # keep the on-demand render cheap
+    pipeline.DITHER_OVERRIDE = "none"  # keep the on-demand render cheap
     r = client.get("/api/frame", params={"view": "status"})
     assert r.status_code == 200
     assert r.headers["x-ff-invert"] == "1"
@@ -124,7 +117,7 @@ def test_view_variant_carries_invert_header(client):
 
 # Checkboxes that default on: omitting one from the form would turn it off and
 # muddy the render_affecting comparison, so every POST carries them.
-_BASE_FORM = {"single_show_latest": "on", "quiet_hours_mode": "custom",
+_BASE_FORM = {"quiet_hours_mode": "custom",
               "show_plate_number": "on", "imagegen_enabled": "on",
               "collage_generated": "on"}
 

@@ -83,7 +83,7 @@ def test_headers_on_503_before_first_bird(client):
 
 def test_headers_on_button_views(client):
     svc = client.app.state.service
-    _set(client, dither="none", power_mode="sleep")  # dither: keep the render cheap
+    _set(client, power_mode="sleep")
     r = client.get("/api/frame", params={"view": "status"})
     assert r.status_code == 200
     assert r.headers["x-power-mode"] == "sleep"
@@ -140,7 +140,6 @@ def test_device_poll_seconds_served_and_clamped(client):
     assert r.headers["x-poll-seconds"] == "3"
     assert Config(device_poll_seconds=0).device_poll_seconds == 2
     assert Config(device_poll_seconds=999).device_poll_seconds == 60
-    assert Config(poll_interval_seconds=2).poll_interval_seconds == 2
 
 
 def test_check_every_row_shown_only_when_awake(client):

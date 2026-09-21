@@ -56,11 +56,21 @@ class RenderResult:
         return png, fff
 
 
+# The panel's own dither draws every frame (panels.py). This is the bench's
+# override (preview.py --dither, and tests that want a cheap render): never
+# persisted, never set by the service.
+DITHER_OVERRIDE: "str | None" = None
+
+
+def _dither(config: Config) -> str:
+    return DITHER_OVERRIDE or config.panel_spec.dither
+
+
 def _finish_inks(img: Image.Image, config: Config, mode: str, label: str) -> RenderResult:
     """The colour panel's finish: six-ink dither instead of gray levels. The
     canvas is natively portrait, so rotation is only ever 0 or 180."""
     img = _apply_mat_inset(img.convert("RGB"), config)
-    inks = spectra.to_inks(img, config.effective_dither, config.color_saturation)
+    inks = spectra.to_inks(img, _dither(config), spectra.SATURATION)
     if config.dark_now():
         inks = spectra.invert(inks)
     preview = spectra.inks_to_image(inks)
@@ -93,7 +103,7 @@ def _finish(img: Image.Image, config: Config, mode: str, label: str) -> RenderRe
         return _finish_inks(img, config, mode, label)
     levels = 1 << config.bit_depth
     img = _apply_mat_inset(img, config)                             # clear the mat opening
-    indices = finish.to_levels(img, levels, config.effective_dither)          # portrait, upright
+    indices = finish.to_levels(img, levels, _dither(config))       # portrait, upright
     if config.dark_now():
         # Flip every level end-to-end (black field, white ink) after dithering,
         # so the packed frame and the PNG preview invert identically.

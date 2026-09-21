@@ -22,3 +22,12 @@ def birds_db(tmp_path) -> str:
 @pytest.fixture
 def missing_db(tmp_path) -> str:
     return str(tmp_path / "does_not_exist.db")
+
+
+@pytest.fixture(autouse=True)
+def _panel_dither_restored():
+    """Tests that want a cheap render set pipeline.DITHER_OVERRIDE = "none";
+    the panel's own dither comes back after each one."""
+    from featherframe.render import pipeline
+    yield
+    pipeline.DITHER_OVERRIDE = None

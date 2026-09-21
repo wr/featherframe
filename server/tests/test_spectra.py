@@ -151,7 +151,7 @@ def test_switching_frames_follows_the_new_panel_and_offers_its_defaults(client):
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
     client.get("/api/frame", headers=GRAY)
-    svc.update_config(Config.from_dict({**svc.config.to_dict(), "dither": "bluenoise",
+    svc.update_config(Config.from_dict({**svc.config.to_dict(),
                                         "mat_inset_pct": 3.5, "mat_offset_x_px": -10}))
     client.get("/api/frame", headers=COLOUR)
 
@@ -160,8 +160,9 @@ def test_switching_frames_follows_the_new_panel_and_offers_its_defaults(client):
     assert svc.config.panel == "ee02" and svc.config.panel_rotation == 0
     swap = svc.panel_notices()["swap"]
     assert (swap["from"], swap["to"]) == ("ee03", "ee02")
-    assert {"dither", "mat_inset_pct", "mat_offset_x_px"} <= set(swap["off_default"])
-    assert svc.config.dither == "bluenoise"           # nothing reset behind the owner's back
+    assert {"mode", "mat_inset_pct", "mat_offset_x_px"} <= set(swap["off_default"])
+    assert svc.config.mat_offset_x_px == -10          # nothing reset behind the owner's back
+    assert svc.config.mode == "single"
 
     r = client.get("/api/frame", headers=COLOUR)
     _, _, _, w, h, flags = framebuffer.HEADER.unpack_from(r.content, 0)
@@ -173,7 +174,8 @@ def test_switching_frames_follows_the_new_panel_and_offers_its_defaults(client):
 
     ok = client.post("/api/panel-notice", data={"action": "defaults"})
     assert ok.status_code == 200 and ok.json()["panel_notices"]["swap"] is None
-    assert svc.config.effective_dither == "stucki" and svc.config.mat_offset_x_px == 0
+    assert svc.config.mat_offset_x_px == 0
+    assert svc.config.mode == "collage"               # the slow panel's own mode (W-821)
 
 
 def test_an_ignored_frame_is_listed_and_can_be_switched_to_or_forgotten(client):
@@ -239,7 +241,7 @@ def test_page_offers_defaults_and_reset(client):
     _answer(client, "BBBBBBBBBB02", "switch")
     html = client.get("/").text
     assert "New panel connected." in html and "Use this panel's defaults" in html
-    assert 'id="adv-reset"' in html and '"dither": "auto"' in html
+    assert 'id="adv-reset"' in html and '"mat_inset_pct": 4.0' in html
     assert "api_key" not in html.split('id="display-defaults">')[1].split("</script>")[0]
 
 
@@ -253,14 +255,6 @@ def test_firmware_is_only_served_to_its_own_board(client, tmp_path):
                                                 "X-Firmware-MD5": "0"}).status_code == 404
     # Older firmware sends no X-Board and is served as before.
     assert client.get("/api/firmware", headers={"X-Firmware-MD5": "0"}).status_code == 200
-
-
-def test_automatic_dither_follows_the_panel():
-    assert Config().sanitize().dither == "auto"
-    assert Config(panel="ee03").sanitize().effective_dither == "bluenoise"
-    assert Config(panel="ee02").sanitize().effective_dither == "stucki"
-    assert Config(panel="ee02", dither="bluenoise").sanitize().effective_dither == "bluenoise"
-    assert Config(dither="nonsense").sanitize().dither == "auto"
 
 
 def test_stucki_inks_keep_paper_and_type_clean():
@@ -298,3 +292,29 @@ def test_a_parked_frame_is_told_where_its_panels_instance_is(client):
     r = client.get("/api/frame", headers=other)
     assert r.status_code == 403 and "x-ff-server" not in r.headers
     del client.app.state.advertiser
+
+
+def test_the_panel_picks_the_dither_and_a_fresh_install_its_mode(monkeypatch):
+    from featherframe.render import pipeline
+    assert pipeline._dither(Config(panel="ee03")) == "bluenoise"
+    assert pipeline._dither(Config(panel="ee02")) == "stucki"
+    assert Config.defaults_for("ee02").mode == "collage"
+    assert Config.defaults_for("ee03").mode == "single"
+    monkeypatch.setenv("FEATHERFRAME_PANEL", "ee02")
+    assert Config().mode == "collage"
+
+
+def test_a_fresh_installs_first_colour_frame_starts_on_the_collage(client):
+    """No FEATHERFRAME_PANEL, no notice to raise: the frame's own report picks
+    the mode, as it picks the rotation (W-821)."""
+    svc = client.app.state.service
+    assert (svc.config.panel, svc.config.mode) == ("ee03", "single")
+    client.get("/api/frame", headers=COLOUR)
+    assert (svc.config.panel, svc.config.mode) == ("ee02", "collage")
+    assert svc.panel_notices()["swap"] is None
+
+
+def test_a_custom_colour_panel_defaults_to_the_collage_too():
+    from featherframe import panels
+    assert panels.get("custom:1200x1600:spectra6:0,180").mode == "collage"
+    assert panels.get("custom:800x480:gray16:90,270").mode == "single"

@@ -72,7 +72,6 @@ test:
 BOX_HOST ?= pve
 BOX_CT   ?= 113
 BOX_DATA ?= /opt/featherframe/data
-BOX_DATA_EE02 ?= /opt/featherframe1/data
 ota:
 	cd firmware && pio run -e xiao_ee03
 	# Push to a temp name and rename: a device fetching mid-copy must never see a torn image.
@@ -81,15 +80,15 @@ ota:
 	  && pct exec $(BOX_CT) -- mv $(BOX_DATA)/firmware.bin.tmp $(BOX_DATA)/firmware.bin'
 	@echo "Hosted. The frame updates itself on its next check-in."
 
-# The EE02 colour frame has its own server instance (featherframe1, :8082,
-# data in /opt/featherframe1/data) and its own image: never cross the two.
-# The server refuses to serve an image to the wrong board (X-Board) anyway.
+# The EE02 colour frame is a second kit on the same server (W-832): its image
+# sits beside the EE03's as firmware-ee02.bin, and the server hands each board
+# its own (it matches the board string inside the image, and refuses the rest).
 ota-ee02:
 	cd firmware && pio run -e ee02
-	scp -q firmware/.pio/build/ee02/firmware.bin $(BOX_HOST):/tmp/ff1-firmware.bin
-	ssh $(BOX_HOST) 'pct push $(BOX_CT) /tmp/ff1-firmware.bin $(BOX_DATA_EE02)/firmware.bin.tmp \
-	  && pct exec $(BOX_CT) -- mv $(BOX_DATA_EE02)/firmware.bin.tmp $(BOX_DATA_EE02)/firmware.bin'
-	@echo "Hosted on the EE02 instance. The frame updates itself on its next check-in."
+	scp -q firmware/.pio/build/ee02/firmware.bin $(BOX_HOST):/tmp/ff-firmware-ee02.bin
+	ssh $(BOX_HOST) 'pct push $(BOX_CT) /tmp/ff-firmware-ee02.bin $(BOX_DATA)/firmware-ee02.bin.tmp \
+	  && pct exec $(BOX_CT) -- mv $(BOX_DATA)/firmware-ee02.bin.tmp $(BOX_DATA)/firmware-ee02.bin'
+	@echo "Hosted. The EE02 updates itself on its next check-in."
 
 clean:
 	rm -rf server/.venv server/data test_output/*.png test_output/*.fff

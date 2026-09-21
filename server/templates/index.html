@@ -552,6 +552,8 @@
     .vw-list { list-style:none; margin:0; padding:0; }
     .vw-list > li { margin:0; padding:9px 0 3px; border-top:1px solid var(--border); max-width:none; }
     .vw-list > li:first-child { border-top:0; padding-top:2px; }
+    .added-frames { margin-top:12px; }
+    .vw-list.added-frames > li:first-child { border-top:1px solid var(--border); padding-top:9px; }
     .vw-row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:13px; }
     .vw-row .when { color:var(--muted); font-size:12px; white-space:nowrap; }
     .vw-set { margin-top:2px; }
@@ -634,16 +636,18 @@
     <span class="test-msg"><strong>{{ title }}</strong> {{ body }}</span>
   </div>
   {% endif %}{% endfor %}
-  {# Another frame is asking this server for updates. One server draws for one
-     frame, so nothing changes until the owner answers. #}
+  {# Another frame is asking this server for updates. Nothing changes until
+     the owner answers: add it beside the current frame (W-832), hand the
+     server over to it, or ignore it. #}
   {% for fr in status.frames.pending %}
   <div class="test-box warn show panel-note" role="status">
     <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
     <span class="test-msg">
       <strong>Another frame wants to connect.</strong>
-      A frame with the {{ fr.panel_name }} panel ({{ fr.short }}{% if fr.ip %}, {{ fr.ip }}{% endif %}) is asking this server for updates. This server draws for one frame at a time{% if status.frames.active %}, and it is drawing for the {{ status.frames.active.panel_name }} frame{% endif %}. Switching moves the server to the new frame; the current one stops updating.
+      A frame with the {{ fr.panel_name }} panel ({{ fr.short }}{% if fr.ip %}, {{ fr.ip }}{% endif %}) is asking this server for updates. Add it and both frames update from here, each with its own picture{% if status.frames.active %}; replacing hands this server to the new frame, and the {{ status.frames.active.panel_name }} frame stops updating{% endif %}.
       <span class="panel-note-actions">
-        <button class="btn primary" type="button" data-frame-action="switch" data-frame-id="{{ fr.id }}">Switch to this frame</button>
+        <button class="btn primary" type="button" data-frame-action="add" data-frame-id="{{ fr.id }}">Add this frame</button>
+        {% if status.frames.active %}<button class="btn" type="button" data-frame-action="switch" data-frame-id="{{ fr.id }}">Replace the current frame</button>{% endif %}
         <button class="btn" type="button" data-frame-action="ignore" data-frame-id="{{ fr.id }}">Ignore it</button>
       </span>
     </span>
@@ -800,6 +804,49 @@
             </dl>
           </details>
         </div>
+        {% if status.frames.added %}
+        {# Second kits on this server (W-832). Each has only what is its own:
+           what it shows, which way up it hangs, its mat, its power. #}
+        <ul class="vw-list added-frames">
+          {% for fr in status.frames.added %}
+          <li data-added-frame="{{ fr.id }}" class="panel-note">
+            <div class="vw-row">
+              <span class="who">{{ fr.name or fr.panel_name }}</span>
+              <span class="when" data-tip="{{ fr.last_seen.replace('T', ' ') if fr.last_seen else '' }}">{{ fr.last_seen_text }}</span>
+            </div>
+            <span class="ign-meta tnum">{% if fr.name %}{{ fr.panel_name }} · {% endif %}{{ 'Collage' if fr.shows == 'collage' else 'Plates' }}{% if fr.battery_percent is not none %} · battery {{ fr.battery_percent }}%{% endif %}{% if fr.ip %} · {{ fr.ip }}{% endif %}</span>
+            <details class="sc-more vw-set">
+              <summary>Display</summary>
+              <div class="vw-fields">
+                <label for="af-name-{{ loop.index }}">Name</label>
+                <input type="text" id="af-name-{{ loop.index }}" data-af="name" maxlength="60" value="{{ fr.name }}" placeholder="{{ fr.panel_name }}">
+                <label for="af-shows-{{ loop.index }}">Shows</label>
+                <select class="sel" id="af-shows-{{ loop.index }}" data-af="shows">
+                  <option value="plates" {{ 'selected' if fr.shows == 'plates' else '' }}>Plates</option>
+                  <option value="collage" {{ 'selected' if fr.shows == 'collage' else '' }}>Collage</option>
+                </select>
+                <label for="af-rot-{{ loop.index }}">Panel rotation</label>
+                <select class="sel" id="af-rot-{{ loop.index }}" data-af="panel_rotation">
+                  {% for r in fr.rotations %}<option value="{{ r }}" {{ 'selected' if fr.rotation == r else '' }}>{{ r }}°</option>{% endfor %}
+                </select>
+                <label for="af-mat-{{ loop.index }}">Mat inset (%)</label>
+                <input type="number" id="af-mat-{{ loop.index }}" data-af="mat_inset_pct" min="0" max="20" step="0.5" inputmode="decimal" value="{{ fr.mat_inset_pct }}">
+                <label for="af-power-{{ loop.index }}">Power</label>
+                <select class="sel" id="af-power-{{ loop.index }}" data-af="power_mode">
+                  <option value="awake" {{ 'selected' if fr.power_mode == 'awake' else '' }}>Always awake</option>
+                  <option value="sleep" {{ 'selected' if fr.power_mode == 'sleep' else '' }}>Deep sleep</option>
+                </select>
+                <div class="hint vw-hint">Only this frame's own settings. Source, quiet hours, the blocklist and image generation are shared with the frame above.</div>
+              </div>
+              <div class="panel-note-actions">
+                <button class="btn" type="button" data-af-action="save">Save</button>
+                <button class="btn" type="button" data-frame-action="forget" data-frame-id="{{ fr.id }}" data-tip="It asks to connect again the next time it checks in.">Remove</button>
+              </div>
+            </details>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
         {% if status.frames.ignored %}
         <details class="sc-more ignored-frames">
           <summary>Ignored frames ({{ status.frames.ignored|length }})</summary>
@@ -1899,6 +1946,23 @@
       });
       li.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
       fetch('/api/viewers/' + encodeURIComponent(li.getAttribute('data-viewer')),
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function () { saving = true; location.href = '/'; })
+        .catch(function () {
+          li.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
+          showFlash('bad', "That didn't go through. Try again.", 'ic-warn');
+        });
+    });
+  });
+
+  // -- an added frame's own settings ------------------------------------------
+  document.querySelectorAll('[data-af-action]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var li = b.closest('[data-added-frame]'), body = {};
+      li.querySelectorAll('[data-af]').forEach(function (f) { body[f.getAttribute('data-af')] = f.value; });
+      li.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+      fetch('/api/frames/' + encodeURIComponent(li.getAttribute('data-added-frame')),
             { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
         .then(function () { saving = true; location.href = '/'; })

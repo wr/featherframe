@@ -132,7 +132,6 @@ def test_source_switch_starts_from_a_clean_slate(svc, monkeypatch):
     svc._meta = {"species_key": "x x", "label": "X", "mode": "single"}
     svc._set_cursor(11_215_147_198)
     svc._cursor_verified = True                        # the startup check already ran
-    svc.db.set("last_render_at", "2026-09-18T09:35:00")
     svc.db.set("quiet_collage_for", "2026-09-17")
     svc.db.set("user_hold", {"since": "2026-09-18T09:00:00", "until": None, "label": "X"})
     svc._set_pending({"key": "y y", "common": "Y"})
@@ -143,7 +142,7 @@ def test_source_switch_starts_from_a_clean_slate(svc, monkeypatch):
     latest = _det(455716, "Black-capped Chickadee", "Poecile atricapillus")
     _switch_source(svc, monkeypatch, _StubSource(max_rowid=455716, latest=[latest]))
 
-    for key in ("last_render_at", "quiet_collage_for", "user_hold", "pending_species"):
+    for key in ("quiet_collage_for", "user_hold", "pending_species"):
         assert svc.db.get(key) is None, key
     assert svc.user_hold(datetime(2026, 9, 18, 9, 37, 0)) is None
 
@@ -164,7 +163,7 @@ def test_saving_other_settings_resets_nothing(svc, monkeypatch):
     source = svc.source
 
     cfg = load_config(svc.db)
-    cfg.dwell_minutes = 30
+    cfg.review_species_max = 12
     save_config(svc.db, cfg)
     svc.reload_config()
 

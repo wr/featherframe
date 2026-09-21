@@ -50,6 +50,39 @@ _HISTORY_MAX = 60
 _HISTORY_SCALE = 8
 _ETAG_RE = re.compile(r"^[0-9a-f]{16}$")
 
+# What an owner never tuned is a constant, not a setting (W-821).
+#
+# How often the detection source is checked. BirdWeather is a public API and
+# is never polled faster than a minute.
+POLL_SECONDS = 5
+_CLOUD_POLL_SECONDS = 60
+# The confidence a detection needs when the source has no threshold of its
+# own. BirdNET-Go filters by its own setting and only falls back to this.
+CONFIDENCE_FLOOR = 0.7
+# Dwell: a first-ever or first-today species keeps the frame this long against
+# repeats of common species (another new one can still take over, and the held
+# one may re-render). Without it a first-ever species lost the glass to the
+# next cardinal within minutes.
+DWELL_MINUTES = 90
+# Gone-quiet alarm: a plate footnote and a page banner once nothing has been
+# heard for this many ACTIVE hours. Hours inside quiet hours don't count, so a
+# silent night never trips it. The common month-two failure (mic unplugged,
+# BirdNET stopped) is otherwise silent everywhere.
+QUIET_ALARM_HOURS = 6
+# Source-outage note: the resident plate is re-rendered once with a footnote
+# after this long unreachable. An hour: a router reboot or a BirdNET restart
+# must not repaint the wall.
+SOURCE_ALARM_MINUTES = 60
+# New-species corroboration. BirdNET routinely produces single-shot false
+# positives of rare species (a car horn as a Bald Eagle). Unchecked, one such
+# hit becomes the wall and, for a species with no plate, BUYS a generated
+# plate of a species that was never there. A species heard for the first time
+# today must earn the wall: one detection at or above the confidence, or two
+# inside the window at least the gap apart. Known species are unaffected.
+CORROBORATE_CONFIDENCE = 0.85
+CORROBORATE_WINDOW = timedelta(hours=24)
+CORROBORATE_MIN_GAP = timedelta(minutes=10)
+
 # Gone-quiet alarm: the active-minutes walk steps at this granularity, and
 # never further back than this — anything older is an alarm regardless, and
 # the walk must stay cheap on a tick.
@@ -486,10 +519,9 @@ class FeatherframeService:
     def _effective_poll_seconds(self) -> int:
         """Poll cadence, floored for cloud sources so we don't hammer them —
         BirdWeather is a public API, so never poll it faster than 60s."""
-        interval = self.config.poll_interval_seconds
         if self.config.detection_backend == "birdweather":
-            return max(interval, 60)
-        return interval
+            return _CLOUD_POLL_SECONDS
+        return POLL_SECONDS
 
     # -- providers ---------------------------------------------------------
     def _build_provider(self, config: Config) -> ArtProvider:
@@ -527,10 +559,10 @@ class FeatherframeService:
         """A new detection source starts from a clean slate. Everything
         transient was about the old one: the cursor is in its id space
         (BirdWeather ids run ~11 billion, BirdNET-Go's ~450k — a leftover
-        froze the frame for hours), and the hold, the debounce and review
-        clocks, the waiting species and the outage clock all describe birds
+        froze the frame for hours), and the hold, the review
+        clock, the waiting species and the outage clock all describe birds
         it heard. The next tick shows the new source's latest detection."""
-        for key in ("ingest_cursor", "pending_species", "last_render_at",
+        for key in ("ingest_cursor", "pending_species",
                     "quiet_collage_for", "source_down_since", _USER_HOLD_KEY):
             self.db.set(key, None)
         self._pending = None
@@ -642,14 +674,12 @@ class FeatherframeService:
         is "unknown", not "quiet": the Source card already says "Not
         reachable", and alarming on an outage would be a second, wrong
         diagnosis."""
-        hours = int(self.config.quiet_alarm_hours)
-        if hours <= 0:
-            return None
+        hours = QUIET_ALARM_HOURS
         if available is None:
             available = self.source.available()
         if not available:
             return None
-        latest = self.source.latest(self.config.confidence_threshold)
+        latest = self.source.latest(CONFIDENCE_FLOOR)
         since = latest.timestamp if latest else self._started_at
         if since == datetime.min or since > now:
             return None  # unparseable stamp, or a clock skew we can't reason about
@@ -690,11 +720,11 @@ class FeatherframeService:
 
     def outage_state(self, now: datetime) -> Optional[dict]:
         """The source-outage alarm, or None: the source has been unreachable
-        for at least `source_alarm_minutes`. Same shape as quiet_state so the
+        for at least SOURCE_ALARM_MINUTES. Same shape as quiet_state so the
         page and the plate share one footnote path."""
-        minutes = int(self.config.source_alarm_minutes)
+        minutes = SOURCE_ALARM_MINUTES
         since = self._source_down_since
-        if minutes <= 0 or since is None:
+        if since is None:
             return None
         if since > now:
             return None  # a clock we can't reason about
@@ -746,7 +776,7 @@ class FeatherframeService:
             switched, self._source_switched = self._source_switched, False
             if self._frame_bytes is None or switched:
                 latest = self._first_showable(
-                    self.source.latest_many(self.config.confidence_threshold), now)
+                    self.source.latest_many(CONFIDENCE_FLOOR), now)
                 if latest:
                     self._render_single(latest, now,
                                         reason="source-switch" if switched else "startup")
@@ -768,7 +798,7 @@ class FeatherframeService:
             if max_rowid > 0 and cursor > max_rowid:
                 self._set_cursor(max_rowid)
                 latest = self._first_showable(
-                    self.source.latest_many(self.config.confidence_threshold), now)
+                    self.source.latest_many(CONFIDENCE_FLOOR), now)
                 if latest:
                     self._render_single(latest, now, reason="cursor-reset")
                 return
@@ -777,7 +807,7 @@ class FeatherframeService:
         # held-back bird gets its second chance because its second detection
         # is a NEW row that arrives later and, corroborated by the first via
         # latest_many, passes the gate then.
-        new = self.source.new_since(cursor, self.config.confidence_threshold,
+        new = self.source.new_since(cursor, CONFIDENCE_FLOOR,
                                     limit=_INGEST_PAGE)
         if len(new) >= _INGEST_PAGE:
             # Backlog: the page is full, so its newest row is not the newest
@@ -786,7 +816,7 @@ class FeatherframeService:
             # The cursor moves only once the tail is in hand: latest_many
             # soft-fails to [] on a blip, and jumping first would swallow the
             # whole backlog and render nothing.
-            latest = self.source.latest_many(self.config.confidence_threshold)
+            latest = self.source.latest_many(CONFIDENCE_FLOOR)
             if latest:
                 self._set_cursor(max(self.source.max_rowid(), new[-1].rowid))
                 candidate = self._best_showable(latest, now)
@@ -821,12 +851,6 @@ class FeatherframeService:
                 self.rerender_current()
             return
 
-        if not self.config.single_show_latest:
-            # skip if the same species is already shown
-            if candidate.key == self._meta.get("species_key"):
-                return
-            if self._within_debounce(now):
-                return
         self._render_single(candidate, now, reason="detection")
 
     def _render_single(self, det: Detection, now: datetime, reason: str) -> None:
@@ -855,7 +879,7 @@ class FeatherframeService:
 
     # -- collage mode ------------------------------------------------------
     def _maybe_daytime_collage(self, now: datetime) -> None:
-        interval = 24 * 3600 / max(1, self.config.collage_rebuilds_per_day)
+        interval = self.config.collage_interval_hours * 3600
         last = self._meta.get("collage_at")
         try:
             last_at = datetime.fromisoformat(last) if last else None
@@ -890,7 +914,7 @@ class FeatherframeService:
                         title: str = "A Day in the Garden") -> Optional[RenderResult]:
         """Render a plain (non-generated) collage for one day, or None if
         fewer than 2 species. Used by the transient button view."""
-        rows = self.source.top_species_today(on_date, self.config.confidence_threshold, limit=6)
+        rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR, limit=6)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         if len(rows) < 2:
             return None
@@ -913,7 +937,7 @@ class FeatherframeService:
                        generated_ok: bool = False,
                        force_generated: bool = False) -> bool:
         cap = self.config.review_species_max  # 0 = every species heard today
-        rows = self.source.top_species_today(on_date, self.config.confidence_threshold,
+        rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR,
                                              limit=max(6, cap) if cap else 500)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         rows = self._corroborated_rows(rows, on_date)
@@ -922,9 +946,9 @@ class FeatherframeService:
             # runs on every tick while the day has one species, so skip the
             # render when that bird is already on the glass — otherwise it is
             # a full-panel render every 20 s all day (and all night in quiet
-            # hours), and last_render_at churn breaks the debounce.
+            # hours).
             latest = self._first_showable(
-                self.source.latest_many(self.config.confidence_threshold), now)
+                self.source.latest_many(CONFIDENCE_FLOOR), now)
             if latest and not self._showing_single(latest):
                 self._render_single(latest, now, reason="collage-fallback")
             return False
@@ -1236,10 +1260,6 @@ class FeatherframeService:
             with self._lock:
                 self.device = DeviceStatus()
                 self.db.set("device_status", asdict(self.device))
-            if not self.config.panel_follow:
-                # A panel picked by hand was picked for the old frame.
-                self.update_config(Config.from_dict({**self.config.to_dict(),
-                                                     "panel_follow": True}))
             self.adopt_panel(row.get("panel"), row.get("facts"), swapped=True)
         return True
 
@@ -1257,10 +1277,9 @@ class FeatherframeService:
         panel is one the firmware can only reject. `swapped` (the owner
         switched frames) raises the "new panel" notice, since the saved
         display settings were tuned for the old panel; a first frame on a
-        fresh install has nothing to say. A panel the owner picked on the page
-        (`panel_follow` off) is left alone. True when the panel changed."""
+        fresh install has nothing to say. True when the panel changed."""
         panel = panels.from_report(reported, facts)
-        if panel is None or panel.key == self.config.panel or not self.config.panel_follow:
+        if panel is None or panel.key == self.config.panel:
             return False
         log.info("the frame reports panel %r: switching %s -> %s",
                  reported, self.config.panel, panel.key)
@@ -1274,8 +1293,7 @@ class FeatherframeService:
 
     def panel_notices(self) -> dict:
         """The pending "new panel" notice, until it is answered."""
-        out: dict = {"swap": None, "unrecognised": None, "unknown_format": None,
-                     "override": None}
+        out: dict = {"swap": None, "unrecognised": None, "unknown_format": None}
         reg = self._frames()
         row = reg["known"].get(reg.get("active") or "")
         reported = panels.from_report(row.get("panel"), row.get("facts")) if row else None
@@ -1284,8 +1302,6 @@ class FeatherframeService:
             # Taken in, but it names no panel we know and sent no size: every
             # image is drawn for `spec`, which its firmware may well reject.
             out["unrecognised"] = {"label": row.get("panel"), "drawing_for": spec.name}
-        elif reported is not None and reported.key != spec.key and not self.config.panel_follow:
-            out["override"] = {"reported": reported.name, "drawing_for": spec.name}
         if spec.unknown_format:
             out["unknown_format"] = {"format": spec.unknown_format}
         swap = self.db.get("panel_notice", None)
@@ -1358,7 +1374,7 @@ class FeatherframeService:
             return
         # single: commit the most recent qualifying detection now
         latest = self._first_showable(
-            self.source.latest_many(self.config.confidence_threshold), now)
+            self.source.latest_many(CONFIDENCE_FLOOR), now)
         if latest is not None:
             self._render_single(latest, now, reason="refresh")
         else:
@@ -1383,9 +1399,9 @@ class FeatherframeService:
                            battery_percent: Optional[int] = None,
                            wifi_rssi: Optional[int] = None) -> RenderResult:
         """Button view: a status plate. Transient, like the collage view."""
-        last = self.source.latest(self.config.confidence_threshold)
+        last = self.source.latest(CONFIDENCE_FLOOR)
         today_rows = self.source.top_species_today(
-            ddate.today(), self.config.confidence_threshold, limit=50)
+            ddate.today(), CONFIDENCE_FLOOR, limit=50)
         info = statuspage.StatusInfo(
             battery_voltage=battery_voltage,
             battery_percent=battery_percent,
@@ -1503,7 +1519,7 @@ class FeatherframeService:
             quiet = dict(self._quiet) if self._quiet else None
             outage = dict(self._outage) if self._outage else None
         now = self._clock()
-        latest = self.source.latest(self.config.confidence_threshold)
+        latest = self.source.latest(CONFIDENCE_FLOOR)
         return {
             "current": {
                 "etag": self._etag,
@@ -1597,7 +1613,6 @@ class FeatherframeService:
             os.replace(tmp, frames / _CURRENT_FFF)
             result.preview.save(frames / _CURRENT_PNG)
             self.db.set("current_frame", self._meta)
-            self.db.set("last_render_at", now.isoformat())
         self.db.log_render(now.isoformat(timespec="seconds"), mode, label, result.etag)
         self._save_history_thumb(result)
 
@@ -1694,16 +1709,6 @@ class FeatherframeService:
     def _set_cursor(self, rowid: int) -> None:
         self.db.set("ingest_cursor", int(rowid))
 
-    def _within_debounce(self, now: datetime) -> bool:
-        last = self.db.get("last_render_at")
-        if not last:
-            return False
-        try:
-            elapsed = (now - datetime.fromisoformat(last)).total_seconds()
-        except ValueError:
-            return False
-        return elapsed < self.config.refresh_debounce_minutes * 60
-
     def _showing_single(self, det: Detection) -> bool:
         """True if the resident frame is already a single plate of this species."""
         return (self._frame_bytes is not None
@@ -1746,7 +1751,7 @@ class FeatherframeService:
         per tick; None when the source can't answer."""
         memo = self._memo(now)
         if "today_counts" not in memo:
-            rows = self.source.top_species_today(now.date(), self.config.confidence_threshold,
+            rows = self.source.top_species_today(now.date(), CONFIDENCE_FLOOR,
                                                  limit=_TODAY_SCAN)
             memo["today_counts"] = ({str(r.get("scientific") or "").strip().lower():
                                      int(r.get("count") or 0) for r in rows}
@@ -1854,9 +1859,9 @@ class FeatherframeService:
 
     def _holding(self, meta: dict, now: datetime) -> Optional[dict]:
         """The dwell hold on the resident frame, or None: a single plate of a
-        novel species, held since less than dwell_minutes ago."""
-        dwell = int(self.config.dwell_minutes)
-        if dwell <= 0 or meta.get("mode") != "single" or meta.get("novelty") not in _NOVEL:
+        novel species, held since less than DWELL_MINUTES ago."""
+        dwell = DWELL_MINUTES
+        if meta.get("mode") != "single" or meta.get("novelty") not in _NOVEL:
             return None
         try:
             since = datetime.fromisoformat(str(meta.get("held_since") or meta.get("rendered_at")))
@@ -1928,18 +1933,15 @@ class FeatherframeService:
     def _corroborated(self, det: Detection, now: datetime) -> tuple[bool, Optional[dict]]:
         """(True, None) when `det` may be shown; (False, pending) when it is a
         new species still waiting on a second detection. A new species passes
-        alone at/above corroborate_confidence, or with two detections inside
+        alone at/above CORROBORATE_CONFIDENCE, or with two detections inside
         the window at least the minimum gap apart — a genuine bird calls again;
         a car horn's two triggers land seconds apart."""
-        cfg = self.config
-        if not cfg.corroborate_new_species:
-            return True, None
         if not self._is_new_species(det.scientific_name, now.date()):
             return True, None
-        if det.confidence >= cfg.corroborate_confidence:
+        if det.confidence >= CORROBORATE_CONFIDENCE:
             return True, None
-        window = timedelta(hours=cfg.corroborate_window_hours)
-        recent = self.source.latest_many(min_confidence=cfg.confidence_threshold,
+        window = CORROBORATE_WINDOW
+        recent = self.source.latest_many(min_confidence=CONFIDENCE_FLOOR,
                                          limit=_CORROBORATE_SCAN)
         # The candidate itself counts once (latest_many may not include it —
         # a page fed from new_since, or a source whose tail lags).
@@ -1948,10 +1950,9 @@ class FeatherframeService:
         stamps = [d.timestamp for d in hits.values()
                   if d.timestamp != datetime.min and d.timestamp >= now - window]
         best = max(d.confidence for d in hits.values())
-        if best >= cfg.corroborate_confidence:
+        if best >= CORROBORATE_CONFIDENCE:
             return True, None   # a confident hit in the window vouches for the rest
-        if len(stamps) >= 2 and (max(stamps) - min(stamps)) >= timedelta(
-                minutes=cfg.corroborate_min_gap_minutes):
+        if len(stamps) >= 2 and (max(stamps) - min(stamps)) >= CORROBORATE_MIN_GAP:
             return True, None
         first_at = min(stamps) if stamps else (det.timestamp if det.timestamp != datetime.min else now)
         last_at = max(stamps) if stamps else first_at
@@ -1964,18 +1965,15 @@ class FeatherframeService:
 
     def _corroborated_rows(self, rows: list[dict], on_date: ddate) -> list[dict]:
         """Collage gate: drop a species heard once on `on_date`, first heard
-        that day, whose best detection never reached corroborate_confidence.
+        that day, whose best detection never reached CORROBORATE_CONFIDENCE.
         One latest_many scan per build, not per row. force_test_detection is
         not a row here, so it is unaffected."""
-        cfg = self.config
-        if not cfg.corroborate_new_species:
-            return rows
         suspects = [r for r in rows
                     if int(r.get("count") or 0) == 1
                     and self._is_new_species(r["scientific"], on_date)]
         if not suspects:
             return rows
-        recent = self.source.latest_many(min_confidence=cfg.confidence_threshold,
+        recent = self.source.latest_many(min_confidence=CONFIDENCE_FLOOR,
                                          limit=_CORROBORATE_SCAN)
         best: dict[str, float] = {}
         for d in recent:
@@ -1983,7 +1981,7 @@ class FeatherframeService:
         keep = []
         for r in rows:
             key = str(r["scientific"]).strip().lower()
-            if any(r is s for s in suspects) and best.get(key, 0.0) < cfg.corroborate_confidence:
+            if any(r is s for s in suspects) and best.get(key, 0.0) < CORROBORATE_CONFIDENCE:
                 log.info("collage: holding back new species %s (1 hit, best %.2f)",
                          r["common"], best.get(key, 0.0))
                 continue
@@ -2013,7 +2011,7 @@ class FeatherframeService:
             last_at = datetime.fromisoformat(str(p.get("last_at") or p.get("first_at")))
         except (TypeError, ValueError):
             return None
-        if now - last_at > timedelta(hours=self.config.corroborate_window_hours):
+        if now - last_at > CORROBORATE_WINDOW:
             return None
         hits = int(p.get("hits") or 1)
         conf = float(p.get("confidence") or 0.0)
@@ -2021,7 +2019,7 @@ class FeatherframeService:
             waiting = f"1 hit at {conf:.2f} · waiting for a second"
         else:
             waiting = (f"{hits} hits at {conf:.2f} · waiting for one "
-                       f"{self.config.corroborate_min_gap_minutes} min apart")
+                       f"{int(CORROBORATE_MIN_GAP.total_seconds() // 60)} min apart")
         return {"common": p.get("common"), "scientific": p.get("scientific"),
                 "hits": hits, "confidence": conf, "first_at": p.get("first_at"),
                 "waiting_text": waiting}

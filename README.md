@@ -177,8 +177,8 @@ The page at `http://<your-pi>:8080/` is the whole UI:
   injects a fake Cardinal so you can exercise everything with no birds.
 - **Mode** — *single* (latest detection) or *collage* (the day's top species),
   plus an optional overnight "day in review" sheet.
-- **Confidence threshold** (0.7), **quiet hours** (22:00–06:00), and an
-  optional debounce between repaints for a calmer frame.
+- **Quiet hours** (22:00–06:00, or sunset to sunrise). The confidence
+  threshold is your detector's own: set it in BirdNET-Go, not here.
 - **Power** — *always awake* (Wi-Fi up, asks for a new plate every few seconds,
   instant buttons; for USB) or *deep sleep* (wakes on the **wake interval**,
   15 min by default, or a button; for battery). *Check every* sets the awake
@@ -236,8 +236,9 @@ make preview     # renders a fake Northern Cardinal to test_output/
 
 - **"BirdNET: not found"** — check the DB path on the config page. Default is
   `~/BirdNET-Pi/scripts/birds.db`.
-- **Frame never updates** — quiet hours, the debounce window, or "same species
-  already showing" are all intentional. Hit *Test detection* to force one.
+- **Frame never updates** — quiet hours, a new species waiting for a second
+  detection, or a first-of-the-day species holding the frame are all
+  intentional. Hit *Test detection* to force one.
 - **Device never checks in** — `/api/status` shows `mdns.advertised`; if it is
   false the box has no LAN route or `zeroconf` is missing (re-run
   `install.sh`). On a network that blocks multicast, hold KEY2 for 3 s and type

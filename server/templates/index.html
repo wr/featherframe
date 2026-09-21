@@ -612,9 +612,8 @@
   {% endif %}
   {# W-813: what the frame says about its panel does not match what is drawn. #}
   {% for title, body in [
-      ("This frame did not say what panel it has.", pn.unrecognised and ("It calls its panel “" ~ pn.unrecognised.label ~ "”, which this server does not know, and it reported no size. Updates are drawn for the " ~ pn.unrecognised.drawing_for ~ " panel, which the frame may reject. Update the frame's firmware, or pick its panel under Display, Advanced.")),
+      ("This frame did not say what panel it has.", pn.unrecognised and ("It calls its panel “" ~ pn.unrecognised.label ~ "”, which this server does not know, and it reported no size. Updates are drawn for the " ~ pn.unrecognised.drawing_for ~ " panel, which the frame may reject. Update the frame's firmware.")),
       ("This frame's panel format is not one this server can draw.", pn.unknown_format and ("It reports the format “" ~ pn.unknown_format.format ~ "”. Updates are sent at the panel's size in 16-level gray instead, which the frame may reject.")),
-      ("The panel is set by hand.", pn.override and ("The frame reports the " ~ pn.override.reported ~ " panel, and updates are drawn for the " ~ pn.override.drawing_for ~ " panel. The frame rejects an update drawn for another panel: choose “As reported by the frame” under Display, Advanced to follow it again.")),
     ] %}{% if body %}
   <div class="test-box warn show panel-note" role="status">
     <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
@@ -881,9 +880,9 @@
               </div>
             </div>
           </div>
-          <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="ssl">Always show the most recent detection</label><div class="hint" id="ssl-sub">Each new detection replaces the last. Turn off for a calmer wall: updates wait the debounce, and a species already showing isn't redrawn.</div></div>
-            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ssl" name="single_show_latest" aria-describedby="ssl-sub" {{ 'checked' if config.single_show_latest else '' }}><span class="track"></span></label></div>
+          <div class="frow" id="collage-every-row" {{ '' if config.mode=='collage' else 'hidden' }}>
+            <div class="frow-text"><label class="lab" for="f-every">New collage every (hours)</label><div class="hint">How often the sheet is redrawn as the day's species arrive. On the color panel, where an update takes half a minute, a few hours apart suits it.</div></div>
+            <div class="frow-ctl"><input type="number" id="f-every" name="collage_interval_hours" min="1" max="24" step="1" inputmode="numeric" value="{{ config.collage_interval_hours }}"></div>
           </div>
           <div class="frow">
             <div class="frow-text"><span class="lab" id="power-lab">Power</span><div class="hint"><ul><li>Always awake on USB: instant buttons, a detection shows within seconds.</li><li>Deep sleep on battery: the frame wakes on a schedule or a button press.</li></ul></div></div>
@@ -942,70 +941,9 @@
           <details class="disc adv">
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="disc-body"><div class="adv-body">
-              <p class="adv-group">Detection</p>
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-conf">Confidence threshold</label><div class="hint">How sure BirdNET must be before a detection is shown, 0 to 1. Raise it if you see species that aren't there; lower it if quiet ones are missed.</div></div>
-                <div class="frow-ctl"><input type="number" id="f-conf" name="confidence_threshold" min="0" max="1" step="0.01" inputmode="decimal" value="{{ config.confidence_threshold }}"></div>
-              </div>
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-deb">Refresh debounce (minutes)</label><div class="hint">Minimum time between repaints. Only used when “Always show the most recent detection” is off.</div></div>
-                <div class="frow-ctl"><input type="number" id="f-deb" name="refresh_debounce_minutes" min="1" max="720" step="1" inputmode="numeric" value="{{ config.refresh_debounce_minutes }}"></div>
-              </div>
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-dwell">Hold a new species for (minutes)</label><div class="hint">A species new today stays up this long, even as the regulars keep calling. 0 turns it off.</div></div>
-                <div class="frow-ctl"><input type="number" id="f-dwell" name="dwell_minutes" min="0" max="720" step="1" inputmode="numeric" value="{{ config.dwell_minutes }}"></div>
-              </div>
-              <p class="adv-group">New species</p>
-              <div class="frow toggle">
-                <div class="frow-text"><label class="lab" for="cns">Ask for a second detection before showing a new species</label><div class="hint" id="cns-sub">Keeps one-off misidentifications off the wall and out of the paint budget. A species new today must be heard twice, or once confidently.</div></div>
-                <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cns" name="corroborate_new_species" aria-describedby="cns-sub" {{ 'checked' if config.corroborate_new_species else '' }}><span class="track"></span></label></div>
-              </div>
-              <div id="cns-fields" {{ '' if config.corroborate_new_species else 'hidden' }}>
-                <div class="frow">
-                  <div class="frow-text"><label class="lab" for="f-cconf">Confident enough alone</label><div class="hint">One detection at or above this confidence skips the wait.</div></div>
-                  <div class="frow-ctl"><input type="number" id="f-cconf" name="corroborate_confidence" min="0" max="1" step="0.01" inputmode="decimal" value="{{ config.corroborate_confidence }}"></div>
-                </div>
-                <div class="frow">
-                  <div class="frow-text"><label class="lab" for="f-cwin">Window (hours)</label><div class="hint">How long the first detection waits for a second.</div></div>
-                  <div class="frow-ctl"><input type="number" id="f-cwin" name="corroborate_window_hours" min="1" max="168" step="1" inputmode="numeric" value="{{ config.corroborate_window_hours }}"></div>
-                </div>
-                <div class="frow">
-                  <div class="frow-text"><label class="lab" for="f-cgap">Minimum gap (minutes)</label><div class="hint">The two detections must be at least this far apart, so one long song doesn't count twice.</div></div>
-                  <div class="frow-ctl"><input type="number" id="f-cgap" name="corroborate_min_gap_minutes" min="0" max="720" step="1" inputmode="numeric" value="{{ config.corroborate_min_gap_minutes }}"></div>
-                </div>
-              </div>
-              <p class="adv-group">Rendering</p>
-              {# The panel follows what the device reports (X-Panel) on its first
-                 check-in; the select is for setting it before a device exists. #}
-              {% set panel_color = config.panel_spec.color %}
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-panel">Panel</label><div class="hint">Which panel this server draws for. The frame reports its own size and format, so leave this alone unless the report is wrong: the frame rejects an update drawn for another panel.</div></div>
-                <div class="frow-ctl"><select class="sel" id="f-panel" name="panel"><option value="auto" {{ 'selected' if config.panel_follow else '' }}>As reported by the frame ({{ reported_panel.name if reported_panel else 'nothing yet: ' ~ config.panel_spec.name }})</option>{% for p in panels %}<option value="{{ p.key }}" {{ 'selected' if not config.panel_follow and config.panel==p.key else '' }}>{{ p.name }}</option>{% endfor %}{% if not config.panel_follow and not config.panel_spec.known %}<option value="{{ config.panel }}" selected>{{ config.panel_spec.name }}</option>{% endif %}</select></div>
-              </div>
-              {% if panel_color %}
-              <input type="hidden" name="gray_mode" value="{{ config.gray_mode }}">
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-sat">Color saturation</label><div class="hint">How vivid the plate's colors are before they are mixed from the panel's six inks. The inks are duller than the scans, so a little over 1 reads truer on the glass.</div></div>
-                <div class="frow-ctl"><input type="number" id="f-sat" name="color_saturation" min="0" max="2" step="0.05" inputmode="decimal" value="{{ config.color_saturation }}"></div>
-              </div>
-              {% else %}
-              <input type="hidden" name="color_saturation" value="{{ config.color_saturation }}">
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-tone">Tone</label><div class="hint">Grayscale is the panel's full 16-level range. Black &amp; white is a fallback for a panel that renders grays badly.</div></div>
-                <div class="frow-ctl"><select class="sel" id="f-tone" name="gray_mode"><option value="16" {{ 'selected' if config.gray_mode=='16' else '' }}>Grayscale (16-level)</option><option value="1" {{ 'selected' if config.gray_mode=='1' else '' }}>Black &amp; white (1-bit)</option></select></div>
-              </div>
-              {% endif %}
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-dither">Dithering</label><div class="hint">{% if panel_color %}How the plate's colors are mixed from the panel's six inks. Automatic uses Stucki, which keeps the engraved lines and the finest grain; Blue-noise renders faster and looks grainier; None shows flat inks.{% else %}How the plate's tones are rendered in 16 grays. Automatic uses Blue-noise, which is quick and looks right; Stucki is slower and a touch finer.{% endif %}</div></div>
-                <div class="frow-ctl"><select class="sel" id="f-dither" name="dither"><option value="auto" {{ 'selected' if config.dither=='auto' else '' }}>Automatic ({{ 'Stucki' if panel_color else 'Blue-noise' }})</option><option value="bluenoise" {{ 'selected' if config.dither=='bluenoise' else '' }}>Blue-noise (fast)</option><option value="stucki" {{ 'selected' if config.dither=='stucki' else '' }}>Stucki (slow, finer)</option><option value="none" {{ 'selected' if config.dither=='none' else '' }}>None</option></select></div>
-              </div>
               <div class="frow">
                 <div class="frow-text"><label class="lab" for="f-rot">Panel rotation</label><div class="hint">Switch this if the plate is upside down on the wall.</div></div>
                 <div class="frow-ctl"><select class="sel" id="f-rot" name="panel_rotation">{% for r in config.panel_spec.rotations %}<option value="{{ r }}" {{ 'selected' if config.panel_rotation==r else '' }}>{{ r }}°</option>{% endfor %}</select></div>
-              </div>
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-rebuilds">Collage rebuilds per day</label><div class="hint">How often the day's sheet is redrawn as new species arrive. More rebuilds, more repaints.</div></div>
-                <div class="frow-ctl"><input type="number" id="f-rebuilds" name="collage_rebuilds_per_day" min="1" max="24" step="1" inputmode="numeric" value="{{ config.collage_rebuilds_per_day }}"></div>
               </div>
               <div class="frow toggle">
                 <div class="frow-text"><label class="lab" for="pn">Show the plate number (“No. 47”)</label><div class="hint" id="pn-sub">Prints Audubon's plate number in the caption, as on the Havell edition.</div></div>
@@ -1131,18 +1069,6 @@
           <details class="disc adv">
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="disc-body"><div class="adv-body">
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-poll">Poll interval (seconds)</label><div class="hint">How often new detections are fetched. Lower means an update shows sooner. BirdWeather is never polled faster than every 60 s.</div></div>
-                <div class="frow-ctl"><input type="number" id="f-poll" name="poll_interval_seconds" min="2" max="300" step="1" inputmode="numeric" value="{{ config.poll_interval_seconds }}"></div>
-              </div>
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-alarm">Alert when nothing is heard for (hours)</label><div class="hint">Adds a footnote to the frame and a banner here when the mic may have gone quiet. Counts hours outside quiet hours. 0 turns it off.</div></div>
-                <div class="frow-ctl"><input type="number" id="f-alarm" name="quiet_alarm_hours" min="0" max="168" step="1" inputmode="numeric" value="{{ config.quiet_alarm_hours }}"></div>
-              </div>
-              <div class="frow">
-                <div class="frow-text"><label class="lab" for="f-outage">Note on the frame when the source is unreachable for (minutes)</label><div class="hint">Adds a footnote to the frame when BirdNET can't be reached for this long; it clears on the next good read. 0 turns it off.</div></div>
-                <div class="frow-ctl"><input type="number" id="f-outage" name="source_alarm_minutes" min="0" max="10080" step="1" inputmode="numeric" value="{{ config.source_alarm_minutes }}"></div>
-              </div>
               <div class="frow stack">
                 <div class="frow-text"><label class="lab" for="f-block">Species blocklist</label><div class="hint">One species per line, common or scientific name. Never shown.</div></div>
                 <div class="frow-ctl"><textarea id="f-block" name="species_blocklist" placeholder="One species per line">{{ config.species_blocklist|join('\n') }}</textarea></div>
@@ -1404,15 +1330,10 @@
     flash.querySelector('.test-msg').textContent = '';
   }
   // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
-  var FIELD_NAMES = { confidence_threshold: 'Confidence threshold', refresh_debounce_minutes: 'Refresh debounce',
-    dwell_minutes: 'Hold a new species',
-    power_mode: 'Power', device_poll_seconds: 'Check every', wake_interval_minutes: 'Wake interval', poll_interval_seconds: 'Poll interval', quiet_alarm_hours: 'Gone-quiet alarm',
-    source_alarm_minutes: 'Source-outage note',
-    collage_rebuilds_per_day: 'Collage rebuilds per day', review_species_max: 'Species on the sheet',
+  var FIELD_NAMES = { power_mode: 'Power', device_poll_seconds: 'Check every', wake_interval_minutes: 'Wake interval',
+    collage_interval_hours: 'New collage every', review_species_max: 'Species on the sheet',
     mat_inset_pct: 'Mat inset',
-    mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation', color_saturation: 'Color saturation',
-    corroborate_confidence: 'New species: confident enough alone', corroborate_window_hours: 'New species: window',
-    corroborate_min_gap_minutes: 'New species: minimum gap' };
+    mat_offset_x_px: 'Mat offset x', mat_offset_y_px: 'Mat offset y', panel_rotation: 'Panel rotation' };
   (function () {
     var q = new URLSearchParams(location.search), shown = false;
     if (q.get('error')) { showFlash('bad', q.get('error'), 'ic-warn'); shown = true; }
@@ -1859,8 +1780,7 @@
   // -- Advanced: reset to defaults ---------------------------------------------
   // Fills the section's controls with the factory values for the panel in use
   // and leaves the save to the owner: the Save bar appears, and leaving the
-  // page without saving undoes it. The Panel select is not a preference (it
-  // follows the frame), so it stays put.
+  // page without saving undoes it.
   (function () {
     var btn = $('adv-reset'), src = $('display-defaults');
     if (!btn || !src || !form) return;
@@ -1871,7 +1791,7 @@
       var changed = 0;
       body.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (el) {
         var name = el.name;
-        if (name === 'panel' || el.type === 'hidden' || !(name in defaults)) return;
+        if (el.type === 'hidden' || !(name in defaults)) return;
         var want = defaults[name], before;
         if (el.type === 'checkbox') { before = el.checked; el.checked = !!want; if (before !== el.checked) changed++; }
         else if (el.type === 'radio') { before = el.checked; el.checked = (String(want) === el.value); if (before !== el.checked) changed++; }
@@ -1975,12 +1895,6 @@
     }
     document.querySelectorAll('input[name="power_mode"]').forEach(function (r) { r.addEventListener('change', syncPower); });
     syncPower();
-    // New-species corroboration: the three numbers only mean something while
-    // the toggle is on, so they follow it (same as the quiet-hours custom times).
-    var cnsToggle = $('cns'), cnsFields = $('cns-fields');
-    function syncCorroborate() { if (cnsFields) cnsFields.hidden = !(cnsToggle && cnsToggle.checked); }
-    if (cnsToggle) cnsToggle.addEventListener('change', syncCorroborate);
-    syncCorroborate();
     // The day-in-review preview should match the combine toggle: a
     // single combined AI plate when it's on, the grid collage when off.
     var cgToggle = $('cg');
@@ -2031,12 +1945,13 @@
     // Mode description under the segmented control.
     var modeHintEl = $('mode-hint');
     var MODE_HINT = {
-      single: "Shows the most recent detection that meets the confidence threshold.",
+      single: "Shows the most recent detection as one plate.",
       collage: "A grid of the day's most-heard species, updated through the day."
     };
     function syncMode() {
       var m = (document.querySelector('input[name="mode"]:checked') || {}).value;
       if (modeHintEl) modeHintEl.textContent = MODE_HINT[m] || '';
+      var every = $('collage-every-row'); if (every) every.hidden = (m !== 'collage');
     }
     document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.addEventListener('change', syncMode); });
     syncMode();

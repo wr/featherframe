@@ -322,8 +322,6 @@ async def index(request: Request):
     return templates.TemplateResponse(
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
-         "panels": list(panels.PANELS.values()),
-         "reported_panel": svc.reported_panel(),
          "display_defaults": _display_defaults(svc.config),
          "generated": generated, "history": history})
 
@@ -355,20 +353,8 @@ async def save_settings(request: Request):
     blocklist_raw = s("species_blocklist", "")
     blocklist = [x.strip() for x in blocklist_raw.replace(",", "\n").splitlines() if x.strip()]
 
-    # Panel: "auto" follows what the frame reports; a named panel is the
-    # owner's override and stays put (service.adopt_panel).
-    picked = s("panel", "auto" if cur["panel_follow"] else cur["panel"])
-    follow = picked == "auto"
-    if follow:
-        reported = svc.reported_panel()
-        picked = reported.key if reported else cur["panel"]
-
     new = Config(
         mode=s("mode", cur["mode"]),
-        confidence_threshold=f("confidence_threshold", cur["confidence_threshold"]),
-        single_show_latest=b("single_show_latest"),
-        refresh_debounce_minutes=i("refresh_debounce_minutes", cur["refresh_debounce_minutes"]),
-        dwell_minutes=i("dwell_minutes", cur["dwell_minutes"]),
         wake_interval_minutes=i("wake_interval_minutes", cur["wake_interval_minutes"]),
         power_mode=s("power_mode", cur["power_mode"]),
         device_poll_seconds=i("device_poll_seconds", cur["device_poll_seconds"]),
@@ -377,25 +363,14 @@ async def save_settings(request: Request):
         quiet_hours_end=t("quiet_hours_end", cur["quiet_hours_end"]),
         quiet_hours_render_collage=b("quiet_hours_render_collage"),
         species_blocklist=blocklist,
-        corroborate_new_species=b("corroborate_new_species"),
-        corroborate_confidence=f("corroborate_confidence", cur["corroborate_confidence"]),
-        corroborate_window_hours=i("corroborate_window_hours", cur["corroborate_window_hours"]),
-        corroborate_min_gap_minutes=i("corroborate_min_gap_minutes", cur["corroborate_min_gap_minutes"]),
         detection_backend=s("detection_backend", cur["detection_backend"]),
         birdnet_db_path=s("birdnet_db_path", cur["birdnet_db_path"]),
         birdnet_go_url=s("birdnet_go_url", cur["birdnet_go_url"]),
         birdweather_station_id=s("birdweather_station_id", cur["birdweather_station_id"]),
         apprise_token=s("apprise_token", cur["apprise_token"]),
-        poll_interval_seconds=i("poll_interval_seconds", cur["poll_interval_seconds"]),
-        quiet_alarm_hours=i("quiet_alarm_hours", cur["quiet_alarm_hours"]),
-        source_alarm_minutes=i("source_alarm_minutes", cur["source_alarm_minutes"]),
-        panel=picked,
-        panel_follow=follow,
-        color_saturation=f("color_saturation", cur["color_saturation"]),
-        gray_mode=s("gray_mode", cur["gray_mode"]),
-        dither=s("dither", cur["dither"]),
+        panel=cur["panel"],   # state: follows the frame (service.adopt_panel)
         show_plate_number=b("show_plate_number"),
-        collage_rebuilds_per_day=i("collage_rebuilds_per_day", cur["collage_rebuilds_per_day"]),
+        collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
         panel_rotation=i("panel_rotation", cur["panel_rotation"]),
         mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
         mat_offset_x_px=i("mat_offset_x_px", cur["mat_offset_x_px"]),
@@ -418,11 +393,7 @@ async def save_settings(request: Request):
         imagegen_text_key=(s("imagegen_text_key", "").strip()
                            or ("" if b("imagegen_text_clear_key") else cur["imagegen_text_key"])),
     )
-    render_affecting = (new.panel != svc.config.panel
-                        or new.color_saturation != svc.config.color_saturation
-                        or new.gray_mode != svc.config.gray_mode
-                        or new.dither != svc.config.dither
-                        or new.show_plate_number != svc.config.show_plate_number
+    render_affecting = (new.show_plate_number != svc.config.show_plate_number
                         or new.panel_rotation != svc.config.panel_rotation
                         or new.mat_inset_pct != svc.config.mat_inset_pct
                         or new.mat_offset_x_px != svc.config.mat_offset_x_px
@@ -446,14 +417,9 @@ async def save_settings(request: Request):
                             status_code=303)
 
 
-_NUMERIC_FORM_FIELDS = ("confidence_threshold", "refresh_debounce_minutes", "dwell_minutes",
-                        "wake_interval_minutes",
-                        "poll_interval_seconds", "quiet_alarm_hours", "source_alarm_minutes",
-                        "collage_rebuilds_per_day", "review_species_max",
-                        "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation",
-                        "color_saturation",
-                        "corroborate_confidence", "corroborate_window_hours",
-                        "corroborate_min_gap_minutes")
+_NUMERIC_FORM_FIELDS = ("wake_interval_minutes",
+                        "collage_interval_hours", "review_species_max",
+                        "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation")
 
 
 def _adjusted_fields(form, cfg: Config) -> list[str]:

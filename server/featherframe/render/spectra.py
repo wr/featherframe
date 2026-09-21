@@ -39,6 +39,10 @@ log = logging.getLogger("featherframe.spectra")
 BLACK, BLUE, GREEN, RED, YELLOW, WHITE = range(6)
 INK_NAMES = ("black", "blue", "green", "red", "yellow", "white")
 
+# Chroma boost before the six-ink dither. The inks are duller than the scans,
+# so a little over 1 reads truer on the glass.
+SATURATION = 1.2
+
 # Measured sRGB of each ink on a Spectra 6 panel (aitjcize/esp32-photoframe's
 # MEASURED_PALETTE). A per-panel calibration would replace this table.
 MEASURED = np.array([

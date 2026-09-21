@@ -94,7 +94,8 @@ def test_a_reported_panel_gets_a_frame_of_exactly_its_native_size(key, native, b
 
 
 def test_a_panel_that_is_not_3_to_4_gets_the_whole_sheet_on_paper():
-    cfg = Config(panel="custom:800x480:gray16:90,270", mat_inset_pct=0.0, dither="none").sanitize()
+    cfg = Config(panel="custom:800x480:gray16:90,270", mat_inset_pct=0.0).sanitize()
+    pipeline.DITHER_OVERRIDE = "none"
     px = np.asarray(pipeline.render_image(_sheet(), cfg, "single", "t").preview)
     # 480x800 is narrower than 3:4: the sheet is 480x640, centred, paper above and below.
     assert px[:78].min() == 255 and px[-78:].min() == 255
@@ -129,7 +130,7 @@ def test_first_checkin_from_an_unknown_panel_is_drawn_for_at_its_size(client):
     assert (bpp, w, h, flags) == (4, 800, 480, 0)
     assert "GDEY075 DIY" in svc.frames_view()["active"]["panel_name"]
     page = client.get("/").text
-    assert "As reported by the frame (GDEY075 DIY" in page
+    assert "GDEY075 DIY" in page
 
 
 def test_an_unknown_panel_with_no_facts_says_so_on_the_page(client):
@@ -149,17 +150,13 @@ def test_an_unknown_format_says_so_on_the_page(client):
     assert "not one this server can draw" in client.get("/").text
 
 
-def test_a_panel_picked_on_the_page_is_an_override_until_as_reported(client):
+
+
+def test_the_panel_is_not_a_setting(client):
+    """W-821: the panel follows the frame; a posted `panel` is ignored."""
     svc = client.app.state.service
     client.get("/api/frame", headers=DIY)
     same = {"Origin": "http://testserver"}
-    assert client.post("/settings", data={"panel": "ee03"}, headers=same,
-                       follow_redirects=False).status_code in (200, 303)
-    assert svc.config.panel == "ee03" and svc.config.panel_follow is False
-    client.get("/api/frame", headers=DIY)             # the report no longer moves it
-    assert svc.config.panel == "ee03"
-    assert svc.panel_notices()["override"]["drawing_for"] == panels.EE03.name
-
-    client.post("/settings", data={"panel": "auto"}, headers=same, follow_redirects=False)
-    assert svc.config.panel == "custom:800x480:gray16:90,270" and svc.config.panel_follow is True
-    assert svc.panel_notices()["override"] is None
+    client.post("/settings", data={"panel": "ee03"}, headers=same, follow_redirects=False)
+    assert svc.config.panel == "custom:800x480:gray16:90,270"
+    assert 'name="panel"' not in client.get("/").text

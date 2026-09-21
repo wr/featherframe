@@ -9,6 +9,7 @@ import pytest
 
 from featherframe.render import welcome
 from featherframe.service import FeatherframeService
+from featherframe.render import pipeline as pipeline  # noqa: E402
 
 
 @pytest.fixture
@@ -17,7 +18,7 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
     service.source.db_path = str(tmp_path / "missing.db")   # source unreachable
-    service.config.dither = "none"
+    pipeline.DITHER_OVERRIDE = "none"
     yield service
 
 

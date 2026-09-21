@@ -32,9 +32,8 @@ describes its panel as facts (W-813: `X-Panel-Width`/`-Height` native canvas,
 so `Config` stays flat). A panel that is not 3:4 gets the same sheet,
 contain-fitted on paper (`pipeline._fit_to_panel`); an unknown format is sent
 gray16 at the right size with a page note, never a wrong-size image. The
-page's Panel select is "As reported by the frame" (`config.panel_follow`); a
-named panel is an override `adopt_panel` leaves alone until the owner switches
-frames. The firmware side of a port is `-DFF_GENERIC_PANEL` (W-819, the
+panel is state, not a setting (W-821): `config.panel` always follows the
+active frame (`adopt_panel`) and there is no override on the page. The firmware side of a port is `-DFF_GENERIC_PANEL` (W-819, the
 `generic_bench` env: the EE03's own glass under a label the server does not
 know): the panel comes from build flags, its screens from
 `bake_screens.py --size WxH --format gray16|spectra6 --rotation N --out …`
@@ -71,7 +70,7 @@ cd server
 ./.venv/bin/python -m pytest tests/test_names.py -q                  # one test file
 ./.venv/bin/python -m pytest -k cursor -q                            # by keyword
 ./.venv/bin/python -m featherframe.preview --species "Blue Jay"      # any species
-./.venv/bin/python -m featherframe.preview --gray 1 --dither stucki  # exercise modes
+./.venv/bin/python -m featherframe.preview --dither stucki           # bench override, never persisted
 ./.venv/bin/python scripts/fetch_plates.py --dry-run                 # resolve plates, no download
 ./.venv/bin/python -m featherframe --port 8080                       # run the server directly
 
@@ -94,9 +93,9 @@ packed framebuffer + ETag → firmware GET /api/frame (If-None-Match) → panel`
 frame* (bytes + ETag), persisted to `data/frames/current.fff` so a restart never
 blanks the device. A background thread runs `tick()` on the poll interval;
 `tick()` is the whole decision tree — quiet hours (+ optional day-in-review
-sheet), mode (single/collage; "auto" was removed and migrates to single),
-confidence, debounce and same-species skip (only when `single_show_latest` is
-False — the default is True), blocklist — and renders *at most one* frame per
+sheet), mode (single/collage; "auto" was removed and migrates to single; a
+collage is redrawn every `collage_interval_hours`), blocklist, new-species
+corroboration and the dwell hold — and renders *at most one* frame per
 decision. Every web handler just reads the current frame. The default
 path is to do nothing (priority: few panel refreshes).
 
@@ -173,8 +172,15 @@ corners in the same script. `theme.py` holds all geometry/tone constants.
   the reverse of the gray levels), native portrait 1200×1600, rotation 0/180.
 - **Config** is one flat `Config` dataclass (`config.py`), persisted as a JSON
   blob in our own SQLite (`db.py`, a kv store, separate from BirdNET's DB).
-- **Dithering:** `config.dither` defaults to `"auto"`, the panel's own default
-  (`panels.py`). Gray: blue-noise (vectorized, Pi-friendly); Stucki there is a
+- **What an owner never tuned is a constant, not a setting (W-821).** The
+  poll interval, confidence floor (BirdNET-Go's own threshold always wins;
+  the floor is for sources with none), dwell, both alarm thresholds and the
+  corroboration numbers live as named constants at the top of `service.py`;
+  saturation is `spectra.SATURATION`. Single mode always shows the latest
+  qualifying detection. Think twice before turning one back into a field.
+- **Dithering** is the panel's own (`Panel.dither`, `panels.py`); the only
+  override is `pipeline.DITHER_OVERRIDE` (`preview.py --dither`, and tests
+  that want a cheap render). Gray: blue-noise (vectorized, Pi-friendly); Stucki there is a
   correct but slow per-pixel Python loop — don't make it the gray default on a
   Pi Zero. Colour: Stucki (`spectra._diffuse_stucki`), chosen side by side on
   the glass (19 Sep 2026) — with six inks, diffusion holds engraving lines and

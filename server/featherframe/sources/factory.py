@@ -15,10 +15,7 @@ def make_source(config, db=None) -> DetectionSource:
     backend = getattr(config, "detection_backend", "custom")
     if backend == "birdnet_go":
         from .birdnet_go import BirdNetGoSource
-        return BirdNetGoSource(
-            config.birdnet_go_url,
-            defer_confidence=getattr(config, "birdnet_go_defer_confidence", True),
-        )
+        return BirdNetGoSource(config.birdnet_go_url)
     if backend == "birdweather":
         from .birdweather import BirdWeatherSource
         return BirdWeatherSource(getattr(config, "birdweather_station_id", ""))

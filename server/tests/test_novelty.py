@@ -35,7 +35,7 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
     service._clock = lambda: NOW          # pin the wall clock to the fixtures' day
-    service.config.dither = "none"
+    pipeline.DITHER_OVERRIDE = "none"
     service._frame_bytes = b"resident"
     service._set_cursor(0)
     service._cursor_verified = True
@@ -224,15 +224,6 @@ def test_hold_expires_with_dwell(svc, monkeypatch):
     assert rendered == ["Northern Cardinal"]
 
 
-def test_dwell_zero_turns_the_hold_off(svc, monkeypatch):
-    svc.config.dwell_minutes = 0
-    _hold(svc, "first-ever", minutes_ago=1)
-    _cardinal_repeat(svc)
-    rendered = _capture_renders(svc, monkeypatch)
-    svc._single_tick(NOW)
-    assert rendered == ["Northern Cardinal"]
-
-
 def test_first_today_holds_too_but_a_repeat_or_collage_does_not(svc, monkeypatch):
     rendered = _capture_renders(svc, monkeypatch)
     _hold(svc, "first-today", minutes_ago=10, common=ROBIN[0], sci=ROBIN[1])
@@ -344,7 +335,7 @@ def _spec(**kw):
 
 
 def test_corner_mark_carries_the_date():
-    cfg = Config(dither="none")
+    cfg = Config()
     a = pipeline.render_single(_spec(), _BlankArt(), cfg)
     b = pipeline.render_single(_spec(when=datetime(2026, 8, 30, 8, 14)), _BlankArt(), cfg)
     assert a.etag != b.etag                       # same time of day, different date: different plate
@@ -383,7 +374,7 @@ def test_first_ever_plate_says_so_under_the_latin_name():
                                   _BlankArt())
     assert _ink(noted, (mid_l, theme.MARKS_BASELINE - 22, mid_r, theme.MARKS_BASELINE + 6)) > 100
 
-    cfg = Config(dither="none")
+    cfg = Config()
     assert (pipeline.render_single(_spec(), _BlankArt(), cfg).etag
             != pipeline.render_single(_spec(first_ever=True), _BlankArt(), cfg).etag)
 
@@ -403,28 +394,10 @@ def test_render_single_sets_first_ever_from_the_novelty_class(svc, monkeypatch):
 
 
 # -- config + page --------------------------------------------------------------
-def test_sanitize_clamps_dwell():
-    assert Config(dwell_minutes=-5).dwell_minutes == 0
-    assert Config(dwell_minutes=9999).dwell_minutes == 720
-    assert Config(dwell_minutes="nan").dwell_minutes == 90
-    assert Config().to_dict()["dwell_minutes"] == 90
-
-
-def test_settings_form_round_trips_dwell(client, svc):
-    r = client.post("/settings", data={"dwell_minutes": "45"}, follow_redirects=False)
-    assert r.status_code == 303 and "adjusted" not in r.headers["location"]
-    assert svc.config.dwell_minutes == 45
-    r = client.post("/settings", data={"dwell_minutes": "5000"}, follow_redirects=False)
-    assert svc.config.dwell_minutes == 720
-    assert "dwell_minutes" in r.headers["location"].split("adjusted=")[1].split(",")
-    r = client.post("/settings", data={"dwell_minutes": "0"}, follow_redirects=False)
-    assert svc.config.dwell_minutes == 0
-
-
-def test_page_shows_the_field_and_the_holding_text(client, svc):
+def test_page_shows_the_holding_text(client, svc):
     svc.source = _GateSource([], first_seen=KNOWN)
     html = client.get("/").text
-    assert 'name="dwell_minutes"' in html
+    assert 'name="dwell_minutes"' not in html        # a constant now (W-821)
     assert 'id="fc-holding"></span>' in html          # nothing held
 
     _hold(svc, "first-ever", minutes_ago=50, at=NOW)

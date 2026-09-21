@@ -9,6 +9,7 @@ from starlette.testclient import TestClient
 
 from featherframe.service import FeatherframeService
 from featherframe.sources.base import Detection
+from featherframe.render import pipeline as pipeline  # noqa: E402
 
 NOW = datetime(2026, 9, 12, 8, 20, 0)
 YESTERDAY = (NOW.date() - timedelta(days=1)).isoformat()
@@ -62,7 +63,7 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
     service._clock = lambda: NOW
-    service.config.dither = "none"
+    pipeline.DITHER_OVERRIDE = "none"
     service.source = _Source([_det(1, *CARDINAL)])
     service._set_cursor(0)
     service._cursor_verified = True

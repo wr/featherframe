@@ -1,6 +1,6 @@
 """W-696: when the detection source is misconfigured or unreachable, the
 glass must eventually say so. The Source card already reads "Not reachable";
-the plate gets a footnote after `source_alarm_minutes` of outage, and drops
+the plate gets a footnote after SOURCE_ALARM_MINUTES of outage, and drops
 it in one render when the source comes back.
 """
 from __future__ import annotations
@@ -11,8 +11,10 @@ import pytest
 from starlette.testclient import TestClient
 
 from featherframe.config import Config
+from featherframe import service as service_mod
 from featherframe.service import FeatherframeService
 from featherframe.sources.base import Detection
+from featherframe.render import pipeline as pipeline  # noqa: E402
 
 
 @pytest.fixture
@@ -21,8 +23,9 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
     service.source.db_path = str(tmp_path / "missing.db")
-    service.config.dither = "none"
-    service.config.quiet_alarm_hours = 0
+    pipeline.DITHER_OVERRIDE = "none"
+    # The gone-quiet alarm stays out of these unless a test lets it back in.
+    monkeypatch.setattr(service_mod, "QUIET_ALARM_HOURS", 10 ** 6)
     service.config.quiet_hours_mode = "off"
     service.update_config(service.config)
     yield service
@@ -116,22 +119,6 @@ def test_outage_clock_survives_a_restart(tmp_path, monkeypatch):
     assert second.outage_state(datetime(2026, 9, 2, 17, 0))["since_text"] == "3:00 pm"
 
 
-def test_outage_state_off_at_zero_minutes(svc):
-    svc.config.source_alarm_minutes = 0
-    now = datetime(2026, 9, 2, 15, 0)
-    svc._track_source(now, available=False)
-    assert svc.outage_state(now + timedelta(days=2)) is None
-
-
-def test_source_alarm_minutes_is_clamped_and_saved(client, svc):
-    assert Config(source_alarm_minutes=99999).source_alarm_minutes == 10080
-    assert Config(source_alarm_minutes=-3).source_alarm_minutes == 0
-    assert Config(source_alarm_minutes="nan").source_alarm_minutes == 60
-    r = client.post("/settings", data={"source_alarm_minutes": "15"}, follow_redirects=False)
-    assert r.status_code == 303
-    assert svc.config.source_alarm_minutes == 15
-
-
 # -- tick: the footnote -------------------------------------------------------
 def test_tick_notes_the_outage_once_past_the_threshold(svc, monkeypatch):
     before = _resident(svc)
@@ -193,8 +180,7 @@ def test_tick_drops_the_note_in_one_render_when_the_source_returns(svc, monkeypa
 def test_outage_note_replaces_the_quiet_note(svc, monkeypatch):
     # A silent detector that then also goes unreachable: the more specific
     # diagnosis wins, and it takes one render to switch.
-    svc.config.quiet_alarm_hours = 6
-    svc.update_config(svc.config)
+    monkeypatch.setattr(service_mod, "QUIET_ALARM_HOURS", 6)
     svc.source = _Source(_det_at(datetime.now() - timedelta(hours=7)))
     svc._render_single(svc.source.latest(), datetime.now(), reason="setup")
     svc.tick()
@@ -225,4 +211,3 @@ def test_status_and_page_carry_the_outage(client, svc):
     html = client.get("/").text
     assert 'id="outage-banner"' in html
     assert "unreachable since" in html
-    assert 'name="source_alarm_minutes"' in html

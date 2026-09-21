@@ -39,8 +39,8 @@ def main() -> int:
     ap.add_argument("--all", action="store_true", help="render every curated species")
     ap.add_argument("--collage", type=int, default=0, metavar="N",
                     help="render a daily collage of N species (2-6)")
-    ap.add_argument("--dither", default=None, choices=["auto", "bluenoise", "stucki", "none"])
-    ap.add_argument("--gray", default=None, choices=["16", "1"])
+    ap.add_argument("--dither", default=None, choices=["bluenoise", "stucki", "none"],
+                    help="bench override; the server always uses the panel's own dither")
     ap.add_argument("--panel", default=None, metavar="KEY",
                     help="ee03 = 10.3\" gray (default), ee02 = 13.3\" Spectra 6 colour, or a "
                          "reported panel as custom:WxH:format:rotations "
@@ -56,9 +56,7 @@ def main() -> int:
 
     config = Config()
     if args.dither:
-        config.dither = args.dither
-    if args.gray:
-        config.gray_mode = args.gray
+        pipeline.DITHER_OVERRIDE = args.dither
     if args.panel:
         config.panel = args.panel
         config.sanitize()

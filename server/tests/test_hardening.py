@@ -13,6 +13,7 @@ from starlette.testclient import TestClient
 from featherframe.config import Config
 from featherframe.service import FeatherframeService
 from featherframe.sources.base import Detection
+from featherframe.render import pipeline as pipeline  # noqa: E402
 from tests._fixtures import create_birds_db, make_row
 
 
@@ -22,7 +23,7 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
     service.source.db_path = str(tmp_path / "missing.db")
-    service.config.dither = "none"
+    pipeline.DITHER_OVERRIDE = "none"
     yield service
 
 
@@ -103,13 +104,13 @@ def test_device_string_headers_are_bounded(client, svc):
 
 # -- settings form -----------------------------------------------------------
 def test_settings_post_survives_inf_and_nan(client, svc):
-    r = client.post("/settings", data={"refresh_debounce_minutes": "inf",
-                                       "confidence_threshold": "nan",
+    r = client.post("/settings", data={"wake_interval_minutes": "inf",
+                                       "collage_interval_hours": "nan",
                                        "mat_inset_pct": "inf"},
                     follow_redirects=False)
     assert r.status_code == 303
-    assert svc.config.refresh_debounce_minutes == 15   # default kept
-    assert svc.config.confidence_threshold == 0.7      # NaN is not a threshold
+    assert svc.config.wake_interval_minutes == 15      # default kept
+    assert svc.config.collage_interval_hours == 8      # NaN is not an interval
     assert svc.config.mat_inset_pct == 4.0
 
 

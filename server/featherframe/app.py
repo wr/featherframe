@@ -322,7 +322,8 @@ async def index(request: Request):
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
          "display_defaults": _display_defaults(svc.config),
-         "generated": generated, "history": history})
+         "generated": generated, "history": history,
+         "viewers": await run_in_threadpool(svc.viewer_rows)})
 
 
 @app.post("/settings")

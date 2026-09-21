@@ -202,8 +202,8 @@ to the page if little hands are about. On Android,
 [Fully Kiosk Browser](https://www.fully-kiosk.com) pointed at the same address
 keeps the screen on. An e-ink Android tablet (Boox) works the same way; set its
 refresh mode to the clearest one for that app. A lit screen goes black in quiet
-hours; `{"dark_quiet": false}` to the viewer (below) keeps it lit, and
-`{"fmt": "gray256"}` shows the plate in gray, like the paper.
+hours; the **Viewers** card on the page has the switch for that, and a *Paper*
+look that shows the plate in gray, like the frame.
 
 **TRMNL** (the 10.3" TRMNL X has the same glass as the gray frame, so the plate
 is pixel for pixel the same; the 7.5" OG works but is small and four grays):
@@ -220,7 +220,8 @@ clients do not say how big their screen is, so they get a 1072×1448 page until
 you set the size.
 
 A viewer on a landscape screen gets the plate turned on its side, for hanging
-portrait. To turn it the other way, keep it upright, name it, or set a size:
+portrait. Every viewer is listed on the page's **Viewers** card, where you can
+name it, turn it, set a size, or pick a tablet's look. The same from a shell:
 
 ```bash
 curl http://<your-pi>:8080/api/viewers                      # who is connected

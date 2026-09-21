@@ -199,3 +199,41 @@ def test_a_lit_screen_goes_dark_in_quiet_hours_unless_the_owner_says_no(client):
 def test_a_page_that_does_not_say_who_it_is_is_refused(client):
     assert client.get("/api/view/state?w=100&h=100").status_code == 400
     assert client.get("/api/view/state?viewer=PAGE-4&w=x&h=100").status_code == 400
+
+
+# -- the Viewers card (W-826) ------------------------------------------------------
+def test_the_card_says_how_to_add_one_when_there_are_none(client):
+    html = client.get("/").text
+    assert 'id="viewers-card"' in html and "how to add one" in html
+
+
+def test_the_card_lists_each_viewer_with_only_the_controls_its_screen_has(client):
+    client.get("/api/display", headers=X)
+    client.get("/api/display", headers=KOBO)
+    client.get("/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad")
+    client.post(f"/api/viewers/{X['ID']}", json={"name": "Hall TRMNL"})
+    html = client.get("/").text
+    card = html.split('id="viewers-card"')[1].split('id="history-card"')[0]
+    assert "Hall TRMNL" in card and "TRMNL X · 1872×1404 · 16 grays · battery 88%" in card
+    assert "iPad" in card and "1536×2048 · color" in card
+    x, kobo, page = (card.split(f'data-viewer="{i}"')[1].split("</li>")[0]
+                     for i in (X["ID"], KOBO["ID"], "PAGE-1"))
+    assert 'data-vw="rotation"' in x and 'data-vw="width"' not in x and 'data-vw="dark_quiet"' not in x
+    assert 'data-vw="width"' in kobo                       # it never said how big it is
+    assert 'data-vw="dark_quiet"' in page and 'data-vw="rotation"' not in page
+    # Nothing shared is offered per viewer.
+    for shared in ("quiet_hours", "blocklist", "mode", "detection"):
+        assert f'data-vw="{shared}' not in card
+
+
+def test_the_card_posts_what_the_api_takes(client):
+    """The card sends every field as the form holds it: strings, a checkbox bool."""
+    client.get("/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad")
+    r = client.post("/api/viewers/PAGE-1", json={"name": " Kitchen iPad ", "fmt": "gray256",
+                                                 "dark_quiet": False})
+    v = r.json()["viewer"]
+    assert v["name"] == "Kitchen iPad" and v["view"]["format"] == "gray256" and v["dark_quiet"] is False
+    client.get("/api/display", headers=KOBO)
+    r = client.post(f"/api/viewers/{KOBO['ID']}", json={"name": "", "rotation": "0",
+                                                       "width": "1264", "height": "1680"})
+    assert r.json()["viewer"]["view"] == {"width": 1264, "height": 1680, "format": "gray256", "rotation": 0}

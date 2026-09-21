@@ -139,6 +139,13 @@ is told which image to cross-fade to and whether to go dark. A page viewer
 (`kind: "page"`) defaults to `color`, upright, long side capped at
 `PAGE_MAX_SIDE`, and black in quiet hours (`dark_quiet`, the one setting a lit
 screen has that paper does not); "paper look" is the owner choosing `gray256`.
+The dashboard's Viewers card (W-826, left column under the Frame card;
+`service.viewer_rows` → `viewers.card_row`) lists them and offers each only
+what its screen has: a name; *Turned* for e-ink; *Look* and *Dark in quiet
+hours* for a page; a pixel size only for a client that reported none. It
+posts JSON to `/api/viewers/<id>` and reloads. Nothing shared is ever offered
+per viewer, and a viewer's format follows what the *device* reported, never
+the owner's size (a Kobo script client stays smooth once sized).
 
 **Ingest (`birdnet.py`) is strictly read-only.** Opens `?mode=ro`, never writes
 or locks BirdNET's DB. The cursor is `WHERE rowid > :last`. Every method

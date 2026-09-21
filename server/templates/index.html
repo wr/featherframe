@@ -552,6 +552,8 @@
     .vw-list { list-style:none; margin:0; padding:0; }
     .vw-list > li { margin:0; padding:9px 0 3px; border-top:1px solid var(--border); max-width:none; }
     .vw-list > li:first-child { border-top:0; padding-top:2px; }
+    .added-frames { margin-top:12px; }
+    .vw-list.added-frames > li:first-child { border-top:1px solid var(--border); padding-top:9px; }
     .vw-row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:13px; }
     .vw-row .when { color:var(--muted); font-size:12px; white-space:nowrap; }
     .vw-set { margin-top:2px; }
@@ -810,7 +812,7 @@
           <li data-added-frame="{{ fr.id }}" class="panel-note">
             <div class="vw-row">
               <span class="who">{{ fr.name or fr.panel_name }}</span>
-              <span class="when">{{ fr.last_seen.replace('T', ' ')[5:16] if fr.last_seen else 'never' }}</span>
+              <span class="when" data-tip="{{ fr.last_seen.replace('T', ' ') if fr.last_seen else '' }}">{{ fr.last_seen_text }}</span>
             </div>
             <span class="ign-meta tnum">{% if fr.name %}{{ fr.panel_name }} · {% endif %}{{ 'Collage' if fr.shows == 'collage' else 'Plates' }}{% if fr.battery_percent is not none %} · battery {{ fr.battery_percent }}%{% endif %}{% if fr.ip %} · {{ fr.ip }}{% endif %}</span>
             <details class="sc-more vw-set">

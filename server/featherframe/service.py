@@ -1400,7 +1400,11 @@ class FeatherframeService:
         cfg, dev = self.added_config(row), row.get("device") or {}
         panel = self._added_panel(row)
         state = self._added.get(row["id"]) or {}
-        return {**card, "name": (row.get("set") or {}).get("name") or "",
+        try:
+            seen = _ago(datetime.fromisoformat(str(row.get("last_seen"))), self._clock())
+        except (ValueError, TypeError):
+            seen = "never"
+        return {**card, "name": (row.get("set") or {}).get("name") or "", "last_seen_text": seen,
                 "shows": self.added_shows(row), "rotation": cfg.panel_rotation,
                 "rotations": list(panel.rotations), "mat_inset_pct": cfg.mat_inset_pct,
                 "power_mode": cfg.power_mode, "etag": state.get("etag"),

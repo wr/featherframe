@@ -83,7 +83,10 @@ def view_of(record: dict) -> View:
     if fmt not in VIEW_FORMATS:
         if page:
             fmt = "color"   # a lit colour screen; "paper" on the page is gray256
-        elif not sized:
+        elif not (rep.get("width") and rep.get("height")):
+            # Only TRMNL's firmware reports a size. A script client (Kobo,
+            # Kindle) paints with fbink/eips, which want the smooth page even
+            # once the owner has told us how big the screen is.
             fmt = "gray256"
         elif str(rep.get("model") or "").lower() in _GRAY16_MODELS or (width, height) in _GRAY16_SIZES:
             fmt = "gray16"
@@ -213,3 +216,36 @@ def public(row: dict) -> dict:
             "dark_quiet": dark_in_quiet_hours(row) if row.get("kind") == "page" else None,
             "first_seen": row.get("first_seen"), "last_seen": row.get("last_seen"),
             "ip": row.get("ip")}
+
+
+# -- the page's Viewers card (W-826) ---------------------------------------------
+# `Model` header values (TRMNL firmware's platformio.ini) as an owner knows them.
+_MODEL_NAMES = {"x": "TRMNL X", "og": "TRMNL", "og_4clr": "TRMNL (color)",
+                "reterminal_e1001": "reTerminal E1001", "reterminal_e1002": "reTerminal E1002",
+                "reterminal_e1003": "reTerminal E1003", "m5_papers3": "M5PaperS3",
+                "xteink_x4": "Xteink X4", "seeed_sticky": "Seeed Sticky"}
+_DEPTH_NAMES = {"gray16": "16 grays", "gray2": "4 grays", "mono": "black and white",
+                "gray256": "grayscale", "color": "color"}
+
+
+def card_row(row: dict, ago) -> dict:
+    """One viewer as the page shows it. `ago(iso) -> "7 min ago"`."""
+    rep, own = row.get("reported") or {}, row.get("set") or {}
+    view = view_of(row)
+    page = row.get("kind") == "page"
+    model = str(rep.get("model") or "")
+    what = model if page else _MODEL_NAMES.get(model.lower(), model)
+    what = what or ("Browser" if page else "TRMNL client")
+    pct, volts = rep.get("battery_percent"), rep.get("battery_volts")
+    battery = f"{pct}%" if pct is not None else (f"{volts:.2f} V" if volts else None)
+    return {
+        "id": row["id"], "page": page, "name": own.get("name") or "", "title": own.get("name") or what,
+        "what": what if own.get("name") else "",
+        "size": f"{view.width}×{view.height}", "depth": _DEPTH_NAMES.get(view.fmt, view.fmt),
+        "last_seen": ago(row.get("last_seen")), "battery": None if page else battery,
+        "ip": row.get("ip"), "rotation": view.rotation, "landscape": view.width > view.height,
+        "fmt": view.fmt, "dark_quiet": dark_in_quiet_hours(row),
+        # A client that says nothing about its screen: the owner has to.
+        "needs_size": not page and not (rep.get("width") and rep.get("height")),
+        "width": own.get("width") or "", "height": own.get("height") or "",
+    }

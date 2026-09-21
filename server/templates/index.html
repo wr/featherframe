@@ -548,6 +548,20 @@
     .ign-list li { margin:0; padding:10px 0 4px; border-top:1px solid var(--border); max-width:none; }
     .ign-name { display:block; font-size:13px; }
     .ign-meta { display:block; font-size:12px; color:var(--muted); margin-top:2px; }
+    /* Viewers (W-826): the frame card's list rows, each opening onto its few controls. */
+    .vw-list { list-style:none; margin:0; padding:0; }
+    .vw-list > li { margin:0; padding:9px 0 3px; border-top:1px solid var(--border); max-width:none; }
+    .vw-list > li:first-child { border-top:0; padding-top:2px; }
+    .vw-row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:13px; }
+    .vw-row .when { color:var(--muted); font-size:12px; white-space:nowrap; }
+    .vw-set { margin-top:2px; }
+    .vw-fields { display:grid; grid-template-columns:auto 1fr; gap:8px 12px; align-items:center; margin-top:10px; font-size:12.5px; }
+    .vw-fields label, .vw-fields .vw-lab { color:var(--ink-2); }
+    .vw-fields input[type=text], .vw-fields input[type=number], .vw-fields select.sel { width:100%; min-width:0; font-size:13px; padding:5px 8px; }
+    .vw-size { display:flex; align-items:center; gap:6px; }
+    .vw-hint { grid-column:1 / -1; margin:-2px 0 2px; }
+    .vw-empty { font-size:12.5px; color:var(--muted); margin:2px 0 0; }
+    .vw-empty a { color:inherit; }
     .adv-reset { display:flex; align-items:center; justify-content:space-between; gap:14px; padding-top:16px; }
     .adv-reset .hint { margin:0; }
     .test-box a.tb-link { color:var(--accent); text-decoration:underline; white-space:nowrap; }
@@ -824,6 +838,64 @@
           <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }} data-tip="{{ (pend.first_at.replace('T', ' ')) if pend else '' }}">{% if pend %}<span class="who">{{ pend.common }}</span><span class="when">{{ pend.waiting_text }}</span>{% endif %}</dd>
           <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
         </dl>
+      </div>
+
+      {# Viewers (W-822): screens that are not the frame. They show what the
+         frame shows, so a viewer has only how the picture sits on its own
+         screen; everything about WHAT is shown stays in the settings. #}
+      <div class="card status-card" id="viewers-card">
+        <div class="sc-head">
+          <h2 class="grp">Viewers</h2>
+        </div>
+        {% if not viewers %}
+        <p class="vw-empty">Other screens can show what the frame shows. On a tablet, open <a href="/view" target="_blank" rel="noopener" id="vw-url">this address with /view</a>. A TRMNL, Kobo or Kindle can be pointed at this server too: <a href="https://github.com/wr/featherframe#other-screens-tablets-trmnl-kobo-kindle" target="_blank" rel="noopener">how to add one</a>.</p>
+        {% else %}
+        <ul class="vw-list">
+          {% for v in viewers %}
+          <li data-viewer="{{ v.id }}">
+            <div class="vw-row">
+              <span class="who">{{ v.title }}</span>
+              <span class="when">{{ v.last_seen }}</span>
+            </div>
+            <span class="ign-meta tnum">{% if v.what %}{{ v.what }} · {% endif %}{{ v.size }} · {{ v.depth }}{% if v.battery %} · battery {{ v.battery }}{% endif %}</span>
+            <details class="sc-more vw-set">
+              <summary>Display</summary>
+              <div class="vw-fields">
+                <label for="vw-name-{{ loop.index }}">Name</label>
+                <input type="text" id="vw-name-{{ loop.index }}" data-vw="name" maxlength="60" value="{{ v.name }}" placeholder="{{ v.what or v.title }}">
+                {% if v.page %}
+                <label for="vw-look-{{ loop.index }}">Look</label>
+                <select class="sel" id="vw-look-{{ loop.index }}" data-vw="fmt">
+                  <option value="color" {{ 'selected' if v.fmt == 'color' else '' }}>Color</option>
+                  <option value="gray256" {{ 'selected' if v.fmt != 'color' else '' }}>Paper (gray, like the frame)</option>
+                </select>
+                <label for="vw-dark-{{ loop.index }}">Dark in quiet hours</label>
+                <span><label class="switch"><input type="checkbox" role="switch" id="vw-dark-{{ loop.index }}" data-vw="dark_quiet" {{ 'checked' if v.dark_quiet else '' }}><span class="track"></span></label></span>
+                <div class="hint vw-hint">A lit screen goes black while the frame rests. Turn it off only where a glowing plate at night is welcome.</div>
+                {% else %}
+                <label for="vw-rot-{{ loop.index }}">Turned</label>
+                <select class="sel" id="vw-rot-{{ loop.index }}" data-vw="rotation">
+                  {% for r, word in [(0, 'Upright'), (90, 'On its left side'), (180, 'Upside down'), (270, 'On its right side')] %}
+                  <option value="{{ r }}" {{ 'selected' if v.rotation == r else '' }}>{{ word }}</option>
+                  {% endfor %}
+                </select>
+                <div class="hint vw-hint">{% if v.landscape %}A wide screen gets the plate on its side, for hanging tall. If it lands upside down, pick the other side.{% else %}Change it only if the plate lands the wrong way up.{% endif %}</div>
+                {% if v.needs_size %}
+                <span class="vw-lab">Screen</span>
+                <span class="vw-size"><input type="number" data-vw="width" min="64" max="4096" inputmode="numeric" value="{{ v.width }}" placeholder="1072" aria-label="Screen width in pixels"> × <input type="number" data-vw="height" min="64" max="4096" inputmode="numeric" value="{{ v.height }}" placeholder="1448" aria-label="Screen height in pixels"></span>
+                <div class="hint vw-hint">This device does not say how big its screen is. Its pixel size makes the plate sharp; leave it and the device scales a 1072×1448 page.</div>
+                {% endif %}
+                {% endif %}
+              </div>
+              <div class="panel-note-actions">
+                <button class="btn" type="button" data-vw-action="save">Save</button>
+                <button class="btn" type="button" data-vw-action="forget" data-tip="It comes back if the device asks again.">Forget</button>
+              </div>
+            </details>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
       </div>
 
       {# Past frames, newest first. Rebuilt from /api/history by the status poll
@@ -1804,6 +1876,28 @@
         })
         .catch(function () {
           box.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
+          showFlash('bad', "That didn't go through. Try again.", 'ic-warn');
+        });
+    });
+  });
+
+  // -- viewers: a screen's own few settings, saved one viewer at a time ----------
+  // The empty state spells the address out, as the owner must type it on the tablet.
+  if ($('vw-url')) $('vw-url').textContent = location.host + '/view';
+  document.querySelectorAll('[data-vw-action]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var li = b.closest('[data-viewer]'), body = {};
+      if (b.getAttribute('data-vw-action') === 'forget') body.forget = true;
+      else li.querySelectorAll('[data-vw]').forEach(function (f) {
+        body[f.getAttribute('data-vw')] = f.type === 'checkbox' ? f.checked : f.value;
+      });
+      li.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+      fetch('/api/viewers/' + encodeURIComponent(li.getAttribute('data-viewer')),
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function () { saving = true; location.href = '/'; })
+        .catch(function () {
+          li.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
           showFlash('bad', "That didn't go through. Try again.", 'ic-warn');
         });
     });

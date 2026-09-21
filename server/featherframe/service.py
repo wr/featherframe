@@ -1659,6 +1659,19 @@ class FeatherframeService:
             target.unlink(missing_ok=True)
 
     # -- viewers (W-822) ---------------------------------------------------
+    def viewer_rows(self) -> list[dict]:
+        """The Viewers card: every viewer, the latest to ask first."""
+        now = self._clock()
+
+        def ago(iso) -> str:
+            try:
+                return _ago(datetime.fromisoformat(str(iso)), now)
+            except (ValueError, TypeError):
+                return "never"
+        rows = sorted(self.viewers.all().values(),
+                      key=lambda r: r.get("last_seen") or "", reverse=True)
+        return [viewers_mod.card_row(r, ago) for r in rows]
+
     def viewer_refresh_seconds(self) -> int:
         """How long a viewer is told to sleep: the plate holds still in quiet
         hours, so it may as well."""

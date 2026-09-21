@@ -1,5 +1,5 @@
 """The script caption (W-708): monoline script title, engraved Latin name with
-a period, Audubon's legend lines in the small script, date · time and "No. NN"
+a period, Audubon's legend lines in the small script, date · time and "Plate CLIX"
 tucked into the bottom corners in the same script."""
 from __future__ import annotations
 

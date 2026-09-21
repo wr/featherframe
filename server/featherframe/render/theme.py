@@ -44,8 +44,8 @@ CAPTION_GAP = 96       # air between the art and the title: the script capitals
 # Wells's mockup: a monoline script title over the engraved Latin name (with
 # its period, as Audubon printed it), then the plate's own legend lines —
 # "Male, 1. Female, 2." / "Black berry. Rubus villosus." — in the small
-# script, and the date · time / "No. NN" tucked into the bottom corners in
-# that same script. Sizes were tuned on the glass 4 Sep 2026 (W-713/W-714):
+# script, and the date · time / "Plate CLIX" tucked into the bottom corners
+# (the numeral in the engraved capitals). Sizes were tuned on the glass 4 Sep 2026 (W-713/W-714):
 # Kapakana at 160 px set the x-height, Pinyon Script matches it at 124 px and
 # the small sizes scale with it; the title-to-Latin gap is the original 72.
 SCRIPT_TITLE_SIZE = 124        # common name, auto-fit down to SCRIPT_TITLE_MIN
@@ -61,10 +61,6 @@ LEGEND_STROKE = 0.5            # and its small lines read thin on e-ink (0.75 re
                                # than the title's hairlines; 0.5 matches them)
 CAPTION_BOTTOM = 52            # last caption baseline above the panel bottom
 LATIN_PERIOD = "."             # Audubon's trailing period on the Latin name
-# Provenance for an AI-drawn plate (W-733): a four-point star before the
-# number in the corner, so a synthetic sheet never hangs as a Havell scan
-# and the caption keeps the plate's own lines only.
-
 # A species never heard before today (W-744): a rule around the whole sheet
 # at the mat edge, the folio's way of marking a plate of note, with a small
 # "NEW" pill — the system voice, Inter semibold on black — set into its top

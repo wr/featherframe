@@ -8,8 +8,7 @@ A station is addressed by its ID/token, which goes straight in the path:
     species with counts.
   * ``GET /api/v1/stations/{token}/stats?period=all`` — {detections, species}.
 
-BirdWeather doesn't expose a cheap per-species first-seen, so the "No. 47"
-plate ordinal is left unknown (None). Every method soft-fails to a safe default.
+Every method soft-fails to a safe default.
 """
 from __future__ import annotations
 

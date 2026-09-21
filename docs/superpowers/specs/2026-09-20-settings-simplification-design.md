@@ -49,9 +49,10 @@ existing "use this panel's defaults" notice and never applied unasked.
 
 Audubon's sheets carry two marks: "No. 32" (the part, five plates each) and
 "Plate CLIX". The second identifies the bird. The corner mark becomes
-**"Plate CLIX"**, roman, from `Artwork.audubon_plate`. A species with no Havell
-plate (generated, or the typographic fallback) prints nothing; a generated
-plate keeps "Imagined after Audubon." on that line.
+**"Plate CLIX"**, roman, from `Artwork.audubon_plate`. "Plate" is in the corner script and the numeral in the engraved capitals: a
+bake-off showed a run of script capitals is unreadable. A generated plate
+keeps its ✦ provenance star (W-733), alone in the corner; the typographic
+fallback prints nothing.
 
 `species_ordinal` is deleted from every source and the base class: it was a
 per-instance count, and on BirdNET-Go a network call per render. The footer's

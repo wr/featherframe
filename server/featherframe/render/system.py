@@ -122,7 +122,7 @@ def pill(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, *,
 
 
 def note_pill(d: ImageDraw.ImageDraw, text: str, kind: Optional[str], max_w: float) -> None:
-    """The footer note between the date and № marks, on the marks' own
+    """The footer note between the date and plate marks, on the marks' own
     line: a solid pill for information ("nothing heard"), an outlined
     slashed one for a fault (the source is unreachable)."""
     cy = theme.MARKS_BASELINE - 9          # the script marks' x-height centre

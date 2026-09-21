@@ -10,8 +10,7 @@ across restarts, so the counter must resume above it or freshly-pushed
 detections would look "old" and never show.
 
 Because a push feed only knows what it has received (not BirdNET-Pi's full
-history), all-time/first-seen answers are best-effort over the retained window,
-and the plate ordinal is left unknown (None) rather than shown wrong.
+history), all-time/first-seen answers are best-effort over the retained window.
 """
 from __future__ import annotations
 

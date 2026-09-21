@@ -1,6 +1,6 @@
 """Full-bleed artwork (W-707): the crop keeps faint contiguous ink and is
 symmetric about the plate centre; inked-edge plates cover-fit to the mat
-opening, paper-bordered plates contain-fit centred; the date and № marks
+opening, paper-bordered plates contain-fit centred; the date and plate marks
 sit on one footer line instead of the top corners."""
 from __future__ import annotations
 

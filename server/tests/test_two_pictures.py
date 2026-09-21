@@ -193,3 +193,19 @@ def test_the_card_offers_shows(client):
     add_page(client, IPAD, "PAGE-IPAD")
     row = client.get("/").text.split('data-frame="PAGE-IPAD"')[1].split(chr(10) + "    </li>")[0]
     assert 'data-f="shows"' in row and 'value="plates"' in row and 'value="collage"' in row
+
+
+def test_the_species_limit_is_the_collages_however_it_is_drawn(client, tmp_path):
+    """Wells: the limit only bit on the AI sheet; the grid always showed six."""
+    from featherframe.render import collage as collage_mod
+    assert [collage_mod._grid(n) for n in (1, 2, 6, 7, 12, 13, 20)] == \
+        [(1, 1), (2, 1), (2, 3), (3, 3), (3, 4), (4, 4), (4, 5)]
+    svc = client.app.state.service
+    many = SPECIES + [("Tufted Titmouse", "Baeolophus bicolor"), ("Carolina Wren", "Thryothorus ludovicianus"),
+                      ("Downy Woodpecker", "Dryobates pubescens"), ("American Robin", "Turdus migratorius")]
+    svc.source.db_path = _heard(tmp_path / "many.db", many)
+    label = lambda: svc._collage_composer(NOW, NOW.date())[0](False)[1]   # noqa: E731
+    svc.config.collage_species_max = 0
+    assert label() == "8-species collage"           # no limit: every species heard, not six
+    svc.config.collage_species_max = 3
+    assert label() == "3-species collage"

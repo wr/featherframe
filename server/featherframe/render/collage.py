@@ -55,11 +55,15 @@ def _paste_art(field: Image.Image, art: Image.Image, box: tuple[int, int, int, i
 
 
 def _grid(n: int) -> tuple[int, int]:
-    """(cols, rows). 2 columns; up to 3 rows; caps at 6 cells."""
-    n = min(n, 6)
-    cols = 1 if n == 1 else 2
-    rows = math.ceil(n / cols)
-    return cols, rows
+    """(cols, rows) for n plates: the fewest columns whose rows do not run past
+    one more than the columns, so the cells stay near a plate's own upright
+    shape on the 3:4 sheet. 6 -> 2x3, 12 -> 3x4, 20 -> 4x5."""
+    if n <= 1:
+        return 1, 1
+    cols = 2
+    while math.ceil(n / cols) > cols + 1:
+        cols += 1
+    return cols, math.ceil(n / cols)
 
 
 def _fit_key(entries: list[str], max_w: float,
@@ -259,11 +263,11 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
                    when: Optional[ddate] = None, total_detections: int = 0,
                    note: Optional[str] = None,
                    note_kind: Optional[str] = None, color: bool = False) -> Image.Image:
-    """The free grid: up to six plates filling the art area the generated
-    sheet's art fills, each with its figure numeral, over the same date line
-    and numbered key. The two sheets are one thing set two ways."""
+    """The free grid: every plate it is handed, filling the art area the
+    generated sheet's art fills, each with its figure numeral, over the same
+    date line and numbered key. The two sheets are one thing set two ways,
+    and the owner's species limit (the caller's cut) applies to both."""
     when = when or ddate.today()
-    cells = cells[:6]
     cols, rows = _grid(len(cells))
 
     field = _new_field()
@@ -273,7 +277,8 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
     # -- grid, inside the art box the key leaves ---------------------------
     grid_left, grid_top, grid_right, grid_bottom = _bottom_block(
         field, draw, cells, when, note, note_kind)
-    gutter_x, gutter_y = 70, 56
+    # Gutters thin out as the grid fills, so a long day's plates keep their size.
+    gutter_x, gutter_y = max(24, 140 // cols), max(20, 112 // cols)
     cell_w = (grid_right - grid_left - gutter_x * (cols - 1)) / cols
     cell_h = (grid_bottom - grid_top - gutter_y * (rows - 1)) / rows
 

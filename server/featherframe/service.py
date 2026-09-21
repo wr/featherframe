@@ -1185,7 +1185,8 @@ class FeatherframeService:
         fewer than 2 species. Used by the transient button view; `config` is
         an added frame's (W-832), else the active frame's."""
         config = config or self.config
-        rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR, limit=6)
+        rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR,
+                                             limit=self.config.collage_species_max or 500)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         if len(rows) < 2:
             return None
@@ -1233,13 +1234,15 @@ class FeatherframeService:
         one collage (W-830): the frame's and a viewer's are drawn by this."""
         cap = self.config.collage_species_max  # 0 = every species heard today
         rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR,
-                                             limit=max(6, cap) if cap else 500)
+                                             limit=cap or 500)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         rows = self._corroborated_rows(rows, on_date)
         if len(rows) < 2:
             return None
         cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
-        grid = cells[:6]  # the grid holds six; the generated sheet takes the cap
+        # The species limit is the collage's, however it is drawn: the grid and
+        # the generated sheet show the same species.
+        top = cells[:cap] if cap else cells
         note = self._note_text()
 
         note_kind = self._note_kind() if note else None
@@ -1253,7 +1256,6 @@ class FeatherframeService:
         def compose(color: bool, force: bool = False):
             """(sheet, label) for this day; `color` draws the art's colour twin."""
             if use_generated:
-                top = cells[:cap] if cap else cells
                 self.genart.color_sheets = color
                 sheet = self.genart.day_composite(top, on_date, force=force)
                 if sheet is not None:
@@ -1265,11 +1267,11 @@ class FeatherframeService:
                                 total_detections=sum(c.count for c in painted),
                                 note=note, note_kind=note_kind),
                             f"combined collage ({len(painted)} species)")
-            return (collage_mod.render_collage(grid, self.provider, when=on_date,
-                                               total_detections=sum(c.count for c in grid),
+            return (collage_mod.render_collage(top, self.provider, when=on_date,
+                                               total_detections=sum(c.count for c in top),
                                                note=note, note_kind=note_kind,
                                                color=color),
-                    f"{len(grid)}-species collage")
+                    f"{len(top)}-species collage")
 
         return compose, note
 

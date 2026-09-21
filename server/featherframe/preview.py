@@ -75,9 +75,9 @@ def main() -> int:
         from datetime import date
         from .render import collage as collage_mod
         data = _load_index_species()
-        counts = [37, 24, 19, 12, 8, 5]
+        counts = [37, 24, 19, 12, 8, 5] + [3] * 60
         cells = [collage_mod.CollageCell(sp["common"], sp["scientific"], counts[i])
-                 for i, sp in enumerate(data[:max(2, min(args.collage, 6))])]
+                 for i, sp in enumerate(data[:max(2, args.collage)])]
         img = collage_mod.render_collage(cells, provider, when=date(2026, 5, 17),
                                          total_detections=sum(c.count for c in cells),
                                          note=args.note, color=config.panel_spec.color)

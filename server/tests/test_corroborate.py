@@ -293,8 +293,9 @@ def test_review_paints_up_to_the_cap(svc, monkeypatch):
     grid = _collage_cells(svc, monkeypatch)
     assert svc._build_collage(NOW, NOW.date()) is True
     assert painted == [[f"Bird {i}" for i in range(1, 11)]]
-    assert grid == [[f"Bird {i}" for i in range(1, 7)]]        # the grid stays six
-    assert svc.pictures["collage"].meta["label"] == "6-species collage"
+    # The limit is the collage's however it is drawn: the grid shows the same ten.
+    assert grid == [[f"Bird {i}" for i in range(1, 11)]]
+    assert svc.pictures["collage"].meta["label"] == "10-species collage"
 
 
 def test_the_ai_collage_is_all_or_nothing(svc, monkeypatch):

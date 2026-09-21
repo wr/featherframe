@@ -13,6 +13,7 @@ import pytest
 from PIL import Image, ImageDraw
 from starlette.testclient import TestClient
 
+from tests._frames import add_kit
 from featherframe.render.genart import GeneratedArtProvider, ImageModel
 from featherframe.render import pipeline as pipeline  # noqa: E402
 
@@ -67,6 +68,7 @@ def svc(tmp_path, monkeypatch):
     from featherframe.service import FeatherframeService
     service = FeatherframeService()
     service.source.db_path = str(tmp_path / "missing.db")
+    add_kit(service)
     pipeline.DITHER_OVERRIDE = "none"  # keep any re-render cheap
     yield service
 
@@ -213,5 +215,6 @@ def test_regenerate_rerenders_current_frame_from_the_worker(svc):
     assert svc.start_regenerate(SLUG) is True
     _wait_done(svc)
     assert svc._etag is not None
+    svc._tick_frames()
     assert svc._frame_bytes is not None and svc._frame_bytes[:4] == b"FFF1"
     assert svc._meta.get("mode") == "single"

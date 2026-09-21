@@ -12,33 +12,42 @@ import pytest
 from jinja2 import Environment, FileSystemLoader
 
 from featherframe import paths
-from featherframe.service import DeviceStatus, FeatherframeService, frame_card
+from featherframe.service import FeatherframeService, frame_card
+from tests._frames import FRAME_ID, add_kit
 
 NOW = datetime(2026, 8, 28, 9, 0, 0)
 
 
-def _dev(minutes_ago: float, **kw) -> DeviceStatus:
+def _dev(minutes_ago: float, **kw) -> dict:
+    """One frame\'s report, `minutes_ago` old — what its row holds."""
     then = NOW - timedelta(minutes=minutes_ago)
-    return DeviceStatus(last_checkin=then.isoformat(timespec="seconds"), **kw)
+    return {"last_checkin": then.isoformat(timespec="seconds"), **kw}
 
 
 @pytest.fixture
 def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
-    yield FeatherframeService()
+    service = FeatherframeService()
+    add_kit(service)
+    yield service
+
+
+def _checkin(svc, **telemetry) -> None:
+    """A check-in from the one kit, as /api/frame records it."""
+    svc._record_checkin(FRAME_ID, telemetry)
 
 
 # -- the pure computation ---------------------------------------------------
 def test_never_seen():
-    card = frame_card(DeviceStatus(), 15, NOW)
+    card = frame_card({}, 15, NOW)
     assert card["seen"] is False
     assert card["overdue"] is False
     assert card["last_seen"] is None
 
 
 def test_garbled_checkin_counts_as_never_seen():
-    card = frame_card(DeviceStatus(last_checkin="not-a-date"), 15, NOW)
+    card = frame_card({"last_checkin": "not-a-date"}, 15, NOW)
     assert card["seen"] is False
 
 
@@ -86,7 +95,8 @@ def test_status_exposes_frame_card(svc):
 
 
 def test_device_checkin_flows_to_card(svc):
-    svc.get_frame(None, "esp32-featherframe", 3.95, 72, wifi_rssi=-61)
+    _checkin(svc, user_agent="esp32-featherframe", battery_voltage=3.95,
+             battery_percent=72, wifi_rssi=-61)
     card = svc.status()["frame_card"]
     assert card["seen"] is True
     assert card["overdue"] is False
@@ -106,7 +116,7 @@ def test_battery_critical_under_ten_percent():
     # No pack, or no reading at all: nothing to charge.
     assert frame_card(_dev(1, battery_voltage=0.4), 15, NOW)["battery_critical"] is False
     assert frame_card(_dev(1), 15, NOW)["battery_critical"] is False
-    assert frame_card(DeviceStatus(), 15, NOW)["battery_critical"] is False
+    assert frame_card({}, 15, NOW)["battery_critical"] is False
 
 
 def test_battery_critical_follows_the_panels_hold():
@@ -137,7 +147,7 @@ def _render_page(svc) -> str:
     env = Environment(loader=FileSystemLoader(str(paths.templates_dir())),
                       autoescape=True)
     return env.get_template("index.html").render(
-        status=svc.status(), config=svc.config, version="test", generated=[])
+        status=svc.status(), config=svc.page_config(), version="test", generated=[])
 
 
 def test_page_never_seen(svc):
@@ -146,7 +156,8 @@ def test_page_never_seen(svc):
 
 
 def test_page_fresh(svc):
-    svc.get_frame(None, "esp32-featherframe", 3.95, 72, wifi_rssi=-61)
+    _checkin(svc, user_agent="esp32-featherframe", battery_voltage=3.95,
+             battery_percent=72, wifi_rssi=-61)
     html = _render_page(svc)
     assert "just now" in html
     assert "72%" in html          # battery shown as percent only (W-607)
@@ -154,22 +165,25 @@ def test_page_fresh(svc):
 
 
 def test_page_overdue(svc):
-    svc.config.power_mode = "sleep"   # the interval-based bar; awake is a fixed few minutes
-    late = datetime.now() - timedelta(minutes=svc.config.wake_interval_minutes * 2 + 5)
-    svc.device = DeviceStatus(last_checkin=late.isoformat(timespec="seconds"),
-                              battery_voltage=3.6, battery_percent=31,
-                              last_result="304")
+    # the interval-based bar; awake is a fixed few minutes
+    svc.update_frame(FRAME_ID, {"power_mode": "sleep"})
+    minutes = svc.page_config().wake_interval_minutes
+    late = datetime.now() - timedelta(minutes=minutes * 2 + 5)
+    _checkin(svc, battery_voltage=3.6, battery_percent=31, last_result="304")
+    svc.frames.save({**svc.frames.get(FRAME_ID),
+                     "reported": {**svc.frames.get(FRAME_ID)["reported"],
+                                  "last_checkin": late.isoformat(timespec="seconds")}})
     html = _render_page(svc)
-    assert f"Overdue — wakes every {svc.config.wake_interval_minutes} min" in html
+    assert f"Overdue — wakes every {minutes} min" in html
 
 
 # -- device_extra plumbing + show_battery gating ----------------------------
 def test_device_extra_recorded_from_get_frame(svc):
-    # The optional device-reported headers must land on DeviceStatus so the card
-    # can show firmware version, panel/board, wake, and counters.
-    svc.get_frame(None, "ua", 3.9, 60, wifi_rssi=-60, device_extra={
-        "fw_version": "2026.09.01+abc", "sketch_md5": "deadbeef", "last_wake": "timer",
-        "boot_count": 3, "refresh_count": 7, "panel": "P", "board": "B"})
+    # The optional device-reported headers must land on the frame\'s row so the
+    # card can show firmware version, panel/board, wake, and counters.
+    _checkin(svc, user_agent="ua", battery_voltage=3.9, battery_percent=60, wifi_rssi=-60,
+             fw_version="2026.09.01+abc", sketch_md5="deadbeef", last_wake="timer",
+             boot_count=3, refresh_count=7, panel="P", board="B")
     d = svc.device
     assert d.fw_version == "2026.09.01+abc"
     assert (d.boot_count, d.refresh_count) == (3, 7)
@@ -179,19 +193,19 @@ def test_device_extra_recorded_from_get_frame(svc):
 def test_battery_row_always_renders(svc):
     # The old "show battery" toggle is gone: the power state is inferred from
     # the voltage trend instead, so the row is always meaningful.
-    svc.get_frame(None, "ua", 3.9, 60, wifi_rssi=-60)
+    _checkin(svc, user_agent="ua", battery_voltage=3.9, battery_percent=60, wifi_rssi=-60)
     html = _render_page(svc)
     assert 'id="fc-batt"' in html and "60%" in html
     assert 'name="show_battery"' not in html
 
 
 def test_page_banner_when_battery_critical(svc):
-    svc.get_frame(None, "esp32-featherframe", 3.95, 72)
+    _checkin(svc, user_agent="esp32-featherframe", battery_voltage=3.95, battery_percent=72)
     assert 'id="batt-critical" role="status" hidden' in _render_page(svc)
-    # (set directly: the card shows the last few minutes' median, not one reading)
+    # (set directly: the card shows the last few minutes\' median, not one reading)
     svc._battery_live.clear()
-    svc.device = DeviceStatus(last_checkin=datetime.now().isoformat(timespec="seconds"),
-                              battery_voltage=3.47, battery_percent=6, last_result="304")
+    _checkin(svc, battery_voltage=3.47, battery_percent=6, last_result="304")
+    svc._battery_live.clear()
     html = _render_page(svc)
     assert 'id="batt-critical" role="status">' in html
     assert "Charge the frame." in html

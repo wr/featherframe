@@ -13,8 +13,8 @@ import pytest
 from starlette.testclient import TestClient
 
 from featherframe import frames, panels
-from featherframe.config import Config
 from featherframe.db import Database
+from tests._frames import connect
 
 
 # -- migration ----------------------------------------------------------------
@@ -64,11 +64,14 @@ def migrated(tmp_path) -> Database:
     return db
 
 
-def test_the_active_frame_becomes_the_primary_kit(migrated):
-    row = frames.FrameRegistry(migrated).primary()
+def test_the_frame_that_was_being_served_is_still_on(migrated):
+    reg = frames.FrameRegistry(migrated)
+    row = reg.on_kits()[0]
     assert row["id"] == "AA:AA:AA:00:00:03"
-    assert (row["transport"], row["status"], row["primary"]) == ("kit", frames.ON, True)
-    assert frames.seat(row) == "active"
+    assert (row["transport"], row["status"]) == ("kit", frames.ON)
+    # The kit the single-frame build drew for is marked for the settings
+    # migration, which is the only thing that ever reads it.
+    assert row[frames.LEGACY_PRIMARY] is True
     # Panel, board and telemetry lived in three places on the old row; they are
     # all just what the device reported.
     rep = frames.reported_of(row)
@@ -77,10 +80,9 @@ def test_the_active_frame_becomes_the_primary_kit(migrated):
     assert row["ip"] == "10.0.1.10" and row["first_seen"] == "2026-09-01T09:00:00"
 
 
-def test_an_added_frame_keeps_its_choices_and_its_telemetry(migrated):
+def test_a_second_frame_keeps_its_choices_and_its_telemetry(migrated):
     row = frames.FrameRegistry(migrated).get("BB:BB:BB:00:00:02")
-    assert (row["status"], row["primary"]) == (frames.ON, False)
-    assert frames.seat(row) == "added"
+    assert row["status"] == frames.ON and frames.LEGACY_PRIMARY not in row
     assert row["set"] == {"shows": "collage", "panel_rotation": 180, "name": "Study"}
     assert frames.name_of(row) == "Study"
     assert frames.reported_of(row)["battery_percent"] == 71
@@ -90,18 +92,18 @@ def test_an_added_frame_keeps_its_choices_and_its_telemetry(migrated):
 def test_pending_and_ignored_frames_keep_their_answer(migrated):
     reg = frames.FrameRegistry(migrated)
     asking = reg.get("CC:CC:CC:00:00:01")
-    assert asking["status"] == frames.ASKING and frames.seat(asking) == "pending"
+    assert asking["status"] == frames.ASKING
     assert frames.panel_of(asking).key == "custom:800x480:gray16:90,270"
     ignored = reg.get("DD:DD:DD:00:00:00")
-    assert ignored["status"] == frames.IGNORED and frames.seat(ignored) == "ignored"
+    assert ignored["status"] == frames.IGNORED
     assert frames.panel_of(ignored) is None      # it named no panel we know
-    assert [r["id"] for r in reg.added()] == ["BB:BB:BB:00:00:02"]
+    assert [r["id"] for r in reg.on_kits()] == ["AA:AA:AA:00:00:03", "BB:BB:BB:00:00:02"]
 
 
 def test_viewers_become_frames_fed_another_way(migrated):
     reg = frames.FrameRegistry(migrated)
     trmnl = reg.get("AA:BB:CC:DD:EE:01")
-    assert (trmnl["transport"], trmnl["status"], trmnl["primary"]) == ("trmnl", frames.ON, False)
+    assert (trmnl["transport"], trmnl["status"]) == ("trmnl", frames.ON)
     assert trmnl["token"] == "abc123" and trmnl["ip"] == "10.0.1.20"
     assert trmnl["reported"]["model"] == "x" and trmnl["set"] == {"rotation": 90}
     page = reg.get("AA:BB:CC:DD:EE:02")
@@ -124,7 +126,7 @@ def test_a_fresh_install_migrates_to_an_empty_registry(tmp_path):
     db = Database(str(tmp_path / "ff.db"))
     reg = frames.FrameRegistry(db)
     reg.migrate()
-    assert reg.all() == {} and reg.primary() is None and reg.added() == []
+    assert reg.all() == {} and reg.on_kits() == []
     assert db.get("frames") is None and db.get("viewers") is None
 
 
@@ -164,13 +166,15 @@ def test_a_custom_panel_answers_from_its_own_facts():
     assert caps["rotations"] == (90, 270) and caps["colour"] and caps["mat"]
 
 
-def test_a_kit_that_has_not_reported_yet_falls_back_to_the_config():
-    """The wall frame on a fresh install: its panel is still in the config."""
+def test_a_kit_that_has_not_reported_yet_is_drawn_for_the_default_panel(monkeypatch):
+    """Older firmware names no panel. It gets the default one — or whatever
+    FEATHERFRAME_PANEL seeded this install with."""
     row = frames.new_row("legacy", "kit", "2026-09-20T09:00:00", frames.ON)
-    cfg = Config(panel="ee02").sanitize()
-    assert frames.capabilities(row, cfg)["rotations"] == (0, 180)
-    assert frames.capabilities(row, cfg)["colour"]
     assert frames.capabilities(row)["rotations"] == panels.DEFAULT.rotations
+    assert frames.panel_for(row) is panels.DEFAULT
+    monkeypatch.setenv("FEATHERFRAME_PANEL", "ee02")
+    assert frames.capabilities(row)["rotations"] == (0, 180)
+    assert frames.capabilities(row)["colour"]
 
 
 def test_a_trmnl_that_reported_its_size_needs_nothing_from_the_owner():
@@ -219,7 +223,7 @@ def client(tmp_path, monkeypatch):
     app.state.service = svc
     svc._render_welcome(svc._clock(), False)
     client = TestClient(app)
-    assert client.get("/api/frame", headers=EE03).status_code == 200
+    assert connect(client, EE03).status_code == 200
     assert client.get("/api/frame", headers=EE02).status_code == 403
     client.post("/api/frames", data={"id": EE02["X-Device-Id"], "action": "add"},
                 headers=SAME_ORIGIN)
@@ -299,13 +303,14 @@ def test_a_migrated_install_keeps_serving_the_frame_it_was_serving(upgraded):
     """The wall frame must not be asked to connect again, and the second kit
     must not have to be added a second time."""
     svc = upgraded.app.state.service
-    assert upgraded.get("/api/frame", headers=EE03).status_code == 200
     assert svc.frames_view()["active"]["id"] == EE03["X-Device-Id"]
     assert [f["name"] for f in svc.frames_view()["added"]] == ["Study"]
-    # The added kit is served its own frame, not a 403: no tick has drawn it
-    # yet, so it is 503 until one does — never "not this server's".
+    # Neither kit is a 403 — never "not this server's". No tick has drawn
+    # either yet, so both are 503 until one does.
+    assert upgraded.get("/api/frame", headers=EE03).status_code == 503
     assert upgraded.get("/api/frame", headers=EE02).status_code == 503
     svc.tick()
+    assert upgraded.get("/api/frame", headers=EE03).status_code == 200
     assert upgraded.get("/api/frame", headers=EE02).status_code == 200
     assert len(upgraded.get("/api/viewers").json()["viewers"]) == 2
 

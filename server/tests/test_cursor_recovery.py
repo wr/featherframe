@@ -61,7 +61,7 @@ def test_stale_cursor_resets_and_renders_latest(svc, monkeypatch):
     svc.source = _StubSource(max_rowid=449928, latest=[latest])
     # A resident frame is on the glass (the "stuck" state) and the stored cursor
     # is absurdly ahead of every real rowid.
-    svc._frame_bytes = b"stuck"
+    svc._etag = "stuck"
     svc._meta = {"species_key": "cyanocitta cristata", "label": "Blue Jay"}
     svc._set_cursor(10_861_837_115)
 
@@ -77,7 +77,7 @@ def test_stale_cursor_resets_and_renders_latest(svc, monkeypatch):
 
 def test_healthy_cursor_with_no_new_detections_does_nothing(svc, monkeypatch):
     svc.source = _StubSource(max_rowid=449928, latest=[_det(449928, "X", "x x")])
-    svc._frame_bytes = b"resident"
+    svc._etag = "resident"
     svc._set_cursor(449927)   # a sane cursor, just behind the tail
 
     rendered = []
@@ -94,7 +94,7 @@ def test_source_blip_zero_rowid_is_not_treated_as_stale(svc, monkeypatch):
     # max_rowid soft-fails to 0; a real cursor must NOT be mistaken for stale
     # (which would reset it and churn a render every tick).
     svc.source = _StubSource(max_rowid=0, latest=[_det(1, "X", "x x")])
-    svc._frame_bytes = b"resident"
+    svc._etag = "resident"
     svc._set_cursor(449927)
 
     rendered = []
@@ -126,7 +126,7 @@ def test_source_switch_starts_from_a_clean_slate(svc, monkeypatch):
     # source now drops everything that was about the old one and shows its own
     # latest detection.
     svc.source = _StubSource(max_rowid=11_215_147_198, latest=[])
-    svc._frame_bytes = b"resident"
+    svc._etag = "resident"
     svc._meta = {"species_key": "x x", "label": "X", "mode": "single"}
     svc._set_cursor(11_215_147_198)
     svc._cursor_verified = True                        # the startup check already ran

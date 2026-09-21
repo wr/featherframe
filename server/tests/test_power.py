@@ -116,7 +116,7 @@ def test_battery_log_downsamples_and_prunes(tmp_path):
 
 def test_checkin_logs_battery_and_card_says_power(client, svc):
     client.get("/api/frame", headers={"X-Battery-Voltage": "4.21", "X-Battery-Percent": "100"})
-    rows = svc.db.battery_history("2000-01-01")
+    rows = svc.db.battery_history("2000-01-01", svc.LEGACY_FRAME)
     assert len(rows) == 1 and rows[0]["voltage"] == pytest.approx(4.21)
     card = client.get("/api/status").json()["frame_card"]
     assert card["power"]["state"] == "usb"
@@ -126,7 +126,7 @@ def test_checkin_logs_battery_and_card_says_power(client, svc):
 
 def test_no_pack_is_not_logged(client, svc):
     client.get("/api/frame", headers={"X-Battery-Voltage": "0.03", "X-Battery-Percent": "0"})
-    assert svc.db.battery_history("2000-01-01") == []
+    assert svc.db.battery_history("2000-01-01", svc.LEGACY_FRAME) == []
 
 
 def test_battery_endpoint_shape(client, svc):
@@ -150,7 +150,7 @@ def test_power_row_hides_percent_on_usb_and_shows_it_on_battery(client, svc):
     assert "hidden" not in usb and "hidden" in wrap          # USB: icon + word, no percent
     # A fresh service with a mid-charge cell and no history reads as on battery.
     svc.db._conn.execute("DELETE FROM battery_log"); svc.db._conn.commit()
-    svc._battery_live = []
+    svc._battery_live = {}
     client.get("/api/frame", headers={"X-Battery-Voltage": "3.90", "X-Battery-Percent": "65"})
     html = page()
     usb = html.split('id="pw-usb"')[1].split(">")[0]

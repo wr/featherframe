@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
     # (W-763). __main__ exports the bound port; systemd sets it directly.
     advertiser = discovery.Advertiser(
         port=int(os.environ.get("FEATHERFRAME_PORT", "8080")), version=__version__,
-        panel=service.config.panel)
+        panel=service.mdns_panel())
     app.state.advertiser = advertiser
     await run_in_threadpool(advertiser.start)
     try:
@@ -125,9 +125,38 @@ async def api_frame(request: Request, view: Optional[str] = None):
         "board": _str_header(request.headers.get("x-board")),
     }
 
-    # The power model and wake interval ride along on every response — a 304
-    # included (W-456/W-736): the device stores them in NVS, so the page is
-    # the one place either is set.
+    # A frame is a frame (W-833): every kit that is on is served the same way,
+    # its own picture finished for its own panel, with its own settings on the
+    # way out. Any other is parked until the owner answers on the page (403;
+    # the firmware shows "Add this frame on the Featherframe page" and keeps
+    # asking). The frame describes its panel as facts too (W-813), so a panel
+    # this server has never heard of is still drawn for at its own size.
+    panel_facts = {"w": _str_header(request.headers.get("x-panel-width")),
+                   "h": _str_header(request.headers.get("x-panel-height")),
+                   "fmt": _str_header(request.headers.get("x-panel-format")),
+                   "rot": _str_header(request.headers.get("x-panel-rotations"))}
+    status = svc.admit_frame(_str_header(request.headers.get("x-device-id")),
+                             device_extra["panel"], device_extra["board"], client_ip,
+                             facts=panel_facts)
+    frame_id = (_str_header(request.headers.get("x-device-id")) or "")[:40] or svc.LEGACY_FRAME
+    if status != "on":
+        headers = {"Cache-Control": "no-store",
+                   "X-FF-Frame": "pending" if status == "asking" else "ignored"}
+        # If another instance on the LAN draws for this frame's panel, say so:
+        # the frame moves there instead of waiting here to be added.
+        adv = getattr(request.app.state, "advertiser", None)
+        reported = panels.from_report(device_extra["panel"], panel_facts)
+        if adv is not None and reported is not None and reported.key != svc.mdns_panel():
+            peer = await run_in_threadpool(adv.find_peer, reported.key)
+            if peer:
+                headers["X-FF-Server"] = peer
+        return Response(status_code=403, content=b"this frame has not been added here",
+                        headers=headers)
+
+    cfg = svc.frame_config(svc.frames.get(frame_id))
+    # The power model, wake interval and rotation ride along on every response —
+    # a 304 included (W-456/W-736): the device stores them in NVS, so the page
+    # is the one place any of them is set.
     device_headers = {# Dark mode is gone (W-821), but fielded firmware keeps the
                       # last X-FF-Invert it heard in NVS and only updates it
                       # when the header is present: say "0" until every frame
@@ -135,106 +164,38 @@ async def api_frame(request: Request, view: Optional[str] = None):
                       "X-FF-Invert": "0",
                       # Which way up the frame hangs: the firmware turns its
                       # baked boot screens and pills to match the plates.
-                      "X-FF-Rotation": str(svc.config.panel_rotation),
-                      "X-Power-Mode": svc.config.power_mode,
-                      "X-Wake-Minutes": str(svc.config.wake_interval_minutes),
-                      "X-Poll-Seconds": str(svc.config.device_poll_seconds)}
-
-    # One server, one frame: only the active frame is served. Any other is
-    # parked until the owner answers on the page (403; the firmware shows
-    # "Add this frame on the Featherframe page" and keeps asking).
-    # The frame describes its panel as facts too (W-813), so a panel this
-    # server has never heard of is still drawn for at its own size and format.
-    panel_facts = {"w": _str_header(request.headers.get("x-panel-width")),
-                   "h": _str_header(request.headers.get("x-panel-height")),
-                   "fmt": _str_header(request.headers.get("x-panel-format")),
-                   "rot": _str_header(request.headers.get("x-panel-rotations"))}
-    seat = svc.admit_frame(_str_header(request.headers.get("x-device-id")),
-                           device_extra["panel"], device_extra["board"], client_ip,
-                           facts=panel_facts)
-    if seat == "added":
-        return await _serve_added_frame(request, svc, view, inm, volt, pct, rssi, wake,
-                                        client_ip, device_extra)
-    if seat != "active":
-        headers = {"Cache-Control": "no-store", "X-FF-Frame": seat}
-        # If another instance on the LAN draws for this frame's panel, say so:
-        # the frame moves there instead of waiting here to be added.
-        adv = getattr(request.app.state, "advertiser", None)
-        reported = panels.from_report(device_extra["panel"], panel_facts)
-        if adv is not None and reported is not None and reported.key != svc.config.panel:
-            peer = await run_in_threadpool(adv.find_peer, reported.key)
-            if peer:
-                headers["X-FF-Server"] = peer
-        return Response(status_code=403, content=b"this frame is not the active frame",
-                        headers=headers)
-    if device_extra["panel"] or panel_facts["w"]:
-        # Threadpool: a panel switch re-renders the frame.
-        if await run_in_threadpool(svc.adopt_panel, device_extra["panel"], panel_facts):
-            _announce_panel(request, svc)
-
-    # On-demand button views: rendered fresh, never a picture, no
-    # 304s. Threadpool: the collage leg walks the provider chain (which may
-    # generate art over the network) and a blocking render here would stall
-    # every endpoint on the loop.
-    if view in ("collage", "status"):
-        if view == "collage":
-            result = await run_in_threadpool(svc.render_collage_on_demand)
-            if result is None:
-                return Response(status_code=404, content=b"not enough birds for a collage")
-        else:
-            result = await run_in_threadpool(svc.render_status_page, volt, pct, rssi)
-        svc.record_view_checkin(request.headers.get("user-agent", ""), volt, pct, view,
-                                wifi_rssi=rssi, ip=client_ip, device_extra=device_extra)
-        log.info("device view: %s (wake=%s)", view, wake)
-        return Response(content=result.frame, media_type="application/octet-stream",
-                        headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store",
-                                 **device_headers})
-
-    status, body, etag = svc.get_frame(inm, request.headers.get("user-agent", ""), volt, pct,
-                                       wifi_rssi=rssi, ip=client_ip, device_extra=device_extra)
-
-    if status == 503:
-        return Response(status_code=503, content=b"no frame yet", headers=device_headers)
-    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache", **device_headers}
-    if status == 304:
-        return Response(status_code=304, headers=headers)
-    log.info("device fetched frame %s (wake=%s)", etag, wake)
-    return Response(content=body, media_type="application/octet-stream", headers=headers)
-
-
-async def _serve_added_frame(request: Request, svc, view, inm, volt, pct, rssi, wake,
-                             client_ip, device_extra) -> Response:
-    """A second kit on this server (W-832): its own picture, finished for its
-    own panel, and its own rotation and power model on the way out. The device
-    card, the panel and the wall's framebuffer stay the active frame's."""
-    frame_id = (_str_header(request.headers.get("x-device-id")) or "")[:40]
-    row = next((r for r in svc._added_rows() if r["id"] == frame_id), None)   # noqa: SLF001
-    if row is None:
-        return Response(status_code=403, content=b"this frame is not on this server")
-    cfg = svc.added_config(row)
-    headers = {"X-FF-Invert": "0", "X-FF-Rotation": str(cfg.panel_rotation),
-               "X-Power-Mode": cfg.power_mode, "X-Wake-Minutes": str(cfg.wake_interval_minutes),
-               "X-Poll-Seconds": str(cfg.device_poll_seconds)}
+                      "X-FF-Rotation": str(cfg.panel_rotation),
+                      "X-Power-Mode": cfg.power_mode,
+                      "X-Wake-Minutes": str(cfg.wake_interval_minutes),
+                      "X-Poll-Seconds": str(cfg.device_poll_seconds)}
     telemetry = {**device_extra, "battery_voltage": volt, "battery_percent": pct,
                  "wifi_rssi": rssi, "ip": client_ip,
                  "user_agent": request.headers.get("user-agent", "") or None}
+
+    # On-demand button views: rendered fresh for this frame's panel, never a
+    # picture, no 304s. Threadpool: the collage leg walks the provider chain
+    # (which may generate art over the network) and a blocking render here
+    # would stall every endpoint on the loop.
     if view in ("collage", "status"):
-        # The button views, drawn for this frame's panel. Threadpool: a render.
         if view == "collage":
             result = await run_in_threadpool(svc.render_collage_on_demand, cfg)
             if result is None:
                 return Response(status_code=404, content=b"not enough birds for a collage")
         else:
             result = await run_in_threadpool(svc.render_status_page, volt, pct, rssi, cfg)
+        svc.record_view_checkin(frame_id, view, telemetry)
+        log.info("device view: %s (wake=%s)", view, wake)
         return Response(content=result.frame, media_type="application/octet-stream",
-                        headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store", **headers})
-    status, body, etag = await run_in_threadpool(svc.get_added_frame, frame_id, inm, telemetry)
+                        headers={"ETag": f'"{result.etag}"', "Cache-Control": "no-store",
+                                 **device_headers})
+
+    status, body, etag = await run_in_threadpool(svc.get_frame, frame_id, inm, telemetry)
     if status == 503:
-        return Response(status_code=503, content=b"no frame yet", headers=headers)
-    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache", **headers}
+        return Response(status_code=503, content=b"no frame yet", headers=device_headers)
+    headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache", **device_headers}
     if status == 304:
         return Response(status_code=304, headers=headers)
-    log.info("added frame %s fetched %s (wake=%s)", frame_id[-6:], etag, wake)
+    log.info("frame %s fetched %s (wake=%s)", frame_id[-6:], etag, wake)
     return Response(content=body, media_type="application/octet-stream", headers=headers)
 
 
@@ -249,7 +210,7 @@ def _display_defaults(cfg: Config) -> dict:
 def _announce_panel(request: Request, svc) -> None:
     adv = getattr(request.app.state, "advertiser", None)
     if adv is not None:
-        adv.set_panel(svc.config.panel)
+        adv.set_panel(svc.mdns_panel())
 
 
 # -- firmware OTA ----------------------------------------------------------
@@ -375,10 +336,14 @@ async def index(request: Request):
     status = await run_in_threadpool(svc.status)
     generated = await run_in_threadpool(svc.generated_listing) if svc.genart else []
     history = await run_in_threadpool(svc.render_history)
+    # W-833 step 3 deletes this: `config` on the page is the household's
+    # settings with the first kit's own display settings folded in, so the
+    # form keeps editing "the frame" until the page is rebuilt around frames.
+    page_config = svc.page_config()
     return templates.TemplateResponse(
         request, "index.html",
-        {"status": status, "config": svc.config, "version": __version__,
-         "display_defaults": _display_defaults(svc.config),
+        {"status": status, "config": page_config, "version": __version__,
+         "display_defaults": _display_defaults(page_config),
          "generated": generated, "history": history,
          "viewers": await run_in_threadpool(svc.viewer_rows)})
 
@@ -392,7 +357,9 @@ async def save_settings(request: Request):
         form = await request.form()
     except Exception:  # noqa: BLE001 — a malformed body must land on the page, not a 500
         return RedirectResponse("/?error=" + quote("Could not read the form."), status_code=303)
-    cur = svc.config.to_dict()
+    # The household's settings, plus the first kit's own for the frame fields:
+    # the form edits both at once until step 3 splits the page in two.
+    cur = svc.page_config().to_dict()
 
     # A multipart file part under a text field's name comes back as an
     # UploadFile, which Config can't sanitize or serialise: only real strings
@@ -410,11 +377,26 @@ async def save_settings(request: Request):
     blocklist_raw = s("species_blocklist", "")
     blocklist = [x.strip() for x in blocklist_raw.replace(",", "\n").splitlines() if x.strip()]
 
+    # The frame's own settings (W-833): these live on the frame's row, not in
+    # the household config, and are applied to the first kit below.
+    frame_fields = {
+        "mode": s("mode", cur["mode"]),
+        "wake_interval_minutes": i("wake_interval_minutes", cur["wake_interval_minutes"]),
+        "power_mode": s("power_mode", cur["power_mode"]),
+        "device_poll_seconds": i("device_poll_seconds", cur["device_poll_seconds"]),
+        "panel_rotation": i("panel_rotation", cur["panel_rotation"]),
+        "mat_inset_pct": f("mat_inset_pct", cur["mat_inset_pct"]),
+        "mat_offset_x_px": i("mat_offset_x_px", cur["mat_offset_x_px"]),
+        "mat_offset_y_px": i("mat_offset_y_px", cur["mat_offset_y_px"]),
+    }
+
     new = Config(
-        mode=s("mode", cur["mode"]),
-        wake_interval_minutes=i("wake_interval_minutes", cur["wake_interval_minutes"]),
-        power_mode=s("power_mode", cur["power_mode"]),
-        device_poll_seconds=i("device_poll_seconds", cur["device_poll_seconds"]),
+        # Kept as they were: nothing reads the household's copy of a frame's
+        # settings, but a rollback would, and the page falls back to them on a
+        # server with no frame yet. # W-833 step 3 deletes them from Config.
+        **{k: svc.config.to_dict()[k] for k in
+           ("mode", "panel", "panel_rotation", "mat_inset_pct", "mat_offset_x_px",
+            "mat_offset_y_px", "power_mode", "wake_interval_minutes", "device_poll_seconds")},
         quiet_hours_mode=s("quiet_hours_mode", cur["quiet_hours_mode"]),
         quiet_hours_start=t("quiet_hours_start", cur["quiet_hours_start"]),
         quiet_hours_end=t("quiet_hours_end", cur["quiet_hours_end"]),
@@ -425,12 +407,7 @@ async def save_settings(request: Request):
         birdnet_go_url=s("birdnet_go_url", cur["birdnet_go_url"]),
         birdweather_station_id=s("birdweather_station_id", cur["birdweather_station_id"]),
         apprise_token=s("apprise_token", cur["apprise_token"]),
-        panel=cur["panel"],   # state: follows the frame (service.adopt_panel)
         collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
-        panel_rotation=i("panel_rotation", cur["panel_rotation"]),
-        mat_inset_pct=f("mat_inset_pct", cur["mat_inset_pct"]),
-        mat_offset_x_px=i("mat_offset_x_px", cur["mat_offset_x_px"]),
-        mat_offset_y_px=i("mat_offset_y_px", cur["mat_offset_y_px"]),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
         collage_species_max=i("collage_species_max", cur["collage_species_max"]),
@@ -448,24 +425,17 @@ async def save_settings(request: Request):
         imagegen_text_key=(s("imagegen_text_key", "").strip()
                            or ("" if b("imagegen_text_clear_key") else cur["imagegen_text_key"])),
     )
-    render_affecting = (new.panel_rotation != svc.config.panel_rotation
-                        or new.mat_inset_pct != svc.config.mat_inset_pct
-                        or new.mat_offset_x_px != svc.config.mat_offset_x_px
-                        or new.mat_offset_y_px != svc.config.mat_offset_y_px)
-    # Config.sanitize() clamps silently; tell the page which fields it changed
-    # so the user isn't left staring at a different number than they typed.
-    adjusted = _adjusted_fields(form, new)
     try:
         svc.update_config(new)
+        await run_in_threadpool(svc.update_page_frame, frame_fields)
         _announce_panel(request, svc)
-        if render_affecting:
-            # Threadpool: the provider chain may generate art over the network now,
-            # and a blocking render here would stall every endpoint on the loop.
-            await run_in_threadpool(svc.rerender_current)
     except Exception as exc:  # noqa: BLE001 — surface it on the page, keep the old config
         log.exception("saving settings failed")
         return RedirectResponse("/?error=" + quote(f"Settings were not saved: {exc}"),
                                 status_code=303)
+    # Config.sanitize() clamps silently; tell the page which fields it changed
+    # so the user isn't left staring at a different number than they typed.
+    adjusted = _adjusted_fields(form, svc.page_config())
     return RedirectResponse("/?saved=1" + ("&adjusted=" + ",".join(adjusted) if adjusted else ""),
                             status_code=303)
 
@@ -574,52 +544,31 @@ async def api_refresh(request: Request):
                          "rendered_at": cur["rendered_at"]})
 
 
-# -- hold this plate / block what's showing (W-735) --------------------------
-@app.post("/api/panel-notice")
-async def api_panel_notice(request: Request):
-    """Answer the "new panel connected" notice: `action=defaults` resets the
-    panel-dependent settings to the new panel's defaults and repaints;
-    `action=keep` just clears the notice."""
-    if not _same_origin(request):
-        return _forbidden_cross_origin()
-    svc = _svc(request)
-    form = await request.form()
-    action = str(form.get("action", "") or "")
-    if action in ("defaults", "keep"):
-        # Threadpool: "defaults" re-renders the frame.
-        await run_in_threadpool(svc.answer_panel_notice, action == "defaults")
-    else:
-        return JSONResponse({"ok": False, "error": "unknown action"}, status_code=400)
-    return JSONResponse({"ok": True, "panel_notices": svc.panel_notices()})
-
-
 @app.post("/api/frames")
 async def api_frames(request: Request):
-    """The owner's answer about a frame that is not the active one:
-    `action=add` (serve it beside the active frame, W-832), `switch` (make it
-    the active frame), `ignore`, or `forget`."""
+    """The owner's answer about a frame that has not been added yet:
+    `action=add` (draw for it too), `switch` (draw for it instead of the first
+    kit), `ignore`, or `forget`."""
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
     form = await request.form()
     frame_id = str(form.get("id", "") or "")[:40]
     action = str(form.get("action", "") or "")
-    # Threadpool: a switch to a frame with another panel re-renders.
     ok = await run_in_threadpool(svc.answer_frame, frame_id, action)
     if not ok:
         return JSONResponse({"ok": False, "error": "unknown frame or action"}, status_code=400)
-    if action == "switch":
-        _announce_panel(request, svc)
+    _announce_panel(request, svc)
     return JSONResponse({"ok": True, "frames": svc.frames_view(),
                          "panel_notices": svc.panel_notices()})
 
 
 @app.post("/api/frames/{frame_id}")
 async def api_frame_settings(request: Request, frame_id: str):
-    """An added frame's own settings: what it shows, which way up it hangs,
-    its mat, its power. Everything else is the household's. A name is the one
-    thing every frame in the registry has (W-833), including the wall frame and
-    the viewers, so a rename falls through to the registry."""
+    """One frame's own settings: what it shows, which way up it hangs, its
+    mat, its power. Everything else is the household's. A name is the one
+    thing every frame in the registry has (W-833), viewers included, so a
+    rename falls through to the registry."""
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
@@ -630,7 +579,7 @@ async def api_frame_settings(request: Request, frame_id: str):
     if not isinstance(fields, dict):
         return JSONResponse({"error": "a JSON object is required"}, status_code=400)
     try:
-        ok = await run_in_threadpool(svc.update_added, frame_id[:40], fields)
+        ok = await run_in_threadpool(svc.update_frame, frame_id[:40], fields)
         if not ok and "name" in fields:
             ok = await run_in_threadpool(svc.rename_frame, frame_id[:40], fields["name"])
     except (TypeError, ValueError) as exc:
@@ -638,6 +587,9 @@ async def api_frame_settings(request: Request, frame_id: str):
     if not ok:
         return JSONResponse({"error": "no such frame"}, status_code=404)
     return JSONResponse({"ok": True, "frames": svc.frames_view()})
+
+
+# -- hold this plate / block what's showing (W-735) --------------------------
 
 
 @app.post("/api/hold")
@@ -1067,12 +1019,14 @@ async def viewer_update(request: Request, viewer_id: str):
 
 
 @app.get("/api/battery")
-async def api_battery(request: Request, hours: int = 24):
-    """Voltage readings for the Frame card's trend line, plus the power state
-    the server infers from them (there is no USB-present line on the board)."""
+async def api_battery(request: Request, hours: int = 24, frame: Optional[str] = None):
+    """One frame's voltage readings for its trend line, plus the power state
+    the server infers from them (there is no USB-present line on the board).
+    No `frame`: the first kit's. # W-833 step 3 names the frame."""
     svc = _svc(request)
     hours = max(1, min(int(hours), 24 * 7))
-    return JSONResponse(await run_in_threadpool(svc.battery_view, hours))
+    return JSONResponse(await run_in_threadpool(svc.battery_view, hours,
+                                                (frame or "")[:40] or None))
 
 
 @app.get("/api/status")

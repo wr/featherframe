@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 
 from featherframe import panels
+from featherframe import frames as frames_mod
 from featherframe.config import Config
 from featherframe.render import framebuffer, pipeline, spectra
 
@@ -84,6 +85,8 @@ def test_panel_from_device_report():
 import pytest
 from starlette.testclient import TestClient
 
+from tests._frames import connect
+
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
@@ -97,21 +100,16 @@ def client(tmp_path, monkeypatch):
     return TestClient(app)
 
 
-def test_first_checkin_from_a_colour_frame_turns_the_server_colour(client):
+def test_a_colour_frame_is_drawn_for_in_inks_at_its_own_size(client):
+    """A frame's panel is simply what it reports (W-833): nothing to adopt,
+    nothing to answer."""
     svc = client.app.state.service
-    svc._render_welcome(svc._clock(), False)          # a resident gray frame
-    assert svc.config.panel == "ee03"
-
-    r = client.get("/api/frame", headers={"X-Panel": "T133A01 1200x1600 spectra6"})
-    assert r.status_code == 200
-    assert svc.config.panel == "ee02" and svc.config.panel_rotation == 0
+    svc._render_welcome(svc._clock(), False)
+    r = connect(client, COLOUR)
+    assert r.status_code == 200 and r.headers["x-ff-rotation"] == "0"
     _, _, bpp, w, h, flags = framebuffer.HEADER.unpack_from(r.content, 0)
     assert (w, h, flags) == (1200, 1600, framebuffer.FLAG_INKS)
-
-    # The gray frame's own report changes nothing on a gray server, and an
-    # unknown report is ignored.
-    r = client.get("/api/frame", headers={"X-Panel": "mystery panel"})
-    assert svc.config.panel == "ee02"
+    assert svc.frame_config(svc.frames.get(COLOUR["X-Device-Id"])).panel == "ee02"
 
 
 GRAY = {"X-Panel": "ED103TC2 1404x1872 gray16", "X-Device-Id": "AAAAAAAAAA01"}
@@ -124,56 +122,64 @@ def _answer(client, frame_id, action):
     return r.json()
 
 
-def test_first_frame_takes_the_seat_and_a_second_one_waits(client):
+def test_the_first_frame_is_let_in_and_a_second_one_waits(client):
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
-    assert client.get("/api/frame", headers=GRAY).status_code == 200
+    assert connect(client, GRAY).status_code == 200
 
     r = client.get("/api/frame", headers=COLOUR)
     assert r.status_code == 403 and r.headers["x-ff-frame"] == "pending"
-    assert svc.config.panel == "ee03"                 # nothing moved under the wall frame
-    assert "ED103TC2" in svc.device.panel             # and the card is still its card
     view = svc.frames_view()
     assert view["active"]["id"] == "AAAAAAAAAA01"
     assert [f["id"] for f in view["pending"]] == ["BBBBBBBBBB02"] and view["ignored"] == []
+    assert "ED103TC2" in svc.device.panel             # the card is still its card
     assert client.get("/api/frame", headers=GRAY).status_code in (200, 304)
 
 
-def test_switching_frames_follows_the_new_panel_and_offers_its_defaults(client):
+def test_two_kits_of_different_panels_are_each_drawn_for_their_own(client):
+    """Adding the colour kit leaves the gray one exactly as it was: each
+    frame's panel, rotation and mat are its own."""
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
-    client.get("/api/frame", headers=GRAY)
-    svc.update_config(Config.from_dict({**svc.config.to_dict(),
-                                        "mat_inset_pct": 3.5, "mat_offset_x_px": -10}))
+    assert connect(client, GRAY).status_code == 200
+    gray_before = client.get("/api/frame", headers=GRAY)
     client.get("/api/frame", headers=COLOUR)
-
-    out = _answer(client, "BBBBBBBBBB02", "switch")
-    assert out["frames"]["active"]["id"] == "BBBBBBBBBB02" and out["frames"]["pending"] == []
-    assert svc.config.panel == "ee02" and svc.config.panel_rotation == 0
-    swap = svc.panel_notices()["swap"]
-    assert (swap["from"], swap["to"]) == ("ee03", "ee02")
-    assert {"mode", "mat_inset_pct", "mat_offset_x_px"} <= set(swap["off_default"])
-    assert svc.config.mat_offset_x_px == -10          # nothing reset behind the owner's back
-    assert svc.config.mode == "single"
+    _answer(client, "BBBBBBBBBB02", "add")
+    svc.tick()
 
     r = client.get("/api/frame", headers=COLOUR)
     _, _, _, w, h, flags = framebuffer.HEADER.unpack_from(r.content, 0)
     assert r.status_code == 200 and (w, h, flags) == (1200, 1600, framebuffer.FLAG_INKS)
+    assert r.headers["x-ff-rotation"] == "0"
+    again = client.get("/api/frame", headers=GRAY)
+    assert again.headers["etag"] == gray_before.headers["etag"]
+    assert again.headers["x-ff-rotation"] == "90"
 
+
+def test_switching_hands_the_server_to_the_new_frame(client):
+    svc = client.app.state.service
+    svc._render_welcome(svc._clock(), False)
+    connect(client, GRAY)
+    client.get("/api/frame", headers=COLOUR)
+
+    out = _answer(client, "BBBBBBBBBB02", "switch")
+    assert out["frames"]["active"]["id"] == "BBBBBBBBBB02" and out["frames"]["pending"] == []
+    svc.tick()
+    r = client.get("/api/frame", headers=COLOUR)
+    _, _, _, w, h, flags = framebuffer.HEADER.unpack_from(r.content, 0)
+    assert r.status_code == 200 and (w, h, flags) == (1200, 1600, framebuffer.FLAG_INKS)
+    # Its panel's own defaults, unasked: rotation 0 and the collage (W-821).
+    assert svc.page_config().panel_rotation == 0
+    assert svc.frames_view()["active"]["id"] == "BBBBBBBBBB02"
     # The frame that was switched away from goes through the same question.
     assert client.get("/api/frame", headers=GRAY).status_code == 403
     assert [f["id"] for f in svc.frames_view()["pending"]] == ["AAAAAAAAAA01"]
-
-    ok = client.post("/api/panel-notice", data={"action": "defaults"})
-    assert ok.status_code == 200 and ok.json()["panel_notices"]["swap"] is None
-    assert svc.config.mat_offset_x_px == 0
-    assert svc.config.mode == "collage"               # the slow panel's own mode (W-821)
 
 
 def test_an_ignored_frame_is_listed_and_can_be_switched_to_or_forgotten(client):
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
-    client.get("/api/frame", headers=GRAY)
+    connect(client, GRAY)
     client.get("/api/frame", headers=COLOUR)
     _answer(client, "BBBBBBBBBB02", "ignore")
     r = client.get("/api/frame", headers=COLOUR)
@@ -187,54 +193,44 @@ def test_an_ignored_frame_is_listed_and_can_be_switched_to_or_forgotten(client):
     assert svc.frames_view()["ignored"] == []
     assert client.get("/api/frame", headers=COLOUR).headers["x-ff-frame"] == "pending"
     assert "Another frame wants to connect." in client.get("/").text
-    # The active frame cannot be ignored out from under itself.
-    assert client.post("/api/frames", data={"id": "AAAAAAAAAA01", "action": "ignore"}).status_code == 400
+    # The only frame cannot be ignored out from under itself.
+    assert client.post("/api/frames", data={"id": "AAAAAAAAAA01",
+                                            "action": "ignore"}).status_code == 400
 
 
 def test_older_firmware_keeps_its_seat_when_it_starts_sending_an_id(client):
     # The wall frame predates X-Device-Id; after its update it must not be
-    # asked about as if it were a stranger.
+    # asked about as if it were a stranger, nor repaint.
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
-    assert client.get("/api/frame", headers={"X-Panel": GRAY["X-Panel"]}).status_code == 200
+    legacy = connect(client, {"X-Panel": GRAY["X-Panel"]})
+    assert legacy.status_code == 200
     assert svc.frames_view()["active"]["id"] == "legacy"
-    assert client.get("/api/frame", headers=GRAY).status_code in (200, 304)
+    named = client.get("/api/frame", headers=GRAY)
+    assert named.status_code == 200 and named.content == legacy.content
     view = svc.frames_view()
     assert view["active"]["id"] == "AAAAAAAAAA01" and view["pending"] == []
     # ...while a frame with another panel is still a stranger to a legacy seat.
     assert client.get("/api/frame", headers=COLOUR).status_code == 403
 
 
-def test_keeping_my_settings_only_clears_the_notice(client):
+def test_page_offers_the_panels_defaults_for_the_frame_in_front(client):
     svc = client.app.state.service
     svc._render_welcome(svc._clock(), False)
-    client.get("/api/frame", headers=GRAY)
-    svc.update_config(Config.from_dict({**svc.config.to_dict(), "mat_inset_pct": 3.5}))
-    client.get("/api/frame", headers=COLOUR)
-    _answer(client, "BBBBBBBBBB02", "switch")
-    assert client.post("/api/panel-notice", data={"action": "keep"}).status_code == 200
-    assert svc.panel_notices()["swap"] is None and svc.config.mat_inset_pct == 3.5
-
-
-def test_first_frame_on_a_fresh_install_raises_no_notice(client):
-    svc = client.app.state.service
-    svc._render_welcome(svc._clock(), False)
-    assert client.get("/api/frame", headers=COLOUR).status_code == 200
-    assert svc.config.panel == "ee02" and svc.panel_notices()["swap"] is None
-
-
-def test_page_offers_defaults_and_reset(client):
-    svc = client.app.state.service
-    svc._render_welcome(svc._clock(), False)
-    client.get("/api/frame", headers=GRAY)
-    svc.update_config(Config.from_dict({**svc.config.to_dict(), "mat_inset_pct": 3.5}))
-    client.get("/api/frame", headers=COLOUR)
-    assert "Another frame wants to connect." in client.get("/").text
-    _answer(client, "BBBBBBBBBB02", "switch")
+    connect(client, GRAY)
     html = client.get("/").text
-    assert "New panel connected." in html and "Use this panel's defaults" in html
     assert 'id="adv-reset"' in html and '"mat_inset_pct": 4.0' in html
     assert "api_key" not in html.split('id="display-defaults">')[1].split("</script>")[0]
+
+
+def test_a_fresh_installs_first_colour_frame_starts_on_the_collage(client):
+    """No FEATHERFRAME_PANEL: the frame's own report picks the picture it
+    shows, as it picks the rotation (W-821)."""
+    svc = client.app.state.service
+    connect(client, COLOUR)
+    row = svc.frames.get(COLOUR["X-Device-Id"])
+    assert frames_mod.shows_of(row) == "collage"
+    assert svc.frame_config(row).panel_rotation == 0
 
 
 def test_firmware_is_only_served_to_its_own_board(client, tmp_path):
@@ -294,16 +290,6 @@ def test_the_panel_picks_the_dither_and_a_fresh_install_its_mode(monkeypatch):
     assert Config.defaults_for("ee03").mode == "single"
     monkeypatch.setenv("FEATHERFRAME_PANEL", "ee02")
     assert Config().mode == "collage"
-
-
-def test_a_fresh_installs_first_colour_frame_starts_on_the_collage(client):
-    """No FEATHERFRAME_PANEL, no notice to raise: the frame's own report picks
-    the mode, as it picks the rotation (W-821)."""
-    svc = client.app.state.service
-    assert (svc.config.panel, svc.config.mode) == ("ee03", "single")
-    client.get("/api/frame", headers=COLOUR)
-    assert (svc.config.panel, svc.config.mode) == ("ee02", "collage")
-    assert svc.panel_notices()["swap"] is None
 
 
 def test_a_custom_colour_panel_defaults_to_the_collage_too():

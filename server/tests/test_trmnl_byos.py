@@ -38,8 +38,8 @@ def client(tmp_path, monkeypatch):
     svc.config.quiet_hours_mode = "off"
     app.state.service = svc
     ramp = np.tile(np.linspace(0, 255, theme.WIDTH, dtype=np.uint8), (theme.HEIGHT, 1))
-    result = pipeline.render_image(Image.fromarray(ramp, mode="L"), svc.config, "single", "x")
-    svc._commit(result, svc._clock(), mode="single", species_key=None, label="x", note=None)
+    svc._commit("plates", svc._clock(), sheet=Image.fromarray(ramp, mode="L"),
+                mode="single", species_key=None, label="x")
     return TestClient(app)
 
 
@@ -102,14 +102,24 @@ def test_the_owners_rotation_survives_check_ins_and_changes_the_filename(client)
     assert client.get("/api/display", headers=X).json()["filename"] == before
 
 
+def _kits(svc) -> dict:
+    view = svc.status()["frames"]
+    return {k: view[k] for k in ("active", "added", "pending", "ignored")}
+
+
 def test_a_viewer_is_never_the_frame(client):
     svc = client.app.state.service
-    before = (svc._etag, svc.config.panel, svc.status()["device"], svc.status().get("frames"))
+    before = (svc._etag, svc.status()["device"], _kits(svc))
     client.get("/api/setup", headers=X)
     _image(client, client.get("/api/display", headers=X).json())
-    assert (svc._etag, svc.config.panel, svc.status()["device"], svc.status().get("frames")) == before
-    # And the frame's own endpoint is not opened by it.
-    assert client.get("/api/frame", headers={"X-Device-Id": "f0:0d"}).status_code == 200
+    assert (svc._etag, svc.status()["device"], _kits(svc)) == before
+    # It is a frame in the registry all the same, fed another way.
+    listed = {f["id"]: f for f in svc.status()["frames"]["list"]}
+    assert listed[X["ID"]]["transport"] == "trmnl"
+    # And the frame's own endpoint is not opened by it: a kit asking there is
+    # let in as the first kit, and served once a tick has drawn for it.
+    from tests._frames import connect
+    assert connect(client, {"X-Device-Id": "f0:0d"}).status_code == 200
 
 
 def test_quiet_hours_let_a_viewer_sleep_longer(client):

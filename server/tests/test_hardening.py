@@ -63,11 +63,13 @@ def test_nan_battery_voltage_does_not_poison_status(client, svc):
 
 def test_poisoned_device_status_heals_on_start(tmp_path, monkeypatch):
     # A DB row written by an older build (json.dumps emits NaN) must not keep
-    # /api/status broken across restarts.
+    # /api/status broken across restarts. It is migrated onto the frame it came
+    # from (W-833), sanitised on the way.
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     from featherframe.db import Database
     db = Database()
+    db.set("frames", {"active": "AA:BB", "known": {"AA:BB": {"id": "AA:BB", "status": "active"}}})
     db.set("device_status", {"battery_voltage": float("nan"), "battery_percent": 9999,
                              "wifi_rssi": float("inf"), "last_wake": "w" * 5000})
     service = FeatherframeService(db=db)
@@ -185,7 +187,7 @@ def test_full_backlog_page_shows_the_newest_bird_not_the_oldest_chunk(svc, monke
     page = [_det(i, "Old Bird", f"old bird {i}") for i in range(1, 501)]
     tail = _det(900, "Newest Bird", "newest bird")
     svc.source = _PagedSource(page, tail, page_limit=500)
-    svc._frame_bytes = b"resident"
+    svc._etag = "resident"
     svc._set_cursor(0)
     svc._cursor_verified = True
 
@@ -357,7 +359,7 @@ def test_backlog_keeps_cursor_when_latest_many_blips(svc, monkeypatch):
     src = _PagedSource(page, tail, page_limit=500)
     src.latest_many = lambda min_confidence=0.0, limit=25: []
     svc.source = src
-    svc._frame_bytes = b"resident"
+    svc._etag = "resident"
     svc._set_cursor(0)
     svc._cursor_verified = True
 
@@ -385,13 +387,15 @@ def test_torn_current_fff_is_not_served(tmp_path, monkeypatch):
     assert service.current_etag() is None
 
 
-def test_commit_writes_frame_atomically(svc, tmp_path):
-    from featherframe import paths
+def test_a_frames_output_is_written_atomically(svc, tmp_path):
     from featherframe.render.framebuffer import is_complete
+    from tests._frames import FRAME_ID, add_kit
+    add_kit(svc)
     svc.force_test_detection("Northern Cardinal", "Cardinalis cardinalis")
-    data = (paths.frames_dir() / "current.fff").read_bytes()
-    assert is_complete(data)
-    assert not (paths.frames_dir() / "current.fff.tmp").exists()
+    svc._tick_frames()
+    fff = svc._out_paths(FRAME_ID)[0]
+    assert is_complete(fff.read_bytes())
+    assert not fff.with_suffix(".tmp").exists()
 
 
 def test_non_ascii_apprise_token_is_403_not_500(client, svc):

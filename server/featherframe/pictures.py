@@ -9,7 +9,7 @@ are kept the same way here.
 
 A picture owns what it is of (`meta`), what identifies it (`etag`), and the
 composed sheet — plus the sheet's colour twin, when a colour screen is
-watching — that every screen's render is drawn from. It is drawn only while
+watching — that every frame's output is finished from. It is drawn only while
 some frame shows it, and dropped when the last one looks away.
 
 The decisions — which picture a frame shows, and of what — stay in the
@@ -84,12 +84,8 @@ class Picture:
         self.etag: Optional[str] = None
         self.key: Optional[str] = None     # what was drawn: a detection, a date
         self.at: Optional[str] = None      # when it was drawn, ISO
-        # The framebuffer of the kit that shows this picture, while it does.
-        # In memory only (`current.fff` is its copy on disk); step 2b turns it
-        # into one output per frame.
-        self.frame: Optional[bytes] = None
-        # Draws this same sheet again with the art in colour, for a gray
-        # frame's colour screens. In memory: a restart renders again instead.
+        # Draws this same sheet again with the art in colour, for the screens
+        # that show it in colour. In memory: a restart renders again instead.
         self.recompose = None
 
     # -- on disk -----------------------------------------------------------
@@ -119,17 +115,14 @@ class Picture:
     # -- state -------------------------------------------------------------
     def commit(self, meta: dict, etag: str, now, key: Optional[str] = None,
                sheet: Optional[Image.Image] = None,
-               color_sheet: Optional[Image.Image] = None,
-               frame: Optional[bytes] = None, recompose=None) -> None:
-        """This picture is now `sheet`. `frame` is the packed framebuffer when
-        the kit that shows it was drawn for in the same pass."""
+               color_sheet: Optional[Image.Image] = None, recompose=None) -> None:
+        """This picture is now `sheet`. Finishing it for a frame's panel is
+        that frame's own business (`service._draw_frame`)."""
         self.meta = meta
         self.etag = etag
         self.key = key
         self.at = now.isoformat(timespec="seconds")
         self.recompose = recompose
-        if frame is not None:
-            self.frame = frame
         if sheet is not None or color_sheet is not None:
             write_sheet(self.sheet_path, sheet)
             write_sheet(self.color_sheet_path, color_sheet)
@@ -137,7 +130,7 @@ class Picture:
     def drop(self) -> None:
         """Nobody shows it any more: stop paying for it."""
         self.meta = {}
-        self.etag = self.key = self.at = self.frame = None
+        self.etag = self.key = self.at = None
         self.recompose = None
         for f in (self.sheet_path, self.color_sheet_path):
             f.unlink(missing_ok=True)
@@ -163,9 +156,9 @@ class Pictures:
     def __init__(self, db) -> None:
         self.db = db
         self._by_kind = {kind: Picture(kind) for kind in KINDS}
-        # Which picture the primary kit last had painted on its glass. It is
-        # not what the settings say it should show — that is a decision, and
-        # this is what happened.
+        # The picture "the frame" means on a server that has no frame yet: the
+        # page still asks, and the answer has to be something. A server with a
+        # kit takes it from that kit instead (service._default_shows).
         self.shown: str = PLATES
         self.load()
 

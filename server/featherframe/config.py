@@ -73,7 +73,14 @@ def _sun_window(on_date: date | None = None) -> tuple[dtime, dtime]:
 
 @dataclass
 class Config:
-    """All user-facing settings. Persisted whole; edited via the config page."""
+    """The household's settings, plus the shape a render takes.
+
+    Persisted whole. The render fields below (`mode`, `panel`, `panel_rotation`,
+    `mat_*`, `power_mode`, `wake_interval_minutes`, `device_poll_seconds`) are
+    each frame's own, not the household's: `frames.frame_config` builds a Config
+    per frame from that frame's row, and the stored values for those fields are
+    not read for any frame (W-833).
+    """
 
     # Display behaviour ----------------------------------------------------
     # "single" | "collage" (legacy "auto" migrates to single). A fresh install
@@ -122,14 +129,12 @@ class Config:
     apprise_token: str = field(default_factory=lambda: secrets.token_urlsafe(9))
 
     # Rendering ------------------------------------------------------------
-    # Which panel this instance drives (panels.py): "ee03" (10.3" gray) or
-    # "ee02" (13.3" Spectra 6 colour). State, not a setting: it follows what
-    # the active frame reports (service.adopt_panel), and lives here so the
-    # server remembers the panel between check-ins. FEATHERFRAME_PANEL sets a
-    # fresh install's default, so a second instance comes up right unasked.
-    # A frame that reports a panel panels.py does not know is drawn for from
-    # its own report (W-813); the key then spells the facts out
-    # ("custom:800x480:gray16:0,180").
+    # The panel a render is for (panels.py): "ee03" (10.3" gray), "ee02"
+    # (13.3" Spectra 6 colour), or a key spelling out a reported panel's facts
+    # ("custom:800x480:gray16:0,180", W-813). State, not a setting: every frame
+    # is drawn for the panel IT reports, and `frames.frame_config` sets this
+    # field per frame (W-833). The stored value is never read for a frame;
+    # FEATHERFRAME_PANEL still seeds a fresh install.
     panel: str = field(default_factory=lambda: os.environ.get("FEATHERFRAME_PANEL", "ee03"))
     # The panel's native canvas is landscape 1872x1404 and its setRotation() is a
     # no-op, so we rotate the portrait art into native orientation server-side.

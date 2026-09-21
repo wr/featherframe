@@ -4,8 +4,8 @@ wherever it likes on the Pi without touching code.
 Layout (defaults):
   data_dir/                 FEATHERFRAME_DATA_DIR  (state that changes)
     featherframe.db         our own config/state DB
-    frames/current.fff      last packed framebuffer served to the device
-    frames/current.png      human-viewable preview of the current frame
+    frames/out/<id>.fff     the framebuffer one frame is served (+ .png preview)
+    frames/pictures/<kind>/ each picture's composed sheet (+ its colour twin)
     frames/history/*.png    thumbnails of recent frames, keyed by ETag
   plates_dir/               FEATHERFRAME_PLATES_DIR (downloaded plate assets)
     index.json              species -> plate mapping (written by fetch_plates)

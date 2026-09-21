@@ -10,6 +10,7 @@ import pytest
 from featherframe.render import welcome
 from featherframe.service import FeatherframeService
 from featherframe.render import pipeline as pipeline  # noqa: E402
+from tests._frames import FRAME_ID, add_kit
 
 
 @pytest.fixture
@@ -18,6 +19,7 @@ def svc(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     service = FeatherframeService()
     service.source.db_path = str(tmp_path / "missing.db")   # source unreachable
+    add_kit(service)
     pipeline.DITHER_OVERRIDE = "none"
     yield service
 
@@ -29,12 +31,12 @@ def _ink(img):
 def test_fresh_install_serves_a_welcome_plate_not_503(svc):
     assert svc._frame_bytes is None
     svc._ensure_initial_frame()
-    status, body, etag = svc.get_frame(None)
+    status, body, etag = svc.get_frame(FRAME_ID, None)
     assert status == 200 and body and etag
     assert svc._meta["mode"] == "welcome"
     assert svc._meta["source_ok"] is False
     assert svc.current_png_bytes()          # the dashboard preview has a picture
-    assert svc.get_frame(etag)[0] == 304    # and the device 304s on it afterwards
+    assert svc.get_frame(FRAME_ID, etag)[0] == 304   # and the device 304s on it after
 
 
 def test_welcome_rerenders_once_when_the_source_appears(svc, monkeypatch):

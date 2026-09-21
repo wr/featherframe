@@ -185,40 +185,47 @@ The kiosk page (W-825) is the second client: `GET /view`
 (`templates/view.html`, ES5 and XHR on purpose, for old iPads; a home-screen
 web app via `/view.webmanifest`) names itself from localStorage, reports its
 device pixels to `GET /api/view/state` every `viewers.PAGE_POLL_SECONDS`, and
-is told which image to cross-fade to and whether to go dark. A page viewer
-(`kind: "page"`) defaults to `color`, upright, long side capped at
-`PAGE_MAX_SIDE`, and black in quiet hours (`dark_quiet`, the one setting a lit
-screen has that paper does not); "paper look" is the owner choosing `gray256`.
-A viewer has no card of its own any more (W-833 step 3): it is a row in the
-Frames card like every other frame, offered *Turned*, and *Look* and *Dark in
-quiet hours* for a page, and a pixel size only when it reported none. A
-viewer's format follows what the *device* reported, never the owner's size (a
-Kobo script client stays smooth once sized).
+is told which image to cross-fade to. A page viewer (`kind: "page"`) is always
+`color`, upright, long side capped at `PAGE_MAX_SIDE`, and shows the plate
+whatever the hour — there is no *Look* and no *Dark in quiet hours* any more
+(`/api/view/state` still answers `"dark": false` so a tab open since the old
+build keeps working, and a `fmt`/`dark_quiet` left on a row is ignored). A
+viewer has no card of its own either (W-833 step 3): it is a row in the Frames
+card like every other frame, offered *Rotation* and a pixel size only when it
+reported none. How deep a viewer is drawn follows what the *device* reported,
+never the owner (a Kobo script client stays smooth once sized).
 
 **The page (W-833 step 3) is two halves, and one row component.** Left, narrow:
-metadata and health only, never a setting — the live preview with a chip per
-frame under it (the picked frame is kept in `localStorage`; a kit's own
-`out/<id>.png`, a viewer's own view, both at `GET /api/frames/<id>/preview.png`)
-and the plate's tools; a **Health** card of one row per frame (name · battery ·
-last asked, the dot, the overdue note) each opening onto the same Details —
-battery and Wi-Fi tiles, the 24 h voltage trend from `GET /api/battery?frame=`,
-IP, firmware, panel, board, frame id — then the detection source's own half;
-then History. Right, wide: a **Frames** card FIRST, then the household's
-sections (Collage, Quiet hours, Detection source, Image generation, Generated
-plates) in one `/settings` form that carries no frame field at all. Every frame
-is the same row (the `frame_row` macro): collapsed, its name and
-`frames_list()`'s `summary`; open, its own settings **by capability** —
-Shows always, rotation as degrees (kit) or words (viewer), Power with its two
-reveals, Look and Dark in quiet hours, a size only when `needs_size`, the mat
-under Advanced with *Reset to this panel's defaults* — then Save and Remove.
-Saving posts JSON to `POST /api/frames/<id>` and updates the row in place; the
-status poll keeps every summary and every Health row current and reloads only
-when the set of frames itself changes. A kit that is asking is a notice at the
-top of the card (*Add this frame* / *Ignore it*), ignored ones fold at the
+metadata only, never a setting — the live preview with a chip per frame under
+it (the picked frame is kept in `localStorage`; a kit's own `out/<id>.png`, a
+viewer's own view, both at `GET /api/frames/<id>/preview.png`) and the plate's
+tools; then the detection source's own small card, titled by the source name;
+then History. **There is no Health card**: a frame's health is the frame's row.
+Right, wide: a **Frames** card FIRST — just the list, no heading — then the
+household's sections (Quiet hours, Detection source, Collage, Image generation,
+Generated plates) in one `/settings` form that carries no frame field at all.
+Every frame is the same row (the `frame_row` macro), and that row **is** the
+page's own disclosure (`details.disc`), so it hovers, turns its chevron and
+slides open exactly as *Advanced* does. Collapsed it is a conventional
+device-list line: the status dot (`card.state`, the one place it is decided —
+green heard from on time, amber overdue, red battery critical, grey never or a
+page not open), the name, an *Overdue* / *Battery low* badge, `frames_list()`'s
+`summary` muted under it, then fixed columns for battery, Wi-Fi and last seen
+(the Wi-Fi column goes at ≤ 520 px). Open, its own settings **by capability** —
+Name, Content, Rotation in degrees, Power, one *Update interval* whose options
+swap with Power (seconds → `device_poll_seconds`, minutes → `wake_interval_minutes`;
+only the shown one is posted), Screen size only when `needs_size` — then
+*Advanced* (the mat, *Reset to defaults*) and *Details*: the Power and Wi-Fi
+tiles, the 24 h voltage trend in place from `GET /api/battery?frame=`, IP,
+firmware, panel, board, frame id. Then Save and Remove. Saving posts JSON to
+`POST /api/frames/<id>` and updates the row in place; the status poll keeps
+every summary, dot, badge and reading current and reloads only when the set of
+frames itself changes. A kit that is asking is a notice at the top of the card
+(*{what it is} wants to connect*, *Add* / *Ignore*), ignored ones fold at the
 bottom, and with no frames at all the card is an invitation: `<host>/view` on a
-tablet, or build the kit. `status()["frames"]["list"]` is the whole of it, one
-shape per frame; `status()["current"]` is what the pictures are of, not any
-frame's view.
+tablet, or build the kit. There are no per-frame banners: the row's badges say
+it. `status()["frames"]["list"]` is the whole of it, one shape per frame;
+`status()["current"]` is what the pictures are of, not any frame's view.
 **Two pictures (`pictures.py`, W-831 rebuilt in W-833).** There are exactly
 two, `plates` and `collage`, and they are the same kind of thing: each owns its
 meta, its ETag, and its composed sheet (`data/frames/pictures/<kind>/
@@ -442,6 +449,6 @@ pill over the plate, the EE02 the baked `FF_SCR_LOW_BATT` full screen, which
 is why its hold starts 0.1 V earlier — a 30 s refresh needs the headroom;
 "once" lives in NVS `lowmark`, written before the paint so a brownout can't
 loop it; the always-awake loop enters the same hold after `FF_LOW_BATT_POLLS`
-low polls, W-736), and the page shows a red banner per frame, naming it, at
-that frame's `card.battery_critical` (≤ 10 % or ≤ the panel's hold,
+low polls, W-736), and the page puts a red *Battery low* badge on that frame's
+own row at its `card.battery_critical` (≤ 10 % or ≤ the panel's hold,
 `Panel.low_battery_volts`, which a test keeps equal to `FF_LOW_BATT_V`); OTA is refused under 3.70 V and a bad image rolls back.

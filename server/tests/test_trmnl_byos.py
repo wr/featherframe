@@ -182,7 +182,8 @@ def test_a_page_is_told_which_image_to_show_in_colour_at_its_own_size(client):
     assert r["image"].endswith("-1536x2048-color-0.png")
     assert Image.open(io.BytesIO(client.get(r["image"]).content)).size == (1536, 2048)
     row = client.get("/api/viewers").json()["viewers"][0]
-    assert row["kind"] == "page" and row["reported"]["model"] == "iPad" and row["dark_quiet"] is True
+    assert row["kind"] == "page" and row["reported"]["model"] == "iPad"
+    assert "dark_quiet" not in row
 
 
 def test_a_big_screen_is_not_drawn_bigger_than_the_sheet_is_worth(client):
@@ -195,18 +196,24 @@ def test_a_landscape_tablet_shows_the_plate_upright(client):
     assert r["image"].endswith("-2048x1536-color-0.png")
 
 
-def test_a_lit_screen_goes_dark_in_quiet_hours_unless_the_owner_says_no(client):
+def test_a_page_shows_the_plate_whatever_the_hour_and_is_always_colour(client):
+    """Look and Dark in quiet hours are gone: a lit screen shows the plate in
+    colour, and a stored choice from the old build is ignored."""
     svc = client.app.state.service
     svc.config.quiet_hours_mode = "custom"
     svc.config.quiet_hours_start, svc.config.quiet_hours_end = "11:00", "13:00"
     url = "/api/view/state?viewer=PAGE-3&w=1536&h=2048"
-    assert client.get(url).json()["dark"] is True
-    client.post("/api/viewers/PAGE-3", json={"dark_quiet": False})
     assert client.get(url).json()["dark"] is False
-    # "Paper look" is the owner's format choice.
-    client.post("/api/viewers/PAGE-3", json={"fmt": "gray256"})
+    client.post("/api/viewers/PAGE-3", json={"dark_quiet": True, "fmt": "gray256"})
+    assert svc.frames.get("PAGE-3")["set"] == {}
     state = client.get(url).json()
-    assert state["paper"] is True and "-gray256-" in state["image"]
+    assert state["dark"] is False and state["paper"] is False
+    assert "-color-" in state["image"]
+    # …and a row written by the old build is ignored, not obeyed.
+    row = svc.frames.get("PAGE-3")
+    svc.frames.save({**row, "set": {"fmt": "gray256", "dark_quiet": True}})
+    state = client.get(url).json()
+    assert state["dark"] is False and "-color-" in state["image"]
 
 
 def test_a_page_that_does_not_say_who_it_is_is_refused(client):
@@ -231,10 +238,12 @@ def test_each_viewer_is_a_row_with_only_the_controls_its_screen_has(client):
     assert "Hall TRMNL" in card and "iPad" in card
     x, kobo, page = (card.split(f'data-frame="{i}"')[1].split(chr(10) + "    </li>")[0]
                      for i in (X["ID"], KOBO["ID"], "PAGE-1"))
-    assert 'data-f="rotation"' in x and 'data-f="width"' not in x and 'data-f="dark_quiet"' not in x
+    assert 'data-f="rotation"' in x and 'data-f="width"' not in x
     assert 'data-f="width"' in kobo                        # it never said how big it is
-    assert 'data-f="dark_quiet"' in page and 'data-f="rotation"' not in page
-    assert 'data-f="fmt"' in page and 'data-f="fmt"' not in x          # Look is a lit screen's
+    assert 'data-f="rotation"' not in page                 # a tablet turns its own picture
+    # How deep a screen is drawn is the device's, never the owner's.
+    for row in (x, kobo, page):
+        assert 'data-f="fmt"' not in row and 'data-f="dark_quiet"' not in row
     # Every frame is named and every frame shows something.
     for row in (x, kobo, page):
         assert 'data-f="name"' in row and 'data-f="shows"' in row
@@ -247,13 +256,14 @@ def test_each_viewer_is_a_row_with_only_the_controls_its_screen_has(client):
 
 
 def test_the_row_posts_what_the_api_takes(client):
-    """The row sends every field as the form holds it: strings, a checkbox bool."""
+    """The row sends every field as the form holds it, and the fields no
+    screen has any more are simply not taken."""
     client.get("/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad")
     r = client.post("/api/frames/PAGE-1", json={"name": " Kitchen iPad ", "fmt": "gray256",
                                                 "dark_quiet": False})
     v = _row(r.json()["frames"], "PAGE-1")
-    assert v["name"] == "Kitchen iPad" and v["settings"]["format"] == "gray256"
-    assert v["settings"]["dark_quiet"] is False
+    assert v["name"] == "Kitchen iPad" and v["settings"]["format"] == "color"
+    assert "dark_quiet" not in v["settings"]
     client.get("/api/display", headers=KOBO)
     r = client.post(f"/api/frames/{KOBO['ID']}", json={"name": "", "rotation": "0",
                                                        "width": "1264", "height": "1680"})

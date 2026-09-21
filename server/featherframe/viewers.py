@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from . import frames
-from .render.pipeline import VIEW_FORMATS, View
+from .render.pipeline import View
 
 log = logging.getLogger("featherframe.viewers")
 
@@ -47,7 +47,7 @@ _GRAY16_SIZES = {(1872, 1404), (1404, 1872)}   # the EE03's glass, whatever it i
 _DEFAULT_SIZE = (1072, 1448)
 
 _ID_RE = re.compile(r"^[0-9A-Za-z:._-]{1,40}$")
-_OWNER_FIELDS = ("name", "width", "height", "fmt", "rotation", "dark_quiet", "shows")
+_OWNER_FIELDS = ("name", "width", "height", "rotation", "shows")
 SHOWS = ("plates", "collage")   # else: whatever the frame shows
 
 # The kiosk page (W-825) on a lit screen. It asks often because asking is
@@ -80,8 +80,10 @@ def _float(value, lo: float, hi: float) -> Optional[float]:
 
 
 def view_of(record: dict) -> View:
-    """The View a viewer is drawn for: the owner's choice, else the report,
-    else the default for what it seems to be."""
+    """The View a viewer is drawn for: its size is the owner's choice, else the
+    report, else the default for what it seems to be. How deep it is drawn is
+    never the owner's: it follows what the DEVICE reported, and a lit screen is
+    always colour."""
     own, rep = record.get("set") or {}, record.get("reported") or {}
     width = own.get("width") or rep.get("width")
     height = own.get("height") or rep.get("height")
@@ -89,19 +91,17 @@ def view_of(record: dict) -> View:
     if not sized:
         width, height = _DEFAULT_SIZE
     page = frames.transport_of(record) == "page"
-    fmt = own.get("fmt")
-    if fmt not in VIEW_FORMATS:
-        if page:
-            fmt = "color"   # a lit colour screen; "paper" on the page is gray256
-        elif not (rep.get("width") and rep.get("height")):
-            # Only TRMNL's firmware reports a size. A script client (Kobo,
-            # Kindle) paints with fbink/eips, which want the smooth page even
-            # once the owner has told us how big the screen is.
-            fmt = "gray256"
-        elif str(rep.get("model") or "").lower() in _GRAY16_MODELS or (width, height) in _GRAY16_SIZES:
-            fmt = "gray16"
-        else:
-            fmt = "gray2"
+    if page:
+        fmt = "color"       # a lit colour screen
+    elif not (rep.get("width") and rep.get("height")):
+        # Only TRMNL's firmware reports a size. A script client (Kobo,
+        # Kindle) paints with fbink/eips, which want the smooth page even
+        # once the owner has told us how big the screen is.
+        fmt = "gray256"
+    elif str(rep.get("model") or "").lower() in _GRAY16_MODELS or (width, height) in _GRAY16_SIZES:
+        fmt = "gray16"
+    else:
+        fmt = "gray2"
     rotation = own.get("rotation")
     if rotation not in (0, 90, 180, 270):
         # As panels._rotations: a landscape canvas hangs portrait. The plate is
@@ -116,12 +116,6 @@ def shows_of(record: dict) -> Optional[str]:
     """"plates" | "collage", or None: whatever the frame shows."""
     shows = (record.get("set") or {}).get("shows")
     return shows if shows in SHOWS else None
-
-
-def dark_in_quiet_hours(record: dict) -> bool:
-    """A lit screen goes black in quiet hours unless the owner says otherwise:
-    paper can sit in a dark room showing a plate, a tablet glows."""
-    return (record.get("set") or {}).get("dark_quiet", True) is not False
 
 
 def page_size(width, height) -> Optional[tuple[int, int]]:
@@ -211,12 +205,8 @@ class Viewers:
                 raw = fields[key]
                 if key == "name":
                     value = str(raw or "").strip()[:60] or None
-                elif key == "fmt":
-                    value = raw if raw in VIEW_FORMATS else None
                 elif key == "shows":
                     value = raw if raw in SHOWS else None
-                elif key == "dark_quiet":
-                    value = None if raw in (None, "") else bool(raw) and str(raw).lower() not in ("0", "false", "off")
                 elif key == "rotation":
                     value = _int(raw, 0, 270)
                     value = value if value in (0, 90, 180, 270) else None
@@ -258,7 +248,6 @@ def public(row: dict) -> dict:
             "view": {"width": view.width, "height": view.height, "format": view.fmt,
                      "rotation": view.rotation},
             "shows": shows_of(row),
-            "dark_quiet": dark_in_quiet_hours(row) if kind == "page" else None,
             "first_seen": row.get("first_seen"), "last_seen": row.get("last_seen"),
             "ip": row.get("ip")}
 

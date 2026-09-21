@@ -140,10 +140,10 @@ def test_battery_endpoint_shape(client, svc):
 
 
 def test_power_row_hides_percent_on_usb_and_shows_it_on_battery(client, svc):
-    """The Health row's Power tile, per frame (W-833)."""
+    """The Power tile in that frame's own row (W-833)."""
     def row():
         body = client.get("/").text.split("<body")[1]
-        return body.split(f'data-health="{svc.LEGACY_FRAME}"')[1].split(chr(10) + "    </li>")[0]
+        return body.split(f'data-frame="{svc.LEGACY_FRAME}"')[1].split(chr(10) + "    </li>")[0]
     client.get("/api/frame", headers={"X-Battery-Voltage": "4.21", "X-Battery-Percent": "100"})
     html = row()
     assert 'data-h="batt"' in html

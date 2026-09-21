@@ -152,9 +152,9 @@ def _row(client) -> str:
 
 def test_wake_interval_row_hidden_unless_deep_sleep(client):
     _set(client, power_mode="awake")
-    assert 'class="reveal collapsed" data-fr-reveal="sleep" hidden' in _row(client)
+    assert '<span data-fr-swap="sleep" hidden>' in _row(client)
     _set(client, power_mode="sleep")
-    assert 'class="reveal" data-fr-reveal="sleep" >' in _row(client)
+    assert '<span data-fr-swap="sleep" >' in _row(client)
 
 
 # -- device poll interval (W-775) --------------------------------------------
@@ -169,10 +169,13 @@ def test_device_poll_seconds_served_and_clamped(client):
     assert Config(device_poll_seconds=999).device_poll_seconds == 60
 
 
-def test_check_every_row_shown_only_when_awake(client):
+def test_one_update_interval_swaps_its_options_with_the_power_model(client):
+    """Same label, same place: seconds while awake, minutes in deep sleep."""
     _set(client, power_mode="awake")
     row = _row(client)
-    assert 'class="reveal" data-fr-reveal="awake" >' in row
-    assert 'class="reveal collapsed" data-fr-reveal="sleep" hidden' in row
+    assert row.count(">Update interval<") == 1
+    assert '<span data-fr-swap="awake" >' in row
+    assert '<span data-fr-swap="sleep" hidden>' in row
+    assert 'data-f="device_poll_seconds"' in row and 'data-f="wake_interval_minutes"' in row
     _set(client, power_mode="sleep")
-    assert 'class="reveal collapsed" data-fr-reveal="awake" hidden' in _row(client)
+    assert '<span data-fr-swap="awake" hidden>' in _row(client)

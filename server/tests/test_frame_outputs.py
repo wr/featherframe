@@ -224,8 +224,8 @@ def test_the_frames_list_is_one_shape_for_a_kit_a_trmnl_and_a_page(client, svc):
     assert trmnl["settings"]["format"] == "gray16" and not trmnl["capabilities"]["mat"]
     assert trmnl["card"]["battery"].startswith("4.02 V")
     page = listed["PAGE-IPAD"]
-    assert page["transport"] == "page" and page["settings"]["dark_quiet"] is True
-    assert page["capabilities"]["look"] and page["card"]["battery"] is None   # nothing to report
+    assert page["transport"] == "page" and page["settings"]["format"] == "color"
+    assert page["capabilities"]["colour"] and page["card"]["battery"] is None
 
 
 # -- the upgrade from the single-frame build -----------------------------------

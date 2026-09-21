@@ -357,6 +357,14 @@ def _ago(then: datetime, now: datetime) -> str:
     return f"{days} day ago" if days == 1 else f"{days} days ago"
 
 
+def _within(stamp: Optional[str], now: datetime, seconds: float) -> bool:
+    """Was `stamp` (an ISO time, or nothing) this recently?"""
+    try:
+        return (now - datetime.fromisoformat(str(stamp))).total_seconds() <= seconds
+    except (ValueError, TypeError):
+        return False
+
+
 def _served_words(result: Optional[str]) -> Optional[str]:
     if result == "304":
         return "up to date (304)"
@@ -368,6 +376,14 @@ def _served_words(result: Optional[str]) -> Optional[str]:
 # An always-awake frame polls every 15 s (FF_POLL_INTERVAL_MS) and backs off
 # after repeated failures; a few minutes of silence is a real outage.
 _AWAKE_OVERDUE_MINUTES = 5
+
+# What each picture is called on the page. The stored values stay "plates" and
+# "collage"; these are the words an owner reads.
+SHOWS_WORDS = {PLATES: "Individual detections", COLLAGE: "Collage"}
+
+# A browser tab asks every PAGE_POLL_SECONDS. Three missed asks and it is not
+# open any more — which is not a device in trouble, just a closed tab.
+_PAGE_OPEN_SECONDS = 3 * viewers_mod.PAGE_POLL_SECONDS
 
 
 def _kit_order(row: dict) -> tuple:
@@ -417,7 +433,7 @@ def frame_card(reported: dict, wake_interval_minutes: int,
     device = device_of(reported)
     awake = (power_mode == "awake")
     expected = _AWAKE_OVERDUE_MINUTES if awake else 2 * wake_interval_minutes
-    card = {"seen": False, "overdue": False,
+    card = {"seen": False, "overdue": False, "state": "off",
             "expected_minutes": wake_interval_minutes,
             "overdue_text": ("Overdue — checks in every few seconds" if awake
                              else f"Overdue — wakes every {wake_interval_minutes} min"),
@@ -1492,10 +1508,6 @@ class FeatherframeService:
         allowed = ["name", "shows"]
         if caps["rotations"]:
             allowed.append("rotation")
-        if caps["look"]:
-            allowed.append("fmt")
-        if caps["dark_quiet"]:
-            allowed.append("dark_quiet")
         if caps["needs_size"]:
             allowed += ["width", "height"]
         take = {k: v for k, v in fields.items() if k in allowed}
@@ -1937,6 +1949,15 @@ class FeatherframeService:
             # A browser tab that was closed is not a device in trouble: a page
             # is never overdue, it was just last open a while ago.
             card["overdue"] = False
+            # …and a tab that is not open right now is simply not showing
+            # anything, which is the grey dot, not the green one.
+            live = _within(card["last_checkin_iso"], self._clock(), _PAGE_OPEN_SECONDS)
+        else:
+            live = card["seen"]
+        # The one place the row's status dot is decided.
+        card["state"] = ("bad" if card["battery_critical"] else
+                         ("warn" if card["overdue"] else
+                          ("good" if live else "off")))
         return card
 
     def frames_list(self) -> list:
@@ -1978,7 +1999,7 @@ class FeatherframeService:
             "name": name, "title": name or what.split(" · ")[0], "what": what,
             "transport": transport, "status": row.get("status"),
             "shows": shows,
-            "summary": self._frame_summary(row, what, shows, view, named=bool(name)),
+            "summary": self._frame_summary(what, shows, named=bool(name)),
             "picture_etag": self.picture_etag(shows) if on else None,
             "output_etag": self._output_etag(fid) if kit else None,
             "preview_url": f"/api/frames/{quote(fid, safe='')}/preview.png" if on else None,
@@ -1996,8 +2017,6 @@ class FeatherframeService:
                 "width": view.width if view else (cfg.panel_spec.width if kit else None),
                 "height": view.height if view else (cfg.panel_spec.height if kit else None),
                 "format": view.fmt if view else (cfg.panel_spec.fmt if kit else None),
-                "dark_quiet": viewers_mod.dark_in_quiet_hours(row)
-                if transport == "page" else None,
             },
             # What "Reset to this panel's defaults" fills in, for this panel.
             "defaults": {k: getattr(fresh, k) for k in
@@ -2023,16 +2042,12 @@ class FeatherframeService:
             "notices": self.frame_notices(row),
         }
 
-    def _frame_summary(self, row: dict, what: str, shows: str, view,
-                       named: bool = False) -> str:
+    def _frame_summary(self, what: str, shows: str, named: bool = False) -> str:
         """The one line a collapsed row carries: what this screen is, and what
-        it shows. A lit screen adds how it is drawn, which is its to choose.
-        An unnamed frame's title already says the short of what it is, so the
-        summary carries only the rest."""
+        it shows. An unnamed frame's title already says the short of what it
+        is, so the summary carries only the rest."""
         about = what if named else " · ".join(what.split(" · ")[1:])
-        bits = [about, "Collage" if shows == COLLAGE else "Plates"]
-        if frames_mod.transport_of(row) == "page" and view is not None:
-            bits.append(viewers_mod.depth_word(view.fmt))
+        bits = [about, SHOWS_WORDS[COLLAGE if shows == COLLAGE else "plates"]]
         return " · ".join(b for b in bits if b)
 
 

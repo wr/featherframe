@@ -360,6 +360,10 @@ async def save_settings(request: Request):
         return v if isinstance(v, str) else default
     def i(key, default): return _to_int(s(key, None), default)
     def b(key): return key in form  # checkbox present -> true
+    # An empty limit means no limit, which is stored as 0.
+    def limit(key, default):
+        raw = s(key, None)
+        return 0 if (raw is not None and not raw.strip()) else _to_int(raw, default)
     # A clock time that isn't one ("99:99") keeps the stored value rather
     # than being coerced to some other time or reset to the default.
     def t(key, default): return s(key, default) if valid_hhmm(s(key, None)) else default
@@ -387,7 +391,7 @@ async def save_settings(request: Request):
         collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
-        collage_species_max=i("collage_species_max", cur["collage_species_max"]),
+        collage_species_max=limit("collage_species_max", cur["collage_species_max"]),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
         imagegen_base_url=s("imagegen_base_url", cur["imagegen_base_url"]),
@@ -981,10 +985,11 @@ async def view_state(request: Request, viewer: Optional[str] = None, w: Optional
                                   request.client.host if request.client else None)
     view = viewers.view_of(row)
     etag = svc.picture_etag(viewers.shows_of(row))
-    quiet = svc.config.in_quiet_hours(svc._clock().time())
     return JSONResponse({
         "image": f"/api/viewers/{quote(viewer_id, safe='')}/{etag}-{view.key}.png",
-        "dark": bool(quiet and viewers.dark_in_quiet_hours(row)),
+        # A page shows the plate whatever the hour; the key stays so a /view
+        # tab that has been open since before this build keeps working.
+        "dark": False,
         "paper": view.fmt != "color",
         "poll": viewers.PAGE_POLL_SECONDS,
     }, headers={"Cache-Control": "no-store"})

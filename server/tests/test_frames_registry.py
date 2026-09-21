@@ -150,7 +150,8 @@ def test_a_gray_kit_has_a_mat_a_power_model_and_its_panels_rotations():
     caps = frames.capabilities(_kit("ED103TC2 1404x1872 gray16", battery_voltage=3.9))
     assert caps["rotations"] == (90, 270) and caps["mat"] and caps["power"]
     assert caps["renamable"] and caps["shows"]
-    assert not caps["colour"] and not caps["look"] and not caps["dark_quiet"]
+    assert not caps["colour"]
+    assert "look" not in caps and "dark_quiet" not in caps
     assert caps["has_battery"] and not caps["needs_size"]
 
 
@@ -184,7 +185,7 @@ def test_a_trmnl_that_reported_its_size_needs_nothing_from_the_owner():
     assert not caps["needs_size"] and caps["has_battery"]
     assert caps["rotations"] == (0, 90, 180, 270)     # turned in the render, not by the glass
     assert not caps["mat"] and not caps["power"] and not caps["colour"]
-    assert not caps["dark_quiet"] and not caps["look"]
+    assert "look" not in caps and "dark_quiet" not in caps
 
 
 def test_a_trmnl_that_reported_no_size_has_to_be_told():
@@ -198,7 +199,8 @@ def test_a_page_is_lit_turns_itself_and_has_no_battery():
     row = frames.new_row("AA:BB:CC:DD:EE:02", "page", "2026-09-20T09:00:00", frames.ON)
     row["reported"] = {"width": 2048, "height": 1536, "model": "iPad"}
     caps = frames.capabilities(row)
-    assert caps["rotations"] == () and caps["colour"] and caps["look"] and caps["dark_quiet"]
+    assert caps["rotations"] == () and caps["colour"]
+    assert "look" not in caps and "dark_quiet" not in caps
     assert not caps["mat"] and not caps["power"] and not caps["has_battery"]
     assert not caps["needs_size"] and caps["renamable"] and caps["shows"]
 

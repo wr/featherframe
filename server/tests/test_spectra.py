@@ -198,12 +198,12 @@ def test_an_ignored_frame_is_listed_and_can_be_added_or_forgotten(client):
     assert r.status_code == 403 and r.headers["x-ff-frame"] == "ignored"
     assert _by_status(svc, "asking") == [] and _by_status(svc, "ignored") == ["BBBBBBBBBB02"]
     html = client.get("/").text
-    assert "Ignored (1)" in html and "A frame is asking to connect." not in html
+    assert "Ignored (1)" in html and "wants to connect" not in html
 
     _answer(client, "BBBBBBBBBB02", "forget")
     assert _by_status(svc, "ignored") == []
     assert client.get("/api/frame", headers=COLOUR).headers["x-ff-frame"] == "pending"
-    assert "A frame is asking to connect." in client.get("/").text
+    assert "wants to connect" in client.get("/").text
     # The only frame cannot be ignored out from under itself: the first kit to
     # check in on a server with none is let in again the moment it asks.
     assert client.post("/api/frames", data={"id": "AAAAAAAAAA01",

@@ -182,8 +182,8 @@ def test_the_page_offers_to_add_it_and_then_lists_it(client):
 
 
 def test_both_frames_are_the_same_row(client):
-    """Name, Shows, rotation, Power, Advanced, Save, Remove: the first kit is
-    not a different kind of thing from the second."""
+    """Name, Content, Rotation, Power, Advanced, Details, Save, Remove: the
+    first kit is not a different kind of thing from the second."""
     _add(client)
     client.get("/api/frame", headers=EE02)                 # it reports battery and Wi-Fi
     body = client.get("/").text.split("<body")[1]
@@ -194,9 +194,9 @@ def test_both_frames_are_the_same_row(client):
                      'data-f="power_mode"', 'data-f="mat_inset_pct"',
                      'data-fr-action="save"', 'data-fr-action="forget"'):
             assert want in row
-    # And both are in the Health card, with their own vitals and identity.
-    for h in (EE03, EE02):
-        hl = body.split('data-health="%s"' % h["X-Device-Id"])[1].split(chr(10) + "    </li>")[0]
-        assert ">Power<" in hl and ">Wi-Fi<" in hl and "<summary>Details</summary>" in hl
-    hl02 = body.split('data-health="%s"' % EE02["X-Device-Id"])[1].split(chr(10) + "    </li>")[0]
-    assert "71%" in hl02 and "Good" in hl02 and "1.9.0" in hl02 and EE02["X-Board"] in hl02
+        # …and each carries its own health, in the row and in its Details.
+        for want in ('data-h="dot"', 'data-h="seen-text"', 'data-h="batt-wrap"',
+                     'data-h="wifi-wrap"', "<span>Details</span>", ">Power<", ">Wi-Fi<"):
+            assert want in row, want
+    ee02 = rows[1]
+    assert "71%" in ee02 and "Good" in ee02 and "1.9.0" in ee02 and EE02["X-Board"] in ee02

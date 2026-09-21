@@ -87,8 +87,9 @@ WANTED = {
                       ["name", "shows", "rotation", "width", "height"],
                       ["power_mode", "mat_inset_pct", "fmt", "dark_quiet"]),
     "page": ("PAGE-TEST",
-             ["name", "shows", "fmt", "dark_quiet"],
-             ["rotation", "power_mode", "mat_inset_pct", "width", "height"]),
+             ["name", "shows"],
+             ["rotation", "power_mode", "mat_inset_pct", "width", "height",
+              "fmt", "dark_quiet"]),
 }
 
 
@@ -97,10 +98,12 @@ def test_each_screen_gets_the_same_row_with_only_its_own_controls(client, kind):
     _populate(client)
     frame_id, has, has_not = WANTED[kind]
     row = _row(_card(client), frame_id)
-    # The same component every time: a head that opens onto a body, then Save
-    # and Remove.
-    for part in ('class="fr-head"', 'aria-expanded="false"', 'class="fr-sum"',
-                 'class="fr-body"', 'data-fr-action="save"', 'data-fr-action="forget"'):
+    # The same component every time, and it IS the page's disclosure: a
+    # details.disc whose summary carries the frame's health, then its
+    # settings, its Details, then Save and Remove.
+    for part in ('<summary>', 'class="fr-main"', 'class="fr-desc"',
+                 'class="fr-body"', '<span>Details</span>',
+                 'data-fr-action="save"', 'data-fr-action="forget"'):
         assert part in row, part
     for field in has:
         assert f'data-f="{field}"' in row, field
@@ -119,29 +122,30 @@ def test_a_kits_rotation_is_only_the_ones_its_panel_takes(client):
     colour = _select(_row(card, COLOUR["X-Device-Id"]), "rotation")
     assert 'value="90"' in gray and 'value="270"' in gray and 'value="0"' not in gray
     assert 'value="0"' in colour and 'value="180"' in colour and 'value="90"' not in colour
-    # A viewer turns in the render, so any quarter turn is drawable — and it is
-    # described in words, not degrees.
-    trmnl = _row(card, TRMNL_X["ID"])
-    assert "Upright" in trmnl and "Upside down" in trmnl
+    # A viewer turns in the render, so any quarter turn is drawable — in
+    # degrees, like every other screen's.
+    trmnl = _select(_row(card, TRMNL_X["ID"]), "rotation")
+    for r in (0, 90, 180, 270):
+        assert f'value="{r}"' in trmnl and ">%d\u00b0<" % r in trmnl
 
 
 def test_the_collapsed_row_says_what_it_is_and_what_it_shows(client):
     svc = _populate(client)
-    assert _listed(svc, GRAY["X-Device-Id"])["summary"].endswith(" · Plates")
+    assert _listed(svc, GRAY["X-Device-Id"])["summary"].endswith(" · Individual detections")
     assert _listed(svc, COLOUR["X-Device-Id"])["summary"].endswith(" · Collage")
     # Unnamed, the title is the short of what it is and the summary the rest:
     # the collapsed row never says the same thing twice.
     gray = _listed(svc, GRAY["X-Device-Id"])
-    assert gray["title"] == "EE03" and gray["summary"] == '10.3" gray · Plates'
+    assert gray["title"] == "EE03" and gray["summary"] == '10.3" gray · Individual detections'
     page = _listed(svc, "PAGE-TEST")
-    assert page["title"] == "iPad" and page["summary"] == "Plates · color"
+    assert page["title"] == "iPad" and page["summary"] == "Individual detections"
     # Named, the summary says what it is in full.
     client.post("/api/frames/PAGE-TEST", json={"name": "Kitchen"})
-    assert _listed(svc, "PAGE-TEST")["summary"] == "iPad · Plates · color"
+    assert _listed(svc, "PAGE-TEST")["summary"] == "iPad · Individual detections"
     client.post("/api/frames/PAGE-TEST", json={"name": ""})
     card = _card(client)
     for fid in (GRAY["X-Device-Id"], "PAGE-TEST"):
-        shown = _row(card, fid).split('class="fr-sum"')[1].split(">", 1)[1].split("<")[0]
+        shown = _row(card, fid).split('class="fr-desc"')[1].split(">", 1)[1].split("<")[0]
         assert shown == escape(_listed(svc, fid)["summary"], quote=False).replace(chr(34), "&#34;")
 
 
@@ -198,7 +202,7 @@ def test_every_frame_can_be_renamed_through_the_one_endpoint(client, frame_id):
 
 def test_a_save_takes_only_what_the_screen_has(client):
     """Capability validation: a page cannot be given a panel rotation, a mat or
-    a power model, and a kit cannot be given a lit screen's Look."""
+    a power model, and no screen has a Look or a Dark in quiet hours any more."""
     svc = _populate(client)
     r = client.post("/api/frames/PAGE-TEST",
                     json={"shows": "collage", "fmt": "gray256", "dark_quiet": False,
@@ -206,8 +210,9 @@ def test_a_save_takes_only_what_the_screen_has(client):
                           "nonsense": 1})
     assert r.json()["ok"]
     own = svc.frames.get("PAGE-TEST")["set"]
-    assert own["shows"] == "collage" and own["fmt"] == "gray256" and own["dark_quiet"] is False
-    for refused in ("rotation", "power_mode", "mat_inset_pct", "nonsense"):
+    assert own["shows"] == "collage"
+    for refused in ("fmt", "dark_quiet", "rotation", "power_mode", "mat_inset_pct",
+                    "nonsense"):
         assert refused not in own
     fid = GRAY["X-Device-Id"]
     assert client.post(f"/api/frames/{fid}", json={"fmt": "color", "dark_quiet": True,
@@ -244,7 +249,7 @@ def test_a_frame_that_is_asking_is_offered_add_or_ignore(client):
     client.get("/api/frame", headers=GRAY)
     client.get("/api/frame", headers=COLOUR)
     card = _card(client)
-    assert "A frame is asking to connect." in card
+    assert "wants to connect" in card
     assert f'data-frame-action="add" data-frame-id="{COLOUR["X-Device-Id"]}"' in card
     assert f'data-frame-action="ignore" data-frame-id="{COLOUR["X-Device-Id"]}"' in card
     # There is no current frame, so there is nothing to replace.
@@ -257,7 +262,7 @@ def test_an_ignored_frame_folds_at_the_bottom_with_add_and_forget(client):
     client.get("/api/frame", headers=COLOUR)
     client.post("/api/frames", data={"id": COLOUR["X-Device-Id"], "action": "ignore"})
     card = _card(client)
-    assert "Ignored (1)" in card and "A frame is asking to connect." not in card
+    assert "Ignored (1)" in card and "wants to connect" not in card
     ignored = card.split('class="ign-list"')[1]
     assert f'data-frame-action="add" data-frame-id="{COLOUR["X-Device-Id"]}"' in ignored
     assert f'data-frame-action="forget" data-frame-id="{COLOUR["X-Device-Id"]}"' in ignored
@@ -302,18 +307,139 @@ def test_the_battery_endpoint_is_per_frame(client):
     assert svc.db.battery_history("2000-01-01", fid)
 
 
-def test_the_health_card_has_a_row_per_frame_and_the_source(client):
+def test_the_row_carries_that_frames_health(client):
+    """The Health card is gone: one device-list row per frame, with its dot,
+    its badges and its three readings, opening onto the same Details."""
     _populate(client)
-    body = client.get("/").text.split('id="health-card"')[1].split('id="history-card"')[0]
-    for frame_id in (GRAY["X-Device-Id"], COLOUR["X-Device-Id"], TRMNL_X["ID"], "PAGE-TEST"):
-        assert f'data-health="{frame_id}"' in body, frame_id
-    gray = body.split(f'data-health="{GRAY["X-Device-Id"]}"')[1].split(ROW_END)[0]
-    assert "72%" in gray and "2026.09.20" in gray and GRAY["X-Board"] in gray
-    assert 'data-h="spark"' in gray                  # its own 24 h trend
-    # The source's half is still there, and no setting is.
-    assert "Now showing" in body and "Species heard" in body
+    html = client.get("/").text
+    assert 'id="health-card"' not in html and "hl-list" not in html
+    card = _card(client)
+    gray = _row(card, GRAY["X-Device-Id"])
+    # collapsed: the dot, the readings
+    assert '<span class="d good" data-h="dot">' in gray
+    assert '"fr-batt"' in gray and "72%" in gray
+    assert 'data-h="wifi-wrap"' in gray and "Good · -61 dBm" in gray
+    assert 'data-h="seen-text">just now<' in gray
+    # open: the same Details the Health card held
+    assert 'data-h="spark"' in gray                  # its own 24 h trend, in place
+    assert "2026.09.20" in gray and GRAY["X-Board"] in gray and ">Frame ID<" in gray
+    # a screen that reports neither leaves those columns empty, and says so
+    kobo = _row(card, KOBO["ID"])
+    assert 'data-h="batt-wrap" hidden' in kobo and 'data-h="wifi-wrap" hidden' in kobo
+    # and no setting is anywhere near the metadata
     for field in FRAME_FIELDS:
-        assert f'name="{field}"' not in body
+        assert f'name="{field}"' not in card
+
+
+def test_an_overdue_or_flat_frame_wears_a_badge_not_a_banner(client):
+    from datetime import timedelta
+    svc = _populate(client)
+    svc._clock = (lambda real=svc._clock: lambda: real() + timedelta(days=1))()
+    gray = _row(_card(client), GRAY["X-Device-Id"])
+    assert '<span class="badge warn" data-h="overdue" >Overdue</span>' in gray
+    assert '<span class="d warn" data-h="dot">' in gray
+    assert 'id="batt-banners"' not in client.get("/").text
+
+
+def test_a_tab_that_is_not_open_is_grey_not_green(client):
+    from datetime import timedelta
+    svc = _populate(client)
+    assert _listed(svc, "PAGE-TEST")["card"]["state"] == "good"
+    svc._clock = (lambda real=svc._clock: lambda: real() + timedelta(minutes=5))()
+    page = _listed(svc, "PAGE-TEST")["card"]
+    assert page["overdue"] is False and page["state"] == "off"
+
+
+# -- the words on the page ----------------------------------------------------
+GONE = ("Shows", "Check every", "Wake interval", "Turned", "Look",
+        "Dark in quiet hours", "updates from here too",
+        "Any screen can be set to show it", "a few hours apart suits it",
+        "0 shows every species")
+
+
+def test_the_copy_that_was_cut_is_nowhere_on_the_page(client):
+    _populate(client)
+    html = client.get("/").text
+    for gone in GONE:
+        assert gone not in html, gone
+
+
+def test_a_frames_settings_are_named_plainly(client):
+    _populate(client)
+    gray = _row(_card(client), GRAY["X-Device-Id"])
+    for label in (">Name<", ">Content<", ">Rotation<", ">Power<", ">Update interval<",
+                  ">Mat inset (%)<", ">Mat offset (px)<", ">Reset to defaults<"):
+        assert label in gray, label
+    assert ">Individual detections<" in gray and ">Collage<" in gray
+    assert "Always awake suits USB power. Deep sleep suits a battery." in gray
+    assert "How often the display checks for updates" in gray
+    # A name explains itself; only Power, the interval, the mat and a screen
+    # with no reported size carry a hint at all.
+    assert gray.count('class="hint"') == 4
+    kobo = _row(_card(client), KOBO["ID"])
+    assert ">Screen size<" in kobo
+    assert "This device doesn\u2019t report its screen size." in kobo or \
+           "This device doesn't report its screen size. Enter it in pixels for " \
+           "a sharper image." in kobo
+
+
+def test_one_update_interval_saves_the_field_its_power_model_uses(client):
+    """The options swap with Power; only the one in use is offered."""
+    svc = _populate(client)
+    fid = GRAY["X-Device-Id"]
+    row = _row(_card(client), fid)
+    assert row.count(">Update interval<") == 1
+    assert '<span data-fr-swap="awake" >' in row and '<span data-fr-swap="sleep" hidden>' in row
+    assert client.post(f"/api/frames/{fid}",
+                       json={"power_mode": "sleep", "wake_interval_minutes": 30}).json()["ok"]
+    own = svc.frames.get(fid)["set"]
+    assert own["wake_interval_minutes"] == 30 and "device_poll_seconds" not in own
+    row = _row(_card(client), fid)
+    assert '<span data-fr-swap="sleep" >' in row and '<span data-fr-swap="awake" hidden>' in row
+
+
+# -- the household's Collage section ------------------------------------------
+def _sections(client) -> list:
+    import re
+    return re.findall(r'<h2 class="sec-head">([^<]*)', client.get("/").text)
+
+
+def test_collage_sits_just_above_image_generation(client):
+    _populate(client)
+    names = [s.strip() for s in _sections(client)]
+    assert "Frames" not in names                      # the card is just the list
+    assert names.index("Collage") + 1 == names.index("Image generation")
+    assert names[0] == "Quiet hours" and names[1] == "Detection source"
+
+
+def test_the_collage_section_is_three_settings_and_no_preamble(client):
+    _populate(client)
+    sec = client.get("/").text.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
+    assert 'class="intro"' not in sec
+    assert ">Update interval (hours)<" in sec and ">Species limit<" in sec
+    assert "How often the collage is redrawn during the day" in sec
+    assert "The most species shown in one collage" in sec
+    # The AI collage moved here, always on offer, with its readiness note.
+    assert 'name="collage_generated"' in sec
+    assert ">Generate the collage with AI " in sec
+    assert "Draws the nightly collage as a single illustrated scene" in sec
+    assert 'id="cg-needs-key"' in sec
+    ig = client.get("/").text.split('<h2 class="sec-head">Image generation')[1]
+    assert 'name="collage_generated"' not in ig
+
+
+def test_an_empty_species_limit_is_no_limit(client):
+    svc = _populate(client)
+    r = client.post("/settings", data={"collage_species_max": "",
+                                       "collage_interval_hours": "8"},
+                    follow_redirects=False)
+    assert r.status_code == 303 and svc.config.collage_species_max == 0
+    field = client.get("/").text.split('id="f-review-max"')[1].split(">")[0]
+    assert 'placeholder="No limit"' in field and 'value=""' in field
+    client.post("/settings", data={"collage_species_max": "12",
+                                   "collage_interval_hours": "8"}, follow_redirects=False)
+    assert svc.config.collage_species_max == 12
+    assert 'value="12"' in client.get("/").text.split('id="f-review-max"')[1].split(">")[0]
 
 
 # -- the shims are gone -------------------------------------------------------

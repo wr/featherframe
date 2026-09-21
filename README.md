@@ -173,41 +173,43 @@ reflash.
 
 The page at `http://<your-pi>:8080/` is the whole UI. It has two halves: on the
 left the **live preview** (with a chip per screen, so you can see what each one
-is showing) and a **Health** card; on the right, everything you can change.
+is showing), how the detection source is doing, and the history; on the right,
+everything you can change.
 
 **Frames** is the first card, and every screen this server draws for is one row
-in it — the kit on the wall, a second kit, a TRMNL, a tablet. Open a row and it
+in it — the kit on the wall, a second kit, a TRMNL, a tablet. Each row is the
+whole of that frame: collapsed it shows a status dot, the name, what the screen
+is and what it shows, and its battery, Wi-Fi and last check-in. Open it and it
 offers only what that screen has:
 
 - **Name** — every frame is yours to name; blank falls back to what it is.
-- **Shows** — *Plates* (the species just heard, one at a time) or *Collage*
-  (the day's species on one sheet). Each screen chooses for itself.
-- **Panel rotation** (a kit) or **Turned** (a TRMNL or e-reader) — which way up
-  it hangs. A kit is offered only the rotations its own panel accepts.
-- **Power** (a kit) — *always awake* (Wi-Fi up, asks for a new plate every few
-  seconds, instant buttons; for USB) or *deep sleep* (wakes on the **wake
-  interval**, 15 min by default, or a button; for battery). *Check every* sets
-  the awake poll (3 s by default). The frame picks it up on its next check-in.
-- **Look** and **Dark in quiet hours** (a tablet) — colour or the gray the
-  frame shows, and whether a lit screen goes black at night.
-- **Screen** — only for a client that does not say how big it is.
-- **Advanced** (a kit) — the mat inset and offsets, with *Reset to this panel's
-  defaults*.
+- **Content** — *Individual detections* (the species just heard, one at a time)
+  or *Collage* (the day's species on one sheet).
+- **Rotation** — which way up it hangs. A kit is offered only the rotations its
+  own panel accepts; anything else gets all four.
+- **Power** (a kit) — *always awake* (for USB) or *deep sleep* (for battery).
+- **Update interval** (a kit) — how often the display checks for updates:
+  seconds while it is always awake, minutes in deep sleep. The frame picks it
+  up on its next check-in.
+- **Screen size** — only for a client that does not say how big it is.
+- **Advanced** (a kit) — the mat inset and offsets, with *Reset to defaults*.
+- **Details** — battery, Wi-Fi, the 24 h voltage trend, IP, firmware, panel,
+  board and the frame's id. Metadata, never a setting.
 
-Everything below it is the household's: the same for every screen.
+A frame that is overdue or nearly flat wears a badge on its own row; there is
+no banner across the page.
 
-- **Collage** — how often the sheet is redrawn, and how many species it holds.
+Everything below the Frames card is the household's: the same for every screen.
+
 - **Quiet hours** (22:00–06:00, or sunset to sunrise), with the optional
   overnight collage. The confidence threshold is your detector's own: set it in
   BirdNET-Go, not here.
-- **Species blocklist** — one name per line. Ban the house sparrows if you like.
 - **Detection source** — BirdNET-Pi DB (default), BirdNET-Go, BirdWeather, or
-  an Apprise webhook, with a *Test connection* button.
+  an Apprise webhook, with a *Test connection* button, and the **species
+  blocklist** under its Advanced: one name per line.
+- **Collage** — how often it is redrawn, how many species it holds (leave it
+  empty for no limit), and whether to draw it with AI.
 - **Image generation** — optional; see below.
-
-**Health**, on the left, is where each frame's last check-in, battery, Wi-Fi
-signal, 24 h voltage trend and overdue warning live, one row per screen, plus
-how the detection source is doing. Nothing there is a setting.
 
 ## Other screens: tablets, TRMNL, Kobo, Kindle
 
@@ -224,9 +226,7 @@ Settings → Display & Brightness → Auto-Lock → *Never*; Guided Access locks
 to the page if little hands are about. On Android,
 [Fully Kiosk Browser](https://www.fully-kiosk.com) pointed at the same address
 keeps the screen on. An e-ink Android tablet (Boox) works the same way; set its
-refresh mode to the clearest one for that app. A lit screen goes black in quiet
-hours; its row in the **Frames** card has the switch for that, and a *Paper*
-look that shows the plate in gray, like the frame.
+refresh mode to the clearest one for that app.
 
 **TRMNL** (the 10.3" TRMNL X has the same glass as the gray frame, so the plate
 is pixel for pixel the same; the 7.5" OG works but is small and four grays):
@@ -244,8 +244,8 @@ you set the size.
 
 A screen in landscape gets the plate turned on its side, for hanging portrait.
 Every one of them is a row in the **Frames** card, where you can name it, say
-what it shows, turn it, set a size, or pick a tablet's look. The same from a
-shell — one endpoint for every frame, whatever it is fed over:
+what it shows, turn it, or set a size. The same from a shell — one endpoint for
+every frame, whatever it is fed over:
 
 ```bash
 curl http://<your-pi>:8080/api/status | jq '.frames.list[] | {id, title, summary}'
@@ -279,8 +279,8 @@ Rough model for a 2000 mAh cell and ~20 refreshes a day:
 Quiet hours push these further; the always-awake model lasts 4–5 days. Below
 3.45 V (3.55 V on the colour panel, whose warning is a full 30 s refresh) the
 frame says "Battery low, charge me" on the glass, once, and stops using Wi-Fi
-until it's charged; the page warns first, with a red banner
-under 10 %.
+until it's charged; the page warns first, with a *Battery low* badge on that
+frame's row under 10 %.
 
 ## Species & plates
 

@@ -33,9 +33,14 @@ def test_without_a_key_the_section_reads_as_optional_and_complete(svc):
     html = _page(svc)
     assert "Featherframe is complete without this." in html
     rows = _needs_key_rows(html)
-    assert len(rows) == 3 and all("hidden" in r for r in rows)
-    # Hidden, not removed: the stored toggles still ride along on a save.
-    assert 'name="imagegen_enabled"' in html and 'name="collage_generated"' in html
+    assert len(rows) == 2 and all("hidden" in r for r in rows)
+    # Hidden, not removed: the stored toggle still rides along on a save.
+    assert 'name="imagegen_enabled"' in html
+    # The AI collage is the Collage section's, always on offer, with an inline
+    # note when there is nothing behind it yet.
+    assert 'name="collage_generated"' in html
+    assert "Image generation isn\u2019t set up yet." in html or \
+           "Image generation isn't set up yet." in html
 
 
 def test_a_key_or_a_self_hosted_endpoint_brings_the_rows_back(svc):

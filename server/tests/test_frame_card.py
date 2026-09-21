@@ -174,8 +174,9 @@ def test_page_overdue(svc):
     svc.frames.save({**svc.frames.get(FRAME_ID),
                      "reported": {**svc.frames.get(FRAME_ID)["reported"],
                                   "last_checkin": late.isoformat(timespec="seconds")}})
-    html = _render_page(svc)
-    assert f"Overdue — wakes every {minutes} min" in html
+    # The row says so with a badge of its own.
+    assert svc.frame_health(svc.frames.get(FRAME_ID))["overdue"] is True
+    assert '<span class="badge warn" data-h="overdue" >Overdue</span>' in _render_page(svc)
 
 
 # -- device_extra plumbing + show_battery gating ----------------------------
@@ -200,14 +201,16 @@ def test_battery_row_always_renders(svc):
     assert 'name="show_battery"' not in html
 
 
-def test_page_banner_when_battery_critical(svc):
-    """One banner per frame, naming the frame it is about (W-833)."""
+def test_a_nearly_empty_cell_is_a_badge_on_that_frames_row(svc):
+    """No full-width banner any more: the row it is about carries it."""
     _checkin(svc, user_agent="esp32-featherframe", battery_voltage=3.95, battery_percent=72)
-    banners = _render_page(svc).split('id="batt-banners"')[1].split("</div>")[0]
-    assert "Charge" not in banners
-    # (set directly: the card shows the last few minutes\' median, not one reading)
+    assert '<span class="badge bad" data-h="lowbatt" hidden>' in _render_page(svc)
     svc._battery_live.clear()
     _checkin(svc, battery_voltage=3.47, battery_percent=6, last_result="304")
     svc._battery_live.clear()
     svc.update_frame(FRAME_ID, {"name": "Hallway"})
-    assert "Charge Hallway." in _render_page(svc)
+    html = _render_page(svc)
+    row = html.split('data-frame="%s"' % FRAME_ID)[1].split(chr(10) + "    </li>")[0]
+    assert "Hallway" in row
+    assert '<span class="badge bad" data-h="lowbatt" >Battery low</span>' in row
+    assert "Charge Hallway." not in html

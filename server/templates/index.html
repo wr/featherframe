@@ -649,7 +649,7 @@
       <div class="card plate-card">
         <div class="plate{{ '' if status.current.etag else ' empty' }}" id="plate">
           <a class="plate-link" href="/api/preview.png" target="_blank" rel="noopener">
-            <img id="preview" src="/api/preview.png" alt="{{ ('Current frame: ' ~ status.current.label) if status.current.label else 'Current frame' }}">
+            <img id="preview" src="/api/preview.png" alt="{{ ('Current frame: ' ~ status.current.title) if status.current.title else 'Current frame' }}">
           </a>
           <div class="plate-empty">Nothing rendered yet.<br>The first detection will appear here.</div>
         </div>

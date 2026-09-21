@@ -267,7 +267,7 @@ def test_page_shows_the_pending_row_and_no_settings_group(client, svc, monkeypat
     assert client.get("/api/status").json()["pending"]["common"] == "Bald Eagle"
 
 
-# -- the day-in-review species cap ------------------------------------------
+# -- the collage species cap ------------------------------------------------
 def _painted_cells(svc, monkeypatch):
     """Capture what the generated composite is asked to paint."""
     seen = []

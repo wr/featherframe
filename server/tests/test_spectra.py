@@ -302,3 +302,19 @@ def test_the_panel_picks_the_dither_and_a_fresh_install_its_mode(monkeypatch):
     assert Config.defaults_for("ee03").mode == "single"
     monkeypatch.setenv("FEATHERFRAME_PANEL", "ee02")
     assert Config().mode == "collage"
+
+
+def test_a_fresh_installs_first_colour_frame_starts_on_the_collage(client):
+    """No FEATHERFRAME_PANEL, no notice to raise: the frame's own report picks
+    the mode, as it picks the rotation (W-821)."""
+    svc = client.app.state.service
+    assert (svc.config.panel, svc.config.mode) == ("ee03", "single")
+    client.get("/api/frame", headers=COLOUR)
+    assert (svc.config.panel, svc.config.mode) == ("ee02", "collage")
+    assert svc.panel_notices()["swap"] is None
+
+
+def test_a_custom_colour_panel_defaults_to_the_collage_too():
+    from featherframe import panels
+    assert panels.get("custom:1200x1600:spectra6:0,180").mode == "collage"
+    assert panels.get("custom:800x480:gray16:90,270").mode == "single"

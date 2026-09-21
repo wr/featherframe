@@ -601,7 +601,7 @@
     <span class="test-msg">
       <strong>New panel connected.</strong>
       The frame now reports the {{ pn.swap.to_name }} panel (it was the {{ pn.swap.from_name }}), and updates are already drawn for it.
-      {% if pn.swap.off_default %}Dithering, rotation and the mat settings are still the ones saved for the old panel.{% else %}The display settings already match this panel's defaults.{% endif %}
+      {% if pn.swap.off_default %}The mode, rotation and mat settings are still the ones saved for the old panel. This panel's defaults are {{ 'a collage every few hours' if config.panel_spec.mode == 'collage' else 'a plate for each detection' }}, its own rotation and the standard mat.{% else %}The display settings already match this panel's defaults.{% endif %}
       <span class="panel-note-actions">
         {% if pn.swap.off_default %}<button class="btn primary" type="button" data-panel-action="defaults">Use this panel's defaults</button>
         <button class="btn" type="button" data-panel-action="keep">Keep my settings</button>
@@ -651,7 +651,7 @@
           <a class="plate-link" href="/api/preview.png" target="_blank" rel="noopener">
             <img id="preview" src="/api/preview.png" alt="{{ ('Current frame: ' ~ status.current.label) if status.current.label else 'Current frame' }}">
           </a>
-          <div class="plate-empty">Nothing rendered yet.<br>The first detection that clears the confidence threshold will appear here.</div>
+          <div class="plate-empty">Nothing rendered yet.<br>The first detection will appear here.</div>
         </div>
         {# W-735: a live hold is state you need to see, so it stays above the
            fold; the rest of the plate's controls are tools and sit in a closed

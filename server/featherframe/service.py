@@ -1,7 +1,7 @@
 """The running service: state + the render scheduler.
 
 One background thread polls BirdNET on a short interval, decides whether a new
-frame is warranted (mode, confidence, debounce, same-species, quiet hours), and
+frame is warranted (mode, quiet hours, corroboration, the dwell hold), and
 renders at most one frame per decision. Everything else — the web handlers —
 just reads the current frame. Priority #3 (few panel refreshes) lives here: the
 default path is to do nothing.
@@ -1116,7 +1116,7 @@ class FeatherframeService:
     # -- test detection ----------------------------------------------------
     def force_test_detection(self, common_name: str = "Northern Cardinal",
                              scientific_name: str = "Cardinalis cardinalis") -> RenderResult:
-        """Inject a fake detection and render it now (bypasses debounce). The
+        """Inject a fake detection and render it now. The
         default is the Cardinal; any species name exercises the full provider
         chain, including AI generation for plate-less species. It also bypasses
         the new-species corroboration gate: this is a deliberate injection
@@ -1263,13 +1263,6 @@ class FeatherframeService:
             self.adopt_panel(row.get("panel"), row.get("facts"), swapped=True)
         return True
 
-    def reported_panel(self) -> Optional["panels.Panel"]:
-        """The panel the active frame describes, or None (no frame yet, or one
-        that names no panel we know and sent no size)."""
-        reg = self._frames()
-        row = reg["known"].get(reg.get("active") or "")
-        return panels.from_report(row.get("panel"), row.get("facts")) if row else None
-
     def adopt_panel(self, reported: Optional[str], facts: Optional[dict] = None,
                     swapped: bool = False) -> bool:
         """Draw for the panel the ACTIVE frame says it has (X-Panel, or its
@@ -1283,10 +1276,16 @@ class FeatherframeService:
             return False
         log.info("the frame reports panel %r: switching %s -> %s",
                  reported, self.config.panel, panel.key)
+        changes = {"panel": panel.key}
         if swapped or self.device.last_checkin:
             self.db.set("panel_notice", {"from": self.config.panel, "to": panel.key,
                                          "at": self._clock().isoformat(timespec="seconds")})
-        cfg = Config.from_dict({**self.config.to_dict(), "panel": panel.key})
+        elif self.config.mode == self.config.panel_spec.mode:
+            # A fresh install's first frame: nothing was tuned, so there is no
+            # notice to raise and nobody to ask. It starts in its panel's own
+            # mode, as sanitize() already gives it that panel's rotation.
+            changes["mode"] = panel.mode
+        cfg = Config.from_dict({**self.config.to_dict(), **changes})
         self.update_config(cfg)
         self.rerender_current()
         return True

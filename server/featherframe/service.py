@@ -11,6 +11,7 @@ device, and the ingest cursor is persisted so we don't replay history.
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import logging
 import math
@@ -52,6 +53,17 @@ _CURRENT_PNG = "current.png"
 _CURRENT_SHEET = "current_sheet.png"   # the composed sheet viewers are drawn from (W-823)
 _CURRENT_SHEET_COLOR = "current_sheet_color.png"   # its colour twin, while a colour viewer is about
 _VIEWS_MAX = 8                         # cached viewer renders of the resident frame
+# The picture the frame is not showing (W-831): the collage beside a frame on
+# plates, the plate beside a frame on the collage. Kept only while a viewer set
+# to it has asked within this long: draw only what some screen shows.
+SIDE_VIEWER_DAYS = 30
+_SIDE_KINDS = ("plates", "collage")
+
+
+def _side_sheet(kind: str, color: bool = False) -> str:
+    return f"side_{kind}_sheet{'_color' if color else ''}.png"
+
+
 # A gray frame's server composes the colour twin only while a colour viewer (a
 # tablet) has asked within this long: nobody watching in colour, nothing paid.
 COLOR_VIEWER_DAYS = 30
@@ -431,6 +443,7 @@ class FeatherframeService:
         self._lock = threading.RLock()
         self._view_lock = threading.Lock()   # one viewer render at a time
         self._recompose_color = None    # draws the resident sheet again, in colour
+        self._side_stale: set = set()   # side pictures owed a redraw (a colour viewer arrived)
         self._color_asked_at: Optional[datetime] = None   # cache of the DB's color_viewer_at
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -454,6 +467,8 @@ class FeatherframeService:
         self._frame_bytes: Optional[bytes] = None
         self._etag: Optional[str] = None
         self._meta: dict = self.db.get("current_frame", {}) or {}
+        side = self.db.get("side_pictures", {})
+        self._side: dict = side if isinstance(side, dict) else {}   # kind -> {etag, at, key}
         self._load_current_from_disk()
         # Verify the persisted ingest cursor isn't stale on the first single-tick
         # after start (see _single_tick); cheaper than checking every tick.
@@ -594,6 +609,13 @@ class FeatherframeService:
 
     # -- the decision loop -------------------------------------------------
     def tick(self) -> None:
+        self._tick_frame()
+        try:
+            self._tick_sides()
+        except Exception:  # noqa: BLE001 — a viewer's picture never costs the frame its tick
+            log.warning("side picture not drawn", exc_info=True)
+
+    def _tick_frame(self) -> None:
         self.reload_config()
         now = self._clock()
         available = self.source.available()
@@ -944,12 +966,8 @@ class FeatherframeService:
     def _build_collage(self, now: datetime, on_date: ddate,
                        generated_ok: bool = False,
                        force_generated: bool = False) -> bool:
-        cap = self.config.collage_species_max  # 0 = every species heard today
-        rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR,
-                                             limit=max(6, cap) if cap else 500)
-        rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
-        rows = self._corroborated_rows(rows, on_date)
-        if len(rows) < 2:
+        composed = self._collage_composer(now, on_date, generated_ok)
+        if composed is None:
             # Not enough for a grid: fall back to single for the day. This
             # runs on every tick while the day has one species, so skip the
             # render when that bird is already on the glass — otherwise it is
@@ -960,6 +978,26 @@ class FeatherframeService:
             if latest and not self._showing_single(latest):
                 self._render_single(latest, now, reason="collage-fallback")
             return False
+        compose, note = composed
+        img, label = compose(self.config.panel_spec.color, force=force_generated)
+        result = pipeline.render_image(img, self.config, "collage", label)
+        # The twin never forces a repaint: it reads the sheet just painted.
+        self._commit(result, now, mode="collage", species_key=None, label=label, note=note,
+                     recompose=lambda: compose(True)[0])
+        log.info("rendered collage (%s), etag=%s", label, result.etag)
+        return True
+
+    def _collage_composer(self, now: datetime, on_date: ddate, generated_ok: bool = False):
+        """(compose, note) for the day's collage, or None when fewer than two
+        species qualify. `compose(color, force=False) -> (sheet, label)`. The
+        one collage (W-830): the frame's and a viewer's are drawn by this."""
+        cap = self.config.collage_species_max  # 0 = every species heard today
+        rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR,
+                                             limit=max(6, cap) if cap else 500)
+        rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
+        rows = self._corroborated_rows(rows, on_date)
+        if len(rows) < 2:
+            return None
         cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
         grid = cells[:6]  # the grid holds six; the generated sheet takes the cap
         note = self._note_text()
@@ -991,13 +1029,7 @@ class FeatherframeService:
                                                color=color),
                     f"{len(grid)}-species collage")
 
-        img, label = compose(self.config.panel_spec.color, force=force_generated)
-        result = pipeline.render_image(img, self.config, "collage", label)
-        # The twin never forces a repaint: it reads the sheet just painted.
-        self._commit(result, now, mode="collage", species_key=None, label=label, note=note,
-                     recompose=lambda: compose(True)[0])
-        log.info("rendered collage (%s), etag=%s", label, result.etag)
-        return True
+        return compose, note
 
     # -- generated-plate management (config page) --------------------------
     def regenerate_generated(self, slug: str) -> bool:
@@ -1704,17 +1736,116 @@ class FeatherframeService:
             return None
         return sheet if sheet is not None and sheet.mode == "RGB" else None
 
+    def _note_color_viewer(self) -> None:
+        """A colour viewer is asking: remember it (once a day is enough)."""
+        now = self._clock()
+        if self._color_asked_at is None or now - self._color_asked_at > timedelta(days=1):
+            self._color_asked_at = now
+            self.db.set("color_viewer_at", now.isoformat(timespec="seconds"))
+
+    # -- the side picture (W-831) ------------------------------------------
+    # The frame shows plates or the collage; a viewer may show the other. That
+    # other picture is a composed sheet kept beside the frame's: never an FFF,
+    # never the frame's state, and drawn only while some viewer shows it.
+    def resident_kind(self) -> Optional[str]:
+        mode = self._meta.get("mode")
+        return {"single": "plates", "collage": "collage"}.get(mode)   # welcome: everyone sees it
+
+    def side_kind_for(self, shows: Optional[str]) -> Optional[str]:
+        """The side picture a viewer set to `shows` gets, or None for the
+        frame's. When the frame itself is showing that kind — a frame on plates
+        holding the nightly collage — the viewer shows the frame's: there is
+        one collage, the same on every screen."""
+        if shows not in _SIDE_KINDS or self.resident_kind() in (None, shows):
+            return None
+        return shows if (self._side.get(shows) or {}).get("etag") else None
+
+    def picture_etag(self, shows: Optional[str] = None) -> Optional[str]:
+        side = self.side_kind_for(shows)
+        return self._side[side]["etag"] if side else self.current_etag()
+
+    def _side_kinds_wanted(self, now: datetime) -> set:
+        since = (now - timedelta(days=SIDE_VIEWER_DAYS)).isoformat(timespec="seconds")
+        return {(r.get("set") or {}).get("shows") for r in self.viewers.all().values()
+                if (r.get("last_seen") or "") >= since} & set(_SIDE_KINDS)
+
+    def _tick_sides(self) -> None:
+        now = self._clock()
+        wanted = self._side_kinds_wanted(now)
+        for kind in set(self._side) - wanted:     # nobody shows it: stop paying for it
+            self._drop_side(kind)
+        # The frame's own mode is the frame's picture, never a side one.
+        wanted.discard({"single": "plates", "collage": "collage"}.get(self.config.mode))
+        if not wanted or self.config.in_quiet_hours(now.time()) or not self.source.available():
+            return   # the pictures hold still at night, as the frame's does
+        if "collage" in wanted:
+            self._side_collage(now)
+        if "plates" in wanted:
+            self._side_plate(now)
+
+    def _side_collage(self, now: datetime) -> None:
+        have = self._side.get("collage") or {}
+        try:
+            age = (now - datetime.fromisoformat(have["at"])).total_seconds()
+        except (KeyError, ValueError, TypeError):
+            age = None
+        today = now.date().isoformat()
+        fresh = (age is not None and age < self.config.collage_interval_hours * 3600
+                 and have.get("key") == today)
+        if fresh and "collage" not in self._side_stale:
+            return
+        composed = self._collage_composer(now, now.date())   # the free grid, as the frame's by day
+        if composed is None:
+            return   # under two species: the viewer keeps the plate, as a collage frame would
+        compose = composed[0]
+        self._save_side("collage", now, today, lambda color: compose(color)[0])
+
+    def _side_plate(self, now: datetime) -> None:
+        if self.user_hold(now) is not None and self._side.get("plates"):
+            return   # a hold pins the plate, on every screen that shows plates
+        det = self._first_showable(self.source.latest_many(CONFIDENCE_FLOOR), now)
+        if det is None:
+            return
+        have = self._side.get("plates") or {}
+        if have.get("key") == f"{det.key}@{det.rowid}" and "plates" not in self._side_stale:
+            return
+        note = self._note_text()
+        spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
+                          when=det.timestamp if det.timestamp != datetime.min else now,
+                          first_seen=self._first_seen(det.scientific_name), note=note,
+                          note_kind=self._note_kind() if note else None,
+                          first_ever=self._novelty(det, now) == "first-ever")
+        self._save_side("plates", now, f"{det.key}@{det.rowid}",
+                        lambda color: compose_mod.render_single(spec, self.provider, color=color))
+
+    def _save_side(self, kind: str, now: datetime, key: str, compose) -> None:
+        sheet = compose(False)
+        twin = self._compose_color(lambda: compose(True)) if self._color_wanted(now) else None
+        frames = paths.frames_dir()
+        self._write_sheet(frames / _side_sheet(kind), sheet)
+        self._write_sheet(frames / _side_sheet(kind, color=True), twin)
+        etag = hashlib.sha256(sheet.tobytes()).hexdigest()[:16]
+        with self._lock:
+            self._side[kind] = {"etag": etag, "at": now.isoformat(timespec="seconds"), "key": key}
+            self._side_stale.discard(kind)
+            self.db.set("side_pictures", self._side)
+        log.info("drew the side %s (%s), etag=%s", kind, key, etag)
+
+    def _drop_side(self, kind: str) -> None:
+        with self._lock:
+            self._side.pop(kind, None)
+            self.db.set("side_pictures", self._side)
+        for color in (False, True):
+            (paths.frames_dir() / _side_sheet(kind, color)).unlink(missing_ok=True)
+
     def _ensure_color_sheet(self) -> None:
         """A colour viewer is asking. Remember it (once a day is enough), and
         if the resident frame has no colour twin yet, draw one now: from the
         render's own recompose when this process made the frame (the wall is
         not touched), else by rendering the resident subject again."""
-        now = self._clock()
         if self.config.panel_spec.color:
             return
-        if self._color_asked_at is None or now - self._color_asked_at > timedelta(days=1):
-            self._color_asked_at = now
-            self.db.set("color_viewer_at", now.isoformat(timespec="seconds"))
+        self._note_color_viewer()
         target = paths.frames_dir() / _CURRENT_SHEET_COLOR
         if target.exists():
             return
@@ -1733,19 +1864,27 @@ class FeatherframeService:
         if mode in ("single", "collage"):
             self.rerender_current()   # a restart forgot the recompose: one repaint
 
-    def view_png(self, view: "pipeline.View",
-                 if_none_match: Optional[str] = None) -> tuple[int, Optional[bytes], Optional[str]]:
-        """The resident frame's picture for one viewer: (status, png, etag).
-        Read-only by design: a viewer never moves the frame, the device card,
-        the panel or the ingest cursor. Rendered once per (frame, variant) and
-        kept on disk; a new frame drops the old frame's views."""
+    def view_png(self, view: "pipeline.View", if_none_match: Optional[str] = None,
+                 shows: Optional[str] = None) -> tuple[int, Optional[bytes], Optional[str]]:
+        """A picture for one viewer: (status, png, etag). The frame's, or the
+        side picture when the viewer `shows` the other kind. Read-only by
+        design: a viewer never moves the frame, the device card, the panel or
+        the ingest cursor. Rendered once per (picture, variant) and kept on
+        disk; a new picture drops the old one's views."""
+        side = self.side_kind_for(shows)
         if view.fmt == "color":
-            self._ensure_color_sheet()
+            if side is None:
+                self._ensure_color_sheet()
+            else:
+                self._note_color_viewer()
+                if not (paths.frames_dir() / _side_sheet(side, color=True)).exists():
+                    self._side_stale.add(side)   # the next tick draws it in colour
         with self._lock:
             resident = self._etag
         if not resident:
             return 404, None, None
-        etag = f"{resident}-{view.key}"
+        picture = (self._side.get(side) or {}).get("etag") if side else resident
+        etag = f"{picture}-{view.key}"
         if if_none_match == etag:
             return 304, None, etag
         views = paths.views_dir()
@@ -1756,8 +1895,12 @@ class FeatherframeService:
             if cached.exists():
                 return 200, cached.read_bytes(), etag
             frames = paths.frames_dir()
-            wanted = ((_CURRENT_SHEET_COLOR,) if view.fmt == "color" else ()) \
-                + (_CURRENT_SHEET, _CURRENT_PNG)
+            if side:
+                wanted = ((_side_sheet(side, True),) if view.fmt == "color" else ()) \
+                    + (_side_sheet(side),)
+            else:
+                wanted = ((_CURRENT_SHEET_COLOR,) if view.fmt == "color" else ()) \
+                    + (_CURRENT_SHEET, _CURRENT_PNG)
             source = next((frames / n for n in wanted if (frames / n).exists()), None)
             if source is None:
                 return 404, None, None
@@ -1768,8 +1911,9 @@ class FeatherframeService:
                 tmp = cached.with_suffix(".tmp")
                 tmp.write_bytes(png)
                 os.replace(tmp, cached)
-                keep = sorted((f for f in views.glob("*.png")
-                               if f.name.startswith(f"{resident}-")),
+                live = tuple(f"{e}-" for e in
+                             [resident] + [v.get("etag") for v in self._side.values()] if e)
+                keep = sorted((f for f in views.glob("*.png") if f.name.startswith(live)),
                               key=lambda f: f.stat().st_mtime, reverse=True)[:_VIEWS_MAX]
                 for stale in set(views.glob("*.png")) - set(keep):
                     stale.unlink(missing_ok=True)

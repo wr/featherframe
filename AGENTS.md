@@ -146,6 +146,19 @@ hours* for a page; a pixel size only for a client that reported none. It
 posts JSON to `/api/viewers/<id>` and reloads. Nothing shared is ever offered
 per viewer, and a viewer's format follows what the *device* reported, never
 the owner's size (a Kobo script client stays smooth once sized).
+**Two pictures (W-831, step 1 of Screens, W-830).** The frame shows plates or
+the collage (`config.mode`); a viewer's *Shows* may pick the other, the *side
+picture*: a composed sheet (`side_<kind>_sheet[_color].png`, `service._side`,
+`side_pictures` in the DB), never an FFF, never the frame's state. `tick()` is
+`_tick_frame()` (the old tick, untouched) then `_tick_sides()`, which draws a
+side picture only while a viewer set to it has asked within
+`SIDE_VIEWER_DAYS`, drops it when nobody does, and holds still in quiet hours.
+Wells's rules: a hold pins plates only (the side plate too) and the blocklist
+is global; there is **one collage** — `_collage_composer` draws the frame's and
+the side one, and when the frame itself shows a collage (the nightly one on a
+plates frame) `side_kind_for` hands every viewer the frame's sheet; a picture
+no screen shows is never drawn. A viewer's ETag/filename is its own picture's
+(`picture_etag`), so a TRMNL on the collage does not repaint for a new plate.
 
 **Ingest (`birdnet.py`) is strictly read-only.** Opens `?mode=ro`, never writes
 or locks BirdNET's DB. The cursor is `WHERE rowid > :last`. Every method

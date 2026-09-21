@@ -866,13 +866,13 @@ async def trmnl_display(request: Request):
                           if token and hmac.compare_digest(str(r.get("token", "")), token)), None)
     if viewer_id is None:
         return JSONResponse({"status": 404, "error": "An ID header is required."}, status_code=404)
-    etag = svc.current_etag()
-    if not etag:
+    if not svc.current_etag():
         return Response(status_code=503, content=b"no frame yet")
     row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "trmnl",
                                   viewers.trmnl_report(request.headers),
                                   request.client.host if request.client else None)
     view = viewers.view_of(row)
+    etag = svc.picture_etag(viewers.shows_of(row))   # the plate's or the collage's (W-831)
     # The device repaints only when the filename changes: the frame's ETag and
     # the variant, so a new plate, or a new rotation from the page, is news.
     filename = f"{etag}-{view.key}"
@@ -900,7 +900,8 @@ async def viewer_png(request: Request, viewer_id: str, name: str):
     if row is None:
         return Response(status_code=404, content=b"no such viewer")
     inm = _strip_etag(request.headers.get("if-none-match"))
-    status, png, etag = await run_in_threadpool(svc.view_png, viewers.view_of(row), inm)
+    status, png, etag = await run_in_threadpool(svc.view_png, viewers.view_of(row), inm,
+                                               viewers.shows_of(row))
     if status == 404:
         return Response(status_code=404, content=b"no frame yet")
     headers = {"ETag": f'"{etag}"', "Cache-Control": "no-cache"}
@@ -936,13 +937,13 @@ async def view_state(request: Request, viewer: Optional[str] = None, w: Optional
     size = viewers.page_size(w, h)
     if viewer_id is None or size is None:
         return JSONResponse({"error": "viewer, w and h are required"}, status_code=400)
-    etag = svc.current_etag()
-    if not etag:
+    if not svc.current_etag():
         return JSONResponse({"image": None, "dark": False, "poll": viewers.PAGE_POLL_SECONDS})
     reported = {"width": size[0], "height": size[1], "model": _str_header(device, 40)}
     row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "page", reported,
                                   request.client.host if request.client else None)
     view = viewers.view_of(row)
+    etag = svc.picture_etag(viewers.shows_of(row))
     quiet = svc.config.in_quiet_hours(svc._clock().time())
     return JSONResponse({
         "image": f"/api/viewers/{quote(viewer_id, safe='')}/{etag}-{view.key}.png",

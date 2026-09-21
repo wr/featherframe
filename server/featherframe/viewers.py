@@ -38,7 +38,8 @@ _GRAY16_SIZES = {(1872, 1404), (1404, 1872)}   # the EE03's glass, whatever it i
 _DEFAULT_SIZE = (1072, 1448)
 
 _ID_RE = re.compile(r"^[0-9A-Za-z:._-]{1,40}$")
-_OWNER_FIELDS = ("name", "width", "height", "fmt", "rotation", "dark_quiet")
+_OWNER_FIELDS = ("name", "width", "height", "fmt", "rotation", "dark_quiet", "shows")
+SHOWS = ("plates", "collage")   # else: whatever the frame shows
 
 # The kiosk page (W-825) on a lit screen. It asks often because asking is
 # free on mains power, and a tablet should follow the wall within moments.
@@ -100,6 +101,12 @@ def view_of(record: dict) -> View:
         # its own picture when it is turned.
         rotation = 0 if page else (90 if width > height else 0)
     return View(int(width), int(height), fmt, rotation)
+
+
+def shows_of(record: dict) -> Optional[str]:
+    """"plates" | "collage", or None: whatever the frame shows."""
+    shows = (record.get("set") or {}).get("shows")
+    return shows if shows in SHOWS else None
 
 
 def dark_in_quiet_hours(record: dict) -> bool:
@@ -168,6 +175,8 @@ class Viewers:
                 value = str(raw or "").strip()[:60] or None
             elif key == "fmt":
                 value = raw if raw in VIEW_FORMATS else None
+            elif key == "shows":
+                value = raw if raw in SHOWS else None
             elif key == "dark_quiet":
                 value = None if raw in (None, "") else bool(raw) and str(raw).lower() not in ("0", "false", "off")
             elif key == "rotation":
@@ -213,6 +222,7 @@ def public(row: dict) -> dict:
             "reported": row.get("reported") or {}, "set": row.get("set") or {},
             "view": {"width": view.width, "height": view.height, "format": view.fmt,
                      "rotation": view.rotation},
+            "shows": shows_of(row),
             "dark_quiet": dark_in_quiet_hours(row) if row.get("kind") == "page" else None,
             "first_seen": row.get("first_seen"), "last_seen": row.get("last_seen"),
             "ip": row.get("ip")}
@@ -244,7 +254,7 @@ def card_row(row: dict, ago) -> dict:
         "size": f"{view.width}×{view.height}", "depth": _DEPTH_NAMES.get(view.fmt, view.fmt),
         "last_seen": ago(row.get("last_seen")), "battery": None if page else battery,
         "ip": row.get("ip"), "rotation": view.rotation, "landscape": view.width > view.height,
-        "fmt": view.fmt, "dark_quiet": dark_in_quiet_hours(row),
+        "fmt": view.fmt, "dark_quiet": dark_in_quiet_hours(row), "shows": shows_of(row) or "",
         # A client that says nothing about its screen: the owner has to.
         "needs_size": not page and not (rep.get("width") and rep.get("height")),
         "width": own.get("width") or "", "height": own.get("height") or "",

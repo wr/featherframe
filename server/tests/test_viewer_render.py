@@ -146,7 +146,7 @@ def test_a_frame_from_before_the_sheet_was_kept_still_has_a_view(client, tmp_pat
     the view is drawn from the preview PNG it already has."""
     svc = client.app.state.service
     _commit(svc)
-    (tmp_path / "data" / "frames" / "current_sheet.png").unlink()
+    svc.pictures["plates"].sheet_path.unlink()
     r = client.get("/api/view.png?w=300&h=400")
     assert r.status_code == 200 and Image.open(io.BytesIO(r.content)).size == (300, 400)
 
@@ -190,7 +190,7 @@ def test_nobody_asking_for_colour_costs_the_render_nothing(client, tmp_path):
     svc = client.app.state.service
     svc._clock = lambda: datetime(2026, 9, 20, 8, 0)
     _show_cardinal(svc)
-    assert not (tmp_path / "data" / "frames" / "current_sheet_color.png").exists()
+    assert not svc.pictures["plates"].has_color()
 
 
 def test_the_first_colour_ask_gets_colour_and_later_renders_keep_it(client, tmp_path):
@@ -203,9 +203,9 @@ def test_the_first_colour_ask_gets_colour_and_later_renders_keep_it(client, tmp_
     # The wall's own pixels are what they were: colour is a second sheet.
     assert svc._frame_bytes == wall
     # A later render composes the twin without being asked again.
-    (tmp_path / "data" / "frames" / "current_sheet_color.png").unlink()
+    svc.pictures["plates"].color_sheet_path.unlink()
     _show_cardinal(svc)
-    assert (tmp_path / "data" / "frames" / "current_sheet_color.png").exists()
+    assert svc.pictures["plates"].has_color()
     # And a gray viewer of the same frame is still gray.
     assert not _is_coloured(client.get("/api/view.png?w=600&h=800&format=gray256").content)
 
@@ -218,14 +218,14 @@ def test_colour_stops_being_composed_when_no_colour_viewer_has_asked_for_a_month
     svc._clock = lambda: datetime(2026, 11, 1, 8, 0)
     svc._color_asked_at = None   # as after a restart: only the DB remembers
     _show_cardinal(svc)
-    assert not (tmp_path / "data" / "frames" / "current_sheet_color.png").exists()
+    assert not svc.pictures["plates"].has_color()
 
 
 def test_after_a_restart_the_first_colour_ask_renders_the_resident_subject_again(client):
     svc = client.app.state.service
     svc._clock = lambda: datetime(2026, 9, 20, 8, 0)
     _show_cardinal(svc)
-    svc._recompose_color = None   # a restart forgets how the frame was composed
+    svc._recompose_color = None   # a restart forgets how the picture was composed
     r = client.get("/api/view.png?w=600&h=800&format=color")
     assert r.status_code == 200 and _is_coloured(r.content)
     assert svc._meta["label"] == "Northern Cardinal"

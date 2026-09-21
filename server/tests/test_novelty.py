@@ -103,7 +103,7 @@ KNOWN = {CARDINAL[1]: YESTERDAY, ROBIN[1]: YESTERDAY}
 def _capture_renders(svc, monkeypatch):
     rendered = []
     monkeypatch.setattr(svc, "_render_single",
-                        lambda det, now, reason: rendered.append(det.common_name))
+                        lambda det, now, reason, **kw: rendered.append(det.common_name))
     return rendered
 
 
@@ -410,7 +410,7 @@ def _note_renders(svc, monkeypatch):
     """Capture (label, footnote) per render without drawing anything."""
     rendered = []
 
-    def fake(det, now, reason):
+    def fake(det, now, reason, **kw):
         if reason != "settings":
             svc._just_now = None
         rendered.append((det.common_name, svc._note_text()))

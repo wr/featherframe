@@ -154,7 +154,9 @@ async def api_frame(request: Request, view: Optional[str] = None):
         return Response(status_code=403, content=b"this frame has not been added here",
                         headers=headers)
 
-    cfg = svc.frame_config(svc.frames.get(frame_id))
+    row = svc.frames.get(frame_id)
+    cfg = svc.frame_config(row)
+    poll_s, wake_min = svc.frame_intervals(row)
     # The power model, wake interval and rotation ride along on every response —
     # a 304 included (W-456/W-736): the device stores them in NVS, so the page
     # is the one place any of them is set.
@@ -167,8 +169,9 @@ async def api_frame(request: Request, view: Optional[str] = None):
                       # baked boot screens and pills to match the plates.
                       "X-FF-Rotation": str(cfg.panel_rotation),
                       "X-Power-Mode": cfg.power_mode,
-                      "X-Wake-Minutes": str(cfg.wake_interval_minutes),
-                      "X-Poll-Seconds": str(cfg.device_poll_seconds)}
+                      # On the collage both follow the collage's next redraw.
+                      "X-Wake-Minutes": str(wake_min),
+                      "X-Poll-Seconds": str(poll_s)}
     telemetry = {**device_extra, "battery_voltage": volt, "battery_percent": pct,
                  "wifi_rssi": rssi, "ip": client_ip,
                  "user_agent": request.headers.get("user-agent", "") or None}
@@ -957,7 +960,7 @@ async def trmnl_display(request: Request):
     filename = f"{etag}-{view.key}"
     return JSONResponse({"status": 0, "image_url": _viewer_image_url(request, viewer_id, filename),
                          "filename": filename, "image_url_timeout": 0,
-                         "refresh_rate": svc.viewer_refresh_seconds(),
+                         "refresh_rate": svc.viewer_refresh_seconds(row),
                          "update_firmware": False, "firmware_url": None, "reset_firmware": False,
                          "special_function": "none"})
 

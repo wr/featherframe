@@ -83,6 +83,11 @@ _CLOUD_POLL_SECONDS = 60
 # The confidence a detection needs when the source has no threshold of its
 # own. BirdNET-Go filters by its own setting and only falls back to this.
 CONFIDENCE_FLOOR = 0.7
+# A frame that shows the collage checks in when the collage is next redrawn
+# (W-833): this long after it, so the draw has landed, and never sooner than
+# this between checks.
+COLLAGE_CHECK_MARGIN_S = 90
+COLLAGE_CHECK_FLOOR_S = 60
 # Dwell: a first-ever or first-today species keeps the frame this long against
 # repeats of common species (another new one can still take over, and the held
 # one may re-render). Without it a first-ever species lost the glass to the
@@ -2292,11 +2297,65 @@ class FeatherframeService:
         return etag
 
     # -- viewers (W-822) ---------------------------------------------------
-    def viewer_refresh_seconds(self) -> int:
-        """How long a viewer is told to sleep: the plate holds still in quiet
-        hours, so it may as well."""
-        quiet = self.config.in_quiet_hours(self._clock().time())
+    def viewer_refresh_seconds(self, row: Optional[dict] = None) -> int:
+        """How long a viewer is told to sleep: on the collage, until the
+        collage is next redrawn; on plates, the constant — which is the hourly
+        one in quiet hours, when the plate holds still anyway."""
+        now = self._clock()
+        if row is not None and viewers_mod.shows_of(row) == COLLAGE:
+            return self._collage_check_seconds(now)
+        quiet = self.config.in_quiet_hours(now.time())
         return viewers_mod.QUIET_REFRESH_SECONDS if quiet else viewers_mod.REFRESH_SECONDS
+
+    # -- checks that follow the collage -------------------------------------
+    def collage_next_at(self, now: datetime) -> Optional[datetime]:
+        """When the collage picture is next redrawn, from `_draw`'s own rules:
+        in quiet hours nothing is drawn until the window ends (the nightly
+        collage aside, which is about to happen if it has not); by day, the
+        interval after the last draw, the start of quiet hours, or midnight,
+        whichever is first. None means "soon": nothing to wait for."""
+        cfg = self.config
+        pic = self.pictures[COLLAGE]
+        if pic.etag is None:
+            return None
+        if cfg.in_quiet_hours(now.time()):
+            if cfg.quiet_hours_render_collage and \
+                    self.db.get("quiet_collage_for") != self._collage_date(now).isoformat():
+                return None
+            return self._next_time(now, cfg.quiet_window(now.date())[1])
+        try:
+            last_at = datetime.fromisoformat(pic.meta.get("collage_at") or "")
+        except (ValueError, TypeError):
+            return None
+        soonest = [last_at + timedelta(hours=cfg.collage_interval_hours),
+                   datetime.combine(now.date() + timedelta(days=1), dtime.min)]
+        if cfg.quiet_hours_mode != "off":
+            soonest.append(self._next_time(now, cfg.quiet_window(now.date())[0]))
+        return min(soonest)
+
+    @staticmethod
+    def _next_time(now: datetime, at: dtime) -> datetime:
+        """The next moment the clock reads `at`, after `now`."""
+        when = datetime.combine(now.date(), at)
+        return when if when > now else when + timedelta(days=1)
+
+    def _collage_check_seconds(self, now: datetime) -> int:
+        nxt = self.collage_next_at(now)
+        wait = (nxt - now).total_seconds() if nxt is not None else 0.0
+        if wait <= 0:
+            return COLLAGE_CHECK_FLOOR_S   # nothing to wait for, or overdue: soon
+        return int(min(86400, max(COLLAGE_CHECK_FLOOR_S, wait + COLLAGE_CHECK_MARGIN_S)))
+
+    def frame_intervals(self, row: Optional[dict], now: Optional[datetime] = None) -> tuple[int, int]:
+        """(poll seconds, wake minutes) served to one kit. On plates they are
+        the owner's; on the collage the kit checks in just after the collage's
+        next redraw, so its checks follow the collage and not a clock of their
+        own — and the row's own interval is not read at all."""
+        cfg = self.frame_config(row)
+        if frames_mod.shows_of(row) != COLLAGE:
+            return cfg.device_poll_seconds, cfg.wake_interval_minutes
+        secs = self._collage_check_seconds(now or self._clock())
+        return secs, max(1, min(1440, -(-secs // 60)))
 
     def _single_in_color(self, spec: SingleSpec):
         return lambda: compose_mod.render_single(spec, self.provider, color=True)

@@ -116,7 +116,7 @@
 
 // Deep-sleep timer bounds: a 0 in NVS would arm a zero-length timer (wake storm).
 #define FF_MIN_SLEEP_MINUTES   1
-#define FF_MAX_SLEEP_MINUTES   720
+#define FF_MAX_SLEEP_MINUTES   1440
 
 // --- Power model: the mode a fresh unit boots in until the server says ---
 // The server sends X-Power-Mode (awake|sleep) and X-Wake-Minutes on every

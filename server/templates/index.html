@@ -289,6 +289,7 @@
        store the setting off. The Preview button beside the label still works. */
     .frow.locked > .frow-text > .lab { color:var(--muted); }
     .frow.locked > .frow-ctl { opacity:.55; pointer-events:none; }
+    .fr-int-collage { display:block; text-align:right; font-size:14px; color:var(--muted); }
     .hint { font-size:12.5px; color:var(--muted); margin-top:3px; line-height:1.5; }
     /* A hint that contrasts two choices reads better as two bullets. */
     .hint ul { margin:0; padding-left:1.1em; }
@@ -870,6 +871,8 @@
     {% set caps = fr.capabilities %}
     {% set s = fr.settings %}
     {% set card = fr.card %}
+    {% set every = {1: 'Every hour', 4: 'Every 4 hours', 6: 'Every 6 hours', 12: 'Every 12 hours', 24: 'Every 24 hours'} %}
+    {% set collage_every = every.get(config.collage_interval_hours, 'Every ' ~ config.collage_interval_hours ~ ' hours') %}
     {% set rssi = card.wifi_rssi %}
     {% set bars = (4 if rssi >= -55 else (3 if rssi >= -67 else (2 if rssi >= -75 else 1))) if rssi is not none else 0 %}
     {% set word = 'Excellent' if bars == 4 else ('Good' if bars == 3 else ('Fair' if bars == 2 else 'Weak')) %}
@@ -942,10 +945,13 @@
         {# One interval, whichever power model is on: the options swap, the row
            stays where it is. Only the shown one is posted. A stored value the
            menu does not offer is shown as it is, so saving never changes it. #}
-        <div class="frow">
-          <div class="frow-text"><span class="lab" id="fr-int-lab-{{ i }}">Update interval</span></div>
+        {# On the collage the row is locked: the kit checks in when the collage
+           is next redrawn, so its own interval is neither read nor offered. #}
+        <div class="frow{{ ' locked' if s.shows == 'collage' else '' }}" data-fr-interval>
+          <div class="frow-text"><span class="lab" id="fr-int-lab-{{ i }}">Update interval</span><div class="hint" data-fr-interval-hint>{{ 'Set by the collage’s update interval.' if s.shows == 'collage' else '' }}</div></div>
           <div class="frow-ctl">
-            <span data-fr-swap="awake" {{ '' if s.power_mode == 'awake' else 'hidden' }}>
+            <span class="fr-int-collage" data-fr-collage-every {{ '' if s.shows == 'collage' else 'hidden' }}>{{ collage_every }}</span>
+            <span data-fr-swap="awake" {{ '' if s.power_mode == 'awake' and s.shows != 'collage' else 'hidden' }}>
               {# The same eight steps either way; USB stores seconds, a battery minutes. #}
               {% set steps = [(1, 'Every minute'), (5, 'Every 5 minutes'), (15, 'Every 15 minutes'), (30, 'Every 30 minutes'),
                               (60, 'Every hour'), (120, 'Every 2 hours'), (360, 'Every 6 hours'), (1440, 'Every 24 hours')] %}
@@ -954,7 +960,7 @@
                 {% if s.device_poll_seconds % 60 or (s.device_poll_seconds // 60) not in steps | map(attribute=0) | list %}<option value="{{ s.device_poll_seconds }}" selected>Every {{ s.device_poll_seconds }} seconds</option>{% endif %}
               </select>
             </span>
-            <span data-fr-swap="sleep" {{ '' if s.power_mode == 'sleep' else 'hidden' }}>
+            <span data-fr-swap="sleep" {{ '' if s.power_mode == 'sleep' and s.shows != 'collage' else 'hidden' }}>
               <select class="sel" data-f="wake_interval_minutes" aria-labelledby="fr-int-lab-{{ i }}">
                 {% for m, word in steps %}<option value="{{ m }}" {{ 'selected' if s.wake_interval_minutes == m else '' }}>{{ word }}</option>{% endfor %}
                 {% if s.wake_interval_minutes not in steps | map(attribute=0) | list %}<option value="{{ s.wake_interval_minutes }}" selected>Every {{ s.wake_interval_minutes }} minutes</option>{% endif %}
@@ -2032,15 +2038,35 @@
     function busy(row, on) { row.querySelectorAll('button').forEach(function (b) { b.disabled = on; }); }
 
     // One Update interval, whichever power model is on: the options swap.
+    // On the collage the row is locked and quotes the collage's own interval
+    // instead: the kit checks in when the collage is next redrawn.
+    var collageEvery = $('f-every');
+    function collageEveryWord() {
+      var o = collageEvery && collageEvery.options[collageEvery.selectedIndex];
+      return o ? o.textContent : '';
+    }
     function syncPower(row) {
       var pm = row.querySelector('[data-f="power_mode"]:checked');
+      var shows = row.querySelector('[data-f="shows"]:checked');
+      var onCollage = !!(shows && shows.value === 'collage');
+      var ir = row.querySelector('[data-fr-interval]');
+      if (ir) {
+        ir.classList.toggle('locked', onCollage);
+        var hint = ir.querySelector('[data-fr-interval-hint]');
+        if (hint) hint.textContent = onCollage ? 'Set by the collage\u2019s update interval.' : '';
+        var word = ir.querySelector('[data-fr-collage-every]');
+        if (word) { word.hidden = !onCollage; if (onCollage) word.textContent = collageEveryWord(); }
+      }
       if (!pm) return;
       ['awake', 'sleep'].forEach(function (mode) {
         var el = row.querySelector('[data-fr-swap="' + mode + '"]');
-        if (el) el.hidden = pm.value !== mode;
+        if (el) el.hidden = onCollage || pm.value !== mode;
       });
       refreshSegs(row);
     }
+    if (collageEvery) collageEvery.addEventListener('change', function () {
+      document.querySelectorAll('.fr[data-frame]').forEach(syncPower);
+    });
 
     document.querySelectorAll('.fr[data-frame]').forEach(function (row) {
       var body = row.querySelector('.fr-body');
@@ -2057,7 +2083,7 @@
         });
         refreshSegs(body); syncPower(row);
       });
-      row.querySelectorAll('[data-f="power_mode"]').forEach(function (r) {
+      row.querySelectorAll('[data-f="power_mode"], [data-f="shows"]').forEach(function (r) {
         r.addEventListener('change', function () { syncPower(row); });
       });
       // While the owner is editing, the poll leaves this row's text alone.

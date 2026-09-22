@@ -84,8 +84,10 @@ def test_two_kits_of_the_same_panel_with_different_settings_get_different_bytes(
 def test_each_frame_carries_its_own_headers(client, svc):
     add_kit(svc, EE03["X-Device-Id"], panel_rotation=270, power_mode="sleep",
             wake_interval_minutes=45)
+    # On plates: the EE02's own default is the collage, whose checks follow
+    # the collage's redraws rather than the row's interval (test_collage_checks).
     add_kit(svc, EE02["X-Device-Id"], panel=EE02_PANEL, power_mode="awake",
-            device_poll_seconds=7)
+            device_poll_seconds=7, shows="plates")
     svc.tick()
     a = client.get("/api/frame", headers=EE03)
     b = client.get("/api/frame", headers=EE02)

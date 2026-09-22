@@ -32,7 +32,7 @@ def _needs_key_rows(html: str) -> list[str]:
 def test_without_a_key_the_section_reads_as_optional_and_complete(svc):
     html = _page(svc)
     assert 'class="opt">\u00b7 optional' in html
-    assert "docs/ai-plates.md" in html and ">Learn more</a>" in html
+    assert "docs/ai-plates.md" in html and ">Learn</a>" in html
     rows = _needs_key_rows(html)
     assert len(rows) == 1 and all("hidden" in r for r in rows)
     # Both AI toggles are LOCKED, not disabled \u2014 a disabled checkbox posts

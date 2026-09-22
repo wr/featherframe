@@ -105,9 +105,6 @@ class Config:
     quiet_hours_mode: str = "custom"
     quiet_hours_start: str = "22:00"
     quiet_hours_end: str = "06:00"
-    # If true, render the day's collage once at quiet-hours start,
-    # then hold it overnight. If false, just hold whatever was showing.
-    quiet_hours_render_collage: bool = False
 
     # Curation -------------------------------------------------------------
     # Common or scientific names, matched case-insensitively.
@@ -271,6 +268,14 @@ class Config:
         return self
 
     # -- derived -----------------------------------------------------------
+    @property
+    def quiet_hours_render_collage(self) -> bool:
+        """Quiet hours ARE the overnight collage: the day's collage is drawn
+        once at the start of the window and held until it ends. It stopped
+        being a toggle of its own — turning quiet hours on is the whole of it.
+        """
+        return self.quiet_hours_mode != "off"
+
     @property
     def bit_depth(self) -> int:
         spec = self.panel_spec

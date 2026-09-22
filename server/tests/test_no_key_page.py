@@ -31,21 +31,27 @@ def _needs_key_rows(html: str) -> list[str]:
 
 def test_without_a_key_the_section_reads_as_optional_and_complete(svc):
     html = _page(svc)
-    assert "Featherframe is complete without this." in html
+    assert 'class="opt">\u00b7 optional' in html
+    assert "docs/ai-plates.md" in html and ">Learn more</a>" in html
     rows = _needs_key_rows(html)
-    assert len(rows) == 2 and all("hidden" in r for r in rows)
-    # Hidden, not removed: the stored toggle still rides along on a save.
-    assert 'name="imagegen_enabled"' in html
-    # The AI collage is the Collage section's, always on offer, with an inline
-    # note when there is nothing behind it yet.
-    assert 'name="collage_generated"' in html
-    assert "Image generation isn\u2019t set up yet." in html or \
-           "Image generation isn't set up yet." in html
+    assert len(rows) == 1 and all("hidden" in r for r in rows)
+    # Both AI toggles are LOCKED, not disabled \u2014 a disabled checkbox posts
+    # nothing, so a save would quietly store the setting off.
+    for name in ('name="imagegen_enabled"', 'name="collage_generated"'):
+        assert name in html
+        field = html.split(name)[1].split(">")[0]
+        assert 'aria-disabled="true"' in field and "disabled>" not in field
+    assert html.count(">Needs an API key<") == 2
+    assert html.count('class="frow toggle locked"') == 2
 
 
 def test_a_key_or_a_self_hosted_endpoint_brings_the_rows_back(svc):
+    def unlocked(html):
+        return (all("hidden" not in r for r in _needs_key_rows(html))
+                and 'class="frow toggle locked"' not in html
+                and ">Needs an API key<" not in html)
     svc.config.imagegen_api_key = "sk-test-0123456789abcdef"
-    assert all("hidden" not in r for r in _needs_key_rows(_page(svc)))
+    assert unlocked(_page(svc))
     svc.config.imagegen_api_key = ""
     svc.config.imagegen_provider = "a1111"
-    assert all("hidden" not in r for r in _needs_key_rows(_page(svc)))
+    assert unlocked(_page(svc))

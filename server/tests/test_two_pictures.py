@@ -159,7 +159,6 @@ def test_there_is_one_collage_the_same_on_every_screen(client):
     # Nightfall: the frame on plates takes that same collage for the window.
     svc.config.quiet_hours_mode = "custom"
     svc.config.quiet_hours_start, svc.config.quiet_hours_end = "11:00", "23:30"
-    svc.config.quiet_hours_render_collage = True
     svc.tick()
     assert svc._meta["mode"] == "collage"
     assert svc._etag == svc.pictures["collage"].etag

@@ -321,7 +321,9 @@ cached forever in `data/generated/` (PNG + JSON sidecar) and only a manual
 regenerate from the config page replaces one; failures soft-fail to the
 fallback with a per-species cooldown. The user's API key lives only in our DB
 and is masked in `status()` and the UI. `plate.py` does the content-aware crop
-(generated PNGs go through the same `plate.extract` as real scans): the
+of a scan (a generated PNG is `plate.extract_generated`: paper-normalised,
+never cropped — it is composed to fill the sheet, and the scan crop once
+decapitated a tern): the
 heaviest ink band, extended through faint contiguous ink (hanging straw) up
 to a real paper gap, then mirrored about the plate centre so Audubon's own
 placement survives. The art is full-bleed to the mat opening (W-707):

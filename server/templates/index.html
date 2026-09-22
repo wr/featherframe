@@ -93,7 +93,7 @@
     .flash { margin:-12px 0 24px; }
 
     /* keyboard focus: one accent ring everywhere (inputs get theirs below) */
-    a:focus-visible, button:focus-visible, summary:focus-visible, .seg-ex:focus-visible {
+    a:focus-visible, button:focus-visible, summary:focus-visible {
       outline:2px solid var(--accent); outline-offset:2px; border-radius:4px;
     }
 
@@ -199,18 +199,6 @@
     .pill-status { display:inline-flex; align-items:center; gap:5px; }
     .pill-status .d { width:7px; height:7px; border-radius:50%; }
     .d.good{ background:var(--good);} .d.warn{ background:var(--warn);} .d.bad{ background:var(--bad);} .d.off{ background:var(--faint);}
-    .batt { display:inline-flex; align-items:center; gap:6px; }
-    .batt .cell { width:18px; height:11px; border:1.4px solid var(--border-strong); border-radius:2.5px; position:relative; }
-    .batt .cell::after{ content:""; position:absolute; right:-3.5px; top:3px; width:2.5px; height:4px; background:var(--border-strong); border-radius:0 1px 1px 0; }
-    .batt .cell i{ position:absolute; left:1.5px; top:1.5px; bottom:1.5px; background:var(--good); border-radius:1.5px; max-width:calc(100% - 3px); }
-    .pw { display:inline-flex; align-items:center; gap:6px; }
-    .pw .pw-ic { height:11px; width:auto; color:var(--ink-2); overflow:visible; }
-    .pw .pw-cell { height:14px; }
-    .pw .pw-plug { height:13px; }
-    .pw .pw-body, .pw .pw-nub, .pw .pw-bolt { fill:currentColor; }
-    .pw .pw-prong { fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; }
-    .pw .pw-outline { fill:none; stroke:currentColor; stroke-width:1.5; }
-    .pw .pw-bolt-ring { fill:var(--surface); stroke:var(--surface); stroke-width:2.6; stroke-linejoin:round; }
     .tip { position:absolute; z-index:6; padding:5px 9px; font-size:12px; color:var(--ink-2); background:var(--surface);
            border:1px solid var(--border-strong); border-radius:6px; box-shadow:0 8px 24px rgba(74,54,28,.16); white-space:nowrap;
            font-variant-numeric:tabular-nums; pointer-events:none; }
@@ -280,6 +268,11 @@
     }
     .lab { display:block; font-size:14px; font-weight:500; color:var(--ink); line-height:1.4; }
     label.lab { cursor:pointer; }
+    /* A row with nothing behind it yet: dimmed and not operable, but NOT
+       disabled — a disabled checkbox posts nothing, so saving would quietly
+       store the setting off. The Preview button beside the label still works. */
+    .frow.locked > .frow-text > .lab { color:var(--muted); }
+    .frow.locked > .frow-ctl { opacity:.55; pointer-events:none; }
     .hint { font-size:12.5px; color:var(--muted); margin-top:3px; line-height:1.5; }
     /* A hint that contrasts two choices reads better as two bullets. */
     .hint ul { margin:0; padding-left:1.1em; }
@@ -359,7 +352,7 @@
     .btn.lg { font-size:14px; padding:9px 20px; }
     /* bigger targets on touch screens; unchanged with a mouse */
     @media (pointer:coarse){
-      .btn { min-height:40px; } .btn.icon { width:40px; }
+      .btn { min-height:40px; } .btn.icon { width:40px; } .btn.sm { min-height:34px; }
       .seg label span { min-height:36px; }
     }
     /* The stored key is masked and not editable — show it visibly disabled, not just read-only. */
@@ -470,13 +463,13 @@
     .lightbox img { max-width:100%; max-height:calc(100vh - 120px); background:#fff; box-shadow:0 16px 60px rgba(0,0,0,.5); }
     .lightbox-cap { color:#f3f1ec; font-size:13px; text-align:center; max-width:440px; line-height:1.45; }
     .lightbox-cap[hidden] { display:none; }
-    /* example-preview trigger: a small magnifier that reads as a link (dotted underline + hover).
-       It is a real <a href> to the example PNG, so it is focusable and works without JS. */
-    .seg-ex { display:inline-flex; align-items:center; color:var(--muted); cursor:zoom-in; text-decoration:none;
-              padding-bottom:1px; border-bottom:1px dotted currentColor; transition:color .13s; }
-    .seg-ex:hover { color:var(--accent); border-bottom-style:solid; }
-    .seg-ex svg { width:14px; height:14px; }
-    .lab .seg-ex { vertical-align:-2px; margin-left:2px; }
+    /* example-preview trigger: the page's own button, a size down, sitting
+       after the label it belongs to. It is a real <a href> to the example PNG,
+       so it is focusable and works without JS. */
+    .btn.sm { font-size:12.5px; padding:4px 8px; gap:5px; }
+    .btn.sm svg { width:14px; height:14px; }
+    .lab .btn.preview { display:inline-flex; align-items:center; vertical-align:middle;
+                        margin-left:8px; text-decoration:none; }
     /* reserve the bold width so selecting a segment never reflows it */
     .seg.seg-measuring label span { font-weight:700; }
     /* bold the current selection */
@@ -553,8 +546,8 @@
        component (details.disc), so it hovers, turns its chevron and slides
        open exactly as Advanced does; only what sits inside the summary is the
        device list's own: a status dot and a name over a muted description on
-       the left, then battery, Wi-Fi and last-seen in columns that line up down
-       the list. */
+       the left, then Wi-Fi and last-seen in columns that line up down the
+       list. */
     /* The list is flush in its card: no vertical padding of its own, so each
        row's own padding is the spacing and the first and last rows' hover
        backgrounds reach the card's edges. Clipped to the card's radius. */
@@ -582,17 +575,14 @@
     .fr-stats { flex:none; display:flex; align-items:center; gap:12px;
       font-size:12.5px; color:var(--muted); }
     .fr-stats > span { display:flex; align-items:center; justify-content:flex-end; flex:none; }
-    .fr-batt { width:58px; }
     .fr-wifi { width:18px; }
     .fr-seen { width:74px; white-space:nowrap; }
-    .fr-batt .pw { gap:0; }
-    .fr-batt .batt { gap:5px; }
     @media (max-width:520px){
       .fr-stats > .fr-wifi { display:none; }
       .fr-desc { white-space:normal; }
       details.disc.fr > summary { gap:10px; }
       .fr-stats { gap:9px; }
-      .fr-batt { width:52px; } .fr-seen { width:66px; }
+      .fr-seen { width:66px; }
     }
     .fr-body { padding:0 var(--pad); }
     .fr-body > .frow:first-child { border-top:0; padding-top:0; }
@@ -838,8 +828,6 @@
     {% set rssi = card.wifi_rssi %}
     {% set bars = (4 if rssi >= -55 else (3 if rssi >= -67 else (2 if rssi >= -75 else 1))) if rssi is not none else 0 %}
     {% set word = 'Excellent' if bars == 4 else ('Good' if bars == 3 else ('Fair' if bars == 2 else 'Weak')) %}
-    {% set pct = card.battery_percent %}
-    {% set pstate = (card.power.state if card.power else 'unknown') %}
     {% set low = card.battery_low or card.battery_critical %}
     <li>
     {# The row is the page's own disclosure component, so it hovers, turns its
@@ -856,13 +844,6 @@
           <span class="fr-desc" data-fr="summary">{{ fr.summary }}</span>
         </span>
         <span class="fr-stats">
-          {# Battery: the cell and its percent on battery, the plug or the bolt
-             on power, and nothing at all for a screen that reports neither. #}
-          <span class="fr-batt">
-            <span class="pw" data-h="usb" data-tip="USB" {{ '' if pstate == 'usb' else 'hidden' }}><svg class="pw-ic pw-plug" viewBox="0 0 18 15" aria-hidden="true"><path class="pw-body" d="M7 7C7 4.79086 8.79086 3 11 3H12.1429C12.6162 3 13 3.38376 13 3.85714V10.1429C13 10.6162 12.6162 11 12.1429 11H11C8.79086 11 7 9.20914 7 7Z"/><path class="pw-prong" d="M16 5H11M16 9H11M8 6.99993C5 6.99993 2 6.5 2 10.9999"/></svg></span>
-            <span class="pw" data-h="chg" data-tip="Charging" {{ '' if pstate == 'charging' else 'hidden' }}><svg class="pw-ic pw-cell" viewBox="0 0 22 14" aria-hidden="true"><rect class="pw-outline" x="1" y="2.5" width="16" height="9" rx="2.4"/><path class="pw-nub" d="M17.6 5.3h1.2a.9.9 0 0 1 .9.9v1.6a.9.9 0 0 1-.9.9h-1.2z"/><path class="pw-bolt-ring" d="M10.6.6 5.9 7.4h2.9l-1.3 6 4.9-7.2H9.6z"/><path class="pw-bolt" d="M10.6.6 5.9 7.4h2.9l-1.3 6 4.9-7.2H9.6z"/></svg></span>
-            <span class="batt" data-h="batt-wrap" {{ '' if (pct is not none and pstate not in ('usb', 'charging')) else 'hidden' }}><span class="cell"><i data-h="batt-bar" style="width:{{ pct or 0 }}%;{% if low %}background:var(--bad){% endif %}"></i></span><span class="tnum" data-h="batt-text">{{ (pct ~ '%') if pct is not none else '' }}</span></span>
-          </span>
           <span class="fr-wifi">
             <span class="pill-status" data-h="wifi-wrap" {{ '' if rssi is not none else 'hidden' }} data-tip="{{ word }} · {{ rssi }} dBm"><svg class="wifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path class="arc{{ ' lit' if bars >= 4 }}" d="M2 7.3a15 15 0 0 1 20 0"/><path class="arc{{ ' lit' if bars >= 3 }}" d="M5.2 11.2a11 11 0 0 1 13.6 0"/><path class="arc{{ ' lit' if bars >= 2 }}" d="M8.6 15a6 6 0 0 1 6.8 0"/><circle class="dot" cx="12" cy="18.6" r="1.4"/></svg></span>
           </span>
@@ -1036,34 +1017,6 @@
            screen. A frame's own settings are in the Frames card above. #}
       <div class="card">
         <section class="sec">
-          <h2 class="sec-head">Quiet hours</h2>
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="quiet-lab">Schedule</span><div class="hint" id="quiet-hint"></div></div>
-            <div class="frow-ctl">
-              <div class="seg" role="radiogroup" aria-labelledby="quiet-lab" id="quiet-seg">
-                <label><input type="radio" name="quiet_hours_mode" value="off" {{ 'checked' if config.quiet_hours_mode=='off' else '' }}><span>Off</span></label>
-                <label><input type="radio" name="quiet_hours_mode" value="sun" {{ 'checked' if config.quiet_hours_mode=='sun' else '' }}><span>Sunset → Sunrise</span></label>
-                <label><input type="radio" name="quiet_hours_mode" value="custom" {{ 'checked' if config.quiet_hours_mode=='custom' else '' }}><span>Custom</span></label>
-              </div>
-            </div>
-          </div>
-          <div class="reveal{{ '' if config.quiet_hours_mode=='custom' else ' collapsed' }}" id="quiet-custom" {{ '' if config.quiet_hours_mode=='custom' else 'hidden' }}><div class="reveal-body">
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="quiet-between-lab">Between</span><div class="hint">Start and end, on the frame's clock.</div></div>
-            <div class="frow-ctl pair" role="group" aria-labelledby="quiet-between-lab"><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}" aria-label="Start"><span class="pair-sep" aria-hidden="true">–</span><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}" aria-label="End"></div>
-          </div>
-          </div></div>
-          <div class="reveal{{ ' collapsed' if config.quiet_hours_mode=='off' else '' }}" id="hold-field" {{ 'hidden' if config.quiet_hours_mode=='off' else '' }}><div class="reveal-body">
-          <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="qhc">Show a collage during quiet hours</label><div class="hint" id="qhc-sub">Puts the day's top species on one sheet for the night, instead of the last species heard. <a class="ex seg-ex" id="nightcollage-ex" href="/static/examples/collage.png" data-ex="collage" data-cap="Collage — the day's top species on one sheet, held during quiet hours." title="Preview an example" aria-label="Preview a nightly collage example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></div></div>
-            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="qhc" name="quiet_hours_render_collage" aria-describedby="qhc-sub" {{ 'checked' if config.quiet_hours_render_collage else '' }}><span class="track"></span></label></div>
-          </div>
-          </div></div>
-        </section>
-      </div>
-
-      <div class="card">
-        <section class="sec">
           <h2 class="sec-head">Detection source</h2>
           <div class="frow">
             <div class="frow-text"><label class="lab" for="src-sel">Source</label></div>
@@ -1146,43 +1099,6 @@
         </section>
       </div>
 
-      <div class="card">
-        <section class="sec">
-          <h2 class="sec-head">Collage</h2>
-          <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-every">Update interval</label><div class="hint">How often the collage is redrawn during the day</div></div>
-            <div class="frow-ctl">
-              <div class="cselect">
-              <select class="sel cselect-native" id="f-every" name="collage_interval_hours">
-                {% for h, word in [(1, 'Every hour'), (4, 'Every 4 hours'), (6, 'Every 6 hours'), (12, 'Every 12 hours'), (24, 'Every 24 hours')] %}
-                <option value="{{ h }}" {{ 'selected' if config.collage_interval_hours == h else '' }}>{{ word }}</option>
-                {% endfor %}
-                {# A stored value from a build that took any number: shown as it
-                   is, so saving the form does not quietly change it. #}
-                {% if config.collage_interval_hours not in [1, 4, 6, 12, 24] %}
-                <option value="{{ config.collage_interval_hours }}" selected>Every {{ config.collage_interval_hours }} hours</option>
-                {% endif %}
-              </select>
-              </div>
-            </div>
-          </div>
-          <div class="frow">
-            {# Stored as 0; an empty field is what "no limit" looks like. #}
-            <div class="frow-text"><label class="lab" for="f-review-max">Species limit</label><div class="hint">The most species shown in one collage</div></div>
-            <div class="frow-ctl"><input type="number" id="f-review-max" name="collage_species_max" min="0" max="60" step="1" inputmode="numeric" placeholder="No limit" value="{{ config.collage_species_max or '' }}"></div>
-          </div>
-          <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="cg">Generate the collage with AI <a class="ex seg-ex" href="/static/examples/single.png" data-ex="single" data-cap="Combined — the day's species merged into a single plate (needs image generation)." title="Preview an example" aria-label="Preview a combined example"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg></a></label><div class="hint">Draws every collage as a single illustrated scene. Each new one is a paid image.</div></div>
-            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
-          </div>
-          {# The toggle is always on offer; it only needs a key to do anything. #}
-          <div class="test-box warn" id="cg-needs-key" role="status">
-            <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
-            <span class="test-msg">Image generation isn't set up yet. <a class="tb-link" href="#imagegen-card" id="cg-setup">Set it up</a></span>
-          </div>
-        </section>
-      </div>
-
       <div class="card" id="imagegen-card">
         <section class="sec">
           {# W-770: no key is the expected state, not an unfinished setup. Rows
@@ -1191,11 +1107,7 @@
              still submit, so nothing stored is lost. #}
           {% set ig_ready = status.config.imagegen_api_key or config.imagegen_provider == 'a1111' %}
           <h2 class="sec-head">Image generation <span class="opt">· optional</span></h2>
-          <p class="intro">Featherframe is complete without this. A species Audubon never painted gets a typographic plate: its name under an empty bough. Add an API key and those species get a generated plate in the same lithograph style instead, bought once per species and kept.</p>
-          <div class="frow toggle ig-needs-key" {{ '' if ig_ready else 'hidden' }}>
-            <div class="frow-text"><label class="lab" for="ig">Generate a plate for species Audubon never painted</label></div>
-            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ig" name="imagegen_enabled" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label></div>
-          </div>
+          <p class="intro"><a href="https://github.com/wr/featherframe/blob/main/docs/ai-plates.md" target="_blank" rel="noopener">Learn more</a> about how AI image generation works with Featherframe, as well as estimated API costs.</p>
           <div class="frow">
             <div class="frow-text"><label class="lab" for="ig-provider">Image provider</label></div>
             <div class="frow-ctl">
@@ -1289,6 +1201,78 @@
               </div>
             </div></div>
           </details>
+        </section>
+      </div>
+
+      <div class="card">
+        <section class="sec">
+          <h2 class="sec-head">Individual detections</h2>
+          {# One region is all there is: the Havell plates. Plate packs (W-702)
+             are not built, so the picker says so rather than pretending. #}
+          <div class="frow">
+            <div class="frow-text"><label class="lab" for="f-region">Region</label></div>
+            <div class="frow-ctl">
+              <div class="cselect">
+                <select class="sel" id="f-region" disabled>
+                  <option>North America · Audubon's Birds of America</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
+            <div class="frow-text"><label class="lab" for="ig">Generate a plate for species Audubon never painted<a class="btn sm ex preview" href="/static/examples/generated.png" data-ex="generated" data-cap="A plate generated for a species Audubon never painted." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Preview</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
+            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ig" name="imagegen_enabled" aria-disabled="{{ 'false' if ig_ready else 'true' }}" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="card">
+        <section class="sec">
+          <h2 class="sec-head">Collage</h2>
+          <div class="frow">
+            <div class="frow-text"><label class="lab" for="f-every">Update interval</label><div class="hint">How often the collage is redrawn during the day</div></div>
+            <div class="frow-ctl">
+              <div class="cselect">
+              <select class="sel cselect-native" id="f-every" name="collage_interval_hours">
+                {% for h, word in [(1, 'Every hour'), (4, 'Every 4 hours'), (6, 'Every 6 hours'), (12, 'Every 12 hours'), (24, 'Every 24 hours')] %}
+                <option value="{{ h }}" {{ 'selected' if config.collage_interval_hours == h else '' }}>{{ word }}</option>
+                {% endfor %}
+                {# A stored value from a build that took any number: shown as it
+                   is, so saving the form does not quietly change it. #}
+                {% if config.collage_interval_hours not in [1, 4, 6, 12, 24] %}
+                <option value="{{ config.collage_interval_hours }}" selected>Every {{ config.collage_interval_hours }} hours</option>
+                {% endif %}
+              </select>
+              </div>
+            </div>
+          </div>
+          <div class="frow">
+            {# Stored as 0; an empty field is what "no limit" looks like. #}
+            <div class="frow-text"><label class="lab" for="f-review-max">Species limit</label><div class="hint">The most species shown in one collage</div></div>
+            <div class="frow-ctl"><input type="number" id="f-review-max" name="collage_species_max" min="0" max="60" step="1" inputmode="numeric" placeholder="No limit" value="{{ config.collage_species_max or '' }}"></div>
+          </div>
+          {# Quiet hours belong to the collage: the window IS the overnight
+             collage, so there is nothing else to switch on (W-833). #}
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="quiet-lab">Quiet hours</span><div class="hint">Every frame shows the collage overnight.</div></div>
+            <div class="frow-ctl">
+              <div class="seg" role="radiogroup" aria-labelledby="quiet-lab" id="quiet-seg">
+                <label><input type="radio" name="quiet_hours_mode" value="off" {{ 'checked' if config.quiet_hours_mode=='off' else '' }}><span>Off</span></label>
+                <label><input type="radio" name="quiet_hours_mode" value="sun" {{ 'checked' if config.quiet_hours_mode=='sun' else '' }}><span>Sunset to sunrise</span></label>
+                <label><input type="radio" name="quiet_hours_mode" value="custom" {{ 'checked' if config.quiet_hours_mode=='custom' else '' }}><span>Custom</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="reveal{{ '' if config.quiet_hours_mode=='custom' else ' collapsed' }}" id="quiet-custom" {{ '' if config.quiet_hours_mode=='custom' else 'hidden' }}><div class="reveal-body">
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="quiet-between-lab">Between</span></div>
+            <div class="frow-ctl pair" role="group" aria-labelledby="quiet-between-lab"><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}" aria-label="Start"><span class="pair-sep" aria-hidden="true">–</span><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}" aria-label="End"></div>
+          </div>
+          </div></div>
+          <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
+            <div class="frow-text"><label class="lab" for="cg">Generate menagerie-style collages<a class="btn sm ex preview" href="/static/examples/single.png" data-ex="single" data-cap="The collage as one scene, drawn with AI." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Preview</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
+            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" aria-disabled="{{ 'false' if ig_ready else 'true' }}" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
+          </div>
         </section>
       </div>
 
@@ -1629,8 +1613,8 @@
   function subText(root, attr, key, text) { var el = sub(root, attr, key); if (el) el.textContent = text; }
   function subHidden(root, attr, key, hidden) { var el = sub(root, attr, key); if (el) el.hidden = !!hidden; }
 
-  // One frame's row: the dot, its badges, and the three readings in the
-  // collapsed line. Details below carries no reading of its own.
+  // One frame's row: the dot, its badges, and the readings in the collapsed
+  // line. Details below carries no reading of its own.
   function applyHealth(row, fr) {
     var card = fr.card || {};
     subText(row, 'data-h', 'seen-text', card.seen ? (card.last_seen || '') : 'never');
@@ -1639,22 +1623,7 @@
     var dot = sub(row, 'data-h', 'dot');
     if (dot) dot.className = 'd ' + (card.state || 'off');
     subHidden(row, 'data-h', 'overdue', !card.overdue);
-    var low = !!(card.battery_low || card.battery_critical);
-    subHidden(row, 'data-h', 'lowbatt', !low);
-
-    var pct = (card.battery_percent === null || card.battery_percent === undefined) ? null : card.battery_percent;
-    var has = pct !== null;
-    var pstate = (card.power && card.power.state) || 'unknown';
-    var onPower = pstate === 'usb' || pstate === 'charging';
-    subHidden(row, 'data-h', 'usb', pstate !== 'usb');
-    subHidden(row, 'data-h', 'chg', pstate !== 'charging');
-    subHidden(row, 'data-h', 'batt-wrap', !has || onPower);
-    var bar = sub(row, 'data-h', 'batt-bar');
-    if (bar) {
-      bar.style.width = (has ? pct : 0) + '%';
-      bar.style.background = (has && low) ? 'var(--bad)' : '';
-    }
-    subText(row, 'data-h', 'batt-text', has ? pct + '%' : '');
+    subHidden(row, 'data-h', 'lowbatt', !(card.battery_low || card.battery_critical));
 
     var rssi = card.wifi_rssi;
     var hasWifi = rssi !== null && rssi !== undefined;
@@ -2002,38 +1971,13 @@
 
   // -- conditional fields -----------------------------------------------------
   (function () {
-    // quiet-hours: custom times + hint follow the selected mode
-    var QUIET_HINT = {
-      off: "Every screen updates all day and night.",
-      sun: "Holds one image from sunset to sunrise (approximate, from your timezone).",
-      custom: "Holds one image during the hours you set below."
-    };
-    var quietHintEl = $('quiet-hint');
+    // quiet-hours: the custom times follow the selected mode
     function syncQuiet() {
       var v = (document.querySelector('input[name="quiet_hours_mode"]:checked') || {}).value;
       setRevealed($('quiet-custom'), v === 'custom');
-      // The nightly collage only fires during quiet hours, so hide its toggle
-      // entirely when quiet hours is off — it would do nothing.
-      setRevealed($('hold-field'), v !== 'off');
-      if (quietHintEl) quietHintEl.textContent = QUIET_HINT[v] || '';
     }
     document.querySelectorAll('input[name="quiet_hours_mode"]').forEach(function (r) { r.addEventListener('change', syncQuiet); });
     syncQuiet();
-    // The nightly collage's example should match the combine toggle: a
-    // single combined AI plate when it's on, the grid collage when off.
-    var cgToggle = $('cg');
-    var drEx = $('nightcollage-ex');
-    function syncNightCollageEx() {
-      if (!drEx) return;
-      var combined = cgToggle && cgToggle.checked;
-      drEx.setAttribute('data-ex', combined ? 'single' : 'collage');
-      drEx.setAttribute('href', '/static/examples/' + (combined ? 'single' : 'collage') + '.png');
-      drEx.setAttribute('data-cap', combined
-        ? "Collage — the day's species merged into a single plate."
-        : "Collage — the day's top species on one sheet, held during quiet hours.");
-    }
-    if (cgToggle) cgToggle.addEventListener('change', syncNightCollageEx);
-    syncNightCollageEx();
     // detection-source fields follow the select
     var sel = $('src-sel');
     function syncSrc() {
@@ -2054,6 +1998,27 @@
     if (tokenField) tokenField.addEventListener('input', syncApprise);
     syncApprise();
   })();
+
+  // -- the two AI toggles: locked, never disabled ----------------------------
+  // With no key behind it a toggle is shown dimmed and refuses to flip. It is
+  // NOT disabled: a disabled checkbox posts nothing, so saving the form would
+  // quietly store the setting off.
+  function lockAiToggles(ready) {
+    ['ig', 'cg'].forEach(function (id) {
+      var input = $(id); if (!input) return;
+      var row = input.closest('.frow');
+      if (row) row.classList.toggle('locked', !ready);
+      input.setAttribute('aria-disabled', ready ? 'false' : 'true');
+      var note = row && row.querySelector('[data-needs-key]');
+      if (note) note.textContent = ready ? '' : 'Needs an API key';
+    });
+  }
+  ['ig', 'cg'].forEach(function (id) {
+    var input = $(id); if (!input) return;
+    function locked() { return input.getAttribute('aria-disabled') === 'true'; }
+    input.addEventListener('click', function (e) { if (locked()) e.preventDefault(); });
+    input.addEventListener('change', function () { if (locked()) input.checked = !input.checked; });
+  });
 
   // -- image-generation provider: show the fields that provider uses ---------
   // One table per provider: recommended model, hint, monthly-cost estimate,
@@ -2092,11 +2057,8 @@
       // Rows that only matter once plates can be bought (W-770).
       var ready = HAS_IMAGE_KEY || p === 'a1111';
       document.querySelectorAll('.ig-needs-key').forEach(function (el) { el.hidden = !ready; });
+      lockAiToggles(ready);
       if (modelHint) modelHint.textContent = info.hint || '';
-      // The AI collage lives in the Collage section and is always on offer;
-      // the note under it says when there is nothing behind it yet.
-      var cgNote = $('cg-needs-key'), cg = $('cg');
-      if (cgNote) cgNote.classList.toggle('show', !!(cg && cg.checked) && !ready);
       // Point the "create an API key" link at the chosen provider's console.
       var keyLink = $('key-link');
       if (keyLink && info.key) { keyLink.href = info.key[0]; keyLink.textContent = info.key[1]; }
@@ -2118,15 +2080,6 @@
       });
     }
     prov.addEventListener('change', function () { syncProvider(true); syncQuality(); });
-    var cgToggle = $('cg');
-    if (cgToggle) cgToggle.addEventListener('change', function () { syncProvider(false); });
-    var cgSetup = $('cg-setup');
-    if (cgSetup) cgSetup.addEventListener('click', function (e) {
-      var card = $('imagegen-card');
-      if (!card) return;
-      e.preventDefault();
-      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
     if (modelField) ['change', 'input'].forEach(function (e) {
       modelField.addEventListener(e, syncQuality);
     });

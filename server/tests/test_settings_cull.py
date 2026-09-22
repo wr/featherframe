@@ -58,8 +58,7 @@ def test_a_post_carrying_removed_fields_changes_nothing(client):
     after = svc.config.to_dict()
     assert not set(REMOVED) & set(after)
     # Unticked checkboxes read as off, as on any save; nothing else moved.
-    toggles = {"quiet_hours_render_collage", "imagegen_enabled",
-               "collage_generated"}
+    toggles = {"imagegen_enabled", "collage_generated"}
     assert {k: v for k, v in after.items() if k not in toggles} == \
            {k: v for k, v in before.items() if k not in toggles}
 
@@ -72,6 +71,28 @@ def test_the_page_carries_none_of_the_removed_controls(client):
     # screen shows is that screen's, and it says "shows", not "mode").
     assert 'name="collage_interval_hours"' in html
     assert 'name="mode"' not in html
+
+
+def test_the_overnight_collage_is_quiet_hours_itself(client):
+    """It stopped being a toggle: the window IS the overnight collage, and the
+    page offers only the mode (with its custom window) inside Collage."""
+    svc = client.app.state.service
+    html = client.get("/").text
+    assert 'name="quiet_hours_render_collage"' not in html
+    # Its section is Collage's, and the AI copy points at the docs.
+    collage = html.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
+    assert collage.count('name="quiet_hours_mode"') == 3      # Off / sun / custom
+    assert "docs/ai-plates.md" in html and ">Learn more</a>" in html
+    # Plate packs are not built, so Region says the one region there is.
+    assert "North America · Audubon's Birds of America" in html
+    assert '<select class="sel" id="f-region" disabled>' in html
+    # Saving without the removed field derives it from the mode either way.
+    for mode, want in (("off", False), ("custom", True), ("sun", True)):
+        r = client.post("/settings", data={"quiet_hours_mode": mode}, follow_redirects=False)
+        assert r.status_code == 303
+        assert svc.config.quiet_hours_mode == mode
+        assert svc.config.quiet_hours_render_collage is want
+        assert "quiet_hours_render_collage" not in svc.config.to_dict()
 
 
 # Copy that has been culled. It must be gone from the page AND from the render

@@ -161,7 +161,6 @@ def test_page_fresh(svc):
              battery_percent=72, wifi_rssi=-61)
     html = _render_page(svc)
     assert "just now" in html
-    assert "72%" in html          # battery shown as percent only (W-607)
     assert "Overdue —" not in html
 
 
@@ -192,12 +191,11 @@ def test_device_extra_recorded_from_get_frame(svc):
     assert (d.panel, d.board, d.last_wake) == ("P", "B", "timer")
 
 
-def test_battery_row_always_renders(svc):
-    # The old "show battery" toggle is gone: the power state is inferred from
-    # the voltage trend instead, so the tile is always meaningful.
+def test_no_battery_reading_on_the_page(svc):
+    # The reading left the row; nothing puts it back as a toggle either.
     _checkin(svc, user_agent="ua", battery_voltage=3.9, battery_percent=60, wifi_rssi=-60)
     html = _render_page(svc)
-    assert 'data-h="batt-bar"' in html and "60%" in html
+    assert 'data-h="batt-bar"' not in html and "60%" not in html
     assert 'name="show_battery"' not in html
 
 

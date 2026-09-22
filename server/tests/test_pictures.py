@@ -102,7 +102,6 @@ def _quiet_all_day(svc) -> None:
     svc.config.quiet_hours_mode = "custom"
     svc.config.quiet_hours_start = "11:00"
     svc.config.quiet_hours_end = "23:30"
-    svc.config.quiet_hours_render_collage = True
 
 
 def test_at_night_every_frame_on_plates_shows_the_collage(svc):

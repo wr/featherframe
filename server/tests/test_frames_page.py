@@ -360,7 +360,7 @@ def test_the_row_carries_that_frames_health(client):
     gray = _row(card, GRAY["X-Device-Id"])
     # collapsed: the dot, the readings
     assert '<span class="d good" data-h="dot">' in gray
-    assert '"fr-batt"' in gray and "72%" in gray
+    assert '"fr-batt"' not in gray and "72%" not in gray   # no reading, just the badge
     assert 'data-h="wifi-wrap"' in gray and "Good · -61 dBm" in gray
     assert 'data-h="seen-text">just now<' in gray
     # open: Details is what this frame reported about itself, and only that —
@@ -369,9 +369,9 @@ def test_the_row_carries_that_frames_health(client):
     for repeated in ('data-h="spark"', 'class="trend"', 'class="vitals"',
                      "<span>Power</span>", "<span>Wi-Fi</span>"):
         assert repeated not in gray, repeated
-    # a screen that reports neither leaves those columns empty, and says so
+    # a screen that reports no Wi-Fi leaves that column empty, and says so
     kobo = _row(card, KOBO["ID"])
-    assert 'data-h="batt-wrap" hidden' in kobo and 'data-h="wifi-wrap" hidden' in kobo
+    assert 'data-h="wifi-wrap" hidden' in kobo
     # and no setting is anywhere near the metadata
     for field in FRAME_FIELDS:
         assert f'name="{field}"' not in card
@@ -450,15 +450,16 @@ def _sections(client) -> list:
     return re.findall(r'<h2 class="sec-head">([^<]*)', client.get("/").text)
 
 
-def test_collage_sits_just_above_image_generation(client):
+def test_the_household_sections_read_in_order(client):
     _populate(client)
     names = [s.strip() for s in _sections(client)]
     assert "Frames" not in names                      # the card is just the list
-    assert names.index("Collage") + 1 == names.index("Image generation")
-    assert names[0] == "Quiet hours" and names[1] == "Detection source"
+    assert names[:4] == ["Detection source", "Image generation",
+                         "Individual detections", "Collage"]
+    assert "Quiet hours" not in names                 # it is a row in Collage now
 
 
-def test_the_collage_section_is_three_settings_and_no_preamble(client):
+def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     _populate(client)
     sec = client.get("/").text.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
     assert 'class="intro"' not in sec
@@ -471,14 +472,16 @@ def test_the_collage_section_is_three_settings_and_no_preamble(client):
             ">Every 12 hours<", ">Every 24 hours<"] == [o for o in
             (">Every hour<", ">Every 4 hours<", ">Every 6 hours<",
              ">Every 12 hours<", ">Every 24 hours<") if o in every]
-    # The AI collage moved here, always on offer, with its readiness note.
+    # Quiet hours is the overnight collage, so it lives here — as the mode and
+    # its custom window, and nothing else to switch on.
+    assert ">Quiet hours<" in sec and "Every frame shows the collage overnight." in sec
+    assert 'name="quiet_hours_mode"' in sec and 'name="quiet_hours_start"' in sec
+    assert 'name="quiet_hours_render_collage"' not in client.get("/").text
+    # The AI collage is here, always on offer.
     assert 'name="collage_generated"' in sec
-    assert ">Generate the collage with AI " in sec
-    assert ("Draws every collage as a single illustrated scene. "
-            "Each new one is a paid image." in sec)
-    assert 'id="cg-needs-key"' in sec
-    ig = client.get("/").text.split('<h2 class="sec-head">Image generation')[1]
-    assert 'name="collage_generated"' not in ig
+    assert ">Generate menagerie-style collages" in sec
+    ig = client.get("/").text.split('<h2 class="sec-head">Image generation')[1].split("</section>")[0]
+    assert 'name="collage_generated"' not in ig and 'name="imagegen_enabled"' not in ig
 
 
 def test_a_stored_interval_the_menu_does_not_offer_is_still_shown(client):

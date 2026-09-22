@@ -381,7 +381,6 @@ async def save_settings(request: Request):
         quiet_hours_mode=s("quiet_hours_mode", cur["quiet_hours_mode"]),
         quiet_hours_start=t("quiet_hours_start", cur["quiet_hours_start"]),
         quiet_hours_end=t("quiet_hours_end", cur["quiet_hours_end"]),
-        quiet_hours_render_collage=b("quiet_hours_render_collage"),
         species_blocklist=blocklist,
         detection_backend=s("detection_backend", cur["detection_backend"]),
         birdnet_db_path=s("birdnet_db_path", cur["birdnet_db_path"]),

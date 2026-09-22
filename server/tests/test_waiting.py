@@ -8,6 +8,7 @@ once the owner answers "Add" in the Frames card.
 from __future__ import annotations
 
 import io
+from datetime import datetime
 
 import numpy as np
 import pytest
@@ -32,6 +33,7 @@ def client(tmp_path, monkeypatch):
     pipeline.DITHER_OVERRIDE = "none"
     svc = FeatherframeService()
     svc.source.db_path = str(tmp_path / "missing.db")
+    svc._clock = lambda: datetime(2026, 9, 20, 12, 0)   # daytime: the waiting refresh is not the quiet one
     svc._render_welcome(svc._clock(), False)
     app.state.service = svc
     return TestClient(app)

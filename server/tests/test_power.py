@@ -142,25 +142,17 @@ def test_battery_endpoint_shape(client, svc):
     assert client.get("/api/battery?hours=99999").json()["hours"] == 24 * 7
 
 
-def test_power_row_hides_percent_on_usb_and_shows_it_on_battery(client, svc):
-    """The battery reading in that frame's own row (W-833)."""
-    def row():
-        body = client.get("/").text.split("<body")[1]
-        return body.split(f'data-frame="{svc.LEGACY_FRAME}"')[1].split(chr(10) + "    </li>")[0]
-    client.get("/api/frame", headers={"X-Battery-Voltage": "4.21", "X-Battery-Percent": "100"})
-    html = row()
-    assert 'data-h="batt-bar"' in html
-    usb = html.split('data-h="usb"')[1].split(">")[0]
-    wrap = html.split('data-h="batt-wrap"')[1].split(">")[0]
-    assert "hidden" not in usb and "hidden" in wrap          # USB: icon + word, no percent
-    # A fresh service with a mid-charge cell and no history reads as on battery.
-    svc.db._conn.execute("DELETE FROM battery_log"); svc.db._conn.commit()
-    svc._battery_live = {}
+def test_the_row_carries_no_battery_reading(client, svc):
+    """The cell, the percent and the power glyphs left the row; the low badge,
+    the card and /api/battery are untouched."""
     client.get("/api/frame", headers={"X-Battery-Voltage": "3.90", "X-Battery-Percent": "65"})
-    html = row()
-    usb = html.split('data-h="usb"')[1].split(">")[0]
-    wrap = html.split('data-h="batt-wrap"')[1].split(">")[0]
-    assert "hidden" in usb and "hidden" not in wrap and "65%" in html
+    body = client.get("/").text.split("<body")[1]
+    row = body.split(f'data-frame="{svc.LEGACY_FRAME}"')[1].split(chr(10) + "    </li>")[0]
+    for gone in ('data-h="batt-bar"', 'data-h="batt-wrap"', 'data-h="usb"',
+                 'data-h="chg"', "65%"):
+        assert gone not in row, gone
+    assert 'data-h="lowbatt"' in row
+    assert health(svc, svc.LEGACY_FRAME)["battery"].startswith("3.90 V · 65%")
 
 
 def test_settings_post_without_show_battery_is_fine(client, svc):

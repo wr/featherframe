@@ -185,7 +185,7 @@ def test_both_frames_are_the_same_row(client):
     """Name, Content, Rotation, Power, Advanced, Details, Save, Remove: the
     first kit is not a different kind of thing from the second."""
     _add(client)
-    client.get("/api/frame", headers=EE02)                 # it reports battery and Wi-Fi
+    client.get("/api/frame", headers=EE02)                 # it reports its Wi-Fi
     body = client.get("/").text.split("<body")[1]
     rows = [body.split('data-frame="%s"' % h["X-Device-Id"])[1].split(chr(10) + "    </li>")[0]
             for h in (EE03, EE02)]
@@ -195,8 +195,8 @@ def test_both_frames_are_the_same_row(client):
                      'data-fr-action="save"', 'data-fr-action="forget"'):
             assert want in row
         # …and each carries its own health on the row, over its own Details.
-        for want in ('data-h="dot"', 'data-h="seen-text"', 'data-h="batt-wrap"',
+        for want in ('data-h="dot"', 'data-h="seen-text"',
                      'data-h="wifi-wrap"', "<span>Details</span>", ">Frame ID<"):
             assert want in row, want
     ee02 = rows[1]
-    assert "71%" in ee02 and "Good" in ee02 and "1.9.0" in ee02 and EE02["X-Board"] in ee02
+    assert "Good" in ee02 and "1.9.0" in ee02 and EE02["X-Board"] in ee02

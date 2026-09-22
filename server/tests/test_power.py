@@ -149,18 +149,19 @@ def _row(client, svc) -> str:
 
 def test_the_row_carries_the_reading_only_on_a_battery(client, svc):
     """The cell and its percent are back for a frame the owner put on a
-    battery; the USB plug and the charging bolt are not, and the low badge,
-    the card and /api/battery are untouched."""
+    battery, the plug stands in on USB, and the low badge, the card and
+    /api/battery are untouched."""
     client.get("/api/frame", headers={"X-Battery-Voltage": "3.90", "X-Battery-Percent": "65"})
-    # On USB there is nothing to report: the column is empty.
+    # On USB the column is the plug, not a reading.
     row = _row(client, svc)
     assert 'data-h="batt-wrap" data-spark-host tabindex="0" aria-label="Battery" hidden>' in row
     assert "65%" not in row
+    assert 'data-h="usb" data-tip="USB" >' in row
     svc.update_frame(svc.LEGACY_FRAME, {"power_mode": "sleep"})
     row = _row(client, svc)
-    assert 'data-h="batt-bar" style="width:65%;"' in row and "65%" in row
-    for gone in ('data-h="usb"', 'data-h="chg"'):
-        assert gone not in row, gone
+    assert 'data-h="batt-bar" style="width:65%"' in row and "65%" in row
+    assert 'data-h="usb" data-tip="USB" hidden>' in row
+    assert 'data-h="chg"' not in row
     assert 'data-h="lowbatt"' in row
     assert health(svc, svc.LEGACY_FRAME)["battery"].startswith("3.90 V · 65%")
 

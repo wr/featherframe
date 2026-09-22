@@ -50,8 +50,8 @@ class Database:
                 );
                 """
             )
-            # Every frame has a battery of its own (W-833). Rows written before
-            # that are the wall frame's; the service stamps them with its id.
+            # Every frame has a battery of its own (W-833); a reading with no
+            # frame on it came from a build that had one wall frame.
             cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(battery_log)")}
             if "frame_id" not in cols:
                 self._conn.execute("ALTER TABLE battery_log ADD COLUMN frame_id TEXT")
@@ -141,15 +141,6 @@ class Database:
                 "WHERE at >= ? AND frame_id IS ? ORDER BY id ASC",
                 (since, frame_id)).fetchall()
         return [dict(r) for r in rows]
-
-    def adopt_battery_log(self, frame_id: str) -> int:
-        """Stamp the readings from before the log knew about frames onto the
-        frame they came from. Returns how many rows moved."""
-        with self._lock:
-            cur = self._conn.execute(
-                "UPDATE battery_log SET frame_id=? WHERE frame_id IS NULL", (frame_id,))
-            self._conn.commit()
-            return cur.rowcount or 0
 
     def last_render(self) -> dict[str, Any] | None:
         with self._lock:

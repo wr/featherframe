@@ -1,11 +1,9 @@
-"""One registry for every screen (W-833, step 1). The three stores that grew
-separately — the `frames` kv, the `viewers` kv, and the active frame's settings
-in Config — become one row shape behind `frames.FrameRegistry`, and what a
-screen can be asked for is derived from what it reported, never typed per model.
+"""One registry for every screen (W-833). Every frame — a kit, a TRMNL, a
+tablet — is one row shape behind `frames.FrameRegistry`, and what a screen can
+be asked for is derived from what it reported, never typed per model.
 
-Behaviour must not change here, so most of the proof is the other 600-odd tests
-still passing. What is new and needs its own: the migration, the capability
-rules, renaming any frame, and that the legacy keys are dead once migrated.
+What needs its own test here: the capability rules, and that any frame is
+renamed through the one endpoint.
 """
 from __future__ import annotations
 
@@ -13,129 +11,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from featherframe import frames, panels
-from featherframe.db import Database
 from tests._frames import connect
-
-
-# -- migration ----------------------------------------------------------------
-LEGACY_FRAMES = {
-    "active": "AA:AA:AA:00:00:03",
-    "known": {
-        "AA:AA:AA:00:00:03": {
-            "id": "AA:AA:AA:00:00:03", "status": "active", "ip": "10.0.1.10",
-            "panel": "ED103TC2 1404x1872 gray16", "board": "XIAO ESP32-S3 Plus + EE03",
-            "first_seen": "2026-09-01T09:00:00", "last_seen": "2026-09-20T09:00:00",
-            "device": {"battery_voltage": 3.9, "battery_percent": 64, "fw_version": "1.9.0"}},
-        "BB:BB:BB:00:00:02": {
-            "id": "BB:BB:BB:00:00:02", "status": "added", "ip": "10.0.1.11",
-            "panel": "T133A01 1200x1600 spectra6", "board": "XIAO ESP32-S3 Plus + EE02",
-            "set": {"shows": "collage", "panel_rotation": 180, "name": "Study"},
-            "device": {"battery_percent": 71, "last_result": "frame"},
-            "first_seen": "2026-09-10T09:00:00", "last_seen": "2026-09-20T08:00:00"},
-        "CC:CC:CC:00:00:01": {
-            "id": "CC:CC:CC:00:00:01", "status": "pending", "panel": "GDEY075 DIY",
-            "facts": {"w": "800", "h": "480", "fmt": "gray16", "rot": "90,270"},
-            "first_seen": "2026-09-19T09:00:00", "last_seen": "2026-09-19T09:00:00"},
-        "DD:DD:DD:00:00:00": {
-            "id": "DD:DD:DD:00:00:00", "status": "ignored", "panel": "mystery panel",
-            "first_seen": "2026-09-18T09:00:00", "last_seen": "2026-09-18T09:00:00"},
-    },
-}
-LEGACY_VIEWERS = {
-    "AA:BB:CC:DD:EE:01": {
-        "id": "AA:BB:CC:DD:EE:01", "kind": "trmnl", "token": "abc123", "ip": "10.0.1.20",
-        "reported": {"model": "x", "width": 1872, "height": 1404, "battery_volts": 4.0},
-        "set": {"rotation": 90}, "first_seen": "2026-09-05T09:00:00",
-        "last_seen": "2026-09-20T07:00:00"},
-    "AA:BB:CC:DD:EE:02": {
-        "id": "AA:BB:CC:DD:EE:02", "kind": "page", "token": "def456",
-        "reported": {"width": 2048, "height": 1536, "model": "iPad"},
-        "set": {"name": "Kitchen", "dark_quiet": False},
-        "first_seen": "2026-09-06T09:00:00", "last_seen": "2026-09-20T07:30:00"},
-}
-
-
-@pytest.fixture
-def migrated(tmp_path) -> Database:
-    db = Database(str(tmp_path / "ff.db"))
-    db.set("frames", LEGACY_FRAMES)
-    db.set("viewers", LEGACY_VIEWERS)
-    frames.FrameRegistry(db).migrate()
-    return db
-
-
-def test_the_frame_that_was_being_served_is_still_on(migrated):
-    reg = frames.FrameRegistry(migrated)
-    row = reg.on_kits()[0]
-    assert row["id"] == "AA:AA:AA:00:00:03"
-    assert (row["transport"], row["status"]) == ("kit", frames.ON)
-    # The kit the single-frame build drew for is marked for the settings
-    # migration, which is the only thing that ever reads it.
-    assert row[frames.LEGACY_PRIMARY] is True
-    # Panel, board and telemetry lived in three places on the old row; they are
-    # all just what the device reported.
-    rep = frames.reported_of(row)
-    assert rep["board"] == "XIAO ESP32-S3 Plus + EE03" and rep["battery_percent"] == 64
-    assert frames.panel_of(row) is panels.EE03
-    assert row["ip"] == "10.0.1.10" and row["first_seen"] == "2026-09-01T09:00:00"
-
-
-def test_a_second_frame_keeps_its_choices_and_its_telemetry(migrated):
-    row = frames.FrameRegistry(migrated).get("BB:BB:BB:00:00:02")
-    assert row["status"] == frames.ON and frames.LEGACY_PRIMARY not in row
-    assert row["set"] == {"shows": "collage", "panel_rotation": 180, "name": "Study"}
-    assert frames.name_of(row) == "Study"
-    assert frames.reported_of(row)["battery_percent"] == 71
-    assert frames.panel_of(row) is panels.EE02
-
-
-def test_pending_and_ignored_frames_keep_their_answer(migrated):
-    reg = frames.FrameRegistry(migrated)
-    asking = reg.get("CC:CC:CC:00:00:01")
-    assert asking["status"] == frames.ASKING
-    assert frames.panel_of(asking).key == "custom:800x480:gray16:90,270"
-    ignored = reg.get("DD:DD:DD:00:00:00")
-    assert ignored["status"] == frames.IGNORED
-    assert frames.panel_of(ignored) is None      # it named no panel we know
-    assert [r["id"] for r in reg.on_kits()] == ["AA:AA:AA:00:00:03", "BB:BB:BB:00:00:02"]
-
-
-def test_viewers_become_frames_fed_another_way(migrated):
-    reg = frames.FrameRegistry(migrated)
-    trmnl = reg.get("AA:BB:CC:DD:EE:01")
-    assert (trmnl["transport"], trmnl["status"]) == ("trmnl", frames.ON)
-    assert trmnl["token"] == "abc123" and trmnl["ip"] == "10.0.1.20"
-    assert trmnl["reported"]["model"] == "x" and trmnl["set"] == {"rotation": 90}
-    page = reg.get("AA:BB:CC:DD:EE:02")
-    assert page["transport"] == "page" and page["set"]["name"] == "Kitchen"
-    assert {r["id"] for r in reg.by_transport("trmnl", "page")} == set(LEGACY_VIEWERS)
-    assert len(reg.all()) == 6
-
-
-def test_migrating_again_changes_nothing(migrated):
-    reg = frames.FrameRegistry(migrated)
-    before = reg.all()
-    reg.rename("AA:AA:AA:00:00:03", "Hallway")
-    frames.FrameRegistry(migrated).migrate()
-    after = frames.FrameRegistry(migrated).all()
-    assert after != before                       # the rename is still there
-    assert frames.name_of(after["AA:AA:AA:00:00:03"]) == "Hallway"
-
-
-def test_a_fresh_install_migrates_to_an_empty_registry(tmp_path):
-    db = Database(str(tmp_path / "ff.db"))
-    reg = frames.FrameRegistry(db)
-    reg.migrate()
-    assert reg.all() == {} and reg.on_kits() == []
-    assert db.get("frames") is None and db.get("viewers") is None
-
-
-def test_junk_in_the_legacy_stores_does_not_stop_the_migration(tmp_path):
-    db = Database(str(tmp_path / "ff.db"))
-    db.set("frames", {"active": "X", "known": "not a dict"})
-    db.set("viewers", ["not", "a", "dict"])
-    frames.FrameRegistry(db).migrate()
-    assert frames.FrameRegistry(db).all() == {}
 
 
 # -- the capability rules -------------------------------------------------------
@@ -205,7 +81,7 @@ def test_a_page_is_lit_turns_itself_and_has_no_battery():
     assert not caps["needs_size"] and caps["renamable"] and caps["shows"]
 
 
-# -- renaming, and the legacy keys after the migration -----------------------------
+# -- renaming any frame ------------------------------------------------------------
 EE03 = {"X-Device-Id": "AA:AA:AA:00:00:03", "X-Panel": "ED103TC2 1404x1872 gray16",
         "X-Board": "XIAO ESP32-S3 Plus + EE03"}
 EE02 = {"X-Device-Id": "BB:BB:BB:00:00:02", "X-Panel": "T133A01 1200x1600 spectra6",
@@ -264,14 +140,11 @@ def test_an_added_frame_is_still_renamed_with_the_rest_of_its_settings(client):
     assert card["name"] == "Study" and card["settings"]["rotation"] == 180
 
 
-def test_a_viewer_is_renamed_by_either_route(client):
+def test_a_viewer_is_renamed_on_the_one_endpoint(client):
     svc = client.app.state.service
     assert _name(client, TRMNL["ID"], "Desk").json()["ok"]
-    assert svc.viewers.get(TRMNL["ID"])["set"]["name"] == "Desk"
-    r = client.post(f"/api/viewers/{TRMNL['ID']}", json={"name": "Bench"}, headers=SAME_ORIGIN)
-    assert r.json()["ok"]
-    assert _row(svc, TRMNL["ID"])["name"] == "Bench"
-    assert client.get("/api/viewers").json()["viewers"][0]["name"] == "Bench"
+    assert svc.frames.get(TRMNL["ID"])["set"]["name"] == "Desk"
+    assert _row(svc, TRMNL["ID"])["name"] == "Desk"
 
 
 def test_renaming_a_frame_nobody_has_heard_of_is_a_404(client):
@@ -287,72 +160,3 @@ def test_a_viewer_claiming_a_frames_id_does_not_take_its_seat(client):
     assert r.status_code == 200                      # it is still answered
     assert svc.frames.get(EE03["X-Device-Id"]) == before
     assert _row(svc, EE03["X-Device-Id"])["transport"] == "kit"
-    assert svc.viewers.get(EE03["X-Device-Id"]) is None
-
-
-@pytest.fixture
-def upgraded(tmp_path, monkeypatch):
-    """The upgrade an owner actually runs: a DB whose rows were written by the
-    build before this one."""
-    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
-    from featherframe.app import app
-    from featherframe.service import FeatherframeService
-    db = Database(str(tmp_path / "ff.db"))
-    db.set("frames", LEGACY_FRAMES)
-    db.set("viewers", LEGACY_VIEWERS)
-    svc = FeatherframeService(db)
-    svc.source.db_path = str(tmp_path / "missing.db")
-    app.state.service = svc
-    svc._render_welcome(svc._clock(), False)
-    return TestClient(app)
-
-
-def test_a_migrated_install_keeps_serving_the_frame_it_was_serving(upgraded):
-    """The wall frame must not be asked to connect again, and the second kit
-    must not have to be added a second time."""
-    svc = upgraded.app.state.service
-    kits = [f for f in svc.frames_list() if f["transport"] == "kit" and f["status"] == "on"]
-    assert [f["id"] for f in kits] == [EE03["X-Device-Id"], EE02["X-Device-Id"]]
-    assert [f["name"] for f in kits] == ["", "Study"]
-    # Neither kit is a 403 — never "not this server's". No tick has drawn
-    # either yet, so both are 503 until one does.
-    assert upgraded.get("/api/frame", headers=EE03).status_code == 503
-    assert upgraded.get("/api/frame", headers=EE02).status_code == 503
-    svc.tick()
-    assert upgraded.get("/api/frame", headers=EE03).status_code == 200
-    assert upgraded.get("/api/frame", headers=EE02).status_code == 200
-    assert len(upgraded.get("/api/viewers").json()["viewers"]) == 2
-    # Every NEW frame asks now (W-833), but a frame this server was already
-    # drawing for is not asked about again — a viewer included.
-    assert sorted(f["id"] for f in svc.frames_list() if f["status"] == "on") == sorted(
-        [EE03["X-Device-Id"], EE02["X-Device-Id"], *LEGACY_VIEWERS])
-    body = upgraded.get("/api/display", headers=TRMNL).json()
-    assert not body["filename"].startswith("waiting-")
-
-
-def test_nothing_writes_the_legacy_keys_after_the_migration(upgraded):
-    """The registry is the only truth. The old blobs stay for a rollback, but
-    check-ins, answers and renames must not touch them."""
-    svc = upgraded.app.state.service
-    assert svc.db.get("frames") == LEGACY_FRAMES and svc.db.get("viewers") == LEGACY_VIEWERS
-    upgraded.get("/api/frame", headers=EE03)
-    upgraded.get("/api/frame", headers=EE02)
-    upgraded.get("/api/frame", headers={"X-Device-Id": "EE:EE:EE:00:00:09",
-                                        "X-Panel": "ED103TC2 1404x1872 gray16"})
-    upgraded.post("/api/frames", data={"id": "EE:EE:EE:00:00:09", "action": "ignore"},
-                  headers=SAME_ORIGIN)
-    upgraded.post("/api/frames", data={"id": "CC:CC:CC:00:00:01", "action": "forget"},
-                  headers=SAME_ORIGIN)
-    upgraded.get("/api/setup", headers=TRMNL)
-    upgraded.get("/api/display", headers=TRMNL)
-    upgraded.post(f"/api/viewers/{TRMNL['ID']}", json={"rotation": 270}, headers=SAME_ORIGIN)
-    _name(upgraded, EE03["X-Device-Id"], "Hallway")
-    assert svc.db.get("frames") == LEGACY_FRAMES and svc.db.get("viewers") == LEGACY_VIEWERS
-    # And the registry recorded all of it.
-    rows = svc.frames.all()
-    assert frames.name_of(rows[EE03["X-Device-Id"]]) == "Hallway"
-    assert rows["EE:EE:EE:00:00:09"]["status"] == frames.IGNORED
-    assert "CC:CC:CC:00:00:01" not in rows
-    assert rows[TRMNL["ID"]]["set"]["rotation"] == 270
-    assert frames.reported_of(rows[EE02["X-Device-Id"]])["last_result"] in ("frame", "304")

@@ -3,9 +3,7 @@
 A frame is a frame — the kit on the wall, a second kit, a TRMNL, a tablet —
 and every one of them shows a *picture*. There are exactly two: `plates`, the
 bird that was just heard drawn as an Audubon plate, and `collage`, the day.
-Before this the wall's picture was the server's state and the other one was a
-"side picture" bolted beside it (W-831); they are the same kind of thing and
-are kept the same way here.
+They are the same kind of thing and are kept the same way.
 
 A picture owns what it is of (`meta`), what identifies it (`etag`), and the
 composed sheet — plus the sheet's colour twin, when a colour screen is
@@ -32,12 +30,6 @@ PLATES, COLLAGE = "plates", "collage"
 KINDS = (PLATES, COLLAGE)
 
 KEY = "pictures"                      # our kv row: {kind: row}
-# The stores this one replaces. They are read once, by `load`, and never
-# written again; they stay in the DB so a rollback still finds them.
-LEGACY_FRAME_KEY = "current_frame"    # the resident frame's meta
-LEGACY_SIDE_KEY = "side_pictures"     # W-831's second picture
-_LEGACY_SHEET = "current_sheet.png"
-_LEGACY_SHEET_COLOR = "current_sheet_color.png"
 
 # Which picture a committed render's `mode` belongs to. "welcome" is a plate
 # with nothing to say yet, so it belongs to the plates picture.
@@ -188,47 +180,4 @@ class Pictures:
             if rows.get("shown") in KINDS:
                 self.shown = rows["shown"]
             return
-        self._adopt_legacy()
         self.save()
-
-    # -- migration ---------------------------------------------------------
-    def _adopt_legacy(self) -> None:
-        """An install upgrading mid-flight has the resident frame's meta and
-        sheet, and maybe W-831's side picture. Adopt them into the picture
-        each one belongs to, so nothing is re-rendered and the wall's ETag
-        does not move across the upgrade. The old files are copied, not moved:
-        a rollback still finds them."""
-        frames = paths.frames_dir()
-        meta = self.db.get(LEGACY_FRAME_KEY, {})
-        if isinstance(meta, dict) and meta.get("etag"):
-            pic = self[kind_of_mode(meta.get("mode"))]
-            self.shown = pic.kind
-            pic.meta = dict(meta)
-            pic.etag = str(meta["etag"])
-            pic.at = meta.get("rendered_at")
-            _copy(frames / _LEGACY_SHEET, pic.sheet_path)
-            _copy(frames / _LEGACY_SHEET_COLOR, pic.color_sheet_path)
-            log.info("adopted the resident frame as the %s picture", pic.kind)
-        side = self.db.get(LEGACY_SIDE_KEY, {})
-        for kind, row in (side if isinstance(side, dict) else {}).items():
-            if kind not in KINDS or not isinstance(row, dict) or self[kind].etag:
-                continue
-            pic = self[kind]
-            pic.etag = row.get("etag") or None
-            pic.key = row.get("key") or None
-            pic.at = row.get("at") or None
-            pic.meta = {"mode": "collage" if kind == COLLAGE else "single"}
-            _copy(frames / f"side_{kind}_sheet.png", pic.sheet_path)
-            _copy(frames / f"side_{kind}_sheet_color.png", pic.color_sheet_path)
-            log.info("adopted the side %s as the %s picture", kind, kind)
-
-
-def _copy(src, dst) -> None:
-    if not src.exists() or dst.exists():
-        return
-    try:
-        tmp = dst.with_suffix(".tmp")
-        tmp.write_bytes(src.read_bytes())
-        os.replace(tmp, dst)
-    except OSError:
-        log.warning("%s not adopted", src.name, exc_info=True)

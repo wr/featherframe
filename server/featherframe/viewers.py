@@ -1,29 +1,22 @@
-"""Viewers (W-822): screens that are not the frame. A TRMNL, an e-reader
-running one of TRMNL's clients, a tablet on the kiosk page. They show what the
-frame shows, so all a viewer has is how the picture sits on *its* screen: a
-size, a depth, a rotation, a name. What is shown (source, mode, quiet hours,
-blocklist) is the server's and is not here.
+"""Viewers (W-822): the frames that are fed over plain HTTP. A TRMNL, an
+e-reader running one of TRMNL's clients, a tablet on the kiosk page. They show
+a picture like every other frame, so all a viewer has of its own is how that
+picture sits on *its* screen: a size, a depth, a rotation, a name. What is
+shown (the source, quiet hours, the blocklist) is the household's.
 
-A record keeps what the device reported apart from what the owner set, so a
-check-in never undoes a choice made on the page.
-
-The rows live in the one frame registry (W-833): a viewer is a frame fed over
-HTTP instead of over the kit protocol, and `kind` here is that row's
-`transport`. This module is what knows how a viewer's picture is sized, turned
-and dithered; it no longer owns a store.
+Their rows are in the one frame registry (`frames.py`) like every other
+frame's, and the service does the reading and writing. This module is what
+knows how a viewer's picture is sized, turned and dithered, and how a device's
+own report is read.
 """
 from __future__ import annotations
 
-import logging
 import re
 import secrets
-from datetime import datetime
 from typing import Any, Optional
 
 from . import frames
 from .render.pipeline import View
-
-log = logging.getLogger("featherframe.viewers")
 
 # How often a viewer is told to come back (TRMNL's `refresh_rate`, seconds).
 # Constants, not settings (W-821): a battery e-ink screen that asks four times
@@ -51,8 +44,11 @@ _GRAY16_SIZES = {(1872, 1404), (1404, 1872)}   # the EE03's glass, whatever it i
 _DEFAULT_SIZE = (1072, 1448)
 
 _ID_RE = re.compile(r"^[0-9A-Za-z:._-]{1,40}$")
-_OWNER_FIELDS = ("name", "width", "height", "rotation", "shows")
+OWNER_FIELDS = ("name", "width", "height", "rotation", "shows")
 SHOWS = ("plates", "collage")   # else: whatever the frame shows
+
+# The transports a viewer is fed over: everything that is not a kit.
+KINDS = ("trmnl", "page")
 
 # The kiosk page (W-825) on a lit screen. It asks often because asking is
 # free on mains power, and a tablet should follow the wall within moments.
@@ -131,105 +127,37 @@ def page_size(width, height) -> Optional[tuple[int, int]]:
     return max(64, round(w * scale)), max(64, round(h * scale))
 
 
-_KINDS = ("trmnl", "page")
-
-
-def _out(row: dict) -> dict:
-    """A registry row as the viewer code reads it: a copy carrying `kind`, so a
-    caller that holds on to it cannot reach back into the store."""
-    return {**row, "kind": frames.transport_of(row)}
-
-
-def _new(viewer_id: str, kind: str, stamp: str) -> dict:
-    """A viewer nobody has seen before. It asks, like every other frame
-    (W-833): a screen that found the server on the LAN is not the owner
-    saying so, and it shows that it is waiting until they answer on the page."""
-    row = frames.new_row(viewer_id, kind if kind in _KINDS else "trmnl", stamp)
+def new_row(viewer_id: str, kind: str, stamp: str) -> dict:
+    """A viewer nobody has seen before. It asks, like every other frame: a
+    screen that found the server on the LAN is not the owner saying so, and it
+    shows that it is waiting until they answer on the page."""
+    row = frames.new_row(viewer_id, kind if kind in KINDS else "trmnl", stamp)
     row["token"] = secrets.token_hex(16)
     return row
 
 
-class Viewers:
-    """The viewers, kept in the one frame registry (W-833). Everything here is
-    scoped to the viewer transports: a kit on the same server is not a viewer
-    and must never be listed, renamed or pruned as one."""
-
-    def __init__(self, registry: "frames.FrameRegistry") -> None:
-        self.registry = registry
-
-    def all(self) -> dict[str, dict]:
-        return {r["id"]: _out(r) for r in self.registry.by_transport(*_KINDS)}
-
-    def get(self, viewer_id: str) -> Optional[dict]:
-        row = self.registry.get(viewer_id)
-        return _out(row) if row is not None and frames.transport_of(row) in _KINDS else None
-
-    def checkin(self, viewer_id: str, now: datetime, kind: str = "trmnl",
-                reported: Optional[dict[str, Any]] = None, ip: Optional[str] = None) -> dict:
-        """Record that a viewer asked, and what it said about itself. Absent
-        facts leave the last report standing."""
-        stamp = now.isoformat(timespec="seconds")
-        with self.registry.mutate() as rows:
-            row = rows.get(viewer_id)
-            if row is not None and frames.transport_of(row) not in _KINDS:
-                # A kit already holds this id. It is being served; something on
-                # the LAN claiming its MAC must not take its seat. Serve the
-                # picture, record nothing.
-                rows.unchanged()
-                log.warning("viewer %s has the same id as a frame; not recorded", viewer_id)
-                return _out(_new(viewer_id, kind, stamp))
-            if row is None:
-                row = rows[viewer_id] = _new(viewer_id, kind, stamp)
-            row["reported"] = {**frames.reported_of(row),
-                               **{k: v for k, v in (reported or {}).items() if v is not None}}
-            row["last_seen"] = stamp
-            if ip:
-                row["ip"] = ip
-            # The LAN is untrusted: junk IDs must not grow the row forever. Only
-            # viewers are ever dropped — a kit is answered for, not aged out.
-            # The owner's own answer outranks the clock: a screen they added or
-            # ignored is kept, and only the ones still asking age out.
-            mine = [k for k, r in rows.items() if frames.transport_of(r) in _KINDS
-                    and r.get("status") == frames.ASKING]
-            if len(mine) > MAX_VIEWERS:
-                mine.sort(key=lambda k: rows[k].get("last_seen") or "")
-                for stale in mine[:len(mine) - MAX_VIEWERS]:
-                    rows.pop(stale, None)
-        return _out(row)
-
-    def update(self, viewer_id: str, fields: dict[str, Any]) -> Optional[dict]:
-        """The owner's choices. A blank or invalid value clears that choice
-        (back to the report / the default)."""
-        with self.registry.mutate() as rows:
-            row = rows.get(viewer_id)
-            if row is None or frames.transport_of(row) not in _KINDS:
-                rows.unchanged()
-                return None
-            own = dict(frames.settings_of(row))
-            for key in _OWNER_FIELDS:
-                if key not in fields:
-                    continue
-                raw = fields[key]
-                if key == "name":
-                    value = str(raw or "").strip()[:60] or None
-                elif key == "shows":
-                    value = raw if raw in SHOWS else None
-                elif key == "rotation":
-                    value = _int(raw, 0, 270)
-                    value = value if value in (0, 90, 180, 270) else None
-                else:
-                    value = _int(raw, 64, 4096)
-                if value is None:
-                    own.pop(key, None)
-                else:
-                    own[key] = value
-            row["set"] = own
-        return _out(row)
-
-    def forget(self, viewer_id: str) -> bool:
-        if self.get(viewer_id) is None:
-            return False
-        return self.registry.forget(viewer_id)
+def own_settings(own: dict, fields: dict[str, Any]) -> dict:
+    """One viewer's `set` with the owner's choices applied. A blank or invalid
+    value clears that choice (back to the report / the default)."""
+    own = dict(own)
+    for key in OWNER_FIELDS:
+        if key not in fields:
+            continue
+        raw = fields[key]
+        if key == "name":
+            value = str(raw or "").strip()[:frames.MAX_NAME] or None
+        elif key == "shows":
+            value = raw if raw in SHOWS else None
+        elif key == "rotation":
+            value = _int(raw, 0, 270)
+            value = value if value in (0, 90, 180, 270) else None
+        else:
+            value = _int(raw, 64, 4096)
+        if value is None:
+            own.pop(key, None)
+        else:
+            own[key] = value
+    return own
 
 
 def trmnl_report(headers) -> dict[str, Any]:
@@ -244,19 +172,6 @@ def trmnl_report(headers) -> dict[str, Any]:
         "battery_percent": _int(headers.get("percent-charged"), 0, 100),
         "rssi": _int(headers.get("rssi"), -120, 0),
     }
-
-
-def public(row: dict) -> dict:
-    """A row for the page and /api/viewers: never the token."""
-    view = view_of(row)
-    kind = frames.transport_of(row)
-    return {"id": row["id"], "kind": kind, "name": (row.get("set") or {}).get("name"),
-            "reported": row.get("reported") or {}, "set": row.get("set") or {},
-            "view": {"width": view.width, "height": view.height, "format": view.fmt,
-                     "rotation": view.rotation},
-            "shows": shows_of(row),
-            "first_seen": row.get("first_seen"), "last_seen": row.get("last_seen"),
-            "ip": row.get("ip")}
 
 
 # -- how a viewer is named on the page -------------------------------------------

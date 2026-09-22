@@ -80,7 +80,7 @@ def test_a_trmnl_x_gets_the_ee03s_picture_on_its_side(client):
     png = _image(client, _added(client, X))
     assert png[24] == 4
     assert Image.open(io.BytesIO(png)).size == (1872, 1404)
-    assert viewers.view_of(client.app.state.service.viewers.get(X["ID"])) == View(1872, 1404, "gray16", 90)
+    assert viewers.view_of(client.app.state.service.frames.get(X["ID"])) == View(1872, 1404, "gray16", 90)
 
 
 def test_an_og_gets_two_bit_gray(client):
@@ -91,7 +91,7 @@ def test_an_og_gets_two_bit_gray(client):
 def test_a_client_that_reports_no_size_gets_an_e_reader_page_until_the_owner_says(client):
     png = _image(client, _added(client, KOBO))
     assert Image.open(io.BytesIO(png)).size == (1072, 1448)
-    r = client.post(f"/api/viewers/{KOBO['ID']}", json={"width": 1264, "height": 1680,
+    r = client.post(f"/api/frames/{KOBO['ID']}", json={"width": 1264, "height": 1680,
                                                        "name": "Kitchen Kobo"})
     assert _row(r.json()["frames"], KOBO["ID"])["name"] == "Kitchen Kobo"
     png = _image(client, client.get("/api/display", headers=KOBO).json())
@@ -100,11 +100,11 @@ def test_a_client_that_reports_no_size_gets_an_e_reader_page_until_the_owner_say
 
 def test_the_owners_rotation_survives_check_ins_and_changes_the_filename(client):
     before = _added(client, X)["filename"]
-    client.post(f"/api/viewers/{X['ID']}", json={"rotation": 270})
+    client.post(f"/api/frames/{X['ID']}", json={"rotation": 270})
     after = client.get("/api/display", headers=X).json()
     assert after["filename"] != before and after["filename"].endswith("-270")
     # Clearing the choice goes back to the default.
-    client.post(f"/api/viewers/{X['ID']}", json={"rotation": ""})
+    client.post(f"/api/frames/{X['ID']}", json={"rotation": ""})
     assert client.get("/api/display", headers=X).json()["filename"] == before
 
 
@@ -138,15 +138,22 @@ def test_quiet_hours_let_a_viewer_sleep_longer(client):
     assert _added(client, X)["refresh_rate"] == viewers.QUIET_REFRESH_SECONDS
 
 
+def _viewers(client) -> list:
+    """The viewer rows of the one listing every frame reaches the page in."""
+    return [r for r in client.get("/api/status").json()["frames"]["list"]
+            if r["transport"] in viewers.KINDS]
+
+
 def test_the_list_shows_what_each_viewer_is_and_never_its_key(client):
     _added(client, X)
     _added(client, OG)
-    rows = client.get("/api/viewers").json()["viewers"]
+    rows = _viewers(client)
     assert [r["id"] for r in rows] == [X["ID"], OG["ID"]]
-    assert rows[0]["reported"]["battery_percent"] == 88 and rows[0]["view"]["format"] == "gray16"
-    assert "token" not in rows[0] and "token" not in str(rows)
-    assert client.post(f"/api/viewers/{OG['ID']}", json={"forget": True}).json()["ok"]
-    assert len(client.get("/api/viewers").json()["viewers"]) == 1
+    assert rows[0]["reported"]["battery_percent"] == 88
+    assert rows[0]["settings"]["format"] == "gray16"
+    assert "token" not in str(rows)
+    assert client.post(f"/api/frames/{OG['ID']}", json={"forget": True}).json()["ok"]
+    assert len(_viewers(client)) == 1
 
 
 def test_junk_from_the_lan_is_bounded(client):
@@ -154,15 +161,15 @@ def test_junk_from_the_lan_is_bounded(client):
     bad = {**X, "ID": "AA:BB:CC:DD:EE:09", "Width": "99999", "Battery-Voltage": "nan",
            "RSSI": "inf", "Model": "x" * 500}
     assert client.get("/api/display", headers=bad).status_code == 200
-    row = svc.viewers.get("AA:BB:CC:DD:EE:09")
+    row = svc.frames.get("AA:BB:CC:DD:EE:09")
     assert "width" not in row["reported"] and "battery_volts" not in row["reported"]
     assert len(row["reported"]["model"]) <= 40
     assert client.get("/api/display", headers={"ID": "../../etc"}).status_code == 404
     for i in range(viewers.MAX_VIEWERS + 5):
         client.get("/api/display", headers={"ID": f"AA:00:00:00:00:{i:02X}"})
-    assert len(svc.viewers.all()) == viewers.MAX_VIEWERS
+    assert len(svc.frames.by_transport(*viewers.KINDS)) == viewers.MAX_VIEWERS
     # A foreign page cannot rename or forget a viewer.
-    r = client.post(f"/api/viewers/{X['ID']}", json={"forget": True},
+    r = client.post(f"/api/frames/{X['ID']}", json={"forget": True},
                     headers={"Origin": "http://evil.example"})
     assert r.status_code == 403
 
@@ -188,9 +195,9 @@ def test_a_page_is_told_which_image_to_show_in_colour_at_its_own_size(client):
     assert r["dark"] is False and r["poll"] == viewers.PAGE_POLL_SECONDS
     assert r["image"].endswith("-1536x2048-color-0.png")
     assert Image.open(io.BytesIO(client.get(r["image"]).content)).size == (1536, 2048)
-    row = client.get("/api/viewers").json()["viewers"][0]
-    assert row["kind"] == "page" and row["reported"]["model"] == "iPad"
-    assert "dark_quiet" not in row
+    row = _viewers(client)[0]
+    assert row["transport"] == "page" and row["reported"]["model"] == "iPad"
+    assert "dark_quiet" not in str(row)
 
 
 def test_a_big_screen_is_not_drawn_bigger_than_the_sheet_is_worth(client):
@@ -211,7 +218,7 @@ def test_a_page_shows_the_plate_whatever_the_hour_and_is_always_colour(client):
     svc.config.quiet_hours_start, svc.config.quiet_hours_end = "11:00", "13:00"
     url = "/api/view/state?viewer=PAGE-3&w=1536&h=2048"
     assert add_page(client, url, "PAGE-3").json()["dark"] is False
-    client.post("/api/viewers/PAGE-3", json={"dark_quiet": True, "fmt": "gray256"})
+    client.post("/api/frames/PAGE-3", json={"dark_quiet": True, "fmt": "gray256"})
     assert svc.frames.get("PAGE-3")["set"] == {}
     state = client.get(url).json()
     assert state["dark"] is False and state["paper"] is False
@@ -240,7 +247,7 @@ def test_each_viewer_is_a_row_with_only_the_controls_its_screen_has(client):
     _added(client, X)
     _added(client, KOBO)
     add_page(client, "/api/view/state?viewer=PAGE-1&w=1536&h=2048&device=iPad", "PAGE-1")
-    client.post(f"/api/viewers/{X['ID']}", json={"name": "Hall TRMNL"})
+    client.post(f"/api/frames/{X['ID']}", json={"name": "Hall TRMNL"})
     card = client.get("/").text.split('id="frames-card"')[1].split("</section>")[0]
     assert "Hall TRMNL" in card and "iPad" in card
     x, kobo, page = (card.split(f'data-frame="{i}"')[1].split(chr(10) + "    </li>")[0]

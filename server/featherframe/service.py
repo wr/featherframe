@@ -35,7 +35,6 @@ from .frames import FrameRegistry
 from .sources import Detection, make_source
 from .db import Database
 from . import viewers as viewers_mod
-from .viewers import Viewers
 from .render import collage as collage_mod
 from .render import compose as compose_mod
 from .render import framebuffer
@@ -49,14 +48,7 @@ from .render.provider import ArtProvider, AudubonProvider, ChainedProvider
 
 log = logging.getLogger("featherframe.service")
 
-# What the single-frame build left behind. Read once by the settings migration
-# and never written again, so a rollback still finds them.
-_CURRENT_FFF = "current.fff"
-_CURRENT_PNG = "current.png"
-_LEGACY_ADDED_KEY = "added_frames"
-
 _OUT_KEY = "frame_outputs"            # frame id -> {"etag", "src"}
-_SETTINGS_MIGRATED = "frames_own_settings"
 _USER_HOLD_KEY = "user_hold"          # W-735: the owner's pin on the current plate
 _HOLD_DAYS = {"day": 1, "week": 7, "forever": None}
 _VIEWS_MAX = 8                         # cached renders of one picture
@@ -500,11 +492,8 @@ class FeatherframeService:
         self._clock = datetime.now
         self.db = db or Database()
         # One registry for every screen (W-833): the kit on the wall, a second
-        # kit, a TRMNL, a tablet. `migrate` folds the stores it replaced into
-        # it on the first start and is a no-op after that.
+        # kit, a TRMNL, a tablet.
         self.frames = FrameRegistry(self.db)
-        self.frames.migrate()
-        self.viewers = Viewers(self.frames)   # screens that are not the frame (W-822)
         self.config: Config = load_config(self.db)
         self.audubon = AudubonProvider()
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
@@ -542,7 +531,6 @@ class FeatherframeService:
         self.pictures = Pictures(self.db)
         out = self.db.get(_OUT_KEY, {})
         self._out: dict = out if isinstance(out, dict) else {}   # frame id -> {etag, src}
-        self._migrate_frame_settings()
         self._load_outputs()
         # Verify the persisted ingest cursor isn't stale on the first single-tick
         # after start (see _single_tick); cheaper than checking every tick.
@@ -601,7 +589,7 @@ class FeatherframeService:
         """What the kits show — plates while any of them is on plates, else the
         collage. With no kit, what the viewers show; with no screen at all, the
         last picture this server drew."""
-        viewers_on = [r for r in self.frames.by_transport("trmnl", "page")
+        viewers_on = [r for r in self.frames.by_transport(*viewers_mod.KINDS)
                       if r.get("status") == frames_mod.ON]
         for rows, asked in ((self._kits_on(), frames_mod.shows_of),
                             (viewers_on, viewers_mod.shows_of)):
@@ -1188,7 +1176,7 @@ class FeatherframeService:
                         config: Optional[Config] = None) -> Optional[RenderResult]:
         """Render a plain (non-generated) collage for one day, or None if
         fewer than 2 species. Used by the transient button view; `config` is
-        an added frame's (W-832), else the active frame's."""
+        the asking frame's, else the household's."""
         config = config or self.config
         rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR,
                                              limit=self.config.collage_species_max or 500)
@@ -1502,6 +1490,42 @@ class FeatherframeService:
             log.info("a new frame is asking to connect: %s (%s) at %s", fid, reported_panel, ip)
         return status
 
+    def checkin_viewer(self, viewer_id: str, now: datetime, transport: str = "trmnl",
+                       reported: Optional[dict] = None, ip: Optional[str] = None) -> dict:
+        """The same moment for a frame fed over plain HTTP: record that it
+        asked, and what it said about itself. Absent facts leave the last
+        report standing. It is answered with a picture rather than a status
+        code, so its row comes back instead of the row's status."""
+        stamp = now.isoformat(timespec="seconds")
+        with self.frames.mutate() as rows:
+            row = rows.get(viewer_id)
+            if row is not None and frames_mod.transport_of(row) not in viewers_mod.KINDS:
+                # A kit already holds this id. It is being served; something on
+                # the LAN claiming its MAC must not take its seat. Serve the
+                # picture, record nothing.
+                rows.unchanged()
+                log.warning("viewer %s has the same id as a frame; not recorded", viewer_id)
+                return viewers_mod.new_row(viewer_id, transport, stamp)
+            if row is None:
+                row = rows[viewer_id] = viewers_mod.new_row(viewer_id, transport, stamp)
+            row["reported"] = {**frames_mod.reported_of(row),
+                               **{k: v for k, v in (reported or {}).items() if v is not None}}
+            row["last_seen"] = stamp
+            if ip:
+                row["ip"] = ip
+            # The LAN is untrusted: junk IDs must not grow the row forever. Only
+            # these are ever dropped — a kit is answered for, not aged out — and
+            # the owner's answer outranks the clock, so a screen they added or
+            # ignored is kept and only the ones still asking age out.
+            asking = [k for k, r in rows.items()
+                      if frames_mod.transport_of(r) in viewers_mod.KINDS
+                      and r.get("status") == frames_mod.ASKING]
+            if len(asking) > viewers_mod.MAX_VIEWERS:
+                asking.sort(key=lambda k: rows[k].get("last_seen") or "")
+                for stale in asking[:len(asking) - viewers_mod.MAX_VIEWERS]:
+                    rows.pop(stale, None)
+        return row
+
     def frame_config(self, row: Optional[dict]) -> Config:
         """The config one frame is drawn with (frames.frame_config): the
         household's, with this frame's panel, its defaults, and the owner's
@@ -1525,7 +1549,13 @@ class FeatherframeService:
         if caps["needs_size"]:
             allowed += ["width", "height"]
         take = {k: v for k, v in fields.items() if k in allowed}
-        return self.viewers.update(frame_id, take) is not None
+        with self.frames.mutate() as rows:
+            row = rows.get(frame_id)
+            if row is None or frames_mod.transport_of(row) not in viewers_mod.KINDS:
+                rows.unchanged()
+                return False
+            row["set"] = viewers_mod.own_settings(frames_mod.settings_of(row), take)
+        return True
 
     def _update_kit(self, frame_id: str, fields: dict, caps: dict) -> bool:
         """One kit's own settings. Values go through Config's own sanitising —
@@ -1721,97 +1751,6 @@ class FeatherframeService:
             self._save_outputs()
         log.info("drew the %s picture for frame %s (%s), etag=%s",
                  pic.kind, fid[-6:], cfg.panel, result.etag)
-
-    # -- migrating off the single-frame build ---------------------------------
-    def _migrate_frame_settings(self) -> None:
-        """Every frame owns its settings (W-833 step 2b). The kit the old build
-        drew for keeps behaving exactly as it did: the household's display
-        settings, its mode, its telemetry, its battery log and the framebuffer
-        already on its glass all move onto its row. Runs once."""
-        if self.db.get(_SETTINGS_MIGRATED):
-            return
-        self._adopt_added_outputs()
-        row = next((r for r in self.frames.all().values()
-                    if r.pop(frames_mod.LEGACY_PRIMARY, None)
-                    and frames_mod.transport_of(r) == "kit"), None)
-        if row is not None:
-            fid = str(row["id"])
-            cfg = self.config
-            row["set"] = {**frames_mod.settings_of(row),
-                          **{k: getattr(cfg, k) for k in frames_mod.KIT_SETTINGS},
-                          "shows": COLLAGE if cfg.mode == "collage" else PLATES}
-            row["reported"] = {**frames_mod.reported_of(row),
-                               **_clean_device_fields(self.db.get("device_status", {}))}
-            if frames_mod.panel_of(row) is None:
-                # Firmware too old to name its panel: the config knew which one
-                # this frame has, and its own next report still wins.
-                row["panel"] = cfg.panel
-            self.frames.save(row)
-            self.db.adopt_battery_log(fid)
-            log.info("frame %s now owns its own settings", fid[-6:])
-        self._adopt_current_frame(str(row["id"]) if row is not None else None)
-        # Drop the mark from every other row the registry migration wrote.
-        with self.frames.mutate() as rows:
-            for r in rows.values():
-                r.pop(frames_mod.LEGACY_PRIMARY, None)
-        self.db.set(_SETTINGS_MIGRATED, True)
-
-    def _adopt_added_outputs(self) -> None:
-        """W-832 drew second kits into frames/added/; they are ordinary frame
-        outputs now. Copied, not moved, so a rollback still finds them."""
-        old = self.db.get(_LEGACY_ADDED_KEY, {})
-        for fid, state in (old if isinstance(old, dict) else {}).items():
-            if fid in self._out or not isinstance(state, dict):
-                continue
-            safe = re.sub(r"[^0-9A-Za-z_-]", "_", str(fid))
-            src = paths.frames_dir() / "added" / f"{safe}.fff"
-            if not src.exists():
-                continue
-            fff, png = self._out_paths(str(fid))
-            fff.write_bytes(src.read_bytes())
-            old_png = src.with_suffix(".png")
-            if old_png.exists():
-                png.write_bytes(old_png.read_bytes())
-            self._out[str(fid)] = {"etag": state.get("etag"), "src": state.get("src")}
-        if self._out:
-            self._save_outputs()
-
-    def _adopt_current_frame(self, frame_id: Optional[str]) -> None:
-        """`current.fff` is that frame's output, byte for byte: the wall must
-        not repaint just because the server learned a new way to name it. The
-        picture's ETag is taken from those same bytes, since a crash between
-        the two writes of the old `_commit` could have left the meta ahead."""
-        frames_dir = paths.frames_dir()
-        fff = frames_dir / _CURRENT_FFF
-        data = fff.read_bytes() if fff.exists() else b""
-        pic = self.pictures[self._shown]
-        if not framebuffer.is_complete(data):
-            # Torn, foreign or missing: serving it would hand the device a
-            # container it rejects on every wake. A picture with a sheet can
-            # still be drawn from; one with neither has nothing to say, so it
-            # is forgotten and the first tick renders a fresh one.
-            if data:
-                log.warning("%s is not a complete frame (%d bytes); re-rendering",
-                            fff.name, len(data))
-            if pic.etag and not pic.sheet_path.exists():
-                pic.etag = None
-                self.pictures.save()
-            return
-        etag = framebuffer.etag_for(data)
-        if pic.etag:
-            pic.etag = etag
-            pic.meta["etag"] = etag
-            self.pictures.save()
-        if frame_id is None:
-            return            # nothing was being served: nobody to hand it to
-        out_fff, out_png = self._out_paths(frame_id)
-        out_fff.write_bytes(data)
-        png = frames_dir / _CURRENT_PNG
-        if png.exists():
-            out_png.write_bytes(png.read_bytes())
-        row = self.frames.get(frame_id)
-        self._out[frame_id] = {"etag": etag, "src": self._output_src(row, self._clock())}
-        self._save_outputs()
 
     def mdns_panel(self) -> str:
         """The panel key advertised over mDNS. A frame whose panel no server

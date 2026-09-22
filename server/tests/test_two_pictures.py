@@ -72,7 +72,7 @@ def test_a_viewer_follows_the_frame_until_it_is_told_otherwise(client):
 def test_an_ipad_on_the_collage_beside_a_frame_on_plates(client, tmp_path):
     svc = client.app.state.service
     add_page(client, IPAD, "PAGE-IPAD")
-    client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
+    client.post("/api/frames/PAGE-IPAD", json={"shows": "collage"})
     wall = (svc._etag, frame_bytes(svc), dict(svc._meta))
     svc.tick()
     assert _sheets(svc, "collage") == ["sheet.png"]
@@ -98,7 +98,7 @@ def test_an_ipad_on_the_collage_beside_a_frame_on_plates(client, tmp_path):
 def test_the_collage_is_redrawn_on_its_interval_not_every_tick(client):
     svc = client.app.state.service
     add_page(client, IPAD, "PAGE-IPAD")
-    client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
+    client.post("/api/frames/PAGE-IPAD", json={"shows": "collage"})
     svc.tick()
     drawn = svc.pictures["collage"].at
     svc._clock = lambda: NOW + timedelta(minutes=30)
@@ -117,7 +117,7 @@ def test_a_trmnl_on_plates_beside_a_frame_on_the_collage(client, tmp_path):
     assert svc._meta["mode"] == "collage"
     trmnl = {"ID": "AA:BB:CC:DD:EE:01", "Model": "x", "Width": "1872", "Height": "1404"}
     add_trmnl(client, trmnl)
-    client.post(f"/api/viewers/{trmnl['ID']}", json={"shows": "plates"})
+    client.post(f"/api/frames/{trmnl['ID']}", json={"shows": "plates"})
     wall = svc._etag
     svc.tick()
     body = client.get("/api/display", headers=trmnl).json()
@@ -138,7 +138,7 @@ def test_a_hold_pins_the_plate_while_the_collage_keeps_being_drawn(client):
     svc = client.app.state.service
     svc.config.collage_interval_hours = 1    # (a jump short of the gone-quiet alarm)
     add_page(client, IPAD, "PAGE-IPAD")
-    client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
+    client.post("/api/frames/PAGE-IPAD", json={"shows": "collage"})
     svc.tick()
     wall, first = svc._etag, svc.pictures["collage"].at
     svc.user_hold = lambda now=None: {"until": "later"}
@@ -153,7 +153,7 @@ def test_there_is_one_collage_the_same_on_every_screen(client):
     the same sheet, drawn once, that the frames on the collage show."""
     svc = client.app.state.service
     add_page(client, IPAD, "PAGE-IPAD")
-    client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage", "dark_quiet": False})
+    client.post("/api/frames/PAGE-IPAD", json={"shows": "collage", "dark_quiet": False})
     svc.tick()
     assert svc.pictures["collage"].etag in client.get(IPAD).json()["image"]
     # Nightfall: the frame on plates takes that same collage for the window.
@@ -179,10 +179,10 @@ def test_the_blocklist_is_global(client, tmp_path):
 def test_a_picture_nobody_shows_any_more_is_dropped(client):
     svc = client.app.state.service
     add_page(client, IPAD, "PAGE-IPAD")
-    client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
+    client.post("/api/frames/PAGE-IPAD", json={"shows": "collage"})
     svc.tick()
     assert _drawn(svc) == ["plates", "collage"]
-    client.post("/api/viewers/PAGE-IPAD", json={"shows": ""})
+    client.post("/api/frames/PAGE-IPAD", json={"shows": ""})
     svc.tick()
     assert _drawn(svc) == ["plates"] and _sheets(svc, "collage") == []
 

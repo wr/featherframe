@@ -134,7 +134,10 @@ dithered and packed with `frame_config(row)`, kept as `data/frames/out/<id>.fff`
 (`_out[id].src` names both). `/api/frame` resolves the asking frame's row and
 serves its bytes, its ETag, its own `X-FF-Rotation` / `X-Power-Mode` /
 `X-Wake-Minutes` / `X-Poll-Seconds`, and its button views drawn with its
-config. A viewer's output is the same idea as a PNG (`view_png`), drawn on
+config. Its two intervals are `service.frame_intervals`: on plates the owner's,
+on the collage the wait to just after `collage_next_at`, so a frame on the
+collage checks in when there is something new and never on a clock of its own.
+A viewer's output is the same idea as a PNG (`view_png`), drawn on
 first ask and cached; `GET /api/frames/<id>/preview.png` serves either kind.
 Telemetry is per frame too: a check-in lands on its own row
 (`_record_checkin`), the battery log carries a `frame_id` (`GET
@@ -142,17 +145,10 @@ Telemetry is per frame too: a check-in lands on its own row
 every frame. `frames_list()` / `frame_view(row)` is the one shape all of this
 reaches the page in.
 
-The upgrade from the single-frame build runs once (`_migrate_frame_settings`,
-marked by the `frames_own_settings` kv key): the kit the old build drew for
-gets the household's display settings and `config.mode` written into its `set`,
-`device_status` and the battery log moved onto it, and `current.fff` adopted
-as its first output **byte for byte**, so the wall does not repaint. Its panel
-falls back to the old `config.panel` if the frame was too old to report one.
-
-**Viewers (W-822) are screens that are not the frame** — a TRMNL, an
-e-reader, a tablet. They show what the frame shows and never decide anything:
-a commit keeps the composed sheet (`RenderResult.sheet`, before the panel fit,
-the mat and the dither) as the picture's `sheet.png`, and
+**Viewers (W-822) are the frames fed over plain HTTP** — a TRMNL, an
+e-reader, a tablet. They show a picture like every other frame and decide
+nothing about it: a commit keeps the composed sheet (`RenderResult.sheet`,
+before the panel fit, the mat and the dither) as the picture's `sheet.png`, and
 `GET /api/view.png?w=&h=&format=&rotation=` (`service.view_png` →
 `pipeline.render_view`) draws it again at the asked size: `gray16`/`gray2`/
 `mono` blue-noise dithered, `gray256`/`color` smooth, no mat, a PNG. Its ETag
@@ -169,24 +165,27 @@ one re-render of the subject.
 TRMNL's bring-your-own-server protocol is the first viewer client (W-824):
 `GET /api/setup`, `GET /api/display`, `POST /api/log`, shaped by the firmware's
 own source (`usetrmnl/trmnl-firmware`: `request_headers.cpp`, `display.cpp`),
-which also covers TRMNL's Kobo/Kindle/KOReader clients. `viewers.py` reads the
-viewer rows out of the one frame registry, the device's report apart from the
-owner's choices (saved through `POST /api/frames/<id>` like any frame's;
-`POST /api/viewers/<id>` is a thin alias kept for W-822's own scripts), and
-`view_of` turns a row into a `View`: 16-gray models get `gray16`, other
+which also covers TRMNL's Kobo/Kindle/KOReader clients. `service.checkin_viewer`
+records the ask on that frame's row in the one registry — the device's report
+apart from the owner's choices, which are saved through `POST /api/frames/<id>`
+like any frame's — and `viewers.view_of` turns a row into a `View`: 16-gray
+models get `gray16`, other
 firmware builds `gray2` (the firmware truncates anything deeper, so we dither),
 a client that reports no size a smooth 1072×1448 page; a landscape canvas
 hangs portrait (rotation 90), as `panels._rotations`. The device repaints only
 when `filename` changes: the picture's ETag plus the variant. Dithered views go
 out at their true PNG depth (`pipeline.encode_png`; Pillow cannot write gray
-below 8 bits). `refresh_rate` is a constant (`viewers.REFRESH_SECONDS`, hourly
-in quiet hours). A viewer never reaches `admit_frame` — but it is approved on
+below 8 bits). `refresh_rate` is `viewers.REFRESH_SECONDS` (hourly in quiet
+hours), or the collage's own next redraw for a viewer on the collage. A viewer
+never reaches `admit_frame` — but it is approved on
 the server like every other frame: a new one is `asking`, `/api/setup` still
 hands it its key, and `/api/display` answers `status: 0` with the *waiting
 plate* (`welcome.render_waiting`, the wordmark over "ADD THIS FRAME ON THE
 FEATHERFRAME PAGE" and its short id), drawn for that screen's own size, depth
 and rotation, `filename` `waiting-<variant>`, `refresh_rate`
 `WAITING_REFRESH_SECONDS` (`IGNORED_REFRESH_SECONDS` once it is ignored).
+Its image is `GET /api/viewers/<id>/<name>.png`, and that path stays where it
+is: a screen asleep holds the URL it was handed.
 The kiosk page (W-825) is the second client: `GET /view`
 (`templates/view.html`, ES5 and XHR on purpose, for old iPads; a home-screen
 web app via `/view.webmanifest`) names itself from localStorage, reports its
@@ -195,17 +194,16 @@ is told which image to cross-fade to — or, while it is still `asking` or
 `ignored`, `{"waiting": true, "id": …}` and no image, which the page shows as
 the wordmark over "Add this frame on the Featherframe page" and its short id.
 It keeps polling and takes the picture by itself once the owner adds it. A page
-viewer (`kind: "page"`) is always
+viewer (`transport: "page"`) is always
 `color`, upright, long side capped at `PAGE_MAX_SIDE`, and shows the plate
-whatever the hour — there is no *Look* and no *Dark in quiet hours* any more
-(`/api/view/state` still answers `"dark": false` so a tab open since the old
-build keeps working, and a `fmt`/`dark_quiet` left on a row is ignored). A
-viewer has no card of its own either (W-833 step 3): it is a row in the Frames
+whatever the hour (`/api/view/state` still answers `"dark": false` so a tab
+open since an older build keeps working, and a `fmt`/`dark_quiet` left on a row
+is ignored). A viewer has no card of its own: it is a row in the Frames
 card like every other frame, offered *Rotation* and a pixel size only when it
 reported none. How deep a viewer is drawn follows what the *device* reported,
 never the owner (a Kobo script client stays smooth once sized).
 
-**The page (W-833 step 3) is two halves, and one row component.** Left, narrow:
+**The page is two halves, and one row component.** Left, narrow:
 metadata only, never a setting — the live preview with a chip per frame under
 it (the picked frame is kept in `localStorage`; a kit's own `out/<id>.png`, a
 viewer's own view — both at `GET /api/frames/<id>/preview.png`, and always the
@@ -214,8 +212,12 @@ rotation: a TRMNL's is stood up and a page's is the sheet at 3:4) and the plate'
 tools; then the detection source's own small card, titled by the source name;
 then History. **There is no Health card**: a frame's health is the frame's row.
 Right, wide: a **Frames** card FIRST — just the list, no heading — then the
-household's sections (Quiet hours, Detection source, Collage, Image generation,
-Generated plates) in one `/settings` form that carries no frame field at all.
+household's sections in one `/settings` form that carries no frame field at
+all, in the order the day runs: Detection source, Image generation (its two AI
+switches `locked` until a key is stored), Individual detections, Collage — and
+quiet hours IS the overnight collage, so it sits in that section and has no
+toggle of its own (`Config.quiet_hours_render_collage` is a property: the
+window being on is the whole of it) — then Generated plates.
 Every frame is the same row (the `frame_row` macro), and that row **is** the
 page's own disclosure (`details.disc`), so it hovers, turns its chevron and
 slides open exactly as *Advanced* does. Collapsed it is a conventional
@@ -223,19 +225,24 @@ device-list line: the status dot (`card.state`, the one place it is decided —
 green heard from on time, amber overdue, red battery critical, grey never or a
 page not open), the name, an *Overdue* / *Battery low* badge, `frames_list()`'s
 `summary` muted under it, then fixed columns for battery, Wi-Fi and last seen
-(the Wi-Fi column goes at ≤ 520 px). Open, its own settings **by capability** —
-Name, Content, Rotation in degrees, Power, one *Update interval* whose options
-swap with Power (seconds → `device_poll_seconds`, minutes → `wake_interval_minutes`;
-only the shown one is posted), Screen size only when `needs_size` — then
-*Advanced* (the mat, *Reset to defaults*) and *Details*, which is what this
+(the Wi-Fi column goes at ≤ 520 px). The battery column is a cell and a percent
+only on a frame set to Battery — hover it for that frame's own 24 h voltage
+trend — and the plug on USB; the Wi-Fi bars go faint on a frame that is not
+being heard from. Open, its own settings **by capability** —
+Name, Content, Rotation in degrees, Power (USB | Battery), one *Update
+interval* dropdown, a minute to a day, whose value swaps with Power (seconds →
+`device_poll_seconds`, minutes → `wake_interval_minutes`; only the shown one is
+posted) and which is `locked` to the collage's own interval while that is what
+the frame shows, Screen size only when `needs_size` — then
+*Advanced* (the mat inset and offset, the *Mat guide* switch — `mat_guide`, a
+2 px line just inside the composition to set them by — and *Reset to
+defaults*) and *Details*, which is what this
 frame REPORTED and nothing the row above already says: IP address, firmware,
-panel, board, frame id, each only where the frame reports one. (The Power and
-Wi-Fi tiles and the 24 h voltage trend are gone from the page; `GET
-/api/battery?frame=` and the log behind it are untouched.) Then Remove on the
-left and Save on the right, where the household form's own Save sits. The list
-is flush in its card — the card's vertical padding is 0 and it clips to its own
-radius, so each row's own padding is the spacing and the first and last rows'
-hover backgrounds reach the card's edges. Saving posts JSON to
+panel, board, frame id, each only where the frame reports one. Then Remove on
+the left and Save on the right, where the household form's own Save sits. The
+list is flush in its card — the card's vertical padding is 0 and it clips to
+its own radius, so each row's own padding is the spacing and the first and last
+rows' hover backgrounds reach the card's edges. Saving posts JSON to
 `POST /api/frames/<id>` and updates the row in place; the status poll keeps
 every summary, dot, badge and reading current and reloads only when the set of
 frames itself changes. A kit that is asking is a notice at the top of the card
@@ -244,11 +251,10 @@ bottom, and with no frames at all the card is an invitation: `<host>/view` on a
 tablet, or build the kit. There are no per-frame banners: the row's badges say
 it. `status()["frames"]["list"]` is the whole of it, one shape per frame;
 `status()["current"]` is what the pictures are of, not any frame's view.
-**Two pictures (`pictures.py`, W-831 rebuilt in W-833).** There are exactly
+**Two pictures (`pictures.py`).** There are exactly
 two, `plates` and `collage`, and they are the same kind of thing: each owns its
 meta, its ETag, and its composed sheet (`data/frames/pictures/<kind>/
-sheet[_color].png`; the `pictures` kv row holds the rest, and adopts the old
-`current_frame`/`side_pictures` stores on the first start). A picture is drawn
+sheet[_color].png`; the `pictures` kv row holds the rest). A picture is drawn
 only while some frame shows it — a kit per `frames.shows_of`, a viewer per
 `viewers.shows_of` and only if it asked within `VIEWER_SHOWS_DAYS` — and is
 dropped when the last one looks away (`_kinds_shown`, `_drop_picture`, which
@@ -269,7 +275,7 @@ on the page — *Add this frame* (`answer_frame(…, "add")`, which takes any
 transport), *Ignore it*, or *forget*. A kit that is asking gets a 403 and shows
 its own baked "Add this frame on the Featherframe page"; a viewer gets the
 waiting plate, a page the waiting screen. There is no "replace":
-there is no current frame to replace (W-833), so handing the server to a new
+there is no current frame to replace, so handing the server to a new
 kit is adding it and removing the old one. `POST /api/frames/<id>` saves ANY
 frame's settings, whatever it is fed over — only what `frames.capabilities`
 allows is taken, unknown keys are ignored, and `{"forget": true}` removes it.
@@ -290,7 +296,7 @@ frame instead of crashing. Fixture schema in `tests/_fixtures.py` is verbatim
 from the Nachtzuster fork.
 
 **The collage is one sheet set two ways (`render/collage.py`).** The free grid
-(`render_collage`, up to six plates) and the generated composite
+(`render_collage`, as many plates as `collage_species_max`) and the generated composite
 (`render_generated_collage`, one painted scene) share `_bottom_block`: no
 header at all, the art from the top margin down, then the date in the engraved
 capitals, spaced wide, over a numbered key ("1. BLUE JAY") in prominence order

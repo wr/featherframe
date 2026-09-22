@@ -643,10 +643,10 @@ def cut(args) -> None:
         print(f"base from the perched sheet; the bird's box ({qx1 - qx0}x{qy1 - qy0}) "
               f"papered down to the toes")
         if S is not None:
-            # The mate the same way: the model raised the limb's end under
-            # her, so her box on the empty bough is her own sheet (limb as
-            # she stands on it) papered down to her toes, and her screen is
-            # that box of her sheet. Outside the perch's box S and P agree.
+            # The mate: her screen is her box of her own sheet (the limb as
+            # she stands on it — the model raised its end under her), laid
+            # opaque over the empty bough. Outside the perch's box S and P
+            # agree.
             core, _ = _added_bird(S, H, args.perch_thr, args.perch_clearance, pad, touching_ok=True)
             zone = _dilate(core, args.perch_zone)
             edit_ink = S < args.perch_thr
@@ -668,11 +668,10 @@ def cut(args) -> None:
             sx0, sy0 = max(0, int(xs.min())), max(0, int(ys.min()))
             sx1 = min(S.shape[1], int(xs.max()) + 1)
             sy1 = min(S.shape[0], int(ys.max()) + 1)
-            toe_y = int(np.nonzero(legs)[0].max()) if legs.any() else foot_y
-            H[sy0:sy1, sx0:sx1] = S[sy0:sy1, sx0:sx1]
-            H[sy0:min(sy1, toe_y + 3), sx0:sx1] = 255
-            Hc[sy0:sy1, sx0:sx1] = Sc[sy0:sy1, sx0:sx1]
-            Hc[sy0:min(sy1, toe_y + 3), sx0:sx1] = 255
+            # The empty bough keeps the perched sheet here: it has no bird
+            # in her box, so the limb and the bough beside her stay whole.
+            # Papering her box down to her toes sliced both flat wherever
+            # the box crossed them (a rectangle cut out of the wood).
             g = lifted(S[sy0:sy1, sx0:sx1])
             patch = np.zeros(g.shape + (4,), dtype=np.uint8)
             patch[..., 0] = patch[..., 1] = patch[..., 2] = g
@@ -680,7 +679,7 @@ def cut(args) -> None:
             Image.fromarray(patch, "RGBA").save(out / "plate_second.png")
             Image.fromarray(lifted(Sc[sy0:sy1, sx0:sx1]), "RGB").save(out / "plate_second_color.png")
             second_box = (sx0, sy0, sx1, sy1)
-            print(f"the mate's box ({sx1 - sx0}x{sy1 - sy0}) from her own sheet, papered down to the toes")
+            print(f"the mate's box ({sx1 - sx0}x{sy1 - sy0}) from her own sheet")
     # -- base: the whole sheet — the bake lays it full-bleed like a plate ----
     x0, y0, x1, y1 = 0, 0, H.shape[1], min(H.shape[0], args.art_bottom or H.shape[0])
     _rgba_ink(lifted(H[y0:y1, x0:x1])).save(out / "plate_base.png")

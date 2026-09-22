@@ -20,10 +20,11 @@ from .provider import ArtProvider
 
 
 def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
-    """Scale the composition down by `mat_inset_pct` per edge and center it.
-    The surround is painted MAT_BORDER — the ring the physical mat should
-    exactly cover, visible in the preview and, if the inset is dialed wrong,
-    as a sliver on the glass. Returns the image unchanged when the inset is 0."""
+    """Scale the composition down by `mat_inset_pct` per edge and center it
+    on white: the surround is what the physical mat covers, and a sliver of
+    it on the glass is paper, not a ring (the gray registration ring is
+    gone — the mat guide is how the inset is set now). Returns the image
+    unchanged when the inset is 0."""
     pct = getattr(config, "mat_inset_pct", 0.0)
     if pct <= 0:
         return _mat_guide(img, config, (0, 0) + img.size)
@@ -31,8 +32,7 @@ def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
     w, h = img.size
     sw, sh = max(1, round(w * scale)), max(1, round(h * scale))
     shrunk = img.resize((sw, sh), Image.LANCZOS)
-    border = theme.MAT_BORDER if img.mode == "L" else (theme.MAT_BORDER,) * 3
-    canvas = Image.new(img.mode, (w, h), border)
+    canvas = Image.new(img.mode, (w, h), 255 if img.mode == "L" else (255,) * 3)
     # The physical mat is rarely mounted dead-center; the offsets move the
     # composition to meet it, and the asymmetric ring shows the correction.
     dx = int(getattr(config, "mat_offset_x_px", 0))

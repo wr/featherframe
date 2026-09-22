@@ -141,7 +141,7 @@ class Config:
 
     # Shrink the composition by this percent per edge and center it on white.
     # 0 (the default) disables it: a frame with no mat, or one whose opening
-    # the art already meets, needs no allowance ring.
+    # the art already meets, needs no allowance.
     mat_inset_pct: float = 0.0
     # The physical mat is rarely mounted dead-center; shift the inset
     # composition to meet it. Positive = right / down, in panel pixels.

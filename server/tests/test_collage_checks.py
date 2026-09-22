@@ -120,3 +120,18 @@ def test_the_row_is_locked_on_the_collage_and_quotes_the_collages_interval(clien
     svc.update_frame(FRAME_ID, {"shows": "plates"})
     row = client.get("/").text.split(f'data-frame="{FRAME_ID}"')[1].split("</li>")[0]
     assert '<div class="frow" data-fr-interval>' in row and "Set by the collage" not in row
+
+
+def test_a_kit_waiting_for_the_collage_is_not_overdue(client):
+    """An always-awake kit told to come back after the next redraw is not
+    overdue for being quiet in between; it is once that wait has run out."""
+    svc = client.app.state.service
+    add_kit(svc, shows="collage", power_mode="awake", device_poll_seconds=5)
+    svc.tick()
+    _drawn_at(svc, datetime(2026, 9, 21, 10, 0))          # told: back just after 14:00
+    client.get("/api/frame", headers=HEAD)
+    assert svc.frames.get(FRAME_ID)["told_s"] == 2 * 3600 + service_mod.COLLAGE_CHECK_MARGIN_S
+    svc._clock = lambda: datetime(2026, 9, 21, 13, 0)
+    assert svc.frame_health(svc.frames.get(FRAME_ID))["overdue"] is False
+    svc._clock = lambda: datetime(2026, 9, 21, 14, 10)
+    assert svc.frame_health(svc.frames.get(FRAME_ID))["overdue"] is True

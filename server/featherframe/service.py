@@ -426,18 +426,25 @@ def frame_card(reported: dict, wake_interval_minutes: int,
                battery_history: Optional[list[dict]] = None,
                battery_live: Optional[list[dict]] = None,
                power_mode: str = "sleep",
-               critical_volts: Optional[float] = None) -> dict:
+               critical_volts: Optional[float] = None,
+               told_seconds: Optional[int] = None) -> dict:
     """One frame's health, pre-chewed for the config page: ready-to-print
     strings plus one overdue flag. `reported` is that frame's row's report (a
     kit's check-in headers, a viewer's own). In deep sleep, overdue means the
     device has missed two consecutive wake intervals — one 304 skipped is
     normal jitter, two is a dead battery or lost Wi-Fi. Always awake, it polls
     every 15 s, so the bar is a fixed few minutes and the interval does not
-    apply."""
+    apply. `told_seconds` is the wait the server gave the frame at its last
+    check-in (a frame on the collage is told to come back after the next
+    redraw, hours away): measured against that when known."""
     now = now or datetime.now()
     device = device_of(reported)
     awake = (power_mode == "awake")
-    expected = _AWAKE_OVERDUE_MINUTES if awake else 2 * wake_interval_minutes
+    if told_seconds:
+        told_min = told_seconds / 60
+        expected = (told_min + _AWAKE_OVERDUE_MINUTES) if awake else 2 * told_min
+    else:
+        expected = _AWAKE_OVERDUE_MINUTES if awake else 2 * wake_interval_minutes
     card = {"seen": False, "overdue": False, "state": "off",
             "expected_minutes": wake_interval_minutes,
             "overdue_text": ("Overdue — checks in every few seconds" if awake
@@ -1866,6 +1873,13 @@ class FeatherframeService:
         # rendered — an old build let a NaN through and every /api/status 500'd.
         stamp = self._clock().isoformat(timespec="seconds")
         fields = _clean_device_fields({**telemetry, "last_checkin": stamp})
+        # How long it was just told to wait, so "overdue" is measured against
+        # that and not against a clock of the page's own.
+        told = None
+        known = self.frames.get(frame_id)
+        if known is not None and frames_mod.transport_of(known) == "kit":
+            poll_s, wake_min = self.frame_intervals(known)
+            told = poll_s if self.frame_config(known).power_mode == "awake" else wake_min * 60
         with self._lock, self.frames.mutate() as rows:
             row = rows.get(frame_id)
             if row is None:
@@ -1876,6 +1890,8 @@ class FeatherframeService:
                 row["reported"] = {**frames_mod.reported_of(row),
                                    **{k: v for k, v in fields.items() if v is not None}}
                 row["last_seen"] = stamp
+                if told is not None:
+                    row["told_s"] = int(told)
         volt = fields.get("battery_voltage")
         if volt is None or volt < _BATTERY_ABSENT_V:
             return
@@ -1950,7 +1966,8 @@ class FeatherframeService:
                           battery_live=self._battery_live_copy(fid),
                           power_mode=cfg.power_mode if kit else "sleep",
                           critical_volts=frames_mod.panel_for(row).low_battery_volts
-                          if kit else None)
+                          if kit else None,
+                          told_seconds=row.get("told_s") if kit else None)
         if frames_mod.transport_of(row) == "page":
             # A browser tab that was closed is not a device in trouble: a page
             # is never overdue, it was just last open a while ago.

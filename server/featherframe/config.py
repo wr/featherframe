@@ -147,6 +147,9 @@ class Config:
     # composition to meet it. Positive = right / down, in panel pixels.
     mat_offset_x_px: int = 0
     mat_offset_y_px: int = 0
+    # A 2 px line around the composition, drawn on the glass while the mat's
+    # inset and offset are being set against it. Off by default.
+    mat_guide: bool = False
 
     # Collage --------------------------------------------------------------
     # Collage mode draws a new sheet this often. On the colour panel, where a
@@ -228,6 +231,7 @@ class Config:
         self.mat_inset_pct = _clamp(_finite(self.mat_inset_pct, 0.0), 0.0, 20.0)
         self.mat_offset_x_px = int(_clamp(int(self.mat_offset_x_px), -120, 120))
         self.mat_offset_y_px = int(_clamp(int(self.mat_offset_y_px), -120, 120))
+        self.mat_guide = bool(self.mat_guide)
         if self.imagegen_provider not in ("openai", "gemini", "replicate", "a1111"):
             self.imagegen_provider = "openai"
         self.imagegen_base_url = str(self.imagegen_base_url or "").strip().rstrip("/")

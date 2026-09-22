@@ -402,3 +402,34 @@ def _det():
     return Detection(rowid=-1, date=NOW.strftime("%Y-%m-%d"), time=NOW.strftime("%H:%M:%S"),
                      common_name="Tufted Titmouse", scientific_name="Baeolophus bicolor",
                      confidence=0.95)
+
+
+# -- the mat guide ---------------------------------------------------------------
+def test_the_mat_guide_is_a_two_pixel_line_at_the_compositions_edge(svc):
+    """`mat_guide` draws a black line just inside the composition, inset and
+    offset included, so the mat can be set against it; off, nothing changes."""
+    plain = add_kit(svc, "AA:00", mat_inset_pct=4.0, mat_offset_x_px=10, mat_guide=False)
+    guided = add_kit(svc, "BB:00", mat_inset_pct=4.0, mat_offset_x_px=10, mat_guide=True)
+    svc.tick()
+    assert svc._output_bytes("AA:00") != svc._output_bytes("BB:00")
+    sheet_path = svc.picture_for(frames_mod.shows_of(plain), NOW).sheet_path
+    with Image.open(sheet_path) as sheet:
+        sheet.load()
+    off = pipeline.render_image(sheet, svc.frame_config(plain), "single", "").preview
+    on = pipeline.render_image(sheet, svc.frame_config(guided), "single", "").preview
+    w, h = on.size
+    sw, sh = round(w * 0.92), round(h * 0.92)
+    x0, y0 = (w - sw) // 2 + 10, (h - sh) // 2
+    px = on.load()
+    # The line: two pixels deep along every edge of the shrunk composition.
+    assert px[x0, y0 + sh // 2] == 0 and px[x0 + 1, y0 + sh // 2] == 0
+    assert px[x0 + sw - 1, y0 + sh // 2] == 0 and px[x0 + sw // 2, y0] == 0
+    assert px[x0 + sw // 2, y0 + sh - 1] == 0
+    # Just outside it is the mat ring, and the plain render has no line.
+    assert px[x0 - 1, y0 + sh // 2] != 0
+    assert off.load()[x0, y0 + sh // 2] != 0
+    # The row saves it like any other setting, and the output follows.
+    assert svc.update_frame("AA:00", {"mat_guide": True})
+    assert svc.frames.get("AA:00")["set"]["mat_guide"] is True
+    svc.tick()
+    assert svc._output_bytes("AA:00") == svc._output_bytes("BB:00")

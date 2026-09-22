@@ -53,7 +53,7 @@ SHOWS = ("plates", "collage")
 # The settings a kit owns. Everything else — the source, quiet hours, the
 # blocklist, image generation — is the household's and is shared.
 KIT_SETTINGS = ("panel_rotation", "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px",
-                "power_mode", "wake_interval_minutes", "device_poll_seconds")
+                "mat_guide", "power_mode", "wake_interval_minutes", "device_poll_seconds")
 
 # A battery reading, under either spelling: a kit reports `battery_voltage`
 # (from the X-Battery-* headers), a TRMNL `battery_volts`.

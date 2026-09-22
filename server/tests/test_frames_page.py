@@ -421,10 +421,10 @@ def test_a_frames_settings_are_named_plainly(client):
     assert ">Individual detections<" in gray and ">Collage<" in gray
     assert ">USB<" in gray and ">Battery<" in gray
     assert ">Every 3 seconds<" in gray and ">Every 15 minutes<" in gray
-    # A name explains itself; only the mat and a screen with no reported size
-    # carry a hint at all (the Update interval's is empty until the row shows
-    # the collage).
-    assert gray.count('class="hint"') == 3
+    # A name explains itself; only the mat rows and a screen with no reported
+    # size carry a hint at all (the Update interval's is empty until the row
+    # shows the collage).
+    assert gray.count('class="hint"') == 4
     assert 'data-fr-interval-hint></div>' in gray
     kobo = _row(_card(client), KOBO["ID"])
     assert ">Screen size<" in kobo

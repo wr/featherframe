@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from ..config import Config
 from . import compose, finish, framebuffer, spectra, theme
@@ -26,7 +26,7 @@ def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
     as a sliver on the glass. Returns the image unchanged when the inset is 0."""
     pct = getattr(config, "mat_inset_pct", 0.0)
     if pct <= 0:
-        return img
+        return _mat_guide(img, config, (0, 0) + img.size)
     scale = 1.0 - 2.0 * (pct / 100.0)
     w, h = img.size
     sw, sh = max(1, round(w * scale)), max(1, round(h * scale))
@@ -37,8 +37,25 @@ def _apply_mat_inset(img: Image.Image, config: Config) -> Image.Image:
     # composition to meet it, and the asymmetric ring shows the correction.
     dx = int(getattr(config, "mat_offset_x_px", 0))
     dy = int(getattr(config, "mat_offset_y_px", 0))
-    canvas.paste(shrunk, ((w - sw) // 2 + dx, (h - sh) // 2 + dy))
-    return canvas
+    x, y = (w - sw) // 2 + dx, (h - sh) // 2 + dy
+    canvas.paste(shrunk, (x, y))
+    return _mat_guide(canvas, config, (x, y, x + sw, y + sh))
+
+
+MAT_GUIDE_PX = 2
+
+
+def _mat_guide(img: Image.Image, config: Config, box: tuple) -> Image.Image:
+    """The mat guide (`mat_guide`): a 2 px black line just inside the
+    composition's edge, so the owner can set the inset and offset by where
+    the mat's opening falls against it. Off, the image is returned as it is."""
+    if not getattr(config, "mat_guide", False):
+        return img
+    img = img.copy()
+    black = 0 if img.mode == "L" else (0, 0, 0)
+    x0, y0, x1, y1 = box
+    ImageDraw.Draw(img).rectangle((x0, y0, x1 - 1, y1 - 1), outline=black, width=MAT_GUIDE_PX)
+    return img
 
 
 @dataclass

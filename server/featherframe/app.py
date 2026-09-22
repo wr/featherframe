@@ -380,7 +380,8 @@ async def save_settings(request: Request):
         # `Config` still has the fields, and a rollback would read them.
         **{k: cur[k] for k in
            ("mode", "panel", "panel_rotation", "mat_inset_pct", "mat_offset_x_px",
-            "mat_offset_y_px", "power_mode", "wake_interval_minutes", "device_poll_seconds")},
+            "mat_offset_y_px", "mat_guide", "power_mode", "wake_interval_minutes",
+            "device_poll_seconds")},
         quiet_hours_mode=s("quiet_hours_mode", cur["quiet_hours_mode"]),
         quiet_hours_start=t("quiet_hours_start", cur["quiet_hours_start"]),
         quiet_hours_end=t("quiet_hours_end", cur["quiet_hours_end"]),

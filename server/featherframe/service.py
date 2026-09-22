@@ -1535,7 +1535,7 @@ class FeatherframeService:
         if caps["rotations"]:
             owned.append("panel_rotation")
         if caps["mat"]:
-            owned += ["mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px"]
+            owned += ["mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "mat_guide"]
         if caps["power"]:
             owned += ["power_mode", "wake_interval_minutes", "device_poll_seconds"]
         with self._lock, self.frames.mutate() as rows:
@@ -1676,7 +1676,7 @@ class FeatherframeService:
         return "|".join(str(x) for x in (pic.kind, pic.etag, source.name, cfg.panel,
                                          cfg.panel_rotation, cfg.mat_inset_pct,
                                          cfg.mat_offset_x_px, cfg.mat_offset_y_px,
-                                         cfg.bit_depth))
+                                         cfg.mat_guide, cfg.bit_depth))
 
     def _tick_frames(self) -> None:
         """Keep every frame's output in step with the picture it shows. One
@@ -2022,6 +2022,7 @@ class FeatherframeService:
                 "mat_inset_pct": cfg.mat_inset_pct if kit else None,
                 "mat_offset_x_px": cfg.mat_offset_x_px if kit else None,
                 "mat_offset_y_px": cfg.mat_offset_y_px if kit else None,
+                "mat_guide": cfg.mat_guide if kit else None,
                 "power_mode": cfg.power_mode if kit else None,
                 "wake_interval_minutes": cfg.wake_interval_minutes if kit else None,
                 "device_poll_seconds": cfg.device_poll_seconds if kit else None,
@@ -2032,7 +2033,7 @@ class FeatherframeService:
             },
             # What "Reset to this panel's defaults" fills in, for this panel.
             "defaults": {k: getattr(fresh, k) for k in
-                         ("mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px")}
+                         ("mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "mat_guide")}
             if fresh is not None else None,
             "reported": dict(rep),
             "ip": row.get("ip"),

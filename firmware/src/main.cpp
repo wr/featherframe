@@ -18,6 +18,7 @@
 using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before it
 #include <WebServer.h>
 #include <WiFiManager.h>
+#include "ff_improv.h"
 #include <Preferences.h>
 #include <Update.h>
 #include <esp_sleep.h>
@@ -521,6 +522,25 @@ small{color:var(--muted)}
 .h{display:none}:disabled{opacity:.5}
 </style>)CSS";
 
+// The captive portal is open (Improv, W-839: Wi-Fi set over USB closes it).
+static volatile bool g_portalOpen = false;
+
+// Improv over USB (ff_improv.h): the flasher asks what the frame is and
+// whether it is on Wi-Fi, and can give it a network. Credentials joined
+// while the portal is open close the portal and boot carries on; joined
+// while running, the frame restarts onto them.
+static void startImprov() {
+  ImprovHooks hooks;
+  hooks.serverUrl = []() -> const char* { return g_serverUrl; };
+  hooks.hasSavedWifi = []() { return wm.getWiFiIsSaved(); };
+  hooks.onJoined = []() {
+    if (!g_portalOpen) return false;
+    wm.stopConfigPortal();   // blocking portal: sets its abort flag
+    return true;
+  };
+  improvBegin("Featherframe", FF_FW_VERSION, FF_BOARD_ID, hooks);
+}
+
 bool ensureWifi(bool openPortal, bool showBoot) {
   // The portal blocks here for its whole session, and WiFiManager extends
   // its own timeout on every captive-portal probe — a phone parked on the
@@ -562,6 +582,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // full setup instructions take the glass.
   wm.setAPCallback([](WiFiManager*) {
     g_viaPortal = true;
+    g_portalOpen = true;
 #if FF_FULL_REFRESH
     // The pill is stamped on the retained plate; with none to stamp on (a
     // wake out of deep sleep) the steps take the glass.
@@ -613,6 +634,10 @@ bool ensureWifi(bool openPortal, bool showBoot) {
     g_viaPortal = true;
     ok = wm.startConfigPortal("Featherframe-Setup");
   }
+  g_portalOpen = false;
+  // Wi-Fi given over USB (Improv) closes the portal as an abort; the frame
+  // is on the network all the same.
+  if (!ok && WiFi.status() == WL_CONNECTED) ok = true;
   if (ok) {
     // Wi-Fi up: the caller drives the "Connecting to BirdNET…"/"Downloading…"
     // steps next. Persist the (possibly updated, user-typed) server URL.
@@ -1511,6 +1536,7 @@ void maybeOTA(float vbat) {
 void setup() {
   Serial.begin(115200);
   delay(50);
+  startImprov();   // answers the USB flasher from the first moment (W-839)
   // TEMP boot-ping: 6s of prints after USB settles, so a late reader confirms the
   // app is actually running and where setup gets to. Remove once serial is trusted.
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();

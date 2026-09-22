@@ -82,10 +82,10 @@ def test_the_overnight_collage_is_quiet_hours_itself(client):
     # Its section is Collage's, and the AI copy points at the docs.
     collage = html.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
     assert collage.count('name="quiet_hours_mode"') == 3      # Off / sun / custom
-    assert "docs/ai-plates.md" in html and ">Learn more</a>" in html
+    assert "docs/ai-plates.md" in html and ">Learn</a>" in html
     # Plate packs are not built, so Region says the one region there is.
     assert "North America · Audubon's Birds of America" in html
-    assert '<select class="sel" id="f-region" disabled>' in html
+    assert "<option disabled>Europe · Gould's Birds of Europe</option>" in html
     # Saving without the removed field derives it from the mode either way.
     for mode, want in (("off", False), ("custom", True), ("sun", True)):
         r = client.post("/settings", data={"quiet_hours_mode": mode}, follow_redirects=False)

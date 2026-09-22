@@ -215,7 +215,17 @@ def _announce_panel(request: Request, svc) -> None:
 # firmware.bin in the data dir (`make ota` does build + copy).
 @app.get("/api/firmware")
 async def api_firmware(request: Request):
-    bin_path = _firmware_for(_str_header(request.headers.get("x-board")))
+    svc = _svc(request)
+    board_hdr = _str_header(request.headers.get("x-board"))
+    frame_id = _str_header(request.headers.get("x-device-id"))
+    # An official release the owner asked this frame to take (W-838) comes
+    # first; otherwise a dev image hosted by `make ota`, unless this frame was
+    # handed a release after that image was put there.
+    bin_path = svc.release_image_for(frame_id, board_hdr)
+    if bin_path is None:
+        bin_path = _firmware_for(board_hdr)
+        if bin_path is not None and svc.dev_image_superseded(frame_id, bin_path.stat().st_mtime):
+            return Response(status_code=304)
     if bin_path is None:
         return Response(status_code=404, content=b"no firmware hosted")
     md5 = _hosted_firmware_md5(bin_path)
@@ -236,6 +246,14 @@ async def api_firmware(request: Request):
              bin_path.stat().st_size, md5, request.headers.get("user-agent", "?"))
     return FileResponse(bin_path, media_type="application/octet-stream",
                         headers={"X-MD5": md5, "Cache-Control": "no-store"})
+
+
+@app.post("/api/firmware/check")
+async def api_firmware_check(request: Request):
+    """Ask GitHub for the latest official release now (the page's Check now)."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    return JSONResponse(await run_in_threadpool(_svc(request).check_firmware))
 
 
 def _firmware_for(board: Optional[str]):
@@ -395,6 +413,7 @@ async def save_settings(request: Request):
         collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
+        firmware_auto_update=b("firmware_auto_update"),
         collage_species_max=limit("collage_species_max", cur["collage_species_max"]),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),

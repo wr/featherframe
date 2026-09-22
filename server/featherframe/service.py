@@ -17,11 +17,12 @@ import os
 import re
 import socket
 import threading
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import date as ddate
 from datetime import datetime, timedelta
 from datetime import time as dtime
 from typing import Optional
+from urllib.parse import quote
 
 from PIL import Image
 
@@ -82,6 +83,11 @@ _CLOUD_POLL_SECONDS = 60
 # The confidence a detection needs when the source has no threshold of its
 # own. BirdNET-Go filters by its own setting and only falls back to this.
 CONFIDENCE_FLOOR = 0.7
+# A frame that shows the collage checks in when the collage is next redrawn
+# (W-833): this long after it, so the draw has landed, and never sooner than
+# this between checks.
+COLLAGE_CHECK_MARGIN_S = 90
+COLLAGE_CHECK_FLOOR_S = 60
 # Dwell: a first-ever or first-today species keeps the frame this long against
 # repeats of common species (another new one can still take over, and the held
 # one may re-render). Without it a first-ever species lost the glass to the
@@ -356,6 +362,14 @@ def _ago(then: datetime, now: datetime) -> str:
     return f"{days} day ago" if days == 1 else f"{days} days ago"
 
 
+def _within(stamp: Optional[str], now: datetime, seconds: float) -> bool:
+    """Was `stamp` (an ISO time, or nothing) this recently?"""
+    try:
+        return (now - datetime.fromisoformat(str(stamp))).total_seconds() <= seconds
+    except (ValueError, TypeError):
+        return False
+
+
 def _served_words(result: Optional[str]) -> Optional[str]:
     if result == "304":
         return "up to date (304)"
@@ -368,6 +382,14 @@ def _served_words(result: Optional[str]) -> Optional[str]:
 # after repeated failures; a few minutes of silence is a real outage.
 _AWAKE_OVERDUE_MINUTES = 5
 
+# What each picture is called on the page. The stored values stay "plates" and
+# "collage"; these are the words an owner reads.
+SHOWS_WORDS = {PLATES: "Individual detections", COLLAGE: "Collage"}
+
+# A browser tab asks every PAGE_POLL_SECONDS. Three missed asks and it is not
+# open any more — which is not a device in trouble, just a closed tab.
+_PAGE_OPEN_SECONDS = 3 * viewers_mod.PAGE_POLL_SECONDS
+
 
 def _kit_order(row: dict) -> tuple:
     """Frames in the order they first asked. There is no ranking among them;
@@ -378,15 +400,12 @@ def _kit_order(row: dict) -> tuple:
 def _what_it_is(row: dict, panel) -> str:
     """What to call a frame the owner has not named: its panel, or what the
     device said it is."""
+    transport = frames_mod.transport_of(row)
+    if transport != "kit":
+        return viewers_mod.model_name(row)
     if panel is not None:
         return panel.name
-    rep = frames_mod.reported_of(row)
-    transport = frames_mod.transport_of(row)
-    if transport == "page":
-        return str(rep.get("model") or "") or "Browser"
-    if transport == "trmnl":
-        return str(rep.get("model") or "") or "TRMNL client"
-    return str(rep.get("panel") or "") or "unknown panel"
+    return str(frames_mod.reported_of(row).get("panel") or "") or "unknown panel"
 
 
 def device_of(reported: Optional[dict], last_seen: Optional[str] = None) -> DeviceStatus:
@@ -419,13 +438,14 @@ def frame_card(reported: dict, wake_interval_minutes: int,
     device = device_of(reported)
     awake = (power_mode == "awake")
     expected = _AWAKE_OVERDUE_MINUTES if awake else 2 * wake_interval_minutes
-    card = {"seen": False, "overdue": False,
+    card = {"seen": False, "overdue": False, "state": "off",
             "expected_minutes": wake_interval_minutes,
             "overdue_text": ("Overdue — checks in every few seconds" if awake
                              else f"Overdue — wakes every {wake_interval_minutes} min"),
             "last_seen": None,
             "last_checkin_iso": None, "battery": None, "battery_low": False,
             "battery_critical": False,
+            "battery_percent": None, "battery_voltage": None,
             "power": {"state": "unknown", "text": ""},
             "served": None, "wifi_rssi": None}
     try:
@@ -445,6 +465,7 @@ def frame_card(reported: dict, wake_interval_minutes: int,
                 and now - datetime.fromisoformat(str(r["at"])) <= _LIVE_WINDOW]
         percent = int(_median(pcts)) if pcts else device.battery_percent
         card["battery_volts"] = round(volts, 3)
+        card["battery_voltage"] = round(volts, 3)
         card["battery_percent"] = percent
         pct = f" · {percent}%" if percent is not None else ""
         card["battery"] = f"{volts:.2f} V{pct}"
@@ -457,6 +478,16 @@ def frame_card(reported: dict, wake_interval_minutes: int,
         # Full and held there by the charger is not "low", whatever the percent says.
         if card["power"]["state"] in ("usb", "charging"):
             card["battery_low"] = card["battery_critical"] = False
+    elif device.battery_voltage is None and device.battery_percent is not None:
+        # A screen that reports a percent and no voltage (an EE02, a TRMNL
+        # client): the reading is still its battery, so the row says so. There
+        # is no trend to infer a power state from. A voltage that WAS reported
+        # and sits under _BATTERY_ABSENT_V is an empty socket, not a flat cell,
+        # and never reaches here.
+        card["battery_percent"] = device.battery_percent
+        card["battery"] = f"{device.battery_percent}%"
+        card["battery_low"] = device.battery_percent <= 20
+        card["battery_critical"] = device.battery_percent <= _BATTERY_CRITICAL_PCT
     card["served"] = _served_words(device.last_result)
     card["wifi_rssi"] = device.wifi_rssi
     return card
@@ -561,24 +592,27 @@ class FeatherframeService:
         """Every kit that is on, oldest first."""
         return self.frames.on_kits()
 
-    # -- the frame the single-frame API still means ------------------------
-    # W-833 step 3 deletes this block. Until the page is rebuilt, "the frame"
-    # in the old endpoints and in the tests means the first kit that was let
-    # in; everything below is a read-only view of that one.
-    def _first_kit(self) -> Optional[dict]:
-        return next(iter(self._kits_on()), None)
-
+    # -- the picture the page's own tools mean ------------------------------
+    # There is no primary frame (W-833): "the picture", where nothing names
+    # one, is what the tools act on — Refresh, Hold, Block, the history strip,
+    # the sheet /api/preview.png serves. It follows what the screens are
+    # showing, never which kit checked in first.
     def _default_shows(self) -> str:
-        """What "the frame" shows when nothing names one. # W-833 step 3
-        deletes this: by then every caller names its frame."""
-        row = self._first_kit()
-        if row is not None:
-            return frames_mod.shows_of(row)
+        """What the kits show — plates while any of them is on plates, else the
+        collage. With no kit, what the viewers show; with no screen at all, the
+        last picture this server drew."""
+        viewers_on = [r for r in self.frames.by_transport("trmnl", "page")
+                      if r.get("status") == frames_mod.ON]
+        for rows, asked in ((self._kits_on(), frames_mod.shows_of),
+                            (viewers_on, viewers_mod.shows_of)):
+            kinds = [k for k in (asked(r) for r in rows) if k in pictures_mod.KINDS]
+            if kinds:
+                return PLATES if PLATES in kinds else COLLAGE
         return self.pictures.shown if self.pictures.shown in pictures_mod.KINDS else PLATES
 
     @property
     def _shown(self) -> str:
-        """Which picture the first kit's glass shows right now."""
+        """Which picture that is right now — the night rule applies to it too."""
         return self._kind_for(None, self._clock())
 
     @_shown.setter
@@ -604,20 +638,6 @@ class FeatherframeService:
     @_etag.setter
     def _etag(self, etag: Optional[str]) -> None:
         self.pictures[self._shown].etag = etag
-
-    @property
-    def _frame_bytes(self) -> Optional[bytes]:
-        """What the first kit is being served, if anything."""
-        row = self._first_kit()
-        return self._output_bytes(row["id"]) if row is not None else None
-
-    @property
-    def device(self) -> DeviceStatus:
-        """The first kit's telemetry, in the shape the page still reads."""
-        row = self._first_kit()
-        if row is None:
-            return DeviceStatus()
-        return device_of(frames_mod.reported_of(row), row.get("last_seen"))
 
     # -- lifecycle ---------------------------------------------------------
     def start(self) -> None:
@@ -829,14 +849,15 @@ class FeatherframeService:
         return kind
 
     def _wall_kind(self, now: datetime) -> str:
-        """The picture drawn first this tick: the one the first kit shows."""
+        """The picture drawn first this tick: the one the page's tools mean."""
         return self._kind_for(None, now)
 
     def picture_for(self, shows: Optional[str] = None,
                     now: Optional[datetime] = None) -> "pictures_mod.Picture":
         """The picture one frame shows. `shows` is "plates", "collage", or
-        None for whatever the first kit shows. A picture that has never been
-        drawn falls back to the other one, so a screen always has something."""
+        None for the picture the page's own tools mean. A picture that has
+        never been drawn falls back to the other one, so a screen always has
+        something."""
         now = now or self._clock()
         pic = self.pictures[self._kind_for(shows, now)]
         if pic.etag:
@@ -849,15 +870,16 @@ class FeatherframeService:
 
     def _shows_of_frames(self, now: datetime) -> list:
         """What every frame this server draws for shows, as each one asked for
-        it (None = whatever the first kit shows). A viewer that has not asked
+        it (None = whatever the page's tools mean). A viewer that has not asked
         in a month is not a frame any more; a server with no frames at all
         still needs a first picture, so it counts as one that says nothing."""
         cutoff = (now - timedelta(days=VIEWER_SHOWS_DAYS)).isoformat(timespec="seconds")
         out = []
         for row in self.frames.all().values():
+            if row.get("status") != frames_mod.ON:
+                continue   # asking or ignored: nothing is drawn for it
             if frames_mod.transport_of(row) == "kit":
-                if row.get("status") == frames_mod.ON:
-                    out.append(frames_mod.shows_of(row))
+                out.append(frames_mod.shows_of(row))
             elif (row.get("last_seen") or "") >= cutoff:
                 out.append(viewers_mod.shows_of(row))
         return out or [None]
@@ -1133,6 +1155,13 @@ class FeatherframeService:
             return
         self._build_collage(now, ddate.today())
 
+    def _collage_day(self, now: datetime) -> ddate:
+        """The day the collage picture is already of (its key), else today."""
+        try:
+            return ddate.fromisoformat(str(self.pictures[COLLAGE].key))
+        except (TypeError, ValueError):
+            return ddate.today()
+
     def _collage_date(self, now: datetime) -> ddate:
         """The day tonight's collage covers, per the ACTIVE quiet window — in
         "sun" mode that is sunset->sunrise, not the custom start/end fields
@@ -1152,7 +1181,7 @@ class FeatherframeService:
         stamp = on_date.isoformat()
         if self.db.get("quiet_collage_for") == stamp:
             return  # already rendered this window's collage
-        if self._build_collage(now, on_date, generated_ok=True):
+        if self._build_collage(now, on_date):
             self.db.set("quiet_collage_for", stamp)
 
     def _collage_result(self, on_date: ddate,
@@ -1161,7 +1190,8 @@ class FeatherframeService:
         fewer than 2 species. Used by the transient button view; `config` is
         an added frame's (W-832), else the active frame's."""
         config = config or self.config
-        rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR, limit=6)
+        rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR,
+                                             limit=self.config.collage_species_max or 500)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         if len(rows) < 2:
             return None
@@ -1177,14 +1207,12 @@ class FeatherframeService:
         today's cached sheet unless repaint buys a fresh one."""
         now = self._clock()
         on_date = self._collage_date(now)
-        return self._build_collage(now, on_date, generated_ok=True,
-                                   force_generated=repaint)
+        return self._build_collage(now, on_date, force_generated=repaint)
 
     def _build_collage(self, now: datetime, on_date: ddate,
-                       generated_ok: bool = False,
                        force_generated: bool = False) -> bool:
         """Draw the collage picture for `on_date`."""
-        composed = self._collage_composer(now, on_date, generated_ok)
+        composed = self._collage_composer(now, on_date)
         if composed is None:
             # Not enough for a grid: fall back to a plate for the day. This
             # runs on every tick while the day has one species, so skip the
@@ -1205,31 +1233,34 @@ class FeatherframeService:
         log.info("rendered collage (%s), etag=%s", label, etag)
         return True
 
-    def _collage_composer(self, now: datetime, on_date: ddate, generated_ok: bool = False):
+    def _collage_composer(self, now: datetime, on_date: ddate):
         """(compose, note) for the day's collage, or None when fewer than two
         species qualify. `compose(color, force=False) -> (sheet, label)`. The
         one collage (W-830): the frame's and a viewer's are drawn by this."""
         cap = self.config.collage_species_max  # 0 = every species heard today
         rows = self.source.top_species_today(on_date, CONFIDENCE_FLOOR,
-                                             limit=max(6, cap) if cap else 500)
+                                             limit=cap or 500)
         rows = [r for r in rows if not self.config.is_blocked(r["common"], r["scientific"])]
         rows = self._corroborated_rows(rows, on_date)
         if len(rows) < 2:
             return None
         cells = [collage_mod.CollageCell(r["common"], r["scientific"], r["count"]) for r in rows]
-        grid = cells[:6]  # the grid holds six; the generated sheet takes the cap
+        # The species limit is the collage's, however it is drawn: the grid and
+        # the generated sheet show the same species.
+        top = cells[:cap] if cap else cells
         note = self._note_text()
 
         note_kind = self._note_kind() if note else None
-        use_generated = (generated_ok and self.config.collage_generated
-                         and self.genart is not None)
+        # All or nothing: with the toggle on and image generation to hand,
+        # EVERY collage is the generated sheet — the nightly one, a daytime
+        # rebuild, the button, a settings re-render. The cost is bounded by
+        # genart.day_composite, which buys one sheet per day and reuses it
+        # until the day's species list itself changes.
+        use_generated = self.config.collage_generated and self.genart is not None
 
         def compose(color: bool, force: bool = False):
             """(sheet, label) for this day; `color` draws the art's colour twin."""
-            # The generated composite is reserved for the nightly collage (and
-            # the explicit button): daytime collage rebuilds stay free.
             if use_generated:
-                top = cells[:cap] if cap else cells
                 self.genart.color_sheets = color
                 sheet = self.genart.day_composite(top, on_date, force=force)
                 if sheet is not None:
@@ -1241,11 +1272,11 @@ class FeatherframeService:
                                 total_detections=sum(c.count for c in painted),
                                 note=note, note_kind=note_kind),
                             f"combined collage ({len(painted)} species)")
-            return (collage_mod.render_collage(grid, self.provider, when=on_date,
-                                               total_detections=sum(c.count for c in grid),
+            return (collage_mod.render_collage(top, self.provider, when=on_date,
+                                               total_detections=sum(c.count for c in top),
                                                note=note, note_kind=note_kind,
                                                color=color),
-                    f"{len(grid)}-species collage")
+                    f"{len(top)}-species collage")
 
         return compose, note
 
@@ -1411,11 +1442,13 @@ class FeatherframeService:
     # -- frames ----------------------------------------------------------------
     # A frame is a frame (W-833). Every kit names itself (X-Device-Id, its MAC)
     # and, once it is on, is drawn for exactly like every other: its picture,
-    # finished with its own config, kept as one output file. The first kit to
-    # check in on a server with none is let in by itself; any other asks, and
-    # the owner answers on the page. Firmware that predates the header is one
-    # frame called "legacy"; it becomes its real ID in place when the same
-    # frame (same panel, same address) first sends one after an update.
+    # finished with its own config, kept as one output file. Every frame of
+    # every transport is approved on the server first: a screen pointed at this
+    # server asks, and shows that it is waiting, until the owner answers on the
+    # page — the first kit on a fresh install included. Firmware that predates
+    # the header is one frame called "legacy"; it becomes its real ID in place
+    # when the same frame (same panel, same address) first sends one after an
+    # update.
     LEGACY_FRAME = "legacy"
     _FRAME_TOUCH = timedelta(seconds=60)      # how often a parked frame's row is rewritten
 
@@ -1432,9 +1465,9 @@ class FeatherframeService:
         stamp = now.isoformat(timespec="seconds")
         with self._lock, self.frames.mutate() as rows:
             row = rows.get(fid)
-            on = [r for r in rows.values() if frames_mod.transport_of(r) == "kit"
-                  and r.get("status") == frames_mod.ON]
-            legacy = next((r for r in on if r["id"] == self.LEGACY_FRAME), None)
+            legacy = rows.get(self.LEGACY_FRAME)
+            if legacy is not None and frames_mod.transport_of(legacy) != "kit":
+                legacy = None
             dirty = False
             if row is None and fid != self.LEGACY_FRAME and legacy is not None:
                 same_panel = (panels.from_report(reported_panel, facts)
@@ -1448,11 +1481,6 @@ class FeatherframeService:
             fresh = row is None
             if fresh:
                 row = rows[fid] = frames_mod.new_row(fid, "kit", stamp)
-            if not on and row.get("status") != frames_mod.ON:
-                # Nothing is being served yet: the first kit to arrive is the
-                # owner's own, and asking them about it would be theatre.
-                row["status"] = frames_mod.ON
-                dirty = True
             rep = frames_mod.reported_of(row)
             seen = (("panel", reported_panel), ("board", board), ("facts", facts))
             changed = (fresh or any(rep.get(k) != v for k, v in seen if v)
@@ -1481,15 +1509,46 @@ class FeatherframeService:
         return frames_mod.frame_config(row, self.config)
 
     def update_frame(self, frame_id: str, fields: dict) -> bool:
-        """The owner's choices for one kit. Values go through Config's own
-        sanitising; a blank clears the choice."""
+        """The owner's choices for ONE frame, whatever it is fed over: a kit,
+        a TRMNL, a tablet. What may be set is `frames.capabilities` and nothing
+        else — a page has no panel rotation, a TRMNL no mat — so a field a
+        screen does not have is simply not taken. Unknown keys are ignored."""
+        row = self.frames.get(frame_id)
+        if row is None:
+            return False
+        caps = frames_mod.capabilities(row)
+        if frames_mod.transport_of(row) == "kit":
+            return self._update_kit(frame_id, fields, caps)
+        allowed = ["name", "shows"]
+        if caps["rotations"]:
+            allowed.append("rotation")
+        if caps["needs_size"]:
+            allowed += ["width", "height"]
+        take = {k: v for k, v in fields.items() if k in allowed}
+        return self.viewers.update(frame_id, take) is not None
+
+    def _update_kit(self, frame_id: str, fields: dict, caps: dict) -> bool:
+        """One kit's own settings. Values go through Config's own sanitising —
+        a rotation its panel cannot do is clamped here, not on the glass — and
+        a blank clears the choice."""
+        owned = ["shows", "name"]
+        if caps["rotations"]:
+            owned.append("panel_rotation")
+        if caps["mat"]:
+            owned += ["mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "mat_guide"]
+        if caps["power"]:
+            owned += ["power_mode", "wake_interval_minutes", "device_poll_seconds"]
         with self._lock, self.frames.mutate() as rows:
             row = rows.get(frame_id)
             if row is None or frames_mod.transport_of(row) != "kit":
                 rows.unchanged()
                 return False
             own = dict(frames_mod.settings_of(row))
-            for key in (*frames_mod.KIT_SETTINGS, "shows", "name"):
+            # A kit's "rotation" is its panel rotation; the page speaks one word.
+            fields = dict(fields)
+            if "rotation" in fields and "panel_rotation" not in fields:
+                fields["panel_rotation"] = fields["rotation"]
+            for key in owned:
                 if key not in fields:
                     continue
                 raw = fields[key]
@@ -1510,29 +1569,20 @@ class FeatherframeService:
         return True
 
     def answer_frame(self, frame_id: str, action: str) -> bool:
-        """The owner's answer about a frame: "add" (draw for it too), "switch"
-        (draw for it INSTEAD of the first kit, which is forgotten and asks
-        again if it returns), "ignore" (park it), "forget" (drop it)."""
+        """The owner's answer about a frame that is not on yet: "add" (draw for
+        it too), "ignore" (park it), "forget" (drop it, so it asks again the
+        next time it checks in). Every screen is answered for, whatever it is
+        fed over — a tablet on the kiosk page is let in the same way a kit is.
+        There is no "replace": there is no current frame to replace (W-833)."""
         dropped: list = []
         with self._lock, self.frames.mutate() as rows:
             row = rows.get(frame_id)
-            if (row is None or frames_mod.transport_of(row) != "kit"
-                    or action not in ("switch", "add", "ignore", "forget")):
+            if row is None or action not in ("add", "ignore", "forget"):
                 rows.unchanged()
                 return False
-            on = [r for r in sorted(rows.values(), key=_kit_order)
-                  if frames_mod.transport_of(r) == "kit" and r.get("status") == frames_mod.ON]
-            if action in ("add", "switch"):
-                if action == "switch":
-                    old = next((r for r in on if r is not row), None)
-                    if old is not None:
-                        rows.pop(old["id"], None)          # it asks again if it returns
-                        dropped.append(old["id"])
+            if action == "add":
                 row["status"] = frames_mod.ON
                 row.setdefault("set", {})
-            elif row.get("status") == frames_mod.ON and len(on) <= 1:
-                rows.unchanged()
-                return False                               # the only frame is not ignorable
             elif action == "ignore":
                 row["status"] = frames_mod.IGNORED
                 dropped.append(frame_id)
@@ -1543,11 +1593,14 @@ class FeatherframeService:
             self._drop_output(fid)
         return True
 
-    def rename_frame(self, frame_id: str, name) -> bool:
-        """Name any screen in the registry — a kit, a TRMNL, a tablet. Every
-        frame is the owner's to name (W-833)."""
+    def forget_frame(self, frame_id: str) -> bool:
+        """Remove any frame, whatever it is fed over. A kit asks to be added
+        again the next time it checks in; a viewer simply comes back."""
         with self._lock:
-            return self.frames.rename(frame_id, name) is not None
+            gone = self.frames.forget(frame_id)
+        if gone:
+            self._drop_output(frame_id)
+        return gone
 
     # -- one output per frame -------------------------------------------------
     # The picture a frame shows, finished with that frame's own config: its
@@ -1623,7 +1676,7 @@ class FeatherframeService:
         return "|".join(str(x) for x in (pic.kind, pic.etag, source.name, cfg.panel,
                                          cfg.panel_rotation, cfg.mat_inset_pct,
                                          cfg.mat_offset_x_px, cfg.mat_offset_y_px,
-                                         cfg.bit_depth))
+                                         cfg.mat_guide, cfg.bit_depth))
 
     def _tick_frames(self) -> None:
         """Keep every frame's output in step with the picture it shows. One
@@ -1760,84 +1813,19 @@ class FeatherframeService:
         self._out[frame_id] = {"etag": etag, "src": self._output_src(row, self._clock())}
         self._save_outputs()
 
-    # -- what the page still calls "the frame" --------------------------------
-    # W-833 step 3 replaces all of this with one list of frames.
-    def _frame_card(self, row: dict) -> dict:
-        """The identity every frame shows on the page."""
-        panel = frames_mod.panel_of(row)
-        rep = frames_mod.reported_of(row)
-        fid = str(row.get("id") or "")
-        return {"id": fid,
-                "short": "older firmware" if fid == self.LEGACY_FRAME else fid[-6:],
-                "name": frames_mod.name_of(row),
-                "panel_name": panel.name if panel else (rep.get("panel") or "unknown panel"),
-                "ip": row.get("ip"), "first_seen": row.get("first_seen"),
-                "last_seen": row.get("last_seen")}
-
-    def frames_view(self) -> dict:
-        """The kits for the page: the first one, those beside it, those
-        waiting for an answer, and those ignored. # W-833 step 3 deletes this."""
-        rows = self.frames.by_transport("kit")
-        on = self._kits_on()
-        card = self._frame_card
-        return {"active": card(on[0]) if on else None,
-                "added": [self._added_card(r, card(r)) for r in on[1:]],
-                "pending": [card(r) for r in rows if r.get("status") == frames_mod.ASKING],
-                "ignored": [card(r) for r in rows if r.get("status") == frames_mod.IGNORED]}
-
-    def _added_card(self, row: dict, card: dict) -> dict:
-        cfg, dev = self.frame_config(row), frames_mod.reported_of(row)
-        panel = frames_mod.panel_for(row)
-        try:
-            seen = _ago(datetime.fromisoformat(str(row.get("last_seen"))), self._clock())
-        except (ValueError, TypeError):
-            seen = "never"
-        return {**card, "last_seen_text": seen,
-                "shows": frames_mod.shows_of(row), "rotation": cfg.panel_rotation,
-                "rotations": list(frames_mod.capabilities(row)["rotations"]),
-                "mat_inset_pct": cfg.mat_inset_pct,
-                "power_mode": cfg.power_mode, "etag": self._output_etag(str(row["id"])),
-                "battery_percent": dev.get("battery_percent"),
-                "battery_voltage": dev.get("battery_voltage"), "wifi_rssi": dev.get("wifi_rssi"),
-                "fw_version": dev.get("fw_version"), "last_result": dev.get("last_result"),
-                "board": dev.get("board"), "panel_reported": dev.get("panel"),
-                "battery_low": (dev.get("battery_voltage") is not None
-                                and dev["battery_voltage"] <= panel.low_battery_volts)}
-
-    def page_config(self) -> Config:
-        """The Config the settings page edits: the household's, with the first
-        kit's own display settings and its picture as `mode`. # W-833 step 3
-        deletes this — by then the page edits a frame, not a config."""
-        row = self._first_kit()
-        if row is None:
-            return self.config
-        cfg = self.frame_config(row)
-        cfg.mode = "collage" if frames_mod.shows_of(row) == COLLAGE else "single"
-        return cfg
-
-    def update_page_frame(self, fields: dict) -> bool:
-        """The settings form's frame fields, applied to the first kit. Ignored
-        when there is no kit. # W-833 step 3 deletes this."""
-        row = self._first_kit()
-        if row is None:
-            return False
-        fields = dict(fields)
-        mode = fields.pop("mode", None)
-        if mode in ("single", "collage"):
-            fields["shows"] = COLLAGE if mode == "collage" else PLATES
-        return self.update_frame(str(row["id"]), fields)
-
     def mdns_panel(self) -> str:
-        """The panel key advertised over mDNS: the first kit's. A frame whose
-        panel no server claims takes any that answers, so one key is enough."""
-        row = self._first_kit()
+        """The panel key advertised over mDNS. A frame whose panel no server
+        claims takes any that answers, so one kit's key is enough; with none
+        yet, the one a fresh install was seeded with."""
+        row = next(iter(self.frames.on_kits()), None)
         return frames_mod.panel_for(row).key if row is not None else self.config.panel
 
-    def panel_notices(self) -> dict:
-        """What a frame said about its panel that this server cannot honour."""
+    def frame_notices(self, row: dict) -> dict:
+        """What THIS frame said about its panel that this server cannot
+        honour. A frame's panel is simply what it reports (W-833), so there is
+        nothing to answer — but the page still says what is being drawn."""
         out: dict = {"unrecognised": None, "unknown_format": None}
-        row = self._first_kit()
-        if row is None:
+        if frames_mod.transport_of(row) != "kit":
             return out
         rep = frames_mod.reported_of(row)
         spec = frames_mod.panel_for(row)
@@ -1902,15 +1890,16 @@ class FeatherframeService:
             log.debug("battery log write failed", exc_info=True)
 
     def current_png_bytes(self) -> Optional[bytes]:
-        """The dashboard's preview: what the first kit is showing, or — before
-        any kit has been drawn for — the picture's own sheet."""
-        row = self._first_kit()
-        if row is not None:
-            png = self._out_paths(str(row["id"]))[1]
-            if png.exists():
-                return png.read_bytes()
+        """The picture itself, as composed: what the page shows before any
+        frame is picked, and on a server with no frames at all. One frame's own
+        output is `frame_png_bytes`."""
         sheet = self.pictures[self._shown].sheet_path
         return sheet.read_bytes() if sheet.exists() else None
+
+    def frame_png_bytes(self, frame_id: str) -> Optional[bytes]:
+        """One kit's own output, as the preview on the page."""
+        png = self._out_paths(frame_id)[1]
+        return png.read_bytes() if png.exists() else None
 
     def current_etag(self) -> Optional[str]:
         with self._lock:
@@ -1930,10 +1919,7 @@ class FeatherframeService:
     def battery_view(self, hours: int = 24, frame_id: Optional[str] = None) -> dict:
         """One frame's readings for the trend line plus the inferred power
         state. The line ends on the live median so it agrees with the row
-        above it. No frame named: the first kit's (# W-833 step 3)."""
-        if frame_id is None:
-            row = self._first_kit()
-            frame_id = str(row["id"]) if row is not None else None
+        above it. Every frame is named: without one there is nothing to plot."""
         now = self._clock()
         rows = self._battery_recent(frame_id, hours)
         live = self._battery_live_copy(frame_id)
@@ -1958,70 +1944,128 @@ class FeatherframeService:
         # A kit's check-in is its own record; a viewer never sends one, so for
         # those the last time it asked is the last time it was heard from.
         seen = rep.get("last_checkin") or (None if kit else row.get("last_seen"))
-        return frame_card({**rep, "last_checkin": seen},
+        card = frame_card({**rep, "last_checkin": seen},
                           cfg.wake_interval_minutes, self._clock(),
                           battery_history=self._battery_recent(fid),
                           battery_live=self._battery_live_copy(fid),
                           power_mode=cfg.power_mode if kit else "sleep",
                           critical_volts=frames_mod.panel_for(row).low_battery_volts
                           if kit else None)
+        if frames_mod.transport_of(row) == "page":
+            # A browser tab that was closed is not a device in trouble: a page
+            # is never overdue, it was just last open a while ago.
+            card["overdue"] = False
+            # …and a tab that is not open right now is simply not showing
+            # anything, which is the grey dot, not the green one.
+            live = _within(card["last_checkin_iso"], self._clock(), _PAGE_OPEN_SECONDS)
+        else:
+            live = card["seen"]
+        # The one place the row's status dot is decided.
+        card["state"] = ("bad" if card["battery_critical"] else
+                         ("warn" if card["overdue"] else
+                          ("good" if live else "off")))
+        return card
 
     def frames_list(self) -> list:
         """Every frame of every transport, all the same shape: what it is, what
         it shows, what it is being served, what it can be asked for, what the
-        owner chose, what it reported, and how it is doing."""
+        owner chose, what it reported, and how it is doing. This IS the Frames
+        card and the Health card; the page renders one component per row."""
         now = self._clock()
-        out = []
-        for row in sorted(self.frames.all().values(), key=_kit_order):
-            fid = str(row["id"])
-            transport = frames_mod.transport_of(row)
-            kit = transport == "kit"
-            caps = frames_mod.capabilities(row)
-            shows = frames_mod.shows_of(row) if kit else viewers_mod.shows_of(row)
-            cfg = self.frame_config(row) if kit else None
-            view = None if kit else viewers_mod.view_of(row)
-            rep = frames_mod.reported_of(row)
-            panel = frames_mod.panel_of(row)
-            try:
-                seen = _ago(datetime.fromisoformat(str(row.get("last_seen"))), now)
-            except (ValueError, TypeError):
-                seen = "never"
-            out.append({
-                "id": fid, "name": frames_mod.name_of(row),
-                "title": frames_mod.name_of(row) or _what_it_is(row, panel),
-                "transport": transport, "status": row.get("status"),
+        return [self.frame_view(row, now) for row in
+                sorted(self.frames.all().values(), key=_kit_order)]
+
+    def frame_short(self, frame_id: str) -> str:
+        """How the page names a frame in its muted meta — and what a screen
+        that is waiting to be added shows, so two tablets can be told apart."""
+        fid = str(frame_id)
+        return "older firmware" if fid == self.LEGACY_FRAME else fid[-6:]
+
+    def frame_view(self, row: dict, now: Optional[datetime] = None) -> dict:
+        """One frame, the whole of it, as the page reads it."""
+        now = now or self._clock()
+        fid = str(row["id"])
+        transport = frames_mod.transport_of(row)
+        kit = transport == "kit"
+        caps = frames_mod.capabilities(row)
+        cfg = self.frame_config(row) if kit else None
+        view = None if kit else viewers_mod.view_of(row)
+        rep = frames_mod.reported_of(row)
+        panel = frames_mod.panel_of(row)
+        shows = (frames_mod.shows_of(row) if kit
+                 else (viewers_mod.shows_of(row) or self._default_shows()))
+        name = frames_mod.name_of(row)
+        what = _what_it_is(row, panel)
+        on = row.get("status") == frames_mod.ON
+        try:
+            seen = _ago(datetime.fromisoformat(str(row.get("last_seen"))), now)
+        except (ValueError, TypeError):
+            seen = "never"
+        fresh = Config.defaults_for(frames_mod.panel_for(row).key) if kit else None
+        return {
+            "id": fid,
+            "short": self.frame_short(fid),
+            # Unnamed, a frame is titled by the short of what it is ("EE03",
+            # "iPad") and the summary carries the rest, so the collapsed row
+            # never says the same thing twice.
+            "name": name, "title": name or what.split(" · ")[0], "what": what,
+            "transport": transport, "status": row.get("status"),
+            "shows": shows,
+            "summary": self._frame_summary(what, shows, named=bool(name)),
+            "picture_etag": self.picture_etag(shows) if on else None,
+            "output_etag": self._output_etag(fid) if kit else None,
+            "preview_url": f"/api/frames/{quote(fid, safe='')}/preview.png" if on else None,
+            "capabilities": {**caps, "rotations": list(caps["rotations"])},
+            "settings": {
                 "shows": shows,
-                "picture_etag": self.picture_etag(shows) if row.get("status") == frames_mod.ON
-                else None,
-                "output_etag": self._output_etag(fid) if kit else None,
-                "capabilities": caps,
-                "settings": {
-                    "shows": shows,
-                    "rotation": cfg.panel_rotation if kit else (view.rotation if view else None),
-                    "mat_inset_pct": cfg.mat_inset_pct if kit else None,
-                    "mat_offset_x_px": cfg.mat_offset_x_px if kit else None,
-                    "mat_offset_y_px": cfg.mat_offset_y_px if kit else None,
-                    "power_mode": cfg.power_mode if kit else None,
-                    "wake_interval_minutes": cfg.wake_interval_minutes if kit else None,
-                    "device_poll_seconds": cfg.device_poll_seconds if kit else None,
-                    "panel": cfg.panel if kit else None,
-                    "width": view.width if view else (cfg.panel_spec.width if kit else None),
-                    "height": view.height if view else (cfg.panel_spec.height if kit else None),
-                    "format": view.fmt if view else (cfg.panel_spec.fmt if kit else None),
-                    "dark_quiet": viewers_mod.dark_in_quiet_hours(row)
-                    if transport == "page" else None,
-                },
-                "reported": dict(rep),
-                "ip": row.get("ip"),
-                "first_seen": row.get("first_seen"), "last_seen": row.get("last_seen"),
-                "last_seen_text": seen,
-                "card": self.frame_health(row) if caps["has_battery"] or kit else None,
-            })
-        return out
+                "rotation": cfg.panel_rotation if kit else (view.rotation if view else None),
+                "mat_inset_pct": cfg.mat_inset_pct if kit else None,
+                "mat_offset_x_px": cfg.mat_offset_x_px if kit else None,
+                "mat_offset_y_px": cfg.mat_offset_y_px if kit else None,
+                "mat_guide": cfg.mat_guide if kit else None,
+                "power_mode": cfg.power_mode if kit else None,
+                "wake_interval_minutes": cfg.wake_interval_minutes if kit else None,
+                "device_poll_seconds": cfg.device_poll_seconds if kit else None,
+                "panel": cfg.panel if kit else None,
+                "width": view.width if view else (cfg.panel_spec.width if kit else None),
+                "height": view.height if view else (cfg.panel_spec.height if kit else None),
+                "format": view.fmt if view else (cfg.panel_spec.fmt if kit else None),
+            },
+            # What "Reset to this panel's defaults" fills in, for this panel.
+            "defaults": {k: getattr(fresh, k) for k in
+                         ("mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "mat_guide")}
+            if fresh is not None else None,
+            "reported": dict(rep),
+            "ip": row.get("ip"),
+            "first_seen": row.get("first_seen"), "last_seen": row.get("last_seen"),
+            "last_seen_text": seen,
+            # The identity behind "Details": the same block for every frame
+            # that reports one, empty strings where a screen says nothing.
+            "details": {
+                "ip": row.get("ip") or "",
+                "firmware": rep.get("fw_version") or rep.get("user_agent") or "",
+                "panel": (rep.get("panel") or "") if kit else
+                         (f"{view.width}×{view.height} · {viewers_mod.depth_word(view.fmt)}"
+                          if view else ""),
+                "board": rep.get("board") or "",
+                "sketch_md5": rep.get("sketch_md5") or "",
+                "last_wake": rep.get("last_wake") or "",
+            },
+            "card": self.frame_health(row),
+            "notices": self.frame_notices(row),
+        }
+
+    def _frame_summary(self, what: str, shows: str, named: bool = False) -> str:
+        """The one line a collapsed row carries: what this screen is, and what
+        it shows. An unnamed frame's title already says the short of what it
+        is, so the summary carries only the rest."""
+        about = what if named else " · ".join(what.split(" · ")[1:])
+        bits = [about, SHOWS_WORDS[COLLAGE if shows == COLLAGE else "plates"]]
+        return " · ".join(b for b in bits if b)
 
 
     def rerender_current(self) -> None:
-        """Re-draw the picture the first kit shows, with the same subject —
+        """Re-draw the picture the page's tools mean, with the same subject —
         what a settings save or a colour screen's arrival asks for."""
         self._rerender_picture(self._shown)
 
@@ -2034,12 +2078,9 @@ class FeatherframeService:
             self._render_welcome(now, self.source.available())
             return
         if meta.get("mode") == "collage":
-            # Preserve what is showing: a combined collage re-renders as one
-            # (reusing the cached sheet for free), a grid as a grid.
-            combined = str(meta.get("label") or "").startswith(
-                ("combined collage", "day in review"))   # the label before the rename
-            on_date = self._collage_date(now) if combined else ddate.today()
-            self._build_collage(now, on_date, generated_ok=combined)
+            # The same day it is already of, so a re-render of the nightly
+            # collage after midnight does not become this morning's.
+            self._build_collage(now, self._collage_day(now))
             return
         if not meta.get("label"):
             return
@@ -2054,7 +2095,7 @@ class FeatherframeService:
         self._render_single(det, now, reason="settings")
 
     def refresh_now(self) -> None:
-        """Manual Refresh button: re-decide what the first kit's picture should
+        """Manual Refresh button: re-decide what the page's picture should
         be of and draw that. Unlike rerender_current (which keeps the subject),
         this also recovers from a stale held collage once plates are due again."""
         self.reload_config()
@@ -2179,14 +2220,11 @@ class FeatherframeService:
             "species_all_time": self.source.all_time_species_count(),
             "plates_loaded": self.audubon.species_count,
             "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
-            # W-833 step 3 deletes "device", "frame_card" and "current": the
-            # page reads them for the one frame the old build had, and the
-            # frames list below already carries the same facts per frame.
-            "device": asdict(self.device),
-            "frame_card": self.frame_health(self._first_kit()),
             "config": self._masked_config(),
-            "panel_notices": self.panel_notices(),
-            "frames": {**self.frames_view(), "list": self.frames_list()},
+            # Every screen this server draws for, one shape each. The page
+            # renders the same row component for all of them, and the Health
+            # card reads the same list.
+            "frames": {"list": self.frames_list()},
         }
 
     def _masked_config(self) -> dict:
@@ -2260,24 +2298,65 @@ class FeatherframeService:
         return etag
 
     # -- viewers (W-822) ---------------------------------------------------
-    def viewer_rows(self) -> list[dict]:
-        """The Viewers card: every viewer, the latest to ask first."""
+    def viewer_refresh_seconds(self, row: Optional[dict] = None) -> int:
+        """How long a viewer is told to sleep: on the collage, until the
+        collage is next redrawn; on plates, the constant — which is the hourly
+        one in quiet hours, when the plate holds still anyway."""
         now = self._clock()
-
-        def ago(iso) -> str:
-            try:
-                return _ago(datetime.fromisoformat(str(iso)), now)
-            except (ValueError, TypeError):
-                return "never"
-        rows = sorted(self.viewers.all().values(),
-                      key=lambda r: r.get("last_seen") or "", reverse=True)
-        return [viewers_mod.card_row(r, ago) for r in rows]
-
-    def viewer_refresh_seconds(self) -> int:
-        """How long a viewer is told to sleep: the plate holds still in quiet
-        hours, so it may as well."""
-        quiet = self.config.in_quiet_hours(self._clock().time())
+        if row is not None and viewers_mod.shows_of(row) == COLLAGE:
+            return self._collage_check_seconds(now)
+        quiet = self.config.in_quiet_hours(now.time())
         return viewers_mod.QUIET_REFRESH_SECONDS if quiet else viewers_mod.REFRESH_SECONDS
+
+    # -- checks that follow the collage -------------------------------------
+    def collage_next_at(self, now: datetime) -> Optional[datetime]:
+        """When the collage picture is next redrawn, from `_draw`'s own rules:
+        in quiet hours nothing is drawn until the window ends (the nightly
+        collage aside, which is about to happen if it has not); by day, the
+        interval after the last draw, the start of quiet hours, or midnight,
+        whichever is first. None means "soon": nothing to wait for."""
+        cfg = self.config
+        pic = self.pictures[COLLAGE]
+        if pic.etag is None:
+            return None
+        if cfg.in_quiet_hours(now.time()):
+            if cfg.quiet_hours_render_collage and \
+                    self.db.get("quiet_collage_for") != self._collage_date(now).isoformat():
+                return None
+            return self._next_time(now, cfg.quiet_window(now.date())[1])
+        try:
+            last_at = datetime.fromisoformat(pic.meta.get("collage_at") or "")
+        except (ValueError, TypeError):
+            return None
+        soonest = [last_at + timedelta(hours=cfg.collage_interval_hours),
+                   datetime.combine(now.date() + timedelta(days=1), dtime.min)]
+        if cfg.quiet_hours_mode != "off":
+            soonest.append(self._next_time(now, cfg.quiet_window(now.date())[0]))
+        return min(soonest)
+
+    @staticmethod
+    def _next_time(now: datetime, at: dtime) -> datetime:
+        """The next moment the clock reads `at`, after `now`."""
+        when = datetime.combine(now.date(), at)
+        return when if when > now else when + timedelta(days=1)
+
+    def _collage_check_seconds(self, now: datetime) -> int:
+        nxt = self.collage_next_at(now)
+        wait = (nxt - now).total_seconds() if nxt is not None else 0.0
+        if wait <= 0:
+            return COLLAGE_CHECK_FLOOR_S   # nothing to wait for, or overdue: soon
+        return int(min(86400, max(COLLAGE_CHECK_FLOOR_S, wait + COLLAGE_CHECK_MARGIN_S)))
+
+    def frame_intervals(self, row: Optional[dict], now: Optional[datetime] = None) -> tuple[int, int]:
+        """(poll seconds, wake minutes) served to one kit. On plates they are
+        the owner's; on the collage the kit checks in just after the collage's
+        next redraw, so its checks follow the collage and not a clock of their
+        own — and the row's own interval is not read at all."""
+        cfg = self.frame_config(row)
+        if frames_mod.shows_of(row) != COLLAGE:
+            return cfg.device_poll_seconds, cfg.wake_interval_minutes
+        secs = self._collage_check_seconds(now or self._clock())
+        return secs, max(1, min(1440, -(-secs // 60)))
 
     def _single_in_color(self, spec: SingleSpec):
         return lambda: compose_mod.render_single(spec, self.provider, color=True)
@@ -2345,6 +2424,33 @@ class FeatherframeService:
                 self._rerender_picture(PLATES)
                 self._color_tried[PLATES] = self.pictures[PLATES].etag
 
+    # A screen waits to be added (W-833). It is fed like any other view — the
+    # device's own size, depth and rotation — but the sheet is the waiting
+    # plate, not a picture, so it never touches one.
+    WAITING_PREFIX = "waiting-"
+
+    def waiting_png(self, view: "pipeline.View",
+                    short_id: str = "") -> tuple[int, Optional[bytes], Optional[str]]:
+        """(status, png, etag) of the waiting plate for one screen."""
+        etag = f"{self.WAITING_PREFIX}{re.sub(r'[^0-9A-Za-z_-]', '', short_id)}-{view.key}"
+        views = paths.views_dir()
+        cached = views / f"{etag}.png"
+        if cached.exists():
+            return 200, cached.read_bytes(), etag
+        with self._view_lock:
+            if cached.exists():
+                return 200, cached.read_bytes(), etag
+            sheet = welcome_mod.render_waiting(short_id)
+            png = pipeline.encode_png(pipeline.render_view(sheet, view), view.fmt)
+            try:
+                tmp = cached.with_suffix(".tmp")
+                tmp.write_bytes(png)
+                os.replace(tmp, cached)
+                self._prune_views()
+            except OSError:
+                log.warning("waiting view %s not cached", etag, exc_info=True)
+        return 200, png, etag
+
     def view_png(self, view: "pipeline.View", if_none_match: Optional[str] = None,
                  shows: Optional[str] = None) -> tuple[int, Optional[bytes], Optional[str]]:
         """One picture for one screen: (status, png, etag). Which picture is
@@ -2380,14 +2486,23 @@ class FeatherframeService:
                 tmp = cached.with_suffix(".tmp")
                 tmp.write_bytes(png)
                 os.replace(tmp, cached)
-                live = tuple(f"{p.etag}-" for p in self.pictures.values() if p.etag)
-                keep = sorted((f for f in views.glob("*.png") if f.name.startswith(live)),
-                              key=lambda f: f.stat().st_mtime, reverse=True)[:_VIEWS_MAX]
-                for stale in set(views.glob("*.png")) - set(keep):
-                    stale.unlink(missing_ok=True)
+                self._prune_views()
             except OSError:
                 log.warning("view %s not cached", etag, exc_info=True)
         return 200, png, etag
+
+    def _prune_views(self) -> None:
+        """A handful of renders per live picture, plus a handful of waiting
+        plates — which belong to no picture, and which a screen still asking
+        must not re-render on every poll."""
+        views = paths.views_dir()
+        live = tuple(f"{p.etag}-" for p in self.pictures.values() if p.etag)
+        def newest(files):
+            return sorted(files, key=lambda f: f.stat().st_mtime, reverse=True)[:_VIEWS_MAX]
+        keep = set(newest([f for f in views.glob("*.png") if live and f.name.startswith(live)]))
+        keep |= set(newest(list(views.glob(f"{self.WAITING_PREFIX}*.png"))))
+        for stale in set(views.glob("*.png")) - keep:
+            stale.unlink(missing_ok=True)
 
     @staticmethod
     def _save_history_thumb(etag: str, sheet: Image.Image) -> None:

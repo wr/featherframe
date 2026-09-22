@@ -28,6 +28,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 
 from . import __version__, discovery, panels, paths, viewers
+from . import frames as frames_mod
 from .config import Config, valid_hhmm
 from .names import display_common_name, normalize
 from .render import pipeline, typography
@@ -153,7 +154,9 @@ async def api_frame(request: Request, view: Optional[str] = None):
         return Response(status_code=403, content=b"this frame has not been added here",
                         headers=headers)
 
-    cfg = svc.frame_config(svc.frames.get(frame_id))
+    row = svc.frames.get(frame_id)
+    cfg = svc.frame_config(row)
+    poll_s, wake_min = svc.frame_intervals(row)
     # The power model, wake interval and rotation ride along on every response —
     # a 304 included (W-456/W-736): the device stores them in NVS, so the page
     # is the one place any of them is set.
@@ -166,8 +169,9 @@ async def api_frame(request: Request, view: Optional[str] = None):
                       # baked boot screens and pills to match the plates.
                       "X-FF-Rotation": str(cfg.panel_rotation),
                       "X-Power-Mode": cfg.power_mode,
-                      "X-Wake-Minutes": str(cfg.wake_interval_minutes),
-                      "X-Poll-Seconds": str(cfg.device_poll_seconds)}
+                      # On the collage both follow the collage's next redraw.
+                      "X-Wake-Minutes": str(wake_min),
+                      "X-Poll-Seconds": str(poll_s)}
     telemetry = {**device_extra, "battery_voltage": volt, "battery_percent": pct,
                  "wifi_rssi": rssi, "ip": client_ip,
                  "user_agent": request.headers.get("user-agent", "") or None}
@@ -197,14 +201,6 @@ async def api_frame(request: Request, view: Optional[str] = None):
         return Response(status_code=304, headers=headers)
     log.info("frame %s fetched %s (wake=%s)", frame_id[-6:], etag, wake)
     return Response(content=body, media_type="application/octet-stream", headers=headers)
-
-
-def _display_defaults(cfg: Config) -> dict:
-    """Factory values for the page's "Reset to defaults" (for the panel in
-    use). Secrets never have a default worth sending."""
-    fresh = Config.defaults_for(cfg.panel).to_dict()
-    return {k: v for k, v in fresh.items()
-            if not any(s in k for s in ("key", "token", "secret"))}
 
 
 def _announce_panel(request: Request, svc) -> None:
@@ -336,16 +332,13 @@ async def index(request: Request):
     status = await run_in_threadpool(svc.status)
     generated = await run_in_threadpool(svc.generated_listing) if svc.genart else []
     history = await run_in_threadpool(svc.render_history)
-    # W-833 step 3 deletes this: `config` on the page is the household's
-    # settings with the first kit's own display settings folded in, so the
-    # form keeps editing "the frame" until the page is rebuilt around frames.
-    page_config = svc.page_config()
+    # `config` is the household's and only the household's (W-833): what a
+    # frame is drawn with lives on that frame's own row, and the Frames card
+    # is the only place any of it is set.
     return templates.TemplateResponse(
         request, "index.html",
-        {"status": status, "config": page_config, "version": __version__,
-         "display_defaults": _display_defaults(page_config),
-         "generated": generated, "history": history,
-         "viewers": await run_in_threadpool(svc.viewer_rows)})
+        {"status": status, "config": svc.config, "version": __version__,
+         "generated": generated, "history": history})
 
 
 @app.post("/settings")
@@ -357,9 +350,10 @@ async def save_settings(request: Request):
         form = await request.form()
     except Exception:  # noqa: BLE001 — a malformed body must land on the page, not a 500
         return RedirectResponse("/?error=" + quote("Could not read the form."), status_code=303)
-    # The household's settings, plus the first kit's own for the frame fields:
-    # the form edits both at once until step 3 splits the page in two.
-    cur = svc.page_config().to_dict()
+    # The household's settings and nothing else (W-833). A frame's own —
+    # what it shows, its rotation, its mat, its power — are saved per frame,
+    # through POST /api/frames/<id>, and are not fields on this form.
+    cur = svc.config.to_dict()
 
     # A multipart file part under a text field's name comes back as an
     # UploadFile, which Config can't sanitize or serialise: only real strings
@@ -367,9 +361,12 @@ async def save_settings(request: Request):
     def s(key, default):
         v = form.get(key)
         return v if isinstance(v, str) else default
-    def f(key, default): return _to_float(s(key, None), default)
     def i(key, default): return _to_int(s(key, None), default)
     def b(key): return key in form  # checkbox present -> true
+    # An empty limit means no limit, which is stored as 0.
+    def limit(key, default):
+        raw = s(key, None)
+        return 0 if (raw is not None and not raw.strip()) else _to_int(raw, default)
     # A clock time that isn't one ("99:99") keeps the stored value rather
     # than being coerced to some other time or reset to the default.
     def t(key, default): return s(key, default) if valid_hhmm(s(key, None)) else default
@@ -377,30 +374,17 @@ async def save_settings(request: Request):
     blocklist_raw = s("species_blocklist", "")
     blocklist = [x.strip() for x in blocklist_raw.replace(",", "\n").splitlines() if x.strip()]
 
-    # The frame's own settings (W-833): these live on the frame's row, not in
-    # the household config, and are applied to the first kit below.
-    frame_fields = {
-        "mode": s("mode", cur["mode"]),
-        "wake_interval_minutes": i("wake_interval_minutes", cur["wake_interval_minutes"]),
-        "power_mode": s("power_mode", cur["power_mode"]),
-        "device_poll_seconds": i("device_poll_seconds", cur["device_poll_seconds"]),
-        "panel_rotation": i("panel_rotation", cur["panel_rotation"]),
-        "mat_inset_pct": f("mat_inset_pct", cur["mat_inset_pct"]),
-        "mat_offset_x_px": i("mat_offset_x_px", cur["mat_offset_x_px"]),
-        "mat_offset_y_px": i("mat_offset_y_px", cur["mat_offset_y_px"]),
-    }
-
     new = Config(
-        # Kept as they were: nothing reads the household's copy of a frame's
-        # settings, but a rollback would, and the page falls back to them on a
-        # server with no frame yet. # W-833 step 3 deletes them from Config.
-        **{k: svc.config.to_dict()[k] for k in
+        # Kept as they were. Nothing reads the household's copy of a frame's
+        # settings — `frames.frame_config` is where a frame's come from — but
+        # `Config` still has the fields, and a rollback would read them.
+        **{k: cur[k] for k in
            ("mode", "panel", "panel_rotation", "mat_inset_pct", "mat_offset_x_px",
-            "mat_offset_y_px", "power_mode", "wake_interval_minutes", "device_poll_seconds")},
+            "mat_offset_y_px", "mat_guide", "power_mode", "wake_interval_minutes",
+            "device_poll_seconds")},
         quiet_hours_mode=s("quiet_hours_mode", cur["quiet_hours_mode"]),
         quiet_hours_start=t("quiet_hours_start", cur["quiet_hours_start"]),
         quiet_hours_end=t("quiet_hours_end", cur["quiet_hours_end"]),
-        quiet_hours_render_collage=b("quiet_hours_render_collage"),
         species_blocklist=blocklist,
         detection_backend=s("detection_backend", cur["detection_backend"]),
         birdnet_db_path=s("birdnet_db_path", cur["birdnet_db_path"]),
@@ -410,7 +394,7 @@ async def save_settings(request: Request):
         collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
-        collage_species_max=i("collage_species_max", cur["collage_species_max"]),
+        collage_species_max=limit("collage_species_max", cur["collage_species_max"]),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
         imagegen_base_url=s("imagegen_base_url", cur["imagegen_base_url"]),
@@ -427,7 +411,6 @@ async def save_settings(request: Request):
     )
     try:
         svc.update_config(new)
-        await run_in_threadpool(svc.update_page_frame, frame_fields)
         _announce_panel(request, svc)
     except Exception as exc:  # noqa: BLE001 — surface it on the page, keep the old config
         log.exception("saving settings failed")
@@ -435,14 +418,12 @@ async def save_settings(request: Request):
                                 status_code=303)
     # Config.sanitize() clamps silently; tell the page which fields it changed
     # so the user isn't left staring at a different number than they typed.
-    adjusted = _adjusted_fields(form, svc.page_config())
+    adjusted = _adjusted_fields(form, svc.config)
     return RedirectResponse("/?saved=1" + ("&adjusted=" + ",".join(adjusted) if adjusted else ""),
                             status_code=303)
 
 
-_NUMERIC_FORM_FIELDS = ("wake_interval_minutes",
-                        "collage_interval_hours", "collage_species_max",
-                        "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px", "panel_rotation")
+_NUMERIC_FORM_FIELDS = ("collage_interval_hours", "collage_species_max")
 
 
 def _adjusted_fields(form, cfg: Config) -> list[str]:
@@ -546,9 +527,9 @@ async def api_refresh(request: Request):
 
 @app.post("/api/frames")
 async def api_frames(request: Request):
-    """The owner's answer about a frame that has not been added yet:
-    `action=add` (draw for it too), `switch` (draw for it instead of the first
-    kit), `ignore`, or `forget`."""
+    """The owner's answer about a kit that is not on yet: `action=add` (draw
+    for it too), `ignore` (park it), `forget` (drop it, so it asks again).
+    There is no "replace": there is no current frame to replace (W-833)."""
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
@@ -559,34 +540,87 @@ async def api_frames(request: Request):
     if not ok:
         return JSONResponse({"ok": False, "error": "unknown frame or action"}, status_code=400)
     _announce_panel(request, svc)
-    return JSONResponse({"ok": True, "frames": svc.frames_view(),
-                         "panel_notices": svc.panel_notices()})
+    return JSONResponse({"ok": True, "frames": svc.frames_list()})
 
 
 @app.post("/api/frames/{frame_id}")
 async def api_frame_settings(request: Request, frame_id: str):
-    """One frame's own settings: what it shows, which way up it hangs, its
-    mat, its power. Everything else is the household's. A name is the one
-    thing every frame in the registry has (W-833), viewers included, so a
-    rename falls through to the registry."""
+    """One frame's own settings, whatever it is fed over: its name, what it
+    shows, which way up it hangs, its mat, its power, how it is drawn.
+    Everything else is the household's. Only what this screen HAS can be set
+    (`frames.capabilities`) — a page has no panel rotation — and unknown keys
+    are ignored. `{"forget": true}` removes it."""
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
+    fid = frame_id[:40]
     try:
         fields = await request.json()
     except ValueError:
         fields = None
     if not isinstance(fields, dict):
         return JSONResponse({"error": "a JSON object is required"}, status_code=400)
+    if fields.get("forget"):
+        ok = await run_in_threadpool(svc.forget_frame, fid)
+        if not ok:
+            return JSONResponse({"error": "no such frame"}, status_code=404)
+        _announce_panel(request, svc)
+        return JSONResponse({"ok": True, "frames": svc.frames_list()})
     try:
-        ok = await run_in_threadpool(svc.update_frame, frame_id[:40], fields)
-        if not ok and "name" in fields:
-            ok = await run_in_threadpool(svc.rename_frame, frame_id[:40], fields["name"])
+        ok = await run_in_threadpool(svc.update_frame, fid, fields)
     except (TypeError, ValueError) as exc:
         return JSONResponse({"error": f"not saved: {exc}"[:200]}, status_code=400)
     if not ok:
         return JSONResponse({"error": "no such frame"}, status_code=404)
-    return JSONResponse({"ok": True, "frames": svc.frames_view()})
+    return JSONResponse({"ok": True, "frames": svc.frames_list()})
+
+
+@app.get("/api/frames/{frame_id}/preview.png")
+async def api_frame_preview(request: Request, frame_id: str):
+    """What THIS frame is showing, upright and filling the preview box: a kit's
+    own output, a viewer's own view drawn the way it draws — but never the
+    device's canvas shape or its rotation. A tablet's window is usually
+    landscape and a TRMNL hangs on its side; letterboxing the portrait sheet
+    inside either only shrinks the plate on the page."""
+    svc = _svc(request)
+    row = svc.frames.get(frame_id[:40])
+    if row is None:
+        return Response(status_code=404, content=b"no such frame")
+    if frames_mod.transport_of(row) == "kit":
+        png = await run_in_threadpool(svc.frame_png_bytes, str(row["id"]))
+        if png is None:
+            return Response(status_code=404, content=b"nothing drawn for it yet")
+        return Response(content=png, media_type="image/png",
+                        headers={"Cache-Control": "no-cache"})
+    if row.get("status") != frames_mod.ON:
+        # Not added yet: what is actually on its glass, and no picture is
+        # drawn (or coloured) for a screen nobody has answered for.
+        _, png, etag = await run_in_threadpool(svc.waiting_png, _upright(row),
+                                               svc.frame_short(str(row["id"])))
+        return Response(content=png, media_type="image/png",
+                        headers={"ETag": f'"{etag}"', "Cache-Control": "no-cache"})
+    # Threadpool: the first ask for a variant dithers a whole sheet.
+    status, png, etag = await run_in_threadpool(svc.view_png, _upright(row), None,
+                                                viewers.shows_of(row))
+    if status != 200 or png is None:
+        return Response(status_code=404, content=b"no frame yet")
+    return Response(content=png, media_type="image/png",
+                    headers={"ETag": f'"{etag}"', "Cache-Control": "no-cache"})
+
+
+# The 3:4 sheet a page frame's preview is drawn at: a browser window has no
+# shape of its own worth previewing.
+_PAGE_PREVIEW = (1200, 1600)
+
+
+def _upright(row: dict) -> pipeline.View:
+    """One viewer's view as the page previews it: its own depth, the picture
+    the right way up, nothing turned."""
+    if frames_mod.transport_of(row) == "page":
+        return pipeline.View(*_PAGE_PREVIEW, "color", 0)
+    view = viewers.view_of(row)
+    w, h = (view.height, view.width) if view.rotation in (90, 270) else (view.width, view.height)
+    return pipeline.View(w, h, view.fmt, 0)
 
 
 # -- hold this plate / block what's showing (W-735) --------------------------
@@ -902,19 +936,32 @@ async def trmnl_display(request: Request):
                           if token and hmac.compare_digest(str(r.get("token", "")), token)), None)
     if viewer_id is None:
         return JSONResponse({"status": 404, "error": "An ID header is required."}, status_code=404)
-    if not svc.current_etag():
-        return Response(status_code=503, content=b"no frame yet")
     row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "trmnl",
                                   viewers.trmnl_report(request.headers),
                                   request.client.host if request.client else None)
     view = viewers.view_of(row)
+    # Every frame is approved on the server (W-833): until the owner answers,
+    # the device is sent the waiting plate, drawn for its own screen, and comes
+    # back soon so it picks the picture up moments after they say yes.
+    if row.get("status") != frames_mod.ON:
+        ignored = row.get("status") == frames_mod.IGNORED
+        filename = f"waiting-{view.key}"
+        return JSONResponse({"status": 0, "image_url": _viewer_image_url(request, viewer_id,
+                                                                         filename),
+                             "filename": filename, "image_url_timeout": 0,
+                             "refresh_rate": (viewers.IGNORED_REFRESH_SECONDS if ignored
+                                              else viewers.WAITING_REFRESH_SECONDS),
+                             "update_firmware": False, "firmware_url": None,
+                             "reset_firmware": False, "special_function": "none"})
+    if not svc.current_etag():
+        return Response(status_code=503, content=b"no frame yet")
     etag = svc.picture_etag(viewers.shows_of(row))   # the plate's or the collage's (W-831)
     # The device repaints only when the filename changes: the frame's ETag and
     # the variant, so a new plate, or a new rotation from the page, is news.
     filename = f"{etag}-{view.key}"
     return JSONResponse({"status": 0, "image_url": _viewer_image_url(request, viewer_id, filename),
                          "filename": filename, "image_url_timeout": 0,
-                         "refresh_rate": svc.viewer_refresh_seconds(),
+                         "refresh_rate": svc.viewer_refresh_seconds(row),
                          "update_firmware": False, "firmware_url": None, "reset_firmware": False,
                          "special_function": "none"})
 
@@ -936,6 +983,15 @@ async def viewer_png(request: Request, viewer_id: str, name: str):
     if row is None:
         return Response(status_code=404, content=b"no such viewer")
     inm = _strip_etag(request.headers.get("if-none-match"))
+    if row.get("status") != frames_mod.ON:
+        # Not added yet: the waiting plate, in this screen's own terms.
+        status, png, etag = await run_in_threadpool(svc.waiting_png, viewers.view_of(row),
+                                                    svc.frame_short(row["id"]))
+        if inm == etag:
+            return Response(status_code=304, headers={"ETag": f'"{etag}"',
+                                                      "Cache-Control": "no-cache"})
+        return Response(content=png, media_type="image/png",
+                        headers={"ETag": f'"{etag}"', "Cache-Control": "no-cache"})
     status, png, etag = await run_in_threadpool(svc.view_png, viewers.view_of(row), inm,
                                                viewers.shows_of(row))
     if status == 404:
@@ -973,17 +1029,26 @@ async def view_state(request: Request, viewer: Optional[str] = None, w: Optional
     size = viewers.page_size(w, h)
     if viewer_id is None or size is None:
         return JSONResponse({"error": "viewer, w and h are required"}, status_code=400)
-    if not svc.current_etag():
-        return JSONResponse({"image": None, "dark": False, "poll": viewers.PAGE_POLL_SECONDS})
     reported = {"width": size[0], "height": size[1], "model": _str_header(device, 40)}
     row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "page", reported,
                                   request.client.host if request.client else None)
+    # Every frame is approved on the server (W-833). A page that has not been
+    # added yet says so on its own glass and keeps asking; the moment the owner
+    # answers, the next poll hands it the picture.
+    if row.get("status") != frames_mod.ON:
+        return JSONResponse({"image": None, "dark": False, "waiting": True,
+                             "id": svc.frame_short(row["id"]),
+                             "poll": viewers.PAGE_POLL_SECONDS},
+                            headers={"Cache-Control": "no-store"})
+    if not svc.current_etag():
+        return JSONResponse({"image": None, "dark": False, "poll": viewers.PAGE_POLL_SECONDS})
     view = viewers.view_of(row)
     etag = svc.picture_etag(viewers.shows_of(row))
-    quiet = svc.config.in_quiet_hours(svc._clock().time())
     return JSONResponse({
         "image": f"/api/viewers/{quote(viewer_id, safe='')}/{etag}-{view.key}.png",
-        "dark": bool(quiet and viewers.dark_in_quiet_hours(row)),
+        # A page shows the plate whatever the hour; the key stays so a /view
+        # tab that has been open since before this build keeps working.
+        "dark": False,
         "paper": view.fmt != "color",
         "poll": viewers.PAGE_POLL_SECONDS,
     }, headers={"Cache-Control": "no-store"})
@@ -998,31 +1063,17 @@ async def viewers_list(request: Request):
 
 @app.post("/api/viewers/{viewer_id}")
 async def viewer_update(request: Request, viewer_id: str):
-    """The owner's choices for one viewer: name, rotation, and (for a client
-    that reports no size) width, height and format. `forget` removes the row."""
-    if not _same_origin(request):
-        return _forbidden_cross_origin()
-    svc = _svc(request)
-    vid = viewers.clean_id(viewer_id) or ""
-    try:
-        fields = await request.json()
-    except ValueError:
-        fields = None
-    if not isinstance(fields, dict):
-        return JSONResponse({"error": "a JSON object is required"}, status_code=400)
-    if fields.get("forget"):
-        return JSONResponse({"ok": svc.viewers.forget(vid)})
-    row = await run_in_threadpool(svc.viewers.update, vid, fields)
-    if row is None:
-        return JSONResponse({"error": "no such viewer"}, status_code=404)
-    return JSONResponse({"ok": True, "viewer": viewers.public(row)})
+    """A thin alias for POST /api/frames/<id>: a viewer is a frame, and the
+    page only ever posts to the frames endpoint. Kept so a script or a
+    bookmark written against W-822 still works."""
+    return await api_frame_settings(request, viewers.clean_id(viewer_id) or "")
 
 
 @app.get("/api/battery")
 async def api_battery(request: Request, hours: int = 24, frame: Optional[str] = None):
     """One frame's voltage readings for its trend line, plus the power state
     the server infers from them (there is no USB-present line on the board).
-    No `frame`: the first kit's. # W-833 step 3 names the frame."""
+    Every frame is named: `frame` is its id."""
     svc = _svc(request)
     hours = max(1, min(int(hours), 24 * 7))
     return JSONResponse(await run_in_threadpool(svc.battery_view, hours,

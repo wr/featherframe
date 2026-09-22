@@ -10,7 +10,7 @@ import pytest
 from featherframe.render import welcome
 from featherframe.service import FeatherframeService
 from featherframe.render import pipeline as pipeline  # noqa: E402
-from tests._frames import FRAME_ID, add_kit
+from tests._frames import FRAME_ID, add_kit, frame_bytes
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def _ink(img):
 
 
 def test_fresh_install_serves_a_welcome_plate_not_503(svc):
-    assert svc._frame_bytes is None
+    assert frame_bytes(svc) is None
     svc._ensure_initial_frame()
     status, body, etag = svc.get_frame(FRAME_ID, None)
     assert status == 200 and body and etag

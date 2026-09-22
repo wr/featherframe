@@ -30,6 +30,14 @@
             font: 64px/1.2 "FF Script", "Snell Roundhand", cursive; color: #1a1a1a; opacity: .5;
             transition: opacity 1s ease; }
     .lit #mark { opacity: 0; }
+    /* Waiting to be added: the wordmark, and the one thing to do about it. */
+    #wait { position: absolute; top: 50%; left: 0; width: 100%; margin-top: 2.4em; padding: 0 16px;
+            box-sizing: border-box; text-align: center; opacity: 0; transition: opacity 1s ease;
+            font: 20px/1.5 -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+            color: #1a1a1a; }
+    #wait-id { margin-top: .6em; font-size: 14px; color: #8a8a8a; }
+    .waiting #wait { opacity: 1; }
+    .waiting img { opacity: 0; }
     /* Quiet hours on a lit screen: black, nothing glowing in a dark room. */
     .dark, .dark body { background: #000; }
     .dark img.on, .dark #mark { opacity: 0; }
@@ -37,6 +45,7 @@
 </head>
 <body>
   <div id="mark">Featherframe</div>
+  <div id="wait"><div>Add this frame on the Featherframe page</div><div id="wait-id"></div></div>
   <img id="a" alt=""><img id="b" alt="">
 <script>
 // ES5 on purpose: an iPad from 2013 on a kitchen wall is exactly who this is for.
@@ -104,11 +113,20 @@
       if (xhr.status !== 200) return;
       var state;
       try { state = JSON.parse(xhr.responseText); } catch (e) { return; }
+      if (state.poll) POLL = state.poll * 1000;
+      // Not added yet: say so, and keep asking. The next poll after the owner
+      // answers brings the picture, with no reload.
+      if (state.waiting) {
+        root.className = 'waiting';
+        document.getElementById('wait-id').textContent = state.id || '';
+        showing = null;
+        return;
+      }
+      root.className = root.className.replace(/\s*waiting/g, '');
       var dark = !!state.dark;
       root.className = (root.className.replace(/\s*dark/g, '') + (dark ? ' dark' : '')).replace(/^\s+/, '');
       if (state.image && !dark) show(state.image);
       if (dark) showing = null;   // fade the plate back in when the night ends
-      if (state.poll) POLL = state.poll * 1000;
     };
     xhr.send();
   }

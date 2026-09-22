@@ -21,7 +21,7 @@ from featherframe.config import Config
 from featherframe.db import Database
 from featherframe.render import framebuffer, pipeline, theme
 from tests._fixtures import create_birds_db, make_row
-from tests._frames import EE02_PANEL, EE03_PANEL, add_kit, connect
+from tests._frames import EE02_PANEL, EE03_PANEL, add_kit, connect, device
 
 NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
@@ -84,8 +84,10 @@ def test_two_kits_of_the_same_panel_with_different_settings_get_different_bytes(
 def test_each_frame_carries_its_own_headers(client, svc):
     add_kit(svc, EE03["X-Device-Id"], panel_rotation=270, power_mode="sleep",
             wake_interval_minutes=45)
+    # On plates: the EE02's own default is the collage, whose checks follow
+    # the collage's redraws rather than the row's interval (test_collage_checks).
     add_kit(svc, EE02["X-Device-Id"], panel=EE02_PANEL, power_mode="awake",
-            device_poll_seconds=7)
+            device_poll_seconds=7, shows="plates")
     svc.tick()
     a = client.get("/api/frame", headers=EE03)
     b = client.get("/api/frame", headers=EE02)
@@ -155,8 +157,13 @@ def test_nothing_renders_in_a_request_handler(client, svc):
                                              "X-Panel": EE03_PANEL}).status_code == 403
 
 
-def test_the_first_kit_is_let_in_and_the_second_one_asks(client, svc):
+def test_every_kit_asks_first_including_the_one_on_a_fresh_install(client, svc):
+    """W-833: no screen connects by itself. The first kit on an empty server
+    asks exactly as the second one does, and is served once it is added."""
     svc.tick()
+    first = client.get("/api/frame", headers=EE03)
+    assert first.status_code == 403 and first.headers["x-ff-frame"] == "pending"
+    assert svc.frames.get(EE03["X-Device-Id"])["status"] == frames_mod.ASKING
     assert connect(client, EE03).status_code == 200
     assert svc.frames.get(EE03["X-Device-Id"])["status"] == frames_mod.ON
     r = client.get("/api/frame", headers=EE02)
@@ -206,6 +213,8 @@ def test_the_frames_list_is_one_shape_for_a_kit_a_trmnl_and_a_page(client, svc):
                                         "Width": "1872", "Height": "1404",
                                         "Battery-Voltage": "4.02"})
     client.get("/api/view/state?viewer=PAGE-IPAD&w=600&h=800&device=iPad")
+    for viewer in ("AA:BB:CC:DD:EE:01", "PAGE-IPAD"):   # the owner adds them
+        assert svc.answer_frame(viewer, "add")
     listed = {f["id"]: f for f in svc.status()["frames"]["list"]}
     assert set(listed) == {EE03["X-Device-Id"], "AA:BB:CC:DD:EE:01", "PAGE-IPAD"}
     keys = {"id", "name", "title", "transport", "status", "shows", "picture_etag",
@@ -224,8 +233,8 @@ def test_the_frames_list_is_one_shape_for_a_kit_a_trmnl_and_a_page(client, svc):
     assert trmnl["settings"]["format"] == "gray16" and not trmnl["capabilities"]["mat"]
     assert trmnl["card"]["battery"].startswith("4.02 V")
     page = listed["PAGE-IPAD"]
-    assert page["transport"] == "page" and page["settings"]["dark_quiet"] is True
-    assert page["capabilities"]["look"] and page["card"] is None    # no battery to report
+    assert page["transport"] == "page" and page["settings"]["format"] == "color"
+    assert page["capabilities"]["colour"] and page["card"]["battery"] is None
 
 
 # -- the upgrade from the single-frame build -----------------------------------
@@ -310,7 +319,7 @@ def test_the_migration_moves_settings_telemetry_and_the_battery_log(tmp_path, mo
     assert frames_mod.reported_of(row)["battery_percent"] == 64
     assert svc.db.battery_history("2000-01-01", "AA:BB")[0]["voltage"] == pytest.approx(3.88)
     assert svc.db.battery_history("2000-01-01") == []
-    assert svc.device.fw_version == "1.9.0"
+    assert device(svc, "AA:BB").fw_version == "1.9.0"
     # Everything the frame is drawn with now comes off its row.
     cfg = svc.frame_config(row)
     assert (cfg.panel_rotation, cfg.mat_inset_pct, cfg.power_mode) == (270, 3.5, "sleep")
@@ -337,8 +346,11 @@ def test_a_fresh_install_migrates_to_nothing_and_lets_its_first_kit_in(tmp_path,
     assert svc.frames.all() == {} and svc._out == {}
     svc.source.db_path = str(tmp_path / "missing.db")
     svc._render_welcome(NOW, False)
-    assert svc.admit_frame("AA:BB", EE03_PANEL, None, None) == frames_mod.ON
+    # Every kit asks, the first one included; the owner answers for one of them.
+    assert svc.admit_frame("AA:BB", EE03_PANEL, None, None) == frames_mod.ASKING
     assert svc.admit_frame("CC:DD", EE03_PANEL, None, None) == frames_mod.ASKING
+    assert svc.answer_frame("AA:BB", "add")
+    assert svc.admit_frame("AA:BB", EE03_PANEL, None, None) == frames_mod.ON
     svc.tick()
     assert svc.get_frame("AA:BB", None)[0] == 200
     assert svc.get_frame("CC:DD", None)[0] == 503       # not served until it is answered for
@@ -390,3 +402,34 @@ def _det():
     return Detection(rowid=-1, date=NOW.strftime("%Y-%m-%d"), time=NOW.strftime("%H:%M:%S"),
                      common_name="Tufted Titmouse", scientific_name="Baeolophus bicolor",
                      confidence=0.95)
+
+
+# -- the mat guide ---------------------------------------------------------------
+def test_the_mat_guide_is_a_two_pixel_line_at_the_compositions_edge(svc):
+    """`mat_guide` draws a black line just inside the composition, inset and
+    offset included, so the mat can be set against it; off, nothing changes."""
+    plain = add_kit(svc, "AA:00", mat_inset_pct=4.0, mat_offset_x_px=10, mat_guide=False)
+    guided = add_kit(svc, "BB:00", mat_inset_pct=4.0, mat_offset_x_px=10, mat_guide=True)
+    svc.tick()
+    assert svc._output_bytes("AA:00") != svc._output_bytes("BB:00")
+    sheet_path = svc.picture_for(frames_mod.shows_of(plain), NOW).sheet_path
+    with Image.open(sheet_path) as sheet:
+        sheet.load()
+    off = pipeline.render_image(sheet, svc.frame_config(plain), "single", "").preview
+    on = pipeline.render_image(sheet, svc.frame_config(guided), "single", "").preview
+    w, h = on.size
+    sw, sh = round(w * 0.92), round(h * 0.92)
+    x0, y0 = (w - sw) // 2 + 10, (h - sh) // 2
+    px = on.load()
+    # The line: two pixels deep along every edge of the shrunk composition.
+    assert px[x0, y0 + sh // 2] == 0 and px[x0 + 1, y0 + sh // 2] == 0
+    assert px[x0 + sw - 1, y0 + sh // 2] == 0 and px[x0 + sw // 2, y0] == 0
+    assert px[x0 + sw // 2, y0 + sh - 1] == 0
+    # Just outside it is the mat ring, and the plain render has no line.
+    assert px[x0 - 1, y0 + sh // 2] != 0
+    assert off.load()[x0, y0 + sh // 2] != 0
+    # The row saves it like any other setting, and the output follows.
+    assert svc.update_frame("AA:00", {"mat_guide": True})
+    assert svc.frames.get("AA:00")["set"]["mat_guide"] is True
+    svc.tick()
+    assert svc._output_bytes("AA:00") == svc._output_bytes("BB:00")

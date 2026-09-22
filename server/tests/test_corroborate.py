@@ -291,10 +291,27 @@ def test_review_paints_up_to_the_cap(svc, monkeypatch):
     svc.source = _GateSource([], today=_rows(26))
     painted = _painted_cells(svc, monkeypatch)
     grid = _collage_cells(svc, monkeypatch)
-    assert svc._build_collage(NOW, NOW.date(), generated_ok=True) is True
+    assert svc._build_collage(NOW, NOW.date()) is True
     assert painted == [[f"Bird {i}" for i in range(1, 11)]]
-    assert grid == [[f"Bird {i}" for i in range(1, 7)]]        # the grid stays six
-    assert svc.pictures["collage"].meta["label"] == "6-species collage"
+    # The limit is the collage's however it is drawn: the grid shows the same ten.
+    assert grid == [[f"Bird {i}" for i in range(1, 11)]]
+    assert svc.pictures["collage"].meta["label"] == "10-species collage"
+
+
+def test_the_ai_collage_is_all_or_nothing(svc, monkeypatch):
+    """Wells's rule: if image generation draws collages, it draws every one of
+    them — a plain daytime rebuild exactly like the nightly sheet. There is no
+    "nightly only" any more."""
+    svc.source = _GateSource([], today=_rows(4))
+    painted = _painted_cells(svc, monkeypatch)
+    grid = _collage_cells(svc, monkeypatch)
+    assert svc._build_collage(NOW, NOW.date()) is True          # a daytime rebuild
+    assert painted == [[f"Bird {i}" for i in range(1, 5)]]
+    # Off: the grid, and the image model is never asked.
+    svc.config.collage_generated = False
+    del painted[:], grid[:]
+    assert svc._build_collage(NOW, NOW.date()) is True
+    assert painted == [] and grid == [[f"Bird {i}" for i in range(1, 5)]]
 
 
 def test_review_zero_means_every_species(svc, monkeypatch):
@@ -302,7 +319,7 @@ def test_review_zero_means_every_species(svc, monkeypatch):
     svc.source = _GateSource([], today=_rows(26))
     painted = _painted_cells(svc, monkeypatch)
     _collage_cells(svc, monkeypatch)
-    assert svc._build_collage(NOW, NOW.date(), generated_ok=True) is True
+    assert svc._build_collage(NOW, NOW.date()) is True
     assert len(painted[0]) == 26
 
 

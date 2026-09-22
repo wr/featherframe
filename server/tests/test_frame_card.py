@@ -1,4 +1,5 @@
-"""The config page's frame card (W-587): wall-frame health at a glance.
+"""The page's Health card (W-587, per frame since W-833): a frame's health
+at a glance.
 
 All the reasoning is server-side — frame_card() turns the recorded check-in
 into ready-to-print strings plus an overdue flag, so the template just prints.
@@ -13,7 +14,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from featherframe import paths
 from featherframe.service import FeatherframeService, frame_card
-from tests._frames import FRAME_ID, add_kit
+from tests._frames import FRAME_ID, add_kit, device, health
 
 NOW = datetime(2026, 8, 28, 9, 0, 0)
 
@@ -88,8 +89,8 @@ def test_relative_times():
 
 
 # -- through the service ----------------------------------------------------
-def test_status_exposes_frame_card(svc):
-    card = svc.status()["frame_card"]
+def test_status_carries_a_health_block_per_frame(svc):
+    card = [f for f in svc.status()["frames"]["list"] if f["id"] == FRAME_ID][0]["card"]
     assert card["seen"] is False
     assert card["expected_minutes"] == svc.config.wake_interval_minutes
 
@@ -97,7 +98,7 @@ def test_status_exposes_frame_card(svc):
 def test_device_checkin_flows_to_card(svc):
     _checkin(svc, user_agent="esp32-featherframe", battery_voltage=3.95,
              battery_percent=72, wifi_rssi=-61)
-    card = svc.status()["frame_card"]
+    card = health(svc)
     assert card["seen"] is True
     assert card["overdue"] is False
     assert card["last_seen"] == "just now"
@@ -147,7 +148,7 @@ def _render_page(svc) -> str:
     env = Environment(loader=FileSystemLoader(str(paths.templates_dir())),
                       autoescape=True)
     return env.get_template("index.html").render(
-        status=svc.status(), config=svc.page_config(), version="test", generated=[])
+        status=svc.status(), config=svc.config, version="test", generated=[])
 
 
 def test_page_never_seen(svc):
@@ -160,21 +161,21 @@ def test_page_fresh(svc):
              battery_percent=72, wifi_rssi=-61)
     html = _render_page(svc)
     assert "just now" in html
-    assert "72%" in html          # battery shown as percent only (W-607)
     assert "Overdue —" not in html
 
 
 def test_page_overdue(svc):
     # the interval-based bar; awake is a fixed few minutes
     svc.update_frame(FRAME_ID, {"power_mode": "sleep"})
-    minutes = svc.page_config().wake_interval_minutes
+    minutes = svc.frame_config(svc.frames.get(FRAME_ID)).wake_interval_minutes
     late = datetime.now() - timedelta(minutes=minutes * 2 + 5)
     _checkin(svc, battery_voltage=3.6, battery_percent=31, last_result="304")
     svc.frames.save({**svc.frames.get(FRAME_ID),
                      "reported": {**svc.frames.get(FRAME_ID)["reported"],
                                   "last_checkin": late.isoformat(timespec="seconds")}})
-    html = _render_page(svc)
-    assert f"Overdue — wakes every {minutes} min" in html
+    # The row says so with a badge of its own.
+    assert svc.frame_health(svc.frames.get(FRAME_ID))["overdue"] is True
+    assert '<span class="badge warn" data-h="overdue" >Overdue</span>' in _render_page(svc)
 
 
 # -- device_extra plumbing + show_battery gating ----------------------------
@@ -184,28 +185,34 @@ def test_device_extra_recorded_from_get_frame(svc):
     _checkin(svc, user_agent="ua", battery_voltage=3.9, battery_percent=60, wifi_rssi=-60,
              fw_version="2026.09.01+abc", sketch_md5="deadbeef", last_wake="timer",
              boot_count=3, refresh_count=7, panel="P", board="B")
-    d = svc.device
+    d = device(svc)
     assert d.fw_version == "2026.09.01+abc"
     assert (d.boot_count, d.refresh_count) == (3, 7)
     assert (d.panel, d.board, d.last_wake) == ("P", "B", "timer")
 
 
-def test_battery_row_always_renders(svc):
-    # The old "show battery" toggle is gone: the power state is inferred from
-    # the voltage trend instead, so the row is always meaningful.
+def test_the_reading_is_for_a_frame_on_a_battery(svc):
+    # A frame on USB has no charge to report, so its column stays empty; a
+    # frame on a battery carries the cell and its percent. Not a setting.
     _checkin(svc, user_agent="ua", battery_voltage=3.9, battery_percent=60, wifi_rssi=-60)
+    assert 'data-h="batt-wrap" data-spark-host tabindex="0" ' \
+           'aria-label="Battery" hidden>' in _render_page(svc)
+    svc.update_frame(FRAME_ID, {"power_mode": "sleep"})
     html = _render_page(svc)
-    assert 'id="fc-batt"' in html and "60%" in html
+    assert 'data-h="batt-bar"' in html and "60%" in html
     assert 'name="show_battery"' not in html
 
 
-def test_page_banner_when_battery_critical(svc):
+def test_a_nearly_empty_cell_is_a_badge_on_that_frames_row(svc):
+    """No full-width banner any more: the row it is about carries it."""
     _checkin(svc, user_agent="esp32-featherframe", battery_voltage=3.95, battery_percent=72)
-    assert 'id="batt-critical" role="status" hidden' in _render_page(svc)
-    # (set directly: the card shows the last few minutes\' median, not one reading)
+    assert '<span class="badge bad" data-h="lowbatt" hidden>' in _render_page(svc)
     svc._battery_live.clear()
     _checkin(svc, battery_voltage=3.47, battery_percent=6, last_result="304")
     svc._battery_live.clear()
+    svc.update_frame(FRAME_ID, {"name": "Hallway"})
     html = _render_page(svc)
-    assert 'id="batt-critical" role="status">' in html
-    assert "Charge the frame." in html
+    row = html.split('data-frame="%s"' % FRAME_ID)[1].split(chr(10) + "    </li>")[0]
+    assert "Hallway" in row
+    assert '<span class="badge bad" data-h="lowbatt" >Battery low</span>' in row
+    assert "Charge Hallway." not in html

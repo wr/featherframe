@@ -1,5 +1,5 @@
-"""Several frames on one server (W-832). The active frame keeps the resident
-frame and the device card; an ADDED frame is a second kit drawn from the same
+"""Several frames on one server. There is no primary and no "added" frame
+(W-833): every kit that is on is drawn for the same way, from the same
 pictures, finished for its own panel, showing plates or the collage. An EE03 on
 plates and an EE02 on the collage is the case it exists for."""
 from __future__ import annotations
@@ -12,7 +12,7 @@ from starlette.testclient import TestClient
 
 from featherframe.render import pipeline
 from tests._fixtures import create_birds_db, make_row
-from tests._frames import connect
+from tests._frames import connect, frame_bytes
 
 NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
@@ -53,6 +53,10 @@ def _add(client):
     client.app.state.service.tick()
 
 
+def _row(svc, frame_id: str) -> dict:
+    return [f for f in svc.frames_list() if f["id"] == frame_id][0]
+
+
 def _fff_size(body: bytes) -> tuple[int, int]:
     assert body[:4] == b"FFF1"
     return struct.unpack_from("<HH", body, 6)     # "<4sBBHHB5x": magic, version, bpp, w, h
@@ -60,33 +64,34 @@ def _fff_size(body: bytes) -> tuple[int, int]:
 
 def test_a_second_kit_is_added_beside_the_first_not_instead_of_it(client):
     svc = client.app.state.service
-    wall = (svc._etag, svc._frame_bytes, svc.config.panel, svc.status()["device"]["last_checkin"])
+    first = EE03["X-Device-Id"]
+    wall = (frame_bytes(svc, first), _row(svc, first)["card"]["last_checkin_iso"])
     _add(client)
-    view = svc.frames_view()
-    assert view["active"]["id"] == EE03["X-Device-Id"] and not view["pending"]
-    assert [f["id"] for f in view["added"]] == [EE02["X-Device-Id"]]
-    # The wall's frame, panel and card are what they were.
-    assert (svc._etag, svc._frame_bytes, svc.config.panel,
-            svc.status()["device"]["last_checkin"]) == wall
-    assert client.get("/api/frame", headers=EE03).content == wall[1]
+    ids = [f["id"] for f in svc.frames_list() if f["status"] == "on"]
+    assert ids == [first, EE02["X-Device-Id"]]
+    assert not [f for f in svc.frames_list() if f["status"] == "asking"]
+    # The first frame's bytes and its check-in record are what they were.
+    assert (frame_bytes(svc, first), _row(svc, first)["card"]["last_checkin_iso"]) == wall
+    assert client.get("/api/frame", headers=EE03).content == wall[0]
 
 
 def test_the_colour_kit_gets_the_collage_for_its_own_panel(client):
     """An EE02 starts as its panel does on a fresh install: on the collage,
-    native portrait 1200x1600, inks, rotation 0 — while the wall shows plates."""
+    native portrait 1200x1600, inks, rotation 0 — while the EE03 shows plates."""
     svc = client.app.state.service
     _add(client)
     r = client.get("/api/frame", headers=EE02)
     assert r.status_code == 200 and r.headers["x-ff-rotation"] == "0"
     assert sorted(_fff_size(r.content)) == [1200, 1600]
-    assert sorted(_fff_size(svc._frame_bytes)) == [1404, 1872]
+    assert sorted(_fff_size(frame_bytes(svc, EE03["X-Device-Id"]))) == [1404, 1872]
     assert svc._meta["mode"] == "single" and svc.pictures["collage"].etag
-    card = svc.frames_view()["added"][0]
-    assert card["shows"] == "collage" and card["battery_percent"] == 71 and card["fw_version"] == "1.9.0"
-    # It 304s on its own ETag, and the device card is still the wall's.
+    row = _row(svc, EE02["X-Device-Id"])
+    assert row["shows"] == "collage" and row["card"]["battery_percent"] == 71
+    assert row["details"]["firmware"] == "1.9.0"
+    # It 304s on its own ETag, and the other frame's telemetry is its own.
     etag = r.headers["etag"]
     assert client.get("/api/frame", headers={**EE02, "If-None-Match": etag}).status_code == 304
-    assert svc.status()["device"]["battery_percent"] != 71
+    assert _row(svc, EE03["X-Device-Id"])["card"]["battery_percent"] != 71
 
 
 def test_its_settings_are_its_own(client):
@@ -94,18 +99,18 @@ def test_its_settings_are_its_own(client):
     _add(client)
     before = client.get("/api/frame", headers=EE02).headers["etag"]
     fid = EE02["X-Device-Id"]
-    r = client.post(f"/api/frames/{fid}", json={"shows": "plates", "panel_rotation": 180,
+    r = client.post(f"/api/frames/{fid}", json={"shows": "plates", "rotation": 180,
                                                 "power_mode": "sleep", "name": "Study"})
     assert r.json()["ok"]
     svc.tick()
     r = client.get("/api/frame", headers=EE02)
     assert r.headers["etag"] != before and r.headers["x-ff-rotation"] == "180"
     assert r.headers["x-power-mode"] == "sleep"
-    card = svc.frames_view()["added"][0]
-    assert (card["shows"], card["rotation"], card["name"]) == ("plates", 180, "Study")
+    row = _row(svc, fid)
+    assert (row["shows"], row["settings"]["rotation"], row["name"]) == ("plates", 180, "Study")
     # A rotation its panel cannot do is refused by the same rules as the page's.
-    client.post(f"/api/frames/{fid}", json={"panel_rotation": 90})
-    assert svc.frames_view()["added"][0]["rotation"] in (0, 180)
+    client.post(f"/api/frames/{fid}", json={"rotation": 90})
+    assert _row(svc, fid)["settings"]["rotation"] in (0, 180)
     # The other frame's settings never moved.
     first = svc.frame_config(svc.frames.get(EE03["X-Device-Id"]))
     assert first.panel == "ee03" and first.panel_rotation == 90
@@ -133,6 +138,16 @@ def test_forgetting_it_takes_its_files_and_its_picture_with_it(client, tmp_path)
     assert client.get("/api/frame", headers=EE02).status_code == 403     # it asks again
 
 
+def test_remove_on_the_row_forgets_it_too(client):
+    """The Frames card's Remove is the same answer, posted to the frame."""
+    svc = client.app.state.service
+    _add(client)
+    fid = EE02["X-Device-Id"]
+    assert client.post(f"/api/frames/{fid}", json={"forget": True}).json()["ok"]
+    assert svc.frames.get(fid) is None and fid not in svc._out
+    assert client.get("/api/frame", headers=EE02).status_code == 403
+
+
 def test_each_board_gets_its_own_firmware(client, tmp_path):
     data = tmp_path / "data"
     (data / "firmware.bin").write_bytes(b"\xe9" + b"..XIAO ESP32-S3 Plus + EE03.." * 4)
@@ -151,37 +166,37 @@ def test_each_board_gets_its_own_firmware(client, tmp_path):
 def test_the_page_offers_to_add_it_and_then_lists_it(client):
     client.get("/api/frame", headers=EE02)
     html = client.get("/").text
-    assert 'data-frame-action="add"' in html and "Replace the current frame" in html
+    assert 'data-frame-action="add"' in html
+    # There is no current frame, so there is nothing to replace.
+    assert "Replace the current frame" not in html
     _add(client)
     html = client.get("/").text
     assert 'data-frame-action="add"' not in html
-    row = html.split(f'data-added-frame="{EE02["X-Device-Id"]}"')[1].split("</li>")[0]
-    assert "Spectra 6" in row and 'data-af="shows"' in row and 'data-af="panel_rotation"' in row
-    # Its panel's own rotations, not the wall's.
+    row = html.split('data-frame="%s"' % EE02["X-Device-Id"])[1].split(chr(10) + "    </li>")[0]
+    assert "Spectra 6" in row and 'data-f="shows"' in row and 'data-f="rotation"' in row
+    # Its panel's own rotations, not the other frame's.
     assert 'value="180"' in row and 'value="90"' not in row
     # Nothing shared is offered per frame.
     for shared in ("quiet_hours", "species_blocklist", "detection_backend", "imagegen"):
         assert shared not in row
 
 
-def test_with_two_frames_the_first_is_named_too(client):
-    """Its vitals sit at the top of the card; unnamed, the card reads as if
-    the added frame were the only one."""
-    assert "fc-active-name" not in client.get("/").text.split("<body")[1]    # one frame: the card as it was
+def test_both_frames_are_the_same_row(client):
+    """Name, Content, Rotation, Power, Advanced, Details, Save, Remove: the
+    first kit is not a different kind of thing from the second."""
     _add(client)
+    client.get("/api/frame", headers=EE02)                 # it reports its Wi-Fi
     body = client.get("/").text.split("<body")[1]
-    named = body.split('class="fc-active-name"')[1].split("</div>\n        {% endif %}")[0][:600]
-    assert "EE03" in named and "Plates" in named
-    assert ">Frames<" in body
-
-
-def test_both_frames_are_laid_out_the_same_way(client):
-    """Name, Power and Wi-Fi tiles, Details, then settings: a second kit is
-    not a lesser kind of row."""
-    _add(client)
-    client.get("/api/frame", headers=EE02)                 # it reports battery and Wi-Fi
-    body = client.get("/").text.split("<body")[1]
-    row = body.split(f'data-added-frame="{EE02["X-Device-Id"]}"')[1].split("</li>")[0]
-    assert 'class="vitals' in row and ">Power<" in row and ">Wi-Fi<" in row
-    assert "71%" in row and "Good" in row and "<summary>Details</summary>" in row
-    assert "1.9.0" in row and EE02["X-Board"] in row
+    rows = [body.split('data-frame="%s"' % h["X-Device-Id"])[1].split(chr(10) + "    </li>")[0]
+            for h in (EE03, EE02)]
+    for row in rows:
+        for want in ('data-f="name"', 'data-f="shows"', 'data-f="rotation"',
+                     'data-f="power_mode"', 'data-f="mat_inset_pct"',
+                     'data-fr-action="save"', 'data-fr-action="forget"'):
+            assert want in row
+        # …and each carries its own health on the row, over its own Details.
+        for want in ('data-h="dot"', 'data-h="seen-text"',
+                     'data-h="wifi-wrap"', "<span>Details</span>", ">Frame ID<"):
+            assert want in row, want
+    ee02 = rows[1]
+    assert "Good" in ee02 and "1.9.0" in ee02 and EE02["X-Board"] in ee02

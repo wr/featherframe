@@ -130,7 +130,7 @@ def test_first_checkin_from_an_unknown_panel_is_drawn_for_at_its_size(client):
     assert cfg.panel == "custom:800x480:gray16:90,270" and cfg.panel_rotation == 90
     _, _, bpp, w, h, flags = framebuffer.HEADER.unpack_from(r.content, 0)
     assert (bpp, w, h, flags) == (4, 800, 480, 0)
-    assert "GDEY075 DIY" in svc.frames_view()["active"]["panel_name"]
+    assert "GDEY075 DIY" in svc.frame_view(svc.frames.get(DIY["X-Device-Id"]))["what"]
     page = client.get("/").text
     assert "GDEY075 DIY" in page
 
@@ -139,7 +139,8 @@ def test_an_unknown_panel_with_no_facts_says_so_on_the_page(client):
     svc = client.app.state.service
     connect(client, {"X-Panel": "mystery panel", "X-Device-Id": "DDDDDDDDDD04"})
     assert svc.frame_config(svc.frames.get("DDDDDDDDDD04")).panel == "ee03"
-    assert svc.panel_notices()["unrecognised"]["label"] == "mystery panel"
+    notices = svc.frame_notices(svc.frames.get("DDDDDDDDDD04"))
+    assert notices["unrecognised"]["label"] == "mystery panel"
     assert "did not say what panel it has" in client.get("/").text
 
 
@@ -148,7 +149,8 @@ def test_an_unknown_format_says_so_on_the_page(client):
     r = connect(client, {**DIY, "X-Panel-Format": "acep7"})
     _, _, bpp, w, h, flags = framebuffer.HEADER.unpack_from(r.content, 0)
     assert (bpp, w, h, flags) == (4, 800, 480, 0)      # gray, never a wrong size
-    assert svc.panel_notices()["unknown_format"] == {"format": "acep7"}
+    row = svc.frames.get(DIY["X-Device-Id"])
+    assert svc.frame_notices(row)["unknown_format"] == {"format": "acep7"}
     assert "not one this server can draw" in client.get("/").text
 
 
@@ -161,5 +163,6 @@ def test_the_panel_is_not_a_setting(client):
     connect(client, DIY)
     same = {"Origin": "http://testserver"}
     client.post("/settings", data={"panel": "ee03"}, headers=same, follow_redirects=False)
-    assert svc.page_config().panel == "custom:800x480:gray16:90,270"
+    assert svc.frame_config(svc.frames.get(DIY["X-Device-Id"])).panel == \
+        "custom:800x480:gray16:90,270"
     assert 'name="panel"' not in client.get("/").text

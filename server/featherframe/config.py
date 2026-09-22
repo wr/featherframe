@@ -105,9 +105,6 @@ class Config:
     quiet_hours_mode: str = "custom"
     quiet_hours_start: str = "22:00"
     quiet_hours_end: str = "06:00"
-    # If true, render the day's collage once at quiet-hours start,
-    # then hold it overnight. If false, just hold whatever was showing.
-    quiet_hours_render_collage: bool = False
 
     # Curation -------------------------------------------------------------
     # Common or scientific names, matched case-insensitively.
@@ -143,16 +140,21 @@ class Config:
     panel_rotation: int = 90  # per panel (panels.py rotations; see sanitize)
 
     # Shrink the composition by this percent per edge and center it on white.
-    mat_inset_pct: float = 4.0  # 0 disables
+    # 0 (the default) disables it: a frame with no mat, or one whose opening
+    # the art already meets, needs no allowance.
+    mat_inset_pct: float = 0.0
     # The physical mat is rarely mounted dead-center; shift the inset
     # composition to meet it. Positive = right / down, in panel pixels.
     mat_offset_x_px: int = 0
     mat_offset_y_px: int = 0
+    # A 2 px line around the composition, drawn on the glass while the mat's
+    # inset and offset are being set against it. Off by default.
+    mat_guide: bool = False
 
     # Collage --------------------------------------------------------------
     # Collage mode draws a new sheet this often. On the colour panel, where a
     # refresh takes half a minute, that beats a plate per detection.
-    collage_interval_hours: int = 8
+    collage_interval_hours: int = 6   # one of the page's choices: 1, 4, 6, 12, 24
 
     # AI-generated plates --------------------------------------------------
     # For species Audubon never painted. A plate is generated once on first
@@ -194,10 +196,10 @@ class Config:
             self.mode = "single"
         # NaN slips through float() and then through _clamp (every comparison
         # is False) — and can't be serialised for the status JSON. Refuse it.
-        self.wake_interval_minutes = int(_clamp(_finite(self.wake_interval_minutes, 15), 1, 720))
+        self.wake_interval_minutes = int(_clamp(_finite(self.wake_interval_minutes, 15), 1, 1440))
         if self.power_mode not in ("awake", "sleep"):
             self.power_mode = "awake"
-        self.device_poll_seconds = int(_clamp(_finite(self.device_poll_seconds, 3), 2, 60))
+        self.device_poll_seconds = int(_clamp(_finite(self.device_poll_seconds, 3), 2, 86400))
         # The raw SQLite reader is now "custom"; migrate the legacy id.
         if self.detection_backend == "birdnet_pi":
             self.detection_backend = "custom"
@@ -210,7 +212,7 @@ class Config:
             bw = bw.split("?", 1)[0].split("#", 1)[0].rstrip("/").rsplit("/", 1)[-1]
         self.birdweather_station_id = bw
         self.apprise_token = str(self.apprise_token or "").strip()
-        self.collage_interval_hours = int(_clamp(_finite(self.collage_interval_hours, 8), 1, 24))
+        self.collage_interval_hours = int(_clamp(_finite(self.collage_interval_hours, 6), 1, 24))
         self.collage_species_max = int(_clamp(self.collage_species_max, 0, 60))
         # The panel's native canvas is landscape and the firmware rejects a
         # portrait frame (pushImage would clip it into garbage), so only the
@@ -226,9 +228,10 @@ class Config:
             # The same relative flip on the other panel's axes (0<->90, 180<->270).
             rot = {0: 90, 180: 270, 90: 0, 270: 180}.get(rot, valid[0])
         self.panel_rotation = rot if rot in valid else valid[0]
-        self.mat_inset_pct = _clamp(_finite(self.mat_inset_pct, 4.0), 0.0, 20.0)
+        self.mat_inset_pct = _clamp(_finite(self.mat_inset_pct, 0.0), 0.0, 20.0)
         self.mat_offset_x_px = int(_clamp(int(self.mat_offset_x_px), -120, 120))
         self.mat_offset_y_px = int(_clamp(int(self.mat_offset_y_px), -120, 120))
+        self.mat_guide = bool(self.mat_guide)
         if self.imagegen_provider not in ("openai", "gemini", "replicate", "a1111"):
             self.imagegen_provider = "openai"
         self.imagegen_base_url = str(self.imagegen_base_url or "").strip().rstrip("/")
@@ -269,6 +272,14 @@ class Config:
         return self
 
     # -- derived -----------------------------------------------------------
+    @property
+    def quiet_hours_render_collage(self) -> bool:
+        """Quiet hours ARE the overnight collage: the day's collage is drawn
+        once at the start of the window and held until it ends. It stopped
+        being a toggle of its own — turning quiet hours on is the whole of it.
+        """
+        return self.quiet_hours_mode != "off"
+
     @property
     def bit_depth(self) -> int:
         spec = self.panel_spec

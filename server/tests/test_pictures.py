@@ -16,7 +16,7 @@ from featherframe.render import framebuffer, pipeline
 from featherframe.render.compose import SingleSpec
 from featherframe.sources.base import Detection
 from tests._fixtures import create_birds_db, make_row
-from tests._frames import add_kit
+from tests._frames import add_kit, approve, frame_bytes
 
 NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
@@ -52,6 +52,7 @@ def _kit(svc, frame_id: str, shows: str) -> dict:
 
 def _viewer(svc, viewer_id: str, shows: str, seen: datetime) -> None:
     svc.viewers.checkin(viewer_id, seen, "page", {"width": 600, "height": 800})
+    approve(svc, viewer_id)           # every frame is answered for (W-833)
     svc.viewers.update(viewer_id, {"shows": shows})
 
 
@@ -89,11 +90,11 @@ def test_a_picture_nobody_shows_is_never_drawn_and_is_dropped(svc):
 
 def test_another_frames_picture_never_touches_the_wall(svc):
     svc.tick()
-    wall = (svc._etag, svc._frame_bytes, dict(svc._meta), svc._shown)
+    wall = (svc._etag, frame_bytes(svc, "AA:00"), dict(svc._meta), svc._shown)
     _viewer(svc, "PAGE-IPAD", "collage", NOW)
     svc.tick()
     assert svc.pictures["collage"].etag
-    assert (svc._etag, svc._frame_bytes, dict(svc._meta), svc._shown) == wall
+    assert (svc._etag, frame_bytes(svc, "AA:00"), dict(svc._meta), svc._shown) == wall
 
 
 # -- one collage, and the night -----------------------------------------------
@@ -101,7 +102,6 @@ def _quiet_all_day(svc) -> None:
     svc.config.quiet_hours_mode = "custom"
     svc.config.quiet_hours_start = "11:00"
     svc.config.quiet_hours_end = "23:30"
-    svc.config.quiet_hours_render_collage = True
 
 
 def test_at_night_every_frame_on_plates_shows_the_collage(svc):
@@ -158,7 +158,7 @@ def test_a_plate_on_a_frame_is_what_the_pipeline_packs(svc):
                       first_ever=svc._novelty(det, NOW) == "first-ever")
     cfg = svc.frame_config(svc.frames.get("AA:00"))
     expected = pipeline.render_single(spec, svc.provider, cfg)
-    assert svc._frame_bytes == expected.frame
+    assert frame_bytes(svc, "AA:00") == expected.frame
     assert svc._out["AA:00"]["etag"] == framebuffer.etag_for(expected.frame)
 
 
@@ -170,7 +170,7 @@ def test_a_collage_on_a_frame_is_what_the_pipeline_packs(svc):
     cfg = svc.frame_config(svc.frames.get("AA:00"))
     img, label = compose(cfg.panel_spec.color)
     expected = pipeline.render_image(img, cfg, "collage", label)
-    assert svc._frame_bytes == expected.frame
+    assert frame_bytes(svc, "AA:00") == expected.frame
     assert svc._out["AA:00"]["etag"] == expected.etag
 
 
@@ -207,7 +207,7 @@ def test_an_upgrade_adopts_the_frame_and_the_side_picture_it_finds(tmp_path, mon
                                                              "panel": "ED103TC2 1404x1872 gray16"}}})
     svc = FeatherframeService(db)
     assert svc._shown == "plates"
-    assert svc._etag == result.etag and svc._frame_bytes == result.frame
+    assert svc._etag == result.etag and frame_bytes(svc, "AA:BB") == result.frame
     assert svc._meta["label"] == "Blue Jay"
     assert svc.pictures["plates"].sheet_path.exists()
     assert svc.pictures["collage"].etag == "0123456789abcdef"
@@ -215,4 +215,4 @@ def test_an_upgrade_adopts_the_frame_and_the_side_picture_it_finds(tmp_path, mon
     # A second start reads the new store and changes nothing.
     again = FeatherframeService(Database())
     assert again._etag == result.etag and again.pictures["collage"].etag == "0123456789abcdef"
-    assert again._frame_bytes == result.frame
+    assert frame_bytes(again, "AA:BB") == result.frame

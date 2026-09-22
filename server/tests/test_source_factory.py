@@ -50,11 +50,11 @@ def test_config_roundtrips_new_fields():
 
 
 def test_mode_auto_migrates_to_single():
-    # Legacy "auto" becomes plain Single mode; the overnight collage
-    # stays opt-in (default off) rather than being force-enabled by migration.
+    # Legacy "auto" becomes plain Single mode. The overnight collage is no
+    # longer a flag of its own: quiet hours being on IS the whole of it.
     c = Config(mode="auto")
     assert c.mode == "single"
-    assert c.quiet_hours_render_collage is False
+    assert c.quiet_hours_render_collage is (c.quiet_hours_mode != "off")
 
 
 def test_apprise_token_defaults_to_generated_secret():

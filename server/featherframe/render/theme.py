@@ -23,11 +23,6 @@ INK_SOFT = 96      # tertiary type (faint)
 INK_MEDIUM = 51    # secondary text (sci name, date, number) — #333
 RULE = 68          # divider line — #444
 FALLBACK_TINT = 236  # very light panel behind a fallback plate's name
-MAT_BORDER = 204   # the mat allowance ring around the inset composition — a
-                   # quiet gray the physical mat should exactly cover, so a
-                   # sliver of it on the glass means "adjust mat_inset_pct".
-                   # Multiple of 17 so it sits ON a 16-level gray (no stipple),
-                   # same rationale as FIELD.
 
 # -- geometry (px) ---------------------------------------------------------
 MARGIN_X = 100     # left/right inset of the caption's marks and footnote
@@ -117,13 +112,11 @@ STATUS_FOOT_SIZE = 34          # "8:14 pm · 4 September" under the rows
 
 
 # -- collage sheet ----------------------------------------------------------
-# One script header line ("A Day in the Garden ~ August 27", auto-fit like a
-# plate title), art, and an engraved-caps key along the bottom. No subtitle,
-# no rule: the sheet stays quiet.
-COLLAGE_TITLE_BASELINE = 152   # header baseline from the top of the panel
-COLLAGE_ART_TOP = 212          # top of the art box, below the header
-COLLAGE_NAME_SIZE = 36         # grid cell: common name in the script (shrink to fit)
-COLLAGE_COUNT_SIZE = 28        # grid cell: "×14" under the name
+# No header on either collage: the art runs from the top margin down to the
+# date line and the numbered key along the bottom (the generated sheet's
+# geometry, below, which the grid shares). No subtitle, no rule: the sheet
+# stays quiet.
+COLLAGE_FIGURE_SIZE = 26       # grid cell: its figure numeral, engraved, at the head
 
 KEY_SIZE = 34                  # bottom key, engraved capitals
 KEY_SIZES = (34, 30, 27, 24)   # shrink steps when the widest line won't fit

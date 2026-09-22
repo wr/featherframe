@@ -53,7 +53,7 @@ SHOWS = ("plates", "collage")
 # The settings a kit owns. Everything else — the source, quiet hours, the
 # blocklist, image generation — is the household's and is shared.
 KIT_SETTINGS = ("panel_rotation", "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px",
-                "power_mode", "wake_interval_minutes", "device_poll_seconds")
+                "mat_guide", "power_mode", "wake_interval_minutes", "device_poll_seconds")
 
 # A battery reading, under either spelling: a kit reports `battery_voltage`
 # (from the X-Battery-* headers), a TRMNL `battery_volts`.
@@ -156,8 +156,6 @@ def capabilities(row: dict) -> dict:
         "shows": True,              # and every screen shows plates or the collage
         "rotations": rotations,
         "mat": kit,                 # only glass behind a real mat
-        "look": page,               # colour or paper: a lit screen's choice
-        "dark_quiet": page,         # and only a lit screen can go dark at night
         "power": kit,               # the power model is the kit firmware's
         # A client that says nothing about its screen (TRMNL's Kobo and Kindle
         # scripts send only an ID): the owner has to.

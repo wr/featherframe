@@ -15,7 +15,7 @@ from starlette.testclient import TestClient
 
 from featherframe.render import pipeline
 from tests._fixtures import create_birds_db, make_row
-from tests._frames import FRAME_ID, add_kit
+from tests._frames import FRAME_ID, add_kit, add_page, add_trmnl, frame_bytes
 
 NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
@@ -64,16 +64,16 @@ def _sheets(svc, kind) -> list:
 
 def test_a_viewer_follows_the_frame_until_it_is_told_otherwise(client):
     svc = client.app.state.service
-    assert svc.current_etag() in client.get(IPAD).json()["image"]
+    assert svc.current_etag() in add_page(client, IPAD, "PAGE-IPAD").json()["image"]
     svc.tick()
     assert _drawn(svc) == ["plates"]             # nobody shows the collage: none is drawn
 
 
 def test_an_ipad_on_the_collage_beside_a_frame_on_plates(client, tmp_path):
     svc = client.app.state.service
-    client.get(IPAD)
+    add_page(client, IPAD, "PAGE-IPAD")
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
-    wall = (svc._etag, svc._frame_bytes, dict(svc._meta))
+    wall = (svc._etag, frame_bytes(svc), dict(svc._meta))
     svc.tick()
     assert _sheets(svc, "collage") == ["sheet.png"]
     state = client.get(IPAD).json()
@@ -82,7 +82,7 @@ def test_an_ipad_on_the_collage_beside_a_frame_on_plates(client, tmp_path):
     assert not np.array_equal(_png(client, state),
                               np.asarray(Image.open(io.BytesIO(plate)).convert("L")))
     # The wall never noticed.
-    assert (svc._etag, svc._frame_bytes, dict(svc._meta)) == wall
+    assert (svc._etag, frame_bytes(svc), dict(svc._meta)) == wall
     # A new plate on the wall is not news to a screen on the collage: its
     # picture is the collage, which is redrawn on its own interval.
     drawn = svc.pictures["collage"].at
@@ -97,7 +97,7 @@ def test_an_ipad_on_the_collage_beside_a_frame_on_plates(client, tmp_path):
 
 def test_the_collage_is_redrawn_on_its_interval_not_every_tick(client):
     svc = client.app.state.service
-    client.get(IPAD)
+    add_page(client, IPAD, "PAGE-IPAD")
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
     svc.tick()
     drawn = svc.pictures["collage"].at
@@ -116,7 +116,7 @@ def test_a_trmnl_on_plates_beside_a_frame_on_the_collage(client, tmp_path):
     svc.tick()
     assert svc._meta["mode"] == "collage"
     trmnl = {"ID": "AA:BB:CC:DD:EE:01", "Model": "x", "Width": "1872", "Height": "1404"}
-    client.get("/api/display", headers=trmnl)
+    add_trmnl(client, trmnl)
     client.post(f"/api/viewers/{trmnl['ID']}", json={"shows": "plates"})
     wall = svc._etag
     svc.tick()
@@ -137,7 +137,7 @@ def test_a_hold_pins_the_plate_while_the_collage_keeps_being_drawn(client):
     is on the collage, and the collage is still redrawn on its interval."""
     svc = client.app.state.service
     svc.config.collage_interval_hours = 1    # (a jump short of the gone-quiet alarm)
-    client.get(IPAD)
+    add_page(client, IPAD, "PAGE-IPAD")
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
     svc.tick()
     wall, first = svc._etag, svc.pictures["collage"].at
@@ -152,14 +152,13 @@ def test_there_is_one_collage_the_same_on_every_screen(client):
     """Decision 2: at night every frame on plates shows the collage picture —
     the same sheet, drawn once, that the frames on the collage show."""
     svc = client.app.state.service
-    client.get(IPAD)
+    add_page(client, IPAD, "PAGE-IPAD")
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage", "dark_quiet": False})
     svc.tick()
     assert svc.pictures["collage"].etag in client.get(IPAD).json()["image"]
     # Nightfall: the frame on plates takes that same collage for the window.
     svc.config.quiet_hours_mode = "custom"
     svc.config.quiet_hours_start, svc.config.quiet_hours_end = "11:00", "23:30"
-    svc.config.quiet_hours_render_collage = True
     svc.tick()
     assert svc._meta["mode"] == "collage"
     assert svc._etag == svc.pictures["collage"].etag
@@ -179,7 +178,7 @@ def test_the_blocklist_is_global(client, tmp_path):
 
 def test_a_picture_nobody_shows_any_more_is_dropped(client):
     svc = client.app.state.service
-    client.get(IPAD)
+    add_page(client, IPAD, "PAGE-IPAD")
     client.post("/api/viewers/PAGE-IPAD", json={"shows": "collage"})
     svc.tick()
     assert _drawn(svc) == ["plates", "collage"]
@@ -189,6 +188,23 @@ def test_a_picture_nobody_shows_any_more_is_dropped(client):
 
 
 def test_the_card_offers_shows(client):
-    client.get(IPAD)
-    html = client.get("/").text
-    assert 'data-vw="shows"' in html and "What the frame shows" in html
+    """Every frame's row offers Shows, the tablet's exactly like the kit's."""
+    add_page(client, IPAD, "PAGE-IPAD")
+    row = client.get("/").text.split('data-frame="PAGE-IPAD"')[1].split(chr(10) + "    </li>")[0]
+    assert 'data-f="shows"' in row and 'value="plates"' in row and 'value="collage"' in row
+
+
+def test_the_species_limit_is_the_collages_however_it_is_drawn(client, tmp_path):
+    """Wells: the limit only bit on the AI sheet; the grid always showed six."""
+    from featherframe.render import collage as collage_mod
+    assert [collage_mod._grid(n) for n in (1, 2, 6, 7, 12, 13, 20)] == \
+        [(1, 1), (2, 1), (2, 3), (3, 3), (3, 4), (4, 4), (4, 5)]
+    svc = client.app.state.service
+    many = SPECIES + [("Tufted Titmouse", "Baeolophus bicolor"), ("Carolina Wren", "Thryothorus ludovicianus"),
+                      ("Downy Woodpecker", "Dryobates pubescens"), ("American Robin", "Turdus migratorius")]
+    svc.source.db_path = _heard(tmp_path / "many.db", many)
+    label = lambda: svc._collage_composer(NOW, NOW.date())[0](False)[1]   # noqa: E731
+    svc.config.collage_species_max = 0
+    assert label() == "8-species collage"           # no limit: every species heard, not six
+    svc.config.collage_species_max = 3
+    assert label() == "3-species collage"

@@ -37,7 +37,7 @@ from PIL import Image
 
 from .. import paths
 from . import plate
-from .collage import CollageCell, sheet_art_size
+from .collage import CollageCell, same_species, sheet_art_size
 from .provider import ArtProvider, Artwork
 
 log = logging.getLogger("featherframe.genart")
@@ -1542,10 +1542,14 @@ class GeneratedArtProvider(ArtProvider):
 
     def day_composite(self, cells, when, force: bool = False):
         """One generated composite sheet for the day's top species, in the
-        manner of the folio's late totem plates. Bought at most once per date.
-        Returns (art, cells_as_painted) — on a cache hit the cells come from
-        the sidecar, so the key under the sheet always names the figures that
-        were actually painted — or None (caller falls back to the grid).
+        manner of the folio's late totem plates. Bought at most once per date,
+        and reused for every redraw of that day — every collage is the
+        generated one when the toggle is on, so the sheet is only bought again
+        when the day's species list itself has changed under it (a new species
+        was heard, or one dropped out of the limit). Returns
+        (art, cells_as_painted) — on a cache hit the cells come from the
+        sidecar, so the key under the sheet always names the figures that were
+        actually painted — or None (caller falls back to the grid).
         Never raises."""
         day = when.isoformat()
         png = paths.collages_dir() / f"{day}.png"
@@ -1553,11 +1557,16 @@ class GeneratedArtProvider(ArtProvider):
         key = f"collage-{day}"
         try:
             if png.exists() and not force:
-                return self._read_sheet(png, sidecar, cells)
+                cached = self._read_sheet(png, sidecar, cells)
+                if cached is None or same_species(cached[1], cells):
+                    return cached
+                log.info("day composite for %s was painted of other species; repainting", day)
             if self._model is None:
                 return self._read_sheet(png, sidecar, cells) if png.exists() else None
             if not force and self._in_cooldown(key):
-                return None
+                # Cooling off after a failure: the sheet on file still says
+                # more than the grid would.
+                return self._read_sheet(png, sidecar, cells) if png.exists() else None
             subjects = [(c.common_name, c.scientific_name) for c in cells]
             briefs = {sci or common: self._describe(common, sci)[0]
                       for common, sci in subjects}  # description only
@@ -1565,7 +1574,9 @@ class GeneratedArtProvider(ArtProvider):
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
                 if png.exists():
-                    if not force:
+                    # Another thread bought it while we waited, and it is of
+                    # the species we came to paint: take it.
+                    if not force and same_species(self._sheet_cells(sidecar, cells), cells):
                         return self._read_sheet(png, sidecar, cells, locked=True)
                     # Repaint debounce: two racing repaints (double-click, two
                     # tabs) must not both bill. A sheet younger than 3 minutes
@@ -1573,7 +1584,7 @@ class GeneratedArtProvider(ArtProvider):
                     if self._sheet_age_s(sidecar) < 180:
                         return self._read_sheet(png, sidecar, cells, locked=True)
                 if not force and self._in_cooldown(key):
-                    return None
+                    return self._read_sheet(png, sidecar, cells, locked=True) if png.exists() else None
                 started = time.time()
                 size = "%dx%d" % sheet_art_size(cells)  # the sheet's own art box
                 try:

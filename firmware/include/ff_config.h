@@ -116,7 +116,7 @@
 
 // Deep-sleep timer bounds: a 0 in NVS would arm a zero-length timer (wake storm).
 #define FF_MIN_SLEEP_MINUTES   1
-#define FF_MAX_SLEEP_MINUTES   720
+#define FF_MAX_SLEEP_MINUTES   1440
 
 // --- Power model: the mode a fresh unit boots in until the server says ---
 // The server sends X-Power-Mode (awake|sleep) and X-Wake-Minutes on every
@@ -132,7 +132,7 @@
 // only what a unit with no stored value starts with.
 #define FF_POLL_INTERVAL_MS  3000
 #define FF_POLL_MIN_S        2
-#define FF_POLL_MAX_S        60
+#define FF_POLL_MAX_S        86400
 // Always-awake build: how often the poll loop also asks for hosted firmware.
 #define FF_OTA_CHECK_MS      (15UL * 60UL * 1000UL)
 

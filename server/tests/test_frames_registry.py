@@ -150,7 +150,8 @@ def test_a_gray_kit_has_a_mat_a_power_model_and_its_panels_rotations():
     caps = frames.capabilities(_kit("ED103TC2 1404x1872 gray16", battery_voltage=3.9))
     assert caps["rotations"] == (90, 270) and caps["mat"] and caps["power"]
     assert caps["renamable"] and caps["shows"]
-    assert not caps["colour"] and not caps["look"] and not caps["dark_quiet"]
+    assert not caps["colour"]
+    assert "look" not in caps and "dark_quiet" not in caps
     assert caps["has_battery"] and not caps["needs_size"]
 
 
@@ -184,7 +185,7 @@ def test_a_trmnl_that_reported_its_size_needs_nothing_from_the_owner():
     assert not caps["needs_size"] and caps["has_battery"]
     assert caps["rotations"] == (0, 90, 180, 270)     # turned in the render, not by the glass
     assert not caps["mat"] and not caps["power"] and not caps["colour"]
-    assert not caps["dark_quiet"] and not caps["look"]
+    assert "look" not in caps and "dark_quiet" not in caps
 
 
 def test_a_trmnl_that_reported_no_size_has_to_be_told():
@@ -198,7 +199,8 @@ def test_a_page_is_lit_turns_itself_and_has_no_battery():
     row = frames.new_row("AA:BB:CC:DD:EE:02", "page", "2026-09-20T09:00:00", frames.ON)
     row["reported"] = {"width": 2048, "height": 1536, "model": "iPad"}
     caps = frames.capabilities(row)
-    assert caps["rotations"] == () and caps["colour"] and caps["look"] and caps["dark_quiet"]
+    assert caps["rotations"] == () and caps["colour"]
+    assert "look" not in caps and "dark_quiet" not in caps
     assert not caps["mat"] and not caps["power"] and not caps["has_battery"]
     assert not caps["needs_size"] and caps["renamable"] and caps["shows"]
 
@@ -235,16 +237,22 @@ def _name(client, frame_id: str, name: str):
     return client.post(f"/api/frames/{frame_id}", json={"name": name}, headers=SAME_ORIGIN)
 
 
-def test_the_wall_frame_can_be_named_too(client):
+def _row(svc, frame_id: str) -> dict:
+    return [f for f in svc.frames_list() if f["id"] == frame_id][0]
+
+
+def test_every_frame_can_be_named(client):
+    """There is no primary kit to be named apart from the rest (W-833): the
+    first kit is renamed through the one endpoint, like any other frame."""
     svc = client.app.state.service
-    assert svc.frames_view()["active"]["name"] == ""
-    assert _name(client, EE03["X-Device-Id"], "Hallway").json()["ok"]
-    view = svc.frames_view()
-    assert view["active"]["name"] == "Hallway" and "EE03" in view["active"]["panel_name"]
+    fid = EE03["X-Device-Id"]
+    assert _row(svc, fid)["name"] == ""
+    assert _name(client, fid, "Hallway").json()["ok"]
+    assert _row(svc, fid)["name"] == "Hallway" and "EE03" in _row(svc, fid)["what"]
     # The page shows the name where it showed the panel, and only once named.
     assert "Hallway" in client.get("/").text
-    assert _name(client, EE03["X-Device-Id"], "  ").json()["ok"]
-    assert svc.frames_view()["active"]["name"] == ""
+    assert _name(client, fid, "  ").json()["ok"]
+    assert _row(svc, fid)["name"] == ""
 
 
 def test_an_added_frame_is_still_renamed_with_the_rest_of_its_settings(client):
@@ -252,8 +260,8 @@ def test_an_added_frame_is_still_renamed_with_the_rest_of_its_settings(client):
     r = client.post(f"/api/frames/{EE02['X-Device-Id']}",
                     json={"name": "Study", "panel_rotation": 180}, headers=SAME_ORIGIN)
     assert r.json()["ok"]
-    card = svc.frames_view()["added"][0]
-    assert card["name"] == "Study" and card["rotation"] == 180
+    card = _row(svc, EE02["X-Device-Id"])
+    assert card["name"] == "Study" and card["settings"]["rotation"] == 180
 
 
 def test_a_viewer_is_renamed_by_either_route(client):
@@ -261,7 +269,8 @@ def test_a_viewer_is_renamed_by_either_route(client):
     assert _name(client, TRMNL["ID"], "Desk").json()["ok"]
     assert svc.viewers.get(TRMNL["ID"])["set"]["name"] == "Desk"
     r = client.post(f"/api/viewers/{TRMNL['ID']}", json={"name": "Bench"}, headers=SAME_ORIGIN)
-    assert r.json()["viewer"]["name"] == "Bench"
+    assert r.json()["ok"]
+    assert _row(svc, TRMNL["ID"])["name"] == "Bench"
     assert client.get("/api/viewers").json()["viewers"][0]["name"] == "Bench"
 
 
@@ -277,7 +286,7 @@ def test_a_viewer_claiming_a_frames_id_does_not_take_its_seat(client):
     r = client.get("/api/setup", headers={"ID": EE03["X-Device-Id"], "Model": "og"})
     assert r.status_code == 200                      # it is still answered
     assert svc.frames.get(EE03["X-Device-Id"]) == before
-    assert svc.frames_view()["active"]["id"] == EE03["X-Device-Id"]
+    assert _row(svc, EE03["X-Device-Id"])["transport"] == "kit"
     assert svc.viewers.get(EE03["X-Device-Id"]) is None
 
 
@@ -303,8 +312,9 @@ def test_a_migrated_install_keeps_serving_the_frame_it_was_serving(upgraded):
     """The wall frame must not be asked to connect again, and the second kit
     must not have to be added a second time."""
     svc = upgraded.app.state.service
-    assert svc.frames_view()["active"]["id"] == EE03["X-Device-Id"]
-    assert [f["name"] for f in svc.frames_view()["added"]] == ["Study"]
+    kits = [f for f in svc.frames_list() if f["transport"] == "kit" and f["status"] == "on"]
+    assert [f["id"] for f in kits] == [EE03["X-Device-Id"], EE02["X-Device-Id"]]
+    assert [f["name"] for f in kits] == ["", "Study"]
     # Neither kit is a 403 — never "not this server's". No tick has drawn
     # either yet, so both are 503 until one does.
     assert upgraded.get("/api/frame", headers=EE03).status_code == 503
@@ -313,6 +323,12 @@ def test_a_migrated_install_keeps_serving_the_frame_it_was_serving(upgraded):
     assert upgraded.get("/api/frame", headers=EE03).status_code == 200
     assert upgraded.get("/api/frame", headers=EE02).status_code == 200
     assert len(upgraded.get("/api/viewers").json()["viewers"]) == 2
+    # Every NEW frame asks now (W-833), but a frame this server was already
+    # drawing for is not asked about again — a viewer included.
+    assert sorted(f["id"] for f in svc.frames_list() if f["status"] == "on") == sorted(
+        [EE03["X-Device-Id"], EE02["X-Device-Id"], *LEGACY_VIEWERS])
+    body = upgraded.get("/api/display", headers=TRMNL).json()
+    assert not body["filename"].startswith("waiting-")
 
 
 def test_nothing_writes_the_legacy_keys_after_the_migration(upgraded):

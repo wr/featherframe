@@ -835,7 +835,7 @@
           <div class="hist-strip" id="hist-strip">
             {% for h in shown %}
             {% set htitle = h.title or h.label or '' %}
-            <a class="hist-item" href="{{ h.thumb }}" data-cap="{{ htitle }} · {{ h.when_text }}" data-tip="{{ h.rendered_at.replace('T', ' ') if h.rendered_at else '' }}">
+            <a class="hist-item" href="{{ h.full or h.thumb }}" data-cap="{{ htitle }} · {{ h.when_text }}" data-tip="{{ h.rendered_at.replace('T', ' ') if h.rendered_at else '' }}">
               <img src="{{ h.thumb }}" alt="{{ htitle }}" width="72" height="96" loading="lazy">
               <span class="hist-when">{{ h.when_text }}</span>
               <span class="hist-title">{{ htitle }}</span>
@@ -1794,7 +1794,7 @@
       if (!h.thumb) return;
       var title = h.title || h.label || '';
       var a = document.createElement('a');
-      a.className = 'hist-item'; a.href = h.thumb;
+      a.className = 'hist-item'; a.href = h.full || h.thumb;
       a.setAttribute('data-cap', title + ' \u00b7 ' + (h.when_text || ''));
       a.dataset.tip = h.rendered_at ? h.rendered_at.replace('T', ' ') : '';
       var img = document.createElement('img');

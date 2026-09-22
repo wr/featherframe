@@ -83,8 +83,14 @@ def test_commit_writes_thumbnail_and_history_lists_it(client, svc):
     with Image.open(thumb) as im:
         assert im.size == (-(-1404 // 8), -(-1872 // 8))   # reduce() rounds up
 
+    full = paths.history_dir() / f"{etag}.jpg"
+    with Image.open(full) as im:
+        assert im.size == (1404, 1872)                     # the zoom is never blurry
+
     items = client.get("/api/history").json()["items"]
     assert items[0]["etag"] == etag
+    assert items[0]["full"] == f"/api/history/{etag}.jpg"
+    assert client.get(items[0]["full"]).headers["content-type"] == "image/jpeg"
     assert items[0]["title"] == "Northern Cardinal (test)"
     assert items[0]["thumb"] == f"/api/history/{etag}.png"
     assert items[0]["when_text"]
@@ -100,6 +106,7 @@ def test_history_thumbnails_are_capped_at_sixty(svc):
     for i in range(70):
         p = hist / f"{i:016x}.png"
         Image.new("L", (4, 4), 255).save(p)
+        Image.new("L", (4, 4), 255).save(p.with_suffix(".jpg"))
         # distinct mtimes so "oldest" is well defined
         import os
         os.utime(p, (1_700_000_000 + i, 1_700_000_000 + i))
@@ -109,6 +116,8 @@ def test_history_thumbnails_are_capped_at_sixty(svc):
     assert (hist / f"{svc.current_etag()}.png") in left
     assert not (hist / f"{0:016x}.png").exists()      # the oldest went first
     assert (hist / f"{69:016x}.png").exists()
+    assert len(list(hist.glob("*.jpg"))) == 60            # full sizes go with them
+    assert not (hist / f"{0:016x}.jpg").exists()
 
 
 def test_history_png_404s_for_bad_or_missing_etag(client):

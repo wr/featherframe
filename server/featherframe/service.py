@@ -61,9 +61,11 @@ VIEWER_SHOWS_DAYS = 30
 COLOR_VIEWER_DAYS = 30
 
 # History thumbnails: 1/8-scale previews keyed by ETag, capped on disk (a
-# Pi's SD card) and matched to what /api/history can list.
+# Pi's SD card) and matched to what /api/history can list. Each has a
+# full-size JPEG beside it for the zoom (~0.4 MB; 60 of them is ~25 MB).
 _HISTORY_MAX = 60
 _HISTORY_SCALE = 8
+_HISTORY_FULL_QUALITY = 85
 _ETAG_RE = re.compile(r"^[0-9a-f]{16}$")
 
 # What an owner never tuned is a constant, not a setting (W-821).
@@ -2129,6 +2131,7 @@ class FeatherframeService:
         for row in self.db.render_history(limit):
             etag = str(row.get("etag") or "")
             has_thumb = bool(_ETAG_RE.match(etag)) and (hist / f"{etag}.png").exists()
+            has_full = has_thumb and (hist / f"{etag}.jpg").exists()
             try:
                 then = datetime.fromisoformat(str(row.get("rendered_at") or ""))
             except ValueError:
@@ -2140,6 +2143,10 @@ class FeatherframeService:
                 "title": frame_title({"label": row.get("species")}),
                 "etag": etag,
                 "thumb": f"/api/history/{etag}.png" if has_thumb else None,
+                # The zoom: full size, else (a render from before these were
+                # kept) the thumbnail itself.
+                "full": (f"/api/history/{etag}.jpg" if has_full
+                         else f"/api/history/{etag}.png" if has_thumb else None),
                 "when_text": when_short(then, now) if then else "",
             })
         return out
@@ -2462,8 +2469,8 @@ class FeatherframeService:
 
     @staticmethod
     def _save_history_thumb(etag: str, sheet: Image.Image) -> None:
-        """A 1/8-scale thumbnail under frames/history/<etag>.png, pruning the
-        oldest past _HISTORY_MAX. Best-effort: a full card or a bad file must
+        """A 1/8-scale thumbnail under frames/history/<etag>.png and the sheet
+        full size as <etag>.jpg, pruning the oldest past _HISTORY_MAX. Best-effort: a full card or a bad file must
         never block the commit the device is waiting on."""
         try:
             hist = paths.history_dir()
@@ -2471,10 +2478,15 @@ class FeatherframeService:
             target = hist / f"{etag}.png"
             if not target.exists():
                 sheet.reduce(_HISTORY_SCALE).save(target)
+            full = hist / f"{etag}.jpg"
+            if not full.exists():
+                sheet.convert("RGB" if sheet.mode == "RGB" else "L").save(
+                    full, quality=_HISTORY_FULL_QUALITY, optimize=True)
             thumbs = sorted((p for p in hist.glob("*.png") if _ETAG_RE.match(p.stem)),
                             key=lambda p: p.stat().st_mtime, reverse=True)
             for stale in thumbs[_HISTORY_MAX:]:
                 stale.unlink(missing_ok=True)
+                stale.with_suffix(".jpg").unlink(missing_ok=True)
         except Exception:  # noqa: BLE001 — a thumbnail is never worth a failed commit
             log.warning("history thumbnail for %s not saved", etag, exc_info=True)
 

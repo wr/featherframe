@@ -1101,6 +1101,18 @@ async def history_png(request: Request, etag: str):
                         headers={"Cache-Control": "max-age=86400"})
 
 
+@app.get("/api/history/{etag}.jpg")
+async def history_jpg(request: Request, etag: str):
+    # The same frame full size, for the page's zoom.
+    if not _ETAG_RE.match(etag):
+        return Response(status_code=404)
+    jpg = paths.history_dir() / f"{etag}.jpg"
+    if not await run_in_threadpool(jpg.exists):
+        return Response(status_code=404)
+    return FileResponse(jpg, media_type="image/jpeg",
+                        headers={"Cache-Control": "max-age=86400"})
+
+
 def _source_test(source, backend: str) -> dict:
     """Describe what a detection source reports. Never raises."""
     try:

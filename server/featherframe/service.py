@@ -26,6 +26,7 @@ from urllib.parse import quote
 
 from PIL import Image
 
+from . import firmware_release
 from . import frames as frames_mod
 from . import panels, paths
 from . import pictures as pictures_mod
@@ -511,6 +512,8 @@ class FeatherframeService:
         # kit, a TRMNL, a tablet.
         self.frames = FrameRegistry(self.db)
         self.config: Config = load_config(self.db)
+        # The latest official firmware release, offered to the kits (W-838).
+        self.releases = firmware_release.ReleaseStore(self.db, paths.data_dir())
         self.audubon = AudubonProvider()
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
@@ -740,6 +743,10 @@ class FeatherframeService:
         for kind in set(pictures_mod.KINDS) - self._kinds_shown(resolve=False):
             self._drop_picture(kind)
         self._tick_frames()
+        try:
+            self._tick_firmware()
+        except Exception:  # noqa: BLE001 — an update must never stop the frames
+            log.warning("firmware tick failed", exc_info=True)
 
     def _tick_pictures(self) -> None:
         self.reload_config()
@@ -1577,7 +1584,7 @@ class FeatherframeService:
         """One kit's own settings. Values go through Config's own sanitising —
         a rotation its panel cannot do is clamped here, not on the glass — and
         a blank clears the choice."""
-        owned = ["shows", "name"]
+        owned = ["shows", "name", "update_firmware"]
         if caps["rotations"]:
             owned.append("panel_rotation")
         if caps["mat"]:
@@ -1605,6 +1612,11 @@ class FeatherframeService:
                         own[key] = raw
                 elif key == "name":
                     own[key] = str(raw).strip()[:frames_mod.MAX_NAME]
+                elif key == "update_firmware":
+                    if raw is True or str(raw).lower() in ("1", "true", "on"):
+                        own[key] = True
+                    else:
+                        own.pop(key, None)
                 else:
                     own[key] = raw
             probe = frames_mod.frame_config({**row, "set": own}, self.config)
@@ -1638,6 +1650,98 @@ class FeatherframeService:
         for fid in dropped:
             self._drop_output(fid)
         return True
+
+    # -- firmware (W-838) ----------------------------------------------------
+    # The frame says nothing about an update: the server offers the latest
+    # official release on the frame's row, installs it when the owner presses
+    # Update (or, with automatic updates on, for a frame already on an older
+    # official release — a dev build is only ever replaced by the button), and
+    # the frame takes it on its next check-in through /api/firmware.
+    def firmware_view(self, row: dict) -> Optional[dict]:
+        """What one kit runs, and what it could run. None for a viewer."""
+        if frames_mod.transport_of(row) != "kit":
+            return None
+        rep = frames_mod.reported_of(row)
+        running = str(rep.get("fw_version") or "")
+        latest = self.releases.version()
+        kit = self.releases.kit_for_board(rep.get("board"))
+        available = None
+        if (latest and kit and running != latest
+                and not firmware_release.is_newer(running, latest)):
+            available = latest
+        official = firmware_release.parse_version(running) is not None
+        auto = bool(available) and self.config.firmware_auto_update and official
+        pressed = bool(frames_mod.settings_of(row).get("update_firmware"))
+        return {"running": running, "latest": latest, "available": available,
+                "pending": bool(available) and (pressed or auto), "auto": auto}
+
+    def firmware_status(self) -> dict:
+        """The household's view of the release: which one, and when it was asked."""
+        st = self.releases.state()
+        return {"latest": self.releases.version(), "checked_at": st.get("checked_at"),
+                "error": st.get("error"), "auto": bool(self.config.firmware_auto_update)}
+
+    def check_firmware(self) -> dict:
+        """Ask for the latest release now (the page's *Check now*)."""
+        self.releases.check(self._clock(), force=True)
+        self._tick_firmware(check=False)
+        return self.firmware_status()
+
+    def _tick_firmware(self, check: bool = True) -> None:
+        """Keep the release current, fetch the image a pending frame will ask
+        for (so its check-in never waits on GitHub), and clear a pressed
+        Update once the frame is on the release."""
+        if check:
+            self.releases.check(self._clock())
+        done = []
+        for row in self._kits_on():
+            fw = self.firmware_view(row)
+            if fw["pending"]:
+                self.releases.app_for_board(frames_mod.reported_of(row).get("board"),
+                                            download=True)
+            elif frames_mod.settings_of(row).get("update_firmware") and not fw["available"]:
+                done.append(row["id"])
+        if done:
+            with self._lock, self.frames.mutate() as rows:
+                for fid in done:
+                    if fid in rows:
+                        own = dict(frames_mod.settings_of(rows[fid]))
+                        own.pop("update_firmware", None)
+                        rows[fid]["set"] = own
+
+    def release_image_for(self, frame_id: Optional[str], board: Optional[str]):
+        """The verified release image a frame is owed right now, or None:
+        the frame is on, an update is pending for it, and the image for the
+        board it names is already here. Noting it, so a dev image hosted
+        before the update does not take the frame straight back."""
+        row = self.frames.get(frame_id) if frame_id else None
+        if (row is None or row.get("status") != frames_mod.ON
+                or frames_mod.transport_of(row) != "kit"):
+            return None
+        rep = frames_mod.reported_of(row)
+        if board and rep.get("board") and board != rep.get("board"):
+            return None
+        fw = self.firmware_view(row)
+        if not fw or not fw["pending"]:
+            return None
+        path = self.releases.app_for_board(board or rep.get("board"))
+        if path is not None:
+            stamp = self._clock().isoformat(timespec="seconds")
+            with self._lock, self.frames.mutate() as rows:
+                if frame_id in rows:
+                    rows[frame_id]["release_served_at"] = stamp
+        return path
+
+    def dev_image_superseded(self, frame_id: Optional[str], mtime: float) -> bool:
+        """Whether a dev-hosted image (`make ota`) is older than the release
+        this frame was last handed: the latest thing put in front of a frame
+        wins, so an Update is not undone by yesterday's bench build."""
+        row = self.frames.get(frame_id) if frame_id else None
+        try:
+            served = datetime.fromisoformat(str((row or {}).get("release_served_at")))
+        except ValueError:
+            return False
+        return datetime.fromtimestamp(mtime) < served
 
     def forget_frame(self, frame_id: str) -> bool:
         """Remove any frame, whatever it is fed over. A kit asks to be added
@@ -2018,6 +2122,7 @@ class FeatherframeService:
             },
             "card": self.frame_health(row),
             "notices": self.frame_notices(row),
+            "firmware": self.firmware_view(row),
         }
 
     def _frame_summary(self, what: str, shows: str, named: bool = False) -> str:
@@ -2195,6 +2300,7 @@ class FeatherframeService:
             # renders the same row component for all of them, and the Health
             # card reads the same list.
             "frames": {"list": self.frames_list()},
+            "firmware": self.firmware_status(),
         }
 
     def _masked_config(self) -> dict:

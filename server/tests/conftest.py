@@ -40,3 +40,10 @@ def _no_mdns(monkeypatch):
     advertiser itself set FEATHERFRAME_MDNS=1 over a fake zeroconf."""
     monkeypatch.setenv("FEATHERFRAME_MDNS", "0")
     monkeypatch.delenv("FEATHERFRAME_NO_MDNS", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _no_release_check(monkeypatch):
+    """No test asks GitHub for a firmware release (W-838). Tests of the check
+    point FEATHERFRAME_RELEASES_URL at a fake."""
+    monkeypatch.setenv("FEATHERFRAME_RELEASES_URL", "off")

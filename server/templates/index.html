@@ -892,6 +892,7 @@
        to report and leaves the column empty. #}
     {% set show_batt = s.power_mode == 'sleep' and pct is not none %}
     {% set show_plug = caps.power and s.power_mode == 'awake' %}
+    {% set fw = fr.firmware %}
     <li>
     {# The row is the page's own disclosure component, so it hovers, turns its
        chevron and slides open exactly as Advanced does. #}
@@ -903,6 +904,7 @@
             <span class="fr-name" data-fr="title">{{ fr.title }}</span>
             <span class="badge warn" data-h="overdue" {{ '' if card.overdue else 'hidden' }}>Overdue</span>
             <span class="badge bad" data-h="lowbatt" {{ '' if low else 'hidden' }}>Battery low</span>
+            <span class="badge" data-h="fw-badge" {{ '' if fw and fw.available and not fw.pending else 'hidden' }}>Update</span>
           </span>
           <span class="fr-desc" data-fr="summary">{{ fr.summary }}</span>
         </span>
@@ -983,6 +985,17 @@
         <div class="frow">
           <div class="frow-text"><span class="lab" id="fr-size-lab-{{ i }}">Screen size</span><div class="hint">This device doesn't report its screen size. Enter it in pixels for a sharper image.</div></div>
           <div class="frow-ctl pair" role="group" aria-labelledby="fr-size-lab-{{ i }}"><input type="number" data-f="width" min="64" max="4096" inputmode="numeric" value="{{ s.width }}" placeholder="1072" aria-label="Screen width in pixels"><span class="pair-sep" aria-hidden="true">×</span><input type="number" data-f="height" min="64" max="4096" inputmode="numeric" value="{{ s.height }}" placeholder="1448" aria-label="Screen height in pixels"></div>
+        </div>
+        {% endif %}
+        {# An official release this frame is not on (W-838). The frame shows
+           nothing: it takes the release on its next check-in. #}
+        {% if fw and fw.available %}
+        <div class="frow" data-fr-fw>
+          <div class="frow-text"><span class="lab">Firmware</span><div class="hint tnum" data-h="fw-hint">{{ (fw.running or 'Unknown') ~ ' → ' ~ fw.available }}</div></div>
+          <div class="frow-ctl">
+            <span class="hint" data-h="fw-pending" {{ '' if fw.pending else 'hidden' }}>Updates on its next check-in</span>
+            <button class="btn" type="button" data-fr-action="update" {{ '' if not fw.pending else 'hidden' }}>Update</button>
+          </div>
         </div>
         {% endif %}
         {% if caps.mat %}
@@ -1354,6 +1367,17 @@
           <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
             <div class="frow-text"><label class="lab" for="cg"><span class="badge ai">AI</span>Generate menagerie-style collages<a class="btn sm ex preview" href="/static/examples/collage.png" data-ex="collage" data-cap="The collage as one scene, drawn with AI." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" aria-disabled="{{ 'false' if ig_ready else 'true' }}" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="card">
+        <section class="sec">
+          <h2 class="sec-head">Firmware</h2>
+          {% set fws = status.firmware or {} %}
+          <div class="frow toggle">
+            <div class="frow-text"><label class="lab" for="fw-auto">Install updates automatically</label><div class="hint tnum" id="fw-latest">{{ ('Latest release: ' ~ fws.latest) if fws.latest else 'No release yet' }}</div></div>
+            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="fw-auto" name="firmware_auto_update" {{ 'checked' if config.firmware_auto_update else '' }}><span class="track"></span></label></div>
           </div>
         </section>
       </div>
@@ -1736,6 +1760,16 @@
     var det = fr.details || {};
     subText(row, 'data-h', 'ip', det.ip || '\u2014');
     subText(row, 'data-h', 'fw', det.firmware || '\u2014');
+
+    // An official release it is not on, and whether it is on its way.
+    var fw = fr.firmware || {};
+    var fwRow = row.querySelector('[data-fr-fw]');
+    if (fwRow) fwRow.hidden = !fw.available;
+    subHidden(row, 'data-h', 'fw-badge', !(fw.available && !fw.pending));
+    subHidden(row, 'data-h', 'fw-pending', !(fw.available && fw.pending));
+    var upd = row.querySelector('[data-fr-action="update"]');
+    if (upd) upd.hidden = !(fw.available && !fw.pending);
+    subText(row, 'data-h', 'fw-hint', fw.available ? (fw.running || 'Unknown') + ' \u2192 ' + fw.available : '');
   }
 
   function applyStatus(st) {
@@ -2144,6 +2178,21 @@
           })
           .catch(function (e) { showFlash('bad', 'Not saved — ' + errText(e) + '.', 'ic-warn'); })
           .then(function () { busy(row, false); save.textContent = label; });
+      });
+
+      var update = row.querySelector('[data-fr-action="update"]');
+      if (update) update.addEventListener('click', function () {
+        busy(row, true);
+        jsonFetch('/api/frames/' + encodeURIComponent(row.getAttribute('data-frame')),
+                  { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ update_firmware: true }) })
+          .then(function (out) {
+            var mine = (out.frames || []).filter(function (f) { return f.id === row.getAttribute('data-frame'); })[0];
+            if (mine) applyHealth(row, mine);
+            showFlash('ok', 'It updates on its next check-in.', 'ic-check');
+          })
+          .catch(function (e) { showFlash('bad', 'Not updated — ' + errText(e) + '.', 'ic-warn'); })
+          .then(function () { busy(row, false); });
       });
 
       var forget = row.querySelector('[data-fr-action="forget"]');

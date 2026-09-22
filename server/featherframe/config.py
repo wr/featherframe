@@ -182,6 +182,9 @@ class Config:
     # How many of the day's species the generated sheet carries, most-heard
     # first. 0 = every species heard that day. The grid fallback always holds six.
     collage_species_max: int = 10
+    # Install each official firmware release on every frame already on an
+    # official one, without a press (W-838). A dev build is never replaced.
+    firmware_auto_update: bool = False
 
     def __post_init__(self) -> None:
         self.sanitize()
@@ -232,6 +235,7 @@ class Config:
         self.mat_offset_x_px = int(_clamp(int(self.mat_offset_x_px), -120, 120))
         self.mat_offset_y_px = int(_clamp(int(self.mat_offset_y_px), -120, 120))
         self.mat_guide = bool(self.mat_guide)
+        self.firmware_auto_update = bool(self.firmware_auto_update)
         if self.imagegen_provider not in ("openai", "gemini", "replicate", "a1111"):
             self.imagegen_provider = "openai"
         self.imagegen_base_url = str(self.imagegen_base_url or "").strip().rstrip("/")

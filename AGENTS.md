@@ -285,7 +285,17 @@ notice: a frame's panel is simply what it reports, so there is nothing to
 answer; the "unrecognised panel" and "unknown format" notes stay, per frame
 (`frame_notices`). OTA serves
 each board its own image: `firmware.bin` and any `firmware-*.bin` in the data
-dir are candidates, matched by the board string (`_firmware_for`). mDNS
+dir are candidates, matched by the board string (`_firmware_for`). An official
+release comes first (W-836/W-838): a `v*` tag makes CI publish
+`firmware-manifest.json` + per-kit images (`.github/workflows/release.yml`,
+`firmware/tools/release_assets.py`); `firmware_release.ReleaseStore` asks
+GitHub's `releases/latest` daily from `tick()`, downloads a kit's image only
+once a frame is pending and keeps it only if it matches the manifest. A frame
+is pending when the owner pressed *Update* on its row (`set.update_firmware`)
+or `Config.firmware_auto_update` is on and it already runs an official
+`MAJOR.MINOR.PATCH` (a dev build is never replaced unasked);
+`service.release_image_for` hands it over, and a `make ota` image older than
+that hand-over is not served to that frame. The frame shows nothing about it. mDNS
 advertises the first `on` kit's panel key; a frame whose panel no server claims
 takes any that answers.
 

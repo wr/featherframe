@@ -332,13 +332,14 @@ async def index(request: Request):
     status = await run_in_threadpool(svc.status)
     generated = await run_in_threadpool(svc.generated_listing) if svc.genart else []
     history = await run_in_threadpool(svc.render_history)
+    collage_days = await run_in_threadpool(svc.collage_days)
     # `config` is the household's and only the household's (W-833): what a
     # frame is drawn with lives on that frame's own row, and the Frames card
     # is the only place any of it is set.
     return templates.TemplateResponse(
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
-         "generated": generated, "history": history})
+         "generated": generated, "history": history, "collage_days": collage_days})
 
 
 @app.post("/settings")
@@ -1111,6 +1112,21 @@ async def history_jpg(request: Request, etag: str):
         return Response(status_code=404)
     return FileResponse(jpg, media_type="image/jpeg",
                         headers={"Cache-Control": "max-age=86400"})
+
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+@app.get("/api/collages/{day}.png")
+async def collage_day_png(request: Request, day: str):
+    # A download: the day's finished collage, named for the day.
+    if not _DATE_RE.match(day):
+        return Response(status_code=404)
+    png = paths.collage_days_dir() / f"{day}.png"
+    if not await run_in_threadpool(png.exists):
+        return Response(status_code=404)
+    return FileResponse(png, media_type="image/png",
+                        filename=f"featherframe-collage-{day}.png")
 
 
 def _source_test(source, backend: str) -> dict:

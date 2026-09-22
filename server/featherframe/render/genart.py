@@ -1538,7 +1538,7 @@ class GeneratedArtProvider(ArtProvider):
                 self._write_atomic(path, json.dumps(cache, indent=2).encode())
 
     # -- the combined collage (one generated sheet) --------------------------------
-    _KEEP_SHEETS = 60  # pruned oldest-first; the SD card is finite
+    _KEEP_SHEETS = 7  # a day's is reused all day; older ones only for a re-render
 
     def day_composite(self, cells, when, force: bool = False):
         """One generated composite sheet for the day's top species, in the

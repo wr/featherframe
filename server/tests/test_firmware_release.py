@@ -320,3 +320,42 @@ def test_the_row_offers_the_release_and_the_household_the_switch(client):
     assert 'name="firmware_auto_update"' in page and "Latest release: 1.3.0" in page
     c.post(f"/api/frames/{FID}", json={"update_firmware": True})
     assert "Updates on its next check-in</span>" in c.get("/").text
+
+
+# -- USB install (W-840) -----------------------------------------------------------
+def test_no_release_yet_is_not_an_error(env):
+    svc, gh = env
+    gh.get = lambda url, **kw: _Resp(b'{"message": "Not Found"}', 404)
+    assert svc.releases.check(NOW) is None
+    assert svc.firmware_status()["error"] is None
+
+
+def test_the_flasher_gets_a_kit_without_nvs(client):
+    c, svc = client
+    assert c.get("/api/flash/ee03/manifest.json").status_code == 404     # no release yet
+    svc.releases.check(NOW)
+    man = c.get("/api/flash/ee03/manifest.json").json()
+    assert man["version"] == "1.3.0" and man["new_install_prompt_erase"] is True
+    parts = man["builds"][0]["parts"]
+    assert man["builds"][0]["chipFamily"] == "ESP32-S3"
+    assert all(not (0x9000 <= p["offset"] < 0xE000) for p in parts)
+    r = c.get(f"/api/flash/ee03/{parts[0]['path']}")              # relative to the manifest
+    assert r.status_code == 200 and r.content == _image()
+    assert c.get("/api/flash/ee03/..%2F..%2Fdb.sqlite").status_code == 404
+    assert c.get("/api/flash/ee02/manifest.json").status_code == 404
+    assert svc.firmware_status()["kits"] == ["ee03"]
+
+
+def test_the_page_offers_usb_install(client):
+    c, svc = client
+    page = c.get("/").text
+    assert 'id="usb-open"' in page and "No release to install yet." in page
+    svc.releases.check(NOW)
+    page = c.get("/").text
+    assert 'name="usb-kit" value="ee03"' in page and "10.3″ gray" in page
+
+
+def test_the_vendored_flasher_is_served(client):
+    c, _ = client
+    r = c.get("/static/flash/esp-web-tools/install-button.js")
+    assert r.status_code == 200 and b"esp-web-install-button" in r.content

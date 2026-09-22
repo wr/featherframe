@@ -119,7 +119,11 @@ class ReleaseStore:
                 pass
         stamp = now.isoformat(timespec="seconds")
         try:
-            rel = self._get_json(url)
+            rel = self._get_json(url, missing_ok=True)
+            if rel is None:
+                # No release at all yet: nothing to offer, and nothing wrong.
+                self.db.set(KEY, {**st, "checked_at": stamp, "error": None})
+                return st.get("manifest")
             if rel.get("draft") or rel.get("prerelease"):
                 raise ValueError("latest release is a draft or prerelease")
             assets = {a.get("name"): a.get("browser_download_url")
@@ -143,10 +147,12 @@ class ReleaseStore:
             self.db.set(KEY, {**st, "checked_at": stamp, "error": str(exc)[:200]})
             return st.get("manifest")
 
-    def _get_json(self, url: str) -> dict:
+    def _get_json(self, url: str, missing_ok: bool = False) -> Optional[dict]:
         r = self.http.get(url, timeout=TIMEOUT_S,
                           headers={"Accept": "application/vnd.github+json",
                                    "User-Agent": "featherframe-server"})
+        if missing_ok and r.status_code == 404:
+            return None
         r.raise_for_status()
         data = r.json()
         if not isinstance(data, dict):
@@ -237,6 +243,30 @@ class ReleaseStore:
         if not kit:
             return None
         return self.ensure(kit["app"], kit["board"]) if download else self.cached(kit["app"])
+
+    # -- USB install (W-840) ---------------------------------------------------
+    def flash_manifest(self, kit_name: str) -> Optional[dict]:
+        """One kit as esp-web-tools reads it. Its parts are bootloader,
+        partitions, boot_app0 and the app at their offsets — never NVS, so a
+        board keeps its Wi-Fi unless the owner ticks Erase. Paths are relative
+        to the manifest's own URL."""
+        kit = self.kit(kit_name)
+        if not kit or not kit.get("parts"):
+            return None
+        return {"name": f"Featherframe ({kit_name.upper()})", "version": self.version(),
+                "new_install_prompt_erase": True,
+                "builds": [{"chipFamily": kit.get("chip") or "ESP32-S3",
+                            "parts": [{"path": p["name"], "offset": p["offset"]}
+                                      for p in kit["parts"]]}]}
+
+    def part(self, kit_name: str, name: str) -> Optional[Path]:
+        """One USB-install part of a kit, downloaded and verified on first ask."""
+        kit = self.kit(kit_name)
+        entry = next((p for p in (kit or {}).get("parts") or [] if p.get("name") == name), None)
+        if entry is None:
+            return None
+        app = kit.get("app") or {}
+        return self.ensure(entry, kit["board"] if entry["name"] == app.get("name") else None)
 
     def _prune(self, keep: str) -> None:
         """Only the current release's images are kept."""

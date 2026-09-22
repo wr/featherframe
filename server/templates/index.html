@@ -663,6 +663,17 @@
     .fr-note, .fr-empty, .ignored-frames { margin:13px 0; }
     /* Save sits on the right, as the household form's does; Remove on the left. */
     .fr-actions [data-fr-action="save"] { margin-left:auto; }
+    /* Add a frame over USB (W-840): a button under the list, and its dialog. */
+    .fr-foot { display:flex; justify-content:flex-end; padding:12px 0; border-top:1px solid var(--hair); }
+    .fr-list + .fr-foot, .fr-empty + .fr-foot { margin-top:0; }
+    .usb-dlg { width:min(460px, calc(100vw - 32px)); border:1px solid var(--border); border-radius:9px;
+               background:var(--surface); color:var(--ink); box-shadow:var(--sh-card); padding:18px 20px 20px; }
+    .usb-dlg::backdrop { background:rgba(32,30,26,.45); }
+    .usb-dlg .sec-head { margin:0 0 14px; }
+    .usb-dlg .usb-x { position:absolute; top:12px; right:12px; margin:0; }
+    .usb-dlg p { font-size:13.5px; color:var(--ink-2); line-height:1.55; margin:12px 0 0; }
+    .usb-actions { display:flex; justify-content:flex-end; margin-top:16px; }
+    .usb-actions:empty { display:none; }
     .fr-empty { font-size:13.5px; color:var(--ink-2); line-height:1.6; max-width:62ch; }
     .fr-empty p { margin:0 0 12px; }
     .fr-empty ol { margin:0; padding-left:1.25em; display:flex; flex-direction:column; gap:10px; }
@@ -1053,6 +1064,7 @@
     </li>
     {% endmacro %}
 
+    {% set fws = status.firmware or {} %}
     <div class="card" id="frames-card">
       <section class="sec">
         {# A kit this server has not been told about. Nothing changes until the
@@ -1085,6 +1097,9 @@
           </ol>
         </div>
         {% endif %}
+        <div class="fr-foot">
+          <button class="btn" type="button" id="usb-open">Add a frame over USB</button>
+        </div>
         {% if ignored %}
         <details class="sc-more ignored-frames">
           <summary>Ignored ({{ ignored|length }})</summary>
@@ -1103,6 +1118,28 @@
         {% endif %}
       </section>
     </div>
+
+    {# The kit's firmware, installed from this page (W-840). The frame it makes
+       asks to connect like any other. #}
+    {% set kit_words = {'ee03': '10.3″ gray', 'ee02': '13.3″ colour'} %}
+    <dialog class="usb-dlg" id="usb-dlg" aria-labelledby="usb-title">
+      <form method="dialog" class="usb-x"><button class="btn sm" aria-label="Close">Close</button></form>
+      <h2 class="sec-head" id="usb-title">Add a frame over USB</h2>
+      {% if fws.kits %}
+      <div class="frow">
+        <div class="frow-text"><span class="lab" id="usb-kit-lab">Kit</span></div>
+        <div class="frow-ctl">
+          <div class="seg" role="radiogroup" aria-labelledby="usb-kit-lab">
+            {% for k in fws.kits %}<label><input type="radio" name="usb-kit" value="{{ k }}" {{ 'checked' if loop.first else '' }}><span>{{ kit_words.get(k, k|upper) }}</span></label>{% endfor %}
+          </div>
+        </div>
+      </div>
+      <p id="usb-note"></p>
+      <div class="usb-actions" id="usb-actions"></div>
+      {% else %}
+      <p>No release to install yet.</p>
+      {% endif %}
+    </dialog>
 
     <form method="post" action="/settings" class="settings-form">
         {# Every setting is one .frow: label + hint on the left, the control on
@@ -1385,7 +1422,6 @@
       <div class="card">
         <section class="sec">
           <h2 class="sec-head">Firmware</h2>
-          {% set fws = status.firmware or {} %}
           <div class="frow toggle">
             <div class="frow-text"><label class="lab" for="fw-auto">Install updates automatically</label><div class="hint tnum" id="fw-latest">{{ ('Latest release: ' ~ fws.latest) if fws.latest else 'No release yet' }}</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="fw-auto" name="firmware_auto_update" {{ 'checked' if config.firmware_auto_update else '' }}><span class="track"></span></label></div>
@@ -2381,6 +2417,51 @@
       submitForm(kf.closest('form'));
     });
   });
+
+  // -- add a frame over USB (W-840) -------------------------------------------
+  // esp-web-tools flashes the latest official release. Web Serial exists only
+  // on a secure page, and this one is usually plain http on the LAN: then the
+  // owner is sent to the same flasher on GitHub Pages. Either way the frame
+  // finds this server once it is on Wi-Fi and asks to connect.
+  (function () {
+    var dlg = $('usb-dlg'), open = $('usb-open');
+    if (!dlg || !open) return;
+    var PAGES = 'https://wr.github.io/featherframe/flash/';
+    var loaded = false;
+    function kit() { var r = dlg.querySelector('input[name="usb-kit"]:checked'); return r ? r.value : ''; }
+    function render() {
+      var note = $('usb-note'), actions = $('usb-actions');
+      if (!note || !actions) return;
+      actions.textContent = '';
+      var k = kit();
+      if (!('serial' in navigator)) {
+        note.textContent = 'Needs Chrome or Edge on a computer.';
+      } else if (!window.isSecureContext) {
+        note.textContent = 'USB needs a secure page. Use the Featherframe flasher; the frame finds this server once it’s on Wi-Fi.';
+        var a = document.createElement('a');
+        a.className = 'btn primary'; a.target = '_blank'; a.rel = 'noopener';
+        a.href = PAGES + '?kit=' + encodeURIComponent(k);
+        a.textContent = 'Open the flasher';
+        actions.appendChild(a);
+      } else {
+        note.textContent = 'Plug the frame in by USB, then Connect.';
+        if (!loaded) {
+          var sc = document.createElement('script');
+          sc.type = 'module'; sc.src = '/static/flash/esp-web-tools/install-button.js';
+          document.head.appendChild(sc); loaded = true;
+        }
+        var b = document.createElement('esp-web-install-button');
+        b.setAttribute('manifest', '/api/flash/' + encodeURIComponent(k) + '/manifest.json');
+        var btn = document.createElement('button');
+        btn.className = 'btn primary'; btn.slot = 'activate'; btn.type = 'button';
+        btn.textContent = 'Connect';
+        b.appendChild(btn);
+        actions.appendChild(b);
+      }
+    }
+    dlg.querySelectorAll('input[name="usb-kit"]').forEach(function (r) { r.addEventListener('change', render); });
+    open.addEventListener('click', function () { render(); dlg.showModal(); refreshSegs(dlg); });
+  })();
 
   // -- lightbox ---------------------------------------------------------------
   (function () {

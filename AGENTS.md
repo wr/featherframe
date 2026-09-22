@@ -295,7 +295,16 @@ is pending when the owner pressed *Update* on its row (`set.update_firmware`)
 or `Config.firmware_auto_update` is on and it already runs an official
 `MAJOR.MINOR.PATCH` (a dev build is never replaced unasked);
 `service.release_image_for` hands it over, and a `make ota` image older than
-that hand-over is not served to that frame. The frame shows nothing about it. mDNS
+that hand-over is not served to that frame. The frame shows nothing about it. The
+Frames card's *Add a frame over USB* (W-840) installs the same release with
+esp-web-tools (vendored in `server/static/flash/`, from
+`/api/flash/<kit>/manifest.json`: bootloader, partitions, boot_app0, app —
+never NVS, so a board keeps its Wi-Fi unless the owner ticks Erase). Web
+Serial needs a secure page, so on plain http the dialog links to the same
+flasher on GitHub Pages (`flasher/index.html`, published by the release
+workflow). The firmware speaks Improv over USB (`ff_improv.cpp`, W-839) so the
+flasher can give a blank board its Wi-Fi; the new frame then asks to connect
+like any other. mDNS
 advertises the first `on` kit's panel key; a frame whose panel no server claims
 takes any that answers.
 

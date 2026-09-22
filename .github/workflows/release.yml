@@ -14,6 +14,7 @@ on:
       - .github/workflows/release.yml
       - firmware/tools/release_assets.py
       - flasher/**
+      - server/static/flash/**
 
 concurrency:
   group: release-${{ github.ref }}
@@ -64,7 +65,10 @@ jobs:
             --kit ee03=firmware/.pio/build/release \
             --kit ee02=firmware/.pio/build/release_ee02 \
             --boot-app0 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin
-          if [ -d flasher ]; then cp -R flasher/. dist/; fi
+          # The Pages flasher (W-840): its page, and the esp-web-tools the
+          # dashboard vendors, beside the parts it installs.
+          cp -R flasher/. dist/
+          cp -R server/static/flash/esp-web-tools dist/esp-web-tools
       - uses: actions/upload-artifact@v4
         with:
           name: release

@@ -1716,8 +1716,11 @@ class FeatherframeService:
     def firmware_status(self) -> dict:
         """The household's view of the release: which one, and when it was asked."""
         st = self.releases.state()
+        kits = [k.get("kit") for k in (self.releases.manifest() or {}).get("kits") or []
+                if k.get("parts")]
         return {"latest": self.releases.version(), "checked_at": st.get("checked_at"),
-                "error": st.get("error"), "auto": bool(self.config.firmware_auto_update)}
+                "error": st.get("error"), "auto": bool(self.config.firmware_auto_update),
+                "kits": kits}
 
     def check_firmware(self) -> dict:
         """Ask for the latest release now (the page's *Check now*)."""

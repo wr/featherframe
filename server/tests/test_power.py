@@ -142,14 +142,24 @@ def test_battery_endpoint_shape(client, svc):
     assert client.get("/api/battery?hours=99999").json()["hours"] == 24 * 7
 
 
-def test_the_row_carries_no_battery_reading(client, svc):
-    """The cell, the percent and the power glyphs left the row; the low badge,
+def _row(client, svc) -> str:
+    body = client.get("/").text.split("<body")[1]
+    return body.split(f'data-frame="{svc.LEGACY_FRAME}"')[1].split(chr(10) + "    </li>")[0]
+
+
+def test_the_row_carries_the_reading_only_on_a_battery(client, svc):
+    """The cell and its percent are back for a frame the owner put on a
+    battery; the USB plug and the charging bolt are not, and the low badge,
     the card and /api/battery are untouched."""
     client.get("/api/frame", headers={"X-Battery-Voltage": "3.90", "X-Battery-Percent": "65"})
-    body = client.get("/").text.split("<body")[1]
-    row = body.split(f'data-frame="{svc.LEGACY_FRAME}"')[1].split(chr(10) + "    </li>")[0]
-    for gone in ('data-h="batt-bar"', 'data-h="batt-wrap"', 'data-h="usb"',
-                 'data-h="chg"', "65%"):
+    # On USB there is nothing to report: the column is empty.
+    row = _row(client, svc)
+    assert 'data-h="batt-wrap" data-spark-host tabindex="0" aria-label="Battery" hidden>' in row
+    assert "65%" not in row
+    svc.update_frame(svc.LEGACY_FRAME, {"power_mode": "sleep"})
+    row = _row(client, svc)
+    assert 'data-h="batt-bar" style="width:65%;"' in row and "65%" in row
+    for gone in ('data-h="usb"', 'data-h="chg"'):
         assert gone not in row, gone
     assert 'data-h="lowbatt"' in row
     assert health(svc, svc.LEGACY_FRAME)["battery"].startswith("3.90 V · 65%")

@@ -360,7 +360,9 @@ def test_the_row_carries_that_frames_health(client):
     gray = _row(card, GRAY["X-Device-Id"])
     # collapsed: the dot, the readings
     assert '<span class="d good" data-h="dot">' in gray
-    assert '"fr-batt"' not in gray and "72%" not in gray   # no reading, just the badge
+    # …on USB, so its battery column is empty — the reading is a battery's
+    assert 'data-h="batt-wrap" data-spark-host tabindex="0" ' \
+           'aria-label="Battery" hidden>' in gray and "72%" not in gray
     assert 'data-h="wifi-wrap"' in gray and "Good · -61 dBm" in gray
     assert 'data-h="seen-text">just now<' in gray
     # open: Details is what this frame reported about itself, and only that —
@@ -417,11 +419,11 @@ def test_a_frames_settings_are_named_plainly(client):
                   ">Mat inset (%)<", ">Mat offset (px)<", ">Reset to defaults<"):
         assert label in gray, label
     assert ">Individual detections<" in gray and ">Collage<" in gray
-    assert "Always awake suits USB power. Deep sleep suits a battery." in gray
-    assert "How often the display checks for updates" in gray
-    # A name explains itself; only Power, the interval, the mat and a screen
-    # with no reported size carry a hint at all.
-    assert gray.count('class="hint"') == 4
+    assert ">USB<" in gray and ">Battery<" in gray
+    assert ">Every 3 seconds<" in gray and ">Every 15 minutes<" in gray
+    # A name explains itself; only the mat and a screen with no reported size
+    # carry a hint at all.
+    assert gray.count('class="hint"') == 2
     kobo = _row(_card(client), KOBO["ID"])
     assert ">Screen size<" in kobo
     assert "This device doesn\u2019t report its screen size." in kobo or \

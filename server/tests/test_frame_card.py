@@ -191,11 +191,15 @@ def test_device_extra_recorded_from_get_frame(svc):
     assert (d.panel, d.board, d.last_wake) == ("P", "B", "timer")
 
 
-def test_no_battery_reading_on_the_page(svc):
-    # The reading left the row; nothing puts it back as a toggle either.
+def test_the_reading_is_for_a_frame_on_a_battery(svc):
+    # A frame on USB has no charge to report, so its column stays empty; a
+    # frame on a battery carries the cell and its percent. Not a setting.
     _checkin(svc, user_agent="ua", battery_voltage=3.9, battery_percent=60, wifi_rssi=-60)
+    assert 'data-h="batt-wrap" data-spark-host tabindex="0" ' \
+           'aria-label="Battery" hidden>' in _render_page(svc)
+    svc.update_frame(FRAME_ID, {"power_mode": "sleep"})
     html = _render_page(svc)
-    assert 'data-h="batt-bar"' not in html and "60%" not in html
+    assert 'data-h="batt-bar"' in html and "60%" in html
     assert 'name="show_battery"' not in html
 
 

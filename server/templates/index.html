@@ -89,8 +89,16 @@
       font-style:italic; font-weight:400 700; font-display:swap; }
     .wordmark { font-family:"Featherframe Script", var(--serif); font-style:italic; font-weight:500; font-size:44px; line-height:1; margin:0;
       font-feature-settings:"liga" 1,"calt" 1,"kern" 1; text-rendering:optimizeLegibility; }
-    /* one-shot "Settings saved" banner after the POST/redirect round trip */
-    .flash { margin:-12px 0 24px; }
+    /* Page-level notices ("Settings saved", a frame's Save, "Can't reach
+       Featherframe") are a toast pinned to the top of the viewport, so one
+       answering a control far down the page is never scrolled out of view.
+       Above the sticky save bar (10) and dropdown lists (20+). */
+    .test-box.flash { position:fixed; top:16px; left:50%; z-index:40; margin:0;
+             width:max-content; max-width:min(560px, calc(100vw - 32px));
+             transform:translateX(-50%); box-shadow:var(--sh-card); }
+    .flash.show { animation:flash-in .3s cubic-bezier(.2,.7,.2,1); }
+    @keyframes flash-in { from { transform:translate(-50%, -120%); opacity:0; } to { transform:translate(-50%, 0); opacity:1; } }
+    @media (prefers-reduced-motion:reduce){ .flash.show { animation:none; } }
 
     /* keyboard focus: one accent ring everywhere (inputs get theirs below) */
     a:focus-visible, button:focus-visible, summary:focus-visible {

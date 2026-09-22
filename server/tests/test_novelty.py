@@ -276,6 +276,7 @@ def test_status_reports_novelty_and_the_hold(svc):
     assert cur["novelty"] == "first-ever"
     assert cur["holding"]["minutes_left"] == 80
     assert cur["holding"]["reason"] == "new species"
+    assert cur["holding"]["why"].startswith("First time this species has been heard, so it stays up 90 min")
     assert cur["holding"]["until"] == (real_now - timedelta(minutes=10) + timedelta(minutes=90)
                                        ).isoformat(timespec="seconds")
 
@@ -396,12 +397,13 @@ def test_page_shows_the_holding_text(client, svc):
     svc.source = _GateSource([], first_seen=KNOWN)
     html = client.get("/").text
     assert 'name="dwell_minutes"' not in html        # a constant now (W-821)
-    assert 'id="fc-holding"></span>' in html          # nothing held
+    assert 'id="fc-holding" data-tip=""></span>' in html   # nothing held
 
     _hold(svc, "first-ever", minutes_ago=50, at=NOW)
     html = client.get("/").text
     assert '<span id="fc-showing">Bald Eagle</span>' in html
-    assert '<span class="when" id="fc-holding">holding 40 min</span>' in html
+    assert 'id="fc-holding" data-tip="First time this species has been heard, so it stays up 90 min.' in html
+    assert '>holding 40 min</span>' in html
     assert client.get("/api/status").json()["current"]["holding"]["minutes_left"] == 40
 
 

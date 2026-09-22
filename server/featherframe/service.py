@@ -128,6 +128,13 @@ _CORROBORATE_SCAN = 200
 # so a first-ever bird is not lost to the cardinal that called after it.
 _NOVELTY_RANK = {"first-ever": 2, "first-today": 1, "repeat": 0}
 _NOVEL = ("first-ever", "first-today")
+# The page's tooltip on "holding N min": why this plate is not changing.
+_HOLD_WHY = {
+    "first-ever": "First time this species has been heard, so it stays up {} min. "
+                  "Only another new species replaces it sooner.",
+    "first-today": "First time this species has been heard today, so it stays up {} min. "
+                   "Only another new species replaces it sooner.",
+}
 # How much of the day's tally / render log a novelty check reads. A busy
 # feeder is a few dozen species a day; the render log holds 200 rows.
 _TODAY_SCAN = 200
@@ -2681,7 +2688,8 @@ class FeatherframeService:
             return None
         return {"until": until.isoformat(timespec="seconds"),
                 "minutes_left": int(math.ceil((until - now).total_seconds() / 60)),
-                "reason": "new species"}
+                "reason": "new species",
+                "why": _HOLD_WHY[meta["novelty"]].format(dwell)}
 
     # -- new-species corroboration ------------------------------------------
     # One 0.71 hit of a rare species is routinely a car horn. Unchecked it

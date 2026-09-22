@@ -823,7 +823,7 @@
           <dl>
             {# "· holding 40 min" while a new species keeps the picture against repeats. #}
             {% set hold = status.current.holding %}
-            <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="when" id="fc-holding">{{ ('held ' ~ status.hold.until_text) if status.hold else (('holding ' ~ hold.minutes_left ~ ' min') if hold else '') }}</span></dd>
+            <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="when" id="fc-holding" data-tip="{{ hold.why if (hold and not status.hold) else '' }}">{{ ('held ' ~ status.hold.until_text) if status.hold else (('holding ' ~ hold.minutes_left ~ ' min') if hold else '') }}</span></dd>
             {% set ld = status.last_detection %}
             <dt>Last heard</dt><dd id="fc-heard" data-tip="{{ ld.at if ld else '' }}">{% if ld %}<span class="who">{{ ld.common }}</span>{% if ld.when_text %}<span class="when">{{ ld.when_text }}</span>{% endif %}{% else %}—{% endif %}</dd>
             {# A first-seen-today species held back for a second detection
@@ -1620,7 +1620,7 @@
     jsonFetch('/api/hold', { method: 'POST', body: formBody({ duration: holdDur ? holdDur.value : 'day' }) }).then(function (res) {
       var until = (res.hold && res.hold.until_text) || '';
       setTaskStatus('Held ' + until + '. Nothing replaces this plate until then.');
-      setText('fc-holding', 'held ' + until); setText('held-until', until);
+      setText('fc-holding', 'held ' + until); setText('held-until', until); $('fc-holding').dataset.tip = '';
       setHidden('hold-ctl', true); setHidden('held-line', false);
     }).catch(function (e) { setTaskStatus('Hold failed — ' + errText(e) + '.', true); })
       .then(function () { holdBtn.disabled = false; });
@@ -1784,6 +1784,8 @@
     setText('fc-showing', cur.title || cur.label || '\u2014');
     setText('fc-holding', st.hold ? 'held ' + st.hold.until_text
                          : (cur.holding ? 'holding ' + cur.holding.minutes_left + ' min' : ''));
+    var holdEl = $('fc-holding');
+    if (holdEl) holdEl.dataset.tip = (!st.hold && cur.holding && cur.holding.why) || '';
     setHidden('hold-ctl', !!st.hold); setHidden('held-line', !st.hold);
     if (st.hold) setText('held-until', st.hold.until_text || '');
     setText('fc-species', st.species_all_time + ' all-time');

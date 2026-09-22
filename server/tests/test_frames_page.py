@@ -449,7 +449,8 @@ def test_one_update_interval_saves_the_field_its_power_model_uses(client):
 # -- the household's Collage section ------------------------------------------
 def _sections(client) -> list:
     import re
-    return re.findall(r'<h2 class="sec-head">([^<]*)', client.get("/").text)
+    # The AI section's head carries its badge before the name.
+    return re.findall(r'<h2 class="sec-head">(?:<span class="badge ai">AI</span>)?([^<]*)', client.get("/").text)
 
 
 def test_the_household_sections_read_in_order(client):
@@ -482,7 +483,7 @@ def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     # The AI collage is here, always on offer.
     assert 'name="collage_generated"' in sec
     assert ">Generate menagerie-style collages" in sec
-    ig = client.get("/").text.split('<h2 class="sec-head">Image generation')[1].split("</section>")[0]
+    ig = client.get("/").text.split('<h2 class="sec-head"><span class="badge ai">AI</span>Image generation')[1].split("</section>")[0]
     assert 'name="collage_generated"' not in ig and 'name="imagegen_enabled"' not in ig
 
 

@@ -166,7 +166,7 @@ def test_device_poll_seconds_served_and_clamped(client):
     assert r.status_code == 304
     assert r.headers["x-poll-seconds"] == "3"
     assert Config(device_poll_seconds=0).device_poll_seconds == 2
-    assert Config(device_poll_seconds=999).device_poll_seconds == 60
+    assert Config(device_poll_seconds=999999).device_poll_seconds == 86400
 
 
 def test_one_update_interval_swaps_its_options_with_the_power_model(client):

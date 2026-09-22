@@ -193,10 +193,10 @@ class Config:
             self.mode = "single"
         # NaN slips through float() and then through _clamp (every comparison
         # is False) — and can't be serialised for the status JSON. Refuse it.
-        self.wake_interval_minutes = int(_clamp(_finite(self.wake_interval_minutes, 15), 1, 720))
+        self.wake_interval_minutes = int(_clamp(_finite(self.wake_interval_minutes, 15), 1, 1440))
         if self.power_mode not in ("awake", "sleep"):
             self.power_mode = "awake"
-        self.device_poll_seconds = int(_clamp(_finite(self.device_poll_seconds, 3), 2, 60))
+        self.device_poll_seconds = int(_clamp(_finite(self.device_poll_seconds, 3), 2, 86400))
         # The raw SQLite reader is now "custom"; migrate the legacy id.
         if self.detection_backend == "birdnet_pi":
             self.detection_backend = "custom"

@@ -132,7 +132,7 @@
 // only what a unit with no stored value starts with.
 #define FF_POLL_INTERVAL_MS  3000
 #define FF_POLL_MIN_S        2
-#define FF_POLL_MAX_S        60
+#define FF_POLL_MAX_S        86400
 // Always-awake build: how often the poll loop also asks for hosted firmware.
 #define FF_OTA_CHECK_MS      (15UL * 60UL * 1000UL)
 

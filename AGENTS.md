@@ -442,7 +442,9 @@ runtime setting (W-736): the server sends `X-Power-Mode` (awake|sleep) and
 NVS, and `setup()` branches on `g_alwaysAwake`; a switch takes effect at the
 end of the cycle that learned it (awake→sleep from `loop()`, sleep→awake by a
 restart). `FF_DEFAULT_ALWAYS_AWAKE` is only the mode of a unit with no stored
-value; `X-Poll-Seconds` sets the awake poll gap the same way (3 s default). `X-FF-Rotation`
+value; `X-Poll-Seconds` sets the awake poll gap the same way (3 s default; the
+page offers a minute to a day, and firmware from before 22 Sep 2026 ignores
+anything over `FF_POLL_MAX_S` = 60 s until it is updated). `X-FF-Rotation`
 (the page's panel rotation) rides along too and is kept in NVS (dark mode is
 gone, W-821: the server still says `X-FF-Invert: 0` so fielded firmware
 clears the flag it stored, until every frame runs firmware without it):

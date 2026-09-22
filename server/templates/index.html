@@ -23,7 +23,7 @@
       --ink:#201e1a; --ink-2:#474540; --muted:#827e76; --faint:#b1aea6;
       --border:#e6e4dd; --border-strong:#d5d2ca; --hair:#eeece6;
       --accent:#6b4a2c; --accent-press:#523821; --accent-ring:rgba(107,74,44,.24);
-      --good:#5c8a46; --warn:#b0781d; --bad:#b6472e;
+      --good:#5c8a46; --warn:#b0781d; --bad:#b6472e; --ai:#6a4fb8;
       /* the few literal colours that repeat: white surfaces, text on walnut, the off-switch track */
       --white:#ffffff; --on-accent:#f7efe2; --switch-off:#e6e5e0;
       --btn-end:#eeeeec; --btn-end-hover:#e7e7e5; --glass:rgba(252,252,251,.86);
@@ -44,7 +44,7 @@
       --ink:#ece8e0; --ink-2:#c6c1b6; --muted:#8e897f; --faint:#5b574f;
       --border:#33312c; --border-strong:#4a463f; --hair:#2b2a26;
       --accent:#cfa878; --accent-press:#e0bc8e; --accent-ring:rgba(207,168,120,.3);
-      --good:#7fae66; --warn:#d1993a; --bad:#d9705a;
+      --good:#7fae66; --warn:#d1993a; --bad:#d9705a; --ai:#a893e6;
       --white:#2c2b27; --on-accent:#1a1916; --switch-off:#3a3833;
       --btn-end:#262523; --btn-end-hover:#302f2b; --glass:rgba(35,34,32,.86);
       --accent-grad:linear-gradient(#d8b283, var(--accent));
@@ -59,7 +59,7 @@
       --ink:#ece8e0; --ink-2:#c6c1b6; --muted:#8e897f; --faint:#5b574f;
       --border:#33312c; --border-strong:#4a463f; --hair:#2b2a26;
       --accent:#cfa878; --accent-press:#e0bc8e; --accent-ring:rgba(207,168,120,.3);
-      --good:#7fae66; --warn:#d1993a; --bad:#d9705a;
+      --good:#7fae66; --warn:#d1993a; --bad:#d9705a; --ai:#a893e6;
       --white:#2c2b27; --on-accent:#1a1916; --switch-off:#3a3833;
       --btn-end:#262523; --btn-end-hover:#302f2b; --glass:rgba(35,34,32,.86);
       --accent-grad:linear-gradient(#d8b283, var(--accent));
@@ -586,10 +586,11 @@
       border-radius:999px; white-space:nowrap; }
     .badge.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 15%, transparent); }
     .badge.bad { color:var(--bad); background:color-mix(in srgb, var(--bad) 15%, transparent); }
-    /* On a switch's label: the badge shape in the page's own eyebrow tone. */
-    .badge.ai { display:inline-block; margin-right:7px; vertical-align:middle;
+    /* On a switch's label and the section's head: a rounded rectangle in
+       its own purple, so the AI settings read as one family. */
+    .badge.ai { display:inline-block; margin-right:7px; vertical-align:middle; border-radius:4px;
       font-size:10px; letter-spacing:.08em; text-transform:uppercase;
-      color:var(--muted); background:var(--inset); }
+      color:var(--ai); background:color-mix(in srgb, var(--ai) 14%, transparent); }
     /* Fixed columns: the readings line up down the list whatever each frame
        reports, and a frame that reports none leaves its column empty. */
     .fr-stats { flex:none; display:flex; align-items:center; gap:12px;
@@ -945,15 +946,18 @@
           <div class="frow-text"><span class="lab" id="fr-int-lab-{{ i }}">Update interval</span></div>
           <div class="frow-ctl">
             <span data-fr-swap="awake" {{ '' if s.power_mode == 'awake' else 'hidden' }}>
+              {# The same eight steps either way; USB stores seconds, a battery minutes. #}
+              {% set steps = [(1, 'Every minute'), (5, 'Every 5 minutes'), (15, 'Every 15 minutes'), (30, 'Every 30 minutes'),
+                              (60, 'Every hour'), (120, 'Every 2 hours'), (360, 'Every 6 hours'), (1440, 'Every 24 hours')] %}
               <select class="sel" data-f="device_poll_seconds" aria-labelledby="fr-int-lab-{{ i }}">
-                {% for p in [2, 3, 5, 15] %}<option value="{{ p }}" {{ 'selected' if s.device_poll_seconds == p else '' }}>Every {{ p }} seconds</option>{% endfor %}
-                {% if s.device_poll_seconds not in [2, 3, 5, 15] %}<option value="{{ s.device_poll_seconds }}" selected>Every {{ s.device_poll_seconds }} seconds</option>{% endif %}
+                {% for m, word in steps %}<option value="{{ m * 60 }}" {{ 'selected' if s.device_poll_seconds == m * 60 else '' }}>{{ word }}</option>{% endfor %}
+                {% if s.device_poll_seconds % 60 or (s.device_poll_seconds // 60) not in steps | map(attribute=0) | list %}<option value="{{ s.device_poll_seconds }}" selected>Every {{ s.device_poll_seconds }} seconds</option>{% endif %}
               </select>
             </span>
             <span data-fr-swap="sleep" {{ '' if s.power_mode == 'sleep' else 'hidden' }}>
               <select class="sel" data-f="wake_interval_minutes" aria-labelledby="fr-int-lab-{{ i }}">
-                {% for p, word in [(1, 'Every minute'), (5, 'Every 5 minutes'), (15, 'Every 15 minutes'), (30, 'Every 30 minutes'), (60, 'Every hour')] %}<option value="{{ p }}" {{ 'selected' if s.wake_interval_minutes == p else '' }}>{{ word }}</option>{% endfor %}
-                {% if s.wake_interval_minutes not in [1, 5, 15, 30, 60] %}<option value="{{ s.wake_interval_minutes }}" selected>Every {{ s.wake_interval_minutes }} minutes</option>{% endif %}
+                {% for m, word in steps %}<option value="{{ m }}" {{ 'selected' if s.wake_interval_minutes == m else '' }}>{{ word }}</option>{% endfor %}
+                {% if s.wake_interval_minutes not in steps | map(attribute=0) | list %}<option value="{{ s.wake_interval_minutes }}" selected>Every {{ s.wake_interval_minutes }} minutes</option>{% endif %}
               </select>
             </span>
           </div>
@@ -1162,7 +1166,7 @@
              until a key (or a self-hosted endpoint) is there; hidden inputs
              still submit, so nothing stored is lost. #}
           {% set ig_ready = status.config.imagegen_api_key or config.imagegen_provider == 'a1111' %}
-          <h2 class="sec-head">Image generation <span class="opt">· optional</span></h2>
+          <h2 class="sec-head"><span class="badge ai">AI</span>Image generation <span class="opt">· optional</span></h2>
           <p class="intro"><a href="https://github.com/wr/featherframe/blob/main/docs/ai-plates.md" target="_blank" rel="noopener">Learn more</a> about how AI image generation works with Featherframe, as well as estimated API costs.</p>
           <div class="frow">
             <div class="frow-text"><label class="lab" for="ig-provider">Image provider</label></div>

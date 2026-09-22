@@ -1,0 +1,113 @@
+name: Release
+
+# An official firmware release (W-837): push a v* tag (git tag v1.3.0 && git
+# push origin v1.3.0). The server offers the latest such release to every
+# frame whose board it has a build for; the Pages flasher installs it over USB.
+# On a PR that touches the release path it builds everything and publishes
+# nothing.
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - firmware/tools/release_assets.py
+      - flasher/**
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build the release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tools/fw_version.py stamps the build from the tag
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            firmware/.pio/libdeps
+          key: pio-release-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: pio-release-
+      - run: pip install platformio
+      - name: Build both kits
+        run: |
+          pio run -d firmware -e release -e release_ee02 | tee build.log
+      - name: Version
+        id: version
+        run: |
+          # Both builds stamp themselves from git; on a tag it is the tag.
+          v=$(grep -m1 -o 'FF_FW_VERSION = .*' build.log | cut -d' ' -f3)
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "build says $v, tag is ${GITHUB_REF_NAME}"; exit 1; }
+          else
+            v=0.0.0   # a PR: the assets are built and checked, never published
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Assets
+        run: |
+          python firmware/tools/release_assets.py --version "${{ steps.version.outputs.version }}" \
+            --out dist \
+            --kit ee03=firmware/.pio/build/release \
+            --kit ee02=firmware/.pio/build/release_ee02 \
+            --boot-app0 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin
+          if [ -d flasher ]; then cp -R flasher/. dist/; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: dist
+
+  publish:
+    name: Publish
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: dist
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
+            --title "Featherframe ${{ needs.build.outputs.version }}" --generate-notes \
+            dist/firmware-manifest.json dist/featherframe-*.bin
+
+  pages:
+    name: Flasher on Pages
+    if: github.ref_type == 'tag'
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: site/flash
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -3,21 +3,17 @@
 A frame is a frame: the kit on the wall, a second kit beside it, a TRMNL, a
 tablet on the kiosk page. They differ in how they are fed — `transport` — and
 in what their glass can do, and the second follows from what the device itself
-reported, never from a table of model names. Before this there were three
-stores (the `frames` kv, the `viewers` kv, and `Config` for the wall frame);
-this module is the one they all now go through.
+reported, never from a table of model names.
 
-Every frame owns its settings on its own row (step 2b): `frame_config` is the
-one place a frame's effective Config comes from — the household's, with this
-frame's panel, that panel's display defaults, and the owner's choices for this
-frame on top. There is no primary kit and no "active" seat any more: a kit is
-`asking`, `on`, or `ignored`, and every `on` kit is drawn for the same way.
+Every frame owns its settings on its own row: `frame_config` is the one place a
+frame's effective Config comes from — the household's, with this frame's panel,
+that panel's display defaults, and the owner's choices for this frame on top.
+There is no primary kit and no "active" seat: a kit is `asking`, `on`, or
+`ignored`, and every `on` kit is drawn for the same way.
 """
 from __future__ import annotations
 
-import logging
 import os
-import secrets
 import threading
 from contextlib import contextmanager
 from typing import Any, Optional
@@ -25,16 +21,7 @@ from typing import Any, Optional
 from . import panels
 from .config import Config
 
-log = logging.getLogger("featherframe.frames")
-
 KEY = "frame_rows"
-# The stores this one replaces. They are read once, by `migrate`, and never
-# written again; they stay in the DB so a rollback still finds them.
-LEGACY_FRAMES_KEY = "frames"
-LEGACY_VIEWERS_KEY = "viewers"
-# Which kit the single-frame build drew for. Written only by `migrate`, read
-# and removed once by the service's settings migration; no live code has it.
-LEGACY_PRIMARY = "primary"
 
 # How a screen is fed, which is NOT a kind of frame: "kit" speaks the
 # framebuffer protocol (/api/frame), "trmnl" TRMNL's BYOS protocol, "page" the
@@ -90,15 +77,9 @@ def name_of(row: Optional[dict]) -> str:
 
 
 def panel_of(row: Optional[dict]) -> Optional["panels.Panel"]:
-    """The panel a kit reported (X-Panel, or its X-Panel-* facts), or None.
-    Firmware old enough to report neither falls back to `row["panel"]`, the key
-    the single-frame build kept in the config for it; its next report wins."""
+    """The panel a kit reported (X-Panel, or its X-Panel-* facts), or None."""
     rep = reported_of(row)
-    panel = panels.from_report(rep.get("panel"), rep.get("facts"))
-    if panel is not None:
-        return panel
-    key = (row or {}).get("panel")
-    return panels.get(key) if key else None
+    return panels.from_report(rep.get("panel"), rep.get("facts"))
 
 
 def panel_for(row: Optional[dict]) -> "panels.Panel":
@@ -204,8 +185,7 @@ class FrameRegistry:
 
     def on_kits(self) -> list:
         """Every kit this server draws for, oldest first. There is no primary:
-        the order is only so the page (and the single-frame shims that survive
-        until step 3) always mean the same one by "the frame"."""
+        the order is only so the page always lists them the same way."""
         rows = [r for r in self.all().values()
                 if transport_of(r) == "kit" and r.get("status") == ON]
         rows.sort(key=lambda r: (str(r.get("first_seen") or ""), str(r.get("id") or "")))
@@ -250,65 +230,3 @@ class FrameRegistry:
                 own.pop("name", None)
             row["set"] = own
             return row
-
-    # -- migration ---------------------------------------------------------
-    def migrate(self) -> None:
-        """Build the registry from the stores it replaces, once. Idempotent:
-        once `frame_rows` exists it is the only truth, and the legacy keys are
-        left untouched so a rollback still reads them."""
-        with self._lock:
-            if isinstance(self.db.get(KEY), dict):
-                return
-            rows: dict = {}
-            legacy = self.db.get(LEGACY_FRAMES_KEY)
-            legacy = legacy if isinstance(legacy, dict) else {}
-            known = legacy.get("known")
-            active = legacy.get("active")
-            for fid, old in (known if isinstance(known, dict) else {}).items():
-                if isinstance(old, dict):
-                    rows[str(fid)] = _kit_row(str(fid), old, str(fid) == active)
-            viewers = self.db.get(LEGACY_VIEWERS_KEY)
-            for vid, old in (viewers if isinstance(viewers, dict) else {}).items():
-                if not isinstance(old, dict):
-                    continue
-                if str(vid) in rows:
-                    # A viewer and a kit that named themselves the same MAC.
-                    # The kit keeps the row: it is the one being served.
-                    log.warning("viewer %s has the same id as a frame; not migrated", vid)
-                    continue
-                rows[str(vid)] = _viewer_row(str(vid), old)
-            self.db.set(KEY, rows)
-            if rows:
-                log.info("frame registry: migrated %d screens", len(rows))
-
-
-def _kit_row(fid: str, old: dict, is_active: bool) -> dict:
-    """A row from W-832's `frames` kv. Its panel, board and telemetry were kept
-    in three places on the old row; they are all "what the device reported"."""
-    status = {"active": ON, "added": ON, "ignored": IGNORED}.get(old.get("status"), ASKING)
-    reported = {k: old[k] for k in ("panel", "board", "facts") if old.get(k)}
-    reported.update({k: v for k, v in (old.get("device") or {}).items() if v is not None})
-    row = {"id": fid, "transport": "kit", "status": status,
-           "reported": reported, "set": dict(old.get("set") or {}),
-           "first_seen": old.get("first_seen"), "last_seen": old.get("last_seen")}
-    if is_active and status == ON:
-        # The kit whose settings still live in Config; the service's settings
-        # migration moves them onto this row and drops the mark.
-        row[LEGACY_PRIMARY] = True
-    if old.get("ip"):
-        row["ip"] = old["ip"]
-    return row
-
-
-def _viewer_row(vid: str, old: dict) -> dict:
-    """A row from W-822's `viewers` kv. A viewer is never parked: it was
-    already being served, so it is on."""
-    kind = old.get("kind")
-    row = {"id": vid, "transport": kind if kind in ("trmnl", "page") else "trmnl",
-           "status": ON,
-           "reported": dict(old.get("reported") or {}), "set": dict(old.get("set") or {}),
-           "token": str(old.get("token") or secrets.token_hex(16)),
-           "first_seen": old.get("first_seen"), "last_seen": old.get("last_seen")}
-    if old.get("ip"):
-        row["ip"] = old["ip"]
-    return row

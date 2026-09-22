@@ -51,9 +51,9 @@ def _kit(svc, frame_id: str, shows: str) -> dict:
 
 
 def _viewer(svc, viewer_id: str, shows: str, seen: datetime) -> None:
-    svc.viewers.checkin(viewer_id, seen, "page", {"width": 600, "height": 800})
+    svc.checkin_viewer(viewer_id, seen, "page", {"width": 600, "height": 800})
     approve(svc, viewer_id)           # every frame is answered for (W-833)
-    svc.viewers.update(viewer_id, {"shows": shows})
+    svc.update_frame(viewer_id, {"shows": shows})
 
 
 # -- which pictures are worth drawing -----------------------------------------
@@ -82,7 +82,7 @@ def test_a_picture_nobody_shows_is_never_drawn_and_is_dropped(svc):
     _viewer(svc, "PAGE-IPAD", "collage", NOW)
     svc.tick()
     assert svc.pictures["collage"].etag and svc.pictures["collage"].sheet_path.exists()
-    svc.viewers.update("PAGE-IPAD", {"shows": ""})
+    svc.update_frame("PAGE-IPAD", {"shows": ""})
     svc.tick()
     assert svc.pictures["collage"].etag is None
     assert not svc.pictures["collage"].sheet_path.exists()
@@ -172,47 +172,3 @@ def test_a_collage_on_a_frame_is_what_the_pipeline_packs(svc):
     expected = pipeline.render_image(img, cfg, "collage", label)
     assert frame_bytes(svc, "AA:00") == expected.frame
     assert svc._out["AA:00"]["etag"] == expected.etag
-
-
-# -- an install that upgrades mid-flight --------------------------------------
-def test_an_upgrade_adopts_the_frame_and_the_side_picture_it_finds(tmp_path, monkeypatch):
-    """Nothing is re-rendered and the wall's ETag does not move: the resident
-    frame becomes the plates picture, W-831's side picture the collage one."""
-    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
-    from featherframe import paths
-    from featherframe.config import Config
-    from featherframe.service import FeatherframeService
-    pipeline.DITHER_OVERRIDE = "none"
-
-    # What the old build left behind.
-    from PIL import Image
-    from featherframe.render import theme
-    sheet = Image.new("L", (theme.WIDTH, theme.HEIGHT), 200)
-    result = pipeline.render_image(sheet, Config(), "single", "Blue Jay")
-    frames = paths.frames_dir()
-    (frames / "current.fff").write_bytes(result.frame)
-    result.preview.save(frames / "current.png")
-    sheet.save(frames / "current_sheet.png")
-    Image.new("L", (theme.WIDTH, theme.HEIGHT), 90).save(frames / "side_collage_sheet.png")
-    db = Database()
-    db.set("current_frame", {"etag": result.etag, "mode": "single", "label": "Blue Jay",
-                             "species_key": "cyanocitta cristata",
-                             "rendered_at": NOW.isoformat(timespec="seconds")})
-    db.set("side_pictures", {"collage": {"etag": "0123456789abcdef",
-                                         "at": NOW.isoformat(timespec="seconds"),
-                                         "key": NOW.date().isoformat()}})
-
-    db.set("frames", {"active": "AA:BB", "known": {"AA:BB": {"id": "AA:BB", "status": "active",
-                                                             "panel": "ED103TC2 1404x1872 gray16"}}})
-    svc = FeatherframeService(db)
-    assert svc._shown == "plates"
-    assert svc._etag == result.etag and frame_bytes(svc, "AA:BB") == result.frame
-    assert svc._meta["label"] == "Blue Jay"
-    assert svc.pictures["plates"].sheet_path.exists()
-    assert svc.pictures["collage"].etag == "0123456789abcdef"
-    assert svc.pictures["collage"].sheet_path.exists()
-    # A second start reads the new store and changes nothing.
-    again = FeatherframeService(Database())
-    assert again._etag == result.etag and again.pictures["collage"].etag == "0123456789abcdef"
-    assert frame_bytes(again, "AA:BB") == result.frame

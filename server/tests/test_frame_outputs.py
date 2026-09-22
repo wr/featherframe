@@ -1,10 +1,9 @@
-"""Every frame owns its settings and its output (W-833 step 2b).
+"""Every frame owns its settings and its output (W-833).
 
-There is no primary kit any more. A frame's bytes are the picture it shows,
-finished with its own config, drawn in the tick and kept as one file. Two kits
-of the same panel with different settings get different bytes; an EE03 on
-plates and an EE02 on the collage get different pictures. The upgrade from the
-single-frame build must not repaint anything.
+There is no primary kit. A frame's bytes are the picture it shows, finished
+with its own config, drawn in the tick and kept as one file. Two kits of the
+same panel with different settings get different bytes; an EE03 on plates and
+an EE02 on the collage get different pictures.
 """
 from __future__ import annotations
 
@@ -16,10 +15,8 @@ from PIL import Image
 from starlette.testclient import TestClient
 
 from featherframe import frames as frames_mod
-from featherframe import paths
-from featherframe.config import Config
 from featherframe.db import Database
-from featherframe.render import framebuffer, pipeline, theme
+from featherframe.render import framebuffer, pipeline
 from tests._fixtures import create_birds_db, make_row
 from tests._frames import EE02_PANEL, EE03_PANEL, add_kit, connect, device
 
@@ -237,35 +234,7 @@ def test_the_frames_list_is_one_shape_for_a_kit_a_trmnl_and_a_page(client, svc):
     assert page["capabilities"]["colour"] and page["card"]["battery"] is None
 
 
-# -- the upgrade from the single-frame build -----------------------------------
-def _legacy_install(tmp_path, monkeypatch, panel: str, mode: str, rotation: int,
-                    sheet: Image.Image, settings=None):
-    """A DB and a data dir exactly as the build before this one left them."""
-    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
-    pipeline.DITHER_OVERRIDE = "none"
-    cfg = Config.from_dict({"panel": panel, "mode": mode, "panel_rotation": rotation,
-                            **(settings or {})})
-    result = pipeline.render_image(sheet, cfg, "collage" if mode == "collage" else "single",
-                                   "Blue Jay")
-    frames_dir = paths.frames_dir()
-    (frames_dir / "current.fff").write_bytes(result.frame)
-    result.preview.save(frames_dir / "current.png")
-    sheet.save(frames_dir / "current_sheet.png")
-    db = Database()
-    db.set("config", cfg.to_dict())
-    db.set("current_frame", {"etag": result.etag, "mode": cfg.mode, "label": "Blue Jay",
-                             "species_key": None if mode == "collage" else "cyanocitta cristata",
-                             "rendered_at": NOW.isoformat(timespec="seconds")})
-    reported = {"ee02": EE02_PANEL, "ee03": EE03_PANEL}[panel]
-    db.set("frames", {"active": "AA:BB", "known": {
-        "AA:BB": {"id": "AA:BB", "status": "active", "panel": reported, "ip": "10.0.1.10",
-                  "first_seen": "2026-09-01T09:00:00", "last_seen": "2026-09-20T09:00:00",
-                  "device": {"battery_voltage": 3.9, "battery_percent": 64,
-                             "last_checkin": "2026-09-20T09:00:00", "fw_version": "1.9.0"}}}})
-    return db, result, cfg
-
-
+# -- a server with nothing yet ---------------------------------------------------
 def _start(db):
     from featherframe.service import FeatherframeService
     svc = FeatherframeService(db)
@@ -273,77 +242,12 @@ def _start(db):
     return svc
 
 
-@pytest.mark.parametrize("panel,mode,rotation,rgb", [
-    ("ee03", "single", 90, False),
-    ("ee03", "collage", 270, False),
-    ("ee02", "collage", 0, True),
-])
-def test_the_migrated_frame_is_served_the_very_same_bytes(tmp_path, monkeypatch,
-                                                          panel, mode, rotation, rgb):
-    """Pixel identity across the upgrade: the wall must not repaint because
-    the server learned a new way to name what it already had."""
-    sheet = Image.new("RGB" if rgb else "L", (theme.WIDTH, theme.HEIGHT),
-                      (200, 120, 60) if rgb else 200)
-    db, result, cfg = _legacy_install(tmp_path, monkeypatch, panel, mode, rotation, sheet)
-    svc = _start(db)
-    assert svc._out["AA:BB"]["etag"] == result.etag
-    assert svc._output_bytes("AA:BB") == result.frame
-    assert svc._etag == result.etag                 # the picture is named by those bytes
-    # And a tick does not redraw it: the settings and the picture are the same.
-    svc.tick()
-    assert svc._output_bytes("AA:BB") == result.frame
-    # Re-finishing the adopted sheet with the frame's own config is byte-identical,
-    # which is what makes the adoption safe in the first place.
-    with Image.open(svc.pictures[svc._shown].sheet_path) as kept:
-        kept.load()
-    again = pipeline.render_image(kept, svc.frame_config(svc.frames.get("AA:BB")),
-                                  "single", "Blue Jay")
-    assert again.frame == result.frame
-
-
-def test_the_migration_moves_settings_telemetry_and_the_battery_log(tmp_path, monkeypatch):
-    sheet = Image.new("L", (theme.WIDTH, theme.HEIGHT), 200)
-    db, _result, cfg = _legacy_install(
-        tmp_path, monkeypatch, "ee03", "collage", 270, sheet,
-        settings={"mat_inset_pct": 3.5, "mat_offset_x_px": -10, "power_mode": "sleep",
-                  "wake_interval_minutes": 45, "device_poll_seconds": 9})
-    db.log_battery("2026-09-20T08:00:00", 3.88, 62)          # written before frames had ids
-    svc = _start(db)
-    row = svc.frames.get("AA:BB")
-    assert frames_mod.LEGACY_PRIMARY not in row
-    assert row["set"]["shows"] == "collage"                  # from the old config.mode
-    assert (row["set"]["mat_inset_pct"], row["set"]["mat_offset_x_px"]) == (3.5, -10)
-    assert (row["set"]["power_mode"], row["set"]["wake_interval_minutes"]) == ("sleep", 45)
-    assert row["set"]["panel_rotation"] == 270 and row["set"]["device_poll_seconds"] == 9
-    # Its telemetry is on its row, and the battery log is its own.
-    assert frames_mod.reported_of(row)["battery_percent"] == 64
-    assert svc.db.battery_history("2000-01-01", "AA:BB")[0]["voltage"] == pytest.approx(3.88)
-    assert svc.db.battery_history("2000-01-01") == []
-    assert device(svc, "AA:BB").fw_version == "1.9.0"
-    # Everything the frame is drawn with now comes off its row.
-    cfg = svc.frame_config(row)
-    assert (cfg.panel_rotation, cfg.mat_inset_pct, cfg.power_mode) == (270, 3.5, "sleep")
-
-
-def test_migrating_again_changes_nothing(tmp_path, monkeypatch):
-    sheet = Image.new("L", (theme.WIDTH, theme.HEIGHT), 200)
-    db, result, _cfg = _legacy_install(tmp_path, monkeypatch, "ee03", "single", 90, sheet)
-    svc = _start(db)
-    before = (svc.frames.all(), dict(svc._out))
-    # The owner turns it the other way up; a restart must not undo that.
-    svc.update_frame("AA:BB", {"panel_rotation": 270})
-    again = _start(Database())
-    assert again.frames.get("AA:BB")["set"]["panel_rotation"] == 270
-    assert again._output_bytes("AA:BB") == result.frame
-    assert before[0] != again.frames.all()
-
-
-def test_a_fresh_install_migrates_to_nothing_and_lets_its_first_kit_in(tmp_path, monkeypatch):
+def test_a_fresh_install_lets_its_first_kit_in(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     pipeline.DITHER_OVERRIDE = "none"
     svc = _start(Database())
-    assert svc.frames.all() == {} and svc._out == {}
+    assert svc.frames.all() == {} and svc._out == {}   # nothing to start from
     svc.source.db_path = str(tmp_path / "missing.db")
     svc._render_welcome(NOW, False)
     # Every kit asks, the first one included; the owner answers for one of them.
@@ -354,47 +258,6 @@ def test_a_fresh_install_migrates_to_nothing_and_lets_its_first_kit_in(tmp_path,
     svc.tick()
     assert svc.get_frame("AA:BB", None)[0] == 200
     assert svc.get_frame("CC:DD", None)[0] == 503       # not served until it is answered for
-
-
-def test_a_frame_that_never_named_its_panel_keeps_the_one_the_config_knew(tmp_path,
-                                                                          monkeypatch):
-    """Firmware too old to send X-Panel: the config knew which panel that
-    frame has, and it must go on being drawn for it."""
-    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
-    pipeline.DITHER_OVERRIDE = "none"
-    db = Database()
-    db.set("config", Config.from_dict({"panel": "ee02", "mode": "collage"}).to_dict())
-    db.set("frames", {"active": "AA:BB", "known": {"AA:BB": {"id": "AA:BB", "status": "active"}}})
-    svc = _start(db)
-    assert svc.frame_config(svc.frames.get("AA:BB")).panel == "ee02"
-    # Its own report still wins the moment it sends one.
-    svc.admit_frame("AA:BB", EE03_PANEL, None, None)
-    assert svc.frame_config(svc.frames.get("AA:BB")).panel == "ee03"
-
-
-def test_a_legacy_id_frame_migrates_in_place(tmp_path, monkeypatch):
-    """Firmware from before X-Device-Id was the frame called "legacy"; its
-    settings and its framebuffer move onto that row like any other."""
-    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
-    pipeline.DITHER_OVERRIDE = "none"
-    sheet = Image.new("L", (theme.WIDTH, theme.HEIGHT), 180)
-    cfg = Config.from_dict({"panel": "ee03", "mode": "single", "panel_rotation": 270})
-    result = pipeline.render_image(sheet, cfg, "single", "Blue Jay")
-    (paths.frames_dir() / "current.fff").write_bytes(result.frame)
-    sheet.save(paths.frames_dir() / "current_sheet.png")
-    db = Database()
-    db.set("config", cfg.to_dict())
-    db.set("current_frame", {"etag": result.etag, "mode": "single", "label": "Blue Jay",
-                             "species_key": "cyanocitta cristata"})
-    db.set("frames", {"active": "legacy", "known": {
-        "legacy": {"id": "legacy", "status": "active", "first_seen": "2026-09-01T09:00:00"}}})
-    svc = _start(db)
-    assert svc.frames.get("legacy")["set"]["panel_rotation"] == 270
-    assert svc._output_bytes("legacy") == result.frame
-    svc.tick()
-    assert svc._output_bytes("legacy") == result.frame
 
 
 def _det():

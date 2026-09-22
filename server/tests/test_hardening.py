@@ -65,27 +65,6 @@ def test_nan_battery_voltage_does_not_poison_status(client, svc):
     assert client.get("/").status_code == 200
 
 
-def test_poisoned_device_status_heals_on_start(tmp_path, monkeypatch):
-    # A DB row written by an older build (json.dumps emits NaN) must not keep
-    # /api/status broken across restarts. It is migrated onto the frame it came
-    # from (W-833), sanitised on the way.
-    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
-    from featherframe.db import Database
-    db = Database()
-    db.set("frames", {"active": "AA:BB", "known": {"AA:BB": {"id": "AA:BB", "status": "active"}}})
-    db.set("device_status", {"battery_voltage": float("nan"), "battery_percent": 9999,
-                             "wifi_rssi": float("inf"), "last_wake": "w" * 5000})
-    service = FeatherframeService(db=db)
-    assert device(service, "AA:BB").battery_voltage is None
-    assert device(service, "AA:BB").battery_percent is None
-    assert device(service, "AA:BB").wifi_rssi is None
-    assert len(device(service, "AA:BB").last_wake) <= 120
-    from featherframe.app import app
-    app.state.service = service
-    assert TestClient(app, raise_server_exceptions=False).get("/api/status").status_code == 200
-
-
 def test_telemetry_outside_plausible_range_is_dropped(client, svc):
     client.get("/api/frame", headers={"X-Battery-Voltage": "9.5",
                                       "X-Battery-Percent": "9999",
@@ -376,19 +355,18 @@ def test_backlog_keeps_cursor_when_latest_many_blips(svc, monkeypatch):
     assert svc._cursor() == 500              # the page, not the unseen tail
 
 
-def test_torn_current_fff_is_not_served(tmp_path, monkeypatch):
-    # A crash mid-write leaves a truncated frame; loading it under a fresh
-    # ETag would hand the device a container it rejects on every wake.
-    from featherframe import paths
+def test_a_torn_output_is_not_served(tmp_path, monkeypatch):
+    # A crash mid-write leaves a truncated framebuffer on disk; serving it
+    # would hand the device a container it rejects on every wake.
     from featherframe.db import Database
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     db = Database()
-    db.set("current_frame", {"etag": "deadbeefcafef00d", "mode": "single", "label": "x"})
-    (paths.frames_dir() / "current.fff").write_bytes(b"FFF1" + b"\x00" * 200)
+    db.set("frame_outputs", {"AA:BB": {"etag": "deadbeefcafef00d", "src": "x"}})
     service = FeatherframeService(db)
-    assert frame_bytes(service, service.LEGACY_FRAME) is None
-    assert service.current_etag() is None
+    service._out_paths("AA:BB")[0].write_bytes(b"FFF1" + b"\x00" * 200)
+    assert FeatherframeService(db)._out == {}
+    assert frame_bytes(service, "AA:BB") is None
 
 
 def test_a_frames_output_is_written_atomically(svc, tmp_path):

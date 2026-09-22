@@ -240,7 +240,7 @@ async def api_firmware(request: Request):
 
 def _firmware_for(board: Optional[str]):
     """The hosted image for the board that asks. One server may feed two kinds
-    of kit (W-832): `firmware.bin` and any `firmware-*.bin` in the data dir are
+    of kit: `firmware.bin` and any `firmware-*.bin` in the data dir are
     candidates, and the one that carries the board's own string wins. A frame
     that names no board gets `firmware.bin`, as before."""
     data = paths.data_dir()
@@ -901,7 +901,8 @@ async def view_png(request: Request, w: Optional[str] = None, h: Optional[str] =
 # (usetrmnl/trmnl-firmware; terminus doc/api.adoc): /api/setup hands a new
 # device a key, /api/display says which image to show and when to come back,
 # /api/log takes its complaints. A TRMNL, or a Kobo/Kindle/KOReader running
-# TRMNL's client, pointed here is a viewer: no approval step, never the frame.
+# TRMNL's client, is a frame like any other: it asks, and is sent the waiting
+# plate until the owner answers on the page.
 def _viewer_image_url(request: Request, viewer_id: str, filename: str) -> str:
     return (str(request.base_url).rstrip("/")
             + f"/api/viewers/{quote(viewer_id, safe='')}/{filename}.png")
@@ -915,7 +916,7 @@ async def trmnl_setup(request: Request):
         return JSONResponse({"status": 404, "api_key": "", "friendly_id": "", "image_url": "",
                              "message": "An ID header (the device's MAC) is required."},
                             status_code=404)
-    row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "trmnl",
+    row = await run_in_threadpool(svc.checkin_viewer, viewer_id, svc._clock(), "trmnl",
                                   viewers.trmnl_report(request.headers),
                                   request.client.host if request.client else None)
     log.info("viewer %s set up (%s)", viewer_id, row["reported"].get("model") or "TRMNL client")
@@ -932,11 +933,11 @@ async def trmnl_display(request: Request):
         # TRMNL's own shell clients (Kobo, Kindle) always send one; a client
         # that sends only its key is found by it.
         token = _str_header(request.headers.get("access-token"))
-        viewer_id = next((k for k, r in svc.viewers.all().items()
+        viewer_id = next((str(r["id"]) for r in svc.frames.by_transport(*viewers.KINDS)
                           if token and hmac.compare_digest(str(r.get("token", "")), token)), None)
     if viewer_id is None:
         return JSONResponse({"status": 404, "error": "An ID header is required."}, status_code=404)
-    row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "trmnl",
+    row = await run_in_threadpool(svc.checkin_viewer, viewer_id, svc._clock(), "trmnl",
                                   viewers.trmnl_report(request.headers),
                                   request.client.host if request.client else None)
     view = viewers.view_of(row)
@@ -955,7 +956,7 @@ async def trmnl_display(request: Request):
                              "reset_firmware": False, "special_function": "none"})
     if not svc.current_etag():
         return Response(status_code=503, content=b"no frame yet")
-    etag = svc.picture_etag(viewers.shows_of(row))   # the plate's or the collage's (W-831)
+    etag = svc.picture_etag(viewers.shows_of(row))   # the plate's or the collage's
     # The device repaints only when the filename changes: the frame's ETag and
     # the variant, so a new plate, or a new rotation from the page, is news.
     filename = f"{etag}-{view.key}"
@@ -977,10 +978,12 @@ async def trmnl_log(request: Request):
 @app.get("/api/viewers/{viewer_id}/{name}.png")
 async def viewer_png(request: Request, viewer_id: str, name: str):
     """A viewer's image. The name is only what made the device fetch (and what
-    keeps a cache honest); which picture it is, is `picture_for`'s call."""
+    keeps a cache honest); which picture it is, is `picture_for`'s call. The
+    path stays under /api/viewers: a device that is asleep holds the URL it was
+    handed, and moving it would blank the next screen that wakes."""
     svc = _svc(request)
-    row = svc.viewers.get(viewers.clean_id(viewer_id) or "")
-    if row is None:
+    row = svc.frames.get(viewers.clean_id(viewer_id) or "")
+    if row is None or frames_mod.transport_of(row) not in viewers.KINDS:
         return Response(status_code=404, content=b"no such viewer")
     inm = _strip_etag(request.headers.get("if-none-match"))
     if row.get("status") != frames_mod.ON:
@@ -1030,7 +1033,7 @@ async def view_state(request: Request, viewer: Optional[str] = None, w: Optional
     if viewer_id is None or size is None:
         return JSONResponse({"error": "viewer, w and h are required"}, status_code=400)
     reported = {"width": size[0], "height": size[1], "model": _str_header(device, 40)}
-    row = await run_in_threadpool(svc.viewers.checkin, viewer_id, svc._clock(), "page", reported,
+    row = await run_in_threadpool(svc.checkin_viewer, viewer_id, svc._clock(), "page", reported,
                                   request.client.host if request.client else None)
     # Every frame is approved on the server (W-833). A page that has not been
     # added yet says so on its own glass and keeps asking; the moment the owner
@@ -1052,21 +1055,6 @@ async def view_state(request: Request, viewer: Optional[str] = None, w: Optional
         "paper": view.fmt != "color",
         "poll": viewers.PAGE_POLL_SECONDS,
     }, headers={"Cache-Control": "no-store"})
-
-
-@app.get("/api/viewers")
-async def viewers_list(request: Request):
-    rows = _svc(request).viewers.all().values()
-    return JSONResponse({"viewers": [viewers.public(r) for r in
-                                     sorted(rows, key=lambda r: r.get("first_seen") or "")]})
-
-
-@app.post("/api/viewers/{viewer_id}")
-async def viewer_update(request: Request, viewer_id: str):
-    """A thin alias for POST /api/frames/<id>: a viewer is a frame, and the
-    page only ever posts to the frames endpoint. Kept so a script or a
-    bookmark written against W-822 still works."""
-    return await api_frame_settings(request, viewers.clean_id(viewer_id) or "")
 
 
 @app.get("/api/battery")

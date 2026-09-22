@@ -84,6 +84,13 @@ def collages_dir() -> Path:
     return d
 
 
+def collage_days_dir() -> Path:
+    """Each kept day's finished collage sheet, to download."""
+    d = frames_dir() / "collage-days"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def plates_dir() -> Path:
     d = _env_path("FEATHERFRAME_PLATES_DIR", _REPO_SERVER_DIR / "plates")
     return d

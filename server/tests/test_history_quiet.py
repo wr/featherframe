@@ -100,7 +100,7 @@ def test_commit_writes_thumbnail_and_history_lists_it(client, svc):
     assert "max-age=86400" in r.headers["cache-control"]
 
 
-def test_history_thumbnails_are_capped_at_sixty(svc):
+def test_history_thumbnails_are_capped_at_the_strip(svc):
     from PIL import Image
     hist = paths.history_dir()
     for i in range(70):
@@ -112,11 +112,11 @@ def test_history_thumbnails_are_capped_at_sixty(svc):
         os.utime(p, (1_700_000_000 + i, 1_700_000_000 + i))
     svc.force_test_detection("Northern Cardinal", "Cardinalis cardinalis")
     left = sorted(hist.glob("*.png"))
-    assert len(left) == 60
+    assert len(left) == 24
     assert (hist / f"{svc.current_etag()}.png") in left
     assert not (hist / f"{0:016x}.png").exists()      # the oldest went first
     assert (hist / f"{69:016x}.png").exists()
-    assert len(list(hist.glob("*.jpg"))) == 60            # full sizes go with them
+    assert len(list(hist.glob("*.jpg"))) == 24            # full sizes go with them
     assert not (hist / f"{0:016x}.jpg").exists()
 
 
@@ -297,3 +297,38 @@ def test_collage_note_does_not_collide_with_the_key(svc):
     assert min(gap.getdata()) == 255
     note_band = field.crop((450, 1800, 954, 1850))
     assert min(note_band.getdata()) < 128
+
+
+# -- past collages -----------------------------------------------------------
+def test_a_collage_is_kept_a_week_to_download(client, svc):
+    from datetime import date, timedelta
+    from featherframe.service import COLLAGE_DAYS_KEPT
+    from PIL import Image
+    pic = svc.pictures["collage"]
+    Image.new("L", (8, 8), 200).save(pic.sheet_path)
+    start = date(2026, 9, 1)
+    for i in range(COLLAGE_DAYS_KEPT + 3):
+        svc._keep_collage_day(start + timedelta(days=i))
+    days = svc.collage_days()
+    assert len(days) == COLLAGE_DAYS_KEPT == 7
+    assert days[0]["date"] == "2026-09-10" and days[-1]["date"] == "2026-09-04"
+    assert days[0]["text"] == "Thu 10 Sep"
+    r = client.get(days[0]["url"])
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+    assert "featherframe-collage-2026-09-10.png" in r.headers["content-disposition"]
+    assert client.get("/api/collages/2026-09-01.png").status_code == 404   # pruned
+    assert client.get("/api/collages/..%2Fx.png").status_code == 404
+    html = client.get("/").text
+    assert "Past collages" in html and 'download="featherframe-collage-2026-09-10.png"' in html
+
+
+def test_the_colour_collage_is_the_one_kept(svc):
+    from datetime import date
+    from featherframe import paths
+    from PIL import Image
+    pic = svc.pictures["collage"]
+    Image.new("L", (8, 8), 200).save(pic.sheet_path)
+    Image.new("RGB", (8, 8), (200, 0, 0)).save(pic.color_sheet_path)
+    svc._keep_collage_day(date(2026, 9, 22))
+    with Image.open(paths.collage_days_dir() / "2026-09-22.png") as im:
+        assert im.mode == "RGB"

@@ -15,6 +15,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import socket
 import threading
 from dataclasses import dataclass
@@ -61,9 +62,12 @@ VIEWER_SHOWS_DAYS = 30
 COLOR_VIEWER_DAYS = 30
 
 # History thumbnails: 1/8-scale previews keyed by ETag, capped on disk (a
-# Pi's SD card) and matched to what /api/history can list. Each has a
-# full-size JPEG beside it for the zoom (~0.4 MB; 60 of them is ~25 MB).
-_HISTORY_MAX = 60
+# Pi's SD card) and matched to what the page's strip shows. Each has a
+# full-size JPEG beside it for the zoom (~0.4 MB; 24 of them is ~10 MB).
+_HISTORY_MAX = 24
+# The finished collage of each of the last week's days, kept to download.
+COLLAGE_DAYS_KEPT = 7
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _HISTORY_SCALE = 8
 _HISTORY_FULL_QUALITY = 85
 _ETAG_RE = re.compile(r"^[0-9a-f]{16}$")
@@ -1235,7 +1239,41 @@ class FeatherframeService:
                             note=note, label=label, key=on_date.isoformat(),
                             recompose=lambda: compose(True)[0])
         log.info("rendered collage (%s), etag=%s", label, etag)
+        self._keep_collage_day(on_date)
         return True
+
+    def _keep_collage_day(self, on_date: ddate) -> None:
+        """The day's finished collage, to download: colour when it was drawn
+        in colour, else gray. A redraw replaces it, so the last of the day
+        (the nightly one) is what is kept. Best-effort, like a thumbnail."""
+        pic = self.pictures[COLLAGE]
+        try:
+            src = pic.sheets(color=True)
+            if not src:
+                return
+            days = paths.collage_days_dir()
+            tmp = days / f"{on_date.isoformat()}.tmp"
+            shutil.copyfile(src[0], tmp)
+            os.replace(tmp, days / f"{on_date.isoformat()}.png")
+            kept = sorted(p for p in days.glob("*.png") if _DATE_RE.match(p.stem))
+            for old in kept[:-COLLAGE_DAYS_KEPT]:
+                old.unlink(missing_ok=True)
+        except Exception:  # noqa: BLE001 — never worth a failed collage
+            log.warning("collage for %s not kept", on_date, exc_info=True)
+
+    def collage_days(self) -> list[dict]:
+        """The kept collages, newest first, for the page's download links."""
+        out = []
+        for p in sorted(paths.collage_days_dir().glob("*.png"), reverse=True):
+            if not _DATE_RE.match(p.stem):
+                continue
+            try:
+                day = ddate.fromisoformat(p.stem)
+            except ValueError:
+                continue
+            out.append({"date": p.stem, "url": f"/api/collages/{p.stem}.png",
+                        "text": f"{day:%a} {day.day} {day:%b}"})
+        return out[:COLLAGE_DAYS_KEPT]
 
     def _collage_composer(self, now: datetime, on_date: ddate):
         """(compose, note) for the day's collage, or None when fewer than two

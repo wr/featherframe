@@ -256,6 +256,28 @@ async def api_firmware_check(request: Request):
     return JSONResponse(await run_in_threadpool(_svc(request).check_firmware))
 
 
+# -- USB install (W-840) ---------------------------------------------------
+# The page's "Add a frame over USB" flashes the latest official release with
+# esp-web-tools (vendored in static/flash/). Web Serial needs a secure page,
+# so on plain http the page sends the owner to the same flasher on GitHub
+# Pages instead; these serve the in-page one.
+@app.get("/api/flash/{kit}/manifest.json")
+async def api_flash_manifest(request: Request, kit: str):
+    man = _svc(request).releases.flash_manifest(kit)
+    if man is None:
+        return JSONResponse({"error": "no release for this kit"}, status_code=404)
+    return JSONResponse(man, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/flash/{kit}/{name}")
+async def api_flash_part(request: Request, kit: str, name: str):
+    path = await run_in_threadpool(_svc(request).releases.part, kit, name)
+    if path is None:
+        return Response(status_code=404, content=b"no such part")
+    return FileResponse(path, media_type="application/octet-stream",
+                        headers={"Cache-Control": "no-store"})
+
+
 def _firmware_for(board: Optional[str]):
     """The hosted image for the board that asks. One server may feed two kinds
     of kit: `firmware.bin` and any `firmware-*.bin` in the data dir are

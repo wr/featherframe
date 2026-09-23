@@ -28,7 +28,7 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
           cache-dependency-path: server/requirements.txt
-      - run: pip install -r server/requirements.txt pytest httpx
+      - run: pip install -r server/requirements.txt -r server/requirements-optional.txt pytest httpx
       # Plates are gitignored: the suite must pass without them.
       - run: python -m pytest server/tests -q
 

@@ -238,6 +238,43 @@ def _gamut_mapped(img: Image.Image, saturation: float) -> tuple[np.ndarray, np.n
 
 
 def _diffuse_stucki(mapped: np.ndarray, inkset: np.ndarray) -> np.ndarray:
+    """Stucki to the six inks: compiled where Numba is installed, else the
+    Python loop below. The two give the same inks, pixel for pixel."""
+    kernel = _stucki_kernel()
+    if kernel is None:
+        return _diffuse_stucki_py(mapped, inkset)
+    pal = _palette_linear()
+    pal_n = (pal - pal[BLACK]) / (pal[WHITE] - pal[BLACK])
+    pal_q = np.array([[max(c, 0.0) ** 0.5 for c in p] for p in pal_n.tolist()])
+    choices = np.zeros((64, 6), dtype=np.int64)
+    n_choices = np.zeros(64, dtype=np.int64)
+    for m in range(64):
+        ks = [k for k in range(6) if m >> k & 1] or list(range(6))
+        choices[m, :len(ks)] = ks
+        n_choices[m] = len(ks)
+    return kernel(np.ascontiguousarray(mapped, dtype=np.float32),
+                  np.ascontiguousarray(inkset, dtype=np.uint8),
+                  np.ascontiguousarray(pal_n, dtype=np.float64), pal_q,
+                  choices, n_choices, np.array(_STUCKI, dtype=np.int64), WHITE)
+
+
+_KERNEL = False  # not looked for yet
+
+
+def _stucki_kernel():
+    """The compiled loop, or None where Numba is not installed (or fails)."""
+    global _KERNEL
+    if _KERNEL is False:
+        try:
+            from .stucki_jit import diffuse
+            _KERNEL = diffuse
+        except Exception:  # noqa: BLE001 — ImportError, or a broken llvmlite
+            log.info("numba not available: colour dither runs in Python")
+            _KERNEL = None
+    return _KERNEL
+
+
+def _diffuse_stucki_py(mapped: np.ndarray, inkset: np.ndarray) -> np.ndarray:
     """Stucki error diffusion to the six inks, serpentine. The error is carried
     in linear light (so the average stays true); the nearest ink is judged on
     square-rooted values, closer to how the eye weighs a miss — and only among

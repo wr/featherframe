@@ -2661,7 +2661,7 @@
         a.textContent = 'Open the flasher';
         actions.appendChild(a);
       } else {
-        note.textContent = {{ ('Plug the frame in by USB, then Connect. It joins this household when you close the installer.' if hosted else 'Plug the frame in by USB, then Connect.') | tojson }};
+        note.textContent = {{ ('Plug the frame in by USB. Connect installs the latest firmware; Pair adds the frame to this household.' if hosted else 'Plug the frame in by USB, then Connect.') | tojson }};
         if (!loaded) {
           var sc = document.createElement('script');
           sc.type = 'module'; sc.src = '/static/flash/esp-web-tools/install-button.js';
@@ -2677,6 +2677,13 @@
         btn.addEventListener('click', function () { dlg.close(); });
         b.appendChild(btn);
         actions.appendChild(b);
+        if (window.ffPairUsb) {
+          // Hosted (W-848): pairing is its own step, installed or not.
+          var pairBtn = document.createElement('button');
+          pairBtn.className = 'btn'; pairBtn.type = 'button'; pairBtn.textContent = 'Pair';
+          pairBtn.addEventListener('click', function () { dlg.close(); window.ffPairUsb(); });
+          actions.insertBefore(pairBtn, b);
+        }
       }
     }
     dlg.querySelectorAll('input[name="usb-kit"]').forEach(function (r) { r.addEventListener('change', render); });
@@ -3289,7 +3296,14 @@
   }
   // Opening the port can reset the frame: ask again until it has booted.
   async function askFrame(port) {
-    await port.open({ baudRate: 115200 });
+    // The installer may still be letting go of the port: try for a few seconds.
+    for (var tries = 0; ; tries++) {
+      try { await port.open({ baudRate: 115200 }); break; }
+      catch (e) {
+        if (tries >= 16 || !/already open|in use|busy/i.test(String(e && e.message))) throw e;
+        await new Promise(function (r) { setTimeout(r, 500); });
+      }
+    }
     var reader = port.readable.getReader(), writer = port.writable.getWriter();
     var buf = [], pending = null, nextSend = 0, deadline = Date.now() + 30000;
     try {
@@ -3334,6 +3348,15 @@
         showFlash('bad', 'Not paired over USB: ' + errText(err) + '. Use Pair a frame with the code on its screen.', 'ic-warn', true);
       });
   }
+  // The USB dialog's Pair button: the owner picks the frame's port.
+  window.ffPairUsb = function () {
+    navigator.serial.requestPort()
+      .then(pair)
+      .catch(function (err) {
+        if (err && err.name === 'NotFoundError') return;   // no port picked
+        showFlash('bad', 'Not paired over USB: ' + errText(err) + '.', 'ic-warn', true);
+      });
+  };
   new MutationObserver(function (changes) {
     changes.forEach(function (c) {
       c.addedNodes.forEach(function (n) {

@@ -28,6 +28,7 @@ from urllib.parse import quote
 from PIL import Image
 
 from . import firmware_release
+from . import plate_library
 from . import frames as frames_mod
 from . import panels, paths
 from . import pictures as pictures_mod
@@ -526,7 +527,9 @@ class FeatherframeService:
         self.releases = firmware_release.ReleaseStore(self.db, paths.data_dir())
         # The frames holding a push socket (W-841), woken after every tick.
         self.push = PushHub()
-        self.audubon = AudubonProvider()
+        # The scans on this box, or the shared library where there are none
+        # (FEATHERFRAME_PLATE_LIBRARY, W-842): the same crops either way.
+        self.audubon = plate_library.from_env() or AudubonProvider()
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
         self.source = make_source(self.config, self.db)

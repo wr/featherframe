@@ -1,0 +1,110 @@
+"""The shared plate library (W-842): a plate drawn from the library is the
+plate drawn from the scan, pixel for pixel, gray and colour."""
+from __future__ import annotations
+
+import json
+
+import numpy as np
+import pytest
+from PIL import Image, ImageDraw
+
+from featherframe import plate_library
+from featherframe.names import SpeciesIndex
+from featherframe.render.provider import AudubonProvider
+
+ENTRIES = [
+    {"common": "Northern Cardinal", "scientific": "Cardinalis cardinalis", "plate": 159,
+     "image": "plate-159-cardinal-grosbeak.jpg", "legend": ["1. Male. 2. Female."]},
+    # Two species on one composite plate share one crop…
+    {"common": "Blue Jay", "scientific": "Cyanocitta cristata", "plate": 102,
+     "image": "plate-102-blue-jay.jpg", "composite": True},
+    {"common": "Steller's Jay", "scientific": "Cyanocitta stelleri", "plate": 102,
+     "image": "plate-102-blue-jay.jpg", "composite": True},
+    # …and a curated box is a crop of its own.
+    {"common": "Canada Jay", "scientific": "Perisoreus canadensis", "plate": 102,
+     "image": "plate-102-blue-jay.jpg", "crop_box": [0.1, 0.1, 0.5, 0.5]},
+    {"common": "Veery", "scientific": "Catharus fuscescens", "plate": "none"},
+]
+
+
+def _scan(path, seed):
+    rng = np.random.default_rng(seed)
+    img = Image.new("RGB", (1500, 2000), (236, 228, 208))
+    d = ImageDraw.Draw(img)
+    for _ in range(60):
+        x, y = rng.integers(300, 1100), rng.integers(400, 1500)
+        d.ellipse([x, y, x + rng.integers(20, 200), y + rng.integers(20, 200)],
+                  fill=tuple(int(v) for v in rng.integers(20, 180, 3)))
+    img.save(path, quality=90)
+
+
+@pytest.fixture
+def plates(tmp_path):
+    img = tmp_path / "plates" / "img"
+    img.mkdir(parents=True)
+    _scan(img / "plate-159-cardinal-grosbeak.jpg", 1)
+    _scan(img / "plate-102-blue-jay.jpg", 2)
+    index = tmp_path / "plates" / "index.json"
+    index.write_text(json.dumps({"generated_at": "x", "species": ENTRIES}))
+    return index, img
+
+
+def _same(a, b):
+    assert a.mode == b.mode and a.size == b.size
+    assert np.array_equal(np.asarray(a), np.asarray(b))
+
+
+def test_a_library_plate_is_the_scan_plate(plates, tmp_path):
+    index, img = plates
+    out = tmp_path / "library"
+    stats = plate_library.build(out, index, img)
+    assert stats == {"made": 3, "kept": 1, "entries": 5}      # the composite is cut once
+    scans = AudubonProvider(SpeciesIndex(ENTRIES, images_dir=img))
+    lib = plate_library.LibraryProvider(plate_library.PlateLibrary(str(out), tmp_path / "cache"))
+    for common, sci in [(e["common"], e["scientific"]) for e in ENTRIES[:4]]:
+        a, b = scans.artwork(common, sci), lib.artwork(common, sci)
+        _same(a.image, b.image)
+        for x, y in zip(a.color_pair(), b.color_pair()):
+            _same(x, y)
+        assert (a.audubon_plate, a.composite, a.legend) == (b.audubon_plate, b.composite, b.legend)
+    assert lib.artwork("Veery", "Catharus fuscescens") is None     # never a wrong bird
+    assert lib.artwork("House Sparrow", "Passer domesticus") is None
+    assert plate_library.build(out, index, img)["kept"] == 4        # idempotent
+
+
+def test_a_remote_library_is_fetched_once_and_kept(plates, tmp_path, monkeypatch):
+    index, img = plates
+    out = tmp_path / "library"
+    plate_library.build(out, index, img)
+    asked = []
+
+    class Resp:
+        def __init__(self, body):
+            self.content = body
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return json.loads(self.content)
+
+    def get(url, timeout):
+        rel = url.split("https://plates.example/", 1)[1]
+        asked.append(rel)
+        return Resp((out / rel).read_bytes())
+
+    monkeypatch.setattr(plate_library.requests, "get", get)
+    lib = plate_library.LibraryProvider(plate_library.PlateLibrary("https://plates.example/", tmp_path / "cache"))
+    lib.artwork("Northern Cardinal", "Cardinalis cardinalis")
+    lib.artwork("Northern Cardinal", "Cardinalis cardinalis").color_pair()
+    lib.artwork("Northern Cardinal", "Cardinalis cardinalis")
+    assert asked.count("library.json") == 1
+    assert len([a for a in asked if a.endswith(".gray.png")]) == 1
+    assert len([a for a in asked if a.endswith(".color.webp")]) == 1
+
+
+def test_the_env_puts_the_library_in_place_of_the_scans(plates, tmp_path, monkeypatch):
+    index, img = plates
+    plate_library.build(tmp_path / "library", index, img)
+    monkeypatch.setenv("FEATHERFRAME_PLATE_LIBRARY", str(tmp_path / "library"))
+    assert plate_library.from_env().species_count == 5     # the index, as AudubonProvider counts it
+    monkeypatch.delenv("FEATHERFRAME_PLATE_LIBRARY")
+    assert plate_library.from_env() is None

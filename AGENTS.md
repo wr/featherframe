@@ -383,6 +383,17 @@ the same script and the roman numeral in the engraved capitals, since a run
 of script capitals is unreadable. A generated sheet carries a ✦ there
 instead, and the bough of a species with no plate carries nothing. `theme.py` holds all geometry/tone constants.
 
+**The plate library (W-842, `plate_library.py`)** is the scans' crops taken
+once: `library.json` (index.json's species, each naming its crop by
+`library` key) + `lib/<key>.gray.png` (`plate.extract`'s output) +
+`lib/<key>.color.webp` (the raw colour crop, normalised at load). Both
+lossless, so a plate from the library is the plate from the scan (a test
+holds it); ~1.2 GB for the edition. `FEATHERFRAME_PLATE_LIBRARY` (a directory
+or a URL, fetched on first use into `data/plate-library/`) puts
+`LibraryProvider` in place of `AudubonProvider` — for a server with no scans,
+the hosted render Container first. Build: `python -m featherframe.plate_library
+build OUT_DIR` on a machine with every scan.
+
 **Non-obvious invariants — do not break one side of these without the other:**
 
 - **Never a wrong bird.** No match / no-plate species → provider returns `None` →

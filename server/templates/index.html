@@ -687,9 +687,10 @@
     .fr-menu { position:absolute; right:-7px; top:calc(100% + 4px); z-index:20; min-width:200px; padding:4px;
                background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--sh-card); }
     .fr-menu[hidden] { display:none; }
-    .fr-menu button { display:block; width:100%; text-align:left; font:inherit; font-size:13px; color:var(--ink-2);
+    .fr-menu hr { border:0; border-top:1px solid var(--hair); margin:4px 2px; }
+    .fr-menu a, .fr-menu button { display:block; text-decoration:none; box-sizing:border-box; width:100%; text-align:left; font:inherit; font-size:13px; color:var(--ink-2);
                       background:none; border:0; border-radius:5px; padding:7px 10px; cursor:pointer; white-space:nowrap; }
-    .fr-menu button:hover, .fr-menu button:focus-visible { background:var(--inset); color:var(--ink); outline:none; }
+    .fr-menu a:hover, .fr-menu a:focus-visible, .fr-menu button:hover, .fr-menu button:focus-visible { background:var(--inset); color:var(--ink); outline:none; }
     .usb-dlg { width:min(460px, calc(100vw - 32px)); border:1px solid var(--border); border-radius:9px;
                background:var(--surface); color:var(--ink); box-shadow:var(--sh-card); padding:18px 20px 20px; }
     .usb-dlg::backdrop { background:rgba(32,30,26,.45); }
@@ -1118,6 +1119,9 @@
             <button class="fr-more-btn" type="button" id="fr-more" aria-label="More" aria-haspopup="menu" aria-expanded="false" aria-controls="fr-menu"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
             <div class="fr-menu" id="fr-menu" role="menu" hidden>
               <button type="button" role="menuitem" id="usb-open">Add a frame over USB</button>
+              <hr>
+              <a role="menuitem" href="https://shop.wells.ee/products/featherframe/" target="_blank" rel="noopener">Buy a frame</a>
+              <a role="menuitem" href="https://github.com/wr/featherframe#shopping-list" target="_blank" rel="noopener">DIY instructions</a>
             </div>
           </div>
         </div>

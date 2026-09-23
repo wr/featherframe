@@ -460,6 +460,8 @@ def test_add_over_usb_is_in_the_frames_menu(client):
     head = client.get("/").text.split('<div class="fr-head">')[1].split('<ul class="fr-list">')[0]
     assert '<h2 class="sec-head">Frames</h2>' in head
     assert 'role="menu" hidden' in head and ">Add a frame over USB</button>" in head
+    assert 'href="https://shop.wells.ee/products/featherframe/"' in head and ">Buy a frame<" in head
+    assert 'href="https://github.com/wr/featherframe#shopping-list"' in head and ">DIY instructions<" in head
 
 
 def test_the_household_sections_read_in_order(client):

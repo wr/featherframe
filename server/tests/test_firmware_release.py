@@ -359,3 +359,26 @@ def test_the_vendored_flasher_is_served(client):
     c, _ = client
     r = c.get("/static/flash/esp-web-tools/install-button.js")
     assert r.status_code == 200 and b"esp-web-install-button" in r.content
+
+
+def test_the_update_is_read_before_it_is_pressed(client):
+    """The row says "Update available" and opens the release's own notes; the
+    frame is only marked once Update is pressed in that dialog."""
+    c, svc = client
+    svc.releases.http.release.update(
+        name="Featherframe 1.3.0 (preview)", html_url="https://github.com/wr/featherframe/releases/tag/v1.3.0",
+        body="## What's Changed\n* Boot faster by @wr in https://github.com/wr/featherframe/pull/9\n<script>x</script>")
+    svc.releases.check(NOW)
+    _kit(svc)
+    about = svc.releases.about()
+    assert about["name"] == "Featherframe 1.3.0 (preview)" and "Boot faster" in about["notes"]
+    page = c.get("/").text
+    assert ">Update available</button>" in page and ">Update available…</button>" in page
+    assert 'id="fw-dlg"' in page and "Featherframe 1.3.0 (preview)</h2>" in page
+    assert "<script>x</script>" not in page              # the notes ride as escaped JSON
+    assert "update_firmware" not in svc.frames.get(FID)["set"]
+
+
+def test_no_dialog_without_a_release(client):
+    c, _ = client
+    assert 'id="fw-dlg"' not in c.get("/").text

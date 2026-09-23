@@ -597,6 +597,12 @@
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .badge { flex:none; font-size:11px; font-weight:500; line-height:1.55; padding:1px 7px;
       border-radius:999px; white-space:nowrap; }
+    /* A firmware release this frame is not on: the accent, and a button (it
+       opens the release's notes), so it reads before the row is opened. */
+    .badge.upd { color:var(--accent); background:color-mix(in srgb, var(--accent) 13%, transparent);
+                 border:0; font-family:inherit; cursor:pointer; }
+    .badge.upd:hover { background:color-mix(in srgb, var(--accent) 22%, transparent); }
+    .badge.upd:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
     .badge.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 15%, transparent); }
     .badge.bad { color:var(--bad); background:color-mix(in srgb, var(--bad) 15%, transparent); }
     /* On a switch's label and the section's head: a rounded rectangle in
@@ -673,6 +679,18 @@
     .usb-dlg .usb-x { position:absolute; top:12px; right:12px; margin:0; }
     .usb-dlg p { font-size:13.5px; color:var(--ink-2); line-height:1.55; margin:12px 0 0; }
     .usb-actions { display:flex; justify-content:flex-end; margin-top:16px; }
+    /* The Update dialog: the release's own notes, then Cancel / Update. */
+    .fw-dlg { width:min(560px, calc(100vw - 32px)); }
+    .fw-dlg .fw-meta { margin:-8px 0 0; font-size:13px; color:var(--muted); }
+    .fw-notes { margin-top:14px; max-height:min(52vh, 420px); overflow:auto; font-size:13.5px; line-height:1.5;
+                color:var(--ink-2); border:1px solid var(--hair); border-radius:7px; padding:4px 14px 10px; }
+    .fw-notes h3 { font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:12px 0 6px; }
+    .fw-notes ul { margin:0; padding-left:1.1em; }
+    .fw-notes li + li { margin-top:4px; }
+    .fw-notes a { color:var(--accent); }
+    .fw-notes p { margin:10px 0 0; }
+    .fw-dlg .usb-actions { gap:8px; }
+    .fw-dlg .usb-actions form { margin:0; }
     .usb-actions:empty { display:none; }
     .fr-empty { font-size:13.5px; color:var(--ink-2); line-height:1.6; max-width:62ch; }
     .fr-empty p { margin:0 0 12px; }
@@ -918,7 +936,8 @@
             <span class="fr-name" data-fr="title">{{ fr.title }}</span>
             <span class="badge warn" data-h="overdue" {{ '' if card.overdue else 'hidden' }}>Overdue</span>
             <span class="badge bad" data-h="lowbatt" {{ '' if low else 'hidden' }}>Battery low</span>
-            <span class="badge" data-h="fw-badge" {{ '' if fw and fw.available and not fw.pending else 'hidden' }}>Update</span>
+            <button class="badge upd" type="button" data-h="fw-badge" data-fw-open {{ '' if fw and fw.available and not fw.pending else 'hidden' }}>Update available</button>
+            <span class="badge" data-h="fw-updating" {{ '' if fw and fw.available and fw.pending else 'hidden' }}>Updating</span>
           </span>
           <span class="fr-desc" data-fr="summary">{{ fr.summary }}</span>
         </span>
@@ -1008,7 +1027,7 @@
           <div class="frow-text"><span class="lab">Firmware</span><div class="hint tnum" data-h="fw-hint">{{ (fw.running or 'Unknown') ~ ' → ' ~ fw.available }}</div></div>
           <div class="frow-ctl">
             <span class="hint" data-h="fw-pending" {{ '' if fw.pending else 'hidden' }}>Updates on its next check-in</span>
-            <button class="btn" type="button" data-fr-action="update" {{ '' if not fw.pending else 'hidden' }}>Update</button>
+            <button class="btn" type="button" data-fw-open {{ '' if not fw.pending else 'hidden' }}>Update available…</button>
           </div>
         </div>
         {% endif %}
@@ -1122,6 +1141,21 @@
     {# The kit's firmware, installed from this page (W-840). The frame it makes
        asks to connect like any other. #}
     {% set kit_words = {'ee03': '10.3″ gray', 'ee02': '13.3″ colour'} %}
+    {# One firmware release, shown for whichever frame's Update was pressed
+       (W-838): its notes, then Cancel / Update. #}
+    {% if fw_about and fw_about.version %}
+    <dialog class="usb-dlg fw-dlg" id="fw-dlg" aria-labelledby="fw-title">
+      <form method="dialog" class="usb-x"><button class="btn sm" aria-label="Close">Close</button></form>
+      <h2 class="sec-head" id="fw-title">{{ fw_about.name or ('Featherframe ' ~ fw_about.version) }}</h2>
+      <p class="fw-meta tnum" id="fw-meta"></p>
+      <div class="fw-notes" id="fw-notes"></div>
+      <script type="application/json" id="fw-about">{{ fw_about | tojson }}</script>
+      <div class="usb-actions">
+        <form method="dialog"><button class="btn" type="submit">Cancel</button></form>
+        <button class="btn primary" type="button" id="fw-go">Update</button>
+      </div>
+    </dialog>
+    {% endif %}
     <dialog class="usb-dlg" id="usb-dlg" aria-labelledby="usb-title">
       <form method="dialog" class="usb-x"><button class="btn sm" aria-label="Close">Close</button></form>
       <h2 class="sec-head" id="usb-title">Add a frame over USB</h2>
@@ -1813,9 +1847,9 @@
     var fwRow = row.querySelector('[data-fr-fw]');
     if (fwRow) fwRow.hidden = !fw.available;
     subHidden(row, 'data-h', 'fw-badge', !(fw.available && !fw.pending));
+    subHidden(row, 'data-h', 'fw-updating', !(fw.available && fw.pending));
     subHidden(row, 'data-h', 'fw-pending', !(fw.available && fw.pending));
-    var upd = row.querySelector('[data-fr-action="update"]');
-    if (upd) upd.hidden = !(fw.available && !fw.pending);
+    row.querySelectorAll('.fr-body [data-fw-open]').forEach(function (b) { b.hidden = !(fw.available && !fw.pending); });
     subText(row, 'data-h', 'fw-hint', fw.available ? (fw.running || 'Unknown') + ' \u2192 ' + fw.available : '');
   }
 
@@ -2227,21 +2261,6 @@
           .then(function () { busy(row, false); save.textContent = label; });
       });
 
-      var update = row.querySelector('[data-fr-action="update"]');
-      if (update) update.addEventListener('click', function () {
-        busy(row, true);
-        jsonFetch('/api/frames/' + encodeURIComponent(row.getAttribute('data-frame')),
-                  { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ update_firmware: true }) })
-          .then(function (out) {
-            var mine = (out.frames || []).filter(function (f) { return f.id === row.getAttribute('data-frame'); })[0];
-            if (mine) applyHealth(row, mine);
-            showFlash('ok', 'It updates on its next check-in.', 'ic-check');
-          })
-          .catch(function (e) { showFlash('bad', 'Not updated — ' + errText(e) + '.', 'ic-warn'); })
-          .then(function () { busy(row, false); });
-      });
-
       var forget = row.querySelector('[data-fr-action="forget"]');
       if (forget) forget.addEventListener('click', function () {
         var who = (sub(row, 'data-fr', 'title') || {}).textContent || 'this frame';
@@ -2417,6 +2436,75 @@
       submitForm(kf.closest('form'));
     });
   });
+
+  // -- a firmware update, read before it is pressed (W-838) ---------------------
+  // A row's "Update available" opens the release's own notes; Update there
+  // marks that frame, which takes the release on its next check-in.
+  (function () {
+    var dlg = $('fw-dlg');
+    if (!dlg) return;
+    var about = {};
+    try { about = JSON.parse($('fw-about').textContent) || {}; } catch (e) {}
+    function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function link(url, text) {
+      return /^https:\/\//.test(url) ? '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(text) + '</a>' : esc(text);
+    }
+    // GitHub's generated notes and not much more: headings, bullets, links.
+    // "* Title by @who in https://…/pull/12" reads as "Title #12".
+    function inline(t) {
+      var pr = t.match(/^(.*) by @\S+ in (https:\/\/github\.com\/\S+\/pull\/(\d+))$/);
+      if (pr) return esc(pr[1]) + ' ' + link(pr[2], '#' + pr[3]);
+      var full = t.match(/^\*\*Full Changelog\*\*:\s*(https:\/\/\S+)$/);
+      if (full) return link(full[1], 'Full changelog');
+      var out = '', rest = t, m, re = /\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/;
+      while ((m = rest.match(re))) {
+        out += esc(rest.slice(0, m.index)) + link(m[2], m[1]);
+        rest = rest.slice(m.index + m[0].length);
+      }
+      return (out + esc(rest)).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    }
+    function render(md) {
+      var out = [], list = false;
+      String(md || '').split(/\r?\n/).forEach(function (line) {
+        var t = line.trim(), li = t.match(/^[*-]\s+(.*)$/), h = t.match(/^#{1,6}\s+(.*)$/);
+        if (!li && list) { out.push('</ul>'); list = false; }
+        if (li) { if (!list) { out.push('<ul>'); list = true; } out.push('<li>' + inline(li[1]) + '</li>'); }
+        else if (h) out.push('<h3>' + esc(h[1]) + '</h3>');
+        else if (t) out.push('<p>' + inline(t) + '</p>');
+      });
+      if (list) out.push('</ul>');
+      return out.join('') || '<p>No notes for this release.</p>';
+    }
+    $('fw-notes').innerHTML = render(about.notes);
+    var row = null;
+    // Capture: the badge sits in the row's summary, which would toggle the row.
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-fw-open]');
+      if (!b) return;
+      e.preventDefault(); e.stopPropagation();
+      row = b.closest('.fr[data-frame]');
+      var name = (sub(row, 'data-fr', 'title') || {}).textContent || 'This frame';
+      var hint = ((sub(row, 'data-h', 'fw-hint') || {}).textContent || '').split(' → ')[0].trim();
+      $('fw-meta').textContent = hint ? name + ' is on ' + hint : name;
+      dlg.showModal();
+    }, true);
+    $('fw-go').addEventListener('click', function () {
+      if (!row) return;
+      var go = $('fw-go'), r = row;
+      go.disabled = true;
+      jsonFetch('/api/frames/' + encodeURIComponent(r.getAttribute('data-frame')),
+                { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ update_firmware: true }) })
+        .then(function (out) {
+          var mine = (out.frames || []).filter(function (f) { return f.id === r.getAttribute('data-frame'); })[0];
+          if (mine) applyHealth(r, mine);
+          dlg.close();
+          showFlash('ok', 'It updates on its next check-in.', 'ic-check');
+        })
+        .catch(function (e) { showFlash('bad', 'Not updated — ' + errText(e) + '.', 'ic-warn'); })
+        .then(function () { go.disabled = false; });
+    });
+  })();
 
   // -- add a frame over USB (W-840) -------------------------------------------
   // esp-web-tools flashes the latest official release. Web Serial exists only

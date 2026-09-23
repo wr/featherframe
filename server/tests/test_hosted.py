@@ -323,3 +323,19 @@ def test_a_hosted_page_offers_no_local_database_source(tmp_path, monkeypatch, ho
     html = TestClient(app).get("/").text
     assert ('<option value="custom"' in html) is not hosted
     assert ('value="birdweather" data-icon="ic-birdweather" selected' in html) is hosted
+def test_a_wake_adds_a_paired_frame_before_it_draws(env, monkeypatch):
+    """A pairing wakes the server; the frame it adds must be drawn for in that
+    same wake, not the next one (up to five minutes later)."""
+    from fastapi.testclient import TestClient as _TC
+    from featherframe.app import app
+    door, link, data = env
+    svc = _service()
+    _plates(svc)
+    door.state.queue = [{"headers": {"X-Device-Id": "EE:EE:EE:00:00:01", "X-Panel": EE03_PANEL},
+                         "result": "403", "at": "2026-09-22T11:59:00", "add": True}]
+    monkeypatch.setattr(app.state, "service", svc, raising=False)
+    monkeypatch.setattr(app.state, "hosted", link, raising=False)
+    svc.after_tick.append(lambda: link.settle(svc))
+    assert _TC(app).post("/api/hosted/run").status_code == 200
+    entry = door.state.states[-1]["frames"]["EE:EE:EE:00:00:01"]
+    assert entry["status"] == "on" and entry.get("etag") and entry["file"] in door.state.files

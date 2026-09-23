@@ -240,7 +240,7 @@ def test_update_is_pressed_then_cleared_once_the_frame_is_on_it(env):
     svc._tick_firmware()
     assert "update_firmware" not in svc.frames.get(FID)["set"]
     assert _fw(svc) == {"running": "1.3.0", "latest": "1.3.0", "available": None,
-                        "pending": False, "auto": False}
+                        "pending": False, "ready": False, "auto": False, "label": ""}
 
 
 # -- /api/firmware -------------------------------------------------------------
@@ -319,7 +319,8 @@ def test_the_row_offers_the_release_and_the_household_the_switch(client):
     assert "2026.09.20+abc1234 → 1.3.0" in page
     assert 'name="firmware_auto_update"' in page and "Latest release: 1.3.0" in page
     c.post(f"/api/frames/{FID}", json={"update_firmware": True})
-    assert "Updates on its next check-in</span>" in c.get("/").text
+    page = c.get("/").text
+    assert "Preparing update…</span>" in page or "Starting update…</span>" in page
 
 
 # -- USB install (W-840) -----------------------------------------------------------
@@ -395,3 +396,36 @@ def test_an_official_build_links_to_its_release(client):
     assert rows["BB:BB:BB:00:00:04"]["firmware_url"] == ""
     page = c.get("/").text
     assert page.count('href="https://github.com/wr/featherframe/releases/tag/v1.3.0"') == 1
+
+
+# -- an update the owner can watch -------------------------------------------------
+def test_an_update_is_counted_through_to_done(client):
+    """Preparing while the server fetches the release, then the frame is told;
+    sending (a percentage) while it downloads, restarting once it has it all,
+    and 'Updated to' once it checks in on the new version."""
+    c, svc = client
+    svc.releases.check(NOW)
+    _kit(svc, power_mode="awake")
+    svc.update_frame(FID, {"update_firmware": True})
+    svc.releases.cached = lambda *a, **k: None               # the fetch has not landed yet
+    assert (_fw(svc)["label"], svc.push_message(FID)["ota"]) == ("Preparing update…", False)
+    del svc.releases.cached
+    svc.releases.app_for_board(BOARD, download=True)
+    assert (_fw(svc)["label"], svc.push_message(FID)["ota"]) == ("Starting update…", True)
+    svc.firmware_progress(FID, "sending", 512, 1024, "1.3.0", "2026.09.20+abc1234")
+    assert (_fw(svc)["stage"], _fw(svc)["label"]) == ("sending", "Updating 50%")
+    assert _ask(c).content == _image()                        # the whole image, counted
+    assert _fw(svc)["label"] == "Restarting…"
+    svc._record_checkin(FID, {"fw_version": "1.3.0"})
+    assert (_fw(svc)["stage"], _fw(svc)["label"]) == ("done", "Updated to 1.3.0")
+
+
+def test_a_frame_that_comes_back_on_the_old_version_failed(client):
+    c, svc = client
+    svc.releases.check(NOW)
+    _kit(svc)
+    svc.update_frame(FID, {"update_firmware": True})
+    svc.releases.app_for_board(BOARD, download=True)
+    assert _ask(c).status_code == 200
+    svc._record_checkin(FID, {"fw_version": "2026.09.20+abc1234"})   # a rolled-back image
+    assert (_fw(svc)["stage"], _fw(svc)["label"]) == ("failed", "Update failed · will retry")

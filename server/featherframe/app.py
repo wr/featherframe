@@ -23,7 +23,7 @@ from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, Request, Response, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
@@ -338,6 +338,7 @@ async def api_firmware(request: Request):
     # first; otherwise a dev image hosted by `make ota`, unless this frame was
     # handed a release after that image was put there.
     bin_path = svc.release_image_for(frame_id, board_hdr)
+    release = bin_path is not None
     if bin_path is None:
         bin_path = _firmware_for(board_hdr)
         if bin_path is not None and svc.dev_image_superseded(frame_id, bin_path.stat().st_mtime):
@@ -360,8 +361,36 @@ async def api_firmware(request: Request):
         return Response(status_code=404, content=b"hosted firmware is for another board")
     log.info("serving firmware.bin (%d bytes, md5=%s) to %s",
              bin_path.stat().st_size, md5, request.headers.get("user-agent", "?"))
-    return FileResponse(bin_path, media_type="application/octet-stream",
-                        headers={"X-MD5": md5, "Cache-Control": "no-store"})
+    if not release:
+        return FileResponse(bin_path, media_type="application/octet-stream",
+                            headers={"X-MD5": md5, "Cache-Control": "no-store"})
+    # A release the owner asked for: streamed and counted, so the frame's row
+    # can say how far along it is (sending %, then restarting).
+    total = bin_path.stat().st_size
+    fw = svc.firmware_view(svc.frames.get(frame_id)) or {}    # a release: the frame is on
+    target, old = fw.get("available"), fw.get("running")
+    fid = (frame_id or "")[:40]
+
+    def stream():
+        sent = 0
+        svc.firmware_progress(fid, "sending", 0, total, target, old)
+        try:
+            with open(bin_path, "rb") as f:
+                while True:
+                    chunk = f.read(16384)
+                    if not chunk:
+                        break
+                    sent += len(chunk)
+                    yield chunk
+                    svc.firmware_progress(fid, "sending", sent, total)
+            svc.firmware_progress(fid, "restarting", sent, total)
+        finally:
+            if sent < total:
+                svc.firmware_progress(fid, "interrupted", sent, total)
+
+    return StreamingResponse(stream(), media_type="application/octet-stream",
+                             headers={"X-MD5": md5, "Cache-Control": "no-store",
+                                      "Content-Length": str(total)})
 
 
 @app.post("/api/firmware/check")

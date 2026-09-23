@@ -395,6 +395,11 @@ def _served_words(result: Optional[str]) -> Optional[str]:
 # after repeated failures; a few minutes of silence is a real outage.
 _AWAKE_OVERDUE_MINUTES = 5
 
+# A firmware update's last word stays on the row this long ("Updated to 0.2.2").
+UPDATE_DONE_SHOW = timedelta(minutes=10)
+# Handed over and restarting: back on the new version within this, or it failed.
+UPDATE_RESTART_WAIT_S = 180
+
 # What each picture is called on the page. The stored values stay "plates" and
 # "collage"; these are the words an owner reads.
 SHOWS_WORDS = {PLATES: "Individual detections", COLLAGE: "Collage"}
@@ -527,6 +532,10 @@ class FeatherframeService:
         self.releases = firmware_release.ReleaseStore(self.db, paths.data_dir())
         # The frames holding a push socket (W-841), woken after every tick.
         self.push = PushHub()
+        # A firmware update in flight, per frame (in memory: it lasts a minute):
+        # {"stage": sending|restarting|interrupted, "sent", "total", "target",
+        # "old", "at"}. What the row shows while it happens.
+        self._fw_progress: dict = {}
         # Called after every tick, e.g. a hosted household's sync (W-844).
         self.after_tick: list = []
         self._tick_lock = threading.Lock()
@@ -1694,7 +1703,23 @@ class FeatherframeService:
                 if key in own:
                     own[key] = getattr(probe, key)
             row["set"] = own
+            board = frames_mod.reported_of(row).get("board")
+        if fields.get("update_firmware") and own.get("update_firmware"):
+            # Update pressed: fetch the release now, not on the next pass, and
+            # tell the frame the moment it is here.
+            self._fw_progress.pop(frame_id, None)
+            threading.Thread(target=self._fetch_update, args=(frame_id, board),
+                             name="ff-fw-fetch", daemon=True).start()
         return True
+
+    def _fetch_update(self, frame_id: str, board) -> None:
+        try:
+            self.releases.app_for_board(board, download=True)
+        except Exception:  # noqa: BLE001 — the next pass tries again
+            log.warning("firmware fetch for %s failed", frame_id[-6:], exc_info=True)
+        self.push.notify(frame_id)
+        for hook in self.after_tick:      # a hosted front door hears of it too
+            hook()
 
     def answer_frame(self, frame_id: str, action: str) -> bool:
         """The owner's answer about a frame that is not on yet: "add" (draw for
@@ -1742,8 +1767,67 @@ class FeatherframeService:
         official = firmware_release.parse_version(running) is not None
         auto = bool(available) and self.config.firmware_auto_update and official
         pressed = bool(frames_mod.settings_of(row).get("update_firmware"))
+        pending = bool(available) and (pressed or auto)
+        # The image is here to hand over: only then is the frame told (a
+        # frame told before would ask, get nothing, and wait a heartbeat).
+        ready = pending and self.releases.app_for_board(rep.get("board")) is not None
+        stage = self._update_stage(row, running, available, pending, ready)
         return {"running": running, "latest": latest, "available": available,
-                "pending": bool(available) and (pressed or auto), "auto": auto}
+                "pending": pending, "ready": ready, "auto": auto, **stage,
+                "label": self._update_label(row, stage)}
+
+    def _update_label(self, row: dict, stage: dict) -> str:
+        """The row's word for where an update is ("" when nothing is)."""
+        st = stage.get("stage")
+        if st == "waiting":
+            asleep = self.frame_config(row).power_mode == "sleep"
+            return "Updates at next wake" if asleep else "Starting update…"
+        return {"preparing": "Preparing update…",
+                "sending": f"Updating {stage.get('percent', 0)}%",
+                "restarting": "Restarting…",
+                "failed": "Update failed · will retry",
+                "done": f"Updated to {stage.get('version', '')}"}.get(st, "")
+
+    def _update_stage(self, row: dict, running: str, available, pending: bool,
+                      ready: bool) -> dict:
+        """Where an update is, as the row says it: preparing (the server is
+        fetching the release), waiting (the frame has been told), sending (a
+        percentage), restarting, failed, or done (for a while after the frame
+        came back on the new version). {} when nothing is happening."""
+        now = self._clock()
+        done = row.get("fw_updated") or {}
+        try:
+            done_at = datetime.fromisoformat(str(done.get("at")))
+        except (TypeError, ValueError):
+            done_at = None
+        if done_at and done.get("version") == running and now - done_at < UPDATE_DONE_SHOW:
+            return {"stage": "done", "version": running}
+        if not pending:
+            return {}
+        prog = self._fw_progress.get(str(row["id"])) or {}
+        if prog.get("target") == available:
+            age = now.timestamp() - float(prog.get("at") or 0)
+            if prog.get("stage") == "sending":
+                total = int(prog.get("total") or 0)
+                pct = int(100 * int(prog.get("sent") or 0) / total) if total else 0
+                return {"stage": "sending", "percent": min(99, pct)}
+            if prog.get("stage") == "restarting" and age < UPDATE_RESTART_WAIT_S:
+                return {"stage": "restarting"}
+            if prog.get("stage") in ("interrupted", "restarting", "failed"):
+                return {"stage": "failed"}
+        return {"stage": "waiting" if ready else "preparing"}
+
+    def firmware_progress(self, frame_id: Optional[str], stage: str, sent: int = 0,
+                          total: int = 0, target: Optional[str] = None,
+                          old: Optional[str] = None) -> None:
+        """The update being handed over to a frame, as /api/firmware streams it."""
+        if not frame_id:
+            return
+        prev = self._fw_progress.get(frame_id) or {}
+        self._fw_progress[frame_id] = {"stage": stage, "sent": sent, "total": total,
+                                       "target": target or prev.get("target"),
+                                       "old": old or prev.get("old"),
+                                       "at": self._clock().timestamp()}
 
     def firmware_status(self) -> dict:
         """The household's view of the release: which one, and when it was asked."""
@@ -2069,7 +2153,7 @@ class FeatherframeService:
         fw = self.firmware_view(row) or {}
         return {"etag": self._output_etag(frame_id) or "",
                 "rotation": cfg.panel_rotation, "power": cfg.power_mode,
-                "ota": bool(fw.get("pending"))}
+                "ota": bool(fw.get("ready"))}
 
     def mdns_panel(self) -> str:
         """The panel key advertised over mDNS. A frame whose panel no server
@@ -2144,9 +2228,25 @@ class FeatherframeService:
             else:
                 # Merged, not replaced: `reported` also holds what the frame
                 # said about its panel and its board.
+                was = str(frames_mod.reported_of(row).get("fw_version") or "")
+                now_on = str(fields.get("fw_version") or "")
                 row["reported"] = {**frames_mod.reported_of(row),
                                    **{k: v for k, v in fields.items() if v is not None}}
                 row["last_seen"] = stamp
+                prog = self._fw_progress.get(frame_id)
+                if (now_on and was and now_on != was and not prog
+                        and frames_mod.settings_of(row).get("update_firmware")):
+                    # Updated with no progress kept (a hosted server that slept
+                    # through it): the new version is the news all the same.
+                    row["fw_updated"] = {"version": now_on, "at": stamp}
+                if now_on and prog and prog.get("stage") in ("restarting", "sending", "interrupted"):
+                    if now_on == prog.get("target"):
+                        # Back on the new version: done, and said so for a while.
+                        row["fw_updated"] = {"version": now_on, "at": stamp}
+                        self._fw_progress.pop(frame_id, None)
+                    elif now_on == was and prog.get("stage") == "restarting":
+                        # Came back on the old one (a rolled-back image).
+                        prog["stage"] = "failed"
                 if told is not None:
                     row["told_s"] = int(told)
                 if fields.get("last_result") not in (None, "304"):

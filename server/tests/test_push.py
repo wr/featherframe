@@ -100,10 +100,14 @@ def test_a_frame_removed_from_the_page_is_let_go(client):
             ws.receive_json()
 
 
-def test_a_pending_firmware_update_is_part_of_the_message(client, monkeypatch):
+def test_a_firmware_update_is_part_of_the_message_once_its_image_is_here(client, monkeypatch):
+    """Told before the image was fetched, the frame would ask, get nothing,
+    and wait for its next heartbeat to ask again."""
     svc = _svc(client)
     seed_frame(svc)
-    monkeypatch.setattr(svc, "firmware_view", lambda row: {"pending": True})
+    monkeypatch.setattr(svc, "firmware_view", lambda row: {"pending": True, "ready": False})
+    assert svc.push_message(FRAME_ID)["ota"] is False
+    monkeypatch.setattr(svc, "firmware_view", lambda row: {"pending": True, "ready": True})
     assert svc.push_message(FRAME_ID)["ota"] is True
 
 

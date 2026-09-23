@@ -379,7 +379,8 @@ async def index(request: Request):
     return templates.TemplateResponse(
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
-         "generated": generated, "history": history, "collage_days": collage_days})
+         "generated": generated, "history": history, "collage_days": collage_days,
+         "fw_about": {**svc.releases.about(), "version": svc.releases.version()}})
 
 
 @app.post("/settings")

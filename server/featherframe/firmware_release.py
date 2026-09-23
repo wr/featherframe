@@ -31,6 +31,7 @@ CHECK_EVERY = timedelta(hours=24)
 RETRY_AFTER = timedelta(hours=1)     # after a failed check
 TIMEOUT_S = 10
 MAX_IMAGE_BYTES = 8 << 20            # an app slot is 6.5 MB on the 16 MB layout
+MAX_NOTES = 20000                    # a release's notes, as kept for the page
 _VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 _NAME = re.compile(r"^featherframe-[a-z0-9]+-\d+\.\d+\.\d+(-[a-z0-9_]+)?\.bin$")
 
@@ -98,6 +99,14 @@ class ReleaseStore:
     def manifest(self) -> Optional[dict]:
         return self.state().get("manifest")
 
+    def about(self) -> dict:
+        """The release's name, notes (Markdown, as GitHub has them) and page:
+        what the Update dialog shows. Empty until a release is known."""
+        if not self.manifest():
+            return {}
+        about = self.state().get("about")
+        return dict(about) if isinstance(about, dict) else {}
+
     def version(self) -> Optional[str]:
         man = self.manifest()
         return man.get("version") if man else None
@@ -136,8 +145,14 @@ class ReleaseStore:
             if not _valid_manifest(man, str(rel.get("tag_name") or "")):
                 raise ValueError("firmware-manifest.json does not match its release")
             urls = {n: u for n, u in assets.items() if n and _NAME.match(n) and u}
+            # What the owner reads before pressing Update: the release's own
+            # name and notes, as GitHub has them.
+            about = {"name": str(rel.get("name") or rel.get("tag_name") or "")[:120],
+                     "notes": str(rel.get("body") or "")[:MAX_NOTES],
+                     "url": str(rel.get("html_url") or ""),
+                     "published_at": str(rel.get("published_at") or "")}
             self.db.set(KEY, {"checked_at": stamp, "error": None, "manifest": man,
-                              "urls": urls})
+                              "urls": urls, "about": about})
             if man.get("version") != (st.get("manifest") or {}).get("version"):
                 log.info("firmware release %s is available", man["version"])
                 self._prune(man["version"])

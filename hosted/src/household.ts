@@ -38,6 +38,9 @@ export class Household extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS files (path TEXT PRIMARY KEY, sha TEXT);
       CREATE TABLE IF NOT EXISTS ingest (seq INTEGER PRIMARY KEY AUTOINCREMENT,
         path TEXT, body TEXT);
+      CREATE TABLE IF NOT EXISTS seen (id TEXT PRIMARY KEY, at INTEGER);
+      CREATE TABLE IF NOT EXISTS usage (day TEXT PRIMARY KEY, wakes INTEGER NOT NULL DEFAULT 0,
+        server_ms INTEGER NOT NULL DEFAULT 0);
     `);
   }
 
@@ -76,6 +79,30 @@ export class Household extends DurableObject<Env> {
     return this.proxy(request);
   }
 
+  // -- what the admin page shows (W-850) ---------------------------------------
+  /** Roughly how long the server ran, by UTC day: each wake, and the time a
+   * page kept it up. The Container's own clock is not ours to read. */
+  addUsage(wakes: number, ms: number): void {
+    const day = new Date().toISOString().slice(0, 10);
+    this.sql.exec(`INSERT INTO usage (day, wakes, server_ms) VALUES (?, ?, ?)
+      ON CONFLICT (day) DO UPDATE SET wakes = wakes + excluded.wakes, server_ms = server_ms + excluded.server_ms`,
+      day, wakes, Math.round(ms));
+    this.sql.exec("DELETE FROM usage WHERE day < ?", new Date(Date.now() - 30 * 86400e3).toISOString().slice(0, 10));
+  }
+
+  summary(): { frames: { id: string; status: string; seen: number | null }[];
+               usage: { day: string; wakes: number; server_ms: number }[];
+               last_wake: number | null; source: string | null } {
+    const seen = new Map(this.sql.exec<{ id: string; at: number }>("SELECT id, at FROM seen").toArray()
+      .map((r) => [r.id, r.at]));
+    const frames = this.sql.exec<{ id: string; status: string }>("SELECT id, status FROM frames ORDER BY id")
+      .toArray().map((f) => ({ id: f.id, status: f.status, seen: seen.get(f.id) ?? null }));
+    const usage = this.sql.exec<{ day: string; wakes: number; server_ms: number }>(
+      "SELECT day, wakes, server_ms FROM usage ORDER BY day DESC LIMIT 7").toArray();
+    const wake = Number(this.meta("wake_ms") || 0);
+    return { frames, usage, last_wake: wake || null, source: this.meta("source_kind") };
+  }
+
   /** A new household (made at sign-up), or one given its login later. */
   async init(hid: string, tz: string): Promise<void> {
     this.setMeta("hid", hid);
@@ -108,6 +135,9 @@ export class Household extends DurableObject<Env> {
   }
 
   async proxy(request: Request): Promise<Response> {
+    // A page in use keeps the server up: count the time between its requests.
+    const lastPage = Number(this.meta("page_ms") || 0);
+    if (lastPage && Date.now() - lastPage < PAGE_ACTIVE_MS) this.addUsage(0, Date.now() - lastPage);
     this.setMeta("page_ms", String(Date.now()));
     const stub = await this.server();
     // Read before the body is handed on: forwarding the request uses it up.
@@ -164,7 +194,8 @@ export class Household extends DurableObject<Env> {
    * while it slept, run one tick (which reports), and stop it again unless
    * someone is on the page. */
   async wake(): Promise<void> {
-    this.setMeta("wake_ms", String(Date.now()));
+    const t0 = Date.now();
+    this.setMeta("wake_ms", String(t0));
     this.setMeta("news", "0");
     try {
       const stub = await this.server();
@@ -181,6 +212,7 @@ export class Household extends DurableObject<Env> {
     } catch (err) {
       console.error("wake failed", err);
     }
+    this.addUsage(1, Date.now() - t0);
     await this.schedule();
   }
 
@@ -267,6 +299,7 @@ export class Household extends DurableObject<Env> {
 
   async frame(request: Request): Promise<Response> {
     const id = (request.headers.get("X-Device-Id") || "").trim().slice(0, 40) || "legacy";
+    this.sql.exec("INSERT OR REPLACE INTO seen (id, at) VALUES (?, ?)", id, Date.now());
     const row = this.frameRow(id);
     if (row?.status === "ignored") {
       this.queueCheckin(request, id, "403", null);

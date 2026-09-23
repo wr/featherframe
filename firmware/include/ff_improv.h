@@ -12,6 +12,8 @@
 // Spec: https://www.improv-wifi.com/serial/
 #pragma once
 
+#include <stddef.h>
+
 struct ImprovHooks {
   // The dashboard's address once the frame knows it ("" until then): handed
   // to the flasher as the page to open next.
@@ -22,6 +24,14 @@ struct ImprovHooks {
   // itself (the captive portal is open: it closes and boot carries on);
   // false and the frame restarts onto the new network.
   bool (*onJoined)();
+  // Featherframe's own command (W-848): a signed-in hosted page sets the
+  // server the frame fetches from and learns who the frame is, so it can pair
+  // it with no code. `identity` fills up to `max` strings (id, key, panel,
+  // width, height, format, rotations, rotation, board) and returns how many:
+  // 0 while the frame is not ready to say. `setServer` keeps a new address and
+  // returns true if it changed (the frame then restarts onto it).
+  size_t (*identity)(const char** out, size_t max);
+  bool (*setServer)(const char* url);
 };
 
 // Starts the Improv task. `name`/`version`/`board` answer REQUEST_INFO.

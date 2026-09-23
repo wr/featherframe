@@ -2661,7 +2661,7 @@
         a.textContent = 'Open the flasher';
         actions.appendChild(a);
       } else {
-        note.textContent = 'Plug the frame in by USB, then Connect.';
+        note.textContent = {{ "'Plug the frame in by USB, then Connect. It joins this household when you close the installer.'" if hosted else "'Plug the frame in by USB, then Connect.'" }};
         if (!loaded) {
           var sc = document.createElement('script');
           sc.type = 'module'; sc.src = '/static/flash/esp-web-tools/install-button.js';
@@ -3240,7 +3240,114 @@
     sel.addEventListener('change', syncTest);
     syncTest();
   })();
+  // For the hosted page's USB pairing (its own script, below).
+  window.ffPage = { showFlash: showFlash, jsonFetch: jsonFetch, errText: errText };
 })();
 </script>
+{% if hosted %}
+<script>
+// Pair over USB (W-848). On a hosted page the installer's port is this
+// page's: when esp-web-tools closes, the same port asks the frame who it is
+// (Featherframe's own Improv command, ff_improv.cpp) and points it here, and
+// the frame joins this household with no code. Its own script: the page's
+// main one stays plain ES5.
+(function () {
+  if (!('serial' in navigator) || !window.ffPage) return;
+  var showFlash = ffPage.showFlash, jsonFetch = ffPage.jsonFetch, errText = ffPage.errText;
+  var CMD = 0xF0, HEAD = [73, 77, 80, 82, 79, 86];   // "IMPROV"
+  function packet(cmd, strs) {
+    var data = [cmd, 0], enc = new TextEncoder();
+    strs.forEach(function (s) { var b = enc.encode(s); data.push(b.length); b.forEach(function (x) { data.push(x); }); });
+    data[1] = data.length - 2;
+    var out = HEAD.concat([1, 0x03, data.length], data), sum = 0;
+    out.forEach(function (x) { sum = (sum + x) & 0xff; });
+    out.push(sum);
+    return new Uint8Array(out);
+  }
+  // Every whole packet in `buf` (logs between them are skipped), and what is left.
+  function parse(buf) {
+    var found = [];
+    for (;;) {
+      var i = -1;
+      for (var j = 0; j + 6 <= buf.length; j++) {
+        if (HEAD.every(function (h, k) { return buf[j + k] === h; })) { i = j; break; }
+      }
+      if (i < 0) return { packets: found, rest: buf.slice(Math.max(0, buf.length - 5)) };
+      if (buf.length < i + 9) return { packets: found, rest: buf.slice(i) };
+      var len = buf[i + 8], end = i + 9 + len + 1;
+      if (buf.length < end) return { packets: found, rest: buf.slice(i) };
+      var sum = 0;
+      for (var k = i; k < end - 1; k++) sum = (sum + buf[k]) & 0xff;
+      if (sum === buf[end - 1]) found.push({ type: buf[i + 7], data: buf.slice(i + 9, i + 9 + len) });
+      buf = buf.slice(end);
+    }
+  }
+  function strings(data) {
+    var out = [], dec = new TextDecoder(), p = 2;
+    while (p < data.length) { var l = data[p]; out.push(dec.decode(new Uint8Array(data.slice(p + 1, p + 1 + l)))); p += 1 + l; }
+    return out;
+  }
+  // Opening the port can reset the frame: ask again until it has booted.
+  async function askFrame(port) {
+    await port.open({ baudRate: 115200 });
+    var reader = port.readable.getReader(), writer = port.writable.getWriter();
+    var buf = [], pending = null, nextSend = 0, deadline = Date.now() + 30000;
+    try {
+      while (Date.now() < deadline) {
+        if (Date.now() >= nextSend) { await writer.write(packet(CMD, [location.origin])); nextSend = Date.now() + 1500; }
+        pending = pending || reader.read();
+        var got = await Promise.race([pending, new Promise(function (r) { setTimeout(function () { r(null); }, 300); })]);
+        if (!got) continue;
+        pending = null;
+        if (got.done) break;
+        buf = buf.concat(Array.from(got.value));
+        var res = parse(buf); buf = res.rest;
+        for (var i = 0; i < res.packets.length; i++) {
+          var pk = res.packets[i];
+          if (pk.type === 0x02 && pk.data[0] === 0x02) throw new Error('this frame needs newer firmware: install it first');
+          if (pk.type === 0x04 && pk.data[0] === CMD) {
+            var s = strings(pk.data);
+            if (s.length >= 2) return { id: s[0], key: s[1], panel: s[2] || '', w: s[3] || '', h: s[4] || '',
+                                        fmt: s[5] || '', rots: s[6] || '', rotation: s[7] || '', board: s[8] || '' };
+          }
+        }
+      }
+      throw new Error('the frame did not answer over USB');
+    } finally {
+      try { await reader.cancel(); } catch (e) {}
+      reader.releaseLock(); writer.releaseLock();
+      try { await port.close(); } catch (e) {}
+    }
+  }
+  function pair(port) {
+    showFlash('ok', 'Pairing the frame…', 'ic-check', true);
+    askFrame(port)
+      .then(function (who) {
+        return jsonFetch('/api/pair/usb', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(who) });
+      })
+      .then(function () {
+        showFlash('ok', 'Paired. The frame restarts and shows its picture in a moment.', 'ic-check');
+        setTimeout(function () { location.reload(); }, 8000);
+      })
+      .catch(function (err) {
+        showFlash('bad', 'Not paired over USB: ' + errText(err) + '. Use Pair a frame with the code on its screen.', 'ic-warn', true);
+      });
+  }
+  new MutationObserver(function (changes) {
+    changes.forEach(function (c) {
+      c.addedNodes.forEach(function (n) {
+        if (n.nodeName !== 'EWT-INSTALL-DIALOG') return;
+        n.addEventListener('closed', function () {
+          var port = n.port;
+          // esp-web-tools closes its own hold on the port on the same event.
+          setTimeout(function () { if (port) pair(port); }, 800);
+        }, { once: true });
+      });
+    });
+  }).observe(document.body, { childList: true });
+})();
+</script>
+{% endif %}
 </body>
 </html>

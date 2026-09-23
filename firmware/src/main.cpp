@@ -1457,6 +1457,13 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
 // two minutes after a redeploy (W-853).
 static bool hostedServer() { return strncmp(g_serverUrl, "https://", 8) == 0; }
 
+// A pairing code is on the glass (its ETag is the lobby's, "pair-…"): the
+// owner is about to type it, and the next picture is the one they are waiting
+// for. Until it comes, "not added yet" is expected, not a failure: keep asking
+// at the served pace (10 s), paint no error over the code, and do not let the
+// Spectra's repaint floor hold back the picture that replaces it.
+static bool pairingOnGlass() { return strncmp(g_etag, "pair-", 5) == 0; }
+
 // Look for the server on the LAN only once it has really stopped answering:
 // FF_REDISCOVER_FAILS failed fetches in a row (this one included), and never
 // away from a hosted one.
@@ -1519,6 +1526,7 @@ void noteFetchOutcome(FetchResult r) {
   // uptime and roll it back on the next hard reset.
   if (r != FETCH_ERROR) markFirmwareGood();
   if (r == FETCH_UPDATED || r == FETCH_NOCHANGE) { noteSuccess(); return; }
+  if (r == FETCH_NOFRAME && pairingOnGlass()) return;   // paired; its picture is being drawn
   bumpFail();
   int kind = (WiFi.status() != WL_CONNECTED) ? ERRK_WIFI
            : r == FETCH_NOFRAME ? ERRK_NOFRAME
@@ -2034,12 +2042,13 @@ void loop() {
   startPushTask();
   // On a push socket the timed fetch is only a heartbeat: a change arrives
   // as a message (g_pushWake) and is fetched at once, below.
-  uint32_t interval = (g_failCount >= FF_MARK_FAILS) ? FF_POLL_BACKOFF_MS
+  uint32_t interval = pairingOnGlass() ? g_pollMs
+                    : (g_failCount >= FF_MARK_FAILS) ? FF_POLL_BACKOFF_MS
                     : pushLive() ? FF_PUSH_HEARTBEAT_MS : g_pollMs;
   if (g_viewHoldUntil && (int32_t)(millis() - g_viewHoldUntil) < 0) {
     // transient view on the glass
 #if FF_FULL_REFRESH
-  } else if (g_glassScreen < 0 && g_lastPaintMs &&
+  } else if (g_glassScreen < 0 && g_lastPaintMs && !pairingOnGlass() &&
              millis() - g_lastPaintMs < FF_MIN_REPAINT_MS) {
     // a plate was painted moments ago: let the panel rest before the next one
 #endif

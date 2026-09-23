@@ -46,12 +46,14 @@ jobs:
       - run: pip install platformio
       - name: Build both kits
         run: |
-          pio run -d firmware -e release -e release_ee02 | tee build.log
+          set -o pipefail
+          # The log goes outside the checkout: a stray file there stamps the build +dirty.
+          pio run -d firmware -e release -e release_ee02 | tee "$RUNNER_TEMP/build.log"
       - name: Version
         id: version
         run: |
           # Both builds stamp themselves from git; on a tag it is the tag.
-          v=$(grep -m1 -o 'FF_FW_VERSION = .*' build.log | cut -d' ' -f3)
+          v=$(grep -m1 -o 'FF_FW_VERSION = .*' "$RUNNER_TEMP/build.log" | cut -d' ' -f3)
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "build says $v, tag is ${GITHUB_REF_NAME}"; exit 1; }
           else

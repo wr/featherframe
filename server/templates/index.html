@@ -484,7 +484,10 @@
                  font:500 30px/1.2 var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
                  letter-spacing:.18em; text-align:center; text-transform:uppercase; }
     #pair-code::placeholder { color:var(--muted); opacity:.45; }
-    #pair-note { margin:10px 0 0; color:var(--ink-2); font-size:13.5px; line-height:1.5; }
+    #pair-note { margin:12px 0 0; color:var(--ink-2); font-size:13.5px; line-height:1.5; }
+    #pair-note p { margin:0 0 8px; }
+    #pair-note .lead { color:var(--ink); font-weight:600; }
+    #pair-note ul { margin:0; padding-left:1.2em; display:flex; flex-direction:column; gap:6px; }
     footer a { color:var(--ink-2); text-decoration:none; }
     footer a:hover { color:var(--accent); }
     footer .ver { margin-left:auto; font-family:var(--serif); font-style:italic; }
@@ -1227,7 +1230,7 @@
       <h2 class="sec-head" id="pair-title">Pair a frame</h2>
       <form id="pair-form">
         <input type="text" id="pair-code" name="code" aria-label="Pairing code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" inputmode="text" maxlength="7" placeholder="ABC-DEF" required>
-        <p id="pair-note" hidden></p>
+        <div id="pair-note" role="status" hidden></div>
       </form>
       <div class="dlg-foot">
         <form method="dialog"><button class="btn" type="submit">Close</button></form>
@@ -2691,21 +2694,42 @@
       input.value = ''; tidy();
       dlg.showModal(); input.focus();
     });
-    function say(text) { note.textContent = text; note.hidden = false; }
+    // A lead line, and optionally troubleshooting tips: each tip a list of
+    // text and {b: text} (bold) pieces, built as nodes.
+    function say(lead, tips) {
+      note.textContent = '';
+      var p = document.createElement('p'); p.className = 'lead'; p.textContent = lead; note.appendChild(p);
+      if (tips) {
+        var h = document.createElement('p'); h.textContent = 'Troubleshooting:'; note.appendChild(h);
+        var ul = document.createElement('ul');
+        tips.forEach(function (tip) {
+          var li = document.createElement('li');
+          tip.forEach(function (piece) {
+            if (typeof piece === 'string') { li.appendChild(document.createTextNode(piece)); return; }
+            var b = document.createElement('strong'); b.textContent = piece.b; li.appendChild(b);
+          });
+          ul.appendChild(li);
+        });
+        note.appendChild(ul);
+      }
+      note.hidden = false;
+    }
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var code = letters();
       if (code.length !== 6) return;
-      var shown = code.slice(0, 3) + '-' + code.slice(3);
       go.disabled = true; note.hidden = true;
       jsonFetch('/api/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                body: JSON.stringify({ code: code }) })
         .then(function () { dlg.close(); showFlash('ok', 'Paired. The frame shows its picture in a few seconds.', 'ic-check'); setTimeout(function () { location.reload(); }, 4000); })
         .catch(function (err) {
           if (err && err.status === 404) {
-            say('No frame is showing ' + shown + '. Check it against the frame’s screen. ' +
-                'If they match, the code has expired: the frame shows a new one within a minute. ' +
-                'No code on the screen? The frame isn’t reaching Featherframe. Check that it’s on Wi-Fi.');
+            say('Couldn’t find a frame showing that code.', [
+              ['The code may be expired. Try restarting your frame, or plugging it in if it’s on battery power.'],
+              ['If your frame isn’t showing a code, it might not be on Wi-Fi. If you see a ',
+               { b: 'Featherframe-Setup' }, ' Wi-Fi network from your mobile device, join it and follow the on-screen instructions.'],
+              ['You can also try connecting your frame to a computer via USB, and selecting ',
+               { b: 'USB firmware update' }, ' from the ', { b: '⋯' }, ' menu.']]);
           } else if (!err || !err.status) {
             say('Couldn’t reach Featherframe. Check your connection and try again.');
           } else {

@@ -703,7 +703,9 @@
     .fr-more-btn:hover, .fr-more-btn[aria-expanded="true"] { background:var(--inset); color:var(--ink); }
     .fr-more-btn:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
     .fr-more-btn svg { width:16px; height:16px; fill:currentColor; }
-    .fr-menu { position:absolute; right:-7px; top:calc(100% + 4px); z-index:20; min-width:200px; padding:4px;
+    /* Fixed, placed under the button by script: the card clips to its radius,
+       and a short card would cut an absolute menu off. */
+    .fr-menu { position:fixed; z-index:20; min-width:200px; padding:4px;
                background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--sh-card); }
     .fr-menu[hidden] { display:none; }
     .fr-menu hr { border:0; border-top:1px solid var(--hair); margin:4px 2px; }
@@ -2641,9 +2643,17 @@
       e.stopPropagation();
       var opening = moreMenu.hidden;
       moreMenu.hidden = !opening; moreBtn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      if (opening) {
+        var r = moreBtn.getBoundingClientRect();
+        moreMenu.style.top = (r.bottom + 4) + 'px';
+        moreMenu.style.right = Math.max(8, document.documentElement.clientWidth - r.right) + 'px';
+      }
       if (opening) { var first = moreMenu.querySelector('[role="menuitem"]'); if (first) first.focus(); }
     });
     document.addEventListener('click', function (e) { if (!moreMenu.contains(e.target)) closeMenu(); });
+    // It stays where it was put, so it closes rather than drift off its button.
+    window.addEventListener('scroll', closeMenu, { passive: true });
+    window.addEventListener('resize', closeMenu);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !moreMenu.hidden) { closeMenu(); moreBtn.focus(); }
     });
@@ -2697,6 +2707,14 @@
         actions.appendChild(a);
       } else {
         note.textContent = {{ ('Plug the frame in by USB, then Connect. It gets the latest firmware if it needs it and joins this household.' if hosted else 'Plug the frame in by USB, then Connect.') | tojson }};
+        if (window.ffUsb) {
+          // Hosted: the frame is asked first, and pairs (below, W-848).
+          var go = document.createElement('button');
+          go.className = 'btn primary'; go.type = 'button'; go.textContent = 'Connect';
+          go.addEventListener('click', function () { window.ffUsb.connect(k, dlg, note, go); });
+          actions.appendChild(go);
+          return;
+        }
         if (!loaded) {
           var sc = document.createElement('script');
           sc.type = 'module'; sc.src = '/static/flash/esp-web-tools/install-button.js';
@@ -3322,8 +3340,11 @@
     while (p < data.length) { var l = data[p]; out.push(dec.decode(new Uint8Array(data.slice(p + 1, p + 1 + l)))); p += 1 + l; }
     return out;
   }
-  // Opening the port can reset the frame: ask again until it has booted.
-  async function askFrame(port) {
+  // One conversation over the port: `ask` is sent every 1.5 s (opening the
+  // port can reset the frame, so the first may land before it has booted)
+  // until `answer` returns something for a packet. Logs between packets are
+  // skipped. The port is closed again either way.
+  async function session(port, ask, answer) {
     // The installer may still be letting go of the port: try for a few seconds.
     for (var tries = 0; ; tries++) {
       try { await port.open({ baudRate: 115200 }); break; }
@@ -3336,7 +3357,11 @@
     var buf = [], pending = null, nextSend = 0, deadline = Date.now() + 30000;
     try {
       while (Date.now() < deadline) {
-        if (Date.now() >= nextSend) { await writer.write(packet(CMD, [location.origin])); nextSend = Date.now() + 1500; }
+        if (Date.now() >= nextSend) {
+          var out = ask();
+          for (var o = 0; o < out.length; o++) await writer.write(out[o]);
+          nextSend = Date.now() + 1500;
+        }
         pending = pending || reader.read();
         var got = await Promise.race([pending, new Promise(function (r) { setTimeout(function () { r(null); }, 300); })]);
         if (!got) continue;
@@ -3345,13 +3370,8 @@
         buf = buf.concat(Array.from(got.value));
         var res = parse(buf); buf = res.rest;
         for (var i = 0; i < res.packets.length; i++) {
-          var pk = res.packets[i];
-          if (pk.type === 0x02 && pk.data[0] === 0x02) throw new Error('this frame needs newer firmware: install it first');
-          if (pk.type === 0x04 && pk.data[0] === CMD) {
-            var s = strings(pk.data);
-            if (s.length >= 2) return { id: s[0], key: s[1], panel: s[2] || '', w: s[3] || '', h: s[4] || '',
-                                        fmt: s[5] || '', rots: s[6] || '', rotation: s[7] || '', board: s[8] || '' };
-          }
+          var v = answer(res.packets[i]);
+          if (v !== undefined) return v;
         }
       }
       throw new Error('the frame did not answer over USB');
@@ -3361,20 +3381,39 @@
       try { await port.close(); } catch (e) {}
     }
   }
-  function pair(port) {
-    showFlash('ok', 'Pairing the frame…', 'ic-check', true);
-    askFrame(port)
-      .then(function (who) {
-        return jsonFetch('/api/pair/usb', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify(who) });
-      })
-      .then(function () {
-        showFlash('ok', 'Paired. The frame restarts and shows its picture in a moment.', 'ic-check');
-        setTimeout(function () { location.reload(); }, 8000);
-      })
-      .catch(function (err) {
-        showFlash('bad', 'Not paired over USB: ' + errText(err) + '. Use Pair a frame with the code on its screen.', 'ic-warn', true);
-      });
+  // What the frame runs and whether it has Wi-Fi: standard Improv, no side
+  // effects. `state` 2 is no Wi-Fi; 3 is joining a saved network; 4 is on it.
+  function probe(port) {
+    var version = null, state = null;
+    return session(port, function () { return [packet(0x03, []), packet(0x02, [])]; }, function (pk) {
+      if (pk.type === 0x04 && pk.data[0] === 0x03) version = strings(pk.data)[1] || '';
+      if (pk.type === 0x01) state = pk.data[0];
+      if (version !== null && state !== null) return { version: version, state: state };
+    });
+  }
+  // Who the frame is; it keeps this page's address and restarts onto it.
+  function askFrame(port) {
+    return session(port, function () { return [packet(CMD, [location.origin])]; }, function (pk) {
+      if (pk.type === 0x02 && pk.data[0] === 0x02) throw new Error('this frame needs newer firmware: install it first');
+      if (pk.type === 0x04 && pk.data[0] === CMD) {
+        var s = strings(pk.data);
+        if (s.length >= 2) return { id: s[0], key: s[1], panel: s[2] || '', w: s[3] || '', h: s[4] || '',
+                                    fmt: s[5] || '', rots: s[6] || '', rotation: s[7] || '', board: s[8] || '' };
+      }
+    });
+  }
+  function paired() {
+    showFlash('ok', 'Paired. The frame restarts and shows its picture in a moment.', 'ic-check');
+    setTimeout(function () { location.reload(); }, 8000);
+  }
+  function notPaired(err) {
+    showFlash('bad', 'Not paired over USB: ' + errText(err) + '. Use Pair a frame with the code on its screen.', 'ic-warn', true);
+  }
+  function pairOver(port) {
+    return askFrame(port).then(function (who) {
+      return jsonFetch('/api/pair/usb', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify(who) });
+    });
   }
   // Firmware that answers the pairing command: 0.2.0 and later, and any dev
   // build (dated, not MAJOR.MINOR.PATCH), which is newer than 0.1.0.
@@ -3383,29 +3422,68 @@
     if (!m) return !!version;
     return +m[1] > 0 || +m[2] >= 2;
   }
-  new MutationObserver(function (changes) {
-    changes.forEach(function (c) {
-      c.addedNodes.forEach(function (n) {
-        if (n.nodeName !== 'EWT-INSTALL-DIALOG') return;
-        // One step: once the installer reaches its dashboard with a frame that
-        // can pair (after an install, or at once if it is already current), it
-        // steps aside and the frame joins this household. Its dashboard is
-        // esp-web-tools' own (vendored, pinned): _state, _info, _handleClose.
-        var watch = setInterval(function () {
-          if (!n.isConnected) { clearInterval(watch); return; }
-          if (n._state === 'DASHBOARD' && !n._busy && n._info && canPair(n._info.version)) {
-            clearInterval(watch);
-            n._handleClose();
-          }
-        }, 500);
-        n.addEventListener('closed', function () {
-          var port = n.port;
-          // esp-web-tools closes its own hold on the port on the same event.
-          setTimeout(function () { if (port) pair(port); }, 800);
-        }, { once: true });
+  function bare(v) { return String(v || '').replace(/^v/, ''); }
+  // esp-web-tools' dialog on a port we already hold (what its own button does
+  // after asking for one). Its chunk is vendored and pinned; a test holds the
+  // name. Once it has installed or set up Wi-Fi and is back on its dashboard
+  // with a frame that can pair, it steps aside and the frame joins this
+  // household. Its internals: _state, _info, _client, _busy, _handleClose.
+  async function flasher(port, manifest) {
+    await import('/static/flash/esp-web-tools/install-dialog-im156JnI.js');
+    await port.open({ baudRate: 115200, bufferSize: 8192 });
+    var n = document.createElement('ewt-install-dialog');
+    n.port = port; n.manifestPath = manifest;
+    var worked = false;
+    var watch = setInterval(function () {
+      if (!n.isConnected) { clearInterval(watch); return; }
+      if (n._state === 'INSTALL' || n._state === 'PROVISION') worked = true;
+      var st = n._client && n._client.state;
+      if (worked && n._state === 'DASHBOARD' && !n._busy && n._info && canPair(n._info.version) &&
+          (st === 3 || st === 4)) {
+        clearInterval(watch);
+        n._handleClose();
+      }
+    }, 500);
+    n.addEventListener('closed', function () {
+      clearInterval(watch);
+      var go = n._info && canPair(n._info.version) && n._client !== null;
+      port.close().catch(function () {}).then(function () {
+        if (!go) return;
+        showFlash('ok', 'Pairing the frame…', 'ic-check', true);
+        // esp-web-tools lets go of the port on the same event.
+        setTimeout(function () { pairOver(port).then(paired, notPaired); }, 800);
       });
-    });
-  }).observe(document.body, { childList: true });
+    }, { once: true });
+    document.body.appendChild(n);
+  }
+  // Connect: ask the frame first. One already on this release and on Wi-Fi
+  // has nothing to install, so it pairs here, in this dialog; anything else
+  // (older firmware, no Wi-Fi, no answer) goes to the flasher first.
+  window.ffUsb = {
+    connect: async function (kit, dlg, note, btn) {
+      var port;
+      try { port = await navigator.serial.requestPort(); } catch (e) { return; }
+      var manifest = '/api/flash/' + encodeURIComponent(kit) + '/manifest.json';
+      btn.disabled = true; btn.classList.add('busy');
+      note.textContent = 'Connecting to the frame…';
+      try {
+        var man = await fetch(manifest).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+        var info = await probe(port).catch(function () { return null; });
+        if (info && man && bare(info.version) === bare(man.version) && canPair(info.version) && info.state !== 2) {
+          note.textContent = 'Pairing the frame…';
+          await pairOver(port);
+          dlg.close(); paired();
+          return;
+        }
+        dlg.close();
+        await flasher(port, manifest);
+      } catch (err) {
+        note.textContent = 'Not paired: ' + errText(err) + '.';
+      } finally {
+        btn.disabled = false; btn.classList.remove('busy');
+      }
+    }
+  };
 })();
 </script>
 {% endif %}

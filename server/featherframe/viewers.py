@@ -127,6 +127,16 @@ def page_size(width, height) -> Optional[tuple[int, int]]:
     return max(64, round(w * scale)), max(64, round(h * scale))
 
 
+def page_report(width, height, device) -> Optional[dict[str, Any]]:
+    """What the kiosk page says about itself: its device pixels (capped, as
+    page_size) and what it runs on. None when the size is missing or absurd."""
+    size = page_size(width, height)
+    if size is None:
+        return None
+    return {"width": size[0], "height": size[1],
+            "model": (str(device or "").strip()[:40] or None)}
+
+
 def new_row(viewer_id: str, kind: str, stamp: str) -> dict:
     """A viewer nobody has seen before. It asks, like every other frame: a
     screen that found the server on the LAN is not the owner saying so, and it

@@ -1223,10 +1223,9 @@ async def view_state(request: Request, viewer: Optional[str] = None, w: Optional
                      h: Optional[str] = None, device: Optional[str] = None):
     svc = _svc(request)
     viewer_id = viewers.clean_id(viewer)
-    size = viewers.page_size(w, h)
-    if viewer_id is None or size is None:
+    reported = viewers.page_report(w, h, device)
+    if viewer_id is None or reported is None:
         return JSONResponse({"error": "viewer, w and h are required"}, status_code=400)
-    reported = {"width": size[0], "height": size[1], "model": _str_header(device, 40)}
     row = await run_in_threadpool(svc.checkin_viewer, viewer_id, svc._clock(), "page", reported,
                                   request.client.host if request.client else None)
     # Every frame is approved on the server (W-833). A page that has not been

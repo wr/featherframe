@@ -15,6 +15,8 @@
 
 import { admin, auth, login, logout, sessionHousehold } from "./accounts";
 import { adminRoute, waitlistRoute } from "./admin";
+import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
+import { pairingCode } from "./pairing";
 import { Household } from "./household";
 import { HouseholdServer, Lobby } from "./containers";
 import { deviceId, frameKey, sha256 } from "./util";
@@ -37,10 +39,6 @@ export interface Env {
 }
 
 const FRAME_PATHS = /^\/api\/(frame|frame\/push|firmware)$/;
-// A pairing code: letters only (the engraved face has old-style figures that
-// rise and fall), and none of I/L/O/U/V to confuse on the glass.
-const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTWXYZ";
-const CODE_TTL_S = 24 * 60 * 60;
 // While it waits to be claimed a frame asks this often, so pairing shows at once.
 const PAIRING_POLL_S = 10;
 
@@ -51,7 +49,14 @@ export default {
     if (url.hostname !== env.APP_HOST) return new Response("not found", { status: 404 });
     const path = url.pathname;
 
-    if (path === "/_ff/script.ttf") return plates(request, env, new URL("/assets/script.ttf", url));
+    // The script face and the page's icons are the same bytes for everyone:
+    // served here, so a tablet on /view (no session) has them, and a page
+    // load never wakes a server for them.
+    if (path === "/_ff/script.ttf" || path === "/fonts/script.ttf") {
+      return plates(request, env, new URL("/assets/script.ttf", url));
+    }
+    const icon = pageIcon(path);
+    if (icon) return icon;
     if (path === "/login") return login(request, env);
     if (path === "/auth") return auth(request, env, url);
     if (path === "/logout" && request.method === "POST") return logout(request, env);
@@ -63,6 +68,7 @@ export default {
     if (internal) return toHousehold(env, internal[1], request);
 
     if (FRAME_PATHS.test(path)) return frame(request, env, url);
+    if (isViewerPath(path)) return viewerRoute(request, env, url);
 
     const apprise = path.match(/^\/api\/ingest\/apprise\/([^/]+)$/);
     if (apprise && request.method === "POST") {
@@ -127,23 +133,11 @@ async function frame(request: Request, env: Env, url: URL): Promise<Response> {
  * own panel by the Lobby (cached in R2, one per code and panel). */
 async function pairingScreen(request: Request, env: Env, id: string, key: string): Promise<Response> {
   const keyHash = await sha256(key);
-  const now = Math.floor(Date.now() / 1000);
   const report: Record<string, string> = {};
   request.headers.forEach((v, k) => {
     if (k.startsWith("x-panel") || k === "x-board" || k === "x-ff-rotation") report[k] = v;
   });
-  let row = await env.DB.prepare("SELECT code FROM pairing WHERE device_id = ? AND key_hash = ? AND expires_at > ?")
-    .bind(id, keyHash, now).first<{ code: string }>();
-  if (!row) {
-    const code = [...crypto.getRandomValues(new Uint8Array(6))]
-      .map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
-    await env.DB.batch([
-      env.DB.prepare("DELETE FROM pairing WHERE device_id = ? AND key_hash = ?").bind(id, keyHash),
-      env.DB.prepare("INSERT INTO pairing (code, device_id, key_hash, report, expires_at) VALUES (?, ?, ?, ?, ?)")
-        .bind(code, id, keyHash, JSON.stringify(report), now + CODE_TTL_S),
-    ]);
-    row = { code };
-  }
+  const row = { code: await pairingCode(env, id, keyHash, report) };
   const shown = `${row.code.slice(0, 3)}-${row.code.slice(3)}`;
   const variant = (await sha256(JSON.stringify(report))).slice(0, 16);
   const cacheKey = `lobby/${row.code}/${variant}.fff`;

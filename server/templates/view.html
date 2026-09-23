@@ -36,6 +36,8 @@
             font: 20px/1.5 -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
             color: #1a1a1a; }
     #wait-id { margin-top: .6em; font-size: 14px; color: #8a8a8a; }
+    /* A hosted page no household has claimed yet (W-849): its pairing code. */
+    #wait-id.code { font-size: 44px; letter-spacing: .12em; color: #1a1a1a; }
     .waiting #wait { opacity: 1; }
     .waiting img { opacity: 0; }
     /* Quiet hours on a lit screen: black, nothing glowing in a dark room. */
@@ -45,7 +47,7 @@
 </head>
 <body>
   <div id="mark">Featherframe</div>
-  <div id="wait"><div>Add this frame on the Featherframe page</div><div id="wait-id"></div></div>
+  <div id="wait"><div id="wait-line">Add this frame on the Featherframe page</div><div id="wait-id"></div></div>
   <img id="a" alt=""><img id="b" alt="">
 <script>
 // ES5 on purpose: an iPad from 2013 on a kitchen wall is exactly who this is for.
@@ -72,6 +74,20 @@
       }
     }
     return id;
+  }
+
+  // A secret of its own, kept with its id: on hosted Featherframe it is how
+  // this page is known once it is paired (W-849). A box ignores it.
+  function viewerKey() {
+    var key = 'ff-viewer-key', k = null;
+    try { k = window.localStorage.getItem(key); } catch (e) {}
+    if (!k) {
+      k = '';
+      var rnd = window.crypto && window.crypto.getRandomValues ? window.crypto.getRandomValues(new Uint8Array(16)) : null;
+      for (var i = 0; i < 16; i++) k += ('0' + (rnd ? rnd[i] : Math.floor(Math.random() * 256)).toString(16)).slice(-2);
+      try { window.localStorage.setItem(key, k); } catch (e) {}
+    }
+    return k;
   }
 
   function device() {
@@ -106,8 +122,8 @@
     var dpr = window.devicePixelRatio || 1;
     var w = Math.round(window.innerWidth * dpr), h = Math.round(window.innerHeight * dpr);
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/view/state?viewer=' + encodeURIComponent(id) + '&w=' + w + '&h=' + h +
-             '&device=' + encodeURIComponent(device()));
+    xhr.open('GET', '/api/view/state?viewer=' + encodeURIComponent(id) + '&key=' + secret +
+             '&w=' + w + '&h=' + h + '&device=' + encodeURIComponent(device()));
     xhr.timeout = 15000;
     xhr.onload = function () {
       if (xhr.status !== 200) return;
@@ -118,7 +134,11 @@
       // answers brings the picture, with no reload.
       if (state.waiting) {
         root.className = 'waiting';
-        document.getElementById('wait-id').textContent = state.id || '';
+        var tag = document.getElementById('wait-id');
+        document.getElementById('wait-line').textContent = state.code
+          ? 'Pair this screen on the Featherframe page' : 'Add this frame on the Featherframe page';
+        tag.textContent = state.code || state.id || '';
+        tag.className = state.code ? 'code' : '';
         showing = null;
         return;
       }
@@ -133,7 +153,7 @@
 
   function loop() { poll(); timer = setTimeout(loop, POLL); }
 
-  var id = viewerId();
+  var id = viewerId(), secret = viewerKey();
   var resizing = null;
   window.addEventListener('resize', function () {   // turned, or a bar appeared
     clearTimeout(resizing);

@@ -455,11 +455,18 @@ def _sections(client) -> list:
     return re.findall(r'<h2 class="sec-head">(?:<span class="badge ai">AI</span>)?([^<]*)', client.get("/").text)
 
 
+def test_add_over_usb_is_in_the_frames_menu(client):
+    _populate(client)
+    head = client.get("/").text.split('<div class="fr-head">')[1].split('<ul class="fr-list">')[0]
+    assert '<h2 class="sec-head">Frames</h2>' in head
+    assert 'role="menu" hidden' in head and ">Add a frame over USB</button>" in head
+
+
 def test_the_household_sections_read_in_order(client):
     _populate(client)
     names = [s.strip() for s in _sections(client)]
-    assert "Frames" not in names                      # the card is just the list
-    assert names[:4] == ["Detection source", "Image generation",
+    # The Frames card comes first, then the household's sections.
+    assert names[:5] == ["Frames", "Detection source", "Image generation",
                          "Individual detections", "Collage"]
     assert "Quiet hours" not in names                 # it is a row in Collage now
 

@@ -618,6 +618,7 @@ class FeatherframeService:
         # tick at most, however many candidates a page holds. Reset at the
         # top of every single-mode tick and keyed by the tick's `now`.
         self._tick_memo: dict = {}
+        self._heard_cache: Optional[dict] = None   # species_heard, loaded once
         # With no detection on record at all, the alarm clock starts here —
         # the earliest moment we can vouch for silence.
         self._started_at = self._clock()
@@ -1114,6 +1115,7 @@ class FeatherframeService:
         # latest_many, passes the gate then.
         new = self.source.new_since(cursor, CONFIDENCE_FLOOR,
                                     limit=_INGEST_PAGE)
+        self._note_heard(new)
         if len(new) >= _INGEST_PAGE:
             # Backlog: the page is full, so its newest row is not the newest
             # bird. Show the actual latest detection and jump the cursor to
@@ -2687,7 +2689,9 @@ class FeatherframeService:
         prev = pic.meta
         same = (mode == "single" and species_key is not None
                 and prev.get("mode") == "single" and prev.get("species_key") == species_key)
-        carried = same and prev.get("held_since") and prev.get("novelty") in _NOVEL
+        # Only while the hold runs: once it is over, the bird heard again is
+        # what it is now (a repeat), not what it was when it arrived.
+        carried = same and prev.get("novelty") in _NOVEL and self._holding(prev, now) is not None
         if novelty in _NOVEL:
             held_since = prev["held_since"] if carried else now.isoformat(timespec="seconds")
         elif carried:
@@ -3228,12 +3232,42 @@ class FeatherframeService:
         return chosen
 
     def _is_new_species(self, scientific_name: str, on_date: ddate) -> bool:
-        """A species is "new" when the source first heard it on `on_date` —
-        or can't say (a push feed has no history), which is treated as new
-        because an unknown history is exactly when a stray hit can't be
-        checked against anything else."""
+        """A species is "new" when it had never been heard before `on_date`:
+        the source's answer (its first-seen date, or BirdWeather's all-time
+        totals), else this server's own record of what it has heard (a push
+        feed has no history). Heard nowhere before is new: an unknown history
+        is exactly when a stray hit can't be checked against anything else."""
         first = self._first_seen(scientific_name)
-        return first is None or str(first) == on_date.isoformat()
+        if first is not None:
+            return str(first) >= on_date.isoformat()
+        memo = self._tick_memo.setdefault("heard_before", {})
+        key = scientific_name.strip().lower()
+        if (key, on_date) not in memo:
+            ask = getattr(self.source, "heard_before", None)
+            memo[(key, on_date)] = ask(scientific_name, on_date) if ask else None
+        before = memo[(key, on_date)]
+        if before is not None:
+            return not before
+        mine = self._heard().get(key)
+        return mine is None or mine >= on_date.isoformat()
+
+    # -- what this server has heard, all time --------------------------------
+    # A source with no history (Apprise pushes) cannot say whether a species is
+    # new; this server can, from every detection it has taken in: the first
+    # date it heard each species, kept in its own DB.
+    def _heard(self) -> dict:
+        if self._heard_cache is None:
+            self._heard_cache = dict(self.db.get("species_heard") or {})
+        return self._heard_cache
+
+    def _note_heard(self, detections) -> None:
+        heard, changed = self._heard(), False
+        for d in detections:
+            key = (d.scientific_name or "").strip().lower()
+            if key and d.date and (key not in heard or d.date < heard[key]):
+                heard[key], changed = d.date, True
+        if changed:
+            self.db.set("species_heard", heard)
 
     def _corroborated(self, det: Detection, now: datetime) -> tuple[bool, Optional[dict]]:
         """(True, None) when `det` may be shown; (False, pending) when it is a

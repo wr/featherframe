@@ -79,3 +79,26 @@ def test_top_species_today_reads_the_detections_breakdown(monkeypatch):
     rows = s.top_species_today(limit=10)
     assert [(r["common"], r["count"]) for r in rows] == [
         ("Black-capped Chickadee", 120), ("Blue Jay", 88), ("Plain Count", 3)]
+
+
+def test_heard_before_compares_all_time_totals_with_todays(monkeypatch):
+    """No first dates on BirdWeather, but every species' all-time total: more
+    than today's means it was heard before today. All-time comes 100 a page."""
+    from datetime import datetime as _dt
+    s = BirdWeatherSource("21613")
+    pages = {1: [{"scientificName": f"Avis {i}", "detections": {"total": 5}} for i in range(100)],
+             2: [{"scientificName": "Poecile atricapillus", "detections": {"total": 900}},
+                 {"scientificName": "Aquila chrysaetos", "detections": {"total": 2}}]}
+    today = [{"scientificName": "Poecile atricapillus", "commonName": "Chickadee", "detections": {"total": 30}},
+             {"scientificName": "Aquila chrysaetos", "commonName": "Golden Eagle", "detections": {"total": 2}}]
+
+    def get(path, params=None):
+        if params.get("period") == "all":
+            return {"species": pages.get(params["page"], [])}
+        return {"species": today}
+    monkeypatch.setattr(s, "_get", get)
+    day = _dt.now().date()
+    assert s.heard_before("Poecile atricapillus", day) is True
+    assert s.heard_before("Aquila chrysaetos", day) is False     # every detection is today's
+    assert s.heard_before("Avis 7", day) is True
+    assert s.heard_before("Nowhere nobody", day) is None

@@ -161,6 +161,8 @@ def parse_checkin(headers) -> dict:
                    "fmt": _str_header(headers.get("x-panel-format")),
                    "rot": _str_header(headers.get("x-panel-rotations"))}
     return {"device_id": _str_header(headers.get("x-device-id")),
+            # Which way up it hangs now (W-851): where a new row starts.
+            "rotation": _ranged_int(headers.get("x-ff-rotation"), 0, 359),
             "volt": volt, "pct": pct, "rssi": rssi, "wake": wake,
             "device_extra": device_extra, "panel_facts": panel_facts}
 
@@ -180,7 +182,7 @@ async def api_frame(request: Request, view: Optional[str] = None):
 
     status = svc.admit_frame(_str_header(request.headers.get("x-device-id")),
                              device_extra["panel"], device_extra["board"], client_ip,
-                             facts=panel_facts)
+                             facts=panel_facts, rotation=c["rotation"])
     frame_id = (_str_header(request.headers.get("x-device-id")) or "")[:40] or svc.LEGACY_FRAME
     if status != "on":
         headers = {"Cache-Control": "no-store",

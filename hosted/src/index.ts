@@ -124,7 +124,9 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
   const keyHash = await sha256(key);
   const now = Math.floor(Date.now() / 1000);
   const report: Record<string, string> = {};
-  request.headers.forEach((v, k) => { if (k.startsWith("x-panel") || k === "x-board") report[k] = v; });
+  request.headers.forEach((v, k) => {
+    if (k.startsWith("x-panel") || k === "x-board" || k === "x-ff-rotation") report[k] = v;
+  });
   let row = await env.DB.prepare("SELECT code FROM pairing WHERE device_id = ? AND key_hash = ? AND expires_at > ?")
     .bind(id, keyHash, now).first<{ code: string }>();
   if (!row) {
@@ -152,7 +154,7 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
     const q = new URLSearchParams({
       code: shown, panel: report["x-panel"] || "", w: report["x-panel-width"] || "",
       h: report["x-panel-height"] || "", fmt: report["x-panel-format"] || "",
-      rot: report["x-panel-rotations"] || "",
+      rot: report["x-panel-rotations"] || "", cur: report["x-ff-rotation"] || "",
     });
     const r = await env.LOBBY.getByName("lobby").fetch(`http://lobby/render?${q}`);
     if (!r.ok) return new Response("pairing screen unavailable", { status: 503, headers });

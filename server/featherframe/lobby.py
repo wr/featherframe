@@ -22,18 +22,24 @@ from .render import welcome
 app = FastAPI(title="Featherframe lobby")
 
 
-def render_pairing(code: str, panel: str = "", facts: dict | None = None) -> pipeline.RenderResult:
+def render_pairing(code: str, panel: str = "", facts: dict | None = None,
+                   rotation: int | None = None) -> pipeline.RenderResult:
+    """`rotation`: the way up the frame hangs now (W-851), when it is one its
+    panel can do; else the panel's default."""
     row = {"id": "lobby", "transport": "kit",
-           "reported": {"panel": panel or None, "facts": {k: v for k, v in (facts or {}).items() if v} or None}}
+           "reported": {"panel": panel or None, "facts": {k: v for k, v in (facts or {}).items() if v} or None},
+           "set": {"panel_rotation": rotation} if rotation is not None else {}}
     cfg = frames_mod.frame_config(row, Config())
     sheet = welcome.render_waiting(line=welcome.PAIRING_LINE, code=code[:12])
     return pipeline.render_image(sheet, cfg, "welcome", ""), cfg
 
 
 @app.get("/render")
-async def render(code: str, panel: str = "", w: str = "", h: str = "", fmt: str = "", rot: str = ""):
+async def render(code: str, panel: str = "", w: str = "", h: str = "", fmt: str = "", rot: str = "",
+                 cur: str = ""):
+    rotation = int(cur) if cur.isdigit() else None
     result, cfg = await run_in_threadpool(render_pairing, code, panel,
-                                          {"w": w, "h": h, "fmt": fmt, "rot": rot})
+                                          {"w": w, "h": h, "fmt": fmt, "rot": rot}, rotation)
     return Response(result.frame, media_type="application/octet-stream",
                     headers={"ETag": f'"{result.etag}"', "X-FF-Rotation": str(cfg.panel_rotation)})
 

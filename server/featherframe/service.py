@@ -2154,6 +2154,8 @@ class FeatherframeService:
             "details": {
                 "ip": row.get("ip") or "",
                 "firmware": rep.get("fw_version") or rep.get("user_agent") or "",
+                # An official build links to its release notes (W-838).
+                "firmware_url": firmware_release.release_url(rep.get("fw_version")) or "",
                 "panel": (rep.get("panel") or "") if kit else
                          (f"{view.width}×{view.height} · {viewers_mod.depth_word(view.fmt)}"
                           if view else ""),

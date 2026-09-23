@@ -23,7 +23,7 @@ help:
 	@echo "  make clean            remove venv, previews, and runtime state"
 
 venv:
-	cd server && python3 -m venv .venv && ./.venv/bin/pip install --upgrade pip && ./.venv/bin/pip install -r requirements.txt
+	cd server && python3 -m venv .venv && ./.venv/bin/pip install --upgrade pip && ./.venv/bin/pip install -r requirements.txt && (./.venv/bin/pip install -r requirements-optional.txt || true)
 
 plates:
 	cd server && ../$(PY) scripts/fetch_plates.py

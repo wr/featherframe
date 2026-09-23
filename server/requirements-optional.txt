@@ -1,0 +1,5 @@
+# Optional speed-ups. install.sh tries these and carries on without them.
+# Numba compiles the colour panel's Stucki dither (render/stucki_jit.py);
+# without it the same loop runs in Python, ~100x slower, same pixels. Loaded
+# only when a colour frame is drawn, so a gray-only server never pays its RAM.
+numba>=0.59

@@ -150,6 +150,10 @@ else
   # so this stays quick even on a Pi Zero. pip is idempotent: nothing already
   # satisfied is touched.
   "$VENV/bin/pip" install -r "$SERVER_DIR/requirements.txt"
+  # Optional: compiles the colour panel's dither (~10 s -> ~0.1 s). No wheel
+  # for this platform (a 32-bit Pi) just leaves the Python loop in charge.
+  "$VENV/bin/pip" install -r "$SERVER_DIR/requirements-optional.txt" \
+    || echo "==> numba not installed: the colour dither runs in Python (slower, same result)."
 fi
 
 [ "$CHECK" -eq 1 ] || mkdir -p "$DATA_DIR"

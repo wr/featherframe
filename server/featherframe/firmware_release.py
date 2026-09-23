@@ -51,6 +51,13 @@ def parse_version(value) -> Optional[tuple]:
     return tuple(int(x) for x in m.groups()) if m else None
 
 
+def release_url(version) -> Optional[str]:
+    """The GitHub release an official version came from; None for a dev build."""
+    if parse_version(version) is None:
+        return None
+    return f"https://github.com/{REPO}/releases/tag/v{str(version).strip()}"
+
+
 def is_newer(a, b) -> bool:
     """Whether official version `a` is newer than `b`. A dev build is never
     newer than anything, and anything official is newer than a dev build."""

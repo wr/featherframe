@@ -659,6 +659,11 @@
     .fr-det { padding:0 var(--pad); }
     .fr-det dl { margin:14px 0 0; display:grid; grid-template-columns:auto 1fr; gap:9px 0; }
     .fr-det dt { color:var(--muted); font-size:13px; }
+    /* An official build's version links to its release on GitHub. */
+    .fw-link { display:inline-flex; vertical-align:-2px; margin-left:6px; color:var(--muted); }
+    .fw-link:hover { color:var(--accent); }
+    .fw-link[hidden] { display:none; }
+    .fw-link svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
     .fr-det dd { margin:0; text-align:right; font-size:13px; color:var(--ink-2);
       overflow:hidden; text-overflow:ellipsis; }
     .fr-actions { display:flex; align-items:center; gap:8px; margin-top:14px; }
@@ -725,7 +730,8 @@
   <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
   <symbol id="ic-warn" viewBox="0 0 16 16" fill="none"><path d="M8 1.9 15 14.4H1L8 1.9Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.75" r=".9" fill="currentColor"/></symbol>
   <symbol id="ic-info" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="currentColor"/></symbol>
-  <symbol id="ic-caret" viewBox="0 0 12 8"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+<symbol id="ic-caret" viewBox="0 0 12 8"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 <div class="wrap">
   <header>
@@ -1064,7 +1070,7 @@
           <div class="disc-body"><div class="fr-det">
             <dl>
               {% if fr.details.ip %}<dt>IP address</dt><dd class="tnum" data-h="ip">{{ fr.details.ip }}</dd>{% endif %}
-              {% if fr.details.firmware %}<dt>Firmware</dt><dd data-h="fw" data-tip="{% if fr.details.sketch_md5 %}build {{ fr.details.sketch_md5[:8] }}{% endif %}">{{ fr.details.firmware }}</dd>{% endif %}
+              {% if fr.details.firmware %}<dt>Firmware</dt><dd data-tip="{% if fr.details.sketch_md5 %}build {{ fr.details.sketch_md5[:8] }}{% endif %}"><span data-h="fw">{{ fr.details.firmware }}</span><a class="fw-link" data-h="fw-link" href="{{ fr.details.firmware_url or '#' }}" target="_blank" rel="noopener" aria-label="Release notes on GitHub" {{ '' if fr.details.firmware_url else 'hidden' }}><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-link"/></svg></a></dd>{% endif %}
               {% if fr.details.panel or fr.what %}<dt>Panel</dt><dd>{{ fr.details.panel or fr.what }}</dd>{% endif %}
               {% if fr.transport == 'kit' and fr.details.board %}<dt>Board</dt><dd>{{ fr.details.board }}</dd>{% endif %}
               <dt>Frame ID</dt><dd class="tnum">{{ fr.id }}</dd>
@@ -1841,6 +1847,8 @@
     var det = fr.details || {};
     subText(row, 'data-h', 'ip', det.ip || '\u2014');
     subText(row, 'data-h', 'fw', det.firmware || '\u2014');
+    var fwLink = sub(row, 'data-h', 'fw-link');
+    if (fwLink) { fwLink.hidden = !det.firmware_url; if (det.firmware_url) fwLink.href = det.firmware_url; }
 
     // An official release it is not on, and whether it is on its way.
     var fw = fr.firmware || {};

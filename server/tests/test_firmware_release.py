@@ -382,3 +382,16 @@ def test_the_update_is_read_before_it_is_pressed(client):
 def test_no_dialog_without_a_release(client):
     c, _ = client
     assert 'id="fw-dlg"' not in c.get("/").text
+
+
+def test_an_official_build_links_to_its_release(client):
+    c, svc = client
+    assert fr.release_url("1.3.0") == "https://github.com/wr/featherframe/releases/tag/v1.3.0"
+    assert fr.release_url("2026.09.20+abc1234") is None
+    _kit(svc, "1.3.0")
+    add_kit(svc, "BB:BB:BB:00:00:04", reported={"fw_version": "2026.09.20+abc", "board": BOARD})
+    rows = {f["id"]: f["details"] for f in svc.frames_list()}
+    assert rows[FID]["firmware_url"].endswith("/releases/tag/v1.3.0")
+    assert rows["BB:BB:BB:00:00:04"]["firmware_url"] == ""
+    page = c.get("/").text
+    assert page.count('href="https://github.com/wr/featherframe/releases/tag/v1.3.0"') == 1

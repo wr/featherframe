@@ -1529,7 +1529,7 @@ class FeatherframeService:
 
     def admit_frame(self, frame_id: Optional[str], reported_panel: Optional[str],
                     board: Optional[str], ip: Optional[str],
-                    facts: Optional[dict] = None) -> str:
+                    facts: Optional[dict] = None, rotation: Optional[int] = None) -> str:
         """Who is asking? Returns the row's status: "on" (serve it its own
         frame), "asking" or "ignored" (answer 403: not served, nothing
         recorded). `facts` is the frame's own description of its panel (the
@@ -1556,6 +1556,12 @@ class FeatherframeService:
             fresh = row is None
             if fresh:
                 row = rows[fid] = frames_mod.new_row(fid, "kit", stamp)
+                # It starts the way up it already hangs (W-851): a frame moved
+                # from another server is not turned over by the move. Only a
+                # rotation its panel can do; the owner's choice wins after.
+                spec = panels.from_report(reported_panel, facts)
+                if rotation is not None and spec is not None and rotation in spec.rotations:
+                    row.setdefault("set", {})["panel_rotation"] = rotation
             rep = frames_mod.reported_of(row)
             seen = (("panel", reported_panel), ("board", board), ("facts", facts))
             changed = (fresh or any(rep.get(k) != v for k, v in seen if v)
@@ -1974,7 +1980,7 @@ class FeatherframeService:
         this server (`c` is app.parse_checkin's). Returns the row's status."""
         extra = c.get("device_extra") or {}
         status = self.admit_frame(c.get("device_id"), extra.get("panel"), extra.get("board"),
-                                  ip, facts=c.get("panel_facts"))
+                                  ip, facts=c.get("panel_facts"), rotation=c.get("rotation"))
         if status != frames_mod.ON:
             return status
         fid = (c.get("device_id") or "")[:40] or self.LEGACY_FRAME

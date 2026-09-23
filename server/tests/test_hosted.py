@@ -216,3 +216,29 @@ def test_the_lobby_draws_a_code_for_the_panel_that_asks():
     assert struct.unpack_from("<HH", color.frame, 6) == (1200, 1600) and cfg2.panel == "ee02"
     odd, _ = render_pairing("ABC-DEF", "", {"w": "800", "h": "480", "fmt": "gray16", "rot": "90,270"})
     assert struct.unpack_from("<HH", odd.frame, 6) == (800, 480)
+
+
+def test_a_new_frame_starts_the_way_up_it_already_hangs(env):
+    """W-851: a frame moved from another server says which way up it hangs;
+    its new row starts there, and a rotation its panel cannot do is not taken."""
+    from fastapi.testclient import TestClient as TC
+    from featherframe.app import app
+    svc = _service()
+    app.state.service, app.state.hosted = svc, None
+    client = TC(app)
+    for fid, rot, want in (("EE:EE:EE:00:00:01", "270", 270), ("EE:EE:EE:00:00:02", "180", 90)):
+        client.get("/api/frame", headers={"X-Device-Id": fid, "X-Panel": EE03_PANEL, "X-FF-Rotation": rot})
+        svc.answer_frame(fid, "add")
+        assert svc.frame_config(svc.frames.get(fid)).panel_rotation == want
+    # Its report never undoes the owner's choice afterwards.
+    svc.update_frame("EE:EE:EE:00:00:01", {"rotation": 90})
+    client.get("/api/frame", headers={"X-Device-Id": "EE:EE:EE:00:00:01", "X-Panel": EE03_PANEL, "X-FF-Rotation": "270"})
+    assert svc.frame_config(svc.frames.get("EE:EE:EE:00:00:01")).panel_rotation == 90
+
+
+def test_the_pairing_code_is_drawn_the_way_up_the_frame_hangs():
+    from featherframe.lobby import render_pairing
+    pipeline.DITHER_OVERRIDE = "none"
+    up, cfg = render_pairing("ABC-DEF", EE03_PANEL, rotation=270)
+    down, cfg2 = render_pairing("ABC-DEF", EE03_PANEL)
+    assert (cfg.panel_rotation, cfg2.panel_rotation) == (270, 90) and up.frame != down.frame

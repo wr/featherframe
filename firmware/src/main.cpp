@@ -1311,6 +1311,9 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Panel-Height", String(FF_NATIVE_H));
   http.addHeader("X-Panel-Format", FF_PANEL_FORMAT);
   http.addHeader("X-Panel-Rotations", FF_PANEL_ROTATIONS);
+  // Which way up it hangs now (W-851): the rotation it was last told, which
+  // a server that has never seen it starts from — a pairing code, a new row.
+  http.addHeader("X-FF-Rotation", String(g_flip ? (FF_BAKED_ROTATION + 180) % 360 : FF_BAKED_ROTATION));
   // We speak push (W-841): "0" = no socket right now, polling as told; N = a
   // socket is open and the next plain check-in is a heartbeat N s away.
   if (g_alwaysAwake)

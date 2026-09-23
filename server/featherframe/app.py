@@ -69,6 +69,10 @@ async def lifespan(app: FastAPI):
     finally:
         advertiser.stop()
         service.stop()
+        if link is not None:
+            # A hosted server is stopped straight after its work (W-847):
+            # whatever the last moment changed reaches the front door first.
+            await run_in_threadpool(link.settle, service, False)
 
 
 app = FastAPI(title="Featherframe", version=__version__, lifespan=lifespan)

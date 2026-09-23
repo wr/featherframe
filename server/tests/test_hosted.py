@@ -183,3 +183,13 @@ def test_only_a_hosted_server_has_a_wake(env):
     app.state.service = _service()
     app.state.hosted = None
     assert TestClient(app).post("/api/hosted/run").status_code == 404
+
+
+def test_the_front_door_is_told_where_news_comes_from(env):
+    svc = _service()
+    svc.config.detection_backend = "birdweather"
+    svc.config.birdweather_station_id = "abc123"
+    assert svc.hosted_state()["source"] == {"kind": "birdweather", "station": "abc123"}
+    svc.config.detection_backend = "apprise"
+    svc.config.apprise_token = "t0k"
+    assert svc.hosted_state()["source"] == {"kind": "apprise", "token": "t0k"}

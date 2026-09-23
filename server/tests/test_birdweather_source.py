@@ -59,3 +59,23 @@ def test_available_true_on_empty_but_valid(monkeypatch):
 
 def test_available_false_without_station_id():
     assert BirdWeatherSource("").available() is False
+
+
+def test_top_species_today_reads_the_detections_breakdown(monkeypatch):
+    """The station API gives `detections` as a breakdown, not a number
+    (23 Sep 2026: {"total": 88, "almostCertain": 88, ...}). Read as an int it
+    was 0 for every species, so no collage was ever drawn from BirdWeather and
+    a frame on the collage showed plates."""
+    s = BirdWeatherSource("tok")
+    s.station_id = "21613"
+    payload = {"success": True, "species": [
+        {"commonName": "Blue Jay", "scientificName": "Cyanocitta cristata",
+         "detections": {"total": 88, "almostCertain": 88, "veryLikely": 0}},
+        {"commonName": "Black-capped Chickadee", "scientificName": "Poecile atricapillus",
+         "detections": {"total": 120, "almostCertain": 110, "veryLikely": 10}},
+        {"commonName": "Plain Count", "scientificName": "Numerus simplex", "detections": 3},
+    ]}
+    monkeypatch.setattr(s, "_get", lambda path, params=None: payload)
+    rows = s.top_species_today(limit=10)
+    assert [(r["common"], r["count"]) for r in rows] == [
+        ("Black-capped Chickadee", 120), ("Blue Jay", 88), ("Plain Count", 3)]

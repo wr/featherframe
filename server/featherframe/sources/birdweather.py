@@ -190,8 +190,13 @@ class BirdWeatherSource(DetectionSource):
         for s in rows:
             if not isinstance(s, dict):
                 continue
+            # `detections` is a breakdown by certainty ({"total": 88,
+            # "almostCertain": 88, ...}); a plain number is taken as it is.
+            raw = s.get("detections") or s.get("count") or s.get("total") or 0
+            if isinstance(raw, dict):
+                raw = raw.get("total") or 0
             try:
-                count = int(s.get("detections") or s.get("count") or s.get("total") or 0)
+                count = int(raw)
             except (TypeError, ValueError):
                 count = 0
             if count <= 0:

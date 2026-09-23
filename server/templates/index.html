@@ -418,6 +418,9 @@
     details.disc > .disc-body { display:grid; grid-template-rows:1fr; transition:grid-template-rows .22s ease; }
     details.disc.closing > .disc-body { grid-template-rows:0fr; }
     details.disc > .disc-body > * { overflow:hidden; min-height:0; }
+    /* Clipped only while it slides: open and still, a dropdown inside it may
+       reach past its bottom edge instead of being cut off by it. */
+    details.disc[open]:not(.moving) > .disc-body > * { overflow:visible; }
     /* the bottom breathing room lives inside the clipped body, so it collapses with it */
     details.disc > .disc-body > *::after { content:""; display:block; height:var(--pad); }
     @media (prefers-reduced-motion:reduce){ details.disc > summary .chev, details.disc > .disc-body { transition:none; } }
@@ -2175,15 +2178,19 @@
     sum.addEventListener('click', function (e) {
       e.preventDefault();
       if (d.classList.contains('closing')) return;
+      d.classList.add('moving');
       if (d.open) {
         d.classList.add('closing');
-        var done = function () { body.removeEventListener('transitionend', done); d.open = false; d.classList.remove('closing'); };
+        var done = function () { body.removeEventListener('transitionend', done); d.open = false; d.classList.remove('closing', 'moving'); };
         body.addEventListener('transitionend', done);
         setTimeout(done, 300);
       } else {
         d.classList.add('closing'); d.open = true;
         void body.offsetHeight;
         d.classList.remove('closing');
+        var still = function () { body.removeEventListener('transitionend', still); d.classList.remove('moving'); };
+        body.addEventListener('transitionend', still);
+        setTimeout(still, 300);
       }
     });
   });
@@ -2661,7 +2668,7 @@
         a.textContent = 'Open the flasher';
         actions.appendChild(a);
       } else {
-        note.textContent = {{ ('Plug the frame in by USB. Connect installs the latest firmware; Pair adds the frame to this household.' if hosted else 'Plug the frame in by USB, then Connect.') | tojson }};
+        note.textContent = {{ ('Plug the frame in by USB, then Connect. It gets the latest firmware if it needs it and joins this household.' if hosted else 'Plug the frame in by USB, then Connect.') | tojson }};
         if (!loaded) {
           var sc = document.createElement('script');
           sc.type = 'module'; sc.src = '/static/flash/esp-web-tools/install-button.js';
@@ -2677,13 +2684,6 @@
         btn.addEventListener('click', function () { dlg.close(); });
         b.appendChild(btn);
         actions.appendChild(b);
-        if (window.ffPairUsb) {
-          // Hosted (W-848): pairing is its own step, installed or not.
-          var pairBtn = document.createElement('button');
-          pairBtn.className = 'btn'; pairBtn.type = 'button'; pairBtn.textContent = 'Pair';
-          pairBtn.addEventListener('click', function () { dlg.close(); window.ffPairUsb(); });
-          actions.insertBefore(pairBtn, b);
-        }
       }
     }
     dlg.querySelectorAll('input[name="usb-kit"]').forEach(function (r) { r.addEventListener('change', render); });
@@ -3348,19 +3348,28 @@
         showFlash('bad', 'Not paired over USB: ' + errText(err) + '. Use Pair a frame with the code on its screen.', 'ic-warn', true);
       });
   }
-  // The USB dialog's Pair button: the owner picks the frame's port.
-  window.ffPairUsb = function () {
-    navigator.serial.requestPort()
-      .then(pair)
-      .catch(function (err) {
-        if (err && err.name === 'NotFoundError') return;   // no port picked
-        showFlash('bad', 'Not paired over USB: ' + errText(err) + '.', 'ic-warn', true);
-      });
-  };
+  // Firmware that answers the pairing command: 0.2.0 and later, and any dev
+  // build (dated, not MAJOR.MINOR.PATCH), which is newer than 0.1.0.
+  function canPair(version) {
+    var m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(version || ''));
+    if (!m) return !!version;
+    return +m[1] > 0 || +m[2] >= 2;
+  }
   new MutationObserver(function (changes) {
     changes.forEach(function (c) {
       c.addedNodes.forEach(function (n) {
         if (n.nodeName !== 'EWT-INSTALL-DIALOG') return;
+        // One step: once the installer reaches its dashboard with a frame that
+        // can pair (after an install, or at once if it is already current), it
+        // steps aside and the frame joins this household. Its dashboard is
+        // esp-web-tools' own (vendored, pinned): _state, _info, _handleClose.
+        var watch = setInterval(function () {
+          if (!n.isConnected) { clearInterval(watch); return; }
+          if (n._state === 'DASHBOARD' && !n._busy && n._info && canPair(n._info.version)) {
+            clearInterval(watch);
+            n._handleClose();
+          }
+        }, 500);
         n.addEventListener('closed', function () {
           var port = n.port;
           // esp-web-tools closes its own hold on the port on the same event.

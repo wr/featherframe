@@ -307,3 +307,19 @@ def test_the_lobby_draws_a_viewers_code_at_its_own_size():
     png = render_viewer_pairing("ABC-DEF", {"model": "og", "width": 800, "height": 480})
     assert Image.open(io.BytesIO(png)).size == (800, 480)
     assert Image.open(io.BytesIO(render_viewer_pairing("", {}))).size == (1072, 1448)
+
+
+@pytest.mark.parametrize("hosted", [False, True])
+def test_a_hosted_page_offers_no_local_database_source(tmp_path, monkeypatch, hosted):
+    """A hosted server has no BirdNET database beside it to read, so a
+    household that never chose a source is shown BirdWeather."""
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    from starlette.testclient import TestClient
+    from featherframe.app import app
+    from featherframe.service import FeatherframeService
+    monkeypatch.setattr(app.state, "service", FeatherframeService(), raising=False)
+    monkeypatch.setattr(app.state, "hosted", object() if hosted else None, raising=False)
+    html = TestClient(app).get("/").text
+    assert ('<option value="custom"' in html) is not hosted
+    assert ('value="birdweather" data-icon="ic-birdweather" selected' in html) is hosted

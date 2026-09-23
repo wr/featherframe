@@ -422,8 +422,15 @@ copy of any rule. Hosted mode (`featherframe/hosted.py`, on with
 `/_internal/<household>/` before the DB opens, pushes changes after every
 tick and POST, applies check-ins through `app.parse_checkin` →
 `service.apply_checkin` (`add` = paired), and reports `hosted_state()`; a wake
-is `POST /api/hosted/run`. Admin (`Authorization: Bearer` keychain
-`featherframe-hosted-admin-token`): `POST /_admin/invite|link|adopt {email}`.
+is `POST /api/hosted/run`. Admin: `/admin` (W-850, `admin.ts`) for a
+signed-in user whose email is in the `ADMIN_EMAILS` secret, 404 to anyone
+else — the waitlist (D1 `waitlist`: the marketing page's form posts
+`POST /api/waitlist`, form or JSON with CORS for the apex, and an uninvited
+email trying to sign in joins it quietly), invitations, and every household
+(frames and when each was last seen, from the front door's `summary()`, and
+rough server time: wakes plus the time a page kept it up, by UTC day). The
+API is still there: `Authorization: Bearer` keychain
+`featherframe-hosted-admin-token`, `POST /_admin/invite|link|adopt {email}`.
 Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a
 registry push drop; a new image serves only once the rollout ends and the
 Container restarts); D1 schema in `hosted/migrations/`.

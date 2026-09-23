@@ -14,6 +14,7 @@
 // box's own Python server in a Container.
 
 import { admin, auth, login, logout, sessionHousehold } from "./accounts";
+import { adminRoute, waitlistRoute } from "./admin";
 import { Household } from "./household";
 import { HouseholdServer, Lobby } from "./containers";
 import { deviceId, frameKey, sha256 } from "./util";
@@ -31,6 +32,7 @@ export interface Env {
   APP_HOST: string;       // app.featherframe.app
   MAIL_FROM: string;
   ADMIN_TOKEN: string;    // secret
+  ADMIN_EMAILS: string;   // secret: who sees /admin, comma separated
   RESEND_API_KEY: string; // secret
 }
 
@@ -54,6 +56,8 @@ export default {
     if (path === "/auth") return auth(request, env, url);
     if (path === "/logout" && request.method === "POST") return logout(request, env);
     if (path.startsWith("/_admin/")) return admin(request, env, path.slice("/_admin/".length));
+    if (path === "/admin" || path.startsWith("/admin/")) return adminRoute(request, env, url);
+    if (path === "/api/waitlist") return waitlistRoute(request, env);
 
     const internal = path.match(/^\/_internal\/([0-9a-z]{1,32})\//);
     if (internal) return toHousehold(env, internal[1], request);

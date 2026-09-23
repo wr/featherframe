@@ -11,7 +11,7 @@ export const SESSION_COOKIE = "ff_session";
 
 const now = () => Math.floor(Date.now() / 1000);
 
-function normEmail(e: unknown): string {
+export function normEmail(e: unknown): string {
   const s = String(e || "").trim().toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) && s.length <= 254 ? s : "";
 }
@@ -45,6 +45,7 @@ export async function login(request: Request, env: Env): Promise<Response> {
   if (!email) return loginPage("Enter an email address.");
   const link = await makeLoginLink(env, email, validTz(String(form.get("tz") || "")));
   if (link) await sendMail(env, email, signInEmail(link));
+  else await joinWaitlist(env, email, "login");   // asked to come in: they are waiting
   // The same answer either way: the page does not say who has an account.
   return checkEmailPage(email);
 }
@@ -96,14 +97,37 @@ export async function logout(request: Request, env: Env): Promise<Response> {
   });
 }
 
-/** The signed-in household, or null. */
-export async function sessionHousehold(request: Request, env: Env): Promise<string | null> {
+/** The signed-in user and their household, or null. */
+export async function sessionUser(request: Request, env: Env): Promise<{ email: string; hid: string } | null> {
   const session = cookie(request, SESSION_COOKIE);
   if (!session) return null;
   const row = await env.DB.prepare(
-    "SELECT u.household_id AS hid FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?")
-    .bind(await sha256(session), now()).first<{ hid: string }>();
-  return row?.hid ?? null;
+    "SELECT u.email AS email, u.household_id AS hid FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?")
+    .bind(await sha256(session), now()).first<{ email: string; hid: string }>();
+  return row ?? null;
+}
+
+/** The signed-in household, or null. */
+export async function sessionHousehold(request: Request, env: Env): Promise<string | null> {
+  return (await sessionUser(request, env))?.hid ?? null;
+}
+
+// -- the waitlist (W-850) ------------------------------------------------------
+export async function joinWaitlist(env: Env, email: string, source: string): Promise<void> {
+  const known = await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first();
+  if (known) return;
+  await env.DB.prepare("INSERT OR IGNORE INTO waitlist (email, source, created_at) VALUES (?, ?, ?)")
+    .bind(email, source, now()).run();
+}
+
+/** Invite someone: they may sign up with this email. Emails them unless told
+ * not to; says whether the email went. */
+export async function invite(env: Env, email: string, send: boolean): Promise<boolean> {
+  await env.DB.batch([
+    env.DB.prepare("INSERT OR IGNORE INTO invites (email, created_at) VALUES (?, ?)").bind(email, now()),
+    env.DB.prepare("UPDATE waitlist SET invited_at = ? WHERE email = ?").bind(now(), email),
+  ]);
+  return send && sendMail(env, email, inviteEmail(`https://${env.APP_HOST}/login`));
 }
 
 // -- the admin's side, until there is a page for it ----------------------------
@@ -116,8 +140,7 @@ export async function admin(request: Request, env: Env, path: string): Promise<R
   const email = normEmail(body.email);
   if (!email) return Response.json({ error: "email" }, { status: 400 });
   if (path === "invite") {
-    await env.DB.prepare("INSERT OR IGNORE INTO invites (email, created_at) VALUES (?, ?)").bind(email, now()).run();
-    const sent = body.send !== false && await sendMail(env, email, inviteEmail(`https://${env.APP_HOST}/login`));
+    const sent = await invite(env, email, body.send !== false);
     return Response.json({ ok: true, invited: email, emailed: sent });
   }
   if (path === "link") {

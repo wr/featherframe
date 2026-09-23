@@ -966,7 +966,8 @@
             {# A change it has been told of, held by its panel's repaint floor (W-841). #}
             <span class="badge tnum" data-h="queued" data-s="{{ fr.queued_s or '' }}" hidden></span>
             <button class="badge upd" type="button" data-h="fw-badge" data-fw-open {{ '' if fw and fw.available and not fw.pending else 'hidden' }}>Update available</button>
-            <span class="badge" data-h="fw-updating" {{ '' if fw and fw.available and fw.pending else 'hidden' }}>Updating</span>
+            {# Where an update is, live (preparing, a percentage, restarting, done). #}
+            <span class="badge tnum{{ ' warn' if fw and fw.stage == 'failed' else '' }}" data-h="fw-updating" {{ '' if fw and fw.label else 'hidden' }}>{{ fw.label if fw else '' }}</span>
           </span>
           <span class="fr-desc" data-fr="summary">{{ fr.summary }}</span>
         </span>
@@ -1060,7 +1061,7 @@
         <div class="frow" data-fr-fw>
           <div class="frow-text"><span class="lab">Firmware</span><div class="hint tnum" data-h="fw-hint">{{ (fw.running or 'Unknown') ~ ' → ' ~ fw.available }}</div></div>
           <div class="frow-ctl">
-            <span class="hint" data-h="fw-pending" {{ '' if fw.pending else 'hidden' }}>Updates on its next check-in</span>
+            <span class="hint tnum" data-h="fw-pending" {{ '' if fw.label else 'hidden' }}>{{ fw.label }}</span>
             <button class="btn" type="button" data-fw-open {{ '' if not fw.pending else 'hidden' }}>Update available…</button>
           </div>
         </div>
@@ -1928,14 +1929,24 @@
     var fwRow = row.querySelector('[data-fr-fw]');
     if (fwRow) fwRow.hidden = !fw.available;
     subHidden(row, 'data-h', 'fw-badge', !(fw.available && !fw.pending));
-    subHidden(row, 'data-h', 'fw-updating', !(fw.available && fw.pending));
-    subHidden(row, 'data-h', 'fw-pending', !(fw.available && fw.pending));
+    subText(row, 'data-h', 'fw-updating', fw.label || '');
+    subHidden(row, 'data-h', 'fw-updating', !fw.label);
+    var upd = sub(row, 'data-h', 'fw-updating');
+    if (upd) upd.classList.toggle('warn', fw.stage === 'failed');
+    subText(row, 'data-h', 'fw-pending', fw.label || '');
+    subHidden(row, 'data-h', 'fw-pending', !fw.label);
     row.querySelectorAll('.fr-body [data-fw-open]').forEach(function (b) { b.hidden = !(fw.available && !fw.pending); });
     subText(row, 'data-h', 'fw-hint', fw.available ? (fw.running || 'Unknown') + ' \u2192 ' + fw.available : '');
   }
 
+  // While an update is on its way to a frame, look every couple of seconds:
+  // the row counts it through (a percentage, restarting, done).
+  var UPDATE_MOVING = { preparing: 1, waiting: 1, sending: 1, restarting: 1 };
+  var quickPoll = null;
   function applyStatus(st) {
     var cur = st.current || {}, frames = (st.frames && st.frames.list) || [];
+    var moving = frames.some(function (f) { return f.firmware && UPDATE_MOVING[f.firmware.stage]; });
+    if (moving && !quickPoll) quickPoll = setTimeout(function () { quickPoll = null; pollStatus(); }, 2000);
     if (plate) { plate.dataset.hasFrame = cur.etag ? '1' : ''; if (cur.etag) plate.classList.remove('empty'); }
     // A frame added, answered or unplugged changes which rows exist: the rows
     // are server-rendered, so take the new page rather than build them twice.
@@ -2595,7 +2606,8 @@
           var mine = (out.frames || []).filter(function (f) { return f.id === r.getAttribute('data-frame'); })[0];
           if (mine) applyHealth(r, mine);
           dlg.close();
-          showFlash('ok', 'It updates on its next check-in.', 'ic-check');
+          // The row says how it goes from here; start watching at once.
+          setTimeout(pollStatus, 1500);
         })
         .catch(function (e) { showFlash('bad', 'Not updated — ' + errText(e) + '.', 'ic-warn'); })
         .then(function () { go.disabled = false; });

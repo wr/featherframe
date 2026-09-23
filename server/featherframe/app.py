@@ -257,6 +257,11 @@ async def _until_closed(ws: WebSocket) -> None:
         pass
 
 
+# What a frame on push is told when it stops being on (W-841): no picture,
+# only "ask again".
+GONE_MESSAGE = {"etag": None, "rotation": None, "power": None, "ota": False}
+
+
 @app.websocket("/api/frame/push")
 async def api_frame_push(ws: WebSocket):
     """Push, don't poll (W-841). A kit on USB holds this socket with the same
@@ -295,6 +300,11 @@ async def api_frame_push(ws: WebSocket):
             event.clear()     # before the read, so a wake during it is kept
             msg = await run_in_threadpool(svc.push_message, fid)
         if msg is None:
+            # Removed, or ignored: a last word before the close, so the frame
+            # asks /api/frame at once and shows what it is now (the firmware
+            # takes any message as a wake; a bare close is not one, and a
+            # frame on the collage would sit on its old picture for hours).
+            await ws.send_json(GONE_MESSAGE)
             await ws.close(code=1008)
     except (WebSocketDisconnect, RuntimeError):
         pass

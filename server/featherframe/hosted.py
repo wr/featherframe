@@ -194,16 +194,25 @@ class HostedLink:
             log.warning("hosted: sync with the front door failed", exc_info=True)
 
     def _apply_checkins(self, service) -> None:
+        """Hosted, a frame joins a household only by pairing (its code, or
+        USB): a check-in from one this household does not have — one queued
+        just before its owner removed it — is not a frame asking to connect,
+        and is dropped. Only a pairing's `add` makes a row."""
         from .app import parse_checkin     # the one reading of a kit's headers
         for c in self.take_checkins():
             if isinstance(c.get("viewer"), dict):
                 # A TRMNL, an e-reader or a tablet page (W-849).
                 vid = str(c.get("id") or "")
+                if not c.get("add") and service.frames.get(vid.upper()[:40]) is None:
+                    continue
                 service.apply_viewer_checkin(vid, c["viewer"], ip=c.get("ip"), at=c.get("at"))
                 if c.get("add"):
                     service.answer_frame(vid.upper()[:40], "add")
                 continue
             parsed = parse_checkin(_lower(c.get("headers")))
+            fid = (parsed.get("device_id") or "")[:40]
+            if not c.get("add") and (not fid or service.frames.get(fid) is None):
+                continue
             service.apply_checkin(parsed, ip=c.get("ip"), user_agent=c.get("ua"),
                                   result=str(c.get("result") or "304"),
                                   etag=c.get("etag"), at=c.get("at"))

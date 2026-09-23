@@ -177,6 +177,10 @@ class LibraryProvider(ArtProvider):
         self.library._index = None
 
     @property
+    def index(self) -> SpeciesIndex:
+        return self.library.index()
+
+    @property
     def species_count(self) -> int:
         return self.library.index().count
 

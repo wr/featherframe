@@ -84,6 +84,11 @@ class AudubonProvider(ArtProvider):
         self._index = SpeciesIndex.load()
 
     @property
+    def index(self) -> SpeciesIndex:
+        """The curated index the plates are matched against."""
+        return self._index
+
+    @property
     def species_count(self) -> int:
         return self._index.count
 

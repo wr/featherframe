@@ -20,6 +20,7 @@
     :root {
       /* soft warm-neutral field; walnut is the one concentrated warm accent */
       --bg:#ececea; --surface:#fcfcfb; --inset:#e9e9e5;
+      --gloss:rgba(255,255,255,.8);
       --ink:#201e1a; --ink-2:#474540; --muted:#827e76; --faint:#b1aea6;
       --border:#e6e4dd; --border-strong:#d5d2ca; --hair:#eeece6;
       --accent:#6b4a2c; --accent-press:#523821; --accent-ring:rgba(107,74,44,.24);
@@ -41,6 +42,7 @@
        themselves stay on white paper (see .plate). */
     @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) {
       --bg:#1a1916; --surface:#232220; --inset:#1d1c19;
+      --gloss:rgba(255,255,255,.16);
       --ink:#ece8e0; --ink-2:#c6c1b6; --muted:#8e897f; --faint:#5b574f;
       --border:#33312c; --border-strong:#4a463f; --hair:#2b2a26;
       --accent:#cfa878; --accent-press:#e0bc8e; --accent-ring:rgba(207,168,120,.3);
@@ -56,6 +58,7 @@
     } }
     :root[data-theme="dark"] {
       --bg:#1a1916; --surface:#232220; --inset:#1d1c19;
+      --gloss:rgba(255,255,255,.16);
       --ink:#ece8e0; --ink-2:#c6c1b6; --muted:#8e897f; --faint:#5b574f;
       --border:#33312c; --border-strong:#4a463f; --hair:#2b2a26;
       --accent:#cfa878; --accent-press:#e0bc8e; --accent-ring:rgba(207,168,120,.3);
@@ -611,6 +614,15 @@
     .badge.upd:hover { background:color-mix(in srgb, var(--accent) 22%, transparent); }
     .badge.upd:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
     .badge.warn { color:var(--warn); background:color-mix(in srgb, var(--warn) 15%, transparent); }
+    /* A firmware update on the move (preparing, sending, restarting): a gloss
+       sweeps across it, so it reads as working, not as a label. */
+    .busy { position:relative; overflow:hidden; }
+    .busy::after { content:""; position:absolute; top:0; bottom:0; left:0; width:60%; pointer-events:none;
+      background:linear-gradient(100deg, transparent, var(--gloss), transparent);
+      animation:ff-gloss 1.5s ease-in-out infinite; }
+    @keyframes ff-gloss { from { transform:translateX(-120%); } to { transform:translateX(220%); } }
+    span.hint.busy { display:inline-block; vertical-align:middle; }
+    @media (prefers-reduced-motion:reduce){ .busy::after { animation:none; display:none; } }
     .badge.bad { color:var(--bad); background:color-mix(in srgb, var(--bad) 15%, transparent); }
     /* On a switch's label and the section's head: a rounded rectangle in
        its own purple, so the AI settings read as one family. */
@@ -967,7 +979,7 @@
             <span class="badge tnum" data-h="queued" data-s="{{ fr.queued_s or '' }}" hidden></span>
             <button class="badge upd" type="button" data-h="fw-badge" data-fw-open {{ '' if fw and fw.available and not fw.pending else 'hidden' }}>Update available</button>
             {# Where an update is, live (preparing, a percentage, restarting, done). #}
-            <span class="badge tnum{{ ' warn' if fw and fw.stage == 'failed' else '' }}" data-h="fw-updating" {{ '' if fw and fw.label else 'hidden' }}>{{ fw.label if fw else '' }}</span>
+            <span class="badge tnum{{ ' warn' if fw and fw.stage == 'failed' else '' }}{{ ' busy' if fw and fw.stage in ('preparing', 'waiting', 'sending', 'restarting') else '' }}" data-h="fw-updating" {{ '' if fw and fw.label else 'hidden' }}>{{ fw.label if fw else '' }}</span>
           </span>
           <span class="fr-desc" data-fr="summary">{{ fr.summary }}</span>
         </span>
@@ -1061,7 +1073,7 @@
         <div class="frow" data-fr-fw>
           <div class="frow-text"><span class="lab">Firmware</span><div class="hint tnum" data-h="fw-hint">{{ (fw.running or 'Unknown') ~ ' → ' ~ fw.available }}</div></div>
           <div class="frow-ctl">
-            <span class="hint tnum" data-h="fw-pending" {{ '' if fw.label else 'hidden' }}>{{ fw.label }}</span>
+            <span class="hint tnum{{ ' busy' if fw.stage in ('preparing', 'waiting', 'sending', 'restarting') else '' }}" data-h="fw-pending" {{ '' if fw.label else 'hidden' }}>{{ fw.label }}</span>
             <button class="btn" type="button" data-fw-open {{ '' if not fw.pending else 'hidden' }}>Update available…</button>
           </div>
         </div>
@@ -1881,6 +1893,8 @@
   });
   setInterval(function () { document.querySelectorAll('[data-h="queued"]').forEach(tickQueued); }, 5000);
 
+  // The stages of a firmware update that are still moving.
+  var UPDATE_MOVING = { preparing: 1, waiting: 1, sending: 1, restarting: 1 };
   function applyHealth(row, fr) {
     var card = fr.card || {};
     applyQueued(row, fr.queued_s || 0);
@@ -1931,17 +1945,19 @@
     subHidden(row, 'data-h', 'fw-badge', !(fw.available && !fw.pending));
     subText(row, 'data-h', 'fw-updating', fw.label || '');
     subHidden(row, 'data-h', 'fw-updating', !fw.label);
+    var moving = !!UPDATE_MOVING[fw.stage];
     var upd = sub(row, 'data-h', 'fw-updating');
-    if (upd) upd.classList.toggle('warn', fw.stage === 'failed');
+    if (upd) { upd.classList.toggle('warn', fw.stage === 'failed'); upd.classList.toggle('busy', moving); }
     subText(row, 'data-h', 'fw-pending', fw.label || '');
     subHidden(row, 'data-h', 'fw-pending', !fw.label);
+    var line = sub(row, 'data-h', 'fw-pending');
+    if (line) line.classList.toggle('busy', moving);
     row.querySelectorAll('.fr-body [data-fw-open]').forEach(function (b) { b.hidden = !(fw.available && !fw.pending); });
     subText(row, 'data-h', 'fw-hint', fw.available ? (fw.running || 'Unknown') + ' \u2192 ' + fw.available : '');
   }
 
   // While an update is on its way to a frame, look every couple of seconds:
   // the row counts it through (a percentage, restarting, done).
-  var UPDATE_MOVING = { preparing: 1, waiting: 1, sending: 1, restarting: 1 };
   var quickPoll = null;
   function applyStatus(st) {
     var cur = st.current || {}, frames = (st.frames && st.frames.list) || [];

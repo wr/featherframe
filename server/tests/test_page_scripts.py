@@ -33,3 +33,15 @@ def test_every_script_on_the_page_parses(tmp_path, monkeypatch, hosted):
         f.write_text(js)
         r = subprocess.run([node, "--check", str(f)], capture_output=True, text=True)
         assert r.returncode == 0, f"script {i} does not parse:\n{r.stderr[:600]}"
+
+
+def test_the_vendored_install_dialog_chunk_is_where_the_page_imports_it():
+    """The hosted page opens esp-web-tools' dialog on a port it already holds,
+    by importing the dialog's hashed chunk by name: a new vendored build must
+    update the name in index.html."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    html = (root / "templates" / "index.html").read_text()
+    m = re.search(r"import\('/static/flash/esp-web-tools/([^']+)'\)", html)
+    assert m, "the page no longer imports the install dialog"
+    assert (root / "static" / "flash" / "esp-web-tools" / m.group(1)).exists()

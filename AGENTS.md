@@ -320,7 +320,10 @@ Serial needs a secure page, so on plain http the dialog links to the same
 flasher on GitHub Pages (`flasher/index.html`, published by the release
 workflow). The firmware speaks Improv over USB (`ff_improv.cpp`, W-839) so the
 flasher can give a blank board its Wi-Fi; the new frame then asks to connect
-like any other. mDNS
+like any other. On a hosted page *Connect* asks the frame first (Improv info +
+state, then Featherframe's 0xF0): a frame already on the release and on Wi-Fi
+pairs in the dialog with no flasher; anything else opens esp-web-tools' dialog
+on that port, which steps aside to pair once it has installed or set up Wi-Fi. mDNS
 advertises the first `on` kit's panel key; a frame whose panel no server claims
 takes any that answers.
 

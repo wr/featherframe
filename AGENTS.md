@@ -384,6 +384,39 @@ the same script and the roman numeral in the engraved capitals, since a run
 of script capitals is unreadable. A generated sheet carries a ✦ there
 instead, and the bough of a species with no plate carries nothing. `theme.py` holds all geometry/tone constants.
 
+**The plate library (W-842, `plate_library.py`)** is the scans' crops taken
+once: `library.json` (index.json's species, each naming its crop by
+`library` key) + `lib/<key>.gray.png` (`plate.extract`'s output) +
+`lib/<key>.color.webp` (the raw colour crop, normalised at load). Both
+lossless, so a plate from the library is the plate from the scan (a test
+holds it); ~1.2 GB for the edition. `FEATHERFRAME_PLATE_LIBRARY` (a directory
+or a URL, fetched on first use into `data/plate-library/`) puts
+`LibraryProvider` in place of `AudubonProvider` — for a server with no scans,
+the hosted render Container first. Build: `python -m featherframe.plate_library
+build OUT_DIR` on a machine with every scan.
+
+**Hosted (W-841–W-845, `hosted/`).** A household is `<name>.featherframe.app`
+(the apex is the marketing page, not routed). The Worker (`hosted/src/index.ts`)
+has two Durable Objects: `Household`, the front door, answers `GET /api/frame`
+from its own table + R2 and holds the push sockets, keeps check-ins until the
+server takes them, and wakes the server on its alarm (the server's
+`next_wake_epoch`, else every 5 min unless it said `poll: false`, i.e. quiet
+hours); `HouseholdServer` is THIS Python server in a Container
+(`hosted/Dockerfile`, `sleepAfter` 30 s). There is no TypeScript copy of any
+rule: hosted mode (`featherframe/hosted.py`, on when `FEATHERFRAME_HOSTED_URL`
++ `_KEY` are set) pulls the data dir from the front door's `/_internal/` API
+before the database opens, and after every tick and every POST pushes what
+changed (the DB as a snapshot), applies queued check-ins through
+`app.parse_checkin` → `service.apply_checkin`, and reports
+`service.hosted_state()`. A wake is `POST /api/hosted/run` (one tick, answered
+when done). Plates come from `plates.featherframe.app` (the W-842 library).
+The page is behind the household's password until accounts (W-845).
+Provision: `POST https://<name>.featherframe.app/_admin/provision` with the
+admin token (keychain `featherframe-hosted-admin-token`) and
+`{password, tz}`. Deploy: `cd hosted && npx wrangler deploy` (Docker running;
+retry on a registry push drop). New households need a DNS record: a custom
+domain in `wrangler.jsonc` routes, until a proxied `*` record exists.
+
 **Non-obvious invariants — do not break one side of these without the other:**
 
 - **Never a wrong bird.** No match / no-plate species → provider returns `None` →

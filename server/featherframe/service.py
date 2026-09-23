@@ -28,6 +28,7 @@ from urllib.parse import quote
 from PIL import Image
 
 from . import firmware_release
+from . import plate_library
 from . import frames as frames_mod
 from . import panels, paths
 from . import pictures as pictures_mod
@@ -526,7 +527,12 @@ class FeatherframeService:
         self.releases = firmware_release.ReleaseStore(self.db, paths.data_dir())
         # The frames holding a push socket (W-841), woken after every tick.
         self.push = PushHub()
-        self.audubon = AudubonProvider()
+        # Called after every tick, e.g. a hosted household's sync (W-844).
+        self.after_tick: list = []
+        self._tick_lock = threading.Lock()
+        # The scans on this box, or the shared library where there are none
+        # (FEATHERFRAME_PLATE_LIBRARY, W-842): the same crops either way.
+        self.audubon = plate_library.from_env() or AudubonProvider()
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
         self.source = make_source(self.config, self.db)
@@ -750,10 +756,15 @@ class FeatherframeService:
     # -- the decision loop -------------------------------------------------
     def tick(self) -> None:
         try:
-            self._tick()
+            # One tick at a time: the scheduler, a background job and a hosted
+            # wake (W-844) may all ask at once; the second waits its turn.
+            with self._tick_lock:
+                self._tick()
         finally:
             # Whatever this tick changed, every frame on a socket hears of it.
             self.push.notify()
+            for hook in self.after_tick:
+                hook()
 
     def _tick(self) -> None:
         self._tick_pictures()
@@ -1951,6 +1962,79 @@ class FeatherframeService:
         wait = (painted - now).total_seconds() + spec.refresh_seconds + spec.min_repaint_s
         return int(wait) if wait >= 1 else None
 
+    # -- hosted (W-843/W-844) -------------------------------------------------
+    # A hosted household is this same server, woken on demand; a front door
+    # (a Durable Object) answers the frames while it sleeps. These are the
+    # three things that front door and this server say to each other.
+    def apply_checkin(self, c: dict, ip: Optional[str] = None,
+                      user_agent: Optional[str] = None, result: str = "304",
+                      etag: Optional[str] = None, at: Optional[str] = None) -> str:
+        """A kit's GET /api/frame, answered by the front door and handed over
+        here: the same admission and the same record as a request that reached
+        this server (`c` is app.parse_checkin's). Returns the row's status."""
+        extra = c.get("device_extra") or {}
+        status = self.admit_frame(c.get("device_id"), extra.get("panel"), extra.get("board"),
+                                  ip, facts=c.get("panel_facts"))
+        if status != frames_mod.ON:
+            return status
+        fid = (c.get("device_id") or "")[:40] or self.LEGACY_FRAME
+        self._record_checkin(fid, {**extra, "battery_voltage": c.get("volt"),
+                                   "battery_percent": c.get("pct"), "wifi_rssi": c.get("rssi"),
+                                   "ip": ip, "user_agent": user_agent,
+                                   "last_result": result if result in ("304", "frame") else "frame",
+                                   "etag_served": etag}, stamp=at)
+        return status
+
+    def next_wake_at(self, now: Optional[datetime] = None) -> Optional[str]:
+        """The next moment this server has something to do with nothing new
+        heard: the collage's next redraw, the end of a dwell hold, either edge
+        of quiet hours. A new detection is the front door's to notice. None
+        when nothing is scheduled."""
+        now = now or self._clock()
+        when = []
+        nxt = self.collage_next_at(now)
+        if nxt is not None:
+            when.append(nxt)
+        hold = self._holding(self.pictures[PLATES].meta, now)
+        if hold:
+            when.append(datetime.fromisoformat(hold["until"]))
+        cfg = self.config
+        if cfg.quiet_hours_mode != "off":
+            start, end = cfg.quiet_window(now.date())
+            when += [self._next_time(now, start), self._next_time(now, end)]
+        future = [w for w in when if w > now]
+        return min(future).isoformat(timespec="seconds") if future else None
+
+    def hosted_state(self) -> dict:
+        """What the front door needs to answer every kit without this server:
+        each one's status, its output (the file and its ETag), the headers that
+        ride on /api/frame, and its push message."""
+        out = {}
+        for row in self.frames.by_transport("kit"):
+            fid = str(row["id"])
+            entry = {"status": row.get("status")}
+            if row.get("status") == frames_mod.ON:
+                cfg = self.frame_config(row)
+                poll_s, wake_min = self.frame_intervals(row)
+                fff = self._out_paths(fid)[0]
+                entry.update({
+                    "etag": self._output_etag(fid),
+                    "file": fff.relative_to(paths.data_dir()).as_posix(),
+                    "headers": {"X-FF-Invert": "0", "X-FF-Rotation": str(cfg.panel_rotation),
+                                "X-Power-Mode": cfg.power_mode,
+                                "X-Wake-Minutes": str(wake_min), "X-Poll-Seconds": str(poll_s)},
+                    "push": self.push_message(fid)})
+            out[fid] = entry
+        wake = self.next_wake_at()
+        # The front door keeps time in UTC; this server in the household's own
+        # (TZ): the epoch is what it schedules by, the ISO what a person reads.
+        return {"frames": out, "next_wake_at": wake,
+                "next_wake_epoch": int(datetime.fromisoformat(wake).timestamp()) if wake else None,
+                # Whether a new detection could change anything right now: in
+                # quiet hours nothing is drawn but what next_wake_at already
+                # names, so the front door need not wake this to look.
+                "poll": not self.config.in_quiet_hours(self._clock().time())}
+
     def push_message(self, frame_id: str) -> Optional[dict]:
         """What a frame on a push socket is told (W-841): everything that
         changes what its next `GET /api/frame` would answer — its output, the
@@ -2014,11 +2098,13 @@ class FeatherframeService:
         self._record_checkin(frame_id, {**(telemetry or {}), "last_result": view,
                                         "etag_served": self._output_etag(frame_id)})
 
-    def _record_checkin(self, frame_id: str, telemetry: dict) -> None:
+    def _record_checkin(self, frame_id: str, telemetry: dict,
+                        stamp: Optional[str] = None) -> None:
         # Telemetry is untrusted input off the LAN: every value is re-validated
         # here (finite, in range, bounded) because the row is persisted and
         # rendered — an old build let a NaN through and every /api/status 500'd.
-        stamp = self._clock().isoformat(timespec="seconds")
+        # `stamp`: when it was heard, for a check-in handed over later (W-844).
+        stamp = stamp or self._clock().isoformat(timespec="seconds")
         fields = _clean_device_fields({**telemetry, "last_checkin": stamp})
         # How long it was just told to wait, so "overdue" is measured against
         # that and not against a clock of the page's own.

@@ -1,0 +1,36 @@
+// Featherframe, hosted (W-841): see src/index.ts.
+{
+  "name": "featherframe-hosted",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": { "ZONE": "featherframe.app" },
+  // Every household is a subdomain; the apex (the marketing page) is not
+  // routed. The wildcard route needs a proxied `*` DNS record; until there is
+  // one, a household is a custom domain of its own (which makes its record).
+  "routes": [
+    { "pattern": "*.featherframe.app/*", "zone_name": "featherframe.app" },
+    { "pattern": "wells.featherframe.app", "custom_domain": true }
+  ],
+  "r2_buckets": [
+    { "binding": "DATA", "bucket_name": "featherframe-households" },
+    { "binding": "PLATES", "bucket_name": "featherframe-plates" }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "HOUSEHOLD", "class_name": "Household" },
+      { "name": "SERVER", "class_name": "HouseholdServer" }
+    ]
+  },
+  "containers": [
+    {
+      "class_name": "HouseholdServer",
+      "image": "./Dockerfile",
+      "image_build_context": "..",
+      "instance_type": "basic",
+      "max_instances": 20
+    }
+  ],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Household", "HouseholdServer"] }],
+  "observability": { "enabled": true }
+}

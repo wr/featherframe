@@ -126,16 +126,21 @@ class SpeciesIndex:
         entry = self._by_common.get(normalize(common_name))
         return str(entry["common"]) if entry and entry.get("common") else None
 
+    def entry(self, common_name: str, scientific_name: str = "") -> Optional[dict]:
+        """The curated entry for a species that has a plate, matched exactly
+        (scientific name first), or None. Explicit "no plate" species are None:
+        never guess, always fall back."""
+        entry = self._by_sci.get(normalize(scientific_name)) or self._by_common.get(normalize(common_name))
+        if entry is None or entry.get("plate") in (None, "none", "None", False):
+            return None
+        return entry
+
     def match(self, common_name: str, scientific_name: str = "") -> Optional[PlateMatch]:
         """Return a PlateMatch with a usable image, or None (-> fallback)."""
-        entry = self._by_sci.get(normalize(scientific_name)) or self._by_common.get(normalize(common_name))
+        entry = self.entry(common_name, scientific_name)
         if entry is None:
             return None
-
         plate = entry.get("plate")
-        # Explicit "no plate" species: never guess, always fall back.
-        if plate in (None, "none", "None", False):
-            return None
 
         image_name = entry.get("image")
         image_path = str(self._images_dir / image_name) if image_name else None

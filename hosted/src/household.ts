@@ -110,6 +110,8 @@ export class Household extends DurableObject<Env> {
   async proxy(request: Request): Promise<Response> {
     this.setMeta("page_ms", String(Date.now()));
     const stub = await this.server();
+    // Read before the body is handed on: forwarding the request uses it up.
+    const removing = await this.removedFrame(request);
     const headers = new Headers(request.headers);
     headers.delete("Cookie");               // the session is the Worker's, not the server's
     headers.delete("X-FF-Household");
@@ -119,7 +121,6 @@ export class Household extends DurableObject<Env> {
     // 500 "Container suddenly disconnected"; seen once, mid first render after
     // a cold start). A read is safe to ask again, once; a write is not.
     const again = request.method === "GET" || request.method === "HEAD";
-    const removing = await this.removedFrame(request);
     const res = await stub.fetch(again ? forward.clone() : forward);
     if (removing && res.ok) await this.unpair(removing);
     if (again && res.status === 500 && (await res.clone().text()).startsWith("Container suddenly disconnected")) {

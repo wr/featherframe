@@ -2551,6 +2551,9 @@
         var btn = document.createElement('button');
         btn.className = 'btn primary'; btn.slot = 'activate'; btn.type = 'button';
         btn.textContent = 'Connect';
+        // esp-web-tools opens its own dialog; ours is modal and would sit on
+        // top of it (and make it inert), so it steps aside first.
+        btn.addEventListener('click', function () { dlg.close(); });
         b.appendChild(btn);
         actions.appendChild(b);
       }

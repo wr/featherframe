@@ -227,7 +227,7 @@ rotation: a TRMNL's is stood up and a page's is the sheet at 3:4) and the plate'
 tools; then the detection source's own small card, titled by the source name;
 then History. **There is no Health card**: a frame's health is the frame's row.
 Right, wide: a **Frames** card FIRST — its *Frames* heading, a ⋯ menu
-holding *Add a frame over USB*, *Buy a frame* and *DIY instructions*, then the list — then the
+holding *USB firmware update*, *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list — then the
 household's sections in one `/settings` form that carries no frame field at
 all, in the order the day runs: Detection source, Image generation (its two AI
 switches `locked` until a key is stored), Individual detections, Collage — and
@@ -312,7 +312,7 @@ or `Config.firmware_auto_update` is on and it already runs an official
 `MAJOR.MINOR.PATCH` (a dev build is never replaced unasked);
 `service.release_image_for` hands it over, and a `make ota` image older than
 that hand-over is not served to that frame. The frame shows nothing about it. The
-Frames card's *Add a frame over USB* (W-840) installs the same release with
+Frames card's *USB firmware update* (W-840) installs the same release with
 esp-web-tools (vendored in `server/static/flash/`, from
 `/api/flash/<kit>/manifest.json`: bootloader, partitions, boot_app0, app —
 never NVS, so a board keeps its Wi-Fi unless the owner ticks Erase). Web
@@ -408,7 +408,8 @@ the firmware makes once at first boot (NVS `ffkey`) — a MAC alone gets
 nothing. A frame no one has claimed is shown a pairing code (letters only),
 drawn for its own panel by the `Lobby` Container (`featherframe/lobby.py`,
 same image) and cached in R2; the owner types it under the Frames card's
-*Pair a frame* (hosted only), and the household's server adds it at once.
+*Pair a frame* (hosted only; one large field that keeps six letters as
+`ABC-DEF`, typed or pasted), and the household's server adds it at once.
 Removing a frame on the page (Remove, or Forget on an ignored kit) also drops
 its registry row (`Household.proxy` → `unpair`), so it is shown a new code.
 Viewers pair the same way (W-849, `viewers.ts`): a TRMNL client is known by

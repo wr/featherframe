@@ -479,7 +479,12 @@
     footer .signout { margin:0; }
     footer .signout button { background:none; border:0; padding:0; font:inherit; color:inherit; cursor:pointer; }
     footer .signout button:hover { color:var(--ink); }
-    #pair-code { text-transform:uppercase; letter-spacing:.08em; }
+    /* The code as the frame shows it: large, spaced, one field. */
+    #pair-code { display:block; width:100%; box-sizing:border-box; margin:6px 0 4px; padding:14px 16px;
+                 font:500 30px/1.2 var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+                 letter-spacing:.18em; text-align:center; text-transform:uppercase; }
+    #pair-code::placeholder { color:var(--muted); opacity:.45; }
+    #pair-note { margin:10px 0 0; color:var(--ink-2); font-size:13.5px; line-height:1.5; }
     footer a { color:var(--ink-2); text-decoration:none; }
     footer a:hover { color:var(--accent); }
     footer .ver { margin-left:auto; font-family:var(--serif); font-style:italic; }
@@ -693,7 +698,7 @@
     .fr-note, .fr-empty, .ignored-frames { margin:13px 0; }
     /* Save sits on the right, as the household form's does; Remove on the left. */
     .fr-actions [data-fr-action="save"] { margin-left:auto; }
-    /* Add a frame over USB (W-840): a button under the list, and its dialog. */
+    /* USB firmware update (W-840): a menu item, and its dialog. */
     /* The card's heading, with its one rarely-used action in a ⋯ menu. */
     .fr-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 0 6px; }
     .fr-head .sec-head { margin:0; }
@@ -1002,7 +1007,7 @@
       <div class="disc-body"><div class="fr-body">
         <div class="frow">
           <div class="frow-text"><label class="lab" for="fr-name-{{ i }}">Name</label></div>
-          <div class="frow-ctl"><input type="text" id="fr-name-{{ i }}" data-f="name" maxlength="60" value="{{ fr.name }}" placeholder="{{ fr.what }}"></div>
+          <div class="frow-ctl"><input type="text" id="fr-name-{{ i }}" data-f="name" maxlength="60" value="{{ fr.name }}" placeholder="{{ fr.default_title }}"></div>
         </div>
         <div class="frow">
           <div class="frow-text"><span class="lab" id="fr-shows-lab-{{ i }}">Content</span></div>
@@ -1141,7 +1146,7 @@
             <button class="fr-more-btn" type="button" id="fr-more" aria-label="More" aria-haspopup="menu" aria-expanded="false" aria-controls="fr-menu"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
             <div class="fr-menu" id="fr-menu" role="menu" hidden>
               {% if hosted %}<button type="button" role="menuitem" id="pair-open">Pair a frame</button>{% endif %}
-              <button type="button" role="menuitem" id="usb-open">Add a frame over USB</button>
+              <button type="button" role="menuitem" id="usb-open">USB firmware update</button>
               <hr>
               <a role="menuitem" href="https://shop.wells.ee/products/featherframe/" target="_blank" rel="noopener">Buy a frame</a>
               <a role="menuitem" href="https://github.com/wr/featherframe#shopping-list" target="_blank" rel="noopener">DIY instructions</a>
@@ -1221,18 +1226,15 @@
       <form method="dialog" class="usb-x"><button class="btn sm" aria-label="Close">Close</button></form>
       <h2 class="sec-head" id="pair-title">Pair a frame</h2>
       <form id="pair-form">
-        <div class="frow">
-          <div class="frow-text"><label class="lab" for="pair-code">Code on the frame</label></div>
-          <div class="frow-ctl"><input type="text" id="pair-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="ABC-DEF" required></div>
-        </div>
+        <input type="text" id="pair-code" name="code" aria-label="Pairing code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" inputmode="text" maxlength="7" placeholder="ABC-DEF" required>
         <p id="pair-note" hidden></p>
-        <div class="usb-actions"><button class="btn primary" type="submit" id="pair-go">Pair</button></div>
+        <div class="usb-actions"><button class="btn primary" type="submit" id="pair-go" disabled>Pair</button></div>
       </form>
     </dialog>
     {% endif %}
     <dialog class="usb-dlg" id="usb-dlg" aria-labelledby="usb-title">
       <form method="dialog" class="usb-x"><button class="btn sm" aria-label="Close">Close</button></form>
-      <h2 class="sec-head" id="usb-title">Add a frame over USB</h2>
+      <h2 class="sec-head" id="usb-title">USB firmware update</h2>
       {% if fws.kits %}
       <div class="frow">
         <div class="frow-text"><span class="lab" id="usb-kit-lab">Kit</span></div>
@@ -2668,20 +2670,44 @@
   (function () {
     var dlg = $('pair-dlg'), open = $('pair-open'), form = $('pair-form');
     if (!dlg || !open || !form) return;
+    var input = $('pair-code'), go = $('pair-go'), note = $('pair-note');
+    // A code is six letters, shown ABC-DEF. Typed or pasted in any shape
+    // ("abc def", "ABC-DEF", "abcdef"), it is kept to letters and hyphenated.
+    function letters() { return input.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6); }
+    function tidy() {
+      var l = letters();
+      input.value = l.length > 3 ? l.slice(0, 3) + '-' + l.slice(3) : l;
+      go.disabled = l.length !== 6;
+      note.hidden = true;
+    }
+    input.addEventListener('input', tidy);
     open.addEventListener('click', function () {
       var menu = $('fr-menu'); if (menu) menu.hidden = true;
-      $('pair-note').hidden = true; $('pair-code').value = '';
-      dlg.showModal(); $('pair-code').focus();
+      input.value = ''; tidy();
+      dlg.showModal(); input.focus();
     });
+    function say(text) { note.textContent = text; note.hidden = false; }
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      var go = $('pair-go'), note = $('pair-note');
+      var code = letters();
+      if (code.length !== 6) return;
+      var shown = code.slice(0, 3) + '-' + code.slice(3);
       go.disabled = true; note.hidden = true;
       jsonFetch('/api/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                               body: JSON.stringify({ code: $('pair-code').value }) })
+                               body: JSON.stringify({ code: code }) })
         .then(function () { dlg.close(); showFlash('ok', 'Paired. The frame shows its picture in a few seconds.', 'ic-check'); setTimeout(function () { location.reload(); }, 4000); })
-        .catch(function (err) { note.textContent = errText(err) || 'No frame is showing that code.'; note.hidden = false; })
-        .then(function () { go.disabled = false; });
+        .catch(function (err) {
+          if (err && err.status === 404) {
+            say('No frame is showing ' + shown + '. Check it against the frame’s screen. ' +
+                'If they match, the code has expired: the frame shows a new one within a minute. ' +
+                'No code on the screen? The frame isn’t reaching Featherframe. Check that it’s on Wi-Fi.');
+          } else if (!err || !err.status) {
+            say('Couldn’t reach Featherframe. Check your connection and try again.');
+          } else {
+            say('That didn’t go through (' + errText(err) + '). Try again in a moment.');
+          }
+        })
+        .then(function () { go.disabled = letters().length !== 6; });
     });
   })();
 

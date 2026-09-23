@@ -2419,6 +2419,8 @@ class FeatherframeService:
                  else (viewers_mod.shows_of(row) or self._default_shows()))
         name = frames_mod.name_of(row)
         what = _what_it_is(row, panel)
+        sold_as = panel.title if kit and panel is not None else ""
+        default_title = sold_as or what.split(" · ")[0]
         on = row.get("status") == frames_mod.ON
         try:
             seen = _ago(datetime.fromisoformat(str(row.get("last_seen"))), now)
@@ -2428,13 +2430,15 @@ class FeatherframeService:
         return {
             "id": fid,
             "short": self.frame_short(fid),
-            # Unnamed, a frame is titled by the short of what it is ("EE03",
-            # "iPad") and the summary carries the rest, so the collapsed row
-            # never says the same thing twice.
-            "name": name, "title": name or what.split(" · ")[0], "what": what,
+            # Unnamed, a frame is titled as its kit is sold ('10.3" Grayscale
+            # Frame'), else by the short of what it is ("iPad"), and the
+            # summary carries the rest, so the collapsed row never says the
+            # same thing twice.
+            "name": name, "title": name or default_title, "default_title": default_title,
+            "what": what,
             "transport": transport, "status": row.get("status"),
             "shows": shows,
-            "summary": self._frame_summary(what, shows, named=bool(name)),
+            "summary": self._frame_summary(what, shows, named=bool(name), sold_as=bool(sold_as)),
             "picture_etag": self.picture_etag(shows) if on else None,
             "output_etag": self._output_etag(fid) if kit else None,
             "queued_s": self._queued_seconds(row, now) if kit and on else None,
@@ -2485,11 +2489,18 @@ class FeatherframeService:
             "firmware": self.firmware_view(row),
         }
 
-    def _frame_summary(self, what: str, shows: str, named: bool = False) -> str:
+    def _frame_summary(self, what: str, shows: str, named: bool = False,
+                       sold_as: bool = False) -> str:
         """The one line a collapsed row carries: what this screen is, and what
-        it shows. An unnamed frame's title already says the short of what it
-        is, so the summary carries only the rest."""
-        about = what if named else " · ".join(what.split(" · ")[1:])
+        it shows. An unnamed frame's title already says part of what it is, so
+        the summary carries the rest: the kit ("EE03") under the name it is
+        sold as, else what follows the short ('10.3" gray')."""
+        if named:
+            about = what
+        elif sold_as:
+            about = what.split(" · ")[0]
+        else:
+            about = " · ".join(what.split(" · ")[1:])
         bits = [about, SHOWS_WORDS[COLLAGE if shows == COLLAGE else "plates"]]
         return " · ".join(b for b in bits if b)
 

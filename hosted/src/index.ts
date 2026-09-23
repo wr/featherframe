@@ -212,7 +212,8 @@ async function pair(request: Request, env: Env, hid: string): Promise<Response> 
   } else {
     code = String((await request.formData()).get("code") || "");
   }
-  code = code.toUpperCase().replace(/[^0-9A-Z]/g, "");
+  code = code.toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 6) return Response.json({ ok: false, error: "A code is six letters." }, { status: 400 });
   const now = Math.floor(Date.now() / 1000);
   const row = await env.DB.prepare("SELECT device_id, key_hash, report FROM pairing WHERE code = ? AND expires_at > ?")
     .bind(code, now).first<{ device_id: string; key_hash: string; report: string }>();

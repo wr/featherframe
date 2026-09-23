@@ -998,11 +998,16 @@
            menu does not offer is shown as it is, so saving never changes it. #}
         {# On the collage the row is locked: the kit checks in when the collage
            is next redrawn, so its own interval is neither read nor offered. #}
-        <div class="frow{{ ' locked' if s.shows == 'collage' else '' }}" data-fr-interval>
+        {# On USB with a push socket (W-841) a change reaches the kit at once:
+           the row is locked to Instant, and the poll gap it would fall back
+           to without a socket is kept, not posted. #}
+        {% set instant = s.push and s.power_mode == 'awake' and s.shows != 'collage' %}
+        <div class="frow{{ ' locked' if s.shows == 'collage' or instant else '' }}" data-fr-interval{{ ' data-fr-push' if s.push else '' }}>
           <div class="frow-text"><span class="lab" id="fr-int-lab-{{ i }}">Update interval</span><div class="hint" data-fr-interval-hint>{{ 'Set by the collage’s update interval.' if s.shows == 'collage' else '' }}</div></div>
           <div class="frow-ctl">
             <span class="fr-int-collage" data-fr-collage-every {{ '' if s.shows == 'collage' else 'hidden' }}>{{ collage_every }}</span>
-            <span data-fr-swap="awake" {{ '' if s.power_mode == 'awake' and s.shows != 'collage' else 'hidden' }}>
+            <span class="fr-int-collage" data-fr-instant {{ '' if instant else 'hidden' }}>Instant</span>
+            <span data-fr-swap="awake" {{ '' if s.power_mode == 'awake' and s.shows != 'collage' and not instant else 'hidden' }}>
               {# The same eight steps either way; USB stores seconds, a battery minutes. #}
               {% set steps = [(1, 'Every minute'), (5, 'Every 5 minutes'), (15, 'Every 15 minutes'), (30, 'Every 30 minutes'),
                               (60, 'Every hour'), (120, 'Every 2 hours'), (360, 'Every 6 hours'), (1440, 'Every 24 hours')] %}
@@ -2191,8 +2196,13 @@
       var shows = row.querySelector('[data-f="shows"]:checked');
       var onCollage = !!(shows && shows.value === 'collage');
       var ir = row.querySelector('[data-fr-interval]');
+      // On USB with a push socket the kit hears of a change at once (W-841).
+      var instant = !onCollage && !!(ir && ir.hasAttribute('data-fr-push')) &&
+                    !!(pm && pm.value === 'awake');
       if (ir) {
-        ir.classList.toggle('locked', onCollage);
+        ir.classList.toggle('locked', onCollage || instant);
+        var inst = ir.querySelector('[data-fr-instant]');
+        if (inst) inst.hidden = !instant;
         var hint = ir.querySelector('[data-fr-interval-hint]');
         if (hint) hint.textContent = onCollage ? 'Set by the collage\u2019s update interval.' : '';
         var word = ir.querySelector('[data-fr-collage-every]');
@@ -2201,7 +2211,7 @@
       if (!pm) return;
       ['awake', 'sleep'].forEach(function (mode) {
         var el = row.querySelector('[data-fr-swap="' + mode + '"]');
-        if (el) el.hidden = onCollage || pm.value !== mode;
+        if (el) el.hidden = onCollage || instant || pm.value !== mode;
       });
       refreshSegs(row);
     }

@@ -16,8 +16,11 @@ def main() -> None:
     import uvicorn
     # Single worker on purpose: one render thread, memory-frugal, one source of
     # truth for the current frame.
+    # A frame on a push socket (W-841) answers pings from its own loop, which a
+    # colour panel's ~30 s paint holds up: give it a minute before the socket
+    # is called dead, or every paint would cost a reconnect.
     uvicorn.run("featherframe.app:app", host=args.host, port=args.port,
-                workers=1, log_level="info")
+                workers=1, log_level="info", ws_ping_interval=30, ws_ping_timeout=60)
 
 
 if __name__ == "__main__":

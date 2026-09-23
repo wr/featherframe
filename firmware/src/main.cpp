@@ -13,6 +13,7 @@
 
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WebSocketsClient.h>
 #include <ESPmDNS.h>
 #include <FS.h>            // WebServer.h (via WiFiManager) uses unqualified FS on
 using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before it
@@ -65,6 +66,12 @@ char     g_wakeToken[16] = "";  // stable token ("timer"|"button"|"coldboot") �
 char     g_mdnsNote[12] = "";   // last discovery: "mdns=new|same|miss" — rides X-Wake-Detail
 bool     g_viaPortal = false;   // did this boot go through the setup portal?
 char     g_redirect[128] = "";  // a 403's X-FF-Server: the instance that draws for our panel
+
+// Push (W-841): the socket the server says "something changed" over, on USB.
+WebSocketsClient g_ws;
+bool     g_pushUp = false;      // the socket is open
+bool     g_pushWake = false;    // the server said something changed: fetch now
+bool     g_pushOta = false;     // …and a firmware update is waiting for us
 
 // The server URL as typed into the portal is user input: trim it, give it a
 // scheme (HTTPClient::begin() rejects a bare host:port), and drop trailing
@@ -1285,6 +1292,10 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Panel-Height", String(FF_NATIVE_H));
   http.addHeader("X-Panel-Format", FF_PANEL_FORMAT);
   http.addHeader("X-Panel-Rotations", FF_PANEL_ROTATIONS);
+  // We speak push (W-841): "0" = no socket right now, polling as told; N = a
+  // socket is open and the next plain check-in is a heartbeat N s away.
+  if (g_alwaysAwake)
+    http.addHeader("X-FF-Push", g_pushUp ? String(FF_PUSH_HEARTBEAT_MS / 1000) : String("0"));
   const char* collect[] = {"ETag", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation"};
   http.collectHeaders(collect, 7);
 
@@ -1734,6 +1745,90 @@ static uint32_t g_lastPoll = 0;
 static uint32_t g_lastOta = 0;    // last hosted-firmware check from the poll loop
 static uint32_t g_viewHoldUntil = 0;
 
+// ---- Push (W-841) ----
+// On USB the frame holds one WebSocket to the server it fetches from. Every
+// message means "your next GET /api/frame would answer differently" (a new
+// plate, a new rotation, a new power model); the GET itself is unchanged, so
+// the socket carries no pixels and no settings. Battery frames never open it:
+// an open socket keeps Wi-Fi associated. A server without the endpoint answers
+// the upgrade with a 404; after a few of those the frame retries only every
+// ten minutes and keeps polling meanwhile.
+static char     g_pushUrl[128] = "";   // the server the socket was opened to ("" = closed)
+static String   g_pushHeaders;
+static uint8_t  g_pushFails = 0;       // opens in a row that never connected
+static bool     g_pushTried = false;   // the current open has not connected yet
+
+static void onPush(WStype_t type, uint8_t* payload, size_t len) {
+  switch (type) {
+    case WStype_CONNECTED:
+      g_pushUp = true; g_pushTried = false; g_pushFails = 0;
+      g_ws.setReconnectInterval(FF_PUSH_RETRY_MS);
+      Serial.println("push: connected");
+      break;
+    case WStype_DISCONNECTED:
+      if (g_pushUp) Serial.println("push: closed");
+      else if (g_pushTried && g_pushFails < 255 && ++g_pushFails == FF_PUSH_GIVEUP_TRIES) {
+        Serial.println("push: not offered here — polling, retrying the socket every 10 min");
+        g_ws.setReconnectInterval(FF_PUSH_GIVEUP_MS);
+      }
+      g_pushUp = false; g_pushTried = true;
+      break;
+    case WStype_TEXT: {
+      // {"etag":…,"rotation":…,"power":…,"ota":bool}. Any message is a wake;
+      // only "ota" is read out of it.
+      String m((const char*)payload, len);
+      m.replace(" ", "");
+      g_pushWake = true;
+      if (m.indexOf("\"ota\":true") >= 0) g_pushOta = true;
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+static void pushClose() {
+  if (!g_pushUrl[0]) return;
+  g_ws.disconnect();
+  g_pushUrl[0] = 0;
+  g_pushUp = false;
+}
+
+// Keep the socket open to the server we fetch from, and service it. Called
+// from loop() on every pass.
+static void pushService() {
+  if (!g_alwaysAwake || WiFi.status() != WL_CONNECTED || !g_serverUrl[0]) { pushClose(); return; }
+  if (g_pushUrl[0] && strcmp(g_pushUrl, g_serverUrl) != 0) pushClose();   // rediscovered: follow it
+  if (!g_pushUrl[0]) {
+    // "http[s]://host[:port][/prefix]" -> host, port, prefix + FF_PUSH_PATH.
+    const char* u = g_serverUrl;
+    bool tls = strncmp(u, "https://", 8) == 0;
+    u += tls ? 8 : 7;
+    const char* slash = strchr(u, '/');
+    String hostPort = slash ? String(u).substring(0, slash - u) : String(u);
+    String path = String(slash ? slash : "") + FF_PUSH_PATH;
+    uint16_t port = tls ? 443 : 80;
+    int colon = hostPort.lastIndexOf(':');
+    if (colon > 0) { port = hostPort.substring(colon + 1).toInt(); hostPort = hostPort.substring(0, colon); }
+    // Who we are, as on every GET: the server keeps only a frame that is on.
+    g_pushHeaders = String("X-Device-Id: ") + frameId() + "\r\nX-Panel: " + FF_PANEL_ID +
+                    "\r\nX-Board: " + FF_BOARD_ID + "\r\nX-FF-Version: " + FF_FW_VERSION;
+    g_ws.setExtraHeaders(g_pushHeaders.c_str());
+    g_ws.onEvent(onPush);
+    g_ws.setReconnectInterval(g_pushFails >= FF_PUSH_GIVEUP_TRIES ? FF_PUSH_GIVEUP_MS : FF_PUSH_RETRY_MS);
+    // Pings keep a NAT or proxy from dropping an idle socket. A missed pong
+    // never closes it by itself: a ~30 s colour paint holds the loop up, and
+    // a dead server shows up as a failed heartbeat GET instead (see loop()).
+    g_ws.enableHeartbeat(30000, 10000, 0);
+    if (tls) g_ws.beginSSL(hostPort.c_str(), port, path.c_str());
+    else     g_ws.begin(hostPort.c_str(), port, path.c_str());
+    strlcpy(g_pushUrl, g_serverUrl, sizeof(g_pushUrl));
+    g_pushTried = true;
+    Serial.printf("push: opening %s:%u%s\n", hostPort.c_str(), (unsigned)port, path.c_str());
+  }
+  g_ws.loop();
+}
+
 // Run a button's action: an instant pill for feedback, then fetch + paint. A new
 // plate paints over the pill; on a no-change check the pill becomes "Up to date".
 void doButton(int key) {
@@ -1827,8 +1922,11 @@ void loop() {
   // requested view holds the glass for FF_VIEW_HOLD_MS first — the view fetch
   // clears the ETag, so an eager poll would repaint the bird within seconds of
   // the press that asked for the collage.
+  pushService();
+  // On a push socket the timed fetch is only a heartbeat: a change arrives
+  // as a message (g_pushWake) and is fetched at once, below.
   uint32_t interval = (g_failCount >= FF_MARK_FAILS) ? FF_POLL_BACKOFF_MS
-                                                     : g_pollMs;
+                    : g_pushUp ? FF_PUSH_HEARTBEAT_MS : g_pollMs;
   if (g_viewHoldUntil && (int32_t)(millis() - g_viewHoldUntil) < 0) {
     // transient view on the glass
 #if FF_FULL_REFRESH
@@ -1836,8 +1934,9 @@ void loop() {
              millis() - g_lastPaintMs < FF_MIN_REPAINT_MS) {
     // a plate was painted moments ago: let the panel rest before the next one
 #endif
-  } else if (millis() - g_lastPoll >= interval) {
+  } else if (g_pushWake || millis() - g_lastPoll >= interval) {
     g_lastPoll = millis();
+    g_pushWake = false;
     float vb = readBatteryVoltage();
     if (lowBatteryWhileAwake(vb)) {
       markLowBattery(-1);
@@ -1847,10 +1946,15 @@ void loop() {
     uint32_t mins = (millis() - g_lastSuccessMs) / 60000UL;
     g_failMinutes = mins > 65535 ? 65535 : (uint16_t)mins;
     noteFetchOutcome(r);
+    // A socket to a server that no longer answers is not to be trusted: open
+    // it again (or poll, if it will not open).
+    if (r == FETCH_ERROR) pushClose();
     // The boot-time OTA check is skipped when the server is unreachable; the
-    // always-awake build never reboots on its own, so re-check from here.
-    if (r != FETCH_ERROR && millis() - g_lastOta >= FF_OTA_CHECK_MS) {
+    // always-awake build never reboots on its own, so re-check from here —
+    // at once when the server has said an update is waiting.
+    if (r != FETCH_ERROR && (g_pushOta || millis() - g_lastOta >= FF_OTA_CHECK_MS)) {
       g_lastOta = millis();
+      g_pushOta = false;
       maybeOTA(vb);
     }
   }

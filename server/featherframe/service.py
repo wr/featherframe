@@ -31,6 +31,7 @@ from . import firmware_release
 from . import frames as frames_mod
 from . import panels, paths
 from . import pictures as pictures_mod
+from .push import PushHub
 from .pictures import COLLAGE, PLATES, Pictures
 from .config import Config, load_config, save_config
 from .frames import FrameRegistry
@@ -185,6 +186,10 @@ class DeviceStatus:
     refresh_count: Optional[int] = None    # §5 X-Refresh-Count
     panel: Optional[str] = None            # §6 X-Panel
     board: Optional[str] = None            # §6 X-Board
+    # X-FF-Push (W-841): the frame speaks push. "0" = no socket open right now
+    # (it polls as before); N > 0 = a socket is open and its next plain check-in
+    # is N seconds away, a heartbeat — a change reaches it over the socket.
+    push_s: Optional[int] = None
 
 
 # Plausible telemetry, (lo, hi). Values are device-reported over the LAN and
@@ -197,6 +202,7 @@ _DEVICE_RANGES = {
     "wifi_rssi": (-120, 0),
     "boot_count": (0, 2**31),
     "refresh_count": (0, 2**31),
+    "push_s": (0, 86400),
 }
 _DEVICE_STR_MAX = 120
 
@@ -518,6 +524,8 @@ class FeatherframeService:
         self.config: Config = load_config(self.db)
         # The latest official firmware release, offered to the kits (W-838).
         self.releases = firmware_release.ReleaseStore(self.db, paths.data_dir())
+        # The frames holding a push socket (W-841), woken after every tick.
+        self.push = PushHub()
         self.audubon = AudubonProvider()
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
@@ -741,6 +749,13 @@ class FeatherframeService:
 
     # -- the decision loop -------------------------------------------------
     def tick(self) -> None:
+        try:
+            self._tick()
+        finally:
+            # Whatever this tick changed, every frame on a socket hears of it.
+            self.push.notify()
+
+    def _tick(self) -> None:
         self._tick_pictures()
         # After drawing, not before: a picture nobody shows may still be the
         # only one a frame has to fall back on until its own is drawn.
@@ -1913,6 +1928,22 @@ class FeatherframeService:
         log.info("drew the %s picture for frame %s (%s), etag=%s",
                  pic.kind, fid[-6:], cfg.panel, result.etag)
 
+    def push_message(self, frame_id: str) -> Optional[dict]:
+        """What a frame on a push socket is told (W-841): everything that
+        changes what its next `GET /api/frame` would answer — its output, the
+        headers that ride along — and whether a firmware update waits for it.
+        Equal messages are not sent twice. None when the frame is not on, which
+        closes the socket."""
+        row = self.frames.get(frame_id)
+        if (row is None or row.get("status") != frames_mod.ON
+                or frames_mod.transport_of(row) != "kit"):
+            return None
+        cfg = self.frame_config(row)
+        fw = self.firmware_view(row) or {}
+        return {"etag": self._output_etag(frame_id) or "",
+                "rotation": cfg.panel_rotation, "power": cfg.power_mode,
+                "ota": bool(fw.get("pending"))}
+
     def mdns_panel(self) -> str:
         """The panel key advertised over mDNS. A frame whose panel no server
         claims takes any that answers, so one kit's key is enough; with none
@@ -1973,6 +2004,10 @@ class FeatherframeService:
         if known is not None and frames_mod.transport_of(known) == "kit":
             poll_s, wake_min = self.frame_intervals(known)
             told = poll_s if self.frame_config(known).power_mode == "awake" else wake_min * 60
+            if fields.get("push_s"):
+                # On a push socket the frame's plain check-ins are a heartbeat
+                # of its own choosing, and it says how far apart they are.
+                told = fields["push_s"]
         with self._lock, self.frames.mutate() as rows:
             row = rows.get(frame_id)
             if row is None:
@@ -2070,6 +2105,11 @@ class FeatherframeService:
             live = _within(card["last_checkin_iso"], self._clock(), _PAGE_OPEN_SECONDS)
         else:
             live = card["seen"]
+            if kit and card["seen"] and self.push.connected(fid):
+                # A frame on a push socket is being heard from right now
+                # (the socket's own pings end it when the frame goes quiet).
+                card["overdue"] = False
+                card["last_seen"] = "just now"
         # The one place the row's status dot is decided.
         card["state"] = ("bad" if card["battery_critical"] else
                          ("warn" if card["overdue"] else
@@ -2136,6 +2176,9 @@ class FeatherframeService:
                 "power_mode": cfg.power_mode if kit else None,
                 "wake_interval_minutes": cfg.wake_interval_minutes if kit else None,
                 "device_poll_seconds": cfg.device_poll_seconds if kit else None,
+                # On USB with a push socket a change reaches it at once: the
+                # interval is only what it falls back to without one.
+                "push": bool(kit and cfg.power_mode == "awake" and rep.get("push_s")),
                 "panel": cfg.panel if kit else None,
                 "width": view.width if view else (cfg.panel_spec.width if kit else None),
                 "height": view.height if view else (cfg.panel_spec.height if kit else None),

@@ -5,6 +5,7 @@ page and a handful of endpoints.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -20,7 +21,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import quote
 
-from fastapi import FastAPI, File, Form, Request, Response, UploadFile
+from fastapi import FastAPI, File, Form, Request, Response, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -124,6 +125,7 @@ async def api_frame(request: Request, view: Optional[str] = None):
         "refresh_count": _ranged_int(request.headers.get("x-refresh-count"), 0, 2**31),
         "panel": _str_header(request.headers.get("x-panel")),
         "board": _str_header(request.headers.get("x-board")),
+        "push_s": _ranged_int(request.headers.get("x-ff-push"), 0, 86400),
     }
 
     # A frame is a frame (W-833): every kit that is on is served the same way,
@@ -201,6 +203,65 @@ async def api_frame(request: Request, view: Optional[str] = None):
         return Response(status_code=304, headers=headers)
     log.info("frame %s fetched %s (wake=%s)", frame_id[-6:], etag, wake)
     return Response(content=body, media_type="application/octet-stream", headers=headers)
+
+
+# How often a push socket re-checks its frame's message with nothing having
+# woken it: a safety net under the tick's own notify, not the push itself.
+PUSH_RECHECK_S = 30
+
+
+async def _until_closed(ws: WebSocket) -> None:
+    while (await ws.receive()).get("type") != "websocket.disconnect":
+        pass
+
+
+@app.websocket("/api/frame/push")
+async def api_frame_push(ws: WebSocket):
+    """Push, don't poll (W-841). A kit on USB holds this socket with the same
+    identity headers it sends to /api/frame. It is told its message
+    (`service.push_message`) at once and again whenever that changes, and
+    answers each one with its usual GET /api/frame. Nothing else crosses: a
+    frame that is not on is refused, and keeps polling to be let in."""
+    svc = ws.app.state.service
+    origin = ws.headers.get("origin")
+    if origin and origin.split("://", 1)[-1].split("/", 1)[0] != ws.headers.get("host", ""):
+        await ws.close(code=1008)
+        return
+    fid = (_str_header(ws.headers.get("x-device-id")) or "")[:40]
+    msg = await run_in_threadpool(svc.push_message, fid) if fid else None
+    if msg is None:
+        await ws.close(code=1008)
+        return
+    await ws.accept()
+    event = svc.push.register(fid)
+    log.info("frame %s on push", fid[-6:])
+    sent = None
+    # The frame sends nothing; one read held open the whole time is how a
+    # closed socket is noticed (uvicorn's own pings close a dead one).
+    reader = asyncio.ensure_future(_until_closed(ws))
+    try:
+        while msg is not None:
+            if msg != sent:
+                await ws.send_json(msg)
+                sent = msg
+            waker = asyncio.ensure_future(event.wait())
+            await asyncio.wait({waker, reader}, timeout=PUSH_RECHECK_S,
+                               return_when=asyncio.FIRST_COMPLETED)
+            waker.cancel()
+            if reader.done():
+                break
+            event.clear()     # before the read, so a wake during it is kept
+            msg = await run_in_threadpool(svc.push_message, fid)
+        if msg is None:
+            await ws.close(code=1008)
+    except (WebSocketDisconnect, RuntimeError):
+        pass
+    finally:
+        if reader.done() and not reader.cancelled():
+            reader.exception()    # a disconnect, seen: nothing to report
+        reader.cancel()
+        svc.push.unregister(fid, event)
+        log.info("frame %s off push", fid[-6:])
 
 
 def _announce_panel(request: Request, svc) -> None:
@@ -582,6 +643,7 @@ async def api_frames(request: Request):
     ok = await run_in_threadpool(svc.answer_frame, frame_id, action)
     if not ok:
         return JSONResponse({"ok": False, "error": "unknown frame or action"}, status_code=400)
+    svc.push.notify(frame_id)
     _announce_panel(request, svc)
     return JSONResponse({"ok": True, "frames": svc.frames_list()})
 
@@ -607,6 +669,7 @@ async def api_frame_settings(request: Request, frame_id: str):
         ok = await run_in_threadpool(svc.forget_frame, fid)
         if not ok:
             return JSONResponse({"error": "no such frame"}, status_code=404)
+        svc.push.notify(fid)
         _announce_panel(request, svc)
         return JSONResponse({"ok": True, "frames": svc.frames_list()})
     try:
@@ -615,6 +678,7 @@ async def api_frame_settings(request: Request, frame_id: str):
         return JSONResponse({"error": f"not saved: {exc}"[:200]}, status_code=400)
     if not ok:
         return JSONResponse({"error": "no such frame"}, status_code=404)
+    svc.push.notify(fid)
     return JSONResponse({"ok": True, "frames": svc.frames_list()})
 
 

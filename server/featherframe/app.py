@@ -28,7 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 
-from . import __version__, discovery, panels, paths, viewers
+from . import __version__, discovery, hosted, panels, paths, viewers
 from . import frames as frames_mod
 from .config import Config, valid_hhmm
 from .names import display_common_name, normalize
@@ -43,8 +43,19 @@ templates = Jinja2Templates(directory=str(paths.templates_dir()))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # A hosted household's server (W-844) starts from the household's own data
+    # dir, pulled before the database is opened. A pull that fails stops the
+    # start: an empty server would push a fresh install over the household.
+    link = None
+    conf = hosted.config_from_env()
+    if conf:
+        link = hosted.HostedLink(*conf)
+        await run_in_threadpool(link.pull)
     service = FeatherframeService()
     app.state.service = service
+    app.state.hosted = link
+    if link is not None:
+        service.after_tick.append(lambda: link.settle(service))
     service.start()
     # Advertise _featherframe._tcp so a frame with no typed URL finds us
     # (W-763). __main__ exports the bound port; systemd sets it directly.
@@ -61,6 +72,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Featherframe", version=__version__, lifespan=lifespan)
+
+
+@app.middleware("http")
+async def _hosted_settle(request: Request, call_next):
+    """On a hosted household's server, a request that changed something (a
+    save, an answer) reaches the front door at once rather than on the next
+    tick: the frames it answers see it now."""
+    response = await call_next(request)
+    link = getattr(request.app.state, "hosted", None)
+    if link is not None and request.method in ("POST", "PUT", "DELETE") and response.status_code < 400:
+        await run_in_threadpool(link.settle, request.app.state.service, False)
+    return response
 if paths.static_dir().exists():
     app.mount("/static", StaticFiles(directory=str(paths.static_dir())), name="static")
 
@@ -96,36 +119,31 @@ def _forbidden_cross_origin() -> JSONResponse:
 
 
 # -- device endpoint -------------------------------------------------------
-@app.get("/api/frame")
-async def api_frame(request: Request, view: Optional[str] = None):
-    svc = _svc(request)
-    inm = _strip_etag(request.headers.get("if-none-match"))
-    # Telemetry is untrusted input from the LAN: "nan"/"inf" parse as floats
-    # but a NaN persisted into device_status makes every /api/status 500
-    # (JSON can't carry it), and int(float("inf")) raises. Only plausible,
-    # finite values are kept; anything else reads as "not reported".
-    volt = _ranged_float(request.headers.get("x-battery-voltage"), 0.0, 6.0)
-    pct = _ranged_int(request.headers.get("x-battery-percent"), 0, 100)
-    rssi = _ranged_int(request.headers.get("x-wifi-rssi"), -120, 0)
-    wake = _str_header(request.headers.get("x-wake"))
-    client_ip = request.client.host if request.client else None
-    if wake:
-        # An always-awake frame polls every few seconds; the per-poll line is
-        # debug, and a paint (200) or a button view is logged below at info.
-        log.debug("device wake: %s (view=%s)", wake, view)
+def parse_checkin(headers) -> dict:
+    """What a kit says about itself on GET /api/frame, from its headers: the
+    one reading of them, whether the request reached this server or was
+    queued by a hosted household's front door (W-843) and handed over later.
+    Telemetry is untrusted input: "nan"/"inf" parse as floats but a NaN
+    persisted into device_status makes every /api/status 500 (JSON can't
+    carry it), and int(float("inf")) raises. Only plausible, finite values are
+    kept; anything else reads as "not reported"."""
+    volt = _ranged_float(headers.get("x-battery-voltage"), 0.0, 6.0)
+    pct = _ranged_int(headers.get("x-battery-percent"), 0, 100)
+    rssi = _ranged_int(headers.get("x-wifi-rssi"), -120, 0)
+    wake = _str_header(headers.get("x-wake"))
 
     # Optional device-reported identity/telemetry (docs/firmware-device-stats.md).
     # Every field is optional on the wire; absent headers leave the row unchanged.
     device_extra = {
-        "fw_version": _str_header(request.headers.get("x-ff-version")),
-        "sketch_md5": _str_header(request.headers.get("x-ff-sketch-md5")),
+        "fw_version": _str_header(headers.get("x-ff-version")),
+        "sketch_md5": _str_header(headers.get("x-ff-sketch-md5")),
         "last_wake": wake,
-        "wake_detail": _str_header(request.headers.get("x-wake-detail")),
-        "boot_count": _ranged_int(request.headers.get("x-boot-count"), 0, 2**31),
-        "refresh_count": _ranged_int(request.headers.get("x-refresh-count"), 0, 2**31),
-        "panel": _str_header(request.headers.get("x-panel")),
-        "board": _str_header(request.headers.get("x-board")),
-        "push_s": _ranged_int(request.headers.get("x-ff-push"), 0, 86400),
+        "wake_detail": _str_header(headers.get("x-wake-detail")),
+        "boot_count": _ranged_int(headers.get("x-boot-count"), 0, 2**31),
+        "refresh_count": _ranged_int(headers.get("x-refresh-count"), 0, 2**31),
+        "panel": _str_header(headers.get("x-panel")),
+        "board": _str_header(headers.get("x-board")),
+        "push_s": _ranged_int(headers.get("x-ff-push"), 0, 86400),
     }
 
     # A frame is a frame (W-833): every kit that is on is served the same way,
@@ -134,10 +152,28 @@ async def api_frame(request: Request, view: Optional[str] = None):
     # the firmware shows "Add this frame on the Featherframe page" and keeps
     # asking). The frame describes its panel as facts too (W-813), so a panel
     # this server has never heard of is still drawn for at its own size.
-    panel_facts = {"w": _str_header(request.headers.get("x-panel-width")),
-                   "h": _str_header(request.headers.get("x-panel-height")),
-                   "fmt": _str_header(request.headers.get("x-panel-format")),
-                   "rot": _str_header(request.headers.get("x-panel-rotations"))}
+    panel_facts = {"w": _str_header(headers.get("x-panel-width")),
+                   "h": _str_header(headers.get("x-panel-height")),
+                   "fmt": _str_header(headers.get("x-panel-format")),
+                   "rot": _str_header(headers.get("x-panel-rotations"))}
+    return {"device_id": _str_header(headers.get("x-device-id")),
+            "volt": volt, "pct": pct, "rssi": rssi, "wake": wake,
+            "device_extra": device_extra, "panel_facts": panel_facts}
+
+
+@app.get("/api/frame")
+async def api_frame(request: Request, view: Optional[str] = None):
+    svc = _svc(request)
+    inm = _strip_etag(request.headers.get("if-none-match"))
+    c = parse_checkin(request.headers)
+    volt, pct, rssi, wake = c["volt"], c["pct"], c["rssi"], c["wake"]
+    device_extra, panel_facts = c["device_extra"], c["panel_facts"]
+    client_ip = request.client.host if request.client else None
+    if wake:
+        # An always-awake frame polls every few seconds; the per-poll line is
+        # debug, and a paint (200) or a button view is logged below at info.
+        log.debug("device wake: %s (view=%s)", wake, view)
+
     status = svc.admit_frame(_str_header(request.headers.get("x-device-id")),
                              device_extra["panel"], device_extra["board"], client_ip,
                              facts=panel_facts)

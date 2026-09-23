@@ -528,7 +528,9 @@ async def index(request: Request):
          "fw_about": {**svc.releases.about(), "version": svc.releases.version()},
          # A hosted household's page (W-845): frames are paired by the code on
          # their glass, and there is someone signed in to sign out.
-         "hosted": getattr(request.app.state, "hosted", None) is not None})
+         "hosted": getattr(request.app.state, "hosted", None) is not None,
+         # Each kit as it is sold, for the USB dialog's choice.
+         "kit_names": {k: p.title for k, p in panels.PANELS.items() if p.title}})
 
 
 @app.post("/settings")

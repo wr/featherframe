@@ -388,7 +388,7 @@ def test_the_page_offers_usb_install(client):
     assert 'id="usb-open"' in page and "No release to install yet." in page
     svc.releases.check(NOW)
     page = c.get("/").text
-    assert 'name="usb-kit" value="ee03"' in page and "10.3″ gray" in page
+    assert 'name="usb-kit" value="ee03"' in page and "Grayscale Frame" in page
 
 
 def test_the_vendored_flasher_is_served(client):

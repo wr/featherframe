@@ -315,6 +315,9 @@ async def api_hosted_run(request: Request):
     if link is None:
         return JSONResponse({"error": "not hosted"}, status_code=404)
     svc = _svc(request)
+    # What the frames said while this slept goes in first — a frame just
+    # paired is added — so the tick draws for it now, not on the next wake.
+    await run_in_threadpool(link.take, svc)
     await run_in_threadpool(svc.tick)          # the tick's own hook settles it
     return JSONResponse({"ok": True, "next_wake_at": svc.next_wake_at()})
 

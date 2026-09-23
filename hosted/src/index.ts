@@ -1,70 +1,94 @@
 // Featherframe, hosted (W-841).
 //
-// A household is `<household>.featherframe.app`. Two Durable Objects serve it:
+// One host, app.featherframe.app (W-845). The apex is the marketing page and
+// is not routed here; plates.featherframe.app is the plate library's bucket.
 //
-//   Household        the front door (W-843). It answers the frames — GET
-//                    /api/frame from its own table and R2, the push socket —
-//                    so the household's server can sleep. It keeps what the
-//                    frames said until the server takes it, and wakes the
-//                    server on the server's own schedule.
-//   HouseholdServer  the household's own Featherframe server (W-844): the
-//                    box's Python server, unchanged, in a Container. Its data
-//                    dir lives in R2 behind the front door's internal API
-//                    (server/featherframe/hosted.py is the other side of it).
+//   the page      the signed-in owner's household (session cookie → D1)
+//   a frame       the household it is paired to (X-Device-Id + its own key,
+//                 X-FF-Key → D1); a frame no one has claimed is shown a
+//                 pairing code, drawn by the Lobby Container
+//   _internal     a household's server talking to its front door
 //
-// The page and everything else is proxied to the server, behind the
-// household's password until accounts exist (W-845). The apex is the
-// marketing page and is not routed here; `plates.` is the shared plate
-// library (W-842), served from its bucket.
+// Per household: Household (household.ts), the front door that answers the
+// frames while the server sleeps, and HouseholdServer (containers.ts), the
+// box's own Python server in a Container.
 
-import { Container } from "@cloudflare/containers";
-import { DurableObject } from "cloudflare:workers";
+import { admin, auth, login, logout, sessionHousehold } from "./accounts";
+import { Household } from "./household";
+import { HouseholdServer, Lobby } from "./containers";
+import { deviceId, frameKey, sha256 } from "./util";
+
+export { Household, HouseholdServer, Lobby };
 
 export interface Env {
   HOUSEHOLD: DurableObjectNamespace<Household>;
   SERVER: DurableObjectNamespace<HouseholdServer>;
+  LOBBY: DurableObjectNamespace<Lobby>;
   DATA: R2Bucket;
   PLATES: R2Bucket;
-  ZONE: string;          // "featherframe.app"
-  ADMIN_TOKEN: string;   // secret: provisions a household
+  DB: D1Database;
+  ZONE: string;           // featherframe.app
+  APP_HOST: string;       // app.featherframe.app
+  MAIL_FROM: string;
+  ADMIN_TOKEN: string;    // secret
+  RESEND_API_KEY: string; // secret
 }
 
-// The household's server is woken only for news (W-847). The front door looks
-// for it: a BirdWeather station every POLL_MS, or a push (Apprise, a webhook)
-// the moment it lands. However much news there is, at most one wake per
-// MIN_GAP_MS; and once a day regardless, in case anything was missed.
-const POLL_MS = 2 * 60 * 1000;
-const MIN_GAP_MS = 5 * 60 * 1000;
-const SAFETY_MS = 24 * 60 * 60 * 1000;
-// A page used this recently keeps the server up after a wake.
-const PAGE_ACTIVE_MS = 60 * 1000;
-const MAX_INGEST_BYTES = 16 * 1024;
-// A frame's check-ins are kept one per this window until the server takes
-// them: the battery log keeps one row per 5 min anyway.
-const CHECKIN_BUCKET_S = 300;
-const RESERVED = new Set(["www", "plates", "app", "api", "admin"]);
+const FRAME_PATHS = /^\/api\/(frame|frame\/push|firmware)$/;
+// A pairing code: letters only (the engraved face has old-style figures that
+// rise and fall), and none of I/L/O/U/V to confuse on the glass.
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTWXYZ";
+const CODE_TTL_S = 24 * 60 * 60;
+// While it waits to be claimed a frame asks this often, so pairing shows at once.
+const PAIRING_POLL_S = 10;
 
-// ---------------------------------------------------------------- the Worker
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    const host = url.hostname.toLowerCase();
-    if (!host.endsWith("." + env.ZONE)) return new Response("not found", { status: 404 });
-    const label = host.slice(0, -(env.ZONE.length + 1));
-    if (label === "plates") return plates(request, env, url);
-    if (RESERVED.has(label) || !/^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/.test(label)) {
-      return new Response("not found", { status: 404 });
+    if (url.hostname === `plates.${env.ZONE}`) return plates(request, env, url);
+    if (url.hostname !== env.APP_HOST) return new Response("not found", { status: 404 });
+    const path = url.pathname;
+
+    if (path === "/_ff/script.ttf") return plates(request, env, new URL("/assets/script.ttf", url));
+    if (path === "/login") return login(request, env);
+    if (path === "/auth") return auth(request, env, url);
+    if (path === "/logout" && request.method === "POST") return logout(request, env);
+    if (path.startsWith("/_admin/")) return admin(request, env, path.slice("/_admin/".length));
+
+    const internal = path.match(/^\/_internal\/([0-9a-z]{1,32})\//);
+    if (internal) return toHousehold(env, internal[1], request);
+
+    if (FRAME_PATHS.test(path)) return frame(request, env, url);
+
+    const apprise = path.match(/^\/api\/ingest\/apprise\/([^/]+)$/);
+    if (apprise && request.method === "POST") {
+      const row = await env.DB.prepare("SELECT id FROM households WHERE apprise_token = ?")
+        .bind(decodeURIComponent(apprise[1])).first<{ id: string }>();
+      return row ? toHousehold(env, row.id, request) : Response.json({ error: "bad token" }, { status: 403 });
     }
-    const headers = new Headers(request.headers);
-    headers.set("X-FF-Household", label);
-    return env.HOUSEHOLD.getByName(label).fetch(new Request(request, { headers }));
+
+    const hid = await sessionHousehold(request, env);
+    if (!hid) {
+      if (request.method === "GET" && (request.headers.get("Accept") || "").includes("text/html")) {
+        return Response.redirect(`https://${env.APP_HOST}/login`, 303);
+      }
+      return Response.json({ error: "sign in" }, { status: 401 });
+    }
+    if (path === "/api/pair" && request.method === "POST") return pair(request, env, hid);
+    return toHousehold(env, hid, request);
   },
 } satisfies ExportedHandler<Env>;
 
+/** Hand a request to its household's front door, saying whose it is. */
+function toHousehold(env: Env, hid: string, request: Request): Promise<Response> {
+  const headers = new Headers(request.headers);
+  headers.set("X-FF-Household", hid);         // set here, never taken from the client
+  return env.HOUSEHOLD.getByName(hid).fetch(new Request(request, { headers }));
+}
+
 async function plates(request: Request, env: Env, url: URL): Promise<Response> {
   if (request.method !== "GET" && request.method !== "HEAD") return new Response(null, { status: 405 });
-  const key = url.pathname.replace(/^\/+/, "");
-  const obj = await env.PLATES.get(key);
+  const obj = await env.PLATES.get(url.pathname.replace(/^\/+/, ""));
   if (!obj) return new Response("not found", { status: 404 });
   const h = new Headers();
   obj.writeHttpMetadata(h);
@@ -72,387 +96,100 @@ async function plates(request: Request, env: Env, url: URL): Promise<Response> {
   return new Response(request.method === "HEAD" ? null : obj.body, { headers: h });
 }
 
-// ------------------------------------------------------- the household server
-export class HouseholdServer extends Container<Env> {
-  defaultPort = 8080;
-  // A wake is one request (POST /api/hosted/run) that is answered when its
-  // tick is done, a first AI plate included; after that there is nothing to
-  // stay up for. The page keeps it awake while it is open.
-  sleepAfter = "30s";
+// -- frames ------------------------------------------------------------------
+async function frame(request: Request, env: Env, url: URL): Promise<Response> {
+  const id = deviceId(request);
+  const key = frameKey(request);
+  if (id) {
+    const row = await env.DB.prepare("SELECT household_id, key_hash FROM frames WHERE device_id = ?")
+      .bind(id).first<{ household_id: string; key_hash: string | null }>();
+    // Its own key, or a frame paired before it had one.
+    if (row && (!row.key_hash || (key && row.key_hash === await sha256(key)))) {
+      return toHousehold(env, row.household_id, request);
+    }
+  }
+  // No household has this frame (or this is not the frame it claims to be).
+  if (url.pathname === "/api/frame" && request.method === "GET" && id && key && !url.searchParams.get("view")) {
+    return pairingScreen(request, env, id, key);
+  }
+  if (url.pathname === "/api/firmware") return new Response(null, { status: 304 });
+  return new Response("this frame has not been added here", {
+    status: 403, headers: { "Cache-Control": "no-store", "X-FF-Frame": "pending" },
+  });
+}
 
-  constructor(ctx: DurableObjectState<{}>, env: Env) {
-    super(ctx, env);
-    ctx.blockConcurrencyWhile(async () => {
-      const vars = await ctx.storage.get<Record<string, string>>("vars");
-      if (vars) this.envVars = vars;
+/** What a frame no one has claimed is shown: its pairing code, drawn for its
+ * own panel by the Lobby (cached in R2, one per code and panel). */
+async function pairingScreen(request: Request, env: Env, id: string, key: string): Promise<Response> {
+  const keyHash = await sha256(key);
+  const now = Math.floor(Date.now() / 1000);
+  const report: Record<string, string> = {};
+  request.headers.forEach((v, k) => { if (k.startsWith("x-panel") || k === "x-board") report[k] = v; });
+  let row = await env.DB.prepare("SELECT code FROM pairing WHERE device_id = ? AND key_hash = ? AND expires_at > ?")
+    .bind(id, keyHash, now).first<{ code: string }>();
+  if (!row) {
+    const code = [...crypto.getRandomValues(new Uint8Array(6))]
+      .map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM pairing WHERE device_id = ? AND key_hash = ?").bind(id, keyHash),
+      env.DB.prepare("INSERT INTO pairing (code, device_id, key_hash, report, expires_at) VALUES (?, ?, ?, ?, ?)")
+        .bind(code, id, keyHash, JSON.stringify(report), now + CODE_TTL_S),
+    ]);
+    row = { code };
+  }
+  const shown = `${row.code.slice(0, 3)}-${row.code.slice(3)}`;
+  const variant = (await sha256(JSON.stringify(report))).slice(0, 16);
+  const cacheKey = `lobby/${row.code}/${variant}.fff`;
+  const etag = `pair-${row.code}-${variant.slice(0, 8)}`;
+  const headers = new Headers({
+    ETag: `"${etag}"`, "Cache-Control": "no-cache",
+    "X-Poll-Seconds": String(PAIRING_POLL_S), "X-FF-Pair-Code": shown,
+  });
+  const inm = (request.headers.get("If-None-Match") || "").replace(/"/g, "").trim();
+
+  let obj = await env.DATA.get(cacheKey);
+  if (!obj) {
+    const q = new URLSearchParams({
+      code: shown, panel: report["x-panel"] || "", w: report["x-panel-width"] || "",
+      h: report["x-panel-height"] || "", fmt: report["x-panel-format"] || "",
+      rot: report["x-panel-rotations"] || "",
     });
+    const r = await env.LOBBY.getByName("lobby").fetch(`http://lobby/render?${q}`);
+    if (!r.ok) return new Response("pairing screen unavailable", { status: 503, headers });
+    await env.DATA.put(cacheKey, await r.arrayBuffer(),
+      { customMetadata: { rotation: r.headers.get("X-FF-Rotation") || "" } });
+    obj = await env.DATA.get(cacheKey);
+    if (!obj) return new Response("pairing screen unavailable", { status: 503, headers });
   }
-
-  /** The household it serves: its front door's address and key, its zone. */
-  async configure(vars: Record<string, string>): Promise<void> {
-    this.envVars = vars;
-    await this.ctx.storage.put("vars", vars);
-  }
+  if (obj.customMetadata?.rotation) headers.set("X-FF-Rotation", obj.customMetadata.rotation);
+  if (inm === etag) return new Response(null, { status: 304, headers });
+  headers.set("Content-Type", "application/octet-stream");
+  headers.set("Content-Length", String(obj.size));
+  return new Response(obj.body, { headers });
 }
 
-// ------------------------------------------------------------ the front door
-type FrameRow = {
-  id: string; status: string; etag: string | null; file: string | null;
-  headers: string | null; push: string | null;
-};
-
-// Paths a device or a viewer asks for without the owner's password.
-const OPEN_PATHS = [/^\/api\/frame$/, /^\/api\/frame\/push$/, /^\/api\/firmware$/,
-  /^\/api\/setup$/, /^\/api\/display$/, /^\/api\/log$/, /^\/api\/view\.png$/,
-  /^\/api\/view\/state$/, /^\/api\/viewers\//, /^\/view$/, /^\/view\.webmanifest$/,
-  /^\/static\//, /^\/fonts\//, /^\/favicon/];
-
-export class Household extends DurableObject<Env> {
-  sql: SqlStorage;
-
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-    this.sql = ctx.storage.sql;
-    this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
-      CREATE TABLE IF NOT EXISTS frames (id TEXT PRIMARY KEY, status TEXT, etag TEXT,
-        file TEXT, headers TEXT, push TEXT);
-      CREATE TABLE IF NOT EXISTS checkins (frame_id TEXT, bucket INTEGER, body TEXT,
-        PRIMARY KEY (frame_id, bucket));
-      CREATE TABLE IF NOT EXISTS files (path TEXT PRIMARY KEY, sha TEXT);
-      CREATE TABLE IF NOT EXISTS ingest (seq INTEGER PRIMARY KEY AUTOINCREMENT,
-        path TEXT, body TEXT);
-    `);
+/** The owner typed the code on their frame's glass. */
+async function pair(request: Request, env: Env, hid: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  if (origin && origin !== `https://${env.APP_HOST}`) {
+    return Response.json({ error: "cross-origin request refused" }, { status: 403 });
   }
-
-  meta(k: string): string | null {
-    const r = this.sql.exec<{ v: string }>("SELECT v FROM meta WHERE k = ?", k).toArray();
-    return r.length ? r[0].v : null;
+  let code = "";
+  if ((request.headers.get("Content-Type") || "").includes("json")) {
+    code = String((await request.json<{ code?: string }>().catch(() => ({ code: "" }))).code || "");
+  } else {
+    code = String((await request.formData()).get("code") || "");
   }
-  setMeta(k: string, v: string | null): void {
-    if (v === null) this.sql.exec("DELETE FROM meta WHERE k = ?", k);
-    else this.sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)", k, v);
-  }
-
-  async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const hid = request.headers.get("X-FF-Household") || "";
-    if (url.pathname === "/_admin/provision") return this.provision(request, hid);
-    if (this.meta("hid") !== hid || !this.meta("key")) return new Response("not found", { status: 404 });
-
-    if (url.pathname.startsWith("/_internal/")) {
-      if (request.headers.get("Authorization") !== `Bearer ${this.meta("key")}`) {
-        return new Response("forbidden", { status: 403 });
-      }
-      return this.internal(request, url.pathname.slice("/_internal/".length));
-    }
-    if (url.pathname === "/api/frame/push" && request.headers.get("Upgrade") === "websocket") {
-      return this.pushSocket(request);
-    }
-    if (url.pathname === "/api/frame" && request.method === "GET" && !url.searchParams.get("view")) {
-      return this.frame(request);
-    }
-    if (request.method === "POST" && /^\/api\/ingest\/apprise(\/[^/]*)?$/.test(url.pathname)) {
-      return this.ingest(request, url);
-    }
-    if (!OPEN_PATHS.some((re) => re.test(url.pathname)) && !(await this.authorised(request))) {
-      return new Response("Featherframe", {
-        status: 401, headers: { "WWW-Authenticate": 'Basic realm="Featherframe", charset="UTF-8"' },
-      });
-    }
-    return this.proxy(request);
-  }
-
-  // -- provisioning (until accounts, W-845) ---------------------------------
-  async provision(request: Request, hid: string): Promise<Response> {
-    if (request.method !== "POST" || !this.env.ADMIN_TOKEN ||
-        request.headers.get("Authorization") !== `Bearer ${this.env.ADMIN_TOKEN}`) {
-      return new Response("not found", { status: 404 });
-    }
-    const body = await request.json<{ password?: string; tz?: string }>();
-    if (!body.password || body.password.length < 8) return new Response("password: 8+ characters", { status: 400 });
-    this.setMeta("hid", hid);
-    if (!this.meta("key")) this.setMeta("key", randomKey());
-    this.setMeta("pw", await hashPassword(body.password));
-    this.setMeta("tz", body.tz || "UTC");
-    await this.wake();
-    return Response.json({ ok: true, household: `${hid}.${this.env.ZONE}` });
-  }
-
-  async authorised(request: Request): Promise<boolean> {
-    const h = request.headers.get("Authorization") || "";
-    if (!h.startsWith("Basic ")) return false;
-    let decoded = "";
-    try { decoded = atob(h.slice(6)); } catch { return false; }
-    const pw = decoded.slice(decoded.indexOf(":") + 1);
-    return (await hashPassword(pw, this.meta("pw") || "")) === this.meta("pw");
-  }
-
-  // -- the household's server -------------------------------------------------
-  async server() {
-    const stub = this.env.SERVER.getByName(this.meta("hid")!);
-    await stub.configure({
-      FEATHERFRAME_HOSTED_URL: `https://${this.meta("hid")}.${this.env.ZONE}/_internal`,
-      FEATHERFRAME_HOSTED_KEY: this.meta("key")!,
-      TZ: this.meta("tz") || "UTC",
-    });
-    return stub;
-  }
-
-  async proxy(request: Request): Promise<Response> {
-    this.setMeta("page_ms", String(Date.now()));
-    const stub = await this.server();
-    const headers = new Headers(request.headers);
-    headers.delete("Authorization");
-    headers.delete("X-FF-Household");
-    return stub.fetch(new Request(request, { headers }));
-  }
-
-  /** Start the server (its lifespan pulls), hand it the pushes that landed
-   * while it slept, run one tick (which reports), and stop it again unless
-   * someone is on the page. */
-  async wake(): Promise<void> {
-    this.setMeta("wake_ms", String(Date.now()));
-    this.setMeta("news", "0");
-    try {
-      const stub = await this.server();
-      const queued = this.sql.exec<{ seq: number; path: string; body: string }>(
-        "SELECT seq, path, body FROM ingest ORDER BY seq").toArray();
-      for (const q of queued) {
-        await stub.fetch(`http://server${q.path}`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: q.body,
-        });
-        this.sql.exec("DELETE FROM ingest WHERE seq = ?", q.seq);
-      }
-      await stub.fetch("http://server/api/hosted/run", { method: "POST" });
-      if (Date.now() - Number(this.meta("page_ms") || 0) > PAGE_ACTIVE_MS) await stub.stop();
-    } catch (err) {
-      console.error("wake failed", err);
-    }
-    await this.schedule();
-  }
-
-  /** Is there news a wake should be spent on? */
-  async lookForNews(): Promise<void> {
-    if (this.meta("source_kind") !== "birdweather" || this.meta("poll") === "0") return;
-    const station = this.meta("bw_station");
-    if (!station) return;
-    try {
-      const r = await fetch(`https://app.birdweather.com/api/v1/stations/${encodeURIComponent(station)}/detections?limit=1`);
-      if (!r.ok) return;
-      const body = await r.json<{ detections?: { id?: number }[] } | { id?: number }[]>();
-      const rows = Array.isArray(body) ? body : (body.detections || []);
-      const id = rows.length && rows[0].id != null ? String(rows[0].id) : null;
-      if (id && id !== this.meta("bw_last_id")) {
-        // The first look only learns where the station is: the server read
-        // everything up to now on its own last wake.
-        if (this.meta("bw_last_id") !== null) this.setMeta("news", "1");
-        this.setMeta("bw_last_id", id);
-      }
-    } catch (err) {
-      console.error("birdweather look failed", err);
-    }
-  }
-
-  async alarm(): Promise<void> {
-    const now = Date.now();
-    await this.lookForNews();
-    const lastWake = Number(this.meta("wake_ms") || 0);
-    const named = Number(this.meta("next_wake_epoch") || 0) * 1000;
-    const due = (named > 0 && named <= now)
-      || (this.meta("news") === "1" && now - lastWake >= MIN_GAP_MS)
-      || now - lastWake >= SAFETY_MS;
-    if (due) await this.wake();
-    else await this.schedule();
-  }
-
-  async schedule(): Promise<void> {
-    const now = Date.now();
-    const lastWake = Number(this.meta("wake_ms") || 0);
-    const named = Number(this.meta("next_wake_epoch") || 0) * 1000;
-    const times = [lastWake + SAFETY_MS];
-    if (named > now) times.push(named);
-    if (this.meta("news") === "1") times.push(Math.max(now, lastWake + MIN_GAP_MS));
-    if (this.meta("source_kind") === "birdweather" && this.meta("poll") !== "0") times.push(now + POLL_MS);
-    await this.ctx.storage.setAlarm(Math.max(now + 1000, Math.min(...times)));
-  }
-
-  /** A push from BirdNET-Pi (Apprise) or BirdNET-Go, kept for the server and
-   * turned into a wake. The token is the server's own (it checks it again). */
-  async ingest(request: Request, url: URL): Promise<Response> {
-    if (this.meta("source_kind") !== "apprise") {
-      return Response.json({ error: "detection source is not Apprise" }, { status: 409 });
-    }
-    const token = url.pathname.split("/")[4] || "";
-    const want = this.meta("apprise_token") || "";
-    if (want && token !== want) return Response.json({ error: "bad token" }, { status: 403 });
-    const body = await request.text();
-    if (body.length > MAX_INGEST_BYTES) return Response.json({ error: "body too large" }, { status: 413 });
-    this.sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", url.pathname, body);
-    // In quiet hours a detection changes nothing: it waits for the next wake.
-    if (this.meta("poll") !== "0") this.setMeta("news", "1");
-    await this.schedule();
-    return Response.json({ ok: true, queued: true });
-  }
-
-  // -- the frames, answered without the server ---------------------------------
-  frameRow(id: string): FrameRow | null {
-    const r = this.sql.exec<FrameRow>("SELECT * FROM frames WHERE id = ?", id).toArray();
-    return r.length ? r[0] : null;
-  }
-
-  queueCheckin(request: Request, frameId: string, result: string, etag: string | null): void {
-    const headers: Record<string, string> = {};
-    request.headers.forEach((v, k) => { if (k.startsWith("x-") && k !== "x-ff-household") headers[k] = v; });
-    const body = {
-      headers, result, etag, ip: request.headers.get("CF-Connecting-IP"),
-      ua: request.headers.get("User-Agent"), at: localIso(this.meta("tz") || "UTC"),
-    };
-    const bucket = Math.floor(Date.now() / 1000 / CHECKIN_BUCKET_S);
-    this.sql.exec("INSERT OR REPLACE INTO checkins (frame_id, bucket, body) VALUES (?, ?, ?)",
-      frameId, bucket, JSON.stringify(body));
-  }
-
-  async frame(request: Request): Promise<Response> {
-    const id = (request.headers.get("X-Device-Id") || "").trim().slice(0, 40) || "legacy";
-    const row = this.frameRow(id);
-    if (!row || row.status !== "on") {
-      this.queueCheckin(request, id, "403", null);
-      return new Response("this frame has not been added here", {
-        status: 403,
-        headers: { "Cache-Control": "no-store", "X-FF-Frame": row?.status === "ignored" ? "ignored" : "pending" },
-      });
-    }
-    const headers = new Headers(JSON.parse(row.headers || "{}"));
-    if (!row.etag || !row.file) return new Response("no frame yet", { status: 503, headers });
-    headers.set("ETag", `"${row.etag}"`);
-    headers.set("Cache-Control", "no-cache");
-    const inm = (request.headers.get("If-None-Match") || "").replace(/^W\//, "").replace(/"/g, "").trim();
-    if (inm === row.etag) {
-      this.queueCheckin(request, id, "304", row.etag);
-      return new Response(null, { status: 304, headers });
-    }
-    const obj = await this.env.DATA.get(`households/${this.meta("hid")}/data/${row.file}`);
-    if (!obj) return new Response("no frame yet", { status: 503, headers });
-    this.queueCheckin(request, id, "frame", row.etag);
-    headers.set("Content-Type", "application/octet-stream");
-    headers.set("Content-Length", String(obj.size));
-    return new Response(obj.body, { headers });
-  }
-
-  pushSocket(request: Request): Response {
-    const id = (request.headers.get("X-Device-Id") || "").trim().slice(0, 40);
-    const row = id ? this.frameRow(id) : null;
-    if (!row || row.status !== "on" || !row.push) return new Response("not on", { status: 403 });
-    const pair = new WebSocketPair();
-    this.ctx.acceptWebSocket(pair[1], [id]);
-    pair[1].send(row.push);
-    return new Response(null, { status: 101, webSocket: pair[0] });
-  }
-
-  async webSocketMessage(): Promise<void> { /* the frame sends nothing */ }
-  async webSocketClose(ws: WebSocket, code: number): Promise<void> {
-    try { ws.close(code, "bye"); } catch { /* already closed */ }
-  }
-
-  // -- the server's side ----------------------------------------------------------
-  async internal(request: Request, path: string): Promise<Response> {
-    const prefix = `households/${this.meta("hid")}/data/`;
-    if (path === "files" && request.method === "GET") {
-      const files: Record<string, string> = {};
-      for (const r of this.sql.exec<{ path: string; sha: string }>("SELECT path, sha FROM files")) {
-        files[r.path] = r.sha;
-      }
-      return Response.json({ files });
-    }
-    if (path.startsWith("files/")) {
-      const rel = decodeURIComponent(path.slice("files/".length));
-      if (!rel || rel.split("/").includes("..")) return new Response("bad path", { status: 400 });
-      if (request.method === "GET") {
-        const obj = await this.env.DATA.get(prefix + rel);
-        return obj ? new Response(obj.body) : new Response("not found", { status: 404 });
-      }
-      if (request.method === "PUT") {
-        const sha = request.headers.get("X-SHA256") || "";
-        await this.env.DATA.put(prefix + rel, request.body, { customMetadata: { sha } });
-        this.sql.exec("INSERT OR REPLACE INTO files (path, sha) VALUES (?, ?)", rel, sha);
-        return new Response(null, { status: 204 });
-      }
-      if (request.method === "DELETE") {
-        await this.env.DATA.delete(prefix + rel);
-        this.sql.exec("DELETE FROM files WHERE path = ?", rel);
-        return new Response(null, { status: 204 });
-      }
-    }
-    if (path === "state" && request.method === "POST") {
-      await this.takeState(await request.json());
-      return Response.json({ ok: true });
-    }
-    if (path === "checkins/take" && request.method === "POST") {
-      const rows = this.sql.exec<{ body: string }>(
-        "SELECT body FROM checkins ORDER BY bucket, frame_id").toArray();
-      this.sql.exec("DELETE FROM checkins");
-      return Response.json({ checkins: rows.map((r) => JSON.parse(r.body)) });
-    }
-    return new Response("not found", { status: 404 });
-  }
-
-  async takeState(state: {
-    frames: Record<string, { status: string; etag?: string | null; file?: string;
-      headers?: Record<string, string>; push?: unknown }>;
-    next_wake_epoch?: number | null;
-    poll?: boolean;
-    source?: { kind?: string; station?: string; token?: string };
-  }): Promise<void> {
-    const before = new Map(this.sql.exec<FrameRow>("SELECT * FROM frames").toArray().map((r) => [r.id, r]));
-    this.sql.exec("DELETE FROM frames");
-    for (const [id, f] of Object.entries(state.frames || {})) {
-      const push = f.push ? JSON.stringify(f.push) : null;
-      this.sql.exec("INSERT INTO frames (id, status, etag, file, headers, push) VALUES (?, ?, ?, ?, ?, ?)",
-        id, f.status, f.etag ?? null, f.file ?? null, f.headers ? JSON.stringify(f.headers) : null, push);
-      // Every socket for this frame hears a changed message; a frame no longer
-      // on is let go, and keeps polling to be let in.
-      for (const ws of this.ctx.getWebSockets(id)) {
-        if (f.status !== "on" || !push) ws.close(1008, "not on");
-        else if (before.get(id)?.push !== push) ws.send(push);
-      }
-    }
-    for (const id of before.keys()) {
-      if (!(id in (state.frames || {}))) for (const ws of this.ctx.getWebSockets(id)) ws.close(1008, "gone");
-    }
-    this.setMeta("next_wake_epoch", state.next_wake_epoch ? String(state.next_wake_epoch) : null);
-    this.setMeta("poll", state.poll === false ? "0" : "1");
-    const src = state.source || {};
-    if (src.kind !== this.meta("source_kind") || (src.station || null) !== this.meta("bw_station")) {
-      this.setMeta("bw_last_id", null);    // a new source: learn where it is first
-    }
-    this.setMeta("source_kind", src.kind || null);
-    this.setMeta("bw_station", src.station || null);
-    this.setMeta("apprise_token", src.token ?? null);
-    await this.schedule();
-  }
-}
-
-// ---------------------------------------------------------------- helpers
-function randomKey(): string {
-  const b = crypto.getRandomValues(new Uint8Array(32));
-  return [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
-}
-
-/** "salt$hash", PBKDF2-SHA256. With `stored`, hashes with its salt. */
-async function hashPassword(pw: string, stored = ""): Promise<string> {
-  const salt = stored.includes("$") ? stored.split("$")[0] : randomKey().slice(0, 32);
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt: new TextEncoder().encode(salt), iterations: 100_000 }, key, 256);
-  return `${salt}$${[...new Uint8Array(bits)].map((x) => x.toString(16).padStart(2, "0")).join("")}`;
-}
-
-/** Now as the household's server reads a clock: naive ISO in its own zone. */
-export function localIso(tz: string, d = new Date()): string {
-  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-  }).formatToParts(d).map((x) => [x.type, x.value]));
-  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+  code = code.toUpperCase().replace(/[^0-9A-Z]/g, "");
+  const now = Math.floor(Date.now() / 1000);
+  const row = await env.DB.prepare("SELECT device_id, key_hash, report FROM pairing WHERE code = ? AND expires_at > ?")
+    .bind(code, now).first<{ device_id: string; key_hash: string; report: string }>();
+  if (!row) return Response.json({ ok: false, error: "No frame is showing that code." }, { status: 404 });
+  await env.DB.batch([
+    env.DB.prepare("INSERT OR REPLACE INTO frames (device_id, household_id, key_hash, paired_at) VALUES (?, ?, ?, ?)")
+      .bind(row.device_id, hid, row.key_hash, now),
+    env.DB.prepare("DELETE FROM pairing WHERE device_id = ?").bind(row.device_id),
+  ]);
+  await env.HOUSEHOLD.getByName(hid).adopt(row.device_id, JSON.parse(row.report || "{}"));
+  return Response.json({ ok: true, frame: row.device_id });
 }

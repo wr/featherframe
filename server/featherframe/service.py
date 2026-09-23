@@ -2021,7 +2021,11 @@ class FeatherframeService:
                                 "X-Wake-Minutes": str(wake_min), "X-Poll-Seconds": str(poll_s)},
                     "push": self.push_message(fid)})
             out[fid] = entry
-        return {"frames": out, "next_wake_at": self.next_wake_at()}
+        wake = self.next_wake_at()
+        # The front door keeps time in UTC; this server in the household's own
+        # (TZ): the epoch is what it schedules by, the ISO what a person reads.
+        return {"frames": out, "next_wake_at": wake,
+                "next_wake_epoch": int(datetime.fromisoformat(wake).timestamp()) if wake else None}
 
     def push_message(self, frame_id: str) -> Optional[dict]:
         """What a frame on a push socket is told (W-841): everything that

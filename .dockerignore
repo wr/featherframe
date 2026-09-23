@@ -1,0 +1,8 @@
+**
+!server/requirements.txt
+!server/requirements-optional.txt
+!server/featherframe
+!server/templates
+!server/static
+!server/scripts
+**/__pycache__

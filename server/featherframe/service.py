@@ -1928,6 +1928,23 @@ class FeatherframeService:
         log.info("drew the %s picture for frame %s (%s), etag=%s",
                  pic.kind, fid[-6:], cfg.panel, result.etag)
 
+    def _queued_seconds(self, row: dict, now: datetime) -> Optional[int]:
+        """How long a frame on push will hold a change it has been told of:
+        a full-refresh panel paints at most once per `min_repaint_s`, counted
+        from the end of its last paint. None when nothing is waiting."""
+        rep = frames_mod.reported_of(row)
+        spec = frames_mod.panel_for(row)
+        out = self._output_etag(str(row["id"]))
+        if not rep.get("push_s") or not spec.min_repaint_s or not out \
+                or out == rep.get("etag_served"):
+            return None
+        try:
+            painted = datetime.fromisoformat(str(row.get("painted_at")))
+        except (ValueError, TypeError):
+            return None
+        wait = (painted - now).total_seconds() + spec.refresh_seconds + spec.min_repaint_s
+        return int(wait) if wait >= 1 else None
+
     def push_message(self, frame_id: str) -> Optional[dict]:
         """What a frame on a push socket is told (W-841): everything that
         changes what its next `GET /api/frame` would answer — its output, the
@@ -2020,6 +2037,10 @@ class FeatherframeService:
                 row["last_seen"] = stamp
                 if told is not None:
                     row["told_s"] = int(told)
+                if fields.get("last_result") not in (None, "304"):
+                    # Bytes went out, so the glass is repainting from now:
+                    # when its panel's repaint floor starts (W-841).
+                    row["painted_at"] = stamp
         volt = fields.get("battery_voltage")
         if volt is None or volt < _BATTERY_ABSENT_V:
             return
@@ -2164,6 +2185,7 @@ class FeatherframeService:
             "summary": self._frame_summary(what, shows, named=bool(name)),
             "picture_etag": self.picture_etag(shows) if on else None,
             "output_etag": self._output_etag(fid) if kit else None,
+            "queued_s": self._queued_seconds(row, now) if kit and on else None,
             "preview_url": f"/api/frames/{quote(fid, safe='')}/preview.png" if on else None,
             "capabilities": {**caps, "rotations": list(caps["rotations"])},
             "settings": {

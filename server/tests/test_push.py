@@ -136,3 +136,42 @@ def test_an_open_socket_is_being_heard_from(client):
         ws.receive_json()
         card = svc.frame_health(svc.frames.get(FRAME_ID))
         assert card["overdue"] is False and card["last_seen"] == "just now"
+
+
+def _queued(svc):
+    return [f for f in svc.frames_list() if f["id"] == FRAME_ID][0]["queued_s"]
+
+
+def test_a_change_the_colour_panel_must_hold_is_shown_as_queued(client):
+    """The EE02 paints at most once per FF_MIN_REPAINT_MS, counted from the end
+    of its last paint: a change told to it inside that is queued, not lost."""
+    from tests._frames import EE02_BOARD, EE02_PANEL
+    svc = _svc(client)
+    seed_frame(svc, panel=EE02_PANEL, etag="one", power_mode="awake")
+    ee02 = {**KIT, "X-Panel": EE02_PANEL, "X-Board": EE02_BOARD, "X-FF-Push": "900"}
+    assert client.get("/api/frame", headers=ee02).status_code == 200    # painting "one" from NOW
+    assert _queued(svc) is None                                          # nothing new yet
+    give_output(svc, etag="two")
+    svc._clock = lambda: NOW + timedelta(seconds=40)
+    # 30 s of paint plus the 180 s floor, 40 s of it gone.
+    assert _queued(svc) == 30 + 180 - 40
+    svc._clock = lambda: NOW + timedelta(seconds=215)
+    assert _queued(svc) is None                                          # it is fetching it now
+
+
+def test_the_gray_panel_never_holds_a_change(client):
+    svc = _svc(client)
+    seed_frame(svc, etag="one", power_mode="awake")
+    client.get("/api/frame", headers={**KIT, "X-FF-Push": "900"})
+    give_output(svc, etag="two")
+    assert _queued(svc) is None
+
+
+def test_the_repaint_floor_is_the_firmwares():
+    import re
+    from pathlib import Path
+    from featherframe import panels
+    src = (Path(__file__).resolve().parents[2] / "firmware" / "include" / "ff_config.h").read_text()
+    ms = int(re.search(r"#define FF_MIN_REPAINT_MS\s+(\d+)UL", src).group(1))
+    assert ms == panels.EE02.min_repaint_s * 1000
+    assert panels.custom(800, 480, "gray16", "90,270").min_repaint_s * 1000 == ms   # generic build: full refresh

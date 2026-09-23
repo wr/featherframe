@@ -942,6 +942,8 @@
             <span class="fr-name" data-fr="title">{{ fr.title }}</span>
             <span class="badge warn" data-h="overdue" {{ '' if card.overdue else 'hidden' }}>Overdue</span>
             <span class="badge bad" data-h="lowbatt" {{ '' if low else 'hidden' }}>Battery low</span>
+            {# A change it has been told of, held by its panel's repaint floor (W-841). #}
+            <span class="badge tnum" data-h="queued" data-s="{{ fr.queued_s or '' }}" hidden></span>
             <button class="badge upd" type="button" data-h="fw-badge" data-fw-open {{ '' if fw and fw.available and not fw.pending else 'hidden' }}>Update available</button>
             <span class="badge" data-h="fw-updating" {{ '' if fw and fw.available and fw.pending else 'hidden' }}>Updating</span>
           </span>
@@ -1813,8 +1815,27 @@
 
   // One frame's row: the dot, its badges, and the readings in the collapsed
   // line. Details below carries no reading of its own.
+  // The queued badge counts down on its own between polls.
+  function applyQueued(row, secs) {
+    var el = sub(row, 'data-h', 'queued');
+    if (!el) return;
+    el.dataset.until = secs ? String(Date.now() + secs * 1000) : '';
+    tickQueued(el);
+  }
+  function tickQueued(el) {
+    var left = el.dataset.until ? (Number(el.dataset.until) - Date.now()) / 1000 : 0;
+    el.hidden = left < 1;
+    if (left >= 1) el.textContent = 'Updates in ' + Math.max(1, Math.ceil(left / 60)) + ' min';
+  }
+  document.querySelectorAll('[data-h="queued"]').forEach(function (el) {
+    var row = el.closest('.fr');
+    if (row) applyQueued(row, Number(el.getAttribute('data-s')) || 0);
+  });
+  setInterval(function () { document.querySelectorAll('[data-h="queued"]').forEach(tickQueued); }, 5000);
+
   function applyHealth(row, fr) {
     var card = fr.card || {};
+    applyQueued(row, fr.queued_s || 0);
     subText(row, 'data-h', 'seen-text', card.seen ? (card.last_seen || '') : 'never');
     var seen = sub(row, 'data-h', 'seen');
     if (seen) seen.dataset.tip = card.last_checkin_iso ? card.last_checkin_iso.replace('T', ' ') : '';
@@ -2273,7 +2294,11 @@
               applyHealth(row, mine);
               knownFrames = null;
             }
-            showFlash('ok', 'Saved. It picks the change up on its next check-in.', 'ic-check');
+            var instant = mine && (mine.settings || {}).push;
+            showFlash('ok', instant ? 'Saved.' : 'Saved. It picks the change up on its next check-in.', 'ic-check');
+            // The redraw lands on the next tick: look again then, so a change
+            // the panel has to hold shows as queued without waiting a poll.
+            setTimeout(pollStatus, 8000);
           })
           .catch(function (e) { showFlash('bad', 'Not saved — ' + errText(e) + '.', 'ic-warn'); })
           .then(function () { busy(row, false); save.textContent = label; });

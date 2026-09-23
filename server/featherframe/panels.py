@@ -36,6 +36,10 @@ class Panel:
     # A fresh config's mode here. A refresh that takes half a minute makes a
     # plate per detection a poor fit: the colour panel starts on the collage.
     mode: str = "single"
+    # The firmware's floor between two repaints it was not asked for by a
+    # button (FF_MIN_REPAINT_MS, ff_config.h; a test keeps them equal): a
+    # full-refresh panel holds a change that lands inside it (W-841).
+    min_repaint_s: int = 180
 
     @property
     def known(self) -> bool:
@@ -53,7 +57,8 @@ class Panel:
 # Seeed EE03: E Ink ED103TC2 10.3", IT8951. Native canvas is landscape and
 # setRotation() is a no-op, so the frame is rotated server-side (90 or 270).
 # Blue-noise: 16 grays leave little to diffuse, and it is vectorised (Pi-friendly).
-EE03 = Panel("ee03", 'EE03 · 10.3" gray', 1404, 1872, False, (90, 270), 2, "bluenoise")
+EE03 = Panel("ee03", 'EE03 · 10.3" gray', 1404, 1872, False, (90, 270), 2, "bluenoise",
+             min_repaint_s=0)
 
 # The name is shown on the page, whose copy is US English ("color").
 # Seeed EE02: E Ink Spectra 6 13.3" (T133A01). Native canvas is portrait; 180

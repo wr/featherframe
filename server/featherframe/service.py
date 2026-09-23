@@ -2033,7 +2033,21 @@ class FeatherframeService:
                 # Whether a new detection could change anything right now: in
                 # quiet hours nothing is drawn but what next_wake_at already
                 # names, so the front door need not wake this to look.
-                "poll": not self.config.in_quiet_hours(self._clock().time())}
+                "poll": not self.config.in_quiet_hours(self._clock().time()),
+                # Where news comes from (W-847): the front door looks for it
+                # itself — it polls a BirdWeather station, or takes the pushes
+                # (Apprise from BirdNET-Pi, a webhook from BirdNET-Go) — and
+                # wakes this only when there is some.
+                "source": self._hosted_source()}
+
+    def _hosted_source(self) -> dict:
+        cfg = self.config
+        kind = cfg.detection_backend
+        if kind == "birdweather":
+            return {"kind": kind, "station": cfg.birdweather_station_id}
+        if kind == "apprise":
+            return {"kind": kind, "token": cfg.apprise_token or ""}
+        return {"kind": kind}
 
     def push_message(self, frame_id: str) -> Optional[dict]:
         """What a frame on a push socket is told (W-841): everything that

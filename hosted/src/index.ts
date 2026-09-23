@@ -29,9 +29,16 @@ export interface Env {
   ADMIN_TOKEN: string;   // secret: provisions a household
 }
 
-// How often a sleeping household's server is woken to look for new
-// detections (its source is polled from inside it).
-const WAKE_CADENCE_MS = 5 * 60 * 1000;
+// The household's server is woken only for news (W-847). The front door looks
+// for it: a BirdWeather station every POLL_MS, or a push (Apprise, a webhook)
+// the moment it lands. However much news there is, at most one wake per
+// MIN_GAP_MS; and once a day regardless, in case anything was missed.
+const POLL_MS = 2 * 60 * 1000;
+const MIN_GAP_MS = 5 * 60 * 1000;
+const SAFETY_MS = 24 * 60 * 60 * 1000;
+// A page used this recently keeps the server up after a wake.
+const PAGE_ACTIVE_MS = 60 * 1000;
+const MAX_INGEST_BYTES = 16 * 1024;
 // A frame's check-ins are kept one per this window until the server takes
 // them: the battery log keeps one row per 5 min anyway.
 const CHECKIN_BUCKET_S = 300;
@@ -113,6 +120,8 @@ export class Household extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS checkins (frame_id TEXT, bucket INTEGER, body TEXT,
         PRIMARY KEY (frame_id, bucket));
       CREATE TABLE IF NOT EXISTS files (path TEXT PRIMARY KEY, sha TEXT);
+      CREATE TABLE IF NOT EXISTS ingest (seq INTEGER PRIMARY KEY AUTOINCREMENT,
+        path TEXT, body TEXT);
     `);
   }
 
@@ -142,6 +151,9 @@ export class Household extends DurableObject<Env> {
     }
     if (url.pathname === "/api/frame" && request.method === "GET" && !url.searchParams.get("view")) {
       return this.frame(request);
+    }
+    if (request.method === "POST" && /^\/api\/ingest\/apprise(\/[^/]*)?$/.test(url.pathname)) {
+      return this.ingest(request, url);
     }
     if (!OPEN_PATHS.some((re) => re.test(url.pathname)) && !(await this.authorised(request))) {
       return new Response("Featherframe", {
@@ -188,6 +200,7 @@ export class Household extends DurableObject<Env> {
   }
 
   async proxy(request: Request): Promise<Response> {
+    this.setMeta("page_ms", String(Date.now()));
     const stub = await this.server();
     const headers = new Headers(request.headers);
     headers.delete("Authorization");
@@ -195,31 +208,91 @@ export class Household extends DurableObject<Env> {
     return stub.fetch(new Request(request, { headers }));
   }
 
-  /** Start the server (its lifespan pulls), run one tick (which reports),
-   * then sleep until it next has something to do. */
+  /** Start the server (its lifespan pulls), hand it the pushes that landed
+   * while it slept, run one tick (which reports), and stop it again unless
+   * someone is on the page. */
   async wake(): Promise<void> {
+    this.setMeta("wake_ms", String(Date.now()));
+    this.setMeta("news", "0");
     try {
       const stub = await this.server();
+      const queued = this.sql.exec<{ seq: number; path: string; body: string }>(
+        "SELECT seq, path, body FROM ingest ORDER BY seq").toArray();
+      for (const q of queued) {
+        await stub.fetch(`http://server${q.path}`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: q.body,
+        });
+        this.sql.exec("DELETE FROM ingest WHERE seq = ?", q.seq);
+      }
       await stub.fetch("http://server/api/hosted/run", { method: "POST" });
+      if (Date.now() - Number(this.meta("page_ms") || 0) > PAGE_ACTIVE_MS) await stub.stop();
     } catch (err) {
       console.error("wake failed", err);
     }
     await this.schedule();
   }
 
+  /** Is there news a wake should be spent on? */
+  async lookForNews(): Promise<void> {
+    if (this.meta("source_kind") !== "birdweather" || this.meta("poll") === "0") return;
+    const station = this.meta("bw_station");
+    if (!station) return;
+    try {
+      const r = await fetch(`https://app.birdweather.com/api/v1/stations/${encodeURIComponent(station)}/detections?limit=1`);
+      if (!r.ok) return;
+      const body = await r.json<{ detections?: { id?: number }[] } | { id?: number }[]>();
+      const rows = Array.isArray(body) ? body : (body.detections || []);
+      const id = rows.length && rows[0].id != null ? String(rows[0].id) : null;
+      if (id && id !== this.meta("bw_last_id")) {
+        // The first look only learns where the station is: the server read
+        // everything up to now on its own last wake.
+        if (this.meta("bw_last_id") !== null) this.setMeta("news", "1");
+        this.setMeta("bw_last_id", id);
+      }
+    } catch (err) {
+      console.error("birdweather look failed", err);
+    }
+  }
+
   async alarm(): Promise<void> {
-    await this.wake();
+    const now = Date.now();
+    await this.lookForNews();
+    const lastWake = Number(this.meta("wake_ms") || 0);
+    const named = Number(this.meta("next_wake_epoch") || 0) * 1000;
+    const due = (named > 0 && named <= now)
+      || (this.meta("news") === "1" && now - lastWake >= MIN_GAP_MS)
+      || now - lastWake >= SAFETY_MS;
+    if (due) await this.wake();
+    else await this.schedule();
   }
 
   async schedule(): Promise<void> {
-    // The server's own next moment, and — unless it said a detection could
-    // change nothing now (quiet hours) — a look for new detections.
     const now = Date.now();
-    const next = Number(this.meta("next_wake_epoch") || 0) * 1000;
-    const times = [next > now ? next : 0, this.meta("poll") === "0" ? 0 : now + WAKE_CADENCE_MS]
-      .filter((t) => t > 0);
-    // Nothing named at all: look again in a day rather than never.
-    await this.ctx.storage.setAlarm(times.length ? Math.min(...times) : now + 86_400_000);
+    const lastWake = Number(this.meta("wake_ms") || 0);
+    const named = Number(this.meta("next_wake_epoch") || 0) * 1000;
+    const times = [lastWake + SAFETY_MS];
+    if (named > now) times.push(named);
+    if (this.meta("news") === "1") times.push(Math.max(now, lastWake + MIN_GAP_MS));
+    if (this.meta("source_kind") === "birdweather" && this.meta("poll") !== "0") times.push(now + POLL_MS);
+    await this.ctx.storage.setAlarm(Math.max(now + 1000, Math.min(...times)));
+  }
+
+  /** A push from BirdNET-Pi (Apprise) or BirdNET-Go, kept for the server and
+   * turned into a wake. The token is the server's own (it checks it again). */
+  async ingest(request: Request, url: URL): Promise<Response> {
+    if (this.meta("source_kind") !== "apprise") {
+      return Response.json({ error: "detection source is not Apprise" }, { status: 409 });
+    }
+    const token = url.pathname.split("/")[4] || "";
+    const want = this.meta("apprise_token") || "";
+    if (want && token !== want) return Response.json({ error: "bad token" }, { status: 403 });
+    const body = await request.text();
+    if (body.length > MAX_INGEST_BYTES) return Response.json({ error: "body too large" }, { status: 413 });
+    this.sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", url.pathname, body);
+    // In quiet hours a detection changes nothing: it waits for the next wake.
+    if (this.meta("poll") !== "0") this.setMeta("news", "1");
+    await this.schedule();
+    return Response.json({ ok: true, queued: true });
   }
 
   // -- the frames, answered without the server ---------------------------------
@@ -329,6 +402,7 @@ export class Household extends DurableObject<Env> {
       headers?: Record<string, string>; push?: unknown }>;
     next_wake_epoch?: number | null;
     poll?: boolean;
+    source?: { kind?: string; station?: string; token?: string };
   }): Promise<void> {
     const before = new Map(this.sql.exec<FrameRow>("SELECT * FROM frames").toArray().map((r) => [r.id, r]));
     this.sql.exec("DELETE FROM frames");
@@ -348,6 +422,13 @@ export class Household extends DurableObject<Env> {
     }
     this.setMeta("next_wake_epoch", state.next_wake_epoch ? String(state.next_wake_epoch) : null);
     this.setMeta("poll", state.poll === false ? "0" : "1");
+    const src = state.source || {};
+    if (src.kind !== this.meta("source_kind") || (src.station || null) !== this.meta("bw_station")) {
+      this.setMeta("bw_last_id", null);    // a new source: learn where it is first
+    }
+    this.setMeta("source_kind", src.kind || null);
+    this.setMeta("bw_station", src.station || null);
+    this.setMeta("apprise_token", src.token ?? null);
     await this.schedule();
   }
 }

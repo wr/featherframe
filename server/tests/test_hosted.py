@@ -139,9 +139,11 @@ def test_what_the_frames_said_while_it_slept_is_recorded_as_if_it_had_been_heard
     assert (rep["last_checkin"], rep["battery_voltage"], rep["wifi_rssi"], rep["push_s"]) == \
         ("2026-09-22T11:58:00", 4.1, -58, 900)
     assert row["told_s"] == 900
-    assert svc.frames.get("CC:CC:CC:00:00:01")["status"] == frames_mod.ASKING   # asks to be added
+    # Hosted, a frame joins only by pairing: an unknown one's check-in (one
+    # queued just before its owner removed it) makes no "asking" row.
+    assert svc.frames.get("CC:CC:CC:00:00:01") is None
     state = door.state.states[-1]
-    assert state["frames"]["CC:CC:CC:00:00:01"] == {"status": "asking"}
+    assert "CC:CC:CC:00:00:01" not in state["frames"]
     mine = state["frames"][FRAME_ID]
     assert mine["etag"] == "one" and mine["file"] == "frames/out/AA_AA_AA_00_00_03.fff"
     assert mine["headers"]["X-Power-Mode"] == "awake" and mine["push"]["etag"] == "one"
@@ -290,14 +292,17 @@ def test_a_tablet_page_reports_its_size_through_the_front_door(env):
     assert v["paper"] is False and v["name"].endswith("1536x2048-color-0")
 
 
-def test_a_viewer_still_asking_is_named_but_has_no_image(env):
+def test_a_viewer_nobody_paired_is_not_recorded(env):
+    """Hosted, a viewer joins only by pairing: a check-in from one this
+    household does not have makes no row."""
     door, link, data = env
     svc = _service()
     _plates(svc)
     door.state.queue = [{"id": "AA:BB:CC:00:00:02", "at": "2026-09-22T11:59:00",
                          "viewer": {"transport": "trmnl", "headers": {}}}]
     link.settle(svc)
-    assert door.state.states[-1]["viewers"]["AA:BB:CC:00:00:02"] == {"status": "asking", "short": svc.frame_short("AA:BB:CC:00:00:02")}
+    assert svc.frames.get("AA:BB:CC:00:00:02") is None
+    assert "AA:BB:CC:00:00:02" not in door.state.states[-1]["viewers"]
 
 
 def test_the_lobby_draws_a_viewers_code_at_its_own_size():

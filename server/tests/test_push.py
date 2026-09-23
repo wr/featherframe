@@ -91,11 +91,15 @@ def test_no_id_and_a_foreign_page_are_refused(client):
 
 
 def test_a_frame_removed_from_the_page_is_let_go(client):
+    """It is told first: any message makes the firmware ask /api/frame at
+    once, where it learns it is not on. A bare close is not a wake, and a
+    frame on the collage would keep its old picture for hours."""
     svc = _svc(client)
     seed_frame(svc)
     with client.websocket_connect("/api/frame/push", headers=KIT) as ws:
         ws.receive_json()
         assert client.post(f"/api/frames/{FRAME_ID}", json={"forget": True}).json()["ok"]
+        assert ws.receive_json() == {"etag": None, "rotation": None, "power": None, "ota": False}
         with pytest.raises(WebSocketDisconnect):
             ws.receive_json()
 

@@ -28,6 +28,16 @@ type ViewerRow = {
 const PAGE_POLL_S = 20;             // viewers.PAGE_POLL_SECONDS
 const VIEWER_WAIT_S = 30;           // paired, not drawn for yet: soon
 
+// A frame that stops being on (removed, ignored) is told so before its socket
+// closes: any message makes the firmware ask /api/frame at once, where it
+// finds its pairing code. A bare close is not a wake, and a frame on the
+// collage would sit on its old picture until its timer (hours).
+const GONE = JSON.stringify({ etag: null, rotation: null, power: null, ota: false });
+function goodbye(ws: WebSocket, reason: string): void {
+  try { ws.send(GONE); } catch { /* already closed */ }
+  try { ws.close(1008, reason); } catch { /* already closed */ }
+}
+
 type FrameRow = {
   id: string; status: string; etag: string | null; file: string | null;
   headers: string | null; push: string | null;
@@ -478,12 +488,12 @@ export class Household extends DurableObject<Env> {
       // Every socket for this frame hears a changed message; a frame no longer
       // on is let go, and keeps polling to be let in.
       for (const ws of this.ctx.getWebSockets(id)) {
-        if (f.status !== "on" || !push) ws.close(1008, "not on");
+        if (f.status !== "on" || !push) goodbye(ws, "not on");
         else if (before.get(id)?.push !== push) ws.send(push);
       }
     }
     for (const id of before.keys()) {
-      if (!(id in (state.frames || {}))) for (const ws of this.ctx.getWebSockets(id)) ws.close(1008, "gone");
+      if (!(id in (state.frames || {}))) for (const ws of this.ctx.getWebSockets(id)) goodbye(ws, "gone");
     }
     this.sql.exec("DELETE FROM viewers");
     for (const [id, v] of Object.entries(state.viewers || {})) {

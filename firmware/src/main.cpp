@@ -1603,6 +1603,18 @@ void maybeOTA(float vbat) {
     prefs.putString("ota_bad", md5);
 }
 
+// A restart that finds its plate on the glass leaves it there (full-refresh
+// panels): no boot screen, and the plate's ETag is kept, so an unchanged
+// picture is a 304 and nothing repaints. A stored ETag means exactly that:
+// every baked screen and one-off view clears it. On the Spectra each paint is
+// ~30 s, and a USB session — the installer, Wi-Fi over Improv, pairing, the
+// move to a new server — restarts the frame several times: two paints each,
+// ten in a row, some cut short (Wells, 23 Sep 2026). The setup portal and a
+// blank board still show their screens.
+static bool resumeGlass(bool forcePortal) {
+  return FF_FULL_REFRESH && g_etag[0] && !forcePortal && !g_viaPortal;
+}
+
 // ---------------------------------------------------------------- setup
 void setup() {
   Serial.begin(115200);
@@ -1698,12 +1710,15 @@ void setup() {
   if (forcePortal) { Serial.println("portal reset requested"); wm.resetSettings(); }
 
   snprintf(g_wakeInfo, sizeof(g_wakeInfo), "cause=%d nosleep", (int)cause);
-  ensureWifi(forcePortal, true);   // loops the portal itself until first-run setup
+  bool resume = resumeGlass(forcePortal);
+  ensureWifi(forcePortal, !resume);   // loops the portal itself until first-run setup
   g_lastSuccessMs = millis();
   if (WiFi.status() == WL_CONNECTED) {
-    g_etag[0] = 0;   // force a fresh paint so the plate replaces the splash (not a 304)
-    showScreen(FF_SCR_BOOT_BIRDNET);          // reaching the server
-    showScreen(FF_SCR_BOOT_DOWNLOAD);         // fetching the image
+    if (!resume) {
+      g_etag[0] = 0;   // force a fresh paint so the plate replaces the splash (not a 304)
+      showScreen(FF_SCR_BOOT_BIRDNET);          // reaching the server
+      showScreen(FF_SCR_BOOT_DOWNLOAD);         // fetching the image
+    }
     FetchResult r = fetchAndRender(FRAME_PATH, true, vbat, pct);
     noteFetchOutcome(r);
     if (r != FETCH_ERROR) maybeOTA(vbat);     // unreachable server: don't burn a second connect timeout
@@ -1743,7 +1758,7 @@ void setup() {
     wm.resetSettings();
   }
 
-  if (!ensureWifi(forcePortal, !fromDeepSleep)) {
+  if (!ensureWifi(forcePortal, !fromDeepSleep && !resumeGlass(forcePortal))) {
     if (buttonWake) ackBlink(4);
     bumpFail();
     uint32_t mins = retryDelayMinutes();
@@ -1765,7 +1780,7 @@ void setup() {
   } else {
     // Boot screens only on a true cold boot or straight out of setup — a
     // deep-sleep wake leaves the resident plate alone and fetches silently.
-    if (!fromDeepSleep || g_viaPortal) {
+    if ((!fromDeepSleep || g_viaPortal) && !resumeGlass(false)) {
       showScreen(FF_SCR_BOOT_BIRDNET);
       showScreen(FF_SCR_BOOT_DOWNLOAD);
     }

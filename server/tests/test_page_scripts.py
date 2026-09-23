@@ -22,8 +22,9 @@ def test_every_script_on_the_page_parses(tmp_path, monkeypatch, hosted):
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     from featherframe.app import app
     from featherframe.service import FeatherframeService
-    app.state.service = FeatherframeService()
-    app.state.hosted = object() if hosted else None     # the page only asks whether it is
+    monkeypatch.setattr(app.state, "service", FeatherframeService(), raising=False)
+    # The page only asks whether it is hosted; undone after, as the app is shared.
+    monkeypatch.setattr(app.state, "hosted", object() if hosted else None, raising=False)
     html = TestClient(app).get("/").text
     scripts = _SCRIPT.findall(html)
     assert scripts

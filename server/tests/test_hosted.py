@@ -193,3 +193,26 @@ def test_the_front_door_is_told_where_news_comes_from(env):
     svc.config.detection_backend = "apprise"
     svc.config.apprise_token = "t0k"
     assert svc.hosted_state()["source"] == {"kind": "apprise", "token": "t0k"}
+
+
+def test_a_frame_its_owner_paired_is_added_without_a_second_step(env):
+    door, link, data = env
+    svc = _service()
+    door.state.queue = [{"headers": {"X-Device-Id": "DD:DD:DD:00:00:01", "X-Panel": EE03_PANEL},
+                         "result": "403", "at": "2026-09-22T11:59:00", "add": True}]
+    link.settle(svc)
+    assert svc.frames.get("DD:DD:DD:00:00:01")["status"] == frames_mod.ON
+
+
+def test_the_lobby_draws_a_code_for_the_panel_that_asks():
+    """W-845: a frame no one has claimed gets its code, finished for its own
+    panel — the EE03's native landscape, the EE02's portrait inks."""
+    import struct
+    from featherframe.lobby import render_pairing
+    pipeline.DITHER_OVERRIDE = "none"
+    gray, cfg = render_pairing("ABC-DEF", EE03_PANEL)
+    assert struct.unpack_from("<HH", gray.frame, 6) == (1872, 1404) and cfg.panel_rotation in (90, 270)
+    color, cfg2 = render_pairing("ABC-DEF", "T133A01 1200x1600 spectra6")
+    assert struct.unpack_from("<HH", color.frame, 6) == (1200, 1600) and cfg2.panel == "ee02"
+    odd, _ = render_pairing("ABC-DEF", "", {"w": "800", "h": "480", "fmt": "gray16", "rot": "90,270"})
+    assert struct.unpack_from("<HH", odd.frame, 6) == (800, 480)

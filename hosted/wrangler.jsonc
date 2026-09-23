@@ -4,14 +4,15 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
-  "vars": { "ZONE": "featherframe.app" },
-  // Every household is a subdomain; the apex (the marketing page) is not
-  // routed. The wildcard route needs a proxied `*` DNS record; until there is
-  // one, a household is a custom domain of its own (which makes its record).
-  "routes": [
-    { "pattern": "*.featherframe.app/*", "zone_name": "featherframe.app" },
-    { "pattern": "wells.featherframe.app", "custom_domain": true }
+  "vars": { "ZONE": "featherframe.app", "APP_HOST": "app.featherframe.app",
+            "MAIL_FROM": "Featherframe <hello@featherframe.app>" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "featherframe",
+      "database_id": "a5b3d233-bbfb-4e17-8c19-accb907570d0", "migrations_dir": "migrations" }
   ],
+  // The app and every frame: one host (W-845). The apex is the marketing page
+  // and is not routed; plates. is the R2 bucket's own custom domain.
+  "routes": [{ "pattern": "app.featherframe.app", "custom_domain": true }],
   "r2_buckets": [
     { "binding": "DATA", "bucket_name": "featherframe-households" },
     { "binding": "PLATES", "bucket_name": "featherframe-plates" }
@@ -19,7 +20,8 @@
   "durable_objects": {
     "bindings": [
       { "name": "HOUSEHOLD", "class_name": "Household" },
-      { "name": "SERVER", "class_name": "HouseholdServer" }
+      { "name": "SERVER", "class_name": "HouseholdServer" },
+      { "name": "LOBBY", "class_name": "Lobby" }
     ]
   },
   "containers": [
@@ -29,8 +31,18 @@
       "image_build_context": "..",
       "instance_type": "basic",
       "max_instances": 20
+    },
+    {
+      "class_name": "Lobby",
+      "image": "./Dockerfile",
+      "image_build_context": "..",
+      "instance_type": "basic",
+      "max_instances": 1
     }
   ],
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Household", "HouseholdServer"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Household", "HouseholdServer"] },
+    { "tag": "v2", "new_sqlite_classes": ["Lobby"] }
+  ],
   "observability": { "enabled": true }
 }

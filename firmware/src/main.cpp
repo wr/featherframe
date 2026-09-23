@@ -153,6 +153,24 @@ static String frameId() {
   return id;
 }
 
+// A secret of the frame's own (W-845), made once from the hardware RNG and
+// kept in NVS: sent as X-FF-Key with its ID, so a hosted server knows this is
+// the frame it paired and not something on the Internet using its MAC. A
+// self-hosted server ignores it. Survives OTA; a full erase makes a new one,
+// and the frame asks to be paired again.
+static String frameKey() {
+  static String key;
+  if (key.length()) return key;
+  key = prefs.getString("ffkey", "");
+  if (key.length() != 32) {
+    char hex[33];
+    for (int i = 0; i < 4; i++) snprintf(hex + i * 8, 9, "%08lx", (unsigned long)esp_random());
+    key = String(hex);
+    prefs.putString("ffkey", key);
+  }
+  return key;
+}
+
 // Wake cause -> a stable token the server can show without parsing ESP enums.
 static const char* wakeToken(esp_sleep_wakeup_cause_t cause) {
   switch (cause) {
@@ -1284,6 +1302,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Boot-Count", String(g_bootCount));    // spec §5
   http.addHeader("X-Refresh-Count", String(g_refreshCount));
   http.addHeader("X-Device-Id", frameId());         // who we are: one server serves one frame
+  http.addHeader("X-FF-Key", frameKey());           // …and that it is really us (W-845)
   http.addHeader("X-Panel", FF_PANEL_ID);           // spec §6; the server renders for it
   http.addHeader("X-Board", FF_BOARD_ID);
   // The panel as facts (W-813): a server that has never heard of FF_PANEL_ID
@@ -1506,6 +1525,7 @@ void maybeOTA(float vbat) {
   http.addHeader("X-Firmware-MD5", ESP.getSketchMD5());
   http.addHeader("X-Board", FF_BOARD_ID);   // the server never hands over another board's image
   http.addHeader("X-Device-Id", frameId());
+  http.addHeader("X-FF-Key", frameKey());
   const char* collect[] = {"X-MD5"};
   http.collectHeaders(collect, 1);
   int code = http.GET();
@@ -1811,7 +1831,8 @@ static void pushService() {
     int colon = hostPort.lastIndexOf(':');
     if (colon > 0) { port = hostPort.substring(colon + 1).toInt(); hostPort = hostPort.substring(0, colon); }
     // Who we are, as on every GET: the server keeps only a frame that is on.
-    g_pushHeaders = String("X-Device-Id: ") + frameId() + "\r\nX-Panel: " + FF_PANEL_ID +
+    g_pushHeaders = String("X-Device-Id: ") + frameId() + "\r\nX-FF-Key: " + frameKey() +
+                    "\r\nX-Panel: " + FF_PANEL_ID +
                     "\r\nX-Board: " + FF_BOARD_ID + "\r\nX-FF-Version: " + FF_FW_VERSION;
     g_ws.setExtraHeaders(g_pushHeaders.c_str());
     g_ws.onEvent(onPush);

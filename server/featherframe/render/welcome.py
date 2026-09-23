@@ -30,6 +30,8 @@ SOURCE_UP_HINT = "The first detection will appear here"
 WAITING_LINE = "ADD THIS FRAME ON THE FEATHERFRAME PAGE"
 _WAITING_SIZE = 40
 _WAITING_ID_SIZE = 28
+_CODE_SIZE = 120
+PAIRING_LINE = "PAIR THIS FRAME AT APP.FEATHERFRAME.APP"
 
 
 def since_words(since: datetime) -> str:
@@ -38,10 +40,12 @@ def since_words(since: datetime) -> str:
     return f"Listening since {since.day} {since.strftime('%B')}, {stamp}"
 
 
-def render_waiting(short_id: str = "") -> Image.Image:
+def render_waiting(short_id: str = "", line: str = WAITING_LINE, code: str = "") -> Image.Image:
     """What a screen shows while it waits to be added (W-833): the wordmark,
     and under it the one thing the owner has to do. A TRMNL and an e-reader
-    fetch this as their image; the kiosk page says the same in HTML."""
+    fetch this as their image; the kiosk page says the same in HTML. A hosted
+    frame no one has claimed (W-845) gets the pairing `line` and its `code`,
+    large, in place of the short id."""
     field = Image.new("L", (theme.WIDTH, theme.HEIGHT), theme.FIELD)
     draw = ImageDraw.Draw(field)
     cx = theme.WIDTH / 2
@@ -53,10 +57,12 @@ def render_waiting(short_id: str = "") -> Image.Image:
     draw.text((cx, baseline + 92), theme.DATE_ORNAMENT, font=hedera_font,
               fill=theme.INK_MEDIUM, anchor="ms")
     size = _WAITING_SIZE
-    while size > 22 and typography.engraved_width(WAITING_LINE, size) > theme.CONTENT_W:
+    while size > 22 and typography.engraved_width(line, size) > theme.CONTENT_W:
         size -= 1
-    typography.draw_engraved(draw, cx, baseline + 220, WAITING_LINE, size, theme.INK)
-    if short_id:
+    typography.draw_engraved(draw, cx, baseline + 220, line, size, theme.INK)
+    if code:
+        typography.draw_engraved(draw, cx, baseline + 220 + _CODE_SIZE + 60, code, _CODE_SIZE, theme.INK)
+    elif short_id:
         typography.draw_engraved(draw, cx, baseline + 220 + _WAITING_SIZE * 2,
                                  str(short_id), _WAITING_ID_SIZE, theme.INK_SOFT)
     return field

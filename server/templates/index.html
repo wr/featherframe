@@ -470,6 +470,10 @@
     }
 
     footer { margin-top:22px; display:flex; gap:20px; align-items:center; flex-wrap:wrap; font-size:12.5px; color:var(--muted); padding:0 4px; }
+    footer .signout { margin:0; }
+    footer .signout button { background:none; border:0; padding:0; font:inherit; color:inherit; cursor:pointer; }
+    footer .signout button:hover { color:var(--ink); }
+    #pair-code { text-transform:uppercase; letter-spacing:.08em; }
     footer a { color:var(--ink-2); text-decoration:none; }
     footer a:hover { color:var(--accent); }
     footer .ver { margin-left:auto; font-family:var(--serif); font-style:italic; }
@@ -1118,6 +1122,7 @@
           <div class="fr-more">
             <button class="fr-more-btn" type="button" id="fr-more" aria-label="More" aria-haspopup="menu" aria-expanded="false" aria-controls="fr-menu"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
             <div class="fr-menu" id="fr-menu" role="menu" hidden>
+              {% if hosted %}<button type="button" role="menuitem" id="pair-open">Pair a frame</button>{% endif %}
               <button type="button" role="menuitem" id="usb-open">Add a frame over USB</button>
               <hr>
               <a role="menuitem" href="https://shop.wells.ee/products/featherframe/" target="_blank" rel="noopener">Buy a frame</a>
@@ -1190,6 +1195,21 @@
         <form method="dialog"><button class="btn" type="submit">Cancel</button></form>
         <button class="btn primary" type="button" id="fw-go">Update</button>
       </div>
+    </dialog>
+    {% endif %}
+    {% if hosted %}
+    {# Hosted (W-845): a frame no one has claimed shows a code on its glass. #}
+    <dialog class="usb-dlg" id="pair-dlg" aria-labelledby="pair-title">
+      <form method="dialog" class="usb-x"><button class="btn sm" aria-label="Close">Close</button></form>
+      <h2 class="sec-head" id="pair-title">Pair a frame</h2>
+      <form id="pair-form">
+        <div class="frow">
+          <div class="frow-text"><label class="lab" for="pair-code">Code on the frame</label></div>
+          <div class="frow-ctl"><input type="text" id="pair-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="ABC-DEF" required></div>
+        </div>
+        <p id="pair-note" hidden></p>
+        <div class="usb-actions"><button class="btn primary" type="submit" id="pair-go">Pair</button></div>
+      </form>
     </dialog>
     {% endif %}
     <dialog class="usb-dlg" id="usb-dlg" aria-labelledby="usb-title">
@@ -1560,6 +1580,7 @@
     <a href="https://github.com/wr/featherframe#hardware" target="_blank" rel="noopener">Hardware guide</a>
     <a href="https://buymeacoffee.com/wellsworkshop" target="_blank" rel="noopener">Donate</a>
     <span class="ver">Featherframe v{{ version }}</span>
+    {% if hosted %}<form method="post" action="/logout" class="signout"><button class="linkish" type="submit">Sign out</button></form>{% endif %}
     <div class="theme" role="group" aria-label="Page theme" id="theme-ctl">
       <button type="button" data-theme="light" aria-pressed="false">Light</button>
       <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
@@ -2598,6 +2619,27 @@
   // on a secure page, and this one is usually plain http on the LAN: then the
   // owner is sent to the same flasher on GitHub Pages. Either way the frame
   // finds this server once it is on Wi-Fi and asks to connect.
+  // -- pair a frame (hosted, W-845) -------------------------------------------
+  (function () {
+    var dlg = $('pair-dlg'), open = $('pair-open'), form = $('pair-form');
+    if (!dlg || !open || !form) return;
+    open.addEventListener('click', function () {
+      var menu = $('fr-menu'); if (menu) menu.hidden = true;
+      $('pair-note').hidden = true; $('pair-code').value = '';
+      dlg.showModal(); $('pair-code').focus();
+    });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var go = $('pair-go'), note = $('pair-note');
+      go.disabled = true; note.hidden = true;
+      jsonFetch('/api/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                               body: JSON.stringify({ code: $('pair-code').value }) })
+        .then(function () { dlg.close(); showFlash('ok', 'Paired. The frame shows its picture in a few seconds.', 'ic-check'); setTimeout(function () { location.reload(); }, 4000); })
+        .catch(function (err) { note.textContent = errText(err) || 'No frame is showing that code.'; note.hidden = false; })
+        .then(function () { go.disabled = false; });
+    });
+  })();
+
   (function () {
     var dlg = $('usb-dlg'), open = $('usb-open');
     if (!dlg || !open) return;

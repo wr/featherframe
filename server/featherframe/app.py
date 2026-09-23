@@ -494,7 +494,10 @@ async def index(request: Request):
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
          "generated": generated, "history": history, "collage_days": collage_days,
-         "fw_about": {**svc.releases.about(), "version": svc.releases.version()}})
+         "fw_about": {**svc.releases.about(), "version": svc.releases.version()},
+         # A hosted household's page (W-845): frames are paired by the code on
+         # their glass, and there is someone signed in to sign out.
+         "hosted": getattr(request.app.state, "hosted", None) is not None})
 
 
 @app.post("/settings")

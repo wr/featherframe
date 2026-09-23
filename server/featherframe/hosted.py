@@ -177,10 +177,14 @@ class HostedLink:
             if apply_checkins:
                 from .app import parse_checkin     # the one reading of a kit's headers
                 for c in self.take_checkins():
-                    service.apply_checkin(parse_checkin(_lower(c.get("headers"))),
-                                          ip=c.get("ip"), user_agent=c.get("ua"),
+                    parsed = parse_checkin(_lower(c.get("headers")))
+                    service.apply_checkin(parsed, ip=c.get("ip"), user_agent=c.get("ua"),
                                           result=str(c.get("result") or "304"),
                                           etag=c.get("etag"), at=c.get("at"))
+                    if c.get("add") and parsed.get("device_id"):
+                        # The owner paired it (W-845): typing its code is the
+                        # answer, so it is added without a second step.
+                        service.answer_frame(parsed["device_id"][:40], "add")
             self.push()
             self.report(service.hosted_state())
         except (requests.RequestException, OSError, ValueError, sqlite3.Error):

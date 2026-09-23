@@ -395,27 +395,33 @@ or a URL, fetched on first use into `data/plate-library/`) puts
 the hosted render Container first. Build: `python -m featherframe.plate_library
 build OUT_DIR` on a machine with every scan.
 
-**Hosted (W-841–W-845, `hosted/`).** A household is `<name>.featherframe.app`
-(the apex is the marketing page, not routed). The Worker (`hosted/src/index.ts`)
-has two Durable Objects: `Household`, the front door, answers `GET /api/frame`
-from its own table + R2 and holds the push sockets, keeps check-ins until the
-server takes them, and wakes the server on its alarm (the server's
-`next_wake_epoch`, else every 5 min unless it said `poll: false`, i.e. quiet
-hours); `HouseholdServer` is THIS Python server in a Container
-(`hosted/Dockerfile`, `sleepAfter` 30 s). There is no TypeScript copy of any
-rule: hosted mode (`featherframe/hosted.py`, on when `FEATHERFRAME_HOSTED_URL`
-+ `_KEY` are set) pulls the data dir from the front door's `/_internal/` API
-before the database opens, and after every tick and every POST pushes what
-changed (the DB as a snapshot), applies queued check-ins through
-`app.parse_checkin` → `service.apply_checkin`, and reports
-`service.hosted_state()`. A wake is `POST /api/hosted/run` (one tick, answered
-when done). Plates come from `plates.featherframe.app` (the W-842 library).
-The page is behind the household's password until accounts (W-845).
-Provision: `POST https://<name>.featherframe.app/_admin/provision` with the
-admin token (keychain `featherframe-hosted-admin-token`) and
-`{password, tz}`. Deploy: `cd hosted && npx wrangler deploy` (Docker running;
-retry on a registry push drop). New households need a DNS record: a custom
-domain in `wrangler.jsonc` routes, until a proxied `*` record exists.
+**Hosted (W-841–W-847, `hosted/`).** One host, `app.featherframe.app` (the
+apex is the marketing page, not routed; `plates.` is the W-842 library). The
+Worker (`hosted/src/index.ts`) routes the page by session (magic link from
+Resend, `accounts.ts`; invite-only; one login per household; D1 `featherframe`
+holds households, users, invites, sessions, the frame registry and pairing
+codes) and a frame by the registry: its `X-Device-Id` plus `X-FF-Key`, a key
+the firmware makes once at first boot (NVS `ffkey`) — a MAC alone gets
+nothing. A frame no one has claimed is shown a pairing code (letters only),
+drawn for its own panel by the `Lobby` Container (`featherframe/lobby.py`,
+same image) and cached in R2; the owner types it under the Frames card's
+*Pair a frame* (hosted only), and the household's server adds it at once.
+Per household, `Household` (`household.ts`) is the front door: it answers
+`/api/frame` from its table + R2, holds push sockets, keeps check-ins and
+Apprise pushes (routed by token) until the server takes them, and wakes the
+server only for news (a BirdWeather look every 2 min, a push, the server's
+own `next_wake_epoch`; ≥ 5 min apart; none in quiet hours), stopping it right
+after. `HouseholdServer` is THIS Python server in a Container: there is no TS
+copy of any rule. Hosted mode (`featherframe/hosted.py`, on with
+`FEATHERFRAME_HOSTED_URL`/`_KEY`) pulls the data dir from
+`/_internal/<household>/` before the DB opens, pushes changes after every
+tick and POST, applies check-ins through `app.parse_checkin` →
+`service.apply_checkin` (`add` = paired), and reports `hosted_state()`; a wake
+is `POST /api/hosted/run`. Admin (`Authorization: Bearer` keychain
+`featherframe-hosted-admin-token`): `POST /_admin/invite|link|adopt {email}`.
+Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a
+registry push drop; a new image serves only once the rollout ends and the
+Container restarts); D1 schema in `hosted/migrations/`.
 
 **Non-obvious invariants — do not break one side of these without the other:**
 

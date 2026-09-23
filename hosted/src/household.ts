@@ -3,6 +3,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./index";
 import { localIso, randomHex } from "./util";
+import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 
 // The household's server is woken only for news (W-847). The front door looks
 // for it: a BirdWeather station every POLL_MS, or a push (Apprise, a webhook)
@@ -17,6 +18,15 @@ const MAX_INGEST_BYTES = 16 * 1024;
 // A frame's check-ins are kept one per this window until the server takes
 // them: the battery log keeps one row per 5 min anyway.
 const CHECKIN_BUCKET_S = 300;
+
+// A paired viewer (W-849), as the server last reported it: its image (drawn
+// ahead of time and pushed to R2) and how often to tell it to come back.
+type ViewerRow = {
+  id: string; status: string; name: string | null; file: string | null;
+  refresh: number | null; paper: number | null; short: string | null;
+};
+const PAGE_POLL_S = 20;             // viewers.PAGE_POLL_SECONDS
+const VIEWER_WAIT_S = 30;           // paired, not drawn for yet: soon
 
 type FrameRow = {
   id: string; status: string; etag: string | null; file: string | null;
@@ -39,6 +49,8 @@ export class Household extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS ingest (seq INTEGER PRIMARY KEY AUTOINCREMENT,
         path TEXT, body TEXT);
       CREATE TABLE IF NOT EXISTS seen (id TEXT PRIMARY KEY, at INTEGER);
+      CREATE TABLE IF NOT EXISTS viewers (id TEXT PRIMARY KEY, status TEXT, name TEXT, file TEXT,
+        refresh INTEGER, paper INTEGER, short TEXT);
       CREATE TABLE IF NOT EXISTS usage (day TEXT PRIMARY KEY, wakes INTEGER NOT NULL DEFAULT 0,
         server_ms INTEGER NOT NULL DEFAULT 0);
     `);
@@ -73,6 +85,9 @@ export class Household extends DurableObject<Env> {
     if (url.pathname === "/api/frame" && request.method === "GET" && !url.searchParams.get("view")) {
       return this.frame(request);
     }
+    // A viewer the Worker has already checked is this household's (W-849).
+    const viewer = request.headers.get("X-FF-Viewer");
+    if (viewer) return this.viewer(request, url, viewer, request.headers.get("X-FF-Viewer-Token") || "");
     if (request.method === "POST" && /^\/api\/ingest\/apprise(\/[^/]*)?$/.test(url.pathname)) {
       return this.ingest(request, url);
     }
@@ -113,9 +128,14 @@ export class Household extends DurableObject<Env> {
 
   /** A frame its owner just paired (W-845): the server adds it on a wake now,
    * so the glass goes from its code to a picture without a second step. */
-  async adopt(deviceId: string, headers: Record<string, string>): Promise<void> {
-    const body = { headers: { ...headers, "x-device-id": deviceId }, result: "403", etag: null,
-      ip: null, ua: null, at: localIso(this.meta("tz") || "UTC"), add: true };
+  async adopt(deviceId: string, headers: Record<string, unknown>): Promise<void> {
+    const at = localIso(this.meta("tz") || "UTC");
+    // A viewer's report says what it is (W-849); a kit's is its own headers.
+    const transport = headers.transport;
+    const body = transport === "trmnl" || transport === "page"
+      ? { id: deviceId, viewer: headers, ip: null, at, add: true }
+      : { headers: { ...headers, "x-device-id": deviceId }, result: "403", etag: null,
+          ip: null, ua: null, at, add: true };
     this.sql.exec("INSERT OR REPLACE INTO checkins (frame_id, bucket, body) VALUES (?, ?, ?)",
       deviceId, -1, JSON.stringify(body));
     this.setMeta("news", "1");
@@ -297,6 +317,58 @@ export class Household extends DurableObject<Env> {
       frameId, bucket, JSON.stringify(body));
   }
 
+  // -- viewers, answered without the server (W-849) ----------------------------
+  viewerRow(id: string): ViewerRow | null {
+    const r = this.sql.exec<ViewerRow>("SELECT * FROM viewers WHERE id = ?", id).toArray();
+    return r.length ? r[0] : null;
+  }
+
+  /** A TRMNL client's /api/display, the page's /api/view/state, or either's
+   * image. The ask is kept for the server, as a kit's check-in is. */
+  async viewer(request: Request, url: URL, id: string, token: string): Promise<Response> {
+    const row = this.viewerRow(id);
+    const drawn = row?.status === "on" && row.name && row.file ? row : null;
+    this.sql.exec("INSERT OR REPLACE INTO seen (id, at) VALUES (?, ?)", id, Date.now());
+    const path = url.pathname;
+
+    if (path.startsWith("/api/viewers/")) {
+      // Whatever name it asks for, it is shown what it should show now.
+      if (!drawn) return lobbyPng(this.env, "", trmnlHeaders(request), `waiting-${shortOf(id)}`);
+      const inm = (request.headers.get("If-None-Match") || "").replace(/^W\//, "").replace(/"/g, "").trim();
+      const headers = { ETag: `"${drawn.name}"`, "Cache-Control": "no-cache" };
+      if (inm === drawn.name) return new Response(null, { status: 304, headers });
+      const obj = await this.env.DATA.get(`households/${this.meta("hid")}/data/${drawn.file}`);
+      if (!obj) return new Response("no frame yet", { status: 404 });
+      return new Response(obj.body, { headers: { ...headers, "Content-Type": "image/png" } });
+    }
+
+    const page = path === "/api/view/state";
+    const v = page
+      ? { transport: "page", w: url.searchParams.get("w") || "", h: url.searchParams.get("h") || "",
+          device: (url.searchParams.get("device") || "").slice(0, 40) }
+      : { transport: "trmnl", headers: trmnlHeaders(request) };
+    this.queueViewer(request, id, v);
+    const short = row?.short || shortOf(id);
+    if (page) {
+      if (!drawn) return Response.json({ image: null, dark: false, waiting: true, id: short, poll: PAGE_POLL_S },
+                                       { headers: { "Cache-Control": "no-store" } });
+      return Response.json({
+        image: `/api/viewers/${encodeURIComponent(id)}/${drawn.name}.png?t=${token}`,
+        dark: false, paper: !!drawn.paper, poll: PAGE_POLL_S,
+      }, { headers: { "Cache-Control": "no-store" } });
+    }
+    if (!drawn) return Response.json(display(this.env, id, `waiting-${short}`, token, VIEWER_WAIT_S));
+    return Response.json(display(this.env, id, drawn.name!, token, drawn.refresh || 900));
+  }
+
+  queueViewer(request: Request, id: string, v: Record<string, unknown>): void {
+    const body = { id, viewer: v, ip: request.headers.get("CF-Connecting-IP"),
+                   at: localIso(this.meta("tz") || "UTC") };
+    const bucket = Math.floor(Date.now() / 1000 / CHECKIN_BUCKET_S);
+    this.sql.exec("INSERT OR REPLACE INTO checkins (frame_id, bucket, body) VALUES (?, ?, ?)",
+      id, bucket, JSON.stringify(body));
+  }
+
   async frame(request: Request): Promise<Response> {
     const id = (request.headers.get("X-Device-Id") || "").trim().slice(0, 40) || "legacy";
     this.sql.exec("INSERT OR REPLACE INTO seen (id, at) VALUES (?, ?)", id, Date.now());
@@ -391,6 +463,8 @@ export class Household extends DurableObject<Env> {
   async takeState(state: {
     frames: Record<string, { status: string; etag?: string | null; file?: string;
       headers?: Record<string, string>; push?: unknown }>;
+    viewers?: Record<string, { status: string; name?: string; file?: string; refresh?: number;
+      paper?: boolean; short?: string }>;
     next_wake_epoch?: number | null;
     poll?: boolean;
     source?: { kind?: string; station?: string; token?: string };
@@ -410,6 +484,11 @@ export class Household extends DurableObject<Env> {
     }
     for (const id of before.keys()) {
       if (!(id in (state.frames || {}))) for (const ws of this.ctx.getWebSockets(id)) ws.close(1008, "gone");
+    }
+    this.sql.exec("DELETE FROM viewers");
+    for (const [id, v] of Object.entries(state.viewers || {})) {
+      this.sql.exec("INSERT INTO viewers (id, status, name, file, refresh, paper, short) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        id, v.status, v.name ?? null, v.file ?? null, v.refresh ?? null, v.paper ? 1 : 0, v.short ?? null);
     }
     this.setMeta("next_wake_epoch", state.next_wake_epoch ? String(state.next_wake_epoch) : null);
     this.setMeta("poll", state.poll === false ? "0" : "1");

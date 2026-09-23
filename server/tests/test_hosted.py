@@ -87,13 +87,16 @@ def test_the_data_dir_comes_down_and_only_what_changed_goes_back(env):
     (data / "frames" / "pictures").mkdir(parents=True)
     (data / "frames" / "pictures" / "sheet.png").write_bytes(b"sheet")
     (data / "generated" / "blue-jay.png").unlink()
+    (data / "plate-library").mkdir(parents=True)
+    (data / "plate-library" / "lib.png").write_bytes(b"a cache, not state")
     (data / "frames" / "views").mkdir(parents=True)
-    (data / "frames" / "views" / "cache.png").write_bytes(b"a cache, not state")
+    (data / "frames" / "views" / "v.png").write_bytes(b"a viewer's image: the front door serves it")
     door.state.calls.clear()
-    assert link.push() == 3
+    assert link.push() == 4
     assert sorted(door.state.calls) == [("DELETE", "generated/blue-jay.png"),
                                         ("PUT", "frames/out/x.fff"),
-                                        ("PUT", "frames/pictures/sheet.png")]
+                                        ("PUT", "frames/pictures/sheet.png"),
+                                        ("PUT", "frames/views/v.png")]
     door.state.calls.clear()
     assert link.push() == 0 and door.state.calls == []
 
@@ -242,3 +245,65 @@ def test_the_pairing_code_is_drawn_the_way_up_the_frame_hangs():
     up, cfg = render_pairing("ABC-DEF", EE03_PANEL, rotation=270)
     down, cfg2 = render_pairing("ABC-DEF", EE03_PANEL)
     assert (cfg.panel_rotation, cfg2.panel_rotation) == (270, 90) and up.frame != down.frame
+
+
+# -- viewers (W-849) --------------------------------------------------------------
+def _plates(svc):
+    """Make the plates picture a plain sheet, as a render would."""
+    from PIL import Image
+    from featherframe.render import theme
+    svc._commit("plates", NOW, sheet=Image.new("L", (theme.WIDTH, theme.HEIGHT), 200),
+                mode="single", species_key=None, label="x")
+
+
+def test_a_viewer_its_owner_paired_is_added_and_its_image_is_drawn_ahead(env):
+    """A TRMNL paired on the hosted page: the front door hands its ask over
+    with `add`, and the state it gets back names an image already drawn and
+    pushed, so it can answer the device while this server sleeps."""
+    door, link, data = env
+    svc = _service()
+    _plates(svc)
+    door.state.queue = [{"id": "aa:bb:cc:00:00:01", "add": True, "at": "2026-09-22T11:59:00",
+                         "viewer": {"transport": "trmnl",
+                                    "headers": {"Model": "x", "Width": "1872", "Height": "1404",
+                                                "Battery-Voltage": "4.0"}}}]
+    link.settle(svc)
+    row = svc.frames.get("AA:BB:CC:00:00:01")
+    assert row["status"] == frames_mod.ON and row["transport"] == "trmnl"
+    assert frames_mod.reported_of(row)["battery_volts"] == 4.0
+    v = door.state.states[-1]["viewers"]["AA:BB:CC:00:00:01"]
+    assert v["status"] == "on" and v["name"].startswith(svc.pictures["plates"].etag)
+    assert v["file"] == f"frames/views/{v['name']}.png" and v["file"] in door.state.files
+    assert v["paper"] is True and v["refresh"] > 0
+
+
+def test_a_tablet_page_reports_its_size_through_the_front_door(env):
+    door, link, data = env
+    svc = _service()
+    _plates(svc)
+    door.state.queue = [{"id": "PAGE-0A1B2C3D", "add": True, "at": "2026-09-22T11:59:00",
+                         "viewer": {"transport": "page", "w": "1536", "h": "2048", "device": "iPad"}}]
+    link.settle(svc)
+    row = svc.frames.get("PAGE-0A1B2C3D")
+    assert row["transport"] == "page" and frames_mod.reported_of(row)["model"] == "iPad"
+    v = door.state.states[-1]["viewers"]["PAGE-0A1B2C3D"]
+    assert v["paper"] is False and v["name"].endswith("1536x2048-color-0")
+
+
+def test_a_viewer_still_asking_is_named_but_has_no_image(env):
+    door, link, data = env
+    svc = _service()
+    _plates(svc)
+    door.state.queue = [{"id": "AA:BB:CC:00:00:02", "at": "2026-09-22T11:59:00",
+                         "viewer": {"transport": "trmnl", "headers": {}}}]
+    link.settle(svc)
+    assert door.state.states[-1]["viewers"]["AA:BB:CC:00:00:02"] == {"status": "asking", "short": svc.frame_short("AA:BB:CC:00:00:02")}
+
+
+def test_the_lobby_draws_a_viewers_code_at_its_own_size():
+    import io
+    from PIL import Image
+    from featherframe.lobby import render_viewer_pairing
+    png = render_viewer_pairing("ABC-DEF", {"model": "og", "width": 800, "height": 480})
+    assert Image.open(io.BytesIO(png)).size == (800, 480)
+    assert Image.open(io.BytesIO(render_viewer_pairing("", {}))).size == (1072, 1448)

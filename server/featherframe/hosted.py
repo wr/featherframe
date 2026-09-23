@@ -40,8 +40,9 @@ log = logging.getLogger("featherframe.hosted")
 
 TIMEOUT_S = 60
 DB_NAME = "featherframe.db"
-# Caches, not state: rebuilt on demand, never pushed.
-_SKIP_PREFIXES = ("plate-library/", "frames/views/")
+# Caches, not state: rebuilt on demand, never pushed. (frames/views/ is
+# pushed: the front door serves a viewer's image from it, W-849.)
+_SKIP_PREFIXES = ("plate-library/",)
 
 
 def config_from_env() -> Optional[tuple[str, str]]:
@@ -177,6 +178,13 @@ class HostedLink:
             if apply_checkins:
                 from .app import parse_checkin     # the one reading of a kit's headers
                 for c in self.take_checkins():
+                    if isinstance(c.get("viewer"), dict):
+                        # A TRMNL, an e-reader or a tablet page (W-849).
+                        vid = str(c.get("id") or "")
+                        service.apply_viewer_checkin(vid, c["viewer"], ip=c.get("ip"), at=c.get("at"))
+                        if c.get("add"):
+                            service.answer_frame(vid.upper()[:40], "add")
+                        continue
                     parsed = parse_checkin(_lower(c.get("headers")))
                     service.apply_checkin(parsed, ip=c.get("ip"), user_agent=c.get("ua"),
                                           result=str(c.get("result") or "304"),
@@ -185,8 +193,11 @@ class HostedLink:
                         # The owner paired it (W-845): typing its code is the
                         # answer, so it is added without a second step.
                         service.answer_frame(parsed["device_id"][:40], "add")
+            # The state first: it draws each viewer's image (W-849), which the
+            # push then takes along with everything else.
+            state = service.hosted_state()
             self.push()
-            self.report(service.hosted_state())
+            self.report(state)
         except (requests.RequestException, OSError, ValueError, sqlite3.Error):
             log.warning("hosted: sync with the front door failed", exc_info=True)
 

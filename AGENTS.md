@@ -411,6 +411,19 @@ same image) and cached in R2; the owner types it under the Frames card's
 *Pair a frame* (hosted only), and the household's server adds it at once.
 Removing a frame on the page (Remove, or Forget on an ignored kit) also drops
 its registry row (`Household.proxy` → `unpair`), so it is shown a new code.
+Viewers pair the same way (W-849, `viewers.ts`): a TRMNL client is known by
+its `ID` plus its access token (which `/api/setup` hands out here), the kiosk
+page by its id plus a key it keeps in localStorage (`&key=`). Unclaimed, a
+TRMNL is sent its code drawn for its own screen (the Lobby's `/render-view`,
+cached in R2) and the page shows it in its HTML (`code` in `/api/view/state`).
+Claimed, every ask goes to the household's front door, which answers from its
+`viewers` table — each on viewer's image drawn ahead by the server
+(`service.ensure_view`, in `hosted_state()["viewers"]`, pushed with
+`frames/views/`) — and keeps the ask for the server (`apply_viewer_checkin`),
+so a tablet asking every 20 s never wakes it. An image URL carries `t`, the
+first 32 hex of the hash of the device's key. `/view`, its manifest and icons
+and `/fonts/script.ttf` are bundled into the Worker (`rules` in
+wrangler.jsonc): opening the page wakes nothing.
 Per household, `Household` (`household.ts`) is the front door: it answers
 `/api/frame` from its table + R2, holds push sockets, keeps check-ins and
 Apprise pushes (routed by token) until the server takes them, and wakes the

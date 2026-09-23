@@ -4,6 +4,11 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
+  // The kiosk page and its icons, bundled from the server's own files (W-849).
+  "rules": [
+    { "type": "Text", "globs": ["**/*.html"], "fallthrough": true },
+    { "type": "Data", "globs": ["**/*.png"], "fallthrough": true }
+  ],
   "vars": { "ZONE": "featherframe.app", "APP_HOST": "app.featherframe.app",
             "MAIL_FROM": "Featherframe <hello@featherframe.app>" },
   "d1_databases": [

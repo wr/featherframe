@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import date as ddate
 from datetime import datetime, timedelta
 from datetime import time as dtime
+from pathlib import Path
 from typing import Optional
 from urllib.parse import quote
 
@@ -2075,6 +2076,28 @@ class FeatherframeService:
                                    "etag_served": etag}, stamp=at)
         return status
 
+    def apply_viewer_checkin(self, viewer_id: str, v: dict, ip: Optional[str] = None,
+                             at: Optional[str] = None) -> str:
+        """A viewer's ask, answered by the front door and handed over here
+        (W-849): the same record as one that reached this server. `v` is what
+        the front door kept — a TRMNL's own headers, or the page's size and
+        device. Returns the row's status."""
+        vid = viewers_mod.clean_id(viewer_id)
+        if vid is None:
+            return frames_mod.ASKING
+        transport = v.get("transport") if v.get("transport") in viewers_mod.KINDS else "trmnl"
+        if transport == "page":
+            reported = viewers_mod.page_report(v.get("w"), v.get("h"), v.get("device")) or {}
+        else:
+            reported = viewers_mod.trmnl_report({str(k).lower(): str(x)
+                                                 for k, x in (v.get("headers") or {}).items()})
+        try:
+            when = datetime.fromisoformat(at) if at else self._clock()
+        except ValueError:
+            when = self._clock()
+        row = self.checkin_viewer(vid, when, transport, reported, ip)
+        return str(row.get("status"))
+
     def next_wake_at(self, now: Optional[datetime] = None) -> Optional[str]:
         """The next moment this server has something to do with nothing new
         heard: the collage's next redraw, the end of a dwell hold, either edge
@@ -2115,10 +2138,25 @@ class FeatherframeService:
                                 "X-Wake-Minutes": str(wake_min), "X-Poll-Seconds": str(poll_s)},
                     "push": self.push_message(fid)})
             out[fid] = entry
+        # Viewers too (W-849): the front door answers a TRMNL, an e-reader or a
+        # tablet page from this, with each one's image drawn here ahead of time.
+        seen = {}
+        for row in self.frames.by_transport(*viewers_mod.KINDS):
+            vid = str(row["id"])
+            entry = {"status": row.get("status"), "short": self.frame_short(vid)}
+            if row.get("status") == frames_mod.ON:
+                name = self.ensure_view(row)
+                if name:
+                    entry.update({
+                        "name": name,
+                        "file": (paths.views_dir() / f"{name}.png").relative_to(paths.data_dir()).as_posix(),
+                        "refresh": self.viewer_refresh_seconds(row),
+                        "paper": viewers_mod.view_of(row).fmt != "color"})
+            seen[vid] = entry
         wake = self.next_wake_at()
         # The front door keeps time in UTC; this server in the household's own
         # (TZ): the epoch is what it schedules by, the ISO what a person reads.
-        return {"frames": out, "next_wake_at": wake,
+        return {"frames": out, "viewers": seen, "next_wake_at": wake,
                 "next_wake_epoch": int(datetime.fromisoformat(wake).timestamp()) if wake else None,
                 # Whether a new detection could change anything right now: in
                 # quiet hours nothing is drawn but what next_wake_at already
@@ -2864,17 +2902,23 @@ class FeatherframeService:
         etag = f"{picture}-{view.key}"
         if if_none_match == etag:
             return 304, None, etag
-        views = paths.views_dir()
-        cached = views / f"{etag}.png"
+        cached = paths.views_dir() / f"{etag}.png"
         if cached.exists():
             return 200, cached.read_bytes(), etag
+        png = self._draw_view(pic, view, cached)
+        return (200, png, etag) if png is not None else (404, None, None)
+
+    def _draw_view(self, pic: "pictures_mod.Picture", view: "pipeline.View",
+                   cached: Path) -> Optional[bytes]:
+        """Draw one view of a picture into the cache; its bytes, or None when
+        the picture has no sheet to draw from."""
         with self._view_lock:   # one viewer render at a time (Pi Zero: memory)
             if cached.exists():
-                return 200, cached.read_bytes(), etag
+                return cached.read_bytes()
             sources = pic.sheets(view.fmt == "color")
             source = next((p for p in sources if p.exists()), None)
             if source is None:
-                return 404, None, None
+                return None
             with Image.open(source) as sheet:
                 sheet.load()
             png = pipeline.encode_png(pipeline.render_view(sheet, view), view.fmt)
@@ -2884,8 +2928,26 @@ class FeatherframeService:
                 os.replace(tmp, cached)
                 self._prune_views()
             except OSError:
-                log.warning("view %s not cached", etag, exc_info=True)
-        return 200, png, etag
+                log.warning("view %s not cached", cached.stem, exc_info=True)
+        return png
+
+    def ensure_view(self, row: dict) -> Optional[str]:
+        """A viewer's image drawn ahead of its ask (hosted, W-849: the front
+        door answers it while this server sleeps). Its name — the picture's
+        ETag and the variant — or None when there is no picture yet."""
+        view, shows = viewers_mod.view_of(row), viewers_mod.shows_of(row)
+        pic = self.picture_for(shows)
+        if view.fmt == "color":
+            self._want_color(pic, viewer=False)
+        with self._lock:
+            picture = pic.etag
+        if not picture:
+            return None
+        name = f"{picture}-{view.key}"
+        cached = paths.views_dir() / f"{name}.png"
+        if cached.exists() or self._draw_view(pic, view, cached) is not None:
+            return name
+        return None
 
     def _prune_views(self) -> None:
         """A handful of renders per live picture, plus a handful of waiting

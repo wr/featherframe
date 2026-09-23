@@ -119,12 +119,44 @@ export class Household extends DurableObject<Env> {
     // 500 "Container suddenly disconnected"; seen once, mid first render after
     // a cold start). A read is safe to ask again, once; a write is not.
     const again = request.method === "GET" || request.method === "HEAD";
+    const removing = await this.removedFrame(request);
     const res = await stub.fetch(again ? forward.clone() : forward);
+    if (removing && res.ok) await this.unpair(removing);
     if (again && res.status === 500 && (await res.clone().text()).startsWith("Container suddenly disconnected")) {
       console.warn("container link dropped; asking again", new URL(request.url).pathname);
       return stub.fetch(forward);
     }
     return res;
+  }
+
+  /** The frame a page request removes from this household, if it is one: a
+   * row's Remove (`POST /api/frames/<id>` `{"forget": true}`) or Forget on an
+   * ignored kit (`POST /api/frames`, `action=forget`). Read from a copy. */
+  async removedFrame(request: Request): Promise<string | null> {
+    if (request.method !== "POST") return null;
+    const path = new URL(request.url).pathname;
+    try {
+      const one = path.match(/^\/api\/frames\/([^/]+)$/);
+      if (one) {
+        const body = await request.clone().json<{ forget?: unknown }>();
+        return body && body.forget ? decodeURIComponent(one[1]).slice(0, 40) : null;
+      }
+      if (path === "/api/frames") {
+        const form = await request.clone().formData();
+        return form.get("action") === "forget" ? String(form.get("id") || "").slice(0, 40) || null : null;
+      }
+    } catch {
+      // Not a body we read: the server answers it as it would.
+    }
+    return null;
+  }
+
+  /** A frame removed on the page is no longer this household's: the registry
+   * lets it go, so its next ask is shown a new pairing code rather than kept
+   * waiting here for an add that will not come. */
+  async unpair(deviceId: string): Promise<void> {
+    await this.env.DB.prepare("DELETE FROM frames WHERE device_id = ? AND household_id = ?")
+      .bind(deviceId, this.meta("hid")).run();
   }
 
   /** Start the server (its lifespan pulls), hand it the pushes that landed

@@ -409,6 +409,8 @@ nothing. A frame no one has claimed is shown a pairing code (letters only),
 drawn for its own panel by the `Lobby` Container (`featherframe/lobby.py`,
 same image) and cached in R2; the owner types it under the Frames card's
 *Pair a frame* (hosted only), and the household's server adds it at once.
+Removing a frame on the page (Remove, or Forget on an ignored kit) also drops
+its registry row (`Household.proxy` → `unpair`), so it is shown a new code.
 Per household, `Household` (`household.ts`) is the front door: it answers
 `/api/frame` from its table + R2, holds push sockets, keeps check-ins and
 Apprise pushes (routed by token) until the server takes them, and wakes the

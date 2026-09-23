@@ -88,3 +88,11 @@ class DetectionSource(abc.ABC):
     @abc.abstractmethod
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         """Earliest date ('YYYY-MM-DD') this species was recorded. None if unknown."""
+
+    def heard_before(self, scientific_name: str, on_date) -> Optional[bool]:
+        """Whether this species had been recorded before `on_date` (a date):
+        what makes a detection "first-ever". None when the source can't say.
+        From first_seen_date unless a source knows better (BirdWeather has no
+        first dates, but has all-time totals)."""
+        first = self.first_seen_date(scientific_name)
+        return None if first is None else str(first) < on_date.isoformat()

@@ -39,6 +39,8 @@ class BirdWeatherSource(DetectionSource):
         self._timeout_s = timeout_s
         self._stats: Optional[dict] = None
         self._stats_at: float = 0.0
+        self._totals: Optional[dict[str, int]] = None
+        self._totals_at: float = 0.0
 
     # -- HTTP --------------------------------------------------------------
     def _get(self, path: str, params: Optional[dict] = None) -> Optional[Any]:
@@ -173,6 +175,42 @@ class BirdWeatherSource(DetectionSource):
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         return None  # not cheaply available from the station API
 
+    def heard_before(self, scientific_name: str, on_date) -> Optional[bool]:
+        """The station has no first dates, but it has every species' all-time
+        total: one with more detections than today's was heard before today."""
+        if on_date != datetime.now().date():
+            return None
+        key = (scientific_name or "").strip().lower()
+        ever = self._all_time_totals().get(key)
+        if ever is None:
+            return None     # not in the all-time list (yet): can't say
+        today = {r["scientific"].strip().lower(): r["count"]
+                 for r in self.top_species_today(on_date, limit=_PAGE)}.get(key, 0)
+        return ever > today
+
+    def _all_time_totals(self) -> dict[str, int]:
+        """{scientific name, lowercased: all-time detections}, a page of 100 at
+        a time, cached like the stats."""
+        now = time.time()
+        if self._totals is not None and (now - self._totals_at) < _SUMMARY_TTL_S:
+            return self._totals
+        totals: dict[str, int] = {}
+        for page in range(1, 11):
+            payload = self._get(f"/stations/{self.station_id}/species",
+                                {"period": "all", "limit": _PAGE, "page": page})
+            rows = payload.get("species") if isinstance(payload, dict) else payload
+            if not isinstance(rows, list):
+                if page == 1:
+                    return self._totals or {}   # a blip: keep what we had
+                break
+            for s in rows:
+                if isinstance(s, dict) and s.get("scientificName"):
+                    totals[str(s["scientificName"]).strip().lower()] = _count(s)
+            if len(rows) < _PAGE:
+                break
+        self._totals, self._totals_at = totals, now
+        return totals
+
     def top_species_today(self, on_date=None, min_confidence: float = 0.0,
                           limit: int = 6) -> list[dict]:
         # period=day is TODAY. The station API has no cheap per-date tally, so
@@ -190,15 +228,7 @@ class BirdWeatherSource(DetectionSource):
         for s in rows:
             if not isinstance(s, dict):
                 continue
-            # `detections` is a breakdown by certainty ({"total": 88,
-            # "almostCertain": 88, ...}); a plain number is taken as it is.
-            raw = s.get("detections") or s.get("count") or s.get("total") or 0
-            if isinstance(raw, dict):
-                raw = raw.get("total") or 0
-            try:
-                count = int(raw)
-            except (TypeError, ValueError):
-                count = 0
+            count = _count(s)
             if count <= 0:
                 continue
             out.append({"common": str(s.get("commonName") or "").strip(),
@@ -206,3 +236,15 @@ class BirdWeatherSource(DetectionSource):
                         "count": count})
         out.sort(key=lambda r: -r["count"])
         return out[:limit]
+
+
+def _count(s: dict) -> int:
+    """A species row's detections. `detections` is a breakdown by certainty
+    ({"total": 88, "almostCertain": 88, ...}); a plain number is taken as is."""
+    raw = s.get("detections") or s.get("count") or s.get("total") or 0
+    if isinstance(raw, dict):
+        raw = raw.get("total") or 0
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0

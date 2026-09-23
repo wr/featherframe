@@ -471,3 +471,46 @@ def test_an_outage_outranks_the_just_now_line(svc):
     svc._just_now = {"key": CARDINAL[1].lower(), "common": CARDINAL[0]}
     svc._outage = {"since_text": "8:00 am"}
     assert svc._note_kind() == "outage"
+
+
+# -- "new" means never heard here before, and it wears off ---------------------
+def test_a_source_with_no_history_is_answered_by_what_this_server_has_heard(svc):
+    """A push feed can't say when a species was first heard. The server can:
+    a species it took in yesterday is not first-ever today; one it has never
+    taken in still is."""
+    svc.source = _GateSource([], today=[_row(*ROBIN, 3)])
+    assert svc._novelty(_det(1, *ROBIN, 0.9, NOW), NOW) == "first-ever"
+    svc._note_heard([_det(1, *ROBIN, 0.9, NOW - timedelta(days=1))])
+    later = NOW + timedelta(minutes=1)
+    assert svc._novelty(_det(2, *ROBIN, 0.9, later), later) == "repeat"
+    assert svc._novelty(_det(3, *EAGLE, 0.9, later), later) == "first-ever"
+    # Kept in the DB: a restart remembers.
+    fresh = FeatherframeService()
+    assert fresh._heard()[ROBIN[1].lower()] == YESTERDAY
+
+
+def test_a_source_that_knows_better_is_asked(svc):
+    """BirdWeather has no first dates but knows whether a species was heard
+    before today (heard_before); its answer wins over "can't say"."""
+    class _Knows(_GateSource):
+        def heard_before(self, sci, on_date):
+            return {ROBIN[1]: True, EAGLE[1]: False}.get(sci)
+    svc.source = _Knows([], today=[_row(*ROBIN, 1), _row(*EAGLE, 1)])
+    assert svc._novelty(_det(1, *ROBIN, 0.9, NOW), NOW) == "first-today"
+    assert svc._novelty(_det(2, *EAGLE, 0.9, NOW), NOW) == "first-ever"
+
+
+def test_a_birds_newness_ends_with_its_hold(svc):
+    """The same first-ever bird heard again after its hold is over is a repeat:
+    it does not carry "new" (or the hold) for as long as it keeps calling."""
+    src = _GateSource([], first_seen={EAGLE[1]: TODAY}, today=[_row(*EAGLE, 1)])
+    svc.source = src
+    svc._render_single(_det(1, *EAGLE, 0.9, NOW), NOW, reason="test")
+    assert svc._meta["novelty"] == "first-ever"
+    # The next day it is known, and heard again long after the hold.
+    tomorrow = NOW + timedelta(days=1)
+    src.first_seen = {EAGLE[1]: TODAY}
+    src.today = [_row(*EAGLE, 4)]
+    svc._render_single(_det(2, *EAGLE, 0.9, tomorrow), tomorrow, reason="test")
+    assert svc._meta["novelty"] == "repeat" and svc._meta["held_since"] is None
+    assert svc._holding(svc._meta, tomorrow) is None

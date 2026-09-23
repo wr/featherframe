@@ -140,7 +140,7 @@ def test_the_collapsed_row_says_what_it_is_and_what_it_shows(client):
     # Unnamed, the title is the short of what it is and the summary the rest:
     # the collapsed row never says the same thing twice.
     gray = _listed(svc, GRAY["X-Device-Id"])
-    assert gray["title"] == "EE03" and gray["summary"] == '10.3" gray · Individual detections'
+    assert gray["title"] == '10.3" Grayscale Frame' and gray["summary"] == "EE03 · Individual detections"
     page = _listed(svc, "PAGE-TEST")
     assert page["title"] == "iPad" and page["summary"] == "Individual detections"
     # Named, the summary says what it is in full.
@@ -201,7 +201,7 @@ def test_every_frame_can_be_renamed_through_the_one_endpoint(client, frame_id):
     # Blank falls back to what it is.
     assert client.post(f"/api/frames/{frame_id}", json={"name": "  "}).json()["ok"]
     row = _listed(svc, frame_id)
-    assert row["name"] == "" and row["title"] == row["what"].split(" · ")[0]
+    assert row["name"] == "" and row["title"] == row["default_title"]
 
 
 def test_a_save_takes_only_what_the_screen_has(client):
@@ -459,7 +459,7 @@ def test_add_over_usb_is_in_the_frames_menu(client):
     _populate(client)
     head = client.get("/").text.split('<div class="fr-head">')[1].split('<ul class="fr-list">')[0]
     assert '<h2 class="sec-head">Frames</h2>' in head
-    assert 'role="menu" hidden' in head and ">Add a frame over USB</button>" in head
+    assert 'role="menu" hidden' in head and ">USB firmware update</button>" in head
     assert 'href="https://shop.wells.ee/products/featherframe/"' in head and ">Buy a frame<" in head
     assert 'href="https://github.com/wr/featherframe#shopping-list"' in head and ">DIY instructions<" in head
 

@@ -173,7 +173,7 @@ def test_the_page_offers_to_add_it_and_then_lists_it(client):
     html = client.get("/").text
     assert 'data-frame-action="add"' not in html
     row = html.split('data-frame="%s"' % EE02["X-Device-Id"])[1].split(chr(10) + "    </li>")[0]
-    assert "Spectra 6" in row and 'data-f="shows"' in row and 'data-f="rotation"' in row
+    assert 'Color Frame' in row and 'data-f="shows"' in row and 'data-f="rotation"' in row
     # Its panel's own rotations, not the other frame's.
     assert 'value="180"' in row and 'value="90"' not in row
     # Nothing shared is offered per frame.

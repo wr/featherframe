@@ -69,9 +69,10 @@ char     g_redirect[128] = "";  // a 403's X-FF-Server: the instance that draws 
 
 // Push (W-841): the socket the server says "something changed" over, on USB.
 WebSocketsClient g_ws;
-bool     g_pushUp = false;      // the socket is open
-bool     g_pushWake = false;    // the server said something changed: fetch now
-bool     g_pushOta = false;     // …and a firmware update is waiting for us
+volatile bool g_pushUp = false;   // the socket is open (set by the push task)
+volatile bool g_pushWake = false; // the server said something changed: fetch now
+volatile bool g_pushOta = false;  // …and a firmware update is waiting for us
+static bool pushLive();         // the socket is up and its task is turning (W-853)
 
 // The server URL as typed into the portal is user input: trim it, give it a
 // scheme (HTTPClient::begin() rejects a bare host:port), and drop trailing
@@ -1340,7 +1341,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   // We speak push (W-841): "0" = no socket right now, polling as told; N = a
   // socket is open and the next plain check-in is a heartbeat N s away.
   if (g_alwaysAwake)
-    http.addHeader("X-FF-Push", g_pushUp ? String(FF_PUSH_HEARTBEAT_MS / 1000) : String("0"));
+    http.addHeader("X-FF-Push", pushLive() ? String(FF_PUSH_HEARTBEAT_MS / 1000) : String("0"));
   const char* collect[] = {"ETag", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation"};
   http.collectHeaders(collect, 7);
 
@@ -1450,6 +1451,19 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
 // failure the attempt is over, so stop the sweep rather than keep implying
 // progress on a stale screen — in the always-awake model nothing else would,
 // and it would burn ~200ms DU partials every FF_LOADER_STEP_MS forever.
+// A hosted server (W-845): no box on the LAN answers https, and a hosted
+// frame's hiccup — a redeploy dropping it for a minute — is not its server
+// moving. Trading it for whatever answers mDNS put the EE02 back on the box
+// two minutes after a redeploy (W-853).
+static bool hostedServer() { return strncmp(g_serverUrl, "https://", 8) == 0; }
+
+// Look for the server on the LAN only once it has really stopped answering:
+// FF_REDISCOVER_FAILS failed fetches in a row (this one included), and never
+// away from a hosted one.
+static bool mayRediscover() {
+  return !hostedServer() && g_failCount + 1 >= FF_REDISCOVER_FAILS;
+}
+
 FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct) {
   // A resident fetch while a baked screen (or its error band) holds the glass
   // must actually paint: drop the ETag so a healthy server answers 200, not a
@@ -1460,8 +1474,8 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct)
   FetchResult r = g_serverUrl[0] ? fetchFrame(path, resident, vbat, pct) : FETCH_ERROR;
   // Couldn't reach it: maybe the box got a new address. One mDNS query, and a
   // single retry if it names somewhere new. A typed URL that still works is
-  // never replaced; one that has stopped answering is.
-  if (r == FETCH_ERROR && WiFi.status() == WL_CONNECTED && adoptDiscoveredServer())
+  // never replaced; one that has stopped answering is (mayRediscover).
+  if (r == FETCH_ERROR && WiFi.status() == WL_CONNECTED && mayRediscover() && adoptDiscoveredServer())
     r = fetchFrame(path, resident, vbat, pct);
   // This server serves another frame. If the LAN has a second instance, it is
   // the one meant for us; with only this one, we stay and wait to be added.
@@ -1472,7 +1486,7 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct)
     prefs.putString("server", g_serverUrl);
     g_redirect[0] = 0;
     r = fetchFrame(path, resident, vbat, pct);
-  } else if (r == FETCH_PENDING && adoptDiscoveredServer(true)) {
+  } else if (r == FETCH_PENDING && !hostedServer() && adoptDiscoveredServer(true)) {
     r = fetchFrame(path, resident, vbat, pct);
   }
   g_loaderAnim.on = false;
@@ -1835,6 +1849,20 @@ static void onPush(WStype_t type, uint8_t* payload, size_t len) {
   }
 }
 
+// The push socket runs in a task of its own (W-853). Its reconnect is a
+// blocking TLS connect: in loop() a stalled one froze everything — the
+// heartbeat, the buttons, the next paint — until the watchdog rebooted the
+// frame (seen on both kits after a hosted redeploy dropped their sockets).
+// loop() only reads these flags; it asks for a reopen, it never touches g_ws.
+static volatile bool     g_pushReopen = false;   // loop(): the server stopped answering
+static volatile uint32_t g_pushAliveMs = 0;      // the push task's last turn
+
+// On a socket the timed fetch is only a heartbeat — but only while the push
+// task is really turning; a stalled one counts as no socket, and loop() polls.
+static bool pushLive() {
+  return g_pushUp && millis() - g_pushAliveMs < FF_PUSH_STALL_MS;
+}
+
 static void pushClose() {
   if (!g_pushUrl[0]) return;
   g_ws.disconnect();
@@ -1876,6 +1904,23 @@ static void pushService() {
     Serial.printf("push: opening %s:%u%s\n", hostPort.c_str(), (unsigned)port, path.c_str());
   }
   g_ws.loop();
+}
+
+static void pushTask(void*) {
+  for (;;) {
+    g_pushAliveMs = millis();
+    if (g_pushReopen) { g_pushReopen = false; pushClose(); }
+    pushService();
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+static void startPushTask() {
+  static bool started = false;
+  if (started) return;
+  started = true;
+  // TLS on its stack; core 0, beside Improv, away from the panel's loop().
+  xTaskCreatePinnedToCore(pushTask, "ffpush", 16384, nullptr, 1, nullptr, 0);
 }
 
 // Run a button's action: an instant pill for feedback, then fetch + paint. A new
@@ -1971,11 +2016,11 @@ void loop() {
   // requested view holds the glass for FF_VIEW_HOLD_MS first — the view fetch
   // clears the ETag, so an eager poll would repaint the bird within seconds of
   // the press that asked for the collage.
-  pushService();
+  startPushTask();
   // On a push socket the timed fetch is only a heartbeat: a change arrives
   // as a message (g_pushWake) and is fetched at once, below.
   uint32_t interval = (g_failCount >= FF_MARK_FAILS) ? FF_POLL_BACKOFF_MS
-                    : g_pushUp ? FF_PUSH_HEARTBEAT_MS : g_pollMs;
+                    : pushLive() ? FF_PUSH_HEARTBEAT_MS : g_pollMs;
   if (g_viewHoldUntil && (int32_t)(millis() - g_viewHoldUntil) < 0) {
     // transient view on the glass
 #if FF_FULL_REFRESH
@@ -1997,7 +2042,7 @@ void loop() {
     noteFetchOutcome(r);
     // A socket to a server that no longer answers is not to be trusted: open
     // it again (or poll, if it will not open).
-    if (r == FETCH_ERROR) pushClose();
+    if (r == FETCH_ERROR) g_pushReopen = true;
     // The boot-time OTA check is skipped when the server is unreachable; the
     // always-awake build never reboots on its own, so re-check from here —
     // at once when the server has said an update is waiting.

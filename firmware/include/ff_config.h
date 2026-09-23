@@ -146,6 +146,12 @@
 #define FF_PUSH_GIVEUP_MS    (10UL * 60UL * 1000UL)   // …after FF_PUSH_GIVEUP_TRIES failed opens (a server without push)
 #define FF_PUSH_GIVEUP_TRIES 3
 #define FF_PUSH_PATH         "/api/frame/push"
+// The push task has not turned for this long: count the socket as down and
+// poll (a TLS connect it is stuck in gives up by itself, W-853).
+#define FF_PUSH_STALL_MS     60000UL
+// A LAN server is looked for again over mDNS only after this many failed
+// fetches in a row (W-853): one failure is a hiccup, not a move.
+#define FF_REDISCOVER_FAILS  3
 
 // How long the "Up to date" pill stays on the glass before it clears (ms).
 // On the Spectra a pill costs a ~30 s refresh to put up and another to take

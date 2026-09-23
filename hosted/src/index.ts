@@ -43,7 +43,7 @@ const FRAME_PATHS = /^\/api\/(frame|frame\/push|firmware)$/;
 const PAIRING_POLL_S = 10;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.hostname === `plates.${env.ZONE}`) return plates(request, env, url);
     if (url.hostname !== env.APP_HOST) return new Response("not found", { status: 404 });
@@ -67,8 +67,8 @@ export default {
     const internal = path.match(/^\/_internal\/([0-9a-z]{1,32})\//);
     if (internal) return toHousehold(env, internal[1], request);
 
-    if (FRAME_PATHS.test(path)) return frame(request, env, url);
-    if (isViewerPath(path)) return viewerRoute(request, env, url);
+    if (FRAME_PATHS.test(path)) return frame(request, env, url, ctx);
+    if (isViewerPath(path)) return viewerRoute(request, env, url, ctx);
 
     const apprise = path.match(/^\/api\/ingest\/apprise\/([^/]+)$/);
     if (apprise && request.method === "POST") {
@@ -108,7 +108,7 @@ async function plates(request: Request, env: Env, url: URL): Promise<Response> {
 }
 
 // -- frames ------------------------------------------------------------------
-async function frame(request: Request, env: Env, url: URL): Promise<Response> {
+async function frame(request: Request, env: Env, url: URL, ctx: ExecutionContext): Promise<Response> {
   const id = deviceId(request);
   const key = frameKey(request);
   if (id) {
@@ -121,7 +121,7 @@ async function frame(request: Request, env: Env, url: URL): Promise<Response> {
   }
   // No household has this frame (or this is not the frame it claims to be).
   if (url.pathname === "/api/frame" && request.method === "GET" && id && key && !url.searchParams.get("view")) {
-    return pairingScreen(request, env, id, key);
+    return pairingScreen(request, env, id, key, ctx);
   }
   if (url.pathname === "/api/firmware") return new Response(null, { status: 304 });
   return new Response("this frame has not been added here", {
@@ -131,7 +131,8 @@ async function frame(request: Request, env: Env, url: URL): Promise<Response> {
 
 /** What a frame no one has claimed is shown: its pairing code, drawn for its
  * own panel by the Lobby (cached in R2, one per code and panel). */
-async function pairingScreen(request: Request, env: Env, id: string, key: string): Promise<Response> {
+async function pairingScreen(request: Request, env: Env, id: string, key: string,
+                             ctx: ExecutionContext): Promise<Response> {
   const keyHash = await sha256(key);
   const report: Record<string, string> = {};
   request.headers.forEach((v, k) => {
@@ -155,10 +156,18 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
       h: report["x-panel-height"] || "", fmt: report["x-panel-format"] || "",
       rot: report["x-panel-rotations"] || "", cur: report["x-ff-rotation"] || "",
     });
-    const r = await env.LOBBY.getByName("lobby").fetch(`http://lobby/render?${q}`);
-    if (!r.ok) return new Response("pairing screen unavailable", { status: 503, headers });
-    await env.DATA.put(cacheKey, await r.arrayBuffer(),
-      { customMetadata: { rotation: r.headers.get("X-FF-Rotation") || "" } });
+    // Drawn and kept even if the frame gives up waiting: a sleeping Lobby
+    // and a colour panel's dither can outlast its 30 s, and a render thrown
+    // away with the request would be started again on every retry.
+    const drawn = (async () => {
+      const r = await env.LOBBY.getByName("lobby").fetch(`http://lobby/render?${q}`);
+      if (!r.ok) return false;
+      await env.DATA.put(cacheKey, await r.arrayBuffer(),
+        { customMetadata: { rotation: r.headers.get("X-FF-Rotation") || "" } });
+      return true;
+    })();
+    ctx.waitUntil(drawn);
+    if (!(await drawn)) return new Response("pairing screen unavailable", { status: 503, headers });
     obj = await env.DATA.get(cacheKey);
     if (!obj) return new Response("pairing screen unavailable", { status: 503, headers });
   }

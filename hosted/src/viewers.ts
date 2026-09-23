@@ -68,7 +68,8 @@ function toHousehold(env: Env, hid: string, id: string, keyHash: string, request
   return env.HOUSEHOLD.getByName(hid).fetch(new Request(request, { headers }));
 }
 
-export async function viewerRoute(request: Request, env: Env, url: URL): Promise<Response> {
+export async function viewerRoute(request: Request, env: Env, url: URL,
+                                  ctx: ExecutionContext): Promise<Response> {
   const path = url.pathname;
   if (path === "/view") return servePage();
   if (path === "/view.webmanifest") return manifest();
@@ -76,7 +77,7 @@ export async function viewerRoute(request: Request, env: Env, url: URL): Promise
   if (path === "/api/setup") return setup(request, env);
 
   const image = path.match(IMAGE);
-  if (image) return imageRoute(request, env, decodeURIComponent(image[1]), image[2], url.searchParams.get("t") || "");
+  if (image) return imageRoute(request, env, decodeURIComponent(image[1]), image[2], url.searchParams.get("t") || "", ctx);
 
   // /api/display (a TRMNL client) or /api/view/state (the page).
   const page = path === "/api/view/state";
@@ -150,7 +151,8 @@ async function setup(request: Request, env: Env): Promise<Response> {
                          message: "Welcome to Featherframe" });
 }
 
-async function imageRoute(request: Request, env: Env, rawId: string, name: string, t: string): Promise<Response> {
+async function imageRoute(request: Request, env: Env, rawId: string, name: string, t: string,
+                          ctx: ExecutionContext): Promise<Response> {
   const id = cleanId(rawId);
   if (!id || !/^[0-9a-f]{32}$/.test(t)) return new Response("not found", { status: 404 });
   const claim = await claimOf(env, id);
@@ -163,19 +165,26 @@ async function imageRoute(request: Request, env: Env, rawId: string, name: strin
     .bind(m[1], id, t, Math.floor(Date.now() / 1000)).first<{ report: string }>();
   if (!row) return new Response("not found", { status: 404 });
   const h = (JSON.parse(row.report || "{}").headers || {}) as Record<string, string>;
-  return lobbyPng(env, `${m[1].slice(0, 3)}-${m[1].slice(3)}`, h, name);
+  return lobbyPng(env, `${m[1].slice(0, 3)}-${m[1].slice(3)}`, h, name, (p) => ctx.waitUntil(p));
 }
 
 /** A viewer's pairing code (or, with no code, the waiting plate) drawn by the
  * Lobby for its own screen, cached in R2 by name. */
-export async function lobbyPng(env: Env, code: string, h: Record<string, string>, name: string): Promise<Response> {
+export async function lobbyPng(env: Env, code: string, h: Record<string, string>, name: string,
+                               keep: (p: Promise<unknown>) => void): Promise<Response> {
   const cacheKey = `lobby/viewers/${name}.png`;
   let obj = await env.DATA.get(cacheKey);
   if (!obj) {
     const q = new URLSearchParams({ code, w: h.width || "", h: h.height || "", model: h.model || "" });
-    const r = await env.LOBBY.getByName("lobby").fetch(`http://lobby/render-view?${q}`);
-    if (!r.ok) return new Response("pairing screen unavailable", { status: 503 });
-    await env.DATA.put(cacheKey, await r.arrayBuffer());
+    // Kept even if the device stops waiting (as a kit's code, index.ts).
+    const drawn = (async () => {
+      const r = await env.LOBBY.getByName("lobby").fetch(`http://lobby/render-view?${q}`);
+      if (!r.ok) return false;
+      await env.DATA.put(cacheKey, await r.arrayBuffer());
+      return true;
+    })();
+    keep(drawn);
+    if (!(await drawn)) return new Response("pairing screen unavailable", { status: 503 });
     obj = await env.DATA.get(cacheKey);
     if (!obj) return new Response("pairing screen unavailable", { status: 503 });
   }

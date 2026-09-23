@@ -333,7 +333,7 @@ export class Household extends DurableObject<Env> {
 
     if (path.startsWith("/api/viewers/")) {
       // Whatever name it asks for, it is shown what it should show now.
-      if (!drawn) return lobbyPng(this.env, "", trmnlHeaders(request), `waiting-${shortOf(id)}`);
+      if (!drawn) return lobbyPng(this.env, "", trmnlHeaders(request), `waiting-${shortOf(id)}`, (p) => this.ctx.waitUntil(p));
       const inm = (request.headers.get("If-None-Match") || "").replace(/^W\//, "").replace(/"/g, "").trim();
       const headers = { ETag: `"${drawn.name}"`, "Cache-Control": "no-cache" };
       if (inm === drawn.name) return new Response(null, { status: 304, headers });

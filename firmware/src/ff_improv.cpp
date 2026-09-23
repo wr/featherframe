@@ -26,6 +26,9 @@ constexpr uint8_t CMD_WIFI_SETTINGS  = 0x01;
 constexpr uint8_t CMD_CURRENT_STATE  = 0x02;
 constexpr uint8_t CMD_INFO           = 0x03;
 constexpr uint8_t CMD_WIFI_NETWORKS  = 0x04;
+// Featherframe's own (W-848), outside the range Improv defines: [url] ->
+// the frame's identity; a new url is kept and the frame restarts onto it.
+constexpr uint8_t CMD_FF_SERVER      = 0xF0;
 
 constexpr char HEADER[] = "IMPROV";
 constexpr uint8_t VERSION = 1;
@@ -172,6 +175,23 @@ void handleRpc(const uint8_t* d, uint8_t len) {
     case CMD_WIFI_NETWORKS:
       scan();
       break;
+    case CMD_FF_SERVER: {
+      char url[128] = "";
+      if (len > 2) {
+        uint8_t ul = p[0];
+        if (1 + ul > (uint8_t)(len - 2) || ul >= sizeof(url)) { sendError(ERR_INVALID_RPC); return; }
+        memcpy(url, p + 1, ul); url[ul] = 0;
+      }
+      const char* strs[10];
+      size_t n = g_hooks.identity ? g_hooks.identity(strs, 10) : 0;
+      sendResult(CMD_FF_SERVER, strs, n);
+      if (n && url[0] && g_hooks.setServer && g_hooks.setServer(url)) {
+        Serial.printf("Improv: server is now %s; restarting onto it\n", url);
+        vTaskDelay(pdMS_TO_TICKS(1500));   // after the host has read the answer
+        ESP.restart();
+      }
+      break;
+    }
     default:
       sendError(ERR_UNKNOWN_RPC);
   }

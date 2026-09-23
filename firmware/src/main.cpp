@@ -549,6 +549,8 @@ small{color:var(--muted)}
 
 // The captive portal is open (Improv, W-839: Wi-Fi set over USB closes it).
 static volatile bool g_portalOpen = false;
+// NVS is open: Improv (its own task, started first thing) may read it.
+static volatile bool g_prefsReady = false;
 
 // Improv over USB (ff_improv.h): the flasher asks what the frame is and
 // whether it is on Wi-Fi, and can give it a network. Credentials joined
@@ -561,6 +563,27 @@ static void startImprov() {
   hooks.onJoined = []() {
     if (!g_portalOpen) return false;
     wm.stopConfigPortal();   // blocking portal: sets its abort flag
+    return true;
+  };
+  // A signed-in hosted page pairs the frame over USB (W-848).
+  hooks.identity = [](const char** out, size_t max) -> size_t {
+    if (!g_prefsReady || max < 9) return 0;
+    static String id, key, w, h, rot;
+    id = frameId(); key = frameKey();
+    w = String(FF_NATIVE_W); h = String(FF_NATIVE_H);
+    rot = String(g_flip ? (FF_BAKED_ROTATION + 180) % 360 : FF_BAKED_ROTATION);
+    const char* v[] = {id.c_str(), key.c_str(), FF_PANEL_ID, w.c_str(), h.c_str(),
+                       FF_PANEL_FORMAT, FF_PANEL_ROTATIONS, rot.c_str(), FF_BOARD_ID};
+    for (size_t i = 0; i < 9; i++) out[i] = v[i];
+    return 9;
+  };
+  hooks.setServer = [](const char* url) -> bool {
+    char next[sizeof(g_serverUrl)];
+    strlcpy(next, url, sizeof(next));
+    normalizeServerUrl(next, sizeof(next), g_serverUrl);
+    if (strcmp(next, g_serverUrl) == 0) return false;
+    strlcpy(g_serverUrl, next, sizeof(g_serverUrl));
+    prefs.putString("server", g_serverUrl);
     return true;
   };
   improvBegin("Featherframe", FF_FW_VERSION, FF_BOARD_ID, hooks);
@@ -1598,6 +1621,8 @@ void setup() {
 #endif
 
   prefs.begin("featherframe", false);
+  frameKey();              // made (once) before anything asks for it: Improv runs beside setup
+  g_prefsReady = true;
   prefs.getString("server", DEFAULT_SERVER_URL).toCharArray(g_serverUrl, sizeof(g_serverUrl));
   normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), DEFAULT_SERVER_URL);   // older saves may carry a trailing '/'
   prefs.getString("etag", "").toCharArray(g_etag, sizeof(g_etag));

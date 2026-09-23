@@ -225,12 +225,18 @@ export class Household extends DurableObject<Env> {
   async frame(request: Request): Promise<Response> {
     const id = (request.headers.get("X-Device-Id") || "").trim().slice(0, 40) || "legacy";
     const row = this.frameRow(id);
-    if (!row || row.status !== "on") {
+    if (row?.status === "ignored") {
       this.queueCheckin(request, id, "403", null);
       return new Response("this frame has not been added here", {
-        status: 403,
-        headers: { "Cache-Control": "no-store", "X-FF-Frame": row?.status === "ignored" ? "ignored" : "pending" },
+        status: 403, headers: { "Cache-Control": "no-store", "X-FF-Frame": "ignored" },
       });
+    }
+    if (!row || row.status !== "on") {
+      // The Worker only sends a frame here once it is paired to this
+      // household (W-848): the server just has not added it yet. "Try again"
+      // — a 403 would send the firmware looking for another server on its LAN.
+      this.queueCheckin(request, id, "403", null);
+      return new Response("not added yet", { status: 503, headers: { "Cache-Control": "no-store" } });
     }
     const headers = new Headers(JSON.parse(row.headers || "{}"));
     if (!row.etag || !row.file) return new Response("no frame yet", { status: 503, headers });

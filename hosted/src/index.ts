@@ -75,6 +75,7 @@ export default {
       return Response.json({ error: "sign in" }, { status: 401 });
     }
     if (path === "/api/pair" && request.method === "POST") return pair(request, env, hid);
+    if (path === "/api/pair/usb" && request.method === "POST") return pairUsb(request, env, hid);
     return toHousehold(env, hid, request);
   },
 } satisfies ExportedHandler<Env>;
@@ -168,6 +169,37 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
   headers.set("Content-Type", "application/octet-stream");
   headers.set("Content-Length", String(obj.size));
   return new Response(obj.body, { headers });
+}
+
+/** A frame on this page's USB (W-848): the page asked it who it is over
+ * Improv (and pointed it here); it is this household's, no code to type. */
+async function pairUsb(request: Request, env: Env, hid: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  if (origin && origin !== `https://${env.APP_HOST}`) {
+    return Response.json({ error: "cross-origin request refused" }, { status: 403 });
+  }
+  const b = await request.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
+  const str = (k: string, max = 64) => String(b[k] ?? "").trim().slice(0, max);
+  const id = str("id", 40);
+  const key = str("key").toLowerCase();
+  if (!/^[0-9A-Za-z:_-]{4,40}$/.test(id) || !/^[0-9a-f]{16,64}$/.test(key)) {
+    return Response.json({ ok: false, error: "The frame did not say who it is." }, { status: 400 });
+  }
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.batch([
+    env.DB.prepare("INSERT OR REPLACE INTO frames (device_id, household_id, key_hash, paired_at) VALUES (?, ?, ?, ?)")
+      .bind(id, hid, await sha256(key), now),
+    env.DB.prepare("DELETE FROM pairing WHERE device_id = ?").bind(id),
+  ]);
+  // What it said about itself, as its own headers would: a new row starts
+  // with its panel and the way up it hangs (W-851).
+  const report: Record<string, string> = {
+    "x-panel": str("panel"), "x-panel-width": str("w", 6), "x-panel-height": str("h", 6),
+    "x-panel-format": str("fmt", 16), "x-panel-rotations": str("rots", 16),
+    "x-ff-rotation": str("rotation", 4), "x-board": str("board"),
+  };
+  await env.HOUSEHOLD.getByName(hid).adopt(id, report);
+  return Response.json({ ok: true, frame: id });
 }
 
 /** The owner typed the code on their frame's glass. */

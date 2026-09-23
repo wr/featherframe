@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 from datetime import datetime, timedelta
 
 import pytest
@@ -176,6 +177,40 @@ def test_an_image_is_kept_only_once_verified(env):
     assert path is not None and path.read_bytes() == _image()
     assert svc.releases.app_for_board(BOARD) == path       # cached
     assert svc.releases.app_for_board(OTHER, download=True) is None
+
+
+def test_two_fetches_of_one_image_download_it_once(env):
+    """Pressing Update fetches on its own thread while a tick may fetch the
+    same image: the second waits for the first and takes its file."""
+    svc, gh = env
+    svc.releases.check(NOW)
+    started, other_asked = threading.Event(), threading.Event()
+    get = gh.get
+
+    def slow_get(url, **kw):
+        resp = get(url, **kw)
+        if url.endswith(".bin"):
+            if started.is_set():
+                other_asked.set()            # a second download began
+            started.set()
+            body = resp.iter_content
+
+            def gated(n):
+                other_asked.wait(1.0)        # hold the first open while the other asks
+                yield from body(n)
+            resp.iter_content = gated
+        return resp
+    gh.get = slow_get
+    got = []
+    first = threading.Thread(target=lambda: got.append(
+        svc.releases.app_for_board(BOARD, download=True)))
+    first.start()
+    started.wait(1.0)
+    got.append(svc.releases.app_for_board(BOARD, download=True))
+    first.join()
+    assert got[0] is not None and got[0] == got[1]
+    assert got[0].read_bytes() == _image()
+    assert sum(u.endswith(".bin") for u in gh.calls) == 1
 
 
 @pytest.mark.parametrize("bad,signed", [

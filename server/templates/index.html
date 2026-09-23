@@ -1825,7 +1825,7 @@
   function tickQueued(el) {
     var left = el.dataset.until ? (Number(el.dataset.until) - Date.now()) / 1000 : 0;
     el.hidden = left < 1;
-    if (left >= 1) el.textContent = 'Updates in ' + Math.max(1, Math.ceil(left / 60)) + ' min';
+    if (left >= 1) el.textContent = 'Refreshes in ' + Math.max(1, Math.ceil(left / 60)) + ' min';
   }
   document.querySelectorAll('[data-h="queued"]').forEach(function (el) {
     var row = el.closest('.fr');

@@ -796,6 +796,8 @@
   </div>
 
   {% set _srcnames = {'birdnet_go':'BirdNET-Go','apprise':'BirdNET-Pi','birdweather':'BirdWeather','custom':'Local database'} %}
+  {# A hosted server has no BirdNET database beside it: it never offers one, and a household that never chose a source starts on BirdWeather. #}
+  {% set _src = 'birdweather' if hosted and config.detection_backend=='custom' else config.detection_backend %}
   {% set frames = status.frames.list %}
   {% set on_frames = frames | selectattr('status', 'equalto', 'on') | list %}
   {% set asking = frames | selectattr('status', 'equalto', 'asking') | list %}
@@ -901,7 +903,7 @@
            frame is doing is in its own row in the Frames card. #}
         <div class="card status-card" id="source-card">
           <div class="sc-head">
-            <h2 class="grp">{{ _srcnames.get(config.detection_backend, 'Source') }}</h2>
+            <h2 class="grp">{{ _srcnames.get(_src, 'Source') }}</h2>
             <span class="pill-status"><span class="d {{ 'good' if status.birdnet_available else 'bad' }}" id="fc-src-dot"></span><span id="fc-src-text">{{ 'Connected' if status.birdnet_available else 'Not reachable' }}</span></span>
           </div>
           {# Values that carry a name AND a time are two spans: when a long name
@@ -954,7 +956,7 @@
     {# Source outage (W-696): unreachable past source_alarm_minutes. The frame
        carries the same fact as a footnote; the two alarms never show together. #}
     {% set outage = status.source_outage %}
-    {% set srcname = _srcnames.get(config.detection_backend, 'The detector') %}
+    {% set srcname = _srcnames.get(_src, 'The detector') %}
     <div class="test-box bad quiet-banner{{ ' show' if outage else '' }}" id="outage-banner" role="status" aria-live="polite" data-src="{{ srcname }}">
       <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
       <span class="test-msg" id="outage-text">{% if outage %}{{ srcname }} unreachable since {{ outage.since_text }} ({{ outage.hours_text }}). Check the source settings below.{% endif %}</span>
@@ -1277,15 +1279,15 @@
             <div class="frow-ctl">
               <div class="cselect">
                 <select class="sel cselect-native" name="detection_backend" id="src-sel">
-                  <option value="birdnet_go" data-icon="ic-birdnet-go" {{ 'selected' if config.detection_backend=='birdnet_go' else '' }}>BirdNET-Go</option>
-                  <option value="apprise" data-icon="ic-birdnet-pi" {{ 'selected' if config.detection_backend=='apprise' else '' }}>BirdNET-Pi</option>
-                  <option value="birdweather" data-icon="ic-birdweather" {{ 'selected' if config.detection_backend=='birdweather' else '' }}>BirdWeather</option>
-                  <option value="custom" data-icon="ic-db" {{ 'selected' if config.detection_backend=='custom' else '' }}>Local database</option>
+                  <option value="birdnet_go" data-icon="ic-birdnet-go" {{ 'selected' if _src=='birdnet_go' else '' }}>BirdNET-Go</option>
+                  <option value="apprise" data-icon="ic-birdnet-pi" {{ 'selected' if _src=='apprise' else '' }}>BirdNET-Pi</option>
+                  <option value="birdweather" data-icon="ic-birdweather" {{ 'selected' if _src=='birdweather' else '' }}>BirdWeather</option>
+                  {% if not hosted %}<option value="custom" data-icon="ic-db" {{ 'selected' if _src=='custom' else '' }}>Local database</option>{% endif %}
                 </select>
               </div>
             </div>
           </div>
-          <div class="frow stack" data-src="birdnet_go" {{ '' if config.detection_backend=='birdnet_go' else 'hidden' }}>
+          <div class="frow stack" data-src="birdnet_go" {{ '' if _src=='birdnet_go' else 'hidden' }}>
             <div class="frow-text"><label class="lab" for="f-go-url">BirdNET-Go URL</label></div>
             <div class="frow-ctl">
               <div class="data-row">
@@ -1294,7 +1296,7 @@
               </div>
             </div>
           </div>
-          <div data-src="apprise" {{ '' if config.detection_backend=='apprise' else 'hidden' }}>
+          <div data-src="apprise" {{ '' if _src=='apprise' else 'hidden' }}>
             <div class="frow stack">
               <div class="frow-ctl">
                 <ol class="steps">
@@ -1319,8 +1321,8 @@
               <div class="frow-ctl"><input type="text" name="apprise_token" id="apprise-token" value="{{ config.apprise_token }}" placeholder="Leave blank to accept any LAN post" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
             </div>
           </div>
-          <div class="frow stack" data-src="birdweather" {{ '' if config.detection_backend=='birdweather' else 'hidden' }}>
-            <div class="frow-text"><label class="lab" for="f-bw">BirdWeather station</label><div class="hint">Paste your station's URL (<code>https://app.birdweather.com/stations/XXXXX</code>) or just the ID. Find yours at <a href="https://app.birdweather.com/stations" target="_blank" rel="noopener">app.birdweather.com/stations</a>.</div></div>
+          <div class="frow stack" data-src="birdweather" {{ '' if _src=='birdweather' else 'hidden' }}>
+            <div class="frow-text"><label class="lab" for="f-bw">BirdWeather station</label><div class="hint">Paste a station's URL or just the ID. Find yours at <a href="https://app.birdweather.com" target="_blank" rel="noopener">app.birdweather.com</a>.</div></div>
             <div class="frow-ctl">
               <div class="data-row">
                 <input type="text" id="f-bw" name="birdweather_station_id" value="{{ config.birdweather_station_id }}" placeholder="https://app.birdweather.com/stations/XXXXX" autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -1328,7 +1330,7 @@
               </div>
             </div>
           </div>
-          <div class="frow stack" data-src="custom" {{ '' if config.detection_backend=='custom' else 'hidden' }}>
+          <div class="frow stack" data-src="custom" {{ '' if _src=='custom' else 'hidden' }}>
             <div class="frow-text"><label class="lab" for="f-dbpath">BirdNET-Pi database path</label><div class="hint">The BirdNET-Pi database on this machine, read only. Default: <code>~/BirdNET-Pi/scripts/birds.db</code>.</div></div>
             <div class="frow-ctl">
               <div class="data-row">

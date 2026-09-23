@@ -942,6 +942,8 @@
             <span class="fr-name" data-fr="title">{{ fr.title }}</span>
             <span class="badge warn" data-h="overdue" {{ '' if card.overdue else 'hidden' }}>Overdue</span>
             <span class="badge bad" data-h="lowbatt" {{ '' if low else 'hidden' }}>Battery low</span>
+            {# A change it has been told of, held by its panel's repaint floor (W-841). #}
+            <span class="badge tnum" data-h="queued" data-s="{{ fr.queued_s or '' }}" hidden></span>
             <button class="badge upd" type="button" data-h="fw-badge" data-fw-open {{ '' if fw and fw.available and not fw.pending else 'hidden' }}>Update available</button>
             <span class="badge" data-h="fw-updating" {{ '' if fw and fw.available and fw.pending else 'hidden' }}>Updating</span>
           </span>
@@ -998,11 +1000,16 @@
            menu does not offer is shown as it is, so saving never changes it. #}
         {# On the collage the row is locked: the kit checks in when the collage
            is next redrawn, so its own interval is neither read nor offered. #}
-        <div class="frow{{ ' locked' if s.shows == 'collage' else '' }}" data-fr-interval>
+        {# On USB with a push socket (W-841) a change reaches the kit at once:
+           the row is locked to Instant, and the poll gap it would fall back
+           to without a socket is kept, not posted. #}
+        {% set instant = s.push and s.power_mode == 'awake' and s.shows != 'collage' %}
+        <div class="frow{{ ' locked' if s.shows == 'collage' or instant else '' }}" data-fr-interval{{ ' data-fr-push' if s.push else '' }}>
           <div class="frow-text"><span class="lab" id="fr-int-lab-{{ i }}">Update interval</span><div class="hint" data-fr-interval-hint>{{ 'Set by the collage’s update interval.' if s.shows == 'collage' else '' }}</div></div>
           <div class="frow-ctl">
             <span class="fr-int-collage" data-fr-collage-every {{ '' if s.shows == 'collage' else 'hidden' }}>{{ collage_every }}</span>
-            <span data-fr-swap="awake" {{ '' if s.power_mode == 'awake' and s.shows != 'collage' else 'hidden' }}>
+            <span class="fr-int-collage" data-fr-instant {{ '' if instant else 'hidden' }}>Instant</span>
+            <span data-fr-swap="awake" {{ '' if s.power_mode == 'awake' and s.shows != 'collage' and not instant else 'hidden' }}>
               {# The same eight steps either way; USB stores seconds, a battery minutes. #}
               {% set steps = [(1, 'Every minute'), (5, 'Every 5 minutes'), (15, 'Every 15 minutes'), (30, 'Every 30 minutes'),
                               (60, 'Every hour'), (120, 'Every 2 hours'), (360, 'Every 6 hours'), (1440, 'Every 24 hours')] %}
@@ -1808,8 +1815,27 @@
 
   // One frame's row: the dot, its badges, and the readings in the collapsed
   // line. Details below carries no reading of its own.
+  // The queued badge counts down on its own between polls.
+  function applyQueued(row, secs) {
+    var el = sub(row, 'data-h', 'queued');
+    if (!el) return;
+    el.dataset.until = secs ? String(Date.now() + secs * 1000) : '';
+    tickQueued(el);
+  }
+  function tickQueued(el) {
+    var left = el.dataset.until ? (Number(el.dataset.until) - Date.now()) / 1000 : 0;
+    el.hidden = left < 1;
+    if (left >= 1) el.textContent = 'Refreshes in ' + Math.max(1, Math.ceil(left / 60)) + ' min';
+  }
+  document.querySelectorAll('[data-h="queued"]').forEach(function (el) {
+    var row = el.closest('.fr');
+    if (row) applyQueued(row, Number(el.getAttribute('data-s')) || 0);
+  });
+  setInterval(function () { document.querySelectorAll('[data-h="queued"]').forEach(tickQueued); }, 5000);
+
   function applyHealth(row, fr) {
     var card = fr.card || {};
+    applyQueued(row, fr.queued_s || 0);
     subText(row, 'data-h', 'seen-text', card.seen ? (card.last_seen || '') : 'never');
     var seen = sub(row, 'data-h', 'seen');
     if (seen) seen.dataset.tip = card.last_checkin_iso ? card.last_checkin_iso.replace('T', ' ') : '';
@@ -2191,8 +2217,13 @@
       var shows = row.querySelector('[data-f="shows"]:checked');
       var onCollage = !!(shows && shows.value === 'collage');
       var ir = row.querySelector('[data-fr-interval]');
+      // On USB with a push socket the kit hears of a change at once (W-841).
+      var instant = !onCollage && !!(ir && ir.hasAttribute('data-fr-push')) &&
+                    !!(pm && pm.value === 'awake');
       if (ir) {
-        ir.classList.toggle('locked', onCollage);
+        ir.classList.toggle('locked', onCollage || instant);
+        var inst = ir.querySelector('[data-fr-instant]');
+        if (inst) inst.hidden = !instant;
         var hint = ir.querySelector('[data-fr-interval-hint]');
         if (hint) hint.textContent = onCollage ? 'Set by the collage\u2019s update interval.' : '';
         var word = ir.querySelector('[data-fr-collage-every]');
@@ -2201,7 +2232,7 @@
       if (!pm) return;
       ['awake', 'sleep'].forEach(function (mode) {
         var el = row.querySelector('[data-fr-swap="' + mode + '"]');
-        if (el) el.hidden = onCollage || pm.value !== mode;
+        if (el) el.hidden = onCollage || instant || pm.value !== mode;
       });
       refreshSegs(row);
     }
@@ -2263,7 +2294,13 @@
               applyHealth(row, mine);
               knownFrames = null;
             }
-            showFlash('ok', 'Saved. It picks the change up on its next check-in.', 'ic-check');
+            var instant = mine && (mine.settings || {}).push;
+            var held = mine && mine.queued_s;
+            showFlash('ok', held ? 'Saved. Refreshes in ' + Math.max(1, Math.ceil(held / 60)) + ' min.'
+                             : instant ? 'Saved.' : 'Saved. It picks the change up on its next check-in.', 'ic-check');
+            // The redraw lands on the next tick: look again then, so a change
+            // the panel has to hold shows as queued without waiting a poll.
+            setTimeout(pollStatus, 8000);
           })
           .catch(function (e) { showFlash('bad', 'Not saved — ' + errText(e) + '.', 'ic-warn'); })
           .then(function () { busy(row, false); save.textContent = label; });

@@ -136,6 +136,17 @@
 // Always-awake build: how often the poll loop also asks for hosted firmware.
 #define FF_OTA_CHECK_MS      (15UL * 60UL * 1000UL)
 
+// Push (W-841): on USB the frame holds a WebSocket to /api/frame/push and the
+// server says when its next GET /api/frame would answer differently. While the
+// socket is up the timed poll is only this heartbeat (telemetry, the OTA
+// check); it is sent to the server as X-FF-Push so "overdue" is measured
+// against it. With the socket down the frame polls at X-Poll-Seconds as before.
+#define FF_PUSH_HEARTBEAT_MS (15UL * 60UL * 1000UL)
+#define FF_PUSH_RETRY_MS     30000UL          // reconnect gap
+#define FF_PUSH_GIVEUP_MS    (10UL * 60UL * 1000UL)   // …after FF_PUSH_GIVEUP_TRIES failed opens (a server without push)
+#define FF_PUSH_GIVEUP_TRIES 3
+#define FF_PUSH_PATH         "/api/frame/push"
+
 // How long the "Up to date" pill stays on the glass before it clears (ms).
 // On the Spectra a pill costs a ~30 s refresh to put up and another to take
 // down, so it stays long enough to be seen by someone who looked away.

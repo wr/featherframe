@@ -10,3 +10,4 @@ pyyaml>=6.0
 requests>=2.31
 python-multipart>=0.0.9
 zeroconf>=0.130      # mDNS: advertise _featherframe._tcp so the frame finds the server
+websockets>=10.4     # uvicorn serves the frames' push socket (W-841) through it

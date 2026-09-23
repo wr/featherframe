@@ -137,6 +137,21 @@ serves its bytes, its ETag, its own `X-FF-Rotation` / `X-Power-Mode` /
 config. Its two intervals are `service.frame_intervals`: on plates the owner's,
 on the collage the wait to just after `collage_next_at`, so a frame on the
 collage checks in when there is something new and never on a clock of its own.
+**Push, don't poll (W-841).** A kit on USB also holds a WebSocket to
+`/api/frame/push` (same identity headers; only an `on` frame is kept). It is
+sent `service.push_message` — `{etag, rotation, power, ota}`, everything that
+changes what its next `/api/frame` would answer — on connect and whenever
+that changes (`push.PushHub`, woken after every `tick()` and by a frame's
+settings save/answer), and it answers each message with its usual GET, so
+`/api/frame` stays the one contract. On the socket the firmware's timed poll
+is a 15 min heartbeat (`FF_PUSH_HEARTBEAT_MS`), which it names in `X-FF-Push`
+so overdue is measured against it (`0` = speaks push, no socket: polls as
+told); an open socket reads as heard from, and the row's *Update interval*
+is locked to *Instant*. Battery frames never open one. A server without the
+endpoint costs the firmware three refused opens, then a retry every 10 min.
+uvicorn needs `websockets`; its ping timeout is 60 s (`__main__`) because a
+colour paint holds the frame's loop ~30 s. A hosted hub (Durable Object)
+speaks the same protocol.
 A viewer's output is the same idea as a PNG (`view_png`), drawn on
 first ask and cached; `GET /api/frames/<id>/preview.png` serves either kind.
 Telemetry is per frame too: a check-in lands on its own row

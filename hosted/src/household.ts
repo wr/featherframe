@@ -114,7 +114,17 @@ export class Household extends DurableObject<Env> {
     headers.delete("Cookie");               // the session is the Worker's, not the server's
     headers.delete("X-FF-Household");
     headers.set("X-FF-Hosted", "1");
-    return stub.fetch(new Request(request, { headers }));
+    const forward = new Request(request, { headers });
+    // The link to the Container can drop under a request (the library answers
+    // 500 "Container suddenly disconnected"; seen once, mid first render after
+    // a cold start). A read is safe to ask again, once; a write is not.
+    const again = request.method === "GET" || request.method === "HEAD";
+    const res = await stub.fetch(again ? forward.clone() : forward);
+    if (again && res.status === 500 && (await res.clone().text()).startsWith("Container suddenly disconnected")) {
+      console.warn("container link dropped; asking again", new URL(request.url).pathname);
+      return stub.fetch(forward);
+    }
+    return res;
   }
 
   /** Start the server (its lifespan pulls), hand it the pushes that landed

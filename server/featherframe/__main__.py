@@ -19,8 +19,13 @@ def main() -> None:
     # A frame on a push socket (W-841) answers pings from its own loop, which a
     # colour panel's ~30 s paint holds up: give it a minute before the socket
     # is called dead, or every paint would cost a reconnect.
+    # Behind a proxy that keeps connections open (the hosted Container,
+    # FEATHERFRAME_KEEP_ALIVE in its Dockerfile), an idle connection must
+    # outlive the proxy's own reuse of it, or a request lands on a socket the
+    # server has just closed.
     uvicorn.run("featherframe.app:app", host=args.host, port=args.port,
-                workers=1, log_level="info", ws_ping_interval=30, ws_ping_timeout=60)
+                workers=1, log_level="info", ws_ping_interval=30, ws_ping_timeout=60,
+                timeout_keep_alive=int(os.environ.get("FEATHERFRAME_KEEP_ALIVE", "5")))
 
 
 if __name__ == "__main__":

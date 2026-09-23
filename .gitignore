@@ -1,7 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
-server/.venv/
+server/.venv
 *.egg-info/
 .pytest_cache/
 
@@ -27,3 +27,4 @@ firmware/src/ff_screens_bench.h
 .DS_Store
 # Packed plate release assets (scripts/pack_plates.py)
 dist/
+.wrangler/

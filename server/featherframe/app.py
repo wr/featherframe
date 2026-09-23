@@ -300,6 +300,19 @@ async def api_frame_push(ws: WebSocket):
         log.info("frame %s off push", fid[-6:])
 
 
+@app.post("/api/hosted/run")
+async def api_hosted_run(request: Request):
+    """A hosted household's wake (W-844): one tick, synced, answered when it is
+    done — the Container sleeps soon after, so the work has to happen inside
+    the request that woke it. Only a hosted server has it."""
+    link = getattr(request.app.state, "hosted", None)
+    if link is None:
+        return JSONResponse({"error": "not hosted"}, status_code=404)
+    svc = _svc(request)
+    await run_in_threadpool(svc.tick)          # the tick's own hook settles it
+    return JSONResponse({"ok": True, "next_wake_at": svc.next_wake_at()})
+
+
 def _announce_panel(request: Request, svc) -> None:
     adv = getattr(request.app.state, "advertiser", None)
     if adv is not None:

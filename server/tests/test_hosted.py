@@ -166,3 +166,20 @@ def test_a_front_door_that_is_down_costs_nothing_but_a_retry(env, monkeypatch):
     monkeypatch.setattr(link, "take_checkins", down)
     link.settle(svc)                                  # logged, not raised
     assert door.state.states == []
+
+
+def test_in_quiet_hours_there_is_nothing_to_look_for(env):
+    svc = _service()
+    svc.config.quiet_hours_mode = "off"
+    assert svc.hosted_state()["poll"] is True
+    svc.config.quiet_hours_mode = "on"
+    start, _ = svc.config.quiet_window(NOW.date())
+    svc._clock = lambda: datetime.combine(NOW.date(), start) + timedelta(minutes=5)
+    assert svc.hosted_state()["poll"] is False
+
+
+def test_only_a_hosted_server_has_a_wake(env):
+    from featherframe.app import app
+    app.state.service = _service()
+    app.state.hosted = None
+    assert TestClient(app).post("/api/hosted/run").status_code == 404

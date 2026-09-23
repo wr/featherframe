@@ -529,6 +529,7 @@ class FeatherframeService:
         self.push = PushHub()
         # Called after every tick, e.g. a hosted household's sync (W-844).
         self.after_tick: list = []
+        self._tick_lock = threading.Lock()
         # The scans on this box, or the shared library where there are none
         # (FEATHERFRAME_PLATE_LIBRARY, W-842): the same crops either way.
         self.audubon = plate_library.from_env() or AudubonProvider()
@@ -755,7 +756,10 @@ class FeatherframeService:
     # -- the decision loop -------------------------------------------------
     def tick(self) -> None:
         try:
-            self._tick()
+            # One tick at a time: the scheduler, a background job and a hosted
+            # wake (W-844) may all ask at once; the second waits its turn.
+            with self._tick_lock:
+                self._tick()
         finally:
             # Whatever this tick changed, every frame on a socket hears of it.
             self.push.notify()
@@ -2025,7 +2029,11 @@ class FeatherframeService:
         # The front door keeps time in UTC; this server in the household's own
         # (TZ): the epoch is what it schedules by, the ISO what a person reads.
         return {"frames": out, "next_wake_at": wake,
-                "next_wake_epoch": int(datetime.fromisoformat(wake).timestamp()) if wake else None}
+                "next_wake_epoch": int(datetime.fromisoformat(wake).timestamp()) if wake else None,
+                # Whether a new detection could change anything right now: in
+                # quiet hours nothing is drawn but what next_wake_at already
+                # names, so the front door need not wake this to look.
+                "poll": not self.config.in_quiet_hours(self._clock().time())}
 
     def push_message(self, frame_id: str) -> Optional[dict]:
         """What a frame on a push socket is told (W-841): everything that

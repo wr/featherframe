@@ -68,8 +68,10 @@ async function plates(request: Request, env: Env, url: URL): Promise<Response> {
 // ------------------------------------------------------- the household server
 export class HouseholdServer extends Container<Env> {
   defaultPort = 8080;
-  // Long enough for a first AI plate (~90 s) to finish inside one wake.
-  sleepAfter = "3m";
+  // A wake is one request (POST /api/hosted/run) that is answered when its
+  // tick is done, a first AI plate included; after that there is nothing to
+  // stay up for. The page keeps it awake while it is open.
+  sleepAfter = "30s";
 
   constructor(ctx: DurableObjectState<{}>, env: Env) {
     super(ctx, env);
@@ -193,12 +195,12 @@ export class Household extends DurableObject<Env> {
     return stub.fetch(new Request(request, { headers }));
   }
 
-  /** Start the server (its lifespan pulls, ticks and reports), then sleep
-   * until it next has something to do. */
+  /** Start the server (its lifespan pulls), run one tick (which reports),
+   * then sleep until it next has something to do. */
   async wake(): Promise<void> {
     try {
       const stub = await this.server();
-      await stub.fetch("http://server/api/status");
+      await stub.fetch("http://server/api/hosted/run", { method: "POST" });
     } catch (err) {
       console.error("wake failed", err);
     }
@@ -210,11 +212,14 @@ export class Household extends DurableObject<Env> {
   }
 
   async schedule(): Promise<void> {
+    // The server's own next moment, and — unless it said a detection could
+    // change nothing now (quiet hours) — a look for new detections.
     const now = Date.now();
-    let at = now + WAKE_CADENCE_MS;
     const next = Number(this.meta("next_wake_epoch") || 0) * 1000;
-    if (next > now && next < at) at = next;
-    await this.ctx.storage.setAlarm(at);
+    const times = [next > now ? next : 0, this.meta("poll") === "0" ? 0 : now + WAKE_CADENCE_MS]
+      .filter((t) => t > 0);
+    // Nothing named at all: look again in a day rather than never.
+    await this.ctx.storage.setAlarm(times.length ? Math.min(...times) : now + 86_400_000);
   }
 
   // -- the frames, answered without the server ---------------------------------
@@ -323,6 +328,7 @@ export class Household extends DurableObject<Env> {
     frames: Record<string, { status: string; etag?: string | null; file?: string;
       headers?: Record<string, string>; push?: unknown }>;
     next_wake_epoch?: number | null;
+    poll?: boolean;
   }): Promise<void> {
     const before = new Map(this.sql.exec<FrameRow>("SELECT * FROM frames").toArray().map((r) => [r.id, r]));
     this.sql.exec("DELETE FROM frames");
@@ -341,6 +347,7 @@ export class Household extends DurableObject<Env> {
       if (!(id in (state.frames || {}))) for (const ws of this.ctx.getWebSockets(id)) ws.close(1008, "gone");
     }
     this.setMeta("next_wake_epoch", state.next_wake_epoch ? String(state.next_wake_epoch) : null);
+    this.setMeta("poll", state.poll === false ? "0" : "1");
     await this.schedule();
   }
 }

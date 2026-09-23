@@ -1209,7 +1209,6 @@
 
     {# The kit's firmware, installed from this page (W-840). The frame it makes
        asks to connect like any other. #}
-    {% set kit_words = {'ee03': '10.3″ gray', 'ee02': '13.3″ colour'} %}
     {# One firmware release, shown for whichever frame's Update was pressed
        (W-838): its notes, then Cancel / Update. #}
     {% if fw_about and fw_about.version %}
@@ -1245,7 +1244,7 @@
         <div class="frow-text"><span class="lab" id="usb-kit-lab">Kit</span></div>
         <div class="frow-ctl">
           <div class="seg" role="radiogroup" aria-labelledby="usb-kit-lab">
-            {% for k in fws.kits %}<label><input type="radio" name="usb-kit" value="{{ k }}" {{ 'checked' if loop.first else '' }}><span>{{ kit_words.get(k, k|upper) }}</span></label>{% endfor %}
+            {% for k in fws.kits %}<label><input type="radio" name="usb-kit" value="{{ k }}" {{ 'checked' if loop.first else '' }}><span>{{ kit_names.get(k, k|upper) }}</span></label>{% endfor %}
           </div>
         </div>
       </div>

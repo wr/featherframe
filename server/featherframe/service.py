@@ -1934,9 +1934,15 @@ class FeatherframeService:
         from the end of its last paint. None when nothing is waiting."""
         rep = frames_mod.reported_of(row)
         spec = frames_mod.panel_for(row)
-        out = self._output_etag(str(row["id"]))
-        if not rep.get("push_s") or not spec.min_repaint_s or not out \
-                or out == rep.get("etag_served"):
+        fid = str(row["id"])
+        out = self._output_etag(fid)
+        if not rep.get("push_s") or not spec.min_repaint_s or not out:
+            return None
+        # Waiting: drawn and not yet fetched, or a save that the next tick
+        # will draw (so the page can say so the moment it is saved).
+        src = self._output_src(row, now)
+        stale = src is not None and (self._out.get(fid) or {}).get("src") != src
+        if out == rep.get("etag_served") and not stale:
             return None
         try:
             painted = datetime.fromisoformat(str(row.get("painted_at")))

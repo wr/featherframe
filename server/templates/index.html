@@ -2295,7 +2295,9 @@
               knownFrames = null;
             }
             var instant = mine && (mine.settings || {}).push;
-            showFlash('ok', instant ? 'Saved.' : 'Saved. It picks the change up on its next check-in.', 'ic-check');
+            var held = mine && mine.queued_s;
+            showFlash('ok', held ? 'Saved. Refreshes in ' + Math.max(1, Math.ceil(held / 60)) + ' min.'
+                             : instant ? 'Saved.' : 'Saved. It picks the change up on its next check-in.', 'ic-check');
             // The redraw lands on the next tick: look again then, so a change
             // the panel has to hold shows as queued without waiting a poll.
             setTimeout(pollStatus, 8000);

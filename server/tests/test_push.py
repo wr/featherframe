@@ -175,3 +175,24 @@ def test_the_repaint_floor_is_the_firmwares():
     ms = int(re.search(r"#define FF_MIN_REPAINT_MS\s+(\d+)UL", src).group(1))
     assert ms == panels.EE02.min_repaint_s * 1000
     assert panels.custom(800, 480, "gray16", "90,270").min_repaint_s * 1000 == ms   # generic build: full refresh
+
+
+def test_a_save_inside_the_floor_is_queued_before_it_is_drawn(client):
+    """The page says so as it saves: the next tick draws it, the panel holds it."""
+    from tests._frames import EE02_BOARD, EE02_PANEL
+    svc = _svc(client)
+    seed_frame(svc, panel=EE02_PANEL, power_mode="awake")
+    # What the output was drawn from: here, just the one setting that is a pixel.
+    svc._output_src = lambda row, now: f"mat_guide={frames_mod.settings_of(row).get('mat_guide')}"
+    svc._out[FRAME_ID]["src"] = svc._output_src(svc.frames.get(FRAME_ID), NOW)
+    ee02 = {**KIT, "X-Panel": EE02_PANEL, "X-Board": EE02_BOARD, "X-FF-Push": "900"}
+    assert client.get("/api/frame", headers=ee02).status_code == 200
+    assert _queued(svc) is None
+    svc._clock = lambda: NOW + timedelta(seconds=60)
+    out = client.post(f"/api/frames/{FRAME_ID}", json={"mat_guide": True}).json()
+    mine = [f for f in out["frames"] if f["id"] == FRAME_ID][0]
+    assert mine["queued_s"] == 30 + 180 - 60
+    # A name is not a pixel: nothing to hold.
+    svc._out[FRAME_ID]["src"] = svc._output_src(svc.frames.get(FRAME_ID), NOW)   # the tick drew it
+    out = client.post(f"/api/frames/{FRAME_ID}", json={"name": "Hall"}).json()
+    assert [f for f in out["frames"] if f["id"] == FRAME_ID][0]["queued_s"] is None

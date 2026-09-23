@@ -18,6 +18,7 @@ import logging
 import os
 import re
 import shutil
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -97,6 +98,11 @@ class ReleaseStore:
             import requests
             http = requests
         self.http = http
+        # One download per file at a time: pressing Update fetches on its own
+        # thread while a tick may fetch the same image, and two writers of one
+        # .part rename it out from under each other.
+        self._locks: dict = {}
+        self._locks_guard = threading.Lock()
 
     # -- the manifest --------------------------------------------------------
     def state(self) -> dict:
@@ -221,6 +227,17 @@ class ReleaseStore:
         image, it is an ESP image carrying its board's string."""
         have = self.cached(entry)
         if have is not None or not entry:
+            return have
+        with self._lock_for(self._path(entry)):
+            return self._download(entry, board)
+
+    def _lock_for(self, path: Path) -> threading.Lock:
+        with self._locks_guard:
+            return self._locks.setdefault(path, threading.Lock())
+
+    def _download(self, entry: dict, board: Optional[str]) -> Optional[Path]:
+        have = self.cached(entry)          # another caller may have just fetched it
+        if have is not None:
             return have
         url = (self.state().get("urls") or {}).get(entry["name"])
         if not url:

@@ -2661,7 +2661,7 @@
         a.textContent = 'Open the flasher';
         actions.appendChild(a);
       } else {
-        note.textContent = {{ "'Plug the frame in by USB, then Connect. It joins this household when you close the installer.'" if hosted else "'Plug the frame in by USB, then Connect.'" }};
+        note.textContent = {{ ('Plug the frame in by USB, then Connect. It joins this household when you close the installer.' if hosted else 'Plug the frame in by USB, then Connect.') | tojson }};
         if (!loaded) {
           var sc = document.createElement('script');
           sc.type = 'module'; sc.src = '/static/flash/esp-web-tools/install-button.js';

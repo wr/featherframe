@@ -344,3 +344,12 @@ def test_a_wake_adds_a_paired_frame_before_it_draws(env, monkeypatch):
     assert _TC(app).post("/api/hosted/run").status_code == 200
     entry = door.state.states[-1]["frames"]["EE:EE:EE:00:00:01"]
     assert entry["status"] == "on" and entry.get("etag") and entry["file"] in door.state.files
+
+
+def test_the_pairing_screen_prints_when_its_code_expires():
+    from featherframe.render import welcome
+    bare = welcome.render_pairing("ABC-DEF")
+    dated = welcome.render_pairing("ABC-DEF", expires="25 September, 10:32 am")
+    # The date goes under the pairing line, and nothing above it moves.
+    assert bare.crop((0, 0, bare.width, 1780)).tobytes() == dated.crop((0, 0, bare.width, 1780)).tobytes()
+    assert bare.crop((0, 1780, bare.width, 1830)).getextrema() != dated.crop((0, 1780, bare.width, 1830)).getextrema()

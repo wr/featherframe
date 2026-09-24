@@ -16,7 +16,7 @@
 import { admin, auth, login, logout, sessionHousehold } from "./accounts";
 import { adminRoute, waitlistRoute } from "./admin";
 import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
-import { LOBBY_DRAWING, pairingCode } from "./pairing";
+import { LOBBY_DRAWING, expiryText, pairingCode } from "./pairing";
 import { Household } from "./household";
 import { HouseholdServer, Lobby } from "./containers";
 import { deviceId, frameKey, sha256 } from "./util";
@@ -138,9 +138,10 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
   request.headers.forEach((v, k) => {
     if (k.startsWith("x-panel") || k === "x-board" || k === "x-ff-rotation") report[k] = v;
   });
-  const row = { code: await pairingCode(env, id, keyHash, report) };
+  const row = await pairingCode(env, id, keyHash, report);
   const shown = `${row.code.slice(0, 3)}-${row.code.slice(3)}`;
-  const variant = (await sha256(LOBBY_DRAWING + JSON.stringify(report))).slice(0, 16);
+  const expires = expiryText(row.expiresAt, request);
+  const variant = (await sha256(LOBBY_DRAWING + expires + JSON.stringify(report))).slice(0, 16);
   const cacheKey = `lobby/${row.code}/${variant}.fff`;
   const etag = `pair-${row.code}-${variant.slice(0, 8)}`;
   const headers = new Headers({
@@ -152,7 +153,7 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
   let obj = await env.DATA.get(cacheKey);
   if (!obj) {
     const q = new URLSearchParams({
-      code: shown, panel: report["x-panel"] || "", w: report["x-panel-width"] || "",
+      code: shown, expires, panel: report["x-panel"] || "", w: report["x-panel-width"] || "",
       h: report["x-panel-height"] || "", fmt: report["x-panel-format"] || "",
       rot: report["x-panel-rotations"] || "", cur: report["x-ff-rotation"] || "",
     });

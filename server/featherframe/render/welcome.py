@@ -36,10 +36,11 @@ PAIRING_LINE = "PAIR THIS FRAME AT APP.FEATHERFRAME.APP"
 # the wordmark on its baseline, and the code where the splash sets its
 # version and the boot screens rest their pills.
 _BOOT_WORDMARK_BASELINE = 1534
-_CODE_BASELINE = 1712
+_CODE_BASELINE = 1690
 _CODE_SIZE = 84
-_PAIRING_LINE_BASELINE = 1792
+_PAIRING_LINE_BASELINE = 1764
 _PAIRING_LINE_SIZE = 24
+_EXPIRES_BASELINE = 1806
 
 
 def since_words(since: datetime) -> str:
@@ -72,11 +73,14 @@ def render_waiting(short_id: str = "", line: str = WAITING_LINE) -> Image.Image:
     return field
 
 
-def render_pairing(code: str, color: bool = False) -> Image.Image:
+def render_pairing(code: str, color: bool = False, expires: str = "") -> Image.Image:
     """What a hosted frame no one has claimed shows (W-845): the kit's own
     boot screen, the empty bough over the wordmark, with its pairing `code`
     under the wordmark and the one line that says where to type it. `color`:
-    the bough in colour under the same type, for a colour panel."""
+    the bough in colour under the same type, for a colour panel. `expires`:
+    when the code stops working ("25 September, 10:32 am"). The glass keeps
+    its picture unpowered, so a frame found in a drawer still shows a code;
+    the date says whether it can still be typed."""
     type_ = Image.new("L", (theme.WIDTH, theme.HEIGHT), theme.FIELD)
     cx = theme.WIDTH / 2
     typography.draw_script(type_, cx, _BOOT_WORDMARK_BASELINE, "Featherframe",
@@ -86,6 +90,9 @@ def render_pairing(code: str, color: bool = False) -> Image.Image:
     typography.draw_engraved(draw, cx, _CODE_BASELINE, code, _CODE_SIZE, theme.INK)
     typography.draw_engraved(draw, cx, _PAIRING_LINE_BASELINE, PAIRING_LINE,
                              _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
+    if expires:
+        typography.draw_engraved(draw, cx, _EXPIRES_BASELINE, f"CODE EXPIRES {expires}".upper(),
+                                 _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
     mode, name = ("RGB", "bough_color.png") if color else ("L", "bough.png")
     art = Image.new(mode, type_.size, "white")
     art.paste(Image.open(paths.art_dir() / name).convert(mode), (0, 0))

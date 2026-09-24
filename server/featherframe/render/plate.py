@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 from PIL import Image
@@ -239,16 +239,25 @@ def paper_normalize_color(rgb: Image.Image) -> Image.Image:
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="RGB")
 
 
-def _trim_marginalia(plate_img: Image.Image) -> Image.Image:
+# The part of a Havell sheet kept, as (left, top, right, bottom) fractions.
+# Measured across the plates: the top "N° / PLATE" line sits at ~5-6.5% and
+# the printed caption in the bottom ~6-9%. The bird is always below/above.
+HAVELL_MARGINS = (0.025, 0.068, 0.975, 0.912)
+
+
+def _trim_marginalia(plate_img: Image.Image, margins: Optional[Sequence[float]] = None) -> Image.Image:
     """Physically remove the outer printed margin bands of the plate: the
     'N° 32 / PLATE CLIX' line across the top and the engraved species caption
     across the bottom. The bird is always well inside these, so this guarantees
     no plate lettering leaks into the composition. Works on the gray plate and
-    its colour twin alike, and cleans both in exactly the same place."""
-    # Measured across the plates: the top "N° / PLATE" line sits at ~5-6.5% and
-    # the printed caption in the bottom ~6-9%. The bird is always below/above.
+    its colour twin alike, and cleans both in exactly the same place.
+
+    `margins` is the part kept, for a folio whose sheets are lettered
+    elsewhere (W-702: Gould's captions sit higher, and a copy's pencilled
+    plate number sits in its margin); Havell's by default."""
+    left, top, right, bottom = margins or HAVELL_MARGINS
     w, h = plate_img.size
-    trimmed = plate_img.crop((int(w * 0.025), int(h * 0.068), int(w * 0.975), int(h * 0.912)))
+    trimmed = plate_img.crop((int(w * left), int(h * top), int(w * right), int(h * bottom)))
     return _lift_corner_lettering(trimmed)
 
 
@@ -358,9 +367,9 @@ def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]
 
 
 def extract(path: str | Path, composite: bool = False,
-            crop_box: Optional[list] = None) -> Image.Image:
+            crop_box: Optional[list] = None, margins: Optional[Sequence[float]] = None) -> Image.Image:
     """Load a plate and return the normalised bird artwork ('L')."""
-    gray = _trim_marginalia(load_gray(path))
+    gray = _trim_marginalia(load_gray(path), margins)
     if crop_box:
         # crop_box is normalised within the marginalia-trimmed plate
         box = _norm_box(gray, crop_box)
@@ -372,12 +381,12 @@ def extract(path: str | Path, composite: bool = False,
     return paper_normalize(crop)
 
 
-def extract_color(path: str | Path, composite: bool = False,
-                  crop_box: Optional[list] = None) -> tuple[Image.Image, Image.Image]:
+def extract_color(path: str | Path, composite: bool = False, crop_box: Optional[list] = None,
+                  margins: Optional[Sequence[float]] = None) -> tuple[Image.Image, Image.Image]:
     """extract for a colour panel: (gray, colour) of the same crop. The gray
     drives every layout decision exactly as on the gray panel; the colour twin
     is what gets placed."""
-    rgb = _trim_marginalia(load_color(path))
+    rgb = _trim_marginalia(load_color(path), margins)
     gray = rgb.convert("L")
     if crop_box:
         box = _norm_box(gray, crop_box)

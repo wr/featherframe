@@ -285,7 +285,7 @@ def load_folios(folios_dir: Path) -> list[tuple[str, dict, list]]:
 
 
 def fetch_havell(session: requests.Session, species: list, args, images_dir: Path,
-                 plate_legends: dict[int, dict]) -> tuple[list[dict], dict, dict]:
+                 plate_legends: dict[int, dict], header: dict) -> tuple[list[dict], dict, dict]:
     """Havell's crosswalk -> (index records, counts, the folio's extra header:
     its catalog). The mirror, the release and data.json's quirks stay here."""
     catalog_cache = paths.plates_dir() / "data.json"
@@ -362,8 +362,132 @@ def fetch_havell(session: requests.Session, species: list, args, images_dir: Pat
     return records, counts, {"catalog": rows}
 
 
-# Each folio's fetcher, by folio id.
+def scan_filename(folio: str, entry: dict) -> str:
+    """Where a scanned folio keeps a plate, under img/: one file per plate,
+    shared by every species on it."""
+    return f"{folio}/{folio.replace('_', '-')}-{int(entry['plate'])}.jpg"
+
+
+def _paper_surface(small):
+    """The paper's own tone across the sheet, per channel: a quadratic surface
+    fitted to the paper pixels only (those not much darker than the fit,
+    refitted a few times), so no subject however large is mistaken for paper."""
+    import numpy as np
+    a = np.asarray(small, dtype=np.float32)
+    h, w, _ = a.shape
+    yy, xx = np.mgrid[0:h, 0:w]
+    x, y = (xx / w - 0.5).ravel(), (yy / h - 0.5).ravel()
+    basis = np.stack([np.ones_like(x), x, y, x * x, x * y, y * y], axis=1)
+    luma = a.mean(axis=2).ravel()
+    paper = luma > np.percentile(luma, 50)
+    for _ in range(4):
+        coef, *_ = np.linalg.lstsq(basis[paper], luma[paper], rcond=None)
+        paper = luma > basis @ coef - 12        # within a few levels of the fit
+    chans = [np.linalg.lstsq(basis[paper], a[..., c].ravel()[paper], rcond=None)[0]
+             for c in range(3)]
+    return np.stack([(basis @ c).reshape(h, w) for c in chans], axis=2)
+
+
+def flatten_paper(im):
+    """Divide out the sheet's own paper tone (foxing, a lighting gradient) so
+    the paper is one even white: a sparse sheet is mostly paper, and what
+    paper_normalize would leave of the gradient is a grey cast on the glass.
+    Row strips keep the float working set small."""
+    import numpy as np
+    from PIL import Image
+    small_w = 256
+    small = im.resize((small_w, max(1, round(im.height * small_w / im.width))), Image.BILINEAR)
+    surf = _paper_surface(small)
+    white = float(np.percentile(surf.mean(axis=2), 95))
+    bg = Image.fromarray(np.clip(surf, 1, 255).astype(np.uint8)).resize(im.size, Image.BILINEAR)
+    out = Image.new("RGB", im.size)
+    for y in range(0, im.height, 512):
+        box = (0, y, im.width, min(im.height, y + 512))
+        a = np.asarray(im.crop(box), dtype=np.float32)
+        b = np.maximum(np.asarray(bg.crop(box), dtype=np.float32), 1.0)
+        out.paste(Image.fromarray(np.clip(a / b * white, 0, 255).astype(np.uint8)), box[:2])
+    return out
+
+
+def store_scan(raw: Path, dest: Path, rotate: int = 0, flatten: bool = False) -> None:
+    """The master, stood upright (and its paper evened, for a folio that asks),
+    as a JPEG like Havell's: what plate.py reads."""
+    from PIL import Image
+    Image.MAX_IMAGE_PIXELS = None
+    with Image.open(raw) as im:
+        im = im.convert("RGB")
+        if rotate:
+            im = im.rotate(rotate, expand=True)
+        if flatten:
+            im = flatten_paper(im)
+        tmp = dest.with_name(dest.name + ".part")
+        im.save(tmp, format="JPEG", quality=95)
+    tmp.replace(dest)
+
+
+def fetch_scans(folio: str):
+    """The fetcher for a folio whose header names a `scans` URL template:
+    one master per plate, {volume} and {leaf} filled from the entry."""
+    def fetch(session: requests.Session, species: list, args, images_dir: Path,
+              plate_legends: dict[int, dict], header: dict) -> tuple[list[dict], dict, dict]:
+        counts = {"downloaded": 0, "fallback": 0, "failed": 0}
+        records = []
+        for entry in species:
+            common = entry.get("common", "?")
+            record = {
+                "folio": folio,
+                "common": common,
+                "scientific": entry.get("scientific", ""),
+                "plate": entry.get("plate"),
+                "title": entry.get("gould_title") or entry.get("title", ""),
+                "composite": bool(entry.get("composite", False)),
+                "crop_box": entry.get("crop_box"),
+                "margins": entry.get("margins") or header.get("margins"),
+                "sci_synonyms": entry.get("sci_synonyms", []),
+                "image": None,
+                "legend": [str(x) for x in entry.get("legend") or []],
+            }
+            records.append(record)
+            if entry.get("plate") in (None, "none", False):
+                counts["fallback"] += 1
+                continue
+            name = scan_filename(folio, entry)
+            dest = images_dir / name
+            if dest.exists() and dest.stat().st_size > 0 and not args.force:
+                record["image"] = name
+                counts["downloaded"] += 1
+                continue
+            url = header["scans"].format(volume=entry["volume"], leaf=int(entry["leaf"]))
+            if args.dry_run:
+                print(f"  ·  {common}: plate {entry['plate']} (would download {url}, dry-run)")
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            raw = dest.with_name(dest.name + ".src")
+            if _fetch_to(session, url, raw):
+                try:
+                    flatten = entry.get("flatten", header.get("flatten", False))
+                    store_scan(raw, dest, int(entry.get("rotate") or 0), bool(flatten))
+                finally:
+                    raw.unlink(missing_ok=True)
+                record["image"] = name
+                counts["downloaded"] += 1
+                print(f"  ✓  {common}: plate {entry['plate']} -> {name}")
+                time.sleep(POLITE_PAUSE_S)
+            else:
+                counts["failed"] += 1
+                print(f"  !  could not download {common} ({url})")
+        return records, counts, {}
+    return fetch
+
+
+# Havell's own fetcher; any other folio is fetched from its header's `scans`.
 FETCHERS = {HAVELL: fetch_havell}
+
+
+def fetcher_for(folio: str, header: dict):
+    if folio in FETCHERS:
+        return FETCHERS[folio]
+    return fetch_scans(folio) if header.get("scans") else None
 
 
 def main() -> int:
@@ -394,14 +518,14 @@ def main() -> int:
     index_species, headers = [], {}
     totals = {"downloaded": 0, "fallback": 0, "failed": 0}
     for folio, header, species in folios:
-        fetch = FETCHERS.get(folio)
+        fetch = fetcher_for(folio, header)
         if fetch is None:
             print(f"  !  no fetcher for folio {folio!r}; skipped")
             continue
         print(f"== {header.get('title', folio)} ({folio})")
-        records, counts, extra = fetch(session, species, args, images_dir, plate_legends)
+        records, counts, extra = fetch(session, species, args, images_dir, plate_legends, header)
         index_species += records
-        headers[folio] = {**header, **extra}
+        headers[folio] = {k: v for k, v in {**header, **extra}.items() if k != "scans"}
         for k in totals:
             totals[k] += counts[k]
 

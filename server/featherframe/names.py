@@ -87,6 +87,7 @@ class PlateMatch:
     matched_by: str = "exact"
     legend: list = field(default_factory=list)   # the plate's printed figure key / plant lines
     folio: str = DEFAULT_FOLIO
+    margins: Optional[list] = None   # the part of the sheet kept, or None = Havell's
 
     @property
     def has_image(self) -> bool:
@@ -200,6 +201,7 @@ class SpeciesIndex:
                 matched_by="exact",
                 legend=[str(x) for x in (entry.get("legend") or [])],
                 folio=folio_of(entry),
+                margins=entry.get("margins"),
             )
             # A scan missing on disk degrades to the next folio, then the
             # fallback, rather than crash.

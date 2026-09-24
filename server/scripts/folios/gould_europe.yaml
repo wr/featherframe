@@ -1,0 +1,57 @@
+# Featherframe — the Gould folio: John Gould's "The Birds of Europe" (W-702).
+#
+# A folio is one historical edition of plates; see folios/havell.yaml. Havell
+# is asked first, so this folio only ever draws a species Audubon never
+# painted — the introductions North American stations hear most — until the
+# Region setting puts Europe first.
+#
+# Fields, per species:
+#   common, scientific, sci_synonyms, composite   as in folios/havell.yaml
+#   plate       Gould's number from the General List of Plates (vol. I), the
+#               book's own numbering: the plates were issued unnumbered, and
+#               each Smithsonian copy carries its number in pencil
+#   gould_title the plate's engraved caption (informational)
+#   volume      the Internet Archive / BHL id of the volume the plate is bound in
+#   leaf        the scan's leaf number in that volume (IA's, from 1, no gaps)
+#   rotate      degrees counter-clockwise (PIL's sense) to stand a landscape plate upright
+#               (its caption then runs along the bottom)
+#   legend      the plate's own caption line for this species, on a sheet
+#               that shows more than one
+#   margins     [left, top, right, bottom], the part of the (upright) sheet
+#               kept before the crop: below the art and above the caption,
+#               clear of the pencilled number. The folio's `margins` serve its
+#               portrait plates; a landscape plate (or one lettered higher)
+#               names its own.
+#
+# Every pin was checked by eye against the engraved caption on the scan and
+# the number against the printed General List. Traps:
+#   - Gould's "Black-headed Gull" (Xema melanocephala, plate 427) is today's
+#     Mediterranean Gull; the modern Black-headed Gull is his "Laughing Gull"
+#     (Xema ridibunda, plate 425) — not Havell's Laughing Gull, an American
+#     species. Match on the modern binomial, never the common name.
+#   - The grey-headed "caniceps" goldfinch in Gould's Birds of Asia is not the
+#     European Goldfinch (docs/plate-sources.md); plate 196 here is.
+
+folio:
+  title: "The Birds of Europe"
+  artist: "John Gould, with Edward Lear"
+  years: "1832–1837"
+  plates: 449
+  margins: [0.03, 0.03, 0.97, 0.80]
+  flatten: true
+  source: "Smithsonian Libraries, via the Biodiversity Heritage Library"
+  credit: "Smithsonian Libraries and Archives, via the Biodiversity Heritage Library. Public domain."
+  # The full-resolution masters on BHL's public S3 bucket (no key needed).
+  scans: "https://bhl-open-data.s3.us-east-2.amazonaws.com/images/{volume}/{volume}_{leaf:04d}.jp2"
+
+species:
+  # --- The introductions: what a North American station hears that Audubon never painted
+  - {common: "House Sparrow",         scientific: "Passer domesticus",  plate: 184, gould_title: "1. House Sparrow. 2. Tree Sparrow.", volume: birdsEuropeIIIGoul, leaf: 150, composite: true, margins: [0.03, 0.03, 0.97, 0.787], legend: ["1. House Sparrow."]}
+  - {common: "European Starling",     scientific: "Sturnus vulgaris",   plate: 210, gould_title: "Starling",         volume: birdsEuropeIIIGoul, leaf: 254}
+  - {common: "Rock Pigeon",           scientific: "Columba livia",      plate: 245, gould_title: "Rock Dove",        volume: birdsEuropeIVGoul,  leaf: 22}
+  - {common: "Ring-necked Pheasant",  scientific: "Phasianus colchicus", plate: 247, gould_title: "Common Pheasant", volume: birdsEuropeIVGoul,  leaf: 30,  rotate: 270, margins: [0.062, 0.03, 0.98, 0.955]}
+  - {common: "Mute Swan",             scientific: "Cygnus olor",        plate: 354, gould_title: "Domestic Swan, Cygnus mansuetus", volume: birdsEuropeVGoul, leaf: 46, rotate: 270, margins: [0.08, 0.03, 0.98, 0.88]}
+  - {common: "European Goldfinch",    scientific: "Carduelis carduelis", plate: 196, gould_title: "Goldfinch, Carduelis elegans", volume: birdsEuropeIIIGoul, leaf: 198}
+  - {common: "Black-headed Gull",     scientific: "Chroicocephalus ridibundus", plate: 425, gould_title: "Laughing Gull, Xema ridibundus", volume: birdsEuropeVGoul, leaf: 330, rotate: 270, margins: [0.11, 0.03, 0.98, 0.915], sci_synonyms: ["Larus ridibundus"]}
+  # The House Sparrow's sheet also shows the Tree Sparrow, as figure 2.
+  - {common: "Eurasian Tree Sparrow", scientific: "Passer montanus",    plate: 184, gould_title: "1. House Sparrow. 2. Tree Sparrow.", volume: birdsEuropeIIIGoul, leaf: 150, composite: true, margins: [0.03, 0.03, 0.97, 0.787], legend: ["2. Tree Sparrow."]}

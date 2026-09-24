@@ -51,7 +51,7 @@ def test_a_generated_plate_carries_the_star_alone_and_a_bough_nothing():
 
 
 def test_the_footnote_clears_the_widest_numeral():
-    widest = max(range(1, theme.HAVELL_PLATES + 1), key=typography.plate_mark_width)
+    widest = max(range(1, theme.MAX_PLATE + 1), key=typography.plate_mark_width)
     assert typography.plate_mark_max_width() == typography.plate_mark_width(widest)
     assert compose.note_width() <= theme.WIDTH - 2 * (
         theme.CORNER_INSET + typography.plate_mark_max_width() + theme.NOTE_MARK_GAP)

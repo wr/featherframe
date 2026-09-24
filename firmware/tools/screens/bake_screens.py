@@ -88,8 +88,11 @@ ROMAN = os.path.join(FONTS, "EBGaramond[wght].ttf")
 ITALIC = os.path.join(FONTS, "EBGaramond-Italic[wght].ttf")
 SANS = os.path.join(HERE, "fonts", "Inter-Medium.otf")
 
-# Firmware version baked into the splash footer. Bump and re-run on release.
-VERSION = "v 1.0.1"
+# The splash's version line is not baked: the firmware sets its own
+# FF_FW_VERSION there at boot from these glyphs (version_glyphs), so the line
+# is always the build on the glass. "v 0.2.4" for a release, "dev 2026.09.24"
+# for a dev build.
+VERSION_CHARS = "vde0123456789. "
 
 def font(size, italic=False, weight=None):
     f = ImageFont.truetype(ITALIC if italic else ROMAN, size)
@@ -277,11 +280,77 @@ def draw_wordmark(im):
                            stroke=theme.TITLE_STROKE)
 
 def draw_version(im):
+    """The hedera over the version line; the line itself is the firmware's."""
     d = ImageDraw.Draw(im)
     d.text((W / 2, HEDERA_BASELINE), theme.DATE_ORNAMENT,
            font=font(36, italic=True, weight=500), fill=0, anchor="ms")
-    typography.draw_engraved(d, W / 2, VERSION_BASELINE, VERSION,
-                             theme.SUBTITLE_SIZE, 0)
+
+def _engraved_font():
+    f = typography.engraved(theme.SUBTITLE_SIZE)
+    if f is None:
+        sys.exit("the engraved capitals are missing; the version line must be the plates' face")
+    return f
+
+def version_glyphs():
+    """The version line's characters, each set as draw_engraved sets it on the
+    baseline and cut as a native tile the firmware lays into the splash body
+    (darkest wins, so neighbours may overlap). Returns the band's portrait
+    rows (y0, height: both even, so a row is whole bytes), the tracking and
+    each glyph's (ch, dx, advance, tile) — dx and advance in portrait px,
+    the advance ×16, the tile w×bh portrait as native nibbles (bytes)."""
+    fnt = _engraved_font()
+    size = theme.SUBTITLE_SIZE
+    ox = 200                                     # a pen origin on a scratch canvas
+    cuts = []
+    for ch in VERSION_CHARS:
+        im = Image.new("L", (W, H), 255)
+        ImageDraw.Draw(im).text((ox, VERSION_BASELINE), ch, font=fnt, fill=0, anchor="ls")
+        cuts.append((ch, im))
+    a = np.stack([np.asarray(im) for _, im in cuts]).min(axis=0)
+    rows = np.where((a < 250).any(axis=1))[0]
+    y0 = (int(rows.min()) - 2) & ~1
+    y1 = (int(rows.max()) + 4) & ~1
+    glyphs = []
+    for ch, im in cuts:
+        cols = np.where((np.asarray(im)[y0:y1] < 250).any(axis=0))[0]
+        adv = round(fnt.getlength(ch) * 16)
+        if not len(cols):
+            glyphs.append((ch, 0, adv, b""))
+            continue
+        x0, x1 = int(cols.min()) - 1, int(cols.max()) + 2
+        tile = _pack_nibbles(_to_native_nibbles(im.crop((x0, y0, x1, y1))))
+        glyphs.append((ch, x0 - ox, adv, tile))
+    return y0, y1 - y0, round(size * theme.SUBTITLE_TRACKING * 16), glyphs
+
+def version_line(fw):
+    """What the firmware sets for FF_FW_VERSION (the same rule as
+    splashVersion() in main.cpp), for the contact sheet and the check."""
+    if "+" in fw:
+        return "dev " + fw.split("+")[0]
+    if fw and all(c.isdigit() or c == "." for c in fw):
+        return "v " + fw
+    return "dev"
+
+def stamp_version(native, text):
+    """stampVersion() in main.cpp, step for step: lay `text` into a splash's
+    native nibbles (uint8 [NATIVE_H, NATIVE_W], 0 = black), darkest wins."""
+    y0, bh, track16, glyphs = version_glyphs()
+    by = {g[0]: g for g in glyphs}
+    chars = [by[c] for c in text if c in by]
+    total16 = sum(g[2] for g in chars) + track16 * max(0, len(chars) - 1)
+    pen16 = (W // 2) * 16 - total16 // 2
+    out = native.copy()
+    for _ch, dx, adv, tile in chars:
+        px = (pen16 + 8) // 16 + dx
+        if tile:
+            w = len(tile) * 2 // bh
+            t = np.frombuffer(tile, dtype=np.uint8).reshape(w, bh // 2)
+            nib = np.empty((w, bh), dtype=np.uint8)
+            nib[:, 0::2], nib[:, 1::2] = t >> 4, t & 15
+            r0 = W - px - w                      # portrait columns -> native rows
+            out[r0:r0 + w, y0:y0 + bh] = np.minimum(out[r0:r0 + w, y0:y0 + bh], nib)
+        pen16 += adv + track16
+    return out
 
 PILL_TEXT = {
     "wifi":     "Connecting to Wi-Fi",
@@ -732,6 +801,28 @@ def write_header():
         if ld:
             for k, t in enumerate(ld[1]):
                 emit_array(f"ff_tldr_{i}_{k}", t)
+    vy0, vbh, vtrack, glyphs = version_glyphs()
+    for k, (_ch, _dx, _adv, t) in enumerate(glyphs):
+        if t:
+            emit_array(f"ff_ver_{k}", t)
+    L += ["// The splash's version line, set by the firmware from FF_FW_VERSION",
+          "// (splashVersion): glyphs in the plates' engraved capitals, centred on",
+          "// FF_VER_CX (portrait px) and laid darkest-wins into the decoded body. A",
+          "// glyph's tile is w x FF_VER_BH portrait, stored native: w rows of",
+          "// FF_VER_BH/2 bytes, row 0 = its rightmost portrait column; its band",
+          "// starts at native byte column FF_VER_Y0/2. dx: ink left of the pen;",
+          "// adv and FF_VER_TRACK16 in 1/16 px.",
+          f"#define FF_VER_CX         {W // 2}",
+          f"#define FF_VER_Y0         {vy0}",
+          f"#define FF_VER_BH         {vbh}",
+          f"#define FF_VER_TRACK16    {vtrack}",
+          "struct FfGlyph { char ch; int8_t dx; uint8_t w; uint16_t adv16; const uint8_t* data; };",
+          f"#define FF_VER_GLYPHS     {len(glyphs)}",
+          "static const FfGlyph ff_ver_glyphs[FF_VER_GLYPHS] = {"]
+    for k, (ch, dx, adv, t) in enumerate(glyphs):
+        w = len(t) * 2 // vbh if t else 0
+        L.append(f"  {{ '{ch}', {dx}, {w}, {adv}, {f'ff_ver_{k}' if t else 'nullptr'} }},")
+    L += ["};", ""]
     L += ["struct FfScreenAsset { const uint8_t* data; uint32_t len; };",
           "static const FfScreenAsset ff_screens[FF_SCR_COUNT] = {"]
     for arr, ln in refs:
@@ -788,6 +879,9 @@ def write_preview():
     for idx, (name, im) in enumerate(SCREENS):
         g = apply_curve(im)
         g = g.point(lambda p: (p * 15 // 255) * 255 // 15)   # simulate 16 gray levels
+        if name == "SPLASH":                                  # as a release sets it
+            nat = stamp_version(_to_native_nibbles(im), version_line("1.2.3"))
+            g = Image.fromarray((np.rot90(nat, k=-(PANEL_ROTATION // 90)) * 17).astype(np.uint8), "L")
         one = g.resize((tw, th), Image.LANCZOS)
         r, cc = divmod(idx, cols)
         x = pad + cc * (tw + pad); y = pad + r * (th + 70)

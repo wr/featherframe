@@ -1144,6 +1144,56 @@ void freeScreenBuffers() {
   g_scrHavePrev = false;
 }
 
+// The splash's version line is this build's own: "v 0.2.4" for a release,
+// "dev 2026.09.24" for a dev build (FF_FW_VERSION "2026.09.24+sha"), "dev"
+// with no git. The same rule as version_line() in bake_screens.py.
+static void splashVersion(char* out, size_t n) {
+  const char* v = FF_FW_VERSION;
+  const char* plus = strchr(v, '+');
+  bool release = !plus && v[0];
+  for (const char* c = v; *c && release; c++) release = isdigit((unsigned char)*c) || *c == '.';
+  if (plus) snprintf(out, n, "dev %.*s", (int)(plus - v), v);
+  else snprintf(out, n, release ? "v %s" : "dev", v);
+}
+
+static const FfGlyph* versionGlyph(char ch) {
+  for (int i = 0; i < FF_VER_GLYPHS; i++)
+    if (ff_ver_glyphs[i].ch == ch) return &ff_ver_glyphs[i];
+  return nullptr;
+}
+
+// Sets the version line into a decoded (unflipped) splash body, centred as
+// draw_engraved centres it. Darkest wins, so the glyphs' edges may overlap.
+static void stampVersion(uint8_t* body) {
+  char text[32];
+  splashVersion(text, sizeof(text));
+  int32_t total16 = 0; int count = 0;
+  for (const char* c = text; *c; c++) {
+    const FfGlyph* g = versionGlyph(*c);
+    if (!g) continue;
+    total16 += g->adv16 + (count++ ? FF_VER_TRACK16 : 0);
+  }
+  int32_t pen16 = FF_VER_CX * 16 - total16 / 2;
+  const int bytes = FF_VER_BH / 2;
+  for (const char* c = text; *c; c++) {
+    const FfGlyph* g = versionGlyph(*c);
+    if (!g) continue;
+    // Portrait columns [px, px+w) are native rows [FF_NATIVE_H - px - w, FF_NATIVE_H - px).
+    const int px = (pen16 + 8) / 16 + g->dx;
+    const int row0 = FF_NATIVE_H - px - g->w;
+    for (int r = 0; g->data && r < g->w; r++) {
+      if (row0 + r < 0 || row0 + r >= FF_NATIVE_H) continue;
+      uint8_t* d = body + (size_t)(row0 + r) * FF_GRAY_STRIDE + FF_VER_Y0 / 2;
+      const uint8_t* s = g->data + (size_t)r * bytes;
+      for (int b = 0; b < bytes; b++) {
+        const uint8_t hi = min(d[b] >> 4, s[b] >> 4), lo = min(d[b] & 15, s[b] & 15);
+        d[b] = (uint8_t)((hi << 4) | lo);
+      }
+    }
+    pen16 += g->adv16 + FF_VER_TRACK16;
+  }
+}
+
 void showScreen(int idx) {
   if (idx < 0 || idx >= FF_SCR_COUNT) return;
   uint8_t*& buf  = g_scrBuf;                        // aliases onto the file-scope bufs
@@ -1169,6 +1219,7 @@ void showScreen(int idx) {
   }
   uint8_t* body = buf + FFF_HEADER_SIZE;
   ff_unpack(ff_screens[idx].data, ff_screens[idx].len, body);
+  if (idx == FF_SCR_SPLASH) stampVersion(body);
   if (g_flip) rotate180(body, FF_SCREEN_BYTES);   // the partial windows below derive from this body
 
   g_loaderAnim.on = false;        // pause the sweep while the glass changes

@@ -580,7 +580,7 @@ have no tile); out of deep sleep there is no retained plate, so "Up to date"
 refetches the plate with the pill armed and the corner mark becomes the full
 error screen. A frame whose last picture was a pairing code (NVS `unpaired`) paints no
 "Connecting" at all, so a restart or a Wi-Fi reset goes straight to the code.
-Boot is one baked "Connecting" screen (every boot stage maps to
+The gray splash's version line is not baked (W-858): the bake ships its glyphs (`ff_ver_glyphs`) and `stampVersion` sets `FF_FW_VERSION` there at boot — "v 0.2.5" for a release, "dev 2026.09.24" for a dev build; `bake_screens.stamp_version` mirrors it and a test holds it to `draw_engraved`. Boot is one baked "Connecting" screen (every boot stage maps to
 `FF_SCR_BOOT_WIFI`, painted while Wi-Fi joins underneath) that gives way to a
 specific error screen only on failure; no loading sweep. Baked screens and
 tiles live in `ff_screens_ee02.h`, from the same bake (the screens are the

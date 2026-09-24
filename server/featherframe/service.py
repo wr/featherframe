@@ -1847,7 +1847,7 @@ class FeatherframeService:
                 "kits": kits}
 
     def check_firmware(self) -> dict:
-        """Ask for the latest release now (the page's *Check now*)."""
+        """Ask for the latest release now (the ⋯ menu's *Check for updates*)."""
         self.releases.check(self._clock(), force=True)
         self._tick_firmware(check=False)
         return self.firmware_status()

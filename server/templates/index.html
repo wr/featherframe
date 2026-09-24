@@ -1158,6 +1158,7 @@
             <div class="fr-menu" id="fr-menu" role="menu" hidden>
               {% if hosted %}<button type="button" role="menuitem" id="pair-open">Pair a frame</button>{% endif %}
               <button type="button" role="menuitem" id="usb-open">USB firmware update</button>
+              <button type="button" role="menuitem" id="fw-check">Check for updates</button>
               <hr>
               <a role="menuitem" href="https://shop.wells.ee/products/featherframe/" target="_blank" rel="noopener">Buy a frame</a>
               <a role="menuitem" href="https://github.com/wr/featherframe#shopping-list" target="_blank" rel="noopener">DIY instructions</a>
@@ -2794,6 +2795,37 @@
     }
     dlg.querySelectorAll('input[name="usb-kit"]').forEach(function (r) { r.addEventListener('change', render); });
     open.addEventListener('click', function () { closeMenu(); render(); dlg.showModal(); refreshSegs(dlg); });
+  })();
+
+  // -- Check for updates (the ⋯ menu): ask for the latest release now ------------
+  // The server otherwise asks once a day. Frames behind it get Update on their
+  // rows, which the reload brings in.
+  (function () {
+    var btn = $('fw-check');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      closeMenu();
+      showFlash('ok', 'Checking for updates…', 'ic-check', true);
+      jsonFetch('/api/firmware/check', { method: 'POST' })
+        .then(function (fw) {
+          if (fw.error || !fw.latest) {
+            showFlash('bad', 'Couldn’t check for updates. Try again later.', 'ic-warn');
+            return;
+          }
+          return jsonFetch('/api/status').then(function (st) {
+            var behind = ((st.frames && st.frames.list) || []).some(function (f) {
+              return f.firmware && f.firmware.available;
+            });
+            if (!behind) {
+              showFlash('ok', 'Up to date (' + fw.latest + ').', 'ic-check');
+              return;
+            }
+            showFlash('ok', 'Featherframe ' + fw.latest + ' is available. Update each frame from its row.', 'ic-check', true);
+            setTimeout(function () { location.reload(); }, 2500);
+          });
+        })
+        .catch(function () { showFlash('bad', 'Couldn’t check for updates. Try again later.', 'ic-warn'); });
+    });
   })();
 
   // -- dialogs: a click outside the box closes it --------------------------------

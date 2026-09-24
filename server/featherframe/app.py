@@ -408,7 +408,7 @@ async def api_firmware(request: Request):
 
 @app.post("/api/firmware/check")
 async def api_firmware_check(request: Request):
-    """Ask GitHub for the latest official release now (the page's Check now)."""
+    """Ask GitHub for the latest official release now (the ⋯ menu's Check for updates)."""
     if not _same_origin(request):
         return _forbidden_cross_origin()
     return JSONResponse(await run_in_threadpool(_svc(request).check_firmware))

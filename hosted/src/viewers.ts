@@ -13,7 +13,7 @@
 // the first 32 hex of the hash of the device's key (`t`), never the key.
 
 import type { Env } from "./index";
-import { LOBBY_DRAWING, pairingCode } from "./pairing";
+import { LOBBY_DRAWING, expiryText, pairingCode } from "./pairing";
 import { randomHex, sha256 } from "./util";
 import viewPage from "../../server/templates/view.html";
 import favicon192 from "../../server/static/favicon-192.png";
@@ -107,14 +107,15 @@ export async function viewerRoute(request: Request, env: Env, url: URL,
     ? { transport: "page", w: num(url.searchParams.get("w")), h: num(url.searchParams.get("h")),
         device: (url.searchParams.get("device") || "").slice(0, 40) }
     : { transport: "trmnl", headers: trmnlHeaders(request) };
-  const code = await pairingCode(env, id, keyHash, report);
+  const { code, expiresAt } = await pairingCode(env, id, keyHash, report);
   const shown = `${code.slice(0, 3)}-${code.slice(3)}`;
   if (page) {
     return Response.json({ image: null, dark: false, waiting: true, id: shortOf(id), code: shown,
                            poll: PAGE_POLL_S }, { headers: { "Cache-Control": "no-store" } });
   }
   const h = (report as { headers: Record<string, string> }).headers;
-  const name = `pair-${code}-${(await sha256(LOBBY_DRAWING + JSON.stringify(h))).slice(0, 8)}`;
+  const expires = expiryText(expiresAt, request);
+  const name = `pair-${code}-${(await sha256(LOBBY_DRAWING + expires + JSON.stringify(h))).slice(0, 8)}`;
   return Response.json(display(env, id, name, imageToken(keyHash), PAIRING_REFRESH_S));
 }
 
@@ -161,21 +162,22 @@ async function imageRoute(request: Request, env: Env, rawId: string, name: strin
   const m = name.match(/^pair-([A-Z]{6})-/);
   if (!m) return new Response("not found", { status: 404 });
   const row = await env.DB.prepare(
-    "SELECT report FROM pairing WHERE code = ? AND device_id = ? AND substr(key_hash, 1, 32) = ? AND expires_at > ?")
-    .bind(m[1], id, t, Math.floor(Date.now() / 1000)).first<{ report: string }>();
+    "SELECT report, expires_at FROM pairing WHERE code = ? AND device_id = ? AND substr(key_hash, 1, 32) = ? AND expires_at > ?")
+    .bind(m[1], id, t, Math.floor(Date.now() / 1000)).first<{ report: string; expires_at: number }>();
   if (!row) return new Response("not found", { status: 404 });
   const h = (JSON.parse(row.report || "{}").headers || {}) as Record<string, string>;
-  return lobbyPng(env, `${m[1].slice(0, 3)}-${m[1].slice(3)}`, h, name, (p) => ctx.waitUntil(p));
+  return lobbyPng(env, `${m[1].slice(0, 3)}-${m[1].slice(3)}`, h, name, (p) => ctx.waitUntil(p),
+                  expiryText(row.expires_at, request));
 }
 
 /** A viewer's pairing code (or, with no code, the waiting plate) drawn by the
  * Lobby for its own screen, cached in R2 by name. */
 export async function lobbyPng(env: Env, code: string, h: Record<string, string>, name: string,
-                               keep: (p: Promise<unknown>) => void): Promise<Response> {
+                               keep: (p: Promise<unknown>) => void, expires = ""): Promise<Response> {
   const cacheKey = `lobby/viewers/${name}.png`;
   let obj = await env.DATA.get(cacheKey);
   if (!obj) {
-    const q = new URLSearchParams({ code, w: h.width || "", h: h.height || "", model: h.model || "" });
+    const q = new URLSearchParams({ code, expires, w: h.width || "", h: h.height || "", model: h.model || "" });
     // Kept even if the device stops waiting (as a kit's code, index.ts).
     const drawn = (async () => {
       const r = await env.LOBBY.getByName("lobby").fetch(`http://lobby/render-view?${q}`);

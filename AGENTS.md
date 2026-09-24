@@ -414,7 +414,10 @@ the firmware makes once at first boot (NVS `ffkey`) — a MAC alone gets
 nothing. A frame no one has claimed is shown a pairing code (letters only),
 drawn for its own panel by the `Lobby` Container (`featherframe/lobby.py`,
 same image) as the kit's boot screen: the bough over the wordmark, the code
-where the splash sets its version (`welcome.render_pairing`), and cached in
+where the splash sets its version, and under it when the code expires in
+the frame's own time zone (Cloudflare's, by its IP: `pairing.expiryText`), so
+a frame found unpowered in a drawer says whether its code is still good
+(`welcome.render_pairing`), and cached in
 R2 (bump `LOBBY_DRAWING` in `pairing.ts` when that drawing changes, or old
 codes keep the old one); the owner types it under the Frames card's
 *Pair a frame* (hosted only; one large field that keeps six letters as

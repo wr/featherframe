@@ -57,24 +57,19 @@ def entry_key(entry: dict) -> str:
     """One key per distinct crop: the plate, and how it is cut. Species that
     share a composite plate share its file."""
     how = [bool(entry.get("composite")), entry.get("crop_box")]
-    if entry.get("margins"):
-        how.append(entry["margins"])     # only a folio's own cut: Havell's keys stand
+    if entry.get("margins") or entry.get("tight"):
+        # only a folio's own cut: Havell's keys stand
+        how += [entry.get("margins"), bool(entry.get("tight"))]
     how = json.dumps(how, sort_keys=True)
     stem = Path(str(entry["image"])).stem
     return f"{stem}-{hashlib.sha1(how.encode()).hexdigest()[:8]}"
 
 
-def _raw_color_crop(path: Path, composite: bool, crop_box, margins=None) -> Image.Image:
+def _raw_color_crop(path: Path, composite: bool, crop_box, margins=None,
+                    tight: bool = False) -> Image.Image:
     """plate.extract_color() up to, not including, its normalisation."""
     rgb = plate._trim_marginalia(plate.load_color(path), margins)
-    gray = rgb.convert("L")
-    if crop_box:
-        box = plate._norm_box(gray, crop_box)
-    elif composite:
-        box = (0, 0, gray.width, gray.height)
-    else:
-        box = plate.content_box(gray)
-    return rgb.crop(box)
+    return rgb.crop(plate._box(rgb.convert("L"), composite, crop_box, tight))
 
 
 def color_pair_from_raw(raw: Image.Image) -> tuple[Image.Image, Image.Image]:
@@ -105,9 +100,10 @@ def build(out_dir: Path, index_path: Optional[Path] = None,
                 kept += 1
             else:
                 composite, box = bool(entry.get("composite")), entry.get("crop_box")
-                margins = entry.get("margins")
-                gray = plate.extract(scan, composite=composite, crop_box=box, margins=margins)
-                raw = _raw_color_crop(scan, composite, box, margins)
+                margins, tight = entry.get("margins"), bool(entry.get("tight"))
+                gray = plate.extract(scan, composite=composite, crop_box=box,
+                                     margins=margins, tight=tight)
+                raw = _raw_color_crop(scan, composite, box, margins, tight)
                 _atomic_save(gray, gray_p, format="PNG", optimize=True)
                 _atomic_save(raw, color_p, format="WEBP", lossless=True, method=4)
                 made += 1

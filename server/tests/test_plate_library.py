@@ -120,7 +120,7 @@ def test_the_library_carries_every_folio(tmp_path):
     entries = ENTRIES + [{"folio": "gould", "common": "House Sparrow",
                           "scientific": "Passer domesticus", "plate": 180,
                           "image": "gould/gould-europe-180-house-sparrow.webp",
-                          "margins": [0.05, 0.03, 0.95, 0.8]}]
+                          "margins": [0.05, 0.03, 0.95, 0.8], "tight": True}]
     index = tmp_path / "index.json"
     index.write_text(json.dumps({"generated_at": "x", "species": entries, "folios": {
         "havell": {"title": "The Birds of America", "catalog": [{"plate": 1}]},

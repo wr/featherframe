@@ -22,6 +22,8 @@
 #               clear of the pencilled number. The folio's `margins` serve its
 #               portrait plates; a landscape plate (or one lettered higher)
 #               names its own.
+#   (folio-wide: `flatten` clears the paper to white at fetch time; `tight`
+#   crops to the art's own box — see the folio header)
 #
 # Every pin was checked by eye against the engraved caption on the scan and
 # the number against the printed General List. Traps:
@@ -39,6 +41,8 @@ folio:
   plates: 449
   margins: [0.03, 0.03, 0.97, 0.80]
   flatten: true
+  # Crop to the art's own box: a Gould sheet is one vignette on a lot of paper.
+  tight: true
   source: "Smithsonian Libraries, via the Biodiversity Heritage Library"
   credit: "Smithsonian Libraries and Archives, via the Biodiversity Heritage Library. Public domain."
   # The full-resolution masters on BHL's public S3 bucket (no key needed).

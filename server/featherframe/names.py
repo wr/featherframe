@@ -88,6 +88,7 @@ class PlateMatch:
     legend: list = field(default_factory=list)   # the plate's printed figure key / plant lines
     folio: str = DEFAULT_FOLIO
     margins: Optional[list] = None   # the part of the sheet kept, or None = Havell's
+    tight: bool = False              # crop to the art's own box (a sparse folio's sheets)
 
     @property
     def has_image(self) -> bool:
@@ -202,6 +203,7 @@ class SpeciesIndex:
                 legend=[str(x) for x in (entry.get("legend") or [])],
                 folio=folio_of(entry),
                 margins=entry.get("margins"),
+                tight=bool(entry.get("tight")),
             )
             # A scan missing on disk degrades to the next folio, then the
             # fallback, rather than crash.

@@ -227,5 +227,5 @@ def test_flatten_paper_evens_a_gradient(fp):
     ImageDraw.Draw(im).rectangle((150, 250, 250, 350), fill=(30, 30, 30))   # the "bird"
     out = np.asarray(fp.flatten_paper(im).convert("L"), dtype=np.float32)
     paper = np.concatenate([out[20:200].ravel(), out[420:580].ravel()])
-    assert paper.std() < 4 and paper.mean() > 240       # one even white
+    assert (paper == 255).mean() > 0.99                  # cleared to pure white
     assert out[300, 200] < 80                             # the ink stays ink

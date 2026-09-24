@@ -388,24 +388,30 @@ def _paper_surface(small):
     return np.stack([(basis @ c).reshape(h, w) for c in chans], axis=2)
 
 
-def flatten_paper(im):
-    """Divide out the sheet's own paper tone (foxing, a lighting gradient) so
-    the paper is one even white: a sparse sheet is mostly paper, and what
-    paper_normalize would leave of the gradient is a grey cast on the glass.
-    Row strips keep the float working set small."""
+# How close to the paper's own tone a pixel must be to become pure white: the
+# paper's grain and stains are not the artist's, and on e-ink any of it left
+# near-white dithers into a grey speckle (Wells, 24 Sep 2026: "quite light").
+PAPER_CLEAR = 0.94
+
+
+def flatten_paper(im, clear: float = PAPER_CLEAR):
+    """Divide out the sheet's own paper tone (foxing, a lighting gradient) and
+    clear it to pure white: a sparse sheet is mostly paper, and what
+    paper_normalize would leave of it is a grey cast on the glass. Anything
+    within `clear` of the paper becomes white; darker ink keeps its tone,
+    stretched by the same factor. Row strips keep the float working set small."""
     import numpy as np
     from PIL import Image
     small_w = 256
     small = im.resize((small_w, max(1, round(im.height * small_w / im.width))), Image.BILINEAR)
     surf = _paper_surface(small)
-    white = float(np.percentile(surf.mean(axis=2), 95))
     bg = Image.fromarray(np.clip(surf, 1, 255).astype(np.uint8)).resize(im.size, Image.BILINEAR)
     out = Image.new("RGB", im.size)
     for y in range(0, im.height, 512):
         box = (0, y, im.width, min(im.height, y + 512))
         a = np.asarray(im.crop(box), dtype=np.float32)
         b = np.maximum(np.asarray(bg.crop(box), dtype=np.float32), 1.0)
-        out.paste(Image.fromarray(np.clip(a / b * white, 0, 255).astype(np.uint8)), box[:2])
+        out.paste(Image.fromarray(np.clip(a / b / clear * 255.0, 0, 255).astype(np.uint8)), box[:2])
     return out
 
 
@@ -443,6 +449,7 @@ def fetch_scans(folio: str):
                 "composite": bool(entry.get("composite", False)),
                 "crop_box": entry.get("crop_box"),
                 "margins": entry.get("margins") or header.get("margins"),
+                "tight": bool(entry.get("tight", header.get("tight", False))),
                 "sci_synonyms": entry.get("sci_synonyms", []),
                 "image": None,
                 "legend": [str(x) for x in entry.get("legend") or []],

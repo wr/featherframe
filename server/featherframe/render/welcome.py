@@ -14,8 +14,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
+from .. import paths
 from . import system, theme, typography
 
 LABEL = "No detections yet"
@@ -30,8 +31,15 @@ SOURCE_UP_HINT = "The first detection will appear here"
 WAITING_LINE = "ADD THIS FRAME ON THE FEATHERFRAME PAGE"
 _WAITING_SIZE = 40
 _WAITING_ID_SIZE = 28
-_CODE_SIZE = 120
 PAIRING_LINE = "PAIR THIS FRAME AT APP.FEATHERFRAME.APP"
+# The pairing screen is the kit's boot screen (bake_screens.py): the bough,
+# the wordmark on its baseline, and the code where the splash sets its
+# version and the boot screens rest their pills.
+_BOOT_WORDMARK_BASELINE = 1534
+_CODE_BASELINE = 1712
+_CODE_SIZE = 84
+_PAIRING_LINE_BASELINE = 1792
+_PAIRING_LINE_SIZE = 24
 
 
 def since_words(since: datetime) -> str:
@@ -40,12 +48,10 @@ def since_words(since: datetime) -> str:
     return f"Listening since {since.day} {since.strftime('%B')}, {stamp}"
 
 
-def render_waiting(short_id: str = "", line: str = WAITING_LINE, code: str = "") -> Image.Image:
+def render_waiting(short_id: str = "", line: str = WAITING_LINE) -> Image.Image:
     """What a screen shows while it waits to be added (W-833): the wordmark,
     and under it the one thing the owner has to do. A TRMNL and an e-reader
-    fetch this as their image; the kiosk page says the same in HTML. A hosted
-    frame no one has claimed (W-845) gets the pairing `line` and its `code`,
-    large, in place of the short id."""
+    fetch this as their image; the kiosk page says the same in HTML."""
     field = Image.new("L", (theme.WIDTH, theme.HEIGHT), theme.FIELD)
     draw = ImageDraw.Draw(field)
     cx = theme.WIDTH / 2
@@ -60,12 +66,30 @@ def render_waiting(short_id: str = "", line: str = WAITING_LINE, code: str = "")
     while size > 22 and typography.engraved_width(line, size) > theme.CONTENT_W:
         size -= 1
     typography.draw_engraved(draw, cx, baseline + 220, line, size, theme.INK)
-    if code:
-        typography.draw_engraved(draw, cx, baseline + 220 + _CODE_SIZE + 60, code, _CODE_SIZE, theme.INK)
-    elif short_id:
+    if short_id:
         typography.draw_engraved(draw, cx, baseline + 220 + _WAITING_SIZE * 2,
                                  str(short_id), _WAITING_ID_SIZE, theme.INK_SOFT)
     return field
+
+
+def render_pairing(code: str, color: bool = False) -> Image.Image:
+    """What a hosted frame no one has claimed shows (W-845): the kit's own
+    boot screen, the empty bough over the wordmark, with its pairing `code`
+    under the wordmark and the one line that says where to type it. `color`:
+    the bough in colour under the same type, for a colour panel."""
+    type_ = Image.new("L", (theme.WIDTH, theme.HEIGHT), theme.FIELD)
+    cx = theme.WIDTH / 2
+    typography.draw_script(type_, cx, _BOOT_WORDMARK_BASELINE, "Featherframe",
+                           typography.fit_script_title("Featherframe", theme.CONTENT_W),
+                           theme.INK, stroke=theme.TITLE_STROKE)
+    draw = ImageDraw.Draw(type_)
+    typography.draw_engraved(draw, cx, _CODE_BASELINE, code, _CODE_SIZE, theme.INK)
+    typography.draw_engraved(draw, cx, _PAIRING_LINE_BASELINE, PAIRING_LINE,
+                             _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
+    mode, name = ("RGB", "bough_color.png") if color else ("L", "bough.png")
+    art = Image.new(mode, type_.size, "white")
+    art.paste(Image.open(paths.art_dir() / name).convert(mode), (0, 0))
+    return ImageChops.darker(type_.convert(mode), art)
 
 
 def render_welcome(since: datetime, source_ok: bool,

@@ -121,3 +121,26 @@ def test_formats_the_firmware_cannot_take_yet_are_refused(bake, tmp_path):
         bake.Target(480, 800, "mono", 0, str(tmp_path / "s.h"), "t", [])
     with pytest.raises(SystemExit):
         bake.Target(481, 800, "gray16", 0, str(tmp_path / "s.h"), "t", [])
+
+
+def test_the_firmware_sets_the_splash_version_exactly_as_the_bake_once_drew_it(bake):
+    """The version line is the build's own (stampVersion in main.cpp, mirrored
+    by bake.stamp_version): its glyphs land pixel for pixel where
+    draw_engraved sets the same line (give or take a pixel's rounding of the
+    pen on a long one)."""
+    from featherframe.render import theme, typography
+    splash = dict(bake.SCREENS)["SPLASH"]
+    for text, slack in (("v 1.0.1", 0), ("v 0.2.5", 0), ("dev 2026.09.24", 32)):
+        drawn = splash.copy()
+        typography.draw_engraved(ImageDraw.Draw(drawn), bake.W / 2, bake.VERSION_BASELINE,
+                                 text, theme.SUBTITLE_SIZE, 0)
+        want = bake._to_native_nibbles(drawn)
+        got = bake.stamp_version(bake._to_native_nibbles(splash), text)
+        assert (got != want).sum() <= slack, text
+        assert (want != bake._to_native_nibbles(splash)).any()      # the baked splash has no line
+
+
+def test_a_build_names_itself_on_the_splash(bake):
+    assert bake.version_line("0.2.5") == "v 0.2.5"
+    assert bake.version_line("2026.09.24+abc1234+dirty") == "dev 2026.09.24"
+    assert bake.version_line("dev") == "dev"

@@ -9,7 +9,16 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Featherframe server")
     ap.add_argument("--host", default=os.environ.get("FEATHERFRAME_HOST", "0.0.0.0"))
     ap.add_argument("--port", type=int, default=int(os.environ.get("FEATHERFRAME_PORT", "8080")))
+    ap.add_argument("--clear-password", action="store_true",
+                    help="turn the page's password off, then exit (restart the server after)")
     args = ap.parse_args()
+
+    if args.clear_password:
+        from . import auth
+        from .db import Database
+        auth.PasswordGate(Database()).set(None)
+        print("The page's password is off. Restart the server for it to take effect.")
+        return
 
     os.environ["FEATHERFRAME_PORT"] = str(args.port)   # the mDNS record needs the bound port
 

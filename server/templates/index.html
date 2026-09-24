@@ -1553,6 +1553,24 @@
         </section>
       </div>
 
+      {% if not hosted %}
+      <div class="card">
+        <section class="sec">
+          <h2 class="sec-head">Password</h2>
+          <div class="frow toggle">
+            <div class="frow-text"><label class="lab" for="pw-on">Require a password</label><div class="hint">For this page. Frames connect without it.</div></div>
+            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="pw-on" name="page_password_on" {{ 'checked' if password_on else '' }}><span class="track"></span></label></div>
+          </div>
+          <div class="reveal{{ '' if password_on else ' collapsed' }}" id="pw-reveal" {{ '' if password_on else 'hidden' }}><div class="reveal-body">
+          <div class="frow stack">
+            <div class="frow-text"><label class="lab" for="pw-input">{{ 'New password' if password_on else 'Password' }}</label></div>
+            <div class="frow-ctl"><input type="password" id="pw-input" name="page_password" autocomplete="new-password" data-stored="{{ 'true' if password_on else 'false' }}" {{ 'placeholder=Unchanged' if password_on else '' }}></div>
+          </div>
+          </div></div>
+        </section>
+      </div>
+      {% endif %}
+
       <div class="savebar" id="save-bar">
         <span class="unsaved" id="unsaved-note">Unsaved changes</span>
         <button class="btn primary lg" type="submit" id="save-btn">Save settings</button>
@@ -2451,6 +2469,16 @@
     }
     document.querySelectorAll('input[name="quiet_hours_mode"]').forEach(function (r) { r.addEventListener('change', syncQuiet); });
     syncQuiet();
+    // password: the field follows the switch, and is needed to turn it on
+    var pwOn = $('pw-on'), pwIn = $('pw-input');
+    if (pwOn && pwIn) {
+      var syncPw = function () {
+        setRevealed($('pw-reveal'), pwOn.checked);
+        pwIn.required = pwOn.checked && pwIn.getAttribute('data-stored') !== 'true';
+      };
+      pwOn.addEventListener('change', syncPw);
+      syncPw();
+    }
     // detection-source fields follow the select
     var sel = $('src-sel');
     function syncSrc() {

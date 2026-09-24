@@ -111,7 +111,12 @@ on file* card and **Download a backup**: a zip of every generated plate. Each
 one cost an image, and they live only in `data/generated/`. **Restore from a
 backup…** on the new install puts them back, and never replaces a newer plate.
 
-> **No auth.** It's LAN-only with no login. Keep it on your home network.
+> **No login by default.** The page is for your home network: never
+> port-forward it or expose it to the internet. To ask for a password anyway,
+> turn on *Require a password* at the bottom of the page (HTTP Basic, any user
+> name; frames and viewers connect without it). Locked out?
+> `server/.venv/bin/python -m featherframe --clear-password` with the same
+> `FEATHERFRAME_*` environment as the service, then restart it.
 
 ### 2. Firmware
 

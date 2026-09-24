@@ -28,7 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 
-from . import __version__, discovery, hosted, panels, paths, viewers
+from . import __version__, auth, discovery, hosted, panels, paths, viewers
 from . import frames as frames_mod
 from .config import Config, valid_hhmm
 from .names import display_common_name, normalize
@@ -88,6 +88,24 @@ async def _hosted_settle(request: Request, call_next):
     if link is not None and request.method in ("POST", "PUT", "DELETE") and response.status_code < 400:
         await run_in_threadpool(link.settle, request.app.state.service, False)
     return response
+
+
+@app.middleware("http")
+async def _page_password(request: Request, call_next):
+    """The page's optional password (W-773): asked for every route but the
+    ones screens use, and never on a hosted household, which has its own
+    sign-in."""
+    state = request.app.state
+    gate = getattr(getattr(state, "service", None), "password", None)
+    if (gate is None or not gate.on or getattr(state, "hosted", None) is not None
+            or auth.is_open(request.url.path)):
+        return await call_next(request)
+    if await run_in_threadpool(gate.allows, request.headers.get("authorization")):
+        return await call_next(request)
+    return Response("Password required.", status_code=401, media_type="text/plain",
+                    headers={"WWW-Authenticate": f'Basic realm="{auth.REALM}", charset="UTF-8"'})
+
+
 if paths.static_dir().exists():
     app.mount("/static", StaticFiles(directory=str(paths.static_dir())), name="static")
 
@@ -546,6 +564,7 @@ async def index(request: Request):
          # A hosted household's page (W-845): frames are paired by the code on
          # their glass, and there is someone signed in to sign out.
          "hosted": getattr(request.app.state, "hosted", None) is not None,
+         "password_on": svc.password.on,
          # Each kit as it is sold, for the USB dialog's choice.
          "kit_names": {k: p.title for k, p in panels.PANELS.items() if p.title}})
 
@@ -622,6 +641,15 @@ async def save_settings(request: Request):
     try:
         svc.update_config(new)
         _announce_panel(request, svc)
+        # The page's password (W-773): off unless switched on; a blank field
+        # keeps the one stored. Not a hosted page's to set.
+        if getattr(request.app.state, "hosted", None) is None:
+            typed = s("page_password", "")
+            if not b("page_password_on"):
+                if svc.password.on:
+                    await run_in_threadpool(svc.password.set, None)
+            elif typed:
+                await run_in_threadpool(svc.password.set, typed)
     except Exception as exc:  # noqa: BLE001 — surface it on the page, keep the old config
         log.exception("saving settings failed")
         return RedirectResponse("/?error=" + quote(f"Settings were not saved: {exc}"),
@@ -996,6 +1024,8 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
             error = "Already regenerating."
         elif not svc.config.imagegen_enabled:
             error = "Image generation is off — enable it first."
+        elif svc.regen_limited():
+            error = "Too many repaints this hour. Try again later."
         else:
             ok = await run_in_threadpool(svc.start_regenerate, slug)
             error = None if ok else "Could not start — is this plate still on file?"

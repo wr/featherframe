@@ -82,8 +82,15 @@ OpenAI, per image, by quality:
 |---|---|
 | Low | ≈ $0.03 |
 | Medium (default) | ≈ $0.04 |
-| High | ≈ $0.08 |
-| Extra high, Max | see OpenAI's pricing page |
+| High | ≈ $0.07 |
+| Extra high | ≈ $0.10 |
+| Max | ≈ $0.20 |
+
+Measured on gpt-image-2.5-sunburst with three reference plates (W-859). The
+references cost about $0.02 of every image whatever the quality, which is why
+Low saves so little. In a side-by-side of all five, Low softened faces and
+fumbled small anatomy; Medium through Max differed mainly in feather and bark
+line density, which the 16-gray panel's dither mostly absorbs.
 
 Menagerie collages, at about one image a night (a frame that shows the
 collage all day also buys a new sheet whenever a new species is heard, at most

@@ -1412,7 +1412,7 @@
               <div class="frow" data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}>
                 <div class="frow-text"><label class="lab" for="ig-quality">Quality</label></div>
                 <div class="frow-ctl"><div class="cselect"><select class="sel cselect-native" name="imagegen_quality" id="ig-quality">
-                  {% set qlabels = {'max':'Max · 2.5 only', 'xhigh':'Extra high · 2.5 only', 'high':'High · ~$0.07/image', 'medium':'Medium · ~$0.04/image', 'low':'Low · ~$0.03/image', 'auto':'Auto'} %}
+                  {% set qlabels = {'max':'Max · ~$0.20/image · 2.5 only', 'xhigh':'Extra high · ~$0.10/image · 2.5 only', 'high':'High · ~$0.07/image', 'medium':'Medium · ~$0.04/image', 'low':'Low · ~$0.03/image', 'auto':'Auto'} %}
                   {% for q in ['max','xhigh','high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }} {{ 'data-25only' if q in ('max','xhigh') else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
               </div>
               <div class="frow">

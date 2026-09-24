@@ -19,7 +19,8 @@ import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
 import { LOBBY_DRAWING, expiryText, pairingCode } from "./pairing";
 import { Household } from "./household";
 import { HouseholdServer, Lobby } from "./containers";
-import { deviceId, frameKey, sha256 } from "./util";
+import { suspendedPage } from "./pages";
+import { deviceId, escapeHtml, frameKey, sha256 } from "./util";
 
 export { Household, HouseholdServer, Lobby };
 
@@ -36,6 +37,8 @@ export interface Env {
   ADMIN_TOKEN: string;    // secret
   ADMIN_EMAILS: string;   // secret: who sees /admin, comma separated
   RESEND_API_KEY: string; // secret
+  CF_ACCOUNT_ID: string;  // the admin page's usage meters (W-860)
+  CF_API_TOKEN: string;   // secret: Account Analytics Read, for the same
 }
 
 const FRAME_PATHS = /^\/api\/(frame|frame\/push|firmware)$/;
@@ -86,6 +89,12 @@ export default {
       }
       return Response.json({ error: "sign in" }, { status: 401 });
     }
+    // A suspended household's page is closed to its owner (W-860); an admin
+    // looking at it still sees it.
+    if (user.suspended && !user.as) {
+      if (request.method === "GET" && (request.headers.get("Accept") || "").includes("text/html")) return suspendedPage();
+      return Response.json({ error: "suspended" }, { status: 403 });
+    }
     if (path === "/api/pair" && request.method === "POST") return pair(request, env, hid);
     if (path === "/api/pair/usb" && request.method === "POST") return pairUsb(request, env, hid);
     // The page shows the account's email (W-773), said here, never by the client.
@@ -93,7 +102,8 @@ export default {
     const pending = path === "/" && request.method === "GET" ? await pendingEmail(env, user.uid) : null;
     const page = (r: Request) => toHousehold(env, hid, r, user.email, pending);
     if (path === "/settings" && request.method === "POST") return settingsForm(request, env, user, page);
-    return page(request);
+    const res = await page(request);
+    return user.as ? actingAsBar(res, user.email) : res;
   },
 } satisfies ExportedHandler<Env>;
 
@@ -108,6 +118,18 @@ function toHousehold(env: Env, hid: string, request: Request, email?: string,
   if (email) headers.set("X-FF-Account-Email", email);
   if (pending) headers.set("X-FF-Account-Email-Pending", pending);
   return env.HOUSEHOLD.getByName(hid).fetch(new Request(request, { headers }));
+}
+
+/** Whose page an admin is looking at, over the top of it, with the way back. */
+function actingAsBar(res: Response, email: string): Response {
+  if (!(res.headers.get("Content-Type") || "").includes("text/html")) return res;
+  const bar = `<div style="position:sticky;top:0;z-index:1000;display:flex;gap:12px;align-items:center;justify-content:center;
+    padding:8px 16px;background:#b6472e;color:#fff;font:600 13px/1.4 -apple-system,BlinkMacSystemFont,sans-serif">
+    <span>Viewing as ${escapeHtml(email)}</span>
+    <form method="post" action="/admin/as/stop" style="margin:0"><button type="submit" style="font:inherit;
+      padding:3px 10px;border:1px solid #fff;border-radius:6px;background:transparent;color:#fff;cursor:pointer">
+      Back to admin</button></form></div>`;
+  return new HTMLRewriter().on("body", { element(e) { e.prepend(bar, { html: true }); } }).transform(res);
 }
 
 async function plates(request: Request, env: Env, url: URL): Promise<Response> {

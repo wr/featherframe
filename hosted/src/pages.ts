@@ -1,6 +1,7 @@
 // The few pages the Worker draws itself (W-845): signing in. Everything past
 // sign-in is the household's own page, drawn by its server.
 
+import type { Meter, Usage } from "./usage";
 import { escapeHtml } from "./util";
 
 const STYLE = `
@@ -47,6 +48,31 @@ const STYLE = `
   .invite input[type=email] { flex:1 1 220px; }
   .invite label { display:flex; gap:6px; align-items:center; margin:0; font-size:13px; }
   .frames { margin:0; padding:0; list-style:none; }
+  .badge { display:inline-block; font-size:11px; font-weight:600; padding:1px 6px; border-radius:4px;
+    background:var(--bad); color:#fff; vertical-align:1px; margin-left:4px; }
+  .h-actions { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+  .h-actions form { margin:0; }
+  .h-actions details { font-size:13px; }
+  .h-actions summary { cursor:pointer; color:var(--ink-2); list-style:none; padding:6px 4px; }
+  .h-actions summary::-webkit-details-marker { display:none; }
+  .h-actions details[open] { flex-basis:100%; }
+  .h-more { display:grid; gap:10px; padding:8px 0 4px; }
+  .h-more form { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .h-more input { flex:1 1 180px; font:inherit; font-size:13px; padding:6px 10px; border:1px solid var(--border);
+    border-radius:8px; background:var(--bg); color:var(--ink); }
+  .btn.danger { background:var(--bad); color:#fff; }
+  .usage { padding:0 20px 18px; }
+  .usage-total { display:flex; gap:24px; flex-wrap:wrap; margin:0 0 14px; }
+  .usage-total div { font-size:13px; color:var(--muted); }
+  .usage-total strong { display:block; font-size:22px; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .meters { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px 24px; }
+  .meter-group { font-size:12px; font-weight:600; color:var(--muted); margin:0 0 6px; }
+  .meter { display:grid; grid-template-columns:1fr auto; gap:2px 8px; font-size:13px; margin-bottom:8px; }
+  .meter .v { font-variant-numeric:tabular-nums; color:var(--ink-2); }
+  .meter .track { grid-column:1 / -1; height:6px; border-radius:3px; background:var(--border); overflow:hidden; }
+  .meter .fill { height:100%; background:var(--accent); }
+  .meter.warn .fill { background:#c28a2c; } .meter.over .fill { background:var(--bad); }
+  .meter .over-cost { grid-column:1 / -1; font-size:12px; color:var(--bad); }
   @media (max-width:600px) { th:nth-child(n+3), td:nth-child(n+3) { display:none; } td, th { padding-left:14px; padding-right:14px; } }
 `;
 
@@ -75,11 +101,56 @@ export type AdminData = {
   invites: { email: string; created_at: number; used_at: number | null }[];
   households: {
     id: string; created_at: number; email: string | null; paired: number;
+    suspended_at: number | null;
     frames: { id: string; status: string; seen: number | null }[];
     usage: { day: string; wakes: number; server_ms: number }[];
     last_wake: number | null; source: string | null;
   }[];
+  usage: Usage;
 };
+
+/** 1.2M, 340k, 12.5, 0.03 */
+function qty(n: number): string {
+  const a = Math.abs(n);
+  if (a >= 1e9) return `${(n / 1e9).toFixed(a >= 1e10 ? 0 : 1)}B`;
+  if (a >= 1e6) return `${(n / 1e6).toFixed(a >= 1e7 ? 0 : 1)}M`;
+  if (a >= 1e4) return `${Math.round(n / 1e3)}k`;
+  if (a >= 100) return String(Math.round(n));
+  if (a >= 1) return n.toFixed(1).replace(/\.0$/, "");
+  return a === 0 ? "0" : n.toFixed(a >= 0.01 ? 2 : 3);
+}
+
+const dollars = (n: number) => `$${n.toFixed(2)}`;
+
+function usageCard(u: Usage): string {
+  const e = escapeHtml;
+  const groups = [...new Set(u.meters.map((m) => m.group))];
+  const meter = (m: Meter) => {
+    if (m.used === null) {
+      return `<div class="meter"><span>${e(m.label)}</span><span class="v muted">unavailable</span></div>`;
+    }
+    const pct = m.included ? (m.used / m.included) * 100 : 0;
+    const over = Math.max(0, m.used - m.included) * m.price;
+    const cls = pct >= 100 ? "over" : pct >= 80 ? "warn" : "";
+    const unit = m.unit ? ` ${e(m.unit)}` : "";
+    return `<div class="meter ${cls}"><span>${e(m.label)}</span>
+      <span class="v">${qty(m.used)} / ${qty(m.included)}${unit}</span>
+      <div class="track"><div class="fill" style="width:${Math.min(100, pct).toFixed(1)}%"></div></div>
+      ${over >= 0.005 ? `<span class="over-cost">${dollars(over)} over</span>` : ""}</div>`;
+  };
+  const month = new Date(`${u.month}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
+  return `<div class="usage">
+    <div class="usage-total">
+      <div><strong>${dollars(u.bill)}</strong>${e(month)} so far</div>
+      <div><strong>${dollars(u.projected)}</strong>at this pace</div>
+    </div>
+    <div class="meters">${groups.map((g) => `<div><p class="meter-group">${e(g)}${g === "Containers" ? " · our count" : ""}</p>
+      ${u.meters.filter((m) => m.group === g).map(meter).join("")}</div>`).join("")}</div>
+    <p class="muted" style="font-size:12px;margin:12px 0 0">Account-wide, against the Workers Paid allowances.
+      ${u.live ? "" : "Only the containers are counted until the <code>CF_API_TOKEN</code> secret is set. "}
+      The bill itself: <a href="https://dash.cloudflare.com/?to=/:account/billing/billable-usage">Billable usage</a>.</p>
+  </div>`;
+}
 
 /** "4 min ago", "3 h ago", "12 Sep". */
 function ago(ms: number | null): string {
@@ -96,7 +167,7 @@ function minutes(ms: number): string {
   return m < 1 ? "<1 min" : m < 90 ? `${Math.round(m)} min` : `${(m / 60).toFixed(1)} h`;
 }
 
-export function adminPage(d: AdminData, message: string): Response {
+export function adminPage(d: AdminData, message: string, actingAs = false): Response {
   const e = escapeHtml;
   const waiting = d.waitlist.length ? `<table><thead><tr><th>Email</th><th></th><th>From</th><th>Asked</th></tr></thead><tbody>
     ${d.waitlist.map((w) => `<tr><td>${e(w.email)}</td>
@@ -114,7 +185,11 @@ export function adminPage(d: AdminData, message: string): Response {
       <button class="btn" type="submit">Invite</button>
     </form>
     ${pending.length ? `<table><thead><tr><th>Invited, not signed up</th><th></th><th></th><th>Sent</th></tr></thead><tbody>
-      ${pending.map((i) => `<tr><td>${e(i.email)}</td><td></td><td></td><td class="num muted">${ago(i.created_at * 1000)}</td></tr>`).join("")}
+      ${pending.map((i) => `<tr><td>${e(i.email)}</td>
+        <td><div class="row-actions">
+          <form method="post" action="/admin/invite/revoke"><input type="hidden" name="email" value="${e(i.email)}"><button class="btn plain" type="submit">Revoke</button></form>
+          <form method="post" action="/admin/invite/resend"><input type="hidden" name="email" value="${e(i.email)}"><button class="btn plain" type="submit">Resend</button></form>
+        </div></td><td></td><td class="num muted">${ago(i.created_at * 1000)}</td></tr>`).join("")}
     </tbody></table>` : ""}`;
 
   const households = d.households.length ? `<table><thead><tr><th>Household</th><th>Frames</th><th>Server, today · 7 days</th><th>Last wake</th></tr></thead><tbody>
@@ -125,7 +200,20 @@ export function adminPage(d: AdminData, message: string): Response {
       const frames = h.frames.length
         ? `<ul class="frames">${h.frames.map((f) => `<li>${e(f.id.slice(-6))} <span class="muted">· ${e(f.status)} · ${ago(f.seen)}</span></li>`).join("")}</ul>`
         : `<span class="muted">${h.paired ? `${h.paired} paired` : "none"}</span>`;
-      return `<tr><td>${e(h.email || "(no login)")}<br><span class="muted">${e(h.id)}${h.source ? ` · ${e(h.source)}` : ""}</span></td>
+      const id = `<input type="hidden" name="id" value="${e(h.id)}">`;
+      const who = h.email || h.id;
+      const actions = `<div class="h-actions">
+        ${h.email ? `<form method="post" action="/admin/household/as">${id}<button class="btn" type="submit">Log in as</button></form>` : ""}
+        <form method="post" action="/admin/household/${h.suspended_at ? "resume" : "suspend"}">${id}<button class="btn plain" type="submit">${h.suspended_at ? "Resume" : "Suspend"}</button></form>
+        <details><summary>More</summary><div class="h-more">
+          ${h.email ? `<form method="post" action="/admin/household/email">${id}
+            <input type="email" name="email" required placeholder="New email" aria-label="New email">
+            <button class="btn plain" type="submit">Change email</button></form>` : ""}
+          <form method="post" action="/admin/household/delete">${id}
+            <input type="text" name="confirm" required autocomplete="off" placeholder="Type ${e(who)}" aria-label="Type ${e(who)} to delete">
+            <button class="btn danger" type="submit">Delete</button></form>
+        </div></details></div>`;
+      return `<tr><td>${e(h.email || "(no login)")}${h.suspended_at ? ` <span class="badge">Suspended</span>` : ""}<br><span class="muted">${e(h.id)}${h.source ? ` · ${e(h.source)}` : ""}</span>${actions}</td>
         <td>${frames}</td>
         <td class="num">${minutes(today?.server_ms || 0)} · ${minutes(week)}<br><span class="muted">${wakes} wakes in 7 days</span></td>
         <td class="num muted">${ago(h.last_wake)}</td></tr>`;
@@ -134,10 +222,19 @@ export function adminPage(d: AdminData, message: string): Response {
 
   return shell("Admin · Featherframe", `<main class="wide"><p class="wordmark">Featherframe</p>
     ${message ? `<p class="note">${e(message)}</p>` : ""}
+    ${actingAs ? `<form class="note" method="post" action="/admin/as/stop" style="display:flex;gap:12px;align-items:center;justify-content:space-between">
+      <span>You are logged in as a household.</span><button class="btn" type="submit">Stop</button></form>` : ""}
+    <div class="card"><h2 class="sec-head">Cloudflare usage</h2>${usageCard(d.usage)}</div>
     <div class="card"><h2 class="sec-head">Waitlist · ${d.waitlist.length}</h2>${waiting}</div>
     <div class="card"><h2 class="sec-head">Invite</h2>${invites}</div>
     <div class="card"><h2 class="sec-head">Households · ${d.households.length}</h2>${households}</div>
   </main>`);
+}
+
+export function suspendedPage(): Response {
+  return page("Suspended · Featherframe", `
+    <h1>This account is suspended</h1>
+    <form method="post" action="/logout"><button type="submit">Sign out</button></form>`);
 }
 
 export function loginPage(error = ""): Response {

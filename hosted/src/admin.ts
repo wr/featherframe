@@ -3,31 +3,83 @@
 // separated); to anyone else it does not exist.
 
 import type { Env } from "./index";
-import { invite, joinWaitlist, normEmail, sessionUser } from "./accounts";
+import { AS_COOKIE, actAs, deleteHousehold, invite, isAdmin, joinWaitlist, normEmail, realSessionUser, resendInvite,
+         revokeInvite, setEmail, setSuspended, stopActingAs } from "./accounts";
 import { adminPage, waitlistThanksPage, type AdminData } from "./pages";
+import { cloudflareUsage } from "./usage";
+import { cookie } from "./util";
 
 const notFound = () => new Response("not found", { status: 404 });
 
-function isAdmin(env: Env, email: string): boolean {
-  return (env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean).includes(email);
-}
-
 export async function adminRoute(request: Request, env: Env, url: URL): Promise<Response> {
-  const user = await sessionUser(request, env);
+  // Always the admin's own session: never the household they are looking at.
+  const user = await realSessionUser(request, env);
   if (!user || !isAdmin(env, user.email)) return notFound();
-  if (request.method === "GET" && url.pathname === "/admin") return adminPage(await gather(env), url.searchParams.get("m") || "");
+  if (request.method === "GET" && url.pathname === "/admin") {
+    return adminPage(await gather(env), url.searchParams.get("m") || "", !!cookie(request, AS_COOKIE));
+  }
   if (request.method !== "POST") return notFound();
   // A form on this page, never another site's.
   if (request.headers.get("Origin") !== `https://${env.APP_HOST}`) return new Response("forbidden", { status: 403 });
+  const path = url.pathname;
+  if (path === "/admin/as/stop") return stopActingAs();
   const form = await request.formData();
+
+  const household = path.match(/^\/admin\/household\/(as|email|suspend|resume|delete)$/);
+  if (household) {
+    const hid = String(form.get("id") || "");
+    const row = await env.DB.prepare("SELECT h.id, u.email FROM households h LEFT JOIN users u ON u.household_id = h.id WHERE h.id = ?")
+      .bind(hid).first<{ id: string; email: string | null }>();
+    if (!row) return back("No such household.");
+    const who = row.email || hid;
+    switch (household[1]) {
+      case "as":
+        if (!row.email) return back(`${hid} has no login to look through.`);
+        return actAs(hid);
+      case "email": {
+        const email = normEmail(form.get("email"));
+        if (!email) return back("Enter an email address.");
+        const done = await setEmail(env, hid, email);
+        return back(done === "ok" ? `${who} now signs in as ${email}.`
+          : done === "taken" ? `${email} already has a login.` : `${hid} has no login.`);
+      }
+      case "suspend":
+        await setSuspended(env, hid, true);
+        return back(`Suspended ${who}.`);
+      case "resume":
+        await setSuspended(env, hid, false);
+        return back(`Resumed ${who}.`);
+      case "delete":
+        // Typed, not clicked: the household's email (or id) must be given back.
+        if (String(form.get("confirm") || "").trim().toLowerCase() !== who.toLowerCase()) {
+          return back(`Not deleted: type ${who} to delete it.`);
+        }
+        try {
+          await deleteHousehold(env, hid);
+        } catch (err) {
+          console.error("delete household", hid, err);
+          return back(`Deleting ${who} stopped part way: ${String(err)}. Try again.`);
+        }
+        return back(`Deleted ${who}.`);
+    }
+  }
+
   const email = normEmail(form.get("email"));
   if (!email) return back("Enter an email address.");
-  if (url.pathname === "/admin/invite") {
+  if (path === "/admin/invite") {
     const send = form.get("send") === "1";   // the box, ticked by default
     const sent = await invite(env, email, send);
     return back(send && !sent ? `Invited ${email}, but the email did not go.` : `Invited ${email}.`);
   }
-  if (url.pathname === "/admin/waitlist/remove") {
+  if (path === "/admin/invite/resend") {
+    const sent = await resendInvite(env, email);
+    return back(sent === "sent" ? `Sent ${email} their invitation again.`
+      : sent === "failed" ? `The email to ${email} did not go.` : `${email} has no open invitation.`);
+  }
+  if (path === "/admin/invite/revoke") {
+    return back(await revokeInvite(env, email) ? `Revoked ${email}'s invitation.` : `${email} has no open invitation.`);
+  }
+  if (path === "/admin/waitlist/remove") {
     await env.DB.prepare("DELETE FROM waitlist WHERE email = ?").bind(email).run();
     return back(`Removed ${email} from the waitlist.`);
   }
@@ -44,19 +96,20 @@ async function gather(env: Env): Promise<AdminData> {
       .all<AdminData["waitlist"][number]>(),
     env.DB.prepare("SELECT email, created_at, used_at FROM invites ORDER BY created_at DESC")
       .all<AdminData["invites"][number]>(),
-    env.DB.prepare(`SELECT h.id, h.created_at, u.email,
+    env.DB.prepare(`SELECT h.id, h.created_at, h.suspended_at, u.email,
         (SELECT count(*) FROM frames f WHERE f.household_id = h.id) AS paired
       FROM households h LEFT JOIN users u ON u.household_id = h.id ORDER BY h.created_at`)
-      .all<{ id: string; created_at: number; email: string | null; paired: number }>(),
+      .all<{ id: string; created_at: number; suspended_at: number | null; email: string | null; paired: number }>(),
   ]);
   const rows = await Promise.all(households.results.map(async (h) => {
     try {
       return { ...h, ...(await env.HOUSEHOLD.getByName(h.id).summary()) };
     } catch {
-      return { ...h, frames: [], usage: [], last_wake: null, source: null };
+      return { ...h, frames: [], usage: [], month_ms: 0, last_wake: null, source: null, suspended: false };
     }
   }));
-  return { waitlist: waitlist.results, invites: invites.results, households: rows };
+  const usage = await cloudflareUsage(env, rows.reduce((a, h) => a + h.month_ms, 0));
+  return { waitlist: waitlist.results, invites: invites.results, households: rows, usage };
 }
 
 // -- the marketing page's form ---------------------------------------------------

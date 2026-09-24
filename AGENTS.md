@@ -19,7 +19,7 @@ hears as Audubon lithograph plates. Two components in one repo:
   that fetches a pre-packed framebuffer and pushes it to the panel.
 
 The wall frame is a Seeed XIAO ePaper Kit EE03 (XIAO ESP32-S3 Plus + 10.3"
-ED103TC2, 1404×1872, 16-level gray, IT8951). See `README.md` for the full spec,
+ED103TC2, 1404×1872, 16-level gray, IT8951). See the wiki (github.com/wr/featherframe/wiki) for the full spec,
 wiring, and battery numbers. A second panel is being ported (W-812): the EE02
 kit's 13.3" E Ink Spectra 6 (T133A01, 1200×1600, six inks, ~30 s full refresh,
 no partial refresh). One server instance drives one panel (`config.panel`,
@@ -230,7 +230,8 @@ it (the picked frame is kept in `localStorage`; a kit's own `out/<id>.png`, a
 viewer's own view — both at `GET /api/frames/<id>/preview.png`, and always the
 upright picture as that frame draws it, never the device's canvas shape or its
 rotation: a TRMNL's is stood up and a page's is the sheet at 3:4) and the plate's
-tools; then the detection source's own small card, titled by the source name;
+tools, which are the previewed frame's picture's (`frame_view`'s `picture`, the
+night rule included) and say they act on every frame showing it (W-861); then the detection source's own small card, titled by the source name;
 then History. **There is no Health card**: a frame's health is the frame's row.
 Right, wide: a **Frames** card FIRST — its *Frames* heading, a ⋯ menu
 holding *USB firmware update*, *Check for updates* (asks for the latest release now, `POST /api/firmware/check`; otherwise daily), *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list — then the
@@ -240,6 +241,10 @@ switches `locked` until a key is stored), Individual detections, Collage — and
 quiet hours IS the overnight collage, so it sits in that section and has no
 toggle of its own (`Config.quiet_hours_render_collage` is a property: the
 window being on is the whole of it) — then Generated plates.
+One save rule (W-861): a Save is enabled only once something in its group
+changed, with *Unsaved changes* beside it (the household form's save bar, each
+frame row's Save), and a stored secret, the email and the password are ✓ / ✕
+rows whose ✓ waits for input; a hidden first submit keeps Enter saving the form.
 Every frame is the same row (the `frame_row` macro), and that row **is** the
 page's own disclosure (`details.disc`), so it hovers, turns its chevron and
 slides open exactly as *Advanced* does. Collapsed it is a conventional
@@ -471,7 +476,18 @@ else — the waitlist (D1 `waitlist`: the marketing page's form posts
 `POST /api/waitlist`, form or JSON with CORS for the apex, and an uninvited
 email trying to sign in joins it quietly), invitations, and every household
 (frames and when each was last seen, from the front door's `summary()`, and
-rough server time: wakes plus the time a page kept it up, by UTC day). The
+rough server time: wakes plus the time a page kept it up, by UTC day).
+W-860 added this month's Cloudflare usage against the Workers Paid allowances
+and the bill so far (`usage.ts`: GraphQL Analytics with the `CF_API_TOKEN`
+secret, one query per dataset so a missing field costs one meter; Containers
+are not in that API, so theirs is the front doors' own count), *Log in as* (an
+`ff_as` cookie naming a household, honoured only beside an admin's own
+session, `sessionUser` vs `realSessionUser`; a bar over the page leads back),
+changing a login's email outright, suspending a household
+(`households.suspended_at`: its page closed to the owner, its front door stops
+waking the server, its frames keep their last picture), deleting one (D1 rows
+incl. its invitation, its frames' registry rows, R2, front door storage and
+container), and revoking or resending an unused invitation. The
 API is still there: `Authorization: Bearer` keychain
 `featherframe-hosted-admin-token`, `POST /_admin/invite|link|adopt {email}`.
 Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a

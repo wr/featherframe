@@ -85,6 +85,8 @@ DEFAULT = EE03
 
 
 FORMATS = ("gray16", "gray2", "mono", "spectra6")
+_INKS = {"gray16": "gray", "gray2": "4-level gray", "mono": "black and white",
+         "spectra6": "Spectra 6 color"}
 CUSTOM_PREFIX = "custom:"
 _MIN_SIDE, _MAX_SIDE = 64, 4096
 
@@ -135,14 +137,20 @@ def custom(width, height, fmt, rotations=None, name: str | None = None) -> Panel
     pw, ph = (h, w) if rots[0] in (90, 270) else (w, h)
     color = drawn == "spectra6"
     label = str(name or "").strip()[:60]
-    shown = f"{label} · {w}×{h} {wire}" if label and f"{w}x{h}" not in label else (label or f"{w}×{h} {wire}")
+    # Said the way the page says a kit's panel ('EE03 · 10.3" gray'): the
+    # size as it hangs, and the inks in words, never the wire format's name.
+    about = f"{pw}×{ph} {_INKS.get(wire, wire)}"
+    shown = f"{label} · {about}" if label and f"{w}x{h}" not in label else (label or about)
     return Panel(key, shown, pw, ph, color, rots, 30 if color else 2,
                  "stucki" if color else "bluenoise", fmt=drawn,
                  mode="collage" if color else "single",
                  unknown_format="" if wire in FORMATS else wire,
                  # The generic firmware build (FF_GENERIC_PANEL) says "Battery low"
                  # with a full-screen refresh, so it holds where the EE02 does.
-                 low_battery_volts=EE02.low_battery_volts)
+                 low_battery_volts=EE02.low_battery_volts,
+                 # Unnamed, it is called what it is, as a kit is ("13" Color
+                 # Frame"), never by whatever label its firmware was built with.
+                 title="Color Frame" if color else "Grayscale Frame")
 
 
 def _from_key(key: str) -> Panel | None:

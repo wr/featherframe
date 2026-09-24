@@ -367,7 +367,13 @@ def when_short(then: datetime, now: Optional[datetime] = None) -> str:
 
 
 def _hours_text(hours: float) -> str:
-    return f"{int(hours)} h" if float(hours).is_integer() else f"{hours:.1f} h"
+    """How long, the way a person says it: "40 min", "7 h", "3 days"."""
+    hours = max(0.0, float(hours))
+    if hours < 1:
+        return f"{max(1, round(hours * 60))} min"
+    if hours < 48:
+        return f"{round(hours)} h"
+    return f"{int(hours // 24)} days"
 
 
 def _ago(then: datetime, now: datetime) -> str:
@@ -622,6 +628,9 @@ class FeatherframeService:
         except (TypeError, ValueError):
             self._source_down_since = None
         self._outage: Optional[dict] = None
+        # What the source last said on the page (_last_known), so a source
+        # that is down reads as quiet, not as one that never heard anything.
+        self._known: dict = {}
         # A first-seen-today species held back for a second detection (see
         # _corroborated). Persisted so a restart doesn't forget the bird the
         # page says it is waiting on; kept OFF the frame meta because it is
@@ -2485,7 +2494,11 @@ class FeatherframeService:
             "what": what,
             "transport": transport, "status": row.get("status"),
             "shows": shows,
-            "summary": self._frame_summary(what, shows, named=bool(name), sold_as=bool(sold_as)),
+            # The picture on its glass right now (the night rule included):
+            # what the page's tools act on while this frame is previewed.
+            "picture": self._kind_for(shows, now),
+            "summary": self._frame_summary(what, shows, named=bool(name), sold_as=bool(sold_as),
+                                           known=bool(panel is not None and panel.known)),
             "picture_etag": self.picture_etag(shows) if on else None,
             "output_etag": self._output_etag(fid) if kit else None,
             "queued_s": self._queued_seconds(row, now) if kit and on else None,
@@ -2537,7 +2550,7 @@ class FeatherframeService:
         }
 
     def _frame_summary(self, what: str, shows: str, named: bool = False,
-                       sold_as: bool = False) -> str:
+                       sold_as: bool = False, known: bool = True) -> str:
         """The one line a collapsed row carries: what this screen is, and what
         it shows. An unnamed frame's title already says part of what it is, so
         the summary carries the rest: the kit ("EE03") under the name it is
@@ -2545,7 +2558,9 @@ class FeatherframeService:
         if named:
             about = what
         elif sold_as:
-            about = what.split(" · ")[0]
+            # A kit of ours under its sold name carries the kit ("EE03"); a
+            # panel built from a frame's report, its size and inks.
+            about = what.split(" · ")[0 if known else -1]
         else:
             about = " · ".join(what.split(" · ")[1:])
         bits = [about, SHOWS_WORDS[COLLAGE if shows == COLLAGE else "plates"]]
@@ -2681,6 +2696,21 @@ class FeatherframeService:
             })
         return out
 
+    def _last_known(self, key: str, value):
+        """`value`, remembered (in memory, and in the DB when it changes); or,
+        when the source has nothing to say (None), the last one it said."""
+        known = self._known
+        # Per source: a new one that is down has said nothing yet.
+        key = f"{key}:{self.config.detection_backend}"
+        if value is None:
+            if key not in known:
+                known[key] = self.db.get("last_known_" + key)
+            return known[key]
+        if known.get(key) != value:
+            known[key] = value
+            self.db.set("last_known_" + key, value)
+        return value
+
     def status(self) -> dict:
         with self._lock:
             meta = dict(self._meta)
@@ -2688,6 +2718,17 @@ class FeatherframeService:
             outage = dict(self._outage) if self._outage else None
         now = self._clock()
         latest = self.source.latest(CONFIDENCE_FLOOR)
+        heard = ({"common": latest.common_name, "scientific": latest.scientific_name,
+                  "confidence": round(latest.confidence, 3),
+                  "at": f"{latest.date} {latest.time}",
+                  "ts": (latest.timestamp.isoformat(timespec="seconds")
+                         if latest.timestamp != datetime.min else "")}
+                 if latest else None)
+        # A source that is down answers nothing: the page keeps what it last
+        # said rather than a dash and "0 all-time" beside a species on show.
+        heard = self._last_known("last_heard", heard)
+        species = self._last_known("species_all_time",
+                                   self.source.all_time_species_count() or None) or 0
         return {
             "current": {
                 "etag": self._etag,
@@ -2699,18 +2740,16 @@ class FeatherframeService:
                 "holding": self._holding(meta, now),
             },
             "last_detection": {
-                "common": latest.common_name, "scientific": latest.scientific_name,
-                "confidence": round(latest.confidence, 3),
-                "at": f"{latest.date} {latest.time}",
-                "when_text": (when_text(latest.timestamp, now)
-                              if latest.timestamp != datetime.min else ""),
-            } if latest else None,
+                **{k: v for k, v in heard.items() if k != "ts"},
+                "when_text": (when_text(datetime.fromisoformat(heard["ts"]), now)
+                              if heard.get("ts") else ""),
+            } if heard else None,
             "quiet": quiet,
             "source_outage": outage,
             "pending": self.pending_view(now),
             "hold": self.hold_view(now),
             "birdnet_available": self.source.available(),
-            "species_all_time": self.source.all_time_species_count(),
+            "species_all_time": species,
             "plates_loaded": self.plates.species_count,
             "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
             "config": self._masked_config(),

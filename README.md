@@ -3,7 +3,7 @@
 <h1 align="center">Featherframe</h1>
 
 <p align="center">
-  <strong>A wall-mounted e-paper frame that shows the birds in your backyard as Audubon lithograph plates.</strong>
+  <strong>An e-paper frame that shows the birds in your backyard as Audubon prints.</strong>
 </p>
 
 <p align="center">
@@ -11,359 +11,96 @@
 </p>
 
 <p align="center">
-  <a href="#what-is-it">What is it?</a> ⬪
+  <a href="#how-it-works">How it works</a> ⬪
   <a href="#shopping-list">Shopping list</a> ⬪
-  <a href="#install">Install</a> ⬪
-  <a href="#configure-it">Configure</a> ⬪
-  <a href="#species--plates">Species & plates</a> ⬪
+  <a href="#get-started">Get started</a> ⬪
+  <a href="https://github.com/wr/featherframe/wiki">Wiki</a> ⬪
   <a href="#license">License</a>
 </p>
 
 <center><img width="600" alt="featherframe" src="https://github.com/user-attachments/assets/22e61eee-6bd7-49b2-96bb-d9fbfed88f1a" /></center>
 
----
+## How it works
 
-## What is it?
+A bird detector identifies the birds in your backyard by their calls. Featherframe finds the matching plate in Audubon's [*The Birds of America*](https://www.audubon.org/art/birds-of-america) and shows it on an e-paper frame, in grayscale or color.
 
-BirdNET is a free local AI model that identifies bird calls in your backyard. Featherframe is an eink display that pulls live bird detection data from BirdNET and shows it as a beautiful [Audubon lithograph print](https://www.audubon.org/art/birds-of-america)... in color or grayscale.
+```
+ BirdNET-Pi, BirdNET-Go   ──▶  Featherframe server  ──▶  E-paper frame
+ or BirdWeather                (chooses and draws        (shows the plate)
+ (identifies the bird)          the plate)
+```
 
-Featherframe also has a custom `gpt-image` prompt that can automatically generate high-quality (read: not AI slop) lithograph plates *in the Audubon style* for birds not found in the original 435 prints from the 1800's. It can also combine a collage into one generated plate that shows all of the creatures your BirdNET setup detected that day.
+It works with [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), [BirdNET-Go](https://github.com/tphakala/birdnet-go), or a [BirdWeather](https://www.birdweather.com) station.
+
+- **Audubon's plates.** Every species Audubon painted gets his plate, matted like a print.
+- **Birds Audubon never painted.** These get a plate with the species' name set in type. With an OpenAI key, Featherframe can draw a new plate in Audubon's style instead.
+- **A daily collage.** One sheet shows every species heard that day.
+- **Other screens.** A TRMNL, a Kobo, a Kindle, or a tablet can also show the plates.
+- **No wrong birds.** If Featherframe isn't sure of a match, it shows the name instead of a guess.
 
 <center><img width="600" alt="IMG_1899" src="https://github.com/user-attachments/assets/95d46050-47f6-4af5-8e1a-6dfe1475b7b2" /></center>
 
-
-- **`server/`** — a small Python (FastAPI) service that runs *on the BirdNET-Pi
-  itself*, or anywhere on the LAN beside BirdNET-Go. It reads detections,
-  renders plates, and serves a packed framebuffer plus a LAN config page.
-- **`firmware/`** — a deliberately dumb ESP32-S3 client. It wakes, asks the
-  server for a frame, pushes it to the panel, and goes back to sleep.
-
-```
- BirdNET-Pi  ──reads──▶  Featherframe server  ──HTTP /api/frame──▶  ESP32-S3 ──▶ 10.3" e-paper
- (birds.db, read-only)   (FastAPI, systemd)     (packed framebuffer)  (deep sleep)
- or BirdNET-Go (its API)
-```
-
-The server polls BirdNET's database read-only and renders once per qualifying
-detection. The frame wakes on a timer or a button and either sleeps (`304`) or
-paints.
-
 ## Shopping list
 
-- **Seeed XIAO ePaper DIY Kit EE03** — XIAO ESP32-S3 Plus, EE03 driver board,
-  and a 10.3" 1404 × 1872 16-gray panel (E-Ink ED103TC2, IT8951). We replace
-  the SenseCraft firmware it ships with.
-- A protected 1S LiPo with a JST-PH lead — or just run it on USB-C.
-- A frame and mat. Matting it like a print sells the effect.
-- A BirdNET-Pi or BirdNET-Go you already have running.
+- **[Seeed XIAO ePaper DIY Kit EE03](https://www.seeedstudio.com/)**: 10.3", grayscale. Or the **EE02** kit: 13.3", color.
+- **[A frame](https://amzn.to/3V1nJFo)**
+- **A USB-C power supply**
 
-Seat the XIAO on the driver board, latch the panel's flat cable, plug in the
-battery, and mount portrait with the buttons reachable: **KEY0** fetches now,
-**KEY1** shows today's collage, **KEY2** shows status (hold 3 s to redo Wi-Fi).
+You don't need the kit if you have a TRMNL, an e-reader, or a tablet. See [Other screens](https://github.com/wr/featherframe/wiki/Other-screens).
 
-## Install
+## Get started
 
-### 1. Server
+### 1. Set up the server
 
-**Which BirdNET do you have?**
+Choose one:
 
-- **BirdNET-Pi.** Install on the Pi itself; the server reads BirdNET-Pi's
-  `birds.db` read-only.
+- **Hosted.** Join the waitlist at [featherframe.app](https://featherframe.app). You'll get an invitation by email. There's nothing to install.
+- **On your BirdNET computer.** Run these commands on the computer that runs BirdNET-Pi or BirdNET-Go:
 
   ```bash
   git clone https://github.com/wr/featherframe ~/featherframe
   cd ~/featherframe/server
-  ./install.sh
+  ./install.sh                                                               # BirdNET-Pi
+  ./install.sh --source birdnet-go --url http://localhost:8080 --port 8081   # BirdNET-Go
   ```
 
-- **BirdNET-Go.** The server talks to BirdNET-Go's API, so it can run on any
-  Linux machine on your network: the same box, a NAS, a container.
+  When it finishes, it prints the address of your Featherframe page.
 
-  ```bash
-  git clone https://github.com/wr/featherframe ~/featherframe
-  cd ~/featherframe/server
-  ./install.sh --source birdnet-go --url http://<birdnet-go-host>:8080
-  ```
+### 2. Install the firmware
 
-BirdWeather stations and Apprise notifications are also sources; pick those on
-the config page afterwards. The page's source card shows which source is live
-and when it last produced a detection
-([troubleshooting](docs/troubleshooting-sources.md)).
+1. Connect the frame to your computer with a USB-C cable.
+2. Open your Featherframe page in Chrome or Edge.
+3. In the **Frames** section, click **⋯**, then **USB firmware update**. If your server is on your BirdNET computer, this opens the installer at [wr.github.io/featherframe](https://wr.github.io/featherframe/).
+4. Click **Connect**, then follow the steps. You'll enter your Wi-Fi details at the end.
 
-That creates a venv, downloads the Audubon plates (~2.9 GB, as checksummed
-tarballs from this repo's `plates-v1` release, with the public mirror as the
-fallback), and installs a
-`featherframe.service` systemd unit, niced to stay out of BirdNET's way. It
-prints the config page URL when done: `http://<hostname>.local:8080/`.
+### 3. Add the frame
 
-Options: `--skip-plates`, `--all-plates` (every Havell plate, not only the
-ones `folios/havell.yaml` uses),
-`--port 9000`, `--no-service`, `--check` (report what a run would change),
-`--source birdnet-pi|birdnet-go` with `--url` (written once, only when given).
+- **Hosted:** The frame shows a six-letter code. On your Featherframe page, click **⋯**, then **Pair a frame**, and enter the code.
+- **On your BirdNET computer:** On your Featherframe page, click **Add** next to the new frame.
 
-**Upgrading** is the same command again: `git pull && ./install.sh`. It reuses
-the venv, fetches only plates a new species needs, keeps the port and data
-directory of the existing install, and restarts the service. Your config,
-frames, and generated plates in `data/` are never touched.
+The frame shows a plate the next time your detector identifies a bird.
 
-**Before you reinstall or move the server**, open the page's *Generated plates
-on file* card and **Download a backup**: a zip of every generated plate. Each
-one cost an image, and they live only in `data/generated/`. **Restore from a
-backup…** on the new install puts them back, and never replaces a newer plate.
+## Learn more
 
-> **No login by default.** The page is for your home network: never
-> port-forward it or expose it to the internet. To ask for a password anyway,
-> turn on *Require a password* under *General settings* (you sign in on a
-> page with your email and that password; frames and viewers connect without
-> it). Locked out?
-> `server/.venv/bin/python -m featherframe --clear-password` with the same
-> `FEATHERFRAME_*` environment as the service, then restart it.
+See the [wiki](https://github.com/wr/featherframe/wiki) for:
 
-### 2. Firmware
-
-With [PlatformIO](https://platformio.org/) installed:
-
-```bash
-cd firmware
-pio run -t upload        # build + flash over USB-C
-pio device monitor       # serial log, 115200
-pio run -e release       # the binary a kit ships with (release_ee02 for the colour kit)
-```
-
-Nothing per-unit or per-network is compiled in: the frame finds the server by
-mDNS, and the battery read is untrimmed (within about 2 %; see `VBAT_TRIM` in
-`firmware/include/ff_config.h`, where the button pins also live).
-One build serves both power models: the config page's **Power** setting
-(always awake on USB, deep sleep on battery) and the wake interval reach the
-frame on its next check-in and are stored on the device.
-
-#### Another panel
-
-The server draws for whatever panel a frame describes (its size, format and
-the rotations it accepts ride along on every check-in), so a port is a
-firmware job only. Copy the `generic_bench` env in `firmware/platformio.ini`,
-and in the copy:
-
-1. Set the build flags for your glass: `PANEL_W` / `PANEL_H` as it hangs,
-   `FF_PANEL_ID`, `FF_BOARD_ID`, `FF_PANEL_ROTATIONS`, `FF_BAKED_ROTATION`
-   (they are listed in `firmware/include/ff_config.h`, under Panel).
-2. Set `custom_bake` to your size, and `FF_SCREENS_HEADER` to its `--out`: the
-   boot, setup and error screens are baked for your panel when you build.
-3. Pick your panel's Seeed_GFX setup in `firmware/lib/driver/driver.h`. With
-   another driver library, `fullPaint()` in `firmware/src/main.cpp` is the one
-   call to replace.
-
-Every change on the glass is a full refresh on this path, as on the colour
-kit. The panel must take 16-level gray (or Spectra 6 inks, with
-`-DFF_GENERIC_INKS`), and a panel that is not 3:4 shows the same plate,
-centred on paper. To see what the server will send before any hardware exists:
-
-```bash
-cd server && ./.venv/bin/python -m featherframe.preview --panel custom:800x480:gray16:90,270
-```
-
-### 3. First boot
-
-The frame starts a hotspot named **`Featherframe-Setup`**. Join it from your
-phone and pick your Wi-Fi. Leave the server URL blank: the frame finds the
-server by mDNS (the server advertises `_featherframe._tcp`), and finds it
-again on its own if the box ever changes address. Type the URL from step 1
-(include `http://` and the port) only on a network that blocks multicast.
-To redo it later, hold **KEY2 for 3 s**; hold KEY2 while powering on to wipe
-everything.
-
-The frame then shows *Add this frame on the Featherframe page*: open the page,
-and it is waiting at the top of the **Frames** card. Press **Add** and the next
-check-in brings the plate. Every screen is let in this way, the first one
-included.
-
-If the image hangs sideways, change **Panel rotation** on the config page — no
-reflash.
-
-## Configure it
-
-The page at `http://<your-pi>:8080/` is the whole UI. It has two halves: on the
-left the **live preview** (with a chip per screen, so you can see what each one
-is showing), how the detection source is doing, and the history; on the right,
-everything you can change.
-
-**Frames** is the first card, and every screen this server draws for is one row
-in it — the kit on the wall, a second kit, a TRMNL, a tablet. Each row is the
-whole of that frame: collapsed it shows a status dot, the name, what the screen
-is and what it shows, and its battery, Wi-Fi and last check-in. Open it and it
-offers only what that screen has:
-
-- **Name** — every frame is yours to name; blank falls back to what it is.
-- **Content** — *Individual detections* (the species just heard, one at a time)
-  or *Collage* (the day's species on one sheet).
-- **Rotation** — which way up it hangs. A kit is offered only the rotations its
-  own panel accepts; anything else gets all four.
-- **Power** (a kit) — *always awake* (for USB) or *deep sleep* (for battery).
-- **Update interval** (a kit) — how often the display checks for updates:
-  seconds while it is always awake, minutes in deep sleep. The frame picks it
-  up on its next check-in.
-- **Screen size** — only for a client that does not say how big it is.
-- **Advanced** (a kit) — the mat inset and offsets, with *Reset to defaults*.
-  The inset is 0 by default: turn it up only if you hang the panel behind a
-  mat and want the art to clear the opening.
-- **Details** — what that screen reported about itself: IP address, firmware,
-  panel, board and the frame's id. Metadata, never a setting.
-
-A frame that is overdue or nearly flat wears a badge on its own row; there is
-no banner across the page.
-
-Everything below the Frames card is the household's: the same for every screen.
-
-- **Quiet hours** (22:00–06:00, or sunset to sunrise), with the optional
-  overnight collage. The confidence threshold is your detector's own: set it in
-  BirdNET-Go, not here.
-- **Detection source** — BirdNET-Pi DB (default), BirdNET-Go, BirdWeather, or
-  an Apprise webhook, with a *Test connection* button, and the **species
-  blocklist** under its Advanced: one name per line.
-- **Collage** — how often it is redrawn, how many species it holds (leave it
-  empty for no limit), and whether to draw it with AI. That switch is all or
-  nothing: with it on, every collage is an illustrated scene, and one image is
-  bought per day — again only if the day's species change.
-- **Image generation** — optional; see below.
-
-## Other screens: tablets, TRMNL, Kobo, Kindle
-
-The kit is not the only thing that can show a plate. A frame is a frame: any
-number of tablets, TRMNLs and e-readers can show plates or the collage, each
-drawn for its own screen, and each appears in the **Frames** card as an
-ordinary row. Every one of them asks first: point a screen at the server and it
-shows *Add this frame on the Featherframe page* until you answer **Add** at the
-top of the Frames card. Then it takes the plate by itself.
-
-**iPad or Android tablet**: open `http://<your-pi>:8080/view`. It is the
-plate, edge to edge, in colour, and it follows the frame within seconds. On an
-iPad: Share → *Add to Home Screen* (it then opens with no browser bars), and
-Settings → Display & Brightness → Auto-Lock → *Never*; Guided Access locks it
-to the page if little hands are about. On Android,
-[Fully Kiosk Browser](https://www.fully-kiosk.com) pointed at the same address
-keeps the screen on. An e-ink Android tablet (Boox) works the same way; set its
-refresh mode to the clearest one for that app.
-
-**TRMNL** (the 10.3" TRMNL X has the same glass as the gray frame, so the plate
-is pixel for pixel the same; the 7.5" OG works but is small and four grays):
-hold the button on the back for 5 s to reopen Wi-Fi setup, and under the
-advanced options set the server to `http://<your-pi>:8080` (no trailing slash).
-It asks every 15 minutes, hourly in quiet hours.
-
-**Kobo, Kindle, KOReader**: install TRMNL's own client for the device
-([trmnl-kobo](https://github.com/usetrmnl/trmnl-kobo),
-[trmnl-kindle](https://github.com/usetrmnl/trmnl-kindle) — a jailbroken Kindle —
-or [trmnl-koreader](https://github.com/usetrmnl/trmnl-koreader)) and give it
-`http://<your-pi>:8080/api` as its API URL and any text as its token. These
-clients do not say how big their screen is, so they get a 1072×1448 page until
-you set the size.
-
-A screen in landscape gets the plate turned on its side, for hanging portrait.
-Every one of them is a row in the **Frames** card, where you can name it, say
-what it shows, turn it, or set a size. The same from a shell — one endpoint for
-every frame, whatever it is fed over:
-
-```bash
-curl http://<your-pi>:8080/api/status | jq '.frames.list[] | {id, title, summary}'
-curl -X POST http://<your-pi>:8080/api/frames/<ID> \
-     -H 'Content-Type: application/json' \
-     -d '{"name": "Hall TRMNL", "shows": "collage", "rotation": 270}'
-curl -X POST http://<your-pi>:8080/api/frames/<ID> \
-     -H 'Content-Type: application/json' -d '{"forget": true}'
-```
-
-Only what a screen has is taken: a tablet cannot be given a panel rotation, a
-TRMNL cannot be given a mat. Each frame's own picture is at
-`/api/frames/<ID>/preview.png`, and its battery readings at
-`/api/battery?frame=<ID>`.
-
-Anything else can fetch the plate as a PNG at any size:
-`/api/view.png?w=1072&h=1448&format=gray256` (`gray16`, `gray2` and `mono` are
-dithered; `color` is the plate in colour, for a tablet).
-
-## Battery life
-
-E-paper holds its image with zero power; the cost is per wake, mostly Wi-Fi.
-Rough model for a 2000 mAh cell and ~20 refreshes a day:
-
-| Wake interval | Runtime    |
-|--------------:|-----------:|
-| 15 min        | ~7–8 weeks |
-| 30 min        | ~11 weeks  |
-| 60 min        | ~14 weeks  |
-
-Quiet hours push these further; the always-awake model lasts 4–5 days. Below
-3.45 V (3.55 V on the colour panel, whose warning is a full 30 s refresh) the
-frame says "Battery low, charge me" on the glass, once, and stops using Wi-Fi
-until it's charged; the page warns first, with a *Battery low* badge on that
-frame's row under 10 %.
-
-## Species & plates
-
-`server/scripts/folios/havell.yaml` maps modern species to Audubon Havell plate
-numbers — every species he painted, each checked against the plate's own
-archaic title (the Northern Cardinal is his "Cardinal Grosbeak"). The rule is
-**never a wrong bird**: anything unsure falls back rather than guesses.
-
-Birds Audubon never painted — the European Starling, the House Sparrow, your
-yard's bats and cicadas — are pinned `plate: none` and get a clean typographic
-plate instead: the name set large, "First recorded <date>" beneath.
-
-### AI plates
-
-Optionally, the server can paint those missing species in the Havell style.
-Add an OpenAI API key on the config page and it prompts `gpt-image-2.5-sunburst`
-(or `-flare`, or the older `gpt-image-2`) with real
-plates from your set as style references. One image per species (~$0.07),
-cached forever, cropped like a real scan; regenerate or remove from the
-gallery. No key just means the typographic fallback.
-
-## Preview without hardware
-
-```bash
-make venv && make plates
-make preview     # renders a fake Northern Cardinal to test_output/
-```
-
-## Troubleshooting
-
-- **"BirdNET: not found"** — check the DB path on the config page. Default is
-  `~/BirdNET-Pi/scripts/birds.db`.
-- **Frame never updates** — quiet hours, a new species waiting for a second
-  detection, or a first-of-the-day species holding the frame are all
-  intentional. Hit *Test detection* to force one.
-- **Device never checks in** — `/api/status` shows `mdns.advertised`; if it is
-  false the box has no LAN route or `zeroconf` is missing (re-run
-  `install.sh`). On a network that blocks multicast, hold KEY2 for 3 s and type
-  the server URL (scheme and port) into the portal.
-- **The frame shows another server's plate** — a second Featherframe server on
-  the LAN (a dev copy on a laptop) advertises itself too, and a frame whose own
-  server stops answering adopts it. Run every server that is not the real one
-  with `FEATHERFRAME_NO_MDNS=1`; stop the stray and the frame goes home.
-- **Plates missing** — re-run `python scripts/fetch_plates.py`; it's idempotent.
+- [Installing the server](https://github.com/wr/featherframe/wiki/Install-the-server)
+- [Building](https://github.com/wr/featherframe/wiki/Build-the-frame), [flashing](https://github.com/wr/featherframe/wiki/Flash-the-frame), and [adding](https://github.com/wr/featherframe/wiki/Add-a-frame) a frame
+- [Settings](https://github.com/wr/featherframe/wiki/Settings)
+- [Running on a battery](https://github.com/wr/featherframe/wiki/Battery)
+- [Other screens](https://github.com/wr/featherframe/wiki/Other-screens)
+- [AI plates](https://github.com/wr/featherframe/wiki/AI-plates)
+- [Troubleshooting](https://github.com/wr/featherframe/wiki/Troubleshooting)
+- [Previewing without hardware](https://github.com/wr/featherframe/wiki/Development) and [porting to another panel](https://github.com/wr/featherframe/wiki/Porting-to-another-panel)
 
 ## Credits
 
-- Plates: John James Audubon, *The Birds of America* — public domain, via
-  [nathanbuchar/audubon-bird-plates](https://github.com/nathanbuchar/audubon-bird-plates).
-  *Courtesy of the John James Audubon Center at Mill Grove, Montgomery County
-  Audubon Collection, and Zebra Publishing.*
-- Type, all SIL OFL and bundled with their licence texts:
-  [Pinyon Script](https://fonts.google.com/specimen/Pinyon+Script),
-  [IM Fell Double Pica SC](https://iginomarini.com/fell/) (Igino Marini's Fell Types),
-  [EB Garamond](https://github.com/octaviopardo/EBGaramond12),
-  [Inter](https://rsms.me/inter/) ·
-  [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) (Nachtzuster fork) ·
-  [Seeed_GFX](https://github.com/Seeed-Studio/Seeed_GFX)
+Plates: John James Audubon, *The Birds of America*, public domain, via [nathanbuchar/audubon-bird-plates](https://github.com/nathanbuchar/audubon-bird-plates). Courtesy of the John James Audubon Center at Mill Grove, Montgomery County Audubon Collection, and Zebra Publishing. Fonts and libraries are listed in [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Donate
 
-While Featherframe is free and open source, donations are deeply appreciated,
-and make ongoing development and support possible.
-[Donate now](https://www.buymeacoffee.com/wellsworkshop)
+Featherframe is free and open source. Donations pay for its development and support: [Buy me a coffee](https://www.buymeacoffee.com/wellsworkshop).
 
 ## License
 
-Featherframe's own code is licensed under the [Apache License 2.0](LICENSE).
-The bundled fonts are SIL OFL, Audubon's plates are in the public domain, and
-the libraries keep their own terms: see [THIRD_PARTY.md](THIRD_PARTY.md).
+[Apache License 2.0](LICENSE). The bundled fonts use the SIL Open Font License. Audubon's plates are in the public domain. See [THIRD_PARTY.md](THIRD_PARTY.md).

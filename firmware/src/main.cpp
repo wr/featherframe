@@ -671,6 +671,16 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   WiFi.mode(WIFI_STA);
   wm.setTitle("Featherframe");
   wm.setCustomHeadElement(PORTAL_CSS);
+  // A frame that already knows its network (the KEY2 hold) gets Configure
+  // WiFi as the form without the scan, that network filled in (W-852). The
+  // scan runs inside the request, ~4 s over every channel, taking the setup AP
+  // off its channel under the phone that asked: from a running frame the
+  // button did nothing. A new frame keeps the list; it has nothing to fill in.
+  static const char* menuKnown[] = {"custom", "info", "exit", "sep", "update"};
+  static const char* menuNew[]   = {"wifi", "info", "exit", "sep", "update"};
+  wm.setCustomMenuHTML("<form action='/0wifi' method='get'><button>Configure WiFi</button></form><br/>\n");
+  if (wm.getWiFiIsSaved()) wm.setMenu(menuKnown, 5);
+  else wm.setMenu(menuNew, 5);
   // WiFiManager keeps the registered pointer forever and never dedupes, and
   // ensureWifi is re-entered from loop()'s KEY2 handler — so the parameter
   // lives in static storage and registers exactly once.

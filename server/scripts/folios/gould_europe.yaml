@@ -18,10 +18,9 @@
 #   legend      the plate's own caption line for this species, on a sheet
 #               that shows more than one
 #   margins     [left, top, right, bottom], the part of the (upright) sheet
-#               kept before the crop: below the art and above the caption,
-#               clear of the pencilled number. The folio's `margins` serve its
-#               portrait plates; a landscape plate (or one lettered higher)
-#               names its own.
+#               kept before the crop. The folio's own is only the sheet's
+#               edge; a plate whose art runs close to its caption can name
+#               its own.
 #   (folio-wide: `flatten` clears the paper to white at fetch time; `tight`
 #   crops to the art's own box — see the folio header)
 #
@@ -40,7 +39,9 @@ folio:
   years: "1832–1837"
   plates: 449
   region: europe
-  margins: [0.03, 0.03, 0.97, 0.80]
+  # Only the sheet's own edge: the tight crop stops at the paper gap above
+  # the caption and beside the pencilled number, whatever the orientation.
+  margins: [0.02, 0.02, 0.98, 0.97]
   flatten: true
   # Crop to the art's own box: a Gould sheet is one vignette on a lot of paper.
   tight: true
@@ -51,12 +52,12 @@ folio:
 
 species:
   # --- The introductions: what a North American station hears that Audubon never painted
-  - {common: "House Sparrow",         scientific: "Passer domesticus",  plate: 184, gould_title: "1. House Sparrow. 2. Tree Sparrow.", volume: birdsEuropeIIIGoul, leaf: 150, composite: true, margins: [0.03, 0.03, 0.97, 0.787], legend: ["1. House Sparrow."]}
+  - {common: "House Sparrow",         scientific: "Passer domesticus",  plate: 184, gould_title: "1. House Sparrow. 2. Tree Sparrow.", volume: birdsEuropeIIIGoul, leaf: 150, composite: true, legend: ["1. House Sparrow."]}
   - {common: "European Starling",     scientific: "Sturnus vulgaris",   plate: 210, gould_title: "Starling",         volume: birdsEuropeIIIGoul, leaf: 254}
   - {common: "Rock Pigeon",           scientific: "Columba livia",      plate: 245, gould_title: "Rock Dove",        volume: birdsEuropeIVGoul,  leaf: 22}
-  - {common: "Ring-necked Pheasant",  scientific: "Phasianus colchicus", plate: 247, gould_title: "Common Pheasant", volume: birdsEuropeIVGoul,  leaf: 30,  rotate: 270, margins: [0.062, 0.03, 0.98, 0.955]}
-  - {common: "Mute Swan",             scientific: "Cygnus olor",        plate: 354, gould_title: "Domestic Swan, Cygnus mansuetus", volume: birdsEuropeVGoul, leaf: 46, rotate: 270, margins: [0.08, 0.03, 0.98, 0.88]}
+  - {common: "Ring-necked Pheasant",  scientific: "Phasianus colchicus", plate: 247, gould_title: "Common Pheasant", volume: birdsEuropeIVGoul,  leaf: 30,  rotate: 270}
+  - {common: "Mute Swan",             scientific: "Cygnus olor",        plate: 354, gould_title: "Domestic Swan, Cygnus mansuetus", volume: birdsEuropeVGoul, leaf: 46, rotate: 270}
   - {common: "European Goldfinch",    scientific: "Carduelis carduelis", plate: 196, gould_title: "Goldfinch, Carduelis elegans", volume: birdsEuropeIIIGoul, leaf: 198}
-  - {common: "Black-headed Gull",     scientific: "Chroicocephalus ridibundus", plate: 425, gould_title: "Laughing Gull, Xema ridibundus", volume: birdsEuropeVGoul, leaf: 330, rotate: 270, margins: [0.11, 0.03, 0.98, 0.915], sci_synonyms: ["Larus ridibundus"]}
+  - {common: "Black-headed Gull",     scientific: "Chroicocephalus ridibundus", plate: 425, gould_title: "Laughing Gull, Xema ridibundus", volume: birdsEuropeVGoul, leaf: 330, rotate: 270, sci_synonyms: ["Larus ridibundus"]}
   # The House Sparrow's sheet also shows the Tree Sparrow, as figure 2.
-  - {common: "Eurasian Tree Sparrow", scientific: "Passer montanus",    plate: 184, gould_title: "1. House Sparrow. 2. Tree Sparrow.", volume: birdsEuropeIIIGoul, leaf: 150, composite: true, margins: [0.03, 0.03, 0.97, 0.787], legend: ["2. Tree Sparrow."]}
+  - {common: "Eurasian Tree Sparrow", scientific: "Passer montanus",    plate: 184, gould_title: "1. House Sparrow. 2. Tree Sparrow.", volume: birdsEuropeIIIGoul, leaf: 150, composite: true, legend: ["2. Tree Sparrow."]}

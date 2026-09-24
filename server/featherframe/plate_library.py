@@ -59,7 +59,7 @@ def entry_key(entry: dict) -> str:
     how = [bool(entry.get("composite")), entry.get("crop_box")]
     if entry.get("margins") or entry.get("tight"):
         # only a folio's own cut: Havell's keys stand
-        how += [entry.get("margins"), plate.TIGHT_PAD if entry.get("tight") else False]
+        how += [entry.get("margins"), f"white{plate.TIGHT_PAD}" if entry.get("tight") else False]
     how = json.dumps(how, sort_keys=True)
     stem = Path(str(entry["image"])).stem
     return f"{stem}-{hashlib.sha1(how.encode()).hexdigest()[:8]}"
@@ -69,7 +69,7 @@ def _raw_color_crop(path: Path, composite: bool, crop_box, margins=None,
                     tight: bool = False) -> Image.Image:
     """plate.extract_color() up to, not including, its normalisation."""
     rgb = plate._trim_marginalia(plate.load_color(path), margins)
-    return rgb.crop(plate._box(rgb.convert("L"), composite, crop_box, tight))
+    return plate._cut(rgb, plate._box(rgb.convert("L"), composite, crop_box, tight), tight)
 
 
 def color_pair_from_raw(raw: Image.Image) -> tuple[Image.Image, Image.Image]:

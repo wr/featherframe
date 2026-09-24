@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 log = logging.getLogger("featherframe.plate")
 
@@ -373,7 +373,9 @@ def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]
 
 # A tight crop's paper band, as a fraction of the art's box per side: room
 # to breathe inside the mat, and enough clear paper at the edges that compose
-# contain-fits the art rather than cover-fitting (and so cutting) it.
+# contain-fits the art rather than cover-fitting (and so cutting) it. It is
+# added as fresh white paper, never taken from the scan, so a caption or a
+# pencilled number just outside the art cannot ride in with it.
 TIGHT_PAD = 0.05
 
 
@@ -384,10 +386,20 @@ def _box(gray: Image.Image, composite: bool, crop_box, tight: bool) -> tuple[int
     if tight:
         # The art's own box, composite or not: on a sheet that is one vignette
         # (Gould's) every figure is inside it, and the rest is paper.
-        return content_box(gray, pad=TIGHT_PAD, mirror=False)
+        return content_box(gray, pad=0.0, mirror=False)
     if composite:
         return (0, 0, gray.width, gray.height)  # whole (trimmed) plate: all birds
     return content_box(gray)
+
+
+def _cut(img: Image.Image, box, tight: bool) -> Image.Image:
+    """The crop, and for a tight one its band of white paper."""
+    crop = img.crop(box)
+    if not tight:
+        return crop
+    px, py = round(crop.width * TIGHT_PAD), round(crop.height * TIGHT_PAD)
+    white = 255 if crop.mode == "L" else (255,) * len(crop.getbands())
+    return ImageOps.expand(crop, border=(px, py, px, py), fill=white)
 
 
 def extract(path: str | Path, composite: bool = False,
@@ -395,8 +407,7 @@ def extract(path: str | Path, composite: bool = False,
             tight: bool = False) -> Image.Image:
     """Load a plate and return the normalised bird artwork ('L')."""
     gray = _trim_marginalia(load_gray(path), margins)
-    crop = gray.crop(_box(gray, composite, crop_box, tight))
-    return paper_normalize(crop)
+    return paper_normalize(_cut(gray, _box(gray, composite, crop_box, tight), tight))
 
 
 def extract_color(path: str | Path, composite: bool = False, crop_box: Optional[list] = None,
@@ -408,7 +419,8 @@ def extract_color(path: str | Path, composite: bool = False, crop_box: Optional[
     rgb = _trim_marginalia(load_color(path), margins)
     gray = rgb.convert("L")
     box = _box(gray, composite, crop_box, tight)
-    return paper_normalize(gray.crop(box)), paper_normalize_color(rgb.crop(box))
+    return (paper_normalize(_cut(gray, box, tight)),
+            paper_normalize_color(_cut(rgb, box, tight)))
 
 
 def extract_generated_color(path: str | Path) -> tuple[Image.Image, Image.Image]:

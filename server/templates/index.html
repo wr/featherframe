@@ -173,7 +173,11 @@
     .tools-body .frow { padding:10px 0; grid-template-columns:1fr; row-gap:8px; }
     .tools-body .frow-ctl { justify-self:start; justify-content:flex-start; }
     .tools-body .frow.stack .frow-ctl { justify-self:stretch; }
-    .tools-body .frow:first-child { border-top:0; padding-top:4px; }
+    .tools-body .tools-scope + .tools-scope + .frow, .tools-body .frow[data-for="collage"] { border-top:0; padding-top:4px; }
+    .tools-scope { margin:0 0 8px; font-size:12px; color:var(--muted); }
+    /* The plate card says which picture it previews; its Tools are that one's. */
+    .plate-card[data-picture="collage"] [data-for="plates"],
+    .plate-card:not([data-picture="collage"]) [data-for="collage"] { display:none !important; }
     .tools-body .lab { font-size:13px; }
     .tools-body .hint { font-size:12px; margin-top:2px; }
     .tools-body form.inline { display:flex; gap:6px; margin:0; }
@@ -406,6 +410,7 @@
     .savebar { display:flex; align-items:center; justify-content:flex-end; gap:14px;
                padding:14px 20px; border:1px solid var(--border); border-radius:9px; box-shadow:var(--sh-card);
                background:var(--glass); backdrop-filter:blur(8px); }
+    .default-submit { position:absolute; width:1px; height:1px; padding:0; border:0; overflow:hidden; clip:rect(0 0 0 0); }
     .savebar .unsaved { display:none; margin-right:auto; font-size:12.5px; color:var(--muted); }
     /* Above the form (segmented labels carry z-index:1 for their indicator),
        below dropdown lists (z-index 20+). */
@@ -444,6 +449,8 @@
     section.sec > .reveal:last-child .frow { padding-bottom:0; }
     @media (prefers-reduced-motion:reduce){ .reveal { transition:none; } }
     .adv-body { padding:0 var(--pad); }
+    details.disc > summary .disc-end { display:flex; align-items:center; gap:10px; }
+    .disc-count { font-weight:400; color:var(--muted); }
     @media (max-width:600px){ details.adv { --pad:16px; margin-top:12px; } }
     .adv-group { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; margin:0; padding:18px 0 10px; }
     .adv-body > .adv-group:first-child { padding-top:12px; }
@@ -616,9 +623,11 @@
     details.disc.fr > summary { align-items:center; gap:14px; font-weight:400; }
     .fr-main { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center;
       gap:2px; min-height:38px; }
-    .fr-title { display:flex; align-items:center; gap:7px; min-width:0; }
+    /* The badges wrap under the name when there is no room beside it: the
+       name is never the thing squeezed out. */
+    .fr-title { display:flex; flex-wrap:wrap; align-items:center; gap:3px 7px; min-width:0; }
     .fr-title .d { flex:none; width:7px; height:7px; border-radius:50%; }
-    .fr-name { font-size:14px; font-weight:500; color:var(--ink); min-width:0;
+    .fr-name { font-size:14px; font-weight:500; color:var(--ink); min-width:0; max-width:calc(100% - 14px);
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .fr-desc { font-size:12px; line-height:1.45; color:var(--muted);
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -709,7 +718,8 @@
     }
     .fr-note, .fr-empty, .ignored-frames { margin:13px 0; }
     /* Save sits on the right, as the household form's does; Remove on the left. */
-    .fr-actions [data-fr-action="save"] { margin-left:auto; }
+    .fr-actions [data-fr-unsaved] { margin-left:auto; font-size:12.5px; color:var(--muted); }
+    .fr-actions [data-fr-unsaved][hidden] + [data-fr-action="save"] { margin-left:auto; }
     /* USB firmware update (W-840): a menu item, and its dialog. */
     /* The card's heading, with its one rarely-used action in a ⋯ menu. */
     .fr-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 0 6px; }
@@ -832,12 +842,15 @@
     <!-- LEFT: the plate, then the detection source and the history -->
     <div class="col-left">
       <div class="stage">
-        <div class="card plate-card">
+        {% set picked = (previewable | selectattr('transport', 'equalto', 'kit') | list | first)
+                        or (previewable | first) %}
+        {# Which picture the previewed frame shows: the Tools under it are that
+           picture's, and act on every frame showing it. #}
+        {% set pic0 = picked.picture if picked else ('collage' if status.current.mode == 'collage' else 'plates') %}
+        <div class="card plate-card" id="plate-card" data-picture="{{ pic0 }}">
           {# The preview is OF one frame: a kit's own output, a viewer's own
              view. The picker under it says which, and the choice is kept in this
              browser. With no frame yet it is the picture itself. #}
-          {% set picked = (previewable | selectattr('transport', 'equalto', 'kit') | list | first)
-                          or (previewable | first) %}
           <div class="plate{{ '' if status.current.etag else ' empty' }}" id="plate">
             <a class="plate-link" href="{{ picked.preview_url if picked else '/api/preview.png' }}" target="_blank" rel="noopener">
               <img id="preview" src="{{ picked.preview_url if picked else '/api/preview.png' }}" alt="{{ ('Current frame: ' ~ status.current.title) if status.current.title else 'Current frame' }}">
@@ -846,14 +859,14 @@
           </div>
           <div class="frame-pick" id="frame-pick" role="group" aria-label="Which frame this shows" {{ '' if previewable|length > 1 else 'hidden' }}>
             {% for fr in previewable %}
-            <button type="button" data-pick="{{ fr.id }}" data-src="{{ fr.preview_url }}" aria-pressed="{{ 'true' if picked and fr.id == picked.id else 'false' }}">{{ fr.title }}</button>
+            <button type="button" data-pick="{{ fr.id }}" data-src="{{ fr.preview_url }}" data-picture="{{ fr.picture }}" aria-pressed="{{ 'true' if picked and fr.id == picked.id else 'false' }}">{{ fr.title }}</button>
             {% endfor %}
           </div>
           {# W-735: a live hold is state you need to see, so it stays above the
              fold; the rest of the plate's controls are tools and sit in a closed
              disclosure. #}
           {% set uh = status.hold %}
-          <div class="held" id="held-line" {{ '' if uh else 'hidden' }}>
+          <div class="held" id="held-line" data-for="plates" {{ '' if uh else 'hidden' }}>
             <span class="held-text">Holding this plate <span id="held-until">{{ uh.until_text if uh else '' }}</span></span>
             <button class="btn" type="button" id="release-btn" title="End the hold and show whatever should be on the wall now">Release</button>
           </div>
@@ -861,21 +874,23 @@
           <details class="disc tools" id="plate-tools">
             <summary><span>Tools</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="disc-body"><div class="tools-body">
-              <div class="frow">
-                <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Redraws the plate now. The wall updates on its next check-in.</div></div>
+              <p class="tools-scope" data-for="plates">For every frame showing individual detections.</p>
+              <p class="tools-scope" data-for="collage">For every frame showing the collage.</p>
+              <div class="frow" data-for="plates">
+                <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Redraws the latest detection now.</div></div>
                 <div class="frow-ctl"><button class="btn" type="button" id="refresh-btn">Refresh</button></div>
               </div>
-              <div class="frow">
-                <div class="frow-text"><span class="lab">Collage</span><div class="hint">Puts today's collage on the wall now. Repaint rebuilds it from today's species.</div></div>
+              <div class="frow" data-for="collage">
+                <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Redraws today’s collage now.{{ ' Repaint generates a new image.' if config.collage_generated else '' }}</div></div>
                 <div class="frow-ctl">
                   <form class="inline task-form" data-task="collage" method="post" action="/api/collage/now">
-                    <button class="btn" type="submit">Show</button>
-                    <button class="btn" type="submit" name="repaint" value="1">Repaint</button>
+                    <button class="btn" type="submit">Refresh</button>
+                    {% if config.collage_generated %}<button class="btn" type="submit" name="repaint" value="1">Repaint</button>{% endif %}
                   </form>
                 </div>
               </div>
-              <div class="frow" id="hold-ctl" {{ 'hidden' if uh else '' }}>
-                <div class="frow-text"><span class="lab">Keep this plate up</span><div class="hint">Holds it on the wall until the hold ends, then the latest detection takes over.</div></div>
+              <div class="frow" id="hold-ctl" data-for="plates" {{ 'hidden' if uh else '' }}>
+                <div class="frow-text"><span class="lab">Keep this plate up</span><div class="hint">Until the hold ends, then the latest detection takes over.</div></div>
                 <div class="frow-ctl">
                   <select class="sel hold-dur" id="hold-dur" aria-label="Hold this plate for">
                     <option value="day">a day</option>
@@ -885,15 +900,15 @@
                   <button class="btn" type="button" id="hold-btn">Hold</button>
                 </div>
               </div>
-              <div class="frow">
-                <div class="frow-text"><span class="lab">Block this species</span><div class="hint">Adds it to the blocklist, so it's never shown again.</div></div>
+              <div class="frow" data-for="plates">
+                <div class="frow-text"><span class="lab">Block this species</span><div class="hint">Adds it to Blocked species, under Detection source.</div></div>
                 <div class="frow-ctl"><button class="btn" type="button" id="block-btn">Block</button></div>
               </div>
               {# Put any animal on the wall: a fake detection through the full
                  provider chain. A creature Audubon never painted buys a generated
                  plate (one image generation, cached forever). The next real detection
                  replaces it. #}
-              <div class="frow stack">
+              <div class="frow stack" data-for="plates">
                 <div class="frow-text"><span class="lab">Manual override</span><div class="hint">Displays any species until the next detection.</div></div>
                 <div class="frow-ctl">
                   <form class="critter-form task-form" data-task="test-detection" method="post" action="/api/test-detection">
@@ -1067,7 +1082,7 @@
            to without a socket is kept, not posted. #}
         {% set instant = s.push and s.power_mode == 'awake' and s.shows != 'collage' %}
         <div class="frow{{ ' locked' if s.shows == 'collage' or instant else '' }}" data-fr-interval{{ ' data-fr-push' if s.push else '' }}>
-          <div class="frow-text"><span class="lab" id="fr-int-lab-{{ i }}">Update interval</span><div class="hint" data-fr-interval-hint>{{ 'Set by the collage’s update interval.' if s.shows == 'collage' else '' }}</div></div>
+          <div class="frow-text"><span class="lab" id="fr-int-lab-{{ i }}">Update interval</span><div class="hint" data-fr-interval-hint>{{ 'Set by the collage’s redraw interval.' if s.shows == 'collage' else '' }}</div></div>
           <div class="frow-ctl">
             <span class="fr-int-collage" data-fr-collage-every {{ '' if s.shows == 'collage' else 'hidden' }}>{{ collage_every }}</span>
             <span class="fr-int-collage" data-fr-instant {{ '' if instant else 'hidden' }}>Instant</span>
@@ -1151,7 +1166,8 @@
            own Save sits. #}
         <div class="fr-actions">
           <button class="btn danger fr-forget" type="button" data-fr-action="forget">Remove</button>
-          <button class="btn primary" type="button" data-fr-action="save">Save</button>
+          <span class="unsaved" data-fr-unsaved hidden>Unsaved changes</span>
+          <button class="btn primary" type="button" data-fr-action="save" disabled>Save</button>
         </div>
       </div></div>
     </details>
@@ -1276,6 +1292,9 @@
     </dialog>
 
     <form method="post" action="/settings" class="settings-form">
+      {# First in the form, so it is the default button: Enter in any field
+         saves the form, whichever ✓ or Save is waiting for a change. #}
+      <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
         {# Every setting is one .frow: label + hint on the left, the control on
            the right, so the label column reads straight down the page. .toggle
            keeps its two columns on a phone (a switch is small); .stack puts a
@@ -1354,12 +1373,16 @@
             <span class="test-ic" aria-hidden="true"></span>
             <span class="test-msg"></span>
           </div>
-          <details class="disc adv">
-            <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
+          {# The blocklist filters what the source hears, for every picture
+             (plates and the collage), so it lives with the source — named, and
+             counted, rather than behind an Advanced. #}
+          {% set nblock = config.species_blocklist|length %}
+          <details class="disc adv" id="block-disc">
+            <summary><span>Blocked species</span><span class="disc-end"><span class="disc-count tnum" id="block-count" {{ '' if nblock else 'hidden' }}>{{ nblock }}</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></span></summary>
             <div class="disc-body"><div class="adv-body">
               <div class="frow stack">
-                <div class="frow-text"><label class="lab" for="f-block">Species blocklist</label><div class="hint">One species per line, common or scientific name. Never shown.</div></div>
-                <div class="frow-ctl"><textarea id="f-block" name="species_blocklist" placeholder="One species per line">{{ config.species_blocklist|join('\n') }}</textarea></div>
+                <div class="frow-text"><div class="hint" id="f-block-hint">One per line, common or scientific name.</div></div>
+                <div class="frow-ctl"><textarea id="f-block" name="species_blocklist" placeholder="One species per line" aria-label="Blocked species" aria-describedby="f-block-hint">{{ config.species_blocklist|join('\n') }}</textarea></div>
               </div>
             </div></div>
           </details>
@@ -1402,8 +1425,8 @@
               </div>
               <div class="keyline key-entry" {{ '' if not has_key else 'hidden' }}>
                 <input type="password" id="key-image-input" name="imagegen_api_key" autocomplete="off" placeholder="Paste key" aria-label="New API key">
-                <button class="btn primary" type="submit">Save</button>
-                {% if has_key %}<button class="btn key-cancel" type="button">Cancel</button>{% endif %}
+                <button class="btn icon primary key-ok" type="submit" title="Save" aria-label="Save key"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
+                {% if has_key %}<button class="btn icon key-cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-close"/></svg></button>{% endif %}
               </div>
               <input type="checkbox" class="key-clear" name="imagegen_clear_key" hidden aria-hidden="true" tabindex="-1">
             </div>
@@ -1450,8 +1473,8 @@
                   </div>
                   <div class="keyline key-entry" {{ '' if not tk else 'hidden' }}>
                     <input type="password" id="key-text-input" name="imagegen_text_key" autocomplete="off" placeholder="Paste key" aria-label="New text API key">
-                    <button class="btn primary" type="submit">Save</button>
-                    {% if tk %}<button class="btn key-cancel" type="button">Cancel</button>{% endif %}
+                    <button class="btn icon primary key-ok" type="submit" title="Save" aria-label="Save text key"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
+                    {% if tk %}<button class="btn icon key-cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-close"/></svg></button>{% endif %}
                   </div>
                   <input type="checkbox" class="key-clear" name="imagegen_text_clear_key" hidden aria-hidden="true" tabindex="-1">
                 </div>
@@ -1500,7 +1523,7 @@
         <section class="sec">
           <h2 class="sec-head">Collage</h2>
           <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-every">Update interval</label><div class="hint">How often the collage is redrawn during the day</div></div>
+            <div class="frow-text"><label class="lab" for="f-every">Redraw interval</label></div>
             <div class="frow-ctl">
               <div class="cselect">
               <select class="sel cselect-native" id="f-every" name="collage_interval_hours">
@@ -1571,7 +1594,7 @@
               <div class="keyline key-entry" {{ '' if not shown_email else 'hidden' }}>
                 <input type="email" id="f-email" name="owner_email" data-value="{{ shown_email }}" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@example.com" aria-label="Email address">
                 {% set ok_label = 'Send confirmation' if hosted else 'Save' %}
-                <button class="btn icon primary" type="submit" title="{{ ok_label }}" aria-label="{{ ok_label }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
+                <button class="btn icon primary key-ok" type="submit" title="{{ ok_label }}" aria-label="{{ ok_label }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
                 {% if shown_email %}<button class="btn icon key-cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-close"/></svg></button>{% endif %}
               </div>
             </div>
@@ -1586,7 +1609,7 @@
               </div>
               <div class="keyline key-entry" hidden>
                 <input type="password" id="pw-input" name="page_password" autocomplete="new-password" aria-label="New password">
-                <button class="btn icon primary" type="submit" title="Save" aria-label="Save"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
+                <button class="btn icon primary key-ok" type="submit" title="Save" aria-label="Save"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
                 <button class="btn icon key-cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-close"/></svg></button>
               </div>
               <input type="checkbox" class="key-clear" name="page_password_clear" hidden aria-hidden="true" tabindex="-1">
@@ -1602,7 +1625,7 @@
 
       <div class="savebar" id="save-bar">
         <span class="unsaved" id="unsaved-note">Unsaved changes</span>
-        <button class="btn primary lg" type="submit" id="save-btn">Save settings</button>
+        <button class="btn primary lg" type="submit" id="save-btn" disabled>Save settings</button>
       </div>
     </form>
 
@@ -1765,7 +1788,7 @@
   }
   // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
   // Household fields only: a frame's own are saved per frame, without a reload.
-  var FIELD_NAMES = { collage_interval_hours: 'Update interval',
+  var FIELD_NAMES = { collage_interval_hours: 'Redraw interval',
     collage_species_max: 'Species limit' };
   (function () {
     var q = new URLSearchParams(location.search), shown = false;
@@ -1802,6 +1825,8 @@
     if (!chips.length) return;
     function choose(chip, remember) {
       chips.forEach(function (c) { c.setAttribute('aria-pressed', String(c === chip)); });
+      var card = $('plate-card');
+      if (card) card.setAttribute('data-picture', chip.getAttribute('data-picture') || 'plates');
       previewSrc = chip.getAttribute('data-src');
       var link = plate && plate.querySelector('a.plate-link');
       if (link) link.href = previewSrc;
@@ -1863,7 +1888,12 @@
   function formBody(o) { var b = new URLSearchParams(); Object.keys(o).forEach(function (k) { b.append(k, o[k]); }); return b; }
   function reloadPreviewSoon() { if (preview) setTimeout(function () { preview.src = previewSrc + '?t=' + Date.now(); }, 400); }
   function blocklistLines() { var bl = $('f-block'); return bl ? bl.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean) : null; }
-  function setBlocklist(lines) { var bl = $('f-block'); if (bl) bl.value = lines.join('\n'); }
+  function setBlocklist(lines) { var bl = $('f-block'); if (bl) bl.value = lines.join('\n'); countBlocked(); }
+  function countBlocked() {
+    var n = (blocklistLines() || []).length, c = $('block-count');
+    if (c) { c.textContent = n; c.hidden = !n; }
+  }
+  if ($('f-block')) $('f-block').addEventListener('input', countBlocked);
   if (holdBtn) holdBtn.addEventListener('click', function () {
     holdBtn.disabled = true;
     jsonFetch('/api/hold', { method: 'POST', body: formBody({ duration: holdDur ? holdDur.value : 'day' }) }).then(function (res) {
@@ -2039,7 +2069,7 @@
     // are server-rendered, so take the new page rather than build them twice.
     var ids = frames.map(function (f) { return f.id + ':' + f.status; }).join(',');
     if (knownFrames === null) knownFrames = ids;
-    else if (ids !== knownFrames && !dirty) { knownFrames = ids; location.reload(); return; }
+    else if (ids !== knownFrames && !dirty && !framesDirty()) { knownFrames = ids; location.reload(); return; }
     frames.forEach(function (fr) {
       var row = document.querySelector('.fr[data-frame="' + cssEscape(fr.id) + '"]');
       if (!row) return;
@@ -2312,7 +2342,9 @@
   var form = document.querySelector('form[action="/settings"]');
   var bar = $('save-bar'), saveBtn = $('save-btn');
   var dirty = false, saving = false;
-  function markDirty() { if (dirty) return; dirty = true; if (bar) bar.classList.add('dirty'); }
+  function markDirty() { if (dirty) return; dirty = true; if (bar) bar.classList.add('dirty'); if (saveBtn) saveBtn.disabled = false; }
+  // A frame row being edited is unsaved work too (its own Save, same rule).
+  function framesDirty() { return !!document.querySelector('.fr[data-frame][data-editing="1"]'); }
   if (form) {
     form.addEventListener('input', markDirty);
     form.addEventListener('change', markDirty);
@@ -2326,7 +2358,7 @@
       var d = e.target.closest('details'); if (d) d.open = true;
     }, true);
     window.addEventListener('beforeunload', function (e) {
-      if (!dirty || saving) return;
+      if ((!dirty && !framesDirty()) || saving) return;
       e.preventDefault(); e.returnValue = '';
     });
   }
@@ -2351,7 +2383,11 @@
       });
       return body;
     }
-    function busy(row, on) { row.querySelectorAll('button').forEach(function (b) { b.disabled = on; }); }
+    function busy(row, on) {
+      row.querySelectorAll('button').forEach(function (b) { b.disabled = on; });
+      var save = !on && row.querySelector('[data-fr-action="save"]');
+      if (save) save.disabled = !row.dataset.editing;
+    }
 
     // One Update interval, whichever power model is on: the options swap.
     // On the collage the row is locked and quotes the collage's own interval
@@ -2374,7 +2410,7 @@
         var inst = ir.querySelector('[data-fr-instant]');
         if (inst) inst.hidden = !instant;
         var hint = ir.querySelector('[data-fr-interval-hint]');
-        if (hint) hint.textContent = onCollage ? 'Set by the collage\u2019s update interval.' : '';
+        if (hint) hint.textContent = onCollage ? 'Set by the collage\u2019s redraw interval.' : '';
         var word = ir.querySelector('[data-fr-collage-every]');
         if (word) { word.hidden = !onCollage; if (onCollage) word.textContent = collageEveryWord(); }
       }
@@ -2407,9 +2443,17 @@
       row.querySelectorAll('[data-f="power_mode"], [data-f="shows"]').forEach(function (r) {
         r.addEventListener('change', function () { syncPower(row); });
       });
-      // While the owner is editing, the poll leaves this row's text alone.
-      body.addEventListener('input', function () { row.dataset.editing = '1'; });
-      body.addEventListener('change', function () { row.dataset.editing = '1'; });
+      // While the owner is editing, the poll leaves this row's text alone,
+      // and Save is there to press: until then there is nothing to save.
+      var save = row.querySelector('[data-fr-action="save"]');
+      var unsaved = row.querySelector('[data-fr-unsaved]');
+      function edited(on) {
+        row.dataset.editing = on ? '1' : '';
+        if (save) save.disabled = !on;
+        if (unsaved) unsaved.hidden = !on;
+      }
+      body.addEventListener('input', function () { edited(true); });
+      body.addEventListener('change', function () { edited(true); });
 
       var reset = row.querySelector('[data-fr-action="reset"]');
       if (reset) reset.addEventListener('click', function () {
@@ -2420,12 +2464,11 @@
             if (el.checked !== (want === 'true')) { el.checked = (want === 'true'); changed += 1; }
           } else if (el.value !== want) { el.value = want; changed += 1; }
         });
-        row.dataset.editing = '1';
+        if (changed) edited(true);
         showFlash('ok', changed ? 'Defaults filled in. Save this frame to apply them.'
                                 : 'This frame is already at its panel’s defaults.', 'ic-check');
       });
 
-      var save = row.querySelector('[data-fr-action="save"]');
       if (save) save.addEventListener('click', function () {
         var label = save.textContent;
         busy(row, true); save.textContent = 'Saving…';
@@ -2434,7 +2477,7 @@
                     body: JSON.stringify(fields(row)) })
           .then(function (out) {
             var mine = (out.frames || []).filter(function (f) { return f.id === row.getAttribute('data-frame'); })[0];
-            row.dataset.editing = '';
+            edited(false);
             if (mine) {
               subText(row, 'data-fr', 'title', mine.title);
               subText(row, 'data-fr', 'summary', mine.summary);
@@ -2617,9 +2660,15 @@
     var clear = kf.querySelector('.key-clear'), field = entry && entry.querySelector('input');
     var rep = kf.querySelector('.key-replace'), del = kf.querySelector('.key-delete'), cancel = kf.querySelector('.key-cancel');
     if (!display || !entry || !field) return;
+    var ok = entry.querySelector('.key-ok');
+    function syncOk() {
+      var v = field.value.trim();
+      if (ok) ok.disabled = !v || v === (field.getAttribute('data-value') || '');
+    }
+    field.addEventListener('input', syncOk); syncOk();
     if (rep) rep.addEventListener('click', function () {
       display.hidden = true; entry.hidden = false; if (clear) clear.checked = false;
-      field.value = field.getAttribute('data-value') || ''; field.focus();
+      field.value = field.getAttribute('data-value') || ''; syncOk(); field.focus();
     });
     if (cancel) cancel.addEventListener('click', function () {
       entry.hidden = true; display.hidden = false; field.value = ''; if (rep) rep.focus();

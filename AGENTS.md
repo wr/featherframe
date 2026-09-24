@@ -471,7 +471,18 @@ else — the waitlist (D1 `waitlist`: the marketing page's form posts
 `POST /api/waitlist`, form or JSON with CORS for the apex, and an uninvited
 email trying to sign in joins it quietly), invitations, and every household
 (frames and when each was last seen, from the front door's `summary()`, and
-rough server time: wakes plus the time a page kept it up, by UTC day). The
+rough server time: wakes plus the time a page kept it up, by UTC day).
+W-860 added this month's Cloudflare usage against the Workers Paid allowances
+and the bill so far (`usage.ts`: GraphQL Analytics with the `CF_API_TOKEN`
+secret, one query per dataset so a missing field costs one meter; Containers
+are not in that API, so theirs is the front doors' own count), *Log in as* (an
+`ff_as` cookie naming a household, honoured only beside an admin's own
+session, `sessionUser` vs `realSessionUser`; a bar over the page leads back),
+changing a login's email outright, suspending a household
+(`households.suspended_at`: its page closed to the owner, its front door stops
+waking the server, its frames keep their last picture), deleting one (D1 rows
+incl. its invitation, its frames' registry rows, R2, front door storage and
+container), and revoking or resending an unused invitation. The
 API is still there: `Authorization: Bearer` keychain
 `featherframe-hosted-admin-token`, `POST /_admin/invite|link|adopt {email}`.
 Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a

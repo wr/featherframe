@@ -71,6 +71,13 @@ export class HouseholdServer extends SleepingContainer {
     this.envVars = vars;
     await this.ctx.storage.put("vars", vars);
   }
+
+  /** Its household was deleted (W-860): stop, and keep nothing. */
+  async forget(): Promise<void> {
+    await this.stop();
+    await this.ctx.storage.deleteAlarm();
+    await this.ctx.storage.deleteAll();
+  }
 }
 
 export class Lobby extends SleepingContainer {

@@ -90,6 +90,8 @@ export async function auth(request: Request, env: Env, url: URL): Promise<Respon
 }
 
 export async function logout(request: Request, env: Env): Promise<Response> {
+  // An admin looking at someone's page (W-860) signs out of theirs, not out.
+  if (cookie(request, AS_COOKIE)) return stopActingAs();
   const session = cookie(request, SESSION_COOKIE);
   if (session) await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256(session)).run();
   return new Response(null, {
@@ -98,16 +100,95 @@ export async function logout(request: Request, env: Env): Promise<Response> {
   });
 }
 
-export interface SessionUser { uid: string; email: string; hid: string }
+export interface SessionUser {
+  uid: string; email: string; hid: string; suspended: boolean;
+  /** The admin's own email, while an admin is looking at this household (W-860). */
+  as?: string;
+}
 
-/** The signed-in user and their household, or null. */
-export async function sessionUser(request: Request, env: Env): Promise<SessionUser | null> {
+const USER_SQL = `SELECT u.id AS uid, u.email AS email, u.household_id AS hid,
+  h.suspended_at IS NOT NULL AS suspended FROM users u JOIN households h ON h.id = u.household_id`;
+
+/** Who is signed in, themselves: never another household an admin is looking at. */
+export async function realSessionUser(request: Request, env: Env): Promise<SessionUser | null> {
   const session = cookie(request, SESSION_COOKIE);
   if (!session) return null;
   const row = await env.DB.prepare(
-    "SELECT u.id AS uid, u.email AS email, u.household_id AS hid FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?")
+    `${USER_SQL} JOIN sessions s ON s.user_id = u.id WHERE s.token_hash = ? AND s.expires_at > ?`)
     .bind(await sha256(session), now()).first<SessionUser>();
-  return row ?? null;
+  return row ? { ...row, suspended: !!row.suspended } : null;
+}
+
+/** The signed-in user and their household, or null. For an admin who chose
+ * "Log in as" (W-860), that household's login instead: the cookie names a
+ * household and counts only beside an admin's own session. */
+export async function sessionUser(request: Request, env: Env): Promise<SessionUser | null> {
+  const user = await realSessionUser(request, env);
+  const as = cookie(request, AS_COOKIE);
+  if (!user || !as || !isAdmin(env, user.email)) return user;
+  const target = await env.DB.prepare(`${USER_SQL} WHERE u.household_id = ?`).bind(as).first<SessionUser>();
+  return target ? { ...target, suspended: !!target.suspended, as: user.email } : user;
+}
+
+// -- the admin (W-850, W-860) ---------------------------------------------------
+export const AS_COOKIE = "ff_as";
+const AS_TTL_S = 60 * 60;
+
+export function isAdmin(env: Env, email: string): boolean {
+  return (env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean).includes(email);
+}
+
+/** Open a household's page as its owner. */
+export function actAs(hid: string): Response {
+  return new Response(null, { status: 303, headers: {
+    Location: "/", "Set-Cookie": `${AS_COOKIE}=${hid}; Path=/; Max-Age=${AS_TTL_S}; HttpOnly; Secure; SameSite=Lax`,
+  } });
+}
+
+export function stopActingAs(): Response {
+  return new Response(null, { status: 303, headers: {
+    Location: "/admin", "Set-Cookie": `${AS_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+  } });
+}
+
+/** Move a login to `email` at once, with no link to confirm it. */
+export async function setEmail(env: Env, hid: string, email: string): Promise<"ok" | "taken" | "none"> {
+  const user = await env.DB.prepare("SELECT id FROM users WHERE household_id = ?").bind(hid).first<{ id: string }>();
+  if (!user) return "none";
+  const taken = await env.DB.prepare("SELECT 1 FROM users WHERE email = ? AND id != ?").bind(email, user.id).first();
+  if (taken) return "taken";
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET email = ? WHERE id = ?").bind(email, user.id),
+    env.DB.prepare("UPDATE email_changes SET used_at = ? WHERE user_id = ? AND used_at IS NULL").bind(now(), user.id),
+  ]);
+  return "ok";
+}
+
+export async function setSuspended(env: Env, hid: string, on: boolean): Promise<void> {
+  await env.DB.prepare("UPDATE households SET suspended_at = ? WHERE id = ?").bind(on ? now() : null, hid).run();
+  await env.HOUSEHOLD.getByName(hid).suspend(on);
+}
+
+/** A household and everything of it: its login, sessions and invitation (so
+ * the email can be invited again), its frames' registry rows (so they show a
+ * pairing code), then its data, front door and server. */
+export async function deleteHousehold(env: Env, hid: string): Promise<void> {
+  const user = await env.DB.prepare("SELECT id, email FROM users WHERE household_id = ?")
+    .bind(hid).first<{ id: string; email: string }>();
+  const ofUser = user ? [
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM email_changes WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM login_links WHERE email = ?").bind(user.email),
+    env.DB.prepare("DELETE FROM invites WHERE email = ?").bind(user.email),
+  ] : [];
+  await env.DB.batch([...ofUser, env.DB.prepare("DELETE FROM frames WHERE household_id = ?").bind(hid)]);
+  // Its frames are let go before the front door forgets them, so the one
+  // message they are sent finds a pairing code, not a household that is gone.
+  await env.HOUSEHOLD.getByName(hid).destroy();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM users WHERE household_id = ?").bind(hid),
+    env.DB.prepare("DELETE FROM households WHERE id = ?").bind(hid),
+  ]);
 }
 
 // -- changing the email (W-773) -------------------------------------------------
@@ -186,6 +267,20 @@ export async function invite(env: Env, email: string, send: boolean): Promise<bo
     env.DB.prepare("UPDATE waitlist SET invited_at = ? WHERE email = ?").bind(now(), email),
   ]);
   return send && sendMail(env, email, inviteEmail(`https://${env.APP_HOST}/login`));
+}
+
+/** An invitation no one has used yet, taken back. */
+export async function revokeInvite(env: Env, email: string): Promise<boolean> {
+  const r = await env.DB.prepare("DELETE FROM invites WHERE email = ? AND used_at IS NULL").bind(email).run();
+  return r.meta.changes > 0;
+}
+
+/** An unused invitation's email again; its "sent" is now. */
+export async function resendInvite(env: Env, email: string): Promise<"sent" | "failed" | "none"> {
+  const r = await env.DB.prepare("UPDATE invites SET created_at = ? WHERE email = ? AND used_at IS NULL")
+    .bind(now(), email).run();
+  if (!r.meta.changes) return "none";
+  return (await sendMail(env, email, inviteEmail(`https://${env.APP_HOST}/login`))) ? "sent" : "failed";
 }
 
 // -- the admin's side, until there is a page for it ----------------------------

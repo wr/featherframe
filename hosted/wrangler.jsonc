@@ -10,7 +10,8 @@
     { "type": "Data", "globs": ["**/*.png"], "fallthrough": true }
   ],
   "vars": { "ZONE": "featherframe.app", "APP_HOST": "app.featherframe.app",
-            "MAIL_FROM": "Featherframe <hello@featherframe.app>" },
+            "MAIL_FROM": "Featherframe <hello@featherframe.app>",
+            "CF_ACCOUNT_ID": "96c0e05116fa5c56742cced99c0daf2f" },
   "d1_databases": [
     { "binding": "DB", "database_name": "featherframe",
       "database_id": "a5b3d233-bbfb-4e17-8c19-accb907570d0", "migrations_dir": "migrations" }

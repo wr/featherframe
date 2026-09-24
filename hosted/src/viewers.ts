@@ -13,7 +13,7 @@
 // the first 32 hex of the hash of the device's key (`t`), never the key.
 
 import type { Env } from "./index";
-import { pairingCode } from "./pairing";
+import { LOBBY_DRAWING, pairingCode } from "./pairing";
 import { randomHex, sha256 } from "./util";
 import viewPage from "../../server/templates/view.html";
 import favicon192 from "../../server/static/favicon-192.png";
@@ -114,7 +114,7 @@ export async function viewerRoute(request: Request, env: Env, url: URL,
                            poll: PAGE_POLL_S }, { headers: { "Cache-Control": "no-store" } });
   }
   const h = (report as { headers: Record<string, string> }).headers;
-  const name = `pair-${code}-${(await sha256(JSON.stringify(h))).slice(0, 8)}`;
+  const name = `pair-${code}-${(await sha256(LOBBY_DRAWING + JSON.stringify(h))).slice(0, 8)}`;
   return Response.json(display(env, id, name, imageToken(keyHash), PAIRING_REFRESH_S));
 }
 

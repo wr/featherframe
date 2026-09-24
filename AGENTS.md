@@ -413,7 +413,10 @@ codes) and a frame by the registry: its `X-Device-Id` plus `X-FF-Key`, a key
 the firmware makes once at first boot (NVS `ffkey`) — a MAC alone gets
 nothing. A frame no one has claimed is shown a pairing code (letters only),
 drawn for its own panel by the `Lobby` Container (`featherframe/lobby.py`,
-same image) and cached in R2; the owner types it under the Frames card's
+same image) as the kit's boot screen: the bough over the wordmark, the code
+where the splash sets its version (`welcome.render_pairing`), and cached in
+R2 (bump `LOBBY_DRAWING` in `pairing.ts` when that drawing changes, or old
+codes keep the old one); the owner types it under the Frames card's
 *Pair a frame* (hosted only; one large field that keeps six letters as
 `ABC-DEF`, typed or pasted), and the household's server adds it at once.
 Removing a frame on the page (Remove, or Forget on an ignored kit) also drops
@@ -572,7 +575,9 @@ by painting the plate again, 60 s later for a toast). A press fetches first
 and paints one thing, so only the outcome pills exist (the in-progress ones
 have no tile); out of deep sleep there is no retained plate, so "Up to date"
 refetches the plate with the pill armed and the corner mark becomes the full
-error screen. Boot is one baked "Connecting" screen (every boot stage maps to
+error screen. A frame whose last picture was a pairing code (NVS `unpaired`) paints no
+"Connecting" at all, so a restart or a Wi-Fi reset goes straight to the code.
+Boot is one baked "Connecting" screen (every boot stage maps to
 `FF_SCR_BOOT_WIFI`, painted while Wi-Fi joins underneath) that gives way to a
 specific error screen only on failure; no loading sweep. Baked screens and
 tiles live in `ff_screens_ee02.h`, from the same bake (the screens are the

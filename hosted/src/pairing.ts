@@ -11,6 +11,10 @@ const CODE_TTL_S = 24 * 60 * 60;
 /** The code a device no one has claimed shows, made on its first ask and
  * kept for a day. `report` is what it said about itself, for the household
  * that claims it: a kit's own headers, or a viewer's (W-849). */
+// Bumped when the Lobby draws a pairing screen differently: a new ETag (and
+// R2 key), so a screen showing the old drawing is sent the new one.
+export const LOBBY_DRAWING = "boot-art";
+
 export async function pairingCode(env: Env, id: string, keyHash: string,
                                   report: Record<string, unknown>): Promise<string> {
   const now = Math.floor(Date.now() / 1000);

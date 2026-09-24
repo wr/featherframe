@@ -65,6 +65,10 @@ char     g_lastXfer[40] = "";   // last frame body transfer: "xfer=got/lenB ms [
 char     g_wakeToken[16] = "";  // stable token ("timer"|"button"|"coldboot") — X-Wake
 char     g_mdnsNote[12] = "";   // last discovery: "mdns=new|same|miss" — rides X-Wake-Detail
 bool     g_viaPortal = false;   // did this boot go through the setup portal?
+// The last picture this frame was sent is its pairing code (NVS "unpaired"):
+// no one has claimed it yet. Kept apart from the ETag, which a baked screen
+// clears, so a restart or a Wi-Fi reset still knows it.
+bool     g_unpaired = false;
 char     g_redirect[128] = "";  // a 403's X-FF-Server: the instance that draws for our panel
 
 // Push (W-841): the socket the server says "something changed" over, on USB.
@@ -1081,6 +1085,10 @@ void freeScreenBuffers() { free(g_scrBuf); g_scrBuf = nullptr; }
 void showScreen(int idx) {
   if (idx == FF_SCR_SPLASH || idx == FF_SCR_BOOT_BIRDNET || idx == FF_SCR_BOOT_DOWNLOAD)
     idx = FF_SCR_BOOT_WIFI;                           // every boot stage is "Connecting"
+  // A frame no one has claimed goes straight to its pairing code, which is
+  // the boot screen with the code on it: a "Connecting" ahead of it would be
+  // a second 30 s paint of the same picture.
+  if (idx == FF_SCR_BOOT_WIFI && g_unpaired) return;
   if (idx < 0 || idx >= FF_SCR_COUNT || !ff_screens[idx].data) return;
   if (g_glassScreen == idx) return;                 // already on the glass
   const size_t total = FFF_HEADER_SIZE + FF_SCREEN_BYTES;
@@ -1437,6 +1445,8 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
     // Store the new ETag (strip quotes/W-prefix).
     newEtag.replace("W/", ""); newEtag.replace("\"", ""); newEtag.trim();
     if (newEtag.length()) { strlcpy(g_etag, newEtag.c_str(), sizeof(g_etag)); prefs.putString("etag", g_etag); }
+    bool unpaired = strncmp(g_etag, "pair-", 5) == 0;
+    if (unpaired != g_unpaired) { g_unpaired = unpaired; prefs.putBool("unpaired", unpaired); }
   } else {
     // A transient view is on the glass; forget the resident ETag so the next
     // timer wake redraws the current bird instead of 304-ing forever.
@@ -1660,6 +1670,7 @@ void setup() {
   prefs.getString("server", DEFAULT_SERVER_URL).toCharArray(g_serverUrl, sizeof(g_serverUrl));
   normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), DEFAULT_SERVER_URL);   // older saves may carry a trailing '/'
   prefs.getString("etag", "").toCharArray(g_etag, sizeof(g_etag));
+  g_unpaired = prefs.getBool("unpaired", false);
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);
   g_alwaysAwake = prefs.getBool("awake", FF_DEFAULT_ALWAYS_AWAKE);
   g_pollMs = prefs.getUInt("poll_s", FF_POLL_INTERVAL_MS / 1000) * 1000UL;

@@ -16,7 +16,7 @@
 import { admin, auth, login, logout, sessionHousehold } from "./accounts";
 import { adminRoute, waitlistRoute } from "./admin";
 import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
-import { pairingCode } from "./pairing";
+import { LOBBY_DRAWING, pairingCode } from "./pairing";
 import { Household } from "./household";
 import { HouseholdServer, Lobby } from "./containers";
 import { deviceId, frameKey, sha256 } from "./util";
@@ -140,7 +140,7 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
   });
   const row = { code: await pairingCode(env, id, keyHash, report) };
   const shown = `${row.code.slice(0, 3)}-${row.code.slice(3)}`;
-  const variant = (await sha256(JSON.stringify(report))).slice(0, 16);
+  const variant = (await sha256(LOBBY_DRAWING + JSON.stringify(report))).slice(0, 16);
   const cacheKey = `lobby/${row.code}/${variant}.fff`;
   const etag = `pair-${row.code}-${variant.slice(0, 8)}`;
   const headers = new Headers({

@@ -33,7 +33,7 @@ def render_pairing(code: str, panel: str = "", facts: dict | None = None,
            "reported": {"panel": panel or None, "facts": {k: v for k, v in (facts or {}).items() if v} or None},
            "set": {"panel_rotation": rotation} if rotation is not None else {}}
     cfg = frames_mod.frame_config(row, Config())
-    sheet = welcome.render_waiting(line=welcome.PAIRING_LINE, code=code[:12])
+    sheet = welcome.render_pairing(code[:12], color=cfg.panel_spec.color)
     return pipeline.render_image(sheet, cfg, "welcome", ""), cfg
 
 
@@ -52,7 +52,7 @@ def render_viewer_pairing(code: str, report: dict) -> bytes:
     reported `report` (viewers.trmnl_report's shape), as its own screen draws."""
     row = {"id": "lobby", "transport": "trmnl", "reported": report}
     view = viewers_mod.view_of(row)
-    sheet = (welcome.render_waiting(line=welcome.PAIRING_LINE, code=code[:12]) if code
+    sheet = (welcome.render_pairing(code[:12], color=view.fmt == "color") if code
              else welcome.render_waiting())
     return pipeline.encode_png(pipeline.render_view(sheet, view), view.fmt)
 

@@ -233,7 +233,7 @@ rotation: a TRMNL's is stood up and a page's is the sheet at 3:4) and the plate'
 tools; then the detection source's own small card, titled by the source name;
 then History. **There is no Health card**: a frame's health is the frame's row.
 Right, wide: a **Frames** card FIRST — its *Frames* heading, a ⋯ menu
-holding *USB firmware update*, *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list — then the
+holding *USB firmware update*, *Check for updates* (asks for the latest release now, `POST /api/firmware/check`; otherwise daily), *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list — then the
 household's sections in one `/settings` form that carries no frame field at
 all, in the order the day runs: Detection source, Image generation (its two AI
 switches `locked` until a key is stored), Individual detections, Collage — and

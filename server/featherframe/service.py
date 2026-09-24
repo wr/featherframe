@@ -95,6 +95,11 @@ COLLAGE_CHECK_FLOOR_S = 60
 # one may re-render). Without it a first-ever species lost the glass to the
 # next cardinal within minutes.
 DWELL_MINUTES = 90
+# A frame on USB that speaks push (W-841) fetches on the socket's word; the
+# poll interval it is served is only what it falls back to while its socket
+# is down — which must stay short, or a dropped socket meant hours of silence
+# on the collage's schedule (a USB frame suddenly acting like a battery one).
+PUSH_FALLBACK_POLL_S = 60
 # Gone-quiet alarm: a plate footnote and a page banner once nothing has been
 # heard for this many ACTIVE hours. Hours inside quiet hours don't count, so a
 # silent night never trips it. The common month-two failure (mic unplugged,
@@ -2803,9 +2808,13 @@ class FeatherframeService:
         own — and the row's own interval is not read at all."""
         cfg = self.frame_config(row)
         if frames_mod.shows_of(row) != COLLAGE:
-            return cfg.device_poll_seconds, cfg.wake_interval_minutes
-        secs = self._collage_check_seconds(now or self._clock())
-        return secs, max(1, min(1440, -(-secs // 60)))
+            poll, wake = cfg.device_poll_seconds, cfg.wake_interval_minutes
+        else:
+            poll = self._collage_check_seconds(now or self._clock())
+            wake = max(1, min(1440, -(-poll // 60)))
+        if cfg.power_mode == "awake" and frames_mod.reported_of(row).get("push_s") is not None:
+            poll = min(poll, PUSH_FALLBACK_POLL_S)
+        return poll, wake
 
     def _single_in_color(self, spec: SingleSpec):
         return lambda: compose_mod.render_single(spec, self.provider, color=True)

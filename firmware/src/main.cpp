@@ -1835,27 +1835,35 @@ static uint32_t g_viewHoldUntil = 0;
 // message means "your next GET /api/frame would answer differently" (a new
 // plate, a new rotation, a new power model); the GET itself is unchanged, so
 // the socket carries no pixels and no settings. Battery frames never open it:
-// an open socket keeps Wi-Fi associated. A server without the endpoint answers
-// the upgrade with a 404; after a few of those the frame retries only every
-// ten minutes and keeps polling meanwhile.
+// an open socket keeps Wi-Fi associated. A socket that closes is a check-in at
+// once (the server may have let the frame go: its answer is a pairing code, or
+// "add this frame"), and the socket is tried again every ~30 s for as long as
+// it takes — a frame on USB has nothing better to do, and one that quietly
+// fell back to a long timer looked broken. Meanwhile it polls at the served
+// interval, which the server keeps short for a frame that speaks push.
 static char     g_pushUrl[128] = "";   // the server the socket was opened to ("" = closed)
 static String   g_pushHeaders;
-static uint8_t  g_pushFails = 0;       // opens in a row that never connected
 static bool     g_pushTried = false;   // the current open has not connected yet
+
+// The next reconnect: FF_PUSH_RETRY_MS and a few seconds of chance, so every
+// frame of a server that just restarted does not knock at the same moment.
+static uint32_t pushRetryMs() { return FF_PUSH_RETRY_MS + (esp_random() % FF_PUSH_JITTER_MS); }
 
 static void onPush(WStype_t type, uint8_t* payload, size_t len) {
   switch (type) {
     case WStype_CONNECTED:
-      g_pushUp = true; g_pushTried = false; g_pushFails = 0;
-      g_ws.setReconnectInterval(FF_PUSH_RETRY_MS);
+      g_pushUp = true; g_pushTried = false;
       Serial.println("push: connected");
       break;
     case WStype_DISCONNECTED:
-      if (g_pushUp) Serial.println("push: closed");
-      else if (g_pushTried && g_pushFails < 255 && ++g_pushFails == FF_PUSH_GIVEUP_TRIES) {
-        Serial.println("push: not offered here — polling, retrying the socket every 10 min");
-        g_ws.setReconnectInterval(FF_PUSH_GIVEUP_MS);
+      if (g_pushUp) {
+        // An open socket closed: ask now what the server makes of us, rather
+        // than wait out the timer (removed → a pairing code; down → the first
+        // of the failed checks that lead to the offline mark).
+        Serial.println("push: closed — checking in");
+        g_pushWake = true;
       }
+      g_ws.setReconnectInterval(pushRetryMs());
       g_pushUp = false; g_pushTried = true;
       break;
     case WStype_TEXT: {
@@ -1915,7 +1923,7 @@ static void pushService() {
                     "\r\nX-Board: " + FF_BOARD_ID + "\r\nX-FF-Version: " + FF_FW_VERSION;
     g_ws.setExtraHeaders(g_pushHeaders.c_str());
     g_ws.onEvent(onPush);
-    g_ws.setReconnectInterval(g_pushFails >= FF_PUSH_GIVEUP_TRIES ? FF_PUSH_GIVEUP_MS : FF_PUSH_RETRY_MS);
+    g_ws.setReconnectInterval(pushRetryMs());
     // Pings keep a NAT or proxy from dropping an idle socket. A missed pong
     // never closes it by itself: a ~30 s colour paint holds the loop up, and
     // a dead server shows up as a failed heartbeat GET instead (see loop()).

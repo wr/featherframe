@@ -135,3 +135,20 @@ def test_a_kit_waiting_for_the_collage_is_not_overdue(client):
     assert svc.frame_health(svc.frames.get(FRAME_ID))["overdue"] is False
     svc._clock = lambda: datetime(2026, 9, 21, 14, 10)
     assert svc.frame_health(svc.frames.get(FRAME_ID))["overdue"] is True
+
+
+def test_a_usb_frame_that_speaks_push_falls_back_to_a_short_poll(client):
+    """On a socket the served poll is only the fallback while the socket is
+    down. A USB frame on the collage must not be told "the next redraw, hours
+    away": dropped off its socket, it would sit silent like a battery frame."""
+    svc = client.app.state.service
+    _drawn_at(svc, svc._clock())                          # the next redraw is hours off
+    pushing = add_kit(svc, shows="collage", power_mode="awake", reported={"push_s": 900})
+    assert svc.frame_intervals(pushing)[0] == service_mod.PUSH_FALLBACK_POLL_S
+    # A frame that has never said it speaks push keeps the collage's own schedule.
+    plain = add_kit(svc, "BB:BB:BB:00:00:09", shows="collage", power_mode="awake")
+    assert svc.frame_intervals(plain)[0] > service_mod.PUSH_FALLBACK_POLL_S
+    # On plates, an owner's interval shorter than the fallback is kept.
+    fast = add_kit(svc, "BB:BB:BB:00:00:0A", power_mode="awake", device_poll_seconds=20,
+                   reported={"push_s": 0})
+    assert svc.frame_intervals(fast)[0] == 20

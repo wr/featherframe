@@ -50,7 +50,62 @@ struct FFFHeader {
 } __attribute__((packed));
 static const size_t FFF_HEADER_SIZE = 16;
 
-EPaper epaper;                 // Seeed_GFX display object (combo 511, or 510 on the EE02)
+#if FF_PANEL_SPECTRA6
+// EPaper::update() with every BUSY wait bounded (W-820). The driver's EPD_*
+// macros expand only inside the display class (they call writecommanddata and
+// name the SPI handle `spi`), hence a subclass; CHECK_BUSY is redefined around
+// them so the init and push steps are bounded too. Same sequence as the
+// library's: INIT (hardware reset) -> push -> PON -> DRF -> POF -> sleep.
+class SpectraPaper : public EPaper {
+ public:
+  // One full refresh of the sprite. False if the controller held BUSY past
+  // its cap; it is then reset and powered off before this returns.
+  bool refresh() {
+    SPIClass& spi = getSPIinstance();
+    _stuck = false;
+#pragma push_macro("CHECK_BUSY")
+#undef CHECK_BUSY
+#define CHECK_BUSY() waitBusy(FF_BUSY_STEP_MS, "INIT/push/sleep")
+    EPD_INIT();
+    if (!_stuck) EPD_PUSH_NEW_COLORS(_width, _height, _img8);
+    if (!_stuck) { both(R04_PON, nullptr, 0); waitBusy(FF_BUSY_STEP_MS, "PON"); delay(30); }
+    if (!_stuck) { both(R12_DRF, DRF_V, sizeof(DRF_V)); waitBusy(FF_BUSY_DRF_MS, "DRF"); delay(30); }
+    const bool stuck = _stuck;
+    // A controller still holding BUSY may still be driving the glass: a
+    // hardware reset stops it before POF (the bench's recovery, PR #135).
+    if (stuck) EPD_INIT();
+    both(R02_POF, POF_V, sizeof(POF_V));
+    waitBusy(FF_BUSY_STEP_MS, "POF");
+    delay(30);
+    EPD_SLEEP();
+#pragma pop_macro("CHECK_BUSY")
+    return !stuck;
+  }
+
+ private:
+  bool _stuck = false;
+
+  // CS1 low while writecommanddata drives CS: the command reaches both chips.
+  void both(uint8_t cmd, const uint8_t* data, uint16_t n) {
+    digitalWrite(TFT_CS1, LOW);
+    if (n) writecommanddata(cmd, data, n); else writecommand(cmd);
+    digitalWrite(TFT_CS1, HIGH);
+  }
+
+  void waitBusy(uint32_t capMs, const char* step) {
+    const uint32_t t0 = millis();
+    do {
+      delay(10);
+      if (digitalRead(TFT_BUSY)) return;
+    } while (millis() - t0 < capMs);
+    _stuck = true;
+    Serial.printf("panel: BUSY stuck after %s (%lu ms)\n", step, (unsigned long)capMs);
+  }
+};
+SpectraPaper epaper;           // Seeed_GFX display object (combo 510)
+#else
+EPaper epaper;                 // Seeed_GFX display object (combo 511, or a generic panel)
+#endif
 Preferences prefs;             // NVS: server URL, wake minutes, last ETag
 WiFiManager wm;
 
@@ -741,6 +796,24 @@ bool ensureWifi(bool openPortal, bool showBoot) {
 // portrait), or a body that doesn't match the header. pushImage would clip a
 // wrong-sized image into garbage rather than fault, so the check lives here.
 static uint32_t g_lastPaintMs = 0;   // Spectra: last full refresh, for the repaint floor
+// Spectra: the refresh is SpectraPaper's, bounded (W-820). A stuck one leaves
+// the glass as it was and fullPaint() says false; after FF_STUCK_MAX in a row
+// the panel is held off (panelHeldOff) and nothing is sent to it until
+// FF_STUCK_RETRY_S has passed. System time runs through deep sleep; a restart
+// zeroes it, which counts as the wait being over.
+RTC_DATA_ATTR uint8_t g_stuckCount = 0;   // stuck refreshes in a row
+RTC_DATA_ATTR time_t  g_stuckAt = 0;      // when the last one was
+RTC_DATA_ATTR bool    g_paintOwed = false; // the glass is behind the stored ETag
+static bool g_paintOk = true;              // the last fullPaint() reached the glass
+static bool panelHeldOff() {
+#if FF_PANEL_SPECTRA6
+  if (g_stuckCount < FF_STUCK_MAX) return false;
+  const time_t now = time(nullptr);
+  return now >= g_stuckAt && now - g_stuckAt < FF_STUCK_RETRY_S;
+#else
+  return false;
+#endif
+}
 #if FF_FULL_REFRESH
 static void plateArrived();          // defined with the toasts, below
 static bool paintPlate();
@@ -749,10 +822,14 @@ static bool paintPlate();
 // The one call into the panel driver on the full-refresh path: a whole 4bpp
 // body, then a full refresh. A port to another driver replaces this.
 // Inks: the colour sprite is 4bpp from begin() and the nibbles are already
-// Seeed's ink codes, so a body lands verbatim; update() is the ~30 s refresh.
+// Seeed's ink codes, so a body lands verbatim; refresh() is the ~30 s one.
 // Gray: the 16-level sprite is allocated by initGrayMode(), as the gray build
 // does it.
-static void fullPaint(const uint8_t* body) {
+static bool fullPaint(const uint8_t* body) {
+  if (panelHeldOff()) {
+    Serial.println("panel: held off after stuck refreshes");
+    return g_paintOk = false;
+  }
   panelLock();
 #if !FF_FRAME_INKS
   epaper.initGrayMode(GRAY_LEVEL16);
@@ -760,14 +837,27 @@ static void fullPaint(const uint8_t* body) {
 #endif
   epaper.pushImage(0, 0, FF_NATIVE_W, FF_NATIVE_H, (uint16_t*)body);
   uint32_t t0 = millis();
+#if FF_PANEL_SPECTRA6
+  const bool ok = epaper.refresh();
+  if (ok) {
+    g_stuckCount = 0;
+  } else {
+    if (g_stuckCount < 255) g_stuckCount++;
+    g_stuckAt = time(nullptr);
+  }
+#else
   epaper.update();
-  Serial.printf("refresh %lu ms\n", (unsigned long)(millis() - t0));
+  const bool ok = true;
+#endif
+  Serial.printf("refresh %lu ms%s\n", (unsigned long)(millis() - t0), ok ? "" : " (stuck, panel reset)");
   g_refreshCount++;
-  g_lastPaintMs = millis();
+  g_lastPaintMs = millis();                 // a stuck refresh drove the glass too: the floor holds
   panelUnlock();
+  return g_paintOk = ok;
 }
 #endif
 bool displayFrame(const uint8_t* data, size_t len, bool retain = false) {
+  g_paintOk = true;
   if (len < FFF_HEADER_SIZE) return false;
   FFFHeader h;
   memcpy(&h, data, FFF_HEADER_SIZE);
@@ -828,7 +918,12 @@ bool displayFrame(const uint8_t* data, size_t len, bool retain = false) {
   }
   if (!painted) fullPaint((const uint8_t*)body);
   panelUnlock();
-  Serial.println("panel updated");
+  // A stuck refresh (W-820): no ETag, so the next poll retries — unless the
+  // panel is now held off, when the ETag is kept (no refetch every poll) and
+  // the paint is owed until the hold-off ends (fetchFrame).
+  g_paintOwed = !g_paintOk;
+  if (!g_paintOk && !panelHeldOff()) return false;
+  Serial.println(g_paintOk ? "panel updated" : "panel held off: frame kept for later");
   return true;
 #else
   if (h.bpp == 4) {
@@ -1325,7 +1420,10 @@ void showSplash(const char*, int) { showScreen(FF_SCR_SPLASH); }
 // exactly the thing only a firmware update can fix.
 // FETCH_PENDING: the server answered 403 — it serves another frame until its
 // owner switches it to this one. Reachable (so OTA runs), nothing to paint.
-enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_NOFRAME, FETCH_ERROR, FETCH_REJECTED, FETCH_PENDING };
+// FETCH_STUCK: a good frame the panel could not paint (W-820). The ETag stays
+// unset so the next poll retries, but it is not the server's fault: no error
+// screen, which would only be another refresh of the same stuck panel.
+enum FetchResult { FETCH_UPDATED, FETCH_NOCHANGE, FETCH_NOTFOUND, FETCH_NOFRAME, FETCH_ERROR, FETCH_REJECTED, FETCH_PENDING, FETCH_STUCK };
 
 // Fetch a frame. `path`: endpoint under the server URL. `resident`: true for
 // the normal current-bird frame (ETag conditional GET + store the new ETag);
@@ -1386,13 +1484,19 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.setTimeout(HTTP_TIMEOUT_MS);
   http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
   http.setUserAgent("Featherframe-ESP32/1.0");
+  // A plate the panel could not paint (W-820): ask for it whole once the
+  // hold-off is over.
+  if (g_paintOwed && !panelHeldOff()) g_etag[0] = 0;
   if (resident && strlen(g_etag)) http.addHeader("If-None-Match", String("\"") + g_etag + "\"");
   http.addHeader("X-Battery-Voltage", String(vbat, 3));
   http.addHeader("X-Battery-Percent", String(pct));
   http.addHeader("X-Wifi-RSSI", String(WiFi.RSSI()));
   http.addHeader("X-Wake", g_wakeToken);            // stable token (spec §3)
+  // cause=N keys=0xM + ADC diag + last transfer + last mDNS + stuck refreshes (debug)
   http.addHeader("X-Wake-Detail", String(g_wakeInfo) + " " + g_battRaw + " " + g_lastXfer
-                                  + (g_mdnsNote[0] ? String(" ") + g_mdnsNote : String("")));   // cause=N keys=0xM + ADC diag + last transfer + last mDNS (debug)
+                                  + (g_mdnsNote[0] ? String(" ") + g_mdnsNote : String(""))
+                                  + (g_stuckCount ? String(" panel=stuck") + String((int)g_stuckCount)
+                                                    + (panelHeldOff() ? "+held" : "") : String("")));
   http.addHeader("X-FF-Version", FF_FW_VERSION);    // human build id (spec §1)
   http.addHeader("X-FF-Sketch-MD5", ESP.getSketchMD5());  // exact binary id
   http.addHeader("X-Boot-Count", String(g_bootCount));    // spec §5
@@ -1509,7 +1613,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
 
   bool painted = displayFrame(buf, len, true);   // retain: the toast band restores from it
   free(buf);
-  if (!painted) return FETCH_REJECTED;       // rejected container: keep the ETag unset so we retry
+  if (!painted) return g_paintOk ? FETCH_REJECTED : FETCH_STUCK;   // keep the ETag unset so we retry
 
   if (resident) {
     // Store the new ETag (strip quotes/W-prefix).
@@ -1607,6 +1711,7 @@ void noteFetchOutcome(FetchResult r) {
   if (r != FETCH_ERROR) markFirmwareGood();
   if (r == FETCH_UPDATED || r == FETCH_NOCHANGE) { noteSuccess(); return; }
   if (r == FETCH_NOFRAME && pairingOnGlass()) return;   // paired; its picture is being drawn
+  if (r == FETCH_STUCK) return;                         // the panel's, not the server's (X-Wake-Detail)
   bumpFail();
   int kind = (WiFi.status() != WL_CONNECTED) ? ERRK_WIFI
            : r == FETCH_NOFRAME ? ERRK_NOFRAME
@@ -1881,7 +1986,7 @@ void setup() {
     if (keyCheck && r == FETCH_NOCHANGE) showToast(FF_TOAST_UP_TO_DATE);
 #endif
   }
-  if (buttonWake && (r == FETCH_ERROR || r == FETCH_REJECTED || r == FETCH_NOFRAME)) ackBlink(4);
+  if (buttonWake && (r == FETCH_ERROR || r == FETCH_REJECTED || r == FETCH_NOFRAME || r == FETCH_STUCK)) ackBlink(4);
   if (residentFetch) {
     noteFetchOutcome(r);
     if (r != FETCH_UPDATED && r != FETCH_NOCHANGE) {

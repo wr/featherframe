@@ -586,7 +586,7 @@ specific error screen only on failure; no loading sweep. Baked screens and
 tiles live in `ff_screens_ee02.h`, from the same bake (the screens are the
 colour art under black/white type, dithered as the server dithers a plate:
 `bake_screens.on_color_art`; the stamp tiles stay black/white ink), and a 180 s floor sits
-between resident repaints. One server serves as many frames as are added to it, and it knows them apart
+between resident repaints. Its refresh is `SpectraPaper::refresh()`, the library's sequence with every BUSY wait bounded (W-820: DRF 40 s, other steps 10 s): a stuck one resets the panel and powers it off, returns `FETCH_STUCK` (ETag unset, no error screen), and after three in a row the panel is tried once an hour; `X-Wake-Detail` carries `panel=stuckN[+held]`. One server serves as many frames as are added to it, and it knows them apart
 (`service.admit_frame`): each frame names itself with `X-Device-Id` (its MAC).
 Every kit gets a 403 and waits as "pending" — the first one on a fresh install
 too — until the owner answers at the top of the Frames card: add it, or ignore

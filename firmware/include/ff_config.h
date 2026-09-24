@@ -297,5 +297,15 @@
 #ifndef FF_MIN_REPAINT_MS
 #define FF_MIN_REPAINT_MS  180000UL
 #endif
+// Spectra 6 refresh (W-820): Seeed's BUSY wait has no timeout, so a controller
+// that never lets go held the glass at drive voltage until the task watchdog
+// (WDT_TIMEOUT_S, 12 min). Ours gives the waveform FF_BUSY_DRF_MS (stock is
+// 27.2 s) and every other step FF_BUSY_STEP_MS, then resets the panel and
+// powers it off. After FF_STUCK_MAX stuck refreshes in a row the panel is left
+// alone, tried again once every FF_STUCK_RETRY_S, not at every poll.
+#define FF_BUSY_DRF_MS    40000UL
+#define FF_BUSY_STEP_MS   10000UL
+#define FF_STUCK_MAX      3
+#define FF_STUCK_RETRY_S  3600
 // FFF header flags bit 0: the 4bpp nibbles are Spectra ink codes, not grays.
 #define FFF_FLAG_INKS  0x01

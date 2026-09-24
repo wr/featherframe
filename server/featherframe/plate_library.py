@@ -59,7 +59,7 @@ def entry_key(entry: dict) -> str:
     how = [bool(entry.get("composite")), entry.get("crop_box")]
     if entry.get("margins") or entry.get("tight"):
         # only a folio's own cut: Havell's keys stand
-        how += [entry.get("margins"), bool(entry.get("tight"))]
+        how += [entry.get("margins"), plate.TIGHT_PAD if entry.get("tight") else False]
     how = json.dumps(how, sort_keys=True)
     stem = Path(str(entry["image"])).stem
     return f"{stem}-{hashlib.sha1(how.encode()).hexdigest()[:8]}"

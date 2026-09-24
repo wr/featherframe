@@ -18,11 +18,11 @@ from datetime import datetime
 
 from . import paths
 from .config import Config
-from .names import SpeciesIndex, normalize
+from .names import SpeciesIndex, has_plate
 from .render import pipeline
 from .render.compose import SingleSpec
 from .render.genart import GeneratedArtProvider
-from .render.provider import AudubonProvider, ChainedProvider
+from .render.provider import ChainedProvider, PlateProvider
 
 
 def _now() -> datetime:
@@ -68,7 +68,7 @@ def main() -> int:
     index = SpeciesIndex.load()
     # Cache-only generated link (no API key in previews): a species with a
     # cached AI plate previews exactly as the server would render it.
-    provider = ChainedProvider([AudubonProvider(index), GeneratedArtProvider(None)])
+    provider = ChainedProvider([PlateProvider(index), GeneratedArtProvider(None)])
     out = paths.test_output_dir()
 
     if args.collage:
@@ -148,12 +148,17 @@ _VIEWS = (("trmnl_x", pipeline.View(1404, 1872, "gray16")),
 def _load_index_species() -> list[dict]:
     import json
     idx = json.loads(paths.plate_index_path().read_text())
-    return [s for s in idx.get("species", []) if s.get("plate") not in (None, "none")]
+    seen: set = set()
+    out = []
+    for s in idx.get("species", []):     # one render per species, whichever folio
+        if has_plate(s) and s.get("common") not in seen:
+            seen.add(s.get("common"))
+            out.append(s)
+    return out
 
 
 def _guess_scientific(index: SpeciesIndex, common: str) -> str:
-    entry = index._by_common.get(normalize(common))  # noqa: SLF001 (internal ok here)
-    return entry.get("scientific", "") if entry else ""
+    return index.scientific_for(common) or ""
 
 
 if __name__ == "__main__":

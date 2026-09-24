@@ -11,7 +11,7 @@ from PIL import Image
 
 from featherframe import legends
 from featherframe.names import SpeciesIndex
-from featherframe.render.provider import AudubonProvider
+from featherframe.render.provider import PlateProvider
 
 TITMICE = [
     "Chesnut-backed Titmouse, 1. Male, 2. Female.",
@@ -76,7 +76,7 @@ def test_plate_match_and_artwork_carry_the_legend(tmp_path):
                        images_dir=tmp_path)
     m = idx.match("Northern Cardinal", "Cardinalis cardinalis")
     assert m.legend == ["Male, 1. Female, 2.", "Wild Almond."]
-    art = AudubonProvider(idx).artwork("Northern Cardinal", "Cardinalis cardinalis")
+    art = PlateProvider(idx).artwork("Northern Cardinal", "Cardinalis cardinalis")
     assert art.legend == ["Male, 1. Female, 2.", "Wild Almond."]
 
 

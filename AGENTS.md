@@ -358,7 +358,7 @@ the soft-fail to the grid intact.
 `compose.render_single` (or `collage.render_collage`) → `finish.to_levels`
 (dither) → `framebuffer.pack`. The provider seam is `provider.py`: `ArtProvider`
 returns bird artwork or `None`. The live chain is
-`ChainedProvider([AudubonProvider, GeneratedArtProvider])` → typographic
+`ChainedProvider([PlateProvider, GeneratedArtProvider])` → typographic
 fallback. `genart.py` is the AI side: `ImageModel` is the vendor seam
 (`OpenAIImageModel` first, plain `requests`, default `gpt-image-2.5-sunburst`
 via `/v1/images/edits` with real plates as style references — chosen over
@@ -388,7 +388,8 @@ Latin name, and the plate's own legend lines from
 per Havell plate; `featherframe/legends.py` reduces a composite sheet to the
 detected species' line);
 the date · time and "Plate CLIX" sit in the bottom
-corners: the Havell plate number (`Artwork.audubon_plate`, W-821), "Plate" in
+corners: the folio's own plate number (`Artwork.plate`, W-821; Havell's for
+an Audubon plate), "Plate" in
 the same script and the roman numeral in the engraved capitals, since a run
 of script capitals is unreadable. A generated sheet carries a ✦ there
 instead, and the bough of a species with no plate carries nothing. `theme.py` holds all geometry/tone constants.
@@ -400,7 +401,7 @@ once: `library.json` (index.json's species, each naming its crop by
 lossless, so a plate from the library is the plate from the scan (a test
 holds it); ~1.2 GB for the edition. `FEATHERFRAME_PLATE_LIBRARY` (a directory
 or a URL, fetched on first use into `data/plate-library/`) puts
-`LibraryProvider` in place of `AudubonProvider` — for a server with no scans,
+`LibraryProvider` in place of `PlateProvider` — for a server with no scans,
 the hosted render Container first. Build: `python -m featherframe.plate_library
 build OUT_DIR` on a machine with every scan.
 
@@ -468,10 +469,20 @@ Container restarts); D1 schema in `hosted/migrations/`.
   *whole*, never cropped. The fuzzy name resolver in `names.py` is **build-time
   only** (used by `fetch_plates`); live matching uses the curated index exactly,
   because token overlap mismatches (e.g. "European Starling" → a Blackbird plate).
-- **The crosswalk lives in `scripts/species.yaml`** (modern species → verified
-  Havell plate number; Audubon's titles are archaic — Cardinal = "Cardinal
-  Grosbeak"). `fetch_plates.py` turns it into `plates/index.json` (+ downloaded
-  images, gitignored). `test_crosswalk.py` guards the tricky numbers.
+- **The crosswalks live in `scripts/folios/`, one file per folio (W-702).**
+  A folio is one historical edition of plates; the file name is its id and
+  its `folio:` header says what it is (title, artist, years, credit).
+  `havell.yaml` pins modern species to verified Havell plate numbers
+  (Audubon's titles are archaic — Cardinal = "Cardinal Grosbeak").
+  `fetch_plates.py` turns every folio into the one `plates/index.json` (+
+  downloaded images, gitignored; each folio has its own fetcher in
+  `FETCHERS`): every entry names its `folio` (none = Havell, as every index
+  before W-702), and the `folios` block carries the headers. A species may
+  have an entry in several folios; `SpeciesIndex` asks them in the index's
+  order, Havell first, and a folio's `plate: none` hands the species on to
+  the next folio, never to a guess. The AI's style references are Havell
+  plates only (`genart._havell_species`), because its prompts name the Havell
+  edition. `test_crosswalk.py` guards the tricky numbers.
 - **Framebuffer format (FFF) is a contract with the firmware.** 16-byte header +
   packed pixels: 4bpp = 2px/byte, **high nibble = left pixel, 0=black 15=white**
   (identical to Seeed's sprite). The server emits **native landscape 1872×1404**

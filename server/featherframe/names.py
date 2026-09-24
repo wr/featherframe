@@ -1,4 +1,4 @@
-"""Species-name matching: BirdNET names -> Audubon plate.
+"""Species-name matching: BirdNET names -> a plate in one of the folios.
 
 This is the module the spec correctly predicts will break in the field, so it
 is deliberately conservative. The guiding rule is priority #2: *never a wrong
@@ -11,11 +11,12 @@ Matching strategy, in order:
      common names track modern taxonomy while Audubon's plate titles are 1830s
      archaic ("Snow Bird" for the Dark-eyed Junco, etc.).
   2. If the curated entry explicitly says "no plate" (e.g. European Starling,
-     which Audubon never painted), we return None on purpose.
-  3. Otherwise None -> typographic fallback.
+     which Audubon never painted), that folio has nothing for it.
+  3. Folios are asked in order (W-702): Havell first, then the others. The
+     first folio with a real plate wins; none -> typographic fallback.
 
 `fuzzy_resolve_plate` is a *build-time* helper used by fetch_plates to suggest
-a plate number for a species whose plate isn't pinned in species.yaml. It is
+a plate number for a species whose plate isn't pinned in folios/havell.yaml. It is
 never used to match a live detection, because token overlap is too eager
 ("European Starling" shares "starling" with plate 67, which is a Red-winged
 Blackbird — exactly the wrong-bird trap we must avoid).
@@ -61,6 +62,19 @@ def _tokens(name: str) -> set[str]:
     return {t for t in normalize(name).split() if t and t not in _STOPWORDS}
 
 
+# The folio an index entry belongs to when it names none: every index and
+# plate library written before W-702 is Havell's alone.
+DEFAULT_FOLIO = "havell"
+
+
+def folio_of(entry: dict) -> str:
+    return str(entry.get("folio") or DEFAULT_FOLIO)
+
+
+def has_plate(entry: Optional[dict]) -> bool:
+    return bool(entry) and entry.get("plate") not in (None, "none", "None", False)
+
+
 @dataclass
 class PlateMatch:
     common_name: str
@@ -71,35 +85,54 @@ class PlateMatch:
     composite: bool = False
     crop_box: Optional[list] = None  # normalised [x, y, w, h] in 0..1, or None
     matched_by: str = "exact"
-    legend: list = field(default_factory=list)   # Audubon's printed figure key / plant lines
+    legend: list = field(default_factory=list)   # the plate's printed figure key / plant lines
+    folio: str = DEFAULT_FOLIO
 
     @property
     def has_image(self) -> bool:
         return bool(self.image_path) and Path(self.image_path).exists()
 
 
+class _Folio:
+    """One folio's entries, keyed by normalised scientific (and synonym) and
+    common name."""
+
+    def __init__(self) -> None:
+        self.by_sci: dict[str, dict] = {}
+        self.by_common: dict[str, dict] = {}
+
+    def register(self, e: dict[str, Any]) -> None:
+        sci = normalize(e.get("scientific", ""))
+        com = normalize(e.get("common", ""))
+        if sci:
+            self.by_sci[sci] = e
+        if com:
+            self.by_common[com] = e
+        # Register any extra scientific synonyms (taxonomic splits/renames).
+        for syn in e.get("sci_synonyms", []) or []:
+            self.by_sci[normalize(syn)] = e
+
+    def find(self, common_name: str, scientific_name: str) -> Optional[dict]:
+        return self.by_sci.get(normalize(scientific_name)) or self.by_common.get(normalize(common_name))
+
+
 class SpeciesIndex:
     """Loads the curated plate index written by fetch_plates and matches
-    detections against it. Construct from a dict (tests) or from disk."""
+    detections against it. Construct from a dict (tests) or from disk.
+
+    A species may have an entry in several folios; they are asked in
+    `self.folios` order (the order the index lists them, Havell first)."""
 
     def __init__(self, entries: Optional[list[dict[str, Any]]] = None,
                  images_dir: Optional[Path] = None) -> None:
         self._images_dir = Path(images_dir) if images_dir else paths.plate_images_dir()
-        self._by_sci: dict[str, dict] = {}
-        self._by_common: dict[str, dict] = {}
+        self._folios: dict[str, _Folio] = {}
         for e in entries or []:
-            self._register(e)
+            self._folios.setdefault(folio_of(e), _Folio()).register(e)
 
-    def _register(self, e: dict[str, Any]) -> None:
-        sci = normalize(e.get("scientific", ""))
-        com = normalize(e.get("common", ""))
-        if sci:
-            self._by_sci[sci] = e
-        if com:
-            self._by_common[com] = e
-        # Register any extra scientific synonyms (taxonomic splits/renames).
-        for syn in e.get("sci_synonyms", []) or []:
-            self._by_sci[normalize(syn)] = e
+    @property
+    def folios(self) -> list[str]:
+        return list(self._folios)
 
     @classmethod
     def load(cls, index_path: Optional[Path] = None) -> "SpeciesIndex":
@@ -117,48 +150,62 @@ class SpeciesIndex:
 
     @property
     def count(self) -> int:
-        # Unique entries (a species is registered under both keys).
-        return len({id(v) for v in self._by_sci.values()})
+        # Unique entries (an entry is registered under several keys).
+        return len({id(v) for f in self._folios.values() for v in f.by_sci.values()})
+
+    def _any(self, common_name: str, scientific_name: str = "") -> Optional[dict]:
+        for f in self._folios.values():
+            entry = f.find(common_name, scientific_name)
+            if entry is not None:
+                return entry
+        return None
 
     def canonical_common(self, common_name: str) -> Optional[str]:
         """The index's own spelling of a common name, matched loosely
         (case, hyphens, apostrophes), or None if the species is unknown."""
-        entry = self._by_common.get(normalize(common_name))
+        entry = self._any(common_name)
         return str(entry["common"]) if entry and entry.get("common") else None
 
+    def scientific_for(self, common_name: str) -> Optional[str]:
+        """The curated scientific name for a common name, or None."""
+        entry = self._any(common_name)
+        return str(entry["scientific"]) if entry and entry.get("scientific") else None
+
+    def entries(self, common_name: str, scientific_name: str = "") -> list[dict]:
+        """Every folio's entry with a real plate for this species, matched
+        exactly (scientific name first), in folio order. A folio's explicit
+        "no plate" hands the species on to the next folio."""
+        found = (f.find(common_name, scientific_name) for f in self._folios.values())
+        return [e for e in found if has_plate(e)]
+
     def entry(self, common_name: str, scientific_name: str = "") -> Optional[dict]:
-        """The curated entry for a species that has a plate, matched exactly
-        (scientific name first), or None. Explicit "no plate" species are None:
-        never guess, always fall back."""
-        entry = self._by_sci.get(normalize(scientific_name)) or self._by_common.get(normalize(common_name))
-        if entry is None or entry.get("plate") in (None, "none", "None", False):
-            return None
-        return entry
+        """The first folio's entry with a plate, or None: never guess, always
+        fall back."""
+        found = self.entries(common_name, scientific_name)
+        return found[0] if found else None
 
     def match(self, common_name: str, scientific_name: str = "") -> Optional[PlateMatch]:
-        """Return a PlateMatch with a usable image, or None (-> fallback)."""
-        entry = self.entry(common_name, scientific_name)
-        if entry is None:
-            return None
-        plate = entry.get("plate")
-
-        image_name = entry.get("image")
-        image_path = str(self._images_dir / image_name) if image_name else None
-        m = PlateMatch(
-            common_name=entry.get("common", common_name),
-            scientific_name=entry.get("scientific", scientific_name),
-            plate_number=int(plate),
-            image_path=image_path,
-            audubon_title=entry.get("audubon_title", ""),
-            composite=bool(entry.get("composite", False)),
-            crop_box=entry.get("crop_box"),
-            matched_by="exact",
-            legend=[str(x) for x in (entry.get("legend") or [])],
-        )
-        # If the image is missing on disk, degrade to fallback rather than crash.
-        if not m.has_image:
-            return None
-        return m
+        """A PlateMatch from the first folio whose scan is on disk, or None
+        (-> fallback)."""
+        for entry in self.entries(common_name, scientific_name):
+            image_name = entry.get("image")
+            m = PlateMatch(
+                common_name=entry.get("common", common_name),
+                scientific_name=entry.get("scientific", scientific_name),
+                plate_number=int(entry["plate"]),
+                image_path=str(self._images_dir / image_name) if image_name else None,
+                audubon_title=entry.get("audubon_title", ""),
+                composite=bool(entry.get("composite", False)),
+                crop_box=entry.get("crop_box"),
+                matched_by="exact",
+                legend=[str(x) for x in (entry.get("legend") or [])],
+                folio=folio_of(entry),
+            )
+            # A scan missing on disk degrades to the next folio, then the
+            # fallback, rather than crash.
+            if m.has_image:
+                return m
+        return None
 
 
 def fuzzy_resolve_plate(

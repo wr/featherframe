@@ -97,7 +97,7 @@ fallback), and installs a
 prints the config page URL when done: `http://<hostname>.local:8080/`.
 
 Options: `--skip-plates`, `--all-plates` (every Havell plate, not only the
-ones `species.yaml` uses),
+ones `folios/havell.yaml` uses),
 `--port 9000`, `--no-service`, `--check` (report what a run would change),
 `--source birdnet-pi|birdnet-go` with `--url` (written once, only when given).
 
@@ -294,7 +294,7 @@ frame's row under 10 %.
 
 ## Species & plates
 
-`server/scripts/species.yaml` maps modern species to Audubon Havell plate
+`server/scripts/folios/havell.yaml` maps modern species to Audubon Havell plate
 numbers — every species he painted, each checked against the plate's own
 archaic title (the Northern Cardinal is his "Cardinal Grosbeak"). The rule is
 **never a wrong bird**: anything unsure falls back rather than guesses.

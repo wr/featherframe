@@ -38,16 +38,16 @@ SPEC = SingleSpec(common_name="Northern Cardinal", scientific_name="Cardinalis c
 
 
 def test_a_havell_plate_carries_its_number():
-    numbered = compose.render_single(SPEC, _Art(audubon_plate=159))
-    other = compose.render_single(SPEC, _Art(audubon_plate=388))
+    numbered = compose.render_single(SPEC, _Art(plate=159))
+    other = compose.render_single(SPEC, _Art(plate=388))
     assert _right_corner_ink(numbered) > 0
     assert _right_corner_ink(other) > _right_corner_ink(numbered)     # a longer numeral
 
 
 def test_a_generated_plate_carries_the_star_alone_and_a_bough_nothing():
-    star = _right_corner_ink(compose.render_single(SPEC, _Art(audubon_plate=None, generated=True)))
-    assert 0 < star < _right_corner_ink(compose.render_single(SPEC, _Art(audubon_plate=1)))
-    assert _right_corner_ink(compose.render_single(SPEC, _Art(audubon_plate=None))) == 0
+    star = _right_corner_ink(compose.render_single(SPEC, _Art(plate=None, generated=True)))
+    assert 0 < star < _right_corner_ink(compose.render_single(SPEC, _Art(plate=1)))
+    assert _right_corner_ink(compose.render_single(SPEC, _Art(plate=None))) == 0
 
 
 def test_the_footnote_clears_the_widest_numeral():

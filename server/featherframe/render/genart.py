@@ -36,6 +36,7 @@ import requests
 from PIL import Image
 
 from .. import paths
+from ..names import DEFAULT_FOLIO, folio_of
 from . import plate
 from .collage import CollageCell, same_species, sheet_art_size
 from .provider import ArtProvider, Artwork
@@ -289,6 +290,15 @@ def build_composite_prompt(subjects: list[tuple[str, str]],
     return opener + armature + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
 
 
+def _havell_species(idx: dict) -> list[dict]:
+    """The index's Havell entries: the prompts ask for the Havell edition, so
+    its plates are the only style references (W-702)."""
+    species = idx.get("species")
+    if not isinstance(species, list):
+        return []
+    return [e for e in species if isinstance(e, dict) and folio_of(e) == DEFAULT_FOLIO]
+
+
 # Real composite plates to hand the model as references, preference order.
 _PREFERRED_COMPOSITE_REFS = [
     "Dryobates villosus",       # plate 416 — five woodpecker species, one snag
@@ -305,11 +315,9 @@ def pick_composite_reference_plates(k: int = 3) -> list[Path]:
         return []
     if not isinstance(idx, dict):
         return []
-    species = idx.get("species")
-    if not isinstance(species, list):
-        species = []
+    species = _havell_species(idx)
     images_dir = Path(idx.get("images_dir", paths.plate_images_dir()))
-    by_sci = {e.get("scientific"): e for e in species if isinstance(e, dict)}
+    by_sci = {e.get("scientific"): e for e in species}
 
     chosen: list[Path] = []
 
@@ -326,8 +334,7 @@ def pick_composite_reference_plates(k: int = 3) -> list[Path]:
     for sci in _PREFERRED_COMPOSITE_REFS:
         _try(by_sci.get(sci))
     for entry in species:
-        if isinstance(entry, dict):
-            _try(entry)
+        _try(entry)
     return chosen[:k]
 
 # Style references for the edits endpoint, matched to the subject's group so
@@ -1239,11 +1246,9 @@ def pick_reference_plates(common_name: str = "", k: int = 3,
         return []
     if not isinstance(idx, dict):
         return []
-    species = idx.get("species")
-    if not isinstance(species, list):
-        species = []
+    species = _havell_species(idx)
     images_dir = Path(idx.get("images_dir", paths.plate_images_dir()))
-    by_sci = {e.get("scientific"): e for e in species if isinstance(e, dict)}
+    by_sci = {e.get("scientific"): e for e in species}
 
     chosen: list[Path] = []
 
@@ -1270,7 +1275,7 @@ def pick_reference_plates(common_name: str = "", k: int = 3,
     # preferred-first order; with one, the fill is shuffled so consecutive
     # generations of a species don't anchor to the very same sheets.
     fill = [by_sci.get(sci) for sci in _PREFERRED_REFS]
-    fill += [e for e in species if isinstance(e, dict)]
+    fill += species
     if rng is not None:
         fill = list(fill)
         rng.shuffle(fill)
@@ -1727,7 +1732,7 @@ class GeneratedArtProvider(ArtProvider):
                         pass
                     return None
         png = self._png(slug)
-        return Artwork(image=img, audubon_plate=None, composite=False, generated=True,
+        return Artwork(image=img, composite=False, generated=True,
                        generated_by=self._cached_vendor(slug), legend=self._cached_legend(slug),
                        color_loader=lambda: plate.extract_generated_color(png))
 

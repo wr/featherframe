@@ -68,7 +68,7 @@ class _Art(ArtProvider):
 
     def artwork(self, common_name, scientific_name):
         # A scan carries its Havell number; a generated sheet has none.
-        return Artwork(image=self._img, audubon_plate=None if self._generated else 131,
+        return Artwork(image=self._img, plate=None if self._generated else 131,
                        composite=self._composite,
                        generated=self._generated, legend=list(self._legend))
 

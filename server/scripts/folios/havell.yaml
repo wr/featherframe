@@ -1,10 +1,14 @@
-# Featherframe — curated species list and Audubon plate crosswalk.
+# Featherframe — the Havell folio: curated species and Audubon plate crosswalk.
 #
-# This is the editable source of truth for `fetch_plates.py`. Each entry pins a
-# modern species (as BirdNET reports it) to a specific Havell-edition plate in
-# John James Audubon's "Birds of America" (public domain).
+# A folio is one historical edition of plates (W-702): this file is its
+# crosswalk, and fetch_plates.py turns every folio in scripts/folios/ into the
+# one plates/index.json the render pipeline reads. This one pins modern
+# species (as BirdNET reports them) to Havell-edition plates of John James
+# Audubon's "Birds of America" (public domain). The file name is the folio's id.
 #
-# Fields:
+# folio: what the edition is, and where its scans are credited to.
+#
+# Fields, per species:
 #   common      modern common name (matches BirdNET's Com_Name)
 #   scientific  modern binomial (matches BirdNET's Sci_Name)
 #   plate       Havell plate number 1..435, or `none` if Audubon never painted it
@@ -18,6 +22,14 @@
 # Every plate below was verified against the actual plate index, not guessed.
 # To add a species: add an entry. If you omit `plate`, fetch_plates will suggest
 # one by title match and print it for you to pin here.
+
+folio:
+  title: "The Birds of America"
+  artist: "John James Audubon, engraved by Robert Havell"
+  years: "1827–1838"
+  plates: 435
+  source: "github.com/nathanbuchar/audubon-bird-plates"
+  credit: "Courtesy of the John James Audubon Center at Mill Grove, Montgomery County Audubon Collection, and Zebra Publishing."
 
 species:
   # --- The stars: cardinals, jays, chickadees, titmice ------------------

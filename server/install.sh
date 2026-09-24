@@ -173,13 +173,13 @@ fi
 
 # --- plates --------------------------------------------------------------
 # fetch_plates.py skips plates already on disk, so on an upgrade it only pulls
-# what a new species.yaml entry needs.
+# what a new folio entry needs.
 if [ "$DO_PLATES" -eq 1 ]; then
   PLATE_ARGS=()
   [ "$ALL_PLATES" -eq 1 ] && PLATE_ARGS+=(--all)
   if [ "$CHECK" -eq 1 ]; then
     if [ -r "$SERVER_DIR/plates/index.json" ]; then
-      echo "==> Plates present; a run would fetch only what species.yaml newly needs."
+      echo "==> Plates present; a run would fetch only what the folios newly need."
     else
       plan "download Audubon plates ($([ "$ALL_PLATES" -eq 1 ] && echo '~2.9 GB' || echo '~2.9 GB'))"
     fi

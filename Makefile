@@ -9,7 +9,7 @@ PIP := server/.venv/bin/pip
 help:
 	@echo "Featherframe targets:"
 	@echo "  make venv             create the server venv and install deps"
-	@echo "  make plates           download Audubon plates (species.yaml)"
+	@echo "  make plates           download the folios' plates (scripts/folios/)"
 	@echo "  make plates-all       cache every Havell plate (~2.9 GB, idempotent)"
 	@echo "  make plates-pack      pack the cached edition into release tarballs (dist/plates)"
 	@echo "  make preview          render a fake Northern Cardinal -> PNG + .fff in test_output/"
@@ -28,7 +28,7 @@ venv:
 plates:
 	cd server && ../$(PY) scripts/fetch_plates.py
 
-# The whole edition, so a new species.yaml entry never needs the network.
+# The whole edition, so a new folios/havell.yaml entry never needs the network.
 plates-all:
 	cd server && ../$(PY) scripts/fetch_plates.py --all
 

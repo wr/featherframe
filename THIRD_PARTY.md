@@ -1,6 +1,6 @@
 # Third-party notices
 
-Featherframe's own code, the plate crosswalk (`server/scripts/species.yaml`),
+Featherframe's own code, the plate crosswalk (`server/scripts/folios/`),
 and the legend transcriptions (`server/scripts/legends.yaml`) are licensed
 under the Apache License 2.0 (`LICENSE`). Everything below belongs to someone
 else and keeps its own terms.

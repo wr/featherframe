@@ -13,7 +13,7 @@ from featherframe import paths
 from featherframe.config import Config
 from featherframe.render import pipeline
 from featherframe.render.compose import SingleSpec
-from featherframe.render.provider import AudubonProvider
+from featherframe.render.provider import PlateProvider
 from featherframe.service import FeatherframeService, when_text
 from featherframe.sources.base import Detection
 
@@ -265,7 +265,7 @@ def test_tick_keeps_the_note_through_an_outage(svc, monkeypatch):
 # -- the plate note ----------------------------------------------------------
 def test_note_renders_in_the_bottom_margin(svc):
     config = Config(mat_inset_pct=0)
-    provider = AudubonProvider()                # no plates -> the bough fallback
+    provider = PlateProvider()                # no plates -> the bough fallback
     # No `when`: with one the fallback sets "First recorded <date>." as a
     # legend line on the caption's last baseline (W-743), inside the band
     # the note is checked in below.

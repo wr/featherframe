@@ -57,7 +57,7 @@ def test_note_pill_sits_between_the_corner_marks():
 
     class _Blank(ArtProvider):
         def artwork(self, c, s):
-            return Artwork(image=Image.new("L", (600, 400), 255), audubon_plate=None)
+            return Artwork(image=Image.new("L", (600, 400), 255), plate=None)
 
     out = compose.render_single(spec, _Blank())
     marks = _field()

@@ -239,9 +239,9 @@ class _StubProvider(ArtProvider):
 
 
 def test_chain_prefers_first_provider(data_dir):
-    real = Artwork(image=Image.new("L", (10, 10)), audubon_plate=1)
+    real = Artwork(image=Image.new("L", (10, 10)), plate=1)
     first = _StubProvider(real)
-    second = _StubProvider(Artwork(image=Image.new("L", (10, 10)), audubon_plate=None))
+    second = _StubProvider(Artwork(image=Image.new("L", (10, 10)), plate=None))
     chain = ChainedProvider([first, second])
     assert chain.artwork("X", "Y") is real
     assert second.asked == 0
@@ -770,3 +770,21 @@ def test_feeding_tableau_is_not_treated_as_a_nest():
                           "true manner, prey or forage rendered honestly."}
     picked = {_pick_plant(_random.Random(i), pool, feeding)["name"] for i in range(60)}
     assert picked == {"autumn vine", "spring shrub"}
+
+
+def test_style_references_are_havell_plates_only(data_dir, monkeypatch, tmp_path):
+    """The prompts ask for the Havell edition, so another folio's plate is
+    never handed over as a style reference (W-702)."""
+    from featherframe import paths
+    (tmp_path / "havell.jpg").write_bytes(b"x")
+    (tmp_path / "gould.webp").write_bytes(b"x")
+    index = tmp_path / "index.json"
+    index.write_text(json.dumps({"images_dir": str(tmp_path), "species": [
+        {"folio": "gould", "common": "Song Sparrow", "scientific": "Melospiza melodia",
+         "plate": 1, "image": "gould.webp"},
+        {"common": "Chipping Sparrow", "scientific": "Spizella passerina",
+         "plate": 104, "image": "havell.jpg"},
+    ]}))
+    monkeypatch.setattr(paths, "plate_index_path", lambda: index)
+    from featherframe.render.genart import pick_reference_plates
+    assert pick_reference_plates("Song Sparrow") == [tmp_path / "havell.jpg"]

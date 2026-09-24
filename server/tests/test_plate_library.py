@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw
 
 from featherframe import plate_library
 from featherframe.names import SpeciesIndex
-from featherframe.render.provider import AudubonProvider
+from featherframe.render.provider import PlateProvider
 
 ENTRIES = [
     {"common": "Northern Cardinal", "scientific": "Cardinalis cardinalis", "plate": 159,
@@ -59,14 +59,14 @@ def test_a_library_plate_is_the_scan_plate(plates, tmp_path):
     out = tmp_path / "library"
     stats = plate_library.build(out, index, img)
     assert stats == {"made": 3, "kept": 1, "entries": 5}      # the composite is cut once
-    scans = AudubonProvider(SpeciesIndex(ENTRIES, images_dir=img))
+    scans = PlateProvider(SpeciesIndex(ENTRIES, images_dir=img))
     lib = plate_library.LibraryProvider(plate_library.PlateLibrary(str(out), tmp_path / "cache"))
     for common, sci in [(e["common"], e["scientific"]) for e in ENTRIES[:4]]:
         a, b = scans.artwork(common, sci), lib.artwork(common, sci)
         _same(a.image, b.image)
         for x, y in zip(a.color_pair(), b.color_pair()):
             _same(x, y)
-        assert (a.audubon_plate, a.composite, a.legend) == (b.audubon_plate, b.composite, b.legend)
+        assert (a.plate, a.folio, a.composite, a.legend) == (b.plate, b.folio, b.composite, b.legend)
     assert lib.artwork("Veery", "Catharus fuscescens") is None     # never a wrong bird
     assert lib.artwork("House Sparrow", "Passer domesticus") is None
     assert plate_library.build(out, index, img)["kept"] == 4        # idempotent
@@ -105,6 +105,31 @@ def test_the_env_puts_the_library_in_place_of_the_scans(plates, tmp_path, monkey
     index, img = plates
     plate_library.build(tmp_path / "library", index, img)
     monkeypatch.setenv("FEATHERFRAME_PLATE_LIBRARY", str(tmp_path / "library"))
-    assert plate_library.from_env().species_count == 5     # the index, as AudubonProvider counts it
+    assert plate_library.from_env().species_count == 5     # the index, as PlateProvider counts it
     monkeypatch.delenv("FEATHERFRAME_PLATE_LIBRARY")
     assert plate_library.from_env() is None
+
+
+def test_the_library_carries_every_folio(tmp_path):
+    """A second folio's plate goes into the library like Havell's, and asks
+    after it (W-702); the folio headers ride along, catalog left behind."""
+    img = tmp_path / "img"
+    (img / "gould").mkdir(parents=True)
+    _scan(img / "gould" / "gould-europe-180-house-sparrow.webp", 3)
+    _scan(img / "plate-159-cardinal-grosbeak.jpg", 1)
+    entries = ENTRIES + [{"folio": "gould", "common": "House Sparrow",
+                          "scientific": "Passer domesticus", "plate": 180,
+                          "image": "gould/gould-europe-180-house-sparrow.webp"}]
+    index = tmp_path / "index.json"
+    index.write_text(json.dumps({"generated_at": "x", "species": entries, "folios": {
+        "havell": {"title": "The Birds of America", "catalog": [{"plate": 1}]},
+        "gould": {"title": "The Birds of Europe"}}}))
+    out = tmp_path / "library"
+    plate_library.build(out, index, img)
+    data = json.loads((out / "library.json").read_text())
+    assert data["folios"] == {"havell": {"title": "The Birds of America"},
+                              "gould": {"title": "The Birds of Europe"}}
+    lib = plate_library.LibraryProvider(plate_library.PlateLibrary(str(out), tmp_path / "cache"))
+    art = lib.artwork("House Sparrow", "Passer domesticus")
+    assert (art.folio, art.plate) == ("gould", 180)
+    assert lib.artwork("Northern Cardinal", "Cardinalis cardinalis").folio == "havell"

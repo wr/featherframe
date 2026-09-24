@@ -218,9 +218,9 @@ Everything below the Frames card is the household's: the same for every screen.
   overnight collage. The confidence threshold is your detector's own: set it in
   BirdNET-Go, not here.
 - **Detection source** — BirdNET-Pi DB (default), BirdNET-Go, BirdWeather, or
-  an Apprise webhook, with a *Test connection* button, and the **species
-  blocklist** under its Advanced: one name per line.
-- **Collage** — how often it is redrawn, how many species it holds (leave it
+  an Apprise webhook, with a *Test connection* button, and **Blocked
+  species**: one name per line, never shown on a plate or in a collage.
+- **Collage** — its *Redraw interval*, how many species it holds (leave it
   empty for no limit), and whether to draw it with AI. That switch is all or
   nothing: with it on, every collage is an illustrated scene, and one image is
   bought per day — again only if the day's species change.

@@ -115,7 +115,7 @@ def test_the_row_is_locked_on_the_collage_and_quotes_the_collages_interval(clien
     add_kit(svc, shows="collage", device_poll_seconds=5)
     row = client.get("/").text.split(f'data-frame="{FRAME_ID}"')[1].split("</li>")[0]
     assert '<div class="frow locked" data-fr-interval>' in row
-    assert "Set by the collage’s update interval." in row
+    assert "Set by the collage’s redraw interval." in row
     assert 'data-fr-collage-every >Every 4 hours<' in row
     svc.update_frame(FRAME_ID, {"shows": "plates"})
     row = client.get("/").text.split(f'data-frame="{FRAME_ID}"')[1].split("</li>")[0]

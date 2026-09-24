@@ -23,7 +23,9 @@ def test_an_unknown_name_is_built_from_its_facts():
     assert (p.width, p.height) == (480, 800)          # portrait, as it hangs
     assert p.native == (800, 480)                     # as the firmware pushes it
     assert p.rotations == (90, 270) and p.fmt == "gray16" and not p.color
-    assert not p.known and "GDEY075 DIY" in p.name and "800×480" in p.name
+    # Named as it hangs, in words: never the wire format's name.
+    assert not p.known and p.name == "GDEY075 DIY · 480×800 gray"
+    assert p.title == "Grayscale Frame"
     # The key spells the facts out, and resolves back to the same panel.
     assert p.key == "custom:800x480:gray16:90,270"
     again = panels.get(p.key)
@@ -166,3 +168,9 @@ def test_the_panel_is_not_a_setting(client):
     assert svc.frame_config(svc.frames.get(DIY["X-Device-Id"])).panel == \
         "custom:800x480:gray16:90,270"
     assert 'name="panel"' not in client.get("/").text
+
+
+def test_an_unnamed_frame_on_a_reported_panel_is_called_what_it_is():
+    color = panels.custom("1200", "1600", "spectra6", "0,180", name="bench")
+    assert color.title == "Color Frame" and color.name == "bench · 1200×1600 Spectra 6 color"
+    assert panels.custom("1872", "1404", "gray16", "90,270").name == "1404×1872 gray"

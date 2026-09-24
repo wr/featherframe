@@ -477,8 +477,9 @@ def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     _populate(client)
     sec = client.get("/").text.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
     assert 'class="intro"' not in sec
-    assert ">Update interval<" in sec and ">Species limit<" in sec
-    assert "How often the collage is redrawn during the day" in sec
+    assert ">Redraw interval<" in sec and ">Species limit<" in sec
+    # The label says what it is: a redraw, not the frames' own update interval.
+    assert "How often the collage is redrawn" not in sec
     assert "The most species shown in one collage" in sec
     # The interval is a dropdown of the intervals an owner picks.
     every = sec.split('name="collage_interval_hours"')[1].split("</select>")[0]
@@ -546,3 +547,36 @@ def test_a_closed_browser_tab_is_not_a_frame_in_trouble(client):
     svc._clock = (lambda real=svc._clock: lambda: real() + timedelta(days=1))()
     assert _listed(svc, "PAGE-TEST")["card"]["overdue"] is False
     assert _listed(svc, GRAY["X-Device-Id"])["card"]["overdue"] is True
+
+
+# -- W-861: one save model, and Tools that say what they act on -----------------
+def test_nothing_is_saved_until_something_changed(client):
+    _populate(client)
+    html = client.get("/").text
+    assert 'id="save-btn" disabled' in html
+    row = _row(html, GRAY["X-Device-Id"])
+    assert 'data-fr-action="save" disabled' in row and "data-fr-unsaved hidden" in row
+    # Every stored secret, email and password is the same ✓ / ✕ row.
+    assert html.count('class="btn icon primary key-ok"') == 4
+    assert '<button class="btn primary" type="submit">Save</button>' not in html
+
+
+def test_the_tools_follow_the_previewed_frames_picture(client):
+    svc = _populate(client)
+    html = client.get("/").text
+    for fr in svc.frames_list():
+        assert f'data-pick="{escape(fr["id"])}"' not in html or \
+            f'data-picture="{fr["picture"]}"' in html
+    assert 'For every frame showing individual detections.' in html
+    assert 'For every frame showing the collage.' in html
+    assert html.count('data-for="plates"') >= 4 and 'data-for="collage"' in html
+
+
+def test_the_blocklist_is_named_and_counted_with_the_source(client):
+    svc = client.app.state.service
+    svc.config.species_blocklist = ["House Sparrow", "European Starling"]
+    svc.update_config(svc.config)
+    html = client.get("/").text
+    src = html.split('<h2 class="sec-head">Detection source</h2>')[1].split("</section>")[0]
+    assert "<span>Blocked species</span>" in src and ">2</span>" in src
+    assert ">Advanced<" not in src

@@ -209,3 +209,29 @@ def test_status_and_page_carry_the_outage(client, svc):
     html = client.get("/").text
     assert 'id="outage-banner"' in html
     assert "unreachable since" in html
+
+
+# -- the page while the source is down (W-861) ---------------------------------
+def test_outage_length_is_said_the_way_a_person_says_it():
+    assert [service_mod._hours_text(h) for h in (0.4, 3, 7.6, 80.3)] == \
+        ["24 min", "3 h", "8 h", "3 days"]
+
+
+def test_a_source_that_goes_down_keeps_what_it_last_said_on_the_page(svc):
+    now = datetime.now()
+    svc.source = _Source(_det_at(now - timedelta(hours=2)), available=True)
+    up = svc.status()
+    assert up["last_detection"]["common"] == "Blue Jay" and up["species_all_time"] == 1
+
+    # Down: the source answers nothing, the card keeps its last answer.
+    svc.source = _Source(None, available=False)
+    down = svc.status()
+    assert down["last_detection"]["common"] == "Blue Jay"
+    assert down["last_detection"]["when_text"]
+    assert down["species_all_time"] == 1
+
+    # …across a restart too, and per source: a new source says nothing yet.
+    svc._known.clear()
+    assert svc.status()["last_detection"]["common"] == "Blue Jay"
+    svc.config.detection_backend = "birdweather"
+    assert svc.status()["last_detection"] is None

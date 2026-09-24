@@ -638,6 +638,9 @@ async def index(request: Request):
          "owner_email": (request.headers.get("x-ff-account-email", "")
                          if getattr(request.app.state, "hosted", None) is not None
                          else svc.config.owner_email),
+         # …and on hosted, the one waiting for its confirmation link.
+         "email_pending": (request.headers.get("x-ff-account-email-pending", "")
+                           if getattr(request.app.state, "hosted", None) is not None else ""),
          # Each kit as it is sold, for the USB dialog's choice.
          "kit_names": {k: p.title for k, p in panels.PANELS.items() if p.title}})
 
@@ -698,8 +701,9 @@ async def save_settings(request: Request):
         firmware_auto_update=b("firmware_auto_update"),
         # A hosted household's email is its account's, which the Worker
         # changes (with a confirmation) before this form reaches us.
+        # A blank field keeps it.
         owner_email=(cur["owner_email"] if getattr(request.app.state, "hosted", None) is not None
-                     else s("owner_email", cur["owner_email"])),
+                     else s("owner_email", "").strip() or cur["owner_email"]),
         collage_species_max=limit("collage_species_max", cur["collage_species_max"]),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
@@ -719,13 +723,13 @@ async def save_settings(request: Request):
     try:
         svc.update_config(new)
         _announce_panel(request, svc)
-        # The page's password (W-773): off unless switched on; a blank field
-        # keeps the one stored. Not a hosted page's to set. Setting one keeps
-        # this browser signed in.
+        # The page's password (W-773): off until one is typed; a blank field
+        # keeps the one stored, Remove clears it. Not a hosted page's to set.
+        # Setting one keeps this browser signed in.
         gate = _local_gate(request)
         if gate is not None:
             typed = s("page_password", "")
-            if not b("page_password_on"):
+            if b("page_password_clear"):
                 if gate.on:
                     await run_in_threadpool(gate.set, None)
             elif typed:

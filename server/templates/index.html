@@ -387,6 +387,15 @@
     .key-display input:disabled { color:var(--muted); -webkit-text-fill-color:var(--muted); opacity:1;
       background:var(--inset); cursor:not-allowed; }
     .keyline { display:flex; gap:8px; }
+    /* Email and password: a row, not a stack, and set in the page's own face. */
+    .acct .frow-ctl { min-width:min(100%, 340px); }
+    .acct .keyline { width:100%; justify-content:flex-end; }
+    .acct .keyline input { font:inherit; font-size:14px; }
+    .acct .key-display input:disabled { cursor:default; }
+    .keyval { position:relative; flex:1; min-width:0; display:flex; }
+    .keyval input { flex:1; }
+    .keyval .badge { position:absolute; right:8px; top:50%; transform:translateY(-50%); }
+    .keyval .badge ~ input, .keyval input:has(~ .badge) { padding-right:96px; }
     .keyline input { flex:1; min-width:0; font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:13px; letter-spacing:0; }
     /* a connection field + its inline Test button on one row */
     .data-row { display:flex; gap:10px; align-items:stretch; }
@@ -1546,26 +1555,45 @@
       <div class="card">
         <section class="sec">
           <h2 class="sec-head">General settings</h2>
-          <div class="frow stack">
-            <div class="frow-text"><label class="lab" for="f-email">Email</label>{% if hosted %}<div class="hint">Where sign-in links go.</div>{% endif %}</div>
-            <div class="frow-ctl"><input type="email" id="f-email" name="owner_email" value="{{ owner_email }}" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" {{ 'required' if hosted else '' }}></div>
+          {# Email and password are "keyfield" rows like the stored API keys: the
+             value shown disabled with an edit button, or a live field with its
+             own Save. A blank field keeps what is stored. #}
+          {% set shown_email = email_pending or owner_email %}
+          <div class="frow keyfield acct" data-key="email">
+            <div class="frow-text"><label class="lab" for="f-email">Email address</label>{% if email_pending %}<div class="hint">Until it's confirmed, sign in with {{ owner_email }}.</div>{% endif %}</div>
+            <div class="frow-ctl">
+              <div class="keyline key-display" {{ 'hidden' if not shown_email else '' }}>
+                <div class="keyval"><input type="text" value="{{ shown_email }}" disabled aria-label="Email address">{% if email_pending %}<span class="badge warn">Unconfirmed</span>{% endif %}</div>
+                <button class="btn icon key-replace" type="button" title="Change email" aria-label="Change email"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-edit"/></svg></button>
+              </div>
+              <div class="keyline key-entry" {{ '' if not shown_email else 'hidden' }}>
+                <input type="email" id="f-email" name="owner_email" data-value="{{ shown_email }}" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@example.com" aria-label="Email address">
+                <button class="btn primary" type="submit">{{ 'Send confirmation' if hosted else 'Save' }}</button>
+                {% if shown_email %}<button class="btn key-cancel" type="button">Cancel</button>{% endif %}
+              </div>
+            </div>
           </div>
+          {% if not hosted %}
+          <div class="frow keyfield acct" data-key="password" data-confirm="Remove the password? Anyone on your network can open this page again.">
+            <div class="frow-text"><label class="lab" for="pw-input">Password</label><div class="hint">{{ 'Needed to open this page. Frames connect without it.' if password_on else 'Off. Anyone on your network can open this page.' }}</div></div>
+            <div class="frow-ctl">
+              <div class="keyline key-display">
+                <button class="btn key-replace" type="button">{{ 'Change' if password_on else 'Set password' }}</button>
+                {% if password_on %}<button class="btn icon danger key-delete" type="button" title="Remove password" aria-label="Remove password"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-trash"/></svg></button>{% endif %}
+              </div>
+              <div class="keyline key-entry" hidden>
+                <input type="password" id="pw-input" name="page_password" autocomplete="new-password" aria-label="New password">
+                <button class="btn primary" type="submit">Save</button>
+                <button class="btn key-cancel" type="button">Cancel</button>
+              </div>
+              <input type="checkbox" class="key-clear" name="page_password_clear" hidden aria-hidden="true" tabindex="-1">
+            </div>
+          </div>
+          {% endif %}
           <div class="frow toggle">
             <div class="frow-text"><label class="lab" for="fw-auto">Install firmware updates automatically</label><div class="hint tnum" id="fw-latest">{{ ('Latest release: ' ~ fws.latest) if fws.latest else 'No release yet' }}</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="fw-auto" name="firmware_auto_update" {{ 'checked' if config.firmware_auto_update else '' }}><span class="track"></span></label></div>
           </div>
-          {% if not hosted %}
-          <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="pw-on">Require a password</label><div class="hint">To open this page. Frames connect without it.</div></div>
-            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="pw-on" name="page_password_on" {{ 'checked' if password_on else '' }}><span class="track"></span></label></div>
-          </div>
-          <div class="reveal{{ '' if password_on else ' collapsed' }}" id="pw-reveal" {{ '' if password_on else 'hidden' }}><div class="reveal-body">
-          <div class="frow stack">
-            <div class="frow-text"><label class="lab" for="pw-input">{{ 'New password' if password_on else 'Password' }}</label></div>
-            <div class="frow-ctl"><input type="password" id="pw-input" name="page_password" autocomplete="new-password" data-stored="{{ 'true' if password_on else 'false' }}" {{ 'placeholder=Unchanged' if password_on else '' }}></div>
-          </div>
-          </div></div>
-          {% endif %}
         </section>
       </div>
 
@@ -2473,17 +2501,6 @@
     }
     document.querySelectorAll('input[name="quiet_hours_mode"]').forEach(function (r) { r.addEventListener('change', syncQuiet); });
     syncQuiet();
-    // password: the field follows the switch, and is needed to turn it on
-    var pwOn = $('pw-on'), pwIn = $('pw-input');
-    if (pwOn && pwIn) {
-      var syncPw = function () {
-        setRevealed($('pw-reveal'), pwOn.checked);
-        pwIn.required = pwOn.checked && pwIn.getAttribute('data-stored') !== 'true';
-        $('f-email').required = pwOn.checked;   // the sign-in's name
-      };
-      pwOn.addEventListener('change', syncPw);
-      syncPw();
-    }
     // detection-source fields follow the select
     var sel = $('src-sel');
     function syncSrc() {
@@ -2598,13 +2615,14 @@
     var rep = kf.querySelector('.key-replace'), del = kf.querySelector('.key-delete'), cancel = kf.querySelector('.key-cancel');
     if (!display || !entry || !field) return;
     if (rep) rep.addEventListener('click', function () {
-      display.hidden = true; entry.hidden = false; if (clear) clear.checked = false; field.focus();
+      display.hidden = true; entry.hidden = false; if (clear) clear.checked = false;
+      field.value = field.getAttribute('data-value') || ''; field.focus();
     });
     if (cancel) cancel.addEventListener('click', function () {
       entry.hidden = true; display.hidden = false; field.value = ''; if (rep) rep.focus();
     });
     if (del) del.addEventListener('click', function () {
-      if (!confirm('Delete the stored key? Plates already generated are kept.')) return;
+      if (!confirm(kf.getAttribute('data-confirm') || 'Delete the stored key? Plates already generated are kept.')) return;
       if (clear) clear.checked = true;
       field.value = '';
       submitForm(kf.closest('form'));

@@ -116,11 +116,22 @@ export async function sessionUser(request: Request, env: Env): Promise<SessionUs
 export async function startEmailChange(env: Env, uid: string, email: string): Promise<"sent" | "taken"> {
   const taken = await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first();
   if (taken) return "taken";
+  // One pending change at a time: an older link stops working.
+  await env.DB.prepare("UPDATE email_changes SET used_at = ? WHERE user_id = ? AND used_at IS NULL")
+    .bind(now(), uid).run();
   const token = randomHex(32);
   await env.DB.prepare("INSERT INTO email_changes (token_hash, user_id, email, expires_at) VALUES (?, ?, ?, ?)")
     .bind(await sha256(token), uid, email, now() + CHANGE_TTL_S).run();
   await sendMail(env, email, confirmEmailEmail(`https://${env.APP_HOST}/account/email?t=${token}`));
   return "sent";
+}
+
+/** The address this login asked to move to and has not confirmed, or null. */
+export async function pendingEmail(env: Env, uid: string): Promise<string | null> {
+  const row = await env.DB.prepare(
+    "SELECT email FROM email_changes WHERE user_id = ? AND used_at IS NULL AND expires_at > ? ORDER BY expires_at DESC LIMIT 1")
+    .bind(uid, now()).first<{ email: string }>();
+  return row?.email ?? null;
 }
 
 /** The link from that email: the login's email is now the new one. */

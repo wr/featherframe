@@ -487,7 +487,11 @@ changing a login's email outright, suspending a household
 (`households.suspended_at`: its page closed to the owner, its front door stops
 waking the server, its frames keep their last picture), deleting one (D1 rows
 incl. its invitation, its frames' registry rows, R2, front door storage and
-container), and revoking or resending an unused invitation. The
+container), and revoking or resending an unused invitation. What an action came to is
+a toast on the next load (the Featherframe page's own flash, carried by a
+one-time `ff_admin_toast` cookie, never the URL), and every action — the page's
+forms and the bearer API — is kept in D1 `admin_log` (W-863, migration 0005),
+the last 100 shown at the foot of the page. The
 API is still there: `Authorization: Bearer` keychain
 `featherframe-hosted-admin-token`, `POST /_admin/invite|link|adopt {email}`.
 Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a

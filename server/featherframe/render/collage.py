@@ -37,9 +37,10 @@ class CollageCell:
 
 
 def same_species(a: list, b: list) -> bool:
-    """Do two cell lists name the same species, in the same order? The counts
-    move all day; the figures on a sheet do not."""
-    return [c.species_key for c in a] == [c.species_key for c in b]
+    """Do two cell lists name the same species? The counts move all day, and
+    with them the order, but the figures on a sheet do not: a sheet is of a
+    set of species, and its key numbers them as painted (W-859)."""
+    return sorted(c.species_key for c in a) == sorted(c.species_key for c in b)
 
 
 def _paste_art(field: Image.Image, art: Image.Image, box: tuple[int, int, int, int],

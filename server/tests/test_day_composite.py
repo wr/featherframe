@@ -76,6 +76,19 @@ def test_a_redraw_of_the_same_species_never_buys_a_second_sheet(data_dir):
     assert model.calls == 1
 
 
+def test_a_reordered_day_keeps_its_sheet_and_its_painted_key(data_dir):
+    """Two species trading places in the tally is not a new sheet (W-859):
+    the sheet is kept, and the key still numbers the figures as painted."""
+    model = FakeModel()
+    provider = GeneratedArtProvider(model)
+    provider.day_composite(CELLS, DAY)
+    _age_out(data_dir)
+    swapped = list(reversed(CELLS))
+    art, painted = provider.day_composite(swapped, DAY)
+    assert art is not None and model.calls == 1
+    assert [c.scientific_name for c in painted] == [c.scientific_name for c in CELLS]
+
+
 def test_a_new_species_in_the_day_buys_one_fresh_sheet(data_dir):
     model = FakeModel()
     provider = GeneratedArtProvider(model)

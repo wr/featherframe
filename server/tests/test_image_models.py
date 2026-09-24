@@ -310,7 +310,7 @@ def test_2_5_does_not_send_input_fidelity(monkeypatch, tmp_path):
 def test_config_keeps_xhigh_quality():
     assert Config(imagegen_quality="xhigh").imagegen_quality == "xhigh"
     assert Config(imagegen_quality="max").imagegen_quality == "max"
-    assert Config(imagegen_quality="ultra").imagegen_quality == "high"
+    assert Config(imagegen_quality="ultra").imagegen_quality == "medium"
 
 
 def test_model_fallback_list_offers_2_5():

@@ -1546,11 +1546,13 @@ class FeatherframeService:
 
     def admit_frame(self, frame_id: Optional[str], reported_panel: Optional[str],
                     board: Optional[str], ip: Optional[str],
-                    facts: Optional[dict] = None, rotation: Optional[int] = None) -> str:
+                    facts: Optional[dict] = None, rotation: Optional[int] = None,
+                    mat: Optional[dict] = None) -> str:
         """Who is asking? Returns the row's status: "on" (serve it its own
         frame), "asking" or "ignored" (answer 403: not served, nothing
         recorded). `facts` is the frame's own description of its panel (the
-        X-Panel-* headers)."""
+        X-Panel-* headers); `rotation` and `mat` are what it kept from the
+        last server that drew for it."""
         facts = {k: v for k, v in (facts or {}).items() if v} or None
         fid = (frame_id or "").strip()[:40] or self.LEGACY_FRAME
         now = self._clock()
@@ -1579,6 +1581,13 @@ class FeatherframeService:
                 spec = panels.from_report(reported_panel, facts)
                 if rotation is not None and spec is not None and rotation in spec.rotations:
                     row.setdefault("set", {})["panel_rotation"] = rotation
+                # …and with the mat it kept (W-857), where that is not its
+                # panel's own default anyway.
+                if mat and spec is not None:
+                    fresh_cfg = Config.defaults_for(spec.key)
+                    own = {k: v for k, v in mat.items() if getattr(fresh_cfg, k) != v}
+                    if own:
+                        row.setdefault("set", {}).update(own)
             rep = frames_mod.reported_of(row)
             seen = (("panel", reported_panel), ("board", board), ("facts", facts))
             changed = (fresh or any(rep.get(k) != v for k, v in seen if v)
@@ -2072,7 +2081,8 @@ class FeatherframeService:
         this server (`c` is app.parse_checkin's). Returns the row's status."""
         extra = c.get("device_extra") or {}
         status = self.admit_frame(c.get("device_id"), extra.get("panel"), extra.get("board"),
-                                  ip, facts=c.get("panel_facts"), rotation=c.get("rotation"))
+                                  ip, facts=c.get("panel_facts"), rotation=c.get("rotation"),
+                                  mat=c.get("mat"))
         if status != frames_mod.ON:
             return status
         fid = (c.get("device_id") or "")[:40] or self.LEGACY_FRAME
@@ -2141,6 +2151,7 @@ class FeatherframeService:
                     "etag": self._output_etag(fid),
                     "file": fff.relative_to(paths.data_dir()).as_posix(),
                     "headers": {"X-FF-Invert": "0", "X-FF-Rotation": str(cfg.panel_rotation),
+                                "X-FF-Mat": frames_mod.mat_header(cfg),
                                 "X-Power-Mode": cfg.power_mode,
                                 "X-Wake-Minutes": str(wake_min), "X-Poll-Seconds": str(poll_s)},
                     "push": self.push_message(fid)})

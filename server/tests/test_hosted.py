@@ -241,6 +241,34 @@ def test_a_new_frame_starts_the_way_up_it_already_hangs(env):
     assert svc.frame_config(svc.frames.get("EE:EE:EE:00:00:01")).panel_rotation == 90
 
 
+def test_a_new_frame_starts_with_the_mat_it_kept(env):
+    """A frame removed and added again (here, or on another server) says the
+    mat it kept in NVS; its new row starts there, clamped as the page clamps,
+    and nothing it says afterwards undoes the owner's choice."""
+    from fastapi.testclient import TestClient as TC
+    from featherframe import frames as frames_mod
+    from featherframe.app import app
+    svc = _service()
+    app.state.service, app.state.hosted = svc, None
+    client = TC(app)
+    fid = "EE:EE:EE:00:00:03"
+    head = {"X-Device-Id": fid, "X-Panel": EE03_PANEL, "X-FF-Mat": "2.5,-8,999"}
+    client.get("/api/frame", headers=head)
+    svc.answer_frame(fid, "add")
+    cfg = svc.frame_config(svc.frames.get(fid))
+    assert (cfg.mat_inset_pct, cfg.mat_offset_x_px, cfg.mat_offset_y_px) == (2.5, -8, 120)
+    assert "mat_inset_pct" in frames_mod.settings_of(svc.frames.get(fid))
+    svc.update_frame(fid, {"mat_inset_pct": 1.0})
+    client.get("/api/frame", headers=head)
+    assert svc.frame_config(svc.frames.get(fid)).mat_inset_pct == 1.0
+    # A default mat, or nonsense, sets nothing of its own.
+    for other, mat in (("EE:EE:EE:00:00:04", "0,0,0"), ("EE:EE:EE:00:00:05", "wide")):
+        client.get("/api/frame", headers={**head, "X-Device-Id": other, "X-FF-Mat": mat})
+        assert not any(k.startswith("mat_") for k in frames_mod.settings_of(svc.frames.get(other)))
+    # The front door says it too, from the state it is handed.
+    assert svc.hosted_state()["frames"][fid]["headers"]["X-FF-Mat"] == "1,-8,120"
+
+
 def test_the_pairing_code_is_drawn_the_way_up_the_frame_hangs():
     from featherframe.lobby import render_pairing
     pipeline.DITHER_OVERRIDE = "none"

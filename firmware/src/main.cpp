@@ -303,6 +303,19 @@ static uint8_t* g_lastFrame = nullptr;
 // a 4bpp buffer turned 180 degrees is its bytes reversed with the nibbles
 // swapped, and a tile's window mirrors to the opposite corner.
 bool g_flip = false;
+// The mat it hangs with, as the server last said it (X-FF-Mat, "inset,x,y",
+// kept in NVS). Nothing here draws with it: it is said back on every ask, so
+// a frame removed and added again starts with the mat it had.
+char g_mat[32] = "";
+static bool validMat(const String& m) {
+  if (!m.length() || m.length() >= sizeof(g_mat)) return false;
+  int commas = 0;
+  for (char c : m) {
+    if (c == ',') commas++;
+    else if (!isdigit((unsigned char)c) && c != '.' && c != '-') return false;
+  }
+  return commas == 2;
+}
 static inline uint8_t swapNibbles(uint8_t b) { return (uint8_t)((b << 4) | (b >> 4)); }
 static void rotate180(uint8_t* buf, size_t n) {
   for (size_t i = 0, j = n - 1; i < j; i++, j--) {
@@ -572,15 +585,15 @@ static void startImprov() {
   };
   // A signed-in hosted page pairs the frame over USB (W-848).
   hooks.identity = [](const char** out, size_t max) -> size_t {
-    if (!g_prefsReady || max < 9) return 0;
+    if (!g_prefsReady || max < 10) return 0;
     static String id, key, w, h, rot;
     id = frameId(); key = frameKey();
     w = String(FF_NATIVE_W); h = String(FF_NATIVE_H);
     rot = String(g_flip ? (FF_BAKED_ROTATION + 180) % 360 : FF_BAKED_ROTATION);
     const char* v[] = {id.c_str(), key.c_str(), FF_PANEL_ID, w.c_str(), h.c_str(),
-                       FF_PANEL_FORMAT, FF_PANEL_ROTATIONS, rot.c_str(), FF_BOARD_ID};
-    for (size_t i = 0; i < 9; i++) out[i] = v[i];
-    return 9;
+                       FF_PANEL_FORMAT, FF_PANEL_ROTATIONS, rot.c_str(), FF_BOARD_ID, g_mat};
+    for (size_t i = 0; i < 10; i++) out[i] = v[i];
+    return 10;
   };
   hooks.setServer = [](const char* url) -> bool {
     char next[sizeof(g_serverUrl)];
@@ -1346,12 +1359,13 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   // Which way up it hangs now (W-851): the rotation it was last told, which
   // a server that has never seen it starts from — a pairing code, a new row.
   http.addHeader("X-FF-Rotation", String(g_flip ? (FF_BAKED_ROTATION + 180) % 360 : FF_BAKED_ROTATION));
+  if (g_mat[0]) http.addHeader("X-FF-Mat", g_mat);   // …and the mat it hangs with
   // We speak push (W-841): "0" = no socket right now, polling as told; N = a
   // socket is open and the next plain check-in is a heartbeat N s away.
   if (g_alwaysAwake)
     http.addHeader("X-FF-Push", pushLive() ? String(FF_PUSH_HEARTBEAT_MS / 1000) : String("0"));
-  const char* collect[] = {"ETag", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation"};
-  http.collectHeaders(collect, 7);
+  const char* collect[] = {"ETag", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation", "X-FF-Mat"};
+  http.collectHeaders(collect, 8);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
@@ -1361,6 +1375,11 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   if (rot.length()) {
     bool f = (rot.toInt() != FF_BAKED_ROTATION);
     if (f != g_flip) { g_flip = f; prefs.putBool("flip", f); }
+  }
+  String mat = http.header("X-FF-Mat");
+  if (validMat(mat) && mat != g_mat) {
+    strlcpy(g_mat, mat.c_str(), sizeof(g_mat));
+    prefs.putString("mat", g_mat);
   }
   // The power model and wake interval are set on the config page and ride
   // every response (a 304 too). Stored in NVS; the callers act on the new
@@ -1675,6 +1694,7 @@ void setup() {
   g_alwaysAwake = prefs.getBool("awake", FF_DEFAULT_ALWAYS_AWAKE);
   g_pollMs = prefs.getUInt("poll_s", FF_POLL_INTERVAL_MS / 1000) * 1000UL;
   g_flip = prefs.getBool("flip", false);
+  prefs.getString("mat", "").toCharArray(g_mat, sizeof(g_mat));
   Serial.printf("power: %s, wake %u min\n", g_alwaysAwake ? "always awake" : "deep sleep",
                 (unsigned)g_wakeMinutes);
 

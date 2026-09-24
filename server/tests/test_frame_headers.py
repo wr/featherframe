@@ -58,6 +58,18 @@ def test_frame_response_carries_the_rotation(client):
     assert r.status_code == 304 and r.headers["x-ff-rotation"] == "270"
 
 
+def test_frame_response_carries_the_mat(client):
+    # The firmware keeps the mat in NVS (X-FF-Mat), on a 304 too, and says it
+    # back, so a frame removed and added again starts with it.
+    etag = _seed_frame(client)
+    svc = client.app.state.service
+    head = {"X-Device-Id": FRAME_ID}
+    assert client.get("/api/frame", headers=head).headers["x-ff-mat"] == "0,0,0"
+    svc.update_frame(FRAME_ID, {"mat_inset_pct": 2.5, "mat_offset_x_px": -8, "mat_offset_y_px": 12})
+    r = client.get("/api/frame", headers={**head, "If-None-Match": f'"{etag}"'})
+    assert r.headers["x-ff-mat"] == "2.5,-8,12"
+
+
 def test_only_a_render_setting_redraws_the_frame(client):
     """A display setting lands on the frame's own row (W-833: POST
     /api/frames/<id>); the next tick re-finishes its output from the same

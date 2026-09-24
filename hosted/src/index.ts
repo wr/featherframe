@@ -136,12 +136,14 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
   const keyHash = await sha256(key);
   const report: Record<string, string> = {};
   request.headers.forEach((v, k) => {
-    if (k.startsWith("x-panel") || k === "x-board" || k === "x-ff-rotation") report[k] = v;
+    if (k.startsWith("x-panel") || k === "x-board" || k === "x-ff-rotation" || k === "x-ff-mat") report[k] = v;
   });
   const row = await pairingCode(env, id, keyHash, report);
   const shown = `${row.code.slice(0, 3)}-${row.code.slice(3)}`;
   const expires = expiryText(row.expiresAt, request);
-  const variant = (await sha256(LOBBY_DRAWING + expires + JSON.stringify(report))).slice(0, 16);
+  // The mat is kept for the household (a new row starts with it), not drawn.
+  const { "x-ff-mat": _mat, ...drawnFrom } = report;
+  const variant = (await sha256(LOBBY_DRAWING + expires + JSON.stringify(drawnFrom))).slice(0, 16);
   const cacheKey = `lobby/${row.code}/${variant}.fff`;
   const etag = `pair-${row.code}-${variant.slice(0, 8)}`;
   const headers = new Headers({
@@ -200,11 +202,11 @@ async function pairUsb(request: Request, env: Env, hid: string): Promise<Respons
     env.DB.prepare("DELETE FROM pairing WHERE device_id = ?").bind(id),
   ]);
   // What it said about itself, as its own headers would: a new row starts
-  // with its panel and the way up it hangs (W-851).
+  // with its panel, the way up it hangs (W-851) and its mat.
   const report: Record<string, string> = {
     "x-panel": str("panel"), "x-panel-width": str("w", 6), "x-panel-height": str("h", 6),
     "x-panel-format": str("fmt", 16), "x-panel-rotations": str("rots", 16),
-    "x-ff-rotation": str("rotation", 4), "x-board": str("board"),
+    "x-ff-rotation": str("rotation", 4), "x-ff-mat": str("mat", 32), "x-board": str("board"),
   };
   await env.HOUSEHOLD.getByName(hid).adopt(id, report);
   return Response.json({ ok: true, frame: id });

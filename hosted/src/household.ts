@@ -112,12 +112,12 @@ export class Household extends DurableObject<Env> {
     this.sql.exec(`INSERT INTO usage (day, wakes, server_ms) VALUES (?, ?, ?)
       ON CONFLICT (day) DO UPDATE SET wakes = wakes + excluded.wakes, server_ms = server_ms + excluded.server_ms`,
       day, wakes, Math.round(ms));
-    this.sql.exec("DELETE FROM usage WHERE day < ?", new Date(Date.now() - 30 * 86400e3).toISOString().slice(0, 10));
+    this.sql.exec("DELETE FROM usage WHERE day < ?", new Date(Date.now() - 40 * 86400e3).toISOString().slice(0, 10));
   }
 
   summary(): { frames: { id: string; status: string; seen: number | null }[];
-               usage: { day: string; wakes: number; server_ms: number }[];
-               last_wake: number | null; source: string | null } {
+               usage: { day: string; wakes: number; server_ms: number }[]; month_ms: number;
+               last_wake: number | null; source: string | null; suspended: boolean } {
     const seen = new Map(this.sql.exec<{ id: string; at: number }>("SELECT id, at FROM seen").toArray()
       .map((r) => [r.id, r.at]));
     const frames = this.sql.exec<{ id: string; status: string }>("SELECT id, status FROM frames ORDER BY id")
@@ -125,7 +125,10 @@ export class Household extends DurableObject<Env> {
     const usage = this.sql.exec<{ day: string; wakes: number; server_ms: number }>(
       "SELECT day, wakes, server_ms FROM usage ORDER BY day DESC LIMIT 7").toArray();
     const wake = Number(this.meta("wake_ms") || 0);
-    return { frames, usage, last_wake: wake || null, source: this.meta("source_kind") };
+    const month_ms = this.sql.exec<{ ms: number }>("SELECT coalesce(sum(server_ms), 0) AS ms FROM usage WHERE day >= ?",
+      new Date().toISOString().slice(0, 8) + "01").one().ms;
+    return { frames, usage, month_ms, last_wake: wake || null, source: this.meta("source_kind"),
+             suspended: !!this.meta("suspended") };
   }
 
   /** A new household (made at sign-up), or one given its login later. */
@@ -151,6 +154,36 @@ export class Household extends DurableObject<Env> {
     this.setMeta("news", "1");
     this.setMeta("wake_ms", "0");        // pairing is worth a wake at once
     await this.ctx.storage.setAlarm(Date.now() + 500);
+  }
+
+  // -- the admin's controls (W-860) ---------------------------------------------
+  /** A suspended household's server is not woken: its frames keep the last
+   * picture it drew, and pushes wait. Resuming picks the schedule up again. */
+  async suspend(on: boolean): Promise<void> {
+    this.setMeta("suspended", on ? "1" : null);
+    if (!on) return this.schedule();
+    await this.ctx.storage.deleteAlarm();
+    const hid = this.meta("hid");
+    if (hid) await this.env.SERVER.getByName(hid).stop();
+  }
+
+  /** Forget this household: its frames are told, its server stopped and
+   * forgotten, its data in R2 deleted, and this storage emptied. */
+  async destroy(): Promise<void> {
+    for (const ws of this.ctx.getWebSockets()) goodbye(ws, "gone");
+    const hid = this.meta("hid");
+    if (hid) {
+      await this.env.SERVER.getByName(hid).forget();
+      const prefix = `households/${hid}/`;
+      let cursor: string | undefined;
+      do {
+        const page = await this.env.DATA.list({ prefix, cursor });
+        if (page.objects.length) await this.env.DATA.delete(page.objects.map((o) => o.key));
+        cursor = page.truncated ? page.cursor : undefined;
+      } while (cursor);
+    }
+    await this.ctx.storage.deleteAlarm();
+    await this.ctx.storage.deleteAll();
   }
 
   // -- the household's server -------------------------------------------------
@@ -224,6 +257,7 @@ export class Household extends DurableObject<Env> {
    * while it slept, run one tick (which reports), and stop it again unless
    * someone is on the page. */
   async wake(): Promise<void> {
+    if (this.meta("suspended")) return;
     const t0 = Date.now();
     this.setMeta("wake_ms", String(t0));
     this.setMeta("news", "0");
@@ -269,6 +303,7 @@ export class Household extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
+    if (this.meta("suspended")) return;
     const now = Date.now();
     await this.lookForNews();
     const lastWake = Number(this.meta("wake_ms") || 0);
@@ -281,6 +316,7 @@ export class Household extends DurableObject<Env> {
   }
 
   async schedule(): Promise<void> {
+    if (this.meta("suspended")) return;
     const now = Date.now();
     const lastWake = Number(this.meta("wake_ms") || 0);
     const named = Number(this.meta("next_wake_epoch") || 0) * 1000;

@@ -1,0 +1,465 @@
+plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_synonyms,reason
+1,Griffon Vulture,Vultur fulvus,Gyps fulvus,Eurasian Griffon,,high,,Vultur fulvus Linn. = Gyps fulvus (Eurasian Griffon); same species
+2,Cinereous Vulture,Vultur cinereus,Aegypius monachus,Cinereous Vulture,,high,,Vultur cinereus Linn. is the Cinereous (Monk) Vulture
+3,Egyptian Neophron,Neophron Percnopterus,,,,high,,"Neophron Percnopterus = Neophron percnopterus, which is not a BirdNET V2.4 label; blank"
+4,Bearded Vulture or Læmmer-geyer,Gypaëtus barbatus,,,,high,,"Gypaëtus barbatus = Gypaetus barbatus, which is not a BirdNET V2.4 label; blank"
+5,Imperial Eagle,Aquila Imperialis,Aquila heliaca,Imperial Eagle,,medium,,"Split: Imperial Eagle (A. heliaca) and Spanish Eagle (A. adalberti, described 1860). Gould's text gives SE Europe/Hungary/Turkey, so heliaca is probable, but an Iberian specimen would be adalberti; confirm on the plate (adalberti has white leading edge to the wing)"
+6,Golden Eagle,Aquila chrysaëta,Aquila chrysaetos,Golden Eagle,,high,,"Aquila chrysaëta Briss. = Aquila chrysaetos (Golden Eagle); same species, older binomial"
+7,Bonelli's Eagle,Aquila Bonelli,,,,high,Hieraaetus fasciatus,"Aquila Bonelli = Aquila fasciata, which is not a BirdNET V2.4 label; blank"
+8,Spotted Eagle,Aquila nævia,,,,low,,"Aquila naevia then covered both Greater (Clanga clanga) and Lesser Spotted Eagle (C. pomarina, split by Brehm 1831); cannot tell which the plate shows without the figure; blank"
+9,Booted Eagle,Aquila pennata,Hieraaetus pennatus,Booted Eagle,,high,Aquila pennata,"Aquila pennata Steph. = Hieraaetus pennatus (Booted Eagle); same species, older binomial"
+10,Sea Eagle,Haliaëtus albicilla,Haliaeetus albicilla,White-tailed Eagle,,high,,Haliaëtus albicilla Selby. = Haliaeetus albicilla (White-tailed Eagle); same species
+11,White-headed Eagle,Haliaëtus leucocephalus,Haliaeetus leucocephalus,Bald Eagle,,high,,Haliaëtus leucocephalus Savig. = Haliaeetus leucocephalus (Bald Eagle); same species
+12,Osprey,Pandion haliaëtus,Pandion haliaetus,Osprey,,high,,"Pandion haliaëtus Savig. = Pandion haliaetus (Osprey); same species, older binomial"
+13,Short-toed Eagle,Circaëtus brachydactylus,Circaetus gallicus,Short-toed Snake-Eagle,,high,,Circaetus brachydactylus Vieill. is a synonym of C. gallicus (Short-toed Eagle)
+14,Common Buzzard,Buteo vulgaris,Buteo buteo,Common Buzzard,,high,,Buteo vulgaris Bechst. = Common Buzzard B. buteo
+15,Rough-legged Buzzard,Buteo Lagopus,Buteo lagopus,Rough-legged Hawk,,high,,Rough-legged Buzzard; BirdNET calls it Rough-legged Hawk
+16,Honey Buzzard,Pernis apivorus,Pernis apivorus,European Honey-buzzard,,high,,Pernis apivorus Cuv. = Pernis apivorus (European Honey-buzzard); same species
+17,Goshawk,Astur palumbarius,Accipiter gentilis,Northern Goshawk,,high,Astur gentilis;Astur palumbarius,"Astur palumbarius = Goshawk (Falco palumbarius Linn.). Split since (Eurasian Astur gentilis vs American A. atricapillus); BirdNET V2.4 keeps one Accipiter gentilis Northern Goshawk, which Gould's European bird is"
+18,Sparrow Hawk,Accipiter fringillarius,Accipiter nisus,Eurasian Sparrowhawk,,high,,Accipiter fringillarius Ray = Sparrowhawk A. nisus
+19,Jer Falcon,Falco Islandicus,Falco rusticolus,Gyrfalcon,subspecies,high,,"Iceland Falcon (F. islandicus) is a pale form of the Gyrfalcon, F. rusticolus"
+20,Lanner Falcon,Falco Lanarius,,,,low,,"Lanner (F. biarmicus) is not in BirdNET labels; and ""Falco lanarius"" of the 1830s was also applied to the Saker (F. cherrug, also absent). Blank"
+21,Peregrine Falcon,Falco Peregrinus,Falco peregrinus,Peregrine Falcon,,high,,Falco Peregrinus Linn. = Falco peregrinus (Peregrine Falcon); same species
+22,Hobby,Falco subbuteo,Falco subbuteo,Eurasian Hobby,,high,,Falco subbuteo Linn. = Falco subbuteo (Eurasian Hobby); same species
+23,Red-footed Falcon,Falco rufipes,Falco vespertinus,Red-footed Falcon,,high,,Falco rufipes Bechst. = Red-footed Falcon F. vespertinus
+24,Merlin,Falco Æsalon,Falco columbarius,Merlin,,high,Falco aesalon,"Falco aesalon Temm. = Merlin; Eurasian Merlin is sometimes split as F. aesalon, BirdNET keeps F. columbarius"
+25,Lead-coloured Falcon,Falco concolor,,,,low,,"Sooty Falcon (F. concolor) is not in BirdNET labels; and Gould's dark European ""concolor"" may be a dark Eleonora's Falcon (described 1839), also absent. Blank"
+26,Kestrel,Falco Tinnunculus,Falco tinnunculus,Eurasian Kestrel,,high,,Falco Tinnunculus Linn. = Falco tinnunculus (Eurasian Kestrel); same species
+27,Lesser Kestrel,Falco Tinnunculoides,Falco naumanni,Lesser Kestrel,,high,Falco tinnunculoides,Falco tinnunculoides Natt. = Lesser Kestrel F. naumanni
+28,Kite,Milvus vulgaris,Milvus milvus,Red Kite,,high,,Milvus vulgaris Flem. = Red Kite
+29,Black Kite,Milvus ater,Milvus migrans,Black Kite,,high,,Milvus ater = Black Kite M. migrans
+30,Swallow-tailed Kite,Nauclerus furcatus,Elanoides forficatus,Swallow-tailed Kite,,high,,Nauclerus furcatus = American Swallow-tailed Kite
+31,Black-winged Kite,Elanus melanopterus,Elanus caeruleus,Black-winged Kite,,high,,Elanus melanopterus Leach = Black-winged Kite E. caeruleus
+32,Marsh Harrier,Circus rufus,Circus aeruginosus,Eurasian Marsh-Harrier,,high,,Circus rufus Briss. = Marsh Harrier C. aeruginosus
+33,Hen Harrier,Circus cyaneus,Circus cyaneus,Hen Harrier,,high,,European Hen Harrier; BirdNET already splits Northern Harrier (C. hudsonius) off
+34,Pallid Harrier,Circus pallidus,Circus macrourus,Pallid Harrier,,high,Circus pallidus,Circus pallidus Sykes = Pallid Harrier C. macrourus
+35,Ash-coloured Harrier,Circus cineraceus,Circus pygargus,Montagu's Harrier,,high,,Circus cineraceus Meyer = Montagu's Harrier C. pygargus (Gould's 'Ash-coloured Harrier')
+36,Barn Owl,Strix flammea,Tyto alba,Barn Owl,,high,,"Strix flammea Linn. = Barn Owl; European bird is Western Barn Owl if split, BirdNET keeps Tyto alba"
+37,Great Horned or Eagle Owl,Bubo maximus,Bubo bubo,Eurasian Eagle-Owl,,high,,Bubo maximus Sibb. = Eurasian Eagle-Owl
+38,Eastern Great Horned Owl,Bubo Ascalaphus,,,,high,,"Bubo Ascalaphus = Bubo ascalaphus, which is not a BirdNET V2.4 label; blank. Bubo ascalaphus Savigny = Pharaoh Eagle-Owl"
+39,Long-eared Owl,Otus vulgaris,Asio otus,Long-eared Owl,,high,,Otus vulgaris Flem. = Long-eared Owl
+40,Short-eared Owl,Otus Brachyotus,Asio flammeus,Short-eared Owl,,high,Asio brachyotus,Otus brachyotus = Short-eared Owl
+41,Scops-eared Owl,Scops Aldrovandi,Otus scops,Eurasian Scops-Owl,,high,,Scops Aldrovandi = Eurasian Scops Owl
+42,Great Cinereous Owl,Surnia cinerea,Strix nebulosa,Great Gray Owl,,high,,"Strix cinerea Gmel. = Great Grey Owl (modern Strix nebulosa). Trap: Gould's ""nebulosa"" is plate 46, the Barred Owl"
+43,Snowy Owl,Surnia Nyctea,Bubo scandiacus,Snowy Owl,,high,Nyctea scandiaca,Strix nyctea Linn. = Snowy Owl
+44,Ural Owl,Surnia Uralensis,Strix uralensis,Ural Owl,,high,,Surnia Uralensis Dum. = Strix uralensis (Ural Owl); same species
+45,Hawk Owl,Surnia funerea,Surnia ulula,Northern Hawk Owl,,high,,Surnia funerea = Northern Hawk Owl S. ulula
+46,Barred Owl,Ulula nebulosa,Strix varia,Barred Owl,,high,,"Strix nebulosa Forster (as Gould/Cuvier used it) = the American Barred Owl, today Strix varia; the Great Grey Owl is his separate plate 42. Trap: modern Strix nebulosa is the Great Grey"
+47,Tawny or Wood Owl,Syrnium Aluco,Strix aluco,Tawny Owl,,high,,Syrnium Aluco Savig. = Strix aluco (Tawny Owl); same species
+48,Little Owl,Noctua nudipes,Athene noctua,Little Owl,,high,,Noctua nudipes Nilss. = Little Owl A. noctua (Gould's 'Little Owl')
+49,Tengmalm's Owl,Noctua ? Tengmalmi,Aegolius funereus,Boreal Owl,,high,,Tengmalm's Owl = Boreal Owl A. funereus
+50,Sparrow Owl,Noctua passerina,Glaucidium passerinum,Eurasian Pygmy-Owl,,high,,Sparrow Owl = Eurasian Pygmy Owl
+51,European Goatsucker,Caprimulgus Europæus,Caprimulgus europaeus,Eurasian Nightjar,,high,,Caprimulgus Europæus Linn. = Caprimulgus europaeus (Eurasian Nightjar); same species
+52,Red-collared Goatsucker,Caprimulgus ruficollis,Caprimulgus ruficollis,Red-necked Nightjar,,high,,Caprimulgus ruficollis Temm. = Caprimulgus ruficollis (Red-necked Nightjar); same species
+53,Swift,Cypselus murarius,Apus apus,Common Swift,,high,,Cypselus murarius Temm. = Common Swift
+53,White-bellied Swift,Cypselus alpinus,Apus melba,Alpine Swift,,high,Tachymarptis melba,Cypselus alpinus Temm. = Alpine Swift
+54,Chimney Swallow,Hirundo rustica,Hirundo rustica,Barn Swallow,,high,,Hirundo rustica Linn. = Hirundo rustica (Barn Swallow); same species
+55,Rufous Swallow,Hirundo rufula,Cecropis daurica,Red-rumped Swallow,,high,Hirundo daurica;Cecropis rufula,"Hirundo rufula Temm. = the European Red-rumped Swallow; some lists split it as Cecropis rufula, BirdNET keeps one C. daurica"
+56,Rock Martin,Hirundo rupestris,Ptyonoprogne rupestris,Eurasian Crag-Martin,,high,Hirundo rupestris,Crag Martin
+57,Martin,Hirundo urbica,Delichon urbicum,Common House-Martin,,high,Delichon urbica;Hirundo urbica,House Martin
+58,Sand Martin,Hirundo riparia,Riparia riparia,Bank Swallow,,high,,Sand Martin (BirdNET: Bank Swallow)
+59,Bee Eater,Merops Apiaster,Merops apiaster,European Bee-eater,,high,,Merops Apiaster Linn. = Merops apiaster (European Bee-eater); same species
+60,Roller,Coracias garrulus,Coracias garrulus,European Roller,,high,,Coracias garrulus Linn. = Coracias garrulus (European Roller); same species
+61,Kingsfisher,Alcedo Ispida,Alcedo atthis,Common Kingfisher,,high,Alcedo ispida,Alcedo ispida Linn. = Common Kingfisher A. atthis
+62,Black and White Kingsfisher,Alcedo rudis,Ceryle rudis,Pied Kingfisher,,high,,Alcedo rudis Linn. = Pied Kingfisher
+63,Pied Flycatcher,Muscicapa luctuosa,Ficedula hypoleuca,European Pied Flycatcher,,high,,Muscicapa luctuosa Temm. = Pied Flycatcher F. hypoleuca
+63,White-collared Flycatcher,Muscicapa albicollis,Ficedula albicollis,Collared Flycatcher,,high,,Collared Flycatcher
+64,Red-breasted Flycatcher,Muscicapa parva,Ficedula parva,Red-breasted Flycatcher,,high,,"Red-breasted Flycatcher; Taiga Flycatcher (F. albicilla) split, but that is the Asian form"
+65,Spotted Flycatcher,Muscicapa grisola,Muscicapa striata,Spotted Flycatcher,,high,,Muscicapa grisola Linn. = Spotted Flycatcher M. striata
+66,Great Shrike,Collurio Excubitor,Lanius excubitor,Great Gray Shrike,,high,,Great Grey Shrike L. excubitor; the American/NE Asian Northern Shrike (L. borealis) is split off and is not Gould's bird
+67,Great Grey Shrike,Collurio meridionalis,Lanius meridionalis,Iberian Gray Shrike,,high,,"Lanius meridionalis Temm. = the southern (Iberian) grey shrike, now Iberian Grey Shrike. Trap: Gould's English ""Great Grey Shrike"" is on this plate, not the excubitor one"
+68,Lesser Grey Shrike,Collurio minor,Lanius minor,Lesser Gray Shrike,,high,,Collurio minor Vig. = Lanius minor (Lesser Gray Shrike); same species
+69,Red-backed Shrike,Lanius Collurio,Lanius collurio,Red-backed Shrike,,high,,Lanius Collurio Linn. = Lanius collurio (Red-backed Shrike); same species
+70,Woodchat,Lanius rufus,Lanius senator,Woodchat Shrike,,high,,Lanius rufus Briss. = Woodchat Shrike L. senator
+71,Golden Oriole,Oriolus galbula,Oriolus oriolus,Eurasian Golden Oriole,,high,,Oriolus galbula Linn. = Eurasian Golden Oriole
+72,"Black Ouzel, or Blackbird",Merula vulgaris,Turdus merula,Eurasian Blackbird,,high,,Merula vulgaris = Eurasian Blackbird
+73,Ring Ouzel,Merula torquata,Turdus torquatus,Ring Ouzel,,high,,Ring Ouzel
+74,Migratory Ouzel,Merula migratoria,Turdus migratorius,American Robin,,high,,Turdus migratorius = American Robin
+75,Black-throated Thrush,Turdus atrogularis,Turdus atrogularis,Black-throated Thrush,,high,,Black-throated Thrush (split from Dark-throated; Gould's name is the black-throated form)
+76,Fieldfare,Turdus pilaris,Turdus pilaris,Fieldfare,,high,,Turdus pilaris Linn. = Turdus pilaris (Fieldfare); same species
+77,Missel Thrush,Turdus viscivorus,Turdus viscivorus,Mistle Thrush,,high,,Turdus viscivorus Linn. = Turdus viscivorus (Mistle Thrush); same species
+78,Song Thrush,Turdus musicus,Turdus philomelos,Song Thrush,,high,Turdus musicus,Gould used Turdus musicus for the Song Thrush (T. philomelos); the Redwing is its companion on this plate. Trap: Linnaeus's musicus is now read as the Redwing
+78,Redwing,Turdus Iliacus,Turdus iliacus,Redwing,,high,,Redwing
+79,Naumann's Thrush,Turdus Naumannii,Turdus naumanni,Naumann's Thrush,,high,,Naumann's Thrush (Dusky Thrush T. eunomus split off)
+80,Pallid Thrush,Turdus pallidus,,,,low,,"Name = Pale Thrush (T. pallidus), but the European ""pallidus"" of Temminck's era was often the Eyebrowed Thrush (T. obscurus); cannot tell which Gould figured. Blank"
+81,White's Thrush,Turdus Whitei,Zoothera aurea,White's Thrush,,high,Zoothera dauma,"White's Thrush, the Siberian bird now split from Scaly Thrush Z. dauma as Z. aurea"
+82,Siberian Thrush,Turdus Sibericus,Geokichla sibirica,Siberian Thrush,,high,Zoothera sibirica,Siberian Thrush
+83,Water Ouzel,Cinclus aquaticus,Cinclus cinclus,White-throated Dipper,,high,,Cinclus aquaticus Bechst. = White-throated Dipper
+84,Black-bellied Water Ouzel,Cinclus melanogaster,Cinclus cinclus,White-throated Dipper,subspecies,high,,"Black-bellied Dipper is C. cinclus cinclus (N Europe), a form of White-throated Dipper"
+85,Pallas's Water Ouzel,Cinclus Pallasii,Cinclus pallasii,Brown Dipper,,high,,Pallas's (Brown) Dipper
+86,Rock Thrush,Petrocincla saxatilis,Monticola saxatilis,Rufous-tailed Rock-Thrush,,high,,Rock Thrush
+87,Blue Thrush,Petrocincla cyanea,Monticola solitarius,Blue Rock-Thrush,,high,,Petrocincla cyanea = Blue Rock Thrush
+88,Black Wheatear,Saxicola cachinnans,Oenanthe leucura,Black Wheatear,,high,,Saxicola cachinnans Temm. = Black Wheatear O. leucura
+89,Pied Wheatear,Saxicola leucomela,Oenanthe pleschanka,Pied Wheatear,,high,Oenanthe leucomela,Saxicola leucomela Temm. = Pied Wheatear O. pleschanka
+90,Wheatear,Saxicola Œnanthe,Oenanthe oenanthe,Northern Wheatear,,high,,Saxicola Œnanthe Bechst. = Oenanthe oenanthe (Northern Wheatear); same species
+91,Russet Wheatear,Saxicola stapazina,,,subspecies,low,,"Temminck's stapazina (Russet Wheatear) is the black-throated morph of the Black-eared Wheatear, now split Western (O. hispanica) / Eastern (O. melanoleuca); cannot tell from the name which population Gould figured. Blank"
+92,Black-eared Wheatear,Saxicola aurita,,,subspecies,low,,"Pale-throated morph of the Black-eared Wheatear, now split Western (O. hispanica) / Eastern (O. melanoleuca); population not determinable from the list. Blank"
+93,Whinchat,Saxicola rubetra,Saxicola rubetra,Whinchat,,high,,Saxicola rubetra Bechst. = Saxicola rubetra (Whinchat); same species
+94,Stonechat,Saxicola rubicola,Saxicola rubicola,European Stonechat,,high,Saxicola torquatus;Saxicola torquata,European Stonechat (split from African/Siberian)
+95,Redstart,Phoenicura ruticilla,Phoenicurus phoenicurus,Common Redstart,,high,,Common Redstart
+96,Black Redstart,Phoenicura tithys,Phoenicurus ochruros,Black Redstart,,high,Phoenicurus tithys,Phoenicura tithys = Black Redstart
+97,Blue-throated Warbler,Phoenicura Suecica,Luscinia svecica,Bluethroat,,high,Cyanecula svecica,Blue-throated Warbler = Bluethroat
+98,Robin,Erythaca rubecula,Erithacus rubecula,European Robin,,high,,Erythaca rubecula Swains. = Erithacus rubecula (European Robin); same species
+99,Alpine Accentor,Accentor alpinus,Prunella collaris,Alpine Accentor,,high,,"Accentor alpinus Bechst. = Prunella collaris (Alpine Accentor); same species, older binomial"
+100,Hedge Accentor,Accentor modularis,Prunella modularis,Dunnock,,high,,Hedge Accentor = Dunnock
+101,Mountain Accentor,Accentor montanellus,Prunella montanella,Siberian Accentor,,high,,Siberian Accentor
+102,Reed Locustelle,Locustella fluviatilis,Locustella fluviatilis,River Warbler,,high,,River Warbler
+103,Brake Locustelle,Locustella avicula,Locustella naevia,Common Grasshopper-Warbler,,high,,Locustella avicula Ray = Grasshopper Warbler L. naevia
+104,Willow Locustelle,Locustella luscinoïdes,Locustella luscinioides,Savi's Warbler,,high,,Savi's Warbler
+105,Creeping Locustelle,Locustella certhiola,Helopsaltes certhiola,Pallas's Grasshopper Warbler,,high,Locustella certhiola,Pallas's Grasshopper Warbler
+106,Great Sedge Warbler,Salicaria Turdoïdes,Acrocephalus arundinaceus,Great Reed Warbler,,high,,Salicaria turdoides = Great Reed Warbler
+107,Olive-tree Salicaria,Salicaria Olivetorum,Hippolais olivetorum,Olive-tree Warbler,,high,,Salicaria Olivetorum Strickl. = Hippolais olivetorum (Olive-tree Warbler); same species
+108,Reed Wren,Salicaria arundinacea,Acrocephalus scirpaceus,Eurasian Reed Warbler,,high,,Reed Wren/Salicaria arundinacea = Eurasian Reed Warbler. Trap: modern A. arundinaceus is the Great Reed Warbler
+109,Marsh Warbler,Salicaria palustris,Acrocephalus palustris,Marsh Warbler,,high,,Salicaria palustris = Acrocephalus palustris (Marsh Warbler); same species
+110,Sedge Warbler,Salicaria Phragmitis,Acrocephalus schoenobaenus,Sedge Warbler,,high,Acrocephalus phragmitis,Salicaria phragmitis = Sedge Warbler
+111,Moustached Warbler,Salicaria melanopogon,Acrocephalus melanopogon,Moustached Warbler,,high,,Salicaria melanopogon = Acrocephalus melanopogon (Moustached Warbler); same species
+111,Aquatic Warbler,Salicaria aquatica,Acrocephalus paludicola,Aquatic Warbler,,high,,Salicaria aquatica = Aquatic Warbler A. paludicola
+112,Rufous Sedge Warbler,Salicaria galactotes,Cercotrichas galactotes,Rufous-tailed Scrub-Robin,,high,Erythropygia galactotes,Sylvia galactotes Temm. = Rufous-tailed Scrub Robin (Rufous Bush Chat); Gould placed it with the reed warblers
+113,Fantail Warbler,Salicaria cisticola,Cisticola juncidis,Zitting Cisticola,,high,,Fantail Warbler = Zitting Cisticola
+114,Cetti's Warbler,Salicaria ? Cetti,Cettia cetti,Cetti's Warbler,,high,,Salicaria ? Cetti = Cettia cetti (Cetti's Warbler); same species
+115,Silky Warbler,Salicaria ? sericea,Cettia cetti,Cetti's Warbler,variant,medium,,Sylvia sericea Natterer is a synonym of Cetti's Warbler; Gould figured it as a second species ('Silky Warbler'). Confirm the plate looks like Cetti's
+116,Nightingale,Philomela luscinia,Luscinia megarhynchos,Common Nightingale,,high,,Gould's Nightingale = Common Nightingale L. megarhynchos; his Thrush Nightingale is plate 117. Trap: modern Luscinia luscinia is the Thrush Nightingale
+117,Thrush Nightingale,Philomela Turdoïdes,Luscinia luscinia,Thrush Nightingale,,high,Luscinia philomela,Thrush Nightingale (Sprosser)
+118,Gorget Warbler,Calliope Lathamii,Calliope calliope,Siberian Rubythroat,,high,Luscinia calliope,Gorget Warbler / Calliope lathamii = Siberian Rubythroat
+119,Orpheus Warbler,Curruca Orphea,Curruca hortensis,Western Orphean Warbler,,medium,Sylvia hortensis,"Orphean Warbler, since split Western (C. hortensis) / Eastern (C. crassirostris). Temminck's orphea is based on southern French/Italian birds, so Western is probable, but Gould may have figured a Dalmatian/eastern bird"
+120,Black-cap,Curruca atricapilla,Sylvia atricapilla,Eurasian Blackcap,,high,,Curruca atricapilla Bechst. = Sylvia atricapilla (Eurasian Blackcap); same species
+121,Garden Warbler,Curruca hortensis,Sylvia borin,Garden Warbler,,high,,Garden Warbler; Curruca hortensis Bechst. of Gould's day is Sylvia borin. Trap: modern Curruca hortensis is the Western Orphean Warbler
+122,Rüppell's Warbler,Curruca Ruppellii,,,,high,Sylvia rueppelli,"Curruca Ruppellii = Curruca ruppeli, which is not a BirdNET V2.4 label; blank. Rüppell's Warbler"
+123,Sardinian Warbler,Curruca melanocephala,Curruca melanocephala,Sardinian Warbler,,high,Sylvia melanocephala,Curruca melanocephala Lath. = Curruca melanocephala (Sardinian Warbler); same species
+124,Sub-alpine Warbler,Curruca leucopogon,,,,low,,"Subalpine Warbler, now split three ways (Western C. iberiae, Moltoni's C. subalpina, Eastern C. cantillans); leucopogon Meyer is an eastern name and BirdNET has only Western. Blank"
+125,Common White-throat,Curruca cinerea,Curruca communis,Greater Whitethroat,,high,Sylvia communis,Common Whitethroat
+125,Lesser White-throat,Curruca garrula,Curruca curruca,Lesser Whitethroat,,high,Sylvia curruca,Lesser Whitethroat
+126,Spectacle Warbler,Curruca conspicillata,Curruca conspicillata,Spectacled Warbler,,high,Sylvia conspicillata,Curruca conspicillata = Curruca conspicillata (Spectacled Warbler); same species
+127,Marmora's Warbler,Curruca Sarda,,,,high,Sylvia sarda,"Curruca Sarda = Curruca sarda, which is not a BirdNET V2.4 label; blank. Marmora's Warbler"
+128,Barred Warbler,Curruca nisoria,Curruca nisoria,Barred Warbler,,high,Sylvia nisoria,Curruca nisoria = Curruca nisoria (Barred Warbler); same species
+129,Dartford Warbler,Melizophilus provincialis,Curruca undata,Dartford Warbler,,high,Sylvia undata,Dartford Warbler
+130,Wren,Troglodytes Europæus,Troglodytes troglodytes,Eurasian Wren,,high,,Eurasian Wren
+131,Willow Wren,Sylvia trochilus,Phylloscopus trochilus,Willow Warbler,,high,,Willow Wren = Willow Warbler
+131,Chiff-chaff,Sylvia rufa,Phylloscopus collybita,Common Chiffchaff,,high,Phylloscopus rufus,Sylvia rufa Lath. = Chiffchaff
+131,Wood Wren,Sylvia sibilatrix,Phylloscopus sibilatrix,Wood Warbler,,high,,Wood Wren = Wood Warbler
+132,Yellow Willow Wren,Sylvia Icterina,,,,low,,"Vieillot's Sylvia icterina is nominally the Icterine Warbler, but Gould's 'Yellow Willow Wren' is set among the Phylloscopus and the Icterine seems to be his plate 133; the figure's identity is disputed. Blank"
+133,Melodious Willow Wren,Sylvia Hippolais,Hippolais icterina,Icterine Warbler,,medium,,"Temminck's Sylvia hippolais is the Icterine Warbler (Motacilla hippolais Linn.), but Gould's English 'Melodious Willow Wren' echoes the Melodious Warbler (H. polyglotta, lumped then); confirm on the plate (long primary projection = Icterine)"
+134,Natterer's Warbler,Sylvia Nattereri,Phylloscopus bonelli,Western Bonelli's Warbler,,medium,,"Sylvia nattereri Temm. = Bonelli's Warbler, now split Western (P. bonelli) / Eastern (P. orientalis). Gould's European bird is most likely western, but confirm"
+135,Richard's Pipit,Anthus Richardi,Anthus richardi,Richard's Pipit,,high,,Anthus Richardi Vieill. = Anthus richardi (Richard's Pipit); same species
+136,Meadow Pipit,Anthus pratensis,Anthus pratensis,Meadow Pipit,,high,,Anthus pratensis Bechst. = Anthus pratensis (Meadow Pipit); same species
+137,Tawny Pipit,Anthus rufescens,Anthus campestris,Tawny Pipit,,high,,Anthus rufescens Temm. = Tawny Pipit A. campestris
+138,Rock or Shore Pipit,Anthus aquaticus,,,,low,,"Anthus aquaticus Bechst. is the Water Pipit (A. spinoletta), but Gould's English ""Rock or Shore Pipit"" is the Rock Pipit (A. petrosus); the two were one species then and the plate could show either. Blank"
+139,Tree Pipit,Anthus arboreus,Anthus trivialis,Tree Pipit,,high,,Tree Pipit
+140,Red-throated Pipit,Anthus rufogularis,Anthus cervinus,Red-throated Pipit,,high,,Anthus rufogularis Temm. = Red-throated Pipit A. cervinus
+141,Pied Wagtail,Motacilla Yarrellii,Motacilla alba,White Wagtail,subspecies,high,Motacilla yarrellii,"Pied Wagtail = M. alba yarrellii, a subspecies of White Wagtail"
+142,White-winged Wagtail,Motacilla lugubris,Motacilla alba,White Wagtail,subspecies,medium,Motacilla lugens,"Pallas's lugubris is the black-backed (lugens) form of White Wagtail, once a species (Black-backed Wagtail), now in M. alba. Gould's figure may instead be a dark M. alba yarrellii; either way M. alba, but confirm it is not the Japanese Wagtail"
+143,White Wagtail,Motacilla alba,Motacilla alba,White Wagtail,,high,,Motacilla alba Linn. = Motacilla alba (White Wagtail); same species
+144,Yellow-headed Wagtail,Motacilla citreola,Motacilla citreola,Citrine Wagtail,,high,,Motacilla citreola Pall. = Motacilla citreola (Citrine Wagtail); same species
+145,Yellow Wagtail,Motacilla flava,Motacilla flava,Western Yellow Wagtail,,high,,Yellow Wagtail (Western)
+146,Grey-headed Wagtail,Motacilla neglecta,Motacilla flava,Western Yellow Wagtail,subspecies,high,,"Grey-headed Wagtail, described by Gould, is M. flava thunbergi, a subspecies of Western Yellow Wagtail"
+147,Grey Wagtail,Motacilla Boarula,Motacilla cinerea,Gray Wagtail,,high,Motacilla boarula,Grey Wagtail
+148,Fire-crested Wren,Regulus ignicapillus,Regulus ignicapilla,Common Firecrest,,high,,Firecrest
+148,Golden-crested Wren,Regulus vulgaris,Regulus regulus,Goldcrest,,high,,Goldcrest
+149,Dalmatian Regulus,Regulus modestus,Phylloscopus inornatus,Yellow-browed Warbler,,medium,,Regulus modestus Gould (from a Dalmatian specimen) is a synonym of the Yellow-browed Warbler P. inornatus; Hume's (P. humei) is split but is not a European bird. Confirm
+150,Great Tit,Parus major,Parus major,Great Tit,,high,,Parus major Linn. = Parus major (Great Tit); same species
+151,Sombre Tit,Parus lugubris,Poecile lugubris,Sombre Tit,,high,,Sombre Tit
+151,Siberian Tit,Parus Sibericus,Poecile cinctus,Gray-headed Chickadee,,high,,Siberian Tit = Grey-headed Chickadee
+152,Toupet Tit,Parus bicolor,Baeolophus bicolor,Tufted Titmouse,,high,,Parus bicolor Linn. = Tufted Titmouse
+153,Azure Tit,Parus cyanus,Cyanistes cyanus,Azure Tit,,high,,Azure Tit
+154,Blue Tit,Parus cœruleus,Cyanistes caeruleus,Eurasian Blue Tit,,high,Parus caeruleus,"Parus cœruleus Linn. = Cyanistes caeruleus (Eurasian Blue Tit); same species, older binomial"
+155,Cole Tit,Parus ater,Periparus ater,Coal Tit,,high,Parus ater,Parus ater Linn. = Periparus ater (Coal Tit); same species
+155,Marsh Tit,Parus palustris,Poecile palustris,Marsh Tit,,high,Parus palustris,"Marsh Tit (Willow Tit P. montanus, described 1827, was lumped; European Willow Tits in Britain went unrecognised till 1897)"
+156,Crested Tit,Parus cristatus,Lophophanes cristatus,Crested Tit,,high,Parus cristatus,Parus cristatus Linn. = Lophophanes cristatus (Crested Tit); same species
+157,Long-tailed Tit,Parus caudatus,Aegithalos caudatus,Long-tailed Tit,,high,,Parus caudatus Linn. = Aegithalos caudatus (Long-tailed Tit); same species
+158,"Bearded Tit, or Reed Bird",Calamophilus biarmicus,Panurus biarmicus,Bearded Reedling,,high,,Bearded Tit = Bearded Reedling
+159,Penduline Tit,Ægithalus pendulinus,Remiz pendulinus,Eurasian Penduline-Tit,,high,,Ægithalus pendulinus Vig. = Remiz pendulinus (Eurasian Penduline-Tit); same species
+160,Waxen Chatterer,Bombycivora garrula,Bombycilla garrulus,Bohemian Waxwing,,high,,Waxen Chatterer = Bohemian Waxwing
+161,Black Lark,Alauda Tartarica,,,,high,,"Alauda Tartarica = Melanocorypha yeltoniensis, which is not a BirdNET V2.4 label; blank. Alauda tatarica Pall. = Black Lark M. yeltoniensis"
+162,Calandra Lark,Alauda Calandra,Melanocorypha calandra,Calandra Lark,,high,,Alauda Calandra Pall. = Melanocorypha calandra (Calandra Lark); same species
+163,Short-toed Lark,Alauda brachydactyla,Calandrella brachydactyla,Greater Short-toed Lark,,high,,Greater Short-toed Lark
+164,Shore Lark,Alauda alpestris,Eremophila alpestris,Horned Lark,,high,,Shore Lark = Horned Lark
+165,Crested Lark,Alauda cristata,Galerida cristata,Crested Lark,,high,,Alauda cristata Linn. = Galerida cristata (Crested Lark); same species
+166,Sky Lark,Alauda arvensis,Alauda arvensis,Eurasian Skylark,,high,,Alauda arvensis Linn. = Alauda arvensis (Eurasian Skylark); same species
+167,Wood Lark,Alauda arborea,Lullula arborea,Wood Lark,,high,,Alauda arborea Linn. = Lullula arborea (Wood Lark); same species
+168,Bifasciated Lark,Certhilauda bifasciata,Alaemon alaudipes,Greater Hoopoe-Lark,,high,,Certhilauda bifasciata = Greater Hoopoe-Lark
+169,Lark-heeled Bunting,Plectrophanes Lapponica,Calcarius lapponicus,Lapland Longspur,,high,,Lapland Bunting = Lapland Longspur
+170,Snow Bunting,Plectrophanes nivalis,Plectrophenax nivalis,Snow Bunting,,high,,Plectrophanes nivalis Meyer. = Plectrophenax nivalis (Snow Bunting); same species
+171,Common Bunting,Emberiza miliaria,Emberiza calandra,Corn Bunting,,high,Miliaria calandra,Common Bunting = Corn Bunting
+172,Black-headed Bunting,Emberiza melanocephala,Emberiza melanocephala,Black-headed Bunting,,high,,Emberiza melanocephala Scop. = Emberiza melanocephala (Black-headed Bunting); same species
+173,Yellow Bunting,Emberiza citrinella,Emberiza citrinella,Yellowhammer,,high,,"Yellow Bunting = Yellowhammer. Trap: BirdNET's ""Yellow Bunting"" is E. sulphurata"
+174,Yellow-breasted Bunting,Emberiza aureola,Emberiza aureola,Yellow-breasted Bunting,,high,,Emberiza aureola Pall. = Emberiza aureola (Yellow-breasted Bunting); same species
+175,Cirl Bunting,Emberiza Cirlus,Emberiza cirlus,Cirl Bunting,,high,,Emberiza Cirlus Linn. = Emberiza cirlus (Cirl Bunting); same species
+176,Ortolan Bunting,Emberiza hortulana,Emberiza hortulana,Ortolan Bunting,,high,,Emberiza hortulana Linn. = Emberiza hortulana (Ortolan Bunting); same species
+177,Rustic Bunting,Emberiza rustica,Emberiza rustica,Rustic Bunting,,high,,Emberiza rustica Pall. = Emberiza rustica (Rustic Bunting); same species
+178,Lesbian Bunting,Emberiza Lesbia,,,,low,,Emberiza lesbia Gmel. is a doubtful name (usually sunk in Cirl Bunting or treated as a young/female bunting); no standing species. Blank
+179,Meadow Bunting,Emberiza cia,Emberiza cia,Rock Bunting,,high,,"Meadow Bunting (Gould) = Rock Bunting. Trap: BirdNET's ""Meadow Bunting"" is E. cioides"
+180,Pine Bunting,Emberiza pithyornus,Emberiza leucocephalos,Pine Bunting,,high,,Emberiza pithyornus Pall. = Pine Bunting
+181,Cretzschmar's Bunting,Emberiza cæsia,Emberiza caesia,Cretzschmar's Bunting,,high,,Emberiza cæsia Cretz. = Emberiza caesia (Cretzschmar's Bunting); same species
+182,Marsh Bunting,Emberiza palustris,Emberiza schoeniclus,Reed Bunting,subspecies,high,,Emberiza palustris Savi = the thick-billed Reed Bunting (E. schoeniclus intermedia group)
+183,Reed Bunting,Emberiza schœniculus,Emberiza schoeniclus,Reed Bunting,,high,,"Emberiza schœniculus Linn. = Emberiza schoeniclus (Reed Bunting); same species, older binomial"
+184,Common Sparrow,Pyrgita domestica,Passer domesticus,House Sparrow,,high,,"anchor, verified on the plate"
+184,Tree Sparrow,Pyrgita montana,Passer montanus,Eurasian Tree Sparrow,,high,,"anchor, verified on the plate"
+185,Spanish Sparrow,Pyrgita Hispaniolensis,Passer hispaniolensis,Spanish Sparrow,,high,,Pyrgita Hispaniolensis Cuv. = Passer hispaniolensis (Spanish Sparrow); same species
+185,Alpine Sparrow,Pyrgita Cisalpina,Passer italiae,Italian Sparrow,,high,Passer domesticus italiae,Fringilla cisalpina Temm. = Italian Sparrow (a stabilised hybrid species; some lists keep it in House Sparrow)
+186,Doubtful Sparrow,Pyrgita petronia,Petronia petronia,Rock Sparrow,,high,,"""Doubtful Sparrow"" is only Gould's English name: Fringilla petronia Linn. = Rock Sparrow"
+187,Chaffinch,Fringilla Cælebs,Fringilla coelebs,Common Chaffinch,,high,,"Fringilla Cælebs Linn. = Fringilla coelebs (Common Chaffinch); same species, older binomial"
+188,Mountain or Bramble Finch,Fringilla montifringilla,Fringilla montifringilla,Brambling,,high,,Brambling
+189,Snow Finch,Fringilla nivalis,Montifringilla nivalis,White-winged Snowfinch,,high,,Snow Finch = White-winged Snowfinch
+190,Winter Finch,Fringilla ? hyemalis,Junco hyemalis,Dark-eyed Junco,,medium,,"Fringilla hyemalis Linn. = Dark-eyed Junco (Gould's 'Winter Finch', a straggler); confirm the figure is a slate junco"
+191,Common or Brown Linnet,Linaria Cannabina,Linaria cannabina,Eurasian Linnet,,high,Carduelis cannabina,Linnet
+192,"Mountain Linnet, or Twite",Linaria montana,Linaria flavirostris,Twite,,high,Carduelis flavirostris,Mountain Linnet = Twite
+193,Mealy Redpole,Linaria canescens,,,,low,,Linaria canescens Gould (Mealy Redpoll) is variously placed in Common Redpoll (A. flammea) or Arctic/Hoary Redpoll (A. hornemanni); BirdNET keeps both apart. Blank
+194,Lesser Redpole,Linaria minor,Acanthis cabaret,Lesser Redpoll,,high,Carduelis cabaret;Acanthis flammea cabaret,Linaria minor Ray = Lesser Redpoll
+195,Serin Finch,Serinus flavescens,Serinus serinus,European Serin,,high,,Serin
+196,Goldfinch,Carduelis elegans,Carduelis carduelis,European Goldfinch,,high,,"anchor, verified on the plate"
+197,"Siskin, or Aberdevine",Carduelis spinus,Spinus spinus,Eurasian Siskin,,high,Carduelis spinus,Siskin
+198,Citril Finch,Carduelis citrinella,Carduelis citrinella,Citril Finch,,high,Serinus citrinella,Citril Finch
+199,Hawfinch,Coccothraustes vulgaris,Coccothraustes coccothraustes,Hawfinch,,high,,Hawfinch
+200,Green Grosbeak,Coccothraustes chloris,Chloris chloris,European Greenfinch,,high,Carduelis chloris,Green Grosbeak = European Greenfinch
+201,Parrot Crossbill,Loxia pityopsittacus,Loxia pytyopsittacus,Parrot Crossbill,,high,,"Loxia pityopsittacus Bechst. = Loxia pytyopsittacus (Parrot Crossbill); same species, older binomial"
+202,Common Crossbill,Loxia curvirostra,Loxia curvirostra,Red Crossbill,,high,,Common Crossbill = Red Crossbill
+203,White-winged Crossbill,Loxia leucoptera,Loxia leucoptera,White-winged Crossbill,,high,,White-winged (Two-barred) Crossbill
+204,Pine Grosbeak,Corythus enucleator,Pinicola enucleator,Pine Grosbeak,,high,,Corythus enucleator Cuv. = Pinicola enucleator (Pine Grosbeak); same species
+205,Siberian Grosbeak,Corythus longicauda,Carpodacus sibiricus,Long-tailed Rosefinch,,high,Uragus sibiricus,Corythus longicauda = Long-tailed Rosefinch
+206,Scarlet Grosbeak,Erythrospiza erythrina,Carpodacus erythrinus,Common Rosefinch,,high,,Scarlet Grosbeak = Common Rosefinch
+207,Rosy Grosbeak,Erythrospiza rosea,,,,high,,"Erythrospiza rosea = Carpodacus roseus, which is not a BirdNET V2.4 label; blank. Rosy Grosbeak = Pallas's Rosefinch"
+208,Vinous Grosbeak,Erythrospiza githaginea,Bucanetes githagineus,Trumpeter Finch,,high,,Vinous Grosbeak = Trumpeter Finch
+209,Bullfinch,Pyrrhula vulgaris,Pyrrhula pyrrhula,Eurasian Bullfinch,,high,,"Pyrrhula vulgaris Temm. = Pyrrhula pyrrhula (Eurasian Bullfinch); same species, older binomial"
+210,Starling,Sturnus vulgaris,Sturnus vulgaris,European Starling,,high,,"anchor, verified on the plate"
+211,Sardinian Starling,Sturnus unicolor,Sturnus unicolor,Spotless Starling,,high,,Spotless Starling
+212,Rose-coloured Pastor,Pastor roseus,Pastor roseus,Rosy Starling,,high,Sturnus roseus,Rose-coloured Starling
+213,Nutcracker,Nucifraga caryocatactes,Nucifraga caryocatactes,Eurasian Nutcracker,,high,,Nucifraga caryocatactes Briss. = Nucifraga caryocatactes (Eurasian Nutcracker); same species
+214,Jay,Garrulus glandarius,Garrulus glandarius,Eurasian Jay,,high,,Garrulus glandarius Briss. = Garrulus glandarius (Eurasian Jay); same species
+215,Siberian Jay,Garrulus infaustus,Perisoreus infaustus,Siberian Jay,,high,,Siberian Jay
+216,Magpie,Pica caudata,Pica pica,Eurasian Magpie,,high,,Magpie
+217,Azure-winged Magpie,Pica cyanea,Cyanopica cooki,Iberian Magpie,,medium,Cyanopica cyanus cooki,"Azure-winged Magpie, since split: Iberian (C. cooki) and East Asian (C. cyanus). Gould's European bird should be Iberian, but Wagler's name rests on Pallas's Asian bird and Gould may have figured an Asian skin; confirm"
+218,Alpine Chough,Pyrrhocorax Pyrrhocorax,Pyrrhocorax graculus,Yellow-billed Chough,,high,,Gould's 'Alpine Chough' (Temminck's use of Pyrrhocorax pyrrhocorax) = Yellow-billed Chough P. graculus; his red-billed Chough is plate 219. Trap: modern P. pyrrhocorax is the Red-billed
+219,Chough,Fregilus graculus,Pyrrhocorax pyrrhocorax,Red-billed Chough,,high,,Fregilus graculus = Red-billed Chough. Trap: modern P. graculus is the Alpine Chough
+220,Raven,Corvus corax,Corvus corax,Common Raven,,high,,Corvus corax Linn. = Corvus corax (Common Raven); same species
+221,Carrion Crow,Corvus corone,Corvus corone,Carrion Crow,,high,,Corvus corone Linn. = Corvus corone (Carrion Crow); same species
+222,Hooded Crow,Corvus cornix,Corvus cornix,Hooded Crow,,high,,Corvus cornix Linn. = Corvus cornix (Hooded Crow); same species
+223,Jackdaw,Corvus monedula,Corvus monedula,Eurasian Jackdaw,,high,Coloeus monedula,Corvus monedula Linn. = Corvus monedula (Eurasian Jackdaw); same species
+224,Rook,Corvus frugilegus,Corvus frugilegus,Rook,,high,,Corvus frugilegus Linn. = Corvus frugilegus (Rook); same species
+225,Great Black Woodpecker,Picus martius,Dryocopus martius,Black Woodpecker,,high,,Picus martius Linn. = Dryocopus martius (Black Woodpecker); same species
+226,Green Woodpecker,Picus viridis,Picus viridis,Eurasian Green Woodpecker,,high,,"Green Woodpecker (Iberian P. sharpei split, not Gould's bird)"
+227,Grey-headed Green Woodpecker,Picus canus,Picus canus,Gray-headed Woodpecker,,high,,Picus canus Gmel. = Picus canus (Gray-headed Woodpecker); same species
+228,White-rumped Woodpecker,Picus leuconotus,Dendrocopos leucotos,White-backed Woodpecker,,high,,White-backed Woodpecker
+229,Great Spotted Woodpecker,Picus major,Dendrocopos major,Great Spotted Woodpecker,,high,,Picus major Linn. = Dendrocopos major (Great Spotted Woodpecker); same species
+230,Middle Spotted Woodpecker,Picus medius,Dendrocoptes medius,Middle Spotted Woodpecker,,high,Dendrocopos medius;Leiopicus medius,Picus medius Linn. = Dendrocoptes medius (Middle Spotted Woodpecker); same species
+231,Lesser Spotted Woodpecker,Picus minor,Dryobates minor,Lesser Spotted Woodpecker,,high,Dendrocopos minor,Picus minor Linn. = Dryobates minor (Lesser Spotted Woodpecker); same species
+232,Three-toed Woodpecker,Apternus tridactylus,Picoides tridactylus,Eurasian Three-toed Woodpecker,,high,,Three-toed Woodpecker (Eurasian)
+233,Wryneck,Yunx torquilla,Jynx torquilla,Eurasian Wryneck,,high,,Yunx torquilla Linn. = Jynx torquilla (Eurasian Wryneck); same species
+234,Common Nuthatch,Sitta Europæa,Sitta europaea,Eurasian Nuthatch,,high,,Sitta Europæa Linn. = Sitta europaea (Eurasian Nuthatch); same species
+235,Dalmatian Nuthatch,Sitta Syriaca,Sitta neumayer,Western Rock Nuthatch,,high,,Sitta syriaca Ehrenb. = Western Rock Nuthatch
+236,Asiatic Nuthatch,Sitta Asiatica,Sitta europaea,Eurasian Nuthatch,subspecies,high,,Sitta asiatica Temm. = the white-bellied Siberian race of Eurasian Nuthatch
+237,Common Creeper,Certhia familiaris,Certhia familiaris,Eurasian Treecreeper,,medium,,"Treecreeper; Short-toed Treecreeper (C. brachydactyla) was lumped then and looks near-identical; confirm the figure (it probably is familiaris, as Gould's text is British/northern)"
+238,Hoopoe,Upupa epops,Upupa epops,Eurasian Hoopoe,,high,,Upupa epops Linn. = Upupa epops (Eurasian Hoopoe); same species
+239,Wall Creeper,Tichodroma phœnicoptera,Tichodroma muraria,Wallcreeper,,high,,Wallcreeper
+240,Common Cuckoo,Cuculus Canorus,Cuculus canorus,Common Cuckoo,,high,,Cuculus Canorus Linn. = Cuculus canorus (Common Cuckoo); same species
+241,Great Spotted Cuckoo,Cuculus glandarius,Clamator glandarius,Great Spotted Cuckoo,,high,,Cuculus glandarius Linn. = Clamator glandarius (Great Spotted Cuckoo); same species
+242,American Cuckoo,Coccyzus Americanus,Coccyzus americanus,Yellow-billed Cuckoo,,high,,Yellow-billed Cuckoo
+243,Wood Pigeon,Columba palumbus,Columba palumbus,Common Wood-Pigeon,,high,,Columba palumbus Linn. = Columba palumbus (Common Wood-Pigeon); same species
+244,Stock Dove,Columba Œnas,Columba oenas,Stock Dove,,high,,Columba Œnas Linn. = Columba oenas (Stock Dove); same species
+245,Rock Dove,Columba livia,Columba livia,Rock Pigeon,,high,,"anchor, verified on the plate"
+246,Turtle Dove,Columba Turtur,Streptopelia turtur,European Turtle-Dove,,high,,Columba Turtur Linn. = Streptopelia turtur (European Turtle-Dove); same species
+247,Common Pheasant,Phasianus Colchicus,Phasianus colchicus,Ring-necked Pheasant,,high,,"anchor, verified on the plate"
+248,"Capercailzie, or Cock of the Wood",Tetrao Urogallus,Tetrao urogallus,Western Capercaillie,,high,,Tetrao Urogallus Linn. = Tetrao urogallus (Western Capercaillie); same species
+249,Hybrid Grouse,Tetrao hybridus,,,,low,,"Hybrid Capercaillie x Black Grouse (""Rackelhahn""), not a species. Blank"
+250,Black Grouse,Tetrao Tetrix,Lyrurus tetrix,Black Grouse,,high,Tetrao tetrix,Tetrao Tetrix Linn. = Lyrurus tetrix (Black Grouse); same species
+251,"Hazel Grouse, or Gelinotte",Bonasia Europæa,Tetrastes bonasia,Hazel Grouse,,high,Bonasa bonasia,Hazel Grouse
+252,Red Grouse,Lagopus Scoticus,Lagopus lagopus,Willow Ptarmigan,subspecies,high,Lagopus scotica,"Red Grouse = L. lagopus scotica, a subspecies of Willow Ptarmigan"
+253,Common Ptarmigan,Lagopus mutus,Lagopus muta,Rock Ptarmigan,,high,Lagopus mutus,Ptarmigan
+254,Rock Ptarmigan,Lagopus rupestris,Lagopus muta,Rock Ptarmigan,subspecies,high,Lagopus mutus rupestris,"Lagopus rupestris = L. muta rupestris (the American Rock Ptarmigan), same species as plate 253"
+255,Willow Ptarmigan,Lagopus Saliceti,Lagopus lagopus,Willow Ptarmigan,,high,,"Lagopus saliceti Swains. = Willow Ptarmigan (Red Grouse, plate 252, is its subspecies)"
+256,Short-toed Ptarmigan,Lagopus brachydactylus,,,,low,,"Lagopus brachydactylus Temm. is a doubtful name, usually sunk in Willow Ptarmigan (Lagopus lagopus), but not certainly not a Rock Ptarmigan; blank unless the plate settles it"
+257,Sand Grouse,Pterocles arenarius,Pterocles orientalis,Black-bellied Sandgrouse,,high,Pterocles arenarius,Sand Grouse = Black-bellied Sandgrouse
+258,Pintailed Sand Grouse,Pterocles setarius,Pterocles alchata,Pin-tailed Sandgrouse,,high,,Pterocles setarius Temm. = Pin-tailed Sandgrouse
+259,European Francolin,Francolinus vulgaris,Francolinus francolinus,Black Francolin,,high,,Black Francolin
+260,Red-legged Partridge,Perdix rubra,Alectoris rufa,Red-legged Partridge,,high,,"Perdix rubra Ray. = Alectoris rufa (Red-legged Partridge); same species, older binomial"
+261,Barbary Partridge,Perdix petrosa,Alectoris barbara,Barbary Partridge,,high,,"Perdix petrosa Lath. = Alectoris barbara (Barbary Partridge); same species, older binomial"
+261,Greek Partridge,Perdix saxatilis,Alectoris graeca,Rock Partridge,,high,,"Greek Partridge = Rock Partridge (Chukar split off, is Asian)"
+262,Common Partridge,Perdix cinerea,Perdix perdix,Gray Partridge,,high,,Grey Partridge
+263,Quail,Coturnix dactylisonans,Coturnix coturnix,Common Quail,,high,,Common Quail
+264,Andalusian Turnix,Hemipodius tachydromus,Turnix sylvaticus,Small Buttonquail,,high,Turnix sylvatica,Andalusian Hemipode = Small Buttonquail
+265,Collared Pratincole,Glareola torquata,Glareola pratincola,Collared Pratincole,,high,,Collared Pratincole
+266,Cream-coloured Courser,Cursorius Isabellinus,,,,high,,"Cursorius Isabellinus = Cursorius cursor, which is not a BirdNET V2.4 label; blank. Cream-coloured Courser"
+267,Great Bustard,Otis Tarda,,,,high,,"Otis Tarda = Otis tarda, which is not a BirdNET V2.4 label; blank"
+268,Ruffed Bustard,Otis Houbara,,,,low,,"Houbara Bustard, now split (African C. undulata / Asian C. macqueenii); neither is a BirdNET label. Blank"
+269,Little Bustard,Otis tetrax,Tetrax tetrax,Little Bustard,,high,,Otis tetrax Linn. = Tetrax tetrax (Little Bustard); same species
+270,Common Crane,Grus cinerea,Grus grus,Common Crane,,high,,Common Crane
+271,White Crane,Grus leucogeranus,Leucogeranus leucogeranus,Siberian Crane,,high,Grus leucogeranus,Siberian Crane
+272,Numidian Demoiselle,Anthropoïdes Virgo,Anthropoides virgo,Demoiselle Crane,,high,Grus virgo,Demoiselle Crane
+273,Common Heron,Ardea cinerea,Ardea cinerea,Gray Heron,,high,,Ardea cinerea Lath. = Ardea cinerea (Gray Heron); same species
+274,Purple Heron,Ardea purpurea,Ardea purpurea,Purple Heron,,high,,Ardea purpurea Linn. = Ardea purpurea (Purple Heron); same species
+275,Squacco Heron,Ardea comata,Ardeola ralloides,Squacco Heron,,high,,Ardea comata Pall. = Squacco Heron
+276,Great Egret,Ardea alba,Ardea alba,Great Egret,,high,Egretta alba;Casmerodius albus,Ardea alba Linn. = Ardea alba (Great Egret); same species
+277,Little Egret,Ardea garzetta,Egretta garzetta,Little Egret,,high,,Ardea garzetta Linn. = Egretta garzetta (Little Egret); same species
+278,Rufous-backed Egret,Ardea russata,Bubulcus ibis,Cattle Egret,,high,Ardea ibis,"Ardea russata Wagl. = Cattle Egret (buff breeding dress); Western/Eastern split pending in some lists, BirdNET keeps one Bubulcus ibis"
+279,Common Night Heron,Nycticorax Europæus,Nycticorax nycticorax,Black-crowned Night-Heron,,high,,"Nycticorax Europæus Steph. = Nycticorax nycticorax (Black-crowned Night-Heron); same species, older binomial"
+280,Common Bittern,Botaurus stellaris,Botaurus stellaris,Great Bittern,,high,,Botaurus stellaris Steph. = Botaurus stellaris (Great Bittern); same species
+281,Freckled Bittern,Botaurus lentiginosus,Botaurus lentiginosus,American Bittern,,high,,American Bittern
+282,Little Bittern,Botaurus minutus,Ixobrychus minutus,Little Bittern,,high,Botaurus minutus,Botaurus minutus Selby. = Ixobrychus minutus (Little Bittern); same species
+283,White Stork,Ciconia alba,Ciconia ciconia,White Stork,,high,,"Ciconia alba Bellon. = Ciconia ciconia (White Stork); same species, older binomial"
+284,Black Stork,Ciconia nigra,Ciconia nigra,Black Stork,,high,,Ciconia nigra Bellon. = Ciconia nigra (Black Stork); same species
+285,Maguari Stork,Ciconia Maguari,,,,high,,"Ciconia Maguari = Ciconia maguari, which is not a BirdNET V2.4 label; blank. Maguari Stork (a South American bird Gould admitted on one record)"
+286,Spoonbill,Platalea leucorodia,Platalea leucorodia,Eurasian Spoonbill,,high,,Platalea leucorodia Linn. = Platalea leucorodia (Eurasian Spoonbill); same species
+287,Common Flamingo,Phœnicopterus ruber,Phoenicopterus roseus,Greater Flamingo,,high,Phoenicopterus ruber roseus,Gould's Old World flamingo = Greater Flamingo P. roseus. Trap: modern P. ruber is the American Flamingo
+288,Thick-kneed Bustard,Œdicnemus crepitans,Burhinus oedicnemus,Eurasian Thick-knee,,high,,Stone Curlew = Eurasian Thick-knee
+289,Long-legged Plover,Himantopus melanopterus,Himantopus himantopus,Black-winged Stilt,,high,,Black-winged Stilt
+290,Grey Plover,Squatarola cinerea,Pluvialis squatarola,Black-bellied Plover,,high,,Grey Plover
+291,Lapwing,Vanellus cristatus,Vanellus vanellus,Northern Lapwing,,high,,"Vanellus cristatus Meyer. = Vanellus vanellus (Northern Lapwing); same species, older binomial"
+292,Keptuschka Lapwing,Vanellus Keptuschka,,,,high,,"Vanellus Keptuschka = Vanellus gregarius, which is not a BirdNET V2.4 label; blank. Sociable Lapwing"
+293,Spur-winged Plover,Pluvianus spinosus,Vanellus spinosus,Spur-winged Lapwing,,high,,Spur-winged Lapwing
+294,Golden Plover,Charadrius pluvialis,Pluvialis apricaria,European Golden-Plover,,high,,Charadrius pluvialis Linn. = European Golden Plover
+295,Dottrell,Charadrius morinellus,Charadrius morinellus,Eurasian Dotterel,,high,Eudromias morinellus,Dotterel
+296,Ring Dottrell,Charadrius hiaticula,Charadrius hiaticula,Common Ringed Plover,,high,,Ringed Plover
+297,Little Ring Dottrell,Charadrius minor,Charadrius dubius,Little Ringed Plover,,high,,Charadrius minor Meyer = Little Ringed Plover
+298,Kentish Plover,Charadrius Cantianus,Charadrius alexandrinus,Kentish Plover,,high,Charadrius cantianus,Kentish Plover
+299,Red-chested Dottrell,Charadrius pyrrhothorax,,,,low,,"Charadrius pyrrhothorax Temm. is a sand plover (Lesser Sand-Plover C. mongolus complex, now split Siberian/Tibetan); which daughter and even which sand plover is uncertain. Blank"
+300,Oyster Catcher,Hæmatopus Ostralegus,Haematopus ostralegus,Eurasian Oystercatcher,,high,,Hæmatopus Ostralegus Linn. = Haematopus ostralegus (Eurasian Oystercatcher); same species
+301,Glossy Ibis,Ibis Falcinellus,Plegadis falcinellus,Glossy Ibis,,high,,Ibis Falcinellus Temm. = Plegadis falcinellus (Glossy Ibis); same species
+302,Common Curlew,Numenius arquata,Numenius arquata,Eurasian Curlew,,high,,Numenius arquata Lath. = Numenius arquata (Eurasian Curlew); same species
+303,Whimbrel,Numenius Phæopus,Numenius phaeopus,Whimbrel,,high,,Whimbrel (Eurasian)
+304,Slender-billed Curlew,Numenius tenuirostris,,,,high,,Slender-billed Curlew is not a BirdNET label (probably extinct). Blank
+305,Black-tailed Godwit,Limosa melanura,Limosa limosa,Black-tailed Godwit,,high,,Black-tailed Godwit
+306,Bar-tailed Godwit,Limosa rufa,Limosa lapponica,Bar-tailed Godwit,,high,,Bar-tailed Godwit
+307,Terek Godwit,Limosa Terek,Xenus cinereus,Terek Sandpiper,,high,,Terek Godwit = Terek Sandpiper
+308,Avocet,Recurvirostra Avocetta,Recurvirostra avosetta,Pied Avocet,,high,,"Recurvirostra Avocetta Linn. = Recurvirostra avosetta (Pied Avocet); same species, older binomial"
+309,Spotted Redshank,Totanus fuscus,Tringa erythropus,Spotted Redshank,,high,,Totanus fuscus = Spotted Redshank
+310,Redshank,Totanus calidris,Tringa totanus,Common Redshank,,high,,Redshank
+311,Semipalmated Sandpiper,Totanus semipalmatus,Tringa semipalmata,Willet,,high,Catoptrophorus semipalmatus,Totanus semipalmatus Temm. = Willet. Trap: Gould's English 'Semipalmated Sandpiper' is not today's C. pusilla
+312,Greenshank,Totanus glottis,Tringa nebularia,Common Greenshank,,high,,Greenshank
+313,Bartram's Sandpiper,Totanus Bartramius,Bartramia longicauda,Upland Sandpiper,,high,,Bartram's Sandpiper = Upland Sandpiper
+314,Marsh Sandpiper,Totanus stagnatilis,Tringa stagnatilis,Marsh Sandpiper,,high,,Totanus stagnatilis Bechst. = Tringa stagnatilis (Marsh Sandpiper); same species
+315,Green Sandpiper,Totanus ochropus,Tringa ochropus,Green Sandpiper,,high,,Totanus ochropus Temm. = Tringa ochropus (Green Sandpiper); same species
+315,Wood Sandpiper,Totanus Glareola,Tringa glareola,Wood Sandpiper,,high,,Totanus Glareola Temm. = Tringa glareola (Wood Sandpiper); same species
+316,Common Sandpiper,Totanus Hypoleucus,Actitis hypoleucos,Common Sandpiper,,high,,"Totanus Hypoleucus Temm. = Actitis hypoleucos (Common Sandpiper); same species, older binomial"
+317,Spotted Sandpiper,Totanus macularius,Actitis macularius,Spotted Sandpiper,,high,Actitis macularia,Totanus macularius Temm. = Actitis macularius (Spotted Sandpiper); same species
+318,Turnstone,Strepsilas collaris,Arenaria interpres,Ruddy Turnstone,,high,,Turnstone
+319,Woodcock,Scolopax rusticola,Scolopax rusticola,Eurasian Woodcock,,high,,Scolopax rusticola Linn. = Scolopax rusticola (Eurasian Woodcock); same species
+320,Great Snipe,Scolopax major,Gallinago media,Great Snipe,,high,,Great Snipe
+321,Sabine's Snipe,Scolopax Sabini,Gallinago gallinago,Common Snipe,variant,medium,,"Sabine's Snipe is the melanistic morph of the Common Snipe, not a species; confirm Gould's figure is that dark snipe"
+321,Common Snipe,Scolopax Gallinago,Gallinago gallinago,Common Snipe,,high,,Scolopax Gallinago Linn. = Gallinago gallinago (Common Snipe); same species
+322,Jack Snipe,Scolopax Gallinula,Lymnocryptes minimus,Jack Snipe,,high,,Scolopax gallinula Linn. = Jack Snipe
+323,Grey Snipe,Macroramphus griseus,Limnodromus griseus,Short-billed Dowitcher,,medium,,"Macroramphus griseus = Short-billed Dowitcher by name, but Long-billed (L. scolopaceus) was lumped then and is the usual European vagrant; confirm Gould's figure"
+324,Knot,Calidris Canutus,Calidris canutus,Red Knot,,high,,Knot
+325,Ruff,Machetes pugnax,Calidris pugnax,Ruff,,high,Philomachus pugnax,Machetes pugnax Cuv. = Calidris pugnax (Ruff); same species
+326,Buff-breasted Sandpiper,Tringa rufescens,Calidris subruficollis,Buff-breasted Sandpiper,,high,Tryngites subruficollis,Tringa rufescens Vieill. = Buff-breasted Sandpiper
+327,Pectoral Sandpiper,Tringa pectoralis,Calidris melanotos,Pectoral Sandpiper,,high,,Tringa pectoralis Say = Pectoral Sandpiper
+328,Pygmy Curlew,Tringa subarquata,Calidris ferruginea,Curlew Sandpiper,,high,,Pygmy Curlew / Tringa subarquata = Curlew Sandpiper
+329,"Dunlin, or Purre",Tringa variabilis,Calidris alpina,Dunlin,,high,,Dunlin
+330,Schinz's Sandpiper,Tringa Schinzii,Calidris fuscicollis,White-rumped Sandpiper,,medium,,"Tringa schinzii Bonap. (not Brehm's Dunlin race) = White-rumped Sandpiper; but the name 'Schinz's Sandpiper' was also used in Europe for small Dunlins (C. alpina schinzii). Confirm on the plate (white rump, long wings)"
+331,Broad-billed Tringa,Tringa platyrhyncha,Calidris falcinellus,Broad-billed Sandpiper,,high,Limicola falcinellus,Broad-billed Sandpiper
+332,Little Sandpiper,Tringa minuta,Calidris minuta,Little Stint,,high,,Little Stint
+333,Temminck's Tringa,Tringa Temminckii,Calidris temminckii,Temminck's Stint,,high,,Tringa Temminckii Leisl. = Calidris temminckii (Temminck's Stint); same species
+334,Purple Sandpiper,Tringa maritima,Calidris maritima,Purple Sandpiper,,high,,Tringa maritima Brunn. = Calidris maritima (Purple Sandpiper); same species
+335,Sanderling,Arenaria Calidris,Calidris alba,Sanderling,,high,,Sanderling
+336,Red-necked Phalarope,Phalaropus hyperboreus,Phalaropus lobatus,Red-necked Phalarope,,high,,Red-necked Phalarope
+337,Grey Phalarope,Phalaropus platyrhynchus,Phalaropus fulicarius,Red Phalarope,,high,,Grey (Red) Phalarope
+338,Coot,Fulica atra,Fulica atra,Eurasian Coot,,high,,Fulica atra Linn. = Fulica atra (Eurasian Coot); same species
+339,Water Rail,Rallus aquaticus,Rallus aquaticus,Water Rail,,high,,Rallus aquaticus Linn. = Rallus aquaticus (Water Rail); same species
+340,Hyacinthine Porphyrio,Porphyrio hyacinthinus,Porphyrio porphyrio,Western Swamphen,,high,,"Porphyrio hyacinthinus Temm. = the Mediterranean purple swamphen, now Western Swamphen after the split"
+341,Land Rail,Gallinula crex,Crex crex,Corn Crake,,high,,Land Rail = Corn Crake
+342,Common Gallinule,Gallinula chloropus,Gallinula chloropus,Eurasian Moorhen,,high,,Moorhen
+343,Spotted Crake,Zapornia porzana,Porzana porzana,Spotted Crake,,high,,Spotted Crake
+344,Baillon's Crake,Zapornia Baillonii,Zapornia pusilla,Baillon's Crake,,high,Porzana pusilla,Baillon's Crake is today's Zapornia pusilla
+345,Little Crake,Zapornia pusilla,Zapornia parva,Little Crake,,high,Porzana parva,Gould's Little Crake (Stephens's pusilla) = Zapornia parva; his Baillon's is plate 344. Trap: modern Z. pusilla is Baillon's Crake
+346,Snow Goose,Anser hyperboreus,Anser caerulescens,Snow Goose,,high,Chen caerulescens,Snow Goose
+347,Grey Lag Wild Goose,Anser ferus,Anser anser,Graylag Goose,,high,,Greylag
+348,Bean Goose,Anser segetum,,,,low,,"Bean Goose, now split Taiga (A. fabalis) / Tundra (A. serrirostris); both winter in Britain and the plate could show either. Blank"
+349,White-fronted Goose,Anser albifrons,Anser albifrons,Greater White-fronted Goose,,high,,Anser albifrons Steph. = Anser albifrons (Greater White-fronted Goose); same species
+350,Bernicle Goose,Anser leucopsis,Branta leucopsis,Barnacle Goose,,high,,Barnacle Goose
+351,Red-breasted Goose,Anser ruficollis,,,,high,,"Anser ruficollis = Branta ruficollis, which is not a BirdNET V2.4 label; blank"
+352,Brent Goose,Anser Brenta,Branta bernicla,Brant,,high,,Brent Goose (BirdNET: Brant)
+353,Egyptian Goose,Chenalopex Egyptiaca,Alopochen aegyptiaca,Egyptian Goose,,high,,"Chenalopex Egyptiaca Steph. = Alopochen aegyptiaca (Egyptian Goose); same species, older binomial"
+354,Domestic Swan,Cygnus mansuetus,Cygnus olor,Mute Swan,,high,,"Domestic (tame) Swan = Mute Swan; anchor, verified on the plate"
+355,"Whistling Swan, or Hooper",Cygnus ferus,Cygnus cygnus,Whooper Swan,,high,,Cygnus ferus = Whooper Swan ('Hooper'). Trap: BirdNET-era 'Whistling Swan' is the Tundra Swan
+356,Bewick's Swan,Cygnus Bewickii,Cygnus columbianus,Tundra Swan,subspecies,high,Cygnus bewickii,"Bewick's Swan = C. columbianus bewickii, Tundra Swan"
+357,Common Shieldrake,Tadorna vulpanser,Tadorna tadorna,Common Shelduck,,high,,Common Shelduck
+358,Ruddy Shieldrake,Tadorna rutila,Tadorna ferruginea,Ruddy Shelduck,,high,,Ruddy Shelduck
+359,Widgeon,Mareca Penelope,Mareca penelope,Eurasian Wigeon,,high,Anas penelope,Eurasian Wigeon
+360,Shoveller Duck,Rhynchaspis clypeata,Spatula clypeata,Northern Shoveler,,high,Anas clypeata,Shoveler
+361,Common Wild Duck,Anas Boschas,Anas platyrhynchos,Mallard,,high,Anas boschas,Mallard
+362,Common Teal,Querquedula Crecca,Anas crecca,Green-winged Teal,,high,,Common (Eurasian) Teal
+363,Bimaculated Teal,Querquedula glocitans,,,,high,Anas formosa,"Querquedula glocitans = Sibirionetta formosa, which is not a BirdNET V2.4 label; blank. Anas glocitans Pall. = Baikal Teal"
+364,Gargany Teal,Querquedula circia,Spatula querquedula,Garganey,,high,Anas querquedula,Garganey
+365,Pintail Duck,Dafila caudacuta,Anas acuta,Northern Pintail,,high,,Pintail
+366,Gadwall,Chauliodes strepera,Mareca strepera,Gadwall,,high,Anas strepera,Gadwall
+367,Red-headed Pochard,Fuligula ferina,Aythya ferina,Common Pochard,,high,,Pochard
+368,"White-eyed, or Castaneous Duck",Fuligula leucophthalma,Aythya nyroca,Ferruginous Duck,,high,,White-eyed Duck = Ferruginous Duck
+369,Red-crested Duck,Fuligula rufina,Netta rufina,Red-crested Pochard,,high,,Fuligula rufina Steph. = Netta rufina (Red-crested Pochard); same species
+370,Tufted Duck,Fuligula cristata,Aythya fuligula,Tufted Duck,,high,,Tufted Duck
+371,Scaup Pochard,Fuligula marila,Aythya marila,Greater Scaup,,high,,Scaup
+372,Western Duck,Fuligula Dispar,,,,high,,"Fuligula Dispar = Polysticta stelleri, which is not a BirdNET V2.4 label; blank. Anas dispar Sparrm. = Steller's Eider ('Western Duck')"
+373,Marbled Duck,Fuligula marmorata,,,,high,,"Fuligula marmorata = Marmaronetta angustirostris, which is not a BirdNET V2.4 label; blank. Marbled Duck (Teal)"
+374,Eider Duck,Somateria mollissima,Somateria mollissima,Common Eider,,high,,Somateria mollissima Leach. = Somateria mollissima (Common Eider); same species
+375,King Duck,Somateria spectabilis,Somateria spectabilis,King Eider,,high,,Somateria spectabilis Leach. = Somateria spectabilis (King Eider); same species
+376,Surf Scoter,Oidemia perspicillata,Melanitta perspicillata,Surf Scoter,,high,,Oidemia perspicillata Flem. = Melanitta perspicillata (Surf Scoter); same species
+377,Velvet Scoter,Oidemia fusca,Melanitta fusca,Velvet Scoter,,high,,Velvet Scoter (American White-winged Scoter split off)
+378,Black Scoter,Oidemia nigra,Melanitta nigra,Common Scoter,,high,,Black Scoter of Gould = Common Scoter M. nigra (American Black Scoter M. americana split off). Trap: BirdNET's 'Black Scoter' is M. americana
+379,Golden Eye,Clangula vulgaris,Bucephala clangula,Common Goldeneye,,high,,Golden Eye
+380,Barrow's Duck,Clangula Barrovii,Bucephala islandica,Barrow's Goldeneye,,high,,Barrow's Goldeneye
+381,Harlequin Duck,Clangula histrionica,Histrionicus histrionicus,Harlequin Duck,,high,,"Clangula histrionica Leach. = Histrionicus histrionicus (Harlequin Duck); same species, older binomial"
+382,Long-tailed Duck,Harelda glacialis,Clangula hyemalis,Long-tailed Duck,,high,,Long-tailed Duck
+383,White-headed Duck,Undina leucocephala,,,,high,,"Undina leucocephala = Oxyura leucocephala, which is not a BirdNET V2.4 label; blank"
+384,Goosander,Mergus Merganser,Mergus merganser,Common Merganser,,high,,Goosander
+385,Red-breasted Merganser,Mergus serrator,Mergus serrator,Red-breasted Merganser,,high,,Mergus serrator Linn. = Mergus serrator (Red-breasted Merganser); same species
+386,Hooded Merganser,Mergus cucullatus,Lophodytes cucullatus,Hooded Merganser,,high,,Mergus cucullatus Linn. = Lophodytes cucullatus (Hooded Merganser); same species
+387,Smew,Mergus albellus,Mergellus albellus,Smew,,high,,Mergus albellus Linn. = Mergellus albellus (Smew); same species
+388,Great-crested Grebe,Podiceps cristatus,Podiceps cristatus,Great Crested Grebe,,high,,Podiceps cristatus Lath. = Podiceps cristatus (Great Crested Grebe); same species
+389,Red-necked Grebe,Podiceps rubricollis,Podiceps grisegena,Red-necked Grebe,,high,,Red-necked Grebe
+390,Horned Grebe,Podiceps cornutus,Podiceps auritus,Horned Grebe,,high,Podiceps cornutus,Gould's Horned Grebe = Slavonian/Horned Grebe P. auritus
+391,Eared Grebe,Podiceps auritus,Podiceps nigricollis,Eared Grebe,,high,,Gould's Eared Grebe (Latham's auritus) = Black-necked Grebe P. nigricollis. Trap: modern P. auritus is the Horned Grebe (plate 390)
+392,"Little Grebe, or Dabchick",Podiceps minor,Tachybaptus ruficollis,Little Grebe,,high,,Little Grebe
+393,Northern Diver,Colymbus glacialis,Gavia immer,Common Loon,,high,,Great Northern Diver = Common Loon
+394,Black-throated Diver,Colymbus arcticus,Gavia arctica,Arctic Loon,,high,,"Colymbus arcticus Linn. = Gavia arctica (Arctic Loon); same species, older binomial"
+395,Red-throated Diver,Colymbus septentrionalis,Gavia stellata,Red-throated Loon,,high,,"Colymbus septentrionalis Linn. = Gavia stellata (Red-throated Loon); same species, older binomial"
+396,Foolish Guillemot,Uria Troile,Uria aalge,Common Murre,,high,,Guillemot = Common Murre
+397,Bridled Guillemot,Uria lacrymans,Uria aalge,Common Murre,variant,high,,Bridled Guillemot is the bridled morph of the Common Murre
+398,Brunnich's Guillemot,Uria Brunnichii,Uria lomvia,Thick-billed Murre,,high,,Brünnich's Guillemot = Thick-billed Murre
+399,Black Guillemot,Uria Grylle,Cepphus grylle,Black Guillemot,,high,,Uria Grylle Lath. = Cepphus grylle (Black Guillemot); same species
+400,Great Auk,Alca impennis,,,,high,,"Great Auk: extinct, not a BirdNET label. Blank"
+401,Razor-billed Auk,Alca Torda,Alca torda,Razorbill,,high,,Alca Torda Linn. = Alca torda (Razorbill); same species
+402,Little Auk,Mergulus alle,,,,high,,"Mergulus alle = Alle alle, which is not a BirdNET V2.4 label; blank. Little Auk = Dovekie"
+403,Puffin,Mormon Fratercula,Fratercula arctica,Atlantic Puffin,,high,,"Mormon Fratercula Temm. = Fratercula arctica (Atlantic Puffin); same species, older binomial"
+404,Northern Puffin,Mormon glacialis,Fratercula arctica,Atlantic Puffin,subspecies,high,,"Mormon glacialis Leach = the large high-Arctic Atlantic Puffin, F. arctica naumanni"
+405,Pelican,Pelecanus Onocrotalus,,,,high,,"Pelecanus Onocrotalus = Pelecanus onocrotalus, which is not a BirdNET V2.4 label; blank"
+406,Dalmatian Pelican,Pelecanus crispus,,,,high,,"Pelecanus crispus = Pelecanus crispus, which is not a BirdNET V2.4 label; blank"
+407,Common Cormorant,Phalacrocorax Carbo,Phalacrocorax carbo,Great Cormorant,,high,,Phalacrocorax Carbo Steph. = Phalacrocorax carbo (Great Cormorant); same species
+408,Black Cormorant,Phalacrocorax Graculus,,,,low,,"Pelecanus graculus Linn. is the Shag, but Gould's 'Black Cormorant' sits beside his separate Shag (plate 410); it may be a Shag in another dress or a cormorant. Blank"
+409,Little Cormorant,Phalacrocorax pygmæus,,,,high,Phalacrocorax pygmeus,"Phalacrocorax pygmæus = Microcarbo pygmaeus, which is not a BirdNET V2.4 label; blank"
+410,"Shag, or Green Cormorant",Phalacrocorax cristatus,,,,high,Phalacrocorax aristotelis,"Phalacrocorax cristatus = Gulosus aristotelis, which is not a BirdNET V2.4 label; blank. Shag"
+411,Desmarest's Cormorant,Phalacrocorax Desmarestii,,,subspecies,high,Phalacrocorax aristotelis,"Phalacrocorax Desmarestii = Gulosus aristotelis, which is not a BirdNET V2.4 label; blank. Desmarest's Cormorant = the Mediterranean Shag, G. aristotelis desmarestii"
+412,Solan Gannet,Sula Bassana,Morus bassanus,Northern Gannet,,high,,"Sula Bassana Briss. = Morus bassanus (Northern Gannet); same species, older binomial"
+413,Black-tailed Gannet,Sula melanura,,,,low,,"Sula melanura Temm. = Cape Gannet (Morus capensis), not a BirdNET label. Blank"
+414,Caspian Tern,Sterna Caspia,Hydroprogne caspia,Caspian Tern,,high,,Sterna Caspia Pall. = Hydroprogne caspia (Caspian Tern); same species
+415,Sandwich Tern,Sterna cantiaca,Thalasseus sandvicensis,Sandwich Tern,,high,Sterna sandvicensis,"Sterna cantiaca Gmel. = Thalasseus sandvicensis (Sandwich Tern); same species, older binomial"
+416,Gull-billed Tern,Sterna Anglica,Gelochelidon nilotica,Gull-billed Tern,,high,,Gull-billed Tern
+417,Common Tern,Sterna Hirundo,Sterna hirundo,Common Tern,,high,,Sterna Hirundo Linn. = Sterna hirundo (Common Tern); same species
+418,Roseate Tern,Sterna Dougallii,Sterna dougallii,Roseate Tern,,high,,Sterna Dougallii Mont. = Sterna dougallii (Roseate Tern); same species
+419,Arctic Tern,Sterna Arctica,Sterna paradisaea,Arctic Tern,,high,,"Sterna Arctica Temm. = Sterna paradisaea (Arctic Tern); same species, older binomial"
+420,Little Tern,Sterna minuta,Sternula albifrons,Little Tern,,high,Sterna albifrons,"Sterna minuta Linn. = Sternula albifrons (Little Tern); same species, older binomial"
+421,Noddy Tern,Sterna stolida,Anous stolidus,Brown Noddy,,high,,Noddy = Brown Noddy
+422,Black Tern,Viralva nigra,Chlidonias niger,Black Tern,,high,,"Viralva nigra Leach. = Chlidonias niger (Black Tern); same species, older binomial"
+423,White-winged Tern,Viralva leucoptera,Chlidonias leucopterus,White-winged Tern,,high,,"Viralva leucoptera Leach. = Chlidonias leucopterus (White-winged Tern); same species, older binomial"
+424,Moustache Tern,Viralva leucopareïa,Chlidonias hybrida,Whiskered Tern,,high,,Moustache Tern = Whiskered Tern
+425,Laughing Gull,Xema ridibunda,Chroicocephalus ridibundus,Black-headed Gull,,high,Larus ridibundus,"anchor, verified on the plate: Gould's 'Laughing Gull' = Black-headed Gull"
+426,Black-winged Gull,Xema atricilla,Leucophaeus atricilla,Laughing Gull,,high,Larus atricilla,Larus atricilla Linn. = (American) Laughing Gull; Gould's English 'Black-winged Gull'
+427,Black-headed Gull,Xema melanocephala,Ichthyaetus melanocephalus,Mediterranean Gull,,high,Larus melanocephalus,"anchor, verified on the plate: Gould's 'Black-headed Gull' = Mediterranean Gull"
+428,Little Gull,Xema minuta,Hydrocoloeus minutus,Little Gull,,high,Larus minutus,"Xema minuta Boje. = Hydrocoloeus minutus (Little Gull); same species, older binomial"
+429,Sabine's Gull,Xema Sabinii,Xema sabini,Sabine's Gull,,high,Larus sabini,"Xema Sabinii Leach. = Xema sabini (Sabine's Gull); same species, older binomial"
+430,Great Black-backed Gull,Larus marinus,Larus marinus,Great Black-backed Gull,,high,,Larus marinus Linn. = Larus marinus (Great Black-backed Gull); same species
+431,Lesser Black-backed Gull,Larus fuscus,Larus fuscus,Lesser Black-backed Gull,,high,,Larus fuscus Linn. = Larus fuscus (Lesser Black-backed Gull); same species
+432,Glaucous Gull,Larus glaucus,Larus hyperboreus,Glaucous Gull,,high,,Glaucous Gull
+433,Iceland Gull,Larus Islandicus,Larus glaucoides,Iceland Gull,,high,,Iceland Gull
+434,Herring Gull,Larus argentatus,Larus argentatus,Herring Gull,,high,,"Herring Gull (European; American Herring Gull split in some lists, BirdNET keeps one)"
+435,Kittiwake Gull,Larus Rissa,Rissa tridactyla,Black-legged Kittiwake,,high,,Kittiwake
+436,Ivory Gull,Larus eburneus,,,,high,,"Larus eburneus = Pagophila eburnea, which is not a BirdNET V2.4 label; blank"
+437,Common Gull,Larus canus,Larus canus,Common Gull,,high,,Larus canus Linn. = Larus canus (Common Gull); same species
+438,Audouin's Gull,Larus Audouinii,Ichthyaetus audouinii,Audouin's Gull,,high,Larus audouinii,Larus Audouinii Temm. = Ichthyaetus audouinii (Audouin's Gull); same species
+439,Skua,Lestris catarractes,Stercorarius skua,Great Skua,,high,,Skua = Great Skua
+440,Pomarine Gull,Lestris Pomarinus,Stercorarius pomarinus,Pomarine Jaeger,,high,,Lestris Pomarinus Temm. = Stercorarius pomarinus (Pomarine Jaeger); same species
+441,Richardson's Lestris,Lestris Richardsonii,Stercorarius parasiticus,Parasitic Jaeger,,high,,Richardson's Skua = Arctic Skua (Parasitic Jaeger)
+442,Parasitic Gull,Lestris Parasiticus,Stercorarius longicaudus,Long-tailed Jaeger,,medium,,Temminck/Illiger's Lestris parasiticus was the Long-tailed Skua; Gould's Arctic Skua is 'Richardson's' (plate 441). Trap: modern S. parasiticus is the Arctic Skua. Confirm the long central tail feathers on the plate
+443,Manks Shearwater,Puffinus Anglorum,Puffinus puffinus,Manx Shearwater,,high,,"Puffinus Anglorum Ray. = Puffinus puffinus (Manx Shearwater); same species, older binomial"
+444,Dusky Shearwater,Puffinus obscurus,,,,low,,"Puffinus obscurus of Gould's day covered the small dusky shearwaters (Barolo's P. baroli / Audubon's P. lherminieri), neither a BirdNET label. Blank"
+445,Cinereous Shearwater,Puffinus cinereus,,,,low,,"'Cinereous Shearwater' was used for both Cory's (Calonectris) and the Great Shearwater (Ardenna gravis, absent from BirdNET); cannot tell which. Blank"
+446,Fulmar Petrel,Procellaria glacialis,Fulmarus glacialis,Northern Fulmar,,high,,Procellaria glacialis Linn. = Fulmarus glacialis (Northern Fulmar); same species
+447,Fork-tailed Storm Petrel,Thalassidroma Leachii,Hydrobates leucorhous,Leach's Storm-Petrel,,high,Oceanodroma leucorhoa,Leach's Storm Petrel
+448,Common Storm Petrel,Thalassidroma pelagica,Hydrobates pelagicus,European Storm-Petrel,,high,,"Thalassidroma pelagica Selby. = Hydrobates pelagicus (European Storm-Petrel); same species, older binomial"
+449,Bulwer's Petrel,Thalassidroma ? Bulwerii,Bulweria bulwerii,Bulwer's Petrel,,high,,Thalassidroma ? Bulwerii = Bulweria bulwerii (Bulwer's Petrel); same species

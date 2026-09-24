@@ -371,6 +371,12 @@ def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]
         return []
 
 
+# A tight crop's paper band, as a fraction of the art's box per side: room
+# to breathe inside the mat, and enough clear paper at the edges that compose
+# contain-fits the art rather than cover-fitting (and so cutting) it.
+TIGHT_PAD = 0.05
+
+
 def _box(gray: Image.Image, composite: bool, crop_box, tight: bool) -> tuple[int, int, int, int]:
     if crop_box:
         # crop_box is normalised within the marginalia-trimmed plate
@@ -378,7 +384,7 @@ def _box(gray: Image.Image, composite: bool, crop_box, tight: bool) -> tuple[int
     if tight:
         # The art's own box, composite or not: on a sheet that is one vignette
         # (Gould's) every figure is inside it, and the rest is paper.
-        return content_box(gray, mirror=False)
+        return content_box(gray, pad=TIGHT_PAD, mirror=False)
     if composite:
         return (0, 0, gray.width, gray.height)  # whole (trimmed) plate: all birds
     return content_box(gray)

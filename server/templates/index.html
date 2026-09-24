@@ -3506,7 +3506,7 @@
       if (pk.type === 0x04 && pk.data[0] === CMD) {
         var s = strings(pk.data);
         if (s.length >= 2) return { id: s[0], key: s[1], panel: s[2] || '', w: s[3] || '', h: s[4] || '',
-                                    fmt: s[5] || '', rots: s[6] || '', rotation: s[7] || '', board: s[8] || '' };
+                                    fmt: s[5] || '', rots: s[6] || '', rotation: s[7] || '', board: s[8] || '', mat: s[9] || '' };
       }
     });
   }

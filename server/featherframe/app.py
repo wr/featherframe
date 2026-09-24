@@ -163,6 +163,8 @@ def parse_checkin(headers) -> dict:
     return {"device_id": _str_header(headers.get("x-device-id")),
             # Which way up it hangs now (W-851): where a new row starts.
             "rotation": _ranged_int(headers.get("x-ff-rotation"), 0, 359),
+            # …and the mat it keeps (W-857).
+            "mat": frames_mod.parse_mat(_str_header(headers.get("x-ff-mat"))),
             "volt": volt, "pct": pct, "rssi": rssi, "wake": wake,
             "device_extra": device_extra, "panel_facts": panel_facts}
 
@@ -182,7 +184,7 @@ async def api_frame(request: Request, view: Optional[str] = None):
 
     status = svc.admit_frame(_str_header(request.headers.get("x-device-id")),
                              device_extra["panel"], device_extra["board"], client_ip,
-                             facts=panel_facts, rotation=c["rotation"])
+                             facts=panel_facts, rotation=c["rotation"], mat=c["mat"])
     frame_id = (_str_header(request.headers.get("x-device-id")) or "")[:40] or svc.LEGACY_FRAME
     if status != "on":
         headers = {"Cache-Control": "no-store",
@@ -212,6 +214,8 @@ async def api_frame(request: Request, view: Optional[str] = None):
                       # Which way up the frame hangs: the firmware turns its
                       # baked boot screens and pills to match the plates.
                       "X-FF-Rotation": str(cfg.panel_rotation),
+                      # …and the mat it hangs with, kept in NVS (W-857).
+                      "X-FF-Mat": frames_mod.mat_header(cfg),
                       "X-Power-Mode": cfg.power_mode,
                       # On the collage both follow the collage's next redraw.
                       "X-Wake-Minutes": str(wake_min),

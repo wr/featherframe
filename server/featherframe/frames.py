@@ -42,6 +42,31 @@ SHOWS = ("plates", "collage")
 KIT_SETTINGS = ("panel_rotation", "mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px",
                 "mat_guide", "power_mode", "wake_interval_minutes", "device_poll_seconds")
 
+# The mat a kit keeps in NVS (W-857), "inset,x,y": the server says it on
+# every response and the kit says it back, so a frame removed and added again
+# — here or on another server — starts with the mat it hangs with.
+MAT_KEYS = ("mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px")
+
+
+def mat_header(cfg: Config) -> str:
+    """X-FF-Mat for a frame drawn with `cfg`."""
+    return f"{cfg.mat_inset_pct:g},{cfg.mat_offset_x_px},{cfg.mat_offset_y_px}"
+
+
+def parse_mat(text: Optional[str]) -> Optional[dict]:
+    """A reported X-FF-Mat as settings (clamped as Config clamps them), or
+    None when it is absent or not three numbers."""
+    parts = str(text or "").split(",")
+    if len(parts) != 3:
+        return None
+    try:
+        inset, x, y = float(parts[0]), int(parts[1]), int(parts[2])
+    except ValueError:
+        return None
+    cfg = Config.from_dict({"mat_inset_pct": inset, "mat_offset_x_px": x, "mat_offset_y_px": y})
+    return {k: getattr(cfg, k) for k in MAT_KEYS}
+
+
 # A battery reading, under either spelling: a kit reports `battery_voltage`
 # (from the X-Battery-* headers), a TRMNL `battery_volts`.
 _BATTERY_KEYS = ("battery_percent", "battery_volts", "battery_voltage")

@@ -1012,9 +1012,17 @@ static void stampTile(uint8_t* body, const FfScreenAsset& t, int x, int y, int w
 }
 
 // Paint the retained plate with whatever is standing on it.
+// A restart paints nothing (the glass is kept), and a 304 would keep whatever
+// was stamped on it for good: the portal's pill after a reset mid-portal. So
+// while the glass carries a stamp the ETag saved in NVS is blank and a restart
+// repaints the plate clean; RAM keeps the ETag, so polls still 304.
+static bool g_stamped = false;          // a pill or the corner mark is on the glass
+static void saveEtag() { prefs.putString("etag", g_stamped ? "" : g_etag); }
 static bool paintPlate() {
   if (!g_lastFrame) return false;
   const bool toast = g_toast.active && g_toastId >= 0 && ff_toast_tiles[g_toastId].data;
+  g_stamped = toast || g_cornerMark;
+  saveEtag();
   if (!toast && !g_cornerMark) { fullPaint(g_lastFrame); return true; }
   uint8_t* body = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
   if (!body) { Serial.println("stamp: no buffer"); return false; }
@@ -1628,7 +1636,11 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   if (resident) {
     // Store the new ETag (strip quotes/W-prefix).
     newEtag.replace("W/", ""); newEtag.replace("\"", ""); newEtag.trim();
+#if FF_FULL_REFRESH
+    if (newEtag.length()) { strlcpy(g_etag, newEtag.c_str(), sizeof(g_etag)); saveEtag(); }
+#else
     if (newEtag.length()) { strlcpy(g_etag, newEtag.c_str(), sizeof(g_etag)); prefs.putString("etag", g_etag); }
+#endif
     bool unpaired = strncmp(g_etag, "pair-", 5) == 0;
     if (unpaired != g_unpaired) { g_unpaired = unpaired; prefs.putBool("unpaired", unpaired); }
   } else {

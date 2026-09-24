@@ -23,7 +23,7 @@
 # Options:
 #   --skip-plates   don't download plates now (run scripts/fetch_plates.py later)
 #   --all-plates    cache the whole Havell edition (~2.9 GB) instead of just the curated species
-#   --port N        listen port (default 8080, or the existing install's port)
+#   --port N        listen port (default 8181, or the existing install's port)
 #   --source NAME   birdnet-pi (the default: read BirdNET-Pi's birds.db) or
 #                   birdnet-go; written to the config once, and only when given,
 #                   so an upgrade never resets what the page has set
@@ -85,7 +85,7 @@ if [ -r "$UNIT" ]; then
 else
   EXISTING=0
 fi
-[ -n "$PORT" ]     || PORT=8080
+[ -n "$PORT" ]     || PORT=8181
 [ -n "$DATA_DIR" ] || DATA_DIR="$SERVER_DIR/data"
 [ -n "$RUN_USER" ] || RUN_USER="${SUDO_USER:-$(id -un)}"
 
@@ -181,7 +181,7 @@ if [ "$DO_PLATES" -eq 1 ]; then
     if [ -r "$SERVER_DIR/plates/index.json" ]; then
       echo "==> Plates present; a run would fetch only what the folios newly need."
     else
-      plan "download Audubon plates ($([ "$ALL_PLATES" -eq 1 ] && echo '~2.9 GB' || echo '~2.9 GB'))"
+      plan "download Audubon plates ($([ "$ALL_PLATES" -eq 1 ] && echo '~2.9 GB' || echo '~2.7 GB'))"
     fi
   else
     if [ "$ALL_PLATES" -eq 1 ]; then
@@ -189,7 +189,7 @@ if [ "$DO_PLATES" -eq 1 ]; then
     elif [ -r "$SERVER_DIR/plates/index.json" ]; then
       echo "==> Checking plates (only new species are fetched)…"
     else
-      echo "==> Downloading Audubon plates (~2.9 GB, one time)…"
+      echo "==> Downloading Audubon plates (~2.7 GB, one time)…"
     fi
     FEATHERFRAME_DATA_DIR="$DATA_DIR" "$VENV/bin/python" \
       "$SERVER_DIR/scripts/fetch_plates.py" ${PLATE_ARGS[@]+"${PLATE_ARGS[@]}"} || {

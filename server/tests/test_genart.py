@@ -263,13 +263,13 @@ def test_config_imagegen_defaults_and_sanitize():
     assert c.imagegen_enabled is True
     assert c.imagegen_provider == "openai"
     assert c.imagegen_model == "gpt-image-2.5-sunburst"
-    assert c.imagegen_quality == "high"
+    assert c.imagegen_quality == "medium"
     assert c.imagegen_api_key == ""
 
     c = Config(imagegen_provider="nonsense", imagegen_quality="ultra",
                imagegen_model="  ", imagegen_api_key="  sk-x  ")
     assert c.imagegen_provider == "openai"
-    assert c.imagegen_quality == "high"
+    assert c.imagegen_quality == "medium"
     assert c.imagegen_model == "gpt-image-2.5-sunburst"
     assert c.imagegen_api_key == "sk-x"
 

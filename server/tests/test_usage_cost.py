@@ -266,3 +266,52 @@ def test_config_page_survives_a_sidecar_without_cost(client, data_dir):
     r = client.get("/")
     assert r.status_code == 200
     assert 'class="cost"' not in r.text
+
+
+# -- the spend ledger (W-859) -------------------------------------------------
+def test_every_paid_call_lands_in_the_ledger_and_the_month_adds_up(data_dir, monkeypatch):
+    import json as _json
+    from datetime import date as _date
+    from featherframe import paths as _paths
+    from featherframe.render import genart as _g
+    from featherframe.render.collage import CollageCell as _Cell
+
+    class _Model(_g.ImageModel):
+        name = "gpt-image-2.5-sunburst"
+        quality = "medium"
+
+        def generate(self, prompt, size, refs):
+            from PIL import Image as _I
+            import io as _io
+            buf = _io.BytesIO()
+            _I.new("RGB", (64, 96), "white").save(buf, "PNG")
+            self.last_usage = {"input_tokens": 4000, "output_tokens": 400,
+                               "input_text_tokens": 1600, "input_image_tokens": 2400}
+            return buf.getvalue()
+
+    provider = _g.GeneratedArtProvider(_Model(), refs=[])
+    cells = [_Cell("Blue Jay", "Cyanocitta cristata", 3),
+             _Cell("Carolina Wren", "Thryothorus ludovicianus", 2)]
+    assert provider.day_composite(cells, _date(2026, 9, 24)) is not None
+    assert provider._generate_to_cache("tyto-alba", "Barn Owl", "Tyto alba")
+    # A repaint overwrites the sidecar; the ledger keeps both buys.
+    sidecar = _paths.collages_dir() / "2026-09-24.json"
+    meta = _json.loads(sidecar.read_text())
+    meta["created_ts"] = 0  # past the repaint debounce
+    sidecar.write_text(_json.dumps(meta))
+    provider.day_composite(cells, _date(2026, 9, 24), force=True)
+
+    lines = [_json.loads(x) for x in _paths.spend_ledger_path().read_text().splitlines()]
+    assert [e["kind"] for e in lines] == ["collage", "plate", "collage"]
+    month = _g.spend_for_month()
+    assert month["images"] == 3
+    one = (1600 * 5 + 2400 * 8 + 400 * 30) / 1e6
+    assert abs(month["usd"] - 3 * one) < 1e-6
+    assert month["unpriced"] == 0
+
+
+def test_an_unreadable_ledger_is_an_empty_month(data_dir):
+    from featherframe import paths as _paths
+    from featherframe.render import genart as _g
+    _paths.spend_ledger_path().write_text("not json\n{}\n")
+    assert _g.spend_for_month()["images"] == 0

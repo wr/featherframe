@@ -1567,6 +1567,9 @@
       {% else %}
       <p class="intro">None on file yet. A species with no Audubon plate gets one generated here when image generation is on.</p>
       {% endif %}
+      {% if spend is defined and spend.images %}
+      <p class="hint gen-spend">This month: {{ spend.images }} image{{ '' if spend.images == 1 else 's' }}{% if spend.usd %}, ≈ ${{ '%.2f' | format(spend.usd) }}{% endif %}.</p>
+      {% endif %}
       <div class="gen-list">
         {% for g in generated %}
         <div class="gen-item{{ ' regenerating' if g.regenerating else '' }}{{ ' regen-failed' if g.regen_error else '' }}" data-slug="{{ g.slug }}" {{ 'hidden' if loop.index > 5 else '' }}>

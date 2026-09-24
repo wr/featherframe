@@ -890,6 +890,66 @@ def estimate_cost_usd(model: str, usage: Optional[dict]) -> Optional[float]:
             + _tok(usage.get("output_tokens")) * image_out) / 1e6
 
 
+#: USD per million tokens for the text models: (in, out).
+TEXT_RATES_USD_PER_M: dict[str, tuple[float, float]] = {
+    "gpt-5.6-luna": (0.20, 0.75),
+}
+
+
+def estimate_text_cost_usd(model: str, usage: Optional[dict]) -> Optional[float]:
+    rates = TEXT_RATES_USD_PER_M.get(str(model or ""))
+    if not rates or not isinstance(usage, dict) or not usage:
+        return None
+    return (_tok(usage.get("input_tokens")) * rates[0]
+            + _tok(usage.get("output_tokens")) * rates[1]) / 1e6
+
+
+_LEDGER_LOCK = threading.Lock()
+
+
+def record_spend(kind: str, subject: str, model: str, usage: Optional[dict],
+                 cost_usd: Optional[float], quality: Optional[str] = None) -> None:
+    """Append one paid call to the spend ledger (W-859). Never raises: a
+    ledger that cannot be written must not cost the plate it records."""
+    line = json.dumps({
+        "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "kind": kind, "subject": subject, "model": model, "quality": quality,
+        "usage": usage, "cost_usd": cost_usd,
+    })
+    try:
+        with _LEDGER_LOCK, open(paths.spend_ledger_path(), "a") as f:
+            f.write(line + "\n")
+    except OSError as exc:
+        log.warning("spend ledger write failed: %s", exc)
+
+
+def spend_for_month(now: Optional[datetime] = None) -> dict:
+    """This calendar month's (UTC) paid calls from the ledger: images bought,
+    the estimate in dollars, and how many calls had no price to estimate."""
+    month = (now or datetime.now(timezone.utc)).strftime("%Y-%m")
+    out = {"month": month, "images": 0, "usd": 0.0, "unpriced": 0}
+    try:
+        lines = paths.spend_ledger_path().read_text().splitlines()
+    except OSError:
+        return out
+    for raw in lines:
+        try:
+            e = json.loads(raw)
+        except ValueError:
+            continue
+        if not isinstance(e, dict) or not str(e.get("at", "")).startswith(month):
+            continue
+        if e.get("kind") != "describe":
+            out["images"] += 1
+        cost = e.get("cost_usd")
+        if isinstance(cost, (int, float)):
+            out["usd"] += float(cost)
+        else:
+            out["unpriced"] += 1
+    out["usd"] = round(out["usd"], 4)
+    return out
+
+
 class ImageModel(ABC):
     """One image-generation backend. ``generate`` returns raw PNG bytes."""
 
@@ -918,7 +978,7 @@ class OpenAIImageModel(ImageModel):
     EXTRA_QUALITIES = ("xhigh", "max")
 
     def __init__(self, api_key: str, model: str = "gpt-image-2.5-sunburst",
-                 quality: str = "high", timeout_s: float = 240.0) -> None:
+                 quality: str = "medium", timeout_s: float = 240.0) -> None:
         self.api_key = api_key
         self.model = model
         self.quality = quality
@@ -1362,6 +1422,9 @@ class GeneratedArtProvider(ArtProvider):
                         getattr(self._text_model, "name", "?"), exc)
             return "", True, [], None
         usage = getattr(self._text_model, "last_usage", None)
+        text_name = getattr(self._text_model, "name", "unknown")
+        record_spend("describe", subject, text_name, usage,
+                     estimate_text_cost_usd(text_name, usage))
         if description:
             cache[key] = {
                 "description": description,
@@ -1606,6 +1669,9 @@ class GeneratedArtProvider(ArtProvider):
                     return None
                 model_name = getattr(self._model, "name", "unknown")
                 image_usage = getattr(self._model, "last_usage", None)
+                record_spend("collage", day, model_name, image_usage,
+                             estimate_cost_usd(model_name, image_usage),
+                             getattr(self._model, "quality", None))
                 payload = json.dumps({
                     "date": day,
                     "cells": [{"common": c.common_name, "scientific": c.scientific_name,
@@ -1812,6 +1878,9 @@ class GeneratedArtProvider(ArtProvider):
 
             model_name = getattr(self._model, "name", "unknown")
             image_usage = getattr(self._model, "last_usage", None)
+            record_spend("plate", scientific_name or common_name, model_name,
+                         image_usage, estimate_cost_usd(model_name, image_usage),
+                         getattr(self._model, "quality", None))
             sidecar_payload = json.dumps({
                 "slug": slug,
                 "common": common_name,

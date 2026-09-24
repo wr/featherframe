@@ -84,6 +84,12 @@ def collages_dir() -> Path:
     return d
 
 
+def spend_ledger_path() -> Path:
+    """One line per paid model call (W-859). Sidecars are overwritten by a
+    repaint or a regenerate; this never is, so it is what was really bought."""
+    return data_dir() / "spend.jsonl"
+
+
 def collage_days_dir() -> Path:
     """Each kept day's finished collage sheet, to download."""
     d = frames_dir() / "collage-days"

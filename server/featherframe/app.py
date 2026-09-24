@@ -32,7 +32,7 @@ from . import __version__, discovery, hosted, panels, paths, viewers
 from . import frames as frames_mod
 from .config import Config, valid_hhmm
 from .names import display_common_name, normalize
-from .render import pipeline, typography
+from .render import genart, pipeline, typography
 from .service import FeatherframeService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -533,6 +533,7 @@ async def index(request: Request):
     # blocking the loop here would stall the device's /api/frame fetch.
     status = await run_in_threadpool(svc.status)
     generated = await run_in_threadpool(svc.generated_listing) if svc.genart else []
+    spend = await run_in_threadpool(genart.spend_for_month)
     history = await run_in_threadpool(svc.render_history)
     collage_days = await run_in_threadpool(svc.collage_days)
     # `config` is the household's and only the household's (W-833): what a
@@ -541,7 +542,8 @@ async def index(request: Request):
     return templates.TemplateResponse(
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
-         "generated": generated, "history": history, "collage_days": collage_days,
+         "generated": generated, "spend": spend,
+         "history": history, "collage_days": collage_days,
          "fw_about": {**svc.releases.about(), "version": svc.releases.version()},
          # A hosted household's page (W-845): frames are paired by the code on
          # their glass, and there is someone signed in to sign out.

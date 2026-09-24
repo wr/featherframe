@@ -81,11 +81,13 @@ OpenAI, per image, by quality:
 | Quality | Per image |
 |---|---|
 | Low | ≈ $0.03 |
-| Medium | ≈ $0.04 |
-| High (default) | ≈ $0.07 |
+| Medium (default) | ≈ $0.04 |
+| High | ≈ $0.08 |
 | Extra high, Max | see OpenAI's pricing page |
 
-Menagerie collages, at about one image a night:
+Menagerie collages, at about one image a night (a frame that shows the
+collage all day also buys a new sheet whenever a new species is heard, at most
+once per collage interval):
 
 | Provider | Per month |
 |---|---|
@@ -112,7 +114,9 @@ references. No detection history, no location, no other settings.
 
 The **Generated plates on file** card lists every plate bought, with the model
 that drew it, when, and an estimated cost from the usage the provider
-reported.
+reported. Above the list, *This month* counts every image bought since the
+first of the month and adds up those estimates, from a ledger
+(`data/spend.jsonl`) that a repaint or a regenerate never overwrites.
 
 - **Regenerate** buys a fresh image for that species with a new art
   direction. The old plate is kept if the new one fails.

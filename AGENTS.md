@@ -19,7 +19,7 @@ hears as Audubon lithograph plates. Two components in one repo:
   that fetches a pre-packed framebuffer and pushes it to the panel.
 
 The wall frame is a Seeed XIAO ePaper Kit EE03 (XIAO ESP32-S3 Plus + 10.3"
-ED103TC2, 1404×1872, 16-level gray, IT8951). See `README.md` for the full spec,
+ED103TC2, 1404×1872, 16-level gray, IT8951). See the wiki (github.com/wr/featherframe/wiki) for the full spec,
 wiring, and battery numbers. A second panel is being ported (W-812): the EE02
 kit's 13.3" E Ink Spectra 6 (T133A01, 1200×1600, six inks, ~30 s full refresh,
 no partial refresh). One server instance drives one panel (`config.panel`,

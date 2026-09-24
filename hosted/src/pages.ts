@@ -167,7 +167,7 @@ function minutes(ms: number): string {
   return m < 1 ? "<1 min" : m < 90 ? `${Math.round(m)} min` : `${(m / 60).toFixed(1)} h`;
 }
 
-export function adminPage(d: AdminData, message: string): Response {
+export function adminPage(d: AdminData, message: string, actingAs = false): Response {
   const e = escapeHtml;
   const waiting = d.waitlist.length ? `<table><thead><tr><th>Email</th><th></th><th>From</th><th>Asked</th></tr></thead><tbody>
     ${d.waitlist.map((w) => `<tr><td>${e(w.email)}</td>
@@ -222,6 +222,8 @@ export function adminPage(d: AdminData, message: string): Response {
 
   return shell("Admin · Featherframe", `<main class="wide"><p class="wordmark">Featherframe</p>
     ${message ? `<p class="note">${e(message)}</p>` : ""}
+    ${actingAs ? `<form class="note" method="post" action="/admin/as/stop" style="display:flex;gap:12px;align-items:center;justify-content:space-between">
+      <span>You are logged in as a household.</span><button class="btn" type="submit">Stop</button></form>` : ""}
     <div class="card"><h2 class="sec-head">Cloudflare usage</h2>${usageCard(d.usage)}</div>
     <div class="card"><h2 class="sec-head">Waitlist · ${d.waitlist.length}</h2>${waiting}</div>
     <div class="card"><h2 class="sec-head">Invite</h2>${invites}</div>

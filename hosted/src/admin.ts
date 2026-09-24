@@ -3,10 +3,11 @@
 // separated); to anyone else it does not exist.
 
 import type { Env } from "./index";
-import { actAs, deleteHousehold, invite, isAdmin, joinWaitlist, normEmail, realSessionUser, resendInvite,
+import { AS_COOKIE, actAs, deleteHousehold, invite, isAdmin, joinWaitlist, normEmail, realSessionUser, resendInvite,
          revokeInvite, setEmail, setSuspended, stopActingAs } from "./accounts";
 import { adminPage, waitlistThanksPage, type AdminData } from "./pages";
 import { cloudflareUsage } from "./usage";
+import { cookie } from "./util";
 
 const notFound = () => new Response("not found", { status: 404 });
 
@@ -14,7 +15,9 @@ export async function adminRoute(request: Request, env: Env, url: URL): Promise<
   // Always the admin's own session: never the household they are looking at.
   const user = await realSessionUser(request, env);
   if (!user || !isAdmin(env, user.email)) return notFound();
-  if (request.method === "GET" && url.pathname === "/admin") return adminPage(await gather(env), url.searchParams.get("m") || "");
+  if (request.method === "GET" && url.pathname === "/admin") {
+    return adminPage(await gather(env), url.searchParams.get("m") || "", !!cookie(request, AS_COOKIE));
+  }
   if (request.method !== "POST") return notFound();
   // A form on this page, never another site's.
   if (request.headers.get("Origin") !== `https://${env.APP_HOST}`) return new Response("forbidden", { status: 403 });

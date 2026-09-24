@@ -39,6 +39,7 @@ folio:
   artist: "John Gould, with Edward Lear"
   years: "1832–1837"
   plates: 449
+  region: europe
   margins: [0.03, 0.03, 0.97, 0.80]
   flatten: true
   # Crop to the art's own box: a Gould sheet is one vignette on a lot of paper.

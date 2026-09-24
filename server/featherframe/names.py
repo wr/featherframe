@@ -126,15 +126,25 @@ class SpeciesIndex:
     `self.folios` order (the order the index lists them, Havell first)."""
 
     def __init__(self, entries: Optional[list[dict[str, Any]]] = None,
-                 images_dir: Optional[Path] = None) -> None:
+                 images_dir: Optional[Path] = None,
+                 folios: Optional[dict[str, dict]] = None) -> None:
         self._images_dir = Path(images_dir) if images_dir else paths.plate_images_dir()
         self._folios: dict[str, _Folio] = {}
         for e in entries or []:
             self._folios.setdefault(folio_of(e), _Folio()).register(e)
+        # Each folio's region, from its header (the index's `folios` block).
+        self._regions = {k: str((h or {}).get("region") or "")
+                         for k, h in (folios or {}).items()}
 
     @property
     def folios(self) -> list[str]:
         return list(self._folios)
+
+    def order(self, region: Optional[str] = None) -> list[str]:
+        """The folios in the order a species is looked for: the region's own
+        first, then the rest as the index lists them (Havell first)."""
+        mine = [f for f in self._folios if region and self._regions.get(f) == region]
+        return mine + [f for f in self._folios if f not in mine]
 
     @classmethod
     def load(cls, index_path: Optional[Path] = None) -> "SpeciesIndex":
@@ -148,7 +158,7 @@ class SpeciesIndex:
             # recorded absolute path is meaningless here. The images always
             # live in img/ next to the index itself.
             images_dir = index_path.parent / "img"
-        return cls(data.get("species", []), images_dir=images_dir)
+        return cls(data.get("species", []), images_dir=images_dir, folios=data.get("folios"))
 
     @property
     def count(self) -> int:
@@ -173,23 +183,26 @@ class SpeciesIndex:
         entry = self._any(common_name)
         return str(entry["scientific"]) if entry and entry.get("scientific") else None
 
-    def entries(self, common_name: str, scientific_name: str = "") -> list[dict]:
+    def entries(self, common_name: str, scientific_name: str = "",
+                region: Optional[str] = None) -> list[dict]:
         """Every folio's entry with a real plate for this species, matched
-        exactly (scientific name first), in folio order. A folio's explicit
-        "no plate" hands the species on to the next folio."""
-        found = (f.find(common_name, scientific_name) for f in self._folios.values())
+        exactly (scientific name first), in `order(region)`. A folio's
+        explicit "no plate" hands the species on to the next folio."""
+        found = (self._folios[f].find(common_name, scientific_name) for f in self.order(region))
         return [e for e in found if has_plate(e)]
 
-    def entry(self, common_name: str, scientific_name: str = "") -> Optional[dict]:
+    def entry(self, common_name: str, scientific_name: str = "",
+              region: Optional[str] = None) -> Optional[dict]:
         """The first folio's entry with a plate, or None: never guess, always
         fall back."""
-        found = self.entries(common_name, scientific_name)
+        found = self.entries(common_name, scientific_name, region)
         return found[0] if found else None
 
-    def match(self, common_name: str, scientific_name: str = "") -> Optional[PlateMatch]:
+    def match(self, common_name: str, scientific_name: str = "",
+              region: Optional[str] = None) -> Optional[PlateMatch]:
         """A PlateMatch from the first folio whose scan is on disk, or None
         (-> fallback)."""
-        for entry in self.entries(common_name, scientific_name):
+        for entry in self.entries(common_name, scientific_name, region):
             image_name = entry.get("image")
             m = PlateMatch(
                 common_name=entry.get("common", common_name),

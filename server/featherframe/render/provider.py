@@ -81,6 +81,7 @@ class PlateProvider(ArtProvider):
 
     def __init__(self, index: Optional[SpeciesIndex] = None) -> None:
         self._index = index or SpeciesIndex.load()
+        self.region: Optional[str] = None    # the household's Region: its folios first
 
     def reload(self) -> None:
         self._index = SpeciesIndex.load()
@@ -95,7 +96,7 @@ class PlateProvider(ArtProvider):
         return self._index.count
 
     def artwork(self, common_name: str, scientific_name: str) -> Optional[Artwork]:
-        match = self._index.match(common_name, scientific_name)
+        match = self._index.match(common_name, scientific_name, self.region)
         if match is None:
             return None
         try:

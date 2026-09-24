@@ -162,7 +162,7 @@ class PlateLibrary:
             except (OSError, ValueError, requests.RequestException) as exc:
                 log.warning("plate library index unavailable (%s): %s", self.source, exc)
                 return SpeciesIndex([])
-            self._index = SpeciesIndex(data.get("species", []))
+            self._index = SpeciesIndex(data.get("species", []), folios=data.get("folios"))
         return self._index
 
     def image(self, key: str, kind: str) -> Image.Image:
@@ -180,6 +180,7 @@ class LibraryProvider(ArtProvider):
 
     def __init__(self, library: PlateLibrary) -> None:
         self.library = library
+        self.region: Optional[str] = None    # the household's Region: its folios first
 
     def reload(self) -> None:
         self.library._index = None
@@ -193,7 +194,7 @@ class LibraryProvider(ArtProvider):
         return self.library.index().count
 
     def artwork(self, common_name: str, scientific_name: str) -> Optional[Artwork]:
-        for entry in self.library.index().entries(common_name, scientific_name):
+        for entry in self.library.index().entries(common_name, scientific_name, self.region):
             key = entry.get("library")
             if not key:
                 continue

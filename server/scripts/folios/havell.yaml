@@ -28,6 +28,7 @@ folio:
   artist: "John James Audubon, engraved by Robert Havell"
   years: "1827–1838"
   plates: 435
+  region: north-america
   source: "github.com/nathanbuchar/audubon-bird-plates"
   credit: "Courtesy of the John James Audubon Center at Mill Grove, Montgomery County Audubon Collection, and Zebra Publishing."
 

@@ -494,9 +494,12 @@ Container restarts); D1 schema in `hosted/migrations/`.
   downloaded images, gitignored; each folio has its own fetcher in
   `FETCHERS`): every entry names its `folio` (none = Havell, as every index
   before W-702), and the `folios` block carries the headers. A species may
-  have an entry in several folios; `SpeciesIndex` asks them in the index's
-  order, Havell first, and a folio's `plate: none` hands the species on to
-  the next folio, never to a guess. The AI's style references are Havell
+  have an entry in several folios; `SpeciesIndex.order(region)` asks the
+  household's Region's folios first (`Config.region`; each folio's header
+  names its `region`: Havell `north-america`, Gould `europe`), then the rest
+  in the index's order, Havell first. It reorders, never filters, and a
+  folio's `plate: none` hands the species on to the next folio, never to a
+  guess. A Region change is drawn by the next tick (`_region_redraw`). The AI's style references are Havell
   plates only (`genart._havell_species`), because its prompts name the Havell
   edition. `test_crosswalk.py` guards the tricky numbers.
   `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General

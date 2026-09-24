@@ -1187,7 +1187,7 @@
               <button type="button" role="menuitem" id="fw-check">Check for updates</button>
               <hr>
               <a role="menuitem" href="https://shop.wells.ee/products/featherframe/" target="_blank" rel="noopener">Buy a frame</a>
-              <a role="menuitem" href="https://github.com/wr/featherframe#shopping-list" target="_blank" rel="noopener">DIY instructions</a>
+              <a role="menuitem" href="https://github.com/wr/featherframe/wiki/Build-the-frame" target="_blank" rel="noopener">DIY instructions</a>
             </div>
           </div>
         </div>
@@ -1397,7 +1397,7 @@
              still submit, so nothing stored is lost. #}
           {% set ig_ready = status.config.imagegen_api_key or config.imagegen_provider == 'a1111' %}
           <h2 class="sec-head"><span class="badge ai">AI</span>Image generation <span class="opt">· optional</span></h2>
-          <p class="intro"><a href="https://github.com/wr/featherframe/blob/main/docs/ai-plates.md" target="_blank" rel="noopener">Learn</a> how image generation works, as well as estimated API costs.</p>
+          <p class="intro"><a href="https://github.com/wr/featherframe/wiki/AI-plates" target="_blank" rel="noopener">Learn</a> how image generation works, as well as estimated API costs.</p>
           <div class="frow">
             <div class="frow-text"><label class="lab" for="ig-provider">Image provider</label></div>
             <div class="frow-ctl">
@@ -1684,7 +1684,7 @@
   <footer>
     <a href="https://github.com/wr/featherframe" target="_blank" rel="noopener">GitHub</a>
     <a href="https://github.com/wr/featherframe/issues/new" target="_blank" rel="noopener">Open an issue</a>
-    <a href="https://github.com/wr/featherframe#hardware" target="_blank" rel="noopener">Hardware guide</a>
+    <a href="https://github.com/wr/featherframe/wiki/Build-the-frame" target="_blank" rel="noopener">Hardware guide</a>
     <a href="https://buymeacoffee.com/wellsworkshop" target="_blank" rel="noopener">Donate</a>
     <span class="ver">Featherframe v{{ version }}</span>
     {% if hosted or password_on %}<form method="post" action="/logout" class="signout"><button class="linkish" type="submit">Sign out</button></form>{% endif %}
@@ -3462,7 +3462,7 @@
     if (!sel || !box) return;
     var icEl = box.querySelector('.test-ic');
     var msgEl = box.querySelector('.test-msg');
-    var TROUBLE = 'https://github.com/wr/featherframe/blob/main/docs/troubleshooting-sources.md';
+    var TROUBLE = 'https://github.com/wr/featherframe/wiki/Troubleshooting#detection-sources';
     function val(name) { var el = document.querySelector('[name="' + name + '"]'); return el ? el.value : ''; }
     function body() {
       var p = new URLSearchParams();

@@ -461,7 +461,7 @@ def test_add_over_usb_is_in_the_frames_menu(client):
     assert '<h2 class="sec-head">Frames</h2>' in head
     assert 'role="menu" hidden' in head and ">USB firmware update</button>" in head and ">Check for updates</button>" in head
     assert 'href="https://shop.wells.ee/products/featherframe/"' in head and ">Buy a frame<" in head
-    assert 'href="https://github.com/wr/featherframe#shopping-list"' in head and ">DIY instructions<" in head
+    assert 'href="https://github.com/wr/featherframe/wiki/Build-the-frame"' in head and ">DIY instructions<" in head
 
 
 def test_the_household_sections_read_in_order(client):

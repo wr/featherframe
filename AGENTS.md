@@ -147,8 +147,14 @@ settings save/answer), and it answers each message with its usual GET, so
 is a 15 min heartbeat (`FF_PUSH_HEARTBEAT_MS`), which it names in `X-FF-Push`
 so overdue is measured against it (`0` = speaks push, no socket: polls as
 told); an open socket reads as heard from, and the row's *Update interval*
-is locked to *Instant*. Battery frames never open one. A server without the
-endpoint costs the firmware three refused opens, then a retry every 10 min.
+is locked to *Instant*. Battery frames never open one. A socket that closes
+is a check-in at once (a removed frame finds its pairing code; the server
+also sends a last message before closing one), and the firmware reopens it
+every ~30 s (`FF_PUSH_RETRY_MS` + up to `FF_PUSH_JITTER_MS`) for as long as
+it takes; meanwhile it polls at the served interval, which for a USB frame
+that speaks push is at most `PUSH_FALLBACK_POLL_S` (60 s) whatever it shows —
+never the collage's schedule. The offline corner mark (`FF_MARK_FAILS` failed
+checks and `FF_MARK_MINUTES` = 30 min) is what an owner sees of an outage.
 uvicorn needs `websockets`; its ping timeout is 60 s (`__main__`) because a
 colour paint holds the frame's loop ~30 s. A hosted hub (Durable Object)
 speaks the same protocol.

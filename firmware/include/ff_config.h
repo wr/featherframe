@@ -142,9 +142,8 @@
 // check); it is sent to the server as X-FF-Push so "overdue" is measured
 // against it. With the socket down the frame polls at X-Poll-Seconds as before.
 #define FF_PUSH_HEARTBEAT_MS (15UL * 60UL * 1000UL)
-#define FF_PUSH_RETRY_MS     30000UL          // reconnect gap
-#define FF_PUSH_GIVEUP_MS    (10UL * 60UL * 1000UL)   // …after FF_PUSH_GIVEUP_TRIES failed opens (a server without push)
-#define FF_PUSH_GIVEUP_TRIES 3
+#define FF_PUSH_RETRY_MS     30000UL          // reconnect gap, for as long as it takes…
+#define FF_PUSH_JITTER_MS    10000UL          // …plus up to this, so a restarted server is not stampeded
 #define FF_PUSH_PATH         "/api/frame/push"
 // The push task has not turned for this long: count the socket as down and
 // poll (a TLS connect it is stuck in gives up by itself, W-853).

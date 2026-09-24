@@ -309,7 +309,7 @@
     .hint-inline { color:var(--muted); }
     .intro { font-size:13px; color:var(--muted); margin:-4px 0 16px; line-height:1.5; max-width:62ch; }
 
-    input[type=text], input[type=url], input[type=number], input[type=password], input[type=time], textarea, select.sel {
+    input[type=text], input[type=url], input[type=email], input[type=number], input[type=password], input[type=time], textarea, select.sel {
       width:100%; padding:9px 12px; border:1px solid var(--border-strong); border-radius:6px;
       background:var(--white); color:var(--ink); font:inherit; font-size:14px;
       box-shadow:var(--sh-sm); transition:border-color .12s, box-shadow .12s;
@@ -1545,11 +1545,27 @@
 
       <div class="card">
         <section class="sec">
-          <h2 class="sec-head">Firmware</h2>
+          <h2 class="sec-head">General settings</h2>
+          <div class="frow stack">
+            <div class="frow-text"><label class="lab" for="f-email">Email</label>{% if hosted %}<div class="hint">Where sign-in links go.</div>{% endif %}</div>
+            <div class="frow-ctl"><input type="email" id="f-email" name="owner_email" value="{{ owner_email }}" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" {{ 'required' if hosted else '' }}></div>
+          </div>
           <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="fw-auto">Install updates automatically</label><div class="hint tnum" id="fw-latest">{{ ('Latest release: ' ~ fws.latest) if fws.latest else 'No release yet' }}</div></div>
+            <div class="frow-text"><label class="lab" for="fw-auto">Install firmware updates automatically</label><div class="hint tnum" id="fw-latest">{{ ('Latest release: ' ~ fws.latest) if fws.latest else 'No release yet' }}</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="fw-auto" name="firmware_auto_update" {{ 'checked' if config.firmware_auto_update else '' }}><span class="track"></span></label></div>
           </div>
+          {% if not hosted %}
+          <div class="frow toggle">
+            <div class="frow-text"><label class="lab" for="pw-on">Require a password</label><div class="hint">To open this page. Frames connect without it.</div></div>
+            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="pw-on" name="page_password_on" {{ 'checked' if password_on else '' }}><span class="track"></span></label></div>
+          </div>
+          <div class="reveal{{ '' if password_on else ' collapsed' }}" id="pw-reveal" {{ '' if password_on else 'hidden' }}><div class="reveal-body">
+          <div class="frow stack">
+            <div class="frow-text"><label class="lab" for="pw-input">{{ 'New password' if password_on else 'Password' }}</label></div>
+            <div class="frow-ctl"><input type="password" id="pw-input" name="page_password" autocomplete="new-password" data-stored="{{ 'true' if password_on else 'false' }}" {{ 'placeholder=Unchanged' if password_on else '' }}></div>
+          </div>
+          </div></div>
+          {% endif %}
         </section>
       </div>
 
@@ -1617,7 +1633,7 @@
     <a href="https://github.com/wr/featherframe#hardware" target="_blank" rel="noopener">Hardware guide</a>
     <a href="https://buymeacoffee.com/wellsworkshop" target="_blank" rel="noopener">Donate</a>
     <span class="ver">Featherframe v{{ version }}</span>
-    {% if hosted %}<form method="post" action="/logout" class="signout"><button class="linkish" type="submit">Sign out</button></form>{% endif %}
+    {% if hosted or password_on %}<form method="post" action="/logout" class="signout"><button class="linkish" type="submit">Sign out</button></form>{% endif %}
     <div class="theme" role="group" aria-label="Page theme" id="theme-ctl">
       <button type="button" data-theme="light" aria-pressed="false">Light</button>
       <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
@@ -1726,10 +1742,13 @@
     else if (q.get('saved')) {
       var adj = (q.get('adjusted') || '').split(',').filter(Boolean).map(function (k) { return FIELD_NAMES[k] || k; });
       if (adj.length) showFlash('warn', 'Settings saved, but these were adjusted to their allowed range: ' + adj.join(', ') + '.', 'ic-warn');
+      else if (q.get('email_sent')) showFlash('ok', 'Settings saved. Check ' + q.get('email_sent') + ' to confirm the new email.', 'ic-check');
+      else if (q.get('email_taken')) showFlash('warn', 'Settings saved, but that email is already in use.', 'ic-warn');
       else showFlash('ok', 'Settings saved.', 'ic-check');
       shown = true;
     }
-    if (q.has('saved') || q.has('error') || q.has('adjusted')) {
+    else if (q.get('email_changed')) { showFlash('ok', 'Email changed.', 'ic-check'); shown = true; }
+    if (q.has('saved') || q.has('error') || q.has('adjusted') || q.has('email_changed')) {
       try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* fine */ }
     }
   })();
@@ -2454,6 +2473,17 @@
     }
     document.querySelectorAll('input[name="quiet_hours_mode"]').forEach(function (r) { r.addEventListener('change', syncQuiet); });
     syncQuiet();
+    // password: the field follows the switch, and is needed to turn it on
+    var pwOn = $('pw-on'), pwIn = $('pw-input');
+    if (pwOn && pwIn) {
+      var syncPw = function () {
+        setRevealed($('pw-reveal'), pwOn.checked);
+        pwIn.required = pwOn.checked && pwIn.getAttribute('data-stored') !== 'true';
+        $('f-email').required = pwOn.checked;   // the sign-in's name
+      };
+      pwOn.addEventListener('change', syncPw);
+      syncPw();
+    }
     // detection-source fields follow the select
     var sel = $('src-sel');
     function syncSrc() {

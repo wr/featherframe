@@ -18,6 +18,7 @@ import re
 import shutil
 import socket
 import threading
+import time
 from dataclasses import dataclass
 from datetime import date as ddate
 from datetime import datetime, timedelta
@@ -28,7 +29,7 @@ from urllib.parse import quote
 
 from PIL import Image
 
-from . import firmware_release
+from . import auth, firmware_release
 from . import plate_library
 from . import frames as frames_mod
 from . import panels, paths
@@ -100,6 +101,9 @@ DWELL_MINUTES = 90
 # is down — which must stay short, or a dropped socket meant hours of silence
 # on the collage's schedule (a USB frame suddenly acting like a battery one).
 PUSH_FALLBACK_POLL_S = 60
+# Repaints a generated plate may be asked for in an hour (W-773): each one
+# spends the owner's API credit, and the button is one click.
+REGEN_PER_HOUR = 6
 # Gone-quiet alarm: a plate footnote and a page banner once nothing has been
 # heard for this many ACTIVE hours. Hours inside quiet hours don't count, so a
 # silent night never trips it. The common month-two failure (mic unplugged,
@@ -534,6 +538,8 @@ class FeatherframeService:
         # kit, a TRMNL, a tablet.
         self.frames = FrameRegistry(self.db)
         self.config: Config = load_config(self.db)
+        # The page's password, off unless the owner sets one (W-773).
+        self.password = auth.PasswordGate(self.db)
         # The latest official firmware release, offered to the kits (W-838).
         self.releases = firmware_release.ReleaseStore(self.db, paths.data_dir())
         # The frames holding a push socket (W-841), woken after every tick.
@@ -569,6 +575,7 @@ class FeatherframeService:
         self._regen_lock = threading.Lock()
         self._regen_inflight: set[str] = set()
         self._regen_errors: dict[str, str] = {}
+        self._regen_started: list[float] = []   # monotonic, the last hour's
 
         # Background one-shot jobs (test detection, collage) the config
         # page kicks off and polls — same fire-and-forget contract as repaints,
@@ -1405,11 +1412,24 @@ class FeatherframeService:
         with self._regen_lock:
             if slug in self._regen_inflight:
                 return True
+            if self._regen_limited_locked():
+                return False
+            self._regen_started.append(time.monotonic())
             self._regen_inflight.add(slug)
             self._regen_errors.pop(slug, None)
         threading.Thread(target=self._regen_worker, args=(slug,),
                          name=f"ff-regen-{slug}", daemon=True).start()
         return True
+
+    def regen_limited(self) -> bool:
+        """True once REGEN_PER_HOUR repaints have started in the last hour."""
+        with self._regen_lock:
+            return self._regen_limited_locked()
+
+    def _regen_limited_locked(self) -> bool:
+        cutoff = time.monotonic() - 3600
+        self._regen_started = [t for t in self._regen_started if t > cutoff]
+        return len(self._regen_started) >= REGEN_PER_HOUR
 
     def _regen_worker(self, slug: str) -> None:
         """Runs regenerate_generated off the request thread. The in-flight

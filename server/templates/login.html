@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · Featherframe</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+  {# The same card as the hosted sign-in (hosted/src/pages.ts). #}
+  <style>
+    :root { --bg:#ececea; --surface:#fcfcfb; --ink:#201e1a; --ink-2:#474540; --muted:#827e76;
+      --border:#e6e4dd; --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e;
+      color-scheme:light; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+      --bg:#171614; --surface:#211f1c; --ink:#ecebe7; --ink-2:#c9c6bf; --muted:#8f8b83;
+      --border:#34312c; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); color-scheme:dark; } }
+    @font-face { font-family:"Featherframe Script"; src:url("/fonts/script.ttf") format("truetype"); font-display:swap; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
+      background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+    main { width:100%; max-width:380px; }
+    .wordmark { font-family:"Featherframe Script",Georgia,serif; font-size:48px; line-height:1; text-align:center; margin:0 0 28px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; }
+    h1 { font-size:17px; font-weight:600; margin:0 0 16px; }
+    p { margin:0 0 16px; }
+    .bad { color:var(--bad); }
+    label { display:block; font-size:13px; color:var(--muted); margin:0 0 6px; }
+    input { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+      background:var(--bg); color:var(--ink); margin-bottom:14px; }
+    input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
+    button { width:100%; font:inherit; font-weight:600; padding:10px 12px; border:0; border-radius:8px;
+      background:var(--accent); color:var(--on-accent); cursor:pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="wordmark">Featherframe</p>
+    <div class="card">
+      <h1>Sign in</h1>
+      {% if error %}<p class="bad" role="alert">{{ error }}</p>{% endif %}
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="{{ next }}">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="username" value="{{ email }}" {{ '' if email else 'autofocus' }}>
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required {{ 'autofocus' if email else '' }}>
+        <button type="submit">Sign in</button>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

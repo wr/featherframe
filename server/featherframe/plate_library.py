@@ -222,6 +222,7 @@ def published_keys(source: str) -> frozenset:
 
 
 BUCKET = "featherframe-plates"
+_HOSTED_DIR = Path(__file__).resolve().parents[2] / "hosted"     # its wrangler and config
 _TYPES = {".png": "image/png", ".webp": "image/webp", ".json": "application/json"}
 
 
@@ -235,7 +236,7 @@ def upload(out_dir: Path, bucket: str = BUCKET) -> int:
         key = f.relative_to(out_dir).as_posix()
         subprocess.run(["npx", "wrangler", "r2", "object", "put", f"{bucket}/{key}",
                         f"--file={f}", f"--content-type={_TYPES.get(f.suffix, 'application/octet-stream')}",
-                        "--remote"], check=True)
+                        "--remote"], check=True, cwd=_HOSTED_DIR if _HOSTED_DIR.is_dir() else None)
         log.info("uploaded %s", key)
     return len(files)
 

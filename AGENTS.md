@@ -333,6 +333,19 @@ on that port, which steps aside to pair once it has installed or set up Wi-Fi. m
 advertises the first `on` kit's panel key; a frame whose panel no server claims
 takes any that answers.
 
+**The page's password (W-773, `auth.py`) is off by default.** *Require a
+password* in the page's *General settings* card (with *Email* and the
+firmware auto-update switch) turns on a sign-in page (`/login`: the owner's
+email, `Config.owner_email`, plus the password) that sets a signed session
+cookie (`ff_session`, bound to the password's salt, so a new password signs
+everyone out). Only a PBKDF2 hash is kept, in the kv store, never in
+`Config`. Every route asks for it except what screens use (`auth.is_open`).
+Never on hosted: the Worker signs in there, says the account's email to the
+page in `X-FF-Account-Email`, and takes the form's `owner_email` itself — a
+change is confirmed by a link to the new address (`email_changes`, D1
+migration 0003). `python -m featherframe --clear-password` is the way back
+in. A generated plate's repaint is capped at `REGEN_PER_HOUR`.
+
 **Ingest (`birdnet.py`) is strictly read-only.** Opens `?mode=ro`, never writes
 or locks BirdNET's DB. The cursor is `WHERE rowid > :last`. Every method
 soft-fails to a safe default (None/[]/0) so a missing or odd DB keeps the current

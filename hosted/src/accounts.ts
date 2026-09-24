@@ -2,10 +2,11 @@
 // household; signing up is by invitation. Only hashes of secrets are stored.
 
 import type { Env } from "./index";
-import { checkEmailPage, inviteEmail, linkExpiredPage, loginPage, signInEmail } from "./pages";
+import { checkEmailPage, confirmEmailEmail, inviteEmail, linkExpiredPage, loginPage, signInEmail } from "./pages";
 import { cookie, randomHex, sha256, validTz } from "./util";
 
 const LINK_TTL_S = 15 * 60;
+const CHANGE_TTL_S = 24 * 60 * 60;
 const SESSION_TTL_S = 30 * 24 * 60 * 60;
 export const SESSION_COOKIE = "ff_session";
 
@@ -97,14 +98,60 @@ export async function logout(request: Request, env: Env): Promise<Response> {
   });
 }
 
+export interface SessionUser { uid: string; email: string; hid: string }
+
 /** The signed-in user and their household, or null. */
-export async function sessionUser(request: Request, env: Env): Promise<{ email: string; hid: string } | null> {
+export async function sessionUser(request: Request, env: Env): Promise<SessionUser | null> {
   const session = cookie(request, SESSION_COOKIE);
   if (!session) return null;
   const row = await env.DB.prepare(
-    "SELECT u.email AS email, u.household_id AS hid FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?")
-    .bind(await sha256(session), now()).first<{ email: string; hid: string }>();
+    "SELECT u.id AS uid, u.email AS email, u.household_id AS hid FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?")
+    .bind(await sha256(session), now()).first<SessionUser>();
   return row ?? null;
+}
+
+// -- changing the email (W-773) -------------------------------------------------
+/** Ask to move this login to `email`: a link to the new address confirms it.
+ * "taken" when another login already has it. */
+export async function startEmailChange(env: Env, uid: string, email: string): Promise<"sent" | "taken"> {
+  const taken = await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first();
+  if (taken) return "taken";
+  const token = randomHex(32);
+  await env.DB.prepare("INSERT INTO email_changes (token_hash, user_id, email, expires_at) VALUES (?, ?, ?, ?)")
+    .bind(await sha256(token), uid, email, now() + CHANGE_TTL_S).run();
+  await sendMail(env, email, confirmEmailEmail(`https://${env.APP_HOST}/account/email?t=${token}`));
+  return "sent";
+}
+
+/** The link from that email: the login's email is now the new one. */
+export async function confirmEmailChange(env: Env, url: URL): Promise<Response> {
+  const hash = await sha256(url.searchParams.get("t") || "");
+  const row = await env.DB.prepare("SELECT user_id, email, expires_at, used_at FROM email_changes WHERE token_hash = ?")
+    .bind(hash).first<{ user_id: string; email: string; expires_at: number; used_at: number | null }>();
+  if (!row || row.used_at || row.expires_at < now()) return linkExpiredPage();
+  const taken = await env.DB.prepare("SELECT 1 FROM users WHERE email = ? AND id != ?").bind(row.email, row.user_id).first();
+  if (taken) return linkExpiredPage();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE email_changes SET used_at = ? WHERE token_hash = ?").bind(now(), hash),
+    env.DB.prepare("UPDATE users SET email = ? WHERE id = ?").bind(row.email, row.user_id),
+  ]);
+  return new Response(null, { status: 303, headers: { Location: "/?email_changed=1" } });
+}
+
+/** The page's settings form, on its way to the household's server: the
+ * email in it is the account's, which is ours to change, not the server's. */
+export async function settingsForm(request: Request, env: Env, user: SessionUser,
+                                   forward: (r: Request) => Promise<Response>): Promise<Response> {
+  const body = await request.text();
+  const wanted = normEmail(new URLSearchParams(body).get("owner_email"));
+  const change = wanted && wanted !== user.email ? await startEmailChange(env, user.uid, wanted) : null;
+  const response = await forward(new Request(request, { body }));
+  const location = response.headers.get("Location");
+  if (!change || response.status !== 303 || !location || !location.includes("saved=1")) return response;
+  const extra = change === "sent" ? `&email_sent=${encodeURIComponent(wanted)}` : "&email_taken=1";
+  const headers = new Headers(response.headers);
+  headers.set("Location", location + extra);
+  return new Response(null, { status: 303, headers });
 }
 
 /** The signed-in household, or null. */

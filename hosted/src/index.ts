@@ -13,7 +13,7 @@
 // frames while the server sleeps, and HouseholdServer (containers.ts), the
 // box's own Python server in a Container.
 
-import { admin, auth, login, logout, sessionHousehold } from "./accounts";
+import { admin, auth, confirmEmailChange, login, logout, sessionUser, settingsForm } from "./accounts";
 import { adminRoute, waitlistRoute } from "./admin";
 import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
 import { LOBBY_DRAWING, expiryText, pairingCode } from "./pairing";
@@ -60,6 +60,7 @@ export default {
     if (path === "/login") return login(request, env);
     if (path === "/auth") return auth(request, env, url);
     if (path === "/logout" && request.method === "POST") return logout(request, env);
+    if (path === "/account/email") return confirmEmailChange(env, url);
     if (path.startsWith("/_admin/")) return admin(request, env, path.slice("/_admin/".length));
     if (path === "/admin" || path.startsWith("/admin/")) return adminRoute(request, env, url);
     if (path === "/api/waitlist") return waitlistRoute(request, env);
@@ -77,8 +78,9 @@ export default {
       return row ? toHousehold(env, row.id, request) : Response.json({ error: "bad token" }, { status: 403 });
     }
 
-    const hid = await sessionHousehold(request, env);
-    if (!hid) {
+    const user = await sessionUser(request, env);
+    const hid = user?.hid;
+    if (!user || !hid) {
       if (request.method === "GET" && (request.headers.get("Accept") || "").includes("text/html")) {
         return Response.redirect(`https://${env.APP_HOST}/login`, 303);
       }
@@ -86,14 +88,20 @@ export default {
     }
     if (path === "/api/pair" && request.method === "POST") return pair(request, env, hid);
     if (path === "/api/pair/usb" && request.method === "POST") return pairUsb(request, env, hid);
-    return toHousehold(env, hid, request);
+    // The page shows the account's email (W-773), said here, never by the client.
+    const page = (r: Request) => toHousehold(env, hid, r, user.email);
+    if (path === "/settings" && request.method === "POST") return settingsForm(request, env, user, page);
+    return page(request);
   },
 } satisfies ExportedHandler<Env>;
 
-/** Hand a request to its household's front door, saying whose it is. */
-function toHousehold(env: Env, hid: string, request: Request): Promise<Response> {
+/** Hand a request to its household's front door, saying whose it is (and,
+ * from a signed-in page, who is signed in). */
+function toHousehold(env: Env, hid: string, request: Request, email?: string): Promise<Response> {
   const headers = new Headers(request.headers);
   headers.set("X-FF-Household", hid);         // set here, never taken from the client
+  headers.delete("X-FF-Account-Email");
+  if (email) headers.set("X-FF-Account-Email", email);
   return env.HOUSEHOLD.getByName(hid).fetch(new Request(request, { headers }));
 }
 

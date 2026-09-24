@@ -30,7 +30,7 @@ from starlette.background import BackgroundTask
 
 from . import __version__, auth, discovery, hosted, panels, paths, viewers
 from . import frames as frames_mod
-from .config import Config, valid_hhmm
+from .config import Config, valid_email, valid_hhmm
 from .names import display_common_name, normalize
 from .render import pipeline, typography
 from .service import FeatherframeService
@@ -92,18 +92,84 @@ async def _hosted_settle(request: Request, call_next):
 
 @app.middleware("http")
 async def _page_password(request: Request, call_next):
-    """The page's optional password (W-773): asked for every route but the
-    ones screens use, and never on a hosted household, which has its own
-    sign-in."""
+    """The page's optional password (W-773): a signed-in session for every
+    route but the ones screens use, and never on a hosted household, which
+    has its own sign-in."""
     state = request.app.state
     gate = getattr(getattr(state, "service", None), "password", None)
-    if (gate is None or not gate.on or getattr(state, "hosted", None) is not None
-            or auth.is_open(request.url.path)):
+    if (gate is None or getattr(state, "hosted", None) is not None
+            or auth.is_open(request.url.path)
+            or gate.allows(request.cookies.get(auth.COOKIE))):
         return await call_next(request)
-    if await run_in_threadpool(gate.allows, request.headers.get("authorization")):
-        return await call_next(request)
-    return Response("Password required.", status_code=401, media_type="text/plain",
-                    headers={"WWW-Authenticate": f'Basic realm="{auth.REALM}", charset="UTF-8"'})
+    if request.method == "GET" and "text/html" in request.headers.get("accept", ""):
+        target = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        return RedirectResponse("/login" + ("" if target == "/" else "?next=" + quote(target, safe="")),
+                                status_code=303)
+    return JSONResponse({"error": "sign in"}, status_code=401)
+
+
+def _session_cookie(response: Response, request: Request, value: Optional[str]) -> None:
+    secure = request.url.scheme == "https"
+    if value is None:
+        response.delete_cookie(auth.COOKIE, path="/", httponly=True, samesite="lax", secure=secure)
+    else:
+        response.set_cookie(auth.COOKIE, value, max_age=auth.SESSION_DAYS * 86400, path="/",
+                            httponly=True, samesite="lax", secure=secure)
+
+
+def _local_gate(request: Request):
+    """The password gate, or None on a hosted household (the Worker signs in)."""
+    if getattr(request.app.state, "hosted", None) is not None:
+        return None
+    return _svc(request).password
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, next: Optional[str] = None):
+    gate = _local_gate(request)
+    if gate is None or not gate.on or gate.allows(request.cookies.get(auth.COOKIE)):
+        return RedirectResponse(auth.safe_next(next), status_code=303)
+    return templates.TemplateResponse(request, "login.html", {
+        "next": auth.safe_next(next), "email": _svc(request).config.owner_email, "error": ""})
+
+
+@app.post("/login")
+async def login_submit(request: Request):
+    gate = _local_gate(request)
+    if gate is None or not gate.on:
+        return RedirectResponse("/", status_code=303)
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    form = await request.form()
+    email = form.get("email") if isinstance(form.get("email"), str) else ""
+    password = form.get("password") if isinstance(form.get("password"), str) else ""
+    target = auth.safe_next(form.get("next") if isinstance(form.get("next"), str) else "/")
+    owner = _svc(request).config.owner_email
+
+    def page(error: str, status: int):
+        return templates.TemplateResponse(request, "login.html", {
+            "next": target, "email": email or owner, "error": error}, status_code=status)
+
+    if gate.throttled():
+        return page("Too many tries. Wait a few minutes.", 429)
+    ok = await run_in_threadpool(gate.check, password)
+    if ok and owner and valid_email(email) != owner:
+        ok = False
+    if not ok:
+        gate.failed()
+        return page("That email and password don't match.", 401)
+    response = RedirectResponse(target, status_code=303)
+    _session_cookie(response, request, gate.new_session())
+    return response
+
+
+@app.post("/logout")
+async def logout(request: Request):
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    response = RedirectResponse("/login", status_code=303)
+    _session_cookie(response, request, None)
+    return response
 
 
 if paths.static_dir().exists():
@@ -565,6 +631,11 @@ async def index(request: Request):
          # their glass, and there is someone signed in to sign out.
          "hosted": getattr(request.app.state, "hosted", None) is not None,
          "password_on": svc.password.on,
+         # The email on the page: the owner's, or on hosted the signed-in
+         # account's, which the Worker says (never the client).
+         "owner_email": (request.headers.get("x-ff-account-email", "")
+                         if getattr(request.app.state, "hosted", None) is not None
+                         else svc.config.owner_email),
          # Each kit as it is sold, for the USB dialog's choice.
          "kit_names": {k: p.title for k, p in panels.PANELS.items() if p.title}})
 
@@ -623,6 +694,10 @@ async def save_settings(request: Request):
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
         firmware_auto_update=b("firmware_auto_update"),
+        # A hosted household's email is its account's, which the Worker
+        # changes (with a confirmation) before this form reaches us.
+        owner_email=(cur["owner_email"] if getattr(request.app.state, "hosted", None) is not None
+                     else s("owner_email", cur["owner_email"])),
         collage_species_max=limit("collage_species_max", cur["collage_species_max"]),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
@@ -638,18 +713,22 @@ async def save_settings(request: Request):
         imagegen_text_key=(s("imagegen_text_key", "").strip()
                            or ("" if b("imagegen_text_clear_key") else cur["imagegen_text_key"])),
     )
+    new_session = None
     try:
         svc.update_config(new)
         _announce_panel(request, svc)
         # The page's password (W-773): off unless switched on; a blank field
-        # keeps the one stored. Not a hosted page's to set.
-        if getattr(request.app.state, "hosted", None) is None:
+        # keeps the one stored. Not a hosted page's to set. Setting one keeps
+        # this browser signed in.
+        gate = _local_gate(request)
+        if gate is not None:
             typed = s("page_password", "")
             if not b("page_password_on"):
-                if svc.password.on:
-                    await run_in_threadpool(svc.password.set, None)
+                if gate.on:
+                    await run_in_threadpool(gate.set, None)
             elif typed:
-                await run_in_threadpool(svc.password.set, typed)
+                await run_in_threadpool(gate.set, typed)
+                new_session = gate.new_session()
     except Exception as exc:  # noqa: BLE001 — surface it on the page, keep the old config
         log.exception("saving settings failed")
         return RedirectResponse("/?error=" + quote(f"Settings were not saved: {exc}"),
@@ -657,8 +736,11 @@ async def save_settings(request: Request):
     # Config.sanitize() clamps silently; tell the page which fields it changed
     # so the user isn't left staring at a different number than they typed.
     adjusted = _adjusted_fields(form, svc.config)
-    return RedirectResponse("/?saved=1" + ("&adjusted=" + ",".join(adjusted) if adjusted else ""),
-                            status_code=303)
+    response = RedirectResponse("/?saved=1" + ("&adjusted=" + ",".join(adjusted) if adjusted else ""),
+                                status_code=303)
+    if new_session:
+        _session_cookie(response, request, new_session)
+    return response
 
 
 _NUMERIC_FORM_FIELDS = ("collage_interval_hours", "collage_species_max")

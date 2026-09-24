@@ -183,3 +183,12 @@ export function inviteEmail(link: string): { subject: string; text: string; html
     html: `<p>You're invited to Featherframe. Sign in with this email to start:</p><p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>`,
   };
 }
+
+export function confirmEmailEmail(link: string): { subject: string; text: string; html: string } {
+  return {
+    subject: "Confirm your Featherframe email",
+    text: `Use this address to sign in to Featherframe:\n\n${link}\n\nThe link works once, for a day. If you didn't ask for it, ignore this email.`,
+    html: `<p>Use this address to sign in to Featherframe:</p><p><a href="${escapeHtml(link)}">Confirm</a></p>
+<p style="color:#827e76">The link works once, for a day. If you didn't ask for it, ignore this email.</p>`,
+  };
+}

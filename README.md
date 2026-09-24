@@ -113,8 +113,9 @@ backup…** on the new install puts them back, and never replaces a newer plate.
 
 > **No login by default.** The page is for your home network: never
 > port-forward it or expose it to the internet. To ask for a password anyway,
-> turn on *Require a password* at the bottom of the page (HTTP Basic, any user
-> name; frames and viewers connect without it). Locked out?
+> turn on *Require a password* under *General settings* (you sign in on a
+> page with your email and that password; frames and viewers connect without
+> it). Locked out?
 > `server/.venv/bin/python -m featherframe --clear-password` with the same
 > `FEATHERFRAME_*` environment as the service, then restart it.
 

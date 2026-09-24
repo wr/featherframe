@@ -8,6 +8,7 @@ from __future__ import annotations
 import dataclasses
 import math
 import os
+import re
 import secrets
 from dataclasses import dataclass, field
 from datetime import date, time as dtime
@@ -34,6 +35,12 @@ def valid_hhmm(value) -> dtime | None:
         return dtime(int(hh), int(mm))  # dtime() range-checks both
     except (ValueError, AttributeError, TypeError):
         return None
+
+
+def valid_email(value) -> str:
+    """The address, trimmed and lower-cased, or "" when it isn't one."""
+    s = str(value or "").strip().lower()
+    return s if (len(s) <= 254 and re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", s)) else ""
 
 
 # Blocklist bounds: the config blob is loaded on every tick, so it must stay
@@ -185,6 +192,10 @@ class Config:
     # Install each official firmware release on every frame already on an
     # official one, without a press (W-838). A dev build is never replaced.
     firmware_auto_update: bool = False
+    # The owner's email (W-773): the name the page's sign-in asks for when a
+    # password is set. A hosted household's is its account's, kept by the
+    # Worker, and this one is not read there.
+    owner_email: str = ""
 
     def __post_init__(self) -> None:
         self.sanitize()
@@ -236,6 +247,7 @@ class Config:
         self.mat_offset_y_px = int(_clamp(int(self.mat_offset_y_px), -120, 120))
         self.mat_guide = bool(self.mat_guide)
         self.firmware_auto_update = bool(self.firmware_auto_update)
+        self.owner_email = valid_email(self.owner_email)
         if self.imagegen_provider not in ("openai", "gemini", "replicate", "a1111"):
             self.imagegen_provider = "openai"
         self.imagegen_base_url = str(self.imagegen_base_url or "").strip().rstrip("/")

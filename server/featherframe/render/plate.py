@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 from PIL import Image
@@ -93,7 +93,8 @@ def _extend(frac: np.ndarray, lo: int, hi: int, thr: float, gap: int) -> tuple[i
     return lo, hi
 
 
-def content_box(gray: Image.Image, pad: float = 0.015) -> tuple[int, int, int, int]:
+def content_box(gray: Image.Image, pad: float = 0.015,
+                mirror: bool = True) -> tuple[int, int, int, int]:
     """Bounding box (in `gray` pixel coords) of the subject, symmetric about
     the plate centre.
 
@@ -102,7 +103,9 @@ def content_box(gray: Image.Image, pad: float = 0.015) -> tuple[int, int, int, i
        then extended through faint contiguous ink until a real paper gap.
     2. Horizontal extent = significant columns within that band, extended the
        same way.
-    3. Mirrored about the plate centre per axis, out to the farther edge.
+    3. Mirrored about the plate centre per axis, out to the farther edge
+       (Havell's placement survives); `mirror=False` keeps the art's own box,
+       for a folio whose sheets are mostly paper (W-702).
     """
     ink, back = _ink_map(gray)
     row_mass = ink.sum(axis=1)
@@ -141,6 +144,8 @@ def content_box(gray: Image.Image, pad: float = 0.015) -> tuple[int, int, int, i
     if (r - l) * (bb - tt) < 0.18 * gray.width * gray.height:
         return _fallback_box(gray)
 
+    if not mirror:
+        return int(l), int(tt), int(r), int(bb)
     # Symmetric about the plate centre, out to the farther content edge.
     cx, cy = gray.width / 2, gray.height / 2
     hw, hh = max(cx - l, r - cx), max(cy - tt, bb - cy)
@@ -239,16 +244,25 @@ def paper_normalize_color(rgb: Image.Image) -> Image.Image:
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="RGB")
 
 
-def _trim_marginalia(plate_img: Image.Image) -> Image.Image:
+# The part of a Havell sheet kept, as (left, top, right, bottom) fractions.
+# Measured across the plates: the top "N° / PLATE" line sits at ~5-6.5% and
+# the printed caption in the bottom ~6-9%. The bird is always below/above.
+HAVELL_MARGINS = (0.025, 0.068, 0.975, 0.912)
+
+
+def _trim_marginalia(plate_img: Image.Image, margins: Optional[Sequence[float]] = None) -> Image.Image:
     """Physically remove the outer printed margin bands of the plate: the
     'N° 32 / PLATE CLIX' line across the top and the engraved species caption
     across the bottom. The bird is always well inside these, so this guarantees
     no plate lettering leaks into the composition. Works on the gray plate and
-    its colour twin alike, and cleans both in exactly the same place."""
-    # Measured across the plates: the top "N° / PLATE" line sits at ~5-6.5% and
-    # the printed caption in the bottom ~6-9%. The bird is always below/above.
+    its colour twin alike, and cleans both in exactly the same place.
+
+    `margins` is the part kept, for a folio whose sheets are lettered
+    elsewhere (W-702: Gould's captions sit higher, and a copy's pencilled
+    plate number sits in its margin); Havell's by default."""
+    left, top, right, bottom = margins or HAVELL_MARGINS
     w, h = plate_img.size
-    trimmed = plate_img.crop((int(w * 0.025), int(h * 0.068), int(w * 0.975), int(h * 0.912)))
+    trimmed = plate_img.crop((int(w * left), int(h * top), int(w * right), int(h * bottom)))
     return _lift_corner_lettering(trimmed)
 
 
@@ -357,34 +371,43 @@ def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]
         return []
 
 
-def extract(path: str | Path, composite: bool = False,
-            crop_box: Optional[list] = None) -> Image.Image:
-    """Load a plate and return the normalised bird artwork ('L')."""
-    gray = _trim_marginalia(load_gray(path))
+# A tight crop's paper band, as a fraction of the art's box per side: room
+# to breathe inside the mat, and enough clear paper at the edges that compose
+# contain-fits the art rather than cover-fitting (and so cutting) it.
+TIGHT_PAD = 0.05
+
+
+def _box(gray: Image.Image, composite: bool, crop_box, tight: bool) -> tuple[int, int, int, int]:
     if crop_box:
         # crop_box is normalised within the marginalia-trimmed plate
-        box = _norm_box(gray, crop_box)
-    elif composite:
-        box = (0, 0, gray.width, gray.height)  # whole (trimmed) plate: all birds
-    else:
-        box = content_box(gray)
-    crop = gray.crop(box)
+        return _norm_box(gray, crop_box)
+    if tight:
+        # The art's own box, composite or not: on a sheet that is one vignette
+        # (Gould's) every figure is inside it, and the rest is paper.
+        return content_box(gray, pad=TIGHT_PAD, mirror=False)
+    if composite:
+        return (0, 0, gray.width, gray.height)  # whole (trimmed) plate: all birds
+    return content_box(gray)
+
+
+def extract(path: str | Path, composite: bool = False,
+            crop_box: Optional[list] = None, margins: Optional[Sequence[float]] = None,
+            tight: bool = False) -> Image.Image:
+    """Load a plate and return the normalised bird artwork ('L')."""
+    gray = _trim_marginalia(load_gray(path), margins)
+    crop = gray.crop(_box(gray, composite, crop_box, tight))
     return paper_normalize(crop)
 
 
-def extract_color(path: str | Path, composite: bool = False,
-                  crop_box: Optional[list] = None) -> tuple[Image.Image, Image.Image]:
+def extract_color(path: str | Path, composite: bool = False, crop_box: Optional[list] = None,
+                  margins: Optional[Sequence[float]] = None,
+                  tight: bool = False) -> tuple[Image.Image, Image.Image]:
     """extract for a colour panel: (gray, colour) of the same crop. The gray
     drives every layout decision exactly as on the gray panel; the colour twin
     is what gets placed."""
-    rgb = _trim_marginalia(load_color(path))
+    rgb = _trim_marginalia(load_color(path), margins)
     gray = rgb.convert("L")
-    if crop_box:
-        box = _norm_box(gray, crop_box)
-    elif composite:
-        box = (0, 0, gray.width, gray.height)
-    else:
-        box = content_box(gray)
+    box = _box(gray, composite, crop_box, tight)
     return paper_normalize(gray.crop(box)), paper_normalize_color(rgb.crop(box))
 
 

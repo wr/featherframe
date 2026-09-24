@@ -360,7 +360,7 @@ def date_mark_max_width() -> float:
 
 def roman(n: int) -> str:
     """159 -> "CLIX". Havell's plates run I to CCCCXXXV, and he engraved four
-    hundred as CCCC, not CD; so does this."""
+    hundred as CCCC, not CD; so does this, for every folio."""
     out = []
     for value, glyphs in ((100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
                           (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")):
@@ -386,8 +386,9 @@ def plate_mark_width(plate: int) -> float:
 
 
 def plate_mark(field: Image.Image, plate: int) -> float:
-    """"Plate CLIX" in the bottom-right corner: the Havell plate number, as
-    the sheet itself is engraved (W-821). "Plate" is in the corner marks'
+    """"Plate CLIX" in the bottom-right corner: the folio's plate number (the
+    Havell number for an Audubon plate, W-821; Gould's General List number for
+    one of his, W-702). "Plate" is in the corner marks'
     script; the numeral is in the engraved capitals, because a run of script
     capitals is a run of swashes nobody can read. Returns the mark's width."""
     prefix, numeral = _plate_mark_parts(plate)
@@ -407,9 +408,9 @@ def plate_mark(field: Image.Image, plate: int) -> float:
 
 @lru_cache(maxsize=1)
 def plate_mark_max_width() -> float:
-    """The widest mark any Havell plate can carry (CCCLXXXVIII, give or take
+    """The widest mark any folio's plate can carry (CCCCXXXVIII, give or take
     the face's own widths): what the footnote must leave room for."""
-    return max(plate_mark_width(n) for n in range(1, theme.HAVELL_PLATES + 1))
+    return max(plate_mark_width(n) for n in range(1, theme.MAX_PLATE + 1))
 
 
 def first_ever_rule(field: Image.Image) -> None:

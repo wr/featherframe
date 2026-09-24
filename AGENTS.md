@@ -416,7 +416,10 @@ holds it); ~1.2 GB for the edition. `FEATHERFRAME_PLATE_LIBRARY` (a directory
 or a URL, fetched on first use into `data/plate-library/`) puts
 `LibraryProvider` in place of `PlateProvider` — for a server with no scans,
 the hosted render Container first. Build: `python -m featherframe.plate_library
-build OUT_DIR` on a machine with every scan.
+build OUT_DIR` on a machine with every scan; for an update, `build OUT_DIR
+--against https://plates.featherframe.app` takes only the crops R2 lacks, and
+`upload OUT_DIR` puts them in the bucket (wrangler), `library.json` last.
+A crop's key includes a folio's own `margins`, so Havell's keys never move.
 
 **Hosted (W-841–W-847, `hosted/`).** One host, `app.featherframe.app` (the
 apex is the marketing page, not routed; `plates.` is the W-842 library). The
@@ -496,6 +499,20 @@ Container restarts); D1 schema in `hosted/migrations/`.
   the next folio, never to a guess. The AI's style references are Havell
   plates only (`genart._havell_species`), because its prompts name the Havell
   edition. `test_crosswalk.py` guards the tricky numbers.
+  `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General
+  List number (the plates were issued unnumbered); `volume` + `leaf` address
+  the scan, fetched from BHL's public S3 bucket by the header's `scans`
+  template (`fetch_scans`, JP2 masters). Its sheets are not Havell's, so the
+  fetcher stands a landscape plate upright (`rotate`) and evens its paper
+  (`flatten`: a quadratic paper surface divided out, so no subject is taken
+  for paper, then anything within `PAPER_CLEAR` of the paper cleared to pure
+  white — the paper is not the artist's, and near-white dithers to speckle),
+  crops it to the art's own box (`tight`: `content_box(mirror=False)`, since
+  a Gould sheet is one vignette on a lot of paper), and `margins` ([l, t, r, b], per folio or per plate) replaces
+  `plate.HAVELL_MARGINS` in `_trim_marginalia`: Gould's captions sit higher
+  and each copy carries its number in pencil. A plate is pinned only once
+  its engraved caption reads right on the scan; his "Black-headed Gull" is
+  today's Mediterranean Gull.
 - **Framebuffer format (FFF) is a contract with the firmware.** 16-byte header +
   packed pixels: 4bpp = 2px/byte, **high nibble = left pixel, 0=black 15=white**
   (identical to Seeed's sprite). The server emits **native landscape 1872×1404**

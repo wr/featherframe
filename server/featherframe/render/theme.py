@@ -73,9 +73,9 @@ FIRST_EVER_PILL_GAP = 14       # paper between the pill and the rule on either s
 CORNER_SIZE = 28               # date · time (left) and "Plate CLIX" (right)
 CORNER_INSET = 36              # from the side edges
 MARKS_BASELINE = HEIGHT - 30
-PLATE_PREFIX = "Plate"         # then the Havell number, in roman as engraved
+PLATE_PREFIX = "Plate"         # then the folio's plate number, in roman as engraved
 PLATE_NUMERAL_SIZE = 22        # the numeral's engraved capitals, beside the 28 script
-HAVELL_PLATES = 435
+MAX_PLATE = 449                # the highest plate number in any folio (Gould's Europe)
 CORNER_SEP = "·"               # between date and time ("1 Sep · 8:14 am")
 COLON_KERN = 0.0               # pulls the run after a colon in, fraction of size
                                # (Kapakana needed -0.12; Pinyon is kerned, so 0)

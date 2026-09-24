@@ -185,3 +185,10 @@ def test_names_resolve_across_folios(tmp_path):
     assert idx.scientific_for("house sparrow") == "Passer domesticus"
     assert idx.canonical_common("MALLARD") == "Mallard"
     assert idx.scientific_for("Nobody") is None
+
+
+def test_a_folio_names_its_margins(tmp_path):
+    idx = _folio_index(tmp_path)
+    idx._folios["gould"].by_sci["passer domesticus"]["margins"] = [0.1, 0.0, 0.9, 0.8]
+    assert idx.match("House Sparrow", "Passer domesticus").margins == [0.1, 0.0, 0.9, 0.8]
+    assert idx.match("Mallard", "Anas platyrhynchos").margins is None     # Havell's own

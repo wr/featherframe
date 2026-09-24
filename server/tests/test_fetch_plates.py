@@ -176,3 +176,56 @@ def test_release_restore_skips_a_part_for_a_few_missing_plates(fp, tmp_path, mon
     fp.restore_from_release(FakeSession({}), "https://r.test", {150}, cat, tmp_path, min_missing=1)
     assert asked[-1] == {150}
     assert fp.restore_from_release(FakeSession({}), None, {150}, cat, tmp_path) == set()
+
+
+# --- Scanned folios (W-702) ---------------------------------------------------
+
+def _png_bytes(size, colour):
+    import io
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", size, colour).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_a_scanned_folio_is_fetched_upright(fp, tmp_path):
+    """A folio with a `scans` template: one master per plate, shared by the
+    species on it, stood upright, recorded in the index under its folio."""
+    from PIL import Image
+    header = {"scans": "https://s3/{volume}/{volume}_{leaf:04d}.jp2"}
+    species = [
+        {"common": "Mute Swan", "scientific": "Cygnus olor", "plate": 354,
+         "volume": "v5", "leaf": 46, "rotate": 270, "margins": [0.1, 0.03, 0.98, 0.88]},
+        {"common": "House Sparrow", "scientific": "Passer domesticus", "plate": 184,
+         "volume": "v3", "leaf": 150, "composite": True, "legend": ["1. House Sparrow."]},
+        {"common": "Eurasian Tree Sparrow", "scientific": "Passer montanus", "plate": 184,
+         "volume": "v3", "leaf": 150, "composite": True},
+    ]
+    sess = FakeSession({
+        "https://s3/v5/v5_0046.jp2": [_Resp(200, _png_bytes((300, 500), "white"))],
+        "https://s3/v3/v3_0150.jp2": [_Resp(200, _png_bytes((300, 500), "white"))],
+    })
+    args = type("A", (), {"force": False, "dry_run": False})()
+    fetch = fp.fetcher_for("gould_europe", header)
+    records, counts, _ = fetch(sess, species, args, tmp_path, {}, header)
+    assert counts == {"downloaded": 3, "fallback": 0, "failed": 0}
+    assert len(sess.calls) == 2                       # the shared plate is fetched once
+    swan, sparrow, tree = records
+    assert swan["image"] == "gould_europe/gould-europe-354.jpg" and swan["folio"] == "gould_europe"
+    assert Image.open(tmp_path / swan["image"]).size == (500, 300)     # stood upright
+    assert swan["margins"] == [0.1, 0.03, 0.98, 0.88]
+    assert sparrow["image"] == tree["image"] and sparrow["legend"] == ["1. House Sparrow."]
+    assert fp.fetcher_for("gould_europe", {}) is None
+    assert fp.fetcher_for("havell", {}) is fp.fetch_havell
+
+
+def test_flatten_paper_evens_a_gradient(fp):
+    import numpy as np
+    from PIL import Image, ImageDraw
+    ramp = np.tile(np.linspace(200, 250, 600, dtype=np.float32)[:, None], (1, 400))
+    im = Image.fromarray(np.dstack([ramp] * 3).astype(np.uint8))
+    ImageDraw.Draw(im).rectangle((150, 250, 250, 350), fill=(30, 30, 30))   # the "bird"
+    out = np.asarray(fp.flatten_paper(im).convert("L"), dtype=np.float32)
+    paper = np.concatenate([out[20:200].ravel(), out[420:580].ravel()])
+    assert (paper == 255).mean() > 0.99                  # cleared to pure white
+    assert out[300, 200] < 80                             # the ink stays ink

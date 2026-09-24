@@ -119,7 +119,8 @@ def test_the_library_carries_every_folio(tmp_path):
     _scan(img / "plate-159-cardinal-grosbeak.jpg", 1)
     entries = ENTRIES + [{"folio": "gould", "common": "House Sparrow",
                           "scientific": "Passer domesticus", "plate": 180,
-                          "image": "gould/gould-europe-180-house-sparrow.webp"}]
+                          "image": "gould/gould-europe-180-house-sparrow.webp",
+                          "margins": [0.05, 0.03, 0.95, 0.8], "tight": True}]
     index = tmp_path / "index.json"
     index.write_text(json.dumps({"generated_at": "x", "species": entries, "folios": {
         "havell": {"title": "The Birds of America", "catalog": [{"plate": 1}]},
@@ -132,4 +133,22 @@ def test_the_library_carries_every_folio(tmp_path):
     lib = plate_library.LibraryProvider(plate_library.PlateLibrary(str(out), tmp_path / "cache"))
     art = lib.artwork("House Sparrow", "Passer domesticus")
     assert (art.folio, art.plate) == ("gould", 180)
+    # The folio's own cut is taken exactly as the scans take it, and keyed apart.
+    scan = PlateProvider(SpeciesIndex(entries, images_dir=img)).artwork("House Sparrow", "Passer domesticus")
+    _same(art.image, scan.image)
+    assert plate_library.entry_key(entries[-1]) != plate_library.entry_key(
+        {**entries[-1], "margins": None})
     assert lib.artwork("Northern Cardinal", "Cardinalis cardinalis").folio == "havell"
+
+
+def test_a_build_against_a_published_library_takes_only_what_it_lacks(plates, tmp_path):
+    index, img = plates
+    first = tmp_path / "published"
+    plate_library.build(first, index, img)
+    have = plate_library.published_keys(str(first))
+    assert len(have) == 3
+    out = tmp_path / "update"
+    stats = plate_library.build(out, index, img, published=have)
+    assert stats["made"] == 0 and not list((out / "lib").iterdir())
+    data = json.loads((out / "library.json").read_text())
+    assert {e.get("library") for e in data["species"]} - {None} == have    # still named

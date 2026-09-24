@@ -20,11 +20,17 @@ A source is a directory or an http(s) base URL (the public R2 bucket). Remote
 files are fetched on first use and kept in a local cache.
 
     python -m featherframe.plate_library build OUT_DIR   # from this box's scans
+    python -m featherframe.plate_library build OUT_DIR --against https://plates.featherframe.app
+    python -m featherframe.plate_library upload OUT_DIR  # to the R2 bucket, index last
+
+`--against` takes only the crops the published library lacks (a new folio's,
+W-702), so an update needs neither the whole edition's scans nor its upload.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
+import subprocess
 import io
 import json
 import logging
@@ -50,22 +56,20 @@ FETCH_TIMEOUT_S = 30
 def entry_key(entry: dict) -> str:
     """One key per distinct crop: the plate, and how it is cut. Species that
     share a composite plate share its file."""
-    how = json.dumps([bool(entry.get("composite")), entry.get("crop_box")], sort_keys=True)
+    how = [bool(entry.get("composite")), entry.get("crop_box")]
+    if entry.get("margins") or entry.get("tight"):
+        # only a folio's own cut: Havell's keys stand
+        how += [entry.get("margins"), plate.TIGHT_PAD if entry.get("tight") else False]
+    how = json.dumps(how, sort_keys=True)
     stem = Path(str(entry["image"])).stem
     return f"{stem}-{hashlib.sha1(how.encode()).hexdigest()[:8]}"
 
 
-def _raw_color_crop(path: Path, composite: bool, crop_box) -> Image.Image:
+def _raw_color_crop(path: Path, composite: bool, crop_box, margins=None,
+                    tight: bool = False) -> Image.Image:
     """plate.extract_color() up to, not including, its normalisation."""
-    rgb = plate._trim_marginalia(plate.load_color(path))
-    gray = rgb.convert("L")
-    if crop_box:
-        box = plate._norm_box(gray, crop_box)
-    elif composite:
-        box = (0, 0, gray.width, gray.height)
-    else:
-        box = plate.content_box(gray)
-    return rgb.crop(box)
+    rgb = plate._trim_marginalia(plate.load_color(path), margins)
+    return rgb.crop(plate._box(rgb.convert("L"), composite, crop_box, tight))
 
 
 def color_pair_from_raw(raw: Image.Image) -> tuple[Image.Image, Image.Image]:
@@ -75,9 +79,10 @@ def color_pair_from_raw(raw: Image.Image) -> tuple[Image.Image, Image.Image]:
 
 
 def build(out_dir: Path, index_path: Optional[Path] = None,
-          images_dir: Optional[Path] = None) -> dict:
+          images_dir: Optional[Path] = None, published: frozenset = frozenset()) -> dict:
     """Write the library for every entry with a plate and a scan on disk.
-    Idempotent: a crop already in `out_dir` is not taken again."""
+    Idempotent: a crop already in `out_dir`, or already `published`, is not
+    taken again (it is still named in library.json)."""
     index_path = Path(index_path or paths.plate_index_path())
     images_dir = Path(images_dir or paths.plate_images_dir())
     out_dir = Path(out_dir)
@@ -91,12 +96,14 @@ def build(out_dir: Path, index_path: Optional[Path] = None,
             key = entry_key(entry)
             gray_p = out_dir / "lib" / f"{key}.gray.png"
             color_p = out_dir / "lib" / f"{key}.color.webp"
-            if gray_p.exists() and color_p.exists():
+            if key in published or (gray_p.exists() and color_p.exists()):
                 kept += 1
             else:
                 composite, box = bool(entry.get("composite")), entry.get("crop_box")
-                gray = plate.extract(scan, composite=composite, crop_box=box)
-                raw = _raw_color_crop(scan, composite, box)
+                margins, tight = entry.get("margins"), bool(entry.get("tight"))
+                gray = plate.extract(scan, composite=composite, crop_box=box,
+                                     margins=margins, tight=tight)
+                raw = _raw_color_crop(scan, composite, box, margins, tight)
                 _atomic_save(gray, gray_p, format="PNG", optimize=True)
                 _atomic_save(raw, color_p, format="WEBP", lossless=True, method=4)
                 made += 1
@@ -202,6 +209,34 @@ class LibraryProvider(ArtProvider):
         return None
 
 
+def published_keys(source: str) -> frozenset:
+    """The crop keys a published library already has."""
+    lib = PlateLibrary(source)
+    lib.index()
+    return frozenset(e["library"] for f in lib.index()._folios.values()   # noqa: SLF001
+                     for e in f.by_sci.values() if e.get("library"))
+
+
+BUCKET = "featherframe-plates"
+_HOSTED_DIR = Path(__file__).resolve().parents[2] / "hosted"     # its wrangler and config
+_TYPES = {".png": "image/png", ".webp": "image/webp", ".json": "application/json"}
+
+
+def upload(out_dir: Path, bucket: str = BUCKET) -> int:
+    """Put the built crops, then library.json, into the R2 bucket behind
+    plates.featherframe.app (wrangler, as the signed-in account). The index
+    goes last, so no server is ever handed a key whose crop is not there yet."""
+    out_dir = Path(out_dir)
+    files = sorted((out_dir / "lib").glob("*")) + [out_dir / INDEX_NAME]
+    for f in files:
+        key = f.relative_to(out_dir).as_posix()
+        subprocess.run(["npx", "wrangler", "r2", "object", "put", f"{bucket}/{key}",
+                        f"--file={f}", f"--content-type={_TYPES.get(f.suffix, 'application/octet-stream')}",
+                        "--remote"], check=True, cwd=_HOSTED_DIR if _HOSTED_DIR.is_dir() else None)
+        log.info("uploaded %s", key)
+    return len(files)
+
+
 def from_env() -> Optional[LibraryProvider]:
     """FEATHERFRAME_PLATE_LIBRARY (a directory or a URL) puts the library in
     place of the scans."""
@@ -214,10 +249,18 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build", help="take every crop from this box's scans")
     b.add_argument("out_dir", type=Path)
+    b.add_argument("--against", metavar="URL",
+                   help="a published library: take only the crops it lacks")
+    u = sub.add_parser("upload", help="put a built library into the R2 bucket, index last")
+    u.add_argument("out_dir", type=Path)
+    u.add_argument("--bucket", default=BUCKET)
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     if args.cmd == "build":
-        print(json.dumps(build(args.out_dir)))
+        have = published_keys(args.against) if args.against else frozenset()
+        print(json.dumps(build(args.out_dir, published=have)))
+    elif args.cmd == "upload":
+        print(json.dumps({"uploaded": upload(args.out_dir, args.bucket)}))
 
 
 if __name__ == "__main__":

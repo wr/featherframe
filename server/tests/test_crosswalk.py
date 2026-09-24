@@ -156,3 +156,61 @@ def test_plate_50_is_swainsons_not_magnolia():
     doc = yaml.safe_load(SPECIES_YAML.read_text())
     on_50 = [s["common"] for s in doc["species"] if s.get("plate") == 50]
     assert on_50 in ([], ["Swainson's Warbler"]), f"plate 50 pinned to {on_50}"
+
+
+# --- The Gould folio (W-702) --------------------------------------------------
+
+GOULD_YAML = SPECIES_YAML.parent / "gould_europe.yaml"
+
+# Each checked by eye against the engraved caption on its scan, and the number
+# against the printed General List of Plates.
+GOULD_EXPECTED = {
+    "House Sparrow": (184, "birdsEuropeIIIGoul", 150),
+    "Eurasian Tree Sparrow": (184, "birdsEuropeIIIGoul", 150),
+    "European Goldfinch": (196, "birdsEuropeIIIGoul", 198),
+    "European Starling": (210, "birdsEuropeIIIGoul", 254),
+    "Rock Pigeon": (245, "birdsEuropeIVGoul", 22),
+    "Ring-necked Pheasant": (247, "birdsEuropeIVGoul", 30),
+    "Mute Swan": (354, "birdsEuropeVGoul", 46),
+    "Black-headed Gull": (425, "birdsEuropeVGoul", 330),
+}
+
+
+def _gould():
+    return yaml.safe_load(GOULD_YAML.read_text())
+
+
+def test_gould_pins():
+    by_common = {e["common"]: e for e in _gould()["species"]}
+    for common, (plate, volume, leaf) in GOULD_EXPECTED.items():
+        e = by_common[common]
+        assert (e["plate"], e["volume"], e["leaf"]) == (plate, volume, leaf), common
+
+
+def test_gould_entries_are_whole():
+    doc = _gould()
+    assert doc["folio"]["title"] == "The Birds of Europe" and "{volume}" in doc["folio"]["scans"]
+    for e in doc["species"]:
+        assert 1 <= e["plate"] <= doc["folio"]["plates"], e["common"]
+        assert e["volume"].startswith("birdsEurope") and e["leaf"] > 0, e["common"]
+        assert e.get("rotate", 0) in (0, 90, 180, 270), e["common"]
+
+
+def test_gould_black_headed_gull_is_his_laughing_gull():
+    """Gould's "Black-headed Gull" (plate 427) is today's Mediterranean Gull;
+    today's Black-headed Gull is his "Laughing Gull", plate 425. And Havell's
+    Laughing Gull, an American species, must never reach a Gould plate."""
+    by_common = {e["common"]: e for e in _gould()["species"]}
+    assert by_common["Black-headed Gull"]["plate"] == 425
+    assert by_common["Black-headed Gull"]["scientific"] == "Chroicocephalus ridibundus"
+    assert "Laughing Gull" not in by_common and "Mediterranean Gull" not in by_common
+    assert all(e["plate"] != 427 for e in _gould()["species"])
+
+
+def test_gould_only_fills_what_havell_lacks():
+    """Havell is asked first: every introduction Gould draws is a Havell
+    `plate: none`, so no Audubon plate on a North American frame changes."""
+    havell = {e["scientific"]: e for e in yaml.safe_load(SPECIES_YAML.read_text())["species"]}
+    for e in _gould()["species"]:
+        h = havell.get(e["scientific"])
+        assert h is None or h.get("plate") in (None, "none"), e["common"]

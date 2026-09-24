@@ -322,14 +322,15 @@ def test_service_serves_paid_plates_even_when_disabled(data_dir, tmp_path, monke
     from featherframe.db import Database
     from featherframe.service import FeatherframeService
 
-    GeneratedArtProvider(FakeModel()).artwork("House Sparrow", "Passer domesticus")
+    # The Veery: no plate in any folio (the House Sparrow has Gould's now).
+    GeneratedArtProvider(FakeModel()).artwork("Veery", "Catharus fuscescens")
 
     db = Database(tmp_path / "ff.db")
     save_config(db, Config(imagegen_enabled=False))
     svc = FeatherframeService(db)
     assert isinstance(svc.provider, ChainedProvider)
     assert svc.genart._model is None
-    art = svc.provider.artwork("House Sparrow", "Passer domesticus")
+    art = svc.provider.artwork("Veery", "Catharus fuscescens")
     assert art is not None and art.generated
 
 

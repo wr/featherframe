@@ -518,7 +518,18 @@ Container restarts); D1 schema in `hosted/migrations/`.
   `plate.HAVELL_MARGINS` in `_trim_marginalia`: Gould's captions sit higher
   and each copy carries its number in pencil. A plate is pinned only once
   its engraved caption reads right on the scan; his "Black-headed Gull" is
-  today's Mediterranean Gull.
+  today's Mediterranean Gull. The whole folio (slice 3, ~390 species) was
+  pinned from three sources joined together: the General List transcribed from
+  vol. I, each volume walked for its plates (the Smithsonian copy pencils the
+  List number on every plate), and a crosswalk to BirdNET's own labels — only
+  a certain name, whose leaf's caption names it (Latin or the whole English
+  name, never a shared family word), is pinned. A scan is stored by its leaf
+  (`<volume>-<leaf>.jpg`): a copy's numbering can disagree with the List, and
+  here the caption decides. An upright plate's bottom margin sits just above
+  its caption as the IA OCR places it; a sideways one relies on the paper gap,
+  with a margin by eye where a caption crowds the art. A composite's tight crop
+  keeps every band of art (`whole`), and a tight crop may be small (one finch
+  on a page) without falling back to the whole sheet.
 - **Framebuffer format (FFF) is a contract with the firmware.** 16-byte header +
   packed pixels: 4bpp = 2px/byte, **high nibble = left pixel, 0=black 15=white**
   (identical to Seeed's sprite). The server emits **native landscape 1872×1404**

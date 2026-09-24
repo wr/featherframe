@@ -28,8 +28,9 @@
 # the number against the printed General List. Traps:
 #   - Gould's "Black-headed Gull" (Xema melanocephala, plate 427) is today's
 #     Mediterranean Gull; the modern Black-headed Gull is his "Laughing Gull"
-#     (Xema ridibunda, plate 425) — not Havell's Laughing Gull, an American
-#     species. Match on the modern binomial, never the common name.
+#     (Xema ridibunda, plate 425), and today's (American) Laughing Gull is his
+#     "Black-winged Gull" (Xema atricilla, plate 426). Match on the modern
+#     binomial, never the common name.
 #   - The grey-headed "caniceps" goldfinch in Gould's Birds of Asia is not the
 #     European Goldfinch (docs/plate-sources.md); plate 196 here is.
 
@@ -52,12 +53,407 @@ folio:
 
 species:
   # --- The introductions: what a North American station hears that Audubon never painted
-  - {common: "House Sparrow",         scientific: "Passer domesticus",  plate: 184, gould_title: "1. House Sparrow. 2. Tree Sparrow.", volume: birdsEuropeIIIGoul, leaf: 150, composite: true, legend: ["1. House Sparrow."]}
-  - {common: "European Starling",     scientific: "Sturnus vulgaris",   plate: 210, gould_title: "Starling",         volume: birdsEuropeIIIGoul, leaf: 254}
-  - {common: "Rock Pigeon",           scientific: "Columba livia",      plate: 245, gould_title: "Rock Dove",        volume: birdsEuropeIVGoul,  leaf: 22}
+  - {common: "House Sparrow",         scientific: "Passer domesticus",  plate: 184, gould_title: "1. House Sparrow. 2. Tree Sparrow.", volume: birdsEuropeIIIGoul, leaf: 150, margins: [0.02, 0.02, 0.98, 0.865], composite: true, legend: ["1. House Sparrow."]}
+  - {common: "European Starling",     scientific: "Sturnus vulgaris",   plate: 210, gould_title: "Starling",         volume: birdsEuropeIIIGoul, leaf: 254, margins: [0.02, 0.02, 0.98, 0.894]}
+  - {common: "Rock Pigeon",           scientific: "Columba livia",      plate: 245, gould_title: "Rock Dove",        volume: birdsEuropeIVGoul,  leaf: 22, margins: [0.02, 0.02, 0.98, 0.826]}
   - {common: "Ring-necked Pheasant",  scientific: "Phasianus colchicus", plate: 247, gould_title: "Common Pheasant", volume: birdsEuropeIVGoul,  leaf: 30,  rotate: 270}
   - {common: "Mute Swan",             scientific: "Cygnus olor",        plate: 354, gould_title: "Domestic Swan, Cygnus mansuetus", volume: birdsEuropeVGoul, leaf: 46, rotate: 270}
-  - {common: "European Goldfinch",    scientific: "Carduelis carduelis", plate: 196, gould_title: "Goldfinch, Carduelis elegans", volume: birdsEuropeIIIGoul, leaf: 198}
+  - {common: "European Goldfinch",    scientific: "Carduelis carduelis", plate: 196, gould_title: "Goldfinch, Carduelis elegans", volume: birdsEuropeIIIGoul, leaf: 198, margins: [0.02, 0.02, 0.98, 0.865]}
   - {common: "Black-headed Gull",     scientific: "Chroicocephalus ridibundus", plate: 425, gould_title: "Laughing Gull, Xema ridibundus", volume: birdsEuropeVGoul, leaf: 330, rotate: 270, sci_synonyms: ["Larus ridibundus"]}
   # The House Sparrow's sheet also shows the Tree Sparrow, as figure 2.
-  - {common: "Eurasian Tree Sparrow", scientific: "Passer montanus",    plate: 184, gould_title: "1. House Sparrow. 2. Tree Sparrow.", volume: birdsEuropeIIIGoul, leaf: 150, composite: true, legend: ["2. Tree Sparrow."]}
+  - {common: "Eurasian Tree Sparrow", scientific: "Passer montanus",    plate: 184, gould_title: "1. House Sparrow. 2. Tree Sparrow.", volume: birdsEuropeIIIGoul, leaf: 150, margins: [0.02, 0.02, 0.98, 0.865], composite: true, legend: ["2. Tree Sparrow."]}
+
+  # --- The rest of the folio (W-702 slice 3): every species on the General
+  # List whose modern name is certain, found on its leaf by the copy's pencilled
+  # number and checked against its engraved caption (the Latin name, or the
+  # whole English one). A species on several plates keeps its main one;
+  # uncertain names and species BirdNET does not know are left out, never
+  # guessed. This copy's pencil moves Bulwer's Petrel to 448 and puts both
+  # storm-petrels on 447's sheet: the caption, not the pencil, decides.
+  - {common: "Eurasian Griffon", scientific: "Gyps fulvus", plate: 1, gould_title: "Griffon Vulture, Vultur fulvus", volume: birdsEuropeIGoul, leaf: 30, margins: [0.02, 0.02, 0.98, 0.827]}
+  - {common: "Cinereous Vulture", scientific: "Aegypius monachus", plate: 2, gould_title: "Cinereous Vulture, Vultur cinereus", volume: birdsEuropeIGoul, leaf: 34, margins: [0.02, 0.02, 0.98, 0.91]}
+  - {common: "Golden Eagle", scientific: "Aquila chrysaetos", plate: 6, gould_title: "Golden Eagle, Aquila chrysaëta", volume: birdsEuropeIGoul, leaf: 50, margins: [0.02, 0.02, 0.98, 0.91]}
+  - {common: "Booted Eagle", scientific: "Hieraaetus pennatus", plate: 9, gould_title: "Booted Eagle, Aquila pennata", volume: birdsEuropeIGoul, leaf: 62, margins: [0.02, 0.02, 0.98, 0.87], sci_synonyms: ["Aquila pennata"]}
+  - {common: "White-tailed Eagle", scientific: "Haliaeetus albicilla", plate: 10, gould_title: "Sea Eagle, Haliaëtus albicilla", volume: birdsEuropeIGoul, leaf: 66, margins: [0.02, 0.02, 0.98, 0.94]}
+  - {common: "Bald Eagle", scientific: "Haliaeetus leucocephalus", plate: 11, gould_title: "White-headed Eagle, Haliaëtus leucocephalus", volume: birdsEuropeIGoul, leaf: 70, margins: [0.02, 0.02, 0.98, 0.908]}
+  - {common: "Osprey", scientific: "Pandion haliaetus", plate: 12, gould_title: "Osprey, Pandion haliaëtus", volume: birdsEuropeIGoul, leaf: 74, margins: [0.02, 0.02, 0.98, 0.884]}
+  - {common: "Short-toed Snake-Eagle", scientific: "Circaetus gallicus", plate: 13, gould_title: "Short-toed Eagle, Circaëtus brachydactylus", volume: birdsEuropeIGoul, leaf: 78, margins: [0.02, 0.02, 0.98, 0.865]}
+  - {common: "Common Buzzard", scientific: "Buteo buteo", plate: 14, gould_title: "Common Buzzard, Buteo vulgaris", volume: birdsEuropeIGoul, leaf: 82, margins: [0.02, 0.02, 0.98, 0.919]}
+  - {common: "Rough-legged Hawk", scientific: "Buteo lagopus", plate: 15, gould_title: "Rough-legged Buzzard, Buteo Lagopus", volume: birdsEuropeIGoul, leaf: 86, margins: [0.02, 0.02, 0.98, 0.843]}
+  - {common: "European Honey-buzzard", scientific: "Pernis apivorus", plate: 16, gould_title: "Honey Buzzard, Pernis apivorus", volume: birdsEuropeIGoul, leaf: 90, margins: [0.02, 0.02, 0.98, 0.841]}
+  - {common: "Northern Goshawk", scientific: "Accipiter gentilis", plate: 17, gould_title: "Goshawk, Astur palumbarius", volume: birdsEuropeIGoul, leaf: 94, margins: [0.02, 0.02, 0.98, 0.92], sci_synonyms: ["Astur gentilis", "Astur palumbarius"]}
+  - {common: "Eurasian Sparrowhawk", scientific: "Accipiter nisus", plate: 18, gould_title: "Sparrow Hawk, Accipiter fringillarius", volume: birdsEuropeIGoul, leaf: 98, margins: [0.02, 0.02, 0.98, 0.851]}
+  - {common: "Gyrfalcon", scientific: "Falco rusticolus", plate: 19, gould_title: "Jer Falcon, Falco Islandicus", volume: birdsEuropeIGoul, leaf: 102, margins: [0.02, 0.02, 0.98, 0.884]}
+  - {common: "Peregrine Falcon", scientific: "Falco peregrinus", plate: 21, gould_title: "Peregrine Falcon, Falco Peregrinus", volume: birdsEuropeIGoul, leaf: 110, margins: [0.02, 0.02, 0.98, 0.892]}
+  - {common: "Eurasian Hobby", scientific: "Falco subbuteo", plate: 22, gould_title: "Hobby, Falco subbuteo", volume: birdsEuropeIGoul, leaf: 114, margins: [0.02, 0.02, 0.98, 0.859]}
+  - {common: "Red-footed Falcon", scientific: "Falco vespertinus", plate: 23, gould_title: "Red-footed Falcon, Falco rufipes", volume: birdsEuropeIGoul, leaf: 118, margins: [0.02, 0.02, 0.98, 0.879]}
+  - {common: "Merlin", scientific: "Falco columbarius", plate: 24, gould_title: "Merlin, Falco Æsalon", volume: birdsEuropeIGoul, leaf: 122, margins: [0.02, 0.02, 0.98, 0.85], sci_synonyms: ["Falco aesalon"]}
+  - {common: "Eurasian Kestrel", scientific: "Falco tinnunculus", plate: 26, gould_title: "Kestrel, Falco Tinnunculus", volume: birdsEuropeIGoul, leaf: 130, margins: [0.02, 0.02, 0.98, 0.885]}
+  - {common: "Lesser Kestrel", scientific: "Falco naumanni", plate: 27, gould_title: "Lesser Kestrel, Falco Tinnunculoides", volume: birdsEuropeIGoul, leaf: 134, margins: [0.02, 0.02, 0.98, 0.82], sci_synonyms: ["Falco tinnunculoides"]}
+  - {common: "Red Kite", scientific: "Milvus milvus", plate: 28, gould_title: "Kite, Milvus vulgaris", volume: birdsEuropeIGoul, leaf: 138, margins: [0.02, 0.02, 0.98, 0.895]}
+  - {common: "Black Kite", scientific: "Milvus migrans", plate: 29, gould_title: "Black Kite, Milvus ater", volume: birdsEuropeIGoul, leaf: 142, margins: [0.02, 0.02, 0.98, 0.929]}
+  - {common: "Swallow-tailed Kite", scientific: "Elanoides forficatus", plate: 30, gould_title: "Swallow-tailed Kite, Nauclerus furcatus", volume: birdsEuropeIGoul, leaf: 146, margins: [0.02, 0.02, 0.98, 0.93]}
+  - {common: "Black-winged Kite", scientific: "Elanus caeruleus", plate: 31, gould_title: "Black-winged Kite, Elanus melanopterus", volume: birdsEuropeIGoul, leaf: 150, margins: [0.02, 0.02, 0.98, 0.854]}
+  - {common: "Eurasian Marsh-Harrier", scientific: "Circus aeruginosus", plate: 32, gould_title: "Marsh Harrier, Circus rufus", volume: birdsEuropeIGoul, leaf: 154, rotate: 270}
+  - {common: "Hen Harrier", scientific: "Circus cyaneus", plate: 33, gould_title: "Hen Harrier, Circus cyaneus", volume: birdsEuropeIGoul, leaf: 158, rotate: 270}
+  - {common: "Pallid Harrier", scientific: "Circus macrourus", plate: 34, gould_title: "Pallid Harrier, Circus pallidus", volume: birdsEuropeIGoul, leaf: 162, rotate: 270, sci_synonyms: ["Circus pallidus"]}
+  - {common: "Montagu's Harrier", scientific: "Circus pygargus", plate: 35, gould_title: "Ash-coloured Harrier, Circus cineraceus", volume: birdsEuropeIGoul, leaf: 166, rotate: 270}
+  - {common: "Barn Owl", scientific: "Tyto alba", plate: 36, gould_title: "Barn Owl, Strix flammea", volume: birdsEuropeIGoul, leaf: 170, margins: [0.02, 0.02, 0.98, 0.824]}
+  - {common: "Eurasian Eagle-Owl", scientific: "Bubo bubo", plate: 37, gould_title: "Great Horned or Eagle Owl, Bubo maximus", volume: birdsEuropeIGoul, leaf: 174, margins: [0.02, 0.02, 0.98, 0.941]}
+  - {common: "Long-eared Owl", scientific: "Asio otus", plate: 39, gould_title: "Long-eared Owl, Otus vulgaris", volume: birdsEuropeIGoul, leaf: 182, margins: [0.02, 0.02, 0.98, 0.858]}
+  - {common: "Short-eared Owl", scientific: "Asio flammeus", plate: 40, gould_title: "Short-eared Owl, Otus Brachyotus", volume: birdsEuropeIGoul, leaf: 186, margins: [0.02, 0.02, 0.98, 0.774], sci_synonyms: ["Asio brachyotus"]}
+  - {common: "Eurasian Scops-Owl", scientific: "Otus scops", plate: 41, gould_title: "Scops-eared Owl, Scops Aldrovandi", volume: birdsEuropeIGoul, leaf: 190, margins: [0.02, 0.02, 0.98, 0.875]}
+  - {common: "Great Gray Owl", scientific: "Strix nebulosa", plate: 42, gould_title: "Great Cinereous Owl, Surnia cinerea", volume: birdsEuropeIGoul, leaf: 194, margins: [0.02, 0.02, 0.98, 0.895]}
+  - {common: "Snowy Owl", scientific: "Bubo scandiacus", plate: 43, gould_title: "Snowy Owl, Surnia Nyctea", volume: birdsEuropeIGoul, leaf: 198, margins: [0.02, 0.02, 0.98, 0.962], sci_synonyms: ["Nyctea scandiaca"]}
+  - {common: "Ural Owl", scientific: "Strix uralensis", plate: 44, gould_title: "Ural Owl, Surnia Uralensis", volume: birdsEuropeIGoul, leaf: 202, margins: [0.02, 0.02, 0.98, 0.873]}
+  - {common: "Northern Hawk Owl", scientific: "Surnia ulula", plate: 45, gould_title: "Hawk Owl, Surnia funerea", volume: birdsEuropeIGoul, leaf: 206, margins: [0.02, 0.02, 0.98, 0.829]}
+  - {common: "Barred Owl", scientific: "Strix varia", plate: 46, gould_title: "Barred Owl, Ulula nebulosa", volume: birdsEuropeIGoul, leaf: 210, margins: [0.02, 0.02, 0.98, 0.911]}
+  - {common: "Tawny Owl", scientific: "Strix aluco", plate: 47, gould_title: "Tawny or Wood Owl, Syrnium Aluco", volume: birdsEuropeIGoul, leaf: 214, margins: [0.02, 0.02, 0.98, 0.86]}
+  - {common: "Little Owl", scientific: "Athene noctua", plate: 48, gould_title: "Little Owl, Noctua nudipes", volume: birdsEuropeIGoul, leaf: 218, margins: [0.02, 0.02, 0.98, 0.844]}
+  - {common: "Boreal Owl", scientific: "Aegolius funereus", plate: 49, gould_title: "Tengmalm's Owl, Noctua ? Tengmalmi", volume: birdsEuropeIGoul, leaf: 222, margins: [0.02, 0.02, 0.98, 0.811]}
+  - {common: "Eurasian Pygmy-Owl", scientific: "Glaucidium passerinum", plate: 50, gould_title: "Sparrow Owl, Noctua passerina", volume: birdsEuropeIGoul, leaf: 226, margins: [0.02, 0.02, 0.98, 0.786]}
+  - {common: "Eurasian Nightjar", scientific: "Caprimulgus europaeus", plate: 51, gould_title: "European Goatsucker, Caprimulgus Europæus", volume: birdsEuropeIIGoul, leaf: 16, margins: [0.02, 0.02, 0.98, 0.713]}
+  - {common: "Red-necked Nightjar", scientific: "Caprimulgus ruficollis", plate: 52, gould_title: "Red-collared Goatsucker, Caprimulgus ruficollis", volume: birdsEuropeIIGoul, leaf: 20, margins: [0.02, 0.02, 0.98, 0.794]}
+  - {common: "Alpine Swift", scientific: "Apus melba", plate: 53, gould_title: "White-bellied Swift, Cypselus alpinus", volume: birdsEuropeIIGoul, leaf: 24, margins: [0.02, 0.02, 0.98, 0.832], composite: true, legend: ["2. White-bellied Swift."], sci_synonyms: ["Tachymarptis melba"]}
+  - {common: "Common Swift", scientific: "Apus apus", plate: 53, gould_title: "Swift, Cypselus murarius", volume: birdsEuropeIIGoul, leaf: 24, margins: [0.02, 0.02, 0.98, 0.832], composite: true, legend: ["1. Swift."]}
+  - {common: "Barn Swallow", scientific: "Hirundo rustica", plate: 54, gould_title: "Chimney Swallow, Hirundo rustica", volume: birdsEuropeIIGoul, leaf: 28, margins: [0.02, 0.02, 0.98, 0.759]}
+  - {common: "Red-rumped Swallow", scientific: "Cecropis daurica", plate: 55, gould_title: "Rufous Swallow, Hirundo rufula", volume: birdsEuropeIIGoul, leaf: 32, margins: [0.02, 0.02, 0.98, 0.792], sci_synonyms: ["Hirundo daurica", "Cecropis rufula"]}
+  - {common: "Eurasian Crag-Martin", scientific: "Ptyonoprogne rupestris", plate: 56, gould_title: "Rock Martin, Hirundo rupestris", volume: birdsEuropeIIGoul, leaf: 36, margins: [0.02, 0.02, 0.98, 0.836], sci_synonyms: ["Hirundo rupestris"]}
+  - {common: "Common House-Martin", scientific: "Delichon urbicum", plate: 57, gould_title: "Martin, Hirundo urbica", volume: birdsEuropeIIGoul, leaf: 40, margins: [0.02, 0.02, 0.98, 0.762], sci_synonyms: ["Delichon urbica", "Hirundo urbica"]}
+  - {common: "Bank Swallow", scientific: "Riparia riparia", plate: 58, gould_title: "Sand Martin, Hirundo riparia", volume: birdsEuropeIIGoul, leaf: 44, margins: [0.02, 0.02, 0.98, 0.855]}
+  - {common: "European Bee-eater", scientific: "Merops apiaster", plate: 59, gould_title: "Bee Eater, Merops Apiaster", volume: birdsEuropeIIGoul, leaf: 48, margins: [0.02, 0.02, 0.98, 0.805]}
+  - {common: "European Roller", scientific: "Coracias garrulus", plate: 60, gould_title: "Roller, Coracias garrulus", volume: birdsEuropeIIGoul, leaf: 52, margins: [0.02, 0.02, 0.98, 0.861]}
+  - {common: "Common Kingfisher", scientific: "Alcedo atthis", plate: 61, gould_title: "Kingsfisher, Alcedo Ispida", volume: birdsEuropeIIGoul, leaf: 56, margins: [0.02, 0.02, 0.98, 0.747], sci_synonyms: ["Alcedo ispida"]}
+  - {common: "Pied Kingfisher", scientific: "Ceryle rudis", plate: 62, gould_title: "Black and White Kingsfisher, Alcedo rudis", volume: birdsEuropeIIGoul, leaf: 60, margins: [0.02, 0.02, 0.98, 0.859]}
+  - {common: "Collared Flycatcher", scientific: "Ficedula albicollis", plate: 63, gould_title: "White-collared Flycatcher, Muscicapa albicollis", volume: birdsEuropeIIGoul, leaf: 64, margins: [0.02, 0.02, 0.98, 0.877], composite: true, legend: ["2. White-collared Flycatcher."]}
+  - {common: "European Pied Flycatcher", scientific: "Ficedula hypoleuca", plate: 63, gould_title: "Pied Flycatcher, Muscicapa luctuosa", volume: birdsEuropeIIGoul, leaf: 64, margins: [0.02, 0.02, 0.98, 0.877], composite: true, legend: ["1. Pied Flycatcher."]}
+  - {common: "Red-breasted Flycatcher", scientific: "Ficedula parva", plate: 64, gould_title: "Red-breasted Flycatcher, Muscicapa parva", volume: birdsEuropeIIGoul, leaf: 68, margins: [0.02, 0.02, 0.98, 0.811]}
+  - {common: "Spotted Flycatcher", scientific: "Muscicapa striata", plate: 65, gould_title: "Spotted Flycatcher, Muscicapa grisola", volume: birdsEuropeIIGoul, leaf: 72, margins: [0.02, 0.02, 0.98, 0.754]}
+  - {common: "Great Gray Shrike", scientific: "Lanius excubitor", plate: 66, gould_title: "Great Shrike, Collurio Excubitor", volume: birdsEuropeIIGoul, leaf: 76, margins: [0.02, 0.02, 0.98, 0.721]}
+  - {common: "Iberian Gray Shrike", scientific: "Lanius meridionalis", plate: 67, gould_title: "Great Grey Shrike, Collurio meridionalis", volume: birdsEuropeIIGoul, leaf: 80, margins: [0.02, 0.02, 0.98, 0.774]}
+  - {common: "Lesser Gray Shrike", scientific: "Lanius minor", plate: 68, gould_title: "Lesser Grey Shrike, Collurio minor", volume: birdsEuropeIIGoul, leaf: 84, margins: [0.02, 0.02, 0.98, 0.67]}
+  - {common: "Red-backed Shrike", scientific: "Lanius collurio", plate: 69, gould_title: "Red-backed Shrike, Lanius Collurio", volume: birdsEuropeIIGoul, leaf: 88, margins: [0.02, 0.02, 0.98, 0.829]}
+  - {common: "Woodchat Shrike", scientific: "Lanius senator", plate: 70, gould_title: "Woodchat, Lanius rufus", volume: birdsEuropeIIGoul, leaf: 92, margins: [0.02, 0.02, 0.98, 0.808]}
+  - {common: "Eurasian Golden Oriole", scientific: "Oriolus oriolus", plate: 71, gould_title: "Golden Oriole, Oriolus galbula", volume: birdsEuropeIIGoul, leaf: 96, margins: [0.02, 0.02, 0.98, 0.809]}
+  - {common: "Eurasian Blackbird", scientific: "Turdus merula", plate: 72, gould_title: "Black Ouzel, or Blackbird, Merula vulgaris", volume: birdsEuropeIIGoul, leaf: 100, margins: [0.02, 0.02, 0.98, 0.832]}
+  - {common: "Ring Ouzel", scientific: "Turdus torquatus", plate: 73, gould_title: "Ring Ouzel, Merula torquata", volume: birdsEuropeIIGoul, leaf: 104, margins: [0.02, 0.02, 0.98, 0.873]}
+  - {common: "American Robin", scientific: "Turdus migratorius", plate: 74, gould_title: "Migratory Ouzel, Merula migratoria", volume: birdsEuropeIIGoul, leaf: 108, margins: [0.02, 0.02, 0.98, 0.847]}
+  - {common: "Black-throated Thrush", scientific: "Turdus atrogularis", plate: 75, gould_title: "Black-throated Thrush, Turdus atrogularis", volume: birdsEuropeIIGoul, leaf: 112, margins: [0.02, 0.02, 0.98, 0.922]}
+  - {common: "Fieldfare", scientific: "Turdus pilaris", plate: 76, gould_title: "Fieldfare, Turdus pilaris", volume: birdsEuropeIIGoul, leaf: 116, margins: [0.02, 0.02, 0.98, 0.841]}
+  - {common: "Mistle Thrush", scientific: "Turdus viscivorus", plate: 77, gould_title: "Missel Thrush, Turdus viscivorus", volume: birdsEuropeIIGoul, leaf: 120, margins: [0.02, 0.02, 0.98, 0.804]}
+  - {common: "Redwing", scientific: "Turdus iliacus", plate: 78, gould_title: "Redwing, Turdus Iliacus", volume: birdsEuropeIIGoul, leaf: 124, margins: [0.02, 0.02, 0.98, 0.807], composite: true, legend: ["2. Redwing."]}
+  - {common: "Song Thrush", scientific: "Turdus philomelos", plate: 78, gould_title: "Song Thrush, Turdus musicus", volume: birdsEuropeIIGoul, leaf: 124, margins: [0.02, 0.02, 0.98, 0.807], composite: true, legend: ["1. Song Thrush."], sci_synonyms: ["Turdus musicus"]}
+  - {common: "Naumann's Thrush", scientific: "Turdus naumanni", plate: 79, gould_title: "Naumann's Thrush, Turdus Naumannii", volume: birdsEuropeIIGoul, leaf: 128, margins: [0.02, 0.02, 0.98, 0.803]}
+  - {common: "White's Thrush", scientific: "Zoothera aurea", plate: 81, gould_title: "White's Thrush, Turdus Whitei", volume: birdsEuropeIIGoul, leaf: 136, margins: [0.02, 0.02, 0.98, 0.799], sci_synonyms: ["Zoothera dauma"]}
+  - {common: "Siberian Thrush", scientific: "Geokichla sibirica", plate: 82, gould_title: "Siberian Thrush, Turdus Sibericus", volume: birdsEuropeIIGoul, leaf: 140, margins: [0.02, 0.02, 0.98, 0.887], sci_synonyms: ["Zoothera sibirica"]}
+  - {common: "White-throated Dipper", scientific: "Cinclus cinclus", plate: 83, gould_title: "Water Ouzel, Cinclus aquaticus", volume: birdsEuropeIIGoul, leaf: 144, rotate: 270}
+  - {common: "Brown Dipper", scientific: "Cinclus pallasii", plate: 85, gould_title: "Pallas's Water Ouzel, Cinclus Pallasii", volume: birdsEuropeIIGoul, leaf: 152, margins: [0.02, 0.02, 0.98, 0.755]}
+  - {common: "Rufous-tailed Rock-Thrush", scientific: "Monticola saxatilis", plate: 86, gould_title: "Rock Thrush, Petrocincla saxatilis", volume: birdsEuropeIIGoul, leaf: 156, margins: [0.02, 0.02, 0.98, 0.797]}
+  - {common: "Blue Rock-Thrush", scientific: "Monticola solitarius", plate: 87, gould_title: "Blue Thrush, Petrocincla cyanea", volume: birdsEuropeIIGoul, leaf: 160, margins: [0.02, 0.02, 0.98, 0.836]}
+  - {common: "Black Wheatear", scientific: "Oenanthe leucura", plate: 88, gould_title: "Black Wheatear, Saxicola cachinnans", volume: birdsEuropeIIGoul, leaf: 164, margins: [0.02, 0.02, 0.98, 0.839]}
+  - {common: "Pied Wheatear", scientific: "Oenanthe pleschanka", plate: 89, gould_title: "Pied Wheatear, Saxicola leucomela", volume: birdsEuropeIIGoul, leaf: 168, margins: [0.02, 0.02, 0.98, 0.74], sci_synonyms: ["Oenanthe leucomela"]}
+  - {common: "Northern Wheatear", scientific: "Oenanthe oenanthe", plate: 90, gould_title: "Wheatear, Saxicola Œnanthe", volume: birdsEuropeIIGoul, leaf: 172, margins: [0.02, 0.02, 0.98, 0.818]}
+  - {common: "Whinchat", scientific: "Saxicola rubetra", plate: 93, gould_title: "Whinchat, Saxicola rubetra", volume: birdsEuropeIIGoul, leaf: 184, margins: [0.02, 0.02, 0.98, 0.826]}
+  - {common: "European Stonechat", scientific: "Saxicola rubicola", plate: 94, gould_title: "Stonechat, Saxicola rubicola", volume: birdsEuropeIIGoul, leaf: 188, margins: [0.02, 0.02, 0.98, 0.88], sci_synonyms: ["Saxicola torquatus", "Saxicola torquata"]}
+  - {common: "Common Redstart", scientific: "Phoenicurus phoenicurus", plate: 95, gould_title: "Redstart, Phoenicura ruticilla", volume: birdsEuropeIIGoul, leaf: 192, margins: [0.02, 0.02, 0.98, 0.849]}
+  - {common: "Black Redstart", scientific: "Phoenicurus ochruros", plate: 96, gould_title: "Black Redstart, Phoenicura tithys", volume: birdsEuropeIIGoul, leaf: 196, margins: [0.02, 0.02, 0.98, 0.812], sci_synonyms: ["Phoenicurus tithys"]}
+  - {common: "Bluethroat", scientific: "Luscinia svecica", plate: 97, gould_title: "Blue-throated Warbler, Phoenicura Suecica", volume: birdsEuropeIIGoul, leaf: 200, margins: [0.02, 0.02, 0.98, 0.81], sci_synonyms: ["Cyanecula svecica"]}
+  - {common: "European Robin", scientific: "Erithacus rubecula", plate: 98, gould_title: "Robin, Erythaca rubecula", volume: birdsEuropeIIGoul, leaf: 204, margins: [0.02, 0.02, 0.98, 0.861]}
+  - {common: "Alpine Accentor", scientific: "Prunella collaris", plate: 99, gould_title: "Alpine Accentor, Accentor alpinus", volume: birdsEuropeIIGoul, leaf: 208, margins: [0.02, 0.02, 0.98, 0.852]}
+  - {common: "Dunnock", scientific: "Prunella modularis", plate: 100, gould_title: "Hedge Accentor, Accentor modularis", volume: birdsEuropeIIGoul, leaf: 212, margins: [0.02, 0.02, 0.98, 0.822]}
+  - {common: "Siberian Accentor", scientific: "Prunella montanella", plate: 101, gould_title: "Mountain Accentor, Accentor montanellus", volume: birdsEuropeIIGoul, leaf: 216, margins: [0.02, 0.02, 0.98, 0.754]}
+  - {common: "River Warbler", scientific: "Locustella fluviatilis", plate: 102, gould_title: "Reed Locustelle, Locustella fluviatilis", volume: birdsEuropeIIGoul, leaf: 220}
+  - {common: "Common Grasshopper-Warbler", scientific: "Locustella naevia", plate: 103, gould_title: "Brake Locustelle, Locustella avicula", volume: birdsEuropeIIGoul, leaf: 224, margins: [0.02, 0.02, 0.98, 0.818]}
+  - {common: "Savi's Warbler", scientific: "Locustella luscinioides", plate: 104, gould_title: "Willow Locustelle, Locustella luscinoïdes", volume: birdsEuropeIIGoul, leaf: 228, margins: [0.02, 0.02, 0.98, 0.816]}
+  - {common: "Pallas's Grasshopper Warbler", scientific: "Helopsaltes certhiola", plate: 105, gould_title: "Creeping Locustelle, Locustella certhiola", volume: birdsEuropeIIGoul, leaf: 232, margins: [0.02, 0.02, 0.98, 0.832], sci_synonyms: ["Locustella certhiola"]}
+  - {common: "Great Reed Warbler", scientific: "Acrocephalus arundinaceus", plate: 106, gould_title: "Great Sedge Warbler, Salicaria Turdoïdes", volume: birdsEuropeIIGoul, leaf: 236, margins: [0.02, 0.02, 0.98, 0.87]}
+  - {common: "Olive-tree Warbler", scientific: "Hippolais olivetorum", plate: 107, gould_title: "Olive-tree Salicaria, Salicaria Olivetorum", volume: birdsEuropeIIGoul, leaf: 240, margins: [0.02, 0.02, 0.98, 0.805]}
+  - {common: "Eurasian Reed Warbler", scientific: "Acrocephalus scirpaceus", plate: 108, gould_title: "Reed Wren, Salicaria arundinacea", volume: birdsEuropeIIGoul, leaf: 244, margins: [0.02, 0.02, 0.98, 0.811]}
+  - {common: "Marsh Warbler", scientific: "Acrocephalus palustris", plate: 109, gould_title: "Marsh Warbler, Salicaria palustris", volume: birdsEuropeIIGoul, leaf: 248}
+  - {common: "Sedge Warbler", scientific: "Acrocephalus schoenobaenus", plate: 110, gould_title: "Sedge Warbler, Salicaria Phragmitis", volume: birdsEuropeIIGoul, leaf: 252, margins: [0.02, 0.02, 0.98, 0.833], sci_synonyms: ["Acrocephalus phragmitis"]}
+  - {common: "Aquatic Warbler", scientific: "Acrocephalus paludicola", plate: 111, gould_title: "Aquatic Warbler, Salicaria aquatica", volume: birdsEuropeIIGoul, leaf: 256, margins: [0.02, 0.02, 0.98, 0.795], composite: true, legend: ["2. Aquatic Warbler."]}
+  - {common: "Moustached Warbler", scientific: "Acrocephalus melanopogon", plate: 111, gould_title: "Moustached Warbler, Salicaria melanopogon", volume: birdsEuropeIIGoul, leaf: 256, margins: [0.02, 0.02, 0.98, 0.795], composite: true, legend: ["1. Moustached Warbler."]}
+  - {common: "Rufous-tailed Scrub-Robin", scientific: "Cercotrichas galactotes", plate: 112, gould_title: "Rufous Sedge Warbler, Salicaria galactotes", volume: birdsEuropeIIGoul, leaf: 260, margins: [0.02, 0.02, 0.98, 0.821], sci_synonyms: ["Erythropygia galactotes"]}
+  - {common: "Zitting Cisticola", scientific: "Cisticola juncidis", plate: 113, gould_title: "Fantail Warbler, Salicaria cisticola", volume: birdsEuropeIIGoul, leaf: 264, margins: [0.02, 0.02, 0.98, 0.93]}
+  - {common: "Cetti's Warbler", scientific: "Cettia cetti", plate: 114, gould_title: "Cetti's Warbler, Salicaria ? Cetti", volume: birdsEuropeIIGoul, leaf: 268, margins: [0.02, 0.02, 0.98, 0.773]}
+  - {common: "Common Nightingale", scientific: "Luscinia megarhynchos", plate: 116, gould_title: "Nightingale, Philomela luscinia", volume: birdsEuropeIIGoul, leaf: 276, margins: [0.02, 0.02, 0.98, 0.812]}
+  - {common: "Thrush Nightingale", scientific: "Luscinia luscinia", plate: 117, gould_title: "Thrush Nightingale, Philomela Turdoïdes", volume: birdsEuropeIIGoul, leaf: 280, margins: [0.02, 0.02, 0.98, 0.746], sci_synonyms: ["Luscinia philomela"]}
+  - {common: "Siberian Rubythroat", scientific: "Calliope calliope", plate: 118, gould_title: "Gorget Warbler, Calliope Lathamii", volume: birdsEuropeIIGoul, leaf: 284, margins: [0.02, 0.02, 0.98, 0.855], sci_synonyms: ["Luscinia calliope"]}
+  - {common: "Eurasian Blackcap", scientific: "Sylvia atricapilla", plate: 120, gould_title: "Black-cap, Curruca atricapilla", volume: birdsEuropeIIGoul, leaf: 292, margins: [0.02, 0.02, 0.98, 0.745]}
+  - {common: "Garden Warbler", scientific: "Sylvia borin", plate: 121, gould_title: "Garden Warbler, Curruca hortensis", volume: birdsEuropeIIGoul, leaf: 296, margins: [0.02, 0.02, 0.98, 0.665]}
+  - {common: "Sardinian Warbler", scientific: "Curruca melanocephala", plate: 123, gould_title: "Sardinian Warbler, Curruca melanocephala", volume: birdsEuropeIIGoul, leaf: 304, margins: [0.02, 0.02, 0.98, 0.779], sci_synonyms: ["Sylvia melanocephala"]}
+  - {common: "Greater Whitethroat", scientific: "Curruca communis", plate: 125, gould_title: "Common White-throat, Curruca cinerea", volume: birdsEuropeIIGoul, leaf: 312, margins: [0.02, 0.02, 0.98, 0.788], composite: true, legend: ["1. Common White-throat."], sci_synonyms: ["Sylvia communis"]}
+  - {common: "Lesser Whitethroat", scientific: "Curruca curruca", plate: 125, gould_title: "Lesser White-throat, Curruca garrula", volume: birdsEuropeIIGoul, leaf: 312, margins: [0.02, 0.02, 0.98, 0.788], composite: true, legend: ["2. Lesser White-throat."], sci_synonyms: ["Sylvia curruca"]}
+  - {common: "Spectacled Warbler", scientific: "Curruca conspicillata", plate: 126, gould_title: "Spectacle Warbler, Curruca conspicillata", volume: birdsEuropeIIGoul, leaf: 316, margins: [0.02, 0.02, 0.98, 0.752], sci_synonyms: ["Sylvia conspicillata"]}
+  - {common: "Barred Warbler", scientific: "Curruca nisoria", plate: 128, gould_title: "Barred Warbler, Curruca nisoria", volume: birdsEuropeIIGoul, leaf: 324, margins: [0.02, 0.02, 0.98, 0.777], sci_synonyms: ["Sylvia nisoria"]}
+  - {common: "Dartford Warbler", scientific: "Curruca undata", plate: 129, gould_title: "Dartford Warbler, Melizophilus provincialis", volume: birdsEuropeIIGoul, leaf: 328, margins: [0.02, 0.02, 0.98, 0.824], sci_synonyms: ["Sylvia undata"]}
+  - {common: "Eurasian Wren", scientific: "Troglodytes troglodytes", plate: 130, gould_title: "Wren, Troglodytes Europæus", volume: birdsEuropeIIGoul, leaf: 332, margins: [0.02, 0.02, 0.98, 0.851]}
+  - {common: "Common Chiffchaff", scientific: "Phylloscopus collybita", plate: 131, gould_title: "Chiff-chaff, Sylvia rufa", volume: birdsEuropeIIGoul, leaf: 336, margins: [0.02, 0.02, 0.98, 0.75], composite: true, legend: ["2. Chiff-chaff."], sci_synonyms: ["Phylloscopus rufus"]}
+  - {common: "Willow Warbler", scientific: "Phylloscopus trochilus", plate: 131, gould_title: "Willow Wren, Sylvia trochilus", volume: birdsEuropeIIGoul, leaf: 336, margins: [0.02, 0.02, 0.98, 0.75], composite: true, legend: ["1. Willow Wren."]}
+  - {common: "Wood Warbler", scientific: "Phylloscopus sibilatrix", plate: 131, gould_title: "Wood Wren, Sylvia sibilatrix", volume: birdsEuropeIIGoul, leaf: 336, margins: [0.02, 0.02, 0.98, 0.75], composite: true, legend: ["3. Wood Wren."]}
+  - {common: "Richard's Pipit", scientific: "Anthus richardi", plate: 135, gould_title: "Richard's Pipit, Anthus Richardi", volume: birdsEuropeIIGoul, leaf: 352, margins: [0.02, 0.02, 0.98, 0.732]}
+  - {common: "Meadow Pipit", scientific: "Anthus pratensis", plate: 136, gould_title: "Meadow Pipit, Anthus pratensis", volume: birdsEuropeIIGoul, leaf: 356, margins: [0.02, 0.02, 0.98, 0.818]}
+  - {common: "Tawny Pipit", scientific: "Anthus campestris", plate: 137, gould_title: "Tawny Pipit, Anthus rufescens", volume: birdsEuropeIIGoul, leaf: 360, margins: [0.02, 0.02, 0.98, 0.816]}
+  - {common: "Tree Pipit", scientific: "Anthus trivialis", plate: 139, gould_title: "Tree Pipit, Anthus arboreus", volume: birdsEuropeIIGoul, leaf: 368, margins: [0.02, 0.02, 0.98, 0.783]}
+  - {common: "Red-throated Pipit", scientific: "Anthus cervinus", plate: 140, gould_title: "Red-throated Pipit, Anthus rufogularis", volume: birdsEuropeIIGoul, leaf: 372, margins: [0.02, 0.02, 0.98, 0.802]}
+  - {common: "White Wagtail", scientific: "Motacilla alba", plate: 141, gould_title: "Pied Wagtail, Motacilla Yarrellii", volume: birdsEuropeIIGoul, leaf: 376, margins: [0.02, 0.02, 0.98, 0.774], sci_synonyms: ["Motacilla yarrellii"]}
+  - {common: "Citrine Wagtail", scientific: "Motacilla citreola", plate: 144, gould_title: "Yellow-headed Wagtail, Motacilla citreola", volume: birdsEuropeIIGoul, leaf: 388, margins: [0.02, 0.02, 0.98, 0.787]}
+  - {common: "Western Yellow Wagtail", scientific: "Motacilla flava", plate: 145, gould_title: "Yellow Wagtail, Motacilla flava", volume: birdsEuropeIIGoul, leaf: 392, margins: [0.02, 0.02, 0.98, 0.772]}
+  - {common: "Gray Wagtail", scientific: "Motacilla cinerea", plate: 147, gould_title: "Grey Wagtail, Motacilla Boarula", volume: birdsEuropeIIGoul, leaf: 400, margins: [0.02, 0.02, 0.98, 0.724], sci_synonyms: ["Motacilla boarula"]}
+  - {common: "Common Firecrest", scientific: "Regulus ignicapilla", plate: 148, gould_title: "Fire-crested Wren, Regulus ignicapillus", volume: birdsEuropeIIGoul, leaf: 404, margins: [0.02, 0.02, 0.98, 0.82], composite: true, legend: ["1. Fire-crested Wren."]}
+  - {common: "Goldcrest", scientific: "Regulus regulus", plate: 148, gould_title: "Golden-crested Wren, Regulus vulgaris", volume: birdsEuropeIIGoul, leaf: 404, margins: [0.02, 0.02, 0.98, 0.82], composite: true, legend: ["2. Golden-crested Wren."]}
+  - {common: "Great Tit", scientific: "Parus major", plate: 150, gould_title: "Great Tit, Parus major", volume: birdsEuropeIIIGoul, leaf: 14, margins: [0.02, 0.02, 0.98, 0.806]}
+  - {common: "Gray-headed Chickadee", scientific: "Poecile cinctus", plate: 151, gould_title: "Siberian Tit, Parus Sibericus", volume: birdsEuropeIIIGoul, leaf: 18, margins: [0.02, 0.02, 0.98, 0.808], composite: true, legend: ["2. Siberian Tit."]}
+  - {common: "Sombre Tit", scientific: "Poecile lugubris", plate: 151, gould_title: "Sombre Tit, Parus lugubris", volume: birdsEuropeIIIGoul, leaf: 18, margins: [0.02, 0.02, 0.98, 0.808], composite: true, legend: ["1. Sombre Tit."]}
+  - {common: "Tufted Titmouse", scientific: "Baeolophus bicolor", plate: 152, gould_title: "Toupet Tit, Parus bicolor", volume: birdsEuropeIIIGoul, leaf: 22, margins: [0.02, 0.02, 0.98, 0.865]}
+  - {common: "Azure Tit", scientific: "Cyanistes cyanus", plate: 153, gould_title: "Azure Tit, Parus cyanus", volume: birdsEuropeIIIGoul, leaf: 26, margins: [0.02, 0.02, 0.98, 0.813]}
+  - {common: "Eurasian Blue Tit", scientific: "Cyanistes caeruleus", plate: 154, gould_title: "Blue Tit, Parus cœruleus", volume: birdsEuropeIIIGoul, leaf: 30, margins: [0.02, 0.02, 0.98, 0.838], sci_synonyms: ["Parus caeruleus"]}
+  - {common: "Coal Tit", scientific: "Periparus ater", plate: 155, gould_title: "Cole Tit, Parus ater", volume: birdsEuropeIIIGoul, leaf: 34, margins: [0.02, 0.02, 0.98, 0.767], composite: true, legend: ["1. Cole Tit."], sci_synonyms: ["Parus ater"]}
+  - {common: "Marsh Tit", scientific: "Poecile palustris", plate: 155, gould_title: "Marsh Tit, Parus palustris", volume: birdsEuropeIIIGoul, leaf: 34, margins: [0.02, 0.02, 0.98, 0.767], composite: true, legend: ["2. Marsh Tit."], sci_synonyms: ["Parus palustris"]}
+  - {common: "Crested Tit", scientific: "Lophophanes cristatus", plate: 156, gould_title: "Crested Tit, Parus cristatus", volume: birdsEuropeIIIGoul, leaf: 38, margins: [0.02, 0.02, 0.98, 0.778], sci_synonyms: ["Parus cristatus"]}
+  - {common: "Long-tailed Tit", scientific: "Aegithalos caudatus", plate: 157, gould_title: "Long-tailed Tit, Parus caudatus", volume: birdsEuropeIIIGoul, leaf: 42, margins: [0.02, 0.02, 0.98, 0.832]}
+  - {common: "Bearded Reedling", scientific: "Panurus biarmicus", plate: 158, gould_title: "Bearded Tit, or Reed Bird, Calamophilus biarmicus", volume: birdsEuropeIIIGoul, leaf: 46, margins: [0.02, 0.02, 0.98, 0.857]}
+  - {common: "Eurasian Penduline-Tit", scientific: "Remiz pendulinus", plate: 159, gould_title: "Penduline Tit, Ægithalus pendulinus", volume: birdsEuropeIIIGoul, leaf: 50, margins: [0.02, 0.02, 0.98, 0.835]}
+  - {common: "Bohemian Waxwing", scientific: "Bombycilla garrulus", plate: 160, gould_title: "Waxen Chatterer, Bombycivora garrula", volume: birdsEuropeIIIGoul, leaf: 54, margins: [0.02, 0.02, 0.98, 0.79]}
+  - {common: "Calandra Lark", scientific: "Melanocorypha calandra", plate: 162, gould_title: "Calandra Lark, Alauda Calandra", volume: birdsEuropeIIIGoul, leaf: 62, margins: [0.02, 0.02, 0.98, 0.697]}
+  - {common: "Greater Short-toed Lark", scientific: "Calandrella brachydactyla", plate: 163, gould_title: "Short-toed Lark, Alauda brachydactyla", volume: birdsEuropeIIIGoul, leaf: 66, margins: [0.02, 0.02, 0.98, 0.817]}
+  - {common: "Horned Lark", scientific: "Eremophila alpestris", plate: 164, gould_title: "Shore Lark, Alauda alpestris", volume: birdsEuropeIIIGoul, leaf: 70, margins: [0.02, 0.02, 0.98, 0.837]}
+  - {common: "Crested Lark", scientific: "Galerida cristata", plate: 165, gould_title: "Crested Lark, Alauda cristata", volume: birdsEuropeIIIGoul, leaf: 74, margins: [0.02, 0.02, 0.98, 0.708]}
+  - {common: "Eurasian Skylark", scientific: "Alauda arvensis", plate: 166, gould_title: "Sky Lark, Alauda arvensis", volume: birdsEuropeIIIGoul, leaf: 78, margins: [0.02, 0.02, 0.98, 0.787]}
+  - {common: "Wood Lark", scientific: "Lullula arborea", plate: 167, gould_title: "Wood Lark, Alauda arborea", volume: birdsEuropeIIIGoul, leaf: 82, margins: [0.02, 0.02, 0.98, 0.746]}
+  - {common: "Greater Hoopoe-Lark", scientific: "Alaemon alaudipes", plate: 168, gould_title: "Bifasciated Lark, Certhilauda bifasciata", volume: birdsEuropeIIIGoul, leaf: 86, margins: [0.02, 0.02, 0.98, 0.756]}
+  - {common: "Lapland Longspur", scientific: "Calcarius lapponicus", plate: 169, gould_title: "Lark-heeled Bunting, Plectrophanes Lapponica", volume: birdsEuropeIIIGoul, leaf: 90, margins: [0.02, 0.02, 0.98, 0.742]}
+  - {common: "Snow Bunting", scientific: "Plectrophenax nivalis", plate: 170, gould_title: "Snow Bunting, Plectrophanes nivalis", volume: birdsEuropeIIIGoul, leaf: 94, margins: [0.02, 0.02, 0.98, 0.816]}
+  - {common: "Corn Bunting", scientific: "Emberiza calandra", plate: 171, gould_title: "Common Bunting, Emberiza miliaria", volume: birdsEuropeIIIGoul, leaf: 98, margins: [0.02, 0.02, 0.98, 0.82], sci_synonyms: ["Miliaria calandra"]}
+  - {common: "Black-headed Bunting", scientific: "Emberiza melanocephala", plate: 172, gould_title: "Black-headed Bunting, Emberiza melanocephala", volume: birdsEuropeIIIGoul, leaf: 102, margins: [0.02, 0.02, 0.98, 0.77]}
+  - {common: "Yellowhammer", scientific: "Emberiza citrinella", plate: 173, gould_title: "Yellow Bunting, Emberiza citrinella", volume: birdsEuropeIIIGoul, leaf: 106, margins: [0.02, 0.02, 0.98, 0.846]}
+  - {common: "Yellow-breasted Bunting", scientific: "Emberiza aureola", plate: 174, gould_title: "Yellow-breasted Bunting, Emberiza aureola", volume: birdsEuropeIIIGoul, leaf: 110, margins: [0.02, 0.02, 0.98, 0.826]}
+  - {common: "Cirl Bunting", scientific: "Emberiza cirlus", plate: 175, gould_title: "Cirl Bunting, Emberiza Cirlus", volume: birdsEuropeIIIGoul, leaf: 114, margins: [0.02, 0.02, 0.98, 0.827]}
+  - {common: "Ortolan Bunting", scientific: "Emberiza hortulana", plate: 176, gould_title: "Ortolan Bunting, Emberiza hortulana", volume: birdsEuropeIIIGoul, leaf: 118, margins: [0.02, 0.02, 0.98, 0.811]}
+  - {common: "Rustic Bunting", scientific: "Emberiza rustica", plate: 177, gould_title: "Rustic Bunting, Emberiza rustica", volume: birdsEuropeIIIGoul, leaf: 122, margins: [0.02, 0.02, 0.98, 0.828]}
+  - {common: "Rock Bunting", scientific: "Emberiza cia", plate: 179, gould_title: "Meadow Bunting, Emberiza cia", volume: birdsEuropeIIIGoul, leaf: 130, margins: [0.02, 0.02, 0.98, 0.89]}
+  - {common: "Pine Bunting", scientific: "Emberiza leucocephalos", plate: 180, gould_title: "Pine Bunting, Emberiza pithyornus", volume: birdsEuropeIIIGoul, leaf: 134, margins: [0.02, 0.02, 0.98, 0.839]}
+  - {common: "Cretzschmar's Bunting", scientific: "Emberiza caesia", plate: 181, gould_title: "Cretzschmar's Bunting, Emberiza cæsia", volume: birdsEuropeIIIGoul, leaf: 138, margins: [0.02, 0.02, 0.98, 0.808]}
+  - {common: "Reed Bunting", scientific: "Emberiza schoeniclus", plate: 182, gould_title: "Marsh Bunting, Emberiza palustris", volume: birdsEuropeIIIGoul, leaf: 142, margins: [0.02, 0.02, 0.98, 0.849]}
+  - {common: "Italian Sparrow", scientific: "Passer italiae", plate: 185, gould_title: "Alpine Sparrow, Pyrgita Cisalpina", volume: birdsEuropeIIIGoul, leaf: 154, margins: [0.02, 0.02, 0.98, 0.843], composite: true, legend: ["2. Alpine Sparrow."], sci_synonyms: ["Passer domesticus italiae"]}
+  - {common: "Spanish Sparrow", scientific: "Passer hispaniolensis", plate: 185, gould_title: "Spanish Sparrow, Pyrgita Hispaniolensis", volume: birdsEuropeIIIGoul, leaf: 154, margins: [0.02, 0.02, 0.98, 0.843], composite: true, legend: ["1. Spanish Sparrow."]}
+  - {common: "Rock Sparrow", scientific: "Petronia petronia", plate: 186, gould_title: "Doubtful Sparrow, Pyrgita petronia", volume: birdsEuropeIIIGoul, leaf: 158, margins: [0.02, 0.02, 0.98, 0.81]}
+  - {common: "Common Chaffinch", scientific: "Fringilla coelebs", plate: 187, gould_title: "Chaffinch, Fringilla Cælebs", volume: birdsEuropeIIIGoul, leaf: 162, margins: [0.02, 0.02, 0.98, 0.871]}
+  - {common: "Brambling", scientific: "Fringilla montifringilla", plate: 188, gould_title: "Mountain or Bramble Finch, Fringilla montifringilla", volume: birdsEuropeIIIGoul, leaf: 166, margins: [0.02, 0.02, 0.98, 0.86]}
+  - {common: "White-winged Snowfinch", scientific: "Montifringilla nivalis", plate: 189, gould_title: "Snow Finch, Fringilla nivalis", volume: birdsEuropeIIIGoul, leaf: 170, margins: [0.02, 0.02, 0.98, 0.84]}
+  - {common: "Eurasian Linnet", scientific: "Linaria cannabina", plate: 191, gould_title: "Common or Brown Linnet, Linaria Cannabina", volume: birdsEuropeIIIGoul, leaf: 178, margins: [0.02, 0.02, 0.98, 0.782], sci_synonyms: ["Carduelis cannabina"]}
+  - {common: "Twite", scientific: "Linaria flavirostris", plate: 192, gould_title: "Mountain Linnet, or Twite, Linaria montana", volume: birdsEuropeIIIGoul, leaf: 182, margins: [0.02, 0.02, 0.98, 0.86], sci_synonyms: ["Carduelis flavirostris"]}
+  - {common: "Lesser Redpoll", scientific: "Acanthis cabaret", plate: 194, gould_title: "Lesser Redpole, Linaria minor", volume: birdsEuropeIIIGoul, leaf: 190, margins: [0.02, 0.02, 0.98, 0.842], sci_synonyms: ["Carduelis cabaret", "Acanthis flammea cabaret"]}
+  - {common: "European Serin", scientific: "Serinus serinus", plate: 195, gould_title: "Serin Finch, Serinus flavescens", volume: birdsEuropeIIIGoul, leaf: 194, margins: [0.02, 0.02, 0.98, 0.845]}
+  - {common: "Eurasian Siskin", scientific: "Spinus spinus", plate: 197, gould_title: "Siskin, or Aberdevine, Carduelis spinus", volume: birdsEuropeIIIGoul, leaf: 202, margins: [0.02, 0.02, 0.98, 0.842], sci_synonyms: ["Carduelis spinus"]}
+  - {common: "Citril Finch", scientific: "Carduelis citrinella", plate: 198, gould_title: "Citril Finch, Carduelis citrinella", volume: birdsEuropeIIIGoul, leaf: 206, margins: [0.02, 0.02, 0.98, 0.794], sci_synonyms: ["Serinus citrinella"]}
+  - {common: "Hawfinch", scientific: "Coccothraustes coccothraustes", plate: 199, gould_title: "Hawfinch, Coccothraustes vulgaris", volume: birdsEuropeIIIGoul, leaf: 210, margins: [0.02, 0.02, 0.98, 0.765]}
+  - {common: "European Greenfinch", scientific: "Chloris chloris", plate: 200, gould_title: "Green Grosbeak, Coccothraustes chloris", volume: birdsEuropeIIIGoul, leaf: 214, margins: [0.02, 0.02, 0.98, 0.853], sci_synonyms: ["Carduelis chloris"]}
+  - {common: "Parrot Crossbill", scientific: "Loxia pytyopsittacus", plate: 201, gould_title: "Parrot Crossbill, Loxia pityopsittacus", volume: birdsEuropeIIIGoul, leaf: 218, margins: [0.02, 0.02, 0.98, 0.881]}
+  - {common: "Red Crossbill", scientific: "Loxia curvirostra", plate: 202, gould_title: "Common Crossbill, Loxia curvirostra", volume: birdsEuropeIIIGoul, leaf: 222, margins: [0.02, 0.02, 0.98, 0.846]}
+  - {common: "White-winged Crossbill", scientific: "Loxia leucoptera", plate: 203, gould_title: "White-winged Crossbill, Loxia leucoptera", volume: birdsEuropeIIIGoul, leaf: 226, margins: [0.02, 0.02, 0.98, 0.759]}
+  - {common: "Pine Grosbeak", scientific: "Pinicola enucleator", plate: 204, gould_title: "Pine Grosbeak, Corythus enucleator", volume: birdsEuropeIIIGoul, leaf: 230, margins: [0.02, 0.02, 0.98, 0.828]}
+  - {common: "Long-tailed Rosefinch", scientific: "Carpodacus sibiricus", plate: 205, gould_title: "Siberian Grosbeak, Corythus longicauda", volume: birdsEuropeIIIGoul, leaf: 234, margins: [0.02, 0.02, 0.98, 0.826], sci_synonyms: ["Uragus sibiricus"]}
+  - {common: "Common Rosefinch", scientific: "Carpodacus erythrinus", plate: 206, gould_title: "Scarlet Grosbeak, Erythrospiza erythrina", volume: birdsEuropeIIIGoul, leaf: 238, margins: [0.02, 0.02, 0.98, 0.834]}
+  - {common: "Trumpeter Finch", scientific: "Bucanetes githagineus", plate: 208, gould_title: "Vinous Grosbeak, Erythrospiza githaginea", volume: birdsEuropeIIIGoul, leaf: 246, margins: [0.02, 0.02, 0.98, 0.78]}
+  - {common: "Eurasian Bullfinch", scientific: "Pyrrhula pyrrhula", plate: 209, gould_title: "Bullfinch, Pyrrhula vulgaris", volume: birdsEuropeIIIGoul, leaf: 250, margins: [0.02, 0.02, 0.98, 0.823]}
+  - {common: "Spotless Starling", scientific: "Sturnus unicolor", plate: 211, gould_title: "Sardinian Starling, Sturnus unicolor", volume: birdsEuropeIIIGoul, leaf: 258, margins: [0.02, 0.02, 0.98, 0.85]}
+  - {common: "Rosy Starling", scientific: "Pastor roseus", plate: 212, gould_title: "Rose-coloured Pastor, Pastor roseus", volume: birdsEuropeIIIGoul, leaf: 262, margins: [0.02, 0.02, 0.98, 0.793], sci_synonyms: ["Sturnus roseus"]}
+  - {common: "Eurasian Nutcracker", scientific: "Nucifraga caryocatactes", plate: 213, gould_title: "Nutcracker, Nucifraga caryocatactes", volume: birdsEuropeIIIGoul, leaf: 266, margins: [0.02, 0.02, 0.98, 0.866]}
+  - {common: "Eurasian Jay", scientific: "Garrulus glandarius", plate: 214, gould_title: "Jay, Garrulus glandarius", volume: birdsEuropeIIIGoul, leaf: 270, margins: [0.02, 0.02, 0.98, 0.771]}
+  - {common: "Siberian Jay", scientific: "Perisoreus infaustus", plate: 215, gould_title: "Siberian Jay, Garrulus infaustus", volume: birdsEuropeIIIGoul, leaf: 274, margins: [0.02, 0.02, 0.98, 0.784]}
+  - {common: "Eurasian Magpie", scientific: "Pica pica", plate: 216, gould_title: "Magpie, Pica caudata", volume: birdsEuropeIIIGoul, leaf: 278, margins: [0.02, 0.02, 0.98, 0.809]}
+  - {common: "Yellow-billed Chough", scientific: "Pyrrhocorax graculus", plate: 218, gould_title: "Alpine Chough, Pyrrhocorax Pyrrhocorax", volume: birdsEuropeIIIGoul, leaf: 286, margins: [0.02, 0.02, 0.98, 0.834]}
+  - {common: "Red-billed Chough", scientific: "Pyrrhocorax pyrrhocorax", plate: 219, gould_title: "Chough, Fregilus graculus", volume: birdsEuropeIIIGoul, leaf: 290, margins: [0.02, 0.02, 0.98, 0.876]}
+  - {common: "Common Raven", scientific: "Corvus corax", plate: 220, gould_title: "Raven, Corvus corax", volume: birdsEuropeIIIGoul, leaf: 294}
+  - {common: "Carrion Crow", scientific: "Corvus corone", plate: 221, gould_title: "Carrion Crow, Corvus corone", volume: birdsEuropeIIIGoul, leaf: 298, margins: [0.02, 0.02, 0.98, 0.88]}
+  - {common: "Hooded Crow", scientific: "Corvus cornix", plate: 222, gould_title: "Hooded Crow, Corvus cornix", volume: birdsEuropeIIIGoul, leaf: 302, margins: [0.02, 0.02, 0.98, 0.859]}
+  - {common: "Eurasian Jackdaw", scientific: "Corvus monedula", plate: 223, gould_title: "Jackdaw, Corvus monedula", volume: birdsEuropeIIIGoul, leaf: 306, margins: [0.02, 0.02, 0.98, 0.894], sci_synonyms: ["Coloeus monedula"]}
+  - {common: "Rook", scientific: "Corvus frugilegus", plate: 224, gould_title: "Rook, Corvus frugilegus", volume: birdsEuropeIIIGoul, leaf: 310, margins: [0.02, 0.02, 0.98, 0.874]}
+  - {common: "Black Woodpecker", scientific: "Dryocopus martius", plate: 225, gould_title: "Great Black Woodpecker, Picus martius", volume: birdsEuropeIIIGoul, leaf: 314, margins: [0.02, 0.02, 0.98, 0.939]}
+  - {common: "Eurasian Green Woodpecker", scientific: "Picus viridis", plate: 226, gould_title: "Green Woodpecker, Picus viridis", volume: birdsEuropeIIIGoul, leaf: 318, margins: [0.02, 0.02, 0.98, 0.87]}
+  - {common: "Gray-headed Woodpecker", scientific: "Picus canus", plate: 227, gould_title: "Grey-headed Green Woodpecker, Picus canus", volume: birdsEuropeIIIGoul, leaf: 322, margins: [0.02, 0.02, 0.98, 0.815]}
+  - {common: "White-backed Woodpecker", scientific: "Dendrocopos leucotos", plate: 228, gould_title: "White-rumped Woodpecker, Picus leuconotus", volume: birdsEuropeIIIGoul, leaf: 326, margins: [0.02, 0.02, 0.98, 0.857]}
+  - {common: "Great Spotted Woodpecker", scientific: "Dendrocopos major", plate: 229, gould_title: "Great Spotted Woodpecker, Picus major", volume: birdsEuropeIIIGoul, leaf: 330, margins: [0.02, 0.02, 0.98, 0.901]}
+  - {common: "Middle Spotted Woodpecker", scientific: "Dendrocoptes medius", plate: 230, gould_title: "Middle Spotted Woodpecker, Picus medius", volume: birdsEuropeIIIGoul, leaf: 334, margins: [0.02, 0.02, 0.98, 0.829], sci_synonyms: ["Dendrocopos medius", "Leiopicus medius"]}
+  - {common: "Lesser Spotted Woodpecker", scientific: "Dryobates minor", plate: 231, gould_title: "Lesser Spotted Woodpecker, Picus minor", volume: birdsEuropeIIIGoul, leaf: 338, margins: [0.02, 0.02, 0.98, 0.8], sci_synonyms: ["Dendrocopos minor"]}
+  - {common: "Eurasian Three-toed Woodpecker", scientific: "Picoides tridactylus", plate: 232, gould_title: "Three-toed Woodpecker, Apternus tridactylus", volume: birdsEuropeIIIGoul, leaf: 342, margins: [0.02, 0.02, 0.98, 0.861]}
+  - {common: "Eurasian Wryneck", scientific: "Jynx torquilla", plate: 233, gould_title: "Wryneck, Yunx torquilla", volume: birdsEuropeIIIGoul, leaf: 346, margins: [0.02, 0.02, 0.98, 0.834]}
+  - {common: "Eurasian Nuthatch", scientific: "Sitta europaea", plate: 234, gould_title: "Common Nuthatch, Sitta Europæa", volume: birdsEuropeIIIGoul, leaf: 350, margins: [0.02, 0.02, 0.98, 0.79]}
+  - {common: "Western Rock Nuthatch", scientific: "Sitta neumayer", plate: 235, gould_title: "Dalmatian Nuthatch, Sitta Syriaca", volume: birdsEuropeIIIGoul, leaf: 354, margins: [0.02, 0.02, 0.98, 0.769]}
+  - {common: "Eurasian Hoopoe", scientific: "Upupa epops", plate: 238, gould_title: "Hoopoe, Upupa epops", volume: birdsEuropeIIIGoul, leaf: 366, margins: [0.02, 0.02, 0.98, 0.908]}
+  - {common: "Wallcreeper", scientific: "Tichodroma muraria", plate: 239, gould_title: "Wall Creeper, Tichodroma phœnicoptera", volume: birdsEuropeIIIGoul, leaf: 370, margins: [0.02, 0.02, 0.98, 0.793]}
+  - {common: "Common Cuckoo", scientific: "Cuculus canorus", plate: 240, gould_title: "Common Cuckoo, Cuculus Canorus", volume: birdsEuropeIIIGoul, leaf: 374, margins: [0.02, 0.02, 0.98, 0.856]}
+  - {common: "Great Spotted Cuckoo", scientific: "Clamator glandarius", plate: 241, gould_title: "Great Spotted Cuckoo, Cuculus glandarius", volume: birdsEuropeIIIGoul, leaf: 378, margins: [0.02, 0.02, 0.98, 0.847]}
+  - {common: "Yellow-billed Cuckoo", scientific: "Coccyzus americanus", plate: 242, gould_title: "American Cuckoo, Coccyzus Americanus", volume: birdsEuropeIIIGoul, leaf: 382, margins: [0.02, 0.02, 0.98, 0.815]}
+  - {common: "Common Wood-Pigeon", scientific: "Columba palumbus", plate: 243, gould_title: "Wood Pigeon, Columba palumbus", volume: birdsEuropeIVGoul, leaf: 14, margins: [0.02, 0.02, 0.98, 0.858]}
+  - {common: "Stock Dove", scientific: "Columba oenas", plate: 244, gould_title: "Stock Dove, Columba Œnas", volume: birdsEuropeIVGoul, leaf: 18, margins: [0.02, 0.02, 0.98, 0.872]}
+  - {common: "European Turtle-Dove", scientific: "Streptopelia turtur", plate: 246, gould_title: "Turtle Dove, Columba Turtur", volume: birdsEuropeIVGoul, leaf: 26, margins: [0.02, 0.02, 0.98, 0.825]}
+  - {common: "Western Capercaillie", scientific: "Tetrao urogallus", plate: 248, gould_title: "Capercailzie, or Cock of the Wood, Tetrao Urogallus", volume: birdsEuropeIVGoul, leaf: 34, rotate: 270}
+  - {common: "Black Grouse", scientific: "Lyrurus tetrix", plate: 250, gould_title: "Black Grouse, Tetrao Tetrix", volume: birdsEuropeIVGoul, leaf: 42, margins: [0.02, 0.02, 0.98, 0.915], rotate: 270, sci_synonyms: ["Tetrao tetrix"]}
+  - {common: "Hazel Grouse", scientific: "Tetrastes bonasia", plate: 251, gould_title: "Hazel Grouse, or Gelinotte, Bonasia Europæa", volume: birdsEuropeIVGoul, leaf: 46, rotate: 270, sci_synonyms: ["Bonasa bonasia"]}
+  - {common: "Willow Ptarmigan", scientific: "Lagopus lagopus", plate: 252, gould_title: "Red Grouse, Lagopus Scoticus", volume: birdsEuropeIVGoul, leaf: 50, rotate: 270, sci_synonyms: ["Lagopus scotica"]}
+  - {common: "Rock Ptarmigan", scientific: "Lagopus muta", plate: 253, gould_title: "Common Ptarmigan, Lagopus mutus", volume: birdsEuropeIVGoul, leaf: 54, rotate: 270, sci_synonyms: ["Lagopus mutus"]}
+  - {common: "Black-bellied Sandgrouse", scientific: "Pterocles orientalis", plate: 257, gould_title: "Sand Grouse, Pterocles arenarius", volume: birdsEuropeIVGoul, leaf: 70, rotate: 270, sci_synonyms: ["Pterocles arenarius"]}
+  - {common: "Pin-tailed Sandgrouse", scientific: "Pterocles alchata", plate: 258, gould_title: "Pintailed Sand Grouse, Pterocles setarius", volume: birdsEuropeIVGoul, leaf: 74, rotate: 270}
+  - {common: "Black Francolin", scientific: "Francolinus francolinus", plate: 259, gould_title: "European Francolin, Francolinus vulgaris", volume: birdsEuropeIVGoul, leaf: 78, rotate: 270}
+  - {common: "Red-legged Partridge", scientific: "Alectoris rufa", plate: 260, gould_title: "Red-legged Partridge, Perdix rubra", volume: birdsEuropeIVGoul, leaf: 82, rotate: 270}
+  - {common: "Barbary Partridge", scientific: "Alectoris barbara", plate: 261, gould_title: "Barbary Partridge, Perdix petrosa", volume: birdsEuropeIVGoul, leaf: 86, margins: [0.02, 0.02, 0.98, 0.905], rotate: 270, composite: true, legend: ["1. Barbary Partridge."]}
+  - {common: "Rock Partridge", scientific: "Alectoris graeca", plate: 261, gould_title: "Greek Partridge, Perdix saxatilis", volume: birdsEuropeIVGoul, leaf: 86, margins: [0.02, 0.02, 0.98, 0.905], rotate: 270, composite: true, legend: ["2. Greek Partridge."]}
+  - {common: "Gray Partridge", scientific: "Perdix perdix", plate: 262, gould_title: "Common Partridge, Perdix cinerea", volume: birdsEuropeIVGoul, leaf: 90, rotate: 270}
+  - {common: "Common Quail", scientific: "Coturnix coturnix", plate: 263, gould_title: "Quail, Coturnix dactylisonans", volume: birdsEuropeIVGoul, leaf: 94, rotate: 270}
+  - {common: "Small Buttonquail", scientific: "Turnix sylvaticus", plate: 264, gould_title: "Andalusian Turnix, Hemipodius tachydromus", volume: birdsEuropeIVGoul, leaf: 98, rotate: 270, sci_synonyms: ["Turnix sylvatica"]}
+  - {common: "Collared Pratincole", scientific: "Glareola pratincola", plate: 265, gould_title: "Collared Pratincole, Glareola torquata", volume: birdsEuropeIVGoul, leaf: 102, rotate: 270}
+  - {common: "Little Bustard", scientific: "Tetrax tetrax", plate: 269, gould_title: "Little Bustard, Otis tetrax", volume: birdsEuropeIVGoul, leaf: 118, rotate: 270}
+  - {common: "Common Crane", scientific: "Grus grus", plate: 270, gould_title: "Common Crane, Grus cinerea", volume: birdsEuropeIVGoul, leaf: 122, margins: [0.02, 0.02, 0.98, 0.945]}
+  - {common: "Siberian Crane", scientific: "Leucogeranus leucogeranus", plate: 271, gould_title: "White Crane, Grus leucogeranus", volume: birdsEuropeIVGoul, leaf: 126, sci_synonyms: ["Grus leucogeranus"]}
+  - {common: "Demoiselle Crane", scientific: "Anthropoides virgo", plate: 272, gould_title: "Numidian Demoiselle, Anthropoïdes Virgo", volume: birdsEuropeIVGoul, leaf: 130, margins: [0.02, 0.02, 0.98, 0.902], sci_synonyms: ["Grus virgo"]}
+  - {common: "Gray Heron", scientific: "Ardea cinerea", plate: 273, gould_title: "Common Heron, Ardea cinerea", volume: birdsEuropeIVGoul, leaf: 134, margins: [0.02, 0.02, 0.98, 0.913]}
+  - {common: "Purple Heron", scientific: "Ardea purpurea", plate: 274, gould_title: "Purple Heron, Ardea purpurea", volume: birdsEuropeIVGoul, leaf: 138}
+  - {common: "Squacco Heron", scientific: "Ardeola ralloides", plate: 275, gould_title: "Squacco Heron, Ardea comata", volume: birdsEuropeIVGoul, leaf: 142, margins: [0.02, 0.02, 0.98, 0.87]}
+  - {common: "Great Egret", scientific: "Ardea alba", plate: 276, gould_title: "Great Egret, Ardea alba", volume: birdsEuropeIVGoul, leaf: 146, rotate: 270, sci_synonyms: ["Egretta alba", "Casmerodius albus"]}
+  - {common: "Little Egret", scientific: "Egretta garzetta", plate: 277, gould_title: "Little Egret, Ardea garzetta", volume: birdsEuropeIVGoul, leaf: 150, rotate: 270}
+  - {common: "Cattle Egret", scientific: "Bubulcus ibis", plate: 278, gould_title: "Rufous-backed Egret, Ardea russata", volume: birdsEuropeIVGoul, leaf: 154, rotate: 270, sci_synonyms: ["Ardea ibis"]}
+  - {common: "Black-crowned Night-Heron", scientific: "Nycticorax nycticorax", plate: 279, gould_title: "Common Night Heron, Nycticorax Europæus", volume: birdsEuropeIVGoul, leaf: 158, rotate: 270}
+  - {common: "Great Bittern", scientific: "Botaurus stellaris", plate: 280, gould_title: "Common Bittern, Botaurus stellaris", volume: birdsEuropeIVGoul, leaf: 162, rotate: 270}
+  - {common: "American Bittern", scientific: "Botaurus lentiginosus", plate: 281, gould_title: "Freckled Bittern, Botaurus lentiginosus", volume: birdsEuropeIVGoul, leaf: 166, rotate: 270}
+  - {common: "Little Bittern", scientific: "Ixobrychus minutus", plate: 282, gould_title: "Little Bittern, Botaurus minutus", volume: birdsEuropeIVGoul, leaf: 170, rotate: 270, sci_synonyms: ["Botaurus minutus"]}
+  - {common: "White Stork", scientific: "Ciconia ciconia", plate: 283, gould_title: "White Stork, Ciconia alba", volume: birdsEuropeIVGoul, leaf: 174, margins: [0.02, 0.02, 0.98, 0.92]}
+  - {common: "Black Stork", scientific: "Ciconia nigra", plate: 284, gould_title: "Black Stork, Ciconia nigra", volume: birdsEuropeIVGoul, leaf: 178, margins: [0.02, 0.02, 0.98, 0.953]}
+  - {common: "Eurasian Spoonbill", scientific: "Platalea leucorodia", plate: 286, gould_title: "Spoonbill, Platalea leucorodia", volume: birdsEuropeIVGoul, leaf: 186, margins: [0.02, 0.02, 0.98, 0.86]}
+  - {common: "Greater Flamingo", scientific: "Phoenicopterus roseus", plate: 287, gould_title: "Common Flamingo, Phœnicopterus ruber", volume: birdsEuropeIVGoul, leaf: 190, margins: [0.02, 0.02, 0.98, 0.936], sci_synonyms: ["Phoenicopterus ruber roseus"]}
+  - {common: "Eurasian Thick-knee", scientific: "Burhinus oedicnemus", plate: 288, gould_title: "Thick-kneed Bustard, Œdicnemus crepitans", volume: birdsEuropeIVGoul, leaf: 194, rotate: 270}
+  - {common: "Black-winged Stilt", scientific: "Himantopus himantopus", plate: 289, gould_title: "Long-legged Plover, Himantopus melanopterus", volume: birdsEuropeIVGoul, leaf: 198, margins: [0.02, 0.02, 0.98, 0.869]}
+  - {common: "Black-bellied Plover", scientific: "Pluvialis squatarola", plate: 290, gould_title: "Grey Plover, Squatarola cinerea", volume: birdsEuropeIVGoul, leaf: 202, rotate: 270}
+  - {common: "Northern Lapwing", scientific: "Vanellus vanellus", plate: 291, gould_title: "Lapwing, Vanellus cristatus", volume: birdsEuropeIVGoul, leaf: 206, rotate: 270}
+  - {common: "Spur-winged Lapwing", scientific: "Vanellus spinosus", plate: 293, gould_title: "Spur-winged Plover, Pluvianus spinosus", volume: birdsEuropeIVGoul, leaf: 214, rotate: 270}
+  - {common: "European Golden-Plover", scientific: "Pluvialis apricaria", plate: 294, gould_title: "Golden Plover, Charadrius pluvialis", volume: birdsEuropeIVGoul, leaf: 218, rotate: 270}
+  - {common: "Eurasian Dotterel", scientific: "Charadrius morinellus", plate: 295, gould_title: "Dottrell, Charadrius morinellus", volume: birdsEuropeIVGoul, leaf: 222, rotate: 270, sci_synonyms: ["Eudromias morinellus"]}
+  - {common: "Common Ringed Plover", scientific: "Charadrius hiaticula", plate: 296, gould_title: "Ring Dottrell, Charadrius hiaticula", volume: birdsEuropeIVGoul, leaf: 226, rotate: 270}
+  - {common: "Little Ringed Plover", scientific: "Charadrius dubius", plate: 297, gould_title: "Little Ring Dottrell, Charadrius minor", volume: birdsEuropeIVGoul, leaf: 230, rotate: 270}
+  - {common: "Kentish Plover", scientific: "Charadrius alexandrinus", plate: 298, gould_title: "Kentish Plover, Charadrius Cantianus", volume: birdsEuropeIVGoul, leaf: 234, rotate: 270, sci_synonyms: ["Charadrius cantianus"]}
+  - {common: "Eurasian Oystercatcher", scientific: "Haematopus ostralegus", plate: 300, gould_title: "Oyster Catcher, Hæmatopus Ostralegus", volume: birdsEuropeIVGoul, leaf: 242, rotate: 270}
+  - {common: "Glossy Ibis", scientific: "Plegadis falcinellus", plate: 301, gould_title: "Glossy Ibis, Ibis Falcinellus", volume: birdsEuropeIVGoul, leaf: 246, rotate: 270}
+  - {common: "Eurasian Curlew", scientific: "Numenius arquata", plate: 302, gould_title: "Common Curlew, Numenius arquata", volume: birdsEuropeIVGoul, leaf: 250, rotate: 270}
+  - {common: "Whimbrel", scientific: "Numenius phaeopus", plate: 303, gould_title: "Whimbrel, Numenius Phæopus", volume: birdsEuropeIVGoul, leaf: 254, rotate: 270}
+  - {common: "Black-tailed Godwit", scientific: "Limosa limosa", plate: 305, gould_title: "Black-tailed Godwit, Limosa melanura", volume: birdsEuropeIVGoul, leaf: 262, rotate: 270}
+  - {common: "Bar-tailed Godwit", scientific: "Limosa lapponica", plate: 306, gould_title: "Bar-tailed Godwit, Limosa rufa", volume: birdsEuropeIVGoul, leaf: 266, rotate: 270}
+  - {common: "Terek Sandpiper", scientific: "Xenus cinereus", plate: 307, gould_title: "Terek Godwit, Limosa Terek", volume: birdsEuropeIVGoul, leaf: 270, rotate: 270}
+  - {common: "Pied Avocet", scientific: "Recurvirostra avosetta", plate: 308, gould_title: "Avocet, Recurvirostra Avocetta", volume: birdsEuropeIVGoul, leaf: 274, rotate: 270}
+  - {common: "Spotted Redshank", scientific: "Tringa erythropus", plate: 309, gould_title: "Spotted Redshank, Totanus fuscus", volume: birdsEuropeIVGoul, leaf: 278, rotate: 270}
+  - {common: "Common Redshank", scientific: "Tringa totanus", plate: 310, gould_title: "Redshank, Totanus calidris", volume: birdsEuropeIVGoul, leaf: 282, rotate: 270}
+  - {common: "Willet", scientific: "Tringa semipalmata", plate: 311, gould_title: "Semipalmated Sandpiper, Totanus semipalmatus", volume: birdsEuropeIVGoul, leaf: 286, rotate: 270, sci_synonyms: ["Catoptrophorus semipalmatus"]}
+  - {common: "Common Greenshank", scientific: "Tringa nebularia", plate: 312, gould_title: "Greenshank, Totanus glottis", volume: birdsEuropeIVGoul, leaf: 290, rotate: 270}
+  - {common: "Upland Sandpiper", scientific: "Bartramia longicauda", plate: 313, gould_title: "Bartram's Sandpiper, Totanus Bartramius", volume: birdsEuropeIVGoul, leaf: 294, rotate: 270}
+  - {common: "Marsh Sandpiper", scientific: "Tringa stagnatilis", plate: 314, gould_title: "Marsh Sandpiper, Totanus stagnatilis", volume: birdsEuropeIVGoul, leaf: 298, rotate: 270}
+  - {common: "Green Sandpiper", scientific: "Tringa ochropus", plate: 315, gould_title: "Green Sandpiper, Totanus ochropus", volume: birdsEuropeIVGoul, leaf: 302, margins: [0.02, 0.02, 0.98, 0.905], rotate: 270, composite: true, legend: ["1. Green Sandpiper."]}
+  - {common: "Wood Sandpiper", scientific: "Tringa glareola", plate: 315, gould_title: "Wood Sandpiper, Totanus Glareola", volume: birdsEuropeIVGoul, leaf: 302, margins: [0.02, 0.02, 0.98, 0.905], rotate: 270, composite: true, legend: ["2. Wood Sandpiper."]}
+  - {common: "Common Sandpiper", scientific: "Actitis hypoleucos", plate: 316, gould_title: "Common Sandpiper, Totanus Hypoleucus", volume: birdsEuropeIVGoul, leaf: 306, rotate: 270}
+  - {common: "Spotted Sandpiper", scientific: "Actitis macularius", plate: 317, gould_title: "Spotted Sandpiper, Totanus macularius", volume: birdsEuropeIVGoul, leaf: 310, rotate: 270, sci_synonyms: ["Actitis macularia"]}
+  - {common: "Ruddy Turnstone", scientific: "Arenaria interpres", plate: 318, gould_title: "Turnstone, Strepsilas collaris", volume: birdsEuropeIVGoul, leaf: 314, rotate: 270}
+  - {common: "Eurasian Woodcock", scientific: "Scolopax rusticola", plate: 319, gould_title: "Woodcock, Scolopax rusticola", volume: birdsEuropeIVGoul, leaf: 318, rotate: 270}
+  - {common: "Great Snipe", scientific: "Gallinago media", plate: 320, gould_title: "Great Snipe, Scolopax major", volume: birdsEuropeIVGoul, leaf: 322, rotate: 270}
+  - {common: "Common Snipe", scientific: "Gallinago gallinago", plate: 321, gould_title: "Common Snipe, Scolopax Gallinago", volume: birdsEuropeIVGoul, leaf: 326, margins: [0.02, 0.02, 0.98, 0.835], rotate: 270, composite: true, legend: ["2. Common Snipe."]}
+  - {common: "Jack Snipe", scientific: "Lymnocryptes minimus", plate: 322, gould_title: "Jack Snipe, Scolopax Gallinula", volume: birdsEuropeIVGoul, leaf: 330, rotate: 270}
+  - {common: "Red Knot", scientific: "Calidris canutus", plate: 324, gould_title: "Knot, Calidris Canutus", volume: birdsEuropeIVGoul, leaf: 338, rotate: 270}
+  - {common: "Ruff", scientific: "Calidris pugnax", plate: 325, gould_title: "Ruff, Machetes pugnax", volume: birdsEuropeIVGoul, leaf: 342, rotate: 270, sci_synonyms: ["Philomachus pugnax"]}
+  - {common: "Buff-breasted Sandpiper", scientific: "Calidris subruficollis", plate: 326, gould_title: "Buff-breasted Sandpiper, Tringa rufescens", volume: birdsEuropeIVGoul, leaf: 346, rotate: 270, sci_synonyms: ["Tryngites subruficollis"]}
+  - {common: "Pectoral Sandpiper", scientific: "Calidris melanotos", plate: 327, gould_title: "Pectoral Sandpiper, Tringa pectoralis", volume: birdsEuropeIVGoul, leaf: 350, rotate: 270}
+  - {common: "Curlew Sandpiper", scientific: "Calidris ferruginea", plate: 328, gould_title: "Pygmy Curlew, Tringa subarquata", volume: birdsEuropeIVGoul, leaf: 354, rotate: 270}
+  - {common: "Dunlin", scientific: "Calidris alpina", plate: 329, gould_title: "Dunlin, or Purre, Tringa variabilis", volume: birdsEuropeIVGoul, leaf: 358, rotate: 270}
+  - {common: "Broad-billed Sandpiper", scientific: "Calidris falcinellus", plate: 331, gould_title: "Broad-billed Tringa, Tringa platyrhyncha", volume: birdsEuropeIVGoul, leaf: 366, rotate: 270, sci_synonyms: ["Limicola falcinellus"]}
+  - {common: "Little Stint", scientific: "Calidris minuta", plate: 332, gould_title: "Little Sandpiper, Tringa minuta", volume: birdsEuropeIVGoul, leaf: 370, rotate: 270}
+  - {common: "Temminck's Stint", scientific: "Calidris temminckii", plate: 333, gould_title: "Temminck's Tringa, Tringa Temminckii", volume: birdsEuropeIVGoul, leaf: 374, margins: [0.02, 0.02, 0.98, 0.79], rotate: 270}
+  - {common: "Purple Sandpiper", scientific: "Calidris maritima", plate: 334, gould_title: "Purple Sandpiper, Tringa maritima", volume: birdsEuropeIVGoul, leaf: 378, rotate: 270}
+  - {common: "Sanderling", scientific: "Calidris alba", plate: 335, gould_title: "Sanderling, Arenaria Calidris", volume: birdsEuropeIVGoul, leaf: 382, rotate: 270}
+  - {common: "Red-necked Phalarope", scientific: "Phalaropus lobatus", plate: 336, gould_title: "Red-necked Phalarope, Phalaropus hyperboreus", volume: birdsEuropeIVGoul, leaf: 386, rotate: 270}
+  - {common: "Red Phalarope", scientific: "Phalaropus fulicarius", plate: 337, gould_title: "Grey Phalarope, Phalaropus platyrhynchus", volume: birdsEuropeIVGoul, leaf: 390, rotate: 270}
+  - {common: "Eurasian Coot", scientific: "Fulica atra", plate: 338, gould_title: "Coot, Fulica atra", volume: birdsEuropeIVGoul, leaf: 394, rotate: 270}
+  - {common: "Water Rail", scientific: "Rallus aquaticus", plate: 339, gould_title: "Water Rail, Rallus aquaticus", volume: birdsEuropeIVGoul, leaf: 398, rotate: 270}
+  - {common: "Western Swamphen", scientific: "Porphyrio porphyrio", plate: 340, gould_title: "Hyacinthine Porphyrio, Porphyrio hyacinthinus", volume: birdsEuropeIVGoul, leaf: 402, rotate: 270}
+  - {common: "Corn Crake", scientific: "Crex crex", plate: 341, gould_title: "Land Rail, Gallinula crex", volume: birdsEuropeIVGoul, leaf: 406, rotate: 270}
+  - {common: "Eurasian Moorhen", scientific: "Gallinula chloropus", plate: 342, gould_title: "Common Gallinule, Gallinula chloropus", volume: birdsEuropeIVGoul, leaf: 410, rotate: 270}
+  - {common: "Spotted Crake", scientific: "Porzana porzana", plate: 343, gould_title: "Spotted Crake, Zapornia porzana", volume: birdsEuropeIVGoul, leaf: 414, rotate: 270}
+  - {common: "Baillon's Crake", scientific: "Zapornia pusilla", plate: 344, gould_title: "Baillon's Crake, Zapornia Baillonii", volume: birdsEuropeIVGoul, leaf: 418, rotate: 270, sci_synonyms: ["Porzana pusilla"]}
+  - {common: "Little Crake", scientific: "Zapornia parva", plate: 345, gould_title: "Little Crake, Zapornia pusilla", volume: birdsEuropeIVGoul, leaf: 422, rotate: 270, sci_synonyms: ["Porzana parva"]}
+  - {common: "Snow Goose", scientific: "Anser caerulescens", plate: 346, gould_title: "Snow Goose, Anser hyperboreus", volume: birdsEuropeVGoul, leaf: 14, rotate: 270, sci_synonyms: ["Chen caerulescens"]}
+  - {common: "Graylag Goose", scientific: "Anser anser", plate: 347, gould_title: "Grey Lag Wild Goose, Anser ferus", volume: birdsEuropeVGoul, leaf: 18, rotate: 270}
+  - {common: "Greater White-fronted Goose", scientific: "Anser albifrons", plate: 349, gould_title: "White-fronted Goose, Anser albifrons", volume: birdsEuropeVGoul, leaf: 26, margins: [0.02, 0.02, 0.98, 0.945], rotate: 270}
+  - {common: "Barnacle Goose", scientific: "Branta leucopsis", plate: 350, gould_title: "Bernicle Goose, Anser leucopsis", volume: birdsEuropeVGoul, leaf: 30, rotate: 270}
+  - {common: "Brant", scientific: "Branta bernicla", plate: 352, gould_title: "Brent Goose, Anser Brenta", volume: birdsEuropeVGoul, leaf: 38, rotate: 270}
+  - {common: "Egyptian Goose", scientific: "Alopochen aegyptiaca", plate: 353, gould_title: "Egyptian Goose, Chenalopex Egyptiaca", volume: birdsEuropeVGoul, leaf: 42, margins: [0.02, 0.02, 0.98, 0.912], rotate: 270}
+  - {common: "Whooper Swan", scientific: "Cygnus cygnus", plate: 355, gould_title: "Whistling Swan, or Hooper, Cygnus ferus", volume: birdsEuropeVGoul, leaf: 50, rotate: 270}
+  - {common: "Tundra Swan", scientific: "Cygnus columbianus", plate: 356, gould_title: "Bewick's Swan, Cygnus Bewickii", volume: birdsEuropeVGoul, leaf: 54, margins: [0.02, 0.02, 0.98, 0.87], rotate: 270, sci_synonyms: ["Cygnus bewickii"]}
+  - {common: "Common Shelduck", scientific: "Tadorna tadorna", plate: 357, gould_title: "Common Shieldrake, Tadorna vulpanser", volume: birdsEuropeVGoul, leaf: 58, rotate: 270}
+  - {common: "Ruddy Shelduck", scientific: "Tadorna ferruginea", plate: 358, gould_title: "Ruddy Shieldrake, Tadorna rutila", volume: birdsEuropeVGoul, leaf: 62, margins: [0.02, 0.02, 0.98, 0.878], rotate: 270}
+  - {common: "Eurasian Wigeon", scientific: "Mareca penelope", plate: 359, gould_title: "Widgeon, Mareca Penelope", volume: birdsEuropeVGoul, leaf: 66, rotate: 270, sci_synonyms: ["Anas penelope"]}
+  - {common: "Northern Shoveler", scientific: "Spatula clypeata", plate: 360, gould_title: "Shoveller Duck, Rhynchaspis clypeata", volume: birdsEuropeVGoul, leaf: 70, rotate: 270, sci_synonyms: ["Anas clypeata"]}
+  - {common: "Mallard", scientific: "Anas platyrhynchos", plate: 361, gould_title: "Common Wild Duck, Anas Boschas", volume: birdsEuropeVGoul, leaf: 74, rotate: 270, sci_synonyms: ["Anas boschas"]}
+  - {common: "Green-winged Teal", scientific: "Anas crecca", plate: 362, gould_title: "Common Teal, Querquedula Crecca", volume: birdsEuropeVGoul, leaf: 78, rotate: 270}
+  - {common: "Garganey", scientific: "Spatula querquedula", plate: 364, gould_title: "Gargany Teal, Querquedula circia", volume: birdsEuropeVGoul, leaf: 86, rotate: 270, sci_synonyms: ["Anas querquedula"]}
+  - {common: "Northern Pintail", scientific: "Anas acuta", plate: 365, gould_title: "Pintail Duck, Dafila caudacuta", volume: birdsEuropeVGoul, leaf: 90, rotate: 270}
+  - {common: "Gadwall", scientific: "Mareca strepera", plate: 366, gould_title: "Gadwall, Chauliodes strepera", volume: birdsEuropeVGoul, leaf: 94, rotate: 270, sci_synonyms: ["Anas strepera"]}
+  - {common: "Common Pochard", scientific: "Aythya ferina", plate: 367, gould_title: "Red-headed Pochard, Fuligula ferina", volume: birdsEuropeVGoul, leaf: 98, rotate: 270}
+  - {common: "Ferruginous Duck", scientific: "Aythya nyroca", plate: 368, gould_title: "White-eyed, or Castaneous Duck, Fuligula leucophthalma", volume: birdsEuropeVGoul, leaf: 102, rotate: 270}
+  - {common: "Red-crested Pochard", scientific: "Netta rufina", plate: 369, gould_title: "Red-crested Duck, Fuligula rufina", volume: birdsEuropeVGoul, leaf: 106, rotate: 270}
+  - {common: "Tufted Duck", scientific: "Aythya fuligula", plate: 370, gould_title: "Tufted Duck, Fuligula cristata", volume: birdsEuropeVGoul, leaf: 110, rotate: 270}
+  - {common: "Greater Scaup", scientific: "Aythya marila", plate: 371, gould_title: "Scaup Pochard, Fuligula marila", volume: birdsEuropeVGoul, leaf: 114, rotate: 270}
+  - {common: "Common Eider", scientific: "Somateria mollissima", plate: 374, gould_title: "Eider Duck, Somateria mollissima", volume: birdsEuropeVGoul, leaf: 126, rotate: 270}
+  - {common: "King Eider", scientific: "Somateria spectabilis", plate: 375, gould_title: "King Duck, Somateria spectabilis", volume: birdsEuropeVGoul, leaf: 130, rotate: 270}
+  - {common: "Surf Scoter", scientific: "Melanitta perspicillata", plate: 376, gould_title: "Surf Scoter, Oidemia perspicillata", volume: birdsEuropeVGoul, leaf: 134, rotate: 270}
+  - {common: "Velvet Scoter", scientific: "Melanitta fusca", plate: 377, gould_title: "Velvet Scoter, Oidemia fusca", volume: birdsEuropeVGoul, leaf: 138, margins: [0.02, 0.02, 0.98, 0.93], rotate: 270}
+  - {common: "Common Scoter", scientific: "Melanitta nigra", plate: 378, gould_title: "Black Scoter, Oidemia nigra", volume: birdsEuropeVGoul, leaf: 142, rotate: 270}
+  - {common: "Common Goldeneye", scientific: "Bucephala clangula", plate: 379, gould_title: "Golden Eye, Clangula vulgaris", volume: birdsEuropeVGoul, leaf: 146, rotate: 270}
+  - {common: "Barrow's Goldeneye", scientific: "Bucephala islandica", plate: 380, gould_title: "Barrow's Duck, Clangula Barrovii", volume: birdsEuropeVGoul, leaf: 150, rotate: 270}
+  - {common: "Harlequin Duck", scientific: "Histrionicus histrionicus", plate: 381, gould_title: "Harlequin Duck, Clangula histrionica", volume: birdsEuropeVGoul, leaf: 154, rotate: 270}
+  - {common: "Long-tailed Duck", scientific: "Clangula hyemalis", plate: 382, gould_title: "Long-tailed Duck, Harelda glacialis", volume: birdsEuropeVGoul, leaf: 158, rotate: 270}
+  - {common: "Common Merganser", scientific: "Mergus merganser", plate: 384, gould_title: "Goosander, Mergus Merganser", volume: birdsEuropeVGoul, leaf: 166, rotate: 270}
+  - {common: "Red-breasted Merganser", scientific: "Mergus serrator", plate: 385, gould_title: "Red-breasted Merganser, Mergus serrator", volume: birdsEuropeVGoul, leaf: 170, rotate: 270}
+  - {common: "Hooded Merganser", scientific: "Lophodytes cucullatus", plate: 386, gould_title: "Hooded Merganser, Mergus cucullatus", volume: birdsEuropeVGoul, leaf: 174, rotate: 270}
+  - {common: "Smew", scientific: "Mergellus albellus", plate: 387, gould_title: "Smew, Mergus albellus", volume: birdsEuropeVGoul, leaf: 178, rotate: 270}
+  - {common: "Great Crested Grebe", scientific: "Podiceps cristatus", plate: 388, gould_title: "Great-crested Grebe, Podiceps cristatus", volume: birdsEuropeVGoul, leaf: 182, rotate: 270}
+  - {common: "Red-necked Grebe", scientific: "Podiceps grisegena", plate: 389, gould_title: "Red-necked Grebe, Podiceps rubricollis", volume: birdsEuropeVGoul, leaf: 186, rotate: 270}
+  - {common: "Horned Grebe", scientific: "Podiceps auritus", plate: 390, gould_title: "Horned Grebe, Podiceps cornutus", volume: birdsEuropeVGoul, leaf: 190, rotate: 270, sci_synonyms: ["Podiceps cornutus"]}
+  - {common: "Eared Grebe", scientific: "Podiceps nigricollis", plate: 391, gould_title: "Eared Grebe, Podiceps auritus", volume: birdsEuropeVGoul, leaf: 194, rotate: 270}
+  - {common: "Little Grebe", scientific: "Tachybaptus ruficollis", plate: 392, gould_title: "Little Grebe, or Dabchick, Podiceps minor", volume: birdsEuropeVGoul, leaf: 198, rotate: 270}
+  - {common: "Common Loon", scientific: "Gavia immer", plate: 393, gould_title: "Northern Diver, Colymbus glacialis", volume: birdsEuropeVGoul, leaf: 202, rotate: 270}
+  - {common: "Arctic Loon", scientific: "Gavia arctica", plate: 394, gould_title: "Black-throated Diver, Colymbus arcticus", volume: birdsEuropeVGoul, leaf: 206, rotate: 270}
+  - {common: "Red-throated Loon", scientific: "Gavia stellata", plate: 395, gould_title: "Red-throated Diver, Colymbus septentrionalis", volume: birdsEuropeVGoul, leaf: 210, rotate: 270}
+  - {common: "Common Murre", scientific: "Uria aalge", plate: 396, gould_title: "Foolish Guillemot, Uria Troile", volume: birdsEuropeVGoul, leaf: 214, margins: [0.02, 0.02, 0.98, 0.882]}
+  - {common: "Thick-billed Murre", scientific: "Uria lomvia", plate: 398, gould_title: "Brunnich's Guillemot, Uria Brunnichii", volume: birdsEuropeVGoul, leaf: 222, rotate: 270}
+  - {common: "Black Guillemot", scientific: "Cepphus grylle", plate: 399, gould_title: "Black Guillemot, Uria Grylle", volume: birdsEuropeVGoul, leaf: 226, margins: [0.02, 0.02, 0.98, 0.884]}
+  - {common: "Razorbill", scientific: "Alca torda", plate: 401, gould_title: "Razor-billed Auk, Alca Torda", volume: birdsEuropeVGoul, leaf: 234, margins: [0.02, 0.02, 0.98, 0.824]}
+  - {common: "Atlantic Puffin", scientific: "Fratercula arctica", plate: 403, gould_title: "Puffin, Mormon Fratercula", volume: birdsEuropeVGoul, leaf: 242, margins: [0.02, 0.02, 0.98, 0.872]}
+  - {common: "Great Cormorant", scientific: "Phalacrocorax carbo", plate: 407, gould_title: "Common Cormorant, Phalacrocorax Carbo", volume: birdsEuropeVGoul, leaf: 258, rotate: 270}
+  - {common: "Northern Gannet", scientific: "Morus bassanus", plate: 412, gould_title: "Solan Gannet, Sula Bassana", volume: birdsEuropeVGoul, leaf: 278, rotate: 270}
+  - {common: "Caspian Tern", scientific: "Hydroprogne caspia", plate: 414, gould_title: "Caspian Tern, Sterna Caspia", volume: birdsEuropeVGoul, leaf: 286, rotate: 270}
+  - {common: "Sandwich Tern", scientific: "Thalasseus sandvicensis", plate: 415, gould_title: "Sandwich Tern, Sterna cantiaca", volume: birdsEuropeVGoul, leaf: 290, rotate: 270, sci_synonyms: ["Sterna sandvicensis"]}
+  - {common: "Gull-billed Tern", scientific: "Gelochelidon nilotica", plate: 416, gould_title: "Gull-billed Tern, Sterna Anglica", volume: birdsEuropeVGoul, leaf: 294, rotate: 270}
+  - {common: "Common Tern", scientific: "Sterna hirundo", plate: 417, gould_title: "Common Tern, Sterna Hirundo", volume: birdsEuropeVGoul, leaf: 298, rotate: 270}
+  - {common: "Roseate Tern", scientific: "Sterna dougallii", plate: 418, gould_title: "Roseate Tern, Sterna Dougallii", volume: birdsEuropeVGoul, leaf: 302, rotate: 270}
+  - {common: "Arctic Tern", scientific: "Sterna paradisaea", plate: 419, gould_title: "Arctic Tern, Sterna Arctica", volume: birdsEuropeVGoul, leaf: 306, rotate: 270}
+  - {common: "Little Tern", scientific: "Sternula albifrons", plate: 420, gould_title: "Little Tern, Sterna minuta", volume: birdsEuropeVGoul, leaf: 310, rotate: 270, sci_synonyms: ["Sterna albifrons"]}
+  - {common: "Brown Noddy", scientific: "Anous stolidus", plate: 421, gould_title: "Noddy Tern, Sterna stolida", volume: birdsEuropeVGoul, leaf: 314, rotate: 270}
+  - {common: "Black Tern", scientific: "Chlidonias niger", plate: 422, gould_title: "Black Tern, Viralva nigra", volume: birdsEuropeVGoul, leaf: 318, rotate: 270}
+  - {common: "White-winged Tern", scientific: "Chlidonias leucopterus", plate: 423, gould_title: "White-winged Tern, Viralva leucoptera", volume: birdsEuropeVGoul, leaf: 322, rotate: 270}
+  - {common: "Whiskered Tern", scientific: "Chlidonias hybrida", plate: 424, gould_title: "Moustache Tern, Viralva leucopareïa", volume: birdsEuropeVGoul, leaf: 326, rotate: 270}
+  - {common: "Laughing Gull", scientific: "Leucophaeus atricilla", plate: 426, gould_title: "Black-winged Gull, Xema atricilla", volume: birdsEuropeVGoul, leaf: 334, rotate: 270, sci_synonyms: ["Larus atricilla"]}
+  - {common: "Mediterranean Gull", scientific: "Ichthyaetus melanocephalus", plate: 427, gould_title: "Black-headed Gull, Xema melanocephala", volume: birdsEuropeVGoul, leaf: 338, rotate: 270, sci_synonyms: ["Larus melanocephalus"]}
+  - {common: "Little Gull", scientific: "Hydrocoloeus minutus", plate: 428, gould_title: "Little Gull, Xema minuta", volume: birdsEuropeVGoul, leaf: 342, rotate: 270, sci_synonyms: ["Larus minutus"]}
+  - {common: "Sabine's Gull", scientific: "Xema sabini", plate: 429, gould_title: "Sabine's Gull, Xema Sabinii", volume: birdsEuropeVGoul, leaf: 346, rotate: 270, sci_synonyms: ["Larus sabini"]}
+  - {common: "Great Black-backed Gull", scientific: "Larus marinus", plate: 430, gould_title: "Great Black-backed Gull, Larus marinus", volume: birdsEuropeVGoul, leaf: 350, margins: [0.02, 0.02, 0.98, 0.915], rotate: 270}
+  - {common: "Lesser Black-backed Gull", scientific: "Larus fuscus", plate: 431, gould_title: "Lesser Black-backed Gull, Larus fuscus", volume: birdsEuropeVGoul, leaf: 354, rotate: 270}
+  - {common: "Glaucous Gull", scientific: "Larus hyperboreus", plate: 432, gould_title: "Glaucous Gull, Larus glaucus", volume: birdsEuropeVGoul, leaf: 358, rotate: 270}
+  - {common: "Iceland Gull", scientific: "Larus glaucoides", plate: 433, gould_title: "Iceland Gull, Larus Islandicus", volume: birdsEuropeVGoul, leaf: 362, rotate: 270}
+  - {common: "Herring Gull", scientific: "Larus argentatus", plate: 434, gould_title: "Herring Gull, Larus argentatus", volume: birdsEuropeVGoul, leaf: 366, rotate: 270}
+  - {common: "Black-legged Kittiwake", scientific: "Rissa tridactyla", plate: 435, gould_title: "Kittiwake Gull, Larus Rissa", volume: birdsEuropeVGoul, leaf: 370, rotate: 270}
+  - {common: "Common Gull", scientific: "Larus canus", plate: 437, gould_title: "Common Gull, Larus canus", volume: birdsEuropeVGoul, leaf: 378, rotate: 270}
+  - {common: "Audouin's Gull", scientific: "Ichthyaetus audouinii", plate: 438, gould_title: "Audouin's Gull, Larus Audouinii", volume: birdsEuropeVGoul, leaf: 382, rotate: 270, sci_synonyms: ["Larus audouinii"]}
+  - {common: "Great Skua", scientific: "Stercorarius skua", plate: 439, gould_title: "Skua, Lestris catarractes", volume: birdsEuropeVGoul, leaf: 386, rotate: 270}
+  - {common: "Pomarine Jaeger", scientific: "Stercorarius pomarinus", plate: 440, gould_title: "Pomarine Gull, Lestris Pomarinus", volume: birdsEuropeVGoul, leaf: 390, rotate: 270}
+  - {common: "Parasitic Jaeger", scientific: "Stercorarius parasiticus", plate: 441, gould_title: "Richardson's Lestris, Lestris Richardsonii", volume: birdsEuropeVGoul, leaf: 394, rotate: 270}
+  - {common: "Manx Shearwater", scientific: "Puffinus puffinus", plate: 443, gould_title: "Manks Shearwater, Puffinus Anglorum", volume: birdsEuropeVGoul, leaf: 402, rotate: 270}
+  - {common: "Northern Fulmar", scientific: "Fulmarus glacialis", plate: 446, gould_title: "Fulmar Petrel, Procellaria glacialis", volume: birdsEuropeVGoul, leaf: 414, rotate: 270}
+  - {common: "Leach's Storm-Petrel", scientific: "Hydrobates leucorhous", plate: 447, gould_title: "Fork-tailed Storm Petrel, Thalassidroma Leachii", volume: birdsEuropeVGoul, leaf: 418, margins: [0.02, 0.02, 0.98, 0.84], rotate: 270, composite: true, legend: ["1. Fork-tailed Storm Petrel."], sci_synonyms: ["Oceanodroma leucorhoa"]}
+  - {common: "European Storm-Petrel", scientific: "Hydrobates pelagicus", plate: 448, gould_title: "Common Storm Petrel, Thalassidroma pelagica", volume: birdsEuropeVGoul, leaf: 418, margins: [0.02, 0.02, 0.98, 0.84], rotate: 270, composite: true, legend: ["2. Common Storm Petrel."]}
+  - {common: "Bulwer's Petrel", scientific: "Bulweria bulwerii", plate: 449, gould_title: "Bulwer's Petrel, Thalassidroma ? Bulwerii", volume: birdsEuropeVGoul, leaf: 422, rotate: 270}

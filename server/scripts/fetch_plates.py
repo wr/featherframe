@@ -363,9 +363,10 @@ def fetch_havell(session: requests.Session, species: list, args, images_dir: Pat
 
 
 def scan_filename(folio: str, entry: dict) -> str:
-    """Where a scanned folio keeps a plate, under img/: one file per plate,
-    shared by every species on it."""
-    return f"{folio}/{folio.replace('_', '-')}-{int(entry['plate'])}.jpg"
+    """Where a scanned folio keeps a sheet, under img/: one file per leaf of
+    the book, shared by every species on it. Named by leaf, not plate number:
+    a copy's numbering can disagree with the list (Gould's 447/448)."""
+    return f"{folio}/{entry['volume']}-{int(entry['leaf']):04d}.jpg"
 
 
 def _paper_surface(small):

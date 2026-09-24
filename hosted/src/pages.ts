@@ -234,7 +234,6 @@ export function adminPage(d: AdminData, message: string, actingAs = false): Resp
 export function suspendedPage(): Response {
   return page("Suspended · Featherframe", `
     <h1>This account is suspended</h1>
-    <p>Your frames keep the last picture they were showing.</p>
     <form method="post" action="/logout"><button type="submit">Sign out</button></form>`);
 }
 

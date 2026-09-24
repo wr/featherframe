@@ -44,7 +44,7 @@ def test_off_by_default(client, svc):
     assert not svc.password.on
     r = client.get("/")
     assert r.status_code == 200
-    assert 'id="pw-on"' in r.text and 'name="page_password_on" >' in r.text  # unchecked
+    assert 'id="pw-input"' in r.text and "Set password" in r.text
     assert "General settings" in r.text
     assert client.get("/api/status").status_code == 200
     # No sign-in page when there is nothing to sign in to.
@@ -52,13 +52,16 @@ def test_off_by_default(client, svc):
     assert r.status_code == 303 and r.headers["location"] == "/"
 
 
-def test_switch_on_without_a_password_stays_off(client, svc):
-    assert _settings(client, page_password_on="on").status_code == 303
+def test_blank_password_and_email_change_nothing(client, svc):
+    assert _settings(client, page_password="", owner_email="").status_code == 303
     assert not svc.password.on
+    _settings(client, owner_email="a@example.com")
+    _settings(client, owner_email="")
+    assert svc.config.owner_email == "a@example.com"
 
 
 def test_setting_it_keeps_this_browser_signed_in(client, svc):
-    r = _settings(client, page_password_on="on", page_password="wren",
+    r = _settings(client, page_password="wren",
                   owner_email="Owner@Example.com")
     assert svc.password.on and svc.config.owner_email == "owner@example.com"
     assert auth.COOKIE in r.cookies or client.cookies.get(auth.COOKIE)
@@ -66,7 +69,7 @@ def test_setting_it_keeps_this_browser_signed_in(client, svc):
 
 
 def test_on_asks_for_it_everywhere_but_screens(client, svc):
-    _settings(client, page_password_on="on", page_password="wren", owner_email="o@example.com")
+    _settings(client, page_password="wren", owner_email="o@example.com")
     client.cookies.clear()
     # The hash is kept, never the password, and not in the config.
     assert "wren" not in str(svc.db.get(auth.KV_KEY))
@@ -103,7 +106,7 @@ def test_on_asks_for_it_everywhere_but_screens(client, svc):
 
 
 def test_sign_out(client, svc):
-    _settings(client, page_password_on="on", page_password="wren")
+    _settings(client, page_password="wren")
     assert "Sign out" in client.get("/").text
     r = client.post("/logout", follow_redirects=False)
     assert r.headers["location"] == "/login"
@@ -118,20 +121,20 @@ def test_next_stays_on_this_server():
 
 
 def test_blank_keeps_it_new_one_signs_out_off_clears(client, svc):
-    _settings(client, page_password_on="on", page_password="wren")
+    _settings(client, page_password="wren")
     old_cookie = client.cookies.get(auth.COOKIE)
     # Saving other settings with the field blank keeps the password.
-    _settings(client, page_password_on="on")
+    _settings(client)
     assert svc.password.on and client.get("/api/status").status_code == 200
     # A new one replaces it: this browser stays in, any other is signed out.
-    _settings(client, page_password_on="on", page_password="jay")
+    _settings(client, page_password="jay")
     assert client.get("/api/status").status_code == 200
     assert not svc.password.allows(old_cookie)
     client.cookies.clear()
     assert _sign_in(client, "wren").status_code == 401
     assert _sign_in(client, "jay").status_code == 303
-    # Switched off, it's gone.
-    _settings(client)
+    # Removed, it's gone.
+    _settings(client, page_password_clear="on")
     assert not svc.password.on
     client.cookies.clear()
     assert client.get("/api/status").status_code == 200
@@ -161,8 +164,13 @@ def test_hosted_page_never_asks_and_shows_the_account_email(client, svc):
     try:
         assert client.get("/api/status").status_code == 200
         r = client.get("/", headers={"x-ff-account-email": "me@example.com"})
-        assert 'value="me@example.com"' in r.text
-        assert 'id="pw-on"' not in r.text
+        assert 'value="me@example.com"' in r.text and "Unconfirmed" not in r.text
+        assert 'id="pw-input"' not in r.text
+        assert "Send confirmation" in r.text
+        r = client.get("/", headers={"x-ff-account-email": "me@example.com",
+                                     "x-ff-account-email-pending": "new@example.com"})
+        assert 'value="new@example.com"' in r.text and "Unconfirmed" in r.text
+        assert "sign in with me@example.com" in r.text
         # The account's email is the Worker's to change, not this form's.
         _settings(client, owner_email="other@example.com")
         assert svc.config.owner_email == ""

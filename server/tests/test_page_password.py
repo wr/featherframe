@@ -166,7 +166,7 @@ def test_hosted_page_never_asks_and_shows_the_account_email(client, svc):
         r = client.get("/", headers={"x-ff-account-email": "me@example.com"})
         assert 'value="me@example.com"' in r.text and "Unconfirmed" not in r.text
         assert 'id="pw-input"' not in r.text
-        assert "Send confirmation" in r.text
+        assert 'aria-label="Send confirmation"' in r.text
         r = client.get("/", headers={"x-ff-account-email": "me@example.com",
                                      "x-ff-account-email-pending": "new@example.com"})
         assert 'value="new@example.com"' in r.text and "Unconfirmed" in r.text

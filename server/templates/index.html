@@ -786,6 +786,7 @@
   <symbol id="ic-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
   <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
   <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
+  <symbol id="ic-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   <symbol id="ic-warn" viewBox="0 0 16 16" fill="none"><path d="M8 1.9 15 14.4H1L8 1.9Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.75" r=".9" fill="currentColor"/></symbol>
   <symbol id="ic-info" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="currentColor"/></symbol>
   <symbol id="ic-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
@@ -1568,8 +1569,9 @@
               </div>
               <div class="keyline key-entry" {{ '' if not shown_email else 'hidden' }}>
                 <input type="email" id="f-email" name="owner_email" data-value="{{ shown_email }}" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@example.com" aria-label="Email address">
-                <button class="btn primary" type="submit">{{ 'Send confirmation' if hosted else 'Save' }}</button>
-                {% if shown_email %}<button class="btn key-cancel" type="button">Cancel</button>{% endif %}
+                {% set ok_label = 'Send confirmation' if hosted else 'Save' %}
+                <button class="btn icon primary" type="submit" title="{{ ok_label }}" aria-label="{{ ok_label }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
+                {% if shown_email %}<button class="btn icon key-cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-close"/></svg></button>{% endif %}
               </div>
             </div>
           </div>
@@ -1583,8 +1585,8 @@
               </div>
               <div class="keyline key-entry" hidden>
                 <input type="password" id="pw-input" name="page_password" autocomplete="new-password" aria-label="New password">
-                <button class="btn primary" type="submit">Save</button>
-                <button class="btn key-cancel" type="button">Cancel</button>
+                <button class="btn icon primary" type="submit" title="Save" aria-label="Save"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
+                <button class="btn icon key-cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-close"/></svg></button>
               </div>
               <input type="checkbox" class="key-clear" name="page_password_clear" hidden aria-hidden="true" tabindex="-1">
             </div>

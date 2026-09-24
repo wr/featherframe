@@ -49,7 +49,7 @@ from .render import welcome as welcome_mod
 from .render.compose import SingleSpec
 from .render.genart import GeneratedArtProvider, make_image_model, make_text_model
 from .render.pipeline import RenderResult
-from .render.provider import ArtProvider, AudubonProvider, ChainedProvider
+from .render.provider import ArtProvider, ChainedProvider, PlateProvider
 
 log = logging.getLogger("featherframe.service")
 
@@ -547,7 +547,7 @@ class FeatherframeService:
         self._tick_lock = threading.Lock()
         # The scans on this box, or the shared library where there are none
         # (FEATHERFRAME_PLATE_LIBRARY, W-842): the same crops either way.
-        self.audubon = plate_library.from_env() or AudubonProvider()
+        self.plates = plate_library.from_env() or PlateProvider()
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
         self.source = make_source(self.config, self.db)
@@ -723,7 +723,7 @@ class FeatherframeService:
         — turning the feature off must never hide art the user paid for."""
         self.genart = GeneratedArtProvider(make_image_model(config),
                                            text_model=make_text_model(config))
-        return ChainedProvider([self.audubon, self.genart])
+        return ChainedProvider([self.plates, self.genart])
 
     @staticmethod
     def _imagegen_fields(config: Config) -> tuple:
@@ -2680,7 +2680,7 @@ class FeatherframeService:
             "hold": self.hold_view(now),
             "birdnet_available": self.source.available(),
             "species_all_time": self.source.all_time_species_count(),
-            "plates_loaded": self.audubon.species_count,
+            "plates_loaded": self.plates.species_count,
             "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
             "config": self._masked_config(),
             # Every screen this server draws for, one shape each. The page

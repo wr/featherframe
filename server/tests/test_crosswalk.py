@@ -1,4 +1,4 @@
-"""Guards the curated species -> plate crosswalk in species.yaml against
+"""Guards the curated species -> plate crosswalk in folios/havell.yaml against
 regressions. Verifies the *resolved* plate numbers, not the images, so it runs
 without downloading. Skips cleanly if the index hasn't been built yet."""
 from __future__ import annotations
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-SPECIES_YAML = Path(__file__).resolve().parents[1] / "scripts" / "species.yaml"
+SPECIES_YAML = Path(__file__).resolve().parents[1] / "scripts" / "folios" / "havell.yaml"
 
 # A handful of the tricky, verified mappings (archaic titles + the no-plate two).
 EXPECTED = {
@@ -74,7 +74,7 @@ def test_species_yaml_plate_numbers():
     doc = yaml.safe_load(SPECIES_YAML.read_text())
     by_common = {s["common"]: s for s in doc["species"]}
     for common, plate in EXPECTED.items():
-        assert common in by_common, f"{common} missing from species.yaml"
+        assert common in by_common, f"{common} missing from folios/havell.yaml"
         got = by_common[common].get("plate")
         if plate is None:
             assert got in (None, "none"), f"{common} should have no plate, got {got}"

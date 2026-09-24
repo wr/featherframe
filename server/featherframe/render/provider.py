@@ -25,7 +25,8 @@ log = logging.getLogger("featherframe.provider")
 @dataclass
 class Artwork:
     image: Image.Image          # grayscale 'L', the bird art (no caption)
-    audubon_plate: Optional[int]  # source Havell plate number, if any
+    plate: Optional[int] = None   # the folio's own plate number, if any
+    folio: Optional[str] = None   # the folio the plate is from ("havell"), if any
     composite: bool = False
     generated: bool = False     # True when the art is AI-generated, not a scan
     generated_by: Optional[str] = None   # who drew it ("OpenAI"), for the provenance line
@@ -72,10 +73,11 @@ class ChainedProvider(ArtProvider):
         return None
 
 
-class AudubonProvider(ArtProvider):
-    """v1 provider: curated public-domain Audubon plates."""
+class PlateProvider(ArtProvider):
+    """Curated public-domain plates from the folios' scans on disk: Havell's
+    Audubon first, then the other folios (W-702)."""
 
-    name = "audubon"
+    name = "plates"
 
     def __init__(self, index: Optional[SpeciesIndex] = None) -> None:
         self._index = index or SpeciesIndex.load()
@@ -104,7 +106,8 @@ class AudubonProvider(ArtProvider):
             log.warning("plate extract failed for %s (%s): %s",
                         common_name, match.image_path, exc)
             return None
-        return Artwork(image=img, audubon_plate=match.plate_number, composite=match.composite,
+        return Artwork(image=img, plate=match.plate_number, folio=match.folio,
+                       composite=match.composite,
                        legend=list(match.legend),
                        color_loader=lambda: plate.extract_color(
                            match.image_path, composite=match.composite,

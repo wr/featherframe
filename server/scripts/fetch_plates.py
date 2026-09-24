@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """One-time (idempotent) plate fetcher for Featherframe.
 
-Reads server/scripts/species.yaml, downloads each species' Audubon plate from
-the public-domain mirror, and writes plates/index.json — the runtime crosswalk
-the render pipeline uses to turn a detection into a plate.
+Reads every folio's crosswalk in server/scripts/folios/ (W-702: one file per
+historical edition, Havell's first), downloads each species' plate, and writes
+plates/index.json — the runtime crosswalk the render pipeline uses to turn a
+detection into a plate. Every index entry names its `folio`; the index's
+`folios` block carries each folio's header (title, artist, years, credit).
 
+Havell's scans:
 Sources, in order: this repo's `plates-v1` GitHub Release (the whole Havell
 edition as checksummed tarballs — featherframe/plate_release.py), then
 github.com/nathanbuchar/audubon-bird-plates (mirrors audubon.org's
@@ -14,22 +17,21 @@ fresh install restores from the release and an upgrade that needs one new
 plate asks the mirror — and falls back to the release if the mirror is down.
 
 Usage:
-    python scripts/fetch_plates.py                # download everything in species.yaml
+    python scripts/fetch_plates.py                # download every folio's species
     python scripts/fetch_plates.py --dry-run      # resolve plates, download nothing
-    python scripts/fetch_plates.py --species other_list.yaml
+    python scripts/fetch_plates.py --folios other_dir/
     python scripts/fetch_plates.py --force        # re-download even if present
     python scripts/fetch_plates.py --all          # also cache every plate in the catalog (~2.9 GB)
     python scripts/fetch_plates.py --no-release   # skip the release tarballs, mirror only
 
 `--all` caches the whole Havell edition, not just the curated species, so adding
-a species to species.yaml later is an index rewrite with no network, and every
+a species to folios/havell.yaml later is an index rewrite with no network, and every
 plate is on hand as a style reference for the AI provider. It is idempotent:
 plates already on disk are skipped, so a re-run after a flaky night only fetches
 what is missing.
 
-Public-domain credit line to preserve when displaying: "Courtesy of the John
-James Audubon Center at Mill Grove, Montgomery County Audubon Collection, and
-Zebra Publishing."
+Each folio's credit line (its header's `credit`, carried into the index) is
+the one to preserve when displaying its plates.
 """
 from __future__ import annotations
 
@@ -54,7 +56,8 @@ RAW_BASE = os.environ.get(
     "https://raw.githubusercontent.com/nathanbuchar/audubon-bird-plates/master").rstrip("/")
 DATA_JSON_URL = f"{RAW_BASE}/data.json"
 AUDUBON_MEDIA = "https://media.audubon.org/boa_illustration"
-DEFAULT_SPECIES_YAML = Path(__file__).resolve().parent / "species.yaml"
+DEFAULT_FOLIOS_DIR = Path(__file__).resolve().parent / "folios"
+HAVELL = "havell"
 DEFAULT_LEGENDS_YAML = Path(__file__).resolve().parent / "legends.yaml"
 USER_AGENT = "Featherframe/1.0 (+https://github.com; personal e-paper art frame)"
 
@@ -156,7 +159,7 @@ def resolve_plate(entry: dict, catalog: dict[int, dict], quiet: bool = False) ->
         return None
     top = candidates[0]
     print(f"  ?  {entry.get('common')!r}: not pinned. Best guess plate {top['plate']} "
-          f"({top['name']!r}). Pin it in species.yaml with  plate: {top['plate']}")
+          f"({top['name']!r}). Pin it in folios/havell.yaml with  plate: {top['plate']}")
     for c in candidates[1:]:
         print(f"         alt: plate {c['plate']} ({c['name']!r})")
     return top["plate"]
@@ -271,34 +274,21 @@ def catalog_rows(catalog: dict[int, dict], images_dir: Path) -> list[dict]:
             for p, m in sorted(catalog.items())]
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description="Download Audubon plates for Featherframe.")
-    ap.add_argument("--species", type=Path, default=DEFAULT_SPECIES_YAML,
-                    help="species list YAML (default: scripts/species.yaml)")
-    ap.add_argument("--legends", type=Path, default=DEFAULT_LEGENDS_YAML,
-                    help="plate legends YAML (default: scripts/legends.yaml)")
-    ap.add_argument("--dry-run", action="store_true", help="resolve plates but download nothing")
-    ap.add_argument("--force", action="store_true", help="re-download even if present")
-    ap.add_argument("--all", action="store_true",
-                    help="also cache every plate in the catalog, not just the curated species (~2.9 GB)")
-    ap.add_argument("--no-release", action="store_true",
-                    help="skip the release tarballs; fetch plate by plate from the mirror")
-    args = ap.parse_args()
+def load_folios(folios_dir: Path) -> list[tuple[str, dict, list]]:
+    """(id, header, species) for every folio file, Havell's first: the order
+    the index lists them is the order a species' folios are asked in."""
+    out = []
+    for f in sorted(folios_dir.glob("*.yaml"), key=lambda p: (p.stem != HAVELL, p.stem)):
+        doc = yaml.safe_load(f.read_text()) or {}
+        out.append((f.stem, dict(doc.get("folio") or {}), list(doc.get("species") or [])))
+    return out
 
-    doc = yaml.safe_load(args.species.read_text()) or {}
-    species = doc.get("species", [])
-    plate_legends = legends.load(args.legends)
-    if not species:
-        print(f"No species found in {args.species}")
-        return 1
 
-    images_dir = paths.plate_images_dir()
-    index_path = paths.plate_index_path()
+def fetch_havell(session: requests.Session, species: list, args, images_dir: Path,
+                 plate_legends: dict[int, dict]) -> tuple[list[dict], dict, dict]:
+    """Havell's crosswalk -> (index records, counts, the folio's extra header:
+    its catalog). The mirror, the release and data.json's quirks stay here."""
     catalog_cache = paths.plates_dir() / "data.json"
-
-    session = requests.Session()
-    session.headers.update({"User-Agent": USER_AGENT})
-
     print(f"Loading plate catalog…")
     release = None if args.no_release else plate_release.base_url()
     catalog = load_catalog(session, catalog_cache, force=args.force, release=release)
@@ -312,12 +302,13 @@ def main() -> int:
         if restored:
             print(f"  ✓  {len(restored)} plates restored from the {plate_release.RELEASE_TAG} release\n")
 
-    index_species = []
-    downloaded = fallback = failed = 0
+    records = []
+    counts = {"downloaded": 0, "fallback": 0, "failed": 0}
     for entry in species:
         common = entry.get("common", "?")
         plate = resolve_plate(entry, catalog)
         record = {
+            "folio": HAVELL,
             "common": common,
             "scientific": entry.get("scientific", ""),
             "plate": plate,
@@ -330,14 +321,14 @@ def main() -> int:
         }
         if plate is None:
             print(f"  ·  {common}: typographic fallback (no plate)")
-            fallback += 1
-            index_species.append(record)
+            counts["fallback"] += 1
+            records.append(record)
             continue
 
         if args.dry_run:
             state = "cached" if _cached(catalog.get(plate, {}), images_dir) else "would download"
             print(f"  ·  {common}: plate {plate} ({state}, dry-run)")
-            index_species.append(record)
+            records.append(record)
             continue
 
         on_disk = _cached(catalog.get(plate, {}), images_dir) and not args.force
@@ -348,11 +339,11 @@ def main() -> int:
                 filename = catalog[plate]["fileName"]
         if filename:
             record["image"] = filename
-            downloaded += 1
+            counts["downloaded"] += 1
             print(f"  ✓  {common}: plate {plate} -> {filename}")
         else:
-            failed += 1
-        index_species.append(record)
+            counts["failed"] += 1
+        records.append(record)
         if not on_disk:
             time.sleep(POLITE_PAUSE_S)  # be polite to the mirror
 
@@ -362,18 +353,63 @@ def main() -> int:
         if all_stats["failed"]:
             all_stats["failed"] -= len(restore_from_release(
                 session, release, set(catalog), catalog, images_dir, min_missing=1))
-        failed += all_stats["failed"]
+        counts["failed"] += all_stats["failed"]
 
     rows = catalog_rows(catalog, images_dir)
     cached = sum(1 for r in rows if r["image"])
+    print(f"  {cached} of {len(catalog)} Havell plates cached "
+          f"({_dir_size_mb(images_dir) / 1000:.2f} GB in {images_dir})")
+    return records, counts, {"catalog": rows}
+
+
+# Each folio's fetcher, by folio id.
+FETCHERS = {HAVELL: fetch_havell}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Download the folios' plates for Featherframe.")
+    ap.add_argument("--folios", type=Path, default=DEFAULT_FOLIOS_DIR,
+                    help="directory of folio crosswalks (default: scripts/folios/)")
+    ap.add_argument("--legends", type=Path, default=DEFAULT_LEGENDS_YAML,
+                    help="Havell plate legends YAML (default: scripts/legends.yaml)")
+    ap.add_argument("--dry-run", action="store_true", help="resolve plates but download nothing")
+    ap.add_argument("--force", action="store_true", help="re-download even if present")
+    ap.add_argument("--all", action="store_true",
+                    help="also cache every Havell plate, not just the curated species (~2.9 GB)")
+    ap.add_argument("--no-release", action="store_true",
+                    help="skip the release tarballs; fetch plate by plate from the mirror")
+    args = ap.parse_args()
+
+    folios = load_folios(args.folios)
+    if not any(species for _, _, species in folios):
+        print(f"No species found in {args.folios}")
+        return 1
+    plate_legends = legends.load(args.legends)
+    images_dir = paths.plate_images_dir()
+    index_path = paths.plate_index_path()
+
+    session = requests.Session()
+    session.headers.update({"User-Agent": USER_AGENT})
+
+    index_species, headers = [], {}
+    totals = {"downloaded": 0, "fallback": 0, "failed": 0}
+    for folio, header, species in folios:
+        fetch = FETCHERS.get(folio)
+        if fetch is None:
+            print(f"  !  no fetcher for folio {folio!r}; skipped")
+            continue
+        print(f"== {header.get('title', folio)} ({folio})")
+        records, counts, extra = fetch(session, species, args, images_dir, plate_legends)
+        index_species += records
+        headers[folio] = {**header, **extra}
+        for k in totals:
+            totals[k] += counts[k]
+
     index = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "images_dir": str(images_dir),
-        "source": "github.com/nathanbuchar/audubon-bird-plates",  # the scans' origin, whichever host served them
-        "credit": ("Courtesy of the John James Audubon Center at Mill Grove, "
-                   "Montgomery County Audubon Collection, and Zebra Publishing."),
+        "folios": headers,
         "species": index_species,
-        "catalog": rows,
     }
     if args.dry_run:
         # Never rewrite a live index with no images recorded.
@@ -382,12 +418,11 @@ def main() -> int:
         index_path.parent.mkdir(parents=True, exist_ok=True)
         index_path.write_text(json.dumps(index, indent=2))
         print(f"\nWrote {index_path}")
-    print(f"  {downloaded} downloaded, {fallback} typographic-fallback, {failed} failed")
-    print(f"  {cached} of {len(catalog)} catalog plates cached "
-          f"({_dir_size_mb(images_dir) / 1000:.2f} GB in {images_dir})")
-    if failed:
+    print(f"  {totals['downloaded']} downloaded, {totals['fallback']} typographic-fallback, "
+          f"{totals['failed']} failed")
+    if totals["failed"]:
         print("  Some downloads failed — re-run to retry; the mirror is occasionally flaky.")
-    return 0 if failed == 0 else 2
+    return 0 if totals["failed"] == 0 else 2
 
 
 if __name__ == "__main__":

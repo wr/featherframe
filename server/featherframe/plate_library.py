@@ -36,7 +36,7 @@ import requests
 from PIL import Image
 
 from . import paths
-from .names import SpeciesIndex
+from .names import SpeciesIndex, folio_of, has_plate
 from .render import plate
 from .render.provider import ArtProvider, Artwork
 
@@ -86,9 +86,8 @@ def build(out_dir: Path, index_path: Optional[Path] = None,
     species, made, kept = [], 0, 0
     for entry in data.get("species", []):
         entry = dict(entry)
-        has_plate = entry.get("plate") not in (None, "none", "None", False)
         scan = images_dir / str(entry.get("image") or "")
-        if has_plate and entry.get("image") and scan.is_file():
+        if has_plate(entry) and entry.get("image") and scan.is_file():
             key = entry_key(entry)
             gray_p = out_dir / "lib" / f"{key}.gray.png"
             color_p = out_dir / "lib" / f"{key}.color.webp"
@@ -105,6 +104,8 @@ def build(out_dir: Path, index_path: Optional[Path] = None,
         entry.pop("image", None)
         species.append(entry)
     out = {"version": LIBRARY_VERSION, "generated_from": data.get("generated_at"),
+           "folios": {k: {f: v for f, v in h.items() if f != "catalog"}
+                      for k, h in (data.get("folios") or {}).items()},
            "species": species}
     (out_dir / INDEX_NAME).write_text(json.dumps(out, indent=1, sort_keys=True))
     log.info("plate library: %d crops taken, %d kept, %d entries", made, kept, len(species))
@@ -165,10 +166,10 @@ class PlateLibrary:
 
 
 class LibraryProvider(ArtProvider):
-    """AudubonProvider's twin for a server without the scans: the same curated
+    """PlateProvider's twin for a server without the scans: the same curated
     index, the same crops, from the library."""
 
-    name = "audubon"
+    name = "plates"
 
     def __init__(self, library: PlateLibrary) -> None:
         self.library = library
@@ -185,19 +186,20 @@ class LibraryProvider(ArtProvider):
         return self.library.index().count
 
     def artwork(self, common_name: str, scientific_name: str) -> Optional[Artwork]:
-        entry = self.library.index().entry(common_name, scientific_name)
-        key = entry.get("library") if entry else None
-        if not key:
-            return None
-        try:
-            gray = self.library.image(key, "gray")
-        except (OSError, ValueError, requests.RequestException) as exc:
-            log.warning("library plate %s unavailable for %s: %s", key, common_name, exc)
-            return None
-        return Artwork(image=gray, audubon_plate=int(entry["plate"]),
-                       composite=bool(entry.get("composite")),
-                       legend=[str(x) for x in (entry.get("legend") or [])],
-                       color_loader=lambda: color_pair_from_raw(self.library.image(key, "color")))
+        for entry in self.library.index().entries(common_name, scientific_name):
+            key = entry.get("library")
+            if not key:
+                continue
+            try:
+                gray = self.library.image(key, "gray")
+            except (OSError, ValueError, requests.RequestException) as exc:
+                log.warning("library plate %s unavailable for %s: %s", key, common_name, exc)
+                return None
+            return Artwork(image=gray, plate=int(entry["plate"]), folio=folio_of(entry),
+                           composite=bool(entry.get("composite")),
+                           legend=[str(x) for x in (entry.get("legend") or [])],
+                           color_loader=lambda: color_pair_from_raw(self.library.image(key, "color")))
+        return None
 
 
 def from_env() -> Optional[LibraryProvider]:

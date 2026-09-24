@@ -135,3 +135,53 @@ def test_load_ignores_foreign_images_dir(tmp_path):
     idx = SpeciesIndex.load(index_path)
     m = idx.match("Northern Cardinal", "Cardinalis cardinalis")
     assert m is not None and m.has_image
+
+
+# --- Folios (W-702) -----------------------------------------------------------
+
+def _folio_index(tmp_path, *, gould_on_disk=True):
+    img = tmp_path / "img"
+    (img / "gould").mkdir(parents=True)
+    (img / "mallard.jpg").write_bytes(b"\xff\xd8\xff\xd9")
+    if gould_on_disk:
+        (img / "gould" / "sparrow.webp").write_bytes(b"x")
+    (img / "gould" / "mallard.webp").write_bytes(b"x")
+    return SpeciesIndex([
+        # An entry with no folio is Havell's: every index before W-702.
+        {"common": "House Sparrow", "scientific": "Passer domesticus", "plate": "none"},
+        {"common": "Mallard", "scientific": "Anas platyrhynchos", "plate": 221, "image": "mallard.jpg"},
+        {"folio": "gould", "common": "House Sparrow", "scientific": "Passer domesticus",
+         "plate": 180, "image": "gould/sparrow.webp"},
+        {"folio": "gould", "common": "Mallard", "scientific": "Anas platyrhynchos",
+         "plate": 380, "image": "gould/mallard.webp"},
+    ], images_dir=img)
+
+
+def test_folios_are_asked_in_order(tmp_path):
+    idx = _folio_index(tmp_path)
+    assert idx.folios == ["havell", "gould"]
+    m = idx.match("Mallard", "Anas platyrhynchos")
+    assert (m.folio, m.plate_number) == ("havell", 221)
+
+
+def test_a_folio_without_the_species_hands_it_on(tmp_path):
+    """Havell's explicit "no plate" is Havell's alone: the next folio's plate
+    is still a real one, never a guess."""
+    idx = _folio_index(tmp_path)
+    m = idx.match("House Sparrow", "Passer domesticus")
+    assert (m.folio, m.plate_number, m.image_path.endswith("gould/sparrow.webp")) == ("gould", 180, True)
+    assert idx.entry("House Sparrow")["folio"] == "gould"
+    assert [e.get("folio", "havell") for e in idx.entries("Mallard", "Anas platyrhynchos")] == ["havell", "gould"]
+
+
+def test_a_missing_scan_falls_through_to_the_fallback(tmp_path):
+    idx = _folio_index(tmp_path, gould_on_disk=False)
+    assert idx.match("House Sparrow", "Passer domesticus") is None
+
+
+def test_names_resolve_across_folios(tmp_path):
+    idx = _folio_index(tmp_path)
+    assert idx.count == 4
+    assert idx.scientific_for("house sparrow") == "Passer domesticus"
+    assert idx.canonical_common("MALLARD") == "Mallard"
+    assert idx.scientific_for("Nobody") is None

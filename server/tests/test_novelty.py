@@ -319,7 +319,7 @@ class _BlankArt(ArtProvider):
     blank art — every pixel of ink on the plate is then typography."""
 
     def artwork(self, common_name, scientific_name):
-        return Artwork(image=Image.new("L", (600, 400), 255), audubon_plate=None)
+        return Artwork(image=Image.new("L", (600, 400), 255), plate=None)
 
 
 def _ink(img: Image.Image, box) -> int:

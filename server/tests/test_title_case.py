@@ -34,7 +34,7 @@ def client(tmp_path, monkeypatch):
     from featherframe.app import app
     service = FeatherframeService()
     service.source.db_path = str(tmp_path / "missing.db")
-    service.audubon._index = SpeciesIndex(  # noqa: SLF001
+    service.plates._index = SpeciesIndex(  # noqa: SLF001
         [{"common": "Black-capped Chickadee", "scientific": "Poecile atricapillus",
           "plate": 353, "image": "x.jpg"}], images_dir=str(tmp_path))
     calls = []

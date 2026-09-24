@@ -667,7 +667,7 @@ async def test_detection(request: Request):
     common = str(form.get("common", "") or "").strip()[:200] or "Northern Cardinal"
     # The typed name becomes the caption: the index's spelling if it knows
     # the species, else title-cased like a field-guide entry (W-711).
-    common = svc.audubon.index.canonical_common(common) or display_common_name(common)
+    common = svc.plates.index.canonical_common(common) or display_common_name(common)
     sci = str(form.get("scientific", "") or "").strip()[:200]
     if sci:
         sci = sci[:1].upper() + sci[1:].lower()   # Genus species
@@ -688,9 +688,9 @@ def _known_scientific(svc, common: str) -> Optional[str]:
     same slug a real detection of that species will use. Tries the curated
     index (normalized: hyphens and apostrophes must not break the lookup),
     then the detection source's own species list."""
-    entry = svc.audubon.index._by_common.get(normalize(common))  # noqa: SLF001
-    if entry and entry.get("scientific"):
-        return entry["scientific"]
+    sci = svc.plates.index.scientific_for(common)
+    if sci:
+        return sci
     summary = getattr(svc.source, "_species_summary", None)
     if callable(summary):
         want = normalize(common)

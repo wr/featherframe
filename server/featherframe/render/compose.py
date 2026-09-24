@@ -192,8 +192,8 @@ def _render_art(spec: SingleSpec, art: Artwork, color: bool = False) -> Image.Im
     # The right corner says where the sheet came from: Havell's own plate
     # number on a scan, a ✦ on a synthetic sheet, which never passes as one
     # (W-733). The bough of a species with no plate at all carries neither.
-    if art.audubon_plate:
-        typography.plate_mark(field, art.audubon_plate)
+    if art.plate:
+        typography.plate_mark(field, art.plate)
     elif art.generated:
         typography.generated_mark(field, theme.WIDTH - theme.CORNER_INSET)
     if spec.first_ever and not first_line:
@@ -234,6 +234,6 @@ def render_fallback(spec: SingleSpec, color: bool = False) -> Image.Image:
             lines.append(f"First recorded {when}.")
     # composite=True: shown whole, never cover-cropped, though the limb runs
     # off the sheet's edge exactly as a plate's stems do.
-    art = Artwork(image=bough(), audubon_plate=None, composite=True, legend=lines,
+    art = Artwork(image=bough(), composite=True, legend=lines,
                   color_loader=_bough_pair)
     return _render_art(spec, art, color)

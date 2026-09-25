@@ -20,6 +20,7 @@ using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before i
 #include <WebServer.h>
 #include <WiFiManager.h>
 #include "ff_improv.h"
+#include "ff_led.h"
 #include <Preferences.h>
 #include <Update.h>
 #include <esp_sleep.h>
@@ -542,6 +543,7 @@ void goToSleep(uint32_t minutes) {
   if (minutes > FF_MAX_SLEEP_MINUTES) minutes = FF_MAX_SLEEP_MINUTES;
   esp_sleep_enable_timer_wakeup((uint64_t)minutes * 60ULL * 1000000ULL);
 
+  ledSleep();
   Serial.printf("Sleeping for %u min (or button)\n", minutes);
   Serial.flush();
   esp_deep_sleep_start();
@@ -714,6 +716,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   wm.setAPCallback([](WiFiManager*) {
     g_viaPortal = true;
     g_portalOpen = true;
+    ledSet(LED_WIFI_SETUP);
 #if FF_FULL_REFRESH
     // The pill is stamped on the retained plate; with none to stamp on (a
     // wake out of deep sleep) the steps take the glass.
@@ -780,6 +783,8 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   }
   bool connected = ok && WiFi.status() == WL_CONNECTED;
   if (connected) markFirmwareGood();   // a build that gets this far is not a brick
+  // Joined: still "starting" until the server answers (noteFetchOutcome).
+  ledSet(connected ? LED_BOOT : LED_NO_WIFI);
   // A dead end (portal timeout, connect failure) can leave a boot screen
   // armed via the save callback; stop the sweep — there is no progress to show.
   if (!connected) g_loaderAnim.on = false;
@@ -1721,6 +1726,16 @@ static bool toastOnFreshPlate(int t, float vbat, int pct) {
 }
 #endif
 
+// The LED follows every resident answer: waiting to be added (a pairing code
+// on the glass, or the server's 403) breathes amber; any other answer is
+// connected (green, then off); no answer is no Wi-Fi or no server.
+static void noteLedOutcome(FetchResult r) {
+  if (r == FETCH_STUCK || r == FETCH_REJECTED) return;   // the panel's or the image's, not the link's
+  if (r == FETCH_ERROR) ledSet(WiFi.status() != WL_CONNECTED ? LED_NO_WIFI : LED_NO_SERVER);
+  else if (r == FETCH_PENDING || pairingOnGlass()) ledSet(LED_PAIRING);
+  else ledSet(LED_PAIRED);
+}
+
 // Resident-fetch accounting: success clears the error state, failure advances
 // it and updates the glass. Transient button views don't count — they are user
 // actions, not frame health. Callers keep g_failMinutes current beforehand.
@@ -1731,6 +1746,7 @@ void noteFetchOutcome(FetchResult r) {
   // post-OTA boot would otherwise leave the image PENDING_VERIFY for its whole
   // uptime and roll it back on the next hard reset.
   if (r != FETCH_ERROR) markFirmwareGood();
+  noteLedOutcome(r);
   if (r == FETCH_UPDATED || r == FETCH_NOCHANGE) { noteSuccess(); return; }
   if (r == FETCH_NOFRAME && pairingOnGlass()) return;   // paired; its picture is being drawn
   if (r == FETCH_STUCK) return;                         // the panel's, not the server's (X-Wake-Detail)
@@ -1800,6 +1816,8 @@ void maybeOTA(float vbat) {
   int len = http.getSize();
   if (len <= 0 || !Update.begin(len)) { http.end(); return; }
   if (md5.length() == 32) Update.setMD5(md5.c_str());   // end() then verifies the stream
+  LedState before = ledState();
+  ledSet(LED_UPDATING);
   Serial.printf("OTA: flashing %d bytes\n", len);
   size_t written = Update.writeStream(*http.getStreamPtr());
   http.end();
@@ -1809,6 +1827,7 @@ void maybeOTA(float vbat) {
     ESP.restart();
   }
   Serial.printf("OTA failed: %s\n", Update.errorString());
+  ledSet(before);
   uint8_t err = Update.getError();
   Update.abort();
   // Only a COMPLETE, checksum-matching stream that still fails is a bad
@@ -1833,6 +1852,7 @@ static bool resumeGlass(bool forcePortal) {
 // ---------------------------------------------------------------- setup
 void setup() {
   Serial.begin(115200);
+  ledBegin();      // white: starting up, until the server answers
   delay(50);
   startImprov();   // answers the USB flasher from the first moment (W-839)
   // TEMP boot-ping: 6s of prints after USB settles, so a late reader confirms the
@@ -1842,6 +1862,9 @@ void setup() {
   strlcpy(g_wakeToken, wakeToken(cause), sizeof(g_wakeToken));
   bool buttonWake = (cause == ESP_SLEEP_WAKEUP_EXT1);
   bool fromDeepSleep = (cause == ESP_SLEEP_WAKEUP_TIMER || cause == ESP_SLEEP_WAKEUP_EXT1);
+  // A timer or button wake out of deep sleep is not a restart: stay dark
+  // unless something goes wrong.
+  if (fromDeepSleep) ledSet(LED_OFF);
   Serial.printf("\nFeatherframe wake: cause=%d (%s) fw=%s\n",
                 cause, buttonWake ? "button" : "timer/boot",
                 ESP.getSketchMD5().substring(0, 8).c_str());
@@ -2240,6 +2263,7 @@ void loop() {
           g_toast.active = false;         // the full repaint took the pill with it
         } else {
           clearToast();                   // peeked and left: the plate stays put
+          g_pushWake = true;              // check in now, so the LED says how things stand
         }
       }
     } else {

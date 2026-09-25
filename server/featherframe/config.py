@@ -119,18 +119,18 @@ class Config:
 
     # Ingest ---------------------------------------------------------------
     # Where detections come from:
-    #   "birdnet_go"  — poll BirdNET-Go's REST API
-    #   "apprise"     — BirdNET-Pi pushes each detection to our webhook (push)
+    #   "birdnet_go"  — BirdNET-Go pushes each detection to our webhook (W-865)
+    #   "apprise"     — BirdNET-Pi pushes each detection through Apprise
     #   "birdweather" — poll a BirdWeather station by its ID/token
     #   "custom"      — read a local BirdNET-Pi SQLite DB directly
     # The legacy id "birdnet_pi" is migrated to "custom" in sanitize().
     detection_backend: str = "custom"
     birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"   # custom (SQLite) backend
-    birdnet_go_url: str = "http://localhost:8080"            # birdnet_go backend
     birdweather_station_id: str = ""    # birdweather backend: station token / ID
-    # Optional shared secret in the Apprise webhook path (/api/ingest/apprise/<token>).
-    # Empty accepts any LAN post, matching the app's no-auth LAN posture.
-    apprise_token: str = field(default_factory=lambda: secrets.token_urlsafe(9))
+    # The secret in both push paths (/api/ingest/apprise/<token>,
+    # /api/ingest/birdnet-go/<token>); hosted routes a push by it. Empty
+    # accepts any LAN post, matching the app's no-auth LAN posture.
+    ingest_token: str = field(default_factory=lambda: secrets.token_urlsafe(9))
 
     # Rendering ------------------------------------------------------------
     # The panel a render is for (panels.py): "ee03" (10.3" gray), "ee02"
@@ -219,13 +219,12 @@ class Config:
             self.detection_backend = "custom"
         if self.detection_backend not in ("birdnet_go", "apprise", "birdweather", "custom"):
             self.detection_backend = "custom"
-        self.birdnet_go_url = str(self.birdnet_go_url or "").strip().rstrip("/") or "http://localhost:8080"
         # Accept a full station URL (…/stations/XXXXX) or a bare ID/token.
         bw = str(self.birdweather_station_id or "").strip()
         if "/" in bw:
             bw = bw.split("?", 1)[0].split("#", 1)[0].rstrip("/").rsplit("/", 1)[-1]
         self.birdweather_station_id = bw
-        self.apprise_token = str(self.apprise_token or "").strip()
+        self.ingest_token = str(self.ingest_token or "").strip()
         self.collage_interval_hours = int(_clamp(_finite(self.collage_interval_hours, 6), 1, 24))
         self.collage_species_max = int(_clamp(self.collage_species_max, 0, 60))
         # The panel's native canvas is landscape and the firmware rejects a
@@ -373,6 +372,9 @@ class Config:
         # The "day in review" is a collage like any other (one name for it).
         if "collage_species_max" not in data and "review_species_max" in data:
             data = {**data, "collage_species_max": data["review_species_max"]}
+        # One secret for both push sources (W-865): it was Apprise's alone.
+        if "ingest_token" not in data and "apprise_token" in data:
+            data = {**data, "ingest_token": data["apprise_token"]}
         fields = {f.name for f in dataclasses.fields(cls)}
         known = {k: v for k, v in data.items() if k in fields}
         return cls(**known)

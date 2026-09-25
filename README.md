@@ -60,8 +60,8 @@ Choose one:
   ```bash
   git clone https://github.com/wr/featherframe ~/featherframe
   cd ~/featherframe/server
-  ./install.sh                                                               # BirdNET-Pi
-  ./install.sh --source birdnet-go --url http://localhost:8080 --port 8081   # BirdNET-Go
+  ./install.sh                                    # BirdNET-Pi
+  ./install.sh --source birdnet-go --port 8081    # BirdNET-Go
   ```
 
   When it finishes, it prints the address of your Featherframe page.

@@ -74,10 +74,12 @@ export default {
     if (FRAME_PATHS.test(path)) return frame(request, env, url, ctx);
     if (isViewerPath(path)) return viewerRoute(request, env, url, ctx);
 
-    const apprise = path.match(/^\/api\/ingest\/apprise\/([^/]+)$/);
-    if (apprise && request.method === "POST") {
+    // A detector's push (W-865): BirdNET-Pi's Apprise or BirdNET-Go's webhook,
+    // routed by the household's push secret (the column predates BirdNET-Go).
+    const push = path.match(/^\/api\/ingest\/(?:apprise|birdnet-go)\/([^/]+)$/);
+    if (push && request.method === "POST") {
       const row = await env.DB.prepare("SELECT id FROM households WHERE apprise_token = ?")
-        .bind(decodeURIComponent(apprise[1])).first<{ id: string }>();
+        .bind(decodeURIComponent(push[1])).first<{ id: string }>();
       return row ? toHousehold(env, row.id, request) : Response.json({ error: "bad token" }, { status: 403 });
     }
 

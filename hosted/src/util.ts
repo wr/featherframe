@@ -50,3 +50,13 @@ export function frameKey(request: Request): string {
 export function deviceId(request: Request): string {
   return (request.headers.get("X-Device-Id") || "").trim().slice(0, 40);
 }
+
+/** Whether a BirdNET-Go webhook body is a detection (its default payload). */
+export function isDetection(body: string): boolean {
+  try {
+    const o = JSON.parse(body) as { type?: unknown };
+    return o !== null && typeof o === "object" && o.type === "detection";
+  } catch {
+    return false;
+  }
+}

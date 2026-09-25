@@ -13,7 +13,6 @@ from featherframe.render import collage as collage_mod
 from featherframe.render import theme
 from featherframe.render.collage import CollageCell
 from featherframe.render.genart import GeneratedArtProvider, build_composite_prompt
-from featherframe.sources.birdnet_go import BirdNetGoSource
 from tests.test_genart import FakeModel, _plate_png  # shared fakes
 
 
@@ -212,38 +211,6 @@ def test_render_generated_collage_layout(data_dir):
         art, CELLS, when=DAY, total_detections=1035)
     assert field.size == (theme.WIDTH, theme.HEIGHT)
     assert field.mode == "L"
-
-
-# -- date-scoped species data from BirdNET-Go -------------------------------
-def test_birdnet_go_top_species_today(monkeypatch):
-    src = BirdNetGoSource("http://x", defer_confidence=False)
-    payload = [
-        {"scientific_name": "Bubo virginianus", "common_name": "Great Horned Owl",
-         "count": 979, "max_confidence": 1.0},
-        {"scientific_name": "Corvus corax", "common_name": "Common Raven",
-         "count": 3, "max_confidence": 0.4},   # never crossed the bar
-        {"scientific_name": "Passer domesticus", "common_name": "House Sparrow",
-         "count": 12, "max_confidence": 0.9},
-    ]
-    seen = {}
-
-    def fake_get(path, params=None):
-        seen["path"], seen["params"] = path, params
-        return payload
-
-    monkeypatch.setattr(src, "_get", fake_get)
-    rows = src.top_species_today(date(2026, 8, 28), min_confidence=0.7, limit=6)
-    assert seen["params"]["start_date"] == "2026-08-28"
-    assert seen["params"]["end_date"] == "2026-08-28"
-    assert [r["scientific"] for r in rows] == ["Bubo virginianus", "Passer domesticus"]
-    assert rows[0] == {"common": "Great Horned Owl",
-                       "scientific": "Bubo virginianus", "count": 979}
-
-
-def test_birdnet_go_top_species_today_soft_fails(monkeypatch):
-    src = BirdNetGoSource("http://x", defer_confidence=False)
-    monkeypatch.setattr(src, "_get", lambda path, params=None: None)
-    assert src.top_species_today(date(2026, 8, 28)) == []
 
 
 # -- config -----------------------------------------------------------------

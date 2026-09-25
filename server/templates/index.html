@@ -575,7 +575,7 @@
     .cselect-list li[aria-selected="true"] { color:var(--ink); font-weight:600; }
     .cselect-list li.active, .cselect-list li:hover { background:var(--inset); }
     .cs-sprite { position:absolute; width:0; height:0; overflow:hidden; }
-    /* instruction steps + copyable strings (Apprise setup) */
+    /* instruction steps + copyable strings (push source setup) */
     .steps { margin:0; padding-left:1.3em; display:flex; flex-direction:column; gap:12px; font-size:13px; color:var(--ink-2); }
     .steps li { line-height:1.5; }
     .steps strong { color:var(--ink); font-weight:600; }
@@ -1318,38 +1318,41 @@
             </div>
           </div>
           <div class="frow stack" data-src="birdnet_go" {{ '' if _src=='birdnet_go' else 'hidden' }}>
-            <div class="frow-text"><label class="lab" for="f-go-url">BirdNET-Go URL</label></div>
             <div class="frow-ctl">
-              <div class="data-row">
-                <input type="text" inputmode="url" id="f-go-url" name="birdnet_go_url" value="{{ config.birdnet_go_url }}" placeholder="http://birdnet-go.local:8080" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
-                <button class="btn src-test" type="button">Test connection</button>
-              </div>
+              <ol class="steps">
+                <li>In BirdNET-Go, open <strong>Settings → Notifications → Channels</strong>, turn on push notifications, and add a <strong>Webhook</strong> provider with this URL:
+                  <div class="copyrow">
+                    <input type="text" id="go-url" readonly value="http://…" aria-label="Webhook URL">
+                    <button class="btn icon copy-btn" type="button" data-copy="#go-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
+                  </div>
+                </li>
+                <li>Under <strong>Rules</strong>, add a rule for <strong>Detection</strong>, event <strong>Detection Occurred</strong>, action <strong>Push notification</strong>, cooldown <strong>0</strong>.</li>
+                <li>Save. New detections push here on their own; the status below shows how many have arrived.</li>
+              </ol>
             </div>
           </div>
-          <div data-src="apprise" {{ '' if _src=='apprise' else 'hidden' }}>
-            <div class="frow stack">
-              <div class="frow-ctl">
-                <ol class="steps">
-                  <li>In BirdNET-Pi, open <strong>Tools → Settings → Notifications</strong> and add this Apprise URL:
-                    <div class="copyrow">
-                      <input type="text" id="apprise-url" readonly value="json://…" aria-label="Apprise URL">
-                      <button class="btn icon copy-btn" type="button" data-copy="#apprise-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
-                    </div>
-                  </li>
-                  <li>Set that notification's <strong>body</strong> to exactly this:
-                    <div class="copyrow">
-                      <input type="text" id="apprise-body" readonly value='{"comname":"$comname","sciname":"$sciname","confidence":$confidence,"date":"$date","time":"$time"}' aria-label="Notification body">
-                      <button class="btn icon copy-btn" type="button" data-copy="#apprise-body" title="Copy body" aria-label="Copy body"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
-                    </div>
-                  </li>
-                  <li>Save. New detections push here on their own; the status below shows how many have arrived.</li>
-                </ol>
-              </div>
+          <div class="frow stack" data-src="apprise" {{ '' if _src=='apprise' else 'hidden' }}>
+            <div class="frow-ctl">
+              <ol class="steps">
+                <li>In BirdNET-Pi, open <strong>Tools → Settings → Notifications</strong> and add this Apprise URL:
+                  <div class="copyrow">
+                    <input type="text" id="apprise-url" readonly value="json://…" aria-label="Apprise URL">
+                    <button class="btn icon copy-btn" type="button" data-copy="#apprise-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
+                  </div>
+                </li>
+                <li>Set that notification's <strong>body</strong> to exactly this:
+                  <div class="copyrow">
+                    <input type="text" id="apprise-body" readonly value='{"comname":"$comname","sciname":"$sciname","confidence":$confidence,"date":"$date","time":"$time"}' aria-label="Notification body">
+                    <button class="btn icon copy-btn" type="button" data-copy="#apprise-body" title="Copy body" aria-label="Copy body"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
+                  </div>
+                </li>
+                <li>Save. New detections push here on their own; the status below shows how many have arrived.</li>
+              </ol>
             </div>
-            <div class="frow stack">
-              <div class="frow-text"><label class="lab" for="apprise-token">Shared secret <span class="opt">· optional</span></label><div class="hint">If set, it's woven into the URL above as a path segment so only your Pi can post.</div></div>
-              <div class="frow-ctl"><input type="text" name="apprise_token" id="apprise-token" value="{{ config.apprise_token }}" placeholder="Leave blank to accept any LAN post" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-            </div>
+          </div>
+          <div class="frow stack" data-src="apprise birdnet_go" {{ '' if _src in ('apprise', 'birdnet_go') else 'hidden' }}>
+            <div class="frow-text"><label class="lab" for="ingest-token">Shared secret <span class="opt">· optional</span></label><div class="hint">If set, it's added to the URL above so only your detector can post.</div></div>
+            <div class="frow-ctl"><input type="text" name="ingest_token" id="ingest-token" value="{{ config.ingest_token }}" placeholder="Leave blank to accept any LAN post" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
           </div>
           <div class="frow stack" data-src="birdweather" {{ '' if _src=='birdweather' else 'hidden' }}>
             <div class="frow-text"><label class="lab" for="f-bw">BirdWeather station</label><div class="hint">Paste a station's URL or just the ID. Find yours at <a href="https://app.birdweather.com" target="_blank" rel="noopener">app.birdweather.com</a>.</div></div>
@@ -2551,21 +2554,23 @@
     var sel = $('src-sel');
     function syncSrc() {
       document.querySelectorAll('[data-src]').forEach(function (el) {
-        el.hidden = (el.getAttribute('data-src') !== sel.value);
+        el.hidden = el.getAttribute('data-src').split(' ').indexOf(sel.value) < 0;
       });
     }
     if (sel) sel.addEventListener('change', syncSrc);
-    // Build the Apprise webhook URL from this host + the optional secret.
-    var urlField = $('apprise-url');
-    var tokenField = $('apprise-token');
-    function syncApprise() {
-      if (!urlField) return;
-      var scheme = location.protocol === 'https:' ? 'jsons://' : 'json://';
+    // Build the two webhook URLs from this host + the optional secret.
+    var appriseField = $('apprise-url');
+    var goField = $('go-url');
+    var tokenField = $('ingest-token');
+    function syncPushUrls() {
       var tok = tokenField && tokenField.value.trim();
-      urlField.value = scheme + location.host + '/api/ingest/apprise' + (tok ? '/' + encodeURIComponent(tok) : '');
+      var tail = tok ? '/' + encodeURIComponent(tok) : '';
+      var https = location.protocol === 'https:';
+      if (appriseField) appriseField.value = (https ? 'jsons://' : 'json://') + location.host + '/api/ingest/apprise' + tail;
+      if (goField) goField.value = (https ? 'https://' : 'http://') + location.host + '/api/ingest/birdnet-go' + tail;
     }
-    if (tokenField) tokenField.addEventListener('input', syncApprise);
-    syncApprise();
+    if (tokenField) tokenField.addEventListener('input', syncPushUrls);
+    syncPushUrls();
   })();
 
   // -- the two AI toggles: locked, never disabled ----------------------------
@@ -3467,7 +3472,6 @@
     function body() {
       var p = new URLSearchParams();
       p.set('backend', sel.value);
-      p.set('birdnet_go_url', val('birdnet_go_url'));
       p.set('birdweather_station_id', val('birdweather_station_id'));
       p.set('birdnet_db_path', val('birdnet_db_path'));
       return p;
@@ -3495,10 +3499,10 @@
     document.querySelectorAll('.src-test').forEach(function (b) {
       b.addEventListener('click', function () { run(b, true); });
     });
-    // A push source (Apprise) can't be probed — it has no Test button; show how
-    // many detections have arrived instead.
+    // A push source can't be probed — it has no Test button; show how many
+    // detections have arrived instead.
     function syncTest() {
-      if (sel.value === 'apprise') { run(null, false); }
+      if (sel.value === 'apprise' || sel.value === 'birdnet_go') { run(null, false); }
       else { hide(); }
     }
     sel.addEventListener('change', syncTest);

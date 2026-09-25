@@ -196,8 +196,10 @@ def test_the_front_door_is_told_where_news_comes_from(env):
     svc.config.birdweather_station_id = "abc123"
     assert svc.hosted_state()["source"] == {"kind": "birdweather", "station": "abc123"}
     svc.config.detection_backend = "apprise"
-    svc.config.apprise_token = "t0k"
+    svc.config.ingest_token = "t0k"
     assert svc.hosted_state()["source"] == {"kind": "apprise", "token": "t0k"}
+    svc.config.detection_backend = "birdnet_go"
+    assert svc.hosted_state()["source"] == {"kind": "birdnet_go", "token": "t0k"}
 
 
 def test_a_frame_its_owner_paired_is_added_without_a_second_step(env):

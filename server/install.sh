@@ -9,9 +9,9 @@
 #
 # On a BirdNET-Pi that is all: it lives alongside BirdNET-Pi the same
 # bare-metal way and reads its birds.db. With BirdNET-Go the server can run on
-# any Linux box on the LAN; name the source once:
+# any Linux box on the LAN, and BirdNET-Go pushes to it; name the source once:
 #
-#     ./install.sh --source birdnet-go --url http://<birdnet-go-host>:8080
+#     ./install.sh --source birdnet-go
 #
 # Re-running is the upgrade path (`git pull && ./install.sh`): the venv is
 # reused, plates already on disk are kept, the unit file is rewritten only if
@@ -27,7 +27,6 @@
 #   --source NAME   birdnet-pi (the default: read BirdNET-Pi's birds.db) or
 #                   birdnet-go; written to the config once, and only when given,
 #                   so an upgrade never resets what the page has set
-#   --url URL       BirdNET-Go's address, with --source birdnet-go
 #   --no-service    set up the venv only; don't touch systemd
 #   --check         report what would change and exit; touch nothing
 #
@@ -44,7 +43,6 @@ CHECK=0
 # The service should run as the human user who owns BirdNET-Pi, not root.
 RUN_USER=""
 SOURCE=""
-SOURCE_URL=""
 # Root (a container, say) has no sudo and needs none.
 SUDO=""; [ "$(id -u)" -eq 0 ] || SUDO=sudo
 
@@ -56,19 +54,13 @@ while [ $# -gt 0 ]; do
     --check)       CHECK=1 ;;
     --port)        PORT="$2"; shift ;;
     --source)      SOURCE="$2"; shift ;;
-    --url)         SOURCE_URL="$2"; shift ;;
     *) echo "unknown option: $1"; exit 1 ;;
   esac
   shift
 done
 
 case "$SOURCE" in
-  ""|birdnet-pi) ;;
-  birdnet-go)
-    case "$SOURCE_URL" in
-      http://*|https://*) ;;
-      *) echo "--source birdnet-go needs --url http://<birdnet-go-host>:8080"; exit 1 ;;
-    esac ;;
+  ""|birdnet-pi|birdnet-go) ;;
   *) echo "unknown --source: $SOURCE (birdnet-pi or birdnet-go)"; exit 1 ;;
 esac
 
@@ -162,12 +154,10 @@ fi
 # Only when asked: the page owns this setting on every later run.
 if [ -n "$SOURCE" ]; then
   if [ "$CHECK" -eq 1 ]; then
-    plan "set the detection source to $SOURCE${SOURCE_URL:+ ($SOURCE_URL)}"
+    plan "set the detection source to $SOURCE"
   else
-    SOURCE_ARGS=(--source "$SOURCE")
-    [ -n "$SOURCE_URL" ] && SOURCE_ARGS+=(--url "$SOURCE_URL")
     FEATHERFRAME_DATA_DIR="$DATA_DIR" "$VENV/bin/python" \
-      "$SERVER_DIR/scripts/set_source.py" "${SOURCE_ARGS[@]}" | sed 's/^/==> /'
+      "$SERVER_DIR/scripts/set_source.py" --source "$SOURCE" | sed 's/^/==> /'
   fi
 fi
 

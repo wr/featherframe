@@ -44,7 +44,8 @@ _OPEN_PATHS = frozenset({
 _OPEN_PREFIXES = (
     "/api/frame/",           # the push socket
     "/api/viewers/",         # a viewer's image
-    "/api/ingest/apprise",   # BirdNET-Pi's webhook, which has its own token
+    "/api/ingest/apprise",   # BirdNET-Pi's and BirdNET-Go's webhooks,
+    "/api/ingest/birdnet-go",  # which carry their own token
     "/static/",              # icons
 )
 

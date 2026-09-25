@@ -693,7 +693,9 @@ async def save_settings(request: Request):
         detection_backend=s("detection_backend", cur["detection_backend"]),
         birdnet_db_path=s("birdnet_db_path", cur["birdnet_db_path"]),
         birdweather_station_id=s("birdweather_station_id", cur["birdweather_station_id"]),
-        ingest_token=s("ingest_token", cur["ingest_token"]),
+        # The push secret is not a form field: it is part of the webhook URL
+        # and only ever replaced whole (POST /api/ingest/token).
+        ingest_token=cur["ingest_token"],
         collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
@@ -1013,6 +1015,21 @@ async def api_unblock(request: Request):
 # -- push ingest (BirdNET-Pi via Apprise, BirdNET-Go via a webhook) ---------
 # The path names the detector; it must be the one the page is set to.
 _INGEST_KINDS = {"apprise": "apprise", "birdnet-go": "birdnet_go"}
+
+
+@app.post("/api/ingest/token")
+async def ingest_token_new(request: Request):
+    """A new secret for the push URLs (W-865): the old URL stops working, so
+    only the page, same-origin, may ask for it. Saved at once, so the URL the
+    page shows is the one that works."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    import dataclasses
+    import secrets
+    svc = _svc(request)
+    new = dataclasses.replace(svc.config, ingest_token=secrets.token_urlsafe(9))
+    await run_in_threadpool(svc.update_config, new)
+    return JSONResponse({"ok": True, "token": new.ingest_token})
 
 
 @app.post("/api/ingest/{kind}")

@@ -30,3 +30,41 @@ test('no horizontal scroll on a phone', async ({ page }) => {
   const [sw, cw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
   expect(sw).toBeLessThanOrEqual(cw);
 });
+
+test('the card follows the frame from one species to the next', async ({ page }) => {
+  await page.goto('/?hold=300');
+  await expect(page.locator('#stage canvas')).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator('#label .label-name')).toHaveText('Northern Cardinal', { timeout: 20_000 });
+  await expect(page.locator('#label .label-heard')).toHaveText('Heard at 9:02 this morning');
+});
+
+test('the 10-inch switch swaps the frame', async ({ page }) => {
+  await page.goto('/?hold=300');
+  await page.getByRole('button', { name: '10-inch' }).click();
+  await expect(page.getByRole('button', { name: '10-inch' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#stage .poster')).toHaveAttribute('src', 'img/poster-10.webp');
+  await expect(page.locator('#stage canvas')).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator('#label .label-name')).toHaveText('Northern Cardinal', { timeout: 20_000 });
+});
+
+test('without WebGL the poster and first species stay', async ({ page }) => {
+  await page.addInitScript(() => {
+    const orig = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...rest: unknown[]) {
+      return kind.startsWith('webgl') ? null : (orig as Function).call(this, kind, ...rest);
+    } as typeof orig;
+  });
+  await page.goto('/?hold=300');
+  await page.waitForTimeout(3000);
+  await expect(page.locator('#stage canvas')).toHaveCount(0);
+  await expect(page.locator('#stage .poster')).toBeVisible();
+  await expect(page.locator('#label .label-name')).toHaveText('Common Nighthawk');
+});
+
+test('with reduced motion nothing cycles', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/?hold=300');
+  await page.waitForTimeout(3000);
+  await expect(page.locator('#stage canvas')).toHaveCount(0);
+  await expect(page.locator('#label .label-name')).toHaveText('Common Nighthawk');
+});

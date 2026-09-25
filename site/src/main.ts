@@ -1,7 +1,7 @@
 // featherframe.app's first-paint script: the label card, the size switch, the
 // Keep me posted form, and — when WebGL is there and motion is welcome — the
 // 3D frame, loaded after the page has painted.
-import { heardText, type SiteData } from './card';
+import { heardText, isLongName, type SiteData } from './card';
 
 const params = new URLSearchParams(location.search);
 const holdMs = params.has('hold') ? Number(params.get('hold')) : undefined;
@@ -28,7 +28,14 @@ function showSpecies(i: number) {
   const s = data!.species[i];
   label.classList.add('changing');
   window.setTimeout(() => {
-    nameEl.textContent = s.name;
+    // Each word keeps together, so a long name breaks between words, never at a hyphen.
+    nameEl.replaceChildren(...s.name.split(' ').flatMap((w, i) => {
+      const span = document.createElement('span');
+      span.className = 'word';
+      span.textContent = w;
+      return i ? [' ', span] : [span];
+    }));
+    nameEl.classList.toggle('label-name--long', isLongName(s.name));
     latinEl.textContent = s.latin;
     heardEl.textContent = heardText(s.heard);
     label.classList.remove('changing');

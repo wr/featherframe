@@ -45,8 +45,9 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Sign in' }).first()).toHaveAttribute('href', 'https://app.featherframe.app/');
   await expect(page.locator('img[src*="robin"], img[src*="carolina-wren"]')).toHaveCount(0);
   const body = (await page.locator('body').innerText()).toLowerCase();
-  // "plates" (the brief's rule); the brief's own collage line keeps "like a plate from the folio".
-  for (const banned of ['plates', 'on the wall', 'on the glass', 'hand-coloured', 'colour']) expect(body).not.toContain(banned);
+  for (const banned of ['plate', 'on the wall', 'on the glass', 'hand-coloured', 'colour']) expect(body).not.toContain(banned);
+  // Eyebrows are the section numbers only; the titles are not repeated over themselves.
+  await expect(page.locator('.section-head .eyebrow, .faq-head .eyebrow')).toHaveText(['01', '02', '03', '04']);
 });
 
 test('the script and engraved faces appear only in the wordmark and the label', async ({ page }) => {
@@ -66,6 +67,30 @@ test('the script and engraved faces appear only in the wordmark and the label', 
   expect(await page.locator('#label .label-name').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(/Pinyon/);
   expect(await page.locator('#label .label-latin').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(/IM Fell/);
   expect(await page.locator('h1').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(/^Inter/);
+});
+
+test('a long species name stays inside the label card, words kept whole', async ({ page }) => {
+  await page.route('**/species.json', async (route) => {
+    const res = await route.fetch();
+    const data = await res.json();
+    data.species[1] = { name: 'Northern Rough-winged Swallow', latin: 'Stelgidopteryx serripennis', heard: '09:02' };
+    await route.fulfill({ response: res, json: data });
+  });
+  for (const width of [1440, 1000, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/?hold=300');
+    await expect(page.locator('#label .label-name')).toHaveText('Northern Rough-winged Swallow', { timeout: 20_000 });
+    await expect(page.locator('#label .label-name')).toHaveClass(/label-name--long/);
+    const fit = await page.evaluate(() => {
+      const card = document.querySelector('#label')!.getBoundingClientRect();
+      const words = [...document.querySelectorAll('#label .label-name .word')].map((w) => w.getClientRects().length);
+      const r = document.createRange();
+      r.selectNodeContents(document.querySelector('#label .label-name')!);
+      const t = r.getBoundingClientRect();
+      return { inside: t.left >= card.left && t.right <= card.right - 16, whole: words.every((n) => n === 1) };
+    });
+    expect(fit).toEqual({ inside: true, whole: true });
+  }
 });
 
 test('the nav gains its hairline only once the page scrolls', async ({ page }) => {

@@ -9,3 +9,7 @@ export function heardText(hhmm: string): string {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `Heard at ${h12}:${String(m).padStart(2, '0')} ${part}`;
 }
+
+/** Names past this length set smaller in the label, so none clips or breaks badly. */
+export const LONG_NAME = 18;
+export const isLongName = (name: string) => name.length > LONG_NAME;

@@ -175,11 +175,14 @@ export async function startViewer(
 
   stage.appendChild(canvas);
   // Show the canvas only once it has drawn, so the poster never blinks out.
-  requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.add('live')));
+  // Cancelled by dispose: a viewer superseded before then must not hide the
+  // poster over a stage with no canvas.
+  let reveal = requestAnimationFrame(() => { reveal = requestAnimationFrame(() => stage.classList.add('live')); });
 
   return {
     dispose() {
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(reveal);
       ro.disconnect();
       io.disconnect();
       refresh.dispose();

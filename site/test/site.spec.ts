@@ -68,3 +68,19 @@ test('with reduced motion nothing cycles', async ({ page }) => {
   await expect(page.locator('#stage canvas')).toHaveCount(0);
   await expect(page.locator('#label .label-name')).toHaveText('Common Nighthawk');
 });
+
+test('a frame superseded while loading leaves the poster showing', async ({ page }) => {
+  // The 13-inch model arrives late, after the 10-inch has been chosen, and the
+  // 10-inch model never arrives: the stage must fall back to its poster.
+  await page.route('**/models/featherframe-13.glb', async (route) => {
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+  await page.route('**/models/featherframe.glb', (route) => route.abort());
+  await page.goto('/?hold=300');
+  await page.getByRole('button', { name: '10-inch' }).click();
+  await page.waitForTimeout(4000);
+  await expect(page.locator('#stage canvas')).toHaveCount(0);
+  await expect(page.locator('#stage')).not.toHaveClass(/\blive\b/);
+  expect(await page.locator('#stage .poster').evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
+});

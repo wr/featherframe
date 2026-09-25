@@ -7,8 +7,9 @@ import { spawn, execFileSync } from 'node:child_process';
 const here = new URL('..', import.meta.url).pathname;
 const server = spawn('python3', ['-m', 'http.server', '4322', '--bind', '127.0.0.1', '-d', `${here}dist`], { stdio: 'ignore' });
 await new Promise((r) => setTimeout(r, 800));
-const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+let browser;
 try {
+  browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const page = await browser.newPage({ viewport: { width: 1200, height: 1400 }, deviceScaleFactor: 1 });
   for (const size of ['13', '10']) {
     await page.goto(`http://127.0.0.1:4322/?poster&size=${size}&hold=600000`);
@@ -21,6 +22,6 @@ try {
     console.log(`public/img/poster-${size}.webp`);
   }
 } finally {
-  await browser.close();
+  await browser?.close();
   server.kill();
 }

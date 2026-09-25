@@ -1320,14 +1320,15 @@
           <div class="frow stack" data-src="birdnet_go" {{ '' if _src=='birdnet_go' else 'hidden' }}>
             <div class="frow-ctl">
               <ol class="steps">
-                <li>In BirdNET-Go, open <strong>Settings → Notifications → Channels</strong>, turn on push notifications, and add a <strong>Webhook</strong> provider with this URL:
+                <li>In BirdNET-Go, open <strong>Settings → Notifications → Channels</strong> and tick <strong>Enable Push Notifications</strong>. Click <strong>Add Provider</strong>, set <strong>Service</strong> to <strong>Webhook</strong>, and paste this as the <strong>Webhook URL</strong>:
                   <div class="copyrow">
                     <input type="text" id="go-url" readonly value="http://…" aria-label="Webhook URL">
                     <button class="btn icon copy-btn" type="button" data-copy="#go-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
                   </div>
                 </li>
-                <li>Under <strong>Rules</strong>, add a rule for <strong>Detection</strong>, event <strong>Detection Occurred</strong>, action <strong>Push notification</strong>, cooldown <strong>0</strong>.</li>
-                <li>Save. New detections push here on their own; the status below shows how many have arrived.</li>
+                <li>Under <strong>Notification Types</strong>, leave only <strong>Bird detections</strong> ticked, then click <strong>Save Provider</strong>.</li>
+                <li>Open <strong>Rules</strong> and click <strong>New Rule</strong>: <strong>Object Type</strong> Detection, <strong>Event</strong> Detection Occurred, <strong>Actions</strong> Push notification only, <strong>Cooldown</strong> 0. Click <strong>Create</strong>.</li>
+                <li>Back on <strong>Channels</strong>, click <strong>Test Provider</strong>, then reload this page: the status below says <em>Test received</em>, then counts each detection.</li>
               </ol>
             </div>
           </div>

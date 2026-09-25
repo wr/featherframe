@@ -9,6 +9,7 @@ and builds a scanned folio's release images.
     export_dataset.py export  DATASET_DIR   # write havell/ and gould-europe/ tables
     export_dataset.py check   DATASET_DIR   # every pin is in species.csv, and back
     export_dataset.py assets  OUT_DIR       # gould-europe: cleaned sheets + crops + manifest
+    export_dataset.py thumbs  OUT_DIR --dataset DIR   # contact sheets of the crops, for the README
 
 `export` asks three outside sources once and caches them (--cache): the eBird
 taxonomy (the dataset's modern names and codes), BirdNET's V2.4 labels (only
@@ -545,9 +546,51 @@ def assets(out: Path, dataset: Path, plates_dir: Path, work: Path) -> None:
     print(f"{len(manifest)} files in {out}")
 
 
+THUMB_CELL = (240, 300)          # one plate's cell in a contact sheet, label included
+THUMB_COLS, THUMB_PER_SHEET = 10, 50
+
+
+def thumbs(dataset: Path, assets_dir: Path) -> list[str]:
+    """Contact sheets of the Gould crops, 50 plates each, for the README:
+    gould-europe/img/plates-<first>-<last>.jpg. Returns the files written."""
+    from PIL import Image, ImageDraw, ImageFont
+    font = ImageFont.truetype(str(SCRIPTS.parent / "featherframe" / "fonts" / "Inter-Medium.otf"), 15)
+    rows = [r for r in read_csv(dataset / "gould-europe" / "plates.csv") if r["crop_asset"]]
+    seen, plates = set(), []
+    for r in rows:                      # one cell per plate: its first leaf
+        if r["plate"] not in seen:
+            seen.add(r["plate"])
+            plates.append(r)
+    out_dir = dataset / "gould-europe" / "img"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cw, ch = THUMB_CELL
+    label_h = 44
+    written = []
+    for i in range(0, len(plates), THUMB_PER_SHEET):
+        group = plates[i:i + THUMB_PER_SHEET]
+        nrows = (len(group) + THUMB_COLS - 1) // THUMB_COLS
+        sheet = Image.new("RGB", (THUMB_COLS * cw, nrows * ch), "white")
+        draw = ImageDraw.Draw(sheet)
+        for j, r in enumerate(group):
+            x, y = (j % THUMB_COLS) * cw, (j // THUMB_COLS) * ch
+            with Image.open(assets_dir / r["crop_asset"]) as im:
+                im = im.convert("RGB")
+                im.thumbnail((cw - 16, ch - label_h - 12), Image.LANCZOS)
+                sheet.paste(im, (x + (cw - im.width) // 2, y + 8 + (ch - label_h - 12 - im.height) // 2))
+            name = r["caption_name"] or r["list_name"]
+            while draw.textlength(f"{r['plate']}. {name}", font=font) > cw - 12 and len(name) > 4:
+                name = name[:-2].rstrip() + "…" if not name.endswith("…") else name[:-2].rstrip() + "…"
+            draw.text((x + cw // 2, y + ch - label_h + 10), f"{r['plate']}. {name}", font=font,
+                      fill=(60, 60, 60), anchor="mt")
+        path = out_dir / f"plates-{int(group[0]['plate']):03d}-{int(group[-1]['plate']):03d}.jpg"
+        sheet.save(path, format="JPEG", quality=82, optimize=True, progressive=True)
+        written.append(path.name)
+    return written
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["export", "check", "assets"])
+    ap.add_argument("command", choices=["export", "check", "assets", "thumbs"])
     ap.add_argument("dir", type=Path, help="the dataset repo (export, check) or the assets folder")
     ap.add_argument("--cache", type=Path, default=Path.home() / ".cache" / "historical-bird-plates")
     ap.add_argument("--offline", action="store_true", help="export without the outside sources")
@@ -562,6 +605,11 @@ def main() -> int:
             print("  ✗ ", e)
         print("check: ok" if not errors else f"check: {len(errors)} problems")
         return 1 if errors else 0
+    if args.command == "thumbs":
+        if not args.dataset:
+            ap.error("thumbs needs --dataset (and the assets folder as DIR)")
+        for name in thumbs(args.dataset, args.dir):
+            print(name)
     if args.command == "assets":
         if not args.dataset:
             ap.error("assets needs --dataset")

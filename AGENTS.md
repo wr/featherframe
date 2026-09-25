@@ -365,7 +365,7 @@ from the Nachtzuster fork.
 `PushedSource`, two bodies: BirdNET-Pi's Apprise notification
 (`/api/ingest/apprise/<token>`) and BirdNET-Go's webhook channel
 (`/api/ingest/birdnet-go/<token>`, its default JSON, no template), both behind
-`Config.ingest_token` (was `apprise_token`). BirdNET-Go is never polled: its
+`Config.ingest_token` (was `apprise_token`), which is part of the URL the page shows, never a form field: its ⟳ replaces it whole, saved at once (`POST /api/ingest/token`). BirdNET-Go is never polled: its
 push needs a *Rules* entry (Detection → *Detection Occurred* → Push
 notification, cooldown 0), or it pushes only new species; the built-in
 new-species rule pushes the same detection again, deduped on `note_id`; its

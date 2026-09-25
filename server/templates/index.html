@@ -793,6 +793,7 @@
   <symbol id="ic-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
   <symbol id="ic-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
   <symbol id="ic-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="ic-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></symbol>
   <symbol id="ic-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
   <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
   <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
@@ -1324,12 +1325,11 @@
                   <div class="copyrow">
                     <input type="text" id="go-url" readonly value="http://…" aria-label="Webhook URL">
                     <button class="btn icon copy-btn" type="button" data-copy="#go-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
+                    <button class="btn icon regen-btn" type="button" title="New URL" aria-label="New URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
                   </div>
                 </li>
                 <li>Under <strong>Notification Types</strong>, leave only <strong>Bird detections</strong> ticked, then click <strong>Save Provider</strong>.</li>
-                <li>Open <strong>Rules</strong>, click <strong>Import</strong>, and choose this file, which sends every detection here:
-                  <div class="copyrow"><a class="btn" href="/static/featherframe-birdnet-go-rule.json" download>Download rule</a></div>
-                </li>
+                <li>Open <strong>Rules</strong>, click <strong>Import</strong>, and choose <a href="/static/featherframe-birdnet-go-rule.json" download>this rule file</a>, which sends every detection here.</li>
                 <li>Back on <strong>Channels</strong>, click <strong>Test Provider</strong>, then reload this page: the status below says <em>Test received</em>, then counts each detection.</li>
               </ol>
             </div>
@@ -1341,6 +1341,7 @@
                   <div class="copyrow">
                     <input type="text" id="apprise-url" readonly value="json://…" aria-label="Apprise URL">
                     <button class="btn icon copy-btn" type="button" data-copy="#apprise-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
+                    <button class="btn icon regen-btn" type="button" title="New URL" aria-label="New URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
                   </div>
                 </li>
                 <li>Set that notification's <strong>body</strong> to exactly this:
@@ -1353,10 +1354,7 @@
               </ol>
             </div>
           </div>
-          <div class="frow stack" data-src="apprise birdnet_go" {{ '' if _src in ('apprise', 'birdnet_go') else 'hidden' }}>
-            <div class="frow-text"><label class="lab" for="ingest-token">Shared secret <span class="opt">· optional</span></label><div class="hint">If set, it's added to the URL above so only your detector can post.</div></div>
-            <div class="frow-ctl"><input type="text" name="ingest_token" id="ingest-token" value="{{ config.ingest_token }}" placeholder="Leave blank to accept any LAN post" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-          </div>
+          <input type="hidden" id="ingest-token" value="{{ config.ingest_token }}">
           <div class="frow stack" data-src="birdweather" {{ '' if _src=='birdweather' else 'hidden' }}>
             <div class="frow-text"><label class="lab" for="f-bw">BirdWeather station</label><div class="hint">Paste a station's URL or just the ID. Find yours at <a href="https://app.birdweather.com" target="_blank" rel="noopener">app.birdweather.com</a>.</div></div>
             <div class="frow-ctl">
@@ -2560,7 +2558,8 @@
       });
     }
     if (sel) sel.addEventListener('change', syncSrc);
-    // Build the two webhook URLs from this host + the optional secret.
+    // Build the two webhook URLs from this host + the push secret. The ⟳ beside
+    // each asks for a new secret, saved at once: the old URL stops working.
     var appriseField = $('apprise-url');
     var goField = $('go-url');
     var tokenField = $('ingest-token');
@@ -2571,8 +2570,19 @@
       if (appriseField) appriseField.value = (https ? 'jsons://' : 'json://') + location.host + '/api/ingest/apprise' + tail;
       if (goField) goField.value = (https ? 'https://' : 'http://') + location.host + '/api/ingest/birdnet-go' + tail;
     }
-    if (tokenField) tokenField.addEventListener('input', syncPushUrls);
     syncPushUrls();
+    document.querySelectorAll('.regen-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!confirm('Make a new URL? The current one stops working until you paste the new one into your detector.')) return;
+        btn.disabled = true;
+        jsonFetch('/api/ingest/token', { method: 'POST' }).then(function (o) {
+          tokenField.value = o.token || '';
+          syncPushUrls();
+          showFlash('ok', 'New URL made. Paste it into your detector.', 'ic-check');
+        }).catch(function (e) { showFlash('bad', 'Could not make a new URL — ' + errText(e) + '.', 'ic-warn'); })
+          .then(function () { btn.disabled = false; });
+      });
+    });
   })();
 
   // -- the two AI toggles: locked, never disabled ----------------------------

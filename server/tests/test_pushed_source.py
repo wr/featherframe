@@ -350,3 +350,23 @@ def test_birdnet_go_rule_file_is_what_birdnet_go_imports():
         "detection", "event", "detection.occurred")
     assert rule["cooldown_sec"] == 0 and rule["enabled"] is True
     assert [a["target"] for a in rule["actions"]] == ["push"]
+
+
+def test_new_push_url_replaces_the_secret(go_client):
+    # W-865: the secret is part of the URL, replaced whole from the page.
+    client, svc = go_client
+    r = client.post("/api/ingest/token")
+    new = r.json()["token"]
+    assert r.status_code == 200 and new and new != "tok"
+    assert svc.config.ingest_token == new
+    assert client.post("/api/ingest/birdnet-go/tok", json=_go()).status_code == 403
+    assert client.post(f"/api/ingest/birdnet-go/{new}", json=_go()).json()["ok"] is True
+    # Only the page may ask: a cross-site post would break the detector's URL.
+    r = client.post("/api/ingest/token", headers={"Origin": "http://evil.example", "Host": "testserver"})
+    assert r.status_code == 403 and svc.config.ingest_token == new
+
+
+def test_saving_settings_never_changes_the_secret(go_client):
+    client, svc = go_client
+    client.post("/settings", data={"detection_backend": "birdnet_go", "ingest_token": "typed"})
+    assert svc.config.ingest_token == "tok"

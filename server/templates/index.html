@@ -829,8 +829,8 @@
      panel is simply what it reports (W-833), so there is nothing to answer —
      the note names the frame it is about (W-813). #}
   {% for fr in on_frames %}{% for title, body in [
-      (fr.title ~ " did not say what panel it has.", fr.notices.unrecognised and ("It calls its panel “" ~ fr.notices.unrecognised.label ~ "”, which this server does not know, and it reported no size. Updates are drawn for the " ~ fr.notices.unrecognised.drawing_for ~ " panel, which the frame may reject. Update the frame's firmware.")),
-      (fr.title ~ "'s panel format is not one this server can draw.", fr.notices.unknown_format and ("It reports the format “" ~ fr.notices.unknown_format.format ~ "”. Updates are sent at the panel's size in 16-level gray instead, which the frame may reject.")),
+      (fr.title ~ " did not say what panel it has.", fr.notices.unrecognised and ("It calls its panel “" ~ fr.notices.unrecognised.label ~ "”, which this server does not know, and it reported no size. Updates are rendered for the " ~ fr.notices.unrecognised.drawing_for ~ " panel, which the frame may reject. Update the frame's firmware.")),
+      (fr.title ~ "'s panel format is not one this server can render.", fr.notices.unknown_format and ("It reports the format “" ~ fr.notices.unknown_format.format ~ "”. Updates are sent at the panel's size in 16-level gray instead, which the frame may reject.")),
     ] %}{% if body %}
   <div class="test-box warn show panel-note" role="status">
     <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
@@ -877,11 +877,11 @@
               <p class="tools-scope" data-for="plates">For every frame showing individual detections.</p>
               <p class="tools-scope" data-for="collage">For every frame showing the collage.</p>
               <div class="frow" data-for="plates">
-                <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Redraws the latest detection now.</div></div>
+                <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Renders the latest detection again now.</div></div>
                 <div class="frow-ctl"><button class="btn" type="button" id="refresh-btn">Refresh</button></div>
               </div>
               <div class="frow" data-for="collage">
-                <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Redraws today’s collage now.{{ ' Repaint generates a new image.' if config.collage_generated else '' }}</div></div>
+                <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Rebuilds today’s collage now.{{ ' Repaint generates a new image.' if config.collage_generated else '' }}</div></div>
                 <div class="frow-ctl">
                   <form class="inline task-form" data-task="collage" method="post" action="/api/collage/now">
                     <button class="btn" type="submit">Refresh</button>
@@ -1082,7 +1082,7 @@
            to without a socket is kept, not posted. #}
         {% set instant = s.push and s.power_mode == 'awake' and s.shows != 'collage' %}
         <div class="frow{{ ' locked' if s.shows == 'collage' or instant else '' }}" data-fr-interval{{ ' data-fr-push' if s.push else '' }}>
-          <div class="frow-text"><span class="lab" id="fr-int-lab-{{ i }}">Update interval</span><div class="hint" data-fr-interval-hint>{{ 'Set by the collage’s redraw interval.' if s.shows == 'collage' else '' }}</div></div>
+          <div class="frow-text"><span class="lab" id="fr-int-lab-{{ i }}">Update interval</span><div class="hint" data-fr-interval-hint>{{ 'Set by the collage’s update interval.' if s.shows == 'collage' else '' }}</div></div>
           <div class="frow-ctl">
             <span class="fr-int-collage" data-fr-collage-every {{ '' if s.shows == 'collage' else 'hidden' }}>{{ collage_every }}</span>
             <span class="fr-int-collage" data-fr-instant {{ '' if instant else 'hidden' }}>Instant</span>
@@ -1526,7 +1526,7 @@
         <section class="sec">
           <h2 class="sec-head">Collage</h2>
           <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-every">Redraw interval</label></div>
+            <div class="frow-text"><label class="lab" for="f-every">Update interval</label></div>
             <div class="frow-ctl">
               <div class="cselect">
               <select class="sel cselect-native" id="f-every" name="collage_interval_hours">
@@ -1566,7 +1566,7 @@
           </div>
           </div></div>
           <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
-            <div class="frow-text"><label class="lab" for="cg"><span class="badge ai">AI</span>Generate menagerie-style collages<a class="btn sm ex preview" href="/static/examples/collage.png" data-ex="collage" data-cap="The collage as one scene, drawn with AI." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
+            <div class="frow-text"><label class="lab" for="cg"><span class="badge ai">AI</span>Generate menagerie-style collages<a class="btn sm ex preview" href="/static/examples/collage.png" data-ex="collage" data-cap="The collage as one scene, generated with AI." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" aria-disabled="{{ 'false' if ig_ready else 'true' }}" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
           </div>
           {% if collage_days %}
@@ -1791,7 +1791,7 @@
   }
   // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
   // Household fields only: a frame's own are saved per frame, without a reload.
-  var FIELD_NAMES = { collage_interval_hours: 'Redraw interval',
+  var FIELD_NAMES = { collage_interval_hours: 'Update interval',
     collage_species_max: 'Species limit' };
   (function () {
     var q = new URLSearchParams(location.search), shown = false;
@@ -2413,7 +2413,7 @@
         var inst = ir.querySelector('[data-fr-instant]');
         if (inst) inst.hidden = !instant;
         var hint = ir.querySelector('[data-fr-interval-hint]');
-        if (hint) hint.textContent = onCollage ? 'Set by the collage\u2019s redraw interval.' : '';
+        if (hint) hint.textContent = onCollage ? 'Set by the collage\u2019s update interval.' : '';
         var word = ir.querySelector('[data-fr-collage-every]');
         if (word) { word.hidden = !onCollage; if (onCollage) word.textContent = collageEveryWord(); }
       }

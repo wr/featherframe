@@ -26,14 +26,14 @@ A bird detector identifies the birds in your backyard by their calls. Featherfra
 
 ```
  BirdNET-Pi, BirdNET-Go   ──▶  Featherframe server  ──▶  E-paper frame
- or BirdWeather                (chooses and draws        (shows the picture)
+ or BirdWeather                (finds and renders        (shows the picture)
  (identifies the bird)          the illustration)
 ```
 
 It works with [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), [BirdNET-Go](https://github.com/tphakala/birdnet-go), or a [BirdWeather](https://www.birdweather.com) station.
 
 - **Audubon's illustrations.** Every species Audubon painted gets his illustration, matted like a print.
-- **Birds Audubon never painted.** These get a name card: the species' name set in type. With an OpenAI key, Featherframe can draw a new illustration in Audubon's style instead.
+- **Birds Audubon never painted.** These get a name card: the species' name set in type. With an OpenAI key, Featherframe can generate a new illustration in Audubon's style instead.
 - **A daily collage.** One sheet shows every species heard that day.
 - **Other screens.** A TRMNL, a Kobo, a Kindle, or a tablet can also show the pictures.
 - **No wrong birds.** If Featherframe isn't sure of a match, it shows the name instead of a guess.

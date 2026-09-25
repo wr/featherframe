@@ -477,7 +477,7 @@ def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     _populate(client)
     sec = client.get("/").text.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
     assert 'class="intro"' not in sec
-    assert ">Redraw interval<" in sec and ">Species limit<" in sec
+    assert ">Update interval<" in sec and ">Species limit<" in sec
     # The label says what it is: a redraw, not the frames' own update interval.
     assert "How often the collage is redrawn" not in sec
     assert "The most species shown in one collage" in sec

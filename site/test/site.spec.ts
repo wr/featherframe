@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test';
 
+test('social card and search basics', async ({ page, request }) => {
+  await page.goto('/');
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://featherframe.app/img/og.jpg');
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Featherframe');
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://featherframe.app/');
+  expect((await request.get('/robots.txt')).ok()).toBe(true);
+  expect((await request.get('/sitemap.xml')).ok()).toBe(true);
+});
+
 test('the page loads without console errors', async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });

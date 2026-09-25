@@ -9,7 +9,8 @@ and builds a scanned folio's release images.
     export_dataset.py export  DATASET_DIR   # write havell/ and gould-europe/ tables
     export_dataset.py check   DATASET_DIR   # every pin is in species.csv, and back
     export_dataset.py assets  OUT_DIR       # gould-europe: cleaned sheets + crops + manifest
-    export_dataset.py thumbs  OUT_DIR --dataset DIR   # contact sheets of the crops, for the README
+    export_dataset.py assets  OUT_DIR --folio havell   # Havell: audubon.org's scans + lettering-free crops
+    export_dataset.py thumbs  OUT_DIR --dataset DIR [--folio …]  # contact sheets of the crops, for the README
 
 `export` asks three outside sources once and caches them (--cache): the eBird
 taxonomy (the dataset's modern names and codes), BirdNET's V2.4 labels (only
@@ -107,7 +108,7 @@ SPECIES_COLUMNS = ["plate", "figure", "printed_name", "printed_latin", "scientif
 GOULD_PLATE_COLUMNS = ["plate", "list_name", "list_latin", "caption_name", "caption_latin",
                        "volume", "bhl_barcode", "bhl_item", "leaf", "bhl_page", "orientation",
                        "rotate", "scan_url", "page_url", "sheet_asset", "crop_asset", "notes"]
-HAVELL_PLATE_COLUMNS = ["plate", "title", "legend", "image_url", "notes"]
+HAVELL_PLATE_COLUMNS = ["plate", "title", "legend", "image_url", "sheet_asset", "crop_asset", "notes"]
 
 GOULD_ITEMS = {"I": 132863, "II": 132861, "III": 133913, "IV": 132862, "V": 133915}
 BHL_BUCKET = "https://bhl-open-data.s3.us-east-2.amazonaws.com"
@@ -239,8 +240,22 @@ HAVELL_DISPUTED = {
     434: "Small-headed Flycatcher and Blue Mountain Warbler: not valid species",
 }
 
+def havell_titles(catalog: list[dict], folio: dict) -> dict[int, str]:
+    """Each plate's title. The mirror's `name` runs one plate late from 361
+    to 399 (its fileName, and so its image, is right): 361-398 take the next
+    plate's name, and 399, whose own name is lost, takes the folio's title."""
+    names = {int(c["plate"]): c.get("name", "") for c in catalog}
+    titles = dict(names)
+    for n in range(361, 399):
+        titles[n] = names.get(n + 1, "")
+    t399 = next((str(e.get("audubon_title", "")) for e in pinned(folio) if int(e["plate"]) == 399), "")
+    titles[399] = t399.replace("(composite)", "").strip()
+    return titles
+
+
 def havell_tables(tax: Taxonomy, catalog: list[dict]) -> tuple[list[dict], list[dict]]:
     folio = load_folio("havell")
+    names = havell_titles(catalog, folio)
     legends = legends_mod.load()
     by_plate: dict[int, list[dict]] = {}
     for e in pinned(folio):
@@ -250,11 +265,12 @@ def havell_tables(tax: Taxonomy, catalog: list[dict]) -> tuple[list[dict], list[
     for n in range(1, 436):
         c = titles.get(n, {})
         leg = legends.get(n, {"lines": [], "composite": False})
-        plates.append({"plate": n, "title": c.get("name", ""), "legend": " | ".join(leg["lines"]),
-                       "image_url": c.get("download", "")})
+        plates.append({"plate": n, "title": names.get(n, ""), "legend": " | ".join(leg["lines"]),
+                       "image_url": c.get("download", ""),
+                       "sheet_asset": f"sheet-{n:03d}.jpg", "crop_asset": f"crop-{n:03d}.jpg"})
         entries = by_plate.get(n)
         if not entries:
-            species.append({"plate": n, "printed_name": c.get("name", ""), "confidence": "none",
+            species.append({"plate": n, "printed_name": names.get(n, ""), "confidence": "none",
                             "reason": HAVELL_DISPUTED.get(n) or "not identified here yet: "
                             "Featherframe pins one plate per species, and this is likely a second plate of one"})
             continue
@@ -540,28 +556,56 @@ def assets(out: Path, dataset: Path, plates_dir: Path, work: Path) -> None:
             manifest[p.name] = {"sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
                                 "bytes": p.stat().st_size, "plate": int(r["plate"])}
         print(f"  ✓  plate {r['plate']}: {sheet.name}")
-    (out / "manifest.json").write_text(json.dumps({"folio": "gould-europe", "files": manifest},
+    write_manifest(out, "gould-europe", manifest)
+
+
+def write_manifest(out: Path, folio: str, manifest: dict) -> None:
+    (out / "manifest.json").write_text(json.dumps({"folio": folio, "files": manifest},
                                                   indent=1, sort_keys=True) + "\n")
     (out / "SHA256SUMS").write_text("".join(f"{v['sha256']}  {k}\n" for k, v in sorted(manifest.items())))
     print(f"{len(manifest)} files in {out}")
+
+
+def havell_assets(out: Path, dataset: Path, plates_dir: Path) -> None:
+    """Every Havell plate as the scan Featherframe fetches (audubon.org's
+    file, unaltered) and a crop with the plate's lettering trimmed away:
+    the whole engraving inside the number line and the caption, never one
+    bird of a sheet."""
+    from featherframe.plate_library import _raw_color_crop
+    from PIL import Image
+    Image.MAX_IMAGE_PIXELS = None
+    catalog = {int(c["plate"]): c for c in havell_catalog(plates_dir)}
+    out.mkdir(parents=True, exist_ok=True)
+    manifest = {}
+    for r in read_csv(dataset / "havell" / "plates.csv"):
+        n = int(r["plate"])
+        sheet, crop = out / r["sheet_asset"], out / r["crop_asset"]
+        if not sheet.exists():
+            shutil.copyfile(plates_dir / "img" / catalog[n]["fileName"], sheet)
+        if not crop.exists():
+            _raw_color_crop(sheet, True, None).convert("RGB").save(crop, format="JPEG", quality=92)
+        for p in (sheet, crop):
+            manifest[p.name] = {"sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
+                                "bytes": p.stat().st_size, "plate": n}
+    write_manifest(out, "havell", manifest)
 
 
 THUMB_CELL = (240, 300)          # one plate's cell in a contact sheet, label included
 THUMB_COLS, THUMB_PER_SHEET = 10, 50
 
 
-def thumbs(dataset: Path, assets_dir: Path) -> list[str]:
-    """Contact sheets of the Gould crops, 50 plates each, for the README:
-    gould-europe/img/plates-<first>-<last>.jpg. Returns the files written."""
+def thumbs(dataset: Path, assets_dir: Path, folder: str = "gould-europe") -> list[str]:
+    """Contact sheets of a folio's crops, 50 plates each, for its README:
+    <folder>/img/plates-<first>-<last>.jpg. Returns the files written."""
     from PIL import Image, ImageDraw, ImageFont
     font = ImageFont.truetype(str(SCRIPTS.parent / "featherframe" / "fonts" / "Inter-Medium.otf"), 15)
-    rows = [r for r in read_csv(dataset / "gould-europe" / "plates.csv") if r["crop_asset"]]
+    rows = [r for r in read_csv(dataset / folder / "plates.csv") if r["crop_asset"]]
     seen, plates = set(), []
     for r in rows:                      # one cell per plate: its first leaf
         if r["plate"] not in seen:
             seen.add(r["plate"])
             plates.append(r)
-    out_dir = dataset / "gould-europe" / "img"
+    out_dir = dataset / folder / "img"
     out_dir.mkdir(parents=True, exist_ok=True)
     cw, ch = THUMB_CELL
     label_h = 44
@@ -577,7 +621,7 @@ def thumbs(dataset: Path, assets_dir: Path) -> list[str]:
                 im = im.convert("RGB")
                 im.thumbnail((cw - 16, ch - label_h - 12), Image.LANCZOS)
                 sheet.paste(im, (x + (cw - im.width) // 2, y + 8 + (ch - label_h - 12 - im.height) // 2))
-            name = r["caption_name"] or r["list_name"]
+            name = r.get("caption_name") or r.get("list_name") or r.get("title") or ""
             while draw.textlength(f"{r['plate']}. {name}", font=font) > cw - 12 and len(name) > 4:
                 name = name[:-2].rstrip() + "…" if not name.endswith("…") else name[:-2].rstrip() + "…"
             draw.text((x + cw // 2, y + ch - label_h + 10), f"{r['plate']}. {name}", font=font,
@@ -596,6 +640,8 @@ def main() -> int:
     ap.add_argument("--offline", action="store_true", help="export without the outside sources")
     ap.add_argument("--dataset", type=Path, help="assets: the dataset repo whose plates.csv to follow")
     ap.add_argument("--plates-dir", type=Path, help="a Featherframe plates dir with sheets already fetched")
+    ap.add_argument("--folio", default="gould-europe", choices=["gould-europe", "havell"],
+                    help="assets, thumbs: which folio")
     args = ap.parse_args()
     if args.command == "export":
         export(args.dir, Taxonomy(None if args.offline else args.cache), args.plates_dir)
@@ -608,12 +654,18 @@ def main() -> int:
     if args.command == "thumbs":
         if not args.dataset:
             ap.error("thumbs needs --dataset (and the assets folder as DIR)")
-        for name in thumbs(args.dataset, args.dir):
+        for name in thumbs(args.dataset, args.dir, args.folio):
             print(name)
     if args.command == "assets":
         if not args.dataset:
             ap.error("assets needs --dataset")
-        assets(args.dir, args.dataset, args.plates_dir or Path("/nonexistent"), args.dir.parent / (args.dir.name + "-work"))
+        if args.folio == "havell":
+            if not args.plates_dir:
+                ap.error("havell assets need --plates-dir (the scans fetch_plates --all cached)")
+            havell_assets(args.dir, args.dataset, args.plates_dir)
+        else:
+            assets(args.dir, args.dataset, args.plates_dir or Path("/nonexistent"),
+                   args.dir.parent / (args.dir.name + "-work"))
     return 0
 
 

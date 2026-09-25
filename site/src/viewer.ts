@@ -78,6 +78,7 @@ export async function startViewer(
   opts: { holdMs?: number; onShown: (i: number) => void; poster?: boolean },
 ): Promise<{ dispose(): void }> {
   const canvas = document.createElement('canvas');
+  canvas.setAttribute('aria-hidden', 'true');
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: !!opts.poster });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = SRGBColorSpace;

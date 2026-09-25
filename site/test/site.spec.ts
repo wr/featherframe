@@ -33,6 +33,11 @@ test('every section and its key copy is there', async ({ page }) => {
   for (const banned of ['plate', 'on the wall', 'on the glass']) expect(body).not.toContain(banned);
 });
 
+test('the label card is not announced (it cycles on its own)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#label')).not.toHaveAttribute('aria-live');
+});
+
 test('no horizontal scroll on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
@@ -98,6 +103,22 @@ test('Keep me posted says when it did not go through', async ({ page }) => {
   await page.fill('#email', 'ada@example.com');
   await page.click('#keep-posted button[type=submit]');
   await expect(page.locator('#keep-posted .form-note')).toHaveText("That didn't go through. Try again.");
+});
+
+test('a size chosen before species.json loads still shows its poster', async ({ page }) => {
+  await page.addInitScript(() => {
+    const orig = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...rest: unknown[]) {
+      return kind.startsWith('webgl') ? null : (orig as Function).call(this, kind, ...rest);
+    } as typeof orig;
+  });
+  await page.route('**/species.json', async (route) => {
+    await new Promise((r) => setTimeout(r, 1000));
+    await route.continue();
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: '10-inch' }).click();
+  await expect(page.locator('#stage .poster')).toHaveAttribute('src', 'img/poster-10.webp', { timeout: 5000 });
 });
 
 test('a frame superseded while loading leaves the poster showing', async ({ page }) => {

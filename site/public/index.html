@@ -15,9 +15,7 @@
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="favicon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+Double+Pica+SC&family=Inter:wght@400;500;600&family=Pinyon+Script&display=swap" rel="stylesheet">
+  <link rel="preload" as="font" type="font/woff2" href="fonts/PinyonScript-Regular.woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
   <script type="module" src="main.js"></script>
 </head>
@@ -36,9 +34,9 @@
   <main>
     <section class="hero">
       <figure id="stage" class="stage">
-        <img class="poster" src="img/poster-13.webp" alt="Featherframe, a walnut frame on its kickstand, showing Audubon's Common Nighthawk" width="1200" height="1400">
+        <img class="poster" src="img/poster-13.webp" alt="Featherframe, a walnut frame on its kickstand, showing Audubon's Common Nighthawk" width="1200" height="1400" fetchpriority="high">
       </figure>
-      <aside id="label" class="label" aria-live="polite">
+      <aside id="label" class="label">
         <p class="label-kicker">Heard near your home</p>
         <h1 class="label-name">Common Nighthawk</h1>
         <p class="label-latin">Chordeiles minor</p>

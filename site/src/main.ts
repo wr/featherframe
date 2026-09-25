@@ -62,9 +62,14 @@ function choose(next: '13' | '10') {
 for (const b of buttons) b.addEventListener('click', () => choose(b.dataset.size as '13' | '10'));
 
 const start = async () => {
-  data = await (await fetch('species.json')).json();
-  const want = params.get('size');
-  if (want === '10') choose('10'); else void mount();
+  try {
+    data = await (await fetch('species.json')).json();
+    poster.src = data!.sizes[size].poster;
+    const want = params.get('size');
+    if (want === '10') choose('10'); else void mount();
+  } catch (e) {
+    console.warn('featherframe: species data unavailable', e);
+  }
 };
 if (document.readyState === 'complete') void start();
 else addEventListener('load', () => void start(), { once: true });

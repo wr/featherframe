@@ -1,3 +1,39 @@
+@font-face {
+  font-family: 'Pinyon Script';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/PinyonScript-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IM Fell Double Pica SC';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/IMFellDoublePicaSC.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/Inter-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('fonts/Inter-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('fonts/Inter-600.woff2') format('woff2');
+}
+
 :root {
   --page: #FFFFFF; --ink: #16181B; --muted: #5E6570; --hair: #E4E6E9; --card: #FFFFFF;
   --script: 'Pinyon Script', 'Snell Roundhand', cursive;
@@ -63,6 +99,9 @@ section { padding: 72px 0; border-top: 1px solid var(--hair); }
 .art-grid figure { margin: 0; }
 .art-grid img { width: 100%; height: auto; display: block; border: 1px solid var(--hair); }
 .art-grid figcaption { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.art-grid .wide { grid-column: 1 / -1; }
+.art-grid .wide img { max-width: 560px; margin: 0 auto; }
+.art-grid .wide figcaption { align-items: center; }
 
 .size-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-bottom: 24px; }
 .card { border: 1px solid var(--hair); border-radius: 4px; padding: 24px; }

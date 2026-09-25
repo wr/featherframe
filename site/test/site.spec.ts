@@ -174,7 +174,7 @@ test('?size=10 shows its poster once species.json arrives late', async ({ page }
 });
 
 test('a frame whose model never arrives leaves the poster showing', async ({ page }) => {
-  await page.route('**/models/featherframe-13.glb', (route) => route.abort());
+  await page.route('**/models/featherframe-13.*.glb', (route) => route.abort());
   await page.goto('/?hold=300');
   await page.waitForTimeout(3000);
   await expect(page.locator('#stage canvas')).toHaveCount(0);

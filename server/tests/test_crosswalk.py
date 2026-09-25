@@ -392,7 +392,7 @@ def test_folios_are_asked_havell_first_then_as_published():
     fp = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fp)
     order = [f for f, _, _ in fp.load_folios(SPECIES_YAML.parent)]
-    assert order == ["havell", "gould_europe", "gould_australia", "gould_britain"]
+    assert order == ["havell", "gould_europe", "gould_australia", "gould_asia", "gould_britain"]
 
 
 # --- Gould's Birds of Asia (W-871) --------------------------------------------
@@ -453,10 +453,13 @@ def test_asia_ring_necked_pheasant_is_the_ringed_torquatus():
 
 
 def test_the_ringed_pheasant_wins_everywhere_but_europe(tmp_path):
-    """Folios after the region's own go in file order, so a North American
-    station gets Asia's ringed plate before Europe's ringless 247, and the
-    Europe region keeps 247. A folio filed between them would change that."""
+    """Folios after the region's own go in publication order, which asks
+    Europe (1832) before Asia (1850); VII.39 is `preferred`, so a North
+    American or Australian station still gets the ringed plate, and the
+    Europe region keeps its own 247. Built from the real folio files and the
+    fetcher's own records, so neither can drop the flag unnoticed."""
     import importlib.util
+    from types import SimpleNamespace
     from featherframe.names import SpeciesIndex
     spec = importlib.util.spec_from_file_location("fetch_plates", SPECIES_YAML.parents[1] / "fetch_plates.py")
     fp = importlib.util.module_from_spec(spec)
@@ -464,12 +467,16 @@ def test_the_ringed_pheasant_wins_everywhere_but_europe(tmp_path):
     records, headers = [], {}
     for folio, header, species in fp.load_folios(SPECIES_YAML.parent):
         headers[folio] = header
-        for e in species:
-            if e["scientific"] == "Phasianus colchicus" and e.get("plate") not in (None, "none"):
-                img = tmp_path / folio / f"{e['plate']}.jpg"
-                img.parent.mkdir(exist_ok=True)
-                img.write_bytes(b"x")
-                records.append({**e, "folio": folio, "image": f"{folio}/{e['plate']}.jpg"})
+        pheasant = [e for e in species if e["scientific"] == "Phasianus colchicus"
+                    and e.get("plate") not in (None, "none") and folio != "havell"]
+        for e in pheasant:
+            scan = tmp_path / fp.scan_filename(folio, e)      # on disk: nothing is downloaded
+            scan.parent.mkdir(parents=True, exist_ok=True)
+            scan.write_bytes(b"x")
+        fetched, _, _ = fp.fetch_scans(folio)(None, pheasant, SimpleNamespace(force=False, dry_run=False),
+                                              tmp_path, {}, header)
+        records += fetched
     idx = SpeciesIndex(records, images_dir=tmp_path, folios=headers)
-    for region, want in (("north-america", "gould_asia"), ("asia", "gould_asia"), ("europe", "gould_europe")):
+    for region, want in (("north-america", "gould_asia"), ("australia", "gould_asia"),
+                         ("asia", "gould_asia"), ("europe", "gould_europe")):
         assert idx.match("Ring-necked Pheasant", "Phasianus colchicus", region).folio == want, region

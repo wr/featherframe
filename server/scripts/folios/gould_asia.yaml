@@ -33,9 +33,9 @@
 #     forms of the Maroon Oriole, Greater Necklaced Laughingthrush, Alpine
 #     Accentor, White-crowned Forktail and Eurasian Bullfinch.
 #   - VII.39 Phasianus torquatus is the one form pinned, on purpose (below).
-# Shared with Europe: 12 species are in both Gould folios; the Asia region
-# asks this one first, every other region asks it before Europe (the folios
-# after the region's own go in file order).
+# Shared with Europe: 12 species are in both Gould folios. The Asia region
+# asks this folio first; every other region asks Europe first, as it was
+# published first, except for the pheasant (`preferred`).
 
 folio:
   title: "The Birds of Asia"
@@ -331,10 +331,11 @@ species:
   - {common: "Koklass Pheasant", scientific: "Pucrasia macrolopha", volume_no: 7, plate: 26, gould_title: "Himalayan Pucras Pheasant, Pucrasia macrolopha", volume: BirdsAsiaJohnGoVIIGoul, leaf: 112, rotate: 270}
   - {common: "Tibetan Snowcock", scientific: "Tetraogallus tibetanus", volume_no: 7, plate: 32, gould_title: "Tibetan Snow-Partridge, Tetraogallus Tibetanus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 136, rotate: 270}
   # The one form pinned on purpose (Wells, 25 Sep 2026): the ringed Chinese stock
-  # introduced to North America, so it outranks Europe pl. 247 there (folio order:
-  # gould_asia before gould_europe) and not in the Europe region. VII.34, the
-  # nominate colchicus, is left out: one plate per species.
-  - {common: "Ring-necked Pheasant", scientific: "Phasianus colchicus", volume_no: 7, plate: 39, gould_title: "Chinese Ring-necked Pheasant, Phasianus torquatus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 164, rotate: 270}
+  # introduced to North America. `preferred` asks it right after the region's own
+  # folios, ahead of the publication order that would put Europe's ringless pl. 247
+  # first; the Europe region keeps 247. VII.34, the nominate colchicus, is left
+  # out: one plate per species.
+  - {common: "Ring-necked Pheasant", scientific: "Phasianus colchicus", volume_no: 7, plate: 39, gould_title: "Chinese Ring-necked Pheasant, Phasianus torquatus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 164, rotate: 270, preferred: true}
   - {common: "Blood Pheasant", scientific: "Ithaginis cruentus", volume_no: 7, plate: 43, gould_title: "Sanguine Francolin, Ithaginis cruentus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 180, rotate: 270}
   - {common: "Gray Peacock-Pheasant", scientific: "Polyplectron bicalcaratum", volume_no: 7, plate: 51, gould_title: "Malayan Peacock Pheasant, Polyplectron bicalcaratum", volume: BirdsAsiaJohnGoVIIGoul, leaf: 212, rotate: 270}
   - {common: "Great Argus", scientific: "Argusianus argus", volume_no: 7, plate: 52, gould_title: "Argus Pheasant, Argusianus argus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 216, rotate: 270}

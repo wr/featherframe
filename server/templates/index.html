@@ -715,7 +715,7 @@
     .fr-more { position:relative; }
     .fr-more-btn { width:30px; height:30px; margin-right:-7px; display:inline-flex; align-items:center; justify-content:center;
                    border:0; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer; }
-    .fr-more-btn:hover, .fr-more-btn[aria-expanded="true"] { background:var(--inset); color:var(--ink); }
+    .fr-more-btn:hover, .fr-more-btn[aria-expanded="true"] { background:color-mix(in srgb, var(--ink) 9%, transparent); color:var(--ink); }
     .fr-more-btn:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
     .fr-more-btn svg { width:16px; height:16px; fill:currentColor; }
     /* Fixed, placed under the button by script: the card clips to its radius,
@@ -792,10 +792,9 @@
     .set-val { display:inline-flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:0 7px;
       font-size:13.5px; color:var(--muted); text-align:right; min-width:0; }
     .set-val:empty { display:none; }
+    details.disc.set > summary > .chev { grid-column:4; }
     .set-val .d { flex:none; width:7px; height:7px; border-radius:50%; }
     .set-val .v-part + .v-part::before { content:"\B7"; margin-right:7px; }
-    details.disc.set.sub > summary { min-height:44px; padding-top:10px; padding-bottom:10px; }
-    details.disc.set.sub .set-name { font-weight:400; color:var(--ink-2); }
 
     .set-body { padding:14px var(--pad) 0 calc(var(--pad) + 32px); border-top:1px solid var(--hair); }
     details.disc.set > .disc-body > *::after { height:16px; }
@@ -804,9 +803,10 @@
     .set-form > .intro, .set-body > .intro { margin:0 0 12px; }
     .set-form > details.disc { --pad:20px; margin:12px calc(-1 * var(--pad)) 0 calc(-1 * (var(--pad) + 32px)); }
     .set-form > details.disc > summary { border-radius:0; padding-left:calc(var(--pad) + 32px); }
-    .set-form > details.disc > .disc-body .adv-body { padding-left:32px; }
+    .set-form > details.disc > .disc-body .adv-body { padding-left:calc(var(--pad) + 32px); }
     .set-form > details.disc + details.disc, .set-form > .test-box + details.disc { margin-top:0; }
     .set-form > details.disc > .disc-body > *::after { height:12px; }
+    .set-body:has(> .set-form > details.disc:not([open]) + .set-foot[hidden]:last-child)::after { height:0; }
     .set-form .default-submit { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
     .set-foot { display:flex; align-items:center; justify-content:flex-end; gap:14px;
       margin:12px calc(-1 * var(--pad)) 0 calc(-1 * (var(--pad) + 32px)); padding:12px var(--pad) 0; border-top:1px solid var(--hair); }
@@ -816,6 +816,10 @@
     .saved-tick.on { opacity:1; }
     .saved-tick.bad { color:var(--bad); }
     .frow.toggle .frow-ctl { display:flex; align-items:center; justify-content:flex-end; }
+    /* A setting's rule runs to the card's right edge; the indent stays on the left. */
+    .set-body .frow { margin-right:calc(-1 * var(--pad)); padding-right:var(--pad); }
+    .set-body .reveal { margin-right:calc(-1 * var(--pad)); }
+    .set-body .reveal .frow { margin-right:0; }
     .set-body > .gen-list:first-child, .set-body > .intro:first-child { margin-top:0; }
 
     /* The source's own state, once it is open */
@@ -874,7 +878,7 @@
       .set-body { padding-left:var(--pad); }
       .set-form > details.disc { margin-left:calc(-1 * var(--pad)); }
       .set-form > details.disc > summary { padding-left:var(--pad); }
-      .set-form > details.disc > .disc-body .adv-body { padding-left:0; }
+      .set-form > details.disc > .disc-body .adv-body { padding-left:var(--pad); }
       .set-foot { margin-left:calc(-1 * var(--pad)); }
       /* A value of two parts takes two lines rather than an ellipsis. */
       .set-val { flex-direction:column; align-items:flex-end; gap:0; }
@@ -911,11 +915,13 @@
   <symbol id="ic-warn" viewBox="0 0 16 16" fill="none"><path d="M8 1.9 15 14.4H1L8 1.9Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.75" r=".9" fill="currentColor"/></symbol>
   <symbol id="ic-info" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="currentColor"/></symbol>
   <symbol id="ic-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
-  <symbol id="ic-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
-  <symbol id="ic-waveform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></symbol>
-  <symbol id="ic-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 6.5C10.5 5 8 4.5 4 4.5v14c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-14c-4 0-6.5.5-8 2zM12 6.5v14"/></symbol>
-  <symbol id="ic-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></symbol>
-  <symbol id="ic-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M11 3.5l1.7 4.8 4.8 1.7-4.8 1.7L11 16.5l-1.7-4.8L4.5 10l4.8-1.7zM18 14.5l.8 2 2 .7-2 .8-.8 2-.7-2-2-.8 2-.7z"/></symbol>
+  <symbol id="ic-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h9M19 8h1M4 16h1M11 16h9"/><circle cx="16" cy="8" r="2.5"/><circle cx="8" cy="16" r="2.5"/></symbol>
+  <symbol id="ic-waveform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3.5 11v2M7 8.5v7M10.5 5v14M14 8v8M17.5 10v4M21 11.25v1.5"/></symbol>
+  <symbol id="ic-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.2C10.4 5.8 8 5 4.5 5a1 1 0 0 0-1 1v11.5a1 1 0 0 0 1 1c3.3 0 5.7.7 7.5 2.1 1.8-1.4 4.2-2.1 7.5-2.1a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1C16 5 13.6 5.8 12 7.2Z"/><path d="M12 7.2v13.3"/></symbol>
+  <symbol id="ic-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="4" y="4" width="7" height="16" rx="1.75"/><rect x="13" y="4" width="7" height="7" rx="1.75"/><rect x="13" y="13" width="7" height="7" rx="1.75"/></symbol>
+  <symbol id="ic-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M10 3.5Q10.9 9.1 16.5 10 10.9 10.9 10 16.5 9.1 10.9 3.5 10 9.1 9.1 10 3.5Z"/><path d="M17.5 14.5Q17.9 17.1 20.5 17.5 17.9 17.9 17.5 20.5 17.1 17.9 14.5 17.5 17.1 17.1 17.5 14.5Z"/></symbol>
+  <symbol id="ic-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><circle cx="9.5" cy="9.5" r="1.5"/><path d="M20 15.5 15.5 11 5 20"/></symbol>
+  <symbol id="ic-stack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="12" height="12" rx="2"/><path d="M8 4.5h9.5a2 2 0 0 1 2 2V16"/></symbol>
 <symbol id="ic-caret" viewBox="0 0 12 8"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 <div class="wrap">
@@ -1753,7 +1759,7 @@
                   {% for q in ['max','xhigh','high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }} {{ 'data-25only' if q in ('max','xhigh') else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Describes each species to the image model, so generated illustrations are accurate and match the books.</div></div>
+                <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Describes each species to the image model, for accuracy.</div></div>
                 <div class="frow-ctl">
                   <div class="cselect">
                   <select class="sel cselect-native" name="imagegen_text_provider" id="ig-text-provider">
@@ -1799,8 +1805,8 @@
       </details>
 
       {# -- Generated illustrations ------------------------------------------ #}
-      <details class="disc set sub" id="set-generated">
-        {% call set_summary(None, 'Generated illustrations', badge=False) %}{% endcall %}
+      <details class="disc set" id="set-generated">
+        {% call set_summary('ic-image', 'Generated illustrations', badge=False) %}{% if generated %}<span class="tnum">{{ generated|length }}</span>{% endif %}{% endcall %}
         <div class="disc-body"><div class="set-body" id="gen-card">
       {% if generated %}
       <p class="intro">Illustrations Featherframe has generated and kept. Regenerate buys a new one; Remove deletes it, and the next detection of that species generates another.</p>
@@ -1852,8 +1858,8 @@
       {# -- Generated collages ----------------------------------------------- #}
       {# Each kept day's finished collage, in the same list as the generated
          illustrations; the one action is a download. #}
-      <details class="disc set sub" id="set-collages">
-        {% call set_summary(None, 'Generated collages', badge=False) %}{% endcall %}
+      <details class="disc set" id="set-collages">
+        {% call set_summary('ic-stack', 'Generated collages', badge=False) %}{% if collage_days %}<span class="tnum">{{ collage_days|length }}</span>{% endif %}{% endcall %}
         <div class="disc-body"><div class="set-body">
           {% if collage_days %}
           <div class="gen-list">

@@ -314,11 +314,14 @@ def caption(field: Image.Image, top_y: float, common_name: str, scientific_name:
     baseline = top_y + round(size * theme.SCRIPT_TITLE_ASCENT)
     draw_script(field, cx, baseline, common_name, size, theme.INK, stroke=theme.TITLE_STROKE)
     baseline += theme.TITLE_TO_LATIN
-    latin = scientific_name.upper() + theme.LATIN_PERIOD
-    sci_size = theme.SUBTITLE_SIZE
-    while sci_size > 24 and engraved_width(latin, sci_size) > theme.CONTENT_W:
-        sci_size -= 1
-    draw_engraved(ImageDraw.Draw(field), cx, baseline, latin, sci_size, theme.INK_MEDIUM)
+    # A detection that names no species (a hand-sent test, a source that
+    # sends only a common name) keeps the line's place but prints no lone period.
+    if scientific_name.strip():
+        latin = scientific_name.upper() + theme.LATIN_PERIOD
+        sci_size = theme.SUBTITLE_SIZE
+        while sci_size > 24 and engraved_width(latin, sci_size) > theme.CONTENT_W:
+            sci_size -= 1
+        draw_engraved(ImageDraw.Draw(field), cx, baseline, latin, sci_size, theme.INK_MEDIUM)
     first = True
     for line in lines:
         baseline += theme.LATIN_TO_LEGEND if first else theme.LEGEND_PITCH

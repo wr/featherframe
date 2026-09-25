@@ -45,8 +45,9 @@ species: the one bearing its own name, else the first in the List. 401 species.
   less 0.006) and at 0.955 on the right: every volume shows a binding line at
   0.963–0.99 of the width.
 - **Sideways plates** (97 pinned; all of VII, most of VI, V.63–92, some of the
-  Supplement) are turned 270, or 90 for the three with the caption up the left
-  edge (Supp. 73, 75, 79). Their margins are the box of the strong ink, padded
+  Supplement) are turned 270. Three unpinned ones, the cassowaries Supp. 71,
+  73 and 75, have the caption up the left edge and are turned 90 in the open
+  dataset's images (`export_dataset.py`, W-875). Their margins are the box of the strong ink, padded
   1.2%: the caption and the binding's shadow along the bottom are faint on the
   cleared paper and fall outside it. Where the art runs into the shadow, the
   bottom was set by eye (0.955, or 0.94 where a faint gradient still showed).

@@ -1,4 +1,4 @@
-"""export_dataset.py (W-868): the open dataset agrees with the folios.
+"""export_dataset.py (W-868, W-875): the open dataset agrees with the folios.
 
 Exported offline (no eBird, BirdNET or Wikidata), which is all the pins need.
 """
@@ -45,10 +45,16 @@ def test_every_plate_has_a_row(dataset):
     assert [int(r["plate"]) for r in rows(dataset / "havell" / "plates.csv")] == list(range(1, 436))
     gould = {int(r["plate"]) for r in rows(dataset / "gould-europe" / "plates.csv")}
     assert gould == set(range(1, 450))
+    # Numbered per volume: 36, 104, 97, 104, 92, 82, 85 and 81 plates (W-874).
+    australia = [(r["volume"], int(r["plate"])) for r in rows(dataset / "gould-australia" / "plates.csv")]
+    assert len(australia) == len(set(australia)) == 681
+    assert sum(1 for v, _ in australia if v == "Supp") == 81
+    britain = {(r["volume"], int(r["plate"])) for r in rows(dataset / "gould-britain" / "plates.csv")}
+    assert len(britain) == 367
 
 
 def test_unidentified_plates_keep_a_reason(dataset):
-    for folder in ("havell", "gould-europe"):
+    for folder in ("havell", "gould-europe", "gould-australia", "gould-britain"):
         for r in rows(dataset / folder / "species.csv"):
             assert r["scientific"] or r["reason"], r
 
@@ -63,3 +69,23 @@ def test_the_gull_trap_holds(dataset):
 def test_a_split_sends_each_folio_to_its_own_daughter(ex):
     assert ex.EBIRD_NAMES_BY_FOLIO[("havell", "Accipiter gentilis")] == "Astur atricapillus"
     assert ex.EBIRD_NAMES_BY_FOLIO[("gould_europe", "Accipiter gentilis")] == "Astur gentilis"
+
+
+def test_australias_traps_hold(dataset):
+    """Gould's binomial now names another bird: match on the modern name."""
+    sp = {(r["volume"], r["plate"]): r for r in rows(dataset / "gould-australia" / "species.csv")}
+    assert sp[("II", "67")]["scientific"] == "Pachycephala rufiventris"      # Rufous Whistler
+    assert sp[("II", "91")]["scientific"] == "Myiagra cyanoleuca"            # Satin Flycatcher
+    assert sp[("I", "26")]["scientific"] == "Circus approximans"             # Swamp Harrier
+    assert sp[("IV", "98")]["scientific"] == "Cormobates leucophaea"         # White-throated Treecreeper
+    assert sp[("VI", "76")]["scientific"] == "Gallirallus philippensis"      # Buff-banded Rail
+
+
+def test_britains_survey_is_published_as_open(dataset):
+    """Only Britain's pins were read against their captions; the survey's
+    draft is never 'high'."""
+    for r in rows(dataset / "gould-britain" / "species.csv"):
+        if r["caption_checked"] == "yes":
+            assert r["confidence"] == "high"
+        else:
+            assert r["confidence"] in ("medium", "low"), r

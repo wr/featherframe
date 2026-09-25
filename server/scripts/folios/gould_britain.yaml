@@ -42,6 +42,9 @@ folio:
   source: "Smithsonian Libraries, via the Biodiversity Heritage Library"
   credit: "Smithsonian Libraries and Archives, via the Biodiversity Heritage Library. Public domain."
   scans: "https://bhl-open-data.s3.us-east-2.amazonaws.com/images/{volume}/{volume}_{leaf:04d}.jp2"
+  # When BHL fails: the same sheets, already cleaned, in the open dataset's
+  # release (W-875), checked against its manifest.
+  release: "https://github.com/wr/historical-bird-plates/releases/download/gould-britain-v1"
 
 species:
   - {common: "Yellow-browed Warbler", scientific: "Phylloscopus inornatus", plate: 68, volume_no: 2, gould_title: "Yellow-browed Warbler, Reguloides superciliosus", volume: birdsgreatbrita2goul, leaf: 276}

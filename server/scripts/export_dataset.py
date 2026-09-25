@@ -553,6 +553,11 @@ def ku_disagreements(species: list[dict], tax: Taxonomy) -> list[dict]:
 # The Birds of Australia and its Supplement: plates numbered per volume, every
 # leaf read against its engraved caption (docs/gould-australia/README.md).
 
+# Unpinned sideways plates whose caption runs up the left edge, not down the
+# right: stood up the other way (the cassowaries, seen on the contact sheets).
+AUSTRALIA_ROTATE_90 = {("Supp", 71), ("Supp", 73), ("Supp", 75)}
+
+
 def australia_tables(tax: Taxonomy) -> tuple[list[dict], list[dict]]:
     g = GOULD["gould-australia"]
     pins = {plate_key(g, e): e for e in pinned(load_folio(g.name))}
@@ -565,7 +570,8 @@ def australia_tables(tax: Taxonomy) -> tuple[list[dict], list[dict]]:
     for key, r in leaves.items():
         pin = pins.get(key)
         orient = r["orientation"]
-        rot = int(pin.get("rotate") or 0) if pin else (270 if orient == "landscape" else 0)
+        rot = int(pin.get("rotate") or 0) if pin else (
+            90 if key in AUSTRALIA_ROTATE_90 else 270 if orient == "landscape" else 0)
         notes = []
         if r["fold_out"] == "yes":
             notes.append("a fold-out, bound folded")
@@ -878,8 +884,11 @@ def thumbs(dataset: Path, assets_dir: Path, folder: str = "gould-europe") -> lis
     label_h = 44
     written = []
     for vol, plates in groups.items():
-        for i in range(0, len(plates), THUMB_PER_SHEET):
-            group = plates[i:i + THUMB_PER_SHEET]
+        # A volume's plates split evenly, none over THUMB_PER_SHEET: no sheet of four.
+        n = -(-len(plates) // THUMB_PER_SHEET)
+        size = -(-len(plates) // n)
+        for i in range(0, len(plates), size if vol else THUMB_PER_SHEET):
+            group = plates[i:i + (size if vol else THUMB_PER_SHEET)]
             nrows = (len(group) + THUMB_COLS - 1) // THUMB_COLS
             sheet = Image.new("RGB", (THUMB_COLS * cw, nrows * ch), "white")
             draw = ImageDraw.Draw(sheet)

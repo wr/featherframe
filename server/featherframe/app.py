@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
     # Advertise _featherframe._tcp so a frame with no typed URL finds us
     # (W-763). __main__ exports the bound port; systemd sets it directly.
     advertiser = discovery.Advertiser(
-        port=int(os.environ.get("FEATHERFRAME_PORT", "8080")), version=__version__,
+        port=int(os.environ.get("FEATHERFRAME_PORT", "8181")), version=__version__,
         panel=service.mdns_panel())
     app.state.advertiser = advertiser
     await run_in_threadpool(advertiser.start)

@@ -22,20 +22,20 @@
 
 ## How it works
 
-A bird detector identifies the birds in your backyard by their calls. Featherframe finds the matching plate in Audubon's [*The Birds of America*](https://www.audubon.org/art/birds-of-america) and shows it on an e-paper frame, in grayscale or color.
+A bird detector identifies the birds in your backyard by their calls. Featherframe finds the matching illustration in Audubon's [*The Birds of America*](https://www.audubon.org/art/birds-of-america) and shows it on an e-paper frame, in grayscale or color.
 
 ```
  BirdNET-Pi, BirdNET-Go   ──▶  Featherframe server  ──▶  E-paper frame
- or BirdWeather                (chooses and draws        (shows the plate)
- (identifies the bird)          the plate)
+ or BirdWeather                (chooses and draws        (shows the picture)
+ (identifies the bird)          the illustration)
 ```
 
 It works with [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), [BirdNET-Go](https://github.com/tphakala/birdnet-go), or a [BirdWeather](https://www.birdweather.com) station.
 
-- **Audubon's plates.** Every species Audubon painted gets his plate, matted like a print.
-- **Birds Audubon never painted.** These get a plate with the species' name set in type. With an OpenAI key, Featherframe can draw a new plate in Audubon's style instead.
+- **Audubon's illustrations.** Every species Audubon painted gets his illustration, matted like a print.
+- **Birds Audubon never painted.** These get a name card: the species' name set in type. With an OpenAI key, Featherframe can draw a new illustration in Audubon's style instead.
 - **A daily collage.** One sheet shows every species heard that day.
-- **Other screens.** A TRMNL, a Kobo, a Kindle, or a tablet can also show the plates.
+- **Other screens.** A TRMNL, a Kobo, a Kindle, or a tablet can also show the pictures.
 - **No wrong birds.** If Featherframe isn't sure of a match, it shows the name instead of a guess.
 
 <center><img width="600" alt="IMG_1899" src="https://github.com/user-attachments/assets/95d46050-47f6-4af5-8e1a-6dfe1475b7b2" /></center>
@@ -55,31 +55,30 @@ You don't need the kit if you have a TRMNL, an e-reader, or a tablet. See [Other
 Choose one:
 
 - **Hosted.** Join the waitlist at [featherframe.app](https://featherframe.app). You'll get an invitation by email. There's nothing to install.
-- **On your BirdNET computer.** Run these commands on the computer that runs BirdNET-Pi or BirdNET-Go:
+- **On your BirdNET device.** Run these commands on the device that runs BirdNET-Pi or BirdNET-Go:
 
   ```bash
   git clone https://github.com/wr/featherframe ~/featherframe
   cd ~/featherframe/server
-  ./install.sh                                                               # BirdNET-Pi
-  ./install.sh --source birdnet-go --url http://localhost:8080 --port 8081   # BirdNET-Go
+  ./install.sh
   ```
 
-  When it finishes, it prints the address of your Featherframe page.
-- **On a NAS or home server.** Download [docker-compose.yml](docker-compose.yml), set `TZ` in it to your time zone, and run `docker compose up -d`. See [On a NAS or home server](https://github.com/wr/featherframe/wiki/Install-the-server#on-a-nas-or-home-server).
+  When it finishes, it prints the address of your Featherframe webapp, for example `http://birdnet.local:8181`. Open it and [connect your detection source](https://github.com/wr/featherframe/wiki/Detection-sources).
+- **On a NAS or home server.** Download [docker-compose.yml](docker-compose.yml), set `TZ` in it to your time zone, and run `docker compose up -d`. Open `http://<your server>:8181`. See [On a NAS or home server](https://github.com/wr/featherframe/wiki/Install-the-server#on-a-nas-or-home-server).
 
 ### 2. Install the firmware
 
 1. Connect the frame to your computer with a USB-C cable.
-2. Open your Featherframe page in Chrome or Edge.
-3. In the **Frames** section, click **⋯**, then **USB firmware update**. If your server is on your BirdNET computer, this opens the installer at [wr.github.io/featherframe](https://wr.github.io/featherframe/).
+2. Open your Featherframe webapp in Chrome or Edge.
+3. In the **Frames** section, click **⋯**, then **USB firmware update**. If your server is on your BirdNET device, this opens the installer at [wr.github.io/featherframe](https://wr.github.io/featherframe/).
 4. Click **Connect**, then follow the steps. You'll enter your Wi-Fi details at the end.
 
 ### 3. Add the frame
 
-- **Hosted:** The frame shows a six-letter code. On your Featherframe page, click **⋯**, then **Pair a frame**, and enter the code.
-- **On your BirdNET computer:** On your Featherframe page, click **Add** next to the new frame.
+- **Hosted:** The frame shows a six-letter code. In your Featherframe webapp, click **⋯**, then **Pair a frame**, and enter the code.
+- **On your BirdNET device:** In your Featherframe webapp, click **Add** next to the new frame.
 
-The frame shows a plate the next time your detector identifies a bird.
+The frame shows a picture the next time your detector identifies a bird.
 
 ## Learn more
 
@@ -90,7 +89,7 @@ See the [wiki](https://github.com/wr/featherframe/wiki) for:
 - [Settings](https://github.com/wr/featherframe/wiki/Settings)
 - [Running on a battery](https://github.com/wr/featherframe/wiki/Battery)
 - [Other screens](https://github.com/wr/featherframe/wiki/Other-screens)
-- [AI plates](https://github.com/wr/featherframe/wiki/AI-plates)
+- [AI illustrations](https://github.com/wr/featherframe/wiki/AI-illustrations)
 - [Troubleshooting](https://github.com/wr/featherframe/wiki/Troubleshooting)
 - [Previewing without hardware](https://github.com/wr/featherframe/wiki/Development) and [porting to another panel](https://github.com/wr/featherframe/wiki/Porting-to-another-panel)
 

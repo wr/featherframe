@@ -57,7 +57,7 @@ make preview-collage   # a daily collage
 make preview-fallback  # the typographic (no-plate) fallback
 make preview-ee02      # the Cardinal for the EE02 colour panel (six-ink dither)
 make preview-views     # the Cardinal as viewers get it (TRMNL X, Kobo, Kindle, TRMNL OG, tablet)
-make serve             # run the server on :8080
+make serve             # run the server on :8181
 make test              # pytest
 ```
 
@@ -73,7 +73,7 @@ cd server
 ./.venv/bin/python -m featherframe.preview --species "Blue Jay"      # any species
 ./.venv/bin/python -m featherframe.preview --dither stucki           # bench override, never persisted
 ./.venv/bin/python scripts/fetch_plates.py --dry-run                 # resolve plates, no download
-./.venv/bin/python -m featherframe --port 8080                       # run the server directly
+./.venv/bin/python -m featherframe --port 8181                       # run the server directly
 
 # Firmware
 cd firmware && pio run -t upload && pio device monitor  # build/flash + serial (115200)
@@ -491,7 +491,11 @@ changing a login's email outright, suspending a household
 (`households.suspended_at`: its page closed to the owner, its front door stops
 waking the server, its frames keep their last picture), deleting one (D1 rows
 incl. its invitation, its frames' registry rows, R2, front door storage and
-container), and revoking or resending an unused invitation. The
+container), and revoking or resending an unused invitation. What an action came to is
+a toast on the next load (the Featherframe page's own flash, carried by a
+one-time `ff_admin_toast` cookie, never the URL), and every action — the page's
+forms and the bearer API — is kept in D1 `admin_log` (W-863, migration 0005),
+the last 100 shown at the foot of the page. The
 API is still there: `Authorization: Bearer` keychain
 `featherframe-hosted-admin-token`, `POST /_admin/invite|link|adopt {email}`.
 Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a

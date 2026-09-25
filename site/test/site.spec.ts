@@ -192,6 +192,51 @@ test('the 10-inch switch swaps the frame', async ({ page }) => {
   await expect(page.locator('#label .label-name')).toHaveText('Northern Cardinal', { timeout: 20_000 });
 });
 
+test('the poster stays until the 3D frame has actually drawn', async ({ page }) => {
+  // A slow page: every rAF callback waits ~500 ms, and the page reports itself
+  // hidden until the test says otherwise, so the frame loop runs without drawing.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __draws: number; __drawsAtLive: number | null; __posterAtLive: string | null };
+    w.__draws = 0;
+    w.__drawsAtLive = null;
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) => raf(() => window.setTimeout(() => raf(cb), 500));
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => !(window as unknown as { __show?: boolean }).__show });
+    // Count draws to the canvas itself (no framebuffer bound), not the
+    // environment map or the e-paper screen's offscreen target.
+    const proto = WebGL2RenderingContext.prototype;
+    const bound = new WeakMap<WebGL2RenderingContext, unknown>();
+    const bind = proto.bindFramebuffer;
+    proto.bindFramebuffer = function (this: WebGL2RenderingContext, target: number, fb: WebGLFramebuffer | null) {
+      bound.set(this, fb);
+      return bind.call(this, target, fb);
+    };
+    for (const name of ['drawElements', 'drawArrays'] as const) {
+      const orig = proto[name] as (...a: unknown[]) => void;
+      (proto as unknown as Record<string, unknown>)[name] = function (this: WebGL2RenderingContext, ...args: unknown[]) {
+        if (!bound.get(this)) w.__draws++;
+        return orig.apply(this, args);
+      };
+    }
+    addEventListener('DOMContentLoaded', () => {
+      const stage = document.getElementById('stage')!;
+      new MutationObserver(() => {
+        if (stage.classList.contains('live') && w.__drawsAtLive === null) w.__drawsAtLive = w.__draws;
+      }).observe(stage, { attributes: true, attributeFilter: ['class'] });
+    });
+  });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('#stage canvas')).toHaveCount(1, { timeout: 20_000 });
+  // Canvas in place and rAFs running, but nothing drawn: the poster holds.
+  await page.waitForTimeout(2500);
+  expect(await page.evaluate(() => (window as unknown as { __draws: number }).__draws)).toBe(0);
+  await expect(page.locator('#stage')).not.toHaveClass(/\blive\b/);
+  expect(await page.locator('#stage .poster').evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
+  await page.evaluate(() => { (window as unknown as { __show: boolean }).__show = true; });
+  await expect(page.locator('#stage')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  expect(await page.evaluate(() => (window as unknown as { __drawsAtLive: number }).__drawsAtLive)).toBeGreaterThan(0);
+});
+
 test('without WebGL the poster and first species stay', async ({ page }) => {
   await page.addInitScript(() => {
     const orig = HTMLCanvasElement.prototype.getContext;

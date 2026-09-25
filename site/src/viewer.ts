@@ -167,6 +167,14 @@ export async function startViewer(
   io.observe(stage);
 
   let raf = 0;
+  // The stage turns live (poster out, canvas in) only once a frame has really
+  // been drawn — the model and the first screen on the canvas — and then on
+  // the rAF after it, once that frame is on screen. A throttled or hidden page
+  // may run rAFs without drawing; revealing on a rAF count alone showed an
+  // empty stage. Cancelled by dispose: a viewer superseded before then must
+  // not hide the poster over a stage with no canvas.
+  let drawn = false;
+  let reveal = 0;
   const t0 = performance.now();
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
@@ -176,14 +184,14 @@ export async function startViewer(
     const sway = opts.poster ? 0 : Math.sin(((now - t0) / 1000) * (2 * Math.PI / SWAY_PERIOD)) * SWAY;
     pivot.rotation.set(0, YAW + sway + drag, 0);
     renderer.render(scene, camera);
+    if (!drawn) {
+      drawn = true;
+      reveal = requestAnimationFrame(() => stage.classList.add('live'));
+    }
   };
   raf = requestAnimationFrame(frame);
 
   stage.appendChild(canvas);
-  // Show the canvas only once it has drawn, so the poster never blinks out.
-  // Cancelled by dispose: a viewer superseded before then must not hide the
-  // poster over a stage with no canvas.
-  let reveal = requestAnimationFrame(() => { reveal = requestAnimationFrame(() => stage.classList.add('live')); });
 
   return {
     dispose() {

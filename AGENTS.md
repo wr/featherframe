@@ -532,9 +532,12 @@ Container restarts); D1 schema in `hosted/migrations/`.
   downloaded images, gitignored; each folio has its own fetcher in
   `FETCHERS`): every entry names its `folio` (none = Havell, as every index
   before W-702), and the `folios` block carries the headers. A species may
-  have an entry in several folios; `SpeciesIndex` asks them in the index's
-  order, Havell first, and a folio's `plate: none` hands the species on to
-  the next folio, never to a guess. The AI's style references are Havell
+  have an entry in several folios; `SpeciesIndex.order(region)` asks the
+  household's Region's folios first (`Config.region`; each folio's header
+  names its `region`: Havell `north-america`, Gould `europe`), then the rest
+  in the index's order, Havell first. It reorders, never filters, and a
+  folio's `plate: none` hands the species on to the next folio, never to a
+  guess. A Region change is drawn by the next tick (`_region_redraw`). The AI's style references are Havell
   plates only (`genart._havell_species`), because its prompts name the Havell
   edition. `test_crosswalk.py` guards the tricky numbers.
   `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General
@@ -546,11 +549,25 @@ Container restarts); D1 schema in `hosted/migrations/`.
   for paper, then anything within `PAPER_CLEAR` of the paper cleared to pure
   white — the paper is not the artist's, and near-white dithers to speckle),
   crops it to the art's own box (`tight`: `content_box(mirror=False)`, since
-  a Gould sheet is one vignette on a lot of paper), and `margins` ([l, t, r, b], per folio or per plate) replaces
+  a Gould sheet is one vignette on a lot of paper; the box stops at the
+  paper gap above the caption and beside the pencilled number, and its
+  `TIGHT_PAD` band is added as fresh white, never taken from the scan, so
+  neither rides in), and `margins` ([l, t, r, b], per folio or per plate) replaces
   `plate.HAVELL_MARGINS` in `_trim_marginalia`: Gould's captions sit higher
   and each copy carries its number in pencil. A plate is pinned only once
   its engraved caption reads right on the scan; his "Black-headed Gull" is
-  today's Mediterranean Gull.
+  today's Mediterranean Gull. The whole folio (slice 3, ~390 species) was
+  pinned from three sources joined together: the General List transcribed from
+  vol. I, each volume walked for its plates (the Smithsonian copy pencils the
+  List number on every plate), and a crosswalk to BirdNET's own labels — only
+  a certain name, whose leaf's caption names it (Latin or the whole English
+  name, never a shared family word), is pinned. A scan is stored by its leaf
+  (`<volume>-<leaf>.jpg`): a copy's numbering can disagree with the List, and
+  here the caption decides. An upright plate's bottom margin sits just above
+  its caption as the IA OCR places it; a sideways one relies on the paper gap,
+  with a margin by eye where a caption crowds the art. A composite's tight crop
+  keeps every band of art (`whole`), and a tight crop may be small (one finch
+  on a page) without falling back to the whole sheet.
 - **Framebuffer format (FFF) is a contract with the firmware.** 16-byte header +
   packed pixels: 4bpp = 2px/byte, **high nibble = left pixel, 0=black 15=white**
   (identical to Seeed's sprite). The server emits **native landscape 1872×1404**

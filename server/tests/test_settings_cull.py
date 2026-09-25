@@ -84,9 +84,10 @@ def test_the_overnight_collage_is_quiet_hours_itself(client):
     collage = html.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
     assert collage.count('name="quiet_hours_mode"') == 3      # Off / sun / custom
     assert "wiki/AI-illustrations" in html and ">Learn</a>" in html
-    # Plate packs are not built, so Region says the one region there is.
-    assert "North America · Audubon's Birds of America" in html
-    assert "<option disabled>Europe · Gould's Birds of Europe</option>" in html
+    # Region is a household setting (W-702): North America, or Gould's Europe.
+    assert '<select class="sel" id="f-region" name="region">' in html
+    assert '<option value="europe">Europe · Gould\'s Birds of Europe</option>' in html
+    assert "<option disabled>Great Britain · Gould's Birds of Great Britain</option>" in html
     # Saving without the removed field derives it from the mode either way.
     for mode, want in (("off", False), ("custom", True), ("sun", True)):
         r = client.post("/settings", data={"quiet_hours_mode": mode}, follow_redirects=False)
@@ -117,3 +118,16 @@ def test_the_source_is_polled_on_a_constant(client):
     assert svc._effective_poll_seconds() == service_mod.POLL_SECONDS == 5
     svc.config.detection_backend = "birdweather"
     assert svc._effective_poll_seconds() == 60
+
+
+def test_region_is_saved_and_redraws_the_plate_on_the_next_tick(client):
+    svc = client.app.state.service
+    assert svc.config.region == "north-america" and svc.plates.region == "north-america"
+    r = client.post("/settings", data={"quiet_hours_mode": "off", "region": "europe"},
+                    follow_redirects=False)
+    assert r.status_code == 303
+    assert svc.config.region == "europe" and svc.plates.region == "europe"
+    assert svc._region_redraw is True         # drawn by the tick, not the request
+    client.post("/settings", data={"quiet_hours_mode": "off", "region": "atlantis"},
+                follow_redirects=False)
+    assert svc.config.region == "north-america"     # an unknown region is the default

@@ -703,6 +703,7 @@ async def save_settings(request: Request):
         # A blank field keeps it.
         owner_email=(cur["owner_email"] if getattr(request.app.state, "hosted", None) is not None
                      else s("owner_email", "").strip() or cur["owner_email"]),
+        region=s("region", cur["region"]),
         collage_species_max=limit("collage_species_max", cur["collage_species_max"]),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),

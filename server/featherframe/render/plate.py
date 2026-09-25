@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 
 log = logging.getLogger("featherframe.plate")
 
@@ -65,10 +65,14 @@ def load_color(path: str | Path, max_side: int = WORK_MAX_SIDE) -> Image.Image:
     return im
 
 
-def _ink_map(gray: Image.Image) -> tuple[np.ndarray, float]:
-    """Return (inkiness at analysis resolution, scale-back factor to `gray`)."""
+def _ink_map(gray: Image.Image, despeckle: bool = False) -> tuple[np.ndarray, float]:
+    """Return (inkiness at analysis resolution, scale-back factor to `gray`).
+    `despeckle` drops isolated specks (foxing on a mostly-paper sheet) so
+    they cannot stretch the box; lines and the art itself survive it."""
     scale = ANALYSIS_W / gray.width
     small = gray.resize((ANALYSIS_W, max(1, round(gray.height * scale))), Image.BILINEAR)
+    if despeckle:
+        small = small.filter(ImageFilter.MedianFilter(5))
     arr = np.asarray(small, dtype=np.float32)
     paper = np.percentile(arr, 94)  # the bright paper level
     ink = np.clip(paper - arr, 0, None)  # only meaningfully-darker-than-paper counts
@@ -95,6 +99,12 @@ def _extend(frac: np.ndarray, lo: int, hi: int, thr: float, gap: int) -> tuple[i
 
 def content_box(gray: Image.Image, pad: float = 0.015,
                 mirror: bool = True) -> tuple[int, int, int, int]:
+    """The subject's box (see _content_box)."""
+    return _content_box(gray, pad, mirror)
+
+
+def _content_box(gray: Image.Image, pad: float, mirror: bool,
+                 despeckle: bool = False, whole: bool = False) -> tuple[int, int, int, int]:
     """Bounding box (in `gray` pixel coords) of the subject, symmetric about
     the plate centre.
 
@@ -107,7 +117,7 @@ def content_box(gray: Image.Image, pad: float = 0.015,
        (Havell's placement survives); `mirror=False` keeps the art's own box,
        for a folio whose sheets are mostly paper (W-702).
     """
-    ink, back = _ink_map(gray)
+    ink, back = _ink_map(gray, despeckle)
     row_mass = ink.sum(axis=1)
     if row_mass.max() <= 0:
         return _fallback_box(gray)
@@ -118,7 +128,10 @@ def content_box(gray: Image.Image, pad: float = 0.015,
     runs = _runs(sig)
     if not runs:
         return _fallback_box(gray)
-    t0, t1 = max(runs, key=lambda r: row_mass[r[0]:r[1]].sum())
+    # `whole` keeps every band, for a sheet whose figures are different
+    # species: the named one may be the lighter band.
+    t0, t1 = ((runs[0][0], runs[-1][1]) if whole
+              else max(runs, key=lambda r: row_mass[r[0]:r[1]].sum()))
 
     inked = ink > FAINT_INK
     gap_rows = max(3, int(ink.shape[0] * GAP_PCT))
@@ -140,8 +153,10 @@ def content_box(gray: Image.Image, pad: float = 0.015,
     pw, ph = (r - l) * pad, (bb - tt) * pad
     l, r = max(0.0, l - pw), min(float(gray.width), r + pw)
     tt, bb = max(0.0, tt - ph), min(float(gray.height), bb + ph)
-    # sanity: reject degenerate / tiny crops
-    if (r - l) * (bb - tt) < 0.18 * gray.width * gray.height:
+    # sanity: reject degenerate / tiny crops. A tight crop (a sparse folio's
+    # sheet) may truly be one small finch on a page of paper.
+    min_area = 0.18 if mirror else 0.01
+    if (r - l) * (bb - tt) < min_area * gray.width * gray.height:
         return _fallback_box(gray)
 
     if not mirror:
@@ -373,7 +388,9 @@ def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]
 
 # A tight crop's paper band, as a fraction of the art's box per side: room
 # to breathe inside the mat, and enough clear paper at the edges that compose
-# contain-fits the art rather than cover-fitting (and so cutting) it.
+# contain-fits the art rather than cover-fitting (and so cutting) it. It is
+# added as fresh white paper, never taken from the scan, so a caption or a
+# pencilled number just outside the art cannot ride in with it.
 TIGHT_PAD = 0.05
 
 
@@ -384,10 +401,20 @@ def _box(gray: Image.Image, composite: bool, crop_box, tight: bool) -> tuple[int
     if tight:
         # The art's own box, composite or not: on a sheet that is one vignette
         # (Gould's) every figure is inside it, and the rest is paper.
-        return content_box(gray, pad=TIGHT_PAD, mirror=False)
+        return _content_box(gray, pad=0.0, mirror=False, despeckle=True, whole=composite)
     if composite:
         return (0, 0, gray.width, gray.height)  # whole (trimmed) plate: all birds
     return content_box(gray)
+
+
+def _cut(img: Image.Image, box, tight: bool) -> Image.Image:
+    """The crop, and for a tight one its band of white paper."""
+    crop = img.crop(box)
+    if not tight:
+        return crop
+    px, py = round(crop.width * TIGHT_PAD), round(crop.height * TIGHT_PAD)
+    white = 255 if crop.mode == "L" else (255,) * len(crop.getbands())
+    return ImageOps.expand(crop, border=(px, py, px, py), fill=white)
 
 
 def extract(path: str | Path, composite: bool = False,
@@ -395,8 +422,7 @@ def extract(path: str | Path, composite: bool = False,
             tight: bool = False) -> Image.Image:
     """Load a plate and return the normalised bird artwork ('L')."""
     gray = _trim_marginalia(load_gray(path), margins)
-    crop = gray.crop(_box(gray, composite, crop_box, tight))
-    return paper_normalize(crop)
+    return paper_normalize(_cut(gray, _box(gray, composite, crop_box, tight), tight))
 
 
 def extract_color(path: str | Path, composite: bool = False, crop_box: Optional[list] = None,
@@ -408,7 +434,8 @@ def extract_color(path: str | Path, composite: bool = False, crop_box: Optional[
     rgb = _trim_marginalia(load_color(path), margins)
     gray = rgb.convert("L")
     box = _box(gray, composite, crop_box, tight)
-    return paper_normalize(gray.crop(box)), paper_normalize_color(rgb.crop(box))
+    return (paper_normalize(_cut(gray, box, tight)),
+            paper_normalize_color(_cut(rgb, box, tight)))
 
 
 def extract_generated_color(path: str | Path) -> tuple[Image.Image, Image.Image]:

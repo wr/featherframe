@@ -78,6 +78,10 @@ def _sun_window(on_date: date | None = None) -> tuple[dtime, dtime]:
     return _t(sunset), _t(sunrise)
 
 
+# The regions the Region setting offers, each first in its own folios.
+REGIONS = ("north-america", "europe")
+
+
 @dataclass
 class Config:
     """The household's settings, plus the shape a render takes.
@@ -196,6 +200,11 @@ class Config:
     # password is set. A hosted household's is its account's, kept by the
     # Worker, and this one is not read there.
     owner_email: str = ""
+    # Which folio a plate is looked for in first (W-702): a region names its
+    # folios in their headers (Havell: north-america, Gould: europe). It
+    # reorders, never filters: a species only another region's folio has is
+    # still drawn from it.
+    region: str = "north-america"
 
     def __post_init__(self) -> None:
         self.sanitize()
@@ -208,6 +217,8 @@ class Config:
             self.mode = "single"
         if self.mode not in ("single", "collage"):
             self.mode = "single"
+        if self.region not in REGIONS:
+            self.region = "north-america"
         # NaN slips through float() and then through _clamp (every comparison
         # is False) — and can't be serialised for the status JSON. Refuse it.
         self.wake_interval_minutes = int(_clamp(_finite(self.wake_interval_minutes, 15), 1, 1440))

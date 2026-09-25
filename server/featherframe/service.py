@@ -560,6 +560,8 @@ class FeatherframeService:
         # The scans on this box, or the shared library where there are none
         # (FEATHERFRAME_PLATE_LIBRARY, W-842): the same crops either way.
         self.plates = plate_library.from_env() or PlateProvider()
+        self.plates.region = self.config.region
+        self._region_redraw = False     # a Region change awaits the next tick
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
         self.source = make_source(self.config, self.db)
@@ -760,6 +762,11 @@ class FeatherframeService:
                 self._reset_for_source()
             if self._imagegen_fields(new) != self._imagegen_fields(self.config):
                 self.provider = self._build_provider(new)
+            if new.region != self.config.region:
+                # The plate on the glass may now come from another folio: the
+                # next tick draws it again (never in the request that saved).
+                self._region_redraw = True
+            self.plates.region = new.region
             self.config = new
 
     def _reset_for_source(self) -> None:
@@ -811,6 +818,10 @@ class FeatherframeService:
 
     def _tick_pictures(self) -> None:
         self.reload_config()
+        if self._region_redraw:
+            self._region_redraw = False
+            if self._etag is not None and self.pictures[PLATES].meta.get("label"):
+                self._rerender_picture(PLATES)
         now = self._clock()
         available = self.source.available()
         # Computed first so any render this tick — including the flips below —

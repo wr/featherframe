@@ -211,7 +211,7 @@ def test_a_scanned_folio_is_fetched_upright(fp, tmp_path):
     assert counts == {"downloaded": 3, "fallback": 0, "failed": 0}
     assert len(sess.calls) == 2                       # the shared plate is fetched once
     swan, sparrow, tree = records
-    assert swan["image"] == "gould_europe/gould-europe-354.jpg" and swan["folio"] == "gould_europe"
+    assert swan["image"] == "gould_europe/v5-0046.jpg" and swan["folio"] == "gould_europe"
     assert Image.open(tmp_path / swan["image"]).size == (500, 300)     # stood upright
     assert swan["margins"] == [0.1, 0.03, 0.98, 0.88]
     assert sparrow["image"] == tree["image"] and sparrow["legend"] == ["1. House Sparrow."]

@@ -1498,16 +1498,15 @@
       <div class="card">
         <section class="sec">
           <h2 class="sec-head">Individual detections</h2>
-          {# Region is not live yet: Havell is asked first and Gould's Europe
-             folio fills what Audubon never painted (W-702). Europe goes live
-             once that whole folio is indexed; the others are placeholders. #}
+          {# Region puts that region's folio first (W-702); every other folio
+             still fills what it lacks. Gould's other folios are placeholders. #}
           <div class="frow">
             <div class="frow-text"><label class="lab" for="f-region">Region</label></div>
             <div class="frow-ctl">
               <div class="cselect">
-                <select class="sel" id="f-region">
-                  <option selected>North America · Audubon's Birds of America</option>
-                  <option disabled>Europe · Gould's Birds of Europe</option>
+                <select class="sel" id="f-region" name="region">
+                  <option value="north-america"{{ ' selected' if config.region == 'north-america' else '' }}>North America · Audubon's Birds of America</option>
+                  <option value="europe"{{ ' selected' if config.region == 'europe' else '' }}>Europe · Gould's Birds of Europe</option>
                   <option disabled>Great Britain · Gould's Birds of Great Britain</option>
                   <option disabled>Asia · Gould's Birds of Asia</option>
                   <option disabled>Australia · Gould's Birds of Australia</option>

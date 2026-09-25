@@ -198,19 +198,44 @@ def test_gould_entries_are_whole():
 
 def test_gould_black_headed_gull_is_his_laughing_gull():
     """Gould's "Black-headed Gull" (plate 427) is today's Mediterranean Gull;
-    today's Black-headed Gull is his "Laughing Gull", plate 425. And Havell's
-    Laughing Gull, an American species, must never reach a Gould plate."""
+    today's Black-headed Gull is his "Laughing Gull", plate 425; and today's
+    (American) Laughing Gull is his "Black-winged Gull", plate 426."""
     by_common = {e["common"]: e for e in _gould()["species"]}
     assert by_common["Black-headed Gull"]["plate"] == 425
     assert by_common["Black-headed Gull"]["scientific"] == "Chroicocephalus ridibundus"
-    assert "Laughing Gull" not in by_common and "Mediterranean Gull" not in by_common
-    assert all(e["plate"] != 427 for e in _gould()["species"])
+    assert by_common["Mediterranean Gull"]["plate"] == 427
+    assert (by_common["Laughing Gull"]["plate"],
+            by_common["Laughing Gull"]["scientific"]) == (426, "Leucophaeus atricilla")
 
 
-def test_gould_only_fills_what_havell_lacks():
-    """Havell is asked first: every introduction Gould draws is a Havell
-    `plate: none`, so no Audubon plate on a North American frame changes."""
-    havell = {e["scientific"]: e for e in yaml.safe_load(SPECIES_YAML.read_text())["species"]}
+def test_gould_pins_each_species_once():
+    """The whole folio (slice 3): one plate per species, a species on several
+    plates keeping its main one, so the folio never flips between two."""
+    species = _gould()["species"]
+    assert len(species) >= 390
+    sci = [e["scientific"] for e in species]
+    assert len(sci) == len(set(sci))
+    commons = [e["common"] for e in species]
+    assert len(commons) == len(set(commons))
+
+
+def test_gould_landscape_plates_stand_upright():
+    """Plates bound sideways read their caption down the right edge: a
+    quarter turn clockwise (PIL 270) stands them up. Nothing else is turned."""
+    turned = {e["plate"]: e.get("rotate") for e in _gould()["species"] if e.get("rotate")}
+    assert set(turned.values()) == {270}
+    assert {247, 354, 425} <= set(turned)
+    assert 184 not in turned and 210 not in turned
+
+
+def test_gould_plates_on_one_sheet_carry_their_figure_numbers():
+    """A sheet with more than one species is a composite and each species
+    names its own figure, as Gould's caption numbers them."""
+    by_plate = {}
     for e in _gould()["species"]:
-        h = havell.get(e["scientific"])
-        assert h is None or h.get("plate") in (None, "none"), e["common"]
+        by_plate.setdefault(e["plate"], []).append(e)
+    for plate, es in by_plate.items():
+        # One figure standing for the daughters of a later split (Orphean,
+        # Bonelli's, ...) shares its title and is no composite.
+        if len({e["gould_title"] for e in es}) > 1:
+            assert all(e.get("composite") and e.get("legend") for e in es), plate

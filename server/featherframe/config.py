@@ -168,7 +168,7 @@ class Config:
     collage_interval_hours: int = 6   # one of the page's choices: 1, 4, 6, 12, 24
 
     # AI-generated plates --------------------------------------------------
-    # For species Audubon never painted. A plate is generated once on first
+    # For species no folio has. A plate is generated once on first
     # detection and cached forever; only a manual regenerate replaces it.
     # Without an API key this degrades to serving already-cached plates.
     imagegen_enabled: bool = True

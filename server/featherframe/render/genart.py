@@ -1,6 +1,6 @@
-"""AI-generated plates for species Audubon never painted.
+"""AI-generated plates for species no folio has.
 
-The provider chain asks Audubon first; only a species with no real plate reaches
+The provider chain asks the folios first; only a species with no real plate reaches
 this module. A generated plate is bought once and cached forever in
 ``data/generated/`` — the only path that replaces it is an explicit regenerate
 from the config page. Cached PNGs go through the exact same ``plate.extract``

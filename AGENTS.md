@@ -574,7 +574,7 @@ Container restarts); D1 schema in `hosted/migrations/`.
   Every Gould folio goes the same way (`GOULD`, W-875): a per-volume one's
   tables lead with `volume` and key a plate by volume and number; Australia's
   record is `docs/gould-australia/`, Britain's is the survey (only its pins are
-  caption-checked; the rest is published as open). Asia is not exported yet.
+  caption-checked; the rest is published as open). Asia is exported too (W-871).
   `gould_asia.yaml` is Gould's *Birds of Asia* (W-871, numbered per volume;
   the record is `docs/gould-asia/`): no pencil numbers, so each plate was
   paired by the text leaf bound after it, which names the species. 16% of its

@@ -3,7 +3,7 @@ plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_s
 2,Cinereous Vulture,Vultur cinereus,Aegypius monachus,Cinereous Vulture,,high,,Vultur cinereus Linn. is the Cinereous (Monk) Vulture
 3,Egyptian Neophron,Neophron Percnopterus,,,,high,,"Neophron Percnopterus = Neophron percnopterus, which is not a BirdNET V2.4 label; blank"
 4,Bearded Vulture or Læmmer-geyer,Gypaëtus barbatus,,,,high,,"Gypaëtus barbatus = Gypaetus barbatus, which is not a BirdNET V2.4 label; blank"
-5,Imperial Eagle,Aquila Imperialis,Aquila heliaca,Imperial Eagle,,medium,,"Split: Imperial Eagle (A. heliaca) and Spanish Eagle (A. adalberti, described 1860). Gould's text gives SE Europe/Hungary/Turkey, so heliaca is probable, but an Iberian specimen would be adalberti; confirm on the plate (adalberti has white leading edge to the wing)"
+5,Imperial Eagle,Aquila Imperialis,Aquila heliaca,Imperial Eagle,,decided,,"Split: Imperial Eagle (A. heliaca) and Spanish Eagle (A. adalberti, described 1860). Gould's text gives SE Europe/Hungary/Turkey, so heliaca is probable, but an Iberian specimen would be adalberti; confirm on the plate (adalberti has white leading edge to the wing) | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 6,Golden Eagle,Aquila chrysaëta,Aquila chrysaetos,Golden Eagle,,high,,"Aquila chrysaëta Briss. = Aquila chrysaetos (Golden Eagle); same species, older binomial"
 7,Bonelli's Eagle,Aquila Bonelli,,,,high,Hieraaetus fasciatus,"Aquila Bonelli = Aquila fasciata, which is not a BirdNET V2.4 label; blank"
 8,Spotted Eagle,Aquila nævia,,,,low,,"Aquila naevia then covered both Greater (Clanga clanga) and Lesser Spotted Eagle (C. pomarina, split by Brehm 1831); cannot tell which the plate shows without the figure; blank"
@@ -117,11 +117,11 @@ plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_s
 112,Rufous Sedge Warbler,Salicaria galactotes,Cercotrichas galactotes,Rufous-tailed Scrub-Robin,,high,Erythropygia galactotes,Sylvia galactotes Temm. = Rufous-tailed Scrub Robin (Rufous Bush Chat); Gould placed it with the reed warblers
 113,Fantail Warbler,Salicaria cisticola,Cisticola juncidis,Zitting Cisticola,,high,,Fantail Warbler = Zitting Cisticola
 114,Cetti's Warbler,Salicaria ? Cetti,Cettia cetti,Cetti's Warbler,,high,,Salicaria ? Cetti = Cettia cetti (Cetti's Warbler); same species
-115,Silky Warbler,Salicaria ? sericea,Cettia cetti,Cetti's Warbler,variant,medium,,Sylvia sericea Natterer is a synonym of Cetti's Warbler; Gould figured it as a second species ('Silky Warbler'). Confirm the plate looks like Cetti's
+115,Silky Warbler,Salicaria ? sericea,Cettia cetti,Cetti's Warbler,variant,decided,,"Sylvia sericea Natterer is a synonym of Cetti's Warbler; Gould figured it as a second species ('Silky Warbler'). Confirm the plate looks like Cetti's | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 116,Nightingale,Philomela luscinia,Luscinia megarhynchos,Common Nightingale,,high,,Gould's Nightingale = Common Nightingale L. megarhynchos; his Thrush Nightingale is plate 117. Trap: modern Luscinia luscinia is the Thrush Nightingale
 117,Thrush Nightingale,Philomela Turdoïdes,Luscinia luscinia,Thrush Nightingale,,high,Luscinia philomela,Thrush Nightingale (Sprosser)
 118,Gorget Warbler,Calliope Lathamii,Calliope calliope,Siberian Rubythroat,,high,Luscinia calliope,Gorget Warbler / Calliope lathamii = Siberian Rubythroat
-119,Orpheus Warbler,Curruca Orphea,Curruca hortensis,Western Orphean Warbler,,medium,Sylvia hortensis,"Orphean Warbler, since split Western (C. hortensis) / Eastern (C. crassirostris). Temminck's orphea is based on southern French/Italian birds, so Western is probable, but Gould may have figured a Dalmatian/eastern bird"
+119,Orpheus Warbler,Curruca Orphea,Curruca hortensis,Western Orphean Warbler,,decided,Sylvia hortensis,"Orphean Warbler, since split Western (C. hortensis) / Eastern (C. crassirostris). Temminck's orphea is based on southern French/Italian birds, so Western is probable, but Gould may have figured a Dalmatian/eastern bird | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 120,Black-cap,Curruca atricapilla,Sylvia atricapilla,Eurasian Blackcap,,high,,Curruca atricapilla Bechst. = Sylvia atricapilla (Eurasian Blackcap); same species
 121,Garden Warbler,Curruca hortensis,Sylvia borin,Garden Warbler,,high,,Garden Warbler; Curruca hortensis Bechst. of Gould's day is Sylvia borin. Trap: modern Curruca hortensis is the Western Orphean Warbler
 122,Rüppell's Warbler,Curruca Ruppellii,,,,high,Sylvia rueppelli,"Curruca Ruppellii = Curruca ruppeli, which is not a BirdNET V2.4 label; blank. Rüppell's Warbler"
@@ -138,8 +138,8 @@ plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_s
 131,Chiff-chaff,Sylvia rufa,Phylloscopus collybita,Common Chiffchaff,,high,Phylloscopus rufus,Sylvia rufa Lath. = Chiffchaff
 131,Wood Wren,Sylvia sibilatrix,Phylloscopus sibilatrix,Wood Warbler,,high,,Wood Wren = Wood Warbler
 132,Yellow Willow Wren,Sylvia Icterina,,,,low,,"Vieillot's Sylvia icterina is nominally the Icterine Warbler, but Gould's 'Yellow Willow Wren' is set among the Phylloscopus and the Icterine seems to be his plate 133; the figure's identity is disputed. Blank"
-133,Melodious Willow Wren,Sylvia Hippolais,Hippolais icterina,Icterine Warbler,,medium,,"Temminck's Sylvia hippolais is the Icterine Warbler (Motacilla hippolais Linn.), but Gould's English 'Melodious Willow Wren' echoes the Melodious Warbler (H. polyglotta, lumped then); confirm on the plate (long primary projection = Icterine)"
-134,Natterer's Warbler,Sylvia Nattereri,Phylloscopus bonelli,Western Bonelli's Warbler,,medium,,"Sylvia nattereri Temm. = Bonelli's Warbler, now split Western (P. bonelli) / Eastern (P. orientalis). Gould's European bird is most likely western, but confirm"
+133,Melodious Willow Wren,Sylvia Hippolais,Hippolais icterina,Icterine Warbler,,decided,,"Temminck's Sylvia hippolais is the Icterine Warbler (Motacilla hippolais Linn.), but Gould's English 'Melodious Willow Wren' echoes the Melodious Warbler (H. polyglotta, lumped then); confirm on the plate (long primary projection = Icterine) | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
+134,Natterer's Warbler,Sylvia Nattereri,Phylloscopus bonelli,Western Bonelli's Warbler,,decided,,"Sylvia nattereri Temm. = Bonelli's Warbler, now split Western (P. bonelli) / Eastern (P. orientalis). Gould's European bird is most likely western, but confirm | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 135,Richard's Pipit,Anthus Richardi,Anthus richardi,Richard's Pipit,,high,,Anthus Richardi Vieill. = Anthus richardi (Richard's Pipit); same species
 136,Meadow Pipit,Anthus pratensis,Anthus pratensis,Meadow Pipit,,high,,Anthus pratensis Bechst. = Anthus pratensis (Meadow Pipit); same species
 137,Tawny Pipit,Anthus rufescens,Anthus campestris,Tawny Pipit,,high,,Anthus rufescens Temm. = Tawny Pipit A. campestris
@@ -147,7 +147,7 @@ plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_s
 139,Tree Pipit,Anthus arboreus,Anthus trivialis,Tree Pipit,,high,,Tree Pipit
 140,Red-throated Pipit,Anthus rufogularis,Anthus cervinus,Red-throated Pipit,,high,,Anthus rufogularis Temm. = Red-throated Pipit A. cervinus
 141,Pied Wagtail,Motacilla Yarrellii,Motacilla alba,White Wagtail,subspecies,high,Motacilla yarrellii,"Pied Wagtail = M. alba yarrellii, a subspecies of White Wagtail"
-142,White-winged Wagtail,Motacilla lugubris,Motacilla alba,White Wagtail,subspecies,medium,Motacilla lugens,"Pallas's lugubris is the black-backed (lugens) form of White Wagtail, once a species (Black-backed Wagtail), now in M. alba. Gould's figure may instead be a dark M. alba yarrellii; either way M. alba, but confirm it is not the Japanese Wagtail"
+142,White-winged Wagtail,Motacilla lugubris,Motacilla alba,White Wagtail,subspecies,decided,Motacilla lugens,"Pallas's lugubris is the black-backed (lugens) form of White Wagtail, once a species (Black-backed Wagtail), now in M. alba. Gould's figure may instead be a dark M. alba yarrellii; either way M. alba, but confirm it is not the Japanese Wagtail | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 143,White Wagtail,Motacilla alba,Motacilla alba,White Wagtail,,high,,Motacilla alba Linn. = Motacilla alba (White Wagtail); same species
 144,Yellow-headed Wagtail,Motacilla citreola,Motacilla citreola,Citrine Wagtail,,high,,Motacilla citreola Pall. = Motacilla citreola (Citrine Wagtail); same species
 145,Yellow Wagtail,Motacilla flava,Motacilla flava,Western Yellow Wagtail,,high,,Yellow Wagtail (Western)
@@ -155,7 +155,7 @@ plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_s
 147,Grey Wagtail,Motacilla Boarula,Motacilla cinerea,Gray Wagtail,,high,Motacilla boarula,Grey Wagtail
 148,Fire-crested Wren,Regulus ignicapillus,Regulus ignicapilla,Common Firecrest,,high,,Firecrest
 148,Golden-crested Wren,Regulus vulgaris,Regulus regulus,Goldcrest,,high,,Goldcrest
-149,Dalmatian Regulus,Regulus modestus,Phylloscopus inornatus,Yellow-browed Warbler,,medium,,Regulus modestus Gould (from a Dalmatian specimen) is a synonym of the Yellow-browed Warbler P. inornatus; Hume's (P. humei) is split but is not a European bird. Confirm
+149,Dalmatian Regulus,Regulus modestus,Phylloscopus proregulus,Pallas's Leaf Warbler,,decided,,"Regulus modestus Gould (from a Dalmatian specimen) is a synonym of the Yellow-browed Warbler P. inornatus; Hume's (P. humei) is split but is not a European bird. Confirm | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 150,Great Tit,Parus major,Parus major,Great Tit,,high,,Parus major Linn. = Parus major (Great Tit); same species
 151,Sombre Tit,Parus lugubris,Poecile lugubris,Sombre Tit,,high,,Sombre Tit
 151,Siberian Tit,Parus Sibericus,Poecile cinctus,Gray-headed Chickadee,,high,,Siberian Tit = Grey-headed Chickadee
@@ -200,7 +200,7 @@ plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_s
 187,Chaffinch,Fringilla Cælebs,Fringilla coelebs,Common Chaffinch,,high,,"Fringilla Cælebs Linn. = Fringilla coelebs (Common Chaffinch); same species, older binomial"
 188,Mountain or Bramble Finch,Fringilla montifringilla,Fringilla montifringilla,Brambling,,high,,Brambling
 189,Snow Finch,Fringilla nivalis,Montifringilla nivalis,White-winged Snowfinch,,high,,Snow Finch = White-winged Snowfinch
-190,Winter Finch,Fringilla ? hyemalis,Junco hyemalis,Dark-eyed Junco,,medium,,"Fringilla hyemalis Linn. = Dark-eyed Junco (Gould's 'Winter Finch', a straggler); confirm the figure is a slate junco"
+190,Winter Finch,Fringilla ? hyemalis,Junco hyemalis,Dark-eyed Junco,,decided,,"Fringilla hyemalis Linn. = Dark-eyed Junco (Gould's 'Winter Finch', a straggler); confirm the figure is a slate junco | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 191,Common or Brown Linnet,Linaria Cannabina,Linaria cannabina,Eurasian Linnet,,high,Carduelis cannabina,Linnet
 192,"Mountain Linnet, or Twite",Linaria montana,Linaria flavirostris,Twite,,high,Carduelis flavirostris,Mountain Linnet = Twite
 193,Mealy Redpole,Linaria canescens,,,,low,,Linaria canescens Gould (Mealy Redpoll) is variously placed in Common Redpoll (A. flammea) or Arctic/Hoary Redpoll (A. hornemanni); BirdNET keeps both apart. Blank
@@ -227,7 +227,7 @@ plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_s
 214,Jay,Garrulus glandarius,Garrulus glandarius,Eurasian Jay,,high,,Garrulus glandarius Briss. = Garrulus glandarius (Eurasian Jay); same species
 215,Siberian Jay,Garrulus infaustus,Perisoreus infaustus,Siberian Jay,,high,,Siberian Jay
 216,Magpie,Pica caudata,Pica pica,Eurasian Magpie,,high,,Magpie
-217,Azure-winged Magpie,Pica cyanea,Cyanopica cooki,Iberian Magpie,,medium,Cyanopica cyanus cooki,"Azure-winged Magpie, since split: Iberian (C. cooki) and East Asian (C. cyanus). Gould's European bird should be Iberian, but Wagler's name rests on Pallas's Asian bird and Gould may have figured an Asian skin; confirm"
+217,Azure-winged Magpie,Pica cyanea,Cyanopica cooki,Iberian Magpie,,decided,Cyanopica cyanus cooki,"Azure-winged Magpie, since split: Iberian (C. cooki) and East Asian (C. cyanus). Gould's European bird should be Iberian, but Wagler's name rests on Pallas's Asian bird and Gould may have figured an Asian skin; confirm | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 218,Alpine Chough,Pyrrhocorax Pyrrhocorax,Pyrrhocorax graculus,Yellow-billed Chough,,high,,Gould's 'Alpine Chough' (Temminck's use of Pyrrhocorax pyrrhocorax) = Yellow-billed Chough P. graculus; his red-billed Chough is plate 219. Trap: modern P. pyrrhocorax is the Red-billed
 219,Chough,Fregilus graculus,Pyrrhocorax pyrrhocorax,Red-billed Chough,,high,,Fregilus graculus = Red-billed Chough. Trap: modern P. graculus is the Alpine Chough
 220,Raven,Corvus corax,Corvus corax,Common Raven,,high,,Corvus corax Linn. = Corvus corax (Common Raven); same species
@@ -247,7 +247,7 @@ plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_s
 234,Common Nuthatch,Sitta Europæa,Sitta europaea,Eurasian Nuthatch,,high,,Sitta Europæa Linn. = Sitta europaea (Eurasian Nuthatch); same species
 235,Dalmatian Nuthatch,Sitta Syriaca,Sitta neumayer,Western Rock Nuthatch,,high,,Sitta syriaca Ehrenb. = Western Rock Nuthatch
 236,Asiatic Nuthatch,Sitta Asiatica,Sitta europaea,Eurasian Nuthatch,subspecies,high,,Sitta asiatica Temm. = the white-bellied Siberian race of Eurasian Nuthatch
-237,Common Creeper,Certhia familiaris,Certhia familiaris,Eurasian Treecreeper,,medium,,"Treecreeper; Short-toed Treecreeper (C. brachydactyla) was lumped then and looks near-identical; confirm the figure (it probably is familiaris, as Gould's text is British/northern)"
+237,Common Creeper,Certhia familiaris,Certhia familiaris,Eurasian Treecreeper,,decided,,"Treecreeper; Short-toed Treecreeper (C. brachydactyla) was lumped then and looks near-identical; confirm the figure (it probably is familiaris, as Gould's text is British/northern) | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 238,Hoopoe,Upupa epops,Upupa epops,Eurasian Hoopoe,,high,,Upupa epops Linn. = Upupa epops (Eurasian Hoopoe); same species
 239,Wall Creeper,Tichodroma phœnicoptera,Tichodroma muraria,Wallcreeper,,high,,Wallcreeper
 240,Common Cuckoo,Cuculus Canorus,Cuculus canorus,Common Cuckoo,,high,,Cuculus Canorus Linn. = Cuculus canorus (Common Cuckoo); same species
@@ -333,17 +333,17 @@ plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_s
 318,Turnstone,Strepsilas collaris,Arenaria interpres,Ruddy Turnstone,,high,,Turnstone
 319,Woodcock,Scolopax rusticola,Scolopax rusticola,Eurasian Woodcock,,high,,Scolopax rusticola Linn. = Scolopax rusticola (Eurasian Woodcock); same species
 320,Great Snipe,Scolopax major,Gallinago media,Great Snipe,,high,,Great Snipe
-321,Sabine's Snipe,Scolopax Sabini,Gallinago gallinago,Common Snipe,variant,medium,,"Sabine's Snipe is the melanistic morph of the Common Snipe, not a species; confirm Gould's figure is that dark snipe"
+321,Sabine's Snipe,Scolopax Sabini,Gallinago gallinago,Common Snipe,variant,decided,,"Sabine's Snipe is the melanistic morph of the Common Snipe, not a species; confirm Gould's figure is that dark snipe | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 321,Common Snipe,Scolopax Gallinago,Gallinago gallinago,Common Snipe,,high,,Scolopax Gallinago Linn. = Gallinago gallinago (Common Snipe); same species
 322,Jack Snipe,Scolopax Gallinula,Lymnocryptes minimus,Jack Snipe,,high,,Scolopax gallinula Linn. = Jack Snipe
-323,Grey Snipe,Macroramphus griseus,Limnodromus griseus,Short-billed Dowitcher,,medium,,"Macroramphus griseus = Short-billed Dowitcher by name, but Long-billed (L. scolopaceus) was lumped then and is the usual European vagrant; confirm Gould's figure"
+323,Grey Snipe,Macroramphus griseus,Limnodromus griseus,Short-billed Dowitcher,,decided,,"Macroramphus griseus = Short-billed Dowitcher by name, but Long-billed (L. scolopaceus) was lumped then and is the usual European vagrant; confirm Gould's figure | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 324,Knot,Calidris Canutus,Calidris canutus,Red Knot,,high,,Knot
 325,Ruff,Machetes pugnax,Calidris pugnax,Ruff,,high,Philomachus pugnax,Machetes pugnax Cuv. = Calidris pugnax (Ruff); same species
 326,Buff-breasted Sandpiper,Tringa rufescens,Calidris subruficollis,Buff-breasted Sandpiper,,high,Tryngites subruficollis,Tringa rufescens Vieill. = Buff-breasted Sandpiper
 327,Pectoral Sandpiper,Tringa pectoralis,Calidris melanotos,Pectoral Sandpiper,,high,,Tringa pectoralis Say = Pectoral Sandpiper
 328,Pygmy Curlew,Tringa subarquata,Calidris ferruginea,Curlew Sandpiper,,high,,Pygmy Curlew / Tringa subarquata = Curlew Sandpiper
 329,"Dunlin, or Purre",Tringa variabilis,Calidris alpina,Dunlin,,high,,Dunlin
-330,Schinz's Sandpiper,Tringa Schinzii,Calidris fuscicollis,White-rumped Sandpiper,,medium,,"Tringa schinzii Bonap. (not Brehm's Dunlin race) = White-rumped Sandpiper; but the name 'Schinz's Sandpiper' was also used in Europe for small Dunlins (C. alpina schinzii). Confirm on the plate (white rump, long wings)"
+330,Schinz's Sandpiper,Tringa Schinzii,Calidris fuscicollis,White-rumped Sandpiper,,decided,,"Tringa schinzii Bonap. (not Brehm's Dunlin race) = White-rumped Sandpiper; but the name 'Schinz's Sandpiper' was also used in Europe for small Dunlins (C. alpina schinzii). Confirm on the plate (white rump, long wings) | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 331,Broad-billed Tringa,Tringa platyrhyncha,Calidris falcinellus,Broad-billed Sandpiper,,high,Limicola falcinellus,Broad-billed Sandpiper
 332,Little Sandpiper,Tringa minuta,Calidris minuta,Little Stint,,high,,Little Stint
 333,Temminck's Tringa,Tringa Temminckii,Calidris temminckii,Temminck's Stint,,high,,Tringa Temminckii Leisl. = Calidris temminckii (Temminck's Stint); same species
@@ -455,7 +455,7 @@ plate,gould_english,gould_latin,birdnet_sci,birdnet_common,form,confidence,sci_s
 439,Skua,Lestris catarractes,Stercorarius skua,Great Skua,,high,,Skua = Great Skua
 440,Pomarine Gull,Lestris Pomarinus,Stercorarius pomarinus,Pomarine Jaeger,,high,,Lestris Pomarinus Temm. = Stercorarius pomarinus (Pomarine Jaeger); same species
 441,Richardson's Lestris,Lestris Richardsonii,Stercorarius parasiticus,Parasitic Jaeger,,high,,Richardson's Skua = Arctic Skua (Parasitic Jaeger)
-442,Parasitic Gull,Lestris Parasiticus,Stercorarius longicaudus,Long-tailed Jaeger,,medium,,Temminck/Illiger's Lestris parasiticus was the Long-tailed Skua; Gould's Arctic Skua is 'Richardson's' (plate 441). Trap: modern S. parasiticus is the Arctic Skua. Confirm the long central tail feathers on the plate
+442,Parasitic Gull,Lestris Parasiticus,Stercorarius longicaudus,Long-tailed Jaeger,,decided,,"Temminck/Illiger's Lestris parasiticus was the Long-tailed Skua; Gould's Arctic Skua is 'Richardson's' (plate 441). Trap: modern S. parasiticus is the Arctic Skua. Confirm the long central tail feathers on the plate | Decided 25 Sep 2026 on the review page, checked against Dresser and the KU catalogue (see gould_europe.yaml)."
 443,Manks Shearwater,Puffinus Anglorum,Puffinus puffinus,Manx Shearwater,,high,,"Puffinus Anglorum Ray. = Puffinus puffinus (Manx Shearwater); same species, older binomial"
 444,Dusky Shearwater,Puffinus obscurus,,,,low,,"Puffinus obscurus of Gould's day covered the small dusky shearwaters (Barolo's P. baroli / Audubon's P. lherminieri), neither a BirdNET label. Blank"
 445,Cinereous Shearwater,Puffinus cinereus,,,,low,,"'Cinereous Shearwater' was used for both Cory's (Calonectris) and the Great Shearwater (Ardenna gravis, absent from BirdNET); cannot tell which. Blank"

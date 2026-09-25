@@ -235,5 +235,7 @@ def test_gould_plates_on_one_sheet_carry_their_figure_numbers():
     for e in _gould()["species"]:
         by_plate.setdefault(e["plate"], []).append(e)
     for plate, es in by_plate.items():
-        if len(es) > 1:
+        # One figure standing for the daughters of a later split (Orphean,
+        # Bonelli's, ...) shares its title and is no composite.
+        if len({e["gould_title"] for e in es}) > 1:
             assert all(e.get("composite") and e.get("legend") for e in es), plate

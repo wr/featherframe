@@ -457,3 +457,28 @@ species:
   - {common: "Leach's Storm-Petrel", scientific: "Hydrobates leucorhous", plate: 447, gould_title: "Fork-tailed Storm Petrel, Thalassidroma Leachii", volume: birdsEuropeVGoul, leaf: 418, margins: [0.02, 0.02, 0.98, 0.84], rotate: 270, composite: true, legend: ["1. Fork-tailed Storm Petrel."], sci_synonyms: ["Oceanodroma leucorhoa"]}
   - {common: "European Storm-Petrel", scientific: "Hydrobates pelagicus", plate: 448, gould_title: "Common Storm Petrel, Thalassidroma pelagica", volume: birdsEuropeVGoul, leaf: 418, margins: [0.02, 0.02, 0.98, 0.84], rotate: 270, composite: true, legend: ["2. Common Storm Petrel."]}
   - {common: "Bulwer's Petrel", scientific: "Bulweria bulwerii", plate: 449, gould_title: "Bulwer's Petrel, Thalassidroma ? Bulwerii", volume: birdsEuropeVGoul, leaf: 422, rotate: 270}
+
+  # --- Decided by Wells on the review page (25 Sep 2026), checked against
+  # Dresser's synonymies and the Kansas (Ellis) catalogue. A plate drawn before
+  # its species was split stands for both daughters (Orphean, Bonelli's, the
+  # two magpies; Gould's "Melodious Willow Wren" is Dresser's Icterine, and
+  # the plate serves the Melodious too). Gould's Dalmatian Regulus is Pallas's
+  # Leaf Warbler (pale rump, crown stripe), not the Yellow-browed; his Imperial
+  # Eagle has the eastern bird's white scapulars, not the Spanish bird's white
+  # wing edge. Cetti's, the White Wagtail and the Common Snipe keep their main
+  # plates; Gould's second figures of them are not pinned.
+  - {common: "Imperial Eagle", scientific: "Aquila heliaca", plate: 5, gould_title: "Imperial Eagle, Aquila Imperialis", volume: birdsEuropeIGoul, leaf: 46, margins: [0.02, 0.02, 0.98, 0.867]}
+  - {common: "Western Orphean Warbler", scientific: "Curruca hortensis", plate: 119, gould_title: "Orpheus Warbler, Curruca Orphea", volume: birdsEuropeIIGoul, leaf: 288, margins: [0.02, 0.02, 0.98, 0.873]}
+  - {common: "Eastern Orphean Warbler", scientific: "Curruca crassirostris", plate: 119, gould_title: "Orpheus Warbler, Curruca Orphea", volume: birdsEuropeIIGoul, leaf: 288, margins: [0.02, 0.02, 0.98, 0.873]}
+  - {common: "Icterine Warbler", scientific: "Hippolais icterina", plate: 133, gould_title: "Melodious Willow Wren, Sylvia Hippolais", volume: birdsEuropeIIGoul, leaf: 340, margins: [0.02, 0.02, 0.98, 0.827]}
+  - {common: "Melodious Warbler", scientific: "Hippolais polyglotta", plate: 133, gould_title: "Melodious Willow Wren, Sylvia Hippolais", volume: birdsEuropeIIGoul, leaf: 340, margins: [0.02, 0.02, 0.98, 0.827]}
+  - {common: "Western Bonelli's Warbler", scientific: "Phylloscopus bonelli", plate: 134, gould_title: "Natterer's Warbler, Sylvia Nattereri", volume: birdsEuropeIIGoul, leaf: 348, margins: [0.02, 0.02, 0.98, 0.801]}
+  - {common: "Eastern Bonelli's Warbler", scientific: "Phylloscopus orientalis", plate: 134, gould_title: "Natterer's Warbler, Sylvia Nattereri", volume: birdsEuropeIIGoul, leaf: 348, margins: [0.02, 0.02, 0.98, 0.801]}
+  - {common: "Pallas's Leaf Warbler", scientific: "Phylloscopus proregulus", plate: 149, gould_title: "Dalmatian Regulus, Regulus modestus", volume: birdsEuropeIIGoul, leaf: 408, margins: [0.02, 0.02, 0.98, 0.792]}
+  - {common: "Dark-eyed Junco", scientific: "Junco hyemalis", plate: 190, gould_title: "Winter Finch, Fringilla hyemalis", volume: birdsEuropeIIIGoul, leaf: 174, margins: [0.02, 0.02, 0.98, 0.786]}
+  - {common: "Iberian Magpie", scientific: "Cyanopica cooki", plate: 217, gould_title: "Azure-winged Magpie, Pica cyanea", volume: birdsEuropeIIIGoul, leaf: 282, margins: [0.02, 0.02, 0.98, 0.713]}
+  - {common: "Azure-winged Magpie", scientific: "Cyanopica cyanus", plate: 217, gould_title: "Azure-winged Magpie, Pica cyanea", volume: birdsEuropeIIIGoul, leaf: 282, margins: [0.02, 0.02, 0.98, 0.713]}
+  - {common: "Eurasian Treecreeper", scientific: "Certhia familiaris", plate: 237, gould_title: "Common Creeper, Certhia familiaris", volume: birdsEuropeIIIGoul, leaf: 362, margins: [0.02, 0.02, 0.98, 0.78]}
+  - {common: "Short-billed Dowitcher", scientific: "Limnodromus griseus", plate: 323, gould_title: "Grey Snipe, Macroramphus griseus", volume: birdsEuropeIVGoul, leaf: 334, rotate: 270}
+  - {common: "White-rumped Sandpiper", scientific: "Calidris fuscicollis", plate: 330, gould_title: "Schinz's Sandpiper, Tringa Schinzii", volume: birdsEuropeIVGoul, leaf: 362, rotate: 270}
+  - {common: "Long-tailed Jaeger", scientific: "Stercorarius longicaudus", plate: 442, gould_title: "Parasitic Gull, Lestris Parasiticus", volume: birdsEuropeVGoul, leaf: 398, rotate: 270}

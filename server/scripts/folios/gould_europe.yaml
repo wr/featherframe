@@ -31,6 +31,8 @@
 #     (Xema ridibunda, plate 425), and today's (American) Laughing Gull is his
 #     "Black-winged Gull" (Xema atricilla, plate 426). Match on the modern
 #     binomial, never the common name.
+#   - A pale bird on white paper defeats the tight crop, which finds only its
+#     legs and perch: 276, 307 and 438 carry a hand-placed crop_box.
 #   - The grey-headed "caniceps" goldfinch in Gould's Birds of Asia is not the
 #     European Goldfinch (docs/plate-sources.md); plate 196 here is.
 
@@ -311,7 +313,7 @@ species:
   - {common: "Gray Heron", scientific: "Ardea cinerea", plate: 273, gould_title: "Common Heron, Ardea cinerea", volume: birdsEuropeIVGoul, leaf: 134, margins: [0.02, 0.02, 0.98, 0.913]}
   - {common: "Purple Heron", scientific: "Ardea purpurea", plate: 274, gould_title: "Purple Heron, Ardea purpurea", volume: birdsEuropeIVGoul, leaf: 138}
   - {common: "Squacco Heron", scientific: "Ardeola ralloides", plate: 275, gould_title: "Squacco Heron, Ardea comata", volume: birdsEuropeIVGoul, leaf: 142, margins: [0.02, 0.02, 0.98, 0.87]}
-  - {common: "Great Egret", scientific: "Ardea alba", plate: 276, gould_title: "Great Egret, Ardea alba", volume: birdsEuropeIVGoul, leaf: 146, rotate: 270, sci_synonyms: ["Egretta alba", "Casmerodius albus"]}
+  - {common: "Great Egret", scientific: "Ardea alba", plate: 276, gould_title: "Great Egret, Ardea alba", volume: birdsEuropeIVGoul, leaf: 146, rotate: 270, sci_synonyms: ["Egretta alba", "Casmerodius albus"], crop_box: [0.02, 0.19, 0.92, 0.70]}
   - {common: "Little Egret", scientific: "Egretta garzetta", plate: 277, gould_title: "Little Egret, Ardea garzetta", volume: birdsEuropeIVGoul, leaf: 150, rotate: 270}
   - {common: "Cattle Egret", scientific: "Bubulcus ibis", plate: 278, gould_title: "Rufous-backed Egret, Ardea russata", volume: birdsEuropeIVGoul, leaf: 154, rotate: 270, sci_synonyms: ["Ardea ibis"]}
   - {common: "Black-crowned Night-Heron", scientific: "Nycticorax nycticorax", plate: 279, gould_title: "Common Night Heron, Nycticorax Europæus", volume: birdsEuropeIVGoul, leaf: 158, rotate: 270}
@@ -338,7 +340,7 @@ species:
   - {common: "Whimbrel", scientific: "Numenius phaeopus", plate: 303, gould_title: "Whimbrel, Numenius Phæopus", volume: birdsEuropeIVGoul, leaf: 254, rotate: 270}
   - {common: "Black-tailed Godwit", scientific: "Limosa limosa", plate: 305, gould_title: "Black-tailed Godwit, Limosa melanura", volume: birdsEuropeIVGoul, leaf: 262, rotate: 270}
   - {common: "Bar-tailed Godwit", scientific: "Limosa lapponica", plate: 306, gould_title: "Bar-tailed Godwit, Limosa rufa", volume: birdsEuropeIVGoul, leaf: 266, rotate: 270}
-  - {common: "Terek Sandpiper", scientific: "Xenus cinereus", plate: 307, gould_title: "Terek Godwit, Limosa Terek", volume: birdsEuropeIVGoul, leaf: 270, rotate: 270}
+  - {common: "Terek Sandpiper", scientific: "Xenus cinereus", plate: 307, gould_title: "Terek Godwit, Limosa Terek", volume: birdsEuropeIVGoul, leaf: 270, rotate: 270, crop_box: [0.25, 0.21, 0.56, 0.54]}
   - {common: "Pied Avocet", scientific: "Recurvirostra avosetta", plate: 308, gould_title: "Avocet, Recurvirostra Avocetta", volume: birdsEuropeIVGoul, leaf: 274, rotate: 270}
   - {common: "Spotted Redshank", scientific: "Tringa erythropus", plate: 309, gould_title: "Spotted Redshank, Totanus fuscus", volume: birdsEuropeIVGoul, leaf: 278, rotate: 270}
   - {common: "Common Redshank", scientific: "Tringa totanus", plate: 310, gould_title: "Redshank, Totanus calidris", volume: birdsEuropeIVGoul, leaf: 282, rotate: 270}
@@ -448,7 +450,7 @@ species:
   - {common: "Herring Gull", scientific: "Larus argentatus", plate: 434, gould_title: "Herring Gull, Larus argentatus", volume: birdsEuropeVGoul, leaf: 366, rotate: 270}
   - {common: "Black-legged Kittiwake", scientific: "Rissa tridactyla", plate: 435, gould_title: "Kittiwake Gull, Larus Rissa", volume: birdsEuropeVGoul, leaf: 370, rotate: 270}
   - {common: "Common Gull", scientific: "Larus canus", plate: 437, gould_title: "Common Gull, Larus canus", volume: birdsEuropeVGoul, leaf: 378, rotate: 270}
-  - {common: "Audouin's Gull", scientific: "Ichthyaetus audouinii", plate: 438, gould_title: "Audouin's Gull, Larus Audouinii", volume: birdsEuropeVGoul, leaf: 382, rotate: 270, sci_synonyms: ["Larus audouinii"]}
+  - {common: "Audouin's Gull", scientific: "Ichthyaetus audouinii", plate: 438, gould_title: "Audouin's Gull, Larus Audouinii", volume: birdsEuropeVGoul, leaf: 382, rotate: 270, sci_synonyms: ["Larus audouinii"], crop_box: [0.18, 0.11, 0.75, 0.75]}
   - {common: "Great Skua", scientific: "Stercorarius skua", plate: 439, gould_title: "Skua, Lestris catarractes", volume: birdsEuropeVGoul, leaf: 386, rotate: 270}
   - {common: "Pomarine Jaeger", scientific: "Stercorarius pomarinus", plate: 440, gould_title: "Pomarine Gull, Lestris Pomarinus", volume: birdsEuropeVGoul, leaf: 390, rotate: 270}
   - {common: "Parasitic Jaeger", scientific: "Stercorarius parasiticus", plate: 441, gould_title: "Richardson's Lestris, Lestris Richardsonii", volume: birdsEuropeVGoul, leaf: 394, rotate: 270}

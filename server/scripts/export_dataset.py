@@ -696,7 +696,7 @@ def export(out: Path, tax: Taxonomy, plates_dir: Optional[Path]) -> None:
                                ("general-list.csv", "plate-leaves.csv", "crosswalk.csv", "ku-catalogue.csv")),
               "gould-australia": (ap, as_, australia_ku(as_),
                                   ("plate-leaves.csv", "crosswalk.csv", "ku-catalogue.csv", "ku-check.csv",
-                                   "review.csv")),
+                                   "review.csv", "doubtful-decisions.csv")),
               "gould-britain": (bp, bs, None, ())}
     for folder, (plates, species, ku, sources) in tables.items():
         g = GOULD[folder]

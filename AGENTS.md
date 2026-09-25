@@ -361,6 +361,19 @@ soft-fails to a safe default (None/[]/0) so a missing or odd DB keeps the curren
 frame instead of crashing. Fixture schema in `tests/_fixtures.py` is verbatim
 from the Nachtzuster fork.
 
+**BirdNET-Pi and BirdNET-Go push (W-865, `sources/pushed.py`).** One
+`PushedSource`, two bodies: BirdNET-Pi's Apprise notification
+(`/api/ingest/apprise/<token>`) and BirdNET-Go's webhook channel
+(`/api/ingest/birdnet-go/<token>`, its default JSON, no template), both behind
+`Config.ingest_token` (was `apprise_token`). BirdNET-Go is never polled: its
+push needs a *Rules* entry (Detection → *Detection Occurred* → Push
+notification, cooldown 0), or it pushes only new species; the built-in
+new-species rule pushes the same detection again, deduped on `note_id`; its
+channel *Test* posts *Testus birdicus*, kept as `test_at` and never shown. A
+push feed keeps its own history as it goes: a per-day, per-species tally in
+confidence tenths (the collage's counts outlast the 1000-item window) and,
+from BirdNET-Go's `days_since_first_seen`, each species' first date.
+
 **The collage is one sheet set two ways (`render/collage.py`).** The free grid
 (`render_collage`, as many plates as `collage_species_max`) and the generated composite
 (`render_generated_collage`, one painted scene) share `_bottom_block`: no
@@ -465,7 +478,8 @@ and `/fonts/script.ttf` are bundled into the Worker (`rules` in
 wrangler.jsonc): opening the page wakes nothing.
 Per household, `Household` (`household.ts`) is the front door: it answers
 `/api/frame` from its table + R2, holds push sockets, keeps check-ins and
-Apprise pushes (routed by token) until the server takes them, and wakes the
+detectors' pushes (routed by token; a BirdNET-Go body that is not a
+detection is dropped) until the server takes them, and wakes the
 server only for news (a BirdWeather look every 2 min, a push, the server's
 own `next_wake_epoch`; ≥ 5 min apart; none in quiet hours), stopping it right
 after. `HouseholdServer` is THIS Python server in a Container: there is no TS

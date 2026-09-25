@@ -613,7 +613,7 @@ async def script_font():
 async def index(request: Request):
     svc = _svc(request)
     # Threadpool: status() probes the detection source (a 5 s-timeout HTTP
-    # call for BirdNET-Go/BirdWeather) and the listing reads the SD card;
+    # call for BirdWeather) and the listing reads the SD card;
     # blocking the loop here would stall the device's /api/frame fetch.
     status = await run_in_threadpool(svc.status)
     generated = await run_in_threadpool(svc.generated_listing) if svc.genart else []
@@ -692,9 +692,8 @@ async def save_settings(request: Request):
         species_blocklist=blocklist,
         detection_backend=s("detection_backend", cur["detection_backend"]),
         birdnet_db_path=s("birdnet_db_path", cur["birdnet_db_path"]),
-        birdnet_go_url=s("birdnet_go_url", cur["birdnet_go_url"]),
         birdweather_station_id=s("birdweather_station_id", cur["birdweather_station_id"]),
-        apprise_token=s("apprise_token", cur["apprise_token"]),
+        ingest_token=s("ingest_token", cur["ingest_token"]),
         collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
         imagegen_enabled=b("imagegen_enabled"),
         collage_generated=b("collage_generated"),
@@ -1010,44 +1009,34 @@ async def api_unblock(request: Request):
     return JSONResponse({"ok": True, "removed": svc.unblock(name)})
 
 
-# -- push ingest (BirdNET-Pi via Apprise) ----------------------------------
-def _apprise_detection(payload) -> dict:
-    """Pull the detection object out of an Apprise envelope. Apprise posts
-    {version, title, message, type} with our JSON body in `message`; BirdNET-Pi
-    may append text after it, so extract the {...} span rather than parse whole.
-    Falls back to a top-level object if someone posts the fields directly."""
-    if not isinstance(payload, dict):
-        return {}
-    msg = payload.get("message")
-    if isinstance(msg, str) and "{" in msg and "}" in msg:
-        try:
-            obj = json.loads(msg[msg.index("{"): msg.rindex("}") + 1])
-            if isinstance(obj, dict):
-                return obj
-        except ValueError:
-            pass
-    return payload
+# -- push ingest (BirdNET-Pi via Apprise, BirdNET-Go via a webhook) ---------
+# The path names the detector; it must be the one the page is set to.
+_INGEST_KINDS = {"apprise": "apprise", "birdnet-go": "birdnet_go"}
 
 
-@app.post("/api/ingest/apprise")
-@app.post("/api/ingest/apprise/{token}")
-async def ingest_apprise(request: Request, token: str = ""):
-    """Webhook for the Apprise (BirdNET-Pi push) source. Point Apprise at
-    json://<host>/api/ingest/apprise[/<token>] with a JSON detection body."""
+@app.post("/api/ingest/{kind}")
+@app.post("/api/ingest/{kind}/{token}")
+async def ingest_push(request: Request, kind: str, token: str = ""):
+    """Webhook for the push sources: BirdNET-Pi's Apprise notification
+    (json://<host>/api/ingest/apprise[/<token>]) and BirdNET-Go's webhook
+    channel (http://<host>/api/ingest/birdnet-go[/<token>])."""
+    backend = _INGEST_KINDS.get(kind)
+    if backend is None:
+        return Response(status_code=404)
     # Same-origin guard like every other state-changing POST: a detection can
     # trigger a render (and a paid generation), so a hostile web page must not
-    # be able to inject one cross-site. Apprise sends no Origin, so it passes.
+    # be able to inject one cross-site. A detector sends no Origin, so it passes.
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
-    expected = getattr(svc.config, "apprise_token", "")
+    expected = getattr(svc.config, "ingest_token", "")
     # compare_digest refuses non-ASCII str; compare bytes so an accented
     # secret is a 403 on mismatch, never a 500 on every push.
     if expected and not hmac.compare_digest(token.encode("utf-8"), expected.encode("utf-8")):
         return JSONResponse({"error": "bad token"}, status_code=403)
     ingest = getattr(svc.source, "ingest", None)
-    if not callable(ingest):
-        return JSONResponse({"error": "detection source is not Apprise"}, status_code=409)
+    if not callable(ingest) or getattr(svc.source, "kind", None) != backend:
+        return JSONResponse({"error": "detection source is not " + kind}, status_code=409)
     # A detection is a few hundred bytes; don't buffer an arbitrary body into
     # a Pi Zero's memory (the queue is persisted, so bloat would be too).
     # Enforced on the stream, not the header: a chunked request carries no
@@ -1061,7 +1050,7 @@ async def ingest_apprise(request: Request, token: str = ""):
         payload = json.loads(bytes(body).decode("utf-8")) if body else {}
     except (ValueError, UnicodeDecodeError):
         payload = {}
-    det = await run_in_threadpool(ingest, _apprise_detection(payload))
+    det = await run_in_threadpool(ingest, payload)
     return JSONResponse({"ok": det is not None})
 
 
@@ -1461,9 +1450,16 @@ async def collage_day_png(request: Request, day: str):
 def _source_test(source, backend: str) -> dict:
     """Describe what a detection source reports. Never raises."""
     try:
-        if backend == "apprise":
+        if backend in ("apprise", "birdnet_go"):
             n = source.max_rowid() if hasattr(source, "max_rowid") else 0
-            return {"ok": True, "detail": f"Webhook ready — {n} detection(s) received so far."}
+            detail = f"Webhook ready — {n} detection(s) received so far."
+            test_at = getattr(source, "test_at", None)
+            if test_at:
+                t = datetime.fromisoformat(test_at)
+                when = (t.strftime("%H:%M") if t.date() == datetime.now().date()
+                        else t.strftime("%-d %b, %H:%M"))
+                detail += f" Test received {when}."
+            return {"ok": True, "detail": detail}
         if not source.available():
             return {"ok": False, "detail": "Not reachable — check the settings above."}
         latest = source.latest(0.0)
@@ -1476,13 +1472,12 @@ def _source_test(source, backend: str) -> dict:
 
 @app.post("/api/source/test")
 async def source_test(request: Request, backend: Optional[str] = Form(None),
-                      birdnet_go_url: Optional[str] = Form(None),
                       birdweather_station_id: Optional[str] = Form(None),
                       birdnet_db_path: Optional[str] = Form(None)):
     """Test a detection source using the values currently typed on the config
     page — no save required. Builds a throwaway source from the posted fields
     layered over a copy of the saved config. Only non-secret connection fields
-    are accepted (never the Apprise shared secret). Guarded like the app's other
+    are accepted (never the push secret). Guarded like the app's other
     state endpoints: this probe makes an outbound request to a user-supplied URL,
     so it must not be triggerable cross-site (SSRF)."""
     if not _same_origin(request):
@@ -1493,8 +1488,6 @@ async def source_test(request: Request, backend: Optional[str] = Form(None),
     overrides = {}
     if backend:
         overrides["detection_backend"] = backend
-    if birdnet_go_url is not None:
-        overrides["birdnet_go_url"] = birdnet_go_url
     if birdweather_station_id is not None:
         overrides["birdweather_station_id"] = birdweather_station_id
     if birdnet_db_path is not None:

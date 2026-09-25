@@ -1,9 +1,11 @@
 """The detection-source interface.
 
-BirdNET-Pi (local SQLite) and BirdNET-Go (local REST) implement ``DetectionSource``;
-``service.tick()`` uses it without knowing the backend. Every method soft-fails to
-a safe default (None / [] / 0). The cursor is an opaque monotonic ``int`` (a rowid
-for Pi, a detection ``id`` for Go), persisted by the service.
+BirdNET-Pi's SQLite, BirdWeather's API and the pushed feeds (BirdNET-Pi's
+Apprise, BirdNET-Go's webhook) implement ``DetectionSource``; ``service.tick()``
+uses it without knowing the backend. Every method soft-fails to a safe default
+(None / [] / 0). The cursor is an opaque monotonic ``int`` (a rowid for the
+SQLite, a detection id for BirdWeather, a queue id for a push), persisted by
+the service.
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ from typing import Optional
 class Detection:
     """One bird, normalised across every source.
 
-    ``rowid`` is the opaque cursor id (BirdNET-Pi rowid, BirdNET-Go detection id).
+    ``rowid`` is the opaque cursor id (BirdNET-Pi rowid, BirdWeather id, push queue id).
     ``date`` / ``time`` are local strings ('YYYY-MM-DD', 'HH:MM:SS'), matching how
     both BirdNET-Pi and BirdNET-Go report wall-clock time.
     """

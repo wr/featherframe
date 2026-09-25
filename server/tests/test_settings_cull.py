@@ -15,6 +15,7 @@ REMOVED = {
     "corroborate_window_hours": 2, "corroborate_min_gap_minutes": 1,
     "quiet_alarm_hours": 0, "source_alarm_minutes": 0, "poll_interval_seconds": 120,
     "panel_follow": False, "gray_mode": "1", "dither": "none", "color_saturation": 0.2,
+    "birdnet_go_url": "http://go.local:8080",   # W-865: BirdNET-Go pushes now
 }
 
 

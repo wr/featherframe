@@ -84,7 +84,7 @@ _ETAG_RE = re.compile(r"^[0-9a-f]{16}$")
 POLL_SECONDS = 5
 _CLOUD_POLL_SECONDS = 60
 # The confidence a detection needs when the source has no threshold of its
-# own. BirdNET-Go filters by its own setting and only falls back to this.
+# own. BirdNET-Go's pushes already passed its own setting, so it skips this.
 CONFIDENCE_FLOOR = 0.7
 # A frame that shows the collage checks in when the collage is next redrawn
 # (W-833): this long after it, so the draw has landed, and never sooner than
@@ -755,7 +755,6 @@ class FeatherframeService:
             new = load_config(self.db)
             if (new.detection_backend != self.config.detection_backend
                     or new.birdnet_db_path != self.config.birdnet_db_path
-                    or new.birdnet_go_url != self.config.birdnet_go_url
                     or new.birdweather_station_id != self.config.birdweather_station_id):
                 self.source = make_source(new, self.db)
                 self._reset_for_source()
@@ -766,7 +765,7 @@ class FeatherframeService:
     def _reset_for_source(self) -> None:
         """A new detection source starts from a clean slate. Everything
         transient was about the old one: the cursor is in its id space
-        (BirdWeather ids run ~11 billion, BirdNET-Go's ~450k — a leftover
+        (BirdWeather ids run ~11 billion, a push queue's from 1 — a leftover
         froze the frame for hours), and the hold, the collage
         clock, the waiting species and the outage clock all describe birds
         it heard. The next tick shows the new source's latest detection."""
@@ -2220,8 +2219,8 @@ class FeatherframeService:
         kind = cfg.detection_backend
         if kind == "birdweather":
             return {"kind": kind, "station": cfg.birdweather_station_id}
-        if kind == "apprise":
-            return {"kind": kind, "token": cfg.apprise_token or ""}
+        if kind in ("apprise", "birdnet_go"):
+            return {"kind": kind, "token": cfg.ingest_token or ""}
         return {"kind": kind}
 
     def push_message(self, frame_id: str) -> Optional[dict]:

@@ -237,7 +237,7 @@ def parse_checkin(headers) -> dict:
     # A frame is a frame (W-833): every kit that is on is served the same way,
     # its own picture finished for its own panel, with its own settings on the
     # way out. Any other is parked until the owner answers on the page (403;
-    # the firmware shows "Add this frame on the Featherframe page" and keeps
+    # the firmware shows "Add this frame on the Featherframe webapp" and keeps
     # asking). The frame describes its panel as facts too (W-813), so a panel
     # this server has never heard of is still drawn for at its own size.
     panel_facts = {"w": _str_header(headers.get("x-panel-width")),

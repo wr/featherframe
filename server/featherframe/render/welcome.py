@@ -28,7 +28,7 @@ SOURCE_UP_HINT = "The first detection will appear here"
 # What a screen that has not been added yet shows (W-833). The same sentence
 # the kit's own baked screen carries, so the answer is the same wherever the
 # owner reads it.
-WAITING_LINE = "ADD THIS FRAME ON THE FEATHERFRAME PAGE"
+WAITING_LINE = "ADD THIS FRAME ON THE FEATHERFRAME WEBAPP"
 _WAITING_SIZE = 40
 _WAITING_ID_SIZE = 28
 PAIRING_LINE = "PAIR THIS FRAME AT APP.FEATHERFRAME.APP"

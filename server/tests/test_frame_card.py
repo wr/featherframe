@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
-from featherframe.app import clock12
+from featherframe.app import clock12, stamp
 
 from featherframe import paths
 from featherframe.service import FeatherframeService, frame_card
@@ -86,7 +86,7 @@ def test_battery_without_percent():
 
 def test_relative_times():
     assert frame_card(_dev(0.5), 15, NOW)["last_seen"] == "just now"
-    assert frame_card(_dev(90), 15, NOW)["last_seen"] == "1 h ago"
+    assert frame_card(_dev(90), 15, NOW)["last_seen"] == "1 hour ago"
     assert frame_card(_dev(60 * 24 * 3), 15, NOW)["last_seen"] == "3 days ago"
 
 
@@ -150,6 +150,7 @@ def _render_page(svc) -> str:
     env = Environment(loader=FileSystemLoader(str(paths.templates_dir())),
                       autoescape=True)
     env.filters["clock12"] = clock12
+    env.filters["stamp"] = stamp
     return env.get_template("index.html").render(
         status=svc.status(), config=svc.config, version="test", generated=[])
 

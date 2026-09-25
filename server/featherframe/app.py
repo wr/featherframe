@@ -33,7 +33,7 @@ from . import frames as frames_mod
 from .config import Config, valid_email, valid_hhmm
 from .names import display_common_name, normalize
 from .render import genart, pipeline, typography
-from .service import FeatherframeService
+from .service import FeatherframeService, clock_text, page_when
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("featherframe.app")
@@ -48,10 +48,19 @@ def clock12(value) -> str:
         t = value if hasattr(value, "hour") else datetime.strptime(str(value), "%H:%M")
     except ValueError:
         return str(value)
-    return f"{t.hour % 12 or 12}:{t.minute:02d} {'AM' if t.hour < 12 else 'PM'}"
+    return clock_text(t)
+
+
+def stamp(value) -> str:
+    """An ISO time for a tooltip: "25 Sep, 12:49 PM" (docs/STYLE.md)."""
+    try:
+        return page_when(datetime.fromisoformat(str(value)), datetime.now())
+    except (TypeError, ValueError):
+        return str(value or "")
 
 
 templates.env.filters["clock12"] = clock12
+templates.env.filters["stamp"] = stamp
 
 
 @asynccontextmanager

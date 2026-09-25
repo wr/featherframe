@@ -74,6 +74,12 @@ const start = async () => {
 if (document.readyState === 'complete') void start();
 else addEventListener('load', () => void start(), { once: true });
 
+// The nav's hairline appears once the page has scrolled.
+const nav = document.querySelector('.nav')!;
+const onScroll = () => nav.classList.toggle('scrolled', scrollY > 8);
+addEventListener('scroll', onScroll, { passive: true });
+onScroll();
+
 const form = document.getElementById('keep-posted') as HTMLFormElement;
 const note = form.querySelector('.form-note')!;
 form.addEventListener('submit', async (e) => {

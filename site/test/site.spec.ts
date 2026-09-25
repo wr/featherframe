@@ -21,16 +21,60 @@ test('the page loads without console errors', async ({ page }) => {
 
 test('every section and its key copy is there', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('h1')).toHaveText('The species heard near your home, as Audubon painted them.');
+  await expect(page.locator('h1')).toHaveCount(1);
   for (const id of ['how', 'art', 'sizes', 'faq', 'build']) await expect(page.locator(`#${id}`)).toBeVisible();
-  await expect(page.locator('.promise')).toHaveText('No camera. No app. No subscription. Real paintings by a human hand, not AI.');
+  await expect(page.locator('.promise h3')).toHaveText(['Real art', 'No glow', 'No subscription']);
+  await expect(page.locator('#how h2')).toHaveText('How it works');
+  await expect(page.locator('#art h2')).toHaveText('The art');
+  await expect(page.locator('#sizes h2')).toHaveText('Two sizes');
+  await expect(page.locator('#faq h2')).toHaveText('Questions');
+  await expect(page.locator('#faq details')).toHaveCount(6);
+  await expect(page.locator('#build h3')).toHaveText(['Pre-order Featherframe', 'Build your own']);
+  await expect(page.locator('figcaption')).toHaveText([
+    'Fig. 1 — The frame, on its kickstand', "Fig. 2 — What's inside", 'Fig. 3 — Four of the 435',
+    "Fig. 4 — A day's collage", 'Fig. 5 — Both sizes, to scale',
+  ]);
   await expect(page.locator('#label .label-kicker')).toHaveText('Heard near your home');
-  await expect(page.locator('#label .label-name')).toHaveText('Common Nighthawk');
+  await expect(page.locator('#label p.label-name')).toHaveText('Common Nighthawk');
+  await expect(page.locator('#label .label-latin')).toHaveText('Chordeiles minor');
   await expect(page.locator('#label .label-heard')).toHaveText('Heard at 8:14 this morning');
+  await expect(page.locator('#label .sizes-switch button')).toHaveText(['13-inch', '10-inch']);
   const preorder = page.getByRole('link', { name: 'Pre-order' }).first();
   await expect(preorder).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   await expect(page.getByRole('link', { name: 'Sign in' }).first()).toHaveAttribute('href', 'https://app.featherframe.app/');
+  await expect(page.locator('img[src*="robin"], img[src*="carolina-wren"]')).toHaveCount(0);
   const body = (await page.locator('body').innerText()).toLowerCase();
-  for (const banned of ['plate', 'on the wall', 'on the glass']) expect(body).not.toContain(banned);
+  // "plates" (the brief's rule); the brief's own collage line keeps "like a plate from the folio".
+  for (const banned of ['plates', 'on the wall', 'on the glass', 'hand-coloured', 'colour']) expect(body).not.toContain(banned);
+});
+
+test('the script and engraved faces appear only in the wordmark and the label', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => document.fonts.ready);
+  const stray = await page.evaluate(() => {
+    const out: string[] = [];
+    for (const el of document.body.querySelectorAll<HTMLElement>('*')) {
+      const own = [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim());
+      if (!own || !el.getClientRects().length) continue;
+      const family = getComputedStyle(el).fontFamily;
+      if (/Pinyon|IM Fell/i.test(family) && !el.closest('.brand, #label')) out.push(`${el.tagName}.${el.className}: ${family}`);
+    }
+    return out;
+  });
+  expect(stray).toEqual([]);
+  expect(await page.locator('#label .label-name').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(/Pinyon/);
+  expect(await page.locator('#label .label-latin').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(/IM Fell/);
+  expect(await page.locator('h1').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(/^Inter/);
+});
+
+test('the nav gains its hairline only once the page scrolls', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.nav')).not.toHaveClass(/\bscrolled\b/);
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect(page.locator('.nav')).toHaveClass(/\bscrolled\b/);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(page.locator('.nav')).not.toHaveClass(/\bscrolled\b/);
 });
 
 test('the label card is not announced (it cycles on its own)', async ({ page }) => {

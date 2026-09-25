@@ -12,6 +12,8 @@ export default defineConfig({
     command: 'python3 -m http.server 4321 --bind 127.0.0.1 -d dist',
     url: 'http://127.0.0.1:4321/',
     reuseExistingServer: true,
+    stdout: 'ignore',
+    stderr: 'ignore',
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
 });

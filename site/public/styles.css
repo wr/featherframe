@@ -1,0 +1,11 @@
+:root {
+  --page: #FFFFFF; --ink: #16181B; --muted: #5E6570; --hair: #E4E6E9; --card: #FFFFFF;
+  --script: 'Pinyon Script', 'Snell Roundhand', cursive;
+  --caps: 'IM Fell Double Pica SC', Georgia, serif;
+  --sans: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --gutter: 16px; --max: 1180px;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 400 17px/1.6 var(--sans); overflow-x: hidden; }
+.wordmark { font: 400 34px/1 var(--script); color: var(--ink); }

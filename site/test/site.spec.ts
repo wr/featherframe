@@ -147,6 +147,36 @@ test('the phone menu opens the section links and closes', async ({ page }) => {
   await expect(page).toHaveURL(/#sizes$/);
 });
 
+test('the phone menu closes when focus or a click leaves it', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const button = page.getByRole('button', { name: 'Menu' });
+  const menu = page.locator('#menu');
+  await button.click();
+  await expect(menu).toBeVisible();
+  await page.mouse.click(200, 700);
+  await expect(menu).toBeHidden();
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await button.click();
+  await page.keyboard.press('Tab'); // into the menu: it stays open
+  await expect(menu.getByRole('link', { name: 'How it works' })).toBeFocused();
+  await expect(menu).toBeVisible();
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Tab'); // past Sign in, out of the menu
+  await expect(menu).toBeHidden();
+});
+
+test('without JavaScript the phone page still reads, answers and signs up', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 }, baseURL: 'http://127.0.0.1:4321' });
+  const page = await context.newPage();
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Menu' })).toBeHidden();
+  await expect(page.locator('.nav-signin')).toBeVisible();
+  await page.locator('#faq summary').first().click();
+  await expect(page.locator('#faq details').first()).toHaveAttribute('open', '');
+  await expect(page.locator('#keep-posted')).toHaveAttribute('method', 'post');
+  await context.close();
+});
+
 test('the menu button is only on narrow screens', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Menu' })).toBeHidden();

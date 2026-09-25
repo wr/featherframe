@@ -21,11 +21,11 @@ const SWAY = 0.06;        // idle sway amplitude, radians
 const SWAY_PERIOD = 14;   // seconds
 const DRAG_LIMIT = 0.9;   // radians either side
 const PITCH = 0.1;        // the camera looks down this much, radians: a frame on a table, seen standing
-const FILL = 0.94;
-/** How long each picture holds: well over twice the colour refresh (about
- *  5.5 s), so the frame reads as a picture that sometimes changes, not as a
- *  frame forever refreshing. `?hold=` overrides it for tests. */
-const HOLD_MS = 14000;        // the share of the stage the frame may reach at its widest
+const FILL = 0.94;        // the share of the stage the frame may reach at its widest
+// How long each picture holds: well over twice the colour refresh (about
+// 5.5 s), so the frame reads as a picture that sometimes changes, not as a
+// frame forever refreshing. `?hold=` overrides it for tests.
+const HOLD_MS = 14000;
 // RoomEnvironment is a bright white room: at full strength it bleaches the
 // walnut to oak and, with the screen's glow, washes the picture out under ACES.
 // These keep the wood walnut and the screen's paper level with the white mat.

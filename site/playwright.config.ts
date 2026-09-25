@@ -9,11 +9,13 @@ export default defineConfig({
     launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
   },
   webServer: {
-    command: 'python3 -m http.server 4321 --bind 127.0.0.1 -d dist',
+    // test/serve.mjs: dist/ with a real listen backlog (python's http.server
+    // reset connections under parallel workers). Its stderr stays visible.
+    command: 'node test/serve.mjs',
     url: 'http://127.0.0.1:4321/',
     reuseExistingServer: true,
     stdout: 'ignore',
-    stderr: 'ignore',
+    stderr: 'pipe',
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
 });

@@ -25,6 +25,7 @@ let viewer: { dispose(): void } | undefined;
 let generation = 0;
 /** The species the card names now (or is changing to). */
 let showing = 0;
+let swap = 0;
 
 /** Change the card to species `i`. The frame calls this twice per change: as
  *  the new picture arrives mid-refresh, and again once it settles (a no-op
@@ -34,7 +35,8 @@ function showSpecies(i: number) {
   showing = i;
   const s = data!.species[i];
   label.classList.add('changing');
-  window.setTimeout(() => {
+  window.clearTimeout(swap);
+  swap = window.setTimeout(() => {
     // Each word keeps together, so a long name breaks between words, never at a hyphen.
     const text = document.createElement('span');
     text.className = 'name-text';
@@ -64,6 +66,7 @@ async function mount() {
     const v = await startViewer(stage, data.sizes[size], {
       holdMs,
       onArriving: showSpecies,
+      // data-shown is a test hook (site.spec.ts): the index the frame last settled on.
       onShown: (i) => { stage.dataset.shown = String(i); showSpecies(i); },
       poster: params.has('poster'),
     });
@@ -106,7 +109,14 @@ const setMenu = (open: boolean) => {
   menuBtn.setAttribute('aria-expanded', String(open));
   nav.classList.toggle('open', open);
 };
+document.documentElement.classList.add('js'); // the menu button needs this script
 menuBtn.addEventListener('click', () => setMenu(menu.hidden));
+// Close when focus leaves the menu and its button, or a click lands outside them.
+const inMenu = (n: EventTarget | null) => n instanceof Node && (menu.contains(n) || menuBtn.contains(n));
+for (const el of [menu, menuBtn]) {
+  el.addEventListener('focusout', (e) => { if (!menu.hidden && e.relatedTarget && !inMenu(e.relatedTarget)) setMenu(false); });
+}
+document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !inMenu(e.target)) setMenu(false); });
 menu.addEventListener('click', (e) => { if ((e.target as Element).closest('a')) setMenu(false); });
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !menu.hidden) { setMenu(false); menuBtn.focus(); }

@@ -283,7 +283,9 @@ export function createEpaperRefresh(opts: {
   onShown?: (index: number) => void;
   /** Called once per refresh with the incoming plate's index, when the
    *  refresh reaches the waveform's `arrives` phase: the moment the new
-   *  picture is first recognisable, well before it settles. */
+   *  picture is first recognisable (about 2.4 s before it settles on
+   *  spectra6; on gc16, whose refresh is a second long, at its last phase).
+   *  `freeze()` does not call it. */
   onArriving?: (index: number) => void;
   /** How long each plate holds before the next refresh (default HOLD_MS). */
   holdMs?: number;
@@ -440,6 +442,8 @@ export function createEpaperRefresh(opts: {
   let frozen: number | null = null;
   let timer = 0;
   let arrived = false;
+  /** The plate this refresh is headed for, fixed when it starts. */
+  let incoming = 0;
   /** The plate after the current one, skipping any that failed to load
    *  (the current one again when every other has). */
   const next = () => {
@@ -504,6 +508,7 @@ export function createEpaperRefresh(opts: {
         mode = 'refresh';
         clock = 0;
         arrived = false;
+        incoming = next();
         lastDraw = -Infinity;
         material.uniforms.uOld.value = plates[current];
         material.uniforms.uNew.value = upNext;
@@ -512,11 +517,11 @@ export function createEpaperRefresh(opts: {
       }
       if (!arrived && clock >= arriveAt) {
         arrived = true;
-        opts.onArriving?.(next());
+        opts.onArriving?.(incoming);
       }
       if (clock >= total) {
         draw(total);
-        current = next();
+        current = incoming;
         opts.onShown?.(current);
         trim();
         startHold(now);

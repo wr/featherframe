@@ -48,13 +48,24 @@ try {
       copyFileSync(`${dir}/season-13-${season}.jpg`, `${here}dist/_seasons/${season}.jpg`);
       await render('13', `screen&src=_seasons/${season}.jpg`, `../seasons/${season}`);
     }
-  } else if (process.argv[2] !== 'table') {
-    // `node scripts/wall.mjs table` renders the table's still alone
+  } else if (process.argv[2] === 'large') {
+    // `node scripts/wall.mjs large [slug,…]`: the wall's frames at 1600 px tall, for the
+    // lightbox (public/img/wall/large/<size>-<slug>.webp)
+    HEIGHT = 1600;
+    const only = process.argv[3]?.split(',');
+    mkdirSync(`${here}public/img/wall/large`, { recursive: true });
     for (const size of ['13', '10']) {
-      for (const [i, f] of data.sizes[size].wall.entries()) await render(size, i, `${size}-${slug(f)}`);
+      for (const [i, f] of data.sizes[size].wall.entries()) if (!only || only.includes(slug(f))) await render(size, i, `large/${size}-${slug(f)}`);
+    }
+  } else if (process.argv[2] !== 'table') {
+    // `node scripts/wall.mjs table` renders the table's still alone; `node scripts/wall.mjs only <slug,…>`
+    // those of the wall's frames alone
+    const only = process.argv[2] === 'only' ? process.argv[3].split(',') : null;
+    for (const size of ['13', '10']) {
+      for (const [i, f] of data.sizes[size].wall.entries()) if (!only || only.includes(slug(f))) await render(size, i, `${size}-${slug(f)}`);
     }
   }
-  if (process.argv[2] !== 'seasons') await render('13', 'table', 'table-13-cardinal');
+  if (process.argv[2] !== 'seasons' && process.argv[2] !== 'large' && process.argv[2] !== 'only') await render('13', 'table', 'table-13-cardinal');
 } finally {
   await browser?.close();
   server.kill();

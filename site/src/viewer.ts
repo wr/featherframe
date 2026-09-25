@@ -65,6 +65,14 @@ const SHADOW = 0.13;
 // HTML frames draw the same band in CSS (styles.css .sheen, sheen.ts), so a
 // hand-off between them does not jump. SHEEN is its strength.
 export const SHEEN = 0.16;
+// The studio light's bar (the shop's STUDIO_RIG key: a long, thin, slightly
+// warm softbox, its edges falling off, turned 20° about its face), mirrored
+// in the glass as a soft bar. At the centre stop the frame holds still while
+// the page scrolls on, as if it were travelling down past the light: the bar
+// sweeps up the glass with the scroll (`bar`, 0 below it … 1 above it).
+// BAR is its strength; BAR_ROLL its tilt.
+export const BAR = 0.34;
+const BAR_ROLL = MathUtils.degToRad(-20);
 export { sheenAt } from './sheen-at';
 // How long each picture holds in the hero's cycle: well over twice the colour
 // refresh (about 5.5 s), so the frame reads as a picture that sometimes
@@ -103,8 +111,9 @@ export interface Frame3D {
   setSize(width: number, height: number): void;
   /** Draw the frame in `pose` (plus `sway` radians of yaw, which does not move
    *  its box) fitted to `rect`, in canvas CSS pixels; `null` draws nothing.
-   *  `sheen`: where the glass's highlight crosses it (sheenAt), or none. */
-  draw(rect: Rect | null, pose: Pose, sway?: number, sheen?: number | null): void;
+   *  `sheen`: where the glass's highlight crosses it (sheenAt), or none;
+   *  `bar`: where the studio light's bar crosses it (0 … 1, up the glass), or none. */
+  draw(rect: Rect | null, pose: Pose, sway?: number, sheen?: number | null, bar?: number | null): void;
   /** True once something has really been drawn. */
   readonly drawn: boolean;
   dispose(): void;
@@ -191,7 +200,11 @@ export async function loadFrame(size: Size, opts: {
       transparent: true,
       depthWrite: false,
       toneMapped: false,
-      uniforms: { uMin: { value: bb.min.clone() }, uSize: { value: bb.getSize(new Vector3()) }, uC: { value: 0.5 }, uI: { value: 0 } },
+      uniforms: {
+        uMin: { value: bb.min.clone() }, uSize: { value: bb.getSize(new Vector3()) }, uC: { value: 0.5 }, uI: { value: 0 },
+        uBar: { value: 0 }, uBarI: { value: 0 }, uAspect: { value: bb.max.x - bb.min.x > 0 ? (bb.max.x - bb.min.x) / Math.max(1e-6, bb.max.y - bb.min.y) : 0.8 },
+        uTan: { value: Math.tan(BAR_ROLL) },
+      },
       vertexShader: /* glsl */ `
         uniform vec3 uMin;
         uniform vec3 uSize;
@@ -204,11 +217,24 @@ export async function loadFrame(size: Size, opts: {
       fragmentShader: /* glsl */ `
         uniform float uC;
         uniform float uI;
+        uniform float uBar;
+        uniform float uBarI;
+        uniform float uAspect;
+        uniform float uTan;
         varying vec2 vP;
         void main() {
           float q = (vP.x + 0.8 * vP.y) / 1.8;
-          float a = exp(-pow((q - uC) / 0.11, 2.0)) + 0.45 * exp(-pow((q - uC - 0.2) / 0.035, 2.0));
-          gl_FragColor = vec4(1.0, 1.0, 1.0, uI * a);
+          float a = uI * (exp(-pow((q - uC) / 0.11, 2.0)) + 0.45 * exp(-pow((q - uC - 0.2) / 0.035, 2.0)));
+          // the bar: a softbox's flat middle and falling edges, a wide faint glow round it,
+          // tilted, rising from below the glass (uBar 0) to above it (uBar 1)
+          float y = 1.18 - 1.36 * uBar;
+          float d = (vP.y - y) + uTan * (vP.x - 0.5) * uAspect;
+          float b = smoothstep(0.075, 0.03, abs(d)) + 0.22 * exp(-pow(d / 0.2, 2.0));
+          float ends = smoothstep(-0.25, 0.2, vP.x) * smoothstep(1.25, 0.8, vP.x);
+          b *= uBarI * ends;
+          float alpha = clamp(a + b, 0.0, 1.0);
+          vec3 tint = mix(vec3(1.0), vec3(1.0, 0.96, 0.9), b / max(alpha, 1e-4));
+          gl_FragColor = vec4(tint, alpha);
         }`,
     });
     sheen = new Mesh(g, sheenMaterial);
@@ -296,7 +322,7 @@ export async function loadFrame(size: Size, opts: {
       height = Math.max(1, h);
       renderer.setSize(width, height, false);
     },
-    draw(rect, pose, sway = 0, at = null) {
+    draw(rect, pose, sway = 0, at = null, bar = null) {
       if (!rect || rect.w <= 0 || rect.h <= 0) {
         renderer.clear();
         return;
@@ -322,9 +348,13 @@ export async function loadFrame(size: Size, opts: {
       pitch.rotation.set(pose.pitch, 0, 0);
       yaw.rotation.set(0, pose.yaw + sway, 0);
       lean.rotation.set(LEAN * (1 - pose.lean), 0, 0);
-      if (sheenMaterial) sheenMaterial.uniforms.uI.value = at === null ? 0 : SHEEN;
-      if (sheenMaterial && at !== null) sheenMaterial.uniforms.uC.value = at;
-      if (sheen) sheen.visible = at !== null;
+      if (sheenMaterial) {
+        sheenMaterial.uniforms.uI.value = at === null ? 0 : SHEEN;
+        if (at !== null) sheenMaterial.uniforms.uC.value = at;
+        sheenMaterial.uniforms.uBarI.value = bar === null ? 0 : BAR;
+        if (bar !== null) sheenMaterial.uniforms.uBar.value = bar;
+      }
+      if (sheen) sheen.visible = at !== null || bar !== null;
       floor.visible = pose.ground > 0.001;
       shadowMaterial.opacity = SHADOW * pose.ground;
       // Drawn only while the floor shows — but once before anything else, so

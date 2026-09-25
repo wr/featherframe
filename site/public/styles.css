@@ -1,5 +1,5 @@
 /* featherframe.app — a natural-history book: a cover, then chapters set on a
-   twelve-column page, each opened by a folio rule. One breakpoint, 820px. */
+   twelve-column page, each opened by a small eyebrow. One breakpoint, 820px. */
 
 @font-face { font-family: 'EB Garamond'; font-style: normal; font-weight: 400 800; font-display: swap; src: url('fonts/EBGaramond.woff2') format('woff2'); }
 @font-face { font-family: 'EB Garamond'; font-style: italic; font-weight: 400 800; font-display: swap; src: url('fonts/EBGaramond-Italic.woff2') format('woff2'); }
@@ -14,7 +14,7 @@
      --night, 0–1), and back as it leaves: every colour is its day and its
      night mixed by it. */
   --night: 0;
-  --paper: color-mix(in srgb, #0f0f0e calc(var(--night) * 100%), #fff);
+  --paper: color-mix(in srgb, #1a1a1a calc(var(--night) * 100%), #fff);
   --ink: color-mix(in srgb, #f2f1ec calc(var(--night) * 100%), #121212);
   --text: color-mix(in srgb, #d4d3cd calc(var(--night) * 100%), #3b3b39);
   --graphite: color-mix(in srgb, #9c9b95 calc(var(--night) * 100%), #6b6b69);
@@ -61,8 +61,10 @@ h2 { font-weight: 400; text-wrap: balance; }
 .page { padding: 0 var(--m); overflow-x: clip; } /* the cover's stage runs past the right edge */
 .folio {
   display: flex; justify-content: space-between; align-items: baseline;
-  border-top: 1px solid var(--ink); padding-top: 12px; margin-bottom: 96px;
+  margin-bottom: 96px;
 }
+/* each chapter's eyebrow: small capitals in graphite, no number, no rule */
+.eyebrow { font: 12px/1.35 var(--caps); letter-spacing: .22em; text-transform: uppercase; color: var(--graphite); }
 .folio .n { font: italic 15px var(--serif); color: var(--graphite); }
 .mega, .spread h2, .close .big { font-size: var(--display); line-height: .9; letter-spacing: -.035em; }
 .lede { font-size: 24px; line-height: 1.42; margin: 0; }
@@ -92,13 +94,15 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 .cover h1 .l1, .cover h1 .l2 { display: block; }
 .cover h1 .l2 { font-style: italic; margin-left: .42em; }
-/* The cover is a white room: a wall falling softly to a crisp horizon where
-   the table's back edge meets it, and the table's top lightening toward us,
-   the frame standing on it (III's table, larger). Behind the page's canvas. */
+/* The cover is a white room: a white wall darkening softly to the lightest
+   gray just above the horizon, a crisp step there to the white table, whose
+   top lightens a touch toward us; the frame's foot a little below the
+   horizon, on the table (III's table is the same room). Behind the page's canvas. */
+:root { --room-wall: #ececea; --room-table: #f7f7f5; }
 .cover::before {
   content: ""; position: absolute; z-index: -2; left: calc(-1 * var(--m)); right: calc(-1 * var(--m)); top: 0; bottom: 0;
-  --hz: calc(100% - 7vh - 0.3 * 1.2759 * min(600px, 60vh)); /* the horizon, a little up the frame's back */
-  background: linear-gradient(to bottom, #fff 0%, #fbfbfa 40%, #f3f3f0 var(--hz), #e3e3df var(--hz), #e3e3df calc(var(--hz) + 1px), #eeeeea calc(var(--hz) + 1px), #f8f8f6 calc(var(--hz) + 45%), #fff 100%);
+  --hz: calc(100% - 7vh - 0.12 * 1.2759 * min(600px, 60vh)); /* the horizon, a little above the frame's foot */
+  background: linear-gradient(to bottom, #fff 0%, var(--room-wall) var(--hz), var(--room-table) var(--hz), #fff 100%);
 }
 /* .frame is the frame itself; the stage around it is the poster's whole
    canvas (1200 × 1400, frame at 111,108 → 1086,1352), so the poster and the
@@ -144,8 +148,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 #centre-slot { width: min(100%, calc(min(90vh, 100vh - var(--nav) - 40px) * var(--flat))); margin: 0 auto; }
 /* choreo.ts reads the pinned slots where they sit unpinned */
 .measuring .pin { position: relative !important; top: auto !important; }
-/* the two flights that cross the text: the frame over it (under the running head) */
-.ff3d.over { z-index: 15; }
+/* the two flights that cross the text: the frame over it (under the running head and the wall's sticky folio) */
+.ff3d.over { z-index: 5; }
 .choreo .cover .frame.floor::after { opacity: calc(1 - 4 * var(--lift, 0)); }
 
 /* The hand-offs: the art and the table's stills are the journey's to draw;
@@ -166,7 +170,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .tone button:hover { color: var(--ink); }
 .tone button[aria-pressed="true"] { background: var(--ink); color: #fff; }
 .cat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 64px 36px; margin-top: 20px; }
-.cat .im { position: relative; transform-origin: 50% 100%; }
+.cat .im { position: relative; transform-origin: 50% 100%; cursor: zoom-in; }
+.cat .im:focus-visible { outline-offset: 6px; }
 .cat .im img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; }
 /* B&W is the 10-inch, drawn to scale beside the 13-inch: 295 mm tall to 371 */
 [data-tone="10"] .cat .im { transform: scale(0.7951); }
@@ -188,22 +193,29 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cat .by { display: block; margin-top: 6px; font: 10px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
 .cat .by i { font: italic 13px/1 var(--serif); letter-spacing: 0; text-transform: none; }
 /* the folio stays under the running head while the wall scrolls, and goes with the wall */
-.wall .folio { position: sticky; top: var(--nav); z-index: 10; padding-bottom: 12px; margin-bottom: 84px;
+.wall .folio { position: sticky; top: var(--nav); z-index: 10; padding: 14px 0 12px; margin-bottom: 84px;
                background: var(--paper); box-shadow: 0 0 0 100vmax var(--paper); clip-path: inset(0 -100vmax); }
 
 /* III. How it works: the frame on its table pinned on the right while the
    song and the photograph scroll past on the left. */
 .trip { display: grid; grid-template-columns: 7fr 5fr; column-gap: var(--gutter); align-items: start; margin-top: 96px; container-type: inline-size; }
-.lcol { padding: 4vh 0 6vh; }
-.t1 { margin-bottom: 28px; }
-.spectro { position: relative; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 14px 0; }
-.spectro img { width: 100%; }
+.lcol { padding: 8vh 0 12vh; }
+/* The video of the species heard, with its song's spectrogram laid across
+   its lower third: the ink turned white over a soft dark scrim, a playhead
+   crossing it. */
+.ph { position: relative; }
+.ph video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: #d9d9d5;
+            border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 18px 40px -18px rgba(0, 0, 0, .35); }
+.spectro { position: absolute; left: 0; right: 0; bottom: 0; height: 33.4%; padding: 3% 4% 3.4%; border-radius: 0 0 10px 10px;
+           background: linear-gradient(to top, rgba(0, 0, 0, .6), rgba(0, 0, 0, .4) 55%, rgba(0, 0, 0, 0)); }
+.spectro .sg { height: 100%; }
+.spectro img { width: 100%; height: 100%; object-fit: fill; filter: invert(1); mix-blend-mode: screen; }
 /* the spectrogram itself is the song's switch: sound on, sound off */
 .sg { position: relative; cursor: pointer; }
-.sg:focus-visible { outline-offset: 6px; }
-.playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: var(--ink); pointer-events: none; }
+.sg:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: #fff; box-shadow: 0 0 4px rgba(0, 0, 0, .4); pointer-events: none; }
 .playhead[hidden] { display: none; }
-/* the song plays itself, muted, while it is on screen; Unmute plays it again with sound */
+/* the song plays itself, muted, while it is on screen; Unmute, in the video's middle, plays it again with sound */
 .unmute {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2;
   display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 26px 0 22px;
@@ -217,12 +229,12 @@ h2 { font-weight: 400; text-wrap: balance; }
 .unmute[hidden] { display: none; }
 .mute { position: absolute; right: 0; bottom: -30px; padding: 2px 0; border: 0; background: none; color: var(--graphite); cursor: pointer; }
 .mute:hover { color: var(--ink); }
+.ph .unmute, .ph .mute { z-index: 2; }
 .mute[hidden] { display: none; }
 :root { --speaker: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 9h4l5-4v14l-5-4H3z'/%3E%3Cpath d='M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
 /* A new detection: BirdNET's side of things, so an app's notification, not
-   the book's type, pinned to the photograph's top-left corner. It slides in
-   at each detection as the frame on the table repaints to it. */
-.t2 .ph { position: relative; }
+   the book's type, pinned to the video's top-left corner. It slides in at the
+   first detection and stays; at each one after, its name changes. */
 .toast {
   position: absolute; left: -22px; top: -26px; z-index: 3;
   display: flex; align-items: center; gap: 12px; min-width: 260px; padding: 10px 14px 10px 10px;
@@ -231,25 +243,27 @@ h2 { font-weight: 400; text-wrap: balance; }
   opacity: 0; transform: translate(-12px, -6px); transition: opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1); pointer-events: none;
 }
 .toast.on { opacity: 1; transform: none; }
+.toast.swap .nm { animation: ff-swap .5s cubic-bezier(.2, .8, .2, 1); }
+.toast.swap .ic { animation: ff-ping .6s ease; }
+@keyframes ff-swap { from { opacity: 0; transform: translateY(8px); } }
+@keyframes ff-ping { 40% { transform: scale(1.12); } }
 .toast .ic { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #121212; color: #fff; }
 .toast .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .toast .k { font: 500 12px/1.35 var(--sans); color: #6b6b69; }
 .toast .nm { font: 600 16px/1.3 var(--sans); color: #121212; white-space: nowrap; }
 .toast .when { align-self: flex-start; margin: 1px 0 0 14px; font: 400 12px/1.35 var(--sans); color: #6b6b69; white-space: nowrap; }
-.t2 { margin-top: 14vh; }
-/* the photograph set like a print: rounded a little, lifted a little */
-.t2 img { width: 100%; border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 18px 40px -18px rgba(0, 0, 0, .35); }
 .t2 figcaption { margin-top: 14px; color: var(--graphite); font-size: 15px; }
 /* the table's box is 1.1008 × its width (its padding and the slot's aspect) */
 .t3 { --h: calc((100cqw - var(--gutter)) * 5 / 12 * 1.1008); position: sticky; top: max(var(--nav), calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2)); }
-/* The frame on a white table against a white wall: the wall's soft fall to
-   the horizon, a crisp line where the table's edge meets it, the table's top
-   lightening toward us. Behind the page's canvas (z-index -2), so the frame
+/* The frame on a white table against a white wall: the cover's room (the
+   wall's soft fall to the lightest gray, a crisp step to the white table at
+   the horizon, the table lightening toward us), the frame's foot a little
+   below the horizon. Behind the page's canvas (z-index -2), so the frame
    stands in front of it. */
 .table { position: relative; padding: 16% 17% 9%; }
 .table::before {
   content: ""; position: absolute; inset: 0; z-index: -2;
-  background: linear-gradient(to bottom, #fff 0%, #f6f6f4 72%, #e8e8e4 72%, #e8e8e4 calc(72% + 1px), #f1f1ee calc(72% + 1px), #fbfbfa 100%);
+  background: linear-gradient(to bottom, #fff 0%, var(--room-wall) 82%, var(--room-table) 82%, #fff 100%);
   /* no edges of its own: it fades into the page at the sides */
   -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
   mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
@@ -269,6 +283,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .logos a { display: inline-flex; align-items: center; gap: 9px; font-size: 17px; color: var(--ink); filter: grayscale(1); }
 .logos a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .logos img { width: 28px; height: 28px; }
+/* BirdWeather's mark is drawn in ink: at night, in the night's ink */
+.logos img[src$=".svg"] { filter: invert(var(--night)); }
 
 /* IV. The collage: a year of sheets, spring round to spring again. On a
    desktop the row is pinned and slides sideways as the page scrolls down
@@ -343,19 +359,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .qa dt:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
 .qa dd { margin: 10px 0 0; max-width: 60ch; font-size: 19px; color: var(--text); }
 
-/* Close: the frame's parts, drawn apart, large and quiet beside the headline,
-   which runs a little over them */
-.close { position: relative; isolation: isolate; margin-top: 210px; text-align: center; }
-.close .exploded { position: relative; z-index: -1; opacity: .5; pointer-events: none; }
-.close .exploded img { width: 100%; }
-@media (min-width: 821px) {
-  .close { display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: 1fr auto auto auto 1fr; column-gap: var(--gutter); text-align: left; }
-  .close .exploded { grid-column: 5 / 13; grid-row: 1 / -1; align-self: center; }
-  .close .big, .close p, .close .btn { grid-column: 1 / 8; }
-  .close .big { grid-row: 2; }
-  .close p { grid-row: 3; margin: 48px 0 34px; }
-  .close .btn { grid-row: 4; justify-self: start; }
-}
+/* Close */
+.close { margin-top: 210px; text-align: center; }
 .close .big { margin: 0; }
 .close .big i { display: block; }
 .close p { margin: 64px 0 38px; font-size: 22px; color: var(--graphite); }
@@ -421,8 +426,8 @@ h2 { font-weight: 400; text-wrap: balance; }
      the frame, the table top lightening toward us (the frame's box ends at its feet) */
   .frame::before {
     content: ""; position: absolute; z-index: -1; left: -100vw; right: -100vw; top: 0; bottom: -34px;
-    --hz: calc(0.6966 * (100vw - 2 * var(--m))); /* 70% of the frame's height (its width, 78% of the page, × 1.2759) */
-    background: linear-gradient(to bottom, #fff 0%, #fafaf9 30%, #f3f3f0 var(--hz), #e3e3df var(--hz), #e3e3df calc(var(--hz) + 1px), #eeeeea calc(var(--hz) + 1px), #f7f7f5 88%, #fff 100%);
+    --hz: calc(0.8758 * (100vw - 2 * var(--m))); /* 88% of the frame's height (its width, 78% of the page, × 1.2759) */
+    background: linear-gradient(to bottom, #fff 0%, var(--room-wall) var(--hz), var(--room-table) var(--hz), #fff 100%);
   }
   .cover .copy { position: static; width: auto; margin-top: 44px; }
 
@@ -439,7 +444,6 @@ h2 { font-weight: 400; text-wrap: balance; }
   .folio .r { gap: 16px; }
   .trip { grid-template-columns: 1fr; row-gap: 28px; }
   .lcol { padding: 0; }
-  .t2 { margin-top: 48px; }
   .toast { left: -10px; top: -22px; min-width: 0; }
   .t3 { position: static; }
   .cover::before { display: none; }
@@ -453,7 +457,6 @@ h2 { font-weight: 400; text-wrap: balance; }
   .qa { margin-left: 0; }
   .qa dt { font-size: 23px; }
   .close { margin-top: 230px; }
-  .close .exploded { margin: 0 -4% -6%; }
   .colophon { display: block; }
   .colophon > * { margin-bottom: 28px; }
   .colophon .d { margin-top: 0; }
@@ -461,4 +464,25 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 @media (prefers-reduced-motion: reduce) {
   .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im, .toast, .season .ico { transition: none; }
+  .toast.swap .nm, .toast.swap .ic { animation: none; }
 }
+
+/* A wall frame, opened large (lightbox.ts): as large as fits, its caption
+   under it, over the page's paper at 96%. */
+.lb-open { overflow: hidden; }
+.lightbox {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 3vh 24px;
+  background: color-mix(in srgb, var(--paper) 96%, transparent); cursor: zoom-out;
+}
+.lightbox figure { display: flex; flex-direction: column; align-items: center; cursor: auto; }
+.lightbox img { height: min(calc(94vh - 110px), calc((100vw - 48px) / var(--flat))); width: auto; max-width: none; transform-origin: 0 0; }
+.lightbox figcaption { width: 100%; max-width: 34em; margin-top: 18px; text-align: center; border-top: 1px solid var(--hair); padding-top: 10px; }
+.lightbox .nm { display: block; font-size: 22px; line-height: 1.2; }
+.lightbox .la { display: block; font: italic 16px var(--serif); color: var(--graphite); }
+.lightbox .by { display: block; margin-top: 6px; font: 10px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
+.lightbox .by i { font: italic 13px/1 var(--serif); letter-spacing: 0; text-transform: none; }
+.lb-close {
+  position: absolute; top: 18px; right: 18px; display: grid; place-items: center; width: 44px; height: 44px;
+  border: 0; border-radius: 50%; background: none; color: var(--ink); cursor: pointer;
+}
+.lb-close:hover { background: var(--hair); }

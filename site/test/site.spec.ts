@@ -30,13 +30,16 @@ test('every section and its key copy is there', async ({ page }) => {
     ['#art', '#how', '#specs', '#faq', 'https://shop.wells.ee/products/featherframe/']);
   await expect(page.locator('#art h2')).toHaveText('More than 1,300 species, colored by hand.');
   await expect(page.locator('#how h2')).toHaveText('Meet the birds you only hear.');
-  await expect(page.locator('#collage h2')).toHaveText('The whole day, on one sheet.');
-  await expect(page.locator('#specs .folio')).toHaveText('V. Technical details');
+  await expect(page.locator('#collage h2')).toHaveText('At night, the whole day on one sheet.');
+  // "At night, the whole day" roman, "on one sheet." italic
+  await expect(page.locator('#collage h2 i')).toHaveText('on one sheet.');
+  await expect(page.locator('#collage .lede')).toHaveText('The frame shows every species heard that day on one sheet, numbered and keyed like a page in an old natural history book.');
+  await expect(page.locator('#specs .folio')).toHaveText('Technical details');
   await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Hosting']);
   await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10-inch: 232 × 295 × 28 mm13-inch: 295 × 371 × 28 mm');
-  // the exploded drawing stands beside the reservation, not in the details
-  await expect(page.locator('.close .exploded img')).toHaveAttribute('src', 'img/exploded.webp');
-  await expect(page.locator('#specs .exploded')).toHaveCount(0);
+  // no exploded drawing anywhere: the reservation is its headline, line and button
+  await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
+  await expect(page.locator('.close > *')).toHaveCount(3);
   await expect(page.locator('#how .logos .sc')).toHaveText('Integrates with');
   await expect(page.locator('#how')).not.toContainText('Detections by');
   await expect(page.locator('body')).not.toContainText('heard at 07:02');
@@ -49,6 +52,12 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage .season:not(.coda) img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
   await expect(page.locator('#faq dt')).toHaveCount(4);
   await expect(page.locator('.cat figure')).toHaveCount(12);
+  // the Carolina Parakeet first (the art stop's bird), the Wood Duck in its old place
+  await expect(page.locator('.cat figure').first().locator('figcaption')).toHaveText('Carolina ParakeetConuropsis carolinensisJohn James Audubon · The Birds of America');
+  await expect(page.locator('.cat figure').nth(8).locator('figcaption')).toHaveText('Wood DuckAix sponsaJohn James Audubon · The Birds of America');
+  await expect(page.locator('.cat figure').first().locator('img')).toHaveAttribute('data-still', 'carolina-parakeet');
+  await expect(page.locator('#art-slot .still')).toHaveAttribute('src', 'img/wall/13-carolina-parakeet.webp');
+  await expect(page.locator('body')).not.toContainText('Flamingo');
   await expect(page.locator('.tone button')).toHaveText(['Color', 'B&W']);
   for (const link of await page.getByRole('link', { name: 'Pre-order' }).all()) {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
@@ -293,13 +302,29 @@ test('each new detection is announced and the frame on the table repaints to it'
   await page.evaluate(() => scrollTo(0, document.querySelector('.spectro')!.getBoundingClientRect().top + scrollY - 120));
   const table = page.locator('#table-slot');
   const toast = page.locator('.toast');
+  const video = page.locator('#how video');
+  const credit = page.locator('#how .t2 figcaption');
+  const src = () => video.evaluate((v: HTMLVideoElement) => v.currentSrc || v.querySelector('source')!.src);
   await expect(toast).toHaveClass(/\bon\b/);
   await expect(toast.locator('.nm')).toHaveText('Northern Cardinal');
+  await expect(credit).toHaveText('Video by Kelly, Pexels');
+  expect(await src()).toMatch(/video\/cardinal\.(webm|mp4)$/);
   await expect(table).toHaveAttribute('data-shown', 'cardinal', { timeout: 15_000 });
   await expect(toast.locator('.nm')).toHaveText('Blue Jay', { timeout: 15_000 });
+  // the card stays up through the detections; the video follows the species
+  await expect(toast).toHaveClass(/\bon\b/);
+  await expect.poll(src).toMatch(/video\/blue-jay\.(webm|mp4)$/);
+  await expect(video).toHaveAttribute('poster', 'video/blue-jay.webp');
+  await expect(credit).toHaveText('Video by Matt MacGillivray, Wikimedia Commons');
   await expect(table).toHaveAttribute('data-shown', 'blue-jay', { timeout: 15_000 });
   await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-blue-jay.webp');
+  await page.waitForTimeout(5000);
+  await expect(toast).toHaveClass(/\bon\b/);
+  expect(await toast.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
   await expect(toast.locator('.nm')).toHaveText('American Goldfinch', { timeout: 15_000 });
+  await expect(toast).toHaveClass(/\bon\b/);
+  await expect.poll(src).toMatch(/video\/goldfinch\.(webm|mp4)$/);
+  await expect(credit).toHaveText('Video by Katja Schulz, Wikimedia Commons');
   await expect(table).toHaveAttribute('data-shown', 'goldfinch', { timeout: 15_000 });
 });
 
@@ -458,7 +483,7 @@ test('the spectrogram is the song\'s switch: a click turns the sound on, and off
   await expect(sg).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('a new detection is a notification pinned to the photograph', async ({ page }) => {
+test('a new detection is a notification pinned to the video', async ({ page }) => {
   await page.goto('/');
   const toast = page.locator('#how .toast');
   await expect(toast).toHaveCount(1);
@@ -479,7 +504,7 @@ test('a new detection is a notification pinned to the photograph', async ({ page
   })));
   expect(name).toEqual(['Inter', '16px', '600']);
   expect(kicker).toEqual(['Inter', '12px', '500']);
-  const [t, ph] = await Promise.all([toast.boundingBox(), page.locator('.t2 .ph img').boundingBox()]);
+  const [t, ph] = await Promise.all([toast.boundingBox(), page.locator('.t2 .ph video').boundingBox()]);
   expect(t!.x).toBeLessThan(ph!.x + 10);
   expect(t!.y).toBeLessThan(ph!.y + 10);
   expect(t!.y + t!.height).toBeGreaterThan(ph!.y);
@@ -501,9 +526,10 @@ test('the page turns to night for the collage, and back to day after it', async 
   const box = await page.locator('#collage').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
   await page.evaluate((y) => scrollTo(0, y), box.y + 200);
   await expect(html).toHaveClass(/\bnight\b/);
-  await expect.poll(bg).toBe('15,15,14');
+  await expect.poll(bg).toBe('26,26,26');
+  expect(await page.locator('body').evaluate((e) => getComputedStyle(e).backgroundColor)).toMatch(/^rgb\(26, 26, 26\)$|^color\(srgb 0\.10196\d* 0\.10196\d* 0\.10196\d*\)$/);
   // the running head goes dark with it
-  expect(await colour('.head', 'backgroundColor')).toBe('15,15,14');
+  expect(await colour('.head', 'backgroundColor')).toBe('26,26,26');
   expect(await colour('#collage h2', 'color')).toBe('242,241,236');
   await page.evaluate((y) => scrollTo(0, y), box.y + box.h + 200);
   await expect(html).not.toHaveClass(/\bnight\b/);
@@ -546,4 +572,160 @@ test('on a phone the cover\'s frame stands on the table too', async ({ page }) =
     page.locator('.cover .frame').boundingBox(),
   ]);
   expect(room).toBeGreaterThan(frame!.width);
+});
+
+test('the video plays muted in view, with the spectrogram over its lower third', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const video = page.locator('#how video');
+  await expect(video).toHaveJSProperty('muted', true);
+  await expect(video).toHaveAttribute('loop', '');
+  await video.scrollIntoViewIfNeeded();
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused && v.currentTime > 0.2), { timeout: 20_000 }).toBe(true);
+  const [v, sp, un] = await Promise.all([video, page.locator('.spectro'), page.locator('.unmute')].map((l) => l.boundingBox()));
+  // a band across the video's lower third
+  expect(Math.abs(sp!.y + sp!.height - (v!.y + v!.height))).toBeLessThan(2);
+  expect(Math.abs(sp!.height - v!.height / 3)).toBeLessThan(4);
+  expect(Math.abs(sp!.width - v!.width)).toBeLessThan(2);
+  // Unmute in the middle of the video
+  expect(Math.abs(un!.x + un!.width / 2 - (v!.x + v!.width / 2))).toBeLessThan(2);
+  expect(Math.abs(un!.y + un!.height / 2 - (v!.y + v!.height / 2))).toBeLessThan(2);
+  // the ink drawn white
+  expect(await page.locator('.spectro img').evaluate((e) => getComputedStyle(e).filter)).toContain('invert(1)');
+});
+
+test('with reduced motion the video shows its poster and does not play', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const video = page.locator('#how video');
+  await video.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1500);
+  await expect(video).toHaveAttribute('poster', 'video/cardinal.webp');
+  expect(await video.evaluate((v: HTMLVideoElement) => [v.paused, v.autoplay])).toEqual([true, false]);
+});
+
+test('the frame freezes dead centre for its dwell while a light bar sweeps its glass', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  const [s0, s1] = await page.evaluate(() => (window as any).__ff().stops[1].slice(0, 2));
+  expect(s1 - s0).toBeGreaterThan(200);
+  const at = async (y: number) => {
+    await page.evaluate((y) => scrollTo(0, y), y);
+    return page.evaluate(() => (window as any).__ff().st);
+  };
+  const states = [];
+  for (const f of [0, 0.25, 0.5, 0.75, 1]) states.push(await at(Math.round(s0 + f * (s1 - s0))));
+  for (const st of states) {
+    expect(st.rect.y).toBeCloseTo(states[0].rect.y, 3);
+    expect(st.rect.h).toBeCloseTo(states[0].rect.h, 3);
+    expect(st.rect.x).toBeCloseTo(states[0].rect.x, 3);
+  }
+  // dead centre in the window below the running head, and wholly on screen
+  const nav = await page.locator('.head').evaluate((e) => e.getBoundingClientRect().height);
+  const r = states[0].rect;
+  expect(Math.abs(r.y - nav - (900 - nav - r.h) / 2)).toBeLessThan(1);
+  expect(r.y).toBeGreaterThanOrEqual(nav);
+  expect(r.y + r.h).toBeLessThanOrEqual(900);
+  // the bar rises through the dwell
+  const bars = states.map((st) => st.bar);
+  for (let i = 1; i < bars.length; i++) expect(bars[i]).toBeGreaterThan(bars[i - 1]);
+  // on the way in from the cover, the frame never leaves the window's top or bottom
+  for (const f of [0.2, 0.4, 0.6, 0.8]) {
+    const st = await at(Math.round(f * s0));
+    expect(st.rect.y).toBeGreaterThanOrEqual(nav - 1);
+    expect(st.rect.y + st.rect.h).toBeLessThanOrEqual(901);
+  }
+});
+
+test('a wall frame opens large and closes again', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const frame = page.locator('.wall .cat figure').nth(8).locator('.im');
+  await expect(frame).toHaveAttribute('role', 'button');
+  await expect(frame).toHaveAttribute('aria-label', 'Wood Duck');
+  await frame.scrollIntoViewIfNeeded();
+  const box = page.locator('.lightbox');
+  // a click opens it, centred, as large as fits, with its caption's three lines
+  await frame.click();
+  await expect(box).toBeVisible();
+  await expect(box).toHaveAttribute('role', 'dialog');
+  await expect(box.locator('figcaption')).toHaveText('Wood DuckAix sponsaJohn James Audubon · The Birds of America');
+  const close = box.getByRole('button', { name: 'Close' });
+  await expect(close).toBeFocused();
+  await page.waitForTimeout(600);
+  const img = (await box.locator('img').boundingBox())!;
+  expect(img.height).toBeGreaterThan(900 * 0.75);
+  expect(Math.abs(img.x + img.width / 2 - 720)).toBeLessThan(2);
+  // white at 96%
+  const bgc = await box.evaluate((e) => getComputedStyle(e).backgroundColor);
+  expect(Number(bgc.match(/([\d.]+)\)$/)![1])).toBeCloseTo(0.96, 1);
+  expect(bgc).toMatch(/^(rgba\(255, 255, 255|oklab\(0\.99|color\(srgb 1 1 1)/);
+  // focus stays in it
+  await page.keyboard.press('Tab');
+  await expect(close).toBeFocused();
+  // Esc closes it, and the focus goes back to the frame
+  await page.keyboard.press('Escape');
+  await expect(box).toHaveCount(0);
+  await expect(frame).toBeFocused();
+  // Enter opens it; a click outside closes it
+  await page.keyboard.press('Enter');
+  await expect(box).toBeVisible();
+  await page.waitForTimeout(600);
+  await page.mouse.click(30, 450);
+  await expect(box).toHaveCount(0);
+  await expect(frame).toBeFocused();
+  // and Close closes it
+  await frame.click();
+  await page.waitForTimeout(600);
+  await close.click();
+  await expect(box).toHaveCount(0);
+  await expect(frame).toBeFocused();
+});
+
+test('the last frame tears off under the sticky folio, and flies under it and the running head', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  const tear = await page.evaluate(() => { const f = (window as any).__ff(); return f.stops[f.stops.length - 2][0]; });
+  await page.evaluate((y) => scrollTo(0, y), tear);
+  const [nav, folio, last] = await Promise.all(['.head', '.wall .folio', '.wall .cat figure:last-child .im'].map((s) =>
+    page.locator(s).evaluate((e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; })));
+  // it sets off while wholly on screen, its top just under the folio
+  expect(Math.abs(folio.top - nav.bottom)).toBeLessThan(2);
+  expect(last.top).toBeGreaterThanOrEqual(folio.bottom);
+  expect(last.top - folio.bottom).toBeLessThan(30);
+  // on its way to the table it is drawn over the text but under the folio and the head
+  await page.evaluate((y) => scrollTo(0, y + 150), tear);
+  await expect(page.locator('canvas.ff3d:not(.empty)')).toHaveClass(/\bover\b/);
+  const z = (sel: string) => page.locator(sel).first().evaluate((e) => Number(getComputedStyle(e).zIndex));
+  const canvas = await z('canvas.ff3d:not(.empty)');
+  expect(canvas).toBeGreaterThan(0);
+  expect(canvas).toBeLessThan(await z('.wall .folio'));
+  expect(canvas).toBeLessThan(await z('.head'));
+  // and it does not ride up with the page as it leaves
+  const st = await page.evaluate(() => (window as any).__ff().st.rect);
+  expect(st.y).toBeGreaterThanOrEqual(folio.bottom - 1);
+});
+
+test('each chapter opens with an eyebrow, not a numbered rule', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.folio .eyebrow')).toHaveText(['The art', 'From the collection', 'How it works', 'The collage', 'Technical details', 'Questions']);
+  for (const f of await page.locator('.folio').all()) {
+    expect(await f.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe('0px');
+  }
+  const [size, colour, graphite] = await page.locator('.folio .eyebrow').first().evaluate((e) => {
+    const c = getComputedStyle(e);
+    const g = document.createElement('span');
+    g.style.color = 'var(--graphite)';
+    document.body.append(g);
+    const out = [c.fontSize, c.color, getComputedStyle(g).color];
+    g.remove();
+    return out;
+  });
+  expect(size).toBe('12px');
+  expect(colour).toBe(graphite);
+  expect(await page.locator('body').innerText()).not.toMatch(/\b(I|II|III|IV|V|VI)\. /);
+  // the collection's sticky row keeps its switch
+  await expect(page.locator('.wall .folio .tone button')).toHaveCount(2);
 });

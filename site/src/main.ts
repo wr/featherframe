@@ -5,6 +5,7 @@ import type { SiteData } from './card';
 import { startSheen } from './sheen';
 import { startSeasons } from './seasons';
 import { startNight } from './night';
+import { startLightbox } from './lightbox';
 
 const params = new URLSearchParams(location.search);
 const holdMs = params.has('hold') ? Number(params.get('hold')) : undefined;
@@ -87,35 +88,62 @@ try { stored = localStorage.getItem(TONE_KEY); } catch { /* storage blocked: col
 setTone(stored ?? '13', false);
 for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!, true));
 if (!reduced) startSheen([...document.querySelectorAll<HTMLElement>('.wall .cat .im')]);
+// …and any of its frames opens large on a click.
+if (!wall) startLightbox(reduced);
 
 // IV. The seasons' row, sliding sideways as the page scrolls (desktop, motion welcome).
 if (!reduced && !wall) startSeasons();
 // …and the page turns to night around it.
 if (!wall) startNight();
 
-// III. The detections: each species' recording plays itself, muted, while its spectrogram is on screen, a
-// playhead crossing it; when one ends the next is heard — a card by the song says so (New detection), and the
-// frame on the table repaints to it (choreo.ts follows <html data-detected>). Unmute plays the recording from
+// III. The detections: each species' recording plays itself, muted, while its video is on screen, its
+// spectrogram laid over the video with a playhead crossing it; when one ends the next is heard — the video
+// changes to that species, the card on the video says so (New detection: it stays up, and its name changes
+// with each detection), and the frame on the table repaints to it (choreo.ts follows <html data-detected>). Unmute plays the recording from
 // the start with sound, and the ones after it too, until Mute. With reduced motion nothing plays by itself:
 // the button reads Play the song and plays the one on screen. The spectrogram itself is the same switch, both
-// ways (aria-pressed: with sound). The card is a notification on the photograph (BirdNET's, not the book's).
+// ways (aria-pressed: with sound). The card is a notification on the video (BirdNET's, not the book's).
+// With reduced motion the video does not play: its poster frame shows.
 const DETECTIONS = [
-  { slug: 'cardinal', name: 'Northern Cardinal', audio: 'audio/cardinal-song.mp3', spectrogram: 'img/spectrogram.webp' },
-  { slug: 'blue-jay', name: 'Blue Jay', audio: 'audio/blue-jay-song.mp3', spectrogram: 'img/spectrogram-blue-jay.webp' },
-  { slug: 'goldfinch', name: 'American Goldfinch', audio: 'audio/goldfinch-song.mp3', spectrogram: 'img/spectrogram-goldfinch.webp' },
+  { slug: 'cardinal', name: 'Northern Cardinal', audio: 'audio/cardinal-song.mp3', spectrogram: 'img/spectrogram.webp', video: 'video/cardinal', credit: 'Video by Kelly, Pexels' },
+  { slug: 'blue-jay', name: 'Blue Jay', audio: 'audio/blue-jay-song.mp3', spectrogram: 'img/spectrogram-blue-jay.webp', video: 'video/blue-jay', credit: 'Video by Matt MacGillivray, Wikimedia Commons' },
+  { slug: 'goldfinch', name: 'American Goldfinch', audio: 'audio/goldfinch-song.mp3', spectrogram: 'img/spectrogram-goldfinch.webp', video: 'video/goldfinch', credit: 'Video by Katja Schulz, Wikimedia Commons' },
 ];
-const TOAST_MS = 4500;
 const song = document.getElementById('song') as HTMLAudioElement;
-const spectro = document.querySelector<HTMLElement>('.spectro')!;
+const ph = document.querySelector<HTMLElement>('#how .ph')!;
+const video = document.getElementById('bird') as HTMLVideoElement;
+const credit = document.querySelector<HTMLElement>('#how .credit')!;
+const spectro = ph.querySelector<HTMLElement>('.spectro')!;
 const spectroImg = spectro.querySelector('img')!;
 const sg = spectro.querySelector<HTMLElement>('.sg')!;
 const playhead = spectro.querySelector<HTMLElement>('.playhead')!;
-const unmute = spectro.querySelector<HTMLButtonElement>('.unmute')!;
-const mute = spectro.querySelector<HTMLButtonElement>('.mute')!;
+const unmute = ph.querySelector<HTMLButtonElement>('.unmute')!;
+const mute = ph.querySelector<HTMLButtonElement>('.mute')!;
 const toast = document.querySelector<HTMLElement>('#how .toast')!;
+const toastName = toast.querySelector<HTMLElement>('.nm')!;
 const table = document.getElementById('table-slot');
-let heard = 0, sound = false, inView = false, follow = 0, toastTimer = 0;
+let heard = 0, sound = false, inView = false, follow = 0;
 if (reduced) unmute.textContent = 'Play the song';
+const playVideo = () => {
+  if (reduced || !inView) return;
+  if (video.preload !== 'auto') video.preload = 'auto';
+  video.play().catch(() => { /* refused: the poster stays */ });
+};
+/** The video of detection `i`: its poster at once, then (in view, motion welcome) its loop. */
+const showVideo = (i: number) => {
+  const d = DETECTIONS[i];
+  if (video.dataset.species === d.slug) return;
+  video.dataset.species = d.slug;
+  video.setAttribute('aria-label', d.name);
+  credit.textContent = d.credit;
+  const sources = video.querySelectorAll('source');
+  sources[0].src = `${d.video}.webm`;
+  sources[1].src = `${d.video}.mp4`;
+  video.poster = `${d.video}.webp`;
+  video.load();
+  playVideo();
+};
+video.dataset.species = DETECTIONS[0].slug;
 
 const track = () => {
   if (song.duration) playhead.style.left = `${(song.currentTime / song.duration) * 100}%`;
@@ -127,13 +155,16 @@ const detect = (i: number) => {
   root.dataset.detected = d.slug;
   if (table) table.dataset.species = d.slug;
   document.dispatchEvent(new Event('ff-detect'));
-  toast.querySelector('.nm')!.textContent = d.name;
-  // slide in again for each detection, even one that follows another at once
-  toast.classList.remove('on');
-  void toast.offsetWidth;
+  showVideo(i);
+  // the card comes in once and stays; each detection after that changes its name, animated
+  const was = toast.classList.contains('on');
+  toastName.textContent = d.name;
   toast.classList.add('on');
-  clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => toast.classList.remove('on'), TOAST_MS);
+  if (was) {
+    toast.classList.remove('swap');
+    void toast.offsetWidth;
+    toast.classList.add('swap');
+  }
 };
 const load = (i: number) => {
   const d = DETECTIONS[i];
@@ -200,13 +231,17 @@ new IntersectionObserver(([e]) => {
   inView = e.isIntersecting;
   if (reduced) return;
   if (inView) {
+    playVideo();
     if (song.paused) {
       if (song.preload !== 'auto') { song.preload = 'auto'; }
       if (!song.currentTime && !toast.classList.contains('on')) detect(heard);
       play();
     }
-  } else if (!song.paused) song.pause();
-}, { threshold: 0.4 }).observe(spectro);
+  } else {
+    if (!video.paused) video.pause();
+    if (!song.paused) song.pause();
+  }
+}, { threshold: 0.4 }).observe(ph);
 
 const form = document.getElementById('keep-posted') as HTMLFormElement;
 const note = form.querySelector('.form-note')!;

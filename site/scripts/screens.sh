@@ -8,7 +8,7 @@
 # The hero's four (models/screens/{10,13}-<slug>.jpg) come the same way, so
 # every screen on the page carries the same corner mark.
 #
-#   site/scripts/screens.sh [wall|hero|all]   (needs server/.venv and the
+#   site/scripts/screens.sh [wall|hero|all] [slug]   (a slug renders that one alone; needs server/.venv and the
 #       plates; FF_SERVER=<a checkout's server/> to use another one)
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,6 +16,7 @@ server="$(cd "${FF_SERVER:-$here/../server}" && pwd)"
 out="$here/public/models/screens"
 render="$server/../test_output"
 which="${1:-all}"
+only="${2:-}"
 HERO=(
   "nighthawk|Common Nighthawk"
   "cardinal|Northern Cardinal"
@@ -23,7 +24,7 @@ HERO=(
   "goldfinch|American Goldfinch"
 )
 SPECIES=(
-  "flamingo|American Flamingo"
+  "carolina-parakeet|Carolina Parakeet"
   "blue-jay|Blue Jay"
   "common-kingfisher|Common Kingfisher"
   "cardinal|Northern Cardinal"
@@ -31,7 +32,7 @@ SPECIES=(
   "bee-eater|European Bee-eater"
   "snowy-owl|Snowy Owl"
   "lorikeet|Rainbow Lorikeet"
-  "carolina-parakeet|Carolina Parakeet"
+  "wood-duck|Wood Duck"
   "hoopoe|Eurasian Hoopoe"
   "roller|European Roller"
   "baltimore-oriole|Baltimore Oriole"
@@ -39,6 +40,7 @@ SPECIES=(
 export FEATHERFRAME_NO_MDNS=1
 render_one() { # slug, name, output prefix
   local slug="$1" name="$2" prefix="$3"
+  [ -n "$only" ] && [ "$only" != "$slug" ] && return 0
   local file; file="$(echo "$name" | tr 'A-Z ' 'a-z_').png"
   for size in 10 13; do
     panel=ee03; [ "$size" = 13 ] && panel=ee02

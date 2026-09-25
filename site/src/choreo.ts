@@ -3,11 +3,12 @@
 // travels between.
 //
 //   hero      the cover's frame, three-quarter on its kickstand on the cover's table
-//   centre    dead-on, about 90% of the viewport tall, drifting up at 0.3× the scroll
-//   art       dead-on in the art spread's left half, showing the flamingo, pinned
+//   centre    dead-on, about 90% of the viewport tall, frozen dead centre for its
+//             dwell while a studio light's bar sweeps up its glass
+//   art       dead-on in the art spread's left half, showing the Carolina Parakeet, pinned
 //             there while the spread's text scrolls past
 //   wall 1    the gallery wall's empty first place: the still takes over there
-//   wall 12   the wall's last frame tears off where the still hands back…
+//   wall 12   the wall's last frame tears off as its top meets the sticky folio…
 //   table     …and leans back on its kickstand on III's table, pinned while the
 //             song and the photograph scroll past
 //
@@ -16,12 +17,15 @@
 // pinned stop is a sticky slot, and the frame follows its sticking. A stop
 // holds over a range of scroll; between two stops the frame's box and pose
 // ease (smoothstep) from one to the other, each end still moving with the page
-// as it does at rest. Layout is read only on resize and font load; each frame
+// as it does at rest — except out of a `hold` stop, whose flight starts from
+// where the frame was when it set off (the hero, the torn-off frame), so the
+// frame never rides up with the page before it turns for its next stop. Layout is read only on resize and font load; each frame
 // reads scrollY alone. Nothing is drawn while nothing changes.
 //
 // The canvas sits behind the text, except on the two flights that cross it —
 // down into the wall's first place, and from the wall's last to the table —
-// where the frame passes over the folios and captions it flies across.
+// where the frame passes over the captions it flies across, but still under
+// the running head and the wall's sticky folio.
 //
 // With the wall on B&W, the frame that leaves the cover is the 10-inch in
 // sixteen grays (loaded when B&W is first chosen): it takes over from the
@@ -32,10 +36,10 @@ import type { SiteData, Size } from './card';
 
 const SWAY = 0.06;        // the hero's idle sway, radians
 const SWAY_PERIOD = 14;   // seconds
-const DRIFT = 0.3;        // the centre stop moves at this share of the scroll
 const ART_LINGER = 0.1;   // viewport heights the art stop holds past its pin's release
 const LAND_AT = 0.92;     // the wall's first place is landed in with its bottom this far down the window
 const CONTACT = 8;        // px: the table's shadow comes in over the frame's last this many of descent
+const TEAR_GAP = 12;      // px: the wall's last frame tears off with its top this far under the sticky folio
 
 // The poster's canvas is 1200 × 1400 with the frame at 111,108 → 1086,1352.
 export const heroRect = (stage: DOMRect | Rect, offsetY = 0): Rect => {
@@ -51,7 +55,7 @@ const lerpRect = (a: Rect, b: Rect, t: number): Rect => ({
 });
 
 /** What the frame shows: on the table, the latest detection (main.ts, <html data-detected>). */
-type Screen = 'cycle' | 'flamingo' | 'oriole' | 'table';
+type Screen = 'cycle' | 'art' | 'oriole' | 'table';
 type Model = '13' | '10';
 
 interface Stop {
@@ -66,6 +70,10 @@ interface Stop {
   path?: 'drop';
   /** The flight in crosses the page's text: draw the frame over it. */
   over?: boolean;
+  /** The flight out starts from where the frame was at s1, not moving with the page. */
+  hold?: boolean;
+  /** A light bar sweeps its glass as the page scrolls through its hold. */
+  bar?: boolean;
 }
 
 interface Layout {
@@ -129,23 +137,19 @@ function measureNow(els: Els): Layout {
   const nav = els.head ? els.head.getBoundingClientRect().height : 0;
   const stops: Stop[] = [];
   const hero = heroRect(els.stage.getBoundingClientRect(), scrollY);
-  stops.push({ rect: scrolled(hero), pose: HERO, s0: -Infinity, s1: 0 });
+  stops.push({ rect: scrolled(hero), pose: HERO, s0: -Infinity, s1: 0, hold: true });
   let landAt = Infinity, tearAt = Infinity;
   const after = (s: number, min: number) => Math.max(s, stops[stops.length - 1].s1 + min * vh);
 
   if (els.centre) {
-    // Its size and x from the slot; on screen, centred in the viewport below
-    // the running head, drifting.
+    // Its size and x from the slot; on screen, dead centre in the viewport
+    // below the running head, and frozen there: it does not move with the page.
     const b = pageBox(els.centre);
     const spacer = pageBox(els.centre.parentElement!);
     const s0 = after(spacer.y - 0.1 * vh, 0.3);
     const s1 = after(spacer.y + 0.4 * vh, 0);
-    const mid = (s0 + s1) / 2;
-    const y = nav + (vh - nav - b.h) / 2;
-    stops.push({
-      rect: (s) => ({ x: b.x, y: y - DRIFT * (Math.max(s0, Math.min(s1, s)) - mid) - Math.max(0, s - s1), w: b.w, h: b.h }),
-      pose: FLAT, s0, s1,
-    });
+    const box = { x: b.x, y: nav + (vh - nav - b.h) / 2, w: b.w, h: b.h };
+    stops.push({ rect: () => box, pose: FLAT, s0, s1, bar: true });
   }
   if (els.art) {
     const p = pinned(els.art, els.art);
@@ -161,9 +165,11 @@ function measureNow(els: Els): Layout {
     stops.push({ rect: scrolled(b1), pose: FLAT, s0: s, s1: s, path: 'drop', over: true });
     landAt = stops.length - 1;
     const b12 = pageBox(els.last);
-    // it tears off once it has scrolled away, its middle at the window's top edge
-    const t = after(b12.y + b12.h / 2, 0.2);
-    stops.push({ rect: scrolled(b12), pose: FLAT, s0: t, s1: t });
+    // it tears off as its top comes up to just under the wall's sticky folio,
+    // and leaves from there: it never goes under (or over) the folio
+    const folio = els.folio ? els.folio.getBoundingClientRect().height : 0;
+    const t = after(b12.y - (nav + folio + TEAR_GAP), 0.2);
+    stops.push({ rect: scrolled(b12), pose: FLAT, s0: t, s1: t, hold: true });
     tearAt = stops.length - 1;
     if (els.table && els.tablePin) {
       const p = pinned(els.table, els.tablePin);
@@ -180,6 +186,8 @@ interface State {
   pose: Pose;
   /** How much of the hero's sway is on, 0–1. */
   sway: number;
+  /** The light bar on the glass, 0 (below it) … 1 (above it), or null for none. */
+  bar: number | null;
   landed: boolean;
   torn: boolean;
   /** Drawn over the page's text. */
@@ -210,7 +218,7 @@ function at(l: Layout, s: number): State {
     const prev = stops[i - 1];
     const u = clamp01((s - prev.s1) / (stop.s0 - prev.s1));
     t = smooth(u);
-    const a = prev.rect(s), b = stop.rect(s);
+    const a = prev.rect(prev.hold ? prev.s1 : s), b = stop.rect(s);
     target = b;
     if (stop.path === 'drop') {
       // the size arrives first; the place follows, from above
@@ -224,11 +232,11 @@ function at(l: Layout, s: number): State {
   over = !!stop.over;
   const fromHero = i === 0 ? 0 : i === 1 && s < stop.s0 ? t : 1;
   if (landed && !torn) rect = null;
-  // The glass: the species cycle at the hero, the flamingo from the centre to
-  // the wall, the wall's last print when it tears off, the latest detection on the table.
+  // The glass: the species cycle at the hero, the Carolina Parakeet from the centre
+  // to the wall, the wall's last print when it tears off, the latest detection on the table.
   let screen: Screen | null;
-  if (i === 0 || (i === 1 && s < stop.s0)) screen = fromHero >= 0.5 ? 'flamingo' : fromHero <= 0.3 ? 'cycle' : null;
-  else if (!torn) screen = landed ? null : 'flamingo';
+  if (i === 0 || (i === 1 && s < stop.s0)) screen = fromHero >= 0.5 ? 'art' : fromHero <= 0.3 ? 'cycle' : null;
+  else if (!torn) screen = landed ? null : 'art';
   else if (i > tearAt + 1 || (i === tearAt + 1 && s >= stop.s0)) screen = 'table';
   else if (i === tearAt) screen = 'oriole';
   else screen = t >= 0.75 ? 'table' : t <= 0.5 ? 'oriole' : null;
@@ -241,7 +249,8 @@ function at(l: Layout, s: number): State {
     const d = Math.hypot(rect.x + rect.w / 2 - (target.x + target.w / 2), rect.y + rect.h - (target.y + target.h));
     ground = smooth(clamp01(1 - d / CONTACT));
   }
-  return { rect, pose: { ...pose, ground }, sway: 1 - fromHero, landed, torn, over, screen, lift: fromHero, land, ground };
+  const bar = stop.bar && s >= stop.s0 && s <= stop.s1 && stop.s1 > stop.s0 ? (s - stop.s0) / (stop.s1 - stop.s0) : null;
+  return { rect, pose: { ...pose, ground }, sway: 1 - fromHero, bar, landed, torn, over, screen, lift: fromHero, land, ground };
 }
 
 interface Els {
@@ -252,6 +261,7 @@ interface Els {
   wall: HTMLElement | null;
   first: HTMLElement | null;
   last: HTMLElement | null;
+  folio: HTMLElement | null;
   table: HTMLElement | null;
   tablePin: HTMLElement | null;
 }
@@ -278,13 +288,14 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     wall: document.querySelector('.wall'),
     first: images[0] ?? null,
     last: images[images.length - 1] ?? null,
+    folio: document.querySelector('.wall .folio'),
     table,
     tablePin: table?.closest<HTMLElement>('.pin') ?? null,
   };
   /** The detection on the table (main.ts): the species' own screen, as the hero cycle draws it. */
   const detected = () => root.dataset.detected || 'cardinal';
   const screensOf = (size: Size): Record<Exclude<Screen, 'cycle'>, string | undefined> => ({
-    flamingo: size.wall?.[0],
+    art: size.wall?.[0],
     oriole: size.wall?.[size.wall.length - 1],
     table: size.screens.find((f) => f.includes(`-${detected()}.`)),
   });
@@ -318,8 +329,8 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     shown[m] = want;
     if (screen === 'hidden') return;
     const want2 = screen;
-    // the 10-inch only ever travels: it has no cycle of its own, so it shows the flamingo
-    const src = want2 === 'cycle' ? (m === hero ? null : screensOf(data.sizes[m]).flamingo!) : screensOf(data.sizes[m])[want2];
+    // the 10-inch only ever travels: it has no cycle of its own, so it shows the art stop's
+    const src = want2 === 'cycle' ? (m === hero ? null : screensOf(data.sizes[m]).art!) : screensOf(data.sizes[m])[want2];
     if (src !== undefined) frame.refresh.show(src, instant);
   };
   const load10 = () => {
@@ -371,9 +382,10 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     }
     const sway = opts.poster || !st.sway ? 0 : Math.sin(((now - t0) / 1000) * (2 * Math.PI / SWAY_PERIOD)) * SWAY * st.sway;
     const sheen = opts.poster || !st.rect ? null : sheenAt(st.rect.y + st.rect.h / 2, layout.vh);
-    const key = st.rect ? `${active},${st.rect.x},${st.rect.y},${st.rect.w},${st.rect.h},${st.pose.yaw},${st.pose.lean},${st.pose.pitch},${st.pose.ground},${sway},${st.over}` : '';
+    const bar = opts.poster ? null : st.bar;
+    const key = st.rect ? `${active},${st.rect.x},${st.rect.y},${st.rect.w},${st.rect.h},${st.pose.yaw},${st.pose.lean},${st.pose.pitch},${st.pose.ground},${sway},${st.over},${bar}` : '';
     if (changed || dirty || key !== lastKey) {
-      frame.draw(st.rect, st.pose, sway, sheen);
+      frame.draw(st.rect, st.pose, sway, sheen, bar);
       frame.canvas.classList.toggle('empty', !st.rect);
       frame.canvas.classList.toggle('over', st.over);
       dirty = false;

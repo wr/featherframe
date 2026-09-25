@@ -7,7 +7,10 @@ means in one line.
 """
 from __future__ import annotations
 
+from datetime import date, datetime
+
 from featherframe import frames as frames_mod
+from featherframe import service as service_mod
 from featherframe.service import device_of
 
 EE03_PANEL = "ED103TC2 1404x1872 gray16"
@@ -16,6 +19,18 @@ EE03_BOARD = "XIAO ESP32-S3 Plus + EE03"
 EE02_BOARD = "XIAO ESP32-S3 Plus + EE02"
 
 FRAME_ID = "AA:AA:AA:00:00:03"
+
+
+def pin_today(monkeypatch, now: datetime) -> None:
+    """Make the service's calendar day `now`'s. A test fakes the clock with
+    `svc._clock`, but the collage day is still `date.today()`: with a NOW
+    from the real clock, a run straddling midnight drew today's collage from
+    yesterday's detections (nothing, so no sheet)."""
+    class _Today(date):
+        @classmethod
+        def today(cls):
+            return now.date()
+    monkeypatch.setattr(service_mod, "ddate", _Today)
 
 
 def add_kit(svc, frame_id: str = FRAME_ID, panel: str = EE03_PANEL,

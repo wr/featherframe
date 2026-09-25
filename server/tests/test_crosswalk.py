@@ -480,3 +480,21 @@ def test_the_ringed_pheasant_wins_everywhere_but_europe(tmp_path):
     for region, want in (("north-america", "gould_asia"), ("australia", "gould_asia"),
                          ("asia", "gould_asia"), ("europe", "gould_europe")):
         assert idx.match("Ring-necked Pheasant", "Phasianus colchicus", region).folio == want, region
+
+
+@pytest.mark.parametrize("vol,plate,why", [
+    (7, 51, "Gould's Procellaria cookii is Gould's Petrel, not Cook's"),
+    (1, 33, "the Tasmanian Boobook, not BirdNET's New Zealand Morepork"),
+    (7, 21, "Lestris catarractes: the Great Skua's name on Southern Ocean birds"),
+    (4, 2, "Pitta vigorsii is the Banda Sea Pitta, which BirdNET lacks"),
+])
+def test_australia_doubtful_plates_stay_out(vol, plate, why):
+    assert _australia_at(vol, plate) is None, why
+
+
+def test_australia_captions_lost_in_the_binding_are_pinned_by_their_text():
+    """Nine sideways captions run into the binding; the figure and the text
+    leaf after each agree, so they are pinned."""
+    for vol, plate, common in ((7, 2, "Magpie Goose"), (7, 74, "Australian Pelican"),
+                               (5, 79, "Orange-footed Scrubfowl")):
+        assert _australia_at(vol, plate)["common"] == common

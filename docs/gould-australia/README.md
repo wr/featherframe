@@ -22,14 +22,22 @@ found it and drafted the list.
   under an older name or a lump, 31 Kansas errors (it matched the printed Latin,
   not the bird: it swaps V.15/V.16 and IV.93/IV.98), 1 crosswalk error (III.41,
   now left out) and 3 doubtful.
-- `review.csv`: the 38 plates left out of the pins, and why. 14 are second
-  plates of a species already pinned; the other 24 went to Wells on a review
-  page.
+- `doubtful-decisions.csv`: the 24 plates first held back, researched one by
+  one against the figure, Gould's text and the literature (`decision` is the
+  research's call, `final` what was pinned). 15 pinned: the nine whose caption
+  is lost in the binding (the figure and the text leaf after it agree), and
+  IV.18, IV.80, V.10, V.84, VI.55 and Supp. 44. Left out: I.33 (the Tasmanian
+  Boobook), IV.2 (the Banda Sea Pitta, no label), IV.8 and IV.10 (the fold),
+  VI.2 (kiwi skins with no locality), VI.19 (Lesser and Greater Sand-Plover
+  mixed), VII.21 (the skua's name is the Great Skua's), VII.51 (Gould's Petrel,
+  not Cook's) and VII.83 (Northern or Southern Rockhopper).
+- `review.csv`: the plates still left out of the pins, and why (second plates
+  of a species already pinned among them).
 
 A plate was pinned only when its crosswalk is `high`, its caption agrees, it is
 no fold-out (IV.8, IV.10, Supp. 76), and Kansas agrees or its disagreement was
-settled for the pin. One plate per species: the one bearing its own name, else
-the first in the List. 386 species.
+settled for the pin, or the doubtful research pinned it. One plate per
+species: the one bearing its own name, else the first in the List. 401 species.
 
 ## Cutting
 

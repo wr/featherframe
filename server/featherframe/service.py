@@ -48,7 +48,8 @@ from .render import pipeline
 from .render import statuspage
 from .render import welcome as welcome_mod
 from .render.compose import SingleSpec
-from .render.genart import GeneratedArtProvider, make_image_model, make_text_model
+from .render.genart import (GeneratedArtProvider, failure_reason, make_image_model,
+                            make_text_model)
 from .render.pipeline import RenderResult
 from .render.provider import ArtProvider, ChainedProvider, PlateProvider
 
@@ -388,6 +389,11 @@ def _hours_text(hours: float) -> str:
         h = round(hours)
         return "1 hour" if h == 1 else f"{h} hours"
     return f"{int(hours // 24)} days"
+
+
+_IMAGEGEN_ERROR_KEY = "imagegen_error"
+_IMAGEGEN_NAMES = {"openai": "OpenAI", "gemini": "Google Gemini",
+                   "replicate": "Replicate", "a1111": "Your image server"}
 
 
 def _ago(then: datetime, now: datetime) -> str:
@@ -755,7 +761,49 @@ class FeatherframeService:
         — turning the feature off must never hide art the user paid for."""
         self.genart = GeneratedArtProvider(make_image_model(config),
                                            text_model=make_text_model(config))
+        self.genart.on_outcome = self._note_imagegen
         return ChainedProvider([self.plates, self.genart])
+
+    def _note_imagegen(self, exc: Optional[BaseException]) -> None:
+        """Keep the image model's last failure for the page, or clear it on a
+        success. It lives in the DB so a restart (a hosted server stops after
+        every wake) still shows an empty account."""
+        if exc is None:
+            if self.db.get(_IMAGEGEN_ERROR_KEY):
+                self.db.set(_IMAGEGEN_ERROR_KEY, None)
+            return
+        self.db.set(_IMAGEGEN_ERROR_KEY, {
+            "at": self._clock().isoformat(timespec="seconds"),
+            "reason": failure_reason(exc),
+            "detail": str(exc)[:300],
+        })
+
+    def imagegen_error_view(self, now: datetime) -> Optional[dict]:
+        """The last generation failure as the page says it, or None. Only
+        while a model is set up: without a key there is nothing to fail."""
+        err = self.db.get(_IMAGEGEN_ERROR_KEY)
+        if not err or self.genart is None or self.genart._model is None:
+            return None
+        try:
+            when = _ago(datetime.fromisoformat(str(err.get("at"))), now)
+        except (TypeError, ValueError):
+            when = ""
+        name = _IMAGEGEN_NAMES.get(self.config.imagegen_provider,
+                                   self.config.imagegen_provider)
+        reason = err.get("reason")
+        if reason == "credits":
+            summary, state = "Out of credits", "bad"
+            text = (f"{name} is out of credits ({when}). Add credits to your "
+                    f"{name} account and new illustrations resume.")
+        elif reason == "key":
+            summary, state = "Key rejected", "bad"
+            text = f"{name} rejected the API key ({when}). Replace it below."
+        else:
+            summary, state = "Last attempt failed", "warn"
+            text = (f"The last illustration could not be generated ({when}). "
+                    "It is tried again later.")
+        return {"reason": reason, "state": state, "summary": summary,
+                "text": text, "detail": err.get("detail") or ""}
 
     @staticmethod
     def _imagegen_fields(config: Config) -> tuple:
@@ -776,6 +824,8 @@ class FeatherframeService:
                 self._reset_for_source()
             if self._imagegen_fields(new) != self._imagegen_fields(self.config):
                 self.provider = self._build_provider(new)
+                # A new key or provider has not failed yet.
+                self.db.set(_IMAGEGEN_ERROR_KEY, None)
             if new.region != self.config.region:
                 # The plate on the glass may now come from another folio: the
                 # next tick draws it again (never in the request that saved).
@@ -1476,7 +1526,10 @@ class FeatherframeService:
         error: Optional[str] = None
         try:
             if not self.regenerate_generated(slug):
-                error = "generation failed — the previous plate is kept"
+                reason = (self.db.get(_IMAGEGEN_ERROR_KEY) or {}).get("reason")
+                error = {"credits": "out of credits",
+                         "key": "the API key was rejected"}.get(reason, "not generated")
+                error += "; the previous illustration is kept"
         except Exception as exc:
             log.exception("background regeneration failed for %s", slug)
             error = f"{type(exc).__name__}: {exc}"[:200]
@@ -2770,6 +2823,7 @@ class FeatherframeService:
             "species_all_time": species,
             "plates_loaded": self.plates.species_count,
             "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
+            "imagegen_error": self.imagegen_error_view(now),
             "config": self._masked_config(),
             # Every screen this server draws for, one shape each. The page
             # renders the same row component for all of them, and the Health

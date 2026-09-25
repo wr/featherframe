@@ -51,10 +51,12 @@ def test_every_plate_has_a_row(dataset):
     assert sum(1 for v, _ in australia if v == "Supp") == 81
     britain = {(r["volume"], int(r["plate"])) for r in rows(dataset / "gould-britain" / "plates.csv")}
     assert len(britain) == 367
+    asia = [(r["volume"], int(r["plate"])) for r in rows(dataset / "gould-asia" / "plates.csv")]
+    assert len(asia) == len(set(asia)) == 530      # 76, 75, 78, 72, 83, 75, 71 (W-871)
 
 
 def test_unidentified_plates_keep_a_reason(dataset):
-    for folder in ("havell", "gould-europe", "gould-australia", "gould-britain"):
+    for folder in ("havell", "gould-europe", "gould-australia", "gould-britain", "gould-asia"):
         for r in rows(dataset / folder / "species.csv"):
             assert r["scientific"] or r["reason"], r
 
@@ -89,3 +91,20 @@ def test_britains_survey_is_published_as_open(dataset):
             assert r["confidence"] == "high"
         else:
             assert r["confidence"] in ("medium", "low"), r
+
+
+def test_asias_traps_hold(dataset):
+    """The bird on the plate, never the printed Latin or the survey's guess."""
+    sp = {(r["volume"], r["plate"]): r for r in rows(dataset / "gould-asia" / "species.csv")}
+    assert sp[("I", "35")]["scientific"] == "Merops orientalis"          # printed Merops viridis
+    assert sp[("IV", "32")]["scientific"] == "Saxicola jerdoni"          # not the Pied Bushchat
+    assert sp[("V", "53")]["scientific"] == "Urocissa ornata"            # not a green magpie
+    assert sp[("V", "17")]["form"] == "subspecies"                       # the caniceps goldfinch
+    torquatus = sp[("VII", "39")]
+    assert (torquatus["scientific"], torquatus["form"]) == ("Phasianus colchicus", "subspecies")
+
+
+def test_asias_captions_were_read(dataset):
+    """Every plate but four garbled ones had its engraved caption read."""
+    unread = [r for r in rows(dataset / "gould-asia" / "species.csv") if r["caption_checked"] != "yes"]
+    assert {(r["volume"], r["plate"]) for r in unread} == {("VII", "29"), ("VII", "30"), ("VII", "31"), ("VII", "47")}

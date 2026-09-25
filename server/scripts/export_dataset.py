@@ -116,6 +116,13 @@ EBIRD_NAMES = {
     "Tregellasia capito": "Eopsaltria capito",
     "Peneoenanthe pulverulenta": "Melanodryas pulverulenta",
     "Strigops habroptila": "Strigops habroptilus",
+    # Asia's pins (W-871): eBird 2025 has moved the parrotbills and lumps the
+    # Japanese Tit into Asian Tit.
+    "Conostoma aemodium": "Paradoxornis aemodius",
+    "Sinosuthora webbiana": "Suthora webbiana",
+    "Cholornis unicolor": "Paradoxornis unicolor",
+    "Psittiparus gularis": "Paradoxornis gularis",
+    "Parus minor": "Parus cinereus",
 }
 EBIRD_NAMES_BY_FOLIO = {
     # Splits since BirdNET's year that keep the old binomial on the Old World
@@ -138,6 +145,7 @@ EBIRD_NOTES = {
     "Numenius phaeopus": "eBird splits Whimbrel; the binomial stays with Eurasian Whimbrel",
     "Larus argentatus": "eBird splits Herring Gull; the binomial stays with European Herring Gull",
     "Cecropis daurica": "eBird 2025 splits Red-rumped Swallow; the binomial stays with Eastern Red-rumped Swallow",
+    "Parus minor": "eBird 2025 lumps the Japanese Tit into Asian Tit, Parus cinereus",
 }
 
 SPECIES_COLUMNS = ["plate", "figure", "printed_name", "printed_latin", "scientific", "common",
@@ -165,6 +173,9 @@ BHL_ITEMS = {
     "birdsAustraliav7Goul": 189241, "birdsAustraliasSuppGoul": 189274,
     "birdsgreatbrita1goul": 221495, "birdsgreatbrita2goul": 221554, "birdsgreatbrita3goul": 221726,
     "birdsgreatbrita4goul": 221609, "birdsgreatbrita5goul": 222497,
+    "BirdsAsiaJohnGoIGoul": 115342, "BirdsAsiaJohnGoIIGoul": 118636, "BirdsAsiaJohnGoIIIGoul": 118635,
+    "BirdsAsiaJohnGoIVGoul": 120503, "BirdsAsiaJohnGoVGoul": 121124, "BirdsAsiaJohnGoVIGoul": 122488,
+    "BirdsAsiaJohnGoVIIGoul": 122491,
 }
 BHL_BUCKET = "https://bhl-open-data.s3.us-east-2.amazonaws.com"
 GOULD_CONFIDENCE = {"high": "high", "decided": "judged", "medium": "medium", "low": "low", "": "none"}
@@ -188,6 +199,7 @@ GOULD = {g.folder: g for g in (
     Gould("gould_australia", REPO / "docs" / "gould-australia", True),
     # Only its seven gap-filling pins are checked; the rest is the survey's draft.
     Gould("gould_britain", REPO / "docs" / "gould-survey", True),
+    Gould("gould_asia", REPO / "docs" / "gould-asia", True),
 )}
 
 
@@ -676,6 +688,121 @@ def britain_tables(tax: Taxonomy, europe: list[dict]) -> tuple[list[dict], list[
     return plates, species
 
 
+# The Birds of Asia: plates numbered per volume, each paired with the text leaf
+# bound after it and its engraved caption read (docs/gould-asia/README.md).
+
+def asia_tables(tax: Taxonomy) -> tuple[list[dict], list[dict]]:
+    g = GOULD["gould-asia"]
+    pins = {plate_key(g, e): e for e in pinned(load_folio(g.name))}
+    leaves = {plate_key(g, r): r for r in read_csv(g.docs / "plate-leaves.csv")}
+    cross = read_csv(g.docs / "crosswalk.csv")
+    listed = {plate_key(g, x): x for x in cross}
+
+    plates = []
+    for key, r in leaves.items():
+        pin = pins.get(key)
+        orient = r["orientation"]
+        rot = int(pin.get("rotate") or 0) if pin else (270 if orient == "landscape" else 0)
+        notes = [x for x in (r["note"],) if x]
+        if r["agrees"] != "yes":
+            notes.append("the caption could not be read on the scan")
+        if not pin:
+            notes.append("not pinned in Featherframe: stood up and cut by the folio's rules, the crop not reviewed")
+        plates.append({"volume": key[0], "plate": key[1], "list_name": listed[key]["gould_english"],
+                       "list_latin": r["list_latin"], "caption_latin": r["caption_latin"],
+                       **scan_columns(tax, r["ia_id"], int(r["leaf"]), orient, rot),
+                       "notes": "; ".join(notes)})
+
+    species = []
+    for x in cross:
+        key = plate_key(g, x)
+        leaf, pin = leaves[key], pins.get(key)
+        checked = leaf["agrees"] == "yes"
+        sources = [f"List of Plates (vol. {key[0]})", "the text leaf bound after the plate", "Kansas catalogue"]
+        if checked:
+            sources.insert(1, "engraved caption on the leaf")
+        reason = [v for v in (x["reason"],) if v]
+        if not x["modern_sci"] and x["ku_sci"]:
+            reason.append(f"not identified here; the Kansas catalogue reads {x['ku_sci']} ({x['ku_english']})")
+        elif not x["modern_sci"]:
+            reason.append("not identified")
+        row = {"volume": key[0], "plate": key[1], "printed_name": x["gould_english"],
+               "printed_latin": x["gould_latin"], "form": x["form"], "confidence": x["confidence"],
+               "caption_checked": "yes" if checked else "no"}
+        if x["modern_sci"]:
+            m = modern(tax, g.name, x["modern_sci"], x["birdnet_common"], birdnet=x["birdnet_sci"] or "")
+            if m.get("_note"):
+                reason.append(m["_note"])
+            row.update({c: v for c, v in m.items() if not c.startswith("_")})
+        if pin:
+            sources.append(f"pinned in Featherframe ({g.name}.yaml)")
+        row["reason"], row["sources"] = "; ".join(reason), "; ".join(sources)
+        species.append(row)
+    return plates, species
+
+
+def _stem(epithet: str) -> str:
+    """An epithet's first five letters, spelling variants evened (ae/oe/e, rh/r)."""
+    e = epithet.lower().replace("ae", "e").replace("oe", "e").replace("rh", "r")
+    return e[:5]
+
+
+# What each Kansas disagreement is that its spelling does not explain, read
+# from the plate (docs/gould-asia/README.md).
+_PRE_SPLIT = "KU gives the parent species before the split"
+_KU_ERROR = "KU names another species; the caption, the text and the bird agree with the row"
+ASIA_KU_KINDS = {
+    **{k: ("pre-split", _PRE_SPLIT) for k in (
+        ("II", 7), ("II", 13), ("II", 19), ("II", 30), ("II", 44), ("II", 55), ("II", 56), ("II", 69),
+        ("III", 17), ("III", 25), ("III", 43), ("IV", 8), ("V", 57))},
+    **{k: ("error", _KU_ERROR) for k in (
+        ("I", 38), ("II", 49), ("III", 1), ("III", 12), ("III", 38), ("III", 51), ("V", 75), ("VII", 66))},
+    **{("I", n): ("error", "KU names a New World trogon of the same epithet") for n in (67, 70, 71, 74, 75, 76)},
+    ("I", 4): ("lumped", "eBird 2025 keeps the Barbary Falcon within the Peregrine"),
+    ("I", 35): ("printed name", "KU follows the printed Merops viridis; the plate shows the Green Bee-eater"),
+    ("VI", 62): ("printed name", "KU follows the printed guttatus; the plate shows the Spotted Sandgrouse"),
+    ("VII", 60): ("printed name", "KU matched rufescens to the Eurasian Curlew; Gould's rufescens is the Far Eastern"),
+    ("V", 30): ("old name", "an older genus for the same species"),
+    ("III", 29): ("old name", "an older genus for the same species"),
+    ("III", 60): ("old name", "an older genus for the same species"),
+    ("IV", 61): ("old name", "a spelling of the same epithet"),
+    **{k: ("open", "a form the survey assigned; KU assigns it elsewhere, so the row is low") for k in (
+        ("I", 9), ("I", 20), ("I", 47), ("II", 14), ("II", 25), ("II", 61), ("VI", 4), ("VI", 11))},
+}
+
+
+def asia_ku(species: list[dict], tax: Taxonomy) -> list[dict]:
+    """Where the Kansas catalogue names another bird for an identified plate:
+    not the same binomial or eBird species. Its names were matched from the
+    printed Latin, so a subspecies, an older genus or a New World namesake
+    turns up here; `kind` says which."""
+    g = GOULD["gould-asia"]
+    ku = {plate_key(g, r): r for r in read_csv(g.docs / "ku-catalogue.csv")}
+    out = []
+    for r in species:
+        if not r.get("scientific"):
+            continue
+        key = (r["volume"], int(r["plate"]))
+        k = ku.get(key)
+        if not k or not k["ku_sci"]:
+            continue
+        words = k["ku_sci"].replace("(", "").replace(")", "").split()
+        binomial = " ".join(words[:2])
+        ours = {r["scientific"], r["birdnet_label"].split("_")[0] if r.get("birdnet_label") else ""}
+        code = tax.ids(g.name, binomial).get("ebird_code")
+        if binomial in ours or (code and code == r.get("ebird_code")):
+            continue
+        kind, note = ASIA_KU_KINDS.get(key, ("", ""))
+        if not kind:
+            if _stem(words[1] if len(words) > 1 else "") == _stem(r["scientific"].split()[-1]):
+                kind, note = "old name", "an older genus or spelling for the same species"
+            elif len(words) > 2:
+                kind, note = "subspecies", "KU names the race; the row gives its species"
+        out.append({"volume": key[0], "plate": key[1], "kind": kind, "ku_id": k["ku_id"], "ku_name": k["ku_english"],
+                    "ku_scientific": k["ku_sci"], "scientific": r["scientific"], "common": r["common"], "note": note})
+    return out
+
+
 # --- commands --------------------------------------------------------------
 
 def havell_catalog(plates_dir: Optional[Path]) -> list[dict]:
@@ -692,12 +819,14 @@ def export(out: Path, tax: Taxonomy, plates_dir: Optional[Path]) -> None:
     ep, es = europe_tables(tax)
     ap, as_ = australia_tables(tax)
     bp, bs = britain_tables(tax, es)
+    sp, ss = asia_tables(tax)
     tables = {"gould-europe": (ep, es, ku_disagreements(es, tax),
                                ("general-list.csv", "plate-leaves.csv", "crosswalk.csv", "ku-catalogue.csv")),
               "gould-australia": (ap, as_, australia_ku(as_),
                                   ("plate-leaves.csv", "crosswalk.csv", "ku-catalogue.csv", "ku-check.csv",
                                    "review.csv", "doubtful-decisions.csv")),
-              "gould-britain": (bp, bs, None, ())}
+              "gould-britain": (bp, bs, None, ()),
+              "gould-asia": (sp, ss, asia_ku(ss, tax), ("plate-leaves.csv", "crosswalk.csv", "ku-catalogue.csv"))}
     for folder, (plates, species, ku, sources) in tables.items():
         g = GOULD[folder]
         vol = ["volume"] if g.per_volume else []
@@ -770,6 +899,18 @@ def unpinned_margins(g: Gould, header: dict) -> dict:
         for r in read_csv(g.docs / "plate-leaves.csv"):
             if r["orientation"] == "portrait" and r["caption_top"]:
                 out[(r["ia_id"], int(r["leaf"]))] = [0.02, 0.02, 0.955, round(float(r["caption_top"]) - 0.006, 3)]
+    if g.folder == "gould-asia":
+        # The page stack runs down the left of vols. I-V (its volume margins);
+        # a sideways plate has it at the top once stood up, as its pins do.
+        vm = header.get("volume_margins") or {}
+        for r in read_csv(g.docs / "plate-leaves.csv"):
+            bc, leaf = r["ia_id"], int(r["leaf"])
+            left = (vm.get(bc) or header["margins"])[0]
+            if r["orientation"] == "landscape":
+                top = 0.02 if left <= 0.02 else 0.1 if bc.endswith("IVGoul") else 0.13
+                out[(bc, leaf)] = [0.02, top, 0.98, 0.97]
+            elif r["caption_top"]:
+                out[(bc, leaf)] = [left, 0.02, 0.96, round(float(r["caption_top"]) - 0.006, 3)]
     return out
 
 

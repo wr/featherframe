@@ -23,14 +23,22 @@ test('every section and its key copy is there', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('h1')).toHaveText('Let the outside in.');
   await expect(page.locator('h1')).toHaveCount(1);
-  for (const id of ['art', 'how', 'collage', 'sizes', 'faq']) await expect(page.locator(`section#${id}`)).toBeVisible();
-  await expect(page.locator('.head nav a')).toHaveText(['The art', 'How it works', 'Sizes', 'Questions', 'Pre-order']);
+  for (const id of ['art', 'how', 'collage', 'specs', 'faq']) await expect(page.locator(`section#${id}`)).toBeVisible();
+  await expect(page.locator('section#sizes')).toHaveCount(0);
+  await expect(page.locator('.head nav a')).toHaveText(['The art', 'How it works', 'Details', 'Questions', 'Pre-order']);
   expect(await page.locator('.head nav a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual(
-    ['#art', '#how', '#sizes', '#faq', 'https://shop.wells.ee/products/featherframe/']);
+    ['#art', '#how', '#specs', '#faq', 'https://shop.wells.ee/products/featherframe/']);
   await expect(page.locator('#art h2')).toHaveText('More than 1,300 species, colored by hand.');
   await expect(page.locator('#how h2')).toHaveText('Meet the birds you only hear.');
   await expect(page.locator('#collage h2')).toHaveText('The whole day, on one sheet.');
-  await expect(page.locator('#sizes h2')).toHaveText('Sixteen grays, or six inks.');
+  await expect(page.locator('#specs .folio')).toHaveText('V. Technical details');
+  await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Hosting']);
+  await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10-inch: 232 × 295 × 28 mm13-inch: 295 × 371 × 28 mm');
+  await expect(page.locator('#specs .exploded img')).toHaveAttribute('src', 'img/exploded.webp');
+  await expect(page.locator('#specs .ho')).toHaveCount(2);
+  await expect(page.locator('#collage .season:not(.coda) figcaption')).toHaveText(
+    ['Spring7 April 2026', 'Summer1 June 2026', 'Fall23 September 2026', 'Winter16 February 2026']);
+  await expect(page.locator('#collage .season:not(.coda) img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
   await expect(page.locator('#faq dt')).toHaveCount(4);
   await expect(page.locator('.cat figure')).toHaveCount(12);
   await expect(page.locator('.tone button')).toHaveText(['Color', 'B&W']);
@@ -55,12 +63,58 @@ test('the 3D frame lands exactly on the poster', async ({ page }) => {
   expect(Math.abs(stage.w * 975 / 1200 - frame.w)).toBeLessThan(2);
 });
 
-test('no horizontal scroll on a phone', async ({ page }) => {
+for (const [w, h] of [[390, 844], [1024, 768]]) {
+  test(`no horizontal scroll at ${w}`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/');
+    await page.evaluate(() => document.fonts.ready);
+    for (const y of [0, 0.5, 1]) {
+      await page.evaluate((f) => scrollTo(0, f * document.documentElement.scrollHeight), y);
+      const [sw, cw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
+      expect(sw).toBeLessThanOrEqual(cw);
+    }
+  });
+}
+
+test('the seasons slide sideways as the page scrolls down, on a desktop', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveClass(/\bseasons-live\b/);
+  const box = await page.locator('.seasons').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
+  expect(box.h).toBeGreaterThan(900 * 3);
+  const x = async (f: number) => {
+    await page.evaluate((y) => scrollTo(0, y), box.y + f * box.h);
+    // the row follows on the next frame
+    const want = await page.evaluate(() => {
+      const b = document.querySelector('.seasons')!.getBoundingClientRect();
+      const nav = document.querySelector('.head')!.getBoundingClientRect().height;
+      return Math.max(0, Math.min(1, (nav - b.top) / (b.height - (innerHeight - nav))));
+    });
+    await expect.poll(() => page.locator('.row').evaluate((e) => Number(e.dataset.progress))).toBeCloseTo(want, 2);
+    return page.locator('.season').nth(1).evaluate((e) => e.getBoundingClientRect().left);
+  };
+  const stageTop = async () => page.locator('.stage-row').evaluate((e) => e.getBoundingClientRect().top);
+  const a = await x(0.1);
+  const t1 = await stageTop();
+  const b = await x(0.4);
+  const t2 = await stageTop();
+  const c = await x(0.7);
+  expect(a - b).toBeGreaterThan(200);
+  expect(b - c).toBeGreaterThan(200);
+  expect(Math.abs(t1 - t2)).toBeLessThan(1); // pinned
+  // by the end the row has come round to spring again
+  await x(1);
+  const coda = await page.locator('.season.coda').evaluate((e) => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; });
+  expect(Math.abs(coda - 720)).toBeLessThan(40);
+});
+
+test('on a phone the seasons stack', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.evaluate(() => document.fonts.ready);
-  const [sw, cw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
-  expect(sw).toBeLessThanOrEqual(cw);
+  await expect(page.locator('html')).not.toHaveClass(/\bseasons-live\b/);
+  const tops = await page.locator('.season:not(.coda)').evaluateAll((es) => es.map((e) => e.getBoundingClientRect().top));
+  for (let i = 1; i < tops.length; i++) expect(tops[i]).toBeGreaterThan(tops[i - 1] + 300);
+  await expect(page.locator('.season.coda')).toBeHidden();
 });
 
 test('the frame repaints to the next species', async ({ page }) => {
@@ -191,18 +245,18 @@ test('the song plays itself muted in view, and Unmute plays it again with sound'
   await expect(unmute).toHaveText('Unmute');
   await expect(song).toHaveAttribute('preload', 'none');
   await page.locator('.spectro').scrollIntoViewIfNeeded();
-  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && a.muted && a.currentTime > 0.3)).toBe(true);
+  // (the swiftshader page is slow to get round to it)
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && a.muted && a.currentTime > 0.3), { timeout: 25_000 }).toBe(true);
   await expect(page.locator('.playhead')).toBeVisible();
   await unmute.click();
   await expect(unmute).toBeHidden();
   const mute = page.getByRole('button', { name: 'Mute' });
   await expect(mute).toBeVisible();
   // from the start, with sound
-  expect(await song.evaluate((a: HTMLAudioElement) => a.muted)).toBe(false);
-  expect(await song.evaluate((a: HTMLAudioElement) => a.currentTime)).toBeLessThan(0.5);
-  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused)).toBe(true);
+  expect(await song.evaluate((a: HTMLAudioElement) => [a.muted, a.currentTime < 0.6])).toEqual([false, true]);
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && !a.muted)).toBe(true);
   await mute.click();
-  expect(await song.evaluate((a: HTMLAudioElement) => a.muted)).toBe(true);
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => a.muted)).toBe(true);
   await expect(unmute).toBeVisible();
 });
 

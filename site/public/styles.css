@@ -251,26 +251,66 @@ h2 { font-weight: 400; text-wrap: balance; }
 .logos a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .logos img { width: 28px; height: 28px; }
 
-/* IV. The collage */
-.colc { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); align-items: end; margin-top: 80px; }
-.colc .fr { grid-column: 1 / 7; }
-.colc .fr img { width: 100%; }
-.colc .fr figcaption { margin-top: 34px; color: var(--graphite); font-size: 15px; }
-.colc .key { grid-column: 8 / 13; padding-bottom: 58px; }
-.colc .sub { margin: 22px 0 0; font-size: 17px; color: var(--graphite); }
+/* IV. The collage: a year of sheets, spring round to spring again. On a
+   desktop the row is pinned and slides sideways as the page scrolls down
+   (seasons.ts); on phones, and with reduced motion, the sheets stack. */
+#collage .intro2 .key { grid-column: 7 / 13; }
+#collage .sub { margin: 22px 0 0; font-size: 17px; color: var(--graphite); }
+.seasons { margin-top: 80px; }
+.row { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 72px; }
+.season { display: flex; justify-content: center; width: 100%; }
+.season figure { width: min(100%, 440px); }
+.season img { width: 100%; }
+.season figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-top: 18px; border-top: 1px solid var(--hair); padding-top: 10px; }
+.season figcaption .it { color: var(--graphite); font-size: 17px; }
+.season.coda { display: none; }
+#collage .note { margin: 40px 0 0; color: var(--graphite); font-size: 15px; }
+.seasons-live .seasons { height: calc(100vh - var(--nav) + 250vh); margin-top: 40px; }
+.seasons-live .stage-row {
+  position: sticky; top: var(--nav); height: calc(100vh - var(--nav)); overflow: hidden;
+  display: flex; align-items: center; margin: 0 calc(-1 * var(--m));
+}
+.seasons-live .row { flex-direction: row; align-items: flex-start; gap: 9vw; padding: 0 var(--m); will-change: transform; }
+.seasons-live .season { width: auto; }
+.seasons-live .season.coda { display: flex; }
+.seasons-live .season figure { width: auto; }
+.seasons-live .season img { width: auto; height: calc((100vh - var(--nav)) * .66); max-width: none; }
+/* the timeline: one hairline through the year, under the frames */
+.seasons-live .row { background: linear-gradient(var(--hair), var(--hair)) 0 calc((100vh - var(--nav)) * .66 + 18px) / 100% 1px no-repeat; }
+.seasons-live .season figcaption { border-top: 0; flex-direction: column; gap: 4px; padding-top: 40px; position: relative; }
+.seasons-live .season figcaption::before { content: ""; position: absolute; left: 0; top: 14px; width: 9px; height: 9px; border-radius: 50%; background: var(--ink); }
 
-/* V. Two sizes, drawn to scale */
-.sizes { display: flex; justify-content: center; align-items: flex-end; gap: 150px; margin-top: 120px; }
-.sz img { width: auto; max-width: none; }
-.sz.a img { height: 430px; }
-.sz.b img { height: 545px; }
-.dim { position: relative; display: flex; justify-content: center; margin-top: 28px; border-top: 1px solid var(--ink); }
-.dim::before, .dim::after { content: ""; position: absolute; top: -6px; height: 11px; border-left: 1px solid var(--ink); }
-.dim::before { left: 0; }
-.dim::after { right: 0; }
-.dim span { margin-top: -9px; padding: 0 10px; background: var(--paper); font: italic 15px var(--serif); }
-.under { margin-top: 28px; text-align: center; }
-.under b { display: block; font: italic 400 30px/1.1 var(--serif); }
+/* V. Technical details: the parts, drawn apart; the two frames head-on, to
+   scale, with their dimensions; then the facts. */
+.specs { display: grid; grid-template-columns: 7fr 5fr; column-gap: var(--gutter); align-items: end; }
+.exploded img { width: 100%; }
+.headon { display: flex; justify-content: center; align-items: flex-end; gap: 64px; padding: 0 30px 0 0; }
+.ho { margin: 0; }
+.ho .box { position: relative; }
+.ho img { display: block; height: auto; }
+.ho { --w: min(230px, 16vw); }
+.ho.s13 img { width: var(--w); }
+.ho.s10 img { width: calc(var(--w) * 596 / 604 * 295 / 371); } /* the 10-inch at the 13-inch's scale */
+.dim { position: absolute; font: italic 14px var(--serif); color: var(--ink); }
+.dim span { background: var(--paper); padding: 0 6px; white-space: nowrap; }
+.dim.h { left: 0; right: 0; bottom: -26px; border-top: 1px solid var(--ink); display: flex; justify-content: center; }
+.dim.h span { margin-top: -10px; }
+.dim.v { top: 0; bottom: 0; right: -22px; width: 0; border-left: 1px solid var(--ink); }
+.dim.v span { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+.dim.h::before, .dim.h::after { content: ""; position: absolute; top: -6px; height: 11px; border-left: 1px solid var(--ink); }
+.dim.h::before { left: 0; }
+.dim.h::after { right: 0; }
+.dim.v::before, .dim.v::after { content: ""; position: absolute; left: -6px; width: 11px; border-top: 1px solid var(--ink); }
+.dim.v::before { top: 0; }
+.dim.v::after { bottom: 0; }
+.ho figcaption { margin-top: 50px; text-align: center; }
+.ho figcaption b { display: block; font: italic 400 26px/1.1 var(--serif); }
+.ho figcaption span { display: block; margin-top: 4px; font: italic 14px var(--serif); color: var(--graphite); }
+.spec { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin: 90px 0 0; }
+.spec dt, .spec dd { border-top: 1px solid var(--hair); padding: 14px 0 15px; margin: 0; }
+.spec dt { grid-column: 1 / 5; font: 12px/1.9 var(--caps); letter-spacing: .2em; text-transform: uppercase; color: var(--graphite); }
+.spec dd { grid-column: 5 / 13; font-size: 19px; line-height: 1.45; }
+.spec dd span { display: block; }
 
 /* VI. Questions */
 #faq .folio { margin-bottom: 56px; }
@@ -364,12 +404,13 @@ h2 { font-weight: 400; text-wrap: balance; }
   .t3 { position: static; }
   .cover::before { display: none; }
   .intro2.closing .lede { font-size: 18px; }
-  .colc { display: block; }
-  .colc .fr { margin: 0; }
-  .sizes { gap: 24px; }
-  .sz.a img { height: auto; width: 34vw; }
-  .sz.b img { height: auto; width: 44vw; }
-  .under b { font-size: 22px; }
+  .row { gap: 56px; }
+  .specs { display: block; }
+  .headon { gap: 44px; padding: 40px 24px 0 0; }
+  .ho { --w: 34vw; }
+  .spec { display: block; margin-top: 70px; }
+  .spec dt { padding-bottom: 0; }
+  .spec dd { border-top: 0; padding-top: 4px; font-size: 18px; }
   .qa { margin-left: 0; }
   .qa dt { font-size: 23px; }
   .close { margin-top: 230px; }

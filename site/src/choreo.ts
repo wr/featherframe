@@ -510,7 +510,10 @@ export const TABLE_PAD = [0.15, 0.15, 0.15, 0.05];
 
 export async function startWallRender(size: Size, which: string): Promise<void> {
   const table = which === 'table';
-  const src = table ? size.wall.find((f) => f.includes('cardinal'))! : size.wall[Number(which)];
+  // ?wall=screen&src=<a screen texture>: any picture on the frame, dead-on (scripts/wall.mjs seasons)
+  const src = table ? size.wall.find((f) => f.includes('cardinal'))!
+    : which === 'screen' ? new URLSearchParams(location.search).get('src')!
+    : size.wall[Number(which)];
   let raf = 0;
   const request = () => { if (!raf) raf = requestAnimationFrame(tick); };
   const frame = await loadFrame(size, { wake: request, keep: true, holdMs: 1e9 });

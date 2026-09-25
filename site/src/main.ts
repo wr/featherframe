@@ -3,6 +3,7 @@
 // desktop the frame travels down the page (choreo.ts); on a phone it stays in the cover.
 import type { SiteData } from './card';
 import { startSheen } from './sheen';
+import { startSeasons } from './seasons';
 
 const params = new URLSearchParams(location.search);
 const holdMs = params.has('hold') ? Number(params.get('hold')) : undefined;
@@ -85,6 +86,9 @@ try { stored = localStorage.getItem(TONE_KEY); } catch { /* storage blocked: col
 setTone(stored ?? '13', false);
 for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!, true));
 if (!reduced) startSheen([...document.querySelectorAll<HTMLElement>('.wall .cat .im')]);
+
+// IV. The seasons' row, sliding sideways as the page scrolls (desktop, motion welcome).
+if (!reduced && !wall) startSeasons();
 
 // III. The detections: each species' recording plays itself, muted, while its spectrogram is on screen, a
 // playhead crossing it; when one ends the next is heard — a card by the song says so (New detection), and the

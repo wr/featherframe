@@ -6,10 +6,10 @@
 // background at the pose's own aspect, written to public/img/wall as WebP.
 import { chromium } from '@playwright/test';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs';
 
 const here = new URL('..', import.meta.url).pathname;
-const HEIGHT = 760; // px: twice the wall's frames at 1440 wide
+let HEIGHT = 760; // px: twice the wall's frames at 1440 wide
 const data = JSON.parse(readFileSync(`${here}public/species.json`, 'utf8'));
 const slug = (f) => f.match(/wall-\d+-(.+)\.jpg$/)[1];
 mkdirSync(`${here}public/img/wall`, { recursive: true });
@@ -31,18 +31,30 @@ try {
     await page.setViewportSize({ width: Math.round(HEIGHT * aspect), height: HEIGHT });
     await page.goto(url);
     await ready();
-    const png = `${here}dist/${name}.png`;
+    const png = `${here}dist/${name.replace(/\W+/g, '-')}.png`;
     await page.screenshot({ path: png, omitBackground: true });
     execFileSync('cwebp', ['-quiet', '-q', '86', '-alpha_q', '90', png, '-o', `${here}public/img/wall/${name}.webp`]);
     console.log(`public/img/wall/${name}.webp  ${Math.round(HEIGHT * aspect)} × ${HEIGHT}`);
   };
-  // `node scripts/wall.mjs table` renders the table's still alone
-  if (process.argv[2] !== 'table') {
+  // `node scripts/wall.mjs seasons <dir>` renders IV's four frames from <dir>/season-13-<season>.jpg:
+  // each season's collage sheet as a screen texture (1543 × 2072, the sheet fitted by width on white,
+  // as scripts/screens.sh composes a screen), dead-on, into public/img/seasons/<season>.webp
+  if (process.argv[2] === 'seasons') {
+    const dir = process.argv[3];
+    HEIGHT = 1100;
+    mkdirSync(`${here}dist/_seasons`, { recursive: true });
+    mkdirSync(`${here}public/img/seasons`, { recursive: true });
+    for (const season of ['spring', 'summer', 'fall', 'winter']) {
+      copyFileSync(`${dir}/season-13-${season}.jpg`, `${here}dist/_seasons/${season}.jpg`);
+      await render('13', `screen&src=_seasons/${season}.jpg`, `../seasons/${season}`);
+    }
+  } else if (process.argv[2] !== 'table') {
+    // `node scripts/wall.mjs table` renders the table's still alone
     for (const size of ['13', '10']) {
       for (const [i, f] of data.sizes[size].wall.entries()) await render(size, i, `${size}-${slug(f)}`);
     }
   }
-  await render('13', 'table', 'table-13-cardinal');
+  if (process.argv[2] !== 'seasons') await render('13', 'table', 'table-13-cardinal');
 } finally {
   await browser?.close();
   server.kill();

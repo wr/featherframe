@@ -335,3 +335,18 @@ def test_go_status_says_a_test_arrived(go_client):
     body = client.post("/api/source/test", data={"backend": "birdnet_go"}).json()
     assert body["ok"] is True
     assert "0 detection" in body["detail"] and "Test received" in body["detail"]
+
+
+def test_birdnet_go_rule_file_is_what_birdnet_go_imports():
+    """The page's Download rule (W-865): BirdNET-Go's Rules → Import takes
+    {version, rules} as its own Export writes it. The rule must push every
+    detection with no cooldown, or BirdNET-Go sends one per five minutes."""
+    import json
+    from featherframe import paths
+    data = json.loads((paths.static_dir() / "featherframe-birdnet-go-rule.json").read_text())
+    assert data["version"] == 1 and len(data["rules"]) == 1
+    rule = data["rules"][0]
+    assert (rule["object_type"], rule["trigger_type"], rule["event_name"]) == (
+        "detection", "event", "detection.occurred")
+    assert rule["cooldown_sec"] == 0 and rule["enabled"] is True
+    assert [a["target"] for a in rule["actions"]] == ["push"]

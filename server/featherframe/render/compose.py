@@ -15,7 +15,7 @@ placement (kept by the symmetric crop in plate.py) carries through.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from functools import lru_cache
 from typing import Optional
@@ -51,6 +51,11 @@ class SingleSpec:
     # picks the pill: "outage" is a fault (outlined, slashed), else information.
     note: Optional[str] = None
     note_kind: Optional[str] = None
+    # The footnote for the empty bough only, when image generation would
+    # have drawn this species but the owner must fix it first (an empty
+    # account, a refused key). An illustration never carries it, and an
+    # alarm's `note` comes first.
+    fallback_note: Optional[str] = None
 
 
 def _new_field() -> Image.Image:
@@ -236,4 +241,6 @@ def render_fallback(spec: SingleSpec, color: bool = False) -> Image.Image:
     # off the sheet's edge exactly as a plate's stems do.
     art = Artwork(image=bough(), composite=True, legend=lines,
                   color_loader=_bough_pair)
+    if spec.fallback_note and not spec.note:
+        spec = replace(spec, note=spec.fallback_note, note_kind="imagegen")
     return _render_art(spec, art, color)

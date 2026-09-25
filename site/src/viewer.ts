@@ -147,6 +147,9 @@ export async function startViewer(
     camera.position.set(0, Math.sin(PITCH) * d, Math.cos(PITCH) * d);
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
+    // setSize clears the canvas; draw again at once, before the browser
+    // paints, so resizing the window never flashes an empty stage.
+    renderer.render(scene, camera);
   };
   const ro = new ResizeObserver(resize);
   ro.observe(stage);

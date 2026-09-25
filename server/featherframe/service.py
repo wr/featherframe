@@ -778,6 +778,21 @@ class FeatherframeService:
             "detail": str(exc)[:300],
         })
 
+    def _imagegen_glass_note(self) -> Optional[str]:
+        """The frame's footnote for a failing image model, or None. Only for
+        what the owner must fix; anything else is tried again at the next
+        redraw."""
+        err = self.db.get(_IMAGEGEN_ERROR_KEY) or {}
+        if getattr(self.genart, "_model", None) is None:
+            return None
+        name = _IMAGEGEN_NAMES.get(self.config.imagegen_provider,
+                                   self.config.imagegen_provider)
+        if err.get("reason") == "credits":
+            return f"Out of {name} credits: add more for the AI collage"
+        if err.get("reason") == "key":
+            return "AI key rejected: replace it on the webapp"
+        return None
+
     def imagegen_error_view(self, now: datetime) -> Optional[dict]:
         """The last generation failure as the page says it, or None. Only
         while a model is set up: without a key there is nothing to fail."""
@@ -1459,9 +1474,16 @@ class FeatherframeService:
                                 total_detections=sum(c.count for c in painted),
                                 note=note, note_kind=note_kind),
                             f"combined collage ({len(painted)} species)")
+            # The grid in place of the AI collage says why, when the fix is
+            # the owner's (an empty account, a refused key); an alarm about
+            # detections comes first.
+            grid_note, grid_kind = note, note_kind
+            if use_generated and not note:
+                grid_note = self._imagegen_glass_note()
+                grid_kind = "imagegen" if grid_note else None
             return (collage_mod.render_collage(top, self.provider, when=on_date,
                                                total_detections=sum(c.count for c in top),
-                                               note=note, note_kind=note_kind,
+                                               note=grid_note, note_kind=grid_kind,
                                                color=color),
                     f"{len(top)}-species collage")
 

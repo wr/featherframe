@@ -1,0 +1,449 @@
+plate,ku_id,ku_english,ku_sci
+1,ku-gould:11439,Griffon Vulture,Gyps fulvus
+2,ku-gould:11435,Cinereous Vulture,Aegypius monachus
+3,ku-gould:11431,Egyptian Vulture,Neophron percnopterus
+4,ku-gould:11427,Bearded Vulture,Gypaetus barbatus
+5,ku-gould:11423,"Asian Imperial Eagle, Eastern Imperial Eagle",Aquila heliaca
+6,ku-gould:11419,"Golden Eagle, Águila real, Aigle royal",Aquila chrysaetos
+7,ku-gould:11415,Bonelli's Eagle,Aquila fasciata
+8,ku-gould:11411,Lesser Spotted Eagle,Aquila pomarina
+9,ku-gould:11407,Booted Eagle,Hieraaetus pennatus
+10,ku-gould:11403,"White-tailed Eagle, Pygargue à queue blanch",Haliaeetus albicilla
+11,ku-gould:11399,"Bald Eagle, Águila cabeza blanca, Pygargue à tête blanche",Haliaeetus leucocephalus
+12,ku-gould:11395,"Osprey, Western Osprey, Balbuzard pêcheur, Gavilán pescador",Pandion haliaetus
+13,ku-gould:11391,Short-toed Snake Eagle,Circaetus gallicus
+14,ku-gould:11387,"Swainson's Hawk, Aguililla de Swainson, Buse de Swainson",Buteo swainsoni
+15,ku-gould:11383,"Rough-legged Buzzard, Rough-legged Hawk, Roughleg, Aguililla ártica, Buse pattue",Buteo lagopus
+16,ku-gould:11379,European Honey Buzzard,Pernis apivorus
+17,ku-gould:11375,"Northern Goshawk, Autour des palombes, Gavilán azor",Accipiter gentilis
+18,ku-gould:11371,Eurasian Sparrowhawk,Accipiter nisus
+19,ku-gould:11367,"Faucon gerfaut, Gyrfalcon",Falco rusticolus
+20,ku-gould:11363,Lanner Falcon,Falco biarmicus
+21,ku-gould:11359,"Peregrine Falcon, Faucon pèlerin, faucon pélerin, Halcón peregrino",Falco peregrinus
+22,ku-gould:11355,"Eurasian Hobby, Faucon hobereau, Northern Hobby",Falco subbuteo
+23,ku-gould:11351,"Red-footed Falcon, Faucon kobez",Falco vespertinus
+24,ku-gould:11347,Merlin,Falco columbarius aesalon
+25,ku-gould:11343,Sooty Falcon,Falco concolor
+26,ku-gould:11339,"Common Kestrel, Eurasian Kestrel, Faucon crécerelle",Falco tinnunculus
+27,ku-gould:11335,Lesser Kestrel,Falco naumanni
+28,ku-gould:11331,Red Kite,Milvus milvus
+29,ku-gould:11327,"Black Kite, Milan noir",Milvus migrans
+30,ku-gould:11323,"American Swallow-tailed Kite, Milan à queue fourchue, Milano tijereta, Swallow-tailed Kite",Elanoides forficatus
+31,ku-gould:11319,"Black-shouldered Kite, Black-winged Kite",Elanus caeruleus
+32,ku-gould:11315,"Western Marsh Harrier, Busard des roseaux",Circus aeruginosus
+33,ku-gould:11311,"Northern Harrier, K123Busard Saint-Martin, Gavilán rastrero",Circus cyaneus
+34,ku-gould:11307,Pallid Harrier,Circus macrourus
+35,ku-gould:11303,Montagu's Harrier,Circus pygargus
+36,ku-gould:11299,"Barn Owl, Common Barn-Owl, effraie de clochers, Lechuza de campanario",Tyto alba
+37,ku-gould:11295,Eurasian Eagle-Owl,Bubo bubo
+38,ku-gould:11291,Pharaoh Eagle-Owl,Bubo ascalaphus
+39,ku-gould:11287,"Long-eared Owl, Búho cara café, hibou moyen-duc",Asio otus
+40,ku-gould:11283,"Short-eared Owl, Búho cuerno corto, hibou des marais",Asio flammeus
+41,ku-gould:11279,Eurasian Scops Owl,Otus scops
+42,ku-gould:11275,"Great Gray Owl, chouette lapone, Great Grey Owl",Strix nebulosa
+43,ku-gould:11271,"Snowy Owl, harfang des neiges",Bubo scandiacus
+44,ku-gould:11267,Ural Owl,Strix uralensis
+45,ku-gould:11263,"Northern Hawk Owl, Northern Hawk-Owl, chouette épervière,",Surnia ulula
+46,ku-gould:11259,"Barred Owl, Búho listado, chouette rayée",Strix varia
+47,ku-gould:11255,Tawny Owl,Strix aluco
+48,ku-gould:11251,Little Owl,Athene noctua
+49,ku-gould:11247,"Boreal Owl, nyctale de Tengmalm",Aegolius funereus
+50,ku-gould:11243,Little Owl,Athene noctua
+51,ku-gould:11221,European Nightjar,Caprimulgus europaeus
+52,ku-gould:11217,Red-necked Nightjar,Caprimulgus ruficollis
+53,ku-gould:11213,Common Swift,Apus apus
+54,ku-gould:11209,"Barn Swallow, Golondrina tijereta, hirondelle rustique",Hirundo rustica
+55,ku-gould:11205,Red-rumped Swallow,Hirundo daurica
+56,ku-gould:11201,Eurasian Crag-Martin,Hirundo rupestris
+57,ku-gould:11197,House Martin,Delichon urbicum
+58,ku-gould:11193,"Bank Swallow, Golondrina ribereña, hirondelle de rivage, Sand Martin",Riparia riparia
+59,ku-gould:11189,European Bee-easter,Merops apiaster
+60,ku-gould:11185,European Roller,Coracias garrulus
+61,ku-gould:11181,Common Kingfisher,Alcedo atthis ispida
+62,ku-gould:11177,Pied Kingfisher,Ceryle rudis
+63,ku-gould:11173,Pied Monarch,Arses kaupi
+64,ku-gould:11169,Red-breasted Flycatcher,Ficedula parva
+65,ku-gould:11165,"Gray-spotted Flycatcher, Gray-streaked Flycatcher, Grey-streaked Flycatcher",Muscicapa griseisticta
+66,ku-gould:11161,"Great Grey Shrike, Northern Shrike, pie-grièche grise",Lanius excubitor
+67,ku-gould:11157,"Great Grey Shrike, Northern Shrike, pie-grièche grise",Lanius excubitor
+68,ku-gould:11153,Lesser Grey Shrike,Lanius minor
+69,ku-gould:11149,Red-backed Shrike,Lanius collurio
+70,ku-gould:11145,Woodchat Shrike,Lanius senator
+71,ku-gould:11141,Eurasian Golden Oriole,Oriolus oriolus
+72,ku-gould:11137,"Common Blackbird, Eurasian Blackbird, merle noir",Turdus merula
+73,ku-gould:11133,Ring Ouzel,Turdus torquatus
+74,ku-gould:11129,"American Robin, merle d'Amérique, Mirlo primavera",Turdus migratorius
+75,ku-gould:11125,Red-throated Thrush,Turdus ruficollis
+76,ku-gould:11121,"Fieldfare, grive litorne",Turdus pilaris
+77,ku-gould:11117,Mistle Thrush,Turdus viscivorus
+78,ku-gould:11113,Redwing,Turdus iliacus
+79,ku-gould:11109,"Dusky Thrush, Naumann's Thrush",Turdus naumanni
+80,ku-gould:11105,Pale Thrush,Turdus pallidus
+81,ku-gould:11101,Scaly Thrush,Zoothera dauma
+82,ku-gould:11097,Siberian Thrush,Zoothera sibirica
+83,ku-gould:11093,White-throated Dipper,Cinclus cinclus
+84,ku-gould:11089,White-throated Dipper,Cinclus cinclus
+85,ku-gould:11085,Brown Dipper,Cinclus pallasii
+86,ku-gould:11081,Chestnut-bellied Rock Thrush,Monticola rufiventris
+87,ku-gould:11077,"Blue Rock Thrush, Blue Rock-Thrush",Monticola solitarius
+88,ku-gould:11073,Black Wheatear,Oenanthe leucura
+89,ku-gould:11069,Pied Wheatear,Oenanthe pleschanka
+90,ku-gould:11065,"Northern Wheatear, Collalba norteña, traquet motteux",Oenanthe oenanthe
+91,ku-gould:11061,Black-eared Wheatear,Oenanthe hispanica
+92,ku-gould:11057,Black-eared Wheatear,Oenanthe hispanica
+93,ku-gould:11053,Whinchat,Saxicola rubetra
+94,ku-gould:11049,Stonecchat,Saxicola torquatus
+95,ku-gould:11045,Common Redstart,Phoenicurus phoenicurus
+96,ku-gould:11041,Black Redstart,Phoenicurus ochruros
+97,ku-gould:11037,"Bluethroat, Bluethroats",Luscinia svecica
+98,ku-gould:11033,European Robin,Erithacus rubecula
+99,ku-gould:11029,Alpine Accentor,Prunella collaris
+100,ku-gould:11025,Dunnock,Prunella modularis
+101,ku-gould:11021,Siberian Accentor,Prunella montanella
+102,ku-gould:11017,River Warbler,Locustella fluviatilis
+103,ku-gould:11013,Common Grasshopper Warbler,Locustella naevia
+104,ku-gould:11009,Savi's Warbler,Locustella luscinioides
+105,ku-gould:11005,Pallas's Grasshopper Warbler,Locustella certhiola
+106,ku-gould:11001,Great Reed Warbler,Acrocephalus arundinaceus
+107,ku-gould:10997,Olive-tree Warbler,Hippolais olivetorum
+108,ku-gould:10993,Great Reed Warbler,Acrocephalus arundinaceus
+109,ku-gould:10989,Marsh Warbler,Acrocephalus palustris
+110,ku-gould:10985,Sedge Warbler,Acrocephalus schoenobaenus
+111,ku-gould:10981,Moustached Warbler,Acrocephalus melanopogon
+112,ku-gould:10977,Rufous-tailed Scrub Robin,Cercotrichas galactotes
+113,ku-gould:10973,Zitting Cisticola,Cisticola juncidis
+114,ku-gould:10969,Cetti's Warbler,Cettia cetti
+115,ku-gould:10965,Cetti's Warbler,Cettia cetti
+116,ku-gould:10961,Common Nightingale,Luscinia megarhynchos
+117,ku-gould:10957,Thrush Nightingale,Luscinia luscinia
+118,ku-gould:10953,Siberian Rubythroat,Luscinia calliope
+119,ku-gould:10949,Orphean Warbler,Sylvia hortensis
+120,ku-gould:10945,Eurasian Blackcap,Sylvia atricapilla
+121,ku-gould:10941,Garden Warbler,Sylvia borin
+122,ku-gould:10937,Rüppell's Warbler,Sylvia rueppelli
+123,ku-gould:10933,Sardinian Warbler,Sylvia melanocephala
+124,ku-gould:10929,Subalpine Warbler,Sylvia cantillans
+125,ku-gould:10925,Common Whitethroat,Sylvia curruca
+126,ku-gould:10921,Spectacled Warbler,Sylvia conspicillata
+127,ku-gould:10917,Marmora's Warbler,Sylvia sarda
+128,ku-gould:10913,Barred Warbler,Sylvia nisoria
+129,ku-gould:10909,Dartford Warbler,Sylvia undata
+130,ku-gould:10905,"Dunlin, Bécasseau variable, Playero dorso rojo",Calidris alpina
+131,ku-gould:10901,Willow Warbler,Phylloscopus trochilus
+132,ku-gould:10897,Icterine Warbler,Hippolais icterina
+133,ku-gould:10893,Melodious Warbler,Hippolais polyglotta
+134,ku-gould:10889,Western Bonelli's Warbler,Phylloscopus bonelli
+135,ku-gould:10885,Richard's Pipit,Anthus richardi
+136,ku-gould:10881,Meadow Pipit,Anthus pratensis
+137,ku-gould:10877,Nilgiri Pipit,Anthus nilghiriensis
+138,ku-gould:10873,Water Pipit,Anthus spinoletta
+139,ku-gould:10869,"Brown Tree-Pipit, Tree Pipit",Anthus trivialis
+140,ku-gould:10865,"Red-throated Pipit, Bisbita garganta roja",Anthus cervinus
+141,ku-gould:10861,"White Wagtail, Lavandera blanca",Motacilla alba
+142,ku-gould:10857,"White Wagtail, Lavandera blanca",Motacilla alba
+143,ku-gould:10853,"White Wagtail, Lavandera blanca",Motacilla alba
+144,ku-gould:10849,Citrine Wagtail,Motacilla citreola
+145,ku-gould:10845,"Western Yellow Wagtail, Yellow Wagtai",Motacilla flava
+146,ku-gould:10841,"Western Yellow Wagtail, Yellow Wagtai",Motacilla flava
+147,ku-gould:10837,"Gray Wagtail, Grey Wagtail",Motacilla cinerea
+148,ku-gould:10833,Firecrest,Regulus regulus
+149,ku-gould:10829,Goldcrest,Regulus regulus
+150,ku-gould:10807,Great Tit,Parus major
+151,ku-gould:10803,Sombre Tit,Poecile cincta
+152,ku-gould:10799,Tufted Titmouse,Baeolophus bicolor
+153,ku-gould:10795,Azure Tit,Cyanistes cyanus
+154,ku-gould:10791,Blue Tit,Cyanistes caeruleus
+155,ku-gould:10787,Coal Tit,Poecile palustris
+156,ku-gould:10783,European Crested Tit,Lophophanes cristatus
+157,ku-gould:10779,Long-tailed Bushtit,Aegithalos caudatus
+158,ku-gould:10775,Bearded Reedling,Panurus biarmicus
+159,ku-gould:10771,Eurasian Penduline Tit,Remiz pendulinus
+160,ku-gould:10767,"Bohemian Waxwing, jaseur boréal",Bombycilla garrulus
+161,ku-gould:10763,Black Lark,Melanocorypha yeltoniensis
+162,ku-gould:10759,Calandra Lark,Melanocorypha calandra
+163,ku-gould:10755,Greater Short-toed Lark,Calandrella brachydactyla
+164,ku-gould:10751,"Horned Lark, Alondra cornuda, alouette hausse-col",Eremophila alpestris
+165,ku-gould:10747,Crested Lark,Galerida cristata
+166,ku-gould:10743,"Eurasian Skylark, Sky Lark",Alauda arvensis
+167,ku-gould:10739,Woodlark,Lullula arborea
+168,ku-gould:10735,Greater Hoopoe-Lark,Alaemon alaudipes
+169,ku-gould:10731,"Lapland Longspur, bruant lapon, Escribano ártico",Calcarius lapponicus cornutus
+170,ku-gould:10727,"Snow Bunting, bruant des neiges",Plectrophenax nivalis
+171,ku-gould:10723,Corn Bunting,Emberiza calandra
+172,ku-gould:10719,Black-headed Bunting,Emberiza melanocephala
+173,ku-gould:10715,Yellowhammer,Emberiza citrinella
+174,ku-gould:10711,Yellow-breasted Bunting,Emberiza aureola
+175,ku-gould:10707,Cirl Bunting,Emberiza cirlus
+176,ku-gould:10703,Ortolan Bunting,Emberiza hortulana
+177,ku-gould:10699,Rustic Bunting,Emberiza rustica
+178,ku-gould:10695,Chestnut-eared Bunting,Emberiza fucata
+179,ku-gould:10691,Rock Bunting,Emberiza cia
+180,ku-gould:10687,Pine Bunting,Emberiza leucocephalos
+181,ku-gould:10683,Cretzschmar's Bunting,Emberiza caesia
+182,ku-gould:10679,"Common Reed Bunting, Common Reed-Bunting, Reed Bunting",Emberiza schoeniclus
+183,ku-gould:10675,"Common Reed Bunting, Common Reed-Bunting, Reed Bunting",Emberiza schoeniclus
+184,ku-gould:10671,"House Sparrow, Gorrión casero, moineau domestique",Passer montanus
+185,ku-gould:10667,Spanish Sparrow,Passer hispaniolensis
+186,ku-gould:10663,Rock Sparrow,Petronia petronia
+187,ku-gould:10659,Common Chaffinch,Fringilla coelebs
+188,ku-gould:10655,Brambling,Fringilla montifringilla
+189,ku-gould:10651,White-winged Snowfinch,Montifringilla nivalis
+190,ku-gould:10647,"Dark-eyed Junco, junco ardoisé, Junco ojo oscuro",Junco hyemalis
+191,ku-gould:10643,Common Linnet,Carduelis cannabina
+192,ku-gould:10639,Twite,Carduelis flavirostris
+193,ku-gould:10635,"Arctic Redpoll, Hoary Redpoll, sizerin blanchâtre",Carduelis hornemanni
+194,ku-gould:10631,"Common Redpoll, sizerin flammé",Carduelis flammea
+195,ku-gould:10627,European Serin,Serinus serinus
+196,ku-gould:10623,"Eurasian Goldfinch, European Goldfinch, chardonneret élégant",Carduelis carduelis
+197,ku-gould:10619,Eurasian Siskin,Carduelis spinus
+198,ku-gould:10615,Citril Finch,Carduelis citrinella
+199,ku-gould:10611,Hawfinch,Coccothraustes coccothraustes
+200,ku-gould:10607,European Greenfinch,Carduelis chloris
+201,ku-gould:10603,Parrot Crossbill,Loxia pytyopsittacus
+202,ku-gould:10599,"Red Crossbill, bec-croisé des sapins, Picotuerto rojo",Loxia curvirostra
+203,ku-gould:10595,"Two-barred Crossbill, White-winged Crossbill, bec-croisé bifascié",Loxia leucoptera
+204,ku-gould:10591,"Pine Grosbeak, durbec des sapins",Pinicola enucleator
+205,ku-gould:10587,"Two-barred Crossbill, White-winged Crossbill",Loxia leucoptera
+206,ku-gould:10583,Common Rosefinch,Carpodacus erythrinus
+207,ku-gould:10579,Common Rosefinch,Carpodacus erythrinus
+208,ku-gould:10575,Trumpeter Finch,Bucanetes githagineus
+209,ku-gould:10571,Eurasian Bullfinch,Pyrrhula pyrrhula
+210,ku-gould:10567,"Common Starling, Estornino pinto, étourneau sansonnet, European Starling",Sturnus vulgaris
+211,ku-gould:10563,Spotless Starling,Sturnus unicolor
+212,ku-gould:10559,Rosy Starling,Sturnus roseus
+213,ku-gould:10555,Spotted Nutcracker,Nucifraga caryocatactes
+214,ku-gould:10551,Eurasian Jay,Garrulus glandarius
+215,ku-gould:10547,Siberian Jay,Perisoreus infaustus
+216,ku-gould:10543,"Black-billed Magpie, Eurasian Magpie, pie bavarde",Pica pica
+217,ku-gould:10539,Azure-winged Magpie,Cyanopica cyana
+218,ku-gould:10535,Alpine Chough,Pyrrhocorax graculus
+219,ku-gould:10531,Alpine Chough,Pyrrhocorax graculus
+220,ku-gould:10527,"Common Raven, Cuervo común, grand corbeau, Northern Raven",Corvus corax
+221,ku-gould:10523,Carrion Crow,Corvus corone
+222,ku-gould:10519,Hooded crow,Corvus cornix
+223,ku-gould:10515,"Eurasian Crow, Eurasian Jackdaw, Western Jackdaw, choucas des tours",Corvus monedula
+224,ku-gould:10511,Rook,Corvus frugilegus
+225,ku-gould:10507,Black Woodpecker,Dryocopus martius
+226,ku-gould:10503,European Green Woodpecker,Picus viridis
+227,ku-gould:10499,Grey-headed Woodpecker,Picus canus
+228,ku-gould:10495,White-backed Woodpecker,Dendrocopos leucotos
+229,ku-gould:10491,Great Spotted Woodpecker,Dendrocopos major
+230,ku-gould:10487,Middle Spotted Woodpecker,Dendrocopos medius
+231,ku-gould:10483,Lesser Spotted Woodpecker,Dendrocopos minor
+232,ku-gould:10479,"Eurasian Three-toed Woodpecker, Three-toed Woodpecker, pic tridactyle",Picoides tridactylus
+233,ku-gould:10475,Eurasian Wryneck,Jynx torquilla
+234,ku-gould:10471,Eurasian Nuthatch,Sitta europaea
+235,ku-gould:10467,Western Rock Nuthatch,Sitta neumayer
+236,ku-gould:10463,Eurasian Nuthatch,Sitta europaea
+237,ku-gould:10459,Eurasian Treecreeper,Certhia familiaris
+238,ku-gould:10455,"Common Hoopoe, Eurasian Hoopoe, Hoopoe",Upupa epops
+239,ku-gould:10451,Wallcreeper,Tichodroma muraria
+240,ku-gould:10447,Common Cuckoo,Cuculus canorus
+241,ku-gould:10443,Great Spotted Cuckoo,Clamator glandarius
+242,ku-gould:10439,"Yellow-billed Cuckoo, coulicou à bec jaune, Cuclillo pico amarillo",Coccyzus americanus
+243,ku-gould:10417,Common Wood Pigeon,Columba palumbus
+244,ku-gould:10413,Stock Dove,Columba oenas
+245,ku-gould:10409,"Common Pigeon, Paloma doméstica, pigeon biset, Rock Dove, Rock Pigeon",Columba livia
+246,ku-gould:10405,"European Turtle Dove, European Turtle-Dove",Streptopelia turtur
+247,ku-gould:10401,"Common Pheasant, faisan de chasse, Faisán de collar, Ring-necked Pheasant",Phasianus colch icus
+248,ku-gould:10397,Western Capercaillie,Tetrao urogallus
+249,ku-gould:10393,Western Capercaillie,Tetrao urogallus
+250,ku-gould:10389,"Black Grouse, Eurasian Black Grouse",Lyrurus tetrix
+251,ku-gould:10385,Hazel Grouse,Tetrastes bonasia
+252,ku-gould:10381,"Willow Grouse, Willow Ptarmigan, lagopède des saules",Lagopus lagopus
+253,ku-gould:10377,Rock Ptarmigan,Lagopus muta
+254,ku-gould:10373,Rock Ptarmigan,Lagopus muta
+255,ku-gould:10369,"Willow Grouse, Willow Ptarmigan, lagopède des saules",Lagopus lagopus
+256,ku-gould:10365,"lagopède des saules, Willow Grouse, Willow Ptarmigan",Lagopus lagopus
+257,ku-gould:10361,Black-bellied Sandgrouse,Pterocles orientalis arenarius
+258,ku-gould:10357,Pin-tailed Sandgrouse,Pterocles alchata
+259,ku-gould:10353,Francolinus vulgaris,Francolinus vulgaris
+260,ku-gould:10349,Red-legged Partridge,Alectoris rufa
+261,ku-gould:10345,Barbary Partridge,Alectoris graeca saxatilis
+262,ku-gould:10341,"Gray Partridge, Grey Partridge, perdrix grise",Perdix perdix
+263,ku-gould:10337,Common Quail,Coturnix coturnix
+264,ku-gould:10333,"Common Buttonquail, Kurrichane Buttonquail",Turnix sylvaticus
+265,ku-gould:10329,"Collared Pratincole, Glaréole à collier",Glareola pratincola
+266,ku-gould:10325,Cream-colored Courser,Cursorius cursor
+267,ku-gould:10321,Great Bustard,Otis tarda
+268,ku-gould:10317,Houbara Bustard,Chlamydotis undulata
+269,ku-gould:10313,Little Bustard,Tetrax tetrax
+270,ku-gould:10309,Common Crane,Grus grus
+271,ku-gould:10305,"Siberian Crane, Siberian White Crane",Grus leucogeranus
+272,ku-gould:10301,Demoiselle Crane,Anthropoides virgo
+273,ku-gould:10297,"Gray Heron, Grey Heron, Héron cendré",Aquila cinerea
+274,ku-gould:10293,"Purple Heron, Héron pourpré",Aquila purpurea
+275,ku-gould:10289,Squacco Heron,Ardeola ralloides
+276,ku-gould:10285,"Great Egret, Grande Aigrette",Aquila alba
+277,ku-gould:10281,"Little Egret, Aigrette garzett",Egretta garzetta
+278,ku-gould:10277,"Cattle Egret, , Western Cattle Egret, Garza ganadera, Héron garde-boeufs",Bubulcus ibis
+279,ku-gould:10273,"Black-crowned Night Heron, Black-crowned Night-Heron,Bihoreau gris, Pedrete corona negra",Nycticorax nycticorax
+280,ku-gould:10269,Eurasian Bittern,Botaurus stellaris
+281,ku-gould:10265,"American Bittern, Avetoro norteño, Butor d'Amérique",Botaurus lentiginosus
+282,ku-gould:10261,"Little Bittern, Blongios nain",Ixobrychus minutus
+283,ku-gould:10257,White Stork,Ciconia ciconia
+284,ku-gould:10253,Black Stork,Ciconia nigra
+285,ku-gould:10249,Maguari Stork,Ciconia maguari
+286,ku-gould:10245,"Eurasian Spoonbill, Spatule blanche",Platalea leucorodia
+287,ku-gould:10241,"American Flamingo, Flamant des Caraïbes, flamant rose, Flamenco americano, Greater Flamingo",Phoenicopterus ruber
+288,ku-gould:10237,Eurasian Stone-curlew,Burhinus oedicnemus
+289,ku-gould:10233,"Black-winged Stilt, Échasse blanche",Himantopus himantopus
+290,ku-gould:10229,"Black-bellied Plover, Grey Plover, Chorlo gris, Pluvier argenté",Pluvialis squatarola
+291,ku-gould:10225,"Northern Lapwing, Vanneau huppé",Vanellus vanellus
+292,ku-gould:10221,Sociable Lapwing,Vanellus gregarius
+293,ku-gould:10217,Spur-winged Lapwing,Vanellus spinosus
+294,ku-gould:10213,"European Golden Plover, European Golden-Plover, Greater Golden-Plover, Pluvier doré",Pluvialis apricaria
+295,ku-gould:10209,"Eurasian Dotterel, Pluvier guignard",Charadrius morinellus
+296,ku-gould:10205,"Common Ringed Plover, Pluvier grand-gravelot",Charadrius hiaticula
+297,ku-gould:10201,"Little Ringed Plover, Pluvier petit-gravelot",Charadrius dubius
+298,ku-gould:10197,"Kentish Plover, Snowy Plover, Chorlo nevado",Charadrius alexandrinus alexandrinus
+299,ku-gould:10193,"Lesser Sand Plover, Lesser Sand-Plover, Mongolian Plover, Pluvier de Mongolie",Charadrius mongolus
+300,ku-gould:10189,"Eurasian Oystercatcher, Huîtrier pie",Haematopus ostralegus
+301,ku-gould:10185,"Glossy Ibis, Ibis cara oscura, Ibis falcinelle",Plegadis falcinellus
+302,ku-gould:10181,"Eurasian Curlew, Courlis cendré",Numenius arquata
+303,ku-gould:10177,"Whimbrel, Courlis corlieu, Zarapito trinador",Numenius phaeopus
+304,ku-gould:10173,"Slender-billed Curlew, Courlis à bec grêle",Numenius tenuirostris
+305,ku-gould:10169,"Black-tailed Godwit, Barge à queue noire",Limosa limosa
+306,ku-gould:10165,"Bar-tailed Godwit, Barge rousse, Picopando cola barrada",Limosa lapponica
+307,ku-gould:10161,"Terek Sandpiper, Chevalier bargette",Xenus cinereus
+308,ku-gould:10157,Pied Avocet,Recurvirostra avosetta
+309,ku-gould:10153,"Spotted Redshank, Chevalier arlequin",Tringa erythropus
+310,ku-gould:10149,"Common Redshank, Chevalier gambette",Tringa totanus
+311,ku-gould:10145,"Willet, Chevalier semipalmé",Tringa semipalmata
+312,ku-gould:10141,"Common Greenshank, Chevalier aboyeur",Tringa nebularia
+313,ku-gould:10137,"Upland Sandpiper, Maubèche des champs, Zarapito ganga",Bartramia longicauda
+314,ku-gould:10133,"Marsh Sandpiper, Chevalier stagnatile",Tringa stagnatilis
+315,ku-gould:10129,"Green Sandpiper, Chevalier cul-blanc",Tringa ochropus
+316,ku-gould:10125,"Common Sandpiper, Chevalier guignett",Actitis hypoleucos
+317,ku-gould:10121,"Spotted Sandpiper, Chevalier grivelé",Actitis macularius
+318,ku-gould:10117,"Ruddy Turnstone, Tournepierre à collier, Vuelvepiedras rojizo",Arenaria interpres
+319,ku-gould:10113,"Eurasian Woodcock, Bécasse des bois",Scolopax rusticola
+320,ku-gould:10109,Great Snipe,Gallinago media
+321,ku-gould:10105,Sabine's snipe,Scolopax sabini
+322,ku-gould:10101,"Jack Snipe, Bécassine sourde",Lymnocryptes minimus
+323,ku-gould:10097,"Short-billed Dowitcher, Bécassin roux, Costurero pico corto",Limnodromus griseus
+324,ku-gould:10093,"Red Knot, Bécasseau maubèche, Playero canuto",Calidris canutus
+325,ku-gould:10089,"Ruff, combatant varié, Combattant varié",Philomachus pugnax
+326,ku-gould:10085,"Buff-breasted Sandpiper, Bécasseau roussâtre, Playero leonado",Tryngites subruficollis
+327,ku-gould:10081,"Pectoral Sandpiper, Bécasseau à poitrine cendrée, Playero pectoral",Calidris melanotos
+328,ku-gould:10077,"Curlew Sandpiper, Bécasseau cocorli",Calidris ferruginea
+329,ku-gould:10073,"Dunlin, Bécasseau variable, Playero dorso rojo",Calidris alpina
+330,ku-gould:10069,"White-rumped Sandpiper, Bécasseau à croupion blanc, Playero rabadilla blanca",Calidris fuscicollis
+331,ku-gould:10065,"Broad-billed Sandpiper, Bécasseau falcinelle",Limicola falcinellus
+332,ku-gould:10061,"Little Stint, Bécasseau minute",Calidris minuta
+333,ku-gould:10057,"Temminck's Stint, Bécasseau de Temminck",Calidris temminckii
+334,ku-gould:10053,"Purple Sandpiper, Bécasseau violet",Calidris maritima
+335,ku-gould:10049,"Sanderling, Bécasseau sanderling, Playero blanc",Calidris alba
+336,ku-gould:10045,"Red-necked Phalarope, Falaropo cuello rojo, Phalarope à bec étroit",Phalaropus lobatus
+337,ku-gould:10041,"Red-necked Phalarope, Falaropo cuello rojo, Phalarope à bec étroit",Phalaropus fulicarius
+338,ku-gould:10037,Eurasian Coot,Fulica atra
+339,ku-gould:10033,Water Rail,Rallus aquaticus
+340,ku-gould:10029,Purple Swamphen,Porphyrio porphyrio
+341,ku-gould:10025,Corn Crake,Crex crex
+342,ku-gould:10021,"Common Moorhen, Gallineta frente roja, gallinule poule-d'eau",Gallinula chloropus
+343,ku-gould:10017,Spotted Crake,Porzana porzana
+344,ku-gould:10013,Baillon's Crake,Porzana pusilla
+345,ku-gould:10009,Little Crake,Porzana parva
+346,ku-gould:9987,"Blue Goose, Snow Goose, Ganso blanco, oie des neiges,",Chen caerulescens
+347,ku-gould:9983,Greylag Goose,Anser anser
+348,ku-gould:9979,"Bean Goose, oie des moissons",Anser fabalis
+349,ku-gould:9975,"Greater White-fronted Goose, Ganso careto-mayor, oie rieuse",Anser albifrons
+350,ku-gould:9971,"Barnacle Goose, bernache nonnette",Branta leucopsis
+351,ku-gould:9967,Red-breasted Goose,Branta ruficollis
+352,ku-gould:9963,"Brant, Brant Goose, Brent Goose, bernache cravant, Ganso de collar",Branta bernicla
+353,ku-gould:9959,Egyptian Goose,Alopochen aegyptiaca
+354,ku-gould:9955,Mute Swan,Cygnus olor
+355,ku-gould:9951,Whooper Swan,Cygnus cygnus
+356,ku-gould:9947,"Tundra Swan, Cisne de tundra, cygne siffleur",Cygnus columbianus bewickii
+357,ku-gould:9943,"Common Shelduck, tadorne de Belon",Tadorna tadorna
+358,ku-gould:9939,"Ruddy Shelduck, canard des Bahamas",Tadorna ferruginea
+359,ku-gould:9935,"Eurasian Wigeon, canard siffleur, Pato silbón",Anas penelope
+360,ku-gould:9931,Yellow-browed Warbler,Phylloscopus inornatus
+361,ku-gould:9927,"Mallard, canard colvert, Pato de collar",Anas platyrhynchos
+362,ku-gould:9923,"Eurasian Teal, Green-winged Teal, Cerceta ala verde, sarcelle d'hiver",Anas crecca
+363,ku-gould:9919,Baikal Teal,Anas formosa
+364,ku-gould:9915,"Garganey, Cerceta ceja blanca, sarcelle d'été",Anas querquedula
+365,ku-gould:9911,"Northern Pintail, canard pilet,  Pato golondrino",Anas acuta
+366,ku-gould:9907,"Gadwall, canard chipeau, Pato friso",Anas strepera
+367,ku-gould:9903,Common Pochard,Aythya ferina
+368,ku-gould:9899,Ferruginous Duck,Aythya nyroca
+369,ku-gould:9895,Red-crested Pochard,Netta rufina
+370,ku-gould:9891,"Tufted Duck, fuligule morillon",Aythya fuligula
+371,ku-gould:9887,"Greater Scaup, fuligule milouinan, Pato boludo-mayor",Aythya m arila
+372,ku-gould:9883,"Steller's Eider, eider de Steller",Polysticta stelleri
+373,ku-gould:9879,Marbled Duck,Marmaronetta angustirostris
+374,ku-gould:9875,"Common Eider, eider à duvet",Somateria mollissima
+375,ku-gould:9871,"King Eider, eider à tête grise",Somateria spectabilis
+376,ku-gould:9867,"Surf Scoter, macreuse à front blanc, Negreta nuca blanca",Melanitta perspicillata
+377,ku-gould:9863,"Velvet Scoter, White-winged Scoter, macreuse brune, Negreta ala blanc",Melanitta fusca
+378,ku-gould:9859,"Black Scoter, macreuse noire, Negreta negra",Melanitta nigra
+379,ku-gould:9855,"Common Goldeneye, garrot à oeil d'or, Pato chillón",Bucephala clangula
+380,ku-gould:9851,"Barrow's Goldeneye, garrot d'Islande",Bucephala islandica
+381,ku-gould:9847,"Harlequin Duck, arlequin plongeur, Pato arlequín",Histrionicus histrionicus
+382,ku-gould:9843,"Long-tailed Duck, Oldsquaw, harelde kakawi, Pato cola larga",Clangula hyemalis
+383,ku-gould:9839,White-headed Duck,Oxyura leucocephala
+384,ku-gould:9835,"Common Merganser, grand harle, Mergo mayor",Mergus merganser
+385,ku-gould:9831,"Red-breasted Merganser, harle huppé, Mergo copetón,",Mergus serrator
+386,ku-gould:9827,"Hooded Merganser, harle couronné, Mergo cresta blanca",Lophodytes cucullatus
+387,ku-gould:9823,"Smew, harle piette",Mergellus albellus
+388,ku-gould:9819,Great Crested Grebe,Podiceps cristatus
+389,ku-gould:9815,"Red-necked Grebe, Grèbe jougris",Podiceps grisegena
+390,ku-gould:9811,"Horned Grebe, Grèbe esclavon, Zambullidor cornudo",Podiceps auritus
+391,ku-gould:9807,"Horned Grebe, Grèbe esclavon, Zambullidor cornudo",Podiceps auritus
+392,ku-gould:9572,Little Grebe,Tachybaptus ruficollis
+393,ku-gould:9800,"Common Loon, Great Northern Diver, Great Northern Loon, Plongeon huard, Colimbo mayor",Gavia immer
+394,ku-gould:9796,"Arctic Loon, Black-throated Loon, Plongeon arctique",Gavia arctica
+395,ku-gould:9792,"Plongeon catmarin, Red-throated Diver, Red-throated Loon, Colimbo menor",Gavia stellata
+396,ku-gould:9788,"Common Murre, Arao común, Guillemot marmette",Uria aalge
+397,ku-gould:9784,"Common Murre, Arao común, Guillemot marmette",Uria aalge
+398,ku-gould:9780,"Thick-billed Murre, Guillemot de Brünnich",Uria lomvia
+399,ku-gould:9776,"Black Guillemot, Guillemot à miroir",Cepphus grylle
+400,ku-gould:9772,"Great Auk, Grand Pingouin,",Pinguinus impennis
+401,ku-gould:9768,"Razorbill, Petit Pingouin",Alca torda
+402,ku-gould:9764,"Dovekie, Little Auk, mergule main, Mergule nain",Alle alle
+403,ku-gould:9760,"Atlantic Puffin, Macareux moine",Fratercula arctica
+404,ku-gould:9756,"Atlantic Puffin, Macareux moine",Fratercula arctica
+405,ku-gould:9752,Great White Pelican,Pelecanus onocrotalus
+406,ku-gould:9748,Dalmatian Pelican,Pelecanus crispus
+407,ku-gould:9744,"Grand Cormoran, Great Cormorant",Phalacrocorax carbo
+408,ku-gould:9740,"Grand Cormoran, Great Cormorant",Phalacrocorax carbo
+409,ku-gould:9736,Pygmy Cormorant,Microcarbo pygmeus
+410,ku-gould:9732,European Shag,Phalacrocorax aristotelis
+411,ku-gould:9728,European Shag,Phalacrocorax aristotelis desmarestii
+412,ku-gould:9724,"Northern Gannet, Bobo norteño, Fou de Bassan",Morus bassanus
+413,ku-gould:9720,"Northern Gannet, Bobo norteño, Fou de Bassan",Morus bassanus
+414,ku-gould:9716,"Caspian Tern, Charrán caspia, Sterne caspienne",Hydroprogne caspia
+415,ku-gould:9712,"Sandwich Tern, Charrán de Sandwich, Sterne caugek",Thalasseus sandvicensis
+416,ku-gould:9708,"Gull-billed Tern, Charrán pico grueso,  Sterne hansel",Gelochelidon nilotica
+417,ku-gould:9704,"Common Tern, Charrán común, Sterne pierregarin",Sterna hirundo
+418,ku-gould:9700,"Roseate Tern, Charrán rosado, Sterne de Dougall",Sterna dougallii
+419,ku-gould:9696,"Arctic Tern, Charrán ártico, Sterne arctique",Sterna paradisaea
+420,ku-gould:9692,"Little Tern, Sterne naine",Sternula albifrons
+421,ku-gould:9688,"Brown Noddy, Charrán-bobo café, Noddi brun",Anous stolidus
+422,ku-gould:9684,"Black Tern, Charrán negro, Guifette noire",Chlidonias niger
+423,ku-gould:9680,"White-winged Tern, Guifette leucoptèra",Chlidonias leucopterus
+424,ku-gould:9676,"Whiskered Tern, Guifette moustac",Chlidonias hybrida
+425,ku-gould:9672,"Black-headed Gull, Common Black-headed Gull, Gaviota encapuchada, Mouette rieuse",Chroicocephalus ridibundus
+426,ku-gould:9668,"Laughing Gull, Gaviota reidora, Mouette atricille",Leucophaeus atricilla
+427,ku-gould:9664,Mediterranean Gull,Ichthyaetus melanocephalus
+428,ku-gould:9660,"Little Gull, Gaviota mínima, Mouette pygmée",Hydrocoloeus minutus
+429,ku-gould:9656,"Sabine's Gull, Gaviota cola hendida, Mouette de Sabine",Xema sabini
+430,ku-gould:9652,"Great Black-backed Gull, Goéland marin",Larus marinus
+431,ku-gould:9648,"Lesser Black-backed Gull, Gaviota sombría, Goéland brun",Larus fuscus
+432,ku-gould:9644,"Glaucous Gull, Gaviota blanca, Goéland bourgmestre",Larus hyperboreus
+433,ku-gould:9640,"Iceland Gull, Goéland arctique",Larus glaucoides
+434,ku-gould:9636,"European Herring Gull, Gaviota plateada, Goéland argenté, Herring Gull",Larus argentatus
+435,ku-gould:9632,"Black-legged Kittiwake, Gaviota pata negra, Mouette tridactyle",Rissa tridactyla
+436,ku-gould:9628,"Ivory Gull, Mouette blanche",Pagophila eburnea
+437,ku-gould:9624,"Mew Gull, Gaviota cana, Goéland cendr",Larus canus
+438,ku-gould:9620,Audouin's Gull,Ichthyaetus audouinii
+439,ku-gould:9616,"Great Skua, Grand Labbe",Stercorarius skua
+440,ku-gould:9612,"Pomarine Jaeger, Pomarine Skua, Labbe pomarin,  Salteador pomarino",Stercorarius pomarinus
+441,ku-gould:9608,"Parasitic Jaeger, Labbe parasite, Salteador parásito",Stercorarius parasiticus
+442,ku-gould:9604,"Parasitic Jaeger, Labbe parasite, Salteador parásito",Stercorarius parasiticus
+443,ku-gould:9600,"Manx Shearwater, Puffin des Anglais",Puffinus puffinus
+444,ku-gould:9596,"Little Shearwater, Petit Puffin",Puffinus assimilis
+445,ku-gould:9592,"Great Shearwater, Greater Shearwater, Pardela mayor, Puffin majeur",Puffinus gravis
+446,ku-gould:9588,"Northern Fulmar, Fulmar boréal, Fulmar norteño",Fulmarus glacialis
+447,ku-gould:9584,"Leach's Storm Petrel, Leach's Storm-Petrel, Océanite cul-blanc, Paíño de Leach",Oceanodroma leucorhoa
+449,ku-gould:9580,"Bulwer's Petrel, Pétrel de Bulwer",Bulweria bulwerii

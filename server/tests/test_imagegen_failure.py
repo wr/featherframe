@@ -145,7 +145,7 @@ def grid_notes(svc, monkeypatch):
 
 def _fail_with(svc, message):
     svc._note_imagegen(GenerationError(message))
-    svc.genart.day_composite = lambda cells, when, force=False: None
+    svc.genart.day_composite = lambda cells, when, force=False, southern=False: None
 
 
 def test_grid_says_out_of_credits(svc, grid_notes):

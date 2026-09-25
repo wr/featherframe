@@ -40,6 +40,7 @@ from ..names import DEFAULT_FOLIO, folio_of
 from . import plate
 from .collage import CollageCell, same_species, sheet_art_size
 from .provider import ArtProvider, Artwork
+from .season import season_phrase, tree_state
 
 log = logging.getLogger("featherframe.genart")
 
@@ -232,16 +233,15 @@ _P_COMPOSITE_TEMPLATE = (
 
 # Up to a handful of figures: the folio's own totem manner.
 _P_COMPOSITE_ARMATURE = (
-    "One shared armature — a single bare, branching bough entering from the sheet edge "
+    "One shared armature — a single {bare}branching bough entering from the sheet edge "
     "and cut off flush — carries every figure. Each species holds its own station at a "
     "staggered height, drawn in TRUE RELATIVE SCALE to the others (a large species "
     "dwarfs a small one, as in life), in its own characteristic pose and direction, the "
     "figures never interacting. Each figure is exactly the species its names denote — "
     "its true kind and anatomy, never translated into another creature. The first-listed species takes the most commanding "
     "station; each later one a quieter perch. Beside each figure sits its tiny engraved "
-    "italic numeral in the listed order (1., 2., 3., ...) and nothing else. The bough "
-    "stays botanically simple — a few sprigs at most — so the figures carry the sheet, "
-    "and at least a third of the sheet stays bare paper, asymmetrically.\n\n"
+    "italic numeral in the listed order (1., 2., 3., ...) and nothing else. {botany}"
+    "At least a third of the sheet stays bare paper, asymmetrically.\n\n"
 )
 
 # Past that, a crowded sheet: one bare bough dividing as far as the figures
@@ -249,7 +249,7 @@ _P_COMPOSITE_ARMATURE = (
 # tree in leaf, and a sampled event; all three read as busier and less
 # unified than this, and this is what Wells picked — W-699.)
 _P_COMPOSITE_ARMATURE_CROWDED = (
-    "This is a crowded sheet. One shared armature — a single bare bough entering from "
+    "This is a crowded sheet. One shared armature — a single {bare}bough entering from "
     "the sheet edge, cut off flush, and dividing into as many limbs as the figures need — "
     "carries every figure, the limbs spreading so the figures tier across the whole height "
     "and width of the sheet, none overlapping and none hidden behind another. Each species "
@@ -262,19 +262,44 @@ _P_COMPOSITE_ARMATURE_CROWDED = (
     "however far down the list it falls, and a small bird stays small beside a large one. "
     "Beside each figure sits its tiny engraved italic numeral in the listed order "
     "(1., 2., 3., ...) "
-    "and nothing else — every figure numbered, every numeral legible. The bough stays "
-    "botanically bare so the figures carry the sheet, and the figures fill the sheet to "
-    "its edges, across its full width and height, with no bare margin.\n\n"
+    "and nothing else — every figure numbered, every numeral legible. {botany}"
+    "The figures fill the sheet to its edges, across its full width and height, with "
+    "no bare margin.\n\n"
 )
 _COMPOSITE_CROWDED_FROM = 7  # figures; the totem manner holds up to six
 
+# With no date to go by, the bough is bare wood, as every sheet was before W-881.
+_P_COMPOSITE_BARE = {
+    False: "The bough stays botanically simple — a few sprigs at most — so the "
+           "figures carry the sheet. ",
+    True: "The bough stays botanically bare so the figures carry the sheet. ",
+}
+
+# W-881: the bough lives in the season of the collage's date. Stated as a
+# principle of the setting — the week's own state of the tree and the weather
+# on its wood — never as a list of things to paint, which the model would
+# paint on every sheet; the stage ("late winter") keeps a season from reading
+# as its cliché. The figures stay the subject: the season is carried lightly
+# and every figure and numeral stands clear of it, or the key under the sheet
+# stops matching what is painted.
+_P_COMPOSITE_SEASON = (
+    "The bough is one living tree of a temperate woodland, seen in {season}: it wears "
+    "that week exactly as the week truly is, so the season is unmistakable at a glance. "
+    "The season is told with the fewest touches that make it so, in the folio's economy, "
+    "the bark clean and plain, so the figures carry the sheet; every figure stands whole "
+    "against it and every numeral sits on open paper. "
+)
+COLLAGE_PROMPT_VERSION = 17  # the collage sidecar's; single plates keep PROMPT_VERSION
+
 
 def build_composite_prompt(subjects: list[tuple[str, str]],
-                           briefs: Optional[dict] = None) -> str:
+                           briefs: Optional[dict] = None,
+                           season: Optional[str] = None) -> str:
     """Prompt for the combined collage sheet: the day's species as one composite
     plate. `subjects` is (common, scientific) in prominence order; `briefs`
     maps a scientific name to a naturalist's one-line description so the
-    model draws katydids as katydids."""
+    model draws katydids as katydids; `season` ("late winter",
+    `season.season_phrase`) sets the bough in its season."""
     def line(i, common, sci):
         s = f"{i}. {common} ({sci})" if sci else f"{i}. {common}"
         brief = (briefs or {}).get(sci or common, "")
@@ -285,8 +310,13 @@ def build_composite_prompt(subjects: list[tuple[str, str]],
         line(i, common, sci)
         for i, (common, sci) in enumerate(subjects, start=1))
     opener = _P_COMPOSITE_TEMPLATE.format(n=len(subjects), subjects=listed)
-    armature = (_P_COMPOSITE_ARMATURE_CROWDED if len(subjects) >= _COMPOSITE_CROWDED_FROM
-                else _P_COMPOSITE_ARMATURE)
+    crowded = len(subjects) >= _COMPOSITE_CROWDED_FROM
+    template = _P_COMPOSITE_ARMATURE_CROWDED if crowded else _P_COMPOSITE_ARMATURE
+    if season:
+        armature = template.format(bare="", botany=_P_COMPOSITE_SEASON.format(season=season))
+    else:
+        armature = template.format(bare="bare, " if not crowded else "bare ",
+                                   botany=_P_COMPOSITE_BARE[crowded])
     return opener + armature + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
 
 
@@ -1644,7 +1674,7 @@ class GeneratedArtProvider(ArtProvider):
     # -- the combined collage (one generated sheet) --------------------------------
     _KEEP_SHEETS = 7  # the latest of a day is kept; older days only for a re-render
 
-    def day_composite(self, cells, when, force: bool = False):
+    def day_composite(self, cells, when, force: bool = False, southern: bool = False):
         """One generated composite sheet for the day's top species, in the
         manner of the folio's late totem plates. One file per date, reused for
         every redraw of that day — every collage is the generated one when the
@@ -1654,7 +1684,8 @@ class GeneratedArtProvider(ArtProvider):
         nightly one and any forced repaint. Returns
         (art, cells_as_painted) — on a cache hit the cells come from the
         sidecar, so the key under the sheet always names the figures that were
-        actually painted — or None (caller falls back to the grid).
+        actually painted — or None (caller falls back to the grid). The bough
+        is set in the season of `when` (W-881), `southern` flipping it.
         Never raises."""
         day = when.isoformat()
         png = paths.collages_dir() / f"{day}.png"
@@ -1675,7 +1706,9 @@ class GeneratedArtProvider(ArtProvider):
             subjects = [(c.common_name, c.scientific_name) for c in cells]
             briefs = {sci or common: self._describe(common, sci)[0]
                       for common, sci in subjects}  # description only
-            prompt = build_composite_prompt(subjects, briefs)
+            season = season_phrase(when, southern)
+            prompt = build_composite_prompt(subjects, briefs,
+                                            season=tree_state(when, southern))
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
                 if png.exists():
@@ -1719,7 +1752,8 @@ class GeneratedArtProvider(ArtProvider):
                     "quality": getattr(self._model, "quality", None),
                     "usage": {"image": image_usage, "text": None},
                     "cost_usd": estimate_cost_usd(model_name, image_usage),
-                    "prompt_version": PROMPT_VERSION,
+                    "prompt_version": COLLAGE_PROMPT_VERSION,
+                    "season": season,
                     "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                     "created_ts": round(time.time(), 1),
                     "elapsed_s": round(time.time() - started, 1),

@@ -273,7 +273,7 @@ def _painted_cells(svc, monkeypatch):
     seen = []
 
     class FakeGenart:
-        def day_composite(self, cells, when, force=False):
+        def day_composite(self, cells, when, force=False, southern=False):
             seen.append([c.common_name for c in cells])
             return None  # fall through to the grid
     svc.genart = FakeGenart()

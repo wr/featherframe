@@ -12,9 +12,9 @@ from starlette.testclient import TestClient
 
 from featherframe.render import pipeline
 from tests._fixtures import create_birds_db, make_row
-from tests._frames import connect, frame_bytes
+from tests._frames import connect, frame_bytes, pin_today
 
-NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
+NOW = datetime(2026, 9, 22, 12, 0, 0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
            ("American Goldfinch", "Spinus tristis")]
 EE03 = {"X-Device-Id": "AA:AA:AA:00:00:03", "X-Panel": "ED103TC2 1404x1872 gray16",
@@ -22,6 +22,11 @@ EE03 = {"X-Device-Id": "AA:AA:AA:00:00:03", "X-Panel": "ED103TC2 1404x1872 gray1
 EE02 = {"X-Device-Id": "BB:BB:BB:00:00:02", "X-Panel": "T133A01 1200x1600 spectra6",
         "X-Board": "XIAO ESP32-S3 Plus + EE02", "X-Battery-Voltage": "3.95",
         "X-Battery-Percent": "71", "X-Wifi-Rssi": "-60", "X-FF-Version": "1.9.0"}
+
+
+@pytest.fixture(autouse=True)
+def _today(monkeypatch):
+    pin_today(monkeypatch, NOW)     # the collage's day is NOW's, not the runner's
 
 
 @pytest.fixture

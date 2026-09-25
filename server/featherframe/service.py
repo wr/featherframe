@@ -358,21 +358,35 @@ def when_text(then: datetime, now: Optional[datetime] = None) -> str:
     return f"{then.day} {then.strftime('%b')} {clock}"
 
 
+def clock_text(then: datetime) -> str:
+    """A clock time on the page, as people write it (docs/STYLE.md): "5:40 PM"."""
+    return f"{then.hour % 12 or 12}:{then.minute:02d} {'AM' if then.hour < 12 else 'PM'}"
+
+
+def page_when(then: datetime, now: Optional[datetime] = None) -> str:
+    """A moment on the page: "5:40 PM" today, "24 Sep, 5:40 PM" otherwise."""
+    now = now or datetime.now()
+    if then.date() == now.date():
+        return clock_text(then)
+    return f"{then.day} {then.strftime('%b')}, {clock_text(then)}"
+
+
 def when_short(then: datetime, now: Optional[datetime] = None) -> str:
     """History-strip caption: the time today, else just the date."""
     now = now or datetime.now()
     if then.date() == now.date():
-        return when_text(then, now)
+        return clock_text(then)
     return f"{then.day} {then.strftime('%b')}"
 
 
 def _hours_text(hours: float) -> str:
-    """How long, the way a person says it: "40 min", "7 h", "3 days"."""
+    """How long, the way a person says it: "40 min", "7 hours", "3 days"."""
     hours = max(0.0, float(hours))
     if hours < 1:
         return f"{max(1, round(hours * 60))} min"
     if hours < 48:
-        return f"{round(hours)} h"
+        h = round(hours)
+        return "1 hour" if h == 1 else f"{h} hours"
     return f"{int(hours // 24)} days"
 
 
@@ -386,9 +400,9 @@ def _ago(then: datetime, now: datetime) -> str:
         return f"{mins} min ago"
     hours = mins // 60
     if hours < 24:
-        return f"{hours} h ago"
+        return "1 hour ago" if hours == 1 else f"{hours} hours ago"
     days = hours // 24
-    return f"{days} day ago" if days == 1 else f"{days} days ago"
+    return "yesterday" if days == 1 else f"{days} days ago"
 
 
 def _within(stamp: Optional[str], now: datetime, seconds: float) -> bool:
@@ -1019,7 +1033,7 @@ class FeatherframeService:
             return None
         hours_active = round(active / 60, 1)
         return {"since": since.isoformat(timespec="seconds"),
-                "since_text": when_text(since, now),
+                "since_text": page_when(since, now),
                 "hours": hours_active, "hours_text": _hours_text(hours_active)}
 
     def _active_minutes(self, since: datetime, now: datetime) -> float:
@@ -1064,7 +1078,7 @@ class FeatherframeService:
             return None
         hours = round(elapsed / 60, 1)
         return {"since": since.isoformat(timespec="seconds"),
-                "since_text": when_text(since, now),
+                "since_text": page_when(since, now),
                 "hours": hours, "hours_text": _hours_text(hours)}
 
     def _note_kind(self) -> Optional[str]:
@@ -1082,15 +1096,20 @@ class FeatherframeService:
             return "latest"
         return None
 
+    def _plate_when(self, alarm: dict) -> str:
+        """An alarm's start in the plate's own voice ("11:27 pm"): the
+        engraving's, not the page's."""
+        return when_text(datetime.fromisoformat(alarm["since"]), self._clock())
+
     def _note_text(self) -> Optional[str]:
         """The plate footnote while an alarm is on. Derived from the state
         cached at the top of this tick, which already reflects any detection
         the tick is about to render — so a fresh bird never carries it."""
         kind = self._note_kind()
         if kind == "quiet":
-            return f"No detections since {self._quiet['since_text']}"
+            return f"No detections since {self._plate_when(self._quiet)}"
         if kind == "outage":
-            return f"Detection source unreachable since {self._outage['since_text']}"
+            return f"Detection source unreachable since {self._plate_when(self._outage)}"
         if kind == "latest":
             return f"Just now: {self._just_now['common']}"
         return None
@@ -2740,7 +2759,7 @@ class FeatherframeService:
             },
             "last_detection": {
                 **{k: v for k, v in heard.items() if k != "ts"},
-                "when_text": (when_text(datetime.fromisoformat(heard["ts"]), now)
+                "when_text": (_ago(datetime.fromisoformat(heard["ts"]), now)
                               if heard.get("ts") else ""),
             } if heard else None,
             "quiet": quiet,

@@ -393,18 +393,16 @@ def test_render_single_sets_first_ever_from_the_novelty_class(svc, monkeypatch):
 
 
 # -- config + page --------------------------------------------------------------
-def test_page_shows_the_holding_text(client, svc):
+def test_status_reports_the_holding_time(client, svc):
     svc.source = _GateSource([], first_seen=KNOWN)
     html = client.get("/").text
     assert 'name="dwell_minutes"' not in html        # a constant now (W-821)
-    assert 'id="fc-holding" data-tip=""></span>' in html   # nothing held
+    assert client.get("/api/status").json()["current"]["holding"] is None
 
     _hold(svc, "first-ever", minutes_ago=50, at=NOW)
-    html = client.get("/").text
-    assert '<span id="fc-showing">Bald Eagle</span>' in html
-    assert 'id="fc-holding" data-tip="First time this species has been heard, so it stays up 90 min.' in html
-    assert '>holding 40 min</span>' in html
-    assert client.get("/api/status").json()["current"]["holding"]["minutes_left"] == 40
+    holding = client.get("/api/status").json()["current"]["holding"]
+    assert holding["minutes_left"] == 40
+    assert holding["why"].startswith("First time this species has been heard, so it stays up 90 min.")
 
 
 # -- "Just now:" during a hold (W-776) -------------------------------------------

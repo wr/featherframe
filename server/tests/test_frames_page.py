@@ -162,7 +162,8 @@ FRAME_FIELDS = ("mode", "power_mode", "panel_rotation", "mat_inset_pct",
 def test_the_household_form_has_no_frame_fields(client):
     _populate(client)
     html = client.get("/").text
-    form = html.split('action="/settings"')[1].split("</form>")[0]
+    # One form per section (W-878); together they are the household's.
+    form = "".join(f.split("</form>")[0] for f in html.split('action="/settings"')[1:])
     for field in FRAME_FIELDS:
         assert f'name="{field}"' not in form, field
     # What is left is the household's, and it is still there.
@@ -451,14 +452,19 @@ def test_one_update_interval_saves_the_field_its_power_model_uses(client):
 # -- the household's Collage section ------------------------------------------
 def _sections(client) -> list:
     import re
-    # The AI section's head carries its badge before the name.
-    return re.findall(r'<h2 class="sec-head">(?:<span class="badge ai">AI</span>)?([^<]*)', client.get("/").text)
+    # The two groups' headings and the Settings card's rows, in page order (W-878).
+    return re.findall(r'<h2 class="grp-title">([^<]*)|<h3 class="set-name">([^<]*)', client.get("/").text)
+
+
+def _section(html: str, key: str) -> str:
+    """One row of the Settings card, open or not."""
+    return html.split(f'id="set-{key}"')[1].split('<details class="disc set')[0]
 
 
 def test_add_over_usb_is_in_the_frames_menu(client):
     _populate(client)
-    head = client.get("/").text.split('<div class="fr-head">')[1].split('<ul class="fr-list">')[0]
-    assert '<h2 class="sec-head">Frames</h2>' in head
+    head = client.get("/").text.split('<div class="grp-head">')[1].split('id="frames-card"')[0]
+    assert '<h2 class="grp-title">Frames</h2>' in head
     assert 'role="menu" hidden' in head and ">USB firmware update</button>" in head and ">Check for updates</button>" in head
     assert 'href="https://shop.wells.ee/products/featherframe/"' in head and ">Buy a frame<" in head
     assert 'href="https://github.com/wr/featherframe/wiki/Build-the-frame"' in head and ">DIY instructions<" in head
@@ -466,16 +472,17 @@ def test_add_over_usb_is_in_the_frames_menu(client):
 
 def test_the_household_sections_read_in_order(client):
     _populate(client)
-    names = [s.strip() for s in _sections(client)]
-    # The Frames card comes first, then the household's sections.
-    assert names[:5] == ["Frames", "Detection source", "Image generation",
-                         "Individual detections", "Collage"]
+    names = [(a or b).strip() for a, b in _sections(client)]
+    # Frames first, then one Settings card, its rows in this order (W-878).
+    assert names == ["Frames", "Settings", "General", "Detection source", "Illustrations",
+                     "Collage", "AI image generation", "Generated illustrations",
+                     "Generated collages"]
     assert "Quiet hours" not in names                 # it is a row in Collage now
 
 
 def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     _populate(client)
-    sec = client.get("/").text.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
+    sec = _section(client.get("/").text, "collage")
     assert 'class="intro"' not in sec
     assert ">Update interval<" in sec and ">Species limit<" in sec
     # The label says what it is: a redraw, not the frames' own update interval.
@@ -495,7 +502,7 @@ def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     # The AI collage is here, always on offer.
     assert 'name="collage_generated"' in sec
     assert ">Generate menagerie-style collages" in sec
-    ig = client.get("/").text.split('<h2 class="sec-head"><span class="badge ai">AI</span>Image generation')[1].split("</section>")[0]
+    ig = _section(client.get("/").text, "imagegen")
     assert 'name="collage_generated"' not in ig and 'name="imagegen_enabled"' not in ig
 
 
@@ -553,12 +560,15 @@ def test_a_closed_browser_tab_is_not_a_frame_in_trouble(client):
 def test_nothing_is_saved_until_something_changed(client):
     _populate(client)
     html = client.get("/").text
-    assert 'id="save-btn" disabled' in html
+    # Each section's Save row appears only once that section changed (W-878).
+    assert html.count('<div class="set-foot" hidden>') == 4
+    assert 'id="save-btn"' not in html
     row = _row(html, GRAY["X-Device-Id"])
     assert 'data-fr-action="save" disabled' in row and "data-fr-unsaved hidden" in row
     # Every stored secret, email and password is the same ✓ / ✕ row.
     assert html.count('class="btn icon primary key-ok"') == 4
-    assert '<button class="btn primary" type="submit">Save</button>' not in html
+    # A switch saves when it is flipped: it has no Save of its own.
+    assert html.count('data-instant ') == 3
 
 
 def test_the_tools_follow_the_previewed_frames_picture(client):
@@ -577,6 +587,41 @@ def test_the_blocklist_is_named_and_counted_with_the_source(client):
     svc.config.species_blocklist = ["House Sparrow", "European Starling"]
     svc.update_config(svc.config)
     html = client.get("/").text
-    src = html.split('<h2 class="sec-head">Detection source</h2>')[1].split("</section>")[0]
+    src = _section(html, "source")
     assert "<span>Blocked species</span>" in src and ">2</span>" in src
     assert ">Advanced<" not in src
+
+
+# -- W-878: one form per section --------------------------------------------------
+def test_a_section_saves_only_its_own_fields(client):
+    svc = _populate(client)
+    svc.config.imagegen_enabled = True
+    svc.config.firmware_auto_update = True
+    svc.config.species_blocklist = ["House Sparrow"]
+    svc.update_config(svc.config)
+    # The Collage section posts its fields; a switch it does not carry, and the
+    # blocklist in another section, keep what is stored.
+    r = client.post("/settings", data={"section": "collage", "collage_interval_hours": "4",
+                                       "quiet_hours_mode": "off"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].endswith("&open=collage")
+    assert svc.config.collage_interval_hours == 4
+    assert svc.config.imagegen_enabled and svc.config.firmware_auto_update
+    assert svc.config.species_blocklist == ["House Sparrow"]
+    # A switch flipped off posts its hidden 0 alone; flipped on, 0 then 1.
+    client.post("/settings", data={"firmware_auto_update": "0"})
+    assert svc.config.firmware_auto_update is False
+    client.post("/settings", data={"firmware_auto_update": ["0", "1"]})
+    assert svc.config.firmware_auto_update is True
+
+
+def test_a_section_value_says_what_is_set(client):
+    svc = _populate(client)
+    svc.config.quiet_hours_mode = "custom"
+    svc.config.quiet_hours_start, svc.config.quiet_hours_end = "22:00", "06:30"
+    svc.config.region = "europe"
+    svc.update_config(svc.config)
+    html = client.get("/").text
+    summary = lambda key: html.split(f'id="set-{key}"')[1].split("</summary>")[0]
+    assert '<span class="v-part">Gould</span><span class="v-part">Europe</span>' in summary("illustrations")
+    assert '<span class="v-part">10:00 PM → 6:30 AM</span>' in summary("collage")
+    assert ">No API key<" in summary("imagegen")

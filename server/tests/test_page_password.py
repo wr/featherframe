@@ -45,7 +45,7 @@ def test_off_by_default(client, svc):
     r = client.get("/")
     assert r.status_code == 200
     assert 'id="pw-input"' in r.text and "Set password" in r.text
-    assert "General settings" in r.text
+    assert '<h3 class="set-name">General</h3>' in r.text
     assert client.get("/api/status").status_code == 200
     # No sign-in page when there is nothing to sign in to.
     r = client.get("/login", follow_redirects=False)

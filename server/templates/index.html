@@ -133,7 +133,6 @@
       .status-card { padding:14px 16px; }
       .sc-head.second { margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; }
       section.sec { padding:20px 16px 22px; }
-      .savebar { padding:12px 16px; }
       .gen-item { flex-wrap:wrap; }
     }
     .col-right { display:flex; flex-direction:column; gap:24px; min-width:0; }
@@ -406,18 +405,7 @@
     .data-row input { flex:1; min-width:0; }
     .data-row .btn { flex:none; }
 
-    /* the save bar only sticks to the viewport once there's something to save */
-    .savebar { display:flex; align-items:center; justify-content:flex-end; gap:14px;
-               padding:14px 20px; border:1px solid var(--border); border-radius:9px; box-shadow:var(--sh-card);
-               background:var(--glass); backdrop-filter:blur(8px); }
     .default-submit { position:absolute; width:1px; height:1px; padding:0; border:0; overflow:hidden; clip:rect(0 0 0 0); }
-    .savebar .unsaved { display:none; margin-right:auto; font-size:12.5px; color:var(--muted); }
-    /* Above the form (segmented labels carry z-index:1 for their indicator),
-       below dropdown lists (z-index 20+). */
-    .savebar.dirty { position:sticky; bottom:16px; z-index:10; animation:savebar-in .3s cubic-bezier(.2,.7,.2,1); }
-    .savebar.dirty .unsaved { display:block; }
-    @keyframes savebar-in { from { transform:translateY(120%); opacity:0; } to { transform:translateY(0); opacity:1; } }
-    @media (prefers-reduced-motion:reduce){ .savebar.dirty { animation:none; } }
 
     /* Advanced: a full-width disclosure row with the same weight as the fields */
     /* Disclosures (Advanced, Tools): a quiet full-width row at the foot of a
@@ -775,6 +763,128 @@
     .test-box a.tb-link { color:var(--accent); text-decoration:underline; white-space:nowrap; }
     /* the Frame card is a snapshot; while the server can't be reached it is dimmed under the banner */
     .stale { opacity:.6; }
+
+    /* ---- W-878: Frames and Settings are headings over their cards; the
+       household's settings are one card of rows. ---- */
+    .grp-head { display:flex; align-items:center; justify-content:space-between; gap:12px;
+      min-height:30px; margin:0 0 -14px; padding:0 2px; }
+    .grp-head + .grp-head { margin-top:0; }
+    .grp-title { margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+    .grp-head .fr-more-btn { margin-right:-5px; }
+
+    /* Side chevrons: a row's caret points right, and down once it is open. */
+    details.disc.fr > summary > .chev, details.disc.set > summary > .chev { transform:rotate(-90deg); }
+    details.disc.fr[open] > summary > .chev, details.disc.set[open] > summary > .chev { transform:none; }
+    details.disc.fr.closing > summary > .chev, details.disc.set.closing > summary > .chev { transform:rotate(-90deg); }
+
+    .set-group { overflow:hidden; }
+    details.disc.set { --pad:20px; margin:0; border-top:1px solid var(--hair); }
+    details.disc.set:first-child { border-top:0; }
+    details.disc.set > summary { display:grid; grid-template-columns:20px minmax(0,1fr) auto 11px; align-items:center; gap:12px;
+      min-height:50px; box-sizing:border-box; padding:12px var(--pad); border-radius:0; font-weight:400; color:var(--ink); }
+    details.disc.set:first-child > summary { border-radius:9px 9px 0 0; }
+    details.disc.set:last-child:not([open]) > summary { border-radius:0 0 9px 9px; }
+    details.disc.set[open] > summary { color:var(--ink); }
+    .set-ic { width:20px; height:20px; color:var(--ink-2); }
+    .set-title { display:flex; align-items:center; gap:8px; min-width:0; }
+    .set-name { margin:0; font-size:14px; font-weight:500; line-height:1.4; color:var(--ink);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .set-val { display:inline-flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:0 7px;
+      font-size:13.5px; color:var(--muted); text-align:right; min-width:0; }
+    .set-val:empty { display:none; }
+    .set-val .d { flex:none; width:7px; height:7px; border-radius:50%; }
+    .set-val .v-part + .v-part::before { content:"\B7"; margin-right:7px; }
+    details.disc.set.sub > summary { min-height:44px; padding-top:10px; padding-bottom:10px; }
+    details.disc.set.sub .set-name { font-weight:400; color:var(--ink-2); }
+
+    .set-body { padding:14px var(--pad) 0 calc(var(--pad) + 32px); border-top:1px solid var(--hair); }
+    details.disc.set > .disc-body > *::after { height:16px; }
+    .set-body > .frow:first-of-type, .set-form > .frow:first-of-type, .set-form > .intro + .frow,
+    .set-form > .set-stats + .frow { border-top:0; padding-top:0; }
+    .set-form > .intro, .set-body > .intro { margin:0 0 12px; }
+    .set-form > details.disc { --pad:20px; margin:12px calc(-1 * var(--pad)) 0 calc(-1 * (var(--pad) + 32px)); }
+    .set-form > details.disc > summary { border-radius:0; padding-left:calc(var(--pad) + 32px); }
+    .set-form > details.disc > .disc-body .adv-body { padding-left:32px; }
+    .set-form > details.disc + details.disc, .set-form > .test-box + details.disc { margin-top:0; }
+    .set-form > details.disc > .disc-body > *::after { height:12px; }
+    .set-form .default-submit { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .set-foot { display:flex; align-items:center; justify-content:flex-end; gap:14px;
+      margin:12px calc(-1 * var(--pad)) 0 calc(-1 * (var(--pad) + 32px)); padding:12px var(--pad) 0; border-top:1px solid var(--hair); }
+    .set-foot[hidden], .set-form > [hidden] { display:none; }
+    .set-foot .unsaved { font-size:12.5px; color:var(--muted); }
+    .saved-tick { font-size:12.5px; color:var(--good); margin-right:10px; opacity:0; transition:opacity .2s; }
+    .saved-tick.on { opacity:1; }
+    .saved-tick.bad { color:var(--bad); }
+    .frow.toggle .frow-ctl { display:flex; align-items:center; justify-content:flex-end; }
+    .set-body > .gen-list:first-child, .set-body > .intro:first-child { margin-top:0; }
+
+    /* The source's own state, once it is open */
+    .src-alarm { display:none; margin:0 0 12px; }
+    .src-alarm.show { display:flex; }
+    .set-stats { margin:0 0 14px; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr);
+      background:var(--inset); border:1px solid var(--border); border-radius:8px; }
+    .set-stats > div { padding:9px 12px; border-left:1px solid var(--border); min-width:0; }
+    .set-stats > div:first-child { border-left:0; }
+    .set-stats > div[hidden] { display:none; }
+    .set-stats dt { font-size:11.5px; color:var(--muted); margin-bottom:1px; }
+    .set-stats dd { margin:0; font-size:13px; color:var(--ink); display:flex; flex-direction:column; line-height:1.4; }
+    .set-stats dd .who { font-weight:500; }
+    .set-stats dd .when { color:var(--muted); font-size:12px; }
+
+    /* Setup instructions: a numbered guide with room for each step */
+    ol.guide-steps { list-style:none; counter-reset:gs; margin:0; padding:0; }
+    ol.guide-steps > li { counter-increment:gs; position:relative; padding:0 0 16px 38px; font-size:13.5px; color:var(--ink-2); line-height:1.55; }
+    ol.guide-steps > li::before { content:counter(gs); position:absolute; left:0; top:-1px; width:24px; height:24px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; color:var(--ink-2);
+      background:var(--inset); border:1px solid var(--border-strong); }
+    ol.guide-steps > li:not(:last-child)::after { content:""; position:absolute; left:12px; top:28px; bottom:4px; width:1px; background:var(--border); }
+    ol.guide-steps > li:last-child { padding-bottom:0; }
+    ol.guide-steps p { margin:0 0 8px; }
+    ol.guide-steps strong { color:var(--ink); font-weight:600; }
+    .gs-title { font-size:14px; font-weight:600; color:var(--ink); margin-bottom:2px; }
+    .gs-path { margin:0 0 4px; font-size:12.5px; color:var(--muted); }
+    .gs-path span + span::before { content:"\203A"; margin:0 6px; color:var(--faint); }
+    .gs-wait { display:flex; align-items:center; gap:9px; padding:8px 12px; border-radius:8px; font-size:13px;
+      border:1px solid var(--border); background:var(--inset); color:var(--ink-2); }
+    .gs-wait.ok { background:color-mix(in srgb, var(--good) 12%, var(--surface)); border-color:color-mix(in srgb, var(--good) 32%, var(--border)); color:var(--ink); }
+    .gs-dot { width:18px; height:18px; flex:none; display:inline-flex; align-items:center; justify-content:center; }
+    .gs-dot svg { width:16px; height:16px; color:var(--good); }
+    .gs-dot.wait::before { content:""; width:12px; height:12px; border-radius:50%; border:2px solid var(--border-strong);
+      border-top-color:var(--accent); animation:gs-spin 1s linear infinite; }
+    .gs-dot.wait svg { display:none; }
+    @keyframes gs-spin { to { transform:rotate(360deg); } }
+    @media (prefers-reduced-motion:reduce){ .gs-dot.wait::before { animation:none; } }
+    a.btn { text-decoration:none; display:inline-flex; align-items:center; }
+    .btn.sm svg { margin-right:0; }
+
+    /* Tools, one line each */
+    .tool-line { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 0 10px; }
+    .tool-line .lab, .tool-override .lab { font-size:13px; }
+    .tool-override { border-top:1px solid var(--hair); padding-top:10px; }
+    .tool-override .lab { margin-bottom:6px; }
+    .tool-override .critter-form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px; }
+    .tool-override .critter-form input[type=text] { width:100%; }
+    .tool-override .critter-form input[name=common] { grid-column:1 / -1; }
+    .plate-card[data-picture="collage"] .tool-line[data-for="plates"],
+    .plate-card[data-picture="collage"] .tool-override,
+    .plate-card:not([data-picture="collage"]) .tool-line[data-for="collage"] { display:none; }
+
+    @media (max-width:640px){
+      details.disc.set { --pad:16px; }
+      .set-body { padding-left:var(--pad); }
+      .set-form > details.disc { margin-left:calc(-1 * var(--pad)); }
+      .set-form > details.disc > summary { padding-left:var(--pad); }
+      .set-form > details.disc > .disc-body .adv-body { padding-left:0; }
+      .set-foot { margin-left:calc(-1 * var(--pad)); }
+      /* A value of two parts takes two lines rather than an ellipsis. */
+      .set-val { flex-direction:column; align-items:flex-end; gap:0; }
+      .set-val .v-part + .v-part::before { content:none; }
+      .set-val:has(.d) { flex-direction:row; align-items:center; gap:0 7px; }
+      .set-stats { grid-auto-flow:row; grid-template-columns:1fr; }
+      .set-stats > div { border-left:0; display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+      .set-stats > div + div { border-top:1px solid var(--border); }
+      .set-stats dd { flex-direction:row; flex-wrap:wrap; justify-content:flex-end; gap:0 7px; text-align:right; }
+    }
   </style>
 </head>
 <body>
@@ -801,6 +911,11 @@
   <symbol id="ic-warn" viewBox="0 0 16 16" fill="none"><path d="M8 1.9 15 14.4H1L8 1.9Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.75" r=".9" fill="currentColor"/></symbol>
   <symbol id="ic-info" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".9" fill="currentColor"/></symbol>
   <symbol id="ic-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="ic-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+  <symbol id="ic-waveform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></symbol>
+  <symbol id="ic-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 6.5C10.5 5 8 4.5 4 4.5v14c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-14c-4 0-6.5.5-8 2zM12 6.5v14"/></symbol>
+  <symbol id="ic-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></symbol>
+  <symbol id="ic-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M11 3.5l1.7 4.8 4.8 1.7-4.8 1.7L11 16.5l-1.7-4.8L4.5 10l4.8-1.7zM18 14.5l.8 2 2 .7-2 .8-.8 2-.7-2-2-.8 2-.7z"/></symbol>
 <symbol id="ic-caret" viewBox="0 0 12 8"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 <div class="wrap">
@@ -877,47 +992,30 @@
             <div class="disc-body"><div class="tools-body">
               <p class="tools-scope" data-for="plates">For every frame showing individual detections.</p>
               <p class="tools-scope" data-for="collage">For every frame showing the collage.</p>
-              <div class="frow" data-for="plates">
-                <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Renders the latest detection again now.</div></div>
-                <div class="frow-ctl"><button class="btn" type="button" id="refresh-btn">Refresh</button></div>
+              {# W-878: two tools, one line each. Hold and Block left the page; a
+                 hold already set still shows its Release line above. #}
+              <div class="tool-line" data-for="plates">
+                <span class="lab">Latest detection</span>
+                <button class="btn sm" type="button" id="refresh-btn">Refresh</button>
               </div>
-              <div class="frow" data-for="collage">
-                <div class="frow-text"><span class="lab">Refresh</span><div class="hint">Rebuilds today’s collage now.{{ ' Repaint generates a new image.' if config.collage_generated else '' }}</div></div>
-                <div class="frow-ctl">
-                  <form class="inline task-form" data-task="collage" method="post" action="/api/collage/now">
-                    <button class="btn" type="submit">Refresh</button>
-                    {% if config.collage_generated %}<button class="btn" type="submit" name="repaint" value="1">Repaint</button>{% endif %}
-                  </form>
-                </div>
-              </div>
-              <div class="frow" id="hold-ctl" data-for="plates" {{ 'hidden' if uh else '' }}>
-                <div class="frow-text"><span class="lab">Keep this illustration up</span><div class="hint">Until the hold ends, then the latest detection takes over.</div></div>
-                <div class="frow-ctl">
-                  <select class="sel hold-dur" id="hold-dur" aria-label="Hold this illustration for">
-                    <option value="day">a day</option>
-                    <option value="week">a week</option>
-                    <option value="forever">until released</option>
-                  </select>
-                  <button class="btn" type="button" id="hold-btn">Hold</button>
-                </div>
-              </div>
-              <div class="frow" data-for="plates">
-                <div class="frow-text"><span class="lab">Block this species</span><div class="hint">Adds it to Blocked species, under Detection source.</div></div>
-                <div class="frow-ctl"><button class="btn" type="button" id="block-btn">Block</button></div>
+              <div class="tool-line" data-for="collage">
+                <span class="lab">Today’s collage</span>
+                <form class="inline task-form" data-task="collage" method="post" action="/api/collage/now">
+                  <button class="btn sm" type="submit">Refresh</button>
+                  {% if config.collage_generated %}<button class="btn sm" type="submit" name="repaint" value="1">Repaint</button>{% endif %}
+                </form>
               </div>
               {# Put any animal on the wall: a fake detection through the full
                  provider chain. A creature no folio has buys a generated
                  plate (one image generation, cached forever). The next real detection
                  replaces it. #}
-              <div class="frow stack" data-for="plates">
-                <div class="frow-text"><span class="lab">Manual override</span><div class="hint">Displays any species until the next detection.</div></div>
-                <div class="frow-ctl">
-                  <form class="critter-form task-form" data-task="test-detection" method="post" action="/api/test-detection">
-                    <input type="text" name="common" placeholder="Common name" aria-label="Common name" required>
-                    <input type="text" name="scientific" placeholder="Scientific name (optional)" aria-label="Scientific name">
-                    <button class="btn" type="submit">Show</button>
-                  </form>
-                </div>
+              <div class="tool-override" data-for="plates">
+                <span class="lab">Manual override</span>
+                <form class="critter-form task-form" data-task="test-detection" method="post" action="/api/test-detection">
+                  <input type="text" name="common" placeholder="Common name" aria-label="Common name" required>
+                  <input type="text" name="scientific" placeholder="Scientific name (optional)" aria-label="Scientific name">
+                  <button class="btn" type="submit">Show</button>
+                </form>
               </div>
             </div></div>
           </details>
@@ -925,30 +1023,6 @@
 
       </div>
       <div class="col-aside">
-        {# The detection source: metadata only, never a setting. How every
-           frame is doing is in its own row in the Frames card. #}
-        <div class="card status-card" id="source-card">
-          <div class="sc-head">
-            <h2 class="grp">{{ _srcnames.get(_src, 'Source') }}</h2>
-            <span class="pill-status"><span class="d {{ 'good' if status.birdnet_available else 'bad' }}" id="fc-src-dot"></span><span id="fc-src-text">{{ 'Connected' if status.birdnet_available else 'Not reachable' }}</span></span>
-          </div>
-          {# Values that carry a name AND a time are two spans: when a long name
-             forces a wrap, the time drops under it right-aligned instead of a
-             dangling "·" ending the first line. #}
-          <dl>
-            {# "· holding 40 min" while a new species keeps the picture against repeats. #}
-            {% set hold = status.current.holding %}
-            <dt>Now showing</dt><dd><span id="fc-showing">{{ status.current.title or status.current.label or '—' }}</span><span class="when" id="fc-holding" data-tip="{{ hold.why if (hold and not status.hold) else '' }}">{{ ('held ' ~ status.hold.until_text) if status.hold else (('holding ' ~ hold.minutes_left ~ ' min') if hold else '') }}</span></dd>
-            {% set ld = status.last_detection %}
-            <dt>Last heard</dt><dd id="fc-heard" data-tip="{{ ld.at if ld else '' }}">{% if ld %}<span class="who">{{ ld.common }}</span>{% if ld.when_text %}<span class="when">{{ ld.when_text }}</span>{% endif %}{% else %}—{% endif %}</dd>
-            {# A first-seen-today species held back for a second detection
-               (W-691). Both halves of the row hide when nothing is waiting. #}
-            {% set pend = status.pending %}
-            <dt id="fc-pending-dt" {{ '' if pend else 'hidden' }}>Pending</dt><dd id="fc-pending" {{ '' if pend else 'hidden' }} data-tip="{{ (pend.first_at.replace('T', ' ')) if pend else '' }}">{% if pend %}<span class="who">{{ pend.common }}</span><span class="when">{{ pend.waiting_text }}</span>{% endif %}</dd>
-            <dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd>
-          </dl>
-        </div>
-
         {# Past frames, newest first. Rebuilt from /api/history by the status poll
            whenever the current ETag changes; rows without a thumbnail on disk
            (older than the cap, or from before thumbnails existed) are skipped. #}
@@ -958,7 +1032,7 @@
           <div class="hist-strip" id="hist-strip">
             {% for h in shown %}
             {% set htitle = h.title or h.label or '' %}
-            <a class="hist-item" href="{{ h.full or h.thumb }}" data-cap="{{ htitle }} · {{ h.when_text }}" data-tip="{{ h.rendered_at.replace('T', ' ') if h.rendered_at else '' }}">
+            <a class="hist-item" href="{{ h.full or h.thumb }}" data-cap="{{ htitle }} · {{ h.when_text }}" data-tip="{{ h.rendered_at | stamp if h.rendered_at else '' }}">
               <img src="{{ h.thumb }}" alt="{{ htitle }}" width="72" height="96" loading="lazy">
               <span class="hist-when">{{ h.when_text }}</span>
               <span class="hist-title">{{ htitle }}</span>
@@ -972,21 +1046,6 @@
 
     <!-- RIGHT: configuration — the frames first, then the household -->
     <div class="col-right">
-    {# Gone-quiet alarm: the detector has been silent through too many active
-       hours. Server-rendered, then kept current by the status poll. #}
-    {% set quiet = status.quiet %}
-    <div class="test-box warn quiet-banner{{ ' show' if quiet else '' }}" id="quiet-banner" role="status" aria-live="polite">
-      <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
-      <span class="test-msg" id="quiet-text">{% if quiet %}Nothing heard since {{ quiet.since_text }} ({{ quiet.hours_text }}). Is the detector running?{% endif %}</span>
-    </div>
-    {# Source outage (W-696): unreachable past source_alarm_minutes. The frame
-       carries the same fact as a footnote; the two alarms never show together. #}
-    {% set outage = status.source_outage %}
-    {% set srcname = _srcnames.get(_src, 'The detector') %}
-    <div class="test-box bad quiet-banner{{ ' show' if outage else '' }}" id="outage-banner" role="status" aria-live="polite" data-src="{{ srcname }}">
-      <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
-      <span class="test-msg" id="outage-text">{% if outage %}{{ srcname }} unreachable since {{ outage.since_text }} ({{ outage.hours_text }}). Check the source settings below.{% endif %}</span>
-    </div>
     {# FRAMES (W-833). A frame is a frame: one row component for every screen
        this server draws for — the kit on the wall, a second kit, a TRMNL, a
        tablet. A row is collapsed to its name and a one-line summary; open, it
@@ -1037,7 +1096,7 @@
           <span class="fr-wifi">
             <span class="pill-status" data-h="wifi-wrap" {{ '' if rssi is not none else 'hidden' }} data-tip="{{ word }} · {{ rssi }} dBm"><svg class="wifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path class="arc{{ ' lit' if bars >= 4 }}" d="M2 7.3a15 15 0 0 1 20 0"/><path class="arc{{ ' lit' if bars >= 3 }}" d="M5.2 11.2a11 11 0 0 1 13.6 0"/><path class="arc{{ ' lit' if bars >= 2 }}" d="M8.6 15a6 6 0 0 1 6.8 0"/><circle class="dot" cx="12" cy="18.6" r="1.4"/></svg></span>
           </span>
-          <span class="fr-seen tnum" data-h="seen" data-tip="{{ card.last_checkin_iso.replace('T', ' ') if card.last_checkin_iso else '' }}"><span data-h="seen-text">{{ card.last_seen if card.seen else 'never' }}</span></span>
+          <span class="fr-seen tnum" data-h="seen" data-tip="{{ card.last_checkin_iso | stamp if card.last_checkin_iso else '' }}"><span data-h="seen-text">{{ card.last_seen if card.seen else 'never' }}</span></span>
         </span>
         <svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg>
       </summary>
@@ -1176,22 +1235,24 @@
     {% endmacro %}
 
     {% set fws = status.firmware or {} %}
+    {# W-878: the page's two groups, Frames and Settings, are headings above
+       their cards. #}
+    <div class="grp-head">
+      <h2 class="grp-title">Frames</h2>
+      <div class="fr-more">
+        <button class="fr-more-btn" type="button" id="fr-more" aria-label="More" aria-haspopup="menu" aria-expanded="false" aria-controls="fr-menu"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
+        <div class="fr-menu" id="fr-menu" role="menu" hidden>
+          {% if hosted %}<button type="button" role="menuitem" id="pair-open">Pair a frame</button>{% endif %}
+          <button type="button" role="menuitem" id="usb-open">USB firmware update</button>
+          <button type="button" role="menuitem" id="fw-check">Check for updates</button>
+          <hr>
+          <a role="menuitem" href="https://shop.wells.ee/products/featherframe/" target="_blank" rel="noopener">Buy a frame</a>
+          <a role="menuitem" href="https://github.com/wr/featherframe/wiki/Build-the-frame" target="_blank" rel="noopener">DIY instructions</a>
+        </div>
+      </div>
+    </div>
     <div class="card" id="frames-card">
       <section class="sec">
-        <div class="fr-head">
-          <h2 class="sec-head">Frames</h2>
-          <div class="fr-more">
-            <button class="fr-more-btn" type="button" id="fr-more" aria-label="More" aria-haspopup="menu" aria-expanded="false" aria-controls="fr-menu"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg></button>
-            <div class="fr-menu" id="fr-menu" role="menu" hidden>
-              {% if hosted %}<button type="button" role="menuitem" id="pair-open">Pair a frame</button>{% endif %}
-              <button type="button" role="menuitem" id="usb-open">USB firmware update</button>
-              <button type="button" role="menuitem" id="fw-check">Check for updates</button>
-              <hr>
-              <a role="menuitem" href="https://shop.wells.ee/products/featherframe/" target="_blank" rel="noopener">Buy a frame</a>
-              <a role="menuitem" href="https://github.com/wr/featherframe/wiki/Build-the-frame" target="_blank" rel="noopener">DIY instructions</a>
-            </div>
-          </div>
-        </div>
         {# A kit this server has not been told about. Nothing changes until the
            owner answers; until then it is shown "Add this frame on the
            Featherframe webapp" and keeps asking. #}
@@ -1228,7 +1289,7 @@
           <ul class="ign-list">
             {% for fr in ignored %}
             <li class="panel-note">
-              <span class="ign-name">{{ fr.title }}<span class="ign-meta tnum">{{ fr.short }}{% if fr.ip %} · {{ fr.ip }}{% endif %}{% if fr.last_seen %} · last asked {{ fr.last_seen.replace('T', ' ') }}{% endif %}</span></span>
+              <span class="ign-name">{{ fr.title }}<span class="ign-meta tnum">{{ fr.short }}{% if fr.ip %} · {{ fr.ip }}{% endif %}{% if fr.last_seen %} · last asked {{ fr.last_seen | stamp }}{% endif %}</span></span>
               <span class="panel-note-actions">
                 <button class="btn" type="button" data-frame-action="add" data-frame-id="{{ fr.id }}">Add</button>
                 <button class="btn" type="button" data-frame-action="forget" data-frame-id="{{ fr.id }}">Forget</button>
@@ -1292,19 +1353,124 @@
       </div>
     </dialog>
 
-    <form method="post" action="/settings" class="settings-form">
-      {# First in the form, so it is the default button: Enter in any field
-         saves the form, whichever ✓ or Save is waiting for a change. #}
-      <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
-        {# Every setting is one .frow: label + hint on the left, the control on
-           the right, so the label column reads straight down the page. .toggle
-           keeps its two columns on a phone (a switch is small); .stack puts a
-           wide control (URL, key, textarea) under its label at every width.
-           Everything in this form is the HOUSEHOLD's: the same for every
-           screen. A frame's own settings are in the Frames card above. #}
-      <div class="card">
-        <section class="sec">
-          <h2 class="sec-head">Detection source</h2>
+    {# SETTINGS (W-878): the household's settings, one card of rows. A row is
+       a disclosure (details.disc.set) with an icon, its name, a short value
+       and a side chevron; open, it is its own form, so a Save saves that
+       section and nothing else. Everything here is the HOUSEHOLD's: the same
+       for every screen. A frame's own settings are in the Frames card above.
+       Every setting inside is one .frow: label + hint on the left, the
+       control on the right; .toggle keeps two columns on a phone; .stack puts
+       a wide control (URL, key, textarea) under its label. #}
+    {% set ig_ready = status.config.imagegen_api_key or config.imagegen_provider == 'a1111' %}
+    {% set ps = push_setup %}
+    {% set src_push = _src in ('apprise', 'birdnet_go') %}
+    {% set src_unset = src_push and not (ps and (ps.received or ps.test_at)) %}
+    {% set src_state = 'bad' if (status.source_outage or not status.birdnet_available or src_unset)
+                       else ('warn' if status.quiet else 'good') %}
+    {% set region_names = {'north-america': ('Audubon', 'North America'), 'europe': ('Gould', 'Europe'),
+                           'australia': ('Gould', 'Australia'), 'asia': ('Gould', 'Asia')} %}
+    {% set rg = region_names.get(config.region, ('Audubon', 'North America')) %}
+    {% set every_words = {1: 'Every hour', 4: 'Every 4 hours', 6: 'Every 6 hours', 12: 'Every 12 hours', 24: 'Every 24 hours'} %}
+    {% set ig_names = {'openai': 'OpenAI', 'gemini': 'Google Gemini', 'replicate': 'Replicate', 'a1111': 'Self-hosted'} %}
+    {% macro set_summary(icon, name, badge=True) %}
+          <summary>
+            {% if icon %}<svg class="set-ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#{{ icon }}"/></svg>{% else %}<span class="set-ic"></span>{% endif %}
+            <span class="set-title"><h3 class="set-name">{{ name }}</h3>{% if badge %}<span class="badge warn" data-unsaved-badge hidden>Unsaved changes</span>{% endif %}</span>
+            <span class="set-val">{{ caller() }}</span>
+            <svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg>
+          </summary>
+    {% endmacro %}
+    {% macro set_foot() %}
+            <div class="set-foot" hidden><span class="unsaved">Unsaved changes</span><button class="btn primary" type="submit" data-save>Save</button></div>
+    {% endmacro %}
+    {% macro instant_switch(id, name, checked, locked=False) %}
+      {# A switch saves when it is flipped (W-878). The hidden 0 goes first so
+         an unticked box still says it was on this form. #}
+      <span class="saved-tick" aria-live="polite"></span><label class="switch"><input type="hidden" name="{{ name }}" value="0"><input type="checkbox" role="switch" id="{{ id }}" name="{{ name }}" value="1" data-instant {{ 'checked' if checked else '' }}{% if locked is not none %} aria-disabled="{{ 'true' if locked else 'false' }}"{% endif %}><span class="track"></span></label>
+    {% endmacro %}
+
+    <div class="grp-head"><h2 class="grp-title">Settings</h2></div>
+    <div class="card set-group" id="settings-card">
+
+      {# -- General ---------------------------------------------------------- #}
+      <details class="disc set" id="set-general">
+        {% call set_summary('ic-sliders', 'General', badge=False) %}{% endcall %}
+        <div class="disc-body"><div class="set-body">
+        <form class="set-form" method="post" action="/settings">
+          <input type="hidden" name="section" value="general">
+          <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
+          {# Email and password are "keyfield" rows like the stored API keys: the
+             value shown disabled with an edit button, or a live field with its
+             own ✓. A blank field keeps what is stored. #}
+          {% set shown_email = email_pending or owner_email %}
+          <div class="frow keyfield acct" data-key="email">
+            <div class="frow-text"><label class="lab" for="f-email">Email address</label>{% if email_pending %}<div class="hint">Until it's confirmed, sign in with {{ owner_email }}.</div>{% endif %}</div>
+            <div class="frow-ctl">
+              <div class="keyline key-display" {{ 'hidden' if not shown_email else '' }}>
+                <div class="keyval"><input type="text" value="{{ shown_email }}" disabled aria-label="Email address">{% if email_pending %}<span class="badge warn">Unconfirmed</span>{% endif %}</div>
+                <button class="btn icon key-replace" type="button" title="Change email" aria-label="Change email"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-edit"/></svg></button>
+              </div>
+              <div class="keyline key-entry" {{ '' if not shown_email else 'hidden' }}>
+                <input type="email" id="f-email" name="owner_email" data-value="{{ shown_email }}" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@example.com" aria-label="Email address">
+                {% set ok_label = 'Send confirmation' if hosted else 'Save' %}
+                <button class="btn icon primary key-ok" type="submit" title="{{ ok_label }}" aria-label="{{ ok_label }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
+                {% if shown_email %}<button class="btn icon key-cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-close"/></svg></button>{% endif %}
+              </div>
+            </div>
+          </div>
+          {% if not hosted %}
+          <div class="frow keyfield acct" data-key="password" data-confirm="Remove the password? Anyone on your network can open this page again.">
+            <div class="frow-text"><label class="lab" for="pw-input">Password</label><div class="hint">{{ 'Needed to open this page. Frames connect without it.' if password_on else 'Off. Anyone on your network can open this page.' }}</div></div>
+            <div class="frow-ctl">
+              <div class="keyline key-display">
+                <button class="btn key-replace" type="button">{{ 'Change' if password_on else 'Set password' }}</button>
+                {% if password_on %}<button class="btn icon danger key-delete" type="button" title="Remove password" aria-label="Remove password"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-trash"/></svg></button>{% endif %}
+              </div>
+              <div class="keyline key-entry" hidden>
+                <input type="password" id="pw-input" name="page_password" autocomplete="new-password" aria-label="New password">
+                <button class="btn icon primary key-ok" type="submit" title="Save" aria-label="Save"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
+                <button class="btn icon key-cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-close"/></svg></button>
+              </div>
+              <input type="checkbox" class="key-clear" name="page_password_clear" hidden aria-hidden="true" tabindex="-1">
+            </div>
+          </div>
+          {% endif %}
+          <div class="frow toggle">
+            <div class="frow-text"><label class="lab" for="fw-auto">Install firmware updates automatically</label><div class="hint tnum" id="fw-latest">{{ ('Latest release: ' ~ fws.latest) if fws.latest else 'No release yet' }}</div></div>
+            <div class="frow-ctl">{{ instant_switch('fw-auto', 'firmware_auto_update', config.firmware_auto_update, none) }}</div>
+          </div>
+        </form>
+        </div></div>
+      </details>
+
+      {# -- Detection source ------------------------------------------------- #}
+      {# A source that is not working, or not set up, opens itself. #}
+      <details class="disc set" id="set-source" data-state="{{ src_state }}" {{ 'data-unset' if src_unset else '' }} {{ 'open' if src_state != 'good' else '' }}>
+        {% call set_summary('ic-waveform', 'Detection source') %}<span class="d {{ src_state }}" id="src-dot"></span>{{ _srcnames.get(_src, 'Source') }}{% endcall %}
+        <div class="disc-body"><div class="set-body">
+        <form class="set-form" method="post" action="/settings">
+          <input type="hidden" name="section" value="source">
+          <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
+          {# Gone-quiet alarm and source outage (W-696): the two never show
+             together. Server-rendered, then kept current by the status poll. #}
+          {% set quiet = status.quiet %}
+          <div class="test-box warn src-alarm{{ ' show' if quiet else '' }}" id="quiet-banner" role="status" aria-live="polite">
+            <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
+            <span class="test-msg" id="quiet-text">{% if quiet %}Nothing heard since {{ quiet.since_text }} ({{ quiet.hours_text }}). Is the detector running?{% endif %}</span>
+          </div>
+          {% set outage = status.source_outage %}
+          <div class="test-box bad src-alarm{{ ' show' if outage else '' }}" id="outage-banner" role="status" aria-live="polite" data-srcname="{{ _srcnames.get(_src, 'The detector') }}">
+            <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
+            <span class="test-msg" id="outage-text">{% if outage %}{{ _srcnames.get(_src, 'The detector') }} unreachable since {{ outage.since_text }} ({{ outage.hours_text }}). Check the source below.{% endif %}</span>
+          </div>
+          {% set ld = status.last_detection %}
+          {% set pend = status.pending %}
+          <dl class="set-stats">
+            <div><dt>Last detection</dt><dd id="fc-heard" data-tip="{{ ld.at | stamp if ld else '' }}">{% if ld %}<span class="who">{{ ld.common }}</span>{% if ld.when_text %}<span class="when">{{ ld.when_text }}</span>{% endif %}{% else %}None yet{% endif %}</dd></div>
+            <div><dt>Species heard</dt><dd class="tnum" id="fc-species">{{ status.species_all_time }} all-time</dd></div>
+            {# A first-seen-today species held back for a second detection (W-691). #}
+            <div id="fc-pending-row" {{ '' if pend else 'hidden' }}><dt>Pending</dt><dd id="fc-pending" data-tip="{{ (pend.first_at | stamp) if pend else '' }}">{% if pend %}<span class="who">{{ pend.common }}</span><span class="when">{{ pend.waiting_text }}</span>{% endif %}</dd></div>
+          </dl>
           <div class="frow">
             <div class="frow-text"><label class="lab" for="src-sel">Source</label></div>
             <div class="frow-ctl">
@@ -1318,42 +1484,84 @@
               </div>
             </div>
           </div>
+          {# A push source: its URL is a row of its own (⟳ replaces it whole),
+             then the steps. The last step says whether anything has arrived. #}
+          {% set guide_done = ps and (ps.received or ps.test_at) %}
+          {% set arrived = ('Test received at ' ~ ps.test_at ~ '.') if (ps and ps.test_at)
+                           else ((ps.received ~ (' detection' if ps.received == 1 else ' detections') ~ ' received.') if (ps and ps.received) else 'Waiting for the test…') %}
           <div class="frow stack" data-src="birdnet_go" {{ '' if _src=='birdnet_go' else 'hidden' }}>
+            <div class="frow-text"><label class="lab" for="go-url">Webhook URL</label></div>
             <div class="frow-ctl">
-              <ol class="steps">
-                <li>In BirdNET-Go, open <strong>Settings → Notifications → Channels</strong> and tick <strong>Enable Push Notifications</strong>. Click <strong>Add Provider</strong>, set <strong>Service</strong> to <strong>Webhook</strong>, and paste this as the <strong>Webhook URL</strong>:
-                  <div class="copyrow">
-                    <input type="text" id="go-url" readonly value="http://…" aria-label="Webhook URL">
-                    <button class="btn icon copy-btn" type="button" data-copy="#go-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
-                    <button class="btn icon regen-btn" type="button" title="New URL" aria-label="New URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
-                  </div>
-                </li>
-                <li>Under <strong>Notification Types</strong>, leave only <strong>Bird detections</strong> ticked, then click <strong>Save Provider</strong>.</li>
-                <li>Open <strong>Rules</strong>, click <strong>Import</strong>, and choose <a href="/static/featherframe-birdnet-go-rule.json" download>this rule file</a>, which sends every detection here.</li>
-                <li>Back on <strong>Channels</strong>, click <strong>Test Provider</strong>, then reload this page: the status below says <em>Test received</em>, then counts each detection.</li>
-              </ol>
+              <div class="copyrow">
+                <input type="text" id="go-url" readonly value="http://…">
+                <button class="btn icon copy-btn" type="button" data-copy="#go-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
+                <button class="btn icon regen-btn" type="button" title="New URL" aria-label="New URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
+              </div>
             </div>
           </div>
-          <div class="frow stack" data-src="apprise" {{ '' if _src=='apprise' else 'hidden' }}>
-            <div class="frow-ctl">
-              <ol class="steps">
-                <li>In BirdNET-Pi, open <strong>Tools → Settings → Notifications</strong> and add this Apprise URL:
-                  <div class="copyrow">
-                    <input type="text" id="apprise-url" readonly value="json://…" aria-label="Apprise URL">
-                    <button class="btn icon copy-btn" type="button" data-copy="#apprise-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
-                    <button class="btn icon regen-btn" type="button" title="New URL" aria-label="New URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
-                  </div>
+          <details class="disc adv guide" data-src="birdnet_go" {{ '' if _src=='birdnet_go' else 'hidden' }} {{ '' if guide_done else 'open' }}>
+            <summary><span>Setup instructions</span><span class="disc-end"><span class="disc-count">{{ 'Done' if guide_done else 'Waiting for a test' }}</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></span></summary>
+            <div class="disc-body"><div class="adv-body">
+              <ol class="guide-steps">
+                <li>
+                  <div class="gs-title">Add Featherframe as a webhook</div>
+                  <div class="gs-path"><span>Settings</span><span>Notifications</span><span>Channels</span></div>
+                  <p>Turn on <strong>Enable Push Notifications</strong>. Click <strong>Add Provider</strong>, set <strong>Service</strong> to <strong>Webhook</strong>, and paste the <strong>Webhook URL</strong> above.</p>
                 </li>
-                <li>Set that notification's <strong>body</strong> to exactly this:
+                <li>
+                  <div class="gs-title">Detections only</div>
+                  <p>Under <strong>Notification Types</strong>, leave only <strong>Bird detections</strong> ticked. Click <strong>Save Provider</strong>.</p>
+                </li>
+                <li>
+                  <div class="gs-title">All detections</div>
+                  <div class="gs-path"><span>Notifications</span><span>Rules</span></div>
+                  <p>Click <strong>Import</strong> and choose the rule file. Without it, BirdNET-Go sends only new species.</p>
+                  <a class="btn sm" href="/static/featherframe-birdnet-go-rule.json" download><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-download"/></svg>Rule file</a>
+                </li>
+                <li>
+                  <div class="gs-title">Send a test</div>
+                  <div class="gs-path"><span>Notifications</span><span>Channels</span></div>
+                  <p>Click <strong>Test Provider</strong>.</p>
+                  <div class="gs-wait{{ ' ok' if guide_done else '' }}"><span class="gs-dot {{ 'ok' if guide_done else 'wait' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></span><span>{{ arrived }}</span></div>
+                </li>
+              </ol>
+            </div></div>
+          </details>
+          <div class="frow stack" data-src="apprise" {{ '' if _src=='apprise' else 'hidden' }}>
+            <div class="frow-text"><label class="lab" for="apprise-url">Apprise URL</label></div>
+            <div class="frow-ctl">
+              <div class="copyrow">
+                <input type="text" id="apprise-url" readonly value="json://…">
+                <button class="btn icon copy-btn" type="button" data-copy="#apprise-url" title="Copy URL" aria-label="Copy URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
+                <button class="btn icon regen-btn" type="button" title="New URL" aria-label="New URL"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <details class="disc adv guide" data-src="apprise" {{ '' if _src=='apprise' else 'hidden' }} {{ '' if guide_done else 'open' }}>
+            <summary><span>Setup instructions</span><span class="disc-end"><span class="disc-count">{{ 'Done' if guide_done else 'Waiting for a detection' }}</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></span></summary>
+            <div class="disc-body"><div class="adv-body">
+              <ol class="guide-steps">
+                <li>
+                  <div class="gs-title">Add Featherframe as a notification</div>
+                  <div class="gs-path"><span>Tools</span><span>Settings</span><span>Notifications</span></div>
+                  <p>Add the <strong>Apprise URL</strong> above.</p>
+                </li>
+                <li>
+                  <div class="gs-title">Set the body</div>
+                  <p>Set that notification's <strong>body</strong> to exactly this:</p>
                   <div class="copyrow">
                     <input type="text" id="apprise-body" readonly value='{"comname":"$comname","sciname":"$sciname","confidence":$confidence,"date":"$date","time":"$time"}' aria-label="Notification body">
                     <button class="btn icon copy-btn" type="button" data-copy="#apprise-body" title="Copy body" aria-label="Copy body"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-copy"/></svg></button>
                   </div>
                 </li>
-                <li>Save. New detections push here on their own; the status below shows how many have arrived.</li>
+                <li>
+                  <div class="gs-title">Save</div>
+                  <p>New detections arrive on their own.</p>
+                  <div class="gs-wait{{ ' ok' if guide_done else '' }}"><span class="gs-dot {{ 'ok' if guide_done else 'wait' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></span><span>{{ arrived if guide_done else 'Waiting for the first detection…' }}</span></div>
+                </li>
               </ol>
-            </div>
-          </div>
+            </div></div>
+          </details>
           <input type="hidden" id="ingest-token" value="{{ config.ingest_token }}">
           <div class="frow stack" data-src="birdweather" {{ '' if _src=='birdweather' else 'hidden' }}>
             <div class="frow-text"><label class="lab" for="f-bw">BirdWeather station</label><div class="hint">Paste a station's URL or just the ID. Find yours at <a href="https://app.birdweather.com" target="_blank" rel="noopener">app.birdweather.com</a>.</div></div>
@@ -1377,9 +1585,7 @@
             <span class="test-ic" aria-hidden="true"></span>
             <span class="test-msg"></span>
           </div>
-          {# The blocklist filters what the source hears, for every picture
-             (plates and the collage), so it lives with the source — named, and
-             counted, rather than behind an Advanced. #}
+          {# The blocklist filters what the source hears, for every picture. #}
           {% set nblock = config.species_blocklist|length %}
           <details class="disc adv" id="block-disc">
             <summary><span>Blocked species</span><span class="disc-end"><span class="disc-count tnum" id="block-count" {{ '' if nblock else 'hidden' }}>{{ nblock }}</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></span></summary>
@@ -1390,17 +1596,111 @@
               </div>
             </div></div>
           </details>
-        </section>
-      </div>
+          {{ set_foot() }}
+        </form>
+        </div></div>
+      </details>
 
-      <div class="card" id="imagegen-card">
-        <section class="sec">
-          {# W-770: no key is the expected state, not an unfinished setup. Rows
-             that only matter once plates can be bought stay out of the way
-             until a key (or a self-hosted endpoint) is there; hidden inputs
-             still submit, so nothing stored is lost. #}
-          {% set ig_ready = status.config.imagegen_api_key or config.imagegen_provider == 'a1111' %}
-          <h2 class="sec-head"><span class="badge ai">AI</span>Image generation <span class="opt">· optional</span></h2>
+      {# -- Illustrations ---------------------------------------------------- #}
+      <details class="disc set" id="set-illustrations">
+        {% call set_summary('ic-book', 'Illustrations') %}<span class="v-part">{{ rg[0] }}</span><span class="v-part">{{ rg[1] }}</span>{% endcall %}
+        <div class="disc-body"><div class="set-body">
+        <form class="set-form" method="post" action="/settings">
+          <input type="hidden" name="section" value="illustrations">
+          <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
+          {# Region puts that region's folio first (W-702); every other folio
+             still fills what it lacks. #}
+          <div class="frow">
+            <div class="frow-text"><label class="lab" for="f-region">Region</label></div>
+            <div class="frow-ctl">
+              <div class="cselect">
+                <select class="sel" id="f-region" name="region">
+                  <option value="north-america"{{ ' selected' if config.region == 'north-america' else '' }}>North America · Audubon's Birds of America</option>
+                  <option value="europe"{{ ' selected' if config.region == 'europe' else '' }}>Europe · Gould's Birds of Europe</option>
+                  <option value="australia"{{ ' selected' if config.region == 'australia' else '' }}>Australia · Gould's Birds of Australia</option>
+                  <option value="asia"{{ ' selected' if config.region == 'asia' else '' }}>Asia · Gould's Birds of Asia</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
+            <div class="frow-text"><label class="lab" for="ig"><span class="badge ai">AI</span>Generate images for missing species<a class="btn sm ex preview" href="/static/examples/generated.png" data-ex="generated" data-cap="A plate generated for a species no book has." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
+            <div class="frow-ctl">{{ instant_switch('ig', 'imagegen_enabled', config.imagegen_enabled, not ig_ready) }}</div>
+          </div>
+          {{ set_foot() }}
+        </form>
+        </div></div>
+      </details>
+
+      {# -- Collage ---------------------------------------------------------- #}
+      {% set qmode = config.quiet_hours_mode %}
+      {% set quiet_word = 'Sunset → Sunrise' if qmode == 'sun'
+                          else ((config.quiet_hours_start | clock12) ~ ' → ' ~ (config.quiet_hours_end | clock12) if qmode == 'custom' else '') %}
+      <details class="disc set" id="set-collage">
+        {% call set_summary('ic-grid', 'Collage') %}<span class="v-part">{{ every_words.get(config.collage_interval_hours, 'Every ' ~ config.collage_interval_hours ~ ' hours') }}</span>{% if quiet_word %}<span class="v-part">{{ quiet_word }}</span>{% endif %}{% endcall %}
+        <div class="disc-body"><div class="set-body">
+        <form class="set-form" method="post" action="/settings">
+          <input type="hidden" name="section" value="collage">
+          <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
+          <div class="frow">
+            <div class="frow-text"><label class="lab" for="f-every">Update interval</label></div>
+            <div class="frow-ctl">
+              <div class="cselect">
+              <select class="sel cselect-native" id="f-every" name="collage_interval_hours">
+                {% for h, word in every_words.items() %}
+                <option value="{{ h }}" {{ 'selected' if config.collage_interval_hours == h else '' }}>{{ word }}</option>
+                {% endfor %}
+                {# A stored value from a build that took any number: shown as it
+                   is, so saving the form does not quietly change it. #}
+                {% if config.collage_interval_hours not in every_words %}
+                <option value="{{ config.collage_interval_hours }}" selected>Every {{ config.collage_interval_hours }} hours</option>
+                {% endif %}
+              </select>
+              </div>
+            </div>
+          </div>
+          <div class="frow">
+            {# Stored as 0; an empty field is what "no limit" looks like. #}
+            <div class="frow-text"><label class="lab" for="f-review-max">Species limit</label><div class="hint">The most species shown in one collage</div></div>
+            <div class="frow-ctl"><input type="number" id="f-review-max" name="collage_species_max" min="0" max="60" step="1" inputmode="numeric" placeholder="No limit" value="{{ config.collage_species_max or '' }}"></div>
+          </div>
+          {# Quiet hours belong to the collage: the window IS the overnight
+             collage, so there is nothing else to switch on (W-833). #}
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="quiet-lab">Quiet hours</span><div class="hint">Every frame shows the collage overnight.</div></div>
+            <div class="frow-ctl">
+              <div class="seg" role="radiogroup" aria-labelledby="quiet-lab" id="quiet-seg">
+                <label><input type="radio" name="quiet_hours_mode" value="off" {{ 'checked' if qmode=='off' else '' }}><span>Off</span></label>
+                <label><input type="radio" name="quiet_hours_mode" value="sun" {{ 'checked' if qmode=='sun' else '' }}><span>Sunset to sunrise</span></label>
+                <label><input type="radio" name="quiet_hours_mode" value="custom" {{ 'checked' if qmode=='custom' else '' }}><span>Custom</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="reveal{{ '' if qmode=='custom' else ' collapsed' }}" id="quiet-custom" {{ '' if qmode=='custom' else 'hidden' }}><div class="reveal-body">
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="quiet-between-lab">Between</span></div>
+            <div class="frow-ctl pair" role="group" aria-labelledby="quiet-between-lab"><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}" aria-label="Start"><span class="pair-sep" aria-hidden="true">→</span><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}" aria-label="End"></div>
+          </div>
+          </div></div>
+          <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
+            <div class="frow-text"><label class="lab" for="cg"><span class="badge ai">AI</span>Generate menagerie-style collages<a class="btn sm ex preview" href="/static/examples/collage.png" data-ex="collage" data-cap="The collage as one scene, generated with AI." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
+            <div class="frow-ctl">{{ instant_switch('cg', 'collage_generated', config.collage_generated, not ig_ready) }}</div>
+          </div>
+          {{ set_foot() }}
+        </form>
+        </div></div>
+      </details>
+
+      {# -- AI image generation ---------------------------------------------- #}
+      {# W-770: no key is the expected state, not an unfinished setup. Rows that
+         only matter once a key is there stay out of the way until then;
+         hidden inputs still submit, so nothing stored is lost. #}
+      <details class="disc set" id="set-imagegen">
+        {% call set_summary('ic-sparkle', 'AI image generation') %}{% if ig_ready %}<span class="d good"></span>{{ ig_names.get(config.imagegen_provider, config.imagegen_provider) }}{% else %}No API key{% endif %}{% endcall %}
+        <div class="disc-body"><div class="set-body" id="imagegen-card">
+        <form class="set-form" method="post" action="/settings">
+          <input type="hidden" name="section" value="imagegen">
+          <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
           <p class="intro"><a href="https://github.com/wr/featherframe/wiki/AI-illustrations" target="_blank" rel="noopener">Learn</a> how image generation works, as well as estimated API costs.</p>
           <div class="frow">
             <div class="frow-text"><label class="lab" for="ig-provider">Image provider</label></div>
@@ -1493,149 +1793,15 @@
               </div>
             </div></div>
           </details>
-        </section>
-      </div>
+          {{ set_foot() }}
+        </form>
+        </div></div>
+      </details>
 
-      <div class="card">
-        <section class="sec">
-          <h2 class="sec-head">Individual detections</h2>
-          {# Region puts that region's folio first (W-702); every other folio
-             still fills what it lacks. Europe includes the few species only Gould's
-             Birds of Great Britain has (W-872), so Britain is no region of
-             its own; Asia is a placeholder. #}
-          <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-region">Region</label></div>
-            <div class="frow-ctl">
-              <div class="cselect">
-                <select class="sel" id="f-region" name="region">
-                  <option value="north-america"{{ ' selected' if config.region == 'north-america' else '' }}>North America · Audubon's Birds of America</option>
-                  <option value="europe"{{ ' selected' if config.region == 'europe' else '' }}>Europe · Gould's Birds of Europe</option>
-                  <option value="australia"{{ ' selected' if config.region == 'australia' else '' }}>Australia · Gould's Birds of Australia</option>
-                  <option value="asia"{{ ' selected' if config.region == 'asia' else '' }}>Asia · Gould's Birds of Asia</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
-            <div class="frow-text"><label class="lab" for="ig"><span class="badge ai">AI</span>Generate images for missing species<a class="btn sm ex preview" href="/static/examples/generated.png" data-ex="generated" data-cap="A plate generated for a species no book has." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
-            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ig" name="imagegen_enabled" aria-disabled="{{ 'false' if ig_ready else 'true' }}" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label></div>
-          </div>
-        </section>
-      </div>
-
-      <div class="card">
-        <section class="sec">
-          <h2 class="sec-head">Collage</h2>
-          <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-every">Update interval</label></div>
-            <div class="frow-ctl">
-              <div class="cselect">
-              <select class="sel cselect-native" id="f-every" name="collage_interval_hours">
-                {% for h, word in [(1, 'Every hour'), (4, 'Every 4 hours'), (6, 'Every 6 hours'), (12, 'Every 12 hours'), (24, 'Every 24 hours')] %}
-                <option value="{{ h }}" {{ 'selected' if config.collage_interval_hours == h else '' }}>{{ word }}</option>
-                {% endfor %}
-                {# A stored value from a build that took any number: shown as it
-                   is, so saving the form does not quietly change it. #}
-                {% if config.collage_interval_hours not in [1, 4, 6, 12, 24] %}
-                <option value="{{ config.collage_interval_hours }}" selected>Every {{ config.collage_interval_hours }} hours</option>
-                {% endif %}
-              </select>
-              </div>
-            </div>
-          </div>
-          <div class="frow">
-            {# Stored as 0; an empty field is what "no limit" looks like. #}
-            <div class="frow-text"><label class="lab" for="f-review-max">Species limit</label><div class="hint">The most species shown in one collage</div></div>
-            <div class="frow-ctl"><input type="number" id="f-review-max" name="collage_species_max" min="0" max="60" step="1" inputmode="numeric" placeholder="No limit" value="{{ config.collage_species_max or '' }}"></div>
-          </div>
-          {# Quiet hours belong to the collage: the window IS the overnight
-             collage, so there is nothing else to switch on (W-833). #}
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="quiet-lab">Quiet hours</span><div class="hint">Every frame shows the collage overnight.</div></div>
-            <div class="frow-ctl">
-              <div class="seg" role="radiogroup" aria-labelledby="quiet-lab" id="quiet-seg">
-                <label><input type="radio" name="quiet_hours_mode" value="off" {{ 'checked' if config.quiet_hours_mode=='off' else '' }}><span>Off</span></label>
-                <label><input type="radio" name="quiet_hours_mode" value="sun" {{ 'checked' if config.quiet_hours_mode=='sun' else '' }}><span>Sunset to sunrise</span></label>
-                <label><input type="radio" name="quiet_hours_mode" value="custom" {{ 'checked' if config.quiet_hours_mode=='custom' else '' }}><span>Custom</span></label>
-              </div>
-            </div>
-          </div>
-          <div class="reveal{{ '' if config.quiet_hours_mode=='custom' else ' collapsed' }}" id="quiet-custom" {{ '' if config.quiet_hours_mode=='custom' else 'hidden' }}><div class="reveal-body">
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="quiet-between-lab">Between</span></div>
-            <div class="frow-ctl pair" role="group" aria-labelledby="quiet-between-lab"><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}" aria-label="Start"><span class="pair-sep" aria-hidden="true">–</span><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}" aria-label="End"></div>
-          </div>
-          </div></div>
-          <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
-            <div class="frow-text"><label class="lab" for="cg"><span class="badge ai">AI</span>Generate menagerie-style collages<a class="btn sm ex preview" href="/static/examples/collage.png" data-ex="collage" data-cap="The collage as one scene, generated with AI." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
-            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="cg" name="collage_generated" aria-disabled="{{ 'false' if ig_ready else 'true' }}" {{ 'checked' if config.collage_generated else '' }}><span class="track"></span></label></div>
-          </div>
-          {% if collage_days %}
-          <div class="frow stack">
-            <div class="frow-text"><span class="lab">Past collages</span></div>
-            <div class="frow-ctl collage-days">
-              {% for d in collage_days %}<a class="btn sm" href="{{ d.url }}" download="featherframe-collage-{{ d.date }}.png"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-download"/></svg>{{ d.text }}</a>{% endfor %}
-            </div>
-          </div>
-          {% endif %}
-        </section>
-      </div>
-
-      <div class="card">
-        <section class="sec">
-          <h2 class="sec-head">General settings</h2>
-          {# Email and password are "keyfield" rows like the stored API keys: the
-             value shown disabled with an edit button, or a live field with its
-             own Save. A blank field keeps what is stored. #}
-          {% set shown_email = email_pending or owner_email %}
-          <div class="frow keyfield acct" data-key="email">
-            <div class="frow-text"><label class="lab" for="f-email">Email address</label>{% if email_pending %}<div class="hint">Until it's confirmed, sign in with {{ owner_email }}.</div>{% endif %}</div>
-            <div class="frow-ctl">
-              <div class="keyline key-display" {{ 'hidden' if not shown_email else '' }}>
-                <div class="keyval"><input type="text" value="{{ shown_email }}" disabled aria-label="Email address">{% if email_pending %}<span class="badge warn">Unconfirmed</span>{% endif %}</div>
-                <button class="btn icon key-replace" type="button" title="Change email" aria-label="Change email"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-edit"/></svg></button>
-              </div>
-              <div class="keyline key-entry" {{ '' if not shown_email else 'hidden' }}>
-                <input type="email" id="f-email" name="owner_email" data-value="{{ shown_email }}" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@example.com" aria-label="Email address">
-                {% set ok_label = 'Send confirmation' if hosted else 'Save' %}
-                <button class="btn icon primary key-ok" type="submit" title="{{ ok_label }}" aria-label="{{ ok_label }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
-                {% if shown_email %}<button class="btn icon key-cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-close"/></svg></button>{% endif %}
-              </div>
-            </div>
-          </div>
-          {% if not hosted %}
-          <div class="frow keyfield acct" data-key="password" data-confirm="Remove the password? Anyone on your network can open this page again.">
-            <div class="frow-text"><label class="lab" for="pw-input">Password</label><div class="hint">{{ 'Needed to open this page. Frames connect without it.' if password_on else 'Off. Anyone on your network can open this page.' }}</div></div>
-            <div class="frow-ctl">
-              <div class="keyline key-display">
-                <button class="btn key-replace" type="button">{{ 'Change' if password_on else 'Set password' }}</button>
-                {% if password_on %}<button class="btn icon danger key-delete" type="button" title="Remove password" aria-label="Remove password"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-trash"/></svg></button>{% endif %}
-              </div>
-              <div class="keyline key-entry" hidden>
-                <input type="password" id="pw-input" name="page_password" autocomplete="new-password" aria-label="New password">
-                <button class="btn icon primary key-ok" type="submit" title="Save" aria-label="Save"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></button>
-                <button class="btn icon key-cancel" type="button" title="Cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-close"/></svg></button>
-              </div>
-              <input type="checkbox" class="key-clear" name="page_password_clear" hidden aria-hidden="true" tabindex="-1">
-            </div>
-          </div>
-          {% endif %}
-          <div class="frow toggle">
-            <div class="frow-text"><label class="lab" for="fw-auto">Install firmware updates automatically</label><div class="hint tnum" id="fw-latest">{{ ('Latest release: ' ~ fws.latest) if fws.latest else 'No release yet' }}</div></div>
-            <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="fw-auto" name="firmware_auto_update" {{ 'checked' if config.firmware_auto_update else '' }}><span class="track"></span></label></div>
-          </div>
-        </section>
-      </div>
-
-      <div class="savebar" id="save-bar">
-        <span class="unsaved" id="unsaved-note">Unsaved changes</span>
-        <button class="btn primary lg" type="submit" id="save-btn" disabled>Save settings</button>
-      </div>
-    </form>
-
-    <div class="card" id="gen-card">
-    <div class="settings"><section class="sec">
-      <h2 class="sec-head">Generated illustrations</h2>
+      {# -- Generated illustrations ------------------------------------------ #}
+      <details class="disc set sub" id="set-generated">
+        {% call set_summary(None, 'Generated illustrations', badge=False) %}{% endcall %}
+        <div class="disc-body"><div class="set-body" id="gen-card">
       {% if generated %}
       <p class="intro">Illustrations Featherframe has generated and kept. Regenerate buys a new one; Remove deletes it, and the next detection of that species generates another.</p>
       {% else %}
@@ -1680,7 +1846,33 @@
         </form>
       </div>
       <p class="hint">Generated illustrations live only on this server, and each one cost an image. Download a backup before you reinstall or move it. Restoring never replaces a newer illustration.</p>
-    </section></div>
+        </div></div>
+      </details>
+
+      {# -- Generated collages ----------------------------------------------- #}
+      {# Each kept day's finished collage, in the same list as the generated
+         illustrations; the one action is a download. #}
+      <details class="disc set sub" id="set-collages">
+        {% call set_summary(None, 'Generated collages', badge=False) %}{% endcall %}
+        <div class="disc-body"><div class="set-body">
+          {% if collage_days %}
+          <div class="gen-list">
+            {% for d in collage_days %}
+            <div class="gen-item" {{ 'hidden' if loop.index > 5 else '' }}>
+              <a class="plate-link" href="{{ d.url }}" target="_blank" rel="noopener"><img src="{{ d.url }}" alt="Collage, {{ d.text }}" loading="lazy"></a>
+              <div class="who"><div class="common">{{ d.text }}</div></div>
+              <div class="ops"><a class="btn" href="{{ d.url }}" download="featherframe-collage-{{ d.date }}.png">Download</a></div>
+            </div>
+            {% endfor %}
+          </div>
+          {% if collage_days|length > 5 %}
+          <button class="btn gen-more" type="button" data-more>Show {{ [collage_days|length - 5, 5]|min }} more <span class="hint-inline">· {{ collage_days|length - 5 }} left</span></button>
+          {% endif %}
+          {% else %}
+          <p class="intro">None yet. Each day's collage is kept here once it is drawn.</p>
+          {% endif %}
+        </div></div>
+      </details>
     </div>
     </div>
   </main>
@@ -1729,7 +1921,14 @@
     var a = document.createElement('span'); a.className = 'who'; a.textContent = who; el.appendChild(a);
     if (when) { var b = document.createElement('span'); b.className = 'when'; b.textContent = when; el.appendChild(b); }
   }
-  function fmtTime(d) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  // Times as people write them (docs/STYLE.md): "5:40 PM", and "24 Sep, 5:40 PM"
+  // for another day.
+  function fmtTime(d) { return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }); }
+  function stampText(iso) {
+    var d = new Date(iso); if (isNaN(d)) return String(iso || '');
+    var today = new Date().toDateString() === d.toDateString();
+    return today ? fmtTime(d) : d.getDate() + ' ' + d.toLocaleString('en-US', { month: 'short' }) + ', ' + fmtTime(d);
+  }
   // Dependent rows (a frame's wake interval under Power, the quiet-hours times)
   // slide open and shut like the disclosures: [hidden] goes on only once the
   // slide has finished, and comes off before it starts.
@@ -1806,7 +2005,10 @@
       shown = true;
     }
     else if (q.get('email_changed')) { showFlash('ok', 'Email changed.', 'ic-check'); shown = true; }
-    if (q.has('saved') || q.has('error') || q.has('adjusted') || q.has('email_changed')) {
+    // The section that was just saved opens again (W-878).
+    var openRow = q.get('open') && document.getElementById('set-' + q.get('open'));
+    if (openRow) openRow.open = true;
+    if (q.has('saved') || q.has('error') || q.has('adjusted') || q.has('email_changed') || q.has('open')) {
       try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* fine */ }
     }
   })();
@@ -1887,59 +2089,25 @@
     });
   });
 
-  // -- hold this plate / block what's showing (W-735) -----------------------
-  var holdBtn = $('hold-btn'), holdDur = $('hold-dur'), releaseBtn = $('release-btn'), blockBtn = $('block-btn');
-  function formBody(o) { var b = new URLSearchParams(); Object.keys(o).forEach(function (k) { b.append(k, o[k]); }); return b; }
+  // -- a hold set before W-878 can still be released -------------------------
+  // Hold and Block left the Tools (W-878); a hold that is on shows its line
+  // with Release until it ends.
+  var releaseBtn = $('release-btn');
   function reloadPreviewSoon() { if (preview) setTimeout(function () { preview.src = previewSrc + '?t=' + Date.now(); }, 400); }
-  function blocklistLines() { var bl = $('f-block'); return bl ? bl.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean) : null; }
-  function setBlocklist(lines) { var bl = $('f-block'); if (bl) bl.value = lines.join('\n'); countBlocked(); }
   function countBlocked() {
-    var n = (blocklistLines() || []).length, c = $('block-count');
+    var bl = $('f-block'), c = $('block-count');
+    var n = bl ? bl.value.split('\n').filter(function (s) { return s.trim(); }).length : 0;
     if (c) { c.textContent = n; c.hidden = !n; }
   }
   if ($('f-block')) $('f-block').addEventListener('input', countBlocked);
-  if (holdBtn) holdBtn.addEventListener('click', function () {
-    holdBtn.disabled = true;
-    jsonFetch('/api/hold', { method: 'POST', body: formBody({ duration: holdDur ? holdDur.value : 'day' }) }).then(function (res) {
-      var until = (res.hold && res.hold.until_text) || '';
-      setTaskStatus('Held ' + until + '. Nothing replaces this illustration until then.');
-      setText('fc-holding', 'held ' + until); setText('held-until', until); $('fc-holding').dataset.tip = '';
-      setHidden('hold-ctl', true); setHidden('held-line', false);
-    }).catch(function (e) { setTaskStatus('Hold failed — ' + errText(e) + '.', true); })
-      .then(function () { holdBtn.disabled = false; });
-  });
   if (releaseBtn) releaseBtn.addEventListener('click', function () {
     releaseBtn.disabled = true; releaseBtn.textContent = 'Releasing…';
     jsonFetch('/api/hold/release', { method: 'POST' }).then(function (res) {
-      setTaskStatus(res.changed ? 'Released. The wall catches up on its next check-in.' : 'Released.');
-      setHidden('hold-ctl', false); setHidden('held-line', true); setText('fc-holding', '');
+      setTaskStatus(res.changed ? 'Released. The frame catches up on its next check-in.' : 'Released.');
+      setHidden('held-line', true);
       reloadPreviewSoon();
     }).catch(function (e) { setTaskStatus('Release failed — ' + errText(e) + '.', true); })
       .then(function () { releaseBtn.disabled = false; releaseBtn.textContent = 'Release'; });
-  });
-  if (blockBtn) blockBtn.addEventListener('click', function () {
-    blockBtn.disabled = true; var orig = blockBtn.textContent; blockBtn.textContent = 'Blocking…';
-    jsonFetch('/api/block-current', { method: 'POST' }).then(function (res) {
-      // The settings form carries the whole blocklist: keep its textarea in
-      // step so a later Save does not quietly undo the block.
-      var lines = blocklistLines();
-      if (lines && lines.map(function (s) { return s.toLowerCase(); }).indexOf(res.blocked.toLowerCase()) < 0) setBlocklist(lines.concat([res.blocked]));
-      if (!taskStatus) return;
-      taskStatus.textContent = ''; taskStatus.classList.remove('failed');
-      taskStatus.appendChild(document.createTextNode('Blocked ' + res.blocked + '. '));
-      var undo = document.createElement('button'); undo.type = 'button'; undo.className = 'linkish'; undo.textContent = 'Undo';
-      undo.addEventListener('click', function () {
-        undo.disabled = true;
-        jsonFetch('/api/unblock', { method: 'POST', body: formBody({ name: res.blocked }) }).then(function () {
-          var now = blocklistLines();
-          if (now) setBlocklist(now.filter(function (s) { return s.toLowerCase() !== res.blocked.toLowerCase(); }));
-          setTaskStatus('Unblocked ' + res.blocked + '. It can hang again on its next detection.');
-        }).catch(function (e) { setTaskStatus('Undo failed — ' + errText(e) + '.', true); });
-      });
-      taskStatus.appendChild(undo);
-      reloadPreviewSoon();
-    }).catch(function (e) { setTaskStatus('Block failed — ' + errText(e) + '.', true); })
-      .then(function () { blockBtn.disabled = false; blockBtn.textContent = orig; });
   });
 
   // -- left column: sticky only as far as it fits ---------------------------
@@ -2005,7 +2173,7 @@
     applyQueued(row, fr.queued_s || 0);
     subText(row, 'data-h', 'seen-text', card.seen ? (card.last_seen || '') : 'never');
     var seen = sub(row, 'data-h', 'seen');
-    if (seen) seen.dataset.tip = card.last_checkin_iso ? card.last_checkin_iso.replace('T', ' ') : '';
+    if (seen) seen.dataset.tip = card.last_checkin_iso ? stampText(card.last_checkin_iso) : '';
     var dot = sub(row, 'data-h', 'dot');
     var state = card.state || 'off';
     if (dot) dot.className = 'd ' + state;
@@ -2083,12 +2251,18 @@
         subText(row, 'data-fr', 'summary', fr.summary);
       }
     });
-    setDot('fc-src-dot', st.birdnet_available ? 'good' : 'bad');
-    setText('fc-src-text', st.birdnet_available ? 'Connected' : 'Not reachable');
+    // The source's dot: red when it cannot be reached (or a push source has
+    // received nothing yet), amber when it has gone quiet, else green.
+    var srcRow = $('set-source'), srcDot = $('src-dot');
+    if (srcRow && srcDot) {
+      var unset = srcRow.dataset.state === 'bad' && srcRow.hasAttribute('data-unset');
+      var state = (st.source_outage || !st.birdnet_available || unset) ? 'bad' : (st.quiet ? 'warn' : 'good');
+      srcDot.className = 'd ' + state;
+    }
     var ld = st.last_detection, heard = $('fc-heard');
     if (heard) {
-      setWhoWhen(heard, ld && ld.common, ld && ld.when_text, '\u2014');
-      heard.dataset.tip = (ld && ld.at) || '';
+      setWhoWhen(heard, ld && ld.common, ld && ld.when_text, 'None yet');
+      heard.dataset.tip = (ld && ld.at) ? stampText(String(ld.at).replace(' ', 'T')) : '';
     }
     var q = st.quiet, banner = $('quiet-banner');
     if (banner) {
@@ -2098,23 +2272,17 @@
     var o = st.source_outage, obanner = $('outage-banner');
     if (obanner) {
       obanner.classList.toggle('show', !!o);
-      setText('outage-text', o ? (obanner.dataset.src || 'The detector') + ' unreachable since ' + o.since_text + ' (' + o.hours_text + '). Check the source settings below.' : '');
+      setText('outage-text', o ? (obanner.dataset.srcname || 'The detector') + ' unreachable since ' + o.since_text + ' (' + o.hours_text + '). Check the source below.' : '');
     }
-    // Pending: a new species held back for a second detection. Text only —
-    // the row is server-rendered and merely kept current here.
+    // Pending: a new species held back for a second detection.
     var pend = st.pending, pendEl = $('fc-pending');
     if (pendEl) {
-      setHidden('fc-pending-dt', !pend); setHidden('fc-pending', !pend);
+      setHidden('fc-pending-row', !pend);
       setWhoWhen(pendEl, pend && pend.common, pend && pend.waiting_text, '');
-      pendEl.dataset.tip = (pend && pend.first_at) ? pend.first_at.replace('T', ' ') : '';
+      pendEl.dataset.tip = (pend && pend.first_at) ? stampText(pend.first_at) : '';
     }
     refreshHistory(cur.etag || '');
-    setText('fc-showing', cur.title || cur.label || '\u2014');
-    setText('fc-holding', st.hold ? 'held ' + st.hold.until_text
-                         : (cur.holding ? 'holding ' + cur.holding.minutes_left + ' min' : ''));
-    var holdEl = $('fc-holding');
-    if (holdEl) holdEl.dataset.tip = (!st.hold && cur.holding && cur.holding.why) || '';
-    setHidden('hold-ctl', !!st.hold); setHidden('held-line', !st.hold);
+    setHidden('held-line', !st.hold);
     if (st.hold) setText('held-until', st.hold.until_text || '');
     setText('fc-species', st.species_all_time + ' all-time');
   }
@@ -2134,7 +2302,7 @@
       var a = document.createElement('a');
       a.className = 'hist-item'; a.href = h.full || h.thumb;
       a.setAttribute('data-cap', title + ' \u00b7 ' + (h.when_text || ''));
-      a.dataset.tip = h.rendered_at ? h.rendered_at.replace('T', ' ') : '';
+      a.dataset.tip = h.rendered_at ? stampText(h.rendered_at) : '';
       var img = document.createElement('img');
       img.src = h.thumb; img.alt = title; img.width = 72; img.height = 96; img.loading = 'lazy';
       var when = document.createElement('span'); when.className = 'hist-when'; when.textContent = h.when_text || '';
@@ -2211,13 +2379,7 @@
     var cache = {}, wanted = null;
 
     // Axis stamps: the time alone if it is today, else the day as well.
-    function stamp(iso) {
-      var d = new Date(String(iso).replace(' ', 'T'));
-      if (isNaN(d.getTime())) return iso;
-      var t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      if (d.toDateString() === new Date().toDateString()) return t;
-      return d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' · ' + t;
-    }
+    function stamp(iso) { return stampText(String(iso).replace(' ', 'T')); }
     function draw(data) {
       var items = (data && data.items) || [];
       while (svg.firstChild) svg.removeChild(svg.firstChild);
@@ -2342,30 +2504,67 @@
     btns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.theme === current())); });
   })();
 
-  // -- settings form: dirty tracking, save feedback, validation ---------------
-  var form = document.querySelector('form[action="/settings"]');
-  var bar = $('save-bar'), saveBtn = $('save-btn');
+  // -- settings: one form per section (W-878) ---------------------------------
+  // An edit shows that section's Save and its Unsaved changes badge; Enter or
+  // Save posts only that section. A switch saves when it is flipped; a stored
+  // key, the email and the password have their own ✓.
   var dirty = false, saving = false;
-  function markDirty() { if (dirty) return; dirty = true; if (bar) bar.classList.add('dirty'); if (saveBtn) saveBtn.disabled = false; }
+  var dirtyForms = [];
+  function syncDirty() { dirty = dirtyForms.length > 0; }
   // A frame row being edited is unsaved work too (its own Save, same rule).
   function framesDirty() { return !!document.querySelector('.fr[data-frame][data-editing="1"]'); }
-  if (form) {
-    form.addEventListener('input', markDirty);
-    form.addEventListener('change', markDirty);
-    form.addEventListener('submit', function () {
+  document.querySelectorAll('form.set-form').forEach(function (f) {
+    var row = f.closest('details.set');
+    var foot = f.querySelector('.set-foot'), badge = row && row.querySelector('[data-unsaved-badge]');
+    function mark(e) {
+      var t = e.target;
+      if (!foot || t.matches('[data-instant]') || t.closest('.keyfield')) return;
+      if (dirtyForms.indexOf(f) < 0) dirtyForms.push(f);
+      foot.hidden = false; if (badge) badge.hidden = false; syncDirty();
+    }
+    f.addEventListener('input', mark);
+    f.addEventListener('change', mark);
+    f.addEventListener('submit', function (e) {
+      // Enter in a section with nothing changed, and no key waiting, does nothing.
+      var keyWaiting = [].some.call(f.querySelectorAll('.keyfield .key-entry:not([hidden]) input'), function (i) { return i.value.trim(); }) ||
+                       [].some.call(f.querySelectorAll('.key-clear'), function (c) { return c.checked; });
+      if (dirtyForms.indexOf(f) < 0 && !keyWaiting) { e.preventDefault(); return; }
       saving = true;
-      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+      var b = f.querySelector('[data-save]');
+      if (b) { b.disabled = true; b.textContent = 'Saving…'; }
     });
     // A field the browser rejects (min/max/step) may sit inside a closed
-    // Advanced disclosure; open it so the validation bubble has somewhere to point.
-    form.addEventListener('invalid', function (e) {
+    // disclosure; open it so the validation bubble has somewhere to point.
+    f.addEventListener('invalid', function (e) {
       var d = e.target.closest('details'); if (d) d.open = true;
+      if (row) row.open = true;
     }, true);
-    window.addEventListener('beforeunload', function (e) {
-      if ((!dirty && !framesDirty()) || saving) return;
-      e.preventDefault(); e.returnValue = '';
+  });
+  // A switch saves when it is flipped: its own two fields, nothing else.
+  document.querySelectorAll('input[data-instant]').forEach(function (sw) {
+    sw.addEventListener('change', function () {
+      if (sw.getAttribute('aria-disabled') === 'true') return;
+      var tick = sw.closest('.frow-ctl').querySelector('.saved-tick');
+      var body = new URLSearchParams();
+      body.append(sw.name, '0'); if (sw.checked) body.append(sw.name, '1');
+      fetch('/settings', { method: 'POST', body: body, credentials: 'same-origin' }).then(function (r) {
+        if (!r.ok || /[?&]error=/.test(r.url)) throw new Error('not saved');
+        if (tick) { tick.textContent = 'Saved'; tick.classList.remove('bad'); }
+      }).catch(function () {
+        sw.checked = !sw.checked;
+        if (tick) { tick.textContent = 'Not saved'; tick.classList.add('bad'); }
+      }).then(function () {
+        if (!tick) return;
+        tick.classList.add('on'); clearTimeout(tick._h);
+        tick._h = setTimeout(function () { tick.classList.remove('on'); }, 1600);
+      });
     });
-  }
+  });
+  window.addEventListener('beforeunload', function (e) {
+    if ((!dirty && !framesDirty()) || saving) return;
+    e.preventDefault(); e.returnValue = '';
+  });
+
   // -- the Frames card: one row component, one save, per frame ---------------
   // A row is a disclosure of its own settings. Saving posts JSON to
   // /api/frames/<id> and updates the row in place; nothing here reloads the
@@ -2554,7 +2753,7 @@
     // detection-source fields follow the select
     var sel = $('src-sel');
     function syncSrc() {
-      document.querySelectorAll('[data-src]').forEach(function (el) {
+      document.querySelectorAll('#set-source [data-src]').forEach(function (el) {
         el.hidden = el.getAttribute('data-src').split(' ').indexOf(sel.value) < 0;
       });
     }
@@ -3009,11 +3208,10 @@
     });
   })();
 
-  // -- generated plates: five at a time; the rest unfold on demand -----------
-  (function () {
-    var more = $('gen-more'); if (!more) return;
+  // -- generated illustrations and collages: five at a time -----------------
+  document.querySelectorAll('.gen-more').forEach(function (more) {
     more.addEventListener('click', function () {
-      var hidden = [].slice.call(document.querySelectorAll('.gen-item[hidden]'));
+      var hidden = [].slice.call(more.parentNode.querySelectorAll('.gen-item[hidden]'));
       hidden.slice(0, 5).forEach(function (el) { el.hidden = false; });
       var left = hidden.length - 5;
       if (left <= 0) { more.remove(); return; }
@@ -3021,7 +3219,7 @@
       var n = document.createElement('span'); n.className = 'hint-inline'; n.textContent = '· ' + left + ' left';
       more.appendChild(n);
     });
-  })();
+  });
 
   // -- generated plates: regenerate in the background, poll while in flight --
   (function () {
@@ -3512,12 +3710,8 @@
     document.querySelectorAll('.src-test').forEach(function (b) {
       b.addEventListener('click', function () { run(b, true); });
     });
-    // A push source can't be probed — it has no Test button; show how many
-    // detections have arrived instead.
-    function syncTest() {
-      if (sel.value === 'apprise' || sel.value === 'birdnet_go') { run(null, false); }
-      else { hide(); }
-    }
+    // A push source can't be probed: its setup steps say what has arrived.
+    function syncTest() { hide(); }
     sel.addEventListener('change', syncTest);
     syncTest();
   })();

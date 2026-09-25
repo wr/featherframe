@@ -244,20 +244,33 @@ viewer's own view — both at `GET /api/frames/<id>/preview.png`, and always the
 upright picture as that frame draws it, never the device's canvas shape or its
 rotation: a TRMNL's is stood up and a page's is the sheet at 3:4) and the plate's
 tools, which are the previewed frame's picture's (`frame_view`'s `picture`, the
-night rule included) and say they act on every frame showing it (W-861); then the detection source's own small card, titled by the source name;
-then History. **There is no Health card**: a frame's health is the frame's row.
-Right, wide: a **Frames** card FIRST — its *Frames* heading, a ⋯ menu
-holding *USB firmware update*, *Check for updates* (asks for the latest release now, `POST /api/firmware/check`; otherwise daily), *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list — then the
-household's sections in one `/settings` form that carries no frame field at
-all, in the order the day runs: Detection source, Image generation (its two AI
-switches `locked` until a key is stored), Individual detections, Collage — and
-quiet hours IS the overnight collage, so it sits in that section and has no
-toggle of its own (`Config.quiet_hours_render_collage` is a property: the
-window being on is the whole of it) — then Generated plates.
-One save rule (W-861): a Save is enabled only once something in its group
-changed, with *Unsaved changes* beside it (the household form's save bar, each
-frame row's Save), and a stored secret, the email and the password are ✓ / ✕
-rows whose ✓ waits for input; a hidden first submit keeps Enter saving the form.
+night rule included) and say they act on every frame showing it (W-861): Refresh
+and Manual override, one line each (W-878: Hold and Block left the page; a hold
+already set still shows its Release line); then History. **There is no Health
+card**: a frame's health is the frame's row, and the source's is its row below.
+Right, wide: two groups, each a heading over its card (W-878). *Frames*, with
+a ⋯ menu holding *USB firmware update*, *Check for updates* (asks for the latest release now, `POST /api/firmware/check`; otherwise daily), *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list.
+Then *Settings*: the household's, one card of rows (`details.disc.set`, each
+an icon, a name, a short value and a side chevron, which turns down when it
+opens, as a frame row's does): General (email, password, firmware auto-update),
+Detection source (its status dot + name; open, the gone-quiet and outage
+warnings, Last detection / Species heard / Pending, the source, a push source's
+Webhook URL and *Setup instructions* — Done once `_push_setup` says a test or a
+detection arrived — and Blocked species; a source that is failing or not set up
+opens itself), Illustrations (Region, "Audubon · North America"), Collage
+(interval and quiet hours, "Every 6 hours · Sunset → Sunrise"; quiet hours IS
+the overnight collage, `Config.quiet_hours_render_collage` is a property), AI
+image generation (a dot + provider, or "No API key"; its two AI switches, which
+live in Illustrations and Collage, are `locked` until a key is stored), then
+Generated illustrations and Generated collages (each kept day's collage, same
+list). Every section is its own `/settings` form carrying a `section` field:
+`/settings` takes only the fields posted (a switch posts a hidden 0 before its
+checkbox, so absent keeps the stored value) and lands back with that section open.
+One save rule (W-861, W-878): a section's Save row and *Unsaved changes* appear
+only once it changed (with a badge on the row if it is folded), each frame
+row's Save likewise; a switch saves the moment it is flipped; a stored secret,
+the email and the password are ✓ / ✕ rows whose ✓ waits for input; a hidden
+first submit keeps Enter saving its section.
 Every frame is the same row (the `frame_row` macro), and that row **is** the
 page's own disclosure (`details.disc`), so it hovers, turns its chevron and
 slides open exactly as *Advanced* does. Collapsed it is a conventional

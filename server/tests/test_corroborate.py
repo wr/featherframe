@@ -258,11 +258,11 @@ def test_page_shows_the_pending_row_and_no_settings_group(client, svc, monkeypat
     _capture_renders(svc, monkeypatch)
     html = client.get("/").text
     assert "corroborate" not in html                   # always on: nothing to set (W-821)
-    assert 'id="fc-pending" hidden' in html            # nothing waiting yet
+    assert 'id="fc-pending-row" hidden' in html        # nothing waiting yet
 
     svc._single_tick(NOW)
     html = client.get("/").text
-    assert 'id="fc-pending-dt" >Pending' in html
+    assert 'id="fc-pending-row" ><dt>Pending' in html
     assert '<span class="who">Bald Eagle</span><span class="when">1 hit at 0.71 · waiting for a second' in html
     assert client.get("/api/status").json()["pending"]["common"] == "Bald Eagle"
 

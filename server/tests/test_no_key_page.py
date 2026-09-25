@@ -31,7 +31,9 @@ def _needs_key_rows(html: str) -> list[str]:
 
 def test_without_a_key_the_section_reads_as_optional_and_complete(svc):
     html = _page(svc)
-    assert 'class="opt">\u00b7 optional' in html
+    # Its row in the Settings card says so, and nothing more (W-878).
+    assert '<h3 class="set-name">AI image generation</h3>' in html
+    assert html.split('id="set-imagegen"')[1].split('</summary>')[0].count("No API key") == 1
     assert "wiki/AI-illustrations" in html and ">Learn</a>" in html
     rows = _needs_key_rows(html)
     assert len(rows) == 1 and all("hidden" in r for r in rows)
@@ -39,7 +41,7 @@ def test_without_a_key_the_section_reads_as_optional_and_complete(svc):
     # nothing, so a save would quietly store the setting off.
     for name in ('name="imagegen_enabled"', 'name="collage_generated"'):
         assert name in html
-        field = html.split(name)[1].split(">")[0]
+        field = html.split(name + ' value="1"')[1].split(">")[0]
         assert 'aria-disabled="true"' in field and "disabled>" not in field
     assert html.count(">Needs an API key<") == 2
     assert html.count('class="frow toggle locked"') == 2

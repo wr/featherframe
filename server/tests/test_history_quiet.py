@@ -158,8 +158,7 @@ def test_status_carries_quiet_and_last_heard_time(svc):
     svc.source = _Source(_det_at(noon - timedelta(minutes=5)))
     st = svc.status()
     assert "quiet" in st and st["quiet"] is None
-    assert st["last_detection"]["when_text"].endswith(("am", "pm"))
-    assert " " not in st["last_detection"]["when_text"].split(":")[0]   # today: no date
+    assert st["last_detection"]["when_text"] == "5 min ago"      # relative on the page
 
 
 # -- quiet_state -------------------------------------------------------------
@@ -171,8 +170,8 @@ def test_quiet_state_alarms_after_seven_silent_hours(svc):
     assert q is not None
     assert q["hours"] == pytest.approx(7, abs=0.2)
     assert q["since"] == "2026-09-02T08:00:00"
-    assert q["since_text"] == "8:00 am"
-    assert q["hours_text"] == "7 h"
+    assert q["since_text"] == "8:00 AM"
+    assert q["hours_text"] == "7 hours"
 
 
 def test_quiet_state_ignores_quiet_hours(svc):
@@ -319,7 +318,9 @@ def test_a_collage_is_kept_a_week_to_download(client, svc):
     assert client.get("/api/collages/2026-09-01.png").status_code == 404   # pruned
     assert client.get("/api/collages/..%2Fx.png").status_code == 404
     html = client.get("/").text
-    assert "Past collages" in html and 'download="featherframe-collage-2026-09-10.png"' in html
+    # Kept under Settings, in the same list as generated illustrations (W-878).
+    kept = html.split('id="set-collages"')[1]
+    assert ">Generated collages<" in kept and 'download="featherframe-collage-2026-09-10.png"' in kept
 
 
 def test_the_colour_collage_is_the_one_kept(svc):

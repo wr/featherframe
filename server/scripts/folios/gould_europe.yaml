@@ -52,6 +52,9 @@ folio:
   credit: "Smithsonian Libraries and Archives, via the Biodiversity Heritage Library. Public domain."
   # The full-resolution masters on BHL's public S3 bucket (no key needed).
   scans: "https://bhl-open-data.s3.us-east-2.amazonaws.com/images/{volume}/{volume}_{leaf:04d}.jp2"
+  # When BHL fails: the same sheets, already cleaned, in the open dataset's
+  # release (W-868), checked against its manifest.
+  release: "https://github.com/wr/historical-bird-plates/releases/download/gould-europe-v1"
 
 species:
   # --- The introductions: what a North American station hears that Audubon never painted

@@ -229,3 +229,37 @@ def test_flatten_paper_evens_a_gradient(fp):
     paper = np.concatenate([out[20:200].ravel(), out[420:580].ravel()])
     assert (paper == 255).mean() > 0.99                  # cleared to pure white
     assert out[300, 200] < 80                             # the ink stays ink
+
+
+def test_a_scan_bhl_cannot_serve_comes_from_the_dataset_release(fp, tmp_path, monkeypatch):
+    """W-868: when the scan's source fails, the cleaned sheet is taken from
+    the folio's release, and only if its sha256 matches the manifest."""
+    import hashlib
+    monkeypatch.setattr(fp, "RETRY_BACKOFF_S", 0)
+    rel = "https://gh/rel"
+    header = {"scans": "https://s3/{volume}/{volume}_{leaf:04d}.jp2", "release": rel}
+    good, bad = b"j" * 4096, b"k" * 4096
+    manifest = {"files": {
+        "sheet-v5-0046.jpg": {"sha256": hashlib.sha256(good).hexdigest()},
+        "sheet-v3-0150.jpg": {"sha256": hashlib.sha256(good).hexdigest()},
+    }}
+
+    class _Json(_Resp):
+        def json(self):
+            return manifest
+
+    species = [
+        {"common": "Mute Swan", "scientific": "Cygnus olor", "plate": 354, "volume": "v5", "leaf": 46},
+        {"common": "House Sparrow", "scientific": "Passer domesticus", "plate": 184, "volume": "v3", "leaf": 150},
+    ]
+    sess = FakeSession({
+        f"{rel}/manifest.json": [_Json(200)],
+        f"{rel}/sheet-v5-0046.jpg": [_Resp(200, good)],
+        f"{rel}/sheet-v3-0150.jpg": [_Resp(200, bad)],
+    })
+    args = type("A", (), {"force": False, "dry_run": False})()
+    records, counts, _ = fp.fetcher_for("gould_europe", header)(sess, species, args, tmp_path, {}, header)
+    assert counts == {"downloaded": 1, "fallback": 0, "failed": 1}
+    assert (tmp_path / records[0]["image"]).read_bytes() == good
+    assert records[1]["image"] is None                      # a wrong checksum is never stored
+    assert sess.calls.count(f"{rel}/manifest.json") == 1

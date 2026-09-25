@@ -84,6 +84,10 @@ cd firmware && pio run -e generic_bench                 # a panel the server has
 ```
 
 Deploy to the Pi: `cd server && ./install.sh` (venv + plates + systemd unit).
+On a NAS: `docker-compose.yml` at the root runs `ghcr.io/wr/featherframe`
+(`server/Dockerfile`, published by the release workflow on a `v*` tag; W-866):
+host networking for mDNS, `/data` a volume, illustrations from the shared
+library, `TZ` set because quiet hours run on local time.
 
 ## Architecture — the parts you must read several files to grasp
 

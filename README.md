@@ -65,6 +65,7 @@ Choose one:
   ```
 
   When it finishes, it prints the address of your Featherframe page.
+- **On a NAS or home server.** Download [docker-compose.yml](docker-compose.yml), set `TZ` in it to your time zone, and run `docker compose up -d`. See [On a NAS or home server](https://github.com/wr/featherframe/wiki/Install-the-server#on-a-nas-or-home-server).
 
 ### 2. Install the firmware
 

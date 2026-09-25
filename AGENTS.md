@@ -706,7 +706,10 @@ the baked art is baked at one rotation (`FF_BAKED_ROTATION`), so when the
 frame hangs the other way up the firmware turns every baked screen and tile
 180° (`rotate180`, and `flipX`/`flipY` for a tile's window). The mat rides the same way (W-857): `X-FF-Mat` ("inset,x,y") on every response, kept in NVS `mat` and said back on every ask and over Improv, so a frame removed and paired again (`admit_frame`, a new row) starts with its mat; the rotation already did (W-851, `X-FF-Rotation`).
 The wall runs always-awake today; deep sleep is the
-less-tested branch. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
+less-tested branch. An optional status LED (W-876, `ff_led.cpp`): one WS2812B pixel
+with DIN on GPIO39, soldered to pad 1 of the unfitted font chip U6 (3V3 on
+pads 7/8, GND on 4, both kits); `ledSet()` from the boot, portal, fetch
+outcome (`noteLedOutcome`) and OTA paths, dark in deep sleep. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
 app with a full-refresh equivalent for everything partial (W-817): the plate
 is retained in PSRAM, and a toast or the corner mark is a baked black/white-ink
 tile blitted into a copy of it, then one ~30 s repaint (`paintPlate`; cleared

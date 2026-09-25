@@ -87,7 +87,8 @@ def test_the_overnight_collage_is_quiet_hours_itself(client):
     # Region is a household setting (W-702): North America, or Gould's Europe.
     assert '<select class="sel" id="f-region" name="region">' in html
     assert '<option value="europe">Europe · Gould\'s Birds of Europe</option>' in html
-    assert "<option disabled>Great Britain · Gould's Birds of Great Britain</option>" in html
+    # Great Britain is no region (W-872): its few extra species are Europe's.
+    assert "Great Britain" not in html
     # Saving without the removed field derives it from the mode either way.
     for mode, want in (("off", False), ("custom", True), ("sun", True)):
         r = client.post("/settings", data={"quiet_hours_mode": mode}, follow_redirects=False)

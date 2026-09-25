@@ -1500,7 +1500,9 @@
         <section class="sec">
           <h2 class="sec-head">Individual detections</h2>
           {# Region puts that region's folio first (W-702); every other folio
-             still fills what it lacks. Gould's other folios are placeholders. #}
+             still fills what it lacks. Europe includes the few species only Gould's
+             Birds of Great Britain has (W-872), so Britain is no region of
+             its own; Asia and Australia are placeholders. #}
           <div class="frow">
             <div class="frow-text"><label class="lab" for="f-region">Region</label></div>
             <div class="frow-ctl">
@@ -1508,7 +1510,6 @@
                 <select class="sel" id="f-region" name="region">
                   <option value="north-america"{{ ' selected' if config.region == 'north-america' else '' }}>North America · Audubon's Birds of America</option>
                   <option value="europe"{{ ' selected' if config.region == 'europe' else '' }}>Europe · Gould's Birds of Europe</option>
-                  <option disabled>Great Britain · Gould's Birds of Great Britain</option>
                   <option disabled>Asia · Gould's Birds of Asia</option>
                   <option disabled>Australia · Gould's Birds of Australia</option>
                 </select>

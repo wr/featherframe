@@ -239,3 +239,49 @@ def test_gould_plates_on_one_sheet_carry_their_figure_numbers():
         # Bonelli's, ...) shares its title and is no composite.
         if len({e["gould_title"] for e in es}) > 1:
             assert all(e.get("composite") and e.get("legend") for e in es), plate
+
+
+# --- Gould's Birds of Great Britain (W-872): a gap-filler behind Europe --------
+
+BRITAIN_YAML = SPECIES_YAML.parent / "gould_britain.yaml"
+
+# (volume, plate, IA volume, leaf), each checked by eye against its engraved
+# caption. Numbered per volume, as the book's own Lists of Plates are.
+BRITAIN_EXPECTED = {
+    "Yellow-browed Warbler": (2, 68, "birdsgreatbrita2goul", 276),
+    "Rock Pipit": (3, 10, "birdsgreatbrita3goul", 46),
+    "Water Pipit": (3, 11, "birdsgreatbrita3goul", 50),
+    "Little Bunting": (3, 25, "birdsgreatbrita3goul", 106),
+    "Pallas's Sandgrouse": (4, 11, "birdsgreatbrita4goul", 50),
+    "Pink-footed Goose": (5, 3, "birdsgreatbrita5goul", 20),
+    "Ross's Gull": (5, 63, "birdsgreatbrita5goul", 260),
+}
+
+
+def _britain():
+    return yaml.safe_load(BRITAIN_YAML.read_text())
+
+
+def test_britain_pins_exactly_the_seven():
+    doc = _britain()
+    assert doc["folio"]["region"] == "europe" and doc["folio"]["plates_per_volume"]
+    by_common = {e["common"]: e for e in doc["species"]}
+    assert set(by_common) == set(BRITAIN_EXPECTED)
+    for common, (vol, plate, volume, leaf) in BRITAIN_EXPECTED.items():
+        e = by_common[common]
+        assert (e["volume_no"], e["plate"], e["volume"], e["leaf"]) == (vol, plate, volume, leaf), common
+    turned = {e["common"] for e in doc["species"] if e.get("rotate")}
+    assert turned == {"Pallas's Sandgrouse", "Pink-footed Goose", "Ross's Gull"}
+
+
+def test_britain_never_pins_what_europe_does():
+    """Both folios are Europe's region, so the index's order between them
+    would decide a species they shared. They share none, so it never does:
+    Britain only fills what Europe lacks."""
+    def names(doc):
+        out = set()
+        for e in doc["species"]:
+            out.add(e["common"].lower())
+            out |= {s.lower() for s in [e["scientific"], *e.get("sci_synonyms", [])]}
+        return out
+    assert not names(_britain()) & names(_gould())

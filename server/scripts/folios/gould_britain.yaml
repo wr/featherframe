@@ -1,0 +1,56 @@
+# Featherframe — John Gould's "The Birds of Great Britain" (W-872), a gap-filler.
+#
+# A folio is one historical edition of plates; see folios/havell.yaml and
+# folios/gould_europe.yaml. This one pins ONLY the species Gould's Birds of
+# Europe does not: 317 of its 339 species are already pinned from Europe, and
+# for those Britain's plates are worse on the glass (half landscape, about a
+# third nests and chicks, vols. IV–V full painted backgrounds, ~265 ppi lossy
+# scans). Its region is Europe's, so it sits beside that folio, and because
+# the two never pin the same species (a test holds it) neither can ever be
+# asked before the other for one. The survey: docs/plate-sources.md,
+# docs/gould-survey/britain-plates.csv; the record: docs/gould-britain/.
+#
+# Fields, per species, as gould_europe.yaml's, except:
+#   plate       Gould's number in that volume's own List of Plates: this work
+#               numbers plates per volume ("Gt. Brit. iii. pl. 10"), and the
+#               sheets carry no number, printed or pencilled
+#   volume_no   the volume that number is in (the corner mark reads "Plate III. 10")
+#
+# Every pin was checked by eye against the engraved caption on the scan.
+# Traps, for whoever pins more of this folio:
+#   - II.62, printed Curruca hortensis, is BirdNET's exact label for the
+#     Western Orphean Warbler, but the bird is the Garden Warbler (Sylvia
+#     borin); II.61, Curruca orphea, is the Orphean.
+#   - Gould's Sterna paradisea (V.71) is the Roseate Tern; his S. macrura
+#     (V.72) is the Arctic Tern, today's Sterna paradisaea.
+#   - Spotted Eagle (I.3) and Bean-Goose (V.2) stay unpinned, for the reasons
+#     Europe left them out: today's splits leave the name uncertain.
+
+folio:
+  title: "The Birds of Great Britain"
+  artist: "John Gould, with H. C. Richter, W. Hart and J. Wolf"
+  years: "1862–1873"
+  plates: 367
+  plates_per_volume: true
+  region: europe
+  # The captions sit low (about 0.93 of the sheet), and a sideways sheet's
+  # page edge throws a shadow along its foot once stood up; this stops above
+  # both, and the tight crop finds the paper gap under the art.
+  margins: [0.02, 0.02, 0.98, 0.92]
+  flatten: true
+  tight: true
+  source: "Smithsonian Libraries, via the Biodiversity Heritage Library"
+  credit: "Smithsonian Libraries and Archives, via the Biodiversity Heritage Library. Public domain."
+  scans: "https://bhl-open-data.s3.us-east-2.amazonaws.com/images/{volume}/{volume}_{leaf:04d}.jp2"
+
+species:
+  - {common: "Yellow-browed Warbler", scientific: "Phylloscopus inornatus", plate: 68, volume_no: 2, gould_title: "Yellow-browed Warbler, Reguloides superciliosus", volume: birdsgreatbrita2goul, leaf: 276}
+  # Europe's plate 138, "Rock or Shore Pipit, Anthus aquaticus", stays
+  # unpinned: the two were one species then, and it could show either.
+  # Britain, thirty years on, gives each its own plate.
+  - {common: "Rock Pipit", scientific: "Anthus petrosus", plate: 10, volume_no: 3, gould_title: "Rock-Pipit, Anthus obscurus", volume: birdsgreatbrita3goul, leaf: 46}
+  - {common: "Water Pipit", scientific: "Anthus spinoletta", plate: 11, volume_no: 3, gould_title: "Vinous Pipit, Anthus spinoletta", volume: birdsgreatbrita3goul, leaf: 50}
+  - {common: "Little Bunting", scientific: "Emberiza pusilla", plate: 25, volume_no: 3, gould_title: "Dwarf Bunting, Emberiza pusilla", volume: birdsgreatbrita3goul, leaf: 106}
+  - {common: "Pallas's Sandgrouse", scientific: "Syrrhaptes paradoxus", plate: 11, volume_no: 4, gould_title: "Pallas's Sand-Grouse, Syrrhaptes paradoxus", volume: birdsgreatbrita4goul, leaf: 50, rotate: 270}
+  - {common: "Pink-footed Goose", scientific: "Anser brachyrhynchus", plate: 3, volume_no: 5, gould_title: "Pink-footed Goose, Anser brachyrhynchus", volume: birdsgreatbrita5goul, leaf: 20, rotate: 270}
+  - {common: "Ross's Gull", scientific: "Rhodostethia rosea", plate: 63, volume_no: 5, gould_title: "Ross's Gull, Rhodostethia Rossii", volume: birdsgreatbrita5goul, leaf: 260, rotate: 270, sci_synonyms: ["Rhodostethia rossii"]}

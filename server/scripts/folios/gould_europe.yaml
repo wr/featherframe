@@ -31,6 +31,9 @@
 #     (Xema ridibunda, plate 425), and today's (American) Laughing Gull is his
 #     "Black-winged Gull" (Xema atricilla, plate 426). Match on the modern
 #     binomial, never the common name.
+#   - Plate 138, "Rock or Shore Pipit, Anthus aquaticus", is left blank: the
+#     Rock and Water Pipit were one species then and it could show either.
+#     Both come from Gould's Birds of Great Britain instead (gould_britain.yaml).
 #   - The grey-headed "caniceps" goldfinch in Gould's Birds of Asia is not the
 #     European Goldfinch (docs/plate-sources.md); plate 196 here is.
 

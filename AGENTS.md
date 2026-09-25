@@ -580,6 +580,11 @@ Container restarts); D1 schema in `hosted/migrations/`.
   with a margin by eye where a caption crowds the art. A composite's tight crop
   keeps every band of art (`whole`), and a tight crop may be small (one finch
   on a page) without falling back to the whole sheet.
+  `gould_britain.yaml` (W-872) is Gould's *Birds of Great Britain* as a
+  gap-filler: region `europe`, plates per volume, and only the seven species
+  *Europe* lacks (the pipits settle *Europe*'s blank pl. 138). A test holds
+  that it pins nothing `gould_europe.yaml` does, so the order of two folios in
+  one region never decides a plate. Great Britain is not a Region.
 - **Framebuffer format (FFF) is a contract with the firmware.** 16-byte header +
   packed pixels: 4bpp = 2px/byte, **high nibble = left pixel, 0=black 15=white**
   (identical to Seeed's sprite). The server emits **native landscape 1872×1404**

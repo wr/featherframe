@@ -64,6 +64,7 @@ Choose one:
   ```
 
   When it finishes, it prints the address of your Featherframe webapp, for example `http://birdnet.local:8181`. Open it and [connect your detection source](https://github.com/wr/featherframe/wiki/Detection-sources).
+- **On a NAS or home server.** Download [docker-compose.yml](docker-compose.yml), set `TZ` in it to your time zone, and run `docker compose up -d`. Open `http://<your server>:8181`. See [On a NAS or home server](https://github.com/wr/featherframe/wiki/Install-the-server#on-a-nas-or-home-server).
 
 ### 2. Install the firmware
 

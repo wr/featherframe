@@ -1,0 +1,25 @@
+# Featherframe on a NAS or home server (W-866).
+#
+#     docker compose up -d
+#
+# then open http://<this machine>:8181 and set the detection source there.
+# Frames on the same network find the server by themselves.
+
+services:
+  featherframe:
+    image: ghcr.io/wr/featherframe:latest
+    container_name: featherframe
+    restart: unless-stopped
+    # Host networking lets the server announce itself over mDNS, so a frame
+    # finds it with no address typed in. It needs a Linux host (any NAS).
+    # Without it (Docker Desktop, or a port you must remap): delete this
+    # line, uncomment `ports` and FEATHERFRAME_NO_MDNS, and type
+    # http://<this machine>:8181 into each frame's Wi-Fi setup page.
+    network_mode: host
+    # ports:
+    #   - "8181:8181"
+    environment:
+      TZ: America/New_York        # yours: quiet hours and the collage run on it
+      # FEATHERFRAME_NO_MDNS: "1"
+    volumes:
+      - ./data:/data

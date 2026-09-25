@@ -124,11 +124,13 @@ def pill(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, *,
 def note_pill(d: ImageDraw.ImageDraw, text: str, kind: Optional[str], max_w: float) -> None:
     """The footer note between the date and plate marks, on the marks' own
     line: a solid pill for information ("nothing heard"), an outlined
-    slashed one for a fault (the source is unreachable)."""
+    slashed one for a fault (the source is unreachable), outlined alone for
+    a fault with no icon of its own (the image model failed)."""
     cy = theme.MARKS_BASELINE - 9          # the script marks' x-height centre
-    if kind == "outage":
+    if kind in ("outage", "imagegen"):
         pill(d, theme.WIDTH / 2, cy, text, h=NOTE_H, pad=NOTE_PAD, size=NOTE_TEXT,
-             style="outline", icon="cloud", max_w=max_w)
+             style="outline", icon="cloud" if kind == "outage" else None,
+             max_w=max_w)
     else:
         pill(d, theme.WIDTH / 2, cy, text, h=NOTE_H, pad=NOTE_PAD, size=NOTE_TEXT,
              style="solid", max_w=max_w)

@@ -113,3 +113,70 @@ def test_no_key_means_no_error(svc):
     save_config(svc.db, Config(imagegen_api_key=""))
     svc.reload_config()
     assert svc.status()["imagegen_error"] is None
+
+
+# -- the frame: a grid drawn in place of the AI collage says why -------------
+from datetime import datetime  # noqa: E402
+
+from PIL import Image  # noqa: E402
+
+from featherframe.render import pipeline, theme  # noqa: E402
+from tests.test_corroborate import _GateSource, _rows  # noqa: E402
+
+NOW = datetime(2026, 9, 2, 8, 0, 0)
+
+
+@pytest.fixture
+def grid_notes(svc, monkeypatch):
+    """What the grid is asked to print as its footnote, per render."""
+    svc._clock = lambda: NOW
+    pipeline.DITHER_OVERRIDE = "none"
+    svc.source = _GateSource([], today=_rows(4))
+    svc.config.collage_generated = True
+    seen = []
+
+    def fake_render_collage(cells, provider, **kw):
+        seen.append((kw.get("note"), kw.get("note_kind")))
+        return Image.new("L", (theme.WIDTH, theme.HEIGHT), 255)
+    from featherframe.service import collage_mod
+    monkeypatch.setattr(collage_mod, "render_collage", fake_render_collage)
+    return seen
+
+
+def _fail_with(svc, message):
+    svc._note_imagegen(GenerationError(message))
+    svc.genart.day_composite = lambda cells, when, force=False: None
+
+
+def test_grid_says_out_of_credits(svc, grid_notes):
+    _fail_with(svc, 'HTTP 429: {"error": {"code": "insufficient_quota"}}')
+    assert svc._build_collage(NOW, NOW.date()) is True
+    assert grid_notes == [("Out of OpenAI credits: add more for the AI collage", "imagegen")]
+
+
+def test_grid_says_the_key_was_rejected(svc, grid_notes):
+    _fail_with(svc, "HTTP 401: invalid_api_key")
+    svc._build_collage(NOW, NOW.date())
+    assert grid_notes == [("AI key rejected: replace it on the webapp", "imagegen")]
+
+
+def test_grid_says_nothing_for_a_passing_failure(svc, grid_notes):
+    # A timeout is tried again at the next redraw: no alarm on the glass.
+    _fail_with(svc, "HTTP 500: upstream")
+    svc._build_collage(NOW, NOW.date())
+    assert grid_notes == [(None, None)]
+
+
+def test_grid_says_nothing_with_the_ai_collage_off(svc, grid_notes):
+    _fail_with(svc, 'HTTP 429: {"error": {"code": "insufficient_quota"}}')
+    svc.config.collage_generated = False
+    svc._build_collage(NOW, NOW.date())
+    assert grid_notes == [(None, None)]
+
+
+def test_an_alarm_about_detections_comes_first(svc, grid_notes, monkeypatch):
+    _fail_with(svc, 'HTTP 429: {"error": {"code": "insufficient_quota"}}')
+    monkeypatch.setattr(svc, "_note_text", lambda: "No detections since 7:00 am")
+    monkeypatch.setattr(svc, "_note_kind", lambda: "quiet")
+    svc._build_collage(NOW, NOW.date())
+    assert grid_notes == [("No detections since 7:00 am", "quiet")]

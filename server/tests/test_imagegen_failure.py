@@ -180,3 +180,84 @@ def test_an_alarm_about_detections_comes_first(svc, grid_notes, monkeypatch):
     monkeypatch.setattr(svc, "_note_kind", lambda: "quiet")
     svc._build_collage(NOW, NOW.date())
     assert grid_notes == [("No detections since 7:00 am", "quiet")]
+
+
+# -- the frame: the empty branch drawn in place of an AI illustration --------
+from featherframe.render import compose as compose_mod  # noqa: E402
+from featherframe.render.provider import ArtProvider, Artwork  # noqa: E402
+from featherframe.sources.base import Detection  # noqa: E402
+
+
+class _Art(ArtProvider):
+    name = "stub"
+
+    def __init__(self, art):
+        self.art = art
+
+    def artwork(self, common_name, scientific_name):
+        return self.art
+
+
+def _pills(monkeypatch):
+    seen = []
+    monkeypatch.setattr(compose_mod.typography, "note_line",
+                        lambda field, text, *a, kind=None, **k: seen.append((text, kind)))
+    return seen
+
+
+def test_the_empty_branch_carries_the_failure(monkeypatch):
+    pills = _pills(monkeypatch)
+    spec = compose_mod.SingleSpec("Veery", "Catharus fuscescens",
+                                  fallback_note="AI key rejected: replace it on the webapp")
+    compose_mod.render_single(spec, _Art(None))
+    assert pills == [("AI key rejected: replace it on the webapp", "imagegen")]
+
+
+def test_an_illustration_never_does(monkeypatch):
+    pills = _pills(monkeypatch)
+    art = Artwork(image=Image.new("L", (600, 800), 240))
+    spec = compose_mod.SingleSpec("Veery", "Catharus fuscescens",
+                                  fallback_note="AI key rejected: replace it on the webapp")
+    compose_mod.render_single(spec, _Art(art))
+    assert pills == []
+
+
+def test_an_alarm_about_detections_comes_first_on_the_branch(monkeypatch):
+    pills = _pills(monkeypatch)
+    spec = compose_mod.SingleSpec("Veery", "Catharus fuscescens",
+                                  note="No detections since 7:00 am", note_kind="quiet",
+                                  fallback_note="AI key rejected: replace it on the webapp")
+    compose_mod.render_single(spec, _Art(None))
+    assert pills == [("No detections since 7:00 am", "quiet")]
+
+
+def _specs(svc, monkeypatch):
+    seen = []
+    monkeypatch.setattr(compose_mod, "render_single",
+                        lambda spec, provider, color=False: seen.append(spec)
+                        or Image.new("L", (theme.WIDTH, theme.HEIGHT), 255))
+    return seen
+
+
+def _veery():
+    return Detection(rowid=1, date="2026-09-02", time="08:00:00", common_name="Veery",
+                     scientific_name="Catharus fuscescens", confidence=0.9)
+
+
+def test_service_hands_the_branch_its_note(svc, monkeypatch):
+    svc._clock = lambda: NOW
+    specs = _specs(svc, monkeypatch)
+    svc._note_imagegen(GenerationError('HTTP 429: {"error": {"code": "insufficient_quota"}}'))
+    svc._render_single(_veery(), NOW, reason="new")
+    assert specs[-1].fallback_note == "Out of OpenAI credits: add more for AI illustrations"
+
+
+def test_service_says_nothing_without_a_failure_or_a_model(svc, monkeypatch):
+    svc._clock = lambda: NOW
+    specs = _specs(svc, monkeypatch)
+    svc._render_single(_veery(), NOW, reason="new")
+    assert specs[-1].fallback_note is None
+    svc._note_imagegen(GenerationError("HTTP 401: invalid_api_key"))
+    svc.genart._model = None
+    svc._render_single(_veery(), NOW, reason="new")
+    assert specs[-1].fallback_note is None

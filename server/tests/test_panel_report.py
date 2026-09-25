@@ -153,7 +153,7 @@ def test_an_unknown_format_says_so_on_the_page(client):
     assert (bpp, w, h, flags) == (4, 800, 480, 0)      # gray, never a wrong size
     row = svc.frames.get(DIY["X-Device-Id"])
     assert svc.frame_notices(row)["unknown_format"] == {"format": "acep7"}
-    assert "not one this server can draw" in client.get("/").text
+    assert "not one this server can render" in client.get("/").text
 
 
 

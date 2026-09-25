@@ -39,6 +39,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -275,14 +276,21 @@ def catalog_rows(catalog: dict[int, dict], images_dir: Path) -> list[dict]:
             for p, m in sorted(catalog.items())]
 
 
+def _first_year(header: dict) -> int:
+    m = re.search(r"\d{4}", str(header.get("years", "")))
+    return int(m.group()) if m else 9999
+
+
 def load_folios(folios_dir: Path) -> list[tuple[str, dict, list]]:
-    """(id, header, species) for every folio file, Havell's first: the order
-    the index lists them is the order a species' folios are asked in."""
+    """(id, header, species) for every folio file, Havell's first, then the
+    rest as they were published (W-870: Europe 1832 before Australia 1840), so
+    a new folio never takes a species from one a household already sees: the
+    order the index lists them is the order a species' folios are asked in."""
     out = []
-    for f in sorted(folios_dir.glob("*.yaml"), key=lambda p: (p.stem != HAVELL, p.stem)):
+    for f in folios_dir.glob("*.yaml"):
         doc = yaml.safe_load(f.read_text()) or {}
         out.append((f.stem, dict(doc.get("folio") or {}), list(doc.get("species") or [])))
-    return out
+    return sorted(out, key=lambda x: (x[0] != HAVELL, _first_year(x[1]), x[0]))
 
 
 def fetch_havell(session: requests.Session, species: list, args, images_dir: Path,

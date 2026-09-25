@@ -1,0 +1,682 @@
+volume,plate,ia_id,leaf,caption_ocr,caption_latin,agrees,orientation,caption_top,fold_out,note
+I,1,birdsAustraliav1Goul,140,0 hillnande Lrg Z,Aquila fucosa,yes,portrait,0.973,,Vision OCR: AQUILA FUCOSA:Cv:
+I,2,birdsAustraliav1Goul,144,"2° RPHNOIDE Cowwld ° 3 S) i i AQUILA D t C Hulltmandel fyyp. Gould wand MO hichter det, H,",Aquila Morphnoides,yes,portrait,0.922,,Vision OCR: AQUILA MORPHNOIDES: Gould
+I,3,birdsAustraliav1Goul,148,ICHTHYIAETUS LEUCOGASTER. . ee View SEL 6,Ichthyiaetus leucogaster,yes,portrait,0.911,,Vision OCR: ICHTHYIAETUS LEUCOGASTER.
+I,4,birdsAustraliav1Goul,152,I os F f SSeS yas a ae re renee : z = : SPORT MAMA Slee ee ees REET SF 4p. led. ude C Linlimaa Ke = ES I ASTUIR A TAIL IA Se —S SSS i} i | Lichter AL N XS < S x iN 3 S,Haliaster leucosternus,yes,portrait,0.887,,Vision OCR: HALIASTUR LEUCOSTERNTS:
+I,5,birdsAustraliav1Goul,156,0 Hattinaidh dl Leyg? A tronld and HO Richter AL tli.,Haliaster sphenurus,yes,portrait,0.959,,Vision OCR: HALASTUR? SPHENURTS.
+I,6,birdsAustraliav1Goul,160,Gould. o o PANDION LEUCOCEPHALA LGonkd and HC Lichier dd ov bith.,Pandion leucocephalus,yes,portrait,0.957,,Vision OCR: PANDION LEUCOCEPHALA: Gould
+I,7,birdsAustraliav1Goul,164,S bowld ond HChichter del & ith. BHallaandel & Walton tp,Falco hypoleucus,yes,portrait,0.925,,Vision OCR: FALCO HYPOLEUCOS:Gould.
+I,8,birdsAustraliav1Goul,168,"Gould, ° ° FALCO MELANOGENYS CHalimanded Lup. SELF Could dee cb lth",Falco melanogenys,yes,portrait,0.949,,Vision OCR: FALCO MELANOGENYS:Gould
+I,9,birdsAustraliav1Goul,172,cessor,Falco subniger,yes,portrait,0.944,,Vision OCR: PALCO SUBNIGEI
+I,10,birdsAustraliav1Goul,176,"SkL, Coit Ged w tthe. 1 H ! 1 FALCO FRONTATUS: Goud C Fadinandel tmp,",Falco frontatus,yes,portrait,0.965,,Vision OCR: FAICO FRONTATUS: Goua
+I,11,birdsAustraliav1Goul,180,"BIGORA.. 0: ali vandel tay, JIGontd and AC Hichter det eb bith.",Ieracidea Berigora,yes,portrait,0.930,,Vision OCR: IERACIDEA BERIGORA.
+I,12,birdsAustraliav1Goul,184,"dd. Grow 2 o lal NY FT C falimande Ly. JT Getdd and HOChichter Al cf tithe,",Ieracidea occidentalis,yes,portrait,0.957,,Vision OCR: TERACIDEA OCCIDENTALIS:Gould
+I,13,birdsAustraliav1Goul,188,Sing. 7 fy Hadlmande ‘ Pu hitoy el él? fy ff ~,Tinnunculus Cenchroides,yes,portrait,0.925,,Vision OCR: TINNUNCULUS CENCROIDES.
+I,14,birdsAustraliav1Goul,192,))) ] HL,Astur Novae-Hollandiae,yes,portrait,0.970,,Vision OCR: ASTUR NOVA»HOLLANDL
+I,15,birdsAustraliav1Goul,196,2 NOVE- HOLLANDIA. Verda and HO Ridhev de et lth. . Whi € Varidy @ aa ‘Lng.,Astur Novae-Hollandiae (White Variety?),yes,portrait,0.963,,read from image; caption two lines: ASTUR NOVÆ-HOLLANDIÆ. / White Variety?; caption_top measured by eye against a ruler on the image
+I,16,birdsAustraliav1Goul,200,Cl thirlinras J henkd and Hi Michter dd,Astur radiatus,yes,portrait,0.972,,Vision OCR: ASTUR RADIATUS.
+I,17,birdsAustraliav1Goul,204,Shtuld asd bb kiiehter do CO Lalla nded iy,Astur approximans,yes,portrait,0.931,,Vision OCR: ASTUR APPROXIMANS lig& Horsf
+I,18,birdsAustraliav1Goul,208,"aS aan RN »°3 Gould, Tallavonded & Walton (iy.",Astur cruentus,yes,portrait,0.907,,Vision OCR: ASTUR CRUENTUS: Gould.
+I,19,birdsAustraliav1Goul,212,"QUATUS: Ita & Horsf OLittavande Lrg,",Accipiter torquatus,yes,portrait,0.954,,Vision OCR: ACCIITER TORQUATUS:Va& Hof
+I,20,birdsAustraliav1Goul,216,Thiculd and H-Ridder dal? 0 Eeodllmanadel tmp.,Buteo melanosternon,yes,portrait,0.956,,Vision OCR: BUTED MELANOSTERNON: Gould
+I,21,birdsAustraliav1Goul,220,JS Could and HO Lichte C Hallmandel Loy,Milvus affinis,yes,portrait,0.914,,Vision OCR: MILVUO ANINIS& Goula
+I,22,birdsAustraliav1Goul,224,MILYVUS ISURUS: Goad J&Z. Gould dd e CAillnan ded Lay.,Milvus isurus,yes,portrait,0.909,,Vision OCR: MILVUS ISURUS: Goula.
+I,23,birdsAustraliav1Goul,228,"Sen LO fFred: Coy awsabedl Sf, Caza x 1 bowld and AC Kachtex ned |",Elanus axillaris,yes,portrait,0.939,,Vision OCR: KLANTS AXILEARIS.
+I,24,birdsAustraliav1Goul,232,jgnsenssnia 6 udlineaaed Fp. - JS Goad and A. fiachter ded,Elanus scriptus,yes,portrait,0.958,,Vision OCR: EHANUS LNSCRIPTUS: Gould:
+I,25,birdsAustraliav1Goul,236,"LEC ANA J, a J bol",Lepidogenys subcristatus,yes,portrait,0.946,,Vision OCR: LEPIDOUENYS SUBORISTATUS:Gould.
+I,26,birdsAustraliav1Goul,240,"eect BIE Chinlimandd Liy. VE. BY Savin: & 9 ae — pot = 1 al hw) wld. aud AC Richter del & tie FO J, ceed Pouca",Circus assimilis,yes,portrait,0.973,,Vision OCR: CIRCUS ASSIMILIS:Jard:& Seb:
+I,27,birdsAustraliav1Goul,244,"AIRIDILN Ul: Gorda. ; C. Hallmandd Say J Gould ann ELC, kachter del, 6 lth.",Circus Jardinii,yes,portrait,0.962,,Vision OCR: CIRCUS JARDINIL: Goutd
+I,28,birdsAustraliav1Goul,248,"Hulbinandd & Walton frp. ld, 3 Cou » DIP C3 a J. €ould and HC Richter del cb Bth.",Strix castanops,yes,portrait,0.961,,Vision OCR: STRIX CASTANOPS: Goald.
+I,29,birdsAustraliav1Goul,252,Hinlinuanded & Wallew ter dil cb ith. cry CHL J toudda and I-CLz,Strix personata,yes,portrait,0.934,,Vision OCR: STRIX PERSONATA: Vü
+I,30,birdsAustraliav1Goul,256,Tiallinandel & Walten Fug. To Gould and HC Richter del Phith,Strix tenebricosus,yes,portrait,0.926,,Vision OCR: STRIX TENEBRICOSUS:Geuld
+I,31,birdsAustraliav1Goul,260,"STRIX DELICATULIS: Gould J, Gould and HC Richter dd ott, : : : Halluandel & Walton Lp.",Strix delicatulus,yes,portrait,0.928,,Vision OCR: STRIX DELICATULIS: Gould.
+I,32,birdsAustraliav1Goul,264,Telia) Olio Lie J Gould and FC Pachter dd & tith.,Athene Boobook,yes,portrait,0.917,,"Vision OCR: ATHENE BOOBOOK,"
+I,33,birdsAustraliav1Goul,268,Hullnande & Walter Lag téauli and HCHuchter db 0th,Athene maculata,yes,portrait,0.926,,Vision OCR: ATHENE MACEMATA :
+I,34,birdsAustraliav1Goul,272,"Offullunarid begs. MA, et lithe, S =",Athene connivens,yes,portrait,0.970,,Vision OCR: ATHENE CONNIVENS.
+I,35,birdsAustraliav1Goul,276,S SS A LC firchter Lani SL FOAL ILE,Athene strenua,yes,portrait,0.916,,Vision OCR: ATHENE? STRENUA: Gold.
+I,36,birdsAustraliav1Goul,280,TGould ond HC Richter dl elit. Hullmondel & Walter Hey,Athene rufa,yes,portrait,0.931,,Vision OCR: ATHED& RUFA: Could.
+II,1,birdsAustraliav2Goul,12,SEL Scutd dei C Fiablinanda Lp.,Aegotheles Novae-Hollandiae,yes,portrait,0.925,,Vision OCR: ÆGOTHELES NOVE HOLLANDIÆ: Vig et Horst
+II,2,birdsAustraliav2Goul,16,"BETES hitchter del cb With, iallmmanded, Jap. =",Aegotheles leucogaster,yes,portrait,0.900,,Vision OCR: AEOTHRLES LEUCOGASTER: Cold.
+II,3,birdsAustraliav2Goul,20,"PODARGU S HUMBRALIS: My & Horsf oe : ; . ME Deed, aps",Podargus humeralis,yes,portrait,0.955,,Vision OCR: PODARGUS HUMERALIS: Vig &Horsf:
+II,4,birdsAustraliav2Goul,24,Richtee dwt a [ff ie TAs Ah cond: Hg brpegt * Waltou tiny,Podargus Cuvieri,yes,portrait,0.946,,Vision OCR: PODARCUS CUVIERL Vigand ler/
+II,5,birdsAustraliav2Goul,28,YE Ss Gould: SCOUd and HC Richt det wt hitiv. C. Shdthncadel Lip.,Podargus Phalaenoides,yes,portrait,0.936,,Vision OCR: PODAREUS PHALFNOIDES:Gould.
+II,6,birdsAustraliav2Goul,32,"PODARGUS PLUMIFEIRUS : Gould, J Gold and HC. Richter dd ct bith. : Hillmauandd & Walton Ly.",Podargus plumiferus,yes,portrait,0.958,,Vision OCR: PODARGUS PLUMIFERUS:Gould.
+II,7,birdsAustraliav2Goul,36,"KUROS TOPODU: AAIRTS, Dbculd and ACR chiar ad! CPriznanded ap.",Eurostopodus albogularis,yes,portrait,0.906,,"Vision OCR: EUROSTOPODUS ALBOGULARIS,"
+II,8,birdsAustraliav2Goul,40,"ATUS. ST Gonld and 40, Fichioer dae C Hatlmandel Trg.",Eurostopodus guttatus,yes,portrait,0.875,,Vision OCR: EUROSTOPODUS GUTTATUS.
+II,9,birdsAustraliav2Goul,44,"jo if ULG | LU RUS: Hor. A God und FL. firchivi deh B lithe, OEM EU Sig}.",Caprimulgus macrurus,yes,portrait,0.897,,Vision OCR: CAPRIMULCUS MACRURUS: HoEsf:
+II,10,birdsAustraliav2Goul,48,,Acanthylis caudacuta,yes,portrait,0.962,,read from image; caption_top measured by eye against a ruler on the image
+II,11,birdsAustraliav2Goul,52,Oi apa LL. Lae +r e WaT awa Ih C Lillimandel Syy.,Cypselus Australis,yes,portrait,0.917,,Vision OCR: CYPSELTS AUSTRALIS: Could
+II,12,birdsAustraliav2Goul,56,"ATT TTC OTRAL Ss SON: Coad, SJ Conld and LA Bich ter dal” CLallynte € Lary",Atticora leucosternon,yes,portrait,0.837,,Vision OCR: ATTIORA LEUUOSTERNON: GuA
+II,13,birdsAustraliav2Goul,60,HIRUNDO NEOXENA Could. ° ° SL Gold undsChiahied Liege) Tip. z,Hirundo neoxena,yes,portrait,0.929,,Vision OCR: HIRUNDO NEOXENA: Gould.
+II,14,birdsAustraliav2Goul,64,"LNG f). Z Liuttmande). Go. Suet reeran, Bienen ithitwn Ail, & Wand LF",Collocalia arborea,yes,portrait,0.913,,Vision OCR: CHELIDOY ABBOREA: Gould
+II,15,birdsAustraliav2Goul,68,(RUB EdD DN Aa Ne Gere (7. Wane hit eta CE PPES Us : CMritit ih agin Ll Liaditer tele x Pg ae Segey aie bs,Collocalia Ariel,yes,portrait,0.916,,Vision OCR: CHELIDON ARIEL: Gould
+II,16,birdsAustraliav2Goul,72,"- WUE IR O PS Dl RNA US: Za oy C Hath AL Livi g7,",Merops ornatus,yes,portrait,0.887,,Vision OCR: MEROPS ORNATUS:Lath:
+II,17,birdsAustraliav2Goul,76,EURYSTOMUS AUSTRALIS: Swas SF COUN 4 uid LOC haichtery ad ob hth. : C. Hallmandead Ly,Eurystomus Australis,yes,portrait,0.921,,Vision OCR: EURYSTOMUS AUSTRALIS: Swains
+II,18,birdsAustraliav2Goul,80,"LA 3 Leach. “AVY GALE all i ELO AC C Hallinandel bp, J Gould and LC Richter Ad cbhih.",Dacelo gigantea,yes,portrait,0.948,,Vision OCR: DATELD GIGANTEA: Leack.
+II,19,birdsAustraliav2Goul,84,"DACKLO LIKACHIO: Vg: & Aors/; | ; JS Gould and HC. Richter dh tity, ; Fillnanded & Walton Lig.",Dacelo Leachii,yes,portrait,0.904,,Vision OCR: DACELO LEACHH: Vịg: & Hors:
+II,20,birdsAustraliav2Goul,88,"CO Heallinand el lip,",Dacelo cervina,yes,portrait,0.941,,Vision OCR: DACELO CERVINA: Gould.
+II,21,birdsAustraliav2Goul,92,"HALCYON SANCTUS: hg. £0 ""af SEL Could ded; ne CLiligandd Lng",Halcyon sanctus,yes,portrait,0.959,,Vision OCR: HALCYON SANCTUS: Vig: & Horef
+II,22,birdsAustraliav2Goul,96,"HALCYON PYRRHOPYGIA: Gould. SLE Coudd del,’",Halcyon pyrrhopygia,yes,portrait,0.879,,Vision OCR: HALCYON PYRRHOPYGIA: Gould
+II,23,birdsAustraliav2Goul,100,"f E ; i f Hidlmeandd & Walt. htey ded vt Lith, S boutd and HC:Ric",Halcyon sordidus,yes,portrait,0.950,,Vision OCR: HALCYON SORDDDUS: Goula
+II,24,birdsAustraliav2Goul,104,Oo Halimemda Fog,Halcyon MacLeayii,yes,portrait,0.948,,Vision OCR: HALCYON MACLEAYU: Jard & Seb
+II,25,birdsAustraliav2Goul,108,"Tt Fillmandd. & Watton £ A ek Uith, x) ne",Alcyone azurea,yes,portrait,0.874,,Vision OCR: ALCYONE AZUREA.
+II,26,birdsAustraliav2Goul,112,LCYONE PUSILILA J (roald anit HUhiier ded eb feta. CLiallmande Lig.,Alcyone pusilla,yes,portrait,0.879,,"Vision OCR: ALCYONE PUSILLA,"
+II,27,birdsAustraliav2Goul,116,Wa coy is) h es La iy Heh Lith,Artamus sordidus,yes,portrait,0.924,,Vision OCR: ARTAMUS SORDIDIS
+II,28,birdsAustraliav2Goul,120,ARTAMUS MINOR: Hat Sand and 20 Ruchter dete EET,Artamus minor,yes,portrait,0.938,,Vision OCR: ARTAMUS MINOR: Viel.
+II,29,birdsAustraliav2Goul,124,ARTAMUS CINEREUS: eli J Contd and LC Richter deb? Ciiulnanded Page,Artamus cinereus,yes,portrait,0.884,,Vision OCR: ARTAMUS CINEREUS: Vall
+II,30,birdsAustraliav2Goul,128,US ALBIVENTIRIS: Gord. fl J Could ond HO Richt Ah atthe. F Tidlnundel & Walter Lap.,Artamus albiventris,yes,portrait,0.876,,Vision OCR: ARTAMUS ALBIVENTRIS: Could.
+II,31,birdsAustraliav2Goul,132,Cindimamadel Ling Gould ° ° ARTAMUS PERS ONATUS & Zi S Cauda dé HC Peiehiter,Artamus personatus,yes,portrait,0.914,,Vision OCR: ARTAMUS PERSONATUS: Gould
+II,32,birdsAustraliav2Goul,136,"Pity, L badd and HC Richter deb? AIRTAMUU'S SUPE! RCILIOSUS: Gould. 6 Lntinanded Lr",Artamus superciliosus,yes,portrait,0.919,,Vision OCR: ARTAMUS SUPERCILIOSUS: Gould
+II,33,birdsAustraliav2Goul,140,“ald. > 60 Is [AL PY (Gi o) (ox Dates LI zi MIS UREA. 4a VARY RE,Artamus leucopygialis,yes,portrait,0.886,,Vision OCR: ARTAMUS LEUTOPYGIALIS: Geald
+II,34,birdsAustraliav2Goul,144,"arson, DICZAUM HIRUNDINACKE UM. S&L Could deb ob tth:",Dicaeum hirundinaceum,yes,portrait,0.952,,Vision OCR: DICÆUM HIRUNDINACEUM.
+II,35,birdsAustraliav2Goul,148,"ADALOTUS PUNCTAT A Could and HCHihior dk cb lithe. uy : x C fialinandl Lrif.,",Pardalotus punctatus,yes,portrait,0.943,,Vision OCR: PARDALOTUS PUNCTATUS:Vell
+II,36,birdsAustraliav2Goul,152,"AMsantd aad A Kithterdl A tah, : - Finlineandel & Wallen FIG). i —",Pardalotus rubricatus,yes,portrait,0.920,,read from image
+II,37,birdsAustraliav2Goul,156,‘ < : \ i A i f | PARDALOTUS QUADRAGINTUS: Gould. J. Gold and HO Lichter det & hth. i CHetlmandd lng. a 3,Pardalotus quadragintus,yes,portrait,0.873,,Vision OCR: PARDALOTUS QUADRAGINTUS: Gould
+II,38,birdsAustraliav2Goul,160,": — PARDALOTUS STRIATUS: hy & Airy SA bould and LO Hichter Ac & tithe, CMallncmatel by.",Pardalotus striatus,yes,portrait,0.915,,Vision OCR: PARDALOTUS STRIATUS: Vig& Hers:
+II,39,birdsAustraliav2Goul,164,PARDALOTUS APREINIS: Gec7Z SkL Could.ael. Follnanber (np.,Pardalotus affinis,yes,portrait,0.915,,Vision OCR: PARDALOTUS AFFINIS: Guld
+II,40,birdsAustraliav2Goul,168,PAIRI DALOTUS MELANOCEPHALUS: Gould A bowl and HURichtaw Ad & ti. Hilanandd & Watton jy,Pardalotus melanocephalus,yes,portrait,0.880,,Vision OCR: PARDALOTUS MELAVOCEPHALUS: Gould.
+II,41,birdsAustraliav2Goul,172,PARDALOTUS UROPYGIALIS: Gould . TRE Codd belt CHallmandel lng,Pardalotus uropygialis,yes,portrait,0.883,,Vision OCR: PARDALOTUS UROPYGIALIS: Gould®
+II,42,birdsAustraliav2Goul,176,"Va HOAMAEL lel et lithe, id H.C Hichter ¢ g LA le 1 /, VUE: hf",Strepera graculina,yes,portrait,0.951,,Vision OCR: STREPERA GRACULIVA: Lgs
+II,43,birdsAustraliav2Goul,180,Sood and HURichter dad atith. TREPE niamemeree i th RANE So Biren) OSA: Goul Hallawandd & Wall,Strepera fuliginosa,yes,portrait,0.921,,Vision OCR: STREPERA FULIGINOSA:Gould.
+II,44,birdsAustraliav2Goul,184,ould: 3G A. 17 } = K Hullinandd & Walton ny. wid and WC. Richter dd et tith.,Strepera arguta,yes,portrait,0.923,,Vision OCR: STREPERA ARGUTA: Could®
+II,45,birdsAustraliav2Goul,188,Hulbcande & Walton Lap JS Gould and Richt del ctv tith,Strepera Anaphonensis,yes,portrait,0.955,,Vision OCR: STREPERA AVAPHO EOSIS.
+II,46,birdsAustraliav2Goul,192,"oh tilde, dell S . Ss aS S",Gymnorhina Tibicen,yes,portrait,0.914,,Vision OCR: GYMNOREINA TIBICKN: G.R.Gray.
+II,47,birdsAustraliav2Goul,196,y A : Gould. dead && hah. ie ae ee or ae : ae C. Hullnandd lip. J Gould and HO Rich,Gymnorhina leuconota,yes,portrait,0.948,,Vision OCR: CYMNORHINA LEUCONOTA: Gould.
+II,48,birdsAustraliav2Goul,200,"DIRHINA ORGANICUMS Gould. J Goi toad HU Riki Ad ch lithe. . Gollnanda & Wilton Arup,",Gymnorhina organicum,yes,portrait,0.906,,Vision OCR: CYMNORHINA ORGANICUM: Gould
+II,49,birdsAustraliav2Goul,204,"CRACTICUS NIGROGULARIDS : Gould. J Gould and HC Richter da eb Gil, Stednandd & Weltory trp: 2,",Cracticus nigrogularis,yes,portrait,0.902,,Vision OCR: CRACTICUS NIGROGULARIS: Gould.
+II,50,birdsAustraliav2Goul,208,"PICATU 7 Gould and HC Kichter dd ath, Katinnadel & Wallon Lp.",Cracticus picatus,yes,portrait,0.951,,Vision OCR: CRACTICUS PITATUS:Gould;
+II,51,birdsAustraliav2Goul,212,S Gould and H- CRichtey del. ct lth. Finllinandel & Wal,Cracticus argenteus,yes,portrait,0.919,,"Vision OCR: CRACTICTS ARGENTEUS, Could"
+II,52,birdsAustraliav2Goul,216,"CRACTICUS DESTIR J Gould and MC Richter del ev bith, ; Hulluande, & Watton: tags.",Cracticus destructor,yes,portrait,0.912,,Vision OCR: CRACTICUS DESTRUCTOR.
+II,53,birdsAustraliav2Goul,220,Stout and NC Kichtor deb eb th. CRA! \\_A 7] 1 MCcUS QUOYTI. Hollin ane & Wodton begr,Cracticus Quoyii,yes,portrait,0.910,,Vision OCR: CRACTICUS QUOYIL.
+II,54,birdsAustraliav2Goul,224,"NA AUSTRALIS... C Hal@nanded lage, 4 J Gould ant HC Kicliter",Grallina Australis,yes,portrait,0.951,,"Vision OCR: GRALLIVA ATSTRALIS,"
+II,55,birdsAustraliav2Goul,228,MELANOPS Follnondd & Walter Tinp. tehter dvb cb Wt,Graucalus melanops,yes,portrait,0.914,,Vision OCR: GRATCALTS MELANOPS.
+II,56,birdsAustraliav2Goul,232,Hullrasbel & Nid 1 hifitir AL @ 1h vind The auld LZ,Graucalus mentalis,yes,portrait,0.928,,Vision OCR: FRAUCALUS MENTALIS& Vg&Hors/ .
+II,57,birdsAustraliav2Goul,236,2 Ollie UCALUS HYI > Gould,Graucalus hypoleucus,yes,portrait,0.941,,Vision OCR: GRATCALUS HYPOLEUCUS: Goald
+II,58,birdsAustraliav2Goul,240,"SONI: Geudd, I couldand MC luckier dh ev tith, : Hallmandd Walton Lays,",Graucalus Swainsonii,yes,portrait,0.871,,Vision OCR: GRAUCALUS SWALNSONH: Gould.
+II,59,birdsAustraliav2Goul,244,PTEROG PO DC > Gould. Hidinvaudd & Walton frp. ; J. Gould and LC Richter deb ct,Pteropodocys Phasianella,yes,portrait,0.907,,Vision OCR: PTEROPODOCYS PHASIANELLUS: Gould
+II,60,birdsAustraliav2Goul,248,"J Could ond Ht-Richtar dh atid, DLN IT. Hullmandd & Walton Log.",Campephaga Jardinii,yes,portrait,0.902,,Vision OCR: CAMPEPHAGA JARDINI.
+II,61,birdsAustraliav2Goul,252,\VUPEIPHAGA IKAIRU. Land ACRiehter deter tith.,Campephaga Karu,yes,portrait,0.866,,Vision OCR: CAMРЕРHACA KARU.
+II,62,birdsAustraliav2Goul,256,"LEVUCOMEMLAs Wig c& Mors J Gould and ILC Richter Ail bait,",Campephaga leucomela,yes,portrait,0.946,,Vision OCR: CAMPEPHAGA LEUCOMELA: Viq & Horsf
+II,63,birdsAustraliav2Goul,260,SI Gould and HECRichiter deh & men its? 1D E I AV ~ TE RAT LO: Gould. As ‘ Millmaudd & Walton tp.,Campephaga humeralis,yes,portrait,0.939,,Vision OCR: CAMPEPHAGA HUMERALIS:Could
+II,64,birdsAustraliav2Goul,264,PACHYCEPHALA GUTTURALIS. J. Gould and Ht Richter dd ith. Ttallmandel & Walton mp.,Pachycephala gutturalis,yes,portrait,0.901,,Vision OCR: PACHYCEPHALA GUTTURALIS.
+II,65,birdsAustraliav2Goul,268,"lel i} € & YR u i) if Al PHADA “Ife Dell A CHYC A il Frllmandd & Weltow tmp. uld and HMCNichter del ct titty, 1 Go",Pachycephala glaucura,yes,portrait,0.907,,Vision OCR: PACHYCEPHALA GLAUTURA: Gould.
+II,66,birdsAustraliav2Goul,272,PACHYCEPHALA MELANURAS: Gould J Covdd and I C.Bichiordel & tau.,Pachycephala melanura,yes,portrait,0.913,,Vision OCR: PACHYCEPHALA MELANURA: Coua
+II,67,birdsAustraliav2Goul,276,"PACHYCEPHALA PECT ORALIS, lgéling) Provangprom Wine’ on Stone ty J le E bonte, : raved ty 6 Faliror he.",Pachycephala pectoralis,yes,portrait,0.842,,"read from image; caption set unusually high (~0.84); credits read ""Drawn from Nature & on Stone by J. & E. Gould"" / ""Printed by Hullmandel""; caption_top measured by eye against a ruler on the image"
+II,68,birdsAustraliav2Goul,280,CIE: M2 Gould. Sbadbda and HA Riehtor del bith. Pudtinancel Vobtoww feaigs.,Pachycephala falcata,yes,portrait,0.894,,Vision OCR: PAUHYCEPHALA FALCATA:Coald.
+II,69,birdsAustraliav2Goul,284,"‘PHALA LANOIDES: Guid A Gould and UC Lichter del &lith, 4 C Hilbnondel Saw.",Pachycephala Lanoides,yes,portrait,0.902,,Vision OCR: PACHYCEPHALA LANOIDES: Gould
+II,70,birdsAustraliav2Goul,288,Gly! Ack ct th. of Gotha (ron: Fiullnandd & Wilton lag,Pachycephala rufogularis,yes,portrait,0.884,,Vision OCR: PACHYCEPHALA RUFOGULARIS: Gu
+II,71,birdsAustraliav2Goul,292,GIULIB SIRT Is Gould. hte del eb lth. : Hilivandel & ee Jbind and,Pachycephala Gilbertii,yes,portrait,0.875,,read from image
+II,72,birdsAustraliav2Goul,296,e .NSbatd and MC Rew Adel. & lath. Hallenandd & Walton org,Pachycephala simplex,yes,portrait,0.874,,Vision OCR: PACHYCEPHALA SIMPLEX: Codd.
+II,73,birdsAustraliav2Goul,300,"p U7 BA Vig & Hors} f “i J, Gold and BC Richter Ad whith.",Pachycephala olivacea,yes,portrait,0.885,,Vision OCR: PACHYCEPHALA OLIYACEA: Vig & Horsf:
+II,74,birdsAustraliav2Goul,304,COLLUBICINCLA. HARMONICA. - . Kivhtew del eb litlv. Mricmnncagane’ J Gould. aud HC,Colluricincla harmonica,yes,portrait,0.950,,Vision OCR: COLLURICINCLA HARMONICA.
+II,75,birdsAustraliav2Goul,308,"COLLURICINCLA KUPIVEN TRIMS: G70, ended eb lth. rt Fiillinanda & Walton Lup, JS. Gould and 4 Kich",Colluricincla rufiventris,yes,portrait,0.922,,Vision OCR: COLLURICINCLA RUFIVENTRIS: Could
+II,76,birdsAustraliav2Goul,312,COLLURICINCLA BRUNNEA: Gould J. Goul& and H.C. Richter Ad et lith. : - E j : Finland li,Colluricincla brunnea,yes,portrait,0.938,,Vision OCR: COLLURICINCLA BRUNNEA: Gould.
+II,77,birdsAustraliav2Goul,316,ACould and HO Richter del ok ith one Ly},Colluricincla Selbii,yes,portrait,0.918,,Vision OCR: COLLURICINCLA SELBI: Jard
+II,78,birdsAustraliav2Goul,320,"HINCLA PARRY UMA: Gozdd, : EC Richter hel et Lite",Colluricincla parvula,yes,portrait,0.909,,Vision OCR: COLLURICINCLA PARVULA:Gould.
+II,79,birdsAustraliav2Goul,324,| FALCUNCULUS FRONTATUS: Hew Sh LE. Couta det cb hth: : C. lbrandel Lrg.,Falcunculus frontatus,yes,portrait,0.931,,Vision OCR: FALCUNCULUS FRONTATUS: Viel
+II,80,birdsAustraliav2Goul,328,"FALCUNCULUS LEUCOGASTER: Guid JEL Could deb eblithe, ' : OC Linllmanded Lge",Falcunculus leucogaster,yes,portrait,0.904,,Vision OCR: FALCUNCULUS LETTOGASTER: Guld
+II,81,birdsAustraliav2Goul,332,"ic 1 Could and ECRichter del c& hth, CHallaandel twp.",Oreoica gutturalis,yes,portrait,0.920,,"Vision OCR: OREOICA GUTTURALI»,"
+II,82,birdsAustraliav2Goul,336,DICKRURUS BRACGTEATUS: Gonld . ei LL coukd a Hulimandd & Wealtod,Dicrurus bracteatus,yes,portrait,0.901,,Vision OCR: DICRURUS BRACTEATUS: Gould
+II,83,birdsAustraliav2Goul,340,,Rhipidura albiscapa,yes,portrait,0.957,,Vision OCR: RHIPIDURA ALBISCAPA: Gold
+II,84,birdsAustraliav2Goul,344,"J could wand HL CHachter ded ey th, REIPIDURA 12 WELLER (@ AW Wa epiese els Hotlnandl & Malton Sup",Rhipidura rufifrons,yes,portrait,0.890,,Vision OCR: RHIPIDURA RUFIFRONS.
+II,85,birdsAustraliav2Goul,348,"* ' fhe er al i em) t } na! 5 ie pe. |, ™ IRA: Gold. | : Sinllmandl & Wilton Sry IRECIPTDUIBRA Is \ J. Gould and. HE Hichier del obite. ay",Rhipidura isura,yes,portrait,0.894,,Vision OCR: RHIPIDURA ISURA: Could
+II,86,birdsAustraliav2Goul,352,"RA MOTACILLOUDE S: lig Horsf. JS Gould and NCR ichiter Ad Kill, Hallnandad £ Walton Trap.",Rhipidura Motacilloides,yes,portrait,0.904,,Vision OCR: RIPIDURA MOTACILLOÏDES:Vg& Horsf:
+II,87,birdsAustraliav2Goul,356,J Gould and HOCRichion Ad celith. “7 i an Ts RISUBA INQUIET Hullinunded & Waltow Lp.,Seisura inquieta,yes,portrait,0.942,,"Vision OCR: SEISURA INQUIETA,"
+II,88,birdsAustraliav2Goul,360,"LS: Gould CLiitthuande, Lip.",Piezorhynchus nitidus,yes,portrait,0.928,,Vision OCR: PIEZORHYNCHUS NITIDUS: Guld.
+II,89,birdsAustraliav2Goul,364,MYIAGRA PLUMBEA: Wg & Hong: Gould andl HC Hider dh bli. Hallinandel &: Walton Imp.,Myiagra plumbea,yes,portrait,0.870,,Vision OCR: MYIACRA PLUMBEA: Vig &llorf
+II,90,birdsAustraliav2Goul,368,Hiulimandel & Walton feng s\\ S Gould and A Richter del & bith :,Myiagra concinna,yes,portrait,0.854,,Vision OCR: MYIAGRA CONCINNA:Gould
+II,91,birdsAustraliav2Goul,372,he % ey ei eh. MEISE II : < Gould. 2 o \ NUT ILDA K { & Hallinrandd £ Walton bog MYIAGIRA fbould and FCRichter del et Gith.,Myiagra nitida,yes,portrait,0.895,,Vision OCR: MYIACRA WITIDA: Coatd.
+II,92,birdsAustraliav2Goul,376,"J. Coad and F.C Buchter del & bith. V1 [AGRA LATIROS’ PIRES: Could WeMireesoilll ke Wile, age a.",Myiagra latirostris,yes,portrait,0.886,,Vision OCR: MYIAGRA LATIROSTRIS: Gould
+II,93,birdsAustraliav2Goul,380,"MICRGCA MACROPTERA, S Gould and HC Richter del cr lith,",Microeca macroptera,yes,portrait,0.835,,Vision OCR: MICROCA MACROPTERA.
+II,94,birdsAustraliav2Goul,384,IN: Geuld. +h . eaten 1 Goold: cad HEC Ric we del ch bith,Microeca flavigaster,yes,portrait,0.954,,Vision OCR: MTCROCA FLAVIGASTER:Gould.
+II,95,birdsAustraliav2Goul,388,"< =— "" —_ lice ctoamtiectin sh eatin"" ~* Ran emcee SoHE ai TA ‘ el ‘Sottero. 7 ; etic ttn oom = — meena SN ee ; emporio ee aka Well Rives Gane ee ae a mA, 7 J \ CARINA jes xz TT AIRC y= DION Hualltman",Monarcha carinata,yes,portrait,0.930,,Vision OCR: MONARCHA CARINATA
+II,96,birdsAustraliav2Goul,392,"MON, J Gould ond H-CRiechter dd & ith.",Monarcha trivirgata,yes,portrait,0.940,,Vision OCR: MONARCHA TRIVIRGATA.
+II,97,birdsAustraliav2Goul,396,GERYGON TS ALBOGULAIRIS : Gold J Gould and HO Lichien dl cb bith. ; Fiallinwanaded & Wilton Lap .,Gerygone albogularis,yes,portrait,0.874,,Vision OCR: GERYCONE ALBOGULARIS: Gould
+II,98,birdsAustraliav2Goul,400,GERYGONE FUSCA: Goudd J Gold and Hl-Richter dh & hth. ‘ - Eulimanddl & Wedeon Sip.,Gerygone fuscus,yes,portrait,0.881,,Vision OCR: GERYGONE FUSCA: Gould.
+II,99,birdsAustraliav2Goul,404,"GERYGONE CULLCIVORUS: Gold. - J Could andl Chichtor dd clit. Hullenuade & Waltor loys,",Gerygone culicivorus,yes,portrait,0.889,,Vision OCR: CERYGONE CULICIVORUS: Gould
+II,100,birdsAustraliav2Goul,408,GERYGONE MAGNITIROS TRIS: Gould | T Gould and HC Richter ad eb lith. Hiullmandd & Walton Limp.,Gerygone magnirostris,yes,portrait,0.891,,Vision OCR: GERYCONE MAGNIROSTRIS:Could
+II,101,birdsAustraliav2Goul,412,; BRYGONE LASVI GAS TER = Goole J. bould and HC Richter del et ltd ;,Gerygone laevigaster,yes,portrait,0.922,,Vision OCR: GERYGOVE LEVIGASTER: Guld
+II,102,birdsAustraliav2Goul,416,JS (wuld and LEC hichtor ddl vt hide. GERYGCONE CHLORONOTUS: Gould oe 3 Halbnandd & Walton Jnyp.,Gerygone chloronotus,yes,portrait,0.908,,Vision OCR: GERYCONE CHLORONOTUS: Gould.
+II,103,birdsAustraliav2Goul,420,| SA bould and H.C. hichter ddl ut With. S ae) T {\ NY MICRORN IS BREVIROST RIGS: Gadd.,Smicrornis brevirostris,yes,portrait,0.931,,Vision OCR: SMICRORNIS BREVIROSTRIS:Gould.
+II,104,birdsAustraliav2Goul,424,SMICRORNIS FLAVESCEN JGould and HC Richter del & litle. : Hallmandel & Walton Imp.,Smicrornis flavescens,yes,portrait,0.883,,Vision OCR: SMICRORNIS FLAVESCENS: Gould.
+III,1,birdsAustraliav3Goul,12,"{ ffit/byisins/tf Tn*p. ■ f (-rf ■ i /jV tt > - i £l fis - ft/, ; <f / // E R YT11 R l) R R YA5 K i I DJ) i>' D RART hi I \ ,",Erythrodryas rhodinogaster,yes,portrait,0.933,,Vision OCR: ERYTHRODRYAS RHDDINDGASTER.
+III,2,birdsAustraliav3Goul,16,"Zr/jK.Jd’ s'.U.'f ff(rJ?.khh'.-i eUZ? StfTHaOBlliS M O ■ ,R h’ \ • k _y i _i 'A. > • 'if'/ C. ffii Y/in/xjtki / Zwig’/.",Erythrodryas rosea,yes,portrait,0.965,,Vision OCR: KRYTHRDDRYAS ROSEA:Gald
+III,3,birdsAustraliav3Goul,20,":p : K i' U i) I 0 A , V T 5 ; ""[ l r i r 0 I ■ O : R : . ? (■'. //n Uwtxf//u(> k / /wt/;. 1. (ron7.fi on/ H'C-'.R-<ohfa.r o/.C ■",Petroica multicolor,yes,portrait,0.956,,Vision OCR: PETROICA MТUTICOLOR:Swmx
+III,4,birdsAustraliav3Goul,24,!. Gould r rlc.l e.fr hlh-. EMIT A AT K K ItMnuauUl Waltm- Hup.,Petroica erythrogaster,yes,portrait,0.903,,read from image; plate spells ERYTHROGASTER
+III,5,birdsAustraliav3Goul,28,"JPETR:OICA &0©BIEJTO»S Joord:& J. O'rfx Zd ciytJ jS ,C\&<-Zu L cr /ZeZ^ t&n r/j / Imp.",Petroica Goodenovii,yes,portrait,0.894,,read from image
+III,6,birdsAustraliav3Goul,32,"(kv Id 0*bd IFCiffdsJ'ter oUZ, IPETJROlfA PiMEI^ICEAs £cidd. ( '. ffii ds/u< n -ted mru",Petroica phoenicea,yes,portrait,0.943,,Vision OCR: PETRDICA PHŒNICEA: Guld
+III,7,birdsAustraliav3Goul,36,( ■■ /firs. If.m/XJult :-/ /nyt.,Petroica bicolor,yes,portrait,0.946,,Vision OCR: PETROICA BICOLOR: Swans.
+III,8,birdsAustraliav3Goul,40,"PTE TJR4D I CA I’M' S CA. : (kiiM. ,/ frjHs/.d- r.mJ ffdkJUcJiter- drf f C ffi/I | nrK/t'd l Irn//",Petroica fusca,yes,portrait,0.935,,Vision OCR: PETRDICA FTSCA:Gold
+III,9,birdsAustraliav3Goul,44,0 / n FlTJllOICA S ITP E JR.C IM (0 § As Gould. J. (hrald (MuZ'Z£C'IiictiZxr‘ eZeZ cfr ZZfch/. ^SidZirut^yfZcfy & PVdltvrv Jjwjj.,Petroica superciliosa,yes,portrait,0.960,,Vision OCR: PETROICA SUPERCIOSA:Coula.
+III,10,birdsAustraliav3Goul,48,"I ) B,YM 01) KB B 101 'IX O' E O P \ C- 1 A : CwM ■ ■' ':'OU.l-d- CVI'vrj, ffjj /0. <:'// tcfdel cl filh-crf. A ’ U ' ' l M rvf -Y <■■/ /sftf/.",Drymodes brunneopygia,yes,portrait,0.940,,Vision OCR: DRYMODES BRUNNEOPYCIA: Culd
+III,11,birdsAustraliav3Goul,52,,Eöpsaltria Australis,yes,portrait,0.958,,Vision OCR: FÓPSALTRIA AUSTRALIS: Swais
+III,12,birdsAustraliav3Goul,56,"’T.Crcr'ld a rid JdC' RfchUi- del e]/ llth KOPSAI/miA (& MI S IB O OIIILAMi 5 % GouM. , C Jfi-illnuzndl Jmp.",Eöpsaltria griseogularis,yes,portrait,0.858,,Vision OCR: EOPSALTRIA GRISEOGULARIS: Gould
+III,13,birdsAustraliav3Goul,60,,Eöpsaltria leucogaster,yes,portrait,0.933,,Vision OCR: EOPSALTRIA LEUCOGASTER: Gould.
+III,14,birdsAustraliav3Goul,64,d&Il. Gould del? MEFfllTIRA. SHTFffilEiBAs 4i C. ddiMmcondel Imp.,Menura superba,yes,portrait,0.975,,Vision OCR: MENURA SUPERBA: Shaw
+III,15,birdsAustraliav3Goul,68,I&£ Could dtlf PSBPHBBES CJREPITA % V^ &Horcf C //iMmcorijtUZ Imp.,Psophodes crepitans,yes,portrait,0.934,,Vision OCR: PSOPHODES CREPITANS: Vig & Horsf
+III,16,birdsAustraliav3Goul,72,*/ Ckmt/d' cmtl 7If‘. JUcYtfw del tl fult. PSOFUtOBES. I^IG-RO AMI S t Gould’. I'.22t4.lfontvii -del/. Imp.,Psophodes nigrogularis,yes,portrait,0.961,,Vision OCR: PSOPHODES. NICROCULARIS:Goald.
+III,17,birdsAustraliav3Goul,76,,Sphenostoma cristata,yes,portrait,0.916,,Vision OCR: SPHENOSTOMA CRISTATUM: Goud
+III,18,birdsAustraliav3Goul,80,J~&-E GovM delf MALIimUS CYMOTS * «■ £ &^Zlwua^cZeZ' Zm^.,Malurus cyaneus,yes,portrait,0.949,,Vision OCR: MALURUS CYANEUS: Veill:
+III,19,birdsAustraliav3Goul,84,"-//: Z CkialJ, de.L G MAILUmUS LQA&ICAUBUS: u JIwllyyvtMbcleZ Imp.",Malurus longicaudus,yes,portrait,0.908,,Vision OCR: MALURUS LONGICADDUS: Goua.
+III,20,birdsAustraliav3Goul,88,". MAJtlij MUT fcj ME MISTI'S s J&E.GowZd dd^ >""'. ffkRm cm UtdJ&y?",Malurus melanotus,yes,portrait,0.880,,Vision OCR: MALURUS MELANDTUS:Gu/d
+III,21,birdsAustraliav3Goul,92,,Malurus splendens,yes,portrait,0.924,,Vision OCR: MALURUS SPLENDENS.
+III,22,birdsAustraliav3Goul,96,MAIUUmmS SEIiE&AKS: GotiM. J&imm&dd C. jms,Malurus elegans,yes,portrait,0.910,,Vision OCR: MAlURUS ELLEGANS: Gould.
+III,23,birdsAustraliav3Goul,100,,Malurus pulcherrimus,yes,portrait,0.938,,Vision OCR: MALURUS PULCHERRIMUS: Gould.
+III,24,birdsAustraliav3Goul,104,MALUmHIg. ILAM BE RT Its Vog: etJIortf: t T& E. G-ozbld M* CJEUlm aJultZ E/yvp.,Malurus Lamberti,yes,portrait,0.952,,Vision OCR: MALURUS LAMBERTI: Vig: et Horsf
+III,25,birdsAustraliav3Goul,108,< ■MAir.TlTRFr^ ILKlLTCOPTEiailS 5 Gaaru : jr&E. Gould del. C. JdwZlmowbd/eZ Jvtyp.,Malurus leucopterus,yes,portrait,0.899,,Vision OCR: MALURUS MEUCOPTEBUS: Quoy & Gim.
+III,26,birdsAustraliav3Goul,112,MA.L ;' .K ! A jMC E IaAM 0 C Mi F M A IL IT § s % J-J/orp C. 3a lum&rodu Trap,Malurus melanocephalus,yes,portrait,0.923,,Vision OCR: MALURUS MELANOCEPHALUS:Vg &'Horsf
+III,27,birdsAustraliav3Goul,116,"> j ,MA S. i'K I'H KIOMIL /></>/ //rs-.*/' T&jE, (k'lzCd- dzl-",Malurus Brownii,yes,portrait,0.919,,Vision OCR: MALURUS BROWN: Viget Horsf
+III,28,birdsAustraliav3Goul,120,"AMYTIS TEXTIUS s 'lefts: „'""J- la ui. . ). i C. ' Jfu£-?*Wt7W%tl' Zrtifp.",Amytis textilis,yes,portrait,0.910,,Vision OCR: AMYTIS TEXTILIS:Lefs:
+III,29,birdsAustraliav3Goul,124,J&S. G-ovdcl tiel! 7 AMYTIS STlAIIATtlTS •. Could. C. JfalltnajifdeZ Jrng>.,Amytis striatus,yes,portrait,0.921,,Vision OCR: AMYTIS STRIATUS: Gould
+III,30,birdsAustraliav3Goul,128,"Ail YT !f 1 MM 1 - K 0 1UM IT S : Gould, J.Gmxbct- ewu:k M’C'MGdite*' del rJv (ilk-. flwUwiMMxitfX/ &> fYcxlfarvv /wip",Amytis macrourus,yes,portrait,0.921,,Vision OCR: AMYTIS MACROURUS: Could
+III,31,birdsAustraliav3Goul,132,J & £ . GcuZd/j oUlf ©TlPITTtmiTS MALAC1UE1US. //,Stipiturus malachurus,yes,portrait,0.946,,Vision OCR: STIPITURUS MALACHURUS: LeS
+III,32,birdsAustraliav3Goul,136,JE E . (rOVU'oL ErE. B1SY0MIS MSTEAUSi^^ C. jB^msOOTuleZ' /mg?.,Dasyornis Australis,yes,portrait,0.938,,Vision OCR: DASYORNIS AUSTRALIS: Viget Horsf:
+III,33,birdsAustraliav3Goul,140,J &J5 Sauld’ dd? BMTOlOTtS A%$: C Ilidhnajidt-'L /m,Dasyornis longirostris,yes,portrait,0.957,,Vision OCR: DASYORNIS TENUIROSTRIS: Gud
+III,34,birdsAustraliav3Goul,144,' ATRICHIA CLAMO SAs (}owlcl. \T GvwOtf/ a#wl/ efarf/ efc Zvffi/ C'/JhlZwwiuiCeX'Jjvijj.,Atrichia clamosa,yes,portrait,0.949,,Vision OCR: ATRICHIA CLAMOSA: Gould.
+III,35,birdsAustraliav3Goul,148,S WmNJ&AC tJ § ilALAi : T CD TE S' if 4SovU& ivm'Z- w.&Mt-ohfos** d/ti K&fiifc. ~8T'-(f.iT*nr\A'Cil & WisXlhrH/. lif.-tg?,Sphenoeacus galactotes,yes,portrait,0.925,,Vision OCR: SPHENEACUS CALACTOTES.
+III,36,birdsAustraliav3Goul,152,".r.GmM mnd> .S-C-SuHUtr cUL ebTith. BFMEBCEACIIS (&EAMW3BUS: CmM, BiMnumdd & Watem, Imp",Sphenoeacus gramineus,yes,portrait,0.904,,Vision OCR: SPHENOACUS GRAMINEUS: Could
+III,37,birdsAustraliav3Goul,156,"A ( "" ft D i ' ft I ’ t -i A l < H - ft A l ' ft T ft * \ il ft ft : CvidcL jfltnil nuuui > l .i' mtni J. U ’vrt.-lti fUid 'ffn-Jt (t e* f/<Y t.( fUh .",Acrocephalus Australis,yes,portrait,0.938,,Vision OCR: AUSTRALS:Gould
+III,38,birdsAustraliav3Goul,160,"Jlvilti'tvcvt 'ufaO &> PValtoJV ■ J Q-anlci (wul/ £L- C Riclife/v oUZ efclibk/- AC HO € E PIMJLIT § !,0C &IK0STMS: Cm /A.",Acrocephalus longirostris,yes,portrait,0.938,,Vision OCR: ACROCEPHALUS LONGIROSTRIS: Gould.
+III,39,birdsAustraliav3Goul,164,.. .,Hylacola pyrrhopygia,yes,portrait,0.932,,Vision OCR: HYLACOLA PYRRHOPYGA:
+III,40,birdsAustraliav3Goul,168,HYXtACOILA. CAWmSLi £oM ■Z &OwZdy and/ B CJlicfvbor deZ efrlilh . 6 '■JfyM7na*tdt’ Z'.Zhcp.,Hylacola cauta,yes,portrait,0.901,,Vision OCR: HYMACOMA CAUTA: Gould.
+III,41,birdsAustraliav3Goul,172,r YsT.i' !€ OLA MA.GFA: Gould. ./. Gould/ <ind K- CdliclCtzr- duL efrlith. i n-iltt* -®® 1 ',Cysticola magna,yes,portrait,0.937,,Vision OCR: CYSTICOTA MAGNA: Goula.
+III,42,birdsAustraliav3Goul,176,"€ Y.s ini’ OIL A L A I P in T.&tmhd and rfU il ttth . : *Mtlhu touir l Halti'n, Imjj- '",Cysticola exilis,yes,portrait,0.928,,Vision OCR: CYSTICOLA EXTLIS.
+III,43,birdsAustraliav3Goul,180,"■ST 1 r 0 l , A UT KAl'Ar .1 i i i . .\ ; Gould. .f. Goald; anil U. Cdlu-hlt r < icl t i (Hit/. /// idfrUWuAf l/ fy, WtUioiufot/t.",Cysticola lineocapilla,yes,portrait,0.944,,Vision OCR: CYSTICOUA LINEACAPILIA: Cod
+III,44,birdsAustraliav3Goul,184,"cysticoila. Md . JTaZbncmdd, & Witllort. li-np",Cysticola isura,yes,portrait,0.915,,Vision OCR: CYSTICOMA ISURA: Gould.
+III,45,birdsAustraliav3Goul,188,"J. (rtuld m%d .ff:( d* 1 1 ( U(li i v o u, a. k r .:p;i i : e ip a » com . LiaU.ryuxt'if^cX/ &■ 'Wc(jjbffn, JtHJJ",Cysticola ruficeps,yes,portrait,0.941,,Vision OCR: CYSTICOLA RUFICEPS: Could.
+III,46,birdsAustraliav3Goul,192,"* 'f Gould and H‘ C l Jfcekter dal- stUrfi/. SEjRIG'OimiS CITKJE © CTU.MS s (Ml, G 3u/lma*wleZ Iwyv",Sericornis citreogularis,yes,portrait,0.928,,Vision OCR: SERICORNIS CITREOGULARIS:Gould.
+III,47,birdsAustraliav3Goul,196,,Sericornis humilis,yes,portrait,0.945,,Vision OCR: SERICORNIS HUMHLIS:Guld.
+III,48,birdsAustraliav3Goul,200,J. Gould- aiul M\ C. RtrJtfcr did ti (iblv. s e iric i kn i s o s c l la e s •. e-mid.,Sericornis osculans,yes,portrait,0.933,,Vision OCR: SERICORNIS OSCULANS:Gould.
+III,49,birdsAustraliav3Goul,204,,Sericornis frontalis,yes,portrait,0.912,,"Vision OCR: SERICORNIS FRONTALIS,"
+III,50,birdsAustraliav3Goul,208,5 |,Sericornis laevigaster,yes,portrait,0.930,,read from image; caption_top measured by eye against a ruler on the image
+III,51,birdsAustraliav3Goul,212,SEMICOMMS MACFLATAs Gould. J. (kn.dri and Jl i d Uijil f r- -Id/ <-2- /.ilk . Ifnlhtuwuld & Watioru bnp.,Sericornis maculatus,yes,portrait,0.920,,Vision OCR: SERICORNIS MACULATA:Gould.
+III,52,birdsAustraliav3Goul,216,.M’AMTMilZA AAUAi l- I'AVTUu. Gould. ) | . .i /'o'-tid ct Hil If C'Rtrii.lc u hid _ UullnuA.njli'l & Wallvn- Tmp.,Sericornis magnirostris,yes,portrait,0.952,,Vision OCR: ATANTHZA MAUNTROSTRIS: Goud
+III,53,birdsAustraliav3Goul,220,,Acanthiza pusilla,yes,portrait,0.878,,Vision OCR: ACANTHIZA PUSILLA.
+III,54,birdsAustraliav3Goul,224,. r r .(nu.df / and .W:Oliiil0fcr Ml efitilfa: ACAMT1 /.. i :E E v v C. UnUma'idtt Imp,Acanthiza Diemenensis,yes,portrait,0.890,,read from image; caption_top measured by eye against a ruler on the image
+III,55,birdsAustraliav3Goul,228,MTHISA 1EW3NG3 <T. fcauZd/ anvil ILOHAAltihvr de% vt (U/Jv. C SAjll^anvdtl JwijP',Acanthiza Ewingii,yes,portrait,0.918,,Vision OCR: ACANTHIZA EWINCI: Goua
+III,56,birdsAustraliav3Goul,232,,Acanthiza uropygialis,yes,portrait,0.859,,Vision OCR: ACANTHZA UROPYGIALIS: Could.
+III,57,birdsAustraliav3Goul,236,GoVtZcl/ ! vch M’AFTHIZA. JpPICAHS; GmiU _^Wvi-iaftileZ <& ffl#Z<k/n fayr.'.,Acanthiza apicalis,yes,portrait,0.943,,Vision OCR: ACANTHIZA APICALIS: Gould
+III,58,birdsAustraliav3Goul,240,,Acanthiza pyrrhopygia,yes,portrait,0.883,,Vision OCR: ACANTHIZA PYRRHOPYGIA: Geald.
+III,59,birdsAustraliav3Goul,244,j.&OTCtil' asui S. C. RiohJUr bid/ 6b liih/. ACAATEI^A ETOIEUmTA: &01M. JJxdIr*uwul&L fc WafcffwJ-rng.,Acanthiza inornata,yes,portrait,0.896,,Vision OCR: ACANTHIZA INORNATA: Goalá.
+III,60,birdsAustraliav3Goul,248,,Acanthiza nana,yes,portrait,0.943,,Vision OCR: ACANTHIZA NANA: Vig & Horsf
+III,61,birdsAustraliav3Goul,252,'T. G-oidol and S' CJdich&w oL(d eb lido.,Acanthiza lineata,yes,portrait,0.908,,Vision OCR: ACANTHIZA TINEATA: Gould.
+III,62,birdsAustraliav3Goul,256,J. QouLdy cirul -9' CHi^hlz/y del 9? liblv* ACANTHI ZA RE tlSLOEME S: Via: ft .Hudiyeumyd^l &> WaZtovc Ihgn.,Acanthiza Reguloides,yes,portrait,0.938,,Vision OCR: ACANTHIZA REGULOIDES: Vig&Horsf:
+III,63,birdsAustraliav3Goul,260,J.(kn:dil and H'C'Uu’h't^' del cl Ulh . AC AM T HI m C H W¥M 0 ILUHH ffiA .,Acanthiza chrysorrhoea,yes,portrait,0.919,,Vision OCR: ACANTHIZA CHRYSORRHQA.
+III,64,birdsAustraliav3Goul,264,c r&JZ CouZcO deZ efc&Zfa,Ephthianura albifrons,yes,portrait,0.832,,Vision OCR: EPTHIANURA AVIFRONS: Goud
+III,65,birdsAustraliav3Goul,268,,Ephthianura aurifrons,yes,portrait,0.897,,Vision OCR: EPTHIANTRA AURIFROS: Gould
+III,66,birdsAustraliav3Goul,272,EPTMIANUMA TlKOLORs^ J& 25. Gmtid dd ed Iztii. 6. 12vUl/nuvrodel Iwyp.,Ephthianura tricolor,yes,portrait,0.908,,Vision OCR: EPTHIANURA TRICOLOR: Gould
+III,67,birdsAustraliav3Goul,276,XE11 IP ; (rouZd/. t/. 6'm<lc{ M.nd //('Suhtcretil ft Ulh. C. Bafflmandal' 1» qi-,Xerophila leucopsis,yes,portrait,0.884,,Vision OCR: XEROPHILA LEUCOPSIS:Gould
+III,68,birdsAustraliav3Goul,280,,Pyrrholaemus brunneus,yes,portrait,0.908,,Vision OCR: PYRRHOLAEMUS BRUNNEUS: Gould.
+III,69,birdsAustraliav3Goul,284,"— '■ • "" • •/. (rmXd'j\$td' del cir Utk , JJbUL K",Origma rubricata,yes,portrait,0.922,,Vision OCR: ORIEMA RUBRICATA.
+III,70,birdsAustraliav3Goul,288,"I 'A I.A^I \>ir II FIT 1,11' .'/, (rtmlcL anH fj , C/Uc/(<\:r del cl til h C. RiddymMiiilsd, Jjnjj.",Calamanthus fuliginosus,yes,portrait,0.920,,"Vision OCR: CALAMANTHUS FULIGINOSUS,"
+III,71,birdsAustraliav3Goul,292,€ AIL AM AIT T M US CAM FES THIS s Gvuld. J. (.'tndtl- tut-d fL C' j(i<‘ehZw dtZ cl lt d . ( . liu lltnaudf ( /nip.,Calamanthus campestris,yes,portrait,0.934,,Vision OCR: TALAMANTHUS CAMPESTRIS: Gould.
+III,72,birdsAustraliav3Goul,296,,Chthonicola minima,yes,portrait,0.908,,Vision OCR: THTHONICOLA MINIMA.
+III,73,birdsAustraliav3Goul,300,,Anthus Australis,yes,portrait,0.885,,Vision OCR: ANTHUS AUSTRALIS: Vig: & Horsf:
+III,74,birdsAustraliav3Goul,304,"J. Gmld (Uirf; Jy'€-JUofot&r' oitL eft litfos. €'INCL(DRAMPHI[T § CMTHAMS . JJiU&nm’odUX &- WaXftyjrv Xwy?,",Cincloramphus cruralis,yes,portrait,0.913,,"Vision OCR: CINCLORAMPHUS CRURALIS,"
+III,75,birdsAustraliav3Goul,308,,Cincloramphus cantillans,yes,portrait,0.912,,Vision OCR: CINCLORAMPHUS CANTILLANS:Gould.
+III,76,birdsAustraliav3Goul,312,,Cincloramphus rufescens,yes,portrait,0.864,,Vision OCR: CINCLORAMPHUS RUFESCENS.
+III,77,birdsAustraliav3Goul,316,"Jap* . ' ■ -X Gou ld < < H.d HC TiuditA f- del tb Hbk, IIIAFM HORSFHELBHs GovM. IfiiMjn ccrultZ &> Walton/ bnj9.",Mirafra Horsfieldii,yes,portrait,0.899,,Vision OCR: MIRAFRA HORSFIELDI: Gould.
+III,78,birdsAustraliav3Goul,320,ESTKJE jLIDA BEJLLA J. £awf<Z and II. CJlicktcr (lei cb I'Cih. Rnlhntzvald 7c WaZbenv hup.,Estrelda bella,yes,portrait,0.894,,Vision OCR: ESTRELDA BELLA.
+III,79,birdsAustraliav3Goul,324,ESTEELMA 0 1‘ l' l . K. A '/.(rim lei ami H-t’- Ilu-lth r <(> l > ( IWi Jfullma itAtl & IViilloH I trig.,Estrelda oculea,yes,portrait,0.891,,"Vision OCR: ESTRELDA OCULEA,"
+III,80,birdsAustraliav3Goul,328,ESTMJLPA &U. &/mZd/ dMs eft Lifth/. C.JfaZftmcMdd/ Imp.,Estrelda Bichenovii,yes,portrait,0.955,,Vision OCR: ESTRELDA BICHENOVII.
+III,81,birdsAustraliav3Goul,332,E g> TiEE LLBA AMJML © GouM. 1 7~&JZ. Gould del el hoh- C. Ihtllm/XMdtl' Intp.,Estrelda annulosa,yes,portrait,0.905,,Vision OCR: ESTRELDA ANNULOSA: Gould
+III,82,birdsAustraliav3Goul,336,ESTREJLBA TEMPORALIS. f.&ozUd/ an ff.C.JUohc4/r Ms? 0. JhZlmci&uitZ Jytvjp.,Estrelda temporalis,yes,portrait,0.902,,Vision OCR: ESTRELDA TEMPORALIS.
+III,83,birdsAustraliav3Goul,340,".BS'Tli'ft L;D)A c ZG-ciidd und JT.CMicJdbw- oLel, '. 3j*ZfcruJ m/eZ Zrrtf?.",Estrelda Phaeton,yes,portrait,0.881,,Vision OCR: ESTRKLDA? PHAETON.
+III,84,birdsAustraliav3Goul,344,,Estrelda ruficauda,yes,portrait,0.892,,Vision OCR: ESTRELDA RUFICAUDA: Godd
+III,85,birdsAustraliav3Goul,348,J. (kidds axid / Kh Richter del el IvtJc. IfuUtnsmslel & Wcdlwt Imp.,Amadina modesta,yes,portrait,0.888,,Vision OCR: AMADINA MODESTA: Gould
+III,86,birdsAustraliav3Goul,352,A M A\ m A la ATM AMI * j:6vM and' del cbltfA' (■ -Bul/Utt tlj'L dt l /rty/.,Amadina Lathamii,yes,portrait,0.924,,Vision OCR: AMADINA LATHAM.
+III,87,birdsAustraliav3Goul,356,"•/ (rOllM' and .3 Cddc/i hr dd ' f 7 ( dr Cjfftdl, y/candd /.dyt.’. A l.\ M A A C- AS TARO TI S % Add",Amadina castanotis,yes,portrait,0.899,,Vision OCR: AMADIYA CASTANOTIS: Goud.
+III,88,birdsAustraliav3Goul,360,,Amadina Gouldiae,yes,portrait,0.942,,Vision OCR: AMADINA GOTLDIA:Gud.
+III,89,birdsAustraliav3Goul,364,"TOSPHILA MIRAB.1 'LIS ib: d r Jae./[; 7. Could, and-.// C'MicfvUr del- efr Ufck Jftdlm a*i </ ( 7 Wcdltm Imp",Poephila mirabilis,yes,portrait,0.963,,Vision OCR: POEPHHA MIRABILIS: Humhet Jacq:
+III,90,birdsAustraliav3Goul,368,J&oi-i'Zd' apn^- .ffCJiccJober tZeZr^ ;3P(D)ia F 1HT ;l'LA ACUTT 'll GoM,Poephila acuticauda,yes,portrait,0.875,,Vision OCR: POEPHITA ACUTICAUDA: Coald
+III,91,birdsAustraliav3Goul,372,,Poephila personata,yes,portrait,0.896,,Vision OCR: PORPHBA PERSOYATA
+III,92,birdsAustraliav3Goul,376,"J Ctal'i tx*u'i ■ 'E- C 'J? ickt&r del clliBv. •FOMFM I i.A I, K ri'OTl £ i ikn&f. fb ? IL,ri i ru i'l- ! , v IVcilbon. / ’fnjj.",Poephila leucotis,yes,portrait,0.906,,Vision OCR: POEPHILA LETCOTIS: GoRd
+III,93,birdsAustraliav3Goul,380,,Poephila cincta,yes,portrait,0.917,,Vision OCR: POEPHILA CINCTA: Gould.
+III,94,birdsAustraliav3Goul,384,,Donacola castaneothorax,yes,portrait,0.898,,Vision OCR: DONACOLA CASTAYEOTHDRAX GuA
+III,95,birdsAustraliav3Goul,388,I ' ( >;\\\ i : oil a. tie r w dtali s * A4/ ■ \ ( 7c ( l t t/dj / ■ C Z Hi rJt ln% a i t A / Zn f j.-,Donacola pectoralis,yes,portrait,0.925,,read from image; caption_top measured by eye against a ruler on the image
+III,96,birdsAustraliav3Goul,392,,Donacola flaviprymna,yes,portrait,0.932,,Vision OCR: DONACOLA FLAVIPRYMNA: Goald.
+III,97,birdsAustraliav3Goul,396,,Emblema picta,yes,portrait,0.900,,Vision OCR: EMBLEMA PIUTA: Gould
+IV,1,birdsAustraliav4Goul,12,VCO. 2 e nN < 4 WY F SS,Pitta strepitans,yes,portrait,0.916,,Vision OCR: PITTA STREPITANS:Temm:
+IV,2,birdsAustraliav4Goul,16,g i) Dana from Hictere & ow Stone ty ThE. Contd PITTA VYVIGORSII; (Geld Lronted ty 6 Zalimnandee,Pitta Vigorsii,yes,portrait,0.842,,Vision OCR: PITTA VIGORSII; (Gould).
+IV,3,birdsAustraliav4Goul,20,,Pitta Iris,yes,portrait,0.951,,Vision OCR: PTTTA TRIS:Gel4
+IV,4,birdsAustraliav4Goul,24,CINCLOSOMA PUNCTATUM: ky. & Ang S&L Could del. C Hudlmandel Lnp:,Cinclosoma punctatum,yes,portrait,0.900,,Vision OCR: CINCLOSOMA PUNCTATUM: Vig: & Horsf:
+IV,5,birdsAustraliav4Goul,28,CINCLOSOMA CASTANOTUS: Gould SEL Contd ded. i dullandel Lip.,Cinclosoma castanotus,yes,portrait,0.920,,Vision OCR: CINCLOSOMA CASTANOTUS: Gould
+IV,6,birdsAustraliav4Goul,32,J. Could and F.C. Rider acl et lith. ‘ CINCLOSOMA CINNAMOMEUS o ° Gould. Halland & Watton Law. |,Cinclosoma cinnamomeus,yes,portrait,0.895,,Vision OCR: CIYCLOSOMA CINNAMOMEUS: Goue.
+IV,7,birdsAustraliav4Goul,36,‘ f Gould- and HURichter del & lith. OREOC! NULAT vA a Fidlnandd & Walton Lap. q,Oreocincla lunulata,yes,portrait,0.914,,Vision OCR: DREOCINCLA LUNULLATA.
+IV,8,birdsAustraliav4Goul,41,SEL Could deb vb bith.,Chlamydera maculata,yes,portrait,0.972,yes,"read from image; fold-out spread; caption split across the fold: CHLAMY[DERA] MACULATA: Gould; upright double-page spread (wider than tall), caption along the bottom; caption_top measured by eye against a ruler on the image"
+IV,9,birdsAustraliav4Goul,46,a eee ——— a ee ee APE aS WATE Loe Lyra C elt CHLAMYDERA NUCHALIS. T&E Contd del cb lith,Chlamydera nuchalis,yes,portrait,0.892,,Vision OCR: CHLAMYDERA NUCHALIS.
+IV,10,birdsAustraliav4Goul,51,"PHA PRBS RG estate Me seheanpragrene Sabet ten oe ie ARR og UOMO S Ih Rate wicrs Kahl primonort e SEL vid de ob loth,",Ptilonorhynchus holosericeus,yes,portrait,0.975,yes,"read from image; fold-out spread; caption split across the fold: PTILONORH[YNCHUS] HOLOSERICEUS: Kuhl; upright double-page spread (wider than tall), caption along the bottom; caption_top measured by eye against a ruler on the image"
+IV,11,birdsAustraliav4Goul,56,"Valier Liye.” v7, + Hulbuandel & 4a a vf. We yy aos ld and HC Richter de &lith. rOtM AG",Ptilonorhynchus Smithii,yes,portrait,0.956,,Vision OCR: PPTLONORHYNCHUS SMITHH: lü&Hors/
+IV,12,birdsAustraliav4Goul,60,SERICULUS CHRYSOCEPHALUS. Lk Wotton fp. Gold wid EO Hiditer dal vv Wt ie alton tng,Sericulus chrysocephalus,yes,portrait,0.927,,Vision OCR: SERICULUS CHRYSOCEPHALUS.
+IV,13,birdsAustraliav4Goul,64,& i Walter Tryp. Aidllmande (th ah ve aS ? be,Oriolus viridis,yes,portrait,0.941,,Vision OCR: ORIOLUS VIRIDIS.
+IV,14,birdsAustraliav4Goul,68,"Hullinandd & Walton In, Neild and MOR cht ded vt (ith.",Oriolus flavo-cinctus,yes,portrait,0.932,,Vision OCR: ORIDLUS FIAVOCINCTES.
+IV,15,birdsAustraliav4Goul,72,ekd and Ut Richter dea at tith 7 ce » Swaine oa 1S Ballnandd & Walton lays,Sphecotheres Australis,yes,portrait,0.895,,Vision OCR: SPHECOTHERES AUSTRALIS: Swan:
+IV,16,birdsAustraliav4Goul,76,SJ Gould and HC Richter Ad & bith. CORCORAX tl Ww LA UCOPTERUS o Hullmandd & Walton lnp.,Corcorax leucopterus,yes,portrait,0.939,,Vision OCR: CORCORAX LEUCOPTERUS.
+IV,17,birdsAustraliav4Goul,80,STRUT HUD KA Ji IRE ACs Goce. +. Gerald and Hehichler dd coli. C fiallrmandel Lap.,Struthidea cinerea,yes,portrait,0.949,,Vision OCR: STRUTHIDEA CINERKA: Could.
+IV,18,birdsAustraliav4Goul,84,"Walton tp. Hilimandel ¢ 5 5 Hor li, a Vigse",Corvus Coronoides,yes,portrait,0.922,,Vision OCR: CORVUS CORONOIDES : Vig:et Horsf:
+IV,19,birdsAustraliav4Goul,88,"GL. ° ° MORPHA GCOULDII } NE VON, Lp. ane Ln C Hull",Neomorpha Gouldii,yes,portrait,0.952,,Vision OCR: NEOMORPHA GOULDII: GR. Gray
+IV,20,birdsAustraliav4Goul,92,sf: I } g & Ho 7 VA SS VY s vavannbel de L. Til H tow Aol el With Licht 7 MEE.,Pomatorhinus temporalis,yes,portrait,0.936,,Vision OCR: POMATORHINUS TEMPORALIS:Fg&Hosf
+IV,21,birdsAustraliav4Goul,96,i trond vivid FEC Vip et eo} CCHAER ACL 4 Si C. HallinaidA fags,Pomatorhinus rubeculus,yes,portrait,0.930,,read from image; caption_top measured by eye against a ruler on the image
+IV,22,birdsAustraliav4Goul,100,C Helonan,Pomatorhinus superciliosus,yes,portrait,0.929,,Vision OCR: POMATORHINUS SUPERCILOSUS:lg&Hosf:
+IV,23,birdsAustraliav4Goul,104,"MELIPHAGA NOV4-HOLLANDI SJ boudd and tC Rachiten del, & Cth, C. Fiullmanda Lg. .",Meliphaga Novae-Hollandiae,yes,portrait,0.908,,read from image; caption_top measured by eye against a ruler on the image
+IV,24,birdsAustraliav4Goul,108,"IPHAGA LONGIROSTRIS: Gould J Could and HC Kadir del a lith, Hullnandd & Wattow lap.",Meliphaga longirostris,yes,portrait,0.932,,Vision OCR: MELIPHAGA LONGIROSTRIS: Could
+IV,25,birdsAustraliav4Goul,112,SERIC BA: Could: re | J Could and Ht fickier deb €,Meliphaga sericea,yes,portrait,0.941,,Vision OCR: MELIPHAGA SERICEA: Gould
+IV,26,birdsAustraliav4Goul,116,"PHAGA NYS"" Could & H-Chichter del ct tith. £ PACALIAS: Goal.",Meliphaga mystacalis,yes,portrait,0.937,,Vision OCR: MELIPHAGA MYSTACALIS: Goald
+IV,27,birdsAustraliav4Goul,120,ME LIPHAGA AUSTRALASIANA: Vig: £Zorsf: S&L Could ded. OF iaklmandel Lig:,Meliphaga Australasiana,yes,portrait,0.931,,Vision OCR: MELIPHAGA AUSTRALASIANA: Vig: &Horsf
+IV,28,birdsAustraliav4Goul,124,GLYCIPHILA FULVIFRONS: Swause ak Se Sat Sect 7 J Gould and HL fachtey deb ch lithe. =F : C Linllinandel Lip.,Glyciphila fulvifrons,yes,portrait,0.890,,Vision OCR: GLYCIPHILA FULYIERONS: Swans:
+IV,29,birdsAustraliav4Goul,128,j / Coild and LLC hichter del ct bith. ( \ : 6 Mithuwandey lip.,Glyciphila albifrons,yes,portrait,0.909,,Vision OCR: GLYCIPHILA ALBIFRDNS:Colả
+IV,30,birdsAustraliav4Goul,132,LATA? Gould SJ Cathie anit HC. Richter beh wt lidfr C Ballmandel loyp.,Glyciphila fasciata,yes,portrait,0.905,,Vision OCR: CHYCIPHULA FASCIATA: Could
+IV,31,birdsAustraliav4Goul,136,CULARIS: Geuld: Tevndd and HC Rihter dl ob bith.,Glyciphila ocularis,yes,portrait,0.859,,Vision OCR: CLYTTPELA OCULARIS: Ceuld.
+IV,32,birdsAustraliav4Goul,140,"TIS Lard HOR whiY del ci tely, Hinllpnandel & Va",Ptilotis chrysotis,yes,portrait,0.916,,Vision OCR: PTILOTIS CHRYSOTIS.
+IV,33,birdsAustraliav4Goul,144,pase sessment AOAC —peSRDT mets atest TT SE Gould. ° ° Holland £ Walton Lig LOTIS SO is i! PTI J. Gould and HC Richt vy del &lith.,Ptilotis sonorus,yes,portrait,0.965,,Vision OCR: PTILOTIS SONORUS:Gauld.
+IV,34,birdsAustraliav4Goul,148,‘OTIS VERSICOMOR: Could. i Fialenandel £ alton Lrg. Téculd and HCRiditer ddl et lth.,Ptilotis versicolor,yes,portrait,0.958,,Vision OCR: PTILDTIS VERSICOLDR:Gould.
+IV,35,birdsAustraliav4Goul,152,PTLLOTES ALFIE tt TAU OTP LIA BIEL IE Bellnnvandel So Walton Lengz.,Ptilotis flavigula,yes,portrait,0.927,,Vision OCR: PTILOTIS FLAVIETLA:Gald
+IV,36,birdsAustraliav4Goul,156,PTILOTIS LEUCOTIS. A Gould and HC Richver det ektith. f ‘Hallmandd & Wattow Eup.,Ptilotis leucotis,yes,portrait,0.923,,Vision OCR: PTILOTIS LEUCOTIS.
+IV,37,birdsAustraliav4Goul,160,"Got amd LEC Richter del cb lth, AURICCG NUS: Swarts. CHillivamded Lys. aot",Ptilotis auricomis,yes,portrait,0.890,,Vision OCR: PTTHOTS AURICOMIS: Swans
+IV,38,birdsAustraliav4Goul,164,"2 Froud, Towa and WO Richter A ev lith, OC Bilienandel Lop.",Ptilotis cratitius,yes,portrait,0.938,,Vision OCR: PTHOTIS CRATITTUS: Gould.
+IV,39,birdsAustraliav4Goul,168,"PTILOTIS ORNATUS: Gould UE RCRA LI NT.) 1) ene CHallnaniel Lig,",Ptilotis ornatus,yes,portrait,0.932,,Vision OCR: PTILOTIS ORNATUS: Gould
+IV,40,birdsAustraliav4Goul,172,"¢ . PTILOTIS PLUMULUS: Genta VLE al , | Bedreconlel Trg",Ptilotis plumulus,yes,portrait,0.886,,Vision OCR: PTILOTIS PLUMULUS: Gould
+IV,41,birdsAustraliav4Goul,176,"fe) S.Geuld and HC Richter dd & ith, SCE WW AN Se Gould. Firllnaandel & Waltow Ln.",Ptilotis flavescens,yes,portrait,0.920,,Vision OCR: PTILOTIS FLAVESCENS:Could.
+IV,42,birdsAustraliav4Goul,180,"i Hallmandel & Walton ep, a. OU C a fe) PLAVA = 1 t t OTIS A PTU J Gould and HC Bichter del atith.",Ptilotis flava,yes,portrait,0.914,,Vision OCR: PTILOTIS FLAVA: Gould.
+IV,43,birdsAustraliav4Goul,184,"PTILOTHS IPE. AL Gould and HA, Kichter del ev bith, Aine ' Hidliwandel & Waltow Ling. it",Ptilotis penicillatus,yes,portrait,0.910,,Vision OCR: PTILOTIS PENICTLLATUS:Geuld.
+IV,44,birdsAustraliav4Goul,188,"SEL. Could ded ci teh,",Ptilotis fusca,yes,portrait,0.899,,Vision OCR: PTILOTIS FUSCUS: Goald
+IV,45,birdsAustraliav4Goul,192,"Jo teald and FEC Ruhit tidhingadel & Walton Lay,",Ptilotis chrysops,yes,portrait,0.907,,Vision OCR: PTILOTIS CHRYSOPS.
+IV,46,birdsAustraliav4Goul,196,tould and A&C Richter del eb tith. wt,Ptilotis unicolor,yes,portrait,0.936,,Vision OCR: PTILOTIS UNICOLOR: Culd.
+IV,47,birdsAustraliav4Goul,200,"PLECTORHYNCHA LANCE OLATA: Coudd S&F Condi ded vi lithe, 6 Hilimandel Lap.",Plectorhyncha lanceolata,yes,portrait,0.947,,Vision OCR: PLECTORHYNCHA LANCEOLATA: Gould
+IV,48,birdsAustraliav4Goul,204,"GC Hirllnande LRP. Aten ded ob lth. ay AA and HC AK Ld,",Zanthomyza Phrygia,yes,portrait,0.910,,Vision OCR: ZANTHOMYZA PHRYCIA: Swams
+IV,49,birdsAustraliav4Goul,208,Li Halle Aborald and HC Richter deh 4 bith,Melicophila picata,yes,portrait,0.915,,Vision OCR: MELICOPHHA PICATA:Gould
+IV,50,birdsAustraliav4Goul,212,"Hl C fiallinandd Liye, L te bilby. LG ahh wah LLAMA",Entomophila picta,yes,portrait,0.924,,Vision OCR: ENTOMOPHILA PICTA: Gould.
+IV,51,birdsAustraliav4Goul,216,"ENTOMOPEHOILA ALBOGULAIRIS: Gould. a 0. Falbnandel Trg, — ” J Gould and LC Kichter hel eb leet. ” “",Entomophila albogularis,yes,portrait,0.887,,Vision OCR: ENTOMOPHTLA ALBOGULARIS: Goud.
+IV,52,birdsAustraliav4Goul,220,"3 Gould, OPHIOLA ® J. Gould and C Hallmunddl Lap. iter del et bith.",Entomophila rufogularis,yes,portrait,0.943,,Vision OCR: ENTOMOPHULA? RUFOCULARIS:Goald.
+IV,53,birdsAustraliav4Goul,224,AILS 3 Gould: VAN THO GI. S Goth and Il Chichi Ad ob lth. CHellinandel lay.,Acanthogenys rufogularis,yes,portrait,0.911,,Vision OCR: ACANTHOGENYS RUFOGULARIS: Gould.
+IV,54,birdsAustraliav4Goul,228,HOCHARA INAURI o (el = ANT Lip 7 (ZZ fi A nhlanand Cc JS told and He CHichter del et tiths,Anthochaera inauris,yes,portrait,0.904,,Vision OCR: ANTHOCHÆRA INAURIS.
+IV,55,birdsAustraliav4Goul,232,“Richter del et lth. J. Gould HC,Anthochaera carunculata,yes,portrait,0.922,,Vision OCR: ANTHOCHÆRA CARUNCULATA.
+IV,56,birdsAustraliav4Goul,236,". 7 ANTHOCHARRA MELLIVORA: ly £Honf TEE Could ae” CHudlm anced Lop,",Anthochaera mellivora,yes,portrait,0.934,,Vision OCR: ANTHOCHARA MELLIYORA: Vig&Hory
+IV,57,birdsAustraliav4Goul,240,"ANTHOC HABIRA ILWEN ULATA -Gould, J. Gould and HO Ruhter dd cb lith. ‘ > Ftullnmunda & Wa",Anthochaera lunulata,yes,portrait,0.909,,Vision OCR: ANTHOCHÆRA LUNULATA: Could.
+IV,58,birdsAustraliav4Goul,244,"AMOV Sf, Kis ° c) CORNICULATUS Ss YCRHU i 2 TROPIDORE ? y , Hel ff",Tropidorhynchus corniculatus,yes,portrait,0.960,,Vision OCR: TROPIDORHYNCHUS CORNICULATUS:Kg&Horsf
+IV,59,birdsAustraliav4Goul,248,TROPIDOREHYNCHUS ARGENTICEPS: Gould. Th FE Gontd dele C Hudimanded Lp.,Tropidorhynchus argenticeps,yes,portrait,0.921,,Vision OCR: TROPIDORHYNCHUS ARGENTICEPS: Gud.
+IV,60,birdsAustraliav4Goul,252,"TROPIDORHYNCHUS CITREOGULARIS: Gould. Tbould und HC Richter del elit, Hullmanded & Waltow ap.",Tropidorhynchus citreogularis,yes,portrait,0.899,,Vision OCR: TROPIDORHYNCHUS CITREOGULARIS: Gould.
+IV,61,birdsAustraliav4Goul,256,YNCHUS TENUIROS TRIS. f Could and AC hichty del ce lith. ee ; j ( Mallmaandd lig.,Acanthorhynchus tenuirostris,yes,portrait,0.956,,"Vision OCR: ACANTHORHYNCHUS TEYUIROSTRIS,"
+IV,62,birdsAustraliav4Goul,260,"Ty LAIN TEL O IR RG CHUS S$ 3 Could: I.Gonkd and HU Richter Ad ct lith, ( finlimvandel ting",Acanthorhynchus superciliosus,yes,portrait,0.942,,Vision OCR: ACANTHORHYNCHTS STPERUIIOSUS: Gald.
+IV,63,birdsAustraliav4Goul,264,"INOLENTA. VMYZOMELA SANGUI A\ Ge ST Gould: and HC Ruchien del ee tithy,",Myzomela sanguineolenta,yes,portrait,0.916,,Vision OCR: MYZOMELA SANGUINOLENTA.
+IV,64,birdsAustraliav4Goul,268,Tbouli and LOR ner Ad & wav. MYZOMBELA EK IRY TH ROC] Ks PELAIA : Gould:,Myzomela erythrocephala,yes,portrait,0.902,,Vision OCR: MYZOMELA ERYTHROCEPHALA: Gould
+IV,65,birdsAustraliav4Goul,272,BLA PECTORALIS: Gould. _ da and FEC fachie x deh hth ; Clinllmande Limp.,Myzomela pectoralis,yes,portrait,0.935,,Vision OCR: MYZOMELA PECTORALIS: Gould:
+IV,66,birdsAustraliav4Goul,276,"MYZOMELA NIGR As (Guld/) Frinted by C Aaimoandel, ¢",Myzomela nigra,yes,portrait,0.839,,Vision OCR: MYZOMELA NIGRA;/Gould)
+IV,67,birdsAustraliav4Goul,280,"MIN Z OM ks WhbA OBSCURA: Gould, BRT he feng Fe 7 4, TT TS whtey Ach & tithe. Hillmande & Walton Lap. JZ Gould and KH",Myzomela obscura,yes,portrait,0.879,,Vision OCR: MYZOMEHA OBSCTRA:Gld.
+IV,68,birdsAustraliav4Goul,284,Té 7. Couta dd’,Entomyza cyanotis,yes,portrait,0.938,,Vision OCR: ENTOMYZA CYANOTIS: Swains:
+IV,69,birdsAustraliav4Goul,288,CHaliinandl Lip. id and A.C Lich,Entomyza albipennis,yes,portrait,0.889,,Vision OCR: ENTOMYZA ALBIPENNIS: Gald
+IV,70,birdsAustraliav4Goul,292,Hhallnande & Walton Ip.,Melithreptus validirostris,yes,portrait,0.920,,Vision OCR: MELITHREPTUS VALIDIROSTRIS: Gould.
+IV,71,birdsAustraliav4Goul,296,"errr ac on MELITHREPTUS GULARISs: Gould. J Gould and HE Ruhi del ct tith, Liullmendd & Walion Lap,",Melithreptus gularis,yes,portrait,0.905,,Vision OCR: MELITHREPTUS GULARIS:Gould
+IV,72,birdsAustraliav4Goul,300,"—< ELM TERRE PMS) Al av NTI A Yea SS : Nv N (U LA | (U kDa J Gould ond HC Richter del et tith. Bidlnandd & Walton Lup,",Melithreptus lunulatus,yes,portrait,0.866,,Vision OCR: MELITIREPTUS LENULATUS.
+IV,73,birdsAustraliav4Goul,304,MELITARERTUS CHLOROPSIS: Gould. SF Gould and Ht Richivr dd ait. HBullmandd & Waltow lp:,Melithreptus chloropsis,yes,portrait,0.928,,Vision OCR: MELITHREPTUS CHLOROPSIS:Gould.
+IV,74,birdsAustraliav4Goul,308,"SEORTE PIU S AUB OGIMLAIRIS: Gavdd, SL Gould and HR Mtv del ot tithe. ; Folimand & Walter Lag",Melithreptus albogularis,yes,portrait,0.935,,Vision OCR: MELITHREPTUS ALBOGULARIS: Gould.
+IV,75,birdsAustraliav4Goul,312,MIRILANOCE PIFAILUS : Gould. J Gould and HC Ticker dé & litde. Helland te Viktor Pg.,Melithreptus melanocephalus,yes,portrait,0.903,,Vision OCR: MELITHREPTUS MELANOCKPHALTS: Gould.
+IV,76,birdsAustraliav4Goul,316,"AGvald and HOC Richter del ob bly, LAs Vig & fie",Myzantha garrula,yes,portrait,0.919,,Vision OCR: MYZANTHA GARRULA: Vig:& Horsf
+IV,77,birdsAustraliav4Goul,320,"IVZAN THA OBSCURA? Goad / Wher hed. ut tide, : ' 0 Hidtrnandel lop, A trata and Fel",Myzantha obscura,yes,portrait,0.940,,Vision OCR: MYZANTHA OBSUURA:Guld
+IV,78,birdsAustraliav4Goul,324,,Myzantha lutea,yes,portrait,0.947,,Vision OCR: MYZANTHA LUTEA: Gud
+IV,79,birdsAustraliav4Goul,328,HA PLAVIGULA: Gadd 4 toukd ak HC hichtor deh a bith: Hallmandd & Vi,Myzantha flavigula,yes,portrait,0.898,,Vision OCR: MYZANTHA FLAVIGULA: Could.
+IV,80,birdsAustraliav4Goul,332,MY ZAN THA YURDUDIS. JH Genkd and HC Ridin Ad & bith. Fiullavandd & Walton fay.,Myzantha viridis,no,portrait,0.923,,"read from image: plate is engraved MYZANTHA VIRIDIS (Gould's plate name for the Bell-bird); leaf is right: the facing text leaf 333 is MYZANTHA MELANOPHRYS, Australian Bell-bird, and no leaf within ±8 carries a melanophrys caption; caption_top measured by eye against a ruler on the image"
+IV,81,birdsAustraliav4Goul,336,"AOSTEROPS DORSALIS: Ky. &LAorsf: | Ps ig. be Hor. a S Gouldand HUA uh dad th CHallmeande tig,",Zosterops dorsalis,yes,portrait,0.939,,Vision OCR: DORSALIS: Vig &Horsf:
+IV,82,birdsAustraliav4Goul,340,ZLOSTEROPS CHLORONOTUS: Gould S Gold and Hl -Kichter del a lith. ‘ Ae C Lallnandad Lrp.,Zosterops chloronotus,yes,portrait,0.904,,Vision OCR: ZOSTEROPS CHLORONOTUS: Goald
+IV,83,birdsAustraliav4Goul,344,"ZOSTEROPS LUTEUS: Gould, aes FOontd and UC Kichler del ot lithe. MEENA",Zosterops luteus,yes,portrait,0.955,,Vision OCR: ZOSTEROPS LUTEUS: Gould.
+IV,84,birdsAustraliav4Goul,348,A ke Waktow hage el Us Mwhinen Bred s,Cuculus optatus,yes,portrait,0.926,,Vision OCR: CUTULIS DPTAUS: Gould
+IV,85,birdsAustraliav4Goul,352,"y Se es . Ae ye i US3 Vig. & Hors}, J trould and WC Hichter ddl eb tithe. Hullmandd & Walton Imp.",Cuculus inornatus,yes,portrait,0.912,,Vision OCR: CUCULUS INORNATUS: Vig & Horsf:
+IV,86,birdsAustraliav4Goul,356,"CUCULUS CINERACKUSs: hig:& Mins Tonld and tC -Richiter dd a lith, Hullonandd & Walton Bap.",Cuculus cineraceus,yes,portrait,0.870,,Vision OCR: CUCULUS CINERACEUS: Vig& Horsf
+IV,87,birdsAustraliav4Goul,360,CUCULUS J Gowld and HU-Richter del et ith. k Millimandel &MWaltere lay.,Cuculus insperatus,yes,portrait,0.889,,Vision OCR: CUCULUS INSPERATUS: Cold.
+IV,88,birdsAustraliav4Goul,364,» 3 Cul th J Could und Met dictter Ach et bith,Chalcites osculans,yes,portrait,0.889,,Vision OCR: CHALCYPES OSCULANS:Could:
+IV,89,birdsAustraliav4Goul,368,CHRYSOCOCCYRX LUCIDUS. | ' J Could and I C#rehter Ad eb tiv. Hielimundd & Wadeony Lp.,Chrysococcyx lucidus,yes,portrait,0.891,,Vision OCR: CHRYSOCOCCYX LUCIDUS.
+IV,90,birdsAustraliav4Goul,372,S SY aS; & N OS aS} it HC,Scythrops Novae-Hollandiae,yes,portrait,0.967,,read from image; caption_top measured by eye against a ruler on the image
+IV,91,birdsAustraliav4Goul,376,Ih and HC Richter Al ot Wiehe. rou LA af,Eudynamys Flindersii,yes,portrait,0.932,,Vision OCR: EUDYNAMYS FLNDERSU
+IV,92,birdsAustraliav4Goul,380,Wiss 7 LAN a i PHAS » iPUS \ Y AC iD Pr IW i by AA \ Cit Titman & Wation trp. J. bouid and AA Kichiy del e uth.,Centropus Phasianus,yes,portrait,0.961,,Vision OCR: CENTROPUS PHASIANUS.
+IV,93,birdsAustraliav4Goul,384,"CLIMACTERIS SCANDENS: 2mm | ie as J&L Coubd, adh vt ith, 0 Citulimandel Lap",Climacteris scandens,yes,portrait,0.913,,Vision OCR: CLIMACTERIS SCANDENS: Temm
+IV,94,birdsAustraliav4Goul,388,"CLIMACTERIS RUPA: Gould, SEL, Gould deb cb hit C Hadimeandd Lin :",Climacteris rufa,yes,portrait,0.889,,Vision OCR: CLIMACTERIS RUFA: Goula®
+IV,95,birdsAustraliav4Goul,392,"2 CLIMACTERIS ERYTHROPS: GxdZ L£ Could del et hth € Hallmanded Lip,",Climacteris erythrops,yes,portrait,0.887,,Vision OCR: CLIMACTERIS ERYTHROPS: Gould
+IV,96,birdsAustraliav4Goul,396,MAC TIRE IRIS 4 ith MHillinandel & Watlow tiny. Ubi wad MHA buch tor hel,Climacteris melanotus,yes,portrait,0.911,,Vision OCR: CHIMAUTERIS MELANOTUS: Could.
+IV,97,birdsAustraliav4Goul,400,ld. Ol EG a\\ C. Hallnandel in YW S Ny NS 8 S S Ss Ye ~ S S _ S S NS 8,Climacteris melanura,yes,portrait,0.947,,Vision OCR: CLIMACTERIS MELANURA:Culd
+IV,98,birdsAustraliav4Goul,404,IS PICUMNUS: Zewm- IMACTER CL VE OLD:,Climacteris picumnus,yes,portrait,0.895,,Vision OCR: CLIMACTERIS PICUMNUS: Temm
+IV,99,birdsAustraliav4Goul,408,CHEULL- Ti > ICATDUSs Lap. Me Wy He Halland ise vi hi beck te Hichiia Vhcild aid Wet,Orthonyx spinicaudus,yes,portrait,0.921,,Vision OCR: ORTHONYX SPIVIAUDUS: Zemm:
+IV,100,birdsAustraliav4Goul,412,"q WANS J 9 oO JIS BA HY PA cel WD TPULORI | } iD) Wh and tC Richey Ad eo lithy, OV i EG",Ptiloris paradiseus,yes,portrait,0.938,,Vision OCR: PTILORIS PARADISEA: Swains:
+IV,101,birdsAustraliav4Goul,416,a LF leawlae aput LOR CHaltmande Saye,Sittella chrysoptera,yes,portrait,0.940,,Vision OCR: SITTELLA CHRYSOPTERA:Swains
+IV,102,birdsAustraliav4Goul,420,"SY TELLA LEU COCK PHA ILA 3 Gould. . Aol and HNhihLer dd ot lth, tithinandd & Walton lap.",Sittella leucocephala,yes,portrait,0.892,,Vision OCR: SITTELA LEUCOCEPHALA:Cold
+IV,103,birdsAustraliav4Goul,424,"a S Gould and Lhiuhtor dd ali. SITTER LLA Lik UCOP TERA: Goal, C Finllmandel",Sittella leucoptera,yes,portrait,0.868,,Vision OCR: SITTELA LEUCOPTERA: Gould.
+IV,104,birdsAustraliav4Goul,428,"& SITET Bibb Lf Gonld, aud HC Richie ded ce tad CFillinandel Tap. -",Sittella pileata,yes,portrait,0.943,,Vision OCR: SITTELLA PLLEATA:Gould
+V,1,birdsAustraliav5Goul,12,,Cacatua galerita,yes,portrait,0.969,,Vision OCR: CACATTA CALERITA: Uel
+V,2,birdsAustraliav5Goul,16,"I ATW IB Lilith. i , ; OC hilly T Crottid: aaid IC Sada (Lip.",Cacatua Leadbeateri,yes,portrait,0.961,,Vision OCR: CACATUA LHADBEATERI: Wag
+V,3,birdsAustraliav5Goul,20,"‘Fay. fed ABCA Calin LM” A, GZ, it iney Al",Cacatua sanguinea,yes,portrait,0.974,,Vision OCR: CACATUA SANGUINEA: Gould.
+V,4,birdsAustraliav5Goul,24,"Hillvandd & Walton Sup. pets TF ould: and HU Rreliter del evlith,",Cacatua Eos,yes,portrait,0.969,,Vision OCR: CACATTA EOS.
+V,5,birdsAustraliav5Goul,28,Halland & Waltor Lng. hy. SI Goh Anh HC Richter del &it,Licmetis nasicus,yes,portrait,0.948,,Vision OCR: MICMETIS NASICUS.
+V,6,birdsAustraliav5Goul,32,Dream from Mature honstne by ThE Goudd: NESTOR PRODUCTUS: (eu) Lranted by C Pakinandel es EY ete,Nestor productus,yes,portrait,0.943,,Vision OCR: NESTOR PRODUCTUS; (Gould)
+V,7,birdsAustraliav5Goul,36,J. Gould VC Bachter had orl Tilinandad & Walton Lup.,Calyptorhynchus Banksii,yes,portrait,0.968,,Vision OCR: CALYPTORHYNCHUS BANKSH.
+V,8,birdsAustraliav5Goul,40,"Foaagy f Walton Haltaaowsnde! £ bith, / Py Aa €@ VORALY 6 if t und: He Gara",Calyptorhynchus macrorhynchus,yes,portrait,0.947,,Vision OCR: CALYPTORHYNCHUS MACROREYNCHUS: Gould
+V,9,birdsAustraliav5Goul,44,= serie i 4 : Millicandel ky Witton Say. Col | o o VASO nw oe lithe. hte heh fre rodil amd ff 7 Mb,Calyptorhynchus naso,yes,portrait,0.960,,Vision OCR: CALYPTORHYNCHUS NASO: Could
+V,10,birdsAustraliav5Goul,48,"Hullanandel & Wallin Fp. ( \ CHIL. LEA HLUS : C NY W | AN OIRTY. ALYP 1 t tA, C J Gould and H.C. Richter del & bith,",Calyptorhynchus Leachii,yes,portrait,0.965,,"Vision OCR: CALYPTORHYNCHUS LEACHI,"
+V,11,birdsAustraliav5Goul,52,"LYPTORAHYNCHUS FUNEREUS . Toounld and HRiehter del ty bith, Hallmanded & Wilton Tap.",Calyptorhynchus funereus,yes,portrait,0.957,,Vision OCR: CALYPTORHYNCHUS FUNEREUS.
+V,12,birdsAustraliav5Goul,56,CALYTORHYNCHUS XANTHONOTUS: Gald: I Gould and ACRichter deh ce lithe.,Calyptorhynchus xanthonotus,yes,portrait,0.979,,Vision OCR: CALYTORHYNCHUS XANTHONOTUS: Gould.
+V,13,birdsAustraliav5Goul,60,"Benue Halland, & Watlten tayp, Richter del ce tith. +, treuld> and Mt.",Calyptorhynchus Baudinii,yes,portrait,0.942,,Vision OCR: CALYPTORHYNCHUS BAUDINI Vig:
+V,14,birdsAustraliav5Goul,64,"So Guild and HUT hee Al eb lity, i PHALO. GAIJEAATU M. Mullin der & Weltan Tage.",Callocephalon galeatum,yes,portrait,0.931,,Vision OCR: CALLOCEPHALON GALEATUM.
+V,15,birdsAustraliav5Goul,68,Simp. EMER DTA LNNROEE ne nld an AL Go,Polytelis Barrabandi,yes,portrait,0.945,,Vision OCR: POLYTELIS BARRABANDI.
+V,16,birdsAustraliav5Goul,72,OLYTELIS MELANT ter delice Lith. Halland & Walton Imp. J. Goald and H-C-Rice,Polytelis melanura,yes,portrait,0.920,,Vision OCR: POLYTELIS MELANURA.
+V,17,birdsAustraliav5Goul,76,"eae ATUS . is AS GRIF S CA r andl LA fichier del © S boul,",Aprosmictus scapulatus,yes,portrait,0.930,,"Vision OCR: APROSMICTES SCAPULATUS,"
+V,18,birdsAustraliav5Goul,80,IRC ile i RY] tES iA fidimandel Lp. G A bouldiand WC Kuhio bl &,Aprosmictus erythropterus,yes,portrait,0.960,,"Vision OCR: APROSMUTTS ERYTEROPTERUS,"
+V,19,birdsAustraliav5Goul,84,"J, tronta 77 Fy, ( Hitirnoandte luge,",Platycercus semitorquatus,yes,portrait,0.933,,Vision OCR: PLATYCERCUS SEMITORQUATUS.
+V,20,birdsAustraliav5Goul,88,"rc scrapes Ge Ht, Fallucanded fi é wld and AC Kichter de ek beth. C I.E",Platycercus Baueri,yes,portrait,0.912,,Vision OCR: PLATYTEROUS BATERE Vy&Hos
+V,21,birdsAustraliav5Goul,92,"Y, C24. lallpanidel Ly es Xs iS x & GY A Via Htc hd and LL,",Platycercus Barnardi,yes,portrait,0.951,,Vision OCR: PLATYCERCUS BARNARDI: Vig& Horsf
+V,22,birdsAustraliav5Goul,96,"PLATYCERCUS ADELAIDE: Coxdd. i - | J&L Could: deb. to tit. 0 Hadlmandel Lng,",Platycercus Adelaidiae,yes,portrait,0.909,,Vision OCR: PILATYCERCUS ADELAIDIAE: Gould
+V,23,birdsAustraliav5Goul,100,"S oid cad Hl-Richtor del Att PLATYCERC! ene am, memes SCN Seer eptM Toei TS PENN Weenie gee eqns es ABI ANTII, fiullenmdd. & Walt Trg.",Platycercus Pennantii,yes,portrait,0.948,,Vision OCR: PLATYCERCUS PENNANTH.
+V,24,birdsAustraliav5Goul,104,iS. y i i MN ir any \i \ N i A Ib v AY] \ = | | RCT ‘ TR Ch TY LA’ ile Titlnandel & Wotton Ling ould cons HC Hrehter Ah & bith “4 SAG,Platycercus flaviventris,yes,portrait,0.943,,Vision OCR: PLATYCERCUS FLAVIVENTRIS.
+V,25,birdsAustraliav5Goul,108,"UUW, “0 PLATYCERCUS FLAVEOLUS: 4 SS S S S N S RY wht",Platycercus flaveolus,yes,portrait,0.855,,Vision OCR: PLATYCERCUS FLAVEOLUS: Gould
+V,26,birdsAustraliav5Goul,112,PLATYCERCUS PALLICEPS : Zig. SbLe Could deb ow lth : ; : CLiblmanded Lp.,Platycercus palliceps,yes,portrait,0.848,,Vision OCR: PHATYCERCUS PALIICEPS: Vig:
+V,27,birdsAustraliav5Goul,116,si Uf Valh Hidimandel X: SGoold and HCRichta: dd a-bth. ¢ Tip.,Platycercus eximius,yes,portrait,0.923,,read from image
+V,28,birdsAustraliav5Goul,120,"\\ \ } can DIEDUS : Gow he to Hullmande, & Walton lay Comal aul LC Richter det ef",Platycercus splendidus,yes,portrait,0.936,,Vision OCR: PLATYCERCUS SPLENDIDUS: Gould
+V,29,birdsAustraliav5Goul,124,"PLATYCERCUS ICTEE J Gould and HCKic > Aeh et bith del 7 / A Gould and HC Richter Ach & lith, Hillnondel & Walton Trp.",Platycercus icterotis,yes,portrait,0.909,,Vision OCR: PLATYCERCUS ICTEROTIS.
+V,30,birdsAustraliav5Goul,128,"Si : Fallanadel & Walter Lrg. ATYCERCUS IGNITU SF. Gouldand HC Kichter dd lithe, n",Platycercus ignitus,yes,portrait,0.907,,"Vision OCR: PLATYCERCUS IGNITUS:Zeadb,"
+V,31,birdsAustraliav5Goul,132,A. Could and IC Richter del cb lity. EY CI m5 1D CONE x NENOIEMOE SS) Al Us Hig:& Horsf: C Haltinandel Lap.,Platycercus Brownii,yes,portrait,0.903,,Vision OCR: PLATYCERCUS BROWNIL:Vig&Horsf
+V,32,birdsAustraliav5Goul,136,"PLATYCERCUS PILEATUS: lig, LGoukda and ECKichler dl alith. Kudirwanded & altar fruze",Platycercus pileatus,yes,portrait,0.966,,Vision OCR: PLATYCERCUS PILEATUS: Vig.
+V,33,birdsAustraliav5Goul,140,"Cad ond BCRichier del vtith, PSEPHO TI US Hé®MATOGASTER: Goald",Psephotus haematogaster,yes,portrait,0.928,,Vision OCR: PSEPHOTUS HAMATOGASTER: Cold.
+V,34,birdsAustraliav5Goul,144,MUS: Gould. Halliamdel & Walter Lrg. J boul and HEL,Psephotus pulcherrimus,yes,portrait,0.883,,Vision OCR: PSEPHOTUS PULCHERRIMUS: GOuld.
+V,35,birdsAustraliav5Goul,148,< PSEPHOTUS MULTICOLC T Gould and HCRichter dal et hid. Fillnanded & Weltow Lig,Psephotus multicolor,yes,portrait,0.973,,Vision OCR: PSEPHOTUS MULTICOLOR.
+V,36,birdsAustraliav5Goul,152,"PSEPHOTUS HEMATONOTUS. Anna and HoRihier det ue tith. Hidlmandd & Walton tmp, f 1 uw",Psephotus haematonotus,yes,portrait,0.930,,Vision OCR: PSEPHOTUS HÆMATONOTUS.
+V,37,birdsAustraliav5Goul,156,ThE Coubd aeaie EUPHEMA CHRYS OSTOMA: Wagl. 0 Fablmandel Ing: os,Euphema chrysostoma,yes,portrait,0.878,,Vision OCR: EUPHEMA CHRYSOSTOMA: Wagl:
+V,38,birdsAustraliav5Goul,160,EUPHEMA ELEGANS: Goud CLudimandel liye,Euphema elegans,yes,portrait,0.888,,Vision OCR: EUPHEMA ELEGANS: Goud
+V,39,birdsAustraliav5Goul,164,"EUPHIE MA AUIRAN TIA: Gould. ie S&L. Contd del! Lane §3 C Hellmandd Jap,",Euphema aurantia,yes,portrait,0.942,,Vision OCR: EUPHEMA AURANTIA: Gud
+V,40,birdsAustraliav5Goul,168,UPHEMA P Sealand EC Richter del cb lithy CLelbnendel bap.,Euphema petrophila,yes,portrait,0.884,,Vision OCR: EUPHEMA PETROPHILA: Could.
+V,41,birdsAustraliav5Goul,172,CHallmande Lr — L i] MS lie AVG Gon,Euphema pulchella,yes,portrait,0.944,,Vision OCR: FUPHEMA PTLTHELLA:Wag!
+V,42,birdsAustraliav5Goul,176,">a Fultmanded & Walton lp. Gould, ° ° EUPHEMA SPLENDIDA J Gold and Chica dd blith,",Euphema splendida,yes,portrait,0.918,,Vision OCR: EUPHEMA SPLENDIDA: Gould.
+V,43,birdsAustraliav5Goul,180,I WIP TUB TA 13 © U0 IRI.,Euphema Bourkii,yes,portrait,0.911,,Vision OCR: EUPHEMA BOURKI.
+V,44,birdsAustraliav5Goul,184,"MELOPSITTACUS UNDULATUS. LOL Contd dal, C Hulimandel Linge",Melopsittacus undulatus,yes,portrait,0.933,,Vision OCR: MELOPSITTACUS UNDULATUS.
+V,45,birdsAustraliav5Goul,188,"NYMPHICUS NOVA,-HOLLAN IDILAS; (Wagl) Dram on Ste by Lk E boule from aJraving by Eien lear : Binied ty C Hedlenande. te",Nymphicus Novae-Hollandiae,yes,portrait,0.930,,"Vision OCR: NYMPHICUS NOVÀ - HOLMANDIA, Wag!:/"
+V,46,birdsAustraliav5Goul,192,"ais Sa i Pee ee at at bata iss sis een as Soe ; ? ‘ hinge VOU 9 puprer me ige , ‘ UY TP PP AIVYOVT Ef Pu pyqg : 1 2 Th? SS OW Ow Si aad Z. ala",Pezoporus formosus,yes,landscape,,,Vision OCR: PEZOPORUS FORMOSUS:™
+V,47,birdsAustraliav5Goul,196,LAT HAM US in Baza) (Ee: nla debe GE Jb EG,Lathamus discolor,yes,portrait,0.970,,Vision OCR: LATHAMUS DISCOLOR.
+V,48,birdsAustraliav5Goul,200,"NSONID: Jarl £ 5206. , | CHillmante Linz, S WAT i fnal de agit NUL ihtey a",Trichoglossus Swainsonii,yes,portrait,0.910,,Vision OCR: TRICHOGHOSSUS SWAINSONII: Jard:&Seb:
+V,49,birdsAustraliav5Goul,204,Lh lyin,Trichoglossus rubritorquis,yes,portrait,0.947,,Vision OCR: TRIHOCLOSSTS BUBRITORQUIS: IgXZY
+V,50,birdsAustraliav5Goul,208,IGLOSSUS CHLOROLEPH DOTS 3 fad & seb: 4 C Fiallnvas J Coad andl Eichten deb et lity,Trichoglossus chlorolepidotus,yes,portrait,0.938,,Vision OCR: TRICHOGLOSSUS CHLOROLEPIDOTTS: Jard &YG:
+V,51,birdsAustraliav5Goul,212,aes Sea Ph sins Ve > 2 Y LOR -O 1 My y y ENOEE } i Vit ¢ J ( — if : e Lulimmamde Linge fe veld anh HC Bichter def,Trichoglossus versicolor,yes,portrait,0.945,,Vision OCR: TRICHOGLOSSUS VERSICOLOR:
+V,52,birdsAustraliav5Goul,216,SSUS CONCINNUS: My: & Horsf: Jbold and Ht Hicdter del ut bith.,Trichoglossus concinnus,yes,portrait,0.918,,Vision OCR: TRICHOGLOSSUS CONCINNUS: Vig: & Horsf:
+V,53,birdsAustraliav5Goul,220,TRICHOGLOSSUS PORPHYROCEPHALUS: Det TLE Goulds dal Ae,Trichoglossus porphyrocephalus,yes,portrait,0.913,,Vision OCR: TRICHOGLOSSUS PORPHYROCEPHALUS: Det
+V,54,birdsAustraliav5Goul,224,Libeerbe cur Bt A bs ay CHidlbhyandel Lng. Lek Ze bith.,Trichoglossus pusillus,yes,portrait,0.928,,Vision OCR: TRICHOGLOSSUS PUSILLUS; Vig: & Horsf
+V,55,birdsAustraliav5Goul,228,,Ptilinopus Swainsonii,yes,portrait,0.911,,read from image
+V,56,birdsAustraliav5Goul,232,Le pera ae 6 Parllinandtel yp,Ptilinopus Ewingii,yes,portrait,0.910,,read from image; caption_top measured by eye against a ruler on the image
+V,57,birdsAustraliav5Goul,236,"PPUS SUPERBU Sia, aud HACIBE Ti: AM Ob MB CHilimandel Lug.",Ptilinopus superbus,yes,portrait,0.925,,"Vision OCR: PTILINDPUS SUPERBUS,"
+V,58,birdsAustraliav5Goul,240,CARPOPHAGA MAGNIFICA. J Guslad and HC Rite AA a hte dallonandd ke Winltorw Pay,Carpophaga magnifica,yes,portrait,0.909,,Vision OCR: CARPOPHACA MAGNIFICA.
+V,59,birdsAustraliav5Goul,244,"SCould and AC Rudiver dad & lithe, CAIR POP! ALA. GA I LEUCOM BLA. - CLiinlimandel lng.",Carpophaga leucomela,yes,portrait,0.944,,Vision OCR: CARPOPHAGA LEUCOMELA.
+V,60,birdsAustraliav5Goul,248,Stee 4 Co Hallmandd. J Could an,Carpophaga luctuosa,yes,portrait,0.937,,Vision OCR: CARPOPHACA LUCTUOSA
+V,61,birdsAustraliav5Goul,252,,Lopholaimus Antarcticus,yes,portrait,0.937,,Vision OCR: LOPHOLAIMUS ANTARCTICUS: GR Gray
+V,62,birdsAustraliav5Goul,256,"tHablianudel Lop. iw hed eb lith, J bculd and HOR",Chalcophaps chrysochlora,yes,portrait,0.930,,Vision OCR: CHALCOPHAPS CHRYSOCHLORA.
+V,63,birdsAustraliav5Goul,260,,Leucosarcia picata,yes,landscape,,,read from image
+V,64,birdsAustraliav5Goul,264,,Peristera chalcoptera,yes,landscape,,,read from image
+V,65,birdsAustraliav5Goul,268,"YN PP YI, PUP PPO2 ‘ ; . ee a (es Heese dBA AUSTEN",Peristera elegans,yes,landscape,,,Vision OCR: PERISTERA ELEGANS.
+V,66,birdsAustraliav5Goul,272,,Peristera histrionica,yes,landscape,,,Vision OCR: PERISTERA HISTRIONICA: GoA
+V,67,birdsAustraliav5Goul,276,,Geophaps scripta,yes,landscape,,,read from image
+V,68,birdsAustraliav5Goul,280,"CLIO AIG OAL AAPL oA i 4 4 2272 Dif? a"" a . . ine ae ce See Bi ile SE eT ee ee a ren i i lat a a = 2 7 = _ . = ss r = eens , ii ccna . 4 . . . si ii ™ si = aay = ee : * > TH { x ¥ Me Sad ere Runerepem",Geophaps Smithii,yes,landscape,,,Vision OCR: PS SMITH
+V,69,birdsAustraliav5Goul,284,,Geophaps plumifera,yes,landscape,,,read from image
+V,70,birdsAustraliav5Goul,288,OCYPHAPS LOPHOTE A Goulds cnbk MAOKGE diter ded Meth.,Ocyphaps Lophotes,yes,portrait,0.898,,Vision OCR: OCYPHAPS LOPHOTES:
+V,71,birdsAustraliav5Goul,292,a ome | ne QOD ST NNAAIALVY VSS VAdOULad _— | Se eo,Petrophassa albipennis,yes,landscape,,,Vision OCR: PETROPHASSA ALBIPENNIS: Goud
+V,72,birdsAustraliav5Goul,296,1 teoutd and HC. Kichtes det et lth ee CO hidanandel hyp. *,Geopelia humeralis,yes,portrait,0.929,,Vision OCR: GEOPELIA HUMERALIS.
+V,73,birdsAustraliav5Goul,300,CEROPELIA TRAN QUILLAs Could Paes ; Fillnanded & Waltow Lup. Téould and HC Hachtr Hel at Lith.,Geopelia tranquilla,yes,portrait,0.904,,Vision OCR: GEOPELIA TRANQUILIA: Could:
+V,74,birdsAustraliav5Goul,304,Thoda and Wee Kichter del & lth. Tillinandd & Walton Lup.,Geopelia cuneata,yes,portrait,0.923,,"Vision OCR: GEDPELIA CUNEATA,"
+V,75,birdsAustraliav5Goul,308,F * 4 ° . TAN KILDA. Tbonld ond LC Raditer del brit. ; C Hdlmandel Th,Macropygia Phasianella,yes,portrait,0.890,,Vision OCR: MACROPYCIA PHASTANÈLLA.
+V,76,birdsAustraliav5Goul,312,PLMZ VOPLIENA SV POWVIUA YING S YD IA Tepe AeLY2T 2D FE per ppaog “/ _ PEL? SVALLS OSD TeLILS WO) CLOTH IW NPS),Gnathodon strigirostris,yes,landscape,,,Vision OCR: GNATHODON STRICIROSTRIS: Jard
+V,77,birdsAustraliav5Goul,316,DPEEL DAME PEE DI . aoaiieete . on . - a saa Al NO TEN alia Sea SP WS ED al eS Sey,Talegalla Lathami,yes,landscape,,,read from image; letters partly in the gutter
+V,78,birdsAustraliav5Goul,320,"VZZZZEXKAE NA) aia , sae",Leipoa ocellata,yes,landscape,,,Vision OCR: CE LIATA : Goul
+V,79,birdsAustraliav5Goul,324,|,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 325 opens ""MEGAPODIUS TUMULUS, Gowda. -Mound-raising Megapode. Megapodi""; subject consistent"
+V,80,birdsAustraliav5Goul,328,": te : ' re duly pepunupuy 7 : 9p yy09 HP / | | ee 79709 3 Nall VIM W, GOIN N ONC sae",Pedionomus torquatus,yes,landscape,,,Vision OCR: PEDIONOMUS TORQUATUS: Goud
+V,81,birdsAustraliav5Goul,332,uy ALIN ALY Ppreweouaypay RY P PP CYpPYT.)-H pre pyso4 fp a : pm) TALL SVOONV TTA SOTCOd aA aun,Hemipodius melanogaster,yes,landscape,,,Vision OCR: HEMIPODIUS MELANOGASTER: Gould.
+V,82,birdsAustraliav5Goul,336,YD PP AMYpNy.) fF pun pp,Hemipodius varius,yes,landscape,,,Vision OCR: HEMIPODIUS VARIUS.
+V,83,birdsAustraliav5Goul,340,: i : Ss MANY 4 pp AQUOS “) abil (PUD PyNVD “f? spe SII,Hemipodius scintillans,yes,landscape,,,Vision OCR: HEMIPODIUS SCINTILLANS: Goald.
+V,84,birdsAustraliav5Goul,344,r aoe aia peg SL LONV TANT SOIC Oa TAT ee EO Oa . PRS eesreneeo,Hemipodius melanotus,yes,landscape,,,Vision OCR: HEMIPODIUS. MELANOTUS: Gould.
+V,85,birdsAustraliav5Goul,348,diz pprevunpay 2 ai : = i : Sh ha A Ad il OVP Diy GLEE G ZOU FF,Hemipodius castanotus,yes,landscape,,,Vision OCR: HEMIPODIUS CASTANOTUS: Goald
+V,86,birdsAustraliav5Goul,352,ity paprmorugyay 9 PT2ED XV AO) AL OUAA dl SOULE dl WAY SET se,Hemipodius pyrrhothorax,yes,landscape,,,Vision OCR: HEMIPODIUS PYRROTHORAX: Guld
+V,87,birdsAustraliav5Goul,356,DP MPLODY GA : PYPOD * SDMA SAC ad WAY SLIAE oe 3 . “4 : UL VYPPVEVP UN PUY ),Hemipodius velox,yes,landscape,,,Vision OCR: HEMPODЛUS VELOX: Gould
+V,88,birdsAustraliav5Goul,360,\ Hallmandd & Walton Lip. Gould. BY o EKCTORALIS J Gould and HEC Recher del. ot lithe.,Coturnix pectoralis,yes,landscape,,,Vision OCR: COTURNIX PECTORALIS: Gould
+V,89,birdsAustraliav5Goul,364,Lay prema,Synoicus Australis,yes,landscape,,,Vision OCR: SYNOICUS AUSTRALIS.
+V,90,birdsAustraliav5Goul,368,ee ig : i uy orp Be yop wy . : } EGE NEARER TE FAIIO FAIRLIE a | | : “ppg 2 SVS ALATA SS,Synoicus Diemenensis,yes,landscape,,,Vision OCR: SYNOICUS DIEMENENSIS: Could.
+V,91,birdsAustraliav5Goul,372,ey woupayy » Praugyea Re Dp OL UT TH pre pynrg,Synoicus sordidus,yes,landscape,,,Vision OCR: SYNOICUS SORDIDUS.
+V,92,birdsAustraliav5Goul,376,ee ) ne | “SISNWNIHO SMOTONAS satinnpantnst ca,Synoicus Chinensis,yes,landscape,,,Vision OCR: SYNOICUS CHINENSIS.
+VI,1,birdsAustraliav6Goul,12,or QT - SW yu aenoy.capeayy ha vup7e we pus seam uit! Maney aig seg x \,Dromaius Novae-Hollandiae,yes,landscape,,,Vision OCR: DROMAIUS NOVE-HOLLANDLE.
+VI,2,birdsAustraliav6Goul,16,,Apteryx australis,yes,landscape,,,read from image
+VI,3,birdsAustraliav6Goul,20,,Apteryx Owenii,yes,landscape,,,Vision OCR: APTERYX OWENH:
+VI,4,birdsAustraliav6Goul,24,Ai pope ways itt] |) : boyy 9 20 YT) if HOO (SN NVISWIVELLS AV SILLO ©,Otis australasianus,yes,landscape,,,Vision OCR: DTIS ATSTRATASIAS GOuid
+VI,5,birdsAustraliav6Goul,28,,Oedicnemus grallarius,yes,landscape,,,read from image
+VI,6,birdsAustraliav6Goul,32,"ee ee , ANY P EP PLP PUP 7",Esacus magnirostris,yes,landscape,,,Vision OCR: FSACUS MAGNIROSTRIS.
+VI,7,birdsAustraliav6Goul,36,Php uasiinyy 6 S ed O LW TAT? I,Haematopus longirostris,yes,landscape,,,Vision OCR: HÆMATOPUS LONCIROSTRIS: Gould.
+VI,8,birdsAustraliav6Goul,40,yo } WY ppd) 7? TAN AEOWAD NY OM DILL PLD Ve y yp P22 pypuUn Vay JV buy wayyy pre pox eerie,Haematopus fuliginosus,yes,landscape,,,Vision OCR: HÆMATOPUS FULIGINOSUS: Gould.
+VI,9,birdsAustraliav6Goul,44,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 45 opens ""LOBIVANELLUS LOBATUS. Wattled Pewit. Tringa lobata, Lath. In""; subject consistent"
+VI,10,birdsAustraliav6Goul,48,"yyy VU), Vy) . ee ¥ —— iter eat . . — oe — = = ™” pet) Yo ; PRED POV TEN OO SS id",Lobivanellus personatus,yes,landscape,,,Vision OCR: TOBINANELLLE PERSONATUSCZY
+VI,11,birdsAustraliav6Goul,52,i aamecaaalaceaalnacaaalaaaae — ia roLotd ST TOnd Onrres ee | ai einer ee,Sarciophorus pectoralis,yes,landscape,,,Vision OCR: SARCIOPHORIS PECTORALIS.
+VI,12,birdsAustraliav6Goul,56,"- —, Oar atopy 9¢ pyr eoneyptagy ical WYP BP INN 7.4 UO pyn0g ¢ ee “VOLLGATIE VIOWVLVOOS are : ‘ Vb",Squatarola helvetica,yes,landscape,,,Vision OCR: SQUATARDLA HELVETICA.
+VI,13,birdsAustraliav6Goul,60,— — . ) DP PP ALPRT DAY PUB YAS fe i | — PY SOT AHOOHLNVY SOIWaAVYVHO igi | : aaa ed,Charadrius xanthocheilus,yes,landscape,,,Vision OCR: CHARADRIUS XANTHOCHEILUS: Wagl
+VI,14,birdsAustraliav6Goul,64,cae oe ) GHARAIDIRE,Charadrius veredus,yes,landscape,,,Vision OCR: VEREDUS: Gould
+VI,15,birdsAustraliav6Goul,68,Gay sue cin AEN,Eudromias australis,yes,landscape,,,Vision OCR: EUDROMIAS AUSTRALIS: Could
+VI,16,birdsAustraliav6Goul,72,,Hiaticula bicincta,yes,landscape,,,read from image
+VI,17,birdsAustraliav6Goul,76,= ae ve ere ee a ‘ : ; ‘,Hiaticula ruficapilla,yes,landscape,,,Vision OCR: HIATICULA RUFICAPILLA.
+VI,18,birdsAustraliav6Goul,80,TDS TA NYSED VIEL nepnen sap fy uci naory admnoyy nto asin,Hiaticula monacha,yes,landscape,,,Vision OCR: HIATICULA MONACHA.
+VI,19,birdsAustraliav6Goul,84,MIT Vt. CL ae Le 2p) PINION WLI CHET i PP OLpPRT I Hew pgp,Hiaticula inornata,yes,landscape,,,Vision OCR: HIATICTLA INORNATA:Gould
+VI,20,birdsAustraliav6Goul,88,,Hiaticula nigrifrons,yes,landscape,,,read from image
+VI,21,birdsAustraliav6Goul,92,- oo Peo SL ONY SkNOVOTMLAT ica ii ee nnn a ee gis amen,Erythrogonys cinctus,yes,landscape,,,Vision OCR: ERYTHROCONYS CINCTIS: Ga
+VI,22,birdsAustraliav6Goul,96,\ Guy Woyesy ¥ 7} EEN DGD CORPSE DIT (LVAD [ELEY TE omavernene a,Glareola grallaria,yes,landscape,,,Vision OCR: GLAREOLA GRALLARIA: Temm:
+VI,23,birdsAustraliav6Goul,100,hit] MOLY) I PP VOUyypony YT SVN IN da,Glareola orientalis,yes,landscape,,,Vision OCR: GLAREOLA ORIENTALIS: Leach
+VI,24,birdsAustraliav6Goul,104,,Himantopus leucocephalus,yes,landscape,,,read from image
+VI,25,birdsAustraliav6Goul,108,Booed en ore =,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 109 opens ""HIMANTOPUS NOV 4-ZELANDIA, Goud New Zealand Stilt. Himantopu""; subject consistent"
+VI,26,birdsAustraliav6Goul,112,"te es SHEP, tS!",,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 113 opens ""CLADORHYNCHUS PECTORALIS, &@. RB. Gray. Banded Stilt. Leptor""; subject consistent"
+VI,27,birdsAustraliav6Goul,116,,Recurvirostra rubricollis,yes,landscape,,,read from image
+VI,28,birdsAustraliav6Goul,120,ii lace Se PMG Ca Ty tN Ee COIN _,Limosa melanuroides,yes,landscape,,,Vision OCR: MOSA MELANUROIDES
+VI,29,birdsAustraliav6Goul,124,,Limosa uropygialis,yes,landscape,,,Vision OCR: LIMOSA UROPYGIALIS: Could.
+VI,30,birdsAustraliav6Goul,128,: Auy won YY pperuapagy PLAY PP OLYENEDH PMn pynog “[ STIVeLLS OV SIT DINGO OS — a | ae,Schoeniclus australis,yes,landscape,,,Vision OCR: SCHONICLUS AUSTRALIS.
+VI,31,birdsAustraliav6Goul,132,WNP PP OME RED- IE PUP pps p,Schoeniclus albescens,yes,landscape,,,Vision OCR: SCHONICLUS ALBESCENS.
+VI,32,birdsAustraliav6Goul,136,~ SHLVIOUveEns SUTOINOHIS ed,Schoeniclus subarquatus,yes,landscape,,,Vision OCR: SCHONICLUS SUBARQUATUS.
+VI,33,birdsAustraliav6Goul,140,=e we — =e = { Pa i — ‘saoes: sy ‘ti i TAED © SIMONE OU IN SAT DINGOHID S \ \ ‘ ¢ — YD PP AONENET A PVP PPO,Schoeniclus magnus,yes,landscape,,,Vision OCR: SCHONICLUS MAGNUS: Gould.
+VI,34,birdsAustraliav6Goul,144,C 7 th 1 A ae EN,Terekia cinerea,yes,landscape,,,Vision OCR: TEREKIA CINEREA.
+VI,35,birdsAustraliav6Goul,148,wa ia miata laa Ee — ii aaa ine iain er rem a : i = Ss 3 : y © Yo aN z : : — oe LI! VSN SiG Dv,Actitis empusa,yes,landscape,,,Vision OCR: ACTTTIS EMPUSA:Gould
+VI,36,birdsAustraliav6Goul,152,,Glottis glottoides,yes,landscape,,,read from image; plate: GLOTTOÏDES
+VI,37,birdsAustraliav6Goul,156,,Totanus stagnatilis,yes,landscape,,,"Vision OCR: TOTANUS STAGNATILIS,"
+VI,38,birdsAustraliav6Goul,160,,Totanus griseopygius,yes,landscape,,,read from image
+VI,39,birdsAustraliav6Goul,164,"a aap Mor Ye PV Maye: ; or | YL PP OLY) Hl PUD pag 7 : eee | “Salida aL LNI SW WSd at S cut’ ry """,Strepsilas interpres,yes,landscape,,,Vision OCR: STREPSILAS INTERPRES.
+VI,40,birdsAustraliav6Goul,168,,Scolopax australis,yes,landscape,,,Vision OCR: SCOLOPAX AUSTRALIS: Lath
+VI,41,birdsAustraliav6Goul,172,ca eis Saeed,Rhynchaea australis,yes,landscape,,,read from image; partly in the gutter
+VI,42,birdsAustraliav6Goul,176,Fallmandel & Welton Leys. Gould. gs o « iad! ‘ TRAIL 7 A A MO aes CUM JN ‘Richter del bith. 2 / J Gould and EE €,Numenius australis,yes,landscape,,,Vision OCR: NUMENIUS AUSTRALIS: Gould
+VI,43,birdsAustraliav6Goul,180,,Numenius uropygialis,yes,landscape,,,Vision OCR: NUMETIUS UROPYGIAITS:G
+VI,44,birdsAustraliav6Goul,184,,Numenius minutus,yes,landscape,,,Vision OCR: WUMENIUS MIN UTUS: Gould
+VI,45,birdsAustraliav6Goul,188,RP PP MIO 7 fe PUR ey ti ~Y hitgy Zip PULPILY 7 ise LPNS hl betes Tre. 9g CAGU 9! amy a,Geronticus spinicollis,yes,landscape,,,Vision OCR: GERONTICUS SPINICOLLIS.
+VI,46,birdsAustraliav6Goul,192,"+ WAAC RSE PLES G Rca digi babes aE,",Threskiornis strictipennis,yes,landscape,,,read from image; lower half of letters in the gutter
+VI,47,birdsAustraliav6Goul,196,"URDLP, PAP? POVY PPA PLE PPP? OT IAL f=",Falcinellus igneus,yes,landscape,,,read from image
+VI,48,birdsAustraliav6Goul,200,AGOud and H-CRichter dd,Grus australasianus,yes,portrait,0.960,,Vision OCR: CRUS AUSTRALASIANUS: Gould®
+VI,49,birdsAustraliav6Goul,204,,Platalea flavipes,yes,portrait,0.948,,Vision OCR: PLATALEA TLAVIPES: Gol
+VI,50,birdsAustraliav6Goul,208,Ltidlinayndid Lr,Platalea regia,yes,portrait,0.959,,Vision OCR: PLATALFA REGIA:Goud
+VI,51,birdsAustraliav6Goul,212,J. bCovild and AC-Richter dd cw lih. MYC TERIA Aw { bs \) — Dwi a ay aa ae S TRAILS 3 Lath -Hillmanda & Welton Imp-,Mycteria australis,yes,portrait,0.959,,Vision OCR: MYCTERIA ATSTRALIS: Lath
+VI,52,birdsAustraliav6Goul,216,MAL DP PIPE AOU PPD TY YP Ppt? SO ae ei,Ardea pacifica,yes,landscape,,,Vision OCR: ARDBA PACIFTCA
+VI,53,birdsAustraliav6Goul,220,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 221 opens ""ARDEA NOV A#=HOLLAN DIA, Lath. White-fronted Heron. Ardea No""; subject consistent"
+VI,54,birdsAustraliav6Goul,224,pieoeneontet we abe EG Ltd ficht (CSé Ie ore cod Z he AG,Ardea rectirostris,yes,portrait,0.964,,Vision OCR: ARDEA RECTIROSTRIS: Gould
+VI,55,birdsAustraliav6Goul,228,"ald. » Ci o Oo js ze ELAR, ] P 7 4 D 4 } c ( y | DEA LIB IK A bith bel Richter dz re) Gould and AC J cod",Ardea leucophaea,yes,portrait,0.953,,Vision OCR: ARDEA LEUCOPHÆA: Goud
+VI,56,birdsAustraliav6Goul,232,,Herodias syrmatophorus,yes,landscape,,,read from image
+VI,57,birdsAustraliav6Goul,236,auamenunecayen,Herodias plumiferus,yes,landscape,,,read from image; partly in the gutter
+VI,58,birdsAustraliav6Goul,240,OE,Herodias immaculata,yes,landscape,,,read from image; partly in the gutter
+VI,59,birdsAustraliav6Goul,244,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 245 opens ""HERODIAS PANNOSUS. Sombre Egret. Herodias pannosus, Gould in""; subject consistent"
+VI,60,birdsAustraliav6Goul,248,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 249 opens ""HERODIAS JUGULARIS. Blue Reef Heron. Ardea jugularis, Forst.""; subject consistent"
+VI,61,birdsAustraliav6Goul,252,PUT IL WYANED AILS wv,Herodias Greyi,yes,landscape,,,read from image; plate: HERODIAS? GREYI: Gray
+VI,62,birdsAustraliav6Goul,256,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 257 opens ""HERODIAS PICATA, Gow. Pied Egret. Ardea (Herodias) picata, G""; subject consistent"
+VI,63,birdsAustraliav6Goul,260,"= hatp VADLPILNY,",Nycticorax caledonicus,yes,landscape,,,read from image; partly in the gutter
+VI,64,birdsAustraliav6Goul,264,MLA x Henttuniarided. & Wealtora Trp. ili. a2 ° 5 R. AUST s + AGIA BOT. (hb. pepe TELE FRYE DA TEI co,Botaurus australis,yes,landscape,,,Vision OCR: BDTATRTS AUSTRALIS: Gould
+VI,65,birdsAustraliav6Goul,268,"PriZy BA 2772S ae faz7 2004722, ate ae aS : Po MOLZIENL BE JPPIP Pe PE : i Sil CISA NV . agtgn 22 7279 esngonE-STL Pee wed i",Ardetta flavicollis,yes,landscape,,,read from image; plate: ARDETTA? FLAVICOLLIS
+VI,66,birdsAustraliav6Goul,272,wil EN ele alls ete Cle a SSE eS SS LiL TALON PPP y Bar PLHCP ®XF TAL) NLA IAL EOD iL a ay ae a Wemeesoe sai,Ardetta macrorhyncha,yes,landscape,,,Vision OCR: ARDETTA MACRORHYWCHA: GOd
+VI,67,birdsAustraliav6Goul,276,"eee oa = ‘ ;, : ; ; OY ie ASA EME TE NERS Se SNe al aii : p20) 2) Pep emp nag Dy vere pop ey 4g",Ardetta stagnatilis,yes,landscape,,,read from image
+VI,68,birdsAustraliav6Goul,280,a ae dup upp P ppumouppay WNP BP ON DTT PUY pra,Ardetta pusilla,yes,landscape,,,Vision OCR: ARDETTA PUSILL
+VI,69,birdsAustraliav6Goul,284,"ity VANE BP PPPUewVuigyiag F , ; ; : : : ' , YD PP PPP OD YI RT TP TP Pew PyaaAy v2 ' [RMA IO",Porphyrio melanotus,yes,landscape,,,Vision OCR: PORPHYRIO MELANOTUS:Temm:
+VI,70,birdsAustraliav6Goul,288,aa “a _ Tage eT A ee 42LZPCP ® SS IRATE CD WRACAS WA TRAD cl,Porphyrio bellus,yes,landscape,,,read from image
+VI,71,birdsAustraliav6Goul,292,“SLL ELUG = | J : . CD SILT SIL IL ALRED AP PPP? OTT PTE Per perpen 7 oH ear See,Tribonyx Mortierii,yes,landscape,,,read from image
+VI,72,birdsAustraliav6Goul,296,"EAL WOLLO YB PLURAL 4 ° , . ERY DO PP ODYIR- JFL PUY pynog f- ; : Se “STIV UAL NSA SAN",Tribonyx ventralis,yes,landscape,,,Vision OCR: TRIROWYX VEWTRALIS
+VI,73,birdsAustraliav6Goul,300,at 7 Aung fe Yep ay thy? 29 °NIS OU GIN AE LONI YIU OD fy ypuaa YOTNO4) P,Gallinula tenebrosa,yes,landscape,,,Vision OCR: GALLINULA TENEBROSA:CRd
+VI,74,birdsAustraliav6Goul,304,iy UO YP PUY Vey pay ULYNE TE APTN DH WUD PY AOZ L WAGES A MeulidizGual :,Fulica australis,yes,landscape,,,Vision OCR: FULICA AUSTRALIS:Gould.
+VI,75,birdsAustraliav6Goul,308,AT ER ee LS ABEL LOBE ate A CE GAT ID LT dilating 2 - Nec DN. a leatnat,Parra gallinacea,yes,landscape,,,read from image
+VI,76,birdsAustraliav6Goul,312,oes : Buy uy) B Pp unuey ay UNDA PP CLYIVT IH Pe ppyog | ll ‘ a - Pe sip ’ ‘ = ‘s a : . cp ; ‘ Sd ees Nea aa i B ‘,Rallus pectoralis,yes,landscape,,,Vision OCR: RALLUS PECTORALIS: CuY:
+VI,77,birdsAustraliav6Goul,316,,Rallus Lewinii,yes,landscape,,,read from image
+VI,78,birdsAustraliav6Goul,320,"ZO"" = SS ig NE ILA OD SIL_NONY IL, SS NY SN GO) SES WIE wsisg papriesteeppiyy 2 MLD PP POP ODOT DLL PPP pop) 7 > =",Eulabeornis castaneoventris,yes,landscape,,,read from image
+VI,79,birdsAustraliav6Goul,324,Beat,Porzana fluminea,yes,landscape,,,read from image
+VI,80,birdsAustraliav6Goul,328,— a < POP STALSVIVE VNIVLUOL sia eee a rn,Porzana palustris,yes,landscape,,,Vision OCR: PORZANA PALUSTRIS: Gould
+VI,81,birdsAustraliav6Goul,332,ne Stig LOO yi pes engpyy Ki ala a TPE eh ae eT re en,Porzana leucophrys,yes,landscape,,,Vision OCR: PORZANA LETCOPHRYS:Gend
+VI,82,birdsAustraliav6Goul,336,: Duy nanppoyy DY LPO AY YT 7 . | —_ wm i RY DP PPOLYONE IIL PW? pynog pp SNOT NON : ' sy Ny a \,Porzana immaculata,yes,landscape,,,Vision OCR: PORZANAZ IMMACULATA
+VII,1,birdsAustraliav7Goul,12,F TY! EPMA EE,Cereopsis Novae-Hollandiae,yes,landscape,,,read from image
+VII,2,birdsAustraliav7Goul,16,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 17 opens ""ANSERANAS MELANOLEUCA. Semipalmated Goose. Anas melanoleuca,""; subject consistent"
+VII,3,birdsAustraliav7Goul,20,MONDE AOI RAEI SNEED IE,Bernicla jubata,yes,landscape,,,Vision OCR: BERNICLA JUBATA.
+VII,4,birdsAustraliav7Goul,24,Yee? *°S il ),Nettapus pulchellus,yes,landscape,,,Vision OCR: NETTATTS PULCHELLUS: Gould.
+VII,5,birdsAustraliav7Goul,28,@ SOV AW TT RCLAIW TAO,Nettapus coromandelianus,yes,landscape,,,Vision OCR: NETTAPUS COROMANDELANUS?
+VII,6,birdsAustraliav7Goul,32,,Cygnus atratus,yes,landscape,,,read from image; only letter tops visible above the gutter
+VII,7,birdsAustraliav7Goul,36,YIN) BO FO) « UL TT YD27 JP TOP) AATY OU Pus Prpyn. te] '} YIP UPIVED PVDF 7 SIS PRTRSR NEE dai YBa as PU RATERCRNTAPE AREAS RYOTE APES OM OTS,Casarca tadornoides,yes,landscape,,,Vision OCR: CASARCA TADORNOIDES:Eutor®
+VII,8,birdsAustraliav7Goul,40,EERE,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 41 opens ""TADORNA RADJAH, fyton. Radjah Shieldrake. Anas Radjah, Duper""; subject consistent"
+VII,9,birdsAustraliav7Goul,44,,Anas superciliosa,yes,landscape,,,Vision OCR: ANAS STPERCILIOSA: Cme
+VII,10,birdsAustraliav7Goul,48,,Anas naevosa,yes,landscape,,,Vision OCR: ANAS DAVOSA:C
+VII,11,birdsAustraliav7Goul,52,euypwoyyy yp prpuruyny YTD TB TOP AEDT DH CU? PPTL Stans: ent eres ss St erseenarcnnerenenes———,Anas punctata,yes,landscape,,,Vision OCR: MARECA PINCTATA: CO:
+VII,12,birdsAustraliav7Goul,56,,Spatula rhynchotis,yes,landscape,,,Vision OCR: TA RHYNCHOTIS
+VII,13,birdsAustraliav7Goul,60,Ly 1 OWN ong aes DACAAR OOD IDV TE,Malacorhynchus membranaceus,yes,landscape,,,Vision OCR: MALACORHYNCHUS MEMBRAVACEUS; Swis:
+VII,14,birdsAustraliav7Goul,64,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 65 opens ""DENDROCYGNA ARCUATA. Whistling Duck. Anas arcuata, Cuv., Hor""; subject consistent"
+VII,15,birdsAustraliav7Goul,68,,Leptotarsis Eytoni,yes,landscape,,,read from image
+VII,16,birdsAustraliav7Goul,72,uy noua ¥ WD PPP AYA PU? Ppeg'f- by why) Uy,Nyroca australis,yes,landscape,,,Vision OCR: VYROCA AUSTRALIS Evten
+VII,17,birdsAustraliav7Goul,76,DALI Ae AA LO,Erismatura australis,yes,landscape,,,read from image
+VII,18,birdsAustraliav7Goul,80,rat == Lay ar XX i = he eos ES ~ ae aaa rs 7 == a ~ = — = SS Re ES TE a a ST A Se,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 81 opens ""BIZIURA LOBATA. Musk-Duck. Anas lobata, Shaw, Nat. Misc., pl""; subject consistent"
+VII,19,birdsAustraliav7Goul,84,en Suigesee a,Larus pacificus,yes,landscape,,,read from image; partly in the gutter
+VII,20,birdsAustraliav7Goul,88,a | | —Te NS I VI VIN oN,Xema Jamesonii,yes,landscape,,,Vision OCR: MESONI
+VII,21,birdsAustraliav7Goul,92,,Lestris catarrhactes,yes,landscape,,,read from image; plate spells CATARRHACTES
+VII,22,birdsAustraliav7Goul,96,buy uopyy y pyeruapay /,Sylochelidon strenuus,yes,landscape,,,Vision OCR: SYLOCHELIDON STREYUUS:Goald
+VII,23,birdsAustraliav7Goul,100,Ane HOP EP SUUEALS aD ae tee nines Lint! ae “MALL PP OVP IAL YOR? PPPs,Thalasseus pelecanoides,yes,landscape,,,"Vision OCR: THALASSEUS PELICANOÏDES,"
+VII,24,birdsAustraliav7Goul,104,ile BITS PP LADO) FT ie AE,Thalasseus poliocercus,yes,landscape,,,Vision OCR: THALASS EUS POLIOCERCUS:L:
+VII,25,birdsAustraliav7Goul,108,/ Minsy wy & Pyyaypayy \ py TISAI OL S MP PP OMPRELY Ur pynag 7’,Thalasseus Torresii,yes,landscape,,,Vision OCR: THALASSEUS TORRESU: Gould
+VII,26,birdsAustraliav7Goul,112,,Sterna melanorhyncha,yes,landscape,,,read from image
+VII,27,birdsAustraliav7Goul,116,,Sterna gracilis,yes,landscape,,,Vision OCR: STERNA GRACILIS: Gould
+VII,28,birdsAustraliav7Goul,120,nr MTT Pm cman tgs) on ee a canister atc = eae YY PPP PLPRT II PU Ppeeg po — a — oa i) a | ia LV IS Wr VRIES _ . |,Sterna melanauchen,yes,landscape,,,Vision OCR: STERVA MELANATCHEN Temm
+VII,29,birdsAustraliav7Goul,124,i ~ ¥ . = Q ‘ ba i DU PUPAL ET ’ ; ‘i WL DD FIP AYO IAT PRED PYHID 7? . abit : Tipe PLN WIN Sass - Tete eit,Sternula nereis,yes,landscape,,,Vision OCR: STERNULA NEREIS:Gould
+VII,30,birdsAustraliav7Goul,128,pf ee,Gygis candida,yes,landscape,,,Vision OCR: GYCIS CANDIDA.
+VII,31,birdsAustraliav7Goul,132,,Hydrochelidon fluviatilis,yes,landscape,,,Vision OCR: HYDROCHELIDON FLUVIATILIS: Gud
+VII,32,birdsAustraliav7Goul,136,a ee ee ee ee ee ee ee ee YUL DA YO P AOL ID) FTP be? Ppa) Nal ro i@ib 8 Ait] UY PP PpVey Vay} 17,Onychoprion fuliginosus,yes,landscape,,,read from image
+VII,33,birdsAustraliav7Goul,140,"Si DME WOU ON, S LIPVOUgpay - i iia “VAVN Vd NOIWAIOHODANO | a | he",Onychoprion panaya,yes,landscape,,,Vision OCR: OWYCHOPRION PANAYA.
+VII,34,birdsAustraliav7Goul,144,,Anous stolidus,yes,landscape,,,Vision OCR: AVORS STOLDES
+VII,35,birdsAustraliav7Goul,148,"LIZ POLY Fo PEP UDI AL LIGT ace re , lal ) . Sa Ten “igs z z P 4 ‘ tt AL wy ins ei =: ="" 7 L tae > x tn UL",Anous melanops,yes,landscape,,,read from image; plate: ANOÜS
+VII,36,birdsAustraliav7Goul,152,ikl WY) P PONE) Pay ; AND [PCLT ) HT PID PNN09 f° pyn -S VTTMd VOD MAT SAONY oo slbsub vasa,Anous leucocapillus,yes,landscape,,,Vision OCR: ANOUS LEUCOCAPILLUS: Could.
+VII,37,birdsAustraliav7Goul,156,"‘ee buy waypyy P Pperuegyny me (as, SOONG IGGIE NOLES ’ -s » SHONyF ODONT ILL Puy pyeng f-",Anous cinereus,yes,landscape,,,Vision OCR: ANOUS CINEREUS: Gould.
+VII,38,birdsAustraliav7Goul,160,ewe *ALGI SL AE CD TCT : ; Se a ee ee ae ee Bente A Da vatbuez LGAP? URE Ug? IBRD Bi,Diomedea exulans,yes,landscape,,,read from image; partly in the gutter
+VII,39,birdsAustraliav7Goul,164,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 165 opens ""DIOMEDEA BRACHYURA, Temm. Short-tailed Albatros. . Diomedea ""; subject consistent"
+VII,40,birdsAustraliav7Goul,168,ot,Diomedea cauta,yes,landscape,,,read from image; partly in the gutter
+VII,41,birdsAustraliav7Goul,172,pees ‘sleshqumnccomrac! aan,Diomedea culminata,yes,landscape,,,read from image; partly in the gutter
+VII,42,birdsAustraliav7Goul,176,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 177 opens ""DIOMEDEA CHLORORHYNCHOS, Lath. Yellow-billed Albatros. Diome""; subject consistent"
+VII,43,birdsAustraliav7Goul,180,a aS ee reas SETS es,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 181 opens ""DIOMEDEA MELANOPHRYS, Tem. Black-eyebrowed Albatros. Diomede""; subject consistent"
+VII,44,birdsAustraliav7Goul,184,i a I Tae i 3 gr:,Diomedea fuliginosa,yes,landscape,,,read from image; only letter tops visible above the gutter
+VII,45,birdsAustraliav7Goul,188,,Procellaria gigantea,yes,landscape,,,read from image; only letter tops visible above the gutter
+VII,46,birdsAustraliav7Goul,192,SR SI SE eR a EEE yO,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 193 opens ""PROCELLARIA CONSPICILLATA, Gouwia. Spectacled Petrel. Procel""; subject consistent"
+VII,47,birdsAustraliav7Goul,196,,Procellaria hasitata,yes,landscape,,,Vision OCR: PROCELLARIA HASITATA: Ah
+VII,48,birdsAustraliav7Goul,200,,Procellaria glacialoides,yes,landscape,,,read from image
+VII,49,birdsAustraliav7Goul,204,TET Ny T,Procellaria Lessonii,yes,landscape,,,Vision OCR: PROCETLARIA LESSONI: Garr
+VII,50,birdsAustraliav7Goul,208,,Procellaria mollis,yes,landscape,,,read from image
+VII,51,birdsAustraliav7Goul,212,,Procellaria Cookii,yes,landscape,,,read from image
+VII,52,birdsAustraliav7Goul,216,"= si arama , ta eed aie pepii serene ais = a ee ¥ : ' = a . _—— — ' - : é , ine aniline, ‘ — : ee : ws * m ee a - ie THD = TATOOS VWINWVTSDOWd . ; . ae ‘",Procellaria coerulea,yes,landscape,,,Vision OCR: PROCELLARIA CORULEA: Gmel:
+VII,53,birdsAustraliav7Goul,220,"ws - = ae ee YRD Ppp app aup yp py pp) We ’ """,Daption capensis,yes,landscape,,,Vision OCR: DAPTION CAPENSIS.
+VII,54,birdsAustraliav7Goul,224,2,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 225 opens ""PRION TURTUR. Dove-like Prion. Procellaria Turtur, Banks’s D""; subject consistent"
+VII,55,birdsAustraliav7Goul,228,"Wipelizallene,",Prion vittatus,yes,landscape,,,Vision OCR: RION VITTATUS:
+VII,56,birdsAustraliav7Goul,232,,Puffinus brevicaudus,yes,landscape,,,Vision OCR: PEFELUS BREVICATDUS: GZZ
+VII,57,birdsAustraliav7Goul,236,,Puffinus carneipes,yes,landscape,,,read from image; partly in the gutter
+VII,58,birdsAustraliav7Goul,240,’ ia Nas _ oF 2 = F = = — x = ‘ = - . - ss ea ts : hay WYP yy eta ri ii ’ ’ — a ee ' ” — eee as ve PP OY) HT prem yon: _— — al ee Pro? © S NALIN SDAA SS LT i,Puffinus sphenurus,yes,landscape,,,read from image
+VII,59,birdsAustraliav7Goul,244,"eo , : FD T UPYpPA, # PA PUV UP CED LONG TEAMING SL LLY AUIS) Jee E | | PPD “STINTS SV SAUNT dl",Puffinus assimilis,yes,landscape,,,Vision OCR: PUFFINUS ASSIMILIS: Gould.
+VII,60,birdsAustraliav7Goul,248,,Puffinuria urinatrix,yes,landscape,,,Vision OCR: PUFFIVURIA URINATRIX.
+VII,61,birdsAustraliav7Goul,252,"A : YP PPP? ii, rey sa i Ze aC we bpe = . tiee",Thalassidroma marina,yes,landscape,,,read from image
+VII,62,birdsAustraliav7Goul,256,,Thalassidroma melanogaster,yes,landscape,,,read from image; partly in the gutter
+VII,63,birdsAustraliav7Goul,260,"— DUT INYYPAL P PYPIDVMLEY YAY es a — ; owe : : — y Mi f NU | lise a\ VC : Soli : res ‘ \ : ‘ “ — — YQY D PP OWYPUT DA | LU i oat Li . j i y a ah : \ : . Si _ 5 ae b uJ < ss I ,",Thalassidroma leucogaster,yes,landscape,,,Vision OCR: THALASSIDROMA LEUCDGASTER: Gould
+VII,64,birdsAustraliav7Goul,264,,Thalassidroma nereis,yes,landscape,,,read from image; only ...DROMA NEREIS: G... visible above the gutter
+VII,65,birdsAustraliav7Goul,268,,Thalassidroma Wilsonii,yes,landscape,,,Vision OCR: WILSONI: Bonap:
+VII,66,birdsAustraliav7Goul,272,"a a OC a tl, tl",Phalacrocorax carboides,yes,landscape,,,read from image; partly in the gutter
+VII,67,birdsAustraliav7Goul,276,Se er,Phalacrocorax sulcirostris,yes,landscape,,,read from image; partly in the gutter
+VII,68,birdsAustraliav7Goul,280,2,Phalacrocorax hypoleucus,yes,landscape,,,Vision OCR: PHALACROCOBAX HYPOLEUCUS.
+VII,69,birdsAustraliav7Goul,284,es pe eouts,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 285 opens ""PHALACROCORAX LEUCOGASTER, Gowa White-breasted Cormorant. Ph""; subject consistent"
+VII,70,birdsAustraliav7Goul,288,Wri,Phalacrocorax melanoleucus,yes,landscape,,,read from image; partly in the gutter
+VII,71,birdsAustraliav7Goul,292,nde eatin amelie mee meanness na a a an see,Phalacrocorax punctatus,yes,landscape,,,read from image
+VII,72,birdsAustraliav7Goul,296,ee oe == ae me = —— = 5 Sa Team —— a - —— = a a 0 ee ee ee,Attagen Ariel,yes,landscape,,,read from image; plate spells ATAGEN
+VII,73,birdsAustraliav7Goul,300,,Phaeton phoenicurus,yes,landscape,,,Vision OCR: PHÆTON PHONICURUS: Gmel
+VII,74,birdsAustraliav7Goul,304,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 305 opens ""PELECANUS CONSPICILLATUS, Tenm. Australian Pelican. Pelecanu""; subject consistent"
+VII,75,birdsAustraliav7Goul,308,,,unread,landscape,,,"caption lies in the binding gutter, not visible even at full resolution (checked); facing text leaf 309 opens ""PLOTUS NOV A=HOLLANDIAL, Gowa. New Holland Darter. Plotus No""; subject consistent"
+VII,76,birdsAustraliav7Goul,312,,Sula australis,yes,landscape,,,Vision OCR: SIIA ATUSTRALIS: CI/
+VII,77,birdsAustraliav7Goul,316,,Sula personata,yes,landscape,,,Vision OCR: STTA PERSONATA: Gruld.
+VII,78,birdsAustraliav7Goul,320,=i : ’ ; APY UPL VS YP JI PUVP UBL YT ; ’ d 4 ‘ ; FNP YL ae bate bec IE fos ED ILI OEE) If,Sula fusca,yes,landscape,,,Vision OCR: SULA FUSCA Brys
+VII,79,birdsAustraliav7Goul,324,por nO PW fe” $f ala ii cman OWE PP OLE TH PD Py — ais ae,Sula fiber / piscator,yes,landscape,,,"read from image; engraved SULA FIBER struck through by hand, ""Piscator"" written in ink beside it"
+VII,80,birdsAustraliav7Goul,328,et a eee er ae ere 7 i PPT ETT STN Sl | —_—— —_—— | a _ ei,Podiceps australis,yes,landscape,,,read from image
+VII,81,birdsAustraliav7Goul,332,"ee ities lia, — a a ee m , MOPNIVIND SLADE — | |",Podiceps gularis,yes,landscape,,,Vision OCR: PODICEPS GULARIS: Gould
+VII,82,birdsAustraliav7Goul,336,,Podiceps poliocephalus,yes,landscape,,,Vision OCR: PODICEPS POLHOUEPHALUS: Jard:& Selb:
+VII,83,birdsAustraliav7Goul,340,= 2S LL ATR Ce Se ee ae ee = “ “ae scapes shn Se ee Sa. al as hear eleadate taints eaaeicaataeeaae ee teins SEIT ODOS AMD S ad d_AXG 0 al ULE Te AONE DIE PEO,Eudyptes chrysocome,yes,landscape,,,Vision OCR: SOCOME.
+VII,84,birdsAustraliav7Goul,344,whies peppery yy 27 wal “WONT SMOSINW?Has YRD LY TY? 224 273 D Lf PUP PYG 7?,Spheniscus minor,yes,landscape,,,Vision OCR: SCUS MIN
+VII,85,birdsAustraliav7Goul,348,"yn) P PP OMPENEDH pow pny? : Si ie aia aaa ae ieee) 24 Y pponeynyy ; ; — ™ - an ai : , - oo cetacean | yey “TTC SHOSINAHAS — ns | uy *",Spheniscus undina,yes,landscape,,,Vision OCR: SPHENISCUS UNDINA: Gould
+Supp,1,birdsAustraliasSuppGoul,16,"Lickel, STRIX CANDIDA, ould &HCkeichter, del et lith/ LG 7 Y",Strix candida,yes,portrait,0.949,,"Vision OCR: STRIX CANDIDA, Tickell."
+Supp,2,birdsAustraliasSuppGoul,20,"SCHLOGLAUX ALBIFACIES. Sherdld and HM kicker, del & bith. Fidlmanidel & Nalbon, Srp.",Sceloglaux albifacies,yes,portrait,0.934,,Vision OCR: SCELOGLAUX ALBIFACIES.
+Supp,3,birdsAustraliasSuppGoul,24,"PODARGUS PAPUENSIS , Qusy 4 bam - Dbould cou C Richter, ded. & hth. Hinltmandil & Naltcr, Lnp.",Podargus papuensis,yes,portrait,0.917,,"Vision OCR: PODARGUS PAPUENSIS, Quoy et Gaim."
+Supp,4,birdsAustraliasSuppGoul,28,"PODARGUS MARMORATUS, Goud. J bauld and IH Kechter, dd. & ith , Lulkmanohd & Welton, Imp.",Podargus marmoratus,yes,portrait,0.912,,"Vision OCR: PODARGUS MARMORATUS, Gould"
+Supp,5,birdsAustraliasSuppGoul,32,FLAVIROSTRIS: Gould ST Gould and HC Richter dd & lithe. Tinllinanda& Walton lap.,Halcyon flavirostris,yes,portrait,0.924,,Vision OCR: HALCYON FLAVIROSTRIS:Guld
+Supp,6,birdsAustraliasSuppGoul,36,& Wilton Lip. S y = s 8,Tanysiptera Sylvia,yes,portrait,0.920,,Vision OCR: TANYSIPTERA SYLVIA: Gould
+Supp,7,birdsAustraliasSuppGoul,40,"ARTAMUS MELANOPS , Gould TC ould ti Richter, del et ith, Walter Lap.",Artamus melanops,yes,portrait,0.933,,"Vision OCR: ARTAMUS MELANOPS, Gould"
+Supp,8,birdsAustraliasSuppGoul,44,"1X 4 t : ATA Dek ; 9 _DGould & HC Richier, deb & titty ; Walia:",Pardalotus xanthopygius,yes,portrait,0.932,,"Vision OCR: PARDALOTUS XANTHOPYGIUS, M'Cy."
+Supp,9,birdsAustraliasSuppGoul,48,"MANUCODIA KEIRAU DIRENT. Tbodkd ond HU fichier, dd. ct tiih. Hidbpoandel k Wiltor, Lp.",Manucodia Keraudreni,yes,portrait,0.916,,Vision OCR: MANUCODIA KERAUDRENI.
+Supp,10,birdsAustraliasSuppGoul,52,EO a » | g 3 S S xg ~ S 66 [| ica — - :,Arses Kaupi,yes,portrait,0.929,,Vision OCR: ARSES KAUPI: Gould.
+Supp,11,birdsAustraliasSuppGoul,56,MACHARRIRHYNCHUS FLAVIVENTERS: God f Codd and Ht Biater db of Tithe. 2 c Valier) ke We Tay. : Ws,Machaerirhynchus flaviventer,yes,portrait,0.911,,Vision OCR: MACHERIRHYNCHUS FLAYIVENTER: Gould
+Supp,12,birdsAustraliasSuppGoul,60,P Li bold cmd HC: Ad & ith Ftrlbuande & Walton Tonp.,Monarcha leucotis,yes,portrait,0.924,,Vision OCR: MONARCHA LEUCOTTS:Coald.
+Supp,13,birdsAustraliasSuppGoul,64,"JS Could “Hh CRichte, del ew titty, MONAR CHA ALBIVENTRIS , Gould. Walter Lnp. ————",Monarcha albiventris,yes,portrait,0.939,,"Vision OCR: MONARCHA ALBIVENTRIS, Gould."
+Supp,14,birdsAustraliasSuppGoul,68,"| GERYGONE PERSONATA , Gould. , i TGauld & HGRichter, del et lithy Walter, In.",Gerygone personata,yes,portrait,0.932,,"Vision OCR: GERYGONE PERSONATA , Gould."
+Supp,15,birdsAustraliasSuppGoul,72,"PETROICA? CERVINIVENTRIS, badd J boud andl Fricker, del. & lelfe. 3 Fiudirncntha & Walton, Lrg.",Petroica cerviniventris,yes,portrait,0.929,,"Vision OCR: PETROICA? CERVINIVENTRIS, Could"
+Supp,16,birdsAustraliasSuppGoul,76,"a Aine DRYMODES SUPERCIGIARIS: Goald. J. Gad, and. HC Richter del ee lith. : . é Halimundd & Walton bay",Drymodes superciliaris,yes,portrait,0.943,,Vision OCR: DRYMODEO SUPPRCILIARIS: Gould.
+Supp,17,birdsAustraliasSuppGoul,80,"aS EOPSALTRIA CAPITO, Gould J boudd and. Richter, dil. ct tithe. Hidlpandel & Walton, Imp",Eopsaltria capito,yes,portrait,0.904,,"Vision OCR: EÖPSALTRIA CAPITO, Gould."
+Supp,18,birdsAustraliasSuppGoul,84,"EOPSALTRIA LEUCURBA, Goudd. Lh» J Gould &HChichuer, del et lithy Walter, Lp.",Eopsaltria leucura,yes,portrait,0.936,,"Vision OCR: EÖPSALTRIA LEUCURA, Gould."
+Supp,19,birdsAustraliasSuppGoul,88,NN Avy. Fiullinande & Walton,Menura Alberti,yes,portrait,0.951,,Vision OCR: MENDRA ALBERTI: Gould.
+Supp,20,birdsAustraliasSuppGoul,92,"MALURUS ¢ ORONATUS, Guid Malinda, éWulion, Lip. Ieodld ana C fechicr, del ot lithe.",Malurus coronatus,yes,portrait,0.937,,"Vision OCR: MALURUS CORONATUS, Gould"
+Supp,21,birdsAustraliasSuppGoul,96,"Jlouddand HC Lnechiey, heh, & lity | Hiudtmandel & Walton tmp.",Malurus amabilis,yes,portrait,0.903,,"Vision OCR: MAHURUS AMABILIS, Gould"
+Supp,22,birdsAustraliasSuppGoul,100,"MALURUS HYPOLEUCUS, Gould. Walter, lp. J Gould & HC Richter, deb) we lithy",Malurus hypoleucus,yes,portrait,0.931,,"Vision OCR: MALURUS HYPOLEUCUS, Gould."
+Supp,23,birdsAustraliasSuppGoul,104,"J Gould and HC hiddia,dd et lithy Walter, Jp.",Malurus callainus,yes,portrait,0.940,,"Vision OCR: MALURUS CALLAINUS, Gould."
+Supp,24,birdsAustraliasSuppGoul,108,"ALURUS LEUC S Gould GHC Richter del, et tithe. Nadia, Lap.",Malurus leuconotus,yes,portrait,0.933,,"Vision OCR: MALURUS LEUCONOTTS, Gould ."
+Supp,25,birdsAustraliasSuppGoul,112,"Walter Imp. “Coy. d lL, & INT )B i i SPHENURA BROAG del w liv. , Toudd bo HO Kichier",Sphenura Broadbenti,yes,portrait,0.936,,"Vision OCR: SPHENURA BROADBENTI, M. Coy."
+Supp,26,birdsAustraliasSuppGoul,116,"Fe ‘Ramsay. 3 UNG a oO ey, r del bit’ 7, cht 2 £ J Gould and HER",Atrichia rufescens,yes,portrait,0.945,,"Vision OCR: ATRICHIA RUFESCENS , Ramsay."
+Supp,27,birdsAustraliasSuppGoul,120,"ali. y 0) ° 2 ¢ > nya & Walton hap, vbnandel \ Richter del cb lithe. r (€ TLbeald and A.",Pycnoptilus floccosus,yes,portrait,0.942,,Vision OCR: PYCIOPTILUS FLOCCOSUS: Gould.
+Supp,28,birdsAustraliasSuppGoul,124,"ACANTHIZA MAGNA , Gould oA Hedlmandes b Walton, Imp. Titouldl end He Biodtor, del. ce tah",Acanthiza magna,yes,portrait,0.914,,"Vision OCR: ACANTHIZA MAGNA, Gould."
+Supp,29,birdsAustraliasSuppGoul,128,"PITTA MACKLOTI, - TGould & LCRichter, deb eb lili. .",Pitta Mackloti,yes,portrait,0.943,,"Vision OCR: PITTA MACKLOTI, Müll & Schleg."
+Supp,30,birdsAustraliasSuppGoul,132,"MERULA POLIOCEPHALA. J Gould ind Ml Pachter, del. ch bith. Fialirruuriibe, b Walitr, Lrg.",Merula poliocephala,yes,portrait,0.948,,Vision OCR: MERULA POLIOCEPHALA.
+Supp,31,birdsAustraliasSuppGoul,136,"f / WERULA VINITINCTA. Gnudi J bould andl fichier del. a lithe. Siullmendd & Walton, Pap.",Merula vinitincta,yes,portrait,0.906,,"Vision OCR: MERULA VINITINCTA, Gould"
+Supp,32,birdsAustraliasSuppGoul,140,"CINCLOSOMA CASTANEOTHORAY , Goud. J Gould ond LC Richivor, del, & bith Hetimoande & Wabttow, Lp.",Cinclosoma castaneothorax,yes,portrait,0.915,,"Vision OCR: • CINCLOSOMA CASTANEOTHORAX, Goudd."
+Supp,33,birdsAustraliasSuppGoul,144,Hidlnandd & Walion toy. 1 andl FC Hichter del 2b lth. ne 4. GoW,Aplonis metallica,yes,portrait,0.934,,Vision OCR: APLONIS METALICA.
+Supp,34,birdsAustraliasSuppGoul,148,ve ee eat Sen ee Ae a lng 7 S 2 LS S CRi T Gould & Hi,Ptilonorhynchus Rawnsleyi,yes,portrait,0.934,,"Vision OCR: RAWNSLEYI, Digg."
+Supp,35,birdsAustraliasSuppGoul,152,"CHLAMYDERA GUTTATA , Gould. SJ Gould and HC Weichiter, deb, ev, litlv.",Chlamydera guttata,yes,portrait,0.932,,"Vision OCR: CHLAMYDERA GUTTATA, Gould."
+Supp,36,birdsAustraliasSuppGoul,156,"CHLAMYDERA CERVINIVENTIRIS, ¢owd FTialtrnarrdel & Wadlior, Lr 7 ° cheber, del ob beth, Sboudd ama HC Fe é",Chlamydera cerviniventris,yes,portrait,0.935,,"Vision OCR: CHLAMYDERA CERVINIVENTRIS, Gould"
+Supp,37,birdsAustraliasSuppGoul,160,"VEN TRIS ao FLA » Gould LGould and LOHicdder deb cf tith, Hullmandd & Walten Imp.",Sphecotheres flaviventris,yes,portrait,0.920,,Vision OCR: FLAVIVENTRIS: Gould
+Supp,38,birdsAustraliasSuppGoul,164,"[ATORHINUS RUFICERS , aril Kellaaadel ke Walicw, Lig. and HC Richter, dl. hth Lbou",Pomatorhinus ruficeps,yes,portrait,0.902,,"Vision OCR: POMATORHINUS RUFICEPS, Hartl."
+Supp,39,birdsAustraliasSuppGoul,166,"PTILOTIS CASSIDIX , Jad. J Goulds and HL Richter, del a lith Walter, Emp.",Ptilotis cassidix,yes,portrait,0.944,,"Vision OCR: PTILOTIS CASSIDIX, Jard."
+Supp,40,birdsAustraliasSuppGoul,170,".. K oY = ' Hn . t 1 a PTILOTIS FASCIOGULARIS, Goud. » bel, ef Lith. : Hullnandel & Kalion Jmp.",Ptilotis fasciogularis,yes,portrait,0.906,,"Vision OCR: PTILOTIS FASCIOGULARIS, Goud."
+Supp,41,birdsAustraliasSuppGoul,174,"PTILOTIS NOTATA . Gould. Walter, Lng. Jlculd éHiCRichte, de wv tit",Ptilotis notata,yes,portrait,0.930,,"Vision OCR: PTILOTIS NOTATA, Gould."
+Supp,42,birdsAustraliasSuppGoul,178,THLOTIS FIMLIGK RAs: Gould. Jioudld and IC Richter del et title.,Ptilotis filigera,yes,portrait,0.933,,Vision OCR: PTULOTIS FILAGERA: Geald.
+Supp,43,birdsAustraliasSuppGoul,182,"PTILOTIS COCKERELLI, Gould Gould &HCRichter, del et bith Walter. Imp.",Ptilotis Cockerelli,yes,portrait,0.950,,"Vision OCR: PTILOTIS COCKERELLI, Gould."
+Supp,44,birdsAustraliasSuppGoul,186,"TROPIDORHYNCHUS BUCEROIDE 8, Siboutds amd He Reielter, dict bith. Hallrmairadel b Walton, Lp",Tropidorhynchus buceroides,yes,portrait,0.899,,Vision OCR: TROPIDORHYNCHTS BUCEROÏDE S.
+Supp,45,birdsAustraliasSuppGoul,190,"NECTARINIA AUSTRALIS 2 Gould. J. Gould and HC Richter del & lithe, — : Ttlinandel & Walton mp.",Nectarinia australis,yes,portrait,0.928,,Vision OCR: NECTARINIA AUSTRALIS: Gould.
+Supp,46,birdsAustraliasSuppGoul,194,"LOSTEIROPS ALBOGULARIS , Gould Slould anal Peuckiver, da, we bith, | Hiudtrrucndel, & Walton, Trap",Zosterops albogularis,yes,portrait,0.927,,"Vision OCR: ZOSTEROPS ALBOGULARIS, Gould"
+Supp,47,birdsAustraliasSuppGoul,198,"ZOSTEROPS TENULROSTRIS, Ga Gould und He leachter, dd eb teihe. Malina é Watton, Trap.",Zosterops tenuirostris,yes,portrait,0.936,,"Vision OCR: ZOSTEROPS TENUIROSTRIS, Gould"
+Supp,48,birdsAustraliasSuppGoul,202,"ZOSTEROPS STRENTUS , Goud. Jbculd and HC kiehier, del, & bith. Hidlbmundel b Wilton, Lrg. ;",Zosterops strenuus,yes,portrait,0.899,,"Vision OCR: ZOSTEROPS STRENTUS, Gould."
+Supp,49,birdsAustraliasSuppGoul,206,"ZOSTEROPS TEPHROPLEURUS, éndi SG0uld ant LC Lachior del & tithe ‘ Hidlinindel & Walton, Lp.",Zosterops tephropleurus,yes,portrait,0.898,,read from image; caption_top measured by eye against a ruler on the image
+Supp,50,birdsAustraliasSuppGoul,210,"AON ED TT AIS Chg tf : OIRILAE 2 Gould. IGould and HE Richley AA cb lth. Tidimandd & Walton Trp,",Ptiloris Victoriae,yes,portrait,0.957,,Vision OCR: PTILORIS VICTORIA:Gould.
+Supp,51,birdsAustraliasSuppGoul,214,"WTR TSW ta Seah stigmata RNY HEIN, Hrthrire Walton. Toup, Souk cond HCRreltes del eb tith",Ptiloris magnificus,yes,portrait,0.928,,read from image; plate spells MAGNIFICUS; caption_top measured by eye against a ruler on the image
+Supp,52,birdsAustraliasSuppGoul,218,"SEMOPTERA WALILACHKIM, ¢ray and MC Richter, ded ct bith. eh",Semioptera Wallacei,yes,portrait,0.939,,"Vision OCR: SEMOPTERA WALLACEII, GraY"
+Supp,53,birdsAustraliasSuppGoul,222,"_, RAMSOY. ni) G YY Ha de & Gth Uv. SL CRichter, if (o2, SCout",Orthonyx Spaldingi,yes,portrait,0.934,,"Vision OCR: ORTHONYX SPALDINGI, Ramsay"
+Supp,54,birdsAustraliasSuppGoul,226,": SITTELLA STRIATA, Geuld JGould HlRichter deb & lithy Walter Lan",Sittella striata,yes,portrait,0.956,,"Vision OCR: SITTELLA STRIATA, Gould."
+Supp,55,birdsAustraliasSuppGoul,230,"Ss J Gould: i: HORichter da ec tiv. CACOMANTIS CASTANEITVENTRIS , Gould. Walter, Lrap.",Cacomantis castaneiventris,yes,portrait,0.929,,"Vision OCR: CACOMANTIS CASTANEIVENTRIS, Gould."
+Supp,56,birdsAustraliasSuppGoul,234,"CHRYSOCOCCYX MINUTILLUS, Gow Mould andl Pichiter, del & ith: Tidlmandél & Walton Trp",Chrysococcyx minutillus,yes,portrait,0.935,,"Vision OCR: CHRYSOCOCCYX MINUTILLUS, Gould"
+Supp,57,birdsAustraliasSuppGoul,238,"9 G. Te: Gray. ID ¢ hw XO f | y 1 RIGOP SS Hillmomded & Walton, Lap bith. t. hiter, Me CLt bo Hf. J Cowl “",Strigops habroptilus,yes,portrait,0.902,,"Vision OCR: STRIGOPS HABROPTILUS, G.R. Gray."
+Supp,58,birdsAustraliasSuppGoul,244,"NESTOR HYPOPOLIUS. Hullrraael b Wadigry, Lip. T6ould andl Chachier, delet litte.",Nestor hypopolius,yes,portrait,0.932,,Vision OCR: NESTOR HYPOPOLIUS.
+Supp,59,birdsAustraliasSuppGoul,248,"a ee ee Se ee ee NESTOR ESSILINGI, SYuance SN bould cand HO Lichter, hel. 2 life. AHulimuandle& Wyelion, Lryp.",Nestor Esslingii,yes,portrait,0.915,,"Vision OCR: NESTOR ESSLINGII, Souancé."
+Supp,60,birdsAustraliasSuppGoul,252,"pedi aa eedons atlases dey tenegeralaiesedcaittet A es yas a BBG AS alia NESTOR NOTABILIS, Guid Hidlernddl t Walton, Fey Lbould and HC Firchber, del, ab bith.",Nestor notabilis,yes,portrait,0.932,,"Vision OCR: NESTOR NOTABILIS, Could."
+Supp,61,birdsAustraliasSuppGoul,256,"ere sal ee "" a ze - oe Hullmandd & Walton imp ROGLOSSUS ECs yy J. Gould and HC Richter det & lit.",Microglossus aterrimus,yes,portrait,0.932,,"Vision OCR: MICROGLOSSUS ATERRIMUS,"
+Supp,62,birdsAustraliasSuppGoul,260,"POLYTELIS ALEXANDRA: . Gould. 7 . Walter, Imp. JGould and HC Richter, del. eb itl.",Polytelis Alexandrae,yes,portrait,0.936,,Vision OCR: POLYTELIS ALEXANDRA. Gould.
+Supp,63,birdsAustraliasSuppGoul,264,"PLATYCERCUS CYANOGIENYS , Goudd. Sbould and HC Richter, dé lith. ullmunde ¢ Nalton, Imp.",Platycercus cyanogenys,yes,portrait,0.909,,"Vision OCR: PLATYCERCUS CYANOGENYS, Gould."
+Supp,64,birdsAustraliasSuppGoul,268,"Sb0utd andl Tiichier, tel, ch tilde. : : 4 4 3 : i H g PSEPHOTUS CHIRYSOPTERYGIUS, Cou Hiuliinendel & Wilton, LDR.",Psephotus chrysopterygius,yes,portrait,0.944,,"Vision OCR: PSEPHOTUS CHRYSOPTERYGIUS, Gould"
+Supp,65,birdsAustraliasSuppGoul,272,"CYCLOPSITTA COXENL , Gould J Gould: & HC Richter, deb c& titty Halter, Limp",Cyclopsitta Coxeni,yes,portrait,0.933,,Vision OCR: CYCLOPSITTA COXENI
+Supp,66,birdsAustraliasSuppGoul,276,—e MP2 TP LAY IRTD FT PINOD PP) “SITVINACIOOO SNOVILLISdOAD,Geopsittacus occidentalis,yes,landscape,,,"Vision OCR: GEOPSITTACUS OCCIDENTALIS, Gould."
+Supp,67,birdsAustraliasSuppGoul,280,"liould. B) ILS OPHAGA ASSIMIL CARP ip. WY Tillmundd & Walton Ln Aitcr, del. hth, J Gold and HC fie",Carpophaga assimilis,yes,portrait,0.890,,"Vision OCR: CARPOPHACA ASSIMILIS, Gould"
+Supp,68,birdsAustraliasSuppGoul,284,"LOPHOPHAPS FERRUGINEA, Goud. J Gould & Hkichter, ded. et lethy. Walter Lip.",Lophophaps ferruginea,yes,portrait,0.929,,"Vision OCR: LOPHOPHAPS FERRUGINEA, Gould"
+Supp,69,birdsAustraliasSuppGoul,288,"a] AN Wy TT Ws t > TA a PHAPS PER, Gould. | ; [Gould & HCRichter deb eb lid. eee Walter Erp.",Lophophaps leucogaster,yes,portrait,0.934,,"Vision OCR: LOPHOPHAPS LEUCOGASTER, Gould."
+Supp,70,birdsAustraliasSuppGoul,292,"CASUARIUS AUSTRALIS, Wail. Jbould ¢ HC Richter, de eb tithe",Casuarius australis,yes,portrait,0.969,,"Vision OCR: CASUARIUS AUSTRALIS, Wall"
+Supp,71,birdsAustraliasSuppGoul,295,". 7 | CASUARIUS AUSTRALIS , Wall. , Nig a oe aoe Malar Mi",Casuarius australis,yes,landscape,,,"Vision OCR: CASUARIUS AUSTRALIS, Wall; caption along the left edge"
+Supp,72,birdsAustraliasSuppGoul,298,"Stadirreariial AV alin, log. 27 CZ / wu Laclede. a Ould. 2 LG",Casuarius Bennetti,yes,portrait,0.929,,"Vision OCR: CASUARIUS BENNETTI, Gould"
+Supp,73,birdsAustraliasSuppGoul,301,"CASUARIUS BENNIETTI, Coc LGould ond MC baclier, waa lich, Millrraridil b Wieltor, Drop.",Casuarius Bennetti,yes,landscape,,,"Vision OCR: CASUARIUS BENNETTI, Could; caption along the left edge"
+Supp,74,birdsAustraliasSuppGoul,304,"CASUARIUS UNIAPPENDICULATUS, Blyth SJ Gould &HOkichte, deb et lethy Walter Inp",Casuarius uniappendiculatus,yes,portrait,0.937,,"Vision OCR: CASUARIUS UNIAPPENDICULATUS, Blyth."
+Supp,75,birdsAustraliasSuppGoul,307,PIG IE D ‘mn é Wn PPP Quy “PIT OYY S OLEV OLS VO WM *SOEVTOOICN Tad VINO /,Casuarius uniappendiculatus,yes,landscape,,,"Vision OCR: CASUARIUS UNIAPPENDICULATUS, Blyth.; caption along the left edge"
+Supp,76,birdsAustraliasSuppGoul,311,,Notornis Mantelli,yes,portrait,0.971,yes,"read from image; fold-out spread; NOTORNIS MANTELLI: Owen; upright double-page spread (wider than tall), caption along the bottom; caption_top measured by eye against a ruler on the image"
+Supp,77,birdsAustraliasSuppGoul,316,"ee ' | . CLL TILER OLDIE . a -_ | ; | a ""SDINVULUVE SQUNLILOV = | Bigs foi “2",Actiturus Bartramius,yes,landscape,,,Vision OCR: ACTITURUS BARTRAMIUS.
+Supp,78,birdsAustraliasSuppGoul,320,WP PP BUTT DT® PO [° | ere \ Myey “TOTOOTLL WNITTVY |,Rallina tricolor,yes,landscape,,,"Vision OCR: RALLINA TRICOLOR, G.R.Gray."
+Supp,79,birdsAustraliasSuppGoul,324,Py “VTSSTHOIIoAMt VIONITIVS ee see ee ee ee YY POP PRYRT ITS POD,Gallinula ruficrissa,yes,landscape,,,"Vision OCR: GALLINULA RUFICRISSA, Gould."
+Supp,80,birdsAustraliasSuppGoul,328,"Pee eer mare) rere GATA, ba my 4 SPATULA VAIKULE a Richter, ol, et lithe C tb ana 7: JG a",Spatula variegata,yes,landscape,,,"Vision OCR: SPATULA VARIEGATA, Could."
+Supp,81,birdsAustraliasSuppGoul,332,"hey cup, p ppeind iy UDUELELO DOLE YI LEE, (hie",Gelochelidon macrotarsa,yes,landscape,,,"Vision OCR: GELOCHELIDON MACROTARSA, Could"

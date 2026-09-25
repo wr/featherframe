@@ -535,8 +535,11 @@ Container restarts); D1 schema in `hosted/migrations/`.
   before W-702), and the `folios` block carries the headers. A species may
   have an entry in several folios; `SpeciesIndex.order(region)` asks the
   household's Region's folios first (`Config.region`; each folio's header
-  names its `region`: Havell `north-america`, Gould `europe`), then the rest
-  in the index's order, Havell first. It reorders, never filters, and a
+  names its `region`: Havell `north-america`, Gould's Europe `europe`, his
+  Australia `australia`), then the rest in the index's order: Havell first,
+  then as published (`load_folios` sorts by the header's first year), so a
+  new folio never takes a species from one a household already sees. It
+  reorders, never filters, and a
   folio's `plate: none` hands the species on to the next folio, never to a
   guess. A Region change is drawn by the next tick (`_region_redraw`).
   A folio whose header says `plates_per_volume: true` (W-874: Gould's
@@ -549,7 +552,16 @@ Container restarts); D1 schema in `hosted/migrations/`.
   shows (a gutter, a gilt edge) its own margins: a plate's `margins`, then its
   volume's, then the folio's, resolved by `fetch_scans` into each index record
   (`scan_margins`), so neither the runtime nor the library looks them up.
-  Margins are upright coordinates: a landscape volume needs its own. The AI's style references are Havell
+  Margins are upright coordinates: a landscape volume needs its own.
+  `gould_australia.yaml` (W-870) is *The Birds of Australia* and its
+  Supplement, 386 species, one plate each, numbered per volume; its working
+  record, the Kansas cross-check and the cutting rules are in
+  `docs/gould-australia/`. Its traps: Gould's *Pachycephala pectoralis* is the
+  Rufous Whistler, *Myiagra nitida* the Satin Flycatcher, *Circus assimilis*
+  the Swamp Harrier, *Climacteris picumnus* the White-throated Treecreeper,
+  *Rallus pectoralis* the Buff-banded Rail (tests hold each). An upright
+  plate is cut above its caption and at 0.955 on the right (every volume's
+  binding line); a sideways one to the box of its strong ink. The AI's style references are Havell
   plates only (`genart._havell_species`), because its prompts name the Havell
   edition. `test_crosswalk.py` guards the tricky numbers.
   The folios are published as an open dataset, github.com/wr/historical-bird-plates

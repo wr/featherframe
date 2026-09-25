@@ -84,9 +84,11 @@ def test_the_overnight_collage_is_quiet_hours_itself(client):
     collage = html.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
     assert collage.count('name="quiet_hours_mode"') == 3      # Off / sun / custom
     assert "wiki/AI-illustrations" in html and ">Learn</a>" in html
-    # Region is a household setting (W-702): North America, or Gould's Europe.
+    # Region is a household setting (W-702): North America, Gould's Europe or
+    # his Australia (W-870).
     assert '<select class="sel" id="f-region" name="region">' in html
     assert '<option value="europe">Europe · Gould\'s Birds of Europe</option>' in html
+    assert '<option value="australia">Australia · Gould\'s Birds of Australia</option>' in html
     # Great Britain is no region (W-872): its few extra species are Europe's.
     assert "Great Britain" not in html
     # Saving without the removed field derives it from the mode either way.

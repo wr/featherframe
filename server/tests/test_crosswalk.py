@@ -285,3 +285,111 @@ def test_britain_never_pins_what_europe_does():
             out |= {s.lower() for s in [e["scientific"], *e.get("sci_synonyms", [])]}
         return out
     assert not names(_britain()) & names(_gould())
+
+
+# --- Gould's Birds of Australia (W-870) ---------------------------------------
+
+AUSTRALIA_YAML = SPECIES_YAML.parent / "gould_australia.yaml"
+
+# Plates per volume, from each volume's List of Plates (the Supplement last).
+AUSTRALIA_VOLUMES = {1: 36, 2: 104, 3: 97, 4: 104, 5: 92, 6: 82, 7: 85, "Supp.": 81}
+
+# Each read against its engraved caption and Gould's own text.
+AUSTRALIA_EXPECTED = {
+    "Laughing Kookaburra": (2, 18, "birdsAustraliav2Goul", 80),
+    "Superb Fairywren": (3, 18, "birdsAustraliav3Goul", 80),
+    "Superb Parrot": (5, 15, "birdsAustraliav5Goul", 68),
+    "Regent Parrot": (5, 16, "birdsAustraliav5Goul", 72),
+}
+
+
+def _australia():
+    return yaml.safe_load(AUSTRALIA_YAML.read_text())
+
+
+def _australia_at(volume_no, plate):
+    return next((e for e in _australia()["species"]
+                 if (e["volume_no"], e["plate"]) == (volume_no, plate)), None)
+
+
+def test_australia_pins():
+    by_common = {e["common"]: e for e in _australia()["species"]}
+    for common, (vol, plate, volume, leaf) in AUSTRALIA_EXPECTED.items():
+        e = by_common[common]
+        assert (e["volume_no"], e["plate"], e["volume"], e["leaf"]) == (vol, plate, volume, leaf), common
+
+
+def test_australia_entries_are_whole():
+    doc = _australia()
+    folio = doc["folio"]
+    assert folio["region"] == "australia" and folio["plates_per_volume"] is True
+    assert folio["plates"] == sum(AUSTRALIA_VOLUMES.values())
+    for e in doc["species"]:
+        assert 1 <= e["plate"] <= AUSTRALIA_VOLUMES[e["volume_no"]], e["common"]
+        assert e["volume"].startswith("birdsAustralia") and e["leaf"] > 0, e["common"]
+
+
+def test_australia_pins_each_species_once():
+    species = _australia()["species"]
+    assert len(species) >= 380
+    sci = [e["scientific"] for e in species]
+    assert len(sci) == len(set(sci))
+    commons = [e["common"] for e in species]
+    assert len(commons) == len(set(commons))
+
+
+def test_australia_sideways_plates_stand_upright():
+    """A sideways plate reads its caption down the right edge (a quarter turn
+    clockwise, PIL 270) or, on a few, up the left (90). All of vol. VII is
+    sideways; vols. I-IV are all upright."""
+    for e in _australia()["species"]:
+        if e["volume_no"] == 7:
+            assert e.get("rotate") in (90, 270), e["common"]
+        if e["volume_no"] in (1, 2, 3, 4):
+            assert "rotate" not in e, e["common"]
+
+
+def test_australia_no_sheet_is_a_composite():
+    """Every sheet shows one species (male, female, young)."""
+    leaves = [(e["volume"], e["leaf"]) for e in _australia()["species"]]
+    assert len(leaves) == len(set(leaves))
+    assert not any(e.get("composite") for e in _australia()["species"])
+
+
+def test_australia_fold_outs_are_never_pinned():
+    """The bowers (IV.8, IV.10) and Supp. 76 are double-page spreads with the
+    fold through the art."""
+    for vol, plate in ((4, 8), (4, 10), ("Supp.", 76)):
+        assert _australia_at(vol, plate) is None
+
+
+@pytest.mark.parametrize("vol,plate,common,scientific", [
+    # Gould's binomial now names another bird: match on the modern name.
+    (2, 67, "Rufous Whistler", "Pachycephala rufiventris"),       # his pectoralis
+    (2, 91, "Satin Flycatcher", "Myiagra cyanoleuca"),            # his nitida
+    (2, 88, "Shining Flycatcher", "Myiagra alecto"),
+    (1, 26, "Swamp Harrier", "Circus approximans"),               # his assimilis
+    (4, 98, "White-throated Treecreeper", "Cormobates leucophaea"),  # his picumnus
+    (4, 93, "Brown Treecreeper", "Climacteris picumnus"),         # his scandens
+    (6, 76, "Buff-banded Rail", "Gallirallus philippensis"),      # his Rallus pectoralis
+    (6, 77, "Lewin's Rail", "Lewinia pectoralis"),
+    (4, 7, "Bassian Thrush", "Zoothera lunulata"),                # not the Mountain Thrush
+    (3, 55, "Tasmanian Thornbill", "Acanthiza ewingii"),          # not his diemenensis
+])
+def test_australia_naming_traps(vol, plate, common, scientific):
+    e = _australia_at(vol, plate)
+    assert (e["common"], e["scientific"]) == (common, scientific)
+
+
+def test_folios_are_asked_havell_first_then_as_published():
+    """A new folio never takes a species from one a household already sees:
+    after Havell, Europe (1832) is asked before Australia (1840), so the
+    Eurasian Coot outside the Australia region stays Gould's European plate.
+    Britain (1862) shares no species with either."""
+    import importlib.util
+    script = SPECIES_YAML.parents[1] / "fetch_plates.py"
+    spec = importlib.util.spec_from_file_location("fetch_plates", script)
+    fp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fp)
+    order = [f for f, _, _ in fp.load_folios(SPECIES_YAML.parent)]
+    assert order == ["havell", "gould_europe", "gould_australia", "gould_britain"]

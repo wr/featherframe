@@ -1,0 +1,682 @@
+volume,plate,gould_latin,gould_english,modern_sci,birdnet_sci,birdnet_common,confidence,reason
+I,1,Aquila fucosa,Wedge-tailed Eagle,Aquila audax,,,high,Aquila fucosa Cuvier = Wedge-tailed Eagle; not in BirdNET
+I,2,Aquila Morphnoides,Little Australian Eagle,Hieraaetus morphnoides,,,high,Little Eagle; not in BirdNET
+I,3,Ichthyiaetus leucogaster,White-bellied Sea Eagle,Haliaeetus leucogaster,Haliaeetus leucogaster,White-bellied Sea-Eagle,high,Ichthyiaetus = Haliaeetus
+I,4,Haliaster leucosternus,White-breasted Sea Eagle,Haliastur indus,Haliastur indus,Brahminy Kite,high,leucosternus Gould = Australian race of Brahminy Kite
+I,5,Haliaster sphenurus,Whistling Eagle,Haliastur sphenurus,Haliastur sphenurus,Whistling Kite,high,Whistling Kite
+I,6,Pandion leucocephalus,White-headed Osprey,Pandion haliaetus,Pandion haliaetus,Osprey,high,leucocephalus Gould = Eastern Osprey (cristatus); Clements lumps into Osprey
+I,7,Falco hypoleucus,Grey Falcon,Falco hypoleucos,,,high,Grey Falcon; not in BirdNET
+I,8,Falco melanogenys,Black-cheeked Falcon,Falco peregrinus,Falco peregrinus,Peregrine Falcon,high,melanogenys Gould = Australian Peregrine (macropus)
+I,9,Falco subniger,Black Falcon,Falco subniger,,,high,Black Falcon; not in BirdNET
+I,10,Falco frontatus,White-fronted Falcon,Falco longipennis,,,high,frontatus Gould = Australian Hobby; not in BirdNET
+I,11,Ieracidea Berigora,Brown Hawk,Falco berigora,Falco berigora,Brown Falcon,high,Ieracidea = Falco
+I,12,Ieracidea occidentalis,Western Brown Hawk,Falco berigora,Falco berigora,Brown Falcon,high,occidentalis Gould = W race of Brown Falcon
+I,13,Tinnunculus Cenchroides,Nankeen Kestril,Falco cenchroides,,,high,Nankeen Kestrel; not in BirdNET
+I,14,Astur Novae-Hollandiae,New Holland Goshawk,Accipiter novaehollandiae,Accipiter novaehollandiae,Gray Goshawk,high,"Grey Goshawk, grey morph"
+I,15,Astur (albino),White Goshawk,Accipiter novaehollandiae,Accipiter novaehollandiae,Gray Goshawk,high,"Grey Goshawk, white morph"
+I,16,Astur radiatus,Radiated Goshawk,Erythrotriorchis radiatus,,,high,Red Goshawk; not in BirdNET
+I,17,Astur approximans,Australian Goshawk,Accipiter fasciatus,Accipiter fasciatus,Brown Goshawk,high,approximans Vig&Horsf = Brown Goshawk
+I,18,Astur cruentus,West Australian Goshawk,Accipiter fasciatus,Accipiter fasciatus,Brown Goshawk,high,cruentus Gould = SW Australian Brown Goshawk
+I,19,Accipiter torquatus,Collared Sparrow Hawk,Accipiter cirrocephalus,Accipiter cirrocephalus,Collared Sparrowhawk,high,torquatus Cuvier = Collared Sparrowhawk
+I,20,Buteo melanosternon,Black-breasted Buzzard,Hamirostra melanosternon,,,high,Black-breasted Buzzard; not in BirdNET
+I,21,Milvus affinis,Allied Kite,Milvus migrans,Milvus migrans,Black Kite,high,affinis Gould = Australian Black Kite
+I,22,Milvus isurus,Square-tailed Kite,Lophoictinia isura,,,high,Square-tailed Kite; not in BirdNET
+I,23,Elanus axillaris,Black-shouldered Kite,Elanus axillaris,,,high,Black-shouldered Kite (Australian); not in BirdNET (E. caeruleus is a different species)
+I,24,Elanus scriptus,Letter-winged Kite,Elanus scriptus,,,high,Letter-winged Kite; not in BirdNET
+I,25,Lepidogenys subcristatus,Crested Hawk,Aviceda subcristata,Aviceda subcristata,Pacific Baza,high,Pacific Baza
+I,26,Circus assimilis,Allied Harrier,Circus approximans,Circus approximans,Swamp Harrier,high,TRAP: Gould misapplied assimilis J&S to the Swamp Harrier (text: 'resembles the Marsh Harrier'; Circus gouldi Bp. is the new name for it)
+I,27,Circus Jardinii,Jardine’s Harrier,Circus assimilis,,,high,jardinii Gould = Spotted Harrier (true C. assimilis); not in BirdNET
+I,28,Strix castanops,Chestnut-faced Owl,Tyto novaehollandiae,Tyto novaehollandiae,Australian Masked-Owl,high,castanops = Tasmanian race of Australian Masked-Owl (lumped)
+I,29,Strix personata,Masked Barn Owl,Tyto novaehollandiae,Tyto novaehollandiae,Australian Masked-Owl,high,personata = Australian Masked-Owl
+I,30,Strix tenebricosus,Sooty Owl,Tyto tenebricosa,Tyto tenebricosa,Sooty Owl,high,Sooty Owl
+I,31,Strix delicatulus,Delicate Owl,Tyto alba,Tyto alba,Barn Owl,high,delicatula = Eastern Barn Owl; BirdNET lumps in Tyto alba
+I,32,Athene Boobook,Boobook Owl,Ninox boobook,Ninox boobook,Southern Boobook,high,Southern Boobook (Clements: Australian Boobook)
+I,33,Athene maculata,Spotted Owl,Ninox leucopsis,Ninox novaeseelandiae,Morepork,low,"drawn from live Hobart birds = Tasmanian Boobook; Clements 2021 kept it in Morepork, IOC splits; BirdNET Morepork is NZ-trained"
+I,34,Athene connivens,Winking Owl,Ninox connivens,Ninox connivens,Barking Owl,high,Barking Owl
+I,35,Athene strenua,Powerful Owl,Ninox strenua,Ninox strenua,Powerful Owl,high,Powerful Owl
+I,36,Athene rufa,Rufous Owl,Ninox rufa,,,high,Rufous Owl; not in BirdNET
+II,1,Aegotheles Novae-Hollandiae,Owlet Nightjar,Aegotheles cristatus,Aegotheles cristatus,Australian Owlet-nightjar,high,novaehollandiae = Australian Owlet-nightjar
+II,2,Aegotheles leucogaster,White-bellied Owlet Nightjar,Aegotheles cristatus,Aegotheles cristatus,Australian Owlet-nightjar,high,leucogaster = inland race
+II,3,Podargus humeralis,Tawny-shouldered Podargus,Podargus strigoides,Podargus strigoides,Tawny Frogmouth,high,humeralis = Tawny Frogmouth
+II,4,Podargus Cuvieri,Cuvier’s Podargus,Podargus strigoides,Podargus strigoides,Tawny Frogmouth,high,cuvieri = Tasmanian/SE Tawny Frogmouth
+II,5,Podargus Phalaenoides,Moth-plumaged Podargus,Podargus strigoides,Podargus strigoides,Tawny Frogmouth,high,phalaenoides = N race of Tawny Frogmouth
+II,6,Podargus plumiferus,Plumed Podargus,Podargus ocellatus,Podargus ocellatus,Marbled Frogmouth,high,"plumiferus = Plumed Frogmouth, race of Marbled Frogmouth"
+II,7,Eurostopodus albogularis,White-throated Goat-sucker,Eurostopodus mystacalis,Eurostopodus mystacalis,White-throated Nightjar,high,albogularis = White-throated Nightjar
+II,8,Eurostopodus guttatus,Spotted Goat-sucker,Eurostopodus argus,Eurostopodus argus,Spotted Nightjar,high,guttatus = Spotted Nightjar
+II,9,Caprimulgus macrurus,Large-tailed Goat-sucker,Caprimulgus macrurus,Caprimulgus macrurus,Large-tailed Nightjar,high,Large-tailed Nightjar
+II,10,Acanthylis caudacuta,Australian Spine-tailed Swallow,Hirundapus caudacutus,Hirundapus caudacutus,White-throated Needletail,high,White-throated Needletail
+II,11,Cypselus Australis,Australian Swift,Apus pacificus,Apus pacificus,Pacific Swift,high,Cypselus australis Gould = Pacific Swift
+II,12,Atticora leucosternon,White-breasted Swallow,Cheramoeca leucosterna,,,high,White-backed Swallow; not in BirdNET
+II,13,Hirundo neoxena,Welcome Swallow,Hirundo neoxena,Hirundo neoxena,Welcome Swallow,high,Welcome Swallow
+II,14,Collocalia arborea,Tree Martin,Petrochelidon nigricans,Petrochelidon nigricans,Tree Martin,high,Tree Martin
+II,15,Collocalia Ariel,Fairy Martin,Petrochelidon ariel,Petrochelidon ariel,Fairy Martin,high,Fairy Martin
+II,16,Merops ornatus,Australian Bee-eater,Merops ornatus,Merops ornatus,Rainbow Bee-eater,high,Rainbow Bee-eater
+II,17,Eurystomus Australis,Australian Roller,Eurystomus orientalis,Eurystomus orientalis,Dollarbird,high,australis = Dollarbird (pacificus)
+II,18,Dacelo gigantea,Great Brown Kingfisher,Dacelo novaeguineae,Dacelo novaeguineae,Laughing Kookaburra,high,gigantea = Laughing Kookaburra
+II,19,Dacelo Leachii,Leach’s Kingfisher,Dacelo leachii,Dacelo leachii,Blue-winged Kookaburra,high,Blue-winged Kookaburra
+II,20,Dacelo cervina,Fawn-breasted Kingfisher,Dacelo leachii,Dacelo leachii,Blue-winged Kookaburra,high,cervina = NT race of Blue-winged Kookaburra
+II,21,Halcyon sanctus,Sacred Halcyon,Todiramphus sanctus,Todiramphus sanctus,Sacred Kingfisher,high,Sacred Kingfisher
+II,22,Halcyon pyrrhopygia,Red-backed Halcyon,Todiramphus pyrrhopygius,,,high,Red-backed Kingfisher; not in BirdNET
+II,23,Halcyon sordidus,Sordid Halcyon,Todiramphus sordidus,Todiramphus sordidus,Torresian Kingfisher,high,Torresian Kingfisher (split from Collared in BirdNET)
+II,24,Halcyon MacLeayii,MacLeay’s Halcyon,Todiramphus macleayii,Todiramphus macleayii,Forest Kingfisher,high,Forest Kingfisher
+II,25,Alcyone azurea,Azure Kingfisher,Ceyx azureus,Ceyx azureus,Azure Kingfisher,high,Azure Kingfisher
+II,26,Alcyone pusilla,Little Kingfisher,Ceyx pusillus,,,high,Little Kingfisher; not in BirdNET
+II,27,Artamus sordidus,Wood Swallow,Artamus cyanopterus,Artamus cyanopterus,Dusky Woodswallow,high,sordidus = Dusky Woodswallow
+II,28,Artamus minor,Little Wood Swallow,Artamus minor,,,high,Little Woodswallow; not in BirdNET
+II,29,Artamus cinereus,Grey-breasted Wood Swallow,Artamus cinereus,Artamus cinereus,Black-faced Woodswallow,high,Black-faced Woodswallow
+II,30,Artamus albiventris,White-vented Wood Swallow,Artamus cinereus,Artamus cinereus,Black-faced Woodswallow,high,albiventris = race of Black-faced Woodswallow
+II,31,Artamus personatus,Masked Wood Swallow,Artamus personatus,Artamus personatus,Masked Woodswallow,high,Masked Woodswallow
+II,32,Artamus superciliosus,White-eyebrowed Wood Swallow,Artamus superciliosus,Artamus superciliosus,White-browed Woodswallow,high,White-browed Woodswallow
+II,33,Artamus leucopygialis,White-rumped Wood Swallow,Artamus leucorynchus,Artamus leucorynchus,White-breasted Woodswallow,high,leucopygialis = Australian White-breasted Woodswallow
+II,34,Dicaeum hirundinaceum,Swallow Dicæum,Dicaeum hirundinaceum,Dicaeum hirundinaceum,Mistletoebird,high,Mistletoebird
+II,35,Pardalotus punctatus,Spotted Pardalote,Pardalotus punctatus,Pardalotus punctatus,Spotted Pardalote,high,Spotted Pardalote
+II,36,Pardalotus rubricatus,Red-lored Pardalote,Pardalotus rubricatus,Pardalotus rubricatus,Red-browed Pardalote,high,Red-browed Pardalote
+II,37,Pardalotus quadragintus,Forty-spotted Pardalote,Pardalotus quadragintus,,,high,Forty-spotted Pardalote; not in BirdNET
+II,38,Pardalotus striatus,Striated Pardalote,Pardalotus striatus,Pardalotus striatus,Striated Pardalote,high,Striated Pardalote (Tasmanian nominate)
+II,39,Pardalotus affinis,Allied Pardalote,Pardalotus striatus,Pardalotus striatus,Striated Pardalote,high,affinis = race of Striated Pardalote
+II,40,Pardalotus melanocephalus,Black-headed Pardalote,Pardalotus striatus,Pardalotus striatus,Striated Pardalote,high,melanocephalus = race of Striated Pardalote
+II,41,Pardalotus uropygialis,Yellow-rumped Pardalote,Pardalotus striatus,Pardalotus striatus,Striated Pardalote,high,uropygialis = race of Striated Pardalote
+II,42,Strepera graculina,Great Crow-Shrike,Strepera graculina,Strepera graculina,Pied Currawong,high,Pied Currawong
+II,43,Strepera fuliginosa,Sooty Crow-Shrike,Strepera fuliginosa,Strepera fuliginosa,Black Currawong,high,Black Currawong
+II,44,Strepera arguta,Hill Crow-Shrike,Strepera versicolor,Strepera versicolor,Gray Currawong,high,arguta = Tasmanian Grey Currawong
+II,45,Strepera Anaphonensis,Grey Crow-Shrike,Strepera versicolor,Strepera versicolor,Gray Currawong,high,anaphonensis = Grey Currawong
+II,46,Gymnorhina Tibicen,Piping Crow-Shrike,Gymnorhina tibicen,Gymnorhina tibicen,Australian Magpie,high,Australian Magpie
+II,47,Gymnorhina leuconota,White-backed Crow-Shrike,Gymnorhina tibicen,Gymnorhina tibicen,Australian Magpie,high,leuconota = white-backed race
+II,48,Gymnorhina organicum,Tasmanian Crow-Shrike,Gymnorhina tibicen,Gymnorhina tibicen,Australian Magpie,high,organicum = Tasmanian race
+II,49,Cracticus nigrogularis,Black-throated Crow-Shrike,Cracticus nigrogularis,Cracticus nigrogularis,Pied Butcherbird,high,Pied Butcherbird
+II,50,Cracticus picatus,Pied Crow-Shrike,Cracticus nigrogularis,Cracticus nigrogularis,Pied Butcherbird,high,picatus = NW race of Pied Butcherbird
+II,51,Cracticus argenteus,Silvery-backed Butcher-Bird,Cracticus argenteus,Cracticus torquatus,Gray Butcherbird,high,"Silver-backed Butcherbird; IOC splits, BirdNET/Clements 2021 lump in Grey Butcherbird"
+II,52,Cracticus destructor,Butcher-Bird,Cracticus torquatus,Cracticus torquatus,Gray Butcherbird,high,destructor = Grey Butcherbird
+II,53,Cracticus Quoyii,Quoy’s Crow-Shrike,Cracticus quoyi,Cracticus quoyi,Black Butcherbird,high,Black Butcherbird
+II,54,Grallina Australis,Pied Grallina,Grallina cyanoleuca,Grallina cyanoleuca,Magpie-lark,high,australis = Magpie-lark
+II,55,Graucalus melanops,Black-faced Graucalus,Coracina novaehollandiae,Coracina novaehollandiae,Black-faced Cuckooshrike,high,melanops = Black-faced Cuckooshrike
+II,56,Graucalus mentalis,Varied Graucalus,Coracina papuensis,Coracina papuensis,White-bellied Cuckooshrike,medium,mentalis V&H = dark-faced 'Varied' form of White-bellied Cuckooshrike (robusta)
+II,57,Graucalus hypoleucus,White-bellied Graucalus,Coracina papuensis,Coracina papuensis,White-bellied Cuckooshrike,high,hypoleuca = White-bellied Cuckooshrike
+II,58,Graucalus Swainsonii,Swainson’s Graucalus,Coracina lineata,Coracina lineata,Barred Cuckooshrike,high,"swainsonii Gould, new name for Ceblepyris lineatus Swainson (barred breast) = Barred Cuckooshrike"
+II,59,Pteropodocys Phasianella,Ground Graucalus,Coracina maxima,,,high,Ground Cuckooshrike; not in BirdNET
+II,60,Campephaga Jardinii,Jardine’s Campephaga,Edolisoma tenuirostre,Edolisoma tenuirostre,Common Cicadabird,high,Campephaga jardinii = Common Cicadabird
+II,61,Campephaga Karu,Northern Campephaga,Lalage leucomela,Lalage leucomela,Varied Triller,high,Port Essington bird Gould referred to karu = Varied Triller (rufiventris)
+II,62,Campephaga leucomela,Black and White Campephaga,Lalage leucomela,Lalage leucomela,Varied Triller,high,Varied Triller
+II,63,Campephaga humeralis,White-shouldered Campephaga,Lalage tricolor,Lalage tricolor,White-winged Triller,high,humeralis Gould = White-winged Triller
+II,64,Pachycephala gutturalis,Guttural Pachycephala,Pachycephala pectoralis,Pachycephala pectoralis,Golden Whistler,medium,"gutturalis Latham = Golden Whistler (E Aus); Gould's synonymy also lumps the W form (fuliginosa, now Western Whistler)"
+II,65,Pachycephala glaucura,Grey-tailed Pachycephala,Pachycephala pectoralis,Pachycephala pectoralis,Golden Whistler,high,glaucura = Tasmanian Golden Whistler
+II,66,Pachycephala melanura,Black-tailed Pachycephala,Pachycephala melanura,,,high,Mangrove Golden Whistler; not in BirdNET
+II,67,Pachycephala pectoralis,Banded Thick-head,Pachycephala rufiventris,Pachycephala rufiventris,Rufous Whistler,high,"TRAP: Gould's 'P. pectoralis, Banded Thick-head' is Latham's Muscicapa pectoralis = Rufous Whistler (orange-brown belly, black band); binomial now = Golden Whistler"
+II,68,Pachycephala falcata,Lunated Pachycephala,Pachycephala rufiventris,Pachycephala rufiventris,Rufous Whistler,high,falcata Gould = NT race of Rufous Whistler
+II,69,Pachycephala Lanoides,Shrike-like Pachycephala,Pachycephala lanioides,Pachycephala lanioides,White-breasted Whistler,high,White-breasted Whistler
+II,70,Pachycephala rufogularis,Red-throated Pachycephala,Pachycephala rufogularis,,,high,Red-lored Whistler; not in BirdNET
+II,71,Pachycephala Gilbertii,Gilbert’s Pachycephala,Pachycephala inornata,Pachycephala inornata,Gilbert's Whistler,high,gilbertii = Gilbert's Whistler
+II,72,Pachycephala simplex,Plain-coloured Pachycephala,Pachycephala simplex,Pachycephala simplex,Gray Whistler,high,Grey Whistler
+II,73,Pachycephala olivacea,Olivaceous Pachycephala,Pachycephala olivacea,Pachycephala olivacea,Olive Whistler,high,Olive Whistler
+II,74,Colluricincla harmonica,Harmonious Colluricincla,Colluricincla harmonica,Colluricincla harmonica,Gray Shrikethrush,high,Grey Shrikethrush
+II,75,Colluricincla rufiventris,Buff-bellied Colluricincla,Colluricincla harmonica,Colluricincla harmonica,Gray Shrikethrush,high,rufiventris = W race
+II,76,Colluricincla brunnea,Brown Colluricincla,Colluricincla harmonica,Colluricincla harmonica,Gray Shrikethrush,high,brunnea = N race of Grey Shrikethrush
+II,77,Colluricincla Selbii,Selby’s Colluricincla,Colluricincla harmonica,Colluricincla harmonica,Gray Shrikethrush,high,selbii = Tasmanian Grey Shrikethrush (Gould's text)
+II,78,Colluricincla parvula,Little Colluricincla,Colluricincla megarhyncha,Colluricincla megarhyncha,Arafura Shrikethrush,high,"parvula = NT race; BirdNET's megarhyncha is Arafura Shrikethrush, which holds parvula"
+II,79,Falcunculus frontatus,Frontal Shrike-Tit,Falcunculus frontatus,Falcunculus frontatus,Crested Shrike-tit,high,Crested Shrike-tit
+II,80,Falcunculus leucogaster,White-bellied Shrike-Tit,Falcunculus frontatus,Falcunculus frontatus,Crested Shrike-tit,high,leucogaster = W race (IOC splits; BirdNET lumps)
+II,81,Oreoica gutturalis,Crested Oreoïca,Oreoica gutturalis,Oreoica gutturalis,Crested Bellbird,high,Crested Bellbird
+II,82,Dicrurus bracteatus,Spangled Drongo,Dicrurus bracteatus,Dicrurus bracteatus,Spangled Drongo,high,Spangled Drongo
+II,83,Rhipidura albiscapa,White-shafted Fantail,Rhipidura albiscapa,Rhipidura albiscapa,Gray Fantail,high,Grey Fantail
+II,84,Rhipidura rufifrons,Rufous-fronted Fantail,Rhipidura rufifrons,Rhipidura rufifrons,Rufous Fantail,high,Rufous Fantail
+II,85,Rhipidura isura,Northern Fantail,Rhipidura rufiventris,Rhipidura rufiventris,Northern Fantail,high,isura = Northern Fantail
+II,86,Rhipidura Motacilloides,Black Fantailed Flycatcher,Rhipidura leucophrys,Rhipidura leucophrys,Willie-wagtail,high,motacilloides = Willie-wagtail
+II,87,Seisura inquieta,Restless Flycatcher,Myiagra inquieta,Myiagra inquieta,Restless Flycatcher,high,Restless Flycatcher
+II,88,Piezorhynchus nitidus,Blue Shining Flycatcher,Myiagra alecto,Myiagra alecto,Shining Flycatcher,high,Piezorhynchus nitidus = Shining Flycatcher
+II,89,Myiagra plumbea,Plumbeous Flycatcher,Myiagra rubecula,Myiagra rubecula,Leaden Flycatcher,high,plumbea = Leaden Flycatcher
+II,90,Myiagra concinna,Pretty Flycatcher,Myiagra rubecula,Myiagra rubecula,Leaden Flycatcher,high,concinna = N race of Leaden Flycatcher
+II,91,Myiagra nitida,Shining Flycatcher,Myiagra cyanoleuca,Myiagra cyanoleuca,Satin Flycatcher,high,"TRAP: Myiagra nitida Gould ('Satin Sparrow' of Tasmania) = Satin Flycatcher, not the Shining Flycatcher of today"
+II,92,Myiagra latirostris,Broad-billed Flycatcher,Myiagra ruficollis,Myiagra ruficollis,Broad-billed Flycatcher,high,latirostris = Broad-billed Flycatcher
+II,93,Microeca macroptera,Great-winged Micrœca,Microeca fascinans,Microeca fascinans,Jacky-winter,high,macroptera = Jacky Winter
+II,94,Microeca flavigaster,Yellow-bellied Micrœca,Microeca flavigaster,Microeca flavigaster,Lemon-bellied Flycatcher,high,Lemon-bellied Flycatcher
+II,95,Monarcha carinata,Carinated Flycatcher,Monarcha melanopsis,Monarcha melanopsis,Black-faced Monarch,high,carinata = Black-faced Monarch
+II,96,Monarcha trivirgata,Black-fronted Flycatcher,Symposiachrus trivirgatus,Symposiachrus trivirgatus,Spectacled Monarch,high,Spectacled Monarch
+II,97,Gerygone albogularis,White-throated Gerygone,Gerygone olivacea,Gerygone olivacea,White-throated Gerygone,high,albogularis = White-throated Gerygone
+II,98,Gerygone fuscus,Fuscous Gerygone,Gerygone fusca,Gerygone fusca,Western Gerygone,high,Psilopus fuscus Gould = Western Gerygone
+II,99,Gerygone culicivorus,Western Gerygone,Gerygone fusca,Gerygone fusca,Western Gerygone,high,culicivorus = SW WA Western Gerygone
+II,100,Gerygone magnirostris,Great-billed Gerygone,Gerygone magnirostris,Gerygone magnirostris,Large-billed Gerygone,high,Large-billed Gerygone
+II,101,Gerygone laevigaster,Buff-breasted Gerygone,Gerygone levigaster,Gerygone levigaster,Mangrove Gerygone,high,Mangrove Gerygone
+II,102,Gerygone chloronotus,Green-backed Gerygone,Gerygone chloronota,Gerygone chloronota,Green-backed Gerygone,high,Green-backed Gerygone
+II,103,Smicrornis brevirostris,Short-billed Smicrornis,Smicrornis brevirostris,Smicrornis brevirostris,Weebill,high,Weebill
+II,104,Smicrornis flavescens,Yellow-tinted Smicrornis,Smicrornis brevirostris,Smicrornis brevirostris,Weebill,high,flavescens = N race of Weebill
+III,1,Erythrodryas rhodinogaster,Pink-breasted Wood-robin,Petroica rodinogaster,Petroica rodinogaster,Pink Robin,high,Erythrodryas rhodinogaster = Pink Robin
+III,2,Erythrodryas rosea,Rose-breasted Wood-robin,Petroica rosea,Petroica rosea,Rose Robin,high,Rose Robin
+III,3,Petroica multicolor,Scarlet-breasted Robin,Petroica boodang,Petroica boodang,Scarlet Robin,high,Gould's 'multicolor' figure is the Australian Scarlet Robin (Gmelin's multicolor is the Norfolk bird); BirdNET splits boodang
+III,4,Petroica erythrogastra,Norfolk Island Robin,Petroica multicolor,,,high,"erythrogastra, Norfolk Island Robin = Norfolk Robin; not in BirdNET (P. pusilla Pacific Robin is the split-off rest)"
+III,5,Petroica Goodenovii,Red-capped Robin,Petroica goodenovii,Petroica goodenovii,Red-capped Robin,high,Red-capped Robin
+III,6,Petroica phoenicea,Flame-breasted Robin,Petroica phoenicea,Petroica phoenicea,Flame Robin,high,Flame Robin
+III,7,Petroica bicolor,Pied Robin,Melanodryas cucullata,Melanodryas cucullata,Hooded Robin,high,Petroica bicolor = Hooded Robin
+III,8,Petroica fusca,Dusky Robin,Melanodryas vittata,Melanodryas vittata,Dusky Robin,high,Petroica fusca Gould (Tasmania) = Dusky Robin
+III,9,Petroica superciliosa,White-eyebrowed Robin,Poecilodryas superciliosa,,,high,White-browed Robin; not in BirdNET
+III,10,Drymodes brunneopygia,Scrub Robin,Drymodes brunneopygia,Drymodes brunneopygia,Southern Scrub-Robin,high,Southern Scrub-Robin
+III,11,Eöpsaltria Australis,Yellow-breasted Robin,Eopsaltria australis,Eopsaltria australis,Eastern Yellow Robin,high,Eastern Yellow Robin
+III,12,Eöpsaltria griseogularis,Grey-breasted Robin,Eopsaltria griseogularis,,,high,Western Yellow Robin; not in BirdNET
+III,13,Eöpsaltria leucogaster,White-bellied Robin,Eopsaltria georgiana,,,high,leucogaster Gould = White-breasted Robin; not in BirdNET
+III,14,Menura superba,Lyre-Bird,Menura novaehollandiae,Menura novaehollandiae,Superb Lyrebird,high,superba = Superb Lyrebird
+III,15,Psophodes crepitans,Coach-whip Bird,Psophodes olivaceus,Psophodes olivaceus,Eastern Whipbird,high,crepitans = Eastern Whipbird
+III,16,Psophodes nigrogularis,Black-throated Psophodes,Psophodes nigrogularis,Psophodes nigrogularis,Western Whipbird,high,Western Whipbird
+III,17,Sphenostoma cristata,Crested Wedge-bill,Psophodes cristatus,Psophodes cristatus,Chirruping Wedgebill,high,Sphenostoma cristatum Gould = Chirruping Wedgebill
+III,18,Malurus cyaneus,Blue Wren,Malurus cyaneus,Malurus cyaneus,Superb Fairywren,high,Superb Fairywren
+III,19,Malurus longicaudus,Long-tailed Wren,Malurus cyaneus,Malurus cyaneus,Superb Fairywren,high,longicaudus = Tasmanian Superb Fairywren
+III,20,Malurus melanotus,Black-backed Wren,Malurus splendens,Malurus splendens,Splendid Fairywren,high,melanotus = Black-backed race of Splendid Fairywren
+III,21,Malurus splendens,Banded Wren,Malurus splendens,Malurus splendens,Splendid Fairywren,high,Splendid Fairywren
+III,22,Malurus elegans,Graceful Wren,Malurus elegans,Malurus elegans,Red-winged Fairywren,high,Red-winged Fairywren
+III,23,Malurus pulcherrimus,Beautiful Wren,Malurus pulcherrimus,,,high,Blue-breasted Fairywren; not in BirdNET
+III,24,Malurus Lamberti,Lambert’s Wren,Malurus lamberti,Malurus lamberti,Variegated Fairywren,high,Variegated Fairywren (nominate E Aus form)
+III,25,Malurus leucopterus,White-winged Wren,Malurus leucopterus,Malurus leucopterus,White-winged Fairywren,high,White-winged Fairywren
+III,26,Malurus melanocephalus,Black-headed Wren,Malurus melanocephalus,Malurus melanocephalus,Red-backed Fairywren,high,Red-backed Fairywren
+III,27,Malurus Brownii,Brown’s Wren,Malurus melanocephalus,Malurus melanocephalus,Red-backed Fairywren,high,brownii V&H = Red-backed Fairywren
+III,28,Amytis textilis,Textile Wren,Amytornis textilis,,,high,Textile Wren = Western Grasswren; not in BirdNET
+III,29,Amytis striatus,Striated Wren,Amytornis striatus,,,high,Striated Grasswren; not in BirdNET
+III,30,Amytis macrourus,Large-tailed Wren,Amytornis textilis,,,high,macrourus Gould = WA Western Grasswren; not in BirdNET
+III,31,Stipiturus malachurus,Emu Wren,Stipiturus malachurus,Stipiturus malachurus,Southern Emuwren,high,Southern Emuwren
+III,32,Dasyornis Australis,Bristle-Bird,Dasyornis brachypterus,Dasyornis brachypterus,Eastern Bristlebird,high,Dasyornis australis = Eastern Bristlebird
+III,33,Dasyornis longirostris,Long-billed Bristle-Bird,Dasyornis longirostris,Dasyornis longirostris,Western Bristlebird,high,Western Bristlebird
+III,34,Atrichia clamosa,Noisy Brush-bird,Atrichornis clamosus,Atrichornis clamosus,Noisy Scrub-bird,high,Noisy Scrub-bird
+III,35,Sphenoeacus galactotes,Tawny Sphenœacus,Cincloramphus timoriensis,Cincloramphus timoriensis,Tawny Grassbird,high,Sphenoeacus galactotes = Tawny Grassbird
+III,36,Sphenoeacus gramineus,Grass-loving Sphenœacus,Poodytes gramineus,Poodytes gramineus,Little Grassbird,high,Little Grassbird
+III,37,Acrocephalus Australis,Reed Warbler,Acrocephalus australis,Acrocephalus australis,Australian Reed Warbler,high,Australian Reed Warbler
+III,38,Acrocephalus longirostris,Long-billed Reed Warbler,Acrocephalus australis,Acrocephalus australis,Australian Reed Warbler,high,longirostris Gould = WA birds of Australian Reed Warbler
+III,39,Hylacola pyrrhopygia,Red-rumped Wren,Hylacola pyrrhopygia,,,high,Chestnut-rumped Heathwren; not in BirdNET
+III,40,Hylacola cauta,Cautious Wren,Hylacola cauta,Hylacola cauta,Shy Heathwren,high,Shy Heathwren
+III,41,Cysticola magna,Great Warbler,Cisticola sp.,Cisticola exilis,Golden-headed Cisticola,low,"magna Gould: one specimen of unknown locality (Strickland); identity unresolved, perhaps a non-Australian Cisticola"
+III,42,Cysticola exilis,Exile Warbler,Cisticola exilis,Cisticola exilis,Golden-headed Cisticola,high,Golden-headed Cisticola
+III,43,Cysticola lineocapilla,Lineated Warbler,Cisticola exilis,Cisticola exilis,Golden-headed Cisticola,high,lineocapilla = N race of Golden-headed Cisticola
+III,44,Cysticola isura,Square-tailed Warbler,Cisticola exilis,Cisticola exilis,Golden-headed Cisticola,medium,isura Gould = Golden-headed Cisticola (Gould himself doubted it distinct; female/non-breeding)
+III,45,Cysticola ruficeps,Rufous-headed Warbler,Cisticola exilis,Cisticola exilis,Golden-headed Cisticola,medium,ruficeps Gould = Golden-headed Cisticola plumage (uniform rufous head)
+III,46,Sericornis citreogularis,Yellow-throated Sericornis,Sericornis citreogularis,Sericornis citreogularis,Yellow-throated Scrubwren,high,Yellow-throated Scrubwren
+III,47,Sericornis humilis,Sombre-coloured Sericornis,Sericornis humilis,Sericornis humilis,Tasmanian Scrubwren,high,Tasmanian Scrubwren
+III,48,Sericornis osculans,Allied Sericornis,Sericornis frontalis,Sericornis frontalis,White-browed Scrubwren,high,osculans Gould (S Aus) = White-browed Scrubwren (Clements lumps Spotted forms)
+III,49,Sericornis frontalis,White-fronted Sericornis,Sericornis frontalis,Sericornis frontalis,White-browed Scrubwren,high,White-browed Scrubwren
+III,50,Sericornis laevigaster,Buff-breasted Sericornis,Sericornis frontalis,Sericornis frontalis,White-browed Scrubwren,high,laevigaster = NE race of White-browed Scrubwren
+III,51,Sericornis maculatus,Spotted Sericornis,Sericornis frontalis,Sericornis frontalis,White-browed Scrubwren,high,maculatus = Spotted Scrubwren (lumped)
+III,52,Sericornis magnirostris,Large-billed Sericornis,Sericornis magnirostra,Sericornis magnirostra,Large-billed Scrubwren,high,Large-billed Scrubwren
+III,53,Acanthiza pusilla,Little Brown Acanthiza,Acanthiza pusilla,Acanthiza pusilla,Brown Thornbill,high,Brown Thornbill
+III,54,Acanthiza Diemenensis,Tasmanian Acanthiza,Acanthiza pusilla,Acanthiza pusilla,Brown Thornbill,high,diemenensis Gould = Tasmanian race of Brown Thornbill (A. ewingii is plate 55)
+III,55,Acanthiza Ewingii,Ewing’s Acanthiza,Acanthiza ewingii,Acanthiza ewingii,Tasmanian Thornbill,high,Tasmanian Thornbill
+III,56,Acanthiza uropygialis,Chestnut-rumped Acanthiza,Acanthiza uropygialis,Acanthiza uropygialis,Chestnut-rumped Thornbill,high,Chestnut-rumped Thornbill
+III,57,Acanthiza apicalis,Western Acanthiza,Acanthiza apicalis,Acanthiza apicalis,Inland Thornbill,high,Inland Thornbill
+III,58,Acanthiza pyrrhopygia,Red-rumped Acanthiza,Acanthiza apicalis,Acanthiza apicalis,Inland Thornbill,medium,pyrrhopygia Gould (Murray scrubs) = Inland Thornbill per Gould's own comparison; could be read as Chestnut-rumped
+III,59,Acanthiza inornata,Plain-coloured Acanthiza,Acanthiza inornata,Acanthiza inornata,Western Thornbill,high,Western Thornbill
+III,60,Acanthiza nana,Little Acanthiza,Acanthiza nana,Acanthiza nana,Yellow Thornbill,high,Yellow Thornbill
+III,61,Acanthiza lineata,Striated Acanthiza,Acanthiza lineata,Acanthiza lineata,Striated Thornbill,high,Striated Thornbill
+III,62,Acanthiza Reguloides,Regulus-like Acanthiza,Acanthiza reguloides,Acanthiza reguloides,Buff-rumped Thornbill,high,Buff-rumped Thornbill
+III,63,Acanthiza chrysorrhoea,Yellow-rumped Acanthiza,Acanthiza chrysorrhoa,Acanthiza chrysorrhoa,Yellow-rumped Thornbill,high,Yellow-rumped Thornbill
+III,64,Ephthianura albifrons,White-fronted Ephthianura,Epthianura albifrons,,,high,White-fronted Chat; not in BirdNET
+III,65,Ephthianura aurifrons,Orange-fronted Ephthianura,Epthianura aurifrons,,,high,Orange Chat; not in BirdNET
+III,66,Ephthianura tricolor,Tri-coloured Ephthianura,Epthianura tricolor,Epthianura tricolor,Crimson Chat,high,Crimson Chat
+III,67,Xerophila leucopsis,White-faced Xerophila,Aphelocephala leucopsis,Aphelocephala leucopsis,Southern Whiteface,high,Southern Whiteface
+III,68,Pyrrholaemus brunneus,Brown Red-throat,Pyrrholaemus brunneus,Pyrrholaemus brunneus,Redthroat,high,Redthroat
+III,69,Origma rubricata,Rock-Warbler,Origma solitaria,,,high,rubricata = Rockwarbler; not in BirdNET
+III,70,Calamanthus fuliginosus,Striated Reed-Lark,Calamanthus fuliginosus,Calamanthus fuliginosus,Striated Fieldwren,high,Striated Fieldwren
+III,71,Calamanthus campestris,Field Reed-Lark,Calamanthus campestris,,,high,Rufous Fieldwren; not in BirdNET
+III,72,Chthonicola minima,Little Chthonicola,Pyrrholaemus sagittatus,Pyrrholaemus sagittatus,Speckled Warbler,high,Chthonicola minima = Speckled Warbler
+III,73,Anthus Australis,Australian Pipit,Anthus australis,Anthus novaeseelandiae,Australasian Pipit,high,Australian Pipit; BirdNET lumps in Australasian Pipit
+III,74,Cincloramphus cruralis,Brown Cincloramphus,Cincloramphus cruralis,Cincloramphus cruralis,Brown Songlark,high,Brown Songlark
+III,75,Cincloramphus cantillans,Black-breasted Cincloramphus,Cincloramphus cruralis,Cincloramphus cruralis,Brown Songlark,high,cantillans Gould = breeding male Brown Songlark
+III,76,Cincloramphus rufescens,Rufous-tinted Cincloramphus,Cincloramphus mathewsi,Cincloramphus mathewsi,Rufous Songlark,high,rufescens = Rufous Songlark
+III,77,Mirafra Horsfieldii,Horsfield’s Mirafra,Mirafra javanica,Mirafra javanica,Australasian Bushlark,high,horsfieldii = Horsfield's Bushlark
+III,78,Estrelda bella,Fire-tailed Finch,Stagonopleura bella,Stagonopleura bella,Beautiful Firetail,high,Beautiful Firetail
+III,79,Estrelda oculea,Red-eared Finch,Stagonopleura oculata,,,high,Red-eared Firetail; not in BirdNET
+III,80,Estrelda Bichenovii,Bicheno’s Finch,Stizoptera bichenovii,Stizoptera bichenovii,Double-barred Finch,high,Double-barred Finch
+III,81,Estrelda annulosa,Black-rumped Finch,Stizoptera bichenovii,Stizoptera bichenovii,Double-barred Finch,high,annulosa = black-rumped race of Double-barred Finch
+III,82,Estrelda temporalis,Red-eyebrowed Finch,Neochmia temporalis,Neochmia temporalis,Red-browed Firetail,high,Red-browed Firetail
+III,83,Estrelda Phaeton,Crimson Finch,Neochmia phaeton,Neochmia phaeton,Crimson Finch,high,Crimson Finch
+III,84,Estrelda ruficauda,Red-tailed Finch,Neochmia ruficauda,,,high,Star Finch; not in BirdNET
+III,85,Amadina modesta,Plain-coloured Finch,Neochmia modesta,,,high,Plum-headed Finch; not in BirdNET
+III,86,Amadina Lathamii,Spotted-sided Finch,Stagonopleura guttata,,,high,lathamii = Diamond Firetail; not in BirdNET
+III,87,Amadina castanotis,Chestnut-eared Finch,Taeniopygia guttata,Taeniopygia guttata,Zebra Finch,high,castanotis = Australian Zebra Finch; BirdNET lumps
+III,88,Amadina Gouldiae,Gouldian Finch,Chloebia gouldiae,,,high,Gouldian Finch; not in BirdNET
+III,89,Poephila mirabilis,Beautiful Grass Finch,Chloebia gouldiae,,,high,mirabilis = red-headed Gouldian Finch; not in BirdNET
+III,90,Poephila acuticauda,Long-tailed Grass Finch,Poephila acuticauda,,,high,Long-tailed Finch; not in BirdNET
+III,91,Poephila personata,Masked Grass Finch,Poephila personata,,,high,Masked Finch; not in BirdNET
+III,92,Poephila leucotis,White-eared Grass Finch,Poephila personata,,,high,leucotis = race of Masked Finch; not in BirdNET
+III,93,Poephila cincta,Banded Grass Finch,Poephila cincta,,,high,Black-throated Finch; not in BirdNET
+III,94,Donacola castaneothorax,Chestnut-breasted Finch,Lonchura castaneothorax,Lonchura castaneothorax,Chestnut-breasted Munia,high,Chestnut-breasted Munia
+III,95,Donacola pectoralis,White-breasted Finch,Heteromunia pectoralis,,,high,Pictorella Munia; not in BirdNET
+III,96,Donacola flaviprymna,Yellow-rumped Finch,Lonchura flaviprymna,,,high,Yellow-rumped Munia; not in BirdNET
+III,97,Emblema picta,Painted Finch,Emblema pictum,,,high,Painted Firetail; not in BirdNET
+IV,1,Pitta strepitans,Noisy Pitta,Pitta versicolor,Pitta versicolor,Noisy Pitta,high,strepitans = Noisy Pitta
+IV,2,Pitta Vigorsii,Vigors’ Pitta,Pitta elegans,Pitta elegans,Elegant Pitta,medium,vigorsii Gould = Elegant Pitta race of the Banda Sea (not an Australian bird)
+IV,3,Pitta Iris,Rainbow Pitta,Pitta iris,,,high,Rainbow Pitta; not in BirdNET
+IV,4,Cinclosoma punctatum,Spotted Ground-Thrush,Cinclosoma punctatum,Cinclosoma punctatum,Spotted Quail-thrush,high,Spotted Quail-thrush
+IV,5,Cinclosoma castanotus,Chestnut-backed Ground-Thrush,Cinclosoma castanotum,,,high,Chestnut Quail-thrush; not in BirdNET
+IV,6,Cinclosoma cinnamomeus,Cinnamon-coloured Cinclosoma,Cinclosoma cinnamomeum,,,high,Cinnamon Quail-thrush; not in BirdNET
+IV,7,Oreocincla lunulata,Mountain Thrush,Zoothera lunulata,Zoothera lunulata,Bassian Thrush,high,TRAP: Oreocincla lunulata 'Mountain Thrush' = Bassian Thrush; draft's Turdus plebejus is the Central American Mountain Thrush
+IV,8,Chlamydera maculata,Spotted Bower-Bird,Chlamydera maculata,Chlamydera maculata,Spotted Bowerbird,high,Spotted Bowerbird
+IV,9,Chlamydera nuchalis,Great Bower-Bird,Chlamydera nuchalis,Chlamydera nuchalis,Great Bowerbird,high,Great Bowerbird
+IV,10,Ptilonorhynchus holosericeus,Satin Bower-Bird,Ptilonorhynchus violaceus,Ptilonorhynchus violaceus,Satin Bowerbird,high,holosericeus = Satin Bowerbird
+IV,11,Ptilonorhynchus Smithii,Cat Bird,Ailuroedus crassirostris,Ailuroedus crassirostris,Green Catbird,high,Ptilonorhynchus smithii = Green Catbird
+IV,12,Sericulus chrysocephalus,Regent Bird,Sericulus chrysocephalus,,,high,Regent Bowerbird; not in BirdNET
+IV,13,Oriolus viridis,New South Wales Oriole,Oriolus sagittatus,Oriolus sagittatus,Olive-backed Oriole,high,viridis = Olive-backed Oriole
+IV,14,Oriolus flavo-cinctus,Crescent-marked Oriole,Oriolus flavocinctus,Oriolus flavocinctus,Green Oriole,high,Green Oriole
+IV,15,Sphecotheres Australis,Australian Sphecotheres,Sphecotheres vieilloti,Sphecotheres vieilloti,Australasian Figbird,high,australis = Australasian Figbird
+IV,16,Corcorax leucopterus,White-winged Chough,Corcorax melanorhamphos,Corcorax melanorhamphos,White-winged Chough,high,leucopterus = White-winged Chough
+IV,17,Struthidea cinerea,Grey Struthidea,Struthidea cinerea,Struthidea cinerea,Apostlebird,high,Apostlebird
+IV,18,Corvus Coronoides,White-eyed Crow,Corvus coronoides,Corvus coronoides,Australian Raven,medium,Gould's coronoides spanned all Australian corvids; the name and likely figure are the Australian Raven
+IV,19,Neomorpha Gouldii,Gould’s Neomorpha,Heteralocha acusirostris,,,high,Neomorpha gouldii = Huia (extinct); not in BirdNET
+IV,20,Pomatorhinus temporalis,Temporal Pomatorhinus,Pomatostomus temporalis,Pomatostomus temporalis,Gray-crowned Babbler,high,Grey-crowned Babbler
+IV,21,Pomatorhinus rubeculus,Red-breasted Pomatorhinus,Pomatostomus temporalis,Pomatostomus temporalis,Gray-crowned Babbler,high,rubeculus = N/W race of Grey-crowned Babbler
+IV,22,Pomatorhinus superciliosus,White-eyebrowed Pomatorhinus,Pomatostomus superciliosus,Pomatostomus superciliosus,White-browed Babbler,high,White-browed Babbler
+IV,23,Meliphaga Novae-Hollandiae,New Holland Honey-eater,Phylidonyris novaehollandiae,Phylidonyris novaehollandiae,New Holland Honeyeater,high,New Holland Honeyeater
+IV,24,Meliphaga longirostris,Long-billed Honey-eater,Phylidonyris novaehollandiae,Phylidonyris novaehollandiae,New Holland Honeyeater,high,longirostris = WA race of New Holland Honeyeater
+IV,25,Meliphaga sericea,White-cheeked Honey-eater,Phylidonyris niger,Phylidonyris niger,White-cheeked Honeyeater,high,sericea = White-cheeked Honeyeater
+IV,26,Meliphaga mystacalis,Moustached Honey-eater,Phylidonyris niger,Phylidonyris niger,White-cheeked Honeyeater,high,mystacalis Gould = WA White-cheeked Honeyeater (gouldii); Gould: 'represents M. sericea'
+IV,27,Meliphaga Australasiana,Tasmanian Honey-eater,Phylidonyris pyrrhopterus,Phylidonyris pyrrhopterus,Crescent Honeyeater,high,australasiana = Crescent Honeyeater
+IV,28,Glyciphila fulvifrons,Fulvous-fronted Honey-eater,Gliciphila melanops,Gliciphila melanops,Tawny-crowned Honeyeater,high,fulvifrons = Tawny-crowned Honeyeater
+IV,29,Glyciphila albifrons,White-fronted Honey-eater,Purnella albifrons,Purnella albifrons,White-fronted Honeyeater,high,White-fronted Honeyeater
+IV,30,Glyciphila fasciata,Fasciated Honey-eater,Ramsayornis fasciatus,,,high,Bar-breasted Honeyeater; not in BirdNET
+IV,31,Glyciphila ocularis,Brown Honey-eater,Lichmera indistincta,Lichmera indistincta,Brown Honeyeater,high,ocularis = Brown Honeyeater
+IV,32,Ptilotis chrysotis,Yellow-eared Honey-eater,Meliphaga lewinii,Meliphaga lewinii,Lewin's Honeyeater,high,Ptilotis chrysotis = Lewin's Honeyeater
+IV,33,Ptilotis sonorus,Singing Honey-eater,Gavicalis virescens,Gavicalis virescens,Singing Honeyeater,high,sonorus = Singing Honeyeater
+IV,34,Ptilotis versicolor,Varied Honey-eater,Gavicalis versicolor,,,high,Varied Honeyeater; not in BirdNET
+IV,35,Ptilotis flavigula,Yellow-throated Honey-eater,Nesoptilotis flavicollis,Nesoptilotis flavicollis,Yellow-throated Honeyeater,high,flavigula = Yellow-throated Honeyeater
+IV,36,Ptilotis leucotis,White-eared Honey-eater,Nesoptilotis leucotis,Nesoptilotis leucotis,White-eared Honeyeater,high,White-eared Honeyeater
+IV,37,Ptilotis auricomis,Yellow-tufted Honey-eater,Lichenostomus melanops,Lichenostomus melanops,Yellow-tufted Honeyeater,high,auricomis = Yellow-tufted Honeyeater
+IV,38,Ptilotis cratitius,Wattle-cheeked Honey-eater,Lichenostomus cratitius,Lichenostomus cratitius,Purple-gaped Honeyeater,high,Purple-gaped Honeyeater
+IV,39,Ptilotis ornatus,Graceful Honey-eater,Ptilotula ornata,Ptilotula ornata,Yellow-plumed Honeyeater,high,Yellow-plumed Honeyeater
+IV,40,Ptilotis plumulus,Plumed Honey-eater,Ptilotula plumula,,,high,Grey-fronted Honeyeater; not in BirdNET
+IV,41,Ptilotis flavescens,Yellow-tinted Honey-eater,Ptilotula flavescens,,,high,Yellow-tinted Honeyeater; not in BirdNET
+IV,42,Ptilotis flava,Yellow Honey-eater,Stomiopera flava,,,high,Yellow Honeyeater; not in BirdNET
+IV,43,Ptilotis penicillatus,White-plumed Honey-eater,Ptilotula penicillata,Ptilotula penicillata,White-plumed Honeyeater,high,White-plumed Honeyeater
+IV,44,Ptilotis fusca,Fuscous Honey-eater,Ptilotula fusca,Ptilotula fusca,Fuscous Honeyeater,high,Fuscous Honeyeater
+IV,45,Ptilotis chrysops,Yellow-faced Honey-eater,Caligavis chrysops,Caligavis chrysops,Yellow-faced Honeyeater,high,Yellow-faced Honeyeater
+IV,46,Ptilotis unicolor,Uniform Honey-eater,Stomiopera unicolor,Stomiopera unicolor,White-gaped Honeyeater,high,White-gaped Honeyeater
+IV,47,Plectorhyncha lanceolata,Lanceolate Honey-eater,Plectorhyncha lanceolata,Plectorhyncha lanceolata,Striped Honeyeater,high,Striped Honeyeater
+IV,48,Zanthomyza Phrygia,Warty-faced Honey-eater,Anthochaera phrygia,Anthochaera phrygia,Regent Honeyeater,high,Zanthomyza = Regent Honeyeater
+IV,49,Melicophila picata,Pied Honey-eater,Certhionyx variegatus,Certhionyx variegatus,Pied Honeyeater,high,Melicophila picata = Pied Honeyeater
+IV,50,Entomophila picta,Painted Honey-eater,Grantiella picta,Grantiella picta,Painted Honeyeater,high,Painted Honeyeater
+IV,51,Entomophila albogularis,White-throated Honey-eater,Conopophila albogularis,Conopophila albogularis,Rufous-banded Honeyeater,high,"TRAP: Entomophila albogularis Gould 'White-throated Honey-eater' = Rufous-banded Honeyeater, not Melithreptus albogularis (plate IV.74)"
+IV,52,Entomophila rufogularis,Red-throated Honey-eater,Conopophila rufogularis,,,high,Rufous-throated Honeyeater; not in BirdNET
+IV,53,Acanthogenys rufogularis,Spiny-cheeked Honey-eater,Acanthagenys rufogularis,Acanthagenys rufogularis,Spiny-cheeked Honeyeater,high,Spiny-cheeked Honeyeater
+IV,54,Anthochaera inauris,Great Wattled Honey-eater,Anthochaera paradoxa,Anthochaera paradoxa,Yellow Wattlebird,high,inauris = Yellow Wattlebird
+IV,55,Anthochaera carunculata,Wattled Honey-eater,Anthochaera carunculata,Anthochaera carunculata,Red Wattlebird,high,Red Wattlebird
+IV,56,Anthochaera mellivora,Brush Wattle-Bird,Anthochaera chrysoptera,Anthochaera chrysoptera,Little Wattlebird,high,mellivora = Little (Brush) Wattlebird
+IV,57,Anthochaera lunulata,Lunulated Wattle-Bird,Anthochaera lunulata,Anthochaera lunulata,Western Wattlebird,high,Western Wattlebird
+IV,58,Tropidorhynchus corniculatus,Friar-Bird,Philemon corniculatus,Philemon corniculatus,Noisy Friarbird,high,Noisy Friarbird
+IV,59,Tropidorhynchus argenticeps,Silvery-crowned Friar-Bird,Philemon argenticeps,,,high,Silver-crowned Friarbird; not in BirdNET
+IV,60,Tropidorhynchus citreogularis,Yellow-throated Friar-Bird,Philemon citreogularis,Philemon citreogularis,Little Friarbird,high,Little Friarbird
+IV,61,Acanthorhynchus tenuirostris,Slender-billed Spine-bill,Acanthorhynchus tenuirostris,Acanthorhynchus tenuirostris,Eastern Spinebill,high,Eastern Spinebill
+IV,62,Acanthorhynchus superciliosus,White-eyebrowed Spine-bill,Acanthorhynchus superciliosus,Acanthorhynchus superciliosus,Western Spinebill,high,Western Spinebill
+IV,63,Myzomela sanguineolenta,Sanguineous Honey-eater,Myzomela sanguinolenta,Myzomela sanguinolenta,Scarlet Myzomela,high,Scarlet Myzomela
+IV,64,Myzomela erythrocephala,Red-headed Honey-eater,Myzomela erythrocephala,Myzomela erythrocephala,Red-headed Myzomela,high,Red-headed Myzomela
+IV,65,Myzomela pectoralis,Banded Honey-eater,Cissomela pectoralis,,,high,Banded Honeyeater; not in BirdNET
+IV,66,Myzomela nigra,Black Honey-eater,Sugomel nigrum,Sugomel nigrum,Black Honeyeater,high,Black Honeyeater
+IV,67,Myzomela obscura,Obscure Honey-eater,Myzomela obscura,Myzomela obscura,Dusky Myzomela,high,Dusky Myzomela
+IV,68,Entomyza cyanotis,Blue-faced Entomyza,Entomyzon cyanotis,Entomyzon cyanotis,Blue-faced Honeyeater,high,Blue-faced Honeyeater
+IV,69,Entomyza albipennis,White-pinioned Honey-eater,Entomyzon cyanotis,Entomyzon cyanotis,Blue-faced Honeyeater,high,albipennis = N race of Blue-faced Honeyeater
+IV,70,Melithreptus validirostris,Strong-billed Honey-eater,Melithreptus validirostris,Melithreptus validirostris,Strong-billed Honeyeater,high,Strong-billed Honeyeater
+IV,71,Melithreptus gularis,Black-throated Honey-eater,Melithreptus gularis,Melithreptus gularis,Black-chinned Honeyeater,high,Black-chinned Honeyeater
+IV,72,Melithreptus lunulatus,Lunulated Honey-eater,Melithreptus lunatus,Melithreptus lunatus,White-naped Honeyeater,high,lunulatus = White-naped Honeyeater
+IV,73,Melithreptus chloropsis,Swan River Honey-eater,Melithreptus chloropsis,Melithreptus chloropsis,Gilbert's Honeyeater,high,Gilbert's Honeyeater
+IV,74,Melithreptus albogularis,White-throated Honey-eater,Melithreptus albogularis,Melithreptus albogularis,White-throated Honeyeater,high,White-throated Honeyeater
+IV,75,Melithreptus melanocephalus,Black-headed Honey-eater,Melithreptus affinis,Melithreptus affinis,Black-headed Honeyeater,high,Gould's melanocephalus = Black-headed Honeyeater (Tasmania)
+IV,76,Myzantha garrula,Garrulous Honey-eater,Manorina melanocephala,Manorina melanocephala,Noisy Miner,high,garrula = Noisy Miner
+IV,77,Myzantha obscura,Sombre Honey-eater,Manorina flavigula,Manorina flavigula,Yellow-throated Miner,high,Myzantha obscura Gould = dark SW race of Yellow-throated Miner (M. f. obscura)
+IV,78,Myzantha lutea,Luteous Honey-eater,Manorina flavigula,Manorina flavigula,Yellow-throated Miner,high,lutea = NW race of Yellow-throated Miner
+IV,79,Myzantha flavigula,Yellow-throated Miner,Manorina flavigula,Manorina flavigula,Yellow-throated Miner,high,Yellow-throated Miner
+IV,80,Myzantha melanophrys,Australian Bell-Bird,Manorina melanophrys,Manorina melanophrys,Bell Miner,high,Bell Miner
+IV,81,Zosterops dorsalis,Grey-backed Zosterops,Zosterops lateralis,Zosterops lateralis,Silvereye,high,dorsalis = Silvereye
+IV,82,Zosterops chloronotus,Green-backed Zosterops,Zosterops lateralis,Zosterops lateralis,Silvereye,high,chloronotus = WA Silvereye
+IV,83,Zosterops luteus,Yellow Zosterops,Zosterops luteus,Zosterops luteus,Australian Yellow White-eye,high,Australian Yellow White-eye
+IV,84,Cuculus optatus,Australian Cuckoo,Cuculus optatus,Cuculus optatus,Oriental Cuckoo,high,Oriental Cuckoo
+IV,85,Cuculus inornatus,Unadorned Cuckoo,Cacomantis pallidus,Cacomantis pallidus,Pallid Cuckoo,high,Cuculus inornatus V&H = Pallid Cuckoo
+IV,86,Cuculus cineraceus,Ash-coloured Cuckoo,Cacomantis flabelliformis,Cacomantis flabelliformis,Fan-tailed Cuckoo,high,cineraceus = Fan-tailed Cuckoo
+IV,87,Cuculus insperatus,Brush Cuckoo,Cacomantis variolosus,Cacomantis variolosus,Brush Cuckoo,high,insperatus = Brush Cuckoo
+IV,88,Chalcites osculans,Black-eared Cuckoo,Chrysococcyx osculans,Chrysococcyx osculans,Black-eared Cuckoo,high,Black-eared Cuckoo
+IV,89,Chrysococcyx lucidus,Shining Cuckoo,Chrysococcyx lucidus,Chrysococcyx lucidus,Shining Bronze-Cuckoo,high,Shining Bronze-Cuckoo
+IV,90,Scythrops Novae-Hollandiae,Channel-Bill,Scythrops novaehollandiae,Scythrops novaehollandiae,Channel-billed Cuckoo,high,Channel-billed Cuckoo
+IV,91,Eudynamys Flindersii,Flinders’s Cuckoo,Eudynamys orientalis,Eudynamys orientalis,Pacific Koel,high,flindersii = Pacific Koel (cyanocephalus)
+IV,92,Centropus Phasianus,Pheasant Cuckoo,Centropus phasianinus,Centropus phasianinus,Pheasant Coucal,high,Pheasant Coucal
+IV,93,Climacteris scandens,Brown Tree-Creeper,Climacteris picumnus,Climacteris picumnus,Brown Treecreeper,high,Gould's scandens = Brown Treecreeper
+IV,94,Climacteris rufa,Rufous Tree-Creeper,Climacteris rufa,,,high,Rufous Treecreeper; not in BirdNET
+IV,95,Climacteris erythrops,Red-eyebrowed Tree-Creeper,Climacteris erythrops,,,high,Red-browed Treecreeper; not in BirdNET
+IV,96,Climacteris melanotus,Black-backed Tree-Creeper,Climacteris picumnus,Climacteris picumnus,Brown Treecreeper,high,melanotus Gould = N race of Brown Treecreeper
+IV,97,Climacteris melanura,Black-tailed Tree-Creeper,Climacteris melanurus,,,high,Black-tailed Treecreeper; not in BirdNET
+IV,98,Climacteris picumnus,White-throated Tree-Creeper,Cormobates leucophaea,Cormobates leucophaea,White-throated Treecreeper,high,TRAP: Gould misapplied Climacteris picumnus to the White-throated Treecreeper; the binomial now names the Brown Treecreeper (IV.93)
+IV,99,Orthonyx spinicaudus,Spine-tailed Orthonyx,Orthonyx temminckii,Orthonyx temminckii,Australian Logrunner,high,spinicaudus = Australian Logrunner
+IV,100,Ptiloris paradiseus,Rifle Bird,Ptiloris paradiseus,Ptiloris paradiseus,Paradise Riflebird,high,Paradise Riflebird
+IV,101,Sittella chrysoptera,Orange-winged Sittella,Daphoenositta chrysoptera,Daphoenositta chrysoptera,Varied Sittella,high,Varied Sittella (orange-winged form)
+IV,102,Sittella leucocephala,White-headed Sittella,Daphoenositta chrysoptera,Daphoenositta chrysoptera,Varied Sittella,high,leucocephala = race of Varied Sittella
+IV,103,Sittella leucoptera,White-winged Sittella,Daphoenositta chrysoptera,Daphoenositta chrysoptera,Varied Sittella,high,leucoptera = race of Varied Sittella
+IV,104,Sittella pileata,Black-capped Sittella,Daphoenositta chrysoptera,Daphoenositta chrysoptera,Varied Sittella,high,pileata = race of Varied Sittella
+V,1,Cacatua galerita,Crested Cockatoo,Cacatua galerita,Cacatua galerita,Sulphur-crested Cockatoo,high,Sulphur-crested Cockatoo
+V,2,Cacatua Leadbeateri,Leadbeater’s Cockatoo,Lophochroa leadbeateri,Lophochroa leadbeateri,Pink Cockatoo,high,Pink (Major Mitchell's) Cockatoo
+V,3,Cacatua sanguinea,Blood-stained Cockatoo,Cacatua sanguinea,Cacatua sanguinea,Little Corella,high,Little Corella
+V,4,Cacatua Eos,Rose-breasted Cockatoo,Eolophus roseicapilla,Eolophus roseicapilla,Galah,high,Cacatua eos = Galah
+V,5,Licmetis nasicus,Long-billed Cockatoo,Cacatua tenuirostris,Cacatua tenuirostris,Long-billed Corella,high,Licmetis nasicus = Long-billed Corella
+V,6,Nestor productus,Philip Island Parrot,Nestor productus,,,high,Norfolk Kaka (extinct); not in BirdNET
+V,7,Calyptorhynchus Banksii,Banksian Cockatoo,Calyptorhynchus banksii,Calyptorhynchus banksii,Red-tailed Black-Cockatoo,high,Red-tailed Black-Cockatoo
+V,8,Calyptorhynchus macrorhynchus,Great-billed Black Cockatoo,Calyptorhynchus banksii,Calyptorhynchus banksii,Red-tailed Black-Cockatoo,high,macrorhynchus = N race of Red-tailed Black-Cockatoo
+V,9,Calyptorhynchus naso,Western Black Cockatoo,Calyptorhynchus banksii,Calyptorhynchus banksii,Red-tailed Black-Cockatoo,high,naso = SW forest race of Red-tailed Black-Cockatoo
+V,10,Calyptorhynchus Leachii,Leach’s Cockatoo,Calyptorhynchus lathami,Calyptorhynchus lathami,Glossy Black-Cockatoo,medium,leachii Kuhl as Gould used it = Glossy Black-Cockatoo; Kuhl's name has also been read as Red-tailed
+V,11,Calyptorhynchus funereus,Funereal Cockatoo,Calyptorhynchus funereus,Calyptorhynchus funereus,Yellow-tailed Black-Cockatoo,high,Yellow-tailed Black-Cockatoo
+V,12,Calyptorhynchus xanthonotus,Yellow-eared Black Cockatoo,Calyptorhynchus funereus,Calyptorhynchus funereus,Yellow-tailed Black-Cockatoo,high,xanthonotus = Tasmanian/S race of Yellow-tailed Black-Cockatoo
+V,13,Calyptorhynchus Baudinii,Baudin’s Cockatoo,Calyptorhynchus baudinii,,,medium,"Baudin's Black-Cockatoo by name, not in BirdNET; Carnaby's (C. latirostris, in BirdNET) was then unnamed and could be the bird figured"
+V,14,Callocephalon galeatum,Gang-gang Cockatoo,Callocephalon fimbriatum,Callocephalon fimbriatum,Gang-gang Cockatoo,high,galeatum = Gang-gang Cockatoo
+V,15,Polytelis Barrabandi,Barraband’s Parrakeet,Polytelis swainsonii,Polytelis swainsonii,Superb Parrot,high,barrabandi = Superb Parrot
+V,16,Polytelis melanura,Black-tailed Parrakeet,Polytelis anthopeplus,Polytelis anthopeplus,Regent Parrot,high,melanura = Regent Parrot
+V,17,Aprosmictus scapulatus,King Lory,Alisterus scapularis,Alisterus scapularis,Australian King-Parrot,high,Aprosmictus scapulatus = Australian King-Parrot
+V,18,Aprosmictus erythropterus,Red-winged Lory,Aprosmictus erythropterus,Aprosmictus erythropterus,Red-winged Parrot,high,Red-winged Parrot
+V,19,Platycercus semitorquatus,Yellow-collared Parrakeet,Barnardius zonarius,Barnardius zonarius,Australian Ringneck,high,semitorquatus = Twenty-eight race of Australian Ringneck
+V,20,Platycercus Baueri,Bauer’s Parrakeet,Barnardius zonarius,Barnardius zonarius,Australian Ringneck,high,baueri = nominate Port Lincoln race of Australian Ringneck
+V,21,Platycercus Barnardi,Barnard’s Parrakeet,Barnardius zonarius,Barnardius zonarius,Australian Ringneck,high,barnardi = Mallee Ringneck race
+V,22,Platycercus Adelaidiae,Adelaide Parrakeet,Platycercus elegans,Platycercus elegans,Crimson Rosella,high,adelaidae = Adelaide race of Crimson Rosella
+V,23,Platycercus Pennantii,Pennant’s Parrakeet,Platycercus elegans,Platycercus elegans,Crimson Rosella,high,pennantii = Crimson Rosella
+V,24,Platycercus flaviventris,Yellow-bellied Parrakeet,Platycercus caledonicus,Platycercus caledonicus,Green Rosella,high,flaviventris = Green Rosella
+V,25,Platycercus flaveolus,Yellow-rumped Parrakeet,Platycercus elegans,Platycercus elegans,Crimson Rosella,high,flaveolus = Yellow Rosella race of Crimson Rosella
+V,26,Platycercus palliceps,Pale-headed Parrakeet,Platycercus adscitus,Platycercus adscitus,Pale-headed Rosella,high,palliceps = Pale-headed Rosella
+V,27,Platycercus eximius,Rose-hill Parrakeet,Platycercus eximius,Platycercus eximius,Eastern Rosella,high,Eastern Rosella
+V,28,Platycercus splendidus,Splendid Parrakeet,Platycercus eximius,Platycercus eximius,Eastern Rosella,medium,splendidus Gould = golden-mantled Eastern Rosella (elecica)
+V,29,Platycercus icterotis,The Earl of Derby’s Parrakeet,Platycercus icterotis,,,high,Western Rosella; not in BirdNET
+V,30,Platycercus ignitus,Fiery Parrakeet,Platycercus sp.,,,low,ignitus Leadbeater: a single aberrant/hybrid rosella (Eastern x Pale-headed?); no species can be named
+V,31,Platycercus Brownii,Brown’s Parrakeet,Platycercus venustus,,,high,brownii = Northern Rosella; not in BirdNET
+V,32,Platycercus pileatus,Red-capped Parrakeet,Purpureicephalus spurius,Purpureicephalus spurius,Red-capped Parrot,high,pileatus = Red-capped Parrot
+V,33,Psephotus haematogaster,Crimson-bellied Parrakeet,Northiella haematogaster,Northiella haematogaster,Greater Bluebonnet,high,Bluebonnet
+V,34,Psephotus pulcherrimus,Beautiful Parrakeet,Psephotellus pulcherrimus,,,high,Paradise Parrot (extinct); not in BirdNET
+V,35,Psephotus multicolor,Many-coloured Parrakeet,Psephotus varius,Psephotus varius,Mulga Parrot,high,multicolor = Mulga Parrot; BirdNET files it as Psephotus varius
+V,36,Psephotus haematonotus,Red-backed Parrakeet,Psephotus haematonotus,Psephotus haematonotus,Red-rumped Parrot,high,Red-rumped Parrot
+V,37,Euphema chrysostoma,Blue-banded Grass-Parrakeet,Neophema chrysostoma,,,high,Blue-winged Parrot; not in BirdNET
+V,38,Euphema elegans,Elegant Grass-Parrakeet,Neophema elegans,,,high,Elegant Parrot; not in BirdNET
+V,39,Euphema aurantia,Orange-bellied Grass-Parrakeet,Neophema chrysogaster,,,high,aurantia = Orange-bellied Parrot; not in BirdNET
+V,40,Euphema petrophila,Rock Grass-Parrakeet,Neophema petrophila,,,high,Rock Parrot; not in BirdNET
+V,41,Euphema pulchella,Chestnut-shouldered Grass-Parrakeet,Neophema pulchella,Neophema pulchella,Turquoise Parrot,high,Turquoise Parrot
+V,42,Euphema splendida,Splendid Grass-Parrakeet,Neophema splendida,,,high,Scarlet-chested Parrot; not in BirdNET
+V,43,Euphema Bourkii,Bourke’s Grass-Parrakeet,Neopsephotus bourkii,,,high,Bourke's Parrot; not in BirdNET
+V,44,Melopsittacus undulatus,Warbling Grass-Parrakeet,Melopsittacus undulatus,Melopsittacus undulatus,Budgerigar,high,Budgerigar
+V,45,Nymphicus Novae-Hollandiae,Cockatoo Parrakeet,Nymphicus hollandicus,Nymphicus hollandicus,Cockatiel,high,Cockatiel
+V,46,Pezoporus formosus,Ground Parrakeet,Pezoporus wallicus,Pezoporus wallicus,Ground Parrot,high,formosus = Eastern Ground Parrot
+V,47,Lathamus discolor,Swift Lorikeet,Lathamus discolor,Lathamus discolor,Swift Parrot,high,Swift Parrot
+V,48,Trichoglossus Swainsonii,Swainson's Lorikeet,Trichoglossus moluccanus,Trichoglossus moluccanus,Rainbow Lorikeet,high,swainsonii = Rainbow Lorikeet (BirdNET splits moluccanus from Coconut)
+V,49,Trichoglossus rubritorquis,Red-collared Lorikeet,Trichoglossus rubritorquis,Trichoglossus rubritorquis,Red-collared Lorikeet,high,Red-collared Lorikeet
+V,50,Trichoglossus chlorolepidotus,Scaly-breasted Lorikeet,Trichoglossus chlorolepidotus,Trichoglossus chlorolepidotus,Scaly-breasted Lorikeet,high,Scaly-breasted Lorikeet
+V,51,Trichoglossus versicolor,Varied Lorikeet,Psitteuteles versicolor,,,high,Varied Lorikeet; not in BirdNET
+V,52,Trichoglossus concinnus,Musky Lorikeet,Glossopsitta concinna,Glossopsitta concinna,Musk Lorikeet,high,Musk Lorikeet
+V,53,Trichoglossus porphyrocephalus,Porphyry-crowned Lorikeet,Parvipsitta porphyrocephala,Parvipsitta porphyrocephala,Purple-crowned Lorikeet,high,Purple-crowned Lorikeet
+V,54,Trichoglossus pusillus,Little Lorikeet,Parvipsitta pusilla,Parvipsitta pusilla,Little Lorikeet,high,Little Lorikeet
+V,55,Ptilinopus Swainsonii,Swainson’s Fruit Pigeon,Ptilinopus regina,Ptilinopus regina,Rose-crowned Fruit-Dove,high,swainsonii = Rose-crowned Fruit-Dove
+V,56,Ptilinopus Ewingii,Ewing’s Fruit Pigeon,Ptilinopus regina,Ptilinopus regina,Rose-crowned Fruit-Dove,high,ewingii = NW race of Rose-crowned Fruit-Dove
+V,57,Ptilinopus superbus,Superb Fruit Pigeon,Ptilinopus superbus,Ptilinopus superbus,Superb Fruit-Dove,high,Superb Fruit-Dove
+V,58,Carpophaga magnifica,Magnificent Fruit Pigeon,Ptilinopus magnificus,Ptilinopus magnificus,Wompoo Fruit-Dove,high,Carpophaga magnifica = Wompoo Fruit-Dove
+V,59,Carpophaga leucomela,White-headed Fruit Pigeon,Columba leucomela,,,high,White-headed Pigeon; not in BirdNET
+V,60,Carpophaga luctuosa,Torres Strait Fruit Pigeon,Ducula spilorrhoa,Ducula spilorrhoa,Torresian Imperial-Pigeon,high,TRAP: Gould's 'Carpophaga luctuosa' is the Torresian Imperial-Pigeon; Temminck's luctuosa is the Sulawesi White Imperial-Pigeon
+V,61,Lopholaimus Antarcticus,Top-Knot Pigeon,Lopholaimus antarcticus,,,high,Topknot Pigeon; not in BirdNET
+V,62,Chalcophaps chrysochlora,Little Green Pigeon,Chalcophaps longirostris,Chalcophaps longirostris,Pacific Emerald Dove,high,chrysochlora = Pacific Emerald Dove
+V,63,Leucosarcia picata,Wonga-wonga Pigeon,Leucosarcia melanoleuca,Leucosarcia melanoleuca,Wonga Pigeon,high,picata = Wonga Pigeon
+V,64,Peristera chalcoptera,Bronze-winged Pigeon,Phaps chalcoptera,Phaps chalcoptera,Common Bronzewing,high,Common Bronzewing
+V,65,Peristera elegans,Brush Bronze-winged Pigeon,Phaps elegans,Phaps elegans,Brush Bronzewing,high,Brush Bronzewing
+V,66,Peristera histrionica,Harlequin Bronzewing,Phaps histrionica,,,high,Flock Bronzewing; not in BirdNET
+V,67,Geophaps scripta,Partridge Bronze-wing,Geophaps scripta,,,high,Squatter Pigeon; not in BirdNET
+V,68,Geophaps Smithii,Smith’s Partridge Bronze-wing,Geophaps smithii,,,high,Partridge Pigeon; not in BirdNET
+V,69,Geophaps plumifera,Plumed Partridge Bronze-wing,Geophaps plumifera,,,high,Spinifex Pigeon; not in BirdNET
+V,70,Ocyphaps Lophotes,Crested Pigeon,Ocyphaps lophotes,Ocyphaps lophotes,Crested Pigeon,high,Crested Pigeon
+V,71,Petrophassa albipennis,White-quilled Rock Dove,Petrophassa albipennis,,,high,White-quilled Rock-Pigeon; not in BirdNET
+V,72,Geopelia humeralis,Barred-shouldered Ground Dove,Geopelia humeralis,Geopelia humeralis,Bar-shouldered Dove,high,Bar-shouldered Dove
+V,73,Geopelia tranquilla,Peaceful Ground Dove,Geopelia placida,Geopelia placida,Peaceful Dove,high,tranquilla = Peaceful Dove
+V,74,Geopelia cuneata,Graceful Ground Dove,Geopelia cuneata,,,high,Diamond Dove; not in BirdNET
+V,75,Macropygia Phasianella,Pheasant-tailed Pigeon,Macropygia phasianella,Macropygia phasianella,Brown Cuckoo-Dove,high,Brown Cuckoo-Dove
+V,76,Gnathodon strigirostris,Gnathodon,Didunculus strigirostris,,,high,Tooth-billed Pigeon (Samoa); not in BirdNET
+V,77,Talegalla Lathami,Wattled Talegalla,Alectura lathami,Alectura lathami,Australian Brushturkey,high,Talegalla lathami = Australian Brushturkey
+V,78,Leipoa ocellata,Ocellated Leipoa,Leipoa ocellata,,,high,Malleefowl; not in BirdNET
+V,79,Megapodius Tumulus,Mound-raising Megapode,Megapodius reinwardt,Megapodius reinwardt,Orange-footed Scrubfowl,high,tumulus = Orange-footed Scrubfowl
+V,80,Pedionomus torquatus,Collared Plain Wanderer,Pedionomus torquatus,,,high,Plains-wanderer; not in BirdNET
+V,81,Hemipodius melanogaster,Black-breasted Hemipode,Turnix melanogaster,,,high,Black-breasted Buttonquail; not in BirdNET
+V,82,Hemipodius varius,Varied Hemipode,Turnix varius,Turnix varius,Painted Buttonquail,high,Painted Buttonquail
+V,83,Hemipodius scintillans,Sparkling Hemipode,Turnix varius,Turnix varius,Painted Buttonquail,high,scintillans Gould = Abrolhos race of Painted Buttonquail
+V,84,Hemipodius melanotus,Black-backed Hemipode,Turnix maculosus,Turnix maculosus,Red-backed Buttonquail,medium,Hemipodius melanotus Gould = E Australian race of Red-backed Buttonquail (T. m. melanotus)
+V,85,Hemipodius castanotus,Chestnut-backed Hemipode,Turnix castanotus,,,high,Chestnut-backed Buttonquail; not in BirdNET
+V,86,Hemipodius pyrrhothorax,Red-chested Hemipode,Turnix pyrrhothorax,,,high,Red-chested Buttonquail; not in BirdNET
+V,87,Hemipodius velox,Swift-flying Hemipode,Turnix velox,,,high,Little Buttonquail; not in BirdNET
+V,88,Coturnix pectoralis,Pectoral Quail,Coturnix pectoralis,Coturnix pectoralis,Stubble Quail,high,Stubble Quail
+V,89,Synoicus Australis,Australian Partridge,Synoicus ypsilophorus,Synoicus ypsilophorus,Brown Quail,high,australis = Brown Quail
+V,90,Synoicus Diemenensis,Van Diemen’s Land Partridge,Synoicus ypsilophorus,Synoicus ypsilophorus,Brown Quail,high,diemenensis = Tasmanian Brown Quail
+V,91,Synoicus sordidus,Sombre Partridge,Synoicus ypsilophorus,Synoicus ypsilophorus,Brown Quail,medium,sordidus Gould = S Australian Brown Quail form
+V,92,Synoicus Chinensis,Chinese Quail,Synoicus chinensis,Synoicus chinensis,Blue-breasted Quail,high,"King Quail (BirdNET Blue-breasted Quail, lumped)"
+VI,1,Dromaius Novae-Hollandiae,The Emu,Dromaius novaehollandiae,,,high,Emu; not in BirdNET
+VI,2,Apteryx australis,Kiwi-kiwi,Apteryx australis,Apteryx mantelli,North Island Brown Kiwi,low,Gould's Apteryx australis drawn from New Zealand Company skins; Southern Brown Kiwi (not in BirdNET) unless the skins were North Island (A. mantelli)
+VI,3,Apteryx Owenii,Owen's Apteryx,Apteryx owenii,,,high,Little Spotted Kiwi; not in BirdNET
+VI,4,Otis australasianus,Australian Bustard,Ardeotis australis,,,high,Australian Bustard; not in BirdNET
+VI,5,Oedicnemus grallarius,Southern Stone-Plover,Burhinus grallarius,Burhinus grallarius,Bush Thick-knee,high,Bush Thick-knee
+VI,6,Esacus magnirostris,Large-billed Plover,Esacus magnirostris,Esacus magnirostris,Beach Thick-knee,high,Beach Thick-knee
+VI,7,Haematopus longirostris,White-breasted Oyster-catcher,Haematopus longirostris,Haematopus longirostris,Pied Oystercatcher,high,Pied Oystercatcher
+VI,8,Haematopus fuliginosus,Sooty Oyster-catcher,Haematopus fuliginosus,Haematopus fuliginosus,Sooty Oystercatcher,high,Sooty Oystercatcher
+VI,9,Lobivanellus lobatus,Wattled Pewit,Vanellus miles,Vanellus miles,Masked Lapwing,high,lobatus = Masked Lapwing (novaehollandiae form)
+VI,10,Lobivanellus personatus,Masked Pewit,Vanellus miles,Vanellus miles,Masked Lapwing,high,personatus = Masked Lapwing (N form)
+VI,11,Sarciophorus pectoralis,Black-breasted Pewit,Vanellus tricolor,Vanellus tricolor,Banded Lapwing,high,Sarciophorus pectoralis = Banded Lapwing
+VI,12,Squatarola helvetica,Grey Plover,Pluvialis squatarola,Pluvialis squatarola,Black-bellied Plover,high,helvetica = Grey (Black-bellied) Plover
+VI,13,Charadrius xanthocheilus,Australian Golden Plover,Pluvialis fulva,Pluvialis fulva,Pacific Golden-Plover,high,xanthocheilus = Pacific Golden-Plover
+VI,14,Charadrius veredus,Brown Plover,Charadrius veredus,Charadrius veredus,Oriental Plover,high,Oriental Plover
+VI,15,Eudromias australis,Australian Dottrel,Peltohyas australis,,,high,Inland Dotterel; not in BirdNET
+VI,16,Hiaticula bicincta,Double-banded Dottrel,Charadrius bicinctus,Charadrius bicinctus,Double-banded Plover,high,Double-banded Plover
+VI,17,Hiaticula ruficapilla,Red-capped Dottrel,Charadrius ruficapillus,,,high,Red-capped Plover; not in BirdNET
+VI,18,Hiaticula monacha,Hooded Dottrel,Thinornis cucullatus,,,high,monacha = Hooded Plover; not in BirdNET
+VI,19,Hiaticula inornata,Allied Dottrel,Charadrius mongolus,Charadrius mongolus,Lesser Sand-Plover,low,"inornata Gould (Port Essington, Torres Strait; 'allied to Wilson's Plover', sexes of very different size) = a sand-plover, Lesser or Greater unresolved"
+VI,20,Hiaticula nigrifrons,Black-fronted Dottrel,Elseyornis melanops,Elseyornis melanops,Black-fronted Dotterel,high,nigrifrons = Black-fronted Dotterel
+VI,21,Erythrogonys cinctus,Banded Red Knee,Erythrogonys cinctus,,,high,Red-kneed Dotterel; not in BirdNET
+VI,22,Glareola grallaria,Australian Pratincole,Stiltia isabella,,,high,grallaria = Australian Pratincole; not in BirdNET
+VI,23,Glareola orientalis,Oriental Pratincole,Glareola maldivarum,Glareola maldivarum,Oriental Pratincole,high,orientalis = Oriental Pratincole
+VI,24,Himantopus leucocephalus,White-headed Stilt,Himantopus leucocephalus,Himantopus leucocephalus,Pied Stilt,high,Pied Stilt
+VI,25,Himantopus Novae-Zelandiae,New Zealand Stilt,Himantopus novaezelandiae,,,high,Black Stilt; not in BirdNET
+VI,26,Cladorhynchus pectoralis,Banded Stilt,Cladorhynchus leucocephalus,,,high,pectoralis = Banded Stilt; not in BirdNET
+VI,27,Recurvirostra rubricollis,Red-necked Avocet,Recurvirostra novaehollandiae,,,high,rubricollis = Red-necked Avocet; not in BirdNET
+VI,28,Limosa melanuroides,Black-tailed Godwit,Limosa limosa,Limosa limosa,Black-tailed Godwit,high,melanuroides = E Asian race of Black-tailed Godwit
+VI,29,Limosa uropygialis,Barred-rumped Godwit,Limosa lapponica,Limosa lapponica,Bar-tailed Godwit,high,uropygialis = Bar-tailed Godwit
+VI,30,Schoeniclus australis,Australian Tringa,Calidris acuminata,Calidris acuminata,Sharp-tailed Sandpiper,high,Schoeniclus australis = Sharp-tailed Sandpiper
+VI,31,Schoeniclus albescens,Little Sandpiper,Calidris ruficollis,Calidris ruficollis,Red-necked Stint,high,albescens = Red-necked Stint
+VI,32,Schoeniclus subarquatus,Curlew Sandpiper,Calidris ferruginea,Calidris ferruginea,Curlew Sandpiper,high,subarquatus = Curlew Sandpiper
+VI,33,Schoeniclus magnus,Great Sandpiper,Calidris tenuirostris,Calidris tenuirostris,Great Knot,high,Schoeniclus magnus Gould = Great Knot
+VI,34,Terekia cinerea,Terek Godwit,Xenus cinereus,Xenus cinereus,Terek Sandpiper,high,Terek Sandpiper
+VI,35,Actitis empusa,Fairy Sandpiper,Actitis hypoleucos,Actitis hypoleucos,Common Sandpiper,high,empusa Gould = Common Sandpiper
+VI,36,Glottis glottoides,Australian Greenshank,Tringa nebularia,Tringa nebularia,Common Greenshank,high,glottoides = Common Greenshank
+VI,37,Totanus stagnatilis,Marsh Sandpiper,Tringa stagnatilis,Tringa stagnatilis,Marsh Sandpiper,high,Marsh Sandpiper
+VI,38,Totanus griseopygius,Grey-rumped Sandpiper,Tringa brevipes,Tringa brevipes,Gray-tailed Tattler,high,griseopygius = Grey-tailed Tattler
+VI,39,Strepsilas interpres,Turnstone,Arenaria interpres,Arenaria interpres,Ruddy Turnstone,high,Ruddy Turnstone
+VI,40,Scolopax australis,New Holland Snipe,Gallinago hardwickii,Gallinago hardwickii,Latham's Snipe,high,Scolopax australis = Latham's Snipe
+VI,41,Rhynchaea australis,Australian Rhynchaea,Rostratula australis,,,high,"Australian Painted-snipe; BirdNET has only Greater Painted-snipe (R. benghalensis), a split sister"
+VI,42,Numenius australis,Australian Curlew,Numenius madagascariensis,Numenius madagascariensis,Far Eastern Curlew,high,australis = Far Eastern Curlew
+VI,43,Numenius uropygialis,Australian Whimbrel,Numenius phaeopus,Numenius phaeopus,Whimbrel,high,uropygialis = Whimbrel (variegatus)
+VI,44,Numenius minutus,Little Whimbrel,Numenius minutus,Numenius minutus,Little Curlew,high,Little Curlew
+VI,45,Geronticus spinicollis,Straw-necked Ibis,Threskiornis spinicollis,,,high,Straw-necked Ibis; not in BirdNET
+VI,46,Threskiornis strictipennis,White Ibis,Threskiornis molucca,Threskiornis molucca,Australian Ibis,high,strictipennis = Australian Ibis
+VI,47,Falcinellus igneus,Glossy Ibis,Plegadis falcinellus,Plegadis falcinellus,Glossy Ibis,high,Glossy Ibis
+VI,48,Grus australasianus,Australian Crane,Antigone rubicunda,Antigone rubicunda,Brolga,high,Grus australasianus = Brolga
+VI,49,Platalea flavipes,Yellow-legged Spoonbill,Platalea flavipes,,,high,Yellow-billed Spoonbill; not in BirdNET
+VI,50,Platalea regia,Royal Spoonbill,Platalea regia,,,high,Royal Spoonbill; not in BirdNET
+VI,51,Mycteria australis,Australian Mycteria,Ephippiorhynchus asiaticus,,,high,Mycteria australis = Black-necked Stork; not in BirdNET
+VI,52,Ardea pacifica,Pacific Heron,Ardea pacifica,,,high,Pacific (White-necked) Heron; not in BirdNET
+VI,53,Ardea Novae-Hollandiae,White-fronted Heron,Egretta novaehollandiae,Egretta novaehollandiae,White-faced Heron,high,White-faced Heron
+VI,54,Ardea rectirostris,Great-billed Heron,Ardea sumatrana,Ardea sumatrana,Great-billed Heron,high,rectirostris = Great-billed Heron
+VI,55,Ardea leucophaea,Great Grey Heron,Ardea cinerea,Ardea cinerea,Gray Heron,medium,leucophaea Gould: a Grey Heron (Gould compares it to the Common Heron and cites Indian birds); an Australian vagrant at most
+VI,56,Herodias syrmatophorus,Australian Egret,Ardea alba,Ardea alba,Great Egret,high,"syrmatophorus = Great Egret (modesta), lumped in BirdNET"
+VI,57,Herodias plumiferus,Plumed Egret,Ardea intermedia,Ardea intermedia,Intermediate Egret,high,"plumiferus = Intermediate (Plumed) Egret, lumped in BirdNET"
+VI,58,Herodias immaculata,Spotless Egret,Egretta garzetta,Egretta garzetta,Little Egret,high,immaculata = Little Egret (nigripes)
+VI,59,Herodias pannosus,Sombre Egret,Egretta sacra,Egretta sacra,Pacific Reef-Heron,medium,pannosus Gould: slaty-black egret with white chin from Port Stephens = dark Pacific Reef-Heron
+VI,60,Herodias jugularis,Blue Reef Heron,Egretta sacra,Egretta sacra,Pacific Reef-Heron,high,jugularis = dark morph Pacific Reef-Heron
+VI,61,Herodias Greyi,White Reef Heron,Egretta sacra,Egretta sacra,Pacific Reef-Heron,high,greyi = white morph Pacific Reef-Heron
+VI,62,Herodias picata,Pied Egret,Egretta picata,,,high,Pied Heron; not in BirdNET
+VI,63,Nycticorax caledonicus,Nankeen Night Heron,Nycticorax caledonicus,,,high,Nankeen Night-Heron; not in BirdNET
+VI,64,Botaurus australis,Australian Bittern,Botaurus poiciloptilus,,,high,Australasian Bittern; not in BirdNET
+VI,65,Ardetta flavicollis,Yellow-necked Bittern,Ixobrychus flavicollis,Ixobrychus flavicollis,Black Bittern,high,Black Bittern
+VI,66,Ardetta macrorhyncha,Thick-billed Green Bittern,Butorides striata,Butorides striata,Striated Heron,high,macrorhyncha = Striated Heron
+VI,67,Ardetta stagnatilis,Little Grey Bittern,Butorides striata,Butorides striata,Striated Heron,high,stagnatilis = grey N race of Striated Heron
+VI,68,Ardetta pusilla,Minute Bittern,Ixobrychus dubius,Ixobrychus dubius,Black-backed Bittern,high,pusilla Gould = Black-backed Bittern
+VI,69,Porphyrio melanotus,Black-backed Porphyrio,Porphyrio melanotus,Porphyrio melanotus,Australasian Swamphen,high,Australasian Swamphen
+VI,70,Porphyrio bellus,Azure-breasted Porphyrio,Porphyrio melanotus,Porphyrio melanotus,Australasian Swamphen,high,bellus = SW race of Australasian Swamphen
+VI,71,Tribonyx Mortierii,Mortier's Tribonyx,Tribonyx mortierii,Tribonyx mortierii,Tasmanian Nativehen,high,Tasmanian Nativehen
+VI,72,Tribonyx ventralis,Black-tailed Tribonyx,Tribonyx ventralis,Tribonyx ventralis,Black-tailed Nativehen,high,Black-tailed Nativehen
+VI,73,Gallinula tenebrosa,Sombre Gallinule,Gallinula tenebrosa,Gallinula tenebrosa,Dusky Moorhen,high,Dusky Moorhen
+VI,74,Fulica australis,Australian Coot,Fulica atra,Fulica atra,Eurasian Coot,high,australis = Eurasian Coot
+VI,75,Parra gallinacea,Gallinaceous Parra,Irediparra gallinacea,,,high,Comb-crested Jacana; not in BirdNET
+VI,76,Rallus pectoralis,Pectoral Rail,Gallirallus philippensis,Gallirallus philippensis,Buff-banded Rail,high,"TRAP: Gould's 'Rallus pectoralis, Pectoral Rail' (summer visitant 'Land Rail') = Buff-banded Rail; Temminck's pectoralis now names Lewin's Rail (VI.77)"
+VI,77,Rallus Lewinii,Lewin's Water Rail,Lewinia pectoralis,Lewinia pectoralis,Lewin's Rail,high,Rallus lewinii / brachipus = Lewin's Rail
+VI,78,Eulabeornis castaneoventris,Chestnut-bellied Rail,Eulabeornis castaneoventris,,,high,Chestnut Rail; not in BirdNET
+VI,79,Porzana fluminea,Spotted Water Crake,Porzana fluminea,,,high,Australian Crake; not in BirdNET
+VI,80,Porzana palustris,Water Crake,Zapornia pusilla,Zapornia pusilla,Baillon's Crake,high,palustris = Australian race of Baillon's Crake
+VI,81,Porzana leucophrys,White-eyebrowed Water Crake,Poliolimnas cinereus,Poliolimnas cinereus,White-browed Crake,high,leucophrys = White-browed Crake
+VI,82,Porzana immaculata,Spotless Gallinule,Zapornia tabuensis,Zapornia tabuensis,Spotless Crake,high,immaculata = Spotless Crake
+VII,1,Cereopsis Novae-Hollandiae,Cereopsis Goose,Cereopsis novaehollandiae,,,high,Cape Barren Goose; not in BirdNET
+VII,2,Anseranas melanoleuca,Semipalmated Goose,Anseranas semipalmata,Anseranas semipalmata,Magpie Goose,high,melanoleuca = Magpie Goose
+VII,3,Bernicla jubata,Maned Goose,Chenonetta jubata,Chenonetta jubata,Maned Duck,high,Bernicla jubata = Maned Duck
+VII,4,Nettapus pulchellus,Beautiful Pygmy Goose,Nettapus pulchellus,,,high,Green Pygmy-Goose; not in BirdNET
+VII,5,Nettapus coromandelianus,Pygmy Goose,Nettapus coromandelianus,Nettapus coromandelianus,Cotton Pygmy-Goose,high,Cotton Pygmy-Goose (albipennis)
+VII,6,Cygnus atratus,Black Swan,Cygnus atratus,Cygnus atratus,Black Swan,high,Black Swan
+VII,7,Casarca tadornoides,Chestnut-coloured Shieldrake,Tadorna tadornoides,Tadorna tadornoides,Australian Shelduck,high,Casarca = Australian Shelduck
+VII,8,Tadorna radjah,Radjah Shieldrake,Radjah radjah,Radjah radjah,Radjah Shelduck,high,Radjah Shelduck
+VII,9,Anas superciliosa,Australian Wild Duck,Anas superciliosa,Anas superciliosa,Pacific Black Duck,high,Pacific Black Duck
+VII,10,Anas naevosa,Freckled Duck,Stictonetta naevosa,,,high,Freckled Duck; not in BirdNET
+VII,11,Anas punctata,Chestnut-breasted Duck,Anas castanea,Anas castanea,Chestnut Teal,high,punctata = Chestnut Teal
+VII,12,Spatula rhynchotis,Australian Shoveller,Spatula rhynchotis,,,high,Australasian Shoveler; not in BirdNET
+VII,13,Malacorhynchus membranaceus,Membranaceous Duck,Malacorhynchus membranaceus,Malacorhynchus membranaceus,Pink-eared Duck,high,Pink-eared Duck
+VII,14,Dendrocygna arcuata,Whistling Duck,Dendrocygna arcuata,Dendrocygna arcuata,Wandering Whistling-Duck,high,Wandering Whistling-Duck
+VII,15,Leptotarsis Eytoni,Eyton's Duck,Dendrocygna eytoni,Dendrocygna eytoni,Plumed Whistling-Duck,high,Leptotarsis eytoni = Plumed Whistling-Duck
+VII,16,Nyroca australis,White-eyed Duck,Aythya australis,,,high,Hardhead; not in BirdNET
+VII,17,Erismatura australis,Blue-billed Duck,Oxyura australis,,,high,Blue-billed Duck; not in BirdNET
+VII,18,Biziura lobata,Musk Duck,Biziura lobata,Biziura lobata,Musk Duck,high,Musk Duck
+VII,19,Larus pacificus,Pacific Gull,Larus pacificus,,,high,Pacific Gull; not in BirdNET
+VII,20,Xema Jamesonii,Jameson's Gull,Chroicocephalus novaehollandiae,Chroicocephalus novaehollandiae,Silver Gull,high,Xema jamesonii = Silver Gull
+VII,21,Lestris catarractes,Skua Gull,Stercorarius antarcticus,Stercorarius antarcticus,Brown Skua,low,Gould's 'Lestris catarractes' is the Great Skua by name and synonymy but described from Southern Ocean ship-followers (Brown Skua); figure's source unknown
+VII,22,Sylochelidon strenuus,Powerful Tern,Hydroprogne caspia,Hydroprogne caspia,Caspian Tern,high,Sylochelidon strenuus = Caspian Tern
+VII,23,Thalasseus pelecanoides,Torres' Straits Tern,Thalasseus bergii,Thalasseus bergii,Great Crested Tern,high,pelecanoides = Greater Crested Tern
+VII,24,Thalasseus poliocercus,Bass's Straits Tern,Thalasseus bergii,Thalasseus bergii,Great Crested Tern,high,poliocercus = Greater Crested Tern (S race)
+VII,25,Thalasseus Torresii,Torres' Tern,Thalasseus bengalensis,Thalasseus bengalensis,Lesser Crested Tern,high,torresii = Lesser Crested Tern
+VII,26,Sterna melanorhyncha,Black-billed Tern,Sterna striata,Sterna striata,White-fronted Tern,high,"melanorhyncha Gould (= velox; Tasmanian waters, winter plumage) = White-fronted Tern (replacement name sanctipauli)"
+VII,27,Sterna gracilis,Graceful Tern,Sterna dougallii,Sterna dougallii,Roseate Tern,high,gracilis = Roseate Tern
+VII,28,Sterna melanauchen,Black-naped Tern,Sterna sumatrana,Sterna sumatrana,Black-naped Tern,high,melanauchen = Black-naped Tern
+VII,29,Sternula nereis,Australian Little Tern,Sternula nereis,,,high,Australian Fairy Tern; not in BirdNET
+VII,30,Gygis candida,White Tern,Gygis alba,Gygis alba,White Tern,high,candida = White Tern
+VII,31,Hydrochelidon fluviatilis,Marsh Tern,Chlidonias hybrida,Chlidonias hybrida,Whiskered Tern,high,Hydrochelidon fluviatilis Gould = Whiskered Tern
+VII,32,Onychoprion fuliginosus,Sooty Tern,Onychoprion fuscatus,Onychoprion fuscatus,Sooty Tern,high,Sooty Tern
+VII,33,Onychoprion panaya,Panayan Tern,Onychoprion anaethetus,Onychoprion anaethetus,Bridled Tern,high,panaya = Bridled Tern
+VII,34,Anous stolidus,Noddy Tern,Anous stolidus,Anous stolidus,Brown Noddy,high,Brown Noddy
+VII,35,Anous melanops,Lesser Noddy,Anous tenuirostris,Anous tenuirostris,Lesser Noddy,high,melanops Gould = Abrolhos race of Lesser Noddy
+VII,36,Anous leucocapillus,White-capped Tern,Anous minutus,Anous minutus,Black Noddy,high,leucocapillus = Black Noddy
+VII,37,Anous cinereus,Grey Noddy,Anous albivitta,,,high,cinereus = Grey Noddy; not in BirdNET (A. ceruleus Blue-grey Noddy is the split sister)
+VII,38,Diomedea exulans,Wandering Albatros,Diomedea exulans,Diomedea exulans,Wandering Albatross,high,Wandering Albatross
+VII,39,Diomedea brachyura,Short-tailed Albatros,Phoebastria albatrus,,,high,brachyura = Short-tailed Albatross; not in BirdNET
+VII,40,Diomedea cauta,Cautious Albatros,Thalassarche cauta,,,high,Shy Albatross; not in BirdNET
+VII,41,Diomedea culminata,Culminated Albatros,Thalassarche chrysostoma,,,high,culminata Gould = Grey-headed Albatross; not in BirdNET
+VII,42,Diomedea chlororhynchos,Yellow-billed Albatros,Thalassarche chlororhynchos,,,high,Yellow-nosed Albatross (Atlantic or Indian); neither in BirdNET
+VII,43,Diomedea melanophrys,Black-eyebrowed Albatros,Thalassarche melanophris,Thalassarche melanophris,Black-browed Albatross,high,Black-browed Albatross
+VII,44,Diomedea fuliginosa,Sooty Albatros,Phoebetria palpebrata,,,high,fuliginosa = Light-mantled Albatross; not in BirdNET
+VII,45,Procellaria gigantea,Giant Petrel,Macronectes giganteus,,,high,Southern Giant-Petrel; not in BirdNET
+VII,46,Procellaria conspicillata,Spectacled Petrel,Procellaria conspicillata,,,high,Spectacled Petrel; not in BirdNET
+VII,47,Procellaria hasitata,Great Grey Petrel,Procellaria cinerea,,,high,"TRAP: Gould's 'Procellaria hasitata, Great Grey Petrel' = Grey Petrel; hasitata now names the Black-capped Petrel (Pterodroma hasitata); none in BirdNET"
+VII,48,Procellaria glacialoides,Silvery Grey Petrel,Fulmarus glacialoides,,,high,Southern Fulmar; not in BirdNET
+VII,49,Procellaria Lessonii,White-headed Petrel,Pterodroma lessonii,,,high,White-headed Petrel; not in BirdNET
+VII,50,Procellaria mollis,Soft-plumaged Petrel,Pterodroma mollis,,,high,Soft-plumaged Petrel; not in BirdNET
+VII,51,Procellaria Cookii,Cook's Petrel,Pterodroma cookii,Pterodroma cookii,Cook's Petrel,medium,Gould's Procellaria cookii = Cook's Petrel; small Cookilaria petrels were confused then
+VII,52,Procellaria coerulea,Blue Petrel,Halobaena caerulea,,,high,Blue Petrel; not in BirdNET
+VII,53,Daption capensis,Cape Petrel,Daption capense,Daption capense,Cape Petrel,high,Cape Petrel
+VII,54,Prion turtur,Dove-like Prion,Pachyptila turtur,,,high,Fairy Prion; not in BirdNET
+VII,55,Prion vittatus,Broad-billed Prion,Pachyptila vittata,,,high,Broad-billed Prion; not in BirdNET
+VII,56,Puffinus brevicaudus,Short-tailed Petrel,Ardenna tenuirostris,Ardenna tenuirostris,Short-tailed Shearwater,high,brevicaudus = Short-tailed Shearwater
+VII,57,Puffinus carneipes,Fleshy-footed Petrel,Ardenna carneipes,Ardenna carneipes,Flesh-footed Shearwater,high,Flesh-footed Shearwater
+VII,58,Puffinus sphenurus,Wedge-tailed Petrel,Ardenna pacifica,Ardenna pacifica,Wedge-tailed Shearwater,high,sphenurus = Wedge-tailed Shearwater
+VII,59,Puffinus assimilis,Allied Petrel,Puffinus assimilis,,,high,Little Shearwater; not in BirdNET
+VII,60,Puffinuria urinatrix,Diving Petrel,Pelecanoides urinatrix,,,high,Common Diving-Petrel; not in BirdNET
+VII,61,Thalassidroma marina,White-faced Storm Petrel,Pelagodroma marina,,,high,White-faced Storm-Petrel; not in BirdNET
+VII,62,Thalassidroma melanogaster,Black-bellied Storm Petrel,Fregetta tropica,,,high,melanogaster = Black-bellied Storm-Petrel; not in BirdNET
+VII,63,Thalassidroma leucogaster,White-bellied Storm Petrel,Fregetta grallaria,,,high,leucogaster = White-bellied Storm-Petrel; not in BirdNET
+VII,64,Thalassidroma nereis,Grey-backed Storm Petrel,Garrodia nereis,,,high,Grey-backed Storm-Petrel; not in BirdNET
+VII,65,Thalassidroma Wilsonii,Wilson's Storm Petrel,Oceanites oceanicus,,,high,Wilson's Storm-Petrel; not in BirdNET
+VII,66,Phalacrocorax carboides,Australian Cormorant,Phalacrocorax carbo,Phalacrocorax carbo,Great Cormorant,high,carboides = Great Cormorant (Australian race)
+VII,67,Phalacrocorax sulcirostris,Groove-billed Cormorant,Phalacrocorax sulcirostris,,,high,Little Black Cormorant; not in BirdNET
+VII,68,Phalacrocorax hypoleucus,Pied Cormorant,Phalacrocorax varius,,,high,hypoleucus = Pied Cormorant; not in BirdNET
+VII,69,Phalacrocorax leucogaster,White-breasted Cormorant,Phalacrocorax fuscescens,,,medium,"leucogaster Gould (abundant around Tasmania, seaweed nests on Bass Strait rocks) = Black-faced Cormorant, not the Pied; not in BirdNET either way"
+VII,70,Phalacrocorax melanoleucus,Pied Cormorant,Microcarbo melanoleucos,,,high,Little Pied Cormorant; not in BirdNET
+VII,71,Phalacrocorax punctatus,Spotted Cormorant,Phalacrocorax punctatus,,,high,Spotted Shag (NZ); not in BirdNET
+VII,72,Attagen Ariel,Small Frigate Bird,Fregata ariel,Fregata ariel,Lesser Frigatebird,high,Attagen ariel = Lesser Frigatebird
+VII,73,Phaeton phoenicurus,Red-tailed Tropic Bird,Phaethon rubricauda,Phaethon rubricauda,Red-tailed Tropicbird,high,phoenicurus = Red-tailed Tropicbird
+VII,74,Pelecanus conspicillatus,Australian Pelican,Pelecanus conspicillatus,Pelecanus conspicillatus,Australian Pelican,high,Australian Pelican
+VII,75,Plotus Novae-Hollandiae,New Holland Darter,Anhinga novaehollandiae,Anhinga novaehollandiae,Australasian Darter,high,Plotus novaehollandiae = Australasian Darter
+VII,76,Sula australis,Australian Gannet,Morus serrator,,,high,Australasian Gannet; not in BirdNET
+VII,77,Sula personata,Masked Gannet,Sula dactylatra,Sula dactylatra,Masked Booby,high,personata = Masked Booby
+VII,78,Sula fusca,Brown Gannet,Sula leucogaster,Sula leucogaster,Brown Booby,high,fusca = Brown Booby
+VII,79,Sula piscator,Red-legged Gannet,Sula sula,Sula sula,Red-footed Booby,high,piscator = Red-footed Booby
+VII,80,Podiceps australis,Australian Tippet Grebe,Podiceps cristatus,Podiceps cristatus,Great Crested Grebe,high,australis = Great Crested Grebe (Australasian race)
+VII,81,Podiceps gularis,Black-throated Grebe,Tachybaptus novaehollandiae,Tachybaptus novaehollandiae,Australasian Grebe,high,gularis = Australasian Grebe
+VII,82,Podiceps poliocephalus,Hoary-headed Grebe,Poliocephalus poliocephalus,,,high,Hoary-headed Grebe; not in BirdNET
+VII,83,Eudyptes chrysocome,Crested Penguin,Eudyptes chrysocome,Eudyptes chrysocome,Southern Rockhopper Penguin,medium,Crested Penguin by name = Southern Rockhopper; crested penguins reaching Australia include other Eudyptes
+VII,84,Spheniscus minor,Little Penguin,Eudyptula minor,Eudyptula minor,Little Penguin,high,Spheniscus minor = Little Penguin
+VII,85,Spheniscus undina,Fairy Penguin,Eudyptula minor,Eudyptula minor,Little Penguin,high,undina Gould = Little Penguin
+Supp,1,Strix candida,Grass-Owl,Tyto longimembris,,,high,Strix candida = Australasian Grass-Owl; not in BirdNET
+Supp,2,Sceloglaux albifacies,Wekau,Sceloglaux albifacies,,,high,Laughing Owl (extinct); not in BirdNET
+Supp,3,Podargus papuensis,Papuan Podargus,Podargus papuensis,,,high,Papuan Frogmouth; not in BirdNET
+Supp,4,Podargus marmoratus,Marbled Podargus,Podargus ocellatus,Podargus ocellatus,Marbled Frogmouth,high,marmoratus = Marbled Frogmouth
+Supp,5,Halcyon flavirostris,Yellow-billed Kingfisher,Syma torotoro,Syma torotoro,Yellow-billed Kingfisher,high,Halcyon flavirostris = Yellow-billed Kingfisher
+Supp,6,Tanysiptera Sylvia,White-tailed Tanysiptera,Tanysiptera sylvia,Tanysiptera sylvia,Buff-breasted Paradise-Kingfisher,high,Buff-breasted Paradise-Kingfisher
+Supp,7,Artamus melanops,Black-faced Wood-Swallow,Artamus cinereus,Artamus cinereus,Black-faced Woodswallow,high,melanops = race of Black-faced Woodswallow
+Supp,8,Pardalotus xanthopygius,Yellow-rumped Pardalote,Pardalotus punctatus,Pardalotus punctatus,Spotted Pardalote,high,xanthopygus = Yellow-rumped race of Spotted Pardalote
+Supp,9,Manucodia Keraudreni,Keraudren's Crow-Shrike,Phonygammus keraudrenii,Phonygammus keraudrenii,Trumpet Manucode,high,Trumpet Manucode
+Supp,10,Arses Kaupi,Kaup's Flycatcher,Arses kaupi,,,high,Pied Monarch; not in BirdNET
+Supp,11,Machaerirhynchus flaviventer,Yellow-breasted Flycatcher,Machaerirhynchus flaviventer,Machaerirhynchus flaviventer,Yellow-breasted Boatbill,high,Yellow-breasted Boatbill
+Supp,12,Monarcha leucotis,White-eared Flycatcher,Carterornis leucotis,Carterornis leucotis,White-eared Monarch,high,White-eared Monarch
+Supp,13,Monarcha albiventris,White-bellied Flycatcher,Symposiachrus trivirgatus,Symposiachrus trivirgatus,Spectacled Monarch,medium,Monarcha albiventris Gould = Cape York race of Spectacled Monarch
+Supp,14,Gerygone personata,Masked Gerygone,Gerygone palpebrosa,Gerygone palpebrosa,Fairy Gerygone,high,personata = Fairy Gerygone (black-throated race)
+Supp,15,Petroica cerviniventris,Buff-sided Robin,Poecilodryas cerviniventris,,,high,Buff-sided Robin; not in BirdNET
+Supp,16,Drymodes superciliaris,Eastern Scrub-Robin,Drymodes superciliaris,,,high,Northern Scrub-Robin; not in BirdNET
+Supp,17,Eopsaltria capito,Large-headed Robin,Tregellasia capito,Tregellasia capito,Pale-yellow Robin,high,Pale-yellow Robin
+Supp,18,Eopsaltria leucura,White-tailed Robin,Peneoenanthe pulverulenta,,,high,"Eopsaltria leucura Gould (N mangroves, white tail bases) = Mangrove Robin; not in BirdNET"
+Supp,19,Menura Alberti,Albert Lyre-Bird,Menura alberti,Menura alberti,Albert's Lyrebird,high,Albert's Lyrebird
+Supp,20,Malurus coronatus,Crowned Wren,Malurus coronatus,,,high,Purple-crowned Fairywren; not in BirdNET
+Supp,21,Malurus amabilis,Lovely Wren,Malurus amabilis,Malurus amabilis,Lovely Fairywren,high,Lovely Fairywren
+Supp,22,Malurus hypoleucus,Fawn-breasted Superb Warbler,Malurus amabilis,Malurus amabilis,Lovely Fairywren,medium,"hypoleucus Gould (Cape York; blue above, white lores and eye-ring, cream below) matches Lovely Fairywren in female-type plumage"
+Supp,23,Malurus callainus,Turquoisine Superb Warbler,Malurus splendens,Malurus splendens,Splendid Fairywren,high,callainus = Turquoise race of Splendid Fairywren
+Supp,24,Malurus leuconotus,White-backed Superb Warbler,Malurus leucopterus,Malurus leucopterus,White-winged Fairywren,high,leuconotus = mainland race of White-winged Fairywren
+Supp,25,Sphenura Broadbenti,Rufous-headed Bristle-Bird,Dasyornis broadbenti,Dasyornis broadbenti,Rufous Bristlebird,high,Rufous Bristlebird
+Supp,26,Atrichia rufescens,Rufescent Scrub-Bird,Atrichornis rufescens,Atrichornis rufescens,Rufous Scrub-bird,high,Rufous Scrub-bird
+Supp,27,Pycnoptilus floccosus,Downy Pycnoptilus,Pycnoptilus floccosus,Pycnoptilus floccosus,Pilotbird,high,Pilotbird
+Supp,28,Acanthiza magna,Great Acanthiza,Acanthornis magna,,,high,Scrubtit; not in BirdNET
+Supp,29,Pitta Mackloti,Macklot's Pitta,Erythropitta macklotii,Erythropitta macklotii,Papuan Pitta,high,Pitta mackloti = Papuan Pitta (Australian digglesi belongs here)
+Supp,30,Merula poliocephala,Grey-headed Blackbird,Turdus poliocephalus,Turdus poliocephalus,Island Thrush,high,Merula poliocephala = extinct Norfolk race of Island Thrush
+Supp,31,Merula vinitincta,Vinous-tinted Blackbird,Turdus poliocephalus,Turdus poliocephalus,Island Thrush,high,vinitincta = extinct Lord Howe race of Island Thrush
+Supp,32,Cinclosoma castaneothorax,Chestnut-breasted Ground-Thrush,Cinclosoma castaneothorax,Cinclosoma castaneothorax,Chestnut-breasted Quail-thrush,high,Chestnut-breasted Quail-thrush
+Supp,33,Aplonis metallica,Shining Aplonis,Aplonis metallica,Aplonis metallica,Metallic Starling,high,Metallic Starling
+Supp,34,Ptilonorhynchus Rawnsleyi,Rawnsley's Bower-bird,Ptilonorhynchus violaceus x Sericulus chrysocephalus,,,high,Rawnsley's Bowerbird is an intergeneric hybrid; no species to pin
+Supp,35,Chlamydera guttata,Guttated Bower-bird,Chlamydera guttata,,,high,Western Bowerbird; not in BirdNET
+Supp,36,Chlamydera cerviniventris,Fawn-breasted Bower-bird,Chlamydera cerviniventris,,,high,Fawn-breasted Bowerbird; not in BirdNET
+Supp,37,Sphecotheres flaviventris,Yellow-bellied Sphecotheres,Sphecotheres vieilloti,Sphecotheres vieilloti,Australasian Figbird,high,flaviventris = yellow N race of Australasian Figbird
+Supp,38,Pomatorhinus ruficeps,Chestnut-crowned Pomatorhinus,Pomatostomus ruficeps,Pomatostomus ruficeps,Chestnut-crowned Babbler,high,Chestnut-crowned Babbler
+Supp,39,Ptilotis cassidix,Helmeted Honey-eater,Lichenostomus melanops,Lichenostomus melanops,Yellow-tufted Honeyeater,high,cassidix = Helmeted race of Yellow-tufted Honeyeater
+Supp,40,Ptilotis fasciogularis,Fasciated Honey-eater,Gavicalis fasciogularis,Gavicalis fasciogularis,Mangrove Honeyeater,high,Mangrove Honeyeater
+Supp,41,Ptilotis notata,Yellow-spotted Honey-eater,Meliphaga notata,Meliphaga notata,Yellow-spotted Honeyeater,high,Yellow-spotted Honeyeater
+Supp,42,Ptilotis filigera,Streaked Honey-eater,Xanthotis flaviventer,,,high,Ptilotis filigera = Cape York race of Tawny-breasted Honeyeater; not in BirdNET
+Supp,43,Ptilotis Cockerelli,Cockerell's Honey-eater,Trichodere cockerelli,,,high,White-streaked Honeyeater; not in BirdNET
+Supp,44,Tropidorhynchus buceroides,Helmeted Friar-bird,Philemon buceroides,Philemon buceroides,Helmeted Friarbird,medium,"Helmeted Friarbird; Gould's bird is probably the Cape York form (yorki), which BirdNET's buceroides includes"
+Supp,45,Nectarinia australis,Australian Sun-bird,Cinnyris jugularis,Cinnyris jugularis,Olive-backed Sunbird,high,Nectarinia australis = Olive-backed Sunbird
+Supp,46,Zosterops albogularis,White-breasted Zosterops,Zosterops albogularis,,,high,White-chested White-eye (Norfolk); not in BirdNET
+Supp,47,Zosterops tenuirostris,Slender-billed Zosterops,Zosterops tenuirostris,,,high,Slender-billed White-eye (Norfolk); not in BirdNET
+Supp,48,Zosterops strenuus,Robust Zosterops,Zosterops strenuus,,,high,"Robust White-eye (Lord Howe, extinct); not in BirdNET"
+Supp,49,Zosterops tephropleurus,Grey-breasted Zosterops,Zosterops lateralis,Zosterops lateralis,Silvereye,high,tephropleurus = Lord Howe race of Silvereye
+Supp,50,Ptiloris Victoriae,Victoria Rifle-bird,Ptiloris victoriae,Ptiloris victoriae,Victoria's Riflebird,high,Victoria's Riflebird
+Supp,51,Ptiloris magnifica,Magnificent Rifle-bird,Ptiloris magnificus,Ptiloris magnificus,Magnificent Riflebird,high,Magnificent Riflebird (Cape York alberti)
+Supp,52,Semioptera Wallacei,Standard-Wing,Semioptera wallacii,Semioptera wallacii,Standardwing Bird-of-Paradise,high,Standardwing
+Supp,53,Orthonyx Spaldingi,Spalding's Orthonyx,Orthonyx spaldingii,Orthonyx spaldingii,Chowchilla,high,Chowchilla
+Supp,54,Sittella striata,Striated Sittella,Daphoenositta chrysoptera,Daphoenositta chrysoptera,Varied Sittella,high,striata = race of Varied Sittella
+Supp,55,Cacomantis castaneiventris,Chestnut-breasted Cuckoo,Cacomantis castaneiventris,Cacomantis castaneiventris,Chestnut-breasted Cuckoo,high,Chestnut-breasted Cuckoo
+Supp,56,Chrysococcyx minutillus,Little Cuckoo,Chrysococcyx minutillus,Chrysococcyx minutillus,Little Bronze-Cuckoo,high,Little Bronze-Cuckoo
+Supp,57,Strigops habroptilus,Kakapo,Strigops habroptila,,,high,Kakapo; not in BirdNET
+Supp,58,Nestor hypopolius,Ka-ka Parrot,Nestor meridionalis,Nestor meridionalis,New Zealand Kaka,high,hypopolius = Kaka
+Supp,59,Nestor Esslingii,Prince of Essling's Parrot,Nestor meridionalis,Nestor meridionalis,New Zealand Kaka,high,esslingii = Kaka variety
+Supp,60,Nestor notabilis,Kea Parrot,Nestor notabilis,,,high,Kea; not in BirdNET
+Supp,61,Microglossus aterrimus,Great Palm-Cockatoo,Probosciger aterrimus,Probosciger aterrimus,Palm Cockatoo,high,Microglossus aterrimus = Palm Cockatoo
+Supp,62,Polytelis Alexandrae,The Princess of Wales's Parrakeet,Polytelis alexandrae,,,high,Princess Parrot; not in BirdNET
+Supp,63,Platycercus cyanogenys,Blue-cheeked Parrakeet,Platycercus adscitus,Platycercus adscitus,Pale-headed Rosella,medium,cyanogenys Gould (Cape York) = blue-cheeked nominate Pale-headed Rosella
+Supp,64,Psephotus chrysopterygius,Golden-backed Parrakeet,Psephotus chrysopterygius,,,high,Golden-shouldered Parrot; not in BirdNET
+Supp,65,Cyclopsitta Coxeni,Coxen's Parrakeet,Cyclopsitta diophthalma,,,high,"coxeni = Coxen's Fig-Parrot, race of Double-eyed Fig-Parrot; not in BirdNET"
+Supp,66,Geopsittacus occidentalis,Nocturnal Ground-Parrakeet,Pezoporus occidentalis,,,high,Night Parrot; not in BirdNET
+Supp,67,Carpophaga assimilis,Allied Fruit-Pigeon,Ptilinopus magnificus,Ptilinopus magnificus,Wompoo Fruit-Dove,high,Carpophaga assimilis Gould = N race of Wompoo Fruit-Dove (Gould: 'diminutive representative of C. magnifica')
+Supp,68,Lophophaps ferruginea,Rust-coloured Bronzewing,Geophaps plumifera,,,high,ferruginea = rufous race of Spinifex Pigeon; not in BirdNET
+Supp,69,Lophophaps leucogaster,White-bellied Bronzewing,Geophaps plumifera,,,high,leucogaster = race of Spinifex Pigeon; not in BirdNET
+Supp,70,Casuarius australis,"Australian Cassowary (two heads, natural size)",Casuarius casuarius,Casuarius casuarius,Southern Cassowary,high,australis = Southern Cassowary (johnsonii)
+Supp,71,Casuarius australis,Australian Cassowary (whole figure),Casuarius casuarius,Casuarius casuarius,Southern Cassowary,high,australis = Southern Cassowary (johnsonii)
+Supp,72,Casuarius Bennetti,"Bennett's Cassowary (two heads, nat. size)",Casuarius bennetti,,,high,Dwarf Cassowary; not in BirdNET
+Supp,73,Casuarius Bennetti,Bennett's Cassowary (whole figure),Casuarius bennetti,,,high,Dwarf Cassowary; not in BirdNET
+Supp,74,Casuarius uniappendiculatus,"One-carunculated Cassowary (head and feet, nat. size)",Casuarius unappendiculatus,,,high,Northern Cassowary; not in BirdNET
+Supp,75,Casuarius uniappendiculatus,One-carunculated Cassowary (whole fig.),Casuarius unappendiculatus,,,high,Northern Cassowary; not in BirdNET
+Supp,76,Notornis Mantelli,Notornis,Porphyrio hochstetteri,,,high,Notornis mantelli as figured (1850 live South Island bird) = South Island Takahe; not in BirdNET
+Supp,77,Actiturus Bartramius,Bartram's Sandpiper,Bartramia longicauda,Bartramia longicauda,Upland Sandpiper,high,Upland Sandpiper
+Supp,78,Rallina tricolor,Red-necked Rail,Rallina tricolor,Rallina tricolor,Red-necked Crake,high,Red-necked Crake
+Supp,79,Gallinula ruficrissa,Rufous-vented Gallinule,Amaurornis moluccana,Amaurornis moluccana,Pale-vented Bush-hen,high,"Gallinula ruficrissa Gould (Cape River, Qld; allied to Philippine olivacea) = Pale-vented Bush-hen"
+Supp,80,Spatula variegata,Variegated Shoveller,Spatula rhynchotis,,,high,variegata = NZ race of Australasian Shoveler; not in BirdNET
+Supp,81,Gelochelidon macrotarsa,Great-footed Tern,Gelochelidon macrotarsa,Gelochelidon nilotica,Gull-billed Tern,high,Australian Tern; BirdNET/Clements 2021 lump it in Gull-billed Tern

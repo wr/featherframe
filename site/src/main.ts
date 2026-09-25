@@ -1,7 +1,6 @@
-// featherframe.app's first-paint script: the tag beside the hero's frame, the
-// cardinal's song, the Keep me posted form, and — when WebGL is there and
+// featherframe.app's first-paint script: the cardinal's song, the Keep me posted form, and — when WebGL is there and
 // motion is welcome — the 3D frame, loaded after the page has painted.
-import { heardText, isLongName, type SiteData } from './card';
+import type { SiteData } from './card';
 
 const params = new URLSearchParams(location.search);
 const holdMs = params.has('hold') ? Number(params.get('hold')) : undefined;
@@ -10,9 +9,6 @@ const size: '13' | '10' = params.get('size') === '10' ? '10' : '13';
 
 const stage = document.getElementById('stage')!;
 const poster = stage.querySelector<HTMLImageElement>('.poster')!;
-const label = document.getElementById('label')!;
-const nameEl = label.querySelector('.label-name')!;
-const heardEl = label.querySelector('.label-heard')!;
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const webgl = (() => {
@@ -20,45 +16,14 @@ const webgl = (() => {
 })();
 
 let data: SiteData | undefined;
-/** The species the tag names now (or is changing to). */
-let showing = 0;
-let swap = 0;
-
-/** Change the tag to species `i`. The frame calls this twice per change: as
- *  the new picture arrives mid-refresh, and again once it settles (a no-op
- *  unless the first call was missed). */
-function showSpecies(i: number) {
-  if (i === showing) return;
-  showing = i;
-  const s = data!.species[i];
-  label.classList.add('changing');
-  window.clearTimeout(swap);
-  swap = window.setTimeout(() => {
-    // Each word keeps together, so a long name breaks between words, never at a hyphen.
-    const text = document.createElement('span');
-    text.className = 'name-text';
-    text.append(...s.name.split(' ').flatMap((w, i) => {
-      const span = document.createElement('span');
-      span.className = 'word';
-      span.textContent = w;
-      return i ? [' ', span] : [span];
-    }));
-    nameEl.replaceChildren(text);
-    nameEl.classList.toggle('label-name--long', isLongName(s.name));
-    heardEl.textContent = heardText(s.heard);
-    label.classList.remove('changing');
-  }, 350);
-}
-
 async function mount() {
   if (!data || reduced || !webgl) return;
   const { startViewer } = await import('./viewer');
   try {
     await startViewer(stage, data.sizes[size], {
       holdMs,
-      onArriving: showSpecies,
       // data-shown is a test hook (site.spec.ts): the index the frame last settled on.
-      onShown: (i) => { stage.dataset.shown = String(i); showSpecies(i); },
+      onShown: (i) => { stage.dataset.shown = String(i); },
       poster: params.has('poster'),
     });
   } catch (e) {

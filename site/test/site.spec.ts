@@ -33,9 +33,6 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#sizes h2')).toHaveText('Sixteen grays, or six inks.');
   await expect(page.locator('#faq dt')).toHaveCount(4);
   await expect(page.locator('.cat figure')).toHaveCount(12);
-  await expect(page.locator('#label .sc')).toHaveText('Heard near you');
-  await expect(page.locator('#label .label-name')).toHaveText('Common Nighthawk');
-  await expect(page.locator('#label .label-heard')).toHaveText('This morning at 08:14');
   for (const link of await page.getByRole('link', { name: 'Pre-order' }).all()) {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
@@ -44,9 +41,8 @@ test('every section and its key copy is there', async ({ page }) => {
   for (const banned of ['plate', 'on the wall', 'on the glass']) expect(body).not.toContain(banned);
 });
 
-test('the tag is set in the script, the frame with it', async ({ page }) => {
+test('the 3D frame lands exactly on the poster', async ({ page }) => {
   await page.goto('/');
-  expect(await page.locator('#label .label-name').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(/Pinyon/);
   // The stage holds the poster's whole canvas; the frame's own box is where
   // the frame is drawn in it (1200 × 1400, frame at 111,108 → 1086,1352).
   const [frame, stage] = await page.evaluate(() => ['.frame', '#stage'].map((s) => {
@@ -58,11 +54,6 @@ test('the tag is set in the script, the frame with it', async ({ page }) => {
   expect(Math.abs(stage.w * 975 / 1200 - frame.w)).toBeLessThan(2);
 });
 
-test('the label card is not announced (it cycles on its own)', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('#label')).not.toHaveAttribute('aria-live');
-});
-
 test('no horizontal scroll on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
@@ -71,16 +62,10 @@ test('no horizontal scroll on a phone', async ({ page }) => {
   expect(sw).toBeLessThanOrEqual(cw);
 });
 
-test('the card follows the frame from one species to the next', async ({ page }) => {
+test('the frame repaints to the next species', async ({ page }) => {
   await page.goto('/?hold=300');
   await expect(page.locator('#stage canvas')).toHaveCount(1, { timeout: 20_000 });
-  await expect(page.locator('#label .label-name')).toHaveText('Northern Cardinal', { timeout: 20_000 });
-  await expect(page.locator('#label .label-heard')).toHaveText('This morning at 09:02');
-  // It changed as the Cardinal arrived, before the refresh settled on it…
-  expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
-  // …and the settle that follows leaves it where it is.
-  await expect(page.locator('#stage')).toHaveAttribute('data-shown', '1', { timeout: 20_000 });
-  await expect(page.locator('#label .label-name')).toHaveText('Northern Cardinal');
+  await expect(page.locator('#stage')).toHaveAttribute('data-shown', '1', { timeout: 30_000 });
 });
 
 test('the poster stays until the 3D frame has actually drawn', async ({ page }) => {
@@ -139,7 +124,7 @@ test('without WebGL the poster and first species stay', async ({ page }) => {
   await page.waitForTimeout(3000);
   await expect(page.locator('#stage canvas')).toHaveCount(0);
   await expect(page.locator('#stage .poster')).toBeVisible();
-  await expect(page.locator('#label .label-name')).toHaveText('Common Nighthawk');
+  expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
 });
 
 test('with reduced motion nothing cycles', async ({ page }) => {
@@ -147,7 +132,7 @@ test('with reduced motion nothing cycles', async ({ page }) => {
   await page.goto('/?hold=300');
   await page.waitForTimeout(3000);
   await expect(page.locator('#stage canvas')).toHaveCount(0);
-  await expect(page.locator('#label .label-name')).toHaveText('Common Nighthawk');
+  expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
 });
 
 test('Keep me posted signs up without leaving the page', async ({ page }) => {
@@ -195,7 +180,7 @@ test('a frame whose model never arrives leaves the poster showing', async ({ pag
   await expect(page.locator('#stage canvas')).toHaveCount(0);
   await expect(page.locator('#stage')).not.toHaveClass(/\blive\b/);
   expect(await page.locator('#stage .poster').evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
-  await expect(page.locator('#label .label-name')).toHaveText('Common Nighthawk');
+  expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
 });
 
 test('the song plays, pauses and resets when it ends', async ({ page }) => {

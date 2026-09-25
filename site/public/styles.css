@@ -88,12 +88,6 @@ h2 { font-weight: 400; text-wrap: balance; }
 .stage canvas:active { cursor: grabbing; }
 .stage.live canvas { opacity: 1; }
 .stage.live .poster { opacity: 0; transition: opacity .6s ease; }
-.tag { position: absolute; right: calc(100% + 28px); bottom: 34%; z-index: 2; text-align: right; white-space: nowrap; }
-.tag .label-name { font: 44px/1.1 var(--script); margin: 10px 0 6px; }
-.tag .label-name--long { font-size: 36px; }
-.tag .label-heard { font: italic 16px var(--serif); color: var(--graphite); }
-.tag .label-name, .tag .label-heard { transition: opacity .35s ease; }
-.tag.changing .label-name, .tag.changing .label-heard { opacity: 0; }
 .cover .copy { position: absolute; left: 0; bottom: 6%; z-index: 2; width: 40%; }
 .cover .copy p { font-size: 22px; line-height: 1.42; margin: 0 0 26px; text-wrap: pretty; }
 .cta { display: flex; align-items: center; gap: 20px; }
@@ -212,10 +206,7 @@ h2 { font-weight: 400; text-wrap: balance; }
            height: calc(100svh - 78px); min-height: 640px; max-height: 1100px; padding: 4vh 0 0; }
   .cover h1 { position: relative; top: 0; grid-column: 1 / -1; grid-row: 1; width: auto; font-size: clamp(120px, 15.4vw, 290px); pointer-events: none; }
   .frame { position: relative; right: auto; bottom: auto; grid-column: 2; grid-row: 1 / 3; align-self: end;
-           width: min(100%, 540px, 50vh); justify-self: start; height: auto; margin: 0 0 118px calc(5.7vw - 28px); }
-  .tag { position: absolute; left: 0; right: auto; top: calc(100% + 26px); bottom: auto; text-align: left; white-space: nowrap; }
-  .tag .label-name { font-size: 30px; margin: 6px 0 2px; }
-  .tag .label-name--long { font-size: 26px; }
+           width: min(100%, 600px, 60vh); justify-self: start; height: auto; margin: 0 0 7vh calc(5.7vw - 28px); }
   .cover .copy { position: relative; left: auto; bottom: auto; grid-column: 1; grid-row: 2; width: auto; max-width: 25em; align-self: center; margin: 0; }
 }
 
@@ -229,9 +220,6 @@ h2 { font-weight: 400; text-wrap: balance; }
   .frame { display: flow-root; position: relative; right: auto; bottom: auto; height: auto; width: 78%; aspect-ratio: auto; margin: 36px 0 0 18%; }
   .frame::after { display: none; }
   .stage { position: relative; left: -11.385%; top: 0; width: 123.077%; height: auto; aspect-ratio: 6 / 7; margin: -11.077% 0 -4.923%; filter: drop-shadow(0 18px 18px rgba(0, 0, 0, .12)); }
-  .tag { position: static; margin-top: 18px; text-align: left; white-space: normal; }
-  .tag .label-name { font-size: 32px; }
-  .tag .label-name--long { font-size: 28px; }
   .cover .copy { position: static; width: auto; margin-top: 44px; }
 
   .spread { min-height: 0; }
@@ -262,5 +250,5 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stage canvas, .stage.live .poster, .tag .label-name, .tag .label-heard { transition: none; }
+  .stage canvas, .stage.live .poster { transition: none; }
 }

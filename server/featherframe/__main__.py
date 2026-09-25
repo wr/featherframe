@@ -8,7 +8,7 @@ import os
 def main() -> None:
     ap = argparse.ArgumentParser(description="Featherframe server")
     ap.add_argument("--host", default=os.environ.get("FEATHERFRAME_HOST", "0.0.0.0"))
-    ap.add_argument("--port", type=int, default=int(os.environ.get("FEATHERFRAME_PORT", "8080")))
+    ap.add_argument("--port", type=int, default=int(os.environ.get("FEATHERFRAME_PORT", "8181")))
     ap.add_argument("--clear-password", action="store_true",
                     help="turn the page's password off, then exit (restart the server after)")
     args = ap.parse_args()

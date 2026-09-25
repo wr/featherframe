@@ -57,7 +57,7 @@ make preview-collage   # a daily collage
 make preview-fallback  # the typographic (no-plate) fallback
 make preview-ee02      # the Cardinal for the EE02 colour panel (six-ink dither)
 make preview-views     # the Cardinal as viewers get it (TRMNL X, Kobo, Kindle, TRMNL OG, tablet)
-make serve             # run the server on :8080
+make serve             # run the server on :8181
 make test              # pytest
 ```
 
@@ -73,7 +73,7 @@ cd server
 ./.venv/bin/python -m featherframe.preview --species "Blue Jay"      # any species
 ./.venv/bin/python -m featherframe.preview --dither stucki           # bench override, never persisted
 ./.venv/bin/python scripts/fetch_plates.py --dry-run                 # resolve plates, no download
-./.venv/bin/python -m featherframe --port 8080                       # run the server directly
+./.venv/bin/python -m featherframe --port 8181                       # run the server directly
 
 # Firmware
 cd firmware && pio run -t upload && pio device monitor  # build/flash + serial (115200)
@@ -202,7 +202,7 @@ never reaches `admit_frame` — but it is approved on
 the server like every other frame: a new one is `asking`, `/api/setup` still
 hands it its key, and `/api/display` answers `status: 0` with the *waiting
 plate* (`welcome.render_waiting`, the wordmark over "ADD THIS FRAME ON THE
-FEATHERFRAME PAGE" and its short id), drawn for that screen's own size, depth
+FEATHERFRAME WEBAPP" and its short id), drawn for that screen's own size, depth
 and rotation, `filename` `waiting-<variant>`, `refresh_rate`
 `WAITING_REFRESH_SECONDS` (`IGNORED_REFRESH_SECONDS` once it is ignored).
 Its image is `GET /api/viewers/<id>/<name>.png`, and that path stays where it
@@ -213,7 +213,7 @@ web app via `/view.webmanifest`) names itself from localStorage, reports its
 device pixels to `GET /api/view/state` every `viewers.PAGE_POLL_SECONDS`, and
 is told which image to cross-fade to — or, while it is still `asking` or
 `ignored`, `{"waiting": true, "id": …}` and no image, which the page shows as
-the wordmark over "Add this frame on the Featherframe page" and its short id.
+the wordmark over "Add this frame on the Featherframe webapp" and its short id.
 It keeps polling and takes the picture by itself once the owner adds it. A page
 viewer (`transport: "page"`) is always
 `color`, upright, long side capped at `PAGE_MAX_SIDE`, and shows the plate
@@ -300,7 +300,7 @@ MAC). **Every frame of every transport is approved on the server**, the first
 kit on a fresh install included: a new row is `asking` until the owner answers
 on the page — *Add this frame* (`answer_frame(…, "add")`, which takes any
 transport), *Ignore it*, or *forget*. A kit that is asking gets a 403 and shows
-its own baked "Add this frame on the Featherframe page"; a viewer gets the
+its own baked "Add this frame on the Featherframe webapp"; a viewer gets the
 waiting plate, a page the waiting screen. There is no "replace":
 there is no current frame to replace, so handing the server to a new
 kit is adding it and removing the old one. `POST /api/frames/<id>` saves ANY
@@ -501,7 +501,11 @@ changing a login's email outright, suspending a household
 (`households.suspended_at`: its page closed to the owner, its front door stops
 waking the server, its frames keep their last picture), deleting one (D1 rows
 incl. its invitation, its frames' registry rows, R2, front door storage and
-container), and revoking or resending an unused invitation. The
+container), and revoking or resending an unused invitation. What an action came to is
+a toast on the next load (the Featherframe page's own flash, carried by a
+one-time `ff_admin_toast` cookie, never the URL), and every action — the page's
+forms and the bearer API — is kept in D1 `admin_log` (W-863, migration 0005),
+the last 100 shown at the foot of the page. The
 API is still there: `Authorization: Bearer` keychain
 `featherframe-hosted-admin-token`, `POST /_admin/invite|link|adopt {email}`.
 Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a
@@ -666,7 +670,7 @@ forgotten; a frame removed from a row asks again the next time it checks in). Ea
 there is no notice to answer when a different kit connects. Firmware without
 the header is one frame called "legacy", which becomes its real ID in place
 after an update. A parked frame
-shows "Add this frame on the Featherframe page" (gray: error pill 3; EE02:
+shows "Add this frame on the Featherframe webapp" (gray: error pill 3; EE02:
 `FF_SCR_PENDING`) and keeps asking. Discovery prefers a server whose mDNS TXT
 `panel` matches and otherwise takes any, and `X-Board` on the OTA request
 keeps one board's image off the other. A

@@ -520,7 +520,7 @@ def loader_tiles(im: Image.Image, cx, cy):
 ERR_TEXTS = [("Can't reach Wi-Fi", "wifi"), ("Can't reach server", "server")]
 WAIT_TEXT = "Waiting for the first bird"
 # The server serves one frame; another waits for its owner to switch to it.
-PENDING_TEXT = "Add this frame on the Featherframe page"
+PENDING_TEXT = "Add this frame on the Featherframe webapp"
 RETRY_TEXTS = ["Trying again in 1 minute", "Trying again in 5 minutes",
                "Trying again in 15 minutes", "Trying again shortly"]
 ERR_ICON_SLOT = 56

@@ -79,7 +79,7 @@ def test_an_ignored_page_shows_the_same_waiting_screen(client):
 
 def test_the_page_says_the_one_thing_to_do_about_it(client):
     html = client.get("/view").text
-    assert "Add this frame on the Featherframe page" in html
+    assert "Add this frame on the Featherframe webapp" in html
     assert 'id="wait-id"' in html and "state.waiting" in html
     # Old iPads run it: no arrow functions, no let/const, no fetch.
     script = html.split("<script>")[1]
@@ -117,7 +117,7 @@ def test_an_ignored_trmnl_keeps_the_waiting_image_and_asks_rarely(client):
 
 
 def test_the_waiting_plate_carries_the_wordmark_and_the_sentence(client):
-    assert welcome.WAITING_LINE == "ADD THIS FRAME ON THE FEATHERFRAME PAGE"
+    assert welcome.WAITING_LINE == "ADD THIS FRAME ON THE FEATHERFRAME WEBAPP"
     sheet = welcome.render_waiting("00:01")
     assert sheet.size == (theme.WIDTH, theme.HEIGHT)
     # Two screens waiting side by side are told apart by their short id.

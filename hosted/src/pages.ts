@@ -6,11 +6,13 @@ import { escapeHtml } from "./util";
 
 const STYLE = `
   :root { --bg:#ececea; --surface:#fcfcfb; --ink:#201e1a; --ink-2:#474540; --muted:#827e76;
-    --border:#e6e4dd; --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e;
+    --border:#e6e4dd; --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e; --good:#5c8a46;
+    --sh-card:0 1px 2px rgba(74,54,28,.045), 0 4px 12px rgba(74,54,28,.05);
     color-scheme:light; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
     --bg:#171614; --surface:#211f1c; --ink:#ecebe7; --ink-2:#c9c6bf; --muted:#8f8b83;
-    --border:#34312c; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); color-scheme:dark; } }
+    --border:#34312c; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); --bad:#d9705a; --good:#7fae66;
+    --sh-card:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28); color-scheme:dark; } }
   @font-face { font-family:"Featherframe Script"; src:url("/_ff/script.ttf") format("truetype"); font-display:swap; }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
@@ -61,6 +63,21 @@ const STYLE = `
   .h-more input { flex:1 1 180px; font:inherit; font-size:13px; padding:6px 10px; border:1px solid var(--border);
     border-radius:8px; background:var(--bg); color:var(--ink); }
   .btn.danger { background:var(--bad); color:#fff; }
+  /* The page's toast (W-863): the Featherframe page's own flash, pinned to the
+     top of the viewport and gone after five seconds. */
+  .toast { position:fixed; top:16px; left:50%; z-index:40; display:flex; align-items:flex-start; gap:9px;
+    width:max-content; max-width:min(560px, calc(100vw - 32px)); padding:9px 12px; border-radius:8px;
+    font-size:13px; line-height:1.45; border:1px solid var(--border); color:var(--ink); box-shadow:var(--sh-card);
+    transform:translateX(-50%); animation:toast-in .3s cubic-bezier(.2,.7,.2,1);
+    transition:opacity .3s, transform .3s; }
+  .toast.ok { background:color-mix(in srgb, var(--good) 12%, var(--surface)); border-color:color-mix(in srgb, var(--good) 32%, var(--border)); }
+  .toast.bad { background:color-mix(in srgb, var(--bad) 11%, var(--surface)); border-color:color-mix(in srgb, var(--bad) 30%, var(--border)); }
+  .toast svg { flex:none; width:18px; height:18px; margin-top:1px; }
+  .toast.ok svg { color:var(--good); } .toast.bad svg { color:var(--bad); }
+  .toast.gone { opacity:0; transform:translate(-50%, -120%); }
+  @keyframes toast-in { from { transform:translate(-50%, -120%); opacity:0; } to { transform:translate(-50%, 0); opacity:1; } }
+  @media (prefers-reduced-motion:reduce) { .toast { animation:none; transition:none; } }
+  .log-bad { color:var(--bad); }
   .usage { padding:0 20px 18px; }
   .usage-total { display:flex; gap:24px; flex-wrap:wrap; margin:0 0 14px; }
   .usage-total div { font-size:13px; color:var(--muted); }
@@ -107,7 +124,23 @@ export type AdminData = {
     last_wake: number | null; source: string | null;
   }[];
   usage: Usage;
+  log: { at: number; admin: string; action: string; target: string | null; ok: number; result: string }[];
 };
+
+export type Toast = { ok: boolean; message: string };
+
+const TOAST_ICONS = {
+  ok: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`,
+  bad: `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.9 15 14.4H1L8 1.9Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.75" r=".9" fill="currentColor"/></svg>`,
+};
+
+function toastHtml(t: Toast | null): string {
+  if (!t) return "";
+  return `<div class="toast ${t.ok ? "ok" : "bad"}" id="toast" role="status" aria-live="polite">
+    ${t.ok ? TOAST_ICONS.ok : TOAST_ICONS.bad}<span>${escapeHtml(t.message)}</span></div>
+    <script>setTimeout(function(){var t=document.getElementById("toast");if(t){t.classList.add("gone");
+      setTimeout(function(){t.remove()},400)}},5000)</script>`;
+}
 
 /** 1.2M, 340k, 12.5, 0.03 */
 function qty(n: number): string {
@@ -167,7 +200,7 @@ function minutes(ms: number): string {
   return m < 1 ? "<1 min" : m < 90 ? `${Math.round(m)} min` : `${(m / 60).toFixed(1)} h`;
 }
 
-export function adminPage(d: AdminData, message: string, actingAs = false): Response {
+export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): Response {
   const e = escapeHtml;
   const waiting = d.waitlist.length ? `<table><thead><tr><th>Email</th><th></th><th>From</th><th>Asked</th></tr></thead><tbody>
     ${d.waitlist.map((w) => `<tr><td>${e(w.email)}</td>
@@ -220,14 +253,22 @@ export function adminPage(d: AdminData, message: string, actingAs = false): Resp
     }).join("")}
     </tbody></table>` : `<p class="empty">No households yet.</p>`;
 
+  const log = d.log.length ? `<table><thead><tr><th>Action</th><th>By</th><th>When</th></tr></thead><tbody>
+    ${d.log.map((l) => `<tr><td><span class="${l.ok ? "" : "log-bad"}">${e(l.result)}</span><br>
+        <span class="muted">${e(l.action)}${l.target ? ` · ${e(l.target)}` : ""}</span></td>
+      <td class="muted">${e(l.admin)}</td>
+      <td class="num muted" title="${new Date(l.at * 1000).toISOString()}">${ago(l.at * 1000)}</td></tr>`).join("")}
+    </tbody></table>` : `<p class="empty">Nothing yet.</p>`;
+
   return shell("Admin · Featherframe", `<main class="wide"><p class="wordmark">Featherframe</p>
-    ${message ? `<p class="note">${e(message)}</p>` : ""}
+    ${toastHtml(toast)}
     ${actingAs ? `<form class="note" method="post" action="/admin/as/stop" style="display:flex;gap:12px;align-items:center;justify-content:space-between">
       <span>You are logged in as a household.</span><button class="btn" type="submit">Stop</button></form>` : ""}
     <div class="card"><h2 class="sec-head">Cloudflare usage</h2>${usageCard(d.usage)}</div>
     <div class="card"><h2 class="sec-head">Waitlist · ${d.waitlist.length}</h2>${waiting}</div>
     <div class="card"><h2 class="sec-head">Invite</h2>${invites}</div>
     <div class="card"><h2 class="sec-head">Households · ${d.households.length}</h2>${households}</div>
+    <div class="card"><h2 class="sec-head">Audit log</h2>${log}</div>
   </main>`);
 }
 

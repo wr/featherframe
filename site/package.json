@@ -8,6 +8,7 @@
     "test:e2e": "playwright test",
     "test": "npm run build && npm run test:unit && npm run test:e2e",
     "posters": "npm run build && node scripts/posters.mjs",
+    "wall": "npm run build && node scripts/wall.mjs",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": { "three": "^0.185.1" },

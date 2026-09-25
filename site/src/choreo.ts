@@ -224,6 +224,7 @@ export async function startPage(size: Size, opts: {
     const key = st.rect ? `${st.rect.x},${st.rect.y},${st.rect.w},${st.rect.h},${st.pose.yaw},${st.pose.lean},${st.pose.pitch},${sway}` : '';
     if (r.changed || dirty || key !== lastKey) {
       frame.draw(st.rect, st.pose, sway);
+      frame.canvas.classList.toggle('empty', !st.rect);
       dirty = false;
       lastKey = key;
       root.style.setProperty('--lift', st.lift.toFixed(3));
@@ -273,6 +274,7 @@ export async function startPage(size: Size, opts: {
     undo();
     throw e;
   }
+  for (const src of Object.values(screens)) if (src) frame.refresh.prepare(src);
   frame.canvas.className = 'ff3d';
   frame.setSize(layout.vw, layout.vh);
   document.body.prepend(frame.canvas);

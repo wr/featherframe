@@ -95,11 +95,10 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cta { display: flex; align-items: center; gap: 20px; }
 .cta .it { color: var(--graphite); font-size: 18px; }
 
-/* I. The art: a spread, the flamingo bleeding off the left edge */
-.spread { position: relative; min-height: 1040px; margin-top: 150px; }
-.spread .plate { position: absolute; left: calc(-1 * var(--m) - 230px); top: 0; height: 1040px; }
-.spread .plate img { height: 100%; width: auto; max-width: none; }
-.spread .text { display: flex; flex-direction: column; justify-content: flex-end; min-height: 1040px; margin-left: 50%; }
+/* I. The art: a spread, the frame showing the flamingo in its left half */
+.spread { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(2 * var(--gutter)); align-items: end; margin-top: 150px; }
+.spread .plate img { width: 100%; }
+.spread .text { display: flex; flex-direction: column; justify-content: flex-end; }
 .spread .text .folio { margin-bottom: 30px; }
 .spread h2 { margin: 30px 0 40px; }
 .spread h2 i { white-space: nowrap; }
@@ -120,14 +119,25 @@ h2 { font-weight: 400; text-wrap: balance; }
 #centre-slot { width: min(80%, var(--max)); margin: 0 auto; }
 .choreo .cover .frame.floor::after { opacity: calc(1 - 4 * var(--lift, 0)); }
 
+/* The hand-offs: the art and the table's stills are the journey's to draw;
+   the wall's first place stays empty until the frame lands in it, and its
+   last print leaves when the frame tears off. */
+.choreo .still { visibility: hidden; }
+.choreo .wall:not(.landed) .cat figure:first-child img,
+.choreo .wall.torn .cat figure:last-child img { visibility: hidden; }
+
 /* Chapters */
 .sec { margin-top: 190px; }
 .mega { margin: 0 0 0 -.04em; max-width: 13ch; }
 
-/* II. From the collection */
+/* II. From the collection: a gallery wall of frames, seen dead-on */
+.folio .r { display: flex; align-items: baseline; gap: 28px; }
+.tone { display: inline-flex; align-self: center; border: 1px solid var(--hair); border-radius: 2px; }
+.tone button { padding: 6px 12px 5px; border: 0; border-radius: 1px; background: none; color: var(--graphite); cursor: pointer; }
+.tone button:hover { color: var(--ink); }
+.tone button[aria-pressed="true"] { background: var(--ink); color: #fff; }
 .cat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 64px 36px; margin-top: 20px; }
-.cat .im { aspect-ratio: 1153 / 1400; }
-.cat .im img { width: 100%; height: 100%; object-fit: cover; box-shadow: var(--shadow-print); }
+.cat .im img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; }
 .cat figcaption { margin-top: 16px; border-top: 1px solid var(--hair); padding-top: 10px; }
 .cat .nm { display: block; font-size: 19px; line-height: 1.2; }
 .cat .la { display: block; font: italic 15px var(--serif); color: var(--graphite); }
@@ -240,16 +250,17 @@ h2 { font-weight: 400; text-wrap: balance; }
   .stage { position: relative; left: -11.385%; top: 0; width: 123.077%; height: auto; aspect-ratio: 6 / 7; margin: -11.077% 0 -4.923%; filter: drop-shadow(0 18px 18px rgba(0, 0, 0, .12)); }
   .cover .copy { position: static; width: auto; margin-top: 44px; }
 
-  .spread { min-height: 0; }
-  .spread .plate { position: static; height: auto; margin: 0 -20px; }
-  .spread .plate img { width: 100%; height: auto; max-width: 100%; }
-  .spread .text { display: block; min-height: 0; margin: 40px 0 0; }
+  .spread { display: block; }
+  .spread .plate { width: 86%; margin: 0 auto; }
+  .spread .text { display: block; margin: 40px 0 0; }
   .spread h2 i { white-space: normal; }
 
   .sec { margin-top: 120px; }
   .intro2 { display: block; }
   .lede { font-size: 20px; }
   .cat { grid-template-columns: 1fr 1fr; gap: 36px 16px; }
+  .wall .folio { flex-wrap: wrap; row-gap: 14px; }
+  .folio .r { gap: 16px; }
   .trip { grid-template-columns: 1fr; grid-template-rows: auto; row-gap: 28px; }
   .t1, .t2, .t3, .tcap { grid-column: 1; grid-row: auto; }
   .intro2.closing .lede { font-size: 18px; }

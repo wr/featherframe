@@ -63,6 +63,20 @@ const start = async () => {
 if (document.readyState === 'complete') void start();
 else addEventListener('load', () => void start(), { once: true });
 
+// II. The wall's Color / B&W switch: the 13-inch in colour, or the 10-inch in sixteen grays, remembered.
+const TONE_KEY = 'featherframe.wall';
+const tones = [...document.querySelectorAll<HTMLButtonElement>('.tone button')];
+const setTone = (tone: string, keep: boolean) => {
+  if (tone !== '13' && tone !== '10') return;
+  for (const b of tones) b.setAttribute('aria-pressed', String(b.dataset.tone === tone));
+  for (const img of document.querySelectorAll<HTMLImageElement>('.wall img[data-still]')) {
+    img.src = `img/wall/${tone}-${img.dataset.still}.webp`;
+  }
+  if (keep) try { localStorage.setItem(TONE_KEY, tone); } catch { /* private mode: this visit only */ }
+};
+try { setTone(localStorage.getItem(TONE_KEY) ?? '13', false); } catch { /* storage blocked: colour */ }
+for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!, true));
+
 // III. The cardinal's song, with a playhead across its spectrogram.
 const song = document.getElementById('song') as HTMLAudioElement;
 const play = document.querySelector<HTMLButtonElement>('.play')!;

@@ -33,6 +33,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#sizes h2')).toHaveText('Sixteen grays, or six inks.');
   await expect(page.locator('#faq dt')).toHaveCount(4);
   await expect(page.locator('.cat figure')).toHaveCount(12);
+  await expect(page.locator('.tone button')).toHaveText(['Color', 'B&W']);
   for (const link of await page.getByRole('link', { name: 'Pre-order' }).all()) {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
@@ -216,4 +217,38 @@ test('on a phone the frame stays in the cover, with no page-wide canvas', async 
   await expect(page.locator('#stage')).toHaveAttribute('data-shown', '1', { timeout: 30_000 });
   await expect(page.locator('canvas.ff3d')).toHaveCount(0);
   await expect(page.locator('html')).not.toHaveClass(/\bchoreo\b/);
+});
+
+test('the wall switches between Color and B&W, and remembers', async ({ page }) => {
+  await page.goto('/');
+  const stills = page.locator('.wall img[data-still]');
+  await expect(stills).toHaveCount(12);
+  const srcs = () => stills.evaluateAll((imgs) => imgs.map((i) => i.getAttribute('src')));
+  for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/13-/);
+  await page.getByRole('button', { name: 'B&W' }).click();
+  await expect(page.getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Color' })).toHaveAttribute('aria-pressed', 'false');
+  for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/10-/);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'true');
+  for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/10-/);
+  await page.getByRole('button', { name: 'Color' }).click();
+  for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/13-/);
+});
+
+test('the frame lands in the wall\'s first place and hands over to its print', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  const first = page.locator('.wall .cat figure:first-child img');
+  // Above the wall the first place is empty: the frame is on its way.
+  await expect(first).toHaveCSS('visibility', 'hidden');
+  await page.evaluate(() => scrollTo(0, document.querySelector('.wall .cat')!.getBoundingClientRect().top + scrollY - 100));
+  await expect(page.locator('.wall')).toHaveClass(/\blanded\b/);
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\bempty\b/);
+  await expect(first).toHaveCSS('visibility', 'visible');
+  // Back up, the frame takes over again.
+  await page.evaluate(() => scrollTo(0, 0));
+  await expect(page.locator('.wall')).not.toHaveClass(/\blanded\b/);
+  await expect(page.locator('canvas.ff3d')).not.toHaveClass(/\bempty\b/);
 });

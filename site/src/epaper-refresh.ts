@@ -73,6 +73,8 @@ export interface EpaperRefresh {
    *  cycle, refreshing to the plate it left. `instant` skips the waveform —
    *  for a frame nobody can see change. */
   show(src: string | null, instant?: boolean): void;
+  /** Load `src` ahead of a show(), so an instant one has it to hand. */
+  prepare(src: string): void;
   /** The show()n picture fully on the glass now, or null (the cycle, or on its way). */
   showing(): string | null;
   dispose(): void;
@@ -510,6 +512,17 @@ export function createEpaperRefresh(opts: {
   draw(total);
   startHold(holdSince);
 
+  /** show()'s slot for `src`, made on first use. */
+  function slotFor(src: string) {
+    let i = sources.indexOf(src, cycle);
+    if (i < 0) {
+      i = plates.length;
+      plates.push(null);
+      sources.push(src);
+    }
+    return i;
+  }
+
   /** Put slot `i` on the glass as it is, no waveform. */
   function settle(i: number) {
     instantTo = -1;
@@ -582,6 +595,9 @@ export function createEpaperRefresh(opts: {
       draw(Math.min(ms, total));
       wake();
     },
+    prepare(src) {
+      ensure(slotFor(src));
+    },
     show(src, instant = false) {
       let i: number;
       if (src === null) {
@@ -589,12 +605,7 @@ export function createEpaperRefresh(opts: {
         pinned = null;
         i = left;
       } else {
-        i = sources.indexOf(src, cycle);
-        if (i < 0) {
-          i = plates.length;
-          plates.push(null);
-          sources.push(src);
-        }
+        i = slotFor(src);
         if (pinned === null && current < cycle) left = current;
         pinned = i;
       }

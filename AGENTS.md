@@ -57,7 +57,7 @@ make preview-collage   # a daily collage
 make preview-fallback  # the typographic (no-plate) fallback
 make preview-ee02      # the Cardinal for the EE02 colour panel (six-ink dither)
 make preview-views     # the Cardinal as viewers get it (TRMNL X, Kobo, Kindle, TRMNL OG, tablet)
-make serve             # run the server on :8080
+make serve             # run the server on :8181
 make test              # pytest
 ```
 
@@ -73,7 +73,7 @@ cd server
 ./.venv/bin/python -m featherframe.preview --species "Blue Jay"      # any species
 ./.venv/bin/python -m featherframe.preview --dither stucki           # bench override, never persisted
 ./.venv/bin/python scripts/fetch_plates.py --dry-run                 # resolve plates, no download
-./.venv/bin/python -m featherframe --port 8080                       # run the server directly
+./.venv/bin/python -m featherframe --port 8181                       # run the server directly
 
 # Firmware
 cd firmware && pio run -t upload && pio device monitor  # build/flash + serial (115200)

@@ -556,7 +556,7 @@ Container restarts); D1 schema in `hosted/migrations/`.
   (`scan_margins`), so neither the runtime nor the library looks them up.
   Margins are upright coordinates: a landscape volume needs its own.
   `gould_australia.yaml` (W-870) is *The Birds of Australia* and its
-  Supplement, 386 species, one plate each, numbered per volume; its working
+  Supplement, 401 species, one plate each, numbered per volume; its working
   record, the Kansas cross-check and the cutting rules are in
   `docs/gould-australia/`. Its traps: Gould's *Pachycephala pectoralis* is the
   Rufous Whistler, *Myiagra nitida* the Satin Flycatcher, *Circus assimilis*

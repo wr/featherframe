@@ -3,7 +3,7 @@
 <h1 align="center">Featherframe</h1>
 
 <p align="center">
-  <strong>An e-paper frame that shows the birds in your backyard as Audubon prints.</strong>
+  <strong>An e-paper frame that shows the birds in your backyard as Audubon and Gould prints.</strong>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 
 ## How it works
 
-A bird detector identifies the birds in your backyard by their calls. Featherframe finds the matching illustration in Audubon's [*The Birds of America*](https://www.audubon.org/art/birds-of-america) and shows it on an e-paper frame, in grayscale or color.
+A bird detector identifies the birds in your backyard by their calls. Featherframe finds the matching illustration in Audubon's [*The Birds of America*](https://www.audubon.org/art/birds-of-america) or one of John Gould's books, and shows it on an e-paper frame, in grayscale or color.
 
 ```
  BirdNET-Pi, BirdNET-Go   ──▶  Featherframe server  ──▶  E-paper frame
@@ -32,8 +32,8 @@ A bird detector identifies the birds in your backyard by their calls. Featherfra
 
 It works with [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), [BirdNET-Go](https://github.com/tphakala/birdnet-go), or a [BirdWeather](https://www.birdweather.com) station.
 
-- **Audubon's illustrations.** Every species Audubon painted gets his illustration, matted like a print.
-- **Birds Audubon never painted.** These get a name card: the species' name set in type. With an OpenAI key, Featherframe can generate a new illustration in Audubon's style instead.
+- **Audubon's and Gould's illustrations.** Audubon's *The Birds of America*, and John Gould's *The Birds of Europe*, *The Birds of Australia* and *The Birds of Asia*, matted like prints. Your **Region** picks which book comes first; the others fill in the species it doesn't have.
+- **Species in no book.** These get a name card: the species' name set in type. With an OpenAI key, Featherframe can generate a new illustration in Audubon's style instead.
 - **A daily collage.** One sheet shows every species heard that day.
 - **Other screens.** A TRMNL, a Kobo, a Kindle, or a tablet can also show the pictures.
 - **No wrong birds.** If Featherframe isn't sure of a match, it shows the name instead of a guess.
@@ -95,7 +95,11 @@ See the [wiki](https://github.com/wr/featherframe/wiki) for:
 
 ## Credits
 
-Plates: John James Audubon, *The Birds of America*, public domain, via [nathanbuchar/audubon-bird-plates](https://github.com/nathanbuchar/audubon-bird-plates). Courtesy of the John James Audubon Center at Mill Grove, Montgomery County Audubon Collection, and Zebra Publishing. Fonts and libraries are listed in [THIRD_PARTY.md](THIRD_PARTY.md).
+Plates: John James Audubon, *The Birds of America*, public domain, via [nathanbuchar/audubon-bird-plates](https://github.com/nathanbuchar/audubon-bird-plates). Courtesy of the John James Audubon Center at Mill Grove, Montgomery County Audubon Collection, and Zebra Publishing.
+
+John Gould, *The Birds of Europe*, *The Birds of Australia*, *The Birds of Asia* and *The Birds of Great Britain*, public domain. Scans: Smithsonian Libraries and Archives, via the Biodiversity Heritage Library.
+
+The species identifications and the cleaned Gould plates are published separately, CC0: [wr/historical-bird-plates](https://github.com/wr/historical-bird-plates). Fonts and libraries are listed in [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Donate
 
@@ -103,4 +107,4 @@ Featherframe is free and open source. Donations pay for its development and supp
 
 ## License
 
-[Apache License 2.0](LICENSE). The bundled fonts use the SIL Open Font License. Audubon's plates are in the public domain. See [THIRD_PARTY.md](THIRD_PARTY.md).
+[Apache License 2.0](LICENSE). The bundled fonts use the SIL Open Font License. Audubon's and Gould's plates are in the public domain. See [THIRD_PARTY.md](THIRD_PARTY.md).

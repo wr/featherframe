@@ -1,7 +1,7 @@
 """The welcome plate (W-734): what hangs before the first bird.
 
 A fresh install used to answer the frame with a 503 and the dashboard with
-a broken preview, and the glass kept the baked "Waiting for the first bird"
+a broken preview, and the glass kept the baked "Waiting for the first image"
 band, which looks the same after three minutes and three days. This is a
 real frame: the script wordmark, then the message in the system voice
 (W-741: the setup card's black box and the toast pills, not the plate's

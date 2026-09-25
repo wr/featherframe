@@ -192,9 +192,9 @@ def screen_setup(bare=None):
     draw_wordmark(im)
     d = ImageDraw.Draw(im)
     steps = [
-        "From your computer or smartphone,\njoin the wi-fi hotspot:",
-        "Choose a wi-fi network for Featherframe\nto join.",
-        "Fill in the IP address of your BirdNET\ndevice, if not auto-detected.",
+        "From your computer or smartphone,\njoin the Wi-Fi hotspot:",
+        "Choose a Wi-Fi network for Featherframe\nto join.",
+        "Fill in the IP address of your Featherframe\nwebapp, if not auto-detected.",
     ]
     fnt = font(46, weight=600)   # semibold: reversed type on e-ink loses weight
     numf = font(34, weight=600)
@@ -519,7 +519,7 @@ def loader_tiles(im: Image.Image, cx, cy):
 # painted plate the firmware shows only a small slashed glyph in the margin
 # corner (see FF_CORNER_*). All tiles are pure black/white on white => DU.
 ERR_TEXTS = [("Can't reach Wi-Fi", "wifi"), ("Can't reach server", "server")]
-WAIT_TEXT = "Waiting for the first bird"
+WAIT_TEXT = "Waiting for the first image"
 # The server serves one frame; another waits for its owner to switch to it.
 PENDING_TEXT = "Add this frame on the Featherframe webapp"
 RETRY_TEXTS = ["Trying again in 1 minute", "Trying again in 5 minutes",
@@ -621,12 +621,12 @@ def error_assets():
 # in-progress toasts carry the loading mark (the firmware sweeps it), success
 # carries a check, failures a slashed icon. Every pill is black (one style).
 TOAST_Y = 1648            # same rest position as the boot pills
-LOW_BATTERY_TEXT = "Battery low, charge me"
+LOW_BATTERY_TEXT = "Low battery"
 TOASTS = [
-    ("CHECKING",       "Checking",              "progress"),
-    ("COLLAGE",        "Making the collage",    "progress"),
-    ("STATUS",         "Making the status page", "progress"),
-    ("UP_TO_DATE",     "Up to date",     "done"),
+    ("CHECKING",       "Loading image",         "progress"),
+    ("COLLAGE",        "Loading collage",       "progress"),
+    ("STATUS",         "Loading status page",   "progress"),
+    ("UP_TO_DATE",     "Already up-to-date", "done"),
     ("NO_COLLAGE",     "No collage yet", "plain"),
     ("CHECK_FAILED",   "Check failed",   "fail"),
     ("COLLAGE_FAILED", "Collage failed", "fail"),

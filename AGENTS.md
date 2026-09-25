@@ -741,7 +741,7 @@ is retained in PSRAM, and a toast or the corner mark is a baked black/white-ink
 tile blitted into a copy of it, then one ~30 s repaint (`paintPlate`; cleared
 by painting the plate again, 60 s later for a toast). A press fetches first
 and paints one thing, so only the outcome pills exist (the in-progress ones
-have no tile); out of deep sleep there is no retained plate, so "Up to date"
+have no tile); out of deep sleep there is no retained plate, so "Already up-to-date"
 refetches the plate with the pill armed and the corner mark becomes the full
 error screen. A frame whose last picture was a pairing code (NVS `unpaired`) paints no
 "Connecting" at all, so a restart or a Wi-Fi reset goes straight to the code.
@@ -766,7 +766,7 @@ shows "Add this frame on the Featherframe webapp" (gray: error pill 3; EE02:
 keeps one board's image off the other. A
 kit row's Advanced has "Reset to this panel's defaults" (a client-side fill
 from that frame's own `Config.defaults_for(panel)`, applied only on Save). Low battery (`FF_LOW_BATT_V`: gray < 3.45 V, EE02 < 3.55 V) skips Wi-Fi and
-sleeps 4 h at a time, saying "Battery low, charge me" on the glass once at
+sleeps 4 h at a time, saying "Low battery" on the glass once at
 the crossing (`markLowBattery`: gray paints the baked `FF_TOAST_LOW_BATTERY`
 pill over the plate, the EE02 the baked `FF_SCR_LOW_BATT` full screen, which
 is why its hold starts 0.1 V earlier — a 30 s refresh needs the headroom;

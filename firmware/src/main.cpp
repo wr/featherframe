@@ -1146,7 +1146,7 @@ void clearToast() {
 }
 #endif
 
-// The hold says so on the glass, once: a baked "Battery low, charge me" pill
+// The hold says so on the glass, once: a baked "Low battery" pill
 // over the plate's bottom margin, left up through the hold. "Once" is kept in
 // NVS, and written BEFORE the paint: a cell too flat to survive the paint
 // browns out, loses g_lowBatt with the rest of RTC memory, and must not try
@@ -2187,7 +2187,7 @@ static void startPushTask() {
 }
 
 // Run a button's action: an instant pill for feedback, then fetch + paint. A new
-// plate paints over the pill; on a no-change check the pill becomes "Up to date".
+// plate paints over the pill; on a no-change check the pill becomes "Already up-to-date".
 void doButton(int key) {
   float vbat = readBatteryVoltage();
   int pct = batteryPercent(vbat);

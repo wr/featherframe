@@ -151,13 +151,13 @@ def _fail_with(svc, message):
 def test_grid_says_out_of_credits(svc, grid_notes):
     _fail_with(svc, 'HTTP 429: {"error": {"code": "insufficient_quota"}}')
     assert svc._build_collage(NOW, NOW.date()) is True
-    assert grid_notes == [("Out of OpenAI credits: add more for the AI collage", "imagegen")]
+    assert grid_notes == [("Out of OpenAI credits", "imagegen")]
 
 
 def test_grid_says_the_key_was_rejected(svc, grid_notes):
     _fail_with(svc, "HTTP 401: invalid_api_key")
     svc._build_collage(NOW, NOW.date())
-    assert grid_notes == [("AI key rejected: replace it on the webapp", "imagegen")]
+    assert grid_notes == [("OpenAI AI key rejected", "imagegen")]
 
 
 def test_grid_says_nothing_for_a_passing_failure(svc, grid_notes):
@@ -249,7 +249,7 @@ def test_service_hands_the_branch_its_note(svc, monkeypatch):
     specs = _specs(svc, monkeypatch)
     svc._note_imagegen(GenerationError('HTTP 429: {"error": {"code": "insufficient_quota"}}'))
     svc._render_single(_veery(), NOW, reason="new")
-    assert specs[-1].fallback_note == "Out of OpenAI credits: add more for AI illustrations"
+    assert specs[-1].fallback_note == "Out of OpenAI credits"
 
 
 def test_service_says_nothing_without_a_failure_or_a_model(svc, monkeypatch):

@@ -87,6 +87,7 @@ def test_the_overnight_collage_is_quiet_hours_itself(client):
     # Region is a household setting (W-702): North America, or Gould's Europe.
     assert '<select class="sel" id="f-region" name="region">' in html
     assert '<option value="europe">Europe · Gould\'s Birds of Europe</option>' in html
+    assert '<option value="asia">Asia · Gould\'s Birds of Asia</option>' in html
     assert "<option disabled>Great Britain · Gould's Birds of Great Britain</option>" in html
     # Saving without the removed field derives it from the mode either way.
     for mode, want in (("off", False), ("custom", True), ("sun", True)):
@@ -128,6 +129,9 @@ def test_region_is_saved_and_redraws_the_plate_on_the_next_tick(client):
     assert r.status_code == 303
     assert svc.config.region == "europe" and svc.plates.region == "europe"
     assert svc._region_redraw is True         # drawn by the tick, not the request
+    client.post("/settings", data={"quiet_hours_mode": "off", "region": "asia"},
+                follow_redirects=False)
+    assert svc.config.region == "asia" and svc.plates.region == "asia"      # W-871
     client.post("/settings", data={"quiet_hours_mode": "off", "region": "atlantis"},
                 follow_redirects=False)
     assert svc.config.region == "north-america"     # an unknown region is the default

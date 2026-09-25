@@ -535,8 +535,11 @@ Container restarts); D1 schema in `hosted/migrations/`.
   before W-702), and the `folios` block carries the headers. A species may
   have an entry in several folios; `SpeciesIndex.order(region)` asks the
   household's Region's folios first (`Config.region`; each folio's header
-  names its `region`: Havell `north-america`, Gould `europe`), then the rest
-  in the index's order, Havell first. It reorders, never filters, and a
+  names its `region`: Havell `north-america`, Gould's Europe `europe`, his
+  Asia `asia`), then the rest in the index's order: Havell, then the other
+  folios by file name, so outside Europe `gould_asia` is asked before
+  `gould_europe` (the Ring-necked Pheasant is Asia's ringed VII.39 there, a
+  test holds it). It reorders, never filters, and a
   folio's `plate: none` hands the species on to the next folio, never to a
   guess. A Region change is drawn by the next tick (`_region_redraw`).
   A folio whose header says `plates_per_volume: true` (W-874: Gould's
@@ -552,6 +555,10 @@ Container restarts); D1 schema in `hosted/migrations/`.
   Margins are upright coordinates: a landscape volume needs its own. The AI's style references are Havell
   plates only (`genart._havell_species`), because its prompts name the Havell
   edition. `test_crosswalk.py` guards the tricky numbers.
+  `gould_asia.yaml` is Gould's *Birds of Asia* (W-871, numbered per volume;
+  the record is `docs/gould-asia/`): no pencil numbers, so each plate was
+  paired by the text leaf bound after it, which names the species. 16% of its
+  plates are forms Gould named as species, all left out but VII.39.
   `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General
   List number (the plates were issued unnumbered); `volume` + `leaf` address
   the scan, fetched from BHL's public S3 bucket by the header's `scans`

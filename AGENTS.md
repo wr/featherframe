@@ -536,10 +536,12 @@ Container restarts); D1 schema in `hosted/migrations/`.
   have an entry in several folios; `SpeciesIndex.order(region)` asks the
   household's Region's folios first (`Config.region`; each folio's header
   names its `region`: Havell `north-america`, Gould's Europe `europe`, his
-  Australia `australia`), then the rest in the index's order: Havell first,
+  Australia `australia`, his Asia `asia`), then the rest in the index's order: Havell first,
   then as published (`load_folios` sorts by the header's first year), so a
   new folio never takes a species from one a household already sees. It
-  reorders, never filters, and a
+  reorders, never filters (one entry may say `preferred: true` to be asked
+  right after the region's own folios: Asia's ringed VII.39 is the
+  Ring-necked Pheasant everywhere but Europe, W-871), and a
   folio's `plate: none` hands the species on to the next folio, never to a
   guess. A Region change is drawn by the next tick (`_region_redraw`).
   A folio whose header says `plates_per_volume: true` (W-874: Gould's
@@ -554,7 +556,7 @@ Container restarts); D1 schema in `hosted/migrations/`.
   (`scan_margins`), so neither the runtime nor the library looks them up.
   Margins are upright coordinates: a landscape volume needs its own.
   `gould_australia.yaml` (W-870) is *The Birds of Australia* and its
-  Supplement, 386 species, one plate each, numbered per volume; its working
+  Supplement, 401 species, one plate each, numbered per volume; its working
   record, the Kansas cross-check and the cutting rules are in
   `docs/gould-australia/`. Its traps: Gould's *Pachycephala pectoralis* is the
   Rufous Whistler, *Myiagra nitida* the Satin Flycatcher, *Circus assimilis*
@@ -572,7 +574,11 @@ Container restarts); D1 schema in `hosted/migrations/`.
   Every Gould folio goes the same way (`GOULD`, W-875): a per-volume one's
   tables lead with `volume` and key a plate by volume and number; Australia's
   record is `docs/gould-australia/`, Britain's is the survey (only its pins are
-  caption-checked; the rest is published as open).
+  caption-checked; the rest is published as open). Asia is not exported yet.
+  `gould_asia.yaml` is Gould's *Birds of Asia* (W-871, numbered per volume;
+  the record is `docs/gould-asia/`): no pencil numbers, so each plate was
+  paired by the text leaf bound after it, which names the species. 16% of its
+  plates are forms Gould named as species, all left out but VII.39.
   `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General
   List number (the plates were issued unnumbered); `volume` + `leaf` address
   the scan, fetched from BHL's public S3 bucket by the header's `scans`

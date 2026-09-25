@@ -79,7 +79,7 @@ def _sun_window(on_date: date | None = None) -> tuple[dtime, dtime]:
 
 
 # The regions the Region setting offers, each first in its own folios.
-REGIONS = ("north-america", "europe", "australia")
+REGIONS = ("north-america", "europe", "australia", "asia")
 
 
 @dataclass

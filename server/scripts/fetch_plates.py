@@ -507,6 +507,8 @@ def fetch_scans(folio: str):
                 "image": None,
                 "legend": [str(x) for x in entry.get("legend") or []],
             }
+            if entry.get("preferred"):
+                record["preferred"] = True   # asked ahead of the publication order (W-871)
             records.append(record)
             if entry.get("plate") in (None, "none", False):
                 counts["fallback"] += 1

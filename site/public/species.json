@@ -1,0 +1,24 @@
+{
+  "species": [
+    { "name": "Common Nighthawk", "latin": "Chordeiles minor", "heard": "08:14" },
+    { "name": "Northern Cardinal", "latin": "Cardinalis cardinalis", "heard": "09:02" },
+    { "name": "Blue Jay", "latin": "Cyanocitta cristata", "heard": "10:37" },
+    { "name": "American Goldfinch", "latin": "Spinus tristis", "heard": "11:51" }
+  ],
+  "sizes": {
+    "13": {
+      "label": "13-inch",
+      "model": "models/featherframe-13.glb",
+      "poster": "img/poster-13.webp",
+      "waveform": "spectra6",
+      "screens": ["models/screens/13-nighthawk.jpg", "models/screens/13-cardinal.jpg", "models/screens/13-blue-jay.jpg", "models/screens/13-goldfinch.jpg"]
+    },
+    "10": {
+      "label": "10-inch",
+      "model": "models/featherframe.glb",
+      "poster": "img/poster-10.webp",
+      "waveform": "gc16",
+      "screens": ["models/screens/10-nighthawk.jpg", "models/screens/10-cardinal.jpg", "models/screens/10-blue-jay.jpg", "models/screens/10-goldfinch.jpg"]
+    }
+  }
+}

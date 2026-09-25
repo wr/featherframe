@@ -1193,7 +1193,7 @@
         </div>
         {# A kit this server has not been told about. Nothing changes until the
            owner answers; until then it is shown "Add this frame on the
-           Featherframe page" and keeps asking. #}
+           Featherframe webapp" and keeps asking. #}
         {% for fr in asking %}
         <div class="test-box warn show fr-note panel-note" role="status">
           <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
@@ -1397,7 +1397,7 @@
              still submit, so nothing stored is lost. #}
           {% set ig_ready = status.config.imagegen_api_key or config.imagegen_provider == 'a1111' %}
           <h2 class="sec-head"><span class="badge ai">AI</span>Image generation <span class="opt">· optional</span></h2>
-          <p class="intro"><a href="https://github.com/wr/featherframe/wiki/AI-plates" target="_blank" rel="noopener">Learn</a> how image generation works, as well as estimated API costs.</p>
+          <p class="intro"><a href="https://github.com/wr/featherframe/wiki/AI-illustrations" target="_blank" rel="noopener">Learn</a> how image generation works, as well as estimated API costs.</p>
           <div class="frow">
             <div class="frow-text"><label class="lab" for="ig-provider">Image provider</label></div>
             <div class="frow-ctl">
@@ -1630,11 +1630,11 @@
 
     <div class="card" id="gen-card">
     <div class="settings"><section class="sec">
-      <h2 class="sec-head">Generated plates on file</h2>
+      <h2 class="sec-head">Generated illustrations</h2>
       {% if generated %}
-      <p class="intro">Plates Featherframe has generated and cached. Regenerate buys a fresh image; Remove deletes the cached one and the next detection of that species generates a new plate.</p>
+      <p class="intro">Illustrations Featherframe has generated and kept. Regenerate buys a new one; Remove deletes it, and the next detection of that species generates another.</p>
       {% else %}
-      <p class="intro">None on file yet. A species with no Audubon plate gets one generated here when image generation is on.</p>
+      <p class="intro">None yet. A species Audubon never painted gets one here when image generation is on.</p>
       {% endif %}
       {% if spend is defined and spend.images %}
       <p class="hint gen-spend">This month: {{ spend.images }} image{{ '' if spend.images == 1 else 's' }}{% if spend.usd %}, ≈ ${{ '%.2f' | format(spend.usd) }}{% endif %}.</p>
@@ -1654,11 +1654,11 @@
           <div class="ops">
             <form class="inline regen-form" method="post" action="/api/generated/regenerate">
               <input type="hidden" name="slug" value="{{ g.slug }}">
-              <button class="btn" type="submit" title="Generate a fresh plate (costs one image)" {{ 'disabled' if g.regenerating else '' }}>{{ 'Regenerating…' if g.regenerating else 'Regenerate' }}</button>
+              <button class="btn" type="submit" title="Generate a new illustration (costs one image)" {{ 'disabled' if g.regenerating else '' }}>{{ 'Regenerating…' if g.regenerating else 'Regenerate' }}</button>
             </form>
             <form class="inline del-form" method="post" action="/api/generated/delete">
               <input type="hidden" name="slug" value="{{ g.slug }}">
-              <button class="btn icon danger" type="submit" title="Remove the cached plate" aria-label="Remove the cached plate for {{ g.common }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-trash"/></svg></button>
+              <button class="btn icon danger" type="submit" title="Remove this illustration" aria-label="Remove the illustration for {{ g.common }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-trash"/></svg></button>
             </form>
           </div>
         </div>
@@ -1674,7 +1674,7 @@
           <button class="btn" type="button" id="gen-import-btn">Restore from a backup…</button>
         </form>
       </div>
-      <p class="hint">Generated plates live only on this machine, and each one cost an image. Download a backup before you reinstall or move the server. Restoring never replaces a newer plate already on file.</p>
+      <p class="hint">Generated illustrations live only on this server, and each one cost an image. Download a backup before you reinstall or move it. Restoring never replaces a newer illustration.</p>
     </section></div>
     </div>
     </div>

@@ -283,6 +283,18 @@ export async function resendInvite(env: Env, email: string): Promise<"sent" | "f
   return (await sendMail(env, email, inviteEmail(`https://${env.APP_HOST}/login`))) ? "sent" : "failed";
 }
 
+// -- the audit log (W-863) --------------------------------------------------------
+export async function logAction(env: Env, admin: string, action: string, target: string | null,
+                                ok: boolean, result: string): Promise<void> {
+  try {
+    await env.DB.prepare("INSERT INTO admin_log (at, admin, action, target, ok, result) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(Math.floor(Date.now() / 1000), admin, action, target, ok ? 1 : 0, result).run();
+  } catch (err) {
+    // The action is done either way: a log that cannot be written is said, not thrown.
+    console.error("admin log", action, target, err);
+  }
+}
+
 // -- the admin's side, until there is a page for it ----------------------------
 export async function admin(request: Request, env: Env, path: string): Promise<Response> {
   if (request.method !== "POST" || !env.ADMIN_TOKEN ||
@@ -294,12 +306,14 @@ export async function admin(request: Request, env: Env, path: string): Promise<R
   if (!email) return Response.json({ error: "email" }, { status: 400 });
   if (path === "invite") {
     const sent = await invite(env, email, body.send !== false);
+    await logAction(env, "api", "invite", email, true, sent ? `Invited ${email}.` : `Invited ${email}, no email sent.`);
     return Response.json({ ok: true, invited: email, emailed: sent });
   }
   if (path === "link") {
     // A sign-in link handed to the admin rather than emailed: for support,
     // and for testing without sending anyone mail.
     const link = await makeLoginLink(env, email, null);
+    await logAction(env, "api", "link", email, !!link, link ? `Made a sign-in link for ${email}.` : `${email} is not invited.`);
     return link ? Response.json({ ok: true, link }) : Response.json({ error: "not invited" }, { status: 404 });
   }
   if (path === "adopt") {
@@ -309,6 +323,7 @@ export async function admin(request: Request, env: Env, path: string): Promise<R
     if (!exists) await env.DB.prepare("INSERT INTO households (id, tz, created_at) VALUES (?, 'UTC', ?)").bind(hid, now()).run();
     await env.DB.prepare("INSERT OR REPLACE INTO users (id, email, household_id, created_at) VALUES (?, ?, ?, ?)")
       .bind(randomHex(8), email, hid, now()).run();
+    await logAction(env, "api", "adopt", `${email} (${hid})`, true, `Gave ${hid} the login ${email}.`);
     return Response.json({ ok: true, household: hid, email });
   }
   return new Response("not found", { status: 404 });

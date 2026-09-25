@@ -30,7 +30,7 @@ import zipfile
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import requests
 from PIL import Image
@@ -621,6 +621,30 @@ def build_prompt(common_name: str, scientific_name: str, direction: str = "",
 
 class GenerationError(RuntimeError):
     pass
+
+
+# What a vendor says when the account can't pay or the key is wrong, across
+# OpenAI, Gemini and Replicate. Matched on the error's text, since each
+# vendor's body shape differs and the HTTP status alone is ambiguous (OpenAI
+# sends an empty quota as 429, the same as a rate limit).
+_CREDIT_SIGNS = ("insufficient_quota", "billing_hard_limit", "billing limit",
+                 "exceeded your current quota", "insufficient credit",
+                 "credit balance", "payment required")
+_KEY_SIGNS = ("invalid_api_key", "incorrect api key", "api key not valid",
+              "api_key_invalid", "invalid authentication", "unauthenticated")
+
+
+def failure_reason(exc: BaseException) -> str:
+    """Why a generation failed, as the page says it: "credits" (the account
+    is out of money), "key" (the key was refused) or "other"."""
+    text = str(exc).lower()
+    m = re.match(r"http (\d{3})", text)
+    code = int(m.group(1)) if m else None
+    if code == 402 or any(s in text for s in _CREDIT_SIGNS):
+        return "credits"
+    if code == 401 or any(s in text for s in _KEY_SIGNS):
+        return "key"
+    return "other"
 
 
 # descriptions.json is a whole-file read-modify-write reached from the regen
@@ -1361,6 +1385,18 @@ class GeneratedArtProvider(ArtProvider):
         self._refs = refs
         self._cooldown_s = cooldown_s
         self._failed_at: dict[str, float] = {}
+        # Told of every call to the image model: the exception it raised, or
+        # None when it returned an image. The service keeps the last failure
+        # so the page can say it (an empty account was only in the log).
+        self.on_outcome: Optional[Callable[[Optional[BaseException]], None]] = None
+
+    def _report(self, exc: Optional[BaseException]) -> None:
+        if self.on_outcome is None:
+            return
+        try:
+            self.on_outcome(exc)
+        except Exception:
+            log.exception("image generation outcome hook failed")
 
     # -- paths -------------------------------------------------------------
     def _dir(self) -> Path:
@@ -1661,6 +1697,7 @@ class GeneratedArtProvider(ArtProvider):
                     Image.open(io.BytesIO(png_bytes)).verify()
                 except Exception as exc:
                     self._failed_at[key] = time.time()
+                    self._report(exc)
                     log.warning("day composite failed for %s (%s): %s", day,
                                 getattr(self._model, "name", "?"), exc)
                     # A failed repaint keeps showing the good sheet it meant
@@ -1668,6 +1705,7 @@ class GeneratedArtProvider(ArtProvider):
                     if png.exists():
                         return self._read_sheet(png, sidecar, cells, locked=True)
                     return None
+                self._report(None)
                 model_name = getattr(self._model, "name", "unknown")
                 image_usage = getattr(self._model, "last_usage", None)
                 record_spend("collage", day, model_name, image_usage,
@@ -1873,9 +1911,11 @@ class GeneratedArtProvider(ArtProvider):
                 Image.open(io.BytesIO(png_bytes)).verify()
             except Exception as exc:
                 self._failed_at[slug] = time.time()
+                self._report(exc)
                 log.warning("generation failed for %s (%s): %s",
                             scientific_name, getattr(self._model, "name", "?"), exc)
                 return False
+            self._report(None)
 
             model_name = getattr(self._model, "name", "unknown")
             image_usage = getattr(self._model, "last_usage", None)

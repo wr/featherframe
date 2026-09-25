@@ -1695,13 +1695,21 @@
       {# W-770: no key is the expected state, not an unfinished setup. Rows that
          only matter once a key is there stay out of the way until then;
          hidden inputs still submit, so nothing stored is lost. #}
-      <details class="disc set" id="set-imagegen">
-        {% call set_summary('ic-sparkle', 'AI image generation') %}{% if ig_ready %}<span class="d good"></span>{{ ig_names.get(config.imagegen_provider, config.imagegen_provider) }}{% else %}No API key{% endif %}{% endcall %}
+      {# A failing model (an empty account, a refused key) opens itself, as a
+         failing source does. #}
+      {% set ig_err = status.imagegen_error %}
+      {% set ig_state = ig_err.state if ig_err else 'good' %}
+      <details class="disc set" id="set-imagegen" data-state="{{ ig_state }}" {{ 'open' if ig_state == 'bad' else '' }}>
+        {% call set_summary('ic-sparkle', 'AI image generation') %}{% if ig_ready %}<span class="d {{ ig_state }}" id="ig-dot"></span><span id="ig-summary">{{ ig_err.summary if ig_err else ig_names.get(config.imagegen_provider, config.imagegen_provider) }}</span>{% else %}No API key{% endif %}{% endcall %}
         <div class="disc-body"><div class="set-body" id="imagegen-card">
         <form class="set-form" method="post" action="/settings">
           <input type="hidden" name="section" value="imagegen">
           <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
           <p class="intro"><a href="https://github.com/wr/featherframe/wiki/AI-illustrations" target="_blank" rel="noopener">Learn</a> how image generation works, as well as estimated API costs.</p>
+          <div class="test-box {{ ig_state }} src-alarm{{ ' show' if ig_err else '' }}" id="ig-banner" role="status" aria-live="polite" data-provider-name="{{ ig_names.get(config.imagegen_provider, config.imagegen_provider) }}">
+            <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
+            <span class="test-msg" id="ig-text" title="{{ ig_err.detail if ig_err else '' }}">{{ ig_err.text if ig_err else '' }}</span>
+          </div>
           <div class="frow">
             <div class="frow-text"><label class="lab" for="ig-provider">Image provider</label></div>
             <div class="frow-ctl">
@@ -2273,6 +2281,19 @@
     if (obanner) {
       obanner.classList.toggle('show', !!o);
       setText('outage-text', o ? (obanner.dataset.srcname || 'The detector') + ' unreachable since ' + o.since_text + ' (' + o.hours_text + '). Check the source below.' : '');
+    }
+    // AI image generation: its last failure, until a success or a new key.
+    var ig = st.imagegen_error, igBanner = $('ig-banner'), igDot = $('ig-dot');
+    if (igBanner) {
+      var igState = ig ? ig.state : 'good';
+      igBanner.className = 'test-box ' + igState + ' src-alarm' + (ig ? ' show' : '');
+      setText('ig-text', ig ? ig.text : '');
+      $('ig-text').title = ig ? ig.detail : '';
+      $('set-imagegen').dataset.state = igState;
+      if (igDot) {
+        igDot.className = 'd ' + igState;
+        setText('ig-summary', ig ? ig.summary : (igBanner.dataset.providerName || ''));
+      }
     }
     // Pending: a new species held back for a second detection.
     var pend = st.pending, pendEl = $('fc-pending');

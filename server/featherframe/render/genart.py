@@ -1606,15 +1606,16 @@ class GeneratedArtProvider(ArtProvider):
                 self._write_atomic(path, json.dumps(cache, indent=2).encode())
 
     # -- the combined collage (one generated sheet) --------------------------------
-    _KEEP_SHEETS = 7  # a day's is reused all day; older ones only for a re-render
+    _KEEP_SHEETS = 7  # the latest of a day is kept; older days only for a re-render
 
     def day_composite(self, cells, when, force: bool = False):
         """One generated composite sheet for the day's top species, in the
-        manner of the folio's late totem plates. Bought at most once per date,
-        and reused for every redraw of that day — every collage is the
-        generated one when the toggle is on, so the sheet is only bought again
-        when the day's species list itself has changed under it (a new species
-        was heard, or one dropped out of the limit). Returns
+        manner of the folio's late totem plates. One file per date, reused for
+        every redraw of that day — every collage is the generated one when the
+        toggle is on — and bought again at any redraw where the day's species
+        list has changed under it (a new species was heard, or one dropped out
+        of the limit), so a busy day can buy one per collage interval, plus the
+        nightly one and any forced repaint. Returns
         (art, cells_as_painted) — on a cache hit the cells come from the
         sidecar, so the key under the sheet always names the figures that were
         actually painted — or None (caller falls back to the grid).

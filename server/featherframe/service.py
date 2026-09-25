@@ -1372,8 +1372,8 @@ class FeatherframeService:
         # All or nothing: with the toggle on and image generation to hand,
         # EVERY collage is the generated sheet — the nightly one, a daytime
         # rebuild, the button, a settings re-render. The cost is bounded by
-        # genart.day_composite, which buys one sheet per day and reuses it
-        # until the day's species list itself changes.
+        # genart.day_composite, which reuses the day's sheet and buys a new one
+        # only at a redraw where the day's species list has changed.
         use_generated = self.config.collage_generated and self.genart is not None
 
         def compose(color: bool, force: bool = False):

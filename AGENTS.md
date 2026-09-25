@@ -384,10 +384,11 @@ figure numerals; there are no script names and no "×count" under them. AI
 collages are all or nothing (`config.collage_generated`): with the toggle on
 and image generation to hand, EVERY collage is the generated sheet — a daytime
 rebuild, the nightly one, the button, a settings re-render. `genart.day_composite`
-is what bounds the cost: one sheet per day, reused for every redraw of that day
-and bought again only when the day's *species list* changes under it (a count
-moving is not a change, `collage.same_species`), with the per-key cooldown and
-the soft-fail to the grid intact.
+is what bounds the cost: the day's sheet is reused for every redraw and bought
+again only at a redraw where the day's *species list* has changed under it (a
+count moving is not a change, `collage.same_species`) — so up to one per
+collage interval on a busy day, plus the nightly one and the button — with
+the per-key cooldown and the soft-fail to the grid intact.
 
 **Render pipeline (`render/`).** `pipeline.py` orchestrates:
 `compose.render_single` (or `collage.render_collage`) → `finish.to_levels`

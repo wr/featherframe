@@ -18,11 +18,11 @@ test('heard times are HH:MM', () => {
   for (const s of data.species) assert.match(s.heard, /^\d{2}:\d{2}$/);
 });
 
-test('the art and drawings exist', () => {
-  for (const f of ['img/exploded.webp', 'img/ww.svg', 'img/og.jpg', 'favicon.png',
-    'img/art/nighthawk.webp', 'img/art/cardinal.webp', 'img/art/blue-jay.webp',
-    'img/art/goldfinch.webp', 'img/art/robin.webp', 'img/art/carolina-wren.webp',
-    'img/art/collage.webp']) {
-    assert.ok(existsSync(root + f), f);
-  }
+test('every file the page and its stylesheet name exists', () => {
+  const page = readFileSync(`${root}index.html`, 'utf8');
+  const css = readFileSync(`${root}styles.css`, 'utf8');
+  const local = [...page.matchAll(/(?:src|href)="([^"#:]+)"/g), ...css.matchAll(/url\('([^']+)'\)/g)]
+    .map((m) => m[1]).filter((f) => f !== '/' && f !== 'main.js');
+  assert.ok(local.length > 20);
+  for (const f of [...local, 'img/og.jpg', 'favicon.png', 'fonts/OFL-EBGaramond.txt']) assert.ok(existsSync(root + f), f);
 });

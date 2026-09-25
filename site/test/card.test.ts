@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import { heardText, isLongName } from '../src/card.ts';
 
 test('heardText names the part of the day', () => {
-  assert.equal(heardText('08:14'), 'Heard at 8:14 this morning');
-  assert.equal(heardText('12:00'), 'Heard at 12:00 this afternoon');
-  assert.equal(heardText('13:05'), 'Heard at 1:05 this afternoon');
-  assert.equal(heardText('19:30'), 'Heard at 7:30 this evening');
-  assert.equal(heardText('00:40'), 'Heard at 12:40 last night');
+  assert.equal(heardText('08:14'), 'This morning at 08:14');
+  assert.equal(heardText('04:59'), 'Last night at 04:59');
+  assert.equal(heardText('05:00'), 'This morning at 05:00');
+  assert.equal(heardText('12:00'), 'This afternoon at 12:00');
+  assert.equal(heardText('13:05'), 'This afternoon at 13:05');
+  assert.equal(heardText('17:00'), 'This evening at 17:00');
+  assert.equal(heardText('19:30'), 'This evening at 19:30');
+  assert.equal(heardText('00:40'), 'Last night at 00:40');
 });
 
 test('isLongName flags names that need the smaller label size', () => {

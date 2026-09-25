@@ -13,7 +13,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1200, height: 1400 }, deviceScaleFactor: 1 });
   for (const size of ['13', '10']) {
     await page.goto(`http://127.0.0.1:4322/?poster&size=${size}&hold=600000`);
-    await page.addStyleTag({ content: 'html,body{background:transparent!important}.nav,.label,.promise,main>section:not(.hero),footer{display:none!important}.hero{display:block!important;padding:0!important}.stage{width:1200px;height:1400px;aspect-ratio:auto}.poster{display:none}' });
+    await page.addStyleTag({ content: 'html,body{background:transparent!important}.head,.tag,.cover>:not(.frame),main>section:not(.cover),footer{display:none!important}.frame::after{display:none}.stage{position:fixed;left:0;top:0;width:1200px;height:1400px;margin:0;aspect-ratio:auto;filter:none}.poster{display:none}' });
     await page.locator('#stage.live canvas').waitFor({ timeout: 30_000 });
     await page.waitForTimeout(1500);
     const png = `${here}dist/poster-${size}.png`;

@@ -19,6 +19,7 @@ const TYPES = {
   '.svg': 'image/svg+xml',
   '.glb': 'model/gltf-binary',
   '.woff2': 'font/woff2',
+  '.mp3': 'audio/mpeg',
   '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8',
 };

@@ -46,6 +46,10 @@ Spotted Sandgrouse, VII.60 the Far Eastern Curlew (not the Eurasian).
 No composites. 38 plates are bound sideways (most of vol. VII, the gamebirds
 of VI, four in IV, one in V), each with its caption down the right edge:
 `rotate: 270`, whole plate kept. Vols. I, IV and V show the page stack at the
-left, so they carry a 0.08 left margin (`volume_margins`; turned to the top
-for their sideways plates). An upright plate's bottom margin sits just above
+left, and so do vols. II and III: the gilt board edge and the page stack run
+to about 0.105 of the sheet (the survey saw 0.08 on a few plates), so vols.
+I–V carry a 0.12 left margin and every volume 0.96 on the right
+(`volume_margins`; turned to the top for their sideways plates). Short of
+that, the tight crop takes the stack for art and keeps the whole sheet with
+its caption. Vols. VI and VII need none. An upright plate's bottom margin sits just above
 its caption and artist line, from the OCR's own line boxes.

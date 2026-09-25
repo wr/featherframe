@@ -138,6 +138,7 @@ export async function startViewer(
   mat.emissiveIntensity = 0.3;
   mat.needsUpdate = true;
 
+  let drawn = false;
   const resize = () => {
     const { width, height } = stage.getBoundingClientRect();
     if (!width || !height) return;
@@ -147,9 +148,9 @@ export async function startViewer(
     camera.position.set(0, Math.sin(PITCH) * d, Math.cos(PITCH) * d);
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
-    // setSize clears the canvas; draw again at once, before the browser
-    // paints, so resizing the window never flashes an empty stage.
-    renderer.render(scene, camera);
+    // setSize clears the canvas; once the frame is showing, draw again at
+    // once, before the browser paints, so a resize never flashes an empty stage.
+    if (drawn && !document.hidden) renderer.render(scene, camera);
   };
   const ro = new ResizeObserver(resize);
   ro.observe(stage);
@@ -176,7 +177,6 @@ export async function startViewer(
   // may run rAFs without drawing; revealing on a rAF count alone showed an
   // empty stage. Cancelled by dispose: a viewer superseded before then must
   // not hide the poster over a stage with no canvas.
-  let drawn = false;
   let reveal = 0;
   const t0 = performance.now();
   const frame = (now: number) => {

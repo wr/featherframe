@@ -161,10 +161,6 @@
     .frame-pick button:hover { color:var(--ink-2); }
     .frame-pick button[aria-pressed="true"] { background:var(--surface); border-color:var(--border-strong);
       color:var(--ink); box-shadow:var(--sh-sm); }
-    /* an active hold: one line under the plate, with its Release */
-    .held { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px;
-            padding:8px 10px; border:1px solid var(--border); border-radius:7px; background:var(--inset); font-size:13px; color:var(--ink-2); }
-    .held-text { font-weight:500; }
     /* the plate's tools, folded away by default */
     details.disc.tools { --pad:16px; margin-top:12px; }
     .tools-body { padding:0 var(--pad); }
@@ -180,7 +176,6 @@
     .tools-body .lab { font-size:13px; }
     .tools-body .hint { font-size:12px; margin-top:2px; }
     .tools-body form.inline { display:flex; gap:6px; margin:0; }
-    .tools-body select.hold-dur { width:auto; padding:7px 30px 7px 10px; font-size:13px; box-shadow:none; }
     /* "Show any creature": two names and a button */
     .critter-form { display:flex; flex-wrap:wrap; gap:8px; margin:0; align-items:center; }
     .critter-form input[type=text] { flex:1 1 140px; width:auto; min-width:0; padding:7px 10px; font-size:13px; }
@@ -978,22 +973,14 @@
             <button type="button" data-pick="{{ fr.id }}" data-src="{{ fr.preview_url }}" data-picture="{{ fr.picture }}" aria-pressed="{{ 'true' if picked and fr.id == picked.id else 'false' }}">{{ fr.title }}</button>
             {% endfor %}
           </div>
-          {# W-735: a live hold is state you need to see, so it stays above the
-             fold; the rest of the plate's controls are tools and sit in a closed
-             disclosure. #}
-          {% set uh = status.hold %}
-          <div class="held" id="held-line" data-for="plates" {{ '' if uh else 'hidden' }}>
-            <span class="held-text">Holding this illustration <span id="held-until">{{ uh.until_text if uh else '' }}</span></span>
-            <button class="btn" type="button" id="release-btn" title="End the hold and show the latest detection">Release</button>
-          </div>
           <div class="task-status" id="task-status" role="status" aria-live="polite"></div>
           <details class="disc tools" id="plate-tools">
             <summary><span>Tools</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="disc-body"><div class="tools-body">
               <p class="tools-scope" data-for="plates">For every frame showing individual detections.</p>
               <p class="tools-scope" data-for="collage">For every frame showing the collage.</p>
-              {# W-878: two tools, one line each. Hold and Block left the page; a
-                 hold already set still shows its Release line above. #}
+              {# W-878: two tools, one line each. Hold and Block left the page
+                 (and the server, W-879). #}
               <div class="tool-line" data-for="plates">
                 <span class="lab">Latest detection</span>
                 <button class="btn sm" type="button" id="refresh-btn">Refresh</button>
@@ -2082,26 +2069,13 @@
     });
   });
 
-  // -- a hold set before W-878 can still be released -------------------------
-  // Hold and Block left the Tools (W-878); a hold that is on shows its line
-  // with Release until it ends.
-  var releaseBtn = $('release-btn');
-  function reloadPreviewSoon() { if (preview) setTimeout(function () { preview.src = previewSrc + '?t=' + Date.now(); }, 400); }
+  // -- the blocklist's count --------------------------------------------------
   function countBlocked() {
     var bl = $('f-block'), c = $('block-count');
     var n = bl ? bl.value.split('\n').filter(function (s) { return s.trim(); }).length : 0;
     if (c) { c.textContent = n; c.hidden = !n; }
   }
   if ($('f-block')) $('f-block').addEventListener('input', countBlocked);
-  if (releaseBtn) releaseBtn.addEventListener('click', function () {
-    releaseBtn.disabled = true; releaseBtn.textContent = 'Releasing…';
-    jsonFetch('/api/hold/release', { method: 'POST' }).then(function (res) {
-      setTaskStatus(res.changed ? 'Released. The frame catches up on its next check-in.' : 'Released.');
-      setHidden('held-line', true);
-      reloadPreviewSoon();
-    }).catch(function (e) { setTaskStatus('Release failed — ' + errText(e) + '.', true); })
-      .then(function () { releaseBtn.disabled = false; releaseBtn.textContent = 'Release'; });
-  });
 
   // -- left column: sticky only as far as it fits ---------------------------
   // With the History card filled in the column is taller than a laptop
@@ -2275,8 +2249,6 @@
       pendEl.dataset.tip = (pend && pend.first_at) ? pend.first_at.replace('T', ' ') : '';
     }
     refreshHistory(cur.etag || '');
-    setHidden('held-line', !st.hold);
-    if (st.hold) setText('held-until', st.hold.until_text || '');
     setText('fc-species', st.species_all_time + ' all-time');
   }
   var knownFrames = null;

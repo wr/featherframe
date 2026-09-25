@@ -245,8 +245,9 @@ upright picture as that frame draws it, never the device's canvas shape or its
 rotation: a TRMNL's is stood up and a page's is the sheet at 3:4) and the plate's
 tools, which are the previewed frame's picture's (`frame_view`'s `picture`, the
 night rule included) and say they act on every frame showing it (W-861): Refresh
-and Manual override, one line each (W-878: Hold and Block left the page; a hold
-already set still shows its Release line); then History. **There is no Health
+and Manual override, one line each (W-878 took Hold and Block off the page,
+W-879 off the server; a `user_hold` left in the kv store is cleared on load);
+then History. **There is no Health
 card**: a frame's health is the frame's row, and the source's is its row below.
 Right, wide: two groups, each a heading over its card (W-878). *Frames*, with
 a ⋯ menu holding *USB firmware update*, *Check for updates* (asks for the latest release now, `POST /api/firmware/check`; otherwise daily), *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list.
@@ -317,8 +318,7 @@ gray sheet always, plus the colour twin while some screen showing it draws in
 colour (`_color_wanted`). `picture_for(shows, now)` is the ONE place that
 answers which picture a frame gets: it also carries Wells's rule that in quiet
 hours, once the nightly collage has been drawn, every frame on plates shows
-that same collage picture for the rest of the window (`_kind_for`). A hold pins
-plates and nothing else; the blocklist is global; a frame's ETag/filename is
+that same collage picture for the rest of the window (`_kind_for`). The blocklist is global; a frame's ETag/filename is
 its own picture's (`picture_etag`), so a TRMNL on the collage does not repaint
 for a new plate.
 **Adding and removing frames.** A kit names itself with `X-Device-Id` (its

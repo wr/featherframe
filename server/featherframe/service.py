@@ -55,8 +55,7 @@ from .render.provider import ArtProvider, ChainedProvider, PlateProvider
 log = logging.getLogger("featherframe.service")
 
 _OUT_KEY = "frame_outputs"            # frame id -> {"etag", "src"}
-_USER_HOLD_KEY = "user_hold"          # W-735: the owner's pin on the current plate
-_HOLD_DAYS = {"day": 1, "week": 7, "forever": None}
+_USER_HOLD_KEY = "user_hold"          # W-735's pin on a plate, gone (W-879): cleared on load
 _VIEWS_MAX = 8                         # cached renders of one picture
 # A picture is drawn only while some frame shows it, and a screen that has not
 # asked in this long is not a frame any more — it was unplugged.
@@ -544,6 +543,10 @@ class FeatherframeService:
         # kit, a TRMNL, a tablet.
         self.frames = FrameRegistry(self.db)
         self.config: Config = load_config(self.db)
+        # The owner's hold on a plate is gone (W-879); one left in the store
+        # would pin it forever, so it goes before the first tick.
+        if self.db.get(_USER_HOLD_KEY) is not None:
+            self.db.set(_USER_HOLD_KEY, None)
         # The page's password, off unless the owner sets one (W-773).
         self.password = auth.PasswordGate(self.db)
         # The latest official firmware release, offered to the kits (W-838).
@@ -773,11 +776,10 @@ class FeatherframeService:
         """A new detection source starts from a clean slate. Everything
         transient was about the old one: the cursor is in its id space
         (BirdWeather ids run ~11 billion, a push queue's from 1 — a leftover
-        froze the frame for hours), and the hold, the collage
-        clock, the waiting species and the outage clock all describe birds
-        it heard. The next tick shows the new source's latest detection."""
+        froze the frame for hours), and the collage clock, the waiting species
+        and the outage clock all describe birds it heard. The next tick shows the new source's latest detection."""
         for key in ("ingest_cursor", "pending_species",
-                    "quiet_collage_for", "source_down_since", _USER_HOLD_KEY):
+                    "quiet_collage_for", "source_down_since"):
             self.db.set(key, None)
         self._pending = None
         self._source_down_since = None
@@ -847,15 +849,6 @@ class FeatherframeService:
             if bool(self._meta.get("source_ok")) != available:
                 self._render_welcome(now, available)
                 settled = {self._shown}
-        elif showing and self.user_hold(now) is not None:
-            # The owner pinned this plate (W-735): nothing replaces it until
-            # the hold ends, and a hold pins the plate and nothing else
-            # (W-830) — the collage keeps being drawn for the screens that
-            # show it. The footnotes still track, through the re-render that
-            # keeps the subject; an expired hold clears itself in user_hold().
-            if want != have and not (want is None and not available):
-                self.rerender_current()
-            settled = {PLATES, self._shown}
         elif self._meta.pop("dark", False) and subject:
             # A frame rendered inverted before dark mode was removed (W-821) is
             # redrawn once: the firmware is now told not to invert, and its
@@ -2746,7 +2739,6 @@ class FeatherframeService:
             "quiet": quiet,
             "source_outage": outage,
             "pending": self.pending_view(now),
-            "hold": self.hold_view(now),
             "birdnet_available": self.source.available(),
             "species_all_time": species,
             "plates_loaded": self.plates.species_count,
@@ -3182,88 +3174,6 @@ class FeatherframeService:
                     keys.add(label)
             memo["rendered_today"] = keys
         return memo["rendered_today"]
-
-    # -- the owner's hold and block (W-735) --------------------------------
-    def user_hold(self, now: Optional[datetime] = None) -> Optional[dict]:
-        """The owner's pin on the current plate, or None. An expired hold is
-        cleared here, so every reader sees the same answer."""
-        now = now or self._clock()
-        hold = self.db.get(_USER_HOLD_KEY)
-        if not hold:
-            return None
-        until = hold.get("until")
-        if until:
-            try:
-                if datetime.fromisoformat(str(until)) <= now:
-                    self.db.set(_USER_HOLD_KEY, None)
-                    return None
-            except ValueError:
-                self.db.set(_USER_HOLD_KEY, None)
-                return None
-        return hold
-
-    def hold_current(self, duration: str) -> Optional[dict]:
-        """Pin what is on the glass for `duration` ("day", "week", or
-        "forever" = until released). None when nothing is showing yet."""
-        now = self._clock()
-        with self._lock:
-            meta = dict(self._meta)
-            showing = self._etag is not None
-        if not showing or meta.get("mode") in (None, "welcome") or not meta.get("label"):
-            return None
-        days = _HOLD_DAYS.get(duration, 1)
-        hold = {
-            "since": now.isoformat(timespec="seconds"),
-            "until": (now + timedelta(days=days)).isoformat(timespec="seconds") if days else None,
-            "label": meta.get("label"),
-            "title": frame_title(meta),
-        }
-        self.db.set(_USER_HOLD_KEY, hold)
-        log.info("hold: %s for %s", hold["title"], duration)
-        return hold
-
-    def release_hold(self) -> None:
-        """Drop the pin and repaint whatever should be showing now."""
-        self.db.set(_USER_HOLD_KEY, None)
-        self.refresh_now()
-
-    def hold_view(self, now: Optional[datetime] = None) -> Optional[dict]:
-        hold = self.user_hold(now)
-        if hold is None:
-            return None
-        until = hold.get("until")
-        if until:
-            when = datetime.fromisoformat(str(until))
-            text = f"until {when.strftime('%a')} {when.day} {when.strftime('%b')}"
-        else:
-            text = "until released"
-        return {**hold, "until_text": text}
-
-    def block_current(self) -> Optional[str]:
-        """Add the species on the glass to the blocklist and move past it.
-        Returns the blocked name, or None when a single plate is not showing."""
-        with self._lock:
-            meta = dict(self._meta)
-        if meta.get("mode") != "single" or not meta.get("label"):
-            return None
-        common = str(meta["label"]).removesuffix(" (test)")
-        if not self.config.is_blocked(common, common):
-            cfg = self.config
-            cfg.species_blocklist = [*cfg.species_blocklist, common]
-            self.update_config(cfg)
-        log.info("blocked %s from the dashboard", common)
-        self.refresh_now()
-        return common
-
-    def unblock(self, name: str) -> bool:
-        """Undo for block_current. True when the name was on the list."""
-        cfg = self.config
-        kept = [b for b in cfg.species_blocklist if b.lower() != name.strip().lower()]
-        if len(kept) == len(cfg.species_blocklist):
-            return False
-        cfg.species_blocklist = kept
-        self.update_config(cfg)
-        return True
 
     def _holding(self, meta: dict, now: datetime) -> Optional[dict]:
         """The dwell hold on a plates picture's meta, or None: a plate of a

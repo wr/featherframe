@@ -1,7 +1,6 @@
 """Two pictures (W-831, rebuilt on `pictures.py` in W-833): every frame shows
 plates or the collage, and they are the same kind of thing. Wells's rules
-(W-830): a hold affects plates only and the blocklist is global; there is one
-collage, the same on every screen; and a picture no frame shows is never drawn.
+(W-830): the blocklist is global; there is one collage, the same on every screen; and a picture no frame shows is never drawn.
 The wall must not notice any of it."""
 from __future__ import annotations
 
@@ -115,7 +114,7 @@ def test_the_collage_is_redrawn_on_its_interval_not_every_tick(client):
     assert svc.pictures["collage"].at != drawn
 
 
-def test_a_trmnl_on_plates_beside_a_frame_on_the_collage(client, tmp_path):
+def test_a_trmnl_on_plates_beside_a_frame_on_the_collage(client):
     svc = client.app.state.service
     svc.update_frame(FRAME_ID, {"shows": "collage"})
     svc.tick()
@@ -128,29 +127,6 @@ def test_a_trmnl_on_plates_beside_a_frame_on_the_collage(client, tmp_path):
     body = client.get("/api/display", headers=trmnl).json()
     assert body["filename"].startswith(svc.pictures["plates"].etag) and svc._etag == wall
     assert client.get(body["image_url"].split("http://testserver")[1]).status_code == 200
-    # A hold pins the plate on every screen that shows plates (decision 1)...
-    svc.user_hold = lambda now=None: {"until": "later"}
-    svc.source.db_path = _heard(tmp_path / "later.db", [("Tufted Titmouse", "Baeolophus bicolor")] + SPECIES[:2],
-                                at=NOW + timedelta(minutes=5))
-    svc._clock = lambda: NOW + timedelta(minutes=6)
-    svc.tick()
-    assert client.get("/api/display", headers=trmnl).json()["filename"] == body["filename"]
-
-
-def test_a_hold_pins_the_plate_while_the_collage_keeps_being_drawn(client):
-    """Decision 1, the other way round: the wall is held on its plate, a tablet
-    is on the collage, and the collage is still redrawn on its interval."""
-    svc = client.app.state.service
-    svc.config.collage_interval_hours = 1    # (a jump short of the gone-quiet alarm)
-    add_page(client, IPAD, "PAGE-IPAD")
-    client.post("/api/frames/PAGE-IPAD", json={"shows": "collage"})
-    svc.tick()
-    wall, first = svc._etag, svc.pictures["collage"].at
-    svc.user_hold = lambda now=None: {"until": "later"}
-    svc._clock = lambda: NOW + timedelta(hours=1, minutes=1)
-    svc.tick()
-    assert svc._etag == wall                               # the plate is pinned
-    assert svc.pictures["collage"].at != first             # the collage is not
 
 
 def test_there_is_one_collage_the_same_on_every_screen(client):

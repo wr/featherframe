@@ -136,18 +136,6 @@ def test_the_nightly_collage_is_drawn_once(svc):
     assert svc.pictures["collage"].at == drawn
 
 
-def test_a_hold_pins_plates_and_nothing_else(svc):
-    _viewer(svc, "PAGE-IPAD", "collage", NOW)
-    svc.tick()
-    plate, collage = svc.pictures["plates"].etag, svc.pictures["collage"].at
-    svc.config.collage_interval_hours = 1
-    svc.hold_current("day")
-    svc._clock = lambda: NOW + timedelta(hours=1, minutes=1)
-    svc.tick()
-    assert svc.pictures["plates"].etag == plate          # pinned
-    assert svc.pictures["collage"].at != collage         # still redrawn
-
-
 # -- the wall's own pixels ----------------------------------------------------
 def test_a_plate_on_a_frame_is_what_the_pipeline_packs(svc):
     """A frame's bytes are its picture's sheet, finished with its own config —

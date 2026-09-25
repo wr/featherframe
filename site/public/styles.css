@@ -24,7 +24,8 @@
   --gutter: 28px;  /* column gap */
   --display: clamp(80px, 8.2vw, 118px);
   --shadow-print: 0 1px 1px rgba(0, 0, 0, .06), 0 16px 30px -22px rgba(0, 0, 0, .35);
-  --shadow-floor: radial-gradient(closest-side, rgba(0, 0, 0, .14), transparent);
+  --shadow-floor: radial-gradient(closest-side, rgba(0, 0, 0, .09), rgba(0, 0, 0, .03) 60%, transparent);
+  --nav: 78px;     /* the running head, which stays at the top */
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -62,10 +63,14 @@ h2 { font-weight: 400; text-wrap: balance; }
 .intro2 .lede { grid-column: 7 / 13; }
 /* The soft floor under a frame standing on its kickstand. */
 .floor { position: relative; }
-.floor::after { content: ""; position: absolute; left: 8%; right: 6%; bottom: -14px; height: 30px; background: var(--shadow-floor); pointer-events: none; }
+.floor::after { content: ""; position: absolute; left: 2%; right: 0; bottom: -22px; height: 44px; background: var(--shadow-floor); pointer-events: none; }
 
-/* Running head */
-.head { display: flex; align-items: center; justify-content: space-between; height: 78px; border-bottom: 1px solid var(--hair); }
+/* Running head: it stays at the top, on paper that runs the window's width */
+.head {
+  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between;
+  height: var(--nav); border-bottom: 1px solid var(--hair);
+  background: var(--paper); box-shadow: 0 0 0 100vmax var(--paper); clip-path: inset(0 -100vmax -1px);
+}
 .head .word { font: 32px/1 var(--script); }
 .head nav { display: flex; gap: 30px; align-items: center; }
 .head nav a.sc { color: var(--graphite); }
@@ -80,6 +85,14 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 .cover h1 .l1, .cover h1 .l2 { display: block; }
 .cover h1 .l2 { font-style: italic; margin-left: .42em; }
+/* The cover is a white room: a wall falling softly to a crisp horizon where
+   the table's back edge meets it, and the table's top lightening toward us,
+   the frame standing on it (III's table, larger). Behind the page's canvas. */
+.cover::before {
+  content: ""; position: absolute; z-index: -2; left: calc(-1 * var(--m)); right: calc(-1 * var(--m)); top: 0; bottom: 0;
+  --hz: calc(100% - 7vh - 0.3 * 1.2759 * min(600px, 60vh)); /* the horizon, a little up the frame's back */
+  background: linear-gradient(to bottom, #fff 0%, #fbfbfa 40%, #f3f3f0 var(--hz), #e3e3df var(--hz), #e3e3df calc(var(--hz) + 1px), #eeeeea calc(var(--hz) + 1px), #f8f8f6 calc(var(--hz) + 45%), #fff 100%);
+}
 /* .frame is the frame itself; the stage around it is the poster's whole
    canvas (1200 × 1400, frame at 111,108 → 1086,1352), so the poster and the
    3D frame land exactly on it. */
@@ -95,12 +108,17 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cta { display: flex; align-items: center; gap: 20px; }
 .cta .it { color: var(--graphite); font-size: 18px; }
 
-/* I. The art: a spread, the frame showing the flamingo in its left half */
-.spread { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(2 * var(--gutter)); align-items: end; margin-top: 150px; }
+/* I. The art: a spread, the frame showing the flamingo in its left half,
+   pinned there, centred below the running head, while the text scrolls past. */
+.spread { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(2 * var(--gutter)); align-items: start; margin-top: 150px; container-type: inline-size; }
+.spread .plate {
+  --h: min(calc((50cqw - var(--gutter)) / var(--flat)), calc(100vh - var(--nav) - 80px));
+  position: sticky; top: calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2); width: calc(var(--h) * var(--flat));
+}
 .spread .plate img { width: 100%; }
-.spread .text { display: flex; flex-direction: column; justify-content: flex-end; }
+.spread .text { display: flex; flex-direction: column; justify-content: flex-end; padding: 42vh 0 14vh; }
 .spread .text .folio { margin-bottom: 30px; }
-.spread h2 { margin: 30px 0 40px; }
+.spread h2 { margin: 30px 0 40px; font-size: min(var(--display), 8.4cqw); }
 .spread h2 i { white-space: nowrap; }
 .cols { display: flow-root; max-width: 36ch; font-size: 20px; line-height: 1.58; text-wrap: pretty; }
 .cols p { margin: 0 0 .9em; }
@@ -116,7 +134,11 @@ h2 { font-weight: 400; text-wrap: balance; }
 .slot { aspect-ratio: var(--flat); }
 .stop-centre { display: none; }
 .choreo .stop-centre { display: block; height: 100vh; }
-#centre-slot { width: min(80%, var(--max)); margin: 0 auto; }
+#centre-slot { width: min(100%, calc(min(90vh, 100vh - var(--nav) - 40px) * var(--flat))); margin: 0 auto; }
+/* choreo.ts reads the pinned slots where they sit unpinned */
+.measuring .pin { position: relative !important; top: auto !important; }
+/* the two flights that cross the text: the frame over it (under the running head) */
+.ff3d.over { z-index: 15; }
 .choreo .cover .frame.floor::after { opacity: calc(1 - 4 * var(--lift, 0)); }
 
 /* The hand-offs: the art and the table's stills are the journey's to draw;
@@ -137,14 +159,30 @@ h2 { font-weight: 400; text-wrap: balance; }
 .tone button:hover { color: var(--ink); }
 .tone button[aria-pressed="true"] { background: var(--ink); color: #fff; }
 .cat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 64px 36px; margin-top: 20px; }
+.cat .im { position: relative; transform-origin: 50% 100%; }
 .cat .im img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; }
+/* B&W is the 10-inch, drawn to scale beside the 13-inch: 295 mm tall to 371 */
+[data-tone="10"] .cat .im { transform: scale(0.7951); }
+.tone-anim .cat .im { transition: transform .7s cubic-bezier(.3, 0, .2, 1); }
+/* the glass over each print (its wood inset: 13-inch 26 px of 604 × 760; 10-inch 32 of 596, pillarboxed) */
+/* The glass's sheen (viewer.ts SHEEN / sheenAt, sheen.ts): a soft diagonal
+   band at --c (0 top-left … 1 bottom-right), and a thin one just after it. */
+.cat .im::after {
+  content: ""; position: absolute; inset: 3.42% 4.3%; pointer-events: none;
+  background: linear-gradient(122deg, rgba(255,255,255,0) calc(var(--c) * 100% - 26%), rgba(255,255,255,0.003) calc(var(--c) * 100% - 22%), rgba(255,255,255,0.011) calc(var(--c) * 100% - 18%), rgba(255,255,255,0.032) calc(var(--c) * 100% - 14%), rgba(255,255,255,0.070) calc(var(--c) * 100% - 10%), rgba(255,255,255,0.119) calc(var(--c) * 100% - 6%), rgba(255,255,255,0.155) calc(var(--c) * 100% - 2%), rgba(255,255,255,0.160) calc(var(--c) * 100%), rgba(255,255,255,0.155) calc(var(--c) * 100% + 2%), rgba(255,255,255,0.119) calc(var(--c) * 100% + 6%), rgba(255,255,255,0.070) calc(var(--c) * 100% + 10%), rgba(255,255,255,0.049) calc(var(--c) * 100% + 12%), rgba(255,255,255,0.035) calc(var(--c) * 100% + 14%), rgba(255,255,255,0.039) calc(var(--c) * 100% + 16%), rgba(255,255,255,0.063) calc(var(--c) * 100% + 18%), rgba(255,255,255,0.078) calc(var(--c) * 100% + 20%), rgba(255,255,255,0.055) calc(var(--c) * 100% + 22%), rgba(255,255,255,0.021) calc(var(--c) * 100% + 24%), rgba(255,255,255,0) calc(var(--c) * 100% + 28%));
+}
+.cat .im { --c: .5; }
+[data-tone="10"] .cat .im::after { inset: 4.21% 6%; }
+.wall:not(.landed) .cat figure:first-child .im::after, .wall.torn .cat figure:last-child .im::after { visibility: hidden; }
 .cat figcaption { margin-top: 16px; border-top: 1px solid var(--hair); padding-top: 10px; }
 .cat .nm { display: block; font-size: 19px; line-height: 1.2; }
 .cat .la { display: block; font: italic 15px var(--serif); color: var(--graphite); }
 
-/* III. How it works */
-.trip { display: grid; grid-template-columns: 7fr 5fr; grid-template-rows: auto 1fr; column-gap: var(--gutter); margin-top: 96px; }
-.t1 { grid-column: 1; grid-row: 1; margin-bottom: 28px; }
+/* III. How it works: the frame on its table pinned on the right while the
+   song and the photograph scroll past on the left. */
+.trip { display: grid; grid-template-columns: 7fr 5fr; column-gap: var(--gutter); align-items: start; margin-top: 96px; container-type: inline-size; }
+.lcol { padding: 4vh 0 12vh; }
+.t1 { margin-bottom: 28px; }
 .spectro { position: relative; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 14px 0; }
 .spectro img { width: 100%; }
 .playhead { position: absolute; top: 14px; bottom: 14px; left: 0; width: 1px; background: var(--ink); pointer-events: none; }
@@ -155,9 +193,10 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 .play::before { content: "▸ "; font-style: normal; }
 .play:hover { border-color: var(--ink); }
-.t2 { grid-column: 1; grid-row: 2; }
-.t2 img { width: 100%; height: 100%; object-fit: cover; object-position: 62% 40%; }
-.t3 { grid-column: 2; grid-row: 1 / 3; align-self: end; }
+.t2 { margin-top: 34vh; }
+.t2 img { width: 100%; }
+/* the table's box is 1.1008 × its width (its padding and the slot's aspect) */
+.t3 { --h: calc((100cqw - var(--gutter)) * 5 / 12 * 1.1008); position: sticky; top: max(var(--nav), calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2)); }
 /* The frame on a white table against a white wall: the wall's soft fall to
    the horizon, a crisp line where the table's edge meets it, the table's top
    lightening toward us. Behind the page's canvas (z-index -2), so the frame
@@ -173,11 +212,11 @@ h2 { font-weight: 400; text-wrap: balance; }
 #table-slot { position: relative; aspect-ratio: 0.77576; }
 /* the still includes its own shadow: TABLE_PAD in choreo.ts */
 #table-slot .still { position: absolute; left: -15%; top: -15%; width: 130%; height: 120%; max-width: none; }
-/* where the frame's foot meets the table, soft away from it; the journey's
-   frame casts its own crisp shadow and brings this in as it lands */
-.contact { position: absolute; left: 2%; right: 10%; bottom: -4%; height: 9%; z-index: -2; pointer-events: none;
-           background: radial-gradient(closest-side, rgba(0, 0, 0, .1), transparent); opacity: var(--land, 1); }
-.tcap { grid-column: 1 / -1; grid-row: 3; margin: 22px 0 0; max-width: 70ch; color: var(--graphite); font-size: 17px; }
+/* where the frame's foot meets the table, soft and wide; it comes in only as
+   the frame settles (--land, choreo.ts) */
+.contact { position: absolute; left: -4%; right: 2%; bottom: -6%; height: 14%; z-index: -2; pointer-events: none;
+           background: radial-gradient(closest-side, rgba(0, 0, 0, .07), rgba(0, 0, 0, .025) 55%, transparent); opacity: var(--land, 1); }
+.tcap { margin: 22px 0 0; max-width: 70ch; color: var(--graphite); font-size: 17px; }
 .intro2.closing .lede { grid-column: 1 / 8; font-size: 19px; color: var(--text); }
 
 /* IV. The collage */
@@ -256,6 +295,12 @@ h2 { font-weight: 400; text-wrap: balance; }
   .cover .copy { position: relative; left: auto; bottom: auto; grid-column: 1; grid-row: 2; width: auto; max-width: 25em; align-self: center; margin: 0; }
 }
 
+/* narrow desktops: the running head's links close up so the wordmark keeps its room */
+@media (min-width: 821px) and (max-width: 1100px) {
+  .head nav { gap: 18px; }
+  .head nav a.sc { letter-spacing: .14em; }
+}
+
 @media (max-width: 820px) {
   :root { --m: 20px; --display: 15vw; }
   .head nav a.sc { display: none; }
@@ -269,8 +314,8 @@ h2 { font-weight: 400; text-wrap: balance; }
   .cover .copy { position: static; width: auto; margin-top: 44px; }
 
   .spread { display: block; }
-  .spread .plate { width: 86%; margin: 0 auto; }
-  .spread .text { display: block; margin: 40px 0 0; }
+  .spread .plate { position: static; width: 86%; margin: 0 auto; }
+  .spread .text { display: block; margin: 40px 0 0; padding: 0; }
   .spread h2 i { white-space: normal; }
 
   .sec { margin-top: 120px; }
@@ -279,8 +324,11 @@ h2 { font-weight: 400; text-wrap: balance; }
   .cat { grid-template-columns: 1fr 1fr; gap: 36px 16px; }
   .wall .folio { flex-wrap: wrap; row-gap: 14px; }
   .folio .r { gap: 16px; }
-  .trip { grid-template-columns: 1fr; grid-template-rows: auto; row-gap: 28px; }
-  .t1, .t2, .t3, .tcap { grid-column: 1; grid-row: auto; }
+  .trip { grid-template-columns: 1fr; row-gap: 28px; }
+  .lcol { padding: 0; }
+  .t2 { margin-top: 28px; }
+  .t3 { position: static; }
+  .cover::before { display: none; }
   .intro2.closing .lede { font-size: 18px; }
   .colc { display: block; }
   .colc .fr { margin: 0; }
@@ -297,5 +345,5 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stage canvas, .stage.live .poster, .ff3d { transition: none; }
+  .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im { transition: none; }
 }

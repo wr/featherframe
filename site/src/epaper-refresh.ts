@@ -71,7 +71,10 @@ export interface EpaperRefresh {
   /** Leave the cycle for `src` (an image the size of the plates): refresh to
    *  it at once and hold it until told otherwise. `null` goes back to the
    *  cycle, refreshing to the plate it left. `instant` skips the waveform —
-   *  for a frame nobody can see change. */
+   *  for a frame nobody can see change. A show()n picture always arrives by
+   *  the fast refresh (gc16, about a second), whatever the panel: it answers a
+   *  scroll, and a visitor scrolling must never catch the glass mid-refresh.
+   *  The cycle keeps the panel's own waveform. */
   show(src: string | null, instant?: boolean): void;
   /** Load `src` ahead of a show(), so an instant one has it to hand. */
   prepare(src: string): void;
@@ -99,7 +102,7 @@ interface WaveformSpec {
   /** How long one pixel takes to cross from one phase's colour to the next. */
   blend: number;
   /** How far early or late a pixel may cross a phase boundary, in all — gc16
-   *  only (see the shader's SPECTRA6 branch); 0 for a waveform whose phases
+   *  only (see the shader's spectra6 branch); 0 for a waveform whose phases
    *  are a global flash instead. Every phase must last at least blend +
    *  spread: a pixel is only ever drawn between the two phases either side of
    *  the nearest boundary. */
@@ -209,6 +212,7 @@ uniform float uSettledB;
 uniform vec3 uMapA[6];
 uniform vec3 uMapB[6];
 uniform vec3 uInks[6];
+uniform float uSpectra;
 varying vec2 vUv;
 
 // An integer hash of a texel's cell (Hoskins): uncorrelated between
@@ -227,7 +231,6 @@ vec3 toLinear(vec3 c) {
   return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
 }
 
-#ifdef SPECTRA6
 // The colour each phase shows for this texel of its source picture: snap the
 // texel to its nearest ink and read that ink's entry.
 void inkLook(vec3 srcA, vec3 srcB, out vec3 a, out vec3 b) {
@@ -242,7 +245,6 @@ void inkLook(vec3 srcA, vec3 srcB, out vec3 a, out vec3 b) {
     if (eb < bestB) { bestB = eb; b = uMapB[i]; }
   }
 }
-#endif
 
 void main() {
   vec3 oldC = texture2D(uOld, vUv).rgb;
@@ -251,26 +253,27 @@ void main() {
   vec3 srcB = mix(oldC, newC, uFromB);
   vec3 lookA;
   vec3 lookB;
-#ifdef SPECTRA6
-  inkLook(srcA, srcB, lookA, lookB);
-#else
-  float lumA = dot(srcA, vec3(0.299, 0.587, 0.114));
-  float lumB = dot(srcB, vec3(0.299, 0.587, 0.114));
-  lookA = mix(uMapA[0], uMapA[1], lumA);
-  lookB = mix(uMapB[0], uMapB[1], lumB);
-#endif
+  float w;
+  if (uSpectra > 0.5) {
+    inkLook(srcA, srcB, lookA, lookB);
+  } else {
+    float lumA = dot(srcA, vec3(0.299, 0.587, 0.114));
+    float lumB = dot(srcB, vec3(0.299, 0.587, 0.114));
+    lookA = mix(uMapA[0], uMapA[1], lumA);
+    lookB = mix(uMapB[0], uMapB[1], lumB);
+  }
   lookA = mix(lookA, srcA, uSettledA);
   lookB = mix(lookB, srcB, uSettledB);
-#ifdef SPECTRA6
-  // A global flash: every texel crosses together over the same short blend,
-  // so a phase change reads as one stepped event across the whole sheet.
-  float w = smoothstep(0.0, 1.0, uDt / uBlend + 0.5);
-#else
-  // When this pixel crosses: mostly a property of its cell, a little of the step.
-  vec2 cell = floor(vUv * uSize);
-  float n = 0.7 * cellHash(cell) + 0.3 * cellHash(cell + uStep * 17.0);
-  float w = smoothstep(0.0, 1.0, (uDt + uSpread * (0.5 - n)) / uBlend + 0.5);
-#endif
+  if (uSpectra > 0.5) {
+    // A global flash: every texel crosses together over the same short blend,
+    // so a phase change reads as one stepped event across the whole sheet.
+    w = smoothstep(0.0, 1.0, uDt / uBlend + 0.5);
+  } else {
+    // When this pixel crosses: mostly a property of its cell, a little of the step.
+    vec2 cell = floor(vUv * uSize);
+    float n = 0.7 * cellHash(cell) + 0.3 * cellHash(cell + uStep * 17.0);
+    w = smoothstep(0.0, 1.0, (uDt + uSpread * (0.5 - n)) / uBlend + 0.5);
+  }
   gl_FragColor = vec4(toLinear(mix(lookA, lookB, w)), 1.0);
 }
 `;
@@ -301,7 +304,6 @@ export function createEpaperRefresh(opts: {
 }): EpaperRefresh {
   const { renderer, first, spec, wake, motionOk } = opts;
   const hold = opts.holdMs ?? HOLD_MS;
-  const wave = WAVEFORMS[spec.waveform];
   const width = first.width;
   const height = first.height;
 
@@ -366,15 +368,15 @@ export function createEpaperRefresh(opts: {
   const material = new ShaderMaterial({
     vertexShader: VERTEX,
     fragmentShader: FRAGMENT,
-    defines: spec.waveform === 'spectra6' ? { SPECTRA6: '' } : {},
     uniforms: {
       uOld: { value: plates[0] },
       uNew: { value: plates[0] },
       uSize: { value: [width, height] },
       uDt: { value: 0 },
       uStep: { value: 0 },
-      uBlend: { value: wave.blend },
-      uSpread: { value: wave.spread },
+      uBlend: { value: 0 },
+      uSpread: { value: 0 },
+      uSpectra: { value: 0 },
       uFromA: { value: 0 },
       uFromB: { value: 0 },
       uSettledA: { value: 1 },
@@ -396,18 +398,34 @@ export function createEpaperRefresh(opts: {
   // The steps a refresh walks: the old plate as it was, then the phases. A
   // pixel is only ever between two neighbouring steps, so the shader gets the
   // pair around the nearest boundary.
-  const steps: Phase[] = [{ ms: 0, from: 'old', settled: true }, ...wave.phases];
-  const starts: number[] = [];
-  // The first boundary waits until even the earliest pixel's crossing starts
-  // after 0, so a refresh opens on the old plate rather than halfway out of it.
-  let total = (wave.blend + wave.spread) / 2;
-  let arriveAt = -1;
-  for (const p of wave.phases) {
-    if (p.arrives) arriveAt = total;
-    starts.push(total);
-    total += p.ms;
-  }
-  if (arriveAt < 0) arriveAt = total;
+  interface Run { name: Waveform; spec: WaveformSpec; steps: Phase[]; starts: number[]; total: number; arriveAt: number }
+  const timing = (name: Waveform): Run => {
+    const w = WAVEFORMS[name];
+    const starts: number[] = [];
+    // The first boundary waits until even the earliest pixel's crossing starts
+    // after 0, so a refresh opens on the old plate rather than halfway out of it.
+    let total = (w.blend + w.spread) / 2;
+    let arriveAt = -1;
+    for (const p of w.phases) {
+      if (p.arrives) arriveAt = total;
+      starts.push(total);
+      total += p.ms;
+    }
+    if (arriveAt < 0) arriveAt = total;
+    return { name, spec: w, steps: [{ ms: 0, from: 'old', settled: true }, ...w.phases], starts, total, arriveAt };
+  };
+  /** The panel's own refresh (the cycle's), and the fast one (a show()). */
+  const own = timing(spec.waveform);
+  const fast = timing('gc16');
+  let run = own;
+  const useRun = (r: Run) => {
+    run = r;
+    const u = material.uniforms;
+    u.uBlend.value = r.spec.blend;
+    u.uSpread.value = r.spec.spread;
+    u.uSpectra.value = r.name === 'spectra6' ? 1 : 0;
+  };
+  useRun(own);
   const setPhase = (suffix: 'A' | 'B', p: Phase) => {
     const u = material.uniforms;
     u[`uFrom${suffix}`].value = p.from === 'new' ? 1 : 0;
@@ -418,6 +436,7 @@ export function createEpaperRefresh(opts: {
   };
 
   const draw = (t: number) => {
+    const { steps, starts, total } = run;
     // steps[k] starts at starts[k - 1]; find the boundary nearest t
     let k = 1;
     let best = Infinity;
@@ -509,7 +528,7 @@ export function createEpaperRefresh(opts: {
   // The glass starts as the still.
   material.uniforms.uOld.value = plates[0];
   material.uniforms.uNew.value = plates[0];
-  draw(total);
+  draw(Infinity);
   startHold(holdSince);
 
   /** show()'s slot for `src`, made on first use. */
@@ -530,7 +549,7 @@ export function createEpaperRefresh(opts: {
     current = i;
     material.uniforms.uOld.value = plates[i];
     material.uniforms.uNew.value = plates[i];
-    draw(total);
+    draw(Infinity);
     trim();
     startHold(performance.now());
     wake();
@@ -552,6 +571,8 @@ export function createEpaperRefresh(opts: {
         }
         // The refresh opens at 0 whatever the gap since the loop last ran.
         mode = 'refresh';
+        // a show()n picture comes in by the fast refresh; the cycle by the panel's own
+        useRun(urgent() ? fast : own);
         clock = 0;
         arrived = false;
         incoming = next();
@@ -561,12 +582,12 @@ export function createEpaperRefresh(opts: {
       } else {
         clock += dt;
       }
-      if (!arrived && clock >= arriveAt) {
+      if (!arrived && clock >= run.arriveAt) {
         arrived = true;
         opts.onArriving?.(incoming);
       }
-      if (clock >= total) {
-        draw(total);
+      if (clock >= run.total) {
+        draw(Infinity);
         current = incoming;
         if (current < cycle) opts.onShown?.(current);
         trim();
@@ -592,7 +613,8 @@ export function createEpaperRefresh(opts: {
       }
       material.uniforms.uOld.value = plates[current];
       material.uniforms.uNew.value = upNext;
-      draw(Math.min(ms, total));
+      useRun(own);
+      draw(Math.min(ms, run.total));
       wake();
     },
     prepare(src) {

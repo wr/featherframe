@@ -1,22 +1,34 @@
 // The frame's journey down the page (desktop, motion welcome, WebGL there):
-// one WebGL frame on one fixed canvas behind the text, placed on each scroll
-// by the stops it travels between.
+// one WebGL frame on one fixed canvas, placed on each scroll by the stops it
+// travels between.
 //
-//   hero      the cover's frame, three-quarter on its kickstand, cycling species
-//   centre    dead-on, ~80% of the page wide, drifting up at 0.3× the scroll
-//   art       dead-on in the art spread's left half, showing the flamingo
+//   hero      the cover's frame, three-quarter on its kickstand on the cover's table
+//   centre    dead-on, about 90% of the viewport tall, drifting up at 0.3× the scroll
+//   art       dead-on in the art spread's left half, showing the flamingo, pinned
+//             there while the spread's text scrolls past
 //   wall 1    the gallery wall's empty first place: the still takes over there
 //   wall 12   the wall's last frame tears off where the still hands back…
-//   table     …and leans back on its kickstand on III's table, showing the cardinal
+//   table     …and leans back on its kickstand on III's table, pinned while the
+//             song and the photograph scroll past
 //
 // Every stop is an invisible slot on the page with the frame's own aspect, so
-// the layout decides where the frame goes and the frame only follows it. A
-// stop holds over a range of scroll; between two stops the frame's box and
-// pose ease (smoothstep) from one to the other, each end still moving with the
-// page as it does at rest. Layout is read only on resize and font load; each
-// frame reads scrollY alone. Nothing is drawn while nothing changes.
-import { FLAT, HERO, TABLE, lerpPose, loadFrame, type Frame3D, type Pose, type Rect } from './viewer';
-import type { Size } from './card';
+// the layout decides where the frame goes and the frame only follows it; a
+// pinned stop is a sticky slot, and the frame follows its sticking. A stop
+// holds over a range of scroll; between two stops the frame's box and pose
+// ease (smoothstep) from one to the other, each end still moving with the page
+// as it does at rest. Layout is read only on resize and font load; each frame
+// reads scrollY alone. Nothing is drawn while nothing changes.
+//
+// The canvas sits behind the text, except on the two flights that cross it —
+// down into the wall's first place, and from the wall's last to the table —
+// where the frame passes over the folios and captions it flies across.
+//
+// With the wall on B&W, the frame that leaves the cover is the 10-inch in
+// sixteen grays (loaded when B&W is first chosen): it takes over from the
+// 13-inch as the glass repaints on the way up, so it lands in and tears off
+// the wall as the wall's own gray frames.
+import { FLAT, HERO, TABLE, lerpPose, loadFrame, sheenAt, type Frame3D, type Pose, type Rect } from './viewer';
+import type { SiteData, Size } from './card';
 
 const SWAY = 0.06;        // the hero's idle sway, radians
 const SWAY_PERIOD = 14;   // seconds
@@ -30,12 +42,14 @@ export const heroRect = (stage: DOMRect | Rect, offsetY = 0): Rect => {
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
 const clamp01 = (t: number) => Math.max(0, Math.min(1, t));
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const lerpRect = (a: Rect, b: Rect, t: number): Rect => ({
-  x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, w: a.w + (b.w - a.w) * t, h: a.h + (b.h - a.h) * t,
+  x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), w: lerp(a.w, b.w, t), h: lerp(a.h, b.h, t),
 });
 
 /** What the frame shows. */
 type Screen = 'cycle' | 'flamingo' | 'oriole' | 'cardinal';
+type Model = '13' | '10';
 
 interface Stop {
   /** The frame's box on screen at scroll `s`. */
@@ -44,6 +58,11 @@ interface Stop {
   /** The scroll range it holds over. */
   s0: number;
   s1: number;
+  /** How the frame flies in: `drop` shrinks to the stop's size first and
+   *  then settles into it, so it never sweeps across the stop's neighbours. */
+  path?: 'drop';
+  /** The flight in crosses the page's text: draw the frame over it. */
+  over?: boolean;
 }
 
 interface Layout {
@@ -56,16 +75,55 @@ interface Layout {
   vh: number;
 }
 
-/** A slot's box in page coordinates. */
+/** A box in page coordinates. */
 const pageBox = (el: Element): Rect => {
   const r = el.getBoundingClientRect();
   return { x: r.x, y: r.y + scrollY, w: r.width, h: r.height };
 };
 const scrolled = (b: Rect) => (s: number): Rect => ({ x: b.x, y: b.y - s, w: b.w, h: b.h });
 
+/**
+ * A slot inside a sticky element: its box on screen at any scroll, and the
+ * scroll range over which it is stuck. Measured unstuck (html.measuring), so
+ * the natural place is read whatever the scroll.
+ */
+function pinned(slot: Element, pin: HTMLElement) {
+  const b = pageBox(slot);
+  const p = pageBox(pin);
+  const parent = pin.parentElement!;
+  const cs = getComputedStyle(parent);
+  const pb = pageBox(parent);
+  const bottom = pb.y + pb.h - parseFloat(cs.paddingBottom) - parseFloat(cs.borderBottomWidth);
+  const top = pinTops.get(pin) ?? 0;
+  const dy = b.y - p.y;
+  const end = bottom - p.h; // the pin's lowest page y
+  return {
+    box: b,
+    /** stuck from s0 to s1 */
+    s0: p.y - top,
+    s1: end - top,
+    rect: (s: number): Rect => ({ x: b.x, y: Math.min(Math.max(p.y - s, top), end - s) + dy, w: b.w, h: b.h }),
+  };
+}
+
+/** Each pin's sticky top, read before html.measuring unpins it. */
+const pinTops = new WeakMap<Element, number>();
+
 function measure(els: Els): Layout {
+  const root = document.documentElement;
+  for (const pin of document.querySelectorAll('.pin')) pinTops.set(pin, parseFloat(getComputedStyle(pin).top) || 0);
+  root.classList.add('measuring');
+  try {
+    return measureNow(els);
+  } finally {
+    root.classList.remove('measuring');
+  }
+}
+
+function measureNow(els: Els): Layout {
   const vw = document.documentElement.clientWidth;
   const vh = document.documentElement.clientHeight;
+  const nav = els.head ? els.head.getBoundingClientRect().height : 0;
   const stops: Stop[] = [];
   const hero = heroRect(els.stage.getBoundingClientRect(), scrollY);
   stops.push({ rect: scrolled(hero), pose: HERO, s0: -Infinity, s1: 0 });
@@ -73,35 +131,37 @@ function measure(els: Els): Layout {
   const after = (s: number, min: number) => Math.max(s, stops[stops.length - 1].s1 + min * vh);
 
   if (els.centre) {
-    // Its size and x from the slot; its height on screen from the viewport's middle, drifting.
+    // Its size and x from the slot; on screen, centred in the viewport below
+    // the running head, drifting.
     const b = pageBox(els.centre);
     const spacer = pageBox(els.centre.parentElement!);
     const s0 = after(spacer.y - 0.1 * vh, 0.3);
     const s1 = after(spacer.y + 0.4 * vh, 0);
     const mid = (s0 + s1) / 2;
-    const y = (vh - b.h) / 2;
+    const y = nav + (vh - nav - b.h) / 2;
     stops.push({
       rect: (s) => ({ x: b.x, y: y - DRIFT * (Math.max(s0, Math.min(s1, s)) - mid) - Math.max(0, s - s1), w: b.w, h: b.h }),
       pose: FLAT, s0, s1,
     });
   }
   if (els.art) {
-    const b = pageBox(els.art);
-    const s0 = after(b.y + b.h / 2 - vh / 2, 0.3);
-    stops.push({ rect: scrolled(b), pose: FLAT, s0, s1: s0 + 0.15 * vh });
+    const p = pinned(els.art, els.art);
+    const s0 = after(p.s0, 0.3);
+    stops.push({ rect: p.rect, pose: FLAT, s0, s1: Math.max(s0, p.s1) });
   }
   if (els.first && els.last) {
+    // the wall's frames as drawn: in B&W, each still is scaled to the 10-inch's true size
     const b1 = pageBox(els.first);
-    const s = after(b1.y - 0.22 * vh, 0.3);
-    stops.push({ rect: scrolled(b1), pose: FLAT, s0: s, s1: s });
+    const s = after(b1.y - 0.22 * vh, 0.35);
+    stops.push({ rect: scrolled(b1), pose: FLAT, s0: s, s1: s, path: 'drop', over: true });
     landAt = stops.length - 1;
     const b12 = pageBox(els.last);
     const t = after(b12.y + b12.h / 2 - vh / 2, 0.2);
     stops.push({ rect: scrolled(b12), pose: FLAT, s0: t, s1: t });
     tearAt = stops.length - 1;
-    if (els.table) {
-      const b = pageBox(els.table);
-      stops.push({ rect: scrolled(b), pose: TABLE, s0: after(b.y + b.h / 2 - vh / 2, 0.3), s1: Infinity });
+    if (els.table && els.tablePin) {
+      const p = pinned(els.table, els.tablePin);
+      stops.push({ rect: p.rect, pose: TABLE, s0: after(p.s0, 0.3), s1: Infinity, over: true });
     }
   }
   const last = stops[stops.length - 1];
@@ -116,12 +176,16 @@ interface State {
   sway: number;
   landed: boolean;
   torn: boolean;
+  /** Drawn over the page's text. */
+  over: boolean;
   /** What the glass should show, or null to leave it as it is (hysteresis). */
   screen: Screen | null;
   /** 0 at the hero, 1 once the frame has left it. */
   lift: number;
   /** 0 until the frame sets off for the table, 1 once it is on it. */
   land: number;
+  /** The table's shadow, 0–1: only in the last fifth of the landing. */
+  ground: number;
 }
 
 function at(l: Layout, s: number): State {
@@ -132,16 +196,25 @@ function at(l: Layout, s: number): State {
   const stop = stops[i];
   const landed = i > landAt || (i === landAt && s >= stop.s0);
   const torn = i > tearAt || (i === tearAt && s >= stop.s0);
-  let rect: Rect | null, pose: Pose, t = 1;
+  let rect: Rect | null, pose: Pose, t = 1, over: boolean;
   if (s >= stop.s0 || i === 0) {
     rect = stop.rect(s);
     pose = stop.pose;
   } else {
     const prev = stops[i - 1];
-    t = smooth(clamp01((s - prev.s1) / (stop.s0 - prev.s1)));
-    rect = lerpRect(prev.rect(s), stop.rect(s), t);
+    const u = clamp01((s - prev.s1) / (stop.s0 - prev.s1));
+    t = smooth(u);
+    const a = prev.rect(s), b = stop.rect(s);
+    if (stop.path === 'drop') {
+      // the size arrives first; the place follows, from above
+      const k = smooth(clamp01(u / 0.55));
+      const w = lerp(a.w, b.w, k), h = lerp(a.h, b.h, k);
+      rect = { x: lerp(a.x, b.x, t), y: lerp(a.y + a.h, b.y + b.h, t) - h, w, h };
+    } else rect = lerpRect(a, b, t);
     pose = lerpPose(prev.pose, stop.pose, t);
   }
+  // (held at the table too: its pinned slot is a stacking context of its own, backdrop and all)
+  over = !!stop.over;
   const fromHero = i === 0 ? 0 : i === 1 && s < stop.s0 ? t : 1;
   if (landed && !torn) rect = null;
   // The glass: the species cycle at the hero, the flamingo from the centre to
@@ -153,10 +226,12 @@ function at(l: Layout, s: number): State {
   else if (i === tearAt) screen = 'oriole';
   else screen = t >= 0.75 ? 'cardinal' : t <= 0.5 ? 'oriole' : null;
   const land = i > tearAt + 1 ? 1 : i === tearAt + 1 ? (s >= stop.s0 ? 1 : t) : 0;
-  return { rect, pose, sway: 1 - fromHero, landed, torn, screen, lift: fromHero, land };
+  const ground = clamp01((land - 0.8) / 0.2);
+  return { rect, pose: { ...pose, ground }, sway: 1 - fromHero, landed, torn, over, screen, lift: fromHero, land, ground };
 }
 
 interface Els {
+  head: HTMLElement | null;
   stage: HTMLElement;
   centre: HTMLElement | null;
   art: HTMLElement | null;
@@ -164,36 +239,49 @@ interface Els {
   first: HTMLElement | null;
   last: HTMLElement | null;
   table: HTMLElement | null;
+  tablePin: HTMLElement | null;
 }
+
+/** The wall's tone, as main.ts keeps it on <html data-tone>. */
+const tone = (): Model => (document.documentElement.dataset.tone === '10' ? '10' : '13');
 
 /**
  * Run the page's choreography. The layout and the wall's classes start at
  * once; the frame joins when its model has loaded. Rejects (and undoes
  * itself) if the frame cannot be drawn.
  */
-export async function startPage(size: Size, opts: {
+export async function startPage(data: SiteData, hero: Model, opts: {
   holdMs?: number; onShown: (i: number) => void; poster?: boolean;
 }): Promise<{ dispose(): void }> {
   const root = document.documentElement;
-  const slots = [...document.querySelectorAll<HTMLElement>('.wall .slot')];
+  const images = [...document.querySelectorAll<HTMLElement>('.wall .cat .im img')];
+  const table = document.getElementById('table-slot');
   const els: Els = {
+    head: document.querySelector('.head'),
     stage: document.getElementById('stage')!,
     centre: document.getElementById('centre-slot'),
     art: document.getElementById('art-slot'),
     wall: document.querySelector('.wall'),
-    first: slots[0] ?? null,
-    last: slots[slots.length - 1] ?? null,
-    table: document.getElementById('table-slot'),
+    first: images[0] ?? null,
+    last: images[images.length - 1] ?? null,
+    table,
+    tablePin: table?.closest<HTMLElement>('.pin') ?? null,
   };
-  const screens: Record<Exclude<Screen, 'cycle'>, string | undefined> = {
+  const screensOf = (size: Size): Record<Exclude<Screen, 'cycle'>, string | undefined> => ({
     flamingo: size.wall?.[0],
     oriole: size.wall?.[size.wall.length - 1],
     cardinal: size.wall?.find((f) => f.includes('cardinal')),
-  };
+  });
 
   let layout = measure(els);
-  let frame: Frame3D | null = null;
-  let raf = 0, reveal = 0, dirty = true, lastKey = '', shownScreen: Screen | 'hidden' | undefined;
+  // scripts and debugging: where the journey is, and its stops
+  (window as any).__ff = () => ({ st: at(layout, scrollY), stops: layout.stops.map((x) => [x.s0, x.s1, x.rect(scrollY)]) });
+  /** The frames: the cover's, and (B&W) the 10-inch that takes over from it. */
+  const frames: Partial<Record<Model, Frame3D>> = {};
+  const shown: Partial<Record<Model, Screen | 'hidden'>> = {};
+  let loading10: Promise<void> | null = null;
+  let active: Model = hero;
+  let raf = 0, reveal = 0, dirty = true, lastKey = '', disposed = false;
   const t0 = performance.now();
   const request = () => { if (!raf) raf = requestAnimationFrame(tick); };
 
@@ -201,51 +289,86 @@ export async function startPage(size: Size, opts: {
     els.wall?.classList.toggle('landed', st.landed);
     els.wall?.classList.toggle('torn', st.torn);
   };
-  const applyScreen = (st: State) => {
+  const applyScreen = (m: Model, st: State) => {
+    const frame = frames[m];
     if (!frame) return;
     const want: Screen | 'hidden' | null = st.rect ? st.screen : 'hidden';
-    if (want === null || want === shownScreen) return;
+    if (want === null || want === shown[m]) return;
     // Out of sight (or not yet drawn), the glass changes without a refresh.
-    const instant = shownScreen === undefined || shownScreen === 'hidden';
-    shownScreen = want;
+    const instant = shown[m] === undefined || shown[m] === 'hidden';
+    shown[m] = want;
     if (want === 'hidden') return;
-    const src = want === 'cycle' ? null : screens[want];
+    // the 10-inch only ever travels: it has no cycle of its own, so it shows the flamingo
+    const src = want === 'cycle' ? (m === hero ? null : screensOf(data.sizes[m]).flamingo!) : screensOf(data.sizes[m])[want];
     if (src !== undefined) frame.refresh.show(src, instant);
+  };
+  const load10 = () => {
+    if (loading10 || hero === '10') return;
+    loading10 = loadFrame(data.sizes['10'], { wake: request, keep: opts.poster, holdMs: 1e9 }).then((f) => {
+      if (disposed) { f.dispose(); return; }
+      for (const src of Object.values(screensOf(data.sizes['10']))) if (src) f.refresh.prepare(src);
+      f.canvas.className = 'ff3d live empty';
+      f.setSize(layout.vw, layout.vh);
+      document.body.prepend(f.canvas);
+      frames['10'] = f;
+      dirty = true;
+      request();
+    }, (e) => console.warn('featherframe: the 10-inch frame is unavailable', e));
   };
 
   function tick(now: number) {
     raf = 0;
     const st = at(layout, scrollY);
     applyClasses(st);
-    if (!frame) return;
+    const main = frames[hero];
+    if (!main) return;
     // A hidden page runs no rAFs; one that says it is hidden but runs them
     // (a throttled tab) keeps checking back without drawing.
     if (document.hidden) { request(); return; }
-    applyScreen(st);
-    const r = frame.refresh.tick(now);
+    // Which frame travels: the cover's, or — the wall on B&W — the 10-inch once it has left the cover.
+    const want: Model = hero === '13' && tone() === '10' && st.lift >= 0.5 ? '10' : hero;
+    if (want === '10') load10();
+    const next: Model = frames[want] ? want : hero;
+    if (next !== active) {
+      frames[active]!.draw(null, st.pose);
+      frames[active]!.canvas.classList.add('empty');
+      if (active !== hero) shown[active] = 'hidden';
+      active = next;
+      dirty = true;
+    }
+    const frame = frames[active]!;
+    applyScreen(active, st);
+    let changed = false, busy = false;
+    for (const f of Object.values(frames)) {
+      const r = f!.refresh.tick(now);
+      if (f === frame) changed = r.changed;
+      busy ||= r.busy;
+    }
     const sway = opts.poster || !st.sway ? 0 : Math.sin(((now - t0) / 1000) * (2 * Math.PI / SWAY_PERIOD)) * SWAY * st.sway;
-    const key = st.rect ? `${st.rect.x},${st.rect.y},${st.rect.w},${st.rect.h},${st.pose.yaw},${st.pose.lean},${st.pose.pitch},${st.pose.ground},${sway}` : '';
-    if (r.changed || dirty || key !== lastKey) {
-      frame.draw(st.rect, st.pose, sway);
+    const sheen = opts.poster || !st.rect ? null : sheenAt(st.rect.y + st.rect.h / 2, layout.vh);
+    const key = st.rect ? `${active},${st.rect.x},${st.rect.y},${st.rect.w},${st.rect.h},${st.pose.yaw},${st.pose.lean},${st.pose.pitch},${st.pose.ground},${sway},${st.over}` : '';
+    if (changed || dirty || key !== lastKey) {
+      frame.draw(st.rect, st.pose, sway, sheen);
       frame.canvas.classList.toggle('empty', !st.rect);
+      frame.canvas.classList.toggle('over', st.over);
       dirty = false;
       lastKey = key;
       root.style.setProperty('--lift', st.lift.toFixed(3));
-      root.style.setProperty('--land', st.land.toFixed(3));
+      root.style.setProperty('--land', st.ground.toFixed(3));
       if (frame.drawn && !reveal) {
         // Live (poster out, canvas in) on the rAF after the first real draw, once it is on screen.
         reveal = requestAnimationFrame(() => {
           els.stage.classList.add('live');
-          frame?.canvas.classList.add('live');
+          main.canvas.classList.add('live');
         });
       }
     }
-    if (r.busy || sway !== 0) request();
+    if (busy || sway !== 0) request();
   }
 
   const relayout = () => {
     layout = measure(els);
-    if (frame) frame.setSize(layout.vw, layout.vh);
+    for (const f of Object.values(frames)) f!.setSize(layout.vw, layout.vh);
     dirty = true;
     request();
   };
@@ -255,34 +378,43 @@ export async function startPage(size: Size, opts: {
   addEventListener('scroll', request, { passive: true });
   const onVisible = () => { if (!document.hidden) request(); };
   document.addEventListener('visibilitychange', onVisible);
+  // B&W resizes the wall's frames (a transition): measure again once they have settled
+  const onTone = () => { if (tone() === '10') load10(); relayout(); };
+  document.addEventListener('ff-tone', onTone);
+  els.wall?.addEventListener('transitionend', relayout);
   void document.fonts?.ready.then(relayout);
   request();
 
   const undo = () => {
+    disposed = true;
     cancelAnimationFrame(raf);
     cancelAnimationFrame(reveal);
     ro.disconnect();
     removeEventListener('resize', relayout);
     removeEventListener('scroll', request);
     document.removeEventListener('visibilitychange', onVisible);
+    document.removeEventListener('ff-tone', onTone);
+    els.wall?.removeEventListener('transitionend', relayout);
     els.wall?.classList.remove('landed', 'torn');
     els.stage.classList.remove('live');
     root.style.removeProperty('--lift');
     root.style.removeProperty('--land');
-    frame?.dispose();
-    frame = null;
+    for (const f of Object.values(frames)) f!.dispose();
   };
 
+  let frame: Frame3D;
   try {
-    frame = await loadFrame(size, { holdMs: opts.holdMs, onShown: opts.onShown, wake: request, keep: opts.poster });
+    frame = await loadFrame(data.sizes[hero], { holdMs: opts.holdMs, onShown: opts.onShown, wake: request, keep: opts.poster });
   } catch (e) {
     undo();
     throw e;
   }
-  for (const src of Object.values(screens)) if (src) frame.refresh.prepare(src);
+  frames[hero] = frame;
+  for (const src of Object.values(screensOf(data.sizes[hero]))) if (src) frame.refresh.prepare(src);
   frame.canvas.className = 'ff3d';
   frame.setSize(layout.vw, layout.vh);
   document.body.prepend(frame.canvas);
+  if (tone() === '10') load10();
   dirty = true;
   request();
   return { dispose: undo };

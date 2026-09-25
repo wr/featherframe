@@ -236,6 +236,37 @@ test('the wall switches between Color and B&W, and remembers', async ({ page }) 
   for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/13-/);
 });
 
+test("B&W hangs the wall's frames smaller, at the 10-inch's true size", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const first = page.locator('.wall .cat figure:first-child .im');
+  const caption = page.locator('.wall .cat figure:first-child figcaption');
+  const gap = async () => (await caption.boundingBox())!.y - ((await first.boundingBox())!.y + (await first.boundingBox())!.height);
+  const colour = (await first.boundingBox())!;
+  const colourGap = await gap();
+  await page.getByRole('button', { name: 'B&W' }).click();
+  await expect.poll(async () => (await first.boundingBox())!.height / colour.height).toBeCloseTo(295 / 371, 2);
+  // hung from the same line: the frames still meet their captions as before
+  expect(Math.abs((await gap()) - colourGap)).toBeLessThan(1);
+  await page.getByRole('button', { name: 'Color' }).click();
+  await expect.poll(async () => (await first.boundingBox())!.height).toBeCloseTo(colour.height, 0);
+});
+
+test('the art spread holds the frame while its text scrolls past', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  const slot = page.locator('#art-slot');
+  const text = page.locator('#art .text h2');
+  await slot.scrollIntoViewIfNeeded();
+  await page.evaluate(() => scrollBy(0, 200));
+  const a = [(await slot.boundingBox())!.y, (await text.boundingBox())!.y];
+  await page.evaluate(() => scrollBy(0, 250));
+  const b = [(await slot.boundingBox())!.y, (await text.boundingBox())!.y];
+  expect(Math.abs(b[0] - a[0])).toBeLessThan(1);
+  expect(a[1] - b[1]).toBeGreaterThan(240);
+});
+
 test('the frame lands in the wall\'s first place and hands over to its print', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');

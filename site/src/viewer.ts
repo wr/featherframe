@@ -19,8 +19,8 @@
 // pose) take over from the live frame without a jump.
 import {
   ACESFilmicToneMapping, Box3, Color, DirectionalLight, Group, MathUtils, Matrix4, Mesh, MeshStandardMaterial,
-  PCFShadowMap, PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShadowMaterial, SRGBColorSpace, Vector3,
-  WebGLRenderer,
+  PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShaderMaterial, ShadowMaterial, SRGBColorSpace, Vector3,
+  VSMShadowMap, WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -57,8 +57,15 @@ const ENVIRONMENT = 0.7;
 // The table's shadow: a light that lights nothing (so the frame looks as it
 // does everywhere else) but casts the frame onto a shadow-only floor, from
 // above and in front, so it falls back toward the wall, crisp where the frame
-// meets the table. SHADOW is its darkness at full `ground`.
-const SHADOW = 0.2;
+// meets the table. SHADOW is its darkness at full `ground`; soft (a
+// variance shadow map, blurred wide), so it reads as a room's light, not a lamp's.
+const SHADOW = 0.13;
+// The glass's sheen: a soft diagonal highlight, as a window across the room
+// would leave on it, that slides as the frame moves up the screen. The wall's
+// HTML frames draw the same band in CSS (styles.css .sheen, sheen.ts), so a
+// hand-off between them does not jump. SHEEN is its strength.
+export const SHEEN = 0.16;
+export { sheenAt } from './sheen-at';
 // How long each picture holds in the hero's cycle: well over twice the colour
 // refresh (about 5.5 s), so the frame reads as a picture that sometimes
 // changes, not as a frame forever refreshing. `?hold=` overrides it for tests.
@@ -95,8 +102,9 @@ export interface Frame3D {
   /** The canvas's size in CSS pixels. */
   setSize(width: number, height: number): void;
   /** Draw the frame in `pose` (plus `sway` radians of yaw, which does not move
-   *  its box) fitted to `rect`, in canvas CSS pixels; `null` draws nothing. */
-  draw(rect: Rect | null, pose: Pose, sway?: number): void;
+   *  its box) fitted to `rect`, in canvas CSS pixels; `null` draws nothing.
+   *  `sheen`: where the glass's highlight crosses it (sheenAt), or none. */
+  draw(rect: Rect | null, pose: Pose, sway?: number, sheen?: number | null): void;
   /** True once something has really been drawn. */
   readonly drawn: boolean;
   dispose(): void;
@@ -119,7 +127,7 @@ export async function loadFrame(size: Size, opts: {
   renderer.setClearColor(0x000000, 0);
   renderer.toneMappingExposure = EXPOSURE;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFShadowMap;
+  renderer.shadowMap.type = VSMShadowMap;
   renderer.shadowMap.autoUpdate = false;
 
   const scene = new Scene();
@@ -145,10 +153,13 @@ export async function loadFrame(size: Size, opts: {
     throw e;
   }
   const model = gltf.scene;
-  let screen: Mesh | undefined;
+  let screen: Mesh | undefined, glass: Mesh | undefined;
   model.traverse((o) => {
     const m = o as Mesh;
-    if (m.isMesh && (m.material as MeshStandardMaterial).name === 'screen') screen = m;
+    if (!m.isMesh) return;
+    const name = (m.material as MeshStandardMaterial).name;
+    if (name === 'screen') screen = m;
+    if (name === 'featherframe_glass') glass = m;
   });
   if (!screen) {
     disposeAll();
@@ -168,6 +179,43 @@ export async function loadFrame(size: Size, opts: {
   scene.add(pitch);
 
   model.traverse((o) => { if ((o as Mesh).isMesh) o.castShadow = true; });
+
+  // The sheen: a second skin on the glass, drawn over it. Its band is laid out
+  // in the glass's own box (x across, y up), so it sits on the glass whatever the pose.
+  let sheen: Mesh | undefined, sheenMaterial: ShaderMaterial | undefined;
+  if (glass) {
+    const g = glass.geometry;
+    g.computeBoundingBox();
+    const bb = g.boundingBox!;
+    sheenMaterial = new ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+      uniforms: { uMin: { value: bb.min.clone() }, uSize: { value: bb.getSize(new Vector3()) }, uC: { value: 0.5 }, uI: { value: 0 } },
+      vertexShader: /* glsl */ `
+        uniform vec3 uMin;
+        uniform vec3 uSize;
+        varying vec2 vP;
+        void main() {
+          vP = vec2((position.x - uMin.x) / uSize.x, 1.0 - (position.y - uMin.y) / uSize.y);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      // sheen.ts's CSS gradient, in the same terms: q runs 0 at the top-left to 1 at the bottom-right
+      fragmentShader: /* glsl */ `
+        uniform float uC;
+        uniform float uI;
+        varying vec2 vP;
+        void main() {
+          float q = (vP.x + 0.8 * vP.y) / 1.8;
+          float a = exp(-pow((q - uC) / 0.11, 2.0)) + 0.45 * exp(-pow((q - uC - 0.2) / 0.035, 2.0));
+          gl_FragColor = vec4(1.0, 1.0, 1.0, uI * a);
+        }`,
+    });
+    sheen = new Mesh(g, sheenMaterial);
+    sheen.renderOrder = 10;
+    sheen.castShadow = false;
+    glass.add(sheen);
+  }
   const shadowMaterial = new ShadowMaterial({ opacity: 0, depthWrite: false });
   const floor = new Mesh(new PlaneGeometry(2, 2), shadowMaterial);
   floor.rotation.x = -Math.PI / 2;
@@ -178,8 +226,9 @@ export async function loadFrame(size: Size, opts: {
   const sun = new DirectionalLight(0xffffff, 0);
   sun.position.set(-0.2, 1.6, 0.3);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.radius = 3;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.radius = 14;
+  sun.shadow.blurSamples = 24;
   sun.shadow.bias = -0.0004;
   Object.assign(sun.shadow.camera, { left: -0.45, right: 0.45, top: 0.45, bottom: -0.45, near: 0.2, far: 3 });
   yaw.add(sun, sun.target);
@@ -247,7 +296,7 @@ export async function loadFrame(size: Size, opts: {
       height = Math.max(1, h);
       renderer.setSize(width, height, false);
     },
-    draw(rect, pose, sway = 0) {
+    draw(rect, pose, sway = 0, at = null) {
       if (!rect || rect.w <= 0 || rect.h <= 0) {
         renderer.clear();
         return;
@@ -273,6 +322,9 @@ export async function loadFrame(size: Size, opts: {
       pitch.rotation.set(pose.pitch, 0, 0);
       yaw.rotation.set(0, pose.yaw + sway, 0);
       lean.rotation.set(LEAN * (1 - pose.lean), 0, 0);
+      if (sheenMaterial) sheenMaterial.uniforms.uI.value = at === null ? 0 : SHEEN;
+      if (sheenMaterial && at !== null) sheenMaterial.uniforms.uC.value = at;
+      if (sheen) sheen.visible = at !== null;
       floor.visible = pose.ground > 0.001;
       shadowMaterial.opacity = SHADOW * pose.ground;
       // Drawn only while the floor shows — but once before anything else, so
@@ -291,6 +343,7 @@ export async function loadFrame(size: Size, opts: {
       });
       floor.geometry.dispose();
       shadowMaterial.dispose();
+      sheenMaterial?.dispose();
       sun.shadow.dispose();
       disposeAll();
       renderer.forceContextLoss();

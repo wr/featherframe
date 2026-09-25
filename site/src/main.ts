@@ -2,6 +2,7 @@
 // switch, and — when WebGL is there and motion is welcome — the 3D frame, loaded after the page has painted. On a
 // desktop the frame travels down the page (choreo.ts); on a phone it stays in the cover.
 import type { SiteData } from './card';
+import { startSheen } from './sheen';
 
 const params = new URLSearchParams(location.search);
 const holdMs = params.has('hold') ? Number(params.get('hold')) : undefined;
@@ -39,7 +40,7 @@ async function mount() {
     const m = await import('./choreo');
     if (wall) return await m.startWallRender(data.sizes[size], wall);
     const r = journey()
-      ? await m.startPage(data.sizes[size], { holdMs, onShown, poster: params.has('poster') })
+      ? await m.startPage(data, size, { holdMs, onShown, poster: params.has('poster') })
       : await m.startStage(stage, data.sizes[size], { holdMs, onShown });
     if (mine === generation) running = r;
     else r.dispose();
@@ -63,7 +64,9 @@ const start = async () => {
 if (document.readyState === 'complete') void start();
 else addEventListener('load', () => void start(), { once: true });
 
-// II. The wall's Color / B&W switch: the 13-inch in colour, or the 10-inch in sixteen grays, remembered.
+// II. The wall's Color / B&W switch: the 13-inch in colour, or the 10-inch in sixteen grays — drawn to
+// scale, so the change is a change of size too — remembered. <html data-tone> says which; the journey
+// (choreo.ts) follows it with an ff-tone event.
 const TONE_KEY = 'featherframe.wall';
 const tones = [...document.querySelectorAll<HTMLButtonElement>('.tone button')];
 const setTone = (tone: string, keep: boolean) => {
@@ -72,10 +75,16 @@ const setTone = (tone: string, keep: boolean) => {
   for (const img of document.querySelectorAll<HTMLImageElement>('.wall img[data-still]')) {
     img.src = `img/wall/${tone}-${img.dataset.still}.webp`;
   }
+  root.classList.toggle('tone-anim', keep);
+  root.dataset.tone = tone;
+  document.dispatchEvent(new Event('ff-tone'));
   if (keep) try { localStorage.setItem(TONE_KEY, tone); } catch { /* private mode: this visit only */ }
 };
-try { setTone(localStorage.getItem(TONE_KEY) ?? '13', false); } catch { /* storage blocked: colour */ }
+let stored: string | null = null;
+try { stored = localStorage.getItem(TONE_KEY); } catch { /* storage blocked: colour */ }
+setTone(stored ?? '13', false);
 for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!, true));
+if (!reduced) startSheen([...document.querySelectorAll<HTMLElement>('.wall .cat .im')]);
 
 // III. The cardinal's song, with a playhead across its spectrogram.
 const song = document.getElementById('song') as HTMLAudioElement;

@@ -536,10 +536,12 @@ Container restarts); D1 schema in `hosted/migrations/`.
   have an entry in several folios; `SpeciesIndex.order(region)` asks the
   household's Region's folios first (`Config.region`; each folio's header
   names its `region`: Havell `north-america`, Gould's Europe `europe`, his
-  Australia `australia`), then the rest in the index's order: Havell first,
+  Australia `australia`, his Asia `asia`), then the rest in the index's order: Havell first,
   then as published (`load_folios` sorts by the header's first year), so a
   new folio never takes a species from one a household already sees. It
-  reorders, never filters, and a
+  reorders, never filters (one entry may say `preferred: true` to be asked
+  right after the region's own folios: Asia's ringed VII.39 is the
+  Ring-necked Pheasant everywhere but Europe, W-871), and a
   folio's `plate: none` hands the species on to the next folio, never to a
   guess. A Region change is drawn by the next tick (`_region_redraw`).
   A folio whose header says `plates_per_volume: true` (W-874: Gould's
@@ -569,6 +571,10 @@ Container restarts); D1 schema in `hosted/migrations/`.
   (eBird 2025 names, Wikidata/GBIF/Avibase ids, BHL PageIDs, the Gould release
   images); `test_export_dataset.py` holds it to the pins. A split since BirdNET's
   taxonomy is sent to each folio's own daughter there (`EBIRD_NAMES_BY_FOLIO`).
+  `gould_asia.yaml` is Gould's *Birds of Asia* (W-871, numbered per volume;
+  the record is `docs/gould-asia/`): no pencil numbers, so each plate was
+  paired by the text leaf bound after it, which names the species. 16% of its
+  plates are forms Gould named as species, all left out but VII.39.
   `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General
   List number (the plates were issued unnumbered); `volume` + `leaf` address
   the scan, fetched from BHL's public S3 bucket by the header's `scans`

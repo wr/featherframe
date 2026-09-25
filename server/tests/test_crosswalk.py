@@ -393,3 +393,83 @@ def test_folios_are_asked_havell_first_then_as_published():
     spec.loader.exec_module(fp)
     order = [f for f, _, _ in fp.load_folios(SPECIES_YAML.parent)]
     assert order == ["havell", "gould_europe", "gould_australia", "gould_britain"]
+
+
+# --- Gould's Birds of Asia (W-871) --------------------------------------------
+
+ASIA_YAML = SPECIES_YAML.parent / "gould_asia.yaml"
+
+
+def _asia():
+    return yaml.safe_load(ASIA_YAML.read_text())
+
+
+def test_asia_entries_are_whole():
+    """Numbered per volume: each plate names its volume, and its leaf is where
+    the copy's binding puts it (plate n at first + 4(n-1))."""
+    doc = _asia()
+    folio = doc["folio"]
+    assert folio["region"] == "asia" and folio["plates_per_volume"] is True
+    first = {1: 28}
+    for e in doc["species"]:
+        assert 1 <= e["volume_no"] <= 7 and 1 <= e["plate"] <= 83, e["common"]
+        assert e["leaf"] == first.get(e["volume_no"], 12) + 4 * (e["plate"] - 1), e["common"]
+        assert e.get("rotate", 0) in (0, 270), e["common"]
+
+
+def test_asia_pins_each_species_once():
+    species = _asia()["species"]
+    assert len(species) >= 250
+    sci = [e["scientific"] for e in species]
+    assert len(sci) == len(set(sci))
+
+
+def test_asia_merops_viridis_is_the_green_bee_eater():
+    """I.35 is printed "Merops viridis, Linn." (today's Blue-throated
+    Bee-eater) but shows the Green Bee-eater: pinned by the bird."""
+    by_sci = {e["scientific"]: e for e in _asia()["species"]}
+    e = by_sci["Merops orientalis"]
+    assert (e["volume_no"], e["plate"]) == (1, 35)
+    assert "Merops viridis" not in by_sci
+
+
+def test_asia_leaves_the_forms_out():
+    """A race Gould named as a species never stands in for the species: the
+    caniceps goldfinch (V.17) and the rest of the survey's forms are unpinned,
+    and so is Jerdon's Bushchat, which is not the Pied Bushchat."""
+    pinned = {(e["volume_no"], e["plate"]) for e in _asia()["species"]}
+    for form in ((5, 17), (2, 75), (3, 53), (4, 43), (4, 70), (5, 35), (4, 32), (7, 34)):
+        assert form not in pinned, form
+    assert "Carduelis carduelis" not in {e["scientific"] for e in _asia()["species"]}
+
+
+def test_asia_ring_necked_pheasant_is_the_ringed_torquatus():
+    """The one form pinned on purpose (Wells, 25 Sep 2026): VII.39, the ringed
+    stock introduced to North America."""
+    by_sci = {e["scientific"]: e for e in _asia()["species"]}
+    e = by_sci["Phasianus colchicus"]
+    assert (e["volume_no"], e["plate"], e["leaf"]) == (7, 39, 164)
+    assert "torquatus" in e["gould_title"]
+
+
+def test_the_ringed_pheasant_wins_everywhere_but_europe(tmp_path):
+    """Folios after the region's own go in file order, so a North American
+    station gets Asia's ringed plate before Europe's ringless 247, and the
+    Europe region keeps 247. A folio filed between them would change that."""
+    import importlib.util
+    from featherframe.names import SpeciesIndex
+    spec = importlib.util.spec_from_file_location("fetch_plates", SPECIES_YAML.parents[1] / "fetch_plates.py")
+    fp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fp)
+    records, headers = [], {}
+    for folio, header, species in fp.load_folios(SPECIES_YAML.parent):
+        headers[folio] = header
+        for e in species:
+            if e["scientific"] == "Phasianus colchicus" and e.get("plate") not in (None, "none"):
+                img = tmp_path / folio / f"{e['plate']}.jpg"
+                img.parent.mkdir(exist_ok=True)
+                img.write_bytes(b"x")
+                records.append({**e, "folio": folio, "image": f"{folio}/{e['plate']}.jpg"})
+    idx = SpeciesIndex(records, images_dir=tmp_path, folios=headers)
+    for region, want in (("north-america", "gould_asia"), ("asia", "gould_asia"), ("europe", "gould_europe")):
+        assert idx.match("Ring-necked Pheasant", "Phasianus colchicus", region).folio == want, region

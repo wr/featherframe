@@ -15,6 +15,11 @@ opens with the species' name, so every pairing was checked there
 (`text_leaf`): all 530 have Gould's genus on the next leaf, and all but a few
 where the OCR dropped a word have the epithet too.
 
+The captions themselves were then read on the scans with Apple's Vision OCR
+(for the open dataset): 526 of 530 read and agree with the List, the other four
+(VII.29, 30, 31, 47, none pinned) are too faint. `plate-leaves.csv` holds each
+caption as read, how it was read, and where it starts.
+
 ## Identification
 
 The survey matched each plate's printed Latin to a BirdNET V2.4 label. The
@@ -43,8 +48,9 @@ Spotted Sandgrouse, VII.60 the Far Eastern Curlew (not the Eurasian).
 
 ## Cutting
 
-No composites. 38 plates are bound sideways (most of vol. VII, the gamebirds
-of VI, four in IV, one in V), each with its caption down the right edge:
+No composites. 95 plates are bound sideways, 38 of them pinned (most of
+vol. VII, the gamebirds of VI, a few in IV and V), each with its caption
+down the right edge (the OCR found it there, and agrees with every pin):
 `rotate: 270`, whole plate kept. Vols. I, IV and V show the page stack at the
 left, and so do vols. II and III: the gilt board edge and the page stack run
 to about 0.105 of the sheet (the survey saw 0.08 on a few plates), so vols.

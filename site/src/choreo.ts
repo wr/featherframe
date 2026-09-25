@@ -33,6 +33,9 @@ import type { SiteData, Size } from './card';
 const SWAY = 0.06;        // the hero's idle sway, radians
 const SWAY_PERIOD = 14;   // seconds
 const DRIFT = 0.3;        // the centre stop moves at this share of the scroll
+const ART_LINGER = 0.1;   // viewport heights the art stop holds past its pin's release
+const LAND_AT = 0.92;     // the wall's first place is landed in with its bottom this far down the window
+const CONTACT = 8;        // px: the table's shadow comes in over the frame's last this many of descent
 
 // The poster's canvas is 1200 × 1400 with the frame at 111,108 → 1086,1352.
 export const heroRect = (stage: DOMRect | Rect, offsetY = 0): Rect => {
@@ -147,16 +150,19 @@ function measureNow(els: Els): Layout {
   if (els.art) {
     const p = pinned(els.art, els.art);
     const s0 = after(p.s0, 0.3);
-    stops.push({ rect: p.rect, pose: FLAT, s0, s1: Math.max(s0, p.s1) });
+    // it stays a moment after the spread lets go of it, going up with the page, before it sets off
+    stops.push({ rect: p.rect, pose: FLAT, s0, s1: Math.max(s0, p.s1 + ART_LINGER * vh) });
   }
   if (els.first && els.last) {
     // the wall's frames as drawn: in B&W, each still is scaled to the 10-inch's true size
     const b1 = pageBox(els.first);
-    const s = after(b1.y - 0.22 * vh, 0.35);
+    // it lands as the wall's first row comes up to the bottom of the window
+    const s = after(b1.y + b1.h - LAND_AT * vh, 0.35);
     stops.push({ rect: scrolled(b1), pose: FLAT, s0: s, s1: s, path: 'drop', over: true });
     landAt = stops.length - 1;
     const b12 = pageBox(els.last);
-    const t = after(b12.y + b12.h / 2 - vh / 2, 0.2);
+    // it tears off once it has scrolled away, its middle at the window's top edge
+    const t = after(b12.y + b12.h / 2, 0.2);
     stops.push({ rect: scrolled(b12), pose: FLAT, s0: t, s1: t });
     tearAt = stops.length - 1;
     if (els.table && els.tablePin) {
@@ -184,7 +190,7 @@ interface State {
   lift: number;
   /** 0 until the frame sets off for the table, 1 once it is on it. */
   land: number;
-  /** The table's shadow, 0–1: only in the last fifth of the landing. */
+  /** The table's shadow, 0–1: only as the frame's foot meets the table, over its last CONTACT px. */
   ground: number;
 }
 
@@ -196,7 +202,7 @@ function at(l: Layout, s: number): State {
   const stop = stops[i];
   const landed = i > landAt || (i === landAt && s >= stop.s0);
   const torn = i > tearAt || (i === tearAt && s >= stop.s0);
-  let rect: Rect | null, pose: Pose, t = 1, over: boolean;
+  let rect: Rect | null, pose: Pose, t = 1, over: boolean, target: Rect | null = null;
   if (s >= stop.s0 || i === 0) {
     rect = stop.rect(s);
     pose = stop.pose;
@@ -205,6 +211,7 @@ function at(l: Layout, s: number): State {
     const u = clamp01((s - prev.s1) / (stop.s0 - prev.s1));
     t = smooth(u);
     const a = prev.rect(s), b = stop.rect(s);
+    target = b;
     if (stop.path === 'drop') {
       // the size arrives first; the place follows, from above
       const k = smooth(clamp01(u / 0.55));
@@ -226,7 +233,14 @@ function at(l: Layout, s: number): State {
   else if (i === tearAt) screen = 'oriole';
   else screen = t >= 0.75 ? 'table' : t <= 0.5 ? 'oriole' : null;
   const land = i > tearAt + 1 ? 1 : i === tearAt + 1 ? (s >= stop.s0 ? 1 : t) : 0;
-  const ground = clamp01((land - 0.8) / 0.2);
+  // The shadow is the table's: none while the frame is in the air, and it comes
+  // in only as the frame's foot (the bottom middle of its box) meets the
+  // table's, over the last few pixels of the descent.
+  let ground = land >= 1 ? 1 : 0;
+  if (land > 0 && land < 1 && rect && target) {
+    const d = Math.hypot(rect.x + rect.w / 2 - (target.x + target.w / 2), rect.y + rect.h - (target.y + target.h));
+    ground = smooth(clamp01(1 - d / CONTACT));
+  }
   return { rect, pose: { ...pose, ground }, sway: 1 - fromHero, landed, torn, over, screen, lift: fromHero, land, ground };
 }
 

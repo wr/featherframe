@@ -30,6 +30,10 @@ export function startSeasons(): void {
     const p = Math.max(0, Math.min(1, (scrollY - start) / run));
     row.style.transform = `translate3d(${(from + (to - from) * p).toFixed(1)}px, 0, 0)`;
     row.dataset.progress = p.toFixed(3); // test hook
+    // the season in the middle of the window: its mark on the timeline is drawn full
+    const panels = row.children;
+    const now = Math.round(p * (panels.length - 1)) % (panels.length - 1);
+    for (let i = 0; i < panels.length; i++) panels[i].classList.toggle('now', i === now || (now === 0 && i === panels.length - 1));
   };
   const request = () => { if (live && !raf) raf = requestAnimationFrame(paint); };
   const setup = () => {

@@ -5,15 +5,21 @@
 @font-face { font-family: 'EB Garamond'; font-style: italic; font-weight: 400 800; font-display: swap; src: url('fonts/EBGaramond-Italic.woff2') format('woff2'); }
 @font-face { font-family: 'Pinyon Script'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/PinyonScript-Regular.woff2') format('woff2'); }
 @font-face { font-family: 'IM Fell Double Pica SC'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/IMFellDoublePicaSC.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/Inter-400.woff2') format('woff2'); }
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/Inter-500.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('fonts/Inter-600.woff2') format('woff2'); }
 
 :root {
-  --paper: #fff;
-  --ink: #121212;
-  --text: #3b3b39;
-  --graphite: #6b6b69;
-  --faint: #a7a7a3;
-  --hair: #e4e4e1;
+  /* IV turns the page from day to night as it scrolls in (night.ts sets
+     --night, 0–1), and back as it leaves: every colour is its day and its
+     night mixed by it. */
+  --night: 0;
+  --paper: color-mix(in srgb, #0f0f0e calc(var(--night) * 100%), #fff);
+  --ink: color-mix(in srgb, #f2f1ec calc(var(--night) * 100%), #121212);
+  --text: color-mix(in srgb, #d4d3cd calc(var(--night) * 100%), #3b3b39);
+  --graphite: color-mix(in srgb, #9c9b95 calc(var(--night) * 100%), #6b6b69);
+  --faint: color-mix(in srgb, #64635e calc(var(--night) * 100%), #a7a7a3);
+  --hair: color-mix(in srgb, #33322f calc(var(--night) * 100%), #e4e4e1);
   --serif: 'EB Garamond', Garamond, serif;
   --script: 'Pinyon Script', cursive;
   --caps: 'IM Fell Double Pica SC', serif;
@@ -46,10 +52,11 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 .btn {
   display: inline-flex; align-items: center; height: 48px; padding: 0 28px; white-space: nowrap;
-  border-radius: 2px; background: var(--ink); color: #fff;
+  border-radius: 2px; background: var(--ink); color: var(--paper);
   font: 13px/1 var(--caps); letter-spacing: .18em; text-transform: uppercase;
 }
 .btn:hover { background: #000; }
+.night .btn:hover { background: #fff; }
 
 .page { padding: 0 var(--m); overflow-x: clip; } /* the cover's stage runs past the right edge */
 .folio {
@@ -112,8 +119,8 @@ h2 { font-weight: 400; text-wrap: balance; }
    pinned there, centred below the running head, while the text scrolls past. */
 .spread { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(2 * var(--gutter)); align-items: start; margin-top: 150px; container-type: inline-size; }
 .spread .plate {
-  --h: min(calc((50cqw - var(--gutter)) / var(--flat)), calc(100vh - var(--nav) - 80px));
-  position: sticky; top: calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2); width: calc(var(--h) * var(--flat));
+  --h: calc(0.9 * min(calc((50cqw - var(--gutter)) / var(--flat)), calc(100vh - var(--nav) - 80px)));
+  position: sticky; top: calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2); width: calc(var(--h) * var(--flat)); justify-self: center;
 }
 .spread .plate img { width: 100%; }
 .spread .text { display: flex; flex-direction: column; justify-content: flex-end; padding: 42vh 0 14vh; }
@@ -187,11 +194,14 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* III. How it works: the frame on its table pinned on the right while the
    song and the photograph scroll past on the left. */
 .trip { display: grid; grid-template-columns: 7fr 5fr; column-gap: var(--gutter); align-items: start; margin-top: 96px; container-type: inline-size; }
-.lcol { padding: 4vh 0 12vh; }
+.lcol { padding: 4vh 0 6vh; }
 .t1 { margin-bottom: 28px; }
 .spectro { position: relative; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 14px 0; }
 .spectro img { width: 100%; }
-.playhead { position: absolute; top: 14px; bottom: 14px; left: 0; width: 1px; background: var(--ink); pointer-events: none; }
+/* the spectrogram itself is the song's switch: sound on, sound off */
+.sg { position: relative; cursor: pointer; }
+.sg:focus-visible { outline-offset: 6px; }
+.playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: var(--ink); pointer-events: none; }
 .playhead[hidden] { display: none; }
 /* the song plays itself, muted, while it is on screen; Unmute plays it again with sound */
 .unmute {
@@ -209,16 +219,24 @@ h2 { font-weight: 400; text-wrap: balance; }
 .mute:hover { color: var(--ink); }
 .mute[hidden] { display: none; }
 :root { --speaker: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 9h4l5-4v14l-5-4H3z'/%3E%3Cpath d='M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
-/* a new detection: a card by the song, as the frame repaints to it */
+/* A new detection: BirdNET's side of things, so an app's notification, not
+   the book's type, pinned to the photograph's top-left corner. It slides in
+   at each detection as the frame on the table repaints to it. */
+.t2 .ph { position: relative; }
 .toast {
-  position: absolute; right: 18px; top: -34px; z-index: 3; padding: 12px 18px 10px; min-width: 210px;
-  background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 14px 34px -14px rgba(0, 0, 0, .3);
-  opacity: 0; transform: translateY(8px); transition: opacity .45s ease, transform .45s ease; pointer-events: none;
+  position: absolute; left: -22px; top: -26px; z-index: 3;
+  display: flex; align-items: center; gap: 12px; min-width: 260px; padding: 10px 14px 10px 10px;
+  background: #fff; border-radius: 12px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 14px 34px -12px rgba(0, 0, 0, .3);
+  font-family: var(--sans); font-variant-numeric: normal; color: #121212;
+  opacity: 0; transform: translate(-12px, -6px); transition: opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1); pointer-events: none;
 }
 .toast.on { opacity: 1; transform: none; }
-.toast .sc { display: block; font-size: 10px; color: var(--graphite); }
-.toast .nm { display: block; margin-top: 2px; font: 30px/1.15 var(--script); white-space: nowrap; }
-.t2 { margin-top: 34vh; }
+.toast .ic { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #121212; color: #fff; }
+.toast .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.toast .k { font: 500 12px/1.35 var(--sans); color: #6b6b69; }
+.toast .nm { font: 600 16px/1.3 var(--sans); color: #121212; white-space: nowrap; }
+.toast .when { align-self: flex-start; margin: 1px 0 0 14px; font: 400 12px/1.35 var(--sans); color: #6b6b69; white-space: nowrap; }
+.t2 { margin-top: 14vh; }
 /* the photograph set like a print: rounded a little, lifted a little */
 .t2 img { width: 100%; border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 18px 40px -18px rgba(0, 0, 0, .35); }
 .t2 figcaption { margin-top: 14px; color: var(--graphite); font-size: 15px; }
@@ -235,6 +253,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   /* no edges of its own: it fades into the page at the sides */
   -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
   mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+  opacity: calc(1 - var(--night));
 }
 #table-slot { position: relative; aspect-ratio: 0.77576; }
 /* the still includes its own shadow: TABLE_PAD in choreo.ts */
@@ -243,9 +262,9 @@ h2 { font-weight: 400; text-wrap: balance; }
    the frame settles (--land, choreo.ts) */
 .contact { position: absolute; left: -4%; right: 2%; bottom: -6%; height: 14%; z-index: -2; pointer-events: none;
            background: radial-gradient(closest-side, rgba(0, 0, 0, .07), rgba(0, 0, 0, .025) 55%, transparent); opacity: var(--land, 1); }
-.tcap { margin: 22px 0 0; max-width: 70ch; color: var(--graphite); font-size: 17px; }
+.intro2.closing { margin-top: 24px; }
 .intro2.closing .lede { grid-column: 1 / 8; font-size: 19px; color: var(--text); }
-.logos { grid-column: 1 / 8; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin: 28px 0 0; }
+.logos { grid-column: 1 / 8; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin: 18px 0 0; }
 .logos .sc { color: var(--graphite); }
 .logos a { display: inline-flex; align-items: center; gap: 9px; font-size: 17px; color: var(--ink); filter: grayscale(1); }
 .logos a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
@@ -263,32 +282,37 @@ h2 { font-weight: 400; text-wrap: balance; }
 .season img { width: 100%; }
 .season figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-top: 18px; border-top: 1px solid var(--hair); padding-top: 10px; }
 .season figcaption .it { color: var(--graphite); font-size: 17px; }
+.season figcaption .sc { margin-right: auto; }
+/* each season's mark, drawn like an engraving's line */
+.season .ico { flex: none; align-self: center; width: 22px; height: 22px; margin-right: 10px; color: var(--ink); }
 .season.coda { display: none; }
 #collage .note { margin: 40px 0 0; color: var(--graphite); font-size: 15px; }
-.seasons-live .seasons { height: calc(100vh - var(--nav) + 250vh); margin-top: 40px; }
+.seasons-live .seasons { height: calc(100vh - var(--nav) + 250vh); margin-top: 40px;
+  /* each sheet's frame: 72% of the window's height, unless the width runs out first */
+  --sh: min(72vh, calc(100vh - var(--nav) - 120px), calc((100vw - 2 * var(--m)) * 1100 / 874));
+  --sw: calc(var(--sh) * 874 / 1100); }
 .seasons-live .stage-row {
   position: sticky; top: var(--nav); height: calc(100vh - var(--nav)); overflow: hidden;
   display: flex; align-items: center; margin: 0 calc(-1 * var(--m));
 }
-.seasons-live .row { flex-direction: row; align-items: flex-start; gap: 9vw; padding: 0 var(--m); will-change: transform; }
+.seasons-live .row { flex-direction: row; align-items: flex-start; gap: max(64px, calc((100vw - var(--sw)) / 2 - 90px)); padding: 0 var(--m); will-change: transform; }
 .seasons-live .season { width: auto; }
 .seasons-live .season.coda { display: flex; }
 .seasons-live .season figure { width: auto; }
-.seasons-live .season img { width: auto; height: calc((100vh - var(--nav)) * .66); max-width: none; }
-/* the timeline: one hairline through the year, under the frames */
-.seasons-live .row { background: linear-gradient(var(--hair), var(--hair)) 0 calc((100vh - var(--nav)) * .66 + 18px) / 100% 1px no-repeat; }
-.seasons-live .season figcaption { border-top: 0; flex-direction: column; gap: 4px; padding-top: 40px; position: relative; }
-.seasons-live .season figcaption::before { content: ""; position: absolute; left: 0; top: 14px; width: 9px; height: 9px; border-radius: 50%; background: var(--ink); }
+.seasons-live .season img { width: var(--sw); height: var(--sh); max-width: none; }
+/* the timeline: one hairline through the year, under the frames, a season's mark on it at each */
+.seasons-live .row { background: linear-gradient(var(--hair), var(--hair)) 0 calc(var(--sh) + 22px) / 100% 1px no-repeat; }
+.seasons-live .season figcaption { border-top: 0; flex-direction: column; align-items: flex-start; gap: 4px; padding-top: 42px; position: relative; }
+.seasons-live .season .ico { position: absolute; left: -6px; top: 10px; width: 24px; height: 24px; margin: 0; padding: 0 5px; box-sizing: content-box;
+  background: var(--paper); opacity: .35; transition: opacity .4s ease; }
+.seasons-live .season.now .ico { opacity: 1; }
 
-/* V. Technical details: the parts, drawn apart; the two frames head-on, to
-   scale, with their dimensions; then the facts. */
-.specs { display: grid; grid-template-columns: 7fr 5fr; column-gap: var(--gutter); align-items: end; }
-.exploded img { width: 100%; }
-.headon { display: flex; justify-content: center; align-items: flex-end; gap: 64px; padding: 0 30px 0 0; }
+/* V. Technical details: the two frames head-on, to scale, with their dimensions; then the facts. */
+.headon { display: flex; justify-content: center; align-items: flex-end; gap: 96px; padding: 0 30px 0 0; }
 .ho { margin: 0; }
 .ho .box { position: relative; }
 .ho img { display: block; height: auto; }
-.ho { --w: min(230px, 16vw); }
+.ho { --w: min(260px, 18vw); }
 .ho.s13 img { width: var(--w); }
 .ho.s10 img { width: calc(var(--w) * 596 / 604 * 295 / 371); } /* the 10-inch at the 13-inch's scale */
 .dim { position: absolute; font: italic 14px var(--serif); color: var(--ink); }
@@ -319,8 +343,19 @@ h2 { font-weight: 400; text-wrap: balance; }
 .qa dt:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
 .qa dd { margin: 10px 0 0; max-width: 60ch; font-size: 19px; color: var(--text); }
 
-/* Close */
-.close { margin-top: 210px; text-align: center; }
+/* Close: the frame's parts, drawn apart, large and quiet beside the headline,
+   which runs a little over them */
+.close { position: relative; isolation: isolate; margin-top: 210px; text-align: center; }
+.close .exploded { position: relative; z-index: -1; opacity: .5; pointer-events: none; }
+.close .exploded img { width: 100%; }
+@media (min-width: 821px) {
+  .close { display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: 1fr auto auto auto 1fr; column-gap: var(--gutter); text-align: left; }
+  .close .exploded { grid-column: 5 / 13; grid-row: 1 / -1; align-self: center; }
+  .close .big, .close p, .close .btn { grid-column: 1 / 8; }
+  .close .big { grid-row: 2; }
+  .close p { grid-row: 3; margin: 48px 0 34px; }
+  .close .btn { grid-row: 4; justify-self: start; }
+}
 .close .big { margin: 0; }
 .close .big i { display: block; }
 .close p { margin: 64px 0 38px; font-size: 22px; color: var(--graphite); }
@@ -381,8 +416,14 @@ h2 { font-weight: 400; text-wrap: balance; }
   .cover h1 { position: static; width: auto; font-size: 21vw; }
   .cover h1 .l2 { margin-left: 0; }
   .frame { display: flow-root; position: relative; right: auto; bottom: auto; height: auto; width: 78%; aspect-ratio: auto; margin: 36px 0 0 18%; }
-  .frame::after { display: none; }
-  .stage { position: relative; left: -11.385%; top: 0; width: 123.077%; height: auto; aspect-ratio: 6 / 7; margin: -11.077% 0 -4.923%; filter: drop-shadow(0 18px 18px rgba(0, 0, 0, .12)); }
+  .stage { position: relative; left: -11.385%; top: 0; width: 123.077%; height: auto; aspect-ratio: 6 / 7; margin: -11.077% 0 -4.923%; }
+  /* the cover's white room on a phone too: the wall, a crisp horizon ~30% up
+     the frame, the table top lightening toward us (the frame's box ends at its feet) */
+  .frame::before {
+    content: ""; position: absolute; z-index: -1; left: -100vw; right: -100vw; top: 0; bottom: -34px;
+    --hz: calc(0.6966 * (100vw - 2 * var(--m))); /* 70% of the frame's height (its width, 78% of the page, × 1.2759) */
+    background: linear-gradient(to bottom, #fff 0%, #fafaf9 30%, #f3f3f0 var(--hz), #e3e3df var(--hz), #e3e3df calc(var(--hz) + 1px), #eeeeea calc(var(--hz) + 1px), #f7f7f5 88%, #fff 100%);
+  }
   .cover .copy { position: static; width: auto; margin-top: 44px; }
 
   .spread { display: block; }
@@ -399,14 +440,12 @@ h2 { font-weight: 400; text-wrap: balance; }
   .trip { grid-template-columns: 1fr; row-gap: 28px; }
   .lcol { padding: 0; }
   .t2 { margin-top: 48px; }
-  .toast { right: 8px; top: -44px; min-width: 0; }
-  .toast .nm { font-size: 24px; }
+  .toast { left: -10px; top: -22px; min-width: 0; }
   .t3 { position: static; }
   .cover::before { display: none; }
   .intro2.closing .lede { font-size: 18px; }
   .row { gap: 56px; }
-  .specs { display: block; }
-  .headon { gap: 44px; padding: 40px 24px 0 0; }
+  .headon { gap: 44px; padding: 0 24px 0 0; }
   .ho { --w: 34vw; }
   .spec { display: block; margin-top: 70px; }
   .spec dt { padding-bottom: 0; }
@@ -414,11 +453,12 @@ h2 { font-weight: 400; text-wrap: balance; }
   .qa { margin-left: 0; }
   .qa dt { font-size: 23px; }
   .close { margin-top: 230px; }
+  .close .exploded { margin: 0 -4% -6%; }
   .colophon { display: block; }
   .colophon > * { margin-bottom: 28px; }
   .colophon .d { margin-top: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im, .toast { transition: none; }
+  .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im, .toast, .season .ico { transition: none; }
 }

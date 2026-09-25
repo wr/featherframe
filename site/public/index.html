@@ -82,20 +82,20 @@
     <div class="lcol">
     <figure class="t1">
       <div class="spectro">
-        <img src="img/spectrogram.webp" alt="A spectrogram of a Northern Cardinal's song" width="2400" height="520" loading="lazy"><span class="playhead" hidden></span>
+        <div class="sg" role="button" tabindex="0" aria-pressed="false"><img src="img/spectrogram.webp" alt="A spectrogram of a Northern Cardinal's song" width="2400" height="520" loading="lazy"><span class="playhead" hidden></span></div>
         <button class="unmute" type="button" aria-label="Play the song with sound">Unmute</button>
         <button class="mute sc" type="button" hidden>Mute</button>
-        <div class="toast" role="status"><span class="sc">New detection</span><span class="nm">Northern Cardinal</span></div>
       </div>
       <audio id="song" src="audio/cardinal-song.mp3" preload="none" muted playsinline></audio>
     </figure>
-    <figure class="t2"><img src="img/hidden-cardinal.webp" alt="A Northern Cardinal among bare winter branches" width="1800" height="1203" loading="lazy"><figcaption class="it">Photograph by Jason Krieger</figcaption></figure>
+    <figure class="t2"><div class="ph"><img src="img/hidden-cardinal.webp" alt="A Northern Cardinal among bare winter branches" width="1800" height="1203" loading="lazy">
+      <div class="toast" role="status"><span class="ic" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M2 7v2M4.5 5v6M7 3v10M9.5 5.5v5M12 6.5v3M14 7.5v1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm">Northern Cardinal</span></span><span class="when">Just now</span></div>
+    </div><figcaption class="it">Photograph by Jason Krieger</figcaption></figure>
     </div>
     <figure class="t3 pin"><div class="table"><div class="slot" id="table-slot"><span class="contact" aria-hidden="true"></span><img class="still" src="img/wall/table-13-cardinal.webp" alt="The frame showing the Northern Cardinal from The Birds of America" width="639" height="760" loading="lazy"></div></div></figure>
   </div>
-  <p class="tcap it">A Northern Cardinal, heard at 07:02 and seen only if you are lucky. On the frame, it appears as it was printed nearly two hundred years ago.</p>
   <div class="intro2 closing"><p class="lede">BirdWeather is a public map of listening stations in gardens and parks around the world. Each one uses BirdNET, software from the Cornell Lab of Ornithology, to name the birds it hears. Choose a station near you, or near somewhere you love: a parent’s garden, or the coast you visit every summer. When it names a species, the frame shows it. You can also add a station of your own.</p>
-    <p class="logos"><span class="sc">Detections by</span><a href="https://birdnet.cornell.edu/" rel="noopener"><img src="img/logos/birdnet.webp" alt="" width="28" height="28">BirdNET</a><a href="https://www.birdweather.com/" rel="noopener"><img src="img/logos/birdweather.svg" alt="" width="28" height="28">BirdWeather</a></p></div>
+    <p class="logos"><span class="sc">Integrates with</span><a href="https://birdnet.cornell.edu/" rel="noopener"><img src="img/logos/birdnet.webp" alt="" width="28" height="28">BirdNET</a><a href="https://www.birdweather.com/" rel="noopener"><img src="img/logos/birdweather.svg" alt="" width="28" height="28">BirdWeather</a></p></div>
 </section>
 
 <section class="sec" id="collage">
@@ -110,11 +110,11 @@
   <div class="seasons">
     <div class="stage-row">
       <ol class="row">
-        <li class="season"><figure><img src="img/seasons/spring.webp" alt="A collage painted by AI from the species heard on 7 April 2026" width="874" height="1100" loading="lazy"><figcaption><span class="sc">Spring</span><span class="it">7 April 2026</span></figcaption></figure></li>
-        <li class="season"><figure><img src="img/seasons/summer.webp" alt="A collage painted by AI from the species heard on 1 June 2026" width="874" height="1100" loading="lazy"><figcaption><span class="sc">Summer</span><span class="it">1 June 2026</span></figcaption></figure></li>
-        <li class="season"><figure><img src="img/seasons/fall.webp" alt="A collage painted by AI from the species heard on 23 September 2026" width="874" height="1100" loading="lazy"><figcaption><span class="sc">Fall</span><span class="it">23 September 2026</span></figcaption></figure></li>
-        <li class="season"><figure><img src="img/seasons/winter.webp" alt="A collage painted by AI from the species heard on 16 February 2026" width="874" height="1100" loading="lazy"><figcaption><span class="sc">Winter</span><span class="it">16 February 2026</span></figcaption></figure></li>
-        <li class="season coda" aria-hidden="true"><figure><img src="img/seasons/spring.webp" alt="" width="874" height="1100" loading="lazy"><figcaption><span class="sc">Spring</span><span class="it">7 April 2026</span></figcaption></figure></li>
+        <li class="season"><figure><img src="img/seasons/spring.webp" alt="A collage painted by AI from the species heard on 7 April 2026" width="874" height="1100" loading="lazy"><figcaption><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.5c.4-4.6.2-9.4-.2-14"/><path d="M11.8 7.5c-1.9-1.1-2.2-3.7-.3-5.5 1.9 1.6 2.1 4.2.3 5.5z"/><path d="M11.9 16.2c-3.1.3-5.4-1.2-6.2-3.8 3-.4 5.3.9 6.2 3.8z"/><path d="M11.8 12.4c2.8-.1 4.9-1.6 5.5-4.2-2.8-.1-4.8 1.4-5.5 4.2z"/><path d="M7.6 13.4l2.4 1.4M15.5 9.4l-2 1.5"/></svg><span class="sc">Spring</span><span class="it">7 April 2026</span></figcaption></figure></li>
+        <li class="season"><figure><img src="img/seasons/summer.webp" alt="A collage painted by AI from the species heard on 1 June 2026" width="874" height="1100" loading="lazy"><figcaption><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.2v3" transform="rotate(0 12 12)"/><path d="M12 2.2v3" transform="rotate(45 12 12)"/><path d="M12 2.2v3" transform="rotate(90 12 12)"/><path d="M12 2.2v3" transform="rotate(135 12 12)"/><path d="M12 2.2v3" transform="rotate(180 12 12)"/><path d="M12 2.2v3" transform="rotate(225 12 12)"/><path d="M12 2.2v3" transform="rotate(270 12 12)"/><path d="M12 2.2v3" transform="rotate(315 12 12)"/></svg><span class="sc">Summer</span><span class="it">1 June 2026</span></figcaption></figure></li>
+        <li class="season"><figure><img src="img/seasons/fall.webp" alt="A collage painted by AI from the species heard on 23 September 2026" width="874" height="1100" loading="lazy"><figcaption><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 18.5C5.8 11.6 10.4 6 18.6 5.2c.9 8-4.3 13.7-12.1 13.3z"/><path d="M6.5 18.5l8.8-9.6M9.5 15.2l-.4-3.3M11.8 12.7l3.4.2M12.4 12l-.2-3"/><path d="M3.2 9.2c1.3.9 1.6 2.4.9 3.8M4.6 5.2c.9.5 1.2 1.3.9 2.1"/></svg><span class="sc">Fall</span><span class="it">23 September 2026</span></figcaption></figure></li>
+        <li class="season"><figure><img src="img/seasons/winter.webp" alt="A collage painted by AI from the species heard on 16 February 2026" width="874" height="1100" loading="lazy"><figcaption><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12V2.8M9.8 4.4 12 6.6l2.2-2.2M10.6 8.3 12 9.7l1.4-1.4" transform="rotate(0 12 12)"/><path d="M12 12V2.8M9.8 4.4 12 6.6l2.2-2.2M10.6 8.3 12 9.7l1.4-1.4" transform="rotate(60 12 12)"/><path d="M12 12V2.8M9.8 4.4 12 6.6l2.2-2.2M10.6 8.3 12 9.7l1.4-1.4" transform="rotate(120 12 12)"/><path d="M12 12V2.8M9.8 4.4 12 6.6l2.2-2.2M10.6 8.3 12 9.7l1.4-1.4" transform="rotate(180 12 12)"/><path d="M12 12V2.8M9.8 4.4 12 6.6l2.2-2.2M10.6 8.3 12 9.7l1.4-1.4" transform="rotate(240 12 12)"/><path d="M12 12V2.8M9.8 4.4 12 6.6l2.2-2.2M10.6 8.3 12 9.7l1.4-1.4" transform="rotate(300 12 12)"/></svg><span class="sc">Winter</span><span class="it">16 February 2026</span></figcaption></figure></li>
+        <li class="season coda" aria-hidden="true"><figure><img src="img/seasons/spring.webp" alt="" width="874" height="1100" loading="lazy"><figcaption><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.5c.4-4.6.2-9.4-.2-14"/><path d="M11.8 7.5c-1.9-1.1-2.2-3.7-.3-5.5 1.9 1.6 2.1 4.2.3 5.5z"/><path d="M11.9 16.2c-3.1.3-5.4-1.2-6.2-3.8 3-.4 5.3.9 6.2 3.8z"/><path d="M11.8 12.4c2.8-.1 4.9-1.6 5.5-4.2-2.8-.1-4.8 1.4-5.5 4.2z"/><path d="M7.6 13.4l2.4 1.4M15.5 9.4l-2 1.5"/></svg><span class="sc">Spring</span><span class="it">7 April 2026</span></figcaption></figure></li>
       </ol>
     </div>
   </div>
@@ -125,7 +125,6 @@
 <section class="sec" id="specs">
   <div class="folio"><span class="sc">V. Technical details</span></div>
   <div class="specs">
-    <figure class="exploded"><img src="img/exploded.webp" alt="An exploded drawing of Featherframe" width="1524" height="1361" loading="lazy"></figure>
     <div class="headon">
       <figure class="ho s10"><div class="box"><img src="img/wall/10-blue-jay.webp" alt="The 10-inch frame" width="596" height="760" loading="lazy"><span class="dim h"><span>232 mm</span></span><span class="dim v"><span>295 mm</span></span></div><figcaption><b>10-inch</b><span>Depth 28 mm</span></figcaption></figure>
       <figure class="ho s13"><div class="box"><img src="img/wall/13-cardinal.webp" alt="The 13-inch frame" width="604" height="760" loading="lazy"><span class="dim h"><span>295 mm</span></span><span class="dim v"><span>371 mm</span></span></div><figcaption><b>13-inch</b><span>Depth 28 mm</span></figcaption></figure>
@@ -143,6 +142,7 @@
 </section>
 
 <section class="close">
+  <figure class="exploded"><img src="img/exploded.webp" alt="An exploded drawing of Featherframe" width="1524" height="1361" loading="lazy"></figure>
   <h2 class="big">Reserve <i>yours.</i></h2>
   <p>Ships November 2026, with nothing to pay after.</p>
   <a class="btn" href="https://shop.wells.ee/products/featherframe/">Pre-order</a>

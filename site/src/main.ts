@@ -4,6 +4,7 @@
 import type { SiteData } from './card';
 import { startSheen } from './sheen';
 import { startSeasons } from './seasons';
+import { startNight } from './night';
 
 const params = new URLSearchParams(location.search);
 const holdMs = params.has('hold') ? Number(params.get('hold')) : undefined;
@@ -89,12 +90,15 @@ if (!reduced) startSheen([...document.querySelectorAll<HTMLElement>('.wall .cat 
 
 // IV. The seasons' row, sliding sideways as the page scrolls (desktop, motion welcome).
 if (!reduced && !wall) startSeasons();
+// …and the page turns to night around it.
+if (!wall) startNight();
 
 // III. The detections: each species' recording plays itself, muted, while its spectrogram is on screen, a
 // playhead crossing it; when one ends the next is heard — a card by the song says so (New detection), and the
 // frame on the table repaints to it (choreo.ts follows <html data-detected>). Unmute plays the recording from
 // the start with sound, and the ones after it too, until Mute. With reduced motion nothing plays by itself:
-// the button reads Play the song and plays the one on screen.
+// the button reads Play the song and plays the one on screen. The spectrogram itself is the same switch, both
+// ways (aria-pressed: with sound). The card is a notification on the photograph (BirdNET's, not the book's).
 const DETECTIONS = [
   { slug: 'cardinal', name: 'Northern Cardinal', audio: 'audio/cardinal-song.mp3', spectrogram: 'img/spectrogram.webp' },
   { slug: 'blue-jay', name: 'Blue Jay', audio: 'audio/blue-jay-song.mp3', spectrogram: 'img/spectrogram-blue-jay.webp' },
@@ -104,10 +108,11 @@ const TOAST_MS = 4500;
 const song = document.getElementById('song') as HTMLAudioElement;
 const spectro = document.querySelector<HTMLElement>('.spectro')!;
 const spectroImg = spectro.querySelector('img')!;
+const sg = spectro.querySelector<HTMLElement>('.sg')!;
 const playhead = spectro.querySelector<HTMLElement>('.playhead')!;
 const unmute = spectro.querySelector<HTMLButtonElement>('.unmute')!;
 const mute = spectro.querySelector<HTMLButtonElement>('.mute')!;
-const toast = spectro.querySelector<HTMLElement>('.toast')!;
+const toast = document.querySelector<HTMLElement>('#how .toast')!;
 const table = document.getElementById('table-slot');
 let heard = 0, sound = false, inView = false, follow = 0, toastTimer = 0;
 if (reduced) unmute.textContent = 'Play the song';
@@ -123,6 +128,9 @@ const detect = (i: number) => {
   if (table) table.dataset.species = d.slug;
   document.dispatchEvent(new Event('ff-detect'));
   toast.querySelector('.nm')!.textContent = d.name;
+  // slide in again for each detection, even one that follows another at once
+  toast.classList.remove('on');
+  void toast.offsetWidth;
   toast.classList.add('on');
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => toast.classList.remove('on'), TOAST_MS);
@@ -154,6 +162,7 @@ song.addEventListener('ended', () => {
     sound = false;
     unmute.hidden = false;
     mute.hidden = true;
+    sg.setAttribute('aria-pressed', 'false');
     return;
   }
   const next = (heard + 1) % DETECTIONS.length;
@@ -161,22 +170,31 @@ song.addEventListener('ended', () => {
   detect(next);
   if (inView) play();
 });
-unmute.addEventListener('click', () => {
+const withSound = (focus: boolean) => {
   sound = true;
   song.currentTime = 0;
   if (song.paused || reduced) detect(heard);
   play();
   unmute.hidden = true;
   mute.hidden = false;
-  mute.focus();
-});
-mute.addEventListener('click', () => {
+  sg.setAttribute('aria-pressed', 'true');
+  if (focus) mute.focus();
+};
+const withoutSound = (focus: boolean) => {
   sound = false;
   song.muted = true;
   if (reduced) song.pause();
   mute.hidden = true;
   unmute.hidden = false;
-  unmute.focus();
+  sg.setAttribute('aria-pressed', 'false');
+  if (focus) unmute.focus();
+};
+unmute.addEventListener('click', () => withSound(true));
+mute.addEventListener('click', () => withoutSound(true));
+const toggle = () => (sound ? withoutSound(false) : withSound(false));
+sg.addEventListener('click', toggle);
+sg.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
 });
 new IntersectionObserver(([e]) => {
   inView = e.isIntersecting;

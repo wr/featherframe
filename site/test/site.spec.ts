@@ -34,7 +34,15 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#specs .folio')).toHaveText('V. Technical details');
   await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Hosting']);
   await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10-inch: 232 × 295 × 28 mm13-inch: 295 × 371 × 28 mm');
-  await expect(page.locator('#specs .exploded img')).toHaveAttribute('src', 'img/exploded.webp');
+  // the exploded drawing stands beside the reservation, not in the details
+  await expect(page.locator('.close .exploded img')).toHaveAttribute('src', 'img/exploded.webp');
+  await expect(page.locator('#specs .exploded')).toHaveCount(0);
+  await expect(page.locator('#how .logos .sc')).toHaveText('Integrates with');
+  await expect(page.locator('#how')).not.toContainText('Detections by');
+  await expect(page.locator('body')).not.toContainText('heard at 07:02');
+  await expect(page.locator('.tcap')).toHaveCount(0);
+  // a mark for each season on the timeline
+  await expect(page.locator('#collage .season:not(.coda) figcaption svg.ico')).toHaveCount(4);
   await expect(page.locator('#specs .ho')).toHaveCount(2);
   await expect(page.locator('#collage .season:not(.coda) figcaption')).toHaveText(
     ['Spring7 April 2026', 'Summer1 June 2026', 'Fall23 September 2026', 'Winter16 February 2026']);
@@ -426,3 +434,116 @@ for (const [name, setup] of [
     expect(sw).toBeLessThanOrEqual(cw);
   });
 }
+
+test('the spectrogram is the song\'s switch: a click turns the sound on, and off again', async ({ page }) => {
+  await page.goto('/');
+  const song = page.locator('#song');
+  const sg = page.locator('.spectro .sg');
+  await expect(sg).toHaveAttribute('role', 'button');
+  await expect(sg).toHaveAttribute('aria-pressed', 'false');
+  await sg.scrollIntoViewIfNeeded();
+  await sg.click({ position: { x: 20, y: 20 } });
+  await expect(sg).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && !a.muted), { timeout: 15_000 }).toBe(true);
+  await expect(page.getByRole('button', { name: 'Play the song with sound' })).toBeHidden();
+  await sg.click({ position: { x: 20, y: 20 } });
+  await expect(sg).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => a.muted)).toBe(true);
+  await expect(page.getByRole('button', { name: 'Play the song with sound' })).toBeVisible();
+  // and from the keyboard
+  await sg.focus();
+  await page.keyboard.press('Enter');
+  await expect(sg).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press(' ');
+  await expect(sg).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('a new detection is a notification pinned to the photograph', async ({ page }) => {
+  await page.goto('/');
+  const toast = page.locator('#how .toast');
+  await expect(toast).toHaveCount(1);
+  // on the photograph, at its top-left corner
+  await expect(page.locator('.t2 .ph .toast')).toHaveCount(1);
+  await expect(toast.locator('.k')).toHaveText('New detection');
+  await expect(toast.locator('.nm')).toHaveText('Northern Cardinal');
+  await expect(toast.locator('.when')).toHaveText('Just now');
+  await expect(toast.locator('.ic svg')).toHaveCount(1);
+  const fonts = await toast.evaluate((t) => [t, ...t.querySelectorAll('*')].map((e) => getComputedStyle(e).fontFamily + '|' + getComputedStyle(e).fontVariantCaps + '|' + getComputedStyle(e).textTransform));
+  for (const f of fonts) {
+    expect(f).not.toMatch(/Pinyon|IM Fell/);
+    expect(f).not.toMatch(/small-caps|uppercase/);
+  }
+  const [name, kicker] = await Promise.all(['.nm', '.k'].map((s) => toast.locator(s).evaluate((e) => {
+    const c = getComputedStyle(e);
+    return [c.fontFamily.split(',')[0].replace(/['"]/g, ''), c.fontSize, c.fontWeight];
+  })));
+  expect(name).toEqual(['Inter', '16px', '600']);
+  expect(kicker).toEqual(['Inter', '12px', '500']);
+  const [t, ph] = await Promise.all([toast.boundingBox(), page.locator('.t2 .ph img').boundingBox()]);
+  expect(t!.x).toBeLessThan(ph!.x + 10);
+  expect(t!.y).toBeLessThan(ph!.y + 10);
+  expect(t!.y + t!.height).toBeGreaterThan(ph!.y);
+});
+
+test('the page turns to night for the collage, and back to day after it', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const html = page.locator('html');
+  // 'rgb(…)' or color-mix's 'color(srgb …)', as 0–255
+  const rgb = (c: string) => {
+    const n = c.match(/[\d.]+/g)!.slice(0, 3).map(Number);
+    return (c.startsWith('color(') ? n.map((v) => v * 255) : n).map(Math.round).join(',');
+  };
+  const colour = (sel: string, prop: 'color' | 'backgroundColor') => page.locator(sel).evaluate((e, p) => getComputedStyle(e)[p], prop).then(rgb);
+  const bg = () => colour('body', 'backgroundColor');
+  await expect(html).not.toHaveClass(/\bnight\b/);
+  const day = await bg();
+  const box = await page.locator('#collage').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
+  await page.evaluate((y) => scrollTo(0, y), box.y + 200);
+  await expect(html).toHaveClass(/\bnight\b/);
+  await expect.poll(bg).toBe('15,15,14');
+  // the running head goes dark with it
+  expect(await colour('.head', 'backgroundColor')).toBe('15,15,14');
+  expect(await colour('#collage h2', 'color')).toBe('242,241,236');
+  await page.evaluate((y) => scrollTo(0, y), box.y + box.h + 200);
+  await expect(html).not.toHaveClass(/\bnight\b/);
+  await expect.poll(bg).toBe(day);
+  expect(day).toBe('255,255,255');
+});
+
+test('the frame\'s shadow is the table\'s: none until its foot meets the table', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  const [tear, table] = await page.evaluate(() => {
+    const f = (window as any).__ff();
+    const n = f.stops.length;
+    return [f.stops[n - 2][1], f.stops[n - 1][0]];
+  });
+  const ground = async (y: number, want: number) => {
+    await page.evaluate((y) => scrollTo(0, y), y);
+    expect(await page.evaluate(() => (window as any).__ff().st.ground)).toBe(want);
+    // (the canvas follows on its next frame)
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--land').trim())).toBe(want.toFixed(3));
+  };
+  // in the air, most of the way down: no shadow at all
+  for (const f of [0.3, 0.6, 0.85]) await ground(tear + f * (table - tear), 0);
+  // at rest on the table
+  await ground(table + 20, 1);
+});
+
+test('on a phone the cover\'s frame stands on the table too', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const bg = await page.locator('.cover .frame').evaluate((e) => {
+    const c = getComputedStyle(e, '::before');
+    return { content: c.content, image: c.backgroundImage };
+  });
+  expect(bg.content).not.toBe('none');
+  expect(bg.image).toContain('linear-gradient');
+  const [room, frame] = await Promise.all([
+    page.locator('.cover .frame').evaluate((e) => { const c = getComputedStyle(e, '::before'); return parseFloat(c.width); }),
+    page.locator('.cover .frame').boundingBox(),
+  ]);
+  expect(room).toBeGreaterThan(frame!.width);
+});

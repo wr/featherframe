@@ -61,6 +61,9 @@ folio:
   source: "Smithsonian Libraries, via the Biodiversity Heritage Library"
   credit: "Smithsonian Libraries and Archives, via the Biodiversity Heritage Library. Public domain."
   scans: "https://bhl-open-data.s3.us-east-2.amazonaws.com/images/{volume}/{volume}_{leaf:04d}.jp2"
+  # When BHL fails: the same sheets, already cleaned, in the open dataset's
+  # release (W-871), checked against its manifest.
+  release: "https://github.com/wr/historical-bird-plates/releases/download/gould-asia-v1"
 
 species:
   # --- Volume I

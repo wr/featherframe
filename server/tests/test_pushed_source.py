@@ -335,3 +335,38 @@ def test_go_status_says_a_test_arrived(go_client):
     body = client.post("/api/source/test", data={"backend": "birdnet_go"}).json()
     assert body["ok"] is True
     assert "0 detection" in body["detail"] and "Test received" in body["detail"]
+
+
+def test_birdnet_go_rule_file_is_what_birdnet_go_imports():
+    """The page's Download rule (W-865): BirdNET-Go's Rules → Import takes
+    {version, rules} as its own Export writes it. The rule must push every
+    detection with no cooldown, or BirdNET-Go sends one per five minutes."""
+    import json
+    from featherframe import paths
+    data = json.loads((paths.static_dir() / "featherframe-birdnet-go-rule.json").read_text())
+    assert data["version"] == 1 and len(data["rules"]) == 1
+    rule = data["rules"][0]
+    assert (rule["object_type"], rule["trigger_type"], rule["event_name"]) == (
+        "detection", "event", "detection.occurred")
+    assert rule["cooldown_sec"] == 0 and rule["enabled"] is True
+    assert [a["target"] for a in rule["actions"]] == ["push"]
+
+
+def test_new_push_url_replaces_the_secret(go_client):
+    # W-865: the secret is part of the URL, replaced whole from the page.
+    client, svc = go_client
+    r = client.post("/api/ingest/token")
+    new = r.json()["token"]
+    assert r.status_code == 200 and new and new != "tok"
+    assert svc.config.ingest_token == new
+    assert client.post("/api/ingest/birdnet-go/tok", json=_go()).status_code == 403
+    assert client.post(f"/api/ingest/birdnet-go/{new}", json=_go()).json()["ok"] is True
+    # Only the page may ask: a cross-site post would break the detector's URL.
+    r = client.post("/api/ingest/token", headers={"Origin": "http://evil.example", "Host": "testserver"})
+    assert r.status_code == 403 and svc.config.ingest_token == new
+
+
+def test_saving_settings_never_changes_the_secret(go_client):
+    client, svc = go_client
+    client.post("/settings", data={"detection_backend": "birdnet_go", "ingest_token": "typed"})
+    assert svc.config.ingest_token == "tok"

@@ -365,7 +365,7 @@ from the Nachtzuster fork.
 `PushedSource`, two bodies: BirdNET-Pi's Apprise notification
 (`/api/ingest/apprise/<token>`) and BirdNET-Go's webhook channel
 (`/api/ingest/birdnet-go/<token>`, its default JSON, no template), both behind
-`Config.ingest_token` (was `apprise_token`). BirdNET-Go is never polled: its
+`Config.ingest_token` (was `apprise_token`), which is part of the URL the page shows, never a form field: its ⟳ replaces it whole, saved at once (`POST /api/ingest/token`). BirdNET-Go is never polled: its
 push needs a *Rules* entry (Detection → *Detection Occurred* → Push
 notification, cooldown 0), or it pushes only new species; the built-in
 new-species rule pushes the same detection again, deduped on `note_id`; its
@@ -552,6 +552,11 @@ Container restarts); D1 schema in `hosted/migrations/`.
   Margins are upright coordinates: a landscape volume needs its own. The AI's style references are Havell
   plates only (`genart._havell_species`), because its prompts name the Havell
   edition. `test_crosswalk.py` guards the tricky numbers.
+  The folios are published as an open dataset, github.com/wr/historical-bird-plates
+  (W-868, CC0): `server/scripts/export_dataset.py export|check|assets` writes it
+  (eBird 2025 names, Wikidata/GBIF/Avibase ids, BHL PageIDs, the Gould release
+  images); `test_export_dataset.py` holds it to the pins. A split since BirdNET's
+  taxonomy is sent to each folio's own daughter there (`EBIRD_NAMES_BY_FOLIO`).
   `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General
   List number (the plates were issued unnumbered); `volume` + `leaf` address
   the scan, fetched from BHL's public S3 bucket by the header's `scans`

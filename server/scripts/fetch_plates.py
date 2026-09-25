@@ -36,6 +36,7 @@ the one to preserve when displaying its plates.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -443,6 +444,36 @@ def store_scan(raw: Path, dest: Path, rotate: int = 0, flatten: bool = False) ->
     tmp.replace(dest)
 
 
+def from_release(session: requests.Session, header: dict, entry: dict, dest: Path,
+                 manifests: dict) -> bool:
+    """The sheet from the folio's dataset release (its header's `release`,
+    github.com/wr/historical-bird-plates, W-868) when the scan's own source
+    fails. The release holds exactly what store_scan makes of the scan, so it
+    is stored as it comes, once its sha256 matches the release's manifest."""
+    base = (header.get("release") or "").rstrip("/")
+    if not base:
+        return False
+    if base not in manifests:
+        try:
+            r = session.get(f"{base}/manifest.json", timeout=60)
+            manifests[base] = r.json().get("files", {}) if r.status_code == 200 else {}
+        except (requests.RequestException, ValueError):
+            manifests[base] = {}
+    fname = f"sheet-{entry['volume']}-{int(entry['leaf']):04d}.jpg"
+    want = (manifests[base].get(fname) or {}).get("sha256")
+    if not want:
+        return False
+    tmp = dest.with_name(dest.name + ".rel")
+    if not _fetch_to(session, f"{base}/{fname}", tmp):
+        return False
+    if hashlib.sha256(tmp.read_bytes()).hexdigest() != want:
+        print(f"       {fname}: checksum does not match the release manifest")
+        tmp.unlink(missing_ok=True)
+        return False
+    tmp.replace(dest)
+    return True
+
+
 def fetch_scans(folio: str):
     """The fetcher for a folio whose header names a `scans` URL template:
     one master per plate, {volume} and {leaf} filled from the entry."""
@@ -450,6 +481,7 @@ def fetch_scans(folio: str):
               plate_legends: dict[int, dict], header: dict) -> tuple[list[dict], dict, dict]:
         counts = {"downloaded": 0, "fallback": 0, "failed": 0}
         records = []
+        manifests: dict = {}
         for entry in species:
             common = entry.get("common", "?")
             record = {
@@ -493,6 +525,10 @@ def fetch_scans(folio: str):
                 counts["downloaded"] += 1
                 print(f"  ✓  {common}: plate {entry['plate']} -> {name}")
                 time.sleep(POLITE_PAUSE_S)
+            elif from_release(session, header, entry, dest, manifests):
+                record["image"] = name
+                counts["downloaded"] += 1
+                print(f"  ✓  {common}: plate {entry['plate']} -> {name} (from the dataset release)")
             else:
                 counts["failed"] += 1
                 print(f"  !  could not download {common} ({url})")

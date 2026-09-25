@@ -275,7 +275,7 @@ def test_an_ignored_frame_folds_at_the_bottom_with_add_and_forget(client):
 
 def test_with_no_frames_at_all_the_card_is_an_invitation(client):
     card = _card(client)
-    assert "Nothing is showing plates yet" in card
+    assert "No frames yet" in card
     # Two roads: a screen you already own, and the kit.
     assert 'id="fr-view-url"' in card and "/view" in card
     assert "Featherframe-Setup" in card

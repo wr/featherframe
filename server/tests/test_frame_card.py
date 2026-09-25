@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
+from featherframe.app import clock12
+
 from featherframe import paths
 from featherframe.service import FeatherframeService, frame_card
 from tests._frames import FRAME_ID, add_kit, device, health
@@ -147,6 +149,7 @@ def test_firmware_hold_matches_the_panels():
 def _render_page(svc) -> str:
     env = Environment(loader=FileSystemLoader(str(paths.templates_dir())),
                       autoescape=True)
+    env.filters["clock12"] = clock12
     return env.get_template("index.html").render(
         status=svc.status(), config=svc.config, version="test", generated=[])
 

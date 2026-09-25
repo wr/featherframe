@@ -81,7 +81,7 @@ def test_the_overnight_collage_is_quiet_hours_itself(client):
     html = client.get("/").text
     assert 'name="quiet_hours_render_collage"' not in html
     # Its section is Collage's, and the AI copy points at the docs.
-    collage = html.split('<h2 class="sec-head">Collage</h2>')[1].split("</section>")[0]
+    collage = html.split('id="set-collage"')[1].split('<details class="disc set')[0]
     assert collage.count('name="quiet_hours_mode"') == 3      # Off / sun / custom
     assert "wiki/AI-illustrations" in html and ">Learn</a>" in html
     # Region is a household setting (W-702): North America, Gould's Europe or

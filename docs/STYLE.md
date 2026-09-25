@@ -43,8 +43,12 @@ page is a copy of this file; this file wins if they disagree.
 - **American spelling** in anything an owner reads: color, gray. Code and
   internal notes may use either.
 - **Typography.** Sentence case for headings, labels and buttons. En dash
-  for ranges (22:00–06:00, 1–5). 24-hour times. Curly quotes are optional;
-  be consistent within a page.
+  for number ranges (1–5). Curly quotes are optional; be consistent within
+  a page.
+- **Times, as people write them.** A 12-hour clock with AM and PM: 7:00 PM,
+  6:30 AM. A span of time takes an arrow: 10:00 PM → 6:00 AM, Sunset →
+  Sunrise. A recent moment is relative: just now, 4 min ago, 2 hours ago,
+  yesterday. Anything older is a date: 24 Sep.
 
 ## Lexicon
 
@@ -73,8 +77,8 @@ Use the left column. The right column is what not to say.
 | hosted | Featherframe run for you at app.featherframe.app. | cloud, SaaS |
 | check in | A frame asking the server for its picture. "Last checked in 5 min ago." | poll, fetch, ping |
 | Add, Ignore, Forget, Remove, Pair a frame | The frame list's actions. | approve, reject, replace, claim, adopt |
-| Hold, Release, Block, Repaint | The illustration's tools. | pin, lock, ban, rerender |
-| household settings | Settings shared by every frame. | global settings, config |
+| Refresh, Repaint, Manual override | The illustration's tools. | rerender, force, test detection |
+| household settings, Settings | Settings shared by every frame: the **Settings** card. | global settings, config |
 
 Proper names are spelled as their owners spell them: BirdNET, BirdNET-Pi,
 BirdNET-Go, BirdWeather, TRMNL, Kobo, Kindle, Wi-Fi, Audubon's *The Birds of

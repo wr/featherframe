@@ -41,6 +41,19 @@ log = logging.getLogger("featherframe.app")
 templates = Jinja2Templates(directory=str(paths.templates_dir()))
 
 
+def clock12(value) -> str:
+    """A time as people write it (docs/STYLE.md): "22:00" or a datetime ->
+    "10:00 PM". Anything else comes back as it was."""
+    try:
+        t = value if hasattr(value, "hour") else datetime.strptime(str(value), "%H:%M")
+    except ValueError:
+        return str(value)
+    return f"{t.hour % 12 or 12}:{t.minute:02d} {'AM' if t.hour < 12 else 'PM'}"
+
+
+templates.env.filters["clock12"] = clock12
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # A hosted household's server (W-844) starts from the household's own data
@@ -620,6 +633,7 @@ async def index(request: Request):
     spend = await run_in_threadpool(genart.spend_for_month)
     history = await run_in_threadpool(svc.render_history)
     collage_days = await run_in_threadpool(svc.collage_days)
+    push_setup = await run_in_threadpool(_push_setup, svc.source)
     # `config` is the household's and only the household's (W-833): what a
     # frame is drawn with lives on that frame's own row, and the Frames card
     # is the only place any of it is set.
@@ -627,7 +641,7 @@ async def index(request: Request):
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
          "generated": generated, "spend": spend,
-         "history": history, "collage_days": collage_days,
+         "history": history, "collage_days": collage_days, "push_setup": push_setup,
          "fw_about": {**svc.releases.about(), "version": svc.releases.version()},
          # A hosted household's page (W-845): frames are paired by the code on
          # their glass, and there is someone signed in to sign out.
@@ -666,7 +680,15 @@ async def save_settings(request: Request):
         v = form.get(key)
         return v if isinstance(v, str) else default
     def i(key, default): return _to_int(s(key, None), default)
-    def b(key): return key in form  # checkbox present -> true
+    # A section's form posts only its own fields (W-878). A switch posts a
+    # hidden "0" before its checkbox, so absent means "not on this form" and
+    # keeps the stored value; a bare checkbox (the clear-key boxes) is true
+    # when present.
+    def b(key, default=False):
+        vals = [v for v in form.getlist(key) if isinstance(v, str)]
+        if not vals:
+            return default
+        return vals[-1] not in ("", "0", "off", "false")
     # An empty limit means no limit, which is stored as 0.
     def limit(key, default):
         raw = s(key, None)
@@ -675,8 +697,9 @@ async def save_settings(request: Request):
     # than being coerced to some other time or reset to the default.
     def t(key, default): return s(key, default) if valid_hhmm(s(key, None)) else default
 
-    blocklist_raw = s("species_blocklist", "")
-    blocklist = [x.strip() for x in blocklist_raw.replace(",", "\n").splitlines() if x.strip()]
+    blocklist_raw = s("species_blocklist", None)
+    blocklist = (cur["species_blocklist"] if blocklist_raw is None else
+                 [x.strip() for x in blocklist_raw.replace(",", "\n").splitlines() if x.strip()])
 
     new = Config(
         # Kept as they were. Nothing reads the household's copy of a frame's
@@ -697,9 +720,9 @@ async def save_settings(request: Request):
         # and only ever replaced whole (POST /api/ingest/token).
         ingest_token=cur["ingest_token"],
         collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
-        imagegen_enabled=b("imagegen_enabled"),
-        collage_generated=b("collage_generated"),
-        firmware_auto_update=b("firmware_auto_update"),
+        imagegen_enabled=b("imagegen_enabled", cur["imagegen_enabled"]),
+        collage_generated=b("collage_generated", cur["collage_generated"]),
+        firmware_auto_update=b("firmware_auto_update", cur["firmware_auto_update"]),
         # A hosted household's email is its account's, which the Worker
         # changes (with a confirmation) before this form reaches us.
         # A blank field keeps it.
@@ -744,8 +767,11 @@ async def save_settings(request: Request):
     # Config.sanitize() clamps silently; tell the page which fields it changed
     # so the user isn't left staring at a different number than they typed.
     adjusted = _adjusted_fields(form, svc.config)
-    response = RedirectResponse("/?saved=1" + ("&adjusted=" + ",".join(adjusted) if adjusted else ""),
-                                status_code=303)
+    # The section that was saved opens again on the page it lands on.
+    section = s("section", "")
+    opened = "&open=" + section if re.fullmatch(r"[a-z]{1,20}", section or "") else ""
+    response = RedirectResponse("/?saved=1" + ("&adjusted=" + ",".join(adjusted) if adjusted else "")
+                                + opened, status_code=303)
     if new_session:
         _session_cookie(response, request, new_session)
     return response
@@ -1465,6 +1491,23 @@ async def collage_day_png(request: Request, day: str):
                         filename=f"featherframe-collage-{day}.png")
 
 
+def _push_setup(source) -> Optional[dict]:
+    """What a push source (BirdNET-Go, BirdNET-Pi) has received, for its setup
+    steps (W-878): how many detections, and when its channel test arrived.
+    None for a source that is not pushed to. Never raises."""
+    try:
+        if not hasattr(source, "test_at"):
+            return None
+        n = source.max_rowid() if hasattr(source, "max_rowid") else 0
+        test_at = None
+        if source.test_at:
+            t = datetime.fromisoformat(source.test_at)
+            test_at = clock12(t) if t.date() == datetime.now().date() else f"{t.day} {t:%b}"
+        return {"received": n, "test_at": test_at}
+    except Exception:  # noqa: BLE001 — a diagnostic never breaks the page
+        return None
+
+
 def _source_test(source, backend: str) -> dict:
     """Describe what a detection source reports. Never raises."""
     try:
@@ -1474,8 +1517,8 @@ def _source_test(source, backend: str) -> dict:
             test_at = getattr(source, "test_at", None)
             if test_at:
                 t = datetime.fromisoformat(test_at)
-                when = (t.strftime("%H:%M") if t.date() == datetime.now().date()
-                        else t.strftime("%-d %b, %H:%M"))
+                when = (clock12(t) if t.date() == datetime.now().date()
+                        else f"{t.day} {t:%b}, {clock12(t)}")
                 detail += f" Test received {when}."
             return {"ok": True, "detail": detail}
         if not source.available():

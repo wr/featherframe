@@ -319,7 +319,9 @@ def test_a_collage_is_kept_a_week_to_download(client, svc):
     assert client.get("/api/collages/2026-09-01.png").status_code == 404   # pruned
     assert client.get("/api/collages/..%2Fx.png").status_code == 404
     html = client.get("/").text
-    assert "Past collages" in html and 'download="featherframe-collage-2026-09-10.png"' in html
+    # Kept under Settings, in the same list as generated illustrations (W-878).
+    kept = html.split('id="set-collages"')[1]
+    assert ">Generated collages<" in kept and 'download="featherframe-collage-2026-09-10.png"' in kept
 
 
 def test_the_colour_collage_is_the_one_kept(svc):

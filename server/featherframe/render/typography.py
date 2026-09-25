@@ -369,7 +369,19 @@ def roman(n: int) -> str:
     return "".join(out)
 
 
-def _plate_mark_parts(plate: int) -> tuple[str, str]:
+def _volume_numeral(volume_no) -> str:
+    """2 or "II" -> "II"; a volume with a name of its own ("Supp.") as it is."""
+    if isinstance(volume_no, int) or str(volume_no).isdigit():
+        return roman(int(volume_no))
+    return str(volume_no)
+
+
+def _plate_mark_parts(plate: int, volume_no=None) -> tuple[str, str]:
+    """A folio numbered per volume (W-874) is cited by volume and number, as
+    Gould's own lists cite it ("Australia, ii. pl. 18"): "Plate II. 18"."""
+    if volume_no not in (None, ""):
+        vol = _volume_numeral(volume_no)
+        return f"{theme.PLATE_PREFIX} ", f"{vol} {plate}" if vol.endswith(".") else f"{vol}. {plate}"
     return f"{theme.PLATE_PREFIX} ", roman(plate)
 
 
@@ -380,18 +392,19 @@ def _numeral_width(numeral: str) -> float:
     return _len(font, numeral)
 
 
-def plate_mark_width(plate: int) -> float:
-    prefix, numeral = _plate_mark_parts(plate)
+def plate_mark_width(plate: int, volume_no=None) -> float:
+    prefix, numeral = _plate_mark_parts(plate, volume_no)
     return script_width(prefix, theme.CORNER_SIZE) + _numeral_width(numeral)
 
 
-def plate_mark(field: Image.Image, plate: int) -> float:
+def plate_mark(field: Image.Image, plate: int, volume_no=None) -> float:
     """"Plate CLIX" in the bottom-right corner: the folio's plate number (the
     Havell number for an Audubon plate, W-821; Gould's General List number for
-    one of his, W-702). "Plate" is in the corner marks'
+    his Europe, W-702; volume and number for a folio numbered per volume,
+    W-874, "Plate II. 18"). "Plate" is in the corner marks'
     script; the numeral is in the engraved capitals, because a run of script
     capitals is a run of swashes nobody can read. Returns the mark's width."""
-    prefix, numeral = _plate_mark_parts(plate)
+    prefix, numeral = _plate_mark_parts(plate, volume_no)
     right = theme.WIDTH - theme.CORNER_INSET
     font = engraved(theme.PLATE_NUMERAL_SIZE)
     if font is None:
@@ -409,8 +422,12 @@ def plate_mark(field: Image.Image, plate: int) -> float:
 @lru_cache(maxsize=1)
 def plate_mark_max_width() -> float:
     """The widest mark any folio's plate can carry (CCCCXXXVIII, give or take
-    the face's own widths): what the footnote must leave room for."""
-    return max(plate_mark_width(n) for n in range(1, theme.MAX_PLATE + 1))
+    the face's own widths), or by volume ("Plate VIII. 108"): what the
+    footnote must leave room for."""
+    running = (plate_mark_width(n) for n in range(1, theme.MAX_PLATE + 1))
+    by_volume = (plate_mark_width(n, v) for v in theme.VOLUMES
+                 for n in range(1, theme.MAX_VOLUME_PLATE + 1))
+    return max(*running, *by_volume)
 
 
 def first_ever_rule(field: Image.Image) -> None:

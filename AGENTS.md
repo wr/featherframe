@@ -538,7 +538,18 @@ Container restarts); D1 schema in `hosted/migrations/`.
   names its `region`: Havell `north-america`, Gould `europe`), then the rest
   in the index's order, Havell first. It reorders, never filters, and a
   folio's `plate: none` hands the species on to the next folio, never to a
-  guess. A Region change is drawn by the next tick (`_region_redraw`). The AI's style references are Havell
+  guess. A Region change is drawn by the next tick (`_region_redraw`).
+  A folio whose header says `plates_per_volume: true` (W-874: Gould's
+  Australia, Asia and Great Britain print a List of Plates per volume) gives
+  each species a `volume_no` (2, "II" or "Supp.") beside its `plate`; the
+  index, the library, `PlateMatch` and `Artwork` carry it, and the corner mark
+  cites it as his lists do, "Plate II. 18" (narrower than Havell's widest, so
+  the footnote and every Havell render stand; a test holds it). A header's
+  `volume_margins: {<volume id>: [l, t, r, b]}` gives a volume whose binding
+  shows (a gutter, a gilt edge) its own margins: a plate's `margins`, then its
+  volume's, then the folio's, resolved by `fetch_scans` into each index record
+  (`scan_margins`), so neither the runtime nor the library looks them up.
+  Margins are upright coordinates: a landscape volume needs its own. The AI's style references are Havell
   plates only (`genart._havell_species`), because its prompts name the Havell
   edition. `test_crosswalk.py` guards the tricky numbers.
   `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General

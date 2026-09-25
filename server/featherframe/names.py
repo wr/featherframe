@@ -89,6 +89,7 @@ class PlateMatch:
     folio: str = DEFAULT_FOLIO
     margins: Optional[list] = None   # the part of the sheet kept, or None = Havell's
     tight: bool = False              # crop to the art's own box (a sparse folio's sheets)
+    volume_no: Optional[Any] = None  # the volume, when the folio numbers plates per volume
 
     @property
     def has_image(self) -> bool:
@@ -217,6 +218,7 @@ class SpeciesIndex:
                 folio=folio_of(entry),
                 margins=entry.get("margins"),
                 tight=bool(entry.get("tight")),
+                volume_no=entry.get("volume_no"),
             )
             # A scan missing on disk degrades to the next folio, then the
             # fallback, rather than crash.

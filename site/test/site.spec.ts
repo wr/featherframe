@@ -119,6 +119,38 @@ test('the card follows the frame from one species to the next', async ({ page })
   await expect(page.locator('#stage canvas')).toHaveCount(1, { timeout: 20_000 });
   await expect(page.locator('#label .label-name')).toHaveText('Northern Cardinal', { timeout: 20_000 });
   await expect(page.locator('#label .label-heard')).toHaveText('Heard at 9:02 this morning');
+  // It changed as the Cardinal arrived, before the refresh settled on it…
+  expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
+  // …and the settle that follows leaves it where it is.
+  await expect(page.locator('#stage')).toHaveAttribute('data-shown', '1', { timeout: 20_000 });
+  await expect(page.locator('#label .label-name')).toHaveText('Northern Cardinal');
+});
+
+test('the phone menu opens the section links and closes', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const button = page.getByRole('button', { name: 'Menu' });
+  const menu = page.locator('#menu');
+  await expect(page.locator('.links')).toBeHidden();
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await expect(menu).toBeHidden();
+  await button.click();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu.getByRole('link')).toHaveText(['How it works', 'The art', 'Sizes', 'FAQ', 'Sign in']);
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(button).toBeFocused();
+  await button.click();
+  await menu.getByRole('link', { name: 'Sizes' }).click();
+  await expect(menu).toBeHidden();
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await expect(page).toHaveURL(/#sizes$/);
+});
+
+test('the menu button is only on narrow screens', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Menu' })).toBeHidden();
+  await expect(page.locator('.links')).toBeVisible();
 });
 
 test('the 10-inch switch swaps the frame', async ({ page }) => {

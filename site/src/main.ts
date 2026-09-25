@@ -23,18 +23,28 @@ let data: SiteData | undefined;
 let size: '13' | '10' = '13';
 let viewer: { dispose(): void } | undefined;
 let generation = 0;
+/** The species the card names now (or is changing to). */
+let showing = 0;
 
+/** Change the card to species `i`. The frame calls this twice per change: as
+ *  the new picture arrives mid-refresh, and again once it settles (a no-op
+ *  unless the first call was missed). */
 function showSpecies(i: number) {
+  if (i === showing) return;
+  showing = i;
   const s = data!.species[i];
   label.classList.add('changing');
   window.setTimeout(() => {
     // Each word keeps together, so a long name breaks between words, never at a hyphen.
-    nameEl.replaceChildren(...s.name.split(' ').flatMap((w, i) => {
+    const text = document.createElement('span');
+    text.className = 'name-text';
+    text.append(...s.name.split(' ').flatMap((w, i) => {
       const span = document.createElement('span');
       span.className = 'word';
       span.textContent = w;
       return i ? [' ', span] : [span];
     }));
+    nameEl.replaceChildren(text);
     nameEl.classList.toggle('label-name--long', isLongName(s.name));
     latinEl.textContent = s.latin;
     heardEl.textContent = heardText(s.heard);
@@ -46,11 +56,17 @@ async function mount() {
   const mine = ++generation;
   viewer?.dispose();
   viewer = undefined;
+  delete stage.dataset.shown;
   if (!data || reduced || !webgl) return;
   const { startViewer } = await import('./viewer');
   if (mine !== generation) return;
   try {
-    const v = await startViewer(stage, data.sizes[size], { holdMs, onShown: showSpecies, poster: params.has('poster') });
+    const v = await startViewer(stage, data.sizes[size], {
+      holdMs,
+      onArriving: showSpecies,
+      onShown: (i) => { stage.dataset.shown = String(i); showSpecies(i); },
+      poster: params.has('poster'),
+    });
     if (mine !== generation) v.dispose(); else viewer = v;
   } catch (e) {
     console.warn('featherframe: 3D frame unavailable', e);
@@ -81,8 +97,23 @@ const start = async () => {
 if (document.readyState === 'complete') void start();
 else addEventListener('load', () => void start(), { once: true });
 
+// The phone menu: the section links and Sign in, under the nav.
+const nav = document.querySelector<HTMLElement>('.nav')!;
+const menuBtn = nav.querySelector<HTMLButtonElement>('.menu-btn')!;
+const menu = document.getElementById('menu')!;
+const setMenu = (open: boolean) => {
+  menu.hidden = !open;
+  menuBtn.setAttribute('aria-expanded', String(open));
+  nav.classList.toggle('open', open);
+};
+menuBtn.addEventListener('click', () => setMenu(menu.hidden));
+menu.addEventListener('click', (e) => { if ((e.target as Element).closest('a')) setMenu(false); });
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !menu.hidden) { setMenu(false); menuBtn.focus(); }
+});
+matchMedia('(min-width: 821px)').addEventListener('change', (e) => { if (e.matches) setMenu(false); });
+
 // The nav's hairline appears once the page has scrolled.
-const nav = document.querySelector('.nav')!;
 const onScroll = () => nav.classList.toggle('scrolled', scrollY > 8);
 addEventListener('scroll', onScroll, { passive: true });
 onScroll();

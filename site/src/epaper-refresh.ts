@@ -1,4 +1,4 @@
-// Copied from wells/shop src/lib/epaper-refresh.ts (24 Sep 2026); additions: onShown, holdMs.
+// Copied from wells/shop src/lib/epaper-refresh.ts (24 Sep 2026); additions: onShown, onArriving, holdMs.
 // An e-paper frame refreshing between plates, for a model's "screen" material
 // (the Featherframe). Each refresh is drawn the way the panel paints: not a
 // crossfade but a waveform — a fixed sequence of whole-sheet drive phases,
@@ -81,6 +81,9 @@ interface Phase {
   from: 'old' | 'new';
   map?: RGB[];
   settled?: boolean;
+  /** The new picture is first recognisable as itself from this phase on:
+   *  when the refresh clock reaches its start, onArriving fires. One per waveform. */
+  arrives?: boolean;
 }
 interface WaveformSpec {
   phases: Phase[];
@@ -128,7 +131,9 @@ const WAVEFORMS: Record<Waveform, WaveformSpec> = {
       { ms: 170, from: 'old', map: [DIM, DIM] }, // the dark flash
       { ms: 170, from: 'old', map: [W, W] }, // white
       { ms: 150, from: 'new', map: [W, DIM] }, // the new picture's negative
-      { ms: 320, from: 'new', settled: true }, // the new picture
+      // the new picture. Its negative just before is only 150 ms of inverted
+      // grays, so the picture is first itself here.
+      { ms: 320, from: 'new', settled: true, arrives: true }, // the new picture
     ],
   },
   spectra6: {
@@ -152,8 +157,11 @@ const WAVEFORMS: Record<Waveform, WaveformSpec> = {
       { ms: 460, from: 'new', map: [K, W, K, W, K, K] },
       // …then its negative
       { ms: 350, from: 'new', map: [W, K, W, K, W, W] },
-      // the warm pigments land first; blue and green are still dark
-      { ms: 620, from: 'new', map: [K, W, R, Y, K, mix(K, Y, 0.3)] },
+      // the warm pigments land first; blue and green are still dark. The first
+      // phase that shows the new picture the right way round and in its own
+      // inks (the silhouette and negative before it are the picture's shape,
+      // not the picture), so a viewer recognises it from here.
+      { ms: 620, from: 'new', map: [K, W, R, Y, K, mix(K, Y, 0.3)], arrives: true },
       // a washed-out yellow flicker as the blue is pulled through
       { ms: 270, from: 'new', map: [mix(K, R, 0.35), mix(W, Y, 0.55), Y, W, mix(K, B, 0.5), mix(Y, G, 0.5)] },
       // blue and green arrive, dull
@@ -273,6 +281,10 @@ export function createEpaperRefresh(opts: {
   motionOk: () => boolean;
   /** Called with the plate's index once a refresh to it has settled. */
   onShown?: (index: number) => void;
+  /** Called once per refresh with the incoming plate's index, when the
+   *  refresh reaches the waveform's `arrives` phase: the moment the new
+   *  picture is first recognisable, well before it settles. */
+  onArriving?: (index: number) => void;
   /** How long each plate holds before the next refresh (default HOLD_MS). */
   holdMs?: number;
 }): EpaperRefresh {
@@ -374,10 +386,13 @@ export function createEpaperRefresh(opts: {
   // The first boundary waits until even the earliest pixel's crossing starts
   // after 0, so a refresh opens on the old plate rather than halfway out of it.
   let total = (wave.blend + wave.spread) / 2;
+  let arriveAt = -1;
   for (const p of wave.phases) {
+    if (p.arrives) arriveAt = total;
     starts.push(total);
     total += p.ms;
   }
+  if (arriveAt < 0) arriveAt = total;
   const setPhase = (suffix: 'A' | 'B', p: Phase) => {
     const u = material.uniforms;
     u[`uFrom${suffix}`].value = p.from === 'new' ? 1 : 0;
@@ -424,6 +439,7 @@ export function createEpaperRefresh(opts: {
   let lastDraw = -Infinity;
   let frozen: number | null = null;
   let timer = 0;
+  let arrived = false;
   /** The plate after the current one, skipping any that failed to load
    *  (the current one again when every other has). */
   const next = () => {
@@ -487,11 +503,16 @@ export function createEpaperRefresh(opts: {
         // The refresh opens at 0 whatever the gap since the loop last ran.
         mode = 'refresh';
         clock = 0;
+        arrived = false;
         lastDraw = -Infinity;
         material.uniforms.uOld.value = plates[current];
         material.uniforms.uNew.value = upNext;
       } else {
         clock += dt;
+      }
+      if (!arrived && clock >= arriveAt) {
+        arrived = true;
+        opts.onArriving?.(next());
       }
       if (clock >= total) {
         draw(total);

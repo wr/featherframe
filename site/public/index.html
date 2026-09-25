@@ -34,8 +34,15 @@
       <div class="nav-end">
         <a class="nav-signin" href="https://app.featherframe.app/">Sign in</a>
         <a class="btn btn-sm" href="https://shop.wells.ee/products/featherframe/">Pre-order</a>
+        <button class="menu-btn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="bar-a" d="M4.5 9h15"/><path class="bar-b" d="M4.5 15h15"/></svg>
+        </button>
       </div>
     </div>
+    <nav id="menu" class="menu" aria-label="Menu" hidden>
+      <a href="#how">How it works</a><a href="#art">The art</a><a href="#sizes">Sizes</a><a href="#faq">FAQ</a>
+      <a href="https://app.featherframe.app/">Sign in</a>
+    </nav>
   </header>
 
   <main>
@@ -58,7 +65,7 @@
             </div>
             <aside id="label" class="label">
               <p class="label-kicker">Heard near your home</p>
-              <p class="label-name">Common Nighthawk</p>
+              <p class="label-name"><span class="name-text"><span class="word">Common</span> <span class="word">Nighthawk</span></span></p>
               <p class="label-latin">Chordeiles minor</p>
               <p class="label-heard">Heard at 8:14 this morning</p>
               <div class="sizes-switch" role="group" aria-label="Size">
@@ -82,7 +89,7 @@
             <p>E-paper reflects light like a printed page and holds its picture without power.</p>
           </li>
           <li>
-            <span class="icon-tile"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.25 12.25 2.5 2.5 5-5.25"/></svg></span>
+            <span class="icon-tile"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12a7 7 0 1 1-2.05-4.95"/><path d="M17.25 3.75v3.5h-3.5"/><path d="M4.25 19.75 19.75 4.25"/></svg></span>
             <h3>No subscription</h3>
             <p>Hosting is included with every frame. No camera, and no app to install.</p>
           </li>
@@ -105,7 +112,7 @@
         </figure>
         <ol class="items steps">
           <li><span class="num">01</span><h3>It listens.</h3><p>A BirdWeather station near you, or your own BirdNET-Go box on the porch.</p></li>
-          <li><span class="num">02</span><h3>It finds the painting.</h3><p>One of 435 illustrations from <i class="nowrap">The Birds of America</i> (1827–38), matched to the species heard.</p></li>
+          <li><span class="num">02</span><h3>It finds the painting.</h3><p>One of 435 illustrations from <i>The Birds <span class="nowrap">of America</span></i> (1827–38), matched to the species heard.</p></li>
           <li><span class="num">03</span><h3>It updates the display.</h3><p>E-paper holds the picture without power, so the frame only wakes to change it.</p></li>
         </ol>
       </div>
@@ -134,6 +141,7 @@
           </div>
           <figure class="fig fig-collage">
             <img class="print" src="img/art/collage.webp" alt="A collage of the day's species on one sheet" loading="lazy" width="900" height="1200">
+            <div class="detail" aria-hidden="true"><img src="img/art/collage.webp" alt="" loading="lazy" width="900" height="1200"></div>
             <figcaption>Fig. 4 — A day's collage</figcaption>
           </figure>
         </div>
@@ -146,16 +154,17 @@
           <p class="eyebrow">03</p>
           <h2>Two sizes</h2>
           <p class="lead">The same walnut frame in two sizes. Choose sixteen shades of gray or six inks.</p>
+          <p class="head-actions"><a class="btn" href="https://shop.wells.ee/products/featherframe/">Pre-order</a></p>
         </header>
         <figure class="fig fig-sizes">
           <div class="shelf">
             <div class="size size-10">
               <div class="shot foot"><img src="img/poster-10.webp" alt="The 10-inch Featherframe, in sixteen grays" loading="lazy" width="1200" height="1400"></div>
-              <p class="spec"><b>10-inch</b><span>Sixteen grays · 232&nbsp;×&nbsp;295&nbsp;mm</span></p>
+              <p class="spec"><b>10-inch</b><span><span class="spec-part">Sixteen grays</span><span class="spec-sep"> · </span><span class="spec-part">232&nbsp;×&nbsp;295&nbsp;mm</span></span></p>
             </div>
             <div class="size size-13">
               <div class="shot foot"><img src="img/poster-13.webp" alt="The 13-inch Featherframe, in six inks" loading="lazy" width="1200" height="1400"></div>
-              <p class="spec"><b>13-inch</b><span>Six inks, full color · 295&nbsp;×&nbsp;371&nbsp;mm</span></p>
+              <p class="spec"><b>13-inch</b><span><span class="spec-part">Six inks, full color</span><span class="spec-sep"> · </span><span class="spec-part">295&nbsp;×&nbsp;371&nbsp;mm</span></span></p>
             </div>
           </div>
           <figcaption>Fig. 5 — Both sizes, to scale</figcaption>
@@ -165,7 +174,6 @@
           <li><h3>BirdNET-Go box</h3><p>Add one to detect the species in your own yard instead of at a nearby station.</p></li>
           <li><h3>Months per charge</h3><p>Charges over USB-C, or stays plugged in.</p></li>
         </ul>
-        <p class="section-cta"><a class="btn" href="https://shop.wells.ee/products/featherframe/">Pre-order</a></p>
       </div>
     </section>
 

@@ -541,6 +541,11 @@ Container restarts); D1 schema in `hosted/migrations/`.
   guess. A Region change is drawn by the next tick (`_region_redraw`). The AI's style references are Havell
   plates only (`genart._havell_species`), because its prompts name the Havell
   edition. `test_crosswalk.py` guards the tricky numbers.
+  The folios are published as an open dataset, github.com/wr/historical-bird-plates
+  (W-868, CC0): `server/scripts/export_dataset.py export|check|assets` writes it
+  (eBird 2025 names, Wikidata/GBIF/Avibase ids, BHL PageIDs, the Gould release
+  images); `test_export_dataset.py` holds it to the pins. A split since BirdNET's
+  taxonomy is sent to each folio's own daughter there (`EBIRD_NAMES_BY_FOLIO`).
   `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General
   List number (the plates were issued unnumbered); `volume` + `leaf` address
   the scan, fetched from BHL's public S3 bucket by the header's `scans`

@@ -1,7 +1,10 @@
 # Gould's *Birds of Europe*: how the folio was pinned (W-702)
 
-`server/scripts/folios/gould_europe.yaml` is the source of truth. These files are
-the working record behind it, kept so a pin can be traced and the rows left out
+`server/scripts/folios/gould_europe.yaml` is the source of truth for what
+Featherframe pins. The public record of every plate, with modern identifiers and
+the cleaned images, is [wr/historical-bird-plates](https://github.com/wr/historical-bird-plates)
+(`server/scripts/export_dataset.py` exports it, W-868). These files are
+the working record behind both, kept so a pin can be traced and the rows left out
 can be revisited:
 
 - `general-list.csv`: the General List of Plates, transcribed from vol. I

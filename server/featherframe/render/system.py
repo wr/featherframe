@@ -3,7 +3,7 @@
 A message is not a plate legend. Whatever the frame has to *tell* the owner
 (nothing heard, source unreachable, waiting for the first bird, this sheet
 was imagined) is set the way the firmware's own screens set it: Inter on a
-black rounded pill, an outlined pill with a slashed icon for an error, the
+black rounded pill (a slashed icon on it for an error: one style), the
 setup card's black box for a block of lines. The geometry here mirrors
 `firmware/tools/screens/bake_screens.py` so a server-drawn pill and a baked
 toast read as one family on the same panel.
@@ -29,7 +29,6 @@ TOAST_Y, RETRY_BASELINE, RETRY_TEXT = 1648, 1776, 28
 # The footer note between the corner marks: the same pill, two-thirds size.
 NOTE_H, NOTE_PAD, NOTE_TEXT = 52, 22, 24
 CARD_RADIUS = 24
-OUTLINE_W = 5
 
 
 @lru_cache(maxsize=16)
@@ -74,12 +73,11 @@ def wifi_slash(d: ImageDraw.ImageDraw, cx: float, cy: float, s: float, ink: int,
 # -- the pill ----------------------------------------------------------------
 def pill(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, *,
          h: int = PILL_H, pad: int = PILL_PAD, size: int = PILL_TEXT,
-         style: str = "solid", icon: Optional[str] = None,
+         icon: Optional[str] = None,
          max_w: Optional[float] = None, weight: str = "medium",
          tracking: float = 0.0) -> tuple[float, float]:
-    """One line in a rounded pill centred on (cx, cy). `style` "solid" is the
-    firmware's black toast (white type); "outline" is its error pill (paper,
-    ink outline, slashed icon). Shrinks the type rather than clip when wider
+    """One line in a black rounded pill centred on (cx, cy), white type: the
+    firmware's toast. An error carries a slashed `icon`. Shrinks the type rather than clip when wider
     than `max_w`. `tracking` is extra letter-spacing as a fraction of the
     size, for a short label in capitals. Returns the pill's x-extent."""
     ink, paper = theme.INK, theme.FIELD
@@ -95,13 +93,8 @@ def pill(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, *,
         size -= 1
     x0 = cx - w / 2
     box = [x0, cy - h / 2, x0 + w, cy + h / 2]
-    if style == "outline":
-        d.rounded_rectangle(box, radius=h / 2, fill=paper, outline=ink,
-                            width=max(2, round(OUTLINE_W * h / PILL_H)))
-        fg, bg = ink, paper
-    else:
-        d.rounded_rectangle(box, radius=h / 2, fill=ink)
-        fg, bg = paper, ink
+    d.rounded_rectangle(box, radius=h / 2, fill=ink)
+    fg, bg = paper, ink
     x = x0 + pad
     if icon:
         icx, s = x + icon_slot / 2, h * 0.27
@@ -123,17 +116,11 @@ def pill(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, *,
 
 def note_pill(d: ImageDraw.ImageDraw, text: str, kind: Optional[str], max_w: float) -> None:
     """The footer note between the date and plate marks, on the marks' own
-    line: a solid pill for information ("nothing heard"), an outlined
-    slashed one for a fault (the source is unreachable), outlined alone for
-    a fault with no icon of its own (the image model failed)."""
+    line: the black pill, with a slashed cloud when the source is
+    unreachable (`kind` "outage")."""
     cy = theme.MARKS_BASELINE - 9          # the script marks' x-height centre
-    if kind in ("outage", "imagegen"):
-        pill(d, theme.WIDTH / 2, cy, text, h=NOTE_H, pad=NOTE_PAD, size=NOTE_TEXT,
-             style="outline", icon="cloud" if kind == "outage" else None,
-             max_w=max_w)
-    else:
-        pill(d, theme.WIDTH / 2, cy, text, h=NOTE_H, pad=NOTE_PAD, size=NOTE_TEXT,
-             style="solid", max_w=max_w)
+    pill(d, theme.WIDTH / 2, cy, text, h=NOTE_H, pad=NOTE_PAD, size=NOTE_TEXT,
+         icon="cloud" if kind == "outage" else None, max_w=max_w)
 
 
 # -- the card ----------------------------------------------------------------

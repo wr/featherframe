@@ -468,8 +468,7 @@ def generated_mark(field: Image.Image, right_x: float) -> None:
 def note_line(field: Image.Image, text: str, max_w: float = theme.CONTENT_W,
               kind: Optional[str] = None) -> None:
     """The footnote between the corner marks: a system-voice pill (W-741),
-    solid for information ("nothing heard"), outlined and slashed for a
-    fault (`kind` "outage"). Shrinks rather than clips if wider than `max_w`
+    with a slashed cloud for an unreachable source (`kind` "outage"). Shrinks rather than clips if wider than `max_w`
     (the room between the marks)."""
     from . import system   # late: system imports this module for the card's fonts
     system.note_pill(ImageDraw.Draw(field), text, kind, max_w)

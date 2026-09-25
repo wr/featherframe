@@ -15,12 +15,12 @@ there is no separate onboarding checklist.
 - The plate (e.g. American Goldfinch from `10.0.2.15:8090`) loads ~10–12 s after
   "Downloading…" (server render + transfer time).
 - Button toasts are baked pills too (`toast_assets`): in-progress toasts carry the
-  sweeping mark, "Up to date" a check, failures the outlined+slashed language — all
+  sweeping mark, "Up to date" a check, failures a slashed icon; every pill is black — all
   pushed as DU tiles at the toast band over the plate margin (the old GFX-font
   1-bit toast path is gone). Dark mode is gone (W-821): nothing baked is ever
   inverted. Type keeps clear of the mat (~4%/edge); art bleeds.
-- Error states (W-587): a dead-ended attempt swaps the pill band in place (outlined
-  pill + slashed icon; HTTP 503 keeps the solid pill as "Waiting for the first bird")
+- Error states (W-587): a dead-ended attempt swaps the pill band in place (the black
+  pill with a slashed icon; HTTP 503 has no icon: "Waiting for the first bird")
   with a "Trying again in N min" line beneath; over a painted plate only a small
   slashed glyph appears in the margin corner past ≥4 fails and ≥30 min. Backoff:
   deep-sleep 1→5→15 min capped (RTC-tracked); always-awake 15 s→60 s. The portal

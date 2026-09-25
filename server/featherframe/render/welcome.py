@@ -124,6 +124,6 @@ def render_welcome(since: datetime, source_ok: bool,
         system.line(draw, cx, system.TOAST_Y + system.PILL_H * 0.72, SOURCE_UP_HINT, size=30)
     else:
         system.pill(draw, cx, system.TOAST_Y + system.PILL_H / 2, SOURCE_DOWN,
-                    style="outline", icon="cloud", max_w=theme.CONTENT_W)
+                    icon="cloud", max_w=theme.CONTENT_W)
         system.line(draw, cx, system.RETRY_BASELINE, SOURCE_DOWN_HINT, size=system.RETRY_TEXT)
     return field

@@ -139,35 +139,36 @@ def draw_loader_mark(draw, cx, cy, frame=0):
         if k != frame:
             diamond(draw, x, cy, LOADER_R - 3.5, fill=0)
 
-def slash(draw, cx, cy, s):
-    # white casing under the black stroke so the slash reads over any glyph
-    draw.line([(cx - s, cy + s), (cx + s, cy - s)], fill=255, width=14)
-    draw.line([(cx - s, cy + s), (cx + s, cy - s)], fill=0, width=6)
+def slash(draw, cx, cy, s, fg=0, bg=255):
+    # a casing in the pill's own colour under the stroke, so the slash reads
+    # over any glyph
+    draw.line([(cx - s, cy + s), (cx + s, cy - s)], fill=bg, width=14)
+    draw.line([(cx - s, cy + s), (cx + s, cy - s)], fill=fg, width=6)
 
-def wifi_slash(draw, cx, cy, s):
-    wifi_glyph(draw, cx, cy + s * 0.55, s, fill=0)
-    slash(draw, cx, cy, s * 0.78)
+def wifi_slash(draw, cx, cy, s, fg=0, bg=255):
+    wifi_glyph(draw, cx, cy + s * 0.55, s, fill=fg)
+    slash(draw, cx, cy, s * 0.78, fg, bg)
 
-def cloud_slash(draw, cx, cy, s):
+def cloud_slash(draw, cx, cy, s, fg=0, bg=255):
     # A solid cloud (union of lobes over a flat base) reads at small sizes
     # where an outlined rack of boxes turns to mush.
     lobes = [(cx - 0.52 * s, cy + 0.10 * s, 0.38 * s),
              (cx + 0.02 * s, cy - 0.18 * s, 0.52 * s),
              (cx + 0.55 * s, cy + 0.12 * s, 0.36 * s)]
     for (x, y, r) in lobes:
-        draw.ellipse([x - r, y - r, x + r, y + r], fill=0)
+        draw.ellipse([x - r, y - r, x + r, y + r], fill=fg)
     draw.rounded_rectangle([cx - 0.72 * s, cy + 0.05 * s, cx + 0.80 * s, cy + 0.48 * s],
-                           radius=int(0.2 * s), fill=0)
-    slash(draw, cx, cy, s * 0.95)
+                           radius=int(0.2 * s), fill=fg)
+    slash(draw, cx, cy, s * 0.95, fg, bg)
 
-def battery_low(draw, cx, cy, s):
+def battery_low(draw, cx, cy, s, fg=0):
     """A nearly empty cell: outlined body, terminal nub, one sliver of charge."""
     w, h = s * 2.1, s * 1.15
     x0, y0 = cx - w / 2 - 2, cy - h / 2
-    draw.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=6, outline=0, width=4)
+    draw.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=6, outline=fg, width=4)
     draw.rounded_rectangle([x0 + w + 1, cy - h * 0.22, x0 + w + 6, cy + h * 0.22],
-                           radius=2, fill=0)
-    draw.rectangle([x0 + 8, y0 + 8, x0 + 8 + w * 0.16, y0 + h - 8], fill=0)
+                           radius=2, fill=fg)
+    draw.rectangle([x0 + 8, y0 + 8, x0 + 8 + w * 0.16, y0 + h - 8], fill=fg)
 
 def new_canvas():
     c = Image.new("L", (W, H), 255)
@@ -542,11 +543,11 @@ def _draw_error_pill(d, text, kind):
     px = int(W / 2 - pillw / 2)
     cy = PILL_Y + PILL_H / 2
     d.rounded_rectangle([px, PILL_Y, px + pillw, PILL_Y + PILL_H],
-                        radius=PILL_H / 2, fill=255, outline=0, width=5)
-    _err_icon(kind)(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22)
+                        radius=PILL_H / 2, fill=0)
+    _err_icon(kind)(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22, fg=255, bg=0)
     capbox = fnt.getbbox("H")
     d.text((px + 26 + ERR_ICON_SLOT + 18, cy + (capbox[3] - capbox[1]) / 2),
-           text, font=fnt, fill=0, anchor="ls")
+           text, font=fnt, fill=255, anchor="ls")
 
 def _draw_wait_pill(d, text=None):
     text = text or WAIT_TEXT
@@ -618,7 +619,7 @@ def error_assets():
 # They are now baked exactly like the boot pills (Inter, same geometry) at the
 # toast position over the plate's bottom margin, pushed as windowed DU tiles:
 # in-progress toasts carry the loading mark (the firmware sweeps it), success
-# carries a check, failures use the outlined+slashed error language.
+# carries a check, failures a slashed icon. Every pill is black (one style).
 TOAST_Y = 1648            # same rest position as the boot pills
 LOW_BATTERY_TEXT = "Battery low, charge me"
 TOASTS = [
@@ -646,19 +647,19 @@ def _draw_toast(d, text, style):
         pillw = int(26 + ERR_ICON_SLOT + 18 + tw + 30)
         px = int(W / 2 - pillw / 2)
         d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
-                            radius=PILL_H / 2, fill=255, outline=0, width=5)
-        cloud_slash(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22)
-        d.text((px + 26 + ERR_ICON_SLOT + 18, baseline), text, font=fnt, fill=0, anchor="ls")
+                            radius=PILL_H / 2, fill=0)
+        cloud_slash(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22, fg=255, bg=0)
+        d.text((px + 26 + ERR_ICON_SLOT + 18, baseline), text, font=fnt, fill=255, anchor="ls")
         return None
     if style == "battery":
-        # A standing state, not an action: the outlined error language, with a
-        # nearly empty cell where the slashed cloud sits.
+        # A standing state, not an action: a nearly empty cell where a
+        # failure's slashed cloud sits.
         pillw = int(26 + ERR_ICON_SLOT + 18 + tw + 30)
         px = int(W / 2 - pillw / 2)
         d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
-                            radius=PILL_H / 2, fill=255, outline=0, width=5)
-        battery_low(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22)
-        d.text((px + 26 + ERR_ICON_SLOT + 18, baseline), text, font=fnt, fill=0, anchor="ls")
+                            radius=PILL_H / 2, fill=0)
+        battery_low(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22, fg=255)
+        d.text((px + 26 + ERR_ICON_SLOT + 18, baseline), text, font=fnt, fill=255, anchor="ls")
         return None
     if style == "wifi":
         # The setup-portal announcement over a plate: the setup card's hotspot
@@ -731,8 +732,8 @@ def write_header():
          f"#define FF_LOADER_NH      {TILE_W}   // native px (portrait w)",
          "#define FF_LOADER_BYTES   (FF_LOADER_NW / 2 * FF_LOADER_NH)", "",
          "// Error-state tiles (see the error-states section of the bake).",
-         "// ff_err_tiles: 0 = can't reach Wi-Fi (outlined + slashed wifi),",
-         "// 1 = can't reach server (outlined + slashed server), 2 = waiting",
+         "// ff_err_tiles: 0 = can't reach Wi-Fi (slashed wifi),",
+         "// 1 = can't reach server (slashed server), 2 = waiting",
          "// for the first bird (solid pill, parked mark), 3 = add this frame on",
          "// the server page (the server serves another frame). The window also",
          "// erases whichever normal pill it replaces.",

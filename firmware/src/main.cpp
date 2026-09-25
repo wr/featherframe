@@ -327,8 +327,8 @@ static void loaderTask(void*) {
 
 // ---------------------------------------------------------------- error states
 // Failure presentation (design: Linear W-587). On a boot pill screen the pill
-// band is swapped in place — outlined pill + slashed icon for real errors, the
-// solid pill for "waiting for the first bird" — with a "Trying again …" line
+// band is swapped in place — the black pill with a slashed icon for real
+// errors, without one for "waiting for the first bird" — with a "Trying again …" line
 // beneath. Over a painted plate only a small slashed glyph appears in the
 // margin corner, and only past the FF_MARK_* thresholds. All tiles are baked
 // pure black/white and pushed as windowed DU partials (no flash). The state

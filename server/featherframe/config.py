@@ -187,8 +187,9 @@ class Config:
     imagegen_text_provider: str = ""
     imagegen_text_key: str = ""                # key for the text provider when it differs
     imagegen_text_base_url: str = "http://localhost:11434"  # "local" text provider base URL
-    # The nightly collage as one generated composite plate (the
-    # folio's totem manner). Once per date; the grid collage is the fallback.
+    # Every collage as one generated composite plate (the folio's totem
+    # manner), bought again only when the day's species change; the grid
+    # collage is the fallback.
     collage_generated: bool = True
     # How many of the day's species the generated sheet carries, most-heard
     # first. 0 = every species heard that day. The grid fallback always holds six.

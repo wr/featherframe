@@ -369,6 +369,17 @@ def scan_filename(folio: str, entry: dict) -> str:
     return f"{folio}/{entry['volume']}-{int(entry['leaf']):04d}.jpg"
 
 
+def scan_margins(entry: dict, header: dict):
+    """The part of an upright sheet kept before the crop: the plate's own
+    `margins`, else its volume's (`volume_margins`, keyed by the entry's
+    `volume`: a binding's gutter or gilt edge shows on some volumes and not
+    others), else the folio's. Resolved here, so the index carries the answer
+    and the runtime and the plate library never look it up."""
+    return (entry.get("margins")
+            or (header.get("volume_margins") or {}).get(entry.get("volume"))
+            or header.get("margins"))
+
+
 def _paper_surface(small):
     """The paper's own tone across the sheet, per channel: a quadratic surface
     fitted to the paper pixels only (those not much darker than the fit,
@@ -446,10 +457,11 @@ def fetch_scans(folio: str):
                 "common": common,
                 "scientific": entry.get("scientific", ""),
                 "plate": entry.get("plate"),
+                "volume_no": entry.get("volume_no") if header.get("plates_per_volume") else None,
                 "title": entry.get("gould_title") or entry.get("title", ""),
                 "composite": bool(entry.get("composite", False)),
                 "crop_box": entry.get("crop_box"),
-                "margins": entry.get("margins") or header.get("margins"),
+                "margins": scan_margins(entry, header),
                 "tight": bool(entry.get("tight", header.get("tight", False))),
                 "sci_synonyms": entry.get("sci_synonyms", []),
                 "image": None,

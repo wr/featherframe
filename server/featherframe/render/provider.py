@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 from PIL import Image
 
@@ -26,6 +26,7 @@ log = logging.getLogger("featherframe.provider")
 class Artwork:
     image: Image.Image          # grayscale 'L', the bird art (no caption)
     plate: Optional[int] = None   # the folio's own plate number, if any
+    volume_no: Optional[Union[int, str]] = None   # its volume, where a folio numbers per volume (2, "Supp.")
     folio: Optional[str] = None   # the folio the plate is from ("havell"), if any
     composite: bool = False
     generated: bool = False     # True when the art is AI-generated, not a scan
@@ -108,7 +109,7 @@ class PlateProvider(ArtProvider):
             log.warning("plate extract failed for %s (%s): %s",
                         common_name, match.image_path, exc)
             return None
-        return Artwork(image=img, plate=match.plate_number, folio=match.folio,
+        return Artwork(image=img, plate=match.plate_number, volume_no=match.volume_no, folio=match.folio,
                        composite=match.composite,
                        legend=list(match.legend),
                        color_loader=lambda: plate.extract_color(

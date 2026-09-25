@@ -76,6 +76,10 @@ MARKS_BASELINE = HEIGHT - 30
 PLATE_PREFIX = "Plate"         # then the folio's plate number, in roman as engraved
 PLATE_NUMERAL_SIZE = 22        # the numeral's engraved capitals, beside the 28 script
 MAX_PLATE = 449                # the highest plate number in any folio (Gould's Europe)
+# A folio numbered per volume (W-874): the volumes any has, and the most
+# plates in one (Gould's Australia II and IV have 104).
+VOLUMES = tuple(range(1, 9)) + ("Supp.",)
+MAX_VOLUME_PLATE = 110
 CORNER_SEP = "·"               # between date and time ("1 Sep · 8:14 am")
 COLON_KERN = 0.0               # pulls the run after a colon in, fraction of size
                                # (Kapakana needed -0.12; Pinyon is kerned, so 0)

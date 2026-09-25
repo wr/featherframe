@@ -193,7 +193,7 @@ def _render_art(spec: SingleSpec, art: Artwork, color: bool = False) -> Image.Im
     # number on a scan, a ✦ on a synthetic sheet, which never passes as one
     # (W-733). The bough of a species with no plate at all carries neither.
     if art.plate:
-        typography.plate_mark(field, art.plate)
+        typography.plate_mark(field, art.plate, art.volume_no)
     elif art.generated:
         typography.generated_mark(field, theme.WIDTH - theme.CORNER_INSET)
     if spec.first_ever and not first_line:

@@ -992,7 +992,7 @@ async def api_block_current(request: Request):
     before = svc.current_etag()
     name = await run_in_threadpool(svc.block_current)   # refreshes: a render
     if name is None:
-        return JSONResponse({"ok": False, "error": "No single plate is showing."},
+        return JSONResponse({"ok": False, "error": "No single illustration is showing."},
                             status_code=409)
     cur = svc.current_info()
     return JSONResponse({"ok": True, "blocked": name, "etag": cur["etag"],
@@ -1110,11 +1110,11 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
     # Fire-and-forget: the generation runs in a service worker thread and the
     # page polls /api/generated for the outcome, so this returns immediately.
     # Threadpool only for the small cache-listing read (SD cards stall).
-    ok, error = False, "Not a valid plate name."
+    ok, error = False, "Not a valid illustration name."
     if _valid_slug(slug):
         listing = {m.get("slug"): m for m in await run_in_threadpool(svc.generated_listing)}
         if slug not in listing:
-            error = "No cached plate by that name."
+            error = "No saved illustration by that name."
         elif listing[slug].get("regenerating"):
             error = "Already regenerating."
         elif not svc.config.imagegen_enabled:
@@ -1123,7 +1123,7 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
             error = "Too many repaints this hour. Try again later."
         else:
             ok = await run_in_threadpool(svc.start_regenerate, slug)
-            error = None if ok else "Could not start — is this plate still on file?"
+            error = None if ok else "Could not start — is this illustration still on file?"
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": ok, "error": error})
@@ -1134,14 +1134,14 @@ async def generated_delete(request: Request, slug: str = Form(...)):
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
-    ok, error = False, "Not a valid plate name."
+    ok, error = False, "Not a valid illustration name."
     if _valid_slug(slug):
         listing = {m.get("slug"): m for m in await run_in_threadpool(svc.generated_listing)}
         if listing.get(slug, {}).get("regenerating"):
             error = "Still regenerating — try again when it finishes."
         else:
             ok = await run_in_threadpool(svc.delete_generated, slug)
-            error = None if ok else "No cached plate by that name."
+            error = None if ok else "No saved illustration by that name."
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": ok, "error": error})
@@ -1190,7 +1190,7 @@ async def generated_import(request: Request, backup: UploadFile = File(...)):
     result = {"restored": 0, "kept": 0, "skipped": 0}
     error = None
     if not svc.genart:
-        error = "Generated plates are not available on this install."
+        error = "Generated illustrations are not available on this install."
     else:
         try:
             result = await run_in_threadpool(_import_upload, svc, backup)

@@ -868,7 +868,7 @@
              disclosure. #}
           {% set uh = status.hold %}
           <div class="held" id="held-line" data-for="plates" {{ '' if uh else 'hidden' }}>
-            <span class="held-text">Holding this plate <span id="held-until">{{ uh.until_text if uh else '' }}</span></span>
+            <span class="held-text">Holding this illustration <span id="held-until">{{ uh.until_text if uh else '' }}</span></span>
             <button class="btn" type="button" id="release-btn" title="End the hold and show whatever should be on the wall now">Release</button>
           </div>
           <div class="task-status" id="task-status" role="status" aria-live="polite"></div>
@@ -891,9 +891,9 @@
                 </div>
               </div>
               <div class="frow" id="hold-ctl" data-for="plates" {{ 'hidden' if uh else '' }}>
-                <div class="frow-text"><span class="lab">Keep this plate up</span><div class="hint">Until the hold ends, then the latest detection takes over.</div></div>
+                <div class="frow-text"><span class="lab">Keep this illustration up</span><div class="hint">Until the hold ends, then the latest detection takes over.</div></div>
                 <div class="frow-ctl">
-                  <select class="sel hold-dur" id="hold-dur" aria-label="Hold this plate for">
+                  <select class="sel hold-dur" id="hold-dur" aria-label="Hold this illustration for">
                     <option value="day">a day</option>
                     <option value="week">a week</option>
                     <option value="forever">until released</option>
@@ -1215,7 +1215,7 @@
         {% elif not asking %}
         {# An invitation, not an apology: two roads to a first screen. #}
         <div class="fr-empty">
-          <p>Nothing is showing plates yet. There are two ways to start.</p>
+          <p>Nothing is showing illustrations yet. There are two ways to start.</p>
           <ol>
             <li><strong>A screen you already own.</strong> Open <span class="addr" id="fr-view-url">/view</span> in a browser on a tablet or an old phone, and it becomes a frame.</li>
             <li><strong>The kit.</strong> Build it and power it on. It opens a Wi-Fi network called <strong>Featherframe-Setup</strong> — join it, point it at this server, and it appears here.</li>
@@ -1453,7 +1453,7 @@
                   {% for q in ['max','xhigh','high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }} {{ 'data-25only' if q in ('max','xhigh') else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Writes the imagegen prompt per-species to ensure accuracy, and makes generated images stylistically similar to the genuine Audubon plates. Without this, the image model tends to 'guess' and produce poor results.</div></div>
+                <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Writes the imagegen prompt per-species to ensure accuracy, and makes generated images stylistically similar to the genuine Audubon illustrations. Without this, the image model tends to 'guess' and produce poor results.</div></div>
                 <div class="frow-ctl">
                   <div class="cselect">
                   <select class="sel cselect-native" name="imagegen_text_provider" id="ig-text-provider">
@@ -1517,7 +1517,7 @@
             </div>
           </div>
           <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
-            <div class="frow-text"><label class="lab" for="ig"><span class="badge ai">AI</span>Generate images for missing species<a class="btn sm ex preview" href="/static/examples/generated.png" data-ex="generated" data-cap="A plate generated for a species no book has." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
+            <div class="frow-text"><label class="lab" for="ig"><span class="badge ai">AI</span>Generate images for missing species<a class="btn sm ex preview" href="/static/examples/generated.png" data-ex="generated" data-cap="An illustration generated for a species no book has." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ig" name="imagegen_enabled" aria-disabled="{{ 'false' if ig_ready else 'true' }}" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label></div>
           </div>
         </section>
@@ -1639,7 +1639,7 @@
       {% if generated %}
       <p class="intro">Illustrations Featherframe has generated and kept. Regenerate buys a new one; Remove deletes it, and the next detection of that species generates another.</p>
       {% else %}
-      <p class="intro">None yet. A species with no plate gets one here when image generation is on.</p>
+      <p class="intro">None yet. A species with no illustration gets one here when image generation is on.</p>
       {% endif %}
       {% if spend is defined and spend.images %}
       <p class="hint gen-spend">This month: {{ spend.images }} image{{ '' if spend.images == 1 else 's' }}{% if spend.usd %}, ≈ ${{ '%.2f' | format(spend.usd) }}{% endif %}.</p>
@@ -1902,7 +1902,7 @@
     holdBtn.disabled = true;
     jsonFetch('/api/hold', { method: 'POST', body: formBody({ duration: holdDur ? holdDur.value : 'day' }) }).then(function (res) {
       var until = (res.hold && res.hold.until_text) || '';
-      setTaskStatus('Held ' + until + '. Nothing replaces this plate until then.');
+      setTaskStatus('Held ' + until + '. Nothing replaces this illustration until then.');
       setText('fc-holding', 'held ' + until); setText('held-until', until); $('fc-holding').dataset.tip = '';
       setHidden('hold-ctl', true); setHidden('held-line', false);
     }).catch(function (e) { setTaskStatus('Hold failed — ' + errText(e) + '.', true); })
@@ -3068,7 +3068,7 @@
         setState(el, slug, { regenerating: true });
         jsonFetch(regenForm.action, { method: 'POST', body: new FormData(regenForm) })
           .then(function (out) {
-            if (!out.ok) throw new Error(out.error || 'this plate is no longer cached');
+            if (!out.ok) throw new Error(out.error || 'this illustration is no longer cached');
             startPolling();
           })
           .catch(function (err) { setState(el, slug, { regen_error: 'could not start (' + errText(err) + ')' }); });
@@ -3083,11 +3083,11 @@
         e.preventDefault();
         var item = delForm.closest('.gen-item');
         var name = item ? (item.querySelector('.common') || {}).textContent : '';
-        if (!confirm('Remove the ' + (name || 'cached') + ' plate? The next detection generates a fresh one (costs one image).')) return;
+        if (!confirm('Remove the ' + (name || 'cached') + ' illustration? The next detection generates a fresh one (costs one image).')) return;
         var status = item && item.querySelector('.regen-status');
         jsonFetch(delForm.action, { method: 'POST', body: new FormData(delForm) })
           .then(function (out) {
-            if (!out.ok) throw new Error(out.error || 'the plate was not found');
+            if (!out.ok) throw new Error(out.error || 'the illustration was not found');
             if (item) item.remove();
             // The last plate gone: reload into the card's empty state.
             var card = $('gen-card');
@@ -3112,7 +3112,7 @@
       jsonFetch(form.action, { method: 'POST', body: new FormData(form) })
         .then(function (out) {
           if (!out.ok) throw new Error(out.error || 'the backup could not be read');
-          var parts = [out.restored + (out.restored === 1 ? ' plate restored' : ' plates restored')];
+          var parts = [out.restored + (out.restored === 1 ? ' illustration restored' : ' illustrations restored')];
           if (out.kept) parts.push(out.kept + ' already on file kept');
           if (out.skipped) parts.push(out.skipped + ' not recognised');
           showFlash(out.restored || !out.skipped ? 'ok' : 'bad', parts.join(' · ') + '.', out.restored || !out.skipped ? 'ic-check' : 'ic-warn');
@@ -3133,7 +3133,7 @@
       var f = forms[task];
       if (f && f.all) f.all.forEach(function (b) { b.disabled = true; });
       if (f && f.button) { f.button.disabled = true; f.button.textContent = LABEL[task] || 'Working…'; }
-      setTaskStatus((task === 'collage' ? 'Creating the collage' : 'Rendering the plate') + ' — this can take a minute.');
+      setTaskStatus((task === 'collage' ? 'Creating the collage' : 'Rendering the illustration') + ' — this can take a minute.');
     }
     function idleUI(task) {
       var f = forms[task];

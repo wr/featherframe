@@ -188,9 +188,17 @@ class SpeciesIndex:
                 region: Optional[str] = None) -> list[dict]:
         """Every folio's entry with a real plate for this species, matched
         exactly (scientific name first), in `order(region)`. A folio's
-        explicit "no plate" hands the species on to the next folio."""
-        found = (self._folios[f].find(common_name, scientific_name) for f in self.order(region))
-        return [e for e in found if has_plate(e)]
+        explicit "no plate" hands the species on to the next folio. An entry
+        marked `preferred` is asked right after the region's own folios, ahead
+        of the publication order (W-871: Asia's ringed pheasant, not Europe's
+        ringless one, everywhere but Europe)."""
+        order = self.order(region)
+        mine = sum(1 for f in order if region and self._regions.get(f) == region)
+        found = [self._folios[f].find(common_name, scientific_name) for f in order]
+        others = found[mine:]
+        ranked = (found[:mine] + [e for e in others if e and e.get("preferred")]
+                  + [e for e in others if not (e and e.get("preferred"))])
+        return [e for e in ranked if has_plate(e)]
 
     def entry(self, common_name: str, scientific_name: str = "",
               region: Optional[str] = None) -> Optional[dict]:

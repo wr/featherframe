@@ -18,8 +18,9 @@
 // which is what lets the gallery wall's still images (renders of this very
 // pose) take over from the live frame without a jump.
 import {
-  ACESFilmicToneMapping, Box3, Color, Group, MathUtils, Matrix4, Mesh, MeshStandardMaterial, PerspectiveCamera,
-  PMREMGenerator, Scene, SRGBColorSpace, Vector3, WebGLRenderer,
+  ACESFilmicToneMapping, Box3, Color, DirectionalLight, Group, MathUtils, Matrix4, Mesh, MeshStandardMaterial,
+  PCFShadowMap, PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShadowMaterial, SRGBColorSpace, Vector3,
+  WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -27,20 +28,22 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { createEpaperRefresh, type EpaperRefresh } from './epaper-refresh';
 import type { Size } from './card';
 
-export interface Pose { yaw: number; lean: number; pitch: number }
+/** `ground`: how much of its shadow on a table beneath it shows, 0–1. */
+export interface Pose { yaw: number; lean: number; pitch: number; ground: number }
 export interface Rect { x: number; y: number; w: number; h: number }
 
 /** The hero's three-quarter view on its kickstand, seen from a little above. */
-export const HERO: Pose = { yaw: -0.42, lean: 1, pitch: 0.1 };
+export const HERO: Pose = { yaw: -0.42, lean: 1, pitch: 0.1, ground: 0 };
 /** Dead-on: upright, the face parallel to the screen. */
-export const FLAT: Pose = { yaw: 0, lean: 0, pitch: 0 };
+export const FLAT: Pose = { yaw: 0, lean: 0, pitch: 0, ground: 0 };
 /** On the table in III, leaning back on its kickstand. */
-export const TABLE: Pose = { yaw: -0.5, lean: 1, pitch: 0.16 };
+export const TABLE: Pose = { yaw: -0.5, lean: 1, pitch: 0.16, ground: 1 };
 
 export const lerpPose = (a: Pose, b: Pose, t: number): Pose => ({
   yaw: a.yaw + (b.yaw - a.yaw) * t,
   lean: a.lean + (b.lean - a.lean) * t,
   pitch: a.pitch + (b.pitch - a.pitch) * t,
+  ground: a.ground + (b.ground - a.ground) * t,
 });
 
 const LEAN = MathUtils.degToRad(12); // the authored kickstand lean
@@ -51,6 +54,11 @@ const DISTANCE = 3;                  // metres from the frame's middle; the fram
 // These keep the wood walnut and the screen's paper level with the white mat.
 const EXPOSURE = 0.9;
 const ENVIRONMENT = 0.7;
+// The table's shadow: a light that lights nothing (so the frame looks as it
+// does everywhere else) but casts the frame onto a shadow-only floor, from
+// above and in front, so it falls back toward the wall, crisp where the frame
+// meets the table. SHADOW is its darkness at full `ground`.
+const SHADOW = 0.2;
 // How long each picture holds in the hero's cycle: well over twice the colour
 // refresh (about 5.5 s), so the frame reads as a picture that sometimes
 // changes, not as a frame forever refreshing. `?hold=` overrides it for tests.
@@ -110,6 +118,9 @@ export async function loadFrame(size: Size, opts: {
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.setClearColor(0x000000, 0);
   renderer.toneMappingExposure = EXPOSURE;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = PCFShadowMap;
+  renderer.shadowMap.autoUpdate = false;
 
   const scene = new Scene();
   const pmrem = new PMREMGenerator(renderer);
@@ -155,6 +166,23 @@ export async function loadFrame(size: Size, opts: {
   yaw.add(lean);
   pitch.add(yaw);
   scene.add(pitch);
+
+  model.traverse((o) => { if ((o as Mesh).isMesh) o.castShadow = true; });
+  const shadowMaterial = new ShadowMaterial({ opacity: 0, depthWrite: false });
+  const floor = new Mesh(new PlaneGeometry(2, 2), shadowMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -centre.y - 0.0005; // the GLB rests on y = 0
+  floor.receiveShadow = true;
+  floor.visible = false;
+  yaw.add(floor);
+  const sun = new DirectionalLight(0xffffff, 0);
+  sun.position.set(-0.2, 1.6, 0.3);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.radius = 3;
+  sun.shadow.bias = -0.0004;
+  Object.assign(sun.shadow.camera, { left: -0.45, right: 0.45, top: 0.45, bottom: -0.45, near: 0.2, far: 3 });
+  yaw.add(sun, sun.target);
 
   // The fixed camera, and its projection at aspect 1: the picture every fit scales and shifts.
   const camera = new PerspectiveCamera(FOV, 1, DISTANCE - 1, DISTANCE + 1);
@@ -245,6 +273,11 @@ export async function loadFrame(size: Size, opts: {
       pitch.rotation.set(pose.pitch, 0, 0);
       yaw.rotation.set(0, pose.yaw + sway, 0);
       lean.rotation.set(LEAN * (1 - pose.lean), 0, 0);
+      floor.visible = pose.ground > 0.001;
+      shadowMaterial.opacity = SHADOW * pose.ground;
+      // Drawn only while the floor shows — but once before anything else, so
+      // the shadow map exists for every material's shadow sampler.
+      renderer.shadowMap.needsUpdate = floor.visible || !drawn;
       renderer.render(scene, camera);
       drawn = true;
     },
@@ -256,6 +289,9 @@ export async function loadFrame(size: Size, opts: {
         m.geometry.dispose();
         (m.material as MeshStandardMaterial).dispose();
       });
+      floor.geometry.dispose();
+      shadowMaterial.dispose();
+      sun.shadow.dispose();
       disposeAll();
       renderer.forceContextLoss();
       canvas.remove();

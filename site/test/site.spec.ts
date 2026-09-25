@@ -252,3 +252,35 @@ test('the frame lands in the wall\'s first place and hands over to its print', a
   await expect(page.locator('.wall')).not.toHaveClass(/\blanded\b/);
   await expect(page.locator('canvas.ff3d')).not.toHaveClass(/\bempty\b/);
 });
+
+test('past the wall its last frame tears off and lands on the table', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  const last = page.locator('.wall .cat figure:last-child img');
+  await page.evaluate(() => scrollTo(0, document.getElementById('table-slot')!.getBoundingClientRect().top + scrollY - 200));
+  await expect(page.locator('.wall')).toHaveClass(/\btorn\b/);
+  await expect(last).toHaveCSS('visibility', 'hidden');
+  await expect(page.locator('canvas.ff3d')).not.toHaveClass(/\bempty\b/);
+  await expect(page.locator('#table-slot .still')).toHaveCSS('visibility', 'hidden');
+});
+
+for (const [name, setup] of [
+  ['on a phone', async (page: import('@playwright/test').Page) => { await page.setViewportSize({ width: 390, height: 844 }); }],
+  ['with reduced motion', async (page: import('@playwright/test').Page) => { await page.emulateMedia({ reducedMotion: 'reduce' }); }],
+] as const) {
+  test(`${name} there is no journey: the stills show`, async ({ page }) => {
+    await setup(page);
+    await page.goto('/?hold=600000');
+    await page.waitForTimeout(3000);
+    await expect(page.locator('canvas.ff3d')).toHaveCount(0);
+    await expect(page.locator('html')).not.toHaveClass(/\bchoreo\b/);
+    for (const sel of ['#art-slot .still', '#table-slot .still', '.wall .cat figure:first-child img', '.wall .cat figure:last-child img']) {
+      await page.locator(sel).scrollIntoViewIfNeeded();
+      await expect(page.locator(sel)).toBeVisible();
+      await expect.poll(() => page.locator(sel).evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+    }
+    const [sw, cw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
+    expect(sw).toBeLessThanOrEqual(cw);
+  });
+}

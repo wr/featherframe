@@ -36,8 +36,11 @@ try {
     execFileSync('cwebp', ['-quiet', '-q', '86', '-alpha_q', '90', png, '-o', `${here}public/img/wall/${name}.webp`]);
     console.log(`public/img/wall/${name}.webp  ${Math.round(HEIGHT * aspect)} × ${HEIGHT}`);
   };
-  for (const size of ['13', '10']) {
-    for (const [i, f] of data.sizes[size].wall.entries()) await render(size, i, `${size}-${slug(f)}`);
+  // `node scripts/wall.mjs table` renders the table's still alone
+  if (process.argv[2] !== 'table') {
+    for (const size of ['13', '10']) {
+      for (const [i, f] of data.sizes[size].wall.entries()) await render(size, i, `${size}-${slug(f)}`);
+    }
   }
   await render('13', 'table', 'table-13-cardinal');
 } finally {

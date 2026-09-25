@@ -120,6 +120,8 @@ interface State {
   screen: Screen | null;
   /** 0 at the hero, 1 once the frame has left it. */
   lift: number;
+  /** 0 until the frame sets off for the table, 1 once it is on it. */
+  land: number;
 }
 
 function at(l: Layout, s: number): State {
@@ -150,7 +152,8 @@ function at(l: Layout, s: number): State {
   else if (i > tearAt + 1 || (i === tearAt + 1 && s >= stop.s0)) screen = 'cardinal';
   else if (i === tearAt) screen = 'oriole';
   else screen = t >= 0.75 ? 'cardinal' : t <= 0.5 ? 'oriole' : null;
-  return { rect, pose, sway: 1 - fromHero, landed, torn, screen, lift: fromHero };
+  const land = i > tearAt + 1 ? 1 : i === tearAt + 1 ? (s >= stop.s0 ? 1 : t) : 0;
+  return { rect, pose, sway: 1 - fromHero, landed, torn, screen, lift: fromHero, land };
 }
 
 interface Els {
@@ -221,13 +224,14 @@ export async function startPage(size: Size, opts: {
     applyScreen(st);
     const r = frame.refresh.tick(now);
     const sway = opts.poster || !st.sway ? 0 : Math.sin(((now - t0) / 1000) * (2 * Math.PI / SWAY_PERIOD)) * SWAY * st.sway;
-    const key = st.rect ? `${st.rect.x},${st.rect.y},${st.rect.w},${st.rect.h},${st.pose.yaw},${st.pose.lean},${st.pose.pitch},${sway}` : '';
+    const key = st.rect ? `${st.rect.x},${st.rect.y},${st.rect.w},${st.rect.h},${st.pose.yaw},${st.pose.lean},${st.pose.pitch},${st.pose.ground},${sway}` : '';
     if (r.changed || dirty || key !== lastKey) {
       frame.draw(st.rect, st.pose, sway);
       frame.canvas.classList.toggle('empty', !st.rect);
       dirty = false;
       lastKey = key;
       root.style.setProperty('--lift', st.lift.toFixed(3));
+      root.style.setProperty('--land', st.land.toFixed(3));
       if (frame.drawn && !reveal) {
         // Live (poster out, canvas in) on the rAF after the first real draw, once it is on screen.
         reveal = requestAnimationFrame(() => {
@@ -264,6 +268,7 @@ export async function startPage(size: Size, opts: {
     els.wall?.classList.remove('landed', 'torn');
     els.stage.classList.remove('live');
     root.style.removeProperty('--lift');
+    root.style.removeProperty('--land');
     frame?.dispose();
     frame = null;
   };
@@ -354,6 +359,10 @@ export async function startStage(stage: HTMLElement, size: Size, opts: {
  * sizes the viewport to the pose's aspect and captures it; the page says
  * `data-wall="ready"` on <html> once it has drawn.
  */
+/** Around the table's still, as shares of the frame's box: left, top, right,
+ *  bottom (styles.css places the image by the same numbers). */
+export const TABLE_PAD = [0.15, 0.15, 0.15, 0.05];
+
 export async function startWallRender(size: Size, which: string): Promise<void> {
   const table = which === 'table';
   const src = table ? size.wall.find((f) => f.includes('cardinal'))! : size.wall[Number(which)];
@@ -361,7 +370,8 @@ export async function startWallRender(size: Size, which: string): Promise<void> 
   const request = () => { if (!raf) raf = requestAnimationFrame(tick); };
   const frame = await loadFrame(size, { wake: request, keep: true, holdMs: 1e9 });
   const pose = table ? TABLE : FLAT;
-  document.documentElement.dataset.aspect = frame.aspect(pose).toFixed(5);
+  const [l, t, r, b] = table ? TABLE_PAD : [0, 0, 0, 0];
+  document.documentElement.dataset.aspect = (frame.aspect(pose) * (1 + l + r) / (1 + t + b)).toFixed(5);
   frame.canvas.className = 'ff3d live';
   document.body.prepend(frame.canvas);
   frame.refresh.show(src, true);
@@ -371,7 +381,10 @@ export async function startWallRender(size: Size, which: string): Promise<void> 
     const w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
     frame.setSize(w, h);
     frame.refresh.tick(now);
-    frame.draw({ x: 0, y: 0, w, h }, pose);
+    // the table's still leaves room around the frame for its shadow (TABLE_PAD)
+    const [l, t, r, b] = table ? TABLE_PAD : [0, 0, 0, 0];
+    const fw = w / (1 + l + r), fh = h / (1 + t + b);
+    frame.draw({ x: l * fw, y: t * fh, w: fw, h: fh }, pose);
     // a few frames on from the screen's picture reaching the glass
     if (frame.refresh.showing() !== src || ++settled < 5) request();
     else document.documentElement.dataset.wall = 'ready';

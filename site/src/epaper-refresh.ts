@@ -1,4 +1,4 @@
-// Copied from wells/shop src/lib/epaper-refresh.ts (24 Sep 2026); additions: onShown, onArriving, holdMs.
+// Copied from wells/shop src/lib/epaper-refresh.ts (24 Sep 2026); additions: onShown, onArriving, holdMs, show.
 // An e-paper frame refreshing between plates, for a model's "screen" material
 // (the Featherframe). Each refresh is drawn the way the panel paints: not a
 // crossfade but a waveform — a fixed sequence of whole-sheet drive phases,
@@ -68,6 +68,13 @@ export interface EpaperRefresh {
   /** Dev and tests: hold the glass `ms` into the refresh to the next plate, or
    *  `null` to let it run again. */
   freeze(ms: number | null): void;
+  /** Leave the cycle for `src` (an image the size of the plates): refresh to
+   *  it at once and hold it until told otherwise. `null` goes back to the
+   *  cycle, refreshing to the plate it left. `instant` skips the waveform —
+   *  for a frame nobody can see change. */
+  show(src: string | null, instant?: boolean): void;
+  /** The show()n picture fully on the glass now, or null (the cycle, or on its way). */
+  showing(): string | null;
   dispose(): void;
 }
 
@@ -316,6 +323,9 @@ export function createEpaperRefresh(opts: {
   };
   // Slot 0 is the still; the rest load one at a time, each as its turn nears.
   const plates: (Texture | null)[] = [plateTexture(first), ...spec.plates.map(() => null)];
+  // show()'s pictures are appended after the cycle's plates, one slot per src.
+  const sources: (string | null)[] = [null, ...spec.plates];
+  const cycle = plates.length;
   const loading = new Set<number>();
   /** Plates that wouldn't load: the rotation skips them. */
   const failed = new Set<number>();
@@ -325,7 +335,7 @@ export function createEpaperRefresh(opts: {
     if (plates[i] || loading.has(i)) return;
     loading.add(i);
     loader.load(
-      spec.plates[i - 1],
+      sources[i]!,
       (tex) => {
         loading.delete(i);
         if (disposed) {
@@ -337,7 +347,8 @@ export function createEpaperRefresh(opts: {
         tex.magFilter = NearestFilter;
         tex.generateMipmaps = false;
         plates[i] = tex;
-        if (i === next()) preload(tex);
+        if (i === instantTo) settle(i);
+        else if (i === next()) preload(tex);
         wake();
       },
       undefined,
@@ -432,8 +443,13 @@ export function createEpaperRefresh(opts: {
     renderer.setRenderTarget(previous);
   };
 
-  const count = plates.length;
   let current = 0;
+  /** The show()n picture's slot, while there is one. */
+  let pinned: number | null = null;
+  /** The cycle's plate when show() took the glass over: where null returns. */
+  let left = 0;
+  /** A slot waiting to load, to be put on the glass without a refresh. */
+  let instantTo = -1;
   let mode: 'hold' | 'refresh' = 'hold';
   let holdSince = performance.now();
   let clock = 0; // ms into the refresh, advanced only while ticking
@@ -447,12 +463,16 @@ export function createEpaperRefresh(opts: {
   /** The plate after the current one, skipping any that failed to load
    *  (the current one again when every other has). */
   const next = () => {
-    for (let k = 1; k < count; k++) {
-      const i = (current + k) % count;
+    if (pinned !== null) return failed.has(pinned) ? current : pinned;
+    if (current >= cycle) return left;
+    for (let k = 1; k < cycle; k++) {
+      const i = (current + k) % cycle;
       if (!failed.has(i)) return i;
     }
     return current;
   };
+  /** Off the cycle, a picture is refreshed to at once rather than after a hold. */
+  const urgent = () => pinned !== null ? pinned !== current : current >= cycle;
   /** Upload a plate a moment from now, mid-hold, so neither a refresh's first
    *  frame nor the frame that ends one pays for it. */
   const preload = (tex: Texture) => {
@@ -490,15 +510,28 @@ export function createEpaperRefresh(opts: {
   draw(total);
   startHold(holdSince);
 
+  /** Put slot `i` on the glass as it is, no waveform. */
+  function settle(i: number) {
+    instantTo = -1;
+    mode = 'hold';
+    current = i;
+    material.uniforms.uOld.value = plates[i];
+    material.uniforms.uNew.value = plates[i];
+    draw(total);
+    trim();
+    startHold(performance.now());
+    wake();
+  }
+
   return {
     texture: target.texture,
     tick(now) {
       const dt = lastTick < 0 ? 0 : Math.min(now - lastTick, 100);
       lastTick = now;
-      if (disposed || count < 2) return { changed: false, busy: false };
+      if (disposed || plates.length < 2) return { changed: false, busy: false };
       if (frozen !== null) return { changed: false, busy: false };
       if (mode === 'hold') {
-        if (now - holdSince < hold || next() === current || !motionOk()) return { changed: false, busy: false };
+        if ((now - holdSince < hold && !urgent()) || next() === current || !motionOk()) return { changed: false, busy: false };
         const upNext = plates[next()];
         if (!upNext) {
           ensure(next()); // still loading, or the one before it failed
@@ -522,7 +555,7 @@ export function createEpaperRefresh(opts: {
       if (clock >= total) {
         draw(total);
         current = incoming;
-        opts.onShown?.(current);
+        if (current < cycle) opts.onShown?.(current);
         trim();
         startHold(now);
         return { changed: true, busy: false };
@@ -548,6 +581,37 @@ export function createEpaperRefresh(opts: {
       material.uniforms.uNew.value = upNext;
       draw(Math.min(ms, total));
       wake();
+    },
+    show(src, instant = false) {
+      let i: number;
+      if (src === null) {
+        if (pinned === null) return;
+        pinned = null;
+        i = left;
+      } else {
+        i = sources.indexOf(src, cycle);
+        if (i < 0) {
+          i = plates.length;
+          plates.push(null);
+          sources.push(src);
+        }
+        if (pinned === null && current < cycle) left = current;
+        pinned = i;
+      }
+      if (instant) {
+        if (plates[i]) settle(i);
+        else {
+          instantTo = i;
+          ensure(i);
+        }
+        return;
+      }
+      instantTo = -1;
+      if (!plates[i]) ensure(i);
+      wake();
+    },
+    showing() {
+      return current >= cycle && mode === 'hold' ? sources[current] : null;
     },
     dispose() {
       disposed = true;

@@ -64,7 +64,7 @@ test('no horizontal scroll on a phone', async ({ page }) => {
 
 test('the frame repaints to the next species', async ({ page }) => {
   await page.goto('/?hold=300');
-  await expect(page.locator('#stage canvas')).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d')).toHaveCount(1, { timeout: 20_000 });
   await expect(page.locator('#stage')).toHaveAttribute('data-shown', '1', { timeout: 30_000 });
 });
 
@@ -102,7 +102,7 @@ test('the poster stays until the 3D frame has actually drawn', async ({ page }) 
     });
   });
   await page.goto('/?hold=600000');
-  await expect(page.locator('#stage canvas')).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d')).toHaveCount(1, { timeout: 20_000 });
   // Canvas in place and rAFs running, but nothing drawn: the poster holds.
   await page.waitForTimeout(2500);
   expect(await page.evaluate(() => (window as unknown as { __draws: number }).__draws)).toBe(0);
@@ -122,7 +122,7 @@ test('without WebGL the poster and first species stay', async ({ page }) => {
   });
   await page.goto('/?hold=300');
   await page.waitForTimeout(3000);
-  await expect(page.locator('#stage canvas')).toHaveCount(0);
+  await expect(page.locator('canvas')).toHaveCount(0);
   await expect(page.locator('#stage .poster')).toBeVisible();
   expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
 });
@@ -131,7 +131,7 @@ test('with reduced motion nothing cycles', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/?hold=300');
   await page.waitForTimeout(3000);
-  await expect(page.locator('#stage canvas')).toHaveCount(0);
+  await expect(page.locator('canvas')).toHaveCount(0);
   expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
 });
 
@@ -177,7 +177,7 @@ test('a frame whose model never arrives leaves the poster showing', async ({ pag
   await page.route('**/models/featherframe-13.*.glb', (route) => route.abort());
   await page.goto('/?hold=300');
   await page.waitForTimeout(3000);
-  await expect(page.locator('#stage canvas')).toHaveCount(0);
+  await expect(page.locator('canvas')).toHaveCount(0);
   await expect(page.locator('#stage')).not.toHaveClass(/\blive\b/);
   expect(await page.locator('#stage .poster').evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
   expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
@@ -207,4 +207,13 @@ test('the song plays, pauses and resets when it ends', async ({ page }) => {
   await expect(button).toHaveText('Play the song', { timeout: 10_000 });
   await expect(button).toHaveAttribute('aria-pressed', 'false');
   expect(await song.evaluate((a: HTMLAudioElement) => a.currentTime)).toBe(0);
+});
+
+test('on a phone the frame stays in the cover, with no page-wide canvas', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/?hold=300');
+  await expect(page.locator('#stage canvas')).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator('#stage')).toHaveAttribute('data-shown', '1', { timeout: 30_000 });
+  await expect(page.locator('canvas.ff3d')).toHaveCount(0);
+  await expect(page.locator('html')).not.toHaveClass(/\bchoreo\b/);
 });

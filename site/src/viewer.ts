@@ -1,38 +1,62 @@
-// The hero's frame: the GLB on its kickstand, lit by a neutral studio
-// environment, swaying slowly and turnable by drag; its "screen" material is an
-// e-paper refresh between the size's screens (epaper-refresh.ts).
+// The frame, drawn in WebGL: the GLB lit by a neutral studio environment, its
+// "screen" material an e-paper refresh between screens (epaper-refresh.ts).
+// This module only draws; where the frame goes and how it is turned is the
+// caller's (choreo.ts for the page, or the hero's stage on a phone).
 //
 // The GLB is already posed (shop scripts/addon-models/frame.mjs): metres, Y up,
-// resting on y = 0, facing +Z and leaning back 12° on its kickstand. So it is
-// shown as authored — turning its screen to face +Z would undo the lean and
-// lift the kickstand off the ground.
+// resting on y = 0, facing +Z and leaning back 12° on its kickstand. A pose
+// turns it from there: `lean` 1 is the kickstand lean as authored, 0 stands it
+// upright (face parallel to the screen); `yaw` turns it about the vertical;
+// `pitch` tips it toward the camera, as if the camera looked down on it.
+//
+// Placement is 2D. The camera never moves: a small, fixed field of view looks
+// straight at the frame's middle, and the projection is then scaled and
+// shifted so the frame's projected bounding box lands on a rectangle of the
+// canvas (contained, centred, standing on its bottom edge). Scaling and
+// shifting a projection is a 2D transform of the picture, so a head-on frame
+// looks the same, texel for texel, at any size and anywhere on the page —
+// which is what lets the gallery wall's still images (renders of this very
+// pose) take over from the live frame without a jump.
 import {
-  ACESFilmicToneMapping, Box3, Color, Group, MathUtils, Mesh, MeshStandardMaterial, PerspectiveCamera,
+  ACESFilmicToneMapping, Box3, Color, Group, MathUtils, Matrix4, Mesh, MeshStandardMaterial, PerspectiveCamera,
   PMREMGenerator, Scene, SRGBColorSpace, Vector3, WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { createEpaperRefresh } from './epaper-refresh';
+import { createEpaperRefresh, type EpaperRefresh } from './epaper-refresh';
 import type { Size } from './card';
 
-const YAW = -0.42;        // three-quarter view, radians: the frame's right side toward the camera
-const SWAY = 0.06;        // idle sway amplitude, radians
-const SWAY_PERIOD = 14;   // seconds
-const DRAG_LIMIT = 0.9;   // radians either side
-const PITCH = 0.1;        // the camera looks down this much, radians: a frame on a table, seen standing
-const FILL = 0.94;        // the share of the stage the frame may reach at its widest
-// How long each picture holds: well over twice the colour refresh (about
-// 5.5 s), so the frame reads as a picture that sometimes changes, not as a
-// frame forever refreshing. `?hold=` overrides it for tests.
-const HOLD_MS = 14000;
+export interface Pose { yaw: number; lean: number; pitch: number }
+export interface Rect { x: number; y: number; w: number; h: number }
+
+/** The hero's three-quarter view on its kickstand, seen from a little above. */
+export const HERO: Pose = { yaw: -0.42, lean: 1, pitch: 0.1 };
+/** Dead-on: upright, the face parallel to the screen. */
+export const FLAT: Pose = { yaw: 0, lean: 0, pitch: 0 };
+/** On the table in III, leaning back on its kickstand. */
+export const TABLE: Pose = { yaw: -0.5, lean: 1, pitch: 0.16 };
+
+export const lerpPose = (a: Pose, b: Pose, t: number): Pose => ({
+  yaw: a.yaw + (b.yaw - a.yaw) * t,
+  lean: a.lean + (b.lean - a.lean) * t,
+  pitch: a.pitch + (b.pitch - a.pitch) * t,
+});
+
+const LEAN = MathUtils.degToRad(12); // the authored kickstand lean
+const FOV = 10;                      // degrees: near enough orthographic that a head-on frame is flat
+const DISTANCE = 3;                  // metres from the frame's middle; the frame is under 0.4 m tall
 // RoomEnvironment is a bright white room: at full strength it bleaches the
 // walnut to oak and, with the screen's glow, washes the picture out under ACES.
 // These keep the wood walnut and the screen's paper level with the white mat.
 const EXPOSURE = 0.9;
 const ENVIRONMENT = 0.7;
+// How long each picture holds in the hero's cycle: well over twice the colour
+// refresh (about 5.5 s), so the frame reads as a picture that sometimes
+// changes, not as a frame forever refreshing. `?hold=` overrides it for tests.
+const HOLD_MS = 14000;
 
-const loadImage = (src: string) => new Promise<HTMLImageElement>((ok, no) => {
+export const loadImage = (src: string) => new Promise<HTMLImageElement>((ok, no) => {
   const img = new Image();
   img.decoding = 'async';
   img.onload = () => ok(img);
@@ -41,9 +65,8 @@ const loadImage = (src: string) => new Promise<HTMLImageElement>((ok, no) => {
 });
 
 /** Sample points of the model (every vertex, thinned to about `max`), in its
- *  own space centred on `centre`: enough to fit the camera to the real
- *  silhouette rather than to a bounding box turned through the sway. */
-function hull(model: Group, centre: Vector3, max = 6000): Vector3[] {
+ *  own space centred on `centre`: its real silhouette, for the fit. */
+function hull(model: Group, centre: Vector3, max = 4000): Vector3[] {
   const all: Vector3[] = [];
   model.updateMatrixWorld(true);
   model.traverse((o) => {
@@ -56,34 +79,32 @@ function hull(model: Group, centre: Vector3, max = 6000): Vector3[] {
   return all.filter((_, i) => i % step === 0);
 }
 
-/** How far back the camera must stand, along its view direction, for every
- *  point to fit the view at every yaw in [lo, hi]. */
-function fitDistance(points: Vector3[], lo: number, hi: number, fov: number, aspect: number): number {
-  const tanV = Math.tan(MathUtils.degToRad(fov / 2)) * FILL;
-  const tanH = tanV * aspect;
-  const back = new Vector3(0, Math.sin(PITCH), Math.cos(PITCH)); // from the target toward the camera
-  const up = new Vector3(0, Math.cos(PITCH), -Math.sin(PITCH));
-  const p = new Vector3();
-  let d = 0;
-  for (let k = 0; k <= 8; k++) {
-    const yaw = lo + ((hi - lo) * k) / 8;
-    const c = Math.cos(yaw), s = Math.sin(yaw);
-    for (const q of points) {
-      p.set(q.x * c + q.z * s, q.y, -q.x * s + q.z * c);
-      const z = p.dot(back);
-      d = Math.max(d, z + Math.abs(p.x) / tanH, z + Math.abs(p.dot(up)) / tanV);
-    }
-  }
-  return d;
+export interface Frame3D {
+  readonly canvas: HTMLCanvasElement;
+  readonly refresh: EpaperRefresh;
+  /** Width over height of the frame's projected box in `pose`. */
+  aspect(pose: Pose): number;
+  /** The canvas's size in CSS pixels. */
+  setSize(width: number, height: number): void;
+  /** Draw the frame in `pose` (plus `sway` radians of yaw, which does not move
+   *  its box) fitted to `rect`, in canvas CSS pixels; `null` draws nothing. */
+  draw(rect: Rect | null, pose: Pose, sway?: number): void;
+  /** True once something has really been drawn. */
+  readonly drawn: boolean;
+  dispose(): void;
 }
 
-export async function startViewer(
-  stage: HTMLElement, size: Size,
-  opts: { holdMs?: number; onShown: (i: number) => void; onArriving?: (i: number) => void; poster?: boolean },
-): Promise<{ dispose(): void }> {
+export async function loadFrame(size: Size, opts: {
+  holdMs?: number;
+  onShown?: (i: number) => void;
+  /** Called when the screen needs the loop to run again (a hold is up, a screen loaded). */
+  wake: () => void;
+  /** Keep the drawing buffer, for the poster and wall renders' screenshots. */
+  keep?: boolean;
+}): Promise<Frame3D> {
   const canvas = document.createElement('canvas');
   canvas.setAttribute('aria-hidden', 'true');
-  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: !!opts.poster });
+  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: !!opts.keep });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
@@ -97,38 +118,62 @@ export async function startViewer(
   room.dispose();
   scene.environment = env;
   scene.environmentIntensity = ENVIRONMENT;
-  const camera = new PerspectiveCamera(24, 1, 0.01, 20);
 
-  // The first screen seeds the glass; the refresh loads the rest as each nears.
-  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  const [gltf, first] = await Promise.all([loader.loadAsync(size.model), loadImage(size.screens[0])]);
+  const disposeAll = () => {
+    env.dispose();
+    pmrem.dispose();
+    renderer.dispose();
+  };
+
+  let gltf, first: HTMLImageElement;
+  try {
+    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+    [gltf, first] = await Promise.all([loader.loadAsync(size.model), loadImage(size.screens[0])]);
+  } catch (e) {
+    disposeAll();
+    throw e;
+  }
   const model = gltf.scene;
   let screen: Mesh | undefined;
   model.traverse((o) => {
     const m = o as Mesh;
     if (m.isMesh && (m.material as MeshStandardMaterial).name === 'screen') screen = m;
   });
-  if (!screen) throw new Error('no screen material');
+  if (!screen) {
+    disposeAll();
+    throw new Error('no screen material');
+  }
 
-  // Turn about the frame's own middle, and fit the camera to it at every sway.
-  const box = new Box3().setFromObject(model);
-  const centre = box.getCenter(new Vector3());
+  // pitch ∘ yaw ∘ lean, each about the frame's own middle
+  const centre = new Box3().setFromObject(model).getCenter(new Vector3());
   const points = hull(model, centre);
   model.position.sub(centre);
-  const pivot = new Group();
-  pivot.add(model);
-  scene.add(pivot);
+  const lean = new Group();
+  const yaw = new Group();
+  const pitch = new Group();
+  lean.add(model);
+  yaw.add(lean);
+  pitch.add(yaw);
+  scene.add(pitch);
+
+  // The fixed camera, and its projection at aspect 1: the picture every fit scales and shifts.
+  const camera = new PerspectiveCamera(FOV, 1, DISTANCE - 1, DISTANCE + 1);
+  camera.position.set(0, 0, DISTANCE);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  camera.updateProjectionMatrix();
+  const base = camera.projectionMatrix.clone();
+  const focal = 1 / Math.tan(MathUtils.degToRad(FOV / 2));
 
   const refresh = createEpaperRefresh({
     renderer,
     first,
     spec: { waveform: size.waveform, plates: size.screens.slice(1) },
     anisotropy: Math.min(4, renderer.capabilities.getMaxAnisotropy()),
-    wake: () => {},
+    wake: opts.wake,
     motionOk: () => !document.hidden,
     holdMs: opts.holdMs ?? HOLD_MS,
     onShown: opts.onShown,
-    onArriving: opts.onArriving,
   });
   const mat = screen.material as MeshStandardMaterial;
   mat.map = refresh.texture;
@@ -138,76 +183,82 @@ export async function startViewer(
   mat.emissiveIntensity = 0.3;
   mat.needsUpdate = true;
 
-  let drawn = false;
-  const resize = () => {
-    const { width, height } = stage.getBoundingClientRect();
-    if (!width || !height) return;
-    renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    const d = fitDistance(points, YAW - SWAY, YAW + SWAY, camera.fov, camera.aspect);
-    camera.position.set(0, Math.sin(PITCH) * d, Math.cos(PITCH) * d);
-    camera.lookAt(0, 0, 0);
-    camera.updateProjectionMatrix();
-    // setSize clears the canvas; once the frame is showing, draw again at
-    // once, before the browser paints, so a resize never flashes an empty stage.
-    if (drawn && !document.hidden) renderer.render(scene, camera);
-  };
-  const ro = new ResizeObserver(resize);
-  ro.observe(stage);
-  resize();
-
-  // Drag to turn; it eases back to the three-quarter view when let go.
-  let drag = 0, dragTarget = 0, startX = 0, dragging = false;
-  canvas.addEventListener('pointerdown', (e) => { dragging = true; startX = e.clientX - dragTarget * 300; canvas.setPointerCapture(e.pointerId); });
-  canvas.addEventListener('pointermove', (e) => {
-    if (dragging) dragTarget = Math.max(-DRAG_LIMIT, Math.min(DRAG_LIMIT, (e.clientX - startX) / 300));
-  });
-  const release = () => { dragging = false; dragTarget = 0; };
-  canvas.addEventListener('pointerup', release);
-  canvas.addEventListener('pointercancel', release);
-
-  let visible = true;
-  const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; });
-  io.observe(stage);
-
-  let raf = 0;
-  // The stage turns live (poster out, canvas in) only once a frame has really
-  // been drawn — the model and the first screen on the canvas — and then on
-  // the rAF after it, once that frame is on screen. A throttled or hidden page
-  // may run rAFs without drawing; revealing on a rAF count alone showed an
-  // empty stage. Cancelled by dispose: a viewer superseded before then must
-  // not hide the poster over a stage with no canvas.
-  let reveal = 0;
-  const t0 = performance.now();
-  const frame = (now: number) => {
-    raf = requestAnimationFrame(frame);
-    if (!visible || document.hidden) return;
-    refresh.tick(now);
-    drag += (dragTarget - drag) * 0.12;
-    const sway = opts.poster ? 0 : Math.sin(((now - t0) / 1000) * (2 * Math.PI / SWAY_PERIOD)) * SWAY;
-    pivot.rotation.set(0, YAW + sway + drag, 0);
-    renderer.render(scene, camera);
-    if (!drawn) {
-      drawn = true;
-      reveal = requestAnimationFrame(() => stage.classList.add('live'));
+  const rotation = new Matrix4();
+  const tmp = new Matrix4();
+  const p = new Vector3();
+  /** The pose's projected box, in the aspect-1 picture's units (focal-scaled x/y over depth). */
+  const bounds = (pose: Pose) => {
+    rotation.makeRotationX(pose.pitch)
+      .multiply(tmp.makeRotationY(pose.yaw))
+      .multiply(tmp.makeRotationX(LEAN * (1 - pose.lean)));
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const q of points) {
+      p.copy(q).applyMatrix4(rotation);
+      const k = focal / (DISTANCE - p.z);
+      const u = p.x * k, v = p.y * k;
+      if (u < x0) x0 = u;
+      if (u > x1) x1 = u;
+      if (v < y0) y0 = v;
+      if (v > y1) y1 = v;
     }
+    return { x0, x1, y0, y1 };
   };
-  raf = requestAnimationFrame(frame);
 
-  stage.appendChild(canvas);
-
+  let width = 1, height = 1, drawn = false;
+  const projection = new Matrix4();
   return {
+    canvas,
+    refresh,
+    aspect(pose) {
+      const b = bounds(pose);
+      return (b.x1 - b.x0) / (b.y1 - b.y0);
+    },
+    get drawn() { return drawn; },
+    setSize(w, h) {
+      width = Math.max(1, w);
+      height = Math.max(1, h);
+      renderer.setSize(width, height, false);
+    },
+    draw(rect, pose, sway = 0) {
+      if (!rect || rect.w <= 0 || rect.h <= 0) {
+        renderer.clear();
+        return;
+      }
+      const b = bounds(pose);
+      // canvas px = o + k · picture units (y down): contained, centred, on the rect's bottom
+      const k = Math.min(rect.w / (b.x1 - b.x0), rect.h / (b.y1 - b.y0));
+      const ox = rect.x + (rect.w - k * (b.x1 - b.x0)) / 2 - k * b.x0;
+      const oy = rect.y + rect.h + k * b.y0;
+      const sx = (2 * k) / width, tx = (2 * ox) / width - 1;
+      const sy = (2 * k) / height, ty = 1 - (2 * oy) / height;
+      const e = base.elements; // column-major
+      const row = (r: number) => [e[r], e[4 + r], e[8 + r], e[12 + r]];
+      const [r0, r1, r2, r3] = [row(0), row(1), row(2), row(3)];
+      projection.set(
+        sx * r0[0] + tx * r3[0], sx * r0[1] + tx * r3[1], sx * r0[2] + tx * r3[2], sx * r0[3] + tx * r3[3],
+        sy * r1[0] + ty * r3[0], sy * r1[1] + ty * r3[1], sy * r1[2] + ty * r3[2], sy * r1[3] + ty * r3[3],
+        r2[0], r2[1], r2[2], r2[3],
+        r3[0], r3[1], r3[2], r3[3],
+      );
+      camera.projectionMatrix.copy(projection);
+      camera.projectionMatrixInverse.copy(projection).invert();
+      pitch.rotation.set(pose.pitch, 0, 0);
+      yaw.rotation.set(0, pose.yaw + sway, 0);
+      lean.rotation.set(LEAN * (1 - pose.lean), 0, 0);
+      renderer.render(scene, camera);
+      drawn = true;
+    },
     dispose() {
-      cancelAnimationFrame(raf);
-      cancelAnimationFrame(reveal);
-      ro.disconnect();
-      io.disconnect();
       refresh.dispose();
-      env.dispose();
-      pmrem.dispose();
-      renderer.dispose();
+      model.traverse((o) => {
+        const m = o as Mesh;
+        if (!m.isMesh) return;
+        m.geometry.dispose();
+        (m.material as MeshStandardMaterial).dispose();
+      });
+      disposeAll();
+      renderer.forceContextLoss();
       canvas.remove();
-      stage.classList.remove('live');
     },
   };
 }

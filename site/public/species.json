@@ -11,14 +11,16 @@
       "model": "models/featherframe-13.glb",
       "poster": "img/poster-13.webp",
       "waveform": "spectra6",
-      "screens": ["models/screens/13-nighthawk.jpg", "models/screens/13-cardinal.jpg", "models/screens/13-blue-jay.jpg", "models/screens/13-goldfinch.jpg"]
+      "screens": ["models/screens/13-nighthawk.jpg", "models/screens/13-cardinal.jpg", "models/screens/13-blue-jay.jpg", "models/screens/13-goldfinch.jpg"],
+      "wall": ["models/screens/wall-13-flamingo.jpg", "models/screens/wall-13-blue-jay.jpg", "models/screens/wall-13-common-kingfisher.jpg", "models/screens/wall-13-cardinal.jpg", "models/screens/wall-13-kookaburra.jpg", "models/screens/wall-13-bee-eater.jpg", "models/screens/wall-13-snowy-owl.jpg", "models/screens/wall-13-lorikeet.jpg", "models/screens/wall-13-carolina-parakeet.jpg", "models/screens/wall-13-hoopoe.jpg", "models/screens/wall-13-roller.jpg", "models/screens/wall-13-baltimore-oriole.jpg"]
     },
     "10": {
       "label": "10-inch",
       "model": "models/featherframe.glb",
       "poster": "img/poster-10.webp",
       "waveform": "gc16",
-      "screens": ["models/screens/10-nighthawk.jpg", "models/screens/10-cardinal.jpg", "models/screens/10-blue-jay.jpg", "models/screens/10-goldfinch.jpg"]
+      "screens": ["models/screens/10-nighthawk.jpg", "models/screens/10-cardinal.jpg", "models/screens/10-blue-jay.jpg", "models/screens/10-goldfinch.jpg"],
+      "wall": ["models/screens/wall-10-flamingo.jpg", "models/screens/wall-10-blue-jay.jpg", "models/screens/wall-10-common-kingfisher.jpg", "models/screens/wall-10-cardinal.jpg", "models/screens/wall-10-kookaburra.jpg", "models/screens/wall-10-bee-eater.jpg", "models/screens/wall-10-snowy-owl.jpg", "models/screens/wall-10-lorikeet.jpg", "models/screens/wall-10-carolina-parakeet.jpg", "models/screens/wall-10-hoopoe.jpg", "models/screens/wall-10-roller.jpg", "models/screens/wall-10-baltimore-oriole.jpg"]
     }
   }
 }

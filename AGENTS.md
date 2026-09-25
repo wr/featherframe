@@ -8,6 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Branch prefix: wells/
 - PR mode: ready
 
+## Writing
+
+Read `docs/STYLE.md` before writing anything a person reads: webapp copy,
+the frame's screens, the README, the wiki, the marketing page, commits, PRs,
+Linear, reports. Use its lexicon. Write every user-facing string yourself,
+verbatim, in any subagent brief. `server/scripts/check_copy.py` checks the
+mechanical rules (`make test` runs it on the webapp; pass `--wiki DIR` before
+pushing the wiki).
+
 ## What this is
 
 Featherframe: a wall-mounted e-paper frame that renders the birds your BirdNET-Pi

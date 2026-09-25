@@ -239,7 +239,7 @@ def test_a_page_that_does_not_say_who_it_is_is_refused(client):
 def test_the_frames_card_says_how_to_start_when_there_is_nothing(client):
     html = client.get("/").text
     assert 'id="frames-card"' in html
-    assert "Nothing is showing illustrations yet" in html
+    assert "No frames yet" in html
     assert 'id="fr-view-url"' in html and "Featherframe-Setup" in html
 
 

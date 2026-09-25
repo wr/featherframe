@@ -869,7 +869,7 @@
           {% set uh = status.hold %}
           <div class="held" id="held-line" data-for="plates" {{ '' if uh else 'hidden' }}>
             <span class="held-text">Holding this illustration <span id="held-until">{{ uh.until_text if uh else '' }}</span></span>
-            <button class="btn" type="button" id="release-btn" title="End the hold and show whatever should be on the wall now">Release</button>
+            <button class="btn" type="button" id="release-btn" title="End the hold and show the latest detection">Release</button>
           </div>
           <div class="task-status" id="task-status" role="status" aria-live="polite"></div>
           <details class="disc tools" id="plate-tools">
@@ -1215,7 +1215,7 @@
         {% elif not asking %}
         {# An invitation, not an apology: two roads to a first screen. #}
         <div class="fr-empty">
-          <p>Nothing is showing illustrations yet. There are two ways to start.</p>
+          <p>No frames yet. There are two ways to start.</p>
           <ol>
             <li><strong>A screen you already own.</strong> Open <span class="addr" id="fr-view-url">/view</span> in a browser on a tablet or an old phone, and it becomes a frame.</li>
             <li><strong>The kit.</strong> Build it and power it on. It opens a Wi-Fi network called <strong>Featherframe-Setup</strong> — join it, point it at this server, and it appears here.</li>
@@ -1453,7 +1453,7 @@
                   {% for q in ['max','xhigh','high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }} {{ 'data-25only' if q in ('max','xhigh') else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
               </div>
               <div class="frow">
-                <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Writes the imagegen prompt per-species to ensure accuracy, and makes generated images stylistically similar to the genuine Audubon illustrations. Without this, the image model tends to 'guess' and produce poor results.</div></div>
+                <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Describes each species to the image model, so generated illustrations are accurate and match the books.</div></div>
                 <div class="frow-ctl">
                   <div class="cselect">
                   <select class="sel cselect-native" name="imagegen_text_provider" id="ig-text-provider">
@@ -1517,7 +1517,7 @@
             </div>
           </div>
           <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
-            <div class="frow-text"><label class="lab" for="ig"><span class="badge ai">AI</span>Generate images for missing species<a class="btn sm ex preview" href="/static/examples/generated.png" data-ex="generated" data-cap="An illustration generated for a species no book has." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
+            <div class="frow-text"><label class="lab" for="ig"><span class="badge ai">AI</span>Generate images for missing species<a class="btn sm ex preview" href="/static/examples/generated.png" data-ex="generated" data-cap="A plate generated for a species no book has." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
             <div class="frow-ctl"><label class="switch"><input type="checkbox" role="switch" id="ig" name="imagegen_enabled" aria-disabled="{{ 'false' if ig_ready else 'true' }}" {{ 'checked' if config.imagegen_enabled else '' }}><span class="track"></span></label></div>
           </div>
         </section>
@@ -2692,7 +2692,7 @@
       entry.hidden = true; display.hidden = false; field.value = ''; if (rep) rep.focus();
     });
     if (del) del.addEventListener('click', function () {
-      if (!confirm(kf.getAttribute('data-confirm') || 'Delete the stored key? Plates already generated are kept.')) return;
+      if (!confirm(kf.getAttribute('data-confirm') || 'Delete the stored key? Generated illustrations are kept.')) return;
       if (clear) clear.checked = true;
       field.value = '';
       submitForm(kf.closest('form'));
@@ -3083,7 +3083,7 @@
         e.preventDefault();
         var item = delForm.closest('.gen-item');
         var name = item ? (item.querySelector('.common') || {}).textContent : '';
-        if (!confirm('Remove the ' + (name || 'cached') + ' illustration? The next detection generates a fresh one (costs one image).')) return;
+        if (!confirm('Remove the ' + (name || 'cached') + ' illustration? The next detection generates a new one (costs one image).')) return;
         var status = item && item.querySelector('.regen-status');
         jsonFetch(delForm.action, { method: 'POST', body: new FormData(delForm) })
           .then(function (out) {

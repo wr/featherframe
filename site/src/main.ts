@@ -86,29 +86,105 @@ setTone(stored ?? '13', false);
 for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!, true));
 if (!reduced) startSheen([...document.querySelectorAll<HTMLElement>('.wall .cat .im')]);
 
-// III. The cardinal's song, with a playhead across its spectrogram.
+// III. The detections: each species' recording plays itself, muted, while its spectrogram is on screen, a
+// playhead crossing it; when one ends the next is heard — a card by the song says so (New detection), and the
+// frame on the table repaints to it (choreo.ts follows <html data-detected>). Unmute plays the recording from
+// the start with sound, and the ones after it too, until Mute. With reduced motion nothing plays by itself:
+// the button reads Play the song and plays the one on screen.
+const DETECTIONS = [
+  { slug: 'cardinal', name: 'Northern Cardinal', audio: 'audio/cardinal-song.mp3', spectrogram: 'img/spectrogram.webp' },
+  { slug: 'blue-jay', name: 'Blue Jay', audio: 'audio/blue-jay-song.mp3', spectrogram: 'img/spectrogram-blue-jay.webp' },
+  { slug: 'goldfinch', name: 'American Goldfinch', audio: 'audio/goldfinch-song.mp3', spectrogram: 'img/spectrogram-goldfinch.webp' },
+];
+const TOAST_MS = 4500;
 const song = document.getElementById('song') as HTMLAudioElement;
-const play = document.querySelector<HTMLButtonElement>('.play')!;
-const playhead = document.querySelector<HTMLElement>('.playhead')!;
-let tick = 0;
-const follow = () => {
+const spectro = document.querySelector<HTMLElement>('.spectro')!;
+const spectroImg = spectro.querySelector('img')!;
+const playhead = spectro.querySelector<HTMLElement>('.playhead')!;
+const unmute = spectro.querySelector<HTMLButtonElement>('.unmute')!;
+const mute = spectro.querySelector<HTMLButtonElement>('.mute')!;
+const toast = spectro.querySelector<HTMLElement>('.toast')!;
+const table = document.getElementById('table-slot');
+let heard = 0, sound = false, inView = false, follow = 0, toastTimer = 0;
+if (reduced) unmute.textContent = 'Play the song';
+
+const track = () => {
   if (song.duration) playhead.style.left = `${(song.currentTime / song.duration) * 100}%`;
-  tick = requestAnimationFrame(follow);
+  follow = requestAnimationFrame(track);
 };
-const setPlaying = (on: boolean) => {
-  play.textContent = on ? 'Pause' : 'Play the song';
-  play.setAttribute('aria-pressed', String(on));
-  playhead.hidden = !on;
-  cancelAnimationFrame(tick);
-  if (on) follow();
+const detect = (i: number) => {
+  heard = i;
+  const d = DETECTIONS[i];
+  root.dataset.detected = d.slug;
+  if (table) table.dataset.species = d.slug;
+  document.dispatchEvent(new Event('ff-detect'));
+  toast.querySelector('.nm')!.textContent = d.name;
+  toast.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => toast.classList.remove('on'), TOAST_MS);
 };
-play.addEventListener('click', () => {
-  if (song.paused) song.play().catch(() => setPlaying(false));
-  else song.pause();
+const load = (i: number) => {
+  const d = DETECTIONS[i];
+  const rate = song.playbackRate; // (tests speed it up)
+  song.src = d.audio;
+  song.playbackRate = rate;
+  spectroImg.src = d.spectrogram;
+  spectroImg.alt = `A spectrogram of a ${d.name}'s song`;
+};
+const play = () => {
+  song.muted = !sound;
+  song.play().catch(() => { /* autoplay refused: the button still plays it */ });
+};
+song.addEventListener('play', () => {
+  playhead.hidden = false;
+  cancelAnimationFrame(follow);
+  track();
 });
-song.addEventListener('play', () => setPlaying(true));
-song.addEventListener('pause', () => setPlaying(false));
-song.addEventListener('ended', () => { song.currentTime = 0; setPlaying(false); });
+song.addEventListener('pause', () => { cancelAnimationFrame(follow); });
+song.addEventListener('ended', () => {
+  cancelAnimationFrame(follow);
+  playhead.hidden = true;
+  if (reduced) {
+    // nothing plays by itself: stand ready to play again
+    song.currentTime = 0;
+    sound = false;
+    unmute.hidden = false;
+    mute.hidden = true;
+    return;
+  }
+  const next = (heard + 1) % DETECTIONS.length;
+  load(next);
+  detect(next);
+  if (inView) play();
+});
+unmute.addEventListener('click', () => {
+  sound = true;
+  song.currentTime = 0;
+  if (song.paused || reduced) detect(heard);
+  play();
+  unmute.hidden = true;
+  mute.hidden = false;
+  mute.focus();
+});
+mute.addEventListener('click', () => {
+  sound = false;
+  song.muted = true;
+  if (reduced) song.pause();
+  mute.hidden = true;
+  unmute.hidden = false;
+  unmute.focus();
+});
+new IntersectionObserver(([e]) => {
+  inView = e.isIntersecting;
+  if (reduced) return;
+  if (inView) {
+    if (song.paused) {
+      if (song.preload !== 'auto') { song.preload = 'auto'; }
+      if (!song.currentTime && !toast.classList.contains('on')) detect(heard);
+      play();
+    }
+  } else if (!song.paused) song.pause();
+}, { threshold: 0.4 }).observe(spectro);
 
 const form = document.getElementById('keep-posted') as HTMLFormElement;
 const note = form.querySelector('.form-note')!;

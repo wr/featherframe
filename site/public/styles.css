@@ -177,6 +177,12 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cat figcaption { margin-top: 16px; border-top: 1px solid var(--hair); padding-top: 10px; }
 .cat .nm { display: block; font-size: 19px; line-height: 1.2; }
 .cat .la { display: block; font: italic 15px var(--serif); color: var(--graphite); }
+/* the artist and the book, as a plate's imprint */
+.cat .by { display: block; margin-top: 6px; font: 10px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
+.cat .by i { font: italic 13px/1 var(--serif); letter-spacing: 0; text-transform: none; }
+/* the folio stays under the running head while the wall scrolls, and goes with the wall */
+.wall .folio { position: sticky; top: var(--nav); z-index: 10; padding-bottom: 12px; margin-bottom: 84px;
+               background: var(--paper); box-shadow: 0 0 0 100vmax var(--paper); clip-path: inset(0 -100vmax); }
 
 /* III. How it works: the frame on its table pinned on the right while the
    song and the photograph scroll past on the left. */
@@ -187,14 +193,35 @@ h2 { font-weight: 400; text-wrap: balance; }
 .spectro img { width: 100%; }
 .playhead { position: absolute; top: 14px; bottom: 14px; left: 0; width: 1px; background: var(--ink); pointer-events: none; }
 .playhead[hidden] { display: none; }
-.play {
-  display: inline-block; margin-top: 12px; padding: 0 0 2px; border: 0; border-bottom: 1px solid var(--hair);
-  background: none; color: var(--ink); font: italic 16px var(--serif); cursor: pointer;
+/* the song plays itself, muted, while it is on screen; Unmute plays it again with sound */
+.unmute {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+  display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 26px 0 22px;
+  border: 0; border-radius: 26px; background: var(--ink); color: #fff; cursor: pointer;
+  font: 14px/1 var(--caps); letter-spacing: .2em; text-transform: uppercase;
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, .45);
 }
-.play::before { content: "▸ "; font-style: normal; }
-.play:hover { border-color: var(--ink); }
+.unmute::before { content: ""; width: 18px; height: 18px; background: currentColor;
+  -webkit-mask: var(--speaker) center / contain no-repeat; mask: var(--speaker) center / contain no-repeat; }
+.unmute:hover { background: #000; }
+.unmute[hidden] { display: none; }
+.mute { position: absolute; right: 0; bottom: -30px; padding: 2px 0; border: 0; background: none; color: var(--graphite); cursor: pointer; }
+.mute:hover { color: var(--ink); }
+.mute[hidden] { display: none; }
+:root { --speaker: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 9h4l5-4v14l-5-4H3z'/%3E%3Cpath d='M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
+/* a new detection: a card by the song, as the frame repaints to it */
+.toast {
+  position: absolute; right: 18px; top: -34px; z-index: 3; padding: 12px 18px 10px; min-width: 210px;
+  background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 14px 34px -14px rgba(0, 0, 0, .3);
+  opacity: 0; transform: translateY(8px); transition: opacity .45s ease, transform .45s ease; pointer-events: none;
+}
+.toast.on { opacity: 1; transform: none; }
+.toast .sc { display: block; font-size: 10px; color: var(--graphite); }
+.toast .nm { display: block; margin-top: 2px; font: 30px/1.15 var(--script); white-space: nowrap; }
 .t2 { margin-top: 34vh; }
-.t2 img { width: 100%; }
+/* the photograph set like a print: rounded a little, lifted a little */
+.t2 img { width: 100%; border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 18px 40px -18px rgba(0, 0, 0, .35); }
+.t2 figcaption { margin-top: 14px; color: var(--graphite); font-size: 15px; }
 /* the table's box is 1.1008 × its width (its padding and the slot's aspect) */
 .t3 { --h: calc((100cqw - var(--gutter)) * 5 / 12 * 1.1008); position: sticky; top: max(var(--nav), calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2)); }
 /* The frame on a white table against a white wall: the wall's soft fall to
@@ -218,6 +245,11 @@ h2 { font-weight: 400; text-wrap: balance; }
            background: radial-gradient(closest-side, rgba(0, 0, 0, .07), rgba(0, 0, 0, .025) 55%, transparent); opacity: var(--land, 1); }
 .tcap { margin: 22px 0 0; max-width: 70ch; color: var(--graphite); font-size: 17px; }
 .intro2.closing .lede { grid-column: 1 / 8; font-size: 19px; color: var(--text); }
+.logos { grid-column: 1 / 8; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin: 28px 0 0; }
+.logos .sc { color: var(--graphite); }
+.logos a { display: inline-flex; align-items: center; gap: 9px; font-size: 17px; color: var(--ink); filter: grayscale(1); }
+.logos a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.logos img { width: 28px; height: 28px; }
 
 /* IV. The collage */
 .colc { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); align-items: end; margin-top: 80px; }
@@ -326,7 +358,9 @@ h2 { font-weight: 400; text-wrap: balance; }
   .folio .r { gap: 16px; }
   .trip { grid-template-columns: 1fr; row-gap: 28px; }
   .lcol { padding: 0; }
-  .t2 { margin-top: 28px; }
+  .t2 { margin-top: 48px; }
+  .toast { right: 8px; top: -44px; min-width: 0; }
+  .toast .nm { font-size: 24px; }
   .t3 { position: static; }
   .cover::before { display: none; }
   .intro2.closing .lede { font-size: 18px; }
@@ -345,5 +379,5 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im { transition: none; }
+  .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im, .toast { transition: none; }
 }

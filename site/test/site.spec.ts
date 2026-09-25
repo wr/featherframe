@@ -184,30 +184,87 @@ test('a frame whose model never arrives leaves the poster showing', async ({ pag
   expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
 });
 
-test('the song plays, pauses and resets when it ends', async ({ page }) => {
+test('the song plays itself muted in view, and Unmute plays it again with sound', async ({ page }) => {
   await page.goto('/');
-  const button = page.locator('button.play');
-  await expect(button).toHaveText('Play the song');
   const song = page.locator('#song');
+  const unmute = page.getByRole('button', { name: 'Play the song with sound' });
+  await expect(unmute).toHaveText('Unmute');
   await expect(song).toHaveAttribute('preload', 'none');
-  await expect(button).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('.playhead')).toBeHidden();
-  await button.click();
-  await expect(button).toHaveText('Pause');
-  await expect(button).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('.spectro').scrollIntoViewIfNeeded();
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && a.muted && a.currentTime > 0.3)).toBe(true);
   await expect(page.locator('.playhead')).toBeVisible();
-  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => a.currentTime)).toBeGreaterThan(0.2);
-  await button.click();
+  await unmute.click();
+  await expect(unmute).toBeHidden();
+  const mute = page.getByRole('button', { name: 'Mute' });
+  await expect(mute).toBeVisible();
+  // from the start, with sound
+  expect(await song.evaluate((a: HTMLAudioElement) => a.muted)).toBe(false);
+  expect(await song.evaluate((a: HTMLAudioElement) => a.currentTime)).toBeLessThan(0.5);
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused)).toBe(true);
+  await mute.click();
+  expect(await song.evaluate((a: HTMLAudioElement) => a.muted)).toBe(true);
+  await expect(unmute).toBeVisible();
+});
+
+test('with reduced motion the song waits for its button', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await page.locator('.spectro').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1500);
+  const song = page.locator('#song');
+  expect(await song.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+  const button = page.getByRole('button', { name: 'Play the song with sound' });
   await expect(button).toHaveText('Play the song');
-  await expect(button).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('.playhead')).toBeHidden();
-  // Played out (fast: the test server cannot seek), it stands ready to play from the start.
-  await song.evaluate((a: HTMLAudioElement) => { a.playbackRate = 8; });
   await button.click();
-  await expect(button).toHaveAttribute('aria-pressed', 'true');
-  await expect(button).toHaveText('Play the song', { timeout: 10_000 });
-  await expect(button).toHaveAttribute('aria-pressed', 'false');
-  expect(await song.evaluate((a: HTMLAudioElement) => a.currentTime)).toBe(0);
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && !a.muted)).toBe(true);
+});
+
+test('each new detection is announced and the frame on the table repaints to it', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // the recordings, sped up: the test server cannot seek
+  await page.addInitScript(() => {
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) { this.playbackRate = 3; return play.call(this); };
+  });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await page.evaluate(() => scrollTo(0, document.querySelector('.spectro')!.getBoundingClientRect().top + scrollY - 120));
+  const table = page.locator('#table-slot');
+  const toast = page.locator('.toast');
+  await expect(toast).toHaveClass(/\bon\b/);
+  await expect(toast.locator('.nm')).toHaveText('Northern Cardinal');
+  await expect(table).toHaveAttribute('data-shown', 'cardinal', { timeout: 15_000 });
+  await expect(toast.locator('.nm')).toHaveText('Blue Jay', { timeout: 15_000 });
+  await expect(table).toHaveAttribute('data-shown', 'blue-jay', { timeout: 15_000 });
+  await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-blue-jay.webp');
+  await expect(toast.locator('.nm')).toHaveText('American Goldfinch', { timeout: 15_000 });
+  await expect(table).toHaveAttribute('data-shown', 'goldfinch', { timeout: 15_000 });
+});
+
+test('the running head and the wall\'s folio stay in view while their sections scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const top = (sel: string) => page.locator(sel).evaluate((e) => e.getBoundingClientRect().top);
+  await page.evaluate(() => scrollTo(0, 3000));
+  expect(await top('.head')).toBe(0);
+  const wall = await page.locator('.wall').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
+  const nav = await page.locator('.head').evaluate((e) => e.getBoundingClientRect().height);
+  for (const f of [0.3, 0.6]) {
+    await page.evaluate((y) => scrollTo(0, y), wall.y + wall.h * f);
+    expect(Math.abs((await top('.wall .folio')) - nav)).toBeLessThan(1);
+    expect(await top('.head')).toBe(0);
+  }
+  // past the wall, the folio goes with it
+  await page.evaluate((y) => scrollTo(0, y), wall.y + wall.h + 400);
+  expect(await top('.wall .folio')).toBeLessThan(0);
+  expect(await top('.head')).toBe(0);
+});
+
+test('the reservation comes before the questions', async ({ page }) => {
+  await page.goto('/');
+  const order = await page.evaluate(() => [...document.querySelectorAll('main > section')].map((s) => s.id || s.className));
+  expect(order.indexOf('close')).toBe(order.indexOf('faq') - 1);
+  expect(order[order.length - 1]).toBe('faq');
 });
 
 test('on a phone the frame stays in the cover, with no page-wide canvas', async ({ page }) => {

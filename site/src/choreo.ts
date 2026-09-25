@@ -47,8 +47,8 @@ const lerpRect = (a: Rect, b: Rect, t: number): Rect => ({
   x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), w: lerp(a.w, b.w, t), h: lerp(a.h, b.h, t),
 });
 
-/** What the frame shows. */
-type Screen = 'cycle' | 'flamingo' | 'oriole' | 'cardinal';
+/** What the frame shows: on the table, the latest detection (main.ts, <html data-detected>). */
+type Screen = 'cycle' | 'flamingo' | 'oriole' | 'table';
 type Model = '13' | '10';
 
 interface Stop {
@@ -218,13 +218,13 @@ function at(l: Layout, s: number): State {
   const fromHero = i === 0 ? 0 : i === 1 && s < stop.s0 ? t : 1;
   if (landed && !torn) rect = null;
   // The glass: the species cycle at the hero, the flamingo from the centre to
-  // the wall, the wall's last print when it tears off, the cardinal on the table.
+  // the wall, the wall's last print when it tears off, the latest detection on the table.
   let screen: Screen | null;
   if (i === 0 || (i === 1 && s < stop.s0)) screen = fromHero >= 0.5 ? 'flamingo' : fromHero <= 0.3 ? 'cycle' : null;
   else if (!torn) screen = landed ? null : 'flamingo';
-  else if (i > tearAt + 1 || (i === tearAt + 1 && s >= stop.s0)) screen = 'cardinal';
+  else if (i > tearAt + 1 || (i === tearAt + 1 && s >= stop.s0)) screen = 'table';
   else if (i === tearAt) screen = 'oriole';
-  else screen = t >= 0.75 ? 'cardinal' : t <= 0.5 ? 'oriole' : null;
+  else screen = t >= 0.75 ? 'table' : t <= 0.5 ? 'oriole' : null;
   const land = i > tearAt + 1 ? 1 : i === tearAt + 1 ? (s >= stop.s0 ? 1 : t) : 0;
   const ground = clamp01((land - 0.8) / 0.2);
   return { rect, pose: { ...pose, ground }, sway: 1 - fromHero, landed, torn, over, screen, lift: fromHero, land, ground };
@@ -267,18 +267,21 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     table,
     tablePin: table?.closest<HTMLElement>('.pin') ?? null,
   };
+  /** The detection on the table (main.ts): the species' own screen, as the hero cycle draws it. */
+  const detected = () => root.dataset.detected || 'cardinal';
   const screensOf = (size: Size): Record<Exclude<Screen, 'cycle'>, string | undefined> => ({
     flamingo: size.wall?.[0],
     oriole: size.wall?.[size.wall.length - 1],
-    cardinal: size.wall?.find((f) => f.includes('cardinal')),
+    table: size.screens.find((f) => f.includes(`-${detected()}.`)),
   });
+  const detections = (size: Size) => size.screens.filter((f) => /-(cardinal|blue-jay|goldfinch)\./.test(f));
 
   let layout = measure(els);
   // scripts and debugging: where the journey is, and its stops
   (window as any).__ff = () => ({ st: at(layout, scrollY), stops: layout.stops.map((x) => [x.s0, x.s1, x.rect(scrollY)]) });
   /** The frames: the cover's, and (B&W) the 10-inch that takes over from it. */
   const frames: Partial<Record<Model, Frame3D>> = {};
-  const shown: Partial<Record<Model, Screen | 'hidden'>> = {};
+  const shown: Partial<Record<Model, string>> = {};
   let loading10: Promise<void> | null = null;
   let active: Model = hero;
   let raf = 0, reveal = 0, dirty = true, lastKey = '', disposed = false;
@@ -292,21 +295,24 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   const applyScreen = (m: Model, st: State) => {
     const frame = frames[m];
     if (!frame) return;
-    const want: Screen | 'hidden' | null = st.rect ? st.screen : 'hidden';
-    if (want === null || want === shown[m]) return;
+    const screen: Screen | 'hidden' | null = st.rect ? st.screen : 'hidden';
+    if (screen === null) return;
+    const want = screen === 'table' ? `table:${detected()}` : screen;
+    if (want === shown[m]) return;
     // Out of sight (or not yet drawn), the glass changes without a refresh.
     const instant = shown[m] === undefined || shown[m] === 'hidden';
     shown[m] = want;
-    if (want === 'hidden') return;
+    if (screen === 'hidden') return;
+    const want2 = screen;
     // the 10-inch only ever travels: it has no cycle of its own, so it shows the flamingo
-    const src = want === 'cycle' ? (m === hero ? null : screensOf(data.sizes[m]).flamingo!) : screensOf(data.sizes[m])[want];
+    const src = want2 === 'cycle' ? (m === hero ? null : screensOf(data.sizes[m]).flamingo!) : screensOf(data.sizes[m])[want2];
     if (src !== undefined) frame.refresh.show(src, instant);
   };
   const load10 = () => {
     if (loading10 || hero === '10') return;
     loading10 = loadFrame(data.sizes['10'], { wake: request, keep: opts.poster, holdMs: 1e9 }).then((f) => {
       if (disposed) { f.dispose(); return; }
-      for (const src of Object.values(screensOf(data.sizes['10']))) if (src) f.refresh.prepare(src);
+      for (const src of [...Object.values(screensOf(data.sizes['10'])), ...detections(data.sizes['10'])]) if (src) f.refresh.prepare(src);
       f.canvas.className = 'ff3d live empty';
       f.setSize(layout.vw, layout.vh);
       document.body.prepend(f.canvas);
@@ -343,6 +349,11 @@ export async function startPage(data: SiteData, hero: Model, opts: {
       const r = f!.refresh.tick(now);
       if (f === frame) changed = r.changed;
       busy ||= r.busy;
+    }
+    // test hook: the species the frame on the table is showing, once it is on the glass
+    if (els.table) {
+      const on = st.screen === 'table' && frame.refresh.showing() === screensOf(data.sizes[active]).table ? detected() : '';
+      if ((els.table.dataset.shown ?? '') !== on) els.table.dataset.shown = on;
     }
     const sway = opts.poster || !st.sway ? 0 : Math.sin(((now - t0) / 1000) * (2 * Math.PI / SWAY_PERIOD)) * SWAY * st.sway;
     const sheen = opts.poster || !st.rect ? null : sheenAt(st.rect.y + st.rect.h / 2, layout.vh);
@@ -381,6 +392,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   // B&W resizes the wall's frames (a transition): measure again once they have settled
   const onTone = () => { if (tone() === '10') load10(); relayout(); };
   document.addEventListener('ff-tone', onTone);
+  document.addEventListener('ff-detect', request);
   els.wall?.addEventListener('transitionend', relayout);
   void document.fonts?.ready.then(relayout);
   request();
@@ -394,6 +406,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     removeEventListener('scroll', request);
     document.removeEventListener('visibilitychange', onVisible);
     document.removeEventListener('ff-tone', onTone);
+    document.removeEventListener('ff-detect', request);
     els.wall?.removeEventListener('transitionend', relayout);
     els.wall?.classList.remove('landed', 'torn');
     els.stage.classList.remove('live');
@@ -410,7 +423,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     throw e;
   }
   frames[hero] = frame;
-  for (const src of Object.values(screensOf(data.sizes[hero]))) if (src) frame.refresh.prepare(src);
+  for (const src of [...Object.values(screensOf(data.sizes[hero])), ...detections(data.sizes[hero])]) if (src) frame.refresh.prepare(src);
   frame.canvas.className = 'ff3d';
   frame.setSize(layout.vw, layout.vh);
   document.body.prepend(frame.canvas);

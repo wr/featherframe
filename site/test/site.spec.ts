@@ -69,6 +69,28 @@ test('with reduced motion nothing cycles', async ({ page }) => {
   await expect(page.locator('#label .label-name')).toHaveText('Common Nighthawk');
 });
 
+test('Keep me posted signs up without leaving the page', async ({ page }) => {
+  let body = '';
+  await page.route('https://app.featherframe.app/api/waitlist', async (route) => {
+    body = route.request().postData() || '';
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+  });
+  await page.goto('/');
+  await page.fill('#email', 'ada@example.com');
+  await page.click('#keep-posted button[type=submit]');
+  await expect(page.locator('#keep-posted .form-note')).toHaveText("Thanks. We'll write when there's news.");
+  expect(JSON.parse(body)).toEqual({ email: 'ada@example.com' });
+  await expect(page).toHaveURL(/127\.0\.0\.1:4321\/$/);
+});
+
+test('Keep me posted says when it did not go through', async ({ page }) => {
+  await page.route('https://app.featherframe.app/api/waitlist', (route) => route.abort());
+  await page.goto('/');
+  await page.fill('#email', 'ada@example.com');
+  await page.click('#keep-posted button[type=submit]');
+  await expect(page.locator('#keep-posted .form-note')).toHaveText("That didn't go through. Try again.");
+});
+
 test('a frame superseded while loading leaves the poster showing', async ({ page }) => {
   // The 13-inch model arrives late, after the 10-inch has been chosen, and the
   // 10-inch model never arrives: the stage must fall back to its poster.

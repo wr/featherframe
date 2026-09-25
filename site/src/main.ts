@@ -68,3 +68,26 @@ const start = async () => {
 };
 if (document.readyState === 'complete') void start();
 else addEventListener('load', () => void start(), { once: true });
+
+const form = document.getElementById('keep-posted') as HTMLFormElement;
+const note = form.querySelector('.form-note')!;
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = (form.elements.namedItem('email') as HTMLInputElement).value.trim();
+  const button = form.querySelector('button')!;
+  button.disabled = true;
+  try {
+    const res = await fetch(form.action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const out = await res.json() as { ok: boolean; error?: string };
+    if (out.ok) { note.textContent = "Thanks. We'll write when there's news."; form.reset(); }
+    else note.textContent = out.error || "That didn't go through. Try again.";
+  } catch {
+    note.textContent = "That didn't go through. Try again.";
+  } finally {
+    button.disabled = false;
+  }
+});

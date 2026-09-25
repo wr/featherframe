@@ -92,7 +92,7 @@ export function waitlistThanksPage(email: string, error = ""): Response {
     ? page("Waitlist · Featherframe", `<h1>Join the waitlist</h1><p class="bad">${escapeHtml(error)}</p>
         <p><a href="https://featherframe.app">Back</a></p>`)
     : page("You're on the list · Featherframe", `<h1>You're on the list</h1>
-        <p>We'll email ${escapeHtml(email)} when there's room.</p><p><a href="https://featherframe.app">Back</a></p>`);
+        <p>We'll email ${escapeHtml(email)} when there's news.</p><p><a href="https://featherframe.app">Back</a></p>`);
 }
 
 // -- the admin page (W-850) -------------------------------------------------------

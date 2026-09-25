@@ -204,6 +204,16 @@ h2 { font-weight: 400; text-wrap: balance; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .field input:focus-visible { outline: none; }
 
+/* Laptop widths: the cover's absolute composition only fits from about
+   1360 px, so between the phone layout and that, the headline and the frame
+   scale with the viewport and the tag moves under the frame. */
+@media (min-width: 821px) and (max-width: 1359px) {
+  .cover h1 { font-size: 12.6vw; }
+  .frame { height: auto; width: 31vw; bottom: 24%; }
+  .tag { right: 0; bottom: auto; top: calc(100% + 22px); }
+  .cover .copy { width: 42%; }
+}
+
 @media (max-width: 820px) {
   :root { --m: 20px; --display: 15vw; }
   .head nav a.sc { display: none; }

@@ -569,6 +569,10 @@ Container restarts); D1 schema in `hosted/migrations/`.
   (eBird 2025 names, Wikidata/GBIF/Avibase ids, BHL PageIDs, the Gould release
   images); `test_export_dataset.py` holds it to the pins. A split since BirdNET's
   taxonomy is sent to each folio's own daughter there (`EBIRD_NAMES_BY_FOLIO`).
+  Every Gould folio goes the same way (`GOULD`, W-875): a per-volume one's
+  tables lead with `volume` and key a plate by volume and number; Australia's
+  record is `docs/gould-australia/`, Britain's is the survey (only its pins are
+  caption-checked; the rest is published as open).
   `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General
   List number (the plates were issued unnumbered); `volume` + `leaf` address
   the scan, fetched from BHL's public S3 bucket by the header's `scans`

@@ -6,9 +6,9 @@ modern identifiers a reader outside Featherframe can use. This script writes a
 folio's two tables into the dataset repo, checks the repo against the folios,
 and builds a scanned folio's release images.
 
-    export_dataset.py export  DATASET_DIR   # write havell/ and gould-europe/ tables
+    export_dataset.py export  DATASET_DIR   # write havell/ and gould-{europe,australia,britain}/ tables
     export_dataset.py check   DATASET_DIR   # every pin is in species.csv, and back
-    export_dataset.py assets  OUT_DIR       # gould-europe: cleaned sheets + crops + manifest
+    export_dataset.py assets  OUT_DIR --dataset DIR [--folio gould-australia]  # cleaned sheets + crops + manifest
     export_dataset.py assets  OUT_DIR --folio havell   # Havell: audubon.org's scans + lettering-free crops
     export_dataset.py thumbs  OUT_DIR --dataset DIR [--folio …]  # contact sheets of the crops, for the README
 
@@ -28,7 +28,7 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import NamedTuple, Optional
 
 import requests
 import yaml
@@ -40,7 +40,6 @@ from featherframe import legends as legends_mod  # noqa: E402
 SCRIPTS = Path(__file__).resolve().parent
 REPO = SCRIPTS.parents[1]
 FOLIOS = SCRIPTS / "folios"
-GOULD_DOCS = REPO / "docs" / "gould-europe"
 USER_AGENT = "historical-bird-plates export (+https://github.com/wr/historical-bird-plates)"
 
 EBIRD_VERSION = "2025"
@@ -79,12 +78,51 @@ EBIRD_NAMES = {
     "Bubulcus ibis": "Ardea ibis",
     # Lumped into Redpoll in 2025; the plate is the Lesser Redpoll form.
     "Acanthis cabaret": "Acanthis flammea",
+    # Australia's crosswalk writes today's names as BirdNET and the checklists
+    # of 2024 did; eBird 2025 has moved these.
+    "Haliaeetus leucogaster": "Icthyophaga leucogaster",
+    "Accipiter novaehollandiae": "Tachyspiza novaehollandiae",
+    "Accipiter fasciatus": "Tachyspiza fasciata",
+    "Accipiter cirrocephalus": "Tachyspiza cirrocephala",
+    "Cracticus quoyi": "Melloria quoyi",
+    "Sericornis citreogularis": "Neosericornis citreogularis",
+    "Neochmia ruficauda": "Emblema ruficauda",
+    "Neochmia modesta": "Emblema modestum",
+    "Heteralocha acusirostris": "Heteralocha acutirostris",
+    "Cacomantis pallidus": "Heteroscenes pallidus",
+    "Chrysococcyx osculans": "Chalcites osculans",
+    "Chrysococcyx lucidus": "Chalcites lucidus",
+    "Chrysococcyx minutillus": "Chalcites minutillus",
+    "Climacteris rufa": "Climacteris rufus",
+    "Lophochroa leadbeateri": "Cacatua leadbeateri",
+    "Calyptorhynchus funereus": "Zanda funerea",
+    "Calyptorhynchus baudinii": "Zanda baudinii",
+    "Psephotus varius": "Psephotellus varius",
+    "Psephotus chrysopterygius": "Psephotellus chrysopterygius",
+    "Glossopsitta concinna": "Trichoglossus concinnus",
+    "Parvipsitta porphyrocephala": "Psitteuteles porphyrocephalus",
+    "Parvipsitta pusilla": "Psitteuteles pusillus",
+    "Ptilinopus magnificus": "Megaloprepia magnifica",
+    "Charadrius veredus": "Anarhynchus veredus",
+    "Charadrius bicinctus": "Anarhynchus bicinctus",
+    "Charadrius ruficapillus": "Anarhynchus ruficapillus",
+    "Charadrius mongolus": "Anarhynchus mongolus",
+    "Elseyornis melanops": "Thinornis melanops",
+    "Stiltia isabella": "Glareola isabella",
+    "Ixobrychus flavicollis": "Botaurus flavicollis",
+    "Ixobrychus dubius": "Botaurus dubius",
+    "Eulabeornis castaneoventris": "Gallirallus castaneoventris",
+    "Sceloglaux albifacies": "Ninox albifacies",
+    "Tregellasia capito": "Eopsaltria capito",
+    "Peneoenanthe pulverulenta": "Melanodryas pulverulenta",
+    "Strigops habroptila": "Strigops habroptilus",
 }
 EBIRD_NAMES_BY_FOLIO = {
     # Splits since BirdNET's year that keep the old binomial on the Old World
     # daughter: Audubon's bird is the American one, Gould's the European.
     ("havell", "Accipiter gentilis"): "Astur atricapillus",
     ("gould_europe", "Accipiter gentilis"): "Astur gentilis",
+    ("gould_britain", "Accipiter gentilis"): "Astur gentilis",
     ("havell", "Setophaga petechia"): "Setophaga aestiva",
     ("havell", "Tyto alba"): "Tyto furcata",
     ("havell", "Numenius phaeopus"): "Numenius hudsonicus",
@@ -110,9 +148,75 @@ GOULD_PLATE_COLUMNS = ["plate", "list_name", "list_latin", "caption_name", "capt
                        "rotate", "scan_url", "page_url", "sheet_asset", "crop_asset", "notes"]
 HAVELL_PLATE_COLUMNS = ["plate", "title", "legend", "image_url", "sheet_asset", "crop_asset", "notes"]
 
-GOULD_ITEMS = {"I": 132863, "II": 132861, "III": 133913, "IV": 132862, "V": 133915}
+# Per-volume folios (W-874) number plates within each volume: their tables
+# lead with the volume, and a plate is keyed by the two together.
+VOLUME_PLATE_COLUMNS = ["volume", "plate", "list_name", "list_latin", "caption_latin",
+                        "bhl_barcode", "bhl_item", "leaf", "bhl_page", "orientation", "rotate",
+                        "scan_url", "page_url", "sheet_asset", "crop_asset", "notes"]
+VOLUME_SPECIES_COLUMNS = ["volume"] + SPECIES_COLUMNS
+KU_COLUMNS = ["plate", "kind", "ku_id", "ku_name", "ku_scientific", "scientific", "common", "note"]
+
+# BHL's ItemID for each volume scanned (data/item.txt.gz on the open-data bucket).
+BHL_ITEMS = {
+    "birdsEuropeIGoul": 132863, "birdsEuropeIIGoul": 132861, "birdsEuropeIIIGoul": 133913,
+    "birdsEuropeIVGoul": 132862, "birdsEuropeVGoul": 133915,
+    "birdsAustraliav1Goul": 186988, "birdsAustraliav2Goul": 187062, "birdsAustraliav3Goul": 187975,
+    "birdsAustraliav4Goul": 191229, "birdsAustraliav5Goul": 188478, "birdsAustraliav6Goul": 188477,
+    "birdsAustraliav7Goul": 189241, "birdsAustraliasSuppGoul": 189274,
+    "birdsgreatbrita1goul": 221495, "birdsgreatbrita2goul": 221554, "birdsgreatbrita3goul": 221726,
+    "birdsgreatbrita4goul": 221609, "birdsgreatbrita5goul": 222497,
+}
 BHL_BUCKET = "https://bhl-open-data.s3.us-east-2.amazonaws.com"
 GOULD_CONFIDENCE = {"high": "high", "decided": "judged", "medium": "medium", "low": "low", "": "none"}
+ROMAN = {1: "I", 2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI", 7: "VII"}
+
+
+class Gould(NamedTuple):
+    """One of Gould's folios in the dataset: its folio file, its working record
+    and whether its plates are numbered per volume."""
+    name: str
+    docs: Path
+    per_volume: bool
+
+    @property
+    def folder(self) -> str:
+        return self.name.replace("_", "-")
+
+
+GOULD = {g.folder: g for g in (
+    Gould("gould_europe", REPO / "docs" / "gould-europe", False),
+    Gould("gould_australia", REPO / "docs" / "gould-australia", True),
+    # Only its seven gap-filling pins are checked; the rest is the survey's draft.
+    Gould("gould_britain", REPO / "docs" / "gould-survey", True),
+)}
+
+
+def volume_label(v) -> str:
+    """A per-volume folio's volume as its record writes it: I-VII, or Supp."""
+    s = str(v).rstrip(".")
+    return ROMAN[int(s)] if s.isdigit() else s
+
+
+def plate_key(g: Gould, r: dict) -> tuple:
+    """A row's (or a pin's) plate: (volume, number) in a per-volume folio."""
+    if g.per_volume:
+        return (volume_label(r.get("volume_no", r.get("volume"))), int(r["plate"]))
+    return (int(r["plate"]),)
+
+
+def plate_label(key: tuple) -> str:
+    return ".".join(str(k) for k in key)
+
+
+def scan_columns(tax: "Taxonomy", bc: str, leaf: int, orient: str, rot: int) -> dict:
+    """Where a leaf is on BHL, and its two release images."""
+    item = BHL_ITEMS[bc]
+    page = tax.pages.get((item, leaf), "")
+    return {"bhl_barcode": bc, "bhl_item": item, "leaf": leaf, "bhl_page": page,
+            "page_url": f"https://www.biodiversitylibrary.org/page/{page}" if page else "",
+            "orientation": orient, "rotate": rot,
+            "scan_url": f"{BHL_BUCKET}/images/{bc}/{bc}_{leaf:04d}.jp2",
+            "sheet_asset": sheet_name(bc, leaf), "crop_asset": crop_name(bc, leaf)}
 
 
 def barcode(volume: str) -> str:
@@ -176,7 +280,7 @@ class Taxonomy:
         if cache is None:
             return
         # BHL PageIDs: the bucket's OCR files are named item-<item>-<page>-<leaf>.txt.
-        for item in GOULD_ITEMS.values():
+        for item in BHL_ITEMS.values():
             keys = _cached(cache, f"bhl-ocr-{item}.xml", lambda item=item: _get(
                 f"{BHL_BUCKET}/", params={"list-type": "2", "prefix": f"ocr/item-{item}/"}))
             for m in re.finditer(r"<Key>ocr/item-\d+/item-\d+-(\d+)-(\d+)\.txt</Key>", keys.read_text()):
@@ -197,9 +301,10 @@ class Taxonomy:
             if r["gbif"]:
                 rec["gbif"].add(r["gbif"])
 
-    def ids(self, folio: str, sci: str, synonyms=()) -> dict:
-        """The dataset's modern columns for a pin's (BirdNET) binomial."""
-        out = {"birdnet_label": self.labels.get(sci, "")}
+    def ids(self, folio: str, sci: str, synonyms=(), birdnet: Optional[str] = None) -> dict:
+        """The dataset's modern columns for a pin's (BirdNET) binomial, or for
+        a modern binomial and the BirdNET label it falls under."""
+        out = {"birdnet_label": self.labels.get(sci if birdnet is None else birdnet, "")}
         if not sci or not self.ebird:
             return out
         name = EBIRD_NAMES_BY_FOLIO.get((folio, sci)) or EBIRD_NAMES.get(sci) or sci
@@ -217,10 +322,11 @@ class Taxonomy:
         return out
 
 
-def modern(tax: Taxonomy, folio: str, sci: str, common: str, synonyms=()) -> dict:
+def modern(tax: Taxonomy, folio: str, sci: str, common: str, synonyms=(),
+           birdnet: Optional[str] = None) -> dict:
     """Modern columns, falling back to the pin's own names when eBird has none."""
     out = {"scientific": sci, "common": common}
-    out.update(tax.ids(folio, sci, synonyms))
+    out.update(tax.ids(folio, sci, synonyms, birdnet))
     note = EBIRD_NOTES.get(sci)
     return out | ({"_note": note} if note else {})
 
@@ -290,7 +396,10 @@ def havell_tables(tax: Taxonomy, catalog: list[dict]) -> tuple[list[dict], list[
     return plates, species
 
 
-# --- Gould's Birds of Europe -----------------------------------------------
+# --- Gould's folios --------------------------------------------------------
+
+# The Birds of Europe: plates numbered by the General List, found by the
+# copy's pencilled numbers.
 
 def gould_leaves(folio: dict) -> dict[int, list[tuple[str, int]]]:
     """Plate -> its leaves: the pins' own, else the copy's pencilled number on
@@ -303,7 +412,7 @@ def gould_leaves(folio: dict) -> dict[int, list[tuple[str, int]]]:
         claimed.add(key)
         if key not in by_plate.setdefault(int(e["plate"]), []):
             by_plate[int(e["plate"])].append(key)
-    for r in read_csv(GOULD_DOCS / "plate-leaves.csv"):
+    for r in read_csv(GOULD["gould-europe"].docs / "plate-leaves.csv"):
         if r["pencil"].isdigit():
             key = (r["volume"], int(r["leaf"]))
             n = int(r["pencil"])
@@ -312,13 +421,13 @@ def gould_leaves(folio: dict) -> dict[int, list[tuple[str, int]]]:
     return by_plate
 
 
-def gould_tables(tax: Taxonomy) -> tuple[list[dict], list[dict]]:
+def europe_tables(tax: Taxonomy) -> tuple[list[dict], list[dict]]:
     folio = load_folio("gould_europe")
     header = folio["folio"]
     listed: dict[int, list[dict]] = {}
-    for r in read_csv(GOULD_DOCS / "general-list.csv"):
+    for r in read_csv(GOULD["gould-europe"].docs / "general-list.csv"):
         listed.setdefault(int(r["plate"]), []).append(r)
-    leaves = {(r["volume"], int(r["leaf"])): r for r in read_csv(GOULD_DOCS / "plate-leaves.csv")}
+    leaves = {(r["volume"], int(r["leaf"])): r for r in read_csv(GOULD["gould-europe"].docs / "plate-leaves.csv")}
     rotate = {}
     for e in pinned(folio):
         vol = str(e["volume"]).removeprefix("birdsEurope").removesuffix("Goul")
@@ -342,19 +451,13 @@ def gould_tables(tax: Taxonomy) -> tuple[list[dict], list[dict]]:
             notes = [x for x in [lr.get("note", "")] if x]
             if (vol, leaf) not in rotate:
                 notes.append("leaf found by its pencilled number; no pin checked its caption")
-            item = GOULD_ITEMS[vol]
-            page = tax.pages.get((item, leaf), "")
             plates.append(base | {
                 "caption_name": lr.get("caption_english", ""), "caption_latin": lr.get("caption_latin", ""),
-                "volume": vol, "bhl_barcode": bc, "bhl_item": item, "leaf": leaf, "bhl_page": page,
-                "page_url": f"https://www.biodiversitylibrary.org/page/{page}" if page else "",
-                "orientation": orient, "rotate": rot,
-                "scan_url": f"{BHL_BUCKET}/images/{bc}/{bc}_{leaf:04d}.jp2",
-                "sheet_asset": sheet_name(bc, leaf), "crop_asset": crop_name(bc, leaf),
+                "volume": vol, **scan_columns(tax, bc, leaf, orient, rot),
                 "notes": "; ".join(notes)})
 
     species, seen = [], set()
-    for r in read_csv(GOULD_DOCS / "crosswalk.csv"):
+    for r in read_csv(GOULD["gould-europe"].docs / "crosswalk.csv"):
         n, sci = int(r["plate"]), r["birdnet_sci"]
         pin = pins.get((n, sci))
         syn = [s for s in (r.get("sci_synonyms") or "").split(";") if s]
@@ -416,9 +519,9 @@ def ku_disagreements(species: list[dict], tax: Taxonomy) -> list[dict]:
     plate: not a synonym, a subspecies or an older name of the same eBird
     species. (A pre-split parent KU gives is a disagreement of name only and
     is listed; the README says which rows those are.)"""
-    ku = {int(r["plate"]): r for r in read_csv(GOULD_DOCS / "ku-catalogue.csv")}
+    ku = {int(r["plate"]): r for r in read_csv(GOULD["gould-europe"].docs / "ku-catalogue.csv")}
     syn: dict[tuple[int, str], set] = {}
-    for r in read_csv(GOULD_DOCS / "crosswalk.csv"):
+    for r in read_csv(GOULD["gould-europe"].docs / "crosswalk.csv"):
         syn.setdefault((int(r["plate"]), r["birdnet_sci"]), set()).update(
             s for s in (r.get("sci_synonyms") or "").split(";") if s)
     for e in pinned(load_folio("gould_europe")):
@@ -447,6 +550,126 @@ def ku_disagreements(species: list[dict], tax: Taxonomy) -> list[dict]:
     return out
 
 
+# The Birds of Australia and its Supplement: plates numbered per volume, every
+# leaf read against its engraved caption (docs/gould-australia/README.md).
+
+def australia_tables(tax: Taxonomy) -> tuple[list[dict], list[dict]]:
+    g = GOULD["gould-australia"]
+    pins = {plate_key(g, e): e for e in pinned(load_folio(g.name))}
+    leaves = {plate_key(g, r): r for r in read_csv(g.docs / "plate-leaves.csv")}
+    ku_check = {plate_key(g, r): r for r in read_csv(g.docs / "ku-check.csv")}
+    cross = read_csv(g.docs / "crosswalk.csv")
+    listed = {plate_key(g, r): r for r in cross}
+
+    plates = []
+    for key, r in leaves.items():
+        pin = pins.get(key)
+        orient = r["orientation"]
+        rot = int(pin.get("rotate") or 0) if pin else (270 if orient == "landscape" else 0)
+        notes = []
+        if r["fold_out"] == "yes":
+            notes.append("a fold-out, bound folded")
+        if r["agrees"] != "yes":
+            notes.append(r["note"])
+        if not pin:
+            notes.append("not pinned in Featherframe: stood up and cut by the folio's rules, the crop not reviewed")
+        x = listed[key]
+        plates.append({"volume": key[0], "plate": key[1], "list_name": x["gould_english"],
+                       "list_latin": x["gould_latin"], "caption_latin": r["caption_latin"],
+                       **scan_columns(tax, r["ia_id"], int(r["leaf"]), orient, rot),
+                       "notes": "; ".join(notes)})
+
+    species = []
+    for x in cross:
+        key = plate_key(g, x)
+        leaf, pin, k = leaves[key], pins.get(key), ku_check.get(key)
+        sources = [f"List of Plates (vol. {key[0]})", "Gould's text and synonymy", "crosswalk"]
+        if leaf["agrees"] == "yes":
+            sources.insert(1, "engraved caption on the leaf")
+        row = {"volume": key[0], "plate": key[1], "printed_name": x["gould_english"],
+               "printed_latin": x["gould_latin"],
+               "confidence": GOULD_CONFIDENCE.get(x["confidence"], x["confidence"]),
+               "caption_checked": "yes" if leaf["agrees"] == "yes" else "no",
+               "reason": x["reason"], "sources": "; ".join(sources)}
+        if k and k["verdict"] == "crosswalk-error":
+            row["reason"] = "; ".join((row["reason"], "the Kansas cross-check: " + k["reason"]))
+        # A species, not "Cisticola sp." or a hybrid (which keep their reason).
+        if re.fullmatch(r"[A-Z][a-z]+ [a-z]+", x["modern_sci"]):
+            m = modern(tax, g.name, x["modern_sci"], x["birdnet_common"], birdnet=x["birdnet_sci"] or "")
+            if m.get("_note"):
+                row["reason"] = "; ".join(v for v in (row["reason"], m["_note"]) if v)
+            row.update({c: v for c, v in m.items() if not c.startswith("_")})
+        if pin:
+            row["sources"] += f"; pinned in Featherframe ({g.name}.yaml)"
+        species.append(row)
+    return plates, species
+
+
+def australia_ku(species: list[dict]) -> list[dict]:
+    """The Kansas catalogue's disagreements, each settled (ku-check.csv)."""
+    g = GOULD["gould-australia"]
+    ku = {plate_key(g, r): r for r in read_csv(g.docs / "ku-catalogue.csv")}
+    ours = {(r["volume"], int(r["plate"])): r for r in species}
+    out = []
+    for r in read_csv(g.docs / "ku-check.csv"):
+        key = plate_key(g, r)
+        k, o = ku.get(key, {}), ours.get(key, {})
+        out.append({"volume": key[0], "plate": key[1], "kind": r["verdict"], "ku_id": k.get("ku_id", ""),
+                    "ku_name": r["ku_english"], "ku_scientific": r["ku_sci"],
+                    "scientific": o.get("scientific", ""), "common": o.get("common", ""), "note": r["reason"]})
+    return out
+
+
+# The Birds of Great Britain: seven gap-filling pins, each checked against its
+# caption; every other plate is the survey's draft (docs/plate-sources.md),
+# published as an open question.
+SURVEY_REASON = "a draft from the survey of the folio: the List's name carried to a modern one, not yet reviewed"
+
+
+def britain_tables(tax: Taxonomy, europe: list[dict]) -> tuple[list[dict], list[dict]]:
+    g = GOULD["gould-britain"]
+    pins = {plate_key(g, e): e for e in pinned(load_folio(g.name))}
+    europe_sci = {}
+    for r in europe:
+        if r.get("scientific") and r.get("caption_checked") == "yes":
+            europe_sci.setdefault(int(r["plate"]), set()).add(r["scientific"])
+    plates, species = [], []
+    for r in read_csv(g.docs / "britain-plates.csv"):
+        key = plate_key(g, r)
+        pin = pins.get(key)
+        rot = int(pin.get("rotate") or 0) if pin else int(r["rotate"] or 0)
+        caption = pin["gould_title"].split(", ", 1)[-1] if pin else ""
+        plates.append({"volume": key[0], "plate": key[1], "list_name": r["printed_english"],
+                       "list_latin": r["printed_latin"], "caption_latin": caption,
+                       **scan_columns(tax, r["ia_id"], int(r["leaf"]), r["orientation"], rot),
+                       "notes": "" if pin else "leaf paired with the List by the binding's order and OCR; "
+                                               "its caption not read"})
+        row = {"volume": key[0], "plate": key[1], "printed_name": r["printed_english"],
+               "printed_latin": r["printed_latin"]}
+        if pin:
+            m = modern(tax, g.name, pin["scientific"], pin["common"], pin.get("sci_synonyms") or ())
+            row |= {c: v for c, v in m.items() if not c.startswith("_")} | {
+                "confidence": "high", "caption_checked": "yes", "reason": m.get("_note", ""),
+                "sources": f"engraved caption on the leaf; pinned in Featherframe ({g.name}.yaml)"}
+        else:
+            reason = [SURVEY_REASON]
+            if r["modern_sci"] and r["europe_plate"] and r["modern_sci"] in europe_sci.get(int(r["europe_plate"]), ()):
+                reason.append(f"agrees with The Birds of Europe, plate {r['europe_plate']}")
+            if r["note"]:
+                reason.append(r["note"])
+            row |= {"confidence": "low" if r["confidence"] == "low" else "medium",
+                    "caption_checked": "no", "sources": "survey (sources/survey.csv)"}
+            if r["modern_sci"]:
+                m = modern(tax, g.name, r["modern_sci"], r["birdnet_common"],
+                           birdnet=r["modern_sci"] if r["in_birdnet"] == "True" else "")
+                if m.get("_note"):
+                    reason.append(m["_note"])
+                row |= {c: v for c, v in m.items() if not c.startswith("_")}
+            row["reason"] = "; ".join(reason)
+        species.append(row)
+    return plates, species
+
+
 # --- commands --------------------------------------------------------------
 
 def havell_catalog(plates_dir: Optional[Path]) -> list[dict]:
@@ -459,82 +682,123 @@ def export(out: Path, tax: Taxonomy, plates_dir: Optional[Path]) -> None:
     hp, hs = havell_tables(tax, havell_catalog(plates_dir))
     write_csv(out / "havell" / "plates.csv", HAVELL_PLATE_COLUMNS, hp)
     write_csv(out / "havell" / "species.csv", SPECIES_COLUMNS, hs)
-    gp, gs = gould_tables(tax)
-    write_csv(out / "gould-europe" / "plates.csv", GOULD_PLATE_COLUMNS, gp)
-    write_csv(out / "gould-europe" / "species.csv", SPECIES_COLUMNS, gs)
-    ku = ku_disagreements(gs, tax)
-    write_csv(out / "gould-europe" / "ku-disagreements.csv",
-              ["plate", "kind", "ku_id", "ku_name", "ku_scientific", "scientific", "common", "note"], ku)
-    src = out / "gould-europe" / "sources"
-    src.mkdir(parents=True, exist_ok=True)
-    for name in ("general-list.csv", "plate-leaves.csv", "crosswalk.csv", "ku-catalogue.csv"):
-        shutil.copyfile(GOULD_DOCS / name, src / name)
     print(f"havell: {len(hp)} plates, {sum(1 for r in hs if r.get('scientific'))} identifications")
-    print(f"gould-europe: {len(gp)} plate rows, {sum(1 for r in gs if r.get('scientific'))} identifications, "
-          f"{sum(1 for r in gs if r.get('caption_checked') == 'yes')} caption-checked, "
-          f"{len(ku)} Kansas disagreements")
+    ep, es = europe_tables(tax)
+    ap, as_ = australia_tables(tax)
+    bp, bs = britain_tables(tax, es)
+    tables = {"gould-europe": (ep, es, ku_disagreements(es, tax),
+                               ("general-list.csv", "plate-leaves.csv", "crosswalk.csv", "ku-catalogue.csv")),
+              "gould-australia": (ap, as_, australia_ku(as_),
+                                  ("plate-leaves.csv", "crosswalk.csv", "ku-catalogue.csv", "ku-check.csv",
+                                   "review.csv")),
+              "gould-britain": (bp, bs, None, ())}
+    for folder, (plates, species, ku, sources) in tables.items():
+        g = GOULD[folder]
+        vol = ["volume"] if g.per_volume else []
+        write_csv(out / folder / "plates.csv", VOLUME_PLATE_COLUMNS if g.per_volume else GOULD_PLATE_COLUMNS, plates)
+        write_csv(out / folder / "species.csv", VOLUME_SPECIES_COLUMNS if g.per_volume else SPECIES_COLUMNS, species)
+        if ku is not None:
+            write_csv(out / folder / "ku-disagreements.csv", vol + KU_COLUMNS, ku)
+        src = out / folder / "sources"
+        src.mkdir(parents=True, exist_ok=True)
+        for name in sources:
+            shutil.copyfile(g.docs / name, src / name)
+        if folder == "gould-britain":
+            shutil.copyfile(g.docs / "britain-plates.csv", src / "survey.csv")
+        print(f"{folder}: {len(plates)} plate rows, {sum(1 for r in species if r.get('scientific'))} identifications, "
+              f"{sum(1 for r in species if r.get('caption_checked') == 'yes')} caption-checked"
+              + (f", {len(ku)} Kansas disagreements" if ku is not None else ""))
 
 
 def check(out: Path) -> list[str]:
-    """Every pin in the folios is a row in species.csv, and (Gould) every
-    caption-checked row is a pin. Names are compared as the pin wrote them:
-    the BirdNET label's binomial, or the dataset's own when it has none."""
+    """Every pin in the folios is a row in species.csv. Names are compared as
+    the pin wrote them: the BirdNET label's binomial, or the dataset's own
+    when it has none (and Australia's modern name for its BirdNET label).
+    Where only the pins were read against their captions (Europe, Britain),
+    every caption-checked row is also a pin."""
     errors = []
-    for folio_name, folder, strict in (("havell", "havell", False), ("gould_europe", "gould-europe", True)):
+    folios = [("havell", "havell", None)] + [(g.name, g.folder, g) for g in GOULD.values()]
+    for folio_name, folder, g in folios:
         rows = read_csv(out / folder / "species.csv")
+
+        def key(r):
+            return plate_key(g, r) if g else (int(r["plate"]),)
 
         def names(r):
             return {r["birdnet_label"].split("_")[0]} if r["birdnet_label"] else {r["scientific"]}
 
-        have = {(int(r["plate"]), n) for r in rows if r["scientific"] for n in names(r)}
+        have = {(key(r), n) for r in rows if r["scientific"] for n in names(r)}
+        aliases = {}
+        if folio_name == "gould_australia":
+            for x in read_csv(g.docs / "crosswalk.csv"):
+                aliases[(plate_key(g, x), x["birdnet_sci"])] = x["modern_sci"]
         pins = pinned(load_folio(folio_name))
         for e in pins:
-            sci = e["scientific"]
-            options = {sci, EBIRD_NAMES.get(sci), EBIRD_NAMES_BY_FOLIO.get((folio_name, sci))} - {None}
-            if not any((int(e["plate"]), s) in have for s in options):
-                errors.append(f"{folder}: pin {e['common']} ({sci}) on plate {e['plate']} is not in species.csv")
-        if strict:
-            pinset = {(int(e["plate"]), e["scientific"]) for e in pins}
+            sci, k = e["scientific"], key(e)
+            options = {sci, EBIRD_NAMES.get(sci), EBIRD_NAMES_BY_FOLIO.get((folio_name, sci)),
+                       aliases.get((k, sci))} - {None}
+            if not any((k, s) in have for s in options):
+                errors.append(f"{folder}: pin {e['common']} ({sci}) on plate {plate_label(k)} is not in species.csv")
+        if folio_name in ("gould_europe", "gould_britain"):
+            pinset = {(key(e), e["scientific"]) for e in pins}
             for r in rows:
-                if r["caption_checked"] == "yes" and not any((int(r["plate"]), n) in pinset for n in names(r)):
-                    errors.append(f"{folder}: plate {r['plate']} {r['scientific']} is caption-checked but not pinned")
+                if r["caption_checked"] == "yes" and not any((key(r), n) in pinset for n in names(r)):
+                    errors.append(f"{folder}: plate {plate_label(key(r))} {r['scientific']} "
+                                  "is caption-checked but not pinned")
     return errors
 
 
 # Plates whose tight crop loses the bird, cut whole instead (caption kept).
 WHOLE_CROPS = {
-    436: "the Ivory Gull, white on white paper: the tight box finds only its perch",
+    ("gould-europe", "436"): "the Ivory Gull, white on white paper: the tight box finds only its perch",
 }
 
 
-def assets(out: Path, dataset: Path, plates_dir: Path, work: Path) -> None:
-    """Every Gould leaf in plates.csv as a cleaned sheet (what fetch_plates
-    stores) and an art crop (the plate library's colour cut), plus a sha256
-    manifest. Sheets already fetched are taken from plates_dir; the rest are
-    fetched from BHL into work/."""
+def unpinned_margins(g: Gould, header: dict) -> dict:
+    """The margins for a leaf no pin has cut, by (barcode, leaf): an upright
+    Australia plate stops above its caption and clear of the binding line,
+    as its pins do (docs/gould-australia/README.md); the rest take the
+    folio's own."""
+    out = {}
+    if g.folder == "gould-australia":
+        for r in read_csv(g.docs / "plate-leaves.csv"):
+            if r["orientation"] == "portrait" and r["caption_top"]:
+                out[(r["ia_id"], int(r["leaf"]))] = [0.02, 0.02, 0.955, round(float(r["caption_top"]) - 0.006, 3)]
+    return out
+
+
+def assets(out: Path, dataset: Path, plates_dir: Path, work: Path, folder: str = "gould-europe") -> None:
+    """Every leaf of a Gould folio's plates.csv as a cleaned sheet (what
+    fetch_plates stores) and an art crop (the plate library's colour cut),
+    plus a sha256 manifest. A pinned sheet already fetched is taken from
+    plates_dir; the rest are fetched from BHL into work/."""
     import fetch_plates
     from featherframe.plate_library import _raw_color_crop
     from PIL import Image
     Image.MAX_IMAGE_PIXELS = None
-    folio = load_folio("gould_europe")
+    g = GOULD[folder]
+    folio = load_folio(g.name)
     header = folio["folio"]
     params = {}
     for e in pinned(folio):
-        vol = str(e["volume"]).removeprefix("birdsEurope").removesuffix("Goul")
-        params.setdefault((vol, int(e["leaf"])), e)
+        params.setdefault((str(e["volume"]), int(e["leaf"])), e)
+    fallback = unpinned_margins(g, header)
     out.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
     manifest = {}
     session = requests.Session()
     session.headers["User-Agent"] = USER_AGENT
-    for r in read_csv(dataset / "gould-europe" / "plates.csv"):
+    for r in read_csv(dataset / folder / "plates.csv"):
         if not r["leaf"] or r["sheet_asset"] in manifest:
             continue
-        vol, leaf, bc = r["volume"], int(r["leaf"]), r["bhl_barcode"]
+        leaf, bc = int(r["leaf"]), r["bhl_barcode"]
+        label = f"{r['volume']}.{r['plate']}" if g.per_volume else r["plate"]
+        e = params.get((bc, leaf), {})
         sheet, crop = out / r["sheet_asset"], out / r["crop_asset"]
         if not sheet.exists():
-            have = plates_dir / "img" / "gould_europe" / f"{bc}-{leaf:04d}.jpg"
-            if not have.exists():
+            have = plates_dir / "img" / g.name / f"{bc}-{leaf:04d}.jpg"
+            # Only a pin's own sheet: an unpinned leaf in the cache may have been stood up otherwise.
+            if not (e and have.exists()):
                 have = work / f"{bc}-{leaf:04d}.jpg"
                 if not have.exists():
                     raw = have.with_suffix(".jp2")
@@ -545,18 +809,18 @@ def assets(out: Path, dataset: Path, plates_dir: Path, work: Path) -> None:
                     raw.unlink(missing_ok=True)
             shutil.copyfile(have, sheet)
         if not crop.exists():
-            e = params.get((vol, leaf), {})
             # An unpinned sheet is cut as one vignette: the tight box stops at
             # the paper gap above its caption.
-            composite = bool(e.get("composite")) or int(r["plate"]) in WHOLE_CROPS
-            img = _raw_color_crop(sheet, composite, e.get("crop_box"),
-                                  e.get("margins") or header.get("margins"), bool(header.get("tight")))
+            composite = bool(e.get("composite")) or (folder, r["plate"]) in WHOLE_CROPS
+            margins = (e.get("margins") or fallback.get((bc, leaf))
+                       or (header.get("volume_margins") or {}).get(bc) or header.get("margins"))
+            img = _raw_color_crop(sheet, composite, e.get("crop_box"), margins, bool(header.get("tight")))
             img.convert("RGB").save(crop, format="JPEG", quality=95)
         for p in (sheet, crop):
             manifest[p.name] = {"sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
-                                "bytes": p.stat().st_size, "plate": int(r["plate"])}
-        print(f"  ✓  plate {r['plate']}: {sheet.name}")
-    write_manifest(out, "gould-europe", manifest)
+                                "bytes": p.stat().st_size, "plate": label if g.per_volume else int(label)}
+        print(f"  ✓  plate {label}: {sheet.name}")
+    write_manifest(out, folder, manifest)
 
 
 def write_manifest(out: Path, folio: str, manifest: dict) -> None:
@@ -596,39 +860,45 @@ THUMB_COLS, THUMB_PER_SHEET = 10, 50
 
 def thumbs(dataset: Path, assets_dir: Path, folder: str = "gould-europe") -> list[str]:
     """Contact sheets of a folio's crops, 50 plates each, for its README:
-    <folder>/img/plates-<first>-<last>.jpg. Returns the files written."""
+    <folder>/img/plates-<first>-<last>.jpg, or plates-<volume>-<first>-<last>.jpg
+    for a folio numbered per volume. Returns the files written."""
     from PIL import Image, ImageDraw, ImageFont
     font = ImageFont.truetype(str(SCRIPTS.parent / "featherframe" / "fonts" / "Inter-Medium.otf"), 15)
+    per_volume = folder in GOULD and GOULD[folder].per_volume
     rows = [r for r in read_csv(dataset / folder / "plates.csv") if r["crop_asset"]]
-    seen, plates = set(), []
+    seen, groups = set(), {}
     for r in rows:                      # one cell per plate: its first leaf
-        if r["plate"] not in seen:
-            seen.add(r["plate"])
-            plates.append(r)
+        key = (r["volume"], r["plate"]) if per_volume else r["plate"]
+        if key not in seen:
+            seen.add(key)
+            groups.setdefault(r["volume"] if per_volume else "", []).append(r)
     out_dir = dataset / folder / "img"
     out_dir.mkdir(parents=True, exist_ok=True)
     cw, ch = THUMB_CELL
     label_h = 44
     written = []
-    for i in range(0, len(plates), THUMB_PER_SHEET):
-        group = plates[i:i + THUMB_PER_SHEET]
-        nrows = (len(group) + THUMB_COLS - 1) // THUMB_COLS
-        sheet = Image.new("RGB", (THUMB_COLS * cw, nrows * ch), "white")
-        draw = ImageDraw.Draw(sheet)
-        for j, r in enumerate(group):
-            x, y = (j % THUMB_COLS) * cw, (j // THUMB_COLS) * ch
-            with Image.open(assets_dir / r["crop_asset"]) as im:
-                im = im.convert("RGB")
-                im.thumbnail((cw - 16, ch - label_h - 12), Image.LANCZOS)
-                sheet.paste(im, (x + (cw - im.width) // 2, y + 8 + (ch - label_h - 12 - im.height) // 2))
-            name = r.get("caption_name") or r.get("list_name") or r.get("title") or ""
-            while draw.textlength(f"{r['plate']}. {name}", font=font) > cw - 12 and len(name) > 4:
-                name = name[:-2].rstrip() + "…" if not name.endswith("…") else name[:-2].rstrip() + "…"
-            draw.text((x + cw // 2, y + ch - label_h + 10), f"{r['plate']}. {name}", font=font,
-                      fill=(60, 60, 60), anchor="mt")
-        path = out_dir / f"plates-{int(group[0]['plate']):03d}-{int(group[-1]['plate']):03d}.jpg"
-        sheet.save(path, format="JPEG", quality=82, optimize=True, progressive=True)
-        written.append(path.name)
+    for vol, plates in groups.items():
+        for i in range(0, len(plates), THUMB_PER_SHEET):
+            group = plates[i:i + THUMB_PER_SHEET]
+            nrows = (len(group) + THUMB_COLS - 1) // THUMB_COLS
+            sheet = Image.new("RGB", (THUMB_COLS * cw, nrows * ch), "white")
+            draw = ImageDraw.Draw(sheet)
+            for j, r in enumerate(group):
+                x, y = (j % THUMB_COLS) * cw, (j // THUMB_COLS) * ch
+                with Image.open(assets_dir / r["crop_asset"]) as im:
+                    im = im.convert("RGB")
+                    im.thumbnail((cw - 16, ch - label_h - 12), Image.LANCZOS)
+                    sheet.paste(im, (x + (cw - im.width) // 2, y + 8 + (ch - label_h - 12 - im.height) // 2))
+                num = f"{vol}.{r['plate']}" if vol else r["plate"]
+                name = r.get("caption_name") or r.get("list_name") or r.get("title") or ""
+                while draw.textlength(f"{num}. {name}", font=font) > cw - 12 and len(name) > 4:
+                    name = name[:-2].rstrip() + "…" if not name.endswith("…") else name[:-2].rstrip() + "…"
+                draw.text((x + cw // 2, y + ch - label_h + 10), f"{num}. {name}", font=font,
+                          fill=(60, 60, 60), anchor="mt")
+            prefix = f"plates-{vol.lower()}-" if vol else "plates-"
+            path = out_dir / f"{prefix}{int(group[0]['plate']):03d}-{int(group[-1]['plate']):03d}.jpg"
+            sheet.save(path, format="JPEG", quality=82, optimize=True, progressive=True)
+            written.append(path.name)
     return written
 
 
@@ -640,7 +910,7 @@ def main() -> int:
     ap.add_argument("--offline", action="store_true", help="export without the outside sources")
     ap.add_argument("--dataset", type=Path, help="assets: the dataset repo whose plates.csv to follow")
     ap.add_argument("--plates-dir", type=Path, help="a Featherframe plates dir with sheets already fetched")
-    ap.add_argument("--folio", default="gould-europe", choices=["gould-europe", "havell"],
+    ap.add_argument("--folio", default="gould-europe", choices=[*GOULD, "havell"],
                     help="assets, thumbs: which folio")
     args = ap.parse_args()
     if args.command == "export":
@@ -665,7 +935,7 @@ def main() -> int:
             havell_assets(args.dir, args.dataset, args.plates_dir)
         else:
             assets(args.dir, args.dataset, args.plates_dir or Path("/nonexistent"),
-                   args.dir.parent / (args.dir.name + "-work"))
+                   args.dir.parent / (args.dir.name + "-work"), args.folio)
     return 0
 
 

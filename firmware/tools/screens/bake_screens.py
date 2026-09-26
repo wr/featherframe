@@ -512,7 +512,7 @@ RETRY_TEXTS = ["Trying again in 1 minute", "Trying again in 5 minutes",
                "Trying again in 15 minutes", "Trying again shortly"]
 ERR_ICON_SLOT = round(PILL_H * 0.68)
 RETRY_SIZE = PILL_TEXT_SIZE
-# The physical mat covers ~4% per edge (config.mat_inset_pct default): the
+# The physical mat covers ~4% per edge (both kits' Panel.mat_inset_pct): the
 # plate pipeline scales its whole render to clear it, but boot screens push
 # full-bleed — so art may bleed under the mat, type must stay inside
 # (usable bottom ≈ 1797, right ≈ 1348).

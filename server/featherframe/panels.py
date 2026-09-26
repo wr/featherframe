@@ -43,6 +43,10 @@ class Panel:
     # What a frame with this panel is called until its owner names it (the
     # kit as sold), and "" for a panel with no kit of ours.
     title: str = ""
+    # The mat inset, % per edge, a frame with this panel starts with: the
+    # opening of the mat the kit is sold behind. 0 for a panel with no mat of
+    # ours.
+    mat_inset_pct: float = 0.0
 
     @property
     def known(self) -> bool:
@@ -61,7 +65,7 @@ class Panel:
 # setRotation() is a no-op, so the frame is rotated server-side (90 or 270).
 # Blue-noise: 16 grays leave little to diffuse, and it is vectorised (Pi-friendly).
 EE03 = Panel("ee03", 'EE03 · 10.3" gray', 1404, 1872, False, (90, 270), 2, "bluenoise",
-             min_repaint_s=0, title='10.3" Grayscale Frame')
+             min_repaint_s=0, title='10.3" Grayscale Frame', mat_inset_pct=4.0)
 
 # The name is shown on the page, whose copy is US English ("color").
 # Seeed EE02: E Ink Spectra 6 13.3" (T133A01). Native canvas is portrait; 180
@@ -73,7 +77,8 @@ EE03 = Panel("ee03", 'EE03 · 10.3" gray', 1404, 1872, False, (90, 270), 2, "blu
 EE02 = Panel("ee02", 'EE02 · 13.3" Spectra 6 color', 1200, 1600, True, (0, 180), 30, "stucki",
              # Its warning is a 30 s six-ink full refresh, not a sub-second pill:
              # hold 0.1 V earlier so the cell still has the headroom to paint it.
-             low_battery_volts=3.55, fmt="spectra6", mode="collage", title='13" Color Frame')
+             low_battery_volts=3.55, fmt="spectra6", mode="collage", title='13" Color Frame',
+             mat_inset_pct=4.0)
 
 PANELS = {p.key: p for p in (EE03, EE02)}
 

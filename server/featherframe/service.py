@@ -564,6 +564,7 @@ class FeatherframeService:
         # One registry for every screen (W-833): the kit on the wall, a second
         # kit, a TRMNL, a tablet.
         self.frames = FrameRegistry(self.db)
+        self.frames.drop_zero_mat_inset()
         self.config: Config = load_config(self.db)
         # The page's password, off unless the owner sets one (W-773).
         self.password = auth.PasswordGate(self.db)
@@ -1732,10 +1733,13 @@ class FeatherframeService:
                 if rotation is not None and spec is not None and rotation in spec.rotations:
                     row.setdefault("set", {})["panel_rotation"] = rotation
                 # …and with the mat it kept (W-857), where that is not its
-                # panel's own default anyway.
+                # panel's own default anyway. An inset of 0 is what every
+                # frame was told before its panel had one of its own
+                # (`drop_zero_mat_inset`), so it is not carried either.
                 if mat and spec is not None:
                     fresh_cfg = Config.defaults_for(spec.key)
-                    own = {k: v for k, v in mat.items() if getattr(fresh_cfg, k) != v}
+                    own = {k: v for k, v in mat.items() if getattr(fresh_cfg, k) != v
+                           and not (k == "mat_inset_pct" and v == 0)}
                     if own:
                         row.setdefault("set", {}).update(own)
             rep = frames_mod.reported_of(row)
@@ -1869,6 +1873,12 @@ class FeatherframeService:
             for key in frames_mod.KIT_SETTINGS:      # keep what sanitize() made of it
                 if key in own:
                     own[key] = getattr(probe, key)
+            # The page posts every field: a mat at its panel's own default is
+            # not a choice, so the frame follows that default if it moves.
+            fresh = Config.defaults_for(probe.panel)
+            for key in frames_mod.MAT_KEYS:
+                if key in own and own[key] == getattr(fresh, key):
+                    own.pop(key)
             row["set"] = own
             board = frames_mod.reported_of(row).get("board")
         if fields.get("update_firmware") and own.get("update_firmware"):

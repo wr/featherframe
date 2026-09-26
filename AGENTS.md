@@ -287,7 +287,7 @@ interval* dropdown, a minute to a day, whose value swaps with Power (seconds →
 `device_poll_seconds`, minutes → `wake_interval_minutes`; only the shown one is
 posted) and which is `locked` to the collage's own interval while that is what
 the frame shows, Screen size only when `needs_size` — then
-*Advanced* (the mat inset and offset, the *Mat guide* switch — `mat_guide`, a
+*Advanced* (the mat inset and offset — the inset starts at its panel's `Panel.mat_inset_pct`, 4 % on both kits, which their mats need; `set` keeps a mat value only where it differs from that — the *Mat guide* switch — `mat_guide`, a
 2 px line just inside the composition to set them by — and *Reset to
 defaults*) and *Details*, which is what this
 frame REPORTED and nothing the row above already says: IP address, firmware,

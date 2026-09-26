@@ -182,3 +182,26 @@ def test_a_hidden_legend_line_stays_in_the_transcription_but_not_under_the_illus
     spec.loader.exec_module(fp)
     shown = fp.species_legend({"audubon_title": "Brown headed Worm eating Warbler"}, 198, {198: rec})
     assert shown == ["Azalea Calendulacea. Orange-coloured Azalea."]
+
+
+def test_the_havell_fetcher_puts_a_plates_margins_and_mask_in_the_index(tmp_path, monkeypatch):
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "fp_havell", Path(__file__).parents[1] / "scripts" / "fetch_plates.py")
+    fp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fp)
+    monkeypatch.setattr(fp, "load_catalog", lambda *a, **k: {
+        43: {"fileName": "plate-43-cedar-bird.jpg", "name": "Cedar Bird"},
+        102: {"fileName": "plate-102-blue-jay.jpg", "name": "Blue Jay"}})
+    monkeypatch.setattr(fp.paths, "plates_dir", lambda: tmp_path)
+    args = type("A", (), {"force": False, "dry_run": True, "all": False, "no_release": True})()
+    species = [{"common": "Cedar Waxwing", "scientific": "Bombycilla cedrorum", "plate": 43,
+                "margins": [0.025, 0.068, 0.975, 0.935], "mask": [[0.52, 0.85, 0.79, 1]]},
+               {"common": "Blue Jay", "scientific": "Cyanocitta cristata", "plate": 102}]
+    records, _, _ = fp.fetch_havell(None, species, args, tmp_path, {}, {})
+    waxwing, jay = records
+    assert waxwing["margins"] == [0.025, 0.068, 0.975, 0.935]
+    assert waxwing["mask"] == [[0.52, 0.85, 0.79, 1]]
+    assert "margins" not in jay and "mask" not in jay       # every other record as before

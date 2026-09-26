@@ -330,6 +330,9 @@ def fetch_havell(session: requests.Session, species: list, args, images_dir: Pat
             "image": None,
             "legend": species_legend(entry, plate, plate_legends),
         }
+        for key in ("margins", "mask"):     # a sheet cut its own way (W-883)
+            if entry.get(key):
+                record[key] = entry[key]
         if plate is None:
             print(f"  ·  {common}: typographic fallback (no plate)")
             counts["fallback"] += 1

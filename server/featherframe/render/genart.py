@@ -289,7 +289,7 @@ _P_COMPOSITE_SEASON = (
     "the bark clean and plain, so the figures carry the sheet; every figure stands whole "
     "against it and every numeral sits on open paper. "
 )
-COLLAGE_PROMPT_VERSION = 17  # the collage sidecar's; single plates keep PROMPT_VERSION
+COLLAGE_PROMPT_VERSION = 18  # W-881 17, W-882 18; single illustrations keep PROMPT_VERSION
 
 
 def build_composite_prompt(subjects: list[tuple[str, str]],
@@ -1674,7 +1674,8 @@ class GeneratedArtProvider(ArtProvider):
     # -- the combined collage (one generated sheet) --------------------------------
     _KEEP_SHEETS = 7  # the latest of a day is kept; older days only for a re-render
 
-    def day_composite(self, cells, when, force: bool = False, southern: bool = False):
+    def day_composite(self, cells, when, force: bool = False, southern: bool = False,
+                      weather=None):
         """One generated composite sheet for the day's top species, in the
         manner of the folio's late totem plates. One file per date, reused for
         every redraw of that day — every collage is the generated one when the
@@ -1685,7 +1686,10 @@ class GeneratedArtProvider(ArtProvider):
         (art, cells_as_painted) — on a cache hit the cells come from the
         sidecar, so the key under the sheet always names the figures that were
         actually painted — or None (caller falls back to the grid). The bough
-        is set in the season of `when` (W-881), `southern` flipping it.
+        is set in the season of `when` (W-881), `southern` flipping it, and
+        carries that day's `weather` (W-882: a callable returning
+        `weather.kind_of`'s kind, or None when it cannot say), asked only
+        when a sheet is bought.
         Never raises."""
         day = when.isoformat()
         png = paths.collages_dir() / f"{day}.png"
@@ -1707,8 +1711,14 @@ class GeneratedArtProvider(ArtProvider):
             briefs = {sci or common: self._describe(common, sci)[0]
                       for common, sci in subjects}  # description only
             season = season_phrase(when, southern)
+            kind = None
+            if weather is not None:
+                try:
+                    kind = weather()
+                except Exception:  # the season's own look stands
+                    kind = None
             prompt = build_composite_prompt(subjects, briefs,
-                                            season=tree_state(when, southern))
+                                            season=tree_state(when, southern, kind))
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
                 if png.exists():
@@ -1754,6 +1764,7 @@ class GeneratedArtProvider(ArtProvider):
                     "cost_usd": estimate_cost_usd(model_name, image_usage),
                     "prompt_version": COLLAGE_PROMPT_VERSION,
                     "season": season,
+                    "weather": kind,
                     "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                     "created_ts": round(time.time(), 1),
                     "elapsed_s": round(time.time() - started, 1),

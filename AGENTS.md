@@ -419,7 +419,14 @@ list of things to paint; a season named alone came back as dead oak leaves.
 The hemisphere is the source's `latitude()` (BirdNET-Pi's `Lat`, BirdWeather's
 station coords, BirdNET-Go's `bg_latitude`), else the Region (Australia is
 south). The sidecar records `season` and `COLLAGE_PROMPT_VERSION` (single
-plates keep `PROMPT_VERSION`).
+plates keep `PROMPT_VERSION`). The day's own weather (W-882,
+`render/weather.py`) is asked of Open-Meteo at the source's `location()`
+(rounded to 0.01°) only when a sheet is bought, and recorded as the sidecar's
+`weather`: `snowing` / `snow` (lying) / `rain` / "" — once it is known, snow
+comes from it alone, so a dry winter day is bare wood; unknown (no location, a
+failed ask) keeps the season's own snow. Wind was tried and does not read.
+Weather alone never repaints a sheet. `FEATHERFRAME_WEATHER=off` (the test
+suite) never asks.
 
 **Render pipeline (`render/`).** `pipeline.py` orchestrates:
 `compose.render_single` (or `collage.render_collage`) → `finish.to_levels`

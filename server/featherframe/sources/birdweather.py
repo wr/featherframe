@@ -19,7 +19,7 @@ from typing import Any, Optional
 
 import requests
 
-from .base import Detection, DetectionSource, valid_latitude
+from .base import Detection, DetectionSource, valid_location
 
 log = logging.getLogger("featherframe.birdweather")
 
@@ -41,8 +41,8 @@ class BirdWeatherSource(DetectionSource):
         self._stats_at: float = 0.0
         self._totals: Optional[dict[str, int]] = None
         self._totals_at: float = 0.0
-        self._lat: Optional[float] = None
-        self._lat_at: float = 0.0
+        self._loc: Optional[tuple[float, float]] = None
+        self._loc_at: float = 0.0
 
     # -- HTTP --------------------------------------------------------------
     def _get(self, path: str, params: Optional[dict] = None) -> Optional[Any]:
@@ -174,16 +174,17 @@ class BirdWeatherSource(DetectionSource):
         except (TypeError, ValueError):
             return 0
 
-    def latitude(self) -> Optional[float]:
+    def location(self) -> Optional[tuple[float, float]]:
         """The station's own coordinates (`GET /stations/{token}`), asked once;
         a failed ask is tried again after an hour."""
-        if self._lat is not None or time.time() - self._lat_at < 3600:
-            return self._lat
-        self._lat_at = time.time()
+        if self._loc is not None or time.time() - self._loc_at < 3600:
+            return self._loc
+        self._loc_at = time.time()
         payload = self._get(f"/stations/{self.station_id}")
         coords = payload.get("coords") if isinstance(payload, dict) else None
-        self._lat = valid_latitude(coords.get("lat")) if isinstance(coords, dict) else None
-        return self._lat
+        self._loc = (valid_location(coords.get("lat"), coords.get("lon"))
+                     if isinstance(coords, dict) else None)
+        return self._loc
 
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         return None  # not cheaply available from the station API

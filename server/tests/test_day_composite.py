@@ -359,14 +359,17 @@ class _NoArt:
 
 def test_the_grid_and_the_sheet_share_one_bottom_block():
     """Same date line, same numbered key, same art box — one helper draws it
-    for both, so the two collages are one thing set two ways."""
+    for both, so the two collages are one thing set two ways. The painted
+    sheet's ✦ at the date line's right end is the one difference."""
     import numpy as np
     box = collage_mod.sheet_art_box(CELLS)
     art = Image.new("L", collage_mod.sheet_art_size(CELLS), 200)
     sheet = collage_mod.render_generated_collage(art, CELLS, when=DAY)
     grid = collage_mod.render_collage(CELLS, _NoArt(), when=DAY)
     below = lambda img: np.asarray(img.convert("L"))[box[3]:, :]   # noqa: E731
-    assert np.array_equal(below(sheet), below(grid))
+    diff = np.argwhere(below(sheet) != below(grid))
+    assert diff.size and diff[:, 1].min() > box[2] - 40             # only the star
+    assert np.array_equal(below(sheet)[:, :box[2] - 40], below(grid)[:, :box[2] - 40])
     assert collage_mod.sheet_date_text(DAY) == "FRIDAY, AUGUST 28, 2026"
 
 
@@ -387,3 +390,17 @@ def test_a_colour_grid_keeps_its_type_on_the_gray_field():
     """The colour panel's grid is the same sheet: art in colour, type over it."""
     img = collage_mod.render_collage(CELLS, _NoArt(), when=DAY, color=True)
     assert img.mode == "RGB" and img.size == (theme.WIDTH, theme.HEIGHT)
+
+
+def test_a_generated_sheet_carries_the_star_and_the_grid_does_not(data_dir):
+    """The painted sheet is generated, so it says so as a generated plate
+    does: a ✦ at the date line's right end, under the art's right edge."""
+    art = Image.new("L", collage_mod.sheet_art_size(CELLS), 255)
+    field = collage_mod.render_generated_collage(art, CELLS, when=DAY)
+    base = collage_mod.sheet_date_baseline(CELLS)
+    x1 = theme.WIDTH - theme.SHEET_MARGIN_X
+    star = field.crop((x1 - 30, base - 30, x1 + 1, base + 2))
+    assert sum(1 for p in star.getdata() if p < 200) > 40
+    grid = collage_mod.render_collage(CELLS, _NoArt(), when=DAY)
+    blank = grid.crop((x1 - 30, base - 30, x1 + 1, base + 2))
+    assert all(p >= 200 for p in blank.getdata())

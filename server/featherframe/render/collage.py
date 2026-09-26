@@ -214,19 +214,25 @@ def sheet_art_size(cells: list[CollageCell]) -> tuple[int, int]:
 
 def _bottom_block(field: Image.Image, draw: ImageDraw.ImageDraw, cells: list[CollageCell],
                   when: ddate, note: Optional[str] = None,
-                  note_kind: Optional[str] = None) -> tuple[int, int, int, int]:
+                  note_kind: Optional[str] = None,
+                  generated: bool = False) -> tuple[int, int, int, int]:
     """How BOTH collages are set below the art: the date, spaced wide in the
     engraved capitals, on its own line over a numbered key ('1. BLUE JAY') in
     prominence order, packed into columns along the bottom. A `note` (the
     gone-quiet footnote) lifts the key so the two never share the bottom
-    margin. Returns the art box the block leaves — there is no header, so the
-    art runs from the top margin down to it."""
+    margin. A `generated` sheet carries the single plate's ✦ at the date
+    line's right end, under the art's right edge (W-733). Returns the art box
+    the block leaves — there is no header, so the art runs from the top
+    margin down to it."""
     bottom = theme.KEY_BOTTOM + (theme.NOTE_CLEAR if note else 0)
     key_size, key_rows = sheet_key(cells, bool(note))
     _draw_key(draw, key_size, key_rows, bottom=bottom)
     date_baseline = _sheet_date_baseline(key_size, key_rows, bottom)
     typography.draw_engraved(draw, theme.WIDTH / 2, date_baseline, sheet_date_text(when),
                              key_size, theme.INK, theme.SHEET_DATE_TRACKING)
+    if generated:
+        typography.generated_mark(field, theme.WIDTH - theme.SHEET_MARGIN_X,
+                                  baseline=date_baseline, size=key_size)
     if note:
         typography.note_line(field, note, kind=note_kind)
     return sheet_art_box(cells, bool(note))
@@ -255,7 +261,7 @@ def render_generated_collage(art: Image.Image, cells: list[CollageCell],
     # A colour sheet (colour panel) goes on its own layer under the gray type.
     layer = new_color_layer() if art.mode == "RGB" else None
 
-    box = _bottom_block(field, draw, cells, when, note, note_kind)
+    box = _bottom_block(field, draw, cells, when, note, note_kind, generated=True)
     _paste_art(layer if layer is not None else field, art, box, v_align=0.5)
     return merge_color(field, layer) if layer is not None else field
 

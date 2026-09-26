@@ -11,8 +11,8 @@
 /** How far below the running head's bottom the eyebrow flips the page: EARLY px,
  *  or LINE of the window's height where that is further (a taller window), so the
  *  page is dark before the chapter's headline is read. */
-export const EARLY = 150;
-export const LINE = 0.45;
+export const EARLY = 50;
+export const LINE = 0.34;
 
 export function startNight(): void {
   const section = document.getElementById('collage');

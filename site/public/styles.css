@@ -130,6 +130,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .stage.live canvas { opacity: 1; }
 .stage.live .poster { opacity: 0; transition: opacity .6s ease; }
 .cover .copy { position: absolute; left: 0; bottom: 6%; z-index: 2; width: 40%; }
+.cover .speed { position: absolute; right: 0; bottom: 1.5%; z-index: 2; margin: 0; font-size: 15px; font-style: italic; color: var(--graphite); }
 .cover .copy p { font-size: 24px; line-height: 1.42; margin: 0 0 26px; text-wrap: pretty; }
 .cta { display: flex; align-items: center; gap: 20px; }
 .cta .it { color: var(--graphite); font-size: 20px; }
@@ -262,7 +263,7 @@ h2 { font-weight: 400; text-wrap: balance; }
    the book's type, pinned to the video's top-left corner. It slides in at the
    first detection and stays; at each one after, its name changes. */
 .toast {
-  position: absolute; left: 0; top: -22px; z-index: 3;
+  position: absolute; left: 28px; top: -22px; z-index: 3;
   display: flex; align-items: center; gap: 12px; min-width: 260px; padding: 10px 14px 10px 10px;
   background: #fff; border-radius: 12px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 14px 34px -12px rgba(0, 0, 0, .3);
   font-family: var(--sans); font-variant-numeric: normal; color: #121212;
@@ -301,6 +302,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 #table-slot { position: relative; aspect-ratio: 0.77576; }
 /* the still includes its own shadow: TABLE_PAD in choreo.ts */
 #table-slot .still { position: absolute; left: -15%; top: -15%; width: 130%; height: 120%; max-width: none; }
+/* B&W: the 10.3-inch at its true size beside the 13-inch's, standing on the same spot (the frame's foot is 95.8% down the still) */
+[data-tone="10"] #table-slot .still { transform: scale(0.795); transform-origin: 50% 95.8%; }
 /* where the frame's foot meets the table, soft and wide; it comes in only as
    the frame settles (--land, choreo.ts) */
 .contact { position: absolute; left: -4%; right: 2%; bottom: -6%; height: 14%; z-index: -2; pointer-events: none;
@@ -319,7 +322,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* IV. The collage: a year of sheets, spring to winter. On a
    desktop the row is pinned and slides sideways as the page scrolls down
    (seasons.ts); on phones, and with reduced motion, the sheets stack. */
-#collage .intro2 .key { grid-column: 7 / 13; }
+#collage .intro2 .key { grid-column: 1 / 13; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: calc(2 * var(--gutter)); align-items: start; }
+#collage .intro2 .key .lede { grid-column: auto; margin: 0; }
 #collage .sub { margin: 22px 0 0; font-size: 19px; color: var(--graphite); }
 .seasons { margin-top: 80px; }
 .row { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 72px; }
@@ -379,6 +383,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .spec dt { grid-column: 1 / 5; font: 13px/1.9 var(--caps); letter-spacing: .2em; text-transform: uppercase; color: var(--graphite); }
 .spec dd { grid-column: 5 / 13; font-size: 21px; line-height: 1.45; }
 .spec dd span { display: block; }
+.spec dd .fine { margin-top: 6px; font-size: 16px; font-style: italic; color: var(--graphite); }
 
 /* VI. Questions */
 #faq { margin-top: 150px; }
@@ -632,4 +637,11 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
   .head nav, .head .tone { gap: 8px; }
   .head .btn { padding: 0 8px; }
   .head .tone button, .head .btn { letter-spacing: .08em; }
+}
+.qa dd ul { margin: 0; padding-left: 1.1em; }
+.qa dd li + li { margin-top: 6px; }
+@media (max-width: 700px) {
+  #collage .intro2 .key { display: block; }
+  #collage .intro2 .key .lede + .lede { margin-top: 18px; }
+  .cover .speed { position: static; order: 3; margin-top: 10px; text-align: right; }
 }

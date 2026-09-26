@@ -35,25 +35,25 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage h2')).toHaveText('Each night, a portrait of the day.');
   // "Each night," roman, "a portrait of the day." italic
   await expect(page.locator('#collage h2 i')).toHaveText('a portrait of the day.');
-  await expect(page.locator('#collage .lede')).toHaveText('Your frame shows every species heard that day on one canvas, numbered and labeled like a page in an old natural history book. Enable AI illustration¹ and all the day’s species are painted together as a beautiful collage that changes with the seasons and weather.');
+  await expect(page.locator('#collage .lede')).toHaveText(['During quiet hours overnight, your frame shows every species heard that day on one canvas, numbered and labeled like a page in an old natural history book.', 'Enable AI illustration¹ and all the day’s species are painted together as a beautiful collage that changes with the seasons and weather.']);
   await expect(page.locator('#fn-ai')).toHaveText('¹ Requires your own OpenAI API key, billed separately by OpenAI. Featherframe and Wells Workshop LLC are not affiliated with OpenAI. Use of AI is not required for collage functionality.');
   await expect(page.locator('#how .closing .lede').last()).toHaveText('You can set up a BirdNET detector in your own backyard, or choose a BirdWeather station near you or anywhere in the world.');
   await expect(page.locator('#specs .folio')).toHaveText('Technical details');
   await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Software']);
   // inches first, millimetres after
-  await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10-inch: 9.1 × 11.6 × 1.1 in (232 × 295 × 28 mm)13-inch: 11.6 × 14.6 × 1.1 in (295 × 371 × 28 mm)');
+  await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10.3-inch: 9.1 × 11.6 × 1.1 in (232 × 295 × 28 mm)13-inch: 11.6 × 14.6 × 1.1 in (295 × 371 × 28 mm)The mat’s opening is slightly smaller than the display.');
   await expect(page.locator('#specs .spec dd').nth(5)).toHaveText('A BirdWeather station near you, or your own BirdNET-Go');
   await expect(page.locator('#specs .spec dd').nth(6)).toHaveText('Open source. See it on GitHub');
   await expect(page.locator('#specs .spec dd').nth(6).getByRole('link', { name: 'See it on GitHub' })).toHaveAttribute('href', 'https://github.com/wr/featherframe');
   await expect(page.locator('#specs .spec')).not.toContainText('Service');
   // the prices: the hero, each size, the close
   await expect(page.locator('.cover .cta .it')).toHaveText('From $349. US pre-orders ship by December\u00a012.');
-  await expect(page.locator('#specs .ho figcaption')).toHaveText(['10-inch$349 · Depth 1.1 in (28 mm)', '13-inch$479 · Depth 1.1 in (28 mm)']);
+  await expect(page.locator('#specs .ho figcaption')).toHaveText(['10.3-inch$349 · Depth 1.1 in (28 mm)', '13-inch$479 · Depth 1.1 in (28 mm)']);
   await expect(page.locator('#specs .ho .diag span')).toHaveText(['10.3-inch display', '13.3-inch display']);
   await expect(page.locator('#specs .dim')).toHaveCount(0);
   await expect(page.locator('.close h2')).toHaveText('Pre-order yours.');
   await expect(page.locator('.close h2 i')).toHaveText('yours.');
-  await expect(page.locator('.close p')).toHaveText('From $349, with nothing to pay after. US pre-orders ship by December\u00a012.');
+  await expect(page.locator('.close p')).toHaveText('From $349, with no subscription. US pre-orders ship by December\u00a012.');
   await expect(page.locator('body')).not.toContainText('Reserve');
   await expect(page.locator('body')).not.toContainText('November');
   await expect(page.locator('.cover .copy p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
@@ -74,13 +74,15 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage .season img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
   await expect(page.locator('#faq dt')).toHaveText([
     'Does it make a good gift?', 'Do I need Wi-Fi?', 'How fast does the frame change?', 'Do I need to run BirdNET locally?', 'Does it work outside North America?',
-    'What if a species near me was never illustrated?', 'Do the collages need AI?', 'What is hosting, and what does it cost?', 'Is my data private?']);
-  await expect(page.locator('#faq dd').nth(2)).toContainText('The color frame takes about fifteen seconds');
-  await expect(page.locator('.t3 figcaption .fn')).toHaveText('Every refresh on this page runs at the panel’s real speed.');
-  await expect(page.locator('#faq dd').nth(0)).toHaveText('Yes. Nothing needs setting up before you wrap it. The person you give it to connects it to their Wi-Fi and chooses a listening station, all from their phone. US pre-orders ship by December\u00a012.');
+    'What if a species near me was never illustrated?', 'Do the collages need AI?', 'Is a subscription required?', 'Is hosting required?', 'Is my data private?']);
+  await expect(page.locator('.cover .speed')).toHaveText('Refresh shown at true speed');
+  await expect(page.locator('#faq dd').nth(2).locator('li')).toHaveText(['Grayscale: about a second.', 'Color: about fifteen seconds, flickering as its inks settle. Well suited to the nightly collage, and fine for detections.']);
+  await expect(page.locator('#faq a.fnref')).toHaveCount(2);
+  await expect(page.locator('body')).not.toContainText('listening station');
+  await expect(page.locator('#faq dd').nth(0)).toHaveText('Yes. Nothing needs setting up before you wrap it. The person you give it to connects it to their Wi-Fi and chooses a detection source, all from their phone. US pre-orders ship by December\u00a012.');
   await expect(page.locator('#faq dd').nth(3)).toHaveText('No. The frame can use any public BirdWeather station, and there are stations across North America, Europe and beyond. If none is close, choose one near a place you love. To see the birds in your own yard, you can add a station of your own.');
   await expect(page.locator('#faq dd').nth(4)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
-  await expect(page.locator('#faq dd').nth(6)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration turned on, the day’s species are painted together in one scene, marked ✦.');
+  await expect(page.locator('#faq dd').nth(6)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration¹ turned on, the day’s species are painted together in one scene, marked ✦.');
   await expect(page.locator('#faq')).not.toContainText('OpenAI key');
   await expect(page.locator('#keep-posted .form-why')).toHaveText("Not ready to order? We'll write once, when the frames ship.");
   await expect(page.locator('.cat figure')).toHaveCount(12);
@@ -717,7 +719,9 @@ test('a new detection is a notification pinned to the video', async ({ page }) =
   expect(name).toEqual(['Inter', '16px', '600']);
   expect(kicker).toEqual(['Inter', '12px', '500']);
   const [t, ph] = await Promise.all([toast.boundingBox(), page.locator('.t2 .ph video').boundingBox()]);
-  expect(t!.x).toBeLessThan(ph!.x + 10);
+  // set in from the video's left edge a little
+  expect(t!.x).toBeGreaterThan(ph!.x + 10);
+  expect(t!.x).toBeLessThan(ph!.x + 40);
   expect(t!.y).toBeLessThan(ph!.y + 10);
   expect(t!.y + t!.height).toBeGreaterThan(ph!.y);
 });
@@ -738,8 +742,8 @@ test('the page turns to night at the collage and stays night to the end, day aga
   const box = await page.locator('#collage').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
   const nav = await page.locator('.head').evaluate((e) => e.getBoundingClientRect().bottom);
   const brow = await page.locator('#collage .eyebrow').evaluate((e) => e.getBoundingClientRect().top + scrollY);
-  // the line is 150 px below the running head's bottom, or 45% of the window where that is further (night.ts)
-  const early = Math.max(150, Math.round(0.45 * 900));
+  // the line is 50 px below the running head's bottom, or 34% of the window where that is further (night.ts)
+  const early = Math.max(50, Math.round(0.34 * 900));
   // the eyebrow a few pixels short of that line: still day
   await page.evaluate((y) => scrollTo(0, y), brow - nav - early - 6);
   await page.waitForTimeout(700);

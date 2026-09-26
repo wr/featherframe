@@ -64,10 +64,15 @@ const WALNUT_ROUGHNESS = 0.55;
 const WALNUT_TINT = 0.72;
 const GLASS_ENV = 0.7;
 // The screen shows its picture as it is — unlit, not tone-mapped — at this
-// level (linear RGB): its paper exactly the mat's white round it (the mat
-// renders at #f6f8fa), so no box of paper shows through the opening, and its
-// inks as dark and as saturated as the picture's own.
-const SCREEN_WHITE = [0.922, 0.939, 0.956] as const;
+// level (linear RGB): the panel's paper a light, faintly cool gray (#e7e9e7
+// on screen), as e-paper is beside the mat, and its inks as dark and as
+// saturated as the picture's own.
+const SCREEN_WHITE = [0.8, 0.805, 0.795] as const;
+// The mat: a touch warm (#f6f5f0 on screen), and lit by the room rather than
+// glowing (the GLB gives it a cool emissive), so its bevelled opening shades
+// and reads as a cut edge against the panel.
+const MAT_COLOR = [1, 0.975, 0.93] as const;
+const MAT_EMISSIVE = [0.1, 0.097, 0.09] as const;
 // The table's shadow, for the table's still only (`?wall=table`, opts.floor):
 // a light that lights nothing (so the frame looks as it does everywhere else)
 // but casts the frame onto a shadow-only floor, from above and in front, so it
@@ -202,6 +207,11 @@ export async function loadFrame(size: Size, opts: {
       w.envMapIntensity = WALNUT_ENV;
       w.roughness = WALNUT_ROUGHNESS;
       w.color.setScalar(WALNUT_TINT);
+    }
+    if (name === 'featherframe_mat') {
+      const t = m.material as MeshStandardMaterial;
+      t.color.setRGB(...MAT_COLOR);
+      t.emissive.setRGB(...MAT_EMISSIVE);
     }
     if (name === 'featherframe_glass') {
       const g = m.material as MeshStandardMaterial;

@@ -139,13 +139,14 @@ function measureNow(els: Els): Layout {
   const vh = document.documentElement.clientHeight;
   const nav = els.head ? els.head.getBoundingClientRect().height : 0;
   const stops: Stop[] = [];
-  let hero = heroRect(els.stage.getBoundingClientRect(), scrollY);
-  // The cover draws the frames to scale: the 10-inch stands smaller than the 13-inch (295 mm tall to
-  // 371 mm), on the same spot of the table.
-  if (tone() === '10') {
+  // The cover and the table draw the frames to scale: the 10.3-inch stands smaller than the 13-inch
+  // (295 mm tall to 371 mm), on the same spot.
+  const toScale = (r: Rect): Rect => {
+    if (tone() !== '10') return r;
     const k = 295 / 371;
-    hero = { x: hero.x + (hero.w * (1 - k)) / 2, y: hero.y + hero.h * (1 - k), w: hero.w * k, h: hero.h * k };
-  }
+    return { x: r.x + (r.w * (1 - k)) / 2, y: r.y + r.h * (1 - k), w: r.w * k, h: r.h * k };
+  };
+  const hero = toScale(heroRect(els.stage.getBoundingClientRect(), scrollY));
   stops.push({ rect: scrolled(hero), pose: HERO, s0: -Infinity, s1: 0, hold: true });
   let landAt = Infinity, tearAt = Infinity;
   const after = (s: number, min: number) => Math.max(s, stops[stops.length - 1].s1 + min * vh);
@@ -180,7 +181,7 @@ function measureNow(els: Els): Layout {
     tearAt = stops.length - 1;
     if (els.table && els.tablePin) {
       const p = pinned(els.table, els.tablePin);
-      stops.push({ rect: p.rect, pose: TABLE, s0: after(p.s0, 0.3), s1: Infinity, over: true });
+      stops.push({ rect: (s) => toScale(p.rect(s)), pose: TABLE, s0: after(p.s0, 0.3), s1: Infinity, over: true });
     }
   }
   const last = stops[stops.length - 1];

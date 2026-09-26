@@ -48,7 +48,7 @@ class SingleSpec:
     first_ever: bool = False
     # One footnote in the bottom margin ("Nothing heard since 11:27 pm"), in
     # the system voice. Set only by an alarm; None draws nothing. `note_kind`
-    # picks the pill: "outage" is a fault (outlined, slashed), else information.
+    # picks the icon: "outage" carries a slashed cloud, anything else none.
     note: Optional[str] = None
     note_kind: Optional[str] = None
     # The footnote for the empty bough only, when image generation would

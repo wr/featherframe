@@ -30,18 +30,18 @@ def test_solid_pill_is_the_toast_geometry():
     f = _field(); d = ImageDraw.Draw(f)
     x0, x1 = system.pill(d, theme.WIDTH / 2, 1000, "Up to date")
     assert abs((x0 + x1) / 2 - theme.WIDTH / 2) < 1
-    band = f.crop((0, 1000 - system.PILL_H // 2 - 2, theme.WIDTH, 1000 + system.PILL_H // 2 + 2))
+    band = f.crop((0, 1000 - system.NOTE_H // 2 - 2, theme.WIDTH, 1000 + system.NOTE_H // 2 + 2))
     assert _ink(band) > 0
-    assert _ink(f, (0, 0, theme.WIDTH, 1000 - system.PILL_H // 2 - 3)) == 0   # nothing above it
+    assert _ink(f, (0, 0, theme.WIDTH, 1000 - system.NOTE_H // 2 - 3)) == 0   # nothing above it
 
 
-def test_outline_pill_is_paper_inside_and_carries_an_icon():
+def test_error_pill_is_black_and_carries_a_white_icon():
     f = _field(); d = ImageDraw.Draw(f)
-    x0, x1 = system.pill(d, theme.WIDTH / 2, 1000, "Can't reach server", style="outline", icon="cloud")
-    solid = _field(); system.pill(ImageDraw.Draw(solid), theme.WIDTH / 2, 1000, "Can't reach server")
-    assert _ink(f) < _ink(solid)                           # mostly paper, not a black slab
-    icon_box = (int(x0) + system.PILL_PAD, 1000 - 24, int(x0) + system.PILL_PAD + 56, 1000 + 24)
-    assert _ink(f, icon_box) > 40                          # the slashed cloud is there
+    x0, x1 = system.pill(d, theme.WIDTH / 2, 1000, "Can't reach server", icon="cloud")
+    plain = _field(); system.pill(ImageDraw.Draw(plain), theme.WIDTH / 2, 1000, "Can't reach server")
+    assert _ink(f) > _ink(plain) * 0.9                     # the same black slab, a bit wider
+    icon_box = (int(x0) + system.NOTE_PAD, 1000 - 16, int(x0) + system.NOTE_PAD + 36, 1000 + 16)
+    assert (np.asarray(f.crop(icon_box)) > 128).sum() > 40 # the slashed cloud, in white
 
 
 def test_pill_shrinks_its_type_to_fit_max_w():
@@ -71,10 +71,12 @@ def test_note_pill_sits_between_the_corner_marks():
     assert _ink(out) > 0
 
 
-def test_outage_note_is_outlined_and_quiet_note_is_solid():
+def test_every_note_is_the_black_pill():
     quiet = _field(); typography.note_line(quiet, "No detections since 8 am", kind="quiet")
     outage = _field(); typography.note_line(outage, "No detections since 8 am", kind="outage")
-    assert _ink(quiet) > _ink(outage) * 1.5
+    failed = _field(); typography.note_line(failed, "No detections since 8 am", kind="imagegen")
+    assert _ink(outage) > _ink(quiet) * 0.9                # solid too, not an outline
+    assert _ink(failed) == _ink(quiet)
 
 
 def test_card_fits_its_lines_and_returns_its_bottom():
@@ -95,10 +97,12 @@ def test_welcome_uses_the_system_voice_not_the_script():
     # The card is a black box centred on the panel: a solid band of ink at mid-height.
     mid = down.crop((0, theme.HEIGHT // 2 - 30, theme.WIDTH, theme.HEIGHT // 2 + 30))
     assert _ink(mid) > 10000
-    # The fault pill rests where the firmware rests its toasts; no date footer.
-    band = down.crop((0, system.TOAST_Y, theme.WIDTH, system.TOAST_Y + system.PILL_H))
+    # The fault pill rests on the footer line, where every pill does; no date
+    # mark in the corner beside it.
+    band = down.crop((0, int(system.NOTE_CY - system.NOTE_H / 2), theme.WIDTH,
+                      int(system.NOTE_CY + system.NOTE_H / 2)))
     assert _ink(band) > 500
-    assert _ink(down, (0, theme.HEIGHT - 40, theme.WIDTH, theme.HEIGHT)) == 0
+    assert _ink(down, (0, theme.HEIGHT - 80, 300, theme.HEIGHT)) == 0
 
 
 def test_vendor_label_names_the_drawer():

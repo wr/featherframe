@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 sys.path.insert(0, os.path.join(REPO, "server"))
 
-from featherframe.render import theme, typography  # noqa: E402  (needs sys.path)
+from featherframe.render import system, theme, typography  # noqa: E402  (needs sys.path)
 
 # The panel's 16 gray levels render lighter than the source, so darken the midtones
 # before quantizing (gamma > 1). This MUST be a fixed, content-independent curve —
@@ -127,8 +127,8 @@ def check(draw, cx, cy, s, fill=255, width=6):
 # right as a fast DU partial (pure black/white, so no flash) — motion, not a
 # blink, is what reads as "loading, not stuck" on a panel this slow. Frame k of
 # FF_LOADER_FRAMES lights diamond k; the baked screens carry frame 0.
-LOADER_R = 9          # half-height of one diamond
-LOADER_PITCH = 30     # diamond center-to-center
+LOADER_R = 6          # half-height of one diamond
+LOADER_PITCH = 18     # diamond center-to-center
 LOADER_SLOT_W = LOADER_PITCH * 2 + LOADER_R * 2
 LOADER_FRAMES = 3
 
@@ -137,37 +137,7 @@ def draw_loader_mark(draw, cx, cy, frame=0):
         x = cx + (k - 1) * LOADER_PITCH
         diamond(draw, x, cy, LOADER_R, fill=255)
         if k != frame:
-            diamond(draw, x, cy, LOADER_R - 3.5, fill=0)
-
-def slash(draw, cx, cy, s):
-    # white casing under the black stroke so the slash reads over any glyph
-    draw.line([(cx - s, cy + s), (cx + s, cy - s)], fill=255, width=14)
-    draw.line([(cx - s, cy + s), (cx + s, cy - s)], fill=0, width=6)
-
-def wifi_slash(draw, cx, cy, s):
-    wifi_glyph(draw, cx, cy + s * 0.55, s, fill=0)
-    slash(draw, cx, cy, s * 0.78)
-
-def cloud_slash(draw, cx, cy, s):
-    # A solid cloud (union of lobes over a flat base) reads at small sizes
-    # where an outlined rack of boxes turns to mush.
-    lobes = [(cx - 0.52 * s, cy + 0.10 * s, 0.38 * s),
-             (cx + 0.02 * s, cy - 0.18 * s, 0.52 * s),
-             (cx + 0.55 * s, cy + 0.12 * s, 0.36 * s)]
-    for (x, y, r) in lobes:
-        draw.ellipse([x - r, y - r, x + r, y + r], fill=0)
-    draw.rounded_rectangle([cx - 0.72 * s, cy + 0.05 * s, cx + 0.80 * s, cy + 0.48 * s],
-                           radius=int(0.2 * s), fill=0)
-    slash(draw, cx, cy, s * 0.95)
-
-def battery_low(draw, cx, cy, s):
-    """A nearly empty cell: outlined body, terminal nub, one sliver of charge."""
-    w, h = s * 2.1, s * 1.15
-    x0, y0 = cx - w / 2 - 2, cy - h / 2
-    draw.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=6, outline=0, width=4)
-    draw.rounded_rectangle([x0 + w + 1, cy - h * 0.22, x0 + w + 6, cy + h * 0.22],
-                           radius=2, fill=0)
-    draw.rectangle([x0 + 8, y0 + 8, x0 + 8 + w * 0.16, y0 + h - 8], fill=0)
+            diamond(draw, x, cy, LOADER_R - 2.2, fill=0)
 
 def new_canvas():
     c = Image.new("L", (W, H), 255)
@@ -191,9 +161,9 @@ def screen_setup(bare=None):
     draw_wordmark(im)
     d = ImageDraw.Draw(im)
     steps = [
-        "From your computer or smartphone,\njoin the wi-fi hotspot:",
-        "Choose a wi-fi network for Featherframe\nto join.",
-        "Fill in the IP address of your BirdNET\ndevice, if not auto-detected.",
+        "From your computer or smartphone,\njoin the Wi-Fi hotspot:",
+        "Choose a Wi-Fi network for Featherframe\nto join.",
+        "Fill in the IP address of your Featherframe\nwebapp, if not auto-detected.",
     ]
     fnt = font(46, weight=600)   # semibold: reversed type on e-ink loses weight
     numf = font(34, weight=600)
@@ -358,12 +328,29 @@ PILL_TEXT = {
     "download": "Downloading image",
 }
 
-# Pill geometry: y=1648, height 82, centered, rounded (rx = h/2). The loading
-# mark sits in a slot at the left, the text after it — a plain sans (Inter
-# Medium) for at-a-glance readability against all the Garamond around it.
-# Drawn pure black/white so the window refreshes flash-less with DU.
-PILL_Y, PILL_H, PILL_PAD, PILL_GAP = 1648, 82, 30, 22
-PILL_TEXT_SIZE = 34
+# One pill everywhere (25 Sep 2026): the server's footnote pill, on the
+# footer line between the corner marks. A plate is drawn on the sheet and then
+# shrunk into the frame's mat; these screens are full-bleed, so they carry the
+# pill where that line lands under a reference mat (REF_INSET), at the size
+# that mat shrinks it to. The firmware moves a toast by the frame's own mat
+# (FF_REF_INSET, FF_FOOT_CY). The loading mark sits in a slot at the left, the
+# text after it, in Inter. Drawn pure black/white so the window refreshes
+# flash-less with DU.
+REF_INSET = 4.0
+REF_SCALE = 1 - 2 * REF_INSET / 100
+PILL_CY = (H - round(H * REF_SCALE)) // 2 + system.NOTE_CY * REF_SCALE
+PILL_H = round(system.NOTE_H * REF_SCALE)
+PILL_PAD = round(system.NOTE_PAD * REF_SCALE)
+PILL_GAP = round(PILL_PAD * 0.6)
+PILL_TEXT_SIZE = round(system.NOTE_TEXT * REF_SCALE)
+PILL_Y = round(PILL_CY - PILL_H / 2)
+ICON_S = round(PILL_H * system.ICON_OF_PILL)   # an icon's half-size in the pill
+icon = system.draw_icon                  # the server's icons, so both sides match
+
+def band(y0, y1):
+    """An upright row band widened to whole 8 px: under the gray panel's turn
+    its rows are native columns, and a window must start on a whole byte."""
+    return y0 & ~7, (y1 + 7) & ~7
 
 def draw_pill(im, text):
     # Returns the loading mark's portrait center so the bake can emit its
@@ -518,35 +505,48 @@ def loader_tiles(im: Image.Image, cx, cy):
 # painted plate the firmware shows only a small slashed glyph in the margin
 # corner (see FF_CORNER_*). All tiles are pure black/white on white => DU.
 ERR_TEXTS = [("Can't reach Wi-Fi", "wifi"), ("Can't reach server", "server")]
-WAIT_TEXT = "Waiting for the first bird"
+WAIT_TEXT = "Waiting for the first image"
 # The server serves one frame; another waits for its owner to switch to it.
 PENDING_TEXT = "Add this frame on the Featherframe webapp"
 RETRY_TEXTS = ["Trying again in 1 minute", "Trying again in 5 minutes",
                "Trying again in 15 minutes", "Trying again shortly"]
-ERR_ICON_SLOT = 56
-RETRY_SIZE = 28
+ERR_ICON_SLOT = round(PILL_H * 0.68)
+RETRY_SIZE = PILL_TEXT_SIZE
 # The physical mat covers ~4% per edge (config.mat_inset_pct default): the
 # plate pipeline scales its whole render to clear it, but boot screens push
 # full-bleed — so art may bleed under the mat, type must stay inside
 # (usable bottom ≈ 1797, right ≈ 1348).
-RETRY_BASELINE = 1776
-CORNER_CX, CORNER_CY, CORNER_S = 1290, 1742, 26
+RETRY_BASELINE = PILL_Y - 18          # over the pill: the pill is on the footer line
 
-def _err_icon(kind):
-    return wifi_slash if kind == "wifi" else cloud_slash
+# The offline mark: the black pill as a circle, in the plate number's place
+# on the footer line, over a white box as wide as the widest plate number.
+CORNER_R = (W - round(W * REF_SCALE)) // 2 + (W - theme.CORNER_INSET) * REF_SCALE
+CORNER_PILL_W = round(PILL_H * 1.25)
+CORNER_BOX = (round(CORNER_R - typography.plate_mark_max_width() * REF_SCALE - 10),
+              round(CORNER_R + 6))
+
+def _draw_corner(d, kind):
+    d.rectangle([CORNER_BOX[0], PILL_Y - 6, CORNER_BOX[1], PILL_Y + PILL_H + 6], fill=255)
+    d.rounded_rectangle([CORNER_R - CORNER_PILL_W, PILL_Y, CORNER_R, PILL_Y + PILL_H],
+                        radius=PILL_H / 2, fill=0)
+    icon(d._image, kind, CORNER_R - CORNER_PILL_W / 2, PILL_Y + PILL_H / 2, ICON_S, 255)
+
+def _corner_assets(window):
+    corners = [_canvas(lambda d: _draw_corner(d, "wifi")), _canvas(lambda d: _draw_corner(d, "cloud"))]
+    return corners, window(corners, *band(PILL_Y - 6, PILL_Y + PILL_H + 6), span=CORNER_BOX)
 
 def _draw_error_pill(d, text, kind):
     fnt = sans(PILL_TEXT_SIZE)
     tw = d.textlength(text, font=fnt)
-    pillw = int(26 + ERR_ICON_SLOT + 18 + tw + 30)
+    pillw = int(PILL_PAD + ERR_ICON_SLOT + PILL_GAP + tw + PILL_PAD + 4)
     px = int(W / 2 - pillw / 2)
     cy = PILL_Y + PILL_H / 2
     d.rounded_rectangle([px, PILL_Y, px + pillw, PILL_Y + PILL_H],
-                        radius=PILL_H / 2, fill=255, outline=0, width=5)
-    _err_icon(kind)(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22)
+                        radius=PILL_H / 2, fill=0)
+    icon(d._image, "wifi" if kind == "wifi" else "cloud", px + PILL_PAD + ERR_ICON_SLOT / 2, cy, ICON_S, 255)
     capbox = fnt.getbbox("H")
-    d.text((px + 26 + ERR_ICON_SLOT + 18, cy + (capbox[3] - capbox[1]) / 2),
-           text, font=fnt, fill=0, anchor="ls")
+    d.text((px + PILL_PAD + ERR_ICON_SLOT + PILL_GAP, cy + (capbox[3] - capbox[1]) / 2),
+           text, font=fnt, fill=255, anchor="ls")
 
 def _draw_wait_pill(d, text=None):
     text = text or WAIT_TEXT
@@ -571,9 +571,12 @@ def _ink_cols(im, ry0, ry1):
     cols = np.where((a < 250).any(axis=0))[0]
     return (int(cols.min()), int(cols.max())) if len(cols) else (W // 2, W // 2)
 
-def _aligned_region(canvases, ry0, ry1, pad=8):
-    x0 = min(_ink_cols(c, ry0, ry1)[0] for c in canvases) - pad
-    x1 = max(_ink_cols(c, ry0, ry1)[1] for c in canvases) + pad
+def _aligned_region(canvases, ry0, ry1, pad=8, span=None):
+    """The window over the canvases' ink in these rows, or over `span`
+    (x0, x1) for a tile whose white is part of it."""
+    x0, x1 = span if span else (min(_ink_cols(c, ry0, ry1)[0] for c in canvases),
+                                max(_ink_cols(c, ry0, ry1)[1] for c in canvases))
+    x0, x1 = x0 - pad, x1 + pad
     x0 &= ~7; x1 = (x1 + 8) & ~7
     return x0, ry0, x1 - x0, ry1 - ry0
 
@@ -597,18 +600,16 @@ def error_assets():
     pills = [_canvas(lambda d, t=t, k=k: _draw_error_pill(d, t, k)) for t, k in ERR_TEXTS]
     pills.append(_canvas(_draw_wait_pill))
     pills.append(_canvas(lambda d: _draw_wait_pill(d, PENDING_TEXT)))
-    band = _aligned_region(boot + pills, 1640, 1736)
-    err_geo, err_tiles = _region_tiles(band, pills)
+    band_ = _aligned_region(boot + pills, *band(PILL_Y - 4, PILL_Y + PILL_H + 4))
+    err_geo, err_tiles = _region_tiles(band_, pills)
 
     retries = [_canvas(lambda d, t=t: d.text((W / 2, RETRY_BASELINE), t,
                                              font=sans(RETRY_SIZE), fill=0, anchor="ms"))
                for t in RETRY_TEXTS]
-    rband = _aligned_region(retries, 1736, 1792)
+    rband = _aligned_region(retries, *band(RETRY_BASELINE - 22, RETRY_BASELINE + 6))
     retry_geo, retry_tiles = _region_tiles(rband, retries + [Image.new("L", (W, H), 255)])
 
-    corners = [_canvas(lambda d: wifi_slash(d, CORNER_CX, CORNER_CY, CORNER_S)),
-               _canvas(lambda d: cloud_slash(d, CORNER_CX, CORNER_CY, CORNER_S))]
-    cband = _aligned_region(corners, 1688, 1792)
+    corners, cband = _corner_assets(_aligned_region)
     corner_geo, corner_tiles = _region_tiles(cband, corners + [Image.new("L", (W, H), 255)])
     return ((err_geo, err_tiles), (retry_geo, retry_tiles), (corner_geo, corner_tiles))
 
@@ -618,14 +619,14 @@ def error_assets():
 # They are now baked exactly like the boot pills (Inter, same geometry) at the
 # toast position over the plate's bottom margin, pushed as windowed DU tiles:
 # in-progress toasts carry the loading mark (the firmware sweeps it), success
-# carries a check, failures use the outlined+slashed error language.
-TOAST_Y = 1648            # same rest position as the boot pills
-LOW_BATTERY_TEXT = "Battery low, charge me"
+# carries a check, failures a slashed icon. Every pill is black (one style).
+TOAST_Y = PILL_Y          # the boot pills' own line
+LOW_BATTERY_TEXT = "Low battery"
 TOASTS = [
-    ("CHECKING",       "Checking",              "progress"),
-    ("COLLAGE",        "Making the collage",    "progress"),
-    ("STATUS",         "Making the status page", "progress"),
-    ("UP_TO_DATE",     "Up to date",     "done"),
+    ("CHECKING",       "Loading image",         "progress"),
+    ("COLLAGE",        "Loading collage",       "progress"),
+    ("STATUS",         "Loading status page",   "progress"),
+    ("UP_TO_DATE",     "Already up-to-date", "done"),
     ("NO_COLLAGE",     "No collage yet", "plain"),
     ("CHECK_FAILED",   "Check failed",   "fail"),
     ("COLLAGE_FAILED", "Collage failed", "fail"),
@@ -643,32 +644,32 @@ def _draw_toast(d, text, style):
     capbox = fnt.getbbox("H")
     baseline = cy + (capbox[3] - capbox[1]) / 2
     if style == "fail":
-        pillw = int(26 + ERR_ICON_SLOT + 18 + tw + 30)
+        pillw = int(PILL_PAD + ERR_ICON_SLOT + PILL_GAP + tw + PILL_PAD + 4)
         px = int(W / 2 - pillw / 2)
         d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
-                            radius=PILL_H / 2, fill=255, outline=0, width=5)
-        cloud_slash(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22)
-        d.text((px + 26 + ERR_ICON_SLOT + 18, baseline), text, font=fnt, fill=0, anchor="ls")
+                            radius=PILL_H / 2, fill=0)
+        icon(d._image, "cloud", px + PILL_PAD + ERR_ICON_SLOT / 2, cy, ICON_S, 255)
+        d.text((px + PILL_PAD + ERR_ICON_SLOT + PILL_GAP, baseline), text, font=fnt, fill=255, anchor="ls")
         return None
     if style == "battery":
-        # A standing state, not an action: the outlined error language, with a
-        # nearly empty cell where the slashed cloud sits.
-        pillw = int(26 + ERR_ICON_SLOT + 18 + tw + 30)
+        # A standing state, not an action: a nearly empty cell where a
+        # failure's slashed cloud sits.
+        pillw = int(PILL_PAD + ERR_ICON_SLOT + PILL_GAP + tw + PILL_PAD + 4)
         px = int(W / 2 - pillw / 2)
         d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
-                            radius=PILL_H / 2, fill=255, outline=0, width=5)
-        battery_low(d, px + 26 + ERR_ICON_SLOT / 2, cy, 22)
-        d.text((px + 26 + ERR_ICON_SLOT + 18, baseline), text, font=fnt, fill=0, anchor="ls")
+                            radius=PILL_H / 2, fill=0)
+        icon(d._image, "battery", px + PILL_PAD + ERR_ICON_SLOT / 2, cy, ICON_S, 255)
+        d.text((px + PILL_PAD + ERR_ICON_SLOT + PILL_GAP, baseline), text, font=fnt, fill=255, anchor="ls")
         return None
     if style == "wifi":
         # The setup-portal announcement over a plate: the setup card's hotspot
         # chip, inverted.
-        slot = 48
+        slot = round(PILL_H * 0.58)
         pillw = int(PILL_PAD + slot + PILL_GAP + tw + PILL_PAD + 4)
         px = int(W / 2 - pillw / 2)
         d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
                             radius=PILL_H / 2, fill=0)
-        wifi_glyph(d, px + PILL_PAD + slot / 2, cy + 8, 19, fill=255)
+        wifi_glyph(d, px + PILL_PAD + slot / 2, cy + PILL_H * 0.1, PILL_H * 0.23, fill=255)
         d.text((px + PILL_PAD + slot + PILL_GAP, baseline), text, font=fnt,
                fill=255, anchor="ls")
         return None
@@ -684,7 +685,7 @@ def _draw_toast(d, text, style):
     d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
                         radius=PILL_H / 2, fill=0)
     if style == "done":
-        check(d, px + PILL_PAD + LOADER_SLOT_W / 2, cy, 26)
+        check(d, px + PILL_PAD + LOADER_SLOT_W / 2, cy, PILL_H * 0.32, width=max(3, round(PILL_H * 0.07)))
     else:
         draw_loader_mark(d, px + PILL_PAD + LOADER_SLOT_W / 2, cy)
     d.text((px + PILL_PAD + LOADER_SLOT_W + PILL_GAP, baseline), text,
@@ -697,11 +698,32 @@ def toast_assets():
         im = Image.new("L", (W, H), 255)
         centers.append(_draw_toast(ImageDraw.Draw(im), text, style))
         canvases.append(im)
-    band = _aligned_region(canvases, 1640, 1736)
-    geo, tiles = _region_tiles(band, canvases + [Image.new("L", (W, H), 255)])
+    geo, tiles = _region_tiles(_aligned_region(canvases, *band(PILL_Y - 4, PILL_Y + PILL_H + 4)),
+                               canvases + [Image.new("L", (W, H), 255)])
     loaders = [loader_tiles(c, *ctr) if ctr else None
                for c, ctr in zip(canvases, centers)]
     return geo, tiles, loaders
+
+def _mat_macros(up_w, up_h, foot_cy, foot_rx, native):
+    """Where the footer line is and how an upright shift lands in native
+    coords, so the firmware can move a toast by the frame's own mat. `native`
+    maps an upright window (x, y, w, h) to its native one."""
+    cx, cy = up_w // 2 & ~7, up_h // 2 & ~7
+    base, sx, sy = native((cx, cy, 8, 8)), native((cx + 8, cy, 8, 8)), native((cx, cy + 8, 8, 8))
+    unit = lambda a, b: (b - a) // 8
+    return ["// The footer line toasts sit on, and the mat that moves it (X-FF-Mat).",
+            "// A toast is baked where the line lands under FF_REF_INSET; the firmware",
+            "// shifts the window by where it lands under the frame's own mat.",
+            f"#define FF_REF_INSET      {REF_INSET:.1f}f",
+            f"#define FF_UP_W           {up_w}   // upright panel px, as the mat is applied",
+            f"#define FF_UP_H           {up_h}",
+            f"#define FF_FOOT_CY        {foot_cy:.2f}f   // footer line centre, no mat",
+            f"#define FF_FOOT_RX        {foot_rx:.2f}f   // the plate number's right edge, no mat",
+            "// An upright step of +1 x / +1 y, in native x and y.",
+            f"#define FF_UPX_NX         {unit(base[0], sx[0])}",
+            f"#define FF_UPX_NY         {unit(base[1], sx[1])}",
+            f"#define FF_UPY_NX         {unit(base[0], sy[0])}",
+            f"#define FF_UPY_NY         {unit(base[1], sy[1])}", ""]
 
 def write_header():
     screens = {name: im for name, im in SCREENS}
@@ -731,8 +753,8 @@ def write_header():
          f"#define FF_LOADER_NH      {TILE_W}   // native px (portrait w)",
          "#define FF_LOADER_BYTES   (FF_LOADER_NW / 2 * FF_LOADER_NH)", "",
          "// Error-state tiles (see the error-states section of the bake).",
-         "// ff_err_tiles: 0 = can't reach Wi-Fi (outlined + slashed wifi),",
-         "// 1 = can't reach server (outlined + slashed server), 2 = waiting",
+         "// ff_err_tiles: 0 = can't reach Wi-Fi (slashed wifi),",
+         "// 1 = can't reach server (slashed server), 2 = waiting",
          "// for the first bird (solid pill, parked mark), 3 = add this frame on",
          "// the server page (the server serves another frame). The window also",
          "// erases whichever normal pill it replaces.",
@@ -754,6 +776,7 @@ def write_header():
          f"#define FF_CORNER_H       {corner_geo[3]}", "",
          "// Button toasts, baked in the boot-pill style at the toast position",
          "// over the plate's bottom margin. FF_TOAST_BLANK erases the band.",
+         *_mat_macros(W, H, system.NOTE_CY, W - theme.CORNER_INSET, lambda r: _region_tiles(r, [])[0]),
          f"#define FF_TOAST_X        {toast_geo[0]}",
          f"#define FF_TOAST_Y        {toast_geo[1]}",
          f"#define FF_TOAST_W        {toast_geo[2]}",
@@ -910,7 +933,7 @@ def _error_screen(draw_pill_fn, retry=None):
     def make(bare=None):
         im = _compose("birdnet", bare).copy()
         d = ImageDraw.Draw(im)
-        d.rectangle([0, 1636, W, 1800], fill=255)          # the stage pill's band
+        d.rectangle([0, RETRY_BASELINE - 30, W, PILL_Y + PILL_H + 10], fill=255)  # the stage pill's band
         draw_pill_fn(d)
         if retry:
             d.text((W / 2, RETRY_BASELINE), retry, font=sans(RETRY_SIZE), fill=0, anchor="ms")
@@ -1041,8 +1064,8 @@ class Target:
     # the sheet. A window is byte-aligned in the NATIVE canvas (even x, even
     # width) so a row lands with one memcpy. The in-progress toasts are not
     # baked: on a slow panel they would land after the answer they announce.
-    def window(self, canvases, ry0, ry1, pad=8):
-        x0, y0, w, h = _aligned_region(canvases, ry0, ry1, pad)
+    def window(self, canvases, ry0, ry1, pad=8, span=None):
+        x0, y0, w, h = _aligned_region(canvases, ry0, ry1, pad, span)
         s, (ox, oy) = self.scale, self.at
         ex0, ey0 = (ox + int(x0 * s)) & ~1, oy + int(y0 * s)
         ex1, ey1 = (ox + int(np.ceil((x0 + w) * s)) + 1) & ~1, oy + int(np.ceil((y0 + h) * s))
@@ -1068,10 +1091,8 @@ class Target:
             _draw_toast(ImageDraw.Draw(im), text, style)
             toasts.append(None if style == "progress" else im)
         drawn = [c for c in toasts if c is not None]
-        twin = self.window(drawn, 1640, 1736)
-        corners = [_canvas(lambda d: wifi_slash(d, CORNER_CX, CORNER_CY, CORNER_S)),
-                   _canvas(lambda d: cloud_slash(d, CORNER_CX, CORNER_CY, CORNER_S))]
-        cwin = self.window(corners, 1688, 1792)
+        twin = self.window(drawn, PILL_Y - 8, PILL_Y + PILL_H + 8)
+        corners, cwin = _corner_assets(self.window)
         return (self.native_window(twin), [c and self.tile(c, twin) for c in toasts],
                 self.native_window(cwin), [self.tile(c, cwin) for c in corners])
 
@@ -1126,6 +1147,8 @@ def write_header_full(t):
     L += ["// Stamp tiles (PackBits, black/white ink codes, native coords): the firmware",
           "// blits one into its retained plate and repaints the glass. A toast with no",
           "// data (the in-progress ones) is not drawn on this panel.",
+          *_mat_macros(t.w, t.h, t.at[1] + system.NOTE_CY * t.scale,
+                       t.at[0] + (W - theme.CORNER_INSET) * t.scale, t.native_window),
           f"#define FF_TOAST_X        {twin[0]}", f"#define FF_TOAST_Y        {twin[1]}",
           f"#define FF_TOAST_W        {twin[2]}", f"#define FF_TOAST_H        {twin[3]}",
           "// ff_corner_tiles: 0 = slashed wifi, 1 = slashed server",

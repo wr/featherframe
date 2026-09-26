@@ -779,19 +779,19 @@ class FeatherframeService:
             "detail": str(exc)[:300],
         })
 
-    def _imagegen_glass_note(self, what: str) -> Optional[str]:
-        """The frame's footnote for a failing image model, or None: `what` is
-        what it failed to draw. Only for what the owner must fix; anything
-        else is tried again at the next redraw."""
+    def _imagegen_glass_note(self) -> Optional[str]:
+        """The frame's footnote for a failing image model, or None. Only for
+        what the owner must fix; anything else is tried again at the next
+        redraw."""
         err = self.db.get(_IMAGEGEN_ERROR_KEY) or {}
         if getattr(self.genart, "_model", None) is None:
             return None
         name = _IMAGEGEN_NAMES.get(self.config.imagegen_provider,
                                    self.config.imagegen_provider)
         if err.get("reason") == "credits":
-            return f"Out of {name} credits: add more for {what}"
+            return f"Out of {name} credits"
         if err.get("reason") == "key":
-            return "AI key rejected: replace it on the webapp"
+            return f"{name} AI key rejected"
         return None
 
     def imagegen_error_view(self, now: datetime) -> Optional[dict]:
@@ -1308,7 +1308,7 @@ class FeatherframeService:
                           first_seen=first_seen, note=note,
                           note_kind=self._note_kind() if note else None,
                           first_ever=novelty == "first-ever",
-                          fallback_note=self._imagegen_glass_note("AI illustrations"))
+                          fallback_note=self._imagegen_glass_note())
         recompose = self._single_in_color(spec)
         etag = self._commit(
             PLATES, now, sheet=compose_mod.render_single(spec, self.provider, color=False),
@@ -1492,7 +1492,7 @@ class FeatherframeService:
             # detections comes first.
             grid_note, grid_kind = note, note_kind
             if use_generated and not note:
-                grid_note = self._imagegen_glass_note("the AI collage")
+                grid_note = self._imagegen_glass_note()
                 grid_kind = "imagegen" if grid_note else None
             return (collage_mod.render_collage(top, self.provider, when=on_date,
                                                total_detections=sum(c.count for c in top),

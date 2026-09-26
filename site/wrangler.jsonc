@@ -1,10 +1,14 @@
-// featherframe.app, the marketing site. Custom domains are added only at
-// launch (see docs/superpowers/plans/2026-09-24-featherframe-site.md, Task 9).
+// featherframe.app, the marketing site: the apex and www (www redirects to the
+// apex in src/worker.ts); workers.dev stays on as a preview.
 {
   "name": "featherframe-site",
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-01",
   "workers_dev": true,
+  "routes": [
+    { "pattern": "featherframe.app", "custom_domain": true },
+    { "pattern": "www.featherframe.app", "custom_domain": true }
+  ],
   "assets": { "directory": "./dist", "binding": "ASSETS", "run_worker_first": true },
   "observability": { "enabled": true }
 }

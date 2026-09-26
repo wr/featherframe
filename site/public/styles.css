@@ -602,3 +602,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 /* a section's link lands its eyebrow just under the running head (main.ts does the same, and knows the journey) */
 main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
+
+/* The byline only where the nav has room beside it. */
+@media (min-width: 821px) and (max-width: 1180px) {
+  .brand .by { display: none; }
+}

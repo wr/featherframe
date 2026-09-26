@@ -88,6 +88,7 @@ class PlateMatch:
     legend: list = field(default_factory=list)   # the plate's printed figure key / plant lines
     folio: str = DEFAULT_FOLIO
     margins: Optional[list] = None   # the part of the sheet kept, or None = Havell's
+    mask: Optional[list] = None      # boxes of the sheet painted out (lettering beside the art)
     tight: bool = False              # crop to the art's own box (a sparse folio's sheets)
     volume_no: Optional[Any] = None  # the volume, when the folio numbers plates per volume
 
@@ -225,6 +226,7 @@ class SpeciesIndex:
                 legend=[str(x) for x in (entry.get("legend") or [])],
                 folio=folio_of(entry),
                 margins=entry.get("margins"),
+                mask=entry.get("mask"),
                 tight=bool(entry.get("tight")),
                 volume_no=entry.get("volume_no"),
             )

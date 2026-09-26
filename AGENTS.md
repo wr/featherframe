@@ -463,7 +463,13 @@ never cropped — it is composed to fill the sheet, and the scan crop once
 decapitated a tern): the
 heaviest ink band, extended through faint contiguous ink (hanging straw) up
 to a real paper gap, then mirrored about the plate centre so Audubon's own
-placement survives. The art is full-bleed to the mat opening (W-707):
+placement survives. Lettering the fixed trim leaves is lifted (W-883): the "N°/PLATE"
+line in a top corner, and a caption set beside art that runs down past the
+caption band — an isolated, sparse block of type, found from the bottom
+edge. What touches the art is a folio's per-plate `mask` (boxes of the
+sheet; only ink wholly inside one is painted, so a stem through it stays;
+`all` paints a sliver whole), beside per-plate `margins`. The library keys
+a crop whose caption was lifted apart (`plate.lifts_caption`). The art is full-bleed to the mat opening (W-707):
 `compose.py` cover-fits a plate whose edges are inked (Snowy Owl) only if
 that crops ≤ 25 % of it, else contain-fits it centred; the date and plate marks
 share one footer baseline with the gone-quiet note;

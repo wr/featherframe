@@ -138,7 +138,9 @@ def species_legend(entry: dict, plate: int | None,
     if not rec:
         return []
     composite = bool(entry.get("composite", False)) or bool(rec.get("composite", False))
-    return legends.resolve(entry.get("audubon_title", ""), composite, rec.get("lines", []))
+    hidden = set(rec.get("hidden") or [])
+    return legends.resolve(entry.get("audubon_title", ""), composite,
+                           [x for x in rec.get("lines", []) if x not in hidden])
 
 
 def resolve_plate(entry: dict, catalog: dict[int, dict], quiet: bool = False) -> int | None:
@@ -502,6 +504,7 @@ def fetch_scans(folio: str):
                 "composite": bool(entry.get("composite", False)),
                 "crop_box": entry.get("crop_box"),
                 "margins": scan_margins(entry, header),
+                "mask": entry.get("mask"),
                 "tight": bool(entry.get("tight", header.get("tight", False))),
                 "sci_synonyms": entry.get("sci_synonyms", []),
                 "image": None,

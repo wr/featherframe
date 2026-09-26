@@ -18,6 +18,16 @@
 #               shows the whole plate rather than risk cropping to a wrong bird.
 #   sci_synonyms  older binomials BirdNET might emit (taxonomic splits/renames).
 #   crop_box    optional [x, y, w, h] in 0..1 to hand-place the crop (rarely needed).
+#   margins     optional [l, t, r, b]: the part of the sheet kept, in place of
+#               plate.HAVELL_MARGINS. Where the art runs down past the caption
+#               (a stump, a stalk), a lower bottom keeps the whole picture…
+#   mask        …and [[l, t, r, b], …] paints the lettering beside it (the
+#               caption, Audubon's own bill-and-claw sketches) with the paper
+#               first: only ink wholly inside a box, so a stem through it
+#               stays. Draw each box in clear paper around the words, down
+#               to the sheet's foot (1). A fifth `all` paints a box whole —
+#               a sliver where a letter touches the art. Fractions of the
+#               whole sheet; read them off the scan.
 #
 # Every plate below was verified against the actual plate index, not guessed.
 # To add a species: add an entry. If you omit `plate`, fetch_plates will suggest
@@ -38,7 +48,7 @@ species:
   - {common: "Blue Jay",               scientific: "Cyanocitta cristata",   plate: 102, audubon_title: "Blue Jay"}
   - {common: "Black-capped Chickadee", scientific: "Poecile atricapillus",  plate: 353, audubon_title: "Black-capt Titmouse (composite)", composite: true}
   - {common: "Carolina Chickadee",     scientific: "Poecile carolinensis",  plate: 160, audubon_title: "Carolina Titmouse"}
-  - {common: "Tufted Titmouse",        scientific: "Baeolophus bicolor",    plate: 39,  audubon_title: "Crested Titmouse"}
+  - {common: "Tufted Titmouse",        scientific: "Baeolophus bicolor",    plate: 39,  audubon_title: "Crested Titmouse", margins: [0.025, 0.068, 0.975, 0.935], mask: [[0.44, 0.83, 0.90, 0.95]]}
 
   # --- Nuthatches, wrens ------------------------------------------------
   - {common: "White-breasted Nuthatch", scientific: "Sitta carolinensis",  plate: 152, audubon_title: "White-breasted Black-capped Nuthatch"}
@@ -50,11 +60,11 @@ species:
   - {common: "Downy Woodpecker",       scientific: "Dryobates pubescens",  plate: 112, audubon_title: "Downy Woodpecker", sci_synonyms: ["Picoides pubescens"]}
   - {common: "Hairy Woodpecker",       scientific: "Dryobates villosus",   plate: 416, audubon_title: "Hairy Woodpecker (composite)", composite: true, sci_synonyms: ["Picoides villosus", "Leuconotopicus villosus", "Picus villosus"]}
   - {common: "Red-bellied Woodpecker", scientific: "Melanerpes carolinus", plate: 416, audubon_title: "Red-bellied Woodpecker (composite)", composite: true}
-  - {common: "Northern Flicker",       scientific: "Colaptes auratus",     plate: 37,  audubon_title: "Golden-winged Woodpecker"}
+  - {common: "Northern Flicker",       scientific: "Colaptes auratus",     plate: 37,  audubon_title: "Golden-winged Woodpecker", mask: [[0.688, 0.87, 0.98, 1]]}
   - {common: "Pileated Woodpecker",    scientific: "Dryocopus pileatus",   plate: 111, audubon_title: "Pileated Woodpecker"}
 
   # --- Finches, goldfinch, junco ---------------------------------------
-  - {common: "American Goldfinch",     scientific: "Spinus tristis",       plate: 33,  audubon_title: "American Goldfinch", sci_synonyms: ["Carduelis tristis"]}
+  - {common: "American Goldfinch",     scientific: "Spinus tristis",       plate: 33,  audubon_title: "American Goldfinch", sci_synonyms: ["Carduelis tristis"], mask: [[0.11, 0.86, 0.5, 1]]}
   - {common: "House Finch",            scientific: "Haemorhous mexicanus", plate: 424, audubon_title: "Crimson-necked Bull-Finch (composite)", composite: true, sci_synonyms: ["Carpodacus mexicanus"]}
   - {common: "Purple Finch",           scientific: "Haemorhous purpureus", plate: 4,   audubon_title: "Purple Finch", sci_synonyms: ["Carpodacus purpureus"]}
   - {common: "Dark-eyed Junco",        scientific: "Junco hyemalis",       plate: 13,  audubon_title: "Snow Bird"}
@@ -79,9 +89,9 @@ species:
   - {common: "Gray Catbird",           scientific: "Dumetella carolinensis", plate: 128, audubon_title: "Cat Bird"}
   - {common: "Northern Mockingbird",   scientific: "Mimus polyglottos",    plate: 21,  audubon_title: "Mocking Bird"}
   - {common: "Brown Thrasher",         scientific: "Toxostoma rufum",      plate: 116, audubon_title: "Ferruginous Thrush"}
-  - {common: "Cedar Waxwing",          scientific: "Bombycilla cedrorum",  plate: 43,  audubon_title: "Cedar Bird"}
+  - {common: "Cedar Waxwing",          scientific: "Bombycilla cedrorum",  plate: 43,  audubon_title: "Cedar Bird", margins: [0.025, 0.068, 0.975, 0.935], mask: [[0.52, 0.85, 0.79, 1]]}
   - {common: "American Robin",         scientific: "Turdus migratorius",   plate: 131, audubon_title: "American Robin"}
-  - {common: "Eastern Bluebird",       scientific: "Sialia sialis",        plate: 113, audubon_title: "Blue-bird"}
+  - {common: "Eastern Bluebird",       scientific: "Sialia sialis",        plate: 113, audubon_title: "Blue-bird", margins: [0.025, 0.068, 0.975, 0.971], mask: [[0.40, 0.875, 0.605, 0.971]]}
 
   # --- Hummingbird, grosbeak, bunting, crow -----------------------------
   - {common: "Ruby-throated Hummingbird", scientific: "Archilochus colubris", plate: 47, audubon_title: "Ruby-throated Humming Bird"}
@@ -105,9 +115,9 @@ species:
   # verify against the Havell title index; anything uncertain became
   # 'plate: none' below rather than risk a wrong bird).
   - {common: "Acadian Flycatcher", scientific: "Empidonax virescens", plate: 144, audubon_title: "Small Green Crested Flycatcher", sci_synonyms: ["Empidonax acadicus", "Muscicapa acadica"]}
-  - {common: "Alder Flycatcher", scientific: "Empidonax alnorum", plate: 45, audubon_title: "Traill's Flycatcher", sci_synonyms: ["Empidonax traillii"]}
+  - {common: "Alder Flycatcher", scientific: "Empidonax alnorum", plate: 45, audubon_title: "Traill's Flycatcher", sci_synonyms: ["Empidonax traillii"], mask: [[0.54, 0.85, 0.85, 1]]}
   - {common: "American Kestrel", scientific: "Falco sparverius", plate: 142, audubon_title: "American Sparrow Hawk"}
-  - {common: "American Redstart", scientific: "Setophaga ruticilla", plate: 40, audubon_title: "American Redstart", sci_synonyms: ["Muscicapa ruticilla"]}
+  - {common: "American Redstart", scientific: "Setophaga ruticilla", plate: 40, audubon_title: "American Redstart", sci_synonyms: ["Muscicapa ruticilla"], mask: [[0.31, 0.875, 0.72, 1]]}
   - {common: "American Tree Sparrow", scientific: "Spizelloides arborea", plate: 188, audubon_title: "Tree Sparrow", sci_synonyms: ["Spizella arborea", "Passerella arborea"]}
   - {common: "American Woodcock", scientific: "Scolopax minor", plate: 268, audubon_title: "American Woodcock", sci_synonyms: ["Philohela minor", "Microptera americana"]}
   - {common: "Bald Eagle", scientific: "Haliaeetus leucocephalus", plate: 31, audubon_title: "White-headed Eagle", sci_synonyms: ["Falco leucocephalus"]}
@@ -117,7 +127,7 @@ species:
   - {common: "Belted Kingfisher", scientific: "Megaceryle alcyon", plate: 77, audubon_title: "Belted Kingfisher", sci_synonyms: ["Ceryle alcyon", "Alcedo alcyon"]}
   - {common: "Black-and-white Warbler", scientific: "Mniotilta varia", plate: 90, audubon_title: "Black & White Creeper", sci_synonyms: ["Certhia varia", "Motacilla varia"]}
   - {common: "Black-bellied Plover", scientific: "Pluvialis squatarola", plate: 334, audubon_title: "Black-bellied Plover", sci_synonyms: ["Squatarola squatarola", "Charadrius squatarola"]}
-  - {common: "Black-billed Cuckoo", scientific: "Coccyzus erythropthalmus", plate: 32, audubon_title: "Black-billed Cuckoo", sci_synonyms: ["Coccyzus erythrophthalmus"]}
+  - {common: "Black-billed Cuckoo", scientific: "Coccyzus erythropthalmus", plate: 32, audubon_title: "Black-billed Cuckoo", sci_synonyms: ["Coccyzus erythrophthalmus"], mask: [[0.745, 0.78, 0.99, 1], [0.749, 0.816, 0.7545, 0.834, all]]}
   - {common: "Blackburnian Warbler", scientific: "Setophaga fusca", plate: 135, audubon_title: "Blackburnian Warbler", sci_synonyms: ["Dendroica fusca"]}
   - {common: "Blackpoll Warbler", scientific: "Setophaga striata", plate: 133, audubon_title: "Black-poll Warbler", sci_synonyms: ["Dendroica striata", "Sylvia striata"]}
   - {common: "Blue-headed Vireo", scientific: "Vireo solitarius", plate: 28, audubon_title: "Vireo Solitarius"}
@@ -131,7 +141,7 @@ species:
   - {common: "Common Nighthawk", scientific: "Chordeiles minor", plate: 147, audubon_title: "Night Hawk", sci_synonyms: ["Caprimulgus virginianus", "Chordeiles virginianus"]}
   - {common: "Common Raven", scientific: "Corvus corax", plate: 101, audubon_title: "Raven"}
   - {common: "Common Yellowthroat", scientific: "Geothlypis trichas", plate: 23, audubon_title: "Yellow-breasted Warbler", sci_synonyms: ["Sylvia trichas", "Turdus trichas"]}
-  - {common: "Cooper's Hawk", scientific: "Accipiter cooperii", plate: 36, audubon_title: "Stanley Hawk", sci_synonyms: ["Astur cooperii"]}
+  - {common: "Cooper's Hawk", scientific: "Accipiter cooperii", plate: 36, audubon_title: "Stanley Hawk", sci_synonyms: ["Astur cooperii"], mask: [[0.645, 0.85, 0.83, 1]]}
   - {common: "Dickcissel", scientific: "Spiza americana", plate: 384, audubon_title: "Black-throated Bunting", sci_synonyms: ["Emberiza americana"]}
   - {common: "Dunlin", scientific: "Calidris alpina", plate: 290, audubon_title: "Red backed Sandpiper", sci_synonyms: ["Erolia alpina", "Pelidna alpina", "Tringa alpina"]}
   - {common: "Eastern Kingbird", scientific: "Tyrannus tyrannus", plate: 79, audubon_title: "Tyrant Fly-catcher", sci_synonyms: ["Muscicapa tyrannus", "Lanius tyrannus"]}
@@ -183,12 +193,12 @@ species:
   - {common: "Snow Bunting", scientific: "Plectrophenax nivalis", plate: 189, audubon_title: "Snow Bunting", sci_synonyms: ["Emberiza nivalis", "Passerina nivalis"]}
   - {common: "Solitary Sandpiper", scientific: "Tringa solitaria", plate: 289, audubon_title: "Solitary Sandpiper", sci_synonyms: ["Totanus solitarius", "Helodromas solitarius", "Totanus chloropygius"]}
   - {common: "Spotted Sandpiper", scientific: "Actitis macularius", plate: 310, audubon_title: "Spotted Sandpiper", sci_synonyms: ["Actitis macularia", "Tringa macularia", "Totanus macularius"]}
-  - {common: "Summer Tanager", scientific: "Piranga rubra", plate: 44, audubon_title: "Summer Red Bird", sci_synonyms: ["Piranga aestiva"]}
+  - {common: "Summer Tanager", scientific: "Piranga rubra", plate: 44, audubon_title: "Summer Red Bird", sci_synonyms: ["Piranga aestiva"], mask: [[0.525, 0.845, 0.87, 1]]}
   - {common: "Tree Swallow", scientific: "Tachycineta bicolor", plate: 98, audubon_title: "White-bellied Swallow", sci_synonyms: ["Iridoprocne bicolor", "Hirundo bicolor"]}
   - {common: "Tundra Swan", scientific: "Cygnus columbianus", plate: 411, audubon_title: "Common American Swan", sci_synonyms: ["Olor columbianus", "Cygnus bewickii", "Cygnus americanus"]}
   - {common: "Upland Sandpiper", scientific: "Bartramia longicauda", plate: 303, audubon_title: "Bartram Sandpiper", sci_synonyms: ["Totanus bartramius", "Tringa bartramia"]}
   - {common: "Warbling Vireo", scientific: "Vireo gilvus", plate: 118, audubon_title: "Warbling Flycatcher", sci_synonyms: ["Muscicapa gilva", "Vireosylva gilva"]}
-  - {common: "Willow Flycatcher", scientific: "Empidonax traillii", plate: 45, audubon_title: "Traill's Flycatcher", sci_synonyms: ["Muscicapa traillii", "Empidonax trailli"]}
+  - {common: "Willow Flycatcher", scientific: "Empidonax traillii", plate: 45, audubon_title: "Traill's Flycatcher", sci_synonyms: ["Muscicapa traillii", "Empidonax trailli"], mask: [[0.54, 0.85, 0.85, 1]]}
   - {common: "Winter Wren", scientific: "Troglodytes hiemalis", plate: 360, audubon_title: "Winter Wren and Rock Wren (composite)", composite: true, sci_synonyms: ["Troglodytes troglodytes", "Troglodytes troglodytes hiemalis", "Nannus hiemalis"]}
   - {common: "Wood Duck", scientific: "Aix sponsa", plate: 206, audubon_title: "Summer, or Wood Duck", sci_synonyms: ["Anas sponsa"]}
   - {common: "Wood Thrush", scientific: "Hylocichla mustelina", plate: 73, audubon_title: "Wood Thrush", sci_synonyms: ["Turdus mustelinus"]}
@@ -217,14 +227,14 @@ species:
   # Pitt still says Arctic Loon. Multi-species sheets are composites.
   - {common: "Wild Turkey", scientific: "Meleagris gallopavo", plate: 1, audubon_title: "Wild Turkey"}
   - {common: "Prothonotary Warbler", scientific: "Protonotaria citrea", plate: 3, audubon_title: "Prothonotary Warbler"}
-  - {common: "American Pipit", scientific: "Anthus rubescens", plate: 10, audubon_title: "Brown Titlark"}
+  - {common: "American Pipit", scientific: "Anthus rubescens", plate: 10, audubon_title: "Brown Titlark", mask: [[0.43, 0.87, 0.57, 1]]}
   - {common: "Prairie Warbler", scientific: "Setophaga discolor", plate: 14, audubon_title: "Prairie Warbler"}
   - {common: "Bewick's Wren", scientific: "Thryomanes bewickii", plate: 18, audubon_title: "Bewick's Wren"}
   - {common: "Blue-winged Warbler", scientific: "Vermivora cyanoptera", plate: 20, audubon_title: "Blue-winged Yellow Warbler"}
   - {common: "Carolina Parakeet", scientific: "Conuropsis carolinensis", plate: 26, audubon_title: "Carolina Parrot"}
   - {common: "Red-headed Woodpecker", scientific: "Melanerpes erythrocephalus", plate: 27, audubon_title: "Red headed Woodpecker"}
-  - {common: "Worm-eating Warbler", scientific: "Helmitheros vermivorum", plate: 34, audubon_title: "Worm eating Warbler"}
-  - {common: "Kentucky Warbler", scientific: "Geothlypis formosa", plate: 38, audubon_title: "Kentucky Warbler"}
+  - {common: "Worm-eating Warbler", scientific: "Helmitheros vermivorum", plate: 34, audubon_title: "Worm eating Warbler", mask: [[0.51, 0.89, 0.82, 1]]}
+  - {common: "Kentucky Warbler", scientific: "Geothlypis formosa", plate: 38, audubon_title: "Kentucky Warbler", mask: [[0.17, 0.845, 0.53, 1]]}
   - {common: "Ruffed Grouse", scientific: "Bonasa umbellus", plate: 41, audubon_title: "Ruffed Grouse"}
   - {common: "Orchard Oriole", scientific: "Icterus spurius", plate: 42, audubon_title: "Orchard Oriole"}
   - {common: "Cerulean Warbler", scientific: "Setophaga cerulea", plate: 48, audubon_title: "Azure Warbler"}
@@ -239,7 +249,7 @@ species:
   - {common: "Ivory-billed Woodpecker", scientific: "Campephilus principalis", plate: 66, audubon_title: "Ivory-billed Woodpecker"}
   - {common: "Cliff Swallow", scientific: "Petrochelidon pyrrhonota", plate: 68, audubon_title: "Republican or Cliff Swallow"}
   - {common: "Henslow's Sparrow", scientific: "Centronyx henslowii", plate: 70, audubon_title: "Henslow's Bunting", sci_synonyms: ["Ammodramus henslowii"]}
-  - {common: "Swallow-tailed Kite", scientific: "Elanoides forficatus", plate: 72, audubon_title: "Swallow-tailed Hawk"}
+  - {common: "Swallow-tailed Kite", scientific: "Elanoides forficatus", plate: 72, audubon_title: "Swallow-tailed Hawk", mask: [[0.14, 0.74, 0.58, 0.85], [0.72, 0.8, 0.82, 0.85], [0.12, 0.11, 0.19, 0.18], [0.77, 0.13, 0.87, 0.19]]}
   - {common: "Northern Bobwhite", scientific: "Colinus virginianus", plate: 76, audubon_title: "Virginian Partridge"}
   - {common: "Eastern Whip-poor-will", scientific: "Antrostomus vociferus", plate: 82, audubon_title: "Whip-poor-will"}
   - {common: "Blue-gray Gnatcatcher", scientific: "Polioptila caerulea", plate: 84, audubon_title: "Blue-Grey Fly-catcher"}
@@ -301,7 +311,7 @@ species:
   # Scan is captioned "Swainsons Warbler, Sylvia swainsonii, Azalea"; the mirror
   # keeps Audubon's Ornithological Biography name. Plate 50 (re-lettered) shows
   # the same bird — see the Magnolia Warbler note above.
-  - {common: "Swainson's Warbler", scientific: "Limnothlypis swainsonii", plate: 198, audubon_title: "Brown headed Worm eating Warbler"}
+  - {common: "Swainson's Warbler", scientific: "Limnothlypis swainsonii", plate: 198, audubon_title: "Brown headed Worm eating Warbler", margins: [0.025, 0.068, 0.975, 0.94], mask: [[0.16, 0.80, 0.36, 0.855], [0.17, 0.89, 0.36, 0.95], [0.40, 0.937, 0.62, 0.95]]}
   - {common: "Northern Saw-whet Owl", scientific: "Aegolius acadicus", plate: 199, audubon_title: "Little Owl"}
   - {common: "Red-throated Loon", scientific: "Gavia stellata", plate: 202, audubon_title: "Red-Throated Diver"}
   - {common: "King Rail", scientific: "Rallus elegans", plate: 203, audubon_title: "Fresh Water Marsh Hen"}
@@ -379,11 +389,11 @@ species:
   - {common: "Great Crested Grebe", scientific: "Podiceps cristatus", plate: 292, audubon_title: "Crested Grebe"}
   - {common: "Horned Puffin", scientific: "Fratercula corniculata", plate: 293, audubon_title: "Large billed Puffin"}
   - {common: "Pectoral Sandpiper", scientific: "Calidris melanotos", plate: 294, audubon_title: "Pectoral Sandpiper"}
-  - {common: "Manx Shearwater", scientific: "Puffinus puffinus", plate: 295, audubon_title: "Manks Shearwater"}
+  - {common: "Manx Shearwater", scientific: "Puffinus puffinus", plate: 295, audubon_title: "Manks Shearwater", mask: [[0.02, 0.889, 0.98, 1]]}
   - {common: "Barnacle Goose", scientific: "Branta leucopsis", plate: 296, audubon_title: "Barnacle Goose"}
   - {common: "Harlequin Duck", scientific: "Histrionicus histrionicus", plate: 297, audubon_title: "Harlequin Duck"}
   - {common: "Red-necked Grebe", scientific: "Podiceps grisegena", plate: 298, audubon_title: "Red-necked Grebe"}
-  - {common: "Sargasso Shearwater", scientific: "Puffinus lherminieri", plate: 299, audubon_title: "Dusky Petrel"}
+  - {common: "Sargasso Shearwater", scientific: "Puffinus lherminieri", plate: 299, audubon_title: "Dusky Petrel", mask: [[0.02, 0.89, 0.98, 1]]}
   - {common: "American Golden-Plover", scientific: "Pluvialis dominica", plate: 300, audubon_title: "Golden Plover"}
   - {common: "Canvasback", scientific: "Aythya valisineria", plate: 301, audubon_title: "Canvas backed Duck"}
   - {common: "American Black Duck", scientific: "Anas rubripes", plate: 302, audubon_title: "Dusky Duck"}
@@ -520,7 +530,7 @@ species:
   - {common: "Burrowing Owl", scientific: "Athene cunicularia", plate: 432, audubon_title: "Burrowing Owl, Large-headed Burrowing Owl, Little night Owl, Columbian Owl and Short-eared Owl (composite)", composite: true}
   - {common: "Short-eared Owl", scientific: "Asio flammeus", plate: 432, audubon_title: "Burrowing Owl, Large-headed Burrowing Owl, Little night Owl, Columbian Owl and Short-eared Owl (composite)", composite: true}
   - {common: "Northern Waterthrush", scientific: "Parkesia noveboracensis", plate: 433, audubon_title: "Bullock's Oriole, Baltimore Oriole, Mexican Goldfinch, Varied Thrush and Common Water Thrush (composite)", composite: true}
-  - {common: "Black Phoebe", scientific: "Sayornis nigricans", plate: 434, audubon_title: "Little Tyrant Fly-catcher, Small-headed Fly-catcher, Blue Mountain Warbler, Bartran's Vireo, Short-legged Pewee and Rocky Mountain Fly-catcher (composite)", composite: true}
+  - {common: "Black Phoebe", scientific: "Sayornis nigricans", plate: 434, audubon_title: "Little Tyrant Fly-catcher, Small-headed Fly-catcher, Blue Mountain Warbler, Bartran's Vireo, Short-legged Pewee and Rocky Mountain Fly-catcher (composite)", composite: true, mask: [[0.13, 0.89, 0.88, 1]]}
 
   # --- Confirmed plate-less: Audubon never painted these ---------------
   # The AI-generation provider covers them (introduced species, bats,

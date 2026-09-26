@@ -54,7 +54,8 @@ def test_load_legends_reads_the_yaml_by_plate(tmp_path):
     p.write_text(yaml.safe_dump({"legends": {159: {"lines": ["Male, 1. Female, 2.", "Wild Almond."]},
                                              353: {"composite": True, "lines": TITMICE}}}))
     got = legends.load(p)
-    assert got[159] == {"lines": ["Male, 1. Female, 2.", "Wild Almond."], "composite": False}
+    assert got[159] == {"lines": ["Male, 1. Female, 2.", "Wild Almond."], "composite": False,
+                        "hidden": []}
     assert got[353]["composite"] is True
 
 

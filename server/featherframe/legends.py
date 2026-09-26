@@ -27,7 +27,9 @@ def _norm(title: str) -> str:
 
 
 def load(path: Optional[Path] = None) -> dict[int, dict[str, Any]]:
-    """{plate: {"lines": [...], "composite": bool}} from legends.yaml."""
+    """{plate: {"lines": [...], "composite": bool, "hidden": [...]}} from
+    legends.yaml. `lines` is the whole printed legend; `hidden` the lines
+    not shown under the illustration."""
     p = Path(path) if path else DEFAULT_PATH
     if not p.exists():
         return {}
@@ -36,7 +38,8 @@ def load(path: Optional[Path] = None) -> dict[int, dict[str, Any]]:
     for plate, rec in (data.get("legends") or {}).items():
         rec = rec or {}
         out[int(plate)] = {"lines": [str(x) for x in rec.get("lines") or []],
-                           "composite": bool(rec.get("composite", False))}
+                           "composite": bool(rec.get("composite", False)),
+                           "hidden": [str(x) for x in rec.get("hidden") or []]}
     return out
 
 

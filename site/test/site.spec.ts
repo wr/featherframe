@@ -72,12 +72,14 @@ test('every section and its key copy is there', async ({ page }) => {
     ['Spring7 April 2026', 'Summer1 June 2026', 'Fall23 September 2026', 'Winter16 February 2026']);
   await expect(page.locator('#collage .season img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
   await expect(page.locator('#faq dt')).toHaveText([
-    'Does it make a good gift?', 'Do I need Wi-Fi?', 'Do I need to run BirdNET locally?', 'Does it work outside North America?',
+    'Does it make a good gift?', 'Do I need Wi-Fi?', 'How fast does the frame change?', 'Do I need to run BirdNET locally?', 'Does it work outside North America?',
     'What if a species near me was never illustrated?', 'Do the collages need AI?', 'What is hosting, and what does it cost?', 'Is my data private?']);
+  await expect(page.locator('#faq dd').nth(2)).toContainText('The color frame takes about fifteen seconds');
+  await expect(page.locator('.t3 figcaption .fn')).toHaveText('Every refresh on this page runs at the panel’s real speed.');
   await expect(page.locator('#faq dd').nth(0)).toHaveText('Yes. Nothing needs setting up before you wrap it. The person you give it to connects it to their Wi-Fi and chooses a listening station, all from their phone. It ships in time for the holidays.');
-  await expect(page.locator('#faq dd').nth(2)).toHaveText('No. The frame can use any public BirdWeather station, and there are stations across North America, Europe and beyond. If none is close, choose one near a place you love. To see the birds in your own yard, you can add a station of your own.');
-  await expect(page.locator('#faq dd').nth(3)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
-  await expect(page.locator('#faq dd').nth(5)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration turned on, the day’s species are painted together in one scene, marked ✦.');
+  await expect(page.locator('#faq dd').nth(3)).toHaveText('No. The frame can use any public BirdWeather station, and there are stations across North America, Europe and beyond. If none is close, choose one near a place you love. To see the birds in your own yard, you can add a station of your own.');
+  await expect(page.locator('#faq dd').nth(4)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
+  await expect(page.locator('#faq dd').nth(6)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration turned on, the day’s species are painted together in one scene, marked ✦.');
   await expect(page.locator('#faq')).not.toContainText('OpenAI key');
   await expect(page.locator('#keep-posted .form-why')).toHaveText("Not ready to order? We'll write once, when the frames ship.");
   await expect(page.locator('.cat figure')).toHaveCount(12);
@@ -103,7 +105,8 @@ test('every section and its key copy is there', async ({ page }) => {
   for (const gone of ['Parakeet', 'Wood Duck', 'Oriole']) await expect(page.locator('body')).not.toContainText(gone);
   expect(await page.locator('img[src*="parakeet"], img[src*="wood-duck"]').count()).toBe(0);
   await expect(page.locator('body')).not.toContainText('Flamingo');
-  await expect(page.locator('.tone button')).toHaveText(['Color', 'B&W']);
+  await expect(page.locator('.head .tone button')).toHaveText(['Color', 'B&W']);
+  await expect(page.locator('.wall .tone button')).toHaveText(['Color', 'B&W']);
   for (const link of await page.getByRole('link', { name: 'Pre-order' }).all()) {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
@@ -197,7 +200,7 @@ test('the four seasons\' collages load', async ({ page }) => {
   await expect(imgs).toHaveCount(4);
   for (const [i, season] of ['spring', 'summer', 'fall', 'winter'].entries()) {
     const img = imgs.nth(i);
-    await expect(img).toHaveAttribute('src', `img/seasons/${season}.webp`);
+    await expect(img).toHaveAttribute('src', `img/seasons/13-${season}.webp`);
     await img.evaluate((e: HTMLImageElement) => { e.loading = 'eager'; return e.decode(); });
     expect(await img.evaluate((e: HTMLImageElement) => e.naturalWidth)).toBe(874);
   }
@@ -319,8 +322,10 @@ test('?size=10 shows its poster once species.json arrives late', async ({ page }
     await route.continue();
   });
   await page.goto('/?size=10');
-  await expect(page.locator('#stage .poster')).toHaveAttribute('src', 'img/poster-13.webp');
-  await expect(page.locator('#stage .poster')).toHaveAttribute('src', 'img/poster-10.webp', { timeout: 5000 });
+  // the tone's poster from the first paint, and still once the data has come
+  await expect(page.locator('#stage .poster')).toHaveAttribute('src', 'img/poster-10.webp');
+  await page.waitForTimeout(1500);
+  await expect(page.locator('#stage .poster')).toHaveAttribute('src', 'img/poster-10.webp');
 });
 
 test('a frame whose model never arrives leaves the poster showing', async ({ page }) => {
@@ -514,7 +519,9 @@ test('on a phone the sentence and Pre-order come before the frame, on the first 
 test('on a phone the controls are a thumb\'s size', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto('/');
-  for (const sel of ['.head .word', '.head .btn', '.tone button', '.unmute', '.field button', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
+  // the running head's Color / B&W gives way to the wall's on a phone
+  await expect(page.locator('.head .tone')).toBeHidden();
+  for (const sel of ['.head .word', '.head .btn', '.wall .tone button', '.unmute', '.field button', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
     for (const el of await page.locator(sel).all()) {
       const b = (await el.boundingBox())!;
       expect(b.height, sel).toBeGreaterThanOrEqual(44);
@@ -539,7 +546,7 @@ test('on a phone the wall is one row walked sideways, and B&W keeps its size', a
   // the book is named only where it changes
   await expect(page.locator('.wall .cat .by:visible')).toHaveCount(3);
   const w = (await page.locator('.wall .cat .im').first().boundingBox())!.width;
-  await page.getByRole('button', { name: 'B&W' }).click();
+  await page.locator('.wall').getByRole('button', { name: 'B&W' }).click();
   await page.waitForTimeout(900);
   expect(Math.abs((await page.locator('.wall .cat .im').first().boundingBox())!.width - w)).toBeLessThan(1);
 });
@@ -578,14 +585,14 @@ test('the wall switches between Color and B&W, and remembers', async ({ page }) 
   await expect(stills).toHaveCount(12);
   const srcs = () => stills.evaluateAll((imgs) => imgs.map((i) => i.getAttribute('src')));
   for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/13-/);
-  await page.getByRole('button', { name: 'B&W' }).click();
-  await expect(page.getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('button', { name: 'Color' })).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('.wall').getByRole('button', { name: 'B&W' }).click();
+  await expect(page.locator('.wall').getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.wall').getByRole('button', { name: 'Color' })).toHaveAttribute('aria-pressed', 'false');
   for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/10-/);
   await page.reload();
-  await expect(page.getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.wall').getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'true');
   for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/10-/);
-  await page.getByRole('button', { name: 'Color' }).click();
+  await page.locator('.wall').getByRole('button', { name: 'Color' }).click();
   for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/13-/);
 });
 
@@ -597,11 +604,11 @@ test("B&W hangs the wall's frames smaller, at the 10-inch's true size", async ({
   const gap = async () => (await caption.boundingBox())!.y - ((await first.boundingBox())!.y + (await first.boundingBox())!.height);
   const colour = (await first.boundingBox())!;
   const colourGap = await gap();
-  await page.getByRole('button', { name: 'B&W' }).click();
+  await page.locator('.wall').getByRole('button', { name: 'B&W' }).click();
   await expect.poll(async () => (await first.boundingBox())!.height / colour.height).toBeCloseTo(295 / 371, 2);
   // hung from the same line: the frames still meet their captions as before
   expect(Math.abs((await gap()) - colourGap)).toBeLessThan(1);
-  await page.getByRole('button', { name: 'Color' }).click();
+  await page.locator('.wall').getByRole('button', { name: 'Color' }).click();
   await expect.poll(async () => (await first.boundingBox())!.height).toBeCloseTo(colour.height, 0);
 });
 
@@ -1132,3 +1139,23 @@ test('on a phone the links land under the slimmer head too', async ({ page }) =>
     }, { timeout: 10_000 }).toBe(true);
   }
 });
+
+test('Color / B&W in the running head switches every frame on the page', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveCount(1, { timeout: 20_000 });
+  await page.locator('.head .tone button[data-tone="10"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-tone', '10');
+  await expect(page.locator('.wall .tone button[data-tone="10"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#stage .poster')).toHaveAttribute('src', 'img/poster-10.webp');
+  await expect(page.locator('#table-slot .still')).toHaveAttribute('src', 'img/wall/table-10-cardinal.webp');
+  await expect(page.locator('#collage .season img').first()).toHaveAttribute('src', 'img/seasons/10-spring.webp');
+  // the 10-inch joins at the cover, and takes over the drawing there
+  await expect(page.locator('canvas.ff3d')).toHaveCount(2, { timeout: 20_000 });
+  await expect.poll(() => page.locator('canvas.ff3d:not(.empty)').count(), { timeout: 20_000 }).toBe(1);
+  // remembered on the next visit
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-tone', '10');
+  await expect(page.locator('.head .tone button[data-tone="10"]')).toHaveAttribute('aria-pressed', 'true');
+});
+

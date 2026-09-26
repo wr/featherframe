@@ -12,8 +12,12 @@ const params = new URLSearchParams(location.search);
 const holdMs = params.has('hold') ? Number(params.get('hold')) : undefined;
 // ?rate= runs the detections' clock and every refresh faster (tests).
 const rate = Math.max(0.1, Number(params.get('rate')) || 1);
-// The hero shows the 13-inch; ?size=10 shows the 10-inch (and renders its poster).
-const size: '13' | '10' = params.get('size') === '10' ? '10' : '13';
+// The page's tone, Color (the 13-inch) or B&W (the 10-inch): the visitor's last choice, remembered; ?size= sets
+// it (the poster and still renders).
+const TONE_KEY = 'featherframe.wall';
+let stored: string | null = null;
+try { stored = localStorage.getItem(TONE_KEY); } catch { /* storage blocked: colour */ }
+const size: '13' | '10' = (params.get('size') ?? stored) === '10' ? '10' : '13';
 // ?wall=<index>|table renders one of the page's stills (scripts/wall.mjs).
 const wall = params.get('wall');
 
@@ -59,7 +63,7 @@ phone.addEventListener('change', () => void mount());
 const start = async () => {
   try {
     data = await (await fetch('species.json')).json();
-    poster.src = data!.sizes[size].poster;
+    poster.src = data!.sizes[root.dataset.tone === '10' ? '10' : '13'].poster;
     void mount();
   } catch (e) {
     root.classList.remove('choreo');
@@ -69,10 +73,10 @@ const start = async () => {
 if (document.readyState === 'complete') void start();
 else addEventListener('load', () => void start(), { once: true });
 
-// II. The wall's Color / B&W switch: the 13-inch in colour, or the 10-inch in sixteen grays — drawn to
-// scale, so the change is a change of size too — remembered. <html data-tone> says which; the journey
-// (choreo.ts) follows it with an ff-tone event.
-const TONE_KEY = 'featherframe.wall';
+// The Color / B&W switch, in the running head and on the wall: the 13-inch in colour, or the 10-inch in sixteen
+// grays — drawn to scale, so the change is a change of size too — remembered. <html data-tone> says which; every
+// picture of a frame follows it (the wall's by data-still, the rest by data-toned, a src with {tone} in it), and
+// the journey (choreo.ts) with an ff-tone event.
 const tones = [...document.querySelectorAll<HTMLButtonElement>('.tone button')];
 const setTone = (tone: string, keep: boolean) => {
   if (tone !== '13' && tone !== '10') return;
@@ -80,14 +84,14 @@ const setTone = (tone: string, keep: boolean) => {
   for (const img of document.querySelectorAll<HTMLImageElement>('.wall img[data-still]')) {
     img.src = `img/wall/${tone}-${img.dataset.still}.webp`;
   }
+  for (const img of document.querySelectorAll<HTMLImageElement>('img[data-toned]')) img.src = img.dataset.toned!.replace('{tone}', tone);
+  if (data) poster.src = data.sizes[tone].poster;
   root.classList.toggle('tone-anim', keep);
   root.dataset.tone = tone;
   document.dispatchEvent(new Event('ff-tone'));
   if (keep) try { localStorage.setItem(TONE_KEY, tone); } catch { /* private mode: this visit only */ }
 };
-let stored: string | null = null;
-try { stored = localStorage.getItem(TONE_KEY); } catch { /* storage blocked: colour */ }
-setTone(stored ?? '13', false);
+setTone(size, false);
 for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!, true));
 if (!reduced) startSheen([...document.querySelectorAll<HTMLElement>('.wall .cat .im')]);
 // …and any of its frames opens large on a click.

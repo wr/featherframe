@@ -42,17 +42,19 @@ try {
     execFileSync('cwebp', ['-quiet', '-q', '86', '-alpha_q', '90', png, '-o', `${here}public/img/wall/${name}.webp`]);
     console.log(`public/img/wall/${name}.webp  ${Math.round(HEIGHT * aspect)} × ${HEIGHT}`);
   };
-  // `node scripts/wall.mjs seasons <dir>` renders IV's four frames from <dir>/season-13-<season>.jpg:
-  // each season's collage sheet as a screen texture (1543 × 2072, the sheet fitted by width on white,
-  // as scripts/screens.sh composes a screen), dead-on, into public/img/seasons/<season>.webp
+  // `node scripts/wall.mjs seasons <dir> [13|10]` renders IV's four frames from <dir>/season-<size>-<season>.jpg:
+  // each season's collage sheet as a screen texture (13: 1543 × 2072 in colour; 10: 1179 × 1572 in the
+  // panel's 16 grays; the sheet fitted by width on white, as scripts/screens.sh composes a screen), dead-on,
+  // into public/img/seasons/<size>-<season>.webp
   if (process.argv[2] === 'seasons') {
     const dir = process.argv[3];
+    const size = process.argv[4] ?? '13';
     HEIGHT = 1100;
     mkdirSync(`${here}dist/_seasons`, { recursive: true });
     mkdirSync(`${here}public/img/seasons`, { recursive: true });
     for (const season of ['spring', 'summer', 'fall', 'winter']) {
-      copyFileSync(`${dir}/season-13-${season}.jpg`, `${here}dist/_seasons/${season}.jpg`);
-      await render('13', `screen&src=_seasons/${season}.jpg`, `../seasons/${season}`);
+      copyFileSync(`${dir}/season-${size}-${season}.jpg`, `${here}dist/_seasons/${size}-${season}.jpg`);
+      await render(size, `screen&src=_seasons/${size}-${season}.jpg`, `../seasons/${size}-${season}`);
     }
   } else if (process.argv[2] === 'large') {
     // `node scripts/wall.mjs large [slug,…]`: the wall's frames at 1600 px tall, for the
@@ -73,6 +75,7 @@ try {
   }
   if (process.argv[2] !== 'seasons' && process.argv[2] !== 'large' && process.argv[2] !== 'only') {
     await render('13', 'table', 'table-13-cardinal');
+    await render('10', 'table', 'table-10-cardinal');
     // Technical details' 13-inch shows the hero's cardinal, dead-on
     mkdirSync(`${here}dist/_screens`, { recursive: true });
     copyFileSync(`${here}public/models/screens/13-cardinal.jpg`, `${here}dist/_screens/13-cardinal.jpg`);

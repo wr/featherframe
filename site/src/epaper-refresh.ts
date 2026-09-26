@@ -92,6 +92,8 @@ interface Phase {
   from: 'old' | 'new';
   map?: RGB[];
   settled?: boolean;
+  /** spectra6: this phase's own SOFTEN (the last ones ease back to full contrast). */
+  soft?: number;
   /** The new picture is first recognisable as itself from this phase on:
    *  when the refresh clock reaches its start, onArriving fires. One per waveform. */
   arrives?: boolean;
@@ -120,6 +122,10 @@ const DRAW_EVERY_MS = 25;
 const hex = (h: number): RGB => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
 const mix = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const all = (c: RGB): RGB[] => [c, c, c, c, c, c];
+/** How far each spectra6 phase's colours are drawn toward the paper's gray during a refresh (0: as the panel,
+ *  1: flat paper), unless the phase says otherwise. The settled picture is never touched. */
+const SOFTEN = 0.45;
+const PAPER_GRAY = hex(0xd6d4ce);
 
 // The six inks, as scripts/addon-models/plates.py dithers the colour plates.
 const K = hex(0x000000);
@@ -152,9 +158,11 @@ const WAVEFORMS: Record<Waveform, WaveformSpec> = {
   spectra6: {
     // Timed from a video of the panel refreshing (Wells, 26 Sep 2026), about
     // 15½ s from the old picture to the new one settled, its colours corrected
-    // for the camera's blue cast. The phases are flat washes and stepped
-    // flickers, so every crossing is short.
-    blend: 45,
+    // for the camera's blue cast. On the glass it is ink moving, not lit
+    // pixels, and it reads far quieter than a screen showing the same colours:
+    // so each crossing is a short fade rather than a cut, and every phase is
+    // drawn at lower contrast (SOFTEN) — a liberty taken on purpose.
+    blend: 110,
     // No per-pixel spread: the panel drives its whole sheet at once, so each
     // phase change is a global crossing over `blend` ms, not a jittered one.
     spread: 0,
@@ -215,10 +223,10 @@ const WAVEFORMS: Record<Waveform, WaveformSpec> = {
       { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xdcc0b8), hex(0xc44a3e), hex(0xdcac58), hex(0x584058), hex(0x6a5a4a)] },
       { ms: 90, from: 'new', map: all(hex(0xb07470)) },
       // the colours in, under a mauve cast: reds and yellows right, the lights mauve, greens still blue
-      { ms: 3900, from: 'new', map: [hex(0x2a2040), hex(0xc8b8d8), hex(0xc04040), hex(0xd8c050), hex(0x4050a0), hex(0x506080)] },
+      { ms: 3900, soft: 0.35, from: 'new', map: [hex(0x2a2040), hex(0xc8b8d8), hex(0xc04040), hex(0xd8c050), hex(0x4050a0), hex(0x506080)] },
       // the cast lifts: washed out, then true
-      { ms: 800, from: 'new', map: [hex(0x3a3448), hex(0xe4e0ea), mix(R, W, 0.2), mix(Y, W, 0.2), mix(B, W, 0.2), mix(G, B, 0.35)] },
-      { ms: 800, from: 'new', map: [mix(K, W, 0.08), mix(W, K, 0.04), R, Y, mix(B, W, 0.08), mix(G, B, 0.12)] },
+      { ms: 800, soft: 0.2, from: 'new', map: [hex(0x3a3448), hex(0xe4e0ea), mix(R, W, 0.2), mix(Y, W, 0.2), mix(B, W, 0.2), mix(G, B, 0.35)] },
+      { ms: 800, soft: 0.08, from: 'new', map: [mix(K, W, 0.08), mix(W, K, 0.04), R, Y, mix(B, W, 0.08), mix(G, B, 0.12)] },
       { ms: 500, from: 'new', settled: true },
     ],
   },
@@ -475,7 +483,8 @@ export function createEpaperRefresh(opts: {
     u[`uSettled${suffix}`].value = p.settled ? 1 : 0;
     const arr = u[`uMap${suffix}`].value as Float32Array;
     arr.fill(0);
-    (p.map ?? []).forEach((c, i) => arr.set(c, i * 3));
+    const soft = run.name === 'spectra6' ? p.soft ?? SOFTEN : 0;
+    (p.map ?? []).forEach((c, i) => arr.set(mix(c, PAPER_GRAY, soft), i * 3));
   };
 
   const draw = (t: number) => {

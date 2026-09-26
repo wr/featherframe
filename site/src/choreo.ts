@@ -312,7 +312,9 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   /** The frames: the cover's, and (B&W) the 10-inch that takes over from it. */
   const frames: Partial<Record<Model, Frame3D>> = {};
   const shown: Partial<Record<Model, string>> = {};
-  let loading10: Promise<void> | null = null;
+  /** The frame of the other tone: loaded when the visitor first asks for it. */
+  const other: Model = hero === '13' ? '10' : '13';
+  let loadingOther: Promise<void> | null = null;
   /** What the 10-inch's glass was last told to show while out of sight. */
   let queued: string | null = null;
   let active: Model = hero;
@@ -337,25 +339,23 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     if (screen === 'hidden') return;
     const want2 = screen;
     // the 10-inch only ever travels: it has no cycle of its own, so it shows the art stop's
-    const src = want2 === 'cycle' ? (m === hero ? null : screensOf(data.sizes[m]).art!) : screensOf(data.sizes[m])[want2];
+    // each frame has its own cycle (the same species, in its own panel's drawing)
+    const src = want2 === 'cycle' ? null : screensOf(data.sizes[m])[want2];
     // A new detection arrives at the panel's own pace, as it would at home; a change a scroll asks for, quickly
     if (src !== undefined) frame.refresh.show(src, instant ? 'instant' : want2 === 'table' ? 'panel' : 'quick');
   };
-  const load10 = () => {
-    if (loading10 || hero === '10') return;
-    loading10 = loadFrame(data.sizes['10'], { wake: request, keep: opts.poster, holdMs: 1e9, speed: opts.speed }).then((f) => {
+  const loadOther = () => {
+    if (loadingOther) return;
+    loadingOther = loadFrame(data.sizes[other], { holdMs: opts.holdMs, speed: opts.speed, onShown: opts.onShown, wake: request, keep: opts.poster }).then((f) => {
       if (disposed) { f.dispose(); return; }
-      for (const src of [...Object.values(screensOf(data.sizes['10'])), ...detections(data.sizes['10'])]) if (src) f.refresh.prepare(src);
-      // it takes over showing the art stop's picture, already on its glass
-      queued = screensOf(data.sizes['10']).art!;
-      f.refresh.show(queued, 'instant');
+      for (const src of [...Object.values(screensOf(data.sizes[other])), ...detections(data.sizes[other])]) if (src) f.refresh.prepare(src);
       f.canvas.className = 'ff3d live empty';
       f.setSize(layout.vw, layout.vh);
       document.body.prepend(f.canvas);
-      frames['10'] = f;
+      frames[other] = f;
       dirty = true;
       request();
-    }, (e) => console.warn('featherframe: the 10-inch frame is unavailable', e));
+    }, (e) => console.warn(`featherframe: the ${other}-inch frame is unavailable`, e));
   };
 
   function tick(now: number) {
@@ -371,24 +371,32 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     // A hidden page runs no rAFs; one that says it is hidden but runs them
     // (a throttled tab) keeps checking back without drawing.
     if (document.hidden) { request(); return; }
-    // Which frame travels: the cover's, or — the wall on B&W — the 10-inch once it has left the cover.
-    const want: Model = hero === '13' && tone() === '10' && st.lift >= 0.5 ? '10' : hero;
-    if (want === '10') load10();
+    // Which frame travels: the tone's (Color: the 13-inch; B&W: the 10-inch), wherever the page is.
+    const want: Model = tone();
+    if (want !== hero) loadOther();
     // …once its glass already shows what the frame should (put there out of sight):
     // never a caption over the wrong species
-    let ready = want === hero;
+    let ready = want === active;
     if (!ready && frames[want]) {
       const sc = screensOf(data.sizes[want]);
-      const src = st.screen === 'table' ? sc.table : st.screen === 'last' ? sc.last : sc.art;
-      if (frames[want]!.refresh.showing() === src) ready = true;
-      else if (src && queued !== src) { frames[want]!.refresh.show(src, 'instant'); queued = src; }
+      const screen = st.screen ?? (st.lift < 0.5 ? 'cycle' : 'art');
+      if (screen === 'cycle') {
+        // back to its own cycle, as it is
+        frames[want]!.refresh.show(null, 'instant');
+        ready = true;
+      } else {
+        const src = screen === 'table' ? sc.table : screen === 'last' ? sc.last : sc.art;
+        if (frames[want]!.refresh.showing() === src) ready = true;
+        else if (src && queued !== src) { frames[want]!.refresh.show(src, 'instant'); queued = src; }
+      }
     }
-    const next: Model = ready ? want : hero;
+    const next: Model = ready ? want : active;
     if (next !== active) {
       frames[active]!.draw(null, st.pose);
       frames[active]!.canvas.classList.add('empty');
-      if (active !== hero) { shown[active] = 'hidden'; queued = null; }
-      if (next !== hero) shown[next] = st.screen === 'table' ? `table:${detected()}` : st.screen ?? 'art';
+      shown[active] = 'hidden';
+      queued = null;
+      shown[next] = st.screen === 'table' ? `table:${detected()}` : st.screen ?? (st.lift < 0.5 ? 'cycle' : 'art');
       active = next;
       dirty = true;
     }
@@ -443,7 +451,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   const onVisible = () => { if (!document.hidden) request(); };
   document.addEventListener('visibilitychange', onVisible);
   // B&W resizes the wall's frames (a transition): measure again once they have settled
-  const onTone = () => { if (tone() === '10') load10(); relayout(); };
+  const onTone = () => { if (tone() !== hero) loadOther(); relayout(); };
   document.addEventListener('ff-tone', onTone);
   document.addEventListener('ff-detect', request);
   els.wall?.addEventListener('transitionend', relayout);
@@ -480,7 +488,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   frame.canvas.className = 'ff3d';
   frame.setSize(layout.vw, layout.vh);
   document.body.prepend(frame.canvas);
-  if (tone() === '10') load10();
+  if (tone() !== hero) loadOther();
   dirty = true;
   request();
   /** The scroll range over which `section`'s stop holds the frame, if the journey has one. */

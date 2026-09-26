@@ -501,7 +501,11 @@ def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     assert 'name="quiet_hours_render_collage"' not in client.get("/").text
     # The AI collage is here, always on offer.
     assert 'name="collage_generated"' in sec
-    assert ">Generate menagerie-style collages" in sec
+    assert ">Generate collages<" in sec
+    assert "menagerie" not in client.get("/").text.lower()
+    # Its branch is a dropdown, named so it cannot be read as anything else.
+    assert '<select class="sel cselect-native" id="f-branch" name="collage_branch">' in sec
+    assert ">Tree branch</label>" in sec
     ig = _section(client.get("/").text, "imagegen")
     assert 'name="collage_generated"' not in ig and 'name="imagegen_enabled"' not in ig
 

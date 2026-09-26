@@ -690,7 +690,8 @@ legends:
   198:
     lines:
     - Azalea Calendulacea. Orange-coloured Azalea.
-    - Bill hind toe & claw of the present species
+    # The sheet's "Bill hind toe & claw of the present species" names the
+    # sketches in its corner, which the crop paints out (havell.yaml `mask`).
   199:
     lines:
     - Male, 1. Female, 2.

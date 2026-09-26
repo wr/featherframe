@@ -103,7 +103,7 @@ class PlateProvider(ArtProvider):
         try:
             img = plate.extract(match.image_path, composite=match.composite,
                                 crop_box=match.crop_box, margins=match.margins,
-                                tight=match.tight)
+                                tight=match.tight, mask=match.mask)
         except (OSError, ValueError) as exc:
             # Corrupt/missing image -> fall back rather than break the frame.
             log.warning("plate extract failed for %s (%s): %s",
@@ -115,4 +115,4 @@ class PlateProvider(ArtProvider):
                        color_loader=lambda: plate.extract_color(
                            match.image_path, composite=match.composite,
                            crop_box=match.crop_box, margins=match.margins,
-                           tight=match.tight))
+                           tight=match.tight, mask=match.mask))

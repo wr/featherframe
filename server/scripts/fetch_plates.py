@@ -502,6 +502,7 @@ def fetch_scans(folio: str):
                 "composite": bool(entry.get("composite", False)),
                 "crop_box": entry.get("crop_box"),
                 "margins": scan_margins(entry, header),
+                "mask": entry.get("mask"),
                 "tight": bool(entry.get("tight", header.get("tight", False))),
                 "sci_synonyms": entry.get("sci_synonyms", []),
                 "image": None,

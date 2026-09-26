@@ -600,7 +600,10 @@ Container restarts); D1 schema in `hosted/migrations/`.
   right after the region's own folios: Asia's ringed VII.39 is the
   Ring-necked Pheasant everywhere but Europe, W-871), and a
   folio's `plate: none` hands the species on to the next folio, never to a
-  guess. A Region change is drawn by the next tick (`_region_redraw`).
+  guess. A Region change is drawn by a tick started at the save
+  (`_region_redraw`, `redraw_after_settings`); so is a change to how the
+  collage is drawn — AI or not, its branch, its species limit
+  (`_collage_redraw`), never waiting for its interval.
   A folio whose header says `plates_per_volume: true` (W-874: Gould's
   Australia, Asia and Great Britain print a List of Plates per volume) gives
   each species a `volume_no` (2, "II" or "Supp.") beside its `plate`; the

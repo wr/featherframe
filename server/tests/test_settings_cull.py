@@ -124,17 +124,50 @@ def test_the_source_is_polled_on_a_constant(client):
     assert svc._effective_poll_seconds() == 60
 
 
-def test_region_is_saved_and_redraws_the_plate_on_the_next_tick(client):
+def test_region_is_saved_and_redraws_the_plate_on_the_next_tick(client, monkeypatch):
     svc = client.app.state.service
+    kicked = []
+    monkeypatch.setattr(svc, "_start_task", lambda key, fn, *a: kicked.append(key) or True)
     assert svc.config.region == "north-america" and svc.plates.region == "north-america"
     r = client.post("/settings", data={"quiet_hours_mode": "off", "region": "europe"},
                     follow_redirects=False)
     assert r.status_code == 303
     assert svc.config.region == "europe" and svc.plates.region == "europe"
     assert svc._region_redraw is True         # drawn by the tick, not the request
+    assert kicked == ["redraw"]               # …which starts at once, off the request
     client.post("/settings", data={"quiet_hours_mode": "off", "region": "asia"},
                 follow_redirects=False)
     assert svc.config.region == "asia" and svc.plates.region == "asia"      # W-871
     client.post("/settings", data={"quiet_hours_mode": "off", "region": "atlantis"},
                 follow_redirects=False)
     assert svc.config.region == "north-america"     # an unknown region is the default
+
+
+@pytest.mark.parametrize("form", [{"collage_generated": "1"}, {"collage_branch": "bare"},
+                                  {"collage_species_max": "4"}])
+def test_a_collage_setting_redraws_the_collage_at_once(client, monkeypatch, form):
+    svc = client.app.state.service
+    kicked = []
+    monkeypatch.setattr(svc, "_start_task", lambda key, fn, *a: kicked.append((key, fn)) or True)
+    client.post("/settings", data={"quiet_hours_mode": "off", "collage_generated": "0",
+                                   "collage_branch": "season", "collage_species_max": "9"})
+    svc._collage_redraw, kicked[:] = False, []
+    client.post("/settings", data={"quiet_hours_mode": "off", **form}, follow_redirects=False)
+    assert svc._collage_redraw is True
+    assert kicked == [("collage", svc.tick)]   # not the collage's next interval
+
+    # The tick draws the collage again, of the day it is already of.
+    redrawn = []
+    monkeypatch.setattr(svc, "_rerender_picture", redrawn.append)
+    svc.pictures["collage"].etag = "abc"
+    svc._tick_pictures()
+    assert redrawn == ["collage"] and svc._collage_redraw is False
+
+
+def test_a_collage_setting_left_alone_redraws_nothing(client, monkeypatch):
+    svc = client.app.state.service
+    kicked = []
+    monkeypatch.setattr(svc, "_start_task", lambda key, fn, *a: kicked.append(key) or True)
+    client.post("/settings", data={"quiet_hours_mode": "off",
+                                   "collage_interval_hours": "3"})
+    assert kicked == [] and svc._collage_redraw is False

@@ -52,21 +52,38 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage .season img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
   await expect(page.locator('#faq dt')).toHaveCount(4);
   await expect(page.locator('.cat figure')).toHaveCount(12);
-  // the Carolina Parakeet first (the art stop's bird), the Wood Duck in its old place
-  await expect(page.locator('.cat figure').first().locator('figcaption')).toHaveText('Carolina ParakeetConuropsis carolinensisJohn James Audubon · The Birds of America');
-  await expect(page.locator('.cat figure').nth(8).locator('figcaption')).toHaveText('Wood DuckAix sponsaJohn James Audubon · The Birds of America');
-  await expect(page.locator('.cat figure').first().locator('img')).toHaveAttribute('data-still', 'carolina-parakeet');
-  await expect(page.locator('#art-slot .still')).toHaveAttribute('src', 'img/wall/13-carolina-parakeet.webp');
+  // the wall, in Wells's order: the Wild Turkey first (the art stop's bird), the Carolina Wren last (the one that tears off)
+  const A = 'John James Audubon · The Birds of America';
+  await expect(page.locator('.cat figure figcaption')).toHaveText([
+    `Wild TurkeyMeleagris gallopavo${A}`,
+    `Blue JayCyanocitta cristata${A}`,
+    `Great Horned OwlBubo virginianus${A}`,
+    `Cedar WaxwingBombycilla cedrorum${A}`,
+    `Green-breasted MangoAnthracothorax prevostii${A}`,
+    `Tufted TitmouseBaeolophus bicolor${A}`,
+    'Laughing KookaburraDacelo novaeguineaeJohn Gould · The Birds of Australia',
+    `Hermit ThrushCatharus guttatus${A}`,
+    `Northern Saw-whet OwlAegolius acadicus${A}`,
+    `Gray CatbirdDumetella carolinensis${A}`,
+    `Swainson’s WarblerLimnothlypis swainsonii${A}`,
+    `Carolina WrenThryothorus ludovicianus${A}`,
+  ]);
+  await expect(page.locator('.cat figure').first().locator('img')).toHaveAttribute('data-still', 'wild-turkey');
+  await expect(page.locator('.cat figure').last().locator('img')).toHaveAttribute('data-still', 'carolina-wren');
+  await expect(page.locator('#art-slot .still')).toHaveAttribute('src', 'img/wall/13-wild-turkey.webp');
+  for (const gone of ['Parakeet', 'Wood Duck', 'Oriole']) await expect(page.locator('body')).not.toContainText(gone);
+  expect(await page.locator('img[src*="parakeet"], img[src*="wood-duck"]').count()).toBe(0);
   await expect(page.locator('body')).not.toContainText('Flamingo');
   await expect(page.locator('.tone button')).toHaveText(['Color', 'B&W']);
   for (const link of await page.getByRole('link', { name: 'Pre-order' }).all()) {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
   // the singing videos, credited in the colophon
-  for (const c of ['Cardinal video by Paul Danese (Wikimedia Commons), CC BY-SA 4.0.', 'Blue Jay video by Paul Danese (Wikimedia Commons), CC BY-SA 4.0.', 'Goldfinch video by teyi 徐, Pexels.'])
+  for (const c of ['Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain.', 'Eastern Bluebird video by Paul Danese (Wikimedia Commons), CC BY-SA 4.0.', 'Goldfinch video by teyi 徐, Pexels.', 'Eastern Bluebird recording by Jonathon Jongsma (xeno-canto XC79976), CC BY-SA 3.0.'])
     await expect(page.locator('.colophon .d')).toContainText(c);
+  await expect(page.locator('.colophon .d')).not.toContainText('Blue Jay');
   await expect(page.locator('#how video')).toHaveAttribute('poster', 'video/cardinal.webp');
-  await expect(page.locator('#how .credit')).toHaveText('Video by Paul Danese, Wikimedia Commons');
+  await expect(page.locator('#how .credit')).toHaveText('Video by Courtney Celley, U.S. Fish and Wildlife Service');
   await expect(page.locator('.colophon .c').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', 'https://app.featherframe.app/');
   const body = (await page.locator('body').innerText()).toLowerCase();
   for (const banned of ['plate', 'on the wall', 'on the glass']) expect(body).not.toContain(banned);
@@ -136,6 +153,19 @@ test('the seasons slide sideways as the page scrolls down, on a desktop', async 
   await expect(page.locator('.season').last()).toHaveClass(/\bnow\b/);
   await x(1);
   expect(Math.abs((await winter()) - 720)).toBeLessThan(40);
+});
+
+test('the four seasons\' collages load', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const imgs = page.locator('#collage .season img');
+  await expect(imgs).toHaveCount(4);
+  for (const [i, season] of ['spring', 'summer', 'fall', 'winter'].entries()) {
+    const img = imgs.nth(i);
+    await expect(img).toHaveAttribute('src', `img/seasons/${season}.webp`);
+    await img.evaluate((e: HTMLImageElement) => { e.loading = 'eager'; return e.decode(); });
+    expect(await img.evaluate((e: HTMLImageElement) => e.naturalWidth)).toBe(874);
+  }
 });
 
 test('on a phone the seasons stack', async ({ page }) => {
@@ -320,17 +350,17 @@ test('each new detection is announced and the frame on the table repaints to it'
   const src = () => video.evaluate((v: HTMLVideoElement) => v.currentSrc || v.querySelector('source')!.src);
   await expect(toast).toHaveClass(/\bon\b/);
   await expect(toast.locator('.nm')).toHaveText('Northern Cardinal');
-  await expect(credit).toHaveText('Video by Paul Danese, Wikimedia Commons');
+  await expect(credit).toHaveText('Video by Courtney Celley, U.S. Fish and Wildlife Service');
   expect(await src()).toMatch(/video\/cardinal\.(webm|mp4)$/);
   await expect(table).toHaveAttribute('data-shown', 'cardinal', { timeout: 15_000 });
-  await expect(toast.locator('.nm')).toHaveText('Blue Jay', { timeout: 15_000 });
+  await expect(toast.locator('.nm')).toHaveText('Eastern Bluebird', { timeout: 15_000 });
   // the card stays up through the detections; the video follows the species
   await expect(toast).toHaveClass(/\bon\b/);
-  await expect.poll(src).toMatch(/video\/blue-jay\.(webm|mp4)$/);
-  await expect(video).toHaveAttribute('poster', 'video/blue-jay.webp');
+  await expect.poll(src).toMatch(/video\/eastern-bluebird\.(webm|mp4)$/);
+  await expect(video).toHaveAttribute('poster', 'video/eastern-bluebird.webp');
   await expect(credit).toHaveText('Video by Paul Danese, Wikimedia Commons');
-  await expect(table).toHaveAttribute('data-shown', 'blue-jay', { timeout: 15_000 });
-  await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-blue-jay.webp');
+  await expect(table).toHaveAttribute('data-shown', 'eastern-bluebird', { timeout: 15_000 });
+  await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-eastern-bluebird.webp');
   await page.waitForTimeout(5000);
   await expect(toast).toHaveClass(/\bon\b/);
   expect(await toast.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
@@ -539,13 +569,15 @@ test('the page turns to night at the collage and stays night to the end, day aga
   const box = await page.locator('#collage').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
   const nav = await page.locator('.head').evaluate((e) => e.getBoundingClientRect().bottom);
   const brow = await page.locator('#collage .eyebrow').evaluate((e) => e.getBoundingClientRect().top + scrollY);
-  // the eyebrow a few pixels short of the running head's bottom: still day
-  await page.evaluate((y) => scrollTo(0, y), brow - nav - 6);
+  // the line is 150 px below the running head's bottom (night.ts EARLY)
+  const early = 150;
+  // the eyebrow a few pixels short of that line: still day
+  await page.evaluate((y) => scrollTo(0, y), brow - nav - early - 6);
   await page.waitForTimeout(700);
   await expect(html).not.toHaveClass(/\bnight\b/);
   expect(await bg()).toBe(day);
   // just past it: night, and the colours arrive by themselves in about 450 ms, without further scrolling
-  await page.evaluate((y) => scrollTo(0, y), brow - nav + 2);
+  await page.evaluate((y) => scrollTo(0, y), brow - nav - early + 2);
   await expect(html).toHaveClass(/\bnight\b/);
   const t0 = Date.now();
   await page.waitForTimeout(100);
@@ -553,14 +585,15 @@ test('the page turns to night at the collage and stays night to the end, day aga
   expect(await bg()).not.toBe('26,26,26');
   await expect.poll(bg, { intervals: [25], timeout: 1000 }).toBe('26,26,26');
   expect(Date.now() - t0).toBeLessThan(700);
-  // back down below the running head: day again
-  await page.evaluate((y) => scrollTo(0, y), brow - nav - 6);
+  // back down below the line: day again
+  await page.evaluate((y) => scrollTo(0, y), brow - nav - early - 6);
   await expect(html).not.toHaveClass(/\bnight\b/);
   await expect.poll(bg).toBe(day);
   await page.evaluate((y) => scrollTo(0, y), box.y + 200);
   await expect(html).toHaveClass(/\bnight\b/);
   await expect.poll(bg).toBe('26,26,26');
-  expect(await page.locator('body').evaluate((e) => getComputedStyle(e).backgroundColor)).toMatch(/^rgb\(26, 26, 26\)$|^color\(srgb 0\.10196\d* 0\.10196\d* 0\.10196\d*\)$/);
+  // (exactly, once the 450 ms ease has finished)
+  await expect.poll(() => page.locator('body').evaluate((e) => getComputedStyle(e).backgroundColor)).toMatch(/^rgb\(26, 26, 26\)$|^color\(srgb 0\.10196\d* 0\.10196\d* 0\.10196\d*\)$/);
   // the running head goes dark with it
   expect(await colour('.head', 'backgroundColor')).toBe('26,26,26');
   expect(await colour('#collage h2', 'color')).toBe('242,241,236');
@@ -579,7 +612,7 @@ test('the page turns to night at the collage and stays night to the end, day aga
   expect(await colour('.field input', 'color')).toBe('242,241,236');
   expect(await page.locator('.dim.h').first().evaluate((e) => getComputedStyle(e).borderTopColor).then(rgb)).toBe('242,241,236');
   // scrolled back up above the threshold: day again
-  await page.evaluate((y) => scrollTo(0, y), brow - nav - 200);
+  await page.evaluate((y) => scrollTo(0, y), brow - nav - early - 200);
   await expect(html).not.toHaveClass(/\bnight\b/);
   await expect.poll(bg).toBe(day);
   expect(day).toBe('255,255,255');
@@ -694,16 +727,16 @@ test('the frame freezes dead centre for its dwell while a light bar sweeps its g
 test('a wall frame opens large and closes again', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
-  const frame = page.locator('.wall .cat figure').nth(8).locator('.im');
+  const frame = page.locator('.wall .cat figure').nth(4).locator('.im');
   await expect(frame).toHaveAttribute('role', 'button');
-  await expect(frame).toHaveAttribute('aria-label', 'Wood Duck');
+  await expect(frame).toHaveAttribute('aria-label', 'Green-breasted Mango');
   await frame.scrollIntoViewIfNeeded();
   const box = page.locator('.lightbox');
   // a click opens it, centred, as large as fits, with its caption's three lines
   await frame.click();
   await expect(box).toBeVisible();
   await expect(box).toHaveAttribute('role', 'dialog');
-  await expect(box.locator('figcaption')).toHaveText('Wood DuckAix sponsaJohn James Audubon · The Birds of America');
+  await expect(box.locator('figcaption')).toHaveText('Green-breasted MangoAnthracothorax prevostiiJohn James Audubon · The Birds of America');
   const close = box.getByRole('button', { name: 'Close' });
   await expect(close).toBeFocused();
   await page.waitForTimeout(600);

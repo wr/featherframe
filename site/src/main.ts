@@ -105,8 +105,8 @@ if (!wall) startNight();
 // ways (aria-pressed: with sound). The card is a notification on the video (BirdNET's, not the book's).
 // With reduced motion the video does not play: its poster frame shows.
 const DETECTIONS = [
-  { slug: 'cardinal', name: 'Northern Cardinal', audio: 'audio/cardinal-song.mp3', spectrogram: 'img/spectrogram.webp', video: 'video/cardinal', credit: 'Video by Paul Danese, Wikimedia Commons' },
-  { slug: 'blue-jay', name: 'Blue Jay', audio: 'audio/blue-jay-song.mp3', spectrogram: 'img/spectrogram-blue-jay.webp', video: 'video/blue-jay', credit: 'Video by Paul Danese, Wikimedia Commons' },
+  { slug: 'cardinal', name: 'Northern Cardinal', audio: 'audio/cardinal-song.mp3', spectrogram: 'img/spectrogram.webp', video: 'video/cardinal', credit: 'Video by Courtney Celley, U.S. Fish and Wildlife Service' },
+  { slug: 'eastern-bluebird', name: 'Eastern Bluebird', audio: 'audio/eastern-bluebird-song.mp3', spectrogram: 'img/spectrogram-eastern-bluebird.webp', video: 'video/eastern-bluebird', credit: 'Video by Paul Danese, Wikimedia Commons' },
   { slug: 'goldfinch', name: 'American Goldfinch', audio: 'audio/goldfinch-song.mp3', spectrogram: 'img/spectrogram-goldfinch.webp', video: 'video/goldfinch', credit: 'Video by teyi 徐, Pexels' },
 ];
 const song = document.getElementById('song') as HTMLAudioElement;
@@ -172,7 +172,7 @@ const load = (i: number) => {
   song.src = d.audio;
   song.playbackRate = rate;
   spectroImg.src = d.spectrogram;
-  spectroImg.alt = `A spectrogram of a ${d.name}'s song`;
+  spectroImg.alt = `A spectrogram of ${/^[AEIOU]/.test(d.name) ? 'an' : 'a'} ${d.name}'s song`;
 };
 const play = () => {
   song.muted = !sound;

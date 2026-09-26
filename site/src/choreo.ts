@@ -5,7 +5,7 @@
 //   hero      the cover's frame, three-quarter on its kickstand on the cover's table
 //   centre    dead-on, about 90% of the viewport tall, frozen dead centre for its
 //             dwell while a studio light's bar sweeps up its glass
-//   art       dead-on in the art spread's left half, showing the Carolina Parakeet, pinned
+//   art       dead-on in the art spread's left half, showing the Wild Turkey, pinned
 //             there while the spread's text scrolls past
 //   wall 1    the gallery wall's empty first place: the still takes over there
 //   wall 12   the wall's last frame tears off as its top meets the sticky folio…
@@ -56,7 +56,7 @@ const lerpRect = (a: Rect, b: Rect, t: number): Rect => ({
 });
 
 /** What the frame shows: on the table, the latest detection (main.ts, <html data-detected>). */
-type Screen = 'cycle' | 'art' | 'oriole' | 'table';
+type Screen = 'cycle' | 'art' | 'last' | 'table';
 type Model = '13' | '10';
 
 interface Stop {
@@ -233,14 +233,14 @@ function at(l: Layout, s: number): State {
   over = !!stop.over;
   const fromHero = i === 0 ? 0 : i === 1 && s < stop.s0 ? t : 1;
   if (landed && !torn) rect = null;
-  // The glass: the species cycle at the hero, the Carolina Parakeet from the centre
+  // The glass: the species cycle at the hero, the Wild Turkey from the centre
   // to the wall, the wall's last print when it tears off, the latest detection on the table.
   let screen: Screen | null;
   if (i === 0 || (i === 1 && s < stop.s0)) screen = fromHero >= 0.5 ? 'art' : fromHero <= 0.3 ? 'cycle' : null;
   else if (!torn) screen = landed ? null : 'art';
   else if (i > tearAt + 1 || (i === tearAt + 1 && s >= stop.s0)) screen = 'table';
-  else if (i === tearAt) screen = 'oriole';
-  else screen = t >= 0.75 ? 'table' : t <= 0.5 ? 'oriole' : null;
+  else if (i === tearAt) screen = 'last';
+  else screen = t >= 0.75 ? 'table' : t <= 0.5 ? 'last' : null;
   const land = i > tearAt + 1 ? 1 : i === tearAt + 1 ? (s >= stop.s0 ? 1 : t) : 0;
   // The shadow is the table's: none while the frame is in the air, and it comes
   // in only as the frame's foot (the bottom middle of its box) meets the
@@ -297,10 +297,10 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   const detected = () => root.dataset.detected || 'cardinal';
   const screensOf = (size: Size): Record<Exclude<Screen, 'cycle'>, string | undefined> => ({
     art: size.wall?.[0],
-    oriole: size.wall?.[size.wall.length - 1],
+    last: size.wall?.[size.wall.length - 1],
     table: size.screens.find((f) => f.includes(`-${detected()}.`)),
   });
-  const detections = (size: Size) => size.screens.filter((f) => /-(cardinal|blue-jay|goldfinch)\./.test(f));
+  const detections = (size: Size) => size.screens.filter((f) => /-(cardinal|eastern-bluebird|goldfinch)\./.test(f));
 
   let layout = measure(els);
   // scripts and debugging: where the journey is, and its stops
@@ -541,7 +541,7 @@ export const TABLE_PAD = [0.15, 0.15, 0.15, 0.05];
 export async function startWallRender(size: Size, which: string): Promise<void> {
   const table = which === 'table';
   // ?wall=screen&src=<a screen texture>: any picture on the frame, dead-on (scripts/wall.mjs seasons)
-  const src = table ? size.wall.find((f) => f.includes('cardinal'))!
+  const src = table ? size.screens.find((f) => f.includes('-cardinal.'))!
     : which === 'screen' ? new URLSearchParams(location.search).get('src')!
     : size.wall[Number(which)];
   let raf = 0;

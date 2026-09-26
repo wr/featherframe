@@ -9,43 +9,52 @@
 # every screen on the page carries the same corner mark.
 #
 #   site/scripts/screens.sh [wall|hero|all] [slug]   (a slug renders that one alone; needs server/.venv and the
-#       plates; FF_SERVER=<a checkout's server/> to use another one)
+#       plates; FF_SERVER=<a checkout's server/> to use another one, FF_PYTHON=<a python with
+#       its requirements> when that checkout has no .venv, FEATHERFRAME_PLATES_DIR=<plates/> when
+#       it has no plates)
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
 server="$(cd "${FF_SERVER:-$here/../server}" && pwd)"
 out="$here/public/models/screens"
 render="$server/../test_output"
+py="${FF_PYTHON:-$server/.venv/bin/python}"
 which="${1:-all}"
 only="${2:-}"
 HERO=(
   "nighthawk|Common Nighthawk"
   "cardinal|Northern Cardinal"
-  "blue-jay|Blue Jay"
+  "eastern-bluebird|Eastern Bluebird"
   "goldfinch|American Goldfinch"
 )
+# slug|name, or slug|name|latin|scan|Havell plate for a species the server's
+# plate index does not carry (drawn from its scan by scan_screen.py)
 SPECIES=(
-  "carolina-parakeet|Carolina Parakeet"
+  "wild-turkey|Wild Turkey"
   "blue-jay|Blue Jay"
-  "common-kingfisher|Common Kingfisher"
-  "cardinal|Northern Cardinal"
+  "great-horned-owl|Great Horned Owl"
+  "cedar-waxwing|Cedar Waxwing"
+  "green-breasted-mango|Green-breasted Mango|Anthracothorax prevostii|plate-184-mango-hummingbird.jpg|184"
+  "tufted-titmouse|Tufted Titmouse"
   "kookaburra|Laughing Kookaburra"
-  "bee-eater|European Bee-eater"
-  "snowy-owl|Snowy Owl"
-  "lorikeet|Rainbow Lorikeet"
-  "wood-duck|Wood Duck"
-  "hoopoe|Eurasian Hoopoe"
-  "roller|European Roller"
-  "baltimore-oriole|Baltimore Oriole"
+  "hermit-thrush|Hermit Thrush"
+  "saw-whet-owl|Northern Saw-whet Owl"
+  "gray-catbird|Gray Catbird"
+  "swainsons-warbler|Swainson's Warbler"
+  "carolina-wren|Carolina Wren"
 )
 export FEATHERFRAME_NO_MDNS=1
-render_one() { # slug, name, output prefix
-  local slug="$1" name="$2" prefix="$3"
+render_one() { # slug, name, output prefix[, latin, scan, plate]
+  local slug="$1" name="$2" prefix="$3" latin="${4:-}" scan="${5:-}" plate="${6:-}"
   [ -n "$only" ] && [ "$only" != "$slug" ] && return 0
   local file; file="$(echo "$name" | tr 'A-Z ' 'a-z_').png"
   for size in 10 13; do
     panel=ee03; [ "$size" = 13 ] && panel=ee02
-    (cd "$server" && ./.venv/bin/python -m featherframe.preview --species "$name" --panel "$panel" >/dev/null)
-    "$server/.venv/bin/python" - "$render/$file" "$out/$prefix$size-$slug.jpg" "$size" <<'PY'
+    if [ -n "$scan" ]; then
+      (cd "$server" && "$py" "$here/scripts/scan_screen.py" "$name" "$latin" "$scan" "$plate" "$panel" >/dev/null)
+    else
+      (cd "$server" && "$py" -m featherframe.preview --species "$name" --panel "$panel" >/dev/null)
+    fi
+    "$py" - "$render/$file" "$out/$prefix$size-$slug.jpg" "$size" <<'PY'
 import sys
 from PIL import Image
 src, dst, size = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -60,7 +69,10 @@ PY
   done
 }
 if [ "$which" != hero ]; then
-  for entry in "${SPECIES[@]}"; do render_one "${entry%%|*}" "${entry#*|}" wall-; done
+  for entry in "${SPECIES[@]}"; do
+    IFS='|' read -r slug name latin scan plate <<<"$entry"
+    render_one "$slug" "$name" wall- "$latin" "$scan" "$plate"
+  done
 fi
 if [ "$which" != wall ]; then
   for entry in "${HERO[@]}"; do render_one "${entry%%|*}" "${entry#*|}" ""; done

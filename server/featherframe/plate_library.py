@@ -55,9 +55,9 @@ FETCH_TIMEOUT_S = 30
 
 def entry_key(entry: dict, caption: bool = False) -> str:
     """One key per distinct crop: the plate, and how it is cut. Species that
-    share a composite plate share its file. `caption`: the cut paints out a
-    caption (plate.lifts_caption, W-883), so it is not the crop published
-    before that under the same plate."""
+    share a composite plate share its file. `caption`: lifting the caption
+    changed the crop (plate.lifts_caption, W-883), so it is not the crop
+    published before that under the same plate."""
     how = [bool(entry.get("composite")), entry.get("crop_box")]
     if entry.get("margins") or entry.get("tight"):
         # only a folio's own cut: Havell's keys stand
@@ -99,7 +99,9 @@ def build(out_dir: Path, index_path: Optional[Path] = None,
         entry = dict(entry)
         scan = images_dir / str(entry.get("image") or "")
         if has_plate(entry) and entry.get("image") and scan.is_file():
-            key = entry_key(entry, plate.lifts_caption(scan, entry.get("margins"), entry.get("mask")))
+            key = entry_key(entry, plate.lifts_caption(
+                scan, bool(entry.get("composite")), entry.get("crop_box"), entry.get("margins"),
+                entry.get("mask"), bool(entry.get("tight"))))
             gray_p = out_dir / "lib" / f"{key}.gray.png"
             color_p = out_dir / "lib" / f"{key}.color.webp"
             if key in published or (gray_p.exists() and color_p.exists()):

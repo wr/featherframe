@@ -137,7 +137,7 @@ def test_prompt_sets_the_bough_in_its_season(n):
 @pytest.mark.parametrize("n", [3, 12])
 def test_prompt_without_a_season_keeps_the_bare_bough(n):
     p = build_composite_prompt((SUBJECTS * 4)[:n])
-    assert "bare" in p and "temperate woodland" not in p
+    assert "bare" in p and "one living tree" not in p
 
 
 def test_sheet_records_its_season_and_prompt_version(tmp_path, monkeypatch):
@@ -332,7 +332,7 @@ def test_a_bare_branch_is_the_old_bough(tmp_path, monkeypatch):
     text = FakeSearch({"rain_mm": 50, "source": SRC})
     model, provider = _provider(tmp_path, monkeypatch, text)
     provider.day_composite(CELLS, date(2026, 7, 29), branch="bare", location=HERE)
-    assert text.asked == [] and "temperate woodland" not in model.prompts[-1]
+    assert text.asked == [] and "one living tree" not in model.prompts[-1]
     assert _meta("2026-07-29")["season"] is None
 
 

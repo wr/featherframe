@@ -284,11 +284,12 @@ _P_COMPOSITE_BARE = {
 # and every figure and numeral stands clear of it, or the key under the sheet
 # stops matching what is painted.
 _P_COMPOSITE_SEASON = (
-    "The bough is one living tree of a temperate woodland, seen in {season}: it wears "
-    "that week exactly as the week truly is, so the season is unmistakable at a glance. "
-    "The season is told with the fewest touches that make it so, in the folio's economy, "
-    "the bark clean and plain, so the figures carry the sheet; every figure stands whole "
-    "against it and every numeral sits on open paper. "
+    "The bough is one living tree, seen in {season}: it wears that week exactly as the "
+    "week truly is, so the season is unmistakable at a glance. The season is told with "
+    "the fewest touches that make it so, in the folio's economy, each one placed by hand "
+    "and no two alike; the bark is bare wood in clean engraved line. The figures carry "
+    "the sheet; every figure stands whole against it and every numeral sits on open "
+    "paper. "
 )
 COLLAGE_PROMPT_VERSION = 18  # W-881 17, W-882 18; single illustrations keep PROMPT_VERSION
 

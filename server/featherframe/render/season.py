@@ -68,8 +68,7 @@ WEATHER_STATE = {
     "snow": "the snow of the days before lying along its limbs",
     "rain": ("standing in that day's heavy rain, the falling rain itself drawn in "
              "plain sight as close ruled lines of the engraver's burin slanting across "
-             "the open paper behind the figures, its leaves hanging heavy and running "
-             "with water, its bark soaked dark"),
+             "the open paper behind the figures"),
 }
 
 

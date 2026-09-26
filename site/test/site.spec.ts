@@ -15,9 +15,8 @@ test('the page loads without console errors', async ({ page }) => {
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/');
   await expect(page).toHaveTitle('Featherframe — the birds you hear, illustrated · Wells Workshop');
-  await expect(page.locator('.head .brand .by')).toHaveText('by');
-  await expect(page.locator('.head .brand .by svg')).toHaveAttribute('aria-label', 'Wells Workshop');
-  await expect(page.locator('.head .word')).toHaveText('Featherframe');
+  await expect(page.locator('.head .word')).toHaveAttribute('aria-label', 'Featherframe by Wells Workshop');
+  await expect(page.locator('.head .word svg.lockup .ww')).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 
@@ -36,7 +35,9 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage h2')).toHaveText('Each night, a portrait of the day.');
   // "Each night," roman, "a portrait of the day." italic
   await expect(page.locator('#collage h2 i')).toHaveText('a portrait of the day.');
-  await expect(page.locator('#collage .lede')).toHaveText('The frame shows every species heard that day on one sheet, numbered and keyed like a page in an old natural history book.');
+  await expect(page.locator('#collage .lede')).toHaveText('Your frame shows every species heard that day on one canvas, numbered and labeled like a page in an old natural history book. Enable AI illustration¹ and all the day’s species are painted together as a beautiful collage that changes with the seasons and weather.');
+  await expect(page.locator('#fn-ai')).toHaveText('¹ Requires your own OpenAI API key, billed separately by OpenAI. Featherframe and Wells Workshop LLC are not affiliated with OpenAI. Use of AI is not required for collage functionality.');
+  await expect(page.locator('#how .closing .lede').last()).toHaveText('You can set up a BirdNET detector in your own backyard, or choose a BirdWeather station near you or anywhere in the world.');
   await expect(page.locator('#specs .folio')).toHaveText('Technical details');
   await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Software']);
   // inches first, millimetres after
@@ -46,18 +47,18 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#specs .spec dd').nth(6).getByRole('link', { name: 'See it on GitHub' })).toHaveAttribute('href', 'https://github.com/wr/featherframe');
   await expect(page.locator('#specs .spec')).not.toContainText('Service');
   // the prices: the hero, each size, the close
-  await expect(page.locator('.cover .cta .it')).toHaveText('From $349. Ships in time for the holidays.');
+  await expect(page.locator('.cover .cta .it')).toHaveText('From $349. US pre-orders ship by December\u00a012.');
   await expect(page.locator('#specs .ho figcaption')).toHaveText(['10-inch$349 · Depth 1.1 in (28 mm)', '13-inch$479 · Depth 1.1 in (28 mm)']);
   await expect(page.locator('#specs .ho .diag span')).toHaveText(['10.3-inch display', '13.3-inch display']);
   await expect(page.locator('#specs .dim')).toHaveCount(0);
   await expect(page.locator('.close h2')).toHaveText('Pre-order yours.');
   await expect(page.locator('.close h2 i')).toHaveText('yours.');
-  await expect(page.locator('.close p')).toHaveText('From $349. Ships in time for the holidays, with nothing to pay after.');
+  await expect(page.locator('.close p')).toHaveText('From $349, with nothing to pay after. US pre-orders ship by December\u00a012.');
   await expect(page.locator('body')).not.toContainText('Reserve');
   await expect(page.locator('body')).not.toContainText('November');
   await expect(page.locator('.cover .copy p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
-  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription. From $349. Ships in time for the holidays.');
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription. From $349. US pre-orders ship by December 12.');
   // no exploded drawing anywhere: the reservation is its headline, line and button
   await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
   await expect(page.locator('.close > *')).toHaveCount(3);
@@ -76,7 +77,7 @@ test('every section and its key copy is there', async ({ page }) => {
     'What if a species near me was never illustrated?', 'Do the collages need AI?', 'What is hosting, and what does it cost?', 'Is my data private?']);
   await expect(page.locator('#faq dd').nth(2)).toContainText('The color frame takes about fifteen seconds');
   await expect(page.locator('.t3 figcaption .fn')).toHaveText('Every refresh on this page runs at the panel’s real speed.');
-  await expect(page.locator('#faq dd').nth(0)).toHaveText('Yes. Nothing needs setting up before you wrap it. The person you give it to connects it to their Wi-Fi and chooses a listening station, all from their phone. It ships in time for the holidays.');
+  await expect(page.locator('#faq dd').nth(0)).toHaveText('Yes. Nothing needs setting up before you wrap it. The person you give it to connects it to their Wi-Fi and chooses a listening station, all from their phone. US pre-orders ship by December\u00a012.');
   await expect(page.locator('#faq dd').nth(3)).toHaveText('No. The frame can use any public BirdWeather station, and there are stations across North America, Europe and beyond. If none is close, choose one near a place you love. To see the birds in your own yard, you can add a station of your own.');
   await expect(page.locator('#faq dd').nth(4)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
   await expect(page.locator('#faq dd').nth(6)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration turned on, the day’s species are painted together in one scene, marked ✦.');
@@ -101,12 +102,11 @@ test('every section and its key copy is there', async ({ page }) => {
   ]);
   await expect(page.locator('.cat figure').first().locator('img')).toHaveAttribute('data-still', 'wild-turkey');
   await expect(page.locator('.cat figure').last().locator('img')).toHaveAttribute('data-still', 'carolina-wren');
-  await expect(page.locator('#art-slot .still')).toHaveAttribute('src', 'img/wall/13-wild-turkey.webp');
+  await expect(page.locator('#art-slot .still')).toHaveAttribute('src', 'img/wall/10-wild-turkey.webp');
   for (const gone of ['Parakeet', 'Wood Duck', 'Oriole']) await expect(page.locator('body')).not.toContainText(gone);
   expect(await page.locator('img[src*="parakeet"], img[src*="wood-duck"]').count()).toBe(0);
   await expect(page.locator('body')).not.toContainText('Flamingo');
-  await expect(page.locator('.head .tone button')).toHaveText(['Color', 'B&W']);
-  await expect(page.locator('.wall .tone button')).toHaveText(['Color', 'B&W']);
+  await expect(page.locator('.head .tone button')).toHaveText(['B&W', 'Color']);
   for (const link of await page.getByRole('link', { name: 'Pre-order' }).all()) {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
@@ -200,9 +200,9 @@ test('the four seasons\' collages load', async ({ page }) => {
   await expect(imgs).toHaveCount(4);
   for (const [i, season] of ['spring', 'summer', 'fall', 'winter'].entries()) {
     const img = imgs.nth(i);
-    await expect(img).toHaveAttribute('src', `img/seasons/13-${season}.webp`);
+    await expect(img).toHaveAttribute('src', `img/seasons/10-${season}.webp`);
     await img.evaluate((e: HTMLImageElement) => { e.loading = 'eager'; return e.decode(); });
-    expect(await img.evaluate((e: HTMLImageElement) => e.naturalWidth)).toBe(874);
+    expect(await img.evaluate((e: HTMLImageElement) => e.naturalWidth)).toBe(863);
   }
 });
 
@@ -329,7 +329,7 @@ test('?size=10 shows its poster once species.json arrives late', async ({ page }
 });
 
 test('a frame whose model never arrives leaves the poster showing', async ({ page }) => {
-  await page.route('**/models/featherframe-13.*.glb', (route) => route.abort());
+  await page.route('**/models/featherframe*.glb', (route) => route.abort());
   await page.goto('/?hold=300');
   await page.waitForTimeout(3000);
   await expect(page.locator('canvas')).toHaveCount(0);
@@ -412,8 +412,8 @@ test('with reduced motion the song waits for its button', async ({ page }) => {
 test('each new detection is announced and the frame on the table repaints to it', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
-  // the detections' clock and the refreshes, sped up six times
-  await page.goto('/?hold=600000&rate=6');
+  // the colour frame (its refresh is the slow one), the detections' clock and the refreshes sped up six times
+  await page.goto('/?hold=600000&rate=6&size=13');
   // how long the frame on the table takes to repaint, at the colour panel's own pace (15.5 s, so ~2.6 s here)
   await page.evaluate(() => {
     const w = window as unknown as { __refresh: number[] };
@@ -463,7 +463,7 @@ test('each new detection is announced and the frame on the table repaints to it'
   for (const ms of took) expect(ms).toBeGreaterThan(15500 / 6 * 0.9);
 });
 
-test('the running head and the wall\'s folio stay in view while their sections scroll', async ({ page }) => {
+test('the running head stays in view, and the wall\'s folio scrolls with the wall', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   const top = (sel: string) => page.locator(sel).evaluate((e) => e.getBoundingClientRect().top);
@@ -471,14 +471,9 @@ test('the running head and the wall\'s folio stay in view while their sections s
   expect(await top('.head')).toBe(0);
   const wall = await page.locator('.wall').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
   const nav = await page.locator('.head').evaluate((e) => e.getBoundingClientRect().height);
-  for (const f of [0.3, 0.6]) {
-    await page.evaluate((y) => scrollTo(0, y), wall.y + wall.h * f);
-    expect(Math.abs((await top('.wall .folio')) - nav)).toBeLessThan(1);
-    expect(await top('.head')).toBe(0);
-  }
-  // past the wall, the folio goes with it
-  await page.evaluate((y) => scrollTo(0, y), wall.y + wall.h + 400);
-  expect(await top('.wall .folio')).toBeLessThan(0);
+  // no second bar: the folio goes with the wall
+  await page.evaluate((y) => scrollTo(0, y), wall.y + wall.h * 0.6);
+  expect(await top('.wall .folio')).toBeLessThan(nav);
   expect(await top('.head')).toBe(0);
 });
 
@@ -519,9 +514,7 @@ test('on a phone the sentence and Pre-order come before the frame, on the first 
 test('on a phone the controls are a thumb\'s size', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto('/');
-  // the running head's Color / B&W gives way to the wall's on a phone
-  await expect(page.locator('.head .tone')).toBeHidden();
-  for (const sel of ['.head .word', '.head .btn', '.wall .tone button', '.unmute', '.field button', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
+  for (const sel of ['.head .word', '.head .btn', '.head .tone button', '.unmute', '.field button', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
     for (const el of await page.locator(sel).all()) {
       const b = (await el.boundingBox())!;
       expect(b.height, sel).toBeGreaterThanOrEqual(44);
@@ -546,7 +539,7 @@ test('on a phone the wall is one row walked sideways, and B&W keeps its size', a
   // the book is named only where it changes
   await expect(page.locator('.wall .cat .by:visible')).toHaveCount(3);
   const w = (await page.locator('.wall .cat .im').first().boundingBox())!.width;
-  await page.locator('.wall').getByRole('button', { name: 'B&W' }).click();
+  await page.locator('.head').getByRole('button', { name: 'Color' }).click();
   await page.waitForTimeout(900);
   expect(Math.abs((await page.locator('.wall .cat .im').first().boundingBox())!.width - w)).toBeLessThan(1);
 });
@@ -579,37 +572,40 @@ test('in the lightbox a swipe steps through the wall, and the running head hides
   await expect(box).toHaveCount(1);
 });
 
-test('the wall switches between Color and B&W, and remembers', async ({ page }) => {
+test('the wall starts in B&W, switches to Color from the running head, and remembers', async ({ page }) => {
   await page.goto('/');
   const stills = page.locator('.wall img[data-still]');
   await expect(stills).toHaveCount(12);
   const srcs = () => stills.evaluateAll((imgs) => imgs.map((i) => i.getAttribute('src')));
-  for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/13-/);
-  await page.locator('.wall').getByRole('button', { name: 'B&W' }).click();
-  await expect(page.locator('.wall').getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.wall').getByRole('button', { name: 'Color' })).toHaveAttribute('aria-pressed', 'false');
+  const head = page.locator('.head');
+  await expect(head.getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'true');
   for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/10-/);
+  await head.getByRole('button', { name: 'Color' }).click();
+  await expect(head.getByRole('button', { name: 'Color' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(head.getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'false');
+  for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/13-/);
   await page.reload();
-  await expect(page.locator('.wall').getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'true');
-  for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/10-/);
-  await page.locator('.wall').getByRole('button', { name: 'Color' }).click();
+  await expect(head.getByRole('button', { name: 'Color' })).toHaveAttribute('aria-pressed', 'true');
   for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/13-/);
+  await head.getByRole('button', { name: 'B&W' }).click();
+  for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/10-/);
+  // one switch on the page
+  await expect(page.locator('.tone')).toHaveCount(1);
 });
-
 test("B&W hangs the wall's frames smaller, at the 10-inch's true size", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   const first = page.locator('.wall .cat figure:first-child .im');
   const caption = page.locator('.wall .cat figure:first-child figcaption');
   const gap = async () => (await caption.boundingBox())!.y - ((await first.boundingBox())!.y + (await first.boundingBox())!.height);
-  const colour = (await first.boundingBox())!;
-  const colourGap = await gap();
-  await page.locator('.wall').getByRole('button', { name: 'B&W' }).click();
-  await expect.poll(async () => (await first.boundingBox())!.height / colour.height).toBeCloseTo(295 / 371, 2);
+  const grey = (await first.boundingBox())!;
+  const greyGap = await gap();
+  await page.locator('.head').getByRole('button', { name: 'Color' }).click();
+  await expect.poll(async () => grey.height / (await first.boundingBox())!.height).toBeCloseTo(295 / 371, 2);
   // hung from the same line: the frames still meet their captions as before
-  expect(Math.abs((await gap()) - colourGap)).toBeLessThan(1);
-  await page.locator('.wall').getByRole('button', { name: 'Color' }).click();
-  await expect.poll(async () => (await first.boundingBox())!.height).toBeCloseTo(colour.height, 0);
+  expect(Math.abs((await gap()) - greyGap)).toBeLessThan(1);
+  await page.locator('.head').getByRole('button', { name: 'B&W' }).click();
+  await expect.poll(async () => (await first.boundingBox())!.height).toBeCloseTo(grey.height, 0);
 });
 
 test('the art spread holds the frame while its text scrolls past', async ({ page }) => {
@@ -951,31 +947,28 @@ test('a wall frame opens large and closes again', async ({ page }) => {
   await expect(frame).toBeFocused();
 });
 
-test('the last frame tears off under the sticky folio, and flies under it and the running head', async ({ page }) => {
+test('the last frame tears off under the running head, and flies under it', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
   await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
   const tear = await page.evaluate(() => { const f = (window as any).__ff(); return f.stops[f.stops.length - 2][0]; });
   await page.evaluate((y) => scrollTo(0, y), tear);
-  const [nav, folio, last] = await Promise.all(['.head', '.wall .folio', '.wall .cat figure:last-child .im'].map((s) =>
+  const [nav, last] = await Promise.all(['.head', '.wall .cat figure:last-child .im'].map((s) =>
     page.locator(s).evaluate((e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; })));
-  // it sets off while wholly on screen, its top just under the folio
-  expect(Math.abs(folio.top - nav.bottom)).toBeLessThan(2);
-  expect(last.top).toBeGreaterThanOrEqual(folio.bottom);
-  expect(last.top - folio.bottom).toBeLessThan(30);
-  // on its way to the table it is drawn over the text but under the folio and the head
+  // it sets off while wholly on screen, its top just under the head
+  expect(last.top).toBeGreaterThanOrEqual(nav.bottom);
+  expect(last.top - nav.bottom).toBeLessThan(30);
+  // on its way to the table it is drawn over the text but under the head
   await page.evaluate((y) => scrollTo(0, y + 150), tear);
   await expect(page.locator('canvas.ff3d:not(.empty)')).toHaveClass(/\bover\b/);
   const z = (sel: string) => page.locator(sel).first().evaluate((e) => Number(getComputedStyle(e).zIndex));
   const canvas = await z('canvas.ff3d:not(.empty)');
   expect(canvas).toBeGreaterThan(0);
-  expect(canvas).toBeLessThan(await z('.wall .folio'));
   expect(canvas).toBeLessThan(await z('.head'));
   // and it does not ride up with the page as it leaves
   const st = await page.evaluate(() => (window as any).__ff().st.rect);
-  expect(st.y).toBeGreaterThanOrEqual(folio.bottom - 1);
+  expect(st.y).toBeGreaterThanOrEqual(nav.bottom - 1);
 });
-
 test('each chapter opens with an eyebrow, not a numbered rule', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.folio .eyebrow')).toHaveText(['The art', 'From the collection', 'How it works', 'The collage', 'Technical details', 'Questions']);
@@ -994,8 +987,6 @@ test('each chapter opens with an eyebrow, not a numbered rule', async ({ page })
   expect(size).toBe('13px');
   expect(colour).toBe(graphite);
   expect(await page.locator('body').innerText()).not.toMatch(/\b(I|II|III|IV|V|VI)\. /);
-  // the collection's sticky row keeps its switch
-  await expect(page.locator('.wall .folio .tone button')).toHaveCount(2);
 });
 
 test('in the lightbox the arrow keys step through the wall, wrapping', async ({ page }) => {
@@ -1069,21 +1060,6 @@ test('each eyebrow sits right above its headline', async ({ page }) => {
   }
 });
 
-test('the wall\'s folio paints its paper only while it is stuck', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
-  const folio = page.locator('.wall .folio');
-  const paper = () => folio.evaluate((e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e).boxShadow]);
-  // coming up the page, not yet under the running head: bare
-  await page.evaluate(() => scrollTo(0, document.querySelector('.wall')!.getBoundingClientRect().top + scrollY - 500));
-  await expect(folio).not.toHaveClass(/\bstuck\b/);
-  expect(await paper()).toEqual(['rgba(0, 0, 0, 0)', 'none']);
-  // stuck under it: paper
-  await page.evaluate(() => scrollTo(0, document.querySelector('.wall')!.getBoundingClientRect().top + scrollY + 600));
-  await expect(folio).toHaveClass(/\bstuck\b/);
-  expect((await paper())[0]).not.toBe('rgba(0, 0, 0, 0)');
-});
-
 test('the glass never refreshes while the frame is in flight', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
@@ -1144,18 +1120,18 @@ test('Color / B&W in the running head switches every frame on the page', async (
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
   await expect(page.locator('canvas.ff3d')).toHaveCount(1, { timeout: 20_000 });
-  await page.locator('.head .tone button[data-tone="10"]').click();
   await expect(page.locator('html')).toHaveAttribute('data-tone', '10');
-  await expect(page.locator('.wall .tone button[data-tone="10"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#stage .poster')).toHaveAttribute('src', 'img/poster-10.webp');
-  await expect(page.locator('#table-slot .still')).toHaveAttribute('src', 'img/wall/table-10-cardinal.webp');
-  await expect(page.locator('#collage .season img').first()).toHaveAttribute('src', 'img/seasons/10-spring.webp');
-  // the 10-inch joins at the cover, and takes over the drawing there
+  await page.locator('.head .tone button[data-tone="13"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-tone', '13');
+  await expect(page.locator('#stage .poster')).toHaveAttribute('src', 'img/poster-13.webp');
+  await expect(page.locator('#table-slot .still')).toHaveAttribute('src', 'img/wall/table-13-cardinal.webp');
+  await expect(page.locator('#collage .season img').first()).toHaveAttribute('src', 'img/seasons/13-spring.webp');
+  // the 13-inch joins at the cover, and takes over the drawing there
   await expect(page.locator('canvas.ff3d')).toHaveCount(2, { timeout: 20_000 });
   await expect.poll(() => page.locator('canvas.ff3d:not(.empty)').count(), { timeout: 20_000 }).toBe(1);
   // remembered on the next visit
   await page.reload();
-  await expect(page.locator('html')).toHaveAttribute('data-tone', '10');
-  await expect(page.locator('.head .tone button[data-tone="10"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('html')).toHaveAttribute('data-tone', '13');
+  await expect(page.locator('.head .tone button[data-tone="13"]')).toHaveAttribute('aria-pressed', 'true');
 });
 

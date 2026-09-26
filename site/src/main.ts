@@ -12,12 +12,12 @@ const params = new URLSearchParams(location.search);
 const holdMs = params.has('hold') ? Number(params.get('hold')) : undefined;
 // ?rate= runs the detections' clock and every refresh faster (tests).
 const rate = Math.max(0.1, Number(params.get('rate')) || 1);
-// The page's tone, Color (the 13-inch) or B&W (the 10-inch): the visitor's last choice, remembered; ?size= sets
-// it (the poster and still renders).
+// The page's tone, B&W (the 10-inch, the default: its refresh is a second's quiet change) or Color (the
+// 13-inch): the visitor's last choice, remembered; ?size= sets it (the poster and still renders).
 const TONE_KEY = 'featherframe.wall';
 let stored: string | null = null;
 try { stored = localStorage.getItem(TONE_KEY); } catch { /* storage blocked: colour */ }
-const size: '13' | '10' = (params.get('size') ?? stored) === '10' ? '10' : '13';
+const size: '13' | '10' = (params.get('size') ?? stored) === '13' ? '13' : '10';
 // ?wall=<index>|table renders one of the page's stills (scripts/wall.mjs).
 const wall = params.get('wall');
 
@@ -73,7 +73,7 @@ const start = async () => {
 if (document.readyState === 'complete') void start();
 else addEventListener('load', () => void start(), { once: true });
 
-// The Color / B&W switch, in the running head and on the wall: the 13-inch in colour, or the 10-inch in sixteen
+// The B&W / Color switch, in the running head: the 13-inch in colour, or the 10-inch in sixteen
 // grays — drawn to scale, so the change is a change of size too — remembered. <html data-tone> says which; every
 // picture of a frame follows it (the wall's by data-still, the rest by data-toned, a src with {tone} in it), and
 // the journey (choreo.ts) with an ff-tone event.
@@ -338,21 +338,6 @@ addEventListener('load', () => {
   if (sec) void document.fonts.ready.then(() => scrollTo({ top: landing(sec) }));
 }, { once: true });
 
-// the wall's folio paints its paper only while it is stuck under the running head (styles.css .wall .folio.stuck)
-const folio = document.querySelector<HTMLElement>('.wall .folio');
-const head = document.querySelector<HTMLElement>('.head');
-if (folio && head) {
-  let raf = 0;
-  const paint = () => {
-    raf = 0;
-    const stuck = getComputedStyle(folio).position === 'sticky' && folio.getBoundingClientRect().top <= head.getBoundingClientRect().bottom + 0.5;
-    if (folio.classList.contains('stuck') !== stuck) folio.classList.toggle('stuck', stuck);
-  };
-  const request = () => { if (!raf) raf = requestAnimationFrame(paint); };
-  addEventListener('scroll', request, { passive: true });
-  addEventListener('resize', request);
-  request();
-}
 
 const form = document.getElementById('keep-posted') as HTMLFormElement;
 const note = form.querySelector('.form-note')!;

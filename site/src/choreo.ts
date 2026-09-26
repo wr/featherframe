@@ -8,7 +8,7 @@
 //   art       dead-on in the art spread's left half, showing the Wild Turkey, pinned
 //             there while the spread's text scrolls past
 //   wall 1    the gallery wall's empty first place: the still takes over there
-//   wall 12   the wall's last frame tears off as its top meets the sticky folio…
+//   wall 12   the wall's last frame tears off as its top meets the running head…
 //   table     …and leans back on its kickstand on III's table, pinned while the
 //             song and the photograph scroll past
 //
@@ -25,7 +25,7 @@
 // The canvas sits behind the text, except on the two flights that cross it —
 // down into the wall's first place, and from the wall's last to the table —
 // where the frame passes over the captions it flies across, but still under
-// the running head and the wall's sticky folio.
+// the running head.
 //
 // With the wall on B&W, the frame that leaves the cover is the 10-inch in
 // sixteen grays (loaded when B&W is first chosen): it takes over from the
@@ -40,7 +40,7 @@ const ART_LINGER = 0.1;   // viewport heights the art stop holds past its pin's 
 const LAND_AT = 0.92;     // the wall's first place is landed in with its bottom this far down the window
 const CONTACT = 8;        // px: the table's shadow comes in over the frame's last this many of descent
 const AWAY = 12;          // px of scroll over which the cover's floor shadow goes
-const TEAR_GAP = 12;      // px: the wall's last frame tears off with its top this far under the sticky folio
+const TEAR_GAP = 12;      // px: the wall's last frame tears off with its top this far under the running head
 
 // The poster's canvas is 1200 × 1400 with the frame at 111,108 → 1086,1352.
 export const heroRect = (stage: DOMRect | Rect, offsetY = 0): Rect => {
@@ -139,7 +139,13 @@ function measureNow(els: Els): Layout {
   const vh = document.documentElement.clientHeight;
   const nav = els.head ? els.head.getBoundingClientRect().height : 0;
   const stops: Stop[] = [];
-  const hero = heroRect(els.stage.getBoundingClientRect(), scrollY);
+  let hero = heroRect(els.stage.getBoundingClientRect(), scrollY);
+  // The cover draws the frames to scale: the 10-inch stands smaller than the 13-inch (295 mm tall to
+  // 371 mm), on the same spot of the table.
+  if (tone() === '10') {
+    const k = 295 / 371;
+    hero = { x: hero.x + (hero.w * (1 - k)) / 2, y: hero.y + hero.h * (1 - k), w: hero.w * k, h: hero.h * k };
+  }
   stops.push({ rect: scrolled(hero), pose: HERO, s0: -Infinity, s1: 0, hold: true });
   let landAt = Infinity, tearAt = Infinity;
   const after = (s: number, min: number) => Math.max(s, stops[stops.length - 1].s1 + min * vh);
@@ -168,10 +174,8 @@ function measureNow(els: Els): Layout {
     stops.push({ rect: scrolled(b1), pose: FLAT, s0: s, s1: s, path: 'drop', over: true });
     landAt = stops.length - 1;
     const b12 = pageBox(els.last);
-    // it tears off as its top comes up to just under the wall's sticky folio,
-    // and leaves from there: it never goes under (or over) the folio
-    const folio = els.folio ? els.folio.getBoundingClientRect().height : 0;
-    const t = after(b12.y - (nav + folio + TEAR_GAP), 0.2);
+    // it tears off as its top comes up to just under the running head, and leaves from there
+    const t = after(b12.y - (nav + TEAR_GAP), 0.2);
     stops.push({ rect: scrolled(b12), pose: FLAT, s0: t, s1: t, hold: true });
     tearAt = stops.length - 1;
     if (els.table && els.tablePin) {
@@ -266,7 +270,6 @@ interface Els {
   wall: HTMLElement | null;
   first: HTMLElement | null;
   last: HTMLElement | null;
-  folio: HTMLElement | null;
   table: HTMLElement | null;
   tablePin: HTMLElement | null;
 }
@@ -293,7 +296,6 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     wall: document.querySelector('.wall'),
     first: images[0] ?? null,
     last: images[images.length - 1] ?? null,
-    folio: document.querySelector('.wall .folio'),
     table,
     tablePin: table?.closest<HTMLElement>('.pin') ?? null,
   };

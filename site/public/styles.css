@@ -89,13 +89,10 @@ h2 { font-weight: 400; text-wrap: balance; }
   height: var(--nav); border-bottom: 1px solid var(--hair);
   background: var(--paper); box-shadow: 0 0 0 100vmax var(--paper); clip-path: inset(0 -100vmax -1px);
 }
-.head .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-.head .word { font: 32px/1 var(--script); }
-.head .brand .by { color: var(--graphite); white-space: nowrap; }
-/* Wells Workshop's own lockup, as the shop draws it: the mark and its Inter wordmark, outlined. */
-.head .brand .by { display: inline-flex; align-items: center; gap: 10px; }
-.head .brand .ww-logo { height: 18px; width: auto; transform: translateY(-1px);
-  color: color-mix(in srgb, #f2f1ec calc(var(--night) * 100%), #1b1e23); }
+.head .brand { display: flex; align-items: center; min-width: 0; }
+/* The lockup (Featherframe over "by Wells Workshop"), drawn in the ink of the page, night included */
+.head .word { display: inline-flex; align-items: center; color: var(--ink); }
+.head .lockup { height: 46px; width: auto; transform: translateY(2px); }
 .head nav { display: flex; gap: 30px; align-items: center; }
 .head nav a.sc { color: var(--graphite); white-space: nowrap; }
 .head nav a.sc:hover { color: var(--ink); }
@@ -187,11 +184,13 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 /* II. From the collection: a gallery wall of frames, seen dead-on */
 .folio .r { display: flex; align-items: baseline; gap: 28px; }
-.tone { display: inline-flex; align-self: center; border: 1px solid var(--hair); border-radius: 2px; }
-.tone button { padding: 6px 12px 5px; border: 0; border-radius: 1px; background: none; color: var(--graphite); cursor: pointer; }
+.tone { display: inline-flex; align-self: center; gap: 16px; }
+.tone button { position: relative; padding: 8px 0; border: 0; background: none; color: var(--graphite); cursor: pointer; transition: color .2s; }
+.tone button::after { content: ''; position: absolute; left: 0; right: .22em; bottom: 3px; height: 1px; background: currentColor;
+                      transform: scaleX(0); transition: transform .25s ease; }
 .tone button:hover { color: var(--ink); }
-.tone button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-.head .tone button { padding: 5px 10px 4px; }
+.tone button[aria-pressed="true"] { color: var(--ink); }
+.tone button[aria-pressed="true"]::after { transform: scaleX(1); }
 .cat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 64px 36px; margin-top: 20px; }
 .cat .im { position: relative; transform-origin: 50% 100%; cursor: zoom-in; }
 .cat .im:focus-visible { outline-offset: 6px; }
@@ -221,12 +220,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* the artist and the book, as a plate's imprint */
 .cat .by { display: block; margin-top: 6px; font: 12px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
 .cat .by i { display: block; margin-top: 3px; font: italic 15px/1.3 var(--serif); letter-spacing: 0; text-transform: none; }
-/* the folio stays under the running head while the wall scrolls, and goes with the wall;
-   its paper is painted only while it is stuck (main.ts .stuck), so the frame
-   dropping into the wall's first place passes over bare paper, not under a bar */
-.wall .folio { position: sticky; top: var(--nav); z-index: 10; padding: 14px 0 12px; margin-bottom: 84px;
-               background: none; box-shadow: none; clip-path: inset(0 -100vmax); }
-.wall .folio.stuck { background: var(--paper); box-shadow: 0 0 0 100vmax var(--paper); }
+.wall .folio { padding: 14px 0 12px; margin-bottom: 84px; }
 
 /* III. How it works: the frame on its table pinned on the right while the
    song and the photograph scroll past on the left. */
@@ -313,6 +307,7 @@ h2 { font-weight: 400; text-wrap: balance; }
            background: radial-gradient(closest-side, rgba(0, 0, 0, .07), rgba(0, 0, 0, .025) 55%, transparent); opacity: var(--land, 1); }
 .intro2.closing { margin-top: 24px; }
 .intro2.closing .lede { grid-column: 1 / 8; font-size: 21px; color: var(--text); }
+.intro2.closing .lede + .lede { margin-top: 18px; }
 .logos { grid-column: 1 / 8; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin: 18px 0 0; }
 .logos .sc { color: var(--graphite); }
 .logos a { display: inline-flex; align-items: center; gap: 9px; font-size: 19px; color: var(--ink); filter: grayscale(1); }
@@ -337,6 +332,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* each season's mark, drawn like an engraving's line */
 .season .ico { flex: none; align-self: center; width: 22px; height: 22px; margin-right: 10px; color: var(--ink); }
 #collage .note { margin: 40px 0 0; color: var(--graphite); font-size: 17px; }
+#collage .note.fn { margin-top: 10px; font-size: 15px; max-width: 70ch; }
+#collage .note.fn a, .fnref { color: inherit; text-decoration: none; }
+.fnref { font-size: .7em; vertical-align: super; line-height: 0; margin-left: 1px; }
 .seasons-live .seasons { height: calc(100vh - var(--nav) + 165vh); margin-top: 40px;
   /* each sheet's frame: 72% of the window's height, unless the width runs out first */
   --sh: min(72vh, calc(100vh - var(--nav) - 120px), calc((100vw - 2 * var(--m)) * 1100 / 874));
@@ -451,10 +449,12 @@ h2 { font-weight: 400; text-wrap: balance; }
   :root { --m: 20px; --display: clamp(46px, 14.5vw, 92px); --nav: 56px; }
   .head nav a.sc { display: none; }
   /* a slimmer running head; its wordmark and its button still a thumb's size */
-  .head .word { display: inline-flex; align-items: center; min-height: 44px; font-size: 26px; }
+  .head .word { min-height: 44px; }
+  /* the script alone: the byline would be too small to read (the slice crops the svg to it) */
+  .head .lockup { height: 30px; width: 117px; }
+  .head .lockup .ww { display: none; }
+  .head nav { gap: 14px; }
   .head .btn { height: 44px; padding: 0 14px; }
-  .head .brand { gap: 8px; }
-  .head .brand .by { font-size: 10px; letter-spacing: .16em; }
 
   /* the cover: the headline, then the sentence and the button, then the frame */
   .cover { display: flex; flex-direction: column; height: auto; min-height: 0; max-height: none; padding-top: 30px; }
@@ -482,9 +482,11 @@ h2 { font-weight: 400; text-wrap: balance; }
   .lede { font-size: 22px; }
   .cat { grid-template-columns: 1fr 1fr; gap: 36px 16px; }
   /* the wall's folio goes with the page on a phone: the count and the switch are set once */
-  .wall .folio, .wall .folio.stuck { position: static; flex-wrap: wrap; row-gap: 14px; padding: 0; margin-bottom: 28px; background: none; box-shadow: none; }
+  .wall .folio { flex-wrap: wrap; row-gap: 14px; padding: 0; margin-bottom: 28px; }
   .folio .r { gap: 16px; }
-  .tone button { min-height: 44px; padding: 0 14px; }
+  .tone { gap: 12px; }
+  .tone button { min-height: 44px; padding: 0 2px; }
+  .tone button::after { bottom: 11px; }
   /* B&W keeps the frames' size here: with no 13-inch beside them, smaller only reads as smaller */
   [data-tone="10"] .cat .im, [data-tone="10"] .cat .im:hover { transform: none; }
   [data-tone="10"] .cat .im::after { inset: 3.42% 4.3%; }
@@ -533,7 +535,6 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 
 @media (max-width: 400px) {
-  .head .brand .by { display: none; }
 }
 
 /* a phone held sideways: the headline must leave room for the rest of the screen */
@@ -612,18 +613,23 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* a section's link lands its eyebrow just under the running head (main.ts does the same, and knows the journey) */
 main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 
-/* The byline only where the nav has room beside it. */
-@media (min-width: 821px) and (max-width: 1180px) {
-  .head .brand .by { display: none; }
-}
-/* A phone's running head has room for the wordmark and Pre-order alone: its Color / B&W is the wall's. */
-@media (max-width: 520px) {
-  .head .tone { display: none; }
-}
-/* Below 1000 px the section links give way to the switch and Pre-order; below 700 px, the byline too. */
+/* Below 1000 px the section links give way to the switch and Pre-order. */
 @media (max-width: 1000px) {
   .head nav a.sc { display: none; }
 }
 @media (max-width: 700px) {
-  .head .brand .by { display: none; }
+}
+/* A phone's head holds the script, the switch and Pre-order on one line: each a little tighter. */
+@media (max-width: 520px) {
+  .head .brand { flex-shrink: 0; }
+  .head nav { gap: 12px; }
+  .head .tone { gap: 10px; }
+  .head .btn { padding: 0 10px; font-size: 12px; letter-spacing: .12em; }
+  .head .tone button { font-size: 12px; letter-spacing: .12em; }
+}
+@media (max-width: 380px) {
+  .head .lockup { height: 24px; width: 94px; }
+  .head nav, .head .tone { gap: 8px; }
+  .head .btn { padding: 0 8px; }
+  .head .tone button, .head .btn { letter-spacing: .08em; }
 }

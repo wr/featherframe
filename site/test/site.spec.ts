@@ -80,7 +80,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#keep-posted .form-why')).toHaveText("Not ready to order? We'll write once, when the frames ship.");
   await expect(page.locator('.cat figure')).toHaveCount(12);
   // the wall, in Wells's order: the Wild Turkey first (the art stop's bird), the Carolina Wren last (the one that tears off)
-  const A = 'John James Audubon · The Birds of America';
+  const A = 'John James AudubonThe Birds of America';
   await expect(page.locator('.cat figure figcaption')).toHaveText([
     `Wild TurkeyMeleagris gallopavo${A}`,
     `Blue JayCyanocitta cristata${A}`,
@@ -88,7 +88,7 @@ test('every section and its key copy is there', async ({ page }) => {
     `Cedar WaxwingBombycilla cedrorum${A}`,
     `Green-breasted MangoAnthracothorax prevostii${A}`,
     `Tufted TitmouseBaeolophus bicolor${A}`,
-    'Laughing KookaburraDacelo novaeguineaeJohn Gould · The Birds of Australia',
+    'Laughing KookaburraDacelo novaeguineaeJohn GouldThe Birds of Australia',
     `Hermit ThrushCatharus guttatus${A}`,
     `Northern Saw-whet OwlAegolius acadicus${A}`,
     `Gray CatbirdDumetella carolinensis${A}`,
@@ -211,7 +211,7 @@ test('on a phone the seasons stack', async ({ page }) => {
 });
 
 test('the frame repaints to the next species', async ({ page }) => {
-  await page.goto('/?hold=300');
+  await page.goto('/?hold=300&rate=4');
   await expect(page.locator('canvas.ff3d')).toHaveCount(1, { timeout: 20_000 });
   await expect(page.locator('#stage')).toHaveAttribute('data-shown', '1', { timeout: 30_000 });
 });
@@ -382,8 +382,8 @@ test('the detection cycle runs even when the browser refuses to play any audio',
   await page.locator('#how .ph').scrollIntoViewIfNeeded();
   const name = page.locator('#how .toast .nm');
   await expect(name).toHaveText('Northern Cardinal');
-  await expect(name).toHaveText('Eastern Bluebird', { timeout: 10_000 });
-  await expect(name).toHaveText('American Goldfinch', { timeout: 10_000 });
+  await expect(name).toHaveText('Eastern Bluebird', { timeout: 20_000 });
+  await expect(name).toHaveText('American Goldfinch', { timeout: 20_000 });
   await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-goldfinch.webp');
   // and it never asked to play the song to get there
   expect(await page.evaluate(() => (window as unknown as { __plays: number }).__plays)).toBe(0);
@@ -403,9 +403,21 @@ test('with reduced motion the song waits for its button', async ({ page }) => {
 });
 
 test('each new detection is announced and the frame on the table repaints to it', async ({ page }) => {
+  test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
-  // the detections' clock, sped up
-  await page.goto('/?hold=600000&rate=3');
+  // the detections' clock and the refreshes, sped up six times
+  await page.goto('/?hold=600000&rate=6');
+  // how long the frame on the table takes to repaint, at the colour panel's own pace (27.2 s, so ~4.5 s here)
+  await page.evaluate(() => {
+    const w = window as unknown as { __refresh: number[] };
+    w.__refresh = [];
+    let from = 0;
+    const t = document.getElementById('table-slot')!;
+    new MutationObserver(() => {
+      if (t.dataset.refreshing && !from) from = performance.now();
+      if (!t.dataset.refreshing && from && t.dataset.shown) { w.__refresh.push(performance.now() - from); from = 0; }
+    }).observe(t, { attributes: true, attributeFilter: ['data-refreshing', 'data-shown'] });
+  });
   await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
   await page.evaluate(() => scrollTo(0, document.querySelector('.spectro')!.getBoundingClientRect().top + scrollY - 120));
   const table = page.locator('#table-slot');
@@ -418,14 +430,14 @@ test('each new detection is announced and the frame on the table repaints to it'
   await expect(toast.locator('.nm')).toHaveText('Northern Cardinal');
   await expect(credit).toHaveText('Video by Courtney Celley, U.S. Fish and Wildlife Service');
   expect(await src()).toMatch(/video\/cardinal\.(webm|mp4)$/);
-  await expect(table).toHaveAttribute('data-shown', 'cardinal', { timeout: 15_000 });
-  await expect(toast.locator('.nm')).toHaveText('Eastern Bluebird', { timeout: 15_000 });
+  await expect(table).toHaveAttribute('data-shown', 'cardinal', { timeout: 30_000 });
+  await expect(toast.locator('.nm')).toHaveText('Eastern Bluebird', { timeout: 30_000 });
   // the card stays up through the detections; the video follows the species
   await expect(toast).toHaveClass(/\bon\b/);
   await expect.poll(src).toMatch(/video\/eastern-bluebird\.(webm|mp4)$/);
   await expect(video).toHaveAttribute('poster', 'video/eastern-bluebird.webp');
   await expect(credit).toHaveText('Video by Paul Danese, Wikimedia Commons');
-  await expect(table).toHaveAttribute('data-shown', 'eastern-bluebird', { timeout: 15_000 });
+  await expect(table).toHaveAttribute('data-shown', 'eastern-bluebird', { timeout: 30_000 });
   // the table's still says what it shows
   await expect(still).toHaveAttribute('alt', 'The frame showing the Eastern Bluebird from The Birds of America');
   await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-eastern-bluebird.webp');
@@ -433,11 +445,15 @@ test('each new detection is announced and the frame on the table repaints to it'
   await page.waitForTimeout(5000);
   await expect(toast).toHaveClass(/\bon\b/);
   expect(await toast.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
-  await expect(toast.locator('.nm')).toHaveText('American Goldfinch', { timeout: 15_000 });
+  await expect(toast.locator('.nm')).toHaveText('American Goldfinch', { timeout: 30_000 });
   await expect(toast).toHaveClass(/\bon\b/);
   await expect.poll(src).toMatch(/video\/goldfinch\.(webm|mp4)$/);
   await expect(credit).toHaveText('Video by teyi 徐, Pexels');
-  await expect(table).toHaveAttribute('data-shown', 'goldfinch', { timeout: 15_000 });
+  await expect(table).toHaveAttribute('data-shown', 'goldfinch', { timeout: 30_000 });
+  // each detection's repaint took the panel's time, and the next waited for it
+  const took = await page.evaluate(() => (window as unknown as { __refresh: number[] }).__refresh);
+  expect(took.length).toBeGreaterThanOrEqual(3);
+  for (const ms of took) expect(ms).toBeGreaterThan(27200 / 6 * 0.9);
 });
 
 test('the running head and the wall\'s folio stay in view while their sections scroll', async ({ page }) => {
@@ -885,7 +901,7 @@ test('a wall frame opens large and closes again', async ({ page }) => {
   await frame.click();
   await expect(box).toBeVisible();
   await expect(box).toHaveAttribute('role', 'dialog');
-  await expect(box.locator('figcaption')).toHaveText('Green-breasted MangoAnthracothorax prevostiiJohn James Audubon · The Birds of America');
+  await expect(box.locator('figcaption')).toHaveText('Green-breasted MangoAnthracothorax prevostiiJohn James AudubonThe Birds of America');
   const close = box.getByRole('button', { name: 'Close' });
   await expect(close).toBeFocused();
   await page.waitForTimeout(600);

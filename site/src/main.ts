@@ -10,6 +10,8 @@ import { startLightbox } from './lightbox';
 
 const params = new URLSearchParams(location.search);
 const holdMs = params.has('hold') ? Number(params.get('hold')) : undefined;
+// ?rate= runs the detections' clock and every refresh faster (tests).
+const rate = Math.max(0.1, Number(params.get('rate')) || 1);
 // The hero shows the 13-inch; ?size=10 shows the 10-inch (and renders its poster).
 const size: '13' | '10' = params.get('size') === '10' ? '10' : '13';
 // ?wall=<index>|table renders one of the page's stills (scripts/wall.mjs).
@@ -44,7 +46,7 @@ async function mount() {
   try {
     const m = await import('./choreo');
     if (wall) return await m.startWallRender(data.sizes[size], wall);
-    const r = await m.startPage(data, size, { holdMs, onShown, poster: params.has('poster') });
+    const r = await m.startPage(data, size, { holdMs, speed: rate, onShown, poster: params.has('poster') });
     if (mine === generation) running = r;
     else r.dispose();
   } catch (e) {
@@ -113,7 +115,8 @@ const DETECTIONS = [
 ];
 /** Each recording's length (the spectrogram spans it), ms. */
 const DURATION_MS = [11000, 11000, 11000];
-const rate = Math.max(0.1, Number(params.get('rate')) || 1);
+/** Once the frame on the table has finished repainting to a detection, how long it shows it before the next is heard. */
+const SHOWN_MS = 6000;
 const song = document.getElementById('song') as HTMLAudioElement;
 const ph = document.querySelector<HTMLElement>('#how .ph')!;
 const video = document.getElementById('bird') as HTMLVideoElement;
@@ -130,6 +133,8 @@ const tableStill = table?.querySelector<HTMLImageElement>('.still');
 let heard = 0, sound = false, inView = false, follow = 0, timer = 0;
 /** The clock: when the detection on screen started (performance.now), and how far it had got when it last paused. */
 let started = 0, elapsed = 0, ticking = false;
+/** When the frame on the table finished repainting to the detection on screen (0: not yet, or no frame there). */
+let shownAt = 0;
 if (reduced) unmute.textContent = 'Play the song';
 const playVideo = () => {
   if (reduced || !inView) return;
@@ -162,6 +167,7 @@ const track = () => {
 };
 const detect = (i: number) => {
   heard = i;
+  shownAt = 0;
   const d = DETECTIONS[i];
   root.dataset.detected = d.slug;
   if (table) table.dataset.species = d.slug;
@@ -196,7 +202,7 @@ const run = () => {
   started = performance.now();
   playhead.hidden = false;
   clearTimeout(timer);
-  timer = window.setTimeout(next, Math.max(0, duration() - elapsed));
+  timer = window.setTimeout(done, Math.max(0, duration() - elapsed));
   cancelAnimationFrame(follow);
   track();
 };
@@ -206,6 +212,28 @@ const pause = () => {
   ticking = false;
   clearTimeout(timer);
 };
+/** The recording is over. The next detection waits while the frame on the table repaints (a colour panel takes
+ *  about half a minute) and then shows it for SHOWN_MS; with no frame on the table, it comes at once. */
+function done() {
+  if (!ticking) return;
+  const refreshing = !!table?.dataset.refreshing;
+  const left = shownAt ? SHOWN_MS / rate - (performance.now() - shownAt) : 0;
+  if (refreshing || left > 0) {
+    // the spectrogram's playhead has crossed it: off until the next recording
+    playhead.hidden = true;
+    clearTimeout(timer);
+    if (!refreshing) timer = window.setTimeout(done, left);
+    return;
+  }
+  next();
+}
+// the frame on the table settling on the detection (choreo.ts) starts its SHOWN_MS
+// (and a frame that leaves the table mid-refresh lets the next detection come)
+if (table) new MutationObserver(() => {
+  if (table.dataset.refreshing) return;
+  if (table.dataset.shown === DETECTIONS[heard].slug && !shownAt) shownAt = performance.now();
+  if (ticking && elapsed + (performance.now() - started) >= duration()) done();
+}).observe(table, { attributes: true, attributeFilter: ['data-shown', 'data-refreshing'] });
 /** The next detection, from its start. */
 function next() {
   ticking = false;

@@ -1,4 +1,5 @@
-// Copied from wells/shop src/lib/epaper-refresh.ts (24 Sep 2026); additions: onShown, onArriving, holdMs, show.
+// Copied from wells/shop src/lib/epaper-refresh.ts (24 Sep 2026); additions: onShown, onArriving, holdMs, show,
+// speed, and spectra6 at the panel's real pace.
 // An e-paper frame refreshing between plates, for a model's "screen" material
 // (the Featherframe). Each refresh is drawn the way the panel paints: not a
 // crossfade but a waveform — a fixed sequence of whole-sheet drive phases,
@@ -8,13 +9,12 @@
 //             picture's negative, a dark flash, white, the new picture's
 //             negative, the new picture — each step fading into the next, as
 //             the panel's does, rather than blinking. About a second.
-//   spectra6  the 13.3" Spectra 6 colour panel, 12–20 s on the panel, told
-//             in about 5½: the old picture driven out as its negative, a
-//             black/white shake and a sweep of colour across the sheet, the
-//             new picture as a silhouette and its negative, then the inks in
-//             the order they arrive — red and yellow while blue and green are
-//             still dark, a washed-out yellow flicker, blue and green, dull
-//             and then settled.
+//   spectra6  the 13.3" Spectra 6 colour panel, at its own 27.2 s: the old
+//             picture driven out, the new one's negative in slate blue, a
+//             low-contrast positive, a yellow wash, the sheet shaken between
+//             silhouette and negative, then the inks in the order they
+//             arrive — red while blue and green are still dark, a long dull
+//             stretch as they come up, and it settles.
 //
 // A phase maps the ink each pixel is headed for (or came from) to the colour
 // it shows during that phase, so regions bound for different inks pass
@@ -51,6 +51,7 @@ import {
 } from 'three';
 
 export type Waveform = 'gc16' | 'spectra6';
+export type ShowHow = 'panel' | 'quick' | 'instant';
 
 /** What the product frontmatter's `screenRefresh` says: the waveform, and the
  *  plates to refresh to after the still, in order (the loop returns to it). */
@@ -70,12 +71,11 @@ export interface EpaperRefresh {
   freeze(ms: number | null): void;
   /** Leave the cycle for `src` (an image the size of the plates): refresh to
    *  it at once and hold it until told otherwise. `null` goes back to the
-   *  cycle, refreshing to the plate it left. `instant` skips the waveform —
-   *  for a frame nobody can see change. A show()n picture always arrives by
-   *  the fast refresh (gc16, about a second), whatever the panel: it answers a
-   *  scroll, and a visitor scrolling must never catch the glass mid-refresh.
-   *  The cycle keeps the panel's own waveform. */
-  show(src: string | null, instant?: boolean): void;
+   *  cycle, refreshing to the plate it left. `how`: 'panel' refreshes at the
+   *  panel's own pace, as the cycle does (a new detection); 'quick' runs the
+   *  panel's own waveform in about QUICK_MS, for a change a scroll asks for;
+   *  'instant' skips the waveform, for a frame nobody can see change. */
+  show(src: string | null, how?: ShowHow): void;
   /** Load `src` ahead of a show(), so an instant one has it to hand. */
   prepare(src: string): void;
   /** The show()n picture fully on the glass now, or null (the cycle, or on its way). */
@@ -109,6 +109,8 @@ interface WaveformSpec {
   spread: number;
 }
 
+/** A 'quick' show(): the panel's waveform, sped up to about this long (never slowed). */
+const QUICK_MS = 3500;
 /** How long a plate stays on the glass before the next refresh starts. */
 const HOLD_MS = 6000;
 /** Redraw the glass at most this often during a refresh: every other frame at
@@ -132,6 +134,12 @@ const INKS: RGB[] = [K, W, R, Y, B, G];
  *  the few frames the waveform gives them, so the sheet dims rather than goes
  *  out — and so does the dark of each negative. */
 const DIM = hex(0x4a4a4a);
+/** The colour panel's early phases, as benched: its negative is slate blue on a
+ *  dim white, and its first positive blue for black and gray for white. */
+const SLATE = hex(0x4d5b7c);
+const DIM_W = hex(0xc9c7bd);
+const BLUE_K = hex(0x34406a);
+const GRAY_W = hex(0xa9a8a2);
 
 const WAVEFORMS: Record<Waveform, WaveformSpec> = {
   gc16: {
@@ -149,39 +157,53 @@ const WAVEFORMS: Record<Waveform, WaveformSpec> = {
     ],
   },
   spectra6: {
-    blend: 70,
+    // The panel's own pace: 27.2 s of drive, as benched on the 13.3" (19 Sep 2026).
+    // The first four seconds follow the bench (the new picture's negative, slate
+    // blue on dim white, by 1–2 s; a low-contrast positive by 3–3.5 s; the yellow
+    // phase from 4 s); the rest is the inks arriving in turn, with the sheet
+    // shaken between them, and a long dull stretch before it settles.
+    blend: 180,
     // No per-pixel spread: the panel drives its whole sheet at once, so each
     // phase change is a global flash over `blend` ms, not a jittered one.
     spread: 0,
     // map order: K W R Y B G
     phases: [
       // the old picture driven out: its negative, colours to their opposite inks
-      { ms: 400, from: 'old', map: [W, K, G, B, Y, R] },
-      // the shake: the whole sheet swung between full black and full white…
-      { ms: 330, from: 'old', map: all(K) },
-      { ms: 330, from: 'old', map: all(W) },
-      { ms: 330, from: 'old', map: all(K) },
-      { ms: 330, from: 'old', map: all(W) },
-      // …and a sweep of the colour pigments across it
-      { ms: 240, from: 'old', map: all(R) },
-      { ms: 240, from: 'old', map: all(Y) },
-      // the new picture as a silhouette — every dark ink black, every light one paper…
-      { ms: 460, from: 'new', map: [K, W, K, W, K, K] },
-      // …then its negative
-      { ms: 350, from: 'new', map: [W, K, W, K, W, W] },
-      // the warm pigments land first; blue and green are still dark. The first
-      // phase that shows the new picture the right way round and in its own
-      // inks (the silhouette and negative before it are the picture's shape,
-      // not the picture), so a viewer recognises it from here.
-      { ms: 620, from: 'new', map: [K, W, R, Y, K, mix(K, Y, 0.3)], arrives: true },
+      { ms: 500, from: 'old', map: [W, K, G, B, Y, R] },
+      { ms: 400, from: 'old', map: all(mix(K, W, 0.2)) },
+      // the new picture's negative: slate blue on dim white
+      { ms: 1500, from: 'new', map: [DIM_W, SLATE, DIM_W, SLATE, DIM_W, DIM_W] },
+      // a low-contrast positive: blue for black, gray for white. The picture is
+      // first itself here, so a viewer recognises it from this phase on.
+      { ms: 1600, from: 'new', map: [BLUE_K, GRAY_W, mix(BLUE_K, R, 0.4), GRAY_W, BLUE_K, BLUE_K], arrives: true },
+      // the yellow phase: every light ink washed yellow, the darks still blue
+      { ms: 2200, from: 'new', map: [mix(K, B, 0.4), mix(W, Y, 0.5), Y, Y, mix(K, B, 0.5), mix(Y, G, 0.3)] },
+      // the shake: the picture's silhouette and its negative, back and forth
+      { ms: 450, from: 'new', map: [K, W, K, W, K, K] },
+      { ms: 450, from: 'new', map: [W, K, W, K, W, W] },
+      { ms: 450, from: 'new', map: [K, W, K, W, K, K] },
+      { ms: 450, from: 'new', map: [W, K, W, K, W, W] },
+      { ms: 450, from: 'new', map: [K, W, K, W, K, K] },
+      { ms: 450, from: 'new', map: [W, K, W, K, W, W] },
+      // the red lands while blue and green are still dark
+      { ms: 2600, from: 'new', map: [mix(K, B, 0.3), mix(W, Y, 0.25), R, Y, mix(K, B, 0.4), mix(K, G, 0.4)] },
       // a washed-out yellow flicker as the blue is pulled through
-      { ms: 270, from: 'new', map: [mix(K, R, 0.35), mix(W, Y, 0.55), Y, W, mix(K, B, 0.5), mix(Y, G, 0.5)] },
-      // blue and green arrive, dull
-      { ms: 540, from: 'new', map: [K, mix(W, K, 0.12), R, Y, mix(B, K, 0.45), mix(G, K, 0.45)] },
+      { ms: 400, from: 'new', map: [mix(K, R, 0.35), mix(W, Y, 0.55), Y, W, mix(K, B, 0.5), mix(Y, G, 0.5)] },
+      // everything dark while blue and green build
+      { ms: 3000, from: 'new', map: [K, mix(W, K, 0.18), mix(R, K, 0.25), mix(Y, K, 0.15), mix(B, K, 0.65), mix(G, K, 0.65)] },
+      // a second, slower shake
+      { ms: 500, from: 'new', map: [mix(K, W, 0.5), W, mix(R, W, 0.5), mix(Y, W, 0.5), mix(B, W, 0.5), mix(G, W, 0.5)] },
+      { ms: 500, from: 'new', map: [K, mix(W, K, 0.18), mix(R, K, 0.25), mix(Y, K, 0.15), mix(B, K, 0.65), mix(G, K, 0.65)] },
+      { ms: 500, from: 'new', map: [mix(K, W, 0.5), W, mix(R, W, 0.5), mix(Y, W, 0.5), mix(B, W, 0.5), mix(G, W, 0.5)] },
+      { ms: 500, from: 'new', map: [K, mix(W, K, 0.18), mix(R, K, 0.25), mix(Y, K, 0.15), mix(B, K, 0.65), mix(G, K, 0.65)] },
+      // blue and green arrive, dull, and take their time
+      { ms: 5630, from: 'new', map: [K, mix(W, K, 0.1), R, Y, mix(B, K, 0.4), mix(G, K, 0.4)] },
       // one last light flicker…
-      { ms: 240, from: 'new', map: [mix(K, W, 0.5), W, mix(R, W, 0.5), mix(Y, W, 0.5), mix(B, W, 0.5), mix(G, W, 0.5)] },
+      { ms: 400, from: 'new', map: [mix(K, W, 0.5), W, mix(R, W, 0.5), mix(Y, W, 0.5), mix(B, W, 0.5), mix(G, W, 0.5)] },
+      // …nearly there…
+      { ms: 3000, from: 'new', map: [K, mix(W, K, 0.05), R, Y, mix(B, K, 0.15), mix(G, K, 0.15)] },
       // …and it settles
-      { ms: 700, from: 'new', settled: true },
+      { ms: 800, from: 'new', settled: true },
     ],
   },
 };
@@ -301,6 +323,8 @@ export function createEpaperRefresh(opts: {
   onArriving?: (index: number) => void;
   /** How long each plate holds before the next refresh (default HOLD_MS). */
   holdMs?: number;
+  /** Run every refresh this many times faster (tests). */
+  speed?: number;
 }): EpaperRefresh {
   const { renderer, first, spec, wake, motionOk } = opts;
   const hold = opts.holdMs ?? HOLD_MS;
@@ -398,8 +422,8 @@ export function createEpaperRefresh(opts: {
   // The steps a refresh walks: the old plate as it was, then the phases. A
   // pixel is only ever between two neighbouring steps, so the shader gets the
   // pair around the nearest boundary.
-  interface Run { name: Waveform; spec: WaveformSpec; steps: Phase[]; starts: number[]; total: number; arriveAt: number }
-  const timing = (name: Waveform): Run => {
+  interface Run { name: Waveform; spec: WaveformSpec; steps: Phase[]; starts: number[]; total: number; arriveAt: number; rate: number }
+  const timing = (name: Waveform, rate = 1): Run => {
     const w = WAVEFORMS[name];
     const starts: number[] = [];
     // The first boundary waits until even the earliest pixel's crossing starts
@@ -412,11 +436,14 @@ export function createEpaperRefresh(opts: {
       total += p.ms;
     }
     if (arriveAt < 0) arriveAt = total;
-    return { name, spec: w, steps: [{ ms: 0, from: 'old', settled: true }, ...w.phases], starts, total, arriveAt };
+    return { name, spec: w, steps: [{ ms: 0, from: 'old', settled: true }, ...w.phases], starts, total, arriveAt, rate };
   };
-  /** The panel's own refresh (the cycle's), and the fast one (a show()). */
-  const own = timing(spec.waveform);
-  const fast = timing('gc16');
+  const speed = opts.speed ?? 1;
+  /** The panel's own refresh (the cycle's and a 'panel' show()), and its quick one (a 'quick' show()). */
+  const own = timing(spec.waveform, speed);
+  const quick = timing(spec.waveform, Math.max(speed, own.total / QUICK_MS));
+  /** How the show()n picture on its way is to arrive. */
+  let how: ShowHow = 'quick';
   let run = own;
   const useRun = (r: Run) => {
     run = r;
@@ -571,8 +598,8 @@ export function createEpaperRefresh(opts: {
         }
         // The refresh opens at 0 whatever the gap since the loop last ran.
         mode = 'refresh';
-        // a show()n picture comes in by the fast refresh; the cycle by the panel's own
-        useRun(urgent() ? fast : own);
+        // a show()n picture comes in as show() was asked; the cycle by the panel's own pace
+        useRun(urgent() && how === 'quick' ? quick : own);
         clock = 0;
         arrived = false;
         incoming = next();
@@ -580,7 +607,7 @@ export function createEpaperRefresh(opts: {
         material.uniforms.uOld.value = plates[current];
         material.uniforms.uNew.value = upNext;
       } else {
-        clock += dt;
+        clock += dt * run.rate;
       }
       if (!arrived && clock >= run.arriveAt) {
         arrived = true;
@@ -620,7 +647,7 @@ export function createEpaperRefresh(opts: {
     prepare(src) {
       ensure(slotFor(src));
     },
-    show(src, instant = false) {
+    show(src, asked = 'quick') {
       let i: number;
       if (src === null) {
         if (pinned === null) return;
@@ -631,7 +658,10 @@ export function createEpaperRefresh(opts: {
         if (pinned === null && current < cycle) left = current;
         pinned = i;
       }
-      if (instant) {
+      how = asked;
+      // a scroll doesn't wait out the panel's pace: a refresh under way hurries to its end
+      if (mode === 'refresh' && how === 'quick' && run === own) useRun(quick);
+      if (how === 'instant') {
         if (plates[i]) settle(i);
         else {
           instantTo = i;

@@ -280,7 +280,7 @@ const tone = (): Model => (document.documentElement.dataset.tone === '10' ? '10'
  * itself) if the frame cannot be drawn.
  */
 export async function startPage(data: SiteData, hero: Model, opts: {
-  holdMs?: number; onShown: (i: number) => void; poster?: boolean;
+  holdMs?: number; speed?: number; onShown: (i: number) => void; poster?: boolean;
 }): Promise<{ dispose(): void; landing(section: string): [number, number] | null }> {
   const root = document.documentElement;
   const images = [...document.querySelectorAll<HTMLElement>('.wall .cat .im img')];
@@ -338,16 +338,17 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     const want2 = screen;
     // the 10-inch only ever travels: it has no cycle of its own, so it shows the art stop's
     const src = want2 === 'cycle' ? (m === hero ? null : screensOf(data.sizes[m]).art!) : screensOf(data.sizes[m])[want2];
-    if (src !== undefined) frame.refresh.show(src, instant);
+    // A new detection arrives at the panel's own pace, as it would at home; a change a scroll asks for, quickly
+    if (src !== undefined) frame.refresh.show(src, instant ? 'instant' : want2 === 'table' ? 'panel' : 'quick');
   };
   const load10 = () => {
     if (loading10 || hero === '10') return;
-    loading10 = loadFrame(data.sizes['10'], { wake: request, keep: opts.poster, holdMs: 1e9 }).then((f) => {
+    loading10 = loadFrame(data.sizes['10'], { wake: request, keep: opts.poster, holdMs: 1e9, speed: opts.speed }).then((f) => {
       if (disposed) { f.dispose(); return; }
       for (const src of [...Object.values(screensOf(data.sizes['10'])), ...detections(data.sizes['10'])]) if (src) f.refresh.prepare(src);
       // it takes over showing the art stop's picture, already on its glass
       queued = screensOf(data.sizes['10']).art!;
-      f.refresh.show(queued, true);
+      f.refresh.show(queued, 'instant');
       f.canvas.className = 'ff3d live empty';
       f.setSize(layout.vw, layout.vh);
       document.body.prepend(f.canvas);
@@ -380,7 +381,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
       const sc = screensOf(data.sizes[want]);
       const src = st.screen === 'table' ? sc.table : st.screen === 'last' ? sc.last : sc.art;
       if (frames[want]!.refresh.showing() === src) ready = true;
-      else if (src && queued !== src) { frames[want]!.refresh.show(src, true); queued = src; }
+      else if (src && queued !== src) { frames[want]!.refresh.show(src, 'instant'); queued = src; }
     }
     const next: Model = ready ? want : hero;
     if (next !== active) {
@@ -403,6 +404,9 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     if (els.table) {
       const on = st.screen === 'table' && frame.refresh.showing() === screensOf(data.sizes[active]).table ? detected() : '';
       if ((els.table.dataset.shown ?? '') !== on) els.table.dataset.shown = on;
+      // main.ts holds the next detection until the frame on the table has finished its refresh
+      const refreshing = st.screen === 'table' && !on ? '1' : '';
+      if ((els.table.dataset.refreshing ?? '') !== refreshing) els.table.dataset.refreshing = refreshing;
     }
     const sway = opts.poster || !st.sway ? 0 : Math.sin(((now - t0) / 1000) * (2 * Math.PI / SWAY_PERIOD)) * SWAY * st.sway;
     const sheen = opts.poster || !st.rect ? null : sheenAt(st.rect.y + st.rect.h / 2, layout.vh);
@@ -466,7 +470,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
 
   let frame: Frame3D;
   try {
-    frame = await loadFrame(data.sizes[hero], { holdMs: opts.holdMs, onShown: opts.onShown, wake: request, keep: opts.poster });
+    frame = await loadFrame(data.sizes[hero], { holdMs: opts.holdMs, speed: opts.speed, onShown: opts.onShown, wake: request, keep: opts.poster });
   } catch (e) {
     undo();
     throw e;
@@ -512,7 +516,7 @@ export async function startWallRender(size: Size, which: string): Promise<void> 
   document.documentElement.dataset.aspect = (frame.aspect(pose) * (1 + l + r) / (1 + t + b)).toFixed(5);
   frame.canvas.className = 'ff3d live';
   document.body.prepend(frame.canvas);
-  frame.refresh.show(src, true);
+  frame.refresh.show(src, 'instant');
   let settled = 0;
   function tick(now: number) {
     raf = 0;

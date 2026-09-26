@@ -143,6 +143,8 @@ export interface Frame3D {
 
 export async function loadFrame(size: Size, opts: {
   holdMs?: number;
+  /** Run every refresh this many times faster (tests). */
+  speed?: number;
   onShown?: (i: number) => void;
   /** Called when the screen needs the loop to run again (a hold is up, a screen loaded). */
   wake: () => void;
@@ -315,6 +317,7 @@ export async function loadFrame(size: Size, opts: {
     wake: opts.wake,
     motionOk: () => !document.hidden,
     holdMs: opts.holdMs ?? HOLD_MS,
+    speed: opts.speed,
     onShown: opts.onShown,
   });
   (screen.material as MeshStandardMaterial).dispose();

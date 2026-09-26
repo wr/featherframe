@@ -92,6 +92,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .head .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 .head .word { font: 32px/1 var(--script); }
 .head .brand .by { color: var(--graphite); white-space: nowrap; }
+.head .brand .ww { display: inline-flex; align-items: baseline; gap: .5em; }
+.head .brand .mark { height: .95em; width: auto; align-self: center; transform: translateY(-.04em); }
 .head nav { display: flex; gap: 30px; align-items: center; }
 .head nav a.sc { color: var(--graphite); }
 .head nav a.sc:hover { color: var(--ink); }
@@ -135,7 +137,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 /* I. The art: a spread, the frame showing the flamingo in its left half,
    pinned there, centred below the running head, while the text scrolls past. */
-.spread { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(2 * var(--gutter)); align-items: start; margin-top: 110px; container-type: inline-size; }
+.spread { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: calc(2 * var(--gutter)); align-items: start; margin-top: 110px; container-type: inline-size; }
 .spread .plate {
   --h: calc(0.9 * min(calc((50cqw - var(--gutter)) / var(--flat)), calc(100vh - var(--nav) - 80px)));
   position: sticky; top: calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2); width: calc(var(--h) * var(--flat)); justify-self: center;
@@ -144,7 +146,6 @@ h2 { font-weight: 400; text-wrap: balance; }
 .spread .text { display: flex; flex-direction: column; justify-content: flex-end; padding: 16vh 0 14vh; }
 .spread .text .folio { margin-bottom: 16px; }
 .spread h2 { margin: 0 0 40px; font-size: min(var(--display), 8.4cqw); }
-.spread h2 i { white-space: nowrap; }
 .cols { display: flow-root; max-width: 36ch; font-size: 20px; line-height: 1.58; text-wrap: pretty; }
 .cols p { margin: 0 0 .9em; }
 .drop::first-letter { float: left; font-size: 88px; line-height: .8; margin: 6px 8px 0 -2px; font-weight: 400; }
@@ -211,7 +212,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cat .la { display: block; font: italic 15px var(--serif); color: var(--graphite); }
 /* the artist and the book, as a plate's imprint */
 .cat .by { display: block; margin-top: 6px; font: 11px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
-.cat .by i { font: italic 13px/1 var(--serif); letter-spacing: 0; text-transform: none; }
+.cat .by i { display: block; margin-top: 3px; font: italic 13px/1.3 var(--serif); letter-spacing: 0; text-transform: none; }
 /* the folio stays under the running head while the wall scrolls, and goes with the wall;
    its paper is painted only while it is stuck (main.ts .stuck), so the frame
    dropping into the wall's first place passes over bare paper, not under a bar */
@@ -465,7 +466,6 @@ h2 { font-weight: 400; text-wrap: balance; }
   .spread .plate { position: static; width: 86%; margin: 0 auto; }
   .spread .text { display: block; margin: 40px 0 0; padding: 0; }
   .spread h2 { font-size: var(--display); }
-  .spread h2 i { white-space: normal; }
   .drop::first-letter { font-size: 64px; }
 
   .sec { margin-top: 120px; }
@@ -552,7 +552,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .cover .copy { grid-column: 1; grid-row: 2; margin: 0 0 40px; }
   .frame { grid-column: 2; grid-row: 2; width: 100%; margin: 40px 0 0; }
   .cat { grid-template-columns: repeat(3, 1fr); }
-  .spread { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(2 * var(--gutter)); align-items: center; }
+  .spread { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: calc(2 * var(--gutter)); align-items: center; }
   .spread .plate { width: 100%; }
   .spread .text { margin: 0; }
   .spread h2 { font-size: 8.4cqw; }
@@ -579,7 +579,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .lightbox .nm { display: block; font-size: 22px; line-height: 1.2; }
 .lightbox .la { display: block; font: italic 16px var(--serif); color: var(--graphite); }
 .lightbox .by { display: block; margin-top: 6px; font: 11px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
-.lightbox .by i { font: italic 13px/1 var(--serif); letter-spacing: 0; text-transform: none; }
+.lightbox .by i { display: block; margin-top: 3px; font: italic 13px/1.3 var(--serif); letter-spacing: 0; text-transform: none; }
 .lb-close {
   position: absolute; top: 18px; right: 18px; display: grid; place-items: center; width: 44px; height: 44px;
   border: 0; border-radius: 50%; background: none; color: var(--ink); cursor: pointer;

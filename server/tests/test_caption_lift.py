@@ -205,3 +205,16 @@ def test_the_havell_fetcher_puts_a_plates_margins_and_mask_in_the_index(tmp_path
     assert waxwing["margins"] == [0.025, 0.068, 0.975, 0.935]
     assert waxwing["mask"] == [[0.52, 0.85, 0.79, 1]]
     assert "margins" not in jay and "mask" not in jay       # every other record as before
+
+
+def test_a_caption_lifted_outside_a_tight_crop_keeps_its_key(tmp_path):
+    """The lift ran, but the art's own box stops above the caption: the crop
+    is the one already published, so its library key must not move."""
+    img, d = _sheet()
+    d.ellipse((500, 400, 1300, 1400), fill=70)
+    _caption(d, 700, int(H * 0.86))
+    p = tmp_path / "sheet.jpg"
+    img.convert("RGB").save(p, quality=95)
+    assert plate._caption_boxes(plate._trim_marginalia(plate.load_gray(p), caption=False))
+    assert not plate.lifts_caption(p, tight=True)
+    assert plate.lifts_caption(p, composite=True)          # the whole sheet does show it

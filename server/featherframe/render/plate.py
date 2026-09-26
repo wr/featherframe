@@ -389,11 +389,18 @@ def _caption_boxes(trimmed: Image.Image) -> list[tuple[int, int, int, int]]:
                                    join_y=CAPTION_JOIN_Y, max_fill=CAPTION_MAX_FILL)
 
 
-def lifts_caption(path: str | Path, margins: Optional[Sequence[float]] = None,
-                  mask: Optional[Sequence[Sequence[float]]] = None) -> bool:
-    """Whether the crop of this scan paints out a caption: the plate library
-    keys such a crop apart from the one taken before the lift (W-883)."""
-    return bool(_caption_boxes(_trim_marginalia(load_gray(path), margins, mask, caption=False)))
+def lifts_caption(path: str | Path, composite: bool = False, crop_box: Optional[list] = None,
+                  margins: Optional[Sequence[float]] = None,
+                  mask: Optional[Sequence[Sequence[float]]] = None, tight: bool = False) -> bool:
+    """Whether lifting the caption changes this crop: the plate library keys
+    such a crop apart from the one taken before the lift (W-883). A caption
+    lifted outside the crop (a tight cut stops above it) changes nothing."""
+    gray = _trim_marginalia(load_gray(path), margins, mask, caption=False)
+    if not _caption_boxes(gray):
+        return False
+    kw = dict(composite=composite, crop_box=crop_box, margins=margins, tight=tight, mask=mask)
+    return not np.array_equal(np.asarray(extract(path, caption=False, **kw)),
+                              np.asarray(extract(path, **kw)))
 
 
 CAPTION_PASSES = 3   # a line whose neighbour sat in its moat is found once that one is gone
@@ -537,9 +544,10 @@ def _cut(img: Image.Image, box, tight: bool) -> Image.Image:
 
 def extract(path: str | Path, composite: bool = False,
             crop_box: Optional[list] = None, margins: Optional[Sequence[float]] = None,
-            tight: bool = False, mask: Optional[Sequence[Sequence[float]]] = None) -> Image.Image:
+            tight: bool = False, mask: Optional[Sequence[Sequence[float]]] = None,
+            caption: bool = True) -> Image.Image:
     """Load a plate and return the normalised bird artwork ('L')."""
-    gray = _trim_marginalia(load_gray(path), margins, mask)
+    gray = _trim_marginalia(load_gray(path), margins, mask, caption)
     return paper_normalize(_cut(gray, _box(gray, composite, crop_box, tight), tight))
 
 

@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Featherframe · Wells Workshop</title>
-  <meta name="description" content="Your neighborhood birds, the moment they’re heard, as illustrations from the finest natural history books of the 1800s. On a framed e-paper display with no camera, no ads, and no subscription.">
+  <title>Featherframe — the birds you hear, illustrated · Wells Workshop</title>
+  <meta name="description" content="Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.">
   <link rel="canonical" href="https://featherframe.app/">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://featherframe.app/">
-  <meta property="og:title" content="Featherframe">
-  <meta property="og:description" content="Your neighborhood birds, the moment they’re heard, as illustrations from the finest natural history books of the 1800s. On a framed e-paper display with no camera, no ads, and no subscription.">
+  <meta property="og:title" content="Featherframe — the birds you hear, illustrated">
+  <meta property="og:description" content="Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.">
   <meta property="og:image" content="https://featherframe.app/img/og.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -17,6 +17,7 @@
   <meta name="theme-color" content="#FFFFFF">
   <link rel="icon" href="favicon.png">
   <link rel="preload" as="font" type="font/woff2" href="fonts/EBGaramond.woff2" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="fonts/EBGaramond-Italic.woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
   <script type="module" src="main.js"></script>
 </head>
@@ -24,7 +25,7 @@
 <div class="page">
 
 <header class="head">
-  <a class="word" href="/">Featherframe</a>
+  <div class="brand"><a class="word" href="/">Featherframe</a><span class="by sc">by Wells Workshop</span></div>
   <nav aria-label="Sections"><a class="sc" href="#art">The art</a><a class="sc" href="#how">How it works</a><a class="sc" href="#specs">Details</a><a class="sc" href="#faq">Questions</a><a class="btn" href="https://shop.wells.ee/products/featherframe/">Pre-order</a></nav>
 </header>
 
@@ -33,12 +34,12 @@
   <h1><span class="l1">Let the</span> <span class="l2">outside in.</span></h1>
   <div class="frame floor">
     <div id="stage" class="stage">
-      <img class="poster" src="img/poster-13.webp" alt="Featherframe, a walnut frame on its kickstand, showing Audubon's Common Nighthawk" width="1200" height="1400" fetchpriority="high">
+      <img class="poster" src="img/poster-13.webp" alt="Featherframe, a walnut frame on its kickstand, showing Audubon’s Common Nighthawk" width="1200" height="1400" fetchpriority="high">
     </div>
   </div>
   <div class="copy">
-    <p>Your neighborhood birds, the moment they’re heard, as illustrations from the finest natural history books of the 1800s. On a framed e-paper display with no camera, no ads, and no subscription.</p>
-    <div class="cta"><a class="btn" href="https://shop.wells.ee/products/featherframe/">Pre-order</a><span class="it">Ships November 2026.</span></div>
+    <p>Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.</p>
+    <div class="cta"><a class="btn" href="https://shop.wells.ee/products/featherframe/">Pre-order</a><span class="it">From $349. Ships in time for the holidays.</span></div>
   </div>
 </section>
 
@@ -48,10 +49,10 @@
   <div class="plate slot pin" id="art-slot"><img class="still" src="img/wall/13-wild-turkey.webp" alt="" width="604" height="760" loading="lazy"></div>
   <div class="text">
     <div class="folio"><span class="eyebrow">The art</span></div>
-    <h2>More than 1,300 species, <i>colored by hand.</i></h2>
+    <h2>More than 1,300 species, <i>each painted by hand.</i></h2>
     <div class="cols">
-      <p class="drop">In the nineteenth century, a handful of naturalists set out to paint every bird they could find, and to print each picture by hand. John James Audubon’s <i>The Birds of America</i> and John Gould’s books of Europe, Australia, Asia and Great Britain are among the most beautiful books ever made. In 2010, a single copy of <i>The Birds of America</i> sold for $11.5 million.</p>
-      <p>Featherframe shows their illustrations one at a time, with the species’ name, its Latin name and the legend engraved beneath it.</p>
+      <p class="drop">In the 1800s, a handful of naturalists set out to paint every bird they could find, and to print each picture by hand. John James Audubon’s <i>The Birds of America</i> and John Gould’s books of Europe, Australia, Asia and Great Britain are among the most beautiful books ever made. In 2010, a single copy of <i>The Birds of America</i> sold for $11.5 million.</p>
+      <p>Featherframe shows one illustration at a time, with the species’ name, its Latin name and the book’s own caption set beneath it.</p>
     </div>
   </div>
 </section>
@@ -59,14 +60,14 @@
 <section class="sec wall">
   <div class="folio"><span class="eyebrow">From the collection</span><span class="r"><span class="n">Twelve of more than 1,300</span><span class="tone" role="group"><button class="sc" type="button" data-tone="13" aria-pressed="true">Color</button><button class="sc" type="button" data-tone="10" aria-pressed="false">B&amp;W</button></span></span></div>
   <div class="cat">
-    <figure><div class="im slot"><img src="img/wall/13-wild-turkey.webp" data-still="wild-turkey" alt="" width="604" height="760"></div><figcaption><span class="nm">Wild Turkey</span><span class="la">Meleagris gallopavo</span><span class="by">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
+    <figure><div class="im slot"><img src="img/wall/13-wild-turkey.webp" data-still="wild-turkey" alt="" width="604" height="760"></div><figcaption><span class="nm">Wild Turkey</span><span class="la">Meleagris gallopavo</span><span class="by book">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
     <figure><div class="im slot"><img src="img/wall/13-blue-jay.webp" data-still="blue-jay" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Blue Jay</span><span class="la">Cyanocitta cristata</span><span class="by">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
     <figure><div class="im slot"><img src="img/wall/13-great-horned-owl.webp" data-still="great-horned-owl" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Great Horned Owl</span><span class="la">Bubo virginianus</span><span class="by">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
     <figure><div class="im slot"><img src="img/wall/13-cedar-waxwing.webp" data-still="cedar-waxwing" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Cedar Waxwing</span><span class="la">Bombycilla cedrorum</span><span class="by">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
     <figure><div class="im slot"><img src="img/wall/13-green-breasted-mango.webp" data-still="green-breasted-mango" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Green-breasted Mango</span><span class="la">Anthracothorax prevostii</span><span class="by">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
     <figure><div class="im slot"><img src="img/wall/13-tufted-titmouse.webp" data-still="tufted-titmouse" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Tufted Titmouse</span><span class="la">Baeolophus bicolor</span><span class="by">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
-    <figure><div class="im slot"><img src="img/wall/13-kookaburra.webp" data-still="kookaburra" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Laughing Kookaburra</span><span class="la">Dacelo novaeguineae</span><span class="by">John Gould · <i>The Birds of Australia</i></span></figcaption></figure>
-    <figure><div class="im slot"><img src="img/wall/13-hermit-thrush.webp" data-still="hermit-thrush" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Hermit Thrush</span><span class="la">Catharus guttatus</span><span class="by">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
+    <figure><div class="im slot"><img src="img/wall/13-kookaburra.webp" data-still="kookaburra" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Laughing Kookaburra</span><span class="la">Dacelo novaeguineae</span><span class="by book">John Gould · <i>The Birds of Australia</i></span></figcaption></figure>
+    <figure><div class="im slot"><img src="img/wall/13-hermit-thrush.webp" data-still="hermit-thrush" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Hermit Thrush</span><span class="la">Catharus guttatus</span><span class="by book">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
     <figure><div class="im slot"><img src="img/wall/13-saw-whet-owl.webp" data-still="saw-whet-owl" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Northern Saw-whet Owl</span><span class="la">Aegolius acadicus</span><span class="by">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
     <figure><div class="im slot"><img src="img/wall/13-gray-catbird.webp" data-still="gray-catbird" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Gray Catbird</span><span class="la">Dumetella carolinensis</span><span class="by">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
     <figure><div class="im slot"><img src="img/wall/13-swainsons-warbler.webp" data-still="swainsons-warbler" alt="" width="604" height="760" loading="lazy"></div><figcaption><span class="nm">Swainson’s Warbler</span><span class="la">Limnothlypis swainsonii</span><span class="by">John James Audubon · <i>The Birds of America</i></span></figcaption></figure>
@@ -77,33 +78,32 @@
 <section class="sec" id="how">
   <div class="folio"><span class="eyebrow">How it works</span></div>
   <h2 class="mega">Meet the birds <i>you only hear.</i></h2>
-  <div class="intro2"><p class="lede">Most birds nearby are heard long before they are seen. Featherframe puts a name and a portrait to each call, so over a season you come to know who lives around you.</p></div>
+  <div class="intro2"><p class="lede first">Most birds nearby are heard long before they are seen. Featherframe puts a name and a portrait to each call, so over a season you come to know who lives around you.</p></div>
   <div class="trip">
     <div class="lcol">
     <figure class="t2"><div class="ph">
       <video id="bird" muted playsinline loop preload="none" poster="video/cardinal.webp" width="1280" height="720" aria-label="Northern Cardinal"><source src="video/cardinal.webm" type="video/webm"><source src="video/cardinal.mp4" type="video/mp4"></video>
       <div class="spectro">
-        <div class="sg" role="button" tabindex="0" aria-pressed="false"><img src="img/spectrogram.webp" alt="A spectrogram of a Northern Cardinal's song" width="2400" height="520" loading="lazy"><span class="playhead" hidden></span></div>
+        <div class="sg" role="button" tabindex="0" aria-pressed="false" aria-label="Play the song with sound"><img src="img/spectrogram.webp" alt="A spectrogram of a Northern Cardinal’s song" width="2400" height="520" loading="lazy"><span class="playhead" hidden></span></div>
       </div>
       <button class="unmute" type="button" aria-label="Play the song with sound">Unmute</button>
-      <button class="mute sc" type="button" hidden>Mute</button>
-      <audio id="song" src="audio/cardinal-song.mp3" preload="none" muted playsinline></audio>
+      <audio id="song" src="audio/cardinal-song.mp3" preload="none" playsinline></audio>
       <div class="toast" role="status"><span class="ic" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M2 7v2M4.5 5v6M7 3v10M9.5 5.5v5M12 6.5v3M14 7.5v1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm">Northern Cardinal</span></span><span class="when">Just now</span></div>
     </div><figcaption class="it credit">Video by Courtney Celley, U.S. Fish and Wildlife Service</figcaption></figure>
     </div>
-    <figure class="t3 pin"><div class="table"><div class="slot" id="table-slot"><span class="contact" aria-hidden="true"></span><img class="still" src="img/wall/table-13-cardinal.webp" alt="The frame showing the Northern Cardinal from The Birds of America" width="639" height="760" loading="lazy"></div></div></figure>
+    <figure class="t3 pin"><div class="table"><div class="slot" id="table-slot"><span class="contact" aria-hidden="true"></span><img class="still" src="img/wall/table-13-cardinal.webp" alt="The frame showing the Northern Cardinal from The Birds of America" width="639" height="760" loading="lazy"></div></div><figcaption class="it credit then">Seconds later, the frame shows it.</figcaption></figure>
   </div>
-  <div class="intro2 closing"><p class="lede">BirdWeather is a public map of listening stations in gardens and parks around the world. Each one uses BirdNET, software from the Cornell Lab of Ornithology, to name the birds it hears. Choose a station near you, or near somewhere you love: a parent’s garden, or the coast you visit every summer. When it names a species, the frame shows it. You can also add a station of your own.</p>
-    <p class="logos"><span class="sc">Integrates with</span><a href="https://birdnet.cornell.edu/" rel="noopener"><img src="img/logos/birdnet.webp" alt="" width="28" height="28">BirdNET</a><a href="https://www.birdweather.com/" rel="noopener"><img src="img/logos/birdweather.svg" alt="" width="28" height="28">BirdWeather</a></p></div>
+  <div class="intro2 closing"><p class="lede">BirdWeather is a public map of listening stations in gardens and parks around the world. Each one uses BirdNET, software from the Cornell Lab of Ornithology and Chemnitz University of Technology, to name the birds it hears. Choose a station near you, or near somewhere you love: a parent’s garden, or the coast you visit every summer. When it names a species, the frame shows it. You can also add a station of your own.</p>
+    <p class="logos"><span class="sc">Works with</span><a href="https://birdnet.cornell.edu/" rel="noopener"><img src="img/logos/birdnet.webp" alt="" width="28" height="28">BirdNET</a><a href="https://www.birdweather.com/" rel="noopener"><img src="img/logos/birdweather.svg" alt="" width="28" height="28">BirdWeather</a></p></div>
 </section>
 
 <section class="sec" id="collage">
   <div class="folio"><span class="eyebrow">The collage</span></div>
-  <h2 class="mega">Each night, <i>the day’s menagerie.</i></h2>
+  <h2 class="mega">Each night, <i>a portrait of the day.</i></h2>
   <div class="intro2">
     <div class="key">
       <p class="lede">The frame shows every species heard that day on one sheet, numbered and keyed like a page in an old natural history book.</p>
-      <p class="sub">If you add an OpenAI key, Featherframe paints the day’s species together in one scene. Without it, the day is laid out in the original illustrations. AI is off unless you turn it on, and everything it paints carries a ✦.</p>
+      <p class="sub">Turn on AI illustration and the day’s species are painted together in one scene, on your own OpenAI account. It is off until you turn it on, and everything it paints carries a ✦. Without it, the day is laid out in the original illustrations.</p>
     </div>
   </div>
   <div class="seasons">
@@ -124,32 +124,35 @@
   <div class="folio"><span class="eyebrow">Technical details</span></div>
   <div class="specs">
     <div class="headon">
-      <figure class="ho s10"><div class="box"><img src="img/wall/10-blue-jay.webp" alt="The 10-inch frame" width="596" height="760" loading="lazy"><span class="dim h"><span>232 mm</span></span><span class="dim v"><span>295 mm</span></span></div><figcaption><b>10-inch</b><span>Depth 28 mm</span></figcaption></figure>
-      <figure class="ho s13"><div class="box"><img src="img/wall/13-cardinal.webp" alt="The 13-inch frame" width="604" height="760" loading="lazy"><span class="dim h"><span>295 mm</span></span><span class="dim v"><span>371 mm</span></span></div><figcaption><b>13-inch</b><span>Depth 28 mm</span></figcaption></figure>
+      <figure class="ho s10"><div class="box"><img src="img/wall/10-blue-jay.webp" alt="The 10-inch frame" width="596" height="760" loading="lazy"><span class="diag"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="100" x2="100" y2="0"/></svg><span>10.3-inch display</span></span></div><figcaption><b>10-inch</b><span>$349 · Depth 1.1 in (28 mm)</span></figcaption></figure>
+      <figure class="ho s13"><div class="box"><img src="img/wall/13-cardinal.webp" alt="The 13-inch frame" width="604" height="760" loading="lazy"><span class="diag"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="100" x2="100" y2="0"/></svg><span>13.3-inch display</span></span></div><figcaption><b>13-inch</b><span>$479 · Depth 1.1 in (28 mm)</span></figcaption></figure>
     </div>
   </div>
   <dl class="spec">
     <dt>Display</dt><dd><span>10-inch: 10.3-inch e-paper, 1404 × 1872, sixteen shades of gray</span><span>13-inch: 13.3-inch color e-paper, 1200 × 1600, six inks</span></dd>
     <dt>Frame</dt><dd>Solid walnut, tempered glass</dd>
-    <dt>Size</dt><dd><span>10-inch: 232 × 295 × 28 mm</span><span>13-inch: 295 × 371 × 28 mm</span></dd>
+    <dt>Size</dt><dd><span>10-inch: 9.1 × 11.6 × 1.1 in (232 × 295 × 28 mm)</span><span>13-inch: 11.6 × 14.6 × 1.1 in (295 × 371 × 28 mm)</span></dd>
     <dt>Power</dt><dd>USB-C</dd>
     <dt>Connectivity</dt><dd>Wi-Fi</dd>
-    <dt>Detections</dt><dd>A BirdWeather station near you, or your own BirdNET-Go box</dd>
-    <dt>Hosting</dt><dd>Included, with no subscription</dd>
+    <dt>Detections</dt><dd>A BirdWeather station near you, or your own BirdNET-Go</dd>
+    <dt>Software</dt><dd>Open source. <a class="ul" href="https://github.com/wr/featherframe">See it on GitHub</a></dd>
   </dl>
 </section>
 
 <section class="close">
-  <h2 class="big">Reserve <i>yours.</i></h2>
-  <p>Ships November 2026, with nothing to pay after.</p>
+  <h2 class="big">Pre-order <i>yours.</i></h2>
+  <p>From $349. Ships in time for the holidays, with nothing to pay after.</p>
   <a class="btn" href="https://shop.wells.ee/products/featherframe/">Pre-order</a>
 </section>
 
 <section class="sec" id="faq">
   <div class="folio"><span class="eyebrow">Questions</span></div>
   <dl class="qa">
-    <dt>Do I need Wi-Fi?</dt><dd>Yes. The frame joins your Wi-Fi to fetch each new illustration, and needs nothing else after setup.</dd>
-    <dt>What if a species near me was never illustrated?</dt><dd>The frame shows its name, set in the type of the old books. If you add an OpenAI key, it can paint an illustration in their style instead, marked ✦.</dd>
+    <dt>Do I need Wi-Fi?</dt><dd>Yes. The frame uses your Wi-Fi to receive each new illustration, and needs nothing else after setup.</dd>
+    <dt>Is there a listening station near me?</dt><dd>Probably. BirdWeather has listening stations across North America, Europe and beyond, and the frame can use any of them. If none is close, choose one near a place you love, or add your own.</dd>
+    <dt>Does it work outside North America?</dt><dd>Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.</dd>
+    <dt>What if a species near me was never illustrated?</dt><dd>The frame shows its name, set in the type of the old books. With AI illustration turned on, it paints one in the books’ style instead, marked ✦.</dd>
+    <dt>Do the collages need AI?</dt><dd>No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration turned on, the day’s species are painted together in one scene, marked ✦.</dd>
     <dt>What is hosting, and what does it cost?</dt><dd>Hosting picks each illustration and sends it to your frame. It is included with every frame, and there is no subscription.</dd>
     <dt>Is my data private?</dt><dd>The frame has no camera and no microphone. Your account holds your frame’s settings and the species it has shown, and nothing is sold or shared.</dd>
   </dl>
@@ -160,12 +163,13 @@
 <footer class="colophon">
   <form id="keep-posted" class="a" method="post" action="https://app.featherframe.app/api/waitlist">
     <label class="sc" for="email">Keep me posted</label>
+    <p class="form-why">Not ready to order? We'll write once, when the frames ship.</p>
     <div class="field"><input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required><button type="submit">Sign up</button></div>
     <p class="form-note" aria-live="polite"></p>
   </form>
   <div class="b"><span class="sc">The illustrations</span>From John James Audubon’s <i>The Birds of America</i> (1827–1838) and John Gould’s <i>The Birds of Europe</i>, <i>Australia</i>, <i>Asia</i> and <i>Great Britain</i> (1832–1883), in the public domain.</div>
   <div class="c"><span class="sc">A Wells Workshop product</span>Featherframe is open source. Instructions to build your own are on <a class="ul" href="https://github.com/wr/featherframe">GitHub</a>.<a class="signin ul" href="https://app.featherframe.app/">Sign in</a></div>
-  <div class="d">Featherframe is not affiliated with the National Audubon Society. Cardinal recording by Jonathon Jongsma (xeno-canto XC175226), CC BY-SA 4.0. Eastern Bluebird recording by Jonathon Jongsma (xeno-canto XC79976), CC BY-SA 3.0. Goldfinch recording by Jonathon Jongsma (xeno-canto XC127600), CC BY-SA 3.0. Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain. Eastern Bluebird video by Paul Danese (Wikimedia Commons), CC BY-SA 4.0. Goldfinch video by teyi 徐, Pexels.</div>
+  <div class="d">Featherframe is not affiliated with the National Audubon Society. Northern Cardinal recording by Jonathon Jongsma, <a class="ul" href="https://xeno-canto.org/175226">xeno-canto XC175226</a>, <a class="ul" href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. Eastern Bluebird recording by Jonathon Jongsma, <a class="ul" href="https://xeno-canto.org/79976">XC79976</a>, <a class="ul" href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>. American Goldfinch recording by Jonathon Jongsma, <a class="ul" href="https://xeno-canto.org/127600">XC127600</a>, <a class="ul" href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>. Northern Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain. Eastern Bluebird video by Paul Danese, <a class="ul" href="https://commons.wikimedia.org/wiki/File:20250518_eastern_bluebird_bafflin_wm.webm">Wikimedia Commons</a>, <a class="ul" href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. American Goldfinch video by teyi 徐, Pexels.</div>
 </footer>
 
 </div>

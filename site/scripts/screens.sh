@@ -8,6 +8,10 @@
 # The hero's four (models/screens/{10,13}-<slug>.jpg) come the same way, so
 # every screen on the page carries the same corner mark.
 #
+# Every screen is drawn with the frames' mat allowance (FF_MAT_INSET, percent
+# per edge, default 4: what Wells's frames need so the mat hides none of the
+# illustration, its caption or its corner marks).
+#
 #   site/scripts/screens.sh [wall|hero|all] [slug]   (a slug renders that one alone; needs server/.venv and the
 #       plates; FF_SERVER=<a checkout's server/> to use another one, FF_PYTHON=<a python with
 #       its requirements> when that checkout has no .venv, FEATHERFRAME_PLATES_DIR=<plates/> when
@@ -43,6 +47,7 @@ SPECIES=(
   "carolina-wren|Carolina Wren"
 )
 export FEATHERFRAME_NO_MDNS=1
+export FF_MAT_INSET="${FF_MAT_INSET:-4}"
 render_one() { # slug, name, output prefix[, latin, scan, plate]
   local slug="$1" name="$2" prefix="$3" latin="${4:-}" scan="${5:-}" plate="${6:-}"
   [ -n "$only" ] && [ "$only" != "$slug" ] && return 0
@@ -52,7 +57,7 @@ render_one() { # slug, name, output prefix[, latin, scan, plate]
     if [ -n "$scan" ]; then
       (cd "$server" && "$py" "$here/scripts/scan_screen.py" "$name" "$latin" "$scan" "$plate" "$panel" >/dev/null)
     else
-      (cd "$server" && "$py" -m featherframe.preview --species "$name" --panel "$panel" >/dev/null)
+      (cd "$server" && "$py" -m featherframe.preview --species "$name" --panel "$panel" --mat-inset "$FF_MAT_INSET" >/dev/null)
     fi
     "$py" - "$render/$file" "$out/$prefix$size-$slug.jpg" "$size" <<'PY'
 import sys

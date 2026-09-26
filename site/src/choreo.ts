@@ -75,6 +75,8 @@ interface Stop {
   hold?: boolean;
   /** A light bar sweeps its glass as the page scrolls through its hold. */
   bar?: boolean;
+  /** The section a link to it should land in this stop's hold (main.ts). */
+  section?: string;
 }
 
 interface Layout {
@@ -156,7 +158,7 @@ function measureNow(els: Els): Layout {
     const p = pinned(els.art, els.art);
     const s0 = after(p.s0, 0.3);
     // it stays a moment after the spread lets go of it, going up with the page, before it sets off
-    stops.push({ rect: p.rect, pose: FLAT, s0, s1: Math.max(s0, p.s1 + ART_LINGER * vh) });
+    stops.push({ rect: p.rect, pose: FLAT, s0, s1: Math.max(s0, p.s1 + ART_LINGER * vh), section: 'art' });
   }
   if (els.first && els.last) {
     // the wall's frames as drawn: in B&W, each still is scaled to the 10-inch's true size
@@ -235,12 +237,14 @@ function at(l: Layout, s: number): State {
   if (landed && !torn) rect = null;
   // The glass: the species cycle at the hero, the Wild Turkey from the centre
   // to the wall, the wall's last print when it tears off, the latest detection on the table.
+  // A refresh is never drawn in flight: the Turkey arrives once the frame is (all but)
+  // still at the centre, under the light bar, and the table's picture once it has landed.
   let screen: Screen | null;
-  if (i === 0 || (i === 1 && s < stop.s0)) screen = fromHero >= 0.5 ? 'art' : fromHero <= 0.3 ? 'cycle' : null;
+  if (i === 0 || (i === 1 && s < stop.s0)) screen = fromHero >= 0.97 ? 'art' : fromHero <= 0.3 ? 'cycle' : null;
   else if (!torn) screen = landed ? null : 'art';
   else if (i > tearAt + 1 || (i === tearAt + 1 && s >= stop.s0)) screen = 'table';
   else if (i === tearAt) screen = 'last';
-  else screen = t >= 0.75 ? 'table' : t <= 0.5 ? 'last' : null;
+  else screen = 'last'; // (on its way to the table: the table's picture waits for the landing)
   const land = i > tearAt + 1 ? 1 : i === tearAt + 1 ? (s >= stop.s0 ? 1 : t) : 0;
   // The shadow is the table's: none while the frame is in the air, and it comes
   // in only as the frame's foot (the bottom middle of its box) meets the
@@ -277,7 +281,7 @@ const tone = (): Model => (document.documentElement.dataset.tone === '10' ? '10'
  */
 export async function startPage(data: SiteData, hero: Model, opts: {
   holdMs?: number; onShown: (i: number) => void; poster?: boolean;
-}): Promise<{ dispose(): void }> {
+}): Promise<{ dispose(): void; landing(section: string): [number, number] | null }> {
   const root = document.documentElement;
   const images = [...document.querySelectorAll<HTMLElement>('.wall .cat .im img')];
   const table = document.getElementById('table-slot');
@@ -309,6 +313,8 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   const frames: Partial<Record<Model, Frame3D>> = {};
   const shown: Partial<Record<Model, string>> = {};
   let loading10: Promise<void> | null = null;
+  /** What the 10-inch's glass was last told to show while out of sight. */
+  let queued: string | null = null;
   let active: Model = hero;
   let raf = 0, reveal = 0, dirty = true, lastKey = '', lastAway = '', disposed = false;
   const t0 = performance.now();
@@ -339,6 +345,9 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     loading10 = loadFrame(data.sizes['10'], { wake: request, keep: opts.poster, holdMs: 1e9 }).then((f) => {
       if (disposed) { f.dispose(); return; }
       for (const src of [...Object.values(screensOf(data.sizes['10'])), ...detections(data.sizes['10'])]) if (src) f.refresh.prepare(src);
+      // it takes over showing the art stop's picture, already on its glass
+      queued = screensOf(data.sizes['10']).art!;
+      f.refresh.show(queued, true);
       f.canvas.className = 'ff3d live empty';
       f.setSize(layout.vw, layout.vh);
       document.body.prepend(f.canvas);
@@ -364,11 +373,21 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     // Which frame travels: the cover's, or — the wall on B&W — the 10-inch once it has left the cover.
     const want: Model = hero === '13' && tone() === '10' && st.lift >= 0.5 ? '10' : hero;
     if (want === '10') load10();
-    const next: Model = frames[want] ? want : hero;
+    // …once its glass already shows what the frame should (put there out of sight):
+    // never a caption over the wrong species
+    let ready = want === hero;
+    if (!ready && frames[want]) {
+      const sc = screensOf(data.sizes[want]);
+      const src = st.screen === 'table' ? sc.table : st.screen === 'last' ? sc.last : sc.art;
+      if (frames[want]!.refresh.showing() === src) ready = true;
+      else if (src && queued !== src) { frames[want]!.refresh.show(src, true); queued = src; }
+    }
+    const next: Model = ready ? want : hero;
     if (next !== active) {
       frames[active]!.draw(null, st.pose);
       frames[active]!.canvas.classList.add('empty');
-      if (active !== hero) shown[active] = 'hidden';
+      if (active !== hero) { shown[active] = 'hidden'; queued = null; }
+      if (next !== hero) shown[next] = st.screen === 'table' ? `table:${detected()}` : st.screen ?? 'art';
       active = next;
       dirty = true;
     }
@@ -460,71 +479,12 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   if (tone() === '10') load10();
   dirty = true;
   request();
-  return { dispose: undo };
-}
-
-/**
- * A phone's hero: the frame in the cover's stage, three-quarter, swaying and
- * turnable by drag, cycling species — no journey.
- */
-export async function startStage(stage: HTMLElement, size: Size, opts: {
-  holdMs?: number; onShown: (i: number) => void;
-}): Promise<{ dispose(): void }> {
-  let raf = 0, reveal = 0, visible = true;
-  const request = () => { if (!raf) raf = requestAnimationFrame(tick); };
-  const frame = await loadFrame(size, { holdMs: opts.holdMs, onShown: opts.onShown, wake: request });
-  const { canvas } = frame;
-  let box: Rect = { x: 0, y: 0, w: 1, h: 1 };
-  const resize = () => {
-    const r = stage.getBoundingClientRect();
-    if (!r.width || !r.height) return;
-    frame.setSize(r.width, r.height);
-    box = heroRect({ x: 0, y: 0, w: r.width, h: r.height });
-    // setSize clears the canvas; once the frame is showing, draw again at
-    // once, before the browser paints, so a resize never flashes an empty stage.
-    if (frame.drawn && !document.hidden) draw(performance.now());
+  /** The scroll range over which `section`'s stop holds the frame, if the journey has one. */
+  const landing = (section: string): [number, number] | null => {
+    const st = layout.stops.find((x) => x.section === section);
+    return st ? [st.s0, st.s1] : null;
   };
-  const ro = new ResizeObserver(resize);
-  ro.observe(stage);
-  const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) request(); });
-  io.observe(stage);
-
-  // Drag to turn; it eases back to the three-quarter view when let go.
-  let drag = 0, dragTarget = 0, startX = 0, dragging = false;
-  canvas.addEventListener('pointerdown', (e) => { dragging = true; startX = e.clientX - dragTarget * 300; canvas.setPointerCapture(e.pointerId); });
-  canvas.addEventListener('pointermove', (e) => {
-    if (dragging) dragTarget = Math.max(-0.9, Math.min(0.9, (e.clientX - startX) / 300));
-  });
-  const release = () => { dragging = false; dragTarget = 0; };
-  canvas.addEventListener('pointerup', release);
-  canvas.addEventListener('pointercancel', release);
-
-  const t0 = performance.now();
-  const draw = (now: number) => {
-    const sway = Math.sin(((now - t0) / 1000) * (2 * Math.PI / SWAY_PERIOD)) * SWAY;
-    frame.draw(box, HERO, sway + drag);
-  };
-  function tick(now: number) {
-    raf = requestAnimationFrame(tick);
-    if (!visible || document.hidden) return;
-    frame.refresh.tick(now);
-    drag += (dragTarget - drag) * 0.12;
-    draw(now);
-    if (!reveal) reveal = requestAnimationFrame(() => stage.classList.add('live'));
-  }
-  stage.appendChild(canvas);
-  resize();
-  request();
-  return {
-    dispose() {
-      cancelAnimationFrame(raf);
-      cancelAnimationFrame(reveal);
-      ro.disconnect();
-      io.disconnect();
-      frame.dispose();
-      stage.classList.remove('live');
-    },
-  };
+  return { dispose: undo, landing };
 }
 
 /**

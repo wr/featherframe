@@ -15,7 +15,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1200, height: 1400 }, deviceScaleFactor: 1 });
   for (const size of ['13', '10']) {
     await page.goto(`http://127.0.0.1:4322/?poster&size=${size}&hold=600000`);
-    await page.addStyleTag({ content: 'html,body{background:transparent!important}.head,.tag,.cover>:not(.frame),main>section:not(.cover),.stop-centre,footer{display:none!important}.frame::after{display:none}.stage{position:fixed;left:0;top:0;width:1200px;height:1400px;margin:0;aspect-ratio:auto;filter:none}.poster{display:none}' });
+    await page.addStyleTag({ content: 'html,body{background:transparent!important}.head,.tag,.cover>:not(.frame),main>section:not(.cover),.stop-centre,footer{display:none!important}.frame::after,.frame::before,.cover::before{display:none!important}.stage{position:fixed;left:0;top:0;width:1200px;height:1400px;margin:0;aspect-ratio:auto;filter:none}.poster{display:none}' });
     await page.locator('canvas.ff3d.live').waitFor({ timeout: 30_000 });
     await page.waitForTimeout(1500);
     const png = `${here}dist/poster-${size}.png`;

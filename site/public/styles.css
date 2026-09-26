@@ -1,5 +1,6 @@
 /* featherframe.app — a natural-history book: a cover, then chapters set on a
-   twelve-column page, each opened by a small eyebrow. One breakpoint, 820px. */
+   twelve-column page, each opened by a small eyebrow. The desktop above 820px;
+   a phone at 820px and under, with a tablet's two-column step from 701px. */
 
 @font-face { font-family: 'EB Garamond'; font-style: normal; font-weight: 400 800; font-display: swap; src: url('fonts/EBGaramond.woff2') format('woff2'); }
 @font-face { font-family: 'EB Garamond'; font-style: italic; font-weight: 400 800; font-display: swap; src: url('fonts/EBGaramond-Italic.woff2') format('woff2'); }
@@ -76,6 +77,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .lede { font-size: 24px; line-height: 1.42; margin: 0; }
 .intro2 { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin-top: 40px; }
 .intro2 .lede { grid-column: 7 / 13; }
+/* the flight from the wall to the table passes down the right: the lede keeps to the left, as the closing one does */
+#how .intro2 .lede { grid-column: 1 / 8; }
 /* The soft floor under a frame standing on its kickstand. */
 .floor { position: relative; }
 .floor::after { content: ""; position: absolute; left: 2%; right: 0; bottom: -22px; height: 44px; background: var(--shadow-floor); pointer-events: none; }
@@ -86,7 +89,9 @@ h2 { font-weight: 400; text-wrap: balance; }
   height: var(--nav); border-bottom: 1px solid var(--hair);
   background: var(--paper); box-shadow: 0 0 0 100vmax var(--paper); clip-path: inset(0 -100vmax -1px);
 }
+.head .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 .head .word { font: 32px/1 var(--script); }
+.head .brand .by { color: var(--graphite); white-space: nowrap; }
 .head nav { display: flex; gap: 30px; align-items: center; }
 .head nav a.sc { color: var(--graphite); }
 .head nav a.sc:hover { color: var(--ink); }
@@ -130,13 +135,13 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 /* I. The art: a spread, the frame showing the flamingo in its left half,
    pinned there, centred below the running head, while the text scrolls past. */
-.spread { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(2 * var(--gutter)); align-items: start; margin-top: 150px; container-type: inline-size; }
+.spread { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(2 * var(--gutter)); align-items: start; margin-top: 110px; container-type: inline-size; }
 .spread .plate {
   --h: calc(0.9 * min(calc((50cqw - var(--gutter)) / var(--flat)), calc(100vh - var(--nav) - 80px)));
   position: sticky; top: calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2); width: calc(var(--h) * var(--flat)); justify-self: center;
 }
 .spread .plate img { width: 100%; }
-.spread .text { display: flex; flex-direction: column; justify-content: flex-end; padding: 42vh 0 14vh; }
+.spread .text { display: flex; flex-direction: column; justify-content: flex-end; padding: 16vh 0 14vh; }
 .spread .text .folio { margin-bottom: 16px; }
 .spread h2 { margin: 0 0 40px; font-size: min(var(--display), 8.4cqw); }
 .spread h2 i { white-space: nowrap; }
@@ -181,6 +186,12 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 64px 36px; margin-top: 20px; }
 .cat .im { position: relative; transform-origin: 50% 100%; cursor: zoom-in; }
 .cat .im:focus-visible { outline-offset: 6px; }
+/* a frame lifts a little under the pointer: it opens large */
+.cat .im { transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
+@media (hover: hover) {
+  .cat .im:hover { transform: translateY(-4px); }
+  [data-tone="10"] .cat .im:hover { transform: scale(0.7951) translateY(-5px); }
+}
 .cat .im img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; }
 /* B&W is the 10-inch, drawn to scale beside the 13-inch: 295 mm tall to 371 */
 [data-tone="10"] .cat .im { transform: scale(0.7951); }
@@ -199,11 +210,14 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cat .nm { display: block; font-size: 19px; line-height: 1.2; }
 .cat .la { display: block; font: italic 15px var(--serif); color: var(--graphite); }
 /* the artist and the book, as a plate's imprint */
-.cat .by { display: block; margin-top: 6px; font: 10px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
+.cat .by { display: block; margin-top: 6px; font: 11px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
 .cat .by i { font: italic 13px/1 var(--serif); letter-spacing: 0; text-transform: none; }
-/* the folio stays under the running head while the wall scrolls, and goes with the wall */
+/* the folio stays under the running head while the wall scrolls, and goes with the wall;
+   its paper is painted only while it is stuck (main.ts .stuck), so the frame
+   dropping into the wall's first place passes over bare paper, not under a bar */
 .wall .folio { position: sticky; top: var(--nav); z-index: 10; padding: 14px 0 12px; margin-bottom: 84px;
-               background: var(--paper); box-shadow: 0 0 0 100vmax var(--paper); clip-path: inset(0 -100vmax); }
+               background: none; box-shadow: none; clip-path: inset(0 -100vmax); }
+.wall .folio.stuck { background: var(--paper); box-shadow: 0 0 0 100vmax var(--paper); }
 
 /* III. How it works: the frame on its table pinned on the right while the
    song and the photograph scroll past on the left. */
@@ -215,17 +229,17 @@ h2 { font-weight: 400; text-wrap: balance; }
    crossing it. */
 .ph { position: relative; }
 .ph video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: #d9d9d5;
-            border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 18px 40px -18px rgba(0, 0, 0, .35); }
-.spectro { position: absolute; left: 0; right: 0; bottom: 0; height: 33.4%; padding: 3% 4% 3.4%; border-radius: 0 0 10px 10px;
+            border-radius: 0; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 18px 40px -18px rgba(0, 0, 0, .35); }
+.spectro { position: absolute; left: 0; right: 0; bottom: 0; height: 33.4%; padding: 3% 4% 3.4%; border-radius: 0;
            background: linear-gradient(to top, rgba(0, 0, 0, .74), rgba(0, 0, 0, .56) 60%, rgba(0, 0, 0, 0)); }
 .spectro .sg { height: 100%; }
 .spectro img { width: 100%; height: 100%; object-fit: fill; filter: invert(1) brightness(2.6) contrast(1.3); mix-blend-mode: screen; }
 /* the spectrogram itself is the song's switch: sound on, sound off */
 .sg { position: relative; cursor: pointer; }
-.sg:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.sg:focus-visible { outline: 2px solid #fff; outline-offset: -2px; box-shadow: 0 0 0 4px rgba(0, 0, 0, .5); }
 .playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: #fff; box-shadow: 0 0 4px rgba(0, 0, 0, .4); pointer-events: none; }
 .playhead[hidden] { display: none; }
-/* the song plays itself, muted, while it is on screen; Unmute, in the video's middle, plays it again with sound */
+/* Unmute, in the video's middle, plays the song again with sound; with sound on, a click on the video mutes it */
 .unmute {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2;
   display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 26px 0 22px;
@@ -237,16 +251,15 @@ h2 { font-weight: 400; text-wrap: balance; }
   -webkit-mask: var(--speaker) center / contain no-repeat; mask: var(--speaker) center / contain no-repeat; }
 .unmute:hover { background: #000; }
 .unmute[hidden] { display: none; }
-.mute { position: absolute; right: 0; bottom: -30px; padding: 2px 0; border: 0; background: none; color: var(--graphite); cursor: pointer; }
-.mute:hover { color: var(--ink); }
-.ph .unmute, .ph .mute { z-index: 2; }
-.mute[hidden] { display: none; }
+.ph .unmute { z-index: 2; }
+/* the video itself is the song's switch too: a click with sound on mutes it */
+.ph video { cursor: pointer; }
 :root { --speaker: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 9h4l5-4v14l-5-4H3z'/%3E%3Cpath d='M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
 /* A new detection: BirdNET's side of things, so an app's notification, not
    the book's type, pinned to the video's top-left corner. It slides in at the
    first detection and stays; at each one after, its name changes. */
 .toast {
-  position: absolute; left: -22px; top: -26px; z-index: 3;
+  position: absolute; left: 0; top: -22px; z-index: 3;
   display: flex; align-items: center; gap: 12px; min-width: 260px; padding: 10px 14px 10px 10px;
   background: #fff; border-radius: 12px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 14px 34px -12px rgba(0, 0, 0, .3);
   font-family: var(--sans); font-variant-numeric: normal; color: #121212;
@@ -262,7 +275,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 .toast .k { font: 500 12px/1.35 var(--sans); color: #6b6b69; }
 .toast .nm { font: 600 16px/1.3 var(--sans); color: #121212; white-space: nowrap; }
 .toast .when { align-self: flex-start; margin: 1px 0 0 14px; font: 400 12px/1.35 var(--sans); color: #6b6b69; white-space: nowrap; }
-.t2 figcaption { margin-top: 14px; color: var(--graphite); font-size: 15px; }
+.t2 figcaption, .t3 figcaption { margin-top: 14px; color: var(--graphite); font-size: 15px; }
+/* on a desktop the table stands beside the video; stacked on a phone, a line says what it is */
+.t3 .then { display: none; }
 /* the table's box is 1.1008 × its width (its padding and the slot's aspect) */
 .t3 { --h: calc((100cqw - var(--gutter)) * 5 / 12 * 1.1008); position: sticky; top: max(var(--nav), calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2)); }
 /* The frame on a white table against a white wall: the cover's room (the
@@ -312,7 +327,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* each season's mark, drawn like an engraving's line */
 .season .ico { flex: none; align-self: center; width: 22px; height: 22px; margin-right: 10px; color: var(--ink); }
 #collage .note { margin: 40px 0 0; color: var(--graphite); font-size: 15px; }
-.seasons-live .seasons { height: calc(100vh - var(--nav) + 210vh); margin-top: 40px;
+.seasons-live .seasons { height: calc(100vh - var(--nav) + 165vh); margin-top: 40px;
   /* each sheet's frame: 72% of the window's height, unless the width runs out first */
   --sh: min(72vh, calc(100vh - var(--nav) - 120px), calc((100vw - 2 * var(--m)) * 1100 / 874));
   --sw: calc(var(--sh) * 874 / 1100); }
@@ -332,26 +347,23 @@ h2 { font-weight: 400; text-wrap: balance; }
 .seasons-live .season.now .ico { opacity: 1; }
 
 /* V. Technical details: the two frames head-on, to scale, with their dimensions; then the facts. */
-.headon { display: flex; justify-content: center; align-items: flex-end; gap: 96px; padding: 0 30px 0 0; }
+.headon { display: flex; justify-content: flex-start; align-items: flex-end; gap: 96px; padding: 0 0 0 calc((100% + var(--gutter)) / 12 * 4); }
 .ho { margin: 0; }
 .ho .box { position: relative; }
 .ho img { display: block; height: auto; }
 .ho { --w: min(260px, 18vw); }
 .ho.s13 img { width: var(--w); }
 .ho.s10 img { width: calc(var(--w) * 596 / 604 * 295 / 371); } /* the 10-inch at the 13-inch's scale */
-.dim { position: absolute; font: italic 14px var(--serif); color: var(--ink); }
-.dim span { background: var(--paper); padding: 0 6px; white-space: nowrap; }
-.dim.h { left: 0; right: 0; bottom: -26px; border-top: 1px solid var(--ink); display: flex; justify-content: center; }
-.dim.h span { margin-top: -10px; }
-.dim.v { top: 0; bottom: 0; right: -22px; width: 0; border-left: 1px solid var(--ink); }
-.dim.v span { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
-.dim.h::before, .dim.h::after { content: ""; position: absolute; top: -6px; height: 11px; border-left: 1px solid var(--ink); }
-.dim.h::before { left: 0; }
-.dim.h::after { right: 0; }
-.dim.v::before, .dim.v::after { content: ""; position: absolute; left: -6px; width: 11px; border-top: 1px solid var(--ink); }
-.dim.v::before { top: 0; }
-.dim.v::after { bottom: 0; }
-.ho figcaption { margin-top: 50px; text-align: center; }
+/* the display's diagonal, corner to corner of the mat's opening (which is the
+   picture: black on it whatever the page's light, like the frames themselves) */
+.diag { position: absolute; left: var(--ol); right: var(--ol); top: 17%; bottom: 17.4%; display: grid; place-items: center; pointer-events: none; }
+.ho.s13 .diag { --ol: 16.9%; --angle: -51.3deg; }
+.ho.s10 .diag { --ol: 19%; --angle: -53.5deg; }
+.diag svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.diag line { stroke: #121212; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.diag span { position: relative; transform: rotate(var(--angle)); padding: 1px 8px; background: #fff; color: #121212;
+             font: italic 14px var(--serif); white-space: nowrap; }
+.ho figcaption { margin-top: 24px; text-align: center; }
 .ho figcaption b { display: block; font: italic 400 26px/1.1 var(--serif); }
 .ho figcaption span { display: block; margin-top: 4px; font: italic 14px var(--serif); color: var(--graphite); }
 .spec { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin: 90px 0 0; }
@@ -361,6 +373,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .spec dd span { display: block; }
 
 /* VI. Questions */
+#faq { margin-top: 150px; }
 #faq .folio { margin-bottom: 56px; }
 .qa { margin: 0 0 0 calc((100% + var(--gutter)) / 12 * 4); }
 .qa dt { font: 400 28px/1.2 var(--serif); letter-spacing: -.01em; border-top: 1px solid var(--hair); padding-top: 26px; margin-top: 26px; }
@@ -368,10 +381,10 @@ h2 { font-weight: 400; text-wrap: balance; }
 .qa dd { margin: 10px 0 0; max-width: 60ch; font-size: 19px; color: var(--text); }
 
 /* Close */
-.close { margin-top: 210px; text-align: center; }
+.close { margin-top: 160px; text-align: center; }
 .close .big { margin: 0; }
 .close .big i { display: block; }
-.close p { margin: 64px 0 38px; font-size: 22px; color: var(--graphite); }
+.close p { margin: 48px 0 32px; font-size: 22px; color: var(--graphite); }
 
 /* Colophon */
 .colophon {
@@ -392,8 +405,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 .field input::placeholder { color: var(--faint); opacity: 1; }
 .field:focus-within { border-bottom-color: var(--ink); box-shadow: 0 1px 0 var(--ink); }
-.field button { padding: 0; border: 0; background: none; font: 500 14px var(--sans); color: var(--ink); cursor: pointer; }
+.field button { padding: 0; border: 0; background: none; font: 11.5px/1 var(--caps); letter-spacing: .22em; text-transform: uppercase; color: var(--ink); cursor: pointer; }
 .field button:disabled { color: var(--faint); cursor: default; }
+.form-why { margin: 0 0 4px; font: italic 15px/1.4 var(--serif); color: var(--graphite); }
 .form-note { margin: 8px 0 0; font: italic 15px var(--serif); color: var(--graphite); }
 .form-note:empty { display: none; }
 
@@ -417,18 +431,26 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 /* narrow desktops: the running head's links close up so the wordmark keeps its room */
 @media (min-width: 821px) and (max-width: 1100px) {
+  .frame { width: min(520px, 54vh); }
+  .cover .copy { max-width: 22em; }
   .head nav { gap: 18px; }
   .head nav a.sc { letter-spacing: .14em; }
 }
 
 @media (max-width: 820px) {
-  :root { --m: 20px; --display: 15vw; }
+  :root { --m: 20px; --display: clamp(46px, 14.5vw, 92px); --nav: 56px; }
   .head nav a.sc { display: none; }
+  /* a slimmer running head; its wordmark and its button still a thumb's size */
+  .head .word { display: inline-flex; align-items: center; min-height: 44px; font-size: 26px; }
+  .head .btn { height: 44px; padding: 0 14px; }
+  .head .brand { gap: 8px; }
+  .head .brand .by { font-size: 10px; letter-spacing: .16em; }
 
-  .cover { height: auto; min-height: 0; max-height: none; padding-top: 30px; }
-  .cover h1 { position: static; width: auto; font-size: 21vw; }
+  /* the cover: the headline, then the sentence and the button, then the frame */
+  .cover { display: flex; flex-direction: column; height: auto; min-height: 0; max-height: none; padding-top: 30px; }
+  .cover h1 { position: static; width: auto; font-size: clamp(64px, 20vw, 112px); }
   .cover h1 .l2 { margin-left: 0; }
-  .frame { display: flow-root; position: relative; right: auto; bottom: auto; height: auto; width: 78%; aspect-ratio: auto; margin: 36px 0 0 18%; }
+  .frame { display: flow-root; position: relative; right: auto; bottom: auto; height: auto; width: 78%; aspect-ratio: auto; margin: 40px 0 0 18%; order: 2; }
   .stage { position: relative; left: -11.385%; top: 0; width: 123.077%; height: auto; aspect-ratio: 6 / 7; margin: -11.077% 0 -4.923%; }
   /* the cover's white room on a phone too: the wall, a crisp horizon ~30% up
      the frame, the table top lightening toward us (the frame's box ends at its feet) */
@@ -437,43 +459,111 @@ h2 { font-weight: 400; text-wrap: balance; }
     --hz: calc(0.8758 * (100vw - 2 * var(--m))); /* 88% of the frame's height (its width, 78% of the page, × 1.2759) */
     background: linear-gradient(to bottom, #fff 0%, var(--room-wall) var(--hz), var(--room-table) var(--hz), #fff 100%);
   }
-  .cover .copy { position: static; width: auto; margin-top: 44px; }
+  .cover .copy { position: static; width: auto; margin-top: 28px; order: 1; }
 
   .spread { display: block; }
   .spread .plate { position: static; width: 86%; margin: 0 auto; }
   .spread .text { display: block; margin: 40px 0 0; padding: 0; }
+  .spread h2 { font-size: var(--display); }
   .spread h2 i { white-space: normal; }
+  .drop::first-letter { font-size: 64px; }
 
   .sec { margin-top: 120px; }
   .intro2 { display: block; }
   .lede { font-size: 20px; }
   .cat { grid-template-columns: 1fr 1fr; gap: 36px 16px; }
-  .wall .folio { flex-wrap: wrap; row-gap: 14px; }
+  /* the wall's folio goes with the page on a phone: the count and the switch are set once */
+  .wall .folio, .wall .folio.stuck { position: static; flex-wrap: wrap; row-gap: 14px; padding: 0; margin-bottom: 28px; background: none; box-shadow: none; }
   .folio .r { gap: 16px; }
-  .trip { grid-template-columns: 1fr; row-gap: 28px; }
+  .tone button { min-height: 44px; padding: 0 14px; }
+  /* B&W keeps the frames' size here: with no 13-inch beside them, smaller only reads as smaller */
+  [data-tone="10"] .cat .im, [data-tone="10"] .cat .im:hover { transform: none; }
+  [data-tone="10"] .cat .im::after { inset: 3.42% 4.3%; }
+  .trip { grid-template-columns: 1fr; row-gap: 12px; }
   .lcol { padding: 0; }
-  .toast { left: -10px; top: -22px; min-width: 0; }
+  /* the notification laid on the photograph, as a phone lays one on its lock screen */
+  .toast { left: 10px; top: 10px; min-width: 0; max-width: calc(100% - 20px); transform: none; }
+  .ph video { aspect-ratio: 4 / 3; }
   .t3 { position: static; }
+  .t3 .then { display: block; margin-top: 4px; }
+  /* sound on and off: a round speaker at the spectrogram's right end, so the picture is the picture */
+  .ph .unmute {
+    left: auto; top: auto; right: 10px; bottom: calc(33.4% / 2 - 22px); transform: none;
+    display: grid; place-items: center; width: 44px; height: 44px; padding: 0; gap: 0; border-radius: 50%;
+    background: rgba(18, 18, 18, .82); color: #fff; font-size: 0; letter-spacing: 0; box-shadow: none;
+  }
+  .ph .unmute[hidden] { display: none; }
+  .spectro { padding-right: 64px; }
   .cover::before { display: none; }
   .intro2.closing .lede { font-size: 18px; }
-  .row { gap: 56px; }
-  .headon { gap: 44px; padding: 0 24px 0 0; }
+  .seasons { margin-top: 48px; }
+  .row { gap: 40px; }
+  .headon { gap: 44px; padding: 0; justify-content: center; }
+  .diag span { padding: 0 4px; font-size: 11px; }
   .ho { --w: 34vw; }
   .spec { display: block; margin-top: 70px; }
   .spec dt { padding-bottom: 0; }
   .spec dd { border-top: 0; padding-top: 4px; font-size: 18px; }
   .qa { margin-left: 0; }
   .qa dt { font-size: 23px; }
-  .close { margin-top: 230px; }
-  .colophon { display: block; }
+  .close { margin-top: 140px; }
+  .colophon { display: block; margin-top: 110px; }
+  /* the small capitals, lifted a little for a phone in daylight */
+  .sc, .eyebrow, .spec dt { font-size: 12.5px; }
+  .cat .by { font-size: 11px; }
+  .colophon .d { font-size: 14px; }
+  /* tap targets: a thumb's size, the type as it was */
+  .field { height: 46px; }
+  .field button { height: 46px; padding: 0 0 0 16px; }
+  .logos a { min-height: 44px; }
+  .colophon .c .ul, .colophon .signin { display: inline-block; padding: 12px 0; margin: -12px 0; border-bottom: 0;
+    text-decoration: underline; text-decoration-color: var(--hair); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  .colophon .signin { display: table; margin: 0 0 -12px; }
   .colophon > * { margin-bottom: 28px; }
   .colophon .d { margin-top: 0; }
+}
+
+@media (max-width: 400px) {
+  .head .brand .by { display: none; }
+}
+
+/* a phone held sideways: the headline must leave room for the rest of the screen */
+@media (max-width: 820px) and (max-height: 500px) {
+  .cover h1 { font-size: 56px; }
+}
+
+/* A phone: the wall is one row, walked along sideways, a frame at a time with
+   the next peeking in; each caption names its book only where the book changes. */
+@media (max-width: 700px) {
+  .cat { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 20px; margin: 20px calc(-1 * var(--m)) 0; padding: 6px var(--m) 4px;
+         scrollbar-width: none; overscroll-behavior-x: contain; }
+  .cat::-webkit-scrollbar { display: none; }
+  .cat figure { flex: 0 0 76%; scroll-snap-align: center; }
+}
+@media (max-width: 520px) {
+  .cat .by:not(.book) { display: none; }
+}
+
+/* A tablet, 701–820 px: the phone's order, set on two columns so the cover,
+   the art and the wall are not the phone's page at twice the size. */
+@media (min-width: 701px) and (max-width: 820px) {
+  .cover { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--gutter); align-items: end; }
+  .cover h1 { grid-column: 1 / -1; grid-row: 1; }
+  .cover .copy { grid-column: 1; grid-row: 2; margin: 0 0 40px; }
+  .frame { grid-column: 2; grid-row: 2; width: 100%; margin: 40px 0 0; }
+  .cat { grid-template-columns: repeat(3, 1fr); }
+  .spread { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(2 * var(--gutter)); align-items: center; }
+  .spread .plate { width: 100%; }
+  .spread .text { margin: 0; }
+  .spread h2 { font-size: 8.4cqw; }
+  .headon { gap: 80px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root { transition: none; }
   .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im, .toast, .season .ico { transition: none; }
   .toast.swap .nm, .toast.swap .ic { animation: none; }
+  .cat .im { transition: none; }
 }
 
 /* A wall frame, opened large (lightbox.ts): as large as fits, its caption
@@ -488,7 +578,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .lightbox figcaption { width: 100%; max-width: 34em; margin-top: 18px; text-align: center; border-top: 1px solid var(--hair); padding-top: 10px; }
 .lightbox .nm { display: block; font-size: 22px; line-height: 1.2; }
 .lightbox .la { display: block; font: italic 16px var(--serif); color: var(--graphite); }
-.lightbox .by { display: block; margin-top: 6px; font: 10px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
+.lightbox .by { display: block; margin-top: 6px; font: 11px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
 .lightbox .by i { font: italic 13px/1 var(--serif); letter-spacing: 0; text-transform: none; }
 .lb-close {
   position: absolute; top: 18px; right: 18px; display: grid; place-items: center; width: 44px; height: 44px;
@@ -504,5 +594,11 @@ h2 { font-weight: 400; text-wrap: balance; }
 .lb-nav.next { right: 18px; }
 .lightbox:hover .lb-nav, .lb-nav:focus-visible { opacity: 1; }
 .lb-nav:hover { background: var(--hair); }
-@media (hover: none) { .lb-nav { opacity: 1; } }
+@media (hover: none), (pointer: coarse) { .lb-nav { opacity: 1; } }
+/* the running head never shows through the lightbox (its Close sat on the head's Pre-order) */
+.lb-open .head { visibility: hidden; }
+.lightbox { touch-action: pan-y pinch-zoom; }
 .lightbox figure { grid-area: 1 / 1; } /* the outgoing and incoming frames cross-fade in one place */
+
+/* a section's link lands its eyebrow just under the running head (main.ts does the same, and knows the journey) */
+main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }

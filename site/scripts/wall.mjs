@@ -20,7 +20,13 @@ let browser;
 try {
   browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const page = await browser.newPage({ viewport: { width: 600, height: HEIGHT }, deviceScaleFactor: 1 });
-  const render = async (size, which, name) => {
+  // (swiftshader now and then never finishes a page: try again)
+  const render = async (...a) => {
+    for (let n = 1; ; n++) {
+      try { return await render1(...a); } catch (e) { if (n >= 3) throw e; console.warn(`retrying ${a[2]}`); }
+    }
+  };
+  const render1 = async (size, which, name) => {
     const url = `http://127.0.0.1:4323/?wall=${which}&size=${size}`;
     const ready = () => page.waitForFunction(() => document.documentElement.dataset.wall === 'ready', null, { timeout: 60_000 });
     // once to learn the pose's aspect, once at it
@@ -65,7 +71,13 @@ try {
       for (const [i, f] of data.sizes[size].wall.entries()) if (!only || only.includes(slug(f))) await render(size, i, `${size}-${slug(f)}`);
     }
   }
-  if (process.argv[2] !== 'seasons' && process.argv[2] !== 'large' && process.argv[2] !== 'only') await render('13', 'table', 'table-13-cardinal');
+  if (process.argv[2] !== 'seasons' && process.argv[2] !== 'large' && process.argv[2] !== 'only') {
+    await render('13', 'table', 'table-13-cardinal');
+    // Technical details' 13-inch shows the hero's cardinal, dead-on
+    mkdirSync(`${here}dist/_screens`, { recursive: true });
+    copyFileSync(`${here}public/models/screens/13-cardinal.jpg`, `${here}dist/_screens/13-cardinal.jpg`);
+    await render('13', 'screen&src=_screens/13-cardinal.jpg', '13-cardinal');
+  }
 } finally {
   await browser?.close();
   server.kill();

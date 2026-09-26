@@ -4,7 +4,8 @@
 // at 96%. It flies from its place on the wall and back to it (FLIP). The
 // Left / Right arrow keys (or the small Previous / Next buttons, shown on
 // hover or focus) step through the wall's frames, wrapping, with a quick
-// cross-fade. Closes on a click outside it, the Close button, or Esc; focus
+// cross-fade; on a touch screen a swipe does the same, and so does a tap on
+// the picture's outer thirds. Closes on a click outside it, the Close button, or Esc; focus
 // stays in it while it is open and returns, after, to the frame it closes on.
 // The still first, then a larger render of it (img/wall/large/,
 // scripts/wall.mjs large) once that has loaded.
@@ -43,6 +44,7 @@ export function startLightbox(reduced: boolean): void {
     const figure = document.createElement('figure');
     const img = document.createElement('img');
     img.alt = '';
+    img.draggable = false; // (a swipe, not a drag of the picture)
     img.src = still.currentSrc || still.src;
     img.width = still.naturalWidth || 604;
     img.height = still.naturalHeight || 760;
@@ -142,8 +144,26 @@ export function startLightbox(reduced: boolean): void {
     close.addEventListener('click', shut);
     prev.addEventListener('click', () => go(-1));
     next.addEventListener('click', () => go(1));
+    // A swipe across steps (left: the next); a tap on the picture's left or right third steps too.
+    let down: { x: number; y: number; id: number } | null = null, swiped = false;
+    box.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, id: e.pointerId }; swiped = false; });
+    box.addEventListener('pointerup', (e) => {
+      if (!down || down.id !== e.pointerId) return;
+      const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      down = null;
+      if (Math.abs(dx) > 40 && Math.abs(dy) < 60) { swiped = true; go(dx < 0 ? 1 : -1); }
+    });
+    box.addEventListener('pointercancel', () => { down = null; });
     box.addEventListener('click', (e) => {
+      if (swiped) { swiped = false; return; }
       const t = e.target as Element;
+      if (t.closest('img') && matchMedia('(pointer: coarse)').matches) {
+        const r = t.getBoundingClientRect();
+        const f = (e.clientX - r.left) / r.width;
+        if (f < 1 / 3) go(-1);
+        else if (f > 2 / 3) go(1);
+        return;
+      }
       if (!t.closest('img, figcaption, button')) shut();
     });
     open = { close: shut };

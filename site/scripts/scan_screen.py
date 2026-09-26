@@ -13,6 +13,7 @@ where preview.py writes its own.
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -47,6 +48,7 @@ def main() -> int:
     config = Config()
     config.panel = panel
     config.sanitize()
+    config.mat_inset_pct = float(os.environ.get("FF_MAT_INSET", "4"))  # scripts/screens.sh
     spec = SingleSpec(common_name=common, scientific_name=latin, when=_now(), first_seen="2026-05-17")
     result = pipeline.render_single(spec, ScanProvider(), config)
     png, _ = result.save(paths.test_output_dir(), common.lower().replace(" ", "_"))

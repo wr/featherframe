@@ -18,8 +18,8 @@
 // which is what lets the gallery wall's still images (renders of this very
 // pose) take over from the live frame without a jump.
 import {
-  ACESFilmicToneMapping, Box3, Color, DirectionalLight, Group, MathUtils, Matrix4, Mesh, MeshStandardMaterial,
-  PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShaderMaterial, ShadowMaterial, SRGBColorSpace, Vector3,
+  Box3, Color, DirectionalLight, Group, MathUtils, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
+  NeutralToneMapping, PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShaderMaterial, ShadowMaterial, SRGBColorSpace, Vector3,
   VSMShadowMap, WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -49,11 +49,25 @@ export const lerpPose = (a: Pose, b: Pose, t: number): Pose => ({
 const LEAN = MathUtils.degToRad(12); // the authored kickstand lean
 const FOV = 10;                      // degrees: near enough orthographic that a head-on frame is flat
 const DISTANCE = 3;                  // metres from the frame's middle; the frame is under 0.4 m tall
-// RoomEnvironment is a bright white room: at full strength it bleaches the
-// walnut to oak and, with the screen's glow, washes the picture out under ACES.
-// These keep the wood walnut and the screen's paper level with the white mat.
-const EXPOSURE = 0.9;
+// RoomEnvironment is a bright white room. Under ACES it bleached the walnut to
+// oak and lifted the picture's blacks and greyed its colours (the screen was a
+// lit, glossy surface reflecting that room): the render is tone-mapped with
+// Khronos PBR Neutral, which leaves colours as they are below the highlights,
+// and the screen is not lit at all (SCREEN_WHITE, below).
+const EXPOSURE = 1;
 const ENVIRONMENT = 0.7;
+// The walnut: the room's reflection at WALNUT_ENV of its strength (a glossy
+// white room on it read milky), a touch rougher, its texture darkened to
+// WALNUT_TINT — the shop's render's dark walnut. The glass reflects the room at GLASS_ENV.
+const WALNUT_ENV = 0.5;
+const WALNUT_ROUGHNESS = 0.55;
+const WALNUT_TINT = 0.72;
+const GLASS_ENV = 0.7;
+// The screen shows its picture as it is — unlit, not tone-mapped — at this
+// level (linear RGB): its paper exactly the mat's white round it (the mat
+// renders at #f6f8fa), so no box of paper shows through the opening, and its
+// inks as dark and as saturated as the picture's own.
+const SCREEN_WHITE = [0.922, 0.939, 0.956] as const;
 // The table's shadow, for the table's still only (`?wall=table`, opts.floor):
 // a light that lights nothing (so the frame looks as it does everywhere else)
 // but casts the frame onto a shadow-only floor, from above and in front, so it
@@ -69,14 +83,14 @@ const SHADOW = 0.13;
 // hand-off between them does not jump. SHEEN is its strength.
 export const SHEEN = 0.16;
 // The studio light's bar (the shop's STUDIO_RIG key: a long, thin softbox,
-// its edges falling off, turned 20° about its face), mirrored in the glass as
+// its edges falling off, turned 24° about its face), mirrored in the glass as
 // a soft bar of neutral white light. At the centre stop the frame holds still
 // while the page scrolls on, as if it were travelling down past the light: the
 // bar sweeps up the glass with the scroll, twice (`bar`, the dwell 0 … 1; each
 // half is one pass, from below the glass to above it, so the wrap is unseen).
 // BAR is its strength; BAR_ROLL its tilt.
-export const BAR = 0.34;
-const BAR_ROLL = MathUtils.degToRad(-20);
+export const BAR = 0.5;
+const BAR_ROLL = MathUtils.degToRad(-24);
 export { sheenAt } from './sheen-at';
 /** Where the bar is in its pass (0 below the glass … 1 above) at `t` through the dwell: two passes. */
 export const barPass = (t: number) => { const b = 2 * Math.max(0, Math.min(1, t)); return b <= 1 ? b : b - 1; };
@@ -142,7 +156,7 @@ export async function loadFrame(size: Size, opts: {
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: !!opts.keep });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = SRGBColorSpace;
-  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMapping = NeutralToneMapping;
   renderer.setClearColor(0x000000, 0);
   renderer.toneMappingExposure = EXPOSURE;
   const withFloor = !!opts.floor;
@@ -180,6 +194,21 @@ export async function loadFrame(size: Size, opts: {
     const name = (m.material as MeshStandardMaterial).name;
     if (name === 'screen') screen = m;
     if (name === 'featherframe_glass') glass = m;
+    if (name === 'featherframe_walnut') {
+      const w = m.material as MeshStandardMaterial;
+      w.envMap = env; // (so its own envMapIntensity counts)
+      w.envMapIntensity = WALNUT_ENV;
+      w.roughness = WALNUT_ROUGHNESS;
+      w.color.setScalar(WALNUT_TINT);
+    }
+    if (name === 'featherframe_glass') {
+      const g = m.material as MeshStandardMaterial;
+      g.envMap = env;
+      g.envMapIntensity = GLASS_ENV;
+    }
+    // The steel clips holding the panel showed through the mat as faint ticks
+    // on a dead-on frame; they are never seen from the front, so they are not drawn.
+    if (m.name === 'featherframe_silver') m.visible = false;
   });
   if (!screen) {
     disposeAll();
@@ -288,13 +317,8 @@ export async function loadFrame(size: Size, opts: {
     holdMs: opts.holdMs ?? HOLD_MS,
     onShown: opts.onShown,
   });
-  const mat = screen.material as MeshStandardMaterial;
-  mat.map = refresh.texture;
-  mat.color.set(0xffffff);
-  mat.emissiveMap = refresh.texture;
-  mat.emissive = new Color(0xffffff);
-  mat.emissiveIntensity = 0.3;
-  mat.needsUpdate = true;
+  (screen.material as MeshStandardMaterial).dispose();
+  screen.material = new MeshBasicMaterial({ map: refresh.texture, color: new Color(...SCREEN_WHITE), toneMapped: false });
 
   const rotation = new Matrix4();
   const tmp = new Matrix4();

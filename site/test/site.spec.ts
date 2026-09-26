@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('social card and search basics', async ({ page, request }) => {
   await page.goto('/');
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://featherframe.app/img/og.jpg');
-  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Featherframe');
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Featherframe — the birds you hear, illustrated');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://featherframe.app/');
   expect((await request.get('/robots.txt')).ok()).toBe(true);
   expect((await request.get('/sitemap.xml')).ok()).toBe(true);
@@ -14,7 +14,8 @@ test('the page loads without console errors', async ({ page }) => {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/');
-  await expect(page).toHaveTitle('Featherframe · Wells Workshop');
+  await expect(page).toHaveTitle('Featherframe — the birds you hear, illustrated · Wells Workshop');
+  await expect(page.locator('.head .brand .by')).toHaveText('by Wells Workshop');
   await expect(page.locator('.head .word')).toHaveText('Featherframe');
   expect(errors).toEqual([]);
 });
@@ -28,19 +29,38 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('.head nav a')).toHaveText(['The art', 'How it works', 'Details', 'Questions', 'Pre-order']);
   expect(await page.locator('.head nav a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual(
     ['#art', '#how', '#specs', '#faq', 'https://shop.wells.ee/products/featherframe/']);
-  await expect(page.locator('#art h2')).toHaveText('More than 1,300 species, colored by hand.');
+  await expect(page.locator('#art h2')).toHaveText('More than 1,300 species, each painted by hand.');
+  await expect(page.locator('#art h2 i')).toHaveText('each painted by hand.');
   await expect(page.locator('#how h2')).toHaveText('Meet the birds you only hear.');
-  await expect(page.locator('#collage h2')).toHaveText('Each night, the day’s menagerie.');
-  // "Each night," roman, "the day’s menagerie." italic
-  await expect(page.locator('#collage h2 i')).toHaveText('the day’s menagerie.');
+  await expect(page.locator('#collage h2')).toHaveText('Each night, a portrait of the day.');
+  // "Each night," roman, "a portrait of the day." italic
+  await expect(page.locator('#collage h2 i')).toHaveText('a portrait of the day.');
   await expect(page.locator('#collage .lede')).toHaveText('The frame shows every species heard that day on one sheet, numbered and keyed like a page in an old natural history book.');
   await expect(page.locator('#specs .folio')).toHaveText('Technical details');
-  await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Hosting']);
-  await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10-inch: 232 × 295 × 28 mm13-inch: 295 × 371 × 28 mm');
+  await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Software']);
+  // inches first, millimetres after
+  await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10-inch: 9.1 × 11.6 × 1.1 in (232 × 295 × 28 mm)13-inch: 11.6 × 14.6 × 1.1 in (295 × 371 × 28 mm)');
+  await expect(page.locator('#specs .spec dd').nth(5)).toHaveText('A BirdWeather station near you, or your own BirdNET-Go');
+  await expect(page.locator('#specs .spec dd').nth(6)).toHaveText('Open source. See it on GitHub');
+  await expect(page.locator('#specs .spec dd').nth(6).getByRole('link', { name: 'See it on GitHub' })).toHaveAttribute('href', 'https://github.com/wr/featherframe');
+  await expect(page.locator('#specs .spec')).not.toContainText('Service');
+  // the prices: the hero, each size, the close
+  await expect(page.locator('.cover .cta .it')).toHaveText('From $349. Ships in time for the holidays.');
+  await expect(page.locator('#specs .ho figcaption')).toHaveText(['10-inch$349 · Depth 1.1 in (28 mm)', '13-inch$479 · Depth 1.1 in (28 mm)']);
+  await expect(page.locator('#specs .ho .diag span')).toHaveText(['10.3-inch display', '13.3-inch display']);
+  await expect(page.locator('#specs .dim')).toHaveCount(0);
+  await expect(page.locator('.close h2')).toHaveText('Pre-order yours.');
+  await expect(page.locator('.close h2 i')).toHaveText('yours.');
+  await expect(page.locator('.close p')).toHaveText('From $349. Ships in time for the holidays, with nothing to pay after.');
+  await expect(page.locator('body')).not.toContainText('Reserve');
+  await expect(page.locator('body')).not.toContainText('November');
+  await expect(page.locator('.cover .copy p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
+  for (const sel of ['meta[name="description"]', 'meta[property="og:description"]'])
+    await expect(page.locator(sel)).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
   // no exploded drawing anywhere: the reservation is its headline, line and button
   await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
   await expect(page.locator('.close > *')).toHaveCount(3);
-  await expect(page.locator('#how .logos .sc')).toHaveText('Integrates with');
+  await expect(page.locator('#how .logos .sc')).toHaveText('Works with');
   await expect(page.locator('#how')).not.toContainText('Detections by');
   await expect(page.locator('body')).not.toContainText('heard at 07:02');
   await expect(page.locator('.tcap')).toHaveCount(0);
@@ -50,7 +70,14 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage .season figcaption')).toHaveText(
     ['Spring7 April 2026', 'Summer1 June 2026', 'Fall23 September 2026', 'Winter16 February 2026']);
   await expect(page.locator('#collage .season img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
-  await expect(page.locator('#faq dt')).toHaveCount(4);
+  await expect(page.locator('#faq dt')).toHaveText([
+    'Do I need Wi-Fi?', 'Is there a listening station near me?', 'Does it work outside North America?',
+    'What if a species near me was never illustrated?', 'Do the collages need AI?', 'What is hosting, and what does it cost?', 'Is my data private?']);
+  await expect(page.locator('#faq dd').nth(1)).toHaveText('Probably. BirdWeather has listening stations across North America, Europe and beyond, and the frame can use any of them. If none is close, choose one near a place you love, or add your own.');
+  await expect(page.locator('#faq dd').nth(2)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
+  await expect(page.locator('#faq dd').nth(4)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration turned on, the day’s species are painted together in one scene, marked ✦.');
+  await expect(page.locator('#faq')).not.toContainText('OpenAI key');
+  await expect(page.locator('#keep-posted .form-why')).toHaveText("Not ready to order? We'll write once, when the frames ship.");
   await expect(page.locator('.cat figure')).toHaveCount(12);
   // the wall, in Wells's order: the Wild Turkey first (the art stop's bird), the Carolina Wren last (the one that tears off)
   const A = 'John James Audubon · The Birds of America';
@@ -79,11 +106,17 @@ test('every section and its key copy is there', async ({ page }) => {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
   // the singing videos, credited in the colophon
-  for (const c of ['Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain.', 'Eastern Bluebird video by Paul Danese (Wikimedia Commons), CC BY-SA 4.0.', 'Goldfinch video by teyi 徐, Pexels.', 'Eastern Bluebird recording by Jonathon Jongsma (xeno-canto XC79976), CC BY-SA 3.0.'])
+  for (const c of ['Northern Cardinal recording by Jonathon Jongsma, xeno-canto XC175226, CC BY-SA 4.0.', 'Northern Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain.', 'Eastern Bluebird video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0.', 'American Goldfinch video by teyi 徐, Pexels.', 'Eastern Bluebird recording by Jonathon Jongsma, XC79976, CC BY-SA 3.0.', 'American Goldfinch recording by Jonathon Jongsma, XC127600, CC BY-SA 3.0.'])
     await expect(page.locator('.colophon .d')).toContainText(c);
+  // the licences and sources, linked
+  expect(await page.locator('.colophon .d a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual([
+    'https://xeno-canto.org/175226', 'https://creativecommons.org/licenses/by-sa/4.0/',
+    'https://xeno-canto.org/79976', 'https://creativecommons.org/licenses/by-sa/3.0/',
+    'https://xeno-canto.org/127600', 'https://creativecommons.org/licenses/by-sa/3.0/',
+    'https://commons.wikimedia.org/wiki/File:20250518_eastern_bluebird_bafflin_wm.webm', 'https://creativecommons.org/licenses/by-sa/4.0/']);
   await expect(page.locator('.colophon .d')).not.toContainText('Blue Jay');
   await expect(page.locator('#how video')).toHaveAttribute('poster', 'video/cardinal.webp');
-  await expect(page.locator('#how .credit')).toHaveText('Video by Courtney Celley, U.S. Fish and Wildlife Service');
+  await expect(page.locator('#how .t2 .credit')).toHaveText('Video by Courtney Celley, U.S. Fish and Wildlife Service');
   await expect(page.locator('.colophon .c').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', 'https://app.featherframe.app/');
   const body = (await page.locator('body').innerText()).toLowerCase();
   for (const banned of ['plate', 'on the wall', 'on the glass']) expect(body).not.toContain(banned);
@@ -102,7 +135,7 @@ test('the 3D frame lands exactly on the poster', async ({ page }) => {
   expect(Math.abs(stage.w * 975 / 1200 - frame.w)).toBeLessThan(2);
 });
 
-for (const [w, h] of [[390, 844], [1024, 768]]) {
+for (const [w, h] of [[390, 844], [393, 852], [768, 1024], [1024, 768]]) {
   test(`no horizontal scroll at ${w}`, async ({ page }) => {
     await page.setViewportSize({ width: w, height: h });
     await page.goto('/');
@@ -120,15 +153,15 @@ test('the seasons slide sideways as the page scrolls down, on a desktop', async 
   await page.goto('/');
   await expect(page.locator('html')).toHaveClass(/\bseasons-live\b/);
   const box = await page.locator('.seasons').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
-  expect(box.h).toBeGreaterThan(900 * 3);
+  expect(box.h).toBeGreaterThan(900 * 2.5);
   const x = async (f: number) => {
     await page.evaluate((y) => scrollTo(0, y), box.y + f * box.h);
     // the row follows on the next frame
     const want = await page.evaluate(() => {
       const b = document.querySelector('.seasons')!.getBoundingClientRect();
       const nav = document.querySelector('.head')!.getBoundingClientRect().height;
-      // winter is reached before the stretch ends, and held centred for its last 12%
-      return Math.max(0, Math.min(1, (nav - b.top) / ((b.height - (innerHeight - nav)) * 0.88)));
+      // winter is reached before the stretch ends, and held centred for its last 6%
+      return Math.max(0, Math.min(1, (nav - b.top) / ((b.height - (innerHeight - nav)) * 0.94)));
     });
     await expect.poll(() => page.locator('.row').evaluate((e) => Number(e.dataset.progress))).toBeCloseTo(want, 2);
     return page.locator('.season').nth(1).evaluate((e) => e.getBoundingClientRect().left);
@@ -259,7 +292,7 @@ test('Keep me posted signs up without leaving the page', async ({ page }) => {
   await page.goto('/');
   await page.fill('#email', 'ada@example.com');
   await page.click('#keep-posted button[type=submit]');
-  await expect(page.locator('#keep-posted .form-note')).toHaveText("Thanks. We'll write when there's news.");
+  await expect(page.locator('#keep-posted .form-note')).toHaveText("Thanks. We'll write once, when the frames ship.");
   expect(JSON.parse(body)).toEqual({ email: 'ada@example.com' });
   await expect(page).toHaveURL(/127\.0\.0\.1:4321\/$/);
 });
@@ -298,26 +331,62 @@ test('a frame whose model never arrives leaves the poster showing', async ({ pag
   expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
 });
 
-test('the song plays itself muted in view, and Unmute plays it again with sound', async ({ page }) => {
+test('the detections run on the page\'s own clock, silent, and Unmute plays the song with sound', async ({ page }) => {
   await page.goto('/');
   const song = page.locator('#song');
-  const unmute = page.getByRole('button', { name: 'Play the song with sound' });
+  const unmute = page.locator('.unmute');
+  const sg = page.locator('.spectro .sg');
   await expect(unmute).toHaveText('Unmute');
+  await expect(unmute).toHaveAttribute('aria-label', 'Play the song with sound');
+  await expect(sg).toHaveAttribute('aria-label', 'Play the song with sound');
   await expect(song).toHaveAttribute('preload', 'none');
   await page.locator('.spectro').scrollIntoViewIfNeeded();
-  // (the swiftshader page is slow to get round to it)
-  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && a.muted && a.currentTime > 0.3), { timeout: 25_000 }).toBe(true);
-  await expect(page.locator('.playhead')).toBeVisible();
+  // the playhead crosses the spectrogram by the clock; nothing is played for it
+  await expect(page.locator('.playhead')).toBeVisible({ timeout: 15_000 });
+  const left = () => page.locator('.playhead').evaluate((e) => parseFloat((e as HTMLElement).style.left));
+  const a = await left();
+  await page.waitForTimeout(1200);
+  expect(await left()).toBeGreaterThan(a);
+  expect(await song.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
   await unmute.click();
   await expect(unmute).toBeHidden();
-  const mute = page.getByRole('button', { name: 'Mute' });
-  await expect(mute).toBeVisible();
+  await expect(sg).toHaveAttribute('aria-pressed', 'true');
+  await expect(sg).toHaveAttribute('aria-label', 'Mute the song');
+  // there is no separate Mute control: the video is the switch
+  await expect(page.locator('.mute')).toHaveCount(0);
   // from the start, with sound
-  expect(await song.evaluate((a: HTMLAudioElement) => [a.muted, a.currentTime < 0.6])).toEqual([false, true]);
-  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && !a.muted)).toBe(true);
-  await mute.click();
-  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => a.muted)).toBe(true);
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && !a.muted), { timeout: 15_000 }).toBe(true);
+  expect(await song.evaluate((a: HTMLAudioElement) => a.currentTime < 1.5)).toBe(true);
+  // a click on the video mutes it
+  await page.locator('#how video').click({ position: { x: 40, y: 80 } });
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+  await expect(sg).toHaveAttribute('aria-pressed', 'false');
   await expect(unmute).toBeVisible();
+  // and a click on it again plays it with sound, as Unmute does
+  await page.locator('#how video').click({ position: { x: 40, y: 80 } });
+  await expect(sg).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && !a.muted), { timeout: 15_000 }).toBe(true);
+});
+
+test('the detection cycle runs even when the browser refuses to play any audio', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.addInitScript(() => {
+    (window as unknown as { __plays: number }).__plays = 0;
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+      if (this instanceof HTMLAudioElement) { (window as unknown as { __plays: number }).__plays++; return Promise.reject(new DOMException('refused', 'NotAllowedError')); }
+      return play.call(this);
+    };
+  });
+  await page.goto('/?rate=4');
+  await page.locator('#how .ph').scrollIntoViewIfNeeded();
+  const name = page.locator('#how .toast .nm');
+  await expect(name).toHaveText('Northern Cardinal');
+  await expect(name).toHaveText('Eastern Bluebird', { timeout: 10_000 });
+  await expect(name).toHaveText('American Goldfinch', { timeout: 10_000 });
+  await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-goldfinch.webp');
+  // and it never asked to play the song to get there
+  expect(await page.evaluate(() => (window as unknown as { __plays: number }).__plays)).toBe(0);
 });
 
 test('with reduced motion the song waits for its button', async ({ page }) => {
@@ -327,7 +396,7 @@ test('with reduced motion the song waits for its button', async ({ page }) => {
   await page.waitForTimeout(1500);
   const song = page.locator('#song');
   expect(await song.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
-  const button = page.getByRole('button', { name: 'Play the song with sound' });
+  const button = page.locator('.unmute');
   await expect(button).toHaveText('Play the song');
   await button.click();
   await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && !a.muted)).toBe(true);
@@ -335,18 +404,15 @@ test('with reduced motion the song waits for its button', async ({ page }) => {
 
 test('each new detection is announced and the frame on the table repaints to it', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  // the recordings, sped up: the test server cannot seek
-  await page.addInitScript(() => {
-    const play = HTMLMediaElement.prototype.play;
-    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) { this.playbackRate = 3; return play.call(this); };
-  });
-  await page.goto('/?hold=600000');
+  // the detections' clock, sped up
+  await page.goto('/?hold=600000&rate=3');
   await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
   await page.evaluate(() => scrollTo(0, document.querySelector('.spectro')!.getBoundingClientRect().top + scrollY - 120));
   const table = page.locator('#table-slot');
   const toast = page.locator('.toast');
   const video = page.locator('#how video');
   const credit = page.locator('#how .t2 figcaption');
+  const still = page.locator('#table-slot .still');
   const src = () => video.evaluate((v: HTMLVideoElement) => v.currentSrc || v.querySelector('source')!.src);
   await expect(toast).toHaveClass(/\bon\b/);
   await expect(toast.locator('.nm')).toHaveText('Northern Cardinal');
@@ -360,7 +426,10 @@ test('each new detection is announced and the frame on the table repaints to it'
   await expect(video).toHaveAttribute('poster', 'video/eastern-bluebird.webp');
   await expect(credit).toHaveText('Video by Paul Danese, Wikimedia Commons');
   await expect(table).toHaveAttribute('data-shown', 'eastern-bluebird', { timeout: 15_000 });
+  // the table's still says what it shows
+  await expect(still).toHaveAttribute('alt', 'The frame showing the Eastern Bluebird from The Birds of America');
   await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-eastern-bluebird.webp');
+  await expect(page.locator('.spectro img')).toHaveAttribute('alt', 'A spectrogram of an Eastern Bluebird’s song');
   await page.waitForTimeout(5000);
   await expect(toast).toHaveClass(/\bon\b/);
   expect(await toast.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
@@ -397,13 +466,92 @@ test('the reservation comes before the questions', async ({ page }) => {
   expect(order[order.length - 1]).toBe('faq');
 });
 
-test('on a phone the frame stays in the cover, with no page-wide canvas', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test('on a phone there is no 3D frame: the cover keeps its poster, and no model is fetched', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  const models: string[] = [];
+  page.on('request', (r) => { if (/\/models\/|choreo-/.test(r.url())) models.push(r.url()); });
   await page.goto('/?hold=300');
-  await expect(page.locator('#stage canvas')).toHaveCount(1, { timeout: 20_000 });
-  await expect(page.locator('#stage')).toHaveAttribute('data-shown', '1', { timeout: 30_000 });
-  await expect(page.locator('canvas.ff3d')).toHaveCount(0);
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(3000);
+  await expect(page.locator('canvas')).toHaveCount(0);
+  await expect(page.locator('#stage .poster')).toBeVisible();
+  expect(await page.locator('#stage .poster').evaluate((e: HTMLImageElement) => e.complete && e.naturalWidth > 0)).toBe(true);
   await expect(page.locator('html')).not.toHaveClass(/\bchoreo\b/);
+  expect(models).toEqual([]);
+});
+
+test('on a phone the sentence and Pre-order come before the frame, on the first screen', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 659 });
+  await page.goto('/');
+  await page.evaluate(() => document.fonts.ready);
+  const [copy, cta, frame] = await Promise.all(['.cover .copy p', '.cover .cta .btn', '.cover .frame'].map((s) => page.locator(s).boundingBox()));
+  expect(copy!.y).toBeLessThan(frame!.y);
+  expect(cta!.y + cta!.height).toBeLessThan(frame!.y);
+  expect(cta!.y + cta!.height).toBeLessThanOrEqual(659);
+  // the art's headline at the display size
+  const [h2, mega] = await Promise.all(['#art h2', '#how h2'].map((s) => page.locator(s).evaluate((e) => parseFloat(getComputedStyle(e).fontSize))));
+  expect(Math.abs(h2 - mega)).toBeLessThan(1);
+});
+
+test('on a phone the controls are a thumb\'s size', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.goto('/');
+  for (const sel of ['.head .word', '.head .btn', '.tone button', '.unmute', '.field button', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
+    for (const el of await page.locator(sel).all()) {
+      const b = (await el.boundingBox())!;
+      expect(b.height, sel).toBeGreaterThanOrEqual(44);
+      expect(b.width, sel).toBeGreaterThanOrEqual(24);
+    }
+  }
+  // the head is slimmer, and the wall's folio is not stuck under it
+  expect(await page.locator('.head').evaluate((e) => e.getBoundingClientRect().height)).toBeLessThanOrEqual(57);
+  expect(await page.locator('.wall .folio').evaluate((e) => getComputedStyle(e).position)).toBe('static');
+});
+
+test('on a phone the wall is one row walked sideways, and B&W keeps its size', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.goto('/');
+  const cat = page.locator('.wall .cat');
+  await cat.scrollIntoViewIfNeeded();
+  const [sw, cw, snap] = await cat.evaluate((e) => [e.scrollWidth, e.clientWidth, getComputedStyle(e).scrollSnapType]);
+  expect(sw).toBeGreaterThan(cw * 5);
+  expect(snap).toContain('x');
+  const tops = await page.locator('.wall .cat figure').evaluateAll((fs) => fs.map((f) => Math.round(f.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+  // the book is named only where it changes
+  await expect(page.locator('.wall .cat .by:visible')).toHaveCount(3);
+  const w = (await page.locator('.wall .cat .im').first().boundingBox())!.width;
+  await page.getByRole('button', { name: 'B&W' }).click();
+  await page.waitForTimeout(900);
+  expect(Math.abs((await page.locator('.wall .cat .im').first().boundingBox())!.width - w)).toBeLessThan(1);
+});
+
+test('in the lightbox a swipe steps through the wall, and the running head hides', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.goto('/');
+  const names = await page.locator('.wall .cat .nm').allTextContents();
+  const first = page.locator('.wall .cat .im').first();
+  await first.scrollIntoViewIfNeeded();
+  await first.click();
+  const box = page.locator('.lightbox');
+  await expect(box).toHaveAttribute('aria-label', names[0]);
+  await page.waitForTimeout(600);
+  expect(await page.locator('.head').evaluate((e) => getComputedStyle(e).visibility)).toBe('hidden');
+  const swipe = async (from: number, to: number) => {
+    await page.mouse.move(from, 400);
+    await page.mouse.down();
+    await page.mouse.move((from + to) / 2, 404, { steps: 4 });
+    await page.mouse.move(to, 406, { steps: 4 });
+    await page.mouse.up();
+  };
+  await swipe(320, 80);
+  await expect(box).toHaveAttribute('aria-label', names[1]);
+  await swipe(80, 320);
+  await expect(box).toHaveAttribute('aria-label', names[0]);
+  await swipe(80, 320);
+  await expect(box).toHaveAttribute('aria-label', names[11]);
+  // still open: a swipe is not a click outside
+  await expect(box).toHaveCount(1);
 });
 
 test('the wall switches between Color and B&W, and remembers', async ({ page }) => {
@@ -446,12 +594,12 @@ test('the art spread holds the frame while its text scrolls past', async ({ page
   const slot = page.locator('#art-slot');
   const text = page.locator('#art .text h2');
   await slot.scrollIntoViewIfNeeded();
-  await page.evaluate(() => scrollBy(0, 200));
+  await page.evaluate(() => scrollBy(0, 100));
   const a = [(await slot.boundingBox())!.y, (await text.boundingBox())!.y];
-  await page.evaluate(() => scrollBy(0, 250));
+  await page.evaluate(() => scrollBy(0, 150));
   const b = [(await slot.boundingBox())!.y, (await text.boundingBox())!.y];
   expect(Math.abs(b[0] - a[0])).toBeLessThan(1);
-  expect(a[1] - b[1]).toBeGreaterThan(240);
+  expect(a[1] - b[1]).toBeGreaterThan(140);
 });
 
 test('the frame lands in the wall\'s first place and hands over to its print', async ({ page }) => {
@@ -513,11 +661,11 @@ test('the spectrogram is the song\'s switch: a click turns the sound on, and off
   await sg.click({ position: { x: 20, y: 20 } });
   await expect(sg).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => song.evaluate((a: HTMLAudioElement) => !a.paused && !a.muted), { timeout: 15_000 }).toBe(true);
-  await expect(page.getByRole('button', { name: 'Play the song with sound' })).toBeHidden();
+  await expect(page.locator('.unmute')).toBeHidden();
   await sg.click({ position: { x: 20, y: 20 } });
   await expect(sg).toHaveAttribute('aria-pressed', 'false');
-  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => a.muted)).toBe(true);
-  await expect(page.getByRole('button', { name: 'Play the song with sound' })).toBeVisible();
+  await expect.poll(() => song.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+  await expect(page.locator('.unmute')).toBeVisible();
   // and from the keyboard
   await sg.focus();
   await page.keyboard.press('Enter');
@@ -569,8 +717,8 @@ test('the page turns to night at the collage and stays night to the end, day aga
   const box = await page.locator('#collage').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
   const nav = await page.locator('.head').evaluate((e) => e.getBoundingClientRect().bottom);
   const brow = await page.locator('#collage .eyebrow').evaluate((e) => e.getBoundingClientRect().top + scrollY);
-  // the line is 150 px below the running head's bottom (night.ts EARLY)
-  const early = 150;
+  // the line is 150 px below the running head's bottom, or 45% of the window where that is further (night.ts)
+  const early = Math.max(150, Math.round(0.45 * 900));
   // the eyebrow a few pixels short of that line: still day
   await page.evaluate((y) => scrollTo(0, y), brow - nav - early - 6);
   await page.waitForTimeout(700);
@@ -610,7 +758,8 @@ test('the page turns to night at the collage and stays night to the end, day aga
   expect(await colour('.close .btn', 'color')).toBe('26,26,26');
   expect(await colour('.qa dt:first-of-type', 'color')).toBe('242,241,236');
   expect(await colour('.field input', 'color')).toBe('242,241,236');
-  expect(await page.locator('.dim.h').first().evaluate((e) => getComputedStyle(e).borderTopColor).then(rgb)).toBe('242,241,236');
+  // the display's diagonal is drawn on the picture: black on white, whatever the page's light
+  expect(await page.locator('.diag span').first().evaluate((e) => getComputedStyle(e).color).then(rgb)).toBe('18,18,18');
   // scrolled back up above the threshold: day again
   await page.evaluate((y) => scrollTo(0, y), brow - nav - early - 200);
   await expect(html).not.toHaveClass(/\bnight\b/);
@@ -892,5 +1041,76 @@ test('each eyebrow sits right above its headline', async ({ page }) => {
     expect(gap).toBeGreaterThanOrEqual(0);
     expect(gap).toBeLessThanOrEqual(20);
     expect(Math.abs(e!.x - h!.x)).toBeLessThan(12);
+  }
+});
+
+test('the wall\'s folio paints its paper only while it is stuck', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const folio = page.locator('.wall .folio');
+  const paper = () => folio.evaluate((e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e).boxShadow]);
+  // coming up the page, not yet under the running head: bare
+  await page.evaluate(() => scrollTo(0, document.querySelector('.wall')!.getBoundingClientRect().top + scrollY - 500));
+  await expect(folio).not.toHaveClass(/\bstuck\b/);
+  expect(await paper()).toEqual(['rgba(0, 0, 0, 0)', 'none']);
+  // stuck under it: paper
+  await page.evaluate(() => scrollTo(0, document.querySelector('.wall')!.getBoundingClientRect().top + scrollY + 600));
+  await expect(folio).toHaveClass(/\bstuck\b/);
+  expect((await paper())[0]).not.toBe('rgba(0, 0, 0, 0)');
+});
+
+test('the glass never refreshes while the frame is in flight', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  const stops = await page.evaluate(() => (window as any).__ff().stops.map((x: number[]) => [x[0], x[1]]));
+  const st = async (y: number) => { await page.evaluate((y) => scrollTo(0, y), Math.round(y)); return page.evaluate(() => (window as any).__ff().st); };
+  // from the cover to the centre: the cycle, then no change, until the frame is all but still
+  for (const f of [0.2, 0.5, 0.8]) expect((await st(f * stops[1][0])).screen).not.toBe('art');
+  expect((await st(stops[1][0] + 5)).screen).toBe('art');
+  // from the wall's last place to the table: the wren all the way, the detection once it has landed
+  const n = stops.length;
+  const [tear, table] = [stops[n - 2][1], stops[n - 1][0]];
+  for (const f of [0.2, 0.5, 0.8, 0.97]) expect((await st(tear + f * (table - tear))).screen).toBe('last');
+  expect((await st(table + 5)).screen).toBe('table');
+});
+
+test('each of the running head\'s links lands its section\'s eyebrow just under the head', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  for (const id of ['art', 'how', 'specs', 'faq']) {
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.locator(`.head nav a[href="#${id}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`#${id}$`));
+    // (a smooth scroll: wait for it to arrive)
+    const gap = () => page.evaluate((id) => document.querySelector(`#${id} .eyebrow`)!.getBoundingClientRect().top - document.querySelector('.head')!.getBoundingClientRect().bottom, id);
+    await expect.poll(async () => { const g = await gap(); return g >= 0 && g <= 40; }, { message: id, timeout: 10_000 }).toBe(true);
+    await page.waitForTimeout(400);
+    const g = await gap();
+    expect(g, id).toBeGreaterThanOrEqual(0);
+    expect(g, id).toBeLessThanOrEqual(40);
+    if (id === 'art') {
+      // the frame pinned beside the headline, not on its way there
+      // (the art stop is the journey's third: the cover, the centre, the art)
+      const [y, art] = await page.evaluate(() => [scrollY, (window as any).__ff().stops[2]]);
+      expect(y).toBeGreaterThanOrEqual(art[0]);
+      expect(y).toBeLessThanOrEqual(art[1]);
+      await expect(page.locator('#art h2')).toBeInViewport();
+    }
+  }
+});
+
+test('on a phone the links land under the slimmer head too', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.goto('/');
+  // (the section links are hidden on a phone: a page opened at one lands the same way)
+  for (const id of ['how', 'specs']) {
+    await page.goto(`/#${id}`);
+    await page.waitForLoadState('load');
+    await expect.poll(async () => {
+      const [nav, brow] = await Promise.all([page.locator('.head').evaluate((e) => e.getBoundingClientRect().bottom), page.locator(`#${id} .eyebrow`).evaluate((e) => e.getBoundingClientRect().top)]);
+      return brow - nav >= 0 && brow - nav <= 40;
+    }, { timeout: 10_000 }).toBe(true);
   }
 });

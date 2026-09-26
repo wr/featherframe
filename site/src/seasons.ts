@@ -10,7 +10,7 @@ export function startSeasons(): void {
   if (!box || !row) return;
   const root = document.documentElement;
   const wide = matchMedia('(min-width: 821px)');
-  const SETTLE = 0.12; // the last share of the pinned stretch, winter held centred
+  const SETTLE = 0.06; // the last share of the pinned stretch, winter held centred
   let start = 0, run = 1, from = 0, to = 0, raf = 0, live = false;
 
   const measure = () => {

@@ -11,6 +11,9 @@
 #              figure key is prefixed with its printed title ("Black-capt
 #              Titmouse, 3. Male, 4. Female.") and featherframe.legends picks the
 #              detected species' line at index time
+#   hidden     lines printed on the sheet but not under the illustration,
+#              because what they key is painted out of the crop (W-883);
+#              the dataset still carries them
 #   uncertain  the type was faint, tiny, or the scan is cut off below the Latin
 #              line; the reading is a best effort (see note)
 #
@@ -690,8 +693,9 @@ legends:
   198:
     lines:
     - Azalea Calendulacea. Orange-coloured Azalea.
-    # The sheet's "Bill hind toe & claw of the present species" names the
-    # sketches in its corner, which the crop paints out (havell.yaml `mask`).
+    - Bill hind toe & claw of the present species
+    hidden:   # keys the sketches the crop paints out (havell.yaml `mask`)
+    - Bill hind toe & claw of the present species
   199:
     lines:
     - Male, 1. Female, 2.

@@ -138,7 +138,9 @@ def species_legend(entry: dict, plate: int | None,
     if not rec:
         return []
     composite = bool(entry.get("composite", False)) or bool(rec.get("composite", False))
-    return legends.resolve(entry.get("audubon_title", ""), composite, rec.get("lines", []))
+    hidden = set(rec.get("hidden") or [])
+    return legends.resolve(entry.get("audubon_title", ""), composite,
+                           [x for x in rec.get("lines", []) if x not in hidden])
 
 
 def resolve_plate(entry: dict, catalog: dict[int, dict], quiet: bool = False) -> int | None:

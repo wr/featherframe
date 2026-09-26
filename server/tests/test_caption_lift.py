@@ -165,3 +165,20 @@ def test_an_all_box_is_painted_whole():
     out = plate._trim_marginalia(img, mask=[[500 / W, 0.6, 700 / W, 0.62, "all"]], caption=False)
     y = int(H * 0.605) - int(H * T)
     assert _ink(out, (500 - int(W * L) + 2, y, 700 - int(W * L) - 2, y + 30)) == 0     # through the stump
+
+
+def test_a_hidden_legend_line_stays_in_the_transcription_but_not_under_the_illustration():
+    """Swainson's Warbler's sheet keys the sketches the mask paints out."""
+    import importlib.util
+    from pathlib import Path
+
+    from featherframe import legends
+
+    rec = legends.load()[198]
+    assert "Bill hind toe & claw of the present species" in rec["lines"]    # the dataset's
+    spec = importlib.util.spec_from_file_location(
+        "fp", Path(__file__).parents[1] / "scripts" / "fetch_plates.py")
+    fp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fp)
+    shown = fp.species_legend({"audubon_title": "Brown headed Worm eating Warbler"}, 198, {198: rec})
+    assert shown == ["Azalea Calendulacea. Orange-coloured Azalea."]

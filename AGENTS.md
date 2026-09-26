@@ -427,7 +427,7 @@ search (`OpenAITextModel.search_json`, the Responses API's `web_search`,
 license), at the source's `location()` rounded to 0.01°, only when a sheet is
 bought and at most once per `weather.REASK_S` (6 h) a day
 (`collages/weather.json`), billed to the spend ledger as `weather`. An answer
-counts only when it names a source: `snowing` / `snow` (lying) / `rain` / "",
+counts only when it names a source: `heavy_snow` (≥ 15 cm fell) / `snowing` / `snow` (lying) / `rain` / "",
 recorded as the sidecar's `weather`; once it is known, snow comes from it
 alone, so a dry winter day is bare wood; unknown (no location, not OpenAI, a
 failed ask) keeps the season's own snow. Wind was tried and does not read. A

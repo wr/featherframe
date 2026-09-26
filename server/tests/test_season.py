@@ -185,7 +185,8 @@ SRC = "https://www.wunderground.com/history/daily/us/ct/glastonbury/KCTGLAST75"
 
 
 @pytest.mark.parametrize("answer, kind", [
-    ({"snowfall_cm": 45.7, "snow_on_ground_cm": 15.2, "rain_mm": 0, "source": SRC}, "snowing"),
+    ({"snowfall_cm": 45.7, "snow_on_ground_cm": 15.2, "rain_mm": 0, "source": SRC}, "heavy_snow"),
+    ({"snowfall_cm": 6.0, "snow_on_ground_cm": 15.2, "rain_mm": 0, "source": SRC}, "snowing"),
     ({"snowfall_cm": 0, "snow_on_ground_cm": 25, "rain_mm": 0, "source": SRC}, "snow"),
     ({"snowfall_cm": 0.5, "snow_on_ground_cm": 0, "rain_mm": 95.3, "source": SRC}, "rain"),
     ({"snowfall_cm": 0, "snow_on_ground_cm": 4, "rain_mm": 9.9, "source": SRC}, ""),
@@ -211,6 +212,7 @@ def test_weather_decides_the_snow():
     assert "snow" not in tree_state(feb, weather="")      # a dry, bare day: bare wood
     assert "snow of the days before" in tree_state(feb, weather="snow")
     assert "snow falling" in tree_state(date(2026, 1, 25), weather="snowing")
+    assert "whole tree white" in tree_state(date(2026, 1, 25), weather="heavy_snow")
     jul = tree_state(date(2026, 7, 29), weather="rain")
     assert jul.startswith("mid summer, in deep, full summer leaf, ") and "rain" in jul
     assert tree_state(date(2026, 9, 24), weather="") == tree_state(date(2026, 9, 24))
@@ -283,7 +285,7 @@ HERE = (41.69642, -72.6072)
 
 
 def test_daily_weather_asks_the_text_model_once(tmp_path, monkeypatch):
-    text = FakeSearch({"snowfall_cm": 24.9, "snow_on_ground_cm": 43, "source": SRC})
+    text = FakeSearch({"snowfall_cm": 8, "snow_on_ground_cm": 43, "source": SRC})
     model, provider = _provider(tmp_path, monkeypatch, text)
     provider.day_composite(CELLS, date(2026, 1, 25), branch="weather", location=HERE)
     meta = _meta("2026-01-25")

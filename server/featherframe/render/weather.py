@@ -13,6 +13,7 @@ from typing import Optional
 
 # What makes a day that kind of day, first match wins.
 SNOWFALL_CM = 1.0
+HEAVY_SNOWFALL_CM = 15.0
 SNOW_DEPTH_CM = 5.0
 RAIN_MM = 10.0
 
@@ -37,7 +38,9 @@ def _num(daily: dict, key: str) -> float:
 
 
 def kind_of(daily: dict) -> str:
-    """'snowing', 'snow' (lying), 'rain', or '' for a quiet day."""
+    """'heavy_snow', 'snowing', 'snow' (lying), 'rain', or '' for a quiet day."""
+    if _num(daily, "snowfall_cm") >= HEAVY_SNOWFALL_CM:
+        return "heavy_snow"
     if _num(daily, "snowfall_cm") >= SNOWFALL_CM:
         return "snowing"
     if _num(daily, "snow_on_ground_cm") >= SNOW_DEPTH_CM:

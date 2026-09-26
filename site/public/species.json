@@ -8,7 +8,7 @@
   ],
   "sizes": {
     "13": {
-      "label": "13-inch",
+      "label": "13.3-inch",
       "model": "models/featherframe-13.glb",
       "poster": "img/poster-13.webp",
       "waveform": "spectra6",

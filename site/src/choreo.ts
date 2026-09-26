@@ -77,6 +77,8 @@ interface Stop {
   bar?: boolean;
   /** The section a link to it should land in this stop's hold (main.ts). */
   section?: string;
+  /** Arriving, the frame turns a full circle about its upright. */
+  spin?: boolean;
 }
 
 interface Layout {
@@ -181,7 +183,7 @@ function measureNow(els: Els): Layout {
     tearAt = stops.length - 1;
     if (els.table && els.tablePin) {
       const p = pinned(els.table, els.tablePin);
-      stops.push({ rect: (s) => toScale(p.rect(s)), pose: TABLE, s0: after(p.s0, 0.3), s1: Infinity, over: true });
+      stops.push({ rect: (s) => toScale(p.rect(s)), pose: TABLE, s0: after(p.s0, 0.3), s1: Infinity, over: true, spin: true });
     }
   }
   const last = stops[stops.length - 1];
@@ -235,6 +237,8 @@ function at(l: Layout, s: number): State {
       rect = { x: lerp(a.x, b.x, t), y: lerp(a.y + a.h, b.y + b.h, t) - h, w, h };
     } else rect = lerpRect(a, b, t);
     pose = lerpPose(prev.pose, stop.pose, t);
+    // on its way down to the table the frame turns once about its upright
+    if (stop.spin) pose = { ...pose, yaw: pose.yaw + 2 * Math.PI * t };
   }
   // (held at the table too: its pinned slot is a stacking context of its own, backdrop and all)
   over = !!stop.over;

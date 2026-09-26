@@ -41,18 +41,23 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#specs .folio')).toHaveText('Technical details');
   await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Software']);
   // inches first, millimetres after
-  await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10.3-inch: 9.1 × 11.6 × 1.1 in (232 × 295 × 28 mm)13-inch: 11.6 × 14.6 × 1.1 in (295 × 371 × 28 mm)The mat’s opening is slightly smaller than the display.');
+  await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10.3-inch: 9.1 × 11.6 × 1.1 in (232 × 295 × 28 mm)13.3-inch: 11.6 × 14.6 × 1.1 in (295 × 371 × 28 mm)The mat’s opening is slightly smaller than the display.');
   await expect(page.locator('#specs .spec dd').nth(5)).toHaveText('A BirdWeather station near you, or your own BirdNET-Go');
   await expect(page.locator('#specs .spec dd').nth(6)).toHaveText('Open source. See it on GitHub');
   await expect(page.locator('#specs .spec dd').nth(6).getByRole('link', { name: 'See it on GitHub' })).toHaveAttribute('href', 'https://github.com/wr/featherframe');
   await expect(page.locator('#specs .spec')).not.toContainText('Service');
   // the prices: the hero, each size, the close
   await expect(page.locator('.cover .cta .it')).toHaveText('From $349. US pre-orders ship by December\u00a012.');
-  await expect(page.locator('#specs .ho figcaption')).toHaveText(['10.3-inch$349 · Depth 1.1 in (28 mm)', '13-inch$479 · Depth 1.1 in (28 mm)']);
+  await expect(page.locator('#specs .ho figcaption')).toHaveText(['10.3-inch$349 · Depth 1.1 in (28 mm)', '13.3-inch$479 · Depth 1.1 in (28 mm)']);
   await expect(page.locator('#specs .ho .diag span')).toHaveText(['10.3-inch display', '13.3-inch display']);
   await expect(page.locator('#specs .dim')).toHaveCount(0);
-  await expect(page.locator('.close h2')).toHaveText('Pre-order yours.');
-  await expect(page.locator('.close h2 i')).toHaveText('yours.');
+  // the close says the cover's line again
+  await expect(page.locator('.close h2')).toHaveText('Let the outside in.');
+  await expect(page.locator('.close h2 i')).toHaveText('outside in.');
+  await expect(page.locator('.maker p').last()).toContainText('Hi, I’m Wells.');
+  await expect(page.locator('#specs h2')).toHaveText('Two sizes, one walnut frame.');
+  await expect(page.locator('#faq h2')).toHaveText('Before you order.');
+  await expect(page.locator('.wall .folio')).toHaveText('From the collection');
   await expect(page.locator('.close p')).toHaveText('From $349, with no subscription. US pre-orders ship by December\u00a012.');
   await expect(page.locator('body')).not.toContainText('Reserve');
   await expect(page.locator('body')).not.toContainText('November');
@@ -108,7 +113,7 @@ test('every section and its key copy is there', async ({ page }) => {
   for (const gone of ['Parakeet', 'Wood Duck', 'Oriole']) await expect(page.locator('body')).not.toContainText(gone);
   expect(await page.locator('img[src*="parakeet"], img[src*="wood-duck"]').count()).toBe(0);
   await expect(page.locator('body')).not.toContainText('Flamingo');
-  await expect(page.locator('.head .tone button')).toHaveText(['B&W', 'Color']);
+  await expect(page.locator('.tone button')).toHaveText(['B&W', 'Color']);
   for (const link of await page.getByRole('link', { name: 'Pre-order' }).all()) {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
@@ -516,7 +521,7 @@ test('on a phone the sentence and Pre-order come before the frame, on the first 
 test('on a phone the controls are a thumb\'s size', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto('/');
-  for (const sel of ['.head .word', '.head .btn', '.head .tone button', '.unmute', '.field button', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
+  for (const sel of ['.head .word', '.head .btn', '.tone button', '.unmute', '.field button', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
     for (const el of await page.locator(sel).all()) {
       const b = (await el.boundingBox())!;
       expect(b.height, sel).toBeGreaterThanOrEqual(44);
@@ -541,7 +546,7 @@ test('on a phone the wall is one row walked sideways, and B&W keeps its size', a
   // the book is named only where it changes
   await expect(page.locator('.wall .cat .by:visible')).toHaveCount(3);
   const w = (await page.locator('.wall .cat .im').first().boundingBox())!.width;
-  await page.locator('.head').getByRole('button', { name: 'Color' }).click();
+  await page.locator('.tone').getByRole('button', { name: 'Color' }).click();
   await page.waitForTimeout(900);
   expect(Math.abs((await page.locator('.wall .cat .im').first().boundingBox())!.width - w)).toBeLessThan(1);
 });
@@ -579,7 +584,7 @@ test('the wall starts in B&W, switches to Color from the running head, and remem
   const stills = page.locator('.wall img[data-still]');
   await expect(stills).toHaveCount(12);
   const srcs = () => stills.evaluateAll((imgs) => imgs.map((i) => i.getAttribute('src')));
-  const head = page.locator('.head');
+  const head = page.locator('.tone');
   await expect(head.getByRole('button', { name: 'B&W' })).toHaveAttribute('aria-pressed', 'true');
   for (const src of await srcs()) expect(src).toMatch(/^img\/wall\/10-/);
   await head.getByRole('button', { name: 'Color' }).click();
@@ -602,11 +607,11 @@ test("B&W hangs the wall's frames smaller, at the 10-inch's true size", async ({
   const gap = async () => (await caption.boundingBox())!.y - ((await first.boundingBox())!.y + (await first.boundingBox())!.height);
   const grey = (await first.boundingBox())!;
   const greyGap = await gap();
-  await page.locator('.head').getByRole('button', { name: 'Color' }).click();
+  await page.locator('.tone').getByRole('button', { name: 'Color' }).click();
   await expect.poll(async () => grey.height / (await first.boundingBox())!.height).toBeCloseTo(295 / 371, 2);
   // hung from the same line: the frames still meet their captions as before
   expect(Math.abs((await gap()) - greyGap)).toBeLessThan(1);
-  await page.locator('.head').getByRole('button', { name: 'B&W' }).click();
+  await page.locator('.tone').getByRole('button', { name: 'B&W' }).click();
   await expect.poll(async () => (await first.boundingBox())!.height).toBeCloseTo(grey.height, 0);
 });
 
@@ -1125,7 +1130,7 @@ test('Color / B&W in the running head switches every frame on the page', async (
   await page.goto('/?hold=600000');
   await expect(page.locator('canvas.ff3d')).toHaveCount(1, { timeout: 20_000 });
   await expect(page.locator('html')).toHaveAttribute('data-tone', '10');
-  await page.locator('.head .tone button[data-tone="13"]').click();
+  await page.locator('.tone button[data-tone="13"]').click();
   await expect(page.locator('html')).toHaveAttribute('data-tone', '13');
   await expect(page.locator('#stage .poster')).toHaveAttribute('src', 'img/poster-13.webp');
   await expect(page.locator('#table-slot .still')).toHaveAttribute('src', 'img/wall/table-13-cardinal.webp');
@@ -1136,6 +1141,6 @@ test('Color / B&W in the running head switches every frame on the page', async (
   // remembered on the next visit
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-tone', '13');
-  await expect(page.locator('.head .tone button[data-tone="13"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.tone button[data-tone="13"]')).toHaveAttribute('aria-pressed', 'true');
 });
 

@@ -212,7 +212,7 @@ def test_weather_decides_the_snow():
     assert "snow" not in tree_state(feb, weather="")      # a dry, bare day: bare wood
     assert "snow of the days before" in tree_state(feb, weather="snow")
     assert "snow falling" in tree_state(date(2026, 1, 25), weather="snowing")
-    assert "whole tree white" in tree_state(date(2026, 1, 25), weather="heavy_snow")
+    assert "mounded deep" in tree_state(date(2026, 1, 25), weather="heavy_snow")
     jul = tree_state(date(2026, 7, 29), weather="rain")
     assert jul.startswith("mid summer, in deep, full summer leaf, ") and "rain" in jul
     assert tree_state(date(2026, 9, 24), weather="") == tree_state(date(2026, 9, 24))

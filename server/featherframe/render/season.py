@@ -66,9 +66,10 @@ WINTER_BARE = {
 WEATHER_STATE = {
     # A heavy fall has to outweigh the sparse branch every collage is drawn
     # with, or a 25 cm snowstorm paints lighter than an ordinary winter day.
-    "heavy_snow": ("buried in that day's heavy snowfall, the snow lying deep and "
-                   "unbroken along the top of every limb and twig, the whole tree "
-                   "white with it"),
+    "heavy_snow": ("buried in that day's heavy snowfall, the snow mounded deep on every "
+                   "limb and twig and drooping from them in heavy cushions, modeled as the "
+                   "engravers modeled snow, in cool gray aquatint on its shadowed side and "
+                   "underside so its mass stands out from the white paper"),
     "snowing": "snow falling that day and gathering thick along its limbs",
     "snow": "the snow of the days before lying along its limbs",
     "rain": ("standing in that day's heavy rain, the falling rain itself drawn in "

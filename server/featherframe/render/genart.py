@@ -277,21 +277,26 @@ _P_COMPOSITE_BARE = {
 }
 
 # W-881: the bough lives in the season of the collage's date. Stated as a
-# principle of the setting — the week's own state of the tree and the weather
-# on its wood — never as a list of things to paint, which the model would
-# paint on every sheet; the stage ("late winter") keeps a season from reading
-# as its cliché. The figures stay the subject: the season is carried lightly
-# and every figure and numeral stands clear of it, or the key under the sheet
-# stops matching what is painted.
+# principle of the setting — the week's own state of the tree — never as a
+# list of things to paint, which the model would paint on every sheet; the
+# stage ("late winter") keeps a season from reading as its cliché, and it is
+# told by the state of what grows, not its amount (a full canopy was a tell).
 _P_COMPOSITE_SEASON = (
     "The bough is one living tree, seen in {season}: it wears that week exactly as the "
-    "week truly is, so the season is unmistakable at a glance. The season is told with "
-    "the fewest touches that make it so, in the folio's economy, each one placed by hand "
-    "and no two alike; the bark is bare wood in clean engraved line. The figures carry "
-    "the sheet; every figure stands whole against it and every numeral sits on open "
-    "paper. "
+    "week truly is, told by the state of what grows on it rather than by its abundance, "
+    "so the season reads at a glance. "
 )
-COLLAGE_PROMPT_VERSION = 18  # W-881 17, W-882 18; single illustrations keep PROMPT_VERSION
+
+# W-882: how every collage's branch is drawn, whatever it carries. Wells saw the
+# AI in a full canopy, a bead on every leaf and moss in even rosettes on every
+# limb: the folio's branches are sparse and hand-placed, the bark clean line.
+_P_COMPOSITE_HAND = (
+    "The branch is drawn as the folio drew its branches: sparse sprays with a great "
+    "deal of open paper between them, each leaf, twig, and mark placed by hand and no "
+    "two alike, the bark bare wood in clean engraved line. The figures carry the sheet; "
+    "every figure stands whole against the branch and every numeral sits on open paper. "
+)
+COLLAGE_PROMPT_VERSION = 19  # W-881 17, W-882 18-19; single illustrations keep PROMPT_VERSION
 
 
 def build_composite_prompt(subjects: list[tuple[str, str]],
@@ -315,10 +320,11 @@ def build_composite_prompt(subjects: list[tuple[str, str]],
     crowded = len(subjects) >= _COMPOSITE_CROWDED_FROM
     template = _P_COMPOSITE_ARMATURE_CROWDED if crowded else _P_COMPOSITE_ARMATURE
     if season:
-        armature = template.format(bare="", botany=_P_COMPOSITE_SEASON.format(season=season))
+        botany = _P_COMPOSITE_SEASON.format(season=season)
+        armature = template.format(bare="", botany=botany + _P_COMPOSITE_HAND)
     else:
         armature = template.format(bare="bare, " if not crowded else "bare ",
-                                   botany=_P_COMPOSITE_BARE[crowded])
+                                   botany=_P_COMPOSITE_BARE[crowded] + _P_COMPOSITE_HAND)
     return opener + armature + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
 
 
@@ -333,8 +339,12 @@ def _havell_species(idx: dict) -> list[dict]:
 
 # Real composite plates to hand the model as references, preference order.
 _PREFERRED_COMPOSITE_REFS = [
-    "Dryobates villosus",       # plate 416 — five woodpecker species, one snag
-    "Poecile atricapillus",     # plate 353 — the titmouse composite
+    # plate 354 — tanagers on one sparse, clean branch; it replaced plate 416,
+    # whose lichened snag came back as lichen on every trunk (W-882)
+    "Piranga ludoviciana",
+    # plate 399 — five warblers up one sparse spray; it replaced plate 353,
+    # whose hanging moss nest came back as moss on every branch (W-882)
+    "Setophaga virens",
     "Haemorhous mexicanus",     # plate 424 — the finch/bunting totem
 ]
 

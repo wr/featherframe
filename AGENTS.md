@@ -433,6 +433,13 @@ alone, so a dry winter day is bare wood; unknown (no location, not OpenAI, a
 failed ask) keeps the season's own snow. Wind was tried and does not read. A
 sheet painted with another branch is bought again (a sheet from before the
 choice is kept); weather alone never repaints one.
+Every collage's branch, whatever it carries, is drawn by one clause
+(`_P_COMPOSITE_HAND`: sparse sprays, each mark placed by hand and no two alike,
+bark in clean engraved line), and the season is told by the state of what
+grows, not its amount: a full canopy, a bead on every leaf and even rosettes
+of moss read as AI. The composite style references are Havell 354 and 399
+(one sparse, clean branch each) then 424; 353's moss nest and 416's lichened
+snag came back as moss and lichen on every sheet.
 
 **Render pipeline (`render/`).** `pipeline.py` orchestrates:
 `compose.render_single` (or `collage.render_collage`) → `finish.to_levels`

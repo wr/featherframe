@@ -364,3 +364,19 @@ def test_the_branch_setting():
     assert Config().collage_branch == "season"
     assert Config(collage_branch="weather").collage_branch == "weather"
     assert Config(collage_branch="snowglobe").collage_branch == "season"
+
+
+@pytest.mark.parametrize("n", [3, 12])
+@pytest.mark.parametrize("season", [None, "late winter, still dormant, its buds just swelling",
+                                    tree_state(date(2026, 7, 29), weather="rain")])
+def test_every_collage_is_drawn_by_hand(n, season):
+    """The sparse, hand-placed branch on clean bark is every collage's, whatever
+    it carries and however crowded (W-882)."""
+    p = build_composite_prompt((SUBJECTS * 4)[:n], season=season)
+    assert genart._P_COMPOSITE_HAND in p
+
+
+def test_no_moss_nest_among_the_references():
+    refs = genart._PREFERRED_COMPOSITE_REFS
+    assert "Poecile atricapillus" not in refs and "Dryobates villosus" not in refs
+    assert refs[:2] == ["Piranga ludoviciana", "Setophaga virens"]

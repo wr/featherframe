@@ -9,11 +9,15 @@
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/Inter-500.woff2') format('woff2'); }
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('fonts/Inter-600.woff2') format('woff2'); }
 
+/* --night is a number, so it can be eased: the flip is a threshold (night.ts)
+   and a 450 ms transition, whatever the scroll's speed */
+@property --night { syntax: '<number>'; inherits: true; initial-value: 0; }
+:root.night { --night: 1; }
 :root {
-  /* IV turns the page from day to night as it scrolls in (night.ts sets
-     --night, 0–1), and back as it leaves: every colour is its day and its
-     night mixed by it. */
+  /* IV turns the page from day to night (night.ts: html.night, --night eased
+     0–1), and back as it leaves: every colour is its day and its night mixed by it. */
   --night: 0;
+  transition: --night .45s ease;
   --paper: color-mix(in srgb, #1a1a1a calc(var(--night) * 100%), #fff);
   --ink: color-mix(in srgb, #f2f1ec calc(var(--night) * 100%), #121212);
   --text: color-mix(in srgb, #d4d3cd calc(var(--night) * 100%), #3b3b39);
@@ -63,7 +67,9 @@ h2 { font-weight: 400; text-wrap: balance; }
   display: flex; justify-content: space-between; align-items: baseline;
   margin-bottom: 96px;
 }
-/* each chapter's eyebrow: small capitals in graphite, no number, no rule */
+/* each chapter's eyebrow: small capitals in graphite, no number, no rule;
+   set right above its headline, as one unit with it */
+.folio:has(+ h2) { margin-bottom: 16px; }
 .eyebrow { font: 12px/1.35 var(--caps); letter-spacing: .22em; text-transform: uppercase; color: var(--graphite); }
 .folio .n { font: italic 15px var(--serif); color: var(--graphite); }
 .mega, .spread h2, .close .big { font-size: var(--display); line-height: .9; letter-spacing: -.035em; }
@@ -103,6 +109,9 @@ h2 { font-weight: 400; text-wrap: balance; }
   content: ""; position: absolute; z-index: -2; left: calc(-1 * var(--m)); right: calc(-1 * var(--m)); top: 0; bottom: 0;
   --hz: calc(100% - 7vh - 0.12 * 1.2759 * min(600px, 60vh)); /* the horizon, a little above the frame's foot */
   background: linear-gradient(to bottom, #fff 0%, var(--room-wall) var(--hz), var(--room-table) var(--hz), #fff 100%);
+  /* the room is behind the frame only: it fades to plain white across the text column */
+  -webkit-mask-image: linear-gradient(to right, transparent 34%, #000 58%);
+  mask-image: linear-gradient(to right, transparent 34%, #000 58%);
 }
 /* .frame is the frame itself; the stage around it is the poster's whole
    canvas (1200 × 1400, frame at 111,108 → 1086,1352), so the poster and the
@@ -128,8 +137,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 .spread .plate img { width: 100%; }
 .spread .text { display: flex; flex-direction: column; justify-content: flex-end; padding: 42vh 0 14vh; }
-.spread .text .folio { margin-bottom: 30px; }
-.spread h2 { margin: 30px 0 40px; font-size: min(var(--display), 8.4cqw); }
+.spread .text .folio { margin-bottom: 16px; }
+.spread h2 { margin: 0 0 40px; font-size: min(var(--display), 8.4cqw); }
 .spread h2 i { white-space: nowrap; }
 .cols { display: flow-root; max-width: 36ch; font-size: 20px; line-height: 1.58; text-wrap: pretty; }
 .cols p { margin: 0 0 .9em; }
@@ -150,7 +159,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .measuring .pin { position: relative !important; top: auto !important; }
 /* the two flights that cross the text: the frame over it (under the running head and the wall's sticky folio) */
 .ff3d.over { z-index: 5; }
-.choreo .cover .frame.floor::after { opacity: calc(1 - 4 * var(--lift, 0)); }
+.choreo .cover .frame.floor::after { opacity: calc(1 - var(--away, 0)); }
 
 /* The hand-offs: the art and the table's stills are the journey's to draw;
    the wall's first place stays empty until the frame lands in it, and its
@@ -264,9 +273,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 .table::before {
   content: ""; position: absolute; inset: 0; z-index: -2;
   background: linear-gradient(to bottom, #fff 0%, var(--room-wall) 82%, var(--room-table) 82%, #fff 100%);
-  /* no edges of its own: it fades into the page at the sides */
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
-  mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+  /* no edges of its own: full behind the frame, fading to plain white toward the text on its left */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 34%, #000 86%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 34%, #000 86%, transparent);
   opacity: calc(1 - var(--night));
 }
 #table-slot { position: relative; aspect-ratio: 0.77576; }
@@ -463,6 +472,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root { transition: none; }
   .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im, .toast, .season .ico { transition: none; }
   .toast.swap .nm, .toast.swap .ic { animation: none; }
 }
@@ -486,3 +496,14 @@ h2 { font-weight: 400; text-wrap: balance; }
   border: 0; border-radius: 50%; background: none; color: var(--ink); cursor: pointer;
 }
 .lb-close:hover { background: var(--hair); }
+/* Previous / Next: small, shown on hover or focus (always, where there is no hover) */
+.lb-nav {
+  position: absolute; top: 50%; display: grid; place-items: center; width: 44px; height: 44px; margin-top: -22px;
+  border: 0; border-radius: 50%; background: none; color: var(--ink); cursor: pointer; opacity: 0; transition: opacity .2s ease;
+}
+.lb-nav.prev { left: 18px; }
+.lb-nav.next { right: 18px; }
+.lightbox:hover .lb-nav, .lb-nav:focus-visible { opacity: 1; }
+.lb-nav:hover { background: var(--hair); }
+@media (hover: none) { .lb-nav { opacity: 1; } }
+.lightbox figure { grid-area: 1 / 1; } /* the outgoing and incoming frames cross-fade in one place */

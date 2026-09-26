@@ -1,30 +1,24 @@
-// IV. The collage is the night's: as its section scrolls in, the page turns
-// from day to night (white to #1a1a1a, the type to #f2f1ec) over ~12% of the
-// window's height, quickly, and back again as it scrolls out. styles.css mixes every
-// colour by --night (0 day … 1 night); <html class="night"> says it is more
-// night than day. The frames and collages keep their own light.
-const SPAN = 0.12; // of the window's height, each way
-
+// IV. The collage is the night's: the page turns from day to night (white to
+// #1a1a1a, the type to #f2f1ec, the running head with it) when the collage's
+// eyebrow comes up to the bottom of the running head, and back to day when it
+// is scrolled back down below it, or when the section's bottom passes the
+// running head on the way out. The flip is a threshold, not scrubbed by the
+// scroll: <html class="night"> sets --night to 1 and styles.css eases it over
+// 450 ms (instantly with reduced motion), whatever the scroll's speed; every
+// colour is its day and its night mixed by --night. The frames and collages
+// keep their own light.
 export function startNight(): void {
   const section = document.getElementById('collage');
-  if (!section) return;
+  const eyebrow = section?.querySelector('.eyebrow');
+  if (!section || !eyebrow) return;
   const root = document.documentElement;
-  let raf = 0, last = -1;
+  const head = document.querySelector('.head');
+  let raf = 0;
   const paint = () => {
     raf = 0;
-    const vh = root.clientHeight;
-    const r = section.getBoundingClientRect();
-    // in: its top from 76% of the way down the window to 64%; out: its bottom from 46% up to 34%
-    const into = (0.76 * vh - r.top) / (SPAN * vh);
-    const out = (r.bottom - 0.34 * vh) / (SPAN * vh);
-    const t = Math.max(0, Math.min(1, into, out));
-    const m = t * t * (3 - 2 * t);
-    const v = Math.round(m * 1000) / 1000;
-    if (v === last) return;
-    last = v;
-    if (v) root.style.setProperty('--night', String(v));
-    else root.style.removeProperty('--night');
-    root.classList.toggle('night', v >= 0.5);
+    const line = head ? head.getBoundingClientRect().bottom : 0;
+    const night = eyebrow.getBoundingClientRect().top <= line && section.getBoundingClientRect().bottom > line;
+    if (root.classList.contains('night') !== night) root.classList.toggle('night', night);
   };
   const request = () => { if (!raf) raf = requestAnimationFrame(paint); };
   addEventListener('scroll', request, { passive: true });

@@ -54,26 +54,32 @@ const DISTANCE = 3;                  // metres from the frame's middle; the fram
 // These keep the wood walnut and the screen's paper level with the white mat.
 const EXPOSURE = 0.9;
 const ENVIRONMENT = 0.7;
-// The table's shadow: a light that lights nothing (so the frame looks as it
-// does everywhere else) but casts the frame onto a shadow-only floor, from
-// above and in front, so it falls back toward the wall, crisp where the frame
-// meets the table. SHADOW is its darkness at full `ground`; soft (a
-// variance shadow map, blurred wide), so it reads as a room's light, not a lamp's.
+// The table's shadow, for the table's still only (`?wall=table`, opts.floor):
+// a light that lights nothing (so the frame looks as it does everywhere else)
+// but casts the frame onto a shadow-only floor, from above and in front, so it
+// falls back toward the wall, crisp where the frame meets the table. SHADOW is
+// its darkness at full `ground`; soft (a variance shadow map, blurred wide).
+// The page's live frame has no floor: on some GPUs the floor's shadow map
+// showed as a hatched square round the frame, so on the page the one shadow is
+// the CSS contact under the table's frame (styles.css .contact, --land).
 const SHADOW = 0.13;
 // The glass's sheen: a soft diagonal highlight, as a window across the room
 // would leave on it, that slides as the frame moves up the screen. The wall's
 // HTML frames draw the same band in CSS (styles.css .sheen, sheen.ts), so a
 // hand-off between them does not jump. SHEEN is its strength.
 export const SHEEN = 0.16;
-// The studio light's bar (the shop's STUDIO_RIG key: a long, thin, slightly
-// warm softbox, its edges falling off, turned 20° about its face), mirrored
-// in the glass as a soft bar. At the centre stop the frame holds still while
-// the page scrolls on, as if it were travelling down past the light: the bar
-// sweeps up the glass with the scroll (`bar`, 0 below it … 1 above it).
+// The studio light's bar (the shop's STUDIO_RIG key: a long, thin softbox,
+// its edges falling off, turned 20° about its face), mirrored in the glass as
+// a soft bar of neutral white light. At the centre stop the frame holds still
+// while the page scrolls on, as if it were travelling down past the light: the
+// bar sweeps up the glass with the scroll, twice (`bar`, the dwell 0 … 1; each
+// half is one pass, from below the glass to above it, so the wrap is unseen).
 // BAR is its strength; BAR_ROLL its tilt.
 export const BAR = 0.34;
 const BAR_ROLL = MathUtils.degToRad(-20);
 export { sheenAt } from './sheen-at';
+/** Where the bar is in its pass (0 below the glass … 1 above) at `t` through the dwell: two passes. */
+export const barPass = (t: number) => { const b = 2 * Math.max(0, Math.min(1, t)); return b <= 1 ? b : b - 1; };
 // How long each picture holds in the hero's cycle: well over twice the colour
 // refresh (about 5.5 s), so the frame reads as a picture that sometimes
 // changes, not as a frame forever refreshing. `?hold=` overrides it for tests.
@@ -116,6 +122,8 @@ export interface Frame3D {
   draw(rect: Rect | null, pose: Pose, sway?: number, sheen?: number | null, bar?: number | null): void;
   /** True once something has really been drawn. */
   readonly drawn: boolean;
+  /** Whether it draws the table's shadow-only floor. */
+  readonly floor: boolean;
   dispose(): void;
 }
 
@@ -126,6 +134,8 @@ export async function loadFrame(size: Size, opts: {
   wake: () => void;
   /** Keep the drawing buffer, for the poster and wall renders' screenshots. */
   keep?: boolean;
+  /** Draw the table's shadow-only floor (the table's still render only). */
+  floor?: boolean;
 }): Promise<Frame3D> {
   const canvas = document.createElement('canvas');
   canvas.setAttribute('aria-hidden', 'true');
@@ -135,7 +145,8 @@ export async function loadFrame(size: Size, opts: {
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.setClearColor(0x000000, 0);
   renderer.toneMappingExposure = EXPOSURE;
-  renderer.shadowMap.enabled = true;
+  const withFloor = !!opts.floor;
+  renderer.shadowMap.enabled = withFloor;
   renderer.shadowMap.type = VSMShadowMap;
   renderer.shadowMap.autoUpdate = false;
 
@@ -187,7 +198,7 @@ export async function loadFrame(size: Size, opts: {
   pitch.add(yaw);
   scene.add(pitch);
 
-  model.traverse((o) => { if ((o as Mesh).isMesh) o.castShadow = true; });
+  model.traverse((o) => { if ((o as Mesh).isMesh) o.castShadow = withFloor; });
 
   // The sheen: a second skin on the glass, drawn over it. Its band is laid out
   // in the glass's own box (x across, y up), so it sits on the glass whatever the pose.
@@ -233,8 +244,7 @@ export async function loadFrame(size: Size, opts: {
           float ends = smoothstep(-0.25, 0.2, vP.x) * smoothstep(1.25, 0.8, vP.x);
           b *= uBarI * ends;
           float alpha = clamp(a + b, 0.0, 1.0);
-          vec3 tint = mix(vec3(1.0), vec3(1.0, 0.96, 0.9), b / max(alpha, 1e-4));
-          gl_FragColor = vec4(tint, alpha);
+          gl_FragColor = vec4(vec3(1.0), alpha);
         }`,
     });
     sheen = new Mesh(g, sheenMaterial);
@@ -251,7 +261,7 @@ export async function loadFrame(size: Size, opts: {
   yaw.add(floor);
   const sun = new DirectionalLight(0xffffff, 0);
   sun.position.set(-0.2, 1.6, 0.3);
-  sun.castShadow = true;
+  sun.castShadow = withFloor;
   sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.radius = 14;
   sun.shadow.blurSamples = 24;
@@ -317,6 +327,7 @@ export async function loadFrame(size: Size, opts: {
       return (b.x1 - b.x0) / (b.y1 - b.y0);
     },
     get drawn() { return drawn; },
+    floor: withFloor,
     setSize(w, h) {
       width = Math.max(1, w);
       height = Math.max(1, h);
@@ -352,14 +363,15 @@ export async function loadFrame(size: Size, opts: {
         sheenMaterial.uniforms.uI.value = at === null ? 0 : SHEEN;
         if (at !== null) sheenMaterial.uniforms.uC.value = at;
         sheenMaterial.uniforms.uBarI.value = bar === null ? 0 : BAR;
-        if (bar !== null) sheenMaterial.uniforms.uBar.value = bar;
+        // two passes: each half of the dwell sweeps the bar once from below the glass to above it
+        if (bar !== null) sheenMaterial.uniforms.uBar.value = barPass(bar);
       }
       if (sheen) sheen.visible = at !== null || bar !== null;
-      floor.visible = pose.ground > 0.001;
+      floor.visible = withFloor && pose.ground > 0.001;
       shadowMaterial.opacity = SHADOW * pose.ground;
       // Drawn only while the floor shows — but once before anything else, so
       // the shadow map exists for every material's shadow sampler.
-      renderer.shadowMap.needsUpdate = floor.visible || !drawn;
+      renderer.shadowMap.needsUpdate = withFloor && (floor.visible || !drawn);
       renderer.render(scene, camera);
       drawn = true;
     },

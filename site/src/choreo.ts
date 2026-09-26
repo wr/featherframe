@@ -39,6 +39,7 @@ const SWAY_PERIOD = 14;   // seconds
 const ART_LINGER = 0.1;   // viewport heights the art stop holds past its pin's release
 const LAND_AT = 0.92;     // the wall's first place is landed in with its bottom this far down the window
 const CONTACT = 8;        // px: the table's shadow comes in over the frame's last this many of descent
+const AWAY = 12;          // px of scroll over which the cover's floor shadow goes
 const TEAR_GAP = 12;      // px: the wall's last frame tears off with its top this far under the sticky folio
 
 // The poster's canvas is 1200 × 1400 with the frame at 111,108 → 1086,1352.
@@ -303,13 +304,13 @@ export async function startPage(data: SiteData, hero: Model, opts: {
 
   let layout = measure(els);
   // scripts and debugging: where the journey is, and its stops
-  (window as any).__ff = () => ({ st: at(layout, scrollY), stops: layout.stops.map((x) => [x.s0, x.s1, x.rect(scrollY)]) });
+  (window as any).__ff = () => ({ st: at(layout, scrollY), floor: Object.values(frames).some((f) => f!.floor), stops: layout.stops.map((x) => [x.s0, x.s1, x.rect(scrollY)]) });
   /** The frames: the cover's, and (B&W) the 10-inch that takes over from it. */
   const frames: Partial<Record<Model, Frame3D>> = {};
   const shown: Partial<Record<Model, string>> = {};
   let loading10: Promise<void> | null = null;
   let active: Model = hero;
-  let raf = 0, reveal = 0, dirty = true, lastKey = '', disposed = false;
+  let raf = 0, reveal = 0, dirty = true, lastKey = '', lastAway = '', disposed = false;
   const t0 = performance.now();
   const request = () => { if (!raf) raf = requestAnimationFrame(tick); };
 
@@ -351,6 +352,10 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     raf = 0;
     const st = at(layout, scrollY);
     applyClasses(st);
+    // The cover's floor shadow is the room's, and scrolls with it while the
+    // frame holds still: gone within the first few pixels, so it never falls across the frame.
+    const away = Math.min(1, Math.max(0, scrollY) / AWAY).toFixed(3);
+    if (away !== lastAway) { lastAway = away; root.style.setProperty('--away', away); }
     const main = frames[hero];
     if (!main) return;
     // A hidden page runs no rAFs; one that says it is hidden but runs them
@@ -390,7 +395,6 @@ export async function startPage(data: SiteData, hero: Model, opts: {
       frame.canvas.classList.toggle('over', st.over);
       dirty = false;
       lastKey = key;
-      root.style.setProperty('--lift', st.lift.toFixed(3));
       root.style.setProperty('--land', st.ground.toFixed(3));
       if (frame.drawn && !reveal) {
         // Live (poster out, canvas in) on the rAF after the first real draw, once it is on screen.
@@ -436,7 +440,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     els.wall?.removeEventListener('transitionend', relayout);
     els.wall?.classList.remove('landed', 'torn');
     els.stage.classList.remove('live');
-    root.style.removeProperty('--lift');
+    root.style.removeProperty('--away');
     root.style.removeProperty('--land');
     for (const f of Object.values(frames)) f!.dispose();
   };
@@ -542,7 +546,7 @@ export async function startWallRender(size: Size, which: string): Promise<void> 
     : size.wall[Number(which)];
   let raf = 0;
   const request = () => { if (!raf) raf = requestAnimationFrame(tick); };
-  const frame = await loadFrame(size, { wake: request, keep: true, holdMs: 1e9 });
+  const frame = await loadFrame(size, { wake: request, keep: true, holdMs: 1e9, floor: table });
   const pose = table ? TABLE : FLAT;
   const [l, t, r, b] = table ? TABLE_PAD : [0, 0, 0, 0];
   document.documentElement.dataset.aspect = (frame.aspect(pose) * (1 + l + r) / (1 + t + b)).toFixed(5);

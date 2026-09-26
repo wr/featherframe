@@ -30,9 +30,9 @@ test('every section and its key copy is there', async ({ page }) => {
     ['#art', '#how', '#specs', '#faq', 'https://shop.wells.ee/products/featherframe/']);
   await expect(page.locator('#art h2')).toHaveText('More than 1,300 species, colored by hand.');
   await expect(page.locator('#how h2')).toHaveText('Meet the birds you only hear.');
-  await expect(page.locator('#collage h2')).toHaveText('At night, the whole day on one sheet.');
-  // "At night, the whole day" roman, "on one sheet." italic
-  await expect(page.locator('#collage h2 i')).toHaveText('on one sheet.');
+  await expect(page.locator('#collage h2')).toHaveText('Each night, the day’s menagerie.');
+  // "Each night," roman, "the day’s menagerie." italic
+  await expect(page.locator('#collage h2 i')).toHaveText('the day’s menagerie.');
   await expect(page.locator('#collage .lede')).toHaveText('The frame shows every species heard that day on one sheet, numbered and keyed like a page in an old natural history book.');
   await expect(page.locator('#specs .folio')).toHaveText('Technical details');
   await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Hosting']);
@@ -524,6 +524,26 @@ test('the page turns to night for the collage, and back to day after it', async 
   await expect(html).not.toHaveClass(/\bnight\b/);
   const day = await bg();
   const box = await page.locator('#collage').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
+  const nav = await page.locator('.head').evaluate((e) => e.getBoundingClientRect().bottom);
+  const brow = await page.locator('#collage .eyebrow').evaluate((e) => e.getBoundingClientRect().top + scrollY);
+  // the eyebrow a few pixels short of the running head's bottom: still day
+  await page.evaluate((y) => scrollTo(0, y), brow - nav - 6);
+  await page.waitForTimeout(700);
+  await expect(html).not.toHaveClass(/\bnight\b/);
+  expect(await bg()).toBe(day);
+  // just past it: night, and the colours arrive by themselves in about 450 ms, without further scrolling
+  await page.evaluate((y) => scrollTo(0, y), brow - nav + 2);
+  await expect(html).toHaveClass(/\bnight\b/);
+  const t0 = Date.now();
+  await page.waitForTimeout(100);
+  // (time-based: part-way after 100 ms)
+  expect(await bg()).not.toBe('26,26,26');
+  await expect.poll(bg, { intervals: [25], timeout: 1000 }).toBe('26,26,26');
+  expect(Date.now() - t0).toBeLessThan(700);
+  // back down below the running head: day again
+  await page.evaluate((y) => scrollTo(0, y), brow - nav - 6);
+  await expect(html).not.toHaveClass(/\bnight\b/);
+  await expect.poll(bg).toBe(day);
   await page.evaluate((y) => scrollTo(0, y), box.y + 200);
   await expect(html).toHaveClass(/\bnight\b/);
   await expect.poll(bg).toBe('26,26,26');
@@ -654,6 +674,8 @@ test('a wall frame opens large and closes again', async ({ page }) => {
   const close = box.getByRole('button', { name: 'Close' });
   await expect(close).toBeFocused();
   await page.waitForTimeout(600);
+  // (the flight in is done: under the suite's load its first frames can come late)
+  await box.locator('img').evaluate((i) => Promise.all(i.getAnimations().map((a) => a.finished)));
   const img = (await box.locator('img').boundingBox())!;
   expect(img.height).toBeGreaterThan(900 * 0.75);
   expect(Math.abs(img.x + img.width / 2 - 720)).toBeLessThan(2);
@@ -661,7 +683,13 @@ test('a wall frame opens large and closes again', async ({ page }) => {
   const bgc = await box.evaluate((e) => getComputedStyle(e).backgroundColor);
   expect(Number(bgc.match(/([\d.]+)\)$/)![1])).toBeCloseTo(0.96, 1);
   expect(bgc).toMatch(/^(rgba\(255, 255, 255|oklab\(0\.99|color\(srgb 1 1 1)/);
-  // focus stays in it
+  // focus stays in it, going round Close, Previous and Next
+  const prevB = box.getByRole('button', { name: 'Previous' });
+  const nextB = box.getByRole('button', { name: 'Next' });
+  await page.keyboard.press('Tab');
+  await expect(prevB).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(nextB).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(close).toBeFocused();
   // Esc closes it, and the focus goes back to the frame
@@ -672,7 +700,7 @@ test('a wall frame opens large and closes again', async ({ page }) => {
   await page.keyboard.press('Enter');
   await expect(box).toBeVisible();
   await page.waitForTimeout(600);
-  await page.mouse.click(30, 450);
+  await page.mouse.click(30, 150); // (the left edge's middle is Previous)
   await expect(box).toHaveCount(0);
   await expect(frame).toBeFocused();
   // and Close closes it
@@ -728,4 +756,75 @@ test('each chapter opens with an eyebrow, not a numbered rule', async ({ page })
   expect(await page.locator('body').innerText()).not.toMatch(/\b(I|II|III|IV|V|VI)\. /);
   // the collection's sticky row keeps its switch
   await expect(page.locator('.wall .folio .tone button')).toHaveCount(2);
+});
+
+test('in the lightbox the arrow keys step through the wall, wrapping', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const names = await page.locator('.wall .cat .nm').allTextContents();
+  expect(names.length).toBe(12);
+  const box = page.locator('.lightbox');
+  const shown = () => box.locator('figure:last-of-type .nm').textContent();
+  const last = page.locator('.wall .cat figure').last().locator('.im');
+  await last.scrollIntoViewIfNeeded();
+  await last.click();
+  await expect(box).toHaveAttribute('aria-label', names[11]);
+  // Right from the last wraps to the first
+  await page.keyboard.press('ArrowRight');
+  await expect(box).toHaveAttribute('aria-label', names[0]);
+  await expect.poll(shown).toBe(names[0]);
+  // a quick cross-fade: one figure left once it is done
+  await expect(box.locator('figure')).toHaveCount(1);
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(shown).toBe(names[1]);
+  // Left twice: back past the first to the last
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await expect(box).toHaveAttribute('aria-label', names[11]);
+  await expect.poll(shown).toBe(names[11]);
+  // the buttons do the same
+  await box.hover();
+  await box.getByRole('button', { name: 'Next' }).click();
+  await expect.poll(shown).toBe(names[0]);
+  await box.getByRole('button', { name: 'Previous' }).click();
+  await expect.poll(shown).toBe(names[11]);
+  // it closes on the frame it shows, and the focus goes back to that frame
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(shown).toBe(names[10]);
+  await page.keyboard.press('Escape');
+  await expect(box).toHaveCount(0);
+  await expect(page.locator('.wall .cat figure').nth(10).locator('.im')).toBeFocused();
+});
+
+test('no hatched surface anywhere, and the live frame draws no shadow floor', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  const hatched = await page.evaluate(() => [...document.querySelectorAll('*')].flatMap((e) =>
+    [getComputedStyle(e), getComputedStyle(e, '::before'), getComputedStyle(e, '::after')]
+      .filter((c) => /repeating-|url\([^)]*(hatch|table|floor)/.test(c.backgroundImage))
+      .map(() => e.tagName + '.' + e.className)));
+  expect(hatched).toEqual([]);
+  expect(await page.evaluate(() => (window as any).__ff().floor)).toBe(false);
+});
+
+test("the cover's room fades to white across the text column", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  for (const [sel, pseudo] of [['.cover', '::before'], ['.table', '::before']]) {
+    const mask = await page.locator(sel).evaluate((e, p) => { const c = getComputedStyle(e, p); return c.maskImage || c.webkitMaskImage; }, pseudo);
+    expect(mask).toMatch(/^linear-gradient\(to right, (transparent|rgba\(0, 0, 0, 0\))/);
+  }
+});
+
+test('each eyebrow sits right above its headline', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  for (const id of ['art', 'how', 'collage']) {
+    const [e, h] = await Promise.all([page.locator(`#${id} .eyebrow`).boundingBox(), page.locator(`#${id} h2`).boundingBox()]);
+    const gap = h!.y - (e!.y + e!.height);
+    expect(gap).toBeGreaterThanOrEqual(0);
+    expect(gap).toBeLessThanOrEqual(20);
+    expect(Math.abs(e!.x - h!.x)).toBeLessThan(12);
+  }
 });

@@ -23,11 +23,13 @@ def mat_at(size: float, inset: float, off: float, at: float) -> float:
 @pytest.mark.parametrize("inset, dx, dy", [(0, 0, 0), (4, 0, 0), (5.5, 12, -30), (9, -40, 18)])
 def test_the_footer_line_moves_with_the_mat_as_the_firmware_says(inset, dx, dy):
     w, h = theme.WIDTH, theme.HEIGHT
-    sheet = Image.new("L", (w, h), 255)
-    cx, cy = w // 2, int(system.NOTE_CY)
-    sheet.paste(0, (cx - 6, cy - 6, cx + 6, cy + 6))       # a mark on the footer line
-    cfg = Config(mat_inset_pct=inset, mat_offset_x_px=dx, mat_offset_y_px=dy)
-    out = np.asarray(pipeline._apply_mat_inset(sheet, cfg))
-    ys, xs = np.where(out < 128)
-    assert abs((xs.min() + xs.max()) / 2 - mat_at(w, inset, dx, cx)) <= 1.5
-    assert abs((ys.min() + ys.max()) / 2 - mat_at(h, inset, dy, cy)) <= 1.5
+    cy = int(system.NOTE_CY)
+    # The toast's centre, and the plate number's right edge (the offline mark's).
+    for cx in (w // 2, w - theme.CORNER_INSET - 6):
+        sheet = Image.new("L", (w, h), 255)
+        sheet.paste(0, (cx - 6, cy - 6, cx + 6, cy + 6))   # a mark on the footer line
+        cfg = Config(mat_inset_pct=inset, mat_offset_x_px=dx, mat_offset_y_px=dy)
+        out = np.asarray(pipeline._apply_mat_inset(sheet, cfg))
+        ys, xs = np.where(out < 128)
+        assert abs((xs.min() + xs.max()) / 2 - mat_at(w, inset, dx, cx)) <= 1.5
+        assert abs((ys.min() + ys.max()) / 2 - mat_at(h, inset, dy, cy)) <= 1.5

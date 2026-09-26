@@ -13,7 +13,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Optional
 
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 from .. import paths
 from . import theme, typography
@@ -41,33 +41,56 @@ def sans_width(text: str, size: int) -> float:
     return sans(size).getlength(text)
 
 
-# -- icons, ported from the bake so the two sides match ------------------------
-def _slash(d: ImageDraw.ImageDraw, cx: float, cy: float, s: float, ink: int, paper: int) -> None:
-    d.line([(cx - s, cy + s), (cx + s, cy - s)], fill=paper, width=max(4, int(s * 0.7)))
-    d.line([(cx - s, cy + s), (cx + s, cy - s)], fill=ink, width=max(2, int(s * 0.3)))
+# -- icons -------------------------------------------------------------------
+# One drawer for every icon on a pill, the server's and the bake's
+# (bake_screens.py calls it), so both sides match. Each is drawn four times
+# over and cut to ink or paper: at pill size a thin arc or a slash's casing
+# otherwise breaks up, and a two-tone icon never dithers.
+_ICON_SS = 4
 
 
-def wifi_glyph(d: ImageDraw.ImageDraw, cx: float, cy: float, s: float, ink: int) -> None:
-    for rad in (s, s * 0.62, s * 0.30):
-        d.arc([cx - rad, cy - rad, cx + rad, cy + rad], 225, 315,
-              fill=ink, width=max(2, int(s * 0.12)))
-    d.ellipse([cx - s * 0.07, cy - s * 0.07, cx + s * 0.07, cy + s * 0.07], fill=ink)
+def _glyph(d: ImageDraw.ImageDraw, kind: str, c: float, s: float) -> None:
+    cx = cy = c
+    if kind == "wifi":
+        oy = cy + s * 0.78                        # the fan's point
+        for rad in (s * 1.45, s * 0.92):
+            d.arc([cx - rad, oy - rad, cx + rad, oy + rad], 222, 318, fill=0, width=int(s * 0.3))
+        r = s * 0.24
+        d.ellipse([cx - r, oy - r * 2.1, cx + r, oy - r * 0.1], fill=0)
+    elif kind == "cloud":
+        for (x, y, r) in ((-0.55, 0.12, 0.40), (0.0, -0.2, 0.55), (0.58, 0.14, 0.38)):
+            d.ellipse([cx + (x - r) * s, cy + (y - r) * s, cx + (x + r) * s, cy + (y + r) * s], fill=0)
+        d.rounded_rectangle([cx - 0.78 * s, cy + 0.05 * s, cx + 0.85 * s, cy + 0.52 * s],
+                            radius=0.24 * s, fill=0)
+    elif kind == "battery":                       # nearly empty: one sliver of charge
+        w, h, lw = s * 2.0, s * 1.1, s * 0.2
+        x0, y0 = cx - w / 2 - s * 0.1, cy - h / 2
+        d.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=s * 0.25, outline=0, width=int(lw))
+        d.rounded_rectangle([x0 + w + s * 0.05, cy - h * 0.24, x0 + w + s * 0.3, cy + h * 0.24],
+                            radius=s * 0.08, fill=0)
+        g = lw + s * 0.14
+        d.rectangle([x0 + g, y0 + g, x0 + g + w * 0.16, y0 + h - g], fill=0)
+    if kind in ("wifi", "cloud"):                 # the slash, cased in paper
+        a, b = (cx - s * 0.9, cy - s * 0.9), (cx + s * 0.9, cy + s * 0.9)
+        d.line([a, b], fill=255, width=int(s * 0.5))
+        d.line([a, b], fill=0, width=int(s * 0.2))
 
 
-def cloud_slash(d: ImageDraw.ImageDraw, cx: float, cy: float, s: float, ink: int, paper: int) -> None:
-    lobes = [(cx - 0.52 * s, cy + 0.10 * s, 0.38 * s),
-             (cx + 0.02 * s, cy - 0.18 * s, 0.52 * s),
-             (cx + 0.55 * s, cy + 0.12 * s, 0.36 * s)]
-    for (x, y, r) in lobes:
-        d.ellipse([x - r, y - r, x + r, y + r], fill=ink)
-    d.rounded_rectangle([cx - 0.72 * s, cy + 0.05 * s, cx + 0.80 * s, cy + 0.48 * s],
-                        radius=int(0.2 * s), fill=ink)
-    _slash(d, cx, cy, s * 0.95, ink, paper)
+def draw_icon(im: Image.Image, kind: str, cx: float, cy: float, s: float,
+         ink: int = 0) -> None:
+    """A slashed "wifi" or "cloud", or a low "battery", in `ink`, centred on
+    (cx, cy), `s` its half-size. What the glyph leaves (the slash's casing) is
+    not drawn at all, so the pill's own colour shows through."""
+    half = int(s * 1.5) + 2
+    big = Image.new("L", (half * 2 * _ICON_SS,) * 2, 255)
+    _glyph(ImageDraw.Draw(big), kind, half * _ICON_SS, s * _ICON_SS)
+    mask = big.resize((half * 2,) * 2, Image.LANCZOS).point(lambda v: 255 if v < 128 else 0)
+    x, y = int(round(cx)) - half, int(round(cy)) - half
+    fill = ink if im.mode == "L" else (ink,) * len(im.getbands())
+    im.paste(fill, (x, y, x + half * 2, y + half * 2), mask)
 
 
-def wifi_slash(d: ImageDraw.ImageDraw, cx: float, cy: float, s: float, ink: int, paper: int) -> None:
-    wifi_glyph(d, cx, cy + s * 0.55, s, ink)
-    _slash(d, cx, cy, s * 0.78, ink, paper)
+ICON_OF_PILL = 0.33                               # an icon's half-size, of the pill's height
 
 
 # -- the pill ----------------------------------------------------------------
@@ -97,11 +120,7 @@ def pill(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, *,
     fg, bg = paper, ink
     x = x0 + pad
     if icon:
-        icx, s = x + icon_slot / 2, h * 0.27
-        if icon == "wifi":
-            wifi_slash(d, icx, cy, s, fg, bg)
-        else:
-            cloud_slash(d, icx, cy, s, fg, bg)
+        draw_icon(d._image, icon, x + icon_slot / 2, cy, h * ICON_OF_PILL, fg)
         x += icon_slot + gap
     cap = fnt.getbbox("H")
     baseline = cy + (cap[3] - cap[1]) / 2

@@ -139,38 +139,6 @@ def draw_loader_mark(draw, cx, cy, frame=0):
         if k != frame:
             diamond(draw, x, cy, LOADER_R - 2.2, fill=0)
 
-def slash(draw, cx, cy, s, fg=0, bg=255):
-    # a casing in the pill's own colour under the stroke, so the slash reads
-    # over any glyph
-    draw.line([(cx - s, cy + s), (cx + s, cy - s)], fill=bg, width=min(14, round(s * 0.9)))
-    draw.line([(cx - s, cy + s), (cx + s, cy - s)], fill=fg, width=min(6, max(3, round(s * 0.4))))
-
-def wifi_slash(draw, cx, cy, s, fg=0, bg=255):
-    wifi_glyph(draw, cx, cy + s * 0.55, s, fill=fg)
-    slash(draw, cx, cy, s * 0.78, fg, bg)
-
-def cloud_slash(draw, cx, cy, s, fg=0, bg=255):
-    # A solid cloud (union of lobes over a flat base) reads at small sizes
-    # where an outlined rack of boxes turns to mush.
-    lobes = [(cx - 0.52 * s, cy + 0.10 * s, 0.38 * s),
-             (cx + 0.02 * s, cy - 0.18 * s, 0.52 * s),
-             (cx + 0.55 * s, cy + 0.12 * s, 0.36 * s)]
-    for (x, y, r) in lobes:
-        draw.ellipse([x - r, y - r, x + r, y + r], fill=fg)
-    draw.rounded_rectangle([cx - 0.72 * s, cy + 0.05 * s, cx + 0.80 * s, cy + 0.48 * s],
-                           radius=int(0.2 * s), fill=fg)
-    slash(draw, cx, cy, s * 0.95, fg, bg)
-
-def battery_low(draw, cx, cy, s, fg=0):
-    """A nearly empty cell: outlined body, terminal nub, one sliver of charge."""
-    w, h = s * 2.1, s * 1.15
-    x0, y0 = cx - w / 2 - 2, cy - h / 2
-    lw, gap = max(2, round(s * 0.18)), max(3, round(s * 0.36))
-    draw.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=max(2, round(s * 0.27)), outline=fg, width=lw)
-    draw.rounded_rectangle([x0 + w + 1, cy - h * 0.22, x0 + w + max(3, round(s * 0.27)), cy + h * 0.22],
-                           radius=1, fill=fg)
-    draw.rectangle([x0 + gap, y0 + gap, x0 + gap + w * 0.16, y0 + h - gap], fill=fg)
-
 def new_canvas():
     c = Image.new("L", (W, H), 255)
     return c, ImageDraw.Draw(c)
@@ -376,7 +344,8 @@ PILL_PAD = round(system.NOTE_PAD * REF_SCALE)
 PILL_GAP = round(PILL_PAD * 0.6)
 PILL_TEXT_SIZE = round(system.NOTE_TEXT * REF_SCALE)
 PILL_Y = round(PILL_CY - PILL_H / 2)
-ICON_S = round(PILL_H * 0.27)          # a slashed icon's half-size in the pill
+ICON_S = round(PILL_H * system.ICON_OF_PILL)   # an icon's half-size in the pill
+icon = system.draw_icon                  # the server's icons, so both sides match
 
 def band(y0, y1):
     """An upright row band widened to whole 8 px: under the gray panel's turn
@@ -548,10 +517,23 @@ RETRY_SIZE = PILL_TEXT_SIZE
 # full-bleed — so art may bleed under the mat, type must stay inside
 # (usable bottom ≈ 1797, right ≈ 1348).
 RETRY_BASELINE = PILL_Y - 18          # over the pill: the pill is on the footer line
-CORNER_CX, CORNER_CY, CORNER_S = 1290, 1742, 26
 
-def _err_icon(kind):
-    return wifi_slash if kind == "wifi" else cloud_slash
+# The offline mark: the black pill as a circle, in the plate number's place
+# on the footer line, over a white box as wide as the widest plate number.
+CORNER_R = (W - round(W * REF_SCALE)) // 2 + (W - theme.CORNER_INSET) * REF_SCALE
+CORNER_PILL_W = round(PILL_H * 1.25)
+CORNER_BOX = (round(CORNER_R - typography.plate_mark_max_width() * REF_SCALE - 10),
+              round(CORNER_R + 6))
+
+def _draw_corner(d, kind):
+    d.rectangle([CORNER_BOX[0], PILL_Y - 6, CORNER_BOX[1], PILL_Y + PILL_H + 6], fill=255)
+    d.rounded_rectangle([CORNER_R - CORNER_PILL_W, PILL_Y, CORNER_R, PILL_Y + PILL_H],
+                        radius=PILL_H / 2, fill=0)
+    icon(d._image, kind, CORNER_R - CORNER_PILL_W / 2, PILL_Y + PILL_H / 2, ICON_S, 255)
+
+def _corner_assets(window):
+    corners = [_canvas(lambda d: _draw_corner(d, "wifi")), _canvas(lambda d: _draw_corner(d, "cloud"))]
+    return corners, window(corners, *band(PILL_Y - 6, PILL_Y + PILL_H + 6), span=CORNER_BOX)
 
 def _draw_error_pill(d, text, kind):
     fnt = sans(PILL_TEXT_SIZE)
@@ -561,7 +543,7 @@ def _draw_error_pill(d, text, kind):
     cy = PILL_Y + PILL_H / 2
     d.rounded_rectangle([px, PILL_Y, px + pillw, PILL_Y + PILL_H],
                         radius=PILL_H / 2, fill=0)
-    _err_icon(kind)(d, px + PILL_PAD + ERR_ICON_SLOT / 2, cy, ICON_S, fg=255, bg=0)
+    icon(d._image, "wifi" if kind == "wifi" else "cloud", px + PILL_PAD + ERR_ICON_SLOT / 2, cy, ICON_S, 255)
     capbox = fnt.getbbox("H")
     d.text((px + PILL_PAD + ERR_ICON_SLOT + PILL_GAP, cy + (capbox[3] - capbox[1]) / 2),
            text, font=fnt, fill=255, anchor="ls")
@@ -589,9 +571,12 @@ def _ink_cols(im, ry0, ry1):
     cols = np.where((a < 250).any(axis=0))[0]
     return (int(cols.min()), int(cols.max())) if len(cols) else (W // 2, W // 2)
 
-def _aligned_region(canvases, ry0, ry1, pad=8):
-    x0 = min(_ink_cols(c, ry0, ry1)[0] for c in canvases) - pad
-    x1 = max(_ink_cols(c, ry0, ry1)[1] for c in canvases) + pad
+def _aligned_region(canvases, ry0, ry1, pad=8, span=None):
+    """The window over the canvases' ink in these rows, or over `span`
+    (x0, x1) for a tile whose white is part of it."""
+    x0, x1 = span if span else (min(_ink_cols(c, ry0, ry1)[0] for c in canvases),
+                                max(_ink_cols(c, ry0, ry1)[1] for c in canvases))
+    x0, x1 = x0 - pad, x1 + pad
     x0 &= ~7; x1 = (x1 + 8) & ~7
     return x0, ry0, x1 - x0, ry1 - ry0
 
@@ -624,9 +609,7 @@ def error_assets():
     rband = _aligned_region(retries, *band(RETRY_BASELINE - 22, RETRY_BASELINE + 6))
     retry_geo, retry_tiles = _region_tiles(rband, retries + [Image.new("L", (W, H), 255)])
 
-    corners = [_canvas(lambda d: wifi_slash(d, CORNER_CX, CORNER_CY, CORNER_S)),
-               _canvas(lambda d: cloud_slash(d, CORNER_CX, CORNER_CY, CORNER_S))]
-    cband = _aligned_region(corners, 1688, 1792)
+    corners, cband = _corner_assets(_aligned_region)
     corner_geo, corner_tiles = _region_tiles(cband, corners + [Image.new("L", (W, H), 255)])
     return ((err_geo, err_tiles), (retry_geo, retry_tiles), (corner_geo, corner_tiles))
 
@@ -665,7 +648,7 @@ def _draw_toast(d, text, style):
         px = int(W / 2 - pillw / 2)
         d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
                             radius=PILL_H / 2, fill=0)
-        cloud_slash(d, px + PILL_PAD + ERR_ICON_SLOT / 2, cy, ICON_S, fg=255, bg=0)
+        icon(d._image, "cloud", px + PILL_PAD + ERR_ICON_SLOT / 2, cy, ICON_S, 255)
         d.text((px + PILL_PAD + ERR_ICON_SLOT + PILL_GAP, baseline), text, font=fnt, fill=255, anchor="ls")
         return None
     if style == "battery":
@@ -675,7 +658,7 @@ def _draw_toast(d, text, style):
         px = int(W / 2 - pillw / 2)
         d.rounded_rectangle([px, TOAST_Y, px + pillw, TOAST_Y + PILL_H],
                             radius=PILL_H / 2, fill=0)
-        battery_low(d, px + PILL_PAD + ERR_ICON_SLOT / 2, cy, ICON_S, fg=255)
+        icon(d._image, "battery", px + PILL_PAD + ERR_ICON_SLOT / 2, cy, ICON_S, 255)
         d.text((px + PILL_PAD + ERR_ICON_SLOT + PILL_GAP, baseline), text, font=fnt, fill=255, anchor="ls")
         return None
     if style == "wifi":
@@ -721,7 +704,7 @@ def toast_assets():
                for c, ctr in zip(canvases, centers)]
     return geo, tiles, loaders
 
-def _mat_macros(up_w, up_h, foot_cy, native):
+def _mat_macros(up_w, up_h, foot_cy, foot_rx, native):
     """Where the footer line is and how an upright shift lands in native
     coords, so the firmware can move a toast by the frame's own mat. `native`
     maps an upright window (x, y, w, h) to its native one."""
@@ -735,6 +718,7 @@ def _mat_macros(up_w, up_h, foot_cy, native):
             f"#define FF_UP_W           {up_w}   // upright panel px, as the mat is applied",
             f"#define FF_UP_H           {up_h}",
             f"#define FF_FOOT_CY        {foot_cy:.2f}f   // footer line centre, no mat",
+            f"#define FF_FOOT_RX        {foot_rx:.2f}f   // the plate number's right edge, no mat",
             "// An upright step of +1 x / +1 y, in native x and y.",
             f"#define FF_UPX_NX         {unit(base[0], sx[0])}",
             f"#define FF_UPX_NY         {unit(base[1], sx[1])}",
@@ -792,7 +776,7 @@ def write_header():
          f"#define FF_CORNER_H       {corner_geo[3]}", "",
          "// Button toasts, baked in the boot-pill style at the toast position",
          "// over the plate's bottom margin. FF_TOAST_BLANK erases the band.",
-         *_mat_macros(W, H, system.NOTE_CY, lambda r: _region_tiles(r, [])[0]),
+         *_mat_macros(W, H, system.NOTE_CY, W - theme.CORNER_INSET, lambda r: _region_tiles(r, [])[0]),
          f"#define FF_TOAST_X        {toast_geo[0]}",
          f"#define FF_TOAST_Y        {toast_geo[1]}",
          f"#define FF_TOAST_W        {toast_geo[2]}",
@@ -1080,8 +1064,8 @@ class Target:
     # the sheet. A window is byte-aligned in the NATIVE canvas (even x, even
     # width) so a row lands with one memcpy. The in-progress toasts are not
     # baked: on a slow panel they would land after the answer they announce.
-    def window(self, canvases, ry0, ry1, pad=8):
-        x0, y0, w, h = _aligned_region(canvases, ry0, ry1, pad)
+    def window(self, canvases, ry0, ry1, pad=8, span=None):
+        x0, y0, w, h = _aligned_region(canvases, ry0, ry1, pad, span)
         s, (ox, oy) = self.scale, self.at
         ex0, ey0 = (ox + int(x0 * s)) & ~1, oy + int(y0 * s)
         ex1, ey1 = (ox + int(np.ceil((x0 + w) * s)) + 1) & ~1, oy + int(np.ceil((y0 + h) * s))
@@ -1108,9 +1092,7 @@ class Target:
             toasts.append(None if style == "progress" else im)
         drawn = [c for c in toasts if c is not None]
         twin = self.window(drawn, PILL_Y - 8, PILL_Y + PILL_H + 8)
-        corners = [_canvas(lambda d: wifi_slash(d, CORNER_CX, CORNER_CY, CORNER_S)),
-                   _canvas(lambda d: cloud_slash(d, CORNER_CX, CORNER_CY, CORNER_S))]
-        cwin = self.window(corners, 1688, 1792)
+        corners, cwin = _corner_assets(self.window)
         return (self.native_window(twin), [c and self.tile(c, twin) for c in toasts],
                 self.native_window(cwin), [self.tile(c, cwin) for c in corners])
 
@@ -1165,7 +1147,8 @@ def write_header_full(t):
     L += ["// Stamp tiles (PackBits, black/white ink codes, native coords): the firmware",
           "// blits one into its retained plate and repaints the glass. A toast with no",
           "// data (the in-progress ones) is not drawn on this panel.",
-          *_mat_macros(t.w, t.h, t.at[1] + system.NOTE_CY * t.scale, t.native_window),
+          *_mat_macros(t.w, t.h, t.at[1] + system.NOTE_CY * t.scale,
+                       t.at[0] + (W - theme.CORNER_INSET) * t.scale, t.native_window),
           f"#define FF_TOAST_X        {twin[0]}", f"#define FF_TOAST_Y        {twin[1]}",
           f"#define FF_TOAST_W        {twin[2]}", f"#define FF_TOAST_H        {twin[3]}",
           "// ff_corner_tiles: 0 = slashed wifi, 1 = slashed server",

@@ -379,6 +379,7 @@ static bool validMat(const String& m) {
 // it lands under the frame's own mat. Upright panel px, as the server's
 // pipeline._apply_mat_inset has them; a native x step stays whole bytes.
 static int g_toastX = FF_TOAST_X, g_toastY = FF_TOAST_Y;
+static int g_cornerX = FF_CORNER_X, g_cornerY = FF_CORNER_Y;   // the offline mark, same line
 static float matAt(float size, float inset, float off, float at) {
   const float s = 1.0f - inset / 50.0f;
   return floorf((size - lroundf(size * s)) / 2.0f) + off + at * s;
@@ -391,6 +392,10 @@ static void placeToast() {
   const float dy = matAt(FF_UP_H, inset, my, FF_FOOT_CY) - matAt(FF_UP_H, FF_REF_INSET, 0, FF_FOOT_CY);
   g_toastX = constrain(FF_TOAST_X + roundTo(dx * FF_UPX_NX + dy * FF_UPY_NX, 8), 0, FF_NATIVE_W - FF_TOAST_W);
   g_toastY = constrain(FF_TOAST_Y + roundTo(dx * FF_UPX_NY + dy * FF_UPY_NY, 2), 0, FF_NATIVE_H - FF_TOAST_H);
+  // The offline mark takes the plate number's place: it follows the corner.
+  const float rx = matAt(FF_UP_W, inset, mx, FF_FOOT_RX) - matAt(FF_UP_W, FF_REF_INSET, 0, FF_FOOT_RX);
+  g_cornerX = constrain(FF_CORNER_X + roundTo(rx * FF_UPX_NX + dy * FF_UPY_NX, 8), 0, FF_NATIVE_W - FF_CORNER_W);
+  g_cornerY = constrain(FF_CORNER_Y + roundTo(rx * FF_UPX_NY + dy * FF_UPY_NY, 2), 0, FF_NATIVE_H - FF_CORNER_H);
 }
 static inline uint8_t swapNibbles(uint8_t b) { return (uint8_t)((b << 4) | (b >> 4)); }
 static void rotate180(uint8_t* buf, size_t n) {
@@ -501,7 +506,7 @@ void showErrorState(int kind) {
              g_failCount >= FF_MARK_FAILS && g_failMinutes >= FF_MARK_MINUTES) {
     uint8_t mark = (kind == ERRK_WIFI) ? 1 : 2;
     if (g_cornerMark != mark) {
-      pushTile(ff_corner_tiles[mark - 1], FF_CORNER_X, FF_CORNER_Y, FF_CORNER_W, FF_CORNER_H);
+      pushTile(ff_corner_tiles[mark - 1], g_cornerX, g_cornerY, FF_CORNER_W, FF_CORNER_H);
       g_cornerMark = mark;
     }
   }
@@ -511,9 +516,9 @@ void showErrorState(int kind) {
 // plate, so the mark needs an explicit wipe) and reset the accounting.
 void noteSuccess() {
   if (g_cornerMark) {
-    pushTile(ff_corner_tiles[2], FF_CORNER_X, FF_CORNER_Y, FF_CORNER_W, FF_CORNER_H);
+    pushTile(ff_corner_tiles[2], g_cornerX, g_cornerY, FF_CORNER_W, FF_CORNER_H);
     g_cornerMark = 0;
-    // The mark's box white-washed a corner of the plate; drop the ETag so the
+    // The mark's box white-washed the plate number; drop the ETag so the
     // next fetch repaints the whole glass instead of 304-ing over the scar.
     g_etag[0] = 0;
     prefs.putString("etag", "");
@@ -1053,7 +1058,7 @@ static bool paintPlate() {
   if (!body) { Serial.println("stamp: no buffer"); return false; }
   memcpy(body, g_lastFrame, FF_SCREEN_BYTES);
   if (g_cornerMark)
-    stampTile(body, ff_corner_tiles[g_cornerMark - 1], FF_CORNER_X, FF_CORNER_Y, FF_CORNER_W, FF_CORNER_H);
+    stampTile(body, ff_corner_tiles[g_cornerMark - 1], g_cornerX, g_cornerY, FF_CORNER_W, FF_CORNER_H);
   if (toast)
     stampTile(body, ff_toast_tiles[g_toastId], g_toastX, g_toastY, FF_TOAST_W, FF_TOAST_H);
   fullPaint(body);

@@ -11,10 +11,9 @@
 //             the panel's does, rather than blinking. About a second.
 //   spectra6  the 13.3" Spectra 6 colour panel, at its own 27.2 s: the old
 //             picture driven out, the new one's negative in slate blue, a
-//             low-contrast positive, a yellow wash, the sheet shaken between
-//             silhouette and negative, then the inks in the order they
-//             arrive — red while blue and green are still dark, a long dull
-//             stretch as they come up, and it settles.
+//             low-contrast positive, a yellow wash, one soft pulse, then the
+//             inks in the order they arrive — red while blue and green are
+//             still dark, a long dull stretch as they come up, and it settles.
 //
 // A phase maps the ink each pixel is headed for (or came from) to the colour
 // it shows during that phase, so regions bound for different inks pass
@@ -160,50 +159,37 @@ const WAVEFORMS: Record<Waveform, WaveformSpec> = {
     // The panel's own pace: 27.2 s of drive, as benched on the 13.3" (19 Sep 2026).
     // The first four seconds follow the bench (the new picture's negative, slate
     // blue on dim white, by 1–2 s; a low-contrast positive by 3–3.5 s; the yellow
-    // phase from 4 s); the rest is the inks arriving in turn, with the sheet
-    // shaken between them, and a long dull stretch before it settles.
-    blend: 180,
+    // phase from 4 s); after that the sheet is calm: one soft pulse, then the inks
+    // come up in turn, slowly, and it settles.
+    blend: 420,
     // No per-pixel spread: the panel drives its whole sheet at once, so each
-    // phase change is a global flash over `blend` ms, not a jittered one.
+    // phase change is a global crossing over `blend` ms, not a jittered one.
     spread: 0,
     // map order: K W R Y B G
     phases: [
       // the old picture driven out: its negative, colours to their opposite inks
       { ms: 500, from: 'old', map: [W, K, G, B, Y, R] },
-      { ms: 400, from: 'old', map: all(mix(K, W, 0.2)) },
+      { ms: 450, from: 'old', map: all(mix(K, W, 0.25)) },
       // the new picture's negative: slate blue on dim white
       { ms: 1500, from: 'new', map: [DIM_W, SLATE, DIM_W, SLATE, DIM_W, DIM_W] },
       // a low-contrast positive: blue for black, gray for white. The picture is
       // first itself here, so a viewer recognises it from this phase on.
       { ms: 1600, from: 'new', map: [BLUE_K, GRAY_W, mix(BLUE_K, R, 0.4), GRAY_W, BLUE_K, BLUE_K], arrives: true },
-      // the yellow phase: every light ink washed yellow, the darks still blue
-      { ms: 2200, from: 'new', map: [mix(K, B, 0.4), mix(W, Y, 0.5), Y, Y, mix(K, B, 0.5), mix(Y, G, 0.3)] },
-      // the shake: the picture's silhouette and its negative, back and forth
-      { ms: 450, from: 'new', map: [K, W, K, W, K, K] },
-      { ms: 450, from: 'new', map: [W, K, W, K, W, W] },
-      { ms: 450, from: 'new', map: [K, W, K, W, K, K] },
-      { ms: 450, from: 'new', map: [W, K, W, K, W, W] },
-      { ms: 450, from: 'new', map: [K, W, K, W, K, K] },
-      { ms: 450, from: 'new', map: [W, K, W, K, W, W] },
+      // the yellow phase: the light inks washed yellow, the darks still blue
+      { ms: 2400, from: 'new', map: [mix(K, B, 0.4), mix(W, Y, 0.45), mix(Y, R, 0.3), Y, mix(K, B, 0.5), mix(Y, G, 0.3)] },
+      // one soft pulse: toward the silhouette and back, never to full black or white
+      { ms: 700, from: 'new', map: [mix(K, W, 0.2), mix(W, K, 0.12), mix(K, W, 0.25), mix(W, K, 0.12), mix(K, W, 0.2), mix(K, W, 0.2)] },
+      { ms: 700, from: 'new', map: [mix(W, K, 0.25), mix(K, W, 0.35), mix(W, K, 0.3), mix(K, W, 0.4), mix(W, K, 0.25), mix(W, K, 0.25)] },
       // the red lands while blue and green are still dark
-      { ms: 2600, from: 'new', map: [mix(K, B, 0.3), mix(W, Y, 0.25), R, Y, mix(K, B, 0.4), mix(K, G, 0.4)] },
-      // a washed-out yellow flicker as the blue is pulled through
-      { ms: 400, from: 'new', map: [mix(K, R, 0.35), mix(W, Y, 0.55), Y, W, mix(K, B, 0.5), mix(Y, G, 0.5)] },
-      // everything dark while blue and green build
-      { ms: 3000, from: 'new', map: [K, mix(W, K, 0.18), mix(R, K, 0.25), mix(Y, K, 0.15), mix(B, K, 0.65), mix(G, K, 0.65)] },
-      // a second, slower shake
-      { ms: 500, from: 'new', map: [mix(K, W, 0.5), W, mix(R, W, 0.5), mix(Y, W, 0.5), mix(B, W, 0.5), mix(G, W, 0.5)] },
-      { ms: 500, from: 'new', map: [K, mix(W, K, 0.18), mix(R, K, 0.25), mix(Y, K, 0.15), mix(B, K, 0.65), mix(G, K, 0.65)] },
-      { ms: 500, from: 'new', map: [mix(K, W, 0.5), W, mix(R, W, 0.5), mix(Y, W, 0.5), mix(B, W, 0.5), mix(G, W, 0.5)] },
-      { ms: 500, from: 'new', map: [K, mix(W, K, 0.18), mix(R, K, 0.25), mix(Y, K, 0.15), mix(B, K, 0.65), mix(G, K, 0.65)] },
+      { ms: 3000, from: 'new', map: [mix(K, B, 0.25), mix(W, Y, 0.2), R, Y, mix(K, B, 0.35), mix(K, G, 0.35)] },
+      // everything a little dark while blue and green build
+      { ms: 3500, from: 'new', map: [K, mix(W, K, 0.15), mix(R, K, 0.2), mix(Y, K, 0.12), mix(B, K, 0.55), mix(G, K, 0.55)] },
       // blue and green arrive, dull, and take their time
-      { ms: 5630, from: 'new', map: [K, mix(W, K, 0.1), R, Y, mix(B, K, 0.4), mix(G, K, 0.4)] },
-      // one last light flicker…
-      { ms: 400, from: 'new', map: [mix(K, W, 0.5), W, mix(R, W, 0.5), mix(Y, W, 0.5), mix(B, W, 0.5), mix(G, W, 0.5)] },
+      { ms: 7000, from: 'new', map: [K, mix(W, K, 0.08), R, Y, mix(B, K, 0.35), mix(G, K, 0.35)] },
       // …nearly there…
-      { ms: 3000, from: 'new', map: [K, mix(W, K, 0.05), R, Y, mix(B, K, 0.15), mix(G, K, 0.15)] },
+      { ms: 4790, from: 'new', map: [K, mix(W, K, 0.03), R, Y, mix(B, K, 0.12), mix(G, K, 0.12)] },
       // …and it settles
-      { ms: 800, from: 'new', settled: true },
+      { ms: 850, from: 'new', settled: true },
     ],
   },
 };

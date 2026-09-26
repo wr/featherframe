@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('social card and search basics', async ({ page, request }) => {
   await page.goto('/');
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://featherframe.app/img/og.jpg');
-  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Featherframe — the birds you hear, illustrated');
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Featherframe: Let the outside in.');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://featherframe.app/');
   expect((await request.get('/robots.txt')).ok()).toBe(true);
   expect((await request.get('/sitemap.xml')).ok()).toBe(true);
@@ -15,7 +15,8 @@ test('the page loads without console errors', async ({ page }) => {
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/');
   await expect(page).toHaveTitle('Featherframe — the birds you hear, illustrated · Wells Workshop');
-  await expect(page.locator('.head .brand .by')).toHaveText('by Wells Workshop');
+  await expect(page.locator('.head .brand .by')).toHaveText('by');
+  await expect(page.locator('.head .brand .by svg')).toHaveAttribute('aria-label', 'Wells Workshop');
   await expect(page.locator('.head .word')).toHaveText('Featherframe');
   expect(errors).toEqual([]);
 });
@@ -26,7 +27,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('h1')).toHaveCount(1);
   for (const id of ['art', 'how', 'collage', 'specs', 'faq']) await expect(page.locator(`section#${id}`)).toBeVisible();
   await expect(page.locator('section#sizes')).toHaveCount(0);
-  await expect(page.locator('.head nav a')).toHaveText(['The art', 'How it works', 'Details', 'Questions', 'Pre-order']);
+  await expect(page.locator('.head nav a')).toHaveText(['The art', 'How it works', 'Details', 'FAQ', 'Pre-order']);
   expect(await page.locator('.head nav a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual(
     ['#art', '#how', '#specs', '#faq', 'https://shop.wells.ee/products/featherframe/']);
   await expect(page.locator('#art h2')).toHaveText('More than 1,300 species, each painted by hand.');
@@ -55,8 +56,8 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('body')).not.toContainText('Reserve');
   await expect(page.locator('body')).not.toContainText('November');
   await expect(page.locator('.cover .copy p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
-  for (const sel of ['meta[name="description"]', 'meta[property="og:description"]'])
-    await expect(page.locator(sel)).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription. From $349. Ships in time for the holidays.');
   // no exploded drawing anywhere: the reservation is its headline, line and button
   await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
   await expect(page.locator('.close > *')).toHaveCount(3);
@@ -71,11 +72,12 @@ test('every section and its key copy is there', async ({ page }) => {
     ['Spring7 April 2026', 'Summer1 June 2026', 'Fall23 September 2026', 'Winter16 February 2026']);
   await expect(page.locator('#collage .season img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
   await expect(page.locator('#faq dt')).toHaveText([
-    'Do I need Wi-Fi?', 'Is there a listening station near me?', 'Does it work outside North America?',
+    'Does it make a good gift?', 'Do I need Wi-Fi?', 'Do I need to run BirdNET locally?', 'Does it work outside North America?',
     'What if a species near me was never illustrated?', 'Do the collages need AI?', 'What is hosting, and what does it cost?', 'Is my data private?']);
-  await expect(page.locator('#faq dd').nth(1)).toHaveText('Probably. BirdWeather has listening stations across North America, Europe and beyond, and the frame can use any of them. If none is close, choose one near a place you love, or add your own.');
-  await expect(page.locator('#faq dd').nth(2)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
-  await expect(page.locator('#faq dd').nth(4)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration turned on, the day’s species are painted together in one scene, marked ✦.');
+  await expect(page.locator('#faq dd').nth(0)).toHaveText('Yes. Nothing needs setting up before you wrap it. The person you give it to connects it to their Wi-Fi and chooses a listening station, all from their phone. It ships in time for the holidays.');
+  await expect(page.locator('#faq dd').nth(2)).toHaveText('No. The frame can use any public BirdWeather station, and there are stations across North America, Europe and beyond. If none is close, choose one near a place you love. To see the birds in your own yard, you can add a station of your own.');
+  await expect(page.locator('#faq dd').nth(3)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
+  await expect(page.locator('#faq dd').nth(5)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration turned on, the day’s species are painted together in one scene, marked ✦.');
   await expect(page.locator('#faq')).not.toContainText('OpenAI key');
   await expect(page.locator('#keep-posted .form-why')).toHaveText("Not ready to order? We'll write once, when the frames ship.");
   await expect(page.locator('.cat figure')).toHaveCount(12);
@@ -982,7 +984,7 @@ test('each chapter opens with an eyebrow, not a numbered rule', async ({ page })
     g.remove();
     return out;
   });
-  expect(size).toBe('12px');
+  expect(size).toBe('13px');
   expect(colour).toBe(graphite);
   expect(await page.locator('body').innerText()).not.toMatch(/\b(I|II|III|IV|V|VI)\. /);
   // the collection's sticky row keeps its switch

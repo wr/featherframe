@@ -43,7 +43,7 @@
 html { font-kerning: normal; overflow-x: clip; }
 body {
   margin: 0; background: var(--paper); color: var(--ink);
-  font: 400 19px/1.55 var(--serif); font-variant-numeric: oldstyle-nums proportional-nums;
+  font: 400 21px/1.55 var(--serif); font-variant-numeric: oldstyle-nums proportional-nums;
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
@@ -51,7 +51,7 @@ img { display: block; max-width: 100%; height: auto; }
 figure { margin: 0; }
 h2 { font-weight: 400; text-wrap: balance; }
 .it { font-style: italic; }
-.sc { font-family: var(--caps); text-transform: uppercase; letter-spacing: .22em; font-size: 11.5px; line-height: 1.35; }
+.sc { font-family: var(--caps); text-transform: uppercase; letter-spacing: .22em; font-size: 12.5px; line-height: 1.35; }
 .ul { border-bottom: 1px solid var(--hair); }
 .ul:hover { border-color: var(--ink); }
 
@@ -71,10 +71,10 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* each chapter's eyebrow: small capitals in graphite, no number, no rule;
    set right above its headline, as one unit with it */
 .folio:has(+ h2) { margin-bottom: 16px; }
-.eyebrow { font: 12px/1.35 var(--caps); letter-spacing: .22em; text-transform: uppercase; color: var(--graphite); }
-.folio .n { font: italic 15px var(--serif); color: var(--graphite); }
+.eyebrow { font: 13px/1.35 var(--caps); letter-spacing: .22em; text-transform: uppercase; color: var(--graphite); }
+.folio .n { font: italic 17px var(--serif); color: var(--graphite); }
 .mega, .spread h2, .close .big { font-size: var(--display); line-height: .9; letter-spacing: -.035em; }
-.lede { font-size: 24px; line-height: 1.42; margin: 0; }
+.lede { font-size: 26px; line-height: 1.42; margin: 0; }
 .intro2 { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin-top: 40px; }
 .intro2 .lede { grid-column: 7 / 13; }
 /* the flight from the wall to the table passes down the right: the lede keeps to the left, as the closing one does */
@@ -92,8 +92,10 @@ h2 { font-weight: 400; text-wrap: balance; }
 .head .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 .head .word { font: 32px/1 var(--script); }
 .head .brand .by { color: var(--graphite); white-space: nowrap; }
-.head .brand .ww { display: inline-flex; align-items: baseline; gap: .5em; }
-.head .brand .mark { height: .95em; width: auto; align-self: center; transform: translateY(-.04em); }
+/* Wells Workshop's own lockup, as the shop draws it: the mark and its Inter wordmark, outlined. */
+.head .brand .by { display: inline-flex; align-items: center; gap: 10px; }
+.head .brand .ww-logo { height: 18px; width: auto; transform: translateY(-1px);
+  color: color-mix(in srgb, #f2f1ec calc(var(--night) * 100%), #1b1e23); }
 .head nav { display: flex; gap: 30px; align-items: center; }
 .head nav a.sc { color: var(--graphite); }
 .head nav a.sc:hover { color: var(--ink); }
@@ -131,9 +133,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 .stage.live canvas { opacity: 1; }
 .stage.live .poster { opacity: 0; transition: opacity .6s ease; }
 .cover .copy { position: absolute; left: 0; bottom: 6%; z-index: 2; width: 40%; }
-.cover .copy p { font-size: 22px; line-height: 1.42; margin: 0 0 26px; text-wrap: pretty; }
+.cover .copy p { font-size: 24px; line-height: 1.42; margin: 0 0 26px; text-wrap: pretty; }
 .cta { display: flex; align-items: center; gap: 20px; }
-.cta .it { color: var(--graphite); font-size: 18px; }
+.cta .it { color: var(--graphite); font-size: 20px; }
 
 /* I. The art: a spread, the frame showing the flamingo in its left half,
    pinned there, centred below the running head, while the text scrolls past. */
@@ -146,9 +148,14 @@ h2 { font-weight: 400; text-wrap: balance; }
 .spread .text { display: flex; flex-direction: column; justify-content: flex-end; padding: 16vh 0 14vh; }
 .spread .text .folio { margin-bottom: 16px; }
 .spread h2 { margin: 0 0 40px; font-size: min(var(--display), 8.4cqw); }
-.cols { display: flow-root; max-width: 36ch; font-size: 20px; line-height: 1.58; text-wrap: pretty; }
+.cols { display: flow-root; max-width: 36ch; font-size: 22px; line-height: 1.58; text-wrap: pretty; }
 .cols p { margin: 0 0 .9em; }
 .drop::first-letter { float: left; font-size: 88px; line-height: .8; margin: 6px 8px 0 -2px; font-weight: 400; }
+/* Where the browser sets initial letters, the cap is exactly three lines deep: its top on the first line's cap
+   height, its foot on the third line's baseline. */
+@supports (initial-letter: 3) or (-webkit-initial-letter: 3) {
+  .drop::first-letter { float: none; font-size: inherit; line-height: inherit; margin: 0 .14em 0 0; -webkit-initial-letter: 3; initial-letter: 3; }
+}
 
 /* The frame's journey (choreo.ts): one canvas behind the text; the stops are
    invisible slots with the frame's own aspect. */
@@ -208,11 +215,11 @@ h2 { font-weight: 400; text-wrap: balance; }
 [data-tone="10"] .cat .im::after { inset: 4.21% 6%; }
 .wall:not(.landed) .cat figure:first-child .im::after, .wall.torn .cat figure:last-child .im::after { visibility: hidden; }
 .cat figcaption { margin-top: 16px; border-top: 1px solid var(--hair); padding-top: 10px; }
-.cat .nm { display: block; font-size: 19px; line-height: 1.2; }
-.cat .la { display: block; font: italic 15px var(--serif); color: var(--graphite); }
+.cat .nm { display: block; font-size: 21px; line-height: 1.2; }
+.cat .la { display: block; font: italic 17px var(--serif); color: var(--graphite); }
 /* the artist and the book, as a plate's imprint */
-.cat .by { display: block; margin-top: 6px; font: 11px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
-.cat .by i { display: block; margin-top: 3px; font: italic 13px/1.3 var(--serif); letter-spacing: 0; text-transform: none; }
+.cat .by { display: block; margin-top: 6px; font: 12px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
+.cat .by i { display: block; margin-top: 3px; font: italic 15px/1.3 var(--serif); letter-spacing: 0; text-transform: none; }
 /* the folio stays under the running head while the wall scrolls, and goes with the wall;
    its paper is painted only while it is stuck (main.ts .stuck), so the frame
    dropping into the wall's first place passes over bare paper, not under a bar */
@@ -276,7 +283,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .toast .k { font: 500 12px/1.35 var(--sans); color: #6b6b69; }
 .toast .nm { font: 600 16px/1.3 var(--sans); color: #121212; white-space: nowrap; }
 .toast .when { align-self: flex-start; margin: 1px 0 0 14px; font: 400 12px/1.35 var(--sans); color: #6b6b69; white-space: nowrap; }
-.t2 figcaption, .t3 figcaption { margin-top: 14px; color: var(--graphite); font-size: 15px; }
+.t2 figcaption, .t3 figcaption { margin-top: 14px; color: var(--graphite); font-size: 17px; }
 /* on a desktop the table stands beside the video; stacked on a phone, a line says what it is */
 .t3 .then { display: none; }
 /* the table's box is 1.1008 × its width (its padding and the slot's aspect) */
@@ -303,10 +310,10 @@ h2 { font-weight: 400; text-wrap: balance; }
 .contact { position: absolute; left: -4%; right: 2%; bottom: -6%; height: 14%; z-index: -2; pointer-events: none;
            background: radial-gradient(closest-side, rgba(0, 0, 0, .07), rgba(0, 0, 0, .025) 55%, transparent); opacity: var(--land, 1); }
 .intro2.closing { margin-top: 24px; }
-.intro2.closing .lede { grid-column: 1 / 8; font-size: 19px; color: var(--text); }
+.intro2.closing .lede { grid-column: 1 / 8; font-size: 21px; color: var(--text); }
 .logos { grid-column: 1 / 8; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin: 18px 0 0; }
 .logos .sc { color: var(--graphite); }
-.logos a { display: inline-flex; align-items: center; gap: 9px; font-size: 17px; color: var(--ink); filter: grayscale(1); }
+.logos a { display: inline-flex; align-items: center; gap: 9px; font-size: 19px; color: var(--ink); filter: grayscale(1); }
 .logos a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .logos img { width: 28px; height: 28px; }
 /* BirdWeather's mark is drawn in ink: at night, in the night's ink */
@@ -316,18 +323,18 @@ h2 { font-weight: 400; text-wrap: balance; }
    desktop the row is pinned and slides sideways as the page scrolls down
    (seasons.ts); on phones, and with reduced motion, the sheets stack. */
 #collage .intro2 .key { grid-column: 7 / 13; }
-#collage .sub { margin: 22px 0 0; font-size: 17px; color: var(--graphite); }
+#collage .sub { margin: 22px 0 0; font-size: 19px; color: var(--graphite); }
 .seasons { margin-top: 80px; }
 .row { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 72px; }
 .season { display: flex; justify-content: center; width: 100%; }
 .season figure { width: min(100%, 440px); }
 .season img { width: 100%; }
 .season figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-top: 18px; border-top: 1px solid var(--hair); padding-top: 10px; }
-.season figcaption .it { color: var(--graphite); font-size: 17px; }
+.season figcaption .it { color: var(--graphite); font-size: 19px; }
 .season figcaption .sc { margin-right: auto; }
 /* each season's mark, drawn like an engraving's line */
 .season .ico { flex: none; align-self: center; width: 22px; height: 22px; margin-right: 10px; color: var(--ink); }
-#collage .note { margin: 40px 0 0; color: var(--graphite); font-size: 15px; }
+#collage .note { margin: 40px 0 0; color: var(--graphite); font-size: 17px; }
 .seasons-live .seasons { height: calc(100vh - var(--nav) + 165vh); margin-top: 40px;
   /* each sheet's frame: 72% of the window's height, unless the width runs out first */
   --sh: min(72vh, calc(100vh - var(--nav) - 120px), calc((100vw - 2 * var(--m)) * 1100 / 874));
@@ -363,14 +370,14 @@ h2 { font-weight: 400; text-wrap: balance; }
 .diag svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .diag line { stroke: #121212; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .diag span { position: relative; transform: rotate(var(--angle)); padding: 1px 8px; background: #fff; color: #121212;
-             font: italic 14px var(--serif); white-space: nowrap; }
+             font: italic 16px var(--serif); white-space: nowrap; }
 .ho figcaption { margin-top: 24px; text-align: center; }
 .ho figcaption b { display: block; font: italic 400 26px/1.1 var(--serif); }
-.ho figcaption span { display: block; margin-top: 4px; font: italic 14px var(--serif); color: var(--graphite); }
+.ho figcaption span { display: block; margin-top: 4px; font: italic 16px var(--serif); color: var(--graphite); }
 .spec { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin: 90px 0 0; }
 .spec dt, .spec dd { border-top: 1px solid var(--hair); padding: 14px 0 15px; margin: 0; }
-.spec dt { grid-column: 1 / 5; font: 12px/1.9 var(--caps); letter-spacing: .2em; text-transform: uppercase; color: var(--graphite); }
-.spec dd { grid-column: 5 / 13; font-size: 19px; line-height: 1.45; }
+.spec dt { grid-column: 1 / 5; font: 13px/1.9 var(--caps); letter-spacing: .2em; text-transform: uppercase; color: var(--graphite); }
+.spec dd { grid-column: 5 / 13; font-size: 21px; line-height: 1.45; }
 .spec dd span { display: block; }
 
 /* VI. Questions */
@@ -379,37 +386,37 @@ h2 { font-weight: 400; text-wrap: balance; }
 .qa { margin: 0 0 0 calc((100% + var(--gutter)) / 12 * 4); }
 .qa dt { font: 400 28px/1.2 var(--serif); letter-spacing: -.01em; border-top: 1px solid var(--hair); padding-top: 26px; margin-top: 26px; }
 .qa dt:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
-.qa dd { margin: 10px 0 0; max-width: 60ch; font-size: 19px; color: var(--text); }
+.qa dd { margin: 10px 0 0; max-width: 60ch; font-size: 21px; color: var(--text); }
 
 /* Close */
 .close { margin-top: 160px; text-align: center; }
 .close .big { margin: 0; }
 .close .big i { display: block; }
-.close p { margin: 48px 0 32px; font-size: 22px; color: var(--graphite); }
+.close p { margin: 48px 0 32px; font-size: 24px; color: var(--graphite); }
 
 /* Colophon */
 .colophon {
   display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter);
   margin-top: 180px; padding: 22px 0 70px; border-top: 1px solid var(--ink);
-  color: var(--graphite); font-size: 15px;
+  color: var(--graphite); font-size: 17px;
 }
 .colophon .a { grid-column: 1 / 5; }
 .colophon .b { grid-column: 5 / 9; }
 .colophon .c { grid-column: 9 / 13; }
-.colophon .d { grid-column: 1 / 13; margin-top: 34px; font-size: 13px; }
+.colophon .d { grid-column: 1 / 13; margin-top: 34px; font-size: 15px; }
 .colophon .sc { display: block; margin-bottom: 10px; color: var(--ink); }
 .colophon .signin { display: table; margin-top: 10px; color: var(--ink); }
 .field { display: flex; align-items: center; height: 46px; max-width: 360px; border-bottom: 1px solid var(--ink); }
 .field input {
   flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: none; outline: none;
-  font: italic 18px var(--serif); color: var(--ink);
+  font: italic 20px var(--serif); color: var(--ink);
 }
 .field input::placeholder { color: var(--faint); opacity: 1; }
 .field:focus-within { border-bottom-color: var(--ink); box-shadow: 0 1px 0 var(--ink); }
-.field button { padding: 0; border: 0; background: none; font: 11.5px/1 var(--caps); letter-spacing: .22em; text-transform: uppercase; color: var(--ink); cursor: pointer; }
+.field button { padding: 0; border: 0; background: none; font: 12.5px/1 var(--caps); letter-spacing: .22em; text-transform: uppercase; color: var(--ink); cursor: pointer; }
 .field button:disabled { color: var(--faint); cursor: default; }
-.form-why { margin: 0 0 4px; font: italic 15px/1.4 var(--serif); color: var(--graphite); }
-.form-note { margin: 8px 0 0; font: italic 15px var(--serif); color: var(--graphite); }
+.form-why { margin: 0 0 4px; font: italic 17px/1.4 var(--serif); color: var(--graphite); }
+.form-note { margin: 8px 0 0; font: italic 17px var(--serif); color: var(--graphite); }
 .form-note:empty { display: none; }
 
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
@@ -470,7 +477,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 
   .sec { margin-top: 120px; }
   .intro2 { display: block; }
-  .lede { font-size: 20px; }
+  .lede { font-size: 22px; }
   .cat { grid-template-columns: 1fr 1fr; gap: 36px 16px; }
   /* the wall's folio goes with the page on a phone: the count and the switch are set once */
   .wall .folio, .wall .folio.stuck { position: static; flex-wrap: wrap; row-gap: 14px; padding: 0; margin-bottom: 28px; background: none; box-shadow: none; }
@@ -495,7 +502,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .ph .unmute[hidden] { display: none; }
   .spectro { padding-right: 64px; }
   .cover::before { display: none; }
-  .intro2.closing .lede { font-size: 18px; }
+  .intro2.closing .lede { font-size: 20px; }
   .seasons { margin-top: 48px; }
   .row { gap: 40px; }
   .headon { gap: 44px; padding: 0; justify-content: center; }
@@ -503,15 +510,15 @@ h2 { font-weight: 400; text-wrap: balance; }
   .ho { --w: 34vw; }
   .spec { display: block; margin-top: 70px; }
   .spec dt { padding-bottom: 0; }
-  .spec dd { border-top: 0; padding-top: 4px; font-size: 18px; }
+  .spec dd { border-top: 0; padding-top: 4px; font-size: 20px; }
   .qa { margin-left: 0; }
   .qa dt { font-size: 23px; }
   .close { margin-top: 140px; }
   .colophon { display: block; margin-top: 110px; }
   /* the small capitals, lifted a little for a phone in daylight */
-  .sc, .eyebrow, .spec dt { font-size: 12.5px; }
-  .cat .by { font-size: 11px; }
-  .colophon .d { font-size: 14px; }
+  .sc, .eyebrow, .spec dt { font-size: 13px; }
+  .cat .by { font-size: 12px; }
+  .colophon .d { font-size: 15px; }
   /* tap targets: a thumb's size, the type as it was */
   .field { height: 46px; }
   .field button { height: 46px; padding: 0 0 0 16px; }
@@ -577,9 +584,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 .lightbox img { height: min(calc(94vh - 110px), calc((100vw - 48px) / var(--flat))); width: auto; max-width: none; transform-origin: 0 0; }
 .lightbox figcaption { width: 100%; max-width: 34em; margin-top: 18px; text-align: center; border-top: 1px solid var(--hair); padding-top: 10px; }
 .lightbox .nm { display: block; font-size: 22px; line-height: 1.2; }
-.lightbox .la { display: block; font: italic 16px var(--serif); color: var(--graphite); }
-.lightbox .by { display: block; margin-top: 6px; font: 11px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
-.lightbox .by i { display: block; margin-top: 3px; font: italic 13px/1.3 var(--serif); letter-spacing: 0; text-transform: none; }
+.lightbox .la { display: block; font: italic 18px var(--serif); color: var(--graphite); }
+.lightbox .by { display: block; margin-top: 6px; font: 12px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
+.lightbox .by i { display: block; margin-top: 3px; font: italic 15px/1.3 var(--serif); letter-spacing: 0; text-transform: none; }
 .lb-close {
   position: absolute; top: 18px; right: 18px; display: grid; place-items: center; width: 44px; height: 44px;
   border: 0; border-radius: 50%; background: none; color: var(--ink); cursor: pointer;

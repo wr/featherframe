@@ -46,6 +46,8 @@ KIT_SETTINGS = ("panel_rotation", "mat_inset_pct", "mat_offset_x_px", "mat_offse
 # every response and the kit says it back, so a frame removed and added again
 # — here or on another server — starts with the mat it hangs with.
 MAT_KEYS = ("mat_inset_pct", "mat_offset_x_px", "mat_offset_y_px")
+# Set once a kit's stored 0 inset (the default before 4 %) has been dropped.
+_MAT_DEFAULT_KEY = "frames_mat_default_4"
 
 
 def mat_header(cfg: Config) -> str:
@@ -226,6 +228,20 @@ class FrameRegistry:
             yield rows
             if rows._write:
                 self.db.set(KEY, dict(rows))
+
+    def drop_zero_mat_inset(self) -> None:
+        """Once: a kit's stored inset of 0 was the old default, which every
+        Save posted back, not a choice; dropped, the kit takes its panel's
+        own (4 %, which the kits' mats need)."""
+        if self.db.get(_MAT_DEFAULT_KEY):
+            return
+        with self.mutate() as rows:
+            for row in rows.values():
+                own = row.get("set")
+                if transport_of(row) == "kit" and isinstance(own, dict) \
+                        and own.get("mat_inset_pct") in (0, 0.0):
+                    own.pop("mat_inset_pct")
+        self.db.set(_MAT_DEFAULT_KEY, True)
 
     def save(self, row: dict) -> dict:
         with self.mutate() as rows:

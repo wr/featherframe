@@ -64,10 +64,23 @@ def test_frame_response_carries_the_mat(client):
     etag = _seed_frame(client)
     svc = client.app.state.service
     head = {"X-Device-Id": FRAME_ID}
-    assert client.get("/api/frame", headers=head).headers["x-ff-mat"] == "0,0,0"
+    assert client.get("/api/frame", headers=head).headers["x-ff-mat"] == "4,0,0"
     svc.update_frame(FRAME_ID, {"mat_inset_pct": 2.5, "mat_offset_x_px": -8, "mat_offset_y_px": 12})
     r = client.get("/api/frame", headers={**head, "If-None-Match": f'"{etag}"'})
     assert r.headers["x-ff-mat"] == "2.5,-8,12"
+
+
+def test_a_save_at_the_panels_mat_keeps_nothing(client):
+    """The row's Save posts every field: the panel's own inset posted back is
+    not a choice, so the frame goes on following that default."""
+    from featherframe import frames as frames_mod
+    _seed_frame(client)
+    svc = client.app.state.service
+    svc.update_frame(FRAME_ID, {"name": "Hall", "mat_inset_pct": "4", "mat_offset_x_px": "0",
+                                "mat_offset_y_px": "0"})
+    own = frames_mod.settings_of(svc.frames.get(FRAME_ID))
+    assert own.get("name") == "Hall"
+    assert not any(k in own for k in frames_mod.MAT_KEYS)
 
 
 def test_only_a_render_setting_redraws_the_frame(client):

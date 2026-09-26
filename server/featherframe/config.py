@@ -153,8 +153,8 @@ class Config:
     panel_rotation: int = 90  # per panel (panels.py rotations; see sanitize)
 
     # Shrink the composition by this percent per edge and center it on white.
-    # 0 (the default) disables it: a frame with no mat, or one whose opening
-    # the art already meets, needs no allowance.
+    # 0 disables it: a screen with no mat needs no allowance. A kit starts
+    # with its panel's own (`Panel.mat_inset_pct`, 4 on both kits).
     mat_inset_pct: float = 0.0
     # The physical mat is rarely mounted dead-center; shift the inset
     # composition to meet it. Positive = right / down, in panel pixels.
@@ -326,10 +326,12 @@ class Config:
 
     @classmethod
     def defaults_for(cls, panel: str) -> "Config":
-        """A factory-fresh config for `panel` (mode and rotation follow it)."""
+        """A factory-fresh config for `panel` (mode, rotation and the mat's
+        inset follow it)."""
         fresh = cls(panel=panels.get(panel).key)
         fresh.mode = fresh.panel_spec.mode
         fresh.panel_rotation = fresh.panel_spec.rotations[0]
+        fresh.mat_inset_pct = fresh.panel_spec.mat_inset_pct
         return fresh.sanitize()
 
     def panel_settings_off_default(self) -> list[str]:

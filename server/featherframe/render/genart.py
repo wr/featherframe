@@ -35,7 +35,7 @@ from typing import Callable, Optional
 import requests
 from PIL import Image
 
-from .. import paths
+from .. import paths, thumbs
 from ..names import DEFAULT_FOLIO, folio_of
 from . import plate
 from .collage import CollageCell, same_species, sheet_art_size
@@ -1592,6 +1592,7 @@ class GeneratedArtProvider(ArtProvider):
             return False
         png.unlink(missing_ok=True)
         sidecar.unlink(missing_ok=True)
+        thumbs.drop_thumb(png)
         return True
 
     def cached_species(self) -> list[dict]:

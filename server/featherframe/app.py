@@ -28,7 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 
-from . import __version__, auth, discovery, hosted, panels, paths, viewers
+from . import __version__, auth, discovery, hosted, panels, paths, thumbs, viewers
 from . import frames as frames_mod
 from .config import Config, valid_email, valid_hhmm
 from .names import display_common_name, normalize
@@ -1125,13 +1125,18 @@ async def generated_list(request: Request):
 
 
 @app.get("/api/generated/{slug}.png")
-async def generated_png(request: Request, slug: str):
+async def generated_png(request: Request, slug: str, thumb: int = 0):
     svc = _svc(request)
     if not _valid_slug(slug):
         return Response(status_code=404)
     png = svc.genart._png(slug)  # noqa: SLF001 (same package, path is validated)
     if not png.exists():
         return Response(status_code=404)
+    if thumb:
+        small = await run_in_threadpool(thumbs.thumb_for, png)
+        if small:
+            return FileResponse(small, media_type="image/jpeg",
+                                headers={"Cache-Control": "max-age=300"})
     # FileResponse streams and stamps Last-Modified; a short max-age keeps the
     # gallery from re-downloading megabytes of PNG on every page view.
     return FileResponse(png, media_type="image/png",
@@ -1490,13 +1495,18 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 @app.get("/api/collages/{day}.png")
-async def collage_day_png(request: Request, day: str):
+async def collage_day_png(request: Request, day: str, thumb: int = 0):
     # A download: the day's finished collage, named for the day.
     if not _DATE_RE.match(day):
         return Response(status_code=404)
     png = paths.collage_days_dir() / f"{day}.png"
     if not await run_in_threadpool(png.exists):
         return Response(status_code=404)
+    if thumb:
+        small = await run_in_threadpool(thumbs.thumb_for, png)
+        if small:
+            return FileResponse(small, media_type="image/jpeg",
+                                headers={"Cache-Control": "max-age=300"})
     return FileResponse(png, media_type="image/png",
                         filename=f"featherframe-collage-{day}.png")
 

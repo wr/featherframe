@@ -1,8 +1,12 @@
+# img/, audio/ and video/ keep their names when they change, so a browser asks again each time (a 304 when
+# nothing changed); models/ are renamed by content (build.mjs), fonts never change.
 /models/*
   Cache-Control: public, max-age=604800
 /img/*
-  Cache-Control: public, max-age=604800
+  Cache-Control: public, no-cache
 /audio/*
-  Cache-Control: public, max-age=604800
+  Cache-Control: public, no-cache
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
+/video/*
+  Cache-Control: public, no-cache

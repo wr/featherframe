@@ -68,10 +68,10 @@ const GLASS_ENV = 0.7;
 // on screen), as e-paper is beside the mat, and its inks as dark and as
 // saturated as the picture's own.
 const SCREEN_WHITE = [0.8, 0.805, 0.795] as const;
-// The mat: a touch warm (#f6f5f0 on screen), and lit by the room rather than
+// The mat: the faintest warmth (#f6f5f3 on screen), and lit by the room rather than
 // glowing (the GLB gives it a cool emissive), so its bevelled opening shades
 // and reads as a cut edge against the panel.
-const MAT_COLOR = [1, 0.975, 0.93] as const;
+const MAT_COLOR = [1, 0.99, 0.97] as const;
 const MAT_EMISSIVE = [0.1, 0.097, 0.09] as const;
 // The table's shadow, for the table's still only (`?wall=table`, opts.floor):
 // a light that lights nothing (so the frame looks as it does everywhere else)

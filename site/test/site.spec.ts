@@ -35,7 +35,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage h2')).toHaveText('Each night, a portrait of the day.');
   // "Each night," roman, "a portrait of the day." italic
   await expect(page.locator('#collage h2 i')).toHaveText('a portrait of the day.');
-  await expect(page.locator('#collage .lede')).toHaveText(['During quiet hours overnight, your frame shows every species heard that day on one canvas, numbered and labeled like a page in an old natural history book.', 'Enable AI illustration¹ and all the day’s species are painted together as a beautiful collage that changes with the seasons and weather.']);
+  await expect(page.locator('#collage .lede')).toHaveText(['During quiet hours, your frame shows every species heard that day on one canvas, numbered and labeled like a page in an old natural history book.', 'Enable AI illustration¹ and all the day’s species are painted together as a beautiful collage that changes with the seasons and weather.']);
   await expect(page.locator('#fn-ai')).toHaveText('¹ Requires your own OpenAI API key, billed separately by OpenAI. Featherframe and Wells Workshop LLC are not affiliated with OpenAI. Use of AI is not required for collage functionality.');
   await expect(page.locator('#how .closing .lede').last()).toHaveText('You can set up a BirdNET detector in your own backyard, or choose a BirdWeather station near you or anywhere in the world.');
   await expect(page.locator('#specs .folio')).toHaveText('Technical details');
@@ -76,7 +76,7 @@ test('every section and its key copy is there', async ({ page }) => {
     'Does it make a good gift?', 'Do I need Wi-Fi?', 'How fast does the frame change?', 'Do I need to run BirdNET locally?', 'Does it work outside North America?',
     'What if a species near me was never illustrated?', 'Do the collages need AI?', 'Is a subscription required?', 'Is hosting required?', 'Is my data private?']);
   await expect(page.locator('.cover .speed')).toHaveText('Refresh shown at true speed');
-  await expect(page.locator('#faq dd').nth(2).locator('li')).toHaveText(['Grayscale: about a second.', 'Color: about fifteen seconds, flickering as its inks settle. Well suited to the nightly collage, and fine for detections.']);
+  await expect(page.locator('#faq dd').nth(2).locator('li')).toHaveText(['Grayscale: about a second.', 'Color: about fifteen seconds, flickering as its inks settle. This screen is well suited to collage mode.']);
   await expect(page.locator('#faq a.fnref')).toHaveCount(2);
   await expect(page.locator('body')).not.toContainText('listening station');
   await expect(page.locator('#faq dd').nth(0)).toHaveText('Yes. Nothing needs setting up before you wrap it. The person you give it to connects it to their Wi-Fi and chooses a detection source, all from their phone. US pre-orders ship by December\u00a012.');

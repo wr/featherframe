@@ -75,7 +75,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .folio .n { font: italic 17px var(--serif); color: var(--graphite); }
 .mega, .spread h2, .close .big { font-size: var(--display); line-height: .9; letter-spacing: -.035em; }
 .lede { font-size: 26px; line-height: 1.42; margin: 0; }
-.intro2 { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin-top: 40px; }
+.intro2 { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin-top: 60px; }
 .intro2 .lede { grid-column: 7 / 13; }
 /* the flight from the wall to the table passes down the right: the lede keeps to the left, as the closing one does */
 #how .intro2 .lede { grid-column: 1 / 8; }
@@ -483,7 +483,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .drop::first-letter { font-size: 64px; }
 
   .sec { margin-top: 120px; }
-  .intro2 { display: block; }
+  .intro2 { display: block; margin-top: 36px; }
   .lede { font-size: 22px; }
   .cat { grid-template-columns: 1fr 1fr; gap: 36px 16px; }
   /* the wall's folio goes with the page on a phone: the count and the switch are set once */

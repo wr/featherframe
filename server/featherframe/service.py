@@ -30,7 +30,7 @@ from urllib.parse import quote
 from PIL import Image
 
 from . import auth, firmware_release
-from . import plate_library
+from . import plate_library, thumbs
 from . import frames as frames_mod
 from . import panels, paths
 from . import pictures as pictures_mod
@@ -1431,6 +1431,7 @@ class FeatherframeService:
             kept = sorted(p for p in days.glob("*.png") if _DATE_RE.match(p.stem))
             for old in kept[:-COLLAGE_DAYS_KEPT]:
                 old.unlink(missing_ok=True)
+                thumbs.drop_thumb(old)
         except Exception:  # noqa: BLE001 — never worth a failed collage
             log.warning("collage for %s not kept", on_date, exc_info=True)
 

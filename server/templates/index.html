@@ -510,6 +510,11 @@
     /* examples are full 3:4 sheets (1404×1872): as large as the window
        allows, by its height or, on a narrow one, its width */
     .lightbox img { width:min(100%, calc((100vh - 72px) * .75)); width:min(100%, calc((100dvh - 72px) * .75)); height:auto; background:#fff; box-shadow:0 16px 60px rgba(0,0,0,.5); }
+    /* click the sheet to see it at full size and scroll about it */
+    .lightbox img.zoomable { cursor:zoom-in; }
+    .lightbox.zoomed { overflow:auto; align-items:flex-start; justify-content:flex-start; }
+    .lightbox.zoomed .lightbox-inner { width:auto; max-height:none; margin:auto; }
+    .lightbox.zoomed img { width:auto; max-width:none; cursor:zoom-out; }
     .lightbox-cap { color:#f3f1ec; font-size:13px; text-align:center; max-width:440px; line-height:1.45; }
     .lightbox-cap[hidden] { display:none; }
     /* example-preview trigger: the page's own button, a size down, sitting
@@ -1843,7 +1848,7 @@
         {% for g in generated %}
         <div class="gen-item{{ ' regenerating' if g.regenerating else '' }}{{ ' regen-failed' if g.regen_error else '' }}" data-slug="{{ g.slug }}" {{ 'hidden' if loop.index > 5 else '' }}>
           <a class="plate-link" href="/api/generated/{{ g.slug }}.png" target="_blank" rel="noopener">
-            <img src="/api/generated/{{ g.slug }}.png?v={{ g.created_at | urlencode }}" alt="{{ g.common }}" loading="lazy">
+            <img src="/api/generated/{{ g.slug }}.png?thumb=1&amp;v={{ g.created_at | urlencode }}" alt="{{ g.common }}" loading="lazy">
           </a>
           <div class="who">
             <div class="common">{{ g.common }}</div>
@@ -1888,7 +1893,7 @@
           <div class="gen-list">
             {% for d in collage_days %}
             <div class="gen-item" {{ 'hidden' if loop.index > 5 else '' }}>
-              <a class="plate-link" href="{{ d.url }}" target="_blank" rel="noopener"><img src="{{ d.url }}" alt="Collage, {{ d.text }}" loading="lazy"></a>
+              <a class="plate-link" href="{{ d.url }}" target="_blank" rel="noopener"><img src="{{ d.url }}?thumb=1" alt="Collage, {{ d.text }}" loading="lazy"></a>
               <div class="who"><div class="common">{{ d.text }}</div></div>
               <div class="ops"><a class="btn" href="{{ d.url }}" download="featherframe-collage-{{ d.date }}.png">Download</a></div>
             </div>
@@ -3214,16 +3219,34 @@
     var cap = box.querySelector('.lightbox-cap');
     var opener = null;
     box.tabIndex = -1;
+    function unzoom() { box.classList.remove('zoomed'); full.classList.remove('zoomable'); }
     function open(src, caption) {
       opener = document.activeElement;
+      unzoom();
       full.src = src; full.alt = caption || ''; cap.textContent = caption || ''; cap.hidden = !caption;
       box.hidden = false; box.focus();
     }
     function close() {
-      box.hidden = true; full.src = ''; cap.textContent = ''; cap.hidden = true;
+      box.hidden = true; unzoom(); full.src = ''; cap.textContent = ''; cap.hidden = true;
       if (opener && opener.focus) opener.focus(); opener = null;
     }
     box.addEventListener('click', close);
+    // Zoom only a sheet the window shows smaller than it is.
+    function fits() { return full.naturalWidth <= full.clientWidth + 1; }
+    function mark() { if (!box.classList.contains('zoomed')) full.classList.toggle('zoomable', !fits()); }
+    full.addEventListener('load', mark);
+    window.addEventListener('resize', function () { if (!box.hidden) mark(); });
+    full.addEventListener('click', function (e) {
+      if (box.classList.contains('zoomed')) { e.stopPropagation(); unzoom(); full.classList.add('zoomable'); return; }
+      if (fits()) return;
+      e.stopPropagation();
+      var r = full.getBoundingClientRect();
+      var fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+      box.classList.add('zoomed');
+      // keep the point clicked under the pointer
+      box.scrollLeft = full.offsetLeft + fx * full.offsetWidth - e.clientX;
+      box.scrollTop = full.offsetTop + fy * full.offsetHeight - e.clientY;
+    });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !box.hidden) close(); });
     document.addEventListener('click', function (e) {
       if (!e.target.closest) return;
@@ -3245,7 +3268,8 @@
       if (plate && plate.classList.contains('empty') && a.contains(preview)) { e.preventDefault(); return; }
       e.preventDefault();
       var thumb = a.querySelector('img');
-      open((thumb && thumb.src) || a.href, '');
+      // a list's thumbnail stands in for the sheet its link names
+      open(a.closest('.gen-item') ? a.href : ((thumb && thumb.src) || a.href), '');
       full.alt = (thumb && thumb.alt) || '';
     });
   })();
@@ -3288,7 +3312,7 @@
       } else {
         el.classList.remove('regen-failed');
         if (status) status.textContent = '';
-        if (finished) { var t = el.querySelector('img'); if (t) t.src = '/api/generated/' + encodeURIComponent(slug) + '.png?t=' + Date.now(); }
+        if (finished) { var t = el.querySelector('img'); if (t) t.src = '/api/generated/' + encodeURIComponent(slug) + '.png?thumb=1&t=' + Date.now(); }
       }
     }
     function apply(listing) {

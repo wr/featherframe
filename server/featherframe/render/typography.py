@@ -453,12 +453,14 @@ def first_ever_rule(field: Image.Image) -> None:
                 tracking=theme.FIRST_EVER_LABEL_TRACKING)
 
 
-def generated_mark(field: Image.Image, right_x: float) -> None:
+def generated_mark(field: Image.Image, right_x: float,
+                   baseline: float = theme.MARKS_BASELINE, size: float = theme.CORNER_SIZE) -> None:
     """A four-point star (✦) in the corner marks' ink, its right edge at
-    `right_x`, on the marks' line: this sheet was generated. Audubon never
-    numbered it, so the star has the corner to itself."""
-    r = theme.CORNER_SIZE * 0.40
-    cx, cy = right_x - r, theme.MARKS_BASELINE - theme.CORNER_SIZE * 0.36
+    `right_x`, on the marks' line (or the line at `baseline`, set at `size`):
+    this sheet was generated. Audubon never numbered it, so the star has the
+    corner to itself."""
+    r = size * 0.40
+    cx, cy = right_x - r, baseline - size * 0.36
     k = 0.28                                            # waist of the four points
     pts = [(cx, cy - r), (cx + r * k, cy - r * k), (cx + r, cy), (cx + r * k, cy + r * k),
            (cx, cy + r), (cx - r * k, cy + r * k), (cx - r, cy), (cx - r * k, cy - r * k)]

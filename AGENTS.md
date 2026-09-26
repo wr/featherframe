@@ -401,7 +401,8 @@ from BirdNET-Go's `days_since_first_seen`, each species' first date.
 (`render_generated_collage`, one painted scene) share `_bottom_block`: no
 header at all, the art from the top margin down, then the date in the engraved
 capitals, spaced wide, over a numbered key ("1. BLUE JAY") in prominence order
-packed into columns along the bottom. The grid's cells carry the matching
+packed into columns along the bottom; the generated sheet puts a single
+plate's ✦ at the date line's right end, under the art's right edge. The grid's cells carry the matching
 figure numerals; there are no script names and no "×count" under them. AI
 collages are all or nothing (`config.collage_generated`): with the toggle on
 and image generation to hand, EVERY collage is the generated sheet — a daytime

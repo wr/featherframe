@@ -1,0 +1,27 @@
+{
+  "species": [
+    { "name": "Wild Turkey", "latin": "Meleagris gallopavo", "heard": "07:26" },
+    { "name": "Common Nighthawk", "latin": "Chordeiles minor", "heard": "08:14" },
+    { "name": "Northern Cardinal", "latin": "Cardinalis cardinalis", "heard": "09:02" },
+    { "name": "Eastern Bluebird", "latin": "Sialia sialis", "heard": "10:37" },
+    { "name": "American Goldfinch", "latin": "Spinus tristis", "heard": "11:51" }
+  ],
+  "sizes": {
+    "13": {
+      "label": "13-inch",
+      "model": "models/featherframe-13.glb",
+      "poster": "img/poster-13.webp",
+      "waveform": "spectra6",
+      "screens": ["models/screens/wall-13-wild-turkey.jpg", "models/screens/13-nighthawk.jpg", "models/screens/13-cardinal.jpg", "models/screens/13-eastern-bluebird.jpg", "models/screens/13-goldfinch.jpg"],
+      "wall": ["models/screens/wall-13-wild-turkey.jpg", "models/screens/wall-13-blue-jay.jpg", "models/screens/wall-13-great-horned-owl.jpg", "models/screens/wall-13-cedar-waxwing.jpg", "models/screens/wall-13-green-breasted-mango.jpg", "models/screens/wall-13-tufted-titmouse.jpg", "models/screens/wall-13-kookaburra.jpg", "models/screens/wall-13-hermit-thrush.jpg", "models/screens/wall-13-saw-whet-owl.jpg", "models/screens/wall-13-gray-catbird.jpg", "models/screens/wall-13-swainsons-warbler.jpg", "models/screens/wall-13-carolina-wren.jpg"]
+    },
+    "10": {
+      "label": "10-inch",
+      "model": "models/featherframe.glb",
+      "poster": "img/poster-10.webp",
+      "waveform": "gc16",
+      "screens": ["models/screens/wall-10-wild-turkey.jpg", "models/screens/10-nighthawk.jpg", "models/screens/10-cardinal.jpg", "models/screens/10-eastern-bluebird.jpg", "models/screens/10-goldfinch.jpg"],
+      "wall": ["models/screens/wall-10-wild-turkey.jpg", "models/screens/wall-10-blue-jay.jpg", "models/screens/wall-10-great-horned-owl.jpg", "models/screens/wall-10-cedar-waxwing.jpg", "models/screens/wall-10-green-breasted-mango.jpg", "models/screens/wall-10-tufted-titmouse.jpg", "models/screens/wall-10-kookaburra.jpg", "models/screens/wall-10-hermit-thrush.jpg", "models/screens/wall-10-saw-whet-owl.jpg", "models/screens/wall-10-gray-catbird.jpg", "models/screens/wall-10-swainsons-warbler.jpg", "models/screens/wall-10-carolina-wren.jpg"]
+    }
+  }
+}

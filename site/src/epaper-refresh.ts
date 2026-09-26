@@ -1,5 +1,5 @@
 // Copied from wells/shop src/lib/epaper-refresh.ts (24 Sep 2026); additions: onShown, onArriving, holdMs, show,
-// speed, and spectra6 at the panel's real pace.
+// speed, and spectra6 as the panel really refreshes.
 // An e-paper frame refreshing between plates, for a model's "screen" material
 // (the Featherframe). Each refresh is drawn the way the panel paints: not a
 // crossfade but a waveform — a fixed sequence of whole-sheet drive phases,
@@ -9,11 +9,11 @@
 //             picture's negative, a dark flash, white, the new picture's
 //             negative, the new picture — each step fading into the next, as
 //             the panel's does, rather than blinking. About a second.
-//   spectra6  the 13.3" Spectra 6 colour panel, at its own 27.2 s: the old
-//             picture driven out, the new one's negative in slate blue, a
-//             low-contrast positive, a yellow wash, one soft pulse, then the
-//             inks in the order they arrive — red while blue and green are
-//             still dark, a long dull stretch as they come up, and it settles.
+//   spectra6  the 13.3" Spectra 6 colour panel, about 15½ s, as a video of
+//             one refreshing shows it: the new picture's negative in blue,
+//             the sheet flickering dark blue and yellow, a pale wash, the
+//             picture in sepia shimmering against brown, then its colours
+//             under a mauve cast that lifts as it settles.
 //
 // A phase maps the ink each pixel is headed for (or came from) to the colour
 // it shows during that phase, so regions bound for different inks pass
@@ -109,7 +109,7 @@ interface WaveformSpec {
 }
 
 /** A 'quick' show(): the panel's waveform, sped up to about this long (never slowed). */
-const QUICK_MS = 3500;
+const QUICK_MS = 5000;
 /** How long a plate stays on the glass before the next refresh starts. */
 const HOLD_MS = 6000;
 /** Redraw the glass at most this often during a refresh: every other frame at
@@ -133,12 +133,6 @@ const INKS: RGB[] = [K, W, R, Y, B, G];
  *  the few frames the waveform gives them, so the sheet dims rather than goes
  *  out — and so does the dark of each negative. */
 const DIM = hex(0x4a4a4a);
-/** The colour panel's early phases, as benched: its negative is slate blue on a
- *  dim white, and its first positive blue for black and gray for white. */
-const SLATE = hex(0x4d5b7c);
-const DIM_W = hex(0xc9c7bd);
-const BLUE_K = hex(0x34406a);
-const GRAY_W = hex(0xa9a8a2);
 
 const WAVEFORMS: Record<Waveform, WaveformSpec> = {
   gc16: {
@@ -156,40 +150,76 @@ const WAVEFORMS: Record<Waveform, WaveformSpec> = {
     ],
   },
   spectra6: {
-    // The panel's own pace: 27.2 s of drive, as benched on the 13.3" (19 Sep 2026).
-    // The first four seconds follow the bench (the new picture's negative, slate
-    // blue on dim white, by 1–2 s; a low-contrast positive by 3–3.5 s; the yellow
-    // phase from 4 s); after that the sheet is calm: one soft pulse, then the inks
-    // come up in turn, slowly, and it settles.
-    blend: 420,
+    // Timed from a video of the panel refreshing (Wells, 26 Sep 2026), about
+    // 15½ s from the old picture to the new one settled, its colours corrected
+    // for the camera's blue cast. The phases are flat washes and stepped
+    // flickers, so every crossing is short.
+    blend: 45,
     // No per-pixel spread: the panel drives its whole sheet at once, so each
     // phase change is a global crossing over `blend` ms, not a jittered one.
     spread: 0,
     // map order: K W R Y B G
     phases: [
-      // the old picture driven out: its negative, colours to their opposite inks
-      { ms: 500, from: 'old', map: [W, K, G, B, Y, R] },
-      { ms: 450, from: 'old', map: all(mix(K, W, 0.25)) },
-      // the new picture's negative: slate blue on dim white
-      { ms: 1500, from: 'new', map: [DIM_W, SLATE, DIM_W, SLATE, DIM_W, DIM_W] },
-      // a low-contrast positive: blue for black, gray for white. The picture is
-      // first itself here, so a viewer recognises it from this phase on.
-      { ms: 1600, from: 'new', map: [BLUE_K, GRAY_W, mix(BLUE_K, R, 0.4), GRAY_W, BLUE_K, BLUE_K], arrives: true },
-      // the yellow phase: the light inks washed yellow, the darks still blue
-      { ms: 2400, from: 'new', map: [mix(K, B, 0.4), mix(W, Y, 0.45), mix(Y, R, 0.3), Y, mix(K, B, 0.5), mix(Y, G, 0.3)] },
-      // one soft pulse: toward the silhouette and back, never to full black or white
-      { ms: 700, from: 'new', map: [mix(K, W, 0.2), mix(W, K, 0.12), mix(K, W, 0.25), mix(W, K, 0.12), mix(K, W, 0.2), mix(K, W, 0.2)] },
-      { ms: 700, from: 'new', map: [mix(W, K, 0.25), mix(K, W, 0.35), mix(W, K, 0.3), mix(K, W, 0.4), mix(W, K, 0.25), mix(W, K, 0.25)] },
-      // the red lands while blue and green are still dark
-      { ms: 3000, from: 'new', map: [mix(K, B, 0.25), mix(W, Y, 0.2), R, Y, mix(K, B, 0.35), mix(K, G, 0.35)] },
-      // everything a little dark while blue and green build
-      { ms: 3500, from: 'new', map: [K, mix(W, K, 0.15), mix(R, K, 0.2), mix(Y, K, 0.12), mix(B, K, 0.55), mix(G, K, 0.55)] },
-      // blue and green arrive, dull, and take their time
-      { ms: 7000, from: 'new', map: [K, mix(W, K, 0.08), R, Y, mix(B, K, 0.35), mix(G, K, 0.35)] },
-      // …nearly there…
-      { ms: 4790, from: 'new', map: [K, mix(W, K, 0.03), R, Y, mix(B, K, 0.12), mix(G, K, 0.12)] },
-      // …and it settles
-      { ms: 850, from: 'new', settled: true },
+      // the new picture's negative in blue: its darks near white, its lights deep blue…
+      { ms: 1700, from: 'new', map: [hex(0xe6ecf4), hex(0x2f5fb0), hex(0x6f8fc8), hex(0x4a74c0), hex(0xd0dcef), hex(0x9fb3d6)] },
+      // …fading to a paler negative
+      { ms: 1600, from: 'new', map: [hex(0xd4dde8), hex(0x6d90c8), hex(0x93acd4), hex(0x7e9ccc), hex(0xc9d6ea), hex(0xb0c2df)] },
+      // the whole sheet flickering between dark blue and yellow, about three times a second
+      { ms: 200, from: 'new', map: all(hex(0x25508f)) },
+      { ms: 150, from: 'new', map: all(hex(0xf0dc6e)) },
+      { ms: 200, from: 'new', map: all(hex(0x25508f)) },
+      { ms: 150, from: 'new', map: all(hex(0xf0dc6e)) },
+      { ms: 200, from: 'new', map: all(hex(0x25508f)) },
+      { ms: 150, from: 'new', map: all(hex(0xf0dc6e)) },
+      { ms: 200, from: 'new', map: all(hex(0x25508f)) },
+      { ms: 150, from: 'new', map: all(hex(0xf0dc6e)) },
+      { ms: 200, from: 'new', map: all(hex(0x25508f)) },
+      { ms: 150, from: 'new', map: all(hex(0xf0dc6e)) },
+      { ms: 200, from: 'new', map: all(hex(0x25508f)) },
+      { ms: 150, from: 'new', map: all(hex(0xf0dc6e)) },
+      // a pale wash with the picture's ghost in it
+      { ms: 500, from: 'new', map: [hex(0xd6d6c6), hex(0xf2f0d8), hex(0xe6dcc8), hex(0xf2f0d8), hex(0xdcdcd0), hex(0xe4e4d0)] },
+      // dark blue, then a muddy brown
+      { ms: 300, from: 'new', map: all(hex(0x2a5596)) },
+      { ms: 300, from: 'new', map: all(hex(0x8a7a60)) },
+      // the picture, in sepia: the first phase that shows it the right way round
+      // (the sepia picture shimmering against a flat brown, a little brighter each second)
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xc8a8a4), hex(0xa8504c), hex(0xb89070), hex(0x584058), hex(0x6a5a4a)], arrives: true },
+      { ms: 90, from: 'new', map: all(hex(0x9a5e5e)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xc8a8a4), hex(0xa8504c), hex(0xb89070), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0x9a5e5e)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xc8a8a4), hex(0xa8504c), hex(0xb89070), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0x9a5e5e)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xc8a8a4), hex(0xa8504c), hex(0xb89070), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0x9a5e5e)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xc8a8a4), hex(0xa8504c), hex(0xb89070), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0x9a5e5e)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xd4b4ae), hex(0xb84c44), hex(0xcc9c64), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0xa86a66)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xd4b4ae), hex(0xb84c44), hex(0xcc9c64), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0xa86a66)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xd4b4ae), hex(0xb84c44), hex(0xcc9c64), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0xa86a66)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xd4b4ae), hex(0xb84c44), hex(0xcc9c64), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0xa86a66)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xd4b4ae), hex(0xb84c44), hex(0xcc9c64), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0xa86a66)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xdcc0b8), hex(0xc44a3e), hex(0xdcac58), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0xb07470)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xdcc0b8), hex(0xc44a3e), hex(0xdcac58), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0xb07470)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xdcc0b8), hex(0xc44a3e), hex(0xdcac58), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0xb07470)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xdcc0b8), hex(0xc44a3e), hex(0xdcac58), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0xb07470)) },
+      { ms: 110, from: 'new', map: [hex(0x3a2a2c), hex(0xdcc0b8), hex(0xc44a3e), hex(0xdcac58), hex(0x584058), hex(0x6a5a4a)] },
+      { ms: 90, from: 'new', map: all(hex(0xb07470)) },
+      // the colours in, under a mauve cast: reds and yellows right, the lights mauve, greens still blue
+      { ms: 3900, from: 'new', map: [hex(0x2a2040), hex(0xc8b8d8), hex(0xc04040), hex(0xd8c050), hex(0x4050a0), hex(0x506080)] },
+      // the cast lifts: washed out, then true
+      { ms: 800, from: 'new', map: [hex(0x3a3448), hex(0xe4e0ea), mix(R, W, 0.2), mix(Y, W, 0.2), mix(B, W, 0.2), mix(G, B, 0.35)] },
+      { ms: 800, from: 'new', map: [mix(K, W, 0.08), mix(W, K, 0.04), R, Y, mix(B, W, 0.08), mix(G, B, 0.12)] },
+      { ms: 500, from: 'new', settled: true },
     ],
   },
 };

@@ -409,7 +409,7 @@ test('each new detection is announced and the frame on the table repaints to it'
   await page.setViewportSize({ width: 1440, height: 900 });
   // the detections' clock and the refreshes, sped up six times
   await page.goto('/?hold=600000&rate=6');
-  // how long the frame on the table takes to repaint, at the colour panel's own pace (27.2 s, so ~4.5 s here)
+  // how long the frame on the table takes to repaint, at the colour panel's own pace (15.5 s, so ~2.6 s here)
   await page.evaluate(() => {
     const w = window as unknown as { __refresh: number[] };
     w.__refresh = [];
@@ -455,7 +455,7 @@ test('each new detection is announced and the frame on the table repaints to it'
   // each detection's repaint took the panel's time, and the next waited for it
   const took = await page.evaluate(() => (window as unknown as { __refresh: number[] }).__refresh);
   expect(took.length).toBeGreaterThanOrEqual(3);
-  for (const ms of took) expect(ms).toBeGreaterThan(27200 / 6 * 0.9);
+  for (const ms of took) expect(ms).toBeGreaterThan(15500 / 6 * 0.9);
 });
 
 test('the running head and the wall\'s folio stay in view while their sections scroll', async ({ page }) => {

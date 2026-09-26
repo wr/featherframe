@@ -213,7 +213,7 @@ const pause = () => {
   clearTimeout(timer);
 };
 /** The recording is over. The next detection waits while the frame on the table repaints (a colour panel takes
- *  about half a minute) and then shows it for SHOWN_MS; with no frame on the table, it comes at once. */
+ *  about fifteen seconds) and then shows it for SHOWN_MS; with no frame on the table, it comes at once. */
 function done() {
   if (!ticking) return;
   const refreshing = !!table?.dataset.refreshing;

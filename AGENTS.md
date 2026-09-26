@@ -730,7 +730,7 @@ gone, W-821: the server still says `X-FF-Invert: 0` so fielded firmware
 clears the flag it stored, until every frame runs firmware without it):
 the baked art is baked at one rotation (`FF_BAKED_ROTATION`), so when the
 frame hangs the other way up the firmware turns every baked screen and tile
-180° (`rotate180`, and `flipX`/`flipY` for a tile's window). The mat rides the same way (W-857): `X-FF-Mat` ("inset,x,y") on every response, kept in NVS `mat` and said back on every ask and over Improv, so a frame removed and paired again (`admit_frame`, a new row) starts with its mat; the rotation already did (W-851, `X-FF-Rotation`).
+180° (`rotate180`, and `flipX`/`flipY` for a tile's window). The mat rides the same way (W-857): `X-FF-Mat` ("inset,x,y") on every response, kept in NVS `mat` and said back on every ask and over Improv, so a frame removed and paired again (`admit_frame`, a new row) starts with its mat; the rotation already did (W-851, `X-FF-Rotation`). The mat also places the toasts: every pill on the glass (a toast, an error, a footnote) is one size on the footer line between the corner marks, baked where that line lands under a 4% reference mat, and `placeToast` moves a toast to where it lands under the frame's own mat (`FF_REF_INSET`, `FF_FOOT_CY`; `test_toast_place.py` holds the formula to the server's).
 The wall runs always-awake today; deep sleep is the
 less-tested branch. An optional status LED (W-876, `ff_led.cpp`): one WS2812B pixel
 with DIN on GPIO39, soldered to pad 1 of the unfitted font chip U6 (3V3 on

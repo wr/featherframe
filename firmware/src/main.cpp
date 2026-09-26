@@ -360,8 +360,8 @@ static uint8_t* g_lastFrame = nullptr;
 // swapped, and a tile's window mirrors to the opposite corner.
 bool g_flip = false;
 // The mat it hangs with, as the server last said it (X-FF-Mat, "inset,x,y",
-// kept in NVS). Nothing here draws with it: it is said back on every ask, so
-// a frame removed and added again starts with the mat it had.
+// kept in NVS). It is said back on every ask, so a frame removed and added
+// again starts with the mat it had, and it places the toasts (placeToast).
 char g_mat[32] = "";
 static bool validMat(const String& m) {
   if (!m.length() || m.length() >= sizeof(g_mat)) return false;
@@ -371,6 +371,26 @@ static bool validMat(const String& m) {
     else if (!isdigit((unsigned char)c) && c != '.' && c != '-') return false;
   }
   return commas == 2;
+}
+
+// Toasts sit on the plate's footer line, where the server puts its notes. The
+// mat moves that line (the plate is shrunk into it), so the bake puts a toast
+// where the line lands under FF_REF_INSET and this moves the window to where
+// it lands under the frame's own mat. Upright panel px, as the server's
+// pipeline._apply_mat_inset has them; a native x step stays whole bytes.
+static int g_toastX = FF_TOAST_X, g_toastY = FF_TOAST_Y;
+static float matAt(float size, float inset, float off, float at) {
+  const float s = 1.0f - inset / 50.0f;
+  return floorf((size - lroundf(size * s)) / 2.0f) + off + at * s;
+}
+static int roundTo(float v, int step) { return (int)lroundf(v / step) * step; }
+static void placeToast() {
+  float inset = FF_REF_INSET, mx = 0, my = 0;
+  if (g_mat[0]) sscanf(g_mat, "%f,%f,%f", &inset, &mx, &my);
+  const float dx = matAt(FF_UP_W, inset, mx, FF_UP_W / 2.0f) - matAt(FF_UP_W, FF_REF_INSET, 0, FF_UP_W / 2.0f);
+  const float dy = matAt(FF_UP_H, inset, my, FF_FOOT_CY) - matAt(FF_UP_H, FF_REF_INSET, 0, FF_FOOT_CY);
+  g_toastX = constrain(FF_TOAST_X + roundTo(dx * FF_UPX_NX + dy * FF_UPY_NX, 8), 0, FF_NATIVE_W - FF_TOAST_W);
+  g_toastY = constrain(FF_TOAST_Y + roundTo(dx * FF_UPX_NY + dy * FF_UPY_NY, 2), 0, FF_NATIVE_H - FF_TOAST_H);
 }
 static inline uint8_t swapNibbles(uint8_t b) { return (uint8_t)((b << 4) | (b >> 4)); }
 static void rotate180(uint8_t* buf, size_t n) {
@@ -1035,7 +1055,7 @@ static bool paintPlate() {
   if (g_cornerMark)
     stampTile(body, ff_corner_tiles[g_cornerMark - 1], FF_CORNER_X, FF_CORNER_Y, FF_CORNER_W, FF_CORNER_H);
   if (toast)
-    stampTile(body, ff_toast_tiles[g_toastId], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+    stampTile(body, ff_toast_tiles[g_toastId], g_toastX, g_toastY, FF_TOAST_W, FF_TOAST_H);
   fullPaint(body);
   free(body);
   return true;
@@ -1098,11 +1118,12 @@ void showToast(int t) {
   // hole the band-dedup latch never repairs.
   if (g_glassScreen >= 0) return;
   g_loaderAnim.on = false;
-  pushTile(ff_toast_tiles[t], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+  pushTile(ff_toast_tiles[t], g_toastX, g_toastY, FF_TOAST_W, FF_TOAST_H);
   if (t < (int)(sizeof(ff_toast_loader) / sizeof(ff_toast_loader[0]))) {
     const FfLoader& ld = ff_toast_loader[t];
     if (ld.x >= 0) {
-      g_loaderAnim.x = ld.x; g_loaderAnim.y = ld.y; g_loaderAnim.frames = ld.frames;
+      g_loaderAnim.x = ld.x + g_toastX - FF_TOAST_X; g_loaderAnim.y = ld.y + g_toastY - FF_TOAST_Y;
+      g_loaderAnim.frames = ld.frames;
       g_loaderAnim.on = true;
     }
   }
@@ -1130,7 +1151,7 @@ void clearToast() {
     panelLock();                              // g_tileBuf is shared under the lock
     // The pill sits where pushTile put it (mirrored when the frame is hung
     // the other way up); the retained frame is already in glass orientation.
-    const int tx = flipX(FF_TOAST_X, FF_TOAST_W), ty = flipY(FF_TOAST_Y, FF_TOAST_H);
+    const int tx = flipX(g_toastX, FF_TOAST_W), ty = flipY(g_toastY, FF_TOAST_H);
     const int nx = FF_NATIVE_W - tx - FF_TOAST_W;
     for (int r = 0; r < FF_TOAST_H; r++)
       memcpy(g_tileBuf + r * (FF_TOAST_W / 2),
@@ -1139,7 +1160,7 @@ void clearToast() {
     pushTileRaw(g_tileBuf, tx, ty, FF_TOAST_W, FF_TOAST_H);
     panelUnlock();
   } else {
-    pushTile(ff_toast_tiles[FF_TOAST_BLANK], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+    pushTile(ff_toast_tiles[FF_TOAST_BLANK], g_toastX, g_toastY, FF_TOAST_W, FF_TOAST_H);
   }
   g_toast.active = false;
   Serial.println("toast cleared");
@@ -1169,7 +1190,7 @@ static void markLowBattery(int beginMode) {
   if (beginMode >= 0) epaper.begin(beginMode);
   g_loaderAnim.on = false;
   g_toast.active = false;          // goToSleep must not "clear" this one off the glass
-  pushTile(ff_toast_tiles[FF_TOAST_LOW_BATTERY], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+  pushTile(ff_toast_tiles[FF_TOAST_LOW_BATTERY], g_toastX, g_toastY, FF_TOAST_W, FF_TOAST_H);
   g_bandKind = g_bandStage = -1;   // over a baked screen the pill took the error band's place
   epaper.sleep();                  // pushTile leaves the T-CON awake; the hold is four hours
   Serial.println("low-battery mark painted");
@@ -1558,6 +1579,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   if (validMat(mat) && mat != g_mat) {
     strlcpy(g_mat, mat.c_str(), sizeof(g_mat));
     prefs.putString("mat", g_mat);
+    placeToast();
   }
   // The power model and wake interval are set on the config page and ride
   // every response (a 304 too). Stored in NVS; the callers act on the new
@@ -1896,6 +1918,7 @@ void setup() {
   g_pollMs = prefs.getUInt("poll_s", FF_POLL_INTERVAL_MS / 1000) * 1000UL;
   g_flip = prefs.getBool("flip", false);
   prefs.getString("mat", "").toCharArray(g_mat, sizeof(g_mat));
+  placeToast();
   Serial.printf("power: %s, wake %u min\n", g_alwaysAwake ? "always awake" : "deep sleep",
                 (unsigned)g_wakeMinutes);
 

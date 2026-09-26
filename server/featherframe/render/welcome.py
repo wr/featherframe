@@ -121,9 +121,9 @@ def render_welcome(since: datetime, source_ok: bool,
     _, card_h = system.card_size(lines)
     system.card(draw, cx, (theme.HEIGHT - card_h) / 2, lines)
     if source_ok:
-        system.line(draw, cx, system.TOAST_Y + system.PILL_H * 0.72, SOURCE_UP_HINT, size=30)
+        system.line(draw, cx, system.NOTE_CY + system.NOTE_TEXT * 0.36, SOURCE_UP_HINT, size=system.NOTE_TEXT)
     else:
-        system.pill(draw, cx, system.TOAST_Y + system.PILL_H / 2, SOURCE_DOWN,
+        system.pill(draw, cx, system.NOTE_CY, SOURCE_DOWN,
                     icon="cloud", max_w=theme.CONTENT_W)
         system.line(draw, cx, system.RETRY_BASELINE, SOURCE_DOWN_HINT, size=system.RETRY_TEXT)
     return field

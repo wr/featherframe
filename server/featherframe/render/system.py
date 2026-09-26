@@ -21,13 +21,13 @@ from . import theme, typography
 _SANS = paths.fonts_dir() / "Inter-Medium.otf"
 _SANS_SEMIBOLD = paths.fonts_dir() / "Inter-SemiBold.otf"
 
-# The firmware's toast: PILL_H 82, text 34, side padding 30 (bake_screens.py).
-PILL_H, PILL_PAD, PILL_TEXT = 82, 30, 34
-# Where the firmware rests its pills: the toast band over the bottom margin,
-# and the "Trying again in 5 min" line beneath it (TOAST_Y / RETRY_BASELINE).
-TOAST_Y, RETRY_BASELINE, RETRY_TEXT = 1648, 1776, 28
-# The footer note between the corner marks: the same pill, two-thirds size.
+# One pill, in one place (25 Sep 2026): on the footer line between the corner
+# marks, where the firmware bakes its toasts and error pills too
+# (bake_screens.py scales these by its reference mat). A line that goes with a
+# pill ("Trying again shortly") sits over it.
 NOTE_H, NOTE_PAD, NOTE_TEXT = 52, 22, 24
+NOTE_CY = theme.MARKS_BASELINE - 9          # the script marks' x-height centre
+RETRY_BASELINE, RETRY_TEXT = NOTE_CY - NOTE_H / 2 - 20, NOTE_TEXT
 CARD_RADIUS = 24
 
 
@@ -72,7 +72,7 @@ def wifi_slash(d: ImageDraw.ImageDraw, cx: float, cy: float, s: float, ink: int,
 
 # -- the pill ----------------------------------------------------------------
 def pill(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, *,
-         h: int = PILL_H, pad: int = PILL_PAD, size: int = PILL_TEXT,
+         h: int = NOTE_H, pad: int = NOTE_PAD, size: int = NOTE_TEXT,
          icon: Optional[str] = None,
          max_w: Optional[float] = None, weight: str = "medium",
          tracking: float = 0.0) -> tuple[float, float]:
@@ -118,8 +118,7 @@ def note_pill(d: ImageDraw.ImageDraw, text: str, kind: Optional[str], max_w: flo
     """The footer note between the date and plate marks, on the marks' own
     line: the black pill, with a slashed cloud when the source is
     unreachable (`kind` "outage")."""
-    cy = theme.MARKS_BASELINE - 9          # the script marks' x-height centre
-    pill(d, theme.WIDTH / 2, cy, text, h=NOTE_H, pad=NOTE_PAD, size=NOTE_TEXT,
+    pill(d, theme.WIDTH / 2, NOTE_CY, text,
          icon="cloud" if kind == "outage" else None, max_w=max_w)
 
 

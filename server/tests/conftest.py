@@ -43,13 +43,6 @@ def _no_mdns(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _no_weather(monkeypatch):
-    """No test asks Open-Meteo for a day's weather (W-882); the weather tests
-    lift it over a fake."""
-    monkeypatch.setenv("FEATHERFRAME_WEATHER", "off")
-
-
-@pytest.fixture(autouse=True)
 def _no_release_check(monkeypatch):
     """No test asks GitHub for a firmware release (W-838). Tests of the check
     point FEATHERFRAME_RELEASES_URL at a fake."""

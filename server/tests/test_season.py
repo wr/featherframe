@@ -177,19 +177,32 @@ def test_service_asks_the_source_then_the_region():
 
 
 # -- the day's weather (W-882) ---------------------------------------------------
+from featherframe.config import Config  # noqa: E402
 from featherframe.render import weather as weather_mod  # noqa: E402
+from featherframe.render.genart import OpenAITextModel  # noqa: E402
+
+SRC = "https://www.wunderground.com/history/daily/us/ct/glastonbury/KCTGLAST75"
 
 
-@pytest.mark.parametrize("daily, kind", [
-    ({"snowfall_sum": 24.9, "snow_depth_max": 0.43, "rain_sum": 0.1}, "snowing"),
-    ({"snowfall_sum": 0.0, "snow_depth_max": 0.25, "rain_sum": 0.0}, "snow"),
-    ({"snowfall_sum": 0.5, "snow_depth_max": 0.0, "rain_sum": 22.7}, "rain"),
-    ({"snowfall_sum": 0.0, "snow_depth_max": 0.04, "rain_sum": 9.9}, ""),
-    ({"snowfall_sum": None, "snow_depth_max": None, "rain_sum": None}, ""),
-    ({"rain_sum": True}, ""),
+@pytest.mark.parametrize("answer, kind", [
+    ({"snowfall_cm": 45.7, "snow_on_ground_cm": 15.2, "rain_mm": 0, "source": SRC}, "snowing"),
+    ({"snowfall_cm": 0, "snow_on_ground_cm": 25, "rain_mm": 0, "source": SRC}, "snow"),
+    ({"snowfall_cm": 0.5, "snow_on_ground_cm": 0, "rain_mm": 95.3, "source": SRC}, "rain"),
+    ({"snowfall_cm": 0, "snow_on_ground_cm": 4, "rain_mm": 9.9, "source": SRC}, ""),
+    ({"snowfall_cm": None, "snow_on_ground_cm": None, "rain_mm": True, "source": SRC}, ""),
+    ({"snowfall_cm": 45.7}, None),                                  # names no source
+    ({"snowfall_cm": 45.7, "source": "my guess"}, None),
+    ("snowy", None),
 ])
-def test_kind_of_a_day(daily, kind):
-    assert weather_mod.kind_of(daily) == kind
+def test_kind_from_an_answer(answer, kind):
+    assert weather_mod.kind_from_answer(answer) == kind
+
+
+def test_the_prompt_names_the_day_and_the_place():
+    p = weather_mod.prompt(41.69642, -72.6072, date(2026, 9, 25), today=date(2026, 9, 25))
+    assert "Friday 25 September 2026 (today)" in p and "41.70" in p and "-72.61" in p
+    assert "(today)" not in weather_mod.prompt(41.7, -72.6, date(2026, 1, 25),
+                                               today=date(2026, 9, 25))
 
 
 def test_weather_decides_the_snow():
@@ -204,73 +217,150 @@ def test_weather_decides_the_snow():
 
 
 class _Resp:
-    def __init__(self, status=200, body=None):
-        self.status_code, self._body = status, body
+    def __init__(self, body, status=200):
+        self._body, self.status_code = body, status
+
+    def raise_for_status(self):
+        if self.status_code != 200:
+            raise RuntimeError(self.status_code)
 
     def json(self):
         return self._body
 
 
-def test_day_weather_asks_forecast_then_archive(monkeypatch):
-    monkeypatch.delenv("FEATHERFRAME_WEATHER")
-    asked = []
+def test_openai_search_reads_the_responses_api(monkeypatch):
+    sent = {}
 
-    def get(url, params=None, timeout=None):
-        asked.append((url, params))
-        return _Resp(body={"daily": {"time": [params["start_date"]], "snowfall_sum": [2.0],
-                                     "snow_depth_max": [0.1], "rain_sum": [0.0]}})
-    monkeypatch.setattr(weather_mod.requests, "get", get)
-    today = date(2026, 9, 25)
-    assert weather_mod.day_weather(41.69642, -72.6072, date(2026, 9, 1), today) == {
-        "snowfall_sum": 2.0, "snow_depth_max": 0.1, "rain_sum": 0.0}
-    weather_mod.day_weather(41.69642, -72.6072, date(2026, 1, 25), today)
-    assert "api.open-meteo" in asked[0][0] and "archive-api" in asked[1][0]
-    assert asked[0][1]["latitude"] == 41.7 and asked[0][1]["longitude"] == -72.61
-    assert weather_mod.kind_for(41.7, -72.6, date(2026, 1, 25)) == "snowing"
-
-
-def test_day_weather_soft_fails(monkeypatch):
-    monkeypatch.delenv("FEATHERFRAME_WEATHER")
-    monkeypatch.setattr(weather_mod.requests, "get", lambda *a, **k: _Resp(503))
-    assert weather_mod.day_weather(41.7, -72.6, date(2026, 1, 25)) is None
-    assert weather_mod.kind_for(41.7, -72.6, date(2026, 1, 25)) is None
-
-    def boom(*a, **k):
-        raise weather_mod.requests.ConnectionError("down")
-    monkeypatch.setattr(weather_mod.requests, "get", boom)
-    assert weather_mod.day_weather(41.7, -72.6, date(2026, 1, 25)) is None
-    monkeypatch.setattr(weather_mod.requests, "get",
-                        lambda *a, **k: _Resp(body={"daily": {"time": ["x"], "rain_sum": [None]}}))
-    assert weather_mod.day_weather(41.7, -72.6, date(2026, 1, 25)) is None
+    def post(url, headers=None, json=None, timeout=None):
+        sent.update(url=url, body=json)
+        return _Resp({"output": [
+            {"type": "web_search_call"}, {"type": "web_search_call"},
+            {"type": "message", "content": [{"type": "output_text",
+                                             "text": '{"rain_mm": 22.7, "source": "%s"}' % SRC}]}],
+            "usage": {"input_tokens": 38968, "output_tokens": 1141}})
+    monkeypatch.setattr(genart.requests, "post", post)
+    m = OpenAITextModel("k", model="gpt-5.6-luna")
+    assert m.search_json("?") == {"rain_mm": 22.7, "source": SRC}
+    assert sent["url"].endswith("/responses")
+    assert sent["body"]["tools"] == [{"type": "web_search"}]
+    assert sent["body"]["max_tool_calls"] == 2
+    assert m.last_usage == {"input_tokens": 38968, "output_tokens": 1141, "web_searches": 2}
+    cost = genart.estimate_text_cost_usd("gpt-5.6-luna", m.last_usage)
+    assert cost == pytest.approx(38968 * 0.2e-6 + 1141 * 0.75e-6 + 2 * genart.WEB_SEARCH_USD)
 
 
-def test_weather_off_never_asks(monkeypatch):
-    monkeypatch.setattr(weather_mod.requests, "get", lambda *a, **k: 1 / 0)
-    assert weather_mod.day_weather(41.7, -72.6, date(2026, 1, 25)) is None
+class FakeSearch:
+    name = "gpt-5.6-luna"
+    last_usage = None
+
+    def __init__(self, answer=None, boom=False):
+        self.answer, self.boom, self.asked = answer, boom, []
+
+    def complete_json(self, prompt):
+        return {"description": "", "plants": []}
+
+    def search_json(self, prompt):
+        self.asked.append(prompt)
+        self.last_usage = {"input_tokens": 1000, "output_tokens": 100, "web_searches": 1}
+        if self.boom:
+            raise RuntimeError("down")
+        return self.answer
 
 
-def test_sheet_records_the_days_weather(tmp_path, monkeypatch):
+def _provider(tmp_path, monkeypatch, text=None):
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
     model = FakeModel()
-    provider = GeneratedArtProvider(model)
+    provider = GeneratedArtProvider(model, text_model=text)
     provider._describe = lambda common, sci: ("", None)
-    asked = []
-    provider.day_composite(CELLS, date(2026, 1, 25),
-                           weather=lambda: asked.append(1) or "snowing")
-    meta = json.loads((paths.collages_dir() / "2026-01-25.json").read_text())
-    assert meta["weather"] == "snowing" and "snow falling" in model.prompts[-1]
-    provider.day_composite(CELLS, date(2026, 1, 25), weather=lambda: asked.append(1) or "")
-    assert asked == [1]                                   # a cached sheet asks nothing
+    return model, provider
 
 
-def test_a_failing_weather_ask_keeps_the_season(tmp_path, monkeypatch):
-    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
-    model = FakeModel()
-    provider = GeneratedArtProvider(model)
-    provider._describe = lambda common, sci: ("", None)
+def _meta(day):
+    return json.loads((paths.collages_dir() / f"{day}.json").read_text())
 
-    def boom():
-        raise RuntimeError("down")
-    assert provider.day_composite(CELLS, date(2026, 2, 16), weather=boom) is not None
-    meta = json.loads((paths.collages_dir() / "2026-02-16.json").read_text())
-    assert meta["weather"] is None and "late snow" in model.prompts[-1]
+
+HERE = (41.69642, -72.6072)
+
+
+def test_daily_weather_asks_the_text_model_once(tmp_path, monkeypatch):
+    text = FakeSearch({"snowfall_cm": 24.9, "snow_on_ground_cm": 43, "source": SRC})
+    model, provider = _provider(tmp_path, monkeypatch, text)
+    provider.day_composite(CELLS, date(2026, 1, 25), branch="weather", location=HERE)
+    meta = _meta("2026-01-25")
+    assert meta["branch"] == "weather" and meta["weather"] == "snowing"
+    assert "snow falling" in model.prompts[-1]
+    assert "25 January 2026" in text.asked[0] and "41.70" in text.asked[0]
+    provider.day_composite(CELLS, date(2026, 1, 25), branch="weather", location=HERE, force=True)
+    assert len(text.asked) == 1                            # kept for the day
+    spend = [json.loads(l) for l in paths.spend_ledger_path().read_text().splitlines()]
+    assert [e["kind"] for e in spend].count("weather") == 1
+    assert genart.spend_for_month(datetime.now())["images"] == 1   # weather is no image
+
+
+def test_daily_weather_asks_again_after_hours(tmp_path, monkeypatch):
+    text = FakeSearch({"rain_mm": 0, "source": SRC})
+    model, provider = _provider(tmp_path, monkeypatch, text)
+    now = [1_000_000.0]
+    monkeypatch.setattr(genart.time, "time", lambda: now[0])
+    provider._day_weather(HERE, date(2026, 9, 25))
+    now[0] += weather_mod.REASK_S + 1
+    provider._day_weather(HERE, date(2026, 9, 25))
+    assert len(text.asked) == 2
+
+
+@pytest.mark.parametrize("text", [
+    FakeSearch(boom=True),
+    FakeSearch({"snowfall_cm": 30}),                        # no source
+    None,                                                   # no text model
+])
+def test_unknown_weather_keeps_the_season(tmp_path, monkeypatch, text):
+    model, provider = _provider(tmp_path, monkeypatch, text)
+    assert provider.day_composite(CELLS, date(2026, 2, 16), branch="weather",
+                                  location=HERE) is not None
+    assert _meta("2026-02-16")["weather"] is None
+    assert "late snow" in model.prompts[-1]
+
+
+def test_daily_weather_without_a_location_keeps_the_season(tmp_path, monkeypatch):
+    text = FakeSearch({"rain_mm": 50, "source": SRC})
+    model, provider = _provider(tmp_path, monkeypatch, text)
+    provider.day_composite(CELLS, date(2026, 7, 29), branch="weather", location=None)
+    assert text.asked == [] and _meta("2026-07-29")["weather"] is None
+
+
+def test_a_bare_branch_is_the_old_bough(tmp_path, monkeypatch):
+    text = FakeSearch({"rain_mm": 50, "source": SRC})
+    model, provider = _provider(tmp_path, monkeypatch, text)
+    provider.day_composite(CELLS, date(2026, 7, 29), branch="bare", location=HERE)
+    assert text.asked == [] and "temperate woodland" not in model.prompts[-1]
+    assert _meta("2026-07-29")["season"] is None
+
+
+def test_changing_the_branch_repaints_the_day(tmp_path, monkeypatch):
+    model, provider = _provider(tmp_path, monkeypatch)
+    provider.day_composite(CELLS, date(2026, 7, 29), branch="season")
+    provider.day_composite(CELLS, date(2026, 7, 29), branch="season")
+    assert model.calls == 1
+    sidecar = paths.collages_dir() / "2026-07-29.json"
+    meta = json.loads(sidecar.read_text())
+    meta["created_ts"] -= 3600                              # past the repaint debounce
+    sidecar.write_text(json.dumps(meta))
+    provider.day_composite(CELLS, date(2026, 7, 29), branch="bare")
+    assert model.calls == 2
+
+
+def test_a_sheet_from_before_the_choice_is_kept(tmp_path, monkeypatch):
+    model, provider = _provider(tmp_path, monkeypatch)
+    provider.day_composite(CELLS, date(2026, 7, 29))
+    sidecar = paths.collages_dir() / "2026-07-29.json"
+    meta = json.loads(sidecar.read_text())
+    del meta["branch"]
+    sidecar.write_text(json.dumps(meta))
+    provider.day_composite(CELLS, date(2026, 7, 29), branch="weather", location=HERE)
+    assert model.calls == 1
+
+
+def test_the_branch_setting():
+    assert Config().collage_branch == "season"
+    assert Config(collage_branch="weather").collage_branch == "weather"
+    assert Config(collage_branch="snowglobe").collage_branch == "season"

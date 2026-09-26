@@ -43,7 +43,6 @@ from .db import Database
 from . import viewers as viewers_mod
 from .render import collage as collage_mod
 from .render import season as season_mod
-from .render import weather as weather_mod
 from .render import compose as compose_mod
 from .render import framebuffer
 from .render import pipeline
@@ -1169,9 +1168,10 @@ class FeatherframeService:
         return when_text(datetime.fromisoformat(alarm["since"]), self._clock())
 
     def _station(self):
-        """(southern, location) for the collage's bough: south of the equator
+        """(southern, location) for the collage's branch: south of the equator
         by the source's latitude where it reports one, else by the Region
-        (W-881); the location, or None, asks for the day's weather (W-882)."""
+        (W-881); the location, or None, is where the day's weather is asked
+        (W-882)."""
         try:
             loc = self.source.location()
         except Exception:  # a source must never break a collage
@@ -1478,10 +1478,10 @@ class FeatherframeService:
             if use_generated:
                 self.genart.color_sheets = color
                 southern, loc = self._station()
-                weather = ((lambda: weather_mod.kind_for(loc[0], loc[1], on_date))
-                           if loc else None)
                 sheet = self.genart.day_composite(top, on_date, force=force,
-                                                  southern=southern, weather=weather)
+                                                  southern=southern,
+                                                  branch=self.config.collage_branch,
+                                                  location=loc)
                 if sheet is not None:
                     # The key must name what was PAINTED: on a cache hit the cells
                     # come from the sheet's sidecar, not tonight's fresh tally.

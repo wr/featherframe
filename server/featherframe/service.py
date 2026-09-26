@@ -42,6 +42,7 @@ from .sources import Detection, make_source
 from .db import Database
 from . import viewers as viewers_mod
 from .render import collage as collage_mod
+from .render import season as season_mod
 from .render import compose as compose_mod
 from .render import framebuffer
 from .render import pipeline
@@ -1166,6 +1167,16 @@ class FeatherframeService:
         engraving's, not the page's."""
         return when_text(datetime.fromisoformat(alarm["since"]), self._clock())
 
+    def _southern(self) -> bool:
+        """Whether the household is south of the equator, for the collage's
+        season (W-881): the source's latitude where it reports one, else the
+        Region."""
+        try:
+            lat = self.source.latitude()
+        except Exception:  # a source must never break a collage
+            lat = None
+        return season_mod.is_southern(lat, self.config.region)
+
     def _note_text(self) -> Optional[str]:
         """The plate footnote while an alarm is on. Derived from the state
         cached at the top of this tick, which already reflects any detection
@@ -1465,7 +1476,8 @@ class FeatherframeService:
             """(sheet, label) for this day; `color` draws the art's colour twin."""
             if use_generated:
                 self.genart.color_sheets = color
-                sheet = self.genart.day_composite(top, on_date, force=force)
+                sheet = self.genart.day_composite(top, on_date, force=force,
+                                                  southern=self._southern())
                 if sheet is not None:
                     # The key must name what was PAINTED: on a cache hit the cells
                     # come from the sheet's sidecar, not tonight's fresh tally.

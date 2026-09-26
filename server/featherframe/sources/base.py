@@ -43,6 +43,17 @@ class Detection:
         return self.scientific_name.strip().lower()
 
 
+def valid_latitude(value) -> Optional[float]:
+    """A latitude in degrees, or None for anything that is not one."""
+    if isinstance(value, bool):
+        return None
+    try:
+        lat = float(value)
+    except (TypeError, ValueError):
+        return None
+    return lat if -90.0 <= lat <= 90.0 else None
+
+
 class DetectionSource(abc.ABC):
     """The interface every backend implements. Names match the scheduler's calls.
 
@@ -90,6 +101,11 @@ class DetectionSource(abc.ABC):
     @abc.abstractmethod
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         """Earliest date ('YYYY-MM-DD') this species was recorded. None if unknown."""
+
+    def latitude(self) -> Optional[float]:
+        """The station's latitude in degrees, where the source reports one: what
+        sets the collage's season in its hemisphere (W-881). None if unknown."""
+        return None
 
     def heard_before(self, scientific_name: str, on_date) -> Optional[bool]:
         """Whether this species had been recorded before `on_date` (a date):

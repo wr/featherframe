@@ -25,7 +25,7 @@ import threading
 from datetime import date as ddate, datetime, timedelta
 from typing import Optional
 
-from .base import Detection, DetectionSource
+from .base import Detection, DetectionSource, valid_latitude
 
 log = logging.getLogger("featherframe.pushed")
 
@@ -134,6 +134,9 @@ def _parse_birdnet_go(payload) -> Optional[dict]:
     note = md.get("note_id")
     if isinstance(note, (int, str)) and not isinstance(note, bool) and str(note).strip():
         item["note"] = str(note).strip()[:40]
+    lat = valid_latitude(md.get("bg_latitude"))
+    if lat is not None:
+        item["lat"] = lat
     days = md.get("days_since_first_seen")
     if isinstance(days, int) and not isinstance(days, bool) and 0 <= days < 100000:
         item["first_days"] = days
@@ -167,6 +170,7 @@ class PushedSource(DetectionSource):
         self._tally: dict[str, dict[str, dict]] = {}
         self._first: dict[str, str] = {}
         self.test_at: Optional[str] = None
+        self._lat: Optional[float] = None
         if db is not None:
             self._load(db.get(self._store_key, {}) or {})
 
@@ -198,6 +202,7 @@ class PushedSource(DetectionSource):
             self._first = {k: v for k, v in first.items() if isinstance(v, str)}
         if isinstance(saved.get("test_at"), str):
             self.test_at = saved["test_at"]
+        self._lat = valid_latitude(saved.get("lat"))
 
     # -- ingest (called by the webhook, off the scheduler thread) ----------
     def ingest(self, payload) -> Optional[Detection]:
@@ -221,6 +226,9 @@ class PushedSource(DetectionSource):
                         return self._to_detection(old)
             self._counter += 1
             item["id"] = self._counter
+            lat = item.pop("lat", None)
+            if lat is not None:
+                self._lat = lat
             days = item.pop("first_days", None)
             if days is not None:
                 self._learn_first(item, days)
@@ -260,7 +268,7 @@ class PushedSource(DetectionSource):
         try:
             self._db.set(self._store_key, {"counter": self._counter, "items": self._items,
                                            "tally": self._tally, "first": self._first,
-                                           "test_at": self.test_at})
+                                           "test_at": self.test_at, "lat": self._lat})
         except Exception:  # persistence is best-effort; never break ingest
             log.debug("%s queue persist failed", self.kind, exc_info=True)
 
@@ -269,6 +277,10 @@ class PushedSource(DetectionSource):
         return Detection(rowid=int(i["id"]), date=str(i["date"]), time=str(i["time"]),
                          common_name=str(i["common"]), scientific_name=str(i["scientific"]),
                          confidence=float(i["confidence"]))
+
+    def latitude(self) -> Optional[float]:
+        """The last latitude a push carried (BirdNET-Go's `bg_latitude`)."""
+        return self._lat
 
     def _floor(self, min_confidence: float) -> float:
         return 0.0 if self._defer_confidence else min_confidence

@@ -411,6 +411,15 @@ again only at a redraw where the day's *species list* has changed under it (a
 count moving is not a change, `collage.same_species`) — so up to one per
 collage interval on a busy day, plus the nightly one and the button — with
 the per-key cooldown and the soft-fail to the grid intact.
+The generated sheet's bough is set in the season of its date (W-881,
+`render/season.py`): meteorological months with an early/mid/late stage,
+six months on in the south, each stage stated as ONE state of the tree
+(`TREE_STATE`: "still dormant, a heavy late snow lying along its limbs, its buds just swelling"), never a
+list of things to paint; a season named alone came back as dead oak leaves.
+The hemisphere is the source's `latitude()` (BirdNET-Pi's `Lat`, BirdWeather's
+station coords, BirdNET-Go's `bg_latitude`), else the Region (Australia is
+south). The sidecar records `season` and `COLLAGE_PROMPT_VERSION` (single
+plates keep `PROMPT_VERSION`).
 
 **Render pipeline (`render/`).** `pipeline.py` orchestrates:
 `compose.render_single` (or `collage.render_collage`) → `finish.to_levels`

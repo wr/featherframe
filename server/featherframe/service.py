@@ -584,6 +584,7 @@ class FeatherframeService:
         self.plates = plate_library.from_env() or PlateProvider()
         self.plates.region = self.config.region
         self._region_redraw = False     # a Region change awaits the next tick
+        self._collage_redraw = False    # so does a change to how the collage is drawn
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
         self.source = make_source(self.config, self.db)
@@ -830,6 +831,12 @@ class FeatherframeService:
                 config.imagegen_base_url, config.imagegen_text_provider,
                 config.imagegen_text_key, config.imagegen_text_base_url)
 
+    @staticmethod
+    def _collage_fields(config: Config) -> tuple:
+        """What a collage looks like, not when it is drawn."""
+        return (config.collage_generated, config.collage_branch,
+                config.collage_species_max)
+
     # -- config ------------------------------------------------------------
     def reload_config(self) -> None:
         with self._lock:
@@ -839,10 +846,15 @@ class FeatherframeService:
                     or new.birdweather_station_id != self.config.birdweather_station_id):
                 self.source = make_source(new, self.db)
                 self._reset_for_source()
-            if self._imagegen_fields(new) != self._imagegen_fields(self.config):
+            imagegen_changed = self._imagegen_fields(new) != self._imagegen_fields(self.config)
+            if imagegen_changed:
                 self.provider = self._build_provider(new)
                 # A new key or provider has not failed yet.
                 self.db.set(_IMAGEGEN_ERROR_KEY, None)
+            if (self._collage_fields(new) != self._collage_fields(self.config)
+                    or (imagegen_changed and new.collage_generated)):
+                # The collage is drawn again now, not at its next interval.
+                self._collage_redraw = True
             if new.region != self.config.region:
                 # The plate on the glass may now come from another folio: the
                 # next tick draws it again (never in the request that saved).
@@ -903,6 +915,10 @@ class FeatherframeService:
             self._region_redraw = False
             if self._etag is not None and self.pictures[PLATES].meta.get("label"):
                 self._rerender_picture(PLATES)
+        if self._collage_redraw:
+            self._collage_redraw = False
+            if self.pictures[COLLAGE].etag is not None:
+                self._rerender_picture(COLLAGE)
         now = self._clock()
         available = self.source.available()
         # Computed first so any render this tick — including the flips below —
@@ -1645,6 +1661,14 @@ class FeatherframeService:
 
     def start_collage(self, repaint: bool = False) -> bool:
         return self._start_task("collage", self.force_collage, repaint)
+
+    def redraw_after_settings(self) -> bool:
+        """A settings save that changes a picture is drawn now, on a worker
+        thread, rather than at the scheduler's next tick. The tick is what
+        draws it, so the frames get it and hear of it too."""
+        if not (self._region_redraw or self._collage_redraw):
+            return False
+        return self._start_task("collage" if self._collage_redraw else "redraw", self.tick)
 
     def task_status(self) -> dict:
         """Live state of the background one-shot jobs, for the config page's

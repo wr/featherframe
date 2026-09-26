@@ -757,6 +757,7 @@ async def save_settings(request: Request):
     new_session = None
     try:
         svc.update_config(new)
+        svc.redraw_after_settings()
         _announce_panel(request, svc)
         # The page's password (W-773): off until one is typed; a blank field
         # keeps the one stored, Remove clears it. Not a hosted page's to set.

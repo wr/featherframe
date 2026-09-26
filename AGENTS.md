@@ -414,7 +414,7 @@ the per-key cooldown and the soft-fail to the grid intact.
 The generated sheet's bough is set in the season of its date (W-881,
 `render/season.py`): meteorological months with an early/mid/late stage,
 six months on in the south, each stage stated as ONE state of the tree
-(`TREE_STATE`: "still dormant under late snow, its buds just swelling"), never a
+(`TREE_STATE`: "still dormant, a heavy late snow lying along its limbs, its buds just swelling"), never a
 list of things to paint; a season named alone came back as dead oak leaves.
 The hemisphere is the source's `latitude()` (BirdNET-Pi's `Lat`, BirdWeather's
 station coords, BirdNET-Go's `bg_latitude`), else the Region (Australia is

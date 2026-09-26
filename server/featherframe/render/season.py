@@ -33,8 +33,8 @@ def season_of(day: date, southern: bool = False) -> tuple[str, str]:
 # leaves and lichen, no snow).
 TREE_STATE = {
     ("early", "winter"): "dormant, the first snow resting along its limbs",
-    ("mid", "winter"): "deep in dormancy, snow lying along its limbs",
-    ("late", "winter"): "still dormant under late snow, its buds just swelling",
+    ("mid", "winter"): "deep in dormancy, snow lying thick along its limbs",
+    ("late", "winter"): "still dormant, a heavy late snow lying along its limbs, its buds just swelling",
     ("early", "spring"): "its buds breaking into the first small leaves",
     ("mid", "spring"): "in blossom, its new leaves unfolding",
     ("late", "spring"): "in fresh, full young leaf",

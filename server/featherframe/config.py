@@ -78,6 +78,8 @@ def _sun_window(on_date: date | None = None) -> tuple[dtime, dtime]:
     return _t(sunset), _t(sunrise)
 
 
+COLLAGE_BRANCHES = ("season", "weather", "bare")
+
 # The regions the Region setting offers, each first in its own folios.
 REGIONS = ("north-america", "europe", "australia", "asia")
 
@@ -194,6 +196,10 @@ class Config:
     # How many of the day's species the generated sheet carries, most-heard
     # first. 0 = every species heard that day. The grid fallback always holds six.
     collage_species_max: int = 10
+    # The generated collage's branch (W-882): "season" (the season of its
+    # date, W-881), "weather" (that, plus the day's own weather, asked of the
+    # text model's web search) or "bare" (the bare branch of before).
+    collage_branch: str = "season"
     # Install each official firmware release on every frame already on an
     # official one, without a press (W-838). A dev build is never replaced.
     firmware_auto_update: bool = False
@@ -239,6 +245,8 @@ class Config:
         self.ingest_token = str(self.ingest_token or "").strip()
         self.collage_interval_hours = int(_clamp(_finite(self.collage_interval_hours, 6), 1, 24))
         self.collage_species_max = int(_clamp(self.collage_species_max, 0, 60))
+        if self.collage_branch not in COLLAGE_BRANCHES:
+            self.collage_branch = "season"
         # The panel's native canvas is landscape and the firmware rejects a
         # portrait frame (pushImage would clip it into garbage), so only the
         # two landscape orientations are valid. Old 0/180 values migrate to

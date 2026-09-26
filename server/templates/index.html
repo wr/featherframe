@@ -1692,6 +1692,21 @@
             <div class="frow-text"><label class="lab" for="cg"><span class="badge ai">AI</span>Generate menagerie-style collages<a class="btn sm ex preview" href="/static/examples/collage.png" data-ex="collage" data-cap="The collage as one scene, generated with AI." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
             <div class="frow-ctl">{{ instant_switch('cg', 'collage_generated', config.collage_generated, not ig_ready) }}</div>
           </div>
+          {# W-882: what the AI collage's branch carries. Daily weather is asked
+             of the text model's web search, which only OpenAI's has here; with
+             any other, the branch follows the season. #}
+          {% set wx_ready = (config.imagegen_text_provider or config.imagegen_provider) == 'openai' %}
+          {% set branch = config.collage_branch %}
+          <div class="frow{{ '' if ig_ready else ' locked' }}">
+            <div class="frow-text"><span class="lab" id="branch-lab"><span class="badge ai">AI</span>Branch</span>{% if branch == 'weather' and ig_ready and not wx_ready %}<div class="hint">Daily weather needs an OpenAI text model. The branch follows the season.</div>{% endif %}</div>
+            <div class="frow-ctl">
+              <div class="seg" role="radiogroup" aria-labelledby="branch-lab">
+                <label><input type="radio" name="collage_branch" value="season" {{ 'checked' if branch=='season' else '' }} {{ '' if ig_ready else 'disabled' }}><span>Seasonal</span></label>
+                <label><input type="radio" name="collage_branch" value="weather" {{ 'checked' if branch=='weather' else '' }} {{ '' if ig_ready else 'disabled' }}><span>Daily weather</span></label>
+                <label><input type="radio" name="collage_branch" value="bare" {{ 'checked' if branch=='bare' else '' }} {{ '' if ig_ready else 'disabled' }}><span>Bare</span></label>
+              </div>
+            </div>
+          </div>
           {{ set_foot() }}
         </form>
         </div></div>

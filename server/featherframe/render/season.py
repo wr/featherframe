@@ -53,11 +53,43 @@ def season_phrase(day: date, southern: bool = False) -> str:
     return f"{stage} {name}"
 
 
-def tree_state(day: date, southern: bool = False) -> str:
+# W-882: when the day's weather is known, snow comes from it alone, so a
+# winter bough with no snow that day is bare wood; each kind of weather is one
+# state of the tree, like the stages, and it lies on the wood, never across the
+# sheet (rain streaks or a blizzard would bury the numerals). Wind was tried and
+# does not read on a perched composition, even as a gale.
+WINTER_BARE = {
+    "early": "dormant, its buds held tight",
+    "mid": "deep in dormancy, its buds held tight",
+    "late": "still dormant, its buds just swelling",
+}
+WEATHER_STATE = {
+    # A heavy fall has to outweigh the sparse branch every collage is drawn
+    # with, or a 25 cm snowstorm paints lighter than an ordinary winter day.
+    "heavy_snow": ("buried in that day's heavy snowfall, the snow mounded deep on every "
+                   "limb and twig and drooping from them in heavy cushions, modeled as the "
+                   "engravers modeled snow, in cool gray aquatint on its shadowed side and "
+                   "underside so its mass stands out from the white paper"),
+    "snowing": "snow falling that day and gathering thick along its limbs",
+    "snow": "the snow of the days before lying along its limbs",
+    "rain": ("standing in that day's heavy rain, the falling rain itself drawn in "
+             "plain sight as close ruled lines of the engraver's burin slanting across "
+             "the open paper behind the figures"),
+}
+
+
+def tree_state(day: date, southern: bool = False,
+               weather: Optional[str] = None) -> str:
     """'late winter, still dormant under late snow, …' — the bough's season as
-    the collage prompt states it."""
+    the collage prompt states it. `weather` is the day's kind of weather
+    (`weather.kind_of`, "" for a quiet day) or None when it is unknown, and
+    then the season's own snow stands."""
     stage, name = season_of(day, southern)
-    return f"{stage} {name}, {TREE_STATE[(stage, name)]}"
+    if weather is None:
+        return f"{stage} {name}, {TREE_STATE[(stage, name)]}"
+    state = WINTER_BARE[stage] if name == "winter" else TREE_STATE[(stage, name)]
+    extra = WEATHER_STATE.get(weather)
+    return f"{stage} {name}, {state}" + (f", {extra}" if extra else "")
 
 
 def is_southern(latitude: Optional[float], region: str = "") -> bool:

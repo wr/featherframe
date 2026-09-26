@@ -739,6 +739,7 @@ async def save_settings(request: Request):
                      else s("owner_email", "").strip() or cur["owner_email"]),
         region=s("region", cur["region"]),
         collage_species_max=limit("collage_species_max", cur["collage_species_max"]),
+        collage_branch=s("collage_branch", cur["collage_branch"]),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
         imagegen_base_url=s("imagegen_base_url", cur["imagegen_base_url"]),

@@ -40,6 +40,7 @@ from ..names import DEFAULT_FOLIO, folio_of
 from . import plate
 from .collage import CollageCell, same_species, sheet_art_size
 from .provider import ArtProvider, Artwork
+from . import weather as weather_mod
 from .season import season_phrase, tree_state
 
 log = logging.getLogger("featherframe.genart")
@@ -276,20 +277,26 @@ _P_COMPOSITE_BARE = {
 }
 
 # W-881: the bough lives in the season of the collage's date. Stated as a
-# principle of the setting — the week's own state of the tree and the weather
-# on its wood — never as a list of things to paint, which the model would
-# paint on every sheet; the stage ("late winter") keeps a season from reading
-# as its cliché. The figures stay the subject: the season is carried lightly
-# and every figure and numeral stands clear of it, or the key under the sheet
-# stops matching what is painted.
+# principle of the setting — the week's own state of the tree — never as a
+# list of things to paint, which the model would paint on every sheet; the
+# stage ("late winter") keeps a season from reading as its cliché, and it is
+# told by the state of what grows, not its amount (a full canopy was a tell).
 _P_COMPOSITE_SEASON = (
-    "The bough is one living tree of a temperate woodland, seen in {season}: it wears "
-    "that week exactly as the week truly is, so the season is unmistakable at a glance. "
-    "The season is told with the fewest touches that make it so, in the folio's economy, "
-    "the bark clean and plain, so the figures carry the sheet; every figure stands whole "
-    "against it and every numeral sits on open paper. "
+    "The bough is one living tree, seen in {season}: it wears that week exactly as the "
+    "week truly is, told by the state of what grows on it rather than by its abundance, "
+    "so the season reads at a glance. "
 )
-COLLAGE_PROMPT_VERSION = 17  # the collage sidecar's; single plates keep PROMPT_VERSION
+
+# W-882: how every collage's branch is drawn, whatever it carries. Wells saw the
+# AI in a full canopy, a bead on every leaf and moss in even rosettes on every
+# limb: the folio's branches are sparse and hand-placed, the bark clean line.
+_P_COMPOSITE_HAND = (
+    "The branch is drawn as the folio drew its branches: sparse sprays with a great "
+    "deal of open paper between them, each leaf, twig, and mark placed by hand and no "
+    "two alike, the bark bare wood in clean engraved line. The figures carry the sheet; "
+    "every figure stands whole against the branch and every numeral sits on open paper. "
+)
+COLLAGE_PROMPT_VERSION = 19  # W-881 17, W-882 18-19; single illustrations keep PROMPT_VERSION
 
 
 def build_composite_prompt(subjects: list[tuple[str, str]],
@@ -313,10 +320,11 @@ def build_composite_prompt(subjects: list[tuple[str, str]],
     crowded = len(subjects) >= _COMPOSITE_CROWDED_FROM
     template = _P_COMPOSITE_ARMATURE_CROWDED if crowded else _P_COMPOSITE_ARMATURE
     if season:
-        armature = template.format(bare="", botany=_P_COMPOSITE_SEASON.format(season=season))
+        botany = _P_COMPOSITE_SEASON.format(season=season)
+        armature = template.format(bare="", botany=botany + _P_COMPOSITE_HAND)
     else:
         armature = template.format(bare="bare, " if not crowded else "bare ",
-                                   botany=_P_COMPOSITE_BARE[crowded])
+                                   botany=_P_COMPOSITE_BARE[crowded] + _P_COMPOSITE_HAND)
     return opener + armature + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
 
 
@@ -331,8 +339,12 @@ def _havell_species(idx: dict) -> list[dict]:
 
 # Real composite plates to hand the model as references, preference order.
 _PREFERRED_COMPOSITE_REFS = [
-    "Dryobates villosus",       # plate 416 — five woodpecker species, one snag
-    "Poecile atricapillus",     # plate 353 — the titmouse composite
+    # plate 354 — tanagers on one sparse, clean branch; it replaced plate 416,
+    # whose lichened snag came back as lichen on every trunk (W-882)
+    "Piranga ludoviciana",
+    # plate 399 — five warblers up one sparse spray; it replaced plate 353,
+    # whose hanging moss nest came back as moss on every branch (W-882)
+    "Setophaga virens",
     "Haemorhous mexicanus",     # plate 424 — the finch/bunting totem
 ]
 
@@ -723,6 +735,9 @@ class TextModel(ABC):
     def complete_json(self, prompt: str) -> dict:
         """Return the model's JSON reply as a dict. May raise."""
 
+    # A model that can search the web answers `search_json(prompt)` (W-882:
+    # the day's weather); one that cannot has no such method.
+
 
 class OpenAITextModel(TextModel):
     API_BASE = "https://api.openai.com/v1"
@@ -749,6 +764,33 @@ class OpenAITextModel(TextModel):
         if not isinstance(out, dict):
             raise GenerationError("text model returned non-object JSON")
         return out
+
+
+    #: At most this many searches per ask (W-882): each one is billed.
+    SEARCH_MAX_CALLS = 2
+
+    def search_json(self, prompt: str) -> dict:
+        """The model's JSON reply after searching the web (the Responses API's
+        web_search tool). `last_usage` counts the searches too. May raise."""
+        r = requests.post(
+            f"{self.API_BASE}/responses",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={"model": self.model, "input": prompt,
+                  "tools": [{"type": "web_search"}],
+                  "max_tool_calls": self.SEARCH_MAX_CALLS},
+            timeout=max(self.timeout_s, 180.0))
+        r.raise_for_status()
+        body = r.json()
+        output = body.get("output") or []
+        u = body.get("usage") or {}
+        self.last_usage = {"input_tokens": _tok(u.get("input_tokens")),
+                           "output_tokens": _tok(u.get("output_tokens")),
+                           "web_searches": sum(1 for o in output if isinstance(o, dict)
+                                               and o.get("type") == "web_search_call")}
+        text = "".join(c.get("text", "") for o in output
+                       if isinstance(o, dict) and o.get("type") == "message"
+                       for c in (o.get("content") or []) if isinstance(c, dict))
+        return _loads_json_object(text)
 
 
 class GeminiTextModel(TextModel):
@@ -950,12 +992,17 @@ TEXT_RATES_USD_PER_M: dict[str, tuple[float, float]] = {
 }
 
 
+#: USD per web search call (OpenAI's web_search tool fee, W-882).
+WEB_SEARCH_USD = 0.01
+
+
 def estimate_text_cost_usd(model: str, usage: Optional[dict]) -> Optional[float]:
     rates = TEXT_RATES_USD_PER_M.get(str(model or ""))
     if not rates or not isinstance(usage, dict) or not usage:
         return None
     return (_tok(usage.get("input_tokens")) * rates[0]
-            + _tok(usage.get("output_tokens")) * rates[1]) / 1e6
+            + _tok(usage.get("output_tokens")) * rates[1]) / 1e6 \
+        + _tok(usage.get("web_searches")) * WEB_SEARCH_USD
 
 
 _LEDGER_LOCK = threading.Lock()
@@ -993,7 +1040,7 @@ def spend_for_month(now: Optional[datetime] = None) -> dict:
             continue
         if not isinstance(e, dict) or not str(e.get("at", "")).startswith(month):
             continue
-        if e.get("kind") != "describe":
+        if e.get("kind") not in ("describe", "weather"):
             out["images"] += 1
         cost = e.get("cost_usd")
         if isinstance(cost, (int, float)):
@@ -1674,7 +1721,8 @@ class GeneratedArtProvider(ArtProvider):
     # -- the combined collage (one generated sheet) --------------------------------
     _KEEP_SHEETS = 7  # the latest of a day is kept; older days only for a re-render
 
-    def day_composite(self, cells, when, force: bool = False, southern: bool = False):
+    def day_composite(self, cells, when, force: bool = False, southern: bool = False,
+                      branch: str = "season", location=None):
         """One generated composite sheet for the day's top species, in the
         manner of the folio's late totem plates. One file per date, reused for
         every redraw of that day — every collage is the generated one when the
@@ -1684,9 +1732,12 @@ class GeneratedArtProvider(ArtProvider):
         nightly one and any forced repaint. Returns
         (art, cells_as_painted) — on a cache hit the cells come from the
         sidecar, so the key under the sheet always names the figures that were
-        actually painted — or None (caller falls back to the grid). The bough
-        is set in the season of `when` (W-881), `southern` flipping it.
-        Never raises."""
+        actually painted — or None (caller falls back to the grid). The
+        branch (W-882, `Config.collage_branch`) is "bare", "season" (the
+        season of `when`, W-881, `southern` flipping it) or "weather" (the
+        season plus that day's weather at `location`, asked of the text model
+        only when a sheet is bought); a sheet painted with another branch is
+        bought again, as the owner changed it. Never raises."""
         day = when.isoformat()
         png = paths.collages_dir() / f"{day}.png"
         sidecar = paths.collages_dir() / f"{day}.json"
@@ -1694,9 +1745,11 @@ class GeneratedArtProvider(ArtProvider):
         try:
             if png.exists() and not force:
                 cached = self._read_sheet(png, sidecar, cells)
-                if cached is None or same_species(cached[1], cells):
+                if cached is None or (same_species(cached[1], cells)
+                                      and self._same_branch(sidecar, branch)):
                     return cached
-                log.info("day composite for %s was painted of other species; repainting", day)
+                log.info("day composite for %s was painted of other species or another "
+                         "branch; repainting", day)
             if self._model is None:
                 return self._read_sheet(png, sidecar, cells) if png.exists() else None
             if not force and self._in_cooldown(key):
@@ -1706,15 +1759,21 @@ class GeneratedArtProvider(ArtProvider):
             subjects = [(c.common_name, c.scientific_name) for c in cells]
             briefs = {sci or common: self._describe(common, sci)[0]
                       for common, sci in subjects}  # description only
-            season = season_phrase(when, southern)
-            prompt = build_composite_prompt(subjects, briefs,
-                                            season=tree_state(when, southern))
+            season = kind = None
+            if branch != "bare":
+                season = season_phrase(when, southern)
+                if branch == "weather" and location:
+                    kind = self._day_weather(location, when)
+            prompt = build_composite_prompt(
+                subjects, briefs,
+                season=tree_state(when, southern, kind) if season else None)
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
                 if png.exists():
                     # Another thread bought it while we waited, and it is of
                     # the species we came to paint: take it.
-                    if not force and same_species(self._sheet_cells(sidecar, cells), cells):
+                    if (not force and same_species(self._sheet_cells(sidecar, cells), cells)
+                            and self._same_branch(sidecar, branch)):
                         return self._read_sheet(png, sidecar, cells, locked=True)
                     # Repaint debounce: two racing repaints (double-click, two
                     # tabs) must not both bill. A sheet younger than 3 minutes
@@ -1753,7 +1812,9 @@ class GeneratedArtProvider(ArtProvider):
                     "usage": {"image": image_usage, "text": None},
                     "cost_usd": estimate_cost_usd(model_name, image_usage),
                     "prompt_version": COLLAGE_PROMPT_VERSION,
+                    "branch": branch,
                     "season": season,
+                    "weather": kind,
                     "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                     "created_ts": round(time.time(), 1),
                     "elapsed_s": round(time.time() - started, 1),
@@ -1821,6 +1882,57 @@ class GeneratedArtProvider(ArtProvider):
             except OSError:
                 pass
             return None
+
+    @staticmethod
+    def _same_branch(sidecar: Path, branch: str) -> bool:
+        """A sheet from before the choice (no `branch`) counts as the one
+        asked for: a deploy never repaints every household's day."""
+        try:
+            painted = json.loads(sidecar.read_text()).get("branch")
+        except (OSError, ValueError, AttributeError):
+            return True
+        return painted is None or painted == branch
+
+    _WEATHER_KEEP_DAYS = 7
+
+    def _day_weather(self, location, when) -> Optional[str]:
+        """The collage day's kind of weather (`weather.kind_of`), asked of the
+        text model's web search at most once per `weather.REASK_S` for a day
+        and kept in `collages/weather.json`; None when it cannot say."""
+        day = when.isoformat()
+        path = paths.collages_dir() / "weather.json"
+        try:
+            kept = json.loads(path.read_text())
+        except (OSError, ValueError):
+            kept = {}
+        if not isinstance(kept, dict):
+            kept = {}
+        hit = kept.get(day)
+        if isinstance(hit, dict) and time.time() - float(hit.get("at") or 0) < weather_mod.REASK_S:
+            return hit.get("kind")
+        search = getattr(self._text_model, "search_json", None)
+        if search is None:
+            return None
+        lat, lon = location
+        try:
+            answer = search(weather_mod.prompt(lat, lon, when))
+        except Exception as exc:  # the season's own look stands
+            log.info("weather for %s failed: %s", day, exc)
+            answer = None
+        usage = getattr(self._text_model, "last_usage", None)
+        model_name = getattr(self._text_model, "name", "unknown")
+        if answer is not None or usage:
+            record_spend("weather", day, model_name, usage,
+                         estimate_text_cost_usd(model_name, usage))
+        kind = weather_mod.kind_from_answer(answer)
+        kept[day] = {"at": round(time.time(), 1), "kind": kind, "answer": answer}
+        for old in sorted(kept)[:-self._WEATHER_KEEP_DAYS]:
+            del kept[old]
+        try:
+            self._write_atomic(path, json.dumps(kept, indent=2).encode())
+        except OSError:
+            pass
+        return kind
 
     @staticmethod
     def _sheet_cells(sidecar: Path, fallback_cells) -> list[CollageCell]:

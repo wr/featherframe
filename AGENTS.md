@@ -419,7 +419,27 @@ list of things to paint; a season named alone came back as dead oak leaves.
 The hemisphere is the source's `latitude()` (BirdNET-Pi's `Lat`, BirdWeather's
 station coords, BirdNET-Go's `bg_latitude`), else the Region (Australia is
 south). The sidecar records `season` and `COLLAGE_PROMPT_VERSION` (single
-plates keep `PROMPT_VERSION`).
+plates keep `PROMPT_VERSION`). The branch is the owner's choice (W-882, `Config.collage_branch`, the
+Collage section's *Branch*): Seasonal, Daily weather, or Bare (the bough of
+before). Daily weather is asked of the household's own text model with web
+search (`OpenAITextModel.search_json`, the Responses API's `web_search`,
+`max_tool_calls` 2; the owner's key, so no weather service of ours to
+license), at the source's `location()` rounded to 0.01°, only when a sheet is
+bought and at most once per `weather.REASK_S` (6 h) a day
+(`collages/weather.json`), billed to the spend ledger as `weather`. An answer
+counts only when it names a source: `heavy_snow` (≥ 15 cm fell) / `snowing` / `snow` (lying) / `rain` / "",
+recorded as the sidecar's `weather`; once it is known, snow comes from it
+alone, so a dry winter day is bare wood; unknown (no location, not OpenAI, a
+failed ask) keeps the season's own snow. Wind was tried and does not read. A
+sheet painted with another branch is bought again (a sheet from before the
+choice is kept); weather alone never repaints one.
+Every collage's branch, whatever it carries, is drawn by one clause
+(`_P_COMPOSITE_HAND`: sparse sprays, each mark placed by hand and no two alike,
+bark in clean engraved line), and the season is told by the state of what
+grows, not its amount: a full canopy, a bead on every leaf and even rosettes
+of moss read as AI. The composite style references are Havell 354 and 399
+(one sparse, clean branch each) then 424; 353's moss nest and 416's lichened
+snag came back as moss and lichen on every sheet.
 
 **Render pipeline (`render/`).** `pipeline.py` orchestrates:
 `compose.render_single` (or `collage.render_collage`) → `finish.to_levels`

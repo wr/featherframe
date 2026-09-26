@@ -43,15 +43,20 @@ class Detection:
         return self.scientific_name.strip().lower()
 
 
-def valid_latitude(value) -> Optional[float]:
-    """A latitude in degrees, or None for anything that is not one."""
+def _degrees(value, limit: float) -> Optional[float]:
     if isinstance(value, bool):
         return None
     try:
-        lat = float(value)
+        v = float(value)
     except (TypeError, ValueError):
         return None
-    return lat if -90.0 <= lat <= 90.0 else None
+    return v if -limit <= v <= limit else None
+
+
+def valid_location(lat, lon) -> Optional[tuple[float, float]]:
+    """(latitude, longitude) in degrees, or None unless both are one."""
+    la, lo = _degrees(lat, 90.0), _degrees(lon, 180.0)
+    return None if la is None or lo is None else (la, lo)
 
 
 class DetectionSource(abc.ABC):
@@ -102,10 +107,15 @@ class DetectionSource(abc.ABC):
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         """Earliest date ('YYYY-MM-DD') this species was recorded. None if unknown."""
 
-    def latitude(self) -> Optional[float]:
-        """The station's latitude in degrees, where the source reports one: what
-        sets the collage's season in its hemisphere (W-881). None if unknown."""
+    def location(self) -> Optional[tuple[float, float]]:
+        """The station's (latitude, longitude), where the source reports one:
+        what sets the collage's season in its hemisphere (W-881) and asks for
+        its day's weather (W-882). None if unknown."""
         return None
+
+    def latitude(self) -> Optional[float]:
+        loc = self.location()
+        return loc[0] if loc else None
 
     def heard_before(self, scientific_name: str, on_date) -> Optional[bool]:
         """Whether this species had been recorded before `on_date` (a date):

@@ -1,8 +1,9 @@
 // IV. The collage is the night's: the page turns from day to night (white to
 // #1a1a1a, the type to #f2f1ec, the running head with it) when the collage's
-// eyebrow comes up to the bottom of the running head, and back to day when it
-// is scrolled back down below it, or when the section's bottom passes the
-// running head on the way out. The flip is a threshold, not scrubbed by the
+// eyebrow comes up to the bottom of the running head, and stays night for the
+// rest of the page (Technical details, Reserve, Questions, the colophon); it
+// turns back to day only when that eyebrow is scrolled back down below the
+// running head. The flip is a threshold, not scrubbed by the
 // scroll: <html class="night"> sets --night to 1 and styles.css eases it over
 // 450 ms (instantly with reduced motion), whatever the scroll's speed; every
 // colour is its day and its night mixed by --night. The frames and collages
@@ -17,7 +18,7 @@ export function startNight(): void {
   const paint = () => {
     raf = 0;
     const line = head ? head.getBoundingClientRect().bottom : 0;
-    const night = eyebrow.getBoundingClientRect().top <= line && section.getBoundingClientRect().bottom > line;
+    const night = eyebrow.getBoundingClientRect().top <= line;
     if (root.classList.contains('night') !== night) root.classList.toggle('night', night);
   };
   const request = () => { if (!raf) raf = requestAnimationFrame(paint); };

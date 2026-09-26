@@ -45,11 +45,11 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('body')).not.toContainText('heard at 07:02');
   await expect(page.locator('.tcap')).toHaveCount(0);
   // a mark for each season on the timeline
-  await expect(page.locator('#collage .season:not(.coda) figcaption svg.ico')).toHaveCount(4);
+  await expect(page.locator('#collage .season figcaption svg.ico')).toHaveCount(4);
   await expect(page.locator('#specs .ho')).toHaveCount(2);
-  await expect(page.locator('#collage .season:not(.coda) figcaption')).toHaveText(
+  await expect(page.locator('#collage .season figcaption')).toHaveText(
     ['Spring7 April 2026', 'Summer1 June 2026', 'Fall23 September 2026', 'Winter16 February 2026']);
-  await expect(page.locator('#collage .season:not(.coda) img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
+  await expect(page.locator('#collage .season img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
   await expect(page.locator('#faq dt')).toHaveCount(4);
   await expect(page.locator('.cat figure')).toHaveCount(12);
   // the Carolina Parakeet first (the art stop's bird), the Wood Duck in its old place
@@ -62,6 +62,11 @@ test('every section and its key copy is there', async ({ page }) => {
   for (const link of await page.getByRole('link', { name: 'Pre-order' }).all()) {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
+  // the singing videos, credited in the colophon
+  for (const c of ['Cardinal video by Paul Danese (Wikimedia Commons), CC BY-SA 4.0.', 'Blue Jay video by Paul Danese (Wikimedia Commons), CC BY-SA 4.0.', 'Goldfinch video by teyi 徐, Pexels.'])
+    await expect(page.locator('.colophon .d')).toContainText(c);
+  await expect(page.locator('#how video')).toHaveAttribute('poster', 'video/cardinal.webp');
+  await expect(page.locator('#how .credit')).toHaveText('Video by Paul Danese, Wikimedia Commons');
   await expect(page.locator('.colophon .c').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', 'https://app.featherframe.app/');
   const body = (await page.locator('body').innerText()).toLowerCase();
   for (const banned of ['plate', 'on the wall', 'on the glass']) expect(body).not.toContain(banned);
@@ -105,7 +110,8 @@ test('the seasons slide sideways as the page scrolls down, on a desktop', async 
     const want = await page.evaluate(() => {
       const b = document.querySelector('.seasons')!.getBoundingClientRect();
       const nav = document.querySelector('.head')!.getBoundingClientRect().height;
-      return Math.max(0, Math.min(1, (nav - b.top) / (b.height - (innerHeight - nav))));
+      // winter is reached before the stretch ends, and held centred for its last 12%
+      return Math.max(0, Math.min(1, (nav - b.top) / ((b.height - (innerHeight - nav)) * 0.88)));
     });
     await expect.poll(() => page.locator('.row').evaluate((e) => Number(e.dataset.progress))).toBeCloseTo(want, 2);
     return page.locator('.season').nth(1).evaluate((e) => e.getBoundingClientRect().left);
@@ -119,19 +125,26 @@ test('the seasons slide sideways as the page scrolls down, on a desktop', async 
   expect(a - b).toBeGreaterThan(200);
   expect(b - c).toBeGreaterThan(200);
   expect(Math.abs(t1 - t2)).toBeLessThan(1); // pinned
-  // by the end the row has come round to spring again
+  // four seasons, spring to winter, and no repeat of spring at the end
+  await expect(page.locator('.season')).toHaveCount(4);
+  await expect(page.locator('.season .sc')).toHaveText(['Spring', 'Summer', 'Fall', 'Winter']);
+  await expect(page.locator('.season.coda')).toHaveCount(0);
+  // winter settles centred before the pin lets go, and stays there to the end of the stretch
+  const winter = () => page.locator('.season').last().evaluate((e) => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; });
+  await x(0.9);
+  expect(Math.abs((await winter()) - 720)).toBeLessThan(40);
+  await expect(page.locator('.season').last()).toHaveClass(/\bnow\b/);
   await x(1);
-  const coda = await page.locator('.season.coda').evaluate((e) => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; });
-  expect(Math.abs(coda - 720)).toBeLessThan(40);
+  expect(Math.abs((await winter()) - 720)).toBeLessThan(40);
 });
 
 test('on a phone the seasons stack', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await expect(page.locator('html')).not.toHaveClass(/\bseasons-live\b/);
-  const tops = await page.locator('.season:not(.coda)').evaluateAll((es) => es.map((e) => e.getBoundingClientRect().top));
+  const tops = await page.locator('.season').evaluateAll((es) => es.map((e) => e.getBoundingClientRect().top));
+  expect(tops).toHaveLength(4);
   for (let i = 1; i < tops.length; i++) expect(tops[i]).toBeGreaterThan(tops[i - 1] + 300);
-  await expect(page.locator('.season.coda')).toBeHidden();
 });
 
 test('the frame repaints to the next species', async ({ page }) => {
@@ -307,7 +320,7 @@ test('each new detection is announced and the frame on the table repaints to it'
   const src = () => video.evaluate((v: HTMLVideoElement) => v.currentSrc || v.querySelector('source')!.src);
   await expect(toast).toHaveClass(/\bon\b/);
   await expect(toast.locator('.nm')).toHaveText('Northern Cardinal');
-  await expect(credit).toHaveText('Video by Kelly, Pexels');
+  await expect(credit).toHaveText('Video by Paul Danese, Wikimedia Commons');
   expect(await src()).toMatch(/video\/cardinal\.(webm|mp4)$/);
   await expect(table).toHaveAttribute('data-shown', 'cardinal', { timeout: 15_000 });
   await expect(toast.locator('.nm')).toHaveText('Blue Jay', { timeout: 15_000 });
@@ -315,7 +328,7 @@ test('each new detection is announced and the frame on the table repaints to it'
   await expect(toast).toHaveClass(/\bon\b/);
   await expect.poll(src).toMatch(/video\/blue-jay\.(webm|mp4)$/);
   await expect(video).toHaveAttribute('poster', 'video/blue-jay.webp');
-  await expect(credit).toHaveText('Video by Matt MacGillivray, Wikimedia Commons');
+  await expect(credit).toHaveText('Video by Paul Danese, Wikimedia Commons');
   await expect(table).toHaveAttribute('data-shown', 'blue-jay', { timeout: 15_000 });
   await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-blue-jay.webp');
   await page.waitForTimeout(5000);
@@ -324,7 +337,7 @@ test('each new detection is announced and the frame on the table repaints to it'
   await expect(toast.locator('.nm')).toHaveText('American Goldfinch', { timeout: 15_000 });
   await expect(toast).toHaveClass(/\bon\b/);
   await expect.poll(src).toMatch(/video\/goldfinch\.(webm|mp4)$/);
-  await expect(credit).toHaveText('Video by Katja Schulz, Wikimedia Commons');
+  await expect(credit).toHaveText('Video by teyi 徐, Pexels');
   await expect(table).toHaveAttribute('data-shown', 'goldfinch', { timeout: 15_000 });
 });
 
@@ -510,7 +523,7 @@ test('a new detection is a notification pinned to the video', async ({ page }) =
   expect(t!.y + t!.height).toBeGreaterThan(ph!.y);
 });
 
-test('the page turns to night for the collage, and back to day after it', async ({ page }) => {
+test('the page turns to night at the collage and stays night to the end, day again above it', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   const html = page.locator('html');
@@ -551,7 +564,22 @@ test('the page turns to night for the collage, and back to day after it', async 
   // the running head goes dark with it
   expect(await colour('.head', 'backgroundColor')).toBe('26,26,26');
   expect(await colour('#collage h2', 'color')).toBe('242,241,236');
-  await page.evaluate((y) => scrollTo(0, y), box.y + box.h + 200);
+  // and it stays night below the collage, through the details, the reservation, the questions and the colophon
+  for (const sel of ['#specs', '.close', '#faq', '.colophon']) {
+    await page.locator(sel).evaluate((e) => e.scrollIntoView({ block: 'center' }));
+    await expect(html).toHaveClass(/\bnight\b/);
+  }
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  await expect(html).toHaveClass(/\bnight\b/);
+  await expect.poll(bg).toBe('26,26,26');
+  expect(await colour('#specs .spec dd:first-of-type', 'color')).toBe('242,241,236');
+  expect(await colour('.close .btn', 'backgroundColor')).toBe('242,241,236');
+  expect(await colour('.close .btn', 'color')).toBe('26,26,26');
+  expect(await colour('.qa dt:first-of-type', 'color')).toBe('242,241,236');
+  expect(await colour('.field input', 'color')).toBe('242,241,236');
+  expect(await page.locator('.dim.h').first().evaluate((e) => getComputedStyle(e).borderTopColor).then(rgb)).toBe('242,241,236');
+  // scrolled back up above the threshold: day again
+  await page.evaluate((y) => scrollTo(0, y), brow - nav - 200);
   await expect(html).not.toHaveClass(/\bnight\b/);
   await expect.poll(bg).toBe(day);
   expect(day).toBe('255,255,255');
@@ -610,8 +638,13 @@ test('the video plays muted in view, with the spectrogram over its lower third',
   // Unmute in the middle of the video
   expect(Math.abs(un!.x + un!.width / 2 - (v!.x + v!.width / 2))).toBeLessThan(2);
   expect(Math.abs(un!.y + un!.height / 2 - (v!.y + v!.height / 2))).toBeLessThan(2);
-  // the ink drawn white
-  expect(await page.locator('.spectro img').evaluate((e) => getComputedStyle(e).filter)).toContain('invert(1)');
+  // the ink drawn bright white over a dark scrim: inverted, lifted and contrasted
+  const filter = await page.locator('.spectro img').evaluate((e) => getComputedStyle(e).filter);
+  expect(filter).toContain('invert(1)');
+  expect(Number(filter.match(/brightness\(([\d.]+)\)/)![1])).toBeGreaterThanOrEqual(2);
+  expect(Number(filter.match(/contrast\(([\d.]+)\)/)![1])).toBeGreaterThan(1);
+  const scrim = await page.locator('.spectro').evaluate((e) => getComputedStyle(e).backgroundImage);
+  expect(Math.max(...[...scrim.matchAll(/rgba\(0, 0, 0, ([\d.]+)\)/g)].map((m) => Number(m[1])))).toBeGreaterThanOrEqual(0.7);
 });
 
 test('with reduced motion the video shows its poster and does not play', async ({ page }) => {

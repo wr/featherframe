@@ -15,7 +15,7 @@
 :root.night { --night: 1; }
 :root {
   /* IV turns the page from day to night (night.ts: html.night, --night eased
-     0–1), and back as it leaves: every colour is its day and its night mixed by it. */
+     0–1) for the rest of the page: every colour is its day and its night mixed by it. */
   --night: 0;
   transition: --night .45s ease;
   --paper: color-mix(in srgb, #1a1a1a calc(var(--night) * 100%), #fff);
@@ -210,15 +210,16 @@ h2 { font-weight: 400; text-wrap: balance; }
 .trip { display: grid; grid-template-columns: 7fr 5fr; column-gap: var(--gutter); align-items: start; margin-top: 96px; container-type: inline-size; }
 .lcol { padding: 8vh 0 12vh; }
 /* The video of the species heard, with its song's spectrogram laid across
-   its lower third: the ink turned white over a soft dark scrim, a playhead
+   its lower third: the ink turned bright white (inverted, lifted and
+   contrasted, so a faint note still reads) over a dark scrim, a playhead
    crossing it. */
 .ph { position: relative; }
 .ph video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: #d9d9d5;
             border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 18px 40px -18px rgba(0, 0, 0, .35); }
 .spectro { position: absolute; left: 0; right: 0; bottom: 0; height: 33.4%; padding: 3% 4% 3.4%; border-radius: 0 0 10px 10px;
-           background: linear-gradient(to top, rgba(0, 0, 0, .6), rgba(0, 0, 0, .4) 55%, rgba(0, 0, 0, 0)); }
+           background: linear-gradient(to top, rgba(0, 0, 0, .74), rgba(0, 0, 0, .56) 60%, rgba(0, 0, 0, 0)); }
 .spectro .sg { height: 100%; }
-.spectro img { width: 100%; height: 100%; object-fit: fill; filter: invert(1); mix-blend-mode: screen; }
+.spectro img { width: 100%; height: 100%; object-fit: fill; filter: invert(1) brightness(2.6) contrast(1.3); mix-blend-mode: screen; }
 /* the spectrogram itself is the song's switch: sound on, sound off */
 .sg { position: relative; cursor: pointer; }
 .sg:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
@@ -295,7 +296,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* BirdWeather's mark is drawn in ink: at night, in the night's ink */
 .logos img[src$=".svg"] { filter: invert(var(--night)); }
 
-/* IV. The collage: a year of sheets, spring round to spring again. On a
+/* IV. The collage: a year of sheets, spring to winter. On a
    desktop the row is pinned and slides sideways as the page scrolls down
    (seasons.ts); on phones, and with reduced motion, the sheets stack. */
 #collage .intro2 .key { grid-column: 7 / 13; }
@@ -310,9 +311,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .season figcaption .sc { margin-right: auto; }
 /* each season's mark, drawn like an engraving's line */
 .season .ico { flex: none; align-self: center; width: 22px; height: 22px; margin-right: 10px; color: var(--ink); }
-.season.coda { display: none; }
 #collage .note { margin: 40px 0 0; color: var(--graphite); font-size: 15px; }
-.seasons-live .seasons { height: calc(100vh - var(--nav) + 250vh); margin-top: 40px;
+.seasons-live .seasons { height: calc(100vh - var(--nav) + 210vh); margin-top: 40px;
   /* each sheet's frame: 72% of the window's height, unless the width runs out first */
   --sh: min(72vh, calc(100vh - var(--nav) - 120px), calc((100vw - 2 * var(--m)) * 1100 / 874));
   --sw: calc(var(--sh) * 874 / 1100); }
@@ -322,7 +322,6 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 .seasons-live .row { flex-direction: row; align-items: flex-start; gap: max(64px, calc((100vw - var(--sw)) / 2 - 90px)); padding: 0 var(--m); will-change: transform; }
 .seasons-live .season { width: auto; }
-.seasons-live .season.coda { display: flex; }
 .seasons-live .season figure { width: auto; }
 .seasons-live .season img { width: var(--sw); height: var(--sh); max-width: none; }
 /* the timeline: one hairline through the year, under the frames, a season's mark on it at each */
@@ -392,7 +391,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   font: italic 18px var(--serif); color: var(--ink);
 }
 .field input::placeholder { color: var(--faint); opacity: 1; }
-.field:focus-within { border-bottom-color: #000; box-shadow: 0 1px 0 #000; }
+.field:focus-within { border-bottom-color: var(--ink); box-shadow: 0 1px 0 var(--ink); }
 .field button { padding: 0; border: 0; background: none; font: 500 14px var(--sans); color: var(--ink); cursor: pointer; }
 .field button:disabled { color: var(--faint); cursor: default; }
 .form-note { margin: 8px 0 0; font: italic 15px var(--serif); color: var(--graphite); }

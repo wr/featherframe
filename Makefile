@@ -93,3 +93,12 @@ ota-ee02:
 clean:
 	rm -rf server/.venv server/data test_output/*.png test_output/*.fff
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
+
+# featherframe.app, the marketing site (site/)
+site:
+	cd site && npm install && npm run build
+site-test:
+	cd site && npm install && npm test
+site-deploy:
+	cd site && npm install && npm run deploy
+.PHONY: site site-test site-deploy

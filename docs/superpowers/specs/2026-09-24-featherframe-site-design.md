@@ -75,8 +75,7 @@ no horizontal scroll.
 6. **Sizes (no prices):** two cards, *10-inch · sixteen grays* and *13-inch ·
    six inks*; the box: "Add a BirdNET-Go box to hear your own yard instead of
    a nearby station." "Hosting is included with every frame." Pre-order.
-7. **FAQ:** Where do the detections come from? · Do I need Wi-Fi? · How long
-   does the battery last? · What if Audubon never painted a species near me?
+7. **FAQ:** Where do the detections come from? · Do I need Wi-Fi? · What if Audubon never painted a species near me?
    (a lettered card by default; AI illustrations opt-in, marked ✦) · What is
    hosting, and what does it cost? (included) · Is my data private?
 8. **Build your own:** "Featherframe is open source. Build one from a Seeed

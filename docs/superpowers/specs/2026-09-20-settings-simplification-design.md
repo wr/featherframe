@@ -15,8 +15,8 @@ code that uses it.
 - **Daytime collage.** A Spectra 6 refresh takes ~15 s, so a collage every N
   hours can beat a plate per detection there.
 - **Power settings** (`power_mode`, `wake_interval_minutes`,
-  `device_poll_seconds`). The USB/battery inference is not reliable enough to
-  own the choice.
+  `device_poll_seconds`). Power detection is not reliable enough to own the
+  choice.
 - **Sunset → sunrise** quiet hours.
 - **Image-generation options**, all of them.
 

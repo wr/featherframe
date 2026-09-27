@@ -1,5 +1,5 @@
 # Every response: HTTPS only, no sniffing, no framing, a quiet referrer, no device features. The CSP starts in
-# report-only (three.js may want wasm/blob workers; watch the console, then enforce).
+# report-only (three.js loads its textures from blob: URLs; Cloudflare's zone injects its Web Analytics beacon).
 /*
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Content-Type-Options: nosniff
@@ -7,7 +7,7 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()
   X-Frame-Options: DENY
   Cross-Origin-Opener-Policy: same-origin
-  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data: blob:; media-src 'self'; font-src 'self'; connect-src 'self' https://app.featherframe.app; form-action 'self' https://app.featherframe.app; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; worker-src 'self' blob:; style-src 'self'; img-src 'self' data: blob:; media-src 'self'; font-src 'self'; connect-src 'self' blob: https://app.featherframe.app https://cloudflareinsights.com; form-action 'self' https://app.featherframe.app; frame-ancestors 'none'; base-uri 'self'; object-src 'none'
 
 # img/, audio/ and video/ keep their names when they change, so a browser asks again each time (a 304 when
 # nothing changed); models/ and the bundle's chunks are named by content (build.mjs, esbuild), fonts never change.

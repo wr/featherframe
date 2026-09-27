@@ -26,6 +26,14 @@ let species = readFileSync(speciesPath, 'utf8');
 for (const [from, to] of Object.entries(renames)) species = species.split(`"${from}"`).join(`"${to}"`);
 writeFileSync(speciesPath, species);
 
+// The share image keeps its name, but the platforms cache a preview by the image's URL: og:image and
+// twitter:image carry a hash of the file, so a new image is a new URL to them.
+{
+  const page = `${here}dist/index.html`;
+  const og = createHash('sha256').update(readFileSync(`${here}dist/img/og.jpg`)).digest('hex').slice(0, 8);
+  writeFileSync(page, readFileSync(page, 'utf8').replaceAll('https://featherframe.app/img/og.jpg"', `https://featherframe.app/img/og.jpg?v=${og}"`));
+}
+
 await build({
   entryPoints: [`${here}src/main.ts`],
   bundle: true,

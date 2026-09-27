@@ -14,7 +14,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
   await page.goto('http://127.0.0.1:4325/?hold=600000&size=13');
   // (the colour frame, the richer picture for a link preview) the headline and the frame: no running head, and the sentence and button left to the page
-  await page.addStyleTag({ content: '.head{visibility:hidden}.cover .copy p,.cover .cta{display:none!important}' });
+  await page.addStyleTag({ content: '.head,.tone.pill,.cover .speed{visibility:hidden}.cover .copy p,.cover .cta{display:none!important}' });
   await page.locator('canvas.ff3d.live').waitFor({ timeout: 30_000 });
   await page.waitForTimeout(2000);
   const png = `${here}dist/og.png`;

@@ -10,14 +10,56 @@
   <meta property="og:url" content="https://featherframe.app/">
   <meta property="og:title" content="Featherframe: Let the outside in.">
   <meta property="og:site_name" content="Wells Workshop">
-  <meta property="og:description" content="Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription. From $349. US pre-orders ship by December 12.">
+  <meta property="og:description" content="Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. From $349, no subscription. US pre-orders ship by December 12.">
   <meta property="og:image" content="https://featherframe.app/img/og.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="A walnut Featherframe showing the Wild Turkey from The Birds of America, beside the words Let the outside in.">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:image:alt" content="A walnut Featherframe showing the Wild Turkey from The Birds of America, beside the words “Let the outside in.”">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Featherframe: Let the outside in.">
+  <meta name="twitter:description" content="Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. From $349, no subscription.">
+  <meta name="twitter:image" content="https://featherframe.app/img/og.jpg">
+  <meta name="twitter:image:alt" content="A walnut Featherframe showing the Wild Turkey from The Birds of America, beside the words “Let the outside in.”">
   <meta name="theme-color" content="#FFFFFF">
-  <link rel="icon" href="favicon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://wells.ee/#org",
+        "name": "Wells Workshop",
+        "url": "https://wells.ee/",
+        "logo": "https://featherframe.app/favicon.png"
+      },
+      {
+        "@type": "Product",
+        "@id": "https://featherframe.app/#product",
+        "name": "Featherframe",
+        "description": "Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.",
+        "image": ["https://featherframe.app/img/og.jpg"],
+        "brand": { "@id": "https://wells.ee/#org" },
+        "manufacturer": { "@id": "https://wells.ee/#org" },
+        "url": "https://featherframe.app/",
+        "offers": {
+          "@type": "AggregateOffer",
+          "url": "https://shop.wells.ee/products/featherframe/",
+          "priceCurrency": "USD",
+          "lowPrice": "349",
+          "highPrice": "479",
+          "offerCount": "2",
+          "availability": "https://schema.org/PreOrder",
+          "itemCondition": "https://schema.org/NewCondition",
+          "seller": { "@id": "https://wells.ee/#org" }
+        }
+      }
+    ]
+  }
+  </script>
   <link rel="preload" as="font" type="font/woff2" href="fonts/EBGaramond.woff2" crossorigin>
   <link rel="preload" as="font" type="font/woff2" href="fonts/EBGaramond-Italic.woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">

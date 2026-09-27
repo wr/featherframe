@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('social card and search basics', async ({ page, request }) => {
   await page.goto('/');
-  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://featherframe.app/img/og.jpg');
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /^https:\/\/featherframe\.app\/img\/og\.jpg(\?v=[0-9a-f]{8})?$/);
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Featherframe: Let the outside in.');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://featherframe.app/');
   expect((await request.get('/robots.txt')).ok()).toBe(true);
@@ -63,7 +63,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('body')).not.toContainText('November');
   await expect(page.locator('.cover .copy p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
-  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription. From $349. US pre-orders ship by December 12.');
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. From $349, no subscription. US pre-orders ship by December 12.');
   // no exploded drawing anywhere: the reservation is its headline, line and button
   await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
   await expect(page.locator('.close > *')).toHaveCount(3);

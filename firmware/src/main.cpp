@@ -618,21 +618,34 @@ void markFirmwareGood();
 #else
 #define FF_PORTAL_FONT_FACE ""
 #endif
-// The page after Save (W-888): a kit that starts on hosted says what comes
-// next, which is on the frame, not here. WiFiManager's own text is a
-// compile-time string; this swaps it on that one page.
+// The page after Save (W-888, W-897): it asks the frame how joining goes
+// (/ffstate) and says so, then what comes next. The frame closes
+// Featherframe-Setup once the phone has seen it joined, so the phone goes
+// back to its own Wi-Fi: until W-897 the setup network stayed up with
+// nothing answering, and the page said nothing more. On the Wi-Fi form, a
+// kit on Featherframe Cloud also says what the frame shows next.
 #ifdef FF_HOSTED_DEFAULT
-#define FF_PORTAL_SAVED_SCRIPT "<script>document.addEventListener('DOMContentLoaded',function(){" \
-  "var p=location.pathname,m,f,n;" \
-  "if(p=='/wifisave'){m=document.querySelector('.msg');" \
-  "if(m)m.textContent='Connecting to Wi-Fi. When your frame shows a code, scan it with your phone to finish setting up.';return;}" \
-  "f=document.querySelector('form[action=\"wifisave\"],form[action=\"/wifisave\"]');" \
-  "if(!f)return;n=document.createElement('p');n.className='msg';" \
-  "n.textContent='After you save, your frame shows a code. Scan it with your phone to finish setting up.';" \
-  "var b=f.querySelector('button[type=submit],button');if(b)b.parentNode.insertBefore(n,b);else f.appendChild(n);});</script>"
+#define FF_PORTAL_NEXT "Featherframe-Setup will close, and your phone goes back to its usual Wi-Fi. Then scan the code on your frame to finish setting up."
+#define FF_PORTAL_FORM_HINT "After you save, your frame shows a code. Scan it with your phone to finish setting up."
 #else
-#define FF_PORTAL_SAVED_SCRIPT ""
+#define FF_PORTAL_NEXT "Featherframe-Setup will close, and your phone goes back to its usual Wi-Fi. Then add the frame in your Featherframe webapp."
+#define FF_PORTAL_FORM_HINT ""
 #endif
+#define FF_PORTAL_SAVED_SCRIPT R"JS(<script>document.addEventListener('DOMContentLoaded',function(){
+var NEXT=')JS" FF_PORTAL_NEXT R"JS(',HINT=')JS" FF_PORTAL_FORM_HINT R"JS(';
+var p=location.pathname,m,f,n,b;
+if(p=='/wifisave'){m=document.querySelector('.msg');if(!m)return;
+m.className='msg';m.textContent='Connecting to your Wi-Fi…';
+var t0=Date.now(),done=false,errs=0;
+function ok(){done=true;m.className='msg S';m.innerHTML='<strong>Connected.</strong> '+NEXT;}
+function bad(){done=true;m.className='msg D';m.innerHTML='<strong>Couldn’t join that network.</strong> Check the password, then <a href="/wifi">try again</a>.';}
+(function poll(){if(done)return;var x=new XMLHttpRequest();x.open('GET','/ffstate?t='+Date.now());x.timeout=4000;
+x.onload=function(){errs=0;if(x.responseText=='joined')ok();else if(Date.now()-t0>40000)bad();else setTimeout(poll,1500);};
+x.onerror=x.ontimeout=function(){errs++;if(errs>=3&&Date.now()-t0>8000)ok();else setTimeout(poll,1500);};
+x.send();})();return;}
+if(!HINT)return;f=document.querySelector('form[action="wifisave"],form[action="/wifisave"]');if(!f)return;
+n=document.createElement('p');n.className='msg';n.textContent=HINT;
+b=f.querySelector('button[type=submit],button');if(b)b.parentNode.insertBefore(n,b);else f.appendChild(n);});</script>)JS"
 static const char PORTAL_CSS[] PROGMEM = R"CSS(<style>)CSS" FF_PORTAL_FONT_FACE R"CSS(
 :root{--bg:#efeae0;--card:#fbf9f4;--ink:#20201d;--muted:#6f685c;--accent:#3f5e46;--err:#8a4a3a;--line:#ddd6c8}
 *{box-sizing:border-box}
@@ -671,6 +684,11 @@ small{color:var(--muted)}
 
 // The captive portal is open (Improv, W-839: Wi-Fi set over USB closes it).
 static volatile bool g_portalOpen = false;
+// When a phone on the portal was first told the frame joined (W-897), and
+// how long the setup network stays up for it: the page's next poll, then close.
+static volatile uint32_t g_joinedToldAt = 0;
+static constexpr uint32_t PORTAL_LINGER_MS = 12000;
+static constexpr uint32_t PORTAL_TOLD_MS = 3000;
 // NVS is open: Improv (its own task, started first thing) may read it.
 static volatile bool g_prefsReady = false;
 
@@ -797,6 +815,18 @@ bool ensureWifi(bool openPortal, bool showBoot) {
 #endif
   });
   wm.setSaveConfigCallback([]() { showScreenFull(FF_SCR_BOOT_WIFI); });
+  // How joining goes, for the page after Save (W-897): "joined" once the
+  // frame is on the owner's network. The first time a phone is told so
+  // starts the countdown to closing Featherframe-Setup.
+  g_joinedToldAt = 0;
+  wm.setWebServerCallback([]() {
+    wm.server->on("/ffstate", []() {
+      const bool joined = WiFi.status() == WL_CONNECTED;
+      if (joined && !g_joinedToldAt) g_joinedToldAt = millis();
+      wm.server->sendHeader("Cache-Control", "no-store");
+      wm.server->send(200, "text/plain", joined ? "joined" : "joining");
+    });
+  });
 
   // Join the strongest AP carrying the SSID, not the first one to answer. The
   // core default (WIFI_FAST_SCAN) takes whichever AP replies first, so on a
@@ -841,6 +871,21 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // Wi-Fi given over USB (Improv) closes the portal as an abort; the frame
   // is on the network all the same.
   if (!ok && WiFi.status() == WL_CONNECTED) ok = true;
+  // Joined through the portal (W-897): WiFiManager leaves Featherframe-Setup
+  // up with no one answering. Answer the phone's page until it has seen
+  // "joined" (and a moment more), at most 12 s, then close the network so
+  // the phone goes back to its own.
+  if ((WiFi.getMode() & WIFI_AP) && WiFi.status() == WL_CONNECTED) {
+    const uint32_t t0 = millis();
+    while (WiFi.softAPgetStationNum() > 0 && millis() - t0 < PORTAL_LINGER_MS
+           && !(g_joinedToldAt && millis() - g_joinedToldAt > PORTAL_TOLD_MS)) {
+      wm.server->handleClient();
+      delay(20);
+    }
+    wm.stopConfigPortal();
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
+  }
   if (ok) {
     // Wi-Fi up: the caller drives the "Connecting to BirdNET…"/"Downloading…"
     // steps next. Persist the (possibly updated, user-typed) server URL.

@@ -2,6 +2,7 @@
 
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./index";
+import { releaseFrame } from "./setup";
 import { isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 
@@ -261,10 +262,10 @@ export class Household extends DurableObject<Env> {
 
   /** A frame removed on the page is no longer this household's: the registry
    * lets it go, so its next ask is shown a new pairing code rather than kept
-   * waiting here for an add that will not come. */
+   * waiting here for an add that will not come, and its kit can be set up
+   * again by whoever has it next. */
   async unpair(deviceId: string): Promise<void> {
-    await this.env.DB.prepare("DELETE FROM frames WHERE device_id = ? AND household_id = ?")
-      .bind(deviceId, this.meta("hid")).run();
+    await releaseFrame(this.env, deviceId, this.meta("hid")!);
   }
 
   /** Start the server (its lifespan pulls), hand it the pushes that landed

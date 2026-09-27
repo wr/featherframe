@@ -133,6 +133,9 @@ bool     g_viaPortal = false;   // did this boot go through the setup portal?
 // no one has claimed it yet. Kept apart from the ETag, which a baked screen
 // clears, so a restart or a Wi-Fi reset still knows it.
 bool     g_unpaired = false;
+// The server's last answer to this frame was a 403: it is waiting to be added
+// (self-hosted, or a server that serves another panel). This boot only.
+bool     g_asking = false;
 char     g_redirect[128] = "";  // a 403's X-FF-Server: the instance that draws for our panel
 
 // Push (W-841): the socket the server says "something changed" over, on USB.
@@ -698,6 +701,9 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   head = FPSTR(PORTAL_CSS);
   if (!wm.getWiFiIsSaved()) {
     head += F(FF_PORTAL_NEW_FRAME_HEAD);
+  } else if (!g_unpaired && !g_asking) {
+    // Set up: after Save it goes back to its picture, no pairing code (W-903).
+    head += F(FF_PORTAL_ADDED_HEAD);
   }
   wm.setCustomHeadElement(head.c_str());
   wm.setCustomBodyHeader(FF_PORTAL_BODY_HEADER);
@@ -1787,6 +1793,8 @@ FetchResult fetchAndRender(const char* path, bool resident, float vbat, int pct)
   } else if (r == FETCH_PENDING && !hostedServer() && adoptDiscoveredServer(true)) {
     r = fetchFrame(path, resident, vbat, pct);
   }
+  // Any other answer means the server has this frame; no answer changes nothing.
+  if (resident && r != FETCH_ERROR) g_asking = r == FETCH_PENDING;
   g_loaderAnim.on = false;
   return r;
 }

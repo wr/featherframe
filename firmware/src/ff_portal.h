@@ -33,6 +33,10 @@
 // A new frame opens on the network list (W-895): there is nothing else to do first.
 #define FF_PORTAL_NEW_FRAME_HEAD "<script>if(location.pathname=='/')location.replace('/wifi');</script>"
 
+// A frame already set up (W-903): its server has it, so after Save it goes
+// back to its picture, not to a pairing code or "add this frame".
+#define FF_PORTAL_ADDED_HEAD "<script>var ffAdded=1;</script>"
+
 // A frame that already knows its network (the KEY2 hold) gets the Wi-Fi form
 // without the scan, that network filled in (W-852).
 #define FF_PORTAL_MENU_HTML "<form action='/0wifi' method='get'><button>Connect to Wi-Fi</button></form><br/>\n"
@@ -47,9 +51,10 @@
 //   Featherframe Cloud or self-hosted, whichever this build starts on marked
 //   (default), the frame's own current server chosen. Self-hosted takes an
 //   address, or blank to find the server on the network (posted as "find").
-//   Under Save, what the frame shows next for that choice.
+//   Under Save, what the frame shows next for that choice: its picture again
+//   for a frame already set up that stays on its server (W-903).
 // - The page after Save asks the frame how joining goes (/ffstate) and says
-//   so, then what comes next for the choice made (kept in sessionStorage).
+//   so, then what comes next (kept in sessionStorage).
 //   The frame closes Featherframe-Setup once the phone has seen it joined.
 // ES5 and DOM calls only: a phone's captive-portal sheet can be an old WebView.
 // An SSID is never written back through innerHTML.
@@ -65,11 +70,13 @@ d.title='Featherframe';
 var mark=q('.ffmark');if(!mark)return;
 var card=el('div','ffcard');while(mark.nextSibling)card.appendChild(mark.nextSibling);mark.parentNode.appendChild(card);
 var NEXT={cloud:'Featherframe-Setup will close, and your phone goes back to its usual Wi‑Fi. Then scan the QR code on your frame with your phone’s camera to finish setting up.',
-self:'Featherframe-Setup will close, and your phone goes back to its usual Wi‑Fi. Then add the frame in your Featherframe webapp.'};
+self:'Featherframe-Setup will close, and your phone goes back to its usual Wi‑Fi. Then add the frame in your Featherframe webapp.',
+back:'Featherframe-Setup will close, and your phone goes back to its usual Wi‑Fi. Your frame goes back to its picture.'};
 var AFTER={cloud:'After you save, your frame shows a QR code. Scan it with your phone’s camera to finish setting up.',
-self:'After you save, your frame asks to connect in your Featherframe webapp.'};
+self:'After you save, your frame asks to connect in your Featherframe webapp.',
+back:'After you save, your frame goes back to its picture.'};
 if(p=='/wifisave'){var m=q('.msg',card);if(!m)return;card.className+=' ffsaved';
-var ch=(st&&st.getItem('ffserver'))||DEF;
+var ch=(st&&st.getItem('ffserver'))||(window.ffAdded?'back':DEF);
 m.className='msg ffwait';m.textContent='Connecting to your Wi‑Fi…';
 var t0=Date.now(),done=false,errs=0;
 function ok(){done=true;m.className='msg S';m.innerHTML='<strong>Connected.</strong> '+(NEXT[ch]||NEXT.cloud);}
@@ -115,11 +122,12 @@ box.innerHTML='<div class="fflab">Server</div><div class="ffchoices"><div>'+opt(
 inp.parentNode.insertBefore(box,inp);inp.type='hidden';gone(q('label[for="server"]'));
 var url=q('#ffurl'),self=q('#ffself'),after=el('p','ffnote');
 if(pick=='self')url.value=cur;
-function show(){var c=q('input[name=ffserver]:checked',f).value;self.style.display=c=='self'?'':'none';after.textContent=AFTER[c];}
+function next(c){return window.ffAdded&&c==pick&&(c=='cloud'||url.value.trim().replace(/\/+$/,'')==cur)?'back':c;}
+function show(){var c=q('input[name=ffserver]:checked',f).value;self.style.display=c=='self'?'':'none';after.textContent=AFTER[next(c)];}
 var rs=qa('input[name=ffserver]',box);for(i=0;i<rs.length;i++){rs[i].checked=rs[i].value==pick;rs[i].onchange=show;}
-show();var sv=q('button[type=submit]',f);if(sv)f.insertBefore(after,sv);
+url.oninput=show;show();var sv=q('button[type=submit]',f);if(sv)f.insertBefore(after,sv);
 f.addEventListener('submit',function(){var c=q('input[name=ffserver]:checked',f).value;
-inp.value=c=='cloud'?CLOUD:(url.value.trim()||'find');try{st&&st.setItem('ffserver',c);}catch(e){}});});</script>)JS"
+inp.value=c=='cloud'?CLOUD:(url.value.trim()||'find');try{st&&st.setItem('ffserver',next(c));}catch(e){}});});</script>)JS"
 
 // The webapp's own tokens (server/templates/index.html), light and dark,
 // after WiFiManager's stock sheet so these rules win. The stock sheet pads and

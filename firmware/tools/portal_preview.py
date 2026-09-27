@@ -11,10 +11,13 @@ kit. /ffstate answers "joining", then "joined" a few seconds after a Save.
     server/.venv/bin/python firmware/tools/portal_preview.py --self     # a build without FF_HOSTED_DEFAULT
 
 The frame's state is picked on the index, /_: a new frame (no network saved,
-opens on the Wi-Fi list), a frame that knows its network (the KEY2 hold), or
-one whose last join failed (wrong password, network not found, or neither);
-a failed frame never joins, so the page after Save gives up after 40 s.
-/_mode?m=<state>&join=<s> sets how long a join takes (4 s). Needs a C++ compiler and WiFiManager's sources from
+opens on the Wi-Fi list), a frame set up on its server that knows its network
+(the KEY2 hold), one that knows its network but is not set up yet (a pairing
+code, or waiting to be added; W-903), or one whose last join failed (wrong
+password, network not found, or neither); a failed frame never joins, so the
+page after Save gives up after 40 s. /_mode?m=<state>&srv=cloud|self&join=<s>
+also sets the server the frame is on and how long a join takes (4 s).
+Needs a C++ compiler and WiFiManager's sources from
 any `pio run` (firmware/.pio/libdeps/*/WiFiManager, here or in the main
 checkout of a worktree), or --wm DIR.
 """
@@ -44,7 +47,8 @@ WM_NAMES = [
     "HTTP_INFO_freeheap", "S_titlewifi", "S_titlewifisaved", "S_titlewifisettings",
     "S_titleinfo", "S_titleexit", "S_exiting", "S_passph", "S_nonetworks",
 ]
-FF_NAMES = ["PORTAL_CSS", "FF_PORTAL_BODY_HEADER", "FF_PORTAL_NEW_FRAME_HEAD", "FF_PORTAL_MENU_HTML"]
+FF_NAMES = ["PORTAL_CSS", "FF_PORTAL_BODY_HEADER", "FF_PORTAL_NEW_FRAME_HEAD", "FF_PORTAL_ADDED_HEAD",
+            "FF_PORTAL_MENU_HTML"]
 
 # What a scan finds: SSID, signal quality (%), secured.
 NETWORKS = [
@@ -55,6 +59,7 @@ NETWORKS = [
 TITLE, AP = "Featherframe", "Featherframe-Setup"
 SSID, IP = "Unicorns", "10.0.1.52"
 CLOUD = "https://cloud.featherframe.app"
+SERVERS = {"cloud": CLOUD, "self": "http://birdnet.local:8181"}
 JOIN_S = 4.0
 # How the last join failed (WiFiManager's reportStatus), by state.
 FAILED = {"wrongpw": "HTTP_STATUS_OFFPW", "notfound": "HTTP_STATUS_OFFNOAP", "failed": "HTTP_STATUS_OFFFAIL"}
@@ -108,7 +113,8 @@ class Portal:
 
     def __init__(self, s: dict[str, str]):
         self.s = s
-        self.mode = "new"          # new | known | one of FAILED
+        self.mode = "new"          # new | known | waiting | one of FAILED
+        self.srv = "cloud"         # the server a frame that knows its network is on
         self.saved_at = 0.0
         self.join_s = JOIN_S
 
@@ -116,9 +122,15 @@ class Portal:
     def known(self) -> bool:
         return self.mode != "new"
 
+    @property
+    def added(self) -> bool:
+        """main.cpp's set-up frame: a network saved, not a pairing code, not a 403."""
+        return self.known and self.mode != "waiting"
+
     def head(self, title: str, cls: str) -> str:
         s = self.s
-        custom = s["PORTAL_CSS"] + ("" if self.known else s["FF_PORTAL_NEW_FRAME_HEAD"])
+        custom = s["PORTAL_CSS"] + (s["FF_PORTAL_ADDED_HEAD"] if self.added
+                                    else "" if self.known else s["FF_PORTAL_NEW_FRAME_HEAD"])
         return (s["HTTP_HEAD_START"].replace("{v}", title) + s["HTTP_SCRIPT"] + s["HTTP_STYLE"] + custom
                 + s["HTTP_HEAD_END"].replace("{c}", cls) + s["FF_PORTAL_BODY_HEADER"])
 
@@ -126,7 +138,7 @@ class Portal:
         s = self.s
         if not self.known:
             return s["HTTP_STATUS_NONE"]
-        if self.mode == "known":
+        if self.mode in ("known", "waiting"):
             return s["HTTP_STATUS_ON"].replace("{i}", IP).replace("{v}", SSID)
         return s["HTTP_STATUS_OFF"].replace("{c}", "D").replace("{v}", SSID).replace("{r}", s[FAILED[self.mode]])
 
@@ -161,7 +173,7 @@ class Portal:
         page += s["HTTP_FORM_WIFI"].replace("{v}", SSID if self.known else "").replace(
             "{p}", s["S_passph"] if self.known else "")
         page += s["HTTP_FORM_WIFI_END"] + s["HTTP_FORM_PARAM_HEAD"]
-        value = CLOUD if self.known else ""
+        value = SERVERS[self.srv] if self.known else ""
         page += (s["HTTP_FORM_LABEL"] + s["HTTP_FORM_PARAM"]).replace("{i}", "server").replace(
             "{n}", "server").replace("{t}", "Server").replace("{l}", "128").replace("{v}", value).replace("{c}", "")
         page += s["HTTP_FORM_END"] + s["HTTP_SCAN_LINK"]
@@ -196,7 +208,10 @@ class Portal:
 
     def index(self) -> str:
         links = [("/_mode?m=new", "New frame: opens on the Wi-Fi list"),
-                 ("/_mode?m=known", "Knows its network (KEY2 hold): menu"),
+                 ("/_mode?m=known", "Set up on Featherframe Cloud, knows its network (KEY2 hold): menu"),
+                 ("/_mode?m=known&srv=self", "Set up on a self-hosted server, knows its network (KEY2 hold): menu"),
+                 ("/_mode?m=waiting", "Knows its network, shows its pairing code: menu"),
+                 ("/_mode?m=waiting&srv=self", "Knows its network, waiting to be added on a self-hosted server: menu"),
                  ("/_mode?m=wrongpw", "Last join failed, wrong password: menu"),
                  ("/_mode?m=notfound", "Last join failed, network not found: menu"),
                  ("/_mode?m=failed", "Last join failed, other: menu"),
@@ -204,8 +219,11 @@ class Portal:
                  ("/wifi", "Wi-Fi list"), ("/0wifi", "Wi-Fi form, no scan"), ("/info", "Info"),
                  ("/update", "Update"), ("/exit", "Exit")]
         rows = "".join(f'<li><a href="{h}">{t}</a></li>' for h, t in links)
+        # The page after Save reads the choice the Wi-Fi form kept; forget it,
+        # so "After Save" straight from here shows the mode's own fallback.
         return (f"<!doctype html><meta name=viewport content='width=device-width'><title>Portal preview</title>"
-                f"<p>Mode: <b>{self.mode}</b></p><ul>{rows}</ul>")
+                f"<script>try{{sessionStorage.removeItem('ffserver')}}catch(e){{}}</script>"
+                f"<p>Mode: <b>{self.mode}</b>, server: <b>{self.srv}</b></p><ul>{rows}</ul>")
 
 
 def serve(portal: Portal, port: int) -> None:
@@ -232,6 +250,7 @@ def serve(portal: Portal, port: int) -> None:
                 return self.send(portal.index())
             if p == "/_mode":
                 portal.mode = q.get("m", ["new"])[0]
+                portal.srv = q.get("srv", ["cloud"])[0]
                 portal.join_s = float(q.get("join", [JOIN_S])[0])
                 portal.saved_at = 0
                 return self.redirect("/")
@@ -271,7 +290,7 @@ def main() -> None:
     portal = Portal(extract(find_wm(args.wm), args.hosted))
     if args.dump:
         os.makedirs(args.dump, exist_ok=True)
-        for mode in ("new", "known", *FAILED):
+        for mode in ("new", "known", "waiting", *FAILED):
             portal.mode = mode
             for name, page in (("home", portal.home()), ("wifi", portal.wifi(True)), ("0wifi", portal.wifi(False))):
                 with open(os.path.join(args.dump, f"{mode}-{name}.html"), "w") as f:

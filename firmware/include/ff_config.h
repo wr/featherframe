@@ -311,6 +311,18 @@
 #else
 #define FF_BAKED_ROTATION 90
 #endif
+// Which way up a kit hangs before the server has said (W-896): Wells's kits
+// hang the other way from the baked art, so a new or erased kit starts
+// flipped, and says so in X-FF-Rotation on its first ask; the page's Rotation
+// changes it from there. A panel the server has never heard of keeps its
+// baked rotation.
+#ifndef FF_DEFAULT_FLIP
+#if FF_PANEL_GENERIC
+#define FF_DEFAULT_FLIP 0
+#else
+#define FF_DEFAULT_FLIP 1
+#endif
+#endif
 // Full-refresh panels: the floor between two resident repaints from the poll
 // loop (the Spectra maker's guidance is >= 180 s between refreshes, and a
 // panel we know nothing about gets the same care). Button presses and error

@@ -365,7 +365,7 @@ static uint8_t* g_lastFrame = nullptr;
 // (X-FF-Rotation, kept in NVS) so everything baked follows —
 // a 4bpp buffer turned 180 degrees is its bytes reversed with the nibbles
 // swapped, and a tile's window mirrors to the opposite corner.
-bool g_flip = false;
+bool g_flip = FF_DEFAULT_FLIP;
 // The mat it hangs with, as the server last said it (X-FF-Mat, "inset,x,y",
 // kept in NVS). It is said back on every ask, so a frame removed and added
 // again starts with the mat it had, and it places the toasts (placeToast).
@@ -1965,7 +1965,7 @@ void setup() {
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);
   g_alwaysAwake = prefs.getBool("awake", FF_DEFAULT_ALWAYS_AWAKE);
   g_pollMs = prefs.getUInt("poll_s", FF_POLL_INTERVAL_MS / 1000) * 1000UL;
-  g_flip = prefs.getBool("flip", false);
+  g_flip = prefs.getBool("flip", FF_DEFAULT_FLIP);
   prefs.getString("mat", "").toCharArray(g_mat, sizeof(g_mat));
   placeToast();
   Serial.printf("power: %s, wake %u min\n", g_alwaysAwake ? "always awake" : "deep sleep",

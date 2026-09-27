@@ -38,6 +38,7 @@ export function rankStations(nodes: Node[], at: { lat: number; lon: number } | n
     if (!n || !n.id || !n.coords) continue;
     const last = n.latestDetectionAt ? Date.parse(n.latestDetectionAt) : NaN;
     if (!(now - last < ACTIVE_S * 1000)) continue;
+    if (!Number(n.counts?.species || 0)) continue;      // heard from, but nothing it named
     out.push({
       id: String(n.id), name: (n.name || "").trim() || `Station ${n.id}`,
       km: at ? Math.round(kmBetween(at.lat, at.lon, n.coords.lat, n.coords.lon)) : 0,

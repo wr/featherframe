@@ -188,7 +188,8 @@ describe("stations", () => {
 
   it("keeps stations heard from this week, nearest first", () => {
     const got = rankStations([node("far", 51.9, 0.1, day), node("old", 51.5, 0.0, 9 * day),
-                              node("near", 51.51, 0.01, day)], { lat: 51.5, lon: 0 }, at);
+                              node("near", 51.51, 0.01, day), node("mute", 51.5, 0.0, day, 0)],
+                             { lat: 51.5, lon: 0 }, at);
     expect(got.map((s) => s.id)).toEqual(["near", "far"]);
     expect(got[0].km).toBe(1);
   });

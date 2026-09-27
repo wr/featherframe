@@ -444,6 +444,7 @@ export function setupPage(v: SetupView): Response {
         <input type="search" id="q" placeholder="Search stations by name" autocomplete="off">
         <button type="button" class="btn2" id="locate">Use my location</button>
       </div>
+      <p class="hint" id="finding">Finding stations near you…</p>
       <ul class="stations" id="stations"></ul>
       <p class="hint" id="none" hidden>No stations nearby. You can choose a detection source later in Settings.</p>
       <input type="hidden" name="tz" id="tz">
@@ -457,8 +458,9 @@ export function setupPage(v: SetupView): Response {
       var km = document.getElementById("km"), form = document.getElementById("setup"), go = document.getElementById("go");
       try { document.getElementById("tz").value = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
       function dist(k) { return miles ? Math.round(k * 0.621371) + " mi" : k + " km"; }
+      var finding = document.getElementById("finding");
       function show(rows, measured) {
-        list.innerHTML = ""; km.value = "";
+        finding.hidden = true; list.innerHTML = ""; km.value = "";
         rows.forEach(function (s, i) {
           var li = document.createElement("li"), lab = document.createElement("label"), r = document.createElement("input");
           r.type = "radio"; r.name = "station"; r.value = s.id; r.checked = i === 0;
@@ -472,6 +474,7 @@ export function setupPage(v: SetupView): Response {
         none.hidden = rows.length > 0;
       }
       function load(q, measured) {
+        finding.hidden = false; none.hidden = true;
         fetch(base + q).then(function (r) { return r.ok ? r.json() : { stations: [] }; })
           .then(function (b) { show(b.stations || [], measured && b.measured); })
           .catch(function () { show([], false); });

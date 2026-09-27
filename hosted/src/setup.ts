@@ -224,6 +224,8 @@ async function stations(request: Request, env: Env, url: URL, ip: string): Promi
   const at = given || cfPoint(request);
   const q = (url.searchParams.get("q") || "").trim();
   const list = q ? await stationsNamed(q, at) : at ? await stationsNear(at.lat, at.lon) : [];
+  // A distance is shown only from the phone's own location: an IP's is
+  // often tens of miles out, which is still good enough to order by.
   return Response.json({ stations: list.map(({ id, name, km, species }) => ({ id, name, km, species })),
-                         measured: !!at });
+                         measured: !!given });
 }

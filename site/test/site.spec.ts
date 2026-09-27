@@ -42,7 +42,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Software']);
   // inches first, millimetres after
   await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10.3-inch: 9.1 × 11.6 × 1.1 in (232 × 295 × 28 mm)13.3-inch: 11.6 × 14.6 × 1.1 in (295 × 371 × 28 mm)The mat’s opening is slightly smaller than the display.');
-  await expect(page.locator('#specs .spec dd').nth(5)).toHaveText('A BirdWeather station near you, or your own BirdNET-Go');
+  await expect(page.locator('#specs .spec dd').nth(5)).toHaveText('Your own backyard BirdNET device, or a BirdWeather station near you');
   await expect(page.locator('#specs .spec dd').nth(6)).toHaveText('Open source. See it on GitHub');
   await expect(page.locator('#specs .spec dd').nth(6).getByRole('link', { name: 'See it on GitHub' })).toHaveAttribute('href', 'https://github.com/wr/featherframe');
   await expect(page.locator('#specs .spec')).not.toContainText('Service');

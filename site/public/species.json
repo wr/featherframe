@@ -4,7 +4,8 @@
     { "name": "Common Nighthawk", "latin": "Chordeiles minor", "heard": "08:14" },
     { "name": "Northern Cardinal", "latin": "Cardinalis cardinalis", "heard": "09:02" },
     { "name": "Eastern Bluebird", "latin": "Sialia sialis", "heard": "10:37" },
-    { "name": "American Goldfinch", "latin": "Spinus tristis", "heard": "11:51" }
+    { "name": "Tufted Titmouse", "latin": "Baeolophus bicolor", "heard": "11:51" },
+    { "name": "Black-capped Chickadee", "latin": "Poecile atricapillus", "heard": "12:24" }
   ],
   "sizes": {
     "13": {
@@ -12,7 +13,7 @@
       "model": "models/featherframe-13.glb",
       "poster": "img/poster-13.webp",
       "waveform": "spectra6",
-      "screens": ["models/screens/wall-13-cedar-waxwing.jpg", "models/screens/13-nighthawk.jpg", "models/screens/13-cardinal.jpg", "models/screens/13-eastern-bluebird.jpg", "models/screens/13-goldfinch.jpg"],
+      "screens": ["models/screens/wall-13-cedar-waxwing.jpg", "models/screens/13-nighthawk.jpg", "models/screens/13-cardinal.jpg", "models/screens/13-eastern-bluebird.jpg", "models/screens/wall-13-tufted-titmouse.jpg", "models/screens/13-black-capped-chickadee.jpg"],
       "wall": ["models/screens/wall-13-wild-turkey.jpg", "models/screens/wall-13-european-robin.jpg", "models/screens/wall-13-great-horned-owl.jpg", "models/screens/wall-13-rainbow-lorikeet.jpg", "models/screens/wall-13-cedar-waxwing.jpg", "models/screens/wall-13-common-kingfisher.jpg", "models/screens/wall-13-green-breasted-mango.jpg", "models/screens/wall-13-kookaburra.jpg", "models/screens/wall-13-tufted-titmouse.jpg", "models/screens/wall-13-european-goldfinch.jpg", "models/screens/wall-13-saw-whet-owl.jpg", "models/screens/wall-13-carolina-wren.jpg"]
     },
     "10": {
@@ -20,7 +21,7 @@
       "model": "models/featherframe.glb",
       "poster": "img/poster-10.webp",
       "waveform": "gc16",
-      "screens": ["models/screens/wall-10-cedar-waxwing.jpg", "models/screens/10-nighthawk.jpg", "models/screens/10-cardinal.jpg", "models/screens/10-eastern-bluebird.jpg", "models/screens/10-goldfinch.jpg"],
+      "screens": ["models/screens/wall-10-cedar-waxwing.jpg", "models/screens/10-nighthawk.jpg", "models/screens/10-cardinal.jpg", "models/screens/10-eastern-bluebird.jpg", "models/screens/wall-10-tufted-titmouse.jpg", "models/screens/10-black-capped-chickadee.jpg"],
       "wall": ["models/screens/wall-10-wild-turkey.jpg", "models/screens/wall-10-european-robin.jpg", "models/screens/wall-10-great-horned-owl.jpg", "models/screens/wall-10-rainbow-lorikeet.jpg", "models/screens/wall-10-cedar-waxwing.jpg", "models/screens/wall-10-common-kingfisher.jpg", "models/screens/wall-10-green-breasted-mango.jpg", "models/screens/wall-10-kookaburra.jpg", "models/screens/wall-10-tufted-titmouse.jpg", "models/screens/wall-10-european-goldfinch.jpg", "models/screens/wall-10-saw-whet-owl.jpg", "models/screens/wall-10-carolina-wren.jpg"]
     }
   }

@@ -20,6 +20,8 @@
 #endif
 
 // --- User buttons (active-low, RTC-capable for deep-sleep wake) ---
+// The driver board prints them KEY1, KEY2, KEY3 (schematic BUTON1-3, EE03
+// V1.0): our KEY0-KEY2 are those three, in that order. The fourth is RESET.
 #define PIN_KEY0        GPIO_NUM_2
 #define PIN_KEY1        GPIO_NUM_3
 #define PIN_KEY2        GPIO_NUM_5

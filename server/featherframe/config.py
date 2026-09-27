@@ -114,8 +114,10 @@ class Config:
     # Quiet hours ----------------------------------------------------------
     # "off" | "custom" (the start/end below) | "sun" (sunset -> sunrise,
     # derived from the system timezone; see _sun_window). A legacy
-    # quiet_hours_enabled bool is migrated to this in from_dict().
-    quiet_hours_mode: str = "custom"
+    # quiet_hours_enabled bool is migrated to this in from_dict(). A new
+    # household starts on the sun (W-898): birds go quiet at dusk, not at
+    # 10 pm. A stored config keeps its own mode (to_dict writes every field).
+    quiet_hours_mode: str = "sun"
     quiet_hours_start: str = "22:00"
     quiet_hours_end: str = "06:00"
 

@@ -182,6 +182,12 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
     return setupLinkSentPage(email);
   }
 
+  // A new account on BirdWeather needs its station, or the frame would have
+  // no source at all.
+  if (source === "birdweather" && !String(form.get("station") || "").trim()) {
+    return again("Choose a BirdWeather station, or another detection source.");
+  }
+
   // A new account. The invitation is taken first, and given back if the
   // frame's code was taken by someone else in the meantime.
   const hid = randomHex(8);

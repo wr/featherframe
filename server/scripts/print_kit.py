@@ -23,7 +23,9 @@ The setup screen on the card is drawn from the server's own pairing screen
 proportions, with the QR, the code and its lines as wireframes, so no one
 takes the example for a real code.
 
-The FCC text assumes Wells Workshop's SDoC for both models.
+The FCC text is what the module's grant (Z4T-XIAOESP32S3P, a single modular
+approval) asks of a host: its FCC ID and the part 15 statement on the label,
+and the 20 cm separation told to the owner on the card.
 """
 from __future__ import annotations
 
@@ -208,7 +210,7 @@ b{{font-weight:600}}
 .card{{width:816px;height:528px;display:flex;position:relative}}
 .panel{{width:408px;height:528px;box-sizing:border-box;display:flex;flex-direction:column}}
 .num{{font-family:"Fell SC",serif;font-size:26px;line-height:.95;color:#6b5a45;width:16px;flex-shrink:0}}
-.fcc{{display:flex;flex-direction:column;gap:5px;font-size:8.5px;line-height:1.32;color:#3d3a36;text-wrap:pretty}}
+.fcc{{display:flex;flex-direction:column;gap:4px;font-size:10px;line-height:1.4;color:#3d3a36;text-wrap:pretty}}
 .label{{position:absolute;width:288px;height:192px;box-sizing:border-box;padding:13px 15px 12px;
   display:flex;flex-direction:column;gap:10px;overflow:hidden}}
 .cap{{font-family:"Fell SC",serif;font-size:7.5px;letter-spacing:.18em;color:#3d3a36}}
@@ -228,11 +230,8 @@ def card_outside(logo: str, mark: str, bough_uri: str) -> str:
   </div>
   <div style="flex-grow:1"></div>
   <div class="fcc">
-    <div style="font-family:'Fell SC',serif;font-size:10px;letter-spacing:.08em;color:#1b1e23">FCC Supplier’s Declaration of Conformity</div>
-    <div>Featherframe, models {MODELS['ee03']} and {MODELS['ee02']}. Responsible party: {ADDRESS}, featherframe.app. Contains FCC ID: {FCC_ID}.</div>
-    <div>This device complies with part 15 of the FCC Rules. Operation is subject to the following two conditions: (1) This device may not cause harmful interference, and (2) this device must accept any interference received, including interference that may cause undesired operation.</div>
-    <div>Note: This equipment has been tested and found to comply with the limits for a Class B digital device, pursuant to part 15 of the FCC Rules. These limits are designed to provide reasonable protection against harmful interference in a residential installation. This equipment generates, uses and can radiate radio frequency energy and, if not installed and used in accordance with the instructions, may cause harmful interference to radio communications. However, there is no guarantee that interference will not occur in a particular installation. If this equipment does cause harmful interference to radio or television reception, which can be determined by turning the equipment off and on, the user is encouraged to try to correct the interference by one or more of the following measures: reorient or relocate the receiving antenna; increase the separation between the equipment and receiver; connect the equipment into an outlet on a circuit different from that to which the receiver is connected; consult the dealer or an experienced radio/TV technician for help.</div>
-    <div>Changes or modifications not expressly approved by Wells Workshop LLC could void the user’s authority to operate the equipment.</div>
+    <div>Contains FCC ID: {FCC_ID}.</div>
+    <div>This equipment should be installed and operated with a minimum distance of 20 cm between the antenna and your body.</div>
   </div>
 </div>
 <div class="panel" style="position:relative;overflow:hidden">

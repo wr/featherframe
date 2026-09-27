@@ -129,7 +129,11 @@ h2 { font-weight: 400; text-wrap: balance; }
 .stage canvas:active { cursor: grabbing; }
 .stage.live canvas { opacity: 1; }
 .stage.live .poster { opacity: 0; transition: opacity .6s ease; }
-.cover .copy { position: absolute; left: 0; bottom: 6%; z-index: 2; width: 40%; }
+.cover .copy { position: absolute; left: 0; bottom: 6%; width: 40%; }
+/* the sentence and the price go under the frame where they meet (the canvas is at -1, the room behind both at -2
+   and earlier); the button stays on top, where it can be pressed */
+.cover .copy p, .cover .cta .it { position: relative; z-index: -2; }
+.cover .cta .btn { position: relative; z-index: 2; }
 .cover .speed { position: absolute; right: 0; bottom: 1.5%; z-index: -2; /* under the frame's canvas, over the room */ margin: 0; font-size: 15px; font-style: italic; color: var(--graphite); }
 .cover .copy p { font-size: 24px; line-height: 1.42; margin: 0 0 26px; text-wrap: pretty; }
 .cta { display: flex; align-items: center; gap: 20px; }
@@ -450,7 +454,6 @@ h2 { font-weight: 400; text-wrap: balance; }
      window slides it further under the headline and the sentence. */
   .frame { right: calc(42px - var(--m)); bottom: 7vh; width: min(600px, 60vh); height: auto; }
   /* where the frame has slid under the sentence, a paper halo keeps it clear */
-  .cover .copy p, .cover .cta .it { text-shadow: 0 0 3px var(--paper), 0 0 12px var(--paper), 0 0 24px var(--paper); }
   .cover .copy { position: relative; left: auto; bottom: auto; grid-column: 1; grid-row: 2; width: auto; max-width: 25em; align-self: center; margin: 0; }
 }
 

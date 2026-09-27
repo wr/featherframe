@@ -614,105 +614,8 @@ void showScreenFull(int idx);
 void showToast(int t);
 void markFirmwareGood();
 
-// Paper/ink restyle for the WiFiManager captive portal — injected into
-// <head> after the stock style, so these rules win the cascade (the stock
-// sheet still supplies the signal-strength sprite). The "Featherframe"
-// wordmark is the plates' script: a WOFF subset of the bundled face
-// embedded as a data URI by tools/portal_font.py into ff_portal_font.h — the
-// captive portal has no internet, so the face must travel with the page.
-// Without that header the @font-face is empty and the h1 falls back to
-// Georgia italic. Kept in PROGMEM.
-#if __has_include("ff_portal_font.h")
-#include "ff_portal_font.h"
-#else
-#define FF_PORTAL_FONT_FACE ""
-#endif
-// The portal's own script (W-888, W-899):
-// - The Wi-Fi form's Server field becomes a choice: Featherframe Cloud or
-//   self-hosted, whichever this build starts on marked (default), the
-//   frame's own current server chosen. Self-hosted takes an address, or
-//   blank to find the server on the network (posted as "find"). Under Save,
-//   what the frame shows next for that choice.
-// - The page after Save asks the frame how joining goes (/ffstate) and says
-//   so, then what comes next for the choice made (kept in sessionStorage).
-//   The frame closes Featherframe-Setup once the phone has seen it joined.
-#define FF_CLOUD_URL "https://cloud.featherframe.app"
-#ifdef FF_HOSTED_DEFAULT
-#define FF_PORTAL_DEFAULT "cloud"
-#else
-#define FF_PORTAL_DEFAULT "self"
-#endif
-#define FF_PORTAL_SAVED_SCRIPT R"JS(<script>document.addEventListener('DOMContentLoaded',function(){
-var CLOUD=')JS" FF_CLOUD_URL R"JS(',DEF=')JS" FF_PORTAL_DEFAULT R"JS(',p=location.pathname,st=null;
-try{st=window.sessionStorage;}catch(e){}
-var NEXT={cloud:'Featherframe-Setup will close, and your phone goes back to its usual Wi-Fi. Then scan the code on your frame to finish setting up.',
-self:'Featherframe-Setup will close, and your phone goes back to its usual Wi-Fi. Then add the frame in your Featherframe webapp.'};
-var AFTER={cloud:'After you save, your frame shows a code. Scan it with your phone to finish setting up.',
-self:'After you save, your frame asks to connect in your Featherframe webapp.'};
-if(p=='/wifisave'){var m=document.querySelector('.msg');if(!m)return;
-var ch=(st&&st.getItem('ffserver'))||DEF;
-m.className='msg';m.textContent='Connecting to your Wi-Fi…';
-var t0=Date.now(),done=false,errs=0;
-function ok(){done=true;m.className='msg S';m.innerHTML='<strong>Connected.</strong> '+(NEXT[ch]||NEXT.cloud);}
-function bad(){done=true;m.className='msg D';m.innerHTML='<strong>Couldn’t join that network.</strong> Check the password, then <a href="/wifi">try again</a>.';}
-(function poll(){if(done)return;var x=new XMLHttpRequest();x.open('GET','/ffstate?t='+Date.now());x.timeout=4000;
-x.onload=function(){errs=0;if(x.responseText=='joined')ok();else if(Date.now()-t0>40000)bad();else setTimeout(poll,1500);};
-x.onerror=x.ontimeout=function(){errs++;if(errs>=3&&Date.now()-t0>8000)ok();else setTimeout(poll,1500);};
-x.send();})();return;}
-var inp=document.getElementById('server');if(!inp)return;var f=inp.form;
-var lab=document.querySelector('label[for="server"]'),cur=inp.value.replace(/\/+$/,'');
-var pick=cur==CLOUD?'cloud':(cur?'self':DEF);if(pick=='self'&&cur==CLOUD)cur='';
-var box=document.createElement('div');
-box.innerHTML='<label>Server</label>'+
-'<div class="ffnet"><label style="margin:0;text-transform:none;letter-spacing:0;font-size:1rem;color:var(--ink);font-weight:400"><input type="radio" name="ffserver" value="cloud"> Featherframe Cloud'+(DEF=='cloud'?' (default)':'')+'</label></div>'+
-'<div class="ffnet"><label style="margin:0;text-transform:none;letter-spacing:0;font-size:1rem;color:var(--ink);font-weight:400"><input type="radio" name="ffserver" value="self"> Self-hosted'+(DEF=='self'?' (default)':'')+'</label>'+
-'<div id="ffself"><input id="ffurl" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://birdnet.local:8181">'+
-'<small>Your server’s address. Leave blank to find it on your network.</small></div></div>'+
-'<p class="msg" id="ffafter"></p>';
-inp.parentNode.insertBefore(box,inp);inp.type='hidden';if(lab)lab.style.display='none';
-var nx=inp.nextSibling;while(nx&&(nx.nodeName=='BR'||(nx.nodeType==3&&!nx.textContent.trim()))){var nn=nx.nextSibling;nx.parentNode.removeChild(nx);nx=nn;}
-var url=document.getElementById('ffurl'),self=document.getElementById('ffself'),after=document.getElementById('ffafter');
-if(pick=='self')url.value=cur;
-function show(){var c=f.querySelector('input[name=ffserver]:checked').value;self.style.display=c=='self'?'':'none';after.textContent=AFTER[c];}
-var rs=box.querySelectorAll('input[name=ffserver]');for(var i=0;i<rs.length;i++){rs[i].checked=rs[i].value==pick;rs[i].onchange=show;}
-show();var b=f.querySelector('button[type=submit],button');if(b)b.parentNode.insertBefore(after,b);
-f.addEventListener('submit',function(){var c=f.querySelector('input[name=ffserver]:checked').value;
-inp.value=c=='cloud'?CLOUD:(url.value.trim()||'find');try{st&&st.setItem('ffserver',c);}catch(e){}});});</script>)JS"
-static const char PORTAL_CSS[] PROGMEM = R"CSS(<style>)CSS" FF_PORTAL_FONT_FACE R"CSS(
-:root{--bg:#efeae0;--card:#fbf9f4;--ink:#20201d;--muted:#6f685c;--accent:#3f5e46;--err:#8a4a3a;--line:#ddd6c8}
-*{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;margin:0;padding:28px 18px 60px;line-height:1.5;text-align:center}
-.wrap{text-align:left;display:inline-block;width:100%;min-width:260px;max-width:430px}
-h1{font-family:'FFScript',Georgia,serif;font-style:italic;font-weight:500;font-size:2.6rem;text-align:center;margin:.4em 0 0}
-h1:after{content:'\2767';display:block;font-size:1.1rem;color:var(--muted);margin-top:10px}
-h3{display:none}
-h2,label{font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-label{display:block;margin:16px 2px 6px}
-div,input,select{box-sizing:border-box}
-input,select{background:var(--card);border:1px solid var(--line);border-radius:14px;color:var(--ink);padding:13px 14px;width:100%;font-size:1rem;margin:2px 0}
-input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
-input[type=radio],input[type=checkbox]{width:auto;accent-color:var(--accent);margin-right:6px}
-button,input[type='button'],input[type='submit']{cursor:pointer;border:0;border-radius:999px;background:var(--ink);color:var(--bg);line-height:2.9rem;font-size:1.02rem;font-weight:600;width:100%;margin:6px 0}
-button:hover{filter:brightness(1.25)}
-button:active{opacity:.5}
-button.D{background:transparent;color:var(--err);border:2px solid var(--err);line-height:2.65rem}
-form{margin:0}
-a{color:var(--ink);font-weight:600;text-decoration:none}
-a:hover{color:var(--accent)}
-/* network list rows */
-.wrap>div>div,.ffnet{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin:8px 0}
-.wrap>div>div a{font-family:Georgia,'Times New Roman',serif;font-size:1.08rem;display:inline-block;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
-.q{height:16px;margin:2px 0 0;padding:0 5px;text-align:right;min-width:38px;float:right;opacity:.75}
-.msg{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:0 12px 12px 0;padding:16px 18px;margin:18px 0;color:var(--ink)}
-.msg.P{border-left-color:var(--accent)}
-.msg.D{border-left-color:var(--err)}
-.msg.S{border-left-color:var(--accent)}
-dt{font-weight:600}dd{margin:0;padding:0 0 .5em;min-height:12px;color:var(--muted)}
-td{vertical-align:top}
-hr{border:0;border-top:1px solid var(--line);margin:22px 0}
-small{color:var(--muted)}
-.h{display:none}:disabled{opacity:.5}
-</style>)CSS" FF_PORTAL_SAVED_SCRIPT;
+// The setup portal's look and script: WiFiManager's pages restyled (W-901).
+#include "ff_portal.h"
 
 // The captive portal is open (Improv, W-839: Wi-Fi set over USB closes it).
 static volatile bool g_portalOpen = false;
@@ -794,9 +697,10 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   static String head;
   head = FPSTR(PORTAL_CSS);
   if (!wm.getWiFiIsSaved()) {
-    head += F("<script>if(location.pathname=='/')location.replace('/wifi');</script>");
+    head += F(FF_PORTAL_NEW_FRAME_HEAD);
   }
   wm.setCustomHeadElement(head.c_str());
+  wm.setCustomBodyHeader(FF_PORTAL_BODY_HEADER);
   // The network list is scanned when the portal opens, in the background,
   // and kept 10 minutes (W-895). WiFiManager otherwise scans inside the
   // request for /wifi, ~4 s across every channel, which takes the setup
@@ -812,7 +716,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // button did nothing. A new frame keeps the list; it has nothing to fill in.
   static const char* menuKnown[] = {"custom", "info", "exit", "sep", "update"};
   static const char* menuNew[]   = {"wifi", "info", "exit", "sep", "update"};
-  wm.setCustomMenuHTML("<form action='/0wifi' method='get'><button>Configure WiFi</button></form><br/>\n");
+  wm.setCustomMenuHTML(FF_PORTAL_MENU_HTML);
   if (wm.getWiFiIsSaved()) wm.setMenu(menuKnown, 5);
   else wm.setMenu(menuNew, 5);
   // WiFiManager keeps the registered pointer forever and never dedupes, and
@@ -820,7 +724,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // lives in static storage and registers exactly once.
   // The server, chosen on the Wi-Fi form (W-899): Featherframe Cloud or
   // self-hosted, as two choices the page's script draws over this field
-  // (FF_PORTAL_SAVED_SCRIPT). A blank self-hosted field posts "find": no URL,
+  // (FF_PORTAL_SCRIPT, ff_portal.h). A blank self-hosted field posts "find": no URL,
   // so the frame looks for its server on the network once it has joined.
   static WiFiManagerParameter serverParam("server", "Server", g_serverUrl, sizeof(g_serverUrl));
   static bool paramRegistered = false;

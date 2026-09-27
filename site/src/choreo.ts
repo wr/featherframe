@@ -183,7 +183,8 @@ function measureNow(els: Els): Layout {
     tearAt = stops.length - 1;
     if (els.table && els.tablePin) {
       const p = pinned(els.table, els.tablePin);
-      stops.push({ rect: (s) => toScale(p.rect(s)), pose: TABLE, s0: after(p.s0, 0.3), s1: Infinity, over: true, spin: true });
+      // it lands as the table comes up level with the video, a little before the table pins
+      stops.push({ rect: (s) => toScale(p.rect(s)), pose: TABLE, s0: after(p.s0 - 0.3 * vh, 0.3), s1: Infinity, over: true, spin: true });
     }
   }
   const last = stops[stops.length - 1];

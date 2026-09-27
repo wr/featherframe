@@ -312,13 +312,13 @@ new IntersectionObserver(([e]) => {
   }
 }, { threshold: 0.4 }).observe(ph);
 
-// The running head's links: each lands its section with its headline just under the running head (the eyebrow above
-// it goes under the head) — and, where the journey holds the frame for a section (the art, pinned beside its
-// headline), inside that hold.
-const GAP = 24;
+// The running head's links: each lands its section with its eyebrow (or, without one, its headline) GAP px under
+// the running head, the section's top in the window with room above it — and, where the journey holds the frame for
+// a section (the art, pinned beside its headline), inside that hold.
+const GAP = 96;
 const landing = (sec: HTMLElement) => {
   const nav = document.querySelector('.head')?.getBoundingClientRect().height ?? 0;
-  const brow = sec.querySelector('h2') ?? sec.querySelector('.eyebrow') ?? sec;
+  const brow = sec.querySelector('.eyebrow') ?? sec.querySelector('h2') ?? sec;
   let y = brow.getBoundingClientRect().top + scrollY - nav - GAP;
   const hold = running?.landing?.(sec.id);
   if (hold) y = Math.min(Math.max(y, hold[0] + 1), hold[1] - 1);

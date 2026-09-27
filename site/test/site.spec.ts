@@ -129,7 +129,10 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('.colophon .d')).not.toContainText('Blue Jay');
   await expect(page.locator('#how video')).toHaveAttribute('poster', 'video/cardinal.webp');
   await expect(page.locator('#how .t2 .credit')).toHaveText('Video by Courtney Celley, U.S. Fish and Wildlife Service');
-  await expect(page.locator('.colophon .c').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', 'https://app.featherframe.app/');
+  await expect(page.locator('.colophon .b').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', 'https://app.featherframe.app/');
+  await expect(page.locator('.colophon .b .sc')).toHaveText('A product of');
+  await expect(page.locator('.colophon .c a')).toHaveText(['Shipping', 'Returns', 'Privacy', 'Terms']);
+  await expect(page.locator('.colophon .d')).toContainText('The illustrations are from John James Audubon’s The Birds of America');
   const body = (await page.locator('body').innerText()).toLowerCase();
   for (const banned of ['plate', 'on the wall', 'on the glass']) expect(body).not.toContain(banned);
 });
@@ -521,7 +524,7 @@ test('on a phone the sentence and Pre-order come before the frame, on the first 
 test('on a phone the controls are a thumb\'s size', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto('/');
-  for (const sel of ['.head .word', '.head .btn', '.tone button', '.unmute', '.field button', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
+  for (const sel of ['.head .word', '.head .btn', '.tone button', '.unmute', '.field button', '.colophon .b .ul', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
     for (const el of await page.locator(sel).all()) {
       const b = (await el.boundingBox())!;
       expect(b.height, sel).toBeGreaterThanOrEqual(44);
@@ -1085,7 +1088,7 @@ test('the glass never refreshes while the frame is in flight', async ({ page }) 
   expect((await st(table + 5)).screen).toBe('table');
 });
 
-test('each of the running head\'s links lands its section\'s headline just under the head', async ({ page }) => {
+test('each of the running head\'s links lands its section\'s eyebrow a little under the head', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
   await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
@@ -1094,12 +1097,12 @@ test('each of the running head\'s links lands its section\'s headline just under
     await page.locator(`.head nav a[href="#${id}"]`).click();
     await expect(page).toHaveURL(new RegExp(`#${id}$`));
     // (a smooth scroll: wait for it to arrive)
-    const gap = () => page.evaluate((id) => (document.querySelector(`#${id} h2`) ?? document.querySelector(`#${id} .eyebrow`))!.getBoundingClientRect().top - document.querySelector('.head')!.getBoundingClientRect().bottom, id);
-    await expect.poll(async () => { const g = await gap(); return g >= 0 && g <= 40; }, { message: id, timeout: 10_000 }).toBe(true);
+    const gap = () => page.evaluate((id) => (document.querySelector(`#${id} .eyebrow`) ?? document.querySelector(`#${id} h2`))!.getBoundingClientRect().top - document.querySelector('.head')!.getBoundingClientRect().bottom, id);
+    await expect.poll(async () => { const g = await gap(); return g >= 70 && g <= 120; }, { message: id, timeout: 10_000 }).toBe(true);
     await page.waitForTimeout(400);
     const g = await gap();
-    expect(g, id).toBeGreaterThanOrEqual(0);
-    expect(g, id).toBeLessThanOrEqual(40);
+    expect(g, id).toBeGreaterThanOrEqual(70);
+    expect(g, id).toBeLessThanOrEqual(120);
     if (id === 'art') {
       // the frame pinned beside the headline, not on its way there
       // (the art stop is the journey's third: the cover, the centre, the art)

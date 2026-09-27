@@ -229,14 +229,15 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 /* III. How it works: the frame on its table pinned on the right while the
    song and the photograph scroll past on the left. */
-.trip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--gutter); align-items: start; margin-top: 96px; container-type: inline-size; }
-.lcol { padding: 8vh 0 12vh; }
+.trip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--gutter); align-items: start; margin-top: 64px; container-type: inline-size; }
+/* the video's top level with the frame's (the table's padding is 16% of its width); the words under it */
+.lcol { padding: calc((100cqw - var(--gutter)) / 2 * 0.16) 0 0; }
 /* The video of the species heard, with its song's spectrogram laid across
    its lower third: the ink turned bright white (inverted, lifted and
    contrasted, so a faint note still reads) over a dark scrim, a playhead
    crossing it. */
 .ph { position: relative; }
-.ph video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: #d9d9d5;
+.ph video { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; background: #d9d9d5;
             border-radius: 0; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 18px 40px -18px rgba(0, 0, 0, .35); }
 .spectro { position: absolute; left: 0; right: 0; bottom: 0; height: 33.4%; padding: 3% 4% 3.4%; border-radius: 0;
            background: linear-gradient(to top, rgba(0, 0, 0, .74), rgba(0, 0, 0, .56) 60%, rgba(0, 0, 0, 0)); }
@@ -288,7 +289,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* on a desktop the table stands beside the video; stacked on a phone, a line says what it is */
 .t3 .then { display: none; }
 /* the table's box is 1.1008 × its width (its padding and the slot's aspect) */
-.t3 { --h: calc((100cqw - var(--gutter)) / 2 * 1.1008); position: sticky; top: max(var(--nav), calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2)); }
+/* pinned with its frame's top level with the video's, a little under the running head */
+.t3 { --h: calc((100cqw - var(--gutter)) / 2 * 1.1008); position: sticky; top: calc(var(--nav) + 32px - (100cqw - var(--gutter)) / 2 * 0.16); }
 /* The frame on a white table against a white wall: the cover's room (the
    wall's soft fall to the lightest gray, a crisp step to the white table at
    the horizon, the table lightening toward us), the frame's foot a little
@@ -312,10 +314,10 @@ h2 { font-weight: 400; text-wrap: balance; }
    the frame settles (--land, choreo.ts) */
 .contact { position: absolute; left: -4%; right: 2%; bottom: -6%; height: 14%; z-index: -2; pointer-events: none;
            background: radial-gradient(closest-side, rgba(0, 0, 0, .07), rgba(0, 0, 0, .025) 55%, transparent); opacity: var(--land, 1); }
-.intro2.closing { margin-top: 24px; }
-.intro2.closing .lede { grid-column: 1 / 7; font-size: 21px; color: var(--text); }
-.intro2.closing .lede + .lede { margin-top: 18px; }
-.logos { grid-column: 1 / 7; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin: 18px 0 0; }
+.closing { margin-top: 44px; }
+.closing .lede { margin: 0; font-size: 21px; color: var(--text); }
+.closing .lede + .lede { margin-top: 18px; }
+.logos { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin: 18px 0 0; }
 .logos .sc { color: var(--graphite); }
 .logos a { display: inline-flex; align-items: center; gap: 9px; font-size: 19px; color: var(--ink); filter: grayscale(1); }
 .logos a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
@@ -416,7 +418,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 .colophon .c { grid-column: 10 / 13; }
 .colophon .d { grid-column: 1 / 13; max-width: 88ch; padding-top: 28px; border-top: 1px solid var(--hair); font-size: 15px; line-height: 1.75; color: var(--graphite); }
 .colophon .sc { display: block; margin-bottom: 12px; color: var(--ink); }
-.colophon .ww { display: inline-block; margin-bottom: 18px; color: var(--ink); }
+.colophon .ww { display: inline-block; margin-bottom: 16px; color: var(--ink); }
+.colophon .c ul { margin: 0; padding: 0; list-style: none; }
+.colophon .c li + li { margin-top: 6px; }
 .colophon .ww-logo { display: block; height: 22px; width: auto; }
 .colophon .signin { display: table; margin-top: 10px; color: var(--ink); }
 .field { display: flex; align-items: center; height: 46px; max-width: 360px; border-bottom: 1px solid var(--ink); }
@@ -519,7 +523,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .ph .unmute[hidden] { display: none; }
   .spectro { padding-right: 64px; }
   .cover::before { display: none; }
-  .intro2.closing .lede { font-size: 20px; }
+  .closing .lede { font-size: 20px; }
   .seasons { margin-top: 48px; }
   .row { gap: 40px; }
   .headon { gap: 44px; padding: 0; justify-content: center; }
@@ -540,7 +544,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .field { height: 46px; }
   .field button { height: 46px; padding: 0 0 0 16px; }
   .logos a { min-height: 44px; }
-  .colophon .c .ul, .colophon .signin { display: inline-block; padding: 12px 0; margin: -12px 0; border-bottom: 0;
+  .colophon .b .ul, .colophon .c .ul, .colophon .signin { display: inline-block; padding: 12px 0; margin: -12px 0; border-bottom: 0;
     text-decoration: underline; text-decoration-color: var(--hair); text-decoration-thickness: 1px; text-underline-offset: 3px; }
   .colophon .signin { display: table; margin: 0 0 -12px; }
   .colophon > * { margin-bottom: 28px; }

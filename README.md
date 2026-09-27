@@ -87,6 +87,7 @@ See the [wiki](https://github.com/wr/featherframe/wiki) for:
 - [Installing the server](https://github.com/wr/featherframe/wiki/Install-the-server)
 - [Building](https://github.com/wr/featherframe/wiki/Build-the-frame), [flashing](https://github.com/wr/featherframe/wiki/Flash-the-frame), and [adding](https://github.com/wr/featherframe/wiki/Add-a-frame) a frame
 - [Settings](https://github.com/wr/featherframe/wiki/Settings)
+- [Running on a battery](https://github.com/wr/featherframe/wiki/Battery)
 - [Other screens](https://github.com/wr/featherframe/wiki/Other-screens)
 - [AI illustrations](https://github.com/wr/featherframe/wiki/AI-illustrations)
 - [Troubleshooting](https://github.com/wr/featherframe/wiki/Troubleshooting)

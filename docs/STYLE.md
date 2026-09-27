@@ -100,7 +100,7 @@ a plate is, and the corner mark cites one ("Plate CLIX").
   interval, Screen size. Not verbs or coinages ("Shows", "Check every",
   "Look").
 - **Options are named for what they are**: Individual detections, Collage,
-  USB. Not house metaphors ("Plates", "Paper").
+  USB, Battery. Not house metaphors ("Plates", "Paper").
 - **A hint exists only if a person would miss it.** One short sentence at
   most. Most settings have none. If a hint restates the label, delete it.
 - **A setting that needs a paragraph should be cut**, not explained.
@@ -111,7 +111,7 @@ a plate is, and the corner mark cites one ("Plate CLIX").
 - **Buttons are the action**: Save, Add, Remove, Check for updates. A
   confirmation asks the question and says the consequence in one line:
   "Delete the stored key? Generated illustrations are kept."
-- **States are one word or a short phrase**: Overdue, Unsaved
+- **States are one word or a short phrase**: Overdue, Battery low, Unsaved
   changes, Up to date.
 - **Empty states invite**: "No frames yet. There are two ways to start."
   Never apologize.
@@ -124,7 +124,7 @@ a plate is, and the corner mark cites one ("Plate CLIX").
 What the glass says when there is no picture: boot, pairing, errors, toasts.
 
 - Engraved capitals, a few words: "ADD THIS FRAME ON THE FEATHERFRAME
-  WEBAPP", "CAN'T REACH WI-FI".
+  WEBAPP", "BATTERY LOW, CHARGE ME".
 - Say what to do next, never the fault code.
 - The wordmark is the plate title's script, everywhere.
 - A change to baked text means re-baking the screens

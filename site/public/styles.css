@@ -683,10 +683,11 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 .choreo .cover .speed { display: block; }
 /* a frame's canvas while the other tone's frame is the one on the page */
 .ff3d.empty { visibility: hidden; }
-/* sound on and off: a round speaker at the spectrogram's right end, so the picture is the picture (the label is its aria-label) */
+/* sound on and off: a round speaker at the spectrogram's right end, so the picture is the picture (the label is its aria-label;
+   its hidden text is a second, empty grid row, so the rows are packed at the centre rather than stretched, or the speaker sits high) */
 .ph .unmute {
   left: auto; top: auto; right: 12px; bottom: calc(33.4% / 2 - 24px); transform: none;
-  display: grid; place-items: center; width: 48px; height: 48px; padding: 0; gap: 0; border-radius: 50%;
+  display: grid; place-items: center; place-content: center; width: 48px; height: 48px; padding: 0; gap: 0; border-radius: 50%;
   background: rgba(18, 18, 18, .82); color: #fff; font-size: 0; letter-spacing: 0; box-shadow: none;
 }
 .ph .unmute[hidden] { display: none; }

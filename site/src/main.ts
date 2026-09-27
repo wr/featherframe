@@ -139,8 +139,8 @@ const DETECTIONS = [
   { slug: 'tufted-titmouse', name: 'Tufted Titmouse', audio: 'audio/tufted-titmouse-song.mp3', spectrogram: 'img/spectrogram-tufted-titmouse.webp', video: 'video/tufted-titmouse', credit: 'Video by Víctor Martínez, Wikimedia Commons, CC BY-SA 4.0 (excerpt)' },
   { slug: 'black-capped-chickadee', name: 'Black-capped Chickadee', audio: 'audio/black-capped-chickadee-song.mp3', spectrogram: 'img/spectrogram-black-capped-chickadee.webp', video: 'video/black-capped-chickadee', credit: 'Video by Cephas, Wikimedia Commons, CC BY-SA 3.0 (excerpt)' },
 ];
-/** Each recording's length (the spectrogram spans it), ms. */
-const DURATION_MS = [11000, 11000, 11000, 11000];
+/** Each recording's length (the spectrogram spans it), ms: 6 s, or its video's length if that is shorter. */
+const DURATION_MS = [6000, 6000, 6000, 6000];
 /** Once the frame on the table has finished repainting to a detection, how long it shows it before the next is heard. */
 const SHOWN_MS = 6000;
 const song = document.getElementById('song') as HTMLAudioElement;

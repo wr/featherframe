@@ -891,6 +891,45 @@ test('the video plays muted in view, with the spectrogram over its lower third',
   expect(Number(filter.match(/contrast\(([\d.]+)\)/)![1])).toBeGreaterThan(1);
   const scrim = await page.locator('.spectro').evaluate((e) => getComputedStyle(e).backgroundImage);
   expect(Math.max(...[...scrim.matchAll(/rgba\(0, 0, 0, ([\d.]+)\)/g)].map((m) => Number(m[1])))).toBeGreaterThanOrEqual(0.7);
+  // the speaker sits at the round button's centre (its hidden text once pushed it up)
+  const shot = (await page.locator('.ph .unmute').screenshot()).toString('base64');
+  const off = await page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d')!;
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    const [cx, cy] = [c.width / 2, c.height / 2];
+    let x0 = c.width, x1 = 0, y0 = c.height, y1 = 0;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+      if (Math.hypot(x - cx, y - cy) > c.width * 0.42 || d[(y * c.width + x) * 4] < 200) continue;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+    return [(x0 + x1) / 2 - cx, (y0 + y1) / 2 - cy];
+  }, shot);
+  expect(Math.abs(off[0])).toBeLessThan(1.5);
+  expect(Math.abs(off[1])).toBeLessThan(1.5);
+});
+
+test('each recording lasts 6 s, or its video\'s length if that is shorter', async ({ page }) => {
+  await page.goto('/');
+  const lengths = await page.evaluate(async () => {
+    const length = (el: HTMLMediaElement, src: string) => new Promise<number>((ok, fail) => {
+      el.preload = 'metadata';
+      el.onloadedmetadata = () => ok(el.duration);
+      el.onerror = () => fail(new Error(src));
+      el.src = src;
+    });
+    const out: [number, number][] = [];
+    for (const s of ['cardinal', 'eastern-bluebird', 'tufted-titmouse', 'black-capped-chickadee'])
+      out.push([await length(new Audio(), `audio/${s}-song.mp3`), await length(document.createElement('video'), `video/${s}.webm`)]);
+    return out;
+  });
+  expect(lengths).toHaveLength(4);
+  for (const [song, video] of lengths) expect(Math.abs(song - Math.min(6, video))).toBeLessThan(0.05);
 });
 
 test('with reduced motion the video shows its poster and does not play', async ({ page }) => {

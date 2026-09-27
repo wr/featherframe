@@ -13,7 +13,7 @@ export function limiterFor(request: Request, url: URL, isFramePath: (path: strin
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
   if (AUTH_PATHS.test(path) && !(path.toLowerCase() === "/login" && request.method === "GET")
       && !(path === "/admin" && request.method === "GET")) return { name: "RL_AUTH", key: `ip:${ip}` };
-  if (/^\/setup\//i.test(path) && request.method === "POST") return { name: "RL_AUTH", key: `ip:${ip}` };
+  if (/^\/setup(\/|$)/i.test(path) && request.method === "POST") return { name: "RL_AUTH", key: `ip:${ip}` };
   if (isFramePath(path)) {
     const who = deviceId(request) || url.searchParams.get("id") || request.headers.get("ID") || ip;
     return { name: "RL_FRAME", key: `frame:${who}` };

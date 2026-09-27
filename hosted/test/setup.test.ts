@@ -267,3 +267,23 @@ describe("rate limits", () => {
     expect(r("/").name).toBe("RL_PAGE");
   });
 });
+
+describe("a code typed on the sign-in page", () => {
+  const typeCode = (code: string, ip = "192.0.2.5") => setupRoute(new Request(`https://${HOST}/setup`, {
+    method: "POST", body: new URLSearchParams({ code }), headers: { Origin: `https://${HOST}`, "CF-Connecting-IP": ip },
+  }), env, new URL(`https://${HOST}/setup`), ctx);
+
+  it("opens the same setup page the frame's QR does, whatever its dash or case", async () => {
+    const f = await frameShowing();
+    const res = await typeCode("abc-def");
+    expect(res.status).toBe(303);
+    expect(res.headers.get("Location")).toBe(`https://${HOST}/setup/abcdef/${f.token}`);
+  });
+
+  it("says when no frame shows it, and stops after 20 tries an hour", async () => {
+    expect(await (await typeCode("XYZ-XYZ")).text()).toContain("No frame is showing that code");
+    expect(await (await typeCode("AB")).text()).toContain("A code is six letters");
+    for (let i = 0; i < 18; i++) await typeCode("XYZ-XYZ");
+    expect(await (await typeCode("XYZ-XYZ")).text()).toContain("Too many tries");
+  });
+});

@@ -24,17 +24,17 @@ hears as Audubon lithograph plates. Two components in one repo:
 
 - **`server/`** — Python/FastAPI, runs *on the BirdNET-Pi* as a systemd service in
   its own venv. Owns all logic and all image processing.
-- **`firmware/`** — ESP32-S3 (PlatformIO), a deliberately dumb client that
-  fetches a pre-packed framebuffer and pushes it to the panel.
+- **`firmware/`** — ESP32-S3 (PlatformIO), a deliberately dumb deep-sleep client
+  that fetches a pre-packed framebuffer and pushes it to the panel.
 
-Every kit runs on USB power; none ships with a battery. The code still has a
-battery path (the Power setting's *Battery*, deep sleep, the low-battery
-hold), but it is not part of the product: don't design for it, test it, or
-raise it.
+The kits sold as Featherframe ship on USB power, without a battery. Battery
+power (the Power setting's *Battery*, deep sleep, the low-battery hold) is
+supported for makers who fit a cell themselves: keep it working, but never
+describe a sold kit as battery-powered (site, setup, kit copy).
 
 The wall frame is a Seeed XIAO ePaper Kit EE03 (XIAO ESP32-S3 Plus + 10.3"
-ED103TC2, 1404×1872, 16-level gray, IT8951). See the wiki (github.com/wr/featherframe/wiki) for the full spec and
-wiring. A second panel is being ported (W-812): the EE02
+ED103TC2, 1404×1872, 16-level gray, IT8951). See the wiki (github.com/wr/featherframe/wiki) for the full spec,
+wiring, and battery numbers. A second panel is being ported (W-812): the EE02
 kit's 13.3" E Ink Spectra 6 (T133A01, 1200×1600, six inks, ~15 s full refresh,
 no partial refresh). One server instance drives one panel (`config.panel`,
 `featherframe/panels.py`); it follows the device's `X-Panel` report on first
@@ -165,7 +165,7 @@ settings save/answer), and it answers each message with its usual GET, so
 is a 15 min heartbeat (`FF_PUSH_HEARTBEAT_MS`), which it names in `X-FF-Push`
 so overdue is measured against it (`0` = speaks push, no socket: polls as
 told); an open socket reads as heard from, and the row's *Update interval*
-is locked to *Instant*. Only a frame on USB opens one. A socket that closes
+is locked to *Instant*. Battery frames never open one. A socket that closes
 is a check-in at once (a removed frame finds its pairing code; the server
 also sends a last message before closing one), and the firmware reopens it
 every ~30 s (`FF_PUSH_RETRY_MS` + up to `FF_PUSH_JITTER_MS`) for as long as
@@ -179,8 +179,9 @@ speaks the same protocol.
 A viewer's output is the same idea as a PNG (`view_png`), drawn on
 first ask and cached; `GET /api/frames/<id>/preview.png` serves either kind.
 Telemetry is per frame too: a check-in lands on its own row
-(`_record_checkin`), and `frame_health(row)` is the health block for every
-frame. `frames_list()` / `frame_view(row)` is the one shape all of this
+(`_record_checkin`), the battery log carries a `frame_id` (`GET
+/api/battery?frame=<id>`), and `frame_health(row)` is the health block for
+every frame. `frames_list()` / `frame_view(row)` is the one shape all of this
 reaches the page in.
 
 **Viewers (W-822) are the frames fed over plain HTTP** — a TRMNL, an
@@ -279,12 +280,14 @@ Every frame is the same row (the `frame_row` macro), and that row **is** the
 page's own disclosure (`details.disc`), so it hovers, turns its chevron and
 slides open exactly as *Advanced* does. Collapsed it is a conventional
 device-list line: the status dot (`card.state`, the one place it is decided —
-green heard from on time, amber overdue, grey never or a page not open), the
-name, an *Overdue* badge, `frames_list()`'s `summary` muted under it, then
-fixed columns for power (the plug), Wi-Fi and last seen (the Wi-Fi column goes
-at ≤ 520 px); the Wi-Fi bars go faint on a frame that is not
+green heard from on time, amber overdue, red battery critical, grey never or a
+page not open), the name, an *Overdue* / *Battery low* badge, `frames_list()`'s
+`summary` muted under it, then fixed columns for battery, Wi-Fi and last seen
+(the Wi-Fi column goes at ≤ 520 px). The battery column is a cell and a percent
+only on a frame set to Battery — hover it for that frame's own 24 h voltage
+trend — and the plug on USB; the Wi-Fi bars go faint on a frame that is not
 being heard from. Open, its own settings **by capability** —
-Name, Content, Rotation in degrees, Power, one *Update
+Name, Content, Rotation in degrees, Power (USB | Battery), one *Update
 interval* dropdown, a minute to a day, whose value swaps with Power (seconds →
 `device_poll_seconds`, minutes → `wake_interval_minutes`; only the shown one is
 posted) and which is `locked` to the collage's own interval while that is what
@@ -752,16 +755,24 @@ captive portal embeds a WOFF subset generated into the committed
 favicon, bake, and portal tools after any change to the script face or its
 theme sizes.
 
-**Firmware (`firmware/src/main.cpp`).** Always awake on USB: Wi-Fi
-(WiFiManager captive portal on first boot / held button) → `GET /api/frame`
-with stored ETag → 304 changes nothing, else `pushImage` + `update()` (full
-refresh), then the next poll or push. Uses Seeed's `Seeed_GFX` via
-`TFT_eSPI.h`. Panel/board selection is `lib/driver/driver.h` (combo 511). The
-button pins are known (KEY0=2, KEY1=3, KEY2=5, active-low); the keys read only
-while the panel's T-CON is awake (see `PIN_PANEL_PWR` in
-`include/ff_config.h`). The server sends its power headers (`X-Power-Mode`,
-`X-Wake-Minutes`, `X-Poll-Seconds`) on every `/api/frame` response and the
-firmware keeps them in NVS; `X-Poll-Seconds` sets the poll gap (3 s default; the
+**Firmware (`firmware/src/main.cpp`).** Deep-sleep model: all logic in `setup()`,
+`loop()` empty. Wake → Wi-Fi (WiFiManager captive portal on first boot / held
+button) → `GET /api/frame` with stored ETag → 304 sleeps, else `pushImage` +
+`update()` (full refresh) → deep sleep (timer + button ext1 wake). Uses Seeed's
+`Seeed_GFX` via `TFT_eSPI.h`; `begin(1)` is the fast re-init after a sleep wake.
+Panel/board selection is `lib/driver/driver.h` (combo 511). Battery voltage is
+`analogReadMilliVolts(A0) * 2 * VBAT_TRIM` (10k/10k divider; raw counts flatten
+near a full cell, see W-693; the trim defaults to 1.0 so one binary ships to
+every unit, and `FF_VBAT_TRIM=…` in the environment trims a bench build, W-768) and the button pins are known (KEY0=2, KEY1=3, KEY2=5,
+active-low); the remaining on-hardware unknown is whether ext1 button wake
+works from deep sleep at all — the keys read only while the panel's T-CON is
+awake (see `PIN_PANEL_PWR` in `include/ff_config.h`). The power model is a
+runtime setting (W-736): the server sends `X-Power-Mode` (awake|sleep) and
+`X-Wake-Minutes` on every `/api/frame` response, the firmware stores both in
+NVS, and `setup()` branches on `g_alwaysAwake`; a switch takes effect at the
+end of the cycle that learned it (awake→sleep from `loop()`, sleep→awake by a
+restart). `FF_DEFAULT_ALWAYS_AWAKE` is only the mode of a unit with no stored
+value; `X-Poll-Seconds` sets the awake poll gap the same way (3 s default; the
 page offers a minute to a day, and firmware from before 22 Sep 2026 ignores
 anything over `FF_POLL_MAX_S` = 60 s until it is updated). `X-FF-Rotation`
 (the page's panel rotation) rides along too and is kept in NVS (dark mode is
@@ -770,16 +781,19 @@ clears the flag it stored, until every frame runs firmware without it):
 the baked art is baked at one rotation (`FF_BAKED_ROTATION`), so when the
 frame hangs the other way up the firmware turns every baked screen and tile
 180° (`rotate180`, and `flipX`/`flipY` for a tile's window). The mat rides the same way (W-857): `X-FF-Mat` ("inset,x,y") on every response, kept in NVS `mat` and said back on every ask and over Improv, so a frame removed and paired again (`admit_frame`, a new row) starts with its mat; the rotation already did (W-851, `X-FF-Rotation`). The mat also places the toasts: every pill on the glass (a toast, an error, a footnote) is one size on the footer line between the corner marks, baked where that line lands under a 4% reference mat, and `placeToast` moves a toast to where it lands under the frame's own mat (`FF_REF_INSET`, `FF_FOOT_CY`; `test_toast_place.py` holds the formula to the server's). The offline mark is that pill as a circle in the plate number's place, moved the same way (`FF_FOOT_RX`). Every icon on a pill is `system.draw_icon`, drawn large and cut to two tones, which the bake calls too.
-An optional status LED (W-876, `ff_led.cpp`): one WS2812B pixel
+The wall runs always-awake today; deep sleep is the
+less-tested branch. An optional status LED (W-876, `ff_led.cpp`): one WS2812B pixel
 with DIN on GPIO39, soldered to pad 1 of the unfitted font chip U6 (3V3 on
 pads 7/8, GND on 4, both kits); `ledSet()` from the boot, portal, fetch
-outcome (`noteLedOutcome`) and OTA paths. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
+outcome (`noteLedOutcome`) and OTA paths, dark in deep sleep. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
 app with a full-refresh equivalent for everything partial (W-817): the plate
 is retained in PSRAM, and a toast or the corner mark is a baked black/white-ink
 tile blitted into a copy of it, then one ~15 s repaint (`paintPlate`; cleared
 by painting the plate again, 60 s later for a toast). A press fetches first
 and paints one thing, so only the outcome pills exist (the in-progress ones
-have no tile). A frame whose last picture was a pairing code (NVS `unpaired`) paints no
+have no tile); out of deep sleep there is no retained plate, so "Already up-to-date"
+refetches the plate with the pill armed and the corner mark becomes the full
+error screen. A frame whose last picture was a pairing code (NVS `unpaired`) paints no
 "Connecting" at all, so a restart or a Wi-Fi reset goes straight to the code.
 The gray splash's version line is not baked (W-858): the bake ships its glyphs (`ff_ver_glyphs`) and `stampVersion` sets `FF_FW_VERSION` there at boot — "v 0.2.5" for a release, "dev 2026.09.24" for a dev build; `bake_screens.stamp_version` mirrors it and a test holds it to `draw_engraved`. Boot is one baked "Connecting" screen (every boot stage maps to
 `FF_SCR_BOOT_WIFI`, painted while Wi-Fi joins underneath) that gives way to a
@@ -801,4 +815,13 @@ shows "Add this frame on the Featherframe webapp" (gray: error pill 3; EE02:
 `panel` matches and otherwise takes any, and `X-Board` on the OTA request
 keeps one board's image off the other. A
 kit row's Advanced has "Reset to this panel's defaults" (a client-side fill
-from that frame's own `Config.defaults_for(panel)`, applied only on Save). A bad OTA image rolls back.
+from that frame's own `Config.defaults_for(panel)`, applied only on Save). Low battery (`FF_LOW_BATT_V`: gray < 3.45 V, EE02 < 3.55 V) skips Wi-Fi and
+sleeps 4 h at a time, saying "Low battery" on the glass once at
+the crossing (`markLowBattery`: gray paints the baked `FF_TOAST_LOW_BATTERY`
+pill over the plate, the EE02 the baked `FF_SCR_LOW_BATT` full screen, which
+is why its hold starts 0.1 V earlier — a ~15 s full refresh needs the headroom;
+"once" lives in NVS `lowmark`, written before the paint so a brownout can't
+loop it; the always-awake loop enters the same hold after `FF_LOW_BATT_POLLS`
+low polls, W-736), and the page puts a red *Battery low* badge on that frame's
+own row at its `card.battery_critical` (≤ 10 % or ≤ the panel's hold,
+`Panel.low_battery_volts`, which a test keeps equal to `FF_LOW_BATT_V`); OTA is refused under 3.70 V and a bad image rolls back.

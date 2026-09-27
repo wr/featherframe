@@ -16,6 +16,8 @@ wire format (FFF) or adds a round trip.
 | Header | Source | Notes |
 |---|---|---|
 | `If-None-Match` | `g_etag` | unchanged |
+| `X-Battery-Voltage` | `readBatteryVoltage()` | volts, 3 dp |
+| `X-Battery-Percent` | `batteryPercent(v)` | see Battery below |
 | `X-Wifi-RSSI` | `WiFi.RSSI()` | dBm |
 | `X-Wake` | `g_wakeInfo` | `"cause=N keys=0xM"` debug string |
 | `User-Agent` | literal `"Featherframe-ESP32/1.0"` | never changes across builds |
@@ -30,6 +32,7 @@ Card rows and their real backing today:
 | Row | Backed by | Status |
 |---|---|---|
 | Last seen | server clock at checkin | ✅ accurate |
+| Battery | `X-Battery-Percent` | ⚠️ uncalibrated (see below) |
 | Wi-Fi | `X-Wifi-RSSI` | ✅ accurate |
 | IP address | connection peer | ✅ accurate |
 | Firmware | `User-Agent` | ❌ constant string, tells you nothing |
@@ -71,7 +74,41 @@ store `fw_version` (and optionally `sketch_md5`) on `DeviceStatus`, and render
 
 ---
 
-## 2. Wake reason (surfacing what's already sent)
+## 2. Battery percent — calibration
+
+**Status (2026-09-02, W-693): done.** The EE03 divider is 10 kΩ/10 kΩ behind a
+TPS22916 load switch (EN = GPIO6, ADC = GPIO1; schematic sheet 4 "BAT ADC
+DETE"), so the pin sees VBAT/2. The firmware reads it with the eFuse-calibrated
+`analogReadMilliVolts()` and multiplies by `VBAT_DIVIDER` (2.0) and a residual
+`VBAT_TRIM` from a meter on the JST leads.
+
+Why not raw counts: the original `(ADC/4095) * VBAT_SCALE` fit was calibrated
+at one point (3.865 V ↔ 2363 counts) and read a full 4.13 V cell as 3.83 V /
+55%, because raw `analogRead()` counts on this ESP32-S3 flatten near the top
+of the range — the same ~2360 counts came back at 3.87 V and at 4.13 V, while
+the calibrated path reported 2036 mV at the pin (4.07 V) for the same cell.
+
+**Re-calibrating.** Every check-in carries `X-Wake-Detail: … adc=<counts>
+first=<n> last=<n> mv=<pin mV>`, so no serial cable is needed: meter the leads,
+read `mv` from the config page's Frame card tooltip (or `/api/status →
+device.wake_detail`), and build with `FF_VBAT_TRIM=<V_meter / (2 * mV / 1000)>`
+in the environment (`FF_VBAT_TRIM=1.014 make ota`). Since W-768 the default is
+no trim (1.000): one binary ships to every unit, the untrimmed read is within
+about 2 %, and it errs low, so the low-battery hold trips early rather than
+late.
+
+**Optional accuracy add.** If a charge line is sensed (USB present / `CHG` pin),
+send `X-Battery-State: charging|discharging|full` so the card can stop showing a
+misleading "74%, dropping" while it's actually on USB. The server already
+special-cases "USB power" when no percent is sent; a state header lets it say
+"charging" instead.
+
+**Server change.** None required for calibration. If `X-Battery-State` is added,
+store it and show a small charging glyph next to the cell.
+
+---
+
+## 3. Wake reason (surfacing what's already sent)
 
 **Problem.** `X-Wake` already arrives as `cause=N keys=0xM` but is only logged,
 never shown. Knowing *why* the frame last woke (timer vs button vs first boot)
@@ -81,7 +118,7 @@ is useful health info.
 replace the raw debug string with a stable token set so the server doesn't parse
 ESP wakeup enums:
 ```cpp
-// "timer" | "button" | "coldboot"
+// "timer" | "button" | "coldboot" | "lowbatt"
 http.addHeader("X-Wake", wakeReasonToken());
 ```
 Keep the detailed `cause=N keys=0xM` under a separate `X-Wake-Detail` header if
@@ -92,7 +129,7 @@ you still want it for debugging.
 
 ---
 
-## 3. Ambient temperature / humidity (new stat)
+## 4. Ambient temperature / humidity (new stat)
 
 **Opportunity.** The EE03 carries an **SHT40** on its own I2C bus (noted in
 `ff_config.h`). A wall frame that also reports room temp/humidity is a nice,
@@ -114,10 +151,10 @@ cold).
 
 ---
 
-## 4. Longevity counters (new stat, RTC-backed)
+## 5. Longevity counters (new stat, RTC-backed)
 
-**Opportunity.** E-paper has a finite full-refresh budget, and boot/refresh counts are
-cheap to keep. The firmware already uses
+**Opportunity.** E-paper has a finite full-refresh budget and the deep-sleep
+model makes boot/refresh counts cheap to keep. The firmware already uses
 `RTC_DATA_ATTR` for `g_failCount` / `g_failMinutes`, so add two persistent
 counters:
 
@@ -131,15 +168,15 @@ Send on frame fetch:
 http.addHeader("X-Boot-Count", String(g_bootCount));
 http.addHeader("X-Refresh-Count", String(g_refreshCount));
 ```
-(Both reset to 0 only on power loss — acceptable; note it in the
+(Both reset to 0 only on power loss / battery pull — acceptable; note it in the
 UI copy as "since last power-up" if you want to be precise.)
 
 **Server change.** Store both; show `Refreshes` on the card and/or use the count
-to estimate panel wear. Low priority relative to §1.
+to estimate panel wear. Low priority relative to 1–2.
 
 ---
 
-## 5. Panel & board identity (optional — re-derive what was removed)
+## 6. Panel & board identity (optional — re-derive what was removed)
 
 The `Panel` (`10.3″ · 1404×1872 · grayscale`) and `Board`
 (`XIAO ESP32-S3 · EE03`) rows were removed from the card because they were
@@ -161,9 +198,11 @@ is cosmetic — skip unless you expect more than one hardware variant.
 ## Priority
 
 1. **Firmware version** (§1) — the card currently lies about what's running.
-2. Wake reason (§2) — nearly free, data already sent.
-3. Ambient temp/humidity (§3) — new hardware read, genuinely useful.
-4. Longevity counters (§4), panel/board identity (§5) — nice-to-have.
+2. **Battery calibration** (§2) — a real bring-up task; the low-battery warning
+   depends on it.
+3. Wake reason (§3) — nearly free, data already sent.
+4. Ambient temp/humidity (§4) — new hardware read, genuinely useful.
+5. Longevity counters (§5), panel/board identity (§6) — nice-to-have.
 
 ## Header summary (target state)
 
@@ -171,11 +210,13 @@ is cosmetic — skip unless you expect more than one hardware variant.
 |---|---|---|
 | `X-FF-Version` | Firmware | §1 |
 | `X-FF-Sketch-MD5` | Firmware (title) | §1 |
+| `X-Battery-Voltage` / `X-Battery-Percent` | Battery | §2 (calibrate) |
+| `X-Battery-State` | Battery (charging) | §2 (optional) |
 | `X-Wifi-RSSI` | Wi-Fi | — (already accurate) |
-| `X-Wake` | Last wake | §2 |
-| `X-Env-TempC` / `X-Env-RH` | Ambient | §3 |
-| `X-Boot-Count` / `X-Refresh-Count` | Refreshes | §4 |
-| `X-Panel` / `X-Board` | Panel / Board | §5 (optional) |
+| `X-Wake` | Last wake | §3 |
+| `X-Env-TempC` / `X-Env-RH` | Ambient | §4 |
+| `X-Boot-Count` / `X-Refresh-Count` | Refreshes | §5 |
+| `X-Panel` / `X-Board` | Panel / Board | §6 (optional) |
 | `X-Panel-Width` / `X-Panel-Height` / `X-Panel-Format` / `X-Panel-Rotations` | (what the server renders for) | see below |
 
 ### The panel, as facts (W-813)

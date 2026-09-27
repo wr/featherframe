@@ -1,9 +1,9 @@
 // Featherframe firmware — deliberately dumb e-paper client.
 //
-// Connect Wi-Fi -> GET /api/frame with the stored ETag (on a poll, a push or
-// a button) -> 304 means nothing changed; otherwise receive a packed
-// framebuffer (the server did ALL image processing) -> push it to the panel
-// with a full refresh -> store the new ETag.
+// Wake (timer or button) -> connect Wi-Fi -> GET /api/frame with the stored
+// ETag -> 304 means nothing changed, go back to sleep; otherwise receive a
+// packed framebuffer (the server did ALL image processing) -> push it to the
+// panel with a full refresh -> store the new ETag -> deep sleep.
 //
 // The device knows only Wi-Fi creds + the server URL, provisioned once via a
 // captive portal (WiFiManager) and kept in NVS. Everything else is server-side.
@@ -336,7 +336,7 @@ static void loaderTask(void*) {
 enum ErrKind { ERRK_WIFI = 0, ERRK_SERVER = 1, ERRK_NOFRAME = 2, ERRK_PENDING = 3 };
 RTC_DATA_ATTR int16_t  g_failCount = 0;     // consecutive failed cycles
 RTC_DATA_ATTR uint16_t g_failMinutes = 0;   // ~minutes since the last success
-// Longevity counters (spec §4). RTC-backed: survive deep sleep, reset only on a
+// Longevity counters (spec §5). RTC-backed: survive deep sleep, reset only on a
 // power pull. bootCount ++ every wake; refreshCount ++ on every full panel redraw.
 RTC_DATA_ATTR uint32_t g_bootCount = 0;
 RTC_DATA_ATTR uint32_t g_refreshCount = 0;
@@ -1000,7 +1000,7 @@ bool displayFrame(const uint8_t* data, size_t len, bool retain = false) {
   Serial.printf("psram largest free %u\n",
                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
   epaper.update();                          // full refresh; brackets its own power
-  g_refreshCount++;                         // panel-wear tally (spec §4)
+  g_refreshCount++;                         // panel-wear tally (spec §5)
   if (retain && h.bpp == 4) {               // a 1-bit body is smaller than this copy
     if (!g_lastFrame) g_lastFrame = (uint8_t*)ps_malloc(FF_SCREEN_BYTES);
     if (g_lastFrame) memcpy(g_lastFrame, body, FF_SCREEN_BYTES);
@@ -1562,7 +1562,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Battery-Voltage", String(vbat, 3));
   http.addHeader("X-Battery-Percent", String(pct));
   http.addHeader("X-Wifi-RSSI", String(WiFi.RSSI()));
-  http.addHeader("X-Wake", g_wakeToken);            // stable token (spec §2)
+  http.addHeader("X-Wake", g_wakeToken);            // stable token (spec §3)
   // cause=N keys=0xM + ADC diag + last transfer + last mDNS + stuck refreshes (debug)
   http.addHeader("X-Wake-Detail", String(g_wakeInfo) + " " + g_battRaw + " " + g_lastXfer
                                   + (g_mdnsNote[0] ? String(" ") + g_mdnsNote : String(""))
@@ -1570,11 +1570,11 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
                                                     + (panelHeldOff() ? "+held" : "") : String("")));
   http.addHeader("X-FF-Version", FF_FW_VERSION);    // human build id (spec §1)
   http.addHeader("X-FF-Sketch-MD5", ESP.getSketchMD5());  // exact binary id
-  http.addHeader("X-Boot-Count", String(g_bootCount));    // spec §4
+  http.addHeader("X-Boot-Count", String(g_bootCount));    // spec §5
   http.addHeader("X-Refresh-Count", String(g_refreshCount));
   http.addHeader("X-Device-Id", frameId());         // who we are: one server serves one frame
   http.addHeader("X-FF-Key", frameKey());           // …and that it is really us (W-845)
-  http.addHeader("X-Panel", FF_PANEL_ID);           // spec §5; the server renders for it
+  http.addHeader("X-Panel", FF_PANEL_ID);           // spec §6; the server renders for it
   http.addHeader("X-Board", FF_BOARD_ID);
   // The panel as facts (W-813): a server that has never heard of FF_PANEL_ID
   // still draws exactly what displayFrame() accepts.
@@ -1853,7 +1853,7 @@ void maybeOTA(float vbat) {
   if (code != HTTP_CODE_OK) { http.end(); return; }
 
   // The server names the image; an image that already failed to flash is not
-  // downloaded again every check (1.5 MB per cycle, forever).
+  // downloaded again every wake (1.5 MB per cycle, forever, on battery).
   String md5 = http.header("X-MD5");
   md5.toLowerCase();
   if (md5.length() && md5 == prefs.getString("ota_bad", "")) {
@@ -1907,7 +1907,7 @@ void setup() {
   // TEMP boot-ping: 6s of prints after USB settles, so a late reader confirms the
   // app is actually running and where setup gets to. Remove once serial is trusted.
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-  g_bootCount++;                                    // wake tally (spec §4)
+  g_bootCount++;                                    // wake tally (spec §5)
   strlcpy(g_wakeToken, wakeToken(cause), sizeof(g_wakeToken));
   bool buttonWake = (cause == ESP_SLEEP_WAKEUP_EXT1);
   bool fromDeepSleep = (cause == ESP_SLEEP_WAKEUP_TIMER || cause == ESP_SLEEP_WAKEUP_EXT1);

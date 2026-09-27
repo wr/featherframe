@@ -16,6 +16,7 @@ enum LedState : uint8_t {
   LED_WIFI_SETUP,  // the setup portal is open, no one on its hotspot
   LED_WIFI_PHONE,  // a phone or computer is on the hotspot
   LED_WIFI_JOINING,// a network was chosen: joining it
+  LED_WIFI_FAILED, // that join failed: two red pulses, then back to setup blue
   LED_CONNECTED,   // on Wi-Fi: asking the server, fetching the picture
   LED_PAIRING,     // waiting to be added: a pairing code, or "Add this frame"
   LED_UPDATING,    // a firmware image is being written

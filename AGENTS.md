@@ -793,8 +793,8 @@ pads 7/8, GND on 4, both kits); `ledSet()` from the boot, portal, fetch
 outcome (`noteLedOutcome`) and OTA paths, dark in deep sleep. Setup is one
 colour a step: blue breathing slowly while the hotspot waits, steady once a
 phone is on it (`onWifiLed`, Wi-Fi events), a quick pulse while it joins the
-chosen network (WiFiManager's pre-save callback, or Improv), back to blue if
-that fails (the station stops); green breathes from the join until the server
+chosen network (WiFiManager's pre-save callback, or Improv), two red pulses
+and back to blue if that fails (the station stops); green breathes from the join until the server
 answers, then holds and fades. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
 app with a full-refresh equivalent for everything partial (W-817): the plate
 is retained in PSRAM, and a toast or the corner mark is a baked black/white-ink

@@ -716,16 +716,15 @@ static void startImprov() {
 // keeps the portal open, with no callback of its own).
 static void onWifiLed(arduino_event_id_t ev, arduino_event_info_t) {
   const LedState s = ledState();
-  const bool phone = WiFi.softAPgetStationNum() > 0;
   switch (ev) {
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
       if (s == LED_WIFI_SETUP) ledSet(LED_WIFI_PHONE);
       break;
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
-      if (s == LED_WIFI_PHONE && !phone) ledSet(LED_WIFI_SETUP);
+      if (s == LED_WIFI_PHONE && WiFi.softAPgetStationNum() == 0) ledSet(LED_WIFI_SETUP);
       break;
     case ARDUINO_EVENT_WIFI_STA_STOP:
-      if (s == LED_WIFI_JOINING) ledSet(phone ? LED_WIFI_PHONE : LED_WIFI_SETUP);
+      if (s == LED_WIFI_JOINING) ledSet(LED_WIFI_FAILED);
       break;
     default:
       break;

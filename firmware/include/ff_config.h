@@ -72,6 +72,7 @@
 #define FF_LED_BLINK_ON_MS  150     // an error blink's lit part, once per 2 s
 #define FF_LED_PAIRED_MS    3000    // green after a connection is made…
 #define FF_LED_FADE_MS      1000    // …then fades out
+#define FF_LED_FAIL_MS      900     // a failed Wi-Fi join: two red pulses
 
 // --- Panel ---
 // Set ahead of everything that branches on it: an undefined macro in an #if is

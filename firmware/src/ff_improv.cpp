@@ -120,7 +120,8 @@ void join(const char* ssid, const char* pass) {
   while (!connected() && millis() - t0 < JOIN_TIMEOUT_MS) vTaskDelay(pdMS_TO_TICKS(100));
   if (!connected()) {
     Serial.println("Improv: could not join");
-    ledSet(was);
+    // In the portal: the same red pulses as a failed join from the phone.
+    ledSet(was == LED_WIFI_SETUP || was == LED_WIFI_PHONE ? LED_WIFI_FAILED : was);
     sendError(ERR_UNABLE_TO_CONNECT);
     sendState(STATE_READY);
     return;

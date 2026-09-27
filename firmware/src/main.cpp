@@ -29,6 +29,7 @@ using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before i
 #include <driver/rtc_io.h>
 
 #include "ff_config.h"
+#include <esp_mac.h>
 #if FF_PANEL_GENERIC
 #include FF_SCREENS_HEADER     // bake_screens.py --size: this panel's own full-refresh set
 static_assert(FF_SCREENS_ROTATION == FF_BAKED_ROTATION,
@@ -216,9 +217,14 @@ static bool adoptDiscoveredServer(bool lookPastCurrent = false) {
 // This frame's name to the server: its Wi-Fi MAC, bare hex. The server serves
 // one frame and asks its owner before switching to another (X-Device-Id).
 static String frameId() {
-  String id = WiFi.macAddress();
-  id.replace(":", "");
-  return id;
+  // From the eFuse, not WiFi.macAddress(): that reads 00:00:00:00:00:00 until
+  // the Wi-Fi driver starts, and Improv (and a registration over USB) can ask
+  // before it has. The station MAC either way, so the ID is the same.
+  uint8_t mac[6] = {0};
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  char id[13];
+  snprintf(id, sizeof(id), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  return String(id);
 }
 
 // A secret of the frame's own (W-845), made once from the hardware RNG and

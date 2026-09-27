@@ -284,7 +284,8 @@ async function pairUsb(request: Request, env: Env, hid: string): Promise<Respons
   const str = (k: string, max = 64) => String(b[k] ?? "").trim().slice(0, max);
   const id = str("id", 40);
   const key = str("key").toLowerCase();
-  if (!/^[0-9A-Za-z:_-]{4,40}$/.test(id) || !/^[0-9a-f]{16,64}$/.test(key)) {
+  // An all-zero ID is a frame asked before its Wi-Fi started (W-899), not one.
+  if (!/^[0-9A-Za-z:_-]{4,40}$/.test(id) || /^[0:]+$/.test(id) || !/^[0-9a-f]{16,64}$/.test(key)) {
     return Response.json({ ok: false, error: "The frame did not say who it is." }, { status: 400 });
   }
   const now = Math.floor(Date.now() / 1000);

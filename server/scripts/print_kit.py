@@ -210,7 +210,9 @@ b{{font-weight:600}}
 .card{{width:816px;height:528px;display:flex;position:relative}}
 .panel{{width:408px;height:528px;box-sizing:border-box;display:flex;flex-direction:column}}
 .num{{font-family:"Fell SC",serif;font-size:26px;line-height:.95;color:#6b5a45;width:16px;flex-shrink:0}}
-.fcc{{display:flex;flex-direction:column;gap:4px;font-size:10px;line-height:1.4;color:#3d3a36;text-wrap:pretty}}
+.colophon{{border-top:1px solid #d8d4cd;padding-top:8px;display:grid;grid-template-columns:1fr 1fr;column-gap:16px;
+  font-size:8px;line-height:1.4;color:#6b655d;text-wrap:pretty}}
+.colophon>div{{display:flex;flex-direction:column;gap:3px}}
 .label{{position:absolute;width:288px;height:192px;box-sizing:border-box;padding:13px 15px 12px;
   display:flex;flex-direction:column;gap:10px;overflow:hidden}}
 .cap{{font-family:"Fell SC",serif;font-size:7.5px;letter-spacing:.18em;color:#3d3a36}}
@@ -222,16 +224,15 @@ b{{font-weight:600}}
 
 def card_outside(logo: str, mark: str, bough_uri: str) -> str:
     return f"""<div class="card">
-<div class="panel" style="padding:44px 40px 36px;gap:14px">
+<div class="panel" style="padding:44px 40px 30px;gap:14px">
   <div style="display:flex;flex-direction:column;gap:8px">
     <div style="height:13px;width:108px">{logo.replace('<svg ', '<svg style="height:13px;width:auto" ', 1)}</div>
     <div style="font-size:12px;line-height:1.45;color:#3d3a36">Designed in Glastonbury, Connecticut. Illustrations from John James Audubon’s <i>The Birds of America</i> (1827–1838) and the folios of John Gould, all in the public domain.</div>
-    <div style="font-size:12px;line-height:1.45;color:#3d3a36">For indoor use. Power: {POWER} over USB-C.</div>
   </div>
   <div style="flex-grow:1"></div>
-  <div class="fcc">
-    <div>Contains FCC ID: {FCC_ID}.</div>
-    <div>This equipment should be installed and operated with a minimum distance of 20 cm between the antenna and your body.</div>
+  <div class="colophon">
+    <div><div>© 2026 Wells Workshop LLC · featherframe.app</div><div>For indoor use. {POWER} over USB-C.</div></div>
+    <div><div>Contains FCC ID: {FCC_ID}.</div><div>This equipment should be installed and operated with a minimum distance of 20 cm between the antenna and your body.</div></div>
   </div>
 </div>
 <div class="panel" style="position:relative;overflow:hidden">

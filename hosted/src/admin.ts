@@ -3,8 +3,8 @@
 // separated); to anyone else it does not exist.
 
 import type { Env } from "./index";
-import { AS_COOKIE, actAs, logAction, deleteHousehold, invite, isAdmin, joinWaitlist, normEmail, realSessionUser, resendInvite,
-         revokeInvite, setEmail, setSuspended, stopActingAs } from "./accounts";
+import { AS_COOKIE, actAs, logAction, deleteHousehold, invite, isAdmin, normEmail, realSessionUser, resendInvite,
+         revokeInvite, setEmail, setSuspended, signUpWaitlist, stopActingAs } from "./accounts";
 import { adminPage, waitlistThanksPage, type AdminData, type Toast } from "./pages";
 import { cloudflareUsage } from "./usage";
 import { cookie } from "./util";
@@ -134,7 +134,7 @@ function readToast(request: Request): Toast | null {
 
 async function gather(env: Env): Promise<AdminData> {
   const [waitlist, invites, households, log] = await Promise.all([
-    env.DB.prepare("SELECT email, source, created_at, invited_at FROM waitlist WHERE invited_at IS NULL ORDER BY created_at")
+    env.DB.prepare("SELECT email, source, created_at, invited_at, confirmed_at FROM waitlist WHERE invited_at IS NULL ORDER BY created_at")
       .all<AdminData["waitlist"][number]>(),
     env.DB.prepare("SELECT email, created_at, used_at FROM invites ORDER BY created_at DESC")
       .all<AdminData["invites"][number]>(),
@@ -176,9 +176,13 @@ export async function waitlistRoute(request: Request, env: Env): Promise<Respons
   const email = normEmail(raw);
   if (!email) {
     return json ? Response.json({ ok: false, error: "Enter an email address." }, { status: 400, headers: cors })
-                : waitlistThanksPage("", "Enter an email address.");
+                : waitlistThanksPage("Enter an email address.");
   }
-  await joinWaitlist(env, email, "site");
-  return json ? Response.json({ ok: true }, { headers: cors }) : waitlistThanksPage(email);
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  if (await signUpWaitlist(env, email, ip) === "limited") {
+    const error = "Too many sign-ups from here. Try again in an hour.";
+    return json ? Response.json({ ok: false, error }, { status: 429, headers: cors }) : waitlistThanksPage(error, 429);
+  }
+  // The same answer for a new, pending or confirmed address.
+  return json ? Response.json({ ok: true }, { headers: cors }) : waitlistThanksPage();
 }
-

@@ -60,3 +60,12 @@ export function isDetection(body: string): boolean {
     return false;
   }
 }
+
+/** Plain http is sent to https, before anything else (wrangler dev on
+ * localhost stays http). */
+export function httpsRedirect(url: URL): Response | null {
+  if (url.protocol !== "http:" || url.hostname === "localhost" || url.hostname === "127.0.0.1") return null;
+  const to = new URL(url);
+  to.protocol = "https:";
+  return Response.redirect(to.toString(), 301);
+}

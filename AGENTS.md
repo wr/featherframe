@@ -550,8 +550,13 @@ tick and POST, applies check-ins through `app.parse_checkin` →
 is `POST /api/hosted/run`. Admin: `/admin` (W-850, `admin.ts`) for a
 signed-in user whose email is in the `ADMIN_EMAILS` secret, 404 to anyone
 else — the waitlist (D1 `waitlist`: the marketing page's form posts
-`POST /api/waitlist`, form or JSON with CORS for the apex, and an uninvited
-email trying to sign in joins it quietly), invitations, and every household
+`POST /api/waitlist`, form or JSON with CORS for the apex; double opt-in:
+an address is pending until it follows the emailed link,
+`GET /api/waitlist/confirm?t=` (token hashed, 7 days, re-sent at most every
+10 min, `signUpWaitlist`), with the same answer for every address and 5
+sign-ups an hour per IP and per address (D1 `rate_hits`); an uninvited email
+trying to sign in joins it pending, and is not emailed; the admin counts only
+confirmed ones), invitations, and every household
 (frames and when each was last seen, from the front door's `summary()`, and
 rough server time: wakes plus the time a page kept it up, by UTC day).
 W-860 added this month's Cloudflare usage against the Workers Paid allowances
@@ -571,7 +576,8 @@ forms and the bearer API — is kept in D1 `admin_log` (W-863, migration 0005),
 the last 100 shown at the foot of the page. The
 API is still there: `Authorization: Bearer` keychain
 `featherframe-hosted-admin-token`, `POST /_admin/invite|link|adopt {email}`.
-Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a
+Plain http to any hosted host is a 301 to https before anything else
+(`util.httpsRedirect`). Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a
 registry push drop; a new image serves only once the rollout ends and the
 Container restarts); D1 schema in `hosted/migrations/`.
 

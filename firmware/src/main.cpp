@@ -618,34 +618,57 @@ void markFirmwareGood();
 #else
 #define FF_PORTAL_FONT_FACE ""
 #endif
-// The page after Save (W-888, W-897): it asks the frame how joining goes
-// (/ffstate) and says so, then what comes next. The frame closes
-// Featherframe-Setup once the phone has seen it joined, so the phone goes
-// back to its own Wi-Fi: until W-897 the setup network stayed up with
-// nothing answering, and the page said nothing more. On the Wi-Fi form, a
-// kit on Featherframe Cloud also says what the frame shows next.
+// The portal's own script (W-888, W-897):
+// - The Wi-Fi form's Server field becomes a choice: Featherframe Cloud or
+//   self-hosted, whichever this build starts on marked (default), the
+//   frame's own current server chosen. Self-hosted takes an address, or
+//   blank to find the server on the network (posted as "find"). Under Save,
+//   what the frame shows next for that choice.
+// - The page after Save asks the frame how joining goes (/ffstate) and says
+//   so, then what comes next for the choice made (kept in sessionStorage).
+//   The frame closes Featherframe-Setup once the phone has seen it joined.
+#define FF_CLOUD_URL "https://cloud.featherframe.app"
 #ifdef FF_HOSTED_DEFAULT
-#define FF_PORTAL_NEXT "Featherframe-Setup will close, and your phone goes back to its usual Wi-Fi. Then scan the code on your frame to finish setting up."
-#define FF_PORTAL_FORM_HINT "After you save, your frame shows a code. Scan it with your phone to finish setting up."
+#define FF_PORTAL_DEFAULT "cloud"
 #else
-#define FF_PORTAL_NEXT "Featherframe-Setup will close, and your phone goes back to its usual Wi-Fi. Then add the frame in your Featherframe webapp."
-#define FF_PORTAL_FORM_HINT ""
+#define FF_PORTAL_DEFAULT "self"
 #endif
 #define FF_PORTAL_SAVED_SCRIPT R"JS(<script>document.addEventListener('DOMContentLoaded',function(){
-var NEXT=')JS" FF_PORTAL_NEXT R"JS(',HINT=')JS" FF_PORTAL_FORM_HINT R"JS(';
-var p=location.pathname,m,f,n,b;
-if(p=='/wifisave'){m=document.querySelector('.msg');if(!m)return;
+var CLOUD=')JS" FF_CLOUD_URL R"JS(',DEF=')JS" FF_PORTAL_DEFAULT R"JS(',p=location.pathname,st=null;
+try{st=window.sessionStorage;}catch(e){}
+var NEXT={cloud:'Featherframe-Setup will close, and your phone goes back to its usual Wi-Fi. Then scan the code on your frame to finish setting up.',
+self:'Featherframe-Setup will close, and your phone goes back to its usual Wi-Fi. Then add the frame in your Featherframe webapp.'};
+var AFTER={cloud:'After you save, your frame shows a code. Scan it with your phone to finish setting up.',
+self:'After you save, your frame asks to connect in your Featherframe webapp.'};
+if(p=='/wifisave'){var m=document.querySelector('.msg');if(!m)return;
+var ch=(st&&st.getItem('ffserver'))||DEF;
 m.className='msg';m.textContent='Connecting to your Wi-Fi…';
 var t0=Date.now(),done=false,errs=0;
-function ok(){done=true;m.className='msg S';m.innerHTML='<strong>Connected.</strong> '+NEXT;}
+function ok(){done=true;m.className='msg S';m.innerHTML='<strong>Connected.</strong> '+(NEXT[ch]||NEXT.cloud);}
 function bad(){done=true;m.className='msg D';m.innerHTML='<strong>Couldn’t join that network.</strong> Check the password, then <a href="/wifi">try again</a>.';}
 (function poll(){if(done)return;var x=new XMLHttpRequest();x.open('GET','/ffstate?t='+Date.now());x.timeout=4000;
 x.onload=function(){errs=0;if(x.responseText=='joined')ok();else if(Date.now()-t0>40000)bad();else setTimeout(poll,1500);};
 x.onerror=x.ontimeout=function(){errs++;if(errs>=3&&Date.now()-t0>8000)ok();else setTimeout(poll,1500);};
 x.send();})();return;}
-if(!HINT)return;f=document.querySelector('form[action="wifisave"],form[action="/wifisave"]');if(!f)return;
-n=document.createElement('p');n.className='msg';n.textContent=HINT;
-b=f.querySelector('button[type=submit],button');if(b)b.parentNode.insertBefore(n,b);else f.appendChild(n);});</script>)JS"
+var inp=document.getElementById('server');if(!inp)return;var f=inp.form;
+var lab=document.querySelector('label[for="server"]'),cur=inp.value.replace(/\/+$/,'');
+var pick=cur==CLOUD?'cloud':(cur?'self':DEF);if(pick=='self'&&cur==CLOUD)cur='';
+var box=document.createElement('div');
+box.innerHTML='<label>Server</label>'+
+'<div class="ffnet"><label style="margin:0;text-transform:none;letter-spacing:0;font-size:1rem;color:var(--ink);font-weight:400"><input type="radio" name="ffserver" value="cloud"> Featherframe Cloud'+(DEF=='cloud'?' (default)':'')+'</label></div>'+
+'<div class="ffnet"><label style="margin:0;text-transform:none;letter-spacing:0;font-size:1rem;color:var(--ink);font-weight:400"><input type="radio" name="ffserver" value="self"> Self-hosted'+(DEF=='self'?' (default)':'')+'</label>'+
+'<div id="ffself"><input id="ffurl" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://birdnet.local:8181">'+
+'<small>Your server’s address. Leave blank to find it on your network.</small></div></div>'+
+'<p class="msg" id="ffafter"></p>';
+inp.parentNode.insertBefore(box,inp);inp.type='hidden';if(lab)lab.style.display='none';
+var nx=inp.nextSibling;while(nx&&(nx.nodeName=='BR'||(nx.nodeType==3&&!nx.textContent.trim()))){var nn=nx.nextSibling;nx.parentNode.removeChild(nx);nx=nn;}
+var url=document.getElementById('ffurl'),self=document.getElementById('ffself'),after=document.getElementById('ffafter');
+if(pick=='self')url.value=cur;
+function show(){var c=f.querySelector('input[name=ffserver]:checked').value;self.style.display=c=='self'?'':'none';after.textContent=AFTER[c];}
+var rs=box.querySelectorAll('input[name=ffserver]');for(var i=0;i<rs.length;i++){rs[i].checked=rs[i].value==pick;rs[i].onchange=show;}
+show();var b=f.querySelector('button[type=submit],button');if(b)b.parentNode.insertBefore(after,b);
+f.addEventListener('submit',function(){var c=f.querySelector('input[name=ffserver]:checked').value;
+inp.value=c=='cloud'?CLOUD:(url.value.trim()||'find');try{st&&st.setItem('ffserver',c);}catch(e){}});});</script>)JS"
 static const char PORTAL_CSS[] PROGMEM = R"CSS(<style>)CSS" FF_PORTAL_FONT_FACE R"CSS(
 :root{--bg:#efeae0;--card:#fbf9f4;--ink:#20201d;--muted:#6f685c;--accent:#3f5e46;--err:#8a4a3a;--line:#ddd6c8}
 *{box-sizing:border-box}
@@ -766,21 +789,16 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // WiFiManager keeps the registered pointer forever and never dedupes, and
   // ensureWifi is re-entered from loop()'s KEY2 handler — so the parameter
   // lives in static storage and registers exactly once.
-  static WiFiManagerParameter serverParam("server",
-                                          "Server URL (optional)",
-                                          g_serverUrl, sizeof(g_serverUrl));
+  // The server, chosen on the Wi-Fi form (W-897): Featherframe Cloud or
+  // self-hosted, as two choices the page's script draws over this field
+  // (FF_PORTAL_SAVED_SCRIPT). A blank self-hosted field posts "find": no URL,
+  // so the frame looks for its server on the network once it has joined.
+  static WiFiManagerParameter serverParam("server", "Server", g_serverUrl, sizeof(g_serverUrl));
   static bool paramRegistered = false;
-#ifdef FF_HOSTED_DEFAULT
-  // A kit set up from the phone (W-888) is not asked for a server it has
-  // never heard of; the KEY2 portal, on a frame that has Wi-Fi, still offers it.
-  const bool offerServer = wm.getWiFiIsSaved();
-#else
-  const bool offerServer = true;
-#endif
-  if (!paramRegistered && offerServer) {
+  if (!paramRegistered) {
     wm.addParameter(&serverParam);
     paramRegistered = true;
-  } else if (paramRegistered) {
+  } else {
     serverParam.setValue(g_serverUrl, sizeof(g_serverUrl));
   }
   wm.setConfigPortalTimeout(PORTAL_TIMEOUT_S);
@@ -891,8 +909,9 @@ bool ensureWifi(bool openPortal, bool showBoot) {
     // steps next. Persist the (possibly updated, user-typed) server URL.
     char prev[sizeof(g_serverUrl)];
     strlcpy(prev, g_serverUrl, sizeof(prev));
-    if (paramRegistered) strlcpy(g_serverUrl, serverParam.getValue(), sizeof(g_serverUrl));
-    normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), prev);
+    strlcpy(g_serverUrl, serverParam.getValue(), sizeof(g_serverUrl));
+    if (strcmp(g_serverUrl, "find") == 0) g_serverUrl[0] = 0;   // self-hosted, found on the network
+    else normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), prev);
     prefs.putString("server", g_serverUrl);
   }
   bool connected = ok && WiFi.status() == WL_CONNECTED;

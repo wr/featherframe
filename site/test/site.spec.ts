@@ -62,8 +62,8 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('body')).not.toContainText('Reserve');
   await expect(page.locator('body')).not.toContainText('November');
   await expect(page.locator('.cover .copy p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
-  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. From $349, no subscription. US pre-orders ship by December 12.');
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display, no subscription.');
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. From $349, no subscription.');
   // no exploded drawing anywhere: the reservation is its headline, line and button
   await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
   await expect(page.locator('.close > *')).toHaveCount(3);

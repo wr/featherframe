@@ -250,3 +250,68 @@ detection source in Settings so it can start showing species."
 - A map, or any BirdWeather UI beyond a list and a name search.
 - BirdNET-Pi/Go detectors in the setup flow (the email points to Settings).
 - Card design and printing.
+
+## Revisions after review (two reviews, 27 Sep)
+
+Security:
+
+- **The QR URL carries a secret.** Each pairing row gets `setup_token`, 12
+  characters of `0-9A-Z`, and the QR is
+  `HTTPS://APP.FEATHERFRAME.APP/SETUP/ABCDEF/<TOKEN>`. `/setup` needs both,
+  so live codes can't be enumerated. The typed six letters still pair a
+  frame through *Pair a frame* when signed in. `GET /setup/…` and
+  `/api/setup/stations` are rate limited per IP (30 an hour).
+- **The invitation is checked first.** A request with no registered kit and
+  no valid setup code gets only the setup-code error, whatever the email.
+  Only then does an existing email get its link. That link names the frame
+  and says to ignore the email if it wasn't expected, and it is limited to
+  5 an hour per address. Following it pairs the frame only if that same
+  pairing row (device and key) is still live. If it isn't, the owner is
+  simply signed in.
+- **Claims are conditional.** The kit or code is taken with
+  `UPDATE … WHERE used_at IS NULL` and `meta.changes` is checked. The
+  pairing row is taken with `DELETE … WHERE code AND setup_token` and
+  checked the same way. If either misses, the earlier claim is released and
+  the request gets the expired message. A `users.email` conflict is answered
+  as "already have an account".
+- **The seed is refused when it arrives through the page proxy.** The
+  proxy sets `X-FF-Hosted`; the wake's own calls don't.
+- `/_admin/kit` validates `key_hash` (64 hex). A re-registration keeps a
+  kit's `used_at`. `/_admin/setup-codes` makes at most 100.
+
+Experience:
+
+- **One wake.** A new DO method, `setUp(hid, tz, seed, device, report)`,
+  stores the meta, queues the seed, queues the adopt check-in and sets one
+  alarm. It doesn't wake inside the request, so the POST answers at once.
+  The button disables itself ("Setting up…").
+- **Stations:** `period: {count: 7, unit: "day"}` filters by activity. The
+  box is ±0.15° (about 15 km) and widens to ±0.5° if that gives fewer
+  than 5.
+- **QR size:** 7 px modules on the sheet, which is 5.98 px on the EE02
+  after its ×0.855 fit, so it stays near whole pixels. That's about 29 mm
+  across on the EE03 and 37 mm on the EE02. It sits in the upper-left paper,
+  clear of the bough and the mat.
+- **Portal:**
+  - A release kit with no saved Wi-Fi doesn't show the server field. It's
+    still there in the KEY2 portal.
+  - The Wi-Fi form says "After you save, your frame shows a code. Scan it
+    with your phone to finish setting up." above Save. On iOS the saved page
+    usually closes with the access point.
+  - Both lines are set by a small script in the portal's head.
+    WiFiManager's own override replaces every string, which is too much.
+- **Distance** is in miles when the phone's `cf.country` is US, km
+  elsewhere.
+- **Copy:**
+  - The landing flash says "first picture".
+  - The email's first line: "The frame shows the latest species the station
+    hears."
+  - The email says "generate illustrations for species that have none" and
+    "make a daily collage".
+  - A bad setup code: "Check the setup code on the card in the box."
+  - "You can change this later." is cut.
+  - "Questions? Reply to this email." is cut until `hello@` is known to
+    receive mail.
+  - The welcome plate's "Configure the source in the dashboard" becomes
+    "Check the detection source in Settings".
+- Viewers' (TRMNL) pairing screens keep their code without a QR for now.

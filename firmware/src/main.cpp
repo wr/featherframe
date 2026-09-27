@@ -413,7 +413,7 @@ static inline int flipY(int y, int h) { return g_flip ? FF_NATIVE_H - y - h : y;
 // "Battery low" screen needs the headroom the pill does not.
 static_assert(FF_LOW_BATT_V > 3.5f, "EE02 built with the gray panel's low-battery threshold");
 // Spectra error presentation: the same states as the gray frame, each one a
-// ~30 s full refresh instead of a windowed update (W-817). While a baked
+// ~15 s full refresh instead of a windowed update (W-817). While a baked
 // screen holds the glass (boot, setup, an earlier error) the error takes it as
 // a baked full screen. Over a painted plate the corner mark appears at the
 // gray frame's own thresholds, stamped into the retained plate and the whole
@@ -770,7 +770,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
     // Deep-sleep wakes connect silently (showBoot false): the resident plate
     // stays on the glass and a 304 wake never repaints anything.
 #if FF_FULL_REFRESH
-    // One boot screen, ~30 s to paint: start joining the saved network first so
+    // One boot screen, ~15 s to paint: start joining the saved network first so
     // the two overlap (autoConnect picks up the connection already under way).
     // With no network saved the setup steps are about to take the glass; a
     // "Connecting" screen ahead of them would only be a second refresh.
@@ -862,7 +862,7 @@ static bool paintPlate();
 // The one call into the panel driver on the full-refresh path: a whole 4bpp
 // body, then a full refresh. A port to another driver replaces this.
 // Inks: the colour sprite is 4bpp from begin() and the nibbles are already
-// Seeed's ink codes, so a body lands verbatim; refresh() is the ~30 s one.
+// Seeed's ink codes, so a body lands verbatim; refresh() is the ~15 s one.
 // Gray: the 16-level sprite is allocated by initGrayMode(), as the gray build
 // does it.
 static bool fullPaint(const uint8_t* body) {
@@ -1018,7 +1018,7 @@ static ToastState g_toast = {false, 0};
 
 #if FF_FULL_REFRESH
 // No windowed update, so a pill is a stamped repaint: the baked tile is blitted
-// into a copy of the retained plate and the whole glass refreshed (~30 s);
+// into a copy of the retained plate and the whole glass refreshed (~15 s);
 // clearing it paints the plate again, TOAST_HOLD_MS later. The in-progress
 // pills have no tile here — the fetch answers in seconds, so the press is
 // acknowledged by its outcome (a new plate, a view, or an outcome pill) and
@@ -1186,7 +1186,7 @@ static void markLowBattery(int beginMode) {
   prefs.putString("etag", "");
 #if FF_FULL_REFRESH
   // No windowed update to put a pill down with: the same words as a baked
-  // full screen, one ~30 s refresh. FF_LOW_BATT_V is higher on this panel so
+  // full screen, one ~15 s refresh. FF_LOW_BATT_V is higher on this panel so
   // the cell can carry it. (showScreen drops the ETag and sleeps the panel.)
   if (beginMode >= 0) epaper.begin(beginMode);
   showScreen(FF_SCR_LOW_BATT);
@@ -1229,7 +1229,7 @@ static bool lowBatteryWhileAwake(float vbat) {
 // windowed gray update, so the birdhouse never flashes. Native 4bpp: 2 px/byte,
 // stride 936, so a byte column = 2 px.
 #if FF_FULL_REFRESH
-// Spectra: every screen is a ~30 s full refresh, so the boot sequence is one
+// Spectra: every screen is a ~15 s full refresh, so the boot sequence is one
 // screen (ff_screens_ee02.h): "Connecting" while things proceed normally, and
 // a specific error screen only if Wi-Fi or the server fails (W-817). Each
 // stage the gray frame names would cost a refresh longer than the stage.
@@ -1244,7 +1244,7 @@ void showScreen(int idx) {
     idx = FF_SCR_BOOT_WIFI;                           // every boot stage is "Connecting"
   // A frame no one has claimed goes straight to its pairing code, which is
   // the boot screen with the code on it: a "Connecting" ahead of it would be
-  // a second 30 s paint of the same picture.
+  // a second ~15 s paint of the same picture.
   if (idx == FF_SCR_BOOT_WIFI && g_unpaired) return;
   if (idx < 0 || idx >= FF_SCR_COUNT || !ff_screens[idx].data) return;
   if (g_glassScreen == idx) return;                 // already on the glass
@@ -1868,7 +1868,7 @@ void maybeOTA(float vbat) {
 // panels): no boot screen, and the plate's ETag is kept, so an unchanged
 // picture is a 304 and nothing repaints. A stored ETag means exactly that:
 // every baked screen and one-off view clears it. On the Spectra each paint is
-// ~30 s, and a USB session — the installer, Wi-Fi over Improv, pairing, the
+// ~15 s, and a USB session — the installer, Wi-Fi over Improv, pairing, the
 // move to a new server — restarts the frame several times: two paints each,
 // ten in a row, some cut short (Wells, 23 Sep 2026). The setup portal and a
 // blank board still show their screens.
@@ -2185,7 +2185,7 @@ static void pushService() {
     g_ws.onEvent(onPush);
     g_ws.setReconnectInterval(pushRetryMs());
     // Pings keep a NAT or proxy from dropping an idle socket. A missed pong
-    // never closes it by itself: a ~30 s colour paint holds the loop up, and
+    // never closes it by itself: a ~15 s colour paint holds the loop up, and
     // a dead server shows up as a failed heartbeat GET instead (see loop()).
     g_ws.enableHeartbeat(30000, 10000, 0);
     if (tls) g_ws.beginSSL(hostPort.c_str(), port, path.c_str());

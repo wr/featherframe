@@ -12,7 +12,7 @@ code that uses it.
 
 ## Kept on purpose
 
-- **Daytime collage.** A Spectra 6 refresh takes ~30 s, so a collage every N
+- **Daytime collage.** A Spectra 6 refresh takes ~15 s, so a collage every N
   hours can beat a plate per detection there.
 - **Power settings** (`power_mode`, `wake_interval_minutes`,
   `device_poll_seconds`). The USB/battery inference is not reliable enough to

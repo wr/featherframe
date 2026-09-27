@@ -26,7 +26,7 @@ def main() -> None:
     # Single worker on purpose: one render thread, memory-frugal, one source of
     # truth for the current frame.
     # A frame on a push socket (W-841) answers pings from its own loop, which a
-    # colour panel's ~30 s paint holds up: give it a minute before the socket
+    # colour panel's ~15 s paint holds up: give it a minute before the socket
     # is called dead, or every paint would cost a reconnect.
     # Behind a proxy that keeps connections open (the hosted Container,
     # FEATHERFRAME_KEEP_ALIVE in its Dockerfile), an idle connection must

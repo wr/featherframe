@@ -97,6 +97,7 @@ cd firmware && pio run -e ee02                          # the EE02 colour-panel 
 cd firmware && pio run -e ee02_bench                    # Spectra 6 refresh-speed bench (serial-driven; test_bench_ee02/)
 cd firmware && pio run -e release                       # the binary a kit ships with (release_ee02: colour kit)
 cd firmware && pio run -e generic_bench                 # a panel the server has never heard of (W-819); bakes its own screens
+python3 firmware/tools/portal_preview.py                 # the setup portal's pages (ff_portal.h) on :8199, no kit needed (W-901)
 ```
 
 Deploy to the Pi: `cd server && ./install.sh` (venv + plates + systemd unit).

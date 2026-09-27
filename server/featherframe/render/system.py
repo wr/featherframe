@@ -22,13 +22,22 @@ _SANS = paths.fonts_dir() / "Inter-Medium.otf"
 _SANS_SEMIBOLD = paths.fonts_dir() / "Inter-SemiBold.otf"
 
 # One pill, in one place (25 Sep 2026): on the footer line between the corner
-# marks, where the firmware bakes its toasts and error pills too
-# (bake_screens.py scales these by its reference mat, and sets its own pills'
-# type larger: a toast is read across a room). A line that goes with a pill
-# ("Trying again shortly") sits over it.
+# marks, where the firmware bakes its toasts and error pills too. NOTE_* is the
+# footer line's own measure, which bake_screens.py scales by its reference mat
+# (the offline mark is that size). The pill is read across a room: the frame
+# bakes its pills at 34 px type on the glass (W-897), and the server's are the
+# same pill. A sheet is shrunk into the kits' 4% mat, so it is drawn that much
+# larger here, standing on the footer line's bottom edge as the frame's do: a
+# toast covers a footnote exactly. A line that goes with a pill ("Trying again
+# shortly") sits over it.
 NOTE_H, NOTE_PAD, NOTE_TEXT = 52, 22, 24
 NOTE_CY = theme.MARKS_BASELINE - 9          # the script marks' x-height centre
-RETRY_BASELINE, RETRY_TEXT = NOTE_CY - NOTE_H / 2 - 20, NOTE_TEXT
+_GLASS = 1 - 2 * 4.0 / 100                  # the kits' mat (Panel.mat_inset_pct)
+_GROW = 34 / _GLASS / NOTE_TEXT             # bake_screens.PILL_TEXT_SIZE, on the glass
+PILL_H, PILL_PAD, PILL_TEXT = round(NOTE_H * _GROW), round(NOTE_PAD * _GROW), round(NOTE_TEXT * _GROW)
+PILL_CY = NOTE_CY + NOTE_H / 2 - PILL_H / 2
+RETRY_BASELINE = PILL_CY - PILL_H / 2 - round(18 / _GLASS)   # bake_screens' RETRY_*
+RETRY_TEXT = round(28 / _GLASS)
 CARD_RADIUS = 24
 
 
@@ -96,7 +105,7 @@ ICON_OF_PILL = 0.33                               # an icon's half-size, of the 
 
 # -- the pill ----------------------------------------------------------------
 def pill(d: ImageDraw.ImageDraw, cx: float, cy: float, text: str, *,
-         h: int = NOTE_H, pad: int = NOTE_PAD, size: int = NOTE_TEXT,
+         h: int = PILL_H, pad: int = PILL_PAD, size: int = PILL_TEXT,
          icon: Optional[str] = None,
          max_w: Optional[float] = None, weight: str = "medium",
          tracking: float = 0.0) -> tuple[float, float]:
@@ -138,7 +147,7 @@ def note_pill(d: ImageDraw.ImageDraw, text: str, kind: Optional[str], max_w: flo
     """The footer note between the date and plate marks, on the marks' own
     line: the black pill, with a slashed cloud when the source is
     unreachable (`kind` "outage")."""
-    pill(d, theme.WIDTH / 2, NOTE_CY, text,
+    pill(d, theme.WIDTH / 2, PILL_CY, text,
          icon="cloud" if kind == "outage" else None, max_w=max_w)
 
 

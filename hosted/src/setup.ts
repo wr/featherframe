@@ -8,9 +8,9 @@
 
 import type { Env } from "./index";
 import { makeLoginLink, normEmail, rateHit, sendMail, sendVerification, sessionUser, signedIn } from "./accounts";
-import { addFrameEmail, setupAddPage, setupExpiredPage, setupLimitedPage, setupLinkSentPage, setupPage,
+import { addFrameEmail, loginPage, setupAddPage, setupExpiredPage, setupLimitedPage, setupLinkSentPage, setupPage,
          welcomeEmail } from "./pages";
-import { SETUP_TOKEN_LEN } from "./pairing";
+import { SETUP_TOKEN_LEN, setupToken, setupUrl } from "./pairing";
 import { geocode, regionFor, stationById, stationsNear } from "./stations";
 import { randomHex, sha256, validTz } from "./util";
 
@@ -44,7 +44,34 @@ export function newSetupCode(): string {
 }
 
 export function isSetupPath(path: string): boolean {
-  return PATH.test(path) || path === "/api/setup/stations";
+  return PATH.test(path) || path === "/api/setup/stations" || path === "/setup";
+}
+
+export const CODE_TRIES_PER_HOUR = 20;   // typed codes from one IP (W-891)
+
+/** A code typed on the sign-in page (W-891): the same setup page the QR on
+ * that frame opens. The six letters are guessable where the QR's secret is
+ * not, so tries are limited per IP, a minute (the router) and an hour (here). */
+async function typedCode(request: Request, env: Env, ip: string): Promise<Response> {
+  if (request.method !== "POST") return Response.redirect(`https://${env.APP_HOST}/login`, 303);
+  const origin = request.headers.get("Origin");
+  if (origin && origin !== `https://${env.APP_HOST}`) return new Response("forbidden", { status: 403 });
+  const form = await request.formData();
+  const typed = String(form.get("code") || "");
+  const code = typed.toUpperCase().replace(/[^A-Z]/g, "");
+  if (!(await rateHit(env, `setup:code:${ip}`, CODE_TRIES_PER_HOUR, 3600))) {
+    return loginPage("", "Too many tries. Try again in an hour, or scan the QR code on the frame.", typed);
+  }
+  if (code.length !== 6) return loginPage("", "A code is six letters, like ABC-DEF.", typed);
+  const row = await env.DB.prepare("SELECT code, setup_token FROM pairing WHERE code = ? AND expires_at > ?")
+    .bind(code, now()).first<{ code: string; setup_token: string | null }>();
+  if (!row) return loginPage("", "No frame is showing that code. Check the code on your frame's screen.", typed);
+  let token = row.setup_token;
+  if (!token) {
+    token = setupToken();
+    await env.DB.prepare("UPDATE pairing SET setup_token = ? WHERE code = ?").bind(token, row.code).run();
+  }
+  return Response.redirect(setupUrl(env.APP_HOST, row.code, token), 303);
 }
 
 function clientIp(request: Request): string {
@@ -106,6 +133,7 @@ const SOURCES = ["birdweather", "apprise", "birdnet_go"];
 export async function setupRoute(request: Request, env: Env, url: URL, ctx: ExecutionContext): Promise<Response> {
   const ip = await sha256(clientIp(request));
   if (url.pathname === "/api/setup/stations") return stations(request, env, url, ip);
+  if (url.pathname === "/setup") return typedCode(request, env, ip);
   const m = url.pathname.match(PATH)!;
   const [code, token] = [m[1].toUpperCase(), m[2].toLowerCase()];
   if (request.method === "GET") {

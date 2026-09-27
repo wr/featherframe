@@ -341,15 +341,27 @@ export function suspendedPage(): Response {
     <form method="post" action="/logout"><button type="submit">Sign out</button></form>`);
 }
 
-export function loginPage(error = ""): Response {
+export function loginPage(error = "", codeError = "", code = ""): Response {
+  const e = escapeHtml;
   return page("Sign in · Featherframe", `
     <h1>Sign in</h1>
-    ${error ? `<p class="bad">${escapeHtml(error)}</p>` : ""}
+    ${error ? `<p class="bad">${e(error)}</p>` : ""}
     <form method="post" action="/login">
       <label for="email">Email</label>
-      <input type="email" id="email" name="email" autocomplete="email" required autofocus>
+      <input type="email" id="email" name="email" autocomplete="email" required${codeError ? "" : " autofocus"}>
       <input type="hidden" name="tz" id="tz">
       <button type="submit">Email me a link</button>
+    </form>
+    <hr style="border:0;border-top:1px solid var(--border);margin:22px 0 18px">
+    <h1>Set up a new frame</h1>
+    <p>Enter the code on your frame's screen.</p>
+    ${codeError ? `<p class="bad">${e(codeError)}</p>` : ""}
+    <form method="post" action="/setup">
+      <label for="code">Code</label>
+      <input type="text" id="code" name="code" required autocomplete="off" autocapitalize="characters" spellcheck="false"
+        maxlength="9" placeholder="ABC-DEF" value="${e(code)}"${codeError ? " autofocus" : ""}
+        style="width:100%;font:inherit;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);text-transform:uppercase;letter-spacing:.08em">
+      <button type="submit">Continue</button>
     </form>
     <script>try{document.getElementById("tz").value=Intl.DateTimeFormat().resolvedOptions().timeZone}catch(e){}</script>`);
 }

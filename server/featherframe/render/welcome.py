@@ -46,7 +46,7 @@ _EXPIRES_BASELINE = 1806
 # Whole-pixel QR modules on the EE03 (10 px), quiet zone included; ~46 mm
 # across there, ~55 mm on the EE02.
 SETUP_LINE = "SCAN WITH YOUR PHONE TO SET UP"
-SETUP_OR_LINE = "OR PAIR IT AT CLOUD.FEATHERFRAME.APP"
+SETUP_OR_LINES = ("OR ENTER THE CODE AT", "CLOUD.FEATHERFRAME.APP")
 _QR_MODULE_PX = 10
 _ROW_WORDMARK_BASELINE = 1290
 _ROW_WORDMARK_SIZE = 104
@@ -102,8 +102,8 @@ def setup_qr(url: str) -> Image.Image:
 
 
 def _setup_lines(code: str, expires: str) -> list:
-    lines = [(code, _ROW_CODE_SIZE, theme.INK), (SETUP_LINE, _ROW_LINE_SIZE, theme.INK_MEDIUM),
-             (SETUP_OR_LINE, _ROW_LINE_SIZE, theme.INK_MEDIUM)]
+    lines = [(code, _ROW_CODE_SIZE, theme.INK), (SETUP_LINE, _ROW_LINE_SIZE, theme.INK_MEDIUM)]
+    lines += [(t, _ROW_LINE_SIZE, theme.INK_MEDIUM) for t in SETUP_OR_LINES]
     if expires:
         lines.append((f"CODE EXPIRES {expires}".upper(), _ROW_LINE_SIZE, theme.INK_MEDIUM))
     return lines

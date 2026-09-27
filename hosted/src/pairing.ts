@@ -32,7 +32,7 @@ export function setupUrl(host: string, code: string, token: string): string {
 // R2 key), so a screen showing the old drawing is sent the new one. Bump it
 // again once the Lobby's rollout has finished: a code asked for mid-rollout
 // is drawn by the old image and cached under the new key.
-export const LOBBY_DRAWING = "cloud-2";
+export const LOBBY_DRAWING = "typed-1";
 
 /** The code a device no one has claimed shows, made on its first ask and
  * kept for a day. `report` is what it said about itself, for the household

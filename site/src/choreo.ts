@@ -421,6 +421,10 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     }
     const frame = frames[active]!;
     applyScreen(active, st);
+    // Leaving the centre for the art spread, the frame flies under the art's headline: a refresh still under way
+    // there (a slow colour one, or a jump from the running head) finishes before it goes, not in flight.
+    const centre = els.centre ? layout.stops[1] : undefined;
+    if (centre && scrollY > centre.s1 && layout.stops[2] && scrollY < layout.stops[2].s0) frame.refresh.hurry(250);
     let changed = false, busy = false;
     for (const [m, f] of Object.entries(frames) as [Model, Frame3D][]) {
       // the other tone's frame, unseen, is left as it is (it is readied by an instant show() when it is wanted)

@@ -222,6 +222,8 @@ export async function loadFrame(size: Size, opts: {
     // The 10.3-inch's electronics housing, on its back, reached through to the front at one edge and drew a thin
     // line down the picture; set 3 mm further back it sits behind the panel, and the back still shows it.
     if (m.name === 'featherframe_pla') m.position.z -= 0.003;
+    // …and the steel clips on the back showed through the mat as faint ticks; 5 mm back, they're only seen from behind.
+    if (m.name === 'featherframe_silver') m.position.z -= 0.005;
   });
   if (!screen) {
     disposeAll();

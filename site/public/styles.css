@@ -208,12 +208,12 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cat .im { transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
 @media (hover: hover) {
   .cat .im:hover { transform: translateY(-4px); }
-  [data-tone="10"] .cat .im:hover { transform: scale(0.7951) translateY(-5px); }
 }
 .cat .im img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; }
-/* B&W is the 10-inch, drawn to scale beside the 13-inch: 295 mm tall to 371 */
-[data-tone="10"] .cat .im { transform: scale(0.7951); }
-.tone-anim .cat .im { transition: transform .7s cubic-bezier(.3, 0, .2, 1); }
+/* B&W is the 10.3-inch, drawn to scale beside the 13.3-inch (295 mm tall to 371): sized, not scaled, so the grid
+   closes up round the smaller frames, each still standing on its caption */
+[data-tone="10"] .cat .im { width: 79.51%; margin: 0 auto; }
+.tone-anim .cat .im { transition: width .7s cubic-bezier(.3, 0, .2, 1), transform .35s cubic-bezier(.2, .8, .2, 1); }
 /* the glass over each print (its wood inset: 13-inch 26 px of 604 × 760; 10-inch 32 of 596, pillarboxed) */
 /* The glass's sheen (viewer.ts SHEEN / sheenAt, sheen.ts): a soft diagonal
    band at --c (0 top-left … 1 bottom-right), and a thin one just after it. */
@@ -224,6 +224,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cat .im { --c: .5; }
 [data-tone="10"] .cat .im::after { inset: 4.21% 6%; }
 .wall:not(.landed) .cat figure:first-child .im::after, .wall.torn .cat figure:last-child .im::after { visibility: hidden; }
+/* the collection's eyebrow comes in with the frame that drops into its first place, which would cross it */
+.choreo .wall .folio { transition: opacity .3s ease; }
+.choreo .wall:not(.landed) .folio { opacity: 0; }
 .cat figcaption { margin-top: 16px; border-top: 1px solid var(--hair); padding-top: 10px; }
 .cat .nm { display: block; font-size: 21px; line-height: 1.2; }
 .cat .la { display: block; font: italic 17px var(--serif); color: var(--graphite); }
@@ -517,7 +520,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .tone.pill { top: auto; right: auto; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); }
   .tone.pill button { width: 74px; min-height: 44px; padding: 0; }
   /* B&W keeps the frames' size here: with no 13-inch beside them, smaller only reads as smaller */
-  [data-tone="10"] .cat .im, [data-tone="10"] .cat .im:hover { transform: none; }
+  [data-tone="10"] .cat .im, [data-tone="10"] .cat .im:hover { width: auto; margin: 0; transform: none; }
   [data-tone="10"] .cat .im::after { inset: 3.42% 4.3%; }
   .trip { grid-template-columns: 1fr; row-gap: 12px; }
   .lcol { padding: 0; }
@@ -692,3 +695,12 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 .nb { white-space: nowrap; }
 /* the sections whose eyebrow is their heading (the collection, the details, the maker's note) */
 h2.eyebrow, .maker h2.sc { margin: 0; font-weight: 400; }
+/* the video's own Pause, top right: two bars, or a triangle once paused */
+.ph .pause {
+  position: absolute; top: 12px; right: 12px; z-index: 2; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%;
+  background: rgba(18, 18, 18, .6); color: #fff; cursor: pointer; display: grid; place-items: center;
+}
+.ph .pause::before { content: ""; width: 12px; height: 14px; border-left: 4px solid currentColor; border-right: 4px solid currentColor; box-sizing: border-box; }
+.ph .pause[aria-pressed="true"]::before { width: 0; height: 0; border-style: solid; border-width: 8px 0 8px 13px; border-color: transparent transparent transparent currentColor; margin-left: 4px; }
+.ph .pause:hover { background: rgba(0, 0, 0, .8); }
+.ph .pause[hidden] { display: none; }

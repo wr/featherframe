@@ -34,16 +34,16 @@ HERO=(
 # plate index does not carry (drawn from its scan by scan_screen.py)
 SPECIES=(
   "wild-turkey|Wild Turkey"
-  "blue-jay|Blue Jay"
+  "european-robin|European Robin"
   "great-horned-owl|Great Horned Owl"
+  "rainbow-lorikeet|Rainbow Lorikeet"
   "cedar-waxwing|Cedar Waxwing"
+  "common-kingfisher|Common Kingfisher"
   "green-breasted-mango|Green-breasted Mango|Anthracothorax prevostii|plate-184-mango-hummingbird.jpg|184"
-  "tufted-titmouse|Tufted Titmouse"
   "kookaburra|Laughing Kookaburra"
-  "hermit-thrush|Hermit Thrush"
+  "tufted-titmouse|Tufted Titmouse"
+  "european-goldfinch|European Goldfinch"
   "saw-whet-owl|Northern Saw-whet Owl"
-  "gray-catbird|Gray Catbird"
-  "swainsons-warbler|Swainson's Warbler"
   "carolina-wren|Carolina Wren"
 )
 export FEATHERFRAME_NO_MDNS=1

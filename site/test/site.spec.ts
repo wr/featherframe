@@ -92,20 +92,20 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#faq')).not.toContainText('OpenAI key');
   await expect(page.locator('#keep-posted .form-why')).toHaveText('Not ready to order? I’ll write once, when the first frames have shipped. Nothing else.');
   await expect(page.locator('.cat figure')).toHaveCount(12);
-  // the wall, in Wells's order: the Wild Turkey first (the art stop's bird), the Carolina Wren last (the one that tears off)
+  // the wall: the Wild Turkey first (the art stop's bird), the Carolina Wren last (the one that tears off), four Gould pieces among Audubon's
   const A = 'John James AudubonThe Birds of America';
   await expect(page.locator('.cat figure figcaption')).toHaveText([
     `Wild TurkeyMeleagris gallopavo${A}`,
-    `Blue JayCyanocitta cristata${A}`,
+    'European RobinErithacus rubeculaJohn GouldThe Birds of Europe',
     `Great Horned OwlBubo virginianus${A}`,
+    'Rainbow LorikeetTrichoglossus moluccanusJohn GouldThe Birds of Australia',
     `Cedar WaxwingBombycilla cedrorum${A}`,
+    'Common KingfisherAlcedo atthisJohn GouldThe Birds of Europe',
     `Green-breasted MangoAnthracothorax prevostii${A}`,
-    `Tufted TitmouseBaeolophus bicolor${A}`,
     'Laughing KookaburraDacelo novaeguineaeJohn GouldThe Birds of Australia',
-    `Hermit ThrushCatharus guttatus${A}`,
+    `Tufted TitmouseBaeolophus bicolor${A}`,
+    'European GoldfinchCarduelis carduelisJohn GouldThe Birds of Europe',
     `Northern Saw-whet OwlAegolius acadicus${A}`,
-    `Gray CatbirdDumetella carolinensis${A}`,
-    `Swainson’s WarblerLimnothlypis swainsonii${A}`,
     `Carolina WrenThryothorus ludovicianus${A}`,
   ]);
   await expect(page.locator('.cat figure').first().locator('img')).toHaveAttribute('data-still', 'wild-turkey');
@@ -549,8 +549,8 @@ test('on a phone the wall is one row walked sideways, and B&W keeps its size', a
   expect(snap).toContain('x');
   const tops = await page.locator('.wall .cat figure').evaluateAll((fs) => fs.map((f) => Math.round(f.getBoundingClientRect().top)));
   expect(new Set(tops).size).toBe(1);
-  // the book is named only where it changes
-  await expect(page.locator('.wall .cat .by:visible')).toHaveCount(3);
+  // the book is named only where it changes (Audubon and Gould alternate: all but the last)
+  await expect(page.locator('.wall .cat .by:visible')).toHaveCount(11);
   const w = (await page.locator('.wall .cat .im').first().boundingBox())!.width;
   await page.locator('.tone').getByRole('button', { name: 'Color' }).click();
   await page.waitForTimeout(900);
@@ -933,7 +933,7 @@ test('the frame freezes dead centre for its dwell while a light bar sweeps its g
 test('a wall frame opens large and closes again', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
-  const frame = page.locator('.wall .cat figure').nth(4).locator('.im');
+  const frame = page.locator('.wall .cat figure').nth(6).locator('.im');
   await expect(frame).toHaveAttribute('role', 'button');
   await expect(frame).toHaveAttribute('aria-label', 'Green-breasted Mango');
   await frame.scrollIntoViewIfNeeded();
@@ -1203,3 +1203,32 @@ test('on a tablet the cover\'s sentence and price are on top of the room', async
     expect(hit, sel).toBe(true);
   }
 });
+
+test('the video has its own Pause, which holds until pressed again', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  const video = page.locator('#how video');
+  await video.scrollIntoViewIfNeeded();
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused), { timeout: 20_000 }).toBe(true);
+  const pause = page.locator('#how .pause');
+  await pause.click();
+  await expect(pause).toHaveAttribute('aria-pressed', 'true');
+  await expect(pause).toHaveAttribute('aria-label', 'Play the video');
+  expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+  // the sound is untouched by it
+  await expect(page.locator('.unmute')).toBeVisible();
+  await pause.click();
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused)).toBe(true);
+});
+
+test("B&W's wall closes up round the smaller frames", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const im = page.locator('.wall .cat figure:first-child .im');
+  const img = im.locator('img');
+  const [a, b] = await Promise.all([im.boundingBox(), img.boundingBox()]);
+  // the frame fills its box: no dead band above it
+  expect(Math.abs(a!.y - b!.y)).toBeLessThan(2);
+  expect(Math.abs(a!.height - b!.height)).toBeLessThan(2);
+});
+

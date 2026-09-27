@@ -75,6 +75,8 @@ export interface EpaperRefresh {
    *  panel's own waveform in about QUICK_MS, for a change a scroll asks for;
    *  'instant' skips the waveform, for a frame nobody can see change. */
   show(src: string | null, how?: ShowHow): void;
+  /** A refresh under way finishes within about `ms` from now (its waveform, faster): for a frame about to fly. */
+  hurry(ms: number): void;
   /** Load `src` ahead of a show(), so an instant one has it to hand. */
   prepare(src: string): void;
   /** The show()n picture fully on the glass now, or null (the cycle, or on its way). */
@@ -674,6 +676,11 @@ export function createEpaperRefresh(opts: {
     },
     prepare(src) {
       ensure(slotFor(src));
+    },
+    hurry(ms) {
+      if (mode !== 'refresh') return;
+      const rate = (run.total - clock) / Math.max(1, ms);
+      if (rate > run.rate) useRun(timing(run.name, rate));
     },
     show(src, asked = 'quick') {
       let i: number;

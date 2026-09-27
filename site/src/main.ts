@@ -164,8 +164,18 @@ let shownAt = 0;
 let waitSince = 0;
 const WAIT_MS = 40000;
 if (reduced) unmute.textContent = 'Play the song';
+/** The visitor's own Pause: the loop stays still until they press it again (WCAG 2.2.2). */
+let userPaused = false;
+const pauseBtn = document.querySelector<HTMLButtonElement>('#how .pause')!;
+if (reduced) pauseBtn.hidden = true;
+pauseBtn.addEventListener('click', () => {
+  userPaused = !userPaused;
+  pauseBtn.setAttribute('aria-pressed', String(userPaused));
+  pauseBtn.setAttribute('aria-label', userPaused ? 'Play the video' : 'Pause the video');
+  if (userPaused) video.pause(); else playVideo();
+});
 const playVideo = () => {
-  if (reduced || !inView) return;
+  if (reduced || !inView || userPaused) return;
   if (video.preload !== 'auto') video.preload = 'auto';
   video.play().catch(() => { /* refused: the poster stays */ });
 };
@@ -321,7 +331,7 @@ unmute.addEventListener('click', () => withSound(true));
 const toggle = () => (sound ? withoutSound(false) : withSound(false));
 // a click anywhere on the video, the spectrogram included, is the same switch as the spectrogram's key
 ph.addEventListener('click', (e) => {
-  if ((e.target as Element).closest('.unmute')) return;
+  if ((e.target as Element).closest('.unmute, .pause')) return;
   toggle();
 });
 sg.addEventListener('keydown', (e) => {

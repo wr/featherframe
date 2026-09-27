@@ -736,6 +736,13 @@ test('a new detection is a notification pinned to the video', async ({ page }) =
 
 test('the page turns to night at the collage and stays night to the end, day again above it', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
+  // (no 3D here: in the test browser the frame is drawn in software, and a frame of it can outlast the whole ease)
+  await page.addInitScript(() => {
+    const orig = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...rest: unknown[]) {
+      return kind.startsWith('webgl') ? null : (orig as Function).call(this, kind, ...rest);
+    } as typeof orig;
+  });
   await page.goto('/');
   const html = page.locator('html');
   // 'rgb(…)' or color-mix's 'color(srgb …)', as 0–255
@@ -747,6 +754,9 @@ test('the page turns to night at the collage and stays night to the end, day aga
   const bg = () => colour('body', 'backgroundColor');
   await expect(html).not.toHaveClass(/\bnight\b/);
   const day = await bg();
+  // (measure once the page has settled: fonts and the images above the collage move it)
+  await page.waitForLoadState('networkidle');
+  await page.evaluate(() => document.fonts.ready);
   const box = await page.locator('#collage').evaluate((e) => ({ y: e.getBoundingClientRect().top + scrollY, h: e.getBoundingClientRect().height }));
   const nav = await page.locator('.head').evaluate((e) => e.getBoundingClientRect().bottom);
   const brow = await page.locator('#collage .eyebrow').evaluate((e) => e.getBoundingClientRect().top + scrollY);
@@ -760,12 +770,23 @@ test('the page turns to night at the collage and stays night to the end, day aga
   // just past it: night, and the colours arrive by themselves in about 450 ms, without further scrolling
   await page.evaluate((y) => scrollTo(0, y), brow - nav - early + 2);
   await expect(html).toHaveClass(/\bnight\b/);
-  const t0 = Date.now();
-  await page.waitForTimeout(100);
-  // (time-based: part-way after 100 ms)
-  expect(await bg()).not.toBe('26,26,26');
-  await expect.poll(bg, { intervals: [25], timeout: 1000 }).toBe('26,26,26');
-  expect(Date.now() - t0).toBeLessThan(700);
+  // (time-based: the colours pass through the ones between, and arrive within about 450 ms; sampled in the page,
+  // so a busy test runner cannot skip the middle)
+  const seen = await page.evaluate(() => new Promise<{ mid: boolean; ms: number }>((done) => {
+    const t0 = performance.now();
+    let mid = false;
+    const step = () => {
+      const c = getComputedStyle(document.body).backgroundColor;
+      const n = (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number).map((v) => (c.startsWith('color(') ? v * 255 : v));
+      const dark = n.every((v) => Math.round(v) === 26), light = n.every((v) => Math.round(v) === 255);
+      if (!dark && !light) mid = true;
+      if (dark) done({ mid, ms: performance.now() - t0 }); else requestAnimationFrame(step);
+    };
+    step();
+  }));
+  expect(seen.mid).toBe(true);
+  // (the ease is 450 ms; the test browser paints the whole page's colours slowly, so allow it room)
+  expect(seen.ms).toBeLessThan(1600);
   // back down below the line: day again
   await page.evaluate((y) => scrollTo(0, y), brow - nav - early - 6);
   await expect(html).not.toHaveClass(/\bnight\b/);

@@ -357,7 +357,7 @@ export function checkEmailPage(email: string): Response {
   return page("Check your email · Featherframe", `
     <h1>Check your email</h1>
     <p>If ${escapeHtml(email)} has an invitation or an account, a sign-in link is on its way. It works once, for 15 minutes.</p>
-    <p><a href="/login">Use a different email</a></p>`);
+    <p><a href="/login">Use a different email</a> · <a href="https://featherframe.app/help/account">Help</a></p>`);
 }
 
 export function linkExpiredPage(): Response {
@@ -451,6 +451,7 @@ export function setupPage(v: SetupView): Response {
         </ul>
       </fieldset>
       <div id="bw"${src === "birdweather" ? "" : " hidden"}>
+        <p class="hint">Choose a station near where the frame will hang.</p>
         <div class="find">
           <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "ZIP code or town" : "Postcode or town"}"
             aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
@@ -477,7 +478,7 @@ export function setupPage(v: SetupView): Response {
         list.innerHTML = ""; km.value = "";
         say(rows.length ? (b.place ? "Near " + b.place : "Near you")
           : (b.found === false ? "Couldn't find that place. Check the spelling, or try a ZIP code."
-             : "No BirdWeather stations nearby. Choose another detection source, or try another place."));
+             : "No BirdWeather stations within about " + (miles ? "35 miles" : "55 km") + ". Try a town further away, or choose another detection source."));
         rows.forEach(function (s, i) {
           var li = document.createElement("li"), lab = document.createElement("label"), r = document.createElement("input");
           r.type = "radio"; r.name = "station"; r.value = s.id; r.checked = i === 0;
@@ -488,6 +489,13 @@ export function setupPage(v: SetupView): Response {
           t.appendChild(m); lab.appendChild(r); lab.appendChild(t); li.appendChild(lab); list.appendChild(li);
           if (i === 0) km.value = s.km;
         });
+        ready();
+      }
+      // With BirdWeather chosen, setting up waits for a station: without one
+      // the frame would have no source at all.
+      function ready() {
+        var bw = document.querySelector("input[name=source]:checked");
+        $("go").disabled = !!(bw && bw.value === "birdweather" && !document.querySelector("input[name=station]:checked"));
       }
       function load(q) {
         say("Finding stations…"); list.innerHTML = "";
@@ -515,7 +523,9 @@ export function setupPage(v: SetupView): Response {
       var radios = document.querySelectorAll("input[name=source]");
       for (var i = 0; i < radios.length; i++) radios[i].onchange = function () {
         $("bw").hidden = this.value !== "birdweather";
+        ready();
       };
+      ready();
       if (place.value) find();
       $("setup").onsubmit = function () { $("go").disabled = true; $("go").textContent = "Setting up…"; };
     })();
@@ -551,7 +561,8 @@ export function setupLinkSentPage(email: string): Response {
   return page("Check your email · Featherframe", `
     <h1>Check your email</h1>
     <p>If ${escapeHtml(email)} has a Featherframe Cloud account, we sent it a link that adds this frame.</p>
-    <p>Built this frame yourself? Featherframe Cloud is invite-only for now. <a href="https://featherframe.app">Join the waitlist</a>, and we'll email you an invitation.</p>`);
+    <p>Built this frame yourself? Featherframe Cloud is invite-only for now. <a href="https://featherframe.app">Join the waitlist</a>, and we'll email you an invitation.</p>
+    <p><a href="https://featherframe.app/help/account">Help</a></p>`);
 }
 
 type Mail = { subject: string; text: string; html: string };
@@ -566,7 +577,8 @@ export function welcomeEmail(station: { name: string; distance: string } | null)
   const first = station ? "Its first picture appears within a minute." : "";
   const more = "There you can name the frame and set its rotation and update interval, change the detection source, switch Content to Collage (every species heard today on one sheet), set quiet hours (overnight, every frame shows the day's collage), add an OpenAI API key under Settings → AI image generation for species with no historical illustration, and add more frames.";
   const signIn = "To sign in, enter your email. We send you a link. There is no password.";
-  const text = [opening, first, "Everything else is in the Featherframe webapp: cloud.featherframe.app", more, signIn, "Featherframe"]
+  const help = "Help: featherframe.app/help";
+  const text = [opening, first, "Everything else is in the Featherframe webapp: cloud.featherframe.app", more, signIn, help, "Featherframe"]
     .filter(Boolean).join("\n\n");
   const link = `<a href="https://cloud.featherframe.app">Featherframe webapp</a>`;
   const bold = (t: string) => e(t).replace(/Settings → (Detection source|AI image generation)/g, "<strong>$&</strong>");
@@ -576,7 +588,8 @@ export function welcomeEmail(station: { name: string; distance: string } | null)
     subject: "Welcome to Featherframe!",
     text,
     html: [`<p>${openingHtml}</p>`, first ? `<p>${e(first)}</p>` : "", `<p>Everything else is in the ${link}.</p>`,
-           `<p>${bold(more)}</p>`, `<p>${e(signIn)}</p>`, `<p>Featherframe</p>`].join("\n"),
+           `<p>${bold(more)}</p>`, `<p>${e(signIn)}</p>`,
+           `<p>Help: <a href="https://featherframe.app/help">featherframe.app/help</a></p>`, `<p>Featherframe</p>`].join("\n"),
   };
 }
 
@@ -584,11 +597,11 @@ export function verifyEmail(link: string): Mail {
   const l = escapeHtml(link);
   return {
     subject: "Confirm your email for Featherframe",
-    text: `Confirm this is your email address for Featherframe:\n\n${link}\n\nThe link works for 7 days. Confirming means you can sign in again on any device once your phone's sign-in ends (a sign-in lasts 30 days).\n\nIf you did not set up a Featherframe, ignore this email.\n\nFeatherframe`,
+    text: `Confirm this is your email address for Featherframe:\n\n${link}\n\nThe link works for 7 days. Confirming lets us know the address is yours.\n\nIf you did not set up a Featherframe, ignore this email.\n\nFeatherframe`,
     html: `<p>Confirm this is your email address for Featherframe:</p>
 <p><a href="${l}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#6b4a2c;color:#f7efe2;font-weight:600;text-decoration:none">Confirm email</a></p>
 <p style="color:#827e76;word-break:break-all">${l}</p>
-<p>The link works for 7 days. Confirming means you can sign in again on any device once your phone's sign-in ends (a sign-in lasts 30 days).</p>
+<p>The link works for 7 days. Confirming lets us know the address is yours.</p>
 <p style="color:#827e76">If you did not set up a Featherframe, ignore this email.</p><p>Featherframe</p>`,
   };
 }

@@ -123,6 +123,7 @@ describe("setting up", () => {
     expect(mails.map((m) => m.subject).sort()).toEqual(["Confirm your email for Featherframe", "Welcome to Featherframe!"]);
     expect(mails.find((m) => m.subject.startsWith("Welcome"))!.text)
       .toContain("heard by BanksRd-PUC, a BirdWeather station 4 km from you");
+    expect(mails.find((m) => m.subject.startsWith("Welcome"))!.text).toContain("Help: featherframe.app/help");
     // Signed in, but not yet confirmed; the emailed link confirms it.
     expect(one("SELECT verified_at FROM users").verified_at).toBeNull();
     const link = new URL(mails.find((m) => m.subject.startsWith("Confirm"))!.text.match(/https:\/\/\S+/)![0]);
@@ -144,7 +145,7 @@ describe("setting up", () => {
   it("lets an invited email set up a frame nobody registered, once", async () => {
     const f = await frameShowing();
     db.prepare("INSERT INTO invites (email, created_at) VALUES ('diy@example.com', ?)").run(NOW);
-    expect((await post(f, { email: "DIY@example.com" })).status).toBe(303);
+    expect((await post(f, { email: "DIY@example.com", station: "7033" })).status).toBe(303);
     expect(one("SELECT used_at FROM invites").used_at).not.toBeNull();
     expect(one("SELECT household_id FROM frames WHERE device_id = ?", f.device).household_id)
       .toBe(one("SELECT household_id FROM users WHERE email = 'diy@example.com'").household_id);
@@ -171,7 +172,9 @@ describe("setting up", () => {
     db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
     const res = await post(f, { email: "old@example.com" });
     await Promise.all(waits);
-    expect(await res.text()).toContain("If old@example.com has a Featherframe Cloud account");
+    const page = await res.text();
+    expect(page).toContain("If old@example.com has a Featherframe Cloud account");
+    expect(page).toContain('href="https://featherframe.app/help/account"');
     expect(one("SELECT count(*) AS n FROM households").n).toBe(1);
     expect(one("SELECT used_at FROM kits").used_at).toBeNull();
     expect(mails.map((m) => m.subject)).toEqual(["Add a frame to Featherframe"]);
@@ -183,11 +186,23 @@ describe("setting up", () => {
     expect(adopts.map((a) => a[0])).toEqual(["h1"]);
   });
 
+  it("asks a new account on BirdWeather for its station, and makes nothing without one", async () => {
+    const f = await frameShowing();
+    db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
+    const res = await post(f, { email: "rural@example.com", source: "birdweather", station: "" });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("Choose a BirdWeather station, or another detection source.");
+    expect(one("SELECT count(*) AS n FROM users").n).toBe(0);
+    expect(one("SELECT used_at FROM kits").used_at).toBeNull();
+    // Its own detector needs no station.
+    expect((await post(f, { email: "rural@example.com", source: "birdnet_go" }, "198.51.100.20")).status).toBe(303);
+  });
+
   it("lets only one of two setups take the frame", async () => {
     const f = await frameShowing();
     db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
-    const [a, b] = await Promise.all([post(f, { email: "a@example.com" }, "198.51.100.1"),
-                                      post(f, { email: "b@example.com" }, "198.51.100.2")]);
+    const [a, b] = await Promise.all([post(f, { email: "a@example.com", station: "7033" }, "198.51.100.1"),
+                                      post(f, { email: "b@example.com", station: "7033" }, "198.51.100.2")]);
     expect([a.status, b.status].filter((s) => s === 303)).toHaveLength(1);
     expect(one("SELECT count(*) AS n FROM users").n).toBe(1);
     expect(one("SELECT count(*) AS n FROM frames").n).toBe(1);
@@ -202,13 +217,13 @@ describe("setting up", () => {
   it("lets a removed kit be set up again by someone new", async () => {
     const f = await frameShowing();
     db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
-    expect((await post(f, { email: "giver@example.com" }, "198.51.100.10")).status).toBe(303);
+    expect((await post(f, { email: "giver@example.com", station: "7033" }, "198.51.100.10")).status).toBe(303);
     const giver = one("SELECT household_id FROM users WHERE email = 'giver@example.com'").household_id;
     await releaseFrame(env, f.device, giver);
     expect(one("SELECT count(*) AS n FROM frames").n).toBe(0);
     // The frame shows a new code; the new owner has no invitation of their own.
     const g = await frameShowing("GHJKMN", f.device);
-    expect((await post(g, { email: "friend@example.com" }, "198.51.100.11")).status).toBe(303);
+    expect((await post(g, { email: "friend@example.com", station: "7033" }, "198.51.100.11")).status).toBe(303);
     const friend = one("SELECT household_id FROM users WHERE email = 'friend@example.com'").household_id;
     expect(one("SELECT household_id FROM frames WHERE device_id = ?", f.device).household_id).toBe(friend);
     expect(one("SELECT household_id FROM kits").household_id).toBe(friend);

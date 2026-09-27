@@ -397,3 +397,11 @@ def test_usb_only_unit_is_not_flagged_low_battery(client, svc):
     card = health(svc, svc.LEGACY_FRAME)
     assert card["battery"] is None
     assert card["battery_low"] is False
+
+
+def test_a_new_household_is_quiet_from_sunset_and_a_stored_one_keeps_its_hours():
+    # W-898: birds go quiet at dusk, so a new household starts on the sun.
+    assert Config().quiet_hours_mode == "sun"
+    stored = Config(quiet_hours_mode="custom").to_dict()
+    assert "quiet_hours_mode" in stored
+    assert Config.from_dict(stored).quiet_hours_mode == "custom"

@@ -43,15 +43,16 @@ _PAIRING_LINE_SIZE = 24
 _EXPIRES_BASELINE = 1806
 # With a setup URL (W-888, W-889) the pairing screen is a row under the
 # wordmark: the QR on the left, the code and its lines beside it, set left.
-# Whole-pixel QR modules (7 px: 5.98 on the EE02's 0.855 fit), quiet zone
-# included; ~32 mm across on the EE03.
+# Whole-pixel QR modules on the EE03 (9 px), quiet zone included; ~41 mm
+# across there, ~50 mm on the EE02.
 SETUP_LINE = "SCAN WITH YOUR PHONE TO SET UP"
 SETUP_OR_LINE = "OR PAIR IT AT APP.FEATHERFRAME.APP"
-_QR_MODULE_PX = 7
-_ROW_WORDMARK_BASELINE = 1400
-_ROW_TOP = 1470
-_ROW_GAP = 40
-_ROW_CODE_SIZE = 84
+_QR_MODULE_PX = 9
+_ROW_WORDMARK_BASELINE = 1345
+_ROW_TOP = 1400
+_ROW_GAP = 48
+_ROW_LINE_SIZE = 30
+_ROW_CODE_SIZE = 112
 
 
 def since_words(since: datetime) -> str:
@@ -97,10 +98,10 @@ def setup_qr(url: str) -> Image.Image:
 
 
 def _setup_lines(code: str, expires: str) -> list:
-    lines = [(code, _ROW_CODE_SIZE, theme.INK), (SETUP_LINE, _PAIRING_LINE_SIZE, theme.INK_MEDIUM),
-             (SETUP_OR_LINE, _PAIRING_LINE_SIZE, theme.INK_MEDIUM)]
+    lines = [(code, _ROW_CODE_SIZE, theme.INK), (SETUP_LINE, _ROW_LINE_SIZE, theme.INK_MEDIUM),
+             (SETUP_OR_LINE, _ROW_LINE_SIZE, theme.INK_MEDIUM)]
     if expires:
-        lines.append((f"CODE EXPIRES {expires}".upper(), _PAIRING_LINE_SIZE, theme.INK_MEDIUM))
+        lines.append((f"CODE EXPIRES {expires}".upper(), _ROW_LINE_SIZE, theme.INK_MEDIUM))
     return lines
 
 
@@ -124,7 +125,7 @@ def _setup_row(type_: Image.Image, code: str, expires: str, url: str) -> None:
     type_.paste(qr, (qr_left, _ROW_TOP))
     left = qr_left + qr.width + _ROW_GAP
     # The block's middle on the QR's middle; the code a larger step from its lines.
-    steps = [0] + [_ROW_CODE_SIZE * 0.95] + [_PAIRING_LINE_SIZE * 1.9] * (len(lines) - 2)
+    steps = [0] + [_ROW_CODE_SIZE * 0.9] + [_ROW_LINE_SIZE * 1.85] * (len(lines) - 2)
     height = sum(steps)
     base = _ROW_TOP + qr.height / 2 - height / 2 + _ROW_CODE_SIZE * 0.35
     y = base

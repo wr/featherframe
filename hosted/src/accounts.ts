@@ -433,7 +433,7 @@ export async function logAction(env: Env, admin: string, action: string, target:
 async function registerKit(env: Env, b: { device_id?: string; key_hash?: string; kit?: string; note?: string }): Promise<Response> {
   const id = String(b.device_id || "").trim();
   const hash = String(b.key_hash || "").trim().toLowerCase();
-  if (!/^[0-9A-Za-z:_-]{4,40}$/.test(id) || !/^[0-9a-f]{64}$/.test(hash)) {
+  if (!/^[0-9A-Za-z:_-]{4,40}$/.test(id) || /^[0:]+$/.test(id) || !/^[0-9a-f]{64}$/.test(hash)) {
     return Response.json({ error: "device_id and key_hash (64 hex)" }, { status: 400 });
   }
   const kit = ["ee02", "ee03"].includes(String(b.kit)) ? String(b.kit) : "other";

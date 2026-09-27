@@ -29,6 +29,7 @@ using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before i
 #include <driver/rtc_io.h>
 
 #include "ff_config.h"
+#include <esp_mac.h>
 #if FF_PANEL_GENERIC
 #include FF_SCREENS_HEADER     // bake_screens.py --size: this panel's own full-refresh set
 static_assert(FF_SCREENS_ROTATION == FF_BAKED_ROTATION,
@@ -216,9 +217,14 @@ static bool adoptDiscoveredServer(bool lookPastCurrent = false) {
 // This frame's name to the server: its Wi-Fi MAC, bare hex. The server serves
 // one frame and asks its owner before switching to another (X-Device-Id).
 static String frameId() {
-  String id = WiFi.macAddress();
-  id.replace(":", "");
-  return id;
+  // From the eFuse, not WiFi.macAddress(): that reads 00:00:00:00:00:00 until
+  // the Wi-Fi driver starts, and Improv (and a registration over USB) can ask
+  // before it has. The station MAC either way, so the ID is the same.
+  uint8_t mac[6] = {0};
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  char id[13];
+  snprintf(id, sizeof(id), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  return String(id);
 }
 
 // A secret of the frame's own (W-845), made once from the hardware RNG and
@@ -365,7 +371,7 @@ static uint8_t* g_lastFrame = nullptr;
 // (X-FF-Rotation, kept in NVS) so everything baked follows —
 // a 4bpp buffer turned 180 degrees is its bytes reversed with the nibbles
 // swapped, and a tile's window mirrors to the opposite corner.
-bool g_flip = false;
+bool g_flip = FF_DEFAULT_FLIP;
 // The mat it hangs with, as the server last said it (X-FF-Mat, "inset,x,y",
 // kept in NVS). It is said back on every ask, so a frame removed and added
 // again starts with the mat it had, and it places the toasts (placeToast).
@@ -507,6 +513,9 @@ void showErrorState(int kind) {
     if (g_bandKind != kind || g_bandStage != stage) {   // repeated fails: no re-push
       pushTile(ff_err_tiles[kind], FF_ERR_X, FF_ERR_Y, FF_ERR_W, FF_ERR_H);
       pushTile(ff_retry_tiles[stage], FF_RETRY_X, FF_RETRY_Y, FF_RETRY_W, FF_RETRY_H);
+      // Where to read more, on the two "Can't reach" pills (W-614).
+      const bool help = kind == ERRK_WIFI || kind == ERRK_SERVER;
+      pushTile(ff_help_tiles[help ? 0 : 1], FF_HELP_X, FF_HELP_Y, FF_HELP_W, FF_HELP_H);
       g_bandKind = (int8_t)kind; g_bandStage = (int8_t)stage;
     }
   } else if (g_glassScreen < 0 &&
@@ -618,21 +627,57 @@ void markFirmwareGood();
 #else
 #define FF_PORTAL_FONT_FACE ""
 #endif
-// The page after Save (W-888): a kit that starts on hosted says what comes
-// next, which is on the frame, not here. WiFiManager's own text is a
-// compile-time string; this swaps it on that one page.
+// The portal's own script (W-888, W-899):
+// - The Wi-Fi form's Server field becomes a choice: Featherframe Cloud or
+//   self-hosted, whichever this build starts on marked (default), the
+//   frame's own current server chosen. Self-hosted takes an address, or
+//   blank to find the server on the network (posted as "find"). Under Save,
+//   what the frame shows next for that choice.
+// - The page after Save asks the frame how joining goes (/ffstate) and says
+//   so, then what comes next for the choice made (kept in sessionStorage).
+//   The frame closes Featherframe-Setup once the phone has seen it joined.
+#define FF_CLOUD_URL "https://cloud.featherframe.app"
 #ifdef FF_HOSTED_DEFAULT
-#define FF_PORTAL_SAVED_SCRIPT "<script>document.addEventListener('DOMContentLoaded',function(){" \
-  "var p=location.pathname,m,f,n;" \
-  "if(p=='/wifisave'){m=document.querySelector('.msg');" \
-  "if(m)m.textContent='Connecting to Wi-Fi. When your frame shows a code, scan it with your phone to finish setting up.';return;}" \
-  "f=document.querySelector('form[action=\"wifisave\"],form[action=\"/wifisave\"]');" \
-  "if(!f)return;n=document.createElement('p');n.className='msg';" \
-  "n.textContent='After you save, your frame shows a code. Scan it with your phone to finish setting up.';" \
-  "var b=f.querySelector('button[type=submit],button');if(b)b.parentNode.insertBefore(n,b);else f.appendChild(n);});</script>"
+#define FF_PORTAL_DEFAULT "cloud"
 #else
-#define FF_PORTAL_SAVED_SCRIPT ""
+#define FF_PORTAL_DEFAULT "self"
 #endif
+#define FF_PORTAL_SAVED_SCRIPT R"JS(<script>document.addEventListener('DOMContentLoaded',function(){
+var CLOUD=')JS" FF_CLOUD_URL R"JS(',DEF=')JS" FF_PORTAL_DEFAULT R"JS(',p=location.pathname,st=null;
+try{st=window.sessionStorage;}catch(e){}
+var NEXT={cloud:'Featherframe-Setup will close, and your phone goes back to its usual Wi-Fi. Then scan the code on your frame to finish setting up.',
+self:'Featherframe-Setup will close, and your phone goes back to its usual Wi-Fi. Then add the frame in your Featherframe webapp.'};
+var AFTER={cloud:'After you save, your frame shows a code. Scan it with your phone to finish setting up.',
+self:'After you save, your frame asks to connect in your Featherframe webapp.'};
+if(p=='/wifisave'){var m=document.querySelector('.msg');if(!m)return;
+var ch=(st&&st.getItem('ffserver'))||DEF;
+m.className='msg';m.textContent='Connecting to your Wi-Fi…';
+var t0=Date.now(),done=false,errs=0;
+function ok(){done=true;m.className='msg S';m.innerHTML='<strong>Connected.</strong> '+(NEXT[ch]||NEXT.cloud);}
+function bad(){done=true;m.className='msg D';m.innerHTML='<strong>Couldn’t join that network.</strong> Check the password, then <a href="/wifi">try again</a>.';}
+(function poll(){if(done)return;var x=new XMLHttpRequest();x.open('GET','/ffstate?t='+Date.now());x.timeout=4000;
+x.onload=function(){errs=0;if(x.responseText=='joined')ok();else if(Date.now()-t0>40000)bad();else setTimeout(poll,1500);};
+x.onerror=x.ontimeout=function(){errs++;if(errs>=3&&Date.now()-t0>8000)ok();else setTimeout(poll,1500);};
+x.send();})();return;}
+var inp=document.getElementById('server');if(!inp)return;var f=inp.form;
+var lab=document.querySelector('label[for="server"]'),cur=inp.value.replace(/\/+$/,'');
+var pick=cur==CLOUD?'cloud':(cur?'self':DEF);if(pick=='self'&&cur==CLOUD)cur='';
+var box=document.createElement('div');
+box.innerHTML='<label>Server</label>'+
+'<div class="ffnet"><label style="margin:0;text-transform:none;letter-spacing:0;font-size:1rem;color:var(--ink);font-weight:400"><input type="radio" name="ffserver" value="cloud"> Featherframe Cloud'+(DEF=='cloud'?' (default)':'')+'</label></div>'+
+'<div class="ffnet"><label style="margin:0;text-transform:none;letter-spacing:0;font-size:1rem;color:var(--ink);font-weight:400"><input type="radio" name="ffserver" value="self"> Self-hosted'+(DEF=='self'?' (default)':'')+'</label>'+
+'<div id="ffself"><input id="ffurl" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://birdnet.local:8181">'+
+'<small>Your server’s address. Leave blank to find it on your network.</small></div></div>'+
+'<p class="msg" id="ffafter"></p>';
+inp.parentNode.insertBefore(box,inp);inp.type='hidden';if(lab)lab.style.display='none';
+var nx=inp.nextSibling;while(nx&&(nx.nodeName=='BR'||(nx.nodeType==3&&!nx.textContent.trim()))){var nn=nx.nextSibling;nx.parentNode.removeChild(nx);nx=nn;}
+var url=document.getElementById('ffurl'),self=document.getElementById('ffself'),after=document.getElementById('ffafter');
+if(pick=='self')url.value=cur;
+function show(){var c=f.querySelector('input[name=ffserver]:checked').value;self.style.display=c=='self'?'':'none';after.textContent=AFTER[c];}
+var rs=box.querySelectorAll('input[name=ffserver]');for(var i=0;i<rs.length;i++){rs[i].checked=rs[i].value==pick;rs[i].onchange=show;}
+show();var b=f.querySelector('button[type=submit],button');if(b)b.parentNode.insertBefore(after,b);
+f.addEventListener('submit',function(){var c=f.querySelector('input[name=ffserver]:checked').value;
+inp.value=c=='cloud'?CLOUD:(url.value.trim()||'find');try{st&&st.setItem('ffserver',c);}catch(e){}});});</script>)JS"
 static const char PORTAL_CSS[] PROGMEM = R"CSS(<style>)CSS" FF_PORTAL_FONT_FACE R"CSS(
 :root{--bg:#efeae0;--card:#fbf9f4;--ink:#20201d;--muted:#6f685c;--accent:#3f5e46;--err:#8a4a3a;--line:#ddd6c8}
 *{box-sizing:border-box}
@@ -671,6 +716,11 @@ small{color:var(--muted)}
 
 // The captive portal is open (Improv, W-839: Wi-Fi set over USB closes it).
 static volatile bool g_portalOpen = false;
+// When a phone on the portal was first told the frame joined (W-899), and
+// how long the setup network stays up for it: the page's next poll, then close.
+static volatile uint32_t g_joinedToldAt = 0;
+static constexpr uint32_t PORTAL_LINGER_MS = 12000;
+static constexpr uint32_t PORTAL_TOLD_MS = 3000;
 // NVS is open: Improv (its own task, started first thing) may read it.
 static volatile bool g_prefsReady = false;
 
@@ -739,7 +789,22 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   esp_task_wdt_delete(NULL);
   WiFi.mode(WIFI_STA);
   wm.setTitle("Featherframe");
-  wm.setCustomHeadElement(PORTAL_CSS);
+  // A new frame opens on the network list (W-895): there is nothing else to
+  // do first. A frame that knows its network (the KEY2 hold) keeps the menu.
+  static String head;
+  head = FPSTR(PORTAL_CSS);
+  if (!wm.getWiFiIsSaved()) {
+    head += F("<script>if(location.pathname=='/')location.replace('/wifi');</script>");
+  }
+  wm.setCustomHeadElement(head.c_str());
+  // The network list is scanned when the portal opens, in the background,
+  // and kept 10 minutes (W-895). WiFiManager otherwise scans inside the
+  // request for /wifi, ~4 s across every channel, which takes the setup
+  // network off its channel under the phone that asked: "Configure WiFi"
+  // did nothing. Refresh on the page still scans again.
+  wm._preloadwifiscan = true;
+  wm._asyncScan = true;
+  wm._scancachetime = 10 * 60 * 1000;
   // A frame that already knows its network (the KEY2 hold) gets Configure
   // WiFi as the form without the scan, that network filled in (W-852). The
   // scan runs inside the request, ~4 s over every channel, taking the setup AP
@@ -753,21 +818,16 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // WiFiManager keeps the registered pointer forever and never dedupes, and
   // ensureWifi is re-entered from loop()'s KEY2 handler — so the parameter
   // lives in static storage and registers exactly once.
-  static WiFiManagerParameter serverParam("server",
-                                          "Server URL (optional)",
-                                          g_serverUrl, sizeof(g_serverUrl));
+  // The server, chosen on the Wi-Fi form (W-899): Featherframe Cloud or
+  // self-hosted, as two choices the page's script draws over this field
+  // (FF_PORTAL_SAVED_SCRIPT). A blank self-hosted field posts "find": no URL,
+  // so the frame looks for its server on the network once it has joined.
+  static WiFiManagerParameter serverParam("server", "Server", g_serverUrl, sizeof(g_serverUrl));
   static bool paramRegistered = false;
-#ifdef FF_HOSTED_DEFAULT
-  // A kit set up from the phone (W-888) is not asked for a server it has
-  // never heard of; the KEY2 portal, on a frame that has Wi-Fi, still offers it.
-  const bool offerServer = wm.getWiFiIsSaved();
-#else
-  const bool offerServer = true;
-#endif
-  if (!paramRegistered && offerServer) {
+  if (!paramRegistered) {
     wm.addParameter(&serverParam);
     paramRegistered = true;
-  } else if (paramRegistered) {
+  } else {
     serverParam.setValue(g_serverUrl, sizeof(g_serverUrl));
   }
   wm.setConfigPortalTimeout(PORTAL_TIMEOUT_S);
@@ -811,6 +871,18 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   wm.setSaveConfigCallback([]() {
     ledSet(LED_CONNECTED);
     showScreenFull(FF_SCR_BOOT_WIFI);
+  });
+  // How joining goes, for the page after Save (W-899): "joined" once the
+  // frame is on the owner's network. The first time a phone is told so
+  // starts the countdown to closing Featherframe-Setup.
+  g_joinedToldAt = 0;
+  wm.setWebServerCallback([]() {
+    wm.server->on("/ffstate", []() {
+      const bool joined = WiFi.status() == WL_CONNECTED;
+      if (joined && !g_joinedToldAt) g_joinedToldAt = millis();
+      wm.server->sendHeader("Cache-Control", "no-store");
+      wm.server->send(200, "text/plain", joined ? "joined" : "joining");
+    });
   });
 
   // Join the strongest AP carrying the SSID, not the first one to answer. The
@@ -856,13 +928,29 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // Wi-Fi given over USB (Improv) closes the portal as an abort; the frame
   // is on the network all the same.
   if (!ok && WiFi.status() == WL_CONNECTED) ok = true;
+  // Joined through the portal (W-899): WiFiManager leaves Featherframe-Setup
+  // up with no one answering. Answer the phone's page until it has seen
+  // "joined" (and a moment more), at most 12 s, then close the network so
+  // the phone goes back to its own.
+  if ((WiFi.getMode() & WIFI_AP) && WiFi.status() == WL_CONNECTED) {
+    const uint32_t t0 = millis();
+    while (WiFi.softAPgetStationNum() > 0 && millis() - t0 < PORTAL_LINGER_MS
+           && !(g_joinedToldAt && millis() - g_joinedToldAt > PORTAL_TOLD_MS)) {
+      wm.server->handleClient();
+      delay(20);
+    }
+    wm.stopConfigPortal();
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
+  }
   if (ok) {
     // Wi-Fi up: the caller drives the "Connecting to BirdNET…"/"Downloading…"
     // steps next. Persist the (possibly updated, user-typed) server URL.
     char prev[sizeof(g_serverUrl)];
     strlcpy(prev, g_serverUrl, sizeof(prev));
-    if (paramRegistered) strlcpy(g_serverUrl, serverParam.getValue(), sizeof(g_serverUrl));
-    normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), prev);
+    strlcpy(g_serverUrl, serverParam.getValue(), sizeof(g_serverUrl));
+    if (strcmp(g_serverUrl, "find") == 0) g_serverUrl[0] = 0;   // self-hosted, found on the network
+    else normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), prev);
     prefs.putString("server", g_serverUrl);
   }
   bool connected = ok && WiFi.status() == WL_CONNECTED;
@@ -1982,7 +2070,7 @@ void setup() {
   g_wakeMinutes = prefs.getUInt("wake_min", DEFAULT_WAKE_MINUTES);
   g_alwaysAwake = prefs.getBool("awake", FF_DEFAULT_ALWAYS_AWAKE);
   g_pollMs = prefs.getUInt("poll_s", FF_POLL_INTERVAL_MS / 1000) * 1000UL;
-  g_flip = prefs.getBool("flip", false);
+  g_flip = prefs.getBool("flip", FF_DEFAULT_FLIP);
   prefs.getString("mat", "").toCharArray(g_mat, sizeof(g_mat));
   placeToast();
   Serial.printf("power: %s, wake %u min\n", g_alwaysAwake ? "always awake" : "deep sleep",

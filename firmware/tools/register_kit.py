@@ -71,7 +71,8 @@ def identity(port: str, timeout_s: float = 30.0) -> dict[str, str]:
                 sent = time.time()
             buf = (buf + s.read(4096))[-8192:]
             got = parse_result(buf)
-            if got and len(got) >= 2 and got[0] and got[1]:
+            # A frame asked before its Wi-Fi started once answered an all-zero MAC.
+            if got and len(got) >= 2 and got[0] and got[1] and got[0].strip("0"):
                 return dict(zip(FIELDS, got))
     raise SystemExit(f"{port}: the frame did not answer (is it running Featherframe firmware?)")
 

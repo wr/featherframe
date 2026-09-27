@@ -149,7 +149,12 @@ What the glass says when there is no picture: boot, pairing, errors, toasts.
   Development) may use them.
 - The wiki's first-person pages (Why Featherframe, AI illustrations) are
   Wells's voice; keep them his.
-- Link an owner to help through `https://featherframe.app/help/<topic>` (the table in `site/src/help.json`), never to a wiki page directly: the card in the box and the webapp print these, and the pages behind them can move. A new topic is a line in that table; `check_copy.py --wiki` checks every page and heading it names. The README links the wiki directly: its readers are makers on GitHub.
+- Link an owner to help through `https://featherframe.app/help/<topic>` (the
+  table in `site/src/help.json`), never to a wiki page directly: the card in
+  the box and the webapp print these, and the pages behind them can move. A
+  new topic is a line in that table; `check_copy.py --wiki` checks every
+  page and heading it names. The README links the wiki directly: its readers
+  are makers on GitHub.
 
 ## Marketing (featherframe.app)
 

@@ -16,7 +16,7 @@ const rate = Math.max(0.1, Number(params.get('rate')) || 1);
 // 13-inch): the visitor's last choice, remembered; ?size= sets it (the poster and still renders).
 const TONE_KEY = 'featherframe.wall';
 let stored: string | null = null;
-try { stored = localStorage.getItem(TONE_KEY); } catch { /* storage blocked: colour */ }
+try { stored = localStorage.getItem(TONE_KEY); } catch { /* storage blocked: B&W */ }
 const size: '13' | '10' = (params.get('size') ?? stored) === '13' ? '13' : '10';
 // ?wall=<index>|table renders one of the page's stills (scripts/wall.mjs).
 const wall = params.get('wall');
@@ -27,11 +27,20 @@ const poster = stage.querySelector<HTMLImageElement>('.poster')!;
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const phone = matchMedia('(max-width: 820px)');
-const webgl = (() => {
-  try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; }
-})();
+// Asked once, and only where the frame could be drawn (a phone never gets it); the probe's context is let go at once.
+let hasWebgl: boolean | undefined;
+const webgl = () => {
+  if (hasWebgl === undefined) {
+    try {
+      const gl = document.createElement('canvas').getContext('webgl2');
+      hasWebgl = !!gl;
+      gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    } catch { hasWebgl = false; }
+  }
+  return hasWebgl;
+};
 // The journey hides the stills it replaces from the first paint, so none flashes up and away.
-const journey = () => webgl && !reduced && !phone.matches && !wall;
+const journey = () => !reduced && !phone.matches && !wall && webgl();
 root.classList.toggle('choreo', journey());
 if (wall) root.classList.add('still-render');
 
@@ -39,7 +48,7 @@ let data: SiteData | undefined;
 let running: { dispose(): void; landing?(section: string): [number, number] | null } | undefined;
 let generation = 0;
 async function mount() {
-  if (!data || reduced || !webgl) return;
+  if (!data || reduced || !webgl()) return;
   const mine = ++generation;
   running?.dispose();
   running = undefined;
@@ -93,6 +102,18 @@ const setTone = (tone: string, keep: boolean) => {
 };
 setTone(size, false);
 for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!, true));
+// …shown only while a frame's picture is on screen (the cover, the wall, the table, the seasons, the pair in the
+// details): elsewhere it would sit over words with nothing to switch
+{
+  const shown = new Set<Element>();
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) e.isIntersecting ? shown.add(e.target) : shown.delete(e.target);
+    root.classList.toggle('tone-here', shown.size > 0);
+  });
+  // (not a phone's cover: there it would sit on the Pre-order button, at the foot of the first screen)
+  const where = phone.matches ? '.wall, .t3, .seasons, #specs .headon' : '.cover .frame, .wall, .t3, .seasons, #specs .headon';
+  for (const el of document.querySelectorAll(where)) io.observe(el);
+}
 if (!reduced) startSheen([...document.querySelectorAll<HTMLElement>('.wall .cat .im')]);
 // …and any of its frames opens large on a click.
 if (!wall) startLightbox(reduced);
@@ -114,7 +135,7 @@ if (!wall) startNight();
 // video does not play: its poster frame shows. ?rate= runs the clock faster (tests).
 const DETECTIONS = [
   { slug: 'cardinal', name: 'Northern Cardinal', audio: 'audio/cardinal-song.mp3', spectrogram: 'img/spectrogram.webp', video: 'video/cardinal', credit: 'Video by Courtney Celley, U.S. Fish and Wildlife Service' },
-  { slug: 'eastern-bluebird', name: 'Eastern Bluebird', audio: 'audio/eastern-bluebird-song.mp3', spectrogram: 'img/spectrogram-eastern-bluebird.webp', video: 'video/eastern-bluebird', credit: 'Video by Paul Danese, Wikimedia Commons' },
+  { slug: 'eastern-bluebird', name: 'Eastern Bluebird', audio: 'audio/eastern-bluebird-song.mp3', spectrogram: 'img/spectrogram-eastern-bluebird.webp', video: 'video/eastern-bluebird', credit: 'Video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0 (excerpt)' },
   { slug: 'goldfinch', name: 'American Goldfinch', audio: 'audio/goldfinch-song.mp3', spectrogram: 'img/spectrogram-goldfinch.webp', video: 'video/goldfinch', credit: 'Video by teyi 徐, Pexels' },
 ];
 /** Each recording's length (the spectrogram spans it), ms. */
@@ -139,6 +160,9 @@ let heard = 0, sound = false, inView = false, follow = 0, timer = 0;
 let started = 0, elapsed = 0, ticking = false;
 /** When the frame on the table finished repainting to the detection on screen (0: not yet, or no frame there). */
 let shownAt = 0;
+/** When the recording ended and the wait for the table began (0: not waiting); WAIT_MS is the longest it lasts. */
+let waitSince = 0;
+const WAIT_MS = 40000;
 if (reduced) unmute.textContent = 'Play the song';
 const playVideo = () => {
   if (reduced || !inView) return;
@@ -172,6 +196,7 @@ const track = () => {
 const detect = (i: number) => {
   heard = i;
   shownAt = 0;
+  waitSince = 0;
   const d = DETECTIONS[i];
   root.dataset.detected = d.slug;
   if (table) table.dataset.species = d.slug;
@@ -220,13 +245,18 @@ const pause = () => {
  *  about fifteen seconds) and then shows it for SHOWN_MS; with no frame on the table, it comes at once. */
 function done() {
   if (!ticking) return;
-  const refreshing = !!table?.dataset.refreshing;
-  const left = shownAt ? SHOWN_MS / rate - (performance.now() - shownAt) : 0;
-  if (refreshing || left > 0) {
-    // the spectrogram's playhead has crossed it: off until the next recording
+  const now = performance.now();
+  // the glass never holds the clock for good (a screen that fails to load never settles): at most WAIT_MS
+  if (!waitSince) waitSince = now;
+  const stuck = now - waitSince > WAIT_MS / rate;
+  const refreshing = !!table?.dataset.refreshing && !stuck;
+  const left = shownAt ? SHOWN_MS / rate - (now - shownAt) : 0;
+  if (refreshing || (left > 0 && !stuck)) {
+    // the spectrogram's playhead has crossed it: off until the next recording, and its loop with it
     playhead.hidden = true;
+    cancelAnimationFrame(follow);
     clearTimeout(timer);
-    if (!refreshing) timer = window.setTimeout(done, left);
+    timer = window.setTimeout(done, refreshing ? WAIT_MS / rate - (now - waitSince) + 20 : left);
     return;
   }
   next();
@@ -354,10 +384,10 @@ form.addEventListener('submit', async (e) => {
       body: JSON.stringify({ email }),
     });
     const out = await res.json() as { ok: boolean; error?: string };
-    if (out.ok) { note.textContent = "Thanks. We'll write once, when the frames ship."; form.reset(); }
-    else note.textContent = out.error || "That didn't go through. Try again.";
+    if (out.ok) { note.textContent = 'Almost there. Check your email for a link to confirm.'; form.reset(); }
+    else note.textContent = out.error || 'That didn’t go through. Try again.';
   } catch {
-    note.textContent = "That didn't go through. Try again.";
+    note.textContent = 'That didn’t go through. Try again.';
   } finally {
     button.disabled = false;
   }

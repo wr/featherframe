@@ -587,7 +587,8 @@ export function createEpaperRefresh(opts: {
   function slotFor(src: string) {
     // the picture on the glass right now (a cycle plate the page also asks for by name) is its own slot: no refresh to itself
     if (sources[current] === src) return current;
-    let i = sources.indexOf(src, cycle);
+    // (a cycle plate asked for by name is that plate's slot: one texture per picture)
+    let i = sources.indexOf(src);
     if (i < 0) {
       i = plates.length;
       plates.push(null);
@@ -701,7 +702,7 @@ export function createEpaperRefresh(opts: {
       wake();
     },
     showing() {
-      return current >= cycle && mode === 'hold' ? sources[current] : null;
+      return pinned !== null && pinned === current && mode === 'hold' ? sources[current] : null;
     },
     dispose() {
       disposed = true;

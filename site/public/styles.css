@@ -134,7 +134,7 @@ h2 { font-weight: 400; text-wrap: balance; }
    and earlier); the button stays on top, where it can be pressed */
 .cover .copy p, .cover .cta .it { position: relative; z-index: -2; }
 .cover .cta .btn { position: relative; z-index: 2; }
-.cover .speed { position: absolute; right: 0; bottom: 1.5%; z-index: -2; /* under the frame's canvas, over the room */ margin: 0; font-size: 15px; font-style: italic; color: var(--graphite); }
+.cover .speed { display: none; position: absolute; right: 0; bottom: 1.5%; z-index: -2; /* under the frame's canvas, over the room */ margin: 0; font-size: 15px; font-style: italic; color: var(--graphite); }
 .cover .copy p { font-size: 24px; line-height: 1.42; margin: 0 0 26px; text-wrap: pretty; }
 .cta { display: flex; align-items: center; gap: 20px; }
 .cta .it { color: var(--graphite); font-size: 20px; }
@@ -198,6 +198,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .tone.pill button { position: relative; width: 74px; padding: 8px 0 7px; border: 0; border-radius: 999px; background: none;
   color: var(--graphite); cursor: pointer; transition: color .25s; }
 .tone.pill button:hover { color: var(--ink); }
+.tone.pill { opacity: 0; pointer-events: none; transition: opacity .25s; }
+.tone-here .tone.pill { opacity: 1; pointer-events: auto; }
 .tone.pill button[aria-pressed="true"] { color: var(--paper); }
 .cat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 64px 36px; margin-top: 20px; }
 .cat .im { position: relative; transform-origin: 50% 100%; cursor: zoom-in; }
@@ -291,7 +293,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .t2 figcaption, .t3 figcaption { margin-top: 14px; color: var(--graphite); font-size: 17px; }
 .t3 figcaption .fn { display: block; margin-top: 4px; font-style: normal; font-size: 15px; }
 /* on a desktop the table stands beside the video; stacked on a phone, a line says what it is */
-.t3 .then { display: none; }
+.t3 .then .t13, [data-tone="13"] .t3 .then .t10 { display: none; }
+[data-tone="13"] .t3 .then .t13 { display: inline; }
 /* the table's box is 1.1008 × its width (its padding and the slot's aspect) */
 /* pinned with its frame's top level with the video's, a little under the running head */
 .t3 { --h: calc((100cqw - var(--gutter)) / 2 * 1.1008); position: sticky; top: calc(var(--nav) + 32px - (100cqw - var(--gutter)) / 2 * 0.16); }
@@ -422,11 +425,11 @@ h2 { font-weight: 400; text-wrap: balance; }
 .colophon .c { grid-column: 10 / 13; }
 .colophon .d { grid-column: 1 / 13; max-width: 88ch; padding-top: 28px; border-top: 1px solid var(--hair); font-size: 15px; line-height: 1.75; color: var(--graphite); }
 .colophon .sc { display: block; margin-bottom: 12px; color: var(--ink); }
-.colophon .ww { display: inline-block; margin-bottom: 16px; color: var(--ink); }
+.colophon .ww { display: block; width: max-content; margin-bottom: 16px; color: var(--ink); }
 .colophon .c ul { margin: 0; padding: 0; list-style: none; }
 .colophon .c li + li { margin-top: 6px; }
 .colophon .ww-logo { display: block; height: 22px; width: auto; }
-.colophon .signin { display: table; margin-top: 10px; color: var(--ink); }
+.colophon .signin { display: block; width: max-content; margin-top: 12px; color: var(--ink); }
 .field { display: flex; align-items: center; height: 46px; max-width: 360px; border-bottom: 1px solid var(--ink); }
 .field input {
   flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: none; outline: none;
@@ -476,11 +479,11 @@ h2 { font-weight: 400; text-wrap: balance; }
   .head nav { gap: 14px; }
   .head .btn { height: 44px; padding: 0 14px; }
 
-  /* the cover: the headline, then the sentence and the button, then the frame */
+  /* the cover: the headline, then the frame, then the sentence and the button under it */
   .cover { display: flex; flex-direction: column; height: auto; min-height: 0; max-height: none; padding-top: 30px; }
-  .cover h1 { position: static; width: auto; font-size: clamp(64px, 20vw, 112px); }
+  .cover h1 { position: static; width: auto; font-size: clamp(56px, 18vw, 96px); }
   .cover h1 .l2 { margin-left: 0; }
-  .frame { display: flow-root; position: relative; right: auto; bottom: auto; height: auto; width: 78%; aspect-ratio: auto; margin: 40px 0 0 18%; order: 2; }
+  .frame { display: flow-root; position: relative; right: auto; bottom: auto; height: auto; width: 78%; aspect-ratio: auto; margin: 28px 0 0 18%; order: 1; }
   .stage { position: relative; left: -11.385%; top: 0; width: 123.077%; height: auto; aspect-ratio: 6 / 7; margin: -11.077% 0 -4.923%; }
   /* the cover's white room on a phone too: the wall, a crisp horizon ~30% up
      the frame, the table top lightening toward us (the frame's box ends at its feet) */
@@ -489,7 +492,13 @@ h2 { font-weight: 400; text-wrap: balance; }
     --hz: calc(0.8758 * (100vw - 2 * var(--m))); /* 88% of the frame's height (its width, 78% of the page, × 1.2759) */
     background: linear-gradient(to bottom, #fff 0%, var(--room-wall) var(--hz), var(--room-table) var(--hz), #fff 100%);
   }
-  .cover .copy { position: static; width: auto; margin-top: 28px; order: 1; }
+  .cover .copy { position: static; width: auto; margin-top: 28px; order: 2; }
+  /* the frame never meets the words here: they sit on the page, not under the room */
+  .cover .copy p, .cover .cta .it { z-index: auto; }
+  /* (and the frame no stacking context of its own, so its room, at -1, goes behind the words, not over them) */
+  .frame { z-index: auto; }
+  .cta { flex-wrap: wrap; row-gap: 12px; }
+  .cta .it { flex-basis: 100%; }
 
   .spread { display: block; }
   .spread .plate { position: static; width: 86%; margin: 0 auto; }
@@ -516,15 +525,8 @@ h2 { font-weight: 400; text-wrap: balance; }
   .toast { left: 10px; top: 10px; min-width: 0; max-width: calc(100% - 20px); transform: none; }
   .ph video { aspect-ratio: 16 / 9; }
   .t3 { position: static; }
-  .t3 .then { display: block; margin-top: 4px; }
+  .t3 .then { margin-top: 4px; }
   /* sound on and off: a round speaker at the spectrogram's right end, so the picture is the picture */
-  .ph .unmute {
-    left: auto; top: auto; right: 10px; bottom: calc(33.4% / 2 - 22px); transform: none;
-    display: grid; place-items: center; width: 44px; height: 44px; padding: 0; gap: 0; border-radius: 50%;
-    background: rgba(18, 18, 18, .82); color: #fff; font-size: 0; letter-spacing: 0; box-shadow: none;
-  }
-  .ph .unmute[hidden] { display: none; }
-  .spectro { padding-right: 64px; }
   .cover::before { display: none; }
   .closing .lede { font-size: 20px; }
   .seasons { margin-top: 48px; }
@@ -549,7 +551,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .logos a { min-height: 44px; }
   .colophon .b .ul, .colophon .c .ul, .colophon .signin { display: inline-block; padding: 12px 0; margin: -12px 0; border-bottom: 0;
     text-decoration: underline; text-decoration-color: var(--hair); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-  .colophon .signin { display: table; margin: 0 0 -12px; }
+  .colophon .signin { display: block; width: max-content; margin: 0 0 -12px; }
   .colophon > * { margin-bottom: 28px; }
   .colophon .d { margin-top: 0; }
 }
@@ -656,7 +658,6 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 @media (max-width: 700px) {
   #collage .intro2 .key { display: block; }
   #collage .intro2 .key .lede + .lede { margin-top: 18px; }
-  .cover .speed { position: static; order: 3; margin-top: 10px; text-align: right; }
 }
 
 /* From the workshop: a note from the maker, before the reservation */
@@ -674,3 +675,20 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
   #faq { display: block; }
   #faq .faq-h { position: static; margin-bottom: 40px; }
 }
+
+/* the live frame's refreshes are real ones; the note is there only when the live frame is */
+.choreo .cover .speed { display: block; }
+/* a frame's canvas while the other tone's frame is the one on the page */
+.ff3d.empty { visibility: hidden; }
+/* sound on and off: a round speaker at the spectrogram's right end, so the picture is the picture (the label is its aria-label) */
+.ph .unmute {
+  left: auto; top: auto; right: 12px; bottom: calc(33.4% / 2 - 24px); transform: none;
+  display: grid; place-items: center; width: 48px; height: 48px; padding: 0; gap: 0; border-radius: 50%;
+  background: rgba(18, 18, 18, .82); color: #fff; font-size: 0; letter-spacing: 0; box-shadow: none;
+}
+.ph .unmute[hidden] { display: none; }
+.spectro { padding-right: 70px; }
+.form-consent { margin: 10px 0 0; font-size: 15px; color: var(--graphite); }
+.nb { white-space: nowrap; }
+/* the sections whose eyebrow is their heading (the collection, the details, the maker's note) */
+h2.eyebrow, .maker h2.sc { margin: 0; font-weight: 400; }

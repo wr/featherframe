@@ -99,10 +99,11 @@ const BAR_ROLL = MathUtils.degToRad(-24);
 export { sheenAt } from './sheen-at';
 /** Where the bar is in its pass (0 below the glass … 1 above) at `t` through the dwell: two passes. */
 export const barPass = (t: number) => { const b = 2 * Math.max(0, Math.min(1, t)); return b <= 1 ? b : b - 1; };
-// How long each picture holds in the hero's cycle: well over twice the colour
-// refresh (about 5.5 s), so the frame reads as a picture that sometimes
-// changes, not as a frame forever refreshing. `?hold=` overrides it for tests.
-const HOLD_MS = 14000;
+// How long each picture holds in the hero's cycle: about twice its panel's
+// refresh (gray about a second, colour about 15½ s), so the frame reads as a
+// picture that sometimes changes, not as a frame forever refreshing. `?hold=`
+// overrides it for tests.
+const HOLD_MS = { gc16: 14000, spectra6: 34000 } as const;
 
 export const loadImage = (src: string) => new Promise<HTMLImageElement>((ok, no) => {
   const img = new Image();
@@ -326,7 +327,7 @@ export async function loadFrame(size: Size, opts: {
     anisotropy: Math.min(4, renderer.capabilities.getMaxAnisotropy()),
     wake: opts.wake,
     motionOk: () => !document.hidden,
-    holdMs: opts.holdMs ?? HOLD_MS,
+    holdMs: opts.holdMs ?? HOLD_MS[size.waveform],
     speed: opts.speed,
     onShown: opts.onShown,
   });

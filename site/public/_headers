@@ -1,7 +1,22 @@
+# Every response: HTTPS only, no sniffing, no framing, a quiet referrer, no device features. The CSP starts in
+# report-only (three.js may want wasm/blob workers; watch the console, then enforce).
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()
+  X-Frame-Options: DENY
+  Cross-Origin-Opener-Policy: same-origin
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data: blob:; media-src 'self'; font-src 'self'; connect-src 'self' https://app.featherframe.app; form-action 'self' https://app.featherframe.app; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
+
 # img/, audio/ and video/ keep their names when they change, so a browser asks again each time (a 304 when
-# nothing changed); models/ are renamed by content (build.mjs), fonts never change.
+# nothing changed); models/ and the bundle's chunks are named by content (build.mjs, esbuild), fonts never change.
+/choreo-*.js
+  Cache-Control: public, max-age=31536000, immutable
+/chunk-*.js
+  Cache-Control: public, max-age=31536000, immutable
 /models/*
-  Cache-Control: public, max-age=604800
+  Cache-Control: public, max-age=31536000, immutable
 /img/*
   Cache-Control: public, no-cache
 /audio/*

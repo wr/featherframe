@@ -36,6 +36,7 @@ import type { SiteData, Size } from './card';
 
 const SWAY = 0.06;        // the hero's idle sway, radians
 const SWAY_PERIOD = 14;   // seconds
+const SWAY_IDLE = 20;     // seconds without a scroll before the sway settles
 const ART_LINGER = 0.1;   // viewport heights the art stop holds past its pin's release
 const LAND_AT = 0.92;     // the wall's first place is landed in with its bottom this far down the window
 const CONTACT = 8;        // px: the table's shadow comes in over the frame's last this many of descent
@@ -326,7 +327,16 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   /** What the 10-inch's glass was last told to show while out of sight. */
   let queued: string | null = null;
   let active: Model = hero;
-  let raf = 0, reveal = 0, dirty = true, lastKey = '', lastAway = '', disposed = false;
+  let raf = 0, reveal = 0, dirty = true, lastKey = '', lastAway = '', disposed = false, wasSeen = true;
+  let lastScroll = performance.now();
+  /** A lost WebGL context (a laptop asleep, a tab in the background too long) leaves nothing to draw with: the
+   *  journey steps aside as if the model had failed, and the page's own stills come back. */
+  const watch = (c: HTMLCanvasElement) => c.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    if (disposed) return;
+    undo();
+    root.classList.remove('choreo');
+  });
   const t0 = performance.now();
   const request = () => { if (!raf) raf = requestAnimationFrame(tick); };
 
@@ -361,6 +371,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
       f.setSize(layout.vw, layout.vh);
       document.body.prepend(f.canvas);
       frames[other] = f;
+      watch(f.canvas);
       dirty = true;
       request();
     }, (e) => console.warn(`featherframe: the ${other}-inch frame is unavailable`, e));
@@ -411,8 +422,10 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     const frame = frames[active]!;
     applyScreen(active, st);
     let changed = false, busy = false;
-    for (const f of Object.values(frames)) {
-      const r = f!.refresh.tick(now);
+    for (const [m, f] of Object.entries(frames) as [Model, Frame3D][]) {
+      // the other tone's frame, unseen, is left as it is (it is readied by an instant show() when it is wanted)
+      if (m !== active && m !== want) continue;
+      const r = f.refresh.tick(now);
       if (f === frame) changed = r.changed;
       busy ||= r.busy;
     }
@@ -424,11 +437,19 @@ export async function startPage(data: SiteData, hero: Model, opts: {
       const refreshing = st.screen === 'table' && !on ? '1' : '';
       if ((els.table.dataset.refreshing ?? '') !== refreshing) els.table.dataset.refreshing = refreshing;
     }
-    const sway = opts.poster || !st.sway ? 0 : Math.sin(((now - t0) / 1000) * (2 * Math.PI / SWAY_PERIOD)) * SWAY * st.sway;
+    // The cover's idle sway: drawn at 30 fps, not 60, and settling to still after a while without a scroll (the
+    // loop then parks), so a page left open on the cover isn't a laptop's fan.
+    const idle = Math.max(0, (now - lastScroll) / 1000 - SWAY_IDLE);
+    const swayK = st.sway * Math.max(0, 1 - idle / 2);
+    const swayT = Math.floor((now - t0) / 33) * 33;
+    const sway = opts.poster || !swayK ? 0 : Math.sin((swayT / 1000) * (2 * Math.PI / SWAY_PERIOD)) * SWAY * swayK;
     const sheen = opts.poster || !st.rect ? null : sheenAt(st.rect.y + st.rect.h / 2, layout.vh);
     const bar = opts.poster ? null : st.bar;
     const key = st.rect ? `${active},${st.rect.x},${st.rect.y},${st.rect.w},${st.rect.h},${st.pose.yaw},${st.pose.lean},${st.pose.pitch},${st.pose.ground},${sway},${st.over},${bar}` : '';
-    if (changed || dirty || key !== lastKey) {
+    // wholly off the window (below the table, the pinned slot still has a rect): no redraw on every scroll
+    const seen = !!st.rect && st.rect.y < layout.vh && st.rect.y + st.rect.h > 0;
+    if ((changed || dirty || key !== lastKey) && (seen || wasSeen || dirty)) {
+      wasSeen = seen;
       frame.draw(st.rect, st.pose, sway, sheen, bar);
       frame.canvas.classList.toggle('empty', !st.rect);
       frame.canvas.classList.toggle('over', st.over);
@@ -455,7 +476,8 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   const ro = new ResizeObserver(relayout);
   ro.observe(document.body);
   addEventListener('resize', relayout);
-  addEventListener('scroll', request, { passive: true });
+  const onScroll = () => { lastScroll = performance.now(); request(); };
+  addEventListener('scroll', onScroll, { passive: true });
   const onVisible = () => { if (!document.hidden) request(); };
   document.addEventListener('visibilitychange', onVisible);
   // B&W resizes the wall's frames (a transition): measure again once they have settled
@@ -472,7 +494,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     cancelAnimationFrame(reveal);
     ro.disconnect();
     removeEventListener('resize', relayout);
-    removeEventListener('scroll', request);
+    removeEventListener('scroll', onScroll);
     document.removeEventListener('visibilitychange', onVisible);
     document.removeEventListener('ff-tone', onTone);
     document.removeEventListener('ff-detect', request);
@@ -492,6 +514,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     throw e;
   }
   frames[hero] = frame;
+  watch(frame.canvas);
   for (const src of [...Object.values(screensOf(data.sizes[hero])), ...detections(data.sizes[hero])]) if (src) frame.refresh.prepare(src);
   frame.canvas.className = 'ff3d';
   frame.setSize(layout.vw, layout.vh);

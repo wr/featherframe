@@ -35,30 +35,31 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage h2')).toHaveText('Each night, a portrait of the day.');
   // "Each night," roman, "a portrait of the day." italic
   await expect(page.locator('#collage h2 i')).toHaveText('a portrait of the day.');
-  await expect(page.locator('#collage .lede')).toHaveText(['During quiet hours, your frame gathers every species heard that day onto a single canvas, numbered and labeled like a page in an old natural history book.', 'Enable AI illustration¹ and all the day’s species are painted together as a beautiful collage that changes with the seasons and weather.']);
-  await expect(page.locator('#fn-ai')).toHaveText('¹ Requires your own OpenAI API key, billed separately by OpenAI. Featherframe and Wells Workshop LLC are not affiliated with OpenAI. Use of AI is not required for collage functionality.');
-  await expect(page.locator('#how .closing .lede').last()).toHaveText('You can set up a BirdNET detector in your own backyard, or choose a BirdWeather station near you or anywhere in the world.');
+  await expect(page.locator('#collage .lede')).toHaveText(['During quiet hours, your frame gathers every species heard that day onto a single canvas, numbered and labeled like a page in an old natural history book.', 'Turn on AI illustration¹ and the day’s species are painted together in one scene that changes with the season and the weather.']);
+  await expect(page.locator('#fn-ai')).toHaveText('¹ Off by default. Needs your own image-generation API key (OpenAI, Gemini or Replicate), billed by that provider, not by Wells Workshop. Every generated picture is marked ✦. Collages don’t need it.');
+  await expect(page.locator('#how .closing .lede').last()).toHaveText('Set up a BirdNET detector in your own yard, or choose a BirdWeather station near you, or anywhere in the world.');
   await expect(page.locator('#specs .folio')).toHaveText('Technical details');
   await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Software']);
   // inches first, millimetres after
-  await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10.3-inch: 9.1 × 11.6 × 1.1 in (232 × 295 × 28 mm)13.3-inch: 11.6 × 14.6 × 1.1 in (295 × 371 × 28 mm)The mat’s opening is slightly smaller than the display.');
+  await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10.3-inch: an 8.5 × 11 in frame, 1.1 in deep13.3-inch: an 11 × 14 in frame, 1.1 in deepThe mat’s opening is slightly smaller than the display.');
   await expect(page.locator('#specs .spec dd').nth(5)).toHaveText('Your own backyard BirdNET device, or a BirdWeather station near you');
   await expect(page.locator('#specs .spec dd').nth(6)).toHaveText('Open source. See it on GitHub');
   await expect(page.locator('#specs .spec dd').nth(6).getByRole('link', { name: 'See it on GitHub' })).toHaveAttribute('href', 'https://github.com/wr/featherframe');
   await expect(page.locator('#specs .spec')).not.toContainText('Service');
   // the prices: the hero, each size, the close
-  await expect(page.locator('.cover .cta .it')).toHaveText('From $349. US pre-orders ship by December\u00a012.');
-  await expect(page.locator('#specs .ho figcaption')).toHaveText(['10.3-inch$349 · Depth 1.1 in (28 mm)', '13.3-inch$479 · Depth 1.1 in (28 mm)']);
+  await expect(page.locator('.cover .cta .it')).toHaveText('From $349 at the Wells Workshop shop. US pre-orders ship by December\u00a012.');
+  await expect(page.locator('#specs .ho figcaption')).toHaveText(['10.3-inch · B&W$349', '13.3-inch · Color$479']);
   await expect(page.locator('#specs .ho .diag span')).toHaveText(['10.3-inch display', '13.3-inch display']);
   await expect(page.locator('#specs .dim')).toHaveCount(0);
   // the close says the cover's line again
   await expect(page.locator('.close h2')).toHaveText('Let the outside in.');
   await expect(page.locator('.close h2 i')).toHaveText('outside in.');
-  await expect(page.locator('.maker p').last()).toContainText('Hi, I’m Wells.');
-  await expect(page.locator('#specs h2')).toHaveCount(0);
+  await expect(page.locator('.maker p').last()).toContainText('Hi, I’m Wells Riley.');
+  // the details' eyebrow is its heading, no display line under it
+  await expect(page.locator('#specs h2')).toHaveText(['Technical details']);
   await expect(page.locator('#faq h2')).toHaveText('FAQ');
   await expect(page.locator('.wall .folio')).toHaveText('From the collection');
-  await expect(page.locator('.close p')).toHaveText('From $349, with no subscription. US pre-orders ship by December\u00a012.');
+  await expect(page.locator('.close p')).toHaveText('From $349 at the Wells Workshop shop, with no subscription. US pre-orders ship by December\u00a012.');
   await expect(page.locator('body')).not.toContainText('Reserve');
   await expect(page.locator('body')).not.toContainText('November');
   await expect(page.locator('.cover .copy p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
@@ -67,7 +68,7 @@ test('every section and its key copy is there', async ({ page }) => {
   // no exploded drawing anywhere: the reservation is its headline, line and button
   await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
   await expect(page.locator('.close > *')).toHaveCount(3);
-  await expect(page.locator('#how .logos .sc')).toHaveText('Works with');
+  await expect(page.locator('#how .logos .sc')).toHaveText('Compatible with');
   await expect(page.locator('#how')).not.toContainText('Detections by');
   await expect(page.locator('body')).not.toContainText('heard at 07:02');
   await expect(page.locator('.tcap')).toHaveCount(0);
@@ -76,12 +77,12 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#specs .ho')).toHaveCount(2);
   await expect(page.locator('#collage .season figcaption')).toHaveText(
     ['Spring7 April 2026', 'Summer1 June 2026', 'Fall23 September 2026', 'Winter16 February 2026']);
-  await expect(page.locator('#collage .season img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
+  await expect(page.locator('#collage .season img').first()).toHaveAttribute('alt', 'A collage generated by AI from the species heard on 7 April 2026');
   await expect(page.locator('#faq dt')).toHaveText([
-    'Does it make a good gift?', 'Do I need Wi-Fi?', 'How fast does the frame change?', 'Do I need to run BirdNET locally?', 'Does it work outside North America?',
-    'What if a species near me was never illustrated?', 'Do the collages need AI?', 'Is a subscription required?', 'Is the cloud required?', 'Is my data private?']);
+    'Does it make a good gift?', 'Do I need Wi-Fi?', 'How fast does the frame change?', 'Do I need my own BirdNET device?', 'Does it work outside North America?',
+    'What if a species near me was never illustrated?', 'Do the collages need AI?', 'Is a subscription required?', 'Do I need an account?', 'Is my data private?']);
   await expect(page.locator('.cover .speed')).toHaveText('Refresh shown at true speed');
-  await expect(page.locator('#faq dd').nth(2).locator('li')).toHaveText(['Grayscale: about a second.', 'Color: about fifteen seconds, flickering as its inks settle. This screen is well suited to collage mode.']);
+  await expect(page.locator('#faq dd').nth(2).locator('li')).toHaveText(['B&W (10.3-inch): about a second.', 'Color (13.3-inch): about fifteen seconds, and it flickers as the inks settle. It suits the collage, which changes once a day.']);
   await expect(page.locator('#faq a.fnref')).toHaveCount(2);
   await expect(page.locator('body')).not.toContainText('listening station');
   await expect(page.locator('#faq dd').nth(0)).toHaveText('Yes. Nothing needs setting up before you wrap it. The person you give it to connects it to their Wi-Fi and chooses a detection source, all from their phone. US pre-orders ship by December\u00a012.');
@@ -89,7 +90,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#faq dd').nth(4)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
   await expect(page.locator('#faq dd').nth(6)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration¹ turned on, the day’s species are painted together in one scene, marked ✦.');
   await expect(page.locator('#faq')).not.toContainText('OpenAI key');
-  await expect(page.locator('#keep-posted .form-why')).toHaveText("Not ready to order? We'll write once, when the frames ship.");
+  await expect(page.locator('#keep-posted .form-why')).toHaveText('Not ready to order? I’ll write once, when the first frames have shipped. Nothing else.');
   await expect(page.locator('.cat figure')).toHaveCount(12);
   // the wall, in Wells's order: the Wild Turkey first (the art stop's bird), the Carolina Wren last (the one that tears off)
   const A = 'John James AudubonThe Birds of America';
@@ -118,14 +119,16 @@ test('every section and its key copy is there', async ({ page }) => {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
   // the singing videos, credited in the colophon
-  for (const c of ['Northern Cardinal recording by Jonathon Jongsma, xeno-canto XC175226, CC BY-SA 4.0.', 'Northern Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain.', 'Eastern Bluebird video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0.', 'American Goldfinch video by teyi 徐, Pexels.', 'Eastern Bluebird recording by Jonathon Jongsma, XC79976, CC BY-SA 3.0.', 'American Goldfinch recording by Jonathon Jongsma, XC127600, CC BY-SA 3.0.'])
+  // (the Creative Commons pieces marked as excerpts, the Pexels licence named)
+  for (const c of ['Northern Cardinal recording by Jonathon Jongsma, xeno-canto XC175226, CC BY-SA 4.0 (excerpt).', 'Northern Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain.', 'Eastern Bluebird video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0 (excerpt).', 'American Goldfinch video by teyi 徐, Pexels, Pexels License.', 'Eastern Bluebird recording by Jonathon Jongsma, XC79976, CC BY-SA 3.0 (excerpt).', 'American Goldfinch recording by Jonathon Jongsma, XC127600, CC BY-SA 3.0 (excerpt).', 'The Creative Commons excerpts are trimmed from the originals and shared under the same licenses.', '© 2026 Wells Workshop LLC.'])
     await expect(page.locator('.colophon .d')).toContainText(c);
   // the licences and sources, linked
   expect(await page.locator('.colophon .d a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual([
     'https://xeno-canto.org/175226', 'https://creativecommons.org/licenses/by-sa/4.0/',
     'https://xeno-canto.org/79976', 'https://creativecommons.org/licenses/by-sa/3.0/',
     'https://xeno-canto.org/127600', 'https://creativecommons.org/licenses/by-sa/3.0/',
-    'https://commons.wikimedia.org/wiki/File:20250518_eastern_bluebird_bafflin_wm.webm', 'https://creativecommons.org/licenses/by-sa/4.0/']);
+    'https://commons.wikimedia.org/wiki/File:20250518_eastern_bluebird_bafflin_wm.webm', 'https://creativecommons.org/licenses/by-sa/4.0/',
+    'https://www.pexels.com/license/']);
   await expect(page.locator('.colophon .d')).not.toContainText('Blue Jay');
   await expect(page.locator('#how video')).toHaveAttribute('poster', 'video/cardinal.webp');
   await expect(page.locator('#how .t2 .credit')).toHaveText('Video by Courtney Celley, U.S. Fish and Wildlife Service');
@@ -307,7 +310,7 @@ test('Keep me posted signs up without leaving the page', async ({ page }) => {
   await page.goto('/');
   await page.fill('#email', 'ada@example.com');
   await page.click('#keep-posted button[type=submit]');
-  await expect(page.locator('#keep-posted .form-note')).toHaveText("Thanks. We'll write once, when the frames ship.");
+  await expect(page.locator('#keep-posted .form-note')).toHaveText('Almost there. Check your email for a link to confirm.');
   expect(JSON.parse(body)).toEqual({ email: 'ada@example.com' });
   await expect(page).toHaveURL(/127\.0\.0\.1:4321\/$/);
 });
@@ -317,7 +320,7 @@ test('Keep me posted says when it did not go through', async ({ page }) => {
   await page.goto('/');
   await page.fill('#email', 'ada@example.com');
   await page.click('#keep-posted button[type=submit]');
-  await expect(page.locator('#keep-posted .form-note')).toHaveText("That didn't go through. Try again.");
+  await expect(page.locator('#keep-posted .form-note')).toHaveText('That didn’t go through. Try again.');
 });
 
 test('?size=10 shows its poster once species.json arrives late', async ({ page }) => {
@@ -453,7 +456,7 @@ test('each new detection is announced and the frame on the table repaints to it'
   await expect(toast).toHaveClass(/\bon\b/);
   await expect.poll(src).toMatch(/video\/eastern-bluebird\.(webm|mp4)$/);
   await expect(video).toHaveAttribute('poster', 'video/eastern-bluebird.webp');
-  await expect(credit).toHaveText('Video by Paul Danese, Wikimedia Commons');
+  await expect(credit).toHaveText('Video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0 (excerpt)');
   await expect(table).toHaveAttribute('data-shown', 'eastern-bluebird', { timeout: 30_000 });
   // the table's still says what it shows
   await expect(still).toHaveAttribute('alt', 'The frame showing the Eastern Bluebird from The Birds of America');
@@ -508,14 +511,14 @@ test('on a phone there is no 3D frame: the cover keeps its poster, and no model 
   expect(models).toEqual([]);
 });
 
-test('on a phone the sentence and Pre-order come before the frame, on the first screen', async ({ page }) => {
-  await page.setViewportSize({ width: 393, height: 659 });
+test('on a phone the frame comes first, on the first screen, then the sentence and Pre-order under it', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
   await page.goto('/');
   await page.evaluate(() => document.fonts.ready);
   const [copy, cta, frame] = await Promise.all(['.cover .copy p', '.cover .cta .btn', '.cover .frame'].map((s) => page.locator(s).boundingBox()));
-  expect(copy!.y).toBeLessThan(frame!.y);
-  expect(cta!.y + cta!.height).toBeLessThan(frame!.y);
-  expect(cta!.y + cta!.height).toBeLessThanOrEqual(659);
+  expect(frame!.y).toBeLessThan(852 * 0.6);
+  expect(copy!.y).toBeGreaterThan(frame!.y);
+  expect(cta!.y).toBeGreaterThan(copy!.y);
   // the art's headline at the display size
   const [h2, mega] = await Promise.all(['#art h2', '#how h2'].map((s) => page.locator(s).evaluate((e) => parseFloat(getComputedStyle(e).fontSize))));
   expect(Math.abs(h2 - mega)).toBeLessThan(1);
@@ -871,9 +874,9 @@ test('the video plays muted in view, with the spectrogram over its lower third',
   expect(Math.abs(sp!.y + sp!.height - (v!.y + v!.height))).toBeLessThan(2);
   expect(Math.abs(sp!.height - v!.height / 3)).toBeLessThan(4);
   expect(Math.abs(sp!.width - v!.width)).toBeLessThan(2);
-  // Unmute in the middle of the video
-  expect(Math.abs(un!.x + un!.width / 2 - (v!.x + v!.width / 2))).toBeLessThan(2);
-  expect(Math.abs(un!.y + un!.height / 2 - (v!.y + v!.height / 2))).toBeLessThan(2);
+  // Unmute: a round speaker at the spectrogram's right end, off the picture
+  expect(un!.x + un!.width).toBeGreaterThan(v!.x + v!.width - 70);
+  expect(un!.y).toBeGreaterThan(sp!.y);
   // the ink drawn bright white over a dark scrim: inverted, lifted and contrasted
   const filter = await page.locator('.spectro img').evaluate((e) => getComputedStyle(e).filter);
   expect(filter).toContain('invert(1)');
@@ -1168,3 +1171,35 @@ test('Color / B&W in the running head switches every frame on the page', async (
   await expect(page.locator('.tone button[data-tone="13"]')).toHaveAttribute('aria-pressed', 'true');
 });
 
+
+test('a lost WebGL context hands the page back to its stills', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await page.evaluate(() => (document.querySelector('canvas.ff3d') as HTMLCanvasElement).getContext('webgl2')!.getExtension('WEBGL_lose_context')!.loseContext());
+  await expect(page.locator('html')).not.toHaveClass(/\bchoreo\b/);
+  await expect(page.locator('canvas.ff3d')).toHaveCount(0);
+  await expect(page.locator('#stage .poster')).toBeVisible();
+  expect(await page.locator('#art-slot .still').evaluate((e) => getComputedStyle(e).visibility)).toBe('visible');
+});
+
+test('the refresh note shows only with the live frame, and the switch only near a frame', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.goto('/');
+  await expect(page.locator('.cover .speed')).toBeHidden();
+  // (a phone's cover keeps its Pre-order button clear: the switch comes with the wall)
+  await expect(page.locator('.tone.pill')).toHaveCSS('opacity', '0');
+  await page.locator('.wall .cat').scrollIntoViewIfNeeded();
+  await expect(page.locator('.tone.pill')).toHaveCSS('opacity', '1');
+  await page.locator('#faq').scrollIntoViewIfNeeded();
+  await expect(page.locator('.tone.pill')).toHaveCSS('opacity', '0');
+});
+
+test('on a tablet the cover\'s sentence and price are on top of the room', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 1024 });
+  await page.goto('/');
+  for (const sel of ['.cover .copy p', '.cover .cta .it']) {
+    const hit = await page.locator(sel).evaluate((e) => { const b = e.getBoundingClientRect(); const x = document.elementFromPoint(b.x + 8, b.y + b.height / 2); return !!x && (x === e || e.contains(x)); });
+    expect(hit, sel).toBe(true);
+  }
+});

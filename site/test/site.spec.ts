@@ -119,16 +119,18 @@ test('every section and its key copy is there', async ({ page }) => {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
   // the singing videos, credited in the colophon
-  // (the Creative Commons pieces marked as excerpts, the Pexels licence named)
-  for (const c of ['Northern Cardinal recording by Jonathon Jongsma, xeno-canto XC175226, CC BY-SA 4.0 (excerpt).', 'Northern Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain.', 'Eastern Bluebird video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0 (excerpt).', 'American Goldfinch video by teyi 徐, Pexels, Pexels License.', 'Eastern Bluebird recording by Jonathon Jongsma, XC79976, CC BY-SA 3.0 (excerpt).', 'American Goldfinch recording by Jonathon Jongsma, XC127600, CC BY-SA 3.0 (excerpt).', 'The Creative Commons excerpts are trimmed from the originals and shared under the same licenses.', '© 2026 Wells Workshop LLC.'])
+  // (the Creative Commons pieces marked as excerpts)
+  for (const c of ['Northern Cardinal recording by Jonathon Jongsma, xeno-canto XC175226, CC BY-SA 4.0 (excerpt).', 'Northern Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain.', 'Eastern Bluebird video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0 (excerpt).', 'Tufted Titmouse video by Víctor Martínez, Wikimedia Commons, CC BY-SA 4.0 (excerpt).', 'Black-capped Chickadee video by Cephas, Wikimedia Commons, CC BY-SA 3.0 (excerpt).', 'Eastern Bluebird recording by Jonathon Jongsma, XC79976, CC BY-SA 3.0 (excerpt).', 'Tufted Titmouse recording by G. McGrane, Wikimedia Commons, public domain.', 'Black-capped Chickadee recording by Jonathon Jongsma, XC70185, CC BY-SA 3.0 (excerpt).', 'The Creative Commons excerpts are trimmed, cropped or filtered from the originals and shared under the same licenses.', '© 2026 Wells Workshop LLC.'])
     await expect(page.locator('.colophon .d')).toContainText(c);
   // the licences and sources, linked
   expect(await page.locator('.colophon .d a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual([
     'https://xeno-canto.org/175226', 'https://creativecommons.org/licenses/by-sa/4.0/',
     'https://xeno-canto.org/79976', 'https://creativecommons.org/licenses/by-sa/3.0/',
-    'https://xeno-canto.org/127600', 'https://creativecommons.org/licenses/by-sa/3.0/',
+    'https://commons.wikimedia.org/wiki/File:Tufted_Titmouse.ogg',
+    'https://xeno-canto.org/70185', 'https://creativecommons.org/licenses/by-sa/3.0/',
     'https://commons.wikimedia.org/wiki/File:20250518_eastern_bluebird_bafflin_wm.webm', 'https://creativecommons.org/licenses/by-sa/4.0/',
-    'https://www.pexels.com/license/']);
+    'https://commons.wikimedia.org/wiki/File:Tufted_titmouse_(Baeolophus_bicolor).webm', 'https://creativecommons.org/licenses/by-sa/4.0/',
+    'https://commons.wikimedia.org/wiki/File:Poecile_atricapillus_CT.ogv', 'https://creativecommons.org/licenses/by-sa/3.0/']);
   await expect(page.locator('.colophon .d')).not.toContainText('Blue Jay');
   await expect(page.locator('#how video')).toHaveAttribute('poster', 'video/cardinal.webp');
   await expect(page.locator('#how .t2 .credit')).toHaveText('Video by Courtney Celley, U.S. Fish and Wildlife Service');
@@ -403,8 +405,9 @@ test('the detection cycle runs even when the browser refuses to play any audio',
   const name = page.locator('#how .toast .nm');
   await expect(name).toHaveText('Northern Cardinal');
   await expect(name).toHaveText('Eastern Bluebird', { timeout: 20_000 });
-  await expect(name).toHaveText('American Goldfinch', { timeout: 20_000 });
-  await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-goldfinch.webp');
+  await expect(name).toHaveText('Tufted Titmouse', { timeout: 20_000 });
+  await expect(name).toHaveText('Black-capped Chickadee', { timeout: 20_000 });
+  await expect(page.locator('.spectro img')).toHaveAttribute('src', 'img/spectrogram-black-capped-chickadee.webp');
   // and it never asked to play the song to get there
   expect(await page.evaluate(() => (window as unknown as { __plays: number }).__plays)).toBe(0);
 });
@@ -465,11 +468,15 @@ test('each new detection is announced and the frame on the table repaints to it'
   await page.waitForTimeout(5000);
   await expect(toast).toHaveClass(/\bon\b/);
   expect(await toast.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
-  await expect(toast.locator('.nm')).toHaveText('American Goldfinch', { timeout: 30_000 });
+  await expect(toast.locator('.nm')).toHaveText('Tufted Titmouse', { timeout: 30_000 });
   await expect(toast).toHaveClass(/\bon\b/);
-  await expect.poll(src).toMatch(/video\/goldfinch\.(webm|mp4)$/);
-  await expect(credit).toHaveText('Video by teyi 徐, Pexels');
-  await expect(table).toHaveAttribute('data-shown', 'goldfinch', { timeout: 30_000 });
+  await expect.poll(src).toMatch(/video\/tufted-titmouse\.(webm|mp4)$/);
+  await expect(credit).toHaveText('Video by Víctor Martínez, Wikimedia Commons, CC BY-SA 4.0 (excerpt)');
+  await expect(table).toHaveAttribute('data-shown', 'tufted-titmouse', { timeout: 30_000 });
+  await expect(toast.locator('.nm')).toHaveText('Black-capped Chickadee', { timeout: 30_000 });
+  await expect.poll(src).toMatch(/video\/black-capped-chickadee\.(webm|mp4)$/);
+  await expect(credit).toHaveText('Video by Cephas, Wikimedia Commons, CC BY-SA 3.0 (excerpt)');
+  await expect(table).toHaveAttribute('data-shown', 'black-capped-chickadee', { timeout: 30_000 });
   // each detection's repaint took the panel's time, and the next waited for it
   const took = await page.evaluate(() => (window as unknown as { __refresh: number[] }).__refresh);
   expect(took.length).toBeGreaterThanOrEqual(3);

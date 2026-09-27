@@ -136,10 +136,11 @@ if (!wall) startNight();
 const DETECTIONS = [
   { slug: 'cardinal', name: 'Northern Cardinal', audio: 'audio/cardinal-song.mp3', spectrogram: 'img/spectrogram.webp', video: 'video/cardinal', credit: 'Video by Courtney Celley, U.S. Fish and Wildlife Service' },
   { slug: 'eastern-bluebird', name: 'Eastern Bluebird', audio: 'audio/eastern-bluebird-song.mp3', spectrogram: 'img/spectrogram-eastern-bluebird.webp', video: 'video/eastern-bluebird', credit: 'Video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0 (excerpt)' },
-  { slug: 'goldfinch', name: 'American Goldfinch', audio: 'audio/goldfinch-song.mp3', spectrogram: 'img/spectrogram-goldfinch.webp', video: 'video/goldfinch', credit: 'Video by teyi 徐, Pexels' },
+  { slug: 'tufted-titmouse', name: 'Tufted Titmouse', audio: 'audio/tufted-titmouse-song.mp3', spectrogram: 'img/spectrogram-tufted-titmouse.webp', video: 'video/tufted-titmouse', credit: 'Video by Víctor Martínez, Wikimedia Commons, CC BY-SA 4.0 (excerpt)' },
+  { slug: 'black-capped-chickadee', name: 'Black-capped Chickadee', audio: 'audio/black-capped-chickadee-song.mp3', spectrogram: 'img/spectrogram-black-capped-chickadee.webp', video: 'video/black-capped-chickadee', credit: 'Video by Cephas, Wikimedia Commons, CC BY-SA 3.0 (excerpt)' },
 ];
 /** Each recording's length (the spectrogram spans it), ms. */
-const DURATION_MS = [11000, 11000, 11000];
+const DURATION_MS = [11000, 11000, 11000, 11000];
 /** Once the frame on the table has finished repainting to a detection, how long it shows it before the next is heard. */
 const SHOWN_MS = 6000;
 const song = document.getElementById('song') as HTMLAudioElement;

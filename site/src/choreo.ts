@@ -313,7 +313,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     last: size.wall?.[size.wall.length - 1],
     table: size.screens.find((f) => f.includes(`-${detected()}.`)),
   });
-  const detections = (size: Size) => size.screens.filter((f) => /-(cardinal|eastern-bluebird|goldfinch)\./.test(f));
+  const detections = (size: Size) => size.screens.filter((f) => /-(cardinal|eastern-bluebird|tufted-titmouse|black-capped-chickadee)\./.test(f));
 
   let layout = measure(els);
   // scripts and debugging: where the journey is, and its stops

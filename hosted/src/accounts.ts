@@ -9,6 +9,7 @@ import { cookie, randomHex, sha256, validTz } from "./util";
 import { pairLinked } from "./setup";
 
 const LINK_TTL_S = 15 * 60;
+export const LOGIN_LINKS_PER_HOUR = 5;
 const CHANGE_TTL_S = 24 * 60 * 60;
 const SESSION_TTL_S = 30 * 24 * 60 * 60;
 export const SESSION_COOKIE = "ff_session";
@@ -49,6 +50,9 @@ export async function login(request: Request, env: Env): Promise<Response> {
   const form = await request.formData();
   const email = normEmail(form.get("email"));
   if (!email) return loginPage("Enter an email address.");
+  // A sign-in link at most 5 times an hour to one address (W-890): past that
+  // the page answers the same and nothing is sent.
+  if (!(await rateHit(env, `login:${await sha256(email)}`, LOGIN_LINKS_PER_HOUR, 3600))) return checkEmailPage(email);
   const link = await makeLoginLink(env, email, validTz(String(form.get("tz") || "")));
   if (link) await sendMail(env, email, signInEmail(link));
   else await joinWaitlist(env, email, "login");   // asked to come in: pending, and not emailed

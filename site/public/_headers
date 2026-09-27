@@ -7,7 +7,7 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()
   X-Frame-Options: DENY
   Cross-Origin-Opener-Policy: same-origin
-  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; worker-src 'self' blob:; style-src 'self'; img-src 'self' data: blob:; media-src 'self'; font-src 'self'; connect-src 'self' blob: https://app.featherframe.app https://cloudflareinsights.com; form-action 'self' https://app.featherframe.app; frame-ancestors 'none'; base-uri 'self'; object-src 'none'
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; worker-src 'self' blob:; style-src 'self'; img-src 'self' data: blob:; media-src 'self'; font-src 'self'; connect-src 'self' blob: https://cloud.featherframe.app https://cloudflareinsights.com; form-action 'self' https://cloud.featherframe.app; frame-ancestors 'none'; base-uri 'self'; object-src 'none'
 
 # img/, audio/ and video/ keep their names when they change, so a browser asks again each time (a 304 when
 # nothing changed); models/ and the bundle's chunks are named by content (build.mjs, esbuild), fonts never change.

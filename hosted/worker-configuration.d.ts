@@ -6,7 +6,7 @@ interface __BaseEnv_Env {
 	PLATES: R2Bucket;
 	DB: D1Database;
 	ZONE: "featherframe.app";
-	APP_HOST: "app.featherframe.app";
+	APP_HOST: "cloud.featherframe.app";
 	MAIL_FROM: "Featherframe <hello@featherframe.app>";
 	HOUSEHOLD: DurableObjectNamespace<import("./src/index").Household>;
 	SERVER: DurableObjectNamespace<import("./src/index").HouseholdServer>;

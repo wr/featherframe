@@ -507,7 +507,7 @@ build OUT_DIR` on a machine with every scan; for an update, `build OUT_DIR
 `upload OUT_DIR` puts them in the bucket (wrangler), `library.json` last.
 A crop's key includes a folio's own `margins`, so Havell's keys never move.
 
-**Hosted (W-841–W-847, `hosted/`).** One host, `app.featherframe.app` (the
+**Hosted (W-841–W-847, `hosted/`); owners read "Featherframe Cloud" (W-890), and the rest is "self-hosted".** One host, `cloud.featherframe.app` (the
 apex is the marketing page, not routed; `plates.` is the W-842 library). The
 Worker (`hosted/src/index.ts`) routes the page by session (magic link from
 Resend, `accounts.ts`; invite-only; one login per household; D1 `featherframe`

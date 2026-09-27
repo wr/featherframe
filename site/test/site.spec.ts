@@ -132,7 +132,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('.colophon .d')).not.toContainText('Blue Jay');
   await expect(page.locator('#how video')).toHaveAttribute('poster', 'video/cardinal.webp');
   await expect(page.locator('#how .t2 .credit')).toHaveText('Video by Courtney Celley, U.S. Fish and Wildlife Service');
-  await expect(page.locator('.colophon .b').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', 'https://app.featherframe.app/');
+  await expect(page.locator('.colophon .b').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', 'https://cloud.featherframe.app/');
   await expect(page.locator('.colophon .b .sc')).toHaveText('A product of');
   await expect(page.locator('.colophon .c a')).toHaveText(['Shipping', 'Returns', 'Privacy', 'Terms']);
   await expect(page.locator('.colophon .d')).toContainText('The illustrations are from John James Audubon’s The Birds of America');
@@ -303,7 +303,7 @@ test('with reduced motion nothing cycles', async ({ page }) => {
 
 test('Keep me posted signs up without leaving the page', async ({ page }) => {
   let body = '';
-  await page.route('https://app.featherframe.app/api/waitlist', async (route) => {
+  await page.route('https://cloud.featherframe.app/api/waitlist', async (route) => {
     body = route.request().postData() || '';
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
   });
@@ -316,7 +316,7 @@ test('Keep me posted signs up without leaving the page', async ({ page }) => {
 });
 
 test('Keep me posted says when it did not go through', async ({ page }) => {
-  await page.route('https://app.featherframe.app/api/waitlist', (route) => route.abort());
+  await page.route('https://cloud.featherframe.app/api/waitlist', (route) => route.abort());
   await page.goto('/');
   await page.fill('#email', 'ada@example.com');
   await page.click('#keep-posted button[type=submit]');

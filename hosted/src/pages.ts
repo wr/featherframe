@@ -568,9 +568,9 @@ export function welcomeEmail(station: { name: string; distance: string } | null)
   const first = station ? "Its first picture appears within a minute." : "";
   const more = "There you can name the frame and set its rotation and update interval, change the detection source, switch Content to Collage (every species heard today on one sheet), set quiet hours (overnight, every frame shows the day's collage), add an OpenAI API key under Settings → AI image generation for species with no historical illustration, and add more frames.";
   const signIn = "To sign in, enter your email. We send you a link. There is no password.";
-  const text = [opening, first, "Everything else is in the Featherframe webapp: app.featherframe.app", more, signIn, "Featherframe"]
+  const text = [opening, first, "Everything else is in the Featherframe webapp: cloud.featherframe.app", more, signIn, "Featherframe"]
     .filter(Boolean).join("\n\n");
-  const link = `<a href="https://app.featherframe.app">Featherframe webapp</a>`;
+  const link = `<a href="https://cloud.featherframe.app">Featherframe webapp</a>`;
   const bold = (t: string) => e(t).replace(/Settings → (Detection source|AI image generation)/g, "<strong>$&</strong>");
   const openingHtml = station ? e(opening)
     : `Your frame is set up. <strong>One step is left: connect your detector.</strong> Open the ${link}, go to <strong>Settings → Detection source</strong> and follow the steps there. Once it is connected, the frame shows the latest species your detector hears as a 19th-century illustration.`;

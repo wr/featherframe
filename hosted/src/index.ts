@@ -1,6 +1,6 @@
 // Featherframe, hosted (W-841).
 //
-// One host, app.featherframe.app (W-845). The apex is the marketing page and
+// One host, cloud.featherframe.app (W-845). The apex is the marketing page and
 // is not routed here; plates.featherframe.app is the plate library's bucket.
 //
 //   the page      the signed-in owner's household (session cookie → D1)
@@ -20,6 +20,7 @@ import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
 import { LOBBY_DRAWING, expiryText, pairingCode, setupUrl } from "./pairing";
 import { Household } from "./household";
 import { isSetupPath, setupRoute } from "./setup";
+import { limiterFor } from "./ratelimit";
 import { HouseholdServer, Lobby } from "./containers";
 import { suspendedPage } from "./pages";
 import { deviceId, escapeHtml, frameKey, httpsRedirect, sha256 } from "./util";
@@ -34,13 +35,16 @@ export interface Env {
   PLATES: R2Bucket;
   DB: D1Database;
   ZONE: string;           // featherframe.app
-  APP_HOST: string;       // app.featherframe.app
+  APP_HOST: string;       // cloud.featherframe.app
   MAIL_FROM: string;
   ADMIN_TOKEN: string;    // secret
   ADMIN_EMAILS: string;   // secret: who sees /admin, comma separated
   RESEND_API_KEY: string; // secret
   CF_ACCOUNT_ID: string;  // the admin page's usage meters (W-860)
   CF_API_TOKEN: string;   // secret: Account Analytics Read, for the same
+  RL_AUTH: RateLimit;     // sign-in, setup and pairing: 10 a minute per IP
+  RL_PAGE: RateLimit;     // everything else a browser asks: 300 a minute per IP
+  RL_FRAME: RateLimit;    // a frame, a viewer or a detector's push: 60 a minute each
 }
 
 const FRAME_PATHS = /^\/api\/(frame|frame\/push|firmware)$/;
@@ -53,8 +57,14 @@ export default {
     const secure = httpsRedirect(url);
     if (secure) return secure;
     if (url.hostname === `plates.${env.ZONE}`) return plates(request, env, url);
-    if (url.hostname !== env.APP_HOST) return new Response("not found", { status: 404 });
+    // The host before Featherframe Cloud (W-890): frames that stored it, and
+    // a household server started before the move, and nothing else.
+    const legacy = url.hostname === `app.${env.ZONE}`
+      && (FRAME_PATHS.test(url.pathname) || url.pathname.startsWith("/_internal/"));
+    if (url.hostname !== env.APP_HOST && !legacy) return new Response("not found", { status: 404 });
     const path = url.pathname;
+    const slow = await rateLimited(request, env, url);
+    if (slow) return slow;
 
     // The script face and the page's icons are the same bytes for everyone:
     // served here, so a tablet on /view (no session) has them, and a page
@@ -119,6 +129,26 @@ export default {
     return user.as ? actingAsBar(res, user.email) : res;
   },
 } satisfies ExportedHandler<Env>;
+
+async function rateLimited(request: Request, env: Env, url: URL): Promise<Response | null> {
+  // A household's server, with its own key; containers may share an IP.
+  if (url.pathname.startsWith("/_internal/")) return null;
+  const { name, key } = limiterFor(request, url, (p) => FRAME_PATHS.test(p) || isViewerPath(p));
+  const limiter = env[name];
+  if (!limiter) return null;               // tests, and wrangler dev without the binding
+  try {
+    if ((await limiter.limit({ key })).success) return null;
+  } catch (err) {
+    console.error("rate limit", name, err);  // a limiter that fails lets the request through
+    return null;
+  }
+  const html = request.method === "GET" && (request.headers.get("Accept") || "").includes("text/html");
+  return new Response(html ? "Too many requests. Try again in a minute." : JSON.stringify({ error: "too many requests" }), {
+    status: 429,
+    headers: { "Retry-After": "60", "Cache-Control": "no-store",
+               "Content-Type": html ? "text/plain; charset=utf-8" : "application/json" },
+  });
+}
 
 /** Hand a request to its household's front door, saying whose it is (and,
  * from a signed-in page, who is signed in). */

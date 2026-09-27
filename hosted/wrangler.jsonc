@@ -30,7 +30,8 @@
     "bindings": [
       { "name": "HOUSEHOLD", "class_name": "Household" },
       { "name": "SERVER", "class_name": "HouseholdServer" },
-      { "name": "LOBBY", "class_name": "Lobby" }
+      { "name": "LOBBY", "class_name": "Lobby" },
+      { "name": "LIMITER", "class_name": "Limiter" }
     ]
   },
   "containers": [
@@ -51,13 +52,14 @@
   ],
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Household", "HouseholdServer"] },
-    { "tag": "v2", "new_sqlite_classes": ["Lobby"] }
+    { "tag": "v2", "new_sqlite_classes": ["Lobby"] },
+    { "tag": "v3", "new_sqlite_classes": ["Limiter"] }
   ],
-  // Burst limits (W-890), Cloudflare's own and free: counted per location
-  // over a minute, keyed per IP (or per frame). The D1 counters in
-  // accounts.ts keep the hourly ones (a sign-in link per address, a setup).
+  // Burst limits (W-890), Cloudflare's own and free: per location, over a
+  // minute, keyed per IP (or per frame); permissive by design, so sign-in and
+  // setup are counted exactly by the Limiter object instead (limiter.ts).
+  // The D1 counters in accounts.ts keep the hourly ones.
   "ratelimits": [
-    { "name": "RL_AUTH", "namespace_id": "8901", "simple": { "limit": 10, "period": 60 } },
     { "name": "RL_PAGE", "namespace_id": "8902", "simple": { "limit": 300, "period": 60 } },
     { "name": "RL_FRAME", "namespace_id": "8903", "simple": { "limit": 60, "period": 60 } }
   ],

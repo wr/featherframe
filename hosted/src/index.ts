@@ -25,12 +25,15 @@ import { HouseholdServer, Lobby } from "./containers";
 import { suspendedPage } from "./pages";
 import { deviceId, escapeHtml, frameKey, httpsRedirect, sha256 } from "./util";
 
-export { Household, HouseholdServer, Lobby };
+import { Limiter } from "./limiter";
+
+export { Household, HouseholdServer, Lobby, Limiter };
 
 export interface Env {
   HOUSEHOLD: DurableObjectNamespace<Household>;
   SERVER: DurableObjectNamespace<HouseholdServer>;
   LOBBY: DurableObjectNamespace<Lobby>;
+  LIMITER: DurableObjectNamespace<Limiter>;
   DATA: R2Bucket;
   PLATES: R2Bucket;
   DB: D1Database;
@@ -42,7 +45,7 @@ export interface Env {
   RESEND_API_KEY: string; // secret
   CF_ACCOUNT_ID: string;  // the admin page's usage meters (W-860)
   CF_API_TOKEN: string;   // secret: Account Analytics Read, for the same
-  RL_AUTH: RateLimit;     // sign-in, setup and pairing: 10 a minute per IP
+  RL_AUTH?: RateLimit;    // unused: sign-in and setup go to LIMITER, which is exact
   RL_PAGE: RateLimit;     // everything else a browser asks: 300 a minute per IP
   RL_FRAME: RateLimit;    // a frame, a viewer or a detector's push: 60 a minute each
 }
@@ -130,18 +133,24 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
+// Sign-in, setup, pairing and admin: 10 a minute per IP, counted exactly.
+export const AUTH_PER_MINUTE = 10;
+
 async function rateLimited(request: Request, env: Env, url: URL): Promise<Response | null> {
   // A household's server, with its own key; containers may share an IP.
   if (url.pathname.startsWith("/_internal/")) return null;
   const { name, key } = limiterFor(request, url, (p) => FRAME_PATHS.test(p) || isViewerPath(p));
-  const limiter = env[name];
-  if (!limiter) return null;               // tests, and wrangler dev without the binding
+  let ok = true;
   try {
-    if ((await limiter.limit({ key })).success) return null;
+    if (name === "RL_AUTH" && env.LIMITER) {
+      ok = await env.LIMITER.getByName(key).hit(AUTH_PER_MINUTE, 60_000);
+    } else if (env[name]) {
+      ok = (await env[name].limit({ key })).success;
+    }
   } catch (err) {
     console.error("rate limit", name, err);  // a limiter that fails lets the request through
-    return null;
   }
+  if (ok) return null;
   const html = request.method === "GET" && (request.headers.get("Accept") || "").includes("text/html");
   return new Response(html ? "Too many requests. Try again in a minute." : JSON.stringify({ error: "too many requests" }), {
     status: 429,

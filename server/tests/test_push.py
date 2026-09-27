@@ -161,8 +161,8 @@ def test_a_change_the_colour_panel_must_hold_is_shown_as_queued(client):
     assert _queued(svc) is None                                          # nothing new yet
     give_output(svc, etag="two")
     svc._clock = lambda: NOW + timedelta(seconds=40)
-    # 30 s of paint plus the 180 s floor, 40 s of it gone.
-    assert _queued(svc) == 30 + 180 - 40
+    # 15 s of paint plus the 180 s floor, 40 s of it gone.
+    assert _queued(svc) == 15 + 180 - 40
     svc._clock = lambda: NOW + timedelta(seconds=215)
     assert _queued(svc) is None                                          # it is fetching it now
 
@@ -199,7 +199,7 @@ def test_a_save_inside_the_floor_is_queued_before_it_is_drawn(client):
     svc._clock = lambda: NOW + timedelta(seconds=60)
     out = client.post(f"/api/frames/{FRAME_ID}", json={"mat_guide": True}).json()
     mine = [f for f in out["frames"] if f["id"] == FRAME_ID][0]
-    assert mine["queued_s"] == 30 + 180 - 60
+    assert mine["queued_s"] == 15 + 180 - 60
     # A name is not a pixel: nothing to hold.
     svc._out[FRAME_ID]["src"] = svc._output_src(svc.frames.get(FRAME_ID), NOW)   # the tick drew it
     out = client.post(f"/api/frames/{FRAME_ID}", json={"name": "Hall"}).json()

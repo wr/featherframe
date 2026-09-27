@@ -38,6 +38,13 @@ static_assert(FF_SCREENS_ROTATION == FF_BAKED_ROTATION,
 #else
 #include "ff_screens.h"    // baked 1-bit boot/setup panel screens (1404x1872)
 #endif
+// The first-run steps (W-894): a kit that starts on Featherframe Cloud asks
+// for no server, and says to scan the code the frame shows once it is online.
+#ifdef FF_HOSTED_DEFAULT
+#define FF_SCR_SETUP_SHOWN FF_SCR_SETUP_CLOUD
+#else
+#define FF_SCR_SETUP_SHOWN FF_SCR_SETUP
+#endif
 
 // ---- Featherframe Frame (FFF) wire format ----
 struct FFFHeader {
@@ -768,10 +775,10 @@ bool ensureWifi(bool openPortal, bool showBoot) {
     // The pill is stamped on the retained plate; with none to stamp on (a
     // wake out of deep sleep) the steps take the glass.
     if (g_glassScreen < 0 && g_lastFrame) showToast(FF_TOAST_PORTAL);
-    else showScreen(FF_SCR_SETUP);
+    else showScreen(FF_SCR_SETUP_SHOWN);
 #else
     if (g_glassScreen < 0) showToast(FF_TOAST_PORTAL);
-    else showScreen(FF_SCR_SETUP);
+    else showScreen(FF_SCR_SETUP_SHOWN);
 #endif
   });
   wm.setSaveConfigCallback([]() { showScreenFull(FF_SCR_BOOT_WIFI); });
@@ -1390,7 +1397,7 @@ void showScreen(int idx) {
 
   g_loaderAnim.on = false;        // pause the sweep while the glass changes
   panelLock();
-  const bool entry = (idx == FF_SCR_SPLASH || idx == FF_SCR_SETUP);
+  const bool entry = (idx == FF_SCR_SPLASH || idx == FF_SCR_SETUP || idx == FF_SCR_SETUP_CLOUD);
   if (entry || !havePrev) {
     displayFrame(buf, total);                      // full gray refresh (== bird plates)
     Serial.printf("screen %d full\n", idx);

@@ -143,7 +143,13 @@ def new_canvas():
     c = Image.new("L", (W, H), 255)
     return c, ImageDraw.Draw(c)
 
-def screen_setup(bare=None):
+# Step 3 as a kit that starts on Featherframe Cloud reads it (W-894): its
+# portal asks for no server, and the frame shows a code to scan once it is
+# online. The self-hosted card keeps the server step.
+SETUP_STEP_SERVER = "Fill in the IP address of your Featherframe\nwebapp, if not auto-detected."
+SETUP_STEP_CLOUD = "When the frame shows a code, scan it\nwith your phone to finish setting up."
+
+def screen_setup(bare=None, cloud=False):
     # First-run instructions. The splash's own setting, pixel for pixel —
     # the limb full-bleed off the right edge and the wordmark beneath it —
     # with the card laid over the lower half of the art (W-742), so the
@@ -163,7 +169,7 @@ def screen_setup(bare=None):
     steps = [
         "From your computer or smartphone,\njoin the Wi-Fi hotspot:",
         "Choose a Wi-Fi network for Featherframe\nto join.",
-        "Fill in the IP address of your Featherframe\nwebapp, if not auto-detected.",
+        SETUP_STEP_CLOUD if cloud else SETUP_STEP_SERVER,
     ]
     fnt = font(46, weight=600)   # semibold: reversed type on e-ink loses weight
     numf = font(34, weight=600)
@@ -420,6 +426,7 @@ SCREENS = [
     ("BOOT_BIRDNET",  _compose("birdnet")),     # wren perched
     ("BOOT_DOWNLOAD", _compose("download")),    # the pair: second wren joins
     ("SETUP",         screen_setup()),
+    ("SETUP_CLOUD",   screen_setup(cloud=True)),   # a release kit's (FF_HOSTED_DEFAULT)
 ]
 
 def packbits(data: bytes) -> bytes:
@@ -955,6 +962,8 @@ FULL_SCREENS = [
     ("PENDING", _error_screen(lambda d: _draw_wait_pill(d, PENDING_TEXT)), ("perch",)),
     # The gray build's low-battery pill (TOASTS), promoted to a whole screen.
     ("LOW_BATT", _error_screen(lambda d: _draw_toast(d, LOW_BATTERY_TEXT, "battery")), ("perch",)),
+    # Last, so every index above stays put: a release kit's setup card (W-894).
+    ("SETUP_CLOUD", lambda bare=None: screen_setup(bare, cloud=True), ()),
 ]
 
 

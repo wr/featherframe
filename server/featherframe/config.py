@@ -6,15 +6,17 @@ SQLite DB. Everything the config UI touches lives here. Defaults match the spec.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import math
 import os
 import re
 import secrets
 from dataclasses import dataclass, field
-from datetime import date, time as dtime
+from datetime import date, datetime, time as dtime, timezone
 from typing import Any
 
 from . import panels
+from .render import season
 
 
 def _parse_hhmm(value: str, fallback: str) -> dtime:
@@ -49,33 +51,66 @@ _BLOCKLIST_MAX_ENTRIES = 500
 _BLOCKLIST_MAX_CHARS = 64
 
 
-# Default latitude for the timezone-derived "sunset -> sunrise" window. The
-# timezone alone can't give latitude, so we assume a temperate mid-latitude;
-# seasonal drift is still modeled. A configurable lat/long is the follow-up
-# (W-601) for exact times.
+# The latitude "sunset -> sunrise" assumes when the detection source reports no
+# location (W-900): a temperate mid-latitude, in the Region's hemisphere.
 _SUN_LAT_DEG = 40.0
 
 
-def _sun_window(on_date: date | None = None) -> tuple[dtime, dtime]:
-    """Approximate (sunset, sunrise) local times for the given day — the night
-    window for "sunset -> sunrise" quiet hours. Zero-config and network-free:
-    models the seasonal swing at a default mid-latitude. Falls back to a fixed
-    22:00 -> 06:00 window inside the polar day/night edge cases."""
-    n = (on_date or date.today()).timetuple().tm_yday
-    lat = math.radians(_SUN_LAT_DEG)
-    decl = math.radians(23.44) * math.sin(2 * math.pi / 365.0 * (n + 284))
-    cos_h = -math.tan(lat) * math.tan(decl)
-    if cos_h <= -1.0 or cos_h >= 1.0:
-        return dtime(22, 0), dtime(6, 0)  # sun never sets / never rises here
-    h = math.degrees(math.acos(cos_h)) / 15.0  # half-day length in hours
-    sunrise = 12.0 - h
-    sunset = 12.0 + h
+@functools.lru_cache(maxsize=64)
+def _sun_times_utc(on_date: date, lat: float, lon: float) -> tuple[float, float] | None:
+    """(sunrise, sunset) on `on_date` at (lat, lon), as Unix times: the
+    sunrise equation (good to a minute or two), with the sun's
+    upper limb and refraction (-0.833°). None when the sun does not rise or
+    does not set that day."""
+    n = (on_date - date(2000, 1, 1)).days          # days since J2000.0's noon
+    j_star = n - lon / 360.0                        # mean solar noon (east +)
+    m = math.radians((357.5291 + 0.98560028 * j_star) % 360)
+    c = 1.9148 * math.sin(m) + 0.0200 * math.sin(2 * m) + 0.0003 * math.sin(3 * m)
+    ecl = math.radians((math.degrees(m) + c + 180 + 102.9372) % 360)
+    transit = 2451545.0 + j_star + 0.0053 * math.sin(m) - 0.0069 * math.sin(2 * ecl)
+    decl = math.asin(math.sin(ecl) * math.sin(math.radians(23.4397)))
+    phi = math.radians(lat)
+    cos_w = ((math.sin(math.radians(-0.833)) - math.sin(phi) * math.sin(decl))
+             / (math.cos(phi) * math.cos(decl)))
+    if not -1.0 < cos_w < 1.0:
+        return None
+    half = math.degrees(math.acos(cos_w)) / 360.0   # half the day, in days
 
-    def _t(hours: float) -> dtime:
-        hours %= 24
-        return dtime(int(hours), int(hours * 60) % 60)
+    def unix(jd: float) -> float:
+        return (jd - 2440587.5) * 86400.0
 
-    return _t(sunset), _t(sunrise)
+    return unix(transit - half), unix(transit + half)
+
+
+def _standard_meridian(on_date: date) -> float:
+    """The longitude the local time zone's standard time is kept by (15° an
+    hour): the smaller of its winter and summer offsets, since daylight saving
+    is always ahead."""
+    offsets = [datetime(on_date.year, month, 1, 12).astimezone().utcoffset()
+               for month in (1, 7)]
+    return min(offsets).total_seconds() / 3600.0 * 15.0
+
+
+def _sun_window(on_date: date | None = None,
+                location: tuple[float, float] | None = None,
+                southern: bool = False) -> tuple[dtime, dtime]:
+    """(sunset, sunrise) on the given day, on the local clock (the server's
+    TZ, daylight saving included): the night window for "sunset -> sunrise"
+    quiet hours. At `location` (lat, lon) where the detection source reports
+    one; without it, zero-config: 40° in the `southern` or northern
+    hemisphere, on the time zone's standard meridian. A fixed 22:00 -> 06:00
+    window where the sun never sets or never rises."""
+    on_date = on_date or date.today()
+    if location is not None:
+        lat, lon = location
+    else:
+        lat = -_SUN_LAT_DEG if southern else _SUN_LAT_DEG
+        lon = _standard_meridian(on_date)
+    times = _sun_times_utc(on_date, round(lat, 2), round(lon, 2))
+    if times is None:
+        return dtime(22, 0), dtime(6, 0)
+    sunrise, sunset = (datetime.fromtimestamp(t, timezone.utc).astimezone() for t in times)
+    return (dtime(sunset.hour, sunset.minute), dtime(sunrise.hour, sunrise.minute))
 
 
 COLLAGE_BRANCHES = ("season", "weather", "bare")
@@ -112,8 +147,9 @@ class Config:
     device_poll_seconds: int = 3
 
     # Quiet hours ----------------------------------------------------------
-    # "off" | "custom" (the start/end below) | "sun" (sunset -> sunrise,
-    # derived from the system timezone; see _sun_window). A legacy
+    # "off" | "custom" (the start/end below) | "sun" (sunset -> sunrise at
+    # the detection source's location, on the local clock; see _sun_window
+    # and quiet_window). A legacy
     # quiet_hours_enabled bool is migrated to this in from_dict(). A new
     # household starts on the sun (W-898): birds go quiet at dusk, not at
     # 10 pm. A stored config keeps its own mode (to_dict writes every field).
@@ -349,27 +385,35 @@ class Config:
         block = {b.lower() for b in self.species_blocklist}
         return common_name.lower() in block or sci_name.lower() in block
 
-    def quiet_window(self, on_date: date | None = None) -> tuple[dtime, dtime]:
+    def quiet_window(self, on_date: date | None = None,
+                     location: tuple[float, float] | None = None) -> tuple[dtime, dtime]:
         """(start, end) of the ACTIVE quiet window: sunset -> sunrise in "sun"
         mode, else the custom start/end fields. The one place that knows which
         applies — callers that reason about the window (is it wrapping
         midnight? which day did it start?) must use this, not the raw fields,
-        which may hold a stale non-wrapping window while "sun" is selected."""
+        which may hold a stale non-wrapping window while "sun" is selected.
+        `location` is the detection source's (lat, lon), where it reports one
+        (the service's `quiet_window` passes it); without it the sun is
+        placed by the time zone and the Region's hemisphere."""
         if self.quiet_hours_mode == "sun":
-            return _sun_window(on_date)
+            return _sun_window(on_date, location,
+                               southern=season.is_southern(None, self.region))
         return (_parse_hhmm(self.quiet_hours_start, "22:00"),
                 _parse_hhmm(self.quiet_hours_end, "06:00"))
 
-    def in_quiet_hours(self, now: dtime) -> bool:
-        """True if `now` (a datetime.time) falls in quiet hours.
-
-        "sun" mode uses the timezone-derived sunset -> sunrise window; "custom"
-        uses the start/end below. Handles the wrap-around-midnight window
-        (e.g. 22:00 -> 06:00), which the night window always is.
+    def in_quiet_hours(self, now: dtime | datetime,
+                       location: tuple[float, float] | None = None) -> bool:
+        """True if `now` falls in quiet hours: a datetime is judged by its own
+        day's window, a bare time by today's. Handles the wrap-around-midnight
+        window (e.g. 22:00 -> 06:00), which the night window always is.
         """
         if self.quiet_hours_mode == "off":
             return False
-        start, end = self.quiet_window()
+        if isinstance(now, datetime):
+            on_date, now = now.date(), now.time()
+        else:
+            on_date = None
+        start, end = self.quiet_window(on_date, location)
         if start == end:
             return False
         if start < end:

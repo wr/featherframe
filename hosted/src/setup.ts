@@ -10,7 +10,7 @@ import type { Env } from "./index";
 import { makeLoginLink, normEmail, rateHit, sendMail, sessionUser, signedIn } from "./accounts";
 import { addFrameEmail, setupAddPage, setupExpiredPage, setupLimitedPage, setupLinkSentPage, setupPage,
          welcomeEmail } from "./pages";
-import { SETUP_TOKEN_LEN } from "./pairing";
+import { SETUP_TOKEN_LEN, randomLetters } from "./pairing";
 import { regionFor, stationById, stationsNamed, stationsNear } from "./stations";
 import { randomHex, sha256, validTz } from "./util";
 
@@ -19,7 +19,6 @@ const now = () => Math.floor(Date.now() / 1000);
 export const SETUP_PER_IP = 5;          // setups tried an hour from one IP
 export const SETUP_VIEWS_PER_IP = 60;   // page and station lookups an hour
 export const LINKS_PER_ADDRESS = 5;     // add-this-frame emails an hour to one address
-const SETUP_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTWXYZ";
 const SETUP_CODE_LEN = 8;
 
 const PATH = new RegExp(`^/setup/([A-Za-z]{6})/([0-9A-Za-z]{${SETUP_TOKEN_LEN}})/?$`);
@@ -33,14 +32,7 @@ export function normSetupCode(raw: unknown): string {
 }
 
 export function newSetupCode(): string {
-  const out: string[] = [];
-  const cap = 256 - (256 % SETUP_CODE_ALPHABET.length);
-  while (out.length < SETUP_CODE_LEN) {
-    for (const b of crypto.getRandomValues(new Uint8Array(16))) {
-      if (b < cap && out.length < SETUP_CODE_LEN) out.push(SETUP_CODE_ALPHABET[b % SETUP_CODE_ALPHABET.length]);
-    }
-  }
-  return out.join("");
+  return randomLetters(SETUP_CODE_LEN);
 }
 
 export function isSetupPath(path: string): boolean {

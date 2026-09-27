@@ -3,13 +3,26 @@
 
 import type { Env } from "./index";
 
-// A pairing code: letters only (the engraved face has old-style figures that
-// rise and fall), and none of I/L/O/U/V to confuse on the glass.
-const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTWXYZ";
+// A pairing or setup code: letters only (the engraved face has old-style
+// figures that rise and fall), and none of I/L/O/Q/U/V to confuse on the glass
+// or the printed card.
+export const CODE_ALPHABET = "ABCDEFGHJKMNPRSTWXYZ";
 const CODE_TTL_S = 24 * 60 * 60;
 // The setup page's secret for a code (W-888), in the QR's alphanumeric set.
 const TOKEN_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const SETUP_TOKEN_LEN = 12;
+
+/** `n` letters of CODE_ALPHABET, each as likely as the next. */
+export function randomLetters(n: number): string {
+  const cap = 256 - (256 % CODE_ALPHABET.length);
+  const out: string[] = [];
+  while (out.length < n) {
+    for (const b of crypto.getRandomValues(new Uint8Array(16))) {
+      if (b < cap && out.length < n) out.push(CODE_ALPHABET[b % CODE_ALPHABET.length]);
+    }
+  }
+  return out.join("");
+}
 
 export function setupToken(): string {
   // 252 is the largest multiple of 36 under 256: no letter is likelier.
@@ -52,8 +65,7 @@ export async function pairingCode(env: Env, id: string, keyHash: string,
     }
     return { code: row.code, expiresAt: row.expires_at, token };
   }
-  const code = [...crypto.getRandomValues(new Uint8Array(6))]
-    .map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+  const code = randomLetters(6);
   const token = setupToken();
   await env.DB.batch([
     env.DB.prepare("DELETE FROM pairing WHERE device_id = ? AND key_hash = ?").bind(id, keyHash),

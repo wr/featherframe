@@ -207,7 +207,10 @@ describe("codes", () => {
   it("normalises a setup code and makes them from the pairing alphabet", () => {
     expect(normSetupCode(" abcd-efgh ")).toBe("ABCDEFGH");
     expect(normSetupCode("ABC")).toBe("");
-    expect(newSetupCode()).toMatch(/^[ABCDEFGHJKMNPQRSTWXYZ]{8}$/);
+    expect(newSetupCode()).toMatch(/^[ABCDEFGHJKMNPRSTWXYZ]{8}$/);
+    // I, L, O, Q, U and V are never drawn: they misread on the card and the glass.
+    const many = Array.from({ length: 500 }, () => newSetupCode()).join("");
+    expect(many).not.toMatch(/[ILOQUV]/);
   });
   it("spells the setup URL in the QR's alphanumeric set", () => {
     const t = setupToken();

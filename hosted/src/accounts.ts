@@ -251,8 +251,7 @@ export async function deleteHousehold(env: Env, hid: string): Promise<void> {
   // message they are sent finds a pairing code, not a household that is gone.
   await env.HOUSEHOLD.getByName(hid).destroy();
   await env.DB.batch([
-    // A kit set up into this household may be set up again (W-888); a
-    // setup code, once used, stays used.
+    // A kit set up into this household may be set up again (W-888).
     env.DB.prepare("UPDATE kits SET used_at = NULL, household_id = NULL WHERE household_id = ?").bind(hid),
     env.DB.prepare("DELETE FROM users WHERE household_id = ?").bind(hid),
     env.DB.prepare("DELETE FROM households WHERE id = ?").bind(hid),
@@ -428,8 +427,8 @@ export async function logAction(env: Env, admin: string, action: string, target:
   }
 }
 
-// -- kits and setup codes (W-888) ------------------------------------------------
-/** A kit flashed for shipping: its owner may set it up with no setup code.
+// -- kits (W-888) ------------------------------------------------------------------
+/** A kit flashed for shipping: its owner may set it up with no invitation.
  * Registering it again (a new key after an erase) keeps whether it was used. */
 async function registerKit(env: Env, b: { device_id?: string; key_hash?: string; kit?: string; note?: string }): Promise<Response> {
   const id = String(b.device_id || "").trim();
@@ -448,14 +447,6 @@ async function registerKit(env: Env, b: { device_id?: string; key_hash?: string;
   return Response.json({ ok: true, result });
 }
 
-export async function makeSetupCodes(env: Env, count: number, note: string): Promise<string[]> {
-  const { newSetupCode } = await import("./setup");
-  const n = Math.max(1, Math.min(100, Math.floor(count)));
-  const codes = Array.from({ length: n }, () => newSetupCode());
-  await env.DB.batch(codes.map((c) => env.DB.prepare(
-    "INSERT OR IGNORE INTO setup_codes (code, note, created_at) VALUES (?, ?, ?)").bind(c, note.slice(0, 120) || null, now())));
-  return codes;
-}
 
 // -- the admin's side, until there is a page for it ----------------------------
 export async function admin(request: Request, env: Env, path: string): Promise<Response> {
@@ -466,11 +457,6 @@ export async function admin(request: Request, env: Env, path: string): Promise<R
   const body = await request.json<{ email?: string; household?: string; send?: boolean; device_id?: string;
     key_hash?: string; kit?: string; note?: string; count?: number }>().catch(() => ({} as Record<string, never>));
   if (path === "kit") return registerKit(env, body);
-  if (path === "setup-codes") {
-    const codes = await makeSetupCodes(env, Number(body.count) || 10, String(body.note || ""));
-    await logAction(env, "api", "setup-codes", null, true, `Made ${codes.length} setup codes.`);
-    return Response.json({ ok: true, codes: codes.map((c) => `${c.slice(0, 4)}-${c.slice(4)}`) });
-  }
   const email = normEmail(body.email);
   if (!email) return Response.json({ error: "email" }, { status: 400 });
   if (path === "invite") {

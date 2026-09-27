@@ -527,7 +527,12 @@ codes keep the old one); the owner types it under the Frames card's
 `ABC-DEF`, typed or pasted), and the household's server adds it at once.
 Removing a frame on the page (Remove, or Forget on an ignored kit) also drops
 its registry row (`Household.proxy` → `unpair`), so it is shown a new code.
-Viewers pair the same way (W-849, `viewers.ts`): a TRMNL client is known by
+An unclaimed kit's pairing screen also carries a QR of its setup page
+(W-888, `hosted/src/setup.ts`; the same page from its six letters typed on
+the sign-in page, W-891). That page makes the account, picks the detection
+source and claims the frame. A new account needs an invitation: the kit
+registered at fulfillment (`firmware/tools/register_kit.py` → D1 `kits`), or
+the email invited from the waitlist. There are no setup codes (W-892). Viewers pair the same way (W-849, `viewers.ts`): a TRMNL client is known by
 its `ID` plus its access token (which `/api/setup` hands out here), the kiosk
 page by its id plus a key it keeps in localStorage (`&key=`). Unclaimed, a
 TRMNL is sent its code drawn for its own screen (the Lobby's `/render-view`,

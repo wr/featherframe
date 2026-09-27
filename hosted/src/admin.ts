@@ -3,7 +3,7 @@
 // separated); to anyone else it does not exist.
 
 import type { Env } from "./index";
-import { AS_COOKIE, actAs, logAction, deleteHousehold, invite, isAdmin, makeSetupCodes, normEmail, realSessionUser, resendInvite,
+import { AS_COOKIE, actAs, logAction, deleteHousehold, invite, isAdmin, normEmail, realSessionUser, resendInvite,
          revokeInvite, setEmail, setSuspended, signUpWaitlist, stopActingAs } from "./accounts";
 import { adminPage, waitlistThanksPage, type AdminData, type Toast } from "./pages";
 import { cloudflareUsage } from "./usage";
@@ -84,12 +84,6 @@ async function perform(env: Env, path: string, request: Request): Promise<Done |
     }
   }
 
-  if (path === "/admin/setup-codes") {
-    const note = String(form.get("note") || "").trim();
-    const codes = await makeSetupCodes(env, Number(form.get("count")) || 10, note);
-    return { action: "setup-codes", target: note || null, ok: true, message: `Made ${codes.length} setup codes.` };
-  }
-
   const actions: Record<string, string> = {
     "/admin/invite": "invite", "/admin/invite/resend": "invite.resend",
     "/admin/invite/revoke": "invite.revoke", "/admin/waitlist/remove": "waitlist.remove",
@@ -139,7 +133,7 @@ function readToast(request: Request): Toast | null {
 }
 
 async function gather(env: Env): Promise<AdminData> {
-  const [waitlist, invites, households, log, kits, codes] = await Promise.all([
+  const [waitlist, invites, households, log, kits] = await Promise.all([
     env.DB.prepare("SELECT email, source, created_at, invited_at, confirmed_at FROM waitlist WHERE invited_at IS NULL ORDER BY created_at")
       .all<AdminData["waitlist"][number]>(),
     env.DB.prepare("SELECT email, created_at, used_at FROM invites ORDER BY created_at DESC")
@@ -152,9 +146,6 @@ async function gather(env: Env): Promise<AdminData> {
       .all<AdminData["log"][number]>(),
     env.DB.prepare(`SELECT k.device_id, k.kit, k.note, k.registered_at, k.used_at, u.email FROM kits k
       LEFT JOIN users u ON u.household_id = k.household_id ORDER BY k.registered_at DESC`).all<AdminData["kits"][number]>(),
-    env.DB.prepare(`SELECT c.code, c.note, c.created_at, c.used_at, u.email FROM setup_codes c
-      LEFT JOIN users u ON u.household_id = c.household_id ORDER BY c.used_at IS NOT NULL, c.created_at DESC`)
-      .all<AdminData["codes"][number]>(),
   ]);
   const rows = await Promise.all(households.results.map(async (h) => {
     try {
@@ -165,7 +156,7 @@ async function gather(env: Env): Promise<AdminData> {
   }));
   const usage = await cloudflareUsage(env, rows.reduce((a, h) => a + h.month_ms, 0));
   return { waitlist: waitlist.results, invites: invites.results, households: rows, usage, log: log.results,
-           kits: kits.results, codes: codes.results };
+           kits: kits.results };
 }
 
 // -- the marketing page's form ---------------------------------------------------

@@ -315,3 +315,9 @@ Experience:
   - The welcome plate's "Configure the source in the dashboard" becomes
     "Check the detection source in Settings".
 - Viewers' (TRMNL) pairing screens keep their code without a QR for now.
+
+## Later (W-891, W-892)
+
+- The sign-in page also takes the six letters ("Set up a new frame") and opens the same setup page (W-891).
+- Setup codes are gone (W-892). An invitation is a kit registered at fulfillment, or an email invited from the waitlist.
+- An email that can't make an account (it already has one, or it has no invitation) gets the same "Check your email" page. An uninvited one joins the waitlist.

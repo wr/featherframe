@@ -14,12 +14,18 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import re
 import sys
 from pathlib import Path
 
 SERVER = Path(__file__).resolve().parent.parent
 TEMPLATES = SERVER / "templates"
+
+# featherframe.app/help/<topic>'s table (site/src/help.json): the card in the
+# box and the webapp print these, so every page and heading it names must be
+# on the wiki.
+HELP_TABLE = SERVER.parent / "site" / "src" / "help.json"
 
 # Emoji, not symbols: the page's own ⋯ ✓ ✕ ⟳ ✦ and the arrows stay.
 EMOJI = re.compile(
@@ -34,6 +40,7 @@ RETIRED = {
     r"\bactive frame\b": "a frame (there is no active one)",
     r"\bviewers?\b": "frame, or screen",
     r"\bweb app\b": "webapp",
+    r"(?<!self-)\bhosted\b": "Featherframe Cloud (or self-hosted)",
 }
 # And in the webapp, where an owner reads them as labels. The wiki may
 # name BirdNET-Pi's dashboard, or the books' plates once it has said what
@@ -143,6 +150,19 @@ def check_wiki_page(path: Path) -> list[str]:
     return out
 
 
+def check_help_table(wiki: Path, table: Path = HELP_TABLE) -> list[str]:
+    out = []
+    for topic, t in json.loads(table.read_text())["topics"].items():
+        page = wiki / f"{t['page']}.md"
+        if not page.exists():
+            out.append(f"help.json: {topic or '(help)'}: no wiki page {t['page']}")
+            continue
+        heading = t.get("heading")
+        if heading and not re.search(rf"^#{{1,6}} {re.escape(heading)}\s*$", page.read_text(), re.M):
+            out.append(f"help.json: {topic}: no heading {heading!r} on {t['page']}")
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--wiki", type=Path, help="a checkout of featherframe.wiki")
@@ -155,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
             if page.stem == "Style-guide":  # it quotes what it bans
                 continue
             findings += check_wiki_page(page)
+        findings += check_help_table(args.wiki)
     for f in findings:
         print(f)
     return 1 if findings else 0

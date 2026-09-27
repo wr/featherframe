@@ -1,6 +1,7 @@
 """The style guide's mechanical rules hold on the webapp (docs/STYLE.md)."""
 
 import importlib.util
+import json
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "check_copy.py"
@@ -46,3 +47,30 @@ def test_script_strings_are_read_as_copy():
     lines = check_copy.visible_lines(page)
     assert (2, "Rendering the plate") in lines
     assert not any("#frames" in t for _, t in lines)
+
+
+def test_hosted_is_retired_but_self_hosted_is_not():
+    assert rules("Use the hosted server.", webapp=False) == ["retired"]
+    assert rules("Featherframe Cloud, or self-hosted.", webapp=False) == []
+
+
+def test_the_help_table_names_only_pages_and_headings_the_wiki_has(tmp_path):
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    (wiki / "Home.md").write_text("Hello\n")
+    (wiki / "Troubleshooting.md").write_text("## The frame\n\n### The frame can't join your Wi-Fi\n")
+    table = tmp_path / "help.json"
+    table.write_text(json.dumps({"wiki": "https://example.org", "topics": {
+        "": {"page": "Home"},
+        "wifi": {"page": "Troubleshooting", "heading": "The frame can't join your Wi-Fi"},
+        "gone": {"page": "Nowhere"},
+        "moved": {"page": "Troubleshooting", "heading": "Wi-Fi"},
+    }}))
+    found = check_copy.check_help_table(wiki, table)
+    assert [f.split(":")[1].strip() for f in found] == ["gone", "moved"]
+
+
+def test_the_real_help_table_is_well_formed():
+    table = json.loads(check_copy.HELP_TABLE.read_text())
+    assert "" in table["topics"]
+    assert all("page" in t for t in table["topics"].values())

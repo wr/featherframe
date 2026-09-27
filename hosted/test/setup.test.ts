@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { auth, confirmVerification, sessionUser } from "../src/accounts";
-import { setupRoute } from "../src/setup";
+import { releaseFrame, setupRoute } from "../src/setup";
 import { rankStations, regionFor } from "../src/stations";
 import { setupToken, setupUrl } from "../src/pairing";
 import { sha256 } from "../src/util";
@@ -197,6 +197,29 @@ describe("setting up", () => {
     const f = await frameShowing();
     for (let i = 0; i < 5; i++) await post(f, { email: "x" });
     expect(await (await post(f, { email: "x" })).text()).toContain("Too many tries");
+  });
+
+  it("lets a removed kit be set up again by someone new", async () => {
+    const f = await frameShowing();
+    db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
+    expect((await post(f, { email: "giver@example.com" }, "198.51.100.10")).status).toBe(303);
+    const giver = one("SELECT household_id FROM users WHERE email = 'giver@example.com'").household_id;
+    await releaseFrame(env, f.device, giver);
+    expect(one("SELECT count(*) AS n FROM frames").n).toBe(0);
+    // The frame shows a new code; the new owner has no invitation of their own.
+    const g = await frameShowing("GHJKMN", f.device);
+    expect((await post(g, { email: "friend@example.com" }, "198.51.100.11")).status).toBe(303);
+    const friend = one("SELECT household_id FROM users WHERE email = 'friend@example.com'").household_id;
+    expect(one("SELECT household_id FROM frames WHERE device_id = ?", f.device).household_id).toBe(friend);
+    expect(one("SELECT household_id FROM kits").household_id).toBe(friend);
+  });
+
+  it("frees only a kit that was that household's", async () => {
+    const f = await frameShowing();
+    db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at, used_at, household_id) VALUES (?, ?, 'ee03', ?, ?, 'h1')")
+      .run(f.device, f.keyHash, NOW, NOW);
+    await releaseFrame(env, f.device, "h2");
+    expect(one("SELECT household_id FROM kits").household_id).toBe("h1");
   });
 });
 

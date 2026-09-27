@@ -394,43 +394,53 @@ export function confirmEmailEmail(link: string): { subject: string; text: string
   };
 }
 
-// -- setting up a frame from the phone (W-888) -------------------------------------
+// -- setting up a frame from the phone (W-888, W-889) ---------------------------------
 const SETUP_STYLE = `<style>
   .hint { font-size:13px; color:var(--muted); margin:6px 0 0; }
   .field { margin-bottom:18px; }
-  input[type=text], input[type=search] { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border);
+  input[type=text] { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border);
     border-radius:8px; background:var(--bg); color:var(--ink); }
   .code-in { text-transform:uppercase; letter-spacing:.08em; }
-  h2.sub { font-size:15px; font-weight:600; margin:22px 0 4px; }
-  .stations { list-style:none; margin:10px 0 0; padding:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  fieldset { border:0; margin:0 0 6px; padding:0; }
+  legend { font-size:15px; font-weight:600; margin:4px 0 8px; padding:0; }
+  .choices, .stations { list-style:none; margin:0; padding:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .stations { margin-top:10px; }
   .stations:empty { display:none; }
-  .stations li + li { border-top:1px solid var(--border); }
-  .stations label { display:flex; gap:10px; align-items:flex-start; margin:0; padding:10px 12px; font-size:14px;
-    color:var(--ink); cursor:pointer; }
-  .stations input { margin:3px 0 0; accent-color:var(--accent); }
-  .stations .meta { display:block; font-size:12.5px; color:var(--muted); }
-  .row { display:flex; gap:8px; margin-top:10px; }
-  .row button { margin:0; width:auto; flex:none; }
-  .btn2 { background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
+  .choices li + li, .stations li + li { border-top:1px solid var(--border); }
+  .choices label, .stations label { display:flex; gap:10px; align-items:flex-start; margin:0; padding:10px 12px;
+    font-size:14px; color:var(--ink); cursor:pointer; }
+  .choices input, .stations input { margin:3px 0 0; accent-color:var(--accent); flex:none; }
+  .meta { display:block; font-size:12.5px; color:var(--muted); }
+  .find { display:flex; gap:8px; margin-top:14px; }
+  .find input { flex:1 1 auto; min-width:0; }
+  .find button { margin:0; width:auto; flex:none; }
+  .btn2 { margin-top:8px; width:100%; background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
+  .near { font-size:13px; color:var(--muted); margin:12px 0 0; }
   button:disabled { opacity:.6; cursor:default; }
+  [hidden] { display:none !important; }
 </style>`;
 
 export interface SetupView {
   code: string; token: string; needsCode: boolean; error?: string;
-  email?: string; setupCode?: string; miles: boolean;
+  email?: string; setupCode?: string; miles: boolean; place: string; country: string; source?: string;
 }
 
 export function setupPage(v: SetupView): Response {
   const e = escapeHtml;
-  const action = `/setup/${e(v.code)}/${e(v.token)}`;
+  const action = `/setup/${e(v.code.toLowerCase())}/${e(v.token)}`;
+  const src = v.source || "birdweather";
+  const choice = (value: string, name: string, meta: string) => `<li><label>
+    <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}>
+    <span>${name}<span class="meta">${meta}</span></span></label></li>`;
+  const us = v.country === "US";
   return page("Set up your frame · Featherframe", `${SETUP_STYLE}
     <h1>Set up your frame</h1>
     ${v.error ? `<p class="bad">${e(v.error)}</p>` : ""}
     <form method="post" action="${action}" id="setup">
       <div class="field">
-        <label for="email">Email</label>
+        <label for="email">Email address</label>
         <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
-        <p class="hint">Used to sign in. No password.</p>
+        <p class="hint">This is the email you'll use to sign in to Featherframe to manage your frame and change settings.</p>
       </div>
       ${v.needsCode ? `<div class="field">
         <label for="setup_code">Setup code</label>
@@ -438,15 +448,24 @@ export function setupPage(v: SetupView): Response {
           spellcheck="false" required value="${e(v.setupCode || "")}">
         <p class="hint">On the card in the box.</p>
       </div>` : ""}
-      <h2 class="sub">Detection source</h2>
-      <p class="hint" style="margin:0">Your frame shows species heard by a BirdWeather station near you.</p>
-      <div class="row">
-        <input type="search" id="q" placeholder="Search stations by name" autocomplete="off">
+      <fieldset>
+        <legend>Detection source</legend>
+        <ul class="choices">
+          ${choice("birdweather", "A BirdWeather station near me", "No equipment needed")}
+          ${choice("apprise", "My BirdNET-Pi", "You'll connect it in Settings after setup")}
+          ${choice("birdnet_go", "My BirdNET-Go", "You'll connect it in Settings after setup")}
+        </ul>
+      </fieldset>
+      <div id="bw"${src === "birdweather" ? "" : " hidden"}>
+        <div class="find">
+          <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "ZIP code or town" : "Postcode or town"}"
+            aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
+          <button type="button" id="findbtn">Find</button>
+        </div>
         <button type="button" class="btn2" id="locate">Use my location</button>
+        <p class="near" id="status" hidden></p>
+        <ul class="stations" id="stations"></ul>
       </div>
-      <p class="hint" id="finding">Finding stations near you…</p>
-      <ul class="stations" id="stations"></ul>
-      <p class="hint" id="none" hidden>No stations nearby. You can choose a detection source later in Settings.</p>
       <input type="hidden" name="tz" id="tz">
       <input type="hidden" name="km" id="km">
       <button type="submit" id="go">Set up frame</button>
@@ -454,50 +473,61 @@ export function setupPage(v: SetupView): Response {
     <script>
     (function () {
       var base = ${JSON.stringify(`/api/setup/stations?c=${v.code}&t=${v.token}`)}, miles = ${v.miles ? "true" : "false"};
-      var list = document.getElementById("stations"), none = document.getElementById("none");
-      var km = document.getElementById("km"), form = document.getElementById("setup"), go = document.getElementById("go");
-      try { document.getElementById("tz").value = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+      var $ = function (id) { return document.getElementById(id); };
+      var list = $("stations"), status = $("status"), km = $("km"), place = $("place");
+      try { $("tz").value = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+      function say(text) { status.textContent = text; status.hidden = !text; }
       function dist(k) { return miles ? Math.round(k * 0.621371) + " mi" : k + " km"; }
-      var finding = document.getElementById("finding");
-      function show(rows, measured) {
-        finding.hidden = true; list.innerHTML = ""; km.value = "";
+      function show(b) {
+        var rows = b.stations || [];
+        list.innerHTML = ""; km.value = "";
+        say(rows.length ? (b.place ? "Near " + b.place : "Near you")
+          : (b.found === false ? "Couldn't find that place. Check the spelling, or try a ZIP code."
+             : "No BirdWeather stations nearby. Choose another detection source, or try another place."));
         rows.forEach(function (s, i) {
           var li = document.createElement("li"), lab = document.createElement("label"), r = document.createElement("input");
           r.type = "radio"; r.name = "station"; r.value = s.id; r.checked = i === 0;
-          r.onchange = function () { km.value = measured ? s.km : ""; };
+          r.onchange = function () { km.value = s.km; };
           var t = document.createElement("span"); t.textContent = s.name;
           var m = document.createElement("span"); m.className = "meta";
-          m.textContent = (measured ? dist(s.km) + " · " : "") + s.species + " species this week";
+          m.textContent = [s.state, dist(s.km), s.species + " species in the last 7 days"].filter(Boolean).join(" · ");
           t.appendChild(m); lab.appendChild(r); lab.appendChild(t); li.appendChild(lab); list.appendChild(li);
-          if (i === 0 && measured) km.value = s.km;
+          if (i === 0) km.value = s.km;
         });
-        none.hidden = rows.length > 0;
       }
-      function load(q, measured) {
-        finding.hidden = false; none.hidden = true;
-        fetch(base + q).then(function (r) { return r.ok ? r.json() : { stations: [] }; })
-          .then(function (b) { show(b.stations || [], measured && b.measured); })
-          .catch(function () { show([], false); });
+      function load(q) {
+        say("Finding stations…"); list.innerHTML = "";
+        var x = new XMLHttpRequest();
+        x.open("GET", base + q);
+        x.onload = function () { try { show(JSON.parse(x.responseText)); } catch (e) { show({}); } };
+        x.onerror = function () { say("Couldn't reach BirdWeather. Try again in a moment."); };
+        x.send();
       }
-      load("", true);
-      document.getElementById("locate").onclick = function () {
-        if (!navigator.geolocation) return;
+      function find() { var p = place.value.trim(); if (p.length > 1) load("&place=" + encodeURIComponent(p)); }
+      $("findbtn").onclick = find;
+      place.onkeydown = function (ev) { if (ev.key === "Enter") { ev.preventDefault(); find(); } };
+      $("locate").onclick = function () {
+        if (!navigator.geolocation) { say("This browser can't share its location. Enter your ZIP code or town instead."); return; }
+        say("Finding your location…");
         navigator.geolocation.getCurrentPosition(function (p) {
-          load("&lat=" + p.coords.latitude.toFixed(3) + "&lon=" + p.coords.longitude.toFixed(3), true);
-        }, function () {}, { timeout: 15000, maximumAge: 600000 });
+          place.value = "";
+          load("&lat=" + p.coords.latitude.toFixed(3) + "&lon=" + p.coords.longitude.toFixed(3));
+        }, function (err) {
+          say(err && err.code === 1
+            ? "Location is off for this browser. Turn it on in your phone's settings, or enter your ZIP code or town."
+            : "Couldn't find your location. Enter your ZIP code or town instead.");
+        }, { enableHighAccuracy: false, timeout: 20000, maximumAge: 600000 });
       };
-      var timer = null;
-      document.getElementById("q").oninput = function (ev) {
-        clearTimeout(timer);
-        var q = ev.target.value.trim();
-        timer = setTimeout(function () { load(q.length > 1 ? "&q=" + encodeURIComponent(q) : "", true); }, 350);
+      var radios = document.querySelectorAll("input[name=source]");
+      for (var i = 0; i < radios.length; i++) radios[i].onchange = function () {
+        $("bw").hidden = this.value !== "birdweather";
       };
-      form.onsubmit = function () { go.disabled = true; go.textContent = "Setting up…"; };
+      if (place.value) find();
+      $("setup").onsubmit = function () { $("go").disabled = true; $("go").textContent = "Setting up…"; };
     })();
     </script>`);
 }
 
-/** Signed in already: this frame joins the account. */
 export function setupAddPage(code: string, token: string, email: string): Response {
   const e = escapeHtml;
   return page("Add this frame · Featherframe", `
@@ -528,24 +558,55 @@ export function setupLinkSentPage(email: string): Response {
 
 type Mail = { subject: string; text: string; html: string };
 
+/** The first email (W-889, written to docs/STYLE.md). `station`: the
+ * BirdWeather station chosen; null for the owner's own detector. */
 export function welcomeEmail(station: { name: string; distance: string } | null): Mail {
   const e = escapeHtml;
-  const first = station
-    ? `Your frame shows the species heard at ${station.name}, a BirdWeather station${station.distance ? ` ${station.distance} away` : " near you"}. The frame shows the latest species the station hears.`
-    : "Your frame is connected. Choose a detection source in Settings so it can start showing species.";
-  const signIn = "Sign in: go to app.featherframe.app and enter this email. We'll send you a link each time; there's no password.";
-  const can = [
-    "Choose a different station, or connect your own BirdNET-Pi or BirdNET-Go detector (Settings → Detection source).",
-    "Add an OpenAI API key to generate illustrations for species that have none, and to make a daily collage (Settings → AI image generation).",
-    "Set quiet hours, the collage interval, and each frame's rotation and update interval.",
-  ];
+  const opening = station
+    ? `Your frame is set up. It shows the latest species heard by ${station.name}, a BirdWeather station ${station.distance ? `${station.distance} from you` : "near you"}, as a 19th-century illustration.`
+    : "Your frame is set up. One step is left: connect your detector. Open the Featherframe webapp, go to Settings → Detection source and follow the steps there. Once it is connected, the frame shows the latest species your detector hears as a 19th-century illustration.";
+  const first = station ? "Its first picture appears within a minute." : "";
+  const more = "There you can name the frame and set its rotation and update interval, change the detection source, switch Content to Collage (every species heard today on one sheet), set quiet hours (overnight, every frame shows the day's collage), add an OpenAI API key under Settings → AI image generation for species with no historical illustration, and add more frames.";
+  const signIn = "To sign in, enter your email. We send you a link. There is no password.";
+  const text = [opening, first, "Everything else is in the Featherframe webapp: app.featherframe.app", more, signIn, "Featherframe"]
+    .filter(Boolean).join("\n\n");
+  const link = `<a href="https://app.featherframe.app">Featherframe webapp</a>`;
+  const bold = (t: string) => e(t).replace(/Settings → (Detection source|AI image generation)/g, "<strong>$&</strong>");
+  const openingHtml = station ? e(opening)
+    : `Your frame is set up. <strong>One step is left: connect your detector.</strong> Open the ${link}, go to <strong>Settings → Detection source</strong> and follow the steps there. Once it is connected, the frame shows the latest species your detector hears as a 19th-century illustration.`;
   return {
-    subject: "Your Featherframe is set up",
-    text: `${first}\n\n${signIn}\n\nIn the Featherframe webapp you can:\n${can.map((c) => `- ${c}`).join("\n")}\n`,
-    html: `<p>${e(first)}</p>
-<p><strong>Sign in:</strong> go to <a href="https://app.featherframe.app">app.featherframe.app</a> and enter this email. We'll send you a link each time; there's no password.</p>
-<p>In the Featherframe webapp you can:</p><ul>${can.map((c) => `<li>${e(c)}</li>`).join("")}</ul>`,
+    subject: "Welcome to Featherframe!",
+    text,
+    html: [`<p>${openingHtml}</p>`, first ? `<p>${e(first)}</p>` : "", `<p>Everything else is in the ${link}.</p>`,
+           `<p>${bold(more)}</p>`, `<p>${e(signIn)}</p>`, `<p>Featherframe</p>`].join("\n"),
   };
+}
+
+export function verifyEmail(link: string): Mail {
+  const l = escapeHtml(link);
+  return {
+    subject: "Confirm your email for Featherframe",
+    text: `Confirm this is your email address for Featherframe:\n\n${link}\n\nThe link works for 7 days. Confirming means you can sign in again on any device once your phone's sign-in ends (a sign-in lasts 30 days).\n\nIf you did not set up a Featherframe, ignore this email.\n\nFeatherframe`,
+    html: `<p>Confirm this is your email address for Featherframe:</p>
+<p><a href="${l}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#6b4a2c;color:#f7efe2;font-weight:600;text-decoration:none">Confirm email</a></p>
+<p style="color:#827e76;word-break:break-all">${l}</p>
+<p>The link works for 7 days. Confirming means you can sign in again on any device once your phone's sign-in ends (a sign-in lasts 30 days).</p>
+<p style="color:#827e76">If you did not set up a Featherframe, ignore this email.</p><p>Featherframe</p>`,
+  };
+}
+
+export function verifiedPage(): Response {
+  return page("Email confirmed · Featherframe", `
+    <h1>Email confirmed</h1>
+    <p>You can sign in on any device with this address.</p>
+    <p><a href="/">Open the Featherframe webapp</a></p>`);
+}
+
+export function verifyExpiredPage(): Response {
+  return page("Link expired · Featherframe", `
+    <h1>That link has expired</h1>
+    <p>Sign in, and send a new one from the notice at the top of the Featherframe webapp.</p>
+    <p><a href="/">Open the Featherframe webapp</a></p>`);
 }
 
 export function addFrameEmail(link: string, frame: string): Mail {

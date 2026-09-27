@@ -7,11 +7,11 @@
 // sent a link that adds the frame instead.
 
 import type { Env } from "./index";
-import { makeLoginLink, normEmail, rateHit, sendMail, sessionUser, signedIn } from "./accounts";
+import { makeLoginLink, normEmail, rateHit, sendMail, sendVerification, sessionUser, signedIn } from "./accounts";
 import { addFrameEmail, setupAddPage, setupExpiredPage, setupLimitedPage, setupLinkSentPage, setupPage,
          welcomeEmail } from "./pages";
 import { SETUP_TOKEN_LEN } from "./pairing";
-import { regionFor, stationById, stationsNamed, stationsNear } from "./stations";
+import { geocode, regionFor, stationById, stationsNear } from "./stations";
 import { randomHex, sha256, validTz } from "./util";
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -53,8 +53,8 @@ function clientIp(request: Request): string {
 
 async function livePairing(env: Env, code: string, token: string): Promise<PairingRow | null> {
   return env.DB.prepare(
-    "SELECT code, device_id, key_hash, report, setup_token FROM pairing WHERE code = ? AND setup_token = ? AND expires_at > ?")
-    .bind(code.toUpperCase(), token.toUpperCase(), now()).first<PairingRow>();
+    "SELECT code, device_id, key_hash, report, setup_token FROM pairing WHERE code = ? AND lower(setup_token) = ? AND expires_at > ?")
+    .bind(code.toUpperCase(), token.toLowerCase(), now()).first<PairingRow>();
 }
 
 /** The frame showing `row`'s code joins household `hid`: the code is taken
@@ -86,28 +86,36 @@ async function registeredKit(env: Env, row: PairingRow): Promise<boolean> {
     .bind(row.device_id, row.key_hash).first());
 }
 
+type Cf = { country?: string; postalCode?: string; city?: string; latitude?: string; longitude?: string };
+const cfOf = (request: Request): Cf => (request as { cf?: Cf }).cf || {};
+
 function miles(request: Request): boolean {
-  return (request as { cf?: { country?: string } }).cf?.country === "US";
+  return cfOf(request).country === "US";
 }
 
-function cfPoint(request: Request): { lat: number; lon: number } | null {
-  const cf = (request as { cf?: { latitude?: string; longitude?: string } }).cf;
-  const lat = Number(cf?.latitude), lon = Number(cf?.longitude);
-  return cf?.latitude && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+/** What the page starts with in its place field: the phone's network's own
+ * postal code (or town), shown so a wrong guess is plain to see. */
+function placeGuess(request: Request): string {
+  const cf = cfOf(request);
+  return (cf.postalCode || cf.city || "").slice(0, 40);
 }
+
+const SOURCES = ["birdweather", "apprise", "birdnet_go"];
+
 
 export async function setupRoute(request: Request, env: Env, url: URL, ctx: ExecutionContext): Promise<Response> {
   const ip = await sha256(clientIp(request));
   if (url.pathname === "/api/setup/stations") return stations(request, env, url, ip);
   const m = url.pathname.match(PATH)!;
-  const [code, token] = [m[1].toUpperCase(), m[2].toUpperCase()];
+  const [code, token] = [m[1].toUpperCase(), m[2].toLowerCase()];
   if (request.method === "GET") {
     if (!(await rateHit(env, `setup:view:${ip}`, SETUP_VIEWS_PER_IP, 3600))) return setupLimitedPage();
     const row = await livePairing(env, code, token);
     if (!row) return setupExpiredPage();
     const user = await sessionUser(request, env);
     if (user?.hid) return setupAddPage(code, token, user.email);
-    return setupPage({ code, token, needsCode: !(await registeredKit(env, row)), miles: miles(request) });
+    return setupPage({ code, token, needsCode: !(await registeredKit(env, row)), miles: miles(request),
+                       place: placeGuess(request), country: cfOf(request).country || "" });
   }
   if (request.method !== "POST") return new Response(null, { status: 405 });
   const origin = request.headers.get("Origin");
@@ -129,8 +137,10 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
   const typed = String(form.get("setup_code") || "");
   const setupCode = normSetupCode(typed);
   const kit = await registeredKit(env, row);
+  const source = SOURCES.includes(String(form.get("source"))) ? String(form.get("source")) : "birdweather";
   const again = (error: string) => setupPage({ code, token, needsCode: !kit, error, email: String(form.get("email") || ""),
-                                               setupCode: typed, miles: miles(request) });
+                                               setupCode: typed, miles: miles(request), source,
+                                               place: placeGuess(request), country: cfOf(request).country || "" });
   if (!email) return again("Enter an email address.");
   // The invitation first: without one, nothing is said about the email.
   if (!kit) {
@@ -188,18 +198,22 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
   // Anyone on the waitlist with this email is in now.
   await env.DB.prepare("UPDATE waitlist SET invited_at = coalesce(invited_at, ?) WHERE email = ?").bind(t, email).run();
 
-  const station = await chosenStation(String(form.get("station") || ""));
-  const seed = station
+  // The detection source: a BirdWeather station, or the owner's own
+  // detector, which the page's Detection source section then walks through.
+  const station = source === "birdweather" ? await chosenStation(String(form.get("station") || "")) : null;
+  const seed: Record<string, string> | null = station
     ? { detection_backend: "birdweather", birdweather_station_id: station.id,
         ...(regionFor(station.continent) ? { region: regionFor(station.continent)! } : {}) }
-    : null;
+    : source !== "birdweather" ? { detection_backend: source } : null;
   await env.HOUSEHOLD.getByName(hid).setUp(hid, tz, seed, row.device_id, JSON.parse(row.report || "{}"));
 
   const km = Number(form.get("km"));
   const distance = !station || !Number.isFinite(km) || String(form.get("km") || "") === "" ? ""
     : miles(request) ? `${Math.round(km * 0.621371)} mi` : `${Math.round(km)} km`;
   ctx.waitUntil(sendMail(env, email, welcomeEmail(station ? { name: station.name, distance } : null)));
-  return signedIn(env, uid, "/?welcome=1");
+  // A separate email proves the address; until then the page asks for it.
+  ctx.waitUntil(sendVerification(env, uid, email));
+  return signedIn(env, uid, source === "birdweather" ? "/?welcome=1" : "/?welcome=1&open=source");
 }
 
 async function chosenStation(id: string): Promise<{ id: string; name: string; continent: string } | null> {
@@ -221,11 +235,19 @@ async function stations(request: Request, env: Env, url: URL, ip: string): Promi
   const lon = Number(url.searchParams.get("lon"));
   const given = url.searchParams.has("lat") && Number.isFinite(lat) && Math.abs(lat) <= 90
     && Number.isFinite(lon) && Math.abs(lon) <= 180 ? { lat, lon } : null;
-  const at = given || cfPoint(request);
-  const q = (url.searchParams.get("q") || "").trim();
-  const list = q ? await stationsNamed(q, at) : at ? await stationsNear(at.lat, at.lon) : [];
-  // A distance is shown only from the phone's own location: an IP's is
-  // often tens of miles out, which is still good enough to order by.
-  return Response.json({ stations: list.map(({ id, name, km, species }) => ({ id, name, km, species })),
-                         measured: !!given });
+  const typed = (url.searchParams.get("place") || "").trim();
+  let at = given;
+  let label = "";
+  if (!at && typed) {
+    const found = await geocode(typed, cfOf(request).country || "");
+    if (!found) return Response.json({ stations: [], found: false });
+    at = { lat: found.lat, lon: found.lon };
+    label = found.label;
+  }
+  if (!at) return Response.json({ stations: [] });
+  const list = await stationsNear(at.lat, at.lon);
+  return Response.json({
+    stations: list.map((st) => ({ id: st.id, name: st.name, km: st.km, species: st.species, state: st.state })),
+    place: label,
+  });
 }

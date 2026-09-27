@@ -2,6 +2,7 @@
 // household; signing up is by invitation. Only hashes of secrets are stored.
 
 import type { Env } from "./index";
+import { verifiedPage, verifyEmail, verifyExpiredPage } from "./pages";
 import { checkEmailPage, confirmEmailEmail, inviteEmail, linkExpiredPage, loginPage, signInEmail, waitlistConfirmEmail,
          waitlistConfirmedPage, waitlistExpiredPage } from "./pages";
 import { cookie, randomHex, sha256, validTz } from "./util";
@@ -76,17 +77,60 @@ export async function auth(request: Request, env: Env, url: URL): Promise<Respon
     const tz = validTz(row.tz);
     await env.DB.batch([
       env.DB.prepare("INSERT INTO households (id, tz, created_at) VALUES (?, ?, ?)").bind(hid, tz, now()),
-      env.DB.prepare("INSERT INTO users (id, email, household_id, created_at) VALUES (?, ?, ?, ?)").bind(uid, row.email, hid, now()),
+      env.DB.prepare("INSERT INTO users (id, email, household_id, created_at, verified_at) VALUES (?, ?, ?, ?, ?)")
+        .bind(uid, row.email, hid, now(), now()),
       env.DB.prepare("UPDATE invites SET used_at = ? WHERE email = ?").bind(now(), row.email),
     ]);
     await env.HOUSEHOLD.getByName(hid).init(hid, tz);
     user = { id: uid, household_id: hid };
   }
+  // Following an emailed link proves the address (W-889).
+  await env.DB.prepare("UPDATE users SET verified_at = ? WHERE id = ? AND verified_at IS NULL").bind(now(), user.id).run();
   // A link from the setup page (W-888): the frame whose code was scanned
   // joins this account, if it is still showing that code.
   let landing = "/";
   if (row.pair_code && await pairLinked(env, row.pair_code, user.household_id)) landing = "/?paired=1";
   return signedIn(env, user.id, landing);
+}
+
+// -- confirming a new owner's email (W-889) ---------------------------------------
+const VERIFY_TTL_S = 7 * 24 * 60 * 60;
+export const VERIFY_RESENDS_PER_HOUR = 3;
+
+/** Email `uid` a link that confirms `email`. */
+export async function sendVerification(env: Env, uid: string, email: string): Promise<boolean> {
+  const token = randomHex(32);
+  await env.DB.prepare("INSERT INTO email_verifications (token_hash, user_id, email, expires_at) VALUES (?, ?, ?, ?)")
+    .bind(await sha256(token), uid, email, now() + VERIFY_TTL_S).run();
+  return sendMail(env, email, verifyEmail(`https://${env.APP_HOST}/account/verify?t=${token}`));
+}
+
+/** The link from that email. */
+export async function confirmVerification(env: Env, url: URL): Promise<Response> {
+  const token = url.searchParams.get("t") || "";
+  if (!/^[0-9a-f]{64}$/.test(token)) return verifyExpiredPage();
+  const row = await env.DB.prepare(
+    "SELECT user_id, email FROM email_verifications WHERE token_hash = ? AND expires_at > ? AND used_at IS NULL")
+    .bind(await sha256(token), now()).first<{ user_id: string; email: string }>();
+  if (!row) return verifyExpiredPage();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE email_verifications SET used_at = ? WHERE token_hash = ?").bind(now(), await sha256(token)),
+    // Only while the account still has the address the link was sent to.
+    env.DB.prepare("UPDATE users SET verified_at = coalesce(verified_at, ?) WHERE id = ? AND email = ?")
+      .bind(now(), row.user_id, row.email),
+  ]);
+  return verifiedPage();
+}
+
+/** The banner's Resend. */
+export async function resendVerification(request: Request, env: Env, user: SessionUser): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  if (origin && origin !== `https://${env.APP_HOST}`) return new Response("forbidden", { status: 403 });
+  let q = "verify_sent=1";
+  if (user.verified) q = "verified=1";
+  else if (!(await rateHit(env, `verify:${user.uid}`, VERIFY_RESENDS_PER_HOUR, 3600))) q = "verify_limited=1";
+  else if (!(await sendVerification(env, user.uid, user.email))) q = "verify_failed=1";
+  return Response.redirect(`https://${env.APP_HOST}/?${q}`, 303);
 }
 
 /** A new session for `uid`, and the page it lands on. */
@@ -116,12 +160,15 @@ export async function logout(request: Request, env: Env): Promise<Response> {
 
 export interface SessionUser {
   uid: string; email: string; hid: string; suspended: boolean;
+  /** Its email proven by an emailed link (W-889). */
+  verified: boolean;
   /** The admin's own email, while an admin is looking at this household (W-860). */
   as?: string;
 }
 
 const USER_SQL = `SELECT u.id AS uid, u.email AS email, u.household_id AS hid,
-  h.suspended_at IS NOT NULL AS suspended FROM users u JOIN households h ON h.id = u.household_id`;
+  h.suspended_at IS NOT NULL AS suspended, u.verified_at IS NOT NULL AS verified
+  FROM users u JOIN households h ON h.id = u.household_id`;
 
 /** Who is signed in, themselves: never another household an admin is looking at. */
 export async function realSessionUser(request: Request, env: Env): Promise<SessionUser | null> {
@@ -130,7 +177,7 @@ export async function realSessionUser(request: Request, env: Env): Promise<Sessi
   const row = await env.DB.prepare(
     `${USER_SQL} JOIN sessions s ON s.user_id = u.id WHERE s.token_hash = ? AND s.expires_at > ?`)
     .bind(await sha256(session), now()).first<SessionUser>();
-  return row ? { ...row, suspended: !!row.suspended } : null;
+  return row ? { ...row, suspended: !!row.suspended, verified: !!row.verified } : null;
 }
 
 /** The signed-in user and their household, or null. For an admin who chose
@@ -141,7 +188,7 @@ export async function sessionUser(request: Request, env: Env): Promise<SessionUs
   const as = cookie(request, AS_COOKIE);
   if (!user || !as || !isAdmin(env, user.email)) return user;
   const target = await env.DB.prepare(`${USER_SQL} WHERE u.household_id = ?`).bind(as).first<SessionUser>();
-  return target ? { ...target, suspended: !!target.suspended, as: user.email } : user;
+  return target ? { ...target, suspended: !!target.suspended, verified: !!target.verified, as: user.email } : user;
 }
 
 // -- the admin (W-850, W-860) ---------------------------------------------------
@@ -439,8 +486,8 @@ export async function admin(request: Request, env: Env, path: string): Promise<R
     const hid = String(body.household || "");
     const exists = await env.DB.prepare("SELECT 1 FROM households WHERE id = ?").bind(hid).first();
     if (!exists) await env.DB.prepare("INSERT INTO households (id, tz, created_at) VALUES (?, 'UTC', ?)").bind(hid, now()).run();
-    await env.DB.prepare("INSERT OR REPLACE INTO users (id, email, household_id, created_at) VALUES (?, ?, ?, ?)")
-      .bind(randomHex(8), email, hid, now()).run();
+    await env.DB.prepare("INSERT OR REPLACE INTO users (id, email, household_id, created_at, verified_at) VALUES (?, ?, ?, ?, ?)")
+      .bind(randomHex(8), email, hid, now(), now()).run();
     await logAction(env, "api", "adopt", `${email} (${hid})`, true, `Gave ${hid} the login ${email}.`);
     return Response.json({ ok: true, household: hid, email });
   }

@@ -100,6 +100,42 @@
              width:max-content; max-width:min(560px, calc(100vw - 32px));
              transform:translateX(-50%); box-shadow:var(--sh-card); }
     .flash.show { animation:flash-in .3s cubic-bezier(.2,.7,.2,1); }
+    /* Set up from the phone (W-889): a sheet rises with the frame turning
+       once in it, then Continue lands on the page under it. */
+    .ws-back { position:fixed; inset:0; z-index:60; background:rgba(20,18,14,.42); opacity:0; transition:opacity .35s; }
+    .ws-back.on { opacity:1; }
+    .ws-sheet { position:fixed; left:0; right:0; bottom:0; z-index:61; margin:0 auto; max-width:520px;
+      padding:34px 24px calc(24px + env(safe-area-inset-bottom)); border-radius:22px 22px 0 0; background:var(--surface);
+      box-shadow:0 -8px 40px rgba(0,0,0,.25); text-align:center; transform:translateY(105%);
+      transition:transform .55s cubic-bezier(.2,.8,.2,1); }
+    .ws-sheet.on { transform:translateY(0); }
+    .ws-stage { height:250px; perspective:900px; display:flex; align-items:center; justify-content:center; }
+    .ws-frame { position:relative; width:150px; height:200px; transform-style:preserve-3d;
+      transform:rotateX(6deg) rotateY(-24deg); }
+    .ws-sheet.on .ws-frame { animation:ws-spin 2.2s cubic-bezier(.35,.05,.2,1) .35s both, ws-float 5s ease-in-out 2.6s infinite; }
+    @keyframes ws-spin { from { transform:rotateX(10deg) rotateY(-384deg) translateY(30px) scale(.8); }
+                         to { transform:rotateX(6deg) rotateY(-24deg) translateY(0) scale(1); } }
+    @keyframes ws-float { 0%,100% { transform:rotateX(6deg) rotateY(-24deg) translateY(0); }
+                          50% { transform:rotateX(4deg) rotateY(-16deg) translateY(-6px); } }
+    .ws-face { position:absolute; inset:0; backface-visibility:hidden; }
+    .ws-front { transform:translateZ(8px); background:#1f1d1a; padding:9px; border-radius:3px; }
+    .ws-mat { width:100%; height:100%; background:#fbfaf6; padding:12px; display:flex; align-items:center; justify-content:center; }
+    .ws-mat img { width:100%; height:100%; object-fit:cover; display:block; }
+    .ws-mat .ws-mark { font-family:"Featherframe Script", var(--serif); font-style:italic; font-size:24px; color:#2a2723; }
+    .ws-backface { transform:rotateY(180deg) translateZ(8px); background:#2b2824; border-radius:3px; }
+    .ws-side { position:absolute; top:0; width:16px; height:100%; background:#141311; }
+    .ws-side.l { left:-8px; transform:rotateY(-90deg); }
+    .ws-side.r { right:-8px; transform:rotateY(90deg); }
+    .ws-edge { position:absolute; left:0; width:100%; height:16px; background:#171513; }
+    .ws-edge.t { top:-8px; transform:rotateX(90deg); }
+    .ws-edge.b { bottom:-8px; transform:rotateX(-90deg); }
+    .ws-sheet h2 { font-size:22px; font-weight:650; margin:6px 0 8px; }
+    .ws-sheet p { color:var(--muted); margin:0 auto 22px; max-width:34ch; line-height:1.5; }
+    .ws-sheet button { width:100%; }
+    @media (prefers-reduced-motion:reduce) { .ws-sheet, .ws-back { transition:none; } .ws-sheet.on .ws-frame { animation:none; } }
+    .verify-note form { display:inline; margin:0; }
+    .verify-note button { font:inherit; font-weight:600; color:inherit; background:none; border:0; padding:0; margin-left:6px;
+      text-decoration:underline; cursor:pointer; }
     @keyframes flash-in { from { transform:translate(-50%, -120%); opacity:0; } to { transform:translate(-50%, 0); opacity:1; } }
     @media (prefers-reduced-motion:reduce){ .flash.show { animation:none; } }
 
@@ -942,6 +978,20 @@
     <span class="test-msg"></span>
   </div>
 
+  <div class="ws-back" id="ws-back" hidden></div>
+  <div class="ws-sheet" id="ws-sheet" role="dialog" aria-modal="true" aria-labelledby="ws-title" hidden>
+    <div class="ws-stage" aria-hidden="true">
+      <div class="ws-frame">
+        <div class="ws-face ws-front"><div class="ws-mat"><span class="ws-mark">Featherframe</span></div></div>
+        <div class="ws-face ws-backface"></div>
+        <div class="ws-side l"></div><div class="ws-side r"></div><div class="ws-edge t"></div><div class="ws-edge b"></div>
+      </div>
+    </div>
+    <h2 id="ws-title">Connected</h2>
+    <p>Your frame is getting ready. It will start showing pictures in a few moments.</p>
+    <button type="button" class="btn primary" id="ws-go">Continue</button>
+  </div>
+
   {% set _srcnames = {'birdnet_go':'BirdNET-Go','apprise':'BirdNET-Pi','birdweather':'BirdWeather','custom':'Local database'} %}
   {# A hosted server has no BirdNET database beside it: it never offers one, and a household that never chose a source starts on BirdWeather. #}
   {% set _src = 'birdweather' if hosted and config.detection_backend=='custom' else config.detection_backend %}
@@ -964,6 +1014,13 @@
     <span class="test-msg"><strong>{{ title }}</strong> {{ body }}</span>
   </div>
   {% endif %}{% endfor %}{% endfor %}
+
+  {% if email_unverified %}
+  <div class="test-box warn show panel-note verify-note" role="status">
+    <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
+    <span class="test-msg">Confirm your email address to keep signing in once this device's sign-in ends. Check your inbox for the link.<form method="post" action="/account/verify/resend"><button type="submit">Resend</button></form></span>
+  </div>
+  {% endif %}
 
   <main class="grid">
     <!-- LEFT: the plate, then the detection source and the history -->
@@ -2025,6 +2082,30 @@
     flash.classList.remove('show', 'ok', 'bad', 'warn'); flashKind = null;
     flash.querySelector('.test-msg').textContent = '';
   }
+  // Set up from the phone (W-889): the sheet, with this frame's first
+  // picture in the turning frame once it has one.
+  function openWelcome() {
+    var sheet = $('ws-sheet'), back = $('ws-back');
+    if (!sheet) return;
+    sheet.hidden = false; back.hidden = false;
+    requestAnimationFrame(function () { requestAnimationFrame(function () { sheet.classList.add('on'); back.classList.add('on'); }); });
+    var mat = sheet.querySelector('.ws-mat'), src = ($('preview') || {}).src, tries = 0;
+    function look() {
+      if (!src || tries++ > 20 || !sheet.classList.contains('on')) return;
+      var img = new Image();
+      img.onload = function () { mat.innerHTML = ''; mat.appendChild(img); };
+      img.onerror = function () { setTimeout(look, 3000); };
+      img.src = src + (src.indexOf('?') < 0 ? '?' : '&') + 'w=' + Date.now();
+    }
+    look();
+    $('ws-go').onclick = function () {
+      sheet.classList.remove('on'); back.classList.remove('on');
+      setTimeout(function () { sheet.hidden = true; back.hidden = true; }, 500);
+      $('ws-go').focus && document.body.focus();
+    };
+    setTimeout(function () { $('ws-go').focus(); }, 600);
+  }
+
   // The save round-trip reports back through the URL (/?saved=1&adjusted=… or /?error=…).
   // Household fields only: a frame's own are saved per frame, without a reload.
   var FIELD_NAMES = { collage_interval_hours: 'Update interval',
@@ -2042,12 +2123,15 @@
     }
     else if (q.get('email_changed')) { showFlash('ok', 'Email changed.', 'ic-check'); shown = true; }
     // Set up from the phone (W-888), or a frame added by an emailed link.
-    else if (q.get('welcome')) { showFlash('ok', 'Your frame is set up. It will show its first picture in a minute.', 'ic-check'); shown = true; }
+    else if (q.get('welcome')) { openWelcome(); shown = true; }
+    else if (q.get('verify_sent')) { showFlash('ok', 'Sent. Check your inbox for the link.', 'ic-check'); shown = true; }
+    else if (q.get('verify_limited')) { showFlash('warn', 'Already sent a few times. Check your inbox, or try again in an hour.', 'ic-warn'); shown = true; }
+    else if (q.get('verify_failed')) { showFlash('bad', "The email didn't go. Try again in a moment.", 'ic-warn'); shown = true; }
     else if (q.get('paired')) { showFlash('ok', 'Frame added. It will show its first picture in a minute.', 'ic-check'); shown = true; }
     // The section that was just saved opens again (W-878).
     var openRow = q.get('open') && document.getElementById('set-' + q.get('open'));
     if (openRow) openRow.open = true;
-    if (q.has('saved') || q.has('error') || q.has('adjusted') || q.has('email_changed') || q.has('welcome') || q.has('paired') || q.has('open')) {
+    if (q.has('saved') || q.has('error') || q.has('adjusted') || q.has('email_changed') || q.has('welcome') || q.has('paired') || q.has('verify_sent') || q.has('verify_limited') || q.has('verify_failed') || q.has('open')) {
       try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* fine */ }
     }
   })();

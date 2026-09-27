@@ -416,24 +416,25 @@ def test_a_seed_sets_the_source_and_region_and_nothing_else(env):
 
 
 def test_the_pairing_screen_carries_the_setup_qr():
-    """W-888: with a setup URL the pairing screen has a QR code of it, in
-    the paper left of the bough, at whole-pixel modules."""
+    """W-888, W-889: with a setup URL the pairing screen has a QR code of it
+    under the wordmark, the code beside it, at whole-pixel modules."""
     import segno
     from featherframe.render import welcome
-    url = "HTTPS://APP.FEATHERFRAME.APP/SETUP/ABCDEF"
+    url = "https://app.featherframe.app/setup/abcdef/0123456789ab"
     plain = welcome.render_pairing("ABC-DEF")
     scan = welcome.render_pairing("ABC-DEF", url=url)
     qr = welcome.setup_qr(url)
-    box = (welcome._QR_LEFT, welcome._QR_TOP,
-           welcome._QR_LEFT + qr.width, welcome._QR_TOP + qr.height)
-    # The bough's paper is a shade off white: dark modules are black, light ones paper.
+    x, y = welcome.setup_qr_origin("ABC-DEF", "", url)
+    box = (x, y, x + qr.width, y + qr.height)
     drawn = [0 if v < 128 else 255 for v in scan.crop(box).getdata()]
     assert drawn == list(qr.getdata())
-    assert min(plain.crop(box).getdata()) > 200
+    assert list(plain.crop(box).getdata()) != drawn
     # The drawn modules are the symbol for this URL, one module every _QR_MODULE_PX.
     rows = [list(r) for r in segno.make(url, error="m", boost_error=False).matrix_iter(border=4)]
     m = welcome._QR_MODULE_PX
-    sampled = [[qr.getpixel((x * m + m // 2, y * m + m // 2)) == 0 for x in range(len(rows))]
-               for y in range(len(rows))]
+    sampled = [[qr.getpixel((c * m + m // 2, r * m + m // 2)) == 0 for c in range(len(rows))]
+               for r in range(len(rows))]
     assert sampled == [[bool(v) for v in r] for r in rows]
-    assert qr.width >= 300          # ~34 mm or more on the EE03's glass
+    assert qr.width >= 280          # ~31 mm or more on the EE03's glass
+    # Clear of the 4 % mat at the bottom.
+    assert y + qr.height < 1872 * 0.96

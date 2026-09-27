@@ -12,16 +12,19 @@ const SHOWN = 5;
 const CACHE_S = 60 * 60;
 
 export interface Station {
-  id: string; name: string; km: number; species: number; continent: string;
+  id: string; name: string; km: number; species: number; continent: string; state: string;
   lat: number; lon: number;
 }
 
 interface Node {
-  id: string; name?: string | null; continent?: string | null; latestDetectionAt?: string | null;
+  id: string; name?: string | null; continent?: string | null; state?: string | null; latestDetectionAt?: string | null;
   coords?: { lat: number; lon: number } | null; counts?: { species?: number | null } | null;
 }
 
-const FIELDS = "id name continent latestDetectionAt coords { lat lon } counts { species }";
+// `counts` without a period is today's; the list's `period` filters which
+// stations come back, not what they count.
+const FIELDS = `id name continent state latestDetectionAt coords { lat lon }
+  counts(period: {count: 7, unit: "day"}) { species }`;
 
 export function kmBetween(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const r = (d: number) => (d * Math.PI) / 180;
@@ -42,7 +45,7 @@ export function rankStations(nodes: Node[], at: { lat: number; lon: number } | n
     out.push({
       id: String(n.id), name: (n.name || "").trim() || `Station ${n.id}`,
       km: at ? Math.round(kmBetween(at.lat, at.lon, n.coords.lat, n.coords.lon)) : 0,
-      species: Number(n.counts?.species || 0), continent: n.continent || "",
+      species: Number(n.counts?.species || 0), continent: n.continent || "", state: n.state || "",
       lat: n.coords.lat, lon: n.coords.lon,
     });
   }
@@ -100,12 +103,52 @@ export async function stationsNear(lat: number, lon: number): Promise<Station[]>
   return found;
 }
 
-/** Stations whose name matches `text`, measured from `at` when known. */
-export async function stationsNamed(text: string, at: { lat: number; lon: number } | null): Promise<Station[]> {
-  const t = text.trim().slice(0, 60);
-  if (t.length < 2) return [];
-  const q = `query($q: String) { stations(query: $q, first: 30) { nodes { ${FIELDS} } } }`;
-  return rankStations(await ask(q, { q: t }, `name:${t.toLowerCase()}`), at);
+// A ZIP code or a town, as OpenStreetMap's Nominatim places it: one ask per
+// search (never per keystroke), cached a day, under its usage policy
+// (an identifying User-Agent, well under one ask a second).
+const GEOCODE = "https://nominatim.openstreetmap.org/search";
+const GEOCODE_CACHE_S = 24 * 60 * 60;
+
+export interface Place { lat: number; lon: number; label: string }
+
+export async function geocode(text: string, country = ""): Promise<Place | null> {
+  const q = text.trim().slice(0, 80);
+  if (q.length < 2) return null;
+  const cc = /^[A-Za-z]{2}$/.test(country) ? country.toLowerCase() : "";
+  const cache = (globalThis as { caches?: CacheStorage }).caches?.default;
+  const key = new Request(`https://geocode.cache/${encodeURIComponent(`${cc}:${q.toLowerCase()}`)}`);
+  const hit = cache ? await cache.match(key) : undefined;
+  if (hit) return hit.json<Place | null>();
+  // A bare number is a postal code: asked in the phone's own country first.
+  const tries = /^[0-9 -]{3,10}$/.test(q) && cc ? [`&postalcode=${encodeURIComponent(q)}&countrycodes=${cc}`, `&q=${encodeURIComponent(q)}`]
+    : [`&q=${encodeURIComponent(q)}${cc ? `&countrycodes=${cc}` : ""}`, `&q=${encodeURIComponent(q)}`];
+  let place: Place | null = null;
+  try {
+    for (const t of tries) {
+      const r = await fetch(`${GEOCODE}?format=jsonv2&limit=1&addressdetails=1${t}`, {
+        headers: { "User-Agent": "Featherframe setup (https://featherframe.app; hello@featherframe.app)" },
+      });
+      if (!r.ok) break;
+      const rows = await r.json<{ lat: string; lon: string; name?: string;
+        address?: Record<string, string> }[]>();
+      if (rows.length) {
+        const a = rows[0].address || {};
+        const town = a.city || a.town || a.village || a.hamlet || a.suburb || a.county || rows[0].name || q;
+        const region = a.state || a.region || a.country || "";
+        place = { lat: Number(rows[0].lat), lon: Number(rows[0].lon), label: region && region !== town ? `${town}, ${region}` : town };
+        break;
+      }
+    }
+  } catch (err) {
+    console.error("geocode", err);
+    return null;
+  }
+  if (cache) {
+    await cache.put(key, new Response(JSON.stringify(place), {
+      headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${GEOCODE_CACHE_S}` },
+    }));
+  }
+  return place;
 }
 
 /** One station by its id, for the setup's seed: its name and continent. */

@@ -13,6 +13,7 @@
 // frames while the server sleeps, and HouseholdServer (containers.ts), the
 // box's own Python server in a Container.
 
+import { confirmVerification, resendVerification } from "./accounts";
 import { admin, auth, confirmEmailChange, confirmWaitlist, login, logout, pendingEmail, sessionUser, settingsForm } from "./accounts";
 import { adminRoute, waitlistRoute } from "./admin";
 import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
@@ -44,7 +45,7 @@ export interface Env {
 
 const FRAME_PATHS = /^\/api\/(frame|frame\/push|firmware)$/;
 // While it waits to be claimed a frame asks this often, so pairing shows at once.
-const PAIRING_POLL_S = 10;
+const PAIRING_POLL_S = 5;
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -67,6 +68,7 @@ export default {
     if (path === "/auth") return auth(request, env, url);
     if (path === "/logout" && request.method === "POST") return logout(request, env);
     if (path === "/account/email") return confirmEmailChange(env, url);
+    if (path === "/account/verify" && request.method === "GET") return confirmVerification(env, url);
     if (path.startsWith("/_admin/")) return admin(request, env, path.slice("/_admin/".length));
     if (path === "/admin" || path.startsWith("/admin/")) return adminRoute(request, env, url);
     if (path === "/api/waitlist") return waitlistRoute(request, env);
@@ -106,11 +108,12 @@ export default {
       return Response.json({ error: "suspended" }, { status: 403 });
     }
     if (path === "/api/pair" && request.method === "POST") return pair(request, env, hid);
+    if (path === "/account/verify/resend" && request.method === "POST") return resendVerification(request, env, user);
     if (path === "/api/pair/usb" && request.method === "POST") return pairUsb(request, env, hid);
     // The page shows the account's email (W-773), said here, never by the client.
     // The page itself also shows an address waiting for its confirmation link.
     const pending = path === "/" && request.method === "GET" ? await pendingEmail(env, user.uid) : null;
-    const page = (r: Request) => toHousehold(env, hid, r, user.email, pending);
+    const page = (r: Request) => toHousehold(env, hid, r, user.email, pending, !user.verified && !user.as);
     if (path === "/settings" && request.method === "POST") return settingsForm(request, env, user, page);
     const res = await page(request);
     return user.as ? actingAsBar(res, user.email) : res;
@@ -120,11 +123,13 @@ export default {
 /** Hand a request to its household's front door, saying whose it is (and,
  * from a signed-in page, who is signed in). */
 function toHousehold(env: Env, hid: string, request: Request, email?: string,
-                     pending?: string | null): Promise<Response> {
+                     pending?: string | null, unverified = false): Promise<Response> {
   const headers = new Headers(request.headers);
   headers.set("X-FF-Household", hid);         // set here, never taken from the client
   headers.delete("X-FF-Account-Email");
   headers.delete("X-FF-Account-Email-Pending");
+  headers.delete("X-FF-Account-Unverified");
+  if (unverified) headers.set("X-FF-Account-Unverified", "1");
   if (email) headers.set("X-FF-Account-Email", email);
   if (pending) headers.set("X-FF-Account-Email-Pending", pending);
   return env.HOUSEHOLD.getByName(hid).fetch(new Request(request, { headers }));

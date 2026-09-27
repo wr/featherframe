@@ -5,7 +5,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { auth } from "../src/accounts";
+import { auth, confirmVerification, sessionUser } from "../src/accounts";
 import { newSetupCode, normSetupCode, setupRoute } from "../src/setup";
 import { rankStations, regionFor } from "../src/stations";
 import { setupToken, setupUrl } from "../src/pairing";
@@ -53,6 +53,10 @@ beforeEach(() => {
     }) },
   };
   vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    if (String(url).includes("nominatim")) {
+      return Response.json(String(url).includes("nowhere") ? [] :
+        [{ lat: "41.79", lon: "-72.87", address: { town: "Avon", state: "Connecticut" } }]);
+    }
     if (String(url).includes("resend")) {
       const b = JSON.parse(String(init.body));
       mails.push({ to: b.to[0], subject: b.subject, text: b.text });
@@ -118,8 +122,25 @@ describe("setting up", () => {
     const [hid, , tz, seed, device] = setUps[0];
     expect([hid, tz, device]).toEqual([user.household_id, "America/New_York", f.device]);
     expect(seed).toEqual({ detection_backend: "birdweather", birdweather_station_id: "7033", region: "north-america" });
-    expect(mails.map((m) => m.subject)).toEqual(["Your Featherframe is set up"]);
-    expect(mails[0].text).toContain("BanksRd-PUC, a BirdWeather station 4 km away");
+    expect(mails.map((m) => m.subject).sort()).toEqual(["Confirm your email for Featherframe", "Welcome to Featherframe!"]);
+    expect(mails.find((m) => m.subject.startsWith("Welcome"))!.text)
+      .toContain("heard by BanksRd-PUC, a BirdWeather station 4 km from you");
+    // Signed in, but not yet confirmed; the emailed link confirms it.
+    expect(one("SELECT verified_at FROM users").verified_at).toBeNull();
+    const link = new URL(mails.find((m) => m.subject.startsWith("Confirm"))!.text.match(/https:\/\/\S+/)![0]);
+    expect(link.pathname).toBe("/account/verify");
+    expect(await (await confirmVerification(env, link)).text()).toContain("Email confirmed");
+    expect(one("SELECT verified_at FROM users").verified_at).not.toBeNull();
+  });
+
+  it("seeds the owner's own detector, and lands on its setup steps", async () => {
+    const f = await frameShowing();
+    db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
+    const res = await post(f, { email: "go@example.com", source: "birdnet_go", station: "7033" });
+    await Promise.all(waits);
+    expect(res.headers.get("Location")).toBe("/?welcome=1&open=source");
+    expect(setUps[0][3]).toEqual({ detection_backend: "birdnet_go" });
+    expect(mails.find((m) => m.subject.startsWith("Welcome"))!.text).toContain("connect your detector");
   });
 
   it("takes a setup code once, whatever its dash or case", async () => {
@@ -179,6 +200,21 @@ describe("setting up", () => {
   });
 });
 
+describe("finding stations", () => {
+  const ask = async (f: { code: string; token: string }, q: string) => {
+    const url = `https://${HOST}/api/setup/stations?c=${f.code}&t=${f.token}${q}`;
+    return (await setupRoute(new Request(url, { headers: { "CF-Connecting-IP": "203.0.113.9" } }), env, new URL(url), ctx)).json();
+  };
+  it("places a ZIP code or town and lists what is near it, for a frame showing its code only", async () => {
+    const f = await frameShowing();
+    const got = await ask(f, "&place=06001");
+    expect(got.place).toBe("Avon, Connecticut");
+    expect(got.stations[0]).toMatchObject({ id: "7033", name: "BanksRd-PUC", state: "" });
+    expect((await ask(f, "&place=nowhere")).found).toBe(false);
+    expect((await ask({ code: f.code, token: "0".repeat(12) }, "&place=06001")).stations).toEqual([]);
+  });
+});
+
 describe("stations", () => {
   const day = 24 * 3600 * 1000;
   const at = Date.parse("2026-09-27T12:00:00Z");
@@ -209,9 +245,9 @@ describe("codes", () => {
     expect(normSetupCode("ABC")).toBe("");
     expect(newSetupCode()).toMatch(/^[ABCDEFGHJKMNPQRSTWXYZ]{8}$/);
   });
-  it("spells the setup URL in the QR's alphanumeric set", () => {
+  it("spells the setup URL in lower case", () => {
     const t = setupToken();
-    expect(t).toMatch(/^[0-9A-Z]{12}$/);
-    expect(setupUrl(HOST, "ABCDEF", t)).toBe(`HTTPS://APP.FEATHERFRAME.APP/SETUP/ABCDEF/${t}`);
+    expect(t).toMatch(/^[0-9a-z]{12}$/);
+    expect(setupUrl(HOST, "ABCDEF", t)).toBe(`https://app.featherframe.app/setup/abcdef/${t}`);
   });
 });

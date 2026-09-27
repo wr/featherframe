@@ -1,5 +1,5 @@
-"""W-735: the two controls a viewer reaches for — hold this plate, and block
-what's showing — driven from the dashboard."""
+"""W-735: block what's showing, driven from the dashboard. (Its twin, Hold,
+went with W-904: nothing holds a plate.)"""
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -81,49 +81,6 @@ def _hear(svc, rowid, species, at=NOW):
     svc.source.rows.append(_det(rowid, *species, at=at))
 
 
-# -- hold ----------------------------------------------------------------------
-def test_a_held_plate_is_not_replaced_by_the_next_bird(svc):
-    hold = svc.hold_current("day")
-    assert hold["title"] == CARDINAL[0]
-    _hear(svc, 2, ROBIN)
-    svc.tick()
-    assert svc._meta["label"] == CARDINAL[0]
-    assert svc.status()["hold"]["until_text"]
-
-
-def test_a_hold_expires_and_the_frame_catches_up(svc):
-    svc.hold_current("day")
-    _hear(svc, 2, ROBIN)
-    svc.tick()
-    assert svc._meta["label"] == CARDINAL[0]
-    assert svc._cursor() == 1                 # the held tick consumed nothing
-    later = NOW + timedelta(days=1, minutes=1)
-    svc._clock = lambda: later
-    _hear(svc, 3, ROBIN, at=later)            # a fresh bird, so no gone-quiet footnote competes
-    svc.tick()
-    assert svc.user_hold() is None
-    assert svc._meta["label"] == ROBIN[0]
-
-
-def test_release_repaints_what_should_be_showing(svc):
-    svc.hold_current("forever")
-    _hear(svc, 2, ROBIN)
-    svc.tick()
-    assert svc.user_hold()["until"] is None
-    assert svc._meta["label"] == CARDINAL[0]
-    svc.release_hold()
-    assert svc.user_hold() is None
-    assert svc._meta["label"] == ROBIN[0]
-
-
-def test_hold_endpoints(client, svc):
-    r = client.post("/api/hold", data={"duration": "week"})
-    assert r.status_code == 200 and r.json()["hold"]["title"] == CARDINAL[0]
-    assert client.get("/api/status").json()["hold"]["until"].startswith("2026-09-19")
-    r = client.post("/api/hold/release")
-    assert r.status_code == 200 and client.get("/api/status").json()["hold"] is None
-
-
 # -- block ---------------------------------------------------------------------
 def test_block_current_adds_the_species_once_and_moves_on(svc):
     _hear(svc, 2, ROBIN)
@@ -145,6 +102,11 @@ def test_unblock_undoes_it(svc):
     assert svc.unblock(CARDINAL[0]) is False
 
 
+def test_there_is_no_hold(client, svc):
+    assert client.post("/api/hold", data={"duration": "week"}).status_code in (404, 405)
+    assert "hold" not in client.get("/api/status").json()
+
+
 def test_block_endpoints(client, svc):
     _hear(svc, 2, ROBIN)
     r = client.post("/api/block-current")
@@ -154,12 +116,11 @@ def test_block_endpoints(client, svc):
     assert r.status_code == 200 and svc.config.species_blocklist == []
 
 
-def test_nothing_to_hold_or_block_on_a_welcome_plate(tmp_path, monkeypatch):
+def test_nothing_to_block_on_a_welcome_plate(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data2"))
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     fresh = FeatherframeService()
     fresh.source.db_path = str(tmp_path / "missing.db")
     fresh._ensure_initial_frame()
     assert fresh._meta["mode"] == "welcome"
-    assert fresh.hold_current("day") is None
     assert fresh.block_current() is None

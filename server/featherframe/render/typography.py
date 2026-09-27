@@ -349,7 +349,7 @@ def date_text(when: datetime) -> str:
 def date_mark(field: Image.Image, when: datetime) -> float:
     """"4 Sep · 11:34 am" in the small script, tucked into the bottom-left
     corner. Repeats of a species DO re-render (the owner wants the clock to
-    move with the bird), and a held or quiet frame can sit for days — so the
+    move with the bird), and a quiet frame can sit for days — so the
     mark always carries the date: a stale plate must look stale. Returns
     the mark's width."""
     return draw_script(field, theme.CORNER_INSET, theme.MARKS_BASELINE, date_text(when),

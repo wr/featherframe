@@ -71,7 +71,7 @@ class Picture:
     def __init__(self, kind: str) -> None:
         self.kind = kind
         # What it is of: mode, label, species_key, rendered_at, novelty,
-        # held_since, the footnote, collage_at. Persisted.
+        # the footnote, collage_at. Persisted.
         self.meta: dict = {}
         self.etag: Optional[str] = None
         self.key: Optional[str] = None     # what was drawn: a detection, a date

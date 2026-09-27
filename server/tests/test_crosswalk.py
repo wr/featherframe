@@ -198,19 +198,303 @@ def test_gould_entries_are_whole():
 
 def test_gould_black_headed_gull_is_his_laughing_gull():
     """Gould's "Black-headed Gull" (plate 427) is today's Mediterranean Gull;
-    today's Black-headed Gull is his "Laughing Gull", plate 425. And Havell's
-    Laughing Gull, an American species, must never reach a Gould plate."""
+    today's Black-headed Gull is his "Laughing Gull", plate 425; and today's
+    (American) Laughing Gull is his "Black-winged Gull", plate 426."""
     by_common = {e["common"]: e for e in _gould()["species"]}
     assert by_common["Black-headed Gull"]["plate"] == 425
     assert by_common["Black-headed Gull"]["scientific"] == "Chroicocephalus ridibundus"
-    assert "Laughing Gull" not in by_common and "Mediterranean Gull" not in by_common
-    assert all(e["plate"] != 427 for e in _gould()["species"])
+    assert by_common["Mediterranean Gull"]["plate"] == 427
+    assert (by_common["Laughing Gull"]["plate"],
+            by_common["Laughing Gull"]["scientific"]) == (426, "Leucophaeus atricilla")
 
 
-def test_gould_only_fills_what_havell_lacks():
-    """Havell is asked first: every introduction Gould draws is a Havell
-    `plate: none`, so no Audubon plate on a North American frame changes."""
-    havell = {e["scientific"]: e for e in yaml.safe_load(SPECIES_YAML.read_text())["species"]}
+def test_gould_pins_each_species_once():
+    """The whole folio (slice 3): one plate per species, a species on several
+    plates keeping its main one, so the folio never flips between two."""
+    species = _gould()["species"]
+    assert len(species) >= 390
+    sci = [e["scientific"] for e in species]
+    assert len(sci) == len(set(sci))
+    commons = [e["common"] for e in species]
+    assert len(commons) == len(set(commons))
+
+
+def test_gould_landscape_plates_stand_upright():
+    """Plates bound sideways read their caption down the right edge: a
+    quarter turn clockwise (PIL 270) stands them up. Nothing else is turned."""
+    turned = {e["plate"]: e.get("rotate") for e in _gould()["species"] if e.get("rotate")}
+    assert set(turned.values()) == {270}
+    assert {247, 354, 425} <= set(turned)
+    assert 184 not in turned and 210 not in turned
+
+
+def test_gould_plates_on_one_sheet_carry_their_figure_numbers():
+    """A sheet with more than one species is a composite and each species
+    names its own figure, as Gould's caption numbers them."""
+    by_plate = {}
     for e in _gould()["species"]:
-        h = havell.get(e["scientific"])
-        assert h is None or h.get("plate") in (None, "none"), e["common"]
+        by_plate.setdefault(e["plate"], []).append(e)
+    for plate, es in by_plate.items():
+        # One figure standing for the daughters of a later split (Orphean,
+        # Bonelli's, ...) shares its title and is no composite.
+        if len({e["gould_title"] for e in es}) > 1:
+            assert all(e.get("composite") and e.get("legend") for e in es), plate
+
+
+# --- Gould's Birds of Great Britain (W-872): a gap-filler behind Europe --------
+
+BRITAIN_YAML = SPECIES_YAML.parent / "gould_britain.yaml"
+
+# (volume, plate, IA volume, leaf), each checked by eye against its engraved
+# caption. Numbered per volume, as the book's own Lists of Plates are.
+BRITAIN_EXPECTED = {
+    "Yellow-browed Warbler": (2, 68, "birdsgreatbrita2goul", 276),
+    "Rock Pipit": (3, 10, "birdsgreatbrita3goul", 46),
+    "Water Pipit": (3, 11, "birdsgreatbrita3goul", 50),
+    "Little Bunting": (3, 25, "birdsgreatbrita3goul", 106),
+    "Pallas's Sandgrouse": (4, 11, "birdsgreatbrita4goul", 50),
+    "Pink-footed Goose": (5, 3, "birdsgreatbrita5goul", 20),
+    "Ross's Gull": (5, 63, "birdsgreatbrita5goul", 260),
+}
+
+
+def _britain():
+    return yaml.safe_load(BRITAIN_YAML.read_text())
+
+
+def test_britain_pins_exactly_the_seven():
+    doc = _britain()
+    assert doc["folio"]["region"] == "europe" and doc["folio"]["plates_per_volume"]
+    by_common = {e["common"]: e for e in doc["species"]}
+    assert set(by_common) == set(BRITAIN_EXPECTED)
+    for common, (vol, plate, volume, leaf) in BRITAIN_EXPECTED.items():
+        e = by_common[common]
+        assert (e["volume_no"], e["plate"], e["volume"], e["leaf"]) == (vol, plate, volume, leaf), common
+    turned = {e["common"] for e in doc["species"] if e.get("rotate")}
+    assert turned == {"Pallas's Sandgrouse", "Pink-footed Goose", "Ross's Gull"}
+
+
+def test_britain_never_pins_what_europe_does():
+    """Both folios are Europe's region, so the index's order between them
+    would decide a species they shared. They share none, so it never does:
+    Britain only fills what Europe lacks."""
+    def names(doc):
+        out = set()
+        for e in doc["species"]:
+            out.add(e["common"].lower())
+            out |= {s.lower() for s in [e["scientific"], *e.get("sci_synonyms", [])]}
+        return out
+    assert not names(_britain()) & names(_gould())
+
+
+# --- Gould's Birds of Australia (W-870) ---------------------------------------
+
+AUSTRALIA_YAML = SPECIES_YAML.parent / "gould_australia.yaml"
+
+# Plates per volume, from each volume's List of Plates (the Supplement last).
+AUSTRALIA_VOLUMES = {1: 36, 2: 104, 3: 97, 4: 104, 5: 92, 6: 82, 7: 85, "Supp.": 81}
+
+# Each read against its engraved caption and Gould's own text.
+AUSTRALIA_EXPECTED = {
+    "Laughing Kookaburra": (2, 18, "birdsAustraliav2Goul", 80),
+    "Superb Fairywren": (3, 18, "birdsAustraliav3Goul", 80),
+    "Superb Parrot": (5, 15, "birdsAustraliav5Goul", 68),
+    "Regent Parrot": (5, 16, "birdsAustraliav5Goul", 72),
+}
+
+
+def _australia():
+    return yaml.safe_load(AUSTRALIA_YAML.read_text())
+
+
+def _australia_at(volume_no, plate):
+    return next((e for e in _australia()["species"]
+                 if (e["volume_no"], e["plate"]) == (volume_no, plate)), None)
+
+
+def test_australia_pins():
+    by_common = {e["common"]: e for e in _australia()["species"]}
+    for common, (vol, plate, volume, leaf) in AUSTRALIA_EXPECTED.items():
+        e = by_common[common]
+        assert (e["volume_no"], e["plate"], e["volume"], e["leaf"]) == (vol, plate, volume, leaf), common
+
+
+def test_australia_entries_are_whole():
+    doc = _australia()
+    folio = doc["folio"]
+    assert folio["region"] == "australia" and folio["plates_per_volume"] is True
+    assert folio["plates"] == sum(AUSTRALIA_VOLUMES.values())
+    for e in doc["species"]:
+        assert 1 <= e["plate"] <= AUSTRALIA_VOLUMES[e["volume_no"]], e["common"]
+        assert e["volume"].startswith("birdsAustralia") and e["leaf"] > 0, e["common"]
+
+
+def test_australia_pins_each_species_once():
+    species = _australia()["species"]
+    assert len(species) >= 380
+    sci = [e["scientific"] for e in species]
+    assert len(sci) == len(set(sci))
+    commons = [e["common"] for e in species]
+    assert len(commons) == len(set(commons))
+
+
+def test_australia_sideways_plates_stand_upright():
+    """A sideways plate reads its caption down the right edge (a quarter turn
+    clockwise, PIL 270) or, on a few, up the left (90). All of vol. VII is
+    sideways; vols. I-IV are all upright."""
+    for e in _australia()["species"]:
+        if e["volume_no"] == 7:
+            assert e.get("rotate") in (90, 270), e["common"]
+        if e["volume_no"] in (1, 2, 3, 4):
+            assert "rotate" not in e, e["common"]
+
+
+def test_australia_no_sheet_is_a_composite():
+    """Every sheet shows one species (male, female, young)."""
+    leaves = [(e["volume"], e["leaf"]) for e in _australia()["species"]]
+    assert len(leaves) == len(set(leaves))
+    assert not any(e.get("composite") for e in _australia()["species"])
+
+
+def test_australia_fold_outs_are_never_pinned():
+    """The bowers (IV.8, IV.10) and Supp. 76 are double-page spreads with the
+    fold through the art."""
+    for vol, plate in ((4, 8), (4, 10), ("Supp.", 76)):
+        assert _australia_at(vol, plate) is None
+
+
+@pytest.mark.parametrize("vol,plate,common,scientific", [
+    # Gould's binomial now names another bird: match on the modern name.
+    (2, 67, "Rufous Whistler", "Pachycephala rufiventris"),       # his pectoralis
+    (2, 91, "Satin Flycatcher", "Myiagra cyanoleuca"),            # his nitida
+    (2, 88, "Shining Flycatcher", "Myiagra alecto"),
+    (1, 26, "Swamp Harrier", "Circus approximans"),               # his assimilis
+    (4, 98, "White-throated Treecreeper", "Cormobates leucophaea"),  # his picumnus
+    (4, 93, "Brown Treecreeper", "Climacteris picumnus"),         # his scandens
+    (6, 76, "Buff-banded Rail", "Gallirallus philippensis"),      # his Rallus pectoralis
+    (6, 77, "Lewin's Rail", "Lewinia pectoralis"),
+    (4, 7, "Bassian Thrush", "Zoothera lunulata"),                # not the Mountain Thrush
+    (3, 55, "Tasmanian Thornbill", "Acanthiza ewingii"),          # not his diemenensis
+])
+def test_australia_naming_traps(vol, plate, common, scientific):
+    e = _australia_at(vol, plate)
+    assert (e["common"], e["scientific"]) == (common, scientific)
+
+
+def test_folios_are_asked_havell_first_then_as_published():
+    """A new folio never takes a species from one a household already sees:
+    after Havell, Europe (1832) is asked before Australia (1840), so the
+    Eurasian Coot outside the Australia region stays Gould's European plate.
+    Britain (1862) shares no species with either."""
+    import importlib.util
+    script = SPECIES_YAML.parents[1] / "fetch_plates.py"
+    spec = importlib.util.spec_from_file_location("fetch_plates", script)
+    fp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fp)
+    order = [f for f, _, _ in fp.load_folios(SPECIES_YAML.parent)]
+    assert order == ["havell", "gould_europe", "gould_australia", "gould_asia", "gould_britain"]
+
+
+# --- Gould's Birds of Asia (W-871) --------------------------------------------
+
+ASIA_YAML = SPECIES_YAML.parent / "gould_asia.yaml"
+
+
+def _asia():
+    return yaml.safe_load(ASIA_YAML.read_text())
+
+
+def test_asia_entries_are_whole():
+    """Numbered per volume: each plate names its volume, and its leaf is where
+    the copy's binding puts it (plate n at first + 4(n-1))."""
+    doc = _asia()
+    folio = doc["folio"]
+    assert folio["region"] == "asia" and folio["plates_per_volume"] is True
+    first = {1: 28}
+    for e in doc["species"]:
+        assert 1 <= e["volume_no"] <= 7 and 1 <= e["plate"] <= 83, e["common"]
+        assert e["leaf"] == first.get(e["volume_no"], 12) + 4 * (e["plate"] - 1), e["common"]
+        assert e.get("rotate", 0) in (0, 270), e["common"]
+
+
+def test_asia_pins_each_species_once():
+    species = _asia()["species"]
+    assert len(species) >= 250
+    sci = [e["scientific"] for e in species]
+    assert len(sci) == len(set(sci))
+
+
+def test_asia_merops_viridis_is_the_green_bee_eater():
+    """I.35 is printed "Merops viridis, Linn." (today's Blue-throated
+    Bee-eater) but shows the Green Bee-eater: pinned by the bird."""
+    by_sci = {e["scientific"]: e for e in _asia()["species"]}
+    e = by_sci["Merops orientalis"]
+    assert (e["volume_no"], e["plate"]) == (1, 35)
+    assert "Merops viridis" not in by_sci
+
+
+def test_asia_leaves_the_forms_out():
+    """A race Gould named as a species never stands in for the species: the
+    caniceps goldfinch (V.17) and the rest of the survey's forms are unpinned,
+    and so is Jerdon's Bushchat, which is not the Pied Bushchat."""
+    pinned = {(e["volume_no"], e["plate"]) for e in _asia()["species"]}
+    for form in ((5, 17), (2, 75), (3, 53), (4, 43), (4, 70), (5, 35), (4, 32), (7, 34)):
+        assert form not in pinned, form
+    assert "Carduelis carduelis" not in {e["scientific"] for e in _asia()["species"]}
+
+
+def test_asia_ring_necked_pheasant_is_the_ringed_torquatus():
+    """The one form pinned on purpose (Wells, 25 Sep 2026): VII.39, the ringed
+    stock introduced to North America."""
+    by_sci = {e["scientific"]: e for e in _asia()["species"]}
+    e = by_sci["Phasianus colchicus"]
+    assert (e["volume_no"], e["plate"], e["leaf"]) == (7, 39, 164)
+    assert "torquatus" in e["gould_title"]
+
+
+def test_the_ringed_pheasant_wins_everywhere_but_europe(tmp_path):
+    """Folios after the region's own go in publication order, which asks
+    Europe (1832) before Asia (1850); VII.39 is `preferred`, so a North
+    American or Australian station still gets the ringed plate, and the
+    Europe region keeps its own 247. Built from the real folio files and the
+    fetcher's own records, so neither can drop the flag unnoticed."""
+    import importlib.util
+    from types import SimpleNamespace
+    from featherframe.names import SpeciesIndex
+    spec = importlib.util.spec_from_file_location("fetch_plates", SPECIES_YAML.parents[1] / "fetch_plates.py")
+    fp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fp)
+    records, headers = [], {}
+    for folio, header, species in fp.load_folios(SPECIES_YAML.parent):
+        headers[folio] = header
+        pheasant = [e for e in species if e["scientific"] == "Phasianus colchicus"
+                    and e.get("plate") not in (None, "none") and folio != "havell"]
+        for e in pheasant:
+            scan = tmp_path / fp.scan_filename(folio, e)      # on disk: nothing is downloaded
+            scan.parent.mkdir(parents=True, exist_ok=True)
+            scan.write_bytes(b"x")
+        fetched, _, _ = fp.fetch_scans(folio)(None, pheasant, SimpleNamespace(force=False, dry_run=False),
+                                              tmp_path, {}, header)
+        records += fetched
+    idx = SpeciesIndex(records, images_dir=tmp_path, folios=headers)
+    for region, want in (("north-america", "gould_asia"), ("australia", "gould_asia"),
+                         ("asia", "gould_asia"), ("europe", "gould_europe")):
+        assert idx.match("Ring-necked Pheasant", "Phasianus colchicus", region).folio == want, region
+
+
+@pytest.mark.parametrize("vol,plate,why", [
+    (7, 51, "Gould's Procellaria cookii is Gould's Petrel, not Cook's"),
+    (1, 33, "the Tasmanian Boobook, not BirdNET's New Zealand Morepork"),
+    (7, 21, "Lestris catarractes: the Great Skua's name on Southern Ocean birds"),
+    (4, 2, "Pitta vigorsii is the Banda Sea Pitta, which BirdNET lacks"),
+])
+def test_australia_doubtful_plates_stay_out(vol, plate, why):
+    assert _australia_at(vol, plate) is None, why
+
+
+def test_australia_captions_lost_in_the_binding_are_pinned_by_their_text():
+    """Nine sideways captions run into the binding; the figure and the text
+    leaf after each agree, so they are pinned."""
+    for vol, plate, common in ((7, 2, "Magpie Goose"), (7, 74, "Australian Pelican"),
+                               (5, 79, "Orange-footed Scrubfowl")):
+        assert _australia_at(vol, plate)["common"] == common

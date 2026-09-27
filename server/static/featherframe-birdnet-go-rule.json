@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "name": "Featherframe",
+      "description": "Sends every detection to Featherframe",
+      "enabled": true,
+      "built_in": false,
+      "object_type": "detection",
+      "trigger_type": "event",
+      "event_name": "detection.occurred",
+      "metric_name": "",
+      "cooldown_sec": 0,
+      "conditions": [],
+      "actions": [
+        {"target": "push", "template_title": "", "template_message": "", "sort_order": 0}
+      ]
+    }
+  ]
+}

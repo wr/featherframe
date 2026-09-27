@@ -47,7 +47,7 @@
 </head>
 <body>
   <div id="mark">Featherframe</div>
-  <div id="wait"><div id="wait-line">Add this frame on the Featherframe page</div><div id="wait-id"></div></div>
+  <div id="wait"><div id="wait-line">Add this frame on the Featherframe webapp</div><div id="wait-id"></div></div>
   <img id="a" alt=""><img id="b" alt="">
 <script>
 // ES5 on purpose: an iPad from 2013 on a kitchen wall is exactly who this is for.
@@ -136,7 +136,7 @@
         root.className = 'waiting';
         var tag = document.getElementById('wait-id');
         document.getElementById('wait-line').textContent = state.code
-          ? 'Pair this screen on the Featherframe page' : 'Add this frame on the Featherframe page';
+          ? 'Pair this screen on the Featherframe webapp' : 'Add this frame on the Featherframe webapp';
         tag.textContent = state.code || state.id || '';
         tag.className = state.code ? 'code' : '';
         showing = null;

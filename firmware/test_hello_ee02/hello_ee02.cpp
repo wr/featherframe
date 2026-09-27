@@ -1,5 +1,5 @@
 // Bare panel test for the EE02 board + 13.3" Spectra 6 colour panel (combo 510):
-// the six inks as full-width bars, each labelled. One full refresh (~20-30 s,
+// the six inks as full-width bars, each labelled. One full refresh (~15 s,
 // no partial refresh on this panel). Build: pio run -e ee02_hello -t upload
 #include "driver.h"        // Seeed_GFX board/panel selection (-DFF_BOARD_EE02)
 #include "TFT_eSPI.h"

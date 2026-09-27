@@ -257,19 +257,6 @@ def test_birdnet_pi_bad_row_is_skipped_not_fatal(tmp_path):
     assert [d.common_name for d in src.latest_many(0.5)] == ["House Sparrow", "Blue Jay"]
 
 
-def test_birdnet_go_summary_oddities_do_not_raise(monkeypatch):
-    from featherframe.sources.birdnet_go import BirdNetGoSource
-    src = BirdNetGoSource("http://x")
-    monkeypatch.setattr(src, "_get", lambda path, params=None: [
-        "not-a-dict",
-        {"scientific_name": "A a", "first_heard": 12345},
-        {"scientific_name": "B b", "first_heard": "2026-01-01T00:00:00Z"},
-        {"scientific_name": "C c", "first_heard": None},
-    ])
-    assert src.all_time_species_count() == 3
-    assert src.first_seen_date("A a") is None
-
-
 def test_birdweather_top_species_only_answers_today(monkeypatch):
     from featherframe.sources.birdweather import BirdWeatherSource
     src = BirdWeatherSource("tok")
@@ -282,8 +269,8 @@ def test_birdweather_top_species_only_answers_today(monkeypatch):
 
 
 def test_apprise_ingest_rejects_nonstring_and_bounds_names():
-    from featherframe.sources.apprise_push import AppriseSource
-    src = AppriseSource()
+    from featherframe.sources.pushed import PushedSource
+    src = PushedSource("apprise")
     assert src.ingest({"comname": {"a": 1}, "confidence": 0.9}) is None
     assert src.ingest({"comname": ["Blue Jay"], "sciname": 5}) is None
     det = src.ingest({"comname": "x" * 5000, "sciname": "y" * 5000, "confidence": "0.9"})
@@ -292,18 +279,18 @@ def test_apprise_ingest_rejects_nonstring_and_bounds_names():
 
 
 def test_apprise_malformed_persisted_item_is_dropped():
-    from featherframe.sources.apprise_push import AppriseSource, _STORE_KEY
+    from featherframe.sources.pushed import PushedSource
 
     class _KV:
         def __init__(self, v): self.v = v
-        def get(self, k, d=None): return self.v if k == _STORE_KEY else d
+        def get(self, k, d=None): return self.v if k == "apprise_queue" else d
         def set(self, k, v): self.v = v
 
     db = _KV({"counter": 2, "items": [
         {"id": 1, "date": "2026-09-01"},                       # missing keys
         {"id": 2, "date": "2026-09-01", "time": "08:00:00", "common": "Blue Jay",
          "scientific": "Cyanocitta cristata", "confidence": 0.9}]})
-    src = AppriseSource(db=db)
+    src = PushedSource("apprise", db=db)
     assert [d.rowid for d in src.new_since(0)] == [2]
     assert src.top_species_today(date(2026, 9, 1))[0]["common"] == "Blue Jay"
 
@@ -380,10 +367,10 @@ def test_a_frames_output_is_written_atomically(svc, tmp_path):
     assert not fff.with_suffix(".tmp").exists()
 
 
-def test_non_ascii_apprise_token_is_403_not_500(client, svc):
-    from featherframe.sources.apprise_push import AppriseSource
-    svc.config.apprise_token = "pájaro"
-    svc.source = AppriseSource(svc.db)
+def test_non_ascii_ingest_token_is_403_not_500(client, svc):
+    from featherframe.sources.pushed import PushedSource
+    svc.config.ingest_token = "pájaro"
+    svc.source = PushedSource("apprise", svc.db)
     bad = client.post("/api/ingest/apprise/p%C3%A1jara", json={"comname": "Blue Jay"})
     assert bad.status_code == 403
     good = client.post("/api/ingest/apprise/p%C3%A1jaro",
@@ -392,9 +379,9 @@ def test_non_ascii_apprise_token_is_403_not_500(client, svc):
 
 
 def test_chunked_ingest_body_is_capped(client, svc):
-    from featherframe.sources.apprise_push import AppriseSource
-    svc.config.apprise_token = ""
-    svc.source = AppriseSource(svc.db)
+    from featherframe.sources.pushed import PushedSource
+    svc.config.ingest_token = ""
+    svc.source = PushedSource("apprise", svc.db)
 
     def chunks():
         for _ in range(80):

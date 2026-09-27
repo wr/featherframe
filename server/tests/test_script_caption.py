@@ -239,3 +239,21 @@ def test_fallback_hangs_the_empty_bough_with_the_caption_where_a_plates_is(monke
     out = compose.render_fallback(_spec(first_seen="2026-05-17"))
     assert _ink(out, (0, 0, theme.WIDTH, 700)) > 5000        # the bough is there (its upper tip is thin)
     assert compose.bough().size == (theme.WIDTH, 1361)        # a plate's art box, no bird
+
+
+def test_no_latin_name_prints_no_lone_period():
+    """A detection with only a common name ("Kookaburra") leaves the Latin
+    line empty rather than printing its period alone."""
+    import numpy as np
+    from PIL import Image
+    from featherframe.render import theme, typography
+    def ink(sci):
+        f = Image.new("L", (theme.WIDTH, 400), 255)
+        typography.caption(f, 40, "Kookaburra", sci, [])
+        return int((np.asarray(f) < 128).sum())
+    title_only = Image.new("L", (theme.WIDTH, 400), 255)
+    size = typography.fit_script_title("Kookaburra", theme.CONTENT_W)
+    typography.draw_script(title_only, theme.WIDTH / 2, 40 + round(size * theme.SCRIPT_TITLE_ASCENT),
+                           "Kookaburra", size, theme.INK, stroke=theme.TITLE_STROKE)
+    assert ink("") == int((np.asarray(title_only) < 128).sum())
+    assert ink("Dacelo novaeguineae") > ink("")

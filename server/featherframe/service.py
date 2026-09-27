@@ -30,7 +30,7 @@ from urllib.parse import quote
 from PIL import Image
 
 from . import auth, firmware_release
-from . import plate_library
+from . import plate_library, thumbs
 from . import frames as frames_mod
 from . import panels, paths
 from . import pictures as pictures_mod
@@ -42,13 +42,15 @@ from .sources import Detection, make_source
 from .db import Database
 from . import viewers as viewers_mod
 from .render import collage as collage_mod
+from .render import season as season_mod
 from .render import compose as compose_mod
 from .render import framebuffer
 from .render import pipeline
 from .render import statuspage
 from .render import welcome as welcome_mod
 from .render.compose import SingleSpec
-from .render.genart import GeneratedArtProvider, make_image_model, make_text_model
+from .render.genart import (GeneratedArtProvider, failure_reason, make_image_model,
+                            make_text_model)
 from .render.pipeline import RenderResult
 from .render.provider import ArtProvider, ChainedProvider, PlateProvider
 
@@ -84,7 +86,7 @@ _ETAG_RE = re.compile(r"^[0-9a-f]{16}$")
 POLL_SECONDS = 5
 _CLOUD_POLL_SECONDS = 60
 # The confidence a detection needs when the source has no threshold of its
-# own. BirdNET-Go filters by its own setting and only falls back to this.
+# own. BirdNET-Go's pushes already passed its own setting, so it skips this.
 CONFIDENCE_FLOOR = 0.7
 # A frame that shows the collage checks in when the collage is next redrawn
 # (W-833): this long after it, so the draw has landed, and never sooner than
@@ -358,22 +360,41 @@ def when_text(then: datetime, now: Optional[datetime] = None) -> str:
     return f"{then.day} {then.strftime('%b')} {clock}"
 
 
+def clock_text(then: datetime) -> str:
+    """A clock time on the page, as people write it (docs/STYLE.md): "5:40 PM"."""
+    return f"{then.hour % 12 or 12}:{then.minute:02d} {'AM' if then.hour < 12 else 'PM'}"
+
+
+def page_when(then: datetime, now: Optional[datetime] = None) -> str:
+    """A moment on the page: "5:40 PM" today, "24 Sep, 5:40 PM" otherwise."""
+    now = now or datetime.now()
+    if then.date() == now.date():
+        return clock_text(then)
+    return f"{then.day} {then.strftime('%b')}, {clock_text(then)}"
+
+
 def when_short(then: datetime, now: Optional[datetime] = None) -> str:
     """History-strip caption: the time today, else just the date."""
     now = now or datetime.now()
     if then.date() == now.date():
-        return when_text(then, now)
+        return clock_text(then)
     return f"{then.day} {then.strftime('%b')}"
 
 
 def _hours_text(hours: float) -> str:
-    """How long, the way a person says it: "40 min", "7 h", "3 days"."""
+    """How long, the way a person says it: "40 min", "7 hours", "3 days"."""
     hours = max(0.0, float(hours))
     if hours < 1:
         return f"{max(1, round(hours * 60))} min"
     if hours < 48:
-        return f"{round(hours)} h"
+        h = round(hours)
+        return "1 hour" if h == 1 else f"{h} hours"
     return f"{int(hours // 24)} days"
+
+
+_IMAGEGEN_ERROR_KEY = "imagegen_error"
+_IMAGEGEN_NAMES = {"openai": "OpenAI", "gemini": "Google Gemini",
+                   "replicate": "Replicate", "a1111": "Your image server"}
 
 
 def _ago(then: datetime, now: datetime) -> str:
@@ -386,9 +407,9 @@ def _ago(then: datetime, now: datetime) -> str:
         return f"{mins} min ago"
     hours = mins // 60
     if hours < 24:
-        return f"{hours} h ago"
+        return "1 hour ago" if hours == 1 else f"{hours} hours ago"
     days = hours // 24
-    return f"{days} day ago" if days == 1 else f"{days} days ago"
+    return "yesterday" if days == 1 else f"{days} days ago"
 
 
 def _within(stamp: Optional[str], now: datetime, seconds: float) -> bool:
@@ -543,6 +564,7 @@ class FeatherframeService:
         # One registry for every screen (W-833): the kit on the wall, a second
         # kit, a TRMNL, a tablet.
         self.frames = FrameRegistry(self.db)
+        self.frames.drop_zero_mat_inset()
         self.config: Config = load_config(self.db)
         # The page's password, off unless the owner sets one (W-773).
         self.password = auth.PasswordGate(self.db)
@@ -560,6 +582,9 @@ class FeatherframeService:
         # The scans on this box, or the shared library where there are none
         # (FEATHERFRAME_PLATE_LIBRARY, W-842): the same crops either way.
         self.plates = plate_library.from_env() or PlateProvider()
+        self.plates.region = self.config.region
+        self._region_redraw = False     # a Region change awaits the next tick
+        self._collage_redraw = False    # so does a change to how the collage is drawn
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
         self.source = make_source(self.config, self.db)
@@ -739,7 +764,64 @@ class FeatherframeService:
         — turning the feature off must never hide art the user paid for."""
         self.genart = GeneratedArtProvider(make_image_model(config),
                                            text_model=make_text_model(config))
+        self.genart.on_outcome = self._note_imagegen
         return ChainedProvider([self.plates, self.genart])
+
+    def _note_imagegen(self, exc: Optional[BaseException]) -> None:
+        """Keep the image model's last failure for the page, or clear it on a
+        success. It lives in the DB so a restart (a hosted server stops after
+        every wake) still shows an empty account."""
+        if exc is None:
+            if self.db.get(_IMAGEGEN_ERROR_KEY):
+                self.db.set(_IMAGEGEN_ERROR_KEY, None)
+            return
+        self.db.set(_IMAGEGEN_ERROR_KEY, {
+            "at": self._clock().isoformat(timespec="seconds"),
+            "reason": failure_reason(exc),
+            "detail": str(exc)[:300],
+        })
+
+    def _imagegen_glass_note(self) -> Optional[str]:
+        """The frame's footnote for a failing image model, or None. Only for
+        what the owner must fix; anything else is tried again at the next
+        redraw."""
+        err = self.db.get(_IMAGEGEN_ERROR_KEY) or {}
+        if getattr(self.genart, "_model", None) is None:
+            return None
+        name = _IMAGEGEN_NAMES.get(self.config.imagegen_provider,
+                                   self.config.imagegen_provider)
+        if err.get("reason") == "credits":
+            return f"Out of {name} credits"
+        if err.get("reason") == "key":
+            return f"{name} AI key rejected"
+        return None
+
+    def imagegen_error_view(self, now: datetime) -> Optional[dict]:
+        """The last generation failure as the page says it, or None. Only
+        while a model is set up: without a key there is nothing to fail."""
+        err = self.db.get(_IMAGEGEN_ERROR_KEY)
+        if not err or self.genart is None or self.genart._model is None:
+            return None
+        try:
+            when = _ago(datetime.fromisoformat(str(err.get("at"))), now)
+        except (TypeError, ValueError):
+            when = ""
+        name = _IMAGEGEN_NAMES.get(self.config.imagegen_provider,
+                                   self.config.imagegen_provider)
+        reason = err.get("reason")
+        if reason == "credits":
+            summary, state = "Out of credits", "bad"
+            text = (f"{name} is out of credits ({when}). Add credits to your "
+                    f"{name} account and new illustrations resume.")
+        elif reason == "key":
+            summary, state = "Key rejected", "bad"
+            text = f"{name} rejected the API key ({when}). Replace it below."
+        else:
+            summary, state = "Last attempt failed", "warn"
+            text = (f"The last illustration could not be generated ({when}). "
+                    "It is tried again later.")
+        return {"reason": reason, "state": state, "summary": summary,
+                "text": text, "detail": err.get("detail") or ""}
 
     @staticmethod
     def _imagegen_fields(config: Config) -> tuple:
@@ -749,24 +831,41 @@ class FeatherframeService:
                 config.imagegen_base_url, config.imagegen_text_provider,
                 config.imagegen_text_key, config.imagegen_text_base_url)
 
+    @staticmethod
+    def _collage_fields(config: Config) -> tuple:
+        """What a collage looks like, not when it is drawn."""
+        return (config.collage_generated, config.collage_branch,
+                config.collage_species_max)
+
     # -- config ------------------------------------------------------------
     def reload_config(self) -> None:
         with self._lock:
             new = load_config(self.db)
             if (new.detection_backend != self.config.detection_backend
                     or new.birdnet_db_path != self.config.birdnet_db_path
-                    or new.birdnet_go_url != self.config.birdnet_go_url
                     or new.birdweather_station_id != self.config.birdweather_station_id):
                 self.source = make_source(new, self.db)
                 self._reset_for_source()
-            if self._imagegen_fields(new) != self._imagegen_fields(self.config):
+            imagegen_changed = self._imagegen_fields(new) != self._imagegen_fields(self.config)
+            if imagegen_changed:
                 self.provider = self._build_provider(new)
+                # A new key or provider has not failed yet.
+                self.db.set(_IMAGEGEN_ERROR_KEY, None)
+            if (self._collage_fields(new) != self._collage_fields(self.config)
+                    or (imagegen_changed and new.collage_generated)):
+                # The collage is drawn again now, not at its next interval.
+                self._collage_redraw = True
+            if new.region != self.config.region:
+                # The plate on the glass may now come from another folio: the
+                # next tick draws it again (never in the request that saved).
+                self._region_redraw = True
+            self.plates.region = new.region
             self.config = new
 
     def _reset_for_source(self) -> None:
         """A new detection source starts from a clean slate. Everything
         transient was about the old one: the cursor is in its id space
-        (BirdWeather ids run ~11 billion, BirdNET-Go's ~450k — a leftover
+        (BirdWeather ids run ~11 billion, a push queue's from 1 — a leftover
         froze the frame for hours), and the hold, the collage
         clock, the waiting species and the outage clock all describe birds
         it heard. The next tick shows the new source's latest detection."""
@@ -812,6 +911,14 @@ class FeatherframeService:
 
     def _tick_pictures(self) -> None:
         self.reload_config()
+        if self._region_redraw:
+            self._region_redraw = False
+            if self._etag is not None and self.pictures[PLATES].meta.get("label"):
+                self._rerender_picture(PLATES)
+        if self._collage_redraw:
+            self._collage_redraw = False
+            if self.pictures[COLLAGE].etag is not None:
+                self._rerender_picture(COLLAGE)
         now = self._clock()
         available = self.source.available()
         # Computed first so any render this tick — including the flips below —
@@ -1009,7 +1116,7 @@ class FeatherframeService:
             return None
         hours_active = round(active / 60, 1)
         return {"since": since.isoformat(timespec="seconds"),
-                "since_text": when_text(since, now),
+                "since_text": page_when(since, now),
                 "hours": hours_active, "hours_text": _hours_text(hours_active)}
 
     def _active_minutes(self, since: datetime, now: datetime) -> float:
@@ -1054,7 +1161,7 @@ class FeatherframeService:
             return None
         hours = round(elapsed / 60, 1)
         return {"since": since.isoformat(timespec="seconds"),
-                "since_text": when_text(since, now),
+                "since_text": page_when(since, now),
                 "hours": hours, "hours_text": _hours_text(hours)}
 
     def _note_kind(self) -> Optional[str]:
@@ -1072,15 +1179,31 @@ class FeatherframeService:
             return "latest"
         return None
 
+    def _plate_when(self, alarm: dict) -> str:
+        """An alarm's start in the plate's own voice ("11:27 pm"): the
+        engraving's, not the page's."""
+        return when_text(datetime.fromisoformat(alarm["since"]), self._clock())
+
+    def _station(self):
+        """(southern, location) for the collage's branch: south of the equator
+        by the source's latitude where it reports one, else by the Region
+        (W-881); the location, or None, is where the day's weather is asked
+        (W-882)."""
+        try:
+            loc = self.source.location()
+        except Exception:  # a source must never break a collage
+            loc = None
+        return season_mod.is_southern(loc[0] if loc else None, self.config.region), loc
+
     def _note_text(self) -> Optional[str]:
         """The plate footnote while an alarm is on. Derived from the state
         cached at the top of this tick, which already reflects any detection
         the tick is about to render — so a fresh bird never carries it."""
         kind = self._note_kind()
         if kind == "quiet":
-            return f"No detections since {self._quiet['since_text']}"
+            return f"No detections since {self._plate_when(self._quiet)}"
         if kind == "outage":
-            return f"Detection source unreachable since {self._outage['since_text']}"
+            return f"Detection source unreachable since {self._plate_when(self._outage)}"
         if kind == "latest":
             return f"Just now: {self._just_now['common']}"
         return None
@@ -1202,7 +1325,8 @@ class FeatherframeService:
                           when=det.timestamp if det.timestamp != datetime.min else now,
                           first_seen=first_seen, note=note,
                           note_kind=self._note_kind() if note else None,
-                          first_ever=novelty == "first-ever")
+                          first_ever=novelty == "first-ever",
+                          fallback_note=self._imagegen_glass_note())
         recompose = self._single_in_color(spec)
         etag = self._commit(
             PLATES, now, sheet=compose_mod.render_single(spec, self.provider, color=False),
@@ -1324,6 +1448,7 @@ class FeatherframeService:
             kept = sorted(p for p in days.glob("*.png") if _DATE_RE.match(p.stem))
             for old in kept[:-COLLAGE_DAYS_KEPT]:
                 old.unlink(missing_ok=True)
+                thumbs.drop_thumb(old)
         except Exception:  # noqa: BLE001 — never worth a failed collage
             log.warning("collage for %s not kept", on_date, exc_info=True)
 
@@ -1362,15 +1487,19 @@ class FeatherframeService:
         # All or nothing: with the toggle on and image generation to hand,
         # EVERY collage is the generated sheet — the nightly one, a daytime
         # rebuild, the button, a settings re-render. The cost is bounded by
-        # genart.day_composite, which buys one sheet per day and reuses it
-        # until the day's species list itself changes.
+        # genart.day_composite, which reuses the day's sheet and buys a new one
+        # only at a redraw where the day's species list has changed.
         use_generated = self.config.collage_generated and self.genart is not None
 
         def compose(color: bool, force: bool = False):
             """(sheet, label) for this day; `color` draws the art's colour twin."""
             if use_generated:
                 self.genart.color_sheets = color
-                sheet = self.genart.day_composite(top, on_date, force=force)
+                southern, loc = self._station()
+                sheet = self.genart.day_composite(top, on_date, force=force,
+                                                  southern=southern,
+                                                  branch=self.config.collage_branch,
+                                                  location=loc)
                 if sheet is not None:
                     # The key must name what was PAINTED: on a cache hit the cells
                     # come from the sheet's sidecar, not tonight's fresh tally.
@@ -1380,9 +1509,16 @@ class FeatherframeService:
                                 total_detections=sum(c.count for c in painted),
                                 note=note, note_kind=note_kind),
                             f"combined collage ({len(painted)} species)")
+            # The grid in place of the AI collage says why, when the fix is
+            # the owner's (an empty account, a refused key); an alarm about
+            # detections comes first.
+            grid_note, grid_kind = note, note_kind
+            if use_generated and not note:
+                grid_note = self._imagegen_glass_note()
+                grid_kind = "imagegen" if grid_note else None
             return (collage_mod.render_collage(top, self.provider, when=on_date,
                                                total_detections=sum(c.count for c in top),
-                                               note=note, note_kind=note_kind,
+                                               note=grid_note, note_kind=grid_kind,
                                                color=color),
                     f"{len(top)}-species collage")
 
@@ -1447,7 +1583,10 @@ class FeatherframeService:
         error: Optional[str] = None
         try:
             if not self.regenerate_generated(slug):
-                error = "generation failed — the previous plate is kept"
+                reason = (self.db.get(_IMAGEGEN_ERROR_KEY) or {}).get("reason")
+                error = {"credits": "out of credits",
+                         "key": "the API key was rejected"}.get(reason, "not generated")
+                error += "; the previous illustration is kept"
         except Exception as exc:
             log.exception("background regeneration failed for %s", slug)
             error = f"{type(exc).__name__}: {exc}"[:200]
@@ -1522,6 +1661,14 @@ class FeatherframeService:
 
     def start_collage(self, repaint: bool = False) -> bool:
         return self._start_task("collage", self.force_collage, repaint)
+
+    def redraw_after_settings(self) -> bool:
+        """A settings save that changes a picture is drawn now, on a worker
+        thread, rather than at the scheduler's next tick. The tick is what
+        draws it, so the frames get it and hear of it too."""
+        if not (self._region_redraw or self._collage_redraw):
+            return False
+        return self._start_task("collage" if self._collage_redraw else "redraw", self.tick)
 
     def task_status(self) -> dict:
         """Live state of the background one-shot jobs, for the config page's
@@ -1611,10 +1758,13 @@ class FeatherframeService:
                 if rotation is not None and spec is not None and rotation in spec.rotations:
                     row.setdefault("set", {})["panel_rotation"] = rotation
                 # …and with the mat it kept (W-857), where that is not its
-                # panel's own default anyway.
+                # panel's own default anyway. An inset of 0 is what every
+                # frame was told before its panel had one of its own
+                # (`drop_zero_mat_inset`), so it is not carried either.
                 if mat and spec is not None:
                     fresh_cfg = Config.defaults_for(spec.key)
-                    own = {k: v for k, v in mat.items() if getattr(fresh_cfg, k) != v}
+                    own = {k: v for k, v in mat.items() if getattr(fresh_cfg, k) != v
+                           and not (k == "mat_inset_pct" and v == 0)}
                     if own:
                         row.setdefault("set", {}).update(own)
             rep = frames_mod.reported_of(row)
@@ -1748,6 +1898,12 @@ class FeatherframeService:
             for key in frames_mod.KIT_SETTINGS:      # keep what sanitize() made of it
                 if key in own:
                     own[key] = getattr(probe, key)
+            # The page posts every field: a mat at its panel's own default is
+            # not a choice, so the frame follows that default if it moves.
+            fresh = Config.defaults_for(probe.panel)
+            for key in frames_mod.MAT_KEYS:
+                if key in own and own[key] == getattr(fresh, key):
+                    own.pop(key)
             row["set"] = own
             board = frames_mod.reported_of(row).get("board")
         if fields.get("update_firmware") and own.get("update_firmware"):
@@ -2220,8 +2376,8 @@ class FeatherframeService:
         kind = cfg.detection_backend
         if kind == "birdweather":
             return {"kind": kind, "station": cfg.birdweather_station_id}
-        if kind == "apprise":
-            return {"kind": kind, "token": cfg.apprise_token or ""}
+        if kind in ("apprise", "birdnet_go"):
+            return {"kind": kind, "token": cfg.ingest_token or ""}
         return {"kind": kind}
 
     def push_message(self, frame_id: str) -> Optional[dict]:
@@ -2730,7 +2886,7 @@ class FeatherframeService:
             },
             "last_detection": {
                 **{k: v for k, v in heard.items() if k != "ts"},
-                "when_text": (when_text(datetime.fromisoformat(heard["ts"]), now)
+                "when_text": (_ago(datetime.fromisoformat(heard["ts"]), now)
                               if heard.get("ts") else ""),
             } if heard else None,
             "quiet": quiet,
@@ -2741,6 +2897,7 @@ class FeatherframeService:
             "species_all_time": species,
             "plates_loaded": self.plates.species_count,
             "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
+            "imagegen_error": self.imagegen_error_view(now),
             "config": self._masked_config(),
             # Every screen this server draws for, one shape each. The page
             # renders the same row component for all of them, and the Health

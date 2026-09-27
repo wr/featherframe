@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 
 log = logging.getLogger("featherframe.plate")
 
@@ -65,10 +65,14 @@ def load_color(path: str | Path, max_side: int = WORK_MAX_SIDE) -> Image.Image:
     return im
 
 
-def _ink_map(gray: Image.Image) -> tuple[np.ndarray, float]:
-    """Return (inkiness at analysis resolution, scale-back factor to `gray`)."""
+def _ink_map(gray: Image.Image, despeckle: bool = False) -> tuple[np.ndarray, float]:
+    """Return (inkiness at analysis resolution, scale-back factor to `gray`).
+    `despeckle` drops isolated specks (foxing on a mostly-paper sheet) so
+    they cannot stretch the box; lines and the art itself survive it."""
     scale = ANALYSIS_W / gray.width
     small = gray.resize((ANALYSIS_W, max(1, round(gray.height * scale))), Image.BILINEAR)
+    if despeckle:
+        small = small.filter(ImageFilter.MedianFilter(5))
     arr = np.asarray(small, dtype=np.float32)
     paper = np.percentile(arr, 94)  # the bright paper level
     ink = np.clip(paper - arr, 0, None)  # only meaningfully-darker-than-paper counts
@@ -95,6 +99,12 @@ def _extend(frac: np.ndarray, lo: int, hi: int, thr: float, gap: int) -> tuple[i
 
 def content_box(gray: Image.Image, pad: float = 0.015,
                 mirror: bool = True) -> tuple[int, int, int, int]:
+    """The subject's box (see _content_box)."""
+    return _content_box(gray, pad, mirror)
+
+
+def _content_box(gray: Image.Image, pad: float, mirror: bool,
+                 despeckle: bool = False, whole: bool = False) -> tuple[int, int, int, int]:
     """Bounding box (in `gray` pixel coords) of the subject, symmetric about
     the plate centre.
 
@@ -107,7 +117,7 @@ def content_box(gray: Image.Image, pad: float = 0.015,
        (Havell's placement survives); `mirror=False` keeps the art's own box,
        for a folio whose sheets are mostly paper (W-702).
     """
-    ink, back = _ink_map(gray)
+    ink, back = _ink_map(gray, despeckle)
     row_mass = ink.sum(axis=1)
     if row_mass.max() <= 0:
         return _fallback_box(gray)
@@ -118,7 +128,10 @@ def content_box(gray: Image.Image, pad: float = 0.015,
     runs = _runs(sig)
     if not runs:
         return _fallback_box(gray)
-    t0, t1 = max(runs, key=lambda r: row_mass[r[0]:r[1]].sum())
+    # `whole` keeps every band, for a sheet whose figures are different
+    # species: the named one may be the lighter band.
+    t0, t1 = ((runs[0][0], runs[-1][1]) if whole
+              else max(runs, key=lambda r: row_mass[r[0]:r[1]].sum()))
 
     inked = ink > FAINT_INK
     gap_rows = max(3, int(ink.shape[0] * GAP_PCT))
@@ -140,8 +153,10 @@ def content_box(gray: Image.Image, pad: float = 0.015,
     pw, ph = (r - l) * pad, (bb - tt) * pad
     l, r = max(0.0, l - pw), min(float(gray.width), r + pw)
     tt, bb = max(0.0, tt - ph), min(float(gray.height), bb + ph)
-    # sanity: reject degenerate / tiny crops
-    if (r - l) * (bb - tt) < 0.18 * gray.width * gray.height:
+    # sanity: reject degenerate / tiny crops. A tight crop (a sparse folio's
+    # sheet) may truly be one small finch on a page of paper.
+    min_area = 0.18 if mirror else 0.01
+    if (r - l) * (bb - tt) < min_area * gray.width * gray.height:
         return _fallback_box(gray)
 
     if not mirror:
@@ -250,7 +265,9 @@ def paper_normalize_color(rgb: Image.Image) -> Image.Image:
 HAVELL_MARGINS = (0.025, 0.068, 0.975, 0.912)
 
 
-def _trim_marginalia(plate_img: Image.Image, margins: Optional[Sequence[float]] = None) -> Image.Image:
+def _trim_marginalia(plate_img: Image.Image, margins: Optional[Sequence[float]] = None,
+                     mask: Optional[Sequence[Sequence[float]]] = None,
+                     caption: bool = True) -> Image.Image:
     """Physically remove the outer printed margin bands of the plate: the
     'N° 32 / PLATE CLIX' line across the top and the engraved species caption
     across the bottom. The bird is always well inside these, so this guarantees
@@ -259,11 +276,72 @@ def _trim_marginalia(plate_img: Image.Image, margins: Optional[Sequence[float]] 
 
     `margins` is the part kept, for a folio whose sheets are lettered
     elsewhere (W-702: Gould's captions sit higher, and a copy's pencilled
-    plate number sits in its margin); Havell's by default."""
+    plate number sits in its margin); Havell's by default.
+
+    `mask` is lettering no straight cut can take: boxes of the sheet, each
+    [left, top, right, bottom] in fractions of it, whose lettering is
+    painted with the paper first (see _mask_lettering; a fifth "all" paints
+    the whole box). On some Havell
+    sheets the art runs down past the caption, so the caption sits beside a
+    stem or a stump inside the part kept, and a margin high enough to lose
+    it would cut the picture."""
     left, top, right, bottom = margins or HAVELL_MARGINS
     w, h = plate_img.size
+    if mask:
+        plate_img = plate_img.copy()
+        paper = _paper_colour(plate_img)
+        # A box marked "all" is painted whole, first: where a letter touches
+        # the art, a sliver of it cuts the join.
+        for box in sorted(mask, key=lambda m: len(m) < 5):
+            l, t, r, b = box[:4]
+            px = (int(w * l), int(h * t), int(w * r), int(h * b))
+            if len(box) > 4 and box[4] == "all":
+                plate_img.paste(paper, px)
+            else:
+                _mask_lettering(plate_img, px, paper)
     trimmed = plate_img.crop((int(w * left), int(h * top), int(w * right), int(h * bottom)))
-    return _lift_corner_lettering(trimmed)
+    trimmed = _lift_corner_lettering(trimmed)
+    return _lift_caption(trimmed) if caption else trimmed
+
+
+MASK_INK = 14        # darker than paper by this much is ink, a hairline included
+MASK_HALO = 2        # px of a letter's soft edge painted with it
+
+
+def _mask_lettering(img: Image.Image, box: tuple[int, int, int, int], paper) -> None:
+    """Paint the lettering in `box` with the paper, in place: the ink wholly
+    inside it. Ink that reaches the box's edge is the art passing through
+    (a stem beside the title, a stump's foot) and is left exactly as it is,
+    so a box need only be drawn around the words, not between them and the
+    picture."""
+    l, t, r, b = box
+    region = img.crop(box)
+    a = np.asarray(region.convert("L"), dtype=np.int16)
+    if a.size == 0:
+        return
+    ink = (float(np.percentile(a, 90)) - a) > MASK_INK
+    art = np.zeros_like(ink)
+    art[0, :], art[-1, :], art[:, 0], art[:, -1] = ink[0, :], ink[-1, :], ink[:, 0], ink[:, -1]
+    while True:          # grow the art through the ink it touches (8-connected)
+        grown = art.copy()
+        grown[1:, :] |= art[:-1, :]
+        grown[:-1, :] |= art[1:, :]
+        grown[:, 1:] |= grown[:, :-1].copy()
+        grown[:, :-1] |= grown[:, 1:].copy()
+        grown &= ink
+        if np.array_equal(grown, art):
+            break
+        art = grown
+    letters = ink & ~art
+    for _ in range(MASK_HALO):
+        halo = letters.copy()
+        halo[1:, :] |= letters[:-1, :]
+        halo[:-1, :] |= letters[1:, :]
+        halo[:, 1:] |= letters[:, :-1]
+        halo[:, :-1] |= letters[:, 1:]
+        letters = halo & ~art
+    if letters.any():
+        img.paste(paper, (l, t, r, b), Image.fromarray((letters * 255).astype(np.uint8), "L"))
 
 
 # -- lettering the fixed trim misses (W-812) --------------------------------
@@ -286,6 +364,59 @@ LETTER_MOAT = 7            # px of clear paper a line of type has around it…
 LETTER_MOAT_INK = 0.03     # …meaning under this fraction of even faint ink: a stem tip or a
                            # knot on a branch is small and dark too, but the picture carries on
                            # around it in lighter tones
+LETTER_JOIN_Y = 3          # px over which a line's letters join up and down
+
+# The caption the fixed trim misses. Where the art runs down past the caption
+# band (a stump, a stalk, a cone), the engraver set the caption beside it, up
+# inside the part kept: "Cedar Bird / BOMBYCILLA CAROLINENSIS." sits level
+# with the foot of the tree. It is found the same way as the corner line —
+# searched upward from the bottom edge, anywhere across the sheet — and its
+# lines are joined into one block (title, Latin name, plant). A block of type
+# is sparse: most of its box is paper, where a leaf or a fish is solid.
+CAPTION_BAND = 0.11        # the bottom of the (trimmed) plate searched…
+CAPTION_STRIP = 0.22       # …and traced this far up, to see what joins the art
+CAPTION_MAX_H = 0.085      # a block of up to three lines
+CAPTION_MAX_W = 0.62
+CAPTION_JOIN_Y = 10        # px: the gap between a caption's lines
+CAPTION_MAX_FILL = 0.22    # of its box that is print
+
+
+def _caption_boxes(trimmed: Image.Image) -> list[tuple[int, int, int, int]]:
+    """The caption's blocks, as boxes of the flipped sheet."""
+    gray = trimmed.convert("L").transpose(Image.FLIP_TOP_BOTTOM)
+    return _corner_lettering_boxes(gray, band=CAPTION_BAND, strip=CAPTION_STRIP,
+                                   corner=None, max_h=CAPTION_MAX_H, max_w=CAPTION_MAX_W,
+                                   join_y=CAPTION_JOIN_Y, max_fill=CAPTION_MAX_FILL)
+
+
+def lifts_caption(path: str | Path, composite: bool = False, crop_box: Optional[list] = None,
+                  margins: Optional[Sequence[float]] = None,
+                  mask: Optional[Sequence[Sequence[float]]] = None, tight: bool = False) -> bool:
+    """Whether lifting the caption changes this crop: the plate library keys
+    such a crop apart from the one taken before the lift (W-883). A caption
+    lifted outside the crop (a tight cut stops above it) changes nothing."""
+    gray = _trim_marginalia(load_gray(path), margins, mask, caption=False)
+    if not _caption_boxes(gray):
+        return False
+    kw = dict(composite=composite, crop_box=crop_box, margins=margins, tight=tight, mask=mask)
+    return not np.array_equal(np.asarray(extract(path, caption=False, **kw)),
+                              np.asarray(extract(path, **kw)))
+
+
+CAPTION_PASSES = 3   # a line whose neighbour sat in its moat is found once that one is gone
+
+
+def _lift_caption(trimmed: Image.Image) -> Image.Image:
+    out, h = trimmed, trimmed.height
+    for _ in range(CAPTION_PASSES):
+        boxes = _caption_boxes(out)
+        if not boxes:
+            break
+        out = out.copy() if out is trimmed else out
+        paper = _paper_colour(out)
+        for l, t, r, b in boxes:
+            out.paste(paper, (l, h - b, r, h - t))
+    return out
 
 
 def _lift_corner_lettering(trimmed: Image.Image) -> Image.Image:
@@ -308,12 +439,18 @@ def _paper_colour(img: Image.Image):
     return tuple(int(v) for v in med) if band.ndim == 3 else int(med[0])
 
 
-def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]]:
+def _corner_lettering_boxes(gray: Image.Image, band: float = LETTER_BAND,
+                            strip: float = LETTER_STRIP,
+                            corner: Optional[float] = LETTER_CORNER,
+                            max_h: float = LETTER_MAX_H, max_w: float = LETTER_MAX_W,
+                            join_y: int = LETTER_JOIN_Y,
+                            max_fill: float = 1.0) -> list[tuple[int, int, int, int]]:
     """Boxes (in `gray` pixels) around lines of printed lettering in the top
-    corners. Never raises; a plate it can't read yields no boxes."""
+    corners (or, with `corner` None, anywhere across the top). Never raises;
+    a plate it can't read yields no boxes."""
     try:
         scale = gray.width / LETTER_W
-        strip_h = max(8, int(gray.height * LETTER_STRIP / scale))
+        strip_h = max(8, int(gray.height * strip / scale))
         small = gray.resize((LETTER_W, max(1, int(gray.height / scale))), Image.BILINEAR)
         a = np.asarray(small.crop((0, 0, LETTER_W, strip_h)), dtype=np.int16)
         paper = float(np.percentile(a, 90))
@@ -326,10 +463,11 @@ def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]
         for k in range(1, LETTER_JOIN + 1):
             joined[:, k:] |= dark[:, :-k]
             joined[:, :-k] |= dark[:, k:]
-        for k in (1, 2):
-            joined[k:, :] |= joined[:-k, :].copy()
-        band = int(gray.height * LETTER_BAND / scale)
-        max_h, max_w = gray.height * LETTER_MAX_H / scale, LETTER_W * LETTER_MAX_W
+        across = joined.copy()
+        for k in range(1, join_y + 1):
+            joined[k:, :] |= across[:-k, :]
+        band = int(gray.height * band / scale)
+        max_h, max_w = gray.height * max_h / scale, LETTER_W * max_w
         seen = np.zeros_like(joined, dtype=bool)
         boxes = []
         H, W = joined.shape
@@ -346,7 +484,7 @@ def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]
                         seen[ny, nx] = True
                         stack.append((ny, nx))
             bw, bh = r - l + 1, b - t + 1
-            in_corner = r < W * LETTER_CORNER or l > W * (1 - LETTER_CORNER)
+            in_corner = corner is None or r < W * corner or l > W * (1 - corner)
             if (in_corner and b < band and bh <= max_h + 3
                     and bw <= max_w
                     and bw / bh >= LETTER_MIN_ASPECT):
@@ -355,6 +493,8 @@ def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]
                 # stray mark (a gnat, a fleck) is as tall as it is wide.
                 ys, xs = np.nonzero(dark[t:b + 1, l:r + 1])
                 if xs.size == 0 or np.ptp(xs) + 1 < LETTER_MIN_ASPECT * (np.ptp(ys) + 1):
+                    continue
+                if xs.size > max_fill * bw * bh:
                     continue
                 oy, ox = max(0, t - LETTER_MOAT), max(0, l - LETTER_MOAT)
                 ring = faint[oy:b + LETTER_MOAT + 1, ox:r + LETTER_MOAT + 1].copy()
@@ -373,7 +513,9 @@ def _corner_lettering_boxes(gray: Image.Image) -> list[tuple[int, int, int, int]
 
 # A tight crop's paper band, as a fraction of the art's box per side: room
 # to breathe inside the mat, and enough clear paper at the edges that compose
-# contain-fits the art rather than cover-fitting (and so cutting) it.
+# contain-fits the art rather than cover-fitting (and so cutting) it. It is
+# added as fresh white paper, never taken from the scan, so a caption or a
+# pencilled number just outside the art cannot ride in with it.
 TIGHT_PAD = 0.05
 
 
@@ -384,31 +526,43 @@ def _box(gray: Image.Image, composite: bool, crop_box, tight: bool) -> tuple[int
     if tight:
         # The art's own box, composite or not: on a sheet that is one vignette
         # (Gould's) every figure is inside it, and the rest is paper.
-        return content_box(gray, pad=TIGHT_PAD, mirror=False)
+        return _content_box(gray, pad=0.0, mirror=False, despeckle=True, whole=composite)
     if composite:
         return (0, 0, gray.width, gray.height)  # whole (trimmed) plate: all birds
     return content_box(gray)
 
 
+def _cut(img: Image.Image, box, tight: bool) -> Image.Image:
+    """The crop, and for a tight one its band of white paper."""
+    crop = img.crop(box)
+    if not tight:
+        return crop
+    px, py = round(crop.width * TIGHT_PAD), round(crop.height * TIGHT_PAD)
+    white = 255 if crop.mode == "L" else (255,) * len(crop.getbands())
+    return ImageOps.expand(crop, border=(px, py, px, py), fill=white)
+
+
 def extract(path: str | Path, composite: bool = False,
             crop_box: Optional[list] = None, margins: Optional[Sequence[float]] = None,
-            tight: bool = False) -> Image.Image:
+            tight: bool = False, mask: Optional[Sequence[Sequence[float]]] = None,
+            caption: bool = True) -> Image.Image:
     """Load a plate and return the normalised bird artwork ('L')."""
-    gray = _trim_marginalia(load_gray(path), margins)
-    crop = gray.crop(_box(gray, composite, crop_box, tight))
-    return paper_normalize(crop)
+    gray = _trim_marginalia(load_gray(path), margins, mask, caption)
+    return paper_normalize(_cut(gray, _box(gray, composite, crop_box, tight), tight))
 
 
 def extract_color(path: str | Path, composite: bool = False, crop_box: Optional[list] = None,
                   margins: Optional[Sequence[float]] = None,
-                  tight: bool = False) -> tuple[Image.Image, Image.Image]:
+                  tight: bool = False,
+                  mask: Optional[Sequence[Sequence[float]]] = None) -> tuple[Image.Image, Image.Image]:
     """extract for a colour panel: (gray, colour) of the same crop. The gray
     drives every layout decision exactly as on the gray panel; the colour twin
     is what gets placed."""
-    rgb = _trim_marginalia(load_color(path), margins)
+    rgb = _trim_marginalia(load_color(path), margins, mask)
     gray = rgb.convert("L")
     box = _box(gray, composite, crop_box, tight)
-    return paper_normalize(gray.crop(box)), paper_normalize_color(rgb.crop(box))
+    return (paper_normalize(_cut(gray, box, tight)),
+            paper_normalize_color(_cut(rgb, box, tight)))
 
 
 def extract_generated_color(path: str | Path) -> tuple[Image.Image, Image.Image]:

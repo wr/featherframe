@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 from PIL import Image
 
@@ -26,6 +26,7 @@ log = logging.getLogger("featherframe.provider")
 class Artwork:
     image: Image.Image          # grayscale 'L', the bird art (no caption)
     plate: Optional[int] = None   # the folio's own plate number, if any
+    volume_no: Optional[Union[int, str]] = None   # its volume, where a folio numbers per volume (2, "Supp.")
     folio: Optional[str] = None   # the folio the plate is from ("havell"), if any
     composite: bool = False
     generated: bool = False     # True when the art is AI-generated, not a scan
@@ -81,6 +82,7 @@ class PlateProvider(ArtProvider):
 
     def __init__(self, index: Optional[SpeciesIndex] = None) -> None:
         self._index = index or SpeciesIndex.load()
+        self.region: Optional[str] = None    # the household's Region: its folios first
 
     def reload(self) -> None:
         self._index = SpeciesIndex.load()
@@ -95,22 +97,22 @@ class PlateProvider(ArtProvider):
         return self._index.count
 
     def artwork(self, common_name: str, scientific_name: str) -> Optional[Artwork]:
-        match = self._index.match(common_name, scientific_name)
+        match = self._index.match(common_name, scientific_name, self.region)
         if match is None:
             return None
         try:
             img = plate.extract(match.image_path, composite=match.composite,
                                 crop_box=match.crop_box, margins=match.margins,
-                                tight=match.tight)
+                                tight=match.tight, mask=match.mask)
         except (OSError, ValueError) as exc:
             # Corrupt/missing image -> fall back rather than break the frame.
             log.warning("plate extract failed for %s (%s): %s",
                         common_name, match.image_path, exc)
             return None
-        return Artwork(image=img, plate=match.plate_number, folio=match.folio,
+        return Artwork(image=img, plate=match.plate_number, volume_no=match.volume_no, folio=match.folio,
                        composite=match.composite,
                        legend=list(match.legend),
                        color_loader=lambda: plate.extract_color(
                            match.image_path, composite=match.composite,
                            crop_box=match.crop_box, margins=match.margins,
-                           tight=match.tight))
+                           tight=match.tight, mask=match.mask))

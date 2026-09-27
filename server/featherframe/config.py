@@ -78,6 +78,12 @@ def _sun_window(on_date: date | None = None) -> tuple[dtime, dtime]:
     return _t(sunset), _t(sunrise)
 
 
+COLLAGE_BRANCHES = ("season", "weather", "bare")
+
+# The regions the Region setting offers, each first in its own folios.
+REGIONS = ("north-america", "europe", "australia", "asia")
+
+
 @dataclass
 class Config:
     """The household's settings, plus the shape a render takes.
@@ -119,18 +125,18 @@ class Config:
 
     # Ingest ---------------------------------------------------------------
     # Where detections come from:
-    #   "birdnet_go"  — poll BirdNET-Go's REST API
-    #   "apprise"     — BirdNET-Pi pushes each detection to our webhook (push)
+    #   "birdnet_go"  — BirdNET-Go pushes each detection to our webhook (W-865)
+    #   "apprise"     — BirdNET-Pi pushes each detection through Apprise
     #   "birdweather" — poll a BirdWeather station by its ID/token
     #   "custom"      — read a local BirdNET-Pi SQLite DB directly
     # The legacy id "birdnet_pi" is migrated to "custom" in sanitize().
     detection_backend: str = "custom"
     birdnet_db_path: str = "~/BirdNET-Pi/scripts/birds.db"   # custom (SQLite) backend
-    birdnet_go_url: str = "http://localhost:8080"            # birdnet_go backend
     birdweather_station_id: str = ""    # birdweather backend: station token / ID
-    # Optional shared secret in the Apprise webhook path (/api/ingest/apprise/<token>).
-    # Empty accepts any LAN post, matching the app's no-auth LAN posture.
-    apprise_token: str = field(default_factory=lambda: secrets.token_urlsafe(9))
+    # The secret in both push paths (/api/ingest/apprise/<token>,
+    # /api/ingest/birdnet-go/<token>); hosted routes a push by it. Empty
+    # accepts any LAN post, matching the app's no-auth LAN posture.
+    ingest_token: str = field(default_factory=lambda: secrets.token_urlsafe(9))
 
     # Rendering ------------------------------------------------------------
     # The panel a render is for (panels.py): "ee03" (10.3" gray), "ee02"
@@ -147,8 +153,8 @@ class Config:
     panel_rotation: int = 90  # per panel (panels.py rotations; see sanitize)
 
     # Shrink the composition by this percent per edge and center it on white.
-    # 0 (the default) disables it: a frame with no mat, or one whose opening
-    # the art already meets, needs no allowance.
+    # 0 disables it: a screen with no mat needs no allowance. A kit starts
+    # with its panel's own (`Panel.mat_inset_pct`, 4 on both kits).
     mat_inset_pct: float = 0.0
     # The physical mat is rarely mounted dead-center; shift the inset
     # composition to meet it. Positive = right / down, in panel pixels.
@@ -164,7 +170,7 @@ class Config:
     collage_interval_hours: int = 6   # one of the page's choices: 1, 4, 6, 12, 24
 
     # AI-generated plates --------------------------------------------------
-    # For species Audubon never painted. A plate is generated once on first
+    # For species no folio has. A plate is generated once on first
     # detection and cached forever; only a manual regenerate replaces it.
     # Without an API key this degrades to serving already-cached plates.
     imagegen_enabled: bool = True
@@ -183,12 +189,17 @@ class Config:
     imagegen_text_provider: str = ""
     imagegen_text_key: str = ""                # key for the text provider when it differs
     imagegen_text_base_url: str = "http://localhost:11434"  # "local" text provider base URL
-    # The nightly collage as one generated composite plate (the
-    # folio's totem manner). Once per date; the grid collage is the fallback.
+    # Every collage as one generated composite plate (the folio's totem
+    # manner), bought again only when the day's species change; the grid
+    # collage is the fallback.
     collage_generated: bool = True
     # How many of the day's species the generated sheet carries, most-heard
     # first. 0 = every species heard that day. The grid fallback always holds six.
     collage_species_max: int = 10
+    # The generated collage's branch (W-882): "season" (the season of its
+    # date, W-881), "weather" (that, plus the day's own weather, asked of the
+    # text model's web search) or "bare" (the bare branch of before).
+    collage_branch: str = "season"
     # Install each official firmware release on every frame already on an
     # official one, without a press (W-838). A dev build is never replaced.
     firmware_auto_update: bool = False
@@ -196,6 +207,11 @@ class Config:
     # password is set. A hosted household's is its account's, kept by the
     # Worker, and this one is not read there.
     owner_email: str = ""
+    # Which folio a plate is looked for in first (W-702): a region names its
+    # folios in their headers (Havell: north-america, Gould: europe). It
+    # reorders, never filters: a species only another region's folio has is
+    # still drawn from it.
+    region: str = "north-america"
 
     def __post_init__(self) -> None:
         self.sanitize()
@@ -208,6 +224,8 @@ class Config:
             self.mode = "single"
         if self.mode not in ("single", "collage"):
             self.mode = "single"
+        if self.region not in REGIONS:
+            self.region = "north-america"
         # NaN slips through float() and then through _clamp (every comparison
         # is False) — and can't be serialised for the status JSON. Refuse it.
         self.wake_interval_minutes = int(_clamp(_finite(self.wake_interval_minutes, 15), 1, 1440))
@@ -219,15 +237,16 @@ class Config:
             self.detection_backend = "custom"
         if self.detection_backend not in ("birdnet_go", "apprise", "birdweather", "custom"):
             self.detection_backend = "custom"
-        self.birdnet_go_url = str(self.birdnet_go_url or "").strip().rstrip("/") or "http://localhost:8080"
         # Accept a full station URL (…/stations/XXXXX) or a bare ID/token.
         bw = str(self.birdweather_station_id or "").strip()
         if "/" in bw:
             bw = bw.split("?", 1)[0].split("#", 1)[0].rstrip("/").rsplit("/", 1)[-1]
         self.birdweather_station_id = bw
-        self.apprise_token = str(self.apprise_token or "").strip()
+        self.ingest_token = str(self.ingest_token or "").strip()
         self.collage_interval_hours = int(_clamp(_finite(self.collage_interval_hours, 6), 1, 24))
         self.collage_species_max = int(_clamp(self.collage_species_max, 0, 60))
+        if self.collage_branch not in COLLAGE_BRANCHES:
+            self.collage_branch = "season"
         # The panel's native canvas is landscape and the firmware rejects a
         # portrait frame (pushImage would clip it into garbage), so only the
         # two landscape orientations are valid. Old 0/180 values migrate to
@@ -307,10 +326,12 @@ class Config:
 
     @classmethod
     def defaults_for(cls, panel: str) -> "Config":
-        """A factory-fresh config for `panel` (mode and rotation follow it)."""
+        """A factory-fresh config for `panel` (mode, rotation and the mat's
+        inset follow it)."""
         fresh = cls(panel=panels.get(panel).key)
         fresh.mode = fresh.panel_spec.mode
         fresh.panel_rotation = fresh.panel_spec.rotations[0]
+        fresh.mat_inset_pct = fresh.panel_spec.mat_inset_pct
         return fresh.sanitize()
 
     def panel_settings_off_default(self) -> list[str]:
@@ -373,6 +394,9 @@ class Config:
         # The "day in review" is a collage like any other (one name for it).
         if "collage_species_max" not in data and "review_species_max" in data:
             data = {**data, "collage_species_max": data["review_species_max"]}
+        # One secret for both push sources (W-865): it was Apprise's alone.
+        if "ingest_token" not in data and "apprise_token" in data:
+            data = {**data, "ingest_token": data["apprise_token"]}
         fields = {f.name for f in dataclasses.fields(cls)}
         known = {k: v for k, v in data.items() if k in fields}
         return cls(**known)

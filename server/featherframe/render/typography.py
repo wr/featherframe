@@ -314,11 +314,14 @@ def caption(field: Image.Image, top_y: float, common_name: str, scientific_name:
     baseline = top_y + round(size * theme.SCRIPT_TITLE_ASCENT)
     draw_script(field, cx, baseline, common_name, size, theme.INK, stroke=theme.TITLE_STROKE)
     baseline += theme.TITLE_TO_LATIN
-    latin = scientific_name.upper() + theme.LATIN_PERIOD
-    sci_size = theme.SUBTITLE_SIZE
-    while sci_size > 24 and engraved_width(latin, sci_size) > theme.CONTENT_W:
-        sci_size -= 1
-    draw_engraved(ImageDraw.Draw(field), cx, baseline, latin, sci_size, theme.INK_MEDIUM)
+    # A detection that names no species (a hand-sent test, a source that
+    # sends only a common name) keeps the line's place but prints no lone period.
+    if scientific_name.strip():
+        latin = scientific_name.upper() + theme.LATIN_PERIOD
+        sci_size = theme.SUBTITLE_SIZE
+        while sci_size > 24 and engraved_width(latin, sci_size) > theme.CONTENT_W:
+            sci_size -= 1
+        draw_engraved(ImageDraw.Draw(field), cx, baseline, latin, sci_size, theme.INK_MEDIUM)
     first = True
     for line in lines:
         baseline += theme.LATIN_TO_LEGEND if first else theme.LEGEND_PITCH
@@ -369,7 +372,19 @@ def roman(n: int) -> str:
     return "".join(out)
 
 
-def _plate_mark_parts(plate: int) -> tuple[str, str]:
+def _volume_numeral(volume_no) -> str:
+    """2 or "II" -> "II"; a volume with a name of its own ("Supp.") as it is."""
+    if isinstance(volume_no, int) or str(volume_no).isdigit():
+        return roman(int(volume_no))
+    return str(volume_no)
+
+
+def _plate_mark_parts(plate: int, volume_no=None) -> tuple[str, str]:
+    """A folio numbered per volume (W-874) is cited by volume and number, as
+    Gould's own lists cite it ("Australia, ii. pl. 18"): "Plate II. 18"."""
+    if volume_no not in (None, ""):
+        vol = _volume_numeral(volume_no)
+        return f"{theme.PLATE_PREFIX} ", f"{vol} {plate}" if vol.endswith(".") else f"{vol}. {plate}"
     return f"{theme.PLATE_PREFIX} ", roman(plate)
 
 
@@ -380,18 +395,19 @@ def _numeral_width(numeral: str) -> float:
     return _len(font, numeral)
 
 
-def plate_mark_width(plate: int) -> float:
-    prefix, numeral = _plate_mark_parts(plate)
+def plate_mark_width(plate: int, volume_no=None) -> float:
+    prefix, numeral = _plate_mark_parts(plate, volume_no)
     return script_width(prefix, theme.CORNER_SIZE) + _numeral_width(numeral)
 
 
-def plate_mark(field: Image.Image, plate: int) -> float:
+def plate_mark(field: Image.Image, plate: int, volume_no=None) -> float:
     """"Plate CLIX" in the bottom-right corner: the folio's plate number (the
     Havell number for an Audubon plate, W-821; Gould's General List number for
-    one of his, W-702). "Plate" is in the corner marks'
+    his Europe, W-702; volume and number for a folio numbered per volume,
+    W-874, "Plate II. 18"). "Plate" is in the corner marks'
     script; the numeral is in the engraved capitals, because a run of script
     capitals is a run of swashes nobody can read. Returns the mark's width."""
-    prefix, numeral = _plate_mark_parts(plate)
+    prefix, numeral = _plate_mark_parts(plate, volume_no)
     right = theme.WIDTH - theme.CORNER_INSET
     font = engraved(theme.PLATE_NUMERAL_SIZE)
     if font is None:
@@ -409,8 +425,12 @@ def plate_mark(field: Image.Image, plate: int) -> float:
 @lru_cache(maxsize=1)
 def plate_mark_max_width() -> float:
     """The widest mark any folio's plate can carry (CCCCXXXVIII, give or take
-    the face's own widths): what the footnote must leave room for."""
-    return max(plate_mark_width(n) for n in range(1, theme.MAX_PLATE + 1))
+    the face's own widths), or by volume ("Plate VIII. 108"): what the
+    footnote must leave room for."""
+    running = (plate_mark_width(n) for n in range(1, theme.MAX_PLATE + 1))
+    by_volume = (plate_mark_width(n, v) for v in theme.VOLUMES
+                 for n in range(1, theme.MAX_VOLUME_PLATE + 1))
+    return max(*running, *by_volume)
 
 
 def first_ever_rule(field: Image.Image) -> None:
@@ -433,12 +453,14 @@ def first_ever_rule(field: Image.Image) -> None:
                 tracking=theme.FIRST_EVER_LABEL_TRACKING)
 
 
-def generated_mark(field: Image.Image, right_x: float) -> None:
+def generated_mark(field: Image.Image, right_x: float,
+                   baseline: float = theme.MARKS_BASELINE, size: float = theme.CORNER_SIZE) -> None:
     """A four-point star (✦) in the corner marks' ink, its right edge at
-    `right_x`, on the marks' line: this sheet was generated. Audubon never
-    numbered it, so the star has the corner to itself."""
-    r = theme.CORNER_SIZE * 0.40
-    cx, cy = right_x - r, theme.MARKS_BASELINE - theme.CORNER_SIZE * 0.36
+    `right_x`, on the marks' line (or the line at `baseline`, set at `size`):
+    this sheet was generated. Audubon never numbered it, so the star has the
+    corner to itself."""
+    r = size * 0.40
+    cx, cy = right_x - r, baseline - size * 0.36
     k = 0.28                                            # waist of the four points
     pts = [(cx, cy - r), (cx + r * k, cy - r * k), (cx + r, cy), (cx + r * k, cy + r * k),
            (cx, cy + r), (cx - r * k, cy + r * k), (cx - r, cy), (cx - r * k, cy - r * k)]
@@ -448,8 +470,7 @@ def generated_mark(field: Image.Image, right_x: float) -> None:
 def note_line(field: Image.Image, text: str, max_w: float = theme.CONTENT_W,
               kind: Optional[str] = None) -> None:
     """The footnote between the corner marks: a system-voice pill (W-741),
-    solid for information ("nothing heard"), outlined and slashed for a
-    fault (`kind` "outage"). Shrinks rather than clips if wider than `max_w`
+    with a slashed cloud for an unreachable source (`kind` "outage"). Shrinks rather than clips if wider than `max_w`
     (the room between the marks)."""
     from . import system   # late: system imports this module for the card's fonts
     system.note_pill(ImageDraw.Draw(field), text, kind, max_w)

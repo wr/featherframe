@@ -16,9 +16,9 @@ from featherframe.render import framebuffer, pipeline
 from featherframe.render.compose import SingleSpec
 from featherframe.sources.base import Detection
 from tests._fixtures import create_birds_db, make_row
-from tests._frames import add_kit, approve, frame_bytes
+from tests._frames import add_kit, approve, frame_bytes, pin_today
 
-NOW = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
+NOW = datetime(2026, 9, 22, 12, 0, 0)
 SPECIES = [("Northern Cardinal", "Cardinalis cardinalis"), ("Blue Jay", "Cyanocitta cristata"),
            ("American Goldfinch", "Spinus tristis")]
 
@@ -28,6 +28,11 @@ def _heard(path, species=SPECIES, at=NOW):
     for i, (c, s) in enumerate(species):
         rows += [make_row(at - timedelta(minutes=40 - i * 10 + j), c, s, 0.9) for j in range(3)]
     return str(create_birds_db(path, rows))
+
+
+@pytest.fixture(autouse=True)
+def _today(monkeypatch):
+    pin_today(monkeypatch, NOW)     # the collage's day is NOW's, not the runner's
 
 
 @pytest.fixture

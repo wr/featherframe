@@ -13,14 +13,14 @@
 // frames while the server sleeps, and HouseholdServer (containers.ts), the
 // box's own Python server in a Container.
 
-import { admin, auth, confirmEmailChange, login, logout, pendingEmail, sessionUser, settingsForm } from "./accounts";
+import { admin, auth, confirmEmailChange, confirmWaitlist, login, logout, pendingEmail, sessionUser, settingsForm } from "./accounts";
 import { adminRoute, waitlistRoute } from "./admin";
 import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
 import { LOBBY_DRAWING, expiryText, pairingCode } from "./pairing";
 import { Household } from "./household";
 import { HouseholdServer, Lobby } from "./containers";
 import { suspendedPage } from "./pages";
-import { deviceId, escapeHtml, frameKey, sha256 } from "./util";
+import { deviceId, escapeHtml, frameKey, httpsRedirect, sha256 } from "./util";
 
 export { Household, HouseholdServer, Lobby };
 
@@ -48,6 +48,8 @@ const PAIRING_POLL_S = 10;
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const secure = httpsRedirect(url);
+    if (secure) return secure;
     if (url.hostname === `plates.${env.ZONE}`) return plates(request, env, url);
     if (url.hostname !== env.APP_HOST) return new Response("not found", { status: 404 });
     const path = url.pathname;
@@ -67,6 +69,7 @@ export default {
     if (path.startsWith("/_admin/")) return admin(request, env, path.slice("/_admin/".length));
     if (path === "/admin" || path.startsWith("/admin/")) return adminRoute(request, env, url);
     if (path === "/api/waitlist") return waitlistRoute(request, env);
+    if (path === "/api/waitlist/confirm" && request.method === "GET") return confirmWaitlist(env, url);
 
     const internal = path.match(/^\/_internal\/([0-9a-z]{1,32})\//);
     if (internal) return toHousehold(env, internal[1], request);
@@ -74,10 +77,12 @@ export default {
     if (FRAME_PATHS.test(path)) return frame(request, env, url, ctx);
     if (isViewerPath(path)) return viewerRoute(request, env, url, ctx);
 
-    const apprise = path.match(/^\/api\/ingest\/apprise\/([^/]+)$/);
-    if (apprise && request.method === "POST") {
+    // A detector's push (W-865): BirdNET-Pi's Apprise or BirdNET-Go's webhook,
+    // routed by the household's push secret (the column predates BirdNET-Go).
+    const push = path.match(/^\/api\/ingest\/(?:apprise|birdnet-go)\/([^/]+)$/);
+    if (push && request.method === "POST") {
       const row = await env.DB.prepare("SELECT id FROM households WHERE apprise_token = ?")
-        .bind(decodeURIComponent(apprise[1])).first<{ id: string }>();
+        .bind(decodeURIComponent(push[1])).first<{ id: string }>();
       return row ? toHousehold(env, row.id, request) : Response.json({ error: "bad token" }, { status: 403 });
     }
 

@@ -59,6 +59,20 @@
 #define VBAT_TRIM           1.000f
 #endif
 
+// --- Status LED (optional, hand-wired; ff_led.h) ---
+// One WS2812B/SK6812 pixel, DIN on GPIO39: the XIAO's D12 pad sits under the
+// module, but the driver board carries it to pad 1 of U6, the font chip Seeed
+// never fits (both EE02 and EE03), with 3V3 on pads 7/8 and GND on pad 4.
+// Nothing else is on that line, so a kit without the pixel is unaffected.
+// -DFF_STATUS_LED_PIN=-1 builds without it.
+#ifndef FF_STATUS_LED_PIN
+#define FF_STATUS_LED_PIN   39
+#endif
+#define FF_LED_MAX          48      // brightness cap (of 255): it sits behind a mat, in a room
+#define FF_LED_BLINK_ON_MS  150     // an error blink's lit part, once per 2 s
+#define FF_LED_PAIRED_MS    3000    // green after a connection is made…
+#define FF_LED_FADE_MS      1000    // …then fades out
+
 // --- Panel ---
 // Set ahead of everything that branches on it: an undefined macro in an #if is
 // silently 0 (the EE02 shipped with the gray low-battery threshold that way).
@@ -97,7 +111,7 @@
 // Readings under FF_BATT_ABSENT_V mean no pack is fitted and are ignored.
 // The hold announces itself on the glass, once ("Battery low, charge me"). On
 // the gray panel that is a sub-second windowed pill; on the Spectra it is a
-// ~30 s six-ink full refresh, so that panel holds 0.1 V earlier, while the
+// ~15 s six-ink full refresh, so that panel holds 0.1 V earlier, while the
 // cell still has the headroom to paint it. The server's Panel.low_battery_volts
 // mirrors these (a test keeps them equal): it is where the page's banner goes up.
 #if FF_FULL_REFRESH
@@ -153,7 +167,7 @@
 #define FF_REDISCOVER_FAILS  3
 
 // How long the "Up to date" pill stays on the glass before it clears (ms).
-// On the Spectra a pill costs a ~30 s refresh to put up and another to take
+// On the Spectra a pill costs a ~15 s refresh to put up and another to take
 // down, so it stays long enough to be seen by someone who looked away.
 #if FF_FULL_REFRESH
 #define TOAST_HOLD_MS  60000
@@ -223,7 +237,7 @@
 // --- Panel ---
 // -DFF_BOARD_EE02 (the ee02 envs) builds for the EE02 board's 13.3" Spectra 6
 // colour panel instead of the EE03's 10.3" gray one. Spectra has no partial
-// refresh and a full one takes ~30 s, so everything the gray build does with
+// refresh and a full one takes ~15 s, so everything the gray build does with
 // windowed updates (the loading sweep, toasts, the corner mark, boot-stage
 // screens) has a full-refresh-or-nothing fallback under FF_FULL_REFRESH.
 // The ID strings ride X-Panel / X-Board as labels. The server draws for a

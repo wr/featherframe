@@ -217,11 +217,11 @@ is cosmetic — skip unless you expect more than one hardware variant.
 | `X-Env-TempC` / `X-Env-RH` | Ambient | §4 |
 | `X-Boot-Count` / `X-Refresh-Count` | Refreshes | §5 |
 | `X-Panel` / `X-Board` | Panel / Board | §6 (optional) |
-| `X-Panel-Width` / `X-Panel-Height` / `X-Panel-Format` / `X-Panel-Rotations` | (what the server draws for) | see below |
+| `X-Panel-Width` / `X-Panel-Height` / `X-Panel-Format` / `X-Panel-Rotations` | (what the server renders for) | see below |
 
 ### The panel, as facts (W-813)
 
-`X-Panel` is a label. What the server draws for comes from four facts beside
+`X-Panel` is a label. What the server renders for comes from four facts beside
 it, so a port to a panel the server has never heard of needs no server change:
 
 | Header | Value |

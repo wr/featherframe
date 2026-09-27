@@ -65,7 +65,7 @@ def test_a_stamp_tile_lands_on_its_ink_whichever_way_the_canvas_turns(bake, rota
     t = bake.Target(480, 800, "gray16", rotation, str(tmp_path / "s.h"), "t", [])
     canvas = Image.new("L", (bake.W, bake.H), 255)
     bake._draw_toast(ImageDraw.Draw(canvas), "Up to date", "done")
-    win = t.window([canvas], 1640, 1736)
+    win = t.window([canvas], bake.PILL_Y - 8, bake.PILL_Y + bake.PILL_H + 8)
     nx, ny, nw, nh = t.native_window(win)
     assert nx % 2 == 0 and nw % 2 == 0                     # a row is whole bytes
     assert 0 <= nx and nx + nw <= t.native_w and 0 <= ny and ny + nh <= t.native_h

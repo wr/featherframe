@@ -18,7 +18,7 @@ help:
 	@echo "  make preview-ee02     render the Cardinal for the EE02 colour panel"
 	@echo "  make preview-views    the Cardinal as viewers get it (TRMNL, e-readers, a tablet)"
 	@echo "  make preview-fallback render the typographic fallback plate"
-	@echo "  make serve            run the server locally on :8080 (FEATHERFRAME_NO_MDNS=1 for a dev copy)"
+	@echo "  make serve            run the server locally on :8181 (FEATHERFRAME_NO_MDNS=1 for a dev copy)"
 	@echo "  make test             run the unit tests"
 	@echo "  make clean            remove venv, previews, and runtime state"
 

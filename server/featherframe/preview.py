@@ -56,12 +56,10 @@ def main() -> int:
                     help='render as a species never heard before today ("first recorded today")')
     args = ap.parse_args()
 
-    config = Config()
+    # The frame's own: its panel's rotation and mat inset.
+    config = Config.defaults_for(args.panel or Config().panel)
     if args.dither:
         pipeline.DITHER_OVERRIDE = args.dither
-    if args.panel:
-        config.panel = args.panel
-        config.sanitize()
     if args.mat_inset is not None:
         config.mat_inset_pct = args.mat_inset
 

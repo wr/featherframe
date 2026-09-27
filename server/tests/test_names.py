@@ -192,3 +192,26 @@ def test_a_folio_names_its_margins(tmp_path):
     idx._folios["gould"].by_sci["passer domesticus"]["margins"] = [0.1, 0.0, 0.9, 0.8]
     assert idx.match("House Sparrow", "Passer domesticus").margins == [0.1, 0.0, 0.9, 0.8]
     assert idx.match("Mallard", "Anas platyrhynchos").margins is None     # Havell's own
+
+
+def test_a_region_puts_its_own_folio_first(tmp_path):
+    """Region reorders the folios (W-702), it never filters them."""
+    img = tmp_path / "img"
+    (img / "gould").mkdir(parents=True)
+    for f in ("mallard.jpg", "gould/mallard.webp", "gould/sparrow.webp"):
+        (img / f).write_bytes(b"x")
+    idx = SpeciesIndex([
+        {"common": "Mallard", "scientific": "Anas platyrhynchos", "plate": 221, "image": "mallard.jpg"},
+        {"common": "Wood Duck", "scientific": "Aix sponsa", "plate": "none"},
+        {"folio": "gould", "common": "Mallard", "scientific": "Anas platyrhynchos",
+         "plate": 380, "image": "gould/mallard.webp"},
+        {"folio": "gould", "common": "House Sparrow", "scientific": "Passer domesticus",
+         "plate": 184, "image": "gould/sparrow.webp"},
+    ], images_dir=img, folios={"havell": {"region": "north-america"}, "gould": {"region": "europe"}})
+    assert idx.order() == idx.order("north-america") == ["havell", "gould"]
+    assert idx.order("europe") == ["gould", "havell"]
+    assert idx.match("Mallard", "Anas platyrhynchos", "europe").folio == "gould"
+    assert idx.match("Mallard", "Anas platyrhynchos", "north-america").folio == "havell"
+    # Another region's folio still fills a gap.
+    assert idx.match("House Sparrow", "Passer domesticus", "north-america").folio == "gould"
+    assert idx.match("Wood Duck", "Aix sponsa", "europe") is None

@@ -20,6 +20,7 @@ using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before i
 #include <WebServer.h>
 #include <WiFiManager.h>
 #include "ff_improv.h"
+#include "ff_led.h"
 #include <Preferences.h>
 #include <Update.h>
 #include <esp_sleep.h>
@@ -326,8 +327,8 @@ static void loaderTask(void*) {
 
 // ---------------------------------------------------------------- error states
 // Failure presentation (design: Linear W-587). On a boot pill screen the pill
-// band is swapped in place — outlined pill + slashed icon for real errors, the
-// solid pill for "waiting for the first bird" — with a "Trying again …" line
+// band is swapped in place — the black pill with a slashed icon for real
+// errors, without one for "waiting for the first bird" — with a "Trying again …" line
 // beneath. Over a painted plate only a small slashed glyph appears in the
 // margin corner, and only past the FF_MARK_* thresholds. All tiles are baked
 // pure black/white and pushed as windowed DU partials (no flash). The state
@@ -359,8 +360,8 @@ static uint8_t* g_lastFrame = nullptr;
 // swapped, and a tile's window mirrors to the opposite corner.
 bool g_flip = false;
 // The mat it hangs with, as the server last said it (X-FF-Mat, "inset,x,y",
-// kept in NVS). Nothing here draws with it: it is said back on every ask, so
-// a frame removed and added again starts with the mat it had.
+// kept in NVS). It is said back on every ask, so a frame removed and added
+// again starts with the mat it had, and it places the toasts (placeToast).
 char g_mat[32] = "";
 static bool validMat(const String& m) {
   if (!m.length() || m.length() >= sizeof(g_mat)) return false;
@@ -370,6 +371,31 @@ static bool validMat(const String& m) {
     else if (!isdigit((unsigned char)c) && c != '.' && c != '-') return false;
   }
   return commas == 2;
+}
+
+// Toasts sit on the plate's footer line, where the server puts its notes. The
+// mat moves that line (the plate is shrunk into it), so the bake puts a toast
+// where the line lands under FF_REF_INSET and this moves the window to where
+// it lands under the frame's own mat. Upright panel px, as the server's
+// pipeline._apply_mat_inset has them; a native x step stays whole bytes.
+static int g_toastX = FF_TOAST_X, g_toastY = FF_TOAST_Y;
+static int g_cornerX = FF_CORNER_X, g_cornerY = FF_CORNER_Y;   // the offline mark, same line
+static float matAt(float size, float inset, float off, float at) {
+  const float s = 1.0f - inset / 50.0f;
+  return floorf((size - lroundf(size * s)) / 2.0f) + off + at * s;
+}
+static int roundTo(float v, int step) { return (int)lroundf(v / step) * step; }
+static void placeToast() {
+  float inset = FF_REF_INSET, mx = 0, my = 0;
+  if (g_mat[0]) sscanf(g_mat, "%f,%f,%f", &inset, &mx, &my);
+  const float dx = matAt(FF_UP_W, inset, mx, FF_UP_W / 2.0f) - matAt(FF_UP_W, FF_REF_INSET, 0, FF_UP_W / 2.0f);
+  const float dy = matAt(FF_UP_H, inset, my, FF_FOOT_CY) - matAt(FF_UP_H, FF_REF_INSET, 0, FF_FOOT_CY);
+  g_toastX = constrain(FF_TOAST_X + roundTo(dx * FF_UPX_NX + dy * FF_UPY_NX, 8), 0, FF_NATIVE_W - FF_TOAST_W);
+  g_toastY = constrain(FF_TOAST_Y + roundTo(dx * FF_UPX_NY + dy * FF_UPY_NY, 2), 0, FF_NATIVE_H - FF_TOAST_H);
+  // The offline mark takes the plate number's place: it follows the corner.
+  const float rx = matAt(FF_UP_W, inset, mx, FF_FOOT_RX) - matAt(FF_UP_W, FF_REF_INSET, 0, FF_FOOT_RX);
+  g_cornerX = constrain(FF_CORNER_X + roundTo(rx * FF_UPX_NX + dy * FF_UPY_NX, 8), 0, FF_NATIVE_W - FF_CORNER_W);
+  g_cornerY = constrain(FF_CORNER_Y + roundTo(rx * FF_UPX_NY + dy * FF_UPY_NY, 2), 0, FF_NATIVE_H - FF_CORNER_H);
 }
 static inline uint8_t swapNibbles(uint8_t b) { return (uint8_t)((b << 4) | (b >> 4)); }
 static void rotate180(uint8_t* buf, size_t n) {
@@ -387,7 +413,7 @@ static inline int flipY(int y, int h) { return g_flip ? FF_NATIVE_H - y - h : y;
 // "Battery low" screen needs the headroom the pill does not.
 static_assert(FF_LOW_BATT_V > 3.5f, "EE02 built with the gray panel's low-battery threshold");
 // Spectra error presentation: the same states as the gray frame, each one a
-// ~30 s full refresh instead of a windowed update (W-817). While a baked
+// ~15 s full refresh instead of a windowed update (W-817). While a baked
 // screen holds the glass (boot, setup, an earlier error) the error takes it as
 // a baked full screen. Over a painted plate the corner mark appears at the
 // gray frame's own thresholds, stamped into the retained plate and the whole
@@ -480,7 +506,7 @@ void showErrorState(int kind) {
              g_failCount >= FF_MARK_FAILS && g_failMinutes >= FF_MARK_MINUTES) {
     uint8_t mark = (kind == ERRK_WIFI) ? 1 : 2;
     if (g_cornerMark != mark) {
-      pushTile(ff_corner_tiles[mark - 1], FF_CORNER_X, FF_CORNER_Y, FF_CORNER_W, FF_CORNER_H);
+      pushTile(ff_corner_tiles[mark - 1], g_cornerX, g_cornerY, FF_CORNER_W, FF_CORNER_H);
       g_cornerMark = mark;
     }
   }
@@ -490,9 +516,9 @@ void showErrorState(int kind) {
 // plate, so the mark needs an explicit wipe) and reset the accounting.
 void noteSuccess() {
   if (g_cornerMark) {
-    pushTile(ff_corner_tiles[2], FF_CORNER_X, FF_CORNER_Y, FF_CORNER_W, FF_CORNER_H);
+    pushTile(ff_corner_tiles[2], g_cornerX, g_cornerY, FF_CORNER_W, FF_CORNER_H);
     g_cornerMark = 0;
-    // The mark's box white-washed a corner of the plate; drop the ETag so the
+    // The mark's box white-washed the plate number; drop the ETag so the
     // next fetch repaints the whole glass instead of 304-ing over the scar.
     g_etag[0] = 0;
     prefs.putString("etag", "");
@@ -542,6 +568,7 @@ void goToSleep(uint32_t minutes) {
   if (minutes > FF_MAX_SLEEP_MINUTES) minutes = FF_MAX_SLEEP_MINUTES;
   esp_sleep_enable_timer_wakeup((uint64_t)minutes * 60ULL * 1000000ULL);
 
+  ledSleep();
   Serial.printf("Sleeping for %u min (or button)\n", minutes);
   Serial.flush();
   esp_deep_sleep_start();
@@ -714,6 +741,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   wm.setAPCallback([](WiFiManager*) {
     g_viaPortal = true;
     g_portalOpen = true;
+    ledSet(LED_WIFI_SETUP);
 #if FF_FULL_REFRESH
     // The pill is stamped on the retained plate; with none to stamp on (a
     // wake out of deep sleep) the steps take the glass.
@@ -742,7 +770,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
     // Deep-sleep wakes connect silently (showBoot false): the resident plate
     // stays on the glass and a 304 wake never repaints anything.
 #if FF_FULL_REFRESH
-    // One boot screen, ~30 s to paint: start joining the saved network first so
+    // One boot screen, ~15 s to paint: start joining the saved network first so
     // the two overlap (autoConnect picks up the connection already under way).
     // With no network saved the setup steps are about to take the glass; a
     // "Connecting" screen ahead of them would only be a second refresh.
@@ -780,6 +808,8 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   }
   bool connected = ok && WiFi.status() == WL_CONNECTED;
   if (connected) markFirmwareGood();   // a build that gets this far is not a brick
+  // Joined: still "starting" until the server answers (noteFetchOutcome).
+  ledSet(connected ? LED_BOOT : LED_NO_WIFI);
   // A dead end (portal timeout, connect failure) can leave a boot screen
   // armed via the save callback; stop the sweep — there is no progress to show.
   if (!connected) g_loaderAnim.on = false;
@@ -832,7 +862,7 @@ static bool paintPlate();
 // The one call into the panel driver on the full-refresh path: a whole 4bpp
 // body, then a full refresh. A port to another driver replaces this.
 // Inks: the colour sprite is 4bpp from begin() and the nibbles are already
-// Seeed's ink codes, so a body lands verbatim; refresh() is the ~30 s one.
+// Seeed's ink codes, so a body lands verbatim; refresh() is the ~15 s one.
 // Gray: the 16-level sprite is allocated by initGrayMode(), as the gray build
 // does it.
 static bool fullPaint(const uint8_t* body) {
@@ -988,7 +1018,7 @@ static ToastState g_toast = {false, 0};
 
 #if FF_FULL_REFRESH
 // No windowed update, so a pill is a stamped repaint: the baked tile is blitted
-// into a copy of the retained plate and the whole glass refreshed (~30 s);
+// into a copy of the retained plate and the whole glass refreshed (~15 s);
 // clearing it paints the plate again, TOAST_HOLD_MS later. The in-progress
 // pills have no tile here — the fetch answers in seconds, so the press is
 // acknowledged by its outcome (a new plate, a view, or an outcome pill) and
@@ -1028,9 +1058,9 @@ static bool paintPlate() {
   if (!body) { Serial.println("stamp: no buffer"); return false; }
   memcpy(body, g_lastFrame, FF_SCREEN_BYTES);
   if (g_cornerMark)
-    stampTile(body, ff_corner_tiles[g_cornerMark - 1], FF_CORNER_X, FF_CORNER_Y, FF_CORNER_W, FF_CORNER_H);
+    stampTile(body, ff_corner_tiles[g_cornerMark - 1], g_cornerX, g_cornerY, FF_CORNER_W, FF_CORNER_H);
   if (toast)
-    stampTile(body, ff_toast_tiles[g_toastId], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+    stampTile(body, ff_toast_tiles[g_toastId], g_toastX, g_toastY, FF_TOAST_W, FF_TOAST_H);
   fullPaint(body);
   free(body);
   return true;
@@ -1093,11 +1123,12 @@ void showToast(int t) {
   // hole the band-dedup latch never repairs.
   if (g_glassScreen >= 0) return;
   g_loaderAnim.on = false;
-  pushTile(ff_toast_tiles[t], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+  pushTile(ff_toast_tiles[t], g_toastX, g_toastY, FF_TOAST_W, FF_TOAST_H);
   if (t < (int)(sizeof(ff_toast_loader) / sizeof(ff_toast_loader[0]))) {
     const FfLoader& ld = ff_toast_loader[t];
     if (ld.x >= 0) {
-      g_loaderAnim.x = ld.x; g_loaderAnim.y = ld.y; g_loaderAnim.frames = ld.frames;
+      g_loaderAnim.x = ld.x + g_toastX - FF_TOAST_X; g_loaderAnim.y = ld.y + g_toastY - FF_TOAST_Y;
+      g_loaderAnim.frames = ld.frames;
       g_loaderAnim.on = true;
     }
   }
@@ -1125,7 +1156,7 @@ void clearToast() {
     panelLock();                              // g_tileBuf is shared under the lock
     // The pill sits where pushTile put it (mirrored when the frame is hung
     // the other way up); the retained frame is already in glass orientation.
-    const int tx = flipX(FF_TOAST_X, FF_TOAST_W), ty = flipY(FF_TOAST_Y, FF_TOAST_H);
+    const int tx = flipX(g_toastX, FF_TOAST_W), ty = flipY(g_toastY, FF_TOAST_H);
     const int nx = FF_NATIVE_W - tx - FF_TOAST_W;
     for (int r = 0; r < FF_TOAST_H; r++)
       memcpy(g_tileBuf + r * (FF_TOAST_W / 2),
@@ -1134,14 +1165,14 @@ void clearToast() {
     pushTileRaw(g_tileBuf, tx, ty, FF_TOAST_W, FF_TOAST_H);
     panelUnlock();
   } else {
-    pushTile(ff_toast_tiles[FF_TOAST_BLANK], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+    pushTile(ff_toast_tiles[FF_TOAST_BLANK], g_toastX, g_toastY, FF_TOAST_W, FF_TOAST_H);
   }
   g_toast.active = false;
   Serial.println("toast cleared");
 }
 #endif
 
-// The hold says so on the glass, once: a baked "Battery low, charge me" pill
+// The hold says so on the glass, once: a baked "Low battery" pill
 // over the plate's bottom margin, left up through the hold. "Once" is kept in
 // NVS, and written BEFORE the paint: a cell too flat to survive the paint
 // browns out, loses g_lowBatt with the rest of RTC memory, and must not try
@@ -1155,7 +1186,7 @@ static void markLowBattery(int beginMode) {
   prefs.putString("etag", "");
 #if FF_FULL_REFRESH
   // No windowed update to put a pill down with: the same words as a baked
-  // full screen, one ~30 s refresh. FF_LOW_BATT_V is higher on this panel so
+  // full screen, one ~15 s refresh. FF_LOW_BATT_V is higher on this panel so
   // the cell can carry it. (showScreen drops the ETag and sleeps the panel.)
   if (beginMode >= 0) epaper.begin(beginMode);
   showScreen(FF_SCR_LOW_BATT);
@@ -1164,7 +1195,7 @@ static void markLowBattery(int beginMode) {
   if (beginMode >= 0) epaper.begin(beginMode);
   g_loaderAnim.on = false;
   g_toast.active = false;          // goToSleep must not "clear" this one off the glass
-  pushTile(ff_toast_tiles[FF_TOAST_LOW_BATTERY], FF_TOAST_X, FF_TOAST_Y, FF_TOAST_W, FF_TOAST_H);
+  pushTile(ff_toast_tiles[FF_TOAST_LOW_BATTERY], g_toastX, g_toastY, FF_TOAST_W, FF_TOAST_H);
   g_bandKind = g_bandStage = -1;   // over a baked screen the pill took the error band's place
   epaper.sleep();                  // pushTile leaves the T-CON awake; the hold is four hours
   Serial.println("low-battery mark painted");
@@ -1198,7 +1229,7 @@ static bool lowBatteryWhileAwake(float vbat) {
 // windowed gray update, so the birdhouse never flashes. Native 4bpp: 2 px/byte,
 // stride 936, so a byte column = 2 px.
 #if FF_FULL_REFRESH
-// Spectra: every screen is a ~30 s full refresh, so the boot sequence is one
+// Spectra: every screen is a ~15 s full refresh, so the boot sequence is one
 // screen (ff_screens_ee02.h): "Connecting" while things proceed normally, and
 // a specific error screen only if Wi-Fi or the server fails (W-817). Each
 // stage the gray frame names would cost a refresh longer than the stage.
@@ -1213,7 +1244,7 @@ void showScreen(int idx) {
     idx = FF_SCR_BOOT_WIFI;                           // every boot stage is "Connecting"
   // A frame no one has claimed goes straight to its pairing code, which is
   // the boot screen with the code on it: a "Connecting" ahead of it would be
-  // a second 30 s paint of the same picture.
+  // a second ~15 s paint of the same picture.
   if (idx == FF_SCR_BOOT_WIFI && g_unpaired) return;
   if (idx < 0 || idx >= FF_SCR_COUNT || !ff_screens[idx].data) return;
   if (g_glassScreen == idx) return;                 // already on the glass
@@ -1553,6 +1584,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   if (validMat(mat) && mat != g_mat) {
     strlcpy(g_mat, mat.c_str(), sizeof(g_mat));
     prefs.putString("mat", g_mat);
+    placeToast();
   }
   // The power model and wake interval are set on the config page and ride
   // every response (a 304 too). Stored in NVS; the callers act on the new
@@ -1721,6 +1753,16 @@ static bool toastOnFreshPlate(int t, float vbat, int pct) {
 }
 #endif
 
+// The LED follows every resident answer: waiting to be added (a pairing code
+// on the glass, or the server's 403) breathes amber; any other answer is
+// connected (green, then off); no answer is no Wi-Fi or no server.
+static void noteLedOutcome(FetchResult r) {
+  if (r == FETCH_STUCK || r == FETCH_REJECTED) return;   // the panel's or the image's, not the link's
+  if (r == FETCH_ERROR) ledSet(WiFi.status() != WL_CONNECTED ? LED_NO_WIFI : LED_NO_SERVER);
+  else if (r == FETCH_PENDING || pairingOnGlass()) ledSet(LED_PAIRING);
+  else ledSet(LED_PAIRED);
+}
+
 // Resident-fetch accounting: success clears the error state, failure advances
 // it and updates the glass. Transient button views don't count — they are user
 // actions, not frame health. Callers keep g_failMinutes current beforehand.
@@ -1731,6 +1773,7 @@ void noteFetchOutcome(FetchResult r) {
   // post-OTA boot would otherwise leave the image PENDING_VERIFY for its whole
   // uptime and roll it back on the next hard reset.
   if (r != FETCH_ERROR) markFirmwareGood();
+  noteLedOutcome(r);
   if (r == FETCH_UPDATED || r == FETCH_NOCHANGE) { noteSuccess(); return; }
   if (r == FETCH_NOFRAME && pairingOnGlass()) return;   // paired; its picture is being drawn
   if (r == FETCH_STUCK) return;                         // the panel's, not the server's (X-Wake-Detail)
@@ -1800,6 +1843,8 @@ void maybeOTA(float vbat) {
   int len = http.getSize();
   if (len <= 0 || !Update.begin(len)) { http.end(); return; }
   if (md5.length() == 32) Update.setMD5(md5.c_str());   // end() then verifies the stream
+  LedState before = ledState();
+  ledSet(LED_UPDATING);
   Serial.printf("OTA: flashing %d bytes\n", len);
   size_t written = Update.writeStream(*http.getStreamPtr());
   http.end();
@@ -1809,6 +1854,7 @@ void maybeOTA(float vbat) {
     ESP.restart();
   }
   Serial.printf("OTA failed: %s\n", Update.errorString());
+  ledSet(before);
   uint8_t err = Update.getError();
   Update.abort();
   // Only a COMPLETE, checksum-matching stream that still fails is a bad
@@ -1822,7 +1868,7 @@ void maybeOTA(float vbat) {
 // panels): no boot screen, and the plate's ETag is kept, so an unchanged
 // picture is a 304 and nothing repaints. A stored ETag means exactly that:
 // every baked screen and one-off view clears it. On the Spectra each paint is
-// ~30 s, and a USB session — the installer, Wi-Fi over Improv, pairing, the
+// ~15 s, and a USB session — the installer, Wi-Fi over Improv, pairing, the
 // move to a new server — restarts the frame several times: two paints each,
 // ten in a row, some cut short (Wells, 23 Sep 2026). The setup portal and a
 // blank board still show their screens.
@@ -1833,6 +1879,7 @@ static bool resumeGlass(bool forcePortal) {
 // ---------------------------------------------------------------- setup
 void setup() {
   Serial.begin(115200);
+  ledBegin();      // white: starting up, until the server answers
   delay(50);
   startImprov();   // answers the USB flasher from the first moment (W-839)
   // TEMP boot-ping: 6s of prints after USB settles, so a late reader confirms the
@@ -1842,6 +1889,9 @@ void setup() {
   strlcpy(g_wakeToken, wakeToken(cause), sizeof(g_wakeToken));
   bool buttonWake = (cause == ESP_SLEEP_WAKEUP_EXT1);
   bool fromDeepSleep = (cause == ESP_SLEEP_WAKEUP_TIMER || cause == ESP_SLEEP_WAKEUP_EXT1);
+  // A timer or button wake out of deep sleep is not a restart: stay dark
+  // unless something goes wrong.
+  if (fromDeepSleep) ledSet(LED_OFF);
   Serial.printf("\nFeatherframe wake: cause=%d (%s) fw=%s\n",
                 cause, buttonWake ? "button" : "timer/boot",
                 ESP.getSketchMD5().substring(0, 8).c_str());
@@ -1873,6 +1923,7 @@ void setup() {
   g_pollMs = prefs.getUInt("poll_s", FF_POLL_INTERVAL_MS / 1000) * 1000UL;
   g_flip = prefs.getBool("flip", false);
   prefs.getString("mat", "").toCharArray(g_mat, sizeof(g_mat));
+  placeToast();
   Serial.printf("power: %s, wake %u min\n", g_alwaysAwake ? "always awake" : "deep sleep",
                 (unsigned)g_wakeMinutes);
 
@@ -2134,7 +2185,7 @@ static void pushService() {
     g_ws.onEvent(onPush);
     g_ws.setReconnectInterval(pushRetryMs());
     // Pings keep a NAT or proxy from dropping an idle socket. A missed pong
-    // never closes it by itself: a ~30 s colour paint holds the loop up, and
+    // never closes it by itself: a ~15 s colour paint holds the loop up, and
     // a dead server shows up as a failed heartbeat GET instead (see loop()).
     g_ws.enableHeartbeat(30000, 10000, 0);
     if (tls) g_ws.beginSSL(hostPort.c_str(), port, path.c_str());
@@ -2164,7 +2215,7 @@ static void startPushTask() {
 }
 
 // Run a button's action: an instant pill for feedback, then fetch + paint. A new
-// plate paints over the pill; on a no-change check the pill becomes "Up to date".
+// plate paints over the pill; on a no-change check the pill becomes "Already up-to-date".
 void doButton(int key) {
   float vbat = readBatteryVoltage();
   int pct = batteryPercent(vbat);
@@ -2240,6 +2291,7 @@ void loop() {
           g_toast.active = false;         // the full repaint took the pill with it
         } else {
           clearToast();                   // peeked and left: the plate stays put
+          g_pushWake = true;              // check in now, so the LED says how things stand
         }
       }
     } else {

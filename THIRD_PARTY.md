@@ -1,6 +1,7 @@
 # Third-party notices
 
-Featherframe's own code, the plate crosswalk (`server/scripts/folios/`),
+Featherframe's own code, the plate crosswalks (`server/scripts/folios/`;
+also published CC0 as [wr/historical-bird-plates](https://github.com/wr/historical-bird-plates)),
 and the legend transcriptions (`server/scripts/legends.yaml`) are licensed
 under the Apache License 2.0 (`LICENSE`). Everything below belongs to someone
 else and keeps its own terms.
@@ -28,6 +29,14 @@ renderings made with these fonts, not font software.
   when displaying them: *Courtesy of the John James Audubon Center at Mill
   Grove, Montgomery County Audubon Collection, and Zebra Publishing.* The
   plates themselves are not in the git tree.
+- **Gould's plates.** *The Birds of Europe* (1832–37), *The Birds of Australia*
+  (1840–69), *The Birds of Asia* (1850–83) and *The Birds of Great Britain*
+  (1862–73) are in the public domain. The scans are the Smithsonian's copies on
+  the Biodiversity Heritage Library, fetched from BHL's public `bhl-open-data`
+  bucket; the cleaned plates (stood upright, paper cleared) are redistributed in
+  the releases of [wr/historical-bird-plates](https://github.com/wr/historical-bird-plates).
+  Credit line: *Smithsonian Libraries and Archives, via the Biodiversity
+  Heritage Library.* The plates are not in the git tree.
 - **The hawthorn bough and the boot-screen wrens** (`server/featherframe/art/`,
   `firmware/tools/screens/art/`) were generated for this project with OpenAI's
   image models, using the public-domain plates as style references.

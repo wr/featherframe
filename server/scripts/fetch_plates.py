@@ -36,8 +36,10 @@ the one to preserve when displaying its plates.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -136,7 +138,9 @@ def species_legend(entry: dict, plate: int | None,
     if not rec:
         return []
     composite = bool(entry.get("composite", False)) or bool(rec.get("composite", False))
-    return legends.resolve(entry.get("audubon_title", ""), composite, rec.get("lines", []))
+    hidden = set(rec.get("hidden") or [])
+    return legends.resolve(entry.get("audubon_title", ""), composite,
+                           [x for x in rec.get("lines", []) if x not in hidden])
 
 
 def resolve_plate(entry: dict, catalog: dict[int, dict], quiet: bool = False) -> int | None:
@@ -274,14 +278,21 @@ def catalog_rows(catalog: dict[int, dict], images_dir: Path) -> list[dict]:
             for p, m in sorted(catalog.items())]
 
 
+def _first_year(header: dict) -> int:
+    m = re.search(r"\d{4}", str(header.get("years", "")))
+    return int(m.group()) if m else 9999
+
+
 def load_folios(folios_dir: Path) -> list[tuple[str, dict, list]]:
-    """(id, header, species) for every folio file, Havell's first: the order
-    the index lists them is the order a species' folios are asked in."""
+    """(id, header, species) for every folio file, Havell's first, then the
+    rest as they were published (W-870: Europe 1832 before Australia 1840), so
+    a new folio never takes a species from one a household already sees: the
+    order the index lists them is the order a species' folios are asked in."""
     out = []
-    for f in sorted(folios_dir.glob("*.yaml"), key=lambda p: (p.stem != HAVELL, p.stem)):
+    for f in folios_dir.glob("*.yaml"):
         doc = yaml.safe_load(f.read_text()) or {}
         out.append((f.stem, dict(doc.get("folio") or {}), list(doc.get("species") or [])))
-    return out
+    return sorted(out, key=lambda x: (x[0] != HAVELL, _first_year(x[1]), x[0]))
 
 
 def fetch_havell(session: requests.Session, species: list, args, images_dir: Path,
@@ -319,6 +330,9 @@ def fetch_havell(session: requests.Session, species: list, args, images_dir: Pat
             "image": None,
             "legend": species_legend(entry, plate, plate_legends),
         }
+        for key in ("margins", "mask"):     # a sheet cut its own way (W-883)
+            if entry.get(key):
+                record[key] = entry[key]
         if plate is None:
             print(f"  ·  {common}: typographic fallback (no plate)")
             counts["fallback"] += 1
@@ -363,9 +377,21 @@ def fetch_havell(session: requests.Session, species: list, args, images_dir: Pat
 
 
 def scan_filename(folio: str, entry: dict) -> str:
-    """Where a scanned folio keeps a plate, under img/: one file per plate,
-    shared by every species on it."""
-    return f"{folio}/{folio.replace('_', '-')}-{int(entry['plate'])}.jpg"
+    """Where a scanned folio keeps a sheet, under img/: one file per leaf of
+    the book, shared by every species on it. Named by leaf, not plate number:
+    a copy's numbering can disagree with the list (Gould's 447/448)."""
+    return f"{folio}/{entry['volume']}-{int(entry['leaf']):04d}.jpg"
+
+
+def scan_margins(entry: dict, header: dict):
+    """The part of an upright sheet kept before the crop: the plate's own
+    `margins`, else its volume's (`volume_margins`, keyed by the entry's
+    `volume`: a binding's gutter or gilt edge shows on some volumes and not
+    others), else the folio's. Resolved here, so the index carries the answer
+    and the runtime and the plate library never look it up."""
+    return (entry.get("margins")
+            or (header.get("volume_margins") or {}).get(entry.get("volume"))
+            or header.get("margins"))
 
 
 def _paper_surface(small):
@@ -431,6 +457,36 @@ def store_scan(raw: Path, dest: Path, rotate: int = 0, flatten: bool = False) ->
     tmp.replace(dest)
 
 
+def from_release(session: requests.Session, header: dict, entry: dict, dest: Path,
+                 manifests: dict) -> bool:
+    """The sheet from the folio's dataset release (its header's `release`,
+    github.com/wr/historical-bird-plates, W-868) when the scan's own source
+    fails. The release holds exactly what store_scan makes of the scan, so it
+    is stored as it comes, once its sha256 matches the release's manifest."""
+    base = (header.get("release") or "").rstrip("/")
+    if not base:
+        return False
+    if base not in manifests:
+        try:
+            r = session.get(f"{base}/manifest.json", timeout=60)
+            manifests[base] = r.json().get("files", {}) if r.status_code == 200 else {}
+        except (requests.RequestException, ValueError):
+            manifests[base] = {}
+    fname = f"sheet-{entry['volume']}-{int(entry['leaf']):04d}.jpg"
+    want = (manifests[base].get(fname) or {}).get("sha256")
+    if not want:
+        return False
+    tmp = dest.with_name(dest.name + ".rel")
+    if not _fetch_to(session, f"{base}/{fname}", tmp):
+        return False
+    if hashlib.sha256(tmp.read_bytes()).hexdigest() != want:
+        print(f"       {fname}: checksum does not match the release manifest")
+        tmp.unlink(missing_ok=True)
+        return False
+    tmp.replace(dest)
+    return True
+
+
 def fetch_scans(folio: str):
     """The fetcher for a folio whose header names a `scans` URL template:
     one master per plate, {volume} and {leaf} filled from the entry."""
@@ -438,6 +494,7 @@ def fetch_scans(folio: str):
               plate_legends: dict[int, dict], header: dict) -> tuple[list[dict], dict, dict]:
         counts = {"downloaded": 0, "fallback": 0, "failed": 0}
         records = []
+        manifests: dict = {}
         for entry in species:
             common = entry.get("common", "?")
             record = {
@@ -445,15 +502,19 @@ def fetch_scans(folio: str):
                 "common": common,
                 "scientific": entry.get("scientific", ""),
                 "plate": entry.get("plate"),
+                "volume_no": entry.get("volume_no") if header.get("plates_per_volume") else None,
                 "title": entry.get("gould_title") or entry.get("title", ""),
                 "composite": bool(entry.get("composite", False)),
                 "crop_box": entry.get("crop_box"),
-                "margins": entry.get("margins") or header.get("margins"),
+                "margins": scan_margins(entry, header),
+                "mask": entry.get("mask"),
                 "tight": bool(entry.get("tight", header.get("tight", False))),
                 "sci_synonyms": entry.get("sci_synonyms", []),
                 "image": None,
                 "legend": [str(x) for x in entry.get("legend") or []],
             }
+            if entry.get("preferred"):
+                record["preferred"] = True   # asked ahead of the publication order (W-871)
             records.append(record)
             if entry.get("plate") in (None, "none", False):
                 counts["fallback"] += 1
@@ -480,6 +541,10 @@ def fetch_scans(folio: str):
                 counts["downloaded"] += 1
                 print(f"  ✓  {common}: plate {entry['plate']} -> {name}")
                 time.sleep(POLITE_PAUSE_S)
+            elif from_release(session, header, entry, dest, manifests):
+                record["image"] = name
+                counts["downloaded"] += 1
+                print(f"  ✓  {common}: plate {entry['plate']} -> {name} (from the dataset release)")
             else:
                 counts["failed"] += 1
                 print(f"  !  could not download {common} ({url})")

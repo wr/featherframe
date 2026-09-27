@@ -1,0 +1,685 @@
+volume,plate,ku_id,ku_title,ku_english,ku_printed_latin,ku_sci,note
+I,1,ku-gould:15332,Wedge-tailed Eagle. 1. plate,Wedge-tailed Eagle,Aquila fucosa,Aquila audax,
+I,2,ku-gould:15328,Little Eagle. 2. plate,Little Eagle,Aquila morphnoides,Hieraaetus morphnoides,printed_english=Little australian eagle
+I,3,ku-gould:15324,White-bellied Sea Eagle. 3. plate,White-bellied Sea Eagle,Ichthyiaetus leucogaster,Haliaeetus leucogaster,
+I,4,ku-gould:15320,Brahminy Kite. 4. plate,Brahminy Kite,Haliaster leucosternus,Haliastur indus,printed_english=White-breasted sea eagle
+I,5,ku-gould:15316,Whistling Kite. 5. plate,Whistling Kite,Haliaster sphenurus,Haliastur sphenurus,printed_english=Whistling eagle
+I,6,ku-gould:15312,"Osprey, Western Osprey, Balbuzard pêcheur, Gavilán pescador. 6. plate","Osprey, Western Osprey, Balbuzard pêcheur, Gavilán pescador",Pandion leucocephalus,Pandion haliaetus,printed_english=White-headed osprey
+I,7,ku-gould:15308,Grey Falcon. 7. plate,Grey Falcon,Falco hypoleucus,Falco hypoleucos,
+I,8,ku-gould:15304,"Peregrine Falcon, Faucon pèlerin, faucon pélerin, Halcón peregrino,. 8. plate","Peregrine Falcon, Faucon pèlerin, faucon pélerin, Halcón peregrino,",Falco melanogenys,Falco peregrinus,printed_english=Black-cheeked falcon
+I,9,ku-gould:15300,Black Falcon. 9. plate,Black Falcon,,Falco subniger,
+I,10,ku-gould:15296,Australian Hobby. 10. plate,Australian Hobby,Falco frontatus,Falco longipennis,printed_english=White-fronted falcon
+I,11,ku-gould:15292,Brown Falcon. 11. plate,Brown Falcon,Ieracidea berigora,Falco berigora berigora,printed_english=Brown hawk
+I,12,ku-gould:15288,Brown Falcon. 12. plate,Brown Falcon,Ieracidea occidentalis,Falco berigora occidentalis,printed_english=Western brown hawk
+I,13,ku-gould:15284,"Australian Falcon, Nankeen Kestrel. 13. plate","Australian Falcon, Nankeen Kestrel",Tinnunculus cenchroides,Falco cenchroides,printed_english=Nankeen kestril
+I,14,ku-gould:15280,Grey Goshawk. 14. plate,Grey Goshawk,Astur novae-hollandiae,Accipiter novaehollandiae,printed_english=New holland goshawk
+I,15,ku-gould:15276,Grey Goshawk. 15. plate,Grey Goshawk,Astur novae-hollandiae,Accipiter novaehollandiae,printed_english=White goshawk
+I,16,ku-gould:15272,Red Goshawk. 16. plate,Red Goshawk,Astur radiatus,Erythrotriorchis radiatus,printed_english=Radiated goshawk
+I,17,ku-gould:15268,Brown Goshawk. 17. plate,Brown Goshawk,Astur approximans,Accipiter fasciatus,printed_english=Australian goshawk
+I,18,ku-gould:15264,Brown Goshawk. 18. plate,Brown Goshawk,Astur cruentus,Accipiter fasciatus,printed_english=West australian goshawk
+I,19,ku-gould:15260,Collared Sparrowhawk. 19. plate,Collared Sparrowhawk,Accipiter torquatus,Accipiter cirrocephalus,printed_english=Collared sparrow hawk
+I,20,ku-gould:15256,Black-breasted Buzzard. 20. plate,Black-breasted Buzzard,Buteo melanosternon,Hamirostra melanosternon,
+I,21,ku-gould:15252,"Black Kite, Milan noir. 21. plate","Black Kite, Milan noir",Milvus affinis,Milvus migrans,printed_english=Allied kite
+I,22,ku-gould:15248,Square-tailed Kite. 22. plate,Square-tailed Kite,Milvus isurus,Lophoictinia isura,
+I,23,ku-gould:15244,Black-shouldered Kite. 23. plate,Black-shouldered Kite,,Elanus axillaris,
+I,24,ku-gould:15240,Letter-winged Kite. 24. plate,Letter-winged Kite,,Elanus scriptus,
+I,25,ku-gould:15236,Pacific Baza. 25. plate,Pacific Baza,Lepidogenys subcristatus,Aviceda subcristata,printed_english=Crested hawk
+I,26,ku-gould:15232,Spotted Harrier. 26. plate,Spotted Harrier,Allied harrier,Circus assimilis,
+I,27,ku-gould:15228,Spotted Harrier. 27. plate,Spotted Harrier,Circus jardinii,Circus assimilis,printed_english=Jardine's harrier
+I,28,ku-gould:15224,Australian Masked Owl. 28. plate,Australian Masked Owl,Strix castanops,Tyto novaehollandiae castanops,printed_english=Chestnut-faced owl
+I,29,ku-gould:15220,Australian Masked Owl. 29. plate,Australian Masked Owl,Strix personata,Tyto novaehollandiae,printed_english=Masked barn owl
+I,30,ku-gould:15216,Greater Sooty Owl. 30. plate,Greater Sooty Owl,Strix tenebricosus,Tyto tenebricosa,printed_english=Sooty owl
+I,31,ku-gould:15212,"Barn Owl, Common Barn-Owl, effraie de clochers, Lechuza de campanario. 31. plate","Barn Owl, Common Barn-Owl, effraie de clochers, Lechuza de campanario",Strix delicatulus,Tyto alba delicatula,printed_english=Delicate owl
+I,32,ku-gould:15208,Southern Boobook. 32. plate,Southern Boobook,Athene boobook,Tyto boobook,printed_english=Boobook owl
+I,33,ku-gould:15204,Morepork. 33. plate,Morepork,Athene maculata,Ninox novaeseelandiae,printed_english=Spotted owl
+I,34,ku-gould:15200,Barking Boobook. 34. plate,Barking Boobook,Athene connivens,Ninox connivens,printed_english=Winking owl
+I,35,ku-gould:15196,Powerful Boobook. 35. plate,Powerful Boobook,Athene strenua,Ninox strenua,printed_english=Powerful owl
+I,36,ku-gould:15192,Rufous Boobook. 36. plate,Rufous Boobook,Athene rufa,Ninox rufa,printed_english=Rufous owl
+II,1,ku-gould:15170,Australian Owlet-Nightjar. 1. plate,Australian Owlet-Nightjar,Aegotheles novae-hollandiae,Aegotheles cristatus,printed_english=Owlet nightjar
+II,2,ku-gould:15166,Australian Owlet-Nightjar. 2. plate,Australian Owlet-Nightjar,Aegotheles leucogaster,Aegotheles cristatus,printed_english=White-bellied owlet nightjar
+II,3,ku-gould:15162,Tawny Frogmouth. 3. plate,Tawny Frogmouth,Podargus humeralis,Podargus strigoides,printed_english=Tawny-shouldered podargus
+II,4,ku-gould:15158,Tawny Frogmouth. 4. plate,Tawny Frogmouth,Podargus cuvieri,Podargus strigoides,printed_english=Cuvier's podargus
+II,5,ku-gould:15154,Tawny Frogmouth. 5. plate,Tawny Frogmouth,Podargus phalaenoides,Podargus strigoides phalaenoides,printed_english=Moth-plumaged podargus
+II,6,ku-gould:15150,Tawny Frogmouth. 6. plate,Tawny Frogmouth,Podargus plumiferus,Podargus strigoides,printed_english=Plumed podargus
+II,7,ku-gould:15146,White-throated Nightjar. 7. plate,White-throated Nightjar,Eurostopodus albogularis,Eurostopodus mystacalis,printed_english=White-throated goat-sucker
+II,8,ku-gould:15142,Spotted Nightjar. 8. plate,Spotted Nightjar,Eurostopodus guttatus,Eurostopodus argus,printed_english=Spotted goat-sucker
+II,9,ku-gould:15138,Large-tailed Nightjar. 9. plate,Large-tailed Nightjar,,Caprimulgus macrurus,printed_alt_name=Large-tailed goat-sucker
+II,10,ku-gould:15134,White-throated Needletail. 10. plate,White-throated Needletail,Acanthylis caudacuta,Hirundapus caudacutus,printed_english=Australian spine-tailed swallow
+II,11,ku-gould:15130,Fork-tailed Swift. 11. plate,Fork-tailed Swift,Cypselus australis,Apus pacificus,printed_english=Australian swift
+II,12,ku-gould:15126,White-backed Sparrow. 12. plate,White-backed Sparrow,Atticora leucosternon,Cheramoeca leucosternus,printed_english=White-breasted swallow
+II,13,ku-gould:15122,Welcome Swallow. 13. plate,Welcome Swallow,,Hirundo neoxena,
+II,14,ku-gould:15118,Tree Martin. 14. plate,Tree Martin,Collocalia arborea,Hirundo nigricans,
+II,15,ku-gould:15114,Fairy Martin. 15. plate,Fairy Martin,Collocalia ariel,Hirundo fluvicola,
+II,16,ku-gould:15110,Rainbow Bee-eater. 16. plate,Rainbow Bee-eater,Australian bee-eater,Merops ornatus,
+II,17,ku-gould:15106,"Dollar Bird, Dollar Roller, Dollarbird, Oriental Dollarbird. 17. plate","Dollar Bird, Dollar Roller, Dollarbird, Oriental Dollarbird",Eurystomus australis,Eurystomus orientalis,printed_english=Australian roller
+II,18,ku-gould:15102,Laughing Kookaburra. 18. plate,Laughing Kookaburra,Dacelo gigantea,Dacelo novaeguineae,printed_english=Great brown kingfisher
+II,19,ku-gould:15098,Blue-winged Kookaburra. 19. plate,Blue-winged Kookaburra,,Dacelo leachii,printed_alt_name=Leach's kingfisher
+II,20,ku-gould:15094,Blue-winged Kookaburra. 20. plate,Blue-winged Kookaburra,Dacelo cervina,Dacelo leachii,printed_english=Fawn-breasted kingfisher
+II,21,ku-gould:15090,Sacred Kingfisher. 21. plate,Sacred Kingfisher,Halcyon sanctus,Todiramphus sanctus,printed_english=Sacred halcyon
+II,22,ku-gould:15086,Red-backed Kingfisher. 22. plate,Red-backed Kingfisher,Halcyon pyrrhopygia,Todiramphus pyrrhopygius,printed_english=Red-backed halcyon
+II,23,ku-gould:15082,Collared Kingfisher. 23. plate,Collared Kingfisher,Halcyon sordidus,Todiramphus chloris,printed_english=Sordid halcyon
+II,24,ku-gould:15078,Forest Kingfisher. 24. plate,Forest Kingfisher,Halcyon macleayii,Todiramphus macleayii,printed_english=Macleay's halcyon
+II,25,ku-gould:15074,Azure Kingfisher. 25. plate,Azure Kingfisher,Alcyone azurea,Alcedo azurea,
+II,26,ku-gould:15070,Little Kingfisher. 26. plate,Little Kingfisher,Alcyone pusilla,Alcedo pusilla,
+II,27,ku-gould:15066,Dusky Woodswallow. 27. plate,Dusky Woodswallow,Artamus sordidus,Artamus cyanopterus,printed_english=Wood swallow
+II,28,ku-gould:15062,Little Woodswallow. 28. plate,Little Woodswallow,Little wood swallow,Artamus minor,
+II,29,ku-gould:15058,Black-faced Woodswallow. 29. plate,Black-faced Woodswallow,,Artamus cinereus,printed_alt_name=Grey-breasted wood swallow
+II,30,ku-gould:15054,Black-faced Woodswallow. 30. plate,Black-faced Woodswallow,Artamus albiventris,Artamus cinereus,printed_english=White-vented wood swallow
+II,31,ku-gould:15050,Masked Woodswallow. 31. plate,Masked Woodswallow,Masked wood swallow,Artamus personatus,
+II,32,ku-gould:15046,White-browed Woodswallow. 32. plate,White-browed Woodswallow,,Artamus superciliosus,printed_alt_name=White-eyebrowed wood swallow
+II,33,ku-gould:15042,"White-breasted Wood-Swallow, White-breasted Woodswallow. 33. plate","White-breasted Wood-Swallow, White-breasted Woodswallow",Artamus leucopygialis,Artamus leucorynchus,printed_english=White-rumped wood swallow
+II,34,ku-gould:15038,Mistletoebird. 34. plate,Mistletoebird,Swallow dicaeum,Dicaeum hirundinaceum,
+II,35,ku-gould:15034,Spotted Pardalote. 35. plate,Spotted Pardalote,,Pardalotus punctatus,
+II,36,ku-gould:15030,Red-browed Pardalote. 36. plate,Red-browed Pardalote,,Pardalotus rubricatus,printed_alt_name=Red-lored pardalote
+II,37,ku-gould:15026,Forty-spotted Pardalote. 37. plate,Forty-spotted Pardalote,,Pardalotus quadragintus,
+II,38,ku-gould:15022,Striated Pardalote. 38. plate,Striated Pardalote,,Pardalotus striatus,
+II,39,ku-gould:15018,Striated Pardalote. 39. plate,Striated Pardalote,Pardalotus affinis,Pardalotus striatus,printed_english=Allied pardalote
+II,40,ku-gould:15014,Black-headed Pardalote. 40. plate,Black-headed Pardalote,,Pardalotus melanocephalus,
+II,41,ku-gould:15010,Black-headed Pardalote. 41. plate,Black-headed Pardalote,Pardalotus uropygialis,Pardalotus melanocephalus,printed_english=Yellow-rumped pardalote
+II,42,ku-gould:15006,Pied Currawong. 42. plate,Pied Currawong,Great crow-shrike,Strepera graculina,
+II,43,ku-gould:15002,Black Currawong. 43. plate,Black Currawong,Sooty crow-shrike,Strepera fuliginosa,
+II,44,ku-gould:14998,Grey Currawong. 44. plate,Grey Currawong,Strepera arguta,Strepera versicolor,printed_english=Hill crow-shrike
+II,45,ku-gould:14994,Grey Currawong. 45. plate,Grey Currawong,Strepera anaphonensis,Strepera versicolor,printed_english=Grey crow-shrike
+II,46,ku-gould:14990,Australian Magpie. 46. plate,Australian Magpie,Piping crow-shrike,Gymnorhina tibicen,
+II,47,ku-gould:14986,Australian Magpie. 47. plate,Australian Magpie,Gymnorhina leuconota,Gymnorhina tibicen,printed_english=White-backed crow-shrike
+II,48,ku-gould:14982,Australian Magpie. 48. plate,Australian Magpie,Gymnorhina organicum,Gymnorhina tibicen,printed_english=Tasmanian crow-shrike
+II,49,ku-gould:14978,Pied Butcherbird. 49. plate,Pied Butcherbird,,Cracticus nigrogularis,printed_alt_name=Black-throated crow-shrike
+II,50,ku-gould:14974,Pied Butcherbird. 50. plate,Pied Butcherbird,Cracticus picatus,Cracticus nigrogularis,printed_english=Pied crow-shrike
+II,51,ku-gould:14970,Grey Butcherbird. 51. plate,Grey Butcherbird,Cracticus argenteus,Cracticus torquatus,printed_english=Silvery-backed butcher-bird
+II,52,ku-gould:14966,Grey Butcherbird. 52. plate,Grey Butcherbird,Cracticus destructor,Cracticus torquatus,printed_english=Butcher-bird
+II,53,ku-gould:14962,Black Butcherbird. 53. plate,Black Butcherbird,Cracticus quoyii,Cracticus quoyi,printed_english=Quoy's crow-shrike
+II,54,ku-gould:14958,Magpielark. 54. plate,Magpielark,Grallina australis,Grallina cyanoleuca,printed_english=Pied grallina
+II,55,ku-gould:14954,Black-headed Cuckooshrike. 55. plate,Black-headed Cuckooshrike,Graucalus melanops,Coracina melanoptera,printed_english=Black-faced graucalus
+II,56,ku-gould:14950,White-bellied Cuckooshrike. 56. plate,White-bellied Cuckooshrike,Graucalus mentalis,Coracina papuensis,printed_english=Varied graucalus
+II,57,ku-gould:14946,White-bellied Cuckooshrike. 57. plate,White-bellied Cuckooshrike,Graucalus hypoleucus,Coracina papuensis,printed_english=White-bellied graucalus
+II,58,ku-gould:14942,Black-shouldered Cicadabird. 58. plate,Black-shouldered Cicadabird,Graucalus swainsonii,Coracina incerta,printed_english=Swainson's graucalus
+II,59,ku-gould:14938,Ground Cuckooshrike. 59. plate,Ground Cuckooshrike,Pteropodocys phasianella,Coracina maxima,printed_english=Ground graucalus
+II,60,ku-gould:14934,"Cicadabird, Common Cicadabird. 60. plate","Cicadabird, Common Cicadabird",Campephaga jardinii,Coracina tenuirostris,printed_english=Jardine's campephaga
+II,61,ku-gould:14930,Varied Triller. 61. plate,Varied Triller,Campephaga karu,Lalage leucomela,printed_english=Northern campephaga
+II,62,ku-gould:14926,Varied Triller. 62. plate,Varied Triller,Campephaga leucomela,Lalage leucomela,printed_english=Black and white campephaga
+II,63,ku-gould:14922,White-shouldered Triller. 63. plate,White-shouldered Triller,Campephaga humeralis,Lalage sueurii,printed_english=White-shouldered campephaga
+II,64,ku-gould:14918,Australian Golden Whistler. 64. plate,Australian Golden Whistler,Pachycephala gutturalis,Pachycephala pectoralis,printed_english=Guttural pachycephala
+II,65,ku-gould:14914,Australian Golden Whistler. 65. plate,Australian Golden Whistler,Pachycephala glaucura,Pachycephala pectoralis,printed_english=Grey-tailed pachycephala
+II,66,ku-gould:14910,Australian Golden Whistler. 66. plate,Australian Golden Whistler,Pachycephala melanura,Pachycephala pectoralis,printed_english=Black-tailed pachycephala
+II,67,ku-gould:14906,Australian Golden Whistler. 67. plate,Australian Golden Whistler,Banded thickhead,Pachycephala pectoralis,
+II,68,ku-gould:14902,Rufous Whistler. 68. plate,Rufous Whistler,Pachycephala falcata,Pachycephala rufiventris,printed_english=Lunated pachycephala
+II,69,ku-gould:14898,White-breasted Whistler. 69. plate,White-breasted Whistler,Pachycephala lanoides,Pachycephala lanioides,printed_english=Shrike-like pachycephala
+II,70,ku-gould:14894,Red-lored Whistler. 70. plate,Red-lored Whistler,,Pachycephala rufogularis,printed_alt_name=Red-throated pachycephala
+II,71,ku-gould:14890,Gilbert's Whistler. 71. plate,Gilbert's Whistler,Pachycephala gilbertii,Pachycephala inornata,printed_english=Gilber's pachycephala
+II,72,ku-gould:14886,Grey Whistler. 72. plate,Grey Whistler,,Pachycephala simplex,printed_alt_name=Plain-colored pachycephala
+II,73,ku-gould:14882,Olive Whistler. 73. plate,Olive Whistler,Olivaceous pachycephala,Pachycephala olivacea,
+II,74,ku-gould:14878,Grey Shrikethrush. 74. plate,Grey Shrikethrush,Harmonious colluricincla,Colluricincla harmonica,
+II,75,ku-gould:14874,Grey Shrikethrush. 75. plate,Grey Shrikethrush,Colluricincla rufiventris,Colluricincla harmonica,printed_english=Buff-bellied colluricincla
+II,76,ku-gould:14870,Grey Shrikethrush. 76. plate,Grey Shrikethrush,Colluricincla brunnea,Colluricincla harmonica,printed_english=Brown colluricincla
+II,77,ku-gould:14866,Colluricincla sp. ?. 77. plate,Colluricincla sp. ?,Colluricincla selbii,Colluricincla sp. ?,description_no_english_segment; printed_english=Selby's colluricincla
+II,78,ku-gould:14862,Little Shrikethrush. 78. plate,Little Shrikethrush,Colluricincla parvula,Colluricincla megarhyncha,printed_english=Little colluricincla
+II,79,ku-gould:14858,Crested Shriketit. 79. plate,Crested Shriketit,Frontal shrike-tit,Falcunculus frontatus,
+II,80,ku-gould:14854,Crested Shriketit. 80. plate,Crested Shriketit,Falcunculus leucogaster,Falcunculus frontatus,printed_english=White-bellied shrike-tit
+II,81,ku-gould:14850,Crested Bellbird. 81. plate,Crested Bellbird,Crested oreoica,Oreoica gutturalis,
+II,82,ku-gould:14846,Spangled Drongo. 82. plate,Spangled Drongo,,Dicrurus bracteatus,
+II,83,ku-gould:14842,New Zealand Fantail. 83. plate,New Zealand Fantail,Rhipidura albiscapa,Rhipidura fuliginosa,printed_english=White-shafted fantail
+II,84,ku-gould:14838,"Rufous Fantail, Rufous-fronted Fantail. 84. plate","Rufous Fantail, Rufous-fronted Fantail",,Rhipidura rufifrons,printed_alt_name=Rufous-fronted fantail
+II,85,ku-gould:14834,Northern Fantail. 85. plate,Northern Fantail,Rhipidura isura,Rhipidura rufiventris,
+II,86,ku-gould:14830,Willie Wagtail. 86. plate,Willie Wagtail,Rhipidura motacilloides,Rhipidura leucophrys,printed_english=Black fantailed flycatcher
+II,87,ku-gould:14826,Restless Flycatcher. 87. plate,Restless Flycatcher,Seisura inquieta,Myiagra inquieta,
+II,88,ku-gould:14822,Shining Flycatcher. 88. plate,Shining Flycatcher,Piezorhynchus nitidus,Myiagra alecto,printed_english=Blue shining flycatcher
+II,89,ku-gould:14818,Leaden Flycatcher. 89. plate,Leaden Flycatcher,Myiagra plumbea,Myiagra rubecula,printed_english=Plumbeous flycatcher
+II,90,ku-gould:14814,Leaden Flycatcher. 90. plate,Leaden Flycatcher,Myiagra concinna,Myiagra rubecula,printed_english=Pretty flycatcher
+II,91,ku-gould:14810,Satin Flycatcher. 91. plate,Satin Flycatcher,Myiagra nitida,Myiagra cyanoleuca,printed_english=Shining flycatcher
+II,92,ku-gould:14806,Broad-billed Flycatcher. 92. plate,Broad-billed Flycatcher,Myiagra latirostris,Myiagra ruficollis,
+II,93,ku-gould:14802,Jacky Winter. 93. plate,Jacky Winter,Microeca macroptera,Microeca fascinans,printed_english=Great-winged microeca
+II,94,ku-gould:14798,Lemon-bellied Flyrobin. 94. plate,Lemon-bellied Flyrobin,,Microeca flavigaster,printed_alt_name=Yellow-bellied microeca
+II,95,ku-gould:14794,Black-faced Monarch. 95. plate,Black-faced Monarch,Monarcha carinata,Monarcha melanopsis,printed_english=Carinated flycatcher
+II,96,ku-gould:14790,Spectacled Monarch. 96. plate,Spectacled Monarch,Monarcha trivirgata,Monarcha trivirgatus,printed_english=Black-fronted flycatcher
+II,97,ku-gould:14786,White-throated Gerygone. 97. plate,White-throated Gerygone,Gerygone albogularis,Gerygone olivacea,
+II,98,ku-gould:14782,Western Gerygone. 98. plate,Western Gerygone,Gerygone fuscus,Gerygone fusca,printed_english=Fuscous gerygone
+II,99,ku-gould:14778,Western Gerygone. 99. plate,Western Gerygone,Gerygone culicivorus,Gerygone fusca,
+II,100,ku-gould:14774,Large-billed Gerygone. 100. plate,Large-billed Gerygone,,Gerygone magnirostris,printed_alt_name=Great-billed gerygone
+II,101,ku-gould:14770,Mangrove Gerygone. 101. plate,Mangrove Gerygone,Gerygone laevigaster,Gerygone levigaster,printed_english=Buff-breasted gerygone
+II,102,ku-gould:14766,Green-backed Gerygone. 102. plate,Green-backed Gerygone,,Gerygone chloronotus,
+II,103,ku-gould:14762,Weebill. 103. plate,Weebill,,Smicrornis brevirostris,printed_alt_name=Short-billed smicrornis
+II,104,ku-gould:14758,Weebill. 104. plate,Weebill,Smicrornis flavescens,Smicrornis brevirostris,printed_english=Yellow-tinted smicrornis
+III,1,ku-gould:14736,Pink Robin. 1. plate,Pink Robin,Erythrodryas rhodinogaster,Petroica rodinogaster,printed_english=Pink-breasted wood-robin
+III,2,ku-gould:14732,Rose Robin. 2. plate,Rose Robin,Erythrodryas rosea,Petroica rosea,printed_english=Rose-brasted wood-robin
+III,3,ku-gould:14728,Pacific Robin. 3. plate,Pacific Robin,,Petroica multicolor,printed_alt_name=Scarlet-breasted robin
+III,4,ku-gould:14724,Pacific Robin. 4. plate,Pacific Robin,Petroica erythrogastra,Petroica multicolor,printed_english=Norfolk island robin
+III,5,ku-gould:14720,Red-capped Robin. 5. plate,Red-capped Robin,Petroica goodenovii,Poica goodenovii,
+III,6,ku-gould:14716,Flame Robin. 6. plate,Flame Robin,,Petroica phoenicea,printed_alt_name=Flame-breasted robin
+III,7,ku-gould:14712,New Zealand Robin. 7. plate,New Zealand Robin,Petroica bicolor,Petroica australis,printed_english=Pied robin
+III,8,ku-gould:14708,Dusky Robin. 8. plate,Dusky Robin,Petroica fusca,Melanodryas vittata,
+III,9,ku-gould:14704,White-browed Robin. 9. plate,White-browed Robin,Petroica superciliosa,Poecilodryas superciliosa,printed_english=White-eyebrowed robin
+III,10,ku-gould:14700,Southern Scrub Robin. 10. plate,Southern Scrub Robin,Scrub robin,Drymodes brunneopygia,
+III,11,ku-gould:14696,Eastern Yellow Robin. 11. plate,Eastern Yellow Robin,,Eopsaltria australis,printed_alt_name=Yellow-breasted robin
+III,12,ku-gould:14692,Western Yellow Robin. 12. plate,Western Yellow Robin,,Eopsaltria griseogularis,printed_alt_name=Grey-breasted robin
+III,13,ku-gould:14688,White-breasted Robin. 13. plate,White-breasted Robin,Eopsaltria leucogaster,Eopsaltria georgiana,printed_english=White-bellied robin
+III,14,ku-gould:14684,Superb Lyrebird. 14. plate,Superb Lyrebird,Menura superba,Menura novaehollandiae,printed_english=Lyre bird
+III,15,ku-gould:14680,Eastern Whipbird. 15. plate,Eastern Whipbird,Psophodes crepitans,Psophodes olivaceus,printed_english=Coach-whip bird
+III,16,ku-gould:14676,Western Whipbird. 16. plate,Western Whipbird,,Psophodes nigrogularis,printed_alt_name=Black-throated psophodes
+III,17,ku-gould:14672,Chirruping Wedgebill. 17. plate,Chirruping Wedgebill,Sphenostoma cristata,Psophodes cristatus,printed_english=Crested wedge-bill
+III,18,ku-gould:14668,Superb Fairywren. 18. plate,Superb Fairywren,Blue wren,Malurus cyaneus,
+III,19,ku-gould:14664,Superb Fairywren. 19. plate,Superb Fairywren,Malurus longicaudus,Malurus cyaneus,printed_english=Long-tailed wren
+III,20,ku-gould:14660,Splendid Fairywren. 20. plate,Splendid Fairywren,Malurus melanotus,Malurus splendens,printed_english=Black-backed wren
+III,21,ku-gould:14656,Splendid Fairywren. 21. plate,Splendid Fairywren,Banded wren,Malurus splendens,
+III,22,ku-gould:14652,Red-winged Fairywren. 22. plate,Red-winged Fairywren,Graceful wren,Malurus elegans,
+III,23,ku-gould:14648,Blue-breasted Fairywren. 23. plate,Blue-breasted Fairywren,Beautiful wren,Malurus pulcherrimus,
+III,24,ku-gould:14644,Variegated Fairywren. 24. plate,Variegated Fairywren,,Malurus lamberti,printed_alt_name=Lambert's wren
+III,25,ku-gould:14640,White-winged Fairywren. 25. plate,White-winged Fairywren,,Malurus leucopterus,printed_alt_name=White-winged wren
+III,26,ku-gould:14636,Red-backed Fairywren. 26. plate,Red-backed Fairywren,,Malurus melanocephalus,printed_alt_name=Black-headed wren
+III,27,ku-gould:14632,Red-backed Fairywren. 27. plate,Red-backed Fairywren,Malurus brownii,Malurus melanocephalus,printed_english=Brown's wren
+III,28,ku-gould:14628,Thick-billed Grasswren. 28. plate,Thick-billed Grasswren,Amytis textilis,Amytornis textilis,printed_english=Textile wren
+III,29,ku-gould:14624,Striated Grasswren. 29. plate,Striated Grasswren,Amytis striatus,Amytornis striatus,printed_english=Striated wren
+III,30,ku-gould:14620,Thick-billed Grasswren. 30. plate,Thick-billed Grasswren,Amytis macrourus,Amytornis textilis,printed_english=Large-tailed wren
+III,31,ku-gould:14616,Southern Emu-wren. 31. plate,Southern Emu-wren,Emu wren,Stipiturus malachurus,
+III,32,ku-gould:14612,Eastern Bristlebird. 32. plate,Eastern Bristlebird,Dasyornis australis,Dasyornis brachypterus,printed_english=Bristle bird
+III,33,ku-gould:14608,Western Bristlebird. 33. plate,Western Bristlebird,,Dasyornis longirostris,printed_alt_name=Long-billed bristle bird
+III,34,ku-gould:14604,Noisy Scrubbird. 34. plate,Noisy Scrubbird,Atrichia clamosa,Atrichornis clamosus,printed_english=Noisy brush-bird
+III,35,ku-gould:14600,Tawny Grassbird. 35. plate,Tawny Grassbird,Sphenoeacus galactotes,Megalurus timoriensis,printed_english=Tawny sphenoeacus
+III,36,ku-gould:14596,Little Grassbird. 36. plate,Little Grassbird,Sphenoeacus gramineus,Megalurus gramineus,printed_english=Grass-loving sphenoeacus
+III,37,ku-gould:14592,Australian Reed Warbler. 37. plate,Australian Reed Warbler,Reed warbler,Acrocephalus australis,
+III,38,ku-gould:14588,Great Reed Warbler. 38. plate,Great Reed Warbler,Acrocephalus longirostris,Acrocephalus arundinaceus,printed_english=Long-billed reed warbler
+III,39,ku-gould:14584,Chestnut-rumped Hylacola. 39. plate,Chestnut-rumped Hylacola,Hylacola pyrrhopygia,Hylacola pyrrhopygius,printed_english=Red-rumped wren
+III,40,ku-gould:14580,Shy Hylacola. 40. plate,Shy Hylacola,Hylacola cauta,Hylacola cautus,printed_english=Cautious wren
+III,41,ku-gould:14576,Great warbler. 41. plate,Great warbler,,Cysticola magna,
+III,42,ku-gould:14572,Golden-headed Cisticola. 42. plate,Golden-headed Cisticola,Cysticola exilis,Cisticola exilis,printed_english=Exile warbler
+III,43,ku-gould:14568,Golden-headed Cisticola. 43. plate,Golden-headed Cisticola,Cysticola lineocapilla,Cisticola exilis,printed_english=Lineated warbler
+III,44,ku-gould:14564,Square-tailed warbler. 44. plate,Square-tailed warbler,,Cysticola isura,
+III,45,ku-gould:14560,Red-pate Cisticola. 45. plate,Red-pate Cisticola,Cysticola ruficeps,Cisticola ruficeps,printed_english=Rufous-headed warbler
+III,46,ku-gould:14556,Yellow-throated Scrubwren. 46. plate,Yellow-throated Scrubwren,,Sericornis citreogularis,printed_alt_name=Yellow-throated sericornis
+III,47,ku-gould:14552,Brown Scrubwren. 47. plate,Brown Scrubwren,,Sericornis humilis,printed_alt_name=Sombre-coloured sericornis
+III,48,ku-gould:14548,White-browed Scrubwren. 48. plate,White-browed Scrubwren,Sericornis osculans,Sericornis frontalis,printed_english=Allied sericornis
+III,49,ku-gould:14544,White-browed Scrubwren. 49. plate,White-browed Scrubwren,,Sericornis frontalis,printed_alt_name=White-fronted sericornis
+III,50,ku-gould:14540,White-browed Scrubwren. 50. plate,White-browed Scrubwren,Sericornis laevigaster,Sericornis frontalis,printed_english=Buff-breasted sericornis
+III,51,ku-gould:14536,White-browed Scrubwren. 51. plate,White-browed Scrubwren,Sericornis maculatus,Sericornis frontalis,printed_english=Spotted sericornis
+III,52,ku-gould:14532,Large-billed Scrubwren. 52. plate,Large-billed Scrubwren,,Sericornis magnirostris,printed_alt_name=Large-billed sericornis
+III,53,ku-gould:14528,Brown Thornbill. 53. plate,Brown Thornbill,Little brown acanthiza,Acanthiza pusilla,
+III,54,ku-gould:14524,Tasmanian Thornbill. 54. plate,Tasmanian Thornbill,Acanthiza diemenensis,Acanthiza ewingii,printed_english=Tasmanian acanthiza
+III,55,ku-gould:14520,Tasmanian Thornbill. 55. plate,Tasmanian Thornbill,,Acanthiza ewingii,printed_alt_name=Ewing's acanthiza
+III,56,ku-gould:14516,Chestnut-rumped Thornbill. 56. plate,Chestnut-rumped Thornbill,,Acanthiza uropygialis,printed_alt_name=Chestnut-rumped acanthiza
+III,57,ku-gould:14512,Brown Thornbill. 57. plate,Brown Thornbill,Acanthiza apicalis,Acanthiza pusilla,printed_english=Western acanthiza
+III,58,ku-gould:14508,Brown Thornbill. 58. plate,Brown Thornbill,Acanthiza pyrrhopygia,Acanthiza pusilla,printed_english=Red-rumped acanthiza
+III,59,ku-gould:14504,Western Thornbill. 59. plate,Western Thornbill,,Acanthiza inornata,printed_alt_name=Plain-coloured acanthiza
+III,60,ku-gould:14500,Yellow Thornbill. 60. plate,Yellow Thornbill,Little acanthiza,Acanthiza nana,
+III,61,ku-gould:14496,Striated Thornbill. 61. plate,Striated Thornbill,Striated acanthiza,Acanthiza lineata,
+III,62,ku-gould:14492,Buff-rumped Thornbill. 62. plate,Buff-rumped Thornbill,,Acanthiza reguloides,printed_alt_name=Regulus-like acanthiza
+III,63,ku-gould:14488,Yellow-rumped Thornbill. 63. plate,Yellow-rumped Thornbill,Acanthiza chrysorrhoea,Acanthiza chrysorrhoa,printed_english=Yellow-rumped acanthiza
+III,64,ku-gould:14484,White-fronted Chat. 64. plate,White-fronted Chat,Ephthianura albifrons,Epthianura albifrons,printed_english=White-fronted ephthianura
+III,65,ku-gould:14480,Orange Chat. 65. plate,Orange Chat,Ephthianura aurifrons,Epthianura aurifrons,printed_english=Orange-fronted ephthianura
+III,66,ku-gould:14476,Crimson Chat. 66. plate,Crimson Chat,Ephthianura tricolor,Epthianura tricolor,printed_english=Tricoloured ephthianura
+III,67,ku-gould:14472,Southern Whiteface. 67. plate,Southern Whiteface,Xerophila leucopsis,Aphelocephala leucopsis,printed_english=White-faced xerophila
+III,68,ku-gould:14468,Redthroat. 68. plate,Redthroat,Brown red-throat,Pyrrholaemus brunneus,
+III,69,ku-gould:14464,Rockwarbler. 69. plate,Rockwarbler,Origma rubricata,Origma solitaria,printed_english=Rock warbler
+III,70,ku-gould:14460,Striated Fieldwren. 70. plate,Striated Fieldwren,Striated reed lark,Calamanthus fuliginosus,
+III,71,ku-gould:14456,Rufous Fieldwren. 71. plate,Rufous Fieldwren,Field reed lark,Calamanthus campestris,
+III,72,ku-gould:14452,Little Field Wren. 72. plate,Little Field Wren,Chthonicola minima,Chthonicola sagittatus,printed_english=Little chthonicola
+III,73,ku-gould:14448,New Zealand Pipit. 73. plate,New Zealand Pipit,Anthus australis,Anthus novaeseelandiae,printed_english=Australian pipit
+III,74,ku-gould:14444,Brown Songlark. 74. plate,Brown Songlark,Brown cincloramphus,Cincloramphus cruralis,
+III,75,ku-gould:14440,Brown Songlark. 75. plate,Brown Songlark,Cincloramphus cantillans,Cincloramphus cruralis,printed_english=Black-breasted cincloramphus
+III,76,ku-gould:14436,Rufous Songlark. 76. plate,Rufous Songlark,Cincloramphus rufescens,Cincloramphus mathewsi,printed_english=Rufous-tinted cincloramphus
+III,77,ku-gould:14432,Horsfield's Bush Lark. 77. plate,Horsfield's Bush Lark,Mirafra horsfieldii,Mirafra javanica,printed_english=Horsfield's mirafra
+III,78,ku-gould:14428,Beautiful Firetail. 78. plate,Beautiful Firetail,Estrelda bella,Stagonopleura bella,printed_english=Fire-tailed finch
+III,79,ku-gould:14424,Red-eared Firetail. 79. plate,Red-eared Firetail,Estrelda oculea,Stagonopleura oculata,printed_english=Red-eared finch
+III,80,ku-gould:14420,Double-barred Finch. 80. plate,Double-barred Finch,Estrelda bichenovii,Taeniopygia bichenovii,printed_english=Bicheno's finch
+III,81,ku-gould:14416,Double-barred Finch. 81. plate,Double-barred Finch,Estrelda annulosa,Taeniopygia bichenovii,printed_english=Black-rumped finch
+III,82,ku-gould:14412,Red-browed Finch. 82. plate,Red-browed Finch,Estrelda temporalis,Neochmia temporalis,printed_english=Red-eyebrowed finch
+III,83,ku-gould:14408,Crimson Finch. 83. plate,Crimson Finch,Estrelda phaeton,Neochmia phaeton,
+III,84,ku-gould:14404,Star Finch. 84. plate,Star Finch,Estrelda ruficauda,Neochmia ruficauda,printed_english=Red-tailed finch
+III,85,ku-gould:14400,Plum-headed Finch. 85. plate,Plum-headed Finch,Amadina modesta,Neochmia modesta,printed_english=Plain-coloured finch
+III,86,ku-gould:14396,Zebra Finch. 86. plate,Zebra Finch,Amadina lathamii,Taeniopygia guttata,printed_english=Spotted-sided finch
+III,87,ku-gould:14392,Zebra Finch. 87. plate,Zebra Finch,Amadina castanotis,Taeniopygia guttata,printed_english=Chestnut-eared finch
+III,88,ku-gould:14388,Gouldian Finch. 88. plate,Gouldian Finch,Amadina gouldiae,Chloebia gouldiae,
+III,89,ku-gould:14384,Masked Finch. 89. plate,Masked Finch,Poephila mirabilis,Poephila personata,printed_english=Beautiful grass finch
+III,90,ku-gould:14380,Violet-eared Waxbill. 90. plate,Violet-eared Waxbill,,Poephila acuticauda,printed_alt_name=Long-tailed grass finch
+III,91,ku-gould:14376,Masked Finch. 91. plate,Masked Finch,Masked grass finch,Poephila personata,
+III,92,ku-gould:14372,Masked Finch. 92. plate,Masked Finch,Poephila leucotis,Poephila personata,printed_english=White-eared grass finch
+III,93,ku-gould:14368,Black-throated Finch. 93. plate,Black-throated Finch,Banded grass finch,Poephila cincta,
+III,94,ku-gould:14364,Chestnut-breasted Munia. 94. plate,Chestnut-breasted Munia,Donacola castaneothorax,Lonchura castaneothorax,printed_english=Chestnut-breasted finch
+III,95,ku-gould:14360,Pictorella Munia. 95. plate,Pictorella Munia,Donacola pectoralis,Heteromunia pectoralis,printed_english=White-breasted finch
+III,96,ku-gould:14356,Yellow-rumped Munia. 96. plate,Yellow-rumped Munia,Donacola flaviprymna,Lonchura flaviprymna,printed_english=Yellow-rumped finch
+III,97,ku-gould:14352,Painted Finch. 97. plate,Painted Finch,Emblema picta,Emblema pictum,
+IV,1,ku-gould:14330,Noisy Pitta. 1. plate,Noisy Pitta,Pitta strepitans,Pitta versicolor,
+IV,2,ku-gould:14326,Noisy Pitta. 2. plate,Noisy Pitta,Pitta vigorsii,Pitta versicolor,printed_english=Vigor's pitta
+IV,3,ku-gould:14322,Rainbow Pitta. 3. plate,Rainbow Pitta,,Pitta iris,
+IV,4,ku-gould:14318,Spotted Quail-thrush. 4. plate,Spotted Quail-thrush,Spotted ground thrush,Cinclosoma punctatum,
+IV,5,ku-gould:14314,Chestnut Quail-thrush. 5. plate,Chestnut Quail-thrush,,Cinclosoma castanotus,printed_alt_name=Chestnut-backed ground thrush
+IV,6,ku-gould:14310,Cinnamon Quail-thrush. 6. plate,Cinnamon Quail-thrush,Cinclosoma cinnamomeus,Cinclosoma cinnamomeum,printed_english=Cinnamon-coloured cinclosoma
+IV,7,ku-gould:14306,Scaly Thrush. 7. plate,Scaly Thrush,Oreocincla lunulata,Zoothera dauma,printed_english=Mountain thrush
+IV,8,ku-gould:14300,Spotted Bowerbird. 8. plate,Spotted Bowerbird,Spotted bower bird,Chlamydera maculata,duplicate_leaf_in_ku_catalogue (two scanned leaves cataloged under the same plate number)
+IV,8,ku-gould:14301,Spotted Bowerbird. 8. plate,Spotted Bowerbird,Spotted bower bird,Chlamydera maculata,duplicate_leaf_in_ku_catalogue (two scanned leaves cataloged under the same plate number)
+IV,9,ku-gould:14296,Great Bowerbird. 9. plate,Great Bowerbird,Great bower bird,Chlamydera nuchalis,
+IV,10,ku-gould:14290,Satin Bowerbird. 10. plate,Satin Bowerbird,Ptilonorhynchus holosericeus,Ptilonorhynchus violaceus,printed_english=Satin bower bird; duplicate_leaf_in_ku_catalogue (two scanned leaves cataloged under the same plate number)
+IV,10,ku-gould:14291,Satin Bowerbird. 10. plate,Satin Bowerbird,Ptilonorhynchus holosericeus,Ptilonorhynchus violaceus,printed_english=Satin bower bird; duplicate_leaf_in_ku_catalogue (two scanned leaves cataloged under the same plate number)
+IV,11,ku-gould:14286,Green Catbird. 11. plate,Green Catbird,Ptilonorhynchus smithii,Ailuroedus crassirostris,printed_english=Cat bird
+IV,12,ku-gould:14282,Regent Bowerbird. 12. plate,Regent Bowerbird,Regent bird,Sericulus chrysocephalus,
+IV,13,ku-gould:14278,Olive-backed Oriole. 13. plate,Olive-backed Oriole,Oriolus viridis,Oriolus sagittatus,printed_english=New south wales oriole
+IV,14,ku-gould:14274,Green Oriole. 14. plate,Green Oriole,,Oriolus flavocinctus,printed_alt_name=Crescent-marked oriole
+IV,15,ku-gould:14270,Green Figbird. 15. plate,Green Figbird,Sphecotheres australis,Sphecotheres viridis,printed_english=Australian sphecotheres
+IV,16,ku-gould:14266,White-winged Chough. 16. plate,White-winged Chough,Corcorax leucopterus,Corcorax melanorhamphos,
+IV,17,ku-gould:14262,Apostlebird. 17. plate,Apostlebird,Grey struthidea,Struthidea cinerea,
+IV,18,ku-gould:14258,Australian Raven. 18. plate,Australian Raven,,Corvus coronoides,printed_alt_name=White-eyed crow
+IV,19,ku-gould:14254,Huia. 19. plate,Huia,Neomorpha gouldii,Heteralocha acutirostris,printed_english=Gould's neomorpha
+IV,20,ku-gould:14250,Grey-crowned Babbler. 20. plate,Grey-crowned Babbler,Pomatorhinus temporalis,Pomatostomus temporalis,printed_english=Temporal pomatorhinus
+IV,21,ku-gould:14246,Grey-crowned Babbler. 21. plate,Grey-crowned Babbler,Pomatorhinus rubeculus,Pomatostomus temporalis,printed_english=Red-breasted pomatorhinus
+IV,22,ku-gould:14242,White-browed Babbler. 22. plate,White-browed Babbler,Pomatorhinus superciliosus,Pomatostomus superciliosus,printed_english=White-eyebrowed pomatorhinus
+IV,23,ku-gould:14238,New Holland Honeyeater. 23. plate,New Holland Honeyeater,Meliphaga novae-hollandiae,Phylidonyris novaehollandiae,printed_english=New holland honey-eater
+IV,24,ku-gould:14234,New Holland Honeyeater. 24. plate,New Holland Honeyeater,Meliphaga longirostris,Phylidonyris novaehollandiae longirostris,printed_english=Long-billed honey-eater
+IV,25,ku-gould:14230,White-cheeked Honeyeater. 25. plate,White-cheeked Honeyeater,Meliphaga sericea,Phylidonyris niger,printed_english=White-cheeked honey-eater
+IV,26,ku-gould:14226,White-cheeked Honeyeater. 26. plate,White-cheeked Honeyeater,Meliphaga mystacalis,Phylidonyris niger,printed_english=Moustached honey-eater
+IV,27,ku-gould:14222,Crescent Honeyeater. 27. plate,Crescent Honeyeater,Meliphaga australasiana,Phylidonyris pyrrhopterus,printed_english=Tasmanian honey-eater
+IV,28,ku-gould:14218,Tawny-crowned Honeyeater. 28. plate,Tawny-crowned Honeyeater,Glyciphila fulvifrons,Gliciphila melanops,printed_english=Fulvous-fronted honey-eater
+IV,29,ku-gould:14214,Tawny-crowned Honeyeater. 29. plate,Tawny-crowned Honeyeater,Glyciphila albifrons,Gliciphila melanops,printed_english=White-fronted honey-eater
+IV,30,ku-gould:14210,Bar-breasted Honeyeater. 30. plate,Bar-breasted Honeyeater,Glyciphila fasciata,Ramsayornis f asciatus,printed_english=Fasciated honey-eater
+IV,31,ku-gould:14206,Brown Honeyeater. 31. plate,Brown Honeyeater,Glyciphila ocularis,Lichmera indistincta,printed_english=Brown honey-eater
+IV,32,ku-gould:14202,Lewin's Honeyeater. 32. plate,Lewin's Honeyeater,Ptilotis chrysotis,Meliphaga lewinii,printed_english=Yellow-eared honey-eater
+IV,33,ku-gould:14198,Varied Honeyeater. 33. plate,Varied Honeyeater,Ptilotis sonorus,Lichenostomus versicolor sonoroides,printed_english=Singing honey-eater
+IV,34,ku-gould:14194,Varied Honeyeater. 34. plate,Varied Honeyeater,Ptilotis versicolor,Lichenostomus versicolor,printed_english=Varied honey-eater
+IV,35,ku-gould:14190,Yellow-throated Honeyeater. 35. plate,Yellow-throated Honeyeater,Ptilotis flavigula,Lichenostomus flavicollis,printed_english=Yellow-throated honey-eater
+IV,36,ku-gould:14186,White-eared Honeyeater. 36. plate,White-eared Honeyeater,Ptilotis leucotis,Lichenostomus leucotis,printed_english=White-eared honey-eater
+IV,37,ku-gould:14182,Yellow-tufted Honeyeater. 37. plate,Yellow-tufted Honeyeater,Ptilotis auricomis,Lichenostomus melanops,printed_english=Yellow-tufted honey-eater
+IV,38,ku-gould:14178,Purple-gaped Honeyeater. 38. plate,Purple-gaped Honeyeater,Ptilotis cratitius,Lichenostomus cratitius,printed_english=Wattle-cheeked honey-eater
+IV,39,ku-gould:14174,Yellow-plumed Honeyeater. 39. plate,Yellow-plumed Honeyeater,Ptilotis ornatus,Lichenostomus ornatus,printed_english=Graceful honey-eater
+IV,40,ku-gould:14170,Grey-fronted Honeyeater. 40. plate,Grey-fronted Honeyeater,Ptilotis plumulus,Lichenostomus plumulus,printed_english=Plumed honey-eater
+IV,41,ku-gould:14166,Yellow-tinted Honeyeater. 41. plate,Yellow-tinted Honeyeater,Ptilotis flavescens,Lichenostomus flavescens,printed_english=Yellow-tinted honey-eater
+IV,42,ku-gould:14162,Yellow Honeyeater. 42. plate,Yellow Honeyeater,Ptilotis flava,Lichenostomus flavus,printed_english=Yellow honey-eater
+IV,43,ku-gould:14158,White-plumed Honeyeater. 43. plate,White-plumed Honeyeater,Ptilotis pencillatus,Lichenostomus penicillatus,printed_english=White-plumed honey-eater
+IV,44,ku-gould:14154,Fuscous Honeyeater. 44. plate,Fuscous Honeyeater,Ptilotis fusca,Lichenostomus fuscus,printed_english=Fuscous honey-eater
+IV,45,ku-gould:14150,Yellow-faced Honeyeater. 45. plate,Yellow-faced Honeyeater,Ptilotis chrysops,Lichenostomus chrysops,printed_english=Yellow-faced honey-eater
+IV,46,ku-gould:14146,White-gaped Honeyeater. 46. plate,White-gaped Honeyeater,Ptilotis unicolor,Lichenostomus unicolor,printed_english=Uniform honey-eater
+IV,47,ku-gould:14142,Striped Honeyeater. 47. plate,Striped Honeyeater,Lanceolate honey-eater,Plectorhyncha lanceolata,
+IV,48,ku-gould:14138,Regent Honeyeater. 48. plate,Regent Honeyeater,Zanthomyza phrygia,Xanthomyza phrygia,printed_english=Warty-faced honey-eater
+IV,49,ku-gould:14134,Pied Honeyeater. 49. plate,Pied Honeyeater,Melicophila picata,Certhionyx variegatus,printed_english=Pied honey-eater
+IV,50,ku-gould:14130,Painted Honeyeater. 50. plate,Painted Honeyeater,Entomophila picta,Grantiella picta,printed_english=Painted honey-eater
+IV,51,ku-gould:14126,Rufous-banded Honeyeater. 51. plate,Rufous-banded Honeyeater,Entomophila albogularis,Conopophila albogularis,printed_english=White-throated honey-eater
+IV,52,ku-gould:14122,Rufous-throated Honeyeater. 52. plate,Rufous-throated Honeyeater,Entomophila rufogularis,Conopophila rufogularis,printed_english=Red-throated honey-eater
+IV,53,ku-gould:14118,Spiny-cheeked Honeyeater. 53. plate,Spiny-cheeked Honeyeater,Acanthogenys rufogularis,Acanthagenys rufogularis,printed_english=Spiny-cheeked honey-eater
+IV,54,ku-gould:14114,Yellow Wattlebird. 54. plate,Yellow Wattlebird,Anthochaera inauris,Anthochaera paradoxa,printed_english=Great wattled honey-eater
+IV,55,ku-gould:14110,Red Wattlebird. 55. plate,Red Wattlebird,Wattled honey-eater,Anthochaera carunculata,
+IV,56,ku-gould:14106,Little Wattlebird. 56. plate,Little Wattlebird,Anthochaera mellivora,Anthochaera chrysoptera,printed_english=Brush wattle bird
+IV,57,ku-gould:14102,Western Wattlebird. 57. plate,Western Wattlebird,Lunulated wattle bird,Anthochaera lunulata,
+IV,58,ku-gould:14098,Noisy Friarbird. 58. plate,Noisy Friarbird,Tropidorhynchus corniculatus,Philemon corniculatus,printed_english=Friar bird
+IV,59,ku-gould:14094,Silver-crowned Friarbird. 59. plate,Silver-crowned Friarbird,Tropidorhynchus argenticeps,Philemon argenticeps,printed_english=Silvery-crowned friar bird
+IV,60,ku-gould:14090,Little Friarbird. 60. plate,Little Friarbird,Tropidorhynchus citreogularis,Philemon citreogularis,printed_english=Yellow-throated friar bird
+IV,61,ku-gould:14086,Eastern Spinebill. 61. plate,Eastern Spinebill,,Acanthorhynchus tenuirostris,printed_alt_name=Slender-billed spine-bill
+IV,62,ku-gould:14082,Western Spinebill. 62. plate,Western Spinebill,,Acanthorhynchus superciliosus,printed_alt_name=White-eyebrowed spine-bill
+IV,63,ku-gould:14078,Scarlet Myzomela. 63. plate,Scarlet Myzomela,Myzomela sanguineolenta,Myzomela sanguinolenta,printed_english=Sanguineous honey-eater
+IV,64,ku-gould:14074,Red-headed Myzomela. 64. plate,Red-headed Myzomela,,Myzomela erythrocephala,printed_alt_name=Red-headed honey-eater
+IV,65,ku-gould:14070,Banded Honeyeater. 65. plate,Banded Honeyeater,Myzomela pectoralis,Certhionyx pectoralis,printed_english=Banded honey-eater
+IV,66,ku-gould:14066,Black Myzomela. 66. plate,Black Myzomela,Myzomela nigra,Myzomela nigrita,printed_english=Black honey-eater
+IV,67,ku-gould:14062,Dusky Myzomela. 67. plate,Dusky Myzomela,Obscure honey-eater,Myzomela obscura,
+IV,68,ku-gould:14058,Blue-faced Honeyeater. 68. plate,Blue-faced Honeyeater,Entomyza cyanotis,Entomyzon cyanotis albipennis,printed_english=Blue-faced entomyza
+IV,69,ku-gould:14054,Blue-faced Honeyeater. 69. plate,Blue-faced Honeyeater,Entomyza albipennis,Entomyzon cyanotis albipennis,printed_english=White-pinioned honey-eater
+IV,70,ku-gould:14050,Strong-billed Honeyeater. 70. plate,Strong-billed Honeyeater,,Melithreptus validirostris,printed_alt_name=Strong-billed honey-eater
+IV,71,ku-gould:14046,Black-chinned Honeyeater. 71. plate,Black-chinned Honeyeater,,Melithreptus gularis,printed_alt_name=Black-throated honey-eater
+IV,72,ku-gould:14042,White-naped Honeyeater. 72. plate,White-naped Honeyeater,Melithreptus lunulatus,Melithreptus lunatus,printed_english=Lunulated honey-eater
+IV,73,ku-gould:14038,White-naped Honeyeater. 73. plate,White-naped Honeyeater,Melithreptus chloropsis,Melithreptus lunatus chloropsis,printed_english=Swan river honey-eater
+IV,74,ku-gould:14034,White-throated Honeyeater. 74. plate,White-throated Honeyeater,,Melithreptus albogularis,printed_alt_name=White-throated honey-eater
+IV,75,ku-gould:14030,Black-headed Honeyeater. 75. plate,Black-headed Honeyeater,Melithreptus melanocephalus,Melithreptus affinis,printed_english=Black-headed honey-eater
+IV,76,ku-gould:14026,Noisy Miner. 76. plate,Noisy Miner,Myzantha garrula,Manorina melanocephala,printed_english=Garrulous honey-eater
+IV,77,ku-gould:14022,Yellow-throated Miner. 77. plate,Yellow-throated Miner,Myzantha obscura,Manorina flavigula obscura,printed_english=Sombre honey-eater
+IV,78,ku-gould:14018,Yellow-throated Miner. 78. plate,Yellow-throated Miner,Myzantha lutea,Manorina flavigula,printed_english=Luteous honey-eater
+IV,79,ku-gould:14014,Yellow-throated Miner. 79. plate,Yellow-throated Miner,Myzantha flavigula,Manorina flavigula lutea,
+IV,80,ku-gould:14010,Bell Miner. 80. plate,Bell Miner,Myzantha melanophrys,Manorina melanophrys,printed_english=Australian bell bird
+IV,81,ku-gould:14006,Silvereye. 81. plate,Silvereye,Zosterops dorsalis,Zosterops lateralis,printed_english=Grey-backed zosterops
+IV,82,ku-gould:14002,Mauritius Olive White-eye. 82. plate,Mauritius Olive White-eye,Zosterops chloronotus,Zosterops chloronothos,printed_english=Green-backed zosterops
+IV,83,ku-gould:13998,Canary White-eye. 83. plate,Canary White-eye,Yellow zosterops,Zosterops luteus,
+IV,84,ku-gould:13994,Australian Cuckoo. 84. plate,Australian Cuckoo,,Cuculus optatus,
+IV,85,ku-gould:13990,Pallad Cuckoo. 85. plate,Pallad Cuckoo,Cuculus inornatus,Cuculus pallidus,printed_english=Unadorned cuckoo
+IV,86,ku-gould:13986,Fan-tailed Cuckoo. 86. plate,Fan-tailed Cuckoo,Cuculus cineraceus,Cacomantis flabelliformis,printed_english=Ash-coloured cuckoo
+IV,87,ku-gould:13982,Brush Cuckoo. 87. plate,Brush Cuckoo,Cuculus insperatus,Cacomantis variolosus,
+IV,88,ku-gould:13978,Black-eared Cuckoo. 88. plate,Black-eared Cuckoo,Chalcites osculans,Chrysococcyx osculans,
+IV,89,ku-gould:13974,Shining Bronze Cuckoo. 89. plate,Shining Bronze Cuckoo,Shining cuckoo,Chrysococcyx lucidus,
+IV,90,ku-gould:13970,Channel-billed Cuckoo. 90. plate,Channel-billed Cuckoo,Scythrops novae-hollandiae,Scythrops novaehollandiae,printed_english=Channel bill
+IV,91,ku-gould:13966,Asian Koel. 91. plate,Asian Koel,Eudynamys flindersii,Eudynamys scolopaceus,printed_english=Flinder's cuckoo
+IV,92,ku-gould:13962,Pheasant Coucal. 92. plate,Pheasant Coucal,Centropus phasianus,Centropus phasianinus,printed_english=Pheasant cuckoo
+IV,93,ku-gould:13958,White-throated Treecreeper. 93. plate,White-throated Treecreeper,Climacteris scandens,Cormobates leucophaea,printed_english=Brown tree-creeper
+IV,94,ku-gould:13954,Rufous Treecreeper. 94. plate,Rufous Treecreeper,Climacteris rufa,Climacteris rufus,printed_english=Rufous tree creeper
+IV,95,ku-gould:13950,Red-browed Treecreeper. 95. plate,Red-browed Treecreeper,,Climacteris erythrops,printed_alt_name=Red-eyebrowed tree-creeper
+IV,96,ku-gould:13946,Black-tailed Treecreeper. 96. plate,Black-tailed Treecreeper,Climacteris melanotus,Climacteris melanurus,printed_english=Black-backed tree-creeper
+IV,97,ku-gould:13942,Black-tailed Treecreeper. 97. plate,Black-tailed Treecreeper,Climacteris melanura,Climacteris melanurus,printed_english=Black-tailed tree-creeper
+IV,98,ku-gould:13938,Brown Treecreeper. 98. plate,Brown Treecreeper,,Climacteris picumnus,printed_alt_name=White-throated tree-creeper
+IV,99,ku-gould:13934,Australian Logrunner. 99. plate,Australian Logrunner,Orthonyx spinicaudus,Orthonyx t emminckii,printed_english=Spine-tailed orthonyx
+IV,100,ku-gould:13930,Paradise Riflebird. 100. plate,Paradise Riflebird,Rifle bird,Ptiloris paradiseus,
+IV,101,ku-gould:13926,Varied Sittella. 101. plate,Varied Sittella,Sittella chrysoptera,Daphoenositta chrysoptera,printed_english=Orange-winged sittella
+IV,102,ku-gould:13922,Varied Sittella. 102. plate,Varied Sittella,Sittella leucocephala,Daphoenositta chrysoptera,printed_english=White-headed sittella
+IV,103,ku-gould:13918,Varied Sittella. 103. plate,Varied Sittella,Sittella leucoptera,Daphoenositta chrysoptera,printed_english=White-winged sittella
+IV,104,ku-gould:13914,Varied Sittella. 104. plate,Varied Sittella,Sittella pileata,Daphoenositta chrysoptera,printed_english=Black-capped sittella
+V,1,ku-gould:13892,Sulphur-crested Cockatoo. 1. plate,Sulphur-crested Cockatoo,Crested cockatoo,Cacatua galerita,
+V,2,ku-gould:13888,Major Mitchell's Cockatoo. 2. plate,Major Mitchell's Cockatoo,Cacatua leadbeaterii,Cacatua leadbeateri,printed_english=Leadbeater's cockatoo
+V,3,ku-gould:13884,Little Corella. 3. plate,Little Corella,,Cacatua sanguinea,printed_alt_name=Blood-stained cockatoo
+V,4,ku-gould:13880,Galah. 4. plate,Galah,Cacatua eos,Eolophus roseicapilla,printed_english=Rose-breasted cockatoo
+V,5,ku-gould:13876,Long-billed Corella. 5. plate,Long-billed Corella,Licmetis nasicus,Cacatua tenuirostris,printed_english=Long-billed cockatoo
+V,6,ku-gould:13872,Norfolk Island Kaka. 6. plate,Norfolk Island Kaka,Philip island parrot,Nestor productus,
+V,7,ku-gould:13868,Red-tailed Black Cockatoo. 7. plate,Red-tailed Black Cockatoo,Bankisan cockatoo,Calyptorhynchus banksii,
+V,8,ku-gould:13864,Red-tailed Black Cockatoo. 8. plate,Red-tailed Black Cockatoo,Calyptorhynchus macrorhynchus,Calyptorhynchus banksii,printed_english=Great-billed black cockatoo
+V,9,ku-gould:13860,Red-tailed Black Cockatoo. 9. plate,Red-tailed Black Cockatoo,Calyptorhynchus naso,Calyptorhynchus banksii,printed_english=Western black cockatoo
+V,10,ku-gould:13856,Glossy Black Cockatoo. 10. plate,Glossy Black Cockatoo,Calyptorhynchus leachii,Calyptorhynchus lathami,printed_english=Leach's cockatoo
+V,11,ku-gould:13852,Yellow-tailed Black Cockatoo. 11. plate,Yellow-tailed Black Cockatoo,Funereal cockatoo,Calyptorhynchus funereus,
+V,12,ku-gould:13848,Yellow-tailed Black Cockatoo. 12. plate,Yellow-tailed Black Cockatoo,Calyptorhynchus xanthonotus,Calyptorhynchus funereus,printed_english=Yellow-eared black cockatoo
+V,13,ku-gould:13844,Long-billed Black Cockatoo. 13. plate,Long-billed Black Cockatoo,,Calyptorhynchus baudinii,printed_alt_name=Baudin's cockatoo
+V,14,ku-gould:13840,Gang-gang Cockatoo. 14. plate,Gang-gang Cockatoo,Callocephalon galeatum,Callocephalon fimbriatum,
+V,15,ku-gould:13836,Regent Parrot. 15. plate,Regent Parrot,Polytelis barrabandii,Polytelis anthopeplus,printed_english=Barraband's parrakeet
+V,16,ku-gould:13832,Superb Parrot. 16. plate,Superb Parrot,Polytelis melanura,Polytelis swainsonii,printed_english=Black-tailed parrakeet
+V,17,ku-gould:13828,Australian King Parrot. 17. plate,Australian King Parrot,Aprosmictus scapulatus,Alisterus scapularis,printed_english=King lory
+V,18,ku-gould:13824,Red-winged Parrot. 18. plate,Red-winged Parrot,,Aprosmictus erythropterus,printed_alt_name=Red-winged lory
+V,19,ku-gould:13820,Australian Ringneck. 19. plate,Australian Ringneck,Platycercus semitorquatus,Barnardius zonarius,printed_english=Yellow-collared parrakeet
+V,20,ku-gould:13816,Australian Ringneck. 20. plate,Australian Ringneck,Platycercus bauerii,Barnardius zonarius,printed_english=Bauer's parrakeet
+V,21,ku-gould:13812,Australian Ringneck. 21. plate,Australian Ringneck,Platycercus barnardii,Barnardius zonarius,printed_english=Barnard's parrakeet
+V,22,ku-gould:13808,Crimson Rosella. 22. plate,Crimson Rosella,Platycercus adelaidiae,Platycercus elegans,printed_english=Adelaide parrakeet
+V,23,ku-gould:13804,Crimson Rosella. 23. plate,Crimson Rosella,Platycercus pennantii,Platycercus elegans,printed_english=Pennant's parrakeet
+V,24,ku-gould:13800,Green Rosella. 24. plate,Green Rosella,Platycercus flaviventris,Platycercus caledonicus,printed_english=Yellow-bellied parrakeet
+V,25,ku-gould:13796,Crimson Rosella. 25. plate,Crimson Rosella,Platycercus flaveolus,Platycercus elegans flaveolus,printed_english=Yellow-rumped parrakeet
+V,26,ku-gould:13792,White-cheeked Rosella. 26. plate,White-cheeked Rosella,Platycercus palliceps,Platycercus adscitus,printed_english=Pale-headed parrakeet
+V,27,ku-gould:13788,Eastern Rosella. 27. plate,Eastern Rosella,,Platycercus eximius,printed_alt_name=Rose-hill parrakeet
+V,28,ku-gould:13784,Eastern Rosella. 28. plate,Eastern Rosella,Platycercus splendidus,Platycercus eximius,printed_english=Splendid parrakeet
+V,29,ku-gould:13780,Western Rosella. 29. plate,Western Rosella,,Platycercus icterotis,printed_alt_name=The earl of derby's parrakeet
+V,30,ku-gould:13776,Eastern Rosella. 30. plate,Eastern Rosella,Platycercus ignitus,Platycercus eximius,printed_english=Fiery parrakeet
+V,31,ku-gould:13772,Green Rosella. 31. plate,Green Rosella,Platycercus brownii,Platycercus caledonicus brownii,printed_english=Brown's parrakeet
+V,32,ku-gould:13768,Red-capped Parrot. 32. plate,Red-capped Parrot,Platycercus pileatus,Purpureicephalus spurius,printed_english=Red-capped parrakeet
+V,33,ku-gould:13764,Bluebonnet. 33. plate,Bluebonnet,Psephotus haematogaster,Northiella haematogaster,printed_english=Crimson-bellied parrakeet
+V,34,ku-gould:13760,"Beautiful Parakeet, Paradise Parakeet. 34. plate","Beautiful Parakeet, Paradise Parakeet",Beautiful parrakeet,Psephotus pulcherrimus,
+V,35,ku-gould:13756,Mulga Parrot. 35. plate,Mulga Parrot,Psephotus multicolor,Psephotus varius,printed_english=Many-coloured parrakeet
+V,36,ku-gould:13752,Red-rumped Parrot. 36. plate,Red-rumped Parrot,,Psephotus haematonotus,printed_alt_name=Red-backed parrakeet
+V,37,ku-gould:13748,Blue-winged Parrot. 37. plate,Blue-winged Parrot,Euphema chrysostoma,Neophema chrysostoma,printed_english=Blue-banded grass-parrakeet
+V,38,ku-gould:13744,Elegant Parrot. 38. plate,Elegant Parrot,Euphema elegans,Neophema elegans,printed_english=Elegant grass-parrakeet
+V,39,ku-gould:13740,"Orange-bellied Parakeet, Orange-bellied Parrot. 39. plate","Orange-bellied Parakeet, Orange-bellied Parrot",Euphema aurantia,Neophema chrysogaster,printed_english=Orange-bellied grass-parrakeet
+V,40,ku-gould:13736,Rock Parrot. 40. plate,Rock Parrot,Euphema petrophila,Neophema petrophila,printed_english=Rock grass-parrakeet
+V,41,ku-gould:13732,"Turquoise Parakeet, Turquoise Parrot. 41. plate","Turquoise Parakeet, Turquoise Parrot",Euphema pulchella,Neophema pulchella,printed_english=Chestnut-shouldered grass parrakeet
+V,42,ku-gould:13728,"Scarlet-chested Parakeet, Scarlet-chested Parrot, Splendid Parakeet. 42. plate","Scarlet-chested Parakeet, Scarlet-chested Parrot, Splendid Parakeet",Euphema splendida,Neophema splendida,printed_english=Splendid grass-parrakeet
+V,43,ku-gould:13724,Bourke's Parrot. 43. plate,Bourke's Parrot,Euphema bourkii,Neopsephotus bourkii,printed_english=Bourke's grass-parrakeet
+V,44,ku-gould:13720,Budgerigar. 44. plate,Budgerigar,Warbling grass-parrakeet,Melopsittacus undulatus,
+V,45,ku-gould:13716,Cockatiel. 45. plate,Cockatiel,Nymphicus novae hollandiae,Nymphicus hollandicus,printed_english=Cockatoo parrakeet
+V,46,ku-gould:13712,Ground Parrot. 46. plate,Ground Parrot,Pezoporus formosus,Pezoporus wallicus,printed_english=Ground parrakeet
+V,47,ku-gould:13708,Swift Parrot. 47. plate,Swift Parrot,Swift lorikeet,Lathamus discolor,
+V,48,ku-gould:13704,Coconut Lorikeet. 48. plate,Coconut Lorikeet,Trichoglossus swainsonii,Trichoglossus haematodus,printed_english=Swainson's lorikeet
+V,49,ku-gould:13700,Red-collared Lorikeet. 49. plate,Red-collared Lorikeet,,Trichoglossus rubritorquis,
+V,50,ku-gould:13696,Scaly-breasted Lorikeet. 50. plate,Scaly-breasted Lorikeet,,Trichoglossus chlorolepidotus,
+V,51,ku-gould:13692,Varied Lorikeet. 51. plate,Varied Lorikeet,Trichoglossus versicolor,Psitteuteles versicolor,
+V,52,ku-gould:13688,Musk Lorikeet. 52. plate,Musk Lorikeet,Trichoglossus concinnus,Glossopsitta concinna,printed_english=Musky lorikeet
+V,53,ku-gould:13684,Purple-crowned Lorikeet. 53. plate,Purple-crowned Lorikeet,Trichoglossus porphyrocephalus,Glossopsitta porphyrocephala,printed_english=Porphyry-crowned lorikeet
+V,54,ku-gould:13680,Little Lorikeet. 54. plate,Little Lorikeet,Trichoglossus pusillus,Glossopsitta pusilla,
+V,55,ku-gould:13676,Rose-crowned Fruit Dove. 55. plate,Rose-crowned Fruit Dove,Ptilinopus swainsonii,Ptilinopus regina,printed_english=Swainson's fruit pigeon
+V,56,ku-gould:13672,Rose-crowned Fruit Dove. 56. plate,Rose-crowned Fruit Dove,Ptilinopus ewingii,Ptilinopus regina ewingii,printed_english=Ewing's fruit pigeon
+V,57,ku-gould:13668,Superb Fruit Dove. 57. plate,Superb Fruit Dove,Superb fruit pigeon,Ptilinopus superbus,
+V,58,ku-gould:13664,Wompoo Fruit Dove. 58. plate,Wompoo Fruit Dove,Carpophaga magnifica,Ptilinopus magnificus,printed_english=Magnificent fruit pigeon
+V,59,ku-gould:13660,White-headed Pigeon. 59. plate,White-headed Pigeon,Carpophaga leucomela,Columba leucomela,printed_english=White-headed fruit pigeon
+V,60,ku-gould:13656,Pied Imperial Pigeon. 60. plate,Pied Imperial Pigeon,Carpophaga luctuosa,Ducula bicolor,printed_english=Torres strait fruit pigeon
+V,61,ku-gould:13652,Topknot Pigeon. 61. plate,Topknot Pigeon,,Lopholaimus antarcticus,printed_alt_name=Top-knot pigeon
+V,62,ku-gould:13648,Common Emerald Dove. 62. plate,Common Emerald Dove,Chalcophaps chrysochlora,Chalcophaps indica,printed_english=Little green pigeon
+V,63,ku-gould:13644,Wonga Pigeon. 63. plate,Wonga Pigeon,Leucosarcia picata,Leucosarcia melanoleuca,printed_english=Wonga-wonga pigeon
+V,64,ku-gould:13640,Common Bronzewing. 64. plate,Common Bronzewing,Peristera chalcoptera,Phaps chalcoptera,printed_english=Bronze-winged pigeon
+V,65,ku-gould:13636,Brush Bronzewing. 65. plate,Brush Bronzewing,Peristera elegans,Phaps elegans,printed_english=Brush bronze-winged pigeon
+V,66,ku-gould:13632,Flock Bronzewing. 66. plate,Flock Bronzewing,Peristera histrionica,Phaps histrionica,printed_english=Harlequin bronze-wing
+V,67,ku-gould:13628,Squatter Pigeon. 67. plate,Squatter Pigeon,Partridge bronze-wing,Geophaps scripta,
+V,68,ku-gould:13624,Partridge Pigeon. 68. plate,Partridge Pigeon,,Geophaps smithii,printed_alt_name=Smith's partridge bronze-wing
+V,69,ku-gould:13620,Spinifex Pigeon. 69. plate,Spinifex Pigeon,Plumed partridge bronze-wing,Geophaps plumifera,
+V,70,ku-gould:13616,Crested Pigeon. 70. plate,Crested Pigeon,,Ocyphaps lophotes,
+V,71,ku-gould:13612,White-quilled Rock Pigeon. 71. plate,White-quilled Rock Pigeon,,Petrophassa albipennis,printed_alt_name=White-quilled rock dove
+V,72,ku-gould:13608,Bar-shouldered Dove. 72. plate,Bar-shouldered Dove,,Geopelia humeralis,printed_alt_name=Barred-shouldered ground dove
+V,73,ku-gould:13604,Peaceful Dove. 73. plate,Peaceful Dove,Geopelia tranquilla,Geopelia placida,printed_english=Peaceful ground dove
+V,74,ku-gould:13600,Diamond Dove. 74. plate,Diamond Dove,Graceful ground dove,Geopelia cuneata,
+V,75,ku-gould:13596,Brown Cuckoo-Dove. 75. plate,Brown Cuckoo-Dove,Macropygia phasianella,Macropygia amboinensis,printed_english=Pheasant-tailed pigeon
+V,76,ku-gould:13592,Tooth-billed Pigeon. 76. plate,Tooth-billed Pigeon,Gnathodon strigirostris,Didunculus strigirostris,printed_english=Gnathodon
+V,77,ku-gould:13588,Australian Brushturkey. 77. plate,Australian Brushturkey,Talegalla lathamii,Alectura lathami,printed_english=Wattled talegalla
+V,78,ku-gould:13584,Malleefowl. 78. plate,Malleefowl,Ocellated leipoa,Leipoa ocellata,
+V,79,ku-gould:13580,Scrubfowl. 79. plate,Scrubfowl,Megapodius tumulus,Megapodius reinwardt,printed_english=Mound-raising megapode
+V,80,ku-gould:13576,Plains-wanderer. 80. plate,Plains-wanderer,Collared plain wanderer,Pedionomus torquatus,
+V,81,ku-gould:13572,Black-breasted Buttonquail. 81. plate,Black-breasted Buttonquail,Hemipodius melanogaster,Turnix melanogaster,printed_english=Black-breasted hemipode
+V,82,ku-gould:13568,Painted Buttonquail. 82. plate,Painted Buttonquail,Hemipodius varius,Turnix varius varius,printed_english=Varied hemipode
+V,83,ku-gould:13564,Painted Buttonquail. 83. plate,Painted Buttonquail,Hemipodius scintillans,Turnix varius scintillans,printed_english=Sparkling hemipode
+V,84,ku-gould:13560,Red-backed Buttonquail. 84. plate,Red-backed Buttonquail,Hemipodius melanotus,Turnix maculosus melanotus,printed_english=Black-backed hemipode
+V,85,ku-gould:13556,Chestnut-backed Buttonquail. 85. plate,Chestnut-backed Buttonquail,Hemipodius castanotus,Turnix castanotus,printed_english=Chestnut-backed hemipode
+V,86,ku-gould:13552,Red-chested Buttonquail. 86. plate,Red-chested Buttonquail,Hemipodius pyrrhothorax,Turnix pyrrhothorax,printed_english=Red-chested hemipode
+V,87,ku-gould:13548,Little Buttonquail. 87. plate,Little Buttonquail,Hemipodius velox,Turnix velox,printed_english=Swift-flying hemipode
+V,88,ku-gould:13544,Stubble Quail. 88. plate,Stubble Quail,Pectoral quail,Coturnix pectoralis,
+V,89,ku-gould:13540,Brown Quail. 89. plate,Brown Quail,Synoicus australis,Coturnix ypsilophora australis,printed_english=Australian partridge
+V,90,ku-gould:13536,Van diemen's land partridge. 90. plate,Van diemen's land partridge,,Synoicus diemenensis,
+V,91,ku-gould:13532,Brown Quail. 91. plate,Brown Quail,Synoicus sordidus,Coturnix ypsilophora,printed_english=Sombre partridge
+V,92,ku-gould:13528,"Blue-breasted Quail, King Quail. 92. plate","Blue-breasted Quail, King Quail",Synoicus chinensis,Coturnix chinensis,printed_english=Chinese quail
+VI,1,ku-gould:13506,Emu. 1. plate,Emu,Dromaius novae-hollandiae,Dromaius novaehollandiae,printed_english=The emu
+VI,2,ku-gould:13502,"Brown Kiwi, Haast Tokoeka, Southern Brown Kiwi, Southern Tokoeka. 2. plate","Brown Kiwi, Haast Tokoeka, Southern Brown Kiwi, Southern Tokoeka",,Apteryx australis,printed_alt_name=Kiwi-kiwi
+VI,3,ku-gould:13498,Little Spotted Kiwi. 3. plate,Little Spotted Kiwi,,Apteryx owenii,printed_alt_name=Owen's apteryx
+VI,4,ku-gould:13494,Australian Bustard. 4. plate,Australian Bustard,Otis australasianus,Ardeotis australis,
+VI,5,ku-gould:13490,Bush Stone-curlew. 5. plate,Bush Stone-curlew,Oedicnemus grallarius,Burhinus grallarius,printed_english=Southern stone-ployer
+VI,6,ku-gould:13486,Beach Stone-curlew. 6. plate,Beach Stone-curlew,,Esacus magnirostris,printed_alt_name=Large-billed ployer
+VI,7,ku-gould:13482,Pied Oystercatcher. 7. plate,Pied Oystercatcher,,Haematopus longirostris,printed_alt_name=White-breasted oyster-catcher
+VI,8,ku-gould:13478,Sooty Oystercatcher. 8. plate,Sooty Oystercatcher,Sooty oyster-catcher,Haematopus fuliginosus,
+VI,9,ku-gould:13474,Wattled pewit. 9. plate,Wattled pewit,,Lobivanellus lobatus,
+VI,10,ku-gould:13470,Masked Lapwing. 10. plate,Masked Lapwing,Lobivanellus personatus,Vanellus miles,printed_english=Masked pewit
+VI,11,ku-gould:13466,Javan Lapwing. 11. plate,Javan Lapwing,Sarciophorus pectoralis,Vanellus macropterus,printed_english=Black-breasted pewit
+VI,12,ku-gould:13462,"Black-bellied Plover, Grey Plover, Chorlo gris, Pluvier argenté. 12. plate","Black-bellied Plover, Grey Plover, Chorlo gris, Pluvier argenté",Squatarola helvetica,Pluvialis squatarola,printed_english=Grey plover
+VI,13,ku-gould:13458,"American Golden Plover, Lesser Golden-Plover,  Chorlo dominico,  Pluvier bronzé, pluvier doré d'Amérique. 13. plate","American Golden Plover, Lesser Golden-Plover,  Chorlo dominico,  Pluvier bronzé, pluvier doré d'Amérique",Charadrius xanthocheilus,Pluvialis dominica,printed_english=Australian golden plover
+VI,14,ku-gould:13454,Oriental Plover. 14. plate,Oriental Plover,Brown plover,Charadrius veredus,
+VI,15,ku-gould:13450,Inland Dotterel. 15. plate,Inland Dotterel,Eudromias australis,Peltohyas australis,printed_english=Australian dottrel
+VI,16,ku-gould:13446,Double-banded Plover. 16. plate,Double-banded Plover,Hiaticula bicincta,Charadrius bicinctus,printed_english=Double-banded dottrel
+VI,17,ku-gould:13442,"Chorlo nevado, Kentish Plover, Snowy Plover. 17. plate","Chorlo nevado, Kentish Plover, Snowy Plover",Hiaticula ruficapilla,Charadrius alexandrinus,printed_english=Red-capped dottrel
+VI,18,ku-gould:13438,Hooded Dotterel. 18. plate,Hooded Dotterel,Hiaticula monacha,Thinornis rubricollis,printed_english=Hooded dottrel
+VI,19,ku-gould:13434,Allied dottrel. 19. plate,Allied dottrel,,Hiaticula inornata,
+VI,20,ku-gould:13430,Black-fronted Dotterel. 20. plate,Black-fronted Dotterel,Hiaticula nigrifrons,Elseyornis melanops,printed_english=Black-fronted dottrel
+VI,21,ku-gould:13426,Red-kneed Dotterel. 21. plate,Red-kneed Dotterel,Banded red knee,Erythrogonys cinctus,
+VI,22,ku-gould:13422,Australian Pratincole. 22. plate,Australian Pratincole,Glareola grallaria,Stiltia isabella,
+VI,23,ku-gould:13418,Oriental Pratincole. 23. plate,Oriental Pratincole,Glareola orientalis,Glareola maldivarum,
+VI,24,ku-gould:13414,White-headed Stilt. 24. plate,White-headed Stilt,,Himantopus leucocephalus,
+VI,25,ku-gould:13410,Black Stilt. 25. plate,Black Stilt,Himantopus novae-zelandiae,Himantopus novaezelandiae,printed_english=New zealand stilt
+VI,26,ku-gould:13406,Banded Stilt. 26. plate,Banded Stilt,Chladorhynchus pectoralis,Cladorhynchus leucocephalus,
+VI,27,ku-gould:13402,Red-necked Avocet. 27. plate,Red-necked Avocet,Recurvirostris rubricollis,Recurvirostra novaehollandiae,
+VI,28,ku-gould:13398,"Black-tailed Godwit, Barge à queue noire. 28. plate","Black-tailed Godwit, Barge à queue noire",Limosa melanuroides,Limosa limosa melanuroides,printed_english=Black-tailed godwit
+VI,29,ku-gould:13394,"Bar-tailed Godwit, Barge rousse, Picopando cola barrada. 29. plate","Bar-tailed Godwit, Barge rousse, Picopando cola barrada",Limosa uropygialis,Limosa lapponica,printed_english=Barred-rumped godwit
+VI,30,ku-gould:13390,"Sharp-tailed Sandpiper, Bécasseau à queue pointue. 30. plate","Sharp-tailed Sandpiper, Bécasseau à queue pointue",Schoeniclus australis,Calidris acuminata,printed_english=Australian tringa
+VI,31,ku-gould:13386,"Sanderling, Bécasseau sanderling, Playero blanco. 31. plate","Sanderling, Bécasseau sanderling, Playero blanco",Schoeniclus albescens,Calidris alba,printed_english=Little sandpiper
+VI,32,ku-gould:13382,"Curlew Sandpiper, Bécasseau cocorli. 32. plate","Curlew Sandpiper, Bécasseau cocorli",Schoeniclus subarquatus,Calidris ferruginea,printed_english=Curlew sandpiper
+VI,33,ku-gould:13378,"Great Knot, Bécasseau de l'Anadyr. 33. plate","Great Knot, Bécasseau de l'Anadyr",Schoeniclus magnus,Calidris tenuirostris,printed_english=Great sandpiper
+VI,34,ku-gould:13374,"Chevalier bargette, Terek Sandpiper. 34. plate","Chevalier bargette, Terek Sandpiper",Terekia cinerea,Xenus cinereus,printed_english=Terek godwit
+VI,35,ku-gould:13370,"Common Sandpiper, Chevalier guignette. 35. plate","Common Sandpiper, Chevalier guignette",Actitis empusa,Actitis hypoleucos,printed_english=Fairy sandpiper
+VI,36,ku-gould:13366,"Chevalier aboyeur, Common Greenshank. 36. plate","Chevalier aboyeur, Common Greenshank",Glottis glottoides,Tringa nebularia,printed_english=Australian greenshank
+VI,37,ku-gould:13362,"Chevalier stagnatile, Marsh Sandpiper. 37. plate","Chevalier stagnatile, Marsh Sandpiper",Totanus stagnatilis,Tringa stagnatilis,printed_english=Marsh sandpiper
+VI,38,ku-gould:13358,"Chevalier arlequin, Spotted Redshank. 38. plate","Chevalier arlequin, Spotted Redshank",Totanus griseopygius,Tringa erythropus,printed_english=Grey-rumped sandpiper
+VI,39,ku-gould:13354,"Ruddy Turnstone, Tournepierre à collier, Vuelvepiedras rojizo. 39. plate","Ruddy Turnstone, Tournepierre à collier, Vuelvepiedras rojizo",Strepsilas interpres,Arenaria interpres,printed_english=Turnstone
+VI,40,ku-gould:13350,"Japanese Snipe, Latham's Snipe. 40. plate","Japanese Snipe, Latham's Snipe",Scolopax australis,Gallinago hardwickii,printed_english=New holland snipe
+VI,41,ku-gould:13346,Greater Painted Snipe. 41. plate,Greater Painted Snipe,Rhynchaea australis,Rostratula benghalensis,printed_english=Australian rhynchaea
+VI,42,ku-gould:13342,"Eastern Curlew, Far Eastern Curlew, Courlis de Sibérie. 42. plate","Eastern Curlew, Far Eastern Curlew, Courlis de Sibérie",Numenius australis,Numenius madagascariensis,printed_english=Australian curlew
+VI,43,ku-gould:13338,"Courlis corlieu, Whimbrel, Zarapito trinador. 43. plate","Courlis corlieu, Whimbrel, Zarapito trinador",Numenius uropygialis,Numenius phaeopus,printed_english=Australian whimbrel
+VI,44,ku-gould:13334,"Courlis nain, Little Curlew. 44. plate","Courlis nain, Little Curlew",Little whimbrel,Numenius minutus,
+VI,45,ku-gould:13330,Straw-necked Ibis. 45. plate,Straw-necked Ibis,Geronticus spinicollis,Threskiornis spinicollis,
+VI,46,ku-gould:13326,"African Sacred Ibis, Sacred Ibis. 46. plate","African Sacred Ibis, Sacred Ibis",Threskiornis strictipennis,Threskiornis aethiopicus,printed_english=White ibis
+VI,47,ku-gould:13322,"Glossy Ibis, Ibis cara oscura, Ibis falcinelle. 47. plate","Glossy Ibis, Ibis cara oscura, Ibis falcinelle",Falcinellus igneus,Plegadis falcinellus,printed_english=Glossy ibis
+VI,48,ku-gould:13318,Brolga. 48. plate,Brolga,Grus australasiannus,Grus rubicunda,printed_english=Australian crane
+VI,49,ku-gould:13314,Yellow-billed Spoonbill. 49. plate,Yellow-billed Spoonbill,,Platalea flavipes,printed_alt_name=Yellow-legged spoonbill
+VI,50,ku-gould:13310,Royal Spoonbill. 50. plate,Royal Spoonbill,,Platalea regia,
+VI,51,ku-gould:13306,Black-necked Stork. 51. plate,Black-necked Stork,Mycteria australis,Ephippiorhynchus asiaticus,printed_english=Australian mycteria
+VI,52,ku-gould:13302,White-necked Heron. 52. plate,White-necked Heron,Pacific heron,Ardea pacifica,
+VI,53,ku-gould:13298,White-faced Heron. 53. plate,White-faced Heron,Ardea novae-hollandiae,Egretta novaehollandiae,printed_english=White-fronted heron
+VI,54,ku-gould:13294,Great-billed Heron. 54. plate,Great-billed Heron,Ardea rectirostris,Ardea sumatrana,
+VI,55,ku-gould:13290,"Gray Heron, Grey Heron, Héron cendré. 55. plate","Gray Heron, Grey Heron, Héron cendré",Ardea leucophaea,Ardea cinerea,printed_english=Great grey heron
+VI,56,ku-gould:13286,"Great Egret, Grande Aigrette. 56. plate","Great Egret, Grande Aigrette",Herodias syrmatophorus,Ardea alba,printed_english=Australian egret
+VI,57,ku-gould:13282,"Intermediate Egret, Plumed Egret. 57. plate","Intermediate Egret, Plumed Egret",Herodias plumiferus,Egretta intermedia plumifera,printed_english=Plumed egret
+VI,58,ku-gould:13278,"Western Reef Heron, Aigrette à gorge blanche. 58. plate","Western Reef Heron, Aigrette à gorge blanche",Herodias immaculata,Egretta gularis,printed_english=Spotless egret
+VI,59,ku-gould:13274,"Pacific Reef Heron, Pacific Reef-Heron. 59. plate","Pacific Reef Heron, Pacific Reef-Heron",Herodias pannosus,Egretta sacra,printed_english=Sombre egret
+VI,60,ku-gould:13270,"Pacific Reef Heron, Pacific Reef-Heron. 60. plate","Pacific Reef Heron, Pacific Reef-Heron",Herodias jugularis,Egretta sacra,printed_english=Blue reef heron
+VI,61,ku-gould:13266,White-faced Heron. 61. plate,White-faced Heron,Herodias greyi,Egretta novaehollandiae,printed_english=White reef heron
+VI,62,ku-gould:13262,Pied Heron. 62. plate,Pied Heron,Herodias picata,Egretta picata,printed_english=Pied egret
+VI,63,ku-gould:13258,"Nankeen Night Heron, Rufous Night Heron. 63. plate","Nankeen Night Heron, Rufous Night Heron",Nankeen night heron,Nycticorax caledonicus,
+VI,64,ku-gould:13254,Australasian Bittern. 64. plate,Australasian Bittern,Botaurus australis,Botaurus poiciloptilus,printed_english=Australian bittern
+VI,65,ku-gould:13250,Black Bittern. 65. plate,Black Bittern,Ardetta flavicollis,Dupetor flavicollis,printed_english=Yellow-necked bittern
+VI,66,ku-gould:13246,"Green-backed Heron, Héron strié, Striated Heron. 66. plate","Green-backed Heron, Héron strié, Striated Heron",Ardetta macrorhyncha,Butorides striata,printed_english=Thick-billed green bittern
+VI,67,ku-gould:13242,"Green-backed Heron, Héron strié, Striated Heron. 67. plate","Green-backed Heron, Héron strié, Striated Heron",Ardetta stagnatilis,Butorides striata,printed_english=Little grey bittern
+VI,68,ku-gould:13238,"Little Bittern, Blongios nain. 68. plate","Little Bittern, Blongios nain",Ardetta pusilla,Ixobrychus minutus,printed_english=Minute bittern
+VI,69,ku-gould:13234,Purple Swamphen. 69. plate,Purple Swamphen,Porphyrio melanotus,Porphyrio porphyrio melanotus,printed_english=Black-backed porphyrio
+VI,70,ku-gould:13230,Purple Swamphen. 70. plate,Purple Swamphen,Porphyrio bellus,Porphyrio porphyrio,printed_english=Azure-breasted porphyrio
+VI,71,ku-gould:13226,Tasmanian Nativehen. 71. plate,Tasmanian Nativehen,Tribonyx mortieri,Gallinula mortierii,printed_english=Mortier's tribonyx
+VI,72,ku-gould:13222,Black-tailed Nativehen. 72. plate,Black-tailed Nativehen,Tribonyx ventralis,Gallinula ventralis,printed_english=Black-tailed tribonyx
+VI,73,ku-gould:13218,Dusky Moorhen. 73. plate,Dusky Moorhen,Sombre gallinule,Gallinula tenebrosa,
+VI,74,ku-gould:13214,Eurasian Coot. 74. plate,Eurasian Coot,Fulica australis,Fulica atra,printed_english=Australian coot
+VI,75,ku-gould:13210,Comb-crested Jacana. 75. plate,Comb-crested Jacana,Parra gallinacea,Irediparra gallinacea,printed_english=Gallinaceous parra
+VI,76,ku-gould:13206,Lewin's Rail. 76. plate,Lewin's Rail,Rallus pectoralis,Lewinia pectoralis,printed_english=Pectoral rail
+VI,77,ku-gould:13202,Lewin's Rail. 77. plate,Lewin's Rail,Rallus lewinii,Lewinia pectoralis,printed_english=Lewin's water rail
+VI,78,ku-gould:13198,Chestnut Rail. 78. plate,Chestnut Rail,,Eulabeornis castaneoventris,printed_alt_name=Chestnut-bellied rail
+VI,79,ku-gould:13194,Australian Crake. 79. plate,Australian Crake,Spotted water crake,Porzana fluminea,
+VI,80,ku-gould:13190,Baillon's Crake. 80. plate,Baillon's Crake,Porzana palustris,Porzana pusilla palustris,printed_english=Water crake
+VI,81,ku-gould:13186,White-browed Crake. 81. plate,White-browed Crake,Porzana leucophrys,Porzana cinerea,printed_english=White-eyebrowed water crake
+VI,82,ku-gould:13182,"Sooty Rail, Spotless Crake. 82. plate","Sooty Rail, Spotless Crake",Porzana immaculata,Porzana tabuensis,printed_english=Spotless gallinule
+VII,1,ku-gould:13160,Cape Barren Goose. 1. plate,Cape Barren Goose,Cereopsis novae-hollandiae,Cereopsis novaehollandiae,printed_english=Cereopsis
+VII,2,ku-gould:13156,"Magpie Goose, Magpie-Goose. 2. plate","Magpie Goose, Magpie-Goose",Anseranas melanoleuca,Anseranas semipalmata,printed_english=Semipalmated goose
+VII,3,ku-gould:13152,Maned Duck. 3. plate,Maned Duck,Bernicla jubata,Chenonetta jubata,printed_english=Maned goose
+VII,4,ku-gould:13148,Green Pygmy Goose. 4. plate,Green Pygmy Goose,Beautiful pygmy goose,Nettapus pulchellus,
+VII,5,ku-gould:13144,Cotton Pygmy Goose. 5. plate,Cotton Pygmy Goose,Pygmy goose,Nettapus coromandelianus,
+VII,6,ku-gould:13140,Black Swan. 6. plate,Black Swan,,Cygnus atratus,
+VII,7,ku-gould:13136,Australian Shelduck. 7. plate,Australian Shelduck,Casarea tadornoides,Tadorna tadornoides,printed_english=Chestnut-coloured shieldrake
+VII,8,ku-gould:13132,Raja Shelduck. 8. plate,Raja Shelduck,Radjah shieldrake,Tadorna radjah,
+VII,9,ku-gould:13128,"Gray Duck, Pacific Black Duck. 9. plate","Gray Duck, Pacific Black Duck",Australian wild duck,Anas superciliosa,
+VII,10,ku-gould:13124,Freckled Duck. 10. plate,Freckled Duck,Anas naevosa,Stictonetta naevosa,
+VII,11,ku-gould:13120,Chestnut Teal. 11. plate,Chestnut Teal,Anas punctata,Anas castanea,printed_english=Chestnut-breasted duck
+VII,12,ku-gould:13116,Australasian Shoveler. 12. plate,Australasian Shoveler,Spatula rhynchotis,Anas rhynchotis,printed_english=Australian shoveller
+VII,13,ku-gould:13112,Pink-eared Duck. 13. plate,Pink-eared Duck,Membranaceous duck,Malacorhynchus membranaceus,
+VII,14,ku-gould:13108,Wandering Whistling Duck. 14. plate,Wandering Whistling Duck,Whistling duck,Dendrocygna arcuata,
+VII,15,ku-gould:13104,Plumed Whistling Duck. 15. plate,Plumed Whistling Duck,Leptotarsis eytoni,Dendrocygna eytoni,printed_english=Eyton's duck
+VII,16,ku-gould:13100,Hardhead. 16. plate,Hardhead,Nyroca australis,Aythya australis,printed_english=White-eyed duck
+VII,17,ku-gould:13096,Blue-billed Duck. 17. plate,Blue-billed Duck,Erismatura australis,Oxyura australis,
+VII,18,ku-gould:13092,Musk Duck. 18. plate,Musk Duck,,Biziura lobata,
+VII,19,ku-gould:13088,Pacific Gull. 19. plate,Pacific Gull,,Larus pacificus,
+VII,20,ku-gould:13084,Silver Gull. 20. plate,Silver Gull,Xema jamesonii,Chroicocephalus novaehollandiae,printed_english=Jameson's gull
+VII,21,ku-gould:13080,"Great Skua, Grand Labbe. 21. plate","Great Skua, Grand Labbe",Lestris catarractes,Stercorarius skua,printed_english=Skua gull
+VII,22,ku-gould:13076,"Caspian Tern, Charrán caspia, Sterne caspienne. 22. plate","Caspian Tern, Charrán caspia, Sterne caspienne",Sylochelidou strenuus,Hydroprogne caspia,printed_english=Powerful tern
+VII,23,ku-gould:13072,Lesser Crested Tern. 23. plate,Lesser Crested Tern,Thalasseus pelecanoides,Thalasseus bengalensis torresii,printed_english=Torres' straits' tern
+VII,24,ku-gould:13068,Bass's straits' tern. 24. plate,Bass's straits' tern,,Thalasseus poliocereus,
+VII,25,ku-gould:13064,Lesser Crested Tern. 25. plate,Lesser Crested Tern,Thalasseus torresii,Thalasseus bengalensis torresii,printed_english=Torres' tern
+VII,26,ku-gould:13060,"Black-naped Tern, White-fronted Tern. 26. plate","Black-naped Tern, White-fronted Tern",Sterna melanorhyncha,Sterna striata,printed_english=Black-billed tern
+VII,27,ku-gould:13056,"Roseate Tern, Charrán rosado, Sterne de Dougall. 27. plate","Roseate Tern, Charrán rosado, Sterne de Dougall",Sterna gracilis,Sterna dougallii gracilis,printed_english=Graceful tern
+VII,28,ku-gould:13052,Black-naped Tern. 28. plate,Black-naped Tern,Sterna melanauchen,Sterna sumatrana,printed_english=Black-napped tern
+VII,29,ku-gould:13048,Fairy Tern. 29. plate,Fairy Tern,Australian little tern,Sternula nereis,
+VII,30,ku-gould:13044,"Angel Tern, Gygis blanche, White Tern. 30. plate","Angel Tern, Gygis blanche, White Tern",Gygis candida,Gygis alba,printed_english=White tern
+VII,31,ku-gould:13040,Marsh tern. 31. plate,Marsh tern,,Hydrochelidon fluviatilis,
+VII,32,ku-gould:13036,"Bridled Tern, Charrán embridado, Sterne bridée. 32. plate","Bridled Tern, Charrán embridado, Sterne bridée",Onychoprion fuliginosus,Onychoprion anaethetus,printed_english=Sooty tern
+VII,33,ku-gould:13032,"Bridled Tern, Charrán embridado, Sterne bridée. 33. plate","Bridled Tern, Charrán embridado, Sterne bridée",Onychoprion panaya,Onychoprion anaethetus,printed_english=Panayan tern
+VII,34,ku-gould:13028,"Brown Noddy, Charrán-bobo café, Noddi brun. 34. plate","Brown Noddy, Charrán-bobo café, Noddi brun",Noddy tern,Anous stolidus,
+VII,35,ku-gould:13024,"Black Noddy, Charrán-bobo negro, Noddi noir. 35. plate","Black Noddy, Charrán-bobo negro, Noddi noir",Anous melanops,Anous minutus,printed_english=Lesser noddy
+VII,36,ku-gould:13020,"Black Noddy, Charrán-bobo negro, Noddi noir. 36. plate","Black Noddy, Charrán-bobo negro, Noddi noir",Anous leucocapillus,Anous minutus,printed_english=White-capped tern
+VII,37,ku-gould:13016,"Blue Noddy, Blue-gray Noddy, Noddi bleu. 37. plate","Blue Noddy, Blue-gray Noddy, Noddi bleu",Anous cinereus,Procelsterna cerulea,printed_english=Grey noddy
+VII,38,ku-gould:13012,"Wandering Albatross, Albatros hurleur. 38. plate","Wandering Albatross, Albatros hurleur",Diomedea exulaus,Diomedea exulans,printed_english=Wandering albatros
+VII,39,ku-gould:13008,"Short-tailed Albatross, Albatros à queue courte. 39. plate","Short-tailed Albatross, Albatros à queue courte",Diomedea brachyura,Phoebastria albatrus,printed_english=Short-tailed albatros
+VII,40,ku-gould:13004,"Shy Albatross, Albatros à cape blanche. 40. plate","Shy Albatross, Albatros à cape blanche",Diomedea cauta,Thalassarche cauta,printed_english=Cautious albatros
+VII,41,ku-gould:13000,Grey-headed Albatross. 41. plate,Grey-headed Albatross,Diomedea culminata,Thalassarche chrysostoma,printed_english=Culminated albatros
+VII,42,ku-gould:12996,"Atlantic Yellow-nosed Albatross, Yellow-nosed Albatross. 42. plate","Atlantic Yellow-nosed Albatross, Yellow-nosed Albatross",Diomedea chlororhynchos,Thalassarche chlororhynchos,printed_english=Yellow-billed albatros
+VII,43,ku-gould:12992,Black-browed Albatross. 43. plate,Black-browed Albatross,Diomedea melanophrys,Thalassarche melanophris,printed_english=Black-eyebrowed albatros
+VII,44,ku-gould:12988,Sooty Albatross. 44. plate,Sooty Albatross,Diomedea fulginosa,Phoebetria fusca,printed_english=Sooty albatros
+VII,45,ku-gould:12984,Southern Giant Petrel. 45. plate,Southern Giant Petrel,Procellaria gigantea,Macronectes giganteus,printed_english=Giant petrel
+VII,46,ku-gould:12980,Spectacled Petrel. 46. plate,Spectacled Petrel,,Procellaria conspicillata,
+VII,47,ku-gould:12976,"Black-capped Petrel, Pétrel diablotin. 47. plate","Black-capped Petrel, Pétrel diablotin",Procellaria hasitata,Pterodroma hasitata,printed_english=Great grey petrel
+VII,48,ku-gould:12972,"Northern Fulmar, Fulmar boréal, Fulmar norteño. 48. plate","Northern Fulmar, Fulmar boréal, Fulmar norteño",Procellaria glacialoides,Fulmarus glacialis,printed_english=Silvery grey petrel
+VII,49,ku-gould:12968,White-headed Petrel. 49. plate,White-headed Petrel,Procellaria lessonii,Pterodroma lessonii,
+VII,50,ku-gould:12964,Soft-plumaged Petrel. 50. plate,Soft-plumaged Petrel,Procellaria mollis,Pterodroma mollis,
+VII,51,ku-gould:12960,"Cook's Petrel, Petrel de Cook, Pétrel de Cook. 51. plate","Cook's Petrel, Petrel de Cook, Pétrel de Cook",Procellaria cookii,Pterodroma cookii,printed_english=Cook's petrel
+VII,52,ku-gould:12956,Blue Petrel. 52. plate,Blue Petrel,Procellaria coerulea,Halobaena caerulea,
+VII,53,ku-gould:12952,Cape Petrel. 53. plate,Cape Petrel,Daption capensis,Daption capense,
+VII,54,ku-gould:12948,Fairy Prion. 54. plate,Fairy Prion,Prion turtur,Pachyptila turtur,printed_english=Dove-like prion
+VII,55,ku-gould:12944,Broad-billed Prion. 55. plate,Broad-billed Prion,Prion vittatus,Pachyptila vittata,
+VII,56,ku-gould:12940,"Short-tailed Shearwater, Pardela cola corta, Puffin à bec grêle. 56. plate","Short-tailed Shearwater, Pardela cola corta, Puffin à bec grêle",Puffinus brevicaudus,Puffinus tenuirostris,printed_english=Short-tailed petrel
+VII,57,ku-gould:12936,"Flesh-footed Shearwater, Pardela pata pálida, Puffin à pieds pâles. 57. plate","Flesh-footed Shearwater, Pardela pata pálida, Puffin à pieds pâles",,Puffinus carneipes,printed_alt_name=Fleshy-footed petrel
+VII,58,ku-gould:12932,"Wedge-tailed Shearwater, Pardela cola cuña, Puffin fouquet. 58. plate","Wedge-tailed Shearwater, Pardela cola cuña, Puffin fouquet",Puffinus sphenurus,Puffinus pacificus,printed_english=Wedge-tailed petrel
+VII,59,ku-gould:12928,"Little Shearwater, Petit Puffin. 59. plate","Little Shearwater, Petit Puffin",Allied petrel,Puffinus assimilis,
+VII,60,ku-gould:12924,Common Diving Petrel. 60. plate,Common Diving Petrel,Puffinuria urinatrix,Pelecanoides urinatrix,printed_english=Diving petrel
+VII,61,ku-gould:12920,"White-faced Storm Petrel, Océanite frégate. 61. plate","White-faced Storm Petrel, Océanite frégate",Thalassidroma marina,Pelagodroma marina,printed_english=White-faced storm petrel
+VII,62,ku-gould:12916,"Black-bellied Storm Petrel, Black-bellied Storm-Petrel, Océanite à ventre noir. 62. plate","Black-bellied Storm Petrel, Black-bellied Storm-Petrel, Océanite à ventre noir",Thalassidroma melanogaster,Fregetta tropica,printed_english=Black-bellied storm petrel
+VII,63,ku-gould:12912,White-bellied Storm Petrel. 63. plate,White-bellied Storm Petrel,Thalassidroma leucogaster,Fregetta grallaria leucogaster,
+VII,64,ku-gould:12908,Grey-backed Storm Petrel. 64. plate,Grey-backed Storm Petrel,Thalassidroma nereis,Garrodia nereis,
+VII,65,ku-gould:12904,"Wilson's Storm Petrel, Océanite de Wilson, Paíño de Wilson, Wilson's Storm-Petrel. 65. plate","Wilson's Storm Petrel, Océanite de Wilson, Paíño de Wilson, Wilson's Storm-Petrel",Thalassidroma wilsonii,Oceanites oceanicus,printed_english=Wilson's storm petrel
+VII,66,ku-gould:12900,"Grand Cormoran, Great Cormorant. 66. plate","Grand Cormoran, Great Cormorant",Phalacrocorax carboides,Phalacrocorax carbo,printed_english=Australian cormorant
+VII,67,ku-gould:12896,Little Black Cormorant. 67. plate,Little Black Cormorant,,Phalacrocorax sulcirostris,printed_alt_name=Groove-billed cormorant
+VII,68,ku-gould:12892,White-breasted Cormorant. 68. plate,White-breasted Cormorant,Phalacrocorax hypoleucus,Phalacrocorax lucidus,printed_english=Pied cormorant
+VII,69,ku-gould:12888,Black-faced Cormorant. 69. plate,Black-faced Cormorant,Phalacrocorax leucogaster,Phalacrocorax fuscescens,printed_english=White-breasted cormorant
+VII,70,ku-gould:12884,Little Pied Cormorant. 70. plate,Little Pied Cormorant,Phalacrocorax melanoleucus,Microcarbo melanoleucos,printed_english=Pied cormorant
+VII,71,ku-gould:12880,Spotted Shag. 71. plate,Spotted Shag,Spotted cormorant,Phalacrocorax punctatus,
+VII,72,ku-gould:12876,"Lesser Frigatebird,  Frégate ariel. 72. plate","Lesser Frigatebird,  Frégate ariel",Attagen ariel,Fregata ariel,printed_english=Small frigate bird
+VII,73,ku-gould:12872,Red-tailed Tropicbird. 73. plate,Red-tailed Tropicbird,Phaeton phoenicurus,Phaethon rubricauda,printed_english=Red-tailed tropic bird
+VII,74,ku-gould:12868,Australian Pelican. 74. plate,Australian Pelican,,Pelecanus conspicillatus,
+VII,75,ku-gould:12864,"Darter, Oriental Darter. 75. plate","Darter, Oriental Darter",Plotus novae-hollandiae,Anhinga melanogaster,printed_english=New holland darter
+VII,76,ku-gould:12860,Australasian Gannet. 76. plate,Australasian Gannet,Sula australis,Morus serrator,printed_english=Australian gannet
+VII,77,ku-gould:12856,"Masked Booby, Bobo enmascarado, Fou masqué. 77. plate","Masked Booby, Bobo enmascarado, Fou masqué",Sula personata,Sula dactylatra personata,printed_english=Masked gannet
+VII,78,ku-gould:12852,"Brown Booby, Bobo café, Fou brun. 78. plate","Brown Booby, Bobo café, Fou brun",Sula fusca,Sula leucogaster,printed_english=Brown gannet
+VII,79,ku-gould:12848,"Red-footed Booby, Bobo pata roja, Fou à pieds rouges. 79. plate","Red-footed Booby, Bobo pata roja, Fou à pieds rouges",Sula piscator,Sula sula,printed_english=Red-legged gannet
+VII,80,ku-gould:12844,Great Crested Grebe. 80. plate,Great Crested Grebe,Podiceps australis,Podiceps cristatus,printed_english=Australian tippet grebe
+VII,81,ku-gould:12840,Australasian Grebe. 81. plate,Australasian Grebe,Podiceps gularis,Tachybaptus novaehollandiae,printed_english=Black-throated grebe
+VII,82,ku-gould:12836,Hoary-headed Grebe. 82. plate,Hoary-headed Grebe,Podiceps poliocephalus,Poliocephalus poliocephalus,
+VII,83,ku-gould:12832,"Rockhopper Penguin, Southern Rockhopper Penguin. 83. plate","Rockhopper Penguin, Southern Rockhopper Penguin",Crested penguin,Eudyptes chrysocome,
+VII,84,ku-gould:12828,"Fairy Penguin, Little Penguin. 84. plate","Fairy Penguin, Little Penguin",Spheniscus minor,Eudyptula minor,printed_english=Little penguin
+VII,85,ku-gould:12824,"Fairy Penguin, Little Penguin. 85. plate","Fairy Penguin, Little Penguin",Spheniscus undina,Eudyptula minor,printed_english=Fairy penguin
+Supp,1,ku-gould:12799,Grass Owl. 1. plate,Grass Owl,Strix candida,Tyto capensis,printed_english=Grass-owl
+Supp,2,ku-gould:12795,Laughing Owl. 2. plate,Laughing Owl,,Sceloglaux albifacies,printed_alt_name=Wekau
+Supp,3,ku-gould:12791,Papuan Frogmouth. 3. plate,Papuan Frogmouth,Papuan podargus,Podargus papuensis,
+Supp,4,ku-gould:12787,Marbled Frogmouth. 4. plate,Marbled Frogmouth,Podargus marmoratus,Podargus ocellatus,printed_english=Marbled podargus
+Supp,5,ku-gould:12783,Yellow-billed Kingfisher. 5. plate,Yellow-billed Kingfisher,Halcyon flavirostris,Syma torotoro,
+Supp,6,ku-gould:12779,Buff-breasted Paradise Kingfisher. 6. plate,Buff-breasted Paradise Kingfisher,,Tanysiptera sylvia,printed_alt_name=White-tailed tanysiptera
+Supp,7,ku-gould:12775,Black-faced Woodswallow. 7. plate,Black-faced Woodswallow,Artamus melanops,Artamus cinereus,printed_english=Black-faced wood-swallow
+Supp,8,ku-gould:12771,Spotted Pardalote. 8. plate,Spotted Pardalote,Pardalotus xanthopygius,Pardalotus punctatus,printed_english=Yellow-rumped pardalote
+Supp,9,ku-gould:12767,Trumpet Manucode. 9. plate,Trumpet Manucode,Manucodia keraudreni,Manucodia keraudrenii,printed_english=Keraudren's crow-shrike
+Supp,10,ku-gould:12763,Pied Monarch. 10. plate,Pied Monarch,,Arses kaupi,printed_alt_name=Kaup's flycatcher
+Supp,11,ku-gould:12759,Yellow-breasted Boatbill. 11. plate,Yellow-breasted Boatbill,,Machaerirhynchus flaviventer,printed_alt_name=Yellow-breasted flycather
+Supp,12,ku-gould:12755,White-eared Monarch. 12. plate,White-eared Monarch,,Monarcha leucotis,printed_alt_name=White-eared flycatcher
+Supp,13,ku-gould:12751,Spectacled Monarch. 13. plate,Spectacled Monarch,Monarcha albiventris,Monarcha trivirgatus,printed_english=White-bellied flycatcher
+Supp,14,ku-gould:12747,Fairy Gerygone. 14. plate,Fairy Gerygone,Gerygone personata,Gerygone palpebrosa,printed_english=Masked gerygone
+Supp,15,ku-gould:12743,White-browed Robin. 15. plate,White-browed Robin,Petroica cerviniventris,Poecilodryas superciliosa,printed_english=Buff-sided robin
+Supp,16,ku-gould:12739,Northern Scrub Robin. 16. plate,Northern Scrub Robin,Eastern scrub-robin,Drymodes superciliaris,
+Supp,17,ku-gould:12735,Pale-yellow Robin. 17. plate,Pale-yellow Robin,Eopsaltria capito,Tregellasia capito,printed_english=Large-headed robin
+Supp,18,ku-gould:12731,Australian Mangrove Robin. 18. plate,Australian Mangrove Robin,Eopsaltria leucura,Eopsaltria pulverulenta,printed_english=White-tailed robin
+Supp,19,ku-gould:12727,Albert's Lyrebird. 19. plate,Albert's Lyrebird,Albert lyre-bird,Menura alberti,
+Supp,20,ku-gould:12723,Purple-crowned Fairywren. 20. plate,Purple-crowned Fairywren,Crowned wren,Malurus coronatus,
+Supp,21,ku-gould:12719,Lovely Fairywren. 21. plate,Lovely Fairywren,Lovely wren,Malurus amabilis,
+Supp,22,ku-gould:12715,Lovely Fairywren. 22. plate,Lovely Fairywren,Malurus hypoleucus,Malurus amabilis,printed_english=Fawn-breasted superb warbler
+Supp,23,ku-gould:12711,Splendid Fairywren. 23. plate,Splendid Fairywren,Malurus callainus,Malurus splendens,printed_english=Turquoisine superb warbler
+Supp,24,ku-gould:12707,White-winged Fairywren. 24. plate,White-winged Fairywren,Malurus leuconotus,Malurus leucopterus,printed_english=White-backed superb warbler
+Supp,25,ku-gould:12703,Eastern Bristlebird. 25. plate,Eastern Bristlebird,Sphenura broadbenti,Dasyornis brachypterus,printed_english=Rufous-headed bristle-bird
+Supp,26,ku-gould:12699,Rufous Scrubbird. 26. plate,Rufous Scrubbird,Atrichia rufescens,Atrichornis rufescens,printed_english=Rufescent scrub-bird
+Supp,27,ku-gould:12695,Pilotbird. 27. plate,Pilotbird,Downy pycnoptilus,Pycnoptilus floccosus,
+Supp,28,ku-gould:12691,Scrubtit. 28. plate,Scrubtit,Acanthiza magna,Acanthornis magnus,printed_english=Great acanthiza
+Supp,29,ku-gould:12687,Red-bellied Pitta. 29. plate,Red-bellied Pitta,Pitta mackloti,Pitta erythrogaster macklotii,printed_english=Macklot's pitta
+Supp,30,ku-gould:12683,Island Thrush. 30. plate,Island Thrush,Merula poliocephala,Turdus poliocephalus,printed_english=Grey-headed blackbird
+Supp,31,ku-gould:12679,Island Thrush. 31. plate,Island Thrush,Merula vinitincta,Turdus poliocephalus,printed_english=Vinous-tinted blackbird
+Supp,32,ku-gould:12675,Chestnut-breasted Quail-thrush. 32. plate,Chestnut-breasted Quail-thrush,,Cinclosoma castaneothorax,printed_alt_name=Chestnut-breasted ground-thrush
+Supp,33,ku-gould:12671,Metallic Starling. 33. plate,Metallic Starling,Shining aplonis,Aplonis metallica,
+Supp,34,ku-gould:12667,Satin x Regent Bowerbird. 34. plate,Satin x Regent Bowerbird,Ptilonorhynchus rawnsleyi,(hybrid) Ptilonorhynchus violaceus x Sericulus chrysocephalus,printed_english=Rawnsley's bower-bird
+Supp,35,ku-gould:12663,Western Bowerbird. 35. plate,Western Bowerbird,Guttated bower-bird,Chlamydera guttata,
+Supp,36,ku-gould:12659,Fawn-breasted Bowerbird. 36. plate,Fawn-breasted Bowerbird,,Chlamydera cerviniventris,printed_alt_name=Fawn-breasted bower-bird
+Supp,37,ku-gould:12655,Sunda Cuckooshrike. 37. plate,Sunda Cuckooshrike,Sphecotheres flaviventris,Coracina larvata,printed_english=Yellow-bellied sphecotheres
+Supp,38,ku-gould:12651,Chestnut-crowned Babbler. 38. plate,Chestnut-crowned Babbler,Pomatorhinus ruficeps,Pomatostomus ruficeps,printed_english=Chestnut-crowned pomatorhinus
+Supp,39,ku-gould:12647,Yellow-tufted Honeyeater. 39. plate,Yellow-tufted Honeyeater,Ptilotis cassidix,Lichenostomus melanopscassidix,printed_english=Helmeted honey-eater
+Supp,40,ku-gould:12643,Mangrove Honeyeater. 40. plate,Mangrove Honeyeater,Ptilotis fasciogularis,Lichenostomus fasciogularis,printed_english=Fasciated honey-eater
+Supp,41,ku-gould:12639,Yellow-spotted Honeyeater. 41. plate,Yellow-spotted Honeyeater,Ptilotis notata,Meliphaga notata,printed_english=Yellow-spotted honey-eater
+Supp,42,ku-gould:12635,Tawny-breasted Honeyeater. 42. plate,Tawny-breasted Honeyeater,Ptilotis filigera,Xanthotis flaviventer,printed_english=Streaked honey-eater
+Supp,43,ku-gould:12631,White-streaked Honeyeater. 43. plate,White-streaked Honeyeater,Ptilotis cockerelli,Trichodere cockerelli,printed_english=Cockerell's honey-eater
+Supp,44,ku-gould:12627,Helmeted Friarbird. 44. plate,Helmeted Friarbird,Tropidorhynchus buceroides,Philemon buceroides,printed_english=Helmeted honey-eater
+Supp,45,ku-gould:12623,Olive-backed Sunbird. 45. plate,Olive-backed Sunbird,Nectarinia australis,Nectarinia jugularis,printed_english=Australian sun-bird
+Supp,46,ku-gould:12619,"Norfolk Island White-eye, White-chested White-eye. 46. plate","Norfolk Island White-eye, White-chested White-eye",,Zosterops albogularis,printed_alt_name=White-breasted zosterops
+Supp,47,ku-gould:12615,Slender-billed White-eye. 47. plate,Slender-billed White-eye,,Zosterops tenuirostris,printed_alt_name=Slender-billed zosterops
+Supp,48,ku-gould:12611,Robust White-eye. 48. plate,Robust White-eye,Robust zosterops,Zosterops strenuus,
+Supp,49,ku-gould:12607,Zosterops tephropleurus. 49. plate,Zosterops tephropleurus,,Zosterops tephropleurus,description_no_english_segment; printed_alt_name=Grey-breasted zosterops
+Supp,50,ku-gould:12603,Victoria's Riflebird. 50. plate,Victoria's Riflebird,Victoria rifle-bird,Ptiloris victoriae,
+Supp,51,ku-gould:12599,Magnificent Riflebird. 51. plate,Magnificent Riflebird,Ptiloris magnifica,Ptiloris magnificus,printed_english=Magnificent rifle-bird
+Supp,52,ku-gould:12595,Standardwing. 52. plate,Standardwing,Semioptera wallacei,Semioptera wallacii,printed_english=Standard-wing
+Supp,53,ku-gould:12591,Chowchilla. 53. plate,Chowchilla,Orthonyx spaldingi,Orthonyx spaldingii,printed_english=Spalding's orthonyx
+Supp,54,ku-gould:12587,Varied Sittella. 54. plate,Varied Sittella,Sittella striata,Daphoenositta chrysoptera,printed_english=Striated sittella
+Supp,55,ku-gould:12583,Chestnut-breasted Cuckoo. 55. plate,Chestnut-breasted Cuckoo,,Cacomantis castaneiventris,
+Supp,56,ku-gould:12579,Little Bronze Cuckoo. 56. plate,Little Bronze Cuckoo,Little cuckoo,Chrysococcyx minutillus,
+Supp,57,ku-gould:12575,Kakapo. 57. plate,Kakapo,Strigops habroptilus,Strigops habroptila,
+Supp,58,ku-gould:12569,New Zealand Kaka. 58. plate,New Zealand Kaka,Nestor hypopolius,Nestor meridionalis,printed_english=Ka-ka parrot
+Supp,59,ku-gould:12565,New Zealand Kaka. 59. plate,New Zealand Kaka,Nestor esslingii,Nestor meridionalis,printed_english=Prince of essling's parrot
+Supp,60,ku-gould:12561,Kea. 60. plate,Kea,Kea parrot,Nestor notabilis,
+Supp,61,ku-gould:12557,Palm Cockatoo. 61. plate,Palm Cockatoo,Microglossus aterrimus,Probosciger aterrimus,printed_english=Great palm-cockatoo
+Supp,62,ku-gould:12553,Princess Parrot. 62. plate,Princess Parrot,,Polytelis alexandrae,printed_alt_name=The princess of wales's parrakeet
+Supp,63,ku-gould:12549,Crimson Rosella. 63. plate,Crimson Rosella,Platycercus cyanogenys,Platycercus elegans,printed_english=Blue-cheeked parrakeet
+Supp,64,ku-gould:12545,"Golden-shouldered Parakeet, Golden-shouldered Parrot. 64. plate","Golden-shouldered Parakeet, Golden-shouldered Parrot",,Psephotus chrysopterygius,printed_alt_name=Golden-backed parrakeet
+Supp,65,ku-gould:12541,Double-eyed Fig Parrot. 65. plate,Double-eyed Fig Parrot,Cyclopsitta coxeni,Cyclopsitta diophthalma,printed_english=Coxen's parrakeet
+Supp,66,ku-gould:12537,Night Parrot. 66. plate,Night Parrot,Geopsittacus occidentalis,Pezoporus occidentalis,printed_english=Nocturnal ground-parrakeet
+Supp,67,ku-gould:12533,Wompoo Fruit Dove. 67. plate,Wompoo Fruit Dove,Carpophaga assimilis,Ptilinopus magnificus,printed_english=Allied fruit-pigeon
+Supp,68,ku-gould:12529,Spinifex Pigeon. 68. plate,Spinifex Pigeon,Lophophaps ferruginea,Geophaps plumifera ferruginea,printed_english=Rust-coloured bronzewing
+Supp,69,ku-gould:12525,Spinifex Pigeon. 69. plate,Spinifex Pigeon,Lophophaps leucogaster,Geophaps plumifera leucogaster,printed_english=White-bellied bronzewing
+Supp,70,ku-gould:12521,Southern Cassowary. 70. plate,Southern Cassowary,Casuarius australis,Casuarius casuarius,printed_english=Australian cassowary
+Supp,71,ku-gould:12518,Southern Cassowary. 71. plate,Southern Cassowary,Casuarius australis,Casuarius casuarius,printed_english=Australian cassowary
+Supp,72,ku-gould:12515,Dwarf Cassowary. 72. plate,Dwarf Cassowary,,Casuarius bennetti,printed_alt_name=Bennett's cassowary
+Supp,73,ku-gould:12512,Dwarf Cassowary. 73. plate,Dwarf Cassowary,,Casuarius bennetti,printed_alt_name=Bennett's cassowary
+Supp,74,ku-gould:12509,Northern Cassowary. 74. plate,Northern Cassowary,Casuarius uniappendiculatus,Casuarius unappendiculatus,printed_english=One-carunculated cassowary
+Supp,75,ku-gould:12506,Northern Cassowary. 75. plate,Northern Cassowary,Casuarius uniappendiculatus,Casuarius unappendiculatus,printed_english=One-carunculated cassowary
+Supp,76,ku-gould:12502,Takahe. 76. plate,Takahe,Notornix mantelli,Porphyrio mantelli,printed_english=Notornis; duplicate_leaf_in_ku_catalogue (two scanned leaves cataloged under the same plate number)
+Supp,76,ku-gould:12503,Takahe. 76. plate,Takahe,Notornix mantelli,Porphyrio mantelli,printed_english=Notornis; duplicate_leaf_in_ku_catalogue (two scanned leaves cataloged under the same plate number)
+Supp,77,ku-gould:12497,"Upland Sandpiper, Maubèche des champs, Zarapito ganga. 77. plate","Upland Sandpiper, Maubèche des champs, Zarapito ganga",Actiturus bartramius,Bartramia longicauda,printed_english=Bartram's sandpiper
+Supp,78,ku-gould:12493,Red-necked Crake. 78. plate,Red-necked Crake,,Rallina tricolor,printed_alt_name=Red-necked rail
+Supp,79,ku-gould:12489,Plain Bush-hen. 79. plate,Plain Bush-hen,Gallinula ruficrissa,Amaurornis olivacea,printed_english=Rufous-vented gallinule
+Supp,80,ku-gould:12485,Australasian Shoveler. 80. plate,Australasian Shoveler,Spatula variegata,Anas rhynchotis,printed_english=Variegated shoveller
+Supp,81,ku-gould:12481,"Gull-billed Tern, Charrán pico grueso,Sterne hansel. 81. plate","Gull-billed Tern, Charrán pico grueso,Sterne hansel",Gelochelidon macrotarsa,Gelochelidon nilotica,printed_english=Great-footed tern

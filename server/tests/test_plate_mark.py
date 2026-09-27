@@ -56,3 +56,25 @@ def test_the_footnote_clears_the_widest_numeral():
     assert compose.note_width() <= theme.WIDTH - 2 * (
         theme.CORNER_INSET + typography.plate_mark_max_width() + theme.NOTE_MARK_GAP)
     assert compose.note_width() > 500            # still room for "No detections since…"
+
+
+
+# A folio numbered per volume (W-874) is cited as its own lists cite it:
+# volume, then number.
+@pytest.mark.parametrize("plate,volume_no,numeral", [
+    (18, 2, "II. 18"), (18, "II", "II. 18"), (18, "2", "II. 18"),
+    (76, "Supp.", "Supp. 76"), (1, 7, "VII. 1"),
+])
+def test_a_plate_numbered_per_volume_is_cited_by_volume(plate, volume_no, numeral):
+    assert typography._plate_mark_parts(plate, volume_no) == (f"{theme.PLATE_PREFIX} ", numeral)
+
+
+def test_a_volume_mark_is_drawn_and_fits_the_footnote_as_it_was():
+    assert _right_corner_ink(compose.render_single(SPEC, _Art(plate=18, volume_no=2))) > 0
+    widest = max(typography.plate_mark_width(n, v) for v in theme.VOLUMES
+                 for n in range(1, theme.MAX_VOLUME_PLATE + 1))
+    assert widest <= typography.plate_mark_max_width()
+    # Narrower than Havell's widest, so every Havell footnote, and so every
+    # Havell render, is what it was.
+    running = max(typography.plate_mark_width(n) for n in range(1, theme.MAX_PLATE + 1))
+    assert typography.plate_mark_max_width() == running

@@ -8,6 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Branch prefix: wells/
 - PR mode: ready
 
+## Writing
+
+Read `docs/STYLE.md` before writing anything a person reads: webapp copy,
+the frame's screens, the README, the wiki, the marketing page, commits, PRs,
+Linear, reports. Use its lexicon. Write every user-facing string yourself,
+verbatim, in any subagent brief. `server/scripts/check_copy.py` checks the
+mechanical rules (`make test` runs it on the webapp; pass `--wiki DIR` before
+pushing the wiki).
+
 ## What this is
 
 Featherframe: a wall-mounted e-paper frame that renders the birds your BirdNET-Pi
@@ -19,9 +28,9 @@ hears as Audubon lithograph plates. Two components in one repo:
   that fetches a pre-packed framebuffer and pushes it to the panel.
 
 The wall frame is a Seeed XIAO ePaper Kit EE03 (XIAO ESP32-S3 Plus + 10.3"
-ED103TC2, 1404×1872, 16-level gray, IT8951). See `README.md` for the full spec,
+ED103TC2, 1404×1872, 16-level gray, IT8951). See the wiki (github.com/wr/featherframe/wiki) for the full spec,
 wiring, and battery numbers. A second panel is being ported (W-812): the EE02
-kit's 13.3" E Ink Spectra 6 (T133A01, 1200×1600, six inks, ~30 s full refresh,
+kit's 13.3" E Ink Spectra 6 (T133A01, 1200×1600, six inks, ~15 s full refresh,
 no partial refresh). One server instance drives one panel (`config.panel`,
 `featherframe/panels.py`); it follows the device's `X-Panel` report on first
 check-in, and `FEATHERFRAME_PANEL` seeds a fresh install. A frame also
@@ -57,7 +66,7 @@ make preview-collage   # a daily collage
 make preview-fallback  # the typographic (no-plate) fallback
 make preview-ee02      # the Cardinal for the EE02 colour panel (six-ink dither)
 make preview-views     # the Cardinal as viewers get it (TRMNL X, Kobo, Kindle, TRMNL OG, tablet)
-make serve             # run the server on :8080
+make serve             # run the server on :8181
 make test              # pytest
 ```
 
@@ -73,7 +82,7 @@ cd server
 ./.venv/bin/python -m featherframe.preview --species "Blue Jay"      # any species
 ./.venv/bin/python -m featherframe.preview --dither stucki           # bench override, never persisted
 ./.venv/bin/python scripts/fetch_plates.py --dry-run                 # resolve plates, no download
-./.venv/bin/python -m featherframe --port 8080                       # run the server directly
+./.venv/bin/python -m featherframe --port 8181                       # run the server directly
 
 # Firmware
 cd firmware && pio run -t upload && pio device monitor  # build/flash + serial (115200)
@@ -84,6 +93,10 @@ cd firmware && pio run -e generic_bench                 # a panel the server has
 ```
 
 Deploy to the Pi: `cd server && ./install.sh` (venv + plates + systemd unit).
+On a NAS: `docker-compose.yml` at the root runs `ghcr.io/wr/featherframe`
+(`server/Dockerfile`, published by the release workflow on a `v*` tag; W-866):
+host networking for mDNS, `/data` a volume, illustrations from the shared
+library, `TZ` set because quiet hours run on local time.
 
 ## Architecture — the parts you must read several files to grasp
 
@@ -156,7 +169,7 @@ that speaks push is at most `PUSH_FALLBACK_POLL_S` (60 s) whatever it shows —
 never the collage's schedule. The offline corner mark (`FF_MARK_FAILS` failed
 checks and `FF_MARK_MINUTES` = 30 min) is what an owner sees of an outage.
 uvicorn needs `websockets`; its ping timeout is 60 s (`__main__`) because a
-colour paint holds the frame's loop ~30 s. A hosted hub (Durable Object)
+colour paint holds the frame's loop ~15 s. A hosted hub (Durable Object)
 speaks the same protocol.
 A viewer's output is the same idea as a PNG (`view_png`), drawn on
 first ask and cached; `GET /api/frames/<id>/preview.png` serves either kind.
@@ -202,7 +215,7 @@ never reaches `admit_frame` — but it is approved on
 the server like every other frame: a new one is `asking`, `/api/setup` still
 hands it its key, and `/api/display` answers `status: 0` with the *waiting
 plate* (`welcome.render_waiting`, the wordmark over "ADD THIS FRAME ON THE
-FEATHERFRAME PAGE" and its short id), drawn for that screen's own size, depth
+FEATHERFRAME WEBAPP" and its short id), drawn for that screen's own size, depth
 and rotation, `filename` `waiting-<variant>`, `refresh_rate`
 `WAITING_REFRESH_SECONDS` (`IGNORED_REFRESH_SECONDS` once it is ignored).
 Its image is `GET /api/viewers/<id>/<name>.png`, and that path stays where it
@@ -213,7 +226,7 @@ web app via `/view.webmanifest`) names itself from localStorage, reports its
 device pixels to `GET /api/view/state` every `viewers.PAGE_POLL_SECONDS`, and
 is told which image to cross-fade to — or, while it is still `asking` or
 `ignored`, `{"waiting": true, "id": …}` and no image, which the page shows as
-the wordmark over "Add this frame on the Featherframe page" and its short id.
+the wordmark over "Add this frame on the Featherframe webapp" and its short id.
 It keeps polling and takes the picture by itself once the owner adds it. A page
 viewer (`transport: "page"`) is always
 `color`, upright, long side capped at `PAGE_MAX_SIDE`, and shows the plate
@@ -231,20 +244,33 @@ viewer's own view — both at `GET /api/frames/<id>/preview.png`, and always the
 upright picture as that frame draws it, never the device's canvas shape or its
 rotation: a TRMNL's is stood up and a page's is the sheet at 3:4) and the plate's
 tools, which are the previewed frame's picture's (`frame_view`'s `picture`, the
-night rule included) and say they act on every frame showing it (W-861); then the detection source's own small card, titled by the source name;
-then History. **There is no Health card**: a frame's health is the frame's row.
-Right, wide: a **Frames** card FIRST — its *Frames* heading, a ⋯ menu
-holding *USB firmware update*, *Check for updates* (asks for the latest release now, `POST /api/firmware/check`; otherwise daily), *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list — then the
-household's sections in one `/settings` form that carries no frame field at
-all, in the order the day runs: Detection source, Image generation (its two AI
-switches `locked` until a key is stored), Individual detections, Collage — and
-quiet hours IS the overnight collage, so it sits in that section and has no
-toggle of its own (`Config.quiet_hours_render_collage` is a property: the
-window being on is the whole of it) — then Generated plates.
-One save rule (W-861): a Save is enabled only once something in its group
-changed, with *Unsaved changes* beside it (the household form's save bar, each
-frame row's Save), and a stored secret, the email and the password are ✓ / ✕
-rows whose ✓ waits for input; a hidden first submit keeps Enter saving the form.
+night rule included) and say they act on every frame showing it (W-861): Refresh
+and Manual override, one line each (W-878: Hold and Block left the page; a hold
+already set still shows its Release line); then History. **There is no Health
+card**: a frame's health is the frame's row, and the source's is its row below.
+Right, wide: two groups, each a heading over its card (W-878). *Frames*, with
+a ⋯ menu holding *USB firmware update*, *Check for updates* (asks for the latest release now, `POST /api/firmware/check`; otherwise daily), *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list.
+Then *Settings*: the household's, one card of rows (`details.disc.set`, each
+an icon, a name, a short value and a side chevron, which turns down when it
+opens, as a frame row's does): General (email, password, firmware auto-update),
+Detection source (its status dot + name; open, the gone-quiet and outage
+warnings, Last detection / Species heard / Pending, the source, a push source's
+Webhook URL and *Setup instructions* — Done once `_push_setup` says a test or a
+detection arrived — and Blocked species; a source that is failing or not set up
+opens itself), Illustrations (Region, "Audubon · North America"), Collage
+(interval and quiet hours, "Every 6 hours · Sunset → Sunrise"; quiet hours IS
+the overnight collage, `Config.quiet_hours_render_collage` is a property), AI
+image generation (a dot + provider, or "No API key"; its two AI switches, which
+live in Illustrations and Collage, are `locked` until a key is stored), then
+Generated illustrations and Generated collages (each kept day's collage, same
+list). Every section is its own `/settings` form carrying a `section` field:
+`/settings` takes only the fields posted (a switch posts a hidden 0 before its
+checkbox, so absent keeps the stored value) and lands back with that section open.
+One save rule (W-861, W-878): a section's Save row and *Unsaved changes* appear
+only once it changed (with a badge on the row if it is folded), each frame
+row's Save likewise; a switch saves the moment it is flipped; a stored secret,
+the email and the password are ✓ / ✕ rows whose ✓ waits for input; a hidden
+first submit keeps Enter saving its section.
 Every frame is the same row (the `frame_row` macro), and that row **is** the
 page's own disclosure (`details.disc`), so it hovers, turns its chevron and
 slides open exactly as *Advanced* does. Collapsed it is a conventional
@@ -261,7 +287,7 @@ interval* dropdown, a minute to a day, whose value swaps with Power (seconds →
 `device_poll_seconds`, minutes → `wake_interval_minutes`; only the shown one is
 posted) and which is `locked` to the collage's own interval while that is what
 the frame shows, Screen size only when `needs_size` — then
-*Advanced* (the mat inset and offset, the *Mat guide* switch — `mat_guide`, a
+*Advanced* (the mat inset and offset — the inset starts at its panel's `Panel.mat_inset_pct`, 4 % on both kits, which their mats need; `set` keeps a mat value only where it differs from that — the *Mat guide* switch — `mat_guide`, a
 2 px line just inside the composition to set them by — and *Reset to
 defaults*) and *Details*, which is what this
 frame REPORTED and nothing the row above already says: IP address, firmware,
@@ -300,7 +326,7 @@ MAC). **Every frame of every transport is approved on the server**, the first
 kit on a fresh install included: a new row is `asking` until the owner answers
 on the page — *Add this frame* (`answer_frame(…, "add")`, which takes any
 transport), *Ignore it*, or *forget*. A kit that is asking gets a 403 and shows
-its own baked "Add this frame on the Featherframe page"; a viewer gets the
+its own baked "Add this frame on the Featherframe webapp"; a viewer gets the
 waiting plate, a page the waiting screen. There is no "replace":
 there is no current frame to replace, so handing the server to a new
 kit is adding it and removing the old one. `POST /api/frames/<id>` saves ANY
@@ -357,20 +383,64 @@ soft-fails to a safe default (None/[]/0) so a missing or odd DB keeps the curren
 frame instead of crashing. Fixture schema in `tests/_fixtures.py` is verbatim
 from the Nachtzuster fork.
 
+**BirdNET-Pi and BirdNET-Go push (W-865, `sources/pushed.py`).** One
+`PushedSource`, two bodies: BirdNET-Pi's Apprise notification
+(`/api/ingest/apprise/<token>`) and BirdNET-Go's webhook channel
+(`/api/ingest/birdnet-go/<token>`, its default JSON, no template), both behind
+`Config.ingest_token` (was `apprise_token`), which is part of the URL the page shows, never a form field: its ⟳ replaces it whole, saved at once (`POST /api/ingest/token`). BirdNET-Go is never polled: its
+push needs a *Rules* entry (Detection → *Detection Occurred* → Push
+notification, cooldown 0), or it pushes only new species; the built-in
+new-species rule pushes the same detection again, deduped on `note_id`; its
+channel *Test* posts *Testus birdicus*, kept as `test_at` and never shown. A
+push feed keeps its own history as it goes: a per-day, per-species tally in
+confidence tenths (the collage's counts outlast the 1000-item window) and,
+from BirdNET-Go's `days_since_first_seen`, each species' first date.
+
 **The collage is one sheet set two ways (`render/collage.py`).** The free grid
 (`render_collage`, as many plates as `collage_species_max`) and the generated composite
 (`render_generated_collage`, one painted scene) share `_bottom_block`: no
 header at all, the art from the top margin down, then the date in the engraved
 capitals, spaced wide, over a numbered key ("1. BLUE JAY") in prominence order
-packed into columns along the bottom. The grid's cells carry the matching
+packed into columns along the bottom; the generated sheet puts a single
+plate's ✦ at the date line's right end, under the art's right edge. The grid's cells carry the matching
 figure numerals; there are no script names and no "×count" under them. AI
 collages are all or nothing (`config.collage_generated`): with the toggle on
 and image generation to hand, EVERY collage is the generated sheet — a daytime
 rebuild, the nightly one, the button, a settings re-render. `genart.day_composite`
-is what bounds the cost: one sheet per day, reused for every redraw of that day
-and bought again only when the day's *species list* changes under it (a count
-moving is not a change, `collage.same_species`), with the per-key cooldown and
-the soft-fail to the grid intact.
+is what bounds the cost: the day's sheet is reused for every redraw and bought
+again only at a redraw where the day's *species list* has changed under it (a
+count moving is not a change, `collage.same_species`) — so up to one per
+collage interval on a busy day, plus the nightly one and the button — with
+the per-key cooldown and the soft-fail to the grid intact.
+The generated sheet's bough is set in the season of its date (W-881,
+`render/season.py`): meteorological months with an early/mid/late stage,
+six months on in the south, each stage stated as ONE state of the tree
+(`TREE_STATE`: "still dormant, a heavy late snow lying along its limbs, its buds just swelling"), never a
+list of things to paint; a season named alone came back as dead oak leaves.
+The hemisphere is the source's `latitude()` (BirdNET-Pi's `Lat`, BirdWeather's
+station coords, BirdNET-Go's `bg_latitude`), else the Region (Australia is
+south). The sidecar records `season` and `COLLAGE_PROMPT_VERSION` (single
+plates keep `PROMPT_VERSION`). The branch is the owner's choice (W-882, `Config.collage_branch`, the
+Collage section's *Branch*): Seasonal, Daily weather, or Bare (the bough of
+before). Daily weather is asked of the household's own text model with web
+search (`OpenAITextModel.search_json`, the Responses API's `web_search`,
+`max_tool_calls` 2; the owner's key, so no weather service of ours to
+license), at the source's `location()` rounded to 0.01°, only when a sheet is
+bought and at most once per `weather.REASK_S` (6 h) a day
+(`collages/weather.json`), billed to the spend ledger as `weather`. An answer
+counts only when it names a source: `heavy_snow` (≥ 15 cm fell) / `snowing` / `snow` (lying) / `rain` / "",
+recorded as the sidecar's `weather`; once it is known, snow comes from it
+alone, so a dry winter day is bare wood; unknown (no location, not OpenAI, a
+failed ask) keeps the season's own snow. Wind was tried and does not read. A
+sheet painted with another branch is bought again (a sheet from before the
+choice is kept); weather alone never repaints one.
+Every collage's branch, whatever it carries, is drawn by one clause
+(`_P_COMPOSITE_HAND`: sparse sprays, each mark placed by hand and no two alike,
+bark in clean engraved line), and the season is told by the state of what
+grows, not its amount: a full canopy, a bead on every leaf and even rosettes
+of moss read as AI. The composite style references are Havell 354 and 399
+(one sparse, clean branch each) then 424; 353's moss nest and 416's lichened
+snag came back as moss and lichen on every sheet.
 
 **Render pipeline (`render/`).** `pipeline.py` orchestrates:
 `compose.render_single` (or `collage.render_collage`) → `finish.to_levels`
@@ -394,7 +464,13 @@ never cropped — it is composed to fill the sheet, and the scan crop once
 decapitated a tern): the
 heaviest ink band, extended through faint contiguous ink (hanging straw) up
 to a real paper gap, then mirrored about the plate centre so Audubon's own
-placement survives. The art is full-bleed to the mat opening (W-707):
+placement survives. Lettering the fixed trim leaves is lifted (W-883): the "N°/PLATE"
+line in a top corner, and a caption set beside art that runs down past the
+caption band — an isolated, sparse block of type, found from the bottom
+edge. What touches the art is a folio's per-plate `mask` (boxes of the
+sheet; only ink wholly inside one is painted, so a stem through it stays;
+`all` paints a sliver whole), beside per-plate `margins`. The library keys
+a crop whose caption was lifted apart (`plate.lifts_caption`). The art is full-bleed to the mat opening (W-707):
 `compose.py` cover-fits a plate whose edges are inked (Snowy Owl) only if
 that crops ≤ 25 % of it, else contain-fits it centred; the date and plate marks
 share one footer baseline with the gone-quiet note;
@@ -461,7 +537,8 @@ and `/fonts/script.ttf` are bundled into the Worker (`rules` in
 wrangler.jsonc): opening the page wakes nothing.
 Per household, `Household` (`household.ts`) is the front door: it answers
 `/api/frame` from its table + R2, holds push sockets, keeps check-ins and
-Apprise pushes (routed by token) until the server takes them, and wakes the
+detectors' pushes (routed by token; a BirdNET-Go body that is not a
+detection is dropped) until the server takes them, and wakes the
 server only for news (a BirdWeather look every 2 min, a push, the server's
 own `next_wake_epoch`; ≥ 5 min apart; none in quiet hours), stopping it right
 after. `HouseholdServer` is THIS Python server in a Container: there is no TS
@@ -473,8 +550,13 @@ tick and POST, applies check-ins through `app.parse_checkin` →
 is `POST /api/hosted/run`. Admin: `/admin` (W-850, `admin.ts`) for a
 signed-in user whose email is in the `ADMIN_EMAILS` secret, 404 to anyone
 else — the waitlist (D1 `waitlist`: the marketing page's form posts
-`POST /api/waitlist`, form or JSON with CORS for the apex, and an uninvited
-email trying to sign in joins it quietly), invitations, and every household
+`POST /api/waitlist`, form or JSON with CORS for the apex; double opt-in:
+an address is pending until it follows the emailed link,
+`GET /api/waitlist/confirm?t=` (token hashed, 7 days, re-sent at most every
+10 min, `signUpWaitlist`), with the same answer for every address and 5
+sign-ups an hour per IP and per address (D1 `rate_hits`); an uninvited email
+trying to sign in joins it pending, and is not emailed; the admin counts only
+confirmed ones), invitations, and every household
 (frames and when each was last seen, from the front door's `summary()`, and
 rough server time: wakes plus the time a page kept it up, by UTC day).
 W-860 added this month's Cloudflare usage against the Workers Paid allowances
@@ -487,10 +569,15 @@ changing a login's email outright, suspending a household
 (`households.suspended_at`: its page closed to the owner, its front door stops
 waking the server, its frames keep their last picture), deleting one (D1 rows
 incl. its invitation, its frames' registry rows, R2, front door storage and
-container), and revoking or resending an unused invitation. The
+container), and revoking or resending an unused invitation. What an action came to is
+a toast on the next load (the Featherframe page's own flash, carried by a
+one-time `ff_admin_toast` cookie, never the URL), and every action — the page's
+forms and the bearer API — is kept in D1 `admin_log` (W-863, migration 0005),
+the last 100 shown at the foot of the page. The
 API is still there: `Authorization: Bearer` keychain
 `featherframe-hosted-admin-token`, `POST /_admin/invite|link|adopt {email}`.
-Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a
+Plain http to any hosted host is a 301 to https before anything else
+(`util.httpsRedirect`). Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a
 registry push drop; a new image serves only once the rollout ends and the
 Container restarts); D1 schema in `hosted/migrations/`.
 
@@ -510,11 +597,55 @@ Container restarts); D1 schema in `hosted/migrations/`.
   downloaded images, gitignored; each folio has its own fetcher in
   `FETCHERS`): every entry names its `folio` (none = Havell, as every index
   before W-702), and the `folios` block carries the headers. A species may
-  have an entry in several folios; `SpeciesIndex` asks them in the index's
-  order, Havell first, and a folio's `plate: none` hands the species on to
-  the next folio, never to a guess. The AI's style references are Havell
+  have an entry in several folios; `SpeciesIndex.order(region)` asks the
+  household's Region's folios first (`Config.region`; each folio's header
+  names its `region`: Havell `north-america`, Gould's Europe `europe`, his
+  Australia `australia`, his Asia `asia`), then the rest in the index's order: Havell first,
+  then as published (`load_folios` sorts by the header's first year), so a
+  new folio never takes a species from one a household already sees. It
+  reorders, never filters (one entry may say `preferred: true` to be asked
+  right after the region's own folios: Asia's ringed VII.39 is the
+  Ring-necked Pheasant everywhere but Europe, W-871), and a
+  folio's `plate: none` hands the species on to the next folio, never to a
+  guess. A Region change is drawn by a tick started at the save
+  (`_region_redraw`, `redraw_after_settings`); so is a change to how the
+  collage is drawn — AI or not, its branch, its species limit
+  (`_collage_redraw`), never waiting for its interval.
+  A folio whose header says `plates_per_volume: true` (W-874: Gould's
+  Australia, Asia and Great Britain print a List of Plates per volume) gives
+  each species a `volume_no` (2, "II" or "Supp.") beside its `plate`; the
+  index, the library, `PlateMatch` and `Artwork` carry it, and the corner mark
+  cites it as his lists do, "Plate II. 18" (narrower than Havell's widest, so
+  the footnote and every Havell render stand; a test holds it). A header's
+  `volume_margins: {<volume id>: [l, t, r, b]}` gives a volume whose binding
+  shows (a gutter, a gilt edge) its own margins: a plate's `margins`, then its
+  volume's, then the folio's, resolved by `fetch_scans` into each index record
+  (`scan_margins`), so neither the runtime nor the library looks them up.
+  Margins are upright coordinates: a landscape volume needs its own.
+  `gould_australia.yaml` (W-870) is *The Birds of Australia* and its
+  Supplement, 401 species, one plate each, numbered per volume; its working
+  record, the Kansas cross-check and the cutting rules are in
+  `docs/gould-australia/`. Its traps: Gould's *Pachycephala pectoralis* is the
+  Rufous Whistler, *Myiagra nitida* the Satin Flycatcher, *Circus assimilis*
+  the Swamp Harrier, *Climacteris picumnus* the White-throated Treecreeper,
+  *Rallus pectoralis* the Buff-banded Rail (tests hold each). An upright
+  plate is cut above its caption and at 0.955 on the right (every volume's
+  binding line); a sideways one to the box of its strong ink. The AI's style references are Havell
   plates only (`genart._havell_species`), because its prompts name the Havell
   edition. `test_crosswalk.py` guards the tricky numbers.
+  The folios are published as an open dataset, github.com/wr/historical-bird-plates
+  (W-868, CC0): `server/scripts/export_dataset.py export|check|assets` writes it
+  (eBird 2025 names, Wikidata/GBIF/Avibase ids, BHL PageIDs, the Gould release
+  images); `test_export_dataset.py` holds it to the pins. A split since BirdNET's
+  taxonomy is sent to each folio's own daughter there (`EBIRD_NAMES_BY_FOLIO`).
+  Every Gould folio goes the same way (`GOULD`, W-875): a per-volume one's
+  tables lead with `volume` and key a plate by volume and number; Australia's
+  record is `docs/gould-australia/`, Britain's is the survey (only its pins are
+  caption-checked; the rest is published as open). Asia is exported too (W-871).
+  `gould_asia.yaml` is Gould's *Birds of Asia* (W-871, numbered per volume;
+  the record is `docs/gould-asia/`): no pencil numbers, so each plate was
+  paired by the text leaf bound after it, which names the species. 16% of its
+  plates are forms Gould named as species, all left out but VII.39.
   `gould_europe.yaml` is Gould's *Birds of Europe*: `plate` is his General
   List number (the plates were issued unnumbered); `volume` + `leaf` address
   the scan, fetched from BHL's public S3 bucket by the header's `scans`
@@ -524,11 +655,30 @@ Container restarts); D1 schema in `hosted/migrations/`.
   for paper, then anything within `PAPER_CLEAR` of the paper cleared to pure
   white — the paper is not the artist's, and near-white dithers to speckle),
   crops it to the art's own box (`tight`: `content_box(mirror=False)`, since
-  a Gould sheet is one vignette on a lot of paper), and `margins` ([l, t, r, b], per folio or per plate) replaces
+  a Gould sheet is one vignette on a lot of paper; the box stops at the
+  paper gap above the caption and beside the pencilled number, and its
+  `TIGHT_PAD` band is added as fresh white, never taken from the scan, so
+  neither rides in), and `margins` ([l, t, r, b], per folio or per plate) replaces
   `plate.HAVELL_MARGINS` in `_trim_marginalia`: Gould's captions sit higher
   and each copy carries its number in pencil. A plate is pinned only once
   its engraved caption reads right on the scan; his "Black-headed Gull" is
-  today's Mediterranean Gull.
+  today's Mediterranean Gull. The whole folio (slice 3, ~390 species) was
+  pinned from three sources joined together: the General List transcribed from
+  vol. I, each volume walked for its plates (the Smithsonian copy pencils the
+  List number on every plate), and a crosswalk to BirdNET's own labels — only
+  a certain name, whose leaf's caption names it (Latin or the whole English
+  name, never a shared family word), is pinned. A scan is stored by its leaf
+  (`<volume>-<leaf>.jpg`): a copy's numbering can disagree with the List, and
+  here the caption decides. An upright plate's bottom margin sits just above
+  its caption as the IA OCR places it; a sideways one relies on the paper gap,
+  with a margin by eye where a caption crowds the art. A composite's tight crop
+  keeps every band of art (`whole`), and a tight crop may be small (one finch
+  on a page) without falling back to the whole sheet.
+  `gould_britain.yaml` (W-872) is Gould's *Birds of Great Britain* as a
+  gap-filler: region `europe`, plates per volume, and only the seven species
+  *Europe* lacks (the pipits settle *Europe*'s blank pl. 138). A test holds
+  that it pins nothing `gould_europe.yaml` does, so the order of two folios in
+  one region never decides a plate. Great Britain is not a Region.
 - **Framebuffer format (FFF) is a contract with the firmware.** 16-byte header +
   packed pixels: 4bpp = 2px/byte, **high nibble = left pixel, 0=black 15=white**
   (identical to Seeed's sprite). The server emits **native landscape 1872×1404**
@@ -563,7 +713,7 @@ Container restarts); D1 schema in `hosted/migrations/`.
   correct but slow per-pixel Python loop — don't make it the gray default on a
   Pi Zero. Colour: Stucki (`spectra._diffuse_stucki`), chosen side by side on
   the glass (19 Sep 2026) — with six inks, diffusion holds engraving lines and
-  grains much tighter than the ordered mix, and a 30 s panel can afford the
+  grains much tighter than the ordered mix, and a 15 s panel can afford the
   loop. It diffuses the gamut-mapped image and picks each pixel's ink only
   from that pixel's own ink set (its table decomposition): a free choice of
   all six turns neutral gray into green/blue/red dots.
@@ -625,15 +775,18 @@ gone, W-821: the server still says `X-FF-Invert: 0` so fielded firmware
 clears the flag it stored, until every frame runs firmware without it):
 the baked art is baked at one rotation (`FF_BAKED_ROTATION`), so when the
 frame hangs the other way up the firmware turns every baked screen and tile
-180° (`rotate180`, and `flipX`/`flipY` for a tile's window). The mat rides the same way (W-857): `X-FF-Mat` ("inset,x,y") on every response, kept in NVS `mat` and said back on every ask and over Improv, so a frame removed and paired again (`admit_frame`, a new row) starts with its mat; the rotation already did (W-851, `X-FF-Rotation`).
+180° (`rotate180`, and `flipX`/`flipY` for a tile's window). The mat rides the same way (W-857): `X-FF-Mat` ("inset,x,y") on every response, kept in NVS `mat` and said back on every ask and over Improv, so a frame removed and paired again (`admit_frame`, a new row) starts with its mat; the rotation already did (W-851, `X-FF-Rotation`). The mat also places the toasts: every pill on the glass (a toast, an error, a footnote) is one size on the footer line between the corner marks, baked where that line lands under a 4% reference mat, and `placeToast` moves a toast to where it lands under the frame's own mat (`FF_REF_INSET`, `FF_FOOT_CY`; `test_toast_place.py` holds the formula to the server's). The offline mark is that pill as a circle in the plate number's place, moved the same way (`FF_FOOT_RX`). Every icon on a pill is `system.draw_icon`, drawn large and cut to two tones, which the bake calls too.
 The wall runs always-awake today; deep sleep is the
-less-tested branch. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
+less-tested branch. An optional status LED (W-876, `ff_led.cpp`): one WS2812B pixel
+with DIN on GPIO39, soldered to pad 1 of the unfitted font chip U6 (3V3 on
+pads 7/8, GND on 4, both kits); `ledSet()` from the boot, portal, fetch
+outcome (`noteLedOutcome`) and OTA paths, dark in deep sleep. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
 app with a full-refresh equivalent for everything partial (W-817): the plate
 is retained in PSRAM, and a toast or the corner mark is a baked black/white-ink
-tile blitted into a copy of it, then one ~30 s repaint (`paintPlate`; cleared
+tile blitted into a copy of it, then one ~15 s repaint (`paintPlate`; cleared
 by painting the plate again, 60 s later for a toast). A press fetches first
 and paints one thing, so only the outcome pills exist (the in-progress ones
-have no tile); out of deep sleep there is no retained plate, so "Up to date"
+have no tile); out of deep sleep there is no retained plate, so "Already up-to-date"
 refetches the plate with the pill armed and the corner mark becomes the full
 error screen. A frame whose last picture was a pairing code (NVS `unpaired`) paints no
 "Connecting" at all, so a restart or a Wi-Fi reset goes straight to the code.
@@ -652,16 +805,16 @@ forgotten; a frame removed from a row asks again the next time it checks in). Ea
 there is no notice to answer when a different kit connects. Firmware without
 the header is one frame called "legacy", which becomes its real ID in place
 after an update. A parked frame
-shows "Add this frame on the Featherframe page" (gray: error pill 3; EE02:
+shows "Add this frame on the Featherframe webapp" (gray: error pill 3; EE02:
 `FF_SCR_PENDING`) and keeps asking. Discovery prefers a server whose mDNS TXT
 `panel` matches and otherwise takes any, and `X-Board` on the OTA request
 keeps one board's image off the other. A
 kit row's Advanced has "Reset to this panel's defaults" (a client-side fill
 from that frame's own `Config.defaults_for(panel)`, applied only on Save). Low battery (`FF_LOW_BATT_V`: gray < 3.45 V, EE02 < 3.55 V) skips Wi-Fi and
-sleeps 4 h at a time, saying "Battery low, charge me" on the glass once at
+sleeps 4 h at a time, saying "Low battery" on the glass once at
 the crossing (`markLowBattery`: gray paints the baked `FF_TOAST_LOW_BATTERY`
 pill over the plate, the EE02 the baked `FF_SCR_LOW_BATT` full screen, which
-is why its hold starts 0.1 V earlier — a 30 s refresh needs the headroom;
+is why its hold starts 0.1 V earlier — a ~15 s full refresh needs the headroom;
 "once" lives in NVS `lowmark`, written before the paint so a brownout can't
 loop it; the always-awake loop enters the same hold after `FF_LOW_BATT_POLLS`
 low polls, W-736), and the page puts a red *Battery low* badge on that frame's

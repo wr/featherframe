@@ -196,8 +196,10 @@ def test_the_front_door_is_told_where_news_comes_from(env):
     svc.config.birdweather_station_id = "abc123"
     assert svc.hosted_state()["source"] == {"kind": "birdweather", "station": "abc123"}
     svc.config.detection_backend = "apprise"
-    svc.config.apprise_token = "t0k"
+    svc.config.ingest_token = "t0k"
     assert svc.hosted_state()["source"] == {"kind": "apprise", "token": "t0k"}
+    svc.config.detection_backend = "birdnet_go"
+    assert svc.hosted_state()["source"] == {"kind": "birdnet_go", "token": "t0k"}
 
 
 def test_a_frame_its_owner_paired_is_added_without_a_second_step(env):
@@ -261,8 +263,9 @@ def test_a_new_frame_starts_with_the_mat_it_kept(env):
     svc.update_frame(fid, {"mat_inset_pct": 1.0})
     client.get("/api/frame", headers=head)
     assert svc.frame_config(svc.frames.get(fid)).mat_inset_pct == 1.0
-    # A default mat, or nonsense, sets nothing of its own.
-    for other, mat in (("EE:EE:EE:00:00:04", "0,0,0"), ("EE:EE:EE:00:00:05", "wide")):
+    # A default mat, the old default (no inset), or nonsense sets nothing of its own.
+    for other, mat in (("EE:EE:EE:00:00:04", "4,0,0"), ("EE:EE:EE:00:00:05", "wide"),
+                       ("EE:EE:EE:00:00:06", "0,0,0")):
         client.get("/api/frame", headers={**head, "X-Device-Id": other, "X-FF-Mat": mat})
         assert not any(k.startswith("mat_") for k in frames_mod.settings_of(svc.frames.get(other)))
     # The front door says it too, from the state it is handed.

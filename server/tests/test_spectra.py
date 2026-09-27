@@ -236,7 +236,7 @@ def test_a_rows_advanced_offers_its_own_panels_defaults(client):
     html = client.get("/").text
     row = html.split('data-frame="AAAAAAAAAA01"')[1].split(chr(10) + "    </li>")[0]
     assert 'data-fr-action="reset"' in row
-    assert 'data-f="mat_inset_pct" data-default="0.0"' in row
+    assert 'data-f="mat_inset_pct" data-default="4.0"' in row
     assert "imagegen" not in row      # nothing shared is offered per frame
 
 

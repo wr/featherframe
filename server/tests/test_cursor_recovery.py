@@ -114,7 +114,7 @@ def _switch_source(svc, monkeypatch, source):
 
     monkeypatch.setattr(service_mod, "make_source", lambda cfg, db: source)
     cfg = load_config(svc.db)
-    cfg.birdnet_go_url = "http://elsewhere:8080"
+    cfg.birdweather_station_id = "elsewhere"
     save_config(svc.db, cfg)
     svc.reload_config()
 

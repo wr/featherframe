@@ -28,17 +28,39 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 
-from . import __version__, auth, discovery, hosted, panels, paths, viewers
+from . import __version__, auth, discovery, hosted, panels, paths, thumbs, viewers
 from . import frames as frames_mod
 from .config import Config, valid_email, valid_hhmm
 from .names import display_common_name, normalize
 from .render import genart, pipeline, typography
-from .service import FeatherframeService
+from .service import FeatherframeService, clock_text, page_when
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("featherframe.app")
 
 templates = Jinja2Templates(directory=str(paths.templates_dir()))
+
+
+def clock12(value) -> str:
+    """A time as people write it (docs/STYLE.md): "22:00" or a datetime ->
+    "10:00 PM". Anything else comes back as it was."""
+    try:
+        t = value if hasattr(value, "hour") else datetime.strptime(str(value), "%H:%M")
+    except ValueError:
+        return str(value)
+    return clock_text(t)
+
+
+def stamp(value) -> str:
+    """An ISO time for a tooltip: "25 Sep, 12:49 PM" (docs/STYLE.md)."""
+    try:
+        return page_when(datetime.fromisoformat(str(value)), datetime.now())
+    except (TypeError, ValueError):
+        return str(value or "")
+
+
+templates.env.filters["clock12"] = clock12
+templates.env.filters["stamp"] = stamp
 
 
 @asynccontextmanager
@@ -60,7 +82,7 @@ async def lifespan(app: FastAPI):
     # Advertise _featherframe._tcp so a frame with no typed URL finds us
     # (W-763). __main__ exports the bound port; systemd sets it directly.
     advertiser = discovery.Advertiser(
-        port=int(os.environ.get("FEATHERFRAME_PORT", "8080")), version=__version__,
+        port=int(os.environ.get("FEATHERFRAME_PORT", "8181")), version=__version__,
         panel=service.mdns_panel())
     app.state.advertiser = advertiser
     await run_in_threadpool(advertiser.start)
@@ -237,7 +259,7 @@ def parse_checkin(headers) -> dict:
     # A frame is a frame (W-833): every kit that is on is served the same way,
     # its own picture finished for its own panel, with its own settings on the
     # way out. Any other is parked until the owner answers on the page (403;
-    # the firmware shows "Add this frame on the Featherframe page" and keeps
+    # the firmware shows "Add this frame on the Featherframe webapp" and keeps
     # asking). The frame describes its panel as facts too (W-813), so a panel
     # this server has never heard of is still drawn for at its own size.
     panel_facts = {"w": _str_header(headers.get("x-panel-width")),
@@ -613,13 +635,14 @@ async def script_font():
 async def index(request: Request):
     svc = _svc(request)
     # Threadpool: status() probes the detection source (a 5 s-timeout HTTP
-    # call for BirdNET-Go/BirdWeather) and the listing reads the SD card;
+    # call for BirdWeather) and the listing reads the SD card;
     # blocking the loop here would stall the device's /api/frame fetch.
     status = await run_in_threadpool(svc.status)
     generated = await run_in_threadpool(svc.generated_listing) if svc.genart else []
     spend = await run_in_threadpool(genart.spend_for_month)
     history = await run_in_threadpool(svc.render_history)
     collage_days = await run_in_threadpool(svc.collage_days)
+    push_setup = await run_in_threadpool(_push_setup, svc.source)
     # `config` is the household's and only the household's (W-833): what a
     # frame is drawn with lives on that frame's own row, and the Frames card
     # is the only place any of it is set.
@@ -627,7 +650,7 @@ async def index(request: Request):
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
          "generated": generated, "spend": spend,
-         "history": history, "collage_days": collage_days,
+         "history": history, "collage_days": collage_days, "push_setup": push_setup,
          "fw_about": {**svc.releases.about(), "version": svc.releases.version()},
          # A hosted household's page (W-845): frames are paired by the code on
          # their glass, and there is someone signed in to sign out.
@@ -666,7 +689,15 @@ async def save_settings(request: Request):
         v = form.get(key)
         return v if isinstance(v, str) else default
     def i(key, default): return _to_int(s(key, None), default)
-    def b(key): return key in form  # checkbox present -> true
+    # A section's form posts only its own fields (W-878). A switch posts a
+    # hidden "0" before its checkbox, so absent means "not on this form" and
+    # keeps the stored value; a bare checkbox (the clear-key boxes) is true
+    # when present.
+    def b(key, default=False):
+        vals = [v for v in form.getlist(key) if isinstance(v, str)]
+        if not vals:
+            return default
+        return vals[-1] not in ("", "0", "off", "false")
     # An empty limit means no limit, which is stored as 0.
     def limit(key, default):
         raw = s(key, None)
@@ -675,8 +706,9 @@ async def save_settings(request: Request):
     # than being coerced to some other time or reset to the default.
     def t(key, default): return s(key, default) if valid_hhmm(s(key, None)) else default
 
-    blocklist_raw = s("species_blocklist", "")
-    blocklist = [x.strip() for x in blocklist_raw.replace(",", "\n").splitlines() if x.strip()]
+    blocklist_raw = s("species_blocklist", None)
+    blocklist = (cur["species_blocklist"] if blocklist_raw is None else
+                 [x.strip() for x in blocklist_raw.replace(",", "\n").splitlines() if x.strip()])
 
     new = Config(
         # Kept as they were. Nothing reads the household's copy of a frame's
@@ -692,19 +724,22 @@ async def save_settings(request: Request):
         species_blocklist=blocklist,
         detection_backend=s("detection_backend", cur["detection_backend"]),
         birdnet_db_path=s("birdnet_db_path", cur["birdnet_db_path"]),
-        birdnet_go_url=s("birdnet_go_url", cur["birdnet_go_url"]),
         birdweather_station_id=s("birdweather_station_id", cur["birdweather_station_id"]),
-        apprise_token=s("apprise_token", cur["apprise_token"]),
+        # The push secret is not a form field: it is part of the webhook URL
+        # and only ever replaced whole (POST /api/ingest/token).
+        ingest_token=cur["ingest_token"],
         collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
-        imagegen_enabled=b("imagegen_enabled"),
-        collage_generated=b("collage_generated"),
-        firmware_auto_update=b("firmware_auto_update"),
+        imagegen_enabled=b("imagegen_enabled", cur["imagegen_enabled"]),
+        collage_generated=b("collage_generated", cur["collage_generated"]),
+        firmware_auto_update=b("firmware_auto_update", cur["firmware_auto_update"]),
         # A hosted household's email is its account's, which the Worker
         # changes (with a confirmation) before this form reaches us.
         # A blank field keeps it.
         owner_email=(cur["owner_email"] if getattr(request.app.state, "hosted", None) is not None
                      else s("owner_email", "").strip() or cur["owner_email"]),
+        region=s("region", cur["region"]),
         collage_species_max=limit("collage_species_max", cur["collage_species_max"]),
+        collage_branch=s("collage_branch", cur["collage_branch"]),
         imagegen_provider=s("imagegen_provider", cur["imagegen_provider"]),
         imagegen_model=s("imagegen_model", cur["imagegen_model"]),
         imagegen_base_url=s("imagegen_base_url", cur["imagegen_base_url"]),
@@ -722,6 +757,7 @@ async def save_settings(request: Request):
     new_session = None
     try:
         svc.update_config(new)
+        svc.redraw_after_settings()
         _announce_panel(request, svc)
         # The page's password (W-773): off until one is typed; a blank field
         # keeps the one stored, Remove clears it. Not a hosted page's to set.
@@ -742,8 +778,11 @@ async def save_settings(request: Request):
     # Config.sanitize() clamps silently; tell the page which fields it changed
     # so the user isn't left staring at a different number than they typed.
     adjusted = _adjusted_fields(form, svc.config)
-    response = RedirectResponse("/?saved=1" + ("&adjusted=" + ",".join(adjusted) if adjusted else ""),
-                                status_code=303)
+    # The section that was saved opens again on the page it lands on.
+    section = s("section", "")
+    opened = "&open=" + section if re.fullmatch(r"[a-z]{1,20}", section or "") else ""
+    response = RedirectResponse("/?saved=1" + ("&adjusted=" + ",".join(adjusted) if adjusted else "")
+                                + opened, status_code=303)
     if new_session:
         _session_cookie(response, request, new_session)
     return response
@@ -990,7 +1029,7 @@ async def api_block_current(request: Request):
     before = svc.current_etag()
     name = await run_in_threadpool(svc.block_current)   # refreshes: a render
     if name is None:
-        return JSONResponse({"ok": False, "error": "No single plate is showing."},
+        return JSONResponse({"ok": False, "error": "No single illustration is showing."},
                             status_code=409)
     cur = svc.current_info()
     return JSONResponse({"ok": True, "blocked": name, "etag": cur["etag"],
@@ -1010,44 +1049,49 @@ async def api_unblock(request: Request):
     return JSONResponse({"ok": True, "removed": svc.unblock(name)})
 
 
-# -- push ingest (BirdNET-Pi via Apprise) ----------------------------------
-def _apprise_detection(payload) -> dict:
-    """Pull the detection object out of an Apprise envelope. Apprise posts
-    {version, title, message, type} with our JSON body in `message`; BirdNET-Pi
-    may append text after it, so extract the {...} span rather than parse whole.
-    Falls back to a top-level object if someone posts the fields directly."""
-    if not isinstance(payload, dict):
-        return {}
-    msg = payload.get("message")
-    if isinstance(msg, str) and "{" in msg and "}" in msg:
-        try:
-            obj = json.loads(msg[msg.index("{"): msg.rindex("}") + 1])
-            if isinstance(obj, dict):
-                return obj
-        except ValueError:
-            pass
-    return payload
+# -- push ingest (BirdNET-Pi via Apprise, BirdNET-Go via a webhook) ---------
+# The path names the detector; it must be the one the page is set to.
+_INGEST_KINDS = {"apprise": "apprise", "birdnet-go": "birdnet_go"}
 
 
-@app.post("/api/ingest/apprise")
-@app.post("/api/ingest/apprise/{token}")
-async def ingest_apprise(request: Request, token: str = ""):
-    """Webhook for the Apprise (BirdNET-Pi push) source. Point Apprise at
-    json://<host>/api/ingest/apprise[/<token>] with a JSON detection body."""
+@app.post("/api/ingest/token")
+async def ingest_token_new(request: Request):
+    """A new secret for the push URLs (W-865): the old URL stops working, so
+    only the page, same-origin, may ask for it. Saved at once, so the URL the
+    page shows is the one that works."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    import dataclasses
+    import secrets
+    svc = _svc(request)
+    new = dataclasses.replace(svc.config, ingest_token=secrets.token_urlsafe(9))
+    await run_in_threadpool(svc.update_config, new)
+    return JSONResponse({"ok": True, "token": new.ingest_token})
+
+
+@app.post("/api/ingest/{kind}")
+@app.post("/api/ingest/{kind}/{token}")
+async def ingest_push(request: Request, kind: str, token: str = ""):
+    """Webhook for the push sources: BirdNET-Pi's Apprise notification
+    (json://<host>/api/ingest/apprise[/<token>]) and BirdNET-Go's webhook
+    channel (http://<host>/api/ingest/birdnet-go[/<token>])."""
+    backend = _INGEST_KINDS.get(kind)
+    if backend is None:
+        return Response(status_code=404)
     # Same-origin guard like every other state-changing POST: a detection can
     # trigger a render (and a paid generation), so a hostile web page must not
-    # be able to inject one cross-site. Apprise sends no Origin, so it passes.
+    # be able to inject one cross-site. A detector sends no Origin, so it passes.
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
-    expected = getattr(svc.config, "apprise_token", "")
+    expected = getattr(svc.config, "ingest_token", "")
     # compare_digest refuses non-ASCII str; compare bytes so an accented
     # secret is a 403 on mismatch, never a 500 on every push.
     if expected and not hmac.compare_digest(token.encode("utf-8"), expected.encode("utf-8")):
         return JSONResponse({"error": "bad token"}, status_code=403)
     ingest = getattr(svc.source, "ingest", None)
-    if not callable(ingest):
-        return JSONResponse({"error": "detection source is not Apprise"}, status_code=409)
+    if not callable(ingest) or getattr(svc.source, "kind", None) != backend:
+        return JSONResponse({"error": "detection source is not " + kind}, status_code=409)
     # A detection is a few hundred bytes; don't buffer an arbitrary body into
     # a Pi Zero's memory (the queue is persisted, so bloat would be too).
     # Enforced on the stream, not the header: a chunked request carries no
@@ -1061,7 +1105,7 @@ async def ingest_apprise(request: Request, token: str = ""):
         payload = json.loads(bytes(body).decode("utf-8")) if body else {}
     except (ValueError, UnicodeDecodeError):
         payload = {}
-    det = await run_in_threadpool(ingest, _apprise_detection(payload))
+    det = await run_in_threadpool(ingest, payload)
     return JSONResponse({"ok": det is not None})
 
 
@@ -1082,13 +1126,18 @@ async def generated_list(request: Request):
 
 
 @app.get("/api/generated/{slug}.png")
-async def generated_png(request: Request, slug: str):
+async def generated_png(request: Request, slug: str, thumb: int = 0):
     svc = _svc(request)
     if not _valid_slug(slug):
         return Response(status_code=404)
     png = svc.genart._png(slug)  # noqa: SLF001 (same package, path is validated)
     if not png.exists():
         return Response(status_code=404)
+    if thumb:
+        small = await run_in_threadpool(thumbs.thumb_for, png)
+        if small:
+            return FileResponse(small, media_type="image/jpeg",
+                                headers={"Cache-Control": "max-age=300"})
     # FileResponse streams and stamps Last-Modified; a short max-age keeps the
     # gallery from re-downloading megabytes of PNG on every page view.
     return FileResponse(png, media_type="image/png",
@@ -1103,11 +1152,11 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
     # Fire-and-forget: the generation runs in a service worker thread and the
     # page polls /api/generated for the outcome, so this returns immediately.
     # Threadpool only for the small cache-listing read (SD cards stall).
-    ok, error = False, "Not a valid plate name."
+    ok, error = False, "Not a valid illustration name."
     if _valid_slug(slug):
         listing = {m.get("slug"): m for m in await run_in_threadpool(svc.generated_listing)}
         if slug not in listing:
-            error = "No cached plate by that name."
+            error = "No saved illustration by that name."
         elif listing[slug].get("regenerating"):
             error = "Already regenerating."
         elif not svc.config.imagegen_enabled:
@@ -1116,7 +1165,7 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
             error = "Too many repaints this hour. Try again later."
         else:
             ok = await run_in_threadpool(svc.start_regenerate, slug)
-            error = None if ok else "Could not start — is this plate still on file?"
+            error = None if ok else "Could not start — is this illustration still on file?"
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": ok, "error": error})
@@ -1127,14 +1176,14 @@ async def generated_delete(request: Request, slug: str = Form(...)):
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
-    ok, error = False, "Not a valid plate name."
+    ok, error = False, "Not a valid illustration name."
     if _valid_slug(slug):
         listing = {m.get("slug"): m for m in await run_in_threadpool(svc.generated_listing)}
         if listing.get(slug, {}).get("regenerating"):
             error = "Still regenerating — try again when it finishes."
         else:
             ok = await run_in_threadpool(svc.delete_generated, slug)
-            error = None if ok else "No cached plate by that name."
+            error = None if ok else "No saved illustration by that name."
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": ok, "error": error})
@@ -1183,7 +1232,7 @@ async def generated_import(request: Request, backup: UploadFile = File(...)):
     result = {"restored": 0, "kept": 0, "skipped": 0}
     error = None
     if not svc.genart:
-        error = "Generated plates are not available on this install."
+        error = "Generated illustrations are not available on this install."
     else:
         try:
             result = await run_in_threadpool(_import_upload, svc, backup)
@@ -1447,23 +1496,52 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 @app.get("/api/collages/{day}.png")
-async def collage_day_png(request: Request, day: str):
+async def collage_day_png(request: Request, day: str, thumb: int = 0):
     # A download: the day's finished collage, named for the day.
     if not _DATE_RE.match(day):
         return Response(status_code=404)
     png = paths.collage_days_dir() / f"{day}.png"
     if not await run_in_threadpool(png.exists):
         return Response(status_code=404)
+    if thumb:
+        small = await run_in_threadpool(thumbs.thumb_for, png)
+        if small:
+            return FileResponse(small, media_type="image/jpeg",
+                                headers={"Cache-Control": "max-age=300"})
     return FileResponse(png, media_type="image/png",
                         filename=f"featherframe-collage-{day}.png")
+
+
+def _push_setup(source) -> Optional[dict]:
+    """What a push source (BirdNET-Go, BirdNET-Pi) has received, for its setup
+    steps (W-878): how many detections, and when its channel test arrived.
+    None for a source that is not pushed to. Never raises."""
+    try:
+        if not hasattr(source, "test_at"):
+            return None
+        n = source.max_rowid() if hasattr(source, "max_rowid") else 0
+        test_at = None
+        if source.test_at:
+            t = datetime.fromisoformat(source.test_at)
+            test_at = clock12(t) if t.date() == datetime.now().date() else f"{t.day} {t:%b}"
+        return {"received": n, "test_at": test_at}
+    except Exception:  # noqa: BLE001 — a diagnostic never breaks the page
+        return None
 
 
 def _source_test(source, backend: str) -> dict:
     """Describe what a detection source reports. Never raises."""
     try:
-        if backend == "apprise":
+        if backend in ("apprise", "birdnet_go"):
             n = source.max_rowid() if hasattr(source, "max_rowid") else 0
-            return {"ok": True, "detail": f"Webhook ready — {n} detection(s) received so far."}
+            detail = f"Webhook ready — {n} detection(s) received so far."
+            test_at = getattr(source, "test_at", None)
+            if test_at:
+                t = datetime.fromisoformat(test_at)
+                when = (clock12(t) if t.date() == datetime.now().date()
+                        else f"{t.day} {t:%b}, {clock12(t)}")
+                detail += f" Test received {when}."
+            return {"ok": True, "detail": detail}
         if not source.available():
             return {"ok": False, "detail": "Not reachable — check the settings above."}
         latest = source.latest(0.0)
@@ -1476,13 +1554,12 @@ def _source_test(source, backend: str) -> dict:
 
 @app.post("/api/source/test")
 async def source_test(request: Request, backend: Optional[str] = Form(None),
-                      birdnet_go_url: Optional[str] = Form(None),
                       birdweather_station_id: Optional[str] = Form(None),
                       birdnet_db_path: Optional[str] = Form(None)):
     """Test a detection source using the values currently typed on the config
     page — no save required. Builds a throwaway source from the posted fields
     layered over a copy of the saved config. Only non-secret connection fields
-    are accepted (never the Apprise shared secret). Guarded like the app's other
+    are accepted (never the push secret). Guarded like the app's other
     state endpoints: this probe makes an outbound request to a user-supplied URL,
     so it must not be triggerable cross-site (SSRF)."""
     if not _same_origin(request):
@@ -1493,8 +1570,6 @@ async def source_test(request: Request, backend: Optional[str] = Form(None),
     overrides = {}
     if backend:
         overrides["detection_backend"] = backend
-    if birdnet_go_url is not None:
-        overrides["birdnet_go_url"] = birdnet_go_url
     if birdweather_station_id is not None:
         overrides["birdweather_station_id"] = birdweather_station_id
     if birdnet_db_path is not None:

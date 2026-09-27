@@ -2,13 +2,14 @@
 
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./index";
-import { localIso, randomHex } from "./util";
+import { isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 
 // The household's server is woken only for news (W-847). The front door looks
-// for it: a BirdWeather station every POLL_MS, or a push (Apprise, a webhook)
-// the moment it lands. However much news there is, at most one wake per
-// MIN_GAP_MS; and once a day regardless, in case anything was missed.
+// for it: a BirdWeather station every POLL_MS, or a push (BirdNET-Pi's Apprise,
+// BirdNET-Go's webhook) the moment it lands. However much news there is, at
+// most one wake per MIN_GAP_MS; and once a day regardless, in case anything
+// was missed.
 const POLL_MS = 2 * 60 * 1000;
 const MIN_GAP_MS = 5 * 60 * 1000;
 const SAFETY_MS = 24 * 60 * 60 * 1000;
@@ -98,7 +99,7 @@ export class Household extends DurableObject<Env> {
     // A viewer the Worker has already checked is this household's (W-849).
     const viewer = request.headers.get("X-FF-Viewer");
     if (viewer) return this.viewer(request, url, viewer, request.headers.get("X-FF-Viewer-Token") || "");
-    if (request.method === "POST" && /^\/api\/ingest\/apprise(\/[^/]*)?$/.test(url.pathname)) {
+    if (request.method === "POST" && /^\/api\/ingest\/(apprise|birdnet-go)(\/[^/]*)?$/.test(url.pathname)) {
       return this.ingest(request, url);
     }
     return this.proxy(request);
@@ -330,14 +331,18 @@ export class Household extends DurableObject<Env> {
   /** A push from BirdNET-Pi (Apprise) or BirdNET-Go, kept for the server and
    * turned into a wake. The token is the server's own (it checks it again). */
   async ingest(request: Request, url: URL): Promise<Response> {
-    if (this.meta("source_kind") !== "apprise") {
-      return Response.json({ error: "detection source is not Apprise" }, { status: 409 });
+    const [, , , path, token = ""] = url.pathname.split("/");
+    const kind = path === "birdnet-go" ? "birdnet_go" : path;
+    if (this.meta("source_kind") !== kind) {
+      return Response.json({ error: `detection source is not ${path}` }, { status: 409 });
     }
-    const token = url.pathname.split("/")[4] || "";
     const want = this.meta("apprise_token") || "";
     if (want && token !== want) return Response.json({ error: "bad token" }, { status: 403 });
     const body = await request.text();
     if (body.length > MAX_INGEST_BYTES) return Response.json({ error: "body too large" }, { status: 413 });
+    // BirdNET-Go's channel also carries its warnings and errors; only a
+    // detection is news, so nothing else is kept or wakes the server.
+    if (kind === "birdnet_go" && !isDetection(body)) return Response.json({ ok: false, ignored: true });
     this.sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", url.pathname, body);
     // In quiet hours a detection changes nothing: it waits for the next wake.
     if (this.meta("poll") !== "0") this.setMeta("news", "1");
@@ -552,4 +557,3 @@ export class Household extends DurableObject<Env> {
     await this.schedule();
   }
 }
-

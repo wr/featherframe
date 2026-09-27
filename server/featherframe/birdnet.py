@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from datetime import date as ddate
 from typing import Iterator, Optional
 
-from .sources.base import Detection, DetectionSource
+from .sources.base import Detection, DetectionSource, valid_location
 
 log = logging.getLogger("featherframe.birdnet")
 
@@ -164,6 +164,17 @@ class BirdNetDB(DetectionSource):
         except (sqlite3.Error, FileNotFoundError) as exc:
             log.warning("top_species_today failed: %s", exc)
             return []
+
+    def location(self) -> Optional[tuple[float, float]]:
+        """BirdNET-Pi writes its station's Lat and Lon on every detection."""
+        try:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT Lat, Lon FROM detections ORDER BY rowid DESC LIMIT 1").fetchone()
+            return valid_location(row[0], row[1]) if row else None
+        except (sqlite3.Error, FileNotFoundError) as exc:
+            log.warning("location failed: %s", exc)
+            return None
 
     def all_time_species_count(self) -> int:
         """Distinct species ever seen. 0 on failure."""

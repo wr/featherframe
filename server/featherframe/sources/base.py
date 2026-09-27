@@ -1,9 +1,11 @@
 """The detection-source interface.
 
-BirdNET-Pi (local SQLite) and BirdNET-Go (local REST) implement ``DetectionSource``;
-``service.tick()`` uses it without knowing the backend. Every method soft-fails to
-a safe default (None / [] / 0). The cursor is an opaque monotonic ``int`` (a rowid
-for Pi, a detection ``id`` for Go), persisted by the service.
+BirdNET-Pi's SQLite, BirdWeather's API and the pushed feeds (BirdNET-Pi's
+Apprise, BirdNET-Go's webhook) implement ``DetectionSource``; ``service.tick()``
+uses it without knowing the backend. Every method soft-fails to a safe default
+(None / [] / 0). The cursor is an opaque monotonic ``int`` (a rowid for the
+SQLite, a detection id for BirdWeather, a queue id for a push), persisted by
+the service.
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ from typing import Optional
 class Detection:
     """One bird, normalised across every source.
 
-    ``rowid`` is the opaque cursor id (BirdNET-Pi rowid, BirdNET-Go detection id).
+    ``rowid`` is the opaque cursor id (BirdNET-Pi rowid, BirdWeather id, push queue id).
     ``date`` / ``time`` are local strings ('YYYY-MM-DD', 'HH:MM:SS'), matching how
     both BirdNET-Pi and BirdNET-Go report wall-clock time.
     """
@@ -39,6 +41,22 @@ class Detection:
     def key(self) -> str:
         """Stable species identity for debounce / same-species comparison."""
         return self.scientific_name.strip().lower()
+
+
+def _degrees(value, limit: float) -> Optional[float]:
+    if isinstance(value, bool):
+        return None
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return v if -limit <= v <= limit else None
+
+
+def valid_location(lat, lon) -> Optional[tuple[float, float]]:
+    """(latitude, longitude) in degrees, or None unless both are one."""
+    la, lo = _degrees(lat, 90.0), _degrees(lon, 180.0)
+    return None if la is None or lo is None else (la, lo)
 
 
 class DetectionSource(abc.ABC):
@@ -88,6 +106,16 @@ class DetectionSource(abc.ABC):
     @abc.abstractmethod
     def first_seen_date(self, scientific_name: str) -> Optional[str]:
         """Earliest date ('YYYY-MM-DD') this species was recorded. None if unknown."""
+
+    def location(self) -> Optional[tuple[float, float]]:
+        """The station's (latitude, longitude), where the source reports one:
+        what sets the collage's season in its hemisphere (W-881) and asks for
+        its day's weather (W-882). None if unknown."""
+        return None
+
+    def latitude(self) -> Optional[float]:
+        loc = self.location()
+        return loc[0] if loc else None
 
     def heard_before(self, scientific_name: str, on_date) -> Optional[bool]:
         """Whether this species had been recorded before `on_date` (a date):

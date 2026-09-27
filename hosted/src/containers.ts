@@ -45,9 +45,25 @@ class SleepingContainer extends Container<Env> {
     await this.stopping;
   }
 
+  /** A request that finds the container on its way out waits for it to go
+   * and starts it again. The library reads `running` once: while a process
+   * is exiting it is still true, so the library skips the start, waits on
+   * the port, sees the process gone and answers 500 "Failed to start
+   * container: The container is not running, consider calling start()".
+   * Nothing was sent to the server then, so asking again is safe for any
+   * method; the body is still unread. */
   async fetch(request: Request): Promise<Response> {
-    if (this.stopping) await this.stopping;
-    return super.fetch(request);
+    for (let attempt = 0; ; attempt++) {
+      if (this.stopping) await this.stopping;
+      const res = await super.fetch(request);
+      if (attempt >= 2 || res.status !== 500 || request.bodyUsed) return res;
+      const text = await res.clone().text();
+      if (!text.startsWith("Failed to start container") || !text.includes("not running")) return res;
+      console.warn(`container gone under a start; asking again (${attempt + 1})`);
+      const c = this.ctx.container!;
+      if (c.running) await Promise.race([c.monitor().catch(() => undefined), after(5000)]);
+      for (let i = 0; c.running && i < 20; i++) await after(100);
+    }
   }
 }
 

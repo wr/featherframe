@@ -1,0 +1,531 @@
+volume,plate,ku_id,ku_english,ku_sci,printed
+I,1,ku-gould:17730,Red-headed Vulture,Sarcogyps calvus,Otogyps calvus -- Black vulture
+I,2,ku-gould:17726,White-rumped Vulture,Gyps bengalensis,Bengal vulture
+I,3,ku-gould:17722,"Peregrine Falcon ,faucon pélerin, Halcón peregrino,",Falco peregrinus,Falco peregrinator -- Shaheen falcon
+I,4,ku-gould:17718,Barbary Falcon,Falco pelegrinoides,Falco babylonicus -- Red-naped falcon
+I,5,ku-gould:17714,Saker Falcon,Falco cherrug,Falco sacer
+I,6,ku-gould:17710,Lanner Falcon,Falco biarmicus,Falco lanarius
+I,7,ku-gould:17706,Laggar Falcon,Falco jugger,Jugger falcon
+I,8,ku-gould:17702,Amur Falcon,Falco amurensis,Erythropus amurensis -- White-winged red-footed kestrel
+I,9,ku-gould:17698,Sulawesi Serpent Eagle,Spilornis rufipectus,Rufous-breasted spilornis
+I,10,ku-gould:17694,Blyth's Hawk-Eagle,Spizaetus alboniger,Black-and-white crested eagle
+I,11,ku-gould:17690,Black Kite,Milvus migrans,Milvus govinda -- Govinda kite
+I,12,ku-gould:17686,"Black-shouldered Kite, Black-winged Kite",Elanus caeruleus,Elanus hypoleucus -- Celebean elanus
+I,13,ku-gould:17682,"Oriental Scops Owl, Oriental Scops-Owl",Otus sunia,Scops pennatus -- Indian scops owl
+I,14,ku-gould:17678,Oriental Bay Owl,Phodilus badius,Bay owl
+I,15,ku-gould:17674,Collared Owlet,Glaucidium brodiei,Athene brodiei -- Brodie's owlet
+I,16,ku-gould:17670,Mottled Wood Owl,Strix ocellata,Syrnium ocellatum -- Speckled wood-owl
+I,17,ku-gould:17666,Spotted Owlet,Athene brama indica,Strix indica -- Indian screech owl
+I,18,ku-gould:17662,Grass Owl,Tyto capensis,Strix candida -- Grass-owl
+I,19,ku-gould:17658,Sykes's Nightjar,Caprimulgus mahrattensis,Mahratta nightjar
+I,20,ku-gould:17654,African Palm Swift,Cypsiurus parvus,Cypselus infumatus -- Palm roof-swift
+I,21,ku-gould:17650,Crested Treeswift,Hemiprocne coronata,Dendrochelidon coronatus -- Crested tree-swift
+I,22,ku-gould:17646,Grey-rumped Treeswift,Hemiprocne longipennis,Dendrochelidon klecho -- Klecho tree-swfit
+I,23,ku-gould:17642,Grey-rumped Treeswift,Hemiprocne longipennis wallacii,Dendrochelidon wallacei -- Wallace's tree-swift
+I,24,ku-gould:17638,Moustached Treeswift,Hemiprocne mystacea,Dendrochelidon mystaceus -- Bearded tree-swift
+I,25,ku-gould:17634,Whiskered Treeswift,Hemiprocne comata,Dendrochelidon comatus -- Hooded tree-swift
+I,26,ku-gould:17630,Wire-tailed Swallow,Hirundo smithii,Hirundo flifera
+I,27,ku-gould:17626,European Striated Swallow,Hirundo (Cecropis) daurica rufula,Cecropis rufula -- Western mosque-swallow
+I,28,ku-gould:17622,European Striated Swallow,Hirundo (Cecropis) daurica,Cecropis daurica -- Daurian mosque-swallow
+I,29,ku-gould:17618,Indian Striated Swallow,Hirundo (Cecropis) daurica erythropygia,Cecropis erythropygia -- Indian mosque-swallow
+I,30,ku-gould:17614,Sri Lanka Swallow,Hirundo (Cecropis) hyperythra,Cecropis hyperythra -- Ceylonese mosque-swallow
+I,31,ku-gould:17610,"Nepal House Martin, Nepal Martin",Delichon nipalense,Delichon nipalensis -- Nepal martin-swallow
+I,32,ku-gould:17606,Hill Swallow,Hirundo domicola,Hypurolepis domicola -- Bungalow swallow
+I,33,ku-gould:17602,"Streak-throated Swallow, Indian Cliff Swallow",Hirundo fluvicola,Lagenoplastes fluvicola -- Indian cliff-swallow
+I,34,ku-gould:17598,Chestnut-headed Bee-eater,Merops leschenaulti quinticolor,Merops quinticolor -- Pirik bee-eater
+I,35,ku-gould:17594,Blue-throated Bee-eater,Merops viridis,Hurrial bee-eater
+I,36,ku-gould:17590,Blue-tailed Bee-eater,Merops philippinus,Philippine bee-eater
+I,37,ku-gould:17586,Blue-bearded Bee-eater,Nyctyornis athertoni,Nyctiornis athertoni -- Blue-throated nyctiornis
+I,38,ku-gould:17582,Blue-bearded Bee-eater,Nyctyornis athertoni,Nyctiornis amictus -- Red-throated nyctiornis
+I,39,ku-gould:17578,Purple-bearded Bee-eater,Meropogon forsteni,Forsten's bee-eater
+I,40,ku-gould:17574,Hombron's Kingfisher,Actenoides hombroni,
+I,41,ku-gould:17570,Spotted Wood Kingfisher,Actenoides lindsayi,Lindsay's kingfisher
+I,42,ku-gould:17566,Rufous-collared Kingfisher,Actenoides concretus,Sumatra kingfisher
+I,43,ku-gould:17562,White-throated Kingfisher,Halcyon smyrnensis fusca,Halcyon fusca -- Indian kingfisher
+I,44,ku-gould:17558,White-throated Kingfisher,Halcyon smyrnensis gularis,Halcyon gularis -- Manilla kingfisher
+I,45,ku-gould:17554,Black-capped Kingfisher,Halcyon pileata,Halcyon atricapillus
+I,46,ku-gould:17550,Glittering Kingfisher,Caridonax fulgidus,Halcyon fulgidus -- Blue-and-white kingfisher
+I,47,ku-gould:17546,Javan Kingfisher,Halcyon cyanoventris,Halcyon omnicolor -- Many-coloured kingfisher
+I,48,ku-gould:17542,Banded Kingfisher,Lacedo pulchella,Carcineutes pulchellus
+I,49,ku-gould:17538,Banded Kingfisher,Lacedo pulchella melanops,Carcineutes melanops -- Black-faced kingfisher
+I,50,ku-gould:17534,Banded Kingfisher,Lacedo pulchella,Carcineutes amabilis -- Tenasserim kingfisher
+I,51,ku-gould:17530,Spangled Kookaburra,Dacelo tyro,Dacelo tyro -- Mantled kingfisher
+I,52,ku-gould:17526,Blyth's Kingfisher,Alcedo hercules,Alcedo grandis -- Great alcedo
+I,53,ku-gould:17522,Common Kingfisher,Alcedo atthis,Alcedo bengalensis -- Indian kingfisher
+I,54,ku-gould:17518,Indian Roller,Coracias benghalensis,Coracias indica
+I,55,ku-gould:17514,Indian Roller,Coracias benghalensis affinis,Coracias affinis -- Burmese roller
+I,56,ku-gould:17510,"Purple-winged Roller, Sulawesi Roller",Coracias temminckii,Coracias temmincki -- Temminck's roller
+I,57,ku-gould:17506,Banded Broadbill,Eurylaimus javanicus,Javan eurylaime
+I,58,ku-gould:17502,Black-and-yellow Broadbill,Eurylaimus ochromalus,Eurylaimus ochromelas -- Hooded eurylaime
+I,59,ku-gould:17498,Black-and-red Broadbill,Cymbirhynchus macrorhynchos,Cymbirhynchus macrorhynchus -- Great-billed eurylaime
+I,60,ku-gould:17494,Black-and-red Broadbill,Cymbirhynchus macrorhynchos affinis,Cymbirhynchus affinis -- Allied eurylaime
+I,61,ku-gould:17490,Dusky Broadbill,Corydon sumatranus,Great eurylaime
+I,62,ku-gould:17486,Silver-breasted Broadbill,Serilophus lunatus,Lunated eurylaime
+I,63,ku-gould:17482,Silver-breasted Broadbill,Serilophus lunatus rubropygius,Serilophus rubropygius -- Red-backed eurylaime
+I,64,ku-gould:17478,Long-tailed Broadbill,Psarisomus dalhousiae,Dalhousie's eurylaime
+I,65,ku-gould:17474,Steere's Broadbill,Sarcophanops steerii,
+I,66,ku-gould:17470,"Common Hoopoe, Eurasian Hoopoe, Hoopoe",Upupa epops,Upupa nigripennis -- Indian hoopoe
+I,67,ku-gould:17466,Masked Trogon,Trogon personatus,Harpactes duvauceli -- Duvaucel's trogon
+I,68,ku-gould:17462,"Collared Trogon, Trogón de collar",Trogon collaris puella,Harpactes rutilus -- Malacca trogon
+I,69,ku-gould:17458,"Violaceous Trogon, Trogón violáceo",Trogon violaceus ramonianus,Harpactes hodgsoni -- Hodgson's trogon
+I,70,ku-gould:17454,"Black-headed Trogon, Trogón cabeza negra",Trogon melanocephalus,Harpactes diardi -- Diard's trogon
+I,71,ku-gould:17450,"Amazonian White-tailed Trogon, White-tailed Trogon",Trogon viridis,Harpactes oreskios -- Mountain trogon
+I,72,ku-gould:17446,Black-throated Trogon,Trogon rufus tenellus,Harpactes reinwardti -- Reinwardt's trogon
+I,73,ku-gould:17442,Blue-crowned Trogon,Trogon curucui,Harpactes mackloti -- Macklot's trogon
+I,74,ku-gould:17438,Black-tailed Trogon,Trogon melanurus,Harpactes kasumba -- Kasumba trogon
+I,75,ku-gould:17434,"Violaceous Trogon, Trogón violáceo",Trogon violaceus,Harpactes fasciatus -- Fasciated trogon
+I,76,ku-gould:17430,"Mountain Trogon, Trogón mexicano",Trogon mexicanus,Harpactes ardens -- Rosy-breasted trogon
+II,1,ku-gould:17380,Green Cochoa,Cochoa viridis,
+II,2,ku-gould:17376,Purple Cochoa,Cochoa purpurea,
+II,3,ku-gould:17372,Grey-chinned Minivet,Pericrocotus solaris,Pericrocotus griseogularis -- Grey-throated pericrocotus
+II,4,ku-gould:17368,Swinhoe's Minivet,Pericrocotus cantonensis,Canton pericrocotus
+II,5,ku-gould:17364,Grey-chinned Minivet,Pericrocotus solaris,Yellow-throated pericrocotus
+II,6,ku-gould:17360,White-bellied Minivet,Pericrocotus erythropygius,Cawnpore pericrocotus
+II,7,ku-gould:17356,Scarlet Minivet,Pericrocotus flammeus,Pericrocotus speciosus -- Great pericrocotus
+II,8,ku-gould:17352,Scarlet Minivet,Pericrocotus flammeus,Orange pericrocotus
+II,9,ku-gould:17348,Small Minivet,Pericrocotus cinnamomeus,Pericrocotus peregrinus -- Little pericrocotus
+II,10,ku-gould:17344,Rosy Minivet,Pericrocotus roseus,Rosy pericrocotus
+II,11,ku-gould:17340,Ashy Minivet,Pericrocotus divaricatus,Pericrocotus cinereus -- Grey pericrocotus
+II,12,ku-gould:17336,Yellow-bellied Whistler,Pachycephala philippinensis,Hylopterpe philippinensis -- Philippine-island thickhead
+II,13,ku-gould:17332,White-browed Shrike-Babbler,Pteruthius flaviscapis,Pteruthius aeralatus -- Grey-headed pteruthius
+II,14,ku-gould:17328,White-browed Shrike-Babbler,Pteruthius flaviscapis,Pteruthius erythropterus -- Himalayan pteruthius
+II,15,ku-gould:17324,Black-headed Shrike-Babbler,Pteruthius rufiventer,Rufous-bellied pteruthius
+II,16,ku-gould:17320,Black-eared Shrike-Babbler,Pteruthius melanotis,Allotrius melanotis -- Black-eared allotrius
+II,17,ku-gould:17316,Green Shrike-Babbler,Pteruthius xanthochlorus,Allotrius xanthochloris -- Yellow-green allotrius
+II,18,ku-gould:17312,Asian Paradise Flycatcher,Terpsiphone paradisi,Muscipeta paradisi -- Paradise flycatcher
+II,19,ku-gould:17308,Asian Paradise Flycatcher,Terpsiphone paradisi,Muscipeta incei -- Ince's paradise flycatcher
+II,20,ku-gould:17304,Large Niltava,Niltava grandis,Grand niltava
+II,21,ku-gould:17300,Rufous-bellied Niltava,Niltava sundara,Niltava sundara -- Sundara niltava
+II,22,ku-gould:17296,Small Niltava,Niltava macgrigoriae,Niltava macgregoriae -- Macgregor's niltava
+II,23,ku-gould:17292,Nectarinia osea,Nectarinia osea,Jericho sun-bird
+II,24,ku-gould:17288,Nectarinia zeylonica,Nectarinia zeylonica,Nectarinia zelonica -- Ceylonese sun-bird
+II,25,ku-gould:17284,Nectarinia calcostetha,Nectarinia calcostetha,Nectarinia insignis -- Penang sun-bird
+II,26,ku-gould:17280,Mrs. Gould's Sunbird,Aethopyga gouldiae,Nectarinia gouldiae -- Mrs. gould's sun-bird
+II,27,ku-gould:17276,Black-throated Sunbird,Aethopyga saturata,Nectarinia saturata -- Black-breasted sun-bird
+II,28,ku-gould:17272,Fire-tailed Sunbird,Aethopyga ignicauda,Nectarinia ignicauda -- Fiery-tailed sun-bird
+II,29,ku-gould:17268,Crimson Sunbird,Aethopyga siparaja,Nectarinia goalpariensis -- Goulpourah sun-bird
+II,30,ku-gould:17264,Crimson Sunbird,Aethopyga siparaja,Nectarinia vigorsii -- Vigor's sun-bird
+II,31,ku-gould:17260,Green-tailed Sunbird,Aethopyga nipalensis,Nectarinia nipalensis -- Nepaulese sun-bird
+II,32,ku-gould:17256,Nectarinia asiatica,Nectarinia asiatica,Asiatic sun-bird
+II,33,ku-gould:17252,Nectarinia lotenia,Nectarinia lotenia,Loten's sun-bird
+II,34,ku-gould:17248,Japanese White-eye,Zosterops japonicus  simplex,Zosterops simplex -- Plain zosterops
+II,35,ku-gould:17244,Chestnut-flanked White-eye,Zosterops erythropleurus,Zosterops erythropleura -- Chestnut-sided zosterops
+II,36,ku-gould:17240,Scarlet-collared Flowerpecker,Dicaeum retrocinctum,Red-collared dicaeum
+II,37,ku-gould:17236,Orange-bellied Flowerpecker,Dicaeum trigonostigma,Dicaeum dorsale -- Yellow-throated dicaeum
+II,38,ku-gould:17232,Scarlet-backed Flowerpecker,Dicaeum cruentatum,Red-backed dicaeum
+II,39,ku-gould:17228,Scarlet-backed Flowerpecker,Dicaeum cruentatum,Dicaeum pryeri -- Pryer's dicaeum
+II,40,ku-gould:17224,Fire-breasted Flowerpecker,Dicaeum ignipectus,Myzanthe ignipectus -- Fire-breasted myzanthe
+II,41,ku-gould:17220,Legge's Flowerpecke,Dicaeum vincens,Prionochilus vincens -- Legge's flower-pecker
+II,42,ku-gould:17216,Chestnut-vented Nuthatch,Sitta nagaensis,Naga nuthatch
+II,43,ku-gould:17212,Beautiful Nuthatch,Sitta Formosa,
+II,44,ku-gould:17208,Chestnut-bellied Nuthatch,Sitta castanea,Sitta cinnamoneoventris -- Cinnamon-bellied nuthatch
+II,45,ku-gould:17204,Chestnut-bellied Nuthatch,Sitta castanea,Sitta castaneoventris
+II,46,ku-gould:17200,White-cheeked Nuthatch,Sitta leucopsis,White-faced nuthatch
+II,47,ku-gould:17196,White-tailed Nuthatch,Sitta himalayensis,Himalayan nuthatch
+II,48,ku-gould:17192,Yellow-bellied Tit,Periparus venustulus,Parus venustulus -- White-naped tit
+II,49,ku-gould:17188,Chestnut-bellied Nuthatch,Sitta castanea,Parus castaneoventris -- Chestnut-bellied tit
+II,50,ku-gould:17184,Elegant Tit,Periparus elegans,Parus elegans
+II,51,ku-gould:17180,Sultan Tit,Melanochlora sultanea,
+II,52,ku-gould:17176,Black-lored Tit,Parus xanthogenys,Parus xanthogenys -- Yellow-cheeked tit
+II,53,ku-gould:17172,Yellow-cheeked Tit,Parus spilonotus,Spotted tit
+II,54,ku-gould:17168,Black-lored Tit,Parus xanthogenys,Parus jerdoni -- Jerdon's tit
+II,55,ku-gould:17164,Great Tit,Parus major,Parus cinereus -- Ash-coloured tit
+II,56,ku-gould:17160,Great Tit,Parus major,Parus minor -- Chinese tit
+II,57,ku-gould:17156,Green-backed Tit,Parus monticolus,Mountain-tit
+II,58,ku-gould:17152,Grey Crested Tit,Lophophanes s dichrou,Parus dichrous -- Grey tit
+II,59,ku-gould:17148,Rufous-vented Tit,Periparus rubidiventris,Parus rubidiventris -- Rufous-bellied tit
+II,60,ku-gould:17144,Rufous-naped Tit,Periparus rufonuchalis,Parus rufonuchalis
+II,61,ku-gould:17140,Spot-winged Ti,Periparus melanolophus,Parus melanolophus -- Black-crested tit
+II,62,ku-gould:17136,White-browed Tit-warbler,Leptopoecile sophiae,Yarkand tit
+II,63,ku-gould:17132,Pygmy Bushtit,Psaltria exilis,Exile tit
+II,64,ku-gould:17128,Black-throated Bushtit,Aegithalos concinnus,Psaltria erythrocephala -- Red-headed tit
+II,65,ku-gould:17124,Black-throated Bushtit,Aegithalos concinnus,Psaltria concinna -- Elegant tit
+II,66,ku-gould:17120,White-cheeked Bushtit,Aegithalos leucogenys,Psaltria leucogenys -- Afghan tit
+II,67,ku-gould:17116,White-throated Bushtit,Aegithalos niveogularis,Acanthiparus niveogularis -- White-throated tit
+II,68,ku-gould:17112,Rufous-fronted Bushtit,Aegithalos iouschistos,Acanthiparus jouschistos -- Chestnut-breasted tit
+II,69,ku-gould:17108,Long-tailed Bushtit,Aegithalos caudatus,Mecistura glaucogularis -- Silvery-throated tit
+II,70,ku-gould:17104,Chinese Penduline Tit,Remiz consobrinus,Aegithalus consobrinus
+II,71,ku-gould:17100,Fire-capped Tit,Cephalopyrus flammiceps,Aegithalus flammiceps -- Flame-fronted flower-pecker
+II,72,ku-gould:17096,Black-naped Oriole,Oriolus chinensis,Philippine oriole
+II,73,ku-gould:17092,Black-naped Oriole,Oriolus chinensis,Oriolus broderipi -- Broderip's oriole
+II,74,ku-gould:17088,Maroon Oriole,Oriolus traillii,Psaropholus trailli
+II,75,ku-gould:17084,Maroon Oriole,Oriolus traillii,Psaropholus ardens -- Red oriole
+III,1,ku-gould:17065,Great Thrush,Turdus fuscater,Turdus fuscatus -- Clouded thrush
+III,2,ku-gould:17061,Red-throated Thrush,Turdus ruficollis,
+III,3,ku-gould:17057,Chestnut Thrush,Turdus rubrocanus,Turdus gouldi -- Gould's thrush
+III,4,ku-gould:17053,Tickell's Thrush,Turdus unicolor,Merula unicolor -- Affghan thrush
+III,5,ku-gould:17049,Chestnut Thrush,Turdus rubrocanus,Merula castanea -- Chestnut-coloured merula
+III,6,ku-gould:17045,White-collared Blackbird,Turdus albocinctus,Merula albocincta -- White-collared merula
+III,7,ku-gould:17041,Grey-winged Blackbird,Turdus boulboul,Merula boulboul -- Grey-winged merula
+III,8,ku-gould:17037,Chestnut-bellied Rock Thrush,Monticola rufiventris,Petrocincla erythrogastra -- Chestnut-bellied rock-thrush
+III,9,ku-gould:17033,Crested Finchbill,Spizixos canifrons,Crested spizixos
+III,10,ku-gould:17029,Collared Finchbill,Spizixos semitorques,Chinese spizixos
+III,11,ku-gould:17025,Light-vented Bulbul,Pycnonotus sinensis,Ixus sinensis -- Chinese bulbul
+III,12,ku-gould:17021,Malagasy Bulbul,Hypsipetes madagascariensis,Hypsipetes nigerrima -- Formosan hypsipetes
+III,13,ku-gould:17017,Greater Green Leafbird,Chloropsis sonnerati,Phyllornis javensis -- Javanese phyllornis
+III,14,ku-gould:17013,Orange-bellied Leafbird,Chloropsis hardwickii,Phyllornis hardwicki -- Hardwick's phyllornis
+III,15,ku-gould:17009,Orange-bellied Leafbird,Chloropsis hardwickii,Phyllornis hodgsoni -- Hodgson's phyllornis
+III,16,ku-gould:17005,Golden-fronted Leafbird,Chloropsis aurifrons,Phyllornis malabaricus -- Malabar phyllornis
+III,17,ku-gould:17001,Blue-winged Leafbird,Chloropsis cochinchinensis,Phyllornis jerdoni -- Jerdon's phyllornis
+III,18,ku-gould:16997,Lesser Green Leafbird,Chloropsis cyanopogon,Phyllornis cyanopogon -- All-green phyllornis
+III,19,ku-gould:16993,Asian Fairy-bluebird,Irena puella,Irena cyanea -- Malayan fairy bluebird
+III,20,ku-gould:16989,Asian Fairy-bluebird,Irena puella,Irena cringler -- Bornean fairy bluebird
+III,21,ku-gould:16985,Asian Fairy-bluebird,Irena puella,Indian fairy bluebird
+III,22,ku-gould:16981,Irena cyanogaster,Irena cyanogaster,Irena cyanogastra -- Blue-mantled fairy bluebird
+III,23,ku-gould:16977,Irena cyanogaster,Irena cyanogaster,Irena melanochlamys -- Black-mantled fairy bluebird
+III,24,ku-gould:16973,Oriental Magpie-Robin,Copsychus saularis,Dial bird
+III,25,ku-gould:16969,Oriental Magpie-Robin,Copsychus saularis,Copsychus mindanensis -- Malaccan dial bird
+III,26,ku-gould:16965,White-rumped Shama,Copsychus malabaricus,Copsychus suavis -- Chestnut-bellied dial bird
+III,27,ku-gould:16961,Myiophonus blighi,Myiophonus blighi,Myiophoneus blighi -- Bligh's whistling thrush
+III,28,ku-gould:16957,Myiophonus insularis,Myiophonus insularis,Myiophoneus insularis -- Formosan whistling thrush
+III,29,ku-gould:16953,White-bellied Shortwing,Brachypteryx major,Callene albiventris -- White-bellied callene
+III,30,ku-gould:16949,Rufous-backed Sibia,Heterophasia annectens,Leioptila annectens -- Slender-billed chat-thrush
+III,31,ku-gould:16945,Great Parrotbill,Conostoma oemodium,Conostoma aemodium -- Himalayan conostoma
+III,32,ku-gould:16941,Dark-backed Sibia,Heterophasia melanoleuca,Sibia melanoleuca -- Black-and-white sibia
+III,33,ku-gould:16937,Spot-breasted Scimitar Babbler,Pomatorhinus erythrocnemis,Red-kneed pomatorhinus
+III,34,ku-gould:16933,Slender-billed Scimitar Babbler,Xiphirhynchus superciliaris,Xiphoramphus superciliaris -- Scimitar-bill
+III,35,ku-gould:16929,Red-faced Liocichla,Liocichla phoenicea,Trochalopteron phoeniceum -- Crimson-winged trochalopteron
+III,36,ku-gould:16925,Red-winged Laughingthrush,Garrulax formosus,Trochalopteron formosum -- Beautiful trochalopteron
+III,37,ku-gould:16921,Black-faced Laughingthrush,Garrulax affinis,Trochalopteron affine -- Allied thrush
+III,38,ku-gould:16917,Chestnut-crowned Laughingthrush,Garrulax erythrocephalus,Trochalopteron variegatum -- Variegated thrush
+III,39,ku-gould:16913,Moustached Laughingthrush,Garrulax cineraceus,Trochalopteron cineraceum -- Cinerous trochalopteron
+III,40,ku-gould:16909,Striped Laughingthrush,Garrulax virgatus,Trochalopteron virgatum -- White-eyebrowed trochalopteron
+III,41,ku-gould:16905,Black-faced Laughingthrush,Garrulax affinis,Trochalopteron blythii -- Blyth's laughing thrush
+III,42,ku-gould:16901,Elliot's Laughingthrush,Garrulax elliotii,Trochalopteron elliotii -- Elliot's trochalopteron
+III,43,ku-gould:16897,Chestnut-crowned Laughingthrush,Garrulax erythrocephalus,Trochalopteron melanostigma -- Tickell's laughing thrush
+III,44,ku-gould:16893,Spotted Laughingthrush,Garrulax ocellatus,Ianthocincla ocellata -- Ocellated ianthocincla
+III,45,ku-gould:16889,Spotted Laughingthrush,Garrulax ocellatus,Ianthocincla artemisiae -- Allied ianthocincla
+III,46,ku-gould:16885,Barred Laughingthrush,Garrulax lunulatus,Ianthocincla lunulata -- Lunulated ianthocincla
+III,47,ku-gould:16881,Brown-capped Laughingthrush,Garrulax austeni,Ianthocincla austeni -- Austen's ianthocincla
+III,48,ku-gould:16877,Wynaad Laughingthrush,Garrulax delesserti,Delessert's garrulax
+III,49,ku-gould:16873,Rufous-vented Laughingthrush,Garrulax gularis,Yellow-throated garrulax
+III,50,ku-gould:16869,White-throated Laughingthrush,Garrulax albogularis,Garrulax ruficeps -- Red-crowned garrulax
+III,51,ku-gould:16865,Grey-sided Laughingthrush,Garrulax caerulatus,Garrulax poecilorhyncha -- Black-and-yellow-billed garrulax
+III,52,ku-gould:16861,Yellow-throated Laughingthrush,Garrulax galbanus,Black-chinned garrulax
+III,53,ku-gould:16857,"Greater Necklaced Laughing Thrush, Greater Necklaced Laughingthrush",Garrulax pectoralis,Garrulax picticollis -- Grey-backed laughing thrush
+III,54,ku-gould:16853,Black-throated Laughingthrush,Garrulax chinensis,Chinese garrulax
+III,55,ku-gould:16849,Plain Laughingthrush,Garrulax davidi,Pterorhinus davidi -- Pere david's pterorhinus
+III,56,ku-gould:16845,Rusty-fronted Barwing,Actinodura egertoni,Egerton's actinodura
+III,57,ku-gould:16841,Hoary-throated Barwing,Actinodura nipalensis,Nepalese actinodura
+III,58,ku-gould:16837,Streak-throated Barwing,Actinodura waldeni,Walden's actinodura
+III,59,ku-gould:16833,Spectacled Barwing,Actinodura ramsayi,Ramsay's bee-wing
+III,60,ku-gould:16829,Long-billed Wren-Babbler,Rimator malacoptilus,Long-billed wren
+III,61,ku-gould:16825,Gould's Shortwing,Brachypteryx stellata,Drymochares stellatus -- Stellated shortwing
+III,62,ku-gould:16821,Eyebrowed Wren-Babbler,Napothera epilepidota,Turdinulus roberti -- Robert's pygmy babbler
+III,63,ku-gould:16817,Streaked Wren-Babbler,Napothera brevicaudata,Turdinus brevicaudatus -- Short-tailed turdinus
+III,64,ku-gould:16813,White-collared Yuhina,Yuhina diademata,White-naped yuhin
+III,65,ku-gould:16809,Marsh Babbler,Pellorneum palustre,Marsh pellorneum
+III,66,ku-gould:16805,Dusky Fulvetta,Alcippe brunnea,Brown alcippe
+III,67,ku-gould:16801,Cutia nipalensis,Cutia nipalensis,
+III,68,ku-gould:16797,Vinous-throated Parrotbill,Paradoxornis webbianus,Suthora brunnea -- Anderson's suthora
+III,69,ku-gould:16793,Black-throated Parrotbill,Paradoxornis nipalensis,Suthora munipurensis -- Munipur suthora
+III,70,ku-gould:16789,Black-throated Parrotbill,Paradoxornis nipalensis,Suthora nipalensis -- White-faced suthora
+III,71,ku-gould:16785,Fulvous Parrotbil,Paradoxornis fulvifrons,Suthora fulvifrons -- Fulvous-fronted suthora
+III,72,ku-gould:16781,Vinous-throated Parrotbill,Paradoxornis webbianus,Suthora webbiana -- Webb's suthora
+III,73,ku-gould:16777,Spot-breasted Parrotbill,Paradoxornis guttaticollis,Paradoxornis austeni -- Austen's paradoxornis
+III,74,ku-gould:16773,Reed Parrotbil,Paradoxornis heudei,Pere heude's paradoxornis
+III,75,ku-gould:16769,Black-breasted Parrotbill,Paradoxornis flavirostris,Paradoxornis
+III,76,ku-gould:16765,Brown Parrotbill,Paradoxornis unicolor,Long-tailed paradoxornis
+III,77,ku-gould:16761,Grey-headed Parrotbill,Paradoxornis gularis,Grey-crowned paradoxornis
+III,78,ku-gould:16757,Greater Rufous-headed Parrotbil,Paradoxornis ruficeps,Red-headed paradoxornis
+IV,1,ku-gould:16736,Grey-bellied Tesia,Tesia cyaniventer,Tesia cyaneiventer -- Blue-bellied tesia
+IV,2,ku-gould:16732,Tesia castaneocoronata,Tesia castaneocoronata,Tesia castaneo-coronata -- Chestnut-crowned tesia
+IV,3,ku-gould:16728,Chinese Hill Warbler,Rhopophilus pekinensis,Chinese rhopophilus
+IV,4,ku-gould:16724,Graceful Prinia,Prinia gracilis,Suya lepida -- Little suya
+IV,5,ku-gould:16720,Tawny-bellied Babbler,Dumetia hyperythra,Dumetia albogularis -- White-throated dumetia
+IV,6,ku-gould:16716,Tawny-bellied Babbler,Dumetia hyperythra,Buff-throated dumetia
+IV,7,ku-gould:16712,Common Tailorbird,Orthotomus sutorius,Orthotomus longicaudus -- Tailor-bird
+IV,8,ku-gould:16708,Striated Yuhina,Yuhina castaniceps,Staphida torqueola -- Grey-headed staphida
+IV,9,ku-gould:16704,Black-chinned Babbler,Stachyris pyrrhops,Red-eyed stachyris
+IV,10,ku-gould:16700,Rufous-capped Babbler,Stachyris ruficeps,Red-headed stachyris
+IV,11,ku-gould:16696,Striated Yuhina,Yuhina castaniceps,Ixulus castaneiceps -- Chestnut-headed ixulus
+IV,12,ku-gould:16692,White-naped Yuhina,Yuhina bakeri,Ixulus occipitalis -- Thick-billed ixulus
+IV,13,ku-gould:16688,Whiskered Yuhina,Yuhina flavicollis,Ixulus flavicollis -- Crested ixulus
+IV,14,ku-gould:16684,Rufous-vented Yuhina,Yuhina occipitalis,Rusty-naped yuhina
+IV,15,ku-gould:16680,Red-billed Leiothrix,Leiothrix lutea,Leiothrix luteus -- Fork-tailed leiothrix
+IV,16,ku-gould:16676,Silver-eared Leiothrix,Leiothrix argentauris,
+IV,17,ku-gould:16672,Silver-eared Leiothrix,Leiothrix argentauris,Leiothrix laurinae
+IV,18,ku-gould:16668,Chestnut-tailed Minla,Minla strigula,Siva strigula -- Striped-throated siva
+IV,19,ku-gould:16664,Blue-winged Minla,Minla cyanouroptera,Siva cyanouroptera -- Blue-winged siva
+IV,20,ku-gould:16660,Fire-tailed Myzornis,Myzornis pyrrhoura,Red-tailed myzornis
+IV,21,ku-gould:16656,Brown Dipper,Cinclus pallasii,Cinclus asiaticus -- Asiatic water-ouzel
+IV,22,ku-gould:16652,Brown Dipper,Cinclus pallasii,Cinclus pallasi -- Palla's water-ouzel
+IV,23,ku-gould:16648,Brown Dipper,Cinclus pallasii,Cinclus sordidus -- Sombre-coloured water-ouzel
+IV,24,ku-gould:16644,White-throated Dipper,Cinclus cinclus,Cinclus leucogaster -- White-bellied water-ouzel
+IV,25,ku-gould:16640,White-throated Dipper,Cinclus cinclus,Cinclus cashmeriensis -- Cashmerian water-ouzel
+IV,26,ku-gould:16636,Variable Wheatear,Oenanthe picata,Dromolaea picata -- Pied stone-chat
+IV,27,ku-gould:16632,Variable Wheatear,Oenanthe picata,Dromolaea opistholeuca -- White-tailed stone-chat
+IV,28,ku-gould:16628,Variable Wheatear,Oenanthe picata,Saxicola capistrata -- Grey-capped stone-chat
+IV,29,ku-gould:16624,Pied Wheatear,Oenanthe pleschanka,Saxicola leucomela -- Black-and-white stone-chat
+IV,30,ku-gould:16620,Desert Wheatear,Oenanthe deserti,Saxicola montana -- Mountain stone-chat
+IV,31,ku-gould:16616,Desert Wheatear,Oenanthe deserti,Saxicola atrogularis -- Black-throated stone-chat
+IV,32,ku-gould:16612,Jerdon's Bush Chat,Saxicola jerdoni,Rhodophila melanoleuca -- Black-and-white bush-chat
+IV,33,ku-gould:16608,Saxicola leucura,Saxicola leucura,Pratincola leucura -- White-tailed bush-chat
+IV,34,ku-gould:16604,Saxicola torquatus,Saxicola torquatus,Pratincola indica -- Indian furze-chat
+IV,35,ku-gould:16600,Grandala,Grandala coelicolor,Celestial grandala
+IV,36,ku-gould:16596,White-capped Redstart,Chaimarrornis leucocephalus,Ruticilla erythrogastra -- Great white-capped redstart
+IV,37,ku-gould:16592,Black Redstart,Phoenicurus ochruros,Ruticilla erythroprocta -- Coal-black redstart
+IV,38,ku-gould:16588,Siberian Rubythroat,Luscinia calliope,Calliope camtschatkensis -- Siberian ruby-throat
+IV,39,ku-gould:16584,White-tailed Rubythroat,Luscinia pectoralis,Calliope pectoralis -- Himalayan ruby-throat
+IV,40,ku-gould:16580,White-tailed Rubythroat,Luscinia pectoralis tschebaiewi,Calliope tschebaiewi -- Mongolian ruby-throat
+IV,41,ku-gould:16576,Siberian Accentor,Prunella montanella,Accentor montanellus -- Mountain accentor
+IV,42,ku-gould:16572,Japanese Accentor,Prunella rubida,Accentor rubidus -- Ruddy accentor
+IV,43,ku-gould:16568,Alpine Accentor,Prunella collaris,Accentor erythropygius -- Red-backed accentor
+IV,44,ku-gould:16564,Alpine Accentor,Prunella collaris,Accentor nipalensis -- Nepaul accentor
+IV,45,ku-gould:16560,Maroon-backed Accentor,Prunella immaculata,Accentor immaculatus -- Blue-shouldered accentor
+IV,46,ku-gould:16556,Robin Accentor,Prunella rubeculoides,Accentor rubeculoides -- Red-breasted accentor
+IV,47,ku-gould:16552,Rufous-breasted Accentor,Prunella strophiata,Accentor strophiatus -- Banded accentor
+IV,48,ku-gould:16548,Black-throated Accentor,Prunella atrogularis,Accentor atrogularis -- Back-throated accentor
+IV,49,ku-gould:16544,Altai Accentor,Prunella himalayana,Accentor altaicus -- Altaian accentor
+IV,50,ku-gould:16540,Asian Desert Warbler,Sylvia nana,Desert whitethroat
+IV,51,ku-gould:16536,"Winter Wren, Chivirín chochín, troglodyte mignon",Troglodytes troglodytes,Troglodytes nipalensis -- Nepaulese wren
+IV,52,ku-gould:16532,Spotted Wren-Babbler,Spelaeornis formosus,Anorthura formosa -- Spotted wren
+IV,53,ku-gould:16528,Tawny-breasted Wren-Babbler,Spelaeornis longicaudatus,Urocichla longicauda -- Long-tailed hill-wren
+IV,54,ku-gould:16524,Wedge-billed Wren-Babbler,Sphenocichla humei,Sphenocichla roberti -- Robert's wedge-billed wren
+IV,55,ku-gould:16520,Wedge-billed Wren-Babbler,Sphenocichla humei,Sphenocichla humii -- Hume's wedge-billed wren
+IV,56,ku-gould:16516,Spotted Creeper,Salpornis spilonotus,Salpornis spilonota
+IV,57,ku-gould:16512,Rusty-flanked Treecreeper,Certhia nipalensis,Nepaulese creeper
+IV,58,ku-gould:16508,Bar-tailed Treecreeper,Certhia himalayana,Himalayan creeper
+IV,59,ku-gould:16504,Common Chiffchaff,Phylloscopus collybita,Phyllopneuste tristis
+IV,60,ku-gould:16500,Goldcrest,Regulus regulus himalayensis,Regulus himalayensis -- Himalayan goldcrest
+IV,61,ku-gould:16496,White-browed Wagtail,Motacilla madaraspatensis,Motacilla maderaspatensis -- Great pied wagtail
+IV,62,ku-gould:16492,"Lavandera blanca, White Wagtail",Motacilla alba,Motacilla dukhunensis -- Deccan wagtail
+IV,63,ku-gould:16488,"Lavandera blanca, White Wagtail",Motacilla alba,Motacilla personata -- Masked wagtail
+IV,64,ku-gould:16484,Citrine Wagtail,Motacill citreola ,Budytes citreoloides -- Yellow-headed wagtail
+IV,65,ku-gould:16480,"Olive Tree-Pipit, Olive-backed Pipit",Anthus hodgsoni,Pipastes agilis -- Indian tree-pipit
+IV,66,ku-gould:16476,"Red-throated Pipit, Bisbita garganta roja",Anthus cervinus,Red-throated pipit
+IV,67,ku-gould:16472,Forest Wagtail,Dendronanthus indicus,Limonidromus indicus -- Variegated wagtail
+IV,68,ku-gould:16468,Spotted Forktail,Enicurus maculatus,Lunated forktail
+IV,69,ku-gould:16464,Spotted Forktail,Enicurus maculatus,Enicurus guttatus
+IV,70,ku-gould:16460,White-crowned Forktail,Enicurus leschenaulti,Enicurus chinensis -- Chinese forktail
+IV,71,ku-gould:16456,Little Forktail,Enicurus scouleri,Scouler's forktail
+IV,72,ku-gould:16452,Melanocorypha maxima,Melanocorypha maxima,Long-billed calandre
+V,1,ku-gould:16431,Tibetan Snowfinch,Montifringilla adamsi haematopygia,Montifringilla adamsii -- Adams's mountain finch
+V,2,ku-gould:16427,"Asian Rosy Finch, Rosy Finch",Leucosticte arctoa,Montifringilla aretoa -- Northern mountain finch
+V,3,ku-gould:16423,Brandt's Mountain Finch,Leucosticte brandti,Montifringilla haematopygia -- Red-rumped mountain finch
+V,4,ku-gould:16419,"Asian Rosy Finch, Rosy Finch",Leucosticte arctoa brunneonucha,Montifringilla brunneinucha -- Brown-naped mountain finch
+V,5,ku-gould:16415,Montifringilla ruficollis,Montifringilla ruficollis,Red-necked mountain finch
+V,6,ku-gould:16411,White-capped Bunting,Emberiza stewarti,Emberiza caniceps -- Grey-capped bunting
+V,7,ku-gould:16407,Little Bunting,Emberiza pusilla,Dwarf bunting
+V,8,ku-gould:16403,Cinereous Bunting,Emberiza cineracea,Emberiza cinerea
+V,9,ku-gould:16399,Chestnut-eared Bunting,Emberiza fucata,Painted bunting
+V,10,ku-gould:16395,Rustic Bunting,Emberiza rustica,
+V,11,ku-gould:16391,Grey-necked Bunting,Emberiza buchanani,Glyeyspina huttoni -- Hutton's bunting
+V,12,ku-gould:16387,Yellow-throated Bunting,Emberiza elegans,Euspiza elegans -- Elegant bunting
+V,13,ku-gould:16383,Black-headed Bunting,Emberiza melanocephala,Euspiza melanocephala
+V,14,ku-gould:16379,Red-headed Bunting,Emberiza bruniceps,Euspiza luteola
+V,15,ku-gould:16375,Saxaul Sparrow,Passer ammodendri,Turkestan sparrow
+V,16,ku-gould:16371,Spectacled Finch,Callacanthis burtoni,Fringilla burtoni -- Burton's grosbeak
+V,17,ku-gould:16367,"Eurasian Goldfinch, European Goldfinch, chardonneret élégant",Carduelis carduelis,Carduelis orientalis -- Eastern goldfinch
+V,18,ku-gould:16363,Japanese Grosbeak,Eophona personata,Euphona personata -- Masked grosbeak
+V,19,ku-gould:16359,Yellow-billed Grosbeak,Eophona migratoria,Euphona melannra -- Black-tailed grosbeak
+V,20,ku-gould:16355,Spot-winged Grosbeak,Mycerobas melanozanthos,Mycerobas melanoxanthus -- Black-and-yellow grosbeak
+V,21,ku-gould:16351,White-winged Grosbeak,Mycerobas carnipes,Mycerobas carneipes -- Flesh-footed grosbeak
+V,22,ku-gould:16347,Black-and-yellow Grosbeak,Mycerobas icterioides,Hesperiphona ieterioides -- Ieterine grosbeak
+V,23,ku-gould:16343,Collared Grosbeak,Mycerobas affinis,Hesperiphona affinis -- Allied grosbeak
+V,24,ku-gould:16339,Scarlet Finch,Haematospiza sipahi,Sepoy finch
+V,25,ku-gould:16335,Great Rosefinch,Carpodacus rubicilla,Caucasian grosbeak
+V,26,ku-gould:16331,Red-mantled Rosefinch,Carpodacus rhodochlamys,Red-mantled grosbeak
+V,27,ku-gould:16327,Long-tailed Rosefinch,Uragus sibiricus,Uragus sibirieus -- Siberian grosbeak
+V,28,ku-gould:16323,Crimson-winged Finch,Rhodopechys sanguineus,Rhodopechys sanguinea
+V,29,ku-gould:16319,Desert Finch,Rhodospiza obsoleta,Erythrospiza obsoleta -- Rosy-winged finch
+V,30,ku-gould:16315,Mongolian Finch,Eremopsaltria mongolica,Erythrospiza incarnata -- Rosy finch
+V,31,ku-gould:16311,Trumpeter Finch,Bucanetes githagineus,Erythrospiza githaginea -- Trumpeter bullfinch
+V,32,ku-gould:16307,Pink-tailed Rosefinch,Urocynchramus pylzowi,Pylzoff's rose-bunting
+V,33,ku-gould:16303,Pallas's Rosefinch,Carpodacus roseus,Carpodaeus roseus -- Rosy grosbeak
+V,34,ku-gould:16299,Orange Bullfinch,Pyrrhula aurantiaca,Pyrrhula aurantia -- Orange-coloured bullfinch
+V,35,ku-gould:16295,Eurasian Bullfinch,Pyrrhula pyrrhula,Pyrrhula orientalis -- Oriental bullfinch
+V,36,ku-gould:16291,Red-headed Bullfinch,Pyrrhula erythrocephala,
+V,37,ku-gould:16287,Brown Bullfinch,Pyrrhula nipalensis,Nepaulese bullfinch
+V,38,ku-gould:16283,Eurasian Bullfinch,Pyrrhula pyrrhula,Pyrrhula major -- Northern bullfinch
+V,39,ku-gould:16279,Grey-headed Bullfinch,Pyrrhula erythaca,Pyrrhula erithaeus -- Beavan's bullfinch
+V,40,ku-gould:16275,Eurasian Bullfinch,Pyrrhula pyrrhula cineracea,Pyrrhula cineracea -- Cinereous bullfinch
+V,41,ku-gould:16271,"Red Crossbill, bec-croisé des sapins, Picotuerto rojo",Loxia curvirostra himalayensis,Loxia himalayana -- Himalayan crossbill
+V,42,ku-gould:16267,Spotless Starling,Sturnus unicolor,Sardinian starling
+V,43,ku-gould:16263,"Common Starling, European Starling, Estornino pinto, étourneau sansonnet",Sturnus vulgaris,Sturnus humii -- Hume's starling
+V,44,ku-gould:16259,"Common Starling, European Starling, Estornino pinto, étourneau sansonnet",Sturnus vulgaris,Sturnus purpurascens -- Persian starling
+V,45,ku-gould:16255,Tristram's Starling,Onychognathus tristramii,Amydrus tristrami -- Tristram's amydrus
+V,46,ku-gould:16251,Taiwan Blue Magpie,Urocissa caerulea,Formosan blue pie
+V,47,ku-gould:16247,Red-billed Blue Magpie,Urocissa erythrorhyncha,Urocissa occipitalis -- Nepaulese blue pie
+V,48,ku-gould:16243,Red-billed Blue Magpie,Urocissa erythrorhyncha,Urocissa sinensis -- Chinese blue pie
+V,49,ku-gould:16239,Red-billed Blue Magpie,Urocissa erythrorhyncha,Urocissa magnirostris -- Great-billed blue pie
+V,50,ku-gould:16235,Yellow-billed Blue Magpie,Urocissa flavirostris,Yellow-billed blue pie
+V,51,ku-gould:16231,Yellow-billed Blue Magpie,Urocissa flavirostris,Urocissa cucullata -- White-capped blue pie
+V,52,ku-gould:16227,Hooded Treepie,Crypsirina cucullata,Crypsirhina eueullata -- Hooded crypsirhina
+V,53,ku-gould:16223,Sri Lanka Blue Magpie,Urocissa ornata,Cissa pyrrhocyanea -- Red-and-blue cissa
+V,54,ku-gould:16219,Common Green Magpie,Cissa chinensis,Cissa venatoria -- Hunting cissa
+V,55,ku-gould:16215,"Black-billed Magpie, Eurasian Magpie, pie bavarde",Pica pica,Pica leucoptera -- White-winged magpie
+V,56,ku-gould:16211,"Black-billed Magpie, Eurasian Magpie, pie bavarde",Pica pica,Pica bactriana -- Affghan magpie
+V,57,ku-gould:16207,"Black-billed Magpie, Eurasian Magpie, pie bavarde",Pica pica,Pica bottanensis -- Bootan magpie
+V,58,ku-gould:16203,Eurasian Jay,Garrulus glandarius,Garrulus taivanus -- Formosan jay
+V,59,ku-gould:16199,Spotted Nutcracker,Nucifraga caryocatactes,Nucifraga multipunctata -- Many-spotted nutcracker
+V,60,ku-gould:16195,Biddulph's Ground Jay,Podoces biddulphi,Biddulph's podoces
+V,61,ku-gould:16191,Henderson's Ground Jay,Podoces hendersoni,Henderson's podoces
+V,62,ku-gould:16187,Pander's Ground Jay,Podoces panderi,Pander's podoces
+V,63,ku-gould:16183,Pseudopodoces humilis,Pseudopodoces humilis,Podoces humilis -- Dingy podoces
+V,64,ku-gould:16179,Indian Pitta,Pitta brachyura,Pitta bengalensis -- Bengal pitta
+V,65,ku-gould:16175,Fairy Pitta,Pitta nympha,Pitta oreas -- Formosan pitta
+V,66,ku-gould:16171,Bar-bellied Pitta,Pitta elliotii,Pitta ellioti -- Elliot's pitta
+V,67,ku-gould:16167,Garnet Pitta,Pitta granatina,Bornean pitta
+V,68,ku-gould:16163,Garnet Pitta,Pitta granatina coccinea,Pitta coccinea -- Malaccan pitta
+V,69,ku-gould:16159,Blue-banded Pitta,Pitta arquata,Necklaced pitta
+V,70,ku-gould:16155,Mangrove Pitta,Pitta megarhyncha,Large-billed pitta
+V,71,ku-gould:16151,Whiskered Pitta,Pitta kochi,Koch's pitta
+V,72,ku-gould:16147,Blue-headed Pitta,Pitta baudii,Red-backed pitta
+V,73,ku-gould:16143,Gurney's Pitta,Pitta gurneyi,
+V,74,ku-gould:16139,Azure-breasted Pitta,Pitta steerii,Steere's pitta
+V,75,ku-gould:16135,Graceful Pitta,Pitta venusta,Pitta ussheri -- Ussher's pitta
+V,76,ku-gould:16131,Hooded Pitta,Pitta sordida,Pitta atricapilla -- Black-headed pitta
+V,77,ku-gould:16127,Banded Pitta,Pitta guajana,Pitta cyanura -- Blue-tailed pitta
+V,78,ku-gould:16123,Banded Pitta,Pitta guajana schwaneri,Pitta schwaneri -- Schwaner's pitta
+V,79,ku-gould:16119,Blue-naped Pitta,Pitta nipalensis,Nepaul pitta
+V,80,ku-gould:16115,Blue Pitta,Pitta cyanea,
+V,81,ku-gould:16111,Giant Pitta,Pitta caerulea,Caerulean pitta
+V,82,ku-gould:16107,Hooded Pitta,Pitta sordida cucullata,Pitta cucullata
+V,83,ku-gould:16103,Banded Pitta,Pitta guajana,Pitta boschii -- Van der bosch's pitta
+VI,1,ku-gould:16081,Layard's Parakeet,Psittacula calthropae,Palaeornis calthropae -- Mrs. layard's parrakeet
+VI,2,ku-gould:16077,Blossom-headed Parakeet,Psittacula roseata,Palaeornis rosa -- Blossom-headed parrakeet
+VI,3,ku-gould:16073,Plum-headed Parakeet,Psittacula cyanocephala,Palaeornis cyanocephala -- Burmese parrakeet
+VI,4,ku-gould:16069,Long-tailed Parakeet,Psittacula longicauda,Palaeornis luciani -- Bonaparte's parrakeet
+VI,5,ku-gould:16065,Nicobar Parakeet,Psittacula caniceps,Palaeornis caniceps -- Grey-headed parrakeet
+VI,6,ku-gould:16061,Long-tailed Parakeet,Psittacula longicauda nicobarica,Palaeornis nicobaricus -- Nicobar parrakeet
+VI,7,ku-gould:16057,Blue-winged Parakeet,Psittacula columboides,Palaeornis columboides -- Blue-winged parrakeet
+VI,8,ku-gould:16053,Slaty-headed Parakeet,Psittacula himalayana,Palaeornis schisticeps -- Slaty-headed parrakeet
+VI,9,ku-gould:16049,Lord Derby's Parakeet,Psittacula derbiana,Palaeornis derbianus -- The earl of derby's parrakeet
+VI,10,ku-gould:16045,Long-tailed Parakeet,Psittacula longicauda,Palaeornis malaccensis -- Malacca parrakeet
+VI,11,ku-gould:16041,Long-tailed Parakeet,Psittacula longicauda,Palaeornis affinis -- Allied parrakeet
+VI,12,ku-gould:16037,Golden-mantled Racket-tai,Prioniturus platurus,Prioniturus setarius -- Racket-tailed parrot
+VI,13,ku-gould:16033,Yellow-breasted Racket-tai,Prioniturus flavicans,Prioniturus flavicana -- Great racket-tailed parrot
+VI,14,ku-gould:16029,Golden-mantled Racket-tai,Prioniturus platurus,Prioniturus spatuliger -- Philippina racket-tailed parrot
+VI,15,ku-gould:16025,Blue-crowned Racket-tail,Prioniturus discurus,Little racket-tailed parrot
+VI,16,ku-gould:16021,White-backed Woodpecker,Dendrocopos leucotos insularis,Picus insularis -- Formosan spotted woodpecker
+VI,17,ku-gould:16017,Great Spotted Woodpecker,Dendrocopos major cabanisi,Picus cabanisi -- Chinese spotted woodpecker
+VI,18,ku-gould:16013,Heart-spotted Woodpecker,Hemicircus canente,Hemicercus cordatus
+VI,19,ku-gould:16009,Grey-and-buff Woodpecker,Hemicircus concretus,Hemicercus concretus -- Javan spotted woodpecker
+VI,20,ku-gould:16005,Grey-and-buff Woodpecker,Hemicircus concretus,Hemicercus hartlaubi -- Hartlaub's spotted woodpecker
+VI,21,ku-gould:16001,Grey-capped Pygmy Woodpecker,Dendrocopos canicapillus scintilliceps,Iyngipicus scintilliceps -- Swinhoe's pygmy woodpecker
+VI,22,ku-gould:15997,Grey-capped Pygmy Woodpecker,Dendrocopos canicapillus doerriesi,Iyngipicus doerriesi -- Doerria's pygmy woodpecker
+VI,23,ku-gould:15993,Grey-capped Pygmy Woodpecker,Dendrocopos canicapillus aurantiiventris,Iyngipicus aurantiiventris -- Orange-breasted pygmy woodpecker
+VI,24,ku-gould:15989,Philippine Pygmy Woodpecker,Dendrocopos maculatus,Iyngipicus ramsayi -- Ramsay's pygmy woodpecker
+VI,25,ku-gould:15985,Sulawesi Pygmy Woodpecker,Dendrocopos temminckii,Iyngipicus temmincki -- Temminck's pygmy woodpecker
+VI,26,ku-gould:15981,Grey-capped Pygmy Woodpecker,Dendrocopos canicapillus semicoronatus,Iyngipicus semicoronatus -- Darjiling pygmy woodpecker
+VI,27,ku-gould:15977,Grey-capped Pygmy Woodpecker,Dendrocopos canicapillus canicapillus,Iyngipicus canicapillus -- Grey-headed pygmy woodpecker
+VI,28,ku-gould:15973,Sunda Pygmy Woodpecker,Dendrocopos moluccensis hardwickii,Iyngipicus hardwickii -- Hardwicke's pygmy woodpecker
+VI,29,ku-gould:15969,Grey-capped Pygmy Woodpecker,Dendrocopos canicapillus auritus,Iyngipicus auritus -- Malayan pygmy woodpecker
+VI,30,ku-gould:15965,Philippine Pygmy Woodpecker,Dendrocopos maculatus maculatus,Iyngipicus maculatus -- Sonnerat's pygmy woodpecker
+VI,31,ku-gould:15961,Philippine Pygmy Woodpecker,Dendrocopos maculatus fulvifasciatus,Iyngipicus fulvifasciatus -- Banded pygmy woodpecker
+VI,32,ku-gould:15957,Sunda Pygmy Woodpecker,Dendrocopos moluccensis gymnopthalmus,Iyngipicus gymnophthalmus -- Ceylonese pygmy woodpecker
+VI,33,ku-gould:15953,Sunda Pygmy Woodpecker,Dendrocopos moluccensis,Iyngipicus peninsularis -- Travancore pygmy woodpecker
+VI,34,ku-gould:15949,Sunda Pygmy Woodpecker,Dendrocopos moluccensis nanus,Iyngipicus nanus -- Vigors's pygmy woodpecker
+VI,35,ku-gould:15945,Grey-headed Woodpecker,Picus canus tancolo,Gecinus tancolo -- Formosan green woodpecker
+VI,36,ku-gould:15941,Greater Yellownape,Picus flavinucha,Chrysophlegma flavinucha -- Yellow-naped woodpecker
+VI,37,ku-gould:15937,Greater Goldenback,Chrysocolaptes lucidus xanthocephalus,Chrysocolaptes xanthocephalus -- Negros yellow-faced woodpecker
+VI,38,ku-gould:15933,Eurasian Wryneck,Jynx torquilla,Yunx indica -- Indian wryneck
+VI,39,ku-gould:15929,Speckled Piculet,Picumnus innominatus,Vivia innominata
+VI,40,ku-gould:15925,White-browed Piculet,Sasia ochracea,Rufous piculet
+VI,41,ku-gould:15921,Rufous Piculet,Sasia abnormis,Malayan piculet
+VI,42,ku-gould:15917,Cuculus sparverioides,Cuculus sparverioides,Cuculus strennus -- Powerful cuckoo
+VI,43,ku-gould:15913,Cuculus hyperythrus,Cuculus hyperythrus,Rufous-bellied cuckoo
+VI,44,ku-gould:15909,Rough-crested Malkoha,Dasylophus superciliosus,Hairy-browed cuckoo
+VI,45,ku-gould:15905,Scale-feathered Malkoha,Lepidogrammus cumingi,Curl-creasted cuckoo
+VI,46,ku-gould:15901,Asian Emerald Cuckoo,Chrysococcyx maculatus,Chalcites hodgsoni -- Emerald cuckoo
+VI,47,ku-gould:15897,Violet Cuckoo,Chrysococcyx xanthorhynchus,Chalcites xanthorhynchus -- Amethystine cuckoo
+VI,48,ku-gould:15893,Yellow-rumped Honeyguide,Indicator xanthonotus,Yellow-rumped honey-guide
+VI,49,ku-gould:15889,Black-browed Barbet,Megalaima oorti nuchalis,Megalaema nuchalis -- Embroidered barbet
+VI,50,ku-gould:15885,Golden-throated Barbet,Megalaima franklinii,Megalaema franklinii -- Franklin's barbet
+VI,51,ku-gould:15881,Luzon Bleeding-heart,Gallicolumba luzonica,Phlogoenas cruenta -- Red-breasted pigeon
+VI,52,ku-gould:15877,Mindanao Bleeding-heart,Gallicolumba crinigera,Phlogoenas crinigera -- Maroon-breasted pigeon
+VI,53,ku-gould:15873,Pheasant Pigeon,Otidiphaps nobilis,Otidiphaps
+VI,54,ku-gould:15869,Hill Pigeon,Columba rupestris,Mongolian rock-pigeon
+VI,55,ku-gould:15865,Snow Pigeon,Columba leuconota,White-bellied pigeon
+VI,56,ku-gould:15861,"Common Pigeon, Paloma domﾎstica, pigeon biset, Rock Dove, Rock Pigeon",Columba livia intermedia,Columba intermedia -- Indian rock-pigeon
+VI,57,ku-gould:15857,Nilgiri Wood Pigeon,Columba elphinstonii,Palumbus elphinstonei -- Elphinstone's wood-pigeon
+VI,58,ku-gould:15853,Ashy Wood Pigeon,Columba pulchricollis,Palumbus pulchricollis -- Collared wood-pigeon
+VI,59,ku-gould:15849,Sulawesi Ground Dove,Gallicolumba tristigmata,Phlogoenas tristigmata -- Branded pigeon
+VI,60,ku-gould:15845,Pallas's Sandgrous,Syrrhaptes paradoxus,Palla's sand-grouse
+VI,61,ku-gould:15841,Tibetan Sandgrouse,Syrrhaptes tibetanus,Tibetian short-toed sand-grouse
+VI,62,ku-gould:15837,Yellow-throated Sandgrouse,Pterocles gutturalis,Pterocles guttatus -- Spotted sand-grouse
+VI,63,ku-gould:15833,Crowned Sandgrouse,Pterocles coronatus,Coronetted sand-grouse
+VI,64,ku-gould:15829,Chestnut-bellied Sandgrouse,Pterocles exustus,Whistling sand-grouse
+VI,65,ku-gould:15825,Painted Sandgrouse,Pterocles indicus,Pterocles fasciatus -- Banded sand-grouse
+VI,66,ku-gould:15821,"Black Grouse, Eurasian Black Grouse",Lyrurus tetrix,Tetrao mlokosiewiezi -- Georgian black grouse
+VI,67,ku-gould:15817,"Ceylon Spurfowl, Sri Lanka Spurfowl",Galloperdix bicalcarata,Galloperdix zeylonicus -- Ceylon spur-fowl
+VI,68,ku-gould:15813,Red Spurfowl,Galloperdix spadicea,Galloperdix spadiceus -- Rufous spur-fowl
+VI,69,ku-gould:15809,Painted Spurfowl,Galloperdix lunulata,Galloperdix lunulosa -- Painted spur-fowl
+VI,70,ku-gould:15805,Crimson-headed Partridge,Haematortyx sanguiniceps,Crimson-breasted partridge
+VI,71,ku-gould:15801,"Red-breasted Hill Partridge, Red-breasted Partridge",Arborophila hyperythra,Bambusicola hyperythra -- Rufous-breasted bamboo-partridge
+VI,72,ku-gould:15797,Bambusicola thoracicus sonorivox,Bambusicola thoracicus sonorivox,Bambusicola sonorivox -- Formosan bamboo-partridge
+VI,73,ku-gould:15793,"Bearded Wood Partridge, Bearded Wood-Partridge, Codorniz-coluda veracruzana",Dendrortyx barbatus,Perdix barbata -- Bearded partridge
+VI,74,ku-gould:15789,Tibetan Partridge,Perdix hodgsoniae,Thibet partridge
+VI,75,ku-gould:15785,Snow Partridge,Lerwa lerwa,Lerwa nivicola -- Lerwa partridge
+VII,1,ku-gould:15763,See-see Partridge,Ammoperdix griseogularis,Ammoperdix bonhami -- Bonham's sand-partridge
+VII,2,ku-gould:15759,Sand Partridge,Ammoperdix heyi,Hey's sand-partridge
+VII,3,ku-gould:15755,Painted Bush Quail,Perdicula erythrorhyncha,Microperdix erythrorhyncha -- Little red-billed partridge
+VII,4,ku-gould:15751,Jungle Bush Quail,Perdicula asiatica,Asiatic bush-quail
+VII,5,ku-gould:15747,Rock Bush Quail,Perdicula argoondah,Argoondah bush-quail
+VII,6,ku-gould:15743,"Blue-breasted Quail, King Quail",Coturnix chinensis,Excalfactoria chinensis -- Chinese quail
+VII,7,ku-gould:15739,"Blue-breasted Quail, King Quail",Coturnix chinensis,Excalfactoria minima -- Minute quail
+VII,8,ku-gould:15735,Himalayan Quail,Ophrysia superciliosa,Malacoturnix superciliosus -- Slate-coloured partridge
+VII,9,ku-gould:15731,Rain Quail,Coturnix coromandelica,Coturnix coromandelicus -- Coromandel quail
+VII,10,ku-gould:15727,"Common Buttonquail, Kurrichane Buttonquail",Turnix sylvaticus dussumier,Turnix dussumieri -- Little hemipode
+VII,11,ku-gould:15723,Barred Buttonquail,Turnix suscitator fasciatus,Turnix fasciatus -- Fasciated hemipode
+VII,12,ku-gould:15719,Bulwer's Pheasant,Lophura bulweri,Lobiophasis castaneicaudatus -- Chestnut-tailed lobed pheasant
+VII,13,ku-gould:15715,Bulwer's Pheasant,Lophura bulweri,Lobiophasis bulweri
+VII,14,ku-gould:15711,Silver Pheasant,Lophura nycthemera lineata,Euplocamus lineatus -- Lineated pheasant
+VII,15,ku-gould:15707,Golden Pheasant,Chrysolophus pictus,Euplocamus vieilloti -- Vieillot's fireback
+VII,16,ku-gould:15703,Swinhoe's Pheasant,Lophura swinhoii,Euplocamus swinhoii -- Swinhoe's fireback
+VII,17,ku-gould:15699,Silver Pheasant,Lophura nycthemera,Gennaeus nycthemerus -- Pencilled pheasant
+VII,18,ku-gould:15695,Cheer Pheasant,Catreus wallichii,Cheer
+VII,19,ku-gould:15691,Golden Pheasant,Chrysolophus pictus,Thaumalea pieta
+VII,20,ku-gould:15687,Lady Amherst's Pheasant,Chrysolophus amherstiae,Thaumalea amherstiae
+VII,21,ku-gould:15683,Siamese Fireback,Lophura diardi,Diardigallus praelatus
+VII,22,ku-gould:15679,"Blue Eared Pheasant, White Eared Pheasant",Crossoptilon auritum,Chinese crossoptilon
+VII,23,ku-gould:15675,Rock Bush Quail,Perdicula argoondah,Calophasis ellioti -- Elliot's pheasant
+VII,24,ku-gould:15671,Koklass Pheasant,Pucrasia macrolopha xanthospila,Pucrasia xanthospila -- Chinese pucras pheasant
+VII,25,ku-gould:15667,Koklass Pheasant,Pucrasia macrolopha darwini,Pucrasia darwini -- Darwin's pucras pheasant
+VII,26,ku-gould:15663,Koklass Pheasant,Pucrasia macrolopha,Himalayan pucras pheasant
+VII,27,ku-gould:15659,Koklass Pheasant,Pucrasia macrolopha castanea,Pucrasia castanea -- Kafiristan pucras
+VII,28,ku-gould:15655,Koklass Pheasant,Pucrasia macrolopha nipalensis,Pucrasia nipalensis -- Nepaul pucras pheasant
+VII,29,ku-gould:15651,Caspian Snowcock,Tetraogallus caspius,Caspian snow-partridge
+VII,30,ku-gould:15647,Himalayan Snowcock,Tetraogallus himalayensis,Himalayan snow-partridge
+VII,31,ku-gould:15643,Altai Snowcock,Tetraogallus altaicus,Altaic snow-partridge
+VII,32,ku-gould:15639,Tibetan Snowcock,Tetraogallus tibetanus,Tibetan snow-partridge
+VII,33,ku-gould:15635,Reeves's Pheasant,Syrmaticus reevesii,Phasianus reevesii -- Reeve's pheasant
+VII,34,ku-gould:15631,"Common Pheasant, Ring-necked Pheasant, faisan de chasse, Fais‡n de collar",Phasianus colchicus,Common pheasant
+VII,35,ku-gould:15627,"Common Pheasant, Ring-necked Pheasant, faisan de chasse, Fais‡n de collar",Phasianus colchicus shawii,Phasianus shawi -- Shaw's pheasant
+VII,36,ku-gould:15623,"Common Pheasant, Ring-necked Pheasant, faisan de chasse, Fais‡n de collar",Phasianus colchicus chrysomelas,Phasianus chrysomelas -- Oxus pheasant
+VII,37,ku-gould:15619,Copper Pheasant,Syrmaticus soemmerringii,Phasianus soemmeringii -- Sommering's pheasant
+VII,38,ku-gould:15615,Copper Pheasant,Syrmaticus soemmerringii scintillans,Phasianus scintillans -- Sparkling pheasant
+VII,39,ku-gould:15611,"Common Pheasant, Ring-necked Pheasant, faisan de chasse, Fais‡n de collar",Phasianus colchicus torquatus,Phasianus torquatus -- Chinese ring-necked pheasant
+VII,40,ku-gould:15607,Green Pheasant,Phasianus versicolor,Japanese pheasant
+VII,41,ku-gould:15603,"Common Pheasant, Ring-necked Pheasant, faisan de chasse, Fais‡n de collar",Phasianus colchicus mongolicus,Phasianus mongolieus -- Mongolian pheasant
+VII,42,ku-gould:15599,Blood Pheasant,Ithaginis cruentus geoffroyi,Ithaginis geoffroyi -- Geoffroy's francolin
+VII,43,ku-gould:15595,Blood Pheasant,Ithaginis cruentus,Sanguine francolin
+VII,44,ku-gould:15591,"Verreaux's Monal Partridge, Verreaux's Monal-Partridge",Tetraophasis obscurus,Mou-pin snow-partridge
+VII,45,ku-gould:15587,"Western Tragopan, Western Tragopan Pheasant",Tragopan melanocephalus,Ceriornis melanocephala -- Western horned pheasant
+VII,46,ku-gould:15583,Temminck's Tragopan,Tragopan temminckii,Ceriornis temmincki -- Temminck's horned pheasant
+VII,47,ku-gould:15579,"Blyth's Tragopan, Blyth's Tragopan Pheasant",Tragopan blythii,Ceriornis blythi -- Blyth's horned pheasant
+VII,48,ku-gould:15575,"Cabot's Tragopan, Cabot's Tragopan Pheasant",Tragopan caboti,Ceriornis caboti -- Dr. cabot's horned pheasant
+VII,49,ku-gould:15571,Satyr Tragopan,Tragopan satyra,Ceriornis satyra -- Nipaulese horned pheasant
+VII,50,ku-gould:15567,Grey Peacock-Pheasant,Polyplectron bicalcaratum,Polyplectron chinquis -- Assam peacock pheasant
+VII,51,ku-gould:15563,Grey Peacock-Pheasant,Polyplectron bicalcaratum,Malayan peacock pheasant
+VII,52,ku-gould:15559,Great Argus,Argusianus argus,Argus pheasant
+VII,53,ku-gould:15555,Himalayan Monal,Lophophorus impejanus,Lophophorus impeyanus -- Monaul
+VII,54,ku-gould:15551,Chinese Monal,Lophophorus lhuysii,Lophophorus l'huysi -- De l'huys's monaul
+VII,55,ku-gould:15547,"Sclater's Monal, Sclater's Monal Pheasant",Lophophorus sclateri,Chalcophasis sclateri -- Sclater's monaul
+VII,56,ku-gould:15543,Grey Junglefowl,Gallus sonneratii,Gallus sonnerati -- Sonnerat's jungle-fowl
+VII,57,ku-gould:15539,Lesser florikin,Sypheotides indicus,Sypheotides auritus
+VII,58,ku-gould:15535,Macqueen's Bustard,Chlamydotis macqueenii,Otis macqueeni
+VII,59,ku-gould:15531,Painted Stork,Mycteria leucocephala,Tantalus leucocephalus -- Rosy tantalus
+VII,60,ku-gould:15527,Eurasian Curlew,Numenius arquata,Numenius rufescens -- Rufescent curlew
+VII,61,ku-gould:15523,Ibisbill,Ibidorhyncha struthersii,Ibidorhynchus struthersi -- Red-billed erolia
+VII,62,ku-gould:15519,Egyptian Plover,Pluvianus a egyptius,Pluvianus aegyptius -- Zic-zac
+VII,63,ku-gould:15515,"Glareola nordmanni Fischer, 1842","Glareola nordmanni Fischer, 1842",Glareola melanoptera -- Black-winged pratincole
+VII,64,ku-gould:15511,Small Pratincole,Glareola lactea,Cinereous pratincole
+VII,65,ku-gould:15507,Indian Courser,Cursorius coromandelicus,Cursorius coromandelieus
+VII,66,ku-gould:15503,Lady Amherst's Pheasant,Chrysolophus amherstiae,Eurinorhynchus pygmaeus -- Spoon-billed sandpiper
+VII,67,ku-gould:15499,White-breasted Waterhen,Amaurornis phoenicurus,Gallinula phoenicura -- White-breasted water-hen
+VII,68,ku-gould:15495,Pheasant-tailed Jacana,Hydrophasianus chirurgus,Hydrophasianus sinensis -- Chinese jacana
+VII,69,ku-gould:15491,Mandarin Duck,Aix galericulata,
+VII,70,ku-gould:15487,Black-bellied Tern,Sterna acuticauda,Sterna melanogaster
+VII,71,ku-gould:15483,Spectacled Guillemot,Cepphus carbo,Uria carbo -- Kurile guillemot

@@ -1,6 +1,6 @@
-"""AI-generated plates for species Audubon never painted.
+"""AI-generated plates for species no folio has.
 
-The provider chain asks Audubon first; only a species with no real plate reaches
+The provider chain asks the folios first; only a species with no real plate reaches
 this module. A generated plate is bought once and cached forever in
 ``data/generated/`` — the only path that replaces it is an explicit regenerate
 from the config page. Cached PNGs go through the exact same ``plate.extract``
@@ -30,16 +30,18 @@ import zipfile
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import requests
 from PIL import Image
 
-from .. import paths
+from .. import paths, thumbs
 from ..names import DEFAULT_FOLIO, folio_of
 from . import plate
 from .collage import CollageCell, same_species, sheet_art_size
 from .provider import ArtProvider, Artwork
+from . import weather as weather_mod
+from .season import season_phrase, tree_state
 
 log = logging.getLogger("featherframe.genart")
 
@@ -232,16 +234,15 @@ _P_COMPOSITE_TEMPLATE = (
 
 # Up to a handful of figures: the folio's own totem manner.
 _P_COMPOSITE_ARMATURE = (
-    "One shared armature — a single bare, branching bough entering from the sheet edge "
+    "One shared armature — a single {bare}branching bough entering from the sheet edge "
     "and cut off flush — carries every figure. Each species holds its own station at a "
     "staggered height, drawn in TRUE RELATIVE SCALE to the others (a large species "
     "dwarfs a small one, as in life), in its own characteristic pose and direction, the "
     "figures never interacting. Each figure is exactly the species its names denote — "
     "its true kind and anatomy, never translated into another creature. The first-listed species takes the most commanding "
     "station; each later one a quieter perch. Beside each figure sits its tiny engraved "
-    "italic numeral in the listed order (1., 2., 3., ...) and nothing else. The bough "
-    "stays botanically simple — a few sprigs at most — so the figures carry the sheet, "
-    "and at least a third of the sheet stays bare paper, asymmetrically.\n\n"
+    "italic numeral in the listed order (1., 2., 3., ...) and nothing else. {botany}"
+    "At least a third of the sheet stays bare paper, asymmetrically.\n\n"
 )
 
 # Past that, a crowded sheet: one bare bough dividing as far as the figures
@@ -249,7 +250,7 @@ _P_COMPOSITE_ARMATURE = (
 # tree in leaf, and a sampled event; all three read as busier and less
 # unified than this, and this is what Wells picked — W-699.)
 _P_COMPOSITE_ARMATURE_CROWDED = (
-    "This is a crowded sheet. One shared armature — a single bare bough entering from "
+    "This is a crowded sheet. One shared armature — a single {bare}bough entering from "
     "the sheet edge, cut off flush, and dividing into as many limbs as the figures need — "
     "carries every figure, the limbs spreading so the figures tier across the whole height "
     "and width of the sheet, none overlapping and none hidden behind another. Each species "
@@ -262,19 +263,50 @@ _P_COMPOSITE_ARMATURE_CROWDED = (
     "however far down the list it falls, and a small bird stays small beside a large one. "
     "Beside each figure sits its tiny engraved italic numeral in the listed order "
     "(1., 2., 3., ...) "
-    "and nothing else — every figure numbered, every numeral legible. The bough stays "
-    "botanically bare so the figures carry the sheet, and the figures fill the sheet to "
-    "its edges, across its full width and height, with no bare margin.\n\n"
+    "and nothing else — every figure numbered, every numeral legible. {botany}"
+    "The figures fill the sheet to its edges, across its full width and height, with "
+    "no bare margin.\n\n"
 )
 _COMPOSITE_CROWDED_FROM = 7  # figures; the totem manner holds up to six
 
+# With no date to go by, the bough is bare wood, as every sheet was before W-881.
+_P_COMPOSITE_BARE = {
+    False: "The bough stays botanically simple — a few sprigs at most — so the "
+           "figures carry the sheet. ",
+    True: "The bough stays botanically bare so the figures carry the sheet. ",
+}
+
+# W-881: the bough lives in the season of the collage's date. Stated as a
+# principle of the setting — the week's own state of the tree — never as a
+# list of things to paint, which the model would paint on every sheet; the
+# stage ("late winter") keeps a season from reading as its cliché, and it is
+# told by the state of what grows, not its amount (a full canopy was a tell).
+_P_COMPOSITE_SEASON = (
+    "The bough is one living tree, seen in {season}: it wears that week exactly as the "
+    "week truly is, told by the state of what grows on it rather than by its abundance, "
+    "so the season reads at a glance. "
+)
+
+# W-882: how every collage's branch is drawn, whatever it carries. Wells saw the
+# AI in a full canopy, a bead on every leaf and moss in even rosettes on every
+# limb: the folio's branches are sparse and hand-placed, the bark clean line.
+_P_COMPOSITE_HAND = (
+    "The branch is drawn as the folio drew its branches: sparse sprays with a great "
+    "deal of open paper between them, each leaf, twig, and mark placed by hand and no "
+    "two alike, the bark bare wood in clean engraved line. The figures carry the sheet; "
+    "every figure stands whole against the branch and every numeral sits on open paper. "
+)
+COLLAGE_PROMPT_VERSION = 19  # W-881 17, W-882 18-19; single illustrations keep PROMPT_VERSION
+
 
 def build_composite_prompt(subjects: list[tuple[str, str]],
-                           briefs: Optional[dict] = None) -> str:
+                           briefs: Optional[dict] = None,
+                           season: Optional[str] = None) -> str:
     """Prompt for the combined collage sheet: the day's species as one composite
     plate. `subjects` is (common, scientific) in prominence order; `briefs`
     maps a scientific name to a naturalist's one-line description so the
-    model draws katydids as katydids."""
+    model draws katydids as katydids; `season` ("late winter",
+    `season.season_phrase`) sets the bough in its season."""
     def line(i, common, sci):
         s = f"{i}. {common} ({sci})" if sci else f"{i}. {common}"
         brief = (briefs or {}).get(sci or common, "")
@@ -285,8 +317,14 @@ def build_composite_prompt(subjects: list[tuple[str, str]],
         line(i, common, sci)
         for i, (common, sci) in enumerate(subjects, start=1))
     opener = _P_COMPOSITE_TEMPLATE.format(n=len(subjects), subjects=listed)
-    armature = (_P_COMPOSITE_ARMATURE_CROWDED if len(subjects) >= _COMPOSITE_CROWDED_FROM
-                else _P_COMPOSITE_ARMATURE)
+    crowded = len(subjects) >= _COMPOSITE_CROWDED_FROM
+    template = _P_COMPOSITE_ARMATURE_CROWDED if crowded else _P_COMPOSITE_ARMATURE
+    if season:
+        botany = _P_COMPOSITE_SEASON.format(season=season)
+        armature = template.format(bare="", botany=botany + _P_COMPOSITE_HAND)
+    else:
+        armature = template.format(bare="bare, " if not crowded else "bare ",
+                                   botany=_P_COMPOSITE_BARE[crowded] + _P_COMPOSITE_HAND)
     return opener + armature + _P_PROCESS + _P_COLOR + _P_ANATOMY + _P_FOOTER
 
 
@@ -301,8 +339,12 @@ def _havell_species(idx: dict) -> list[dict]:
 
 # Real composite plates to hand the model as references, preference order.
 _PREFERRED_COMPOSITE_REFS = [
-    "Dryobates villosus",       # plate 416 — five woodpecker species, one snag
-    "Poecile atricapillus",     # plate 353 — the titmouse composite
+    # plate 354 — tanagers on one sparse, clean branch; it replaced plate 416,
+    # whose lichened snag came back as lichen on every trunk (W-882)
+    "Piranga ludoviciana",
+    # plate 399 — five warblers up one sparse spray; it replaced plate 353,
+    # whose hanging moss nest came back as moss on every branch (W-882)
+    "Setophaga virens",
     "Haemorhous mexicanus",     # plate 424 — the finch/bunting totem
 ]
 
@@ -623,6 +665,30 @@ class GenerationError(RuntimeError):
     pass
 
 
+# What a vendor says when the account can't pay or the key is wrong, across
+# OpenAI, Gemini and Replicate. Matched on the error's text, since each
+# vendor's body shape differs and the HTTP status alone is ambiguous (OpenAI
+# sends an empty quota as 429, the same as a rate limit).
+_CREDIT_SIGNS = ("insufficient_quota", "billing_hard_limit", "billing limit",
+                 "exceeded your current quota", "insufficient credit",
+                 "credit balance", "payment required")
+_KEY_SIGNS = ("invalid_api_key", "incorrect api key", "api key not valid",
+              "api_key_invalid", "invalid authentication", "unauthenticated")
+
+
+def failure_reason(exc: BaseException) -> str:
+    """Why a generation failed, as the page says it: "credits" (the account
+    is out of money), "key" (the key was refused) or "other"."""
+    text = str(exc).lower()
+    m = re.match(r"http (\d{3})", text)
+    code = int(m.group(1)) if m else None
+    if code == 402 or any(s in text for s in _CREDIT_SIGNS):
+        return "credits"
+    if code == 401 or any(s in text for s in _KEY_SIGNS):
+        return "key"
+    return "other"
+
+
 # descriptions.json is a whole-file read-modify-write reached from the regen
 # worker, the scheduler tick (composite briefs), and request threads — held
 # across the text call so a concurrent buyer can't overwrite a paid brief.
@@ -669,6 +735,9 @@ class TextModel(ABC):
     def complete_json(self, prompt: str) -> dict:
         """Return the model's JSON reply as a dict. May raise."""
 
+    # A model that can search the web answers `search_json(prompt)` (W-882:
+    # the day's weather); one that cannot has no such method.
+
 
 class OpenAITextModel(TextModel):
     API_BASE = "https://api.openai.com/v1"
@@ -695,6 +764,33 @@ class OpenAITextModel(TextModel):
         if not isinstance(out, dict):
             raise GenerationError("text model returned non-object JSON")
         return out
+
+
+    #: At most this many searches per ask (W-882): each one is billed.
+    SEARCH_MAX_CALLS = 2
+
+    def search_json(self, prompt: str) -> dict:
+        """The model's JSON reply after searching the web (the Responses API's
+        web_search tool). `last_usage` counts the searches too. May raise."""
+        r = requests.post(
+            f"{self.API_BASE}/responses",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={"model": self.model, "input": prompt,
+                  "tools": [{"type": "web_search"}],
+                  "max_tool_calls": self.SEARCH_MAX_CALLS},
+            timeout=max(self.timeout_s, 180.0))
+        r.raise_for_status()
+        body = r.json()
+        output = body.get("output") or []
+        u = body.get("usage") or {}
+        self.last_usage = {"input_tokens": _tok(u.get("input_tokens")),
+                           "output_tokens": _tok(u.get("output_tokens")),
+                           "web_searches": sum(1 for o in output if isinstance(o, dict)
+                                               and o.get("type") == "web_search_call")}
+        text = "".join(c.get("text", "") for o in output
+                       if isinstance(o, dict) and o.get("type") == "message"
+                       for c in (o.get("content") or []) if isinstance(c, dict))
+        return _loads_json_object(text)
 
 
 class GeminiTextModel(TextModel):
@@ -896,12 +992,17 @@ TEXT_RATES_USD_PER_M: dict[str, tuple[float, float]] = {
 }
 
 
+#: USD per web search call (OpenAI's web_search tool fee, W-882).
+WEB_SEARCH_USD = 0.01
+
+
 def estimate_text_cost_usd(model: str, usage: Optional[dict]) -> Optional[float]:
     rates = TEXT_RATES_USD_PER_M.get(str(model or ""))
     if not rates or not isinstance(usage, dict) or not usage:
         return None
     return (_tok(usage.get("input_tokens")) * rates[0]
-            + _tok(usage.get("output_tokens")) * rates[1]) / 1e6
+            + _tok(usage.get("output_tokens")) * rates[1]) / 1e6 \
+        + _tok(usage.get("web_searches")) * WEB_SEARCH_USD
 
 
 _LEDGER_LOCK = threading.Lock()
@@ -939,7 +1040,7 @@ def spend_for_month(now: Optional[datetime] = None) -> dict:
             continue
         if not isinstance(e, dict) or not str(e.get("at", "")).startswith(month):
             continue
-        if e.get("kind") != "describe":
+        if e.get("kind") not in ("describe", "weather"):
             out["images"] += 1
         cost = e.get("cost_usd")
         if isinstance(cost, (int, float)):
@@ -1361,6 +1462,18 @@ class GeneratedArtProvider(ArtProvider):
         self._refs = refs
         self._cooldown_s = cooldown_s
         self._failed_at: dict[str, float] = {}
+        # Told of every call to the image model: the exception it raised, or
+        # None when it returned an image. The service keeps the last failure
+        # so the page can say it (an empty account was only in the log).
+        self.on_outcome: Optional[Callable[[Optional[BaseException]], None]] = None
+
+    def _report(self, exc: Optional[BaseException]) -> None:
+        if self.on_outcome is None:
+            return
+        try:
+            self.on_outcome(exc)
+        except Exception:
+            log.exception("image generation outcome hook failed")
 
     # -- paths -------------------------------------------------------------
     def _dir(self) -> Path:
@@ -1479,6 +1592,7 @@ class GeneratedArtProvider(ArtProvider):
             return False
         png.unlink(missing_ok=True)
         sidecar.unlink(missing_ok=True)
+        thumbs.drop_thumb(png)
         return True
 
     def cached_species(self) -> list[dict]:
@@ -1606,19 +1720,25 @@ class GeneratedArtProvider(ArtProvider):
                 self._write_atomic(path, json.dumps(cache, indent=2).encode())
 
     # -- the combined collage (one generated sheet) --------------------------------
-    _KEEP_SHEETS = 7  # a day's is reused all day; older ones only for a re-render
+    _KEEP_SHEETS = 7  # the latest of a day is kept; older days only for a re-render
 
-    def day_composite(self, cells, when, force: bool = False):
+    def day_composite(self, cells, when, force: bool = False, southern: bool = False,
+                      branch: str = "season", location=None):
         """One generated composite sheet for the day's top species, in the
-        manner of the folio's late totem plates. Bought at most once per date,
-        and reused for every redraw of that day — every collage is the
-        generated one when the toggle is on, so the sheet is only bought again
-        when the day's species list itself has changed under it (a new species
-        was heard, or one dropped out of the limit). Returns
+        manner of the folio's late totem plates. One file per date, reused for
+        every redraw of that day — every collage is the generated one when the
+        toggle is on — and bought again at any redraw where the day's species
+        list has changed under it (a new species was heard, or one dropped out
+        of the limit), so a busy day can buy one per collage interval, plus the
+        nightly one and any forced repaint. Returns
         (art, cells_as_painted) — on a cache hit the cells come from the
         sidecar, so the key under the sheet always names the figures that were
-        actually painted — or None (caller falls back to the grid).
-        Never raises."""
+        actually painted — or None (caller falls back to the grid). The
+        branch (W-882, `Config.collage_branch`) is "bare", "season" (the
+        season of `when`, W-881, `southern` flipping it) or "weather" (the
+        season plus that day's weather at `location`, asked of the text model
+        only when a sheet is bought); a sheet painted with another branch is
+        bought again, as the owner changed it. Never raises."""
         day = when.isoformat()
         png = paths.collages_dir() / f"{day}.png"
         sidecar = paths.collages_dir() / f"{day}.json"
@@ -1626,9 +1746,11 @@ class GeneratedArtProvider(ArtProvider):
         try:
             if png.exists() and not force:
                 cached = self._read_sheet(png, sidecar, cells)
-                if cached is None or same_species(cached[1], cells):
+                if cached is None or (same_species(cached[1], cells)
+                                      and self._same_branch(sidecar, branch)):
                     return cached
-                log.info("day composite for %s was painted of other species; repainting", day)
+                log.info("day composite for %s was painted of other species or another "
+                         "branch; repainting", day)
             if self._model is None:
                 return self._read_sheet(png, sidecar, cells) if png.exists() else None
             if not force and self._in_cooldown(key):
@@ -1638,13 +1760,21 @@ class GeneratedArtProvider(ArtProvider):
             subjects = [(c.common_name, c.scientific_name) for c in cells]
             briefs = {sci or common: self._describe(common, sci)[0]
                       for common, sci in subjects}  # description only
-            prompt = build_composite_prompt(subjects, briefs)
+            season = kind = None
+            if branch != "bare":
+                season = season_phrase(when, southern)
+                if branch == "weather" and location:
+                    kind = self._day_weather(location, when)
+            prompt = build_composite_prompt(
+                subjects, briefs,
+                season=tree_state(when, southern, kind) if season else None)
             refs = self._refs if self._refs is not None else pick_composite_reference_plates()
             with _GEN_LOCK:
                 if png.exists():
                     # Another thread bought it while we waited, and it is of
                     # the species we came to paint: take it.
-                    if not force and same_species(self._sheet_cells(sidecar, cells), cells):
+                    if (not force and same_species(self._sheet_cells(sidecar, cells), cells)
+                            and self._same_branch(sidecar, branch)):
                         return self._read_sheet(png, sidecar, cells, locked=True)
                     # Repaint debounce: two racing repaints (double-click, two
                     # tabs) must not both bill. A sheet younger than 3 minutes
@@ -1660,6 +1790,7 @@ class GeneratedArtProvider(ArtProvider):
                     Image.open(io.BytesIO(png_bytes)).verify()
                 except Exception as exc:
                     self._failed_at[key] = time.time()
+                    self._report(exc)
                     log.warning("day composite failed for %s (%s): %s", day,
                                 getattr(self._model, "name", "?"), exc)
                     # A failed repaint keeps showing the good sheet it meant
@@ -1667,6 +1798,7 @@ class GeneratedArtProvider(ArtProvider):
                     if png.exists():
                         return self._read_sheet(png, sidecar, cells, locked=True)
                     return None
+                self._report(None)
                 model_name = getattr(self._model, "name", "unknown")
                 image_usage = getattr(self._model, "last_usage", None)
                 record_spend("collage", day, model_name, image_usage,
@@ -1680,7 +1812,10 @@ class GeneratedArtProvider(ArtProvider):
                     "quality": getattr(self._model, "quality", None),
                     "usage": {"image": image_usage, "text": None},
                     "cost_usd": estimate_cost_usd(model_name, image_usage),
-                    "prompt_version": PROMPT_VERSION,
+                    "prompt_version": COLLAGE_PROMPT_VERSION,
+                    "branch": branch,
+                    "season": season,
+                    "weather": kind,
                     "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                     "created_ts": round(time.time(), 1),
                     "elapsed_s": round(time.time() - started, 1),
@@ -1748,6 +1883,57 @@ class GeneratedArtProvider(ArtProvider):
             except OSError:
                 pass
             return None
+
+    @staticmethod
+    def _same_branch(sidecar: Path, branch: str) -> bool:
+        """A sheet from before the choice (no `branch`) counts as the one
+        asked for: a deploy never repaints every household's day."""
+        try:
+            painted = json.loads(sidecar.read_text()).get("branch")
+        except (OSError, ValueError, AttributeError):
+            return True
+        return painted is None or painted == branch
+
+    _WEATHER_KEEP_DAYS = 7
+
+    def _day_weather(self, location, when) -> Optional[str]:
+        """The collage day's kind of weather (`weather.kind_of`), asked of the
+        text model's web search at most once per `weather.REASK_S` for a day
+        and kept in `collages/weather.json`; None when it cannot say."""
+        day = when.isoformat()
+        path = paths.collages_dir() / "weather.json"
+        try:
+            kept = json.loads(path.read_text())
+        except (OSError, ValueError):
+            kept = {}
+        if not isinstance(kept, dict):
+            kept = {}
+        hit = kept.get(day)
+        if isinstance(hit, dict) and time.time() - float(hit.get("at") or 0) < weather_mod.REASK_S:
+            return hit.get("kind")
+        search = getattr(self._text_model, "search_json", None)
+        if search is None:
+            return None
+        lat, lon = location
+        try:
+            answer = search(weather_mod.prompt(lat, lon, when))
+        except Exception as exc:  # the season's own look stands
+            log.info("weather for %s failed: %s", day, exc)
+            answer = None
+        usage = getattr(self._text_model, "last_usage", None)
+        model_name = getattr(self._text_model, "name", "unknown")
+        if answer is not None or usage:
+            record_spend("weather", day, model_name, usage,
+                         estimate_text_cost_usd(model_name, usage))
+        kind = weather_mod.kind_from_answer(answer)
+        kept[day] = {"at": round(time.time(), 1), "kind": kind, "answer": answer}
+        for old in sorted(kept)[:-self._WEATHER_KEEP_DAYS]:
+            del kept[old]
+        try:
+            self._write_atomic(path, json.dumps(kept, indent=2).encode())
+        except OSError:
+            pass
+        return kind
 
     @staticmethod
     def _sheet_cells(sidecar: Path, fallback_cells) -> list[CollageCell]:
@@ -1872,9 +2058,11 @@ class GeneratedArtProvider(ArtProvider):
                 Image.open(io.BytesIO(png_bytes)).verify()
             except Exception as exc:
                 self._failed_at[slug] = time.time()
+                self._report(exc)
                 log.warning("generation failed for %s (%s): %s",
                             scientific_name, getattr(self._model, "name", "?"), exc)
                 return False
+            self._report(None)
 
             model_name = getattr(self._model, "name", "unknown")
             image_usage = getattr(self._model, "last_usage", None)

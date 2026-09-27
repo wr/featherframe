@@ -1,0 +1,110 @@
+"""export_dataset.py (W-868, W-875): the open dataset agrees with the folios.
+
+Exported offline (no eBird, BirdNET or Wikidata), which is all the pins need.
+"""
+from __future__ import annotations
+
+import csv
+import importlib.util
+import json
+from pathlib import Path
+
+import pytest
+
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "export_dataset.py"
+
+
+@pytest.fixture(scope="module")
+def ex():
+    spec = importlib.util.spec_from_file_location("export_dataset", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.fixture(scope="module")
+def dataset(ex, tmp_path_factory):
+    plates = tmp_path_factory.mktemp("plates")
+    (plates / "data.json").write_text(json.dumps(
+        [{"plate": n, "name": f"Plate {n}", "download": f"https://example.org/{n}.jpg"} for n in range(1, 436)]))
+    out = tmp_path_factory.mktemp("dataset")
+    ex.export(out, ex.Taxonomy(None), plates)
+    return out
+
+
+def rows(path: Path) -> list[dict]:
+    with open(path, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+def test_every_pin_is_in_the_dataset_and_back(ex, dataset):
+    assert ex.check(dataset) == []
+
+
+def test_every_plate_has_a_row(dataset):
+    assert [int(r["plate"]) for r in rows(dataset / "havell" / "plates.csv")] == list(range(1, 436))
+    gould = {int(r["plate"]) for r in rows(dataset / "gould-europe" / "plates.csv")}
+    assert gould == set(range(1, 450))
+    # Numbered per volume: 36, 104, 97, 104, 92, 82, 85 and 81 plates (W-874).
+    australia = [(r["volume"], int(r["plate"])) for r in rows(dataset / "gould-australia" / "plates.csv")]
+    assert len(australia) == len(set(australia)) == 681
+    assert sum(1 for v, _ in australia if v == "Supp") == 81
+    britain = {(r["volume"], int(r["plate"])) for r in rows(dataset / "gould-britain" / "plates.csv")}
+    assert len(britain) == 367
+    asia = [(r["volume"], int(r["plate"])) for r in rows(dataset / "gould-asia" / "plates.csv")]
+    assert len(asia) == len(set(asia)) == 530      # 76, 75, 78, 72, 83, 75, 71 (W-871)
+
+
+def test_unidentified_plates_keep_a_reason(dataset):
+    for folder in ("havell", "gould-europe", "gould-australia", "gould-britain", "gould-asia"):
+        for r in rows(dataset / folder / "species.csv"):
+            assert r["scientific"] or r["reason"], r
+
+
+def test_the_gull_trap_holds(dataset):
+    """Gould's 'Black-headed Gull' is today's Mediterranean Gull."""
+    sp = {(r["plate"], r["printed_name"]): r for r in rows(dataset / "gould-europe" / "species.csv")}
+    assert sp[("427", "Black-headed Gull")]["scientific"] == "Ichthyaetus melanocephalus"
+    assert sp[("425", "Laughing Gull")]["scientific"] == "Chroicocephalus ridibundus"
+
+
+def test_a_split_sends_each_folio_to_its_own_daughter(ex):
+    assert ex.EBIRD_NAMES_BY_FOLIO[("havell", "Accipiter gentilis")] == "Astur atricapillus"
+    assert ex.EBIRD_NAMES_BY_FOLIO[("gould_europe", "Accipiter gentilis")] == "Astur gentilis"
+
+
+def test_australias_traps_hold(dataset):
+    """Gould's binomial now names another bird: match on the modern name."""
+    sp = {(r["volume"], r["plate"]): r for r in rows(dataset / "gould-australia" / "species.csv")}
+    assert sp[("II", "67")]["scientific"] == "Pachycephala rufiventris"      # Rufous Whistler
+    assert sp[("II", "91")]["scientific"] == "Myiagra cyanoleuca"            # Satin Flycatcher
+    assert sp[("I", "26")]["scientific"] == "Circus approximans"             # Swamp Harrier
+    assert sp[("IV", "98")]["scientific"] == "Cormobates leucophaea"         # White-throated Treecreeper
+    assert sp[("VI", "76")]["scientific"] == "Gallirallus philippensis"      # Buff-banded Rail
+
+
+def test_britains_survey_is_published_as_open(dataset):
+    """Only Britain's pins were read against their captions; the survey's
+    draft is never 'high'."""
+    for r in rows(dataset / "gould-britain" / "species.csv"):
+        if r["caption_checked"] == "yes":
+            assert r["confidence"] == "high"
+        else:
+            assert r["confidence"] in ("medium", "low"), r
+
+
+def test_asias_traps_hold(dataset):
+    """The bird on the plate, never the printed Latin or the survey's guess."""
+    sp = {(r["volume"], r["plate"]): r for r in rows(dataset / "gould-asia" / "species.csv")}
+    assert sp[("I", "35")]["scientific"] == "Merops orientalis"          # printed Merops viridis
+    assert sp[("IV", "32")]["scientific"] == "Saxicola jerdoni"          # not the Pied Bushchat
+    assert sp[("V", "53")]["scientific"] == "Urocissa ornata"            # not a green magpie
+    assert sp[("V", "17")]["form"] == "subspecies"                       # the caniceps goldfinch
+    torquatus = sp[("VII", "39")]
+    assert (torquatus["scientific"], torquatus["form"]) == ("Phasianus colchicus", "subspecies")
+
+
+def test_asias_captions_were_read(dataset):
+    """Every plate but four garbled ones had its engraved caption read."""
+    unread = [r for r in rows(dataset / "gould-asia" / "species.csv") if r["caption_checked"] != "yes"]
+    assert {(r["volume"], r["plate"]) for r in unread} == {("VII", "29"), ("VII", "30"), ("VII", "31"), ("VII", "47")}

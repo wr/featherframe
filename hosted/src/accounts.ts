@@ -2,7 +2,8 @@
 // household; signing up is by invitation. Only hashes of secrets are stored.
 
 import type { Env } from "./index";
-import { checkEmailPage, confirmEmailEmail, inviteEmail, linkExpiredPage, loginPage, signInEmail } from "./pages";
+import { checkEmailPage, confirmEmailEmail, inviteEmail, linkExpiredPage, loginPage, signInEmail, waitlistConfirmEmail,
+         waitlistConfirmedPage, waitlistExpiredPage } from "./pages";
 import { cookie, randomHex, sha256, validTz } from "./util";
 
 const LINK_TTL_S = 15 * 60;
@@ -46,7 +47,7 @@ export async function login(request: Request, env: Env): Promise<Response> {
   if (!email) return loginPage("Enter an email address.");
   const link = await makeLoginLink(env, email, validTz(String(form.get("tz") || "")));
   if (link) await sendMail(env, email, signInEmail(link));
-  else await joinWaitlist(env, email, "login");   // asked to come in: they are waiting
+  else await joinWaitlist(env, email, "login");   // asked to come in: pending, and not emailed
   // The same answer either way: the page does not say who has an account.
   return checkEmailPage(email);
 }
@@ -252,11 +253,76 @@ export async function sessionHousehold(request: Request, env: Env): Promise<stri
 }
 
 // -- the waitlist (W-850) ------------------------------------------------------
+// Double opt-in: an address is pending until the link emailed to it is
+// followed. Only a hash of the link's token is kept.
+export const WAITLIST_TOKEN_TTL_S = 7 * 24 * 60 * 60;
+export const WAITLIST_RESEND_S = 10 * 60;
+export const WAITLIST_PER_IP = 5;        // sign-ups an hour from one IP
+export const WAITLIST_PER_ADDRESS = 5;   // and for one address
+
+/** Join the waitlist, pending, and send no email: an uninvited sign-in attempt. */
 export async function joinWaitlist(env: Env, email: string, source: string): Promise<void> {
   const known = await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first();
   if (known) return;
   await env.DB.prepare("INSERT OR IGNORE INTO waitlist (email, source, created_at) VALUES (?, ?, ?)")
     .bind(email, source, now()).run();
+}
+
+/** A sign-up from the marketing page: store the address as pending and email
+ * it a link to confirm. Says nothing about the address to the caller: a
+ * confirmed, invited or known address is simply not emailed. "limited" when
+ * this IP has signed up too often. */
+export async function signUpWaitlist(env: Env, email: string, ip: string, source = "site"): Promise<"ok" | "limited"> {
+  if (!(await rateHit(env, `waitlist:ip:${await sha256(ip)}`, WAITLIST_PER_IP, 3600))) return "limited";
+  if (!(await rateHit(env, `waitlist:email:${await sha256(email)}`, WAITLIST_PER_ADDRESS, 3600))) return "ok";
+  const known = await env.DB.prepare("SELECT 1 FROM users WHERE email = ? UNION SELECT 1 FROM invites WHERE email = ?")
+    .bind(email, email).first();
+  if (known) return "ok";
+  const t = now();
+  const token = randomHex(32);
+  const hash = await sha256(token);
+  const expires = t + WAITLIST_TOKEN_TTL_S;
+  // New, or still pending and not emailed in the last 10 minutes: one of these
+  // two claims the send, so two quick sign-ups send one email.
+  let claimed = (await env.DB.prepare(
+    `INSERT OR IGNORE INTO waitlist (email, source, created_at, token_hash, token_expires_at, sent_at)
+     VALUES (?, ?, ?, ?, ?, ?)`).bind(email, source, t, hash, expires, t).run()).meta.changes > 0;
+  if (!claimed) {
+    claimed = (await env.DB.prepare(
+      `UPDATE waitlist SET token_hash = ?, token_expires_at = ?, sent_at = ?
+       WHERE email = ? AND confirmed_at IS NULL AND invited_at IS NULL AND (sent_at IS NULL OR sent_at <= ?)`)
+      .bind(hash, expires, t, email, t - WAITLIST_RESEND_S).run()).meta.changes > 0;
+  }
+  if (!claimed) return "ok";
+  const sent = await sendMail(env, email, waitlistConfirmEmail(`https://${env.APP_HOST}/api/waitlist/confirm?t=${token}`));
+  // Not sent: the next sign-up may try again at once.
+  if (!sent) await env.DB.prepare("UPDATE waitlist SET sent_at = NULL WHERE email = ? AND token_hash = ?").bind(email, hash).run();
+  return "ok";
+}
+
+/** The link from the confirmation email: confirmed, and the link used up. */
+export async function confirmWaitlist(env: Env, url: URL): Promise<Response> {
+  const token = url.searchParams.get("t") || "";
+  if (!/^[0-9a-f]{64}$/.test(token)) return waitlistExpiredPage();
+  const r = await env.DB.prepare(
+    `UPDATE waitlist SET confirmed_at = ?, token_hash = NULL, token_expires_at = NULL
+     WHERE token_hash = ? AND token_expires_at > ? AND confirmed_at IS NULL`)
+    .bind(now(), await sha256(token), now()).run();
+  return r.meta.changes > 0 ? waitlistConfirmedPage() : waitlistExpiredPage();
+}
+
+/** Count one more hit on `key`; false (and not counted) once `limit` hits
+ * fall within the last `windowS` seconds. */
+export async function rateHit(env: Env, key: string, limit: number, windowS: number): Promise<boolean> {
+  const t = now();
+  const row = await env.DB.prepare("SELECT count(*) AS n FROM rate_hits WHERE key = ? AND at > ?")
+    .bind(key, t - windowS).first<{ n: number }>();
+  if ((row?.n ?? 0) >= limit) return false;
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO rate_hits (key, at) VALUES (?, ?)").bind(key, t),
+    env.DB.prepare("DELETE FROM rate_hits WHERE at < ?").bind(t - 24 * 60 * 60),
+  ]);
+  return true;
 }
 
 /** Invite someone: they may sign up with this email. Emails them unless told
@@ -283,6 +349,18 @@ export async function resendInvite(env: Env, email: string): Promise<"sent" | "f
   return (await sendMail(env, email, inviteEmail(`https://${env.APP_HOST}/login`))) ? "sent" : "failed";
 }
 
+// -- the audit log (W-863) --------------------------------------------------------
+export async function logAction(env: Env, admin: string, action: string, target: string | null,
+                                ok: boolean, result: string): Promise<void> {
+  try {
+    await env.DB.prepare("INSERT INTO admin_log (at, admin, action, target, ok, result) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(Math.floor(Date.now() / 1000), admin, action, target, ok ? 1 : 0, result).run();
+  } catch (err) {
+    // The action is done either way: a log that cannot be written is said, not thrown.
+    console.error("admin log", action, target, err);
+  }
+}
+
 // -- the admin's side, until there is a page for it ----------------------------
 export async function admin(request: Request, env: Env, path: string): Promise<Response> {
   if (request.method !== "POST" || !env.ADMIN_TOKEN ||
@@ -294,12 +372,14 @@ export async function admin(request: Request, env: Env, path: string): Promise<R
   if (!email) return Response.json({ error: "email" }, { status: 400 });
   if (path === "invite") {
     const sent = await invite(env, email, body.send !== false);
+    await logAction(env, "api", "invite", email, true, sent ? `Invited ${email}.` : `Invited ${email}, no email sent.`);
     return Response.json({ ok: true, invited: email, emailed: sent });
   }
   if (path === "link") {
     // A sign-in link handed to the admin rather than emailed: for support,
     // and for testing without sending anyone mail.
     const link = await makeLoginLink(env, email, null);
+    await logAction(env, "api", "link", email, !!link, link ? `Made a sign-in link for ${email}.` : `${email} is not invited.`);
     return link ? Response.json({ ok: true, link }) : Response.json({ error: "not invited" }, { status: 404 });
   }
   if (path === "adopt") {
@@ -309,6 +389,7 @@ export async function admin(request: Request, env: Env, path: string): Promise<R
     if (!exists) await env.DB.prepare("INSERT INTO households (id, tz, created_at) VALUES (?, 'UTC', ?)").bind(hid, now()).run();
     await env.DB.prepare("INSERT OR REPLACE INTO users (id, email, household_id, created_at) VALUES (?, ?, ?, ?)")
       .bind(randomHex(8), email, hid, now()).run();
+    await logAction(env, "api", "adopt", `${email} (${hid})`, true, `Gave ${hid} the login ${email}.`);
     return Response.json({ ok: true, household: hid, email });
   }
   return new Response("not found", { status: 404 });

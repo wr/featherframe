@@ -95,8 +95,8 @@ def test_outage_clock_starts_on_the_first_unreachable_tick_and_persists(svc):
     # Under the threshold: no alarm yet, but the clock is running.
     assert svc.outage_state(now + timedelta(minutes=30)) is None
     o = svc.outage_state(now + timedelta(hours=3))
-    assert o == {"since": "2026-09-02T15:00:00", "since_text": "3:00 pm",
-                 "hours": 3, "hours_text": "3 h"}
+    assert o == {"since": "2026-09-02T15:00:00", "since_text": "3:00 PM",
+                 "hours": 3, "hours_text": "3 hours"}
 
     # A later unreachable tick does not restart the clock.
     svc._track_source(now + timedelta(hours=1), available=False)
@@ -114,7 +114,7 @@ def test_outage_clock_survives_a_restart(tmp_path, monkeypatch):
     first = FeatherframeService()
     first._track_source(datetime(2026, 9, 2, 15, 0), available=False)
     second = FeatherframeService()
-    assert second.outage_state(datetime(2026, 9, 2, 17, 0))["since_text"] == "3:00 pm"
+    assert second.outage_state(datetime(2026, 9, 2, 17, 0))["since_text"] == "3:00 PM"
 
 
 # -- tick: the footnote -------------------------------------------------------
@@ -214,7 +214,7 @@ def test_status_and_page_carry_the_outage(client, svc):
 # -- the page while the source is down (W-861) ---------------------------------
 def test_outage_length_is_said_the_way_a_person_says_it():
     assert [service_mod._hours_text(h) for h in (0.4, 3, 7.6, 80.3)] == \
-        ["24 min", "3 h", "8 h", "3 days"]
+        ["24 min", "3 hours", "8 hours", "3 days"]
 
 
 def test_a_source_that_goes_down_keeps_what_it_last_said_on_the_page(svc):

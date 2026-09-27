@@ -1,0 +1,449 @@
+volume,leaf,pencil,caption_english,caption_latin,orientation,note
+I,30,,Griffon Vulture,Vultur fulvus (Linn.),portrait,no pencil number visible (expected 1 by sequence with plates 2-4 following)
+I,34,2,Cinereus Vulture,Vultur cinereus (Linn.),portrait,
+I,38,3,Egyptian Neophron,Neophron Percnopterus (Savig.),portrait,
+I,42,4,Bearded Vulture or Lammer Geyer,Gypaetus barbatus (Storr),portrait,
+I,46,5,Imperial Eagle,Aquila Imperialis,portrait,
+I,50,6,Golden Eagle,Aquila chrysaeta (Briss.),portrait,
+I,54,7,Bonelli's Eagle,Aquila Bonelli; Falco ___ (Temm.),portrait,caption has a blank Falco synonym line as engraved
+I,58,8,Spotted Eagle,Aquila naevia (Meyer),portrait,
+I,62,9,Booted Eagle,Aquila pennata (Steph.),portrait,
+I,66,10,Sea Eagle,Haliaetus albicilla (Selby),portrait,
+I,70,11,White Headed Eagle,Haliaetus leucocephalus (Savigny),portrait,
+I,74,12,Osprey,Pandion haliaetus (Savig.),portrait,
+I,78,13,Short-toed Eagle,Circaetus brachydactylus (Vieill.),portrait,
+I,82,14,Common Buzzard,Buteo vulgaris (Bechst.),portrait,
+I,86,15,Rough-legged Buzzard,Buteo Lagopus (Flem.),portrait,
+I,90,16,Honey Buzzard,Pernis apivorus (Cuv.),portrait,
+I,94,17,Goshawk,Astur Palumbarius (Bechst.),portrait,
+I,98,18,Sparrow Hawk,Accipiter fringillarius (Ray); Falco nisus (Linn.),portrait,
+I,102,19,Jer Falcon,Falco Islandicus (Lath.),portrait,
+I,106,20,Lanner Falcon,Falco lanarius (Linn.),portrait,
+I,110,21,Peregrine Falcon,Falco peregrinus (Linn.),portrait,
+I,114,22,Hobby,Falco subbuteo (Linn.),portrait,
+I,118,23,Red Footed Falcon,Falco rufipes (Bechst.),portrait,
+I,122,24,Merlin,Falco aesalon (Temm.),portrait,
+I,126,25,Lead-coloured Falcon,Falco concolor (Temm.),portrait,
+I,130,26,Kestrel,Falco tinnunculus (Linn.),portrait,
+I,134,27,Lesser Kestrel,Falco tinnunculoides (Natter),portrait,
+I,138,28,Kite,Milvus vulgaris (Flem.),portrait,
+I,142,29,Black Kite,Milvus ater,portrait,
+I,146,30,Swallow Tailed Kite,Nauclerus furcatus (Vig.),portrait,
+I,150,31,Black-winged Kite,Elanus melanopterus (Steph.),portrait,
+I,154,32,Marsh Harrier,Circus rufus (Briss.),landscape,
+I,158,33,Hen Harrier,Circus cyaneus (Meyer),landscape,
+I,162,34,Pallid Harrier,Circus pallidus (Sykes),landscape,
+I,166,35,Ash-coloured Harrier,Circus cineraceus (Meyer),landscape,
+I,170,36,Barn Owl,Strix flammea (Linn.),portrait,
+I,174,37,Eagle Owl,Bubo maximus (Sibbald),portrait,
+I,178,38,Eastern Great Horned Owl,Bubo Ascalaphus,portrait,
+I,182,39,Long Eared Owl,Strix otus (Linn.); Otus vulgaris (Flem.),portrait,
+I,186,40,Short-eared Owl,Strix Brachyotos (Linn.); Otus Brachyotos (Cuv.),portrait,
+I,190,41,Scops-eared Owl,Scops Aldrovandi (Will and Ray),portrait,
+I,194,42,Great Cinereous Owl,Strix Lapponica (Retz.); ___ cinerea (Gmel.); Surnia cinerea,portrait,
+I,198,43,Snowy Owl,Strix Nyctea (Linn.); Surnia Nyctea (Dum.),portrait,
+I,202,44,Ural Owl,Surnia Uralensis,portrait,
+I,206,45,Hawk Owl,Surnia funerea (Dumeril.); Strix funerea (Gmel.),portrait,
+I,210,46,Barred Owl,Strix nebulosa (Linn.); Ulula ___ (Cuv.),portrait,
+I,214,47,Tawny or Wood Owl,Strix aluco (Linn.); Surnia ___ (Dum.),portrait,
+I,218,48,Little Owl,Strix nudipes (Nilsson); Noctua nudipes (Mihi),portrait,
+I,222,49,Tengmalm's Owl,Strix Tengmalmi (Gmel.); Noctua Tengmalmi (Selb.),portrait,
+I,226,50,Sparrow Owl,Strix passerina (Linn.); Noctua ___ (Mihi),portrait,
+II,16,51,European Goatsucker,Caprimulgus Europaeus (Linn.),portrait,
+II,20,52,Red-Collared Goatsucker,Caprimulgus ruficollis (Temm.),portrait,
+II,24,53,1. Swift  2. White-Bellied Swift,1. Cypselus murarius (Temm.)  2. Cypselus Alpinus (Temm.),portrait,composite plate
+II,28,54,Chimney Swallow,Hirundo rustica (Linn.),portrait,
+II,32,55,Rufous Swallow,Hirundo rufula (Temm.),portrait,
+II,36,56,Rock Martin,Hirundo rupestris (Linn.),portrait,
+II,40,57,Martin,Hirundo urbica (Linn.),portrait,
+II,44,58,Sand Martin,Hirundo riparia (Linn.),portrait,
+II,48,59,Bee Eater,Merops Apiaster (Linn.),portrait,
+II,52,60,Roller,Coracias garrula (Linn.),portrait,
+II,56,61,Kingfisher,Alcedo ispida (Linn.),portrait,
+II,60,62,Black And White Kingfisher,Alcedo rudis (Linn.),portrait,
+II,64,63,1. Pied Flycatcher  2. White-Collared Flycatcher,1. Muscicapa luctuosa (Temm.)  2. Muscicapa albicollis (Temm.),portrait,composite plate
+II,68,64,Red-Breasted Fly-Catcher,Muscicapa parva (Bechst.),portrait,
+II,72,65,Spotted Flycatcher,Muscicapa grisola (Linn.),portrait,
+II,76,66,Great Shrike,Lanius excubitor (Linn.); Collurio —— (Vig.),portrait,two scientific names given (dual genus/authority line under caption)
+II,80,67,Great Grey Shrike,Lanius meridionalis (Temm.); Collurio —— (Vig.),portrait,two scientific names given (dual genus/authority line under caption)
+II,84,68,Lesser Grey Shrike,Lanius minor (Linn.); Collurio —— (Vig.),portrait,"caption sits higher on page than usual, outside the standard bottom-crop window; two scientific names given"
+II,88,69,Red-Backed Shrike,Lanius collurio (Linn.),portrait,
+II,92,70,Woodchat,Lanius rufus (Briss.),portrait,
+II,96,71,Golden Oriole,Oriolus Galbula (Linn.),portrait,
+II,100,72,Black-Ouzel Or Blackbird,Merula vulgaris (Ray),portrait,
+II,104,73,Ring Ouzel,Merula torquata (Briss.),portrait,
+II,108,74,Migratory Ouzel,Merula migratoria (Swains.),portrait,
+II,112,75,Black-Throated Thrush,Turdus atrogularis (Temm.),portrait,
+II,116,76,Fieldfare,Turdus pilaris (Linn.),portrait,
+II,120,77,Missel Thrush,Turdus viscivorus (Linn.),portrait,
+II,124,78,1. Song Thrush  2. Redwing,1. Turdus musicus (Linn.)  2. Turdus Iliacus (Linn.),portrait,composite plate
+II,128,79,Nauman's Thrush,Turdus Naumannii (Temm.),portrait,
+II,132,80,Pallid Thrush,Turdus pallidus (Pall.),portrait,
+II,136,81,White's Thrush,Turdus Whitei (Eyton),portrait,
+II,140,82,Siberian Thrush,Turdus Sibericus (Pall.),portrait,
+II,144,83,Water Ouzel Or Dipper,Cinclus aquaticus (Bechst.),landscape,caption and pencil read from the right-edge/bottom-left rotated crops
+II,148,84,Black-Bellied Water Ouzel,Cinclus melanogaster (Temm.),portrait,caption sits higher on page than the standard bottom-crop window; confirmed from full leaf image
+II,152,85,Pallas's Water Ouzel,Cinclus Pallasii (Temm.),portrait,
+II,156,86,Rock Thrush,Petrocincla saxatilis (Vig.),portrait,
+II,160,87,Blue Thrush,Petrocincla cyanus (Vig.),portrait,
+II,164,88,Black Wheatear,Saxicola cachinnans (Temm.),portrait,
+II,168,89,Pied Wheatear,Saxicola leucomela (Temm.),portrait,
+II,172,90,Wheatear,Saxicola œnanthe (Bechst.),portrait,
+II,176,91,Russet Wheatear,Saxicola Stapazina (Temm.),portrait,
+II,180,92,Black-Eared Wheat Ear,Saxicola aurita (Temm.),portrait,
+II,184,93,Whinchat,Saxicola rubetra (Bechst.),portrait,
+II,188,94,Stone-Chat,Saxicola rubicola (Bechst.),portrait,
+II,192,95,Redstart,Phœnicura ruticilla (Swains.),portrait,
+II,196,96,Black Redstart,Phœnicura Tithys (Yard & Selby),portrait,authority abbreviation reads as cursive 'Yard' in the plate; likely intends Jardine & Selby but transcribed exactly as engraved
+II,200,97,Blue Throated Warbler,Phœnicura Suecica,portrait,no authority given on plate
+II,204,98,Robin,Erythaca rubecula (Swains.),portrait,
+II,208,99,Alpine Accentor,Accentor Alpinus (Bechst.),portrait,
+II,212,100,Hedge Accentor,Accentor modularis (Cuv.),portrait,
+II,216,101,Mountain Accentor,Accentor montanellus (Cuv.),portrait,
+II,220,102,Reed Locustelle,Locustella fluviatilis,portrait,no authority given on plate
+II,224,103,Brake Locustelle,Locustella avicula (Ray),portrait,
+II,228,104,Willow Locustelle,Locustella luscinoides; Sylvia luscinoides (Savi),portrait,two synonym names given on plate
+II,232,105,Creeping Locustelle,Locustella certhiola,portrait,pencil digits faint
+II,236,106,Great Sedge-Warbler,Salicaria turdoides (Selby),portrait,
+II,240,107,Olive-Tree Salicaria,Salicaria Olivetorum (Strickl.),portrait,
+II,244,108,Reed Warbler,Salicaria arundinacea (Selb.),portrait,
+II,248,109,Marsh Warbler,Salicaria palustris,portrait,no authority given on plate
+II,252,110,Sedge Warbler,Salicaria Phragmitis (Selby),portrait,
+II,256,111,1. Moustached Warbler  2. Aquatic Warbler,1. Salicaria Melanopogon  2. Salicaria aquatica,portrait,composite plate; no authorities given
+II,260,112,Rufous Sedge Warbler,Salicaria galactotes (Mihi),portrait,
+II,264,113,Fantail Warbler,Salicaria Cisticola,portrait,no authority given on plate
+II,268,114,Cetti Warbler,Sylvia Cetti (Marm.),portrait,
+II,272,115,Silky Warbler,Salicaria? sericea; Sylvia sericea (Natt.),portrait,two synonym names given on plate; first genus abbreviation partly illegible
+II,276,116,Nightingale,Philomela luscinia (Swains.),portrait,
+II,280,117,Thrush Nightingale,Philomela turdoides (Blyth.),portrait,
+II,284,118,Gorget Warbler,Calliope Lathamii,portrait,
+II,288,119,Orpheus Warbler,Curruca Orphea (Mihi),portrait,
+II,292,120,Blackcap,Curruca atricapilla (Briss.),portrait,
+II,296,121,Garden Warbler,Curruca hortensis (Bechst.),portrait,"caption sits well above the standard bottom-crop window; pencil digit not clearly legible in any available crop, value inferred from sequence (120, then 122 on next plate)"
+II,300,122,Ruppell's Warbler,Curruca Ruppellii,portrait,no authority given on plate
+II,304,123,Sardinian Warbler,Curruca melanocephala (Bechst.),portrait,
+II,308,124,Sub-Alpine Warbler,Curruca leucopogon (Mihi),portrait,
+II,312,125,1. Common Whitethroat  2. Lesser Whitethroat,1. Curruca cinerea (Bechst.)  2. Curruca garrula (Bechst.),portrait,composite plate
+II,316,126,Spectacle Warbler,Curruca conspicillata,portrait,no authority given on plate
+II,320,127,Marmora's Warbler,Curruca sarda,portrait,no authority given on plate
+II,324,128,Barred Warbler,Curruca nisoria,portrait,no authority given on plate
+II,328,129,Dartford Warbler,Melizophilus provincialis (Leach),portrait,
+II,332,130,Wren,Troglodytes Europæus (Cuv.),portrait,
+II,336,131,1. Willow Wren  2. Chiff Chaff  3. Wood Wren,1. Sylvia trochilus (Gmelin)  2. Sylvia hippolais (Lath.)  3. Sylvia sibilatrix (Bechst.),portrait,composite plate (three birds)
+II,340,132,Melodious Willow Wren,Sylvia Hippolais (Temm.),portrait,
+II,344,133,Yellow Willow Wren,Sylvia Icterina (Vieill.),portrait,
+II,348,134,Natterer's Warbler,Sylvia Nattereri (Temm.),portrait,
+II,352,135,Richard's Pipit,Anthus Richardi (Vieill.),portrait,
+II,356,136,Meadow Pipit,Anthus pratensis (Bechst.),portrait,
+II,360,137,Tawny Pipit,Anthus rufescens (Temm.),portrait,
+II,364,138,Rock Or Shore Pipit,Anthus aquaticus (Bechst.),portrait,
+II,368,139,Tree Pipit,Anthus arboreus (Bechst.),portrait,
+II,372,140,Red-Throated Pipit,Anthus rufogularis (Temm.),portrait,
+II,376,141,Pied Wagtail,Motacilla alba (Linn.),portrait,same binomial (Motacilla alba) also printed for 'White Wagtail' on leaf 384; transcribed exactly as engraved on each plate
+II,380,142,White-Winged Wagtail,Motacilla lugubris (Pall.),portrait,
+II,384,143,White Wagtail,Motacilla alba (Linn.),portrait,same binomial (Motacilla alba) also printed for 'Pied Wagtail' on leaf 376; transcribed exactly as engraved on each plate
+II,388,144,Yellow Headed Wagtail,Motacilla citreola (Pall.),portrait,
+II,392,145,Yellow Wagtail,Motacilla flava (Ray),portrait,
+II,396,146,Grey Headed Wagtail,Motacilla neglecta (Gould),portrait,
+II,400,147,Grey Wagtail,Motacilla Boarula (Linn.),portrait,
+II,404,148,1. Fire Crested Wren  2. Golden Crested Wren,1. Regulus ignicapillus (Brehm.)  2. Regulus vulgaris (Cuv.),portrait,composite plate
+II,408,149,Dalmatian Regulus,Regulus modestus,portrait,no authority given on plate
+III,14,150,Great Tit,Parus Major (Linn.),portrait,
+III,18,151,1. Sombre Tit  2. Siberian Tit,Parus lugubris (Nat.)  Parus Sibericus (Gmel.),portrait,composite plate
+III,22,152,Toupet Tit,Parus bicolor (Linn.),portrait,
+III,26,153,Azure Tit,Parus cyanus (Pall.),portrait,
+III,30,154,Blue Tit,Parus caeruleus (Linn.),portrait,
+III,34,155,1. Cole Tit  2. Marsh Tit,Parus ater (Linn.)  Parus palustris (Linn.),portrait,composite plate; pencil faint but legible
+III,38,156,Crested Tit,Parus cristatus (Linn.),portrait,
+III,42,157,Long-tailed Tit,Parus caudatus (Linn.),portrait,
+III,46,158,Bearded Tit,Parus biarmicus (Linn.)  Calamophilus ___ (Leach),portrait,"second line is a synonym/subgenus attribution, not a second bird"
+III,50,159,Penduline Tit,Aegithalus pendulinus (Boje),portrait,
+III,54,160,Waxen Chatterer,Bombycivora garrula (Temm.),portrait,
+III,58,161,Black Lark,Alauda Tartarica (Pall.),portrait,
+III,62,162,Calandra Lark,Alauda Calandra (Linn.),portrait,"caption/pencil sit higher on the page than usual; contact-sheet crop 1 appeared blank, verified via full leaf image"
+III,66,163,Short-toed Lark,Alauda brachydactyla (Temm.),portrait,
+III,70,164,Shore Lark,Alauda alpestris (Linn.),portrait,
+III,74,165,Crested Lark,Alauda cristata (Linn.),portrait,
+III,78,166,Sky Lark,Alauda arvensis (Linn.),portrait,
+III,82,167,Wood Lark,Alauda arborea (Linn.),portrait,
+III,86,168,Bifasciated Lark,Certhilauda bifasciata  Alauda bifasciata (Licht.),portrait,"two Latin name lines (genus placement note), single bird"
+III,90,169,Lark-heeled Bunting,Plectrophanes lapponica (Selby),portrait,
+III,94,170,Snow Bunting,Plectrophanes nivalis (Meyer),portrait,
+III,98,171,Common Bunting,Emberiza miliaria (Linn.),portrait,
+III,102,172,Black Headed Bunting,Emberiza melanocephala (Scopoli),portrait,
+III,106,173,Yellow Bunting,Emberiza citrinella (Linn.),portrait,
+III,110,174,Yellow-breasted Bunting,Emberiza aureola (Pall.),portrait,
+III,114,175,Cirl Bunting,Emberiza cirlus (Linn.),portrait,
+III,118,176,Ortolan Bunting,Emberiza hortulana (Linn.),portrait,
+III,122,177,Rustic Bunting,Emberiza rustica (Gmel.),portrait,
+III,126,178,Lesbian Bunting,Emberiza Lesbia (Gmel.),portrait,
+III,130,179,Meadow Bunting,Emberiza cia (Linn.),portrait,
+III,134,180,Pine Bunting,Emberiza pithyornus (Pall.),portrait,
+III,138,181,Cretzschmar's Bunting,Emberiza caesia (Cretzschm.),portrait,
+III,142,182,Marsh Bunting,Emberiza palustris (Sav.),portrait,
+III,146,183,Reed Bunting,Emberiza schoeniculus (Linn.),portrait,
+III,150,184,1. House Sparrow  2. Tree Sparrow,Pyrgita domestica (Cuv.)  Pyrgita montana (Cuv.),portrait,composite plate; matches given ground truth (leaf 150 = plate 184)
+III,154,185,1. Spanish Sparrow  2. Alpine Sparrow,Pyrgita Hispaniolensis (Cuv.)  Pyrgita Cisalpina (Cuv.),portrait,composite plate
+III,158,186,Doubtful Sparrow,Pyrgita Petronia,portrait,"no authority given after the Latin name; pencil read upside-down in the crop but legible as 186, consistent with the 184-185-187 sequence"
+III,162,187,Chaffinch,Fringilla Coelebs (Linn.),portrait,
+III,166,188,Mountain or Bramble Finch,Fringilla montifringilla (Linn.),portrait,
+III,170,189,Snow Finch,Fringilla nivalis (Linn.),portrait,
+III,174,190,Winter Finch,Fringilla hyemalis (Linn.),portrait,
+III,178,191,Common or Brown Linnet,Linaria Cannabina (Swains.),portrait,
+III,182,192,Mountain Linnet or Twite,Linaria montana (Ray),portrait,
+III,186,193,Mealy Redpole,Linaria canescens (Mihi),portrait,
+III,190,194,Lesser Redpole,Linaria minor (Ray),portrait,
+III,194,195,Serin Finch,Serinus flavescens,portrait,no authority in parentheses after the Latin name
+III,198,196,Goldfinch,Carduelis elegans (Steph.),portrait,matches given ground truth (leaf 198 = plate 196)
+III,202,197,Siskin or Aberdevine,Carduelis spinus (Steph.),portrait,
+III,206,198,Citril Finch,Carduelis citrinella,portrait,no authority in parentheses after the Latin name
+III,210,199,Hawfinch,Coccothraustes vulgaris (Briss.),portrait,
+III,214,200,Green Grosbeak,Coccothraustes chloris (Flem.),portrait,
+III,218,201,Parrot Crossbill,Loxia pityopsittacus (Bechst.),portrait,
+III,222,202,Common Crossbill,Loxia curvirostra (Linn.),portrait,"pencil written in an unusually looped cursive style but reads 202, consistent with the surrounding sequence"
+III,226,203,White Winged Cross Bill,Loxia leucoptera (Gmell.),portrait,
+III,230,204,Pine Grosbeak,Corythus enucleator (Cuv.),portrait,
+III,234,205,Siberian Grosbeak,Corythus longicauda (Lath.),portrait,
+III,238,206,Scarlet Grosbeak,Erythrospiza erythrina (Bonaparte),portrait,
+III,242,207,Rosy Grosbeak,Erythrospiza rosea,portrait,"pencil extremely faint, could not read the digits directly; inferred from the unbroken 204-205-206-...-208 sequence on either side"
+III,246,208,Vinous Grossbeak,Erythrospiza? githaginea  Pyrrhula githaginea (Temm.),portrait,"two Latin name lines (alternate genus placements), single bird; confirms 207 for leaf 242"
+III,250,209,Bullfinch,Pyrrhula vulgaris (Temm.),portrait,"pencil written in the unusual looped cursive style, fits sequence"
+III,254,210,Starling,Sturnus vulgaris (Linn.),portrait,matches given ground truth (leaf 254 = plate 210)
+III,258,211,Sardinian Starling,Sturnus unicolor (Marm.),portrait,
+III,262,212,Rose Coloured Pastor,Pastor roseus (Temm.),portrait,
+III,266,213,Nutcracker,Nucifraga caryocatactes (Briss.),portrait,
+III,270,214,Jay,Garrulus Glandarius (Briss.),portrait,
+III,274,215,Siberian Jay,Garrulus infaustus (Temm.),portrait,
+III,278,216,Magpie,Pica caudata (Ray),portrait,
+III,282,217,Azure Winged Magpie,Pica cyanea (Wagler),portrait,
+III,286,218,Alpine Chough,Pyrrhocorax Pyrrhocorax,portrait,no authority given after the Latin name
+III,290,219,Chough,Fregilus graculus (Cuv.),portrait,
+III,294,220,Raven,Corvus corax (Linn.),portrait,
+III,298,221,Carrion Crow,Corvus corone (Linn.),portrait,pencil written in the looped cursive style
+III,302,222,Hooded Crow,Corvus cornix (Linn.),portrait,pencil written in the looped cursive style
+III,306,223,Jackdaw,Corvus monedula (Linn.),portrait,pencil written vertically in the looped cursive style
+III,310,224,Rook,Corvus frugilegus (Linn.),portrait,pencil written in the looped cursive style
+III,314,225,Great Black Woodpecker,Picus martius (Linn.),portrait,
+III,318,226,Green Woodpecker,Picus viridis (Linn.),portrait,
+III,322,227,Grey Headed Green Woodpecker,Picus canus (Gmelin),portrait,
+III,326,228,White-rumped Woodpecker,Picus leuconotus (Temm.),portrait,
+III,330,229,Great Spotted Woodpecker,Picus major (Linn.),portrait,pencil written in the looped cursive style
+III,334,230,Middle Spotted Woodpecker,Picus medius (Linn.),portrait,pencil written in the looped cursive style
+III,338,231,Lesser Spotted Woodpecker,Picus minor (Linn.),portrait,
+III,342,232,Three Toed Woodpecker,Picus tridactylus (Linn.),portrait,
+III,346,233,Wry Neck,Yunx torquilla (Linn.),portrait,
+III,350,234,Common Nuthatch,Sitta Europea (Linn.),portrait,
+III,354,235,Dalmatian Nuthatch,Sitta rufescens (Temm.?),portrait,pencil written in the looped cursive style; question mark after authority is engraved on the plate
+III,358,236,Asiatic Nuthatch,Sitta Asiatica (Temm.),portrait,
+III,362,237,Common Creeper,Certhia familiaris (Linn.),portrait,
+III,366,238,Hoopoe,Upupa epops (Linn.),portrait,
+III,370,239,Wall Creeper,Tichodroma phoenicoptera (Temm.),portrait,
+III,374,240,Common Cuckoo,Cuculus canorus (Linn.),portrait,
+III,378,241,Great Spotted Cuckoo,Cuculus glandarius (Linn.),portrait,
+III,382,242,American Cuckoo,Coccyzus Americanus (Bonap.),portrait,
+IV,14,243,Wood Pigeon,Columba palumbus (Linn.),portrait,
+IV,18,244,Stock Dove,Columba oenas (Linn.),portrait,
+IV,22,245,Rock Dove,Columba livia (Linn.),portrait,
+IV,26,246,Turtle Dove,Columba Turtur (Linn.),portrait,
+IV,30,247,Common Pheasant,Phasianus Colchicus (Linn.),landscape,
+IV,34,248,Capercailzie or Cock of the Wood,,landscape,Composite plate (male and female); no Latin binomial printed on plate
+IV,38,249,Hybrid Grouse,Tetrao hybridus (Sparrm.),landscape,pencil number faint
+IV,42,250,Black Grouse,Tetrao Tetrix (Linn.),landscape,pencil number partly cropped/faint
+IV,46,251,Hazel Grous or Gelinotte,Bonasa Europea,landscape,
+IV,50,252,Red Grouse,Lagopus Scoticus (Leach.),landscape,
+IV,54,253,Common Ptarmigan,Lagopus mutus (Leach.),landscape,
+IV,58,254,Rock Ptarmigan,Lagopus rupestris (Leach.),landscape,
+IV,62,255,Willow Ptarmigan,Lagopus Salicetii (Swains.),landscape,
+IV,66,256,Short-toed Ptarmigan,Lagopus brachydactylus; Tetrao ... (Temm.),landscape,"Second line is a synonym citation with a dashed/illegible specific epithet after ""Tetrao"""
+IV,70,257,Sand Grouse,Pterocles arenarius (Temm.),landscape,
+IV,74,258,Pin-tailed Sand Grouse,Pterocles Alchata (Temm.),landscape,
+IV,78,259,European Francolin,Francolinus Vulgaris (Briss.),landscape,
+IV,82,260,Red-legged Partridge,Perdix rubra (Briss.),landscape,
+IV,86,261,Barbary Partridge / Greek Partridge,Perdix petrosa / Perdix saxatilis,landscape,Composite plate showing two species side by side
+IV,90,262,Common Partridge,Perdix cinerea (Lath.),landscape,
+IV,94,263,Quail,Coturnix dactylisonans (Meyer),landscape,
+IV,98,264,Andalusian Turnix,Hemipodius tachydromus (Temm.),landscape,
+IV,102,265,Collared Pratincole,Glareola torquata (Meyer),landscape,
+IV,106,266,Cream Coloured Courser,Cursorius Isabellinus (Meyer),landscape,
+IV,110,267,Great Bustard,Otis tarda (Linn.),landscape,
+IV,114,268,Ruffed Bustard,Otis houbara (Linn.),landscape,
+IV,118,269,Little Bustard,Otis tetrax (Linn.),landscape,
+IV,122,270,Common Crane,Grus cinerea (Bechst.),portrait,
+IV,126,271,White Crane,Grus leucogeranus (Temm.),portrait,
+IV,130,272,Numidian Demoiselle,Anthropoides Virgo (Vieill.),portrait,
+IV,134,273,Common Heron,Ardea cinerea (Lath.),portrait,
+IV,138,274,Purple Heron,Ardea purpurea (Linn.),portrait,
+IV,142,275,Squacco Heron,Ardea comata (Pallas),portrait,
+IV,146,276,Great Egret,Ardea alba (Linn.),landscape,
+IV,150,277,Little Egret,Ardea garzetta (Linn.),landscape,
+IV,154,278,Rufous Backed Egret,Ardea rufisata (Temm.),landscape,"Pencil number not visible in any crop; inferred from sequence (277 before, 279 after)"
+IV,158,279,Common Night Heron,Nycticorax Europaeus (Stephens),landscape,
+IV,162,280,Common Bittern,Botaurus stellaris (Stephens),landscape,
+IV,166,281,Freckled Bittern,Botaurus lentiginosus (Stephens),landscape,
+IV,170,,Little Bittern,Botaurus minutus (Selby),landscape,"Pencil mark present but illegible as a number (looks like a cursive flourish, not digits); expected ~282 by sequence but not confirmed"
+IV,174,283,White Stork,Ciconia alba (Bellon.),portrait,
+IV,178,284,Black Stork,Ciconia nigra (Bellon.),portrait,
+IV,182,285,Maguari Stork,Ciconia Maguari (Temm.),portrait,
+IV,186,286,Spoonbill,Platalea Leucorodia (Linn.),portrait,
+IV,190,287,Flamingo,Phoenicopterus ruber (Linn.),portrait,
+IV,194,288,Thick-kneed Bustard,Oedicnemus crepitans (Temm.),landscape,
+IV,198,289,Long Legged Plover,Himantopus melanopterus (Meyer),portrait,
+IV,202,290,Bastard or Grey Plover,Squatarola cinerea (Gm.),landscape,
+IV,206,291,Lapwing,Vanellus cristatus (Meyer),landscape,
+IV,210,292,Keptuschka Lapwing,Vanellus Keptuschka (Temm.),landscape,
+IV,214,293,Spur-winged Plover,Pluvianus spinosus,landscape,
+IV,218,294,Golden Plover,Charadrius pluvialis (Linn.),landscape,
+IV,222,295,Dottrell,Charadrius Morinellus (Linn.),landscape,
+IV,226,296,Ring Dottrel,Charadrius hiaticula (Linn.),landscape,
+IV,230,297,Little Ring-Dottrel,Charadrius minor (Meyer),landscape,
+IV,234,298,Kentish Plover,Charadrius cantianus (Lath.),landscape,
+IV,238,299,Red-chested Dottrel,Charadrius pyrrhothorax (Temm.),landscape,
+IV,242,300,Oyster Catcher,Haematopus Ostralegus (Linn.),landscape,
+IV,246,301,Glossy Ibis,Ibis Falcinellus (Temm.),landscape,Latin binomial line is cropped by the scan gutter/page edge; partial letters consistent with Ibis Falcinellus (Temm.) but not fully confirmed
+IV,250,302,Common Curlew,Numenius arquata (Lath.),landscape,
+IV,254,303,Whimbrel,Numenius Phaeopus (Lath.),landscape,
+IV,258,304,Slender-billed Curlew,Numenius tenuirostris (Sav.),landscape,
+IV,262,305,Black-tailed Godwit,Limosa melanura (Leisler),landscape,
+IV,266,306,Bar-tailed Godwit,Limosa rufa (Briss.),landscape,
+IV,270,307,Terek Godwit,Limosa Terek (Temm.),landscape,
+IV,274,308,Avocet,Recurvirostra avocetta (Linn.),landscape,
+IV,278,309,Spotted Redshank,Totanus fuscus (Leisl.),landscape,
+IV,282,310,Redshank,Totanus calidris (Bechst.),landscape,
+IV,286,311,Semipalmated Sandpiper,Totanus semipalmatus (Temm.),landscape,
+IV,290,312,Green Shank,Totanus glottis (Bechst.),landscape,
+IV,294,313,Bartram's Sandpiper,Totanus Bartramia (Temm.),landscape,
+IV,298,314,Marsh Sandpiper,Totanus stagnatilis (Bechst.),landscape,
+IV,302,315,Wood Sandpiper / Green Sandpiper,Totanus Glareola (Temm.) / Totanus ochropus (Temm.),landscape,Composite plate showing two species side by side
+IV,306,316,Common Sandpiper,Totanus Hypoleucos (Temm.),landscape,
+IV,310,317,Spotted Sandpiper,Totanus macularius (Temm.),landscape,
+IV,314,318,Turnstone,Strepsilas collaris (Temm.),landscape,
+IV,318,319,Woodcock,Scolopax rusticola (Linn.),landscape,
+IV,322,320,Great Snipe,Scolopax major (Gmel.),landscape,
+IV,326,321,Sabine's Snipe / Common Snipe,Scolopax Sabini (Vigors) / Scolopax Gallinago (Linn.),landscape,"Composite plate showing two species side by side, numbered 1 and 2"
+IV,330,322,Jack Snipe,Scolopax Gallinula (Linn.),landscape,
+IV,334,323,Grey Snipe,Macrorhamphus Griseus (Leach.),landscape,
+IV,338,324,Knot,Calidris canutus,landscape,No author cited in caption
+IV,342,325,Ruff,Machetes pugnax (Cuvier),landscape,
+IV,346,326,Buff-breasted Tringa,Tringa rufescens (Vieill.),landscape,
+IV,350,327,Pectoral Sandpiper,Tringa pectoralis (Bonap.),landscape,
+IV,354,328,Pigmy Curlew,Tringa subarquata (Temm.),landscape,
+IV,358,329,Dunlin or Purre,Tringa variabilis (Meyer),landscape,
+IV,362,330,Schinz's Sandpiper,Tringa Schinzii (Bonap.),landscape,
+IV,366,331,Broad-billed Tringa,Tringa platyrhyncha (Temm.),landscape,
+IV,370,332,Little Sandpiper,Tringa minuta (Leisler),landscape,
+IV,374,333,Temminck's Tringa,Tringa Temminckii (Leisl.),landscape,
+IV,378,334,Purple Sandpiper,Tringa maritima (Brunn.),landscape,
+IV,382,335,Sanderling,Arenaria Calidris (Meyer),landscape,
+IV,386,336,Red-necked Phalarope,Phalaropus Hyperboreus (Lath.),landscape,
+IV,390,337,Grey Phalarope,Phalaropus platyrhynchus (Temm.),landscape,
+IV,394,338,Coot,Fulica ater (Linn.),landscape,
+IV,398,339,Water Rail,Rallus aquaticus (Linn.),landscape,
+IV,402,340,Hyacinthine Porphyrio,Porphyrio hyacinthinus (Temm.),landscape,
+IV,406,341,Land Rail,Gallinula crex (Lath.),landscape,
+IV,410,342,Common Gallinule,Gallinula Chloropus (Lath.),landscape,
+IV,414,343,Spotted Crake,Zapornia Porzana,landscape,No author cited in caption
+IV,418,344,Baillon's Crake,Zapornia Bailloni (Leach),landscape,
+IV,422,345,Little Crake,Zapornia pusilla (Steph.),landscape,
+V,14,346,Snow Goose,Anser hyperboreus (Pall.),landscape,
+V,18,347,Grey Lag Wild Goose,Anser palustris (Flem.),landscape,
+V,22,348,Bean Goose,Anser segetum (Steph.),landscape,
+V,26,349,White-fronted Goose,Anser albifrons (Steph.),landscape,
+V,30,350,Bernicle Goose,Anser leucopsis (Bechst.),landscape,
+V,34,351,Red-breasted Goose,Anser ruficollis (Pall.),landscape,
+V,38,352,Brent Goose,Anser Brenta (Flem.),landscape,
+V,42,353,Egyptian Goose,Chenalopex Ægyptiaca (Steph.),landscape,
+V,46,354,Domestic Swan,Cygnus mansuetus (Gmel.),landscape,matches known ground truth for this volume
+V,50,355,Whistling Swan,Cygnus ferus (Ray.),landscape,
+V,54,356,Bewick's Swan,Cygnus Bewickii (Yarr.),landscape,
+V,58,357,Common Shieldrake,Anas tadorna (Linn.); Tadorna vulpanser (Flem.),landscape,composite plate with two names/authorities
+V,62,358,Ruddy Shieldrake,Tadorna rutila (Steph.); Anas Casarka (Linn.),landscape,composite plate with two names/authorities
+V,66,359,Wigeon,Anas Penelope (Linn.); Mareca Penelope (Selby),landscape,composite plate with two names/authorities
+V,70,360,Shoveller Duck,Anas clypeata (Linn.); Rynchapsis clypeata (Leach),landscape,composite plate with two names/authorities
+V,74,361,Common Wild Duck,Anas Boschas (Linn.),landscape,
+V,78,362,Common Teal,Anas crecca (Linn.); Querquedula crecca (Steph.),landscape,composite plate with two names/authorities
+V,82,363,Bimaculated Teal,Anas glocitans (Pall.); Querquedula glocitans (Vigors),landscape,composite plate with two names/authorities
+V,86,364,Gargany Teal,Anas querquedula (Linn.); Querquedula circia (Steph.),landscape,composite plate with two names/authorities
+V,90,365,Pintail Duck,Anas acuta (Linn.); Dafila caudacuta (Leach),landscape,composite plate with two names/authorities
+V,94,366,Gadwall,Anas strepera (Linn.); Chauliodes strepera (Swains.),landscape,composite plate with two names/authorities
+V,98,367,Red-headed Pochard,Anas ferina (Linn.); Fuligula ferina (Steph.),landscape,composite plate with two names/authorities
+V,102,368,White-eyed or Castaneous Duck,Anas leucopthalmos (Bechst.); Fuligula ___ (Steph.),landscape,"engraved caption itself leaves the Fuligula species epithet blank (printed underscore, not a legibility issue)"
+V,106,369,Red-crested Duck,Anas rufina (Pallas); Fuligula rufina (Steph.),landscape,composite plate with two names/authorities
+V,110,370,Tufted Duck,Anas cristata (Ray); Fuligula cristata (Steph.),landscape,composite plate with two names/authorities
+V,114,371,Scaup Pochard,Fuligula marila (Steph.); Anas marila (Linn.),landscape,composite plate with two names/authorities
+V,118,372,Western Duck,Anas Dispar (Gmel.); Fuligula Dispar (Steph.),landscape,composite plate with two names/authorities
+V,122,373,Marbled Duck,Anas (Fuligula?) marmorata (Temm.),landscape,
+V,126,374,Eider Duck,Anas mollissima (Linn.); Somateria mollissima (Leach),landscape,composite plate with two names/authorities
+V,130,375,King Duck,Anas spectabilis (Linn.); Somateria spectabilis (Leach),landscape,composite plate with two names/authorities
+V,134,376,Surf Scoter,Anas perspicillata (Linn.); Oidemia perspicillata (Flem.),landscape,composite plate with two names/authorities
+V,138,377,Velvet Scoter,Oidemia fusca (Flem.),landscape,
+V,142,378,Black Scoter,Anas nigra (Linn.); Oidemia nigra (Flem.),landscape,composite plate with two names/authorities
+V,146,379,Golden Eye,Anas clangula (Linn.); Clangula vulgaris (Leach),landscape,caption bears a small male (♂) sex symbol above the title
+V,150,380,Barrow's Duck,Clangula Barrovii (Swains. & Rich.),landscape,
+V,154,381,Harlequin Duck,Anas histrionica (Linn.); Clangula ___ (Leach),landscape,engraved caption leaves the Clangula species epithet blank (printed underscore)
+V,158,382,Long Tailed Duck,Anas glacialis (Linn.); Harelda ___ (Leach),landscape,engraved caption leaves the Harelda species epithet blank (printed underscore)
+V,162,383,White-headed Duck,Undina leucocephala (Mihi),landscape,
+V,166,384,Goosander,Mergus Merganser (Linn.),landscape,
+V,170,385,Red Breasted Merganser,Mergus serrator (Meyer),landscape,pencil digits faint/at an angle but consistent with sequence
+V,174,386,Hooded Merganser,Mergus Cucullatus (Linn.),landscape,
+V,178,387,Smew,Mergus albellus (Linn.),landscape,
+V,182,388,Great Crested Grebe,Podiceps cristatus (Lath.),landscape,pencil digits faint/at an angle but consistent with sequence
+V,186,389,Red-necked Grebe,Podiceps rubricollis (Lath.),landscape,
+V,190,390,Horned Grebe,Podiceps cornutus (Lath.),landscape,
+V,194,391,Eared Grebe,Podiceps auritus (Linn.),landscape,
+V,198,392,Little Grebe,Podiceps minor (Linn.),landscape,
+V,202,393,Northern Diver,Colymbus glacialis (Linn.),landscape,
+V,206,394,Black-throated Diver,Colymbus arcticus (Linn.),landscape,
+V,210,395,Red-throated Diver,Colymbus septentrionalis (Linn.),landscape,
+V,214,396,Foolish Guillemot,Uria Troile (Lath.),portrait,
+V,218,397,Bridled Guillemot,Uria lachrymans (Lapyl.),portrait,
+V,222,398,Brunnich's Guillemot,Uria Brunnichii (Sabine),landscape,
+V,226,399,Black Guillemot,Uria grylle (Lath.),portrait,
+V,230,400,Great Auk,Alca impennis (Linn.),landscape,"artwork credited ""E. Lear del."" (Edward Lear)"
+V,234,401,Razor-bill Auk,Alca Torda (Linn.),portrait,
+V,238,402,Little Auk,Alca alle (Linn.); Mergulus alle (Bon.),portrait,composite plate with two names/authorities
+V,242,403,Puffin,Mormon Fratercula (Temm.),portrait,
+V,246,404,Northern Puffin,Mormon glacialis (Leach),portrait,
+V,250,405,Pelican,Pelecanus Onocrotalus (Linn.),landscape,"artwork credited ""E. Lear del."" (Edward Lear)"
+V,254,406,Dalmatian Pelican,Pelecanus crispus (Feld.),landscape,"artwork credited ""E. Lear del."" (Edward Lear)"
+V,258,407,Common Cormorant,,landscape,"Latin binomial could not be found; only ""COMMON CORMORANT."" is legible on the printed caption after extensive close inspection of the full leaf image, no second (italic) line was located near the caption or elsewhere on the page"
+V,262,408,Black Cormorant,Phalacrocorax graculus (Meyer),landscape,
+V,266,409,Little Cormorant,Carbo pygmæus (Temm.),landscape,
+V,270,410,Shag or Green Cormorant,Phalacrocorax cristatus (Steph. Flem.),landscape,
+V,274,411,Desmarest's Cormorant,Phalacrocorax Desmarestii,landscape,"artwork credited ""E. Lear del. et lith."" (Edward Lear)"
+V,278,412,Solan Gannet,Sula Bassana (Briss.),landscape,
+V,282,413,Black-tailed Gannet,Sula melanura (Temm.),landscape,"artwork credited ""E. Lear del. et lith."" (Edward Lear)"
+V,286,414,Caspian Tern,Sterna Caspia (Linn.),landscape,
+V,290,415,Sandwich Tern,Sterna cantiaca (Gmel.),landscape,
+V,294,416,Gull Billed Tern,Sterna Anglica (Montagu),landscape,
+V,298,417,Common Tern,Sterna Hirundo (Linn.),landscape,
+V,302,418,Roseate Tern,Sterna Dougallii (Mont.),landscape,
+V,306,419,Arctic Tern,Sterna Arctica (Temm.),landscape,
+V,310,420,Little Tern,Sterna minuta (Linn.),landscape,
+V,314,421,Noddy Tern,Sterna stolida (Linn.),landscape,
+V,318,422,Black Tern,Sterna nigra (Linn.); Viralva nigra (Leach),landscape,composite plate with two names/authorities
+V,322,423,White-winged Tern,Sterna leucoptera (Linn.); Viralva leucoptera (Leach),landscape,composite plate with two names/authorities
+V,326,424,Moustache Tern,Sterna leucopareia (Natt.); Viralva leucopareia (Steph.),landscape,composite plate with two names/authorities
+V,330,425,Laughing Gull,Xema ridibundus (Boje),landscape,
+V,334,426,Black-winged Gull,Larus atricilla (Linn.),landscape,
+V,338,427,Black Headed Gull,Xema melanocephalus (Boje),landscape,
+V,342,428,Little Gull,Xema minutus (Boje),landscape,
+V,346,429,Sabine's Gull,Xema Sabinii (Leach),landscape,
+V,350,430,Great Black-backed Gull,Larus marinus (Linn.),landscape,"artwork credited ""E. Lear del. et lith."" (Edward Lear)"
+V,354,431,Lesser Black-backed Gull,Larus fuscus (Linn.),landscape,
+V,358,432,Glaucous Gull,Larus glaucus (Brunn.),landscape,"artwork credited ""Edw.d Lear del. et lith."" (Edward Lear)"
+V,362,433,Iceland Gull,Larus Islandicus (Edmonston),landscape,
+V,366,434,Herring Gull,Larus Argentatus (Brunn.),landscape,
+V,370,435,Kittiwake Gull,Larus Rissa (Linn.),landscape,
+V,374,436,Ivory Gull,Larus eburneus (Gmel.),landscape,
+V,378,437,Common Gull,Larus canus (Linn.),landscape,
+V,382,438,Audouin's Gull,Larus Audouinii (Temm.),landscape,"artwork credited ""E. Lear del. et lith."" (Edward Lear)"
+V,386,439,Skua Gull,Lestris catarractes (Temm.),landscape,
+V,390,440,Pomerine Gull,Lestris pomerinus (Temm.),landscape,
+V,394,441,Richardson's Lestris,Lestris Richardsonii (Swains.),landscape,
+V,398,442,Parasitic Gull,Lestris parasiticus (Ill. Temm.),landscape,
+V,402,443,Manks Shearwater,Puffinus Anglorum (Ray),landscape,
+V,406,444,Dusky Shearwater,Puffinus obscurus,landscape,
+V,410,445,Cinereous Shearwater,Puffinus cinereus? (Steph.),landscape,question mark is part of the printed caption (species questioned by Gould)
+V,414,446,Fulmar Petrel,Procellaria glacialis (Linn.),landscape,
+V,418,447,"Fork-tailed Storm-Petrel, Common Storm-Petrel",Thalassidroma Leachii; Thalassidroma pelagica (Selby),landscape,composite plate with two full species (two English names and two Latin names/authorities)
+V,422,448,Bulwer's Petrel,Thalassidroma? Bulwerii,landscape,question mark after genus is part of the printed caption

@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
+from featherframe.app import clock12, stamp
+
 from featherframe import paths
 from featherframe.service import FeatherframeService, frame_card
 from tests._frames import FRAME_ID, add_kit, device, health
@@ -84,7 +86,7 @@ def test_battery_without_percent():
 
 def test_relative_times():
     assert frame_card(_dev(0.5), 15, NOW)["last_seen"] == "just now"
-    assert frame_card(_dev(90), 15, NOW)["last_seen"] == "1 h ago"
+    assert frame_card(_dev(90), 15, NOW)["last_seen"] == "1 hour ago"
     assert frame_card(_dev(60 * 24 * 3), 15, NOW)["last_seen"] == "3 days ago"
 
 
@@ -121,7 +123,7 @@ def test_battery_critical_under_ten_percent():
 
 
 def test_battery_critical_follows_the_panels_hold():
-    # The colour panel's warning is a 30 s full refresh, so its hold starts
+    # The colour panel's warning is a ~15 s full refresh, so its hold starts
     # higher; the banner must not wait for a voltage that frame never reports.
     from featherframe import panels
     dev = _dev(1, battery_voltage=3.52, battery_percent=14)
@@ -147,6 +149,8 @@ def test_firmware_hold_matches_the_panels():
 def _render_page(svc) -> str:
     env = Environment(loader=FileSystemLoader(str(paths.templates_dir())),
                       autoescape=True)
+    env.filters["clock12"] = clock12
+    env.filters["stamp"] = stamp
     return env.get_template("index.html").render(
         status=svc.status(), config=svc.config, version="test", generated=[])
 

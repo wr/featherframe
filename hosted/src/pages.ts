@@ -6,11 +6,13 @@ import { escapeHtml } from "./util";
 
 const STYLE = `
   :root { --bg:#ececea; --surface:#fcfcfb; --ink:#201e1a; --ink-2:#474540; --muted:#827e76;
-    --border:#e6e4dd; --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e;
+    --border:#e6e4dd; --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e; --good:#5c8a46;
+    --sh-card:0 1px 2px rgba(74,54,28,.045), 0 4px 12px rgba(74,54,28,.05);
     color-scheme:light; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
     --bg:#171614; --surface:#211f1c; --ink:#ecebe7; --ink-2:#c9c6bf; --muted:#8f8b83;
-    --border:#34312c; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); color-scheme:dark; } }
+    --border:#34312c; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); --bad:#d9705a; --good:#7fae66;
+    --sh-card:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28); color-scheme:dark; } }
   @font-face { font-family:"Featherframe Script"; src:url("/_ff/script.ttf") format("truetype"); font-display:swap; }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
@@ -61,6 +63,21 @@ const STYLE = `
   .h-more input { flex:1 1 180px; font:inherit; font-size:13px; padding:6px 10px; border:1px solid var(--border);
     border-radius:8px; background:var(--bg); color:var(--ink); }
   .btn.danger { background:var(--bad); color:#fff; }
+  /* The page's toast (W-863): the Featherframe page's own flash, pinned to the
+     top of the viewport and gone after five seconds. */
+  .toast { position:fixed; top:16px; left:50%; z-index:40; display:flex; align-items:flex-start; gap:9px;
+    width:max-content; max-width:min(560px, calc(100vw - 32px)); padding:9px 12px; border-radius:8px;
+    font-size:13px; line-height:1.45; border:1px solid var(--border); color:var(--ink); box-shadow:var(--sh-card);
+    transform:translateX(-50%); animation:toast-in .3s cubic-bezier(.2,.7,.2,1);
+    transition:opacity .3s, transform .3s; }
+  .toast.ok { background:color-mix(in srgb, var(--good) 12%, var(--surface)); border-color:color-mix(in srgb, var(--good) 32%, var(--border)); }
+  .toast.bad { background:color-mix(in srgb, var(--bad) 11%, var(--surface)); border-color:color-mix(in srgb, var(--bad) 30%, var(--border)); }
+  .toast svg { flex:none; width:18px; height:18px; margin-top:1px; }
+  .toast.ok svg { color:var(--good); } .toast.bad svg { color:var(--bad); }
+  .toast.gone { opacity:0; transform:translate(-50%, -120%); }
+  @keyframes toast-in { from { transform:translate(-50%, -120%); opacity:0; } to { transform:translate(-50%, 0); opacity:1; } }
+  @media (prefers-reduced-motion:reduce) { .toast { animation:none; transition:none; } }
+  .log-bad { color:var(--bad); }
   .usage { padding:0 20px 18px; }
   .usage-total { display:flex; gap:24px; flex-wrap:wrap; margin:0 0 14px; }
   .usage-total div { font-size:13px; color:var(--muted); }
@@ -87,17 +104,52 @@ function shell(title: string, main: string): Response {
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
-export function waitlistThanksPage(email: string, error = ""): Response {
-  return error
-    ? page("Waitlist · Featherframe", `<h1>Join the waitlist</h1><p class="bad">${escapeHtml(error)}</p>
-        <p><a href="https://featherframe.app">Back</a></p>`)
-    : page("You're on the list · Featherframe", `<h1>You're on the list</h1>
-        <p>We'll email ${escapeHtml(email)} when there's news.</p><p><a href="https://featherframe.app">Back</a></p>`);
+/** The marketing page's form, answered without its script: the same page for
+ * every address, new, pending or confirmed. */
+export function waitlistThanksPage(error = "", status = 400): Response {
+  if (error) {
+    const res = page("Featherframe updates", `<h1>Featherframe updates</h1><p class="bad">${escapeHtml(error)}</p>
+        <p><a href="https://featherframe.app">Back</a></p>`);
+    return new Response(res.body, { status, headers: res.headers });
+  }
+  return page("Check your email · Featherframe", `<h1>Almost there</h1>
+        <p>Check your email for a link to confirm.</p><p><a href="https://featherframe.app">Back</a></p>`);
+}
+
+export function waitlistConfirmedPage(): Response {
+  return page("You're on the list · Featherframe", `<h1>You're on the list</h1>
+    <p>I'll write once, when the frames have shipped.</p><p><a href="https://featherframe.app">Back to Featherframe</a></p>`);
+}
+
+export function waitlistExpiredPage(): Response {
+  return page("Link expired · Featherframe", `<h1>That link has expired</h1>
+    <p>Sign up again at <a href="https://featherframe.app">featherframe.app</a>.</p>`);
+}
+
+export function waitlistConfirmEmail(link: string): { subject: string; text: string; html: string } {
+  const l = escapeHtml(link);
+  return {
+    subject: "Confirm your Featherframe updates",
+    text: `Someone asked for Featherframe updates at this address. To confirm it was you, open this link:
+
+${link}
+
+I'll write once, when the frames have shipped.
+
+If it wasn't you, ignore this email and you won't hear from me again. The link works for 7 days.
+
+Wells`,
+    html: `<p>Someone asked for Featherframe updates at this address. To confirm it was you:</p>
+<p><a href="${l}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#6b4a2c;color:#f7efe2;font-weight:600;text-decoration:none">Confirm</a></p>
+<p>I'll write once, when the frames have shipped.</p>
+<p style="color:#827e76">If it wasn't you, ignore this email and you won't hear from me again. The link works for 7 days.</p>
+<p>Wells</p>`,
+  };
 }
 
 // -- the admin page (W-850) -------------------------------------------------------
 export type AdminData = {
-  waitlist: { email: string; source: string | null; created_at: number; invited_at: number | null }[];
+  waitlist: { email: string; source: string | null; created_at: number; invited_at: number | null; confirmed_at: number | null }[];
   invites: { email: string; created_at: number; used_at: number | null }[];
   households: {
     id: string; created_at: number; email: string | null; paired: number;
@@ -107,7 +159,23 @@ export type AdminData = {
     last_wake: number | null; source: string | null;
   }[];
   usage: Usage;
+  log: { at: number; admin: string; action: string; target: string | null; ok: number; result: string }[];
 };
+
+export type Toast = { ok: boolean; message: string };
+
+const TOAST_ICONS = {
+  ok: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`,
+  bad: `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.9 15 14.4H1L8 1.9Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.75" r=".9" fill="currentColor"/></svg>`,
+};
+
+function toastHtml(t: Toast | null): string {
+  if (!t) return "";
+  return `<div class="toast ${t.ok ? "ok" : "bad"}" id="toast" role="status" aria-live="polite">
+    ${t.ok ? TOAST_ICONS.ok : TOAST_ICONS.bad}<span>${escapeHtml(t.message)}</span></div>
+    <script>setTimeout(function(){var t=document.getElementById("toast");if(t){t.classList.add("gone");
+      setTimeout(function(){t.remove()},400)}},5000)</script>`;
+}
 
 /** 1.2M, 340k, 12.5, 0.03 */
 function qty(n: number): string {
@@ -167,16 +235,22 @@ function minutes(ms: number): string {
   return m < 1 ? "<1 min" : m < 90 ? `${Math.round(m)} min` : `${(m / 60).toFixed(1)} h`;
 }
 
-export function adminPage(d: AdminData, message: string, actingAs = false): Response {
+export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): Response {
   const e = escapeHtml;
-  const waiting = d.waitlist.length ? `<table><thead><tr><th>Email</th><th></th><th>From</th><th>Asked</th></tr></thead><tbody>
-    ${d.waitlist.map((w) => `<tr><td>${e(w.email)}</td>
+  // Confirmed addresses are the list; pending ones have not followed their
+  // link yet (or tried to sign in uninvited) and are counted apart.
+  const confirmed = d.waitlist.filter((w) => w.confirmed_at);
+  const unconfirmed = d.waitlist.filter((w) => !w.confirmed_at);
+  const waitRows = (rows: AdminData["waitlist"]) => rows.map((w) => `<tr><td>${e(w.email)}</td>
       <td><div class="row-actions">
         <form method="post" action="/admin/waitlist/remove"><input type="hidden" name="email" value="${e(w.email)}"><button class="btn plain" type="submit">Remove</button></form>
         <form method="post" action="/admin/invite"><input type="hidden" name="email" value="${e(w.email)}"><input type="hidden" name="send" value="1"><button class="btn" type="submit">Invite</button></form>
       </div></td>
-      <td class="muted">${w.source === "login" ? "Sign-in" : "Website"}</td><td class="num muted">${ago(w.created_at * 1000)}</td></tr>`).join("")}
-    </tbody></table>` : `<p class="empty">Nobody is waiting.</p>`;
+      <td class="muted">${w.source === "login" ? "Sign-in" : "Website"}</td><td class="num muted">${ago(w.created_at * 1000)}</td></tr>`).join("");
+  const waiting = (confirmed.length ? `<table><thead><tr><th>Confirmed</th><th></th><th>From</th><th>Asked</th></tr></thead><tbody>
+    ${waitRows(confirmed)}</tbody></table>` : `<p class="empty">Nobody is waiting.</p>`)
+    + (unconfirmed.length ? `<table><thead><tr><th>Pending · ${unconfirmed.length}</th><th></th><th>From</th><th>Asked</th></tr></thead><tbody>
+    ${waitRows(unconfirmed)}</tbody></table>` : "");
 
   const pending = d.invites.filter((i) => !i.used_at);
   const invites = `<form class="invite" method="post" action="/admin/invite">
@@ -220,14 +294,22 @@ export function adminPage(d: AdminData, message: string, actingAs = false): Resp
     }).join("")}
     </tbody></table>` : `<p class="empty">No households yet.</p>`;
 
+  const log = d.log.length ? `<table><thead><tr><th>Action</th><th>By</th><th>When</th></tr></thead><tbody>
+    ${d.log.map((l) => `<tr><td><span class="${l.ok ? "" : "log-bad"}">${e(l.result)}</span><br>
+        <span class="muted">${e(l.action)}${l.target ? ` · ${e(l.target)}` : ""}</span></td>
+      <td class="muted">${e(l.admin)}</td>
+      <td class="num muted" title="${new Date(l.at * 1000).toISOString()}">${ago(l.at * 1000)}</td></tr>`).join("")}
+    </tbody></table>` : `<p class="empty">Nothing yet.</p>`;
+
   return shell("Admin · Featherframe", `<main class="wide"><p class="wordmark">Featherframe</p>
-    ${message ? `<p class="note">${e(message)}</p>` : ""}
+    ${toastHtml(toast)}
     ${actingAs ? `<form class="note" method="post" action="/admin/as/stop" style="display:flex;gap:12px;align-items:center;justify-content:space-between">
       <span>You are logged in as a household.</span><button class="btn" type="submit">Stop</button></form>` : ""}
     <div class="card"><h2 class="sec-head">Cloudflare usage</h2>${usageCard(d.usage)}</div>
-    <div class="card"><h2 class="sec-head">Waitlist · ${d.waitlist.length}</h2>${waiting}</div>
+    <div class="card"><h2 class="sec-head">Waitlist · ${confirmed.length}</h2>${waiting}</div>
     <div class="card"><h2 class="sec-head">Invite</h2>${invites}</div>
     <div class="card"><h2 class="sec-head">Households · ${d.households.length}</h2>${households}</div>
+    <div class="card"><h2 class="sec-head">Audit log</h2>${log}</div>
   </main>`);
 }
 

@@ -78,7 +78,7 @@ def render_status(info: StatusInfo, now: Optional[datetime] = None) -> Image.Ima
     rows = [
         ("Battery", _battery_words(info)),
         ("Wi-Fi", _wifi_words(info.wifi_rssi)),
-        ("Last bird", last_bird),
+        ("Last detection", last_bird),
         ("Species today", str(info.species_today)),
         ("Species all time", str(info.species_all_time)),
         ("Checks in every", f"{info.wake_minutes} minutes"),

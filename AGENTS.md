@@ -16,6 +16,7 @@ Linear, reports. Use its lexicon. Write every user-facing string yourself,
 verbatim, in any subagent brief. `server/scripts/check_copy.py` checks the
 mechanical rules (`make test` runs it on the webapp; pass `--wiki DIR` before
 pushing the wiki).
+Link owners to help through `featherframe.app/help/<topic>` (`site/src/help.json`), never to the wiki directly (docs/STYLE.md).
 
 ## What this is
 

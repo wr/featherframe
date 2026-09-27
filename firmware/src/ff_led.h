@@ -12,13 +12,16 @@
 
 enum LedState : uint8_t {
   LED_OFF,         // normal running: nothing to say
-  LED_BOOT,        // power-on / restarting, until the first answer
-  LED_WIFI_SETUP,  // the setup portal is open (Wi-Fi pairing)
+  LED_BOOT,        // power-on / restarting, until Wi-Fi joins
+  LED_WIFI_SETUP,  // the setup portal is open, no one on its hotspot
+  LED_WIFI_PHONE,  // a phone or computer is on the hotspot
+  LED_WIFI_JOINING,// a network was chosen: joining it
+  LED_CONNECTED,   // on Wi-Fi: asking the server, fetching the picture
   LED_PAIRING,     // waiting to be added: a pairing code, or "Add this frame"
   LED_UPDATING,    // a firmware image is being written
   LED_NO_WIFI,     // the saved network cannot be joined
   LED_NO_SERVER,   // on Wi-Fi, but the server does not answer
-  LED_PAIRED,      // connected: a short green, then off
+  LED_PAIRED,      // the server answered: a short green, then off
 };
 
 void ledBegin();              // first thing in setup(): starts the animation task

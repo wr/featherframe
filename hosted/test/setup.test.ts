@@ -25,7 +25,7 @@ function d1(db: DatabaseSync) {
 }
 
 const MIGRATIONS = new URL("../migrations/", import.meta.url);
-const HOST = "app.featherframe.app";
+const HOST = "cloud.featherframe.app";
 const NOW = Math.floor(Date.now() / 1000);
 let db: DatabaseSync;
 let env: any;
@@ -248,6 +248,22 @@ describe("codes", () => {
   it("spells the setup URL in lower case", () => {
     const t = setupToken();
     expect(t).toMatch(/^[0-9a-z]{12}$/);
-    expect(setupUrl(HOST, "ABCDEF", t)).toBe(`https://app.featherframe.app/setup/abcdef/${t}`);
+    expect(setupUrl(HOST, "ABCDEF", t)).toBe(`https://cloud.featherframe.app/setup/abcdef/${t}`);
+  });
+});
+
+describe("rate limits", () => {
+  it("puts sign-in, setup and pairing on the strict limiter, frames on their own", async () => {
+    const { limiterFor } = await import("../src/ratelimit");
+    const r = (path: string, method = "GET", headers: Record<string, string> = {}) =>
+      limiterFor(new Request(`https://${HOST}${path}`, { method, headers: { "CF-Connecting-IP": "198.51.100.7", ...headers } }),
+                 new URL(`https://${HOST}${path}`), (p) => /^\/api\/frame/.test(p));
+    expect(r("/login", "POST").name).toBe("RL_AUTH");
+    expect(r("/login").name).toBe("RL_PAGE");
+    expect(r("/auth?t=x").name).toBe("RL_AUTH");
+    expect(r("/setup/abcdef/0123456789ab", "POST").name).toBe("RL_AUTH");
+    expect(r("/api/pair", "POST").name).toBe("RL_AUTH");
+    expect(r("/api/frame", "GET", { "X-Device-Id": "AABBCC" })).toEqual({ name: "RL_FRAME", key: "frame:AABBCC" });
+    expect(r("/").name).toBe("RL_PAGE");
   });
 });

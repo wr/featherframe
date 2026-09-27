@@ -420,7 +420,7 @@ def test_the_pairing_screen_carries_the_setup_qr():
     under the wordmark, the code beside it, at whole-pixel modules."""
     import segno
     from featherframe.render import welcome
-    url = "https://app.featherframe.app/setup/abcdef/0123456789ab"
+    url = "https://cloud.featherframe.app/setup/abcdef/0123456789ab"
     plain = welcome.render_pairing("ABC-DEF")
     scan = welcome.render_pairing("ABC-DEF", url=url)
     qr = welcome.setup_qr(url)
@@ -435,6 +435,7 @@ def test_the_pairing_screen_carries_the_setup_qr():
     sampled = [[qr.getpixel((c * m + m // 2, r * m + m // 2)) == 0 for c in range(len(rows))]
                for r in range(len(rows))]
     assert sampled == [[bool(v) for v in r] for r in rows]
-    assert qr.width >= 280          # ~31 mm or more on the EE03's glass
-    # Clear of the 4 % mat at the bottom.
-    assert y + qr.height < 1872 * 0.96
+    assert qr.width >= 400          # ~45 mm or more on the EE03's glass
+    # Its modules clear of the 4 % mat (the white quiet zone may run under it).
+    quiet = 4 * m
+    assert y + qr.height - quiet < 1872 * 0.96 and x + quiet > 1404 * 0.04

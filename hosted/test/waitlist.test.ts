@@ -33,7 +33,7 @@ beforeEach(() => {
   for (const f of readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort()) {
     db.exec(readFileSync(new URL(f, MIGRATIONS), "utf8"));
   }
-  env = { DB: d1(db), ZONE: "featherframe.app", APP_HOST: "app.featherframe.app",
+  env = { DB: d1(db), ZONE: "featherframe.app", APP_HOST: "cloud.featherframe.app",
           MAIL_FROM: "Featherframe <hello@featherframe.app>", RESEND_API_KEY: "re_test" };
   mails = [];
   vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
@@ -48,7 +48,7 @@ afterEach(() => {
 });
 
 const signUp = (email: string, { ip = "203.0.113.1", form = false } = {}) => waitlistRoute(new Request(
-  "https://app.featherframe.app/api/waitlist", form
+  "https://cloud.featherframe.app/api/waitlist", form
     ? { method: "POST", body: new URLSearchParams({ email }), headers: { "CF-Connecting-IP": ip, Origin: "https://featherframe.app" } }
     : { method: "POST", body: JSON.stringify({ email }),
         headers: { "Content-Type": "application/json", "CF-Connecting-IP": ip, Origin: "https://featherframe.app" } }), env);
@@ -159,14 +159,14 @@ describe("confirming", () => {
   });
 
   it("an unknown token is an expired link", async () => {
-    const res = await confirmWaitlist(env, new URL("https://app.featherframe.app/api/waitlist/confirm?t=nope"));
+    const res = await confirmWaitlist(env, new URL("https://cloud.featherframe.app/api/waitlist/confirm?t=nope"));
     expect(await res.text()).toContain("That link has expired");
   });
 });
 
 describe("an uninvited sign-in", () => {
   it("joins pending and is not emailed", async () => {
-    await login(new Request("https://app.featherframe.app/login",
+    await login(new Request("https://cloud.featherframe.app/login",
       { method: "POST", body: new URLSearchParams({ email: "k@example.com" }) }), env);
     expect(row("k@example.com")).toMatchObject({ source: "login", confirmed_at: null });
     expect(mails).toHaveLength(0);
@@ -197,12 +197,12 @@ describe("the migration", () => {
 
 describe("httpsRedirect", () => {
   it("sends plain http to https with a 301, path and query kept", () => {
-    const res = httpsRedirect(new URL("http://app.featherframe.app/api/frame?x=1"))!;
+    const res = httpsRedirect(new URL("http://cloud.featherframe.app/api/frame?x=1"))!;
     expect(res.status).toBe(301);
-    expect(res.headers.get("Location")).toBe("https://app.featherframe.app/api/frame?x=1");
+    expect(res.headers.get("Location")).toBe("https://cloud.featherframe.app/api/frame?x=1");
   });
   it("leaves https and local dev alone", () => {
-    expect(httpsRedirect(new URL("https://app.featherframe.app/"))).toBeNull();
+    expect(httpsRedirect(new URL("https://cloud.featherframe.app/"))).toBeNull();
     expect(httpsRedirect(new URL("http://localhost:8787/"))).toBeNull();
   });
 });

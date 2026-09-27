@@ -9,7 +9,7 @@
     { "type": "Text", "globs": ["**/*.html"], "fallthrough": true },
     { "type": "Data", "globs": ["**/*.png"], "fallthrough": true }
   ],
-  "vars": { "ZONE": "featherframe.app", "APP_HOST": "app.featherframe.app",
+  "vars": { "ZONE": "featherframe.app", "APP_HOST": "cloud.featherframe.app",
             "MAIL_FROM": "Featherframe <hello@featherframe.app>",
             "CF_ACCOUNT_ID": "96c0e05116fa5c56742cced99c0daf2f" },
   "d1_databases": [
@@ -18,7 +18,10 @@
   ],
   // The app and every frame: one host (W-845). The apex is the marketing page
   // and is not routed; plates. is the R2 bucket's own custom domain.
-  "routes": [{ "pattern": "app.featherframe.app", "custom_domain": true }],
+  // app. (the host before W-890) answers frames only, for the two kits that
+  // have it stored; drop it once they are pointed at cloud.
+  "routes": [{ "pattern": "cloud.featherframe.app", "custom_domain": true },
+             { "pattern": "app.featherframe.app", "custom_domain": true }],
   "r2_buckets": [
     { "binding": "DATA", "bucket_name": "featherframe-households" },
     { "binding": "PLATES", "bucket_name": "featherframe-plates" }
@@ -27,7 +30,8 @@
     "bindings": [
       { "name": "HOUSEHOLD", "class_name": "Household" },
       { "name": "SERVER", "class_name": "HouseholdServer" },
-      { "name": "LOBBY", "class_name": "Lobby" }
+      { "name": "LOBBY", "class_name": "Lobby" },
+      { "name": "LIMITER", "class_name": "Limiter" }
     ]
   },
   "containers": [
@@ -48,7 +52,16 @@
   ],
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Household", "HouseholdServer"] },
-    { "tag": "v2", "new_sqlite_classes": ["Lobby"] }
+    { "tag": "v2", "new_sqlite_classes": ["Lobby"] },
+    { "tag": "v3", "new_sqlite_classes": ["Limiter"] }
+  ],
+  // Burst limits (W-890), Cloudflare's own and free: per location, over a
+  // minute, keyed per IP (or per frame); permissive by design, so sign-in and
+  // setup are counted exactly by the Limiter object instead (limiter.ts).
+  // The D1 counters in accounts.ts keep the hourly ones.
+  "ratelimits": [
+    { "name": "RL_PAGE", "namespace_id": "8902", "simple": { "limit": 300, "period": 60 } },
+    { "name": "RL_FRAME", "namespace_id": "8903", "simple": { "limit": 60, "period": 60 } }
   ],
   "observability": { "enabled": true }
 }

@@ -54,7 +54,7 @@ You don't need the kit if you have a TRMNL, an e-reader, or a tablet. See [Other
 
 Choose one:
 
-- **Hosted.** Join the waitlist at [featherframe.app](https://featherframe.app). You'll get an invitation by email. There's nothing to install.
+- **Featherframe Cloud.** Join the waitlist at [featherframe.app](https://featherframe.app). You'll get an invitation by email. There's nothing to install.
 - **On your BirdNET device.** Run these commands on the device that runs BirdNET-Pi or BirdNET-Go:
 
   ```bash
@@ -75,8 +75,8 @@ Choose one:
 
 ### 3. Add the frame
 
-- **Hosted:** The frame shows a six-letter code. In your Featherframe webapp, click **⋯**, then **Pair a frame**, and enter the code.
-- **On your BirdNET device:** In your Featherframe webapp, click **Add** next to the new frame.
+- **Featherframe Cloud:** The frame shows a QR code. Scan it with your phone to set the frame up, or, signed in to the Featherframe webapp, click **⋯**, then **Pair a frame**, and enter the six-letter code.
+- **Self-hosted:** In your Featherframe webapp, click **Add** next to the new frame.
 
 The frame shows a picture the next time your detector identifies a bird.
 

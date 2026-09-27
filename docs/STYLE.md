@@ -73,8 +73,9 @@ Use the left column. The right column is what not to say.
 | detection source | Where detections come from: BirdWeather, BirdNET-Pi, BirdNET-Go. | feed, integration |
 | detector | The software that listens (BirdNET-Pi, BirdNET-Go). | |
 | Region | Which book is asked first. | edition, pack |
-| server | What draws the pictures, hosted or on your BirdNET device. | backend, box, container |
-| hosted | Featherframe run for you at app.featherframe.app. | cloud, SaaS |
+| server | What draws the pictures: Featherframe Cloud, or self-hosted on your own machine. | backend, box, container |
+| Featherframe Cloud | Featherframe run for you at cloud.featherframe.app. "Cloud" alone is fine once it is clear. | hosted, SaaS, the cloud app |
+| self-hosted | Featherframe run on your own machine (a BirdNET device, a NAS). | local, on-prem |
 | check in | A frame asking the server for its picture. "Last checked in 5 min ago." | poll, fetch, ping |
 | Add, Ignore, Forget, Remove, Pair a frame | The frame list's actions. | approve, reject, replace, claim, adopt |
 | Refresh, Repaint, Manual override | The illustration's tools. | rerender, force, test detection |

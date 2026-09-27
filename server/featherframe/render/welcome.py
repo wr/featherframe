@@ -31,7 +31,7 @@ SOURCE_UP_HINT = "The first detection will appear here"
 WAITING_LINE = "ADD THIS FRAME ON THE FEATHERFRAME WEBAPP"
 _WAITING_SIZE = 40
 _WAITING_ID_SIZE = 28
-PAIRING_LINE = "PAIR THIS FRAME AT APP.FEATHERFRAME.APP"
+PAIRING_LINE = "PAIR THIS FRAME AT CLOUD.FEATHERFRAME.APP"
 # The pairing screen is the kit's boot screen (bake_screens.py): the bough,
 # the wordmark on its baseline, and the code where the splash sets its
 # version and the boot screens rest their pills.
@@ -43,15 +43,19 @@ _PAIRING_LINE_SIZE = 24
 _EXPIRES_BASELINE = 1806
 # With a setup URL (W-888, W-889) the pairing screen is a row under the
 # wordmark: the QR on the left, the code and its lines beside it, set left.
-# Whole-pixel QR modules on the EE03 (9 px), quiet zone included; ~41 mm
-# across there, ~50 mm on the EE02.
+# Whole-pixel QR modules on the EE03 (10 px), quiet zone included; ~46 mm
+# across there, ~55 mm on the EE02.
 SETUP_LINE = "SCAN WITH YOUR PHONE TO SET UP"
-SETUP_OR_LINE = "OR PAIR IT AT APP.FEATHERFRAME.APP"
-_QR_MODULE_PX = 9
-_ROW_WORDMARK_BASELINE = 1345
-_ROW_TOP = 1400
-_ROW_GAP = 48
-_ROW_LINE_SIZE = 30
+SETUP_OR_LINE = "OR PAIR IT AT CLOUD.FEATHERFRAME.APP"
+_QR_MODULE_PX = 10
+_ROW_WORDMARK_BASELINE = 1290
+_ROW_WORDMARK_SIZE = 104
+# The bough sits this much higher on this screen, for the row's room; its
+# highest twig stays inside the 4 % mat.
+_ROW_BOUGH_LIFT = 45
+_ROW_TOP = 1395
+_ROW_GAP = 40
+_ROW_LINE_SIZE = 28
 _ROW_CODE_SIZE = 112
 
 
@@ -116,8 +120,7 @@ def setup_qr_origin(code: str, expires: str, url: str) -> tuple:
 def _setup_row(type_: Image.Image, code: str, expires: str, url: str) -> None:
     """The wordmark, then the QR with the code and its lines beside it."""
     typography.draw_script(type_, theme.WIDTH / 2, _ROW_WORDMARK_BASELINE, "Featherframe",
-                           typography.fit_script_title("Featherframe", theme.CONTENT_W),
-                           theme.INK, stroke=theme.TITLE_STROKE)
+                           _ROW_WORDMARK_SIZE, theme.INK, stroke=theme.TITLE_STROKE)
     qr = setup_qr(url)
     draw = ImageDraw.Draw(type_)
     lines = _setup_lines(code, expires)
@@ -162,7 +165,7 @@ def render_pairing(code: str, color: bool = False, expires: str = "",
                                      _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
     mode, name = ("RGB", "bough_color.png") if color else ("L", "bough.png")
     art = Image.new(mode, type_.size, "white")
-    art.paste(Image.open(paths.art_dir() / name).convert(mode), (0, 0))
+    art.paste(Image.open(paths.art_dir() / name).convert(mode), (0, -_ROW_BOUGH_LIFT if url else 0))
     return ImageChops.darker(type_.convert(mode), art)
 
 

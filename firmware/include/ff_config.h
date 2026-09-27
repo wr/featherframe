@@ -194,7 +194,7 @@
 // hosted instead (W-888): its owner sets it up by scanning the code it shows.
 // Only a frame with no stored URL uses the default; the portal shows it.
 #ifdef FF_HOSTED_DEFAULT
-#define DEFAULT_SERVER_URL     "https://app.featherframe.app"
+#define DEFAULT_SERVER_URL     "https://cloud.featherframe.app"
 #else
 #define DEFAULT_SERVER_URL     ""
 #endif

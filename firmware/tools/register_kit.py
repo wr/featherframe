@@ -90,7 +90,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--port", required=True)
     ap.add_argument("--note", default="")
-    ap.add_argument("--host", default="https://app.featherframe.app")
+    ap.add_argument("--host", default="https://cloud.featherframe.app")
     ap.add_argument("--dry-run", action="store_true", help="ask the frame, register nothing")
     args = ap.parse_args()
 

@@ -160,6 +160,8 @@ export type AdminData = {
   }[];
   usage: Usage;
   log: { at: number; admin: string; action: string; target: string | null; ok: number; result: string }[];
+  kits: { device_id: string; kit: string | null; note: string | null; registered_at: number; used_at: number | null; email: string | null }[];
+  codes: { code: string; note: string | null; created_at: number; used_at: number | null; email: string | null }[];
 };
 
 export type Toast = { ok: boolean; message: string };
@@ -294,6 +296,24 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
     }).join("")}
     </tbody></table>` : `<p class="empty">No households yet.</p>`;
 
+  const dash = (c: string) => `${c.slice(0, 4)}-${c.slice(4)}`;
+  const setupCodes = `<form class="invite" method="post" action="/admin/setup-codes">
+      <input type="text" name="note" placeholder="Note (a batch, an order)" aria-label="Note" style="flex:1 1 220px;font:inherit;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink)">
+      <input type="hidden" name="count" value="10">
+      <button class="btn" type="submit">Generate 10</button>
+    </form>
+    ${d.codes.length ? `<table><thead><tr><th>Code</th><th>Note</th><th>Used by</th><th>Made</th></tr></thead><tbody>
+      ${d.codes.map((c) => `<tr><td class="num"><code>${e(dash(c.code))}</code></td><td class="muted">${e(c.note || "")}</td>
+        <td>${c.used_at ? `${e(c.email || "(gone)")} <span class="muted">· ${ago(c.used_at * 1000)}</span>` : `<span class="muted">Unused</span>`}</td>
+        <td class="num muted">${ago(c.created_at * 1000)}</td></tr>`).join("")}
+    </tbody></table>` : ""}`;
+  const kits = d.kits.length ? `<table><thead><tr><th>Kit</th><th>Note</th><th>Set up by</th><th>Registered</th></tr></thead><tbody>
+    ${d.kits.map((k) => `<tr><td>${e((k.kit || "").toUpperCase())} <span class="muted">${e(k.device_id.slice(-6))}</span></td>
+      <td class="muted">${e(k.note || "")}</td>
+      <td>${k.used_at ? `${e(k.email || "(gone)")} <span class="muted">· ${ago(k.used_at * 1000)}</span>` : `<span class="muted">Not yet</span>`}</td>
+      <td class="num muted">${ago(k.registered_at * 1000)}</td></tr>`).join("")}
+    </tbody></table>` : `<p class="empty">No kits registered. Run firmware/tools/register_kit.py after flashing one.</p>`;
+
   const log = d.log.length ? `<table><thead><tr><th>Action</th><th>By</th><th>When</th></tr></thead><tbody>
     ${d.log.map((l) => `<tr><td><span class="${l.ok ? "" : "log-bad"}">${e(l.result)}</span><br>
         <span class="muted">${e(l.action)}${l.target ? ` · ${e(l.target)}` : ""}</span></td>
@@ -309,6 +329,8 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
     <div class="card"><h2 class="sec-head">Waitlist · ${confirmed.length}</h2>${waiting}</div>
     <div class="card"><h2 class="sec-head">Invite</h2>${invites}</div>
     <div class="card"><h2 class="sec-head">Households · ${d.households.length}</h2>${households}</div>
+    <div class="card"><h2 class="sec-head">Setup codes · ${d.codes.filter((c) => !c.used_at).length} unused</h2>${setupCodes}</div>
+    <div class="card"><h2 class="sec-head">Kits · ${d.kits.length}</h2>${kits}</div>
     <div class="card"><h2 class="sec-head">Audit log</h2>${log}</div>
   </main>`);
 }
@@ -369,5 +391,169 @@ export function confirmEmailEmail(link: string): { subject: string; text: string
     text: `Use this address to sign in to Featherframe:\n\n${link}\n\nThe link works once, for a day. If you didn't ask for it, ignore this email.`,
     html: `<p>Use this address to sign in to Featherframe:</p><p><a href="${escapeHtml(link)}">Confirm</a></p>
 <p style="color:#827e76">The link works once, for a day. If you didn't ask for it, ignore this email.</p>`,
+  };
+}
+
+// -- setting up a frame from the phone (W-888) -------------------------------------
+const SETUP_STYLE = `<style>
+  .hint { font-size:13px; color:var(--muted); margin:6px 0 0; }
+  .field { margin-bottom:18px; }
+  input[type=text], input[type=search] { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border);
+    border-radius:8px; background:var(--bg); color:var(--ink); }
+  .code-in { text-transform:uppercase; letter-spacing:.08em; }
+  h2.sub { font-size:15px; font-weight:600; margin:22px 0 4px; }
+  .stations { list-style:none; margin:10px 0 0; padding:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .stations:empty { display:none; }
+  .stations li + li { border-top:1px solid var(--border); }
+  .stations label { display:flex; gap:10px; align-items:flex-start; margin:0; padding:10px 12px; font-size:14px;
+    color:var(--ink); cursor:pointer; }
+  .stations input { margin:3px 0 0; accent-color:var(--accent); }
+  .stations .meta { display:block; font-size:12.5px; color:var(--muted); }
+  .row { display:flex; gap:8px; margin-top:10px; }
+  .row button { margin:0; width:auto; flex:none; }
+  .btn2 { background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
+  button:disabled { opacity:.6; cursor:default; }
+</style>`;
+
+export interface SetupView {
+  code: string; token: string; needsCode: boolean; error?: string;
+  email?: string; setupCode?: string; miles: boolean;
+}
+
+export function setupPage(v: SetupView): Response {
+  const e = escapeHtml;
+  const action = `/setup/${e(v.code)}/${e(v.token)}`;
+  return page("Set up your frame · Featherframe", `${SETUP_STYLE}
+    <h1>Set up your frame</h1>
+    ${v.error ? `<p class="bad">${e(v.error)}</p>` : ""}
+    <form method="post" action="${action}" id="setup">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
+        <p class="hint">Used to sign in. No password.</p>
+      </div>
+      ${v.needsCode ? `<div class="field">
+        <label for="setup_code">Setup code</label>
+        <input type="text" id="setup_code" name="setup_code" class="code-in" autocomplete="off" autocapitalize="characters"
+          spellcheck="false" required value="${e(v.setupCode || "")}">
+        <p class="hint">On the card in the box.</p>
+      </div>` : ""}
+      <h2 class="sub">Detection source</h2>
+      <p class="hint" style="margin:0">Your frame shows species heard by a BirdWeather station near you.</p>
+      <div class="row">
+        <input type="search" id="q" placeholder="Search stations by name" autocomplete="off">
+        <button type="button" class="btn2" id="locate">Use my location</button>
+      </div>
+      <p class="hint" id="finding">Finding stations near you…</p>
+      <ul class="stations" id="stations"></ul>
+      <p class="hint" id="none" hidden>No stations nearby. You can choose a detection source later in Settings.</p>
+      <input type="hidden" name="tz" id="tz">
+      <input type="hidden" name="km" id="km">
+      <button type="submit" id="go">Set up frame</button>
+    </form>
+    <script>
+    (function () {
+      var base = ${JSON.stringify(`/api/setup/stations?c=${v.code}&t=${v.token}`)}, miles = ${v.miles ? "true" : "false"};
+      var list = document.getElementById("stations"), none = document.getElementById("none");
+      var km = document.getElementById("km"), form = document.getElementById("setup"), go = document.getElementById("go");
+      try { document.getElementById("tz").value = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+      function dist(k) { return miles ? Math.round(k * 0.621371) + " mi" : k + " km"; }
+      var finding = document.getElementById("finding");
+      function show(rows, measured) {
+        finding.hidden = true; list.innerHTML = ""; km.value = "";
+        rows.forEach(function (s, i) {
+          var li = document.createElement("li"), lab = document.createElement("label"), r = document.createElement("input");
+          r.type = "radio"; r.name = "station"; r.value = s.id; r.checked = i === 0;
+          r.onchange = function () { km.value = measured ? s.km : ""; };
+          var t = document.createElement("span"); t.textContent = s.name;
+          var m = document.createElement("span"); m.className = "meta";
+          m.textContent = (measured ? dist(s.km) + " · " : "") + s.species + " species this week";
+          t.appendChild(m); lab.appendChild(r); lab.appendChild(t); li.appendChild(lab); list.appendChild(li);
+          if (i === 0 && measured) km.value = s.km;
+        });
+        none.hidden = rows.length > 0;
+      }
+      function load(q, measured) {
+        finding.hidden = false; none.hidden = true;
+        fetch(base + q).then(function (r) { return r.ok ? r.json() : { stations: [] }; })
+          .then(function (b) { show(b.stations || [], measured && b.measured); })
+          .catch(function () { show([], false); });
+      }
+      load("", true);
+      document.getElementById("locate").onclick = function () {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(function (p) {
+          load("&lat=" + p.coords.latitude.toFixed(3) + "&lon=" + p.coords.longitude.toFixed(3), true);
+        }, function () {}, { timeout: 15000, maximumAge: 600000 });
+      };
+      var timer = null;
+      document.getElementById("q").oninput = function (ev) {
+        clearTimeout(timer);
+        var q = ev.target.value.trim();
+        timer = setTimeout(function () { load(q.length > 1 ? "&q=" + encodeURIComponent(q) : "", true); }, 350);
+      };
+      form.onsubmit = function () { go.disabled = true; go.textContent = "Setting up…"; };
+    })();
+    </script>`);
+}
+
+/** Signed in already: this frame joins the account. */
+export function setupAddPage(code: string, token: string, email: string): Response {
+  const e = escapeHtml;
+  return page("Add this frame · Featherframe", `
+    <h1>Add this frame</h1>
+    <p>You're signed in as ${e(email)}.</p>
+    <form method="post" action="/setup/${e(code)}/${e(token)}">
+      <button type="submit">Add this frame to your account</button>
+    </form>`);
+}
+
+export function setupExpiredPage(): Response {
+  return page("Code expired · Featherframe", `
+    <h1>This code has expired</h1>
+    <p>Your frame will show a new one within a minute. Scan that one.</p>`);
+}
+
+export function setupLimitedPage(): Response {
+  return page("Try again later · Featherframe", `
+    <h1>Too many tries</h1>
+    <p>Try again in an hour.</p>`);
+}
+
+export function setupLinkSentPage(email: string): Response {
+  return page("Check your email · Featherframe", `
+    <h1>Check your email</h1>
+    <p>You already have an account. We sent a link to ${escapeHtml(email)} to add this frame to it.</p>`);
+}
+
+type Mail = { subject: string; text: string; html: string };
+
+export function welcomeEmail(station: { name: string; distance: string } | null): Mail {
+  const e = escapeHtml;
+  const first = station
+    ? `Your frame shows the species heard at ${station.name}, a BirdWeather station${station.distance ? ` ${station.distance} away` : " near you"}. The frame shows the latest species the station hears.`
+    : "Your frame is connected. Choose a detection source in Settings so it can start showing species.";
+  const signIn = "Sign in: go to app.featherframe.app and enter this email. We'll send you a link each time; there's no password.";
+  const can = [
+    "Choose a different station, or connect your own BirdNET-Pi or BirdNET-Go detector (Settings → Detection source).",
+    "Add an OpenAI API key to generate illustrations for species that have none, and to make a daily collage (Settings → AI image generation).",
+    "Set quiet hours, the collage interval, and each frame's rotation and update interval.",
+  ];
+  return {
+    subject: "Your Featherframe is set up",
+    text: `${first}\n\n${signIn}\n\nIn the Featherframe webapp you can:\n${can.map((c) => `- ${c}`).join("\n")}\n`,
+    html: `<p>${e(first)}</p>
+<p><strong>Sign in:</strong> go to <a href="https://app.featherframe.app">app.featherframe.app</a> and enter this email. We'll send you a link each time; there's no password.</p>
+<p>In the Featherframe webapp you can:</p><ul>${can.map((c) => `<li>${e(c)}</li>`).join("")}</ul>`,
+  };
+}
+
+export function addFrameEmail(link: string, frame: string): Mail {
+  return {
+    subject: "Add a frame to Featherframe",
+    text: `Someone scanned the code on a frame (${frame}) and asked to add it to your account. To add it and sign in:\n\n${link}\n\nThe link works once, for 15 minutes. If this wasn't you, ignore this email.`,
+    html: `<p>Someone scanned the code on a frame (${escapeHtml(frame)}) and asked to add it to your account.</p>
+<p><a href="${escapeHtml(link)}">Add this frame and sign in</a></p>
+<p style="color:#827e76">The link works once, for 15 minutes. If this wasn't you, ignore this email.</p>`,
   };
 }

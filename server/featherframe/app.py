@@ -442,6 +442,31 @@ async def api_hosted_run(request: Request):
     return JSONResponse({"ok": True, "next_wake_at": svc.next_wake_at()})
 
 
+_SEED_FIELDS = ("detection_backend", "birdweather_station_id", "region")
+
+
+@app.post("/api/hosted/seed")
+async def api_hosted_seed(request: Request):
+    """A household set up from the phone (W-888): the detection source and
+    Region its owner chose there, queued by the front door ahead of its first
+    wake. A settings save of those fields, so a repeat changes nothing."""
+    # The front door's own call; a page request through its proxy says
+    # X-FF-Hosted, and the owner has Settings for this.
+    if getattr(request.app.state, "hosted", None) is None or request.headers.get("x-ff-hosted"):
+        return JSONResponse({"error": "not hosted"}, status_code=404)
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "bad seed"}, status_code=400)
+    svc = _svc(request)
+    cur = svc.config.to_dict()
+    cur.update({k: str(body[k]) for k in _SEED_FIELDS if isinstance(body.get(k), str)})
+    await run_in_threadpool(svc.update_config, Config.from_dict(cur).sanitize())
+    return JSONResponse({"ok": True})
+
+
 def _announce_panel(request: Request, svc) -> None:
     adv = getattr(request.app.state, "advertiser", None)
     if adv is not None:

@@ -140,6 +140,19 @@ export class Household extends DurableObject<Env> {
     await this.wake();
   }
 
+  /** A household set up from the phone (W-888): made, its detection source
+   * and Region queued ahead of the first wake, and its first frame added on
+   * that wake. One wake, on an alarm, so the setup page answers at once. */
+  async setUp(hid: string, tz: string, seed: Record<string, string> | null,
+              deviceId: string, report: Record<string, unknown>): Promise<void> {
+    this.setMeta("hid", hid);
+    if (!this.meta("key")) this.setMeta("key", randomHex(32));
+    this.setMeta("tz", tz);
+    // A settings save of those fields, taken before /api/hosted/run.
+    if (seed) this.sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", "/api/hosted/seed", JSON.stringify(seed));
+    await this.adopt(deviceId, report);
+  }
+
   /** A frame its owner just paired (W-845): the server adds it on a wake now,
    * so the glass goes from its code to a picture without a second step. */
   async adopt(deviceId: string, headers: Record<string, unknown>): Promise<void> {

@@ -64,9 +64,9 @@ function gone(e){if(e&&e.parentNode)e.parentNode.removeChild(e);}
 d.title='Featherframe';
 var mark=q('.ffmark');if(!mark)return;
 var card=el('div','ffcard');while(mark.nextSibling)card.appendChild(mark.nextSibling);mark.parentNode.appendChild(card);
-var NEXT={cloud:'Featherframe-Setup will close, and your phone goes back to its usual Wi‑Fi. Then scan the code on your frame to finish setting up.',
+var NEXT={cloud:'Featherframe-Setup will close, and your phone goes back to its usual Wi‑Fi. Then scan the QR code on your frame with your phone’s camera to finish setting up.',
 self:'Featherframe-Setup will close, and your phone goes back to its usual Wi‑Fi. Then add the frame in your Featherframe webapp.'};
-var AFTER={cloud:'After you save, your frame shows a code. Scan it with your phone to finish setting up.',
+var AFTER={cloud:'After you save, your frame shows a QR code. Scan it with your phone’s camera to finish setting up.',
 self:'After you save, your frame asks to connect in your Featherframe webapp.'};
 if(p=='/wifisave'){var m=q('.msg',card);if(!m)return;card.className+=' ffsaved';
 var ch=(st&&st.getItem('ffserver'))||DEF;

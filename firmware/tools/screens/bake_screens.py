@@ -148,6 +148,7 @@ def new_canvas():
 # online. The self-hosted card keeps the server step.
 SETUP_STEP_SERVER = "Fill in the IP address of your Featherframe\nwebapp, if not auto-detected."
 SETUP_STEP_CLOUD = "When the frame shows a code, scan it\nwith your phone to finish setting up."
+SETUP_NO_PAGE = "If no page opens, go to 192.168.4.1."
 
 def screen_setup(bare=None, cloud=False):
     # First-run instructions. The splash's own setting, pixel for pixel —
@@ -200,7 +201,10 @@ def screen_setup(bare=None, cloud=False):
             cb = chipf.getbbox("H")
             d.text((x0 + 140 + iconw + 12, chy + chh / 2 + (cb[3] - cb[1]) / 2), ct,
                    font=chipf, fill=0, anchor="ls")
-            y = chy + chh + 64
+            # Android often doesn't open the page by itself (W-614).
+            hint_y = chy + chh + 46
+            d.text((x0 + 140, hint_y), SETUP_NO_PAGE, font=font(36, weight=500), fill=255, anchor="ls")
+            y = hint_y + 64
         else:
             y += 154
     return im
@@ -239,7 +243,7 @@ WORDMARK_BASELINE = 1534
 # The setup card (W-742) is centred on the panel over the limb, so it sits
 # clear of the wordmark below it (baseline 1534) and of the upper bough's
 # tip. 716 px tall. The halo is the paper ring around it.
-SETUP_CARD_H = 716
+SETUP_CARD_H = 770
 SETUP_CARD_Y0 = (H - SETUP_CARD_H) // 2
 SETUP_CARD_HALO = 10
 # Splash footer: a hedera between the wordmark and the version line (the same
@@ -524,6 +528,10 @@ RETRY_SIZE = PILL_TEXT_SIZE
 # full-bleed — so art may bleed under the mat, type must stay inside
 # (usable bottom ≈ 1797, right ≈ 1348).
 RETRY_BASELINE = PILL_Y - 18          # over the pill: the pill is on the footer line
+# Where to read more, over the retry line, on the two "Can't reach" screens
+# (W-614): a short URL the marketing site redirects to Troubleshooting.
+HELP_TEXT = "Help: featherframe.app/help/wifi"
+HELP_BASELINE = RETRY_BASELINE - 44
 
 # The offline mark: the black pill as a circle, in the plate number's place
 # on the footer line, over a white box as wide as the widest plate number.
@@ -618,7 +626,11 @@ def error_assets():
 
     corners, cband = _corner_assets(_aligned_region)
     corner_geo, corner_tiles = _region_tiles(cband, corners + [Image.new("L", (W, H), 255)])
-    return ((err_geo, err_tiles), (retry_geo, retry_tiles), (corner_geo, corner_tiles))
+
+    helps = [_canvas(lambda d: d.text((W / 2, HELP_BASELINE), HELP_TEXT, font=sans(RETRY_SIZE), fill=0, anchor="ms"))]
+    hband = _aligned_region(helps, *band(HELP_BASELINE - 22, HELP_BASELINE + 6))
+    help_geo, help_tiles = _region_tiles(hband, helps + [Image.new("L", (W, H), 255)])
+    return ((err_geo, err_tiles), (retry_geo, retry_tiles), (corner_geo, corner_tiles), (help_geo, help_tiles))
 
 # -- button toasts ------------------------------------------------------------
 # The button-press pills (check now / collage / status) used to be drawn by the
@@ -734,10 +746,10 @@ def _mat_macros(up_w, up_h, foot_cy, foot_rx, native):
 
 def write_header():
     screens = {name: im for name, im in SCREENS}
-    (err_geo, err_tiles), (retry_geo, retry_tiles), (corner_geo, corner_tiles) = error_assets()
+    (err_geo, err_tiles), (retry_geo, retry_tiles), (corner_geo, corner_tiles), (help_geo, help_tiles) = error_assets()
     toast_geo, toast_tiles, toast_loaders = toast_assets()
     max_tile = max(len(t) for t in
-                   err_tiles + retry_tiles + corner_tiles + toast_tiles)
+                   err_tiles + retry_tiles + corner_tiles + toast_tiles + help_tiles)
     loaders = {name: loader_tiles(screens[name], cx, cy)
                for name, (cx, cy) in
                (("BOOT_WIFI", LOADER_AT["wifi"]),
@@ -775,6 +787,11 @@ def write_header():
          f"#define FF_RETRY_Y        {retry_geo[1]}",
          f"#define FF_RETRY_W        {retry_geo[2]}",
          f"#define FF_RETRY_H        {retry_geo[3]}",
+         "// ff_help_tiles: 0 = the help line (the two can't-reach screens), 1 = blank.",
+         f"#define FF_HELP_X         {help_geo[0]}",
+         f"#define FF_HELP_Y         {help_geo[1]}",
+         f"#define FF_HELP_W         {help_geo[2]}",
+         f"#define FF_HELP_H         {help_geo[3]}",
          "// ff_corner_tiles: 0 = slashed wifi, 1 = slashed server, 2 = blank",
          "// (erase). Shown over a painted plate in the bottom-right margin.",
          f"#define FF_CORNER_X       {corner_geo[0]}",
@@ -823,6 +840,8 @@ def write_header():
         emit_array(f"ff_err_{k}", t)
     for k, t in enumerate(retry_tiles):
         emit_array(f"ff_retry_{k}", t)
+    for k, t in enumerate(help_tiles):
+        emit_array(f"ff_help_{k}", t)
     for k, t in enumerate(corner_tiles):
         emit_array(f"ff_corner_{k}", t)
     for k, t in enumerate(toast_tiles):
@@ -872,6 +891,7 @@ def write_header():
     L += ["};", "",
           "static const uint8_t* const ff_err_tiles[4] = { ff_err_0, ff_err_1, ff_err_2, ff_err_3 };",
           "static const uint8_t* const ff_retry_tiles[5] = { ff_retry_0, ff_retry_1, ff_retry_2, ff_retry_3, ff_retry_4 };",
+          "static const uint8_t* const ff_help_tiles[2] = { ff_help_0, ff_help_1 };",
           "static const uint8_t* const ff_corner_tiles[3] = { ff_corner_0, ff_corner_1, ff_corner_2 };",
           "static const uint8_t* const ff_toast_tiles[FF_TOAST_COUNT] = {",
           "  " + ", ".join(f"ff_toast_{k}" for k in range(len(toast_tiles))) + " };",
@@ -934,16 +954,19 @@ def write_preview():
 # 1200x1600, no rotation; nibbles are Seeed_GFX's colour-sprite codes.
 _WHITE_LUT = [min(255, round(i * 255.0 / WHITE_PT)) for i in range(256)]
 
-def _error_screen(draw_pill_fn, retry=None):
+def _error_screen(draw_pill_fn, retry=None, help=None):
     """A whole screen as `make(bare=None)`: the perched wren's screen with its
-    own pill (and a retry line)."""
+    own pill (and a retry line, and a help line over it)."""
     def make(bare=None):
         im = _compose("birdnet", bare).copy()
         d = ImageDraw.Draw(im)
-        d.rectangle([0, RETRY_BASELINE - 30, W, PILL_Y + PILL_H + 10], fill=255)  # the stage pill's band
+        top = (HELP_BASELINE if help else RETRY_BASELINE) - 30
+        d.rectangle([0, top, W, PILL_Y + PILL_H + 10], fill=255)  # the stage pill's band
         draw_pill_fn(d)
         if retry:
             d.text((W / 2, RETRY_BASELINE), retry, font=sans(RETRY_SIZE), fill=0, anchor="ms")
+        if help:
+            d.text((W / 2, HELP_BASELINE), help, font=sans(RETRY_SIZE), fill=0, anchor="ms")
         return im
     return make
 
@@ -956,8 +979,8 @@ FULL_SCREENS = [
     ("BOOT_WIFI", _error_screen(lambda d: _draw_wait_pill(d, BOOT_TEXT)), ("perch",)),
     ("BOOT_BIRDNET", None, ()), ("BOOT_DOWNLOAD", None, ()),
     ("SETUP", screen_setup, ()),
-    ("ERR_WIFI", _error_screen(lambda d: _draw_error_pill(d, *ERR_TEXTS[0]), RETRY_TEXTS[3]), ("perch",)),
-    ("ERR_SERVER", _error_screen(lambda d: _draw_error_pill(d, *ERR_TEXTS[1]), RETRY_TEXTS[3]), ("perch",)),
+    ("ERR_WIFI", _error_screen(lambda d: _draw_error_pill(d, *ERR_TEXTS[0]), RETRY_TEXTS[3], HELP_TEXT), ("perch",)),
+    ("ERR_SERVER", _error_screen(lambda d: _draw_error_pill(d, *ERR_TEXTS[1]), RETRY_TEXTS[3], HELP_TEXT), ("perch",)),
     ("WAITING", _error_screen(_draw_wait_pill), ("perch",)),
     ("PENDING", _error_screen(lambda d: _draw_wait_pill(d, PENDING_TEXT)), ("perch",)),
     # The gray build's low-battery pill (TOASTS), promoted to a whole screen.

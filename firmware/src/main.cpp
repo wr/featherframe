@@ -507,6 +507,9 @@ void showErrorState(int kind) {
     if (g_bandKind != kind || g_bandStage != stage) {   // repeated fails: no re-push
       pushTile(ff_err_tiles[kind], FF_ERR_X, FF_ERR_Y, FF_ERR_W, FF_ERR_H);
       pushTile(ff_retry_tiles[stage], FF_RETRY_X, FF_RETRY_Y, FF_RETRY_W, FF_RETRY_H);
+      // Where to read more, on the two "Can't reach" pills (W-614).
+      const bool help = kind == ERRK_WIFI || kind == ERRK_SERVER;
+      pushTile(ff_help_tiles[help ? 0 : 1], FF_HELP_X, FF_HELP_Y, FF_HELP_W, FF_HELP_H);
       g_bandKind = (int8_t)kind; g_bandStage = (int8_t)stage;
     }
   } else if (g_glassScreen < 0 &&

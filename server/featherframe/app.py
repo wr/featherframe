@@ -1019,33 +1019,7 @@ def _upright(row: dict) -> pipeline.View:
     return pipeline.View(w, h, view.fmt, 0)
 
 
-# -- hold this plate / block what's showing (W-735) --------------------------
-
-
-@app.post("/api/hold")
-async def api_hold(request: Request):
-    """Pin the current plate for a day, a week, or until released."""
-    if not _same_origin(request):
-        return _forbidden_cross_origin()
-    svc = _svc(request)
-    form = await request.form()
-    duration = str(form.get("duration", "day") or "day")
-    hold = svc.hold_current(duration)
-    if hold is None:
-        return JSONResponse({"ok": False, "error": "Nothing on the wall to hold yet."},
-                            status_code=409)
-    return JSONResponse({"ok": True, "hold": svc.hold_view()})
-
-
-@app.post("/api/hold/release")
-async def api_hold_release(request: Request):
-    if not _same_origin(request):
-        return _forbidden_cross_origin()
-    svc = _svc(request)
-    before = svc.current_etag()
-    await run_in_threadpool(svc.release_hold)      # repaints: a render, off the loop
-    cur = svc.current_info()
-    return JSONResponse({"ok": True, "etag": cur["etag"], "changed": cur["etag"] != before})
+# -- block what's showing (W-735) ---------------------------------------------
 
 
 @app.post("/api/block-current")

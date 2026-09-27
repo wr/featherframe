@@ -114,8 +114,8 @@ packed framebuffer + ETag → firmware GET /api/frame (If-None-Match) → panel`
 **`service.py` is the hub.** A background thread runs `tick()` on the poll
 interval. `tick()` is two passes and nothing else: `_tick_pictures()` decides
 what each picture is OF (quiet hours + the optional collage held overnight, the
-collage interval, the blocklist, new-species corroboration, the dwell hold)
-and composes at most one sheet per picture; `_tick_frames()` then finishes
+collage interval, the blocklist, new-species corroboration; nothing holds a
+plate, W-904) and composes at most one sheet per picture; `_tick_frames()` then finishes
 each picture into one output per frame that shows it. Every web handler just
 reads bytes — nothing is ever rendered in a request. The default path is to do
 nothing (priority: few panel refreshes).
@@ -258,8 +258,8 @@ upright picture as that frame draws it, never the device's canvas shape or its
 rotation: a TRMNL's is stood up and a page's is the sheet at 3:4) and the plate's
 tools, which are the previewed frame's picture's (`frame_view`'s `picture`, the
 night rule included) and say they act on every frame showing it (W-861): Refresh
-and Manual override, one line each (W-878: Hold and Block left the page; a hold
-already set still shows its Release line); then History. **There is no Health
+and Manual override, one line each (W-878: Block left the page; Hold, and the
+automatic 90-minute dwell with its "Just now:" footnote, went in W-904); then History. **There is no Health
 card**: a frame's health is the frame's row, and the source's is its row below.
 Right, wide: two groups, each a heading over its card (W-878). *Frames*, with
 a ⋯ menu holding *USB firmware update*, *Check for updates* (asks for the latest release now, `POST /api/firmware/check`; otherwise daily), *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list.
@@ -330,8 +330,8 @@ gray sheet always, plus the colour twin while some screen showing it draws in
 colour (`_color_wanted`). `picture_for(shows, now)` is the ONE place that
 answers which picture a frame gets: it also carries Wells's rule that in quiet
 hours, once the nightly collage has been drawn, every frame on plates shows
-that same collage picture for the rest of the window (`_kind_for`). A hold pins
-plates and nothing else; the blocklist is global; a frame's ETag/filename is
+that same collage picture for the rest of the window (`_kind_for`). Nothing
+holds a picture (W-904); the blocklist is global; a frame's ETag/filename is
 its own picture's (`picture_etag`), so a TRMNL on the collage does not repaint
 for a new plate.
 **Adding and removing frames.** A kit names itself with `X-Device-Id` (its
@@ -721,10 +721,10 @@ Container restarts); D1 schema in `hosted/migrations/`.
   blob in our own SQLite (`db.py`, a kv store, separate from BirdNET's DB).
 - **What an owner never tuned is a constant, not a setting (W-821).** The
   poll interval, confidence floor (BirdNET-Go's own threshold always wins;
-  the floor is for sources with none), dwell, both alarm thresholds and the
+  the floor is for sources with none), both alarm thresholds and the
   corroboration numbers live as named constants at the top of `service.py`;
   saturation is `spectra.SATURATION`. Single mode always shows the latest
-  qualifying detection. Think twice before turning one back into a field.
+  qualifying detection, the most novel of a tick's first. Think twice before turning one back into a field.
 - **Dithering** is the panel's own (`Panel.dither`, `panels.py`); the only
   override is `pipeline.DITHER_OVERRIDE` (`preview.py --dither`, and tests
   that want a cheap render). Gray: blue-noise (vectorized, Pi-friendly); Stucki there is a

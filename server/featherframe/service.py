@@ -1,7 +1,7 @@
 """The running service: state + the render scheduler.
 
 One background thread polls BirdNET on a short interval, decides whether a new
-frame is warranted (mode, quiet hours, corroboration, the dwell hold), and
+frame is warranted (mode, quiet hours, corroboration), and
 renders at most one frame per decision. Everything else — the web handlers —
 just reads the current frame. Priority #3 (few panel refreshes) lives here: the
 default path is to do nothing.
@@ -57,8 +57,6 @@ from .render.provider import ArtProvider, ChainedProvider, PlateProvider
 log = logging.getLogger("featherframe.service")
 
 _OUT_KEY = "frame_outputs"            # frame id -> {"etag", "src"}
-_USER_HOLD_KEY = "user_hold"          # W-735: the owner's pin on the current plate
-_HOLD_DAYS = {"day": 1, "week": 7, "forever": None}
 _VIEWS_MAX = 8                         # cached renders of one picture
 # A picture is drawn only while some frame shows it, and a screen that has not
 # asked in this long is not a frame any more — it was unplugged.
@@ -93,11 +91,6 @@ CONFIDENCE_FLOOR = 0.7
 # this between checks.
 COLLAGE_CHECK_MARGIN_S = 90
 COLLAGE_CHECK_FLOOR_S = 60
-# Dwell: a first-ever or first-today species keeps the frame this long against
-# repeats of common species (another new one can still take over, and the held
-# one may re-render). Without it a first-ever species lost the glass to the
-# next cardinal within minutes.
-DWELL_MINUTES = 90
 # A frame on USB that speaks push (W-841) fetches on the socket's word; the
 # poll interval it is served is only what it falls back to while its socket
 # is down — which must stay short, or a dropped socket meant hours of silence
@@ -146,14 +139,6 @@ _CORROBORATE_SCAN = 200
 # a repeat. Selection among a tick's detections is by class, then newest —
 # so a first-ever bird is not lost to the cardinal that called after it.
 _NOVELTY_RANK = {"first-ever": 2, "first-today": 1, "repeat": 0}
-_NOVEL = ("first-ever", "first-today")
-# The page's tooltip on "holding N min": why this plate is not changing.
-_HOLD_WHY = {
-    "first-ever": "First time this species has been heard, so it stays up {} min. "
-                  "Only another new species replaces it sooner.",
-    "first-today": "First time this species has been heard today, so it stays up {} min. "
-                   "Only another new species replaces it sooner.",
-}
 # How much of the day's tally / render log a novelty check reads. A busy
 # feeder is a few dozen species a day; the render log holds 200 rows.
 _TODAY_SCAN = 200
@@ -640,10 +625,6 @@ class FeatherframeService:
         # Gone-quiet alarm, computed once per tick (status() is polled, and
         # the walk plus a source query is not free). None = no alarm.
         self._quiet: Optional[dict] = None
-        # The repeat a dwell hold last turned away ({"key", "common"}), named
-        # along the plate's foot as "Just now: …" (W-776). In memory only: a
-        # restart drops the line on its next tick, which is the honest answer.
-        self._just_now: Optional[dict] = None
         # Source-outage note (W-696): when the source first went unreachable
         # (persisted, so a restart mid-outage keeps the clock), and the alarm
         # derived from it once per tick. None = reachable / no alarm.
@@ -679,7 +660,7 @@ class FeatherframeService:
 
     # -- the picture the page's own tools mean ------------------------------
     # There is no primary frame (W-833): "the picture", where nothing names
-    # one, is what the tools act on — Refresh, Hold, Block, the history strip,
+    # one, is what the tools act on — Refresh, the history strip,
     # the sheet /api/preview.png serves. It follows what the screens are
     # showing, never which kit checked in first.
     def _default_shows(self) -> str:
@@ -869,11 +850,11 @@ class FeatherframeService:
         """A new detection source starts from a clean slate. Everything
         transient was about the old one: the cursor is in its id space
         (BirdWeather ids run ~11 billion, a push queue's from 1 — a leftover
-        froze the frame for hours), and the hold, the collage
-        clock, the waiting species and the outage clock all describe birds
-        it heard. The next tick shows the new source's latest detection."""
+        froze the frame for hours), and the collage clock, the waiting
+        species and the outage clock all describe birds it heard. The next
+        tick shows the new source's latest detection."""
         for key in ("ingest_cursor", "pending_species",
-                    "quiet_collage_for", "source_down_since", _USER_HOLD_KEY):
+                    "quiet_collage_for", "source_down_since"):
             self.db.set(key, None)
         self._pending = None
         self._source_down_since = None
@@ -943,21 +924,12 @@ class FeatherframeService:
         want, have = self._note_kind(), self._note_showing()
 
         if showing and self._meta.get("mode") == "welcome":
-            # The welcome plate (W-734) is not a subject: no footnotes, no
-            # dwell. It re-renders only when what it says would change, else
-            # the decision path below may replace it.
+            # The welcome plate (W-734) is not a subject: no footnotes. It
+            # re-renders only when what it says would change, else the
+            # decision path below may replace it.
             if bool(self._meta.get("source_ok")) != available:
                 self._render_welcome(now, available)
                 settled = {self._shown}
-        elif showing and self.user_hold(now) is not None:
-            # The owner pinned this plate (W-735): nothing replaces it until
-            # the hold ends, and a hold pins the plate and nothing else
-            # (W-830) — the collage keeps being drawn for the screens that
-            # show it. The footnotes still track, through the re-render that
-            # keeps the subject; an expired hold clears itself in user_hold().
-            if want != have and not (want is None and not available):
-                self.rerender_current()
-            settled = {PLATES, self._shown}
         elif self._meta.pop("dark", False) and subject:
             # A frame rendered inverted before dark mode was removed (W-821) is
             # redrawn once: the firmware is now told not to invert, and its
@@ -1202,11 +1174,6 @@ class FeatherframeService:
             return "quiet"
         if self._outage:
             return "outage"
-        # "latest": the held plate names what it turned away, for as long as
-        # the hold lasts and the line is about some other species.
-        if (self._just_now and self._just_now.get("key") != self._meta.get("species_key")
-                and self._holding(self._meta, self._clock())):
-            return "latest"
         return None
 
     def _plate_when(self, alarm: dict) -> str:
@@ -1234,16 +1201,15 @@ class FeatherframeService:
             return f"No detections since {self._plate_when(self._quiet)}"
         if kind == "outage":
             return f"Detection source unreachable since {self._plate_when(self._outage)}"
-        if kind == "latest":
-            return f"Just now: {self._just_now['common']}"
         return None
 
     # -- the plates picture ------------------------------------------------
     def _single_tick(self, now: datetime) -> None:
         """The plates picture: the bird that was just heard. Runs once a tick,
         whether the picture is on the wall or only on a viewer — a plate is a
-        plate, and the cursor, the corroboration gate and the dwell hold are
-        the same decision either way."""
+        plate, and the cursor and the corroboration gate are the same decision
+        either way. Every detection that passes them takes the picture: there
+        is no hold (W-904)."""
         pic = self.pictures[PLATES]
         empty = pic.etag is None
         self._memo(now)
@@ -1318,38 +1284,12 @@ class FeatherframeService:
                 if latest:
                     self._render_single(latest, now, reason="startup")
             return
-
-        # Dwell: a new bird keeps the frame against repeats of common birds.
-        # Only a repeat of ANOTHER species is turned away — the held bird may
-        # re-render (the clock moves with it), and a novel bird takes over
-        # (newest novel wins). The cursor has already advanced: the repeat is
-        # simply not shown, which is the point.
-        holding = self._holding(pic.meta, now)
-        if (holding and self._novelty(candidate, now) == "repeat"
-                and candidate.key != pic.meta.get("species_key")):
-            log.info("holding %s (%s) against %s for %d more min",
-                     pic.meta.get("label"), pic.meta.get("novelty"),
-                     candidate.common_name, holding["minutes_left"])
-            # The picture holds, but the frame still says what was just heard
-            # (W-776). One repaint per change of species on the line, never
-            # per detection: a chatty chickadee must not repaint the panel
-            # every 30 s, which is also why the line carries no time.
-            if (self._just_now or {}).get("key") != candidate.key:
-                self._just_now = {"key": candidate.key, "common": candidate.common_name}
-                self._rerender_picture(PLATES)
-            return
-
         self._render_single(candidate, now, reason="detection")
 
     def _render_single(self, det: Detection, now: datetime, reason: str) -> None:
         """Draw the plates picture of this detection."""
         first_seen = self._first_seen(det.scientific_name)
         novelty = self._novelty(det, now)
-        # Any render that isn't the subject redrawn ("settings") is news: a new
-        # subject, or the held species heard again — either way the picture now
-        # says it, and the "Just now:" line goes.
-        if reason != "settings":
-            self._just_now = None
         note = self._note_text()
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=det.timestamp if det.timestamp != datetime.min else now,
@@ -1723,8 +1663,7 @@ class FeatherframeService:
         # the footnote (if on) stays truthful.
         note = self._note_text()
         # The plate says "first recorded today" when the source has never
-        # heard the species; the meta carries no novelty, so a test bird
-        # never holds the frame against the real ones (and bypasses any hold).
+        # heard the species; the meta carries no novelty.
         spec = SingleSpec(common_name=det.common_name, scientific_name=det.scientific_name,
                           when=now, first_seen=now.strftime("%Y-%m-%d"),
                           note=note, note_kind=self._note_kind() if note else None,
@@ -2332,17 +2271,13 @@ class FeatherframeService:
 
     def next_wake_at(self, now: Optional[datetime] = None) -> Optional[str]:
         """The next moment this server has something to do with nothing new
-        heard: the collage's next redraw, the end of a dwell hold, either edge
-        of quiet hours. A new detection is the front door's to notice. None
+        heard: the collage's next redraw, either edge of quiet hours. A new detection is the front door's to notice. None
         when nothing is scheduled."""
         now = now or self._clock()
         when = []
         nxt = self.collage_next_at(now)
         if nxt is not None:
             when.append(nxt)
-        hold = self._holding(self.pictures[PLATES].meta, now)
-        if hold:
-            when.append(datetime.fromisoformat(hold["until"]))
         cfg = self.config
         if cfg.quiet_hours_mode != "off":
             start, end = self.quiet_window(now.date())
@@ -2912,7 +2847,6 @@ class FeatherframeService:
                 "title": frame_title(meta),
                 "rendered_at": meta.get("rendered_at"),
                 "novelty": meta.get("novelty"),
-                "holding": self._holding(meta, now),
             },
             "last_detection": {
                 **{k: v for k, v in heard.items() if k != "ts"},
@@ -2922,7 +2856,6 @@ class FeatherframeService:
             "quiet": quiet,
             "source_outage": outage,
             "pending": self.pending_view(now),
-            "hold": self.hold_view(now),
             "birdnet_available": self.source.available(),
             "species_all_time": species,
             "plates_loaded": self.plates.species_count,
@@ -2953,28 +2886,13 @@ class FeatherframeService:
     def _picture_meta(self, pic: "pictures_mod.Picture", now: datetime, etag: str, mode: str,
                       species_key: Optional[str], label: str, note: Optional[str],
                       novelty: Optional[str], extra: Optional[dict]) -> dict:
-        """What this picture is now, from what it was. The dwell clock
-        (held_since) starts when a novel bird takes the picture and carries
-        across its own re-renders: a first-today robin calling again at 8:05 is
-        classed a repeat, but it must not lose the hold it earned at 8:00 — nor
-        restart it. Its label carries too, so the page keeps saying what earned
-        the hold."""
+        """What this picture is now. Only the collage's clock carries over
+        from what it was."""
         prev = pic.meta
-        same = (mode == "single" and species_key is not None
-                and prev.get("mode") == "single" and prev.get("species_key") == species_key)
-        # Only while the hold runs: once it is over, the bird heard again is
-        # what it is now (a repeat), not what it was when it arrived.
-        carried = same and prev.get("novelty") in _NOVEL and self._holding(prev, now) is not None
-        if novelty in _NOVEL:
-            held_since = prev["held_since"] if carried else now.isoformat(timespec="seconds")
-        elif carried:
-            novelty, held_since = prev["novelty"], prev["held_since"]
-        else:
-            held_since = None
         return {
             "etag": etag, "mode": mode, "label": label,
             "species_key": species_key, "rendered_at": now.isoformat(timespec="seconds"),
-            "novelty": novelty, "held_since": held_since,
+            "novelty": novelty,
             "quiet_note": note is not None,   # what the glass says, for the tick's flip
             "note_kind": self._note_kind() if note is not None else None,
             "collage_at": now.isoformat(timespec="seconds") if mode == "collage"
@@ -3360,62 +3278,7 @@ class FeatherframeService:
             memo["rendered_today"] = keys
         return memo["rendered_today"]
 
-    # -- the owner's hold and block (W-735) --------------------------------
-    def user_hold(self, now: Optional[datetime] = None) -> Optional[dict]:
-        """The owner's pin on the current plate, or None. An expired hold is
-        cleared here, so every reader sees the same answer."""
-        now = now or self._clock()
-        hold = self.db.get(_USER_HOLD_KEY)
-        if not hold:
-            return None
-        until = hold.get("until")
-        if until:
-            try:
-                if datetime.fromisoformat(str(until)) <= now:
-                    self.db.set(_USER_HOLD_KEY, None)
-                    return None
-            except ValueError:
-                self.db.set(_USER_HOLD_KEY, None)
-                return None
-        return hold
-
-    def hold_current(self, duration: str) -> Optional[dict]:
-        """Pin what is on the glass for `duration` ("day", "week", or
-        "forever" = until released). None when nothing is showing yet."""
-        now = self._clock()
-        with self._lock:
-            meta = dict(self._meta)
-            showing = self._etag is not None
-        if not showing or meta.get("mode") in (None, "welcome") or not meta.get("label"):
-            return None
-        days = _HOLD_DAYS.get(duration, 1)
-        hold = {
-            "since": now.isoformat(timespec="seconds"),
-            "until": (now + timedelta(days=days)).isoformat(timespec="seconds") if days else None,
-            "label": meta.get("label"),
-            "title": frame_title(meta),
-        }
-        self.db.set(_USER_HOLD_KEY, hold)
-        log.info("hold: %s for %s", hold["title"], duration)
-        return hold
-
-    def release_hold(self) -> None:
-        """Drop the pin and repaint whatever should be showing now."""
-        self.db.set(_USER_HOLD_KEY, None)
-        self.refresh_now()
-
-    def hold_view(self, now: Optional[datetime] = None) -> Optional[dict]:
-        hold = self.user_hold(now)
-        if hold is None:
-            return None
-        until = hold.get("until")
-        if until:
-            when = datetime.fromisoformat(str(until))
-            text = f"until {when.strftime('%a')} {when.day} {when.strftime('%b')}"
-        else:
-            text = "until released"
-        return {**hold, "until_text": text}
-
+    # -- the owner's block (W-735) -----------------------------------------
     def block_current(self) -> Optional[str]:
         """Add the species on the glass to the blocklist and move past it.
         Returns the blocked name, or None when a single plate is not showing."""
@@ -3441,24 +3304,6 @@ class FeatherframeService:
         cfg.species_blocklist = kept
         self.update_config(cfg)
         return True
-
-    def _holding(self, meta: dict, now: datetime) -> Optional[dict]:
-        """The dwell hold on a plates picture's meta, or None: a plate of a
-        novel species, held since less than DWELL_MINUTES ago."""
-        dwell = DWELL_MINUTES
-        if meta.get("mode") != "single" or meta.get("novelty") not in _NOVEL:
-            return None
-        try:
-            since = datetime.fromisoformat(str(meta.get("held_since") or meta.get("rendered_at")))
-        except (TypeError, ValueError):
-            return None
-        until = since + timedelta(minutes=dwell)
-        if now >= until:
-            return None
-        return {"until": until.isoformat(timespec="seconds"),
-                "minutes_left": int(math.ceil((until - now).total_seconds() / 60)),
-                "reason": "new species",
-                "why": _HOLD_WHY[meta["novelty"]].format(dwell)}
 
     # -- new-species corroboration ------------------------------------------
     # One 0.71 hit of a rare species is routinely a car horn. Unchecked it

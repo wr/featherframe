@@ -50,13 +50,13 @@ def bake():
 
 
 def test_the_footnote_is_the_frames_own_pill(bake):
-    """The footnote a plate carries ("Just now: Northern Cardinal" while it is
-    held) is the pill the frame bakes its toasts as, 34 px type since W-897:
+    """The footnote a plate carries ("No detections since 11:27 pm") is the
+    pill the frame bakes its toasts as, 34 px type since W-897:
     under the kits' mat it lands on the glass the size and place a toast does,
     so one covers the other exactly."""
     assert {panels.get(k).mat_inset_pct for k in ("ee03", "ee02")} == {bake.REF_INSET}
     sheet = Image.new("L", (theme.WIDTH, theme.HEIGHT), 255)
-    system.note_pill(ImageDraw.Draw(sheet), "Just now: Northern Cardinal", None, compose.note_width())
+    system.note_pill(ImageDraw.Draw(sheet), "No detections since 11:27 pm", None, compose.note_width())
     out = np.asarray(pipeline._apply_mat_inset(sheet, Config(mat_inset_pct=bake.REF_INSET)))
     ys, _ = np.where(out < 128)
     top, bottom = ys.min(), ys.max() + 1

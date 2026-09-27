@@ -1,9 +1,10 @@
-"""W-692: novelty ordering, dwell for new birds, and a date on the plate.
+"""W-692: novelty ordering and a date on the plate.
 
-A first-ever bird used to lose the glass to the next cardinal within minutes,
-and a plate carried only a clock time, so a three-day-old plate looked like
-this morning's. Repeats still re-render (the owner has a partial-refresh
-panel and wants the clock to move); this is about ORDER and STALENESS.
+Among the detections one tick takes in, the most novel wins, then the newest,
+so a first-ever bird is not lost to the cardinal that called after it; a plate
+carries its date, so a three-day-old plate does not look like this morning's.
+W-692's dwell (a new species held the glass for 90 minutes against repeats)
+went with W-904: the next detection always takes the plate.
 """
 from __future__ import annotations
 
@@ -107,8 +108,8 @@ def _capture_renders(svc, monkeypatch):
     return rendered
 
 
-def _hold(svc, novelty="first-ever", minutes_ago=10, common=EAGLE[0], sci=EAGLE[1],
-          mode="single", at: datetime = NOW):
+def _showing(svc, novelty="first-ever", minutes_ago=10, common=EAGLE[0], sci=EAGLE[1],
+             mode="single", at: datetime = NOW):
     """Make the resident frame a plate of `common`, rendered `minutes_ago`."""
     svc._meta = {"etag": "abc", "mode": mode, "label": common,
                  "species_key": sci.lower(), "novelty": novelty,
@@ -177,140 +178,53 @@ def test_ordering_still_respects_the_corroboration_gate(svc, monkeypatch):
     assert svc.status()["pending"]["common"] == "Bald Eagle"
 
 
-# -- dwell ----------------------------------------------------------------------
+# -- no hold (W-904) -----------------------------------------------------------
 def _cardinal_repeat(svc, rowid=1):
     svc.source = _GateSource([_det(rowid, *CARDINAL, 0.95, NOW - timedelta(minutes=1))],
                              first_seen={**KNOWN, EAGLE[1]: TODAY},
                              today=[_row(*CARDINAL, 5), _row(*EAGLE, 1)])
 
 
-def test_held_first_ever_bird_turns_away_a_repeat(svc, monkeypatch):
-    _hold(svc, "first-ever", minutes_ago=10)
+def _note_renders(svc, monkeypatch):
+    """Capture (label, footnote) per render without drawing anything."""
+    rendered = []
+    monkeypatch.setattr(svc, "_render_single",
+                        lambda det, now, reason, **kw: rendered.append((det.common_name,
+                                                                        svc._note_text())))
+    return rendered
+
+
+def test_a_repeat_takes_the_plate_from_a_new_species(svc, monkeypatch):
+    """Until W-904 a first-ever bird held the glass for 90 minutes and the plate
+    named each repeat it turned away along its foot ("Just now: …"). Now the
+    cardinal heard a minute ago is the plate, and it carries no line."""
+    _showing(svc, "first-ever", minutes_ago=10)
     _cardinal_repeat(svc)
-    rendered = _capture_renders(svc, monkeypatch)
+    rendered = _note_renders(svc, monkeypatch)
     svc._single_tick(NOW)
-    # The eagle keeps the glass; its one redraw is for the "Just now:" line (W-776).
-    assert rendered == ["Bald Eagle"]
-    assert svc._cursor() == 1          # the cursor still advances: the repeat is simply not shown
+    assert rendered == [("Northern Cardinal", None)]
+    assert svc._cursor() == 1
 
 
-def test_held_bird_yields_to_a_first_today_species(svc, monkeypatch):
-    _hold(svc, "first-ever", minutes_ago=10)
-    svc.source = _GateSource([_det(1, *ROBIN, 0.8, NOW - timedelta(minutes=1))],
-                             first_seen={**KNOWN, EAGLE[1]: TODAY},
-                             today=[_row(*ROBIN, 1), _row(*EAGLE, 1)])
-    rendered = _capture_renders(svc, monkeypatch)
-    svc._single_tick(NOW)
-    assert rendered == ["American Robin"]
+def test_status_reports_novelty_and_no_hold(client, svc):
+    svc.source = _GateSource([], first_seen=KNOWN)
+    assert 'name="dwell_minutes"' not in client.get("/").text   # a constant since W-821, gone since W-904
+    _showing(svc, "first-ever", minutes_ago=10)
+    cur = client.get("/api/status").json()["current"]
+    assert cur["novelty"] == "first-ever" and "holding" not in cur
 
 
-def test_held_bird_re_renders_on_its_own_repeat(svc, monkeypatch):
-    _hold(svc, "first-ever", minutes_ago=10)
-    svc.source = _GateSource([_det(1, *EAGLE, 0.9, NOW - timedelta(minutes=1))],
-                             first_seen={**KNOWN, EAGLE[1]: TODAY},
-                             today=[_row(*EAGLE, 2)])
-    rendered = _capture_renders(svc, monkeypatch)
-    svc._single_tick(NOW)
-    assert rendered == ["Bald Eagle"]
-
-
-def test_hold_expires_with_dwell(svc, monkeypatch):
-    _hold(svc, "first-ever", minutes_ago=91)
-    _cardinal_repeat(svc)
-    rendered = _capture_renders(svc, monkeypatch)
-    svc._single_tick(NOW)
-    assert rendered == ["Northern Cardinal"]
-
-
-def test_first_today_holds_too_but_a_repeat_or_collage_does_not(svc, monkeypatch):
-    rendered = _capture_renders(svc, monkeypatch)
-    _hold(svc, "first-today", minutes_ago=10, common=ROBIN[0], sci=ROBIN[1])
-    _cardinal_repeat(svc, rowid=1)
-    svc._single_tick(NOW)
-    assert rendered == ["American Robin"]      # held; redrawn once for its "Just now:" line
-
-    _hold(svc, "repeat", minutes_ago=10, common=ROBIN[0], sci=ROBIN[1])
-    _cardinal_repeat(svc, rowid=2)
-    svc._single_tick(NOW + timedelta(seconds=20))
-    assert rendered == ["American Robin", "Northern Cardinal"]
-
-    _hold(svc, "first-ever", minutes_ago=10, common="combined collage (3 species)",
-          sci="", mode="collage")
-    _cardinal_repeat(svc, rowid=3)
-    svc._single_tick(NOW + timedelta(seconds=40))
-    assert rendered == ["American Robin", "Northern Cardinal", "Northern Cardinal"]
-
-
-def test_commit_carries_the_hold_across_the_held_birds_own_repeats(svc):
-    # A first-today robin at 8:00 calling again at 8:05 is classed a repeat,
-    # but keeps the hold it earned (and its label); the clock does not restart.
+def test_a_plate_is_as_new_as_its_own_detection(svc):
+    """A first-today robin calling again five minutes later is a repeat: the
+    plate says what this detection is, not what the last one was."""
     src = _GateSource([], first_seen=KNOWN, today=[_row(*ROBIN, 1)])
     svc.source = src
     svc._render_single(_det(1, *ROBIN, 0.8, NOW), NOW, reason="test")
-    assert svc._meta["novelty"] == "first-today"
-    assert svc._meta["held_since"] == NOW.isoformat(timespec="seconds")
-
+    assert svc._meta["novelty"] == "first-today" and "held_since" not in svc._meta
     src.today = [_row(*ROBIN, 2)]
     later = NOW + timedelta(minutes=5)
     svc._render_single(_det(2, *ROBIN, 0.8, later), later, reason="test")
-    assert svc._meta["novelty"] == "first-today"
-    assert svc._meta["held_since"] == NOW.isoformat(timespec="seconds")
-    assert svc._meta["rendered_at"] == later.isoformat(timespec="seconds")
-
-    # Another species takes the frame: a repeat carries no hold at all.
-    # (A fresh `now`: the tally is memoised per tick.)
-    src.today = [_row(*ROBIN, 2), _row(*CARDINAL, 4)]
-    later = later + timedelta(minutes=1)
-    svc._render_single(_det(3, *CARDINAL, 0.9, later), later, reason="test")
     assert svc._meta["novelty"] == "repeat"
-    assert svc._meta["held_since"] is None
-    assert svc._holding(svc._meta, later) is None
-
-
-# -- status() -----------------------------------------------------------------
-def test_status_reports_novelty_and_the_hold(svc):
-    svc.source = _GateSource([], first_seen=KNOWN)
-    real_now = NOW
-    _hold(svc, "first-ever", minutes_ago=10, at=real_now)
-    cur = svc.status()["current"]
-    assert cur["novelty"] == "first-ever"
-    assert cur["holding"]["minutes_left"] == 80
-    assert cur["holding"]["reason"] == "new species"
-    assert cur["holding"]["why"].startswith("First time this species has been heard, so it stays up 90 min")
-    assert cur["holding"]["until"] == (real_now - timedelta(minutes=10) + timedelta(minutes=90)
-                                       ).isoformat(timespec="seconds")
-
-    # The pure computation, pinned: held_since wins over rendered_at.
-    meta = dict(svc._meta, held_since=(NOW - timedelta(minutes=30)).isoformat(timespec="seconds"))
-    assert svc._holding(meta, NOW)["minutes_left"] == 60
-    assert svc._holding(meta, NOW + timedelta(minutes=60)) is None
-
-    _hold(svc, "repeat", minutes_ago=1, at=real_now)
-    assert svc.status()["current"]["holding"] is None
-    _hold(svc, "first-ever", minutes_ago=1, mode="collage", at=real_now)
-    assert svc.status()["current"]["holding"] is None
-    _hold(svc, None, minutes_ago=1, at=real_now)
-    assert svc.status()["current"]["holding"] is None
-
-
-# -- bypasses -----------------------------------------------------------------
-def test_manual_refresh_and_test_detection_bypass_the_hold(svc, monkeypatch):
-    # refresh_now re-reads the saved config and the wall clock: keep it out
-    # of quiet hours whenever this runs.
-    svc.config.quiet_hours_mode = "off"
-    svc.update_config(svc.config)
-    _hold(svc, "first-ever", minutes_ago=10, at=NOW)
-    _cardinal_repeat(svc)
-    rendered = _capture_renders(svc, monkeypatch)
-    svc.refresh_now()
-    assert rendered == ["Northern Cardinal"]
-
-    monkeypatch.undo()
-    _hold(svc, "first-ever", minutes_ago=10, at=NOW)
-    svc.force_test_detection(*CARDINAL)
-    assert svc._meta["label"] == "Northern Cardinal (test)"
-    assert svc._meta["novelty"] is None          # a test bird never holds the frame
-    assert svc.status()["current"]["holding"] is None
 
 
 # -- the plate ------------------------------------------------------------------
@@ -392,85 +306,6 @@ def test_render_single_sets_first_ever_from_the_novelty_class(svc, monkeypatch):
     assert [s.first_ever for s in seen] == [True, False]
 
 
-# -- config + page --------------------------------------------------------------
-def test_status_reports_the_holding_time(client, svc):
-    svc.source = _GateSource([], first_seen=KNOWN)
-    html = client.get("/").text
-    assert 'name="dwell_minutes"' not in html        # a constant now (W-821)
-    assert client.get("/api/status").json()["current"]["holding"] is None
-
-    _hold(svc, "first-ever", minutes_ago=50, at=NOW)
-    holding = client.get("/api/status").json()["current"]["holding"]
-    assert holding["minutes_left"] == 40
-    assert holding["why"].startswith("First time this species has been heard, so it stays up 90 min.")
-
-
-# -- "Just now:" during a hold (W-776) -------------------------------------------
-def _note_renders(svc, monkeypatch):
-    """Capture (label, footnote) per render without drawing anything."""
-    rendered = []
-
-    def fake(det, now, reason, **kw):
-        if reason != "settings":
-            svc._just_now = None
-        rendered.append((det.common_name, svc._note_text()))
-        svc._meta = {**svc._meta, "note_kind": svc._note_kind(), "quiet_note": bool(svc._note_text())}
-
-    monkeypatch.setattr(svc, "_render_single", fake)
-    return rendered
-
-
-def test_a_held_plate_names_the_repeat_it_turned_away(svc, monkeypatch):
-    _hold(svc, "first-ever", minutes_ago=10)
-    svc._meta["held_since"] = (NOW - timedelta(minutes=10)).isoformat(timespec="seconds")
-    _cardinal_repeat(svc)
-    rendered = _note_renders(svc, monkeypatch)
-    svc._single_tick(NOW)
-    assert rendered == [("Bald Eagle", "Just now: Northern Cardinal")]
-    assert svc._note_kind() == "latest"
-
-
-def test_the_line_repaints_only_when_its_species_changes(svc, monkeypatch):
-    _hold(svc, "first-ever", minutes_ago=10)
-    _cardinal_repeat(svc, rowid=1)
-    rendered = _note_renders(svc, monkeypatch)
-    svc._single_tick(NOW)
-    _cardinal_repeat(svc, rowid=2)                       # the chatty cardinal again
-    svc._single_tick(NOW + timedelta(seconds=30))
-    assert len(rendered) == 1
-    svc.source = _GateSource([_det(3, *ROBIN, 0.9, NOW)], first_seen={**KNOWN, EAGLE[1]: TODAY},
-                             today=[_row(*ROBIN, 4), _row(*CARDINAL, 6), _row(*EAGLE, 1)])
-    svc._single_tick(NOW + timedelta(seconds=60))
-    assert rendered[-1] == ("Bald Eagle", "Just now: American Robin") and len(rendered) == 2
-
-
-def test_the_line_clears_when_the_held_species_is_heard_again(svc, monkeypatch):
-    _hold(svc, "first-ever", minutes_ago=10)
-    _cardinal_repeat(svc, rowid=1)
-    rendered = _note_renders(svc, monkeypatch)
-    svc._single_tick(NOW)
-    svc.source = _GateSource([_det(2, *EAGLE, 0.9, NOW)], first_seen={**KNOWN, EAGLE[1]: TODAY},
-                             today=[_row(*EAGLE, 2), _row(*CARDINAL, 5)])
-    svc._single_tick(NOW + timedelta(seconds=30))
-    assert rendered[-1] == ("Bald Eagle", None)
-    assert svc._just_now is None
-
-
-def test_the_line_goes_when_the_hold_ends(svc):
-    _hold(svc, "first-ever", minutes_ago=10)
-    svc._just_now = {"key": CARDINAL[1].lower(), "common": CARDINAL[0]}
-    assert svc._note_kind() == "latest"
-    _hold(svc, "first-ever", minutes_ago=91)
-    assert svc._note_kind() is None
-
-
-def test_an_outage_outranks_the_just_now_line(svc):
-    _hold(svc, "first-ever", minutes_ago=10)
-    svc._just_now = {"key": CARDINAL[1].lower(), "common": CARDINAL[0]}
-    svc._outage = {"since_text": "8:00 am"}
-    assert svc._note_kind() == "outage"
-
-
 # -- "new" means never heard here before, and it wears off ---------------------
 def test_a_source_with_no_history_is_answered_by_what_this_server_has_heard(svc):
     """A push feed can't say when a species was first heard. The server can:
@@ -498,17 +333,16 @@ def test_a_source_that_knows_better_is_asked(svc):
     assert svc._novelty(_det(2, *EAGLE, 0.9, NOW), NOW) == "first-ever"
 
 
-def test_a_birds_newness_ends_with_its_hold(svc):
-    """The same first-ever bird heard again after its hold is over is a repeat:
-    it does not carry "new" (or the hold) for as long as it keeps calling."""
+def test_a_birds_newness_wears_off(svc):
+    """The same first-ever bird heard again the next day is a repeat: it does
+    not carry "new" for as long as it keeps calling."""
     src = _GateSource([], first_seen={EAGLE[1]: TODAY}, today=[_row(*EAGLE, 1)])
     svc.source = src
     svc._render_single(_det(1, *EAGLE, 0.9, NOW), NOW, reason="test")
     assert svc._meta["novelty"] == "first-ever"
-    # The next day it is known, and heard again long after the hold.
+    # The next day it is known.
     tomorrow = NOW + timedelta(days=1)
     src.first_seen = {EAGLE[1]: TODAY}
     src.today = [_row(*EAGLE, 4)]
     svc._render_single(_det(2, *EAGLE, 0.9, tomorrow), tomorrow, reason="test")
-    assert svc._meta["novelty"] == "repeat" and svc._meta["held_since"] is None
-    assert svc._holding(svc._meta, tomorrow) is None
+    assert svc._meta["novelty"] == "repeat"

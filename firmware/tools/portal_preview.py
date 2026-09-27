@@ -12,7 +12,9 @@ kit. /ffstate answers "joining", then "joined" a few seconds after a Save.
 
 The frame's state is picked on the index, /_: a new frame (no network saved,
 opens on the Wi-Fi list), a frame that knows its network (the KEY2 hold), or
-one whose last join failed. Needs a C++ compiler and WiFiManager's sources from
+one whose last join failed (wrong password, network not found, or neither);
+a failed frame never joins, so the page after Save gives up after 40 s.
+/_mode?m=<state>&join=<s> sets how long a join takes (4 s). Needs a C++ compiler and WiFiManager's sources from
 any `pio run` (firmware/.pio/libdeps/*/WiFiManager, here or in the main
 checkout of a worktree), or --wm DIR.
 """
@@ -37,7 +39,7 @@ WM_NAMES = [
     "HTTP_ITEM_QI", "HTTP_ITEM_QP", "HTTP_ITEM", "HTTP_FORM_START", "HTTP_FORM_WIFI",
     "HTTP_FORM_WIFI_END", "HTTP_FORM_PARAM_HEAD", "HTTP_FORM_LABEL", "HTTP_FORM_PARAM",
     "HTTP_FORM_END", "HTTP_SCAN_LINK", "HTTP_SAVED", "HTTP_PARAMSAVED", "HTTP_END",
-    "HTTP_UPDATE", "HTTP_STATUS_ON", "HTTP_STATUS_OFF", "HTTP_STATUS_OFFPW",
+    "HTTP_UPDATE", "HTTP_STATUS_ON", "HTTP_STATUS_OFF", "HTTP_STATUS_OFFPW", "HTTP_STATUS_OFFNOAP", "HTTP_STATUS_OFFFAIL",
     "HTTP_STATUS_NONE", "HTTP_INFO_esphead", "HTTP_INFO_chiprev", "HTTP_INFO_psrsize",
     "HTTP_INFO_freeheap", "S_titlewifi", "S_titlewifisaved", "S_titlewifisettings",
     "S_titleinfo", "S_titleexit", "S_exiting", "S_passph", "S_nonetworks",
@@ -54,6 +56,8 @@ TITLE, AP = "Featherframe", "Featherframe-Setup"
 SSID, IP = "Unicorns", "10.0.1.52"
 CLOUD = "https://cloud.featherframe.app"
 JOIN_S = 4.0
+# How the last join failed (WiFiManager's reportStatus), by state.
+FAILED = {"wrongpw": "HTTP_STATUS_OFFPW", "notfound": "HTTP_STATUS_OFFNOAP", "failed": "HTTP_STATUS_OFFFAIL"}
 
 
 def find_wm(arg: str | None) -> str:
@@ -104,8 +108,9 @@ class Portal:
 
     def __init__(self, s: dict[str, str]):
         self.s = s
-        self.mode = "new"          # new | known | failed
+        self.mode = "new"          # new | known | one of FAILED
         self.saved_at = 0.0
+        self.join_s = JOIN_S
 
     @property
     def known(self) -> bool:
@@ -123,7 +128,7 @@ class Portal:
             return s["HTTP_STATUS_NONE"]
         if self.mode == "known":
             return s["HTTP_STATUS_ON"].replace("{i}", IP).replace("{v}", SSID)
-        return s["HTTP_STATUS_OFF"].replace("{c}", "D").replace("{v}", SSID).replace("{r}", s["HTTP_STATUS_OFFPW"])
+        return s["HTTP_STATUS_OFF"].replace("{c}", "D").replace("{v}", SSID).replace("{r}", s[FAILED[self.mode]])
 
     def root_main(self) -> str:
         return self.s["HTTP_ROOT_MAIN"].replace("{t}", TITLE).replace("{v}", AP)
@@ -186,13 +191,16 @@ class Portal:
         return self.head(TITLE, "update") + self.root_main() + s["HTTP_UPDATE"] + s["HTTP_END"]
 
     def ffstate(self) -> str:
-        joined = self.saved_at and time.time() - self.saved_at > JOIN_S and self.mode != "failed"
+        joined = self.saved_at and time.time() - self.saved_at >= self.join_s and self.mode not in FAILED
         return "joined" if joined else "joining"
 
     def index(self) -> str:
         links = [("/_mode?m=new", "New frame: opens on the Wi-Fi list"),
                  ("/_mode?m=known", "Knows its network (KEY2 hold): menu"),
-                 ("/_mode?m=failed", "Last join failed: menu"),
+                 ("/_mode?m=wrongpw", "Last join failed, wrong password: menu"),
+                 ("/_mode?m=notfound", "Last join failed, network not found: menu"),
+                 ("/_mode?m=failed", "Last join failed, other: menu"),
+                 ("/wifisave?s=Unicorns", "After Save"),
                  ("/wifi", "Wi-Fi list"), ("/0wifi", "Wi-Fi form, no scan"), ("/info", "Info"),
                  ("/update", "Update"), ("/exit", "Exit")]
         rows = "".join(f'<li><a href="{h}">{t}</a></li>' for h, t in links)
@@ -224,6 +232,7 @@ def serve(portal: Portal, port: int) -> None:
                 return self.send(portal.index())
             if p == "/_mode":
                 portal.mode = q.get("m", ["new"])[0]
+                portal.join_s = float(q.get("join", [JOIN_S])[0])
                 portal.saved_at = 0
                 return self.redirect("/")
             pages = {"/": portal.home, "/wifi": lambda: portal.wifi(True), "/0wifi": lambda: portal.wifi(False),
@@ -231,7 +240,7 @@ def serve(portal: Portal, port: int) -> None:
             if p in pages:
                 return self.send(pages[p]())
             if p == "/wifisave":
-                return self.send(portal.wifisave(form.get("s", [""])[0]))
+                return self.send(portal.wifisave((form.get("s") or q.get("s") or [""])[0]))
             if p == "/ffstate":
                 return self.send(portal.ffstate(), "text/plain")
             self.send("not found", "text/plain", 404)
@@ -262,7 +271,7 @@ def main() -> None:
     portal = Portal(extract(find_wm(args.wm), args.hosted))
     if args.dump:
         os.makedirs(args.dump, exist_ok=True)
-        for mode in ("new", "known", "failed"):
+        for mode in ("new", "known", *FAILED):
             portal.mode = mode
             for name, page in (("home", portal.home()), ("wifi", portal.wifi(True)), ("0wifi", portal.wifi(False))):
                 with open(os.path.join(args.dump, f"{mode}-{name}.html"), "w") as f:

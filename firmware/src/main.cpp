@@ -719,7 +719,22 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   esp_task_wdt_delete(NULL);
   WiFi.mode(WIFI_STA);
   wm.setTitle("Featherframe");
-  wm.setCustomHeadElement(PORTAL_CSS);
+  // A new frame opens on the network list (W-895): there is nothing else to
+  // do first. A frame that knows its network (the KEY2 hold) keeps the menu.
+  static String head;
+  head = FPSTR(PORTAL_CSS);
+  if (!wm.getWiFiIsSaved()) {
+    head += F("<script>if(location.pathname=='/')location.replace('/wifi');</script>");
+  }
+  wm.setCustomHeadElement(head.c_str());
+  // The network list is scanned when the portal opens, in the background,
+  // and kept 10 minutes (W-895). WiFiManager otherwise scans inside the
+  // request for /wifi, ~4 s across every channel, which takes the setup
+  // network off its channel under the phone that asked: "Configure WiFi"
+  // did nothing. Refresh on the page still scans again.
+  wm._preloadwifiscan = true;
+  wm._asyncScan = true;
+  wm._scancachetime = 10 * 60 * 1000;
   // A frame that already knows its network (the KEY2 hold) gets Configure
   // WiFi as the form without the scan, that network filled in (W-852). The
   // scan runs inside the request, ~4 s over every channel, taking the setup AP

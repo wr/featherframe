@@ -23,8 +23,9 @@ _SANS_SEMIBOLD = paths.fonts_dir() / "Inter-SemiBold.otf"
 
 # One pill, in one place (25 Sep 2026): on the footer line between the corner
 # marks, where the firmware bakes its toasts and error pills too
-# (bake_screens.py scales these by its reference mat). A line that goes with a
-# pill ("Trying again shortly") sits over it.
+# (bake_screens.py scales these by its reference mat, and sets its own pills'
+# type larger: a toast is read across a room). A line that goes with a pill
+# ("Trying again shortly") sits over it.
 NOTE_H, NOTE_PAD, NOTE_TEXT = 52, 22, 24
 NOTE_CY = theme.MARKS_BASELINE - 9          # the script marks' x-height centre
 RETRY_BASELINE, RETRY_TEXT = NOTE_CY - NOTE_H / 2 - 20, NOTE_TEXT

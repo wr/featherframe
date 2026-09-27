@@ -127,8 +127,8 @@ def check(draw, cx, cy, s, fill=255, width=6):
 # right as a fast DU partial (pure black/white, so no flash) — motion, not a
 # blink, is what reads as "loading, not stuck" on a panel this slow. Frame k of
 # FF_LOADER_FRAMES lights diamond k; the baked screens carry frame 0.
-LOADER_R = 6          # half-height of one diamond
-LOADER_PITCH = 18     # diamond center-to-center
+LOADER_R = 9          # half-height of one diamond
+LOADER_PITCH = 30     # diamond center-to-center
 LOADER_SLOT_W = LOADER_PITCH * 2 + LOADER_R * 2
 LOADER_FRAMES = 3
 
@@ -137,7 +137,7 @@ def draw_loader_mark(draw, cx, cy, frame=0):
         x = cx + (k - 1) * LOADER_PITCH
         diamond(draw, x, cy, LOADER_R, fill=255)
         if k != frame:
-            diamond(draw, x, cy, LOADER_R - 2.2, fill=0)
+            diamond(draw, x, cy, LOADER_R - 3.5, fill=0)
 
 def new_canvas():
     c = Image.new("L", (W, H), 255)
@@ -337,19 +337,28 @@ PILL_TEXT = {
 # One pill everywhere (25 Sep 2026): the server's footnote pill, on the
 # footer line between the corner marks. A plate is drawn on the sheet and then
 # shrunk into the frame's mat; these screens are full-bleed, so they carry the
-# pill where that line lands under a reference mat (REF_INSET), at the size
-# that mat shrinks it to. The firmware moves a toast by the frame's own mat
-# (FF_REF_INSET, FF_FOOT_CY). The loading mark sits in a slot at the left, the
-# text after it, in Inter. Drawn pure black/white so the window refreshes
-# flash-less with DU.
+# pill where that line lands under a reference mat (REF_INSET). The firmware
+# moves a toast by the frame's own mat (FF_REF_INSET, FF_FOOT_CY). The loading
+# mark sits in a slot at the left, the text after it, in Inter. Drawn pure
+# black/white so the window refreshes flash-less with DU.
 REF_INSET = 4.0
 REF_SCALE = 1 - 2 * REF_INSET / 100
 PILL_CY = (H - round(H * REF_SCALE)) // 2 + system.NOTE_CY * REF_SCALE
-PILL_H = round(system.NOTE_H * REF_SCALE)
-PILL_PAD = round(system.NOTE_PAD * REF_SCALE)
+# The footnote, as that mat shrinks it: the offline mark is this size, in the
+# plate number's place.
+NOTE_H = round(system.NOTE_H * REF_SCALE)
+NOTE_Y = round(PILL_CY - NOTE_H / 2)
+# The frame's own pills are read across a room, so their type is 34 px, the
+# toasts' size before the pills were one (at 22 px the 10.3" glass made them
+# too small, Wells 27 Sep 2026): the footnote pill scaled up to it. The footer
+# line is ~36 px over the mat's edge, so the pill stands on the footnote's
+# bottom edge rather than centring on the line and running under the mat.
+PILL_TEXT_SIZE = 34
+_GROW = PILL_TEXT_SIZE / system.NOTE_TEXT
+PILL_H = round(system.NOTE_H * _GROW)
+PILL_PAD = round(system.NOTE_PAD * _GROW)
 PILL_GAP = round(PILL_PAD * 0.6)
-PILL_TEXT_SIZE = round(system.NOTE_TEXT * REF_SCALE)
-PILL_Y = round(PILL_CY - PILL_H / 2)
+PILL_Y = NOTE_Y + NOTE_H - PILL_H
 ICON_S = round(PILL_H * system.ICON_OF_PILL)   # an icon's half-size in the pill
 icon = system.draw_icon                  # the server's icons, so both sides match
 
@@ -518,7 +527,7 @@ PENDING_TEXT = "Add this frame on the Featherframe webapp"
 RETRY_TEXTS = ["Trying again in 1 minute", "Trying again in 5 minutes",
                "Trying again in 15 minutes", "Trying again shortly"]
 ERR_ICON_SLOT = round(PILL_H * 0.68)
-RETRY_SIZE = PILL_TEXT_SIZE
+RETRY_SIZE = 28
 # The physical mat covers ~4% per edge (both kits' Panel.mat_inset_pct): the
 # plate pipeline scales its whole render to clear it, but boot screens push
 # full-bleed — so art may bleed under the mat, type must stay inside
@@ -528,19 +537,20 @@ RETRY_BASELINE = PILL_Y - 18          # over the pill: the pill is on the footer
 # The offline mark: the black pill as a circle, in the plate number's place
 # on the footer line, over a white box as wide as the widest plate number.
 CORNER_R = (W - round(W * REF_SCALE)) // 2 + (W - theme.CORNER_INSET) * REF_SCALE
-CORNER_PILL_W = round(PILL_H * 1.25)
+CORNER_PILL_W = round(NOTE_H * 1.25)
 CORNER_BOX = (round(CORNER_R - typography.plate_mark_max_width() * REF_SCALE - 10),
               round(CORNER_R + 6))
 
 def _draw_corner(d, kind):
-    d.rectangle([CORNER_BOX[0], PILL_Y - 6, CORNER_BOX[1], PILL_Y + PILL_H + 6], fill=255)
-    d.rounded_rectangle([CORNER_R - CORNER_PILL_W, PILL_Y, CORNER_R, PILL_Y + PILL_H],
-                        radius=PILL_H / 2, fill=0)
-    icon(d._image, kind, CORNER_R - CORNER_PILL_W / 2, PILL_Y + PILL_H / 2, ICON_S, 255)
+    d.rectangle([CORNER_BOX[0], NOTE_Y - 6, CORNER_BOX[1], NOTE_Y + NOTE_H + 6], fill=255)
+    d.rounded_rectangle([CORNER_R - CORNER_PILL_W, NOTE_Y, CORNER_R, NOTE_Y + NOTE_H],
+                        radius=NOTE_H / 2, fill=0)
+    icon(d._image, kind, CORNER_R - CORNER_PILL_W / 2, NOTE_Y + NOTE_H / 2,
+         round(NOTE_H * system.ICON_OF_PILL), 255)
 
 def _corner_assets(window):
     corners = [_canvas(lambda d: _draw_corner(d, "wifi")), _canvas(lambda d: _draw_corner(d, "cloud"))]
-    return corners, window(corners, *band(PILL_Y - 6, PILL_Y + PILL_H + 6), span=CORNER_BOX)
+    return corners, window(corners, *band(NOTE_Y - 6, NOTE_Y + NOTE_H + 6), span=CORNER_BOX)
 
 def _draw_error_pill(d, text, kind):
     fnt = sans(PILL_TEXT_SIZE)
@@ -613,7 +623,7 @@ def error_assets():
     retries = [_canvas(lambda d, t=t: d.text((W / 2, RETRY_BASELINE), t,
                                              font=sans(RETRY_SIZE), fill=0, anchor="ms"))
                for t in RETRY_TEXTS]
-    rband = _aligned_region(retries, *band(RETRY_BASELINE - 22, RETRY_BASELINE + 6))
+    rband = _aligned_region(retries, *band(RETRY_BASELINE - RETRY_SIZE, RETRY_BASELINE + RETRY_SIZE // 3))
     retry_geo, retry_tiles = _region_tiles(rband, retries + [Image.new("L", (W, H), 255)])
 
     corners, cband = _corner_assets(_aligned_region)
@@ -940,7 +950,7 @@ def _error_screen(draw_pill_fn, retry=None):
     def make(bare=None):
         im = _compose("birdnet", bare).copy()
         d = ImageDraw.Draw(im)
-        d.rectangle([0, RETRY_BASELINE - 30, W, PILL_Y + PILL_H + 10], fill=255)  # the stage pill's band
+        d.rectangle([0, RETRY_BASELINE - RETRY_SIZE - 8, W, PILL_Y + PILL_H + 10], fill=255)  # the stage pill's band
         draw_pill_fn(d)
         if retry:
             d.text((W / 2, RETRY_BASELINE), retry, font=sans(RETRY_SIZE), fill=0, anchor="ms")

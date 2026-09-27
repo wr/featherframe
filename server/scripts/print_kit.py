@@ -231,7 +231,7 @@ def card_outside(logo: str, mark: str, bough_uri: str) -> str:
   </div>
   <div style="flex-grow:1"></div>
   <div class="colophon">
-    <div><div>© 2026 Wells Workshop LLC · featherframe.app</div><div>For indoor use. {POWER} over USB-C.</div></div>
+    <div><div>© 2026 Wells Workshop LLC · featherframe.app</div><div>For indoor use. {POWER} over USB-C.</div><div><i>Enjoy the natural world responsibly.</i></div></div>
     <div><div>Contains FCC ID: {FCC_ID}.</div><div>This equipment should be installed and operated with a minimum distance of 20 cm between the antenna and your body.</div></div>
   </div>
 </div>

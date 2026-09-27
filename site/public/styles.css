@@ -237,7 +237,7 @@ h2 { font-weight: 400; text-wrap: balance; }
    contrasted, so a faint note still reads) over a dark scrim, a playhead
    crossing it. */
 .ph { position: relative; }
-.ph video { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; background: #d9d9d5;
+.ph video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; /* the clips' own shape: no bird cropped */ object-fit: cover; background: #d9d9d5;
             border-radius: 0; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 18px 40px -18px rgba(0, 0, 0, .35); }
 .spectro { position: absolute; left: 0; right: 0; bottom: 0; height: 33.4%; padding: 3% 4% 3.4%; border-radius: 0;
            background: linear-gradient(to top, rgba(0, 0, 0, .74), rgba(0, 0, 0, .56) 60%, rgba(0, 0, 0, 0)); }
@@ -511,7 +511,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .lcol { padding: 0; }
   /* the notification laid on the photograph, as a phone lays one on its lock screen */
   .toast { left: 10px; top: 10px; min-width: 0; max-width: calc(100% - 20px); transform: none; }
-  .ph video { aspect-ratio: 4 / 3; }
+  .ph video { aspect-ratio: 16 / 9; }
   .t3 { position: static; }
   .t3 .then { display: block; margin-top: 4px; }
   /* sound on and off: a round speaker at the spectrogram's right end, so the picture is the picture */

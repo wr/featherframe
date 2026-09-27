@@ -1018,7 +1018,7 @@
   {% if email_unverified %}
   <div class="test-box warn show panel-note verify-note" role="status">
     <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
-    <span class="test-msg">Confirm your email address to keep signing in once this device's sign-in ends. Check your inbox for the link.<form method="post" action="/account/verify/resend"><button type="submit">Resend</button></form></span>
+    <span class="test-msg">Confirm your email address, so we know it's yours. Check your inbox for the link.<form method="post" action="/account/verify/resend"><button type="submit">Resend</button></form></span>
   </div>
   {% endif %}
 
@@ -1315,7 +1315,7 @@
           <button type="button" role="menuitem" id="fw-check">Check for updates</button>
           <hr>
           <a role="menuitem" href="https://shop.wells.ee/products/featherframe/" target="_blank" rel="noopener">Buy a frame</a>
-          <a role="menuitem" href="https://github.com/wr/featherframe/wiki/Build-the-frame" target="_blank" rel="noopener">DIY instructions</a>
+          <a role="menuitem" href="https://featherframe.app/help/build" target="_blank" rel="noopener">DIY instructions</a>
         </div>
       </div>
     </div>
@@ -1790,7 +1790,7 @@
         <form class="set-form" method="post" action="/settings">
           <input type="hidden" name="section" value="imagegen">
           <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
-          <p class="intro"><a href="https://github.com/wr/featherframe/wiki/AI-illustrations" target="_blank" rel="noopener">Learn</a> how image generation works, as well as estimated API costs.</p>
+          <p class="intro"><a href="https://featherframe.app/help/ai" target="_blank" rel="noopener">Learn</a> how image generation works, as well as estimated API costs.</p>
           <div class="test-box {{ ig_state }} src-alarm{{ ' show' if ig_err else '' }}" id="ig-banner" role="status" aria-live="polite" data-provider-name="{{ ig_names.get(config.imagegen_provider, config.imagegen_provider) }}">
             <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
             <span class="test-msg" id="ig-text" title="{{ ig_err.detail if ig_err else '' }}">{{ ig_err.text if ig_err else '' }}</span>
@@ -1973,7 +1973,7 @@
   <footer>
     <a href="https://github.com/wr/featherframe" target="_blank" rel="noopener">GitHub</a>
     <a href="https://github.com/wr/featherframe/issues/new" target="_blank" rel="noopener">Open an issue</a>
-    <a href="https://github.com/wr/featherframe/wiki/Build-the-frame" target="_blank" rel="noopener">Hardware guide</a>
+    <a href="https://featherframe.app/help" target="_blank" rel="noopener">Help</a>
     <a href="https://buymeacoffee.com/wellsworkshop" target="_blank" rel="noopener">Donate</a>
     <span class="ver">Featherframe v{{ version }}</span>
     {% if hosted or password_on %}<form method="post" action="/logout" class="signout"><button class="linkish" type="submit">Sign out</button></form>{% endif %}
@@ -3834,7 +3834,7 @@
     if (!sel || !box) return;
     var icEl = box.querySelector('.test-ic');
     var msgEl = box.querySelector('.test-msg');
-    var TROUBLE = 'https://github.com/wr/featherframe/wiki/Troubleshooting#detection-sources';
+    var TROUBLE = 'https://featherframe.app/help/source-problems';
     function val(name) { var el = document.querySelector('[name="' + name + '"]'); return el ? el.value : ''; }
     function body() {
       var p = new URLSearchParams();

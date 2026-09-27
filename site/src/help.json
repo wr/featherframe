@@ -1,0 +1,26 @@
+{
+  "wiki": "https://github.com/wr/featherframe/wiki",
+  "topics": {
+    "": { "page": "Home" },
+    "setup": { "page": "Set-up-your-frame" },
+    "frame": { "page": "Your-frame" },
+    "buttons": { "page": "Your-frame", "heading": "Buttons" },
+    "light": { "page": "Your-frame", "heading": "The light" },
+    "quiet-hours": { "page": "Your-frame", "heading": "When the picture changes" },
+    "troubleshooting": { "page": "Troubleshooting" },
+    "wifi": { "page": "Troubleshooting", "heading": "The frame can't join your Wi-Fi" },
+    "account": { "page": "Troubleshooting", "heading": "Your account" },
+    "move": { "page": "Troubleshooting", "heading": "Move, give away, or reset a frame" },
+    "source-problems": { "page": "Troubleshooting", "heading": "Detection sources" },
+    "settings": { "page": "Settings" },
+    "collage": { "page": "Settings", "heading": "Collage" },
+    "add": { "page": "Add-a-frame" },
+    "detection-sources": { "page": "Detection-sources" },
+    "birdweather": { "page": "Detection-sources", "heading": "BirdWeather" },
+    "birdnet-pi": { "page": "Detection-sources", "heading": "BirdNET-Pi" },
+    "birdnet-go": { "page": "Detection-sources", "heading": "BirdNET-Go" },
+    "screens": { "page": "Other-screens" },
+    "ai": { "page": "AI-illustrations" },
+    "build": { "page": "Quickstart" }
+  }
+}

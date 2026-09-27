@@ -20,6 +20,8 @@
 #endif
 
 // --- User buttons (active-low, RTC-capable for deep-sleep wake) ---
+// The driver board prints them KEY1, KEY2, KEY3 (schematic BUTON1-3, EE03
+// V1.0): our KEY0-KEY2 are those three, in that order. The fourth is RESET.
 #define PIN_KEY0        GPIO_NUM_2
 #define PIN_KEY1        GPIO_NUM_3
 #define PIN_KEY2        GPIO_NUM_5
@@ -72,6 +74,7 @@
 #define FF_LED_BLINK_ON_MS  150     // an error blink's lit part, once per 2 s
 #define FF_LED_PAIRED_MS    3000    // green after a connection is made…
 #define FF_LED_FADE_MS      1000    // …then fades out
+#define FF_LED_FAIL_MS      900     // a failed Wi-Fi join: two red pulses
 
 // --- Panel ---
 // Set ahead of everything that branches on it: an undefined macro in an #if is

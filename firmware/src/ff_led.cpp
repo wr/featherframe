@@ -1,6 +1,7 @@
 #include "ff_led.h"
 
 #include <Arduino.h>
+#include <WiFi.h>
 #include <driver/gpio.h>
 #include "ff_config.h"
 
@@ -13,18 +14,26 @@ static volatile bool     g_ledHalt = false;
 struct Look { uint8_t r, g, b; uint8_t pattern; uint16_t period; };
 enum { SOLID, BREATHE, BLINK };
 
-// One colour per state, and a pattern that says whether it is waiting on you
-// (a slow breath) or something is wrong (a blink).
+// One colour per stage, and a pattern that says whether it is waiting on you
+// (a slow breath), working (a quick one) or something is wrong (a blink).
+// Setup is blue, and each step changes it: a slow breath while the hotspot
+// waits, steady once a phone is on it, a quick pulse while it joins the
+// chosen network, two red pulses if that fails. Green breathes from the moment it is on Wi-Fi until the
+// server answers, then holds and fades.
 static Look lookOf(LedState s) {
   switch (s) {
-    case LED_BOOT:       return {255, 255, 255, BREATHE, 2000};
-    case LED_WIFI_SETUP: return {  0,  60, 255, BREATHE, 3000};
-    case LED_PAIRING:    return {255, 150,   0, BREATHE, 3000};
-    case LED_UPDATING:   return {170,   0, 255, BREATHE,  800};
-    case LED_NO_WIFI:    return {255,   0,   0, BLINK,   2000};
-    case LED_NO_SERVER:  return {255,  50,   0, BLINK,   2000};
-    case LED_PAIRED:     return {  0, 255,  40, SOLID,      0};
-    default:             return {  0,   0,   0, SOLID,      0};
+    case LED_BOOT:         return {255, 255, 255, BREATHE, 2000};
+    case LED_WIFI_SETUP:   return {  0,  60, 255, BREATHE, 3000};
+    case LED_WIFI_PHONE:   return {  0,  60, 255, SOLID,      0};
+    case LED_WIFI_JOINING: return {  0,  60, 255, BREATHE,  600};
+    case LED_WIFI_FAILED:  return {255,   0,   0, BLINK,  FF_LED_FAIL_MS / 2};
+    case LED_CONNECTED:    return {  0, 255,  40, BREATHE, 1200};
+    case LED_PAIRING:      return {255, 150,   0, BREATHE, 3000};
+    case LED_UPDATING:     return {170,   0, 255, BREATHE,  800};
+    case LED_NO_WIFI:      return {255,   0,   0, BLINK,   2000};
+    case LED_NO_SERVER:    return {255,  50,   0, BLINK,   2000};
+    case LED_PAIRED:       return {  0, 255,  40, SOLID,      0};
+    default:               return {  0,   0,   0, SOLID,      0};
   }
 }
 
@@ -51,6 +60,12 @@ static void ledTask(void*) {
     uint32_t t = millis() - g_ledSince;
     // Paired is a moment of green that fades out, then the LED is simply off.
     if (s == LED_PAIRED && t >= FF_LED_PAIRED_MS + FF_LED_FADE_MS) { g_led = LED_OFF; s = LED_OFF; }
+    // A failed join is two red pulses, then the portal's blue again: steady
+    // if a phone is still on the hotspot.
+    if (s == LED_WIFI_FAILED && t >= FF_LED_FAIL_MS) {
+      ledSet(WiFi.softAPgetStationNum() > 0 ? LED_WIFI_PHONE : LED_WIFI_SETUP);
+      continue;
+    }
     Look k = lookOf(s);
     uint32_t lvl = levelAt(k, t);
     if (s == LED_PAIRED && t > FF_LED_PAIRED_MS) lvl = lvl * (FF_LED_FADE_MS - (t - FF_LED_PAIRED_MS)) / FF_LED_FADE_MS;

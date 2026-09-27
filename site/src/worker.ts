@@ -1,5 +1,24 @@
 // featherframe.app's Worker: www goes to the apex; everything else is dist/.
+import HELP from './help.json' with { type: 'json' };
+
 interface Env { ASSETS: { fetch(request: Request): Promise<Response> } }
+
+/** GitHub's anchor for a heading: lower case, punctuation dropped, spaces
+ * to hyphens. check_copy.py --wiki holds the headings to the wiki. */
+export function slug(heading: string): string {
+  return heading.toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, '').trim().replace(/\s/g, '-');
+}
+
+/** Where featherframe.app/help/<topic> sends an owner (site/src/help.json):
+ * the card in the box and the webapp print these, so the pages behind them
+ * can move. Null when the path is not under /help. */
+export function helpTarget(pathname: string): string | null {
+  const m = pathname.match(/^\/help(?:\/([^/]*))?\/?$/i);
+  if (!m) return null;
+  const topics: Record<string, { page: string; heading?: string }> = HELP.topics;
+  const t = topics[(m[1] || '').toLowerCase()] ?? topics[''];
+  return `${HELP.wiki}/${t.page}${t.heading ? `#${slug(t.heading)}` : ''}`;
+}
 
 export default {
   fetch(request: Request, env: Env): Promise<Response> | Response {
@@ -15,6 +34,8 @@ export default {
       url.hostname = 'featherframe.app';
       return Response.redirect(url.toString(), 301);
     }
+    const help = helpTarget(url.pathname);
+    if (help) return Response.redirect(help, 302);
     // the icon crawlers ask for by convention
     if (url.pathname === '/favicon.ico') {
       url.pathname = '/favicon.png';

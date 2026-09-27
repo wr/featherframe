@@ -5,8 +5,9 @@
 # model's screen texture (13: 1543 × 2072, 10: 1179 × 1572) the way
 # public/models/screens/*.jpg are: fitted by width, paper above and below.
 #
-# The hero's four (models/screens/{10,13}-<slug>.jpg) come the same way, so
-# every screen on the page carries the same corner mark.
+# The hero's (models/screens/{10,13}-<slug>.jpg) come the same way, so every
+# screen on the page carries the same corner mark. A species already on the
+# wall (the Tufted Titmouse, a detection) uses its wall screen.
 #
 # Every screen is drawn with the frames' mat allowance (FF_MAT_INSET, percent
 # per edge, default 4: what Wells's frames need so the mat hides none of the
@@ -28,7 +29,7 @@ HERO=(
   "nighthawk|Common Nighthawk"
   "cardinal|Northern Cardinal"
   "eastern-bluebird|Eastern Bluebird"
-  "goldfinch|American Goldfinch"
+  "black-capped-chickadee|Black-capped Chickadee"
 )
 # slug|name, or slug|name|latin|scan|Havell plate for a species the server's
 # plate index does not carry (drawn from its scan by scan_screen.py)

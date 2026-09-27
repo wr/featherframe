@@ -34,7 +34,7 @@ def test_without_a_key_the_section_reads_as_optional_and_complete(svc):
     # Its row in the Settings card says so, and nothing more (W-878).
     assert '<h3 class="set-name">AI image generation</h3>' in html
     assert html.split('id="set-imagegen"')[1].split('</summary>')[0].count("No API key") == 1
-    assert "wiki/AI-illustrations" in html and ">Learn</a>" in html
+    assert "featherframe.app/help/ai" in html and ">Learn</a>" in html
     rows = _needs_key_rows(html)
     assert len(rows) == 1 and all("hidden" in r for r in rows)
     # Both AI toggles are LOCKED, not disabled \u2014 a disabled checkbox posts

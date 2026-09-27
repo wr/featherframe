@@ -755,6 +755,26 @@ static void startImprov() {
   improvBegin("Featherframe", FF_FW_VERSION, FF_BOARD_ID, hooks);
 }
 
+// The setup steps the glass does not show, on the LED: a phone joining the
+// hotspot, and a join that failed (WiFiManager turns the station off and
+// keeps the portal open, with no callback of its own).
+static void onWifiLed(arduino_event_id_t ev, arduino_event_info_t) {
+  const LedState s = ledState();
+  switch (ev) {
+    case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
+      if (s == LED_WIFI_SETUP) ledSet(LED_WIFI_PHONE);
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
+      if (s == LED_WIFI_PHONE && WiFi.softAPgetStationNum() == 0) ledSet(LED_WIFI_SETUP);
+      break;
+    case ARDUINO_EVENT_WIFI_STA_STOP:
+      if (s == LED_WIFI_JOINING) ledSet(LED_WIFI_FAILED);
+      break;
+    default:
+      break;
+  }
+}
+
 bool ensureWifi(bool openPortal, bool showBoot) {
   // The portal blocks here for its whole session, and WiFiManager extends
   // its own timeout on every captive-portal probe — a phone parked on the
@@ -835,7 +855,17 @@ bool ensureWifi(bool openPortal, bool showBoot) {
     else showScreen(FF_SCR_SETUP_SHOWN);
 #endif
   });
-  wm.setSaveConfigCallback([]() { showScreenFull(FF_SCR_BOOT_WIFI); });
+  static bool ledEvents = false;
+  if (!ledEvents) { WiFi.onEvent(onWifiLed); ledEvents = true; }
+  // A network chosen on the portal: joining it (a form without one is only
+  // the server field, and joins nothing).
+  wm.setPreSaveConfigCallback([]() {
+    if (wm.server->arg("s").length()) ledSet(LED_WIFI_JOINING);
+  });
+  wm.setSaveConfigCallback([]() {
+    ledSet(LED_CONNECTED);
+    showScreenFull(FF_SCR_BOOT_WIFI);
+  });
   // How joining goes, for the page after Save (W-899): "joined" once the
   // frame is on the owner's network. The first time a phone is told so
   // starts the countdown to closing Featherframe-Setup.
@@ -919,8 +949,10 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   }
   bool connected = ok && WiFi.status() == WL_CONNECTED;
   if (connected) markFirmwareGood();   // a build that gets this far is not a brick
-  // Joined: still "starting" until the server answers (noteFetchOutcome).
-  ledSet(connected ? LED_BOOT : LED_NO_WIFI);
+  // Joined: green breathes until the server answers (noteFetchOutcome). A
+  // wake out of deep sleep stays dark.
+  if (!connected) ledSet(LED_NO_WIFI);
+  else if (ledState() != LED_OFF) ledSet(LED_CONNECTED);
   // A dead end (portal timeout, connect failure) can leave a boot screen
   // armed via the save callback; stop the sweep — there is no progress to show.
   if (!connected) g_loaderAnim.on = false;

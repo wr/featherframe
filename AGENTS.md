@@ -16,6 +16,8 @@ Linear, reports. Use its lexicon. Write every user-facing string yourself,
 verbatim, in any subagent brief. `server/scripts/check_copy.py` checks the
 mechanical rules (`make test` runs it on the webapp; pass `--wiki DIR` before
 pushing the wiki).
+Link owners to help through `featherframe.app/help/<topic>`
+(`site/src/help.json`), never to the wiki directly (docs/STYLE.md).
 
 ## What this is
 
@@ -116,6 +118,11 @@ and composes at most one sheet per picture; `_tick_frames()` then finishes
 each picture into one output per frame that shows it. Every web handler just
 reads bytes — nothing is ever rendered in a request. The default path is to do
 nothing (priority: few panel refreshes).
+Quiet hours are asked of the service (`quiet_window` / `in_quiet_hours`),
+never of `Config` alone (W-900): Sunset → Sunrise is the sun at the source's
+`location()`, read once per tick and never in a request, on the server's
+`TZ` with daylight saving; with no location, 40° in the Region's hemisphere
+on the zone's standard meridian (`config._sun_window`).
 
 **Frame / Household / Picture / Output (W-833).** Four things, and everything
 else follows from them.
@@ -785,12 +792,17 @@ gone, W-821: the server still says `X-FF-Invert: 0` so fielded firmware
 clears the flag it stored, until every frame runs firmware without it):
 the baked art is baked at one rotation (`FF_BAKED_ROTATION`), so when the
 frame hangs the other way up the firmware turns every baked screen and tile
-180° (`rotate180`, and `flipX`/`flipY` for a tile's window). The mat rides the same way (W-857): `X-FF-Mat` ("inset,x,y") on every response, kept in NVS `mat` and said back on every ask and over Improv, so a frame removed and paired again (`admit_frame`, a new row) starts with its mat; the rotation already did (W-851, `X-FF-Rotation`). The mat also places the toasts: every pill on the glass (a toast, an error, a footnote) is one size on the footer line between the corner marks, baked where that line lands under a 4% reference mat, and `placeToast` moves a toast to where it lands under the frame's own mat (`FF_REF_INSET`, `FF_FOOT_CY`; `test_toast_place.py` holds the formula to the server's). The offline mark is that pill as a circle in the plate number's place, moved the same way (`FF_FOOT_RX`). Every icon on a pill is `system.draw_icon`, drawn large and cut to two tones, which the bake calls too.
+180° (`rotate180`, and `flipX`/`flipY` for a tile's window). The mat rides the same way (W-857): `X-FF-Mat` ("inset,x,y") on every response, kept in NVS `mat` and said back on every ask and over Improv, so a frame removed and paired again (`admit_frame`, a new row) starts with its mat; the rotation already did (W-851, `X-FF-Rotation`). The mat also places the toasts: every pill on the glass (a toast, an error, a footnote) is the one black pill on the footer line between the corner marks — the frame's own set at 34 px type (the footnote pill scaled up, standing on its bottom edge: the line is ~36 px over the mat's edge), the server's footnote at its own size — baked where that line lands under a 4% reference mat, and `placeToast` moves a toast to where it lands under the frame's own mat (`FF_REF_INSET`, `FF_FOOT_CY`; `test_toast_place.py` holds the formula to the server's). The offline mark is the footnote-size pill as a circle in the plate number's place, moved the same way (`FF_FOOT_RX`). Every icon on a pill is `system.draw_icon`, drawn large and cut to two tones, which the bake calls too.
 The wall runs always-awake today; deep sleep is the
 less-tested branch. An optional status LED (W-876, `ff_led.cpp`): one WS2812B pixel
 with DIN on GPIO39, soldered to pad 1 of the unfitted font chip U6 (3V3 on
 pads 7/8, GND on 4, both kits); `ledSet()` from the boot, portal, fetch
-outcome (`noteLedOutcome`) and OTA paths, dark in deep sleep. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
+outcome (`noteLedOutcome`) and OTA paths, dark in deep sleep. Setup is one
+colour a step: blue breathing slowly while the hotspot waits, steady once a
+phone is on it (`onWifiLed`, Wi-Fi events), a quick pulse while it joins the
+chosen network (WiFiManager's pre-save callback, or Improv), two red pulses
+and back to blue if that fails (the station stops); green breathes from the join until the server
+answers, then holds and fades. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
 app with a full-refresh equivalent for everything partial (W-817): the plate
 is retained in PSRAM, and a toast or the corner mark is a baked black/white-ink
 tile blitted into a copy of it, then one ~15 s repaint (`paintPlate`; cleared

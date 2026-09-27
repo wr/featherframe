@@ -222,7 +222,7 @@ def test_sun_mode_collage_date_uses_sun_window_not_custom_fields(svc):
     # the sun window wraps midnight, so a 01:00 tick reviews yesterday.
     svc.config = Config(quiet_hours_mode="sun", quiet_hours_start="12:00",
                         quiet_hours_end="14:00")
-    start, end = svc.config.quiet_window(date(2026, 6, 21))
+    start, end = svc.quiet_window(date(2026, 6, 21))
     assert start > end                      # sunset -> sunrise wraps midnight
     assert svc._collage_date(datetime(2026, 6, 22, 1, 0)) == date(2026, 6, 21)
     assert svc._collage_date(datetime(2026, 6, 22, 21, 0)) == date(2026, 6, 22)
@@ -397,3 +397,11 @@ def test_usb_only_unit_is_not_flagged_low_battery(client, svc):
     card = health(svc, svc.LEGACY_FRAME)
     assert card["battery"] is None
     assert card["battery_low"] is False
+
+
+def test_a_new_household_is_quiet_from_sunset_and_a_stored_one_keeps_its_hours():
+    # W-898: birds go quiet at dusk, so a new household starts on the sun.
+    assert Config().quiet_hours_mode == "sun"
+    stored = Config(quiet_hours_mode="custom").to_dict()
+    assert "quiet_hours_mode" in stored
+    assert Config.from_dict(stored).quiet_hours_mode == "custom"

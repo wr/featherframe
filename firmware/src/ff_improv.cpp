@@ -1,6 +1,7 @@
 // Improv Wi-Fi Serial v1 (see ff_improv.h). One task, no allocation after
 // start: packets are small (an SSID and a password at most).
 #include "ff_improv.h"
+#include "ff_led.h"
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -109,6 +110,8 @@ void answerState() {
 
 void join(const char* ssid, const char* pass) {
   sendState(STATE_PROVISIONING);
+  const LedState was = ledState();
+  ledSet(LED_WIFI_JOINING);
   Serial.printf("Improv: joining \"%s\"\n", ssid);
   WiFi.persistent(true);                      // kept in NVS, as the portal keeps it
   if (!(WiFi.getMode() & WIFI_STA)) WiFi.mode(WIFI_AP_STA);   // the portal's AP stays up
@@ -117,10 +120,13 @@ void join(const char* ssid, const char* pass) {
   while (!connected() && millis() - t0 < JOIN_TIMEOUT_MS) vTaskDelay(pdMS_TO_TICKS(100));
   if (!connected()) {
     Serial.println("Improv: could not join");
+    // In the portal: the same red pulses as a failed join from the phone.
+    ledSet(was == LED_WIFI_SETUP || was == LED_WIFI_PHONE ? LED_WIFI_FAILED : was);
     sendError(ERR_UNABLE_TO_CONNECT);
     sendState(STATE_READY);
     return;
   }
+  ledSet(LED_CONNECTED);
   sendError(ERR_NONE);
   sendState(STATE_PROVISIONED);
   sendNextUrl(CMD_WIFI_SETTINGS);

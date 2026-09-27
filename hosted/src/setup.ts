@@ -77,6 +77,17 @@ async function claim(env: Env, row: PairingRow, hid: string): Promise<boolean> {
   return true;
 }
 
+/** The inverse of claim: a frame removed on the page leaves household `hid`,
+ * and a kit it was set up with is an invitation again, so the frame can be
+ * handed on and set up by someone new. */
+export async function releaseFrame(env: Env, deviceId: string, hid: string): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM frames WHERE device_id = ? AND household_id = ?").bind(deviceId, hid),
+    env.DB.prepare("UPDATE kits SET used_at = NULL, household_id = NULL WHERE device_id = ? AND household_id = ?")
+      .bind(deviceId, hid),
+  ]);
+}
+
 /** A sign-in link's "add this frame" (`CODE:device`), followed: the frame is
  * added if it still shows that code. */
 export async function pairLinked(env: Env, pairCode: string, hid: string): Promise<boolean> {
@@ -169,6 +180,12 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
   if (!kit && !invited) {
     await joinWaitlist(env, email, "setup");
     return setupLinkSentPage(email);
+  }
+
+  // A new account on BirdWeather needs its station, or the frame would have
+  // no source at all.
+  if (source === "birdweather" && !String(form.get("station") || "").trim()) {
+    return again("Choose a BirdWeather station, or another detection source.");
   }
 
   // A new account. The invitation is taken first, and given back if the

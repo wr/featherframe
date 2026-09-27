@@ -42,7 +42,7 @@ It works with [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), [BirdNET-
 
 ## Shopping list
 
-- **[Seeed XIAO ePaper DIY Kit EE03](https://www.seeedstudio.com/)**: 10.3", grayscale. Or the **EE02** kit: 13.3", color.
+- **[Seeed XIAO ePaper DIY Kit EE03](https://www.seeedstudio.com/XIAO-ePaper-DIY-Kit-EE03-for-10-3-Monochrome-ePaper-Display.html?sensecap_affiliate=aVzGKGh)**: 10.3", grayscale. Or the **[EE02](https://www.seeedstudio.com/XIAO-ePaper-DIY-Kit-EE02-for-13-3-Spectratm-6-E-Ink.html?sensecap_affiliate=aVzGKGh)** kit: 13.3", color.
 - **[A frame](https://amzn.to/3V1nJFo)**
 - **A USB-C power supply**
 
@@ -54,7 +54,7 @@ You don't need the kit if you have a TRMNL, an e-reader, or a tablet. See [Other
 
 Choose one:
 
-- **Featherframe Cloud.** Join the waitlist at [featherframe.app](https://featherframe.app). You'll get an invitation by email. There's nothing to install.
+- **Featherframe Cloud.** Join the waitlist at [featherframe.app](https://featherframe.app), and confirm your address from the email it sends. You'll get an invitation by email. There's nothing to install.
 - **On your BirdNET device.** Run these commands on the device that runs BirdNET-Pi or BirdNET-Go:
 
   ```bash
@@ -70,13 +70,13 @@ Choose one:
 
 1. Connect the frame to your computer with a USB-C cable.
 2. Open your Featherframe webapp in Chrome or Edge.
-3. In the **Frames** section, click **⋯**, then **USB firmware update**. If your server is on your BirdNET device, this opens the installer at [wr.github.io/featherframe](https://wr.github.io/featherframe/).
+3. In the **Frames** section, click **⋯**, then **USB firmware update**, and choose your kit. On a self-hosted server, click **Open the flasher**: it opens the installer at [wr.github.io/featherframe/flash](https://wr.github.io/featherframe/flash/).
 4. Click **Connect**, then follow the steps. You'll enter your Wi-Fi details at the end.
 
 ### 3. Add the frame
 
 - **Featherframe Cloud:** The frame shows a QR code. Scan it with your phone to set the frame up, or, signed in to the Featherframe webapp, click **⋯**, then **Pair a frame**, and enter the six-letter code.
-- **Self-hosted:** In your Featherframe webapp, click **Add** next to the new frame.
+- **Self-hosted:** In your Featherframe webapp, click **Add** next to the new frame. If the frame shows a six-letter code instead, [connect it to your server](https://github.com/wr/featherframe/wiki/Flash-the-frame#connect-to-your-own-server).
 
 The frame shows a picture the next time your detector identifies a bird.
 

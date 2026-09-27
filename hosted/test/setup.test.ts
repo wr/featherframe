@@ -243,7 +243,7 @@ describe("codes", () => {
   it("normalises a setup code and makes them from the pairing alphabet", () => {
     expect(normSetupCode(" abcd-efgh ")).toBe("ABCDEFGH");
     expect(normSetupCode("ABC")).toBe("");
-    expect(newSetupCode()).toMatch(/^[ABCDEFGHJKMNPQRSTWXYZ]{8}$/);
+    expect(newSetupCode()).toMatch(/^[ABCDEFGHJKMNPRSTWXYZ]{8}$/);
   });
   it("spells the setup URL in lower case", () => {
     const t = setupToken();

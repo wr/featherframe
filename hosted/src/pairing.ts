@@ -4,8 +4,8 @@
 import type { Env } from "./index";
 
 // A pairing code: letters only (the engraved face has old-style figures that
-// rise and fall), and none of I/L/O/U/V to confuse on the glass.
-const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTWXYZ";
+// rise and fall), and none of I/L/O/Q/U/V to confuse on the glass.
+const CODE_ALPHABET = "ABCDEFGHJKMNPRSTWXYZ";
 const CODE_TTL_S = 24 * 60 * 60;
 // The setup page's secret for a code (W-888), lower case like the URL it
 // ends (W-889: an upper-case URL looked odd in the phone's camera).
@@ -32,7 +32,7 @@ export function setupUrl(host: string, code: string, token: string): string {
 // R2 key), so a screen showing the old drawing is sent the new one. Bump it
 // again once the Lobby's rollout has finished: a code asked for mid-rollout
 // is drawn by the old image and cached under the new key.
-export const LOBBY_DRAWING = "setup-row-2";
+export const LOBBY_DRAWING = "setup-row-4";
 
 /** The code a device no one has claimed shows, made on its first ask and
  * kept for a day. `report` is what it said about itself, for the household

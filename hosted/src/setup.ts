@@ -19,7 +19,7 @@ const now = () => Math.floor(Date.now() / 1000);
 export const SETUP_PER_IP = 5;          // setups tried an hour from one IP
 export const SETUP_VIEWS_PER_IP = 60;   // page and station lookups an hour
 export const LINKS_PER_ADDRESS = 5;     // add-this-frame emails an hour to one address
-const SETUP_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTWXYZ";
+const SETUP_CODE_ALPHABET = "ABCDEFGHJKMNPRSTWXYZ";
 const SETUP_CODE_LEN = 8;
 
 const PATH = new RegExp(`^/setup/([A-Za-z]{6})/([0-9A-Za-z]{${SETUP_TOKEN_LEN}})/?$`);

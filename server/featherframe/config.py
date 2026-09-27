@@ -103,8 +103,8 @@ class Config:
         os.environ.get("FEATHERFRAME_PANEL", "ee03")).mode)
     # Served to the device on every /api/frame response (W-456/W-736): the
     # power model and, in deep sleep, how long it sleeps between check-ins.
-    # "awake": stays on Wi-Fi and polls every 15 s (USB); "sleep": deep-sleeps
-    # and wakes on the interval or a button (battery).
+    # "awake": stays on Wi-Fi and polls (every kit, on USB); "sleep":
+    # deep-sleeps and wakes on the interval or a button.
     power_mode: str = "awake"
     wake_interval_minutes: int = 15
     # Always awake: how often the frame asks for a new plate (a conditional

@@ -137,7 +137,7 @@
 // /api/frame response; the frame stores both in NVS, so the config page is
 // where the model is chosen (W-736/W-456). "Always awake" keeps Wi-Fi up and
 // polls the buttons in loop(), so a press is instant and the panel never
-// re-inits (USB). "Deep sleep" acts once per wake and sleeps (battery).
+// re-inits. "Deep sleep" acts once per wake and sleeps.
 // 1 = a unit with no stored mode starts always-awake.
 #define FF_DEFAULT_ALWAYS_AWAKE  1
 

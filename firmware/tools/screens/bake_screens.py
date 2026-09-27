@@ -914,7 +914,7 @@ def write_preview():
     print("wrote", out)
 
 # -- EE02 (13.3" Spectra 6 colour panel) ---------------------------------------
-# No partial refresh and ~30 s per full one, so the EE02 build bakes only the
+# No partial refresh and ~15 s per full one, so the EE02 build bakes only the
 # screens that say something a plate can't: the setup steps, the three error
 # states (the gray build's pill bands, promoted to whole screens) and ONE boot
 # screen — the gray build's splash and three stage pills would each cost a
@@ -1102,7 +1102,7 @@ EE02 = Target(1200, 1600, "spectra6", 0, os.path.join(REPO, "firmware", "src", "
               ["// EE02 (13.3\" Spectra 6) screens: boot, setup, the error states and low battery, black and",
                "// white ink only, native portrait 1200x1600, 4bpp Seeed colour-sprite codes",
                "// (0x0 white, 0xF black). PackBits-compressed; a screen with no data is one",
-               "// this panel does not show (every screen is a ~30 s full refresh)."])
+               "// this panel does not show (every screen is a ~15 s full refresh)."])
 
 def _c_array(L, name, data):
     L.append(f"static const uint8_t {name}[] = {{")

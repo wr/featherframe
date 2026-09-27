@@ -2,7 +2,7 @@
 // EE02 (13.3" Spectra 6) screens: boot, setup, the error states and low battery, black and
 // white ink only, native portrait 1200x1600, 4bpp Seeed colour-sprite codes
 // (0x0 white, 0xF black). PackBits-compressed; a screen with no data is one
-// this panel does not show (every screen is a ~30 s full refresh).
+// this panel does not show (every screen is a ~15 s full refresh).
 #pragma once
 #include <stdint.h>
 

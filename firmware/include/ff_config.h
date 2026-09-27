@@ -111,7 +111,7 @@
 // Readings under FF_BATT_ABSENT_V mean no pack is fitted and are ignored.
 // The hold announces itself on the glass, once ("Battery low, charge me"). On
 // the gray panel that is a sub-second windowed pill; on the Spectra it is a
-// ~30 s six-ink full refresh, so that panel holds 0.1 V earlier, while the
+// ~15 s six-ink full refresh, so that panel holds 0.1 V earlier, while the
 // cell still has the headroom to paint it. The server's Panel.low_battery_volts
 // mirrors these (a test keeps them equal): it is where the page's banner goes up.
 #if FF_FULL_REFRESH
@@ -167,7 +167,7 @@
 #define FF_REDISCOVER_FAILS  3
 
 // How long the "Up to date" pill stays on the glass before it clears (ms).
-// On the Spectra a pill costs a ~30 s refresh to put up and another to take
+// On the Spectra a pill costs a ~15 s refresh to put up and another to take
 // down, so it stays long enough to be seen by someone who looked away.
 #if FF_FULL_REFRESH
 #define TOAST_HOLD_MS  60000
@@ -237,7 +237,7 @@
 // --- Panel ---
 // -DFF_BOARD_EE02 (the ee02 envs) builds for the EE02 board's 13.3" Spectra 6
 // colour panel instead of the EE03's 10.3" gray one. Spectra has no partial
-// refresh and a full one takes ~30 s, so everything the gray build does with
+// refresh and a full one takes ~15 s, so everything the gray build does with
 // windowed updates (the loading sweep, toasts, the corner mark, boot-stage
 // screens) has a full-refresh-or-nothing fallback under FF_FULL_REFRESH.
 // The ID strings ride X-Panel / X-Board as labels. The server draws for a

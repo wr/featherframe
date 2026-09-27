@@ -169,7 +169,7 @@ that speaks push is at most `PUSH_FALLBACK_POLL_S` (60 s) whatever it shows —
 never the collage's schedule. The offline corner mark (`FF_MARK_FAILS` failed
 checks and `FF_MARK_MINUTES` = 30 min) is what an owner sees of an outage.
 uvicorn needs `websockets`; its ping timeout is 60 s (`__main__`) because a
-colour paint holds the frame's loop ~30 s. A hosted hub (Durable Object)
+colour paint holds the frame's loop ~15 s. A hosted hub (Durable Object)
 speaks the same protocol.
 A viewer's output is the same idea as a PNG (`view_png`), drawn on
 first ask and cached; `GET /api/frames/<id>/preview.png` serves either kind.
@@ -707,7 +707,7 @@ Container restarts); D1 schema in `hosted/migrations/`.
   correct but slow per-pixel Python loop — don't make it the gray default on a
   Pi Zero. Colour: Stucki (`spectra._diffuse_stucki`), chosen side by side on
   the glass (19 Sep 2026) — with six inks, diffusion holds engraving lines and
-  grains much tighter than the ordered mix, and a 30 s panel can afford the
+  grains much tighter than the ordered mix, and a 15 s panel can afford the
   loop. It diffuses the gamut-mapped image and picks each pixel's ink only
   from that pixel's own ink set (its table decomposition): a free choice of
   all six turns neutral gray into green/blue/red dots.
@@ -777,7 +777,7 @@ pads 7/8, GND on 4, both kits); `ledSet()` from the boot, portal, fetch
 outcome (`noteLedOutcome`) and OTA paths, dark in deep sleep. The EE02 build (`-e ee02`, `FF_PANEL_SPECTRA6`) is the same
 app with a full-refresh equivalent for everything partial (W-817): the plate
 is retained in PSRAM, and a toast or the corner mark is a baked black/white-ink
-tile blitted into a copy of it, then one ~30 s repaint (`paintPlate`; cleared
+tile blitted into a copy of it, then one ~15 s repaint (`paintPlate`; cleared
 by painting the plate again, 60 s later for a toast). A press fetches first
 and paints one thing, so only the outcome pills exist (the in-progress ones
 have no tile); out of deep sleep there is no retained plate, so "Already up-to-date"
@@ -808,7 +808,7 @@ from that frame's own `Config.defaults_for(panel)`, applied only on Save). Low b
 sleeps 4 h at a time, saying "Low battery" on the glass once at
 the crossing (`markLowBattery`: gray paints the baked `FF_TOAST_LOW_BATTERY`
 pill over the plate, the EE02 the baked `FF_SCR_LOW_BATT` full screen, which
-is why its hold starts 0.1 V earlier — a 30 s refresh needs the headroom;
+is why its hold starts 0.1 V earlier — a ~15 s full refresh needs the headroom;
 "once" lives in NVS `lowmark`, written before the paint so a brownout can't
 loop it; the always-awake loop enters the same hold after `FF_LOW_BATT_POLLS`
 low polls, W-736), and the page puts a red *Battery low* badge on that frame's

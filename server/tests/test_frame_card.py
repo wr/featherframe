@@ -123,7 +123,7 @@ def test_battery_critical_under_ten_percent():
 
 
 def test_battery_critical_follows_the_panels_hold():
-    # The colour panel's warning is a 30 s full refresh, so its hold starts
+    # The colour panel's warning is a ~15 s full refresh, so its hold starts
     # higher; the banner must not wait for a voltage that frame never reports.
     from featherframe import panels
     dev = _dev(1, battery_voltage=3.52, battery_percent=14)

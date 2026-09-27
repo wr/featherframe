@@ -118,6 +118,11 @@ and composes at most one sheet per picture; `_tick_frames()` then finishes
 each picture into one output per frame that shows it. Every web handler just
 reads bytes — nothing is ever rendered in a request. The default path is to do
 nothing (priority: few panel refreshes).
+Quiet hours are asked of the service (`quiet_window` / `in_quiet_hours`),
+never of `Config` alone (W-900): Sunset → Sunrise is the sun at the source's
+`location()`, read once per tick and never in a request, on the server's
+`TZ` with daylight saving; with no location, 40° in the Region's hemisphere
+on the zone's standard meridian (`config._sun_window`).
 
 **Frame / Household / Picture / Output (W-833).** Four things, and everything
 else follows from them.

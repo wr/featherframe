@@ -155,7 +155,7 @@ def test_it_says_when_it_next_has_something_to_do(env):
     svc.config.quiet_hours_mode = "off"
     assert svc.next_wake_at() is None
     svc.config.quiet_hours_mode = "on"
-    start, end = svc.config.quiet_window(NOW.date())
+    start, end = svc.quiet_window(NOW.date())
     want = min(svc._next_time(NOW, start), svc._next_time(NOW, end))
     assert svc.next_wake_at() == want.isoformat(timespec="seconds")
 
@@ -178,7 +178,7 @@ def test_in_quiet_hours_there_is_nothing_to_look_for(env):
     svc.config.quiet_hours_mode = "off"
     assert svc.hosted_state()["poll"] is True
     svc.config.quiet_hours_mode = "on"
-    start, _ = svc.config.quiet_window(NOW.date())
+    start, _ = svc.quiet_window(NOW.date())
     svc._clock = lambda: datetime.combine(NOW.date(), start) + timedelta(minutes=5)
     assert svc.hosted_state()["poll"] is False
 

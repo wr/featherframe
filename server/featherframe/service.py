@@ -588,6 +588,9 @@ class FeatherframeService:
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
         self.source = make_source(self.config, self.db)
+        # The source's (lat, lon), where the sun's quiet hours are (W-900).
+        self._station_loc: Optional[tuple] = None
+        self._station_loc_read = False
 
         self._lock = threading.RLock()
         self._view_lock = threading.Lock()   # one viewer render at a time
@@ -874,6 +877,7 @@ class FeatherframeService:
             self.db.set(key, None)
         self._pending = None
         self._source_down_since = None
+        self._station_loc_read = False
         self._tick_memo = {}
         self.pictures[COLLAGE].meta.pop("collage_at", None)
         self._source_switched = True
@@ -898,6 +902,7 @@ class FeatherframeService:
                 hook()
 
     def _tick(self) -> None:
+        self._read_station_location()
         self._tick_pictures()
         # After drawing, not before: a picture nobody shows may still be the
         # only one a frame has to fall back on until its own is drawn.
@@ -989,7 +994,7 @@ class FeatherframeService:
         """Draw every picture some frame shows, at most one render each. The
         one on the glass goes first: if it falls back to the other kind, that
         one is already drawn and is not drawn again."""
-        if self.config.in_quiet_hours(now.time()):
+        if self.in_quiet_hours(now):
             # Quiet hours: the pictures hold still. One nightly collage at the
             # start of the window, which every frame on plates then shows.
             if self.config.quiet_hours_render_collage:
@@ -1011,13 +1016,38 @@ class FeatherframeService:
             else:
                 self._single_tick(now)
 
+    # -- quiet hours --------------------------------------------------------
+    def quiet_window(self, on_date: Optional[ddate] = None) -> tuple[dtime, dtime]:
+        """The household's quiet window on `on_date`: `Config.quiet_window`
+        at the station's own location. Every quiet-hours question the service
+        asks comes through here or `in_quiet_hours`."""
+        return self.config.quiet_window(on_date, self._station_location())
+
+    def in_quiet_hours(self, now: datetime) -> bool:
+        return self.config.in_quiet_hours(now, self._station_location())
+
+    def _station_location(self) -> Optional[tuple]:
+        """The source's (lat, lon) as the last tick read it. Every check-in
+        asks whether it is quiet, and BirdWeather's answer is a request, so
+        a request never asks the source itself, bar the first before a tick."""
+        if not self._station_loc_read:
+            self._read_station_location()
+        return self._station_loc
+
+    def _read_station_location(self) -> None:
+        try:
+            self._station_loc = self.source.location()
+        except Exception:  # a source must never break quiet hours
+            self._station_loc = None
+        self._station_loc_read = True
+
     # -- which picture a frame shows ---------------------------------------
     def _nightly_collage_showing(self, now: datetime) -> bool:
         """Tonight's collage has been drawn and the quiet window is still on.
         One collage, the same on every screen (W-830): for the rest of the
         window every frame that shows plates shows it too."""
         return (self.config.quiet_hours_render_collage
-                and self.config.in_quiet_hours(now.time())
+                and self.in_quiet_hours(now)
                 and self.db.get("quiet_collage_for") == self._collage_date(now).isoformat())
 
     def _kind_for(self, shows: Optional[str], now: datetime) -> str:
@@ -1127,7 +1157,7 @@ class FeatherframeService:
         t = max(since, now - _QUIET_MAX_SPAN)
         active = 0.0
         while t < now:
-            if not self.config.in_quiet_hours(t.time()):
+            if not self.in_quiet_hours(t):
                 active += min(_QUIET_STEP, now - t).total_seconds() / 60
             t += _QUIET_STEP
         return active
@@ -1364,7 +1394,7 @@ class FeatherframeService:
         """The day tonight's collage covers, per the ACTIVE quiet window — in
         "sun" mode that is sunset->sunrise, not the custom start/end fields
         (which may be left at a non-wrapping daytime window)."""
-        start, end = self.config.quiet_window(now.date())
+        start, end = self.quiet_window(now.date())
         return collage_date_for(now, start, end)
 
     def _maybe_quiet_collage(self, now: datetime) -> None:
@@ -2315,7 +2345,7 @@ class FeatherframeService:
             when.append(datetime.fromisoformat(hold["until"]))
         cfg = self.config
         if cfg.quiet_hours_mode != "off":
-            start, end = cfg.quiet_window(now.date())
+            start, end = self.quiet_window(now.date())
             when += [self._next_time(now, start), self._next_time(now, end)]
         future = [w for w in when if w > now]
         return min(future).isoformat(timespec="seconds") if future else None
@@ -2364,7 +2394,7 @@ class FeatherframeService:
                 # Whether a new detection could change anything right now: in
                 # quiet hours nothing is drawn but what next_wake_at already
                 # names, so the front door need not wake this to look.
-                "poll": not self.config.in_quiet_hours(self._clock().time()),
+                "poll": not self.in_quiet_hours(self._clock()),
                 # Where news comes from (W-847): the front door looks for it
                 # itself — it polls a BirdWeather station, or takes the pushes
                 # (Apprise from BirdNET-Pi, a webhook from BirdNET-Go) — and
@@ -2748,7 +2778,7 @@ class FeatherframeService:
         this also recovers from a stale held collage once plates are due again."""
         self.reload_config()
         now = self._clock()
-        if self.config.in_quiet_hours(now.time()):
+        if self.in_quiet_hours(now):
             # held overnight: keep the nightly collage if enabled, else the image
             if self.config.quiet_hours_render_collage:
                 self._maybe_quiet_collage(now)
@@ -2986,7 +3016,7 @@ class FeatherframeService:
         now = self._clock()
         if row is not None and viewers_mod.shows_of(row) == COLLAGE:
             return self._collage_check_seconds(now)
-        quiet = self.config.in_quiet_hours(now.time())
+        quiet = self.in_quiet_hours(now)
         return viewers_mod.QUIET_REFRESH_SECONDS if quiet else viewers_mod.REFRESH_SECONDS
 
     # -- checks that follow the collage -------------------------------------
@@ -3000,11 +3030,11 @@ class FeatherframeService:
         pic = self.pictures[COLLAGE]
         if pic.etag is None:
             return None
-        if cfg.in_quiet_hours(now.time()):
+        if self.in_quiet_hours(now):
             if cfg.quiet_hours_render_collage and \
                     self.db.get("quiet_collage_for") != self._collage_date(now).isoformat():
                 return None
-            return self._next_time(now, cfg.quiet_window(now.date())[1])
+            return self._next_time(now, self.quiet_window(now.date())[1])
         try:
             last_at = datetime.fromisoformat(pic.meta.get("collage_at") or "")
         except (ValueError, TypeError):
@@ -3012,7 +3042,7 @@ class FeatherframeService:
         soonest = [last_at + timedelta(hours=cfg.collage_interval_hours),
                    datetime.combine(now.date() + timedelta(days=1), dtime.min)]
         if cfg.quiet_hours_mode != "off":
-            soonest.append(self._next_time(now, cfg.quiet_window(now.date())[0]))
+            soonest.append(self._next_time(now, self.quiet_window(now.date())[0]))
         return min(soonest)
 
     @staticmethod

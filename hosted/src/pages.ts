@@ -161,7 +161,6 @@ export type AdminData = {
   usage: Usage;
   log: { at: number; admin: string; action: string; target: string | null; ok: number; result: string }[];
   kits: { device_id: string; kit: string | null; note: string | null; registered_at: number; used_at: number | null; email: string | null }[];
-  codes: { code: string; note: string | null; created_at: number; used_at: number | null; email: string | null }[];
 };
 
 export type Toast = { ok: boolean; message: string };
@@ -248,7 +247,7 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
         <form method="post" action="/admin/waitlist/remove"><input type="hidden" name="email" value="${e(w.email)}"><button class="btn plain" type="submit">Remove</button></form>
         <form method="post" action="/admin/invite"><input type="hidden" name="email" value="${e(w.email)}"><input type="hidden" name="send" value="1"><button class="btn" type="submit">Invite</button></form>
       </div></td>
-      <td class="muted">${w.source === "login" ? "Sign-in" : "Website"}</td><td class="num muted">${ago(w.created_at * 1000)}</td></tr>`).join("");
+      <td class="muted">${w.source === "login" ? "Sign-in" : w.source === "setup" ? "Frame setup" : "Website"}</td><td class="num muted">${ago(w.created_at * 1000)}</td></tr>`).join("");
   const waiting = (confirmed.length ? `<table><thead><tr><th>Confirmed</th><th></th><th>From</th><th>Asked</th></tr></thead><tbody>
     ${waitRows(confirmed)}</tbody></table>` : `<p class="empty">Nobody is waiting.</p>`)
     + (unconfirmed.length ? `<table><thead><tr><th>Pending · ${unconfirmed.length}</th><th></th><th>From</th><th>Asked</th></tr></thead><tbody>
@@ -296,17 +295,6 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
     }).join("")}
     </tbody></table>` : `<p class="empty">No households yet.</p>`;
 
-  const dash = (c: string) => `${c.slice(0, 4)}-${c.slice(4)}`;
-  const setupCodes = `<form class="invite" method="post" action="/admin/setup-codes">
-      <input type="text" name="note" placeholder="Note (a batch, an order)" aria-label="Note" style="flex:1 1 220px;font:inherit;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink)">
-      <input type="hidden" name="count" value="10">
-      <button class="btn" type="submit">Generate 10</button>
-    </form>
-    ${d.codes.length ? `<table><thead><tr><th>Code</th><th>Note</th><th>Used by</th><th>Made</th></tr></thead><tbody>
-      ${d.codes.map((c) => `<tr><td class="num"><code>${e(dash(c.code))}</code></td><td class="muted">${e(c.note || "")}</td>
-        <td>${c.used_at ? `${e(c.email || "(gone)")} <span class="muted">· ${ago(c.used_at * 1000)}</span>` : `<span class="muted">Unused</span>`}</td>
-        <td class="num muted">${ago(c.created_at * 1000)}</td></tr>`).join("")}
-    </tbody></table>` : ""}`;
   const kits = d.kits.length ? `<table><thead><tr><th>Kit</th><th>Note</th><th>Set up by</th><th>Registered</th></tr></thead><tbody>
     ${d.kits.map((k) => `<tr><td>${e((k.kit || "").toUpperCase())} <span class="muted">${e(k.device_id.slice(-6))}</span></td>
       <td class="muted">${e(k.note || "")}</td>
@@ -329,7 +317,6 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
     <div class="card"><h2 class="sec-head">Waitlist · ${confirmed.length}</h2>${waiting}</div>
     <div class="card"><h2 class="sec-head">Invite</h2>${invites}</div>
     <div class="card"><h2 class="sec-head">Households · ${d.households.length}</h2>${households}</div>
-    <div class="card"><h2 class="sec-head">Setup codes · ${d.codes.filter((c) => !c.used_at).length} unused</h2>${setupCodes}</div>
     <div class="card"><h2 class="sec-head">Kits · ${d.kits.length}</h2>${kits}</div>
     <div class="card"><h2 class="sec-head">Audit log</h2>${log}</div>
   </main>`);
@@ -433,8 +420,8 @@ const SETUP_STYLE = `<style>
 </style>`;
 
 export interface SetupView {
-  code: string; token: string; needsCode: boolean; error?: string;
-  email?: string; setupCode?: string; miles: boolean; place: string; country: string; source?: string;
+  code: string; token: string; error?: string;
+  email?: string; miles: boolean; place: string; country: string; source?: string;
 }
 
 export function setupPage(v: SetupView): Response {
@@ -454,12 +441,7 @@ export function setupPage(v: SetupView): Response {
         <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
         <p class="hint">This is the email you'll use to sign in to Featherframe to manage your frame and change settings.</p>
       </div>
-      ${v.needsCode ? `<div class="field">
-        <label for="setup_code">Setup code</label>
-        <input type="text" id="setup_code" name="setup_code" class="code-in" autocomplete="off" autocapitalize="characters"
-          spellcheck="false" required value="${e(v.setupCode || "")}">
-        <p class="hint">On the card in the box.</p>
-      </div>` : ""}
+
       <fieldset>
         <legend>Detection source</legend>
         <ul class="choices">
@@ -562,10 +544,14 @@ export function setupLimitedPage(): Response {
     <p>Try again in an hour.</p>`);
 }
 
+/** After setup for an email that could not make an account here: one that
+ * has an account (sent a link that adds this frame), or one with no
+ * invitation (nothing sent). The same page for both (W-892). */
 export function setupLinkSentPage(email: string): Response {
   return page("Check your email · Featherframe", `
     <h1>Check your email</h1>
-    <p>You already have an account. We sent a link to ${escapeHtml(email)} to add this frame to it.</p>`);
+    <p>If ${escapeHtml(email)} has a Featherframe Cloud account, we sent it a link that adds this frame.</p>
+    <p>Built this frame yourself? Featherframe Cloud is invite-only for now. <a href="https://featherframe.app">Join the waitlist</a>, and we'll email you an invitation.</p>`);
 }
 
 type Mail = { subject: string; text: string; html: string };

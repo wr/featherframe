@@ -1,13 +1,13 @@
 // Setting up a frame from the phone (W-888). A frame no one has claimed
 // shows a QR code of its setup page, /setup/<code>/<token>: the pairing
 // code it shows plus a secret only the QR carries. The page makes the
-// account (an email; a setup code unless the kit was registered when it was
-// flashed for shipping), picks a BirdWeather station near the phone, claims
-// the frame and signs the phone in. An email that already has an account is
+// account (an email, and an invitation: the kit registered when it was
+// flashed for shipping, or the email invited from the waitlist), picks a
+// BirdWeather station near the phone, claims the frame and signs the phone in. An email that already has an account is
 // sent a link that adds the frame instead.
 
 import type { Env } from "./index";
-import { makeLoginLink, normEmail, rateHit, sendMail, sendVerification, sessionUser, signedIn } from "./accounts";
+import { joinWaitlist, makeLoginLink, normEmail, rateHit, sendMail, sendVerification, sessionUser, signedIn } from "./accounts";
 import { addFrameEmail, loginPage, setupAddPage, setupExpiredPage, setupLimitedPage, setupLinkSentPage, setupPage,
          welcomeEmail } from "./pages";
 import { SETUP_TOKEN_LEN, setupToken, setupUrl } from "./pairing";
@@ -19,29 +19,10 @@ const now = () => Math.floor(Date.now() / 1000);
 export const SETUP_PER_IP = 5;          // setups tried an hour from one IP
 export const SETUP_VIEWS_PER_IP = 60;   // page and station lookups an hour
 export const LINKS_PER_ADDRESS = 5;     // add-this-frame emails an hour to one address
-const SETUP_CODE_ALPHABET = "ABCDEFGHJKMNPRSTWXYZ";
-const SETUP_CODE_LEN = 8;
 
 const PATH = new RegExp(`^/setup/([A-Za-z]{6})/([0-9A-Za-z]{${SETUP_TOKEN_LEN}})/?$`);
 
 interface PairingRow { code: string; device_id: string; key_hash: string; report: string; setup_token: string }
-
-/** "ABCD-EFGH", "abcdefgh ", …: the eight letters, or "". */
-export function normSetupCode(raw: unknown): string {
-  const s = String(raw || "").toUpperCase().replace(/[^A-Z]/g, "");
-  return s.length === SETUP_CODE_LEN ? s : "";
-}
-
-export function newSetupCode(): string {
-  const out: string[] = [];
-  const cap = 256 - (256 % SETUP_CODE_ALPHABET.length);
-  while (out.length < SETUP_CODE_LEN) {
-    for (const b of crypto.getRandomValues(new Uint8Array(16))) {
-      if (b < cap && out.length < SETUP_CODE_LEN) out.push(SETUP_CODE_ALPHABET[b % SETUP_CODE_ALPHABET.length]);
-    }
-  }
-  return out.join("");
-}
 
 export function isSetupPath(path: string): boolean {
   return PATH.test(path) || path === "/api/setup/stations" || path === "/setup";
@@ -142,7 +123,7 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
     if (!row) return setupExpiredPage();
     const user = await sessionUser(request, env);
     if (user?.hid) return setupAddPage(code, token, user.email);
-    return setupPage({ code, token, needsCode: !(await registeredKit(env, row)), miles: miles(request),
+    return setupPage({ code, token, miles: miles(request),
                        place: placeGuess(request), country: cfOf(request).country || "" });
   }
   if (request.method !== "POST") return new Response(null, { status: 405 });
@@ -162,21 +143,12 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
 
   const form = await request.formData();
   const email = normEmail(form.get("email"));
-  const typed = String(form.get("setup_code") || "");
-  const setupCode = normSetupCode(typed);
   const kit = await registeredKit(env, row);
   const source = SOURCES.includes(String(form.get("source"))) ? String(form.get("source")) : "birdweather";
-  const again = (error: string) => setupPage({ code, token, needsCode: !kit, error, email: String(form.get("email") || ""),
-                                               setupCode: typed, miles: miles(request), source,
+  const again = (error: string) => setupPage({ code, token, error, email: String(form.get("email") || ""),
+                                               miles: miles(request), source,
                                                place: placeGuess(request), country: cfOf(request).country || "" });
   if (!email) return again("Enter an email address.");
-  // The invitation first: without one, nothing is said about the email.
-  if (!kit) {
-    if (!typed.trim()) return again("Enter the setup code from the card in the box.");
-    const ok = setupCode && await env.DB.prepare("SELECT 1 FROM setup_codes WHERE code = ? AND used_at IS NULL")
-      .bind(setupCode).first();
-    if (!ok) return again("Check the setup code on the card in the box.");
-  }
 
   const tz = validTz(String(form.get("tz") || ""));
   const known = await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first();
@@ -188,6 +160,16 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
     }
     return setupLinkSentPage(email);
   }
+  // A new account needs an invitation (W-892): a kit registered when it was
+  // flashed to ship, or an email invited from the waitlist. Without one the
+  // answer is the same page an account gets, so it says nothing about who
+  // has one; the address joins the waitlist.
+  const invited = !kit && !!(await env.DB.prepare("SELECT 1 FROM invites WHERE email = ? AND used_at IS NULL")
+    .bind(email).first());
+  if (!kit && !invited) {
+    await joinWaitlist(env, email, "setup");
+    return setupLinkSentPage(email);
+  }
 
   // A new account. The invitation is taken first, and given back if the
   // frame's code was taken by someone else in the meantime.
@@ -197,14 +179,12 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
   const use = kit
     ? env.DB.prepare("UPDATE kits SET used_at = ?, household_id = ? WHERE device_id = ? AND key_hash = ? AND used_at IS NULL")
         .bind(t, hid, row.device_id, row.key_hash)
-    : env.DB.prepare("UPDATE setup_codes SET used_at = ?, household_id = ? WHERE code = ? AND used_at IS NULL")
-        .bind(t, hid, setupCode);
+    : env.DB.prepare("UPDATE invites SET used_at = ? WHERE email = ? AND used_at IS NULL").bind(t, email);
   const release = kit
     ? env.DB.prepare("UPDATE kits SET used_at = NULL, household_id = NULL WHERE device_id = ? AND household_id = ?")
         .bind(row.device_id, hid)
-    : env.DB.prepare("UPDATE setup_codes SET used_at = NULL, household_id = NULL WHERE code = ? AND household_id = ?")
-        .bind(setupCode, hid);
-  if (!(await use.run()).meta.changes) return kit ? setupExpiredPage() : again("Check the setup code on the card in the box.");
+    : env.DB.prepare("UPDATE invites SET used_at = NULL WHERE email = ? AND used_at = ?").bind(email, t);
+  if (!(await use.run()).meta.changes) return setupExpiredPage();
   try {
     await env.DB.batch([
       env.DB.prepare("INSERT INTO households (id, tz, created_at) VALUES (?, ?, ?)").bind(hid, tz, t),

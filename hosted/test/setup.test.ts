@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { auth, confirmVerification, sessionUser } from "../src/accounts";
-import { newSetupCode, normSetupCode, setupRoute } from "../src/setup";
+import { setupRoute } from "../src/setup";
 import { rankStations, regionFor } from "../src/stations";
 import { setupToken, setupUrl } from "../src/pairing";
 import { sha256 } from "../src/util";
@@ -96,11 +96,9 @@ describe("the setup page", () => {
     expect(await (await setupRoute(new Request(ok), env, new URL(ok), ctx)).text()).toContain("Set up your frame");
   });
 
-  it("asks a kit nobody registered for its setup code, and a registered one for none", async () => {
+  it("asks no one for a second code", async () => {
     const f = await frameShowing();
     const url = `https://${HOST}/setup/${f.code}/${f.token}`;
-    expect(await (await setupRoute(new Request(url), env, new URL(url), ctx)).text()).toContain("Setup code");
-    db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
     expect(await (await setupRoute(new Request(url), env, new URL(url), ctx)).text()).not.toContain("Setup code");
   });
 });
@@ -143,25 +141,27 @@ describe("setting up", () => {
     expect(mails.find((m) => m.subject.startsWith("Welcome"))!.text).toContain("connect your detector");
   });
 
-  it("takes a setup code once, whatever its dash or case", async () => {
+  it("lets an invited email set up a frame nobody registered, once", async () => {
     const f = await frameShowing();
-    db.prepare("INSERT INTO setup_codes (code, created_at) VALUES ('ABCDEFGH', ?)").run(NOW);
-    expect((await post(f, { email: "a@example.com", setup_code: "abcd-efgh" })).status).toBe(303);
-    expect(one("SELECT used_at FROM setup_codes").used_at).not.toBeNull();
-    const g = await frameShowing("GHJKMN", "112233445566");
-    const again = await post(g, { email: "b@example.com", setup_code: "ABCD-EFGH" });
-    expect(await again.text()).toContain("Check the setup code on the card in the box.");
-    expect(one("SELECT count(*) AS n FROM users").n).toBe(1);
+    db.prepare("INSERT INTO invites (email, created_at) VALUES ('diy@example.com', ?)").run(NOW);
+    expect((await post(f, { email: "DIY@example.com" })).status).toBe(303);
+    expect(one("SELECT used_at FROM invites").used_at).not.toBeNull();
+    expect(one("SELECT household_id FROM frames WHERE device_id = ?", f.device).household_id)
+      .toBe(one("SELECT household_id FROM users WHERE email = 'diy@example.com'").household_id);
   });
 
-  it("says nothing about an email without an invitation", async () => {
+  it("answers an uninvited email as it answers an account, and puts it on the waitlist", async () => {
     db.prepare("INSERT INTO households (id, tz, created_at) VALUES ('h1', 'UTC', ?)").run(NOW);
     db.prepare("INSERT INTO users (id, email, household_id, created_at) VALUES ('u1', 'old@example.com', 'h1', ?)").run(NOW);
     const f = await frameShowing();
-    const res = await post(f, { email: "old@example.com", setup_code: "" });
-    expect(await res.text()).toContain("Enter the setup code from the card in the box.");
+    const stranger = await (await post(f, { email: "new@example.com" })).text();
+    const g = await frameShowing("GHJKMN", "112233445566");
+    const owner = await (await post(g, { email: "old@example.com" }, "203.0.113.2")).text();
+    expect(stranger.replace(/new@example\.com/g, "X")).toBe(owner.replace(/old@example\.com/g, "X"));
+    expect(one("SELECT source FROM waitlist WHERE email = 'new@example.com'").source).toBe("setup");
+    expect(one("SELECT count(*) AS n FROM users").n).toBe(1);
     await Promise.all(waits);
-    expect(mails).toHaveLength(0);
+    expect(mails.map((m) => m.to)).toEqual(["old@example.com"]);
   });
 
   it("sends an existing account a link that adds the frame, and makes nothing", async () => {
@@ -171,7 +171,7 @@ describe("setting up", () => {
     db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
     const res = await post(f, { email: "old@example.com" });
     await Promise.all(waits);
-    expect(await res.text()).toContain("You already have an account");
+    expect(await res.text()).toContain("If old@example.com has a Featherframe Cloud account");
     expect(one("SELECT count(*) AS n FROM households").n).toBe(1);
     expect(one("SELECT used_at FROM kits").used_at).toBeNull();
     expect(mails.map((m) => m.subject)).toEqual(["Add a frame to Featherframe"]);
@@ -195,7 +195,7 @@ describe("setting up", () => {
 
   it("is limited per IP", async () => {
     const f = await frameShowing();
-    for (let i = 0; i < 5; i++) await post(f, { email: "x", setup_code: "" });
+    for (let i = 0; i < 5; i++) await post(f, { email: "x" });
     expect(await (await post(f, { email: "x" })).text()).toContain("Too many tries");
   });
 });
@@ -240,11 +240,6 @@ describe("stations", () => {
 });
 
 describe("codes", () => {
-  it("normalises a setup code and makes them from the pairing alphabet", () => {
-    expect(normSetupCode(" abcd-efgh ")).toBe("ABCDEFGH");
-    expect(normSetupCode("ABC")).toBe("");
-    expect(newSetupCode()).toMatch(/^[ABCDEFGHJKMNPRSTWXYZ]{8}$/);
-  });
   it("spells the setup URL in lower case", () => {
     const t = setupToken();
     expect(t).toMatch(/^[0-9a-z]{12}$/);

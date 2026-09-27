@@ -102,13 +102,13 @@ DATE_ORNAMENT = "❧"   # ❧ hedera leaf under the splash / status wordmark (Ga
 RULE_WIDTH = 200
 RULE_THICKNESS = 2
 
-# -- gone-quiet footnote ----------------------------------------------------
-# One small script line ("Nothing heard since 11:27 pm") centred on the corner
-# marks' baseline, between them; shrinks rather than clips.
+# -- footnote ---------------------------------------------------------------
+# The pill between the corner marks ("No detections since 11:27 PM", "Just
+# now: Northern Cardinal"), system.note_pill; shrinks rather than clips.
 NOTE_SIZE = CORNER_SIZE
 NOTE_MIN_SIZE = 19
 NOTE_MARK_GAP = 40             # clearance between the footnote and either mark
-NOTE_CLEAR = 46                # how far a collage key lifts to make room for it
+NOTE_CLEAR = 74                # how far a caption or collage key lifts for it (the frame's pill, W-902)
 
 # -- status plate -----------------------------------------------------------
 STATUS_VALUE_SIZE = 44         # the values, in the script (shrink to fit)

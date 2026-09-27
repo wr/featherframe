@@ -41,13 +41,17 @@ _CODE_SIZE = 84
 _PAIRING_LINE_BASELINE = 1764
 _PAIRING_LINE_SIZE = 24
 _EXPIRES_BASELINE = 1806
-# The setup QR (W-888): in the paper the bough leaves clear on its left, the
-# line under it at the pairing line's size. Whole-pixel modules, the quiet
-# zone included; ~36 mm across on the EE03, ~45 mm on the EE02.
-SETUP_LINE = "SCAN TO SET UP THIS FRAME"
-_QR_LEFT = 170
-_QR_TOP = 400
-_QR_MODULE_PX = 9
+# With a setup URL (W-888, W-889) the pairing screen is a row under the
+# wordmark: the QR on the left, the code and its lines beside it, set left.
+# Whole-pixel QR modules (7 px: 5.98 on the EE02's 0.855 fit), quiet zone
+# included; ~32 mm across on the EE03.
+SETUP_LINE = "SCAN WITH YOUR PHONE TO SET UP"
+SETUP_OR_LINE = "OR PAIR IT AT APP.FEATHERFRAME.APP"
+_QR_MODULE_PX = 7
+_ROW_WORDMARK_BASELINE = 1400
+_ROW_TOP = 1470
+_ROW_GAP = 40
+_ROW_CODE_SIZE = 84
 
 
 def since_words(since: datetime) -> str:
@@ -92,6 +96,44 @@ def setup_qr(url: str) -> Image.Image:
     return img.resize((n * _QR_MODULE_PX, n * _QR_MODULE_PX), Image.NEAREST)
 
 
+def _setup_lines(code: str, expires: str) -> list:
+    lines = [(code, _ROW_CODE_SIZE, theme.INK), (SETUP_LINE, _PAIRING_LINE_SIZE, theme.INK_MEDIUM),
+             (SETUP_OR_LINE, _PAIRING_LINE_SIZE, theme.INK_MEDIUM)]
+    if expires:
+        lines.append((f"CODE EXPIRES {expires}".upper(), _PAIRING_LINE_SIZE, theme.INK_MEDIUM))
+    return lines
+
+
+def setup_qr_origin(code: str, expires: str, url: str) -> tuple:
+    """Where the QR's top-left lands: the QR and its lines, as one block,
+    centred on the sheet."""
+    qr_w = setup_qr(url).width
+    text_w = max(typography.engraved_width(t, z) for t, z, _ in _setup_lines(code, expires))
+    return round((theme.WIDTH - (qr_w + _ROW_GAP + text_w)) / 2), _ROW_TOP
+
+
+def _setup_row(type_: Image.Image, code: str, expires: str, url: str) -> None:
+    """The wordmark, then the QR with the code and its lines beside it."""
+    typography.draw_script(type_, theme.WIDTH / 2, _ROW_WORDMARK_BASELINE, "Featherframe",
+                           typography.fit_script_title("Featherframe", theme.CONTENT_W),
+                           theme.INK, stroke=theme.TITLE_STROKE)
+    qr = setup_qr(url)
+    draw = ImageDraw.Draw(type_)
+    lines = _setup_lines(code, expires)
+    qr_left, _ = setup_qr_origin(code, expires, url)
+    type_.paste(qr, (qr_left, _ROW_TOP))
+    left = qr_left + qr.width + _ROW_GAP
+    # The block's middle on the QR's middle; the code a larger step from its lines.
+    steps = [0] + [_ROW_CODE_SIZE * 0.95] + [_PAIRING_LINE_SIZE * 1.9] * (len(lines) - 2)
+    height = sum(steps)
+    base = _ROW_TOP + qr.height / 2 - height / 2 + _ROW_CODE_SIZE * 0.35
+    y = base
+    for (text, size, fill), step in zip(lines, steps):
+        y += step
+        w = typography.engraved_width(text, size)
+        typography.draw_engraved(draw, left + w / 2, y, text, size, fill)
+
+
 def render_pairing(code: str, color: bool = False, expires: str = "",
                    url: str = "") -> Image.Image:
     """What a hosted frame no one has claimed shows (W-845): the kit's own
@@ -103,22 +145,20 @@ def render_pairing(code: str, color: bool = False, expires: str = "",
     the date says whether it can still be typed. `url`: the setup page for
     this code (W-888), drawn as a QR code the owner scans with a phone."""
     type_ = Image.new("L", (theme.WIDTH, theme.HEIGHT), theme.FIELD)
-    cx = theme.WIDTH / 2
-    typography.draw_script(type_, cx, _BOOT_WORDMARK_BASELINE, "Featherframe",
-                           typography.fit_script_title("Featherframe", theme.CONTENT_W),
-                           theme.INK, stroke=theme.TITLE_STROKE)
-    draw = ImageDraw.Draw(type_)
-    typography.draw_engraved(draw, cx, _CODE_BASELINE, code, _CODE_SIZE, theme.INK)
-    typography.draw_engraved(draw, cx, _PAIRING_LINE_BASELINE, PAIRING_LINE,
-                             _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
-    if expires:
-        typography.draw_engraved(draw, cx, _EXPIRES_BASELINE, f"CODE EXPIRES {expires}".upper(),
-                                 _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
     if url:
-        qr = setup_qr(url)
-        type_.paste(qr, (_QR_LEFT, _QR_TOP))
-        typography.draw_engraved(draw, _QR_LEFT + qr.width / 2, _QR_TOP + qr.height + 40,
-                                 SETUP_LINE, _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
+        _setup_row(type_, code, expires, url)
+    else:
+        cx = theme.WIDTH / 2
+        typography.draw_script(type_, cx, _BOOT_WORDMARK_BASELINE, "Featherframe",
+                               typography.fit_script_title("Featherframe", theme.CONTENT_W),
+                               theme.INK, stroke=theme.TITLE_STROKE)
+        draw = ImageDraw.Draw(type_)
+        typography.draw_engraved(draw, cx, _CODE_BASELINE, code, _CODE_SIZE, theme.INK)
+        typography.draw_engraved(draw, cx, _PAIRING_LINE_BASELINE, PAIRING_LINE,
+                                 _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
+        if expires:
+            typography.draw_engraved(draw, cx, _EXPIRES_BASELINE, f"CODE EXPIRES {expires}".upper(),
+                                     _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
     mode, name = ("RGB", "bough_color.png") if color else ("L", "bough.png")
     art = Image.new(mode, type_.size, "white")
     art.paste(Image.open(paths.art_dir() / name).convert(mode), (0, 0))

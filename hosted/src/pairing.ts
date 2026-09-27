@@ -7,8 +7,9 @@ import type { Env } from "./index";
 // rise and fall), and none of I/L/O/U/V to confuse on the glass.
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTWXYZ";
 const CODE_TTL_S = 24 * 60 * 60;
-// The setup page's secret for a code (W-888), in the QR's alphanumeric set.
-const TOKEN_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+// The setup page's secret for a code (W-888), lower case like the URL it
+// ends (W-889: an upper-case URL looked odd in the phone's camera).
+const TOKEN_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
 export const SETUP_TOKEN_LEN = 12;
 
 export function setupToken(): string {
@@ -22,17 +23,16 @@ export function setupToken(): string {
   return out.join("");
 }
 
-/** The setup page for a code, as the QR spells it: upper case, so the QR
- * stays in its alphanumeric mode (a smaller symbol, larger modules). */
+/** The setup page for a code, as the QR spells it. */
 export function setupUrl(host: string, code: string, token: string): string {
-  return `HTTPS://${host.toUpperCase()}/SETUP/${code}/${token}`;
+  return `https://${host}/setup/${code.toLowerCase()}/${token.toLowerCase()}`;
 }
 
 // Bumped when the Lobby draws a pairing screen differently: a new ETag (and
 // R2 key), so a screen showing the old drawing is sent the new one. Bump it
 // again once the Lobby's rollout has finished: a code asked for mid-rollout
 // is drawn by the old image and cached under the new key.
-export const LOBBY_DRAWING = "boot-art-5";
+export const LOBBY_DRAWING = "setup-row-2";
 
 /** The code a device no one has claimed shows, made on its first ask and
  * kept for a day. `report` is what it said about itself, for the household

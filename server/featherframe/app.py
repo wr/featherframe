@@ -689,6 +689,9 @@ async def index(request: Request):
          # …and on hosted, the one waiting for its confirmation link.
          "email_pending": (request.headers.get("x-ff-account-email-pending", "")
                            if getattr(request.app.state, "hosted", None) is not None else ""),
+         # …and whether the account's email is still to be confirmed (W-889).
+         "email_unverified": (getattr(request.app.state, "hosted", None) is not None
+                              and request.headers.get("x-ff-account-unverified", "") == "1"),
          # Each kit as it is sold, for the USB dialog's choice.
          "kit_names": {k: p.title for k, p in panels.PANELS.items() if p.title}})
 

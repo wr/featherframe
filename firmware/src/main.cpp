@@ -618,7 +618,7 @@ void markFirmwareGood();
 #else
 #define FF_PORTAL_FONT_FACE ""
 #endif
-// The portal's own script (W-888, W-897):
+// The portal's own script (W-888, W-899):
 // - The Wi-Fi form's Server field becomes a choice: Featherframe Cloud or
 //   self-hosted, whichever this build starts on marked (default), the
 //   frame's own current server chosen. Self-hosted takes an address, or
@@ -707,7 +707,7 @@ small{color:var(--muted)}
 
 // The captive portal is open (Improv, W-839: Wi-Fi set over USB closes it).
 static volatile bool g_portalOpen = false;
-// When a phone on the portal was first told the frame joined (W-897), and
+// When a phone on the portal was first told the frame joined (W-899), and
 // how long the setup network stays up for it: the page's next poll, then close.
 static volatile uint32_t g_joinedToldAt = 0;
 static constexpr uint32_t PORTAL_LINGER_MS = 12000;
@@ -789,7 +789,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // WiFiManager keeps the registered pointer forever and never dedupes, and
   // ensureWifi is re-entered from loop()'s KEY2 handler — so the parameter
   // lives in static storage and registers exactly once.
-  // The server, chosen on the Wi-Fi form (W-897): Featherframe Cloud or
+  // The server, chosen on the Wi-Fi form (W-899): Featherframe Cloud or
   // self-hosted, as two choices the page's script draws over this field
   // (FF_PORTAL_SAVED_SCRIPT). A blank self-hosted field posts "find": no URL,
   // so the frame looks for its server on the network once it has joined.
@@ -833,7 +833,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
 #endif
   });
   wm.setSaveConfigCallback([]() { showScreenFull(FF_SCR_BOOT_WIFI); });
-  // How joining goes, for the page after Save (W-897): "joined" once the
+  // How joining goes, for the page after Save (W-899): "joined" once the
   // frame is on the owner's network. The first time a phone is told so
   // starts the countdown to closing Featherframe-Setup.
   g_joinedToldAt = 0;
@@ -889,7 +889,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // Wi-Fi given over USB (Improv) closes the portal as an abort; the frame
   // is on the network all the same.
   if (!ok && WiFi.status() == WL_CONNECTED) ok = true;
-  // Joined through the portal (W-897): WiFiManager leaves Featherframe-Setup
+  // Joined through the portal (W-899): WiFiManager leaves Featherframe-Setup
   // up with no one answering. Answer the phone's page until it has seen
   // "joined" (and a moment more), at most 12 s, then close the network so
   // the phone goes back to its own.

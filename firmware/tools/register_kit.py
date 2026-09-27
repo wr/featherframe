@@ -103,7 +103,8 @@ def main() -> None:
         return
     req = urllib.request.Request(f"{args.host}/_admin/kit", data=json.dumps(body).encode(), method="POST",
                                  headers={"Authorization": f"Bearer {admin_token()}",
-                                          "Content-Type": "application/json"})
+                                          "Content-Type": "application/json",
+                                          "User-Agent": "featherframe-register-kit/1"})
     with urllib.request.urlopen(req, timeout=20) as r:
         print(json.loads(r.read()).get("result", "registered"))
 

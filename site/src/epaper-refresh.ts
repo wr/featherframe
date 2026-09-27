@@ -585,6 +585,8 @@ export function createEpaperRefresh(opts: {
 
   /** show()'s slot for `src`, made on first use. */
   function slotFor(src: string) {
+    // the picture on the glass right now (a cycle plate the page also asks for by name) is its own slot: no refresh to itself
+    if (sources[current] === src) return current;
     let i = sources.indexOf(src, cycle);
     if (i < 0) {
       i = plates.length;

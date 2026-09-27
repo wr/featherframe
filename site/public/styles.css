@@ -130,7 +130,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .stage.live canvas { opacity: 1; }
 .stage.live .poster { opacity: 0; transition: opacity .6s ease; }
 .cover .copy { position: absolute; left: 0; bottom: 6%; z-index: 2; width: 40%; }
-.cover .speed { position: absolute; right: 0; bottom: 1.5%; z-index: 2; margin: 0; font-size: 15px; font-style: italic; color: var(--graphite); }
+.cover .speed { position: absolute; right: 0; bottom: 1.5%; z-index: -2; /* under the frame's canvas, over the room */ margin: 0; font-size: 15px; font-style: italic; color: var(--graphite); }
 .cover .copy p { font-size: 24px; line-height: 1.42; margin: 0 0 26px; text-wrap: pretty; }
 .cta { display: flex; align-items: center; gap: 20px; }
 .cta .it { color: var(--graphite); font-size: 20px; }
@@ -229,7 +229,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 /* III. How it works: the frame on its table pinned on the right while the
    song and the photograph scroll past on the left. */
-.trip { display: grid; grid-template-columns: 7fr 5fr; column-gap: var(--gutter); align-items: start; margin-top: 96px; container-type: inline-size; }
+.trip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--gutter); align-items: start; margin-top: 96px; container-type: inline-size; }
 .lcol { padding: 8vh 0 12vh; }
 /* The video of the species heard, with its song's spectrogram laid across
    its lower third: the ink turned bright white (inverted, lifted and
@@ -288,7 +288,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* on a desktop the table stands beside the video; stacked on a phone, a line says what it is */
 .t3 .then { display: none; }
 /* the table's box is 1.1008 × its width (its padding and the slot's aspect) */
-.t3 { --h: calc((100cqw - var(--gutter)) * 5 / 12 * 1.1008); position: sticky; top: max(var(--nav), calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2)); }
+.t3 { --h: calc((100cqw - var(--gutter)) / 2 * 1.1008); position: sticky; top: max(var(--nav), calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2)); }
 /* The frame on a white table against a white wall: the cover's room (the
    wall's soft fall to the lightest gray, a crisp step to the white table at
    the horizon, the table lightening toward us), the frame's foot a little
@@ -327,14 +327,14 @@ h2 { font-weight: 400; text-wrap: balance; }
    desktop the row is pinned and slides sideways as the page scrolls down
    (seasons.ts); on phones, and with reduced motion, the sheets stack. */
 #collage .intro2 .key { grid-column: 1 / 13; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--gutter); align-items: start; }
-#collage .intro2 .key .lede { grid-column: auto; margin: 0; }
+#collage .intro2 .key .lede { grid-column: auto; margin: 0; text-wrap: pretty; }
 #collage .sub { margin: 22px 0 0; font-size: 19px; color: var(--graphite); }
 .seasons { margin-top: 80px; }
 .row { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 72px; }
 .season { display: flex; justify-content: center; width: 100%; }
-.season figure { width: min(100%, 440px); }
+.season figure { width: min(100%, 440px); display: flex; flex-direction: column-reverse; } /* the season's name above its sheet: read first */
 .season img { width: 100%; }
-.season figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-top: 18px; border-top: 1px solid var(--hair); padding-top: 10px; }
+.season figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin: 0 0 18px; border-top: 1px solid var(--hair); padding-top: 10px; }
 .season figcaption .it { color: var(--text); font-size: 21px; }
 .season figcaption .sc { margin-right: auto; font-size: 15px; letter-spacing: .2em; color: var(--ink); }
 /* each season's mark, drawn like an engraving's line */
@@ -345,7 +345,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .fnref { font-size: .7em; vertical-align: super; line-height: 0; margin-left: 1px; }
 .seasons-live .seasons { height: calc(100vh - var(--nav) + 165vh); margin-top: 40px;
   /* each sheet's frame: 72% of the window's height, unless the width runs out first */
-  --sh: min(72vh, calc(100vh - var(--nav) - 120px), calc((100vw - 2 * var(--m)) * 1100 / 874));
+  --sh: min(72vh, calc(100vh - var(--nav) - 160px), calc((100vw - 2 * var(--m)) * 1100 / 874));
   --sw: calc(var(--sh) * 874 / 1100); }
 .seasons-live .stage-row {
   position: sticky; top: var(--nav); height: calc(100vh - var(--nav)); overflow: hidden;
@@ -356,8 +356,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .seasons-live .season figure { width: auto; }
 .seasons-live .season img { width: var(--sw); height: var(--sh); max-width: none; }
 /* the timeline: one hairline through the year, under the frames, a season's mark on it at each */
-.seasons-live .row { background: linear-gradient(var(--hair), var(--hair)) 0 calc(var(--sh) + 22px) / 100% 1px no-repeat; }
-.seasons-live .season figcaption { border-top: 0; flex-direction: column; align-items: flex-start; gap: 4px; padding-top: 42px; position: relative; }
+.seasons-live .row { background: linear-gradient(var(--hair), var(--hair)) 0 22px / 100% 1px no-repeat; }
+.seasons-live .season figcaption { border-top: 0; flex-direction: column; align-items: flex-start; gap: 4px; padding-top: 42px; margin-bottom: 26px; position: relative; }
 .seasons-live .season .ico { position: absolute; left: -6px; top: 10px; width: 24px; height: 24px; margin: 0; padding: 0 5px; box-sizing: content-box;
   background: var(--paper); opacity: .55; transition: opacity .4s ease; }
 .seasons-live .season.now .ico { opacity: 1; }
@@ -391,9 +391,10 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 /* VI. Questions */
 #faq { margin-top: 150px; }
-#faq .mega { margin-bottom: 64px; }
-#specs .mega { margin-bottom: 72px; }
-.qa { margin: 0 0 0 calc((100% + var(--gutter)) / 12 * 4); }
+#faq { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--gutter); align-items: start; }
+#faq .faq-h { position: sticky; top: calc(var(--nav) + 40px); margin: 0; }
+.qa { margin: 0; }
+#faq .qa dt:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 .qa dt { font: 400 28px/1.2 var(--serif); letter-spacing: -.01em; border-top: 1px solid var(--hair); padding-top: 26px; margin-top: 26px; }
 .qa dt:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
 .qa dd { margin: 10px 0 0; max-width: 60ch; font-size: 21px; color: var(--text); }
@@ -407,14 +408,16 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* Colophon */
 .colophon {
   display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter);
-  margin-top: 180px; padding: 22px 0 70px; border-top: 1px solid var(--ink);
-  color: var(--graphite); font-size: 17px;
+  margin-top: 180px; padding: 40px 0 90px; border-top: 1px solid var(--ink); row-gap: 56px;
+  color: var(--text); font-size: 18px; line-height: 1.6;
 }
 .colophon .a { grid-column: 1 / 5; }
-.colophon .b { grid-column: 5 / 9; }
-.colophon .c { grid-column: 9 / 13; }
-.colophon .d { grid-column: 1 / 13; margin-top: 34px; font-size: 15px; }
-.colophon .sc { display: block; margin-bottom: 10px; color: var(--ink); }
+.colophon .b { grid-column: 6 / 9; }
+.colophon .c { grid-column: 10 / 13; }
+.colophon .d { grid-column: 1 / 13; max-width: 88ch; padding-top: 28px; border-top: 1px solid var(--hair); font-size: 15px; line-height: 1.75; color: var(--graphite); }
+.colophon .sc { display: block; margin-bottom: 12px; color: var(--ink); }
+.colophon .ww { display: inline-block; margin-bottom: 18px; color: var(--ink); }
+.colophon .ww-logo { display: block; height: 22px; width: auto; }
 .colophon .signin { display: table; margin-top: 10px; color: var(--ink); }
 .field { display: flex; align-items: center; height: 46px; max-width: 360px; border-bottom: 1px solid var(--ink); }
 .field input {
@@ -658,4 +661,9 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
   .maker { margin-top: 120px; }
   .maker p:last-child { font-size: 20px; }
   .maker + .close { margin-top: 80px; }
+}
+
+@media (max-width: 820px) {
+  #faq { display: block; }
+  #faq .faq-h { position: static; margin-bottom: 40px; }
 }

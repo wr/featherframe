@@ -35,7 +35,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage h2')).toHaveText('Each night, a portrait of the day.');
   // "Each night," roman, "a portrait of the day." italic
   await expect(page.locator('#collage h2 i')).toHaveText('a portrait of the day.');
-  await expect(page.locator('#collage .lede')).toHaveText(['During quiet hours, your frame shows every species heard that day on one canvas, numbered and labeled like a page in an old natural history book.', 'Enable AI illustration¹ and all the day’s species are painted together as a beautiful collage that changes with the seasons and weather.']);
+  await expect(page.locator('#collage .lede')).toHaveText(['During quiet hours, your frame gathers every species heard that day onto a single canvas, numbered and labeled like a page in an old natural history book.', 'Enable AI illustration¹ and all the day’s species are painted together as a beautiful collage that changes with the seasons and weather.']);
   await expect(page.locator('#fn-ai')).toHaveText('¹ Requires your own OpenAI API key, billed separately by OpenAI. Featherframe and Wells Workshop LLC are not affiliated with OpenAI. Use of AI is not required for collage functionality.');
   await expect(page.locator('#how .closing .lede').last()).toHaveText('You can set up a BirdNET detector in your own backyard, or choose a BirdWeather station near you or anywhere in the world.');
   await expect(page.locator('#specs .folio')).toHaveText('Technical details');
@@ -55,8 +55,8 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('.close h2')).toHaveText('Let the outside in.');
   await expect(page.locator('.close h2 i')).toHaveText('outside in.');
   await expect(page.locator('.maker p').last()).toContainText('Hi, I’m Wells.');
-  await expect(page.locator('#specs h2')).toHaveText('Two sizes, one walnut frame.');
-  await expect(page.locator('#faq h2')).toHaveText('Before you order.');
+  await expect(page.locator('#specs h2')).toHaveCount(0);
+  await expect(page.locator('#faq h2')).toHaveText('FAQ');
   await expect(page.locator('.wall .folio')).toHaveText('From the collection');
   await expect(page.locator('.close p')).toHaveText('From $349, with no subscription. US pre-orders ship by December\u00a012.');
   await expect(page.locator('body')).not.toContainText('Reserve');
@@ -79,7 +79,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage .season img').first()).toHaveAttribute('alt', 'A collage painted by AI from the species heard on 7 April 2026');
   await expect(page.locator('#faq dt')).toHaveText([
     'Does it make a good gift?', 'Do I need Wi-Fi?', 'How fast does the frame change?', 'Do I need to run BirdNET locally?', 'Does it work outside North America?',
-    'What if a species near me was never illustrated?', 'Do the collages need AI?', 'Is a subscription required?', 'Is hosting required?', 'Is my data private?']);
+    'What if a species near me was never illustrated?', 'Do the collages need AI?', 'Is a subscription required?', 'Is the cloud required?', 'Is my data private?']);
   await expect(page.locator('.cover .speed')).toHaveText('Refresh shown at true speed');
   await expect(page.locator('#faq dd').nth(2).locator('li')).toHaveText(['Grayscale: about a second.', 'Color: about fifteen seconds, flickering as its inks settle. This screen is well suited to collage mode.']);
   await expect(page.locator('#faq a.fnref')).toHaveCount(2);
@@ -980,7 +980,7 @@ test('the last frame tears off under the running head, and flies under it', asyn
 });
 test('each chapter opens with an eyebrow, not a numbered rule', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.folio .eyebrow')).toHaveText(['The art', 'From the collection', 'How it works', 'The collage', 'Technical details', 'Questions']);
+  await expect(page.locator('.folio .eyebrow')).toHaveText(['The art', 'From the collection', 'How it works', 'The collage', 'Technical details']);
   for (const f of await page.locator('.folio').all()) {
     expect(await f.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe('0px');
   }
@@ -1085,7 +1085,7 @@ test('the glass never refreshes while the frame is in flight', async ({ page }) 
   expect((await st(table + 5)).screen).toBe('table');
 });
 
-test('each of the running head\'s links lands its section\'s eyebrow just under the head', async ({ page }) => {
+test('each of the running head\'s links lands its section\'s headline just under the head', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
   await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
@@ -1094,7 +1094,7 @@ test('each of the running head\'s links lands its section\'s eyebrow just under 
     await page.locator(`.head nav a[href="#${id}"]`).click();
     await expect(page).toHaveURL(new RegExp(`#${id}$`));
     // (a smooth scroll: wait for it to arrive)
-    const gap = () => page.evaluate((id) => document.querySelector(`#${id} .eyebrow`)!.getBoundingClientRect().top - document.querySelector('.head')!.getBoundingClientRect().bottom, id);
+    const gap = () => page.evaluate((id) => (document.querySelector(`#${id} h2`) ?? document.querySelector(`#${id} .eyebrow`))!.getBoundingClientRect().top - document.querySelector('.head')!.getBoundingClientRect().bottom, id);
     await expect.poll(async () => { const g = await gap(); return g >= 0 && g <= 40; }, { message: id, timeout: 10_000 }).toBe(true);
     await page.waitForTimeout(400);
     const g = await gap();

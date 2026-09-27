@@ -221,8 +221,9 @@ export async function loadFrame(size: Size, opts: {
     // The steel clips holding the panel showed through the mat as faint ticks
     // on a dead-on frame; they are never seen from the front, so they are not drawn.
     if (m.name === 'featherframe_silver') m.visible = false;
-    // …and the 10-inch's electronics housing, on its back, came through the picture as a thin line.
-    if (m.name === 'featherframe_pla') m.visible = false;
+    // The 10.3-inch's electronics housing, on its back, reached through to the front at one edge and drew a thin
+    // line down the picture; set 3 mm further back it sits behind the panel, and the back still shows it.
+    if (m.name === 'featherframe_pla') m.position.z -= 0.003;
   });
   if (!screen) {
     disposeAll();

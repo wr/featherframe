@@ -384,3 +384,56 @@ def test_the_pairing_screen_prints_when_its_code_expires():
     # The date goes under the pairing line, and nothing above it moves.
     assert bare.crop((0, 0, bare.width, 1780)).tobytes() == dated.crop((0, 0, bare.width, 1780)).tobytes()
     assert bare.crop((0, 1780, bare.width, 1830)).getextrema() != dated.crop((0, 1780, bare.width, 1830)).getextrema()
+
+
+def test_a_seed_sets_the_source_and_region_and_nothing_else(env):
+    """W-888: the phone's setup queues the household's detection source and
+    Region; only a hosted server takes it, and only those fields."""
+    from featherframe.app import app
+    svc = _service()
+    app.state.service = svc
+    app.state.hosted = None
+    seed = {"detection_backend": "birdweather", "birdweather_station_id": "7033",
+            "region": "europe", "imagegen_api_key": "sk-nope"}
+    assert TestClient(app).post("/api/hosted/seed", json=seed).status_code == 404
+    app.state.hosted = type("Link", (), {"settle": lambda self, svc, apply=True: None})()
+    try:
+        client = TestClient(app)
+        assert client.post("/api/hosted/seed", json=seed).status_code == 200
+        assert client.post("/api/hosted/seed", json=seed).status_code == 200   # a repeat is harmless
+        assert client.post("/api/hosted/seed", json=["x"]).status_code == 400
+        # Through the page's proxy it is not there.
+        assert client.post("/api/hosted/seed", json={"region": "asia"},
+                           headers={"X-FF-Hosted": "1"}).status_code == 404
+    finally:
+        app.state.hosted = None
+    from featherframe.config import load_config
+    saved = load_config(svc.db)           # this test's service does not reload
+    assert saved.detection_backend == "birdweather"
+    assert saved.birdweather_station_id == "7033"
+    assert saved.region == "europe"
+    assert saved.imagegen_api_key == ""
+
+
+def test_the_pairing_screen_carries_the_setup_qr():
+    """W-888: with a setup URL the pairing screen has a QR code of it, in
+    the paper left of the bough, at whole-pixel modules."""
+    import segno
+    from featherframe.render import welcome
+    url = "HTTPS://APP.FEATHERFRAME.APP/SETUP/ABCDEF"
+    plain = welcome.render_pairing("ABC-DEF")
+    scan = welcome.render_pairing("ABC-DEF", url=url)
+    qr = welcome.setup_qr(url)
+    box = (welcome._QR_LEFT, welcome._QR_TOP,
+           welcome._QR_LEFT + qr.width, welcome._QR_TOP + qr.height)
+    # The bough's paper is a shade off white: dark modules are black, light ones paper.
+    drawn = [0 if v < 128 else 255 for v in scan.crop(box).getdata()]
+    assert drawn == list(qr.getdata())
+    assert min(plain.crop(box).getdata()) > 200
+    # The drawn modules are the symbol for this URL, one module every _QR_MODULE_PX.
+    rows = [list(r) for r in segno.make(url, error="m", boost_error=False).matrix_iter(border=4)]
+    m = welcome._QR_MODULE_PX
+    sampled = [[qr.getpixel((x * m + m // 2, y * m + m // 2)) == 0 for x in range(len(rows))]
+               for y in range(len(rows))]
+    assert sampled == [[bool(v) for v in r] for r in rows]
+    assert qr.width >= 300          # ~34 mm or more on the EE03's glass

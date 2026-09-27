@@ -8,6 +8,7 @@ pillow>=10.2
 numpy>=1.26
 pyyaml>=6.0
 requests>=2.31
+segno>=1.6          # the setup QR on a hosted frame's pairing screen (W-888); pure Python
 python-multipart>=0.0.9
 zeroconf>=0.130      # mDNS: advertise _featherframe._tcp so the frame finds the server
 websockets>=10.4     # uvicorn serves the frames' push socket (W-841) through it

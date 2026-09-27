@@ -22,7 +22,7 @@ from . import system, theme, typography
 LABEL = "No detections yet"
 HEADLINE = "No detections yet"
 SOURCE_DOWN = "Detection source unreachable"
-SOURCE_DOWN_HINT = "Configure the source in the dashboard"
+SOURCE_DOWN_HINT = "Check the detection source in Settings"
 SOURCE_UP_HINT = "The first detection will appear here"
 
 # What a screen that has not been added yet shows (W-833). The same sentence
@@ -41,6 +41,13 @@ _CODE_SIZE = 84
 _PAIRING_LINE_BASELINE = 1764
 _PAIRING_LINE_SIZE = 24
 _EXPIRES_BASELINE = 1806
+# The setup QR (W-888): in the paper the bough leaves clear on its left, the
+# line under it at the pairing line's size. Whole-pixel modules, the quiet
+# zone included; ~36 mm across on the EE03, ~45 mm on the EE02.
+SETUP_LINE = "SCAN TO SET UP THIS FRAME"
+_QR_LEFT = 170
+_QR_TOP = 400
+_QR_MODULE_PX = 9
 
 
 def since_words(since: datetime) -> str:
@@ -73,14 +80,28 @@ def render_waiting(short_id: str = "", line: str = WAITING_LINE) -> Image.Image:
     return field
 
 
-def render_pairing(code: str, color: bool = False, expires: str = "") -> Image.Image:
+def setup_qr(url: str) -> Image.Image:
+    """`url` as a QR code, black on the field, one module `_QR_MODULE_PX`
+    square, its 4-module quiet zone included. Upper case keeps it in the
+    alphanumeric mode: a smaller symbol, so larger modules."""
+    import segno
+    rows = [list(r) for r in segno.make(url, error="m", boost_error=False).matrix_iter(border=4)]
+    n = len(rows)
+    img = Image.new("L", (n, n), theme.FIELD)
+    img.putdata([0 if dark else theme.FIELD for row in rows for dark in row])
+    return img.resize((n * _QR_MODULE_PX, n * _QR_MODULE_PX), Image.NEAREST)
+
+
+def render_pairing(code: str, color: bool = False, expires: str = "",
+                   url: str = "") -> Image.Image:
     """What a hosted frame no one has claimed shows (W-845): the kit's own
     boot screen, the empty bough over the wordmark, with its pairing `code`
     under the wordmark and the one line that says where to type it. `color`:
     the bough in colour under the same type, for a colour panel. `expires`:
     when the code stops working ("25 September, 10:32 am"). The glass keeps
     its picture unpowered, so a frame found in a drawer still shows a code;
-    the date says whether it can still be typed."""
+    the date says whether it can still be typed. `url`: the setup page for
+    this code (W-888), drawn as a QR code the owner scans with a phone."""
     type_ = Image.new("L", (theme.WIDTH, theme.HEIGHT), theme.FIELD)
     cx = theme.WIDTH / 2
     typography.draw_script(type_, cx, _BOOT_WORDMARK_BASELINE, "Featherframe",
@@ -93,6 +114,11 @@ def render_pairing(code: str, color: bool = False, expires: str = "") -> Image.I
     if expires:
         typography.draw_engraved(draw, cx, _EXPIRES_BASELINE, f"CODE EXPIRES {expires}".upper(),
                                  _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
+    if url:
+        qr = setup_qr(url)
+        type_.paste(qr, (_QR_LEFT, _QR_TOP))
+        typography.draw_engraved(draw, _QR_LEFT + qr.width / 2, _QR_TOP + qr.height + 40,
+                                 SETUP_LINE, _PAIRING_LINE_SIZE, theme.INK_MEDIUM)
     mode, name = ("RGB", "bough_color.png") if color else ("L", "bough.png")
     art = Image.new(mode, type_.size, "white")
     art.paste(Image.open(paths.art_dir() / name).convert(mode), (0, 0))

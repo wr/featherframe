@@ -7,31 +7,60 @@ import type { Env } from "./index";
 // rise and fall), and none of I/L/O/U/V to confuse on the glass.
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTWXYZ";
 const CODE_TTL_S = 24 * 60 * 60;
+// The setup page's secret for a code (W-888), in the QR's alphanumeric set.
+const TOKEN_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+export const SETUP_TOKEN_LEN = 12;
+
+export function setupToken(): string {
+  // 252 is the largest multiple of 36 under 256: no letter is likelier.
+  const out: string[] = [];
+  while (out.length < SETUP_TOKEN_LEN) {
+    for (const b of crypto.getRandomValues(new Uint8Array(16))) {
+      if (b < 252 && out.length < SETUP_TOKEN_LEN) out.push(TOKEN_ALPHABET[b % 36]);
+    }
+  }
+  return out.join("");
+}
+
+/** The setup page for a code, as the QR spells it: upper case, so the QR
+ * stays in its alphanumeric mode (a smaller symbol, larger modules). */
+export function setupUrl(host: string, code: string, token: string): string {
+  return `HTTPS://${host.toUpperCase()}/SETUP/${code}/${token}`;
+}
 
 // Bumped when the Lobby draws a pairing screen differently: a new ETag (and
 // R2 key), so a screen showing the old drawing is sent the new one. Bump it
 // again once the Lobby's rollout has finished: a code asked for mid-rollout
 // is drawn by the old image and cached under the new key.
-export const LOBBY_DRAWING = "boot-art-3";
+export const LOBBY_DRAWING = "boot-art-4";
 
 /** The code a device no one has claimed shows, made on its first ask and
  * kept for a day. `report` is what it said about itself, for the household
  * that claims it: a kit's own headers, or a viewer's (W-849). */
 export async function pairingCode(env: Env, id: string, keyHash: string,
-                                  report: Record<string, unknown>): Promise<{ code: string; expiresAt: number }> {
+                                  report: Record<string, unknown>): Promise<{ code: string; expiresAt: number; token: string }> {
   const now = Math.floor(Date.now() / 1000);
   const row = await env.DB.prepare(
-    "SELECT code, expires_at FROM pairing WHERE device_id = ? AND key_hash = ? AND expires_at > ?")
-    .bind(id, keyHash, now).first<{ code: string; expires_at: number }>();
-  if (row) return { code: row.code, expiresAt: row.expires_at };
+    "SELECT code, expires_at, setup_token FROM pairing WHERE device_id = ? AND key_hash = ? AND expires_at > ?")
+    .bind(id, keyHash, now).first<{ code: string; expires_at: number; setup_token: string | null }>();
+  if (row) {
+    let token = row.setup_token;
+    if (!token) {
+      // A code made before the setup page: it gets its secret now.
+      token = setupToken();
+      await env.DB.prepare("UPDATE pairing SET setup_token = ? WHERE code = ?").bind(token, row.code).run();
+    }
+    return { code: row.code, expiresAt: row.expires_at, token };
+  }
   const code = [...crypto.getRandomValues(new Uint8Array(6))]
     .map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+  const token = setupToken();
   await env.DB.batch([
     env.DB.prepare("DELETE FROM pairing WHERE device_id = ? AND key_hash = ?").bind(id, keyHash),
-    env.DB.prepare("INSERT INTO pairing (code, device_id, key_hash, report, expires_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(code, id, keyHash, JSON.stringify(report), now + CODE_TTL_S),
+    env.DB.prepare("INSERT INTO pairing (code, device_id, key_hash, report, expires_at, setup_token) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(code, id, keyHash, JSON.stringify(report), now + CODE_TTL_S, token),
   ]);
-  return { code, expiresAt: now + CODE_TTL_S };
+  return { code, expiresAt: now + CODE_TTL_S, token };
 }
 
 /** When a code stops working, in the asking device's own time zone (its IP's,

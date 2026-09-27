@@ -190,7 +190,14 @@
 // the server advertises) on first boot and again whenever the stored URL
 // stops answering. A URL typed into the portal is used as-is until it fails.
 // A LAN that blocks multicast needs the typed URL.
+// A kit flashed to ship (the release envs, FF_HOSTED_DEFAULT) starts on
+// hosted instead (W-888): its owner sets it up by scanning the code it shows.
+// Only a frame with no stored URL uses the default; the portal shows it.
+#ifdef FF_HOSTED_DEFAULT
+#define DEFAULT_SERVER_URL     "https://app.featherframe.app"
+#else
 #define DEFAULT_SERVER_URL     ""
+#endif
 #define FF_MDNS_SERVICE        "featherframe"
 #define FF_MDNS_PROTO          "tcp"
 #define FF_MDNS_RETRY_MS       60000     // don't re-query mDNS more often than this while awake

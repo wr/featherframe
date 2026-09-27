@@ -5,6 +5,7 @@ import type { Env } from "./index";
 import { checkEmailPage, confirmEmailEmail, inviteEmail, linkExpiredPage, loginPage, signInEmail, waitlistConfirmEmail,
          waitlistConfirmedPage, waitlistExpiredPage } from "./pages";
 import { cookie, randomHex, sha256, validTz } from "./util";
+import { pairLinked } from "./setup";
 
 const LINK_TTL_S = 15 * 60;
 const CHANGE_TTL_S = 24 * 60 * 60;
@@ -29,14 +30,16 @@ export async function sendMail(env: Env, to: string, mail: { subject: string; te
   return r.ok;
 }
 
-/** A sign-in link for `email`, or null when it may not sign in. */
-export async function makeLoginLink(env: Env, email: string, tz: string | null): Promise<string | null> {
+/** A sign-in link for `email`, or null when it may not sign in. `pairCode`
+ * ("CODE:device"): following it also adds the frame showing that code (W-888). */
+export async function makeLoginLink(env: Env, email: string, tz: string | null,
+                                    pairCode: string | null = null): Promise<string | null> {
   const known = await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first();
   const invited = await env.DB.prepare("SELECT 1 FROM invites WHERE email = ? AND used_at IS NULL").bind(email).first();
   if (!known && !invited) return null;
   const token = randomHex(32);
-  await env.DB.prepare("INSERT INTO login_links (token_hash, email, tz, expires_at) VALUES (?, ?, ?, ?)")
-    .bind(await sha256(token), email, tz, now() + LINK_TTL_S).run();
+  await env.DB.prepare("INSERT INTO login_links (token_hash, email, tz, expires_at, pair_code) VALUES (?, ?, ?, ?, ?)")
+    .bind(await sha256(token), email, tz, now() + LINK_TTL_S, pairCode).run();
   return `https://${env.APP_HOST}/auth?t=${token}`;
 }
 
@@ -57,8 +60,9 @@ export async function login(request: Request, env: Env): Promise<Response> {
 export async function auth(request: Request, env: Env, url: URL): Promise<Response> {
   const token = url.searchParams.get("t") || "";
   const row = await env.DB.prepare(
-    "SELECT email, tz, expires_at, used_at FROM login_links WHERE token_hash = ?")
-    .bind(await sha256(token)).first<{ email: string; tz: string | null; expires_at: number; used_at: number | null }>();
+    "SELECT email, tz, expires_at, used_at, pair_code FROM login_links WHERE token_hash = ?")
+    .bind(await sha256(token)).first<{ email: string; tz: string | null; expires_at: number; used_at: number | null;
+                                       pair_code: string | null }>();
   if (!row || row.used_at || row.expires_at < now()) return linkExpiredPage();
   await env.DB.prepare("UPDATE login_links SET used_at = ? WHERE token_hash = ?").bind(now(), await sha256(token)).run();
 
@@ -78,13 +82,22 @@ export async function auth(request: Request, env: Env, url: URL): Promise<Respon
     await env.HOUSEHOLD.getByName(hid).init(hid, tz);
     user = { id: uid, household_id: hid };
   }
+  // A link from the setup page (W-888): the frame whose code was scanned
+  // joins this account, if it is still showing that code.
+  let landing = "/";
+  if (row.pair_code && await pairLinked(env, row.pair_code, user.household_id)) landing = "/?paired=1";
+  return signedIn(env, user.id, landing);
+}
+
+/** A new session for `uid`, and the page it lands on. */
+export async function signedIn(env: Env, uid: string, location: string): Promise<Response> {
   const session = randomHex(32);
   await env.DB.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)")
-    .bind(await sha256(session), user.id, now() + SESSION_TTL_S).run();
+    .bind(await sha256(session), uid, now() + SESSION_TTL_S).run();
   return new Response(null, {
     status: 303,
     headers: {
-      Location: "/",
+      Location: location,
       "Set-Cookie": `${SESSION_COOKIE}=${session}; Path=/; Max-Age=${SESSION_TTL_S}; HttpOnly; Secure; SameSite=Lax`,
     },
   });
@@ -187,6 +200,9 @@ export async function deleteHousehold(env: Env, hid: string): Promise<void> {
   // message they are sent finds a pairing code, not a household that is gone.
   await env.HOUSEHOLD.getByName(hid).destroy();
   await env.DB.batch([
+    // A kit set up into this household may be set up again (W-888); a
+    // setup code, once used, stays used.
+    env.DB.prepare("UPDATE kits SET used_at = NULL, household_id = NULL WHERE household_id = ?").bind(hid),
     env.DB.prepare("DELETE FROM users WHERE household_id = ?").bind(hid),
     env.DB.prepare("DELETE FROM households WHERE id = ?").bind(hid),
   ]);
@@ -361,13 +377,49 @@ export async function logAction(env: Env, admin: string, action: string, target:
   }
 }
 
+// -- kits and setup codes (W-888) ------------------------------------------------
+/** A kit flashed for shipping: its owner may set it up with no setup code.
+ * Registering it again (a new key after an erase) keeps whether it was used. */
+async function registerKit(env: Env, b: { device_id?: string; key_hash?: string; kit?: string; note?: string }): Promise<Response> {
+  const id = String(b.device_id || "").trim();
+  const hash = String(b.key_hash || "").trim().toLowerCase();
+  if (!/^[0-9A-Za-z:_-]{4,40}$/.test(id) || !/^[0-9a-f]{64}$/.test(hash)) {
+    return Response.json({ error: "device_id and key_hash (64 hex)" }, { status: 400 });
+  }
+  const kit = ["ee02", "ee03"].includes(String(b.kit)) ? String(b.kit) : "other";
+  const note = String(b.note || "").slice(0, 120);
+  await env.DB.prepare(`INSERT INTO kits (device_id, key_hash, kit, note, registered_at) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (device_id) DO UPDATE SET key_hash = excluded.key_hash, kit = excluded.kit,
+    note = coalesce(nullif(excluded.note, ''), kits.note), registered_at = excluded.registered_at`)
+    .bind(id, hash, kit, note, now()).run();
+  const result = `Registered ${kit} ${id.slice(-6)}.`;
+  await logAction(env, "api", "kit", id, true, result);
+  return Response.json({ ok: true, result });
+}
+
+export async function makeSetupCodes(env: Env, count: number, note: string): Promise<string[]> {
+  const { newSetupCode } = await import("./setup");
+  const n = Math.max(1, Math.min(100, Math.floor(count)));
+  const codes = Array.from({ length: n }, () => newSetupCode());
+  await env.DB.batch(codes.map((c) => env.DB.prepare(
+    "INSERT OR IGNORE INTO setup_codes (code, note, created_at) VALUES (?, ?, ?)").bind(c, note.slice(0, 120) || null, now())));
+  return codes;
+}
+
 // -- the admin's side, until there is a page for it ----------------------------
 export async function admin(request: Request, env: Env, path: string): Promise<Response> {
   if (request.method !== "POST" || !env.ADMIN_TOKEN ||
       request.headers.get("Authorization") !== `Bearer ${env.ADMIN_TOKEN}`) {
     return new Response("not found", { status: 404 });
   }
-  const body = await request.json<{ email?: string; household?: string; send?: boolean }>().catch(() => ({} as { email?: string; household?: string; send?: boolean }));
+  const body = await request.json<{ email?: string; household?: string; send?: boolean; device_id?: string;
+    key_hash?: string; kit?: string; note?: string; count?: number }>().catch(() => ({} as Record<string, never>));
+  if (path === "kit") return registerKit(env, body);
+  if (path === "setup-codes") {
+    const codes = await makeSetupCodes(env, Number(body.count) || 10, String(body.note || ""));
+    await logAction(env, "api", "setup-codes", null, true, `Made ${codes.length} setup codes.`);
+    return Response.json({ ok: true, codes: codes.map((c) => `${c.slice(0, 4)}-${c.slice(4)}`) });
+  }
   const email = normEmail(body.email);
   if (!email) return Response.json({ error: "email" }, { status: 400 });
   if (path === "invite") {

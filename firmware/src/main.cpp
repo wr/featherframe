@@ -611,6 +611,21 @@ void markFirmwareGood();
 #else
 #define FF_PORTAL_FONT_FACE ""
 #endif
+// The page after Save (W-888): a kit that starts on hosted says what comes
+// next, which is on the frame, not here. WiFiManager's own text is a
+// compile-time string; this swaps it on that one page.
+#ifdef FF_HOSTED_DEFAULT
+#define FF_PORTAL_SAVED_SCRIPT "<script>document.addEventListener('DOMContentLoaded',function(){" \
+  "var p=location.pathname,m,f,n;" \
+  "if(p=='/wifisave'){m=document.querySelector('.msg');" \
+  "if(m)m.textContent='Connecting to Wi-Fi. When your frame shows a code, scan it with your phone to finish setting up.';return;}" \
+  "f=document.querySelector('form[action=\"wifisave\"],form[action=\"/wifisave\"]');" \
+  "if(!f)return;n=document.createElement('p');n.className='msg';" \
+  "n.textContent='After you save, your frame shows a code. Scan it with your phone to finish setting up.';" \
+  "var b=f.querySelector('button[type=submit],button');if(b)b.parentNode.insertBefore(n,b);else f.appendChild(n);});</script>"
+#else
+#define FF_PORTAL_SAVED_SCRIPT ""
+#endif
 static const char PORTAL_CSS[] PROGMEM = R"CSS(<style>)CSS" FF_PORTAL_FONT_FACE R"CSS(
 :root{--bg:#efeae0;--card:#fbf9f4;--ink:#20201d;--muted:#6f685c;--accent:#3f5e46;--err:#8a4a3a;--line:#ddd6c8}
 *{box-sizing:border-box}
@@ -645,7 +660,7 @@ td{vertical-align:top}
 hr{border:0;border-top:1px solid var(--line);margin:22px 0}
 small{color:var(--muted)}
 .h{display:none}:disabled{opacity:.5}
-</style>)CSS";
+</style>)CSS" FF_PORTAL_SAVED_SCRIPT;
 
 // The captive portal is open (Improv, W-839: Wi-Fi set over USB closes it).
 static volatile bool g_portalOpen = false;
@@ -712,13 +727,20 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   // ensureWifi is re-entered from loop()'s KEY2 handler — so the parameter
   // lives in static storage and registers exactly once.
   static WiFiManagerParameter serverParam("server",
-                                          "Featherframe server URL (leave blank to find it automatically)",
+                                          "Server URL (optional)",
                                           g_serverUrl, sizeof(g_serverUrl));
   static bool paramRegistered = false;
-  if (!paramRegistered) {
+#ifdef FF_HOSTED_DEFAULT
+  // A kit set up from the phone (W-888) is not asked for a server it has
+  // never heard of; the KEY2 portal, on a frame that has Wi-Fi, still offers it.
+  const bool offerServer = wm.getWiFiIsSaved();
+#else
+  const bool offerServer = true;
+#endif
+  if (!paramRegistered && offerServer) {
     wm.addParameter(&serverParam);
     paramRegistered = true;
-  } else {
+  } else if (paramRegistered) {
     serverParam.setValue(g_serverUrl, sizeof(g_serverUrl));
   }
   wm.setConfigPortalTimeout(PORTAL_TIMEOUT_S);
@@ -802,7 +824,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
     // steps next. Persist the (possibly updated, user-typed) server URL.
     char prev[sizeof(g_serverUrl)];
     strlcpy(prev, g_serverUrl, sizeof(prev));
-    strlcpy(g_serverUrl, serverParam.getValue(), sizeof(g_serverUrl));
+    if (paramRegistered) strlcpy(g_serverUrl, serverParam.getValue(), sizeof(g_serverUrl));
     normalizeServerUrl(g_serverUrl, sizeof(g_serverUrl), prev);
     prefs.putString("server", g_serverUrl);
   }

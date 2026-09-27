@@ -16,8 +16,9 @@
 import { admin, auth, confirmEmailChange, confirmWaitlist, login, logout, pendingEmail, sessionUser, settingsForm } from "./accounts";
 import { adminRoute, waitlistRoute } from "./admin";
 import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
-import { LOBBY_DRAWING, expiryText, pairingCode } from "./pairing";
+import { LOBBY_DRAWING, expiryText, pairingCode, setupUrl } from "./pairing";
 import { Household } from "./household";
+import { isSetupPath, setupRoute } from "./setup";
 import { HouseholdServer, Lobby } from "./containers";
 import { suspendedPage } from "./pages";
 import { deviceId, escapeHtml, frameKey, httpsRedirect, sha256 } from "./util";
@@ -70,6 +71,10 @@ export default {
     if (path === "/admin" || path.startsWith("/admin/")) return adminRoute(request, env, url);
     if (path === "/api/waitlist") return waitlistRoute(request, env);
     if (path === "/api/waitlist/confirm" && request.method === "GET") return confirmWaitlist(env, url);
+    // A frame's QR code (W-888): set it up from the phone, no account needed yet.
+    if (isSetupPath(path) || isSetupPath(path.replace(/^\/SETUP\//, "/setup/"))) {
+      return setupRoute(request, env, new URL(path.replace(/^\/SETUP\//, "/setup/") + url.search, url), ctx);
+    }
 
     const internal = path.match(/^\/_internal\/([0-9a-z]{1,32})\//);
     if (internal) return toHousehold(env, internal[1], request);
@@ -183,7 +188,10 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
   const expires = expiryText(row.expiresAt, request);
   // The mat is kept for the household (a new row starts with it), not drawn.
   const { "x-ff-mat": _mat, ...drawnFrom } = report;
-  const variant = (await sha256(LOBBY_DRAWING + expires + JSON.stringify(drawnFrom))).slice(0, 16);
+  // The QR is the setup page for this code (W-888): a kit only; a viewer's
+  // pairing screen (viewers.ts) keeps its code alone.
+  const url = setupUrl(env.APP_HOST, row.code, row.token);
+  const variant = (await sha256(LOBBY_DRAWING + expires + url + JSON.stringify(drawnFrom))).slice(0, 16);
   const cacheKey = `lobby/${row.code}/${variant}.fff`;
   const etag = `pair-${row.code}-${variant.slice(0, 8)}`;
   const headers = new Headers({
@@ -197,7 +205,7 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
     const q = new URLSearchParams({
       code: shown, expires, panel: report["x-panel"] || "", w: report["x-panel-width"] || "",
       h: report["x-panel-height"] || "", fmt: report["x-panel-format"] || "",
-      rot: report["x-panel-rotations"] || "", cur: report["x-ff-rotation"] || "",
+      rot: report["x-panel-rotations"] || "", cur: report["x-ff-rotation"] || "", url,
     });
     // Drawn and kept even if the frame gives up waiting: a sleeping Lobby
     // and a colour panel's dither can outlast its 30 s, and a render thrown

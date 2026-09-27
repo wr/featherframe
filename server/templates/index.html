@@ -2041,10 +2041,13 @@
       shown = true;
     }
     else if (q.get('email_changed')) { showFlash('ok', 'Email changed.', 'ic-check'); shown = true; }
+    // Set up from the phone (W-888), or a frame added by an emailed link.
+    else if (q.get('welcome')) { showFlash('ok', 'Your frame is set up. It will show its first picture in a minute.', 'ic-check'); shown = true; }
+    else if (q.get('paired')) { showFlash('ok', 'Frame added. It will show its first picture in a minute.', 'ic-check'); shown = true; }
     // The section that was just saved opens again (W-878).
     var openRow = q.get('open') && document.getElementById('set-' + q.get('open'));
     if (openRow) openRow.open = true;
-    if (q.has('saved') || q.has('error') || q.has('adjusted') || q.has('email_changed') || q.has('open')) {
+    if (q.has('saved') || q.has('error') || q.has('adjusted') || q.has('email_changed') || q.has('welcome') || q.has('paired') || q.has('open')) {
       try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* fine */ }
     }
   })();

@@ -26,7 +26,7 @@ app = FastAPI(title="Featherframe lobby")
 
 
 def render_pairing(code: str, panel: str = "", facts: dict | None = None,
-                   rotation: int | None = None, expires: str = "") -> pipeline.RenderResult:
+                   rotation: int | None = None, expires: str = "", url: str = "") -> pipeline.RenderResult:
     """`rotation`: the way up the frame hangs now (W-851), when it is one its
     panel can do; else the panel's default. `expires`: when the code stops
     working, already in the frame's own time zone."""
@@ -34,16 +34,17 @@ def render_pairing(code: str, panel: str = "", facts: dict | None = None,
            "reported": {"panel": panel or None, "facts": {k: v for k, v in (facts or {}).items() if v} or None},
            "set": {"panel_rotation": rotation} if rotation is not None else {}}
     cfg = frames_mod.frame_config(row, Config())
-    sheet = welcome.render_pairing(code[:12], color=cfg.panel_spec.color, expires=expires[:48])
+    sheet = welcome.render_pairing(code[:12], color=cfg.panel_spec.color, expires=expires[:48],
+                                   url=url[:80])
     return pipeline.render_image(sheet, cfg, "welcome", ""), cfg
 
 
 @app.get("/render")
 async def render(code: str, panel: str = "", w: str = "", h: str = "", fmt: str = "", rot: str = "",
-                 cur: str = "", expires: str = ""):
+                 cur: str = "", expires: str = "", url: str = ""):
     rotation = int(cur) if cur.isdigit() else None
     result, cfg = await run_in_threadpool(render_pairing, code, panel,
-                                          {"w": w, "h": h, "fmt": fmt, "rot": rot}, rotation, expires)
+                                          {"w": w, "h": h, "fmt": fmt, "rot": rot}, rotation, expires, url)
     return Response(result.frame, media_type="application/octet-stream",
                     headers={"ETag": f'"{result.etag}"', "X-FF-Rotation": str(cfg.panel_rotation)})
 

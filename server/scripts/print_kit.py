@@ -23,8 +23,7 @@ The setup screen on the card is drawn from the server's own pairing screen
 proportions, with the QR, the code and its lines as wireframes, so no one
 takes the example for a real code.
 
-The FCC text assumes Wells Workshop's SDoC for both models; the power rating
-is to be confirmed against a measured kit.
+The FCC text assumes Wells Workshop's SDoC for both models.
 """
 from __future__ import annotations
 
@@ -51,7 +50,7 @@ FONTS = Path(__file__).resolve().parents[1] / "featherframe" / "fonts"
 WW_SVG = REPO / "site" / "public" / "img" / "wells-workshop.svg"
 
 MODELS = {"ee03": "FF-EE03", "ee02": "FF-EE02"}
-POWER = "5 V ⎓ 1 A"
+POWER = "5 V ⎓ 0.5 A"   # measured 27 Sep 2026: 0.08 A average, 0.15 A at boot
 ADDRESS = "Wells Workshop LLC, 2389 Main St. Ste 100, Glastonbury CT 06033"
 FCC_ID = "Z4T-XIAOESP32S3P"
 HELP = "featherframe.app/help"

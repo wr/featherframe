@@ -68,6 +68,13 @@ const GLASS_ENV = 0.7;
 // and reads as a cut edge against the panel.
 const MAT_COLOR = [1, 0.99, 0.97] as const;
 const MAT_EMISSIVE = [0.1, 0.097, 0.09] as const;
+// The parts behind the panel: the back board and the kickstand, the steel clips and hangers, the electronics
+// housing and its ribbon, the hangers' holes. Seen from the front, a wall of one of them is edge-on, a sliver under
+// a pixel wide, and SwiftShader's multisampling (the stills' renderer, scripts/wall.mjs) takes its depth at the
+// pixel's centre, off the sliver, where the wall's steep slope carries it in front of the picture: the 10.3-inch's
+// housing drew a thin line down the picture, and the 13.3-inch's clips ticks through the mat. Each is drawn a
+// pixel's slope deeper, which a GPU never shows, and stays where the model puts it.
+const BEHIND = new Set(['featherframe_mdf', 'featherframe_stand', 'featherframe_silver', 'featherframe_pla', 'featherframe_amber', 'featherframe_dark']);
 // The table's shadow, for the table's still only (`?wall=table`, opts.floor):
 // a light that lights nothing (so the frame looks as it does everywhere else)
 // but casts the frame onto a shadow-only floor, from above and in front, so it
@@ -219,11 +226,7 @@ export async function loadFrame(size: Size, opts: {
       g.envMap = env;
       g.envMapIntensity = GLASS_ENV;
     }
-    // The 10.3-inch's electronics housing, on its back, reached through to the front at one edge and drew a thin
-    // line down the picture; set 3 mm further back it sits behind the panel, and the back still shows it.
-    if (m.name === 'featherframe_pla') m.position.z -= 0.003;
-    // …and the steel clips on the back showed through the mat as faint ticks; 5 mm back, they're only seen from behind.
-    if (m.name === 'featherframe_silver') m.position.z -= 0.005;
+    if (BEHIND.has(m.name)) Object.assign(m.material as MeshStandardMaterial, { polygonOffset: true, polygonOffsetFactor: 1 });
   });
   if (!screen) {
     disposeAll();

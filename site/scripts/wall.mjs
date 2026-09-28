@@ -83,10 +83,12 @@ try {
   if (!['seasons', 'large', 'only', 'hole'].includes(process.argv[2])) {
     await render('13', 'table', 'table-13-cardinal');
     await render('10', 'table', 'table-10-cardinal');
-    // Technical details' 13-inch shows the hero's cardinal, dead-on
+    // Technical details' 13-inch shows the hero's cardinal, dead-on, and its 10.3-inch the blue jay
     mkdirSync(`${here}dist/_screens`, { recursive: true });
     copyFileSync(`${here}public/models/screens/13-cardinal.jpg`, `${here}dist/_screens/13-cardinal.jpg`);
     await render('13', 'screen&src=_screens/13-cardinal.jpg', '13-cardinal');
+    copyFileSync(`${here}public/models/screens/wall-10-blue-jay.jpg`, `${here}dist/_screens/10-blue-jay.jpg`);
+    await render('10', 'screen&src=_screens/10-blue-jay.jpg', '10-blue-jay');
   }
 } finally {
   await browser?.close();

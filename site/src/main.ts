@@ -69,10 +69,41 @@ async function mount() {
 }
 phone.addEventListener('change', () => void mount());
 
+// The e-paper section's pair where the journey is not drawing it (flat-pair.ts): on a phone, with reduced motion,
+// or once the 3D frame has failed. Loaded as the section comes within half a window of the view, and let go when the
+// journey takes over (a window widened past a phone's).
+let followPair = () => {};
+{
+  const pair = document.getElementById('pair');
+  let near = false, loading = false, flat: { dispose(): void } | null = null;
+  const journeying = () => root.classList.contains('choreo');
+  followPair = () => {
+    if (!flat && !loading && near && data && !wall && !journeying()) {
+      loading = true;
+      import('./flat-pair').then((m) => m.startFlatPair(data!, { reduced, speed: rate })).then((f) => {
+        loading = false;
+        flat = f;
+        followPair();
+      }, (e) => {
+        loading = false;
+        console.warn('featherframe: the e-paper pair is unavailable', e);
+      });
+    } else if (flat && journeying()) {
+      flat.dispose();
+      flat = null;
+    }
+  };
+  if (pair && !wall) {
+    new IntersectionObserver(([e]) => { if (e.isIntersecting) { near = true; followPair(); } }, { rootMargin: '50% 0px' }).observe(pair);
+    new MutationObserver(() => followPair()).observe(root, { attributes: true, attributeFilter: ['class'] });
+  }
+}
+
 const start = async () => {
   try {
     data = await (await fetch('species.json')).json();
     poster.src = data!.sizes[root.dataset.tone === '10' ? '10' : '13'].poster;
+    followPair();
     void mount();
   } catch (e) {
     root.classList.remove('choreo');

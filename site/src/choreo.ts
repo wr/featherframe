@@ -3,8 +3,10 @@
 // travels between.
 //
 //   hero      the cover's frame, three-quarter on its kickstand on the cover's table
-//   centre    dead-on, about 90% of the viewport tall, frozen dead centre for its
-//             dwell while a studio light's bar sweeps up its glass
+//   pair      dead-on in the e-paper section, beside the other size, which slides in
+//             from the right as it lands: both pinned while the words scroll past and
+//             a studio light's bar sweeps up their glass, then both refresh together
+//             at the panel's own pace, a timer under each (pair-ui.ts)
 //   art       dead-on in the art spread's left half, showing the Wild Turkey, pinned
 //             there while the spread's text scrolls past
 //   wall 1    the gallery wall's empty first place: the still takes over there
@@ -27,11 +29,13 @@
 // where the frame passes over the captions it flies across, but still under
 // the running head.
 //
-// With the wall on B&W, the frame that leaves the cover is the 10-inch in
-// sixteen grays (loaded when B&W is first chosen): it takes over from the
-// 13-inch as the glass repaints on the way up, so it lands in and tears off
-// the wall as the wall's own gray frames.
+// The frame that travels is the page's tone's: the 10-inch in sixteen grays
+// for B&W, the 13-inch for Color. The other size is loaded too, soon after the
+// cover (or at once when the tone is switched to it): it is the pair's second
+// frame, and when the tone changes it takes over the journey out of sight, its
+// glass readied first, so it lands in and tears off the wall as the wall's own frames.
 import { FLAT, HERO, TABLE, lerpPose, loadFrame, sheenAt, type Frame3D, type Pose, type Rect } from './viewer';
+import { pairPictures, pairUI, type Model } from './pair-ui';
 import type { SiteData, Size } from './card';
 
 const SWAY = 0.06;        // the hero's idle sway, radians
@@ -42,6 +46,10 @@ const LAND_AT = 0.92;     // the wall's first place is landed in with its bottom
 const CONTACT = 8;        // px: the table's shadow comes in over the frame's last this many of descent
 const AWAY = 12;          // px of scroll over which the cover's floor shadow goes
 const TEAR_GAP = 12;      // px: the wall's last frame tears off with its top this far under the running head
+const PAIR_BAR = 0.5;     // viewport heights of scroll over which the light bar sweeps the pair (twice), from its landing
+const PAIR_IN = 0.45;     // the other size slides in over the traveller's flight to the pair from this far through it
+const PAIR_BEAT = 700;    // ms the pair holds still, landed, before it refreshes by itself
+const OTHER_AFTER = 2500; // ms after the frame is live that the other size loads, if no scroll has asked for it first
 
 // The poster's canvas is 1200 × 1400 with the frame at 111,108 → 1086,1352.
 export const heroRect = (stage: DOMRect | Rect, offsetY = 0): Rect => {
@@ -57,8 +65,7 @@ const lerpRect = (a: Rect, b: Rect, t: number): Rect => ({
 });
 
 /** What the frame shows: on the table, the latest detection (main.ts, <html data-detected>). */
-type Screen = 'cycle' | 'art' | 'last' | 'table';
-type Model = '13' | '10';
+type Screen = 'cycle' | 'pair' | 'art' | 'last' | 'table';
 
 interface Stop {
   /** The frame's box on screen at scroll `s`. */
@@ -74,12 +81,17 @@ interface Stop {
   over?: boolean;
   /** The flight out starts from where the frame was at s1, not moving with the page. */
   hold?: boolean;
-  /** A light bar sweeps its glass as the page scrolls through its hold. */
+  /** A light bar sweeps its glass as the page scrolls through its hold… */
   bar?: boolean;
+  /** …over this much scroll from s0 (the whole hold if not given). */
+  barSpan?: number;
   /** The section a link to it should land in this stop's hold (main.ts). */
   section?: string;
   /** Arriving, the frame turns a full circle about its upright. */
   spin?: boolean;
+  /** The flight in heads for where the stop will hold the frame (its box at s0), not for its slot on the way up
+   *  with the page: it never dips below the window to meet a slot still coming up from under it. */
+  settled?: boolean;
 }
 
 interface Layout {
@@ -88,6 +100,9 @@ interface Layout {
   landAt: number;
   /** …until this stop, where it tears off again. */
   tearAt: number;
+  /** The e-paper pair: its stop, the other size's slot beside it at scroll `s`, and the scroll range over which
+   *  the other size slides in. */
+  pair: { at: number; partner: (s: number) => Rect; in0: number; in1: number } | null;
   vw: number;
   vh: number;
 }
@@ -152,17 +167,20 @@ function measureNow(els: Els): Layout {
   const hero = toScale(heroRect(els.stage.getBoundingClientRect(), scrollY));
   stops.push({ rect: scrolled(hero), pose: HERO, s0: -Infinity, s1: 0, hold: true });
   let landAt = Infinity, tearAt = Infinity;
+  let pair: Layout['pair'] = null;
   const after = (s: number, min: number) => Math.max(s, stops[stops.length - 1].s1 + min * vh);
 
-  if (els.centre) {
-    // Its size and x from the slot; on screen, dead centre in the viewport
-    // below the running head, and frozen there: it does not move with the page.
-    const b = pageBox(els.centre);
-    const spacer = pageBox(els.centre.parentElement!);
-    const s0 = after(spacer.y - 0.1 * vh, 0.3);
-    const s1 = after(spacer.y + 0.4 * vh, 0);
-    const box = { x: b.x, y: nav + (vh - nav - b.h) / 2, w: b.w, h: b.h };
-    stops.push({ rect: () => box, pose: FLAT, s0, s1, bar: true });
+  if (els.pair && els.pairSlots) {
+    // the tone's frame in its slot, the other size in the one beside it: both pinned together
+    const t = tone();
+    const p = pinned(els.pairSlots[t], els.pair);
+    const q = pinned(els.pairSlots[t === '10' ? '13' : '10'], els.pair);
+    // it lands as the pair pins, and it stays a moment after the pin lets go, going up with the page
+    const s0 = after(p.s0, 0.3);
+    const s1 = Math.max(s0, p.s1 + ART_LINGER * vh);
+    const from = stops[stops.length - 1].s1;
+    stops.push({ rect: p.rect, pose: FLAT, s0, s1, bar: true, barSpan: PAIR_BAR * vh, section: 'epaper', settled: true });
+    pair = { at: stops.length - 1, partner: q.rect, in0: from + PAIR_IN * (s0 - from), in1: s0 };
   }
   if (els.art) {
     const p = pinned(els.art, els.art);
@@ -190,7 +208,7 @@ function measureNow(els: Els): Layout {
   }
   const last = stops[stops.length - 1];
   if (last.s1 < Infinity) last.s1 = Infinity;
-  return { stops, landAt, tearAt, vw, vh };
+  return { stops, landAt, tearAt, pair, vw, vh };
 }
 
 interface State {
@@ -230,7 +248,7 @@ function at(l: Layout, s: number): State {
     const prev = stops[i - 1];
     const u = clamp01((s - prev.s1) / (stop.s0 - prev.s1));
     t = smooth(u);
-    const a = prev.rect(prev.hold ? prev.s1 : s), b = stop.rect(s);
+    const a = prev.rect(prev.hold ? prev.s1 : s), b = stop.rect(stop.settled ? Math.max(s, stop.s0) : s);
     target = b;
     if (stop.path === 'drop') {
       // the size arrives first; the place follows, from above
@@ -246,12 +264,15 @@ function at(l: Layout, s: number): State {
   over = !!stop.over;
   const fromHero = i === 0 ? 0 : i === 1 && s < stop.s0 ? t : 1;
   if (landed && !torn) rect = null;
-  // The glass: the species cycle at the hero, the Wild Turkey from the centre
-  // to the wall, the wall's last print when it tears off, the latest detection on the table.
-  // A refresh is never drawn in flight: the Turkey arrives once the frame is (all but)
-  // still at the centre, under the light bar, and the table's picture once it has landed.
+  // The glass: the species cycle at the hero; at the pair, what it arrived with, until the pair refreshes (the
+  // pair's own, below); the Wild Turkey at the art spread and on to the wall, the wall's last print when it tears
+  // off, the latest detection on the table. A refresh is never drawn in flight: each stop's picture arrives once
+  // the frame is (all but) still there.
   let screen: Screen | null;
-  if (i === 0 || (i === 1 && s < stop.s0)) screen = fromHero >= 0.97 ? 'art' : fromHero <= 0.3 ? 'cycle' : null;
+  const pairAt = l.pair ? l.pair.at : -1;
+  if (i === 0 || (i === 1 && s < stop.s0)) screen = fromHero >= 0.97 ? (pairAt === 1 ? 'pair' : 'art') : fromHero <= 0.3 ? 'cycle' : null;
+  else if (i === pairAt) screen = 'pair';
+  else if (i === pairAt + 1 && s < stop.s0) screen = null;
   else if (!torn) screen = landed ? null : 'art';
   else if (i > tearAt + 1 || (i === tearAt + 1 && s >= stop.s0)) screen = 'table';
   else if (i === tearAt) screen = 'last';
@@ -265,14 +286,28 @@ function at(l: Layout, s: number): State {
     const d = Math.hypot(rect.x + rect.w / 2 - (target.x + target.w / 2), rect.y + rect.h - (target.y + target.h));
     ground = smooth(clamp01(1 - d / CONTACT));
   }
-  const bar = stop.bar && s >= stop.s0 && s <= stop.s1 && stop.s1 > stop.s0 ? (s - stop.s0) / (stop.s1 - stop.s0) : null;
+  const span = Math.min(stop.barSpan ?? Infinity, stop.s1 - stop.s0);
+  const bar = stop.bar && span > 0 && s >= stop.s0 && s <= stop.s0 + span ? (s - stop.s0) / span : null;
   return { rect, pose: { ...pose, ground }, sway: 1 - fromHero, bar, landed, torn, over, screen, lift: fromHero, land, ground };
+}
+
+/** The pair's other size at scroll `s`: its box, sliding in level from past the window's right edge to where the
+ *  pair holds it (null before it sets off, and once it is off the window), and how far in it has slid, 0–1. */
+function partnerAt(l: Layout, s: number): { rect: Rect | null; in: number } {
+  const p = l.pair;
+  if (!p || s <= p.in0) return { rect: null, in: 0 };
+  const u = smooth(clamp01((s - p.in0) / Math.max(1, p.in1 - p.in0)));
+  const b = p.partner(Math.max(s, p.in1));
+  if (b.y + b.h <= 0 || b.y >= l.vh) return { rect: null, in: u };
+  return { rect: { ...b, x: lerp(l.vw + 8, b.x, u) }, in: u };
 }
 
 interface Els {
   head: HTMLElement | null;
   stage: HTMLElement;
-  centre: HTMLElement | null;
+  /** The e-paper pair's pin, and its two frames' slots. */
+  pair: HTMLElement | null;
+  pairSlots: Record<Model, HTMLElement> | null;
   art: HTMLElement | null;
   wall: HTMLElement | null;
   first: HTMLElement | null;
@@ -298,7 +333,8 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   const els: Els = {
     head: document.querySelector('.head'),
     stage: document.getElementById('stage')!,
-    centre: document.getElementById('centre-slot'),
+    pair: document.getElementById('pair'),
+    pairSlots: null,
     art: document.getElementById('art-slot'),
     wall: document.querySelector('.wall'),
     first: images[0] ?? null,
@@ -306,9 +342,15 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     table,
     tablePin: table?.closest<HTMLElement>('.pin') ?? null,
   };
+  {
+    const [p10, p13] = [document.getElementById('pair-10'), document.getElementById('pair-13')];
+    if (els.pair && p10 && p13) els.pairSlots = { '10': p10, '13': p13 };
+    else els.pair = null;
+  }
+  const ui = els.pair ? pairUI() : null;
   /** The detection on the table (main.ts): the species' own screen, as the hero cycle draws it. */
   const detected = () => root.dataset.detected || 'cardinal';
-  const screensOf = (size: Size): Record<Exclude<Screen, 'cycle'>, string | undefined> => ({
+  const screensOf = (size: Size): Record<'art' | 'last' | 'table', string | undefined> => ({
     art: size.wall?.[0],
     last: size.wall?.[size.wall.length - 1],
     table: size.screens.find((f) => f.includes(`-${detected()}.`)),
@@ -316,18 +358,35 @@ export async function startPage(data: SiteData, hero: Model, opts: {
   const detections = (size: Size) => size.screens.filter((f) => /-(cardinal|eastern-bluebird|tufted-titmouse|black-capped-chickadee)\./.test(f));
 
   let layout = measure(els);
-  // scripts and debugging: where the journey is, and its stops
-  (window as any).__ff = () => ({ st: at(layout, scrollY), floor: Object.values(frames).some((f) => f!.floor), stops: layout.stops.map((x) => [x.s0, x.s1, x.rect(scrollY)]) });
-  /** The frames: the cover's, and (B&W) the 10-inch that takes over from it. */
+  // scripts and debugging: where the journey is, and its stops; the pair's other size; what each glass shows
+  (window as any).__ff = () => ({
+    st: at(layout, scrollY), floor: Object.values(frames).some((f) => f!.floor), stops: layout.stops.map((x) => [x.s0, x.s1, x.rect(scrollY)]),
+    pair: layout.pair && { at: layout.pair.at, partner: partnerAt(layout, scrollY), active },
+    glass: Object.fromEntries(Object.entries(frames).map(([m, f]) => [m, f!.refresh.onGlass()])),
+  });
+  /** The frames: the cover's, and the other size, the pair's second frame, which takes over the journey when the tone is switched to it. */
   const frames: Partial<Record<Model, Frame3D>> = {};
   const shown: Partial<Record<Model, string>> = {};
-  /** The frame of the other tone: loaded when the visitor first asks for it. */
+  /** The other size's frame: loaded soon after the cover's, or at once when the visitor asks for its tone. */
   const other: Model = hero === '13' ? '10' : '13';
+  const partnerOf = (m: Model): Model => (m === '13' ? '10' : '13');
+  /** A picture on one size's glass, in the other size's drawing. */
+  const match = (src: string | null, from: Model, to: Model) => {
+    const a = data.sizes[from], b = data.sizes[to];
+    for (const k of ['screens', 'wall'] as const) {
+      const i = src ? a[k].indexOf(src) : -1;
+      if (i >= 0) return b[k][i];
+    }
+    return b.screens[0];
+  };
   let loadingOther: Promise<void> | null = null;
   /** What the 10-inch's glass was last told to show while out of sight. */
   let queued: string | null = null;
   let active: Model = hero;
   let raf = 0, reveal = 0, dirty = true, lastKey = '', lastAway = '', disposed = false, wasSeen = true;
+  /** The pair: its other size's last drawn box; its glass matched to the traveller's since it last came on the
+   *  window; whether it has refreshed by itself yet, the beat before it does, and whether it could now. */
+  let lastPartnerKey = '', partnerSynced = false, pairRan = false, pairBeat = 0, pairCan = false, otherTimer = 0;
   let lastScroll = performance.now();
   /** A lost WebGL context (a laptop asleep, a tab in the background too long) leaves nothing to draw with: the
    *  journey steps aside as if the model had failed, and the page's own stills come back. */
@@ -355,6 +414,8 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     const instant = shown[m] === undefined || shown[m] === 'hidden';
     shown[m] = want;
     if (screen === 'hidden') return;
+    // at the pair: whatever it arrived with, held there (a refresh under way finishes first); the pair refreshes it
+    if (screen === 'pair') { frame.refresh.show(frame.refresh.onGlass(), 'panel'); return; }
     const want2 = screen;
     // the 10-inch only ever travels: it has no cycle of its own, so it shows the art stop's
     // each frame has its own cycle (the same species, in its own panel's drawing)
@@ -374,8 +435,32 @@ export async function startPage(data: SiteData, hero: Model, opts: {
       watch(f.canvas);
       dirty = true;
       request();
-    }, (e) => console.warn(`featherframe: the ${other}-inch frame is unavailable`, e));
+    }, (e) => {
+      console.warn(`featherframe: the ${other}-inch frame is unavailable`, e);
+      // the pair keeps its still of it
+      els.pairSlots?.[other].querySelector<HTMLElement>('.still')?.style.setProperty('visibility', 'visible');
+    });
   };
+  /** Both frames of the pair ready to refresh: here, still, and neither refreshing already. */
+  const pairIdle = () => {
+    const t = frames[active], p = frames[partnerOf(active)];
+    return !!t && !!p && !!ui && !t.refresh.progress() && !p.refresh.progress() && !ui.watch['10'].running && !ui.watch['13'].running;
+  };
+  /** Both to whichever of the two pictures the traveller is not showing, at the panel's own pace, together. */
+  const runPair = () => {
+    if (!ui || !pairCan || !pairIdle()) return;
+    const pm = partnerOf(active);
+    const k = frames[active]!.refresh.onGlass() === pairPictures(data.sizes[active])[0] ? 1 : 0;
+    for (const m of [active, pm]) {
+      const f = frames[m]!, src = pairPictures(data.sizes[m])[k];
+      if (f.refresh.onGlass() !== src) ui.watch[m].start();
+      f.refresh.show(src, 'panel');
+    }
+    pairCan = false;
+    ui.ready(false);
+    request();
+  };
+  const offRefresh = ui?.onRefresh(runPair);
 
   function tick(now: number) {
     raf = 0;
@@ -392,7 +477,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     if (document.hidden) { request(); return; }
     // Which frame travels: the tone's (Color: the 13-inch; B&W: the 10-inch), wherever the page is.
     const want: Model = tone();
-    if (want !== hero) loadOther();
+    if (want !== hero || (els.pair && scrollY > 0)) loadOther();
     // …once its glass already shows what the frame should (put there out of sight):
     // never a caption over the wrong species
     let ready = want === active;
@@ -402,6 +487,9 @@ export async function startPage(data: SiteData, hero: Model, opts: {
       if (screen === 'cycle') {
         // back to its own cycle, as it is
         frames[want]!.refresh.show(null, 'instant');
+        ready = true;
+      } else if (screen === 'pair') {
+        // both are there already: they change places
         ready = true;
       } else {
         const src = screen === 'table' ? sc.table : screen === 'last' ? sc.last : sc.art;
@@ -417,21 +505,55 @@ export async function startPage(data: SiteData, hero: Model, opts: {
       queued = null;
       shown[next] = st.screen === 'table' ? `table:${detected()}` : st.screen ?? (st.lift < 0.5 ? 'cycle' : 'art');
       active = next;
+      partnerSynced = false;
+      lastPartnerKey = '';
       dirty = true;
     }
     const frame = frames[active]!;
     applyScreen(active, st);
-    // Leaving the centre for the art spread, the frame flies under the art's headline: a refresh still under way
-    // there (a slow colour one, or a jump from the running head) finishes before it goes, not in flight.
-    const centre = els.centre ? layout.stops[1] : undefined;
-    if (centre && scrollY > centre.s1 && layout.stops[2] && scrollY < layout.stops[2].s0) frame.refresh.hurry(250);
-    let changed = false, busy = false;
+    // Leaving the pair for the art spread, the frame flies under the art's headline: a refresh still under way
+    // there (the colour one, or a jump from the running head) finishes before it goes, not in flight.
+    const pairStop = layout.pair ? layout.stops[layout.pair.at] : undefined;
+    const artStop = layout.pair ? layout.stops[layout.pair.at + 1] : undefined;
+    if (pairStop && artStop && scrollY > pairStop.s1 && scrollY < artStop.s0) frame.refresh.hurry(250);
+    // The pair's other size: on its way in, or beside the traveller. Its glass is matched to the traveller's
+    // (out of sight, as it comes on the window) before it is drawn.
+    const pm = partnerOf(active), pf = frames[pm];
+    const pst = partnerAt(layout, scrollY);
+    if (!pst.rect) partnerSynced = false;
+    else if (pf && !partnerSynced) {
+      pf.refresh.show(match(frame.refresh.onGlass(), active, pm), 'instant');
+      partnerSynced = true;
+    }
+    let changed = false, partnerChanged = false, busy = false;
     for (const [m, f] of Object.entries(frames) as [Model, Frame3D][]) {
-      // the other tone's frame, unseen, is left as it is (it is readied by an instant show() when it is wanted)
-      if (m !== active && m !== want) continue;
+      // the other size's frame, unseen, is left as it is (it is readied by an instant show() when it is wanted)
+      if (m !== active && m !== want && !(m === pm && (pst.rect || f.refresh.progress()))) continue;
       const r = f.refresh.tick(now);
       if (f === frame) changed = r.changed;
+      if (m === pm) partnerChanged = r.changed;
       busy ||= r.busy;
+    }
+    // The pair's timers, and its Refresh: pressable once both frames are there, still and idle; the first time,
+    // they refresh by themselves after a beat.
+    if (ui && pairStop) {
+      for (const m of ['10', '13'] as Model[]) {
+        ui.watch[m].update(frames[m]?.refresh.progress() ?? null, now);
+        busy ||= ui.watch[m].running;
+        // once the traveller has left for the art spread, its caption goes too, not left under an empty place
+        const fig = els.pairSlots![m].parentElement!;
+        const away = m === active && scrollY > pairStop.s1;
+        if (fig.classList.contains('away') !== away) fig.classList.toggle('away', away);
+      }
+      pairCan = st.screen === 'pair' && scrollY >= pairStop.s0 && scrollY <= pairStop.s1 && pst.in >= 1 && want === active && pairIdle();
+      ui.ready(pairCan);
+      if (!pairCan) { clearTimeout(pairBeat); pairBeat = 0; }
+      else if (!pairRan && !pairBeat && !opts.poster) {
+        pairBeat = window.setTimeout(() => {
+          pairBeat = 0;
+          if (pairCan && !pairRan) { pairRan = true; runPair(); }
+        }, PAIR_BEAT);
+      }
     }
     // test hook: the species the frame on the table is showing, once it is on the glass
     if (els.table) {
@@ -465,7 +587,20 @@ export async function startPage(data: SiteData, hero: Model, opts: {
         reveal = requestAnimationFrame(() => {
           els.stage.classList.add('live');
           main.canvas.classList.add('live');
+          ui?.live(true);
+          // the pair's second frame, before anyone scrolls down to it
+          if (els.pair) otherTimer = window.setTimeout(() => { if (!disposed) loadOther(); }, OTHER_AFTER);
         });
+      }
+    }
+    if (pf) {
+      const r = pst.rect;
+      const pkey = r ? `${pm},${r.x},${r.y},${r.w},${r.h},${bar}` : '';
+      if (partnerChanged || dirty || pkey !== lastPartnerKey) {
+        pf.draw(r, FLAT, 0, opts.poster || !r ? null : sheenAt(r.y + r.h / 2, layout.vh), r ? bar : null);
+        pf.canvas.classList.toggle('empty', !r);
+        pf.canvas.classList.remove('over');
+        lastPartnerKey = pkey;
       }
     }
     if (busy || sway !== 0) request();
@@ -507,6 +642,15 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     els.stage.classList.remove('live');
     root.style.removeProperty('--away');
     root.style.removeProperty('--land');
+    clearTimeout(pairBeat);
+    clearTimeout(otherTimer);
+    offRefresh?.();
+    ui?.live(false);
+    ui?.ready(false);
+    if (els.pairSlots) for (const slot of Object.values(els.pairSlots)) {
+      slot.querySelector<HTMLElement>('.still')?.style.removeProperty('visibility');
+      slot.parentElement!.classList.remove('away');
+    }
     for (const f of Object.values(frames)) f!.dispose();
   };
 
@@ -547,13 +691,17 @@ export const TABLE_PAD = [0.15, 0.15, 0.15, 0.05];
 
 export async function startWallRender(size: Size, which: string): Promise<void> {
   const table = which === 'table';
+  // ?wall=hole: the frame dead-on with its screen a transparent hole, and where the screen lies in it as shares of
+  // the picture (<html data-screen>): the e-paper section's flat pair lays its live glass behind it (scripts/wall.mjs hole)
+  const hole = which === 'hole';
   // ?wall=screen&src=<a screen texture>: any picture on the frame, dead-on (scripts/wall.mjs seasons)
   const src = table ? size.screens.find((f) => f.includes('-cardinal.'))!
     : which === 'screen' ? new URLSearchParams(location.search).get('src')!
+    : hole ? size.screens[0]
     : size.wall[Number(which)];
   let raf = 0;
   const request = () => { if (!raf) raf = requestAnimationFrame(tick); };
-  const frame = await loadFrame(size, { wake: request, keep: true, holdMs: 1e9, floor: table });
+  const frame = await loadFrame(size, { wake: request, keep: true, holdMs: 1e9, floor: table, hole });
   const pose = table ? TABLE : FLAT;
   const [l, t, r, b] = table ? TABLE_PAD : [0, 0, 0, 0];
   document.documentElement.dataset.aspect = (frame.aspect(pose) * (1 + l + r) / (1 + t + b)).toFixed(5);
@@ -569,10 +717,17 @@ export async function startWallRender(size: Size, which: string): Promise<void> 
     // the table's still leaves room around the frame for its shadow (TABLE_PAD)
     const [l, t, r, b] = table ? TABLE_PAD : [0, 0, 0, 0];
     const fw = w / (1 + l + r), fh = h / (1 + t + b);
-    frame.draw({ x: l * fw, y: t * fh, w: fw, h: fh }, pose);
+    const rect = { x: l * fw, y: t * fh, w: fw, h: fh };
+    frame.draw(rect, pose);
     // a few frames on from the screen's picture reaching the glass
     if (frame.refresh.showing() !== src || ++settled < 5) request();
-    else document.documentElement.dataset.wall = 'ready';
+    else {
+      if (hole) {
+        const s = frame.screenIn(rect, pose);
+        document.documentElement.dataset.screen = JSON.stringify([s.x / w, s.y / h, s.w / w, s.h / h].map((v) => +v.toFixed(5)));
+      }
+      document.documentElement.dataset.wall = 'ready';
+    }
   }
   request();
 }

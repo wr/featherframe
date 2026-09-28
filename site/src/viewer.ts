@@ -19,13 +19,13 @@
 // pose) take over from the live frame without a jump.
 import {
   Box3, Color, DirectionalLight, Group, MathUtils, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
-  NeutralToneMapping, PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShaderMaterial, ShadowMaterial, SRGBColorSpace, Vector3,
+  NeutralToneMapping, NoBlending, Object3D, PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShaderMaterial, ShadowMaterial, SRGBColorSpace, Vector3,
   VSMShadowMap, WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { createEpaperRefresh, type EpaperRefresh } from './epaper-refresh';
+import { createEpaperRefresh, SCREEN_WHITE, type EpaperRefresh } from './epaper-refresh';
 import type { Size } from './card';
 
 /** `ground`: how much of its shadow on a table beneath it shows, 0–1. */
@@ -53,7 +53,7 @@ const DISTANCE = 3;                  // metres from the frame's middle; the fram
 // oak and lifted the picture's blacks and greyed its colours (the screen was a
 // lit, glossy surface reflecting that room): the render is tone-mapped with
 // Khronos PBR Neutral, which leaves colours as they are below the highlights,
-// and the screen is not lit at all (SCREEN_WHITE, below).
+// and the screen is not lit at all (SCREEN_WHITE, epaper-refresh.ts).
 const EXPOSURE = 1;
 const ENVIRONMENT = 0.7;
 // The walnut: the room's reflection at WALNUT_ENV of its strength (a glossy
@@ -63,11 +63,6 @@ const WALNUT_ENV = 0.5;
 const WALNUT_ROUGHNESS = 0.55;
 const WALNUT_TINT = 0.72;
 const GLASS_ENV = 0.7;
-// The screen shows its picture as it is — unlit, not tone-mapped — at this
-// level (linear RGB): the panel's paper a light, faintly cool gray (#e7e9e7
-// on screen), as e-paper is beside the mat, and its inks as dark and as
-// saturated as the picture's own.
-const SCREEN_WHITE = [0.8, 0.805, 0.795] as const;
 // The mat: the faintest warmth (#f6f5f3 on screen), and lit by the room rather than
 // glowing (the GLB gives it a cool emissive), so its bevelled opening shades
 // and reads as a cut edge against the panel.
@@ -115,7 +110,7 @@ export const loadImage = (src: string) => new Promise<HTMLImageElement>((ok, no)
 
 /** Sample points of the model (every vertex, thinned to about `max`), in its
  *  own space centred on `centre`: its real silhouette, for the fit. */
-function hull(model: Group, centre: Vector3, max = 4000): Vector3[] {
+function hull(model: Object3D, centre: Vector3, max = 4000): Vector3[] {
   const all: Vector3[] = [];
   model.updateMatrixWorld(true);
   model.traverse((o) => {
@@ -144,6 +139,9 @@ export interface Frame3D {
   readonly drawn: boolean;
   /** Whether it draws the table's shadow-only floor. */
   readonly floor: boolean;
+  /** Where the screen's picture lies when the frame is drawn in `pose` fitted to `rect`: the screen's own box, the
+   *  mat's opening and all (scripts/wall.mjs hole, for the e-paper section's flat pair). */
+  screenIn(rect: Rect, pose: Pose): Rect;
   dispose(): void;
 }
 
@@ -158,6 +156,8 @@ export async function loadFrame(size: Size, opts: {
   keep?: boolean;
   /** Draw the table's shadow-only floor (the table's still render only). */
   floor?: boolean;
+  /** Draw the screen as a hole, transparent through to whatever is behind the canvas (scripts/wall.mjs hole). */
+  hole?: boolean;
 }): Promise<Frame3D> {
   const canvas = document.createElement('canvas');
   canvas.setAttribute('aria-hidden', 'true');
@@ -233,6 +233,7 @@ export async function loadFrame(size: Size, opts: {
   // pitch ∘ yaw ∘ lean, each about the frame's own middle
   const centre = new Box3().setFromObject(model).getCenter(new Vector3());
   const points = hull(model, centre);
+  const screenPoints = hull(screen, centre);
   model.position.sub(centre);
   const lean = new Group();
   const yaw = new Group();
@@ -325,6 +326,7 @@ export async function loadFrame(size: Size, opts: {
   const refresh = createEpaperRefresh({
     renderer,
     first,
+    firstSrc: size.screens[0],
     spec: { waveform: size.waveform, plates: size.screens.slice(1) },
     anisotropy: Math.min(4, renderer.capabilities.getMaxAnisotropy()),
     wake: opts.wake,
@@ -334,18 +336,21 @@ export async function loadFrame(size: Size, opts: {
     onShown: opts.onShown,
   });
   (screen.material as MeshStandardMaterial).dispose();
-  screen.material = new MeshBasicMaterial({ map: refresh.texture, color: new Color(...SCREEN_WHITE), toneMapped: false });
+  // (a hole writes transparent black, unblended: the mat and the glass are drawn over it as ever)
+  screen.material = opts.hole
+    ? new MeshBasicMaterial({ color: 0x000000, opacity: 0, blending: NoBlending, toneMapped: false })
+    : new MeshBasicMaterial({ map: refresh.texture, color: new Color(...SCREEN_WHITE), toneMapped: false });
 
   const rotation = new Matrix4();
   const tmp = new Matrix4();
   const p = new Vector3();
   /** The pose's projected box, in the aspect-1 picture's units (focal-scaled x/y over depth). */
-  const bounds = (pose: Pose) => {
+  const bounds = (pose: Pose, of = points) => {
     rotation.makeRotationX(pose.pitch)
       .multiply(tmp.makeRotationY(pose.yaw))
       .multiply(tmp.makeRotationX(LEAN * (1 - pose.lean)));
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    for (const q of points) {
+    for (const q of of) {
       p.copy(q).applyMatrix4(rotation);
       const k = focal / (DISTANCE - p.z);
       const u = p.x * k, v = p.y * k;
@@ -368,6 +373,14 @@ export async function loadFrame(size: Size, opts: {
     },
     get drawn() { return drawn; },
     floor: withFloor,
+    screenIn(rect, pose) {
+      // draw()'s fit: canvas px = o + k · picture units, y down
+      const b = bounds(pose), s = bounds(pose, screenPoints);
+      const k = Math.min(rect.w / (b.x1 - b.x0), rect.h / (b.y1 - b.y0));
+      const ox = rect.x + (rect.w - k * (b.x1 - b.x0)) / 2 - k * b.x0;
+      const oy = rect.y + rect.h + k * b.y0;
+      return { x: ox + k * s.x0, y: oy - k * s.y1, w: k * (s.x1 - s.x0), h: k * (s.y1 - s.y0) };
+    },
     setSize(w, h) {
       width = Math.max(1, w);
       height = Math.max(1, h);

@@ -159,6 +159,48 @@ h2 { font-weight: 400; text-wrap: balance; }
   .drop::first-letter { float: none; font-size: inherit; line-height: inherit; margin: 0 .14em 0 0; -webkit-initial-letter: 3; initial-letter: 3; }
 }
 
+/* E-paper: the two frames side by side, to scale, pinned in the right-hand seven columns while the words scroll past
+   on the left, where they refresh together at the panel's own pace, a timer under each (choreo.ts on the journey,
+   flat-pair.ts everywhere else). The frame of the page's tone stands on the left: the journey brings it down from
+   the cover, and the other slides in from the right. */
+.epaper { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-rows: auto 1fr; }
+.epaper .lead { grid-column: 1; grid-row: 1; padding-top: 16vh; }
+.epaper .lead .folio { margin-bottom: 16px; }
+.epaper h2 { font-size: min(var(--display), 6.4cqw); }
+.epaper .why { grid-column: 1; grid-row: 2; margin: 4px 0 0; padding-bottom: 14vh; max-width: 36ch; }
+.why dt { margin: 26px 0 0; font: 13px/1.35 var(--caps); letter-spacing: .2em; text-transform: uppercase; color: var(--graphite); }
+.why dd { margin: 6px 0 0; font-size: 20px; line-height: 1.5; color: var(--text); text-wrap: pretty; }
+/* --h13: the 13.3-inch's height, as tall as the columns and the window allow; the 10.3-inch is 295/371 of it */
+.pair {
+  grid-column: 2; grid-row: 1 / 3; align-self: start;
+  --gap: 48px; --cap: 116px; /* the captions and the button under the frames */
+  --h13: min(calc(((100cqw - 2 * var(--gutter)) * 7 / 12 - var(--gap)) / 1.4183), calc(100vh - var(--nav) - 80px - var(--cap)));
+  position: sticky; top: calc(var(--nav) + (100vh - var(--nav) - var(--h13) - var(--cap)) / 2);
+}
+.duo { display: flex; justify-content: center; align-items: flex-end; gap: var(--gap); }
+[data-tone="13"] .ep.s13 { order: -1; }
+.ep .slot { position: relative; aspect-ratio: auto; height: var(--h13); width: calc(var(--h13) * 604 / 760); }
+.ep.s10 .slot { height: calc(var(--h13) * 295 / 371); width: calc(var(--h13) * 295 / 371 * 596 / 760); }
+.ep .slot .still { width: 100%; height: 100%; }
+.ep figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 14px; border-top: 1px solid var(--hair); padding-top: 8px; }
+.ep figcaption { transition: opacity .3s ease; }
+.ep.away figcaption { opacity: 0; }
+.ep .nm { font: italic 19px/1.2 var(--serif); }
+.ep .timer { font: 15px/1.2 var(--sans); font-variant-numeric: tabular-nums; color: var(--graphite); white-space: nowrap; }
+.run { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 26px 0 0; }
+.run .it { font-size: 17px; color: var(--graphite); }
+.pair:not(.live) .run { visibility: hidden; }
+.btn.line { height: 40px; padding: 0 20px; border: 0; background: none; color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); cursor: pointer; }
+.btn.line:hover { background: var(--ink); color: var(--paper); }
+.btn.line:disabled { background: none; color: var(--faint); box-shadow: inset 0 0 0 1px var(--hair); cursor: default; }
+/* flat-pair.ts: the frame, its screen a hole, over its live glass (the screen's box, from scripts/wall.mjs hole) */
+.flat { position: absolute; inset: 0; }
+.flat canvas { position: absolute; left: calc(var(--sx) * 100%); top: calc(var(--sy) * 100%); width: calc(var(--sw) * 100%); height: calc(var(--sh) * 100%); }
+.flat img { position: relative; width: 100%; height: 100%; }
+.ep.s10 { --sx: .16092; --sy: .14542; --sw: .67816; --sh: .70912; }
+.ep.s13 { --sx: .16256; --sy: .14005; --sw: .67488; --sh: .71998; }
+.pair.live .still { visibility: hidden; }
+
 /* The frame's journey (choreo.ts): one canvas behind the text; the stops are
    invisible slots with the frame's own aspect. */
 .ff3d { position: fixed; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity .6s ease; }
@@ -167,9 +209,6 @@ h2 { font-weight: 400; text-wrap: balance; }
 .still-render, .still-render body { background: transparent; }
 .still-render .page { display: none; }
 .slot { aspect-ratio: var(--flat); }
-.stop-centre { display: none; }
-.choreo .stop-centre { display: block; height: 100vh; }
-#centre-slot { width: min(100%, calc(min(90vh, 100vh - var(--nav) - 40px) * var(--flat))); margin: 0 auto; }
 /* choreo.ts reads the pinned slots where they sit unpinned */
 .measuring .pin { position: relative !important; top: auto !important; }
 /* the two flights that cross the text: the frame over it (under the running head and the wall's sticky folio) */
@@ -508,6 +547,15 @@ h2 { font-weight: 400; text-wrap: balance; }
   .spread .text { display: block; margin: 40px 0 0; padding: 0; }
   .spread h2 { font-size: var(--display); }
   .drop::first-letter { font-size: 64px; }
+  /* e-paper: the words, then the pair across the page, then the three facts */
+  .spread.epaper { display: block; }
+  .epaper .lead { padding: 0; }
+  .spread.epaper h2 { font-size: var(--display); }
+  .pair { position: static; margin: 36px 0 0; --gap: 20px; --h13: calc((100vw - 2 * var(--m) - var(--gap)) / 1.4183); }
+  .epaper .why { padding: 0; margin-top: 12px; }
+  .ep figcaption { flex-direction: column; gap: 2px; }
+  .ep .nm { font-size: 17px; }
+  .btn.line { height: 44px; }
 
   .sec { margin-top: 120px; }
   .intro2 { display: block; margin-top: 36px; }

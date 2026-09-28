@@ -50,6 +50,11 @@ import {
 } from 'three';
 
 export type Waveform = 'gc16' | 'spectra6';
+
+/** The glass shows its picture as it is — unlit, not tone-mapped — at this level (linear RGB): the panel's paper a
+ *  light, faintly cool gray (#e7e9e7 on screen), as e-paper is beside the mat, and its inks as dark and as saturated
+ *  as the picture's own. The 3D frame's screen (viewer.ts) and the flat pair's glass (flat-pair.ts) both. */
+export const SCREEN_WHITE = [0.8, 0.805, 0.795] as const;
 export type ShowHow = 'panel' | 'quick' | 'instant';
 
 /** What the product frontmatter's `screenRefresh` says: the waveform, and the
@@ -81,6 +86,12 @@ export interface EpaperRefresh {
   prepare(src: string): void;
   /** The show()n picture fully on the glass now, or null (the cycle, or on its way). */
   showing(): string | null;
+  /** The picture on the glass now, or the one a refresh under way is headed for, cycle or not (null: a cycle plate
+   *  with no src, when `firstSrc` was not given). */
+  onGlass(): string | null;
+  /** The refresh under way: how far into it and how long it is, both in the panel's own ms (a hurried or sped-up
+   *  run still reports the panel's time); null between refreshes. */
+  progress(): { ms: number; total: number } | null;
   dispose(): void;
 }
 
@@ -335,6 +346,8 @@ void main() {
 export function createEpaperRefresh(opts: {
   renderer: WebGLRenderer;
   first: HTMLImageElement | ImageBitmap;
+  /** `first`'s src, so a show() of it is its slot rather than a copy of it, and onGlass() can name it. */
+  firstSrc?: string;
   spec: ScreenRefresh;
   anisotropy: number;
   wake: () => void;
@@ -378,7 +391,7 @@ export function createEpaperRefresh(opts: {
   // Slot 0 is the still; the rest load one at a time, each as its turn nears.
   const plates: (Texture | null)[] = [plateTexture(first), ...spec.plates.map(() => null)];
   // show()'s pictures are appended after the cycle's plates, one slot per src.
-  const sources: (string | null)[] = [null, ...spec.plates];
+  const sources: (string | null)[] = [opts.firstSrc ?? null, ...spec.plates];
   const cycle = plates.length;
   const loading = new Set<number>();
   /** Plates that wouldn't load: the rotation skips them. */
@@ -710,6 +723,12 @@ export function createEpaperRefresh(opts: {
     },
     showing() {
       return pinned !== null && pinned === current && mode === 'hold' ? sources[current] : null;
+    },
+    onGlass() {
+      return sources[mode === 'refresh' ? incoming : current];
+    },
+    progress() {
+      return mode === 'refresh' ? { ms: Math.min(clock, run.total), total: run.total } : null;
     },
     dispose() {
       disposed = true;

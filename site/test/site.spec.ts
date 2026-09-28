@@ -1417,3 +1417,28 @@ test('the page sets its text in a handful of sizes: the serif at four, the small
   });
   expect(sizes).toEqual(['caps 13px', 'serif 15px', 'serif 17px', 'serif 21px', 'serif 26px']);
 });
+
+test('one corner for every button, the switch and the field; the footer drawn in the page\'s ink and hairline', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  for (const sel of ['.head .btn', '.cover .btn', '.run .btn', '.close .btn', '.tone.pill', '.tone.pill button', '.field input'])
+    await expect(page.locator(sel).first(), sel).toHaveCSS('border-top-left-radius', '2px');
+  // the colophon's rule is a hairline, as the running head's is, and the Wells Workshop mark is in the page's ink
+  const hair = await page.locator('.head').evaluate((e) => getComputedStyle(e).borderBottomColor);
+  await expect(page.locator('.colophon')).toHaveCSS('border-top-color', hair);
+  for (const fill of await page.locator('.colophon .ww-logo path').evaluateAll((ps) => ps.map((p) => p.getAttribute('fill')))) expect(fill).toBe('currentColor');
+  // the price under the closing line wraps rather than running the page's width
+  const lines = await page.locator('.close p').evaluate((p) => { const r = document.createRange(); r.selectNodeContents(p); return new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size; });
+  expect(lines).toBe(2);
+});
+
+test("B&W's captions line up with its smaller frames", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-tone', '10');
+  const fig = page.locator('.wall .cat figure').nth(1);
+  await fig.scrollIntoViewIfNeeded();
+  const [im, cap] = await Promise.all([fig.locator('.im').boundingBox(), fig.locator('figcaption').boundingBox()]);
+  expect(Math.abs(im!.x - cap!.x)).toBeLessThan(1);
+  expect(Math.abs(im!.width - cap!.width)).toBeLessThan(1);
+});

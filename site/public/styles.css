@@ -53,6 +53,9 @@
   --s-part: 64px;
   --s-near: 110px;
   --s-chapter: 180px;
+  /* Corners: every button, the B&W / Color switch and the email field share one; a button that is only an icon is
+     round, and the notification on the video keeps its phone's shape */
+  --radius: 2px;
   --shadow-float: 0 1px 2px rgba(0, 0, 0, .08), 0 14px 34px -12px rgba(0, 0, 0, .3);  /* what floats over the page */
   --shadow-front: drop-shadow(0 12px 22px rgba(0, 0, 0, .2));  /* a frame standing in front of another */
   --shadow-floor: radial-gradient(closest-side, rgba(0, 0, 0, .09), rgba(0, 0, 0, .03) 60%, transparent);
@@ -81,7 +84,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 .btn {
   display: inline-flex; align-items: center; height: 48px; padding: 0 28px; white-space: nowrap;
-  border-radius: 2px; background: var(--ink); color: var(--paper); line-height: 1;
+  border-radius: var(--radius); background: var(--ink); color: var(--paper); line-height: 1;
 }
 .btn:hover { background: #000; }
 .night .btn:hover { background: #fff; }
@@ -260,13 +263,13 @@ h2 { font-weight: 400; text-wrap: balance; }
 .mega { margin: 0 0 0 -.04em; max-width: 13ch; }
 
 /* II. From the collection: a gallery wall of frames, seen dead-on */
-.tone.pill { position: fixed; top: calc(var(--nav) + 14px); right: var(--m); z-index: 21; display: inline-flex; padding: 3px; border-radius: 999px;
+.tone.pill { position: fixed; top: calc(var(--nav) + 14px); right: var(--m); z-index: 21; display: inline-flex; padding: 3px; border-radius: var(--radius);
   background: var(--paper); box-shadow: 0 0 0 1px var(--hair), var(--shadow-float); }
 /* the thumb: slides under the chosen tone */
-.tone.pill::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 999px;
+.tone.pill::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: var(--radius);
   background: var(--ink); transition: transform .3s cubic-bezier(.3, 0, .2, 1); }
 [data-tone="13"] .tone.pill::before { transform: translateX(100%); }
-.tone.pill button { position: relative; width: 74px; padding: 8px 0 7px; border: 0; border-radius: 999px; background: none;
+.tone.pill button { position: relative; width: 74px; padding: 8px 0 7px; border: 0; border-radius: var(--radius); background: none;
   color: var(--graphite); cursor: pointer; transition: color .25s; }
 .tone.pill button:hover { color: var(--ink); }
 .tone.pill { opacity: 0; pointer-events: none; transition: opacity .25s; }
@@ -284,6 +287,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* B&W is the 10.3-inch, drawn to scale beside the 13.3-inch (295 mm tall to 371): sized, not scaled, so the grid
    closes up round the smaller frames, each still standing on its caption */
 [data-tone="10"] .cat .im { width: 79.51%; margin: 0 auto; }
+/* …and its caption as wide as it, so the two line up */
+[data-tone="10"] .cat figcaption { width: 79.51%; margin-left: auto; margin-right: auto; }
+.tone-anim .cat figcaption { transition: width .7s cubic-bezier(.3, 0, .2, 1); }
 .tone-anim .cat .im { transition: width .7s cubic-bezier(.3, 0, .2, 1), transform .35s cubic-bezier(.2, .8, .2, 1); }
 /* the glass over each print (its wood inset: 13-inch 26 px of 604 × 760; 10-inch 32 of 596, pillarboxed) */
 /* The glass's sheen (viewer.ts SHEEN / sheenAt, sheen.ts): a soft diagonal
@@ -402,7 +408,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .logos .sc { color: var(--graphite); }
 .logos a { display: inline-flex; align-items: center; gap: 9px; font-size: var(--t-small); color: var(--ink); filter: grayscale(1); }
 .logos a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.logos img { width: 28px; height: 28px; }
+.logos img { width: 22px; height: 22px; }
 /* BirdWeather's mark is drawn in ink: at night, in the night's ink */
 .logos img[src$=".svg"] { filter: invert(var(--night)); }
 
@@ -484,12 +490,12 @@ h2 { font-weight: 400; text-wrap: balance; }
 .close { margin-top: var(--s-chapter); padding: var(--s-part) 0; text-align: center; }
 .close .big { margin: 0; }
 .close .big i { display: block; }
-.close p { margin: var(--s-block) 0; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); }
+.close p { max-width: 24em; margin: var(--s-block) auto; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); text-wrap: balance; }
 
 /* Colophon */
 .colophon {
   display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter);
-  margin-top: var(--s-chapter); padding: 40px 0 90px; border-top: 1px solid var(--ink); row-gap: 56px;
+  margin-top: var(--s-chapter); padding: 40px 0 90px; border-top: 1px solid var(--hair); row-gap: 56px;
   color: var(--text); font-size: var(--t-small);
 }
 .colophon .a { grid-column: 1 / 5; }
@@ -514,12 +520,12 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* Keep me posted: a boxed field with its button joined to it */
 .field { display: flex; height: 48px; max-width: 420px; }
 .field input {
-  flex: 1; min-width: 0; height: 100%; padding: 0 14px; border: 1px solid var(--faint); border-right: 0; border-radius: 2px 0 0 2px;
+  flex: 1; min-width: 0; height: 100%; padding: 0 14px; border: 1px solid var(--faint); border-right: 0; border-radius: var(--radius) 0 0 var(--radius);
   background: none; outline: none; font: italic var(--t-body) var(--serif); color: var(--ink);
 }
 .field input::placeholder { color: var(--faint); opacity: 1; }
 .field input:focus { border-color: var(--ink); }
-.field .btn { height: 100%; padding: 0 22px; border: 0; border-radius: 0 2px 2px 0; cursor: pointer; }
+.field .btn { height: 100%; padding: 0 22px; border: 0; border-radius: 0 var(--radius) var(--radius) 0; cursor: pointer; }
 .field .btn:disabled { background: var(--faint); cursor: default; }
 .form-why { margin: 0 0 4px; font: italic var(--t-small)/var(--lh-lede) var(--serif); color: var(--graphite); }
 .form-note { margin: 8px 0 0; font: italic var(--t-small) var(--serif); color: var(--graphite); }
@@ -607,6 +613,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .tone.pill button { width: 74px; min-height: 44px; padding: 0; }
   /* B&W keeps the frames' size here: with no 13-inch beside them, smaller only reads as smaller */
   [data-tone="10"] .cat .im, [data-tone="10"] .cat .im:hover { width: auto; margin: 0; transform: none; }
+  [data-tone="10"] .cat figcaption { width: auto; }
   [data-tone="10"] .cat .im::after { inset: 3.42% 4.3%; }
   .trip { grid-template-columns: 1fr; row-gap: 12px; }
   .lcol { padding: 0; }

@@ -233,7 +233,7 @@ function ago(ms: number | null): string {
 
 function minutes(ms: number): string {
   const m = ms / 60000;
-  return m < 1 ? "<1 min" : m < 90 ? `${Math.round(m)} min` : `${(m / 60).toFixed(1)} h`;
+  return !ms ? "0 min" : m < 1 ? "<1 min" : m < 90 ? `${Math.round(m)} min` : `${(m / 60).toFixed(1)} h`;
 }
 
 export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): Response {
@@ -270,9 +270,12 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
   const households = d.households.length ? `<table><thead><tr><th>Household</th><th>Frames</th><th>Server, 7 days</th><th>Last wake</th></tr></thead><tbody>
     ${d.households.map((h) => {
       const t = serverTime(h.usage);
-      const each = t.wakes ? `${Math.round(t.wake_ms / t.wakes / 1000)} s a wake` : "no wakes";
-      const since = t.since ? ` · since ${new Date(`${t.since}T00:00:00Z`).toLocaleDateString("en-GB",
-        { day: "numeric", month: "short", timeZone: "UTC" })}` : "";
+      const note = [
+        t.wakes ? `${Math.round(t.wake_ms / t.wakes / 1000)} s a wake` : "",
+        t.page_ms ? `${minutes(t.page_ms)} on the page` : "page not opened",
+        t.since ? `since ${new Date(`${t.since}T00:00:00Z`).toLocaleDateString("en-GB",
+          { day: "numeric", month: "short", timeZone: "UTC" })}` : "",
+      ].filter(Boolean).join(" · ");
       const frames = h.frames.length
         ? `<ul class="frames">${h.frames.map((f) => `<li>${e(f.id.slice(-6))} <span class="muted">· ${e(f.status)} · ${ago(f.seen)}</span></li>`).join("")}</ul>`
         : `<span class="muted">${h.paired ? `${h.paired} paired` : "none"}</span>`;
@@ -291,7 +294,7 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
         </div></details></div>`;
       return `<tr><td>${e(h.email || "(no login)")}${h.suspended_at ? ` <span class="badge">Suspended</span>` : ""}<br><span class="muted">${e(h.id)}${h.source ? ` · ${e(h.source)}` : ""}</span>${actions}</td>
         <td>${frames}</td>
-        <td class="num">${minutes(t.wake_ms)} in ${t.wakes} wakes<br><span class="muted">${each} · ${t.page_ms ? `${minutes(t.page_ms)} on the page` : "page not opened"}${since}</span></td>
+        <td class="num">${minutes(t.wake_ms)} in ${t.wakes} wakes<br><span class="muted">${note}</span></td>
         <td class="num muted">${ago(h.last_wake)}</td></tr>`;
     }).join("")}
     </tbody></table>` : `<p class="empty">No households yet.</p>`;

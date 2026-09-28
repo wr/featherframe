@@ -132,7 +132,7 @@ def test_the_collapsed_row_says_the_schedule_that_frame_follows(client):
     assert _listed(svc, gray)["summary"] == "EE03 · Individual detections · Collage Sunset → Sunrise"
     assert _listed(svc, colour)["summary"].endswith(" · Collage · Every 6 hours")
     assert "Sunset" not in _listed(svc, colour)["summary"]
-    client.post("/settings", data={"section": "quiet", "quiet_hours_mode": "custom",
+    client.post("/settings", data={"section": "collage", "quiet_hours_mode": "custom",
                                    "quiet_hours_start": "22:00", "quiet_hours_end": "06:30"})
     client.post("/settings", data={"section": "collage", "collage_interval_hours": "12"})
     assert _listed(svc, gray)["summary"].endswith(" · Collage 10:00 PM → 6:30 AM")
@@ -141,7 +141,7 @@ def test_the_collapsed_row_says_the_schedule_that_frame_follows(client):
     out = client.post(f"/api/frames/{gray}", json={"shows": "collage"}).json()
     mine = [f for f in out["frames"] if f["id"] == gray][0]
     assert mine["summary"] == "EE03 · Collage · Every\u00a012\u00a0hours"
-    client.post("/settings", data={"section": "quiet", "quiet_hours_mode": "off"})
+    client.post("/settings", data={"section": "collage", "quiet_hours_mode": "off"})
     client.post(f"/api/frames/{gray}", json={"shows": "plates"})
     assert _listed(svc, gray)["summary"] == "EE03 · Individual detections"
 
@@ -505,11 +505,12 @@ def test_the_household_sections_read_in_order(client):
     names = [(a or b).strip() for a, b in _sections(client)]
     # Frames first, then one Settings card, its rows in this order (W-878).
     assert names == ["Frames", "Settings", "General", "Detection source", "Illustrations",
-                     "Collage", "Quiet hours", "AI image generation", "Generated illustrations",
+                     "Collage", "AI image generation", "Generated illustrations",
                      "Generated collages"]
+    assert "Quiet hours" not in names                 # it is a row in Collage
 
 
-def test_the_collage_section_has_no_preamble(client):
+def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     _populate(client)
     sec = _section(client.get("/").text, "collage")
     assert 'class="intro"' not in sec
@@ -524,9 +525,13 @@ def test_the_collage_section_has_no_preamble(client):
             ">Every 12 hours<", ">Every 24 hours<"] == [o for o in
             (">Every hour<", ">Every 4 hours<", ">Every 6 hours<",
              ">Every 12 hours<", ">Every 24 hours<") if o in every]
-    # Quiet hours are a row of their own, so neither summary is read as the
-    # other's (W-906).
-    assert 'name="quiet_hours_mode"' not in sec
+    # Quiet hours is the overnight collage, so it lives here — as the mode and
+    # its custom window, and nothing else to switch on.
+    assert ">Quiet hours<" in sec
+    assert "No new pictures overnight. Frames showing individual detections " \
+           "switch to the day\u2019s collage." in sec
+    assert 'name="quiet_hours_mode"' in sec and 'name="quiet_hours_start"' in sec
+    assert 'name="quiet_hours_render_collage"' not in client.get("/").text
     # The AI collage is here, always on offer.
     assert 'name="collage_generated"' in sec
     assert ">Generate collages<" in sec
@@ -538,29 +543,52 @@ def test_the_collage_section_has_no_preamble(client):
     assert 'name="collage_generated"' not in ig and 'name="imagegen_enabled"' not in ig
 
 
-def test_each_settings_row_says_one_schedule(client):
-    """The Collage row's summary is its interval; Quiet hours' is its window,
-    Off when it is off (W-906)."""
-    svc = _populate(client)
+def _timings(html: str) -> dict:
+    """Which of the Collage section's two timings are shown, in its summary
+    and as rows."""
+    sec = _section(html, "collage")
+    head, body = sec.split("</summary>", 1)
+    out = {}
+    for key in ("interval", "quiet"):
+        part = head.split(f'data-timing="{key}" ')[1][:6]
+        row = body.split(f'data-timing="{key}" ')[1][:6]
+        assert part.startswith("hidden") == row.startswith("hidden"), key
+        out[key] = not part.startswith("hidden")
+    return out
+
+
+def test_the_collage_says_only_the_timings_its_frames_follow(client):
+    """The interval is only a collage frame's; quiet hours only switch a
+    frame on individual detections to the collage. The section shows each
+    only while such a frame has been added (W-906)."""
+    svc = client.app.state.service
+    # No frame yet: nothing to leave out.
+    assert _timings(client.get("/").text) == {"interval": True, "quiet": True}
+    client.get("/api/frame", headers=GRAY)
+    client.post("/api/frames", data={"id": GRAY["X-Device-Id"], "action": "add"})
+    gray = GRAY["X-Device-Id"]
+    client.post(f"/api/frames/{gray}", json={"shows": "plates"})
     html = client.get("/").text
-    summary = lambda key: _section(html, key).split('class="set-val">')[1].split("</span>")[0]
-    assert summary("collage") == "Every 6 hours"
-    assert summary("quiet") == "Sunset → Sunrise"
-    sec = _section(html, "quiet")
-    assert ">Schedule<" in sec
-    assert "No new pictures overnight. Frames showing individual detections " \
-           "switch to the day\u2019s collage." in sec
-    assert 'name="quiet_hours_mode"' in sec and 'name="quiet_hours_start"' in sec
-    assert 'name="section" value="quiet"' in sec
-    assert 'name="quiet_hours_render_collage"' not in html
-    client.post("/settings", data={"section": "quiet", "quiet_hours_mode": "custom",
-                                   "quiet_hours_start": "21:30", "quiet_hours_end": "06:00"})
-    assert svc.config.quiet_hours_mode == "custom"
-    html = client.get("/").text
-    assert summary("quiet") == "9:30 PM → 6:00 AM"
-    client.post("/settings", data={"section": "quiet", "quiet_hours_mode": "off"})
-    html = client.get("/").text
-    assert summary("quiet") == "Off"
+    assert _timings(html) == {"interval": False, "quiet": True}
+    summary = _section(html, "collage").split("</summary>")[0]
+    assert '<span class="v-part" data-timing="quiet" >Sunset → Sunrise</span>' in summary
+    # Moved onto the collage: the save's answer says so, for the page to follow.
+    out = client.post(f"/api/frames/{gray}", json={"shows": "collage"}).json()
+    assert out["timings"] == {"interval": True, "quiet": False}
+    assert _timings(client.get("/").text) == {"interval": True, "quiet": False}
+    assert svc.status()["frames"]["timings"] == {"interval": True, "quiet": False}
+    # One of each: both, and a hidden one keeps its value all along.
+    client.get("/api/frame", headers=COLOUR)
+    client.post("/api/frames", data={"id": COLOUR["X-Device-Id"], "action": "add"})
+    client.post(f"/api/frames/{COLOUR['X-Device-Id']}", json={"shows": "plates"})
+    assert _timings(client.get("/").text) == {"interval": True, "quiet": True}
+    # Quiet hours off on a household that needs them: said, not left blank.
+    client.post("/settings", data={"section": "collage", "quiet_hours_mode": "off"})
+    summary = _section(client.get("/").text, "collage").split("</summary>")[0]
+    assert '<span class="v-part" data-timing="quiet" >Quiet hours off</span>' in summary
+    # An ignored frame is not one the household has.
+    client.post("/api/frames", data={"id": COLOUR["X-Device-Id"], "action": "ignore"})
+    assert _timings(client.get("/").text) == {"interval": True, "quiet": False}
 
 
 def test_a_stored_interval_the_menu_does_not_offer_is_still_shown(client):
@@ -618,7 +646,7 @@ def test_nothing_is_saved_until_something_changed(client):
     _populate(client)
     html = client.get("/").text
     # Each section's Save row appears only once that section changed (W-878).
-    assert html.count('<div class="set-foot" hidden>') == 5
+    assert html.count('<div class="set-foot" hidden>') == 4
     assert 'id="save-btn"' not in html
     row = _row(html, GRAY["X-Device-Id"])
     assert 'data-fr-action="save" disabled' in row and "data-fr-unsaved hidden" in row
@@ -680,6 +708,6 @@ def test_a_section_value_says_what_is_set(client):
     html = client.get("/").text
     summary = lambda key: html.split(f'id="set-{key}"')[1].split("</summary>")[0]
     assert '<span class="v-part">Gould</span><span class="v-part">Europe</span>' in summary("illustrations")
-    assert '<span class="set-val">10:00 PM → 6:30 AM</span>' in summary("quiet")
-    assert '<span class="set-val">Every 6 hours</span>' in summary("collage")
+    assert ('<span class="v-part" data-timing="interval" >Every 6 hours</span>'
+            '<span class="v-part" data-timing="quiet" >10:00 PM → 6:30 AM</span>') in summary("collage")
     assert ">No API key<" in summary("imagegen")

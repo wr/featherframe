@@ -829,12 +829,15 @@
     .set-val:empty { display:none; }
     details.disc.set > summary > .chev { grid-column:4; }
     .set-val .d { flex:none; width:7px; height:7px; border-radius:50%; }
-    .set-val .v-part + .v-part::before { content:"\B7"; margin-right:7px; }
+    .set-val .v-part:not([hidden]) + .v-part::before { content:"\B7"; margin-right:7px; }
 
     .set-body { padding:14px var(--pad) 0 calc(var(--pad) + 32px); border-top:1px solid var(--hair); }
     details.disc.set > .disc-body > *::after { height:16px; }
     .set-body > .frow:first-of-type, .set-form > .frow:first-of-type, .set-form > .intro + .frow,
     .set-form > .set-stats + .frow { border-top:0; padding-top:0; }
+    /* The collage's interval hidden (no frame on the collage, W-906): quiet
+       hours are its first row. */
+    .set-form > .frow[data-timing][hidden] + [data-timing] > .frow:first-child { border-top:0; padding-top:0; }
     .set-form > .intro, .set-body > .intro { margin:0 0 12px; }
     .set-form > details.disc { --pad:20px; margin:12px calc(-1 * var(--pad)) 0 calc(-1 * (var(--pad) + 32px)); }
     .set-form > details.disc > summary { border-radius:0; padding-left:calc(var(--pad) + 32px); }
@@ -953,7 +956,6 @@
   <symbol id="ic-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h9M19 8h1M4 16h1M11 16h9"/><circle cx="16" cy="8" r="2.5"/><circle cx="8" cy="16" r="2.5"/></symbol>
   <symbol id="ic-waveform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3.5 11v2M7 8.5v7M10.5 5v14M14 8v8M17.5 10v4M21 11.25v1.5"/></symbol>
   <symbol id="ic-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.2C10.4 5.8 8 5 4.5 5a1 1 0 0 0-1 1v11.5a1 1 0 0 0 1 1c3.3 0 5.7.7 7.5 2.1 1.8-1.4 4.2-2.1 7.5-2.1a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1C16 5 13.6 5.8 12 7.2Z"/><path d="M12 7.2v13.3"/></symbol>
-  <symbol id="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M20 12.7A8 8 0 1 1 11.3 4a6.2 6.2 0 0 0 8.7 8.7Z"/></symbol>
   <symbol id="ic-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="4" y="4" width="7" height="16" rx="1.75"/><rect x="13" y="4" width="7" height="7" rx="1.75"/><rect x="13" y="13" width="7" height="7" rx="1.75"/></symbol>
   <symbol id="ic-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M10 3.5Q10.9 9.1 16.5 10 10.9 10.9 10 16.5 9.1 10.9 3.5 10 9.1 9.1 10 3.5Z"/><path d="M17.5 14.5Q17.9 17.1 20.5 17.5 17.9 17.9 17.5 20.5 17.1 17.9 14.5 17.5 17.1 17.1 17.5 14.5Z"/></symbol>
   <symbol id="ic-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><circle cx="9.5" cy="9.5" r="1.5"/><path d="M20 15.5 15.5 11 5 20"/></symbol>
@@ -1675,16 +1677,20 @@
       </details>
 
       {# -- Collage ---------------------------------------------------------- #}
-      {# The interval is only a collage frame's; quiet hours, below, are what
-         switch a frame on individual detections to the collage. Each has its
-         own row so neither summary is read as the other's (W-906). #}
+      {# Its two timings are for different frames: the interval redraws a
+         frame on the collage, quiet hours switch a frame on individual
+         detections to it. Each is shown, in the summary and as a row, only
+         while some frame it is for has been added (W-906); a hidden one keeps
+         its value, which still applies. #}
+      {% set timings = status.frames.timings %}
+      {% set qmode = config.quiet_hours_mode %}
       <details class="disc set" id="set-collage">
-        {% call set_summary('ic-grid', 'Collage') %}{{ collage_every_text(config.collage_interval_hours) }}{% endcall %}
+        {% call set_summary('ic-grid', 'Collage') %}<span class="v-part" data-timing="interval" {{ '' if timings.interval else 'hidden' }}>{{ collage_every_text(config.collage_interval_hours) }}</span><span class="v-part" data-timing="quiet" {{ '' if timings.quiet else 'hidden' }}>{{ quiet_hours_text(config) or 'Quiet hours off' }}</span>{% endcall %}
         <div class="disc-body"><div class="set-body">
         <form class="set-form" method="post" action="/settings">
           <input type="hidden" name="section" value="collage">
           <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
-          <div class="frow">
+          <div class="frow" data-timing="interval" {{ '' if timings.interval else 'hidden' }}>
             <div class="frow-text"><label class="lab" for="f-every">Update interval</label><div class="hint">How frequently collage-only frames update during the day.</div></div>
             <div class="frow-ctl">
               <div class="cselect">
@@ -1700,6 +1706,26 @@
               </select>
               </div>
             </div>
+          </div>
+          {# Quiet hours ARE the overnight collage: there is nothing else to
+             switch on (W-833). #}
+          <div data-timing="quiet" {{ '' if timings.quiet else 'hidden' }}>
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="quiet-lab">Quiet hours</span><div class="hint">No new pictures overnight. Frames showing individual detections switch to the day’s collage.</div></div>
+            <div class="frow-ctl">
+              <div class="seg" role="radiogroup" aria-labelledby="quiet-lab" id="quiet-seg">
+                <label><input type="radio" name="quiet_hours_mode" value="off" {{ 'checked' if qmode=='off' else '' }}><span>Off</span></label>
+                <label><input type="radio" name="quiet_hours_mode" value="sun" {{ 'checked' if qmode=='sun' else '' }}><span>Sunset to sunrise</span></label>
+                <label><input type="radio" name="quiet_hours_mode" value="custom" {{ 'checked' if qmode=='custom' else '' }}><span>Custom</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="reveal{{ '' if qmode=='custom' else ' collapsed' }}" id="quiet-custom" {{ '' if qmode=='custom' else 'hidden' }}><div class="reveal-body">
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="quiet-between-lab">Between</span></div>
+            <div class="frow-ctl pair" role="group" aria-labelledby="quiet-between-lab"><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}" aria-label="Start"><span class="pair-sep" aria-hidden="true">→</span><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}" aria-label="End"></div>
+          </div>
+          </div></div>
           </div>
           <div class="frow">
             {# Stored as 0; an empty field is what "no limit" looks like. #}
@@ -1727,38 +1753,6 @@
               </div>
             </div>
           </div>
-          {{ set_foot() }}
-        </form>
-        </div></div>
-      </details>
-
-      {# -- Quiet hours -------------------------------------------------------- #}
-      {# The window IS the overnight collage: frames on individual detections
-         show it and nothing else is drawn, so there is nothing else to switch
-         on (W-833). #}
-      {% set qmode = config.quiet_hours_mode %}
-      <details class="disc set" id="set-quiet">
-        {% call set_summary('ic-moon', 'Quiet hours') %}{{ quiet_hours_text(config) or 'Off' }}{% endcall %}
-        <div class="disc-body"><div class="set-body">
-        <form class="set-form" method="post" action="/settings">
-          <input type="hidden" name="section" value="quiet">
-          <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="quiet-lab">Schedule</span><div class="hint">No new pictures overnight. Frames showing individual detections switch to the day’s collage.</div></div>
-            <div class="frow-ctl">
-              <div class="seg" role="radiogroup" aria-labelledby="quiet-lab" id="quiet-seg">
-                <label><input type="radio" name="quiet_hours_mode" value="off" {{ 'checked' if qmode=='off' else '' }}><span>Off</span></label>
-                <label><input type="radio" name="quiet_hours_mode" value="sun" {{ 'checked' if qmode=='sun' else '' }}><span>Sunset to sunrise</span></label>
-                <label><input type="radio" name="quiet_hours_mode" value="custom" {{ 'checked' if qmode=='custom' else '' }}><span>Custom</span></label>
-              </div>
-            </div>
-          </div>
-          <div class="reveal{{ '' if qmode=='custom' else ' collapsed' }}" id="quiet-custom" {{ '' if qmode=='custom' else 'hidden' }}><div class="reveal-body">
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="quiet-between-lab">Between</span></div>
-            <div class="frow-ctl pair" role="group" aria-labelledby="quiet-between-lab"><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}" aria-label="Start"><span class="pair-sep" aria-hidden="true">→</span><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}" aria-label="End"></div>
-          </div>
-          </div></div>
           {{ set_foot() }}
         </form>
         </div></div>
@@ -2242,6 +2236,14 @@
   // a frame is named by its MAC, which is no kind of id.
   function sub(root, attr, key) { return root ? root.querySelector('[' + attr + '="' + key + '"]') : null; }
   function subText(root, attr, key, text) { var el = sub(root, attr, key); if (el) el.textContent = text; }
+  // Which of the collage's timings apply follows the frames' Content (W-906):
+  // a frame moved onto or off the collage shows or hides one at once.
+  function syncTimings(t) {
+    if (!t) return;
+    document.querySelectorAll('#set-collage [data-timing]').forEach(function (el) {
+      el.hidden = !t[el.getAttribute('data-timing')];
+    });
+  }
   function subHidden(root, attr, key, hidden) { var el = sub(root, attr, key); if (el) el.hidden = !!hidden; }
 
   // One frame's row: the dot, its badges, and the readings in the collapsed
@@ -2349,6 +2351,7 @@
         subText(row, 'data-fr', 'summary', fr.summary);
       }
     });
+    syncTimings(st.frames && st.frames.timings);
     // The source's dot: red when it cannot be reached (or a push source has
     // received nothing yet), amber when it has gone quiet, else green.
     var srcRow = $('set-source'), srcDot = $('src-dot');
@@ -2791,6 +2794,7 @@
               applyHealth(row, mine);
               knownFrames = null;
             }
+            syncTimings(out.timings);
             var instant = mine && (mine.settings || {}).push;
             var held = mine && mine.queued_s;
             showFlash('ok', held ? 'Saved. Refreshes in ' + Math.max(1, Math.ceil(held / 60)) + ' min.'

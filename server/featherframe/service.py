@@ -436,6 +436,18 @@ def collage_every_text(hours: int) -> str:
     return COLLAGE_EVERY_WORDS.get(hours, f"Every {hours} hours")
 
 
+def collage_timings(frames: list) -> dict:
+    """Which of the collage's two timings the page shows, from the frames the
+    household has added (W-906): the update interval while some frame shows
+    the collage, quiet hours while some frame shows individual detections,
+    since they are what switch it to the collage. With no frame yet, both.
+    `frames` is `frames_list()`."""
+    shows = {f.get("shows") for f in frames if f.get("status") == frames_mod.ON}
+    if not shows:
+        return {"interval": True, "quiet": True}
+    return {"interval": COLLAGE in shows, "quiet": PLATES in shows}
+
+
 def quiet_hours_text(cfg: Config) -> str:
     """The quiet window as the page words it: "Sunset → Sunrise", "10:00 PM →
     6:00 AM", or "" when quiet hours are off."""
@@ -2863,6 +2875,7 @@ class FeatherframeService:
             quiet = dict(self._quiet) if self._quiet else None
             outage = dict(self._outage) if self._outage else None
         now = self._clock()
+        frames = self.frames_list()
         latest = self.source.latest(CONFIDENCE_FLOOR)
         heard = ({"common": latest.common_name, "scientific": latest.scientific_name,
                   "confidence": round(latest.confidence, 3),
@@ -2901,7 +2914,7 @@ class FeatherframeService:
             # Every screen this server draws for, one shape each. The page
             # renders the same row component for all of them, and the Health
             # card reads the same list.
-            "frames": {"list": self.frames_list()},
+            "frames": {"list": frames, "timings": collage_timings(frames)},
             "firmware": self.firmware_status(),
         }
 

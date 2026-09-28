@@ -271,10 +271,12 @@ warnings, Last detection / Species heard / Pending, the source, a push source's
 Webhook URL and *Setup instructions* — Done once `_push_setup` says a test or a
 detection arrived — and Blocked species; a source that is failing or not set up
 opens itself), Illustrations (Region, "Audubon · North America"), Collage
-(its interval, "Every 6 hours", which only a frame on the collage follows),
-Quiet hours (its own row since W-906, "Sunset → Sunrise" or "Off": the window
-IS the overnight collage, which only frames on individual detections switch
-to; `Config.quiet_hours_render_collage` is a property), AI
+(interval and quiet hours, "Every 6 hours · Sunset → Sunrise", each shown —
+in the summary and as a row — only while some added frame follows it, W-906:
+the interval a frame on the collage, quiet hours a frame on individual
+detections, both with no frame yet; `collage_timings`, live on the page as
+Content changes; a hidden one keeps its value; quiet hours IS the overnight
+collage, `Config.quiet_hours_render_collage` is a property), AI
 image generation (a dot + provider, or "No API key"; its two AI switches, which
 live in Illustrations and Collage, are `locked` until a key is stored), then
 Generated illustrations and Generated collages (each kept day's collage, same

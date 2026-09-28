@@ -479,11 +479,12 @@ h2 { font-weight: 400; text-wrap: balance; }
 .qa dd { margin: 10px 0 0; max-width: 60ch; color: var(--text); }
 
 /* Close */
-/* the close follows the maker's note, which belongs with it */
-.close { margin-top: var(--s-near); text-align: center; }
+/* the close, the page's last word before the questions: a chapter apart on both sides, and a part more of room
+   round it, so it stands alone */
+.close { margin-top: var(--s-chapter); padding: var(--s-part) 0; text-align: center; }
 .close .big { margin: 0; }
 .close .big i { display: block; }
-.close p { margin: var(--s-block) 0 32px; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); }
+.close p { margin: var(--s-block) 0; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); }
 
 /* Colophon */
 .colophon {

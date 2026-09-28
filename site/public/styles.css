@@ -192,7 +192,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* the one in front casts a soft shadow on the one behind (the live frame's canvas too: choreo.ts .ff3d.front) */
 .ep.s10 .slot img, .ff3d.front { filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .2)); }
 .ep figcaption { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 18px; text-align: center; transition: opacity .3s ease; }
-.ep.away figcaption { opacity: 0; }
+.run { transition: opacity .3s ease; }
+.pair.away figcaption, .pair.away .run { opacity: 0; }
+.pair.away .run { pointer-events: none; }
 .ep .nm { font: italic 26px/1.15 var(--serif); }
 .ep .timer { font: 500 20px/1.3 var(--sans); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
 .ep .timer.idle { color: var(--faint); }
@@ -397,7 +399,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .season figcaption .it { color: var(--text); font-size: 21px; }
 .season figcaption .sc { margin-right: auto; font-size: 15px; letter-spacing: .2em; color: var(--ink); }
 /* each season's mark, drawn like an engraving's line */
-.season .ico { flex: none; align-self: center; width: 22px; height: 22px; margin-right: 10px; color: var(--ink); }
+.season .ico { flex: none; align-self: center; width: 30px; height: 30px; margin-right: 6px; color: var(--ink); }
 #collage .note { margin: 40px 0 0; color: var(--graphite); font-size: 17px; }
 #collage .note.fn { margin-top: 10px; font-size: 15px; max-width: 70ch; }
 #collage .note.fn a, .fnref { color: inherit; text-decoration: none; }
@@ -414,11 +416,10 @@ h2 { font-weight: 400; text-wrap: balance; }
 .seasons-live .season { width: auto; }
 .seasons-live .season figure { width: auto; }
 .seasons-live .season img { width: var(--sw); height: var(--sh); max-width: none; }
-/* the timeline: one hairline through the year, under the frames, a season's mark on it at each */
-.seasons-live .row { background: linear-gradient(var(--hair), var(--hair)) 0 22px / 100% 1px no-repeat; }
-.seasons-live .season figcaption { border-top: 0; flex-direction: column; align-items: flex-start; gap: 4px; padding-top: 42px; margin-bottom: 26px; position: relative; }
-.seasons-live .season .ico { position: absolute; left: -6px; top: 10px; width: 24px; height: 24px; margin: 0; padding: 0 5px; box-sizing: content-box;
-  background: var(--paper); opacity: .55; transition: opacity .4s ease; }
+/* each season's mark beside its name and date, drawn full for the season in the middle of the window */
+.seasons-live .season figcaption { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 16px; row-gap: 2px;
+  border-top: 0; padding-top: 0; margin-bottom: 26px; }
+.seasons-live .season .ico { grid-row: 1 / 3; width: 44px; height: 44px; margin: 0; opacity: .55; transition: opacity .4s ease; }
 .seasons-live .season.now .ico { opacity: 1; }
 
 /* V. Technical details: the two frames head-on, to scale, with their dimensions; then the facts. */

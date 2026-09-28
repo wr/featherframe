@@ -542,11 +542,10 @@ export async function startPage(data: SiteData, hero: Model, opts: {
       for (const m of ['10', '13'] as Model[]) {
         ui.watch[m].update(frames[m]?.refresh.progress() ?? null, now);
         busy ||= ui.watch[m].running;
-        // once the traveller has left for the art spread, its caption goes too, not left under an empty place
-        const fig = els.pairSlots![m].parentElement!;
-        const away = m === active && scrollY > pairStop.s1;
-        if (fig.classList.contains('away') !== away) fig.classList.toggle('away', away);
       }
+      // once the traveller has left for the art spread, the captions and the button go too: the pair is over
+      const away = scrollY > pairStop.s1;
+      if (ui.el.classList.contains('away') !== away) ui.el.classList.toggle('away', away);
       pairCan = st.screen === 'pair' && scrollY >= pairStop.s0 && scrollY <= pairStop.s1 && pst.in >= 1 && want === active && pairIdle();
       ui.ready(pairCan);
       if (!pairCan) { clearTimeout(pairBeat); pairBeat = 0; }
@@ -653,10 +652,8 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     ui?.live(false);
     ui?.ready(false);
     frames['10']?.canvas.classList.remove('front');
-    if (els.pairSlots) for (const slot of Object.values(els.pairSlots)) {
-      slot.querySelector<HTMLElement>('.still')?.style.removeProperty('visibility');
-      slot.parentElement!.classList.remove('away');
-    }
+    ui?.el.classList.remove('away');
+    if (els.pairSlots) for (const slot of Object.values(els.pairSlots)) slot.querySelector<HTMLElement>('.still')?.style.removeProperty('visibility');
     for (const f of Object.values(frames)) f!.dispose();
   };
 

@@ -84,7 +84,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#how')).not.toContainText('Detections by');
   await expect(page.locator('body')).not.toContainText('heard at 07:02');
   await expect(page.locator('.tcap')).toHaveCount(0);
-  // a mark for each season on the timeline
+  // a mark for each season
   await expect(page.locator('#collage .season figcaption svg.ico')).toHaveCount(4);
   await expect(page.locator('#specs .ho')).toHaveCount(2);
   await expect(page.locator('#collage .season figcaption')).toHaveText(
@@ -1034,11 +1034,14 @@ test('the pair refreshes together once by itself, then on Refresh, with a timer 
   await expect(timers).toHaveText(['1.0\u00a0s', '15.6\u00a0s'], { timeout: 20_000 });
   await expect(refresh).toBeEnabled();
   await expect(refresh).toHaveText('Watch them refresh');
-  // leaving for the art spread, the traveller's caption goes with it
-  const [, s1] = await page.evaluate(() => (window as any).__ff().stops[1]);
+  // leaving for the art spread, the captions and the button go, and come back with the frame
+  const [s0b, s1] = await page.evaluate(() => (window as any).__ff().stops[1]);
   await page.evaluate((y) => scrollTo(0, y), Math.round(s1 + 40));
-  await expect(page.locator('#pair .ep.s10')).toHaveClass(/\baway\b/);
-  await expect(page.locator('#pair .ep.s13')).not.toHaveClass(/\baway\b/);
+  await expect(page.locator('#pair')).toHaveClass(/\baway\b/);
+  for (const sel of ['#pair .ep.s10 figcaption', '#pair .ep.s13 figcaption', '#pair .run']) await expect(page.locator(sel)).toHaveCSS('opacity', '0');
+  await page.evaluate((y) => scrollTo(0, y), Math.round(s0b + 20));
+  await expect(page.locator('#pair')).not.toHaveClass(/\baway\b/);
+  await expect(page.locator('#pair .run')).toHaveCSS('opacity', '1');
 });
 
 for (const [name, setup] of [

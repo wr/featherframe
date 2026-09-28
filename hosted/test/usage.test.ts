@@ -40,7 +40,11 @@ describe("serverTime", () => {
       .toEqual({ wakes: 85, wake_ms: 1700e3, page_ms: 600e3, since: null });
   });
   it("leaves out a day from before the split and says from when it counts", () => {
-    expect(serverTime([day("2026-09-29", 40, 800e3, 0), day("2026-09-27", 50, 0, 0, 9e6)]))
+    expect(serverTime([day("2026-09-29", 40, 800e3, 0), day("2026-09-27", 50, 0, 0, 9e6)], "2026-09-29"))
       .toEqual({ wakes: 40, wake_ms: 800e3, page_ms: 0, since: "2026-09-29" });
+  });
+  it("counts from today when every day is from before the split", () => {
+    expect(serverTime([day("2026-09-27", 50, 0, 0, 9e6)], "2026-09-28"))
+      .toEqual({ wakes: 0, wake_ms: 0, page_ms: 0, since: "2026-09-28" });
   });
 });

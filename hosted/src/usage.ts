@@ -21,11 +21,13 @@ export type UsageDay = { day: string; wakes: number; server_ms: number; wake_ms:
 
 /** A household's server time over its last days, wakes apart from pages
  * (W-907). A day from before the split has only its total, so it is left
- * out, and `since` names the first day counted while one is in the window. */
-export function serverTime(days: UsageDay[]): { wakes: number; wake_ms: number; page_ms: number; since: string | null } {
+ * out, and `since` names the first day counted (today, if none is yet)
+ * while one is in the window. */
+export function serverTime(days: UsageDay[], today = new Date().toISOString().slice(0, 10)):
+    { wakes: number; wake_ms: number; page_ms: number; since: string | null } {
   const split = days.filter((d) => d.wake_ms + d.page_ms > 0 || !d.server_ms);
-  const since = split.length < days.length && split.length
-    ? split.reduce((a, d) => (d.day < a ? d.day : a), split[0].day) : null;
+  const since = split.length === days.length ? null
+    : split.reduce((a, d) => (d.day < a ? d.day : a), today);
   return {
     wakes: split.reduce((a, d) => a + d.wakes, 0),
     wake_ms: split.reduce((a, d) => a + d.wake_ms, 0),

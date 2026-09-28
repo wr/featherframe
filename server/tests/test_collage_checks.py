@@ -112,14 +112,16 @@ def test_a_trmnl_on_the_collage_follows_it_too(client):
 
 def test_the_row_is_locked_on_the_collage_and_quotes_the_collages_interval(client):
     svc = client.app.state.service
-    add_kit(svc, shows="collage", device_poll_seconds=5)
+    add_kit(svc, shows="collage", power_mode="sleep", wake_interval_minutes=15)
     row = client.get("/").text.split(f'data-frame="{FRAME_ID}"')[1].split("</li>")[0]
-    assert '<div class="frow locked" data-fr-interval>' in row
+    assert '<div class="frow locked" data-fr-interval >' in row
     assert "Set by the collage’s update interval." in row
     assert 'data-fr-collage-every >Every 4 hours<' in row
+    assert '<span data-fr-own-interval hidden>' in row
     svc.update_frame(FRAME_ID, {"shows": "plates"})
     row = client.get("/").text.split(f'data-frame="{FRAME_ID}"')[1].split("</li>")[0]
-    assert '<div class="frow" data-fr-interval>' in row and "Set by the collage" not in row
+    assert '<div class="frow" data-fr-interval >' in row and "Set by the collage" not in row
+    assert '<span data-fr-own-interval >' in row
 
 
 def test_a_kit_waiting_for_the_collage_is_not_overdue(client):

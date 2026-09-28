@@ -15,6 +15,7 @@ from jinja2 import Environment, FileSystemLoader
 from featherframe.app import clock12, stamp
 
 from featherframe import paths
+from featherframe import service as service_mod
 from featherframe.service import FeatherframeService, frame_card
 from tests._frames import FRAME_ID, add_kit, device, health
 
@@ -151,6 +152,9 @@ def _render_page(svc) -> str:
                       autoescape=True)
     env.filters["clock12"] = clock12
     env.filters["stamp"] = stamp
+    env.globals.update(collage_every_words=service_mod.COLLAGE_EVERY_WORDS,
+                       collage_every_text=service_mod.collage_every_text,
+                       quiet_hours_text=service_mod.quiet_hours_text)
     return env.get_template("index.html").render(
         status=svc.status(), config=svc.config, version="test", generated=[])
 

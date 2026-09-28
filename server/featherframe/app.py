@@ -33,7 +33,8 @@ from . import frames as frames_mod
 from .config import Config, valid_email, valid_hhmm
 from .names import display_common_name, normalize
 from .render import genart, pipeline, typography
-from .service import FeatherframeService, clock_text, page_when
+from .service import (COLLAGE_EVERY_WORDS, FeatherframeService, clock_text, collage_every_text,
+                      collage_timings, page_when, quiet_hours_text)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("featherframe.app")
@@ -61,6 +62,10 @@ def stamp(value) -> str:
 
 templates.env.filters["clock12"] = clock12
 templates.env.filters["stamp"] = stamp
+# The page and the frame rows word the two schedules the same way (W-906).
+templates.env.globals["collage_every_words"] = COLLAGE_EVERY_WORDS
+templates.env.globals["collage_every_text"] = collage_every_text
+templates.env.globals["quiet_hours_text"] = quiet_hours_text
 
 
 @asynccontextmanager
@@ -968,7 +973,9 @@ async def api_frame_settings(request: Request, frame_id: str):
     if not ok:
         return JSONResponse({"error": "no such frame"}, status_code=404)
     svc.push.notify(fid)
-    return JSONResponse({"ok": True, "frames": svc.frames_list()})
+    # A frame's Content decides which of the collage's timings the page shows.
+    frames = svc.frames_list()
+    return JSONResponse({"ok": True, "frames": frames, "timings": collage_timings(frames)})
 
 
 @app.get("/api/frames/{frame_id}/preview.png")

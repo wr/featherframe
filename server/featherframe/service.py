@@ -426,6 +426,38 @@ UPDATE_RESTART_WAIT_S = 180
 # "collage"; these are the words an owner reads.
 SHOWS_WORDS = {PLATES: "Individual detections", COLLAGE: "Collage"}
 
+# The collage interval's choices as the page words them (the Collage section's
+# menu, its summary, and a collage frame's own row).
+COLLAGE_EVERY_WORDS = {1: "Every hour", 4: "Every 4 hours", 6: "Every 6 hours",
+                       12: "Every 12 hours", 24: "Every 24 hours"}
+
+
+def collage_every_text(hours: int) -> str:
+    return COLLAGE_EVERY_WORDS.get(hours, f"Every {hours} hours")
+
+
+def collage_timings(frames: list) -> dict:
+    """Which of the collage's two timings the page shows, from the frames the
+    household has added (W-906): the update interval while some frame shows
+    the collage, quiet hours while some frame shows individual detections,
+    since they are what switch it to the collage. With no frame yet, both.
+    `frames` is `frames_list()`."""
+    shows = {f.get("shows") for f in frames if f.get("status") == frames_mod.ON}
+    if not shows:
+        return {"interval": True, "quiet": True}
+    return {"interval": COLLAGE in shows, "quiet": PLATES in shows}
+
+
+def quiet_hours_text(cfg: Config) -> str:
+    """The quiet window as the page words it: "Sunset → Sunrise", "10:00 PM →
+    6:00 AM", or "" when quiet hours are off."""
+    if cfg.quiet_hours_mode == "sun":
+        return "Sunset → Sunrise"
+    if cfg.quiet_hours_mode == "custom":
+        ends = [datetime.strptime(t, "%H:%M") for t in (cfg.quiet_hours_start, cfg.quiet_hours_end)]
+        return " → ".join(clock_text(t) for t in ends)
+    return ""
+
 # A browser tab asks every PAGE_POLL_SECONDS. Three missed asks and it is not
 # open any more — which is not a device in trouble, just a closed tab.
 _PAGE_OPEN_SECONDS = 3 * viewers_mod.PAGE_POLL_SECONDS
@@ -2608,7 +2640,8 @@ class FeatherframeService:
             # what the page's tools act on while this frame is previewed.
             "picture": self._kind_for(shows, now),
             "summary": self._frame_summary(what, shows, named=bool(name), sold_as=bool(sold_as),
-                                           known=bool(panel is not None and panel.known)),
+                                           known=bool(panel is not None and panel.known),
+                                           schedule=self._schedule_text(shows)),
             "picture_etag": self.picture_etag(shows) if on else None,
             "output_etag": self._output_etag(fid) if kit else None,
             "queued_s": self._queued_seconds(row, now) if kit and on else None,
@@ -2660,11 +2693,13 @@ class FeatherframeService:
         }
 
     def _frame_summary(self, what: str, shows: str, named: bool = False,
-                       sold_as: bool = False, known: bool = True) -> str:
-        """The one line a collapsed row carries: what this screen is, and what
-        it shows. An unnamed frame's title already says part of what it is, so
-        the summary carries the rest: the kit ("EE03") under the name it is
-        sold as, else what follows the short ('10.3" gray')."""
+                       sold_as: bool = False, known: bool = True,
+                       schedule: str = "") -> str:
+        """The one line a collapsed row carries: what this screen is, what it
+        shows, and when that changes. An unnamed frame's title already says
+        part of what it is, so the summary carries the rest: the kit ("EE03")
+        under the name it is sold as, else what follows the short ('10.3"
+        gray')."""
         if named:
             about = what
         elif sold_as:
@@ -2673,8 +2708,21 @@ class FeatherframeService:
             about = what.split(" · ")[0 if known else -1]
         else:
             about = " · ".join(what.split(" · ")[1:])
-        bits = [about, SHOWS_WORDS[COLLAGE if shows == COLLAGE else "plates"]]
+        # The line wraps between its parts, never inside the schedule, so a
+        # narrow row never reads "Collage" over "Sunset → Sunrise".
+        bits = [about, SHOWS_WORDS[COLLAGE if shows == COLLAGE else "plates"],
+                schedule.replace(" ", "\u00a0")]
         return " · ".join(b for b in bits if b)
+
+    def _schedule_text(self, shows: str) -> str:
+        """When a frame that shows `shows` changes picture, on its own row
+        (W-906): the collage interval is only a collage frame's, and quiet
+        hours only switch a frame on individual detections to the collage.
+        Both are household settings; each frame is told the one it follows."""
+        if shows == COLLAGE:
+            return collage_every_text(self.config.collage_interval_hours)
+        quiet = quiet_hours_text(self.config)
+        return f"Collage {quiet}" if quiet else ""
 
 
     def rerender_current(self) -> None:
@@ -2827,6 +2875,7 @@ class FeatherframeService:
             quiet = dict(self._quiet) if self._quiet else None
             outage = dict(self._outage) if self._outage else None
         now = self._clock()
+        frames = self.frames_list()
         latest = self.source.latest(CONFIDENCE_FLOOR)
         heard = ({"common": latest.common_name, "scientific": latest.scientific_name,
                   "confidence": round(latest.confidence, 3),
@@ -2865,7 +2914,7 @@ class FeatherframeService:
             # Every screen this server draws for, one shape each. The page
             # renders the same row component for all of them, and the Health
             # card reads the same list.
-            "frames": {"list": self.frames_list()},
+            "frames": {"list": frames, "timings": collage_timings(frames)},
             "firmware": self.firmware_status(),
         }
 

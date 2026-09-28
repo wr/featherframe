@@ -69,17 +69,20 @@ def _row(card: str, frame_id: str) -> str:
 
 
 def _listed(svc, frame_id: str) -> dict:
-    return [f for f in svc.frames_list() if f["id"] == frame_id][0]
+    """A frame as the page gets it, its summary read with plain spaces (the
+    schedule in it is held together with no-break spaces)."""
+    fr = [f for f in svc.frames_list() if f["id"] == frame_id][0]
+    return {**fr, "summary": fr["summary"].replace("\u00a0", " ")}
 
 
 # -- one row component, controls by capability --------------------------------
 # What each kind of screen has, and what it must NOT be offered.
 WANTED = {
     "gray kit": (GRAY["X-Device-Id"],
-                 ["name", "shows", "rotation", "power_mode", "device_poll_seconds",
+                 ["name", "shows", "rotation", "power_mode",
                   "wake_interval_minutes", "mat_inset_pct", "mat_offset_x_px",
                   "mat_offset_y_px"],
-                 ["fmt", "dark_quiet", "width", "height"]),
+                 ["fmt", "dark_quiet", "width", "height", "device_poll_seconds"]),
     "colour kit": (COLOUR["X-Device-Id"],
                    ["name", "shows", "rotation", "power_mode", "mat_inset_pct"],
                    ["fmt", "dark_quiet", "width", "height"]),
@@ -119,6 +122,30 @@ def _select(row: str, field: str) -> str:
     return row.split(f'data-f="{field}"')[1].split("</select>")[0]
 
 
+def test_the_collapsed_row_says_the_schedule_that_frame_follows(client):
+    """Quiet hours only switch a frame on individual detections to the
+    collage; the interval only redraws a frame on the collage. Each row says
+    its own, and nothing of the other's (W-906)."""
+    svc = _populate(client)
+    gray, colour = GRAY["X-Device-Id"], COLOUR["X-Device-Id"]
+    assert svc.config.quiet_hours_mode == "sun" and svc.config.collage_interval_hours == 6
+    assert _listed(svc, gray)["summary"] == "EE03 · Individual detections · Collage Sunset → Sunrise"
+    assert _listed(svc, colour)["summary"].endswith(" · Collage · Every 6 hours")
+    assert "Sunset" not in _listed(svc, colour)["summary"]
+    client.post("/settings", data={"section": "collage", "quiet_hours_mode": "custom",
+                                   "quiet_hours_start": "22:00", "quiet_hours_end": "06:30"})
+    client.post("/settings", data={"section": "collage", "collage_interval_hours": "12"})
+    assert _listed(svc, gray)["summary"].endswith(" · Collage 10:00 PM → 6:30 AM")
+    assert _listed(svc, colour)["summary"].endswith(" · Collage · Every 12 hours")
+    # A frame changed to the other picture is told the other schedule at once.
+    out = client.post(f"/api/frames/{gray}", json={"shows": "collage"}).json()
+    mine = [f for f in out["frames"] if f["id"] == gray][0]
+    assert mine["summary"] == "EE03 · Collage · Every\u00a012\u00a0hours"
+    client.post("/settings", data={"section": "collage", "quiet_hours_mode": "off"})
+    client.post(f"/api/frames/{gray}", json={"shows": "plates"})
+    assert _listed(svc, gray)["summary"] == "EE03 · Individual detections"
+
+
 def test_a_kits_rotation_is_only_the_ones_its_panel_takes(client):
     _populate(client)
     card = _card(client)
@@ -135,8 +162,9 @@ def test_a_kits_rotation_is_only_the_ones_its_panel_takes(client):
 
 def test_the_collapsed_row_says_what_it_is_and_what_it_shows(client):
     svc = _populate(client)
+    svc.config.quiet_hours_mode = "off"
     assert _listed(svc, GRAY["X-Device-Id"])["summary"].endswith(" · Individual detections")
-    assert _listed(svc, COLOUR["X-Device-Id"])["summary"].endswith(" · Collage")
+    assert _listed(svc, COLOUR["X-Device-Id"])["summary"].endswith(" · Collage · Every 6 hours")
     # Unnamed, the title is the short of what it is and the summary the rest:
     # the collapsed row never says the same thing twice.
     gray = _listed(svc, GRAY["X-Device-Id"])
@@ -150,7 +178,7 @@ def test_the_collapsed_row_says_what_it_is_and_what_it_shows(client):
     card = _card(client)
     for fid in (GRAY["X-Device-Id"], "PAGE-TEST"):
         shown = _row(card, fid).split('class="fr-desc"')[1].split(">", 1)[1].split("<")[0]
-        assert shown == escape(_listed(svc, fid)["summary"], quote=False).replace(chr(34), "&#34;")
+        assert shown.replace("\u00a0", " ") == escape(_listed(svc, fid)["summary"], quote=False).replace(chr(34), "&#34;")
 
 
 # -- no frame setting anywhere but the Frames card ----------------------------
@@ -421,7 +449,7 @@ def test_a_frames_settings_are_named_plainly(client):
         assert label in gray, label
     assert ">Individual detections<" in gray and ">Collage<" in gray
     assert ">USB<" in gray and ">Battery<" in gray
-    assert ">Every 3 seconds<" in gray and ">Every 15 minutes<" in gray
+    assert ">Every 15 minutes<" in gray
     # A name explains itself; only the mat rows and a screen with no reported
     # size carry a hint at all (the Update interval's is empty until the row
     # shows the collage).
@@ -434,19 +462,21 @@ def test_a_frames_settings_are_named_plainly(client):
            "a sharper image." in kobo
 
 
-def test_one_update_interval_saves_the_field_its_power_model_uses(client):
-    """The options swap with Power; only the one in use is offered."""
+def test_update_interval_is_a_battery_frames_alone(client):
+    """On USB a kit takes a change at once, so the row is hidden and posts
+    nothing; on a battery it is the wake interval (W-906)."""
     svc = _populate(client)
     fid = GRAY["X-Device-Id"]
     row = _row(_card(client), fid)
     assert row.count(">Update interval<") == 1
-    assert '<span data-fr-swap="awake" >' in row and '<span data-fr-swap="sleep" hidden>' in row
+    assert 'data-fr-interval hidden>' in row
+    assert 'data-f="device_poll_seconds"' not in row and ">Instant<" not in row
     assert client.post(f"/api/frames/{fid}",
                        json={"power_mode": "sleep", "wake_interval_minutes": 30}).json()["ok"]
     own = svc.frames.get(fid)["set"]
     assert own["wake_interval_minutes"] == 30 and "device_poll_seconds" not in own
     row = _row(_card(client), fid)
-    assert '<span data-fr-swap="sleep" >' in row and '<span data-fr-swap="awake" hidden>' in row
+    assert 'data-fr-interval >' in row and '<option value="30" selected>' in row
 
 
 # -- the household's Collage section ------------------------------------------
@@ -477,7 +507,7 @@ def test_the_household_sections_read_in_order(client):
     assert names == ["Frames", "Settings", "General", "Detection source", "Illustrations",
                      "Collage", "AI image generation", "Generated illustrations",
                      "Generated collages"]
-    assert "Quiet hours" not in names                 # it is a row in Collage now
+    assert "Quiet hours" not in names                 # it is a row in Collage
 
 
 def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
@@ -485,8 +515,9 @@ def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     sec = _section(client.get("/").text, "collage")
     assert 'class="intro"' not in sec
     assert ">Update interval<" in sec and ">Species limit<" in sec
-    # The label says what it is: a redraw, not the frames' own update interval.
-    assert "How often the collage is redrawn" not in sec
+    # It says which frames it is for: the interval means nothing to a frame
+    # on individual detections (W-906).
+    assert "How frequently collage-only frames update during the day." in sec
     assert "The most species shown in one collage" in sec
     # The interval is a dropdown of the intervals an owner picks.
     every = sec.split('name="collage_interval_hours"')[1].split("</select>")[0]
@@ -496,7 +527,9 @@ def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
              ">Every 12 hours<", ">Every 24 hours<") if o in every]
     # Quiet hours is the overnight collage, so it lives here — as the mode and
     # its custom window, and nothing else to switch on.
-    assert ">Quiet hours<" in sec and "Every frame shows the collage overnight." in sec
+    assert ">Quiet hours<" in sec
+    assert "No new pictures overnight. Frames showing individual detections " \
+           "switch to the day\u2019s collage." in sec
     assert 'name="quiet_hours_mode"' in sec and 'name="quiet_hours_start"' in sec
     assert 'name="quiet_hours_render_collage"' not in client.get("/").text
     # The AI collage is here, always on offer.
@@ -508,6 +541,54 @@ def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     assert ">Tree branch</label>" in sec
     ig = _section(client.get("/").text, "imagegen")
     assert 'name="collage_generated"' not in ig and 'name="imagegen_enabled"' not in ig
+
+
+def _timings(html: str) -> dict:
+    """Which of the Collage section's two timings are shown, in its summary
+    and as rows."""
+    sec = _section(html, "collage")
+    head, body = sec.split("</summary>", 1)
+    out = {}
+    for key in ("interval", "quiet"):
+        part = head.split(f'data-timing="{key}" ')[1][:6]
+        row = body.split(f'data-timing="{key}" ')[1][:6]
+        assert part.startswith("hidden") == row.startswith("hidden"), key
+        out[key] = not part.startswith("hidden")
+    return out
+
+
+def test_the_collage_says_only_the_timings_its_frames_follow(client):
+    """The interval is only a collage frame's; quiet hours only switch a
+    frame on individual detections to the collage. The section shows each
+    only while such a frame has been added (W-906)."""
+    svc = client.app.state.service
+    # No frame yet: nothing to leave out.
+    assert _timings(client.get("/").text) == {"interval": True, "quiet": True}
+    client.get("/api/frame", headers=GRAY)
+    client.post("/api/frames", data={"id": GRAY["X-Device-Id"], "action": "add"})
+    gray = GRAY["X-Device-Id"]
+    client.post(f"/api/frames/{gray}", json={"shows": "plates"})
+    html = client.get("/").text
+    assert _timings(html) == {"interval": False, "quiet": True}
+    summary = _section(html, "collage").split("</summary>")[0]
+    assert '<span class="v-part" data-timing="quiet" >Sunset → Sunrise</span>' in summary
+    # Moved onto the collage: the save's answer says so, for the page to follow.
+    out = client.post(f"/api/frames/{gray}", json={"shows": "collage"}).json()
+    assert out["timings"] == {"interval": True, "quiet": False}
+    assert _timings(client.get("/").text) == {"interval": True, "quiet": False}
+    assert svc.status()["frames"]["timings"] == {"interval": True, "quiet": False}
+    # One of each: both, and a hidden one keeps its value all along.
+    client.get("/api/frame", headers=COLOUR)
+    client.post("/api/frames", data={"id": COLOUR["X-Device-Id"], "action": "add"})
+    client.post(f"/api/frames/{COLOUR['X-Device-Id']}", json={"shows": "plates"})
+    assert _timings(client.get("/").text) == {"interval": True, "quiet": True}
+    # Quiet hours off on a household that needs them: said, not left blank.
+    client.post("/settings", data={"section": "collage", "quiet_hours_mode": "off"})
+    summary = _section(client.get("/").text, "collage").split("</summary>")[0]
+    assert '<span class="v-part" data-timing="quiet" >Quiet hours off</span>' in summary
+    # An ignored frame is not one the household has.
+    client.post("/api/frames", data={"id": COLOUR["X-Device-Id"], "action": "ignore"})
+    assert _timings(client.get("/").text) == {"interval": True, "quiet": False}
 
 
 def test_a_stored_interval_the_menu_does_not_offer_is_still_shown(client):
@@ -627,5 +708,6 @@ def test_a_section_value_says_what_is_set(client):
     html = client.get("/").text
     summary = lambda key: html.split(f'id="set-{key}"')[1].split("</summary>")[0]
     assert '<span class="v-part">Gould</span><span class="v-part">Europe</span>' in summary("illustrations")
-    assert '<span class="v-part">10:00 PM → 6:30 AM</span>' in summary("collage")
+    assert ('<span class="v-part" data-timing="interval" >Every 6 hours</span>'
+            '<span class="v-part" data-timing="quiet" >10:00 PM → 6:30 AM</span>') in summary("collage")
     assert ">No API key<" in summary("imagegen")

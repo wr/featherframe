@@ -150,11 +150,13 @@ def _row(client) -> str:
     return body.split(f'data-frame="{FRAME_ID}"')[1].split("\n    </li>")[0]
 
 
-def test_wake_interval_row_hidden_unless_deep_sleep(client):
+def test_update_interval_row_hidden_unless_deep_sleep(client):
+    """On USB a kit takes a change at once, so there is no interval to pick
+    (W-906); in deep sleep the row is its wake interval."""
     _set(client, power_mode="awake")
-    assert '<span data-fr-swap="sleep" hidden>' in _row(client)
+    assert 'data-fr-interval hidden>' in _row(client)
     _set(client, power_mode="sleep")
-    assert '<span data-fr-swap="sleep" >' in _row(client)
+    assert 'data-fr-interval >' in _row(client)
 
 
 # -- device poll interval (W-775) --------------------------------------------
@@ -169,13 +171,10 @@ def test_device_poll_seconds_served_and_clamped(client):
     assert Config(device_poll_seconds=999999).device_poll_seconds == 86400
 
 
-def test_one_update_interval_swaps_its_options_with_the_power_model(client):
-    """Same label, same place: seconds while awake, minutes in deep sleep."""
+def test_the_update_interval_is_the_wake_interval_and_posts_no_poll_gap(client):
+    """A stored poll gap is still served (above) but never offered, so saving
+    a row on USB cannot change it."""
     _set(client, power_mode="awake")
     row = _row(client)
     assert row.count(">Update interval<") == 1
-    assert '<span data-fr-swap="awake" >' in row
-    assert '<span data-fr-swap="sleep" hidden>' in row
-    assert 'data-f="device_poll_seconds"' in row and 'data-f="wake_interval_minutes"' in row
-    _set(client, power_mode="sleep")
-    assert '<span data-fr-swap="awake" hidden>' in _row(client)
+    assert 'data-f="device_poll_seconds"' not in row and 'data-f="wake_interval_minutes"' in row

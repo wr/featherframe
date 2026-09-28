@@ -41,12 +41,19 @@ try {
     await page.screenshot({ path: png, omitBackground: true });
     execFileSync('cwebp', ['-quiet', '-q', '86', '-alpha_q', '90', png, '-o', `${here}public/img/wall/${name}.webp`]);
     console.log(`public/img/wall/${name}.webp  ${Math.round(HEIGHT * aspect)} × ${HEIGHT}`);
+    return page.evaluate(() => document.documentElement.dataset.screen);
   };
   // `node scripts/wall.mjs seasons <dir> [13|10]` renders IV's four frames from <dir>/season-<size>-<season>.jpg:
   // each season's collage sheet as a screen texture (13: 1543 × 2072 in colour; 10: 1179 × 1572 in the
   // panel's 16 grays; the sheet fitted by width on white, as scripts/screens.sh composes a screen), dead-on,
   // into public/img/seasons/<size>-<season>.webp
-  if (process.argv[2] === 'seasons') {
+  // `node scripts/wall.mjs hole`: the e-paper section's flat pair, each frame dead-on with its screen a transparent
+  // hole (public/img/pair/<size>-frame.webp, the wall's size), and where its screen lies, as shares of the picture:
+  // styles.css places the live glass behind the hole by them (.ep.s10 / .ep.s13 --screen)
+  if (process.argv[2] === 'hole') {
+    mkdirSync(`${here}public/img/pair`, { recursive: true });
+    for (const size of ['10', '13']) console.log(`${size}: screen at ${await render(size, 'hole', `../pair/${size}-frame`)} (x, y, w, h)`);
+  } else if (process.argv[2] === 'seasons') {
     const dir = process.argv[3];
     const size = process.argv[4] ?? '13';
     HEIGHT = 1100;
@@ -73,7 +80,7 @@ try {
       for (const [i, f] of data.sizes[size].wall.entries()) if (!only || only.includes(slug(f))) await render(size, i, `${size}-${slug(f)}`);
     }
   }
-  if (process.argv[2] !== 'seasons' && process.argv[2] !== 'large' && process.argv[2] !== 'only') {
+  if (!['seasons', 'large', 'only', 'hole'].includes(process.argv[2])) {
     await render('13', 'table', 'table-13-cardinal');
     await render('10', 'table', 'table-10-cardinal');
     // Technical details' 13-inch shows the hero's cardinal, dead-on, and its 10.3-inch the blue jay

@@ -24,11 +24,23 @@ test('every section and its key copy is there', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('h1')).toHaveText('Let the outside in.');
   await expect(page.locator('h1')).toHaveCount(1);
-  for (const id of ['art', 'how', 'collage', 'specs', 'faq']) await expect(page.locator(`section#${id}`)).toBeVisible();
+  for (const id of ['epaper', 'art', 'how', 'collage', 'specs', 'faq']) await expect(page.locator(`section#${id}`)).toBeVisible();
   await expect(page.locator('section#sizes')).toHaveCount(0);
   await expect(page.locator('.head nav a')).toHaveText(['The art', 'How it works', 'Details', 'FAQ', 'Pre-order']);
   expect(await page.locator('.head nav a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual(
     ['#art', '#how', '#specs', '#faq', 'https://shop.wells.ee/products/featherframe/']);
+  // e-paper, right after the cover: what the screen is made of, and why it flashes when it changes
+  await expect(page.locator('#epaper .eyebrow')).toHaveText('E-paper');
+  await expect(page.locator('#epaper h2')).toHaveText('Made of ink, like a print.');
+  await expect(page.locator('#epaper h2 i')).toHaveText('like a print.');
+  await expect(page.locator('#epaper .cols p')).toHaveText('Featherframe uses e-paper, the same kind of screen as an e-reader. The picture is made of pigment and gives off no light. By day it looks like a print. At night it goes dark with the room.');
+  // each fact led by its mark: a plug for power, the refresh mark for the refresh
+  await expect(page.locator('#epaper .why li svg.ico')).toHaveCount(2);
+  await expect(page.locator('#epaper .why li')).toHaveText(['The picture stays with the power off. The screen uses power only to change it.', 'To change the picture, the screen flashes. B&W takes about a second. Color takes about fifteen seconds, and flickers as the inks settle.']);
+  await expect(page.locator('#pair figcaption .nm')).toHaveText(['10.3-inch · B&W', '13.3-inch · Color']);
+  await expect(page.locator('#pair .run')).toHaveText('Watch them refresh');
+  // (the section says what the refresh is: no note under the cover's frame)
+  await expect(page.locator('body')).not.toContainText('true speed');
   await expect(page.locator('#art h2')).toHaveText('More than 1,300 species, each painted by hand.');
   await expect(page.locator('#art h2 i')).toHaveText('each painted by hand.');
   await expect(page.locator('#how h2')).toHaveText('Meet the birds you only hear.');
@@ -72,7 +84,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#how')).not.toContainText('Detections by');
   await expect(page.locator('body')).not.toContainText('heard at 07:02');
   await expect(page.locator('.tcap')).toHaveCount(0);
-  // a mark for each season on the timeline
+  // a mark for each season
   await expect(page.locator('#collage .season figcaption svg.ico')).toHaveCount(4);
   await expect(page.locator('#specs .ho')).toHaveCount(2);
   await expect(page.locator('#collage .season figcaption')).toHaveText(
@@ -81,7 +93,6 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#faq dt')).toHaveText([
     'Does it make a good gift?', 'Do I need Wi-Fi?', 'How fast does the frame change?', 'Do I need my own BirdNET device?', 'Does it work outside North America?',
     'What if a species near me was never illustrated?', 'Do the collages need AI?', 'Is a subscription required?', 'Do I need an account?', 'Is my data private?']);
-  await expect(page.locator('.cover .speed')).toHaveText('Refresh shown at true speed');
   await expect(page.locator('#faq dd').nth(2).locator('li')).toHaveText(['B&W (10.3-inch): about a second.', 'Color (13.3-inch): about fifteen seconds, and it flickers as the inks settle. It suits the collage, which changes once a day.']);
   await expect(page.locator('#faq a.fnref')).toHaveCount(2);
   await expect(page.locator('body')).not.toContainText('listening station');
@@ -90,7 +101,8 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#faq dd').nth(4)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
   await expect(page.locator('#faq dd').nth(6)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration¹ turned on, the day’s species are painted together in one scene, marked ✦.');
   await expect(page.locator('#faq')).not.toContainText('OpenAI key');
-  await expect(page.locator('#keep-posted .form-why')).toHaveText('Not ready to order? I’ll write once, when the first frames have shipped. Nothing else.');
+  await expect(page.locator('#keep-posted .form-why')).toHaveText('We will never sell or share your email address. We don’t plan to send any email updates, but you can sign up below in case we do.');
+  await expect(page.locator('#keep-posted .form-consent')).toHaveCount(0);
   await expect(page.locator('.cat figure')).toHaveCount(12);
   // the wall: the Wild Turkey first (the art stop's bird), the Carolina Wren last (the one that tears off), four Gould pieces among Audubon's
   const A = 'John James AudubonThe Birds of America';
@@ -118,10 +130,22 @@ test('every section and its key copy is there', async ({ page }) => {
   for (const link of await page.getByRole('link', { name: 'Pre-order' }).all()) {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
-  // the singing videos, credited in the colophon
-  // (the Creative Commons pieces marked as excerpts)
-  for (const c of ['Northern Cardinal recording by Jonathon Jongsma, xeno-canto XC175226, CC BY-SA 4.0 (excerpt).', 'Northern Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain.', 'Eastern Bluebird video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0 (excerpt).', 'Tufted Titmouse video by Víctor Martínez, Wikimedia Commons, CC BY-SA 4.0 (excerpt).', 'Black-capped Chickadee video by Cephas, Wikimedia Commons, CC BY-SA 3.0 (excerpt).', 'Eastern Bluebird recording by Jonathon Jongsma, XC79976, CC BY-SA 3.0 (excerpt).', 'Tufted Titmouse recording by G. McGrane, Wikimedia Commons, public domain.', 'Black-capped Chickadee recording by Jonathon Jongsma, XC70185, CC BY-SA 3.0 (excerpt).', 'The Creative Commons excerpts are trimmed, cropped or filtered from the originals and shared under the same licenses.', '© 2026 Wells Workshop LLC.'])
-    await expect(page.locator('.colophon .d')).toContainText(c);
+  // the books, the songs and the singing videos, credited in the colophon, each under its heading, a name over its
+  // source (the Creative Commons pieces marked as excerpts)
+  await expect(page.locator('.credits .sc')).toHaveText(['Illustrations', 'Recordings', 'Videos']);
+  await expect(page.locator('.credits > div').nth(0).locator('p')).toHaveText('John James Audubon’s The Birds of America (1827–1838) and John Gould’s The Birds of Europe, Australia, Asia and Great Britain (1832–1883), now in the public domain.');
+  await expect(page.locator('.credits > div').nth(1).locator('li')).toHaveText([
+    'Northern CardinalJonathon Jongsma, xeno-canto XC175226, CC BY-SA 4.0, excerpt',
+    'Eastern BluebirdJonathon Jongsma, xeno-canto XC79976, CC BY-SA 3.0, excerpt',
+    'Tufted TitmouseG. McGrane, Wikimedia Commons, public domain',
+    'Black-capped ChickadeeJonathon Jongsma, xeno-canto XC70185, CC BY-SA 3.0, excerpt']);
+  await expect(page.locator('.credits > div').nth(2).locator('li')).toHaveText([
+    'Northern CardinalCourtney Celley, U.S. Fish and Wildlife Service, public domain',
+    'Eastern BluebirdPaul Danese, Wikimedia Commons, CC BY-SA 4.0, excerpt',
+    'Tufted TitmouseVíctor Martínez, Wikimedia Commons, CC BY-SA 4.0, excerpt',
+    'Black-capped ChickadeeCephas, Wikimedia Commons, CC BY-SA 3.0, excerpt']);
+  for (const c of ['The Creative Commons excerpts are trimmed, cropped or filtered from the originals and shared under the same licenses.', 'Featherframe is not affiliated with or endorsed by the National Audubon Society, the Cornell Lab of Ornithology, BirdWeather, OpenAI or YouTube; their names and marks belong to them.', '© 2026 Wells Workshop LLC.'])
+    await expect(page.locator('.colophon .legal')).toContainText(c);
   // the licences and sources, linked
   expect(await page.locator('.colophon .d a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual([
     'https://xeno-canto.org/175226', 'https://creativecommons.org/licenses/by-sa/4.0/',
@@ -137,7 +161,11 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('.colophon .b').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', 'https://cloud.featherframe.app/');
   await expect(page.locator('.colophon .b .sc')).toHaveText('A product of');
   await expect(page.locator('.colophon .c a')).toHaveText(['Shipping', 'Returns', 'Privacy', 'Terms']);
-  await expect(page.locator('.colophon .d')).toContainText('The illustrations are from John James Audubon’s The Birds of America');
+  // Keep me posted is a boxed field with its button joined to it
+  const [input, submit] = [await page.locator('.field input').boundingBox(), await page.locator('.field .btn').boundingBox()];
+  expect(Math.abs(input!.x + input!.width - submit!.x)).toBeLessThan(1);
+  expect(Math.abs(input!.height - submit!.height)).toBeLessThan(1);
+  await expect(page.locator('.field input')).toHaveCSS('border-top-style', 'solid');
   const body = (await page.locator('body').innerText()).toLowerCase();
   for (const banned of ['plate', 'on the wall', 'on the glass']) expect(body).not.toContain(banned);
 });
@@ -299,7 +327,9 @@ test('with reduced motion nothing cycles', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/?hold=300');
   await page.waitForTimeout(3000);
-  await expect(page.locator('canvas')).toHaveCount(0);
+  await expect(page.locator('canvas.ff3d')).toHaveCount(0);
+  // (the e-paper pair's flat glass waits for its Refresh)
+  await expect(page.locator('#pair .timer')).toHaveText(['0.0\u00a0s', '0.0\u00a0s']);
   expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
 });
 
@@ -347,7 +377,9 @@ test('a frame whose model never arrives leaves the poster showing', async ({ pag
   await page.route('**/models/featherframe*.glb', (route) => route.abort());
   await page.goto('/?hold=300');
   await page.waitForTimeout(3000);
-  await expect(page.locator('canvas')).toHaveCount(0);
+  await expect(page.locator('canvas.ff3d')).toHaveCount(0);
+  // the e-paper pair is drawn flat instead
+  await expect(page.locator('#pair')).toHaveClass(/\blive\b/, { timeout: 10_000 });
   await expect(page.locator('#stage')).not.toHaveClass(/\blive\b/);
   expect(await page.locator('#stage .poster').evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
   expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
@@ -441,7 +473,7 @@ test('each new detection is announced and the frame on the table repaints to it'
       if (!t.dataset.refreshing && from && t.dataset.shown) { w.__refresh.push(performance.now() - from); from = 0; }
     }).observe(t, { attributes: true, attributeFilter: ['data-refreshing', 'data-shown'] });
   });
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
   await page.evaluate(() => scrollTo(0, document.querySelector('.spectro')!.getBoundingClientRect().top + scrollY - 120));
   const table = page.locator('#table-slot');
   const toast = page.locator('.toast');
@@ -507,11 +539,12 @@ test('the reservation comes before the questions', async ({ page }) => {
 test('on a phone there is no 3D frame: the cover keeps its poster, and no model is fetched', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   const models: string[] = [];
-  page.on('request', (r) => { if (/\/models\/|choreo-/.test(r.url())) models.push(r.url()); });
+  // (the e-paper pair's flat glass fetches its two pictures when it nears the window, but never a model)
+  page.on('request', (r) => { if (/\.glb$|choreo-/.test(r.url())) models.push(r.url()); });
   await page.goto('/?hold=300');
   await page.waitForLoadState('load');
   await page.waitForTimeout(3000);
-  await expect(page.locator('canvas')).toHaveCount(0);
+  await expect(page.locator('canvas.ff3d')).toHaveCount(0);
   await expect(page.locator('#stage .poster')).toBeVisible();
   expect(await page.locator('#stage .poster').evaluate((e: HTMLImageElement) => e.complete && e.naturalWidth > 0)).toBe(true);
   await expect(page.locator('html')).not.toHaveClass(/\bchoreo\b/);
@@ -534,6 +567,10 @@ test('on a phone the frame comes first, on the first screen, then the sentence a
 test('on a phone the controls are a thumb\'s size', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto('/');
+  // (Sign in on a line of its own, under the GitHub sentence)
+  const [gh, signin] = [await page.locator('.colophon .b a[href*="github"]').boundingBox(), await page.locator('.colophon .signin').boundingBox()];
+  expect(signin!.y).toBeGreaterThan(gh!.y + gh!.height - 12);
+  expect(Math.abs(signin!.x - (await page.locator('.colophon .b').boundingBox())!.x)).toBeLessThan(1);
   for (const sel of ['.head .word', '.head .btn', '.tone button', '.unmute', '.field button', '.colophon .b .ul', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
     for (const el of await page.locator(sel).all()) {
       const b = (await el.boundingBox())!;
@@ -631,7 +668,7 @@ test("B&W hangs the wall's frames smaller, at the 10-inch's true size", async ({
 test('the art spread holds the frame while its text scrolls past', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
   const slot = page.locator('#art-slot');
   const text = page.locator('#art .text h2');
   await slot.scrollIntoViewIfNeeded();
@@ -646,29 +683,30 @@ test('the art spread holds the frame while its text scrolls past', async ({ page
 test('the frame lands in the wall\'s first place and hands over to its print', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
   const first = page.locator('.wall .cat figure:first-child img');
   // Above the wall the first place is empty: the frame is on its way.
   await expect(first).toHaveCSS('visibility', 'hidden');
   await page.evaluate(() => scrollTo(0, document.querySelector('.wall .cat')!.getBoundingClientRect().top + scrollY - 100));
   await expect(page.locator('.wall')).toHaveClass(/\blanded\b/);
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\bempty\b/);
+  // (no frame drawn: the pair's second frame, if it has joined, is empty too)
+  await expect(page.locator('canvas.ff3d:not(.empty)')).toHaveCount(0);
   await expect(first).toHaveCSS('visibility', 'visible');
   // Back up, the frame takes over again.
   await page.evaluate(() => scrollTo(0, 0));
   await expect(page.locator('.wall')).not.toHaveClass(/\blanded\b/);
-  await expect(page.locator('canvas.ff3d')).not.toHaveClass(/\bempty\b/);
+  await expect(page.locator('canvas.ff3d:not(.empty)')).toHaveCount(1);
 });
 
 test('past the wall its last frame tears off and lands on the table', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
   const last = page.locator('.wall .cat figure:last-child img');
   await page.evaluate(() => scrollTo(0, document.getElementById('table-slot')!.getBoundingClientRect().top + scrollY - 200));
   await expect(page.locator('.wall')).toHaveClass(/\btorn\b/);
   await expect(last).toHaveCSS('visibility', 'hidden');
-  await expect(page.locator('canvas.ff3d')).not.toHaveClass(/\bempty\b/);
+  await expect(page.locator('canvas.ff3d:not(.empty)')).toHaveCount(1);
   await expect(page.locator('#table-slot .still')).toHaveCSS('visibility', 'hidden');
 });
 
@@ -834,7 +872,7 @@ test('the page turns to night at the collage and stays night to the end, day aga
 test('the frame\'s shadow is the table\'s: none until its foot meets the table', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
   const [tear, table] = await page.evaluate(() => {
     const f = (window as any).__ff();
     const n = f.stops.length;
@@ -942,39 +980,118 @@ test('with reduced motion the video shows its poster and does not play', async (
   expect(await video.evaluate((v: HTMLVideoElement) => [v.paused, v.autoplay])).toEqual([true, false]);
 });
 
-test('the frame freezes dead centre for its dwell while a light bar sweeps its glass', async ({ page }) => {
+test('the frame lands in the e-paper pair as the other size slides in beside it, and both hold while a light bar sweeps them', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
+  // the other size joins before anyone reaches the pair
+  await expect(page.locator('canvas.ff3d')).toHaveCount(2, { timeout: 20_000 });
   const [s0, s1] = await page.evaluate(() => (window as any).__ff().stops[1].slice(0, 2));
   expect(s1 - s0).toBeGreaterThan(200);
   const at = async (y: number) => {
-    await page.evaluate((y) => scrollTo(0, y), y);
-    return page.evaluate(() => (window as any).__ff().st);
+    await page.evaluate((y) => scrollTo(0, y), Math.round(y));
+    return page.evaluate(() => (window as any).__ff());
   };
   const states = [];
-  for (const f of [0, 0.25, 0.5, 0.75, 1]) states.push(await at(Math.round(s0 + f * (s1 - s0))));
-  for (const st of states) {
-    expect(st.rect.y).toBeCloseTo(states[0].rect.y, 3);
-    expect(st.rect.h).toBeCloseTo(states[0].rect.h, 3);
-    expect(st.rect.x).toBeCloseTo(states[0].rect.x, 3);
-  }
-  // dead centre in the window below the running head, and wholly on screen
+  // (whole pixels inside the pin: a scroll a fraction short of it is not yet pinned, and the stop's last tenth of a
+  // window goes up with the page once the pin lets go)
+  const [a, b] = [Math.ceil(s0), Math.floor(s1 - 0.1 * 900)];
+  for (const f of [0, 0.25, 0.5, 0.75, 1]) states.push(await at(a + f * (b - a)));
   const nav = await page.locator('.head').evaluate((e) => e.getBoundingClientRect().height);
-  const r = states[0].rect;
-  expect(Math.abs(r.y - nav - (900 - nav - r.h) / 2)).toBeLessThan(1);
-  expect(r.y).toBeGreaterThanOrEqual(nav);
-  expect(r.y + r.h).toBeLessThanOrEqual(900);
-  // the bar rises through the dwell
-  const bars = states.map((st) => st.bar);
+  for (const { st, pair } of states) {
+    // both still, side by side: B&W's 10.3-inch (the page's tone) on the left, the 13.3-inch beside it at its true size
+    expect(st.rect.y).toBeCloseTo(states[0].st.rect.y, 3);
+    expect(st.rect.x).toBeCloseTo(states[0].st.rect.x, 3);
+    const p = pair.partner.rect;
+    expect(p.x).toBeCloseTo(states[0].pair.partner.rect.x, 3);
+    // …the 13.3-inch behind, the 10.3-inch overlapping a quarter of its own width
+    expect(p.x).toBeCloseTo(st.rect.x + st.rect.w * 0.75, -1);
+    expect(st.rect.h / p.h).toBeCloseTo(295 / 371, 2);
+    // standing on the same line, wholly in the window
+    expect(Math.abs(st.rect.y + st.rect.h - (p.y + p.h))).toBeLessThan(1);
+    expect(p.y).toBeGreaterThanOrEqual(nav);
+    expect(p.y + p.h).toBeLessThanOrEqual(900);
+  }
+  // the bar rises over the pair's first half-window of scroll, then is gone
+  const bars = [];
+  for (const f of [0.05, 0.3, 0.55, 0.8]) bars.push((await at(s0 + f * 450)).st.bar);
   for (let i = 1; i < bars.length; i++) expect(bars[i]).toBeGreaterThan(bars[i - 1]);
-  // on the way in from the cover, the frame never leaves the window's top or bottom
+  expect((await at(s0 + 470)).st.bar).toBeNull();
+  // on the way in from the cover, the frame never leaves the window's top or bottom, and the other size slides in
+  // from past the right edge over the flight's second half
+  const xs = [];
   for (const f of [0.2, 0.4, 0.6, 0.8]) {
-    const st = await at(Math.round(f * s0));
+    const { st, pair } = await at(f * s0);
     expect(st.rect.y).toBeGreaterThanOrEqual(nav - 1);
     expect(st.rect.y + st.rect.h).toBeLessThanOrEqual(901);
+    xs.push(pair.partner.rect?.x ?? null);
   }
+  expect(xs[0]).toBeNull();
+  expect(xs[2]).toBeGreaterThan(xs[3]);
+  expect(xs[2]).toBeLessThan(1440);
 });
+
+test('the pair refreshes together once by itself, then on Refresh, with a timer under each at the panel\'s own pace', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000&rate=10');
+  await expect(page.locator('canvas.ff3d')).toHaveCount(2, { timeout: 20_000 });
+  const refresh = page.locator('#pair .run button');
+  const timers = page.locator('#pair .timer');
+  await expect(refresh).toBeDisabled();
+  await expect(timers).toHaveText(['0.0\u00a0s', '0.0\u00a0s']);
+  const [s0] = await page.evaluate(() => (window as any).__ff().stops[1]);
+  await page.evaluate((y) => scrollTo(0, y), Math.round(s0 + 20));
+  // both to the Wild Turkey; each timer stops at its own refresh's length, in the panel's time
+  await expect(timers).toHaveText(['1.0\u00a0s', '15.6\u00a0s'], { timeout: 20_000 });
+  const glass = () => page.evaluate(() => (window as any).__ff().glass);
+  expect(Object.values(await glass()).every((g) => /wild-turkey/.test(g as string))).toBe(true);
+  // and back to the Cedar Waxwing on Refresh, which waits until both are done
+  await expect(refresh).toBeEnabled();
+  await expect(refresh).toHaveText('Watch them refresh');
+  await refresh.click();
+  await expect(refresh).toBeDisabled();
+  await expect(refresh).toHaveText('Refreshing…');
+  await expect.poll(async () => Object.values(await glass()).every((g) => /cedar-waxwing/.test(g as string)), { timeout: 20_000 }).toBe(true);
+  await expect(timers).toHaveText(['1.0\u00a0s', '15.6\u00a0s'], { timeout: 20_000 });
+  await expect(refresh).toBeEnabled();
+  await expect(refresh).toHaveText('Watch them refresh');
+  // leaving for the art spread, the captions and the button go, and come back with the frame
+  const [s0b, s1] = await page.evaluate(() => (window as any).__ff().stops[1]);
+  await page.evaluate((y) => scrollTo(0, y), Math.round(s1 + 40));
+  await expect(page.locator('#pair')).toHaveClass(/\baway\b/);
+  for (const sel of ['#pair .ep.s10 figcaption', '#pair .ep.s13 figcaption', '#pair .run']) await expect(page.locator(sel)).toHaveCSS('opacity', '0');
+  await page.evaluate((y) => scrollTo(0, y), Math.round(s0b + 20));
+  await expect(page.locator('#pair')).not.toHaveClass(/\baway\b/);
+  await expect(page.locator('#pair .run')).toHaveCSS('opacity', '1');
+});
+
+for (const [name, setup] of [
+  ['on a phone', async (page: import('@playwright/test').Page) => { await page.setViewportSize({ width: 390, height: 844 }); }],
+  ['with reduced motion', async (page: import('@playwright/test').Page) => { await page.emulateMedia({ reducedMotion: 'reduce' }); }],
+] as const) {
+  test(`${name} the pair is flat, its glass live, and refreshes at the panel's own pace`, async ({ page }) => {
+    await setup(page);
+    const models: string[] = [];
+    page.on('request', (r) => { if (/\.glb$/.test(r.url())) models.push(r.url()); });
+    await page.goto('/?rate=10');
+    await page.locator('#pair').scrollIntoViewIfNeeded();
+    await expect(page.locator('#pair')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+    await expect(page.locator('#pair .flat canvas')).toHaveCount(2);
+    const refresh = page.locator('#pair .run button');
+    const timers = page.locator('#pair .timer');
+    if (name === 'with reduced motion') {
+      // nothing moves by itself: Refresh starts it
+      await page.waitForTimeout(2000);
+      await expect(timers).toHaveText(['0.0\u00a0s', '0.0\u00a0s']);
+      await refresh.click();
+    }
+    await expect(timers).toHaveText(['1.0\u00a0s', '15.6\u00a0s'], { timeout: 20_000 });
+    await expect(refresh).toBeEnabled();
+    expect(models).toEqual([]);
+    const [sw, cw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
+    expect(sw).toBeLessThanOrEqual(cw);
+  });
+}
 
 test('a wall frame opens large and closes again', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -1032,7 +1149,7 @@ test('a wall frame opens large and closes again', async ({ page }) => {
 test('the last frame tears off under the running head, and flies under it', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
   const tear = await page.evaluate(() => { const f = (window as any).__ff(); return f.stops[f.stops.length - 2][0]; });
   await page.evaluate((y) => scrollTo(0, y), tear);
   const [nav, last] = await Promise.all(['.head', '.wall .cat figure:last-child .im'].map((s) =>
@@ -1053,7 +1170,7 @@ test('the last frame tears off under the running head, and flies under it', asyn
 });
 test('each chapter opens with an eyebrow, not a numbered rule', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.folio .eyebrow')).toHaveText(['The art', 'From the collection', 'How it works', 'The collage', 'Technical details']);
+  await expect(page.locator('.folio .eyebrow')).toHaveText(['E-paper', 'The art', 'From the collection', 'How it works', 'The collage', 'Technical details']);
   for (const f of await page.locator('.folio').all()) {
     expect(await f.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe('0px');
   }
@@ -1112,7 +1229,7 @@ test('in the lightbox the arrow keys step through the wall, wrapping', async ({ 
 test('no hatched surface anywhere, and the live frame draws no shadow floor', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
   const hatched = await page.evaluate(() => [...document.querySelectorAll('*')].flatMap((e) =>
     [getComputedStyle(e), getComputedStyle(e, '::before'), getComputedStyle(e, '::after')]
       .filter((c) => /repeating-|url\([^)]*(hatch|table|floor)/.test(c.backgroundImage))
@@ -1145,12 +1262,15 @@ test('each eyebrow sits right above its headline', async ({ page }) => {
 test('the glass never refreshes while the frame is in flight', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
   const stops = await page.evaluate(() => (window as any).__ff().stops.map((x: number[]) => [x[0], x[1]]));
   const st = async (y: number) => { await page.evaluate((y) => scrollTo(0, y), Math.round(y)); return page.evaluate(() => (window as any).__ff().st); };
-  // from the cover to the centre: the cycle, then no change, until the frame is all but still
-  for (const f of [0.2, 0.5, 0.8]) expect((await st(f * stops[1][0])).screen).not.toBe('art');
-  expect((await st(stops[1][0] + 5)).screen).toBe('art');
+  // from the cover to the pair: the cycle, then no change, until the frame is all but still; from the pair to the
+  // art spread, what the pair left it with, until it has landed there
+  for (const f of [0.2, 0.5, 0.8]) expect((await st(f * stops[1][0])).screen).not.toBe('pair');
+  expect((await st(stops[1][0] + 5)).screen).toBe('pair');
+  for (const f of [0.2, 0.5, 0.8]) expect((await st(stops[1][1] + f * (stops[2][0] - stops[1][1]))).screen).toBeNull();
+  expect((await st(stops[2][0] + 5)).screen).toBe('art');
   // from the wall's last place to the table: the wren all the way, the detection once it has landed
   const n = stops.length;
   const [tear, table] = [stops[n - 2][1], stops[n - 1][0]];
@@ -1161,7 +1281,7 @@ test('the glass never refreshes while the frame is in flight', async ({ page }) 
 test('each of the running head\'s links lands its section\'s eyebrow a little under the head', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
   for (const id of ['art', 'how', 'specs', 'faq']) {
     await page.evaluate(() => scrollTo(0, 0));
     await page.locator(`.head nav a[href="#${id}"]`).click();
@@ -1175,7 +1295,7 @@ test('each of the running head\'s links lands its section\'s eyebrow a little un
     expect(g, id).toBeLessThanOrEqual(120);
     if (id === 'art') {
       // the frame pinned beside the headline, not on its way there
-      // (the art stop is the journey's third: the cover, the centre, the art)
+      // (the art stop is the journey's third: the cover, the pair, the art)
       const [y, art] = await page.evaluate(() => [scrollY, (window as any).__ff().stops[2]]);
       expect(y).toBeGreaterThanOrEqual(art[0]);
       expect(y).toBeLessThanOrEqual(art[1]);
@@ -1221,7 +1341,7 @@ test('Color / B&W in the running head switches every frame on the page', async (
 test('a lost WebGL context hands the page back to its stills', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');
-  await expect(page.locator('canvas.ff3d')).toHaveClass(/\blive\b/, { timeout: 20_000 });
+  await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
   await page.evaluate(() => (document.querySelector('canvas.ff3d') as HTMLCanvasElement).getContext('webgl2')!.getExtension('WEBGL_lose_context')!.loseContext());
   await expect(page.locator('html')).not.toHaveClass(/\bchoreo\b/);
   await expect(page.locator('canvas.ff3d')).toHaveCount(0);
@@ -1229,10 +1349,9 @@ test('a lost WebGL context hands the page back to its stills', async ({ page }) 
   expect(await page.locator('#art-slot .still').evaluate((e) => getComputedStyle(e).visibility)).toBe('visible');
 });
 
-test('the refresh note shows only with the live frame, and the switch only near a frame', async ({ page }) => {
+test('the switch shows only near a frame', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto('/');
-  await expect(page.locator('.cover .speed')).toBeHidden();
   // (a phone's cover keeps its Pre-order button clear: the switch comes with the wall)
   await expect(page.locator('.tone.pill')).toHaveCSS('opacity', '0');
   await page.locator('.wall .cat').scrollIntoViewIfNeeded();
@@ -1278,3 +1397,23 @@ test("B&W's wall closes up round the smaller frames", async ({ page }) => {
   expect(Math.abs(a!.height - b!.height)).toBeLessThan(2);
 });
 
+
+test('the page sets its text in a handful of sizes: the serif at four, the small capitals at one', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await page.evaluate(() => document.fonts.ready);
+  const sizes = await page.evaluate(() => {
+    const out = new Set<string>();
+    for (const el of document.querySelectorAll('header *, main *, footer *')) {
+      // (the headlines are the display; the notification on the video is BirdNET's, set as an app sets it)
+      if (el.closest('h1, h2, .toast, .fnref, .unmute')) continue;
+      if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim())) continue;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      out.add(`${cs.fontFamily.includes('Fell') ? 'caps' : cs.fontFamily.includes('Garamond') ? 'serif' : cs.fontFamily} ${cs.fontSize}`);
+    }
+    return [...out].sort();
+  });
+  expect(sizes).toEqual(['caps 13px', 'serif 15px', 'serif 17px', 'serif 21px', 'serif 26px']);
+});

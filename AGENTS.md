@@ -797,7 +797,8 @@ frame hangs the other way up the firmware turns every baked screen and tile
 The wall runs always-awake today; deep sleep is the
 less-tested branch. An optional status LED (W-876, `ff_led.cpp`): one WS2812B pixel
 with DIN on GPIO39, soldered to pad 1 of the unfitted font chip U6 (3V3 on
-pads 7/8, GND on 4, both kits); `ledSet()` from the boot, portal, fetch
+pads 7/8, GND on 4, both kits; U6 is turned 180° on the EE02, so pad 1 is
+found by the empty R39 beside it, never by where it sat on the EE03); `ledSet()` from the boot, portal, fetch
 outcome (`noteLedOutcome`) and OTA paths, dark in deep sleep. Setup is one
 colour a step: blue breathing slowly while the hotspot waits, steady once a
 phone is on it (`onWifiLed`, Wi-Fi events), a quick pulse while it joins the

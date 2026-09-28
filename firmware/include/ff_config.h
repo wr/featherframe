@@ -65,6 +65,9 @@
 // One WS2812B/SK6812 pixel, DIN on GPIO39: the XIAO's D12 pad sits under the
 // module, but the driver board carries it to pad 1 of U6, the font chip Seeed
 // never fits (both EE02 and EE03), with 3V3 on pads 7/8 and GND on pad 4.
+// Seeed turned U6 180° on the EE02: with the XIAO at the top, pad 1 is the
+// top-left pad on the EE03 and the bottom-right one on the EE02. The empty
+// R39 spot beside pad 1 marks it on both.
 // Nothing else is on that line, so a kit without the pixel is unaffected.
 // -DFF_STATUS_LED_PIN=-1 builds without it.
 #ifndef FF_STATUS_LED_PIN

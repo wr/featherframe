@@ -33,8 +33,28 @@
   --max: 1296px;   /* the widest the page's content runs (1440 less its margins) */
   --flat: 0.79483;   /* the dead-on frame's width over height (choreo.ts's slots; the wall's stills) */
   --gutter: 28px;  /* column gap */
-  --display: clamp(80px, 8.2vw, 118px);
-  --shadow-print: 0 1px 1px rgba(0, 0, 0, .06), 0 16px 30px -22px rgba(0, 0, 0, .35);
+  /* Type. Every text on the page is one of these roles: the serif at four sizes, the small capitals at one, and
+     the display; a phone steps the serif down (max-width: 820px). */
+  --t-fine: 15px;    /* footnotes, the colophon's small print */
+  --t-small: 17px;   /* captions, credits and notes: italic, in graphite */
+  --t-body: 21px;    /* reading text */
+  --t-lede: 26px;    /* a section's opening sentences; a frame's name under it; a question */
+  --t-caps: 13px;    /* small capitals: eyebrows, labels, buttons, the running head */
+  --caps-track: .2em;
+  --display: clamp(80px, 8.2vw, 118px);  /* a chapter's headline */
+  --lh-display: .9;
+  --lh-title: 1.15;
+  --lh-lede: 1.4;
+  --lh-body: 1.55;
+  /* Space: within a unit (an eyebrow on its headline), from a heading to its block, between a chapter's parts,
+     between chapters that belong together, and between chapters */
+  --s-unit: 16px;
+  --s-block: 40px;
+  --s-part: 64px;
+  --s-near: 110px;
+  --s-chapter: 180px;
+  --shadow-float: 0 1px 2px rgba(0, 0, 0, .08), 0 14px 34px -12px rgba(0, 0, 0, .3);  /* what floats over the page */
+  --shadow-front: drop-shadow(0 12px 22px rgba(0, 0, 0, .2));  /* a frame standing in front of another */
   --shadow-floor: radial-gradient(closest-side, rgba(0, 0, 0, .09), rgba(0, 0, 0, .03) 60%, transparent);
   --nav: 78px;     /* the running head, which stays at the top */
 }
@@ -43,7 +63,7 @@
 html { font-kerning: normal; overflow-x: clip; }
 body {
   margin: 0; background: var(--paper); color: var(--ink);
-  font: 400 21px/1.55 var(--serif); font-variant-numeric: oldstyle-nums proportional-nums;
+  font: 400 var(--t-body)/var(--lh-body) var(--serif); font-variant-numeric: oldstyle-nums proportional-nums;
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
@@ -51,14 +71,17 @@ img { display: block; max-width: 100%; height: auto; }
 figure { margin: 0; }
 h2 { font-weight: 400; text-wrap: balance; }
 .it { font-style: italic; }
-.sc { font-family: var(--caps); text-transform: uppercase; letter-spacing: .22em; font-size: 12.5px; line-height: 1.35; }
+/* the small capitals, one size and one tracking wherever they are set */
+.sc, .eyebrow, .btn, .spec dt, .cat .by, .lightbox .by, .field button {
+  font-family: var(--caps); font-size: var(--t-caps); font-weight: 400; letter-spacing: var(--caps-track); text-transform: uppercase;
+}
+.sc, .eyebrow, .cat .by, .lightbox .by { line-height: 1.35; }
 .ul { border-bottom: 1px solid var(--hair); }
 .ul:hover { border-color: var(--ink); }
 
 .btn {
   display: inline-flex; align-items: center; height: 48px; padding: 0 28px; white-space: nowrap;
-  border-radius: 2px; background: var(--ink); color: var(--paper);
-  font: 13px/1 var(--caps); letter-spacing: .18em; text-transform: uppercase;
+  border-radius: 2px; background: var(--ink); color: var(--paper); line-height: 1;
 }
 .btn:hover { background: #000; }
 .night .btn:hover { background: #fff; }
@@ -66,16 +89,15 @@ h2 { font-weight: 400; text-wrap: balance; }
 .page { padding: 0 var(--m); overflow-x: clip; } /* the cover's stage runs past the right edge */
 .folio {
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 96px;
+  margin-bottom: var(--s-part);
 }
 /* each chapter's eyebrow: small capitals in graphite, no number, no rule;
    set right above its headline, as one unit with it */
-.folio:has(+ h2) { margin-bottom: 16px; }
-.eyebrow { font: 13px/1.35 var(--caps); letter-spacing: .22em; text-transform: uppercase; color: var(--graphite); }
-.folio .n { font: italic 17px var(--serif); color: var(--graphite); }
-.mega, .spread h2, .close .big { font-size: var(--display); line-height: .9; letter-spacing: -.035em; }
-.lede { font-size: 26px; line-height: 1.42; margin: 0; }
-.intro2 { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin-top: 60px; }
+.folio:has(+ h2) { margin-bottom: var(--s-unit); }
+.eyebrow { color: var(--graphite); }
+.mega, .spread h2, .close .big { font-size: var(--display); line-height: var(--lh-display); letter-spacing: -.035em; }
+.lede { font-size: var(--t-lede); line-height: var(--lh-lede); margin: 0; }
+.intro2 { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin-top: var(--s-part); }
 .intro2 .lede { grid-column: 7 / 13; }
 /* the flight from the wall to the table passes down the right: the lede keeps to the left, as the closing one does */
 #how .intro2 .lede { grid-column: 1 / 7; }
@@ -134,22 +156,23 @@ h2 { font-weight: 400; text-wrap: balance; }
    and earlier); the button stays on top, where it can be pressed */
 .cover .copy p, .cover .cta .it { position: relative; z-index: -2; }
 .cover .cta .btn { position: relative; z-index: 2; }
-.cover .copy p { font-size: 24px; line-height: 1.42; margin: 0 0 26px; text-wrap: pretty; }
+.cover .copy p { font-size: var(--t-lede); line-height: var(--lh-lede); margin: 0 0 26px; text-wrap: pretty; }
 .cta { display: flex; align-items: center; gap: 20px; }
-.cta .it { color: var(--graphite); font-size: 20px; }
+.cta .it { color: var(--graphite); }
 
 /* I. The art: a spread, the frame showing the flamingo in its left half,
    pinned there, centred below the running head, while the text scrolls past. */
-.spread { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: calc(2 * var(--gutter)); align-items: start; margin-top: 110px; container-type: inline-size; }
+.spread { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: calc(2 * var(--gutter)); align-items: start; margin-top: var(--s-near); container-type: inline-size; }
 .spread .plate {
   --h: calc(0.9 * min(calc((50cqw - var(--gutter)) / var(--flat)), calc(100vh - var(--nav) - 80px)));
   position: sticky; top: calc(var(--nav) + (100vh - var(--nav) - var(--h)) / 2); width: calc(var(--h) * var(--flat)); justify-self: center;
 }
 .spread .plate img { width: 100%; }
 .spread .text { display: flex; flex-direction: column; justify-content: flex-end; padding: 16vh 0 14vh; }
-.spread .text .folio { margin-bottom: 16px; }
-.spread h2 { margin: 0 0 40px; font-size: min(var(--display), 8.4cqw); }
-.cols { display: flow-root; max-width: 36ch; font-size: 22px; line-height: 1.58; text-wrap: pretty; }
+/* a spread's headline: the display, as large as its column allows (the same in both spreads), broken at its
+   phrases (5em holds "1,300 species," but not "More than 1,300") */
+.spread h2 { max-width: 5em; margin: 0 0 var(--s-block); font-size: min(var(--display), 7cqw); }
+.cols { display: flow-root; max-width: 36ch; text-wrap: pretty; }
 .cols p { margin: 0 0 .9em; }
 .drop::first-letter { float: left; font-size: 88px; line-height: .8; margin: 6px 8px 0 -2px; font-weight: 400; }
 /* Where the browser sets initial letters, the cap is exactly three lines deep: its top on the first line's cap
@@ -166,13 +189,11 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* tall enough that the pair holds for most of a window's scroll: time to watch the colour refresh */
 .epaper { min-height: calc(100vh + 70vh); }
 .epaper .lead { grid-column: 1; grid-row: 1; padding-top: 16vh; }
-.epaper .lead .folio { margin-bottom: 16px; }
-.epaper h2 { font-size: min(var(--display), 6.4cqw); }
 .epaper .why { grid-column: 1; grid-row: 2; margin: 8px 0 0; padding: 0 0 14vh; max-width: 38ch; list-style: none; }
 /* each fact led by its mark, drawn like the seasons' (an engraving's line), level with its first line */
 .why li { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 18px; align-items: start; margin: 24px 0 0; }
 .why .ico { width: 24px; height: 24px; margin-top: 3px; color: var(--ink); }
-.why p { margin: 0; font-size: 20px; line-height: 1.5; color: var(--text); text-wrap: pretty; }
+.why p { margin: 0; color: var(--text); text-wrap: pretty; }
 /* --h13: the 13.3-inch's height, as tall as the columns and the window allow; the 10.3-inch is 295/371 of it, and
    stands in front of it, over a quarter of its own width (--lap): 1.2624 is the pair's width over --h13 */
 .pair {
@@ -190,13 +211,15 @@ h2 { font-weight: 400; text-wrap: balance; }
 .ep.s10 .slot { height: calc(var(--h13) * 295 / 371); width: calc(var(--h13) * 295 / 371 * 596 / 760); }
 .ep .slot .still { width: 100%; height: 100%; }
 /* the one in front casts a soft shadow on the one behind (the live frame's canvas too: choreo.ts .ff3d.front) */
-.ep.s10 .slot img, .ff3d.front { filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .2)); }
-.ep figcaption { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 18px; text-align: center; transition: opacity .3s ease; }
+.ep.s10 .slot img, .ff3d.front { filter: var(--shadow-front); }
+/* a frame's caption, here and in the details: its name, then one fact about it */
+.ep figcaption, .ho figcaption { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: var(--s-unit); text-align: center; }
+.ep .nm, .ho figcaption b { font: italic var(--t-lede)/var(--lh-title) var(--serif); }
+.ep figcaption { transition: opacity .3s ease; }
 .run { transition: opacity .3s ease; }
 .pair.away figcaption, .pair.away .run { opacity: 0; }
 .pair.away .run { pointer-events: none; }
-.ep .nm { font: italic 26px/1.15 var(--serif); }
-.ep .timer { font: 500 20px/1.3 var(--sans); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.ep .timer { line-height: var(--lh-title); font-variant-numeric: lining-nums tabular-nums; color: var(--ink); white-space: nowrap; }
 .ep .timer.idle { color: var(--faint); }
 .run { display: flex; justify-content: center; margin: 30px 0 0; }
 .pair:not(.live) .run { visibility: hidden; }
@@ -233,13 +256,12 @@ h2 { font-weight: 400; text-wrap: balance; }
 .choreo .wall.torn .cat figure:last-child img { visibility: hidden; }
 
 /* Chapters */
-.sec { margin-top: 190px; }
+.sec { margin-top: var(--s-chapter); }
 .mega { margin: 0 0 0 -.04em; max-width: 13ch; }
 
 /* II. From the collection: a gallery wall of frames, seen dead-on */
-.folio .r { display: flex; align-items: baseline; gap: 28px; }
 .tone.pill { position: fixed; top: calc(var(--nav) + 14px); right: var(--m); z-index: 21; display: inline-flex; padding: 3px; border-radius: 999px;
-  background: var(--paper); box-shadow: 0 0 0 1px var(--hair), 0 6px 20px -8px rgba(0, 0, 0, .18); }
+  background: var(--paper); box-shadow: 0 0 0 1px var(--hair), var(--shadow-float); }
 /* the thumb: slides under the chosen tone */
 .tone.pill::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 999px;
   background: var(--ink); transition: transform .3s cubic-bezier(.3, 0, .2, 1); }
@@ -277,17 +299,17 @@ h2 { font-weight: 400; text-wrap: balance; }
 .choreo .wall .folio { transition: opacity .3s ease; }
 .choreo .wall:not(.landed) .folio { opacity: 0; }
 .cat figcaption { margin-top: 16px; border-top: 1px solid var(--hair); padding-top: 10px; }
-.cat .nm { display: block; font-size: 21px; line-height: 1.2; }
-.cat .la { display: block; font: italic 17px var(--serif); color: var(--graphite); }
+.cat .nm { display: block; line-height: var(--lh-title); }
+.cat .la { display: block; font: italic var(--t-small) var(--serif); color: var(--graphite); }
 /* the artist and the book, as a plate's imprint */
-.cat .by { display: block; margin-top: 6px; font: 12px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
-.cat .by i { display: block; margin-top: 3px; font: italic 15px/1.3 var(--serif); letter-spacing: 0; text-transform: none; }
-.sec.wall { margin-top: 96px; }
-.wall .folio { padding: 14px 0 12px; margin-bottom: 40px; }
+.cat .by { display: block; margin-top: 6px; color: var(--graphite); }
+.cat .by i { display: block; margin-top: 3px; font: italic var(--t-small)/var(--lh-title) var(--serif); letter-spacing: 0; text-transform: none; }
+.sec.wall { margin-top: var(--s-near); }
+.wall .folio { padding: 14px 0 12px; margin-bottom: var(--s-block); }
 
 /* III. How it works: the frame on its table pinned on the right while the
    song and the photograph scroll past on the left. */
-.trip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--gutter); align-items: start; margin-top: 64px; container-type: inline-size; }
+.trip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--gutter); align-items: start; margin-top: var(--s-part); container-type: inline-size; }
 /* the video's top level with the frame's (the table's padding is 16% of its width); the words under it */
 .lcol { padding: calc((100cqw - var(--gutter)) / 2 * 0.16) 0 0; }
 /* The video of the species heard, with its song's spectrogram laid across
@@ -296,7 +318,7 @@ h2 { font-weight: 400; text-wrap: balance; }
    crossing it. */
 .ph { position: relative; }
 .ph video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; /* the clips' own shape: no bird cropped */ object-fit: cover; background: #d9d9d5;
-            border-radius: 0; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 18px 40px -18px rgba(0, 0, 0, .35); }
+            border-radius: 0; box-shadow: var(--shadow-float); }
 .spectro { position: absolute; left: 0; right: 0; bottom: 0; height: 33.4%; padding: 3% 4% 3.4%; border-radius: 0;
            background: linear-gradient(to top, rgba(0, 0, 0, .74), rgba(0, 0, 0, .56) 60%, rgba(0, 0, 0, 0)); }
 .spectro .sg { height: 100%; }
@@ -306,19 +328,18 @@ h2 { font-weight: 400; text-wrap: balance; }
 .sg:focus-visible { outline: 2px solid #fff; outline-offset: -2px; box-shadow: 0 0 0 4px rgba(0, 0, 0, .5); }
 .playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: #fff; box-shadow: 0 0 4px rgba(0, 0, 0, .4); pointer-events: none; }
 .playhead[hidden] { display: none; }
-/* Unmute, in the video's middle, plays the song again with sound; with sound on, a click on the video mutes it */
+/* Unmute plays the song again with sound, and with sound on a click on the video mutes it: a round speaker at the
+   spectrogram's right end, so the picture is the picture (the label is its aria-label; its hidden text is a second,
+   empty grid row, so the rows are packed at the centre rather than stretched, or the speaker sits high) */
 .unmute {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2;
-  display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 26px 0 22px;
-  border: 0; border-radius: 26px; background: var(--ink); color: #fff; cursor: pointer;
-  font: 14px/1 var(--caps); letter-spacing: .2em; text-transform: uppercase;
-  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, .45);
+  position: absolute; right: 12px; bottom: calc(33.4% / 2 - 24px); z-index: 2;
+  display: grid; place-items: center; place-content: center; width: 48px; height: 48px; padding: 0; gap: 0;
+  border: 0; border-radius: 50%; background: rgba(18, 18, 18, .82); color: #fff; font-size: 0; cursor: pointer;
 }
 .unmute::before { content: ""; width: 18px; height: 18px; background: currentColor;
   -webkit-mask: var(--speaker) center / contain no-repeat; mask: var(--speaker) center / contain no-repeat; }
 .unmute:hover { background: #000; }
 .unmute[hidden] { display: none; }
-.ph .unmute { z-index: 2; }
 /* the video itself is the song's switch too: a click with sound on mutes it */
 .ph video { cursor: pointer; }
 :root { --speaker: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 9h4l5-4v14l-5-4H3z'/%3E%3Cpath d='M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
@@ -328,7 +349,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .toast {
   position: absolute; left: 28px; top: -22px; z-index: 3;
   display: flex; align-items: center; gap: 12px; min-width: 260px; padding: 10px 14px 10px 10px;
-  background: #fff; border-radius: 12px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 14px 34px -12px rgba(0, 0, 0, .3);
+  background: #fff; border-radius: 12px; box-shadow: var(--shadow-float);
   font-family: var(--sans); font-variant-numeric: normal; color: #121212;
   opacity: 0; transform: translate(-12px, -6px); transition: opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1); pointer-events: none;
 }
@@ -342,8 +363,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .toast .k { font: 500 12px/1.35 var(--sans); color: #6b6b69; }
 .toast .nm { font: 600 16px/1.3 var(--sans); color: #121212; white-space: nowrap; }
 .toast .when { align-self: flex-start; margin: 1px 0 0 14px; font: 400 12px/1.35 var(--sans); color: #6b6b69; white-space: nowrap; }
-.t2 figcaption, .t3 figcaption { margin-top: 14px; color: var(--graphite); font-size: 17px; }
-.t3 figcaption .fn { display: block; margin-top: 4px; font-style: normal; font-size: 15px; }
+.t2 figcaption, .t3 figcaption { margin-top: 14px; color: var(--graphite); font-size: var(--t-small); }
+.t3 figcaption .fn { display: block; margin-top: 4px; font-style: normal; font-size: var(--t-fine); }
 /* on a desktop the table stands beside the video; stacked on a phone, a line says what it is */
 .t3 .then .t13, [data-tone="13"] .t3 .then .t10 { display: none; }
 [data-tone="13"] .t3 .then .t13 { display: inline; }
@@ -373,12 +394,13 @@ h2 { font-weight: 400; text-wrap: balance; }
    the frame settles (--land, choreo.ts) */
 .contact { position: absolute; left: -4%; right: 2%; bottom: -6%; height: 14%; z-index: -2; pointer-events: none;
            background: radial-gradient(closest-side, rgba(0, 0, 0, .07), rgba(0, 0, 0, .025) 55%, transparent); opacity: var(--land, 1); }
-.closing { margin-top: 44px; }
-.closing .lede { margin: 0; font-size: 21px; color: var(--text); }
+/* (the closing's paragraphs are reading text, whatever their class) */
+.closing { margin-top: var(--s-block); }
+.closing .lede { margin: 0; font-size: var(--t-body); line-height: var(--lh-body); color: var(--text); }
 .closing .lede + .lede { margin-top: 18px; }
 .logos { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin: 18px 0 0; }
 .logos .sc { color: var(--graphite); }
-.logos a { display: inline-flex; align-items: center; gap: 9px; font-size: 19px; color: var(--ink); filter: grayscale(1); }
+.logos a { display: inline-flex; align-items: center; gap: 9px; font-size: var(--t-small); color: var(--ink); filter: grayscale(1); }
 .logos a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .logos img { width: 28px; height: 28px; }
 /* BirdWeather's mark is drawn in ink: at night, in the night's ink */
@@ -389,22 +411,21 @@ h2 { font-weight: 400; text-wrap: balance; }
    (seasons.ts); on phones, and with reduced motion, the sheets stack. */
 #collage .intro2 .key { grid-column: 1 / 13; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--gutter); align-items: start; }
 #collage .intro2 .key .lede { grid-column: auto; margin: 0; text-wrap: pretty; }
-#collage .sub { margin: 22px 0 0; font-size: 19px; color: var(--graphite); }
-.seasons { margin-top: 80px; }
+.seasons { margin-top: var(--s-part); }
 .row { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 72px; }
 .season { display: flex; justify-content: center; width: 100%; }
 .season figure { width: min(100%, 440px); display: flex; flex-direction: column-reverse; } /* the season's name above its sheet: read first */
 .season img { width: 100%; }
 .season figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin: 0 0 18px; border-top: 1px solid var(--hair); padding-top: 10px; }
-.season figcaption .it { color: var(--text); font-size: 21px; }
-.season figcaption .sc { margin-right: auto; font-size: 15px; letter-spacing: .2em; color: var(--ink); }
+.season figcaption .it { color: var(--text); }
+.season figcaption .sc { margin-right: auto; color: var(--ink); }
 /* each season's mark, drawn like an engraving's line */
 .season .ico { flex: none; align-self: center; width: 30px; height: 30px; margin-right: 6px; color: var(--ink); }
-#collage .note { margin: 40px 0 0; color: var(--graphite); font-size: 17px; }
-#collage .note.fn { margin-top: 10px; font-size: 15px; max-width: 70ch; }
+#collage .note { margin: var(--s-block) 0 0; color: var(--graphite); font-size: var(--t-small); }
+#collage .note.fn { margin-top: 10px; font-size: var(--t-fine); max-width: 70ch; }
 #collage .note.fn a, .fnref { color: inherit; text-decoration: none; }
 .fnref { font-size: .7em; vertical-align: super; line-height: 0; margin-left: 1px; }
-.seasons-live .seasons { height: calc(100vh - var(--nav) + 165vh); margin-top: 40px;
+.seasons-live .seasons { height: calc(100vh - var(--nav) + 165vh); margin-top: var(--s-block);
   /* each sheet's frame: 72% of the window's height, unless the width runs out first */
   --sh: min(72vh, calc(100vh - var(--nav) - 160px), calc((100vw - 2 * var(--m)) * 1100 / 874));
   --sw: calc(var(--sh) * 874 / 1100); }
@@ -438,43 +459,42 @@ h2 { font-weight: 400; text-wrap: balance; }
 .diag svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .diag line { stroke: #121212; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .diag span { position: relative; transform: rotate(var(--angle)); padding: 1px 8px; background: #fff; color: #121212;
-             font: italic 16px var(--serif); white-space: nowrap; }
-.ho figcaption { margin-top: 24px; text-align: center; }
-.ho figcaption b { display: block; font: italic 400 26px/1.1 var(--serif); }
-.ho figcaption span { display: block; margin-top: 4px; font: italic 16px var(--serif); color: var(--graphite); }
-.spec { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin: 90px 0 0; }
+             font: italic var(--t-small) var(--serif); white-space: nowrap; }
+.ho figcaption span { font-style: italic; color: var(--graphite); }
+.spec { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); margin: var(--s-part) 0 0; }
 .spec dt, .spec dd { border-top: 1px solid var(--hair); padding: 14px 0 15px; margin: 0; }
-.spec dt { grid-column: 1 / 5; font: 13px/1.9 var(--caps); letter-spacing: .2em; text-transform: uppercase; color: var(--graphite); }
-.spec dd { grid-column: 5 / 13; font-size: 21px; line-height: 1.45; }
+/* (the term's line as tall as the fact's first line, so the two sit on one line) */
+.spec dt { grid-column: 1 / 5; line-height: calc(var(--t-body) * var(--lh-body)); color: var(--graphite); }
+.spec dd { grid-column: 5 / 13; }
 .spec dd span { display: block; }
-.spec dd .fine { margin-top: 6px; font-size: 16px; font-style: italic; color: var(--graphite); }
+.spec dd .fine { margin-top: 6px; font-size: var(--t-small); font-style: italic; color: var(--graphite); }
 
 /* VI. Questions */
-#faq { margin-top: 150px; }
 #faq { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--gutter); align-items: start; }
 #faq .faq-h { position: sticky; top: calc(var(--nav) + 40px); margin: 0; }
 .qa { margin: 0; }
 #faq .qa dt:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
-.qa dt { font: 400 28px/1.2 var(--serif); letter-spacing: -.01em; border-top: 1px solid var(--hair); padding-top: 26px; margin-top: 26px; }
+.qa dt { font: 400 var(--t-lede)/var(--lh-title) var(--serif); border-top: 1px solid var(--hair); padding-top: 26px; margin-top: 26px; }
 .qa dt:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
-.qa dd { margin: 10px 0 0; max-width: 60ch; font-size: 21px; color: var(--text); }
+.qa dd { margin: 10px 0 0; max-width: 60ch; color: var(--text); }
 
 /* Close */
-.close { margin-top: 160px; text-align: center; }
+/* the close follows the maker's note, which belongs with it */
+.close { margin-top: var(--s-near); text-align: center; }
 .close .big { margin: 0; }
 .close .big i { display: block; }
-.close p { margin: 48px 0 32px; font-size: 24px; color: var(--graphite); }
+.close p { margin: var(--s-block) 0 32px; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); }
 
 /* Colophon */
 .colophon {
   display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter);
-  margin-top: 180px; padding: 40px 0 90px; border-top: 1px solid var(--ink); row-gap: 56px;
-  color: var(--text); font-size: 18px; line-height: 1.6;
+  margin-top: var(--s-chapter); padding: 40px 0 90px; border-top: 1px solid var(--ink); row-gap: 56px;
+  color: var(--text); font-size: var(--t-small);
 }
 .colophon .a { grid-column: 1 / 5; }
 .colophon .b { grid-column: 6 / 9; }
 .colophon .c { grid-column: 10 / 13; }
-.colophon .d { grid-column: 1 / 13; max-width: 88ch; padding-top: 28px; border-top: 1px solid var(--hair); font-size: 15px; line-height: 1.75; color: var(--graphite); }
+.colophon .d { grid-column: 1 / 13; max-width: 88ch; padding-top: 28px; border-top: 1px solid var(--hair); font-size: var(--t-fine); color: var(--graphite); }
 .colophon .sc { display: block; margin-bottom: 12px; color: var(--ink); }
 .colophon .ww { display: block; width: max-content; margin-bottom: 16px; color: var(--ink); }
 .colophon .c ul { margin: 0; padding: 0; list-style: none; }
@@ -484,14 +504,14 @@ h2 { font-weight: 400; text-wrap: balance; }
 .field { display: flex; align-items: center; height: 46px; max-width: 360px; border-bottom: 1px solid var(--ink); }
 .field input {
   flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: none; outline: none;
-  font: italic 20px var(--serif); color: var(--ink);
+  font: italic var(--t-body) var(--serif); color: var(--ink);
 }
 .field input::placeholder { color: var(--faint); opacity: 1; }
 .field:focus-within { border-bottom-color: var(--ink); box-shadow: 0 1px 0 var(--ink); }
-.field button { padding: 0; border: 0; background: none; font: 12.5px/1 var(--caps); letter-spacing: .22em; text-transform: uppercase; color: var(--ink); cursor: pointer; }
+.field button { padding: 0; border: 0; background: none; line-height: 1; color: var(--ink); cursor: pointer; }
 .field button:disabled { color: var(--faint); cursor: default; }
-.form-why { margin: 0 0 4px; font: italic 17px/1.4 var(--serif); color: var(--graphite); }
-.form-note { margin: 8px 0 0; font: italic 17px var(--serif); color: var(--graphite); }
+.form-why { margin: 0 0 4px; font: italic var(--t-small)/var(--lh-lede) var(--serif); color: var(--graphite); }
+.form-note { margin: 8px 0 0; font: italic var(--t-small) var(--serif); color: var(--graphite); }
 .form-note:empty { display: none; }
 
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
@@ -520,7 +540,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 
 @media (max-width: 820px) {
-  :root { --m: 20px; --display: clamp(46px, 14.5vw, 92px); --nav: 56px; }
+  :root { --m: 20px; --display: clamp(46px, 14.5vw, 92px); --nav: 56px;
+          --t-body: 20px; --t-lede: 22px; --s-block: 28px; --s-part: 40px; --s-near: 80px; --s-chapter: 120px; }
   .head nav a.sc { display: none; }
   /* a slimmer running head; its wordmark and its button still a thumb's size */
   .head .word { min-height: 44px; }
@@ -563,16 +584,13 @@ h2 { font-weight: 400; text-wrap: balance; }
   .pair { position: static; margin: 36px 0 0; --h13: calc((100vw - 2 * var(--m)) / 1.2624); }
   .epaper .why { padding: 0; margin-top: 12px; }
   .why li { margin-top: 20px; }
-  .ep .nm { font-size: 19px; }
-  .ep .timer { font-size: 17px; }
+  /* (the frames' names under the narrow pair: one line each) */
+  .ep .nm { font-size: var(--t-body); }
 
-  .sec { margin-top: 120px; }
-  .intro2 { display: block; margin-top: 36px; }
-  .lede { font-size: 22px; }
+  .intro2 { display: block; }
   .cat { grid-template-columns: 1fr 1fr; gap: 36px 16px; }
   /* the wall's folio goes with the page on a phone: the count and the switch are set once */
-  .wall .folio { flex-wrap: wrap; row-gap: 14px; padding: 0; margin-bottom: 28px; }
-  .folio .r { gap: 16px; }
+  .wall .folio { flex-wrap: wrap; row-gap: 14px; padding: 0; }
   /* a phone's thumb: at the bottom of the window, in the middle */
   .tone.pill { top: auto; right: auto; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); }
   .tone.pill button { width: 74px; min-height: 44px; padding: 0; }
@@ -588,23 +606,16 @@ h2 { font-weight: 400; text-wrap: balance; }
   .t3 .then { margin-top: 4px; }
   /* sound on and off: a round speaker at the spectrogram's right end, so the picture is the picture */
   .cover::before { display: none; }
-  .closing .lede { font-size: 20px; }
-  .seasons { margin-top: 48px; }
+
   .row { gap: 40px; }
   .headon { gap: 44px; padding: 0; justify-content: center; }
   .diag span { padding: 0 4px; font-size: 11px; }
   .ho { --w: 34vw; }
-  .spec { display: block; margin-top: 70px; }
-  .spec dt { padding-bottom: 0; }
-  .spec dd { border-top: 0; padding-top: 4px; font-size: 20px; }
+  .spec { display: block; }
+  .spec dt { padding-bottom: 0; line-height: 1.35; }
+  .spec dd { border-top: 0; padding-top: 4px; }
   .qa { margin-left: 0; }
-  .qa dt { font-size: 23px; }
-  .close { margin-top: 140px; }
-  .colophon { display: block; margin-top: 110px; }
-  /* the small capitals, lifted a little for a phone in daylight */
-  .sc, .eyebrow, .spec dt { font-size: 13px; }
-  .cat .by { font-size: 12px; }
-  .colophon .d { font-size: 15px; }
+  .colophon { display: block; }
   /* tap targets: a thumb's size, the type as it was */
   .field { height: 46px; }
   .field button { height: 46px; padding: 0 0 0 16px; }
@@ -616,8 +627,6 @@ h2 { font-weight: 400; text-wrap: balance; }
   .colophon .d { margin-top: 0; }
 }
 
-@media (max-width: 400px) {
-}
 
 /* a phone held sideways: the headline must leave room for the rest of the screen */
 @media (max-width: 820px) and (max-height: 500px) {
@@ -668,10 +677,10 @@ h2 { font-weight: 400; text-wrap: balance; }
 .lightbox figure { display: flex; flex-direction: column; align-items: center; cursor: auto; }
 .lightbox img { height: min(calc(94vh - 110px), calc((100vw - 48px) / var(--flat))); width: auto; max-width: none; transform-origin: 0 0; }
 .lightbox figcaption { width: 100%; max-width: 34em; margin-top: 18px; text-align: center; border-top: 1px solid var(--hair); padding-top: 10px; }
-.lightbox .nm { display: block; font-size: 22px; line-height: 1.2; }
-.lightbox .la { display: block; font: italic 18px var(--serif); color: var(--graphite); }
-.lightbox .by { display: block; margin-top: 6px; font: 12px/1.4 var(--caps); letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); }
-.lightbox .by i { display: block; margin-top: 3px; font: italic 15px/1.3 var(--serif); letter-spacing: 0; text-transform: none; }
+.lightbox .nm { display: block; line-height: var(--lh-title); }
+.lightbox .la { display: block; font: italic var(--t-small) var(--serif); color: var(--graphite); }
+.lightbox .by { display: block; margin-top: 6px; color: var(--graphite); }
+.lightbox .by i { display: block; margin-top: 3px; font: italic var(--t-small)/var(--lh-title) var(--serif); letter-spacing: 0; text-transform: none; }
 .lb-close {
   position: absolute; top: 18px; right: 18px; display: grid; place-items: center; width: 44px; height: 44px;
   border: 0; border-radius: 50%; background: none; color: var(--ink); cursor: pointer;
@@ -699,8 +708,6 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 @media (max-width: 1000px) {
   .head nav a.sc { display: none; }
 }
-@media (max-width: 700px) {
-}
 /* A phone's head holds the script, the switch and Pre-order on one line: each a little tighter. */
 @media (max-width: 520px) {
   .head .brand { flex-shrink: 0; }
@@ -721,33 +728,21 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 }
 
 /* From the workshop: a note from the maker, before the reservation */
-.maker { max-width: 34em; margin: 170px auto 0; text-align: center; }
+.maker { max-width: 34em; margin: var(--s-chapter) auto 0; text-align: center; }
 .maker .sc { margin: 0 0 14px; color: var(--graphite); }
-.maker p:last-child { margin: 0; font-size: 22px; line-height: 1.5; font-style: italic; color: var(--text); }
-.maker + .close { margin-top: 110px; }
+.maker p:last-child { margin: 0; font-style: italic; color: var(--text); }
 @media (max-width: 820px) {
-  .maker { margin-top: 120px; }
-  .maker p:last-child { font-size: 20px; }
-  .maker + .close { margin-top: 80px; }
 }
 
 @media (max-width: 820px) {
   #faq { display: block; }
-  #faq .faq-h { position: static; margin-bottom: 40px; }
+  #faq .faq-h { position: static; margin-bottom: var(--s-block); }
 }
 
 /* a frame's canvas while the other tone's frame is the one on the page */
 .ff3d.empty { visibility: hidden; }
-/* sound on and off: a round speaker at the spectrogram's right end, so the picture is the picture (the label is its aria-label;
-   its hidden text is a second, empty grid row, so the rows are packed at the centre rather than stretched, or the speaker sits high) */
-.ph .unmute {
-  left: auto; top: auto; right: 12px; bottom: calc(33.4% / 2 - 24px); transform: none;
-  display: grid; place-items: center; place-content: center; width: 48px; height: 48px; padding: 0; gap: 0; border-radius: 50%;
-  background: rgba(18, 18, 18, .82); color: #fff; font-size: 0; letter-spacing: 0; box-shadow: none;
-}
-.ph .unmute[hidden] { display: none; }
 .spectro { padding-right: 70px; }
-.form-consent { margin: 10px 0 0; font-size: 15px; color: var(--graphite); }
+.form-consent { margin: 10px 0 0; font-size: var(--t-fine); color: var(--graphite); }
 .nb { white-space: nowrap; }
 /* the sections whose eyebrow is their heading (the collection, the details, the maker's note) */
 h2.eyebrow, .maker h2.sc { margin: 0; font-weight: 400; }

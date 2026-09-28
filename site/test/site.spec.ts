@@ -1376,3 +1376,23 @@ test("B&W's wall closes up round the smaller frames", async ({ page }) => {
   expect(Math.abs(a!.height - b!.height)).toBeLessThan(2);
 });
 
+
+test('the page sets its text in a handful of sizes: the serif at four, the small capitals at one', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await page.evaluate(() => document.fonts.ready);
+  const sizes = await page.evaluate(() => {
+    const out = new Set<string>();
+    for (const el of document.querySelectorAll('header *, main *, footer *')) {
+      // (the headlines are the display; the notification on the video is BirdNET's, set as an app sets it)
+      if (el.closest('h1, h2, .toast, .fnref, .unmute')) continue;
+      if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim())) continue;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      out.add(`${cs.fontFamily.includes('Fell') ? 'caps' : cs.fontFamily.includes('Garamond') ? 'serif' : cs.fontFamily} ${cs.fontSize}`);
+    }
+    return [...out].sort();
+  });
+  expect(sizes).toEqual(['caps 13px', 'serif 15px', 'serif 17px', 'serif 21px', 'serif 26px']);
+});

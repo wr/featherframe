@@ -69,7 +69,7 @@ Use the left column. The right column is what not to say.
 | picture | What a frame shows, as a whole. "The frame shows its first picture." | image, render, output |
 | Individual detections | The Content option: the latest species. | Plates, single mode, latest bird |
 | Collage | The Content option: every species heard today, on one sheet. | day in review, summary, mosaic |
-| quiet hours | The overnight window. During it every frame shows the day's collage. | night mode, dark mode, sleep |
+| quiet hours | The overnight window: no new pictures, and frames showing individual detections show the day's collage. | night mode, dark mode, sleep |
 | detection source | Where detections come from: BirdWeather, BirdNET-Pi, BirdNET-Go. | feed, integration |
 | detector | The software that listens (BirdNET-Pi, BirdNET-Go). | |
 | Region | Which book is asked first. | edition, pack |

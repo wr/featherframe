@@ -172,8 +172,8 @@ settings save/answer), and it answers each message with its usual GET, so
 `/api/frame` stays the one contract. On the socket the firmware's timed poll
 is a 15 min heartbeat (`FF_PUSH_HEARTBEAT_MS`), which it names in `X-FF-Push`
 so overdue is measured against it (`0` = speaks push, no socket: polls as
-told); an open socket reads as heard from, and the row's *Update interval*
-is locked to *Instant*. Battery frames never open one. A socket that closes
+told); an open socket reads as heard from, and a USB row offers no *Update
+interval* at all (W-906). Battery frames never open one. A socket that closes
 is a check-in at once (a removed frame finds its pairing code; the server
 also sends a last message before closing one), and the firmware reopens it
 every ~30 s (`FF_PUSH_RETRY_MS` + up to `FF_PUSH_JITTER_MS`) for as long as
@@ -271,8 +271,10 @@ warnings, Last detection / Species heard / Pending, the source, a push source's
 Webhook URL and *Setup instructions* — Done once `_push_setup` says a test or a
 detection arrived — and Blocked species; a source that is failing or not set up
 opens itself), Illustrations (Region, "Audubon · North America"), Collage
-(interval and quiet hours, "Every 6 hours · Sunset → Sunrise"; quiet hours IS
-the overnight collage, `Config.quiet_hours_render_collage` is a property), AI
+(its interval, "Every 6 hours", which only a frame on the collage follows),
+Quiet hours (its own row since W-906, "Sunset → Sunrise" or "Off": the window
+IS the overnight collage, which only frames on individual detections switch
+to; `Config.quiet_hours_render_collage` is a property), AI
 image generation (a dot + provider, or "No API key"; its two AI switches, which
 live in Illustrations and Collage, are `locked` until a key is stored), then
 Generated illustrations and Generated collages (each kept day's collage, same
@@ -290,16 +292,19 @@ slides open exactly as *Advanced* does. Collapsed it is a conventional
 device-list line: the status dot (`card.state`, the one place it is decided —
 green heard from on time, amber overdue, red battery critical, grey never or a
 page not open), the name, an *Overdue* / *Battery low* badge, `frames_list()`'s
-`summary` muted under it, then fixed columns for battery, Wi-Fi and last seen
+`summary` muted under it (what it is, what it shows, and when that changes:
+"Collage Sunset → Sunrise" on individual detections, the collage's interval
+on the collage — each frame is told the schedule it follows, W-906), then
+fixed columns for battery, Wi-Fi and last seen
 (the Wi-Fi column goes at ≤ 520 px). The battery column is a cell and a percent
 only on a frame set to Battery — hover it for that frame's own 24 h voltage
 trend — and the plug on USB; the Wi-Fi bars go faint on a frame that is not
 being heard from. Open, its own settings **by capability** —
-Name, Content, Rotation in degrees, Power (USB | Battery), one *Update
-interval* dropdown, a minute to a day, whose value swaps with Power (seconds →
-`device_poll_seconds`, minutes → `wake_interval_minutes`; only the shown one is
-posted) and which is `locked` to the collage's own interval while that is what
-the frame shows, Screen size only when `needs_size` — then
+Name, Content, Rotation in degrees, Power (USB | Battery), *Update interval*
+on Battery only (W-906: a minute to a day, `wake_interval_minutes`, `locked`
+to the collage's own interval while that is what the frame shows; on USB a
+kit takes a change at once, so its `device_poll_seconds` is served but never
+offered or posted), Screen size only when `needs_size` — then
 *Advanced* (the mat inset and offset — the inset starts at its panel's `Panel.mat_inset_pct`, 4 % on both kits, which their mats need; `set` keeps a mat value only where it differs from that — the *Mat guide* switch — `mat_guide`, a
 2 px line just inside the composition to set them by — and *Reset to
 defaults*) and *Details*, which is what this

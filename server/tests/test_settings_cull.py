@@ -76,13 +76,13 @@ def test_the_page_carries_none_of_the_removed_controls(client):
 
 def test_the_overnight_collage_is_quiet_hours_itself(client):
     """It stopped being a toggle: the window IS the overnight collage, and the
-    page offers only the mode (with its custom window) inside Collage."""
+    page offers only the mode (with its custom window), in its own row."""
     svc = client.app.state.service
     html = client.get("/").text
     assert 'name="quiet_hours_render_collage"' not in html
-    # Its section is Collage's, and the AI copy points at the docs.
-    collage = html.split('id="set-collage"')[1].split('<details class="disc set')[0]
-    assert collage.count('name="quiet_hours_mode"') == 3      # Off / sun / custom
+    # Its section is its own (W-906), and the AI copy points at the docs.
+    quiet = html.split('id="set-quiet"')[1].split('<details class="disc set')[0]
+    assert quiet.count('name="quiet_hours_mode"') == 3        # Off / sun / custom
     assert "featherframe.app/help/ai" in html and ">Learn</a>" in html
     # Region is a household setting (W-702): North America, Gould's Europe or
     # his Australia (W-870).

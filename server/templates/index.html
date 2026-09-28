@@ -653,8 +653,8 @@
     .fr-title .d { flex:none; width:7px; height:7px; border-radius:50%; }
     .fr-name { font-size:14px; font-weight:500; color:var(--ink); min-width:0; max-width:calc(100% - 14px);
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .fr-desc { font-size:12px; line-height:1.45; color:var(--muted);
-      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    /* It wraps rather than cut off the schedule at its end (W-906). */
+    .fr-desc { font-size:12px; line-height:1.45; color:var(--muted); }
     .badge { flex:none; font-size:11px; font-weight:500; line-height:1.55; padding:1px 7px;
       border-radius:999px; white-space:nowrap; }
     /* A firmware release this frame is not on: the accent, and a button (it
@@ -703,7 +703,6 @@
     .fr.off .batt .tnum, .fr.off .pw-ic { color:var(--faint); }
     @media (max-width:520px){
       .fr-stats > .fr-wifi { display:none; }
-      .fr-desc { white-space:normal; }
       details.disc.fr > summary { gap:10px; }
       .fr-stats { gap:9px; }
       .fr-batt { width:52px; } .fr-seen { width:66px; }
@@ -954,6 +953,7 @@
   <symbol id="ic-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h9M19 8h1M4 16h1M11 16h9"/><circle cx="16" cy="8" r="2.5"/><circle cx="8" cy="16" r="2.5"/></symbol>
   <symbol id="ic-waveform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3.5 11v2M7 8.5v7M10.5 5v14M14 8v8M17.5 10v4M21 11.25v1.5"/></symbol>
   <symbol id="ic-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.2C10.4 5.8 8 5 4.5 5a1 1 0 0 0-1 1v11.5a1 1 0 0 0 1 1c3.3 0 5.7.7 7.5 2.1 1.8-1.4 4.2-2.1 7.5-2.1a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1C16 5 13.6 5.8 12 7.2Z"/><path d="M12 7.2v13.3"/></symbol>
+  <symbol id="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M20 12.7A8 8 0 1 1 11.3 4a6.2 6.2 0 0 0 8.7 8.7Z"/></symbol>
   <symbol id="ic-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="4" y="4" width="7" height="16" rx="1.75"/><rect x="13" y="4" width="7" height="7" rx="1.75"/><rect x="13" y="13" width="7" height="7" rx="1.75"/></symbol>
   <symbol id="ic-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M10 3.5Q10.9 9.1 16.5 10 10.9 10.9 10 16.5 9.1 10.9 3.5 10 9.1 9.1 10 3.5Z"/><path d="M17.5 14.5Q17.9 17.1 20.5 17.5 17.9 17.9 17.5 20.5 17.1 17.9 14.5 17.5 17.1 17.1 17.5 14.5Z"/></symbol>
   <symbol id="ic-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><circle cx="9.5" cy="9.5" r="1.5"/><path d="M20 15.5 15.5 11 5 20"/></symbol>
@@ -1109,8 +1109,7 @@
     {% set caps = fr.capabilities %}
     {% set s = fr.settings %}
     {% set card = fr.card %}
-    {% set every = {1: 'Every hour', 4: 'Every 4 hours', 6: 'Every 6 hours', 12: 'Every 12 hours', 24: 'Every 24 hours'} %}
-    {% set collage_every = every.get(config.collage_interval_hours, 'Every ' ~ config.collage_interval_hours ~ ' hours') %}
+    {% set collage_every = collage_every_text(config.collage_interval_hours) %}
     {% set rssi = card.wifi_rssi %}
     {% set bars = (4 if rssi >= -55 else (3 if rssi >= -67 else (2 if rssi >= -75 else 1))) if rssi is not none else 0 %}
     {% set word = 'Excellent' if bars == 4 else ('Good' if bars == 3 else ('Fair' if bars == 2 else 'Weak')) %}
@@ -1186,30 +1185,20 @@
             </div>
           </div>
         </div>
-        {# One interval, whichever power model is on: the options swap, the row
-           stays where it is. Only the shown one is posted. A stored value the
-           menu does not offer is shown as it is, so saving never changes it. #}
-        {# On the collage the row is locked: the kit checks in when the collage
-           is next redrawn, so its own interval is neither read nor offered. #}
-        {# On USB with a push socket (W-841) a change reaches the kit at once:
-           the row is locked to Instant, and the poll gap it would fall back
-           to without a socket is kept, not posted. #}
-        {% set instant = s.push and s.power_mode == 'awake' and s.shows != 'collage' %}
-        <div class="frow{{ ' locked' if s.shows == 'collage' or instant else '' }}" data-fr-interval{{ ' data-fr-push' if s.push else '' }}>
+        {# Update interval is a battery frame's alone (W-906): on USB a kit
+           hears of a change at once (W-841), or checks in every few seconds
+           on firmware from before that, so the row would only ever say
+           Instant. Its poll gap is kept, not posted. A stored value the menu
+           does not offer is shown as it is, so saving never changes it. #}
+        {# On the collage the row is locked: the kit wakes when the collage is
+           next redrawn, so its own interval is neither read nor offered. #}
+        {% set steps = [(1, 'Every minute'), (5, 'Every 5 minutes'), (15, 'Every 15 minutes'), (30, 'Every 30 minutes'),
+                        (60, 'Every hour'), (120, 'Every 2 hours'), (360, 'Every 6 hours'), (1440, 'Every 24 hours')] %}
+        <div class="frow{{ ' locked' if s.shows == 'collage' else '' }}" data-fr-interval {{ '' if s.power_mode == 'sleep' else 'hidden' }}>
           <div class="frow-text"><span class="lab" id="fr-int-lab-{{ i }}">Update interval</span><div class="hint" data-fr-interval-hint>{{ 'Set by the collage’s update interval.' if s.shows == 'collage' else '' }}</div></div>
           <div class="frow-ctl">
             <span class="fr-int-collage" data-fr-collage-every {{ '' if s.shows == 'collage' else 'hidden' }}>{{ collage_every }}</span>
-            <span class="fr-int-collage" data-fr-instant {{ '' if instant else 'hidden' }}>Instant</span>
-            <span data-fr-swap="awake" {{ '' if s.power_mode == 'awake' and s.shows != 'collage' and not instant else 'hidden' }}>
-              {# The same eight steps either way; USB stores seconds, a battery minutes. #}
-              {% set steps = [(1, 'Every minute'), (5, 'Every 5 minutes'), (15, 'Every 15 minutes'), (30, 'Every 30 minutes'),
-                              (60, 'Every hour'), (120, 'Every 2 hours'), (360, 'Every 6 hours'), (1440, 'Every 24 hours')] %}
-              <select class="sel" data-f="device_poll_seconds" aria-labelledby="fr-int-lab-{{ i }}">
-                {% for m, word in steps %}<option value="{{ m * 60 }}" {{ 'selected' if s.device_poll_seconds == m * 60 else '' }}>{{ word }}</option>{% endfor %}
-                {% if s.device_poll_seconds % 60 or (s.device_poll_seconds // 60) not in steps | map(attribute=0) | list %}<option value="{{ s.device_poll_seconds }}" selected>Every {{ s.device_poll_seconds }} seconds</option>{% endif %}
-              </select>
-            </span>
-            <span data-fr-swap="sleep" {{ '' if s.power_mode == 'sleep' and s.shows != 'collage' else 'hidden' }}>
+            <span data-fr-own-interval {{ '' if s.shows != 'collage' else 'hidden' }}>
               <select class="sel" data-f="wake_interval_minutes" aria-labelledby="fr-int-lab-{{ i }}">
                 {% for m, word in steps %}<option value="{{ m }}" {{ 'selected' if s.wake_interval_minutes == m else '' }}>{{ word }}</option>{% endfor %}
                 {% if s.wake_interval_minutes not in steps | map(attribute=0) | list %}<option value="{{ s.wake_interval_minutes }}" selected>Every {{ s.wake_interval_minutes }} minutes</option>{% endif %}
@@ -1424,7 +1413,6 @@
     {% set region_names = {'north-america': ('Audubon', 'North America'), 'europe': ('Gould', 'Europe'),
                            'australia': ('Gould', 'Australia'), 'asia': ('Gould', 'Asia')} %}
     {% set rg = region_names.get(config.region, ('Audubon', 'North America')) %}
-    {% set every_words = {1: 'Every hour', 4: 'Every 4 hours', 6: 'Every 6 hours', 12: 'Every 12 hours', 24: 'Every 24 hours'} %}
     {% set ig_names = {'openai': 'OpenAI', 'gemini': 'Google Gemini', 'replicate': 'Replicate', 'a1111': 'Self-hosted'} %}
     {% macro set_summary(icon, name, badge=True) %}
           <summary>
@@ -1687,26 +1675,26 @@
       </details>
 
       {# -- Collage ---------------------------------------------------------- #}
-      {% set qmode = config.quiet_hours_mode %}
-      {% set quiet_word = 'Sunset → Sunrise' if qmode == 'sun'
-                          else ((config.quiet_hours_start | clock12) ~ ' → ' ~ (config.quiet_hours_end | clock12) if qmode == 'custom' else '') %}
+      {# The interval is only a collage frame's; quiet hours, below, are what
+         switch a frame on individual detections to the collage. Each has its
+         own row so neither summary is read as the other's (W-906). #}
       <details class="disc set" id="set-collage">
-        {% call set_summary('ic-grid', 'Collage') %}<span class="v-part">{{ every_words.get(config.collage_interval_hours, 'Every ' ~ config.collage_interval_hours ~ ' hours') }}</span>{% if quiet_word %}<span class="v-part">{{ quiet_word }}</span>{% endif %}{% endcall %}
+        {% call set_summary('ic-grid', 'Collage') %}{{ collage_every_text(config.collage_interval_hours) }}{% endcall %}
         <div class="disc-body"><div class="set-body">
         <form class="set-form" method="post" action="/settings">
           <input type="hidden" name="section" value="collage">
           <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
           <div class="frow">
-            <div class="frow-text"><label class="lab" for="f-every">Update interval</label></div>
+            <div class="frow-text"><label class="lab" for="f-every">Update interval</label><div class="hint">How frequently collage-only frames update during the day.</div></div>
             <div class="frow-ctl">
               <div class="cselect">
               <select class="sel cselect-native" id="f-every" name="collage_interval_hours">
-                {% for h, word in every_words.items() %}
+                {% for h, word in collage_every_words.items() %}
                 <option value="{{ h }}" {{ 'selected' if config.collage_interval_hours == h else '' }}>{{ word }}</option>
                 {% endfor %}
                 {# A stored value from a build that took any number: shown as it
                    is, so saving the form does not quietly change it. #}
-                {% if config.collage_interval_hours not in every_words %}
+                {% if config.collage_interval_hours not in collage_every_words %}
                 <option value="{{ config.collage_interval_hours }}" selected>Every {{ config.collage_interval_hours }} hours</option>
                 {% endif %}
               </select>
@@ -1718,24 +1706,6 @@
             <div class="frow-text"><label class="lab" for="f-review-max">Species limit</label><div class="hint">The most species shown in one collage</div></div>
             <div class="frow-ctl"><input type="number" id="f-review-max" name="collage_species_max" min="0" max="60" step="1" inputmode="numeric" placeholder="No limit" value="{{ config.collage_species_max or '' }}"></div>
           </div>
-          {# Quiet hours belong to the collage: the window IS the overnight
-             collage, so there is nothing else to switch on (W-833). #}
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="quiet-lab">Quiet hours</span><div class="hint">Every frame shows the collage overnight.</div></div>
-            <div class="frow-ctl">
-              <div class="seg" role="radiogroup" aria-labelledby="quiet-lab" id="quiet-seg">
-                <label><input type="radio" name="quiet_hours_mode" value="off" {{ 'checked' if qmode=='off' else '' }}><span>Off</span></label>
-                <label><input type="radio" name="quiet_hours_mode" value="sun" {{ 'checked' if qmode=='sun' else '' }}><span>Sunset to sunrise</span></label>
-                <label><input type="radio" name="quiet_hours_mode" value="custom" {{ 'checked' if qmode=='custom' else '' }}><span>Custom</span></label>
-              </div>
-            </div>
-          </div>
-          <div class="reveal{{ '' if qmode=='custom' else ' collapsed' }}" id="quiet-custom" {{ '' if qmode=='custom' else 'hidden' }}><div class="reveal-body">
-          <div class="frow">
-            <div class="frow-text"><span class="lab" id="quiet-between-lab">Between</span></div>
-            <div class="frow-ctl pair" role="group" aria-labelledby="quiet-between-lab"><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}" aria-label="Start"><span class="pair-sep" aria-hidden="true">→</span><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}" aria-label="End"></div>
-          </div>
-          </div></div>
           <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
             <div class="frow-text"><label class="lab" for="cg"><span class="badge ai">AI</span>Generate collages<a class="btn sm ex preview" href="/static/examples/collage.png" data-ex="collage" data-cap="The collage as one scene, generated with AI." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
             <div class="frow-ctl">{{ instant_switch('cg', 'collage_generated', config.collage_generated, not ig_ready) }}</div>
@@ -1757,6 +1727,38 @@
               </div>
             </div>
           </div>
+          {{ set_foot() }}
+        </form>
+        </div></div>
+      </details>
+
+      {# -- Quiet hours -------------------------------------------------------- #}
+      {# The window IS the overnight collage: frames on individual detections
+         show it and nothing else is drawn, so there is nothing else to switch
+         on (W-833). #}
+      {% set qmode = config.quiet_hours_mode %}
+      <details class="disc set" id="set-quiet">
+        {% call set_summary('ic-moon', 'Quiet hours') %}{{ quiet_hours_text(config) or 'Off' }}{% endcall %}
+        <div class="disc-body"><div class="set-body">
+        <form class="set-form" method="post" action="/settings">
+          <input type="hidden" name="section" value="quiet">
+          <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="quiet-lab">Schedule</span><div class="hint">No new pictures overnight. Frames showing individual detections switch to the day’s collage.</div></div>
+            <div class="frow-ctl">
+              <div class="seg" role="radiogroup" aria-labelledby="quiet-lab" id="quiet-seg">
+                <label><input type="radio" name="quiet_hours_mode" value="off" {{ 'checked' if qmode=='off' else '' }}><span>Off</span></label>
+                <label><input type="radio" name="quiet_hours_mode" value="sun" {{ 'checked' if qmode=='sun' else '' }}><span>Sunset to sunrise</span></label>
+                <label><input type="radio" name="quiet_hours_mode" value="custom" {{ 'checked' if qmode=='custom' else '' }}><span>Custom</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="reveal{{ '' if qmode=='custom' else ' collapsed' }}" id="quiet-custom" {{ '' if qmode=='custom' else 'hidden' }}><div class="reveal-body">
+          <div class="frow">
+            <div class="frow-text"><span class="lab" id="quiet-between-lab">Between</span></div>
+            <div class="frow-ctl pair" role="group" aria-labelledby="quiet-between-lab"><input type="time" id="f-qstart" name="quiet_hours_start" value="{{ config.quiet_hours_start }}" aria-label="Start"><span class="pair-sep" aria-hidden="true">→</span><input type="time" id="f-qend" name="quiet_hours_end" value="{{ config.quiet_hours_end }}" aria-label="End"></div>
+          </div>
+          </div></div>
           {{ set_foot() }}
         </form>
         </div></div>
@@ -2699,9 +2701,9 @@
       if (save) save.disabled = !row.dataset.editing;
     }
 
-    // One Update interval, whichever power model is on: the options swap.
-    // On the collage the row is locked and quotes the collage's own interval
-    // instead: the kit checks in when the collage is next redrawn.
+    // Update interval is a battery frame's alone (W-906). On the collage the
+    // row is locked and quotes the collage's own interval instead: the kit
+    // wakes when the collage is next redrawn.
     var collageEvery = $('f-every');
     function collageEveryWord() {
       var o = collageEvery && collageEvery.options[collageEvery.selectedIndex];
@@ -2712,23 +2714,16 @@
       var shows = row.querySelector('[data-f="shows"]:checked');
       var onCollage = !!(shows && shows.value === 'collage');
       var ir = row.querySelector('[data-fr-interval]');
-      // On USB with a push socket the kit hears of a change at once (W-841).
-      var instant = !onCollage && !!(ir && ir.hasAttribute('data-fr-push')) &&
-                    !!(pm && pm.value === 'awake');
       if (ir) {
-        ir.classList.toggle('locked', onCollage || instant);
-        var inst = ir.querySelector('[data-fr-instant]');
-        if (inst) inst.hidden = !instant;
+        ir.hidden = !(pm && pm.value === 'sleep');
+        ir.classList.toggle('locked', onCollage);
         var hint = ir.querySelector('[data-fr-interval-hint]');
         if (hint) hint.textContent = onCollage ? 'Set by the collage\u2019s update interval.' : '';
         var word = ir.querySelector('[data-fr-collage-every]');
         if (word) { word.hidden = !onCollage; if (onCollage) word.textContent = collageEveryWord(); }
+        var own = ir.querySelector('[data-fr-own-interval]');
+        if (own) own.hidden = onCollage;
       }
-      if (!pm) return;
-      ['awake', 'sleep'].forEach(function (mode) {
-        var el = row.querySelector('[data-fr-swap="' + mode + '"]');
-        if (el) el.hidden = onCollage || instant || pm.value !== mode;
-      });
       refreshSegs(row);
     }
     if (collageEvery) collageEvery.addEventListener('change', function () {

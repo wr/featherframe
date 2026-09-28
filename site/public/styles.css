@@ -168,9 +168,11 @@ h2 { font-weight: 400; text-wrap: balance; }
 .epaper .lead { grid-column: 1; grid-row: 1; padding-top: 16vh; }
 .epaper .lead .folio { margin-bottom: 16px; }
 .epaper h2 { font-size: min(var(--display), 6.4cqw); }
-.epaper .why { grid-column: 1; grid-row: 2; margin: 4px 0 0; padding-bottom: 14vh; max-width: 36ch; }
-.why dt { margin: 26px 0 0; font: 13px/1.35 var(--caps); letter-spacing: .2em; text-transform: uppercase; color: var(--graphite); }
-.why dd { margin: 6px 0 0; font-size: 20px; line-height: 1.5; color: var(--text); text-wrap: pretty; }
+.epaper .why { grid-column: 1; grid-row: 2; margin: 8px 0 0; padding: 0 0 14vh; max-width: 38ch; list-style: none; }
+/* each fact led by its mark, drawn like the seasons' (an engraving's line), level with its first line */
+.why li { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 18px; align-items: start; margin: 24px 0 0; }
+.why .ico { width: 24px; height: 24px; margin-top: 3px; color: var(--ink); }
+.why p { margin: 0; font-size: 20px; line-height: 1.5; color: var(--text); text-wrap: pretty; }
 /* --h13: the 13.3-inch's height, as tall as the columns and the window allow; the 10.3-inch is 295/371 of it, and
    stands in front of it, over a quarter of its own width (--lap): 1.2624 is the pair's width over --h13 */
 .pair {
@@ -559,6 +561,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .spread.epaper h2 { font-size: var(--display); }
   .pair { position: static; margin: 36px 0 0; --h13: calc((100vw - 2 * var(--m)) / 1.2624); }
   .epaper .why { padding: 0; margin-top: 12px; }
+  .why li { margin-top: 20px; }
   .ep .nm { font-size: 19px; }
   .ep .timer { font-size: 17px; }
 

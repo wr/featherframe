@@ -34,8 +34,9 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#epaper h2')).toHaveText('Made of ink, like a print.');
   await expect(page.locator('#epaper h2 i')).toHaveText('like a print.');
   await expect(page.locator('#epaper .cols p')).toHaveText('Featherframe uses e-paper, the same kind of screen as an e-reader. The picture is made of pigment and gives off no light. By day it looks like a print. At night it goes dark with the room.');
-  await expect(page.locator('#epaper .why dt')).toHaveText(['Holds its picture', 'How it changes']);
-  await expect(page.locator('#epaper .why dd')).toHaveText(['The picture stays with the power off. The screen uses power only to change it.', 'To change the picture, the screen flashes. B&W takes about a second. Color takes about fifteen seconds, and flickers as the inks settle.']);
+  // each fact led by its mark: a plug for power, the refresh mark for the refresh
+  await expect(page.locator('#epaper .why li svg.ico')).toHaveCount(2);
+  await expect(page.locator('#epaper .why li')).toHaveText(['The picture stays with the power off. The screen uses power only to change it.', 'To change the picture, the screen flashes. B&W takes about a second. Color takes about fifteen seconds, and flickers as the inks settle.']);
   await expect(page.locator('#pair figcaption .nm')).toHaveText(['10.3-inch · B&W', '13.3-inch · Color']);
   await expect(page.locator('#pair .run')).toHaveText('Watch them refresh');
   // (the section says what the refresh is: no note under the cover's frame)

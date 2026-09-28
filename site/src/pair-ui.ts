@@ -29,24 +29,37 @@ const fmt = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 /** A refresh asked for that has not started by then (its picture never loaded) is given up. */
 const STALE_MS = 10_000;
 
+/** The button's label, and while the pair refreshes. */
+const LABEL = 'Watch them refresh';
+const BUSY = 'Refreshing…';
+
 export function pairUI(): PairUI | null {
   const el = document.getElementById('pair');
   const button = el?.querySelector<HTMLButtonElement>('.run button');
-  if (!el || !button) return null;
+  const label = button?.querySelector<HTMLElement>('.lb');
+  if (!el || !button || !label) return null;
   const watch = {} as Record<Model, Stopwatch>;
+  const says = () => {
+    const t = MODELS.some((m) => watch[m].running) ? BUSY : LABEL;
+    if (label.textContent !== t) label.textContent = t;
+  };
   for (const m of MODELS) {
     const out = el.querySelector<HTMLElement>(`.ep.s${m} .timer`)!;
     let running = false, last: Progress | null = null, since = 0, text = out.textContent ?? '';
-    const show = (t: string) => { if (t !== text) out.textContent = text = t; };
+    const show = (t: string, idle = false) => {
+      if (t !== text) out.textContent = text = t;
+      if (out.classList.contains('idle') !== idle) out.classList.toggle('idle', idle);
+    };
+    const stop = () => { running = false; says(); };
     watch[m] = {
-      start() { running = true; last = null; since = performance.now(); show(fmt(0)); },
+      start() { running = true; last = null; since = performance.now(); show(fmt(0)); says(); },
       update(p, now) {
         if (!running) return;
         if (p) { last = p; show(fmt(p.ms)); return; }
         if (last) show(fmt(last.total));
         else if (now - since < STALE_MS) return;
-        else show('');
-        running = false;
+        else show(fmt(0), true);
+        stop();
       },
       get running() { return running; },
     };

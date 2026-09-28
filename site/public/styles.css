@@ -134,7 +134,6 @@ h2 { font-weight: 400; text-wrap: balance; }
    and earlier); the button stays on top, where it can be pressed */
 .cover .copy p, .cover .cta .it { position: relative; z-index: -2; }
 .cover .cta .btn { position: relative; z-index: 2; }
-.cover .speed { display: none; position: absolute; right: 0; bottom: 1.5%; z-index: -2; /* under the frame's canvas, over the room */ margin: 0; font-size: 15px; font-style: italic; color: var(--graphite); }
 .cover .copy p { font-size: 24px; line-height: 1.42; margin: 0 0 26px; text-wrap: pretty; }
 .cta { display: flex; align-items: center; gap: 20px; }
 .cta .it { color: var(--graphite); font-size: 20px; }
@@ -164,35 +163,42 @@ h2 { font-weight: 400; text-wrap: balance; }
    flat-pair.ts everywhere else). The frame of the page's tone stands on the left: the journey brings it down from
    the cover, and the other slides in from the right. */
 .epaper { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-rows: auto 1fr; }
+/* tall enough that the pair holds for most of a window's scroll: time to watch the colour refresh */
+.epaper { min-height: calc(100vh + 70vh); }
 .epaper .lead { grid-column: 1; grid-row: 1; padding-top: 16vh; }
 .epaper .lead .folio { margin-bottom: 16px; }
 .epaper h2 { font-size: min(var(--display), 6.4cqw); }
 .epaper .why { grid-column: 1; grid-row: 2; margin: 4px 0 0; padding-bottom: 14vh; max-width: 36ch; }
 .why dt { margin: 26px 0 0; font: 13px/1.35 var(--caps); letter-spacing: .2em; text-transform: uppercase; color: var(--graphite); }
 .why dd { margin: 6px 0 0; font-size: 20px; line-height: 1.5; color: var(--text); text-wrap: pretty; }
-/* --h13: the 13.3-inch's height, as tall as the columns and the window allow; the 10.3-inch is 295/371 of it */
+/* --h13: the 13.3-inch's height, as tall as the columns and the window allow; the 10.3-inch is 295/371 of it, and
+   stands in front of it, over a quarter of its own width (--lap): 1.2624 is the pair's width over --h13 */
 .pair {
   grid-column: 2; grid-row: 1 / 3; align-self: start;
-  --gap: 48px; --cap: 116px; /* the captions and the button under the frames */
-  --h13: min(calc(((100cqw - 2 * var(--gutter)) * 7 / 12 - var(--gap)) / 1.4183), calc(100vh - var(--nav) - 80px - var(--cap)));
+  --cap: 160px; /* the captions and the button under the frames */
+  --h13: min(calc((100cqw - 2 * var(--gutter)) * 7 / 12 / 1.2624), calc(100vh - var(--nav) - 80px - var(--cap)));
+  --lap: calc(var(--h13) * 0.1559);
   position: sticky; top: calc(var(--nav) + (100vh - var(--nav) - var(--h13) - var(--cap)) / 2);
 }
-.duo { display: flex; justify-content: center; align-items: flex-end; gap: var(--gap); }
+.duo { display: flex; justify-content: center; align-items: flex-end; }
 [data-tone="13"] .ep.s13 { order: -1; }
+.ep.s10 { position: relative; z-index: 1; margin-right: calc(-1 * var(--lap)); }
+[data-tone="13"] .ep.s10 { margin-right: 0; margin-left: calc(-1 * var(--lap)); }
 .ep .slot { position: relative; aspect-ratio: auto; height: var(--h13); width: calc(var(--h13) * 604 / 760); }
 .ep.s10 .slot { height: calc(var(--h13) * 295 / 371); width: calc(var(--h13) * 295 / 371 * 596 / 760); }
 .ep .slot .still { width: 100%; height: 100%; }
-.ep figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 14px; border-top: 1px solid var(--hair); padding-top: 8px; }
-.ep figcaption { transition: opacity .3s ease; }
+/* the one in front casts a soft shadow on the one behind (the live frame's canvas too: choreo.ts .ff3d.front) */
+.ep.s10 .slot img, .ff3d.front { filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .2)); }
+.ep figcaption { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 18px; text-align: center; transition: opacity .3s ease; }
 .ep.away figcaption { opacity: 0; }
-.ep .nm { font: italic 19px/1.2 var(--serif); }
-.ep .timer { font: 15px/1.2 var(--sans); font-variant-numeric: tabular-nums; color: var(--graphite); white-space: nowrap; }
-.run { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 26px 0 0; }
-.run .it { font-size: 17px; color: var(--graphite); }
+.ep .nm { font: italic 26px/1.15 var(--serif); }
+.ep .timer { font: 500 20px/1.3 var(--sans); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.ep .timer.idle { color: var(--faint); }
+.run { display: flex; justify-content: center; margin: 30px 0 0; }
 .pair:not(.live) .run { visibility: hidden; }
-.btn.line { height: 40px; padding: 0 20px; border: 0; background: none; color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); cursor: pointer; }
-.btn.line:hover { background: var(--ink); color: var(--paper); }
-.btn.line:disabled { background: none; color: var(--faint); box-shadow: inset 0 0 0 1px var(--hair); cursor: default; }
+.run .btn { gap: 12px; min-width: 300px; justify-content: center; border: 0; cursor: pointer; }
+.run .btn .ic { flex: none; }
+.run .btn:disabled { background: var(--faint); cursor: default; }
 /* flat-pair.ts: the frame, its screen a hole, over its live glass (the screen's box, from scripts/wall.mjs hole) */
 .flat { position: absolute; inset: 0; }
 .flat canvas { position: absolute; left: calc(var(--sx) * 100%); top: calc(var(--sy) * 100%); width: calc(var(--sw) * 100%); height: calc(var(--sh) * 100%); }
@@ -548,14 +554,13 @@ h2 { font-weight: 400; text-wrap: balance; }
   .spread h2 { font-size: var(--display); }
   .drop::first-letter { font-size: 64px; }
   /* e-paper: the words, then the pair across the page, then the three facts */
-  .spread.epaper { display: block; }
+  .spread.epaper { display: block; min-height: 0; }
   .epaper .lead { padding: 0; }
   .spread.epaper h2 { font-size: var(--display); }
-  .pair { position: static; margin: 36px 0 0; --gap: 20px; --h13: calc((100vw - 2 * var(--m) - var(--gap)) / 1.4183); }
+  .pair { position: static; margin: 36px 0 0; --h13: calc((100vw - 2 * var(--m)) / 1.2624); }
   .epaper .why { padding: 0; margin-top: 12px; }
-  .ep figcaption { flex-direction: column; gap: 2px; }
-  .ep .nm { font-size: 17px; }
-  .btn.line { height: 44px; }
+  .ep .nm { font-size: 19px; }
+  .ep .timer { font-size: 17px; }
 
   .sec { margin-top: 120px; }
   .intro2 { display: block; margin-top: 36px; }
@@ -727,8 +732,6 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
   #faq .faq-h { position: static; margin-bottom: 40px; }
 }
 
-/* the live frame's refreshes are real ones; the note is there only when the live frame is */
-.choreo .cover .speed { display: block; }
 /* a frame's canvas while the other tone's frame is the one on the page */
 .ff3d.empty { visibility: hidden; }
 /* sound on and off: a round speaker at the spectrogram's right end, so the picture is the picture (the label is its aria-label;

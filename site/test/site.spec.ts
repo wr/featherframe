@@ -33,11 +33,13 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#epaper .eyebrow')).toHaveText('E-paper');
   await expect(page.locator('#epaper h2')).toHaveText('Made of ink, like a print.');
   await expect(page.locator('#epaper h2 i')).toHaveText('like a print.');
-  await expect(page.locator('#epaper .cols p')).toHaveText('Featherframe’s screen is e-paper, the same kind as an e-reader’s. The picture is made of pigment: tiny charged particles that the screen pulls to its surface. It gives off no light, so it looks like a print by day and goes as dark as the room at night.');
-  await expect(page.locator('#epaper .why dt')).toHaveText(['No light of its own', 'Holds its picture', 'How it changes']);
-  await expect(page.locator('#epaper .why dd').last()).toHaveText('To change the picture, the screen drives its particles back and forth, so it flashes before the new picture settles. B&W takes about a second. Color takes about fifteen seconds, and flickers as the inks settle.');
+  await expect(page.locator('#epaper .cols p')).toHaveText('Featherframe’s screen is e-paper, the kind in an e-reader. Its picture is made of pigment and gives off no light, so it looks like a print by day and goes dark with the room at night.');
+  await expect(page.locator('#epaper .why dt')).toHaveText(['Holds its picture', 'How it changes']);
+  await expect(page.locator('#epaper .why dd')).toHaveText(['The picture stays with the power off. The screen uses power only to change it.', 'To change the picture, the screen flashes. B&W takes about a second. Color takes about fifteen seconds, and flickers as the inks settle.']);
   await expect(page.locator('#pair figcaption .nm')).toHaveText(['10.3-inch · B&W', '13.3-inch · Color']);
-  await expect(page.locator('#pair .run')).toHaveText('RefreshShown at true speed.');
+  await expect(page.locator('#pair .run')).toHaveText('Watch them refresh');
+  // (the section says what the refresh is: no note under the cover's frame)
+  await expect(page.locator('body')).not.toContainText('true speed');
   await expect(page.locator('#art h2')).toHaveText('More than 1,300 species, each painted by hand.');
   await expect(page.locator('#art h2 i')).toHaveText('each painted by hand.');
   await expect(page.locator('#how h2')).toHaveText('Meet the birds you only hear.');
@@ -90,7 +92,6 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#faq dt')).toHaveText([
     'Does it make a good gift?', 'Do I need Wi-Fi?', 'How fast does the frame change?', 'Do I need my own BirdNET device?', 'Does it work outside North America?',
     'What if a species near me was never illustrated?', 'Do the collages need AI?', 'Is a subscription required?', 'Do I need an account?', 'Is my data private?']);
-  await expect(page.locator('.cover .speed')).toHaveText('Refresh shown at true speed');
   await expect(page.locator('#faq dd').nth(2).locator('li')).toHaveText(['B&W (10.3-inch): about a second.', 'Color (13.3-inch): about fifteen seconds, and it flickers as the inks settle. It suits the collage, which changes once a day.']);
   await expect(page.locator('#faq a.fnref')).toHaveCount(2);
   await expect(page.locator('body')).not.toContainText('listening station');
@@ -310,7 +311,7 @@ test('with reduced motion nothing cycles', async ({ page }) => {
   await page.waitForTimeout(3000);
   await expect(page.locator('canvas.ff3d')).toHaveCount(0);
   // (the e-paper pair's flat glass waits for its Refresh)
-  await expect(page.locator('#pair .timer')).toHaveText(['', '']);
+  await expect(page.locator('#pair .timer')).toHaveText(['0.0\u00a0s', '0.0\u00a0s']);
   expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
 });
 
@@ -981,7 +982,8 @@ test('the frame lands in the e-paper pair as the other size slides in beside it,
     expect(st.rect.x).toBeCloseTo(states[0].st.rect.x, 3);
     const p = pair.partner.rect;
     expect(p.x).toBeCloseTo(states[0].pair.partner.rect.x, 3);
-    expect(p.x).toBeGreaterThan(st.rect.x + st.rect.w);
+    // …the 13.3-inch behind, the 10.3-inch overlapping a quarter of its own width
+    expect(p.x).toBeCloseTo(st.rect.x + st.rect.w * 0.75, -1);
     expect(st.rect.h / p.h).toBeCloseTo(295 / 371, 2);
     // standing on the same line, wholly in the window
     expect(Math.abs(st.rect.y + st.rect.h - (p.y + p.h))).toBeLessThan(1);
@@ -1014,7 +1016,7 @@ test('the pair refreshes together once by itself, then on Refresh, with a timer 
   const refresh = page.locator('#pair .run button');
   const timers = page.locator('#pair .timer');
   await expect(refresh).toBeDisabled();
-  await expect(timers).toHaveText(['', '']);
+  await expect(timers).toHaveText(['0.0\u00a0s', '0.0\u00a0s']);
   const [s0] = await page.evaluate(() => (window as any).__ff().stops[1]);
   await page.evaluate((y) => scrollTo(0, y), Math.round(s0 + 20));
   // both to the Wild Turkey; each timer stops at its own refresh's length, in the panel's time
@@ -1023,11 +1025,14 @@ test('the pair refreshes together once by itself, then on Refresh, with a timer 
   expect(Object.values(await glass()).every((g) => /wild-turkey/.test(g as string))).toBe(true);
   // and back to the Cedar Waxwing on Refresh, which waits until both are done
   await expect(refresh).toBeEnabled();
+  await expect(refresh).toHaveText('Watch them refresh');
   await refresh.click();
   await expect(refresh).toBeDisabled();
+  await expect(refresh).toHaveText('Refreshing…');
   await expect.poll(async () => Object.values(await glass()).every((g) => /cedar-waxwing/.test(g as string)), { timeout: 20_000 }).toBe(true);
   await expect(timers).toHaveText(['1.0\u00a0s', '15.6\u00a0s'], { timeout: 20_000 });
   await expect(refresh).toBeEnabled();
+  await expect(refresh).toHaveText('Watch them refresh');
   // leaving for the art spread, the traveller's caption goes with it
   const [, s1] = await page.evaluate(() => (window as any).__ff().stops[1]);
   await page.evaluate((y) => scrollTo(0, y), Math.round(s1 + 40));
@@ -1052,7 +1057,7 @@ for (const [name, setup] of [
     if (name === 'with reduced motion') {
       // nothing moves by itself: Refresh starts it
       await page.waitForTimeout(2000);
-      await expect(timers).toHaveText(['', '']);
+      await expect(timers).toHaveText(['0.0\u00a0s', '0.0\u00a0s']);
       await refresh.click();
     }
     await expect(timers).toHaveText(['1.0\u00a0s', '15.6\u00a0s'], { timeout: 20_000 });
@@ -1319,10 +1324,9 @@ test('a lost WebGL context hands the page back to its stills', async ({ page }) 
   expect(await page.locator('#art-slot .still').evaluate((e) => getComputedStyle(e).visibility)).toBe('visible');
 });
 
-test('the refresh note shows only with the live frame, and the switch only near a frame', async ({ page }) => {
+test('the switch shows only near a frame', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto('/');
-  await expect(page.locator('.cover .speed')).toBeHidden();
   // (a phone's cover keeps its Pre-order button clear: the switch comes with the wall)
   await expect(page.locator('.tone.pill')).toHaveCSS('opacity', '0');
   await page.locator('.wall .cat').scrollIntoViewIfNeeded();

@@ -430,7 +430,9 @@ export async function startPage(data: SiteData, hero: Model, opts: {
       for (const src of [...Object.values(screensOf(data.sizes[other])), ...detections(data.sizes[other])]) if (src) f.refresh.prepare(src);
       f.canvas.className = 'ff3d live empty';
       f.setSize(layout.vw, layout.vh);
-      document.body.prepend(f.canvas);
+      // in the pair the 10.3-inch stands in front of the 13.3-inch: its canvas comes after
+      if (other === '10') frames['13']!.canvas.after(f.canvas);
+      else document.body.prepend(f.canvas);
       frames[other] = f;
       watch(f.canvas);
       dirty = true;
@@ -593,6 +595,9 @@ export async function startPage(data: SiteData, hero: Model, opts: {
         });
       }
     }
+    // …and the 10.3-inch, in front, casts its shadow on the other while both are there
+    const front = frames['10']?.canvas;
+    if (front && front.classList.contains('front') !== !!pst.rect) front.classList.toggle('front', !!pst.rect);
     if (pf) {
       const r = pst.rect;
       const pkey = r ? `${pm},${r.x},${r.y},${r.w},${r.h},${bar}` : '';
@@ -647,6 +652,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     offRefresh?.();
     ui?.live(false);
     ui?.ready(false);
+    frames['10']?.canvas.classList.remove('front');
     if (els.pairSlots) for (const slot of Object.values(els.pairSlots)) {
       slot.querySelector<HTMLElement>('.still')?.style.removeProperty('visibility');
       slot.parentElement!.classList.remove('away');

@@ -129,10 +129,22 @@ test('every section and its key copy is there', async ({ page }) => {
   for (const link of await page.getByRole('link', { name: 'Pre-order' }).all()) {
     await expect(link).toHaveAttribute('href', 'https://shop.wells.ee/products/featherframe/');
   }
-  // the singing videos, credited in the colophon
-  // (the Creative Commons pieces marked as excerpts)
-  for (const c of ['Northern Cardinal recording by Jonathon Jongsma, xeno-canto XC175226, CC BY-SA 4.0 (excerpt).', 'Northern Cardinal video by Courtney Celley, U.S. Fish and Wildlife Service, public domain.', 'Eastern Bluebird video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0 (excerpt).', 'Tufted Titmouse video by Víctor Martínez, Wikimedia Commons, CC BY-SA 4.0 (excerpt).', 'Black-capped Chickadee video by Cephas, Wikimedia Commons, CC BY-SA 3.0 (excerpt).', 'Eastern Bluebird recording by Jonathon Jongsma, XC79976, CC BY-SA 3.0 (excerpt).', 'Tufted Titmouse recording by G. McGrane, Wikimedia Commons, public domain.', 'Black-capped Chickadee recording by Jonathon Jongsma, XC70185, CC BY-SA 3.0 (excerpt).', 'The Creative Commons excerpts are trimmed, cropped or filtered from the originals and shared under the same licenses.', '© 2026 Wells Workshop LLC.'])
-    await expect(page.locator('.colophon .d')).toContainText(c);
+  // the books, the songs and the singing videos, credited in the colophon, each under its heading, a name over its
+  // source (the Creative Commons pieces marked as excerpts)
+  await expect(page.locator('.credits .sc')).toHaveText(['Illustrations', 'Recordings', 'Videos']);
+  await expect(page.locator('.credits > div').nth(0).locator('p')).toHaveText('John James Audubon’s The Birds of America (1827–1838) and John Gould’s The Birds of Europe, Australia, Asia and Great Britain (1832–1883), now in the public domain.');
+  await expect(page.locator('.credits > div').nth(1).locator('li')).toHaveText([
+    'Northern CardinalJonathon Jongsma, xeno-canto XC175226, CC BY-SA 4.0, excerpt',
+    'Eastern BluebirdJonathon Jongsma, xeno-canto XC79976, CC BY-SA 3.0, excerpt',
+    'Tufted TitmouseG. McGrane, Wikimedia Commons, public domain',
+    'Black-capped ChickadeeJonathon Jongsma, xeno-canto XC70185, CC BY-SA 3.0, excerpt']);
+  await expect(page.locator('.credits > div').nth(2).locator('li')).toHaveText([
+    'Northern CardinalCourtney Celley, U.S. Fish and Wildlife Service, public domain',
+    'Eastern BluebirdPaul Danese, Wikimedia Commons, CC BY-SA 4.0, excerpt',
+    'Tufted TitmouseVíctor Martínez, Wikimedia Commons, CC BY-SA 4.0, excerpt',
+    'Black-capped ChickadeeCephas, Wikimedia Commons, CC BY-SA 3.0, excerpt']);
+  for (const c of ['The Creative Commons excerpts are trimmed, cropped or filtered from the originals and shared under the same licenses.', 'Featherframe is not affiliated with or endorsed by the National Audubon Society, the Cornell Lab of Ornithology, BirdWeather, OpenAI or YouTube; their names and marks belong to them.', '© 2026 Wells Workshop LLC.'])
+    await expect(page.locator('.colophon .legal')).toContainText(c);
   // the licences and sources, linked
   expect(await page.locator('.colophon .d a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual([
     'https://xeno-canto.org/175226', 'https://creativecommons.org/licenses/by-sa/4.0/',
@@ -148,7 +160,11 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('.colophon .b').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', 'https://cloud.featherframe.app/');
   await expect(page.locator('.colophon .b .sc')).toHaveText('A product of');
   await expect(page.locator('.colophon .c a')).toHaveText(['Shipping', 'Returns', 'Privacy', 'Terms']);
-  await expect(page.locator('.colophon .d')).toContainText('The illustrations are from John James Audubon’s The Birds of America');
+  // Keep me posted is a boxed field with its button joined to it
+  const [input, submit] = [await page.locator('.field input').boundingBox(), await page.locator('.field .btn').boundingBox()];
+  expect(Math.abs(input!.x + input!.width - submit!.x)).toBeLessThan(1);
+  expect(Math.abs(input!.height - submit!.height)).toBeLessThan(1);
+  await expect(page.locator('.field input')).toHaveCSS('border-top-style', 'solid');
   const body = (await page.locator('body').innerText()).toLowerCase();
   for (const banned of ['plate', 'on the wall', 'on the glass']) expect(body).not.toContain(banned);
 });
@@ -550,6 +566,10 @@ test('on a phone the frame comes first, on the first screen, then the sentence a
 test('on a phone the controls are a thumb\'s size', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto('/');
+  // (Sign in on a line of its own, under the GitHub sentence)
+  const [gh, signin] = [await page.locator('.colophon .b a[href*="github"]').boundingBox(), await page.locator('.colophon .signin').boundingBox()];
+  expect(signin!.y).toBeGreaterThan(gh!.y + gh!.height - 12);
+  expect(Math.abs(signin!.x - (await page.locator('.colophon .b').boundingBox())!.x)).toBeLessThan(1);
   for (const sel of ['.head .word', '.head .btn', '.tone button', '.unmute', '.field button', '.colophon .b .ul', '.colophon .c .ul', '.colophon .signin', '.logos a']) {
     for (const el of await page.locator(sel).all()) {
       const b = (await el.boundingBox())!;

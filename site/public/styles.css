@@ -72,7 +72,7 @@ figure { margin: 0; }
 h2 { font-weight: 400; text-wrap: balance; }
 .it { font-style: italic; }
 /* the small capitals, one size and one tracking wherever they are set */
-.sc, .eyebrow, .btn, .spec dt, .cat .by, .lightbox .by, .field button {
+.sc, .eyebrow, .btn, .spec dt, .cat .by, .lightbox .by {
   font-family: var(--caps); font-size: var(--t-caps); font-weight: 400; letter-spacing: var(--caps-track); text-transform: uppercase;
 }
 .sc, .eyebrow, .cat .by, .lightbox .by { line-height: 1.35; }
@@ -495,22 +495,32 @@ h2 { font-weight: 400; text-wrap: balance; }
 .colophon .a { grid-column: 1 / 5; }
 .colophon .b { grid-column: 6 / 9; }
 .colophon .c { grid-column: 10 / 13; }
-.colophon .d { grid-column: 1 / 13; max-width: 88ch; padding-top: 28px; border-top: 1px solid var(--hair); font-size: var(--t-fine); color: var(--graphite); }
+.colophon .d { grid-column: 1 / 13; padding-top: 28px; border-top: 1px solid var(--hair); font-size: var(--t-fine); color: var(--graphite); }
+/* the credits, set on the colophon's own columns: the books, then each recording and each video, a name over its source */
+.credits { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); }
+.credits > :nth-child(1) { grid-column: 1 / 5; }
+.credits > :nth-child(2) { grid-column: 6 / 9; }
+.credits > :nth-child(3) { grid-column: 10 / 13; }
+.credits p, .credits ul { margin: 0; padding: 0; list-style: none; }
+.credits li + li { margin-top: 10px; }
+.credits b { display: block; font-weight: 400; color: var(--text); }
+.colophon .legal { max-width: 88ch; margin: var(--s-block) 0 0; }
 .colophon .sc { display: block; margin-bottom: 12px; color: var(--ink); }
 .colophon .ww { display: block; width: max-content; margin-bottom: 16px; color: var(--ink); }
 .colophon .c ul { margin: 0; padding: 0; list-style: none; }
 .colophon .c li + li { margin-top: 6px; }
 .colophon .ww-logo { display: block; height: 22px; width: auto; }
 .colophon .signin { display: block; width: max-content; margin-top: 12px; color: var(--ink); }
-.field { display: flex; align-items: center; height: 46px; max-width: 360px; border-bottom: 1px solid var(--ink); }
+/* Keep me posted: a boxed field with its button joined to it */
+.field { display: flex; height: 48px; max-width: 420px; }
 .field input {
-  flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: none; outline: none;
-  font: italic var(--t-body) var(--serif); color: var(--ink);
+  flex: 1; min-width: 0; height: 100%; padding: 0 14px; border: 1px solid var(--faint); border-right: 0; border-radius: 2px 0 0 2px;
+  background: none; outline: none; font: italic var(--t-body) var(--serif); color: var(--ink);
 }
 .field input::placeholder { color: var(--faint); opacity: 1; }
-.field:focus-within { border-bottom-color: var(--ink); box-shadow: 0 1px 0 var(--ink); }
-.field button { padding: 0; border: 0; background: none; line-height: 1; color: var(--ink); cursor: pointer; }
-.field button:disabled { color: var(--faint); cursor: default; }
+.field input:focus { border-color: var(--ink); }
+.field .btn { height: 100%; padding: 0 22px; border: 0; border-radius: 0 2px 2px 0; cursor: pointer; }
+.field .btn:disabled { background: var(--faint); cursor: default; }
 .form-why { margin: 0 0 4px; font: italic var(--t-small)/var(--lh-lede) var(--serif); color: var(--graphite); }
 .form-note { margin: 8px 0 0; font: italic var(--t-small) var(--serif); color: var(--graphite); }
 .form-note:empty { display: none; }
@@ -618,12 +628,13 @@ h2 { font-weight: 400; text-wrap: balance; }
   .qa { margin-left: 0; }
   .colophon { display: block; }
   /* tap targets: a thumb's size, the type as it was */
-  .field { height: 46px; }
-  .field button { height: 46px; padding: 0 0 0 16px; }
+  .credits { display: block; }
+  .credits > * + * { margin-top: var(--s-block); }
   .logos a { min-height: 44px; }
   .colophon .b .ul, .colophon .c .ul, .colophon .signin { display: inline-block; padding: 12px 0; margin: -12px 0; border-bottom: 0;
     text-decoration: underline; text-decoration-color: var(--hair); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-  .colophon .signin { display: block; width: max-content; margin: 0 0 -12px; }
+  /* (on its own line under the sentence: .b .ul above would otherwise set it inline) */
+  .colophon .b .signin { display: block; width: max-content; margin: 12px 0 -12px; }
   .colophon > * { margin-bottom: 28px; }
   .colophon .d { margin-top: 0; }
 }

@@ -1,7 +1,7 @@
 // The few pages the Worker draws itself (W-845): signing in. Everything past
 // sign-in is the household's own page, drawn by its server.
 
-import type { Meter, Usage } from "./usage";
+import { serverTime, type Meter, type Usage, type UsageDay } from "./usage";
 import { escapeHtml } from "./util";
 
 const STYLE = `
@@ -155,7 +155,7 @@ export type AdminData = {
     id: string; created_at: number; email: string | null; paired: number;
     suspended_at: number | null;
     frames: { id: string; status: string; seen: number | null }[];
-    usage: { day: string; wakes: number; server_ms: number }[];
+    usage: UsageDay[];
     last_wake: number | null; source: string | null;
   }[];
   usage: Usage;
@@ -267,11 +267,12 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
         </div></td><td></td><td class="num muted">${ago(i.created_at * 1000)}</td></tr>`).join("")}
     </tbody></table>` : ""}`;
 
-  const households = d.households.length ? `<table><thead><tr><th>Household</th><th>Frames</th><th>Server, today · 7 days</th><th>Last wake</th></tr></thead><tbody>
+  const households = d.households.length ? `<table><thead><tr><th>Household</th><th>Frames</th><th>Server, 7 days</th><th>Last wake</th></tr></thead><tbody>
     ${d.households.map((h) => {
-      const today = h.usage.find((u) => u.day === new Date().toISOString().slice(0, 10));
-      const week = h.usage.reduce((a, u) => a + u.server_ms, 0);
-      const wakes = h.usage.reduce((a, u) => a + u.wakes, 0);
+      const t = serverTime(h.usage);
+      const each = t.wakes ? `${Math.round(t.wake_ms / t.wakes / 1000)} s a wake` : "no wakes";
+      const since = t.since ? ` · since ${new Date(`${t.since}T00:00:00Z`).toLocaleDateString("en-GB",
+        { day: "numeric", month: "short", timeZone: "UTC" })}` : "";
       const frames = h.frames.length
         ? `<ul class="frames">${h.frames.map((f) => `<li>${e(f.id.slice(-6))} <span class="muted">· ${e(f.status)} · ${ago(f.seen)}</span></li>`).join("")}</ul>`
         : `<span class="muted">${h.paired ? `${h.paired} paired` : "none"}</span>`;
@@ -290,7 +291,7 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
         </div></details></div>`;
       return `<tr><td>${e(h.email || "(no login)")}${h.suspended_at ? ` <span class="badge">Suspended</span>` : ""}<br><span class="muted">${e(h.id)}${h.source ? ` · ${e(h.source)}` : ""}</span>${actions}</td>
         <td>${frames}</td>
-        <td class="num">${minutes(today?.server_ms || 0)} · ${minutes(week)}<br><span class="muted">${wakes} wakes in 7 days</span></td>
+        <td class="num">${minutes(t.wake_ms)} in ${t.wakes} wakes<br><span class="muted">${each} · ${t.page_ms ? `${minutes(t.page_ms)} on the page` : "page not opened"}${since}</span></td>
         <td class="num muted">${ago(h.last_wake)}</td></tr>`;
     }).join("")}
     </tbody></table>` : `<p class="empty">No households yet.</p>`;

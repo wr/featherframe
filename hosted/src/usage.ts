@@ -16,6 +16,24 @@ export type Meter = {
 
 export type Usage = { meters: Meter[]; bill: number; projected: number; month: string; live: boolean };
 
+/** One household's server time on one UTC day (the front door's count). */
+export type UsageDay = { day: string; wakes: number; server_ms: number; wake_ms: number; page_ms: number };
+
+/** A household's server time over its last days, wakes apart from pages
+ * (W-907). A day from before the split has only its total, so it is left
+ * out, and `since` names the first day counted while one is in the window. */
+export function serverTime(days: UsageDay[]): { wakes: number; wake_ms: number; page_ms: number; since: string | null } {
+  const split = days.filter((d) => d.wake_ms + d.page_ms > 0 || !d.server_ms);
+  const since = split.length < days.length && split.length
+    ? split.reduce((a, d) => (d.day < a ? d.day : a), split[0].day) : null;
+  return {
+    wakes: split.reduce((a, d) => a + d.wakes, 0),
+    wake_ms: split.reduce((a, d) => a + d.wake_ms, 0),
+    page_ms: split.reduce((a, d) => a + d.page_ms, 0),
+    since,
+  };
+}
+
 const PLAN = 5;              // Workers Paid, a month
 // A "basic" container: 1/4 vCPU, 1 GiB memory, 4 GB disk.
 const BASIC = { vcpu: 0.25, gib: 1, disk: 4 };

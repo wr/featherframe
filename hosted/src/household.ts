@@ -5,6 +5,7 @@ import type { Env } from "./index";
 import { releaseFrame } from "./setup";
 import { isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
+import type { UsageDay } from "./usage";
 
 // The household's server is woken only for news (W-847). The front door looks
 // for it: a BirdWeather station every POLL_MS, or a push (BirdNET-Pi's Apprise,
@@ -64,8 +65,15 @@ export class Household extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS viewers (id TEXT PRIMARY KEY, status TEXT, name TEXT, file TEXT,
         refresh INTEGER, paper INTEGER, short TEXT);
       CREATE TABLE IF NOT EXISTS usage (day TEXT PRIMARY KEY, wakes INTEGER NOT NULL DEFAULT 0,
-        server_ms INTEGER NOT NULL DEFAULT 0);
+        server_ms INTEGER NOT NULL DEFAULT 0, wake_ms INTEGER NOT NULL DEFAULT 0,
+        page_ms INTEGER NOT NULL DEFAULT 0);
     `);
+    // Wake time and page time apart (W-907); server_ms stays their sum. A day
+    // from before has only the sum, and both of these at 0.
+    const cols = new Set(this.sql.exec("SELECT * FROM usage LIMIT 0").columnNames);
+    for (const c of ["wake_ms", "page_ms"]) {
+      if (!cols.has(c)) this.sql.exec(`ALTER TABLE usage ADD COLUMN ${c} INTEGER NOT NULL DEFAULT 0`);
+    }
   }
 
   meta(k: string): string | null {
@@ -107,25 +115,29 @@ export class Household extends DurableObject<Env> {
   }
 
   // -- what the admin page shows (W-850) ---------------------------------------
-  /** Roughly how long the server ran, by UTC day: each wake, and the time a
-   * page kept it up. The Container's own clock is not ours to read. */
-  addUsage(wakes: number, ms: number): void {
+  /** Roughly how long the server ran, by UTC day: a wake, or the time a page
+   * kept it up, each counted apart (W-907). The Container's own clock is not
+   * ours to read. */
+  addUsage(kind: "wake" | "page", ms: number): void {
     const day = new Date().toISOString().slice(0, 10);
-    this.sql.exec(`INSERT INTO usage (day, wakes, server_ms) VALUES (?, ?, ?)
-      ON CONFLICT (day) DO UPDATE SET wakes = wakes + excluded.wakes, server_ms = server_ms + excluded.server_ms`,
-      day, wakes, Math.round(ms));
+    const t = Math.round(ms);
+    const wake = kind === "wake";
+    this.sql.exec(`INSERT INTO usage (day, wakes, server_ms, wake_ms, page_ms) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (day) DO UPDATE SET wakes = wakes + excluded.wakes, server_ms = server_ms + excluded.server_ms,
+        wake_ms = wake_ms + excluded.wake_ms, page_ms = page_ms + excluded.page_ms`,
+      day, wake ? 1 : 0, t, wake ? t : 0, wake ? 0 : t);
     this.sql.exec("DELETE FROM usage WHERE day < ?", new Date(Date.now() - 40 * 86400e3).toISOString().slice(0, 10));
   }
 
   summary(): { frames: { id: string; status: string; seen: number | null }[];
-               usage: { day: string; wakes: number; server_ms: number }[]; month_ms: number;
+               usage: UsageDay[]; month_ms: number;
                last_wake: number | null; source: string | null; suspended: boolean } {
     const seen = new Map(this.sql.exec<{ id: string; at: number }>("SELECT id, at FROM seen").toArray()
       .map((r) => [r.id, r.at]));
     const frames = this.sql.exec<{ id: string; status: string }>("SELECT id, status FROM frames ORDER BY id")
       .toArray().map((f) => ({ id: f.id, status: f.status, seen: seen.get(f.id) ?? null }));
-    const usage = this.sql.exec<{ day: string; wakes: number; server_ms: number }>(
-      "SELECT day, wakes, server_ms FROM usage ORDER BY day DESC LIMIT 7").toArray();
+    const usage = this.sql.exec<UsageDay>(
+      "SELECT day, wakes, server_ms, wake_ms, page_ms FROM usage ORDER BY day DESC LIMIT 7").toArray();
     const wake = Number(this.meta("wake_ms") || 0);
     const month_ms = this.sql.exec<{ ms: number }>("SELECT coalesce(sum(server_ms), 0) AS ms FROM usage WHERE day >= ?",
       new Date().toISOString().slice(0, 8) + "01").one().ms;
@@ -215,7 +227,7 @@ export class Household extends DurableObject<Env> {
   async proxy(request: Request): Promise<Response> {
     // A page in use keeps the server up: count the time between its requests.
     const lastPage = Number(this.meta("page_ms") || 0);
-    if (lastPage && Date.now() - lastPage < PAGE_ACTIVE_MS) this.addUsage(0, Date.now() - lastPage);
+    if (lastPage && Date.now() - lastPage < PAGE_ACTIVE_MS) this.addUsage("page", Date.now() - lastPage);
     this.setMeta("page_ms", String(Date.now()));
     const stub = await this.server();
     // Read before the body is handed on: forwarding the request uses it up.
@@ -291,7 +303,7 @@ export class Household extends DurableObject<Env> {
     } catch (err) {
       console.error("wake failed", err);
     }
-    this.addUsage(1, Date.now() - t0);
+    this.addUsage("wake", Date.now() - t0);
     await this.schedule();
   }
 

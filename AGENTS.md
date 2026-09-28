@@ -576,7 +576,8 @@ sign-ups an hour per IP and per address (D1 `rate_hits`); an uninvited email
 trying to sign in joins it pending, and is not emailed; the admin counts only
 confirmed ones), invitations, and every household
 (frames and when each was last seen, from the front door's `summary()`, and
-rough server time: wakes plus the time a page kept it up, by UTC day).
+rough server time by UTC day: its wakes, apart from the time a page kept it
+up, W-907).
 W-860 added this month's Cloudflare usage against the Workers Paid allowances
 and the bill so far (`usage.ts`: GraphQL Analytics with the `CF_API_TOKEN`
 secret, one query per dataset so a missing field costs one meter; Containers

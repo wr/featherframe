@@ -1,6 +1,6 @@
 // The admin page's bill (src/usage.ts, W-860).
 import { describe, expect, it } from "vitest";
-import { bill, containerMeters, project, type Meter } from "../src/usage";
+import { bill, containerMeters, project, serverTime, type Meter } from "../src/usage";
 
 const m = (used: number | null, included: number, price: number, unit = ""): Meter =>
   ({ group: "g", label: "l", unit, used, included, price });
@@ -29,5 +29,18 @@ describe("containerMeters", () => {
     expect(cpu.used).toBeCloseTo(15);   // 1/4 vCPU for 60 min
     expect(mem.used).toBeCloseTo(1);
     expect(disk.used).toBeCloseTo(4);
+  });
+});
+
+describe("serverTime", () => {
+  const day = (d: string, wakes: number, wake_ms: number, page_ms: number, server_ms = wake_ms + page_ms) =>
+    ({ day: d, wakes, server_ms, wake_ms, page_ms });
+  it("keeps wakes apart from the page", () => {
+    expect(serverTime([day("2026-09-29", 40, 800e3, 0), day("2026-09-28", 45, 900e3, 600e3)]))
+      .toEqual({ wakes: 85, wake_ms: 1700e3, page_ms: 600e3, since: null });
+  });
+  it("leaves out a day from before the split and says from when it counts", () => {
+    expect(serverTime([day("2026-09-29", 40, 800e3, 0), day("2026-09-27", 50, 0, 0, 9e6)]))
+      .toEqual({ wakes: 40, wake_ms: 800e3, page_ms: 0, since: "2026-09-29" });
   });
 });

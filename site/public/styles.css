@@ -754,7 +754,6 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 /* a frame's canvas while the other tone's frame is the one on the page */
 .ff3d.empty { visibility: hidden; }
 .spectro { padding-right: 70px; }
-.form-consent { margin: 10px 0 0; font-size: var(--t-fine); color: var(--graphite); }
 .nb { white-space: nowrap; }
 /* the sections whose eyebrow is their heading (the collection, the details, the maker's note) */
 h2.eyebrow, .maker h2.sc { margin: 0; font-weight: 400; }

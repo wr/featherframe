@@ -101,7 +101,8 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#faq dd').nth(4)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
   await expect(page.locator('#faq dd').nth(6)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration¹ turned on, the day’s species are painted together in one scene, marked ✦.');
   await expect(page.locator('#faq')).not.toContainText('OpenAI key');
-  await expect(page.locator('#keep-posted .form-why')).toHaveText('Not ready to order? I’ll write once, when the first frames have shipped. Nothing else.');
+  await expect(page.locator('#keep-posted .form-why')).toHaveText('We will never sell or share your email address. We don’t plan to send any email updates, but you can sign up below in case we do.');
+  await expect(page.locator('#keep-posted .form-consent')).toHaveCount(0);
   await expect(page.locator('.cat figure')).toHaveCount(12);
   // the wall: the Wild Turkey first (the art stop's bird), the Carolina Wren last (the one that tears off), four Gould pieces among Audubon's
   const A = 'John James AudubonThe Birds of America';

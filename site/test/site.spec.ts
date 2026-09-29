@@ -183,7 +183,7 @@ test('the 3D frame lands exactly on the poster', async ({ page }) => {
   expect(Math.abs(stage.w * 975 / 1200 - frame.w)).toBeLessThan(2);
 });
 
-for (const [w, h] of [[390, 844], [393, 852], [768, 1024], [1024, 768]]) {
+for (const [w, h] of [[390, 844], [393, 852], [768, 1024], [1024, 768], [1920, 1080], [2560, 1440]]) {
   test(`no horizontal scroll at ${w}`, async ({ page }) => {
     await page.setViewportSize({ width: w, height: h });
     await page.goto('/');
@@ -1466,4 +1466,20 @@ test("the video's corners are a frame's, and the table's line sits centred under
   await then.scrollIntoViewIfNeeded();
   const [t, slot] = await Promise.all([then.locator('span:visible').boundingBox(), page.locator('#table-slot').boundingBox()]);
   expect(Math.abs(t!.x + t!.width / 2 - (slot!.x + slot!.width / 2))).toBeLessThan(2);
+});
+
+test('on a wide window the page runs no wider than 1296px, centred', async ({ page }) => {
+  for (const [w, h] of [[1920, 1080], [2560, 1440]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/');
+    const edge = (w - 1296) / 2;
+    for (const sel of ['.head', '.cover h1', '#epaper', '.colophon']) {
+      const b = (await page.locator(sel).boundingBox())!;
+      expect(Math.abs(b.x - edge), `${sel} at ${w}`).toBeLessThan(1);
+    }
+    for (const sel of ['.head', '.colophon']) expect((await page.locator(sel).boundingBox())!.width).toBeLessThanOrEqual(1296.5);
+    // the switch keeps to the content's right edge
+    const pill = (await page.locator('.tone.pill').boundingBox())!;
+    expect(Math.abs(pill.x + pill.width - (w - edge))).toBeLessThan(1);
+  }
 });

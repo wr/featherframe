@@ -31,6 +31,9 @@
   --sans: 'Inter', system-ui, sans-serif;
   --m: 72px;       /* page margin */
   --max: 1296px;   /* the widest the page's content runs (1440 less its margins) */
+  /* the page's side margin: --m, or wider where the window is, so the content runs no wider than --max, centred;
+     what reaches the window's edge (the cover's room, the seasons' row) reaches out by this */
+  --edge: max(var(--m), (100vw - var(--max)) / 2);
   --flat: 0.79483;   /* the dead-on frame's width over height (choreo.ts's slots; the wall's stills) */
   --gutter: 28px;  /* column gap */
   /* Type. Every text on the page is one of these roles: the serif at four sizes, the small capitals at one, and
@@ -90,7 +93,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .btn:hover { background: #000; }
 .night .btn:hover { background: #fff; }
 
-.page { padding: 0 var(--m); overflow-x: clip; } /* the cover's stage runs past the right edge */
+.page { padding: 0 var(--edge); overflow-x: clip; } /* the cover's stage runs past the right edge */
 .folio {
   display: flex; justify-content: space-between; align-items: baseline;
   margin-bottom: var(--s-part);
@@ -138,7 +141,7 @@ h2 { font-weight: 400; text-wrap: balance; }
    horizon, on the table (III's table is the same room). Behind the page's canvas. */
 :root { --room-wall: #ececea; --room-table: #f7f7f5; }
 .cover::before {
-  content: ""; position: absolute; z-index: -2; left: calc(-1 * var(--m)); right: calc(-1 * var(--m)); top: 0; bottom: 0;
+  content: ""; position: absolute; z-index: -2; left: calc(-1 * var(--edge)); right: calc(-1 * var(--edge)); top: 0; bottom: 0;
   --hz: calc(100% - 7vh - 0.12 * 1.2759 * var(--fw)); /* the horizon, a little above the frame's foot */
   background: linear-gradient(to bottom, #fff 0%, var(--room-wall) var(--hz), var(--room-table) var(--hz), #fff 100%);
   /* the room is behind the frame only: it fades to plain white across the text column */
@@ -264,7 +267,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .mega { margin: 0 0 0 -.04em; max-width: 13ch; }
 
 /* II. From the collection: a gallery wall of frames, seen dead-on */
-.tone.pill { position: fixed; top: calc(var(--nav) + 14px); right: var(--m); z-index: 21; display: inline-flex; padding: 3px; border-radius: var(--radius);
+.tone.pill { position: fixed; top: calc(var(--nav) + 14px); right: var(--edge); z-index: 21; display: inline-flex; padding: 3px; border-radius: var(--radius);
   background: var(--paper); box-shadow: 0 0 0 1px var(--hair), var(--shadow-float); }
 /* the thumb: slides under the chosen tone */
 .tone.pill::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: var(--radius);
@@ -436,13 +439,13 @@ h2 { font-weight: 400; text-wrap: balance; }
 .fnref { font-size: .7em; vertical-align: super; line-height: 0; margin-left: 1px; }
 .seasons-live .seasons { height: calc(100vh - var(--nav) + 165vh); margin-top: var(--s-block);
   /* each sheet's frame: 72% of the window's height, unless the width runs out first */
-  --sh: min(72vh, calc(100vh - var(--nav) - 160px), calc((100vw - 2 * var(--m)) * 1100 / 874));
+  --sh: min(72vh, calc(100vh - var(--nav) - 160px), calc((100vw - 2 * var(--edge)) * 1100 / 874));
   --sw: calc(var(--sh) * 874 / 1100); }
 .seasons-live .stage-row {
   position: sticky; top: var(--nav); height: calc(100vh - var(--nav)); overflow: hidden;
-  display: flex; align-items: center; margin: 0 calc(-1 * var(--m));
+  display: flex; align-items: center; margin: 0 calc(-1 * var(--edge));
 }
-.seasons-live .row { flex-direction: row; align-items: flex-start; gap: max(64px, calc((100vw - var(--sw)) / 2 - 90px)); padding: 0 var(--m); will-change: transform; }
+.seasons-live .row { flex-direction: row; align-items: flex-start; gap: max(64px, calc((100vw - var(--sw)) / 2 - 90px)); padding: 0 var(--edge); will-change: transform; }
 .seasons-live .season { width: auto; }
 .seasons-live .season figure { width: auto; }
 .seasons-live .season img { width: var(--sw); height: var(--sh); max-width: none; }
@@ -545,10 +548,10 @@ h2 { font-weight: 400; text-wrap: balance; }
   .cover { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); grid-template-rows: auto 1fr;
            height: calc(100svh - 78px); min-height: 640px; max-height: 1100px; padding: 4vh 0 0; }
   /* The headline stops short of the frame: as large as the room left of it allows, "outside in." with its indent
-     being 3.85em wide and the frame's left edge 42px + --fw in from the window's right (110px at the least, where
-     the narrowest desktops let it run a little over) */
+     being 3.85em wide and the frame's right edge --m less 42px past the content's (110px at the least, where the
+     narrowest desktops let it run a little over) */
   .cover h1 { position: relative; top: 0; grid-column: 1 / -1; grid-row: 1; width: auto; pointer-events: none;
-              font-size: max(110px, min(15.4vw, 290px, (100vw - var(--m) - 42px - var(--fw) - 40px) / 3.85)); }
+              font-size: max(110px, min(15.4vw, 290px, (100vw - 2 * var(--edge) + var(--m) - 42px - var(--fw) - 40px) / 3.85)); }
   /* The frame keeps its height and its place at the bottom right; a narrower
      window slides it further under the sentence. */
   .frame { right: calc(42px - var(--m)); bottom: 7vh; width: var(--fw); height: auto; }

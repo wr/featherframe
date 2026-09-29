@@ -77,9 +77,11 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('.cover .copy p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display, no subscription.');
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. From $349, no subscription.');
-  // no exploded drawing anywhere: the reservation is its headline, line and button
+  // no exploded drawing anywhere: the reservation is its headline, the frame on its kickstand, its line and button
   await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
-  await expect(page.locator('.close > *')).toHaveCount(3);
+  await expect(page.locator('.close > *')).toHaveCount(2);
+  await expect(page.locator('.close .words > *')).toHaveCount(3);
+  await expect(page.locator('.close .stand img')).toHaveAttribute('src', 'img/wall/table-10-cardinal.webp');
   await expect(page.locator('#how .logos .sc')).toHaveText('Compatible with');
   await expect(page.locator('#how')).not.toContainText('Detections by');
   await expect(page.locator('body')).not.toContainText('heard at 07:02');
@@ -1429,7 +1431,8 @@ test('one corner for every button, the switch and the field; the footer drawn in
   for (const fill of await page.locator('.colophon .ww-logo path').evaluateAll((ps) => ps.map((p) => p.getAttribute('fill')))) expect(fill).toBe('currentColor');
   // the price under the closing line wraps rather than running the page's width
   const lines = await page.locator('.close p').evaluate((p) => { const r = document.createRange(); r.selectNodeContents(p); return new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size; });
-  expect(lines).toBe(2);
+  expect(lines).toBeGreaterThanOrEqual(2);
+  expect(lines).toBeLessThanOrEqual(3);
 });
 
 test("B&W's captions line up with its smaller frames", async ({ page }) => {
@@ -1505,4 +1508,18 @@ test('the icons are one family: a 24-unit grid, a 1.5px line, one size (the seas
     expect(i.fill).toBe('none');
   }
   expect(new Set(icons.map((i) => i.w).filter((w) => w !== 'auto'))).toEqual(new Set(['24px', '40px']));
+});
+
+test('the close is a window of its own: the words beside the frame on its kickstand, in the page\'s tone', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const close = page.locator('.close');
+  await close.scrollIntoViewIfNeeded();
+  const nav = (await page.locator('.head').boundingBox())!.height;
+  expect((await close.boundingBox())!.height).toBeGreaterThanOrEqual(900 - nav - 1);
+  const [h, fig] = [(await page.locator('.close h2').boundingBox())!, (await page.locator('.close .stand').boundingBox())!];
+  expect(fig.x).toBeGreaterThan(h.x + h.width);
+  await expect(page.locator('.close .stand img')).toBeVisible();
+  await page.locator('.tone').getByRole('button', { name: 'Color' }).click();
+  await expect(page.locator('.close .stand img')).toHaveAttribute('src', 'img/wall/table-13-cardinal.webp');
 });

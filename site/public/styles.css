@@ -496,12 +496,18 @@ h2 { font-weight: 400; text-wrap: balance; }
 .qa dd { margin: 10px 0 0; max-width: 60ch; color: var(--text); }
 
 /* Close */
-/* the close, the page's last word before the questions: a chapter apart on both sides, and a part more of room
-   round it, so it stands alone */
-.close { margin-top: var(--s-chapter); padding: var(--s-part) 0; text-align: center; }
+/* The close, the page's last word before the questions: a window of its own, the cover again after dark: the words
+   on the left, the frame standing on its kickstand on the right, in the page's tone */
+.close {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; column-gap: calc(2 * var(--gutter));
+  min-height: calc(100vh - var(--nav)); margin-top: var(--s-part);
+}
 .close .big { margin: 0; }
-.close .big i { display: block; }
-.close p { max-width: 24em; margin: var(--s-block) auto; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); text-wrap: balance; }
+.close .big i { display: block; margin-left: .42em; }
+.close p { max-width: 22em; margin: var(--s-block) 0; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); text-wrap: balance; }
+/* (the table's still carries room for its shadow round the frame) */
+.close .stand { justify-self: center; width: min(100%, calc(70vh * 637 / 760)); }
+.close .stand img { width: 100%; }
 
 /* Colophon */
 .colophon {
@@ -766,6 +772,14 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 .maker .sc { margin: 0 0 14px; color: var(--graphite); }
 .maker p:last-child { margin: 0; font-style: italic; color: var(--text); }
 @media (max-width: 820px) {
+  /* the close stacked as the cover is on a phone: the headline, the frame, the line and the button */
+  .close { grid-template-columns: 1fr; grid-template-areas: "h" "fig" "p" "cta"; align-items: start; align-content: center;
+           min-height: calc(100svh - var(--nav)); }
+  .close .words { display: contents; }
+  .close .big { grid-area: h; }
+  .close p { grid-area: p; }
+  .close .btn { grid-area: cta; justify-self: start; }
+  .close .stand { grid-area: fig; width: 86%; margin: var(--s-block) 0 0; }
 }
 
 @media (max-width: 820px) {

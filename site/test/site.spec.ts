@@ -105,18 +105,18 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#keep-posted .form-consent')).toHaveCount(0);
   await expect(page.locator('.cat figure')).toHaveCount(12);
   // the wall: the Wild Turkey first (the art stop's bird), the Carolina Wren last (the one that tears off), four Gould pieces among Audubon's
-  const A = 'John James AudubonThe Birds of America';
+  const A = 'Audubon’s The Birds of America';
   await expect(page.locator('.cat figure figcaption')).toHaveText([
     `Wild TurkeyMeleagris gallopavo${A}`,
-    'European RobinErithacus rubeculaJohn GouldThe Birds of Europe',
+    'European RobinErithacus rubeculaGould’s The Birds of Europe',
     `Great Horned OwlBubo virginianus${A}`,
-    'Rainbow LorikeetTrichoglossus moluccanusJohn GouldThe Birds of Australia',
+    'Rainbow LorikeetTrichoglossus moluccanusGould’s The Birds of Australia',
     `Cedar WaxwingBombycilla cedrorum${A}`,
-    'Common KingfisherAlcedo atthisJohn GouldThe Birds of Europe',
+    'Common KingfisherAlcedo atthisGould’s The Birds of Europe',
     `Green-breasted MangoAnthracothorax prevostii${A}`,
-    'Laughing KookaburraDacelo novaeguineaeJohn GouldThe Birds of Australia',
+    'Laughing KookaburraDacelo novaeguineaeGould’s The Birds of Australia',
     `Tufted TitmouseBaeolophus bicolor${A}`,
-    'European GoldfinchCarduelis carduelisJohn GouldThe Birds of Europe',
+    'European GoldfinchCarduelis carduelisGould’s The Birds of Europe',
     `Northern Saw-whet OwlAegolius acadicus${A}`,
     `Carolina WrenThryothorus ludovicianus${A}`,
   ]);
@@ -1105,7 +1105,7 @@ test('a wall frame opens large and closes again', async ({ page }) => {
   await frame.click();
   await expect(box).toBeVisible();
   await expect(box).toHaveAttribute('role', 'dialog');
-  await expect(box.locator('figcaption')).toHaveText('Green-breasted MangoAnthracothorax prevostiiJohn James AudubonThe Birds of America');
+  await expect(box.locator('figcaption')).toHaveText('Green-breasted MangoAnthracothorax prevostiiAudubon’s The Birds of America');
   const close = box.getByRole('button', { name: 'Close' });
   await expect(close).toBeFocused();
   await page.waitForTimeout(600);
@@ -1441,4 +1441,29 @@ test("B&W's captions line up with its smaller frames", async ({ page }) => {
   const [im, cap] = await Promise.all([fig.locator('.im').boundingBox(), fig.locator('figcaption').boundingBox()]);
   expect(Math.abs(im!.x - cap!.x)).toBeLessThan(1);
   expect(Math.abs(im!.width - cap!.width)).toBeLessThan(1);
+});
+
+for (const [w, h] of [[1920, 1080], [1440, 900], [1280, 800], [1024, 768]]) {
+  test(`at ${w} the cover's headline stops short of its frame`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/');
+    await page.evaluate(() => document.fonts.ready);
+    const [right, frame] = await page.evaluate(() => {
+      const r = document.createRange();
+      r.selectNodeContents(document.querySelector('.cover h1 .l2')!);
+      return [r.getBoundingClientRect().right, document.querySelector('.cover .frame')!.getBoundingClientRect().left];
+    });
+    expect(right).toBeLessThan(frame);
+  });
+}
+
+test("the video's corners are a frame's, and the table's line sits centred under its frame", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.locator('#how video')).toHaveCSS('border-top-left-radius', '12px');
+  await expect(page.locator('#how .spectro')).toHaveCSS('border-bottom-left-radius', '12px');
+  const then = page.locator('.t3 .then');
+  await then.scrollIntoViewIfNeeded();
+  const [t, slot] = await Promise.all([then.locator('span:visible').boundingBox(), page.locator('#table-slot').boundingBox()]);
+  expect(Math.abs(t!.x + t!.width / 2 - (slot!.x + slot!.width / 2))).toBeLessThan(2);
 });

@@ -134,7 +134,7 @@ const setTone = (tone: string, keep: boolean) => {
 setTone(size, false);
 for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!, true));
 // …shown only while a frame's picture is on screen (the cover, the wall, the table, the seasons, the pair in the
-// details): elsewhere it would sit over words with nothing to switch
+// details, the close's): elsewhere it would sit over words with nothing to switch
 {
   const shown = new Set<Element>();
   const io = new IntersectionObserver((entries) => {
@@ -142,7 +142,7 @@ for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!
     root.classList.toggle('tone-here', shown.size > 0);
   });
   // (not a phone's cover: there it would sit on the Pre-order button, at the foot of the first screen)
-  const where = phone.matches ? '.wall, .t3, .seasons, #specs .headon' : '.cover .frame, .wall, .t3, .seasons, #specs .headon';
+  const where = phone.matches ? '.wall, .t3, .seasons, #specs .headon' : '.cover .frame, .wall, .t3, .seasons, #specs .headon, .close .stand';
   for (const el of document.querySelectorAll(where)) io.observe(el);
 }
 if (!reduced) startSheen([...document.querySelectorAll<HTMLElement>('.wall .cat .im')]);

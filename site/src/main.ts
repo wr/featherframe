@@ -134,7 +134,7 @@ const setTone = (tone: string, keep: boolean) => {
 setTone(size, false);
 for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!, true));
 // …shown only while a frame's picture is on screen (the cover, the wall, the table, the seasons, the pair in the
-// details): elsewhere it would sit over words with nothing to switch
+// details, the close's): elsewhere it would sit over words with nothing to switch
 {
   const shown = new Set<Element>();
   const io = new IntersectionObserver((entries) => {
@@ -142,7 +142,7 @@ for (const b of tones) b.addEventListener('click', () => setTone(b.dataset.tone!
     root.classList.toggle('tone-here', shown.size > 0);
   });
   // (not a phone's cover: there it would sit on the Pre-order button, at the foot of the first screen)
-  const where = phone.matches ? '.wall, .t3, .seasons, #specs .headon' : '.cover .frame, .wall, .t3, .seasons, #specs .headon';
+  const where = phone.matches ? '.wall, .t3, .seasons, #specs .headon' : '.cover .frame, .wall, .t3, .seasons, #specs .headon, .close .stand';
   for (const el of document.querySelectorAll(where)) io.observe(el);
 }
 if (!reduced) startSheen([...document.querySelectorAll<HTMLElement>('.wall .cat .im')]);
@@ -195,7 +195,7 @@ let shownAt = 0;
 /** When the recording ended and the wait for the table began (0: not waiting); WAIT_MS is the longest it lasts. */
 let waitSince = 0;
 const WAIT_MS = 40000;
-if (reduced) unmute.textContent = 'Play the song';
+if (reduced) unmute.querySelector('.lb')!.textContent = 'Play the song';
 /** The visitor's own Pause: the loop stays still until they press it again (WCAG 2.2.2). */
 let userPaused = false;
 const pauseBtn = document.querySelector<HTMLButtonElement>('#how .pause')!;

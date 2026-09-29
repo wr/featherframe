@@ -31,6 +31,9 @@
   --sans: 'Inter', system-ui, sans-serif;
   --m: 72px;       /* page margin */
   --max: 1296px;   /* the widest the page's content runs (1440 less its margins) */
+  /* the page's side margin: --m, or wider where the window is, so the content runs no wider than --max, centred;
+     what reaches the window's edge (the cover's room, the seasons' row) reaches out by this */
+  --edge: max(var(--m), (100vw - var(--max)) / 2);
   --flat: 0.79483;   /* the dead-on frame's width over height (choreo.ts's slots; the wall's stills) */
   --gutter: 28px;  /* column gap */
   /* Type. Every text on the page is one of these roles: the serif at four sizes, the small capitals at one, and
@@ -53,6 +56,13 @@
   --s-part: 64px;
   --s-near: 110px;
   --s-chapter: 180px;
+  /* Corners: every button, the B&W / Color switch and the email field share one; a button that is only an icon is
+     round, and the notification on the video keeps its phone's shape */
+  --radius: 2px;
+  --radius-frame: 12px;  /* a picture's corners, as round as the walnut frame's */
+  /* Icons: one family (.icon), at one size, and the seasons' marks at the large one */
+  --icon: 24px;
+  --icon-lg: 40px;
   --shadow-float: 0 1px 2px rgba(0, 0, 0, .08), 0 14px 34px -12px rgba(0, 0, 0, .3);  /* what floats over the page */
   --shadow-front: drop-shadow(0 12px 22px rgba(0, 0, 0, .2));  /* a frame standing in front of another */
   --shadow-floor: radial-gradient(closest-side, rgba(0, 0, 0, .09), rgba(0, 0, 0, .03) 60%, transparent);
@@ -72,21 +82,27 @@ figure { margin: 0; }
 h2 { font-weight: 400; text-wrap: balance; }
 .it { font-style: italic; }
 /* the small capitals, one size and one tracking wherever they are set */
-.sc, .eyebrow, .btn, .spec dt, .cat .by, .lightbox .by {
+.sc, .eyebrow, .btn, .spec dt {
   font-family: var(--caps); font-size: var(--t-caps); font-weight: 400; letter-spacing: var(--caps-track); text-transform: uppercase;
 }
-.sc, .eyebrow, .cat .by, .lightbox .by { line-height: 1.35; }
+.sc, .eyebrow { line-height: 1.35; }
 .ul { border-bottom: 1px solid var(--hair); }
 .ul:hover { border-color: var(--ink); }
 
 .btn {
   display: inline-flex; align-items: center; height: 48px; padding: 0 28px; white-space: nowrap;
-  border-radius: 2px; background: var(--ink); color: var(--paper); line-height: 1;
+  border-radius: var(--radius); background: var(--ink); color: var(--paper); line-height: 1;
 }
+/* The icons: each drawn in outline on a 24-unit grid, its ends and corners round, its line 1.5px at whatever size it
+   is set: the season, the plug and the refresh marks, the speaker, pause and play, the notification's waveform, the
+   lightbox's close and arrows */
+.icon { flex: none; width: var(--icon); height: var(--icon); fill: none; stroke: currentColor; stroke-width: 1.5px;
+  stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.icon * { vector-effect: non-scaling-stroke; }
 .btn:hover { background: #000; }
 .night .btn:hover { background: #fff; }
 
-.page { padding: 0 var(--m); overflow-x: clip; } /* the cover's stage runs past the right edge */
+.page { padding: 0 var(--edge); overflow-x: clip; } /* the cover's stage runs past the right edge */
 .folio {
   display: flex; justify-content: space-between; align-items: baseline;
   margin-bottom: var(--s-part);
@@ -134,8 +150,8 @@ h2 { font-weight: 400; text-wrap: balance; }
    horizon, on the table (III's table is the same room). Behind the page's canvas. */
 :root { --room-wall: #ececea; --room-table: #f7f7f5; }
 .cover::before {
-  content: ""; position: absolute; z-index: -2; left: calc(-1 * var(--m)); right: calc(-1 * var(--m)); top: 0; bottom: 0;
-  --hz: calc(100% - 7vh - 0.12 * 1.2759 * min(600px, 60vh)); /* the horizon, a little above the frame's foot */
+  content: ""; position: absolute; z-index: -2; left: calc(-1 * var(--edge)); right: calc(-1 * var(--edge)); top: 0; bottom: 0;
+  --hz: calc(100% - 7vh - 0.12 * 1.2759 * var(--fw)); /* the horizon, a little above the frame's foot */
   background: linear-gradient(to bottom, #fff 0%, var(--room-wall) var(--hz), var(--room-table) var(--hz), #fff 100%);
   /* the room is behind the frame only: it fades to plain white across the text column */
   -webkit-mask-image: linear-gradient(to right, transparent 34%, #000 58%);
@@ -192,7 +208,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .epaper .why { grid-column: 1; grid-row: 2; margin: 8px 0 0; padding: 0 0 14vh; max-width: 38ch; list-style: none; }
 /* each fact led by its mark, drawn like the seasons' (an engraving's line), level with its first line */
 .why li { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 18px; align-items: start; margin: 24px 0 0; }
-.why .ico { width: 24px; height: 24px; margin-top: 3px; color: var(--ink); }
+.why .icon { margin-top: 3px; color: var(--ink); }
 .why p { margin: 0; color: var(--text); text-wrap: pretty; }
 /* --h13: the 13.3-inch's height, as tall as the columns and the window allow; the 10.3-inch is 295/371 of it, and
    stands in front of it, over a quarter of its own width (--lap): 1.2624 is the pair's width over --h13 */
@@ -224,7 +240,6 @@ h2 { font-weight: 400; text-wrap: balance; }
 .run { display: flex; justify-content: center; margin: 30px 0 0; }
 .pair:not(.live) .run { visibility: hidden; }
 .run .btn { gap: 12px; min-width: 300px; justify-content: center; border: 0; cursor: pointer; }
-.run .btn .ic { flex: none; }
 .run .btn:disabled { background: var(--faint); cursor: default; }
 /* flat-pair.ts: the frame, its screen a hole, over its live glass (the screen's box, from scripts/wall.mjs hole) */
 .flat { position: absolute; inset: 0; }
@@ -260,13 +275,13 @@ h2 { font-weight: 400; text-wrap: balance; }
 .mega { margin: 0 0 0 -.04em; max-width: 13ch; }
 
 /* II. From the collection: a gallery wall of frames, seen dead-on */
-.tone.pill { position: fixed; top: calc(var(--nav) + 14px); right: var(--m); z-index: 21; display: inline-flex; padding: 3px; border-radius: 999px;
+.tone.pill { position: fixed; top: calc(var(--nav) + 14px); right: var(--edge); z-index: 21; display: inline-flex; padding: 3px; border-radius: var(--radius);
   background: var(--paper); box-shadow: 0 0 0 1px var(--hair), var(--shadow-float); }
 /* the thumb: slides under the chosen tone */
-.tone.pill::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 999px;
+.tone.pill::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: var(--radius);
   background: var(--ink); transition: transform .3s cubic-bezier(.3, 0, .2, 1); }
 [data-tone="13"] .tone.pill::before { transform: translateX(100%); }
-.tone.pill button { position: relative; width: 74px; padding: 8px 0 7px; border: 0; border-radius: 999px; background: none;
+.tone.pill button { position: relative; width: 74px; padding: 8px 0 7px; border: 0; border-radius: var(--radius); background: none;
   color: var(--graphite); cursor: pointer; transition: color .25s; }
 .tone.pill button:hover { color: var(--ink); }
 .tone.pill { opacity: 0; pointer-events: none; transition: opacity .25s; }
@@ -284,6 +299,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* B&W is the 10.3-inch, drawn to scale beside the 13.3-inch (295 mm tall to 371): sized, not scaled, so the grid
    closes up round the smaller frames, each still standing on its caption */
 [data-tone="10"] .cat .im { width: 79.51%; margin: 0 auto; }
+/* …and its caption as wide as it, so the two line up */
+[data-tone="10"] .cat figcaption { width: 79.51%; margin-left: auto; margin-right: auto; }
+.tone-anim .cat figcaption { transition: width .7s cubic-bezier(.3, 0, .2, 1); }
 .tone-anim .cat .im { transition: width .7s cubic-bezier(.3, 0, .2, 1), transform .35s cubic-bezier(.2, .8, .2, 1); }
 /* the glass over each print (its wood inset: 13-inch 26 px of 604 × 760; 10-inch 32 of 596, pillarboxed) */
 /* The glass's sheen (viewer.ts SHEEN / sheenAt, sheen.ts): a soft diagonal
@@ -302,8 +320,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cat .nm { display: block; line-height: var(--lh-title); }
 .cat .la { display: block; font: italic var(--t-small) var(--serif); color: var(--graphite); }
 /* the artist and the book, as a plate's imprint */
-.cat .by { display: block; margin-top: 6px; color: var(--graphite); }
-.cat .by i { display: block; margin-top: 3px; font: italic var(--t-small)/var(--lh-title) var(--serif); letter-spacing: 0; text-transform: none; }
+/* three lines: the name, the Latin name, and whose book it is from */
+.cat .by { display: block; margin-top: 2px; font-size: var(--t-small); line-height: var(--lh-title); color: var(--graphite); }
 .sec.wall { margin-top: var(--s-near); }
 .wall .folio { padding: 14px 0 12px; margin-bottom: var(--s-block); }
 
@@ -318,8 +336,8 @@ h2 { font-weight: 400; text-wrap: balance; }
    crossing it. */
 .ph { position: relative; }
 .ph video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; /* the clips' own shape: no bird cropped */ object-fit: cover; background: #d9d9d5;
-            border-radius: 0; box-shadow: var(--shadow-float); }
-.spectro { position: absolute; left: 0; right: 0; bottom: 0; height: 33.4%; padding: 3% 4% 3.4%; border-radius: 0;
+            border-radius: var(--radius-frame); box-shadow: var(--shadow-float); }
+.spectro { position: absolute; left: 0; right: 0; bottom: 0; height: 33.4%; padding: 3% 4% 3.4%; border-radius: 0 0 var(--radius-frame) var(--radius-frame);
            background: linear-gradient(to top, rgba(0, 0, 0, .74), rgba(0, 0, 0, .56) 60%, rgba(0, 0, 0, 0)); }
 .spectro .sg { height: 100%; }
 .spectro img { width: 100%; height: 100%; object-fit: fill; filter: invert(1) brightness(2.6) contrast(1.3); mix-blend-mode: screen; }
@@ -336,13 +354,10 @@ h2 { font-weight: 400; text-wrap: balance; }
   display: grid; place-items: center; place-content: center; width: 48px; height: 48px; padding: 0; gap: 0;
   border: 0; border-radius: 50%; background: rgba(18, 18, 18, .82); color: #fff; font-size: 0; cursor: pointer;
 }
-.unmute::before { content: ""; width: 18px; height: 18px; background: currentColor;
-  -webkit-mask: var(--speaker) center / contain no-repeat; mask: var(--speaker) center / contain no-repeat; }
 .unmute:hover { background: #000; }
 .unmute[hidden] { display: none; }
 /* the video itself is the song's switch too: a click with sound on mutes it */
 .ph video { cursor: pointer; }
-:root { --speaker: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 9h4l5-4v14l-5-4H3z'/%3E%3Cpath d='M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
 /* A new detection: BirdNET's side of things, so an app's notification, not
    the book's type, pinned to the video's top-left corner. It slides in at the
    first detection and stays; at each one after, its name changes. */
@@ -358,13 +373,15 @@ h2 { font-weight: 400; text-wrap: balance; }
 .toast.swap .ic { animation: ff-ping .6s ease; }
 @keyframes ff-swap { from { opacity: 0; transform: translateY(8px); } }
 @keyframes ff-ping { 40% { transform: scale(1.12); } }
-.toast .ic { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #121212; color: #fff; }
+.toast .ic { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #121212; color: #fff; }
 .toast .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .toast .k { font: 500 12px/1.35 var(--sans); color: #6b6b69; }
 .toast .nm { font: 600 16px/1.3 var(--sans); color: #121212; white-space: nowrap; }
 .toast .when { align-self: flex-start; margin: 1px 0 0 14px; font: 400 12px/1.35 var(--sans); color: #6b6b69; white-space: nowrap; }
 .t2 figcaption, .t3 figcaption { margin-top: 14px; color: var(--graphite); font-size: var(--t-small); }
 .t3 figcaption .fn { display: block; margin-top: 4px; font-style: normal; font-size: var(--t-fine); }
+/* "Seconds later, the frame shows it.": centred under the frame, up in the table's margin by its foot */
+.t3 .then { margin-top: -5%; text-align: center; }
 /* on a desktop the table stands beside the video; stacked on a phone, a line says what it is */
 .t3 .then .t13, [data-tone="13"] .t3 .then .t10 { display: none; }
 [data-tone="13"] .t3 .then .t13 { display: inline; }
@@ -402,7 +419,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .logos .sc { color: var(--graphite); }
 .logos a { display: inline-flex; align-items: center; gap: 9px; font-size: var(--t-small); color: var(--ink); filter: grayscale(1); }
 .logos a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.logos img { width: 28px; height: 28px; }
+.logos img { width: 22px; height: 22px; }
 /* BirdWeather's mark is drawn in ink: at night, in the night's ink */
 .logos img[src$=".svg"] { filter: invert(var(--night)); }
 
@@ -420,28 +437,28 @@ h2 { font-weight: 400; text-wrap: balance; }
 .season figcaption .it { color: var(--text); }
 .season figcaption .sc { margin-right: auto; color: var(--ink); }
 /* each season's mark, drawn like an engraving's line */
-.season .ico { flex: none; align-self: center; width: 30px; height: 30px; margin-right: 6px; color: var(--ink); }
+.season .icon { align-self: center; margin-right: 6px; color: var(--ink); }
 #collage .note { margin: var(--s-block) 0 0; color: var(--graphite); font-size: var(--t-small); }
 #collage .note.fn { margin-top: 10px; font-size: var(--t-fine); max-width: 70ch; }
 #collage .note.fn a, .fnref { color: inherit; text-decoration: none; }
 .fnref { font-size: .7em; vertical-align: super; line-height: 0; margin-left: 1px; }
 .seasons-live .seasons { height: calc(100vh - var(--nav) + 165vh); margin-top: var(--s-block);
   /* each sheet's frame: 72% of the window's height, unless the width runs out first */
-  --sh: min(72vh, calc(100vh - var(--nav) - 160px), calc((100vw - 2 * var(--m)) * 1100 / 874));
+  --sh: min(72vh, calc(100vh - var(--nav) - 160px), calc((100vw - 2 * var(--edge)) * 1100 / 874));
   --sw: calc(var(--sh) * 874 / 1100); }
 .seasons-live .stage-row {
   position: sticky; top: var(--nav); height: calc(100vh - var(--nav)); overflow: hidden;
-  display: flex; align-items: center; margin: 0 calc(-1 * var(--m));
+  display: flex; align-items: center; margin: 0 calc(-1 * var(--edge));
 }
-.seasons-live .row { flex-direction: row; align-items: flex-start; gap: max(64px, calc((100vw - var(--sw)) / 2 - 90px)); padding: 0 var(--m); will-change: transform; }
+.seasons-live .row { flex-direction: row; align-items: flex-start; gap: max(64px, calc((100vw - var(--sw)) / 2 - 90px)); padding: 0 var(--edge); will-change: transform; }
 .seasons-live .season { width: auto; }
 .seasons-live .season figure { width: auto; }
 .seasons-live .season img { width: var(--sw); height: var(--sh); max-width: none; }
 /* each season's mark beside its name and date, drawn full for the season in the middle of the window */
 .seasons-live .season figcaption { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 16px; row-gap: 2px;
   border-top: 0; padding-top: 0; margin-bottom: 26px; }
-.seasons-live .season .ico { grid-row: 1 / 3; width: 44px; height: 44px; margin: 0; opacity: .55; transition: opacity .4s ease; }
-.seasons-live .season.now .ico { opacity: 1; }
+.seasons-live .season .icon { grid-row: 1 / 3; width: var(--icon-lg); height: var(--icon-lg); margin: 0; opacity: .55; transition: opacity .4s ease; }
+.seasons-live .season.now .icon { opacity: 1; }
 
 /* V. Technical details: the two frames head-on, to scale, with their dimensions; then the facts. */
 .headon { display: flex; justify-content: flex-start; align-items: flex-end; gap: 96px; padding: 0 0 0 calc((100% + var(--gutter)) / 12 * 4); }
@@ -479,17 +496,23 @@ h2 { font-weight: 400; text-wrap: balance; }
 .qa dd { margin: 10px 0 0; max-width: 60ch; color: var(--text); }
 
 /* Close */
-/* the close, the page's last word before the questions: a chapter apart on both sides, and a part more of room
-   round it, so it stands alone */
-.close { margin-top: var(--s-chapter); padding: var(--s-part) 0; text-align: center; }
+/* The close, the page's last word before the questions: a window of its own, the cover again after dark: the words
+   on the left, the frame standing on its kickstand on the right, in the page's tone */
+.close {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; column-gap: calc(2 * var(--gutter));
+  min-height: calc(100vh - var(--nav)); margin-top: var(--s-part);
+}
 .close .big { margin: 0; }
-.close .big i { display: block; }
-.close p { margin: var(--s-block) 0; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); }
+.close .big i { display: block; margin-left: .42em; }
+.close p { max-width: 22em; margin: var(--s-block) 0; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); text-wrap: balance; }
+/* (the table's still carries room for its shadow round the frame) */
+.close .stand { justify-self: center; width: min(100%, calc(70vh * 637 / 760)); }
+.close .stand img { width: 100%; }
 
 /* Colophon */
 .colophon {
   display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter);
-  margin-top: var(--s-chapter); padding: 40px 0 90px; border-top: 1px solid var(--ink); row-gap: 56px;
+  margin-top: var(--s-chapter); padding: 40px 0 90px; border-top: 1px solid var(--hair); row-gap: 56px;
   color: var(--text); font-size: var(--t-small);
 }
 .colophon .a { grid-column: 1 / 5; }
@@ -514,12 +537,12 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* Keep me posted: a boxed field with its button joined to it */
 .field { display: flex; height: 48px; max-width: 420px; }
 .field input {
-  flex: 1; min-width: 0; height: 100%; padding: 0 14px; border: 1px solid var(--faint); border-right: 0; border-radius: 2px 0 0 2px;
+  flex: 1; min-width: 0; height: 100%; padding: 0 14px; border: 1px solid var(--faint); border-right: 0; border-radius: var(--radius) 0 0 var(--radius);
   background: none; outline: none; font: italic var(--t-body) var(--serif); color: var(--ink);
 }
 .field input::placeholder { color: var(--faint); opacity: 1; }
 .field input:focus { border-color: var(--ink); }
-.field .btn { height: 100%; padding: 0 22px; border: 0; border-radius: 0 2px 2px 0; cursor: pointer; }
+.field .btn { height: 100%; padding: 0 22px; border: 0; border-radius: 0 var(--radius) var(--radius) 0; cursor: pointer; }
 .field .btn:disabled { background: var(--faint); cursor: default; }
 .form-why { margin: 0 0 4px; font: italic var(--t-small)/var(--lh-lede) var(--serif); color: var(--graphite); }
 .form-note { margin: 8px 0 0; font: italic var(--t-small) var(--serif); color: var(--graphite); }
@@ -529,22 +552,27 @@ h2 { font-weight: 400; text-wrap: balance; }
 .field input:focus-visible { outline: none; }
 
 /* The cover at every desktop width: the headline, then the sentence and the
-   button right under it, with the frame beside them. The headline may run a
-   little over the frame; the species name is the frame's caption. */
+   button right under it, with the frame beside them; the species name is the
+   frame's caption. --fw is the frame's width. */
+.cover { --fw: min(600px, 60vh); }
 @media (min-width: 821px) {
   .cover { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); grid-template-rows: auto 1fr;
            height: calc(100svh - 78px); min-height: 640px; max-height: 1100px; padding: 4vh 0 0; }
-  .cover h1 { position: relative; top: 0; grid-column: 1 / -1; grid-row: 1; width: auto; font-size: clamp(120px, 15.4vw, 290px); pointer-events: none; }
+  /* The headline stops short of the frame: as large as the room left of it allows, "outside in." with its indent
+     being 3.85em wide and the frame's right edge --m less 42px past the content's (110px at the least, where the
+     narrowest desktops let it run a little over) */
+  .cover h1 { position: relative; top: 0; grid-column: 1 / -1; grid-row: 1; width: auto; pointer-events: none;
+              font-size: max(110px, min(15.4vw, 290px, (100vw - 2 * var(--edge) + var(--m) - 42px - var(--fw) - 40px) / 3.85)); }
   /* The frame keeps its height and its place at the bottom right; a narrower
-     window slides it further under the headline and the sentence. */
-  .frame { right: calc(42px - var(--m)); bottom: 7vh; width: min(600px, 60vh); height: auto; }
+     window slides it further under the sentence. */
+  .frame { right: calc(42px - var(--m)); bottom: 7vh; width: var(--fw); height: auto; }
   /* where the frame has slid under the sentence, a paper halo keeps it clear */
   .cover .copy { position: relative; left: auto; bottom: auto; grid-column: 1; grid-row: 2; width: auto; max-width: 25em; align-self: center; margin: 0; }
 }
 
 /* narrow desktops: the running head's links close up so the wordmark keeps its room */
 @media (min-width: 821px) and (max-width: 1100px) {
-  .frame { width: min(520px, 54vh); }
+  .cover { --fw: min(520px, 54vh); }
   .cover .copy { max-width: 22em; }
   .head nav { gap: 18px; }
   .head nav a.sc { letter-spacing: .14em; }
@@ -607,6 +635,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .tone.pill button { width: 74px; min-height: 44px; padding: 0; }
   /* B&W keeps the frames' size here: with no 13-inch beside them, smaller only reads as smaller */
   [data-tone="10"] .cat .im, [data-tone="10"] .cat .im:hover { width: auto; margin: 0; transform: none; }
+  [data-tone="10"] .cat figcaption { width: auto; }
   [data-tone="10"] .cat .im::after { inset: 3.42% 4.3%; }
   .trip { grid-template-columns: 1fr; row-gap: 12px; }
   .lcol { padding: 0; }
@@ -614,7 +643,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .toast { left: 10px; top: 10px; min-width: 0; max-width: calc(100% - 20px); transform: none; }
   .ph video { aspect-ratio: 16 / 9; }
   .t3 { position: static; }
-  .t3 .then { margin-top: 4px; }
+  .t3 .then { margin-top: 4px; text-align: left; }
   /* sound on and off: a round speaker at the spectrogram's right end, so the picture is the picture */
   .cover::before { display: none; }
 
@@ -674,7 +703,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 @media (prefers-reduced-motion: reduce) {
   :root { transition: none; }
-  .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im, .toast, .season .ico { transition: none; }
+  .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im, .toast, .season .icon { transition: none; }
   .toast.swap .nm, .toast.swap .ic { animation: none; }
   .cat .im { transition: none; }
 }
@@ -691,8 +720,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .lightbox figcaption { width: 100%; max-width: 34em; margin-top: 18px; text-align: center; border-top: 1px solid var(--hair); padding-top: 10px; }
 .lightbox .nm { display: block; line-height: var(--lh-title); }
 .lightbox .la { display: block; font: italic var(--t-small) var(--serif); color: var(--graphite); }
-.lightbox .by { display: block; margin-top: 6px; color: var(--graphite); }
-.lightbox .by i { display: block; margin-top: 3px; font: italic var(--t-small)/var(--lh-title) var(--serif); letter-spacing: 0; text-transform: none; }
+.lightbox .by { display: block; margin-top: 2px; font-size: var(--t-small); line-height: var(--lh-title); color: var(--graphite); }
 .lb-close {
   position: absolute; top: 18px; right: 18px; display: grid; place-items: center; width: 44px; height: 44px;
   border: 0; border-radius: 50%; background: none; color: var(--ink); cursor: pointer;
@@ -744,6 +772,14 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 .maker .sc { margin: 0 0 14px; color: var(--graphite); }
 .maker p:last-child { margin: 0; font-style: italic; color: var(--text); }
 @media (max-width: 820px) {
+  /* the close stacked as the cover is on a phone: the headline, the frame, the line and the button */
+  .close { grid-template-columns: 1fr; grid-template-areas: "h" "fig" "p" "cta"; align-items: start; align-content: center;
+           min-height: calc(100svh - var(--nav)); }
+  .close .words { display: contents; }
+  .close .big { grid-area: h; }
+  .close p { grid-area: p; }
+  .close .btn { grid-area: cta; justify-self: start; }
+  .close .stand { grid-area: fig; width: 86%; margin: var(--s-block) 0 0; }
 }
 
 @media (max-width: 820px) {
@@ -762,7 +798,7 @@ h2.eyebrow, .maker h2.sc { margin: 0; font-weight: 400; }
   position: absolute; top: 12px; right: 12px; z-index: 2; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%;
   background: rgba(18, 18, 18, .6); color: #fff; cursor: pointer; display: grid; place-items: center;
 }
-.ph .pause::before { content: ""; width: 12px; height: 14px; border-left: 4px solid currentColor; border-right: 4px solid currentColor; box-sizing: border-box; }
-.ph .pause[aria-pressed="true"]::before { width: 0; height: 0; border-style: solid; border-width: 8px 0 8px 13px; border-color: transparent transparent transparent currentColor; margin-left: 4px; }
+.ph .pause .is-play, .ph .pause[aria-pressed="true"] .is-pause { display: none; }
+.ph .pause[aria-pressed="true"] .is-play { display: block; }
 .ph .pause:hover { background: rgba(0, 0, 0, .8); }
 .ph .pause[hidden] { display: none; }

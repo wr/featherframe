@@ -35,7 +35,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#epaper h2 i')).toHaveText('like a print.');
   await expect(page.locator('#epaper .cols p')).toHaveText('Featherframe uses e-paper, the same kind of screen as an e-reader. The picture is made of pigment and gives off no light. By day it looks like a print. At night it goes dark with the room.');
   // each fact led by its mark: a plug for power, the refresh mark for the refresh
-  await expect(page.locator('#epaper .why li svg.ico')).toHaveCount(2);
+  await expect(page.locator('#epaper .why li svg.icon')).toHaveCount(2);
   await expect(page.locator('#epaper .why li')).toHaveText(['The picture stays with the power off. The screen uses power only to change it.', 'To change the picture, the screen flashes. B&W takes about a second. Color takes about fifteen seconds, and flickers as the inks settle.']);
   await expect(page.locator('#pair figcaption .nm')).toHaveText(['10.3-inch · B&W', '13.3-inch · Color']);
   await expect(page.locator('#pair .run')).toHaveText('Watch them refresh');
@@ -77,15 +77,17 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('.cover .copy p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display, no subscription.');
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. From $349, no subscription.');
-  // no exploded drawing anywhere: the reservation is its headline, line and button
+  // no exploded drawing anywhere: the reservation is its headline, the frame on its kickstand, its line and button
   await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
-  await expect(page.locator('.close > *')).toHaveCount(3);
+  await expect(page.locator('.close > *')).toHaveCount(2);
+  await expect(page.locator('.close .words > *')).toHaveCount(3);
+  await expect(page.locator('.close .stand img')).toHaveAttribute('src', 'img/wall/table-10-cardinal.webp');
   await expect(page.locator('#how .logos .sc')).toHaveText('Compatible with');
   await expect(page.locator('#how')).not.toContainText('Detections by');
   await expect(page.locator('body')).not.toContainText('heard at 07:02');
   await expect(page.locator('.tcap')).toHaveCount(0);
   // a mark for each season
-  await expect(page.locator('#collage .season figcaption svg.ico')).toHaveCount(4);
+  await expect(page.locator('#collage .season figcaption svg.icon')).toHaveCount(4);
   await expect(page.locator('#specs .ho')).toHaveCount(2);
   await expect(page.locator('#collage .season figcaption')).toHaveText(
     ['Spring7 April 2026', 'Summer1 June 2026', 'Fall23 September 2026', 'Winter16 February 2026']);
@@ -105,18 +107,18 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#keep-posted .form-consent')).toHaveCount(0);
   await expect(page.locator('.cat figure')).toHaveCount(12);
   // the wall: the Wild Turkey first (the art stop's bird), the Carolina Wren last (the one that tears off), four Gould pieces among Audubon's
-  const A = 'John James AudubonThe Birds of America';
+  const A = 'Audubon’s The Birds of America';
   await expect(page.locator('.cat figure figcaption')).toHaveText([
     `Wild TurkeyMeleagris gallopavo${A}`,
-    'European RobinErithacus rubeculaJohn GouldThe Birds of Europe',
+    'European RobinErithacus rubeculaGould’s The Birds of Europe',
     `Great Horned OwlBubo virginianus${A}`,
-    'Rainbow LorikeetTrichoglossus moluccanusJohn GouldThe Birds of Australia',
+    'Rainbow LorikeetTrichoglossus moluccanusGould’s The Birds of Australia',
     `Cedar WaxwingBombycilla cedrorum${A}`,
-    'Common KingfisherAlcedo atthisJohn GouldThe Birds of Europe',
+    'Common KingfisherAlcedo atthisGould’s The Birds of Europe',
     `Green-breasted MangoAnthracothorax prevostii${A}`,
-    'Laughing KookaburraDacelo novaeguineaeJohn GouldThe Birds of Australia',
+    'Laughing KookaburraDacelo novaeguineaeGould’s The Birds of Australia',
     `Tufted TitmouseBaeolophus bicolor${A}`,
-    'European GoldfinchCarduelis carduelisJohn GouldThe Birds of Europe',
+    'European GoldfinchCarduelis carduelisGould’s The Birds of Europe',
     `Northern Saw-whet OwlAegolius acadicus${A}`,
     `Carolina WrenThryothorus ludovicianus${A}`,
   ]);
@@ -183,7 +185,7 @@ test('the 3D frame lands exactly on the poster', async ({ page }) => {
   expect(Math.abs(stage.w * 975 / 1200 - frame.w)).toBeLessThan(2);
 });
 
-for (const [w, h] of [[390, 844], [393, 852], [768, 1024], [1024, 768]]) {
+for (const [w, h] of [[390, 844], [393, 852], [768, 1024], [1024, 768], [1920, 1080], [2560, 1440]]) {
   test(`no horizontal scroll at ${w}`, async ({ page }) => {
     await page.setViewportSize({ width: w, height: h });
     await page.goto('/');
@@ -1105,7 +1107,7 @@ test('a wall frame opens large and closes again', async ({ page }) => {
   await frame.click();
   await expect(box).toBeVisible();
   await expect(box).toHaveAttribute('role', 'dialog');
-  await expect(box.locator('figcaption')).toHaveText('Green-breasted MangoAnthracothorax prevostiiJohn James AudubonThe Birds of America');
+  await expect(box.locator('figcaption')).toHaveText('Green-breasted MangoAnthracothorax prevostiiAudubon’s The Birds of America');
   const close = box.getByRole('button', { name: 'Close' });
   await expect(close).toBeFocused();
   await page.waitForTimeout(600);
@@ -1416,4 +1418,108 @@ test('the page sets its text in a handful of sizes: the serif at four, the small
     return [...out].sort();
   });
   expect(sizes).toEqual(['caps 13px', 'serif 15px', 'serif 17px', 'serif 21px', 'serif 26px']);
+});
+
+test('one corner for every button, the switch and the field; the footer drawn in the page\'s ink and hairline', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  for (const sel of ['.head .btn', '.cover .btn', '.run .btn', '.close .btn', '.tone.pill', '.tone.pill button', '.field input'])
+    await expect(page.locator(sel).first(), sel).toHaveCSS('border-top-left-radius', '2px');
+  // the colophon's rule is a hairline, as the running head's is, and the Wells Workshop mark is in the page's ink
+  const hair = await page.locator('.head').evaluate((e) => getComputedStyle(e).borderBottomColor);
+  await expect(page.locator('.colophon')).toHaveCSS('border-top-color', hair);
+  for (const fill of await page.locator('.colophon .ww-logo path').evaluateAll((ps) => ps.map((p) => p.getAttribute('fill')))) expect(fill).toBe('currentColor');
+  // the price under the closing line wraps rather than running the page's width
+  const lines = await page.locator('.close p').evaluate((p) => { const r = document.createRange(); r.selectNodeContents(p); return new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size; });
+  expect(lines).toBeGreaterThanOrEqual(2);
+  expect(lines).toBeLessThanOrEqual(3);
+});
+
+test("B&W's captions line up with its smaller frames", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-tone', '10');
+  const fig = page.locator('.wall .cat figure').nth(1);
+  await fig.scrollIntoViewIfNeeded();
+  const [im, cap] = await Promise.all([fig.locator('.im').boundingBox(), fig.locator('figcaption').boundingBox()]);
+  expect(Math.abs(im!.x - cap!.x)).toBeLessThan(1);
+  expect(Math.abs(im!.width - cap!.width)).toBeLessThan(1);
+});
+
+for (const [w, h] of [[1920, 1080], [1440, 900], [1280, 800], [1024, 768]]) {
+  test(`at ${w} the cover's headline stops short of its frame`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/');
+    await page.evaluate(() => document.fonts.ready);
+    const [right, frame] = await page.evaluate(() => {
+      const r = document.createRange();
+      r.selectNodeContents(document.querySelector('.cover h1 .l2')!);
+      return [r.getBoundingClientRect().right, document.querySelector('.cover .frame')!.getBoundingClientRect().left];
+    });
+    expect(right).toBeLessThan(frame);
+  });
+}
+
+test("the video's corners are a frame's, and the table's line sits centred under its frame", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.locator('#how video')).toHaveCSS('border-top-left-radius', '12px');
+  await expect(page.locator('#how .spectro')).toHaveCSS('border-bottom-left-radius', '12px');
+  const then = page.locator('.t3 .then');
+  await then.scrollIntoViewIfNeeded();
+  const [t, slot] = await Promise.all([then.locator('span:visible').boundingBox(), page.locator('#table-slot').boundingBox()]);
+  expect(Math.abs(t!.x + t!.width / 2 - (slot!.x + slot!.width / 2))).toBeLessThan(2);
+});
+
+test('on a wide window the page runs no wider than 1296px, centred', async ({ page }) => {
+  for (const [w, h] of [[1920, 1080], [2560, 1440]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/');
+    const edge = (w - 1296) / 2;
+    for (const sel of ['.head', '.cover h1', '#epaper', '.colophon']) {
+      const b = (await page.locator(sel).boundingBox())!;
+      expect(Math.abs(b.x - edge), `${sel} at ${w}`).toBeLessThan(1);
+    }
+    for (const sel of ['.head', '.colophon']) expect((await page.locator(sel).boundingBox())!.width).toBeLessThanOrEqual(1296.5);
+    // the switch keeps to the content's right edge
+    const pill = (await page.locator('.tone.pill').boundingBox())!;
+    expect(Math.abs(pill.x + pill.width - (w - edge))).toBeLessThan(1);
+  }
+});
+
+test('the icons are one family: a 24-unit grid, a 1.5px line, one size (the seasons\' marks the large one)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  // (the lightbox's too: open one)
+  await page.locator('.wall .cat .im').first().scrollIntoViewIfNeeded();
+  await page.locator('.wall .cat .im').first().click();
+  await expect(page.locator('.lightbox')).toBeVisible();
+  const icons = await page.evaluate(() => [...document.querySelectorAll('svg')].filter((s) => !s.closest('.lockup, .ww-logo, .diag, .head, .colophon .ww')).map((s) => {
+    const cs = getComputedStyle(s);
+    return { cls: s.getAttribute('class'), box: s.getAttribute('viewBox'), w: cs.width, stroke: getComputedStyle(s.querySelector('path, circle')!).strokeWidth,
+      effect: getComputedStyle(s.querySelector('path, circle')!).vectorEffect, fill: getComputedStyle(s.querySelector('path, circle')!).fill };
+  }));
+  expect(icons.length).toBeGreaterThanOrEqual(14);
+  for (const i of icons) {
+    expect(i.cls, JSON.stringify(i)).toContain('icon');
+    expect(i.box).toBe('0 0 24 24');
+    expect(i.stroke).toBe('1.5px');
+    expect(i.effect).toBe('non-scaling-stroke');
+    expect(i.fill).toBe('none');
+  }
+  expect(new Set(icons.map((i) => i.w).filter((w) => w !== 'auto'))).toEqual(new Set(['24px', '40px']));
+});
+
+test('the close is a window of its own: the words beside the frame on its kickstand, in the page\'s tone', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const close = page.locator('.close');
+  await close.scrollIntoViewIfNeeded();
+  const nav = (await page.locator('.head').boundingBox())!.height;
+  expect((await close.boundingBox())!.height).toBeGreaterThanOrEqual(900 - nav - 1);
+  const [h, fig] = [(await page.locator('.close h2').boundingBox())!, (await page.locator('.close .stand').boundingBox())!];
+  expect(fig.x).toBeGreaterThan(h.x + h.width);
+  await expect(page.locator('.close .stand img')).toBeVisible();
+  await page.locator('.tone').getByRole('button', { name: 'Color' }).click();
+  await expect(page.locator('.close .stand img')).toHaveAttribute('src', 'img/wall/table-13-cardinal.webp');
 });

@@ -14,7 +14,8 @@ const EASE = 'cubic-bezier(.2, .8, .2, 1)';
 const MS = 420;
 const FADE = 220;
 
-const ICON = (d: string) => `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+// (the page's icon family: styles.css .icon)
+const ICON = (d: string) => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
 
 export function startLightbox(reduced: boolean): void {
   const frames = [...document.querySelectorAll<HTMLElement>('.wall .cat .im')];

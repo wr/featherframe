@@ -35,7 +35,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#epaper h2 i')).toHaveText('like a print.');
   await expect(page.locator('#epaper .cols p')).toHaveText('Featherframe uses e-paper, the same kind of screen as an e-reader. The picture is made of pigment and gives off no light. By day it looks like a print. At night it goes dark with the room.');
   // each fact led by its mark: a plug for power, the refresh mark for the refresh
-  await expect(page.locator('#epaper .why li svg.ico')).toHaveCount(2);
+  await expect(page.locator('#epaper .why li svg.icon')).toHaveCount(2);
   await expect(page.locator('#epaper .why li')).toHaveText(['The picture stays with the power off. The screen uses power only to change it.', 'To change the picture, the screen flashes. B&W takes about a second. Color takes about fifteen seconds, and flickers as the inks settle.']);
   await expect(page.locator('#pair figcaption .nm')).toHaveText(['10.3-inch · B&W', '13.3-inch · Color']);
   await expect(page.locator('#pair .run')).toHaveText('Watch them refresh');
@@ -85,7 +85,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('body')).not.toContainText('heard at 07:02');
   await expect(page.locator('.tcap')).toHaveCount(0);
   // a mark for each season
-  await expect(page.locator('#collage .season figcaption svg.ico')).toHaveCount(4);
+  await expect(page.locator('#collage .season figcaption svg.icon')).toHaveCount(4);
   await expect(page.locator('#specs .ho')).toHaveCount(2);
   await expect(page.locator('#collage .season figcaption')).toHaveText(
     ['Spring7 April 2026', 'Summer1 June 2026', 'Fall23 September 2026', 'Winter16 February 2026']);
@@ -1482,4 +1482,27 @@ test('on a wide window the page runs no wider than 1296px, centred', async ({ pa
     const pill = (await page.locator('.tone.pill').boundingBox())!;
     expect(Math.abs(pill.x + pill.width - (w - edge))).toBeLessThan(1);
   }
+});
+
+test('the icons are one family: a 24-unit grid, a 1.5px line, one size (the seasons\' marks the large one)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?hold=600000');
+  // (the lightbox's too: open one)
+  await page.locator('.wall .cat .im').first().scrollIntoViewIfNeeded();
+  await page.locator('.wall .cat .im').first().click();
+  await expect(page.locator('.lightbox')).toBeVisible();
+  const icons = await page.evaluate(() => [...document.querySelectorAll('svg')].filter((s) => !s.closest('.lockup, .ww-logo, .diag, .head, .colophon .ww')).map((s) => {
+    const cs = getComputedStyle(s);
+    return { cls: s.getAttribute('class'), box: s.getAttribute('viewBox'), w: cs.width, stroke: getComputedStyle(s.querySelector('path, circle')!).strokeWidth,
+      effect: getComputedStyle(s.querySelector('path, circle')!).vectorEffect, fill: getComputedStyle(s.querySelector('path, circle')!).fill };
+  }));
+  expect(icons.length).toBeGreaterThanOrEqual(14);
+  for (const i of icons) {
+    expect(i.cls, JSON.stringify(i)).toContain('icon');
+    expect(i.box).toBe('0 0 24 24');
+    expect(i.stroke).toBe('1.5px');
+    expect(i.effect).toBe('non-scaling-stroke');
+    expect(i.fill).toBe('none');
+  }
+  expect(new Set(icons.map((i) => i.w).filter((w) => w !== 'auto'))).toEqual(new Set(['24px', '40px']));
 });

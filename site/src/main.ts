@@ -195,7 +195,7 @@ let shownAt = 0;
 /** When the recording ended and the wait for the table began (0: not waiting); WAIT_MS is the longest it lasts. */
 let waitSince = 0;
 const WAIT_MS = 40000;
-if (reduced) unmute.textContent = 'Play the song';
+if (reduced) unmute.querySelector('.lb')!.textContent = 'Play the song';
 /** The visitor's own Pause: the loop stays still until they press it again (WCAG 2.2.2). */
 let userPaused = false;
 const pauseBtn = document.querySelector<HTMLButtonElement>('#how .pause')!;

@@ -60,6 +60,9 @@
      round, and the notification on the video keeps its phone's shape */
   --radius: 2px;
   --radius-frame: 12px;  /* a picture's corners, as round as the walnut frame's */
+  /* Icons: one family (.icon), at one size, and the seasons' marks at the large one */
+  --icon: 24px;
+  --icon-lg: 40px;
   --shadow-float: 0 1px 2px rgba(0, 0, 0, .08), 0 14px 34px -12px rgba(0, 0, 0, .3);  /* what floats over the page */
   --shadow-front: drop-shadow(0 12px 22px rgba(0, 0, 0, .2));  /* a frame standing in front of another */
   --shadow-floor: radial-gradient(closest-side, rgba(0, 0, 0, .09), rgba(0, 0, 0, .03) 60%, transparent);
@@ -90,6 +93,12 @@ h2 { font-weight: 400; text-wrap: balance; }
   display: inline-flex; align-items: center; height: 48px; padding: 0 28px; white-space: nowrap;
   border-radius: var(--radius); background: var(--ink); color: var(--paper); line-height: 1;
 }
+/* The icons: each drawn in outline on a 24-unit grid, its ends and corners round, its line 1.5px at whatever size it
+   is set: the season, the plug and the refresh marks, the speaker, pause and play, the notification's waveform, the
+   lightbox's close and arrows */
+.icon { flex: none; width: var(--icon); height: var(--icon); fill: none; stroke: currentColor; stroke-width: 1.5px;
+  stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.icon * { vector-effect: non-scaling-stroke; }
 .btn:hover { background: #000; }
 .night .btn:hover { background: #fff; }
 
@@ -199,7 +208,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .epaper .why { grid-column: 1; grid-row: 2; margin: 8px 0 0; padding: 0 0 14vh; max-width: 38ch; list-style: none; }
 /* each fact led by its mark, drawn like the seasons' (an engraving's line), level with its first line */
 .why li { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 18px; align-items: start; margin: 24px 0 0; }
-.why .ico { width: 24px; height: 24px; margin-top: 3px; color: var(--ink); }
+.why .icon { margin-top: 3px; color: var(--ink); }
 .why p { margin: 0; color: var(--text); text-wrap: pretty; }
 /* --h13: the 13.3-inch's height, as tall as the columns and the window allow; the 10.3-inch is 295/371 of it, and
    stands in front of it, over a quarter of its own width (--lap): 1.2624 is the pair's width over --h13 */
@@ -231,7 +240,6 @@ h2 { font-weight: 400; text-wrap: balance; }
 .run { display: flex; justify-content: center; margin: 30px 0 0; }
 .pair:not(.live) .run { visibility: hidden; }
 .run .btn { gap: 12px; min-width: 300px; justify-content: center; border: 0; cursor: pointer; }
-.run .btn .ic { flex: none; }
 .run .btn:disabled { background: var(--faint); cursor: default; }
 /* flat-pair.ts: the frame, its screen a hole, over its live glass (the screen's box, from scripts/wall.mjs hole) */
 .flat { position: absolute; inset: 0; }
@@ -346,13 +354,10 @@ h2 { font-weight: 400; text-wrap: balance; }
   display: grid; place-items: center; place-content: center; width: 48px; height: 48px; padding: 0; gap: 0;
   border: 0; border-radius: 50%; background: rgba(18, 18, 18, .82); color: #fff; font-size: 0; cursor: pointer;
 }
-.unmute::before { content: ""; width: 18px; height: 18px; background: currentColor;
-  -webkit-mask: var(--speaker) center / contain no-repeat; mask: var(--speaker) center / contain no-repeat; }
 .unmute:hover { background: #000; }
 .unmute[hidden] { display: none; }
 /* the video itself is the song's switch too: a click with sound on mutes it */
 .ph video { cursor: pointer; }
-:root { --speaker: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 9h4l5-4v14l-5-4H3z'/%3E%3Cpath d='M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
 /* A new detection: BirdNET's side of things, so an app's notification, not
    the book's type, pinned to the video's top-left corner. It slides in at the
    first detection and stays; at each one after, its name changes. */
@@ -368,7 +373,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .toast.swap .ic { animation: ff-ping .6s ease; }
 @keyframes ff-swap { from { opacity: 0; transform: translateY(8px); } }
 @keyframes ff-ping { 40% { transform: scale(1.12); } }
-.toast .ic { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #121212; color: #fff; }
+.toast .ic { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #121212; color: #fff; }
 .toast .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .toast .k { font: 500 12px/1.35 var(--sans); color: #6b6b69; }
 .toast .nm { font: 600 16px/1.3 var(--sans); color: #121212; white-space: nowrap; }
@@ -432,7 +437,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .season figcaption .it { color: var(--text); }
 .season figcaption .sc { margin-right: auto; color: var(--ink); }
 /* each season's mark, drawn like an engraving's line */
-.season .ico { flex: none; align-self: center; width: 30px; height: 30px; margin-right: 6px; color: var(--ink); }
+.season .icon { align-self: center; margin-right: 6px; color: var(--ink); }
 #collage .note { margin: var(--s-block) 0 0; color: var(--graphite); font-size: var(--t-small); }
 #collage .note.fn { margin-top: 10px; font-size: var(--t-fine); max-width: 70ch; }
 #collage .note.fn a, .fnref { color: inherit; text-decoration: none; }
@@ -452,8 +457,8 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* each season's mark beside its name and date, drawn full for the season in the middle of the window */
 .seasons-live .season figcaption { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 16px; row-gap: 2px;
   border-top: 0; padding-top: 0; margin-bottom: 26px; }
-.seasons-live .season .ico { grid-row: 1 / 3; width: 44px; height: 44px; margin: 0; opacity: .55; transition: opacity .4s ease; }
-.seasons-live .season.now .ico { opacity: 1; }
+.seasons-live .season .icon { grid-row: 1 / 3; width: var(--icon-lg); height: var(--icon-lg); margin: 0; opacity: .55; transition: opacity .4s ease; }
+.seasons-live .season.now .icon { opacity: 1; }
 
 /* V. Technical details: the two frames head-on, to scale, with their dimensions; then the facts. */
 .headon { display: flex; justify-content: flex-start; align-items: flex-end; gap: 96px; padding: 0 0 0 calc((100% + var(--gutter)) / 12 * 4); }
@@ -692,7 +697,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 @media (prefers-reduced-motion: reduce) {
   :root { transition: none; }
-  .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im, .toast, .season .ico { transition: none; }
+  .stage canvas, .stage.live .poster, .ff3d, .tone-anim .cat .im, .toast, .season .icon { transition: none; }
   .toast.swap .nm, .toast.swap .ic { animation: none; }
   .cat .im { transition: none; }
 }
@@ -779,7 +784,7 @@ h2.eyebrow, .maker h2.sc { margin: 0; font-weight: 400; }
   position: absolute; top: 12px; right: 12px; z-index: 2; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%;
   background: rgba(18, 18, 18, .6); color: #fff; cursor: pointer; display: grid; place-items: center;
 }
-.ph .pause::before { content: ""; width: 12px; height: 14px; border-left: 4px solid currentColor; border-right: 4px solid currentColor; box-sizing: border-box; }
-.ph .pause[aria-pressed="true"]::before { width: 0; height: 0; border-style: solid; border-width: 8px 0 8px 13px; border-color: transparent transparent transparent currentColor; margin-left: 4px; }
+.ph .pause .is-play, .ph .pause[aria-pressed="true"] .is-pause { display: none; }
+.ph .pause[aria-pressed="true"] .is-play { display: block; }
 .ph .pause:hover { background: rgba(0, 0, 0, .8); }
 .ph .pause[hidden] { display: none; }

@@ -24,10 +24,10 @@
 // frame never rides up with the page before it turns for its next stop. Layout is read only on resize and font load; each frame
 // reads scrollY alone. Nothing is drawn while nothing changes.
 //
-// The canvas sits behind the text, except on the two flights that cross it —
-// down into the wall's first place, and from the wall's last to the table —
-// where the frame passes over the captions it flies across, but still under
-// the running head.
+// The canvas sits behind the text, except on the three flights that cross it —
+// from the pair to the art spread, down into the wall's first place, and from
+// the wall's last to the table — where the frame passes over the words it
+// flies across, but still under the running head.
 //
 // The frame that travels is the page's tone's: the 10-inch in sixteen grays
 // for B&W, the 13-inch for Color. The other size is loaded too, soon after the
@@ -186,7 +186,8 @@ function measureNow(els: Els): Layout {
     const p = pinned(els.art, els.art);
     const s0 = after(p.s0, 0.3);
     // it stays a moment after the spread lets go of it, going up with the page, before it sets off
-    stops.push({ rect: p.rect, pose: FLAT, s0, s1: Math.max(s0, p.s1 + ART_LINGER * vh), section: 'art' });
+    // (its flight in crosses the art's headline as it comes up: over it, W-916)
+    stops.push({ rect: p.rect, pose: FLAT, s0, s1: Math.max(s0, p.s1 + ART_LINGER * vh), section: 'art', over: true });
   }
   if (els.first && els.last) {
     // the wall's frames as drawn: in B&W, each still is scaled to the 10-inch's true size
@@ -513,7 +514,7 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     }
     const frame = frames[active]!;
     applyScreen(active, st);
-    // Leaving the pair for the art spread, the frame flies under the art's headline: a refresh still under way
+    // Leaving the pair for the art spread, the frame flies over the art's headline: a refresh still under way
     // there (the colour one, or a jump from the running head) finishes before it goes, not in flight.
     const pairStop = layout.pair ? layout.stops[layout.pair.at] : undefined;
     const artStop = layout.pair ? layout.stops[layout.pair.at + 1] : undefined;

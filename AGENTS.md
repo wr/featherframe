@@ -566,7 +566,17 @@ detectors' pushes (routed by token; a BirdNET-Go body that is not a
 detection is dropped) until the server takes them, and wakes the
 server only for news (a BirdWeather look every 2 min, a push, the server's
 own `next_wake_epoch`; ≥ 5 min apart; none in quiet hours), stopping it right
-after. `HouseholdServer` is THIS Python server in a Container: there is no TS
+after — but only once it is idle (W-917): the Containers library's activity
+timeout (`sleepAfter`, 30 s) runs from a request's start and knows nothing of
+the server's own work, so `HouseholdServer.onActivityExpired` and `wake()`
+ask `GET /api/hosted/busy` (`service.busy_for`: a tick and the push after it,
+a task, a repaint, a firmware fetch) and stop only when it says no, or once
+the work passes `MAX_WORK_S` (10 min); a tick that outlived the timeout was
+destroyed before its push, and the nightly collage was lost with it. A stop
+that comes anyway waits `HOSTED_STOP_WAIT_S` for the tick under way. genart's
+per-key failure cooldown is kept in the DB (`imagegen_cooldowns`, cleared
+with `imagegen_error` on a new key), so a fresh Container does not ask a
+failed paid generation again early. `HouseholdServer` is THIS Python server in a Container: there is no TS
 copy of any rule. Hosted mode (`featherframe/hosted.py`, on with
 `FEATHERFRAME_HOSTED_URL`/`_KEY`) pulls the data dir from
 `/_internal/<household>/` before the DB opens, pushes changes after every

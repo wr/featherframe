@@ -28,6 +28,7 @@ import threading
 import time
 import zipfile
 from abc import ABC, abstractmethod
+from collections.abc import MutableMapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
@@ -1455,13 +1456,16 @@ class GeneratedArtProvider(ArtProvider):
                  cache_dir: Optional[Path] = None,
                  refs: Optional[list[Path]] = None,
                  cooldown_s: float = 900.0,
-                 text_model: Optional[TextModel] = None) -> None:
+                 text_model: Optional[TextModel] = None,
+                 failures: Optional[MutableMapping[str, float]] = None) -> None:
         self._model = model
         self._text_model = text_model
         self._cache_dir = Path(cache_dir) if cache_dir else None
         self._refs = refs
         self._cooldown_s = cooldown_s
-        self._failed_at: dict[str, float] = {}
+        # When each key last failed (epoch seconds). The service keeps it in
+        # its DB, so a restart does not ask a failed key again early (W-917).
+        self._failed_at: MutableMapping[str, float] = failures if failures is not None else {}
         # Told of every call to the image model: the exception it raised, or
         # None when it returned an image. The service keeps the last failure
         # so the page can say it (an empty account was only in the log).

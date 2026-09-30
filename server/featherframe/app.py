@@ -39,6 +39,10 @@ from .service import (COLLAGE_EVERY_WORDS, FeatherframeService, clock_text, coll
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("featherframe.app")
 
+# How long a hosted server's shutdown waits for the tick under way (W-917):
+# inside the front door's STOP_GRACE_MS (60 s), with room for the last push.
+HOSTED_STOP_WAIT_S = 45
+
 templates = Jinja2Templates(directory=str(paths.templates_dir()))
 
 
@@ -96,7 +100,10 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         advertiser.stop()
-        service.stop()
+        # A hosted server that is stopped anyway (a deploy, the front door's
+        # cap) lets the tick under way finish and push first (W-917), inside
+        # the front door's STOP_GRACE_MS.
+        await run_in_threadpool(service.stop, HOSTED_STOP_WAIT_S if link is not None else 5)
         if link is not None:
             # A hosted server is stopped straight after its work (W-847):
             # whatever the last moment changed reaches the front door first.
@@ -450,6 +457,18 @@ async def api_hosted_run(request: Request):
     await run_in_threadpool(link.take, svc)
     await run_in_threadpool(svc.tick)          # the tick's own hook settles it
     return JSONResponse({"ok": True, "next_wake_at": svc.next_wake_at()})
+
+
+@app.get("/api/hosted/busy")
+async def api_hosted_busy(request: Request):
+    """Whether this server is working (W-917): a tick, a task, the push after
+    it. Its front door stops the Container only once it is not, since the
+    Container's activity timeout runs from the last request, not its end.
+    Only a hosted server has it."""
+    if getattr(request.app.state, "hosted", None) is None:
+        return JSONResponse({"error": "not hosted"}, status_code=404)
+    busy = _svc(request).busy_for()
+    return JSONResponse({"busy": busy is not None, "for_s": round(busy or 0)})
 
 
 _SEED_FIELDS = ("detection_backend", "birdweather_station_id", "region")

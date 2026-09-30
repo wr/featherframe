@@ -24,10 +24,10 @@
 // frame never rides up with the page before it turns for its next stop. Layout is read only on resize and font load; each frame
 // reads scrollY alone. Nothing is drawn while nothing changes.
 //
-// The canvas sits behind the text, except on the two flights that cross it —
-// down into the wall's first place, and from the wall's last to the table —
-// where the frame passes over the captions it flies across, but still under
-// the running head.
+// The canvas sits behind the text, except on the three flights that cross it —
+// from the pair to the art spread, down into the wall's first place, and from
+// the wall's last to the table — where the frame passes over the words it
+// flies across, but still under the running head.
 //
 // The frame that travels is the page's tone's: the 10-inch in sixteen grays
 // for B&W, the 13-inch for Color. The other size is loaded too, soon after the
@@ -45,8 +45,6 @@ const ART_LINGER = 0.1;   // viewport heights the art stop holds past its pin's 
 const LAND_AT = 0.92;     // the wall's first place is landed in with its bottom this far down the window
 const CONTACT = 8;        // px: the table's shadow comes in over the frame's last this many of descent
 const AWAY = 12;          // px of scroll over which the cover's floor shadow goes
-const CLEAR = 32;         // px: a flight that keeps clear of a spread's words stays this far left of them…
-const LEAD = 0.6;         // …and makes its way across in this much of the flight, before it has settled down
 const TEAR_GAP = 12;      // px: the wall's last frame tears off with its top this far under the running head
 const PAIR_BAR = 0.5;     // viewport heights of scroll over which the light bar sweeps the pair (twice), from its landing
 const PAIR_IN = 0.45;     // the other size slides in over the traveller's flight to the pair from this far through it
@@ -94,9 +92,6 @@ interface Stop {
   /** The flight in heads for where the stop will hold the frame (its box at s0), not for its slot on the way up
    *  with the page: it never dips below the window to meet a slot still coming up from under it. */
   settled?: boolean;
-  /** The words the flight in comes up beside, at scroll `s` (the frame lands left of them): it crosses over before
-   *  it settles down, and never meets them. */
-  clear?: (s: number) => Rect;
 }
 
 interface Layout {
@@ -191,8 +186,8 @@ function measureNow(els: Els): Layout {
     const p = pinned(els.art, els.art);
     const s0 = after(p.s0, 0.3);
     // it stays a moment after the spread lets go of it, going up with the page, before it sets off
-    stops.push({ rect: p.rect, pose: FLAT, s0, s1: Math.max(s0, p.s1 + ART_LINGER * vh), section: 'art',
-      clear: els.artText ? scrolled(pageBox(els.artText)) : undefined });
+    // (its flight in crosses the art's headline as it comes up: over it, W-916)
+    stops.push({ rect: p.rect, pose: FLAT, s0, s1: Math.max(s0, p.s1 + ART_LINGER * vh), section: 'art', over: true });
   }
   if (els.first && els.last) {
     // the wall's frames as drawn: in B&W, each still is scaled to the 10-inch's true size
@@ -262,16 +257,6 @@ function at(l: Layout, s: number): State {
       const w = lerp(a.w, b.w, k), h = lerp(a.h, b.h, k);
       rect = { x: lerp(a.x, b.x, t), y: lerp(a.y + a.h, b.y + b.h, t) - h, w, h };
     } else rect = lerpRect(a, b, t);
-    if (stop.clear) {
-      // across first: its right edge arrives over the first LEAD of the flight, its size and height as before…
-      const w = rect.w;
-      rect.x = lerp(a.x + a.w, b.x + b.w, smooth(clamp01(u / LEAD))) - w;
-      // …and the words keep it out: level with them its right edge stays CLEAR px left of theirs, and above them it
-      // may reach as much further right as it is above them, so the frame is eased aside, never jumped
-      const c = stop.clear(s);
-      const gap = Math.min(CLEAR, c.x - (b.x + b.w));
-      if (rect.y < c.y + c.h) rect.x = Math.min(rect.x, c.x - gap + Math.max(0, c.y - (rect.y + rect.h)) - w);
-    }
     pose = lerpPose(prev.pose, stop.pose, t);
     // on its way down to the table the frame turns once about its upright
     if (stop.spin) pose = { ...pose, yaw: pose.yaw + 2 * Math.PI * t };
@@ -325,8 +310,6 @@ interface Els {
   pair: HTMLElement | null;
   pairSlots: Record<Model, HTMLElement> | null;
   art: HTMLElement | null;
-  /** The art spread's words, which the frame comes up beside. */
-  artText: HTMLElement | null;
   wall: HTMLElement | null;
   first: HTMLElement | null;
   last: HTMLElement | null;
@@ -354,7 +337,6 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     pair: document.getElementById('pair'),
     pairSlots: null,
     art: document.getElementById('art-slot'),
-    artText: document.querySelector('#art .text'),
     wall: document.querySelector('.wall'),
     first: images[0] ?? null,
     last: images[images.length - 1] ?? null,
@@ -532,8 +514,8 @@ export async function startPage(data: SiteData, hero: Model, opts: {
     }
     const frame = frames[active]!;
     applyScreen(active, st);
-    // Leaving the pair for the art spread, the frame flies across to it: a refresh still under way there (the
-    // colour one, or a jump from the running head) finishes before it goes, not in flight.
+    // Leaving the pair for the art spread, the frame flies over the art's headline: a refresh still under way
+    // there (the colour one, or a jump from the running head) finishes before it goes, not in flight.
     const pairStop = layout.pair ? layout.stops[layout.pair.at] : undefined;
     const artStop = layout.pair ? layout.stops[layout.pair.at + 1] : undefined;
     if (pairStop && artStop && scrollY > pairStop.s1 && scrollY < artStop.s0) frame.refresh.hurry(250);

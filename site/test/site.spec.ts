@@ -1280,6 +1280,29 @@ test('the glass never refreshes while the frame is in flight', async ({ page }) 
   expect((await st(table + 5)).screen).toBe('table');
 });
 
+// From the pair to the art spread the frame crosses over first and settles down beside the art's words, never over
+// or under them, in either tone (W-916)
+for (const [w, h, q] of [[1440, 900, ''], [1440, 900, '&size=13'], [1024, 768, '']] as const) {
+  test(`at ${w} × ${h}${q ? ' in Color' : ''} the frame flies to the art spread clear of its words`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto(`/?hold=600000${q}`);
+    await expect(page.locator('canvas.ff3d.live').first()).toBeAttached({ timeout: 20_000 });
+    const [from, to] = await page.evaluate(() => { const s = (window as any).__ff().stops; return [s[1][1], s[2][0]]; });
+    let last = Infinity;
+    for (let k = 0; k <= 20; k++) {
+      await page.evaluate((y) => scrollTo(0, y), Math.round(from + (k / 20) * (to - from)));
+      const [r, t] = await page.evaluate(() => {
+        const b = document.querySelector('#art .text')!.getBoundingClientRect();
+        return [(window as any).__ff().st.rect, { x: b.x, y: b.y, bottom: b.bottom }];
+      });
+      const level = r.y < t.bottom && r.y + r.h > t.y;
+      if (level) expect(r.x + r.w, `step ${k}`).toBeLessThan(t.x);
+      expect(r.x + r.w, `step ${k}`).toBeLessThanOrEqual(last + 0.5);
+      last = r.x + r.w;
+    }
+  });
+}
+
 test('each of the running head\'s links lands its section\'s eyebrow a little under the head', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/?hold=600000');

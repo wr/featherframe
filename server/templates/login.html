@@ -9,11 +9,13 @@
   {# The same card as the hosted sign-in (hosted/src/pages.ts). #}
   <style>
     :root { --bg:#ececea; --surface:#fcfcfb; --ink:#201e1a; --ink-2:#474540; --muted:#827e76;
-      --border:#e6e4dd; --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e;
+      --border:#e6e4dd; --border-strong:#d5d2ca; --field:#ffffff; --sh-sm:0 1px 1px rgba(74,54,28,.05);
+      --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e;
       color-scheme:light; }
     @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
       --bg:#171614; --surface:#211f1c; --ink:#ecebe7; --ink-2:#c9c6bf; --muted:#8f8b83;
-      --border:#34312c; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); color-scheme:dark; } }
+      --border:#34312c; --border-strong:#4a463f; --field:#2c2b27; --sh-sm:0 1px 1px rgba(0,0,0,.25);
+      --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); color-scheme:dark; } }
     @font-face { font-family:"Featherframe Script"; src:url("/fonts/script.ttf") format("truetype"); font-display:swap; }
     * { box-sizing:border-box; }
     body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
@@ -25,8 +27,8 @@
     p { margin:0 0 16px; }
     .bad { color:var(--bad); }
     label { display:block; font-size:13px; color:var(--muted); margin:0 0 6px; }
-    input { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
-      background:var(--bg); color:var(--ink); margin-bottom:14px; }
+    input { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border-strong); border-radius:8px;
+      background:var(--field); color:var(--ink); box-shadow:var(--sh-sm); margin-bottom:14px; }
     input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
     button { width:100%; font:inherit; font-weight:600; padding:10px 12px; border:0; border-radius:8px;
       background:var(--accent); color:var(--on-accent); cursor:pointer; }

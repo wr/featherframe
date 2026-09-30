@@ -234,28 +234,38 @@ export async function setSuspended(env: Env, hid: string, on: boolean): Promise<
   await env.HOUSEHOLD.getByName(hid).suspend(on);
 }
 
-/** A household and everything of it: its login, sessions and invitation (so
- * the email can be invited again), its frames' registry rows (so they show a
- * pairing code), then its data, front door and server. */
-export async function deleteHousehold(env: Env, hid: string): Promise<void> {
+/** A household and everything of it (W-914): its login and all that names
+ * the login (sessions, links, email changes and checks, its invitation and
+ * waitlist row, so the address may join or be invited again, and its rate
+ * counts), its frames' registry rows (so they show a pairing code), then its
+ * data, front door and server. The admin log keeps the record. Says how many
+ * frames were let go and how many files deleted; run again, it finishes a
+ * delete that stopped part way. */
+export async function deleteHousehold(env: Env, hid: string): Promise<{ frames: number; files: number }> {
   const user = await env.DB.prepare("SELECT id, email FROM users WHERE household_id = ?")
     .bind(hid).first<{ id: string; email: string }>();
   const ofUser = user ? [
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id),
     env.DB.prepare("DELETE FROM email_changes WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM email_verifications WHERE user_id = ?").bind(user.id),
     env.DB.prepare("DELETE FROM login_links WHERE email = ?").bind(user.email),
     env.DB.prepare("DELETE FROM invites WHERE email = ?").bind(user.email),
+    env.DB.prepare("DELETE FROM waitlist WHERE email = ?").bind(user.email),
+    env.DB.prepare("DELETE FROM rate_hits WHERE key IN (?, ?, ?)").bind(
+      `login:${await sha256(user.email)}`, `waitlist:email:${await sha256(user.email)}`, `verify:${user.id}`),
   ] : [];
-  await env.DB.batch([...ofUser, env.DB.prepare("DELETE FROM frames WHERE household_id = ?").bind(hid)]);
+  const done = await env.DB.batch([...ofUser, env.DB.prepare("DELETE FROM frames WHERE household_id = ?").bind(hid)]);
+  const frames = done[done.length - 1].meta.changes ?? 0;
   // Its frames are let go before the front door forgets them, so the one
   // message they are sent finds a pairing code, not a household that is gone.
-  await env.HOUSEHOLD.getByName(hid).destroy();
+  const files = await env.HOUSEHOLD.getByName(hid).destroy(hid);
   await env.DB.batch([
     // A kit set up into this household may be set up again (W-888).
     env.DB.prepare("UPDATE kits SET used_at = NULL, household_id = NULL WHERE household_id = ?").bind(hid),
     env.DB.prepare("DELETE FROM users WHERE household_id = ?").bind(hid),
     env.DB.prepare("DELETE FROM households WHERE id = ?").bind(hid),
   ]);
+  return { frames, files };
 }
 
 // -- changing the email (W-773) -------------------------------------------------
@@ -415,71 +425,27 @@ export async function resendInvite(env: Env, email: string): Promise<"sent" | "f
   return (await sendMail(env, email, inviteEmail(`https://${env.APP_HOST}/login`))) ? "sent" : "failed";
 }
 
-// -- the audit log (W-863) --------------------------------------------------------
-export async function logAction(env: Env, admin: string, action: string, target: string | null,
-                                ok: boolean, result: string): Promise<void> {
-  try {
-    await env.DB.prepare("INSERT INTO admin_log (at, admin, action, target, ok, result) VALUES (?, ?, ?, ?, ?, ?)")
-      .bind(Math.floor(Date.now() / 1000), admin, action, target, ok ? 1 : 0, result).run();
-  } catch (err) {
-    // The action is done either way: a log that cannot be written is said, not thrown.
-    console.error("admin log", action, target, err);
-  }
-}
-
 // -- kits (W-888) ------------------------------------------------------------------
 /** A kit flashed for shipping: its owner may set it up with no invitation.
- * Registering it again (a new key after an erase) keeps whether it was used. */
-async function registerKit(env: Env, b: { device_id?: string; key_hash?: string; kit?: string; note?: string }): Promise<Response> {
+ * Registering it again (a new key after an erase) keeps whether it was used.
+ * Null when the ID or the key's hash is not one. */
+export async function registerKit(env: Env, b: { device_id?: string; key_hash?: string; kit?: string; note?: string }):
+    Promise<{ id: string; kit: string } | null> {
   const id = String(b.device_id || "").trim();
   const hash = String(b.key_hash || "").trim().toLowerCase();
-  if (!/^[0-9A-Za-z:_-]{4,40}$/.test(id) || /^[0:]+$/.test(id) || !/^[0-9a-f]{64}$/.test(hash)) {
-    return Response.json({ error: "device_id and key_hash (64 hex)" }, { status: 400 });
-  }
+  if (!/^[0-9A-Za-z:_-]{4,40}$/.test(id) || /^[0:]+$/.test(id) || !/^[0-9a-f]{64}$/.test(hash)) return null;
   const kit = ["ee02", "ee03"].includes(String(b.kit)) ? String(b.kit) : "other";
   const note = String(b.note || "").slice(0, 120);
   await env.DB.prepare(`INSERT INTO kits (device_id, key_hash, kit, note, registered_at) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT (device_id) DO UPDATE SET key_hash = excluded.key_hash, kit = excluded.kit,
     note = coalesce(nullif(excluded.note, ''), kits.note), registered_at = excluded.registered_at`)
     .bind(id, hash, kit, note, now()).run();
-  const result = `Registered ${kit} ${id.slice(-6)}.`;
-  await logAction(env, "api", "kit", id, true, result);
-  return Response.json({ ok: true, result });
+  return { id, kit };
 }
 
-
-// -- the admin's side, until there is a page for it ----------------------------
-export async function admin(request: Request, env: Env, path: string): Promise<Response> {
-  if (request.method !== "POST" || !env.ADMIN_TOKEN ||
-      request.headers.get("Authorization") !== `Bearer ${env.ADMIN_TOKEN}`) {
-    return new Response("not found", { status: 404 });
-  }
-  const body = await request.json<{ email?: string; household?: string; send?: boolean; device_id?: string;
-    key_hash?: string; kit?: string; note?: string; count?: number }>().catch(() => ({} as Record<string, never>));
-  if (path === "kit") return registerKit(env, body);
-  const email = normEmail(body.email);
-  if (!email) return Response.json({ error: "email" }, { status: 400 });
-  if (path === "invite") {
-    const sent = await invite(env, email, body.send !== false);
-    await logAction(env, "api", "invite", email, true, sent ? `Invited ${email}.` : `Invited ${email}, no email sent.`);
-    return Response.json({ ok: true, invited: email, emailed: sent });
-  }
-  if (path === "link") {
-    // A sign-in link handed to the admin rather than emailed: for support,
-    // and for testing without sending anyone mail.
-    const link = await makeLoginLink(env, email, null);
-    await logAction(env, "api", "link", email, !!link, link ? `Made a sign-in link for ${email}.` : `${email} is not invited.`);
-    return link ? Response.json({ ok: true, link }) : Response.json({ error: "not invited" }, { status: 404 });
-  }
-  if (path === "adopt") {
-    // Give an existing household (one made before accounts) its login.
-    const hid = String(body.household || "");
-    const exists = await env.DB.prepare("SELECT 1 FROM households WHERE id = ?").bind(hid).first();
-    if (!exists) await env.DB.prepare("INSERT INTO households (id, tz, created_at) VALUES (?, 'UTC', ?)").bind(hid, now()).run();
-    await env.DB.prepare("INSERT OR REPLACE INTO users (id, email, household_id, created_at, verified_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(randomHex(8), email, hid, now(), now()).run();
-    await logAction(env, "api", "adopt", `${email} (${hid})`, true, `Gave ${hid} the login ${email}.`);
-    return Response.json({ ok: true, household: hid, email });
-  }
-  return new Response("not found", { status: 404 });
+/** Give a household (one made before accounts) its login. */
+export async function adoptHousehold(env: Env, hid: string, email: string): Promise<void> {
+  await env.DB.prepare("INSERT OR IGNORE INTO households (id, tz, created_at) VALUES (?, 'UTC', ?)").bind(hid, now()).run();
+  await env.DB.prepare("INSERT OR REPLACE INTO users (id, email, household_id, created_at, verified_at) VALUES (?, ?, ?, ?, ?)")
+    .bind(randomHex(8), email, hid, now(), now()).run();
 }

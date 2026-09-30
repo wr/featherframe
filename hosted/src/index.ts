@@ -14,8 +14,8 @@
 // box's own Python server in a Container.
 
 import { confirmVerification, resendVerification } from "./accounts";
-import { admin, auth, confirmEmailChange, confirmWaitlist, login, logout, pendingEmail, sessionUser, settingsForm } from "./accounts";
-import { adminRoute, waitlistRoute } from "./admin";
+import { auth, confirmEmailChange, confirmWaitlist, login, logout, pendingEmail, sessionUser, settingsForm } from "./accounts";
+import { adminRoute, apiRoute, waitlistRoute } from "./admin";
 import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
 import { LOBBY_DRAWING, expiryText, pairingCode, setupUrl } from "./pairing";
 import { Household } from "./household";
@@ -82,7 +82,7 @@ export default {
     if (path === "/logout" && request.method === "POST") return logout(request, env);
     if (path === "/account/email") return confirmEmailChange(env, url);
     if (path === "/account/verify" && request.method === "GET") return confirmVerification(env, url);
-    if (path.startsWith("/_admin/")) return admin(request, env, path.slice("/_admin/".length));
+    if (path.startsWith("/_admin/")) return apiRoute(request, env, path.slice("/_admin/".length));
     if (path === "/admin" || path.startsWith("/admin/")) return adminRoute(request, env, url);
     if (path === "/api/waitlist") return waitlistRoute(request, env);
     if (path === "/api/waitlist/confirm" && request.method === "GET") return confirmWaitlist(env, url);

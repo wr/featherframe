@@ -1,9 +1,11 @@
 // What hosting costs (W-860): this month's Cloudflare usage against the
 // Workers Paid plan's allowances, and the bill it comes to. Account-wide, read
 // from the GraphQL Analytics API with a read-only token (CF_API_TOKEN, a
-// secret: Account Analytics Read). Containers are not in that API, so their
-// time is the front doors' own count (Household.addUsage), which is rough:
-// the Lobby's time is not in it. Cloudflare's Billable Usage page is the bill.
+// secret: Account Analytics Read). Containers are billed as Cloudflare
+// measures them (W-915): memory and disk for the time an instance runs, CPU
+// for the time it is busy. Without the token, the front doors' own count
+// (Household.addUsage) stands in, as a basic instance busy all the time it
+// runs. Cloudflare's Billable Usage page is the bill.
 
 import type { Env } from "./index";
 
@@ -41,6 +43,7 @@ const PLAN = 5;              // Workers Paid, a month
 const BASIC = { vcpu: 0.25, gib: 1, disk: 4 };
 const DO_GB = 0.128;         // a Durable Object is billed as 128 MB while active
 const GB = 1e9;
+const GIB = 2 ** 30;
 const M = 1e6;
 
 const R2_CLASS_A = new Set(["ListBuckets", "PutBucket", "ListObjects", "PutObject", "CopyObject",
@@ -66,10 +69,17 @@ export function project(meters: Meter[], now = new Date()): Meter[] {
 /** Container time from the front doors' counts, this month so far. */
 export function containerMeters(serverMs: number): Meter[] {
   const s = serverMs / 1000;
+  return measuredContainerMeters({ cpuS: s * BASIC.vcpu, memByteS: s * BASIC.gib * GIB,
+                                   diskByteS: s * BASIC.disk * GB });
+}
+
+/** Containers as Cloudflare measures them: busy vCPU-seconds, and the
+ * byte-seconds of memory and disk the running instances held. */
+export function measuredContainerMeters(u: { cpuS: number; memByteS: number; diskByteS: number }): Meter[] {
   return [
-    { group: "Containers", label: "CPU", unit: "vCPU-min", used: s * BASIC.vcpu / 60, included: 375, price: 0.00002 * 60 },
-    { group: "Containers", label: "Memory", unit: "GiB-h", used: s * BASIC.gib / 3600, included: 25, price: 0.0000025 * 3600 },
-    { group: "Containers", label: "Disk", unit: "GB-h", used: s * BASIC.disk / 3600, included: 200, price: 0.00000007 * 3600 },
+    { group: "Containers", label: "CPU", unit: "vCPU-min", used: u.cpuS / 60, included: 375, price: 0.00002 * 60 },
+    { group: "Containers", label: "Memory", unit: "GiB-h", used: u.memByteS / GIB / 3600, included: 25, price: 0.0000025 * 3600 },
+    { group: "Containers", label: "Disk", unit: "GB-h", used: u.diskByteS / GB / 3600, included: 200, price: 0.00000007 * 3600 },
   ];
 }
 
@@ -117,7 +127,7 @@ export async function cloudflareUsage(env: Env, serverMs: number, now = new Date
   const T = "filter: { datetime_geq: $s, datetime_leq: $e }";
   const D = "filter: { date_geq: $d0, date_leq: $d1 }";
 
-  const [wReq, wCpu, doReq, doActive, doStored, d1Rows, d1Stored, r2Ops, r2Stored] = await Promise.all([
+  const [wReq, wCpu, doReq, doActive, doStored, d1Rows, d1Stored, r2Ops, r2Stored, measured] = await Promise.all([
     ask(env, "workers requests", `workersInvocationsAdaptive(limit: 10000, ${T}) { sum { requests } }`, vars,
       (a) => sum(a.workersInvocationsAdaptive, (r) => r.sum.requests)),
     ask(env, "workers cpu", `workersInvocationsAdaptive(limit: 10000, ${T}) { sum { cpuTimeUs } }`, vars,
@@ -145,6 +155,11 @@ export async function cloudflareUsage(env: Env, serverMs: number, now = new Date
       }),
     ask(env, "r2 storage", `r2StorageAdaptiveGroups(limit: 100, filter: { datetime_geq: $s, datetime_leq: $e }) { max { payloadSize metadataSize } dimensions { bucketName } }`, vars,
       (a) => sum(a.r2StorageAdaptiveGroups, (r) => Number(r.max.payloadSize) + Number(r.max.metadataSize)) / GB),
+    ask(env, "containers", `containersUsageAdaptiveGroups(limit: 10000, ${D}) { sum { cpuTimeSec allocatedMemory allocatedDisk } }`, vars,
+      (a) => measuredContainerMeters({
+        cpuS: sum(a.containersUsageAdaptiveGroups, (r) => r.sum.cpuTimeSec),
+        memByteS: sum(a.containersUsageAdaptiveGroups, (r) => r.sum.allocatedMemory),
+        diskByteS: sum(a.containersUsageAdaptiveGroups, (r) => r.sum.allocatedDisk) })),
   ]);
 
   const meters: Meter[] = [
@@ -159,7 +174,7 @@ export async function cloudflareUsage(env: Env, serverMs: number, now = new Date
     { group: "R2", label: "Class A", unit: "", used: r2Ops?.classA ?? null, included: 1 * M, price: 4.5 / M },
     { group: "R2", label: "Class B", unit: "", used: r2Ops?.classB ?? null, included: 10 * M, price: 0.36 / M },
     { group: "R2", label: "Storage", unit: "GB", used: r2Stored, included: 10, price: 0.015 },
-    ...containers,
+    ...(measured ?? containers),
   ];
   return { meters, bill: bill(meters), projected: bill(project(meters, now)), month, live: true };
 }

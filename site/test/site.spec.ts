@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test';
 test('social card and search basics', async ({ page, request }) => {
   await page.goto('/');
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /^https:\/\/featherframe\.app\/img\/og\.jpg(\?v=[0-9a-f]{8})?$/);
-  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Featherframe: the birds near your home, in Audubon’s paintings');
-  await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', 'Featherframe: the birds near your home, in Audubon’s paintings');
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Featherframe: a picture frame for bird lovers that shows who’s singing nearby');
+  await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', 'Featherframe: a picture frame for bird lovers that shows who’s singing nearby');
   await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', 'Featherframe');
   // Google names the result from the WebSite entry, so it says Featherframe, not the workshop
   const ld = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent() ?? '{}');

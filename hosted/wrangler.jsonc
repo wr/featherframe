@@ -7,7 +7,7 @@
   // The kiosk page and its icons, bundled from the server's own files (W-849).
   "rules": [
     { "type": "Text", "globs": ["**/*.html"], "fallthrough": true },
-    { "type": "Data", "globs": ["**/*.png"], "fallthrough": true }
+    { "type": "Data", "globs": ["**/*.png", "**/*.ico"], "fallthrough": true }
   ],
   "vars": { "ZONE": "featherframe.app", "APP_HOST": "cloud.featherframe.app",
             "MAIL_FROM": "Featherframe <hello@featherframe.app>",

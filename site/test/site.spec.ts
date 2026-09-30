@@ -1285,6 +1285,22 @@ test('the glass never refreshes while the frame is in flight', async ({ page }) 
   expect((await st(table + 5)).screen).toBe('table');
 });
 
+// Technical details: each display's diagonal runs corner to corner of its own glass, and each frame stands centred
+// over its caption, a phone's narrow 10-inch included (W-918)
+for (const [w, h] of [[390, 844], [1440, 900]]) {
+  test(`at ${w} the technical details' diagonals sit on their glass`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/');
+    await page.evaluate(() => document.fonts.ready);
+    for (const size of ['s10', 's13']) {
+      const [img, diag, cap] = await Promise.all(['img', '.diag', 'figcaption b'].map((s) => page.locator(`#specs .ho.${size} ${s}`).boundingBox()));
+      expect(diag!.x, size).toBeGreaterThan(img!.x);
+      expect(diag!.x + diag!.width, size).toBeLessThan(img!.x + img!.width);
+      expect(Math.abs(img!.x + img!.width / 2 - (cap!.x + cap!.width / 2)), size).toBeLessThan(1.5);
+    }
+  });
+}
+
 // From the pair to the art spread the frame crosses the art's headline as it comes up: over it, not under (W-916)
 test('the frame flies to the art spread over its words', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });

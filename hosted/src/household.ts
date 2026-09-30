@@ -194,23 +194,28 @@ export class Household extends DurableObject<Env> {
     if (hid) await this.env.SERVER.getByName(hid).stop();
   }
 
-  /** Forget this household: its frames are told, its server stopped and
-   * forgotten, its data in R2 deleted, and this storage emptied. */
-  async destroy(): Promise<void> {
-    for (const ws of this.ctx.getWebSockets()) goodbye(ws, "gone");
-    const hid = this.meta("hid");
-    if (hid) {
-      await this.env.SERVER.getByName(hid).forget();
-      const prefix = `households/${hid}/`;
-      let cursor: string | undefined;
-      do {
-        const page = await this.env.DATA.list({ prefix, cursor });
-        if (page.objects.length) await this.env.DATA.delete(page.objects.map((o) => o.key));
-        cursor = page.truncated ? page.cursor : undefined;
-      } while (cursor);
-    }
+  /** Forget this household (W-914): its frames are told, its server stopped
+   * and forgotten, its data in R2 deleted, and this storage emptied. `hid` is
+   * the Worker's, not read from here: a household given its login by the
+   * admin API may never have been told its own. Says how many files went. */
+  async destroy(hid: string): Promise<number> {
+    // Nothing wakes the server again while it is being stopped.
+    this.setMeta("suspended", "1");
     await this.ctx.storage.deleteAlarm();
+    for (const ws of this.ctx.getWebSockets()) goodbye(ws, "gone");
+    // Stopped before its data is listed: its last push lands first, then goes too.
+    await this.env.SERVER.getByName(hid).forget();
+    const prefix = `households/${hid}/`;
+    let files = 0;
+    let cursor: string | undefined;
+    do {
+      const page = await this.env.DATA.list({ prefix, cursor });
+      if (page.objects.length) await this.env.DATA.delete(page.objects.map((o) => o.key));
+      files += page.objects.length;
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
     await this.ctx.storage.deleteAll();
+    return files;
   }
 
   // -- the household's server -------------------------------------------------

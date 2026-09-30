@@ -9,6 +9,10 @@ import type { Env } from "./index";
 // its port at once, waits out open connections, then the server's shutdown
 // pushes the last changes to the front door (app.lifespan).
 const STOP_GRACE_MS = 60 * 1000;
+// A household server's own work (a tick and the push after it, a repaint)
+// holds its Container up for at most this long: a tick stuck on a dead socket
+// must not keep one running all night (W-917).
+const MAX_WORK_S = 10 * 60;
 
 const after = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
 
@@ -23,7 +27,7 @@ const after = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
  * in the TCP address …:8080". Seen on the page right after a wake stopped
  * the server (W-847) and when its activity timeout ran out under a page. */
 class SleepingContainer extends Container<Env> {
-  private stopping?: Promise<void>;
+  protected stopping?: Promise<void>;
 
   async stop(signal?: Parameters<Container<Env>["stop"]>[0]): Promise<void> {
     const c = this.ctx.container!;
@@ -70,9 +74,36 @@ class SleepingContainer extends Container<Env> {
 export class HouseholdServer extends SleepingContainer {
   defaultPort = 8080;
   // A wake is one request (POST /api/hosted/run) answered when its tick is
-  // done; after it the front door stops this at once (W-847). The page keeps
-  // it up while it is open.
+  // done; after it the front door stops this once it is idle (W-847). The
+  // page keeps it up while it is open.
   sleepAfter = "30s";
+
+  /** The library's activity timeout runs from the last request proxied, not
+   * from its end, and knows nothing of the server's own work: a wake's tick,
+   * or the first tick after a page load, that outlived it was stopped part
+   * way and lost, and the nightly collage with it (W-917). */
+  override async onActivityExpired(): Promise<void> {
+    await this.sleepWhenIdle();
+  }
+
+  /** Stop, unless the server is still working: then the activity timeout,
+   * renewed by asking, comes back to it. */
+  async sleepWhenIdle(): Promise<void> {
+    if (!this.ctx.container?.running || this.stopping) return;
+    if (await this.working()) return;
+    await this.stop();
+  }
+
+  private async working(): Promise<boolean> {
+    try {
+      const res = await this.containerFetch(new Request("http://server/api/hosted/busy"), this.defaultPort);
+      if (!res.ok) return false;
+      const body = await res.json<{ busy?: boolean; for_s?: number }>();
+      return body.busy === true && Number(body.for_s || 0) < MAX_WORK_S;
+    } catch {
+      return false;      // a server that cannot answer is not doing anything for us
+    }
+  }
 
   constructor(ctx: DurableObjectState<{}>, env: Env) {
     super(ctx, env);

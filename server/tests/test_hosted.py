@@ -578,3 +578,112 @@ def test_a_detection_handed_over_by_a_wake_does_not_sync_on_its_own(env, monkeyp
     # A change made on the page still reaches the front door at once.
     assert client.post("/api/ingest/token", headers={"X-FF-Hosted": "1"}).status_code < 400
     assert settled
+
+
+# -- stopped only when idle (W-917) ------------------------------------------------
+# The Container's activity timeout runs from the last request proxied, not
+# from its end, and knows nothing of the server's own work: a tick longer than
+# 30 s was stopped part way and lost, the nightly collage with it. The front
+# door now asks the server whether it is working before it stops it.
+
+def test_a_tick_is_work_until_what_it_drew_is_pushed(env):
+    svc = _service()
+    seen = []
+    svc.after_tick.append(lambda: seen.append(svc.busy_for()))
+    assert svc.busy_for() is None
+    svc.tick()
+    assert seen and seen[0] is not None     # the push after the tick is part of it
+    assert svc.busy_for() is None
+
+
+def test_a_background_task_is_work_while_it_runs(env):
+    import threading
+    svc = _service()
+    go = threading.Event()
+    svc._start_task("collage", go.wait, 5)
+    for _ in range(50):
+        if svc.busy_for() is not None:
+            break
+        threading.Event().wait(0.01)
+    assert svc.busy_for() is not None
+    go.set()
+    for _ in range(100):
+        if svc.busy_for() is None:
+            break
+        threading.Event().wait(0.01)
+    assert svc.busy_for() is None
+
+
+def test_the_front_door_can_ask_whether_the_server_is_working(env):
+    import threading
+    from featherframe.app import app
+    door, link, data = env
+    svc = _service()
+    app.state.service, app.state.hosted = svc, link
+    client = TestClient(app)
+    assert client.get("/api/hosted/busy").json() == {"busy": False, "for_s": 0}
+    go = threading.Event()
+    svc._start_task("collage", go.wait, 5)
+    for _ in range(50):
+        if svc.busy_for() is not None:
+            break
+        threading.Event().wait(0.01)
+    assert client.get("/api/hosted/busy").json()["busy"] is True
+    go.set()
+    app.state.hosted = None
+    assert client.get("/api/hosted/busy").status_code == 404
+
+
+def test_a_stop_waits_for_the_tick_under_way(env):
+    """A stop that comes anyway (a deploy, the front door's cap) still lets
+    the tick finish and push what it drew."""
+    import threading
+    svc = _service()
+    pushed = []
+    svc.after_tick.append(lambda: (threading.Event().wait(0.3), pushed.append(True)))
+    ticking = threading.Thread(target=svc.tick)
+    ticking.start()
+    for _ in range(50):
+        if svc.busy_for() is not None:
+            break
+        threading.Event().wait(0.01)
+    svc.stop(wait_s=5)
+    assert pushed == [True]
+    ticking.join()
+
+
+def test_a_failed_generation_waits_out_its_cooldown_across_a_restart(env):
+    """A hosted server starts afresh on every wake: the cooldown after a
+    failed paid generation is kept in the DB, not in memory."""
+    from featherframe.config import save_config
+    from featherframe.render.collage import CollageCell
+    from featherframe.service import FeatherframeService
+
+    class Refused:
+        name, quality, last_usage, calls = "gpt-image-2.5-sunburst", "high", None, 0
+
+        def generate(self, prompt, size, refs):
+            Refused.calls += 1
+            raise RuntimeError("HTTP 429: insufficient_quota")
+
+    cells = [CollageCell("Blue Jay", "Cyanocitta cristata", 3),
+             CollageCell("Carolina Wren", "Thryothorus ludovicianus", 2)]
+    day = NOW.date()
+    svc = FeatherframeService()
+    svc.genart._model = Refused()
+    svc.genart._refs = []
+    assert svc.genart.day_composite(cells, day) is None
+    assert Refused.calls == 1
+
+    again = FeatherframeService()          # the next wake's Container
+    again.genart._model = Refused()
+    again.genart._refs = []
+    assert again.genart.day_composite(cells, day) is None
+    assert Refused.calls == 1              # not asked again inside its cooldown
+
+    # A new key has not failed yet.
+    again.config.imagegen_api_key = "sk-new"
+    save_config(again.db, again.config)
+    again.config.imagegen_api_key = "sk-old"
+    again.reload_config()
+    assert not again.genart._in_cooldown(f"collage-{day.isoformat()}")

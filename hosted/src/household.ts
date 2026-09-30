@@ -286,8 +286,8 @@ export class Household extends DurableObject<Env> {
   }
 
   /** Start the server (its lifespan pulls), hand it the pushes that landed
-   * while it slept, run one tick (which reports), and stop it again unless
-   * someone is on the page. */
+   * while it slept, run one tick (which reports), and stop it again once it
+   * is idle, unless someone is on the page. */
   async wake(): Promise<void> {
     if (this.meta("suspended")) return;
     const t0 = Date.now();
@@ -304,7 +304,7 @@ export class Household extends DurableObject<Env> {
         this.sql.exec("DELETE FROM ingest WHERE seq = ?", q.seq);
       }
       await stub.fetch("http://server/api/hosted/run", { method: "POST" });
-      if (Date.now() - Number(this.meta("page_ms") || 0) > PAGE_ACTIVE_MS) await stub.stop();
+      if (Date.now() - Number(this.meta("page_ms") || 0) > PAGE_ACTIVE_MS) await stub.sleepWhenIdle();
     } catch (err) {
       console.error("wake failed", err);
     }

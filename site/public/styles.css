@@ -453,7 +453,9 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* V. Technical details: the two frames head-on, to scale, with their dimensions; then the facts. */
 .headon { display: flex; justify-content: flex-start; align-items: flex-end; gap: 96px; padding: 0 0 0 calc((100% + var(--gutter)) / 12 * 4); }
 .ho { margin: 0; }
-.ho .box { position: relative; }
+/* the frame's box is the picture's own width, centred over its caption: on a phone the 10-inch is narrower than
+   "10.3-inch · B&W", and the diagonal is laid out on this box (W-918) */
+.ho .box { position: relative; width: fit-content; margin: 0 auto; }
 .ho img { display: block; height: auto; }
 .ho { --w: min(260px, 18vw); }
 .ho.s13 img { width: var(--w); }

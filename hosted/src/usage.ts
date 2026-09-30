@@ -16,7 +16,8 @@ export type Meter = {
   price: number;             // dollars per unit past the allowance
 };
 
-export type Usage = { meters: Meter[]; bill: number; projected: number; month: string; live: boolean };
+export type Usage = { meters: Meter[]; bill: number; projected: number; month: string; live: boolean;
+                      measured: boolean };   // the Containers meters are Cloudflare's, not our estimate
 
 /** One household's server time on one UTC day (the front door's count). */
 export type UsageDay = { day: string; wakes: number; server_ms: number; wake_ms: number; page_ms: number };
@@ -118,7 +119,8 @@ export async function cloudflareUsage(env: Env, serverMs: number, now = new Date
   const month = now.toISOString().slice(0, 7);
   const containers = containerMeters(serverMs);
   if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID) {
-    return { meters: containers, bill: bill(containers), projected: bill(project(containers, now)), month, live: false };
+    return { meters: containers, bill: bill(containers), projected: bill(project(containers, now)), month,
+             live: false, measured: false };
   }
   const start = `${month}-01`;
   const today = now.toISOString().slice(0, 10);
@@ -176,5 +178,6 @@ export async function cloudflareUsage(env: Env, serverMs: number, now = new Date
     { group: "R2", label: "Storage", unit: "GB", used: r2Stored, included: 10, price: 0.015 },
     ...(measured ?? containers),
   ];
-  return { meters, bill: bill(meters), projected: bill(project(meters, now)), month, live: true };
+  return { meters, bill: bill(meters), projected: bill(project(meters, now)), month, live: true,
+           measured: measured !== null };
 }

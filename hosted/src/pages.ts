@@ -37,8 +37,15 @@ const STYLE = `
     margin:0; padding:16px 20px 8px; }
   table { width:100%; border-collapse:collapse; font-size:14px; }
   th { text-align:left; font-weight:500; font-size:12px; color:var(--muted); padding:6px 20px; }
-  td { padding:10px 20px; border-top:1px solid var(--border); vertical-align:top; }
+  /* An email or id breaks anywhere rather than push a row's actions out of
+     the card, which clips them (W-914). */
+  td { padding:10px 20px; border-top:1px solid var(--border); vertical-align:top; overflow-wrap:anywhere; }
   td.num { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  /* A household's server note is the longest line on the page: it wraps, so
+     the row's actions stay inside the card (W-914). */
+  td.num .srv-note { white-space:normal; }
+  /* A frame's line and a household's id stay whole when the page has room. */
+  @media (min-width:900px) { .frames li, .hid { white-space:nowrap; } }
   .muted { color:var(--muted); }
   .empty { padding:4px 20px 18px; color:var(--muted); margin:0; }
   .row-actions { display:flex; gap:8px; justify-content:flex-end; }
@@ -56,7 +63,6 @@ const STYLE = `
      ones in a ⋯ menu, as the Frames card's in the webapp. */
   td.actions { width:1%; white-space:nowrap; }
   .row-actions { align-items:center; }
-  .frames li { white-space:nowrap; }
   .more-btn { width:30px; height:30px; margin:0; padding:0; display:inline-flex; align-items:center; justify-content:center;
     border:0; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer; }
   .more-btn:hover, .more-btn[aria-expanded="true"] { background:color-mix(in srgb, var(--ink) 9%, transparent); color:var(--ink); }
@@ -113,9 +119,8 @@ const STYLE = `
   .meter.warn .fill { background:#c28a2c; } .meter.over .fill { background:var(--bad); }
   .meter .over-cost { grid-column:1 / -1; font-size:12px; color:var(--bad); }
   @media (max-width:600px) { th:nth-child(n+3):not(.actions), td:nth-child(n+3):not(.actions) { display:none; }
-    td, th { padding-left:14px; padding-right:14px; } td { overflow-wrap:anywhere; }
-    .frames li { white-space:normal; }
-    .row-actions { flex-direction:column; align-items:flex-end; } }
+    td, th { padding-left:14px; padding-right:14px; } }
+  @media (max-width:820px) { .row-actions { flex-direction:column; align-items:flex-end; } }
 `;
 
 function page(title: string, body: string): Response {
@@ -376,9 +381,9 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false, o
         ${h.email ? `<form method="post" action="/admin/household/as">${id}<button class="btn plain" type="submit">Log in as</button></form>` : ""}
         <button class="more-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="hm-${n}" aria-label="More for ${e(who)}">${DOTS}</button>
         ${menu}${dialogs}</div>`;
-      return `<tr><td>${e(h.email || "(no login)")}${own ? ` <span class="muted">· you</span>` : ""}${h.suspended_at ? ` <span class="badge">Suspended</span>` : ""}<br><span class="muted">${e(h.id)}${h.source ? ` · ${e(h.source)}` : ""}</span></td>
+      return `<tr><td>${e(h.email || "(no login)")}${own ? ` <span class="muted">· you</span>` : ""}${h.suspended_at ? ` <span class="badge">Suspended</span>` : ""}<br><span class="muted hid">${e(h.id)}${h.source ? ` · ${e(h.source)}` : ""}</span></td>
         <td>${frames}</td>
-        <td class="num">${minutes(t.wake_ms)} in ${t.wakes} wakes<br><span class="muted">${note}</span></td>
+        <td class="num">${minutes(t.wake_ms)} in ${t.wakes} wakes<br><span class="muted srv-note">${note}</span></td>
         <td class="num muted">${ago(h.last_wake)}</td>
         <td class="actions">${actions}</td></tr>`;
     }).join("")}

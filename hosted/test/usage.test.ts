@@ -1,6 +1,6 @@
 // The admin page's bill (src/usage.ts, W-860).
 import { describe, expect, it } from "vitest";
-import { bill, containerMeters, project, serverTime, type Meter } from "../src/usage";
+import { bill, containerMeters, measuredContainerMeters, project, serverTime, type Meter } from "../src/usage";
 
 const m = (used: number | null, included: number, price: number, unit = ""): Meter =>
   ({ group: "g", label: "l", unit, used, included, price });
@@ -27,6 +27,13 @@ describe("containerMeters", () => {
   it("counts an hour of a basic container", () => {
     const [cpu, mem, disk] = containerMeters(3600e3);
     expect(cpu.used).toBeCloseTo(15);   // 1/4 vCPU for 60 min
+    expect(mem.used).toBeCloseTo(1);
+    expect(disk.used).toBeCloseTo(4);
+  });
+  it("bills measured CPU for the time it was busy, memory and disk for the time it ran", () => {
+    // An hour running, a quarter of it busy on a quarter vCPU (W-915).
+    const [cpu, mem, disk] = measuredContainerMeters({ cpuS: 225, memByteS: 3600 * 2 ** 30, diskByteS: 3600 * 4e9 });
+    expect(cpu.used).toBeCloseTo(3.75);
     expect(mem.used).toBeCloseTo(1);
     expect(disk.used).toBeCloseTo(4);
   });

@@ -20,14 +20,22 @@ On start the data dir is pulled before the service opens its database; after
 every tick (and every request that changed something) what changed is pushed
 and the state reported. Nothing else about the server is different: the rules,
 the renders and the page are the box's.
+
+A start pulls only what a tick reads (W-915). The big files something asks for
+one at a time — a generated illustration, a day's collage sheet, a kept
+collage, a past picture full size, a firmware image — stay at the front door
+until then: `local()` fetches one, `exists()`, `glob()` and `remove()` see the
+ones still there. Off hosted each is the plain filesystem call.
 """
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import logging
 import os
 import sqlite3
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 from urllib.parse import quote
@@ -39,10 +47,23 @@ from . import paths
 log = logging.getLogger("featherframe.hosted")
 
 TIMEOUT_S = 60
+PULL_WORKERS = 8
 DB_NAME = "featherframe.db"
 # Caches, not state: rebuilt on demand, never pushed. (frames/views/ is
 # pushed: the front door serves a viewer's image from it, W-849.)
 _SKIP_PREFIXES = ("plate-library/",)
+# What stays at the front door until it is read (W-915): the folder and the
+# files in it. Sidecars, thumbnails and history's small PNGs come down with
+# the rest, so every listing, age and prune reads a local file.
+_LAZY = (("generated/", (".png",)),               # read when its species is drawn
+         ("collages/", (".png",)),                # read when that day's collage is drawn
+         ("frames/collage-days/", (".png",)),     # read when downloaded
+         ("frames/history/", (".jpg",)),          # read when zoomed
+         ("firmware/", (".bin",)))                # read when a frame updates
+
+
+def is_lazy(rel: str) -> bool:
+    return "/thumbs/" not in rel and any(rel.startswith(d) and rel.endswith(s) for d, s in _LAZY)
 
 
 def config_from_env() -> Optional[tuple[str, str]]:
@@ -69,35 +90,83 @@ class HostedLink:
         self.http.headers["Authorization"] = f"Bearer {key}"
         self._remote: dict[str, str] = {}              # path -> sha, as the front door has it
         self._stat: dict[str, tuple] = {}              # path -> (size, mtime_ns, sha)
-        self._lock = threading.Lock()                  # one sync at a time
+        self._lazy: set[str] = set()                   # at the front door, not fetched yet
+        self._lock = threading.RLock()                 # one sync at a time
 
     def _url(self, rel: str = "") -> str:
         return f"{self.base}/{rel}" if rel else self.base
 
     # -- files -----------------------------------------------------------------
     def pull(self) -> int:
-        """Bring the data dir up to the front door's copy. Returns files fetched."""
+        """Bring the data dir up to the front door's copy, but for what waits
+        there until it is read (`is_lazy`). Returns files fetched."""
         with self._lock:
             r = self.http.get(self._url("files"), timeout=TIMEOUT_S)
             r.raise_for_status()
             remote = dict(r.json().get("files") or {})
-            fetched = 0
+            todo, lazy = [], set()
             for rel, sha in remote.items():
                 if not _safe(rel):
                     continue
                 dest = self.data_dir / rel
                 if dest.exists() and _sha(dest) == sha:
                     continue
-                got = self.http.get(self._url("files/" + quote(rel)), timeout=TIMEOUT_S)
-                got.raise_for_status()
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                tmp = dest.with_name(dest.name + ".tmp")
-                tmp.write_bytes(got.content)
-                os.replace(tmp, dest)
-                fetched += 1
-            self._remote = remote
-            log.info("hosted: pulled %d of %d files", fetched, len(remote))
-            return fetched
+                if is_lazy(rel) and not dest.exists():
+                    lazy.add(rel)
+                    continue
+                todo.append((rel, sha))
+            # A few at a time: each is a round trip through the front door,
+            # and the Container is paid for while it waits (W-915).
+            with ThreadPoolExecutor(max_workers=PULL_WORKERS) as pool:
+                list(pool.map(lambda job: self._fetch(*job), todo))
+            self._remote, self._lazy = remote, lazy
+            log.info("hosted: pulled %d of %d files (%d left until read)",
+                     len(todo), len(remote), len(lazy))
+            return len(todo)
+
+    def _fetch(self, rel: str, sha: str) -> None:
+        got = self.http.get(self._url("files/" + quote(rel)), timeout=TIMEOUT_S)
+        got.raise_for_status()
+        body = got.content
+        dest = self.data_dir / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dest.with_name(dest.name + ".tmp")
+        tmp.write_bytes(body)
+        os.replace(tmp, dest)
+        # Hashed here, while it is in memory: the first push need not read
+        # every file back to learn it is unchanged.
+        if hashlib.sha256(body).hexdigest() == sha:
+            st = dest.stat()
+            self._stat[rel] = (st.st_size, st.st_mtime_ns, sha)
+
+    def fetch(self, rel: str) -> bool:
+        """One file that waits at the front door, brought down now. False if
+        it is not one, or the front door could not hand it over."""
+        with self._lock:
+            if rel not in self._lazy:
+                return False
+            try:
+                self._fetch(rel, self._remote.get(rel, ""))
+            except (requests.RequestException, OSError):
+                log.warning("hosted: %s not fetched", rel, exc_info=True)
+                return False
+            self._lazy.discard(rel)
+            return True
+
+    def waiting(self, rel: str) -> bool:
+        return rel in self._lazy
+
+    def waiting_in(self, folder: str) -> list[str]:
+        """The files still at the front door directly inside `folder`."""
+        prefix = folder.rstrip("/") + "/"
+        with self._lock:
+            return [r for r in self._lazy if r.startswith(prefix) and "/" not in r[len(prefix):]]
+
+    def forget(self, rel: str) -> None:
+        """A file removed here that was never fetched: the next push drops it
+        from the front door too."""
+        with self._lock:
+            self._lazy.discard(rel)
 
     def _local(self) -> dict[str, Path]:
         """Every file that is state, by its path in the data dir. The database
@@ -140,6 +209,7 @@ class HostedLink:
             local = self._local()
             n = 0
             for rel, p in local.items():
+                self._lazy.discard(rel)           # written here since: this copy is the one
                 sha = self._hash(rel, p)
                 if self._remote.get(rel) == sha:
                     continue
@@ -148,7 +218,7 @@ class HostedLink:
                 r.raise_for_status()
                 self._remote[rel] = sha
                 n += 1
-            for rel in [r for r in self._remote if r not in local]:
+            for rel in [r for r in self._remote if r not in local and r not in self._lazy]:
                 r = self.http.delete(self._url("files/" + quote(rel)), timeout=TIMEOUT_S)
                 if r.status_code not in (200, 204, 404):
                     r.raise_for_status()
@@ -229,3 +299,67 @@ def _safe(rel: str) -> bool:
     """A path from the front door stays inside the data dir."""
     parts = Path(rel).parts
     return bool(parts) and not Path(rel).is_absolute() and ".." not in parts
+
+
+# -- the data dir, as a hosted server has it (W-915) ---------------------------
+# The link this process pulled with, set once at start; None off hosted.
+_active: Optional[HostedLink] = None
+
+
+def activate(link: Optional[HostedLink]) -> None:
+    global _active
+    _active = link
+
+
+def _rel(path: Path) -> Optional[str]:
+    if _active is None:
+        return None
+    try:
+        return Path(path).relative_to(_active.data_dir).as_posix()
+    except ValueError:
+        return None
+
+
+def local(path: Path) -> Path:
+    """`path`, fetched first if it waits at the front door. A fetch that
+    fails leaves it missing here; `exists()` still says it is there."""
+    rel = _rel(path)
+    if rel is not None and not Path(path).exists():
+        _active.fetch(rel)
+    return path
+
+
+def exists(path: Path) -> bool:
+    """Here, or at the front door waiting to be read."""
+    if Path(path).exists():
+        return True
+    rel = _rel(path)
+    return rel is not None and _active.waiting(rel)
+
+
+def glob(folder: Path, pattern: str) -> list[Path]:
+    """`folder.glob(pattern)`, and the files still at the front door."""
+    found = set(Path(folder).glob(pattern))
+    rel = _rel(folder)
+    if rel is not None:
+        found |= {_active.data_dir / r for r in _active.waiting_in(rel)
+                  if fnmatch.fnmatch(r.rsplit("/", 1)[-1], pattern)}
+    return list(found)
+
+
+def waiting_under(folder: Path) -> list[Path]:
+    """Every file under `folder`, at any depth, still at the front door."""
+    rel = _rel(folder)
+    if rel is None:
+        return []
+    prefix = rel.rstrip("/") + "/"
+    with _active._lock:
+        return [_active.data_dir / r for r in _active._lazy if r.startswith(prefix)]
+
+
+def remove(path: Path) -> None:
+    """Delete `path` here and, on the next push, at the front door."""
+    Path(path).unlink(missing_ok=True)
+    rel = _rel(path)
+    if rel is not None:
+        _active.forget(rel)

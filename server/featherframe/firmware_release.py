@@ -23,6 +23,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
+from . import hosted
+
 log = logging.getLogger(__name__)
 
 KEY = "firmware_release"
@@ -215,7 +217,7 @@ class ReleaseStore:
         download; a file here was renamed into place only after it passed."""
         if not entry or not self.version():
             return None
-        path = self._path(entry)
+        path = hosted.local(self._path(entry))
         try:
             return path if path.stat().st_size == entry["size"] else None
         except OSError:
@@ -313,5 +315,8 @@ class ReleaseStore:
             for d in self.root.iterdir():
                 if d.is_dir() and d.name != keep:
                     shutil.rmtree(d, ignore_errors=True)
+            for p in hosted.waiting_under(self.root):      # never fetched (W-915)
+                if p.relative_to(self.root).parts[0] != keep:
+                    hosted.remove(p)
         except OSError:
             pass

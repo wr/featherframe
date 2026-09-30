@@ -15,6 +15,8 @@ from typing import Optional
 
 from PIL import Image
 
+from . import hosted
+
 log = logging.getLogger(__name__)
 
 # Three times the lists' 64×85 cell: sharp on a 3× phone screen.
@@ -26,9 +28,11 @@ def thumb_for(src: Path) -> Optional[Path]:
     """The thumbnail of `src`, drawn if it is missing or older than `src`."""
     dest = src.parent / THUMB_DIR / f"{src.stem}.jpg"
     try:
-        if dest.exists() and dest.stat().st_mtime >= src.stat().st_mtime:
+        # A source still at the front door (W-915) has not changed since its
+        # thumbnail was drawn: a new one is written here.
+        if dest.exists() and (not src.exists() or dest.stat().st_mtime >= src.stat().st_mtime):
             return dest
-        with Image.open(src) as im:
+        with Image.open(hosted.local(src)) as im:
             im.thumbnail(THUMB_SIZE, Image.LANCZOS)
             if im.mode in ("RGBA", "LA", "P"):
                 im = im.convert("RGBA")
@@ -48,4 +52,4 @@ def thumb_for(src: Path) -> Optional[Path]:
 
 
 def drop_thumb(src: Path) -> None:
-    (src.parent / THUMB_DIR / f"{src.stem}.jpg").unlink(missing_ok=True)
+    hosted.remove(src.parent / THUMB_DIR / f"{src.stem}.jpg")

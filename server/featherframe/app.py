@@ -78,6 +78,7 @@ async def lifespan(app: FastAPI):
     if conf:
         link = hosted.HostedLink(*conf)
         await run_in_threadpool(link.pull)
+        hosted.activate(link)
     service = FeatherframeService()
     app.state.service = service
     app.state.hosted = link
@@ -112,6 +113,10 @@ async def _hosted_settle(request: Request, call_next):
     tick: the frames it answers see it now."""
     response = await call_next(request)
     link = getattr(request.app.state, "hosted", None)
+    # A detection is handed over by a wake, and the wake's own tick settles
+    # right after it: one sync per wake, not one per detection (W-915).
+    if request.url.path.startswith("/api/ingest/") and not request.headers.get("x-ff-hosted"):
+        return response
     if link is not None and request.method in ("POST", "PUT", "DELETE") and response.status_code < 400:
         await run_in_threadpool(link.settle, request.app.state.service, False)
     return response
@@ -1140,13 +1145,15 @@ async def generated_png(request: Request, slug: str, thumb: int = 0):
     if not _valid_slug(slug):
         return Response(status_code=404)
     png = svc.genart._png(slug)  # noqa: SLF001 (same package, path is validated)
-    if not png.exists():
+    if not hosted.exists(png):
         return Response(status_code=404)
     if thumb:
         small = await run_in_threadpool(thumbs.thumb_for, png)
         if small:
             return FileResponse(small, media_type="image/jpeg",
                                 headers={"Cache-Control": "max-age=300"})
+    if not (await run_in_threadpool(hosted.local, png)).exists():
+        return Response(status_code=503, headers={"Retry-After": "5"})
     # FileResponse streams and stamps Last-Modified; a short max-age keeps the
     # gallery from re-downloading megabytes of PNG on every page view.
     return FileResponse(png, media_type="image/png",
@@ -1495,8 +1502,10 @@ async def history_jpg(request: Request, etag: str):
     if not _ETAG_RE.match(etag):
         return Response(status_code=404)
     jpg = paths.history_dir() / f"{etag}.jpg"
-    if not await run_in_threadpool(jpg.exists):
+    if not hosted.exists(jpg):
         return Response(status_code=404)
+    if not (await run_in_threadpool(hosted.local, jpg)).exists():
+        return Response(status_code=503, headers={"Retry-After": "5"})
     return FileResponse(jpg, media_type="image/jpeg",
                         headers={"Cache-Control": "max-age=86400"})
 
@@ -1510,13 +1519,15 @@ async def collage_day_png(request: Request, day: str, thumb: int = 0):
     if not _DATE_RE.match(day):
         return Response(status_code=404)
     png = paths.collage_days_dir() / f"{day}.png"
-    if not await run_in_threadpool(png.exists):
+    if not hosted.exists(png):
         return Response(status_code=404)
     if thumb:
         small = await run_in_threadpool(thumbs.thumb_for, png)
         if small:
             return FileResponse(small, media_type="image/jpeg",
                                 headers={"Cache-Control": "max-age=300"})
+    if not (await run_in_threadpool(hosted.local, png)).exists():
+        return Response(status_code=503, headers={"Retry-After": "5"})
     return FileResponse(png, media_type="image/png",
                         filename=f"featherframe-collage-{day}.png")
 

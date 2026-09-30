@@ -29,7 +29,7 @@ from urllib.parse import quote
 
 from PIL import Image
 
-from . import auth, firmware_release
+from . import auth, firmware_release, hosted
 from . import plate_library, thumbs
 from . import frames as frames_mod
 from . import panels, paths
@@ -1447,9 +1447,9 @@ class FeatherframeService:
             tmp = days / f"{on_date.isoformat()}.tmp"
             shutil.copyfile(src[0], tmp)
             os.replace(tmp, days / f"{on_date.isoformat()}.png")
-            kept = sorted(p for p in days.glob("*.png") if _DATE_RE.match(p.stem))
+            kept = sorted(p for p in hosted.glob(days, "*.png") if _DATE_RE.match(p.stem))
             for old in kept[:-COLLAGE_DAYS_KEPT]:
-                old.unlink(missing_ok=True)
+                hosted.remove(old)
                 thumbs.drop_thumb(old)
         except Exception:  # noqa: BLE001 — never worth a failed collage
             log.warning("collage for %s not kept", on_date, exc_info=True)
@@ -1457,7 +1457,7 @@ class FeatherframeService:
     def collage_days(self) -> list[dict]:
         """The kept collages, newest first, for the page's download links."""
         out = []
-        for p in sorted(paths.collage_days_dir().glob("*.png"), reverse=True):
+        for p in sorted(hosted.glob(paths.collage_days_dir(), "*.png"), reverse=True):
             if not _DATE_RE.match(p.stem):
                 continue
             try:
@@ -2834,7 +2834,7 @@ class FeatherframeService:
         for row in self.db.render_history(limit):
             etag = str(row.get("etag") or "")
             has_thumb = bool(_ETAG_RE.match(etag)) and (hist / f"{etag}.png").exists()
-            has_full = has_thumb and (hist / f"{etag}.jpg").exists()
+            has_full = has_thumb and hosted.exists(hist / f"{etag}.jpg")
             try:
                 then = datetime.fromisoformat(str(row.get("rendered_at") or ""))
             except ValueError:
@@ -3229,7 +3229,7 @@ class FeatherframeService:
                             key=lambda p: p.stat().st_mtime, reverse=True)
             for stale in thumbs[_HISTORY_MAX:]:
                 stale.unlink(missing_ok=True)
-                stale.with_suffix(".jpg").unlink(missing_ok=True)
+                hosted.remove(stale.with_suffix(".jpg"))
         except Exception:  # noqa: BLE001 — a thumbnail is never worth a failed commit
             log.warning("history thumbnail for %s not saved", etag, exc_info=True)
 

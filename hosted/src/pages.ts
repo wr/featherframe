@@ -6,13 +6,13 @@ import { escapeHtml } from "./util";
 
 const STYLE = `
   :root { --bg:#ececea; --surface:#fcfcfb; --ink:#201e1a; --ink-2:#474540; --muted:#827e76;
-    --border:#e6e4dd; --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e; --good:#5c8a46;
-    --sh-card:0 1px 2px rgba(74,54,28,.045), 0 4px 12px rgba(74,54,28,.05);
+    --border:#e6e4dd; --border-strong:#d5d2ca; --field:#ffffff; --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e; --good:#5c8a46;
+    --sh-card:0 1px 2px rgba(74,54,28,.045), 0 4px 12px rgba(74,54,28,.05); --sh-sm:0 1px 1px rgba(74,54,28,.05);
     color-scheme:light; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
     --bg:#171614; --surface:#211f1c; --ink:#ecebe7; --ink-2:#c9c6bf; --muted:#8f8b83;
-    --border:#34312c; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); --bad:#d9705a; --good:#7fae66;
-    --sh-card:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28); color-scheme:dark; } }
+    --border:#34312c; --border-strong:#4a463f; --field:#2c2b27; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); --bad:#d9705a; --good:#7fae66;
+    --sh-card:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28); --sh-sm:0 1px 1px rgba(0,0,0,.25); color-scheme:dark; } }
   @font-face { font-family:"Featherframe Script"; src:url("/_ff/script.ttf") format("truetype"); font-display:swap; }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
@@ -23,8 +23,8 @@ const STYLE = `
   h1 { font-size:17px; font-weight:600; margin:0 0 6px; }
   p { margin:0 0 16px; color:var(--ink-2); }
   label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
-  input[type=email] { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
-    background:var(--bg); color:var(--ink); }
+  input[type=text], input[type=email] { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border-strong);
+    border-radius:8px; background:var(--field); color:var(--ink); box-shadow:var(--sh-sm); }
   input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
   button { margin-top:14px; width:100%; font:inherit; font-weight:600; padding:10px 12px; border:0; border-radius:8px;
     background:var(--accent); color:var(--on-accent); cursor:pointer; }
@@ -79,8 +79,7 @@ const STYLE = `
   .dlg h2 { font-size:16px; font-weight:600; margin:0 0 8px; overflow-wrap:anywhere; }
   .dlg p { font-size:14px; margin:0 0 14px; }
   .dlg label { font-size:13px; color:var(--ink-2); overflow-wrap:anywhere; }
-  .dlg input[type=text], .dlg input[type=email] { width:100%; font:inherit; padding:9px 12px; border:1px solid var(--border);
-    border-radius:8px; background:var(--bg); color:var(--ink); }
+  .dlg input[type=text], .dlg input[type=email] { padding:9px 12px; }
   /* Cancel on the left, the action on the right, as the webapp's dialogs. */
   .dlg-foot { display:flex; justify-content:space-between; gap:8px; margin-top:18px; }
   .dlg-foot .btn { padding:9px 16px; font-size:14px; }
@@ -436,8 +435,7 @@ export function loginPage(error = "", codeError = "", code = ""): Response {
     <form method="post" action="/setup">
       <label for="code">Code</label>
       <input type="text" id="code" name="code" required autocomplete="off" autocapitalize="characters" spellcheck="false"
-        maxlength="9" placeholder="ABC-DEF" value="${e(code)}"${codeError ? " autofocus" : ""}
-        style="width:100%;font:inherit;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);text-transform:uppercase;letter-spacing:.08em">
+        maxlength="9" placeholder="ABC-DEF" value="${e(code)}"${codeError ? " autofocus" : ""} style="text-transform:uppercase;letter-spacing:.08em">
       <button type="submit">Continue</button>
     </form>
     <script>try{document.getElementById("tz").value=Intl.DateTimeFormat().resolvedOptions().timeZone}catch(e){}</script>`);
@@ -487,8 +485,6 @@ export function confirmEmailEmail(link: string): { subject: string; text: string
 const SETUP_STYLE = `<style>
   .hint { font-size:13px; color:var(--muted); margin:6px 0 0; }
   .field { margin-bottom:18px; }
-  input[type=text] { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border);
-    border-radius:8px; background:var(--bg); color:var(--ink); }
   .code-in { text-transform:uppercase; letter-spacing:.08em; }
   fieldset { border:0; margin:0 0 6px; padding:0; }
   legend { font-size:15px; font-weight:600; margin:4px 0 8px; padding:0; }

@@ -1460,6 +1460,56 @@ for (const [w, h] of [[1920, 1080], [1440, 900], [1280, 800], [1024, 768]]) {
   });
 }
 
+// The cover's headline, sentence and frame are one unit, measured on the B&W frame (drawn to scale in the 13.3-inch's
+// box: its top edge .2235 down it, its foot .9614, its right side .1036 in). EB Garamond's cap line is .1306em under
+// the h1's top at line-height .86, the second line's .86em lower, its baseline 1.6436em down.
+const coverLines = () => {
+  const h1 = document.querySelector('.cover h1')!;
+  const F = parseFloat(getComputedStyle(h1).fontSize), top = h1.getBoundingClientRect().top;
+  const f = document.querySelector('.cover .frame')!.getBoundingClientRect();
+  const it = document.querySelector('.cover .cta .it')!, cs = getComputedStyle(it), fs = parseFloat(cs.fontSize);
+  const copy = document.querySelector('.cover .copy')!.getBoundingClientRect();
+  return {
+    cap1: top + .1306 * F, cap2: top + .9906 * F, base2: top + 1.6436 * F,
+    bwTop: f.top + .2235 * f.height, feet: f.top + .9614 * f.height, bwRight: f.right - .1036 * f.width, boxLeft: f.left,
+    price: it.getBoundingClientRect().bottom - ((parseFloat(cs.lineHeight) - 1.3057 * fs) / 2 + .2993 * fs),
+    copyTop: copy.top, copyRight: copy.right, copyBottom: copy.bottom,
+    contentRight: document.querySelector('.head')!.getBoundingClientRect().right, vh: innerHeight,
+  };
+};
+
+// a landscape window: the headline's cap line is the frame's top edge (narrower than 1100px, its second line's), the
+// price's last baseline the frame's foot, the frame's right edge the content's, the sentence clear of the frame, and
+// all of it on the first screen (W-916)
+for (const [w, h, line] of [[1440, 900, 1], [1920, 1080, 1], [1600, 645, 1], [1250, 1000, 1], [1280, 800, 1], [1024, 768, 2], [900, 700, 2]] as const) {
+  test(`at ${w} × ${h} the cover's headline, sentence and frame share their lines`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/');
+    await page.evaluate(() => document.fonts.ready);
+    const g = await page.evaluate(coverLines);
+    expect(Math.abs((line === 1 ? g.cap1 : g.cap2) - g.bwTop)).toBeLessThan(2);
+    expect(Math.abs(g.price - g.feet)).toBeLessThan(2);
+    expect(Math.abs(g.bwRight - g.contentRight)).toBeLessThan(2);
+    expect(g.copyRight).toBeLessThan(g.boxLeft);
+    expect(g.copyBottom).toBeLessThanOrEqual(g.vh);
+  });
+}
+
+// a portrait window or a tablet: the headline, then the frame a little under it, then the words, none over another,
+// all on the first screen (W-916)
+for (const [w, h] of [[943, 1333], [1100, 1300], [834, 1194], [768, 1024]]) {
+  test(`at ${w} × ${h} the cover stacks the headline, the frame and the sentence`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/');
+    await page.evaluate(() => document.fonts.ready);
+    const g = await page.evaluate(coverLines);
+    expect(g.bwTop).toBeGreaterThan(g.base2);
+    expect(g.bwTop - g.base2).toBeLessThan(80);
+    expect(g.copyTop).toBeGreaterThan(g.feet);
+    expect(g.copyBottom).toBeLessThanOrEqual(g.vh);
+  });
+}
+
 test("the video's corners are a frame's, and the table's line sits centred under its frame", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');

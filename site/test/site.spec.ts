@@ -19,7 +19,7 @@ test('the page loads without console errors', async ({ page }) => {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/');
-  await expect(page).toHaveTitle('Featherframe: a picture frame for bird lovers that shows the birds nearby');
+  await expect(page).toHaveTitle('Featherframe: a picture frame for bird lovers that shows who’s singing nearby');
   await expect(page.locator('.head .word')).toHaveAttribute('aria-label', 'Featherframe by Wells Workshop');
   await expect(page.locator('.head .word svg.lockup .ww')).toHaveCount(1);
   expect(errors).toEqual([]);

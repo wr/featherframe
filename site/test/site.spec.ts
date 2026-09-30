@@ -3,8 +3,12 @@ import { expect, test } from '@playwright/test';
 test('social card and search basics', async ({ page, request }) => {
   await page.goto('/');
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /^https:\/\/featherframe\.app\/img\/og\.jpg(\?v=[0-9a-f]{8})?$/);
-  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Featherframe: an e-paper frame that shows the birds heard near your home');
-  await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', 'Featherframe: an e-paper frame that shows the birds heard near your home');
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Featherframe: the birds near your home, in Audubon’s paintings');
+  await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', 'Featherframe: the birds near your home, in Audubon’s paintings');
+  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', 'Featherframe');
+  // Google names the result from the WebSite entry, so it says Featherframe, not the workshop
+  const ld = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent() ?? '{}');
+  expect(ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'WebSite')).toMatchObject({ name: 'Featherframe', url: 'https://featherframe.app/' });
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://featherframe.app/');
   expect((await request.get('/robots.txt')).ok()).toBe(true);
   expect((await request.get('/sitemap.xml')).ok()).toBe(true);
@@ -15,7 +19,7 @@ test('the page loads without console errors', async ({ page }) => {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/');
-  await expect(page).toHaveTitle('Featherframe: an e-paper frame that shows the birds heard near your home · Wells Workshop');
+  await expect(page).toHaveTitle('Featherframe: a frame that shows the birds near your home');
   await expect(page.locator('.head .word')).toHaveAttribute('aria-label', 'Featherframe by Wells Workshop');
   await expect(page.locator('.head .word svg.lockup .ww')).toHaveCount(1);
   expect(errors).toEqual([]);

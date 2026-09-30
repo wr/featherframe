@@ -28,6 +28,7 @@ import threading
 import time
 import zipfile
 from abc import ABC, abstractmethod
+from collections.abc import MutableMapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
@@ -35,7 +36,7 @@ from typing import Callable, Optional
 import requests
 from PIL import Image
 
-from .. import paths, thumbs
+from .. import hosted, paths, thumbs
 from ..names import DEFAULT_FOLIO, folio_of
 from . import plate
 from .collage import CollageCell, same_species, sheet_art_size
@@ -1455,13 +1456,16 @@ class GeneratedArtProvider(ArtProvider):
                  cache_dir: Optional[Path] = None,
                  refs: Optional[list[Path]] = None,
                  cooldown_s: float = 900.0,
-                 text_model: Optional[TextModel] = None) -> None:
+                 text_model: Optional[TextModel] = None,
+                 failures: Optional[MutableMapping[str, float]] = None) -> None:
         self._model = model
         self._text_model = text_model
         self._cache_dir = Path(cache_dir) if cache_dir else None
         self._refs = refs
         self._cooldown_s = cooldown_s
-        self._failed_at: dict[str, float] = {}
+        # When each key last failed (epoch seconds). The service keeps it in
+        # its DB, so a restart does not ask a failed key again early (W-917).
+        self._failed_at: MutableMapping[str, float] = failures if failures is not None else {}
         # Told of every call to the image model: the exception it raised, or
         # None when it returned an image. The service keeps the last failure
         # so the page can say it (an empty account was only in the log).
@@ -1562,7 +1566,9 @@ class GeneratedArtProvider(ArtProvider):
         if not slug:
             return None
         try:
-            if self._png(slug).exists():
+            # At the front door counts (W-915): a paid illustration is never
+            # bought again because this start has not fetched it yet.
+            if hosted.exists(self._png(slug)):
                 return self._from_cache(slug)
             if self._model is None:
                 return None
@@ -1588,9 +1594,9 @@ class GeneratedArtProvider(ArtProvider):
     def delete(self, slug: str) -> bool:
         slug = slugify(slug)
         png, sidecar = self._png(slug), self._sidecar(slug)
-        if not png.exists():
+        if not hosted.exists(png):
             return False
-        png.unlink(missing_ok=True)
+        hosted.remove(png)
         sidecar.unlink(missing_ok=True)
         thumbs.drop_thumb(png)
         return True
@@ -1605,7 +1611,7 @@ class GeneratedArtProvider(ArtProvider):
                 continue
             if not isinstance(meta, dict):
                 continue  # foreign file in the cache dir; never crash the page
-            if self._png(meta.get("slug", sidecar.stem)).exists():
+            if hosted.exists(self._png(meta.get("slug", sidecar.stem))):
                 out.append(meta)
         out.sort(key=lambda m: str(m.get("created_at") or ""), reverse=True)
         return out
@@ -1621,7 +1627,7 @@ class GeneratedArtProvider(ArtProvider):
                 slug = meta.get("slug") or ""
                 if slug != slugify(slug):
                     continue
-                z.write(self._png(slug), f"{slug}.png")
+                z.write(hosted.local(self._png(slug)), f"{slug}.png")
                 z.write(self._sidecar(slug), f"{slug}.json")
             if self._descriptions_path().exists():
                 z.write(self._descriptions_path(), BACKUP_DESCRIPTIONS)
@@ -1686,7 +1692,7 @@ class GeneratedArtProvider(ArtProvider):
     def _backup_is_newer(self, slug: str, incoming: dict) -> bool:
         """True when there is no plate on file, or the backup's is strictly
         newer. An unreadable date on either side keeps what's on file."""
-        if not self._png(slug).exists():
+        if not hosted.exists(self._png(slug)):
             return True
         try:
             mine = json.loads(self._sidecar(slug).read_text()).get("created_at")
@@ -1740,9 +1746,11 @@ class GeneratedArtProvider(ArtProvider):
         only when a sheet is bought); a sheet painted with another branch is
         bought again, as the owner changed it. Never raises."""
         day = when.isoformat()
-        png = paths.collages_dir() / f"{day}.png"
+        png = hosted.local(paths.collages_dir() / f"{day}.png")
         sidecar = paths.collages_dir() / f"{day}.json"
         key = f"collage-{day}"
+        if not force and hosted.exists(png) and not png.exists():
+            return None     # at the front door and not fetched: the grid, never a second sheet
         try:
             if png.exists() and not force:
                 cached = self._read_sheet(png, sidecar, cells)
@@ -1952,15 +1960,17 @@ class GeneratedArtProvider(ArtProvider):
     def _prune_sheets(self) -> None:
         """The per-day cache is unbounded by nature; keep the newest N."""
         try:
-            sheets = sorted(paths.collages_dir().glob("????-??-??.png"))
+            sheets = sorted(hosted.glob(paths.collages_dir(), "????-??-??.png"))
             for old in sheets[:-self._KEEP_SHEETS]:
-                old.unlink(missing_ok=True)
+                hosted.remove(old)
                 old.with_suffix(".json").unlink(missing_ok=True)
         except OSError:
             pass
 
     # -- internals ----------------------------------------------------------
     def _from_cache(self, slug: str) -> Optional[Artwork]:
+        if not hosted.local(self._png(slug)).exists():
+            return None     # at the front door, not handed over: the fallback this once, nothing removed
         try:
             img = plate.extract_generated(self._png(slug))
         except (OSError, ValueError):
@@ -2023,7 +2033,7 @@ class GeneratedArtProvider(ArtProvider):
             # thread generated this species must not buy it a second time —
             # and one that queued while the other thread FAILED must honour
             # the cooldown that failure set, not fire straight at a dead key.
-            if not force and self._png(slug).exists():
+            if not force and hosted.exists(self._png(slug)):
                 return True
             if not force and self._in_cooldown(slug):
                 return False

@@ -2,3 +2,4 @@
 // its icons (W-849), served with no Container to wake.
 declare module "*.html" { const text: string; export default text; }
 declare module "*.png" { const data: ArrayBuffer; export default data; }
+declare module "*.ico" { const data: ArrayBuffer; export default data; }

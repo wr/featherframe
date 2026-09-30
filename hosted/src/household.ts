@@ -194,23 +194,28 @@ export class Household extends DurableObject<Env> {
     if (hid) await this.env.SERVER.getByName(hid).stop();
   }
 
-  /** Forget this household: its frames are told, its server stopped and
-   * forgotten, its data in R2 deleted, and this storage emptied. */
-  async destroy(): Promise<void> {
-    for (const ws of this.ctx.getWebSockets()) goodbye(ws, "gone");
-    const hid = this.meta("hid");
-    if (hid) {
-      await this.env.SERVER.getByName(hid).forget();
-      const prefix = `households/${hid}/`;
-      let cursor: string | undefined;
-      do {
-        const page = await this.env.DATA.list({ prefix, cursor });
-        if (page.objects.length) await this.env.DATA.delete(page.objects.map((o) => o.key));
-        cursor = page.truncated ? page.cursor : undefined;
-      } while (cursor);
-    }
+  /** Forget this household (W-914): its frames are told, its server stopped
+   * and forgotten, its data in R2 deleted, and this storage emptied. `hid` is
+   * the Worker's, not read from here: a household given its login by the
+   * admin API may never have been told its own. Says how many files went. */
+  async destroy(hid: string): Promise<number> {
+    // Nothing wakes the server again while it is being stopped.
+    this.setMeta("suspended", "1");
     await this.ctx.storage.deleteAlarm();
+    for (const ws of this.ctx.getWebSockets()) goodbye(ws, "gone");
+    // Stopped before its data is listed: its last push lands first, then goes too.
+    await this.env.SERVER.getByName(hid).forget();
+    const prefix = `households/${hid}/`;
+    let files = 0;
+    let cursor: string | undefined;
+    do {
+      const page = await this.env.DATA.list({ prefix, cursor });
+      if (page.objects.length) await this.env.DATA.delete(page.objects.map((o) => o.key));
+      files += page.objects.length;
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
     await this.ctx.storage.deleteAll();
+    return files;
   }
 
   // -- the household's server -------------------------------------------------
@@ -281,8 +286,8 @@ export class Household extends DurableObject<Env> {
   }
 
   /** Start the server (its lifespan pulls), hand it the pushes that landed
-   * while it slept, run one tick (which reports), and stop it again unless
-   * someone is on the page. */
+   * while it slept, run one tick (which reports), and stop it again once it
+   * is idle, unless someone is on the page. */
   async wake(): Promise<void> {
     if (this.meta("suspended")) return;
     const t0 = Date.now();
@@ -299,7 +304,7 @@ export class Household extends DurableObject<Env> {
         this.sql.exec("DELETE FROM ingest WHERE seq = ?", q.seq);
       }
       await stub.fetch("http://server/api/hosted/run", { method: "POST" });
-      if (Date.now() - Number(this.meta("page_ms") || 0) > PAGE_ACTIVE_MS) await stub.stop();
+      if (Date.now() - Number(this.meta("page_ms") || 0) > PAGE_ACTIVE_MS) await stub.sleepWhenIdle();
     } catch (err) {
       console.error("wake failed", err);
     }

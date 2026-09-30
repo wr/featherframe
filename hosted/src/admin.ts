@@ -1,115 +1,196 @@
 // The admin page (W-850): the waitlist, invitations, and every household at a
 // glance. For a signed-in user whose email is in ADMIN_EMAILS (a secret, comma
-// separated); to anyone else it does not exist.
+// separated); to anyone else it does not exist. The bearer API
+// (/_admin/<name>, the ADMIN_TOKEN secret) is the same actions for scripts.
+//
+// Every admin action is one entry in ACTIONS (W-914): what it is called, where
+// it may be asked from, and what it did. Each lands in the audit log (W-863).
 
 import type { Env } from "./index";
-import { AS_COOKIE, actAs, logAction, deleteHousehold, invite, isAdmin, normEmail, realSessionUser, resendInvite,
-         revokeInvite, setEmail, setSuspended, signUpWaitlist, stopActingAs } from "./accounts";
+import { AS_COOKIE, actAs, adoptHousehold, deleteHousehold, invite, isAdmin, makeLoginLink, normEmail, realSessionUser,
+         registerKit, resendInvite, revokeInvite, setEmail, setSuspended, signUpWaitlist, stopActingAs } from "./accounts";
 import { adminPage, waitlistThanksPage, type AdminData, type Toast } from "./pages";
 import { cloudflareUsage } from "./usage";
 import { cookie } from "./util";
 
 const notFound = () => new Response("not found", { status: 404 });
 
+/** An action's fields: the page's form, or the API's JSON body. */
+type Fields = Record<string, string>;
+/** Who asked: an admin's own login (and household), or the API. */
+type Who = { email: string; hid: string | null };
+/** What an action did: said in the toast (or the API's answer) and the log. */
+type Done = { ok: boolean; message: string; target: string | null;
+              data?: Record<string, unknown>; response?: Response };
+type Action = { page?: true; api?: true; run: (env: Env, f: Fields, who: Who) => Promise<Done> };
+
+// -- the actions ---------------------------------------------------------------------
+type Household = { id: string; email: string | null; name: string };
+
+/** An action on the household named by the `id` field. */
+function onHousehold(run: (env: Env, h: Household, f: Fields, who: Who) => Promise<Omit<Done, "target">>): Action["run"] {
+  return async (env, f, who) => {
+    const id = f.id || "";
+    const row = await env.DB.prepare("SELECT u.email FROM households h LEFT JOIN users u ON u.household_id = h.id WHERE h.id = ?")
+      .bind(id).first<{ email: string | null }>();
+    if (!row) return { ok: false, message: "No such household.", target: id || null };
+    const done = await run(env, { id, email: row.email, name: row.email || id }, f, who);
+    return { ...done, target: row.email ? `${row.email} (${id})` : id };
+  };
+}
+
+/** An action on the address in the `email` field. */
+function onEmail(run: (env: Env, email: string, f: Fields) => Promise<Omit<Done, "target">>): Action["run"] {
+  return async (env, f) => {
+    const email = normEmail(f.email);
+    if (!email) return { ok: false, message: "Enter an email address.", target: null };
+    return { ...(await run(env, email, f)), target: email };
+  };
+}
+
+const ok = (message: string, data?: Record<string, unknown>) => ({ ok: true, message, data });
+const bad = (message: string, data?: Record<string, unknown>) => ({ ok: false, message, data });
+
+const ACTIONS: Record<string, Action> = {
+  "invite": { page: true, api: true, run: onEmail(async (env, email, f) => {
+    const send = f.send === "1";
+    const sent = await invite(env, email, send);
+    return send && !sent ? bad(`Invited ${email}, but the email did not go.`, { invited: email, emailed: false })
+      : ok(`Invited ${email}.`, { invited: email, emailed: sent });
+  }) },
+  "invite.resend": { page: true, run: onEmail(async (env, email) => {
+    const sent = await resendInvite(env, email);
+    return sent === "sent" ? ok(`Sent ${email} their invitation again.`)
+      : bad(sent === "failed" ? `The email to ${email} did not go.` : `${email} has no open invitation.`);
+  }) },
+  "invite.revoke": { page: true, run: onEmail(async (env, email) =>
+    await revokeInvite(env, email) ? ok(`Revoked ${email}'s invitation.`) : bad(`${email} has no open invitation.`)) },
+  "waitlist.remove": { page: true, run: onEmail(async (env, email) => {
+    await env.DB.prepare("DELETE FROM waitlist WHERE email = ?").bind(email).run();
+    return ok(`Removed ${email} from the waitlist.`);
+  }) },
+
+  "household.as": { page: true, run: onHousehold(async (_env, h) =>
+    h.email ? { ...ok(`Logged in as ${h.name}.`), response: actAs(h.id) } : bad(`${h.id} has no login to look through.`)) },
+  "household.email": { page: true, run: onHousehold(async (env, h, f) => {
+    const email = normEmail(f.email);
+    if (!email) return bad("Enter an email address.");
+    const set = await setEmail(env, h.id, email);
+    return set === "ok" ? ok(`${h.name} now signs in as ${email}.`)
+      : bad(set === "taken" ? `${email} already has a login.` : `${h.id} has no login.`);
+  }) },
+  "household.suspend": { page: true, run: onHousehold(async (env, h) => {
+    await setSuspended(env, h.id, true);
+    return ok(`Suspended ${h.name}.`);
+  }) },
+  "household.resume": { page: true, run: onHousehold(async (env, h) => {
+    await setSuspended(env, h.id, false);
+    return ok(`Resumed ${h.name}.`);
+  }) },
+  "household.delete": { page: true, run: onHousehold(async (env, h, f, who) => {
+    // The admin's own login would go with it, and the admin page with that.
+    if (h.id === who.hid) return bad("You can't delete your own household.");
+    // Typed, not clicked: the household's email (or id) is given back.
+    if ((f.confirm || "").trim().toLowerCase() !== h.name.toLowerCase()) return bad(`Not deleted: type ${h.name} to delete it.`);
+    let gone: { frames: number; files: number };
+    try {
+      gone = await deleteHousehold(env, h.id);
+    } catch (err) {
+      console.error("delete household", h.id, err);
+      return bad(`Deleting ${h.name} stopped part way: ${String(err)}. Delete it again to finish.`);
+    }
+    const parts = [
+      gone.frames ? `${gone.frames} ${gone.frames === 1 ? "frame shows" : "frames show"} a pairing code` : "",
+      gone.files ? `${gone.files} ${gone.files === 1 ? "file" : "files"} removed` : "",
+    ].filter(Boolean);
+    return ok(`Deleted ${h.name}${parts.length ? `: ${parts.join(", ")}` : ""}.`, gone);
+  }) },
+  "as.stop": { page: true, run: async () =>
+    ({ ...ok("Back to your own page."), target: null, response: stopActingAs() }) },
+
+  // The API's own. A sign-in link handed over rather than emailed: for
+  // support, and for testing without sending anyone mail.
+  "link": { api: true, run: onEmail(async (env, email) => {
+    const link = await makeLoginLink(env, email, null);
+    return link ? ok(`Made a sign-in link for ${email}.`, { link }) : bad(`${email} is not invited.`, { status: 404 });
+  }) },
+  "adopt": { api: true, run: async (env, f) => {
+    const email = normEmail(f.email);
+    const hid = f.household || "";
+    const target = email && hid ? `${email} (${hid})` : null;
+    if (!email || !/^[0-9a-z]{1,32}$/.test(hid)) return { ...bad("Give an email and a household id."), target };
+    await adoptHousehold(env, hid, email);
+    return { ...ok(`Gave ${hid} the login ${email}.`, { household: hid, email }), target };
+  } },
+  "kit": { api: true, run: async (env, f) => {
+    const kit = await registerKit(env, f);
+    return kit ? { ...ok(`Registered ${kit.kit} ${kit.id.slice(-6)}.`), target: kit.id }
+      : { ...bad("Give device_id and key_hash (64 hex)."), target: f.device_id || null };
+  } },
+};
+
+/** Run an action by name and log it. Null when there is no such action. */
+async function perform(env: Env, name: string, via: "page" | "api", f: Fields, who: Who): Promise<Done | null> {
+  const action = ACTIONS[name];
+  if (!action?.[via]) return null;
+  const done = await action.run(env, f, who);
+  await logAction(env, who.email, name, done.target, done.ok, done.message);
+  return done;
+}
+
+// -- the page --------------------------------------------------------------------
 export async function adminRoute(request: Request, env: Env, url: URL): Promise<Response> {
   // Always the admin's own session: never the household they are looking at.
   const user = await realSessionUser(request, env);
   if (!user || !isAdmin(env, user.email)) return notFound();
   if (request.method === "GET" && url.pathname === "/admin") {
-    const res = adminPage(await gather(env), readToast(request), !!cookie(request, AS_COOKIE));
+    const res = adminPage(await gather(env), readToast(request), !!cookie(request, AS_COOKIE), user.hid);
     res.headers.append("Set-Cookie", `${TOAST_COOKIE}=; Path=/admin; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
     return res;
   }
   if (request.method !== "POST") return notFound();
   // A form on this page, never another site's.
   if (request.headers.get("Origin") !== `https://${env.APP_HOST}`) return new Response("forbidden", { status: 403 });
-  const done = await perform(env, url.pathname, request);
+  // /admin/household/delete is household.delete.
+  const name = url.pathname.slice("/admin/".length).replaceAll("/", ".");
+  const fields: Fields = {};
+  const form = await request.formData().catch(() => null);   // a POST with no form: no fields
+  for (const [k, v] of form ?? []) if (typeof v === "string") fields[k] = v;
+  const done = await perform(env, name, "page", fields, { email: user.email, hid: user.hid });
   if (!done) return notFound();
-  await logAction(env, user.email, done.action, done.target, done.ok, done.message);
   const res = done.response ?? new Response(null, { status: 303, headers: { Location: "/admin" } });
-  if (done.response === undefined || url.pathname === "/admin/as/stop") {
-    res.headers.append("Set-Cookie", toastCookie(done.ok, done.message));
-  }
+  // Log in as lands on the household's page, which has no toast; stopping lands here.
+  if (!done.response || name === "as.stop") res.headers.append("Set-Cookie", toastCookie(done.ok, done.message));
   return res;
 }
 
-type Done = { action: string; target: string | null; ok: boolean; message: string; response?: Response };
-
-/** One admin action: what it was, to whom, how it went (the toast), and the
- * response when it is not the page again. */
-async function perform(env: Env, path: string, request: Request): Promise<Done | null> {
-  if (path === "/admin/as/stop") {
-    return { action: "as.stop", target: null, ok: true, message: "Back to your own page.", response: stopActingAs() };
+// -- the API -----------------------------------------------------------------------
+export async function apiRoute(request: Request, env: Env, name: string): Promise<Response> {
+  if (request.method !== "POST" || !env.ADMIN_TOKEN ||
+      request.headers.get("Authorization") !== `Bearer ${env.ADMIN_TOKEN}`) {
+    return notFound();
   }
-  const form = await request.formData();
-  const household = path.match(/^\/admin\/household\/(as|email|suspend|resume|delete)$/);
-  if (household) {
-    const action = `household.${household[1]}`;
-    const hid = String(form.get("id") || "");
-    const row = await env.DB.prepare("SELECT h.id, u.email FROM households h LEFT JOIN users u ON u.household_id = h.id WHERE h.id = ?")
-      .bind(hid).first<{ id: string; email: string | null }>();
-    const r = (ok: boolean, message: string, response?: Response): Done =>
-      ({ action, target: row?.email ? `${row.email} (${hid})` : hid || null, ok, message, response });
-    if (!row) return r(false, "No such household.");
-    const who = row.email || hid;
-    switch (household[1]) {
-      case "as":
-        if (!row.email) return r(false, `${hid} has no login to look through.`);
-        return r(true, `Logged in as ${who}.`, actAs(hid));
-      case "email": {
-        const email = normEmail(form.get("email"));
-        if (!email) return r(false, "Enter an email address.");
-        const set = await setEmail(env, hid, email);
-        return set === "ok" ? r(true, `${who} now signs in as ${email}.`)
-          : r(false, set === "taken" ? `${email} already has a login.` : `${hid} has no login.`);
-      }
-      case "suspend":
-        await setSuspended(env, hid, true);
-        return r(true, `Suspended ${who}.`);
-      case "resume":
-        await setSuspended(env, hid, false);
-        return r(true, `Resumed ${who}.`);
-      case "delete":
-        // Typed, not clicked: the household's email (or id) must be given back.
-        if (String(form.get("confirm") || "").trim().toLowerCase() !== who.toLowerCase()) {
-          return r(false, `Not deleted: type ${who} to delete it.`);
-        }
-        try {
-          await deleteHousehold(env, hid);
-        } catch (err) {
-          console.error("delete household", hid, err);
-          return r(false, `Deleting ${who} stopped part way: ${String(err)}. Try again.`);
-        }
-        return r(true, `Deleted ${who}.`);
-    }
-  }
+  const body = await request.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
+  const fields: Fields = {};
+  for (const [k, v] of Object.entries(body ?? {})) if (v !== null && typeof v !== "object") fields[k] = String(v);
+  // The API emails an invitation unless told not to; the page's box posts 1 when ticked.
+  fields.send = body?.send === false ? "0" : "1";
+  const done = await perform(env, name, "api", fields, { email: "api", hid: null });
+  if (!done) return notFound();
+  const { status, ...data } = done.data ?? {};
+  return done.ok ? Response.json({ ok: true, result: done.message, ...data })
+    : Response.json({ ok: false, error: done.message, ...data }, { status: typeof status === "number" ? status : 400 });
+}
 
-  const actions: Record<string, string> = {
-    "/admin/invite": "invite", "/admin/invite/resend": "invite.resend",
-    "/admin/invite/revoke": "invite.revoke", "/admin/waitlist/remove": "waitlist.remove",
-  };
-  const action = actions[path];
-  if (!action) return null;
-  const email = normEmail(form.get("email"));
-  const r = (ok: boolean, message: string): Done => ({ action, target: email || null, ok, message });
-  if (!email) return r(false, "Enter an email address.");
-  switch (action) {
-    case "invite": {
-      const send = form.get("send") === "1";   // the box, ticked by default
-      const sent = await invite(env, email, send);
-      return send && !sent ? r(false, `Invited ${email}, but the email did not go.`) : r(true, `Invited ${email}.`);
-    }
-    case "invite.resend": {
-      const sent = await resendInvite(env, email);
-      return sent === "sent" ? r(true, `Sent ${email} their invitation again.`)
-        : r(false, sent === "failed" ? `The email to ${email} did not go.` : `${email} has no open invitation.`);
-    }
-    case "invite.revoke":
-      return await revokeInvite(env, email) ? r(true, `Revoked ${email}'s invitation.`)
-        : r(false, `${email} has no open invitation.`);
-    default:
-      await env.DB.prepare("DELETE FROM waitlist WHERE email = ?").bind(email).run();
-      return r(true, `Removed ${email} from the waitlist.`);
+// -- the audit log (W-863) --------------------------------------------------------
+async function logAction(env: Env, admin: string, action: string, target: string | null,
+                         ok: boolean, result: string): Promise<void> {
+  try {
+    await env.DB.prepare("INSERT INTO admin_log (at, admin, action, target, ok, result) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(Math.floor(Date.now() / 1000), admin, action, target, ok ? 1 : 0, result).run();
+  } catch (err) {
+    // The action is done either way: a log that cannot be written is said, not thrown.
+    console.error("admin log", action, target, err);
   }
 }
 

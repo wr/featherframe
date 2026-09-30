@@ -1980,12 +1980,28 @@
   var POLL_MS = 4000;          // background-job pollers (regenerate, tasks)
   var PREVIEW_MS = 15000;      // live preview image
   var STATUS_MS = 30000;       // Frame card refresh
+  var IDLE_MS = 600000;        // no input this long: the timed asks stop
   var CARET = '<svg viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg>';
   function iconHTML(id, cls) {
     // `id` is always one of our sprite symbols; never a server string.
     return id ? '<span class="' + (cls || 'cselect-ic') + '"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#' + id + '"/></svg></span>' : '';
   }
   function setText(id, text) { var el = $(id); if (el) el.textContent = text; }
+
+  // A page left open stops asking once it is idle (W-915): its asks are all
+  // that keeps a Featherframe Cloud server awake. The owner coming back (any
+  // input, or the tab shown again) asks at once.
+  var lastInput = Date.now(), onReturn = [];
+  function idle() { return Date.now() - lastInput > IDLE_MS; }
+  function stir() {
+    var was = idle();
+    lastInput = Date.now();
+    if (was) onReturn.forEach(function (f) { f(); });
+  }
+  ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 'scroll'].forEach(function (t) {
+    window.addEventListener(t, stir, { passive: true });
+  });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) stir(); });
   function setHidden(id, hidden) { var el = $(id); if (el) el.hidden = !!hidden; }
   function setDot(id, state) { var el = $(id); if (el) el.className = 'd ' + state; }
   // A "name + time" value as two spans (see the Source rows in the template).
@@ -2156,7 +2172,8 @@
     // outage keeps the last good image rather than faking an empty state.
     preview.addEventListener('error', function () { if (!plate.dataset.hasFrame) plate.classList.add('empty'); });
     preview.addEventListener('load', function () { plate.classList.remove('empty'); });
-    setInterval(refreshPreview, PREVIEW_MS);
+    setInterval(function () { if (!idle()) refreshPreview(); }, PREVIEW_MS);
+    onReturn.push(refreshPreview);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshPreview(); });
   }
 
@@ -2573,7 +2590,8 @@
       showFlash('offline', 'Can’t reach Featherframe — showing the last update from ' + fmtTime(statusLastOk) + '.', 'ic-warn', true);
     });
   }
-  setInterval(pollStatus, STATUS_MS);
+  setInterval(function () { if (!idle()) pollStatus(); }, STATUS_MS);
+  onReturn.push(pollStatus);
 
   // -- disclosures: slide the body open and closed ---------------------------
   // <details> can't animate on its own: on close, keep it open while the body

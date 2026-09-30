@@ -37,11 +37,29 @@ vi.mock("@cloudflare/containers", () => {
       this.fetched.push(this.ctx.container.running ? "running" : "started");
       return new Response("ok");
     }
+    // What the server says when it is asked whether it is working (W-917).
+    busy: (() => Response) = () => Response.json({ busy: false, for_s: 0 });
+    asked = 0;
+    async containerFetch(_request: Request) {
+      this.asked++;
+      return this.busy();
+    }
   }
   return { Container };
 });
 
-const { Lobby } = await import("../src/containers");
+const { HouseholdServer, Lobby } = await import("../src/containers");
+
+function household(c: Fake) {
+  const ctx = {
+    container: c,
+    blockConcurrencyWhile: (fn: () => Promise<void>) => fn(),
+    storage: { get: async () => undefined },
+  };
+  return new HouseholdServer(ctx as never, {} as never) as unknown as InstanceType<typeof HouseholdServer> & {
+    busy: () => Response; asked: number;
+  };
+}
 
 describe("SleepingContainer", () => {
   it("stop() returns once the process has exited", async () => {
@@ -87,6 +105,60 @@ describe("SleepingContainer", () => {
     c.running = false;
     const box = new Lobby({ container: c } as never, {} as never);
     await box.stop();
+    expect(c.signals).toEqual([]);
+  });
+});
+
+// The activity timeout runs from a request's start, so a tick longer than it
+// was stopped part way (W-917): the server is stopped only once it is idle.
+describe("HouseholdServer", () => {
+  it("is not stopped while the server is working", async () => {
+    const c = fakeContainer();
+    const box = household(c);
+    box.busy = () => Response.json({ busy: true, for_s: 40 });
+    await box.onActivityExpired();
+    expect(box.asked).toBe(1);
+    expect(c.signals).toEqual([]);
+  });
+
+  it("is stopped once the server is idle", async () => {
+    const c = fakeContainer();
+    const box = household(c);
+    const stopping = box.onActivityExpired();
+    await after(10);
+    expect(c.signals).toEqual([15]);
+    c.exit();
+    await stopping;
+  });
+
+  it("is stopped when the work has run past its cap", async () => {
+    const c = fakeContainer();
+    const box = household(c);
+    box.busy = () => Response.json({ busy: true, for_s: 11 * 60 });
+    const stopping = box.sleepWhenIdle();
+    await after(10);
+    expect(c.signals).toEqual([15]);
+    c.exit();
+    await stopping;
+  });
+
+  it("is stopped when the server cannot say", async () => {
+    const c = fakeContainer();
+    const box = household(c);
+    box.busy = () => new Response("not listening", { status: 500 });
+    const stopping = box.sleepWhenIdle();
+    await after(10);
+    expect(c.signals).toEqual([15]);
+    c.exit();
+    await stopping;
+  });
+
+  it("never starts a server that has gone just to ask it", async () => {
+    const c = fakeContainer();
+    c.running = false;
+    const box = household(c);
+    await box.sleepWhenIdle();
+    expect(box.asked).toBe(0);
     expect(c.signals).toEqual([]);
   });
 });

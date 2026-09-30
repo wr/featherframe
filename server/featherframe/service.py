@@ -19,6 +19,8 @@ import shutil
 import socket
 import threading
 import time
+from collections.abc import MutableMapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date as ddate
 from datetime import datetime, timedelta
@@ -29,7 +31,7 @@ from urllib.parse import quote
 
 from PIL import Image
 
-from . import auth, firmware_release
+from . import auth, firmware_release, hosted
 from . import plate_library, thumbs
 from . import frames as frames_mod
 from . import panels, paths
@@ -378,6 +380,7 @@ def _hours_text(hours: float) -> str:
 
 
 _IMAGEGEN_ERROR_KEY = "imagegen_error"
+_IMAGEGEN_COOLDOWNS_KEY = "imagegen_cooldowns"
 _IMAGEGEN_NAMES = {"openai": "OpenAI", "gemini": "Google Gemini",
                    "replicate": "Replicate", "a1111": "Your image server"}
 
@@ -572,6 +575,45 @@ def frame_card(reported: dict, wake_interval_minutes: int,
     return card
 
 
+class _SavedCooldowns(MutableMapping):
+    """genart's per-key failure times (epoch seconds), kept in the DB (W-917).
+    A hosted server starts afresh on every wake, and a failed paid generation
+    must still wait out its cooldown there, not be asked again at once."""
+
+    KEEP_S = 86400.0   # far past any cooldown: older entries are dropped
+
+    def __init__(self, db: Database) -> None:
+        self._db = db
+        self._lock = threading.Lock()
+        saved = db.get(_IMAGEGEN_COOLDOWNS_KEY)
+        self._at = {str(k): float(v) for k, v in saved.items()
+                    if isinstance(v, (int, float))} if isinstance(saved, dict) else {}
+
+    def __getitem__(self, key: str) -> float:
+        return self._at[key]
+
+    def __iter__(self):
+        return iter(list(self._at))
+
+    def __len__(self) -> int:
+        return len(self._at)
+
+    def __setitem__(self, key: str, at: float) -> None:
+        with self._lock:
+            self._at[key] = float(at)
+            self._save()
+
+    def __delitem__(self, key: str) -> None:
+        with self._lock:
+            del self._at[key]
+            self._save()
+
+    def _save(self) -> None:
+        cutoff = time.time() - self.KEEP_S
+        self._at = {k: at for k, at in self._at.items() if at > cutoff}
+        self._db.set(_IMAGEGEN_COOLDOWNS_KEY, self._at or None)
+
+
 class FeatherframeService:
     def __init__(self, db: Optional[Database] = None) -> None:
         # The service's one wall clock. Every "now" inside the class reads
@@ -596,6 +638,11 @@ class FeatherframeService:
         # Called after every tick, e.g. a hosted household's sync (W-844).
         self.after_tick: list = []
         self._tick_lock = threading.Lock()
+        # Work under way (W-917): a tick, a task, a repaint, a firmware fetch,
+        # each with when it began. A hosted Container is stopped only once
+        # there is none (`busy_for`, GET /api/hosted/busy).
+        self._work_lock = threading.Lock()
+        self._work: dict[object, float] = {}
         # The scans on this box, or the shared library where there are none
         # (FEATHERFRAME_PLATE_LIBRARY, W-842): the same crops either way.
         self.plates = plate_library.from_env() or PlateProvider()
@@ -746,16 +793,43 @@ class FeatherframeService:
         self._thread.start()
         log.info("scheduler started")
 
-    def stop(self) -> None:
+    def stop(self, wait_s: float = 5) -> None:
+        """Stop the scheduler, waiting up to `wait_s` for the work under way
+        (a tick and the push after it, a task) so what it drew is kept."""
         self._stop.set()
+        deadline = time.monotonic() + wait_s
         if self._thread:
-            self._thread.join(timeout=5)
+            self._thread.join(timeout=wait_s)
+        while self.busy_for() is not None and time.monotonic() < deadline:
+            time.sleep(0.1)
         log.info("scheduler stopped")
+
+    @contextmanager
+    def _working(self):
+        """This is work under way, for `busy_for`."""
+        token = object()
+        with self._work_lock:
+            self._work[token] = time.monotonic()
+        try:
+            yield
+        finally:
+            with self._work_lock:
+                self._work.pop(token, None)
+
+    def busy_for(self) -> Optional[float]:
+        """Seconds the oldest work under way has run, or None when the server
+        is idle. A hosted front door stops its Container only when idle: its
+        activity timeout runs from the last request, and a tick longer than
+        that was stopped part way and lost (W-917)."""
+        with self._work_lock:
+            began = min(self._work.values(), default=None)
+        return None if began is None else time.monotonic() - began
 
     def _run(self) -> None:
         # Give the device something immediately even before the first birds.
         try:
-            self._ensure_initial_frame()
+            with self._working():
+                self._ensure_initial_frame()
         except Exception:  # never let the loop die
             log.exception("initial frame failed")
         while not self._stop.is_set():
@@ -779,7 +853,8 @@ class FeatherframeService:
         imagegen_enabled (and a key) only govern whether NEW plates are bought
         — turning the feature off must never hide art the user paid for."""
         self.genart = GeneratedArtProvider(make_image_model(config),
-                                           text_model=make_text_model(config))
+                                           text_model=make_text_model(config),
+                                           failures=_SavedCooldowns(self.db))
         self.genart.on_outcome = self._note_imagegen
         return ChainedProvider([self.plates, self.genart])
 
@@ -864,8 +939,9 @@ class FeatherframeService:
                 self._reset_for_source()
             imagegen_changed = self._imagegen_fields(new) != self._imagegen_fields(self.config)
             if imagegen_changed:
-                self.provider = self._build_provider(new)
                 # A new key or provider has not failed yet.
+                self.db.set(_IMAGEGEN_COOLDOWNS_KEY, None)
+                self.provider = self._build_provider(new)
                 self.db.set(_IMAGEGEN_ERROR_KEY, None)
             if (self._collage_fields(new) != self._collage_fields(self.config)
                     or (imagegen_changed and new.collage_generated)):
@@ -903,16 +979,19 @@ class FeatherframeService:
 
     # -- the decision loop -------------------------------------------------
     def tick(self) -> None:
-        try:
-            # One tick at a time: the scheduler, a background job and a hosted
-            # wake (W-844) may all ask at once; the second waits its turn.
-            with self._tick_lock:
-                self._tick()
-        finally:
-            # Whatever this tick changed, every frame on a socket hears of it.
-            self.push.notify()
-            for hook in self.after_tick:
-                hook()
+        # The push after the tick is part of its work: a Container stopped
+        # before it would lose what the tick drew (W-917).
+        with self._working():
+            try:
+                # One tick at a time: the scheduler, a background job and a
+                # hosted wake (W-844) may all ask at once; the second waits.
+                with self._tick_lock:
+                    self._tick()
+            finally:
+                # Whatever this tick changed, every frame on a socket hears of it.
+                self.push.notify()
+                for hook in self.after_tick:
+                    hook()
 
     def _tick(self) -> None:
         self._read_station_location()
@@ -1447,9 +1526,9 @@ class FeatherframeService:
             tmp = days / f"{on_date.isoformat()}.tmp"
             shutil.copyfile(src[0], tmp)
             os.replace(tmp, days / f"{on_date.isoformat()}.png")
-            kept = sorted(p for p in days.glob("*.png") if _DATE_RE.match(p.stem))
+            kept = sorted(p for p in hosted.glob(days, "*.png") if _DATE_RE.match(p.stem))
             for old in kept[:-COLLAGE_DAYS_KEPT]:
-                old.unlink(missing_ok=True)
+                hosted.remove(old)
                 thumbs.drop_thumb(old)
         except Exception:  # noqa: BLE001 — never worth a failed collage
             log.warning("collage for %s not kept", on_date, exc_info=True)
@@ -1457,7 +1536,7 @@ class FeatherframeService:
     def collage_days(self) -> list[dict]:
         """The kept collages, newest first, for the page's download links."""
         out = []
-        for p in sorted(paths.collage_days_dir().glob("*.png"), reverse=True):
+        for p in sorted(hosted.glob(paths.collage_days_dir(), "*.png"), reverse=True):
             if not _DATE_RE.match(p.stem):
                 continue
             try:
@@ -1584,7 +1663,9 @@ class FeatherframeService:
         on "Repainting…" and block further repaints of the species."""
         error: Optional[str] = None
         try:
-            if not self.regenerate_generated(slug):
+            with self._working():
+                ok = self.regenerate_generated(slug)
+            if not ok:
                 reason = (self.db.get(_IMAGEGEN_ERROR_KEY) or {}).get("reason")
                 error = {"credits": "out of credits",
                          "key": "the API key was rejected"}.get(reason, "not generated")
@@ -1648,7 +1729,8 @@ class FeatherframeService:
         block the next run of that job."""
         error: Optional[str] = None
         try:
-            fn(*args)
+            with self._working():
+                fn(*args)
         except Exception as exc:
             log.exception("background task %s failed", key)
             error = f"{type(exc).__name__}: {exc}"[:200]
@@ -1916,13 +1998,14 @@ class FeatherframeService:
         return True
 
     def _fetch_update(self, frame_id: str, board) -> None:
-        try:
-            self.releases.app_for_board(board, download=True)
-        except Exception:  # noqa: BLE001 — the next pass tries again
-            log.warning("firmware fetch for %s failed", frame_id[-6:], exc_info=True)
-        self.push.notify(frame_id)
-        for hook in self.after_tick:      # a hosted front door hears of it too
-            hook()
+        with self._working():
+            try:
+                self.releases.app_for_board(board, download=True)
+            except Exception:  # noqa: BLE001 — the next pass tries again
+                log.warning("firmware fetch for %s failed", frame_id[-6:], exc_info=True)
+            self.push.notify(frame_id)
+            for hook in self.after_tick:      # a hosted front door hears of it too
+                hook()
 
     def answer_frame(self, frame_id: str, action: str) -> bool:
         """The owner's answer about a frame that is not on yet: "add" (draw for
@@ -2834,7 +2917,7 @@ class FeatherframeService:
         for row in self.db.render_history(limit):
             etag = str(row.get("etag") or "")
             has_thumb = bool(_ETAG_RE.match(etag)) and (hist / f"{etag}.png").exists()
-            has_full = has_thumb and (hist / f"{etag}.jpg").exists()
+            has_full = has_thumb and hosted.exists(hist / f"{etag}.jpg")
             try:
                 then = datetime.fromisoformat(str(row.get("rendered_at") or ""))
             except ValueError:
@@ -3229,7 +3312,7 @@ class FeatherframeService:
                             key=lambda p: p.stat().st_mtime, reverse=True)
             for stale in thumbs[_HISTORY_MAX:]:
                 stale.unlink(missing_ok=True)
-                stale.with_suffix(".jpg").unlink(missing_ok=True)
+                hosted.remove(stale.with_suffix(".jpg"))
         except Exception:  # noqa: BLE001 — a thumbnail is never worth a failed commit
             log.warning("history thumbnail for %s not saved", etag, exc_info=True)
 

@@ -566,7 +566,17 @@ detectors' pushes (routed by token; a BirdNET-Go body that is not a
 detection is dropped) until the server takes them, and wakes the
 server only for news (a BirdWeather look every 2 min, a push, the server's
 own `next_wake_epoch`; ≥ 5 min apart; none in quiet hours), stopping it right
-after. `HouseholdServer` is THIS Python server in a Container: there is no TS
+after — but only once it is idle (W-917): the Containers library's activity
+timeout (`sleepAfter`, 30 s) runs from a request's start and knows nothing of
+the server's own work, so `HouseholdServer.onActivityExpired` and `wake()`
+ask `GET /api/hosted/busy` (`service.busy_for`: a tick and the push after it,
+a task, a repaint, a firmware fetch) and stop only when it says no, or once
+the work passes `MAX_WORK_S` (10 min); a tick that outlived the timeout was
+destroyed before its push, and the nightly collage was lost with it. A stop
+that comes anyway waits `HOSTED_STOP_WAIT_S` for the tick under way. genart's
+per-key failure cooldown is kept in the DB (`imagegen_cooldowns`, cleared
+with `imagegen_error` on a new key), so a fresh Container does not ask a
+failed paid generation again early. `HouseholdServer` is THIS Python server in a Container: there is no TS
 copy of any rule. Hosted mode (`featherframe/hosted.py`, on with
 `FEATHERFRAME_HOSTED_URL`/`_KEY`) pulls the data dir from
 `/_internal/<household>/` before the DB opens, pushes changes after every
@@ -593,15 +603,28 @@ are not in that API, so theirs is the front doors' own count), *Log in as* (an
 session, `sessionUser` vs `realSessionUser`; a bar over the page leads back),
 changing a login's email outright, suspending a household
 (`households.suspended_at`: its page closed to the owner, its front door stops
-waking the server, its frames keep their last picture), deleting one (D1 rows
-incl. its invitation, its frames' registry rows, R2, front door storage and
-container), and revoking or resending an unused invitation. What an action came to is
+waking the server, its frames keep their last picture), deleting one, and
+revoking or resending an unused invitation. A delete is complete (W-914,
+`deleteHousehold`): every D1 row that names the household or its login
+(sessions, links, email changes and checks, its invitation and waitlist row,
+its rate counts, its frames' registry rows; a kit set up into it may be set up
+again), its front door's storage, its server Container's storage and every R2
+object under `households/<id>/` — the front door is handed the id
+(`Household.destroy(hid)`), never reads its own — and the toast says how many
+frames now show a pairing code and how many files went; run again, it
+finishes one that stopped part way. The admin's own household has no Delete.
+Each row's actions sit in its last column; a household's are *Log in as* and
+a ⋯ menu (Suspend/Resume, Change email…, Delete…, the last two dialogs, Delete
+asking for the email or id typed back). Every action, the page's and the
+bearer API's, is one entry in `admin.ts`'s `ACTIONS` (a page path
+`/admin/household/delete` is `household.delete`). What an action came to is
 a toast on the next load (the Featherframe page's own flash, carried by a
-one-time `ff_admin_toast` cookie, never the URL), and every action — the page's
-forms and the bearer API — is kept in D1 `admin_log` (W-863, migration 0005),
-the last 100 shown at the foot of the page. The
-API is still there: `Authorization: Bearer` keychain
-`featherframe-hosted-admin-token`, `POST /_admin/invite|link|adopt {email}`.
+one-time `ff_admin_toast` cookie, never the URL), and every action is kept in
+D1 `admin_log` (W-863, migration 0005), the last 100 shown at the foot of the
+page. The API: `Authorization: Bearer` keychain
+`featherframe-hosted-admin-token`, `POST /_admin/invite|link {email}`,
+`adopt {email, household}`, `kit {device_id, key_hash, kit, note}`; it answers
+`{ok, result}` or `{ok: false, error}`.
 Plain http to any hosted host is a 301 to https before anything else
 (`util.httpsRedirect`). Deploy: `cd hosted && npx wrangler deploy` (Docker running; retry on a
 registry push drop; a new image serves only once the rollout ends and the

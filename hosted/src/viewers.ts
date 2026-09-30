@@ -17,6 +17,8 @@ import { LOBBY_DRAWING, expiryText, pairingCode } from "./pairing";
 import { randomHex, sha256 } from "./util";
 import viewPage from "../../server/templates/view.html";
 import favicon192 from "../../server/static/favicon-192.png";
+import favicon32 from "../../server/static/favicon-32.png";
+import faviconIco from "../../server/static/favicon.ico";
 import touchIcon from "../../server/static/apple-touch-icon.png";
 
 // While a viewer waits to be claimed it asks this often (a TRMNL on battery
@@ -207,9 +209,13 @@ function manifest(): Response {
   }, { headers: { "Content-Type": "application/manifest+json" } });
 }
 
-/** The page's two icons, for a browser with no session (a tablet on a wall). */
+/** The page's icons, for a browser with no session (a tablet on a wall), and
+ * so that a browser asking for /favicon.ico (the admin page, any tab) never
+ * wakes a household's server for it (W-915). */
 export function pageIcon(path: string): Response | null {
-  const body = path === "/static/favicon-192.png" ? favicon192
-    : path === "/static/apple-touch-icon.png" ? touchIcon : null;
-  return body ? new Response(body, { headers: { "Content-Type": "image/png", "Cache-Control": "max-age=86400" } }) : null;
+  const [body, type] = path === "/static/favicon-192.png" ? [favicon192, "image/png"]
+    : path === "/static/favicon-32.png" ? [favicon32, "image/png"]
+    : path === "/static/apple-touch-icon.png" ? [touchIcon, "image/png"]
+    : path === "/favicon.ico" ? [faviconIco, "image/x-icon"] : [null, ""];
+  return body ? new Response(body, { headers: { "Content-Type": type, "Cache-Control": "max-age=86400" } }) : null;
 }

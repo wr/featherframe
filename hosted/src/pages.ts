@@ -6,13 +6,13 @@ import { escapeHtml } from "./util";
 
 const STYLE = `
   :root { --bg:#ececea; --surface:#fcfcfb; --ink:#201e1a; --ink-2:#474540; --muted:#827e76;
-    --border:#e6e4dd; --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e; --good:#5c8a46;
-    --sh-card:0 1px 2px rgba(74,54,28,.045), 0 4px 12px rgba(74,54,28,.05);
+    --border:#e6e4dd; --border-strong:#d5d2ca; --field:#ffffff; --accent:#6b4a2c; --on-accent:#f7efe2; --ring:rgba(107,74,44,.24); --bad:#b6472e; --good:#5c8a46;
+    --sh-card:0 1px 2px rgba(74,54,28,.045), 0 4px 12px rgba(74,54,28,.05); --sh-sm:0 1px 1px rgba(74,54,28,.05);
     color-scheme:light; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
     --bg:#171614; --surface:#211f1c; --ink:#ecebe7; --ink-2:#c9c6bf; --muted:#8f8b83;
-    --border:#34312c; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); --bad:#d9705a; --good:#7fae66;
-    --sh-card:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28); color-scheme:dark; } }
+    --border:#34312c; --border-strong:#4a463f; --field:#2c2b27; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); --bad:#d9705a; --good:#7fae66;
+    --sh-card:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28); --sh-sm:0 1px 1px rgba(0,0,0,.25); color-scheme:dark; } }
   @font-face { font-family:"Featherframe Script"; src:url("/_ff/script.ttf") format("truetype"); font-display:swap; }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
@@ -23,8 +23,8 @@ const STYLE = `
   h1 { font-size:17px; font-weight:600; margin:0 0 6px; }
   p { margin:0 0 16px; color:var(--ink-2); }
   label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
-  input[type=email] { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
-    background:var(--bg); color:var(--ink); }
+  input[type=text], input[type=email] { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border-strong);
+    border-radius:8px; background:var(--field); color:var(--ink); box-shadow:var(--sh-sm); }
   input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
   button { margin-top:14px; width:100%; font:inherit; font-weight:600; padding:10px 12px; border:0; border-radius:8px;
     background:var(--accent); color:var(--on-accent); cursor:pointer; }
@@ -37,8 +37,15 @@ const STYLE = `
     margin:0; padding:16px 20px 8px; }
   table { width:100%; border-collapse:collapse; font-size:14px; }
   th { text-align:left; font-weight:500; font-size:12px; color:var(--muted); padding:6px 20px; }
-  td { padding:10px 20px; border-top:1px solid var(--border); vertical-align:top; }
+  /* An email or id breaks anywhere rather than push a row's actions out of
+     the card, which clips them (W-914). */
+  td { padding:10px 20px; border-top:1px solid var(--border); vertical-align:top; overflow-wrap:anywhere; }
   td.num { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  /* A household's server note is the longest line on the page: it wraps, so
+     the row's actions stay inside the card (W-914). */
+  td.num .srv-note { white-space:normal; }
+  /* A frame's line and a household's id stay whole when the page has room. */
+  @media (min-width:900px) { .frames li, .hid { white-space:nowrap; } }
   .muted { color:var(--muted); }
   .empty { padding:4px 20px 18px; color:var(--muted); margin:0; }
   .row-actions { display:flex; gap:8px; justify-content:flex-end; }
@@ -52,16 +59,37 @@ const STYLE = `
   .frames { margin:0; padding:0; list-style:none; }
   .badge { display:inline-block; font-size:11px; font-weight:600; padding:1px 6px; border-radius:4px;
     background:var(--bad); color:#fff; vertical-align:1px; margin-left:4px; }
-  .h-actions { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px; }
-  .h-actions form { margin:0; }
-  .h-actions details { font-size:13px; }
-  .h-actions summary { cursor:pointer; color:var(--ink-2); list-style:none; padding:6px 4px; }
-  .h-actions summary::-webkit-details-marker { display:none; }
-  .h-actions details[open] { flex-basis:100%; }
-  .h-more { display:grid; gap:10px; padding:8px 0 4px; }
-  .h-more form { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-  .h-more input { flex:1 1 180px; font:inherit; font-size:13px; padding:6px 10px; border:1px solid var(--border);
-    border-radius:8px; background:var(--bg); color:var(--ink); }
+  /* Every row's actions sit in its last column (W-914); a household's rarer
+     ones in a ⋯ menu, as the Frames card's in the webapp. */
+  td.actions { width:1%; white-space:nowrap; }
+  .row-actions { align-items:center; }
+  .more-btn { width:30px; height:30px; margin:0; padding:0; display:inline-flex; align-items:center; justify-content:center;
+    border:0; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer; }
+  .more-btn:hover, .more-btn[aria-expanded="true"] { background:color-mix(in srgb, var(--ink) 9%, transparent); color:var(--ink); }
+  .more-btn:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  .more-btn svg { width:16px; height:16px; fill:currentColor; }
+  /* Fixed, placed under its button by script: the card clips to its radius. */
+  .menu { position:fixed; z-index:20; min-width:180px; padding:4px; background:var(--surface);
+    border:1px solid var(--border); border-radius:8px; box-shadow:var(--sh-card); }
+  .menu[hidden] { display:none; }
+  .menu form { margin:0; }
+  .menu hr { border:0; border-top:1px solid var(--border); margin:4px 2px; }
+  .menu button { display:block; width:100%; margin:0; text-align:left; font:inherit; font-size:13px; font-weight:400;
+    color:var(--ink-2); background:none; border:0; border-radius:5px; padding:7px 10px; cursor:pointer; white-space:nowrap; }
+  .menu button:hover, .menu button:focus-visible { background:var(--bg); color:var(--ink); outline:none; }
+  .menu button.danger { color:var(--bad); }
+  .dlg { width:min(440px, calc(100vw - 32px)); border:1px solid var(--border); border-radius:10px;
+    background:var(--surface); color:var(--ink); box-shadow:var(--sh-card); padding:20px; }
+  .dlg::backdrop { background:rgba(32,30,26,.45); }
+  .dlg form { margin:0; }
+  .dlg h2 { font-size:16px; font-weight:600; margin:0 0 8px; overflow-wrap:anywhere; }
+  .dlg p { font-size:14px; margin:0 0 14px; }
+  .dlg label { font-size:13px; color:var(--ink-2); overflow-wrap:anywhere; }
+  .dlg input[type=text], .dlg input[type=email] { padding:9px 12px; }
+  /* Cancel on the left, the action on the right, as the webapp's dialogs. */
+  .dlg-foot { display:flex; justify-content:space-between; gap:8px; margin-top:18px; }
+  .dlg-foot .btn { padding:9px 16px; font-size:14px; }
+  .btn:disabled { opacity:.45; cursor:default; }
   .btn.danger { background:var(--bad); color:#fff; }
   /* The page's toast (W-863): the Featherframe page's own flash, pinned to the
      top of the viewport and gone after five seconds. */
@@ -90,7 +118,9 @@ const STYLE = `
   .meter .fill { height:100%; background:var(--accent); }
   .meter.warn .fill { background:#c28a2c; } .meter.over .fill { background:var(--bad); }
   .meter .over-cost { grid-column:1 / -1; font-size:12px; color:var(--bad); }
-  @media (max-width:600px) { th:nth-child(n+3), td:nth-child(n+3) { display:none; } td, th { padding-left:14px; padding-right:14px; } }
+  @media (max-width:600px) { th:nth-child(n+3):not(.actions), td:nth-child(n+3):not(.actions) { display:none; }
+    td, th { padding-left:14px; padding-right:14px; } }
+  @media (max-width:820px) { .row-actions { flex-direction:column; align-items:flex-end; } }
 `;
 
 function page(title: string, body: string): Response {
@@ -236,21 +266,66 @@ function minutes(ms: number): string {
   return !ms ? "0 min" : m < 1 ? "<1 min" : m < 90 ? `${Math.round(m)} min` : `${(m / 60).toFixed(1)} h`;
 }
 
-export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): Response {
+const DOTS = `<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>`;
+
+/** The page's ⋯ menus and dialogs: a menu is placed under its button and
+ * closes on a click elsewhere, Escape, scroll or resize; a dialog closes on
+ * Cancel, Escape or a click on its backdrop, and a typed confirmation keeps
+ * its button off until the name matches. */
+const ADMIN_SCRIPT = `<script>(function(){
+  var open=null;
+  function close(){if(!open)return;open.menu.hidden=true;open.btn.setAttribute("aria-expanded","false");open=null}
+  document.querySelectorAll(".more-btn").forEach(function(btn){
+    var menu=document.getElementById(btn.getAttribute("aria-controls"));
+    btn.addEventListener("click",function(e){
+      e.stopPropagation();var was=open&&open.menu===menu;close();if(was)return;
+      var r=btn.getBoundingClientRect();
+      menu.style.top=(r.bottom+4)+"px";
+      menu.style.right=Math.max(8,document.documentElement.clientWidth-r.right)+"px";
+      menu.hidden=false;btn.setAttribute("aria-expanded","true");open={btn:btn,menu:menu};
+      var first=menu.querySelector("[role=menuitem]");if(first)first.focus();
+    });
+  });
+  document.addEventListener("click",function(e){if(open&&!open.menu.contains(e.target))close()});
+  window.addEventListener("scroll",close,{passive:true});
+  window.addEventListener("resize",close);
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&open){var b=open.btn;close();b.focus()}});
+  document.querySelectorAll("[data-dialog]").forEach(function(item){
+    item.addEventListener("click",function(){
+      close();var d=document.getElementById(item.getAttribute("data-dialog"));d.showModal();
+      var i=d.querySelector("input:not([type=hidden])");if(i)i.focus();
+    });
+  });
+  document.querySelectorAll("dialog.dlg").forEach(function(d){
+    var form=d.querySelector("form"),go=d.querySelector("button[type=submit]"),match=d.querySelector("[data-match]");
+    function check(){if(match)go.disabled=match.value.trim().toLowerCase()!==match.getAttribute("data-match").toLowerCase()}
+    if(match)match.addEventListener("input",check);
+    d.querySelectorAll("[data-close]").forEach(function(b){b.addEventListener("click",function(){d.close()})});
+    d.addEventListener("close",function(){form.reset();check()});
+    var outside=false;
+    function out(e){var r=d.getBoundingClientRect();return e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom}
+    d.addEventListener("mousedown",function(e){outside=e.target===d&&out(e)});
+    d.addEventListener("click",function(e){if(outside&&e.target===d&&out(e))d.close();outside=false});
+  });
+})()</script>`;
+
+export function adminPage(d: AdminData, toast: Toast | null, actingAs = false, ownHid: string | null = null): Response {
   const e = escapeHtml;
   // Confirmed addresses are the list; pending ones have not followed their
   // link yet (or tried to sign in uninvited) and are counted apart.
   const confirmed = d.waitlist.filter((w) => w.confirmed_at);
   const unconfirmed = d.waitlist.filter((w) => !w.confirmed_at);
+  const hidden = (name: string, value: string) => `<input type="hidden" name="${name}" value="${e(value)}">`;
   const waitRows = (rows: AdminData["waitlist"]) => rows.map((w) => `<tr><td>${e(w.email)}</td>
-      <td><div class="row-actions">
-        <form method="post" action="/admin/waitlist/remove"><input type="hidden" name="email" value="${e(w.email)}"><button class="btn plain" type="submit">Remove</button></form>
-        <form method="post" action="/admin/invite"><input type="hidden" name="email" value="${e(w.email)}"><input type="hidden" name="send" value="1"><button class="btn" type="submit">Invite</button></form>
-      </div></td>
-      <td class="muted">${w.source === "login" ? "Sign-in" : w.source === "setup" ? "Frame setup" : "Website"}</td><td class="num muted">${ago(w.created_at * 1000)}</td></tr>`).join("");
-  const waiting = (confirmed.length ? `<table><thead><tr><th>Confirmed</th><th></th><th>From</th><th>Asked</th></tr></thead><tbody>
+      <td class="muted">${w.source === "login" ? "Sign-in" : w.source === "setup" ? "Frame setup" : "Website"}</td>
+      <td class="num muted">${ago(w.created_at * 1000)}</td>
+      <td class="actions"><div class="row-actions">
+        <form method="post" action="/admin/waitlist/remove">${hidden("email", w.email)}<button class="btn plain" type="submit">Remove</button></form>
+        <form method="post" action="/admin/invite">${hidden("email", w.email)}${hidden("send", "1")}<button class="btn" type="submit">Invite</button></form>
+      </div></td></tr>`).join("");
+  const waiting = (confirmed.length ? `<table><thead><tr><th>Confirmed</th><th>From</th><th>Asked</th><th class="actions"></th></tr></thead><tbody>
     ${waitRows(confirmed)}</tbody></table>` : `<p class="empty">Nobody is waiting.</p>`)
-    + (unconfirmed.length ? `<table><thead><tr><th>Pending · ${unconfirmed.length}</th><th></th><th>From</th><th>Asked</th></tr></thead><tbody>
+    + (unconfirmed.length ? `<table><thead><tr><th>Pending · ${unconfirmed.length}</th><th>From</th><th>Asked</th><th class="actions"></th></tr></thead><tbody>
     ${waitRows(unconfirmed)}</tbody></table>` : "");
 
   const pending = d.invites.filter((i) => !i.used_at);
@@ -259,16 +334,16 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
       <label><input type="checkbox" name="send" value="1" checked> Send email</label>
       <button class="btn" type="submit">Invite</button>
     </form>
-    ${pending.length ? `<table><thead><tr><th>Invited, not signed up</th><th></th><th></th><th>Sent</th></tr></thead><tbody>
-      ${pending.map((i) => `<tr><td>${e(i.email)}</td>
-        <td><div class="row-actions">
-          <form method="post" action="/admin/invite/revoke"><input type="hidden" name="email" value="${e(i.email)}"><button class="btn plain" type="submit">Revoke</button></form>
-          <form method="post" action="/admin/invite/resend"><input type="hidden" name="email" value="${e(i.email)}"><button class="btn plain" type="submit">Resend</button></form>
-        </div></td><td></td><td class="num muted">${ago(i.created_at * 1000)}</td></tr>`).join("")}
+    ${pending.length ? `<table><thead><tr><th>Invited, not signed up</th><th>Sent</th><th class="actions"></th></tr></thead><tbody>
+      ${pending.map((i) => `<tr><td>${e(i.email)}</td><td class="num muted">${ago(i.created_at * 1000)}</td>
+        <td class="actions"><div class="row-actions">
+          <form method="post" action="/admin/invite/revoke">${hidden("email", i.email)}<button class="btn plain" type="submit">Revoke</button></form>
+          <form method="post" action="/admin/invite/resend">${hidden("email", i.email)}<button class="btn plain" type="submit">Resend</button></form>
+        </div></td></tr>`).join("")}
     </tbody></table>` : ""}`;
 
-  const households = d.households.length ? `<table><thead><tr><th>Household</th><th>Frames</th><th>Server, 7 days</th><th>Last wake</th></tr></thead><tbody>
-    ${d.households.map((h) => {
+  const households = d.households.length ? `<table><thead><tr><th>Household</th><th>Frames</th><th>Server, 7 days</th><th>Last wake</th><th class="actions"></th></tr></thead><tbody>
+    ${d.households.map((h, n) => {
       const t = serverTime(h.usage);
       const note = [
         t.wakes ? `${Math.round(t.wake_ms / t.wakes / 1000)} s a wake` : "",
@@ -279,23 +354,38 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
       const frames = h.frames.length
         ? `<ul class="frames">${h.frames.map((f) => `<li>${e(f.id.slice(-6))} <span class="muted">· ${e(f.status)} · ${ago(f.seen)}</span></li>`).join("")}</ul>`
         : `<span class="muted">${h.paired ? `${h.paired} paired` : "none"}</span>`;
-      const id = `<input type="hidden" name="id" value="${e(h.id)}">`;
+      const id = hidden("id", h.id);
       const who = h.email || h.id;
-      const actions = `<div class="h-actions">
-        ${h.email ? `<form method="post" action="/admin/household/as">${id}<button class="btn" type="submit">Log in as</button></form>` : ""}
-        <form method="post" action="/admin/household/${h.suspended_at ? "resume" : "suspend"}">${id}<button class="btn plain" type="submit">${h.suspended_at ? "Resume" : "Suspend"}</button></form>
-        <details><summary>More</summary><div class="h-more">
-          ${h.email ? `<form method="post" action="/admin/household/email">${id}
-            <input type="email" name="email" required placeholder="New email" aria-label="New email">
-            <button class="btn plain" type="submit">Change email</button></form>` : ""}
-          <form method="post" action="/admin/household/delete">${id}
-            <input type="text" name="confirm" required autocomplete="off" placeholder="Type ${e(who)}" aria-label="Type ${e(who)} to delete">
-            <button class="btn danger" type="submit">Delete</button></form>
-        </div></details></div>`;
-      return `<tr><td>${e(h.email || "(no login)")}${h.suspended_at ? ` <span class="badge">Suspended</span>` : ""}<br><span class="muted">${e(h.id)}${h.source ? ` · ${e(h.source)}` : ""}</span>${actions}</td>
+      const own = h.id === ownHid;
+      const paired = h.paired === 1 ? ", and its frame shows a pairing code" : h.paired ? `, and its ${h.paired} frames show a pairing code` : "";
+      // The admin's own household can't be deleted: the admin page goes with its login.
+      const menu = `<div class="menu" id="hm-${n}" role="menu" hidden>
+          <form method="post" action="/admin/household/${h.suspended_at ? "resume" : "suspend"}">${id}<button type="submit" role="menuitem">${h.suspended_at ? "Resume" : "Suspend"}</button></form>
+          ${h.email ? `<button type="button" role="menuitem" data-dialog="he-${n}">Change email…</button>` : ""}
+          ${own ? "" : `<hr><button type="button" role="menuitem" class="danger" data-dialog="hd-${n}">Delete…</button>`}
+        </div>`;
+      const dialogs = (h.email ? `<dialog class="dlg" id="he-${n}" aria-labelledby="he-${n}-t"><form method="post" action="/admin/household/email">${id}
+          <h2 id="he-${n}-t">Change email</h2>
+          <p>The login moves to the new address at once, with no link to confirm it.</p>
+          <input type="email" name="email" required placeholder="New email" aria-label="New email">
+          <div class="dlg-foot"><button class="btn plain" type="button" data-close>Cancel</button><button class="btn" type="submit">Change email</button></div>
+        </form></dialog>` : "")
+        + (own ? "" : `<dialog class="dlg" id="hd-${n}" aria-labelledby="hd-${n}-t"><form method="post" action="/admin/household/delete">${id}
+          <h2 id="hd-${n}-t">Delete ${e(who)}?</h2>
+          <p>Its login, server and data are deleted${paired}. This can't be undone.</p>
+          <label for="hd-${n}-c">Type ${e(who)} to confirm</label>
+          <input type="text" id="hd-${n}-c" name="confirm" required autocomplete="off" spellcheck="false" data-match="${e(who)}">
+          <div class="dlg-foot"><button class="btn plain" type="button" data-close>Cancel</button><button class="btn danger" type="submit" disabled>Delete household</button></div>
+        </form></dialog>`);
+      const actions = `<div class="row-actions">
+        ${h.email ? `<form method="post" action="/admin/household/as">${id}<button class="btn plain" type="submit">Log in as</button></form>` : ""}
+        <button class="more-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="hm-${n}" aria-label="More for ${e(who)}">${DOTS}</button>
+        ${menu}${dialogs}</div>`;
+      return `<tr><td>${e(h.email || "(no login)")}${own ? ` <span class="muted">· you</span>` : ""}${h.suspended_at ? ` <span class="badge">Suspended</span>` : ""}<br><span class="muted hid">${e(h.id)}${h.source ? ` · ${e(h.source)}` : ""}</span></td>
         <td>${frames}</td>
-        <td class="num">${minutes(t.wake_ms)} in ${t.wakes} wakes<br><span class="muted">${note}</span></td>
-        <td class="num muted">${ago(h.last_wake)}</td></tr>`;
+        <td class="num">${minutes(t.wake_ms)} in ${t.wakes} wakes<br><span class="muted srv-note">${note}</span></td>
+        <td class="num muted">${ago(h.last_wake)}</td>
+        <td class="actions">${actions}</td></tr>`;
     }).join("")}
     </tbody></table>` : `<p class="empty">No households yet.</p>`;
 
@@ -323,7 +413,7 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false): 
     <div class="card"><h2 class="sec-head">Households · ${d.households.length}</h2>${households}</div>
     <div class="card"><h2 class="sec-head">Kits · ${d.kits.length}</h2>${kits}</div>
     <div class="card"><h2 class="sec-head">Audit log</h2>${log}</div>
-  </main>`);
+  </main>${ADMIN_SCRIPT}`);
 }
 
 export function suspendedPage(): Response {
@@ -350,8 +440,7 @@ export function loginPage(error = "", codeError = "", code = ""): Response {
     <form method="post" action="/setup">
       <label for="code">Code</label>
       <input type="text" id="code" name="code" required autocomplete="off" autocapitalize="characters" spellcheck="false"
-        maxlength="9" placeholder="ABC-DEF" value="${e(code)}"${codeError ? " autofocus" : ""}
-        style="width:100%;font:inherit;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);text-transform:uppercase;letter-spacing:.08em">
+        maxlength="9" placeholder="ABC-DEF" value="${e(code)}"${codeError ? " autofocus" : ""} style="text-transform:uppercase;letter-spacing:.08em">
       <button type="submit">Continue</button>
     </form>
     <script>try{document.getElementById("tz").value=Intl.DateTimeFormat().resolvedOptions().timeZone}catch(e){}</script>`);
@@ -401,8 +490,6 @@ export function confirmEmailEmail(link: string): { subject: string; text: string
 const SETUP_STYLE = `<style>
   .hint { font-size:13px; color:var(--muted); margin:6px 0 0; }
   .field { margin-bottom:18px; }
-  input[type=text] { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--border);
-    border-radius:8px; background:var(--bg); color:var(--ink); }
   .code-in { text-transform:uppercase; letter-spacing:.08em; }
   fieldset { border:0; margin:0 0 6px; padding:0; }
   legend { font-size:15px; font-weight:600; margin:4px 0 8px; padding:0; }

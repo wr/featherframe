@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
-from typing import Any
+from typing import Any, Callable, Optional
 
 from . import paths
 
@@ -48,6 +48,24 @@ class Database:
                     voltage REAL NOT NULL,
                     percent INTEGER
                 );
+                CREATE TABLE IF NOT EXISTS spend (
+                    id         TEXT PRIMARY KEY,
+                    at         REAL NOT NULL,
+                    month      TEXT NOT NULL,
+                    day        TEXT NOT NULL,
+                    kind       TEXT NOT NULL,
+                    subject    TEXT NOT NULL,
+                    auto       INTEGER NOT NULL,
+                    model      TEXT,
+                    quality    TEXT,
+                    est_usd    REAL NOT NULL,
+                    cost_usd   REAL,
+                    usage      TEXT,
+                    state      TEXT NOT NULL,
+                    settled_at REAL
+                );
+                CREATE INDEX IF NOT EXISTS spend_at ON spend(at);
+                CREATE INDEX IF NOT EXISTS spend_month ON spend(month);
                 """
             )
             # Every frame has a battery of its own (W-833); a reading with no
@@ -148,6 +166,40 @@ class Database:
                 "SELECT rendered_at, mode, species, etag FROM render_log ORDER BY id DESC LIMIT 1"
             ).fetchone()
         return dict(row) if row else None
+
+    # -- AI spend (W-938) --------------------------------------------------
+    _SPEND_COLS = ("id", "at", "month", "day", "kind", "subject", "auto", "model",
+                   "quality", "est_usd", "cost_usd", "state")
+
+    def spend_rows(self, since: float, month: Optional[str] = None) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, at, month, day, kind, subject, auto, model, quality, est_usd, "
+                "cost_usd, state FROM spend WHERE at >= ? OR month = ? ORDER BY at",
+                (float(since), month or "")).fetchall()
+        return [{**dict(r), "auto": bool(r["auto"])} for r in rows]
+
+    def spend_reserve(self, row: dict[str, Any], since: float,
+                      decide: Callable[[list[dict[str, Any]]], Optional[str]]) -> Optional[str]:
+        """Run `decide` on the records it needs and insert `row` if it says
+        yes, as one step: two threads can't both pass the same check."""
+        with self._lock:
+            reason = decide(self.spend_rows(since, row["month"]))
+            if reason is None:
+                self._conn.execute(
+                    "INSERT INTO spend(id, at, month, day, kind, subject, auto, model, quality, "
+                    "est_usd, cost_usd, state) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    tuple(int(row[c]) if c == "auto" else row[c] for c in self._SPEND_COLS))
+                self._conn.commit()
+            return reason
+
+    def spend_settle(self, rec_id: str, state: str, cost_usd: Optional[float],
+                     usage: Optional[dict], at: float) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE spend SET state=?, cost_usd=?, usage=?, settled_at=? WHERE id=?",
+                (state, cost_usd, json.dumps(usage) if usage is not None else None, at, rec_id))
+            self._conn.commit()
 
     def close(self) -> None:
         with self._lock:

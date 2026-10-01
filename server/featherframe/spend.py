@@ -15,13 +15,16 @@ a port of it, held to the same cases (tests/fixtures/spend-cases.json).
 from __future__ import annotations
 
 import functools
+import json
 import logging
 import re
 import threading
+import time
 import uuid
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Callable, Iterator, Optional
 
 import requests
@@ -327,3 +330,71 @@ class MemoryStore:
         with self._lock:
             self._pause = None
             self._resumed_at = now
+
+
+_PAUSE_KEY = "ai_pause"
+_RESUMED_KEY = "ai_resumed_at"
+_IMPORTED_KEY = "spend_ledger_imported"
+#: The longest window `decide()` reads back (the nightly collage's).
+_LOOKBACK_S = 36 * 3600.0
+
+
+class LocalStore:
+    """The records in our own SQLite (`db.Database`). On Cloud this DB
+    reaches the front door after every tick; part 2 moves the count there."""
+
+    def __init__(self, db, ledger_path: Optional[Path] = None) -> None:
+        self._db = db
+        if not db.get(_IMPORTED_KEY):
+            if ledger_path is None:
+                from . import paths
+                ledger_path = paths.spend_ledger_path()
+            self._import_ledger(Path(ledger_path))
+
+    def reserve(self, rec: Record, rule: Rule) -> Optional[str]:
+        def check(rows: list) -> Optional[str]:
+            reason = decide([Record(**r) for r in rows], self._db.get(_PAUSE_KEY) is not None,
+                            float(self._db.get(_RESUMED_KEY) or 0.0), rec, rule, rec.at)
+            if reason == "runaway":
+                self._db.set(_PAUSE_KEY, {"at": rec.at, "count": rule.runaway_per_hour})
+            return reason
+        return self._db.spend_reserve(asdict(rec), rec.at - _LOOKBACK_S, check)
+
+    def settle(self, rec_id: str, state: str, cost_usd: Optional[float],
+               usage: Optional[dict]) -> None:
+        self._db.spend_settle(rec_id, state, cost_usd, usage, time.time())
+
+    def snapshot(self, since: float) -> Snapshot:
+        rows = [Record(**r) for r in self._db.spend_rows(since)]
+        return Snapshot(rows=rows, pause=self._db.get(_PAUSE_KEY),
+                        resumed_at=float(self._db.get(_RESUMED_KEY) or 0.0))
+
+    def resume(self, now: float) -> None:
+        self._db.set(_PAUSE_KEY, None)
+        self._db.set(_RESUMED_KEY, now)
+
+    def _import_ledger(self, path: Path) -> None:
+        """The W-859 ledger (`spend.jsonl`), carried over once as settled
+        records so this month's spend counts toward the limit."""
+        try:
+            lines = path.read_text().splitlines()
+        except OSError:
+            lines = []
+        for n, raw in enumerate(lines):
+            try:
+                e = json.loads(raw)
+                at = datetime.fromisoformat(str(e["at"])).astimezone()
+            except (ValueError, KeyError, TypeError):
+                continue
+            kind = str(e.get("kind") or "plate")
+            est = estimate_usd(kind, e.get("model"), e.get("quality"))
+            cost = e.get("cost_usd")
+            row = asdict(Record(id=f"ledger-{n}", at=at.timestamp(), month=at.strftime("%Y-%m"),
+                                day=at.strftime("%Y-%m-%d"), kind=kind,
+                                subject=str(e.get("subject") or ""), auto=True,
+                                model=str(e.get("model") or "unknown"),
+                                quality=e.get("quality"), est_usd=est,
+                                cost_usd=float(cost) if isinstance(cost, (int, float)) else est,
+                                state="settled"))
+            self._db.spend_reserve(row, 0.0, lambda rows: None)
+        self._db.set(_IMPORTED_KEY, True)

@@ -174,7 +174,8 @@ species:
   - {common: "Asian Fairy-bluebird", scientific: "Irena puella", volume_no: 3, plate: 21, gould_title: "Indian Fairy Bluebird, Irena puella", volume: BirdsAsiaJohnGoIIIGoul, leaf: 92}
   - {common: "Philippine Fairy-bluebird", scientific: "Irena cyanogastra", volume_no: 3, plate: 22, gould_title: "Blue-mantled Fairy Bluebird, Irena cyanogastra", volume: BirdsAsiaJohnGoIIIGoul, leaf: 96}
   - {common: "Oriental Magpie-Robin", scientific: "Copsychus saularis", volume_no: 3, plate: 24, gould_title: "Dial Bird, Copsychus saularis", volume: BirdsAsiaJohnGoIIIGoul, leaf: 104, margins: [0.12, 0.02, 0.96, 0.912]}
-  - {common: "Philippine Magpie-Robin", scientific: "Copsychus mindanensis", volume_no: 3, plate: 25, gould_title: "Malaccan Dial Bird, Copsychus Mindanensis", volume: BirdsAsiaJohnGoIIIGoul, leaf: 108, margins: [0.12, 0.02, 0.96, 0.913]}
+  # III.25, "Malaccan Dial Bird", is the Oriental Magpie-Robin's Malayan race musicus, already pinned at III.24;
+  # Gould never saw it from the Philippines (W-936).
   - {common: "Taiwan Whistling-Thrush", scientific: "Myophonus insularis", volume_no: 3, plate: 28, gould_title: "Formosan Whistling Thrush, Myiophoneus insularis", volume: BirdsAsiaJohnGoIIIGoul, leaf: 120, margins: [0.12, 0.02, 0.96, 0.912]}
   - {common: "White-bellied Sholakili", scientific: "Sholicola albiventris", volume_no: 3, plate: 29, gould_title: "White-bellied Callene, Callene albiventris", volume: BirdsAsiaJohnGoIIIGoul, leaf: 124, margins: [0.12, 0.02, 0.96, 0.926]}
   - {common: "Rufous-backed Sibia", scientific: "Leioptila annectens", volume_no: 3, plate: 30, gould_title: "Slender-billed Chat-Thrush, Leioptila annectens", volume: BirdsAsiaJohnGoIIIGoul, leaf: 128, margins: [0.12, 0.02, 0.96, 0.916]}

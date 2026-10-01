@@ -151,7 +151,9 @@ species:
   - {common: "Black-faced Monarch", scientific: "Monarcha melanopsis", volume_no: 2, plate: 95, gould_title: "Carinated Flycatcher, Monarcha carinata", volume: "birdsAustraliav2Goul", leaf: 388, margins: [0.02, 0.02, 0.955, 0.924]}
   - {common: "Spectacled Monarch", scientific: "Symposiachrus trivirgatus", volume_no: 2, plate: 96, gould_title: "Black-fronted Flycatcher, Monarcha trivirgata", volume: "birdsAustraliav2Goul", leaf: 392, margins: [0.02, 0.02, 0.955, 0.934]}
   - {common: "White-throated Gerygone", scientific: "Gerygone olivacea", volume_no: 2, plate: 97, gould_title: "White-throated Gerygone, Gerygone albogularis", volume: "birdsAustraliav2Goul", leaf: 396, margins: [0.02, 0.02, 0.955, 0.868]}
-  - {common: "Western Gerygone", scientific: "Gerygone fusca", volume_no: 2, plate: 98, gould_title: "Fuscous Gerygone, Gerygone fuscus", volume: "birdsAustraliav2Goul", leaf: 400, margins: [0.02, 0.02, 0.955, 0.875]}
+  # II.98 has no white tail base and Gould's birds are from coastal NSW: the Brown Gerygone. The Western is II.99 (W-936).
+  - {common: "Brown Gerygone", scientific: "Gerygone mouki", volume_no: 2, plate: 98, gould_title: "Fuscous Gerygone, Gerygone fuscus", volume: "birdsAustraliav2Goul", leaf: 400, margins: [0.02, 0.02, 0.955, 0.875]}
+  - {common: "Western Gerygone", scientific: "Gerygone fusca", volume_no: 2, plate: 99, gould_title: "Western Gerygone, Gerygone culicivorus", volume: "birdsAustraliav2Goul", leaf: 404, margins: [0.02, 0.02, 0.955, 0.883]}
   - {common: "Large-billed Gerygone", scientific: "Gerygone magnirostris", volume_no: 2, plate: 100, gould_title: "Great-billed Gerygone, Gerygone magnirostris", volume: "birdsAustraliav2Goul", leaf: 408, margins: [0.02, 0.02, 0.955, 0.885]}
   - {common: "Mangrove Gerygone", scientific: "Gerygone levigaster", volume_no: 2, plate: 101, gould_title: "Buff-breasted Gerygone, Gerygone laevigaster", volume: "birdsAustraliav2Goul", leaf: 412, margins: [0.02, 0.02, 0.955, 0.916]}
   - {common: "Green-backed Gerygone", scientific: "Gerygone chloronota", volume_no: 2, plate: 102, gould_title: "Green-backed Gerygone, Gerygone chloronotus", volume: "birdsAustraliav2Goul", leaf: 416, margins: [0.02, 0.02, 0.955, 0.902]}
@@ -226,7 +228,9 @@ species:
   - {common: "Australasian Figbird", scientific: "Sphecotheres vieilloti", volume_no: 4, plate: 15, gould_title: "Australian Sphecotheres, Sphecotheres Australis", volume: "birdsAustraliav4Goul", leaf: 72, margins: [0.02, 0.02, 0.955, 0.889]}
   - {common: "White-winged Chough", scientific: "Corcorax melanorhamphos", volume_no: 4, plate: 16, gould_title: "White-winged Chough, Corcorax leucopterus", volume: "birdsAustraliav4Goul", leaf: 76, margins: [0.02, 0.02, 0.955, 0.933]}
   - {common: "Apostlebird", scientific: "Struthidea cinerea", volume_no: 4, plate: 17, gould_title: "Grey Struthidea, Struthidea cinerea", volume: "birdsAustraliav4Goul", leaf: 80, margins: [0.02, 0.02, 0.955, 0.943]}
-  - {common: "Australian Raven", scientific: "Corvus coronoides", volume_no: 4, plate: 18, gould_title: "White-eyed Crow, Corvus Coronoides", volume: "birdsAustraliav4Goul", leaf: 84, margins: [0.02, 0.02, 0.955, 0.916]}
+  # "The Plate represents a male, killed in Van Diemen's Land": only the Forest Raven lives there, and the
+  # bill is the Forest Raven's (W-936).
+  - {common: "Forest Raven", scientific: "Corvus tasmanicus", volume_no: 4, plate: 18, gould_title: "White-eyed Crow, Corvus Coronoides", volume: "birdsAustraliav4Goul", leaf: 84, margins: [0.02, 0.02, 0.955, 0.916]}
   - {common: "Gray-crowned Babbler", scientific: "Pomatostomus temporalis", volume_no: 4, plate: 20, gould_title: "Temporal Pomatorhinus, Pomatorhinus temporalis", volume: "birdsAustraliav4Goul", leaf: 92, margins: [0.02, 0.02, 0.955, 0.93]}
   - {common: "White-browed Babbler", scientific: "Pomatostomus superciliosus", volume_no: 4, plate: 22, gould_title: "White-eyebrowed Pomatorhinus, Pomatorhinus superciliosus", volume: "birdsAustraliav4Goul", leaf: 100, margins: [0.02, 0.02, 0.955, 0.923]}
   - {common: "New Holland Honeyeater", scientific: "Phylidonyris novaehollandiae", volume_no: 4, plate: 23, gould_title: "New Holland Honey-eater, Meliphaga Novae-Hollandiae", volume: "birdsAustraliav4Goul", leaf: 104, margins: [0.02, 0.02, 0.955, 0.902]}

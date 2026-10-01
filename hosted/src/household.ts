@@ -5,7 +5,7 @@ import type { Env } from "./index";
 import { releaseFrame } from "./setup";
 import { firmwareWaiting, isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
-import type { UsageDay } from "./usage";
+import { lastDays, type UsageDay } from "./usage";
 
 // The household's server is woken only for news (W-847). The front door looks
 // for it: a BirdWeather station every POLL_MS, or a push (BirdNET-Pi's Apprise,
@@ -139,8 +139,9 @@ export class Household extends DurableObject<Env> {
       .map((r) => [r.id, r.at]));
     const frames = this.sql.exec<{ id: string; status: string }>("SELECT id, status FROM frames ORDER BY id")
       .toArray().map((f) => ({ id: f.id, status: f.status, seen: seen.get(f.id) ?? null }));
+    // 30 days for the admin page's chart (W-923); its table's column is the last 7.
     const usage = this.sql.exec<UsageDay>(
-      "SELECT day, wakes, server_ms, wake_ms, page_ms FROM usage ORDER BY day DESC LIMIT 7").toArray();
+      "SELECT day, wakes, server_ms, wake_ms, page_ms FROM usage WHERE day >= ? ORDER BY day DESC", lastDays(30)[0]).toArray();
     const wake = Number(this.meta("wake_ms") || 0);
     const month_ms = this.sql.exec<{ ms: number }>("SELECT coalesce(sum(server_ms), 0) AS ms FROM usage WHERE day >= ?",
       new Date().toISOString().slice(0, 8) + "01").one().ms;

@@ -1,7 +1,8 @@
 // The few pages the Worker draws itself (W-845): signing in. Everything past
 // sign-in is the household's own page, drawn by its server.
 
-import { serverTime, type Meter, type Usage, type UsageDay } from "./usage";
+import { CHART_SCRIPT, CHART_STYLE, chart, growth, serverByDay } from "./charts";
+import { lastDays, serverTime, type Meter, type Usage, type UsageDay } from "./usage";
 import { escapeHtml } from "./util";
 
 const STYLE = `
@@ -127,10 +128,10 @@ function page(title: string, body: string): Response {
   return shell(title, `<main><p class="wordmark">Featherframe</p><div class="card">${body}</div></main>`);
 }
 
-function shell(title: string, main: string): Response {
+function shell(title: string, main: string, style = ""): Response {
   return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>
-<style>${STYLE}</style></head><body>${main}</body></html>`,
+<style>${STYLE}${style}</style></head><body>${main}</body></html>`,
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
@@ -191,6 +192,8 @@ export type AdminData = {
   usage: Usage;
   log: { at: number; admin: string; action: string; target: string | null; ok: number; result: string }[];
   kits: { device_id: string; kit: string | null; note: string | null; registered_at: number; used_at: number | null; email: string | null }[];
+  // When each began, in Unix seconds (W-923).
+  growth: { signups: number[]; invites: number[]; households: number[] };
 };
 
 export type Toast = { ok: boolean; message: string };
@@ -243,9 +246,15 @@ function usageCard(u: Usage): string {
       <div><strong>${dollars(u.bill)}</strong>${e(month)} so far</div>
       <div><strong>${dollars(u.projected)}</strong>at this pace</div>
     </div>
+    ${u.days.length ? chart({
+      label: "Cloudflare use by day, last 30 days", title: "Last 30 days", kind: "stack", unit: "usd",
+      days: u.days.map((d) => d.day),
+      series: [{ label: "Containers", color: "--r3", values: u.days.map((d) => d.containers) },
+               { label: "Everything else", color: "--r1", values: u.days.map((d) => d.other) }] }) : ""}
     <div class="meters">${groups.map((g) => `<div><p class="meter-group">${e(g)}${g === "Containers" && !u.measured ? " · estimated" : ""}</p>
       ${u.meters.filter((m) => m.group === g).map(meter).join("")}</div>`).join("")}</div>
     <p class="muted" style="font-size:12px;margin:12px 0 0">Account-wide, against the Workers Paid allowances.
+      ${u.days.length ? "The chart prices each day's use past them. " : ""}
       ${u.live ? "" : "Only the containers are counted until the <code>CF_API_TOKEN</code> secret is set. "}
       The bill itself: <a href="https://dash.cloudflare.com/?to=/:account/billing/billable-usage">Billable usage</a>.</p>
   </div>`;
@@ -342,9 +351,17 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false, o
         </div></td></tr>`).join("")}
     </tbody></table>` : ""}`;
 
+  const week = lastDays(7)[0];
+  const days = lastDays(30);
+  const srv = serverByDay(d.households, days);
+  const serverChart = d.households.length ? chart({
+    label: "Server time by day, last 30 days", title: "Server time, last 30 days", kind: "stack", unit: "ms", days,
+    series: [{ label: "Wakes", color: "--r3", values: srv.wake },
+             { label: "Page open", color: "--r1", values: srv.page },
+             ...(srv.total.some((v) => v > 0) ? [{ label: "Total only", color: "--r-rest", values: srv.total }] : [])] }) : "";
   const households = d.households.length ? `<table><thead><tr><th>Household</th><th>Frames</th><th>Server, 7 days</th><th>Last wake</th><th class="actions"></th></tr></thead><tbody>
     ${d.households.map((h, n) => {
-      const t = serverTime(h.usage);
+      const t = serverTime(h.usage.filter((u) => u.day >= week));
       const note = [
         t.wakes ? `${Math.round(t.wake_ms / t.wakes / 1000)} s a wake` : "",
         t.page_ms ? `${minutes(t.page_ms)} on the page` : "page not opened",
@@ -396,6 +413,14 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false, o
       <td class="num muted">${ago(k.registered_at * 1000)}</td></tr>`).join("")}
     </tbody></table>` : `<p class="empty">No kits registered. Run firmware/tools/register_kit.py after flashing one.</p>`;
 
+  const g = growth([d.growth.signups, d.growth.invites, d.growth.households]);
+  const growthChart = g.days.length ? chart({
+    label: "Sign-ups, invitations and households over time", kind: "line", unit: "count", days: g.days, latest: true,
+    series: [{ label: "Sign-ups", color: "--r1", values: g.counts[0] },
+             { label: "Invitations", color: "--r2", values: g.counts[1] },
+             { label: "Households", color: "--r3", values: g.counts[2] }] })
+    : `<p class="empty">Nothing yet.</p>`;
+
   const log = d.log.length ? `<table><thead><tr><th>Action</th><th>By</th><th>When</th></tr></thead><tbody>
     ${d.log.map((l) => `<tr><td><span class="${l.ok ? "" : "log-bad"}">${e(l.result)}</span><br>
         <span class="muted">${e(l.action)}${l.target ? ` · ${e(l.target)}` : ""}</span></td>
@@ -408,12 +433,13 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false, o
     ${actingAs ? `<form class="note" method="post" action="/admin/as/stop" style="display:flex;gap:12px;align-items:center;justify-content:space-between">
       <span>You are logged in as a household.</span><button class="btn" type="submit">Stop</button></form>` : ""}
     <div class="card"><h2 class="sec-head">Cloudflare usage</h2>${usageCard(d.usage)}</div>
+    <div class="card"><h2 class="sec-head">Growth</h2>${growthChart}</div>
     <div class="card"><h2 class="sec-head">Waitlist · ${confirmed.length}</h2>${waiting}</div>
     <div class="card"><h2 class="sec-head">Invite</h2>${invites}</div>
-    <div class="card"><h2 class="sec-head">Households · ${d.households.length}</h2>${households}</div>
+    <div class="card"><h2 class="sec-head">Households · ${d.households.length}</h2>${serverChart}${households}</div>
     <div class="card"><h2 class="sec-head">Kits · ${d.kits.length}</h2>${kits}</div>
     <div class="card"><h2 class="sec-head">Audit log</h2>${log}</div>
-  </main>${ADMIN_SCRIPT}`);
+  </main>${ADMIN_SCRIPT}${CHART_SCRIPT}`, CHART_STYLE);
 }
 
 export function suspendedPage(): Response {

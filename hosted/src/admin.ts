@@ -214,7 +214,7 @@ function readToast(request: Request): Toast | null {
 }
 
 async function gather(env: Env): Promise<AdminData> {
-  const [waitlist, invites, households, log, kits] = await Promise.all([
+  const [waitlist, invites, households, log, kits, signups, invited] = await Promise.all([
     env.DB.prepare("SELECT email, source, created_at, invited_at, confirmed_at FROM waitlist WHERE invited_at IS NULL ORDER BY created_at")
       .all<AdminData["waitlist"][number]>(),
     env.DB.prepare("SELECT email, created_at, used_at FROM invites ORDER BY created_at DESC")
@@ -227,6 +227,8 @@ async function gather(env: Env): Promise<AdminData> {
       .all<AdminData["log"][number]>(),
     env.DB.prepare(`SELECT k.device_id, k.kit, k.note, k.registered_at, k.used_at, u.email FROM kits k
       LEFT JOIN users u ON u.household_id = k.household_id ORDER BY k.registered_at DESC`).all<AdminData["kits"][number]>(),
+    env.DB.prepare("SELECT confirmed_at AS t FROM waitlist WHERE confirmed_at IS NOT NULL").all<{ t: number }>(),
+    env.DB.prepare("SELECT created_at AS t FROM invites").all<{ t: number }>(),
   ]);
   const rows = await Promise.all(households.results.map(async (h) => {
     try {
@@ -237,7 +239,9 @@ async function gather(env: Env): Promise<AdminData> {
   }));
   const usage = await cloudflareUsage(env, rows.reduce((a, h) => a + h.month_ms, 0));
   return { waitlist: waitlist.results, invites: invites.results, households: rows, usage, log: log.results,
-           kits: kits.results };
+           kits: kits.results,
+           growth: { signups: signups.results.map((r) => r.t), invites: invited.results.map((r) => r.t),
+                     households: households.results.map((h) => h.created_at) } };
 }
 
 // -- the marketing page's form ---------------------------------------------------

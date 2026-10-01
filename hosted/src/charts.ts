@@ -157,13 +157,13 @@ export function chart(c: ChartSpec): string {
     <div class="xaxis">${xs}</div>${table}</figure>`;
 }
 
-// One hue, the page's accent, in three steps (W-923): a stack's base and the
-// last of a funnel are the strongest. Checked as ordinal ramps against the
-// page's light and dark surfaces.
+// The page's ink in three steps, no hue (W-923): a stack's base and the last
+// of a funnel are the strongest. Checked as ordinal ramps against the page's
+// light and dark surfaces; a total from before W-907 is fainter still.
 export const CHART_STYLE = `
-  :root { --r1:#cdb08c; --r2:#9c7550; --r3:#6b4a2c; --r-rest:#cfcbc2; }
+  :root { --r1:#b4b0a7; --r2:#7e7a72; --r3:#3f3d38; --r-rest:#e0ddd6; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-    --r1:#6a5642; --r2:#8d6f50; --r3:#c09a70; --r-rest:#4a463f; } }
+    --r1:#5c5952; --r2:#8f8b83; --r3:#d6d3cc; --r-rest:#3a3732; } }
   .chart { margin:0; padding:2px 20px 16px; }
   .usage .chart { padding:0 0 18px; }
   .chart-head { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:2px 16px;

@@ -345,7 +345,10 @@ species:
   # out: one plate per species.
   - {common: "Ring-necked Pheasant", scientific: "Phasianus colchicus", volume_no: 7, plate: 39, gould_title: "Chinese Ring-necked Pheasant, Phasianus torquatus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 164, rotate: 270, preferred: true}
   - {common: "Blood Pheasant", scientific: "Ithaginis cruentus", volume_no: 7, plate: 43, gould_title: "Sanguine Francolin, Ithaginis cruentus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 180, rotate: 270}
-  - {common: "Gray Peacock-Pheasant", scientific: "Polyplectron bicalcaratum", volume_no: 7, plate: 51, gould_title: "Malayan Peacock Pheasant, Polyplectron bicalcaratum", volume: BirdsAsiaJohnGoVIIGoul, leaf: 212, rotate: 270}
+  # Gould's bicalcaratum (VII.51) is "the Malayan bird": browner, larger ocelli, greenish crest, the
+  # Malayan Peacock-Pheasant. His Gray Peacock-Pheasant is VII.50, printed chinquis (W-931).
+  - {common: "Gray Peacock-Pheasant", scientific: "Polyplectron bicalcaratum", volume_no: 7, plate: 50, gould_title: "Assam Peacock Pheasant, Polyplectron chinquis", volume: BirdsAsiaJohnGoVIIGoul, leaf: 208, rotate: 270}
+  - {common: "Malayan Peacock-Pheasant", scientific: "Polyplectron malacense", volume_no: 7, plate: 51, gould_title: "Malayan Peacock Pheasant, Polyplectron bicalcaratum", volume: BirdsAsiaJohnGoVIIGoul, leaf: 212, rotate: 270}
   - {common: "Great Argus", scientific: "Argusianus argus", volume_no: 7, plate: 52, gould_title: "Argus Pheasant, Argusianus argus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 216, rotate: 270}
   - {common: "Himalayan Monal", scientific: "Lophophorus impejanus", volume_no: 7, plate: 53, gould_title: "Monaul, Lophophorus Impeyanus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 220, rotate: 270}
   - {common: "Gray Junglefowl", scientific: "Gallus sonneratii", volume_no: 7, plate: 56, gould_title: "Sonnerat's Jungle-fowl, Gallus Sonnerati", volume: BirdsAsiaJohnGoVIIGoul, leaf: 232, rotate: 270}

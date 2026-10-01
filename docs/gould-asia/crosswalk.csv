@@ -507,8 +507,8 @@ VII,46,192,Temminck's Horned Pheasant,Ceriornis Temmincki,yes,not_in_birdnet,,,n
 VII,47,196,Blyth's Horned Pheasant,Ceriornis Blythi,yes,not_in_birdnet,,,none,,,ku-gould:15579,Tragopan blythii,"Blyth's Tragopan, Blyth's Tragopan Pheasant",left out (not in BirdNET),
 VII,48,200,Dr. Cabot's Horned Pheasant,Ceriornis Caboti,yes,not_in_birdnet,,,none,,,ku-gould:15575,Tragopan caboti,"Cabot's Tragopan, Cabot's Tragopan Pheasant",left out (not in BirdNET),
 VII,49,204,Nipaulese Horned Pheasant,Ceriornis Satyra,yes,not_in_birdnet,,,none,,,ku-gould:15571,Tragopan satyra,Satyr Tragopan,left out (not in BirdNET),
-VII,50,208,Assam Peacock Pheasant,Polyplectron chinquis,yes,form,Polyplectron bicalcaratum,subspecies,medium,Polyplectron bicalcaratum,Gray Peacock-Pheasant,ku-gould:15567,Polyplectron bicalcaratum,Grey Peacock-Pheasant,left out (form),
-VII,51,212,Malayan Peacock Pheasant,Polyplectron bicalcaratum,yes,exact,Polyplectron bicalcaratum,,high,Polyplectron bicalcaratum,Gray Peacock-Pheasant,ku-gould:15563,Polyplectron bicalcaratum,Grey Peacock-Pheasant,pinned,
+VII,50,208,Assam Peacock Pheasant,Polyplectron chinquis,yes,form,Polyplectron bicalcaratum,subspecies,high,Polyplectron bicalcaratum,Gray Peacock-Pheasant,ku-gould:15567,Polyplectron bicalcaratum,Grey Peacock-Pheasant,pinned,chinquis is the Gray Peacock-Pheasant (W-931)
+VII,51,212,Malayan Peacock Pheasant,Polyplectron bicalcaratum,yes,exact,Polyplectron malacense,,high,Polyplectron malacense,Malayan Peacock-Pheasant,ku-gould:15563,Polyplectron bicalcaratum,Grey Peacock-Pheasant,pinned,Gould's bicalcaratum is the Malayan bird (W-931)
 VII,52,216,Argus Pheasant,Argusianus argus,yes,exact,Argusianus argus,,high,Argusianus argus,Great Argus,ku-gould:15559,Argusianus argus,Great Argus,pinned,
 VII,53,220,Monaul,Lophophorus Impeyanus,yes,probable,Lophophorus impejanus,,high,Lophophorus impejanus,Himalayan Monal,ku-gould:15555,Lophophorus impejanus,Himalayan Monal,pinned,
 VII,54,224,De L'Huys's Monaul,Lophophorus l'Huysi,yes,not_in_birdnet,,,none,,,ku-gould:15551,Lophophorus lhuysii,Chinese Monal,left out (not in BirdNET),

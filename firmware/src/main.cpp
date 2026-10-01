@@ -562,6 +562,35 @@ static void armWatchdog() {
 }
 
 // ---------------------------------------------------------------- sleep
+#if defined(FF_BOARD_EE02)
+// The EE02 powers the panel's whole side of the board (both controllers,
+// their two 4.7k/2k strap dividers, the spare flash, the status LED's pads)
+// through one load switch whose enable is TFT_ENABLE: GPIO43, UART0's TX pin.
+// Seeed_GFX raises it and never lowers it, and the sleep isolation leaves the
+// UART pins as they are, so the rail stayed on through deep sleep: 1-2 mA,
+// against ~0.1 mA for the rest of the board (W-920). The glass keeps its picture
+// unpowered. CS (GPIO44, UART0's RX) is held low with it, or it would feed
+// the unpowered controllers through their inputs.
+static void panelRailOff() {
+  for (int p : {TFT_ENABLE, TFT_CS}) {
+    pinMode(p, OUTPUT);
+    digitalWrite(p, LOW);
+    gpio_hold_en((gpio_num_t)p);
+  }
+  gpio_deep_sleep_hold_en();
+}
+
+// A pin held through deep sleep stays held after the wake, and begin() could
+// not raise the rail. Let both go, still low: begin() powers the panel.
+static void panelRailRelease() {
+  for (int p : {TFT_ENABLE, TFT_CS}) {
+    pinMode(p, OUTPUT);
+    digitalWrite(p, LOW);
+    gpio_hold_dis((gpio_num_t)p);
+  }
+}
+#endif
+
 void clearToast();   // defined with the toasts, below
 void goToSleep(uint32_t minutes) {
   g_loaderAnim.on = false;
@@ -570,7 +599,10 @@ void goToSleep(uint32_t minutes) {
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
   // update() already put the T-CON to sleep; e-paper holds its image with the
-  // rails off, so there's nothing else to power down.
+  // rails off. The EE02's panel rail has to be switched off.
+#if defined(FF_BOARD_EE02)
+  panelRailOff();
+#endif
 
   // Wake on the user buttons (active-low) and on a timer. The internal RTC
   // pull-ups only hold the keys high in deep sleep while the RTC peripheral
@@ -1940,6 +1972,9 @@ static bool resumeGlass(bool forcePortal) {
 // ---------------------------------------------------------------- setup
 void setup() {
   Serial.begin(115200);
+#if defined(FF_BOARD_EE02)
+  panelRailRelease();   // held off through the last deep sleep
+#endif
   ledBegin();      // white: starting up, until the server answers
   delay(50);
   startImprov();   // answers the USB flasher from the first moment (W-839)

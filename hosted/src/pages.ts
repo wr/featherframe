@@ -243,7 +243,7 @@ function usageCard(u: Usage): string {
       <div><strong>${dollars(u.bill)}</strong>${e(month)} so far</div>
       <div><strong>${dollars(u.projected)}</strong>at this pace</div>
     </div>
-    <div class="meters">${groups.map((g) => `<div><p class="meter-group">${e(g)}${g === "Containers" ? " · our count" : ""}</p>
+    <div class="meters">${groups.map((g) => `<div><p class="meter-group">${e(g)}${g === "Containers" && !u.measured ? " · estimated" : ""}</p>
       ${u.meters.filter((m) => m.group === g).map(meter).join("")}</div>`).join("")}</div>
     <p class="muted" style="font-size:12px;margin:12px 0 0">Account-wide, against the Workers Paid allowances.
       ${u.live ? "" : "Only the containers are counted until the <code>CF_API_TOKEN</code> secret is set. "}

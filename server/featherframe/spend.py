@@ -378,8 +378,9 @@ class LocalStore:
         records so this month's spend counts toward the limit."""
         try:
             lines = path.read_text().splitlines()
-        except OSError:
+        except (OSError, ValueError):
             lines = []
+        rows = []
         for n, raw in enumerate(lines):
             try:
                 e = json.loads(raw)
@@ -396,5 +397,6 @@ class LocalStore:
                                 quality=e.get("quality"), est_usd=est,
                                 cost_usd=float(cost) if isinstance(cost, (int, float)) else est,
                                 state="settled"))
-            self._db.spend_reserve(row, 0.0, lambda rows: None)
-        self._db.set(_IMPORTED_KEY, True)
+            rows.append(row)
+        if rows:
+            self._db.spend_import(rows, _IMPORTED_KEY)

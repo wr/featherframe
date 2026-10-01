@@ -201,6 +201,23 @@ class Database:
                 (state, cost_usd, json.dumps(usage) if usage is not None else None, at, rec_id))
             self._conn.commit()
 
+    def spend_import(self, rows: list[dict[str, Any]], flag_key: str) -> int:
+        """Import multiple spend records at once, ignoring duplicates. Sets
+        the flag and commits once at the end."""
+        with self._lock:
+            before = self._conn.total_changes
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO spend(id, at, month, day, kind, subject, auto, model, "
+                "quality, est_usd, cost_usd, state) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                [tuple(int(r[c]) if c == "auto" else r[c] for c in self._SPEND_COLS)
+                 for r in rows])
+            self._conn.execute(
+                "INSERT INTO kv(key, value) VALUES(?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (flag_key, json.dumps(True)))
+            self._conn.commit()
+            return self._conn.total_changes - before
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

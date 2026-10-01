@@ -79,3 +79,33 @@ def test_the_old_ledger_is_carried_over_once(tmp_path):
     assert collage.cost_usd == pytest.approx(0.199825) and collage.month == "2026-09"
     brief = next(r for r in rows if r.kind == "describe")
     assert brief.cost_usd == pytest.approx(spend.DESCRIBE_USD)
+
+
+def test_an_interrupted_import_finishes_on_the_next_start(tmp_path):
+    ledger = tmp_path / "spend.jsonl"
+    ledger.write_text("\n".join(json.dumps(e) for e in [
+        {"at": "2026-09-27T11:51:21+00:00", "kind": "collage", "subject": "2026-09-27",
+         "model": "gpt-image-2.5-sunburst", "quality": "max", "usage": None, "cost_usd": 0.199825},
+        {"at": "2026-09-26T01:57:08+00:00", "kind": "describe", "subject": "Green-winged Teal",
+         "model": "gpt-5.6-luna", "quality": None, "usage": None, "cost_usd": None},
+    ]))
+    db = Database(tmp_path / "ff.db")
+    # Simulate an interrupted first start: insert ledger-0 as if it got written
+    db._conn.execute(
+        "INSERT INTO spend(id, at, month, day, kind, subject, auto, model, quality, est_usd, "
+        "cost_usd, state) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+        ("ledger-0", 1727435481.0, "2026-09", "2026-09-27", "collage", "2026-09-27", True,
+         "gpt-image-2.5-sunburst", "max", 0.2138, None, "settled"))
+    db._conn.commit()
+    # Second start should not raise and should finish the import
+    store = spend.LocalStore(db, ledger_path=ledger)
+    rows = store.snapshot(0).rows
+    assert len(rows) == 2
+    assert all(r.state == "settled" for r in rows)
+    assert sorted(r.kind for r in rows) == ["collage", "describe"]
+    # The flag should be set
+    assert db.get(spend._IMPORTED_KEY) is True
+    # Third construction should import nothing
+    store2 = spend.LocalStore(db, ledger_path=ledger)
+    rows2 = store2.snapshot(0).rows
+    assert len(rows2) == 2

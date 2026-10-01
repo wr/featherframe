@@ -293,7 +293,11 @@ species:
   - {common: "Giant Pitta", scientific: "Hydrornis caeruleus", volume_no: 5, plate: 81, gould_title: "Cerulean Pitta, Pitta caerulea", volume: BirdsAsiaJohnGoVGoul, leaf: 332, rotate: 270, margins: [0.02, 0.13, 0.98, 0.97]}
 
   # --- Volume VI
-  - {common: "Plum-headed Parakeet", scientific: "Psittacula cyanocephala", volume_no: 6, plate: 3, gould_title: "Burmese Parrakeet, Paleornis cyanocephala", volume: BirdsAsiaJohnGoVIGoul, leaf: 20}
+  # VI.2 and VI.3 carry each other's names (Gould says so in the VI.2 text: Blyth named the plates
+  # before the synonymy was worked out). VI.2, printed Paleornis rosa, is the Plum-headed: emerald
+  # ring under the collar, white tail tip, yellow-collared female. VI.3 is the Blossom-headed, not
+  # in BirdNET.
+  - {common: "Plum-headed Parakeet", scientific: "Psittacula cyanocephala", volume_no: 6, plate: 2, gould_title: "Blossom-headed Parrakeet, Paleornis rosa", volume: BirdsAsiaJohnGoVIGoul, leaf: 16}
   - {common: "Malabar Parakeet", scientific: "Psittacula columboides", volume_no: 6, plate: 7, gould_title: "Blue-winged Parrakeet, Paleornis Columboides", volume: BirdsAsiaJohnGoVIGoul, leaf: 36, margins: [0.02, 0.02, 0.96, 0.93]}
   - {common: "Slaty-headed Parakeet", scientific: "Psittacula himalayana", volume_no: 6, plate: 8, gould_title: "Slaty-headed Parrakeet, Paleornis schisticeps", volume: BirdsAsiaJohnGoVIGoul, leaf: 40, margins: [0.02, 0.02, 0.96, 0.932]}
   - {common: "Long-tailed Parakeet", scientific: "Psittacula longicauda", volume_no: 6, plate: 10, gould_title: "Malacca Parrakeet, Paleornis Malaccensis", volume: BirdsAsiaJohnGoVIGoul, leaf: 48}

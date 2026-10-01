@@ -63,10 +63,12 @@ describe("labels", () => {
 describe("chart", () => {
   const spec = {
     label: "Test", kind: "stack" as const, unit: "usd" as const, days: ["2026-09-30", "2026-10-01"],
-    series: [{ label: "A <b>", color: "--s1", values: [0.1, 0] }, { label: "B", color: "--s2", values: [0.05, 0.02] }],
+    series: [{ label: "A <b>", color: "--r3", values: [0.1, 0] }, { label: "B", color: "--r1", values: [0.05, 0.02] }],
   };
   it("draws a column per day, rounds only the top of each, and escapes what it is given", () => {
     const html = chart(spec);
+    expect(html).toContain('<div class="grid top"><span>$0.15</span>');
+    expect(html).toContain("<span>30 Sep</span><span>1 Oct</span>");
     expect(html.match(/class="col"/g)).toHaveLength(2);
     expect(html.match(/class="seg[^"]*cap/g)).toHaveLength(2);
     expect(html).toContain("A &lt;b&gt;");
@@ -76,11 +78,11 @@ describe("chart", () => {
     const html = chart(spec);
     const second = html.split('class="col"')[2].split("</div></div>")[0];
     expect(second.match(/class="seg/g)).toHaveLength(1);
-    expect(html).toContain("<td>1 Oct</td><td class=\"num\">$0.00</td><td class=\"num\">$0.02</td>");
+    expect(html).toContain("<tr><td>1 Oct</td><td>$0.00</td><td>$0.02</td></tr>");
   });
   it("keeps only the days a running count changed in its table", () => {
     const html = chart({ label: "G", kind: "line", unit: "count", days: ["2026-09-29", "2026-09-30", "2026-10-01"],
-      latest: true, series: [{ label: "Sign-ups", color: "--s1", values: [1, 1, 2] }] });
+      latest: true, series: [{ label: "Sign-ups", color: "--r3", values: [1, 1, 2] }] });
     expect(html.match(/<tr><td>/g)).toHaveLength(2);
     expect(html).toContain("Sign-ups <b>2</b>");
   });

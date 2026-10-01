@@ -15,6 +15,7 @@ export type ChartSpec = {
   series: Series[];            // a stack's first series sits on the baseline
   unit: Unit;
   latest?: boolean;            // say each series' last value in the legend
+  title?: string;              // a few words before the legend
 };
 
 const DAY = 86400e3;
@@ -104,22 +105,21 @@ export function chart(c: ChartSpec): string {
   const max = c.kind === "stack"
     ? Math.max(0, ...c.days.map((_, i) => c.series.reduce((a, s) => a + s.values[i], 0)))
     : Math.max(0, ...c.series.flatMap((s) => s.values));
-  const { top, step, scale } = ticks(max, c.unit);
+  const { top, scale } = ticks(max, c.unit);
   const y = (v: number) => (v / top) * 100;
 
-  const legend = `<div class="chart-legend">${c.series.map((s) => `<span><i class="key ${c.kind === "line" ? "line" : ""}" style="--c:var(${s.color})"></i>${e(s.label)}${
-    c.latest && n ? ` <b>${fmt(s.values[n - 1], c.unit)}</b>` : ""}</span>`).join("")}</div>`;
+  const legend = c.series.map((s) => `<span><i class="key${c.kind === "line" ? " line" : ""}" style="--c:var(${s.color})"></i>${e(s.label)}${
+    c.latest && n ? ` <b>${fmt(s.values[n - 1], c.unit)}</b>` : ""}</span>`).join("");
+  const head = `<div class="chart-head">${c.title ? `<span class="chart-title">${e(c.title)}</span>` : ""}<span class="chart-legend">${legend}</span></div>`;
 
-  const grid: string[] = [];
-  for (let k = 0; k <= Math.round(top / step); k++) {
-    const v = k * step;
-    grid.push(`<div class="grid${k ? "" : " base"}" style="bottom:${pct(y(v))}"><span>${tick(v, c.unit, scale)}</span></div>`);
-  }
+  // Two lines only: the baseline, and the top of the scale with its value.
+  const grid = `<div class="grid base"></div><div class="grid top"><span>${tick(top, c.unit, scale)}</span></div>`;
 
   let marks = "";
   if (c.kind === "stack") {
     marks = `<div class="cols">${c.days.map((_, i) => {
-      const segs = c.series.map((s) => ({ v: s.values[i], color: s.color })).filter((s) => s.v > 0);
+      // A part under a pixel is left to the readout: drawn, it reads as a dashed baseline.
+      const segs = c.series.map((s) => ({ v: s.values[i], color: s.color })).filter((s) => y(s.v) >= 2);
       return `<div class="col">${segs.map((s, k) => `<div class="seg${k === segs.length - 1 ? " cap" : ""}${k ? " gap" : ""}" style="height:${pct(y(s.v))};--c:var(${s.color})"></div>`).join("")}</div>`;
     }).join("")}</div>`;
   } else {
@@ -129,15 +129,11 @@ export function chart(c: ChartSpec): string {
       const d = s.values.map((v, i) => (i ? `H${i + 0.5}V${+(100 - y(v)).toFixed(3)}` : `M0.5 ${+(100 - y(v)).toFixed(3)}`)).join("");
       return `<path d="${d}H${n - 0.5}" style="stroke:var(${s.color})"/>`;
     }).join("");
-    const ends = c.series.map((s) => `<i class="end" style="left:${pct(((n - 0.5) / n) * 100)};bottom:${pct(y(s.values[n - 1]))};--c:var(${s.color})"></i>`).join("");
-    marks = `<svg class="lines" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true">${paths}</svg>${ends}`;
+    marks = `<svg class="lines" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true">${paths}</svg>`;
   }
 
-  // A date under today and back from it in even steps, four or five in all,
-  // which still fit a phone.
-  const every = Math.max(1, Math.round(n / 4));
-  const xs = c.days.map((d, i) => ((n - 1 - i) % every === 0
-    ? `<span style="left:${pct(((i + 0.5) / n) * 100)}">${dayLabel(d)}</span>` : "")).join("");
+  // The first day and the last, under the plot's two ends.
+  const xs = n ? `<span>${dayLabel(c.days[0])}</span>${n > 1 ? `<span>${dayLabel(c.days[n - 1])}</span>` : ""}` : "";
 
   const data = JSON.stringify({
     kind: c.kind, unit: c.unit,
@@ -145,69 +141,65 @@ export function chart(c: ChartSpec): string {
     s: c.series.map((s) => ({ l: s.label, c: s.color, v: s.values })),
   });
 
+  // The values as a table, for a screen reader: the plot is a picture to it.
   const rows = c.days.map((d, i) => ({ d, vals: c.series.map((s) => s.values[i]) }))
     // A running count's table keeps only the days it changed.
     .filter((r, i, all) => c.kind === "stack" || i === 0 || r.vals.some((v, k) => v !== all[i - 1].vals[k]))
     .reverse();
-  const table = `<details class="chart-table"><summary>Table</summary><table><thead><tr><th>Day</th>${
-    c.series.map((s) => `<th class="num">${e(s.label)}</th>`).join("")}</tr></thead><tbody>${
-    rows.map((r) => `<tr><td>${dayLabel(r.d)}</td>${r.vals.map((v) => `<td class="num">${fmt(v, c.unit)}</td>`).join("")}</tr>`).join("")}
-    </tbody></table></details>`;
+  const table = `<table class="chart-table"><caption>${e(c.label)}</caption><thead><tr><th>Day</th>${
+    c.series.map((s) => `<th>${e(s.label)}</th>`).join("")}</tr></thead><tbody>${
+    rows.map((r) => `<tr><td>${dayLabel(r.d)}</td>${r.vals.map((v) => `<td>${fmt(v, c.unit)}</td>`).join("")}</tr>`).join("")}
+    </tbody></table>`;
 
-  return `<figure class="chart" data-chart="${e(data)}">${legend}
+  return `<figure class="chart" data-chart="${e(data)}">${head}
     <div class="plot" tabindex="0" role="img" aria-label="${e(c.label)}. Arrow keys step through the days.">
-      ${grid.join("")}${marks}<div class="xhair" hidden></div><div class="tip" hidden></div></div>
+      ${grid}${marks}<div class="xhair" hidden></div><div class="tip" hidden></div></div>
     <div class="xaxis">${xs}</div>${table}</figure>`;
 }
 
+// One hue, the page's accent, in three steps (W-923): a stack's base and the
+// last of a funnel are the strongest. Checked as ordinal ramps against the
+// page's light and dark surfaces.
 export const CHART_STYLE = `
-  :root { --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s-rest:#bdb9ae; }
+  :root { --r1:#cdb08c; --r2:#9c7550; --r3:#6b4a2c; --r-rest:#cfcbc2; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s-rest:#5e5a52; } }
-  .chart { margin:0; padding:4px 20px 14px; }
-  .chart-title { font-size:13px; color:var(--ink-2); margin:0 0 6px; padding:0 20px; }
-  .chart-note { font-size:12px; color:var(--muted); margin:0; padding:0 20px 16px; }
-  .usage .chart-title { padding:0; }
-  .usage .chart { padding:4px 0 18px; }
-  .chart-legend { display:flex; flex-wrap:wrap; gap:4px 16px; font-size:12px; color:var(--ink-2); margin:0 0 10px; }
-  .chart-legend span { display:inline-flex; align-items:center; gap:6px; }
-  .chart-legend b { font-weight:600; color:var(--ink); }
-  .key { display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--c); }
-  .key.line { height:2px; width:12px; border-radius:1px; }
-  .plot { position:relative; height:140px; margin-left:44px; outline:none; }
+    --r1:#6a5642; --r2:#8d6f50; --r3:#c09a70; --r-rest:#4a463f; } }
+  .chart { margin:0; padding:2px 20px 16px; }
+  .usage .chart { padding:0 0 18px; }
+  .chart-head { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:2px 16px;
+    font-size:12px; color:var(--muted); margin:0 0 8px; }
+  .chart-legend { display:flex; flex-wrap:wrap; gap:2px 12px; }
+  .chart-legend span { display:inline-flex; align-items:center; gap:5px; }
+  .chart-legend b { font-weight:600; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .key { display:inline-block; width:8px; height:8px; border-radius:2px; background:var(--c); }
+  .key.line { height:2px; width:10px; border-radius:1px; }
+  .plot { position:relative; height:56px; outline:none; }
   .plot:focus-visible { box-shadow:0 0 0 2px var(--surface), 0 0 0 4px var(--ring); border-radius:2px; }
   .grid { position:absolute; left:0; right:0; height:0; border-top:1px solid var(--border); }
-  .grid.base { border-top-color:var(--border-strong); }
-  .grid span { position:absolute; right:calc(100% + 8px); top:-7px; font-size:11px; line-height:14px;
-    color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .grid.base { bottom:0; border-top-color:var(--border-strong); }
+  .grid.top { top:0; }
+  .grid span { position:absolute; left:0; top:1px; padding:0 4px 0 0; background:var(--surface); font-size:10px;
+    line-height:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
   .cols { position:absolute; inset:0; display:flex; }
-  .col { flex:1 1 0; min-width:0; display:flex; flex-direction:column-reverse; align-items:center; border-radius:3px; }
-  .col.on { background:color-mix(in srgb, var(--ink) 6%, transparent); }
-  .seg { width:min(24px, 62%); background:var(--c); box-sizing:border-box; flex:none; }
-  .seg.gap { border-bottom:2px solid var(--surface); }
-  .seg.cap { border-radius:4px 4px 0 0; }
+  .col { flex:1 1 0; min-width:0; display:flex; flex-direction:column-reverse; align-items:center; border-radius:2px; }
+  .col.on { background:color-mix(in srgb, var(--ink) 5%, transparent); }
+  .seg { width:min(10px, 56%); background:var(--c); box-sizing:border-box; flex:none; }
+  .seg.gap { border-bottom:1px solid var(--surface); }
+  .seg.cap { border-radius:2px 2px 0 0; }
   .lines { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
-  .lines path { fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
-  .end { position:absolute; width:8px; height:8px; margin:0 0 -6px -6px; border-radius:50%;
-    background:var(--c); border:2px solid var(--surface); box-sizing:content-box; }
+  .lines path { fill:none; stroke-width:1.5; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
   .xhair { position:absolute; top:0; bottom:0; width:0; border-left:1px solid var(--border-strong); pointer-events:none; }
-  .xaxis { position:relative; height:18px; margin-left:44px; font-size:11px; color:var(--muted); }
-  .xaxis span { position:absolute; top:5px; transform:translateX(-50%); white-space:nowrap; }
-  .tip { position:absolute; top:6px; z-index:5; min-width:120px; padding:7px 10px; border-radius:7px; pointer-events:none;
-    background:var(--surface); border:1px solid var(--border); box-shadow:var(--sh-card); font-size:12px; line-height:1.5; }
-  .tip .d { color:var(--muted); margin-bottom:2px; }
-  .tip .r { display:grid; grid-template-columns:12px auto 1fr; align-items:center; gap:7px; white-space:nowrap; }
+  .xaxis { display:flex; justify-content:space-between; margin-top:4px; font-size:10px; color:var(--muted); }
+  /* Fixed, placed over the plot by script: the card clips to its radius. */
+  .tip { position:fixed; z-index:30; padding:5px 8px; border-radius:6px; pointer-events:none;
+    background:var(--surface); border:1px solid var(--border); box-shadow:var(--sh-card); font-size:12px; line-height:1.45; }
+  .tip .d { color:var(--muted); }
+  .tip .r { display:grid; grid-template-columns:10px auto 1fr; align-items:center; gap:6px; white-space:nowrap; }
   .tip .r i { height:2px; border-radius:1px; background:var(--c); }
   .tip .r strong { font-weight:600; font-variant-numeric:tabular-nums; }
   .tip .r span { color:var(--muted); }
-  .tip .r.sum { border-top:1px solid var(--border); margin-top:3px; padding-top:3px; }
-  .chart-table { margin-top:6px; font-size:12px; }
-  .chart-table summary { cursor:pointer; color:var(--muted); width:max-content; }
-  .chart-table table { margin-top:6px; font-size:12px; }
-  .chart-table th, .chart-table td { padding:4px 0; }
-  .chart-table th.num, .chart-table td.num { text-align:right; padding-left:16px; font-variant-numeric:tabular-nums; }
-  @media (max-width:600px) { .chart { padding-left:14px; padding-right:14px; }
-    .chart-table th:nth-child(n+3), .chart-table td:nth-child(n+3) { display:table-cell; } }
+  .tip .r.sum { border-top:1px solid var(--border); margin-top:2px; padding-top:2px; }
+  .chart-table { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 `;
 
 /** The hover readout: the day under the pointer (or chosen with the arrow
@@ -230,9 +222,12 @@ export const CHART_SCRIPT = `<script>(function(){
       if(d.kind==="line"){xh.hidden=false;xh.style.left=cx+"px"}
       tip.textContent="";var h=document.createElement("div");h.className="d";h.textContent=d.x[i];tip.appendChild(h);
       var list=d.kind==="stack"?d.s.slice().reverse():d.s,total=0;
-      list.forEach(function(s){total+=s.v[i];tip.appendChild(row(s.c,fmt(s.v[i],d.unit),s.l))});
+      list.forEach(function(s){total+=s.v[i];if(d.kind==="line"||s.v[i])tip.appendChild(row(s.c,fmt(s.v[i],d.unit),s.l))});
       if(d.kind==="stack"&&d.s.length>1)tip.appendChild(row("",fmt(total,d.unit),"Total",true));
-      tip.hidden=false;var tw=tip.offsetWidth,x=cx+14;if(x+tw>w)x=cx-14-tw;tip.style.left=Math.max(0,x)+"px";
+      tip.hidden=false;var r=plot.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight,
+        x=r.left+cx+12,y=r.top-th-6;
+      if(x+tw>r.right)x=r.left+cx-12-tw;if(y<8)y=r.bottom+6;
+      tip.style.left=Math.max(8,x)+"px";tip.style.top=y+"px";
     }
     function hide(){at=-1;tip.hidden=true;xh.hidden=true;cols.forEach(function(c){c.classList.remove("on")})}
     function point(e){var r=plot.getBoundingClientRect();show(Math.floor((e.clientX-r.left)/r.width*n))}
@@ -242,6 +237,7 @@ export const CHART_SCRIPT = `<script>(function(){
     plot.addEventListener("pointerleave",function(e){if(e.pointerType==="mouse"&&document.activeElement!==plot)hide()});
     plot.addEventListener("focus",function(){show(at<0?n-1:at)});
     plot.addEventListener("blur",hide);
+    window.addEventListener("scroll",function(){if(at>=0)show(at)},{passive:true});
     plot.addEventListener("keydown",function(e){
       if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();show((at<0?n-1:at)+(e.key==="ArrowLeft"?-1:1))}
       else if(e.key==="Home"){e.preventDefault();show(0)}else if(e.key==="End"){e.preventDefault();show(n-1)}

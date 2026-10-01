@@ -495,7 +495,10 @@ species:
   - {common: "Scarlet Ibis", scientific: "Eudocimus ruber", plate: 397, audubon_title: "Scarlet Ibis"}
   - {common: "Lazuli Bunting", scientific: "Passerina amoena", plate: 398, audubon_title: "Lazuli Finch, Clay-coloured Finch and Oregon Snow Finch (composite)", composite: true}
   - {common: "Black-throated Green Warbler", scientific: "Setophaga virens", plate: 399, audubon_title: "Black-throated green Warbler, Blackburnian and Mourning Warbler (composite)", composite: true}
-  - {common: "Mourning Warbler", scientific: "Geothlypis philadelphia", plate: 399, audubon_title: "Black-throated green Warbler, Blackburnian and Mourning Warbler (composite)", composite: true}
+  # Figs. 4-5, lettered "Mourning Warbler", are MacGillivray's: in 1839 (Orn. Biog. v) Audubon wrote
+  # that these Columbia River birds were misnamed on the plate and named them Sylvia macgillivrayi.
+  # Audubon has no plate of the true Mourning Warbler.
+  - {common: "MacGillivray's Warbler", scientific: "Geothlypis tolmiei", plate: 399, audubon_title: "Black-throated green Warbler, Blackburnian and Mourning Warbler (composite)", composite: true}
   - {common: "Lesser Goldfinch", scientific: "Spinus psaltria", plate: 400, audubon_title: "Arkansaw Siskin, Mealy Red-poll, Louisiana Tanager, Townsend's Finch and Buff-breasted Finch (composite)", composite: true}
   - {common: "Smith's Longspur", scientific: "Calcarius pictus", plate: 400, audubon_title: "Arkansaw Siskin, Mealy Red-poll, Louisiana Tanager, Townsend's Finch and Buff-breasted Finch (composite)", composite: true}
   - {common: "Red-breasted Merganser", scientific: "Mergus serrator", plate: 401, audubon_title: "Red-breasted Merganser"}

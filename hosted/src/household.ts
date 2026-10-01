@@ -3,7 +3,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./index";
 import { releaseFrame } from "./setup";
-import { isDetection, localIso, randomHex } from "./util";
+import { firmwareWaiting, isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 import type { UsageDay } from "./usage";
 
@@ -104,6 +104,9 @@ export class Household extends DurableObject<Env> {
     }
     if (url.pathname === "/api/frame" && request.method === "GET" && !url.searchParams.get("view")) {
       return this.frame(request);
+    }
+    if (url.pathname === "/api/firmware" && request.method === "GET" && !this.firmwareFor(request)) {
+      return new Response("no firmware hosted", { status: 404, headers: { "Cache-Control": "no-store" } });
     }
     // A viewer the Worker has already checked is this household's (W-849).
     const viewer = request.headers.get("X-FF-Viewer");
@@ -385,6 +388,15 @@ export class Household extends DurableObject<Env> {
   frameRow(id: string): FrameRow | null {
     const r = this.sql.exec<FrameRow>("SELECT * FROM frames WHERE id = ?", id).toArray();
     return r.length ? r[0] : null;
+  }
+
+  /** Is there an image for the frame asking? Only then is the server woken. */
+  firmwareFor(request: Request): boolean {
+    const id = (request.headers.get("X-Device-Id") || "").trim().slice(0, 40);
+    const push = id ? this.frameRow(id)?.push ?? null : null;
+    const files = this.sql.exec<{ path: string }>(
+      "SELECT path FROM files WHERE path LIKE 'firmware%.bin'").toArray().map((r) => r.path);
+    return firmwareWaiting(push, files);
   }
 
   queueCheckin(request: Request, frameId: string, result: string, etag: string | null): void {

@@ -16,8 +16,14 @@ export type Meter = {
   price: number;             // dollars per unit past the allowance
 };
 
+/** One day's use priced past the allowance, in dollars, containers apart
+ * (W-923). The month's allowances cover the first of it, so this is a day's
+ * cost at the margin, not what the bill grew by that day. */
+export type SpendDay = { day: string; containers: number; other: number };
+
 export type Usage = { meters: Meter[]; bill: number; projected: number; month: string; live: boolean;
-                      measured: boolean };   // the Containers meters are Cloudflare's, not our estimate
+                      measured: boolean;   // the Containers meters are Cloudflare's, not our estimate
+                      days: SpendDay[] };
 
 /** One household's server time on one UTC day (the front door's count). */
 export type UsageDay = { day: string; wakes: number; server_ms: number; wake_ms: number; page_ms: number };
@@ -111,73 +117,125 @@ async function ask<T>(env: Env, what: string, body: string, vars: Record<string,
   }
 }
 
-const VAR_TYPES: Record<string, string> = { s: "Time", e: "Time", d0: "Date", d1: "Date", recent: "Date" };
+const VAR_TYPES: Record<string, string> = { s: "Time", e: "Time", m: "Time", d0: "Date", d1: "Date", recent: "Date" };
 
 const sum = (rows: any[], f: (r: any) => number) => rows.reduce((a, r) => a + (Number(f(r)) || 0), 0);
+
+/** One flow's amount by UTC day. */
+type Daily = Map<string, number>;
+
+function byDay(rows: any[], f: (r: any) => number): Daily {
+  const out: Daily = new Map();
+  for (const r of rows) out.set(r.dimensions.date, (out.get(r.dimensions.date) ?? 0) + (Number(f(r)) || 0));
+  return out;
+}
+
+/** What is used up as it goes, by day; null where a dataset could not be read. */
+export type Flows = {
+  wReq: Daily | null; wCpu: Daily | null; doReq: Daily | null; doActive: Daily | null;
+  d1Read: Daily | null; d1Written: Daily | null; r2A: Daily | null; r2B: Daily | null;
+  containers: { cpuS: Daily; memByteS: Daily; diskByteS: Daily } | null;
+};
+
+/** The flows' meters, each amount read through `pick`: a month's total, or one day's. */
+function flowMeters(f: Flows, pick: (d: Daily | null) => number | null): Meter[] {
+  return [
+    { group: "Workers", label: "Requests", unit: "", used: pick(f.wReq), included: 10 * M, price: 0.30 / M },
+    { group: "Workers", label: "CPU", unit: "ms", used: pick(f.wCpu), included: 30 * M, price: 0.02 / M },
+    { group: "Durable Objects", label: "Requests", unit: "", used: pick(f.doReq), included: 1 * M, price: 0.15 / M },
+    { group: "Durable Objects", label: "Duration", unit: "GB-s", used: pick(f.doActive), included: 400000, price: 12.5 / M },
+    { group: "D1", label: "Rows read", unit: "", used: pick(f.d1Read), included: 25000 * M, price: 0.001 / M },
+    { group: "D1", label: "Rows written", unit: "", used: pick(f.d1Written), included: 50 * M, price: 1 / M },
+    { group: "R2", label: "Class A", unit: "", used: pick(f.r2A), included: 1 * M, price: 4.5 / M },
+    { group: "R2", label: "Class B", unit: "", used: pick(f.r2B), included: 10 * M, price: 0.36 / M },
+    ...(f.containers ? measuredContainerMeters({ cpuS: pick(f.containers.cpuS) ?? 0,
+      memByteS: pick(f.containers.memByteS) ?? 0, diskByteS: pick(f.containers.diskByteS) ?? 0 }) : []),
+  ];
+}
+
+/** Each day's use at the price past the allowance (W-923). Only once the
+ * containers' own dataset is read: they are most of the bill, and the front
+ * doors' count is not kept by day across households here. */
+export function spendByDay(f: Flows, days: string[]): SpendDay[] {
+  if (!f.containers) return [];
+  return days.map((day) => {
+    const cost = (m: Meter) => (m.used ?? 0) * m.price;
+    const meters = flowMeters(f, (d) => d?.get(day) ?? 0);
+    return { day,
+      containers: meters.filter((m) => m.group === "Containers").reduce((a, m) => a + cost(m), 0),
+      other: meters.filter((m) => m.group !== "Containers").reduce((a, m) => a + cost(m), 0) };
+  });
+}
+
+const GROUPS = ["Workers", "Durable Objects", "D1", "R2", "Containers"];
+const DAY = 86400e3;
+
+/** The last `n` UTC days, oldest first, ending today. */
+export function lastDays(n: number, now = new Date()): string[] {
+  const end = Math.floor(now.getTime() / DAY) * DAY;
+  return Array.from({ length: n }, (_, i) => new Date(end - (n - 1 - i) * DAY).toISOString().slice(0, 10));
+}
 
 export async function cloudflareUsage(env: Env, serverMs: number, now = new Date()): Promise<Usage> {
   const month = now.toISOString().slice(0, 7);
   const containers = containerMeters(serverMs);
   if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID) {
     return { meters: containers, bill: bill(containers), projected: bill(project(containers, now)), month,
-             live: false, measured: false };
+             live: false, measured: false, days: [] };
   }
   const start = `${month}-01`;
   const today = now.toISOString().slice(0, 10);
-  const recent = new Date(now.getTime() - 2 * 86400e3).toISOString().slice(0, 10);
-  const vars = { a: env.CF_ACCOUNT_ID, s: `${start}T00:00:00Z`, e: now.toISOString(), d0: start, d1: today, recent };
+  // The flows are read by day for the last 30 days, which takes in the month
+  // so far; the month's meters sum its own days.
+  const days = lastDays(30, now);
+  const from = days[0] < start ? days[0] : start;
+  const recent = new Date(now.getTime() - 2 * DAY).toISOString().slice(0, 10);
+  const vars = { a: env.CF_ACCOUNT_ID, s: `${from}T00:00:00Z`, e: now.toISOString(), m: `${start}T00:00:00Z`,
+                 d0: from, d1: today, recent };
   const T = "filter: { datetime_geq: $s, datetime_leq: $e }";
   const D = "filter: { date_geq: $d0, date_leq: $d1 }";
+  const BY = "dimensions { date }";
 
   const [wReq, wCpu, doReq, doActive, doStored, d1Rows, d1Stored, r2Ops, r2Stored, measured] = await Promise.all([
-    ask(env, "workers requests", `workersInvocationsAdaptive(limit: 10000, ${T}) { sum { requests } }`, vars,
-      (a) => sum(a.workersInvocationsAdaptive, (r) => r.sum.requests)),
-    ask(env, "workers cpu", `workersInvocationsAdaptive(limit: 10000, ${T}) { sum { cpuTimeUs } }`, vars,
-      (a) => sum(a.workersInvocationsAdaptive, (r) => r.sum.cpuTimeUs) / 1000),
-    ask(env, "do requests", `durableObjectsInvocationsAdaptiveGroups(limit: 10000, ${D}) { sum { requests } }`, vars,
-      (a) => sum(a.durableObjectsInvocationsAdaptiveGroups, (r) => r.sum.requests)),
-    ask(env, "do duration", `durableObjectsPeriodicGroups(limit: 10000, ${D}) { sum { activeTime } }`, vars,
-      (a) => sum(a.durableObjectsPeriodicGroups, (r) => r.sum.activeTime) / 1e6 * DO_GB),
+    ask(env, "workers requests", `workersInvocationsAdaptive(limit: 10000, ${T}) { sum { requests } ${BY} }`, vars,
+      (a) => byDay(a.workersInvocationsAdaptive, (r) => r.sum.requests)),
+    ask(env, "workers cpu", `workersInvocationsAdaptive(limit: 10000, ${T}) { sum { cpuTimeUs } ${BY} }`, vars,
+      (a) => byDay(a.workersInvocationsAdaptive, (r) => r.sum.cpuTimeUs / 1000)),
+    ask(env, "do requests", `durableObjectsInvocationsAdaptiveGroups(limit: 10000, ${D}) { sum { requests } ${BY} }`, vars,
+      (a) => byDay(a.durableObjectsInvocationsAdaptiveGroups, (r) => r.sum.requests)),
+    ask(env, "do duration", `durableObjectsPeriodicGroups(limit: 10000, ${D}) { sum { activeTime } ${BY} }`, vars,
+      (a) => byDay(a.durableObjectsPeriodicGroups, (r) => r.sum.activeTime / 1e6 * DO_GB)),
     ask(env, "do storage", `durableObjectsStorageGroups(limit: 10, filter: { date_geq: $recent }) { max { storedBytes } }`, vars,
       (a) => Math.max(0, ...a.durableObjectsStorageGroups.map((r: any) => Number(r.max.storedBytes) || 0)) / GB),
-    ask(env, "d1 rows", `d1AnalyticsAdaptiveGroups(limit: 10000, ${D}) { sum { rowsRead rowsWritten } }`, vars,
-      (a) => ({ read: sum(a.d1AnalyticsAdaptiveGroups, (r) => r.sum.rowsRead),
-                written: sum(a.d1AnalyticsAdaptiveGroups, (r) => r.sum.rowsWritten) })),
+    ask(env, "d1 rows", `d1AnalyticsAdaptiveGroups(limit: 10000, ${D}) { sum { rowsRead rowsWritten } ${BY} }`, vars,
+      (a) => ({ read: byDay(a.d1AnalyticsAdaptiveGroups, (r) => r.sum.rowsRead),
+                written: byDay(a.d1AnalyticsAdaptiveGroups, (r) => r.sum.rowsWritten) })),
     ask(env, "d1 storage", `d1StorageAdaptiveGroups(limit: 100, filter: { date_geq: $recent }) { max { databaseSizeBytes } dimensions { databaseId } }`, vars,
       (a) => sum(a.d1StorageAdaptiveGroups, (r) => r.max.databaseSizeBytes) / GB),
-    ask(env, "r2 operations", `r2OperationsAdaptiveGroups(limit: 10000, ${T}) { sum { requests } dimensions { actionType } }`, vars,
+    ask(env, "r2 operations", `r2OperationsAdaptiveGroups(limit: 10000, ${T}) { sum { requests } dimensions { actionType date } }`, vars,
       (a) => {
-        let classA = 0, classB = 0;
-        for (const r of a.r2OperationsAdaptiveGroups) {
-          const t = r.dimensions.actionType;
-          if (R2_FREE.has(t)) continue;
-          if (R2_CLASS_A.has(t)) classA += r.sum.requests; else classB += r.sum.requests;
-        }
-        return { classA, classB };
+        const rows = a.r2OperationsAdaptiveGroups.filter((r: any) => !R2_FREE.has(r.dimensions.actionType));
+        return { classA: byDay(rows.filter((r: any) => R2_CLASS_A.has(r.dimensions.actionType)), (r) => r.sum.requests),
+                 classB: byDay(rows.filter((r: any) => !R2_CLASS_A.has(r.dimensions.actionType)), (r) => r.sum.requests) };
       }),
-    ask(env, "r2 storage", `r2StorageAdaptiveGroups(limit: 100, filter: { datetime_geq: $s, datetime_leq: $e }) { max { payloadSize metadataSize } dimensions { bucketName } }`, vars,
+    ask(env, "r2 storage", `r2StorageAdaptiveGroups(limit: 100, filter: { datetime_geq: $m, datetime_leq: $e }) { max { payloadSize metadataSize } dimensions { bucketName } }`, vars,
       (a) => sum(a.r2StorageAdaptiveGroups, (r) => Number(r.max.payloadSize) + Number(r.max.metadataSize)) / GB),
-    ask(env, "containers", `containersUsageAdaptiveGroups(limit: 10000, ${D}) { sum { cpuTimeSec allocatedMemory allocatedDisk } }`, vars,
-      (a) => measuredContainerMeters({
-        cpuS: sum(a.containersUsageAdaptiveGroups, (r) => r.sum.cpuTimeSec),
-        memByteS: sum(a.containersUsageAdaptiveGroups, (r) => r.sum.allocatedMemory),
-        diskByteS: sum(a.containersUsageAdaptiveGroups, (r) => r.sum.allocatedDisk) })),
+    ask(env, "containers", `containersUsageAdaptiveGroups(limit: 10000, ${D}) { sum { cpuTimeSec allocatedMemory allocatedDisk } ${BY} }`, vars,
+      (a) => ({ cpuS: byDay(a.containersUsageAdaptiveGroups, (r) => r.sum.cpuTimeSec),
+                memByteS: byDay(a.containersUsageAdaptiveGroups, (r) => r.sum.allocatedMemory),
+                diskByteS: byDay(a.containersUsageAdaptiveGroups, (r) => r.sum.allocatedDisk) })),
   ]);
 
+  const flows: Flows = { wReq, wCpu, doReq, doActive, d1Read: d1Rows?.read ?? null, d1Written: d1Rows?.written ?? null,
+                         r2A: r2Ops?.classA ?? null, r2B: r2Ops?.classB ?? null, containers: measured };
+  const thisMonth = (d: Daily | null) => d && [...d].reduce((a, [day, v]) => (day >= start ? a + v : a), 0);
   const meters: Meter[] = [
-    { group: "Workers", label: "Requests", unit: "", used: wReq, included: 10 * M, price: 0.30 / M },
-    { group: "Workers", label: "CPU", unit: "ms", used: wCpu, included: 30 * M, price: 0.02 / M },
-    { group: "Durable Objects", label: "Requests", unit: "", used: doReq, included: 1 * M, price: 0.15 / M },
-    { group: "Durable Objects", label: "Duration", unit: "GB-s", used: doActive, included: 400000, price: 12.5 / M },
+    ...flowMeters(flows, thisMonth),
+    ...(measured ? [] : containers),
     { group: "Durable Objects", label: "Storage", unit: "GB", used: doStored, included: 5, price: 0.20 },
-    { group: "D1", label: "Rows read", unit: "", used: d1Rows?.read ?? null, included: 25000 * M, price: 0.001 / M },
-    { group: "D1", label: "Rows written", unit: "", used: d1Rows?.written ?? null, included: 50 * M, price: 1 / M },
     { group: "D1", label: "Storage", unit: "GB", used: d1Stored, included: 5, price: 0.75 },
-    { group: "R2", label: "Class A", unit: "", used: r2Ops?.classA ?? null, included: 1 * M, price: 4.5 / M },
-    { group: "R2", label: "Class B", unit: "", used: r2Ops?.classB ?? null, included: 10 * M, price: 0.36 / M },
     { group: "R2", label: "Storage", unit: "GB", used: r2Stored, included: 10, price: 0.015 },
-    ...(measured ?? containers),
-  ];
+  ].sort((a, b) => GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group));
   return { meters, bill: bill(meters), projected: bill(project(meters, now)), month, live: true,
-           measured: measured !== null };
+           measured: measured !== null, days: spendByDay(flows, days) };
 }

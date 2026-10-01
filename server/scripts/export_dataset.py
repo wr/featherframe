@@ -894,12 +894,19 @@ WHOLE_CROPS = {
 }
 
 
-def unpinned_margins(g: Gould, header: dict) -> dict:
+def unpinned_margins(g: Gould, header: dict, dataset: Optional[Path] = None) -> dict:
     """The margins for a leaf no pin has cut, by (barcode, leaf): an upright
     Australia plate stops above its caption and clear of the binding line,
-    as its pins do (docs/gould-australia/README.md); the rest take the
+    as its pins do (docs/gould-australia/README.md), and so does every Great
+    Britain plate whose caption was read (the dataset's
+    gould-britain/sources/plate-leaves.csv, W-877); the rest take the
     folio's own."""
     out = {}
+    if g.folder == "gould-britain" and dataset:
+        for r in read_csv(dataset / "gould-britain" / "sources" / "plate-leaves.csv"):
+            if r["caption_top"]:
+                right = 0.955 if r["orientation"] == "portrait" else 0.98
+                out[(r["ia_id"], int(r["leaf"]))] = [0.02, 0.02, right, round(float(r["caption_top"]) - 0.006, 3)]
     if g.folder == "gould-australia":
         for r in read_csv(g.docs / "plate-leaves.csv"):
             if r["orientation"] == "portrait" and r["caption_top"]:
@@ -934,7 +941,7 @@ def assets(out: Path, dataset: Path, plates_dir: Path, work: Path, folder: str =
     params = {}
     for e in pinned(folio):
         params.setdefault((str(e["volume"]), int(e["leaf"])), e)
-    fallback = unpinned_margins(g, header)
+    fallback = unpinned_margins(g, header, dataset)
     out.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
     manifest = {}

@@ -223,7 +223,8 @@ species:
   - {common: "Blue-winged Minla", scientific: "Actinodura cyanouroptera", volume_no: 4, plate: 19, gould_title: "Blue-winged Siva, Siva cyanouroptera", volume: BirdsAsiaJohnGoIVGoul, leaf: 84, margins: [0.12, 0.02, 0.96, 0.914]}
   - {common: "Brown Dipper", scientific: "Cinclus pallasii", volume_no: 4, plate: 22, gould_title: "Pallas's Water-Ouzel, Cinclus Pallasi", volume: BirdsAsiaJohnGoIVGoul, leaf: 96, rotate: 270, margins: [0.02, 0.1, 0.98, 0.97]}
   - {common: "Pied Wheatear", scientific: "Oenanthe pleschanka", volume_no: 4, plate: 29, gould_title: "Black-and-White Stone-Chat, Saxicola leucomela", volume: BirdsAsiaJohnGoIVGoul, leaf: 124}
-  - {common: "White-capped Redstart", scientific: "Phoenicurus leucocephalus", volume_no: 4, plate: 36, gould_title: "Great White-capped Redstart, Ruticilla erythrogastra", volume: BirdsAsiaJohnGoIVGoul, leaf: 152}
+  # IV.36, Ruticilla erythrogastra, is Güldenstädt's (White-winged) Redstart: white wing patch,
+  # brown female. Not the White-capped Redstart its English title suggests, and not in BirdNET.
   - {common: "Siberian Rubythroat", scientific: "Calliope calliope", volume_no: 4, plate: 38, gould_title: "Siberian Ruby-throat, Calliope camtschatkensis", volume: BirdsAsiaJohnGoIVGoul, leaf: 160, margins: [0.12, 0.02, 0.96, 0.925]}
   - {common: "Himalayan Rubythroat", scientific: "Calliope pectoralis", volume_no: 4, plate: 39, gould_title: "Himalayan Ruby-throat, Calliope pectoralis", volume: BirdsAsiaJohnGoIVGoul, leaf: 164, margins: [0.12, 0.02, 0.96, 0.921]}
   - {common: "Chinese Rubythroat", scientific: "Calliope tschebaiewi", volume_no: 4, plate: 40, gould_title: "Mongolian Ruby-throat, Calliope tschebaiewi", volume: BirdsAsiaJohnGoIVGoul, leaf: 168, margins: [0.12, 0.02, 0.96, 0.912]}

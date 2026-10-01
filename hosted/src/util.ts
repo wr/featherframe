@@ -69,3 +69,18 @@ export function httpsRedirect(url: URL): Response | null {
   to.protocol = "https:";
   return Response.redirect(to.toString(), 301);
 }
+
+/** Whether a frame's update check needs the household's server (W-915): a
+ * release is waiting for it (its push message's `ota`, from the server), or a
+ * dev image sits at the top of the data dir (`firmware.bin`,
+ * `firmware-*.bin`), which the server matches to the frame's board. Otherwise
+ * the server would only answer "no firmware hosted", and the front door says
+ * so itself: a kit asks every 15 min, and each ask would start the server. */
+export function firmwareWaiting(push: string | null, files: string[]): boolean {
+  try {
+    if (push && JSON.parse(push)?.ota) return true;
+  } catch {
+    return true;            // not a message we read: let the server answer
+  }
+  return files.some((f) => f === "firmware.bin" || /^firmware-[^/]*\.bin$/.test(f));
+}

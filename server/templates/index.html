@@ -83,7 +83,9 @@
     .tnum { font-variant-numeric:tabular-nums; }
     .wrap { max-width:960px; margin:0 auto; padding:44px 26px 88px; }
 
-    header { margin-bottom:32px; padding-left:2px; }
+    header { margin-bottom:32px; padding-left:2px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 12px; }
+    .stale-note { font-size:13px; color:var(--muted); white-space:nowrap; }
+    .stale-note button { background:none; border:0; padding:0; margin:0; color:inherit; font:inherit; text-decoration:underline; cursor:pointer; }
     /* The wordmark is the plates' script title (Pinyon Script, served from
        the server's bundled fonts at /fonts/script.ttf); declared italic so a
        box without it falls back to Garamond italic un-slanted, the same
@@ -966,6 +968,7 @@
 <div class="wrap">
   <header>
     <h1 class="wordmark">Featherframe</h1>
+    {% if hosted %}<span class="stale-note" id="stale-note" role="status" hidden><span id="stale-text"></span><span id="stale-act"> · <button type="button" id="stale-update">Update now</button></span></span>{% endif %}
   </header>
 
   {# One slot for page-level notices: "Settings saved" after the redirect, and
@@ -2605,13 +2608,26 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
   })();
 
+  // When the copy the front door answered was filled (W-950): 0 for an
+  // answer from the server itself.
+  var copyAt = 0, onStatus = [];
+  function statusFetch(url) {
+    return fetch(url).then(function (r) {
+      copyAt = Number(r.headers.get('X-FF-Copy-At')) || 0;
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) { var e = new Error(data.error || ('server error ' + r.status)); e.status = r.status; throw e; }
+        return data;
+      });
+    });
+  }
   function pollStatus(live) {
     if (document.hidden) return;
-    jsonFetch(live ? '/api/status?live=1' : '/api/status').then(function (st) {
+    statusFetch(live ? '/api/status?live=1' : '/api/status').then(function (st) {
       statusFailures = 0; statusLastOk = new Date();
       liveCards.forEach(function (c) { c.classList.remove('stale'); });
       if (flashKind === 'offline') hideFlash();
       applyStatus(st);
+      onStatus.forEach(function (f) { f(); });
     }).catch(function () {
       // Two misses in a row (a minute) before we call it: one can be a blip.
       statusFailures += 1;
@@ -3956,6 +3972,38 @@
   // For the hosted page's USB pairing (its own script, below).
   window.ffPage = { showFlash: showFlash, jsonFetch: jsonFetch, errText: errText };
   {% if hosted %}
+  // How old the page is (W-950): Featherframe Cloud answers from a copy, and
+  // past 5 minutes the header says so. Update now asks for a wake at once;
+  // the page reloads when a fresh copy arrives, or shows the age again after
+  // 2 minutes.
+  (function () {
+    var note = $('stale-note'), text = $('stale-text'), act = $('stale-act'), btn = $('stale-update');
+    if (!note) return;
+    var STALE_MS = 5 * 60000, updating = 0;
+    function render() {
+      if (updating && Date.now() - updating > 120000) updating = 0;
+      var old = copyAt ? Date.now() - copyAt : 0;
+      note.hidden = !updating && old <= STALE_MS;
+      if (updating) { text.textContent = 'Updating…'; act.hidden = true; }
+      else if (copyAt) { text.textContent = 'Updated ' + ffAgo(copyAt / 1000, Date.now() / 1000); act.hidden = false; }
+    }
+    onStatus.push(function () {
+      if (updating && (!copyAt || Date.now() - copyAt <= STALE_MS)) { location.reload(); return; }
+      render();
+    });
+    btn.addEventListener('click', function () {
+      updating = Date.now();
+      render();
+      fetch('/api/page/update', { method: 'POST', credentials: 'same-origin' }).catch(function () {});
+      (function again() {
+        if (!updating) return;
+        pollStatus();
+        setTimeout(again, 3000);
+      })();
+    });
+    setInterval(render, 30000);
+  })();
+
   // The owner started an edit (W-946): Featherframe Cloud starts the
   // household's server now, so the save meets it up. Again at most every 20 s.
   (function () {

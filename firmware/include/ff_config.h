@@ -36,6 +36,8 @@
 // side), so presses only register while the panel side is powered and awake.
 // Consequence for the deep-sleep model: ext1 button wake is UNVERIFIED on this
 // board — with the T-CON asleep the keys may be electrically invisible.
+// goToSleep() now switches it off for deep sleep (W-920); the V1.0 netlist
+// puts the keys' 10k pull-ups on the XIAO's own 3V3, which stays up.
 #define PIN_PANEL_PWR   43
 
 // --- Battery sense ---

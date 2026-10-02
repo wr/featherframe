@@ -562,6 +562,51 @@ static void armWatchdog() {
 }
 
 // ---------------------------------------------------------------- sleep
+// Both kits power the panel's side of the board from TFT_ENABLE: GPIO43,
+// UART0's TX pin. On the EE02 it is one load switch (both controllers, their
+// two 4.7k/2k strap dividers, the spare flash, the status LED's pads); on the
+// EE03 it enables the 3.3 V buck-boost, the 1.8 V rail and the PMIC's supply,
+// so the IT8951 and its own 3.3 V go with it. Seeed_GFX raises it and never
+// lowers it, and the sleep isolation leaves the UART pins as they are, so the
+// panel side stayed on through deep sleep: 1-2 mA on the EE02, against ~0.1 mA
+// for the rest of the board (W-920). The glass keeps its picture unpowered.
+// CS (GPIO44, UART0's RX) is held low with it, or it would feed the unpowered
+// controllers through their inputs.
+#if defined(USE_XIAO_EPAPER_DISPLAY_BOARD_EE02) || defined(USE_XIAO_EPAPER_DISPLAY_BOARD_EE03)
+#define FF_PANEL_RAIL_CUT 1
+#else
+#define FF_PANEL_RAIL_CUT 0
+#endif
+// The IT8951 comes back from an unpowered sleep without its VCOM and bus
+// setup, so a deep-sleep wake gives it the full init. The Spectra's init is
+// the same either way.
+#if FF_PANEL_RAIL_CUT && defined(ED103TC2_DRIVER)
+#define FF_WAKE_BEGIN 0
+#else
+#define FF_WAKE_BEGIN 1
+#endif
+
+#if FF_PANEL_RAIL_CUT
+static void panelRailOff() {
+  for (int p : {TFT_ENABLE, TFT_CS}) {
+    pinMode(p, OUTPUT);
+    digitalWrite(p, LOW);
+    gpio_hold_en((gpio_num_t)p);
+  }
+  gpio_deep_sleep_hold_en();
+}
+
+// A pin held through deep sleep stays held after the wake, and begin() could
+// not raise the rail. Let both go, still low: begin() powers the panel.
+static void panelRailRelease() {
+  for (int p : {TFT_ENABLE, TFT_CS}) {
+    pinMode(p, OUTPUT);
+    digitalWrite(p, LOW);
+    gpio_hold_dis((gpio_num_t)p);
+  }
+}
+#endif
+
 void clearToast();   // defined with the toasts, below
 void goToSleep(uint32_t minutes) {
   g_loaderAnim.on = false;
@@ -569,8 +614,10 @@ void goToSleep(uint32_t minutes) {
   panelLock();               // let an in-flight loader step finish first
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
-  // update() already put the T-CON to sleep; e-paper holds its image with the
-  // rails off, so there's nothing else to power down.
+  // e-paper holds its image with the rails off, so the panel side goes off.
+#if FF_PANEL_RAIL_CUT
+  panelRailOff();
+#endif
 
   // Wake on the user buttons (active-low) and on a timer. The internal RTC
   // pull-ups only hold the keys high in deep sleep while the RTC peripheral
@@ -1940,6 +1987,9 @@ static bool resumeGlass(bool forcePortal) {
 // ---------------------------------------------------------------- setup
 void setup() {
   Serial.begin(115200);
+#if FF_PANEL_RAIL_CUT
+  panelRailRelease();   // held off through the last deep sleep
+#endif
   ledBegin();      // white: starting up, until the server answers
   delay(50);
   startImprov();   // answers the USB flasher from the first moment (W-839)
@@ -2019,7 +2069,7 @@ void setup() {
   // Even the always-awake build sleeps on an empty cell — the alternative is
   // a brownout loop. It comes back on its own once the pack is charged.
   if (lowBatteryHold(vbat)) {
-    markLowBattery(fromDeepSleep ? 1 : 0);
+    markLowBattery(fromDeepSleep ? FF_WAKE_BEGIN : 0);
     goToSleep(FF_LOW_BATT_SLEEP_MIN);
     return;
   }
@@ -2074,7 +2124,7 @@ void setup() {
   // Panel next (battery was read above, before it): the keys only read while
   // the panel side is powered and the T-CON awake (see PIN_PANEL_PWR), so the
   // power-on hold and the 3 s KEY2 hold below can't be sampled before begin().
-  epaper.begin(fromDeepSleep ? 1 : 0);
+  epaper.begin(fromDeepSleep ? FF_WAKE_BEGIN : 0);
 
   bool forcePortal = (!buttonWake && digitalRead(PIN_PORTAL_RESET) == LOW);
   if (keyStatus) {

@@ -732,6 +732,14 @@ class TextModel(ABC):
     #: every call so a cache hit never inherits a previous species' numbers.
     last_usage: Optional[dict] = None
 
+    def __init_subclass__(cls, **kwargs):
+        # Every paid call goes through the spend gate (W-938): a subclass's
+        # own methods are fenced the moment it is defined.
+        super().__init_subclass__(**kwargs)
+        for name in ("complete_json", "search_json"):
+            if name in cls.__dict__:
+                setattr(cls, name, spend.fenced(cls.__dict__[name]))
+
     @abstractmethod
     def complete_json(self, prompt: str) -> dict:
         """Return the model's JSON reply as a dict. May raise."""
@@ -1013,6 +1021,12 @@ class ImageModel(ABC):
     #: Normalized token usage of the most recent generate() (see TextModel),
     #: or None. Kept on the instance so the seam stays "bytes in, bytes out".
     last_usage: Optional[dict] = None
+
+    def __init_subclass__(cls, **kwargs):
+        # Every paid call goes through the spend gate (W-938).
+        super().__init_subclass__(**kwargs)
+        if "generate" in cls.__dict__:
+            cls.generate = spend.fenced(cls.__dict__["generate"])
 
     @abstractmethod
     def generate(self, prompt: str, size: str, refs: list[Path]) -> bytes:

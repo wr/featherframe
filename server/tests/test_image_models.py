@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import base64
 
+import pytest
+
 from featherframe.config import Config
 from featherframe.render import genart
 from featherframe.render.genart import (A1111ImageModel, GeminiImageModel,
                                         GeminiTextModel, OpenAIImageModel,
                                         OpenAITextModel, ReplicateImageModel)
+
+pytestmark = pytest.mark.usefixtures("metered")
 
 _PNG = b"\x89PNG\r\n\x1a\nDATA"
 
@@ -186,10 +190,7 @@ def test_list_models_a1111_is_free_text(monkeypatch):
     assert out["free_text"] is True and "sd_xl_base" in out["models"]
 
 
-import pytest as _pytest
-
-
-@_pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True)
 def _clear_model_cache():
     genart._MODEL_CACHE.clear()
     yield

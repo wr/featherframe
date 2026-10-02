@@ -19,6 +19,8 @@ from featherframe.render.genart import (AnthropicTextModel, GeminiImageModel,
                                         OpenAIImageModel, OpenAITextModel,
                                         estimate_cost_usd)
 
+pytestmark = pytest.mark.usefixtures("metered")
+
 SLUG = "passer-domesticus"
 
 

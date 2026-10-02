@@ -230,7 +230,7 @@ class _Resp:
         return self._body
 
 
-def test_openai_search_reads_the_responses_api(monkeypatch):
+def test_openai_search_reads_the_responses_api(monkeypatch, metered):
     sent = {}
 
     def post(url, headers=None, json=None, timeout=None):

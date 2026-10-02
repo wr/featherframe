@@ -477,8 +477,20 @@ desyncs the printed legend; the 2.5 pair are the only models that accept the
 generated plates are
 cached forever in `data/generated/` (PNG + JSON sidecar) and only a manual
 regenerate from the config page replaces one; failures soft-fail to the
-fallback with a per-species cooldown. The user's API key lives only in our DB
-and is masked in `status()` and the UI. `plate.py` does the content-aware crop
+fallback with a per-species cooldown. **Every paid call goes through the spend
+gate (W-938, `spend.py`).** `Gate.purchase(kind, subject, …)` checks (the
+master switch `Config.imagegen_enabled`, the runaway pause, the monthly limit
+`ai_monthly_limit_usd`, the subject rule), records the purchase durably, lets
+the one vendor call happen, then settles it; a record left open (a timeout, a
+5xx, a process that died) counts at its estimate and holds its subject for a
+day. The rule is `spend.decide`, held to `tests/fixtures/spend-cases.json`.
+Paid model methods are fenced: called outside a purchase they raise
+`spend.Unguarded`. `LocalStore` keeps the records in our SQLite (`spend`
+table); the old `spend.jsonl` is imported once and no longer written. More than
+`RUNAWAY_PER_HOUR` (6) automatic images in an hour pauses AI until the owner
+presses Resume. The Illustrations switch is `illustrations_generated`. The
+user's API key lives only in our DB and is masked in `status()` and the UI.
+`plate.py` does the content-aware crop
 of a scan (a generated PNG is `plate.extract_generated`: paper-normalised,
 never cropped — it is composed to fill the sheet, and the scan crop once
 decapitated a tern): the

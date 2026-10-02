@@ -122,13 +122,13 @@ for an owner's own action (Repaint, the collage's repaint).
 3. **Call** the vendor.
 4. **Settle.**
    - The vendor answered with the result: state `settled`, real usage and
-     cost.
+     cost, even if the image then fails to decode (it was billed).
    - The vendor refused before doing the work (HTTP 400, 401, 402, 403, 404,
      429): state `released`, $0. `failure_reason` still decides what the
      page says.
-   - Anything else (a timeout, a dropped connection, a 5xx, a broken image
-     after a 200, the process dying): the record stays `open` and counts at
-     its estimate, as if billed. The subject cools off for 24 hours.
+   - Anything else (a timeout, a dropped connection, a 5xx, the process
+     dying): the record stays `open` and counts at its estimate, as if billed.
+     The subject cools off for 24 hours.
 
 A refusal at step 1 is not an error: the caller falls back as it does today
 (the grid, the typographic illustration, no brief, the season's own snow).
@@ -170,7 +170,9 @@ More than `RUNAWAY_PER_HOUR` = 6 automatic purchases in a rolling hour trips
 the pause: the purchase that would be the 7th is refused, and the pause is
 stored with its time and count. It holds until the owner presses **Resume**;
 after a resume only purchases after it count. With the subject rules in place
-a household never comes near 6 an hour, even on hourly collages.
+a household never comes near 6 an hour, even on hourly collages. It counts
+automatic `plate` and `collage` purchases only; briefs and weather cost cents,
+and a day's collage can need a dozen briefs.
 
 ## Where the records live
 

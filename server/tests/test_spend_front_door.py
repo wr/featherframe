@@ -3,10 +3,12 @@ reserves there, and a front door it cannot reach buys nothing."""
 from __future__ import annotations
 
 import itertools
+import json
 from dataclasses import asdict
 from datetime import datetime, timedelta
 
 import pytest
+import requests
 from fastapi import FastAPI, Request
 from starlette.testclient import TestClient
 
@@ -93,15 +95,84 @@ def test_an_unreachable_door_buys_nothing(tmp_path, monkeypatch):
     assert e.value.reason == "unreachable"
 
 
-def test_the_servers_own_records_go_to_the_door_once(link, tmp_path):
-    door, ln = link
-    db = Database(tmp_path / "ff.db")
+def _local_record(db):
     local = spend.Gate(spend.LocalStore(db), now=lambda: T0)
     with local.purchase("plate", "tyto-alba", model="m") as p:
         p.settle(None, 0.05)
-    spend.FrontDoorStore(ln, local_db=db)
-    spend.FrontDoorStore(ln, local_db=db)
+
+
+def test_the_servers_own_records_go_to_the_door_once(link, tmp_path):
+    door, ln = link
+    db = Database(tmp_path / "ff.db")
+    _local_record(db)
+    first = spend.FrontDoorStore(ln, local_db=db)
+    second = spend.FrontDoorStore(ln, local_db=db)
+    assert door.state.imported == []              # building a store asks nothing of the door
+    rule = spend.Rule(limit_usd=10, runaway_per_hour=None, window_s=None)
+    for n, store in enumerate((first, second)):
+        rec = spend.Record(id=f"r{n}", at=T0.timestamp(), month="2026-09", day="2026-09-27",
+                           kind="plate", subject=f"s{n}", auto=False, model="m", quality=None,
+                           est_usd=0.07)
+        assert store.reserve(rec, rule) is None
     assert [r["subject"] for r in door.state.imported] == ["tyto-alba"]
+
+
+class Flaky:
+    """A session whose door can be away: every call fails while `down`."""
+
+    def __init__(self, inner) -> None:
+        self.inner, self.down, self.headers = inner, False, {}
+
+    def post(self, *a, **kw):
+        if self.down:
+            raise requests.ConnectionError("door away")
+        return self.inner.post(*a, **kw)
+
+    def get(self, *a, **kw):
+        if self.down:
+            raise requests.ConnectionError("door away")
+        return self.inner.get(*a, **kw)
+
+
+def test_a_door_that_is_away_buys_nothing_and_the_import_waits_for_it(tmp_path, monkeypatch):
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    door = fake_door()
+    session = Flaky(TestClient(door))
+    ln = hosted.HostedLink("http://door/h", "k", tmp_path / "data", session=session)
+    db = Database(tmp_path / "ff.db")
+    _local_record(db)
+    session.down = True
+    gate = spend.Gate(spend.FrontDoorStore(ln, local_db=db), now=lambda: T0)   # builds fine
+    with pytest.raises(spend.Refused) as e:
+        with gate.purchase("plate", "strix-varia", model="m"):
+            raise AssertionError("bought on a door that was away")
+    assert e.value.reason == "unreachable"
+    assert door.state.book.snapshot(0).rows == [] and door.state.imported == []
+    assert not db.get("spend_rows_at_door")
+    session.down = False                          # the door is back
+    with gate.purchase("plate", "strix-varia", model="m") as p:
+        p.settle(None, 0.07)
+    assert [r["subject"] for r in door.state.imported] == ["tyto-alba"]
+    assert db.get("spend_rows_at_door") is True
+    with gate.purchase("plate", "bubo-virginianus", model="m"):
+        pass
+    assert len(door.state.imported) == 1          # once
+
+
+def test_the_door_saying_ok_is_not_enough_unless_it_says_true(tmp_path, monkeypatch):
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    door = FastAPI()
+
+    @door.post("/h/spend/reserve")
+    async def reserve():
+        return {"ok": "yes", "reason": "limit"}
+
+    ln = hosted.HostedLink("http://door/h", "k", tmp_path / "data", session=TestClient(door))
+    gate = spend.Gate(spend.FrontDoorStore(ln), now=lambda: T0)
+    with pytest.raises(spend.Refused) as e:
+        with gate.purchase("plate", "tyto-alba", model="m"):
+            pass
+    assert e.value.reason == "limit"
 
 
 def test_a_snapshot_is_kept_for_a_few_seconds_and_a_write_drops_it(link):
@@ -176,15 +247,34 @@ def test_on_cloud_the_service_buys_through_the_front_door(link, tmp_path, monkey
     assert isinstance(svc.spend_gate.store, spend.FrontDoorStore)
 
 
-def test_a_door_away_at_start_leaves_the_server_on_its_own_records(tmp_path, monkeypatch):
+def test_a_door_away_at_start_still_leaves_the_server_on_the_door(tmp_path, monkeypatch):
+    """Not on its own records: it starts, and every purchase refuses."""
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
     db = Database(tmp_path / "ff.db")
-    with spend.Gate(spend.LocalStore(db), now=lambda: T0).purchase(
-            "plate", "tyto-alba", model="m") as p:
-        p.settle(None, 0.05)
+    _local_record(db)
     gone = hosted.HostedLink("http://127.0.0.1:9/h", "k", tmp_path / "data")
     svc = _service(tmp_path, monkeypatch, gone, db)
-    assert isinstance(svc.spend_gate.store, spend.LocalStore)
+    assert isinstance(svc.spend_gate.store, spend.FrontDoorStore)
+    with pytest.raises(spend.Refused) as e:
+        with svc.spend_gate.purchase("plate", "strix-varia", model="m"):
+            pass
+    assert e.value.reason == "unreachable"
+
+
+def test_the_old_ledger_reaches_the_door_on_cloud(link, tmp_path, monkeypatch):
+    door, ln = link
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "spend.jsonl").write_text(json.dumps(
+        {"at": "2026-09-27T11:51:21+00:00", "kind": "collage", "subject": "2026-09-27",
+         "model": "gpt-image-2.5-sunburst", "quality": "max", "usage": None,
+         "cost_usd": 0.199825}) + "\n")
+    svc = _service(tmp_path, monkeypatch, ln, Database(tmp_path / "ff.db"))
+    assert door.state.imported == []
+    with svc.spend_gate.purchase("plate", "tyto-alba", model="m") as p:
+        p.settle(None, 0.05)
+    assert [(r["kind"], r["subject"], r["state"]) for r in door.state.imported] == \
+        [("collage", "2026-09-27", "settled")]
 
 
 def test_off_cloud_the_service_keeps_its_own_records(tmp_path, monkeypatch):
@@ -192,3 +282,98 @@ def test_off_cloud_the_service_keeps_its_own_records(tmp_path, monkeypatch):
     svc = _service(tmp_path, monkeypatch, None, Database(tmp_path / "ff.db"))
     assert hosted.link() is None
     assert isinstance(svc.spend_gate.store, spend.LocalStore)
+
+
+# -- reads soft-fail; buying stays strict -------------------------------------
+class DeadStore:
+    """A front door that cannot be reached."""
+
+    def reserve(self, rec, rule):
+        raise requests.ConnectionError("door away")
+
+    def settle(self, *a):
+        raise requests.ConnectionError("door away")
+
+    def snapshot(self, since):
+        raise requests.ConnectionError("door away")
+
+    def resume(self, now):
+        raise requests.ConnectionError("door away")
+
+
+def test_a_summary_it_cannot_read_is_the_last_good_one_or_an_empty_one(tmp_path):
+    flaky = Flaky(TestClient(fake_door()))
+    ln = hosted.HostedLink("http://door/h", "k", tmp_path / "data", session=flaky)
+    ticks = itertools.count(0, 100)               # every read is past the kept one's TTL
+    gate = spend.Gate(spend.FrontDoorStore(ln, clock=lambda: next(ticks)), now=lambda: T0)
+    flaky.down = True
+    empty = gate.summary()
+    assert empty == {"month": "2026-09", "usd": 0.0, "limit": 10.0, "count": 0, "paused": None,
+                     "by_kind_30d": {}, "span_days": 0, "unreachable": True}
+    flaky.down = False
+    with gate.purchase("plate", "tyto-alba", model="m") as p:
+        p.settle(None, 0.05)
+    good = gate.summary()
+    assert good["unreachable"] is False and good["usd"] == pytest.approx(0.05)
+    flaky.down = True
+    last = gate.summary()
+    assert last["unreachable"] is True and last["usd"] == pytest.approx(0.05) and last["count"] == 1
+
+
+@pytest.fixture
+def dead(tmp_path, monkeypatch):
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    monkeypatch.setenv("FEATHERFRAME_DB", str(tmp_path / "ff.db"))
+    from featherframe.config import Config, save_config
+    from featherframe.service import FeatherframeService
+    db = Database(tmp_path / "ff.db")
+    save_config(db, Config(imagegen_api_key="sk-proj-verysecretkey1234"))
+    svc = FeatherframeService(db)
+    svc._clock = lambda: datetime(2026, 10, 14, 12, 0)
+    svc.spend_gate.store = DeadStore()
+    return svc
+
+
+@pytest.fixture
+def client(dead):
+    from featherframe.app import app
+    app.state.service = dead
+    return TestClient(app, raise_server_exceptions=False)
+
+
+ORIGIN = {"Origin": "http://testserver"}
+
+
+def test_the_page_and_the_status_stand_without_the_door(dead, client):
+    ai = dead.status()["ai"]
+    assert ai["summary"] == "Unavailable" and ai["state"] == "warn" and ai["notice"] == "error"
+    assert ai["text"] == ("Nothing is bought until Featherframe Cloud can check this month's "
+                          "AI spend. It resumes on its own.")
+    assert client.get("/").status_code == 200
+    assert client.get("/api/status").json()["ai"]["summary"] == "Unavailable"
+
+
+def test_a_render_has_no_footnote_about_a_door_that_is_away(dead):
+    assert dead.ai_refusal() == "unreachable"
+    dead.db.set("imagegen_error", {"at": "2026-10-14T11:00:00", "reason": "credits"})
+    assert dead._imagegen_glass_note() is None
+    assert dead._fallback_note() is None
+    assert dead.genart._model is not None        # without the rule it would say "Out of OpenAI credits"
+
+
+def test_a_repaint_says_the_door_is_away(dead, client, monkeypatch):
+    monkeypatch.setattr(dead, "generated_listing", lambda: [{"slug": "tyto-alba"}])
+    r = client.post("/api/generated/regenerate", data={"slug": "tyto-alba"}, headers=ORIGIN)
+    assert r.json() == {"ok": False,
+                        "error": "AI generation is unavailable right now. Try again in a minute."}
+    dead.config.collage_generated = True
+    r = client.post("/api/collage/now", data={"repaint": "1"}, headers=ORIGIN)
+    assert r.status_code == 409
+    assert r.json() == {"ok": False, "error": "AI generation is unavailable right now"}
+
+
+def test_resume_says_try_again_when_the_door_is_away(client):
+    r = client.post("/api/ai/resume", headers=ORIGIN)
+    assert r.status_code == 503
+    assert r.json() == {"ok": False, "error": "try again in a minute"}

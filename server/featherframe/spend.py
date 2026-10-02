@@ -233,6 +233,7 @@ class Gate:
         self._limit = limit_usd
         self._runaway = runaway_per_hour
         self._now = now
+        self._last_summary: Optional[dict] = None
 
     @classmethod
     def unlimited(cls) -> Gate:
@@ -282,18 +283,30 @@ class Gate:
 
     def summary(self) -> dict:
         """This month's spend against the limit, the pause, and the last 30
-        days' automatic image purchases by kind (for the cost projection)."""
+        days' automatic image purchases by kind (for the cost projection).
+        Reading never stops the page: a store that cannot answer (the front
+        door, on Cloud) gives the last good summary, or an empty one, marked
+        `unreachable`. Buying stays strict: `purchase` refuses."""
         now = self._now()
+        month = now.strftime("%Y-%m")
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         since = min(month_start, now - timedelta(days=30)).timestamp()
-        snap = self.store.snapshot(since)
-        month = now.strftime("%Y-%m")
+        try:
+            snap = self.store.snapshot(since)
+        except Exception:
+            log.warning("spend records could not be read; showing the last known summary",
+                        exc_info=True)
+            last = self._last_summary
+            if last is not None:
+                return {**last, "unreachable": True}
+            return {"month": month, "usd": 0.0, "limit": float(self._limit()), "count": 0,
+                    "paused": None, "by_kind_30d": {}, "span_days": 0, "unreachable": True}
         cut = (now - timedelta(days=30)).timestamp()
         recent = [r for r in snap.rows if r.auto and r.kind in RUNAWAY_KINDS
                   and r.state != "released" and r.at >= cut]
         first = min((r.at for r in recent), default=None)
         span = 0 if first is None else max(1, min(30, int((now.timestamp() - first) // 86400) + 1))
-        return {
+        out = {
             "month": month,
             "usd": round(sum(_spent(r) for r in snap.rows if r.month == month), 4),
             "limit": float(self._limit()),
@@ -302,7 +315,10 @@ class Gate:
             "by_kind_30d": {k: sum(1 for r in recent if r.kind == k) for k in RUNAWAY_KINDS
                             if any(r.kind == k for r in recent)},
             "span_days": span,
+            "unreachable": False,
         }
+        self._last_summary = out
+        return dict(out)
 
     def resume(self) -> None:
         self.store.resume(self._now().timestamp())
@@ -430,21 +446,38 @@ class FrontDoorStore:
     """The records at the household's front door (W-938, part 2): they
     outlive a Container stopped mid-call. The front door runs `decide()`'s
     port with the insert and adds a backstop of its own. Anything it cannot
-    answer raises, and the gate turns that into `Refused("unreachable")`."""
+    answer raises, and the gate turns that into `Refused("unreachable")`:
+    nothing is bought on a front door that cannot be reached, a start that
+    finds it away included, so building the store never touches the network."""
 
     def __init__(self, link, local_db=None, clock: Callable[[], float] = time.monotonic) -> None:
         self._link = link
         self._clock = clock
+        self._local_db = local_db
+        self._imported = local_db is None    # the server's own rows are at the door
+        self._import_lock = threading.Lock()
         self._kept: Optional[tuple] = None   # (when, since, Snapshot)
         self._writes = 0                     # bumped by every write
         self._kept_lock = threading.Lock()
-        if local_db is not None and not local_db.get(_AT_DOOR_KEY):
-            rows = local_db.spend_rows(0.0)
-            if rows:
-                r = link.http.post(link._url("spend/import"), json={"rows": rows},
-                                   timeout=FRONT_DOOR_TIMEOUT_S)
-                r.raise_for_status()
-            local_db.set(_AT_DOOR_KEY, True)
+
+    def _import_local(self) -> None:
+        """The server's own records, from before the front door kept them,
+        go over once, ahead of the first reservation: its count must include
+        them. A failure raises, and the next reservation tries again."""
+        if self._imported:
+            return
+        with self._import_lock:
+            if self._imported:
+                return
+            db = self._local_db
+            if not db.get(_AT_DOOR_KEY):
+                rows = db.spend_rows(0.0)
+                if rows:
+                    r = self._link.http.post(self._link._url("spend/import"), json={"rows": rows},
+                                             timeout=FRONT_DOOR_TIMEOUT_S)
+                    r.raise_for_status()
+                db.set(_AT_DOOR_KEY, True)
+            self._imported = True
 
     def _post(self, op: str, body: dict) -> dict:
         try:
@@ -457,8 +490,9 @@ class FrontDoorStore:
                 self._kept, self._writes = None, self._writes + 1
 
     def reserve(self, rec: Record, rule: Rule) -> Optional[str]:
+        self._import_local()
         body = self._post("reserve", {"record": asdict(rec), "rule": asdict(rule)})
-        return None if body.get("ok") else str(body.get("reason") or "unreachable")
+        return None if body.get("ok") is True else str(body.get("reason") or "unreachable")
 
     def settle(self, rec_id: str, state: str, cost_usd: Optional[float],
                usage: Optional[dict]) -> None:

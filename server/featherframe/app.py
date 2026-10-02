@@ -46,11 +46,13 @@ HOSTED_STOP_WAIT_S = 45
 # What the page says when the spend gate would refuse an owner's repaint (W-938).
 _AI_REFUSED = {"off": "AI image generation is off.",
                "paused": "AI generation is paused.",
-               "limit": "This month's AI limit is reached."}
+               "limit": "This month's AI limit is reached.",
+               "unreachable": "AI generation is unavailable right now. Try again in a minute."}
 # The same for a collage repaint: the page prefixes "Could not start — ".
 _AI_REFUSED_TASK = {"off": "AI image generation is off",
                     "paused": "AI generation is paused",
-                    "limit": "this month's AI limit is reached"}
+                    "limit": "this month's AI limit is reached",
+                    "unreachable": "AI generation is unavailable right now"}
 
 templates = Jinja2Templates(directory=str(paths.templates_dir()))
 
@@ -946,7 +948,8 @@ async def ai_resume(request: Request):
     """The owner's Resume after a runaway pause (W-938)."""
     if not _same_origin(request):
         return _forbidden_cross_origin()
-    await run_in_threadpool(_svc(request).resume_ai)
+    if not await run_in_threadpool(_svc(request).resume_ai):
+        return JSONResponse({"ok": False, "error": "try again in a minute"}, status_code=503)
     return JSONResponse({"ok": True})
 
 

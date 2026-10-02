@@ -297,3 +297,18 @@ describe("the admin API", () => {
     expect((await api("nothing", {})).status).toBe(404);
   });
 });
+
+describe("the households table", () => {
+  it("keeps every row's actions inside its card (W-951)", async () => {
+    // Six columns need ~950 px: the page is wider than that, and a card that
+    // is outgrown scrolls sideways rather than clipping its actions away.
+    const { adminPage } = await import("../src/pages");
+    const html = await adminPage({ waitlist: [], invites: [], log: [], kits: [], households: [],
+      growth: { signups: [], invites: [], households: [] },
+      usage: { meters: [], bill: 5, projected: 5, month: "2026-10", live: true, measured: true, days: [] },
+    } as never, null).text();
+    expect(html).toContain("main.wide { max-width:1040px; }");
+    expect(html).toMatch(/main\.wide \.card \{[^}]*overflow-x:auto/);
+    expect(html).not.toMatch(/main\.wide \.card \{[^}]*overflow:hidden/);
+  });
+});

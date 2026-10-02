@@ -31,9 +31,10 @@ const STYLE = `
     background:var(--accent); color:var(--on-accent); cursor:pointer; }
   a { color:var(--accent); }
   .bad { color:var(--bad); }
-  main.wide { max-width:880px; }
+  main.wide { max-width:1040px; }
   main.wide .wordmark { font-size:36px; margin-bottom:20px; }
-  main.wide .card { padding:0; margin-bottom:16px; overflow:hidden; }
+  /* Outgrown, a card scrolls sideways rather than clip a row's actions (W-951). */
+  main.wide .card { padding:0; margin-bottom:16px; overflow-x:auto; }
   .sec-head { font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
     margin:0; padding:16px 20px 8px; }
   table { width:100%; border-collapse:collapse; font-size:14px; }

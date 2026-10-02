@@ -48,6 +48,8 @@ const STYLE = `
   /* A frame's line and a household's id stay whole when the page has room. */
   @media (min-width:900px) { .frames li, .hid { white-space:nowrap; } }
   .muted { color:var(--muted); }
+  button.linkish { display:inline; width:auto; margin:0; padding:0; border:0; border-radius:0; background:none;
+    color:var(--accent); font-weight:400; text-decoration:underline; cursor:pointer; }
   .empty { padding:4px 20px 18px; color:var(--muted); margin:0; }
   .row-actions { display:flex; gap:8px; justify-content:flex-end; }
   .row-actions form { margin:0; }
@@ -458,35 +460,61 @@ export function suspendedPage(): Response {
     <form method="post" action="/logout"><button type="submit">Sign out</button></form>`);
 }
 
-export function loginPage(error = "", codeError = "", code = ""): Response {
+export function loginPage(error = ""): Response {
   const e = escapeHtml;
   return page("Sign in · Featherframe", `
     <h1>Sign in</h1>
     ${error ? `<p class="bad">${e(error)}</p>` : ""}
     <form method="post" action="/login">
       <label for="email">Email</label>
-      <input type="email" id="email" name="email" autocomplete="email" required${codeError ? "" : " autofocus"}>
+      <input type="email" id="email" name="email" autocomplete="email" required autofocus>
       <input type="hidden" name="tz" id="tz">
-      <button type="submit">Email me a link</button>
+      <button type="submit">Email me a code</button>
     </form>
-    <hr style="border:0;border-top:1px solid var(--border);margin:22px 0 18px">
-    <h1>Set up a new frame</h1>
-    <p>Enter the code on your frame's screen.</p>
-    ${codeError ? `<p class="bad">${e(codeError)}</p>` : ""}
-    <form method="post" action="/setup">
-      <label for="code">Code</label>
-      <input type="text" id="code" name="code" required autocomplete="off" autocapitalize="characters" spellcheck="false"
-        maxlength="9" placeholder="ABC-DEF" value="${e(code)}"${codeError ? " autofocus" : ""} style="text-transform:uppercase;letter-spacing:.08em">
-      <button type="submit">Continue</button>
-    </form>
+    <p class="muted" style="margin:16px 0 0"><a href="/setup">Set up a new frame</a></p>
     <script>try{document.getElementById("tz").value=Intl.DateTimeFormat().resolvedOptions().timeZone}catch(e){}</script>`);
 }
 
-export function checkEmailPage(email: string): Response {
+/** A frame's six letters, typed (W-891): its own page since W-947. */
+export function setupCodePage(error = "", code = ""): Response {
+  const e = escapeHtml;
+  return page("Set up a new frame · Featherframe", `
+    <h1>Set up a new frame</h1>
+    <p>Enter the code on your frame's screen.</p>
+    ${error ? `<p class="bad">${e(error)}</p>` : ""}
+    <form method="post" action="/setup">
+      <label for="code">Code</label>
+      <input type="text" id="code" name="code" required autocomplete="off" autocapitalize="characters" spellcheck="false"
+        maxlength="9" placeholder="ABC-DEF" value="${e(code)}" autofocus style="text-transform:uppercase;letter-spacing:.08em">
+      <button type="submit">Continue</button>
+    </form>
+    <p class="muted" style="margin:16px 0 0"><a href="/login">Sign in</a></p>`);
+}
+
+/** Where the code is typed (W-947). The same page for every address. */
+export function codeEntryPage(v: { email: string; kind: "login" | "setup"; back: string; error: string; sent: boolean }): Response {
+  const e = escapeHtml;
+  const setup = v.kind === "setup";
   return page("Check your email · Featherframe", `
     <h1>Check your email</h1>
-    <p>If ${escapeHtml(email)} has an invitation or an account, a sign-in link is on its way. It works once, for 15 minutes.</p>
-    <p><a href="/login">Use a different email</a> · <a href="https://featherframe.app/help/account">Help</a></p>`);
+    <p>${setup ? `If ${e(v.email)} has a Featherframe Cloud account, we sent it a code that adds this frame.`
+               : `If ${e(v.email)} has an invitation or an account, we sent it a code.`}</p>
+    ${v.error ? `<p class="bad">${e(v.error)}</p>` : v.sent ? `<p>Sent a new code.</p>` : ""}
+    <form method="post" action="/login/code" id="code-form">
+      <label for="code">Code</label>
+      <input type="text" id="code" name="code" inputmode="numeric" autocomplete="one-time-code"
+        maxlength="12" required autofocus style="letter-spacing:.2em">
+      <button type="submit">${setup ? "Add this frame" : "Sign in"}</button>
+    </form>
+    <p class="muted" style="margin:16px 0">The code and the link in the email work once, for 15 minutes.</p>
+    ${setup ? `<p>Built this frame yourself? Featherframe Cloud is invite-only for now. <a href="https://featherframe.app">Join the waitlist</a>, and we'll email you an invitation.</p>` : ""}
+    <form method="post" action="/login/resend" style="margin:0"><p style="margin:0"><button type="submit" class="linkish">Send a new code</button>
+      · <a href="${e(v.back)}">Use a different email</a> · <a href="https://featherframe.app/help/account">Help</a></p></form>
+    <script>(function(){var f=document.getElementById("code-form"),i=document.getElementById("code");
+      i.addEventListener("input",function(){if(i.value.replace(/\\D/g,"").length===6){f.requestSubmit?f.requestSubmit():f.submit();}});
+      function look(){if(document.hidden)return;fetch("/login/state",{credentials:"same-origin"})
+        .then(function(r){return r.json();}).then(function(s){if(s.signedIn)location.replace("/");}).catch(function(){});}
+      document.addEventListener("visibilitychange",look);window.addEventListener("focus",look);})();</script>`);
 }
 
 export function linkExpiredPage(): Response {
@@ -496,12 +524,14 @@ export function linkExpiredPage(): Response {
     <p><a href="/login">Get a new link</a></p>`);
 }
 
-export function signInEmail(link: string): { subject: string; text: string; html: string } {
+export function signInEmail(link: string, code: string): { subject: string; text: string; html: string } {
+  const e = escapeHtml;
   return {
-    subject: "Sign in to Featherframe",
-    text: `Sign in to Featherframe:\n\n${link}\n\nThe link works once, for 15 minutes. If you didn't ask for it, ignore this email.`,
-    html: `<p>Sign in to Featherframe:</p><p><a href="${escapeHtml(link)}">Sign in</a></p>
-<p style="color:#827e76">The link works once, for 15 minutes. If you didn't ask for it, ignore this email.</p>`,
+    subject: `Your Featherframe sign-in code: ${code}`,
+    text: `Your sign-in code is ${code}.\n\nOr sign in with this link:\n${link}\n\nThe code and the link work once, for 15 minutes. If you didn't ask to sign in, ignore this email.`,
+    html: `<p>Your sign-in code is <strong style="font-size:20px;letter-spacing:2px">${e(code)}</strong>.</p>
+<p>Or <a href="${e(link)}">sign in with this link</a>.</p>
+<p style="color:#827e76">The code and the link work once, for 15 minutes. If you didn't ask to sign in, ignore this email.</p>`,
   };
 }
 
@@ -681,17 +711,6 @@ export function setupLimitedPage(): Response {
     <p>Try again in an hour.</p>`);
 }
 
-/** After setup for an email that could not make an account here: one that
- * has an account (sent a link that adds this frame), or one with no
- * invitation (nothing sent). The same page for both (W-892). */
-export function setupLinkSentPage(email: string): Response {
-  return page("Check your email · Featherframe", `
-    <h1>Check your email</h1>
-    <p>If ${escapeHtml(email)} has a Featherframe Cloud account, we sent it a link that adds this frame.</p>
-    <p>Built this frame yourself? Featherframe Cloud is invite-only for now. <a href="https://featherframe.app">Join the waitlist</a>, and we'll email you an invitation.</p>
-    <p><a href="https://featherframe.app/help/account">Help</a></p>`);
-}
-
 type Mail = { subject: string; text: string; html: string };
 
 /** The first email (W-889, written to docs/STYLE.md). `station`: the
@@ -747,12 +766,12 @@ export function verifyExpiredPage(): Response {
     <p><a href="/">Open the Featherframe webapp</a></p>`);
 }
 
-export function addFrameEmail(link: string, frame: string): Mail {
+export function addFrameEmail(link: string, frame: string, code: string): Mail {
+  const e = escapeHtml;
   return {
-    subject: "Add a frame to Featherframe",
-    text: `Someone scanned the code on a frame (${frame}) and asked to add it to your account. To add it and sign in:\n\n${link}\n\nThe link works once, for 15 minutes. If this wasn't you, ignore this email.`,
-    html: `<p>Someone scanned the code on a frame (${escapeHtml(frame)}) and asked to add it to your account.</p>
-<p><a href="${escapeHtml(link)}">Add this frame and sign in</a></p>
-<p style="color:#827e76">The link works once, for 15 minutes. If this wasn't you, ignore this email.</p>`,
+    subject: `Your code to add a frame to Featherframe: ${code}`,
+    text: `Someone scanned the code on a frame (${frame}) and asked to add it to your account. To add it and sign in, enter the code ${code}, or use this link:\n${link}\n\nThe code and the link work once, for 15 minutes. If this wasn't you, ignore this email.`,
+    html: `<p>Someone scanned the code on a frame (${e(frame)}) and asked to add it to your account. To add it and sign in, enter the code <strong style="font-size:20px;letter-spacing:2px">${e(code)}</strong>, or <a href="${e(link)}">use this link</a>.</p>
+<p style="color:#827e76">The code and the link work once, for 15 minutes. If this wasn't you, ignore this email.</p>`,
   };
 }

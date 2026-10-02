@@ -7,18 +7,17 @@
 // sent a link that adds the frame instead.
 
 import type { Env } from "./index";
-import { joinWaitlist, makeLoginLink, normEmail, rateHit, sendMail, sendVerification, sessionUser, signedIn } from "./accounts";
-import { addFrameEmail, loginPage, setupAddPage, setupExpiredPage, setupLimitedPage, setupLinkSentPage, setupPage,
-         welcomeEmail } from "./pages";
+import { joinWaitlist, normEmail, rateHit, sendMail, sendVerification, sessionUser, signedIn } from "./accounts";
+import { setupAddPage, setupCodePage, setupExpiredPage, setupLimitedPage, setupPage, welcomeEmail } from "./pages";
 import { SETUP_TOKEN_LEN, setupToken, setupUrl } from "./pairing";
 import { geocode, regionFor, stationById, stationsNear } from "./stations";
+import { startSignIn } from "./signin";
 import { randomHex, sha256, validTz } from "./util";
 
 const now = () => Math.floor(Date.now() / 1000);
 
 export const SETUP_PER_IP = 5;          // setups tried an hour from one IP
 export const SETUP_VIEWS_PER_IP = 60;   // page and station lookups an hour
-export const LINKS_PER_ADDRESS = 5;     // add-this-frame emails an hour to one address
 
 const PATH = new RegExp(`^/setup/([A-Za-z]{6})/([0-9A-Za-z]{${SETUP_TOKEN_LEN}})/?$`);
 
@@ -34,19 +33,19 @@ export const CODE_TRIES_PER_HOUR = 20;   // typed codes from one IP (W-891)
  * that frame opens. The six letters are guessable where the QR's secret is
  * not, so tries are limited per IP, a minute (the router) and an hour (here). */
 async function typedCode(request: Request, env: Env, ip: string): Promise<Response> {
-  if (request.method !== "POST") return Response.redirect(`https://${env.APP_HOST}/login`, 303);
+  if (request.method !== "POST") return setupCodePage();
   const origin = request.headers.get("Origin");
   if (origin && origin !== `https://${env.APP_HOST}`) return new Response("forbidden", { status: 403 });
   const form = await request.formData();
   const typed = String(form.get("code") || "");
   const code = typed.toUpperCase().replace(/[^A-Z]/g, "");
   if (!(await rateHit(env, `setup:code:${ip}`, CODE_TRIES_PER_HOUR, 3600))) {
-    return loginPage("", "Too many tries. Try again in an hour, or scan the QR code on the frame.", typed);
+    return setupCodePage("Too many tries. Try again in an hour, or scan the QR code on the frame.", typed);
   }
-  if (code.length !== 6) return loginPage("", "A code is six letters, like ABC-DEF.", typed);
+  if (code.length !== 6) return setupCodePage("A code is six letters, like ABC-DEF.", typed);
   const row = await env.DB.prepare("SELECT code, setup_token FROM pairing WHERE code = ? AND expires_at > ?")
     .bind(code, now()).first<{ code: string; setup_token: string | null }>();
-  if (!row) return loginPage("", "No frame is showing that code. Check the code on your frame's screen.", typed);
+  if (!row) return setupCodePage("No frame is showing that code. Check the code on your frame's screen.", typed);
   let token = row.setup_token;
   if (!token) {
     token = setupToken();
@@ -162,14 +161,12 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
   if (!email) return again("Enter an email address.");
 
   const tz = validTz(String(form.get("tz") || ""));
+  // The code page's "Use a different email" comes back here.
+  const ask = { email, kind: "setup" as const, tz, frame: row.device_id.slice(-6), back: url.pathname };
   const known = await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first();
   if (known) {
-    // Their account, their inbox: the link adds the frame once followed.
-    if (await rateHit(env, `setup:link:${await sha256(email)}`, LINKS_PER_ADDRESS, 3600)) {
-      const link = await makeLoginLink(env, email, tz, `${row.code}:${row.device_id}`);
-      if (link) ctx.waitUntil(sendMail(env, email, addFrameEmail(link, row.device_id.slice(-6))));
-    }
-    return setupLinkSentPage(email);
+    // Their account, their inbox: the code or the link adds the frame (W-947).
+    return startSignIn(env, ctx, { ...ask, pairCode: `${row.code}:${row.device_id}` });
   }
   // A new account needs an invitation (W-892): a kit registered when it was
   // flashed to ship, or an email invited from the waitlist. Without one the
@@ -179,7 +176,7 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
     .bind(email).first());
   if (!kit && !invited) {
     await joinWaitlist(env, email, "setup");
-    return setupLinkSentPage(email);
+    return startSignIn(env, ctx, { ...ask, pairCode: null });
   }
 
   // A new account on BirdWeather needs its station, or the frame would have
@@ -210,7 +207,7 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
   } catch {
     // The same email set up a moment ago.
     await release.run();
-    return setupLinkSentPage(email);
+    return startSignIn(env, ctx, { ...ask, pairCode: null, quiet: true });
   }
   if (!(await claim(env, row, hid))) {
     await env.DB.batch([

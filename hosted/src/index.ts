@@ -14,7 +14,8 @@
 // box's own Python server in a Container.
 
 import { confirmVerification, resendVerification } from "./accounts";
-import { auth, confirmEmailChange, confirmWaitlist, login, logout, pendingEmail, sessionUser, settingsForm } from "./accounts";
+import { auth, confirmEmailChange, confirmWaitlist, logout, pendingEmail, sessionUser, settingsForm } from "./accounts";
+import { checkCode, login, resendCode, showCode, signInState } from "./signin";
 import { adminRoute, apiRoute, waitlistRoute } from "./admin";
 import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
 import { LOBBY_DRAWING, expiryText, pairingCode, setupUrl } from "./pairing";
@@ -77,7 +78,10 @@ export default {
     }
     const icon = pageIcon(path);
     if (icon) return icon;
-    if (path === "/login") return login(request, env);
+    if (path === "/login") return login(request, env, ctx);
+    if (path === "/login/code") return request.method === "POST" ? checkCode(request, env) : showCode(request, env, url);
+    if (path === "/login/resend" && request.method === "POST") return resendCode(request, env, ctx);
+    if (path === "/login/state" && request.method === "GET") return signInState(request, env);
     if (path === "/auth") return auth(request, env, url);
     if (path === "/logout" && request.method === "POST") return logout(request, env);
     if (path === "/account/email") return confirmEmailChange(env, url);

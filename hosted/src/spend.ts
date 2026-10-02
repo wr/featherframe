@@ -91,18 +91,23 @@ export class SpendBook {
   }
 
   /** Check and insert as one step: a Durable Object runs one request at a
-   * time, and nothing here awaits. */
-  reserve(rec: SpendRow, rule: Rule): { ok: boolean; reason: string | null; alerts: Alert[] } {
+   * time, and nothing here awaits. The backstop and the alerts count the UTC
+   * day on `now`, the front door's own clock: the backstop is for when the
+   * server is wrong, its clock included. The rule itself is judged on the
+   * record's `at`, as the server judges it. */
+  reserve(rec: SpendRow, rule: Rule, now = Date.now() / 1000): { ok: boolean; reason: string | null; alerts: Alert[] } {
     this.set("limit", String(rule.limit_usd));
-    const rows = this.rows(rec.at - LOOKBACK_S, rec.month);
-    const today = utcDay(rec.at);
+    const rows = this.rows(Math.min(rec.at, now) - LOOKBACK_S, rec.month);
+    const today = utcDay(now);
     const dayTotal = rows.filter((r) => utcDay(r.at) === today).reduce((a, r) => a + spent(r), 0);
     const alerts: Alert[] = [];
+    const paused = this.get("pause") !== null;
     let reason: string | null = null;
-    if (rec.est_usd > 0 && dayTotal + rec.est_usd > BACKSTOP_USD_PER_DAY + 1e-9) {
+    // A pause is its own answer: a paused household is never told it hit the backstop.
+    if (!paused && rec.est_usd > 0 && dayTotal + rec.est_usd > BACKSTOP_USD_PER_DAY + 1e-9) {
       reason = "backstop";
     } else {
-      reason = decide(rows, this.get("pause") !== null, Number(this.get("resumed_at") || 0), rec, rule, rec.at);
+      reason = decide(rows, paused, Number(this.get("resumed_at") || 0), rec, rule, rec.at);
       if (reason === "runaway") this.set("pause", JSON.stringify({ at: rec.at, count: rule.runaway_per_hour }));
     }
     if (reason === null) this.insert({ ...rec, state: "open", cost_usd: null });

@@ -1,8 +1,10 @@
 // The household's front door (W-843): see index.ts.
 
 import { DurableObject } from "cloudflare:workers";
+import { sendMail } from "./accounts";
 import type { Env } from "./index";
 import { releaseFrame } from "./setup";
+import { alertMail, type Alert, type Rule, SpendBook, type SpendRow } from "./spend";
 import { firmwareWaiting, isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 import { lastDays, type UsageDay } from "./usage";
@@ -48,6 +50,9 @@ type FrameRow = {
 
 export class Household extends DurableObject<Env> {
   sql: SqlStorage;
+  spend: SpendBook;
+  /** Sends an alert; a field so a test can stand in for Resend. */
+  mailer = (to: string, mail: { subject: string; text: string; html: string }) => sendMail(this.env, to, mail);
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -74,6 +79,8 @@ export class Household extends DurableObject<Env> {
     for (const c of ["wake_ms", "page_ms"]) {
       if (!cols.has(c)) this.sql.exec(`ALTER TABLE usage ADD COLUMN ${c} INTEGER NOT NULL DEFAULT 0`);
     }
+    // The household's AI spend (W-938): the server reserves each paid call here first.
+    this.spend = new SpendBook(this.sql);
   }
 
   meta(k: string): string | null {
@@ -134,7 +141,8 @@ export class Household extends DurableObject<Env> {
 
   summary(): { frames: { id: string; status: string; seen: number | null }[];
                usage: UsageDay[]; month_ms: number;
-               last_wake: number | null; source: string | null; suspended: boolean } {
+               last_wake: number | null; source: string | null; suspended: boolean;
+               ai: { usd: number; limit: number | null; paused: boolean; count: number } } {
     const seen = new Map(this.sql.exec<{ id: string; at: number }>("SELECT id, at FROM seen").toArray()
       .map((r) => [r.id, r.at]));
     const frames = this.sql.exec<{ id: string; status: string }>("SELECT id, status FROM frames ORDER BY id")
@@ -146,7 +154,8 @@ export class Household extends DurableObject<Env> {
     const month_ms = this.sql.exec<{ ms: number }>("SELECT coalesce(sum(server_ms), 0) AS ms FROM usage WHERE day >= ?",
       new Date().toISOString().slice(0, 8) + "01").one().ms;
     return { frames, usage, month_ms, last_wake: wake || null, source: this.meta("source_kind"),
-             suspended: !!this.meta("suspended") };
+             suspended: !!this.meta("suspended"),
+             ai: this.spend.monthSummary(new Date().toISOString().slice(0, 7)) };
   }
 
   /** A new household (made at sign-up), or one given its login later. */
@@ -552,7 +561,46 @@ export class Household extends DurableObject<Env> {
       this.sql.exec("DELETE FROM checkins");
       return Response.json({ checkins: rows.map((r) => JSON.parse(r.body)) });
     }
+    if (path.startsWith("spend/")) return this.spendRoute(request, path.slice("spend/".length));
     return new Response("not found", { status: 404 });
+  }
+
+  // -- AI spend (W-938) ----------------------------------------------------------
+  async spendRoute(request: Request, op: string): Promise<Response> {
+    if (op === "reserve" && request.method === "POST") {
+      const { record, rule } = await request.json<{ record: SpendRow; rule: Rule }>();
+      const out = this.spend.reserve(record, rule);
+      for (const a of out.alerts) await this.alert(a);
+      return Response.json(out.ok ? { ok: true } : { ok: false, reason: out.reason });
+    }
+    if (op === "settle" && request.method === "POST") {
+      const { id, state, cost_usd } = await request.json<{ id: string; state: "settled" | "released"; cost_usd: number | null }>();
+      this.spend.settle(id, state, cost_usd);
+      return Response.json({ ok: true });
+    }
+    if (op.startsWith("snapshot") && request.method === "GET") {
+      const since = Number(new URL(request.url).searchParams.get("since") || 0);
+      return Response.json(this.spend.snapshot(since));
+    }
+    if (op === "resume" && request.method === "POST") {
+      const { now } = await request.json<{ now: number }>();
+      this.spend.resume(now);
+      return Response.json({ ok: true });
+    }
+    if (op === "import" && request.method === "POST") {
+      const { rows } = await request.json<{ rows: SpendRow[] }>();
+      return Response.json({ added: this.spend.importRows(rows) });
+    }
+    return new Response("not found", { status: 404 });
+  }
+
+  /** One email per admin; SpendBook already keeps it to once a reason a day. */
+  async alert(a: Alert): Promise<void> {
+    const hid = this.meta("hid") || "?";
+    const mail = alertMail(hid, this.env.APP_HOST, a);
+    for (const to of (this.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim()).filter(Boolean)) {
+      try { await this.mailer(to, mail); } catch (e) { console.error("spend alert", e); }
+    }
   }
 
   async takeState(state: {

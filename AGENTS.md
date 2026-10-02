@@ -597,6 +597,20 @@ per-key failure cooldown is kept in the DB (`imagegen_cooldowns`, cleared
 with `imagegen_error` on a new key), so a fresh Container does not ask a
 failed paid generation again early.
 
+The webapp's reads come from a cache at the front door (W-946,
+`hosted/src/pagecache.ts`): the server's last answer to `/`, `/api/status`,
+`/api/history`, `/api/tasks`, the battery, the previews, the history and
+generated images and `/static/*`, kept in R2 and keyed by the server's
+`page_build` (and, for `/`, the account). Fresh for 15 min; a stale copy is
+still served while a `look` asks the alarm for a wake (`wakes.ts`, never
+before `MIN_GAP_MS`, in quiet hours only when something is queued). The
+server's reports (`takeState`) refresh the copies read in the last 2 h when
+the page would change or after a POST; a POST clears the changing ones; `/`
+with nothing kept and the server asleep is the bundled loading page
+(`loading.ts`). Reads that must be live ask `live=1`; every other read the
+page makes as it loads must be in `routeOf`'s table, or each visit starts the
+server. An edit warms the server (`POST /api/warm`).
+
 The household's AI spend is kept at its front door (W-938,
 `hosted/src/spend.ts`): `spend.FrontDoorStore` reserves every paid call at
 `/_internal/<household>/spend/reserve` before the server makes it, and settles

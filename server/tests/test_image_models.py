@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import base64
 
+import pytest
+
 from featherframe.config import Config
 from featherframe.render import genart
 from featherframe.render.genart import (A1111ImageModel, GeminiImageModel,
                                         GeminiTextModel, OpenAIImageModel,
                                         OpenAITextModel, ReplicateImageModel)
+
+pytestmark = pytest.mark.usefixtures("metered")
 
 _PNG = b"\x89PNG\r\n\x1a\nDATA"
 
@@ -115,6 +119,21 @@ def test_replicate_generate_polls_and_downloads(monkeypatch):
     assert out == _PNG
 
 
+def test_replicate_failure_after_create_is_billed(monkeypatch):
+    from featherframe import spend
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        return _Resp(201, {"status": "starting", "urls": {"get": "http://x/get"}})
+
+    monkeypatch.setattr(genart.requests, "post", fake_post)
+    monkeypatch.setattr(genart.requests, "get", lambda *a, **k: _Resp(403))
+    monkeypatch.setattr(genart.time, "sleep", lambda s: None)
+    with pytest.raises(genart.GenerationError) as info:
+        ReplicateImageModel("tok").generate("p", "1024x1024", [])
+    assert info.value.billed is True
+    assert spend.vendor_refused(info.value) is False
+
+
 def test_gemini_generate_raises_on_http_error(monkeypatch):
     monkeypatch.setattr(genart.requests, "post", lambda *a, **k: _Resp(429))
     try:
@@ -186,10 +205,7 @@ def test_list_models_a1111_is_free_text(monkeypatch):
     assert out["free_text"] is True and "sd_xl_base" in out["models"]
 
 
-import pytest as _pytest
-
-
-@_pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True)
 def _clear_model_cache():
     genart._MODEL_CACHE.clear()
     yield

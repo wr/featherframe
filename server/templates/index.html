@@ -315,6 +315,7 @@
     /* right-column sizes: compact numbers, a natural-width select */
     .frow-ctl input[type=number] { width:96px; text-align:right; }
     .frow-ctl input[type=time] { width:auto; }
+    .frow-ctl .unit-pre { margin-right:6px; color:var(--faint); }
     .frow-ctl select.sel { width:auto; min-width:0; }
     .frow-ctl .cselect { min-width:190px; }
     .frow-ctl .seg { justify-content:flex-end; }
@@ -1407,6 +1408,9 @@
        control on the right; .toggle keeps two columns on a phone; .stack puts
        a wide control (URL, key, textarea) under its label. #}
     {% set ig_ready = status.config.imagegen_api_key or config.imagegen_provider == 'a1111' %}
+    {% set ai_live = ig_ready and config.imagegen_enabled %}
+    {% set ai_lock_note = '' if ai_live else ('Needs an API key' if not ig_ready else 'AI image generation is off') %}
+    {% set ai = status.ai %}
     {% set ps = push_setup %}
     {% set src_push = _src in ('apprise', 'birdnet_go') %}
     {% set src_unset = src_push and not (ps and (ps.received or ps.test_at)) %}
@@ -1667,9 +1671,9 @@
               </div>
             </div>
           </div>
-          <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
-            <div class="frow-text"><label class="lab" for="ig"><span class="badge ai">AI</span>Generate images for missing species<a class="btn sm ex preview" href="/static/examples/generated.png" data-ex="generated" data-cap="A plate generated for a species no book has." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
-            <div class="frow-ctl">{{ instant_switch('ig', 'imagegen_enabled', config.imagegen_enabled, not ig_ready) }}</div>
+          <div class="frow toggle{{ '' if ai_live else ' locked' }}">
+            <div class="frow-text"><label class="lab" for="ig"><span class="badge ai">AI</span>Generate images for missing species<a class="btn sm ex preview" href="/static/examples/generated.png" data-ex="generated" data-cap="A plate generated for a species no book has." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ ai_lock_note }}</div></div>
+            <div class="frow-ctl">{{ instant_switch('ig', 'illustrations_generated', config.illustrations_generated, not ai_live) }}</div>
           </div>
           {{ set_foot() }}
         </form>
@@ -1732,16 +1736,16 @@
             <div class="frow-text"><label class="lab" for="f-review-max">Species limit</label><div class="hint">The most species shown in one collage</div></div>
             <div class="frow-ctl"><input type="number" id="f-review-max" name="collage_species_max" min="0" max="60" step="1" inputmode="numeric" placeholder="No limit" value="{{ config.collage_species_max or '' }}"></div>
           </div>
-          <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
-            <div class="frow-text"><label class="lab" for="cg"><span class="badge ai">AI</span>Generate collages<a class="btn sm ex preview" href="/static/examples/collage.png" data-ex="collage" data-cap="The collage as one scene, generated with AI." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
-            <div class="frow-ctl">{{ instant_switch('cg', 'collage_generated', config.collage_generated, not ig_ready) }}</div>
+          <div class="frow toggle{{ '' if ai_live else ' locked' }}">
+            <div class="frow-text"><label class="lab" for="cg"><span class="badge ai">AI</span>Generate collages<a class="btn sm ex preview" href="/static/examples/collage.png" data-ex="collage" data-cap="The collage as one scene, generated with AI." target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-search"/></svg>Example</a></label><div class="hint" data-needs-key>{{ ai_lock_note }}</div></div>
+            <div class="frow-ctl">{{ instant_switch('cg', 'collage_generated', config.collage_generated, not ai_live) }}</div>
           </div>
           {# W-882: what the AI collage's branch carries. Daily weather is asked
              of the text model's web search, which only OpenAI's has here; with
              any other, the branch follows the season. #}
           {% set wx_ready = (config.imagegen_text_provider or config.imagegen_provider) == 'openai' %}
           {% set branch = config.collage_branch %}
-          <div class="frow{{ '' if ig_ready else ' locked' }}" id="branch-row">
+          <div class="frow{{ '' if ai_live else ' locked' }}" id="branch-row">
             <div class="frow-text"><label class="lab" for="f-branch"><span class="badge ai">AI</span>Tree branch</label>{% if branch == 'weather' and ig_ready and not wx_ready %}<div class="hint">Daily weather needs an OpenAI text model. The branch follows the season.</div>{% endif %}</div>
             <div class="frow-ctl">
               <div class="cselect">
@@ -1764,18 +1768,22 @@
          hidden inputs still submit, so nothing stored is lost. #}
       {# A failing model (an empty account, a refused key) opens itself, as a
          failing source does. #}
-      {% set ig_err = status.imagegen_error %}
-      {% set ig_state = ig_err.state if ig_err else 'good' %}
+      {% set ig_state = ai.state %}
       <details class="disc set" id="set-imagegen" data-state="{{ ig_state }}" {{ 'open' if ig_state == 'bad' else '' }}>
-        {% call set_summary('ic-sparkle', 'AI image generation') %}{% if ig_ready %}<span class="d {{ ig_state }}" id="ig-dot"></span><span id="ig-summary">{{ ig_err.summary if ig_err else ig_names.get(config.imagegen_provider, config.imagegen_provider) }}</span>{% else %}No API key{% endif %}{% endcall %}
+        {% call set_summary('ic-sparkle', 'AI image generation') %}<span class="d {{ ig_state }}" id="ig-dot"></span><span id="ig-summary">{{ ai.summary }}</span>{% endcall %}
         <div class="disc-body"><div class="set-body" id="imagegen-card">
         <form class="set-form" method="post" action="/settings">
           <input type="hidden" name="section" value="imagegen">
           <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
           <p class="intro"><a href="https://featherframe.app/help/ai" target="_blank" rel="noopener">Learn</a> how image generation works, as well as estimated API costs.</p>
-          <div class="test-box {{ ig_state }} src-alarm{{ ' show' if ig_err else '' }}" id="ig-banner" role="status" aria-live="polite" data-provider-name="{{ ig_names.get(config.imagegen_provider, config.imagegen_provider) }}">
+          <div class="test-box {{ ig_state }} src-alarm{{ ' show' if ai.notice else '' }}" id="ig-banner" role="status" aria-live="polite" data-provider-name="{{ ig_names.get(config.imagegen_provider, config.imagegen_provider) }}">
             <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
-            <span class="test-msg" id="ig-text" title="{{ ig_err.detail if ig_err else '' }}">{{ ig_err.text if ig_err else '' }}</span>
+            <span class="test-msg" id="ig-text" title="{{ ai.detail }}">{{ ai.text }}</span>
+            <button class="btn sm" type="button" id="ai-resume" {{ '' if ai.notice == 'paused' else 'hidden' }}>Resume</button>
+          </div>
+          <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
+            <div class="frow-text"><label class="lab" for="ai-on">AI image generation</label><div class="hint" data-needs-key-only>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
+            <div class="frow-ctl">{{ instant_switch('ai-on', 'imagegen_enabled', config.imagegen_enabled, not ig_ready) }}</div>
           </div>
           <div class="frow">
             <div class="frow-text"><label class="lab" for="ig-provider">Image provider</label></div>
@@ -1814,6 +1822,10 @@
             <div class="frow-text"><label class="lab" for="f-a1111">Endpoint URL</label><div class="hint">Your AUTOMATIC1111 / ComfyUI server's <code>/sdapi</code> base URL.</div></div>
             <div class="frow-ctl"><input type="text" inputmode="url" id="f-a1111" name="imagegen_base_url" value="{{ config.imagegen_base_url }}" placeholder="http://localhost:7860" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
           </div>
+          <div class="frow ig-needs-key" {{ '' if ig_ready else 'hidden' }}>
+            <div class="frow-text"><label class="lab" for="ai-limit">Monthly limit</label></div>
+            <div class="frow-ctl"><span class="unit-pre" aria-hidden="true">$</span><input type="number" id="ai-limit" name="ai_monthly_limit_usd" min="1" max="1000" step="1" inputmode="numeric" required value="{{ config.ai_monthly_limit_usd }}"></div>
+          </div>
           <details class="disc adv ig-needs-key" {{ '' if ig_ready else 'hidden' }}>
             <summary><span>Advanced</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></summary>
             <div class="disc-body"><div class="adv-body">
@@ -1823,9 +1835,10 @@
               </div>
               <div class="frow" data-provider="openai" {{ '' if config.imagegen_provider=='openai' else 'hidden' }}>
                 <div class="frow-text"><label class="lab" for="ig-quality">Quality</label></div>
-                <div class="frow-ctl"><div class="cselect"><select class="sel cselect-native" name="imagegen_quality" id="ig-quality">
+                <div class="frow-ctl"><div class="cselect"><select class="sel cselect-native" name="imagegen_quality" id="ig-quality" data-plates="{{ ai.by_kind_30d.get('plate', 0) }}" data-collages="{{ ai.by_kind_30d.get('collage', 0) }}" data-days="{{ ai.span_days }}" data-prices='{{ {"low": 0.034, "medium": 0.039, "high": 0.070, "xhigh": 0.103, "max": 0.194} | tojson }}'>
                   {% set qlabels = {'max':'Max · ~$0.20/image · 2.5 only', 'xhigh':'Extra high · ~$0.10/image · 2.5 only', 'high':'High · ~$0.07/image', 'medium':'Medium · ~$0.04/image', 'low':'Low · ~$0.03/image', 'auto':'Auto'} %}
                   {% for q in ['max','xhigh','high','medium','low','auto'] %}<option value="{{ q }}" {{ 'selected' if config.imagegen_quality==q else '' }} {{ 'data-25only' if q in ('max','xhigh') else '' }}>{{ qlabels[q] }}</option>{% endfor %}</select></div></div>
+                <div class="hint" id="ai-projection" hidden></div>
               </div>
               <div class="frow">
                 <div class="frow-text"><label class="lab" for="ig-text-provider">Text provider</label><div class="hint">Describes each species to the image model, for accuracy.</div></div>
@@ -1882,8 +1895,8 @@
       {% else %}
       <p class="intro">None yet. A species with no illustration gets one here when image generation is on.</p>
       {% endif %}
-      {% if spend is defined and spend.images %}
-      <p class="hint gen-spend">This month: {{ spend.images }} image{{ '' if spend.images == 1 else 's' }}{% if spend.usd %}, ≈ ${{ '%.2f' | format(spend.usd) }}{% endif %}.</p>
+      {% if spend is defined and spend.count %}
+      <p class="hint gen-spend">This month: ${{ '%.2f' | format(spend.usd) }} of ${{ '%.2f' | format(spend.limit) }}.</p>
       {% endif %}
       <div class="gen-list">
         {% for g in generated %}
@@ -2392,18 +2405,15 @@
       obanner.classList.toggle('show', !!o);
       setText('outage-text', o ? (obanner.dataset.srcname || 'The detector') + ' unreachable since ' + o.since_text + ' (' + o.hours_text + '). Check the source below.' : '');
     }
-    // AI image generation: its last failure, until a success or a new key.
-    var ig = st.imagegen_error, igBanner = $('ig-banner'), igDot = $('ig-dot');
-    if (igBanner) {
-      var igState = ig ? ig.state : 'good';
-      igBanner.className = 'test-box ' + igState + ' src-alarm' + (ig ? ' show' : '');
-      setText('ig-text', ig ? ig.text : '');
-      $('ig-text').title = ig ? ig.detail : '';
-      $('set-imagegen').dataset.state = igState;
-      if (igDot) {
-        igDot.className = 'd ' + igState;
-        setText('ig-summary', ig ? ig.summary : (igBanner.dataset.providerName || ''));
-      }
+    // AI image generation: its one state (W-938).
+    var ai = st.ai, igBanner = $('ig-banner'), igDot = $('ig-dot');
+    if (igBanner && ai) {
+      igBanner.className = 'test-box ' + ai.state + ' src-alarm' + (ai.notice ? ' show' : '');
+      setText('ig-text', ai.text || '');
+      $('ig-text').title = ai.detail || '';
+      $('set-imagegen').dataset.state = ai.state;
+      setHidden('ai-resume', ai.notice !== 'paused');
+      if (igDot) { igDot.className = 'd ' + ai.state; setText('ig-summary', ai.summary); }
     }
     // Pending: a new species held back for a second detection.
     var pend = st.pending, pendEl = $('fc-pending');
@@ -2909,26 +2919,49 @@
     });
   })();
 
-  // -- the two AI toggles: locked, never disabled ----------------------------
-  // With no key behind it a toggle is shown dimmed and refuses to flip. It is
-  // NOT disabled: a disabled checkbox posts nothing, so saving the form would
+  // -- the AI switches: locked, never disabled -------------------------------
+  // Without a key every AI switch is shown dimmed and refuses to flip; with
+  // the master switch off the two feature switches do too (W-938). NOT
+  // disabled: a disabled checkbox posts nothing, so saving the form would
   // quietly store the setting off.
+  var aiReady = false;
+  function aiOn() { var m = $('ai-on'); return !m || m.checked; }
   function lockAiToggles(ready) {
+    aiReady = ready;
+    var master = $('ai-on');
+    if (master) {
+      var mrow = master.closest('.frow');
+      if (mrow) mrow.classList.toggle('locked', !ready);
+      master.setAttribute('aria-disabled', ready ? 'false' : 'true');
+      var mnote = mrow && mrow.querySelector('[data-needs-key-only]');
+      if (mnote) mnote.textContent = ready ? '' : 'Needs an API key';
+    }
+    var live = ready && aiOn();
     ['ig', 'cg'].forEach(function (id) {
       var input = $(id); if (!input) return;
       var row = input.closest('.frow');
-      if (row) row.classList.toggle('locked', !ready);
-      input.setAttribute('aria-disabled', ready ? 'false' : 'true');
+      if (row) row.classList.toggle('locked', !live);
+      input.setAttribute('aria-disabled', live ? 'false' : 'true');
       var note = row && row.querySelector('[data-needs-key]');
-      if (note) note.textContent = ready ? '' : 'Needs an API key';
+      if (note) note.textContent = live ? '' : (ready ? 'AI image generation is off' : 'Needs an API key');
     });
-    var br = $('branch-row'); if (br) br.classList.toggle('locked', !ready);
+    var br = $('branch-row'); if (br) br.classList.toggle('locked', !live);
   }
-  ['ig', 'cg'].forEach(function (id) {
+  ['ai-on', 'ig', 'cg'].forEach(function (id) {
     var input = $(id); if (!input) return;
     function locked() { return input.getAttribute('aria-disabled') === 'true'; }
     input.addEventListener('click', function (e) { if (locked()) e.preventDefault(); });
     input.addEventListener('change', function () { if (locked()) input.checked = !input.checked; });
+  });
+  if ($('ai-on')) $('ai-on').addEventListener('change', function () { lockAiToggles(aiReady); });
+
+  // -- Resume after a runaway pause (W-938) ------------------------------------
+  if ($('ai-resume')) $('ai-resume').addEventListener('click', function () {
+    var btn = $('ai-resume'); btn.disabled = true;
+    jsonFetch('/api/ai/resume', { method: 'POST', credentials: 'same-origin' })
+      .then(function () { pollStatus(); })
+      .catch(function (e) { showFlash('bad', 'Could not resume — ' + errText(e) + '.', 'ic-warn'); })
+      .then(function () { btn.disabled = false; });
   });
 
   // -- image-generation provider: show the fields that provider uses ---------
@@ -2994,6 +3027,31 @@
     });
     syncProvider(false);
     syncQuality();
+  })();
+
+  // -- what the month will cost at the chosen quality (W-938) ------------------
+  // After the provider block above, so it reads the quality the page settled
+  // on (a model without xhigh/max resets it), and again whenever that changes.
+  (function () {
+    var sel = $('ig-quality'), line = $('ai-projection');
+    if (!sel || !line) return;
+    function update() {
+      var prices = JSON.parse(sel.getAttribute('data-prices') || '{}');
+      var price = prices[sel.value];
+      var plates = +sel.getAttribute('data-plates') || 0;
+      var collages = +sel.getAttribute('data-collages') || 0;
+      var days = +sel.getAttribute('data-days') || 0;
+      if (!price || !days || !(plates + collages)) { line.hidden = true; return; }
+      var month = (plates * price + collages * price * 1.1) * 30 / days;
+      line.textContent = 'About $' + (month < 10 ? month.toFixed(2) : Math.round(month)) +
+        ' a month at this station’s pace.';
+      line.hidden = false;
+    }
+    sel.addEventListener('change', update);
+    var model = $('ig-model');
+    if (model) ['change', 'input'].forEach(function (e) { model.addEventListener(e, update); });
+    if ($('ig-provider')) $('ig-provider').addEventListener('change', update);
+    update();
   })();
 
   // -- stored secrets: Replace / Delete / Cancel, generic over .keyfield ------

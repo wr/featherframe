@@ -277,8 +277,12 @@ the interval a frame on the collage, quiet hours a frame on individual
 detections, both with no frame yet; `collage_timings`, live on the page as
 Content changes; a hidden one keeps its value; quiet hours IS the overnight
 collage, `Config.quiet_hours_render_collage` is a property), AI
-image generation (a dot + provider, or "No API key"; its two AI switches, which
-live in Illustrations and Collage, are `locked` until a key is stored), then
+image generation (its first row is the master switch, `imagegen_enabled`; then
+a **Monthly limit** in dollars; the summary is one state from
+`service.ai_view`: Off, No API key, Key rejected, Out of credits, Paused, Limit
+reached, or "OpenAI · $1.20 of $10.00"; its two AI switches, which live in
+Illustrations and Collage, are `locked` until a key is stored and while the
+master switch is off), then
 Generated illustrations and Generated collages (each kept day's collage, same
 list). Every section is its own `/settings` form carrying a `section` field:
 `/settings` takes only the fields posted (a switch posts a hidden 0 before its
@@ -447,7 +451,7 @@ search (`OpenAITextModel.search_json`, the Responses API's `web_search`,
 `max_tool_calls` 2; the owner's key, so no weather service of ours to
 license), at the source's `location()` rounded to 0.01°, only when a sheet is
 bought and at most once per `weather.REASK_S` (6 h) a day
-(`collages/weather.json`), billed to the spend ledger as `weather`. An answer
+(`collages/weather.json`), bought through the spend gate as `weather`. An answer
 counts only when it names a source: `heavy_snow` (≥ 15 cm fell) / `snowing` / `snow` (lying) / `rain` / "",
 recorded as the sidecar's `weather`; once it is known, snow comes from it
 alone, so a dry winter day is bare wood; unknown (no location, not OpenAI, a
@@ -477,8 +481,20 @@ desyncs the printed legend; the 2.5 pair are the only models that accept the
 generated plates are
 cached forever in `data/generated/` (PNG + JSON sidecar) and only a manual
 regenerate from the config page replaces one; failures soft-fail to the
-fallback with a per-species cooldown. The user's API key lives only in our DB
-and is masked in `status()` and the UI. `plate.py` does the content-aware crop
+fallback with a per-species cooldown. **Every paid call goes through the spend
+gate (W-938, `spend.py`).** `Gate.purchase(kind, subject, …)` checks (the
+master switch `Config.imagegen_enabled`, the runaway pause, the monthly limit
+`ai_monthly_limit_usd`, the subject rule), records the purchase durably, lets
+the one vendor call happen, then settles it; a record left open (a timeout, a
+5xx, a process that died) counts at its estimate and holds its subject for a
+day. The rule is `spend.decide`, held to `tests/fixtures/spend-cases.json`.
+Paid model methods are fenced: called outside a purchase they raise
+`spend.Unguarded`. `LocalStore` keeps the records in our SQLite (`spend`
+table); the old `spend.jsonl` is imported once and no longer written. More than
+`RUNAWAY_PER_HOUR` (6) automatic collages and re-bought illustrations in an
+hour pauses AI until the owner presses Resume. The Illustrations switch is `illustrations_generated`. The
+user's API key lives only in our DB and is masked in `status()` and the UI.
+`plate.py` does the content-aware crop
 of a scan (a generated PNG is `plate.extract_generated`: paper-normalised,
 never cropped — it is composed to fill the sheet, and the scan crop once
 decapitated a tern): the

@@ -32,7 +32,7 @@ from . import __version__, auth, discovery, hosted, panels, paths, thumbs, viewe
 from . import frames as frames_mod
 from .config import Config, valid_email, valid_hhmm
 from .names import display_common_name, normalize
-from .render import genart, pipeline, typography
+from .render import pipeline, typography
 from .service import (COLLAGE_EVERY_WORDS, FeatherframeService, clock_text, collage_every_text,
                       collage_timings, page_when, quiet_hours_text)
 
@@ -42,6 +42,15 @@ log = logging.getLogger("featherframe.app")
 # How long a hosted server's shutdown waits for the tick under way (W-917):
 # inside the front door's STOP_GRACE_MS (60 s), with room for the last push.
 HOSTED_STOP_WAIT_S = 45
+
+# What the page says when the spend gate would refuse an owner's repaint (W-938).
+_AI_REFUSED = {"off": "AI image generation is off.",
+               "paused": "AI generation is paused.",
+               "limit": "This month's AI limit is reached."}
+# The same for a collage repaint: the page prefixes "Could not start — ".
+_AI_REFUSED_TASK = {"off": "AI image generation is off",
+                    "paused": "AI generation is paused",
+                    "limit": "this month's AI limit is reached"}
 
 templates = Jinja2Templates(directory=str(paths.templates_dir()))
 
@@ -693,7 +702,7 @@ async def index(request: Request):
     # blocking the loop here would stall the device's /api/frame fetch.
     status = await run_in_threadpool(svc.status)
     generated = await run_in_threadpool(svc.generated_listing) if svc.genart else []
-    spend = await run_in_threadpool(genart.spend_for_month)
+    spend = await run_in_threadpool(svc.spend_gate.summary)
     history = await run_in_threadpool(svc.render_history)
     collage_days = await run_in_threadpool(svc.collage_days)
     push_setup = await run_in_threadpool(_push_setup, svc.source)
@@ -787,6 +796,8 @@ async def save_settings(request: Request):
         ingest_token=cur["ingest_token"],
         collage_interval_hours=i("collage_interval_hours", cur["collage_interval_hours"]),
         imagegen_enabled=b("imagegen_enabled", cur["imagegen_enabled"]),
+        illustrations_generated=b("illustrations_generated", cur["illustrations_generated"]),
+        ai_monthly_limit_usd=i("ai_monthly_limit_usd", cur["ai_monthly_limit_usd"]),
         collage_generated=b("collage_generated", cur["collage_generated"]),
         firmware_auto_update=b("firmware_auto_update", cur["firmware_auto_update"]),
         # A hosted household's email is its account's, which the Worker
@@ -919,12 +930,24 @@ async def collage_now(request: Request):
     svc = _svc(request)
     form = await request.form()
     repaint = "repaint" in form
+    refusal = svc.ai_refusal() if (repaint and svc.config.collage_generated) else None
+    if refusal:
+        return JSONResponse({"ok": False, "error": _AI_REFUSED_TASK[refusal]}, status_code=409)
     # Fire-and-forget: a fresh sheet is a ~1-2 minute generation. Same contract
     # as test-detection — run it on a worker thread and let the page poll.
     svc.start_collage(repaint)
     if "text/html" in request.headers.get("accept", ""):
         return RedirectResponse("/", status_code=303)
     return JSONResponse({"ok": True, "running": True})
+
+
+@app.post("/api/ai/resume")
+async def ai_resume(request: Request):
+    """The owner's Resume after a runaway pause (W-938)."""
+    if not _same_origin(request):
+        return _forbidden_cross_origin()
+    await run_in_threadpool(_svc(request).resume_ai)
+    return JSONResponse({"ok": True})
 
 
 @app.post("/api/refresh")
@@ -1194,8 +1217,8 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
             error = "No saved illustration by that name."
         elif listing[slug].get("regenerating"):
             error = "Already regenerating."
-        elif not svc.config.imagegen_enabled:
-            error = "Image generation is off — enable it first."
+        elif (refusal := svc.ai_refusal()):
+            error = _AI_REFUSED[refusal]
         elif svc.regen_limited():
             error = "Too many repaints this hour. Try again later."
         else:

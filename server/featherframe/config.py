@@ -211,7 +211,14 @@ class Config:
     # For species no folio has. A plate is generated once on first
     # detection and cached forever; only a manual regenerate replaces it.
     # Without an API key this degrades to serving already-cached plates.
+    # AI image generation, one switch (W-938): off, nothing paid is called;
+    # the provider, key, model, quality and limit stay stored, and what was
+    # generated keeps showing.
     imagegen_enabled: bool = True
+    # The Illustrations section's "Generate images for missing species".
+    illustrations_generated: bool = True
+    # Nothing is bought past this in a calendar month (server's time zone).
+    ai_monthly_limit_usd: int = 10
     # "openai" | "gemini" | "replicate" (aggregator) | "a1111" (self-hosted).
     imagegen_provider: str = "openai"
     imagegen_model: str = "gpt-image-2.5-sunburst"   # provider-specific model id
@@ -323,6 +330,8 @@ class Config:
             self.imagegen_text_provider = ""
         self.imagegen_text_key = str(self.imagegen_text_key or "").strip()
         self.imagegen_text_base_url = str(self.imagegen_text_base_url or "").strip().rstrip("/")
+        self.illustrations_generated = bool(self.illustrations_generated)
+        self.ai_monthly_limit_usd = int(_clamp(_finite(self.ai_monthly_limit_usd, 10), 1, 1000))
         # Quiet hours: mode drives behaviour; migrate the legacy enabled flag,
         # then keep enabled in sync as a mirror of (mode != "off").
         if self.quiet_hours_mode not in ("off", "custom", "sun"):
@@ -443,6 +452,11 @@ class Config:
         # One secret for both push sources (W-865): it was Apprise's alone.
         if "ingest_token" not in data and "apprise_token" in data:
             data = {**data, "ingest_token": data["apprise_token"]}
+        # The missing-species switch was imagegen_enabled itself, which also
+        # turned off every model; imagegen_enabled is now the master (W-938).
+        # Both keep the stored value, so no migration starts a purchase.
+        if "illustrations_generated" not in data and "imagegen_enabled" in data:
+            data = {**data, "illustrations_generated": data["imagegen_enabled"]}
         fields = {f.name for f in dataclasses.fields(cls)}
         known = {k: v for k, v in data.items() if k in fields}
         return cls(**known)

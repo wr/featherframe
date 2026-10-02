@@ -540,7 +540,10 @@ def test_the_collage_section_carries_quiet_hours_and_no_preamble(client):
     assert '<select class="sel cselect-native" id="f-branch" name="collage_branch">' in sec
     assert ">Tree branch</label>" in sec
     ig = _section(client.get("/").text, "imagegen")
-    assert 'name="collage_generated"' not in ig and 'name="imagegen_enabled"' not in ig
+    # The AI section opens with the master switch; the two feature switches stay
+    # in their own sections (W-938).
+    assert 'name="imagegen_enabled"' in ig
+    assert 'name="collage_generated"' not in ig and 'name="illustrations_generated"' not in ig
 
 
 def _timings(html: str) -> dict:
@@ -653,7 +656,7 @@ def test_nothing_is_saved_until_something_changed(client):
     # Every stored secret, email and password is the same ✓ / ✕ row.
     assert html.count('class="btn icon primary key-ok"') == 4
     # A switch saves when it is flipped: it has no Save of its own.
-    assert html.count('data-instant ') == 3
+    assert html.count('data-instant ') == 4      # + the AI master switch (W-938)
 
 
 def test_the_tools_follow_the_previewed_frames_picture(client):

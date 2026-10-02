@@ -47,3 +47,12 @@ def _no_release_check(monkeypatch):
     """No test asks GitHub for a firmware release (W-838). Tests of the check
     point FEATHERFRAME_RELEASES_URL at a fake."""
     monkeypatch.setenv("FEATHERFRAME_RELEASES_URL", "off")
+
+
+@pytest.fixture
+def metered():
+    """One open purchase, for a test that calls a paid model method directly
+    (W-938: outside a purchase it raises spend.Unguarded)."""
+    from featherframe import spend
+    with spend.Gate.unlimited().purchase("plate", "test", model="test") as p:
+        yield p

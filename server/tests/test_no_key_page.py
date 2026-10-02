@@ -36,15 +36,16 @@ def test_without_a_key_the_section_reads_as_optional_and_complete(svc):
     assert html.split('id="set-imagegen"')[1].split('</summary>')[0].count("No API key") == 1
     assert "featherframe.app/help/ai" in html and ">Learn</a>" in html
     rows = _needs_key_rows(html)
-    assert len(rows) == 1 and all("hidden" in r for r in rows)
-    # Both AI toggles are LOCKED, not disabled \u2014 a disabled checkbox posts
+    # The Monthly limit row and Advanced (W-938).
+    assert len(rows) == 2 and all("hidden" in r for r in rows)
+    # Every AI switch is LOCKED, not disabled \u2014 a disabled checkbox posts
     # nothing, so a save would quietly store the setting off.
-    for name in ('name="imagegen_enabled"', 'name="collage_generated"'):
+    for name in ('name="imagegen_enabled"', 'name="illustrations_generated"', 'name="collage_generated"'):
         assert name in html
         field = html.split(name + ' value="1"')[1].split(">")[0]
         assert 'aria-disabled="true"' in field and "disabled>" not in field
-    assert html.count(">Needs an API key<") == 2
-    assert html.count('class="frow toggle locked"') == 2
+    assert html.count(">Needs an API key<") == 3
+    assert html.count('class="frow toggle locked"') == 3
 
 
 def test_a_key_or_a_self_hosted_endpoint_brings_the_rows_back(svc):

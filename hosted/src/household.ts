@@ -8,15 +8,13 @@ import { alertMail, type Alert, reserveBody, settleBody, SpendBook, type SpendRo
 import { firmwareWaiting, isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 import { lastDays, type UsageDay } from "./usage";
+import { due, nextAlarm, type WakeState } from "./wakes";
 
 // The household's server is woken only for news (W-847). The front door looks
 // for it: a BirdWeather station every POLL_MS, or a push (BirdNET-Pi's Apprise,
 // BirdNET-Go's webhook) the moment it lands. However much news there is, at
 // most one wake per MIN_GAP_MS; and once a day regardless, in case anything
 // was missed.
-const POLL_MS = 2 * 60 * 1000;
-const MIN_GAP_MS = 5 * 60 * 1000;
-const SAFETY_MS = 24 * 60 * 60 * 1000;
 // A page used this recently keeps the server up after a wake.
 const PAGE_ACTIVE_MS = 60 * 1000;
 const MAX_INGEST_BYTES = 16 * 1024;
@@ -298,6 +296,29 @@ export class Household extends DurableObject<Env> {
     await releaseFrame(this.env, deviceId, this.meta("hid")!);
   }
 
+  /** The wake rule's inputs, from meta. */
+  wakeState(now = Date.now()): WakeState {
+    return {
+      now, lastWake: Number(this.meta("wake_ms") || 0),
+      named: Number(this.meta("next_wake_epoch") || 0) * 1000,
+      news: this.meta("news") === "1", look: this.meta("look") === "1",
+      birdweather: this.meta("source_kind") === "birdweather" && this.meta("poll") !== "0",
+    };
+  }
+
+  /** Someone opened a stale page (W-946): one wake by the alarm, never in
+   * the request. In quiet hours, only when something is waiting for it. */
+  async look(): Promise<void> {
+    if (this.meta("suspended")) return;
+    if (this.meta("poll") === "0") {
+      const waiting = this.sql.exec<{ n: number }>(
+        "SELECT (SELECT count(*) FROM checkins) + (SELECT count(*) FROM ingest) AS n").one().n;
+      if (!waiting) return;
+    }
+    this.setMeta("look", "1");
+    await this.schedule();
+  }
+
   /** Start the server (its lifespan pulls), hand it the pushes that landed
    * while it slept, run one tick (which reports), and stop it again once it
    * is idle, unless someone is on the page. */
@@ -306,6 +327,7 @@ export class Household extends DurableObject<Env> {
     const t0 = Date.now();
     this.setMeta("wake_ms", String(t0));
     this.setMeta("news", "0");
+    this.setMeta("look", null);
     try {
       const stub = await this.server();
       const queued = this.sql.exec<{ seq: number; path: string; body: string }>(
@@ -349,27 +371,14 @@ export class Household extends DurableObject<Env> {
 
   async alarm(): Promise<void> {
     if (this.meta("suspended")) return;
-    const now = Date.now();
     await this.lookForNews();
-    const lastWake = Number(this.meta("wake_ms") || 0);
-    const named = Number(this.meta("next_wake_epoch") || 0) * 1000;
-    const due = (named > 0 && named <= now)
-      || (this.meta("news") === "1" && now - lastWake >= MIN_GAP_MS)
-      || now - lastWake >= SAFETY_MS;
-    if (due) await this.wake();
+    if (due(this.wakeState())) await this.wake();
     else await this.schedule();
   }
 
   async schedule(): Promise<void> {
     if (this.meta("suspended")) return;
-    const now = Date.now();
-    const lastWake = Number(this.meta("wake_ms") || 0);
-    const named = Number(this.meta("next_wake_epoch") || 0) * 1000;
-    const times = [lastWake + SAFETY_MS];
-    if (named > now) times.push(named);
-    if (this.meta("news") === "1") times.push(Math.max(now, lastWake + MIN_GAP_MS));
-    if (this.meta("source_kind") === "birdweather" && this.meta("poll") !== "0") times.push(now + POLL_MS);
-    await this.ctx.storage.setAlarm(Math.max(now + 1000, Math.min(...times)));
+    await this.ctx.storage.setAlarm(nextAlarm(this.wakeState()));
   }
 
   /** A push from BirdNET-Pi (Apprise) or BirdNET-Go, kept for the server and

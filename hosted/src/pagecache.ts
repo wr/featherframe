@@ -81,6 +81,8 @@ export class PageCache {
     const obj = await this.bucket.get(this.prefix + e.object);
     if (!obj) return null;
     const headers = new Headers(JSON.parse(e.headers || "{}"));
+    // When it was filled (W-950): the page says how old what it shows is.
+    if (e.filled_at !== null) headers.set("X-FF-Copy-At", String(e.filled_at));
     return new Response(method === "HEAD" ? null : await obj.arrayBuffer(), { headers });
   }
 

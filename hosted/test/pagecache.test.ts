@@ -75,6 +75,14 @@ describe("PageCache", () => {
     expect(again!.headers.get("Set-Cookie")).toBeNull();
   });
 
+  it("says when a copy was filled, so the page can say how old it is", async () => {
+    const { c } = make();
+    const { key, ask } = cacheKey(U("/api/status"), routeOf("/api/status", "d")!, {}, "b");
+    const live = await c.store(key, "changing", ask, page("{}", "application/json"), T);
+    expect(live.headers.get("X-FF-Copy-At")).toBeNull();          // the server's own answer
+    expect((await c.respond(c.find(key)!, "GET"))!.headers.get("X-FF-Copy-At")).toBe(String(T));
+  });
+
   it("stores nothing but a 200 under 5 MB", async () => {
     const { c } = make();
     const { key, ask } = cacheKey(U("/"), route, {}, "b");

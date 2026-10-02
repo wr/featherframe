@@ -130,6 +130,11 @@ export class Household extends DurableObject<Env> {
       return this.ingest(request, url);
     }
     if (url.pathname === "/api/warm" && request.method === "POST") return this.warm();
+    // The page's Update now (W-950): a wake at once, as the loading page asks.
+    if (url.pathname === "/api/page/update" && request.method === "POST") {
+      await this.look(true);
+      return new Response(null, { status: 204 });
+    }
     if (url.pathname === "/api/page/ready" && request.method === "GET") return this.pageReady(request, url);
     const cached = await answerRead(request, url, this.readDeps(request));
     if (cached) return cached;

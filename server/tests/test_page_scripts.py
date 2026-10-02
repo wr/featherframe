@@ -89,3 +89,18 @@ def test_the_model_list_is_asked_for_only_when_the_field_is_used(tmp_path, monke
     block = html[i:html.index("})();", i)]
     assert "addEventListener('focus', loadOnce)" in block
     assert "\n    load();\n" not in block
+
+
+@pytest.mark.parametrize("hosted", [False, True])
+def test_only_featherframe_cloud_says_how_old_the_page_is(tmp_path, monkeypatch, hosted):
+    """W-950: a copy from the front door's cache says its age; the box's page is always live."""
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    from featherframe.app import app
+    from featherframe.service import FeatherframeService
+    monkeypatch.setattr(app.state, "service", FeatherframeService(), raising=False)
+    monkeypatch.setattr(app.state, "hosted", object() if hosted else None, raising=False)
+    html = TestClient(app).get("/").text
+    assert ('id="stale-note"' in html) is hosted
+    assert (">Update now</button>" in html) is hosted
+    assert ("fetch('/api/page/update'" in html) is hosted

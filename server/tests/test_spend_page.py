@@ -67,3 +67,38 @@ def test_a_collage_repaint_says_why_it_is_refused(client, svc, monkeypatch):
     r = client.post("/api/collage/now", data={"repaint": "1"}, headers=ORIGIN)
     assert r.status_code == 409
     assert r.json() == {"ok": False, "error": "this month's AI limit is reached"}
+
+
+def _section(html: str, sid: str) -> str:
+    return html.split(f'id="{sid}"')[1].split("</details>")[0]
+
+
+def test_the_section_opens_with_its_switch_and_has_the_limit(client):
+    html = _section(client.get("/").text, "set-imagegen")
+    assert 'id="ai-on"' in html and ">AI image generation<" in html
+    assert 'name="ai_monthly_limit_usd"' in html and ">Monthly limit<" in html
+    assert "OpenAI · $0.00 of $10.00" in client.get("/").text
+
+
+def test_off_locks_the_two_feature_switches(client, svc):
+    svc.config.imagegen_enabled = False
+    html = client.get("/").text
+    assert "AI image generation is off" in _section(html, "set-illustrations")
+    assert 'id="ig-summary">Off<' in html
+
+
+def test_the_missing_species_switch_posts_its_own_field(client):
+    html = _section(client.get("/").text, "set-illustrations")
+    assert 'name="illustrations_generated"' in html and 'name="imagegen_enabled"' not in html
+
+
+def test_paused_shows_the_notice_and_resume(client, svc):
+    svc.db.set("ai_pause", {"at": 1.0, "count": 6})
+    html = _section(client.get("/").text, "set-imagegen")
+    assert "AI generation is paused: 6 purchases in the last hour" in html
+    assert 'id="ai-resume"' in html and ">Resume<" in html
+
+
+def test_the_quality_menu_carries_what_the_projection_needs(client):
+    html = client.get("/").text
+    assert 'id="ai-projection"' in html and "data-prices=" in html

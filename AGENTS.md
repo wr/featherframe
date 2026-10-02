@@ -492,12 +492,12 @@ Paid model methods are fenced: called outside a purchase they raise
 `spend.Unguarded`. `LocalStore` keeps the records in our SQLite (`spend`
 table); the old `spend.jsonl` is imported once and no longer written. More than
 `RUNAWAY_PER_HOUR` (6) automatic collages and re-bought illustrations in an
-hour pauses AI until the owner presses Resume. The Illustrations switch is `illustrations_generated`. The
-user's API key lives only in our DB and is masked in `status()` and the UI.
-`plate.py` does the content-aware crop
-of a scan (a generated PNG is `plate.extract_generated`: paper-normalised,
-never cropped — it is composed to fill the sheet, and the scan crop once
-decapitated a tern): the
+hour pauses AI until the owner presses Resume. The Illustrations switch is
+`illustrations_generated`. The user's API key lives only in our DB and is
+masked in `status()` and the UI. `plate.py` does the content-aware crop of a
+scan (a generated PNG is `plate.extract_generated`: paper-normalised, never
+cropped — it is composed to fill the sheet, and the scan crop once decapitated
+a tern): the
 heaviest ink band, extended through faint contiguous ink (hanging straw) up
 to a real paper gap, then mirrored about the plate centre so Audubon's own
 placement survives. Lettering the fixed trim leaves is lifted (W-883): the "N°/PLATE"
@@ -592,7 +592,21 @@ destroyed before its push, and the nightly collage was lost with it. A stop
 that comes anyway waits `HOSTED_STOP_WAIT_S` for the tick under way. genart's
 per-key failure cooldown is kept in the DB (`imagegen_cooldowns`, cleared
 with `imagegen_error` on a new key), so a fresh Container does not ask a
-failed paid generation again early. `HouseholdServer` is THIS Python server in a Container: there is no TS
+failed paid generation again early.
+
+The household's AI spend is kept at its front door (W-938, `hosted/src/spend.ts`):
+`spend.FrontDoorStore` reserves every paid call at `/_internal/<hid>/spend/reserve`
+before the server makes it, and settles it after. A front door it cannot reach
+buys nothing, and the webapp shows AI image generation as *Unavailable* until
+it can. The front door runs `spend.decide`'s port (held to
+`server/tests/fixtures/spend-cases.json`) with the insert, plus one rule of its
+own: a $10 backstop per UTC day by its own clock. It emails `ADMIN_EMAILS` once
+a reason a day when a household pauses, passes $3 in a UTC day, or hits the
+backstop, and the admin households table shows each one's AI spend this month.
+The server's own rows (and the W-859 `spend.jsonl`) reach the front door once,
+on the first purchase after the switch.
+
+`HouseholdServer` is THIS Python server in a Container: there is no TS
 copy of any rule. Hosted mode (`featherframe/hosted.py`, on with
 `FEATHERFRAME_HOSTED_URL`/`_KEY`) pulls the data dir from
 `/_internal/<household>/` before the DB opens, pushes changes after every

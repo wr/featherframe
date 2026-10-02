@@ -166,15 +166,15 @@ Owner actions skip the subject rule, never the switch, the pause or the limit.
 
 ### Runaway pause
 
-More than `RUNAWAY_PER_HOUR` = 6 automatic image purchases in a rolling hour trips
-the pause: the purchase that would be the 7th is refused, and the pause is
-stored with its time and count. It holds until the owner presses **Resume**;
-after a resume only purchases after it count. With the subject rules in place
-a household never comes near 6 an hour, even on hourly collages. It counts
-automatic collages, and an automatic illustration only when it buys a species
-again within a day of buying it; a first illustration of a new species is
-bounded by the monthly limit, not the pause. Briefs and weather cost cents, and
-a day's collage can need a dozen briefs.
+More than `RUNAWAY_PER_HOUR` = 6 automatic collages and re-bought illustrations
+in a rolling hour trips the pause: the purchase that would be the 7th is
+refused, and the pause is stored with its time and count. It holds until the
+owner presses **Resume**; after a resume only purchases after it count. With the
+subject rules in place a household never comes near 6 an hour, even on hourly
+collages. It counts automatic collages, and an automatic illustration only when
+it buys a species again within a day of buying it; a first illustration of a new
+species is bounded by the monthly limit, not the pause. Briefs and weather cost
+cents, and a day's collage can need a dozen briefs.
 
 ## Where the records live
 
@@ -210,7 +210,9 @@ The front door adds one rule of its own, a platform backstop: at most
 `BACKSTOP_USD_PER_DAY` = $10 of reservations per household per UTC day,
 whatever the request says. Any `backstop` refusal means the server's own
 checks failed, and it alerts (below). A front door that cannot be reached
-refuses: nothing is bought.
+refuses: nothing is bought. The webapp then shows AI image generation as
+*Unavailable*, and the frame shows no footnote for it. The backstop's day is
+the front door's own UTC day, not the server's.
 
 ## Admin alerts (Cloud)
 

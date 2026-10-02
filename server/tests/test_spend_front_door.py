@@ -24,6 +24,7 @@ def fake_door():
     door = FastAPI()
     book = spend.MemoryStore()
     door.state.book, door.state.imported, door.state.snapshots = book, [], 0
+    door.state.import_bodies = []
 
     @door.post("/h/spend/reserve")
     async def reserve(request: Request):
@@ -50,9 +51,22 @@ def fake_door():
 
     @door.post("/h/spend/import")
     async def imp(request: Request):
-        rows = (await request.json())["rows"]
+        body = await request.json()
+        rows = body["rows"]
         door.state.imported.extend(rows)
-        return {"added": len(rows)}
+        door.state.import_bodies.append(body)
+        added = 0
+        for x in rows:                            # the door keeps each record once
+            if x["id"] not in book._rows:
+                book._rows[x["id"]] = spend.Record(**x)
+                added += 1
+        # SpendBook.importRows: the later resume, and the server's pause
+        # unless the door has one or was resumed since it.
+        book._resumed_at = max(book._resumed_at, float(body.get("resumed_at") or 0))
+        pause = body.get("pause")
+        if pause and book._pause is None and pause["at"] > book._resumed_at:
+            book._pause = pause
+        return {"added": added}
 
     return door
 
@@ -135,6 +149,27 @@ def test_the_servers_own_records_go_to_the_door_once(link, tmp_path):
                            est_usd=0.07)
         assert store.reserve(rec, rule) is None
     assert [r["subject"] for r in door.state.imported] == ["tyto-alba"]
+
+
+def test_a_pause_from_before_the_front_door_stays_on(link, tmp_path):
+    """Paused on the server's own records: it reaches the door with them, and
+    once the owner resumes there a new start does not pause it again."""
+    door, ln = link
+    db = Database(tmp_path / "ff.db")
+    paused_at = T0.timestamp() - 600
+    db.set("ai_pause", {"at": paused_at, "count": 6})
+    db.set("ai_resumed_at", T0.timestamp() - 7200)
+    gate = spend.Gate(spend.FrontDoorStore(ln, local_db=db), now=lambda: T0)
+    with pytest.raises(spend.Refused) as e:
+        with gate.purchase("collage", "2026-09-27", model="m"):
+            raise AssertionError("bought while paused")
+    assert e.value.reason == "paused"
+    assert [(b["pause"], b["resumed_at"]) for b in door.state.import_bodies] == \
+        [({"at": paused_at, "count": 6}, T0.timestamp() - 7200)]
+    gate.resume()
+    later = spend.Gate(spend.FrontDoorStore(ln, local_db=db), now=lambda: T0 + timedelta(minutes=1))
+    with later.purchase("collage", "2026-09-27", model="m") as p:
+        p.settle(None, 0.2)
 
 
 class Flaky:

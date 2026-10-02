@@ -111,6 +111,38 @@ describe("SpendBook", () => {
     expect(book.monthSummary("2026-09").usd).toBeCloseTo(0.3);
   });
 
+  it("takes the server's own pause with its records", () => {
+    const book = new SpendBook(nodeSql());
+    book.importRows([], { at: T, count: 6 }, T - 3600);
+    expect(book.snapshot(0)).toMatchObject({ pause: { at: T, count: 6 }, resumed_at: T - 3600 });
+    expect(book.reserve(rec({ at: T + 60, auto: false }), RULE, T + 60).reason).toBe("paused");
+  });
+
+  it("keeps a pause of its own over the server's", () => {
+    const book = new SpendBook(nodeSql());
+    for (let i = 0; i < 7; i++) book.reserve(rec({ at: T + i * 300, kind: "collage", subject: `d${i}` }), RULE, T + i * 300);
+    book.importRows([], { at: T - 600, count: 3 }, 0);
+    expect(book.snapshot(0).pause).toEqual({ at: T + 1800, count: 6 });
+  });
+
+  it("keeps the later resume", () => {
+    const book = new SpendBook(nodeSql());
+    book.resume(T + 100);
+    book.importRows([], null, T + 50);
+    expect(book.snapshot(0).resumed_at).toBe(T + 100);
+    book.importRows([], null, T + 200);
+    expect(book.snapshot(0).resumed_at).toBe(T + 200);
+  });
+
+  it("does not take a pause the owner has since resumed here", () => {
+    // The server sends its old pause on every start: a resume here must hold.
+    const book = new SpendBook(nodeSql());
+    book.importRows([], { at: T, count: 6 }, 0);
+    book.resume(T + 100);
+    book.importRows([], { at: T, count: 6 }, 0);
+    expect(book.snapshot(0).pause).toBeNull();
+  });
+
   it("sums the month for the admin page", () => {
     const book = new SpendBook(nodeSql());
     book.reserve(rec({ est_usd: 0.5 }), { ...RULE, limit_usd: 10 });
@@ -168,6 +200,15 @@ describe("the front door's spend routes", () => {
     expect(snap.pause).toEqual({ at: T + 1800, count: 6 });
     await call(h, "spend/resume", { now: T + 2000 });
     expect(h.summary().ai.paused).toBe(false);
+  });
+
+  it("imports the server's records and its pause", async () => {
+    const { h } = await door();
+    const r = await call(h, "spend/import",
+      { rows: [rec({ state: "settled", cost_usd: 0.2 })], pause: { at: T, count: 6 }, resumed_at: T - 60 });
+    expect(await r.json()).toEqual({ added: 1 });
+    expect(h.summary().ai.paused).toBe(true);
+    expect(h.spend.monthSummary("2026-09").count).toBe(1);
   });
 
   it("answers the reservation without waiting for the mail", async () => {

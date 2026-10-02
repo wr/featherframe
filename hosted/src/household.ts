@@ -589,8 +589,10 @@ export class Household extends DurableObject<Env> {
       return Response.json({ ok: true });
     }
     if (op === "import" && request.method === "POST") {
-      const { rows } = await request.json<{ rows: SpendRow[] }>();
-      return Response.json({ added: this.spend.importRows(rows) });
+      const { rows, pause, resumed_at } = await request.json<{ rows: SpendRow[];
+        pause?: { at: number; count: number | null } | null; resumed_at?: number }>();
+      return Response.json({ added: this.spend.importRows(Array.isArray(rows) ? rows : [], pause ?? null,
+                                                          Number(resumed_at) || 0) });
     }
     return new Response("not found", { status: 404 });
   }

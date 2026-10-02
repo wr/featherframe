@@ -141,12 +141,22 @@ export class SpendBook {
     this.set("resumed_at", String(now));
   }
 
-  /** The server's own records from before the front door kept them. */
-  importRows(rows: SpendRow[]): number {
+  /** The server's own records from before the front door kept them, and
+   * its pause: a household paused there stays paused here. The server sends
+   * them at every start, so a pause from before a resume here is not taken
+   * again, and a pause of the front door's own is kept. */
+  importRows(rows: SpendRow[], pause: { at: number; count: number | null } | null = null,
+             resumedAt = 0): number {
     let added = 0;
     for (const r of rows) {
       const had = this.sql.exec("SELECT 1 FROM spend WHERE id = ?", r.id).toArray().length;
       if (!had) { this.insert(r); added++; }
+    }
+    const own = Number(this.get("resumed_at") || 0);
+    const resumed = Math.max(own, Number.isFinite(resumedAt) ? resumedAt : 0);
+    if (resumed > own) this.set("resumed_at", String(resumed));
+    if (pause && typeof pause.at === "number" && pause.at > resumed && this.get("pause") === null) {
+      this.set("pause", JSON.stringify({ at: pause.at, count: pause.count ?? null }));
     }
     return added;
   }

@@ -485,8 +485,12 @@ class FrontDoorStore:
             db = self._local_db
             if not db.get(_AT_DOOR_KEY):
                 rows = db.spend_rows(0.0)
-                if rows:
-                    r = self._link.http.post(self._link._url("spend/import"), json={"rows": rows},
+                # A pause from before the front door kept the count goes too.
+                pause, resumed_at = db.get(_PAUSE_KEY), db.get(_RESUMED_KEY) or 0
+                if rows or pause is not None or resumed_at:
+                    r = self._link.http.post(self._link._url("spend/import"),
+                                             json={"rows": rows, "pause": pause,
+                                                   "resumed_at": resumed_at},
                                              timeout=FRONT_DOOR_TIMEOUT_S)
                     r.raise_for_status()
                 db.set(_AT_DOOR_KEY, True)

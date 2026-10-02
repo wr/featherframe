@@ -203,12 +203,15 @@ the server's existing key:
 - `GET snapshot?since=` → `{rows, pause, resumed_at}`. The server keeps it
   15 s.
 - `POST resume` `{now}`.
-- `POST import` `{rows}` → `{added}`.
+- `POST import` `{rows, pause, resumed_at}` → `{added}`: the server's own
+  records and pause, at each start. The front door keeps the later resume, and
+  takes the pause unless it has its own or was resumed since.
 
 The front door adds one rule of its own, a platform backstop: at most
 `BACKSTOP_USD_PER_DAY` = $10 of reservations per household per UTC day,
-whatever the request says. Any `backstop` refusal means the server's own
-checks failed, and it alerts (below). A front door that cannot be reached
+whatever the request says. It is asked only after the ported rule says yes,
+so any `backstop` refusal means the server's own checks failed, and it alerts
+(below). A front door that cannot be reached
 refuses: nothing is bought. The webapp then shows AI image generation as
 *Unavailable*, and the frame shows no footnote for it. The backstop's day is
 the front door's own UTC day, not the server's.

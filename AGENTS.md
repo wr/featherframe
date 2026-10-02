@@ -604,8 +604,10 @@ the insert, plus one rule of its own: a $10 backstop per UTC day by its own
 clock. It emails `ADMIN_EMAILS` once a reason a day when a household pauses,
 passes $3 in a UTC day, or hits the backstop, and the admin households table
 shows each one's AI spend this month. The server's own rows (and the W-859
-`spend.jsonl`) reach the front door once, before the first reservation it makes
-there.
+`spend.jsonl`), and a pause from before, reach the front door at each start,
+before its first read or reservation there; it keeps each row once. Its server
+image rolls forward only: an older image would not see the front door's
+records.
 
 `HouseholdServer` is THIS Python server in a Container: there is no TS copy of
 any rule but the spend gate's `decide`, above, held to the same cases. Hosted

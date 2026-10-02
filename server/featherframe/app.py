@@ -693,7 +693,7 @@ async def index(request: Request):
     # blocking the loop here would stall the device's /api/frame fetch.
     status = await run_in_threadpool(svc.status)
     generated = await run_in_threadpool(svc.generated_listing) if svc.genart else []
-    spend = await run_in_threadpool(genart.spend_for_month)
+    spend = await run_in_threadpool(svc.genart.gate.summary)
     history = await run_in_threadpool(svc.render_history)
     collage_days = await run_in_threadpool(svc.collage_days)
     push_setup = await run_in_threadpool(_push_setup, svc.source)

@@ -36,7 +36,7 @@ from typing import Callable, Optional
 import requests
 from PIL import Image
 
-from .. import hosted, paths, thumbs
+from .. import hosted, paths, spend, thumbs
 from ..names import DEFAULT_FOLIO, folio_of
 from . import plate
 from .collage import CollageCell, same_species, sheet_art_size
@@ -1006,52 +1006,6 @@ def estimate_text_cost_usd(model: str, usage: Optional[dict]) -> Optional[float]
         + _tok(usage.get("web_searches")) * WEB_SEARCH_USD
 
 
-_LEDGER_LOCK = threading.Lock()
-
-
-def record_spend(kind: str, subject: str, model: str, usage: Optional[dict],
-                 cost_usd: Optional[float], quality: Optional[str] = None) -> None:
-    """Append one paid call to the spend ledger (W-859). Never raises: a
-    ledger that cannot be written must not cost the plate it records."""
-    line = json.dumps({
-        "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "kind": kind, "subject": subject, "model": model, "quality": quality,
-        "usage": usage, "cost_usd": cost_usd,
-    })
-    try:
-        with _LEDGER_LOCK, open(paths.spend_ledger_path(), "a") as f:
-            f.write(line + "\n")
-    except OSError as exc:
-        log.warning("spend ledger write failed: %s", exc)
-
-
-def spend_for_month(now: Optional[datetime] = None) -> dict:
-    """This calendar month's (UTC) paid calls from the ledger: images bought,
-    the estimate in dollars, and how many calls had no price to estimate."""
-    month = (now or datetime.now(timezone.utc)).strftime("%Y-%m")
-    out = {"month": month, "images": 0, "usd": 0.0, "unpriced": 0}
-    try:
-        lines = paths.spend_ledger_path().read_text().splitlines()
-    except OSError:
-        return out
-    for raw in lines:
-        try:
-            e = json.loads(raw)
-        except ValueError:
-            continue
-        if not isinstance(e, dict) or not str(e.get("at", "")).startswith(month):
-            continue
-        if e.get("kind") not in ("describe", "weather"):
-            out["images"] += 1
-        cost = e.get("cost_usd")
-        if isinstance(cost, (int, float)):
-            out["usd"] += float(cost)
-        else:
-            out["unpriced"] += 1
-    out["usd"] = round(out["usd"], 4)
-    return out
-
-
 class ImageModel(ABC):
     """One image-generation backend. ``generate`` returns raw PNG bytes."""
 
@@ -1446,6 +1400,10 @@ def pick_reference_plates(common_name: str = "", k: int = 3,
     return chosen[:k]
 
 
+#: The nightly collage is bought at most once a date (W-938).
+NIGHTLY_WINDOW_S = 36 * 3600.0
+
+
 class GeneratedArtProvider(ArtProvider):
     """Serve AI-generated plates from the disk cache; generate on first miss
     when a model is configured. Never raises."""
@@ -1457,7 +1415,8 @@ class GeneratedArtProvider(ArtProvider):
                  refs: Optional[list[Path]] = None,
                  cooldown_s: float = 900.0,
                  text_model: Optional[TextModel] = None,
-                 failures: Optional[MutableMapping[str, float]] = None) -> None:
+                 failures: Optional[MutableMapping[str, float]] = None,
+                 gate: Optional["spend.Gate"] = None) -> None:
         self._model = model
         self._text_model = text_model
         self._cache_dir = Path(cache_dir) if cache_dir else None
@@ -1470,6 +1429,12 @@ class GeneratedArtProvider(ArtProvider):
         # None when it returned an image. The service keeps the last failure
         # so the page can say it (an empty account was only in the log).
         self.on_outcome: Optional[Callable[[Optional[BaseException]], None]] = None
+        # Every paid call goes through this gate (W-938). The service passes
+        # its own; tests and tools get one with no limit.
+        self.gate = gate if gate is not None else spend.Gate.unlimited()
+        # Off: a species with no illustration is never bought one (the
+        # Illustrations switch); what is kept still shows.
+        self.buy_new = True
 
     def _report(self, exc: Optional[BaseException]) -> None:
         if self.on_outcome is None:
@@ -1523,9 +1488,13 @@ class GeneratedArtProvider(ArtProvider):
             return "", True, [], None
         subject = (f"{common_name} ({scientific_name})"
                    if scientific_name else common_name)
+        text_name = getattr(self._text_model, "name", "unknown")
         try:
-            out = self._text_model.complete_json(
-                DESCRIBE_PROMPT.format(subject=subject))
+            with self.gate.purchase("describe", key, model=text_name) as buy:
+                out = self._text_model.complete_json(
+                    DESCRIBE_PROMPT.format(subject=subject))
+                usage = getattr(self._text_model, "last_usage", None)
+                buy.settle(usage, estimate_text_cost_usd(text_name, usage))
             description = str(out.get("description", "")).strip()
             is_bird = bool(out.get("is_bird", True))
             plants = [p for p in (out.get("plants") or [])
@@ -1534,14 +1503,12 @@ class GeneratedArtProvider(ArtProvider):
                 # A re-buy that came back without a usable pool must not
                 # destroy the pool the cache already had.
                 plants = list(hit["plants"])
-        except Exception as exc:
-            log.warning("describe failed for %s (%s): %s", subject,
-                        getattr(self._text_model, "name", "?"), exc)
+        except spend.Refused as r:
+            log.info("brief for %s not bought: %s", subject, r.reason)
             return "", True, [], None
-        usage = getattr(self._text_model, "last_usage", None)
-        text_name = getattr(self._text_model, "name", "unknown")
-        record_spend("describe", subject, text_name, usage,
-                     estimate_text_cost_usd(text_name, usage))
+        except Exception as exc:
+            log.warning("describe failed for %s (%s): %s", subject, text_name, exc)
+            return "", True, [], None
         if description:
             cache[key] = {
                 "description": description,
@@ -1570,7 +1537,7 @@ class GeneratedArtProvider(ArtProvider):
             # bought again because this start has not fetched it yet.
             if hosted.exists(self._png(slug)):
                 return self._from_cache(slug)
-            if self._model is None:
+            if self._model is None or not self.buy_new:
                 return None
             if self._in_cooldown(slug):
                 return None
@@ -1729,7 +1696,8 @@ class GeneratedArtProvider(ArtProvider):
     _KEEP_SHEETS = 7  # the latest of a day is kept; older days only for a re-render
 
     def day_composite(self, cells, when, force: bool = False, southern: bool = False,
-                      branch: str = "season", location=None):
+                      branch: str = "season", location=None, auto: bool = True,
+                      nightly: bool = False, interval_s: Optional[float] = None):
         """One generated composite sheet for the day's top species, in the
         manner of the folio's late totem plates. One file per date, reused for
         every redraw of that day — every collage is the generated one when the
@@ -1744,7 +1712,10 @@ class GeneratedArtProvider(ArtProvider):
         season of `when`, W-881, `southern` flipping it) or "weather" (the
         season plus that day's weather at `location`, asked of the text model
         only when a sheet is bought); a sheet painted with another branch is
-        bought again, as the owner changed it. Never raises."""
+        bought again, as the owner changed it. `auto` is False for an owner's
+        own action. `nightly` and `interval_s` name the purchase's subject and
+        its window at the spend gate (W-938): one automatic sheet per collage
+        interval for a date, plus one nightly sheet. Never raises."""
         day = when.isoformat()
         png = hosted.local(paths.collages_dir() / f"{day}.png")
         sidecar = paths.collages_dir() / f"{day}.json"
@@ -1793,25 +1764,31 @@ class GeneratedArtProvider(ArtProvider):
                     return self._read_sheet(png, sidecar, cells, locked=True) if png.exists() else None
                 started = time.time()
                 size = "%dx%d" % sheet_art_size(cells)  # the sheet's own art box
+                model_name = getattr(self._model, "name", "unknown")
+                subject = f"{day}/nightly" if nightly else day
+                window = (NIGHTLY_WINDOW_S if nightly
+                          else max(0.0, interval_s - 600.0) if interval_s else None)
                 try:
-                    png_bytes = self._model.generate(prompt, size, refs)
+                    with self.gate.purchase("collage", subject, model=model_name,
+                                            quality=self._image_quality(),
+                                            auto=auto and not force, window_s=window) as buy:
+                        png_bytes = self._model.generate(prompt, size, refs)
+                        image_usage = getattr(self._model, "last_usage", None)
+                        buy.settle(image_usage, estimate_cost_usd(model_name, image_usage))
                     Image.open(io.BytesIO(png_bytes)).verify()
+                except spend.Refused as r:
+                    log.info("day composite for %s not bought: %s", day, r.reason)
+                    return self._read_sheet(png, sidecar, cells, locked=True) if png.exists() else None
                 except Exception as exc:
                     self._failed_at[key] = time.time()
                     self._report(exc)
-                    log.warning("day composite failed for %s (%s): %s", day,
-                                getattr(self._model, "name", "?"), exc)
+                    log.warning("day composite failed for %s (%s): %s", day, model_name, exc)
                     # A failed repaint keeps showing the good sheet it meant
                     # to replace, rather than falling to the grid.
                     if png.exists():
                         return self._read_sheet(png, sidecar, cells, locked=True)
                     return None
                 self._report(None)
-                model_name = getattr(self._model, "name", "unknown")
-                image_usage = getattr(self._model, "last_usage", None)
-                record_spend("collage", day, model_name, image_usage,
-                             estimate_cost_usd(model_name, image_usage),
-                             getattr(self._model, "quality", None))
                 payload = json.dumps({
                     "date": day,
                     "cells": [{"common": c.common_name, "scientific": c.scientific_name,
@@ -1923,16 +1900,19 @@ class GeneratedArtProvider(ArtProvider):
         if search is None:
             return None
         lat, lon = location
+        model_name = getattr(self._text_model, "name", "unknown")
+        answer = None
         try:
-            answer = search(weather_mod.prompt(lat, lon, when))
+            with self.gate.purchase("weather", day, model=model_name,
+                                    window_s=weather_mod.REASK_S) as buy:
+                answer = search(weather_mod.prompt(lat, lon, when))
+                usage = getattr(self._text_model, "last_usage", None)
+                buy.settle(usage, estimate_text_cost_usd(model_name, usage))
+        except spend.Refused as r:
+            log.info("weather for %s not asked: %s", day, r.reason)
+            return None
         except Exception as exc:  # the season's own look stands
             log.info("weather for %s failed: %s", day, exc)
-            answer = None
-        usage = getattr(self._text_model, "last_usage", None)
-        model_name = getattr(self._text_model, "name", "unknown")
-        if answer is not None or usage:
-            record_spend("weather", day, model_name, usage,
-                         estimate_text_cost_usd(model_name, usage))
         kind = weather_mod.kind_from_answer(answer)
         kept[day] = {"at": round(time.time(), 1), "kind": kind, "answer": answer}
         for old in sorted(kept)[:-self._WEATHER_KEEP_DAYS]:
@@ -2022,6 +2002,10 @@ class GeneratedArtProvider(ArtProvider):
         line = _plant_line(meta.get("plant") if isinstance(meta.get("plant"), dict) else None)
         return [line] if line else []
 
+    def _image_quality(self) -> Optional[str]:
+        return (getattr(self._model, "effective_quality", None)
+                or getattr(self._model, "quality", None))
+
     def _in_cooldown(self, slug: str) -> bool:
         failed = self._failed_at.get(slug)
         return failed is not None and (time.time() - failed) < self._cooldown_s
@@ -2062,23 +2046,25 @@ class GeneratedArtProvider(ArtProvider):
             refs = (self._refs if self._refs is not None
                     else pick_reference_plates(common_name, rng=rng))
             started = time.time()
+            model_name = getattr(self._model, "name", "unknown")
             try:
-                png_bytes = self._model.generate(prompt, GEN_SIZE, refs)
+                with self.gate.purchase("plate", slug, model=model_name,
+                                        quality=self._image_quality(), auto=not force) as buy:
+                    png_bytes = self._model.generate(prompt, GEN_SIZE, refs)
+                    image_usage = getattr(self._model, "last_usage", None)
+                    buy.settle(image_usage, estimate_cost_usd(model_name, image_usage))
                 # Validate before caching: a corrupt cache would wedge forever.
                 Image.open(io.BytesIO(png_bytes)).verify()
+            except spend.Refused as r:
+                log.info("illustration for %s not bought: %s", scientific_name, r.reason)
+                return False
             except Exception as exc:
                 self._failed_at[slug] = time.time()
                 self._report(exc)
                 log.warning("generation failed for %s (%s): %s",
-                            scientific_name, getattr(self._model, "name", "?"), exc)
+                            scientific_name, model_name, exc)
                 return False
             self._report(None)
-
-            model_name = getattr(self._model, "name", "unknown")
-            image_usage = getattr(self._model, "last_usage", None)
-            record_spend("plate", scientific_name or common_name, model_name,
-                         image_usage, estimate_cost_usd(model_name, image_usage),
-                         getattr(self._model, "quality", None))
             sidecar_payload = json.dumps({
                 "slug": slug,
                 "common": common_name,

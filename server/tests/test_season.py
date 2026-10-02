@@ -8,7 +8,7 @@ from datetime import date, datetime
 
 import pytest
 
-from featherframe import paths
+from featherframe import paths, spend
 from featherframe.birdnet import BirdNetDB
 from featherframe.db import Database
 from featherframe.render import genart
@@ -294,9 +294,8 @@ def test_daily_weather_asks_the_text_model_once(tmp_path, monkeypatch):
     assert "25 January 2026" in text.asked[0] and "41.70" in text.asked[0]
     provider.day_composite(CELLS, date(2026, 1, 25), branch="weather", location=HERE, force=True)
     assert len(text.asked) == 1                            # kept for the day
-    spend = [json.loads(l) for l in paths.spend_ledger_path().read_text().splitlines()]
-    assert [e["kind"] for e in spend].count("weather") == 1
-    assert genart.spend_for_month(datetime.now())["images"] == 1   # weather is no image
+    kinds = [r.kind for r in provider.gate.store.snapshot(0).rows]
+    assert kinds.count("weather") == 1
 
 
 def test_daily_weather_asks_again_after_hours(tmp_path, monkeypatch):
@@ -304,6 +303,10 @@ def test_daily_weather_asks_again_after_hours(tmp_path, monkeypatch):
     model, provider = _provider(tmp_path, monkeypatch, text)
     now = [1_000_000.0]
     monkeypatch.setattr(genart.time, "time", lambda: now[0])
+    # The gate's window for a weather lookup is the same REASK_S, on the same
+    # clock the test is moving.
+    provider.gate = spend.Gate(spend.MemoryStore(),
+                               now=lambda: datetime.fromtimestamp(now[0]))
     provider._day_weather(HERE, date(2026, 9, 25))
     now[0] += weather_mod.REASK_S + 1
     provider._day_weather(HERE, date(2026, 9, 25))

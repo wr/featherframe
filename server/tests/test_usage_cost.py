@@ -268,11 +268,10 @@ def test_config_page_survives_a_sidecar_without_cost(client, data_dir):
     assert 'class="cost"' not in r.text
 
 
-# -- the spend ledger (W-859) -------------------------------------------------
-def test_every_paid_call_lands_in_the_ledger_and_the_month_adds_up(data_dir, monkeypatch):
-    import json as _json
-    from datetime import date as _date
-    from featherframe import paths as _paths
+# -- the spend records (W-859, W-938) -----------------------------------------
+def test_every_paid_call_is_recorded_and_the_month_adds_up(data_dir):
+    from datetime import date as _date, datetime as _dt
+    from featherframe import spend as _spend
     from featherframe.render import genart as _g
     from featherframe.render.collage import CollageCell as _Cell
 
@@ -289,29 +288,21 @@ def test_every_paid_call_lands_in_the_ledger_and_the_month_adds_up(data_dir, mon
                                "input_text_tokens": 1600, "input_image_tokens": 2400}
             return buf.getvalue()
 
-    provider = _g.GeneratedArtProvider(_Model(), refs=[])
+    gate = _spend.Gate(_spend.MemoryStore(), now=lambda: _dt(2026, 9, 24, 12))
+    provider = _g.GeneratedArtProvider(_Model(), refs=[], gate=gate)
     cells = [_Cell("Blue Jay", "Cyanocitta cristata", 3),
              _Cell("Carolina Wren", "Thryothorus ludovicianus", 2)]
     assert provider.day_composite(cells, _date(2026, 9, 24)) is not None
     assert provider._generate_to_cache("tyto-alba", "Barn Owl", "Tyto alba")
-    # A repaint overwrites the sidecar; the ledger keeps both buys.
+    import json as _json
+    from featherframe import paths as _paths
     sidecar = _paths.collages_dir() / "2026-09-24.json"
     meta = _json.loads(sidecar.read_text())
     meta["created_ts"] = 0  # past the repaint debounce
     sidecar.write_text(_json.dumps(meta))
     provider.day_composite(cells, _date(2026, 9, 24), force=True)
 
-    lines = [_json.loads(x) for x in _paths.spend_ledger_path().read_text().splitlines()]
-    assert [e["kind"] for e in lines] == ["collage", "plate", "collage"]
-    month = _g.spend_for_month()
-    assert month["images"] == 3
+    rows = gate.store.snapshot(0).rows
+    assert [r.kind for r in rows] == ["collage", "plate", "collage"]
     one = (1600 * 5 + 2400 * 8 + 400 * 30) / 1e6
-    assert abs(month["usd"] - 3 * one) < 1e-6
-    assert month["unpriced"] == 0
-
-
-def test_an_unreadable_ledger_is_an_empty_month(data_dir):
-    from featherframe import paths as _paths
-    from featherframe.render import genart as _g
-    _paths.spend_ledger_path().write_text("not json\n{}\n")
-    assert _g.spend_for_month()["images"] == 0
+    assert abs(gate.summary()["usd"] - 3 * one) < 1e-6

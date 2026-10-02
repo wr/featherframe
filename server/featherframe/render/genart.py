@@ -1190,27 +1190,34 @@ class ReplicateImageModel(ImageModel):
         resp = requests.post(url, headers=self._headers(), json=body, timeout=self.timeout_s)
         if resp.status_code not in (200, 201):
             raise GenerationError(f"HTTP {resp.status_code}: {resp.text[:300]}")
-        pred = resp.json()
-        get_url = (pred.get("urls") or {}).get("get")
-        for _ in range(60):  # ~2 min at 2s
-            status = pred.get("status")
-            if status == "succeeded":
-                break
-            if status in ("failed", "canceled"):
-                raise GenerationError(f"replicate {status}: {pred.get('error')}")
-            if not get_url:
-                break
-            time.sleep(2)
-            pr = requests.get(get_url, headers=self._headers(), timeout=self.timeout_s)
-            pr.raise_for_status()
-            pred = pr.json()
-        out = pred.get("output")
-        img_url = out[-1] if isinstance(out, list) and out else (out if isinstance(out, str) else None)
-        if not img_url:
-            raise GenerationError(f"replicate: no output (status {pred.get('status')})")
-        ir = requests.get(img_url, timeout=self.timeout_s)
-        ir.raise_for_status()
-        return ir.content
+        # Created: Replicate bills the prediction from here, so a failure after
+        # this point is never a refusal (W-938).
+        try:
+            pred = resp.json()
+            get_url = (pred.get("urls") or {}).get("get")
+            for _ in range(60):  # ~2 min at 2s
+                status = pred.get("status")
+                if status == "succeeded":
+                    break
+                if status in ("failed", "canceled"):
+                    raise GenerationError(f"replicate {status}: {pred.get('error')}")
+                if not get_url:
+                    break
+                time.sleep(2)
+                pr = requests.get(get_url, headers=self._headers(), timeout=self.timeout_s)
+                pr.raise_for_status()
+                pred = pr.json()
+            out = pred.get("output")
+            img_url = out[-1] if isinstance(out, list) and out else (out if isinstance(out, str) else None)
+            if not img_url:
+                raise GenerationError(f"replicate: no output (status {pred.get('status')})")
+            ir = requests.get(img_url, timeout=self.timeout_s)
+            ir.raise_for_status()
+            return ir.content
+        except Exception as exc:
+            err = GenerationError(f"replicate: the prediction failed after it was created: {exc}")
+            err.billed = True
+            raise err from exc
 
 
 class A1111ImageModel(ImageModel):

@@ -45,6 +45,11 @@ class _Resp:
         self.status_code = code
 
 
+def _billed(exc):
+    exc.billed = True
+    return exc
+
+
 @pytest.mark.parametrize("exc, refused", [
     (GenerationError("HTTP 400: bad size"), True),
     (GenerationError('HTTP 429: {"error": {"code": "insufficient_quota"}}'), True),
@@ -55,6 +60,7 @@ class _Resp:
     (requests.exceptions.ReadTimeout("slow"), False),
     (requests.exceptions.ConnectionError("reset"), False),
     (RuntimeError("boom"), False),
+    (_billed(GenerationError("HTTP 403: forbidden")), False),
 ])
 def test_vendor_refused(exc, refused):
     assert spend.vendor_refused(exc) is refused

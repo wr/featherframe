@@ -110,6 +110,8 @@ def estimate_usd(kind: str, model: Optional[str], quality: Optional[str]) -> flo
 def vendor_refused(exc: BaseException) -> bool:
     """True when the vendor answered no before doing the work, so nothing was
     billed. Anything else may have been."""
+    if getattr(exc, "billed", False):
+        return False
     if isinstance(exc, requests.exceptions.ConnectTimeout):
         return True
     code = getattr(getattr(exc, "response", None), "status_code", None)

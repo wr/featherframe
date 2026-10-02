@@ -119,6 +119,21 @@ def test_replicate_generate_polls_and_downloads(monkeypatch):
     assert out == _PNG
 
 
+def test_replicate_failure_after_create_is_billed(monkeypatch):
+    from featherframe import spend
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        return _Resp(201, {"status": "starting", "urls": {"get": "http://x/get"}})
+
+    monkeypatch.setattr(genart.requests, "post", fake_post)
+    monkeypatch.setattr(genart.requests, "get", lambda *a, **k: _Resp(403))
+    monkeypatch.setattr(genart.time, "sleep", lambda s: None)
+    with pytest.raises(genart.GenerationError) as info:
+        ReplicateImageModel("tok").generate("p", "1024x1024", [])
+    assert info.value.billed is True
+    assert spend.vendor_refused(info.value) is False
+
+
 def test_gemini_generate_raises_on_http_error(monkeypatch):
     monkeypatch.setattr(genart.requests, "post", lambda *a, **k: _Resp(429))
     try:

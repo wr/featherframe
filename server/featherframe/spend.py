@@ -31,10 +31,10 @@ import requests
 
 log = logging.getLogger("featherframe.spend")
 
-#: More automatic image purchases than this in a rolling hour pauses AI
-#: generation until the owner resumes it.
+#: More automatic collages and re-bought illustrations than this in a rolling
+#: hour pauses AI generation until the owner resumes it (`_counts_toward_runaway`).
 RUNAWAY_PER_HOUR = 6
-#: The kinds the runaway counts: a day's collage can need a dozen briefs.
+#: The image kinds the cost projection counts (`Gate.summary`).
 RUNAWAY_KINDS = ("plate", "collage")
 #: An open record (maybe billed, never settled) holds its subject this long.
 OPEN_HOLD_S = 86400.0
@@ -129,6 +129,18 @@ def _spent(r: Record) -> float:
     return float(r.est_usd)
 
 
+def _counts_toward_runaway(rows: list, r: Record) -> bool:
+    """Collages always; an illustration only when it buys a species again
+    within a day of buying it (W-938). A first illustration of a new species
+    is bounded by the monthly limit, not the pause."""
+    if r.kind == "collage":
+        return True
+    if r.kind != "plate":
+        return False
+    return any(o.kind == "plate" and o.subject == r.subject and o.state != "released"
+               and o.id != r.id and r.at - OPEN_HOLD_S <= o.at < r.at for o in rows)
+
+
 def decide(rows: list, paused: bool, resumed_at: float, rec: Record, rule: Rule,
            now: float) -> Optional[str]:
     """Whether `rec` may be bought: None, or why not. `rows` holds at least
@@ -146,10 +158,10 @@ def decide(rows: list, paused: bool, resumed_at: float, rec: Record, rule: Rule,
         return "subject"
     if rule.window_s and any(now - r.at < rule.window_s for r in same):
         return "subject"
-    if rule.runaway_per_hour and rec.kind in RUNAWAY_KINDS:
+    if rule.runaway_per_hour and _counts_toward_runaway(rows, rec):
         since = max(now - 3600.0, resumed_at)
-        recent = [r for r in rows if r.auto and r.kind in RUNAWAY_KINDS
-                  and r.state != "released" and r.at > since]
+        recent = [r for r in rows if r.auto and r.state != "released" and r.at > since
+                  and _counts_toward_runaway(rows, r)]
         if len(recent) >= rule.runaway_per_hour:
             return "runaway"
     return None

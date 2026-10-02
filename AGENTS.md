@@ -491,8 +491,8 @@ day. The rule is `spend.decide`, held to `tests/fixtures/spend-cases.json`.
 Paid model methods are fenced: called outside a purchase they raise
 `spend.Unguarded`. `LocalStore` keeps the records in our SQLite (`spend`
 table); the old `spend.jsonl` is imported once and no longer written. More than
-`RUNAWAY_PER_HOUR` (6) automatic images in an hour pauses AI until the owner
-presses Resume. The Illustrations switch is `illustrations_generated`. The
+`RUNAWAY_PER_HOUR` (6) automatic collages and re-bought illustrations in an
+hour pauses AI until the owner presses Resume. The Illustrations switch is `illustrations_generated`. The
 user's API key lives only in our DB and is masked in `status()` and the UI.
 `plate.py` does the content-aware crop
 of a scan (a generated PNG is `plate.extract_generated`: paper-normalised,

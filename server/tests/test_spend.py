@@ -132,7 +132,7 @@ def test_the_runaway_trips_the_pause_and_resume_clears_it():
     bought = 0
     for n in range(8):
         try:
-            with gate.purchase("plate", f"s{n}", model="m"):
+            with gate.purchase("collage", f"2026-09-{n+1:02d}", model="m"):
                 bought += 1
         except spend.Refused as r:
             assert r.reason in ("runaway", "paused")
@@ -141,7 +141,7 @@ def test_the_runaway_trips_the_pause_and_resume_clears_it():
     assert s["paused"]["count"] == 6
     gate.resume()
     assert gate.summary()["paused"] is None
-    with gate.purchase("plate", "s9", model="m"):
+    with gate.purchase("collage", "2026-09-10", model="m"):
         pass
 
 

@@ -51,7 +51,7 @@ def test_pause_and_resume_are_kept(tmp_path):
     gate = _gate(Database(path), clock=lambda: next(times), limit_usd=lambda: 100)
     for n in range(7):
         try:
-            with gate.purchase("plate", f"s{n}", model="m"):
+            with gate.purchase("collage", f"2026-09-{n+1:02d}", model="m"):
                 pass
         except spend.Refused:
             pass

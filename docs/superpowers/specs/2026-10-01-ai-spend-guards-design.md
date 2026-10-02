@@ -171,8 +171,10 @@ the pause: the purchase that would be the 7th is refused, and the pause is
 stored with its time and count. It holds until the owner presses **Resume**;
 after a resume only purchases after it count. With the subject rules in place
 a household never comes near 6 an hour, even on hourly collages. It counts
-automatic `plate` and `collage` purchases only; briefs and weather cost cents,
-and a day's collage can need a dozen briefs.
+automatic collages, and an automatic illustration only when it buys a species
+again within a day of buying it; a first illustration of a new species is
+bounded by the monthly limit, not the pause. Briefs and weather cost cents, and
+a day's collage can need a dozen briefs.
 
 ## Where the records live
 

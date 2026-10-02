@@ -1,0 +1,12 @@
+[
+  {"secs": 0, "text": "just now"},
+  {"secs": 59, "text": "just now"},
+  {"secs": 60, "text": "1 min ago"},
+  {"secs": 3599, "text": "59 min ago"},
+  {"secs": 3600, "text": "1 hour ago"},
+  {"secs": 7200, "text": "2 hours ago"},
+  {"secs": 86399, "text": "23 hours ago"},
+  {"secs": 86400, "text": "yesterday"},
+  {"secs": 172800, "text": "2 days ago"},
+  {"secs": -30, "text": "just now"}
+]

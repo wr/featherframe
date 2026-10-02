@@ -45,3 +45,16 @@ def test_the_vendored_install_dialog_chunk_is_where_the_page_imports_it():
     m = re.search(r"import\('/static/flash/esp-web-tools/([^']+)'\)", html)
     assert m, "the page no longer imports the install dialog"
     assert (root / "static" / "flash" / "esp-web-tools" / m.group(1)).exists()
+
+
+def test_the_page_says_ages_itself_and_applies_the_status_on_load(tmp_path, monkeypatch):
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    from featherframe.app import app
+    from featherframe.service import FeatherframeService
+    monkeypatch.setattr(app.state, "service", FeatherframeService(), raising=False)
+    html = TestClient(app).get("/").text
+    assert "function ffAgo(ts, now)" in html
+    assert 'data-frames="' in html
+    assert "pollStatus();\n" in html
+    assert "PREVIEW_MS" not in html

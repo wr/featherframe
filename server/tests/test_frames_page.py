@@ -7,6 +7,8 @@ setting is rendered anywhere but that row.
 """
 from __future__ import annotations
 
+import re
+
 from html import escape
 from pathlib import Path
 
@@ -393,7 +395,7 @@ def test_the_row_carries_that_frames_health(client):
     assert 'data-h="batt-wrap" data-spark-host tabindex="0" ' \
            'aria-label="Battery" hidden>' in gray and "72%" not in gray
     assert 'data-h="wifi-wrap"' in gray and "Good · -61 dBm" in gray
-    assert 'data-h="seen-text">just now<' in gray
+    assert re.search(r'data-h="seen-text" data-ts="\d+">just now<', gray)
     # open: Details is what this frame reported about itself, and only that —
     # the battery and the Wi-Fi are already on the row above.
     assert "2026.09.20" in gray and GRAY["X-Board"] in gray and ">Frame ID<" in gray

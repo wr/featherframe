@@ -157,3 +157,13 @@ describe("the front door's spend routes", () => {
     expect(h.summary().ai.paused).toBe(false);
   });
 });
+
+import { aiCell } from "../src/pages";
+
+describe("the admin's AI column", () => {
+  it("reads as the webapp's summary does", () => {
+    expect(aiCell({ usd: 1.2, limit: 10, paused: false, count: 3 })).toBe("$1.20 of $10.00");
+    expect(aiCell({ usd: 1.2, limit: 10, paused: true, count: 3 })).toBe("Paused · $1.20 of $10.00");
+    expect(aiCell({ usd: 0, limit: null, paused: false, count: 0 })).toBe("—");
+  });
+});

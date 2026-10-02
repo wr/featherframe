@@ -1,10 +1,10 @@
 <img width="400" alt="Featherframe 3D render" src="https://github.com/user-attachments/assets/b56fa34c-d740-42e1-b80b-d3d946b49c71" />
 
 # Featherframe
-An e-paper frame that shows the birds in your backyard (as detected by BirdNET) as Audubon and Gould prints.
+An e-paper frame for bird lovers, that shows the birds in your backyard as Audubon and Gould prints.
 
 ## How it works
-A bird detector identifies the birds in your backyard by their calls. Featherframe finds the matching illustration in Audubon's [*The Birds of America*](https://www.audubon.org/art/birds-of-america) or one of John Gould's books, and shows it on an e-paper frame, in grayscale or color.
+A [detector](https://github.com/wr/featherframe/wiki/Detection-sources) identifies the birds in your backyard by their calls. Featherframe finds the matching illustration in Audubon's [*The Birds of America*](https://www.audubon.org/art/birds-of-america) or one of John Gould's books, and shows it on an e-paper frame, in grayscale or color.
 
 ```
  BirdNET-Pi, BirdNET-Go   ──▶  Featherframe server  ──▶  E-paper frame
@@ -14,13 +14,15 @@ A bird detector identifies the birds in your backyard by their calls. Featherfra
 
 It works with [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), [BirdNET-Go](https://github.com/tphakala/birdnet-go), or a [BirdWeather](https://www.birdweather.com) station.
 
-- **Audubon's and Gould's illustrations.** Audubon's *The Birds of America*, and John Gould's *The Birds of Europe*, *The Birds of Australia* and *The Birds of Asia*, matted like prints. Your **Region** picks which book comes first; the others fill in the species it doesn't have.
-- **Species in no book.** These get a name card: the species' name set in type. With an OpenAI key, Featherframe can generate a new illustration in Audubon's style instead.
+- **Human-drawn illustrations.** Audubon's *The Birds of America*, and John Gould's *The Birds of Europe*, *The Birds of Australia* and *The Birds of Asia*, matted like prints. Your **Region** picks which book comes first; the others fill in the species it doesn't have.
+- **Generate missing species.** With an OpenAI key, Featherframe can generate a new illustration in Audubon's style instead (optional).
 - **A daily collage.** One sheet shows every species heard that day.
-- **Other screens.** A TRMNL, a Kobo, a Kindle, or a tablet can also show the pictures.
-- **No wrong birds.** If Featherframe isn't sure of a match, it shows the name instead of a guess.
+- **Other screens.** A TRMNL, a Kobo, a Kindle, or an iPad can also show the pictures.
 
-<center><img width="600" alt="IMG_1899" src="https://github.com/user-attachments/assets/95d46050-47f6-4af5-8e1a-6dfe1475b7b2" /></center>
+<img width="100%" alt="gallery" src="https://github.com/user-attachments/assets/78cb8932-6e5f-43b2-b17b-bce73bbafa1c" />
+<img width="100%" alt="collage examples" src="https://github.com/user-attachments/assets/5242144a-7bb0-469f-888e-23ed2f7475fc" />
+
+
 
 ## Shopping list
 

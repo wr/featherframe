@@ -1,27 +1,9 @@
-**NOTE: this project is still a work in progress :)**
+<img width="400" alt="Featherframe 3D render" src="https://github.com/user-attachments/assets/b56fa34c-d740-42e1-b80b-d3d946b49c71" />
 
-<h1 align="center">Featherframe</h1>
-
-<p align="center">
-  <strong>An e-paper frame that shows the birds in your backyard as Audubon and Gould prints.</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/wr/featherframe/actions/workflows/ci.yml"><img src="https://github.com/wr/featherframe/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-</p>
-
-<p align="center">
-  <a href="#how-it-works">How it works</a> ⬪
-  <a href="#shopping-list">Shopping list</a> ⬪
-  <a href="#get-started">Get started</a> ⬪
-  <a href="https://github.com/wr/featherframe/wiki">Wiki</a> ⬪
-  <a href="#license">License</a>
-</p>
-
-<center><img width="600" alt="featherframe" src="https://github.com/user-attachments/assets/22e61eee-6bd7-49b2-96bb-d9fbfed88f1a" /></center>
+# Featherframe
+An e-paper frame that shows the birds in your backyard (as detected by BirdNET) as Audubon and Gould prints.
 
 ## How it works
-
 A bird detector identifies the birds in your backyard by their calls. Featherframe finds the matching illustration in Audubon's [*The Birds of America*](https://www.audubon.org/art/birds-of-america) or one of John Gould's books, and shows it on an e-paper frame, in grayscale or color.
 
 ```

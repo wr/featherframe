@@ -31,7 +31,7 @@ from urllib.parse import quote
 
 from PIL import Image
 
-from . import auth, firmware_release, hosted
+from . import auth, firmware_release, hosted, spend
 from . import plate_library, thumbs
 from . import frames as frames_mod
 from . import panels, paths
@@ -649,6 +649,13 @@ class FeatherframeService:
         self.plates.region = self.config.region
         self._region_redraw = False     # a Region change awaits the next tick
         self._collage_redraw = False    # so does a change to how the collage is drawn
+        # Every paid AI call goes through this gate (W-938).
+        self.spend_gate = spend.Gate(
+            spend.LocalStore(self.db),
+            enabled=lambda: self.config.imagegen_enabled,
+            limit_usd=lambda: self.config.ai_monthly_limit_usd,
+            now=lambda: self._clock())
+        self._collage_by_owner = False
         self.genart: GeneratedArtProvider = GeneratedArtProvider(None)
         self.provider: ArtProvider = self._build_provider(self.config)
         self.source = make_source(self.config, self.db)
@@ -854,7 +861,9 @@ class FeatherframeService:
         — turning the feature off must never hide art the user paid for."""
         self.genart = GeneratedArtProvider(make_image_model(config),
                                            text_model=make_text_model(config),
-                                           failures=_SavedCooldowns(self.db))
+                                           failures=_SavedCooldowns(self.db),
+                                           gate=self.spend_gate)
+        self.genart.buy_new = config.illustrations_generated
         self.genart.on_outcome = self._note_imagegen
         return ChainedProvider([self.plates, self.genart])
 
@@ -879,6 +888,11 @@ class FeatherframeService:
         err = self.db.get(_IMAGEGEN_ERROR_KEY) or {}
         if getattr(self.genart, "_model", None) is None:
             return None
+        refusal = self.ai_refusal()
+        if refusal == "paused":
+            return "AI paused"
+        if refusal == "limit":
+            return "AI limit reached"
         name = _IMAGEGEN_NAMES.get(self.config.imagegen_provider,
                                    self.config.imagegen_provider)
         if err.get("reason") == "credits":
@@ -886,6 +900,54 @@ class FeatherframeService:
         if err.get("reason") == "key":
             return f"{name} AI key rejected"
         return None
+
+    def ai_refusal(self) -> Optional[str]:
+        """Why an owner's repaint would be refused now, or None."""
+        if not self.config.imagegen_enabled:
+            return "off"
+        s = self.spend_gate.summary()
+        if s["paused"]:
+            return "paused"
+        est = spend.estimate_usd("plate", self.config.imagegen_model, self.config.imagegen_quality)
+        if est > 0 and s["usd"] + est > s["limit"]:
+            return "limit"
+        return None
+
+    def resume_ai(self) -> None:
+        self.spend_gate.resume()
+
+    def ai_view(self, now: datetime) -> dict:
+        """The AI image generation row as the page shows it: one state, the
+        summary, and the notice under it (W-938)."""
+        name = _IMAGEGEN_NAMES.get(self.config.imagegen_provider, self.config.imagegen_provider)
+        s = self.spend_gate.summary()
+        out = {"usd": s["usd"], "limit": s["limit"], "by_kind_30d": s["by_kind_30d"],
+               "span_days": s["span_days"], "notice": None, "text": "", "detail": ""}
+        ready = bool(self.config.imagegen_api_key) or self.config.imagegen_provider == "a1111"
+        if not self.config.imagegen_enabled:
+            return {**out, "state": "off", "summary": "Off"}
+        if not ready:
+            return {**out, "state": "off", "summary": "No API key"}
+        err = self.imagegen_error_view(now)
+        if err and err["reason"] in ("key", "credits"):
+            return {**out, "state": "bad", "summary": err["summary"], "notice": "error",
+                    "text": err["text"], "detail": err["detail"]}
+        if s["paused"]:
+            n = int(s["paused"].get("count") or spend.RUNAWAY_PER_HOUR)
+            return {**out, "state": "bad", "summary": "Paused", "notice": "paused",
+                    "text": (f"AI generation is paused: {n} purchases in the last hour, "
+                             "more than usual. Nothing more is bought until you resume.")}
+        if self.ai_refusal() == "limit":
+            first = (now.replace(day=1) + timedelta(days=32)).replace(day=1)
+            return {**out, "state": "bad", "summary": "Limit reached", "notice": "limit",
+                    "text": (f"This month's AI spend reached your ${s['limit']:.2f} limit. "
+                             f"New AI illustrations and collages resume on 1 {first:%b}, "
+                             "or raise the limit.")}
+        if err:
+            return {**out, "state": err["state"], "summary": err["summary"], "notice": "error",
+                    "text": err["text"], "detail": err["detail"]}
+        return {**out, "state": "good",
+                "summary": f"{name} · ${s['usd']:.2f} of ${s['limit']:.2f}"}
 
     def imagegen_error_view(self, now: datetime) -> Optional[dict]:
         """The last generation failure as the page says it, or None. Only
@@ -943,10 +1005,13 @@ class FeatherframeService:
                 self.db.set(_IMAGEGEN_COOLDOWNS_KEY, None)
                 self.provider = self._build_provider(new)
                 self.db.set(_IMAGEGEN_ERROR_KEY, None)
+            self.genart.buy_new = new.illustrations_generated
             if (self._collage_fields(new) != self._collage_fields(self.config)
                     or (imagegen_changed and new.collage_generated)):
                 # The collage is drawn again now, not at its next interval.
                 self._collage_redraw = True
+                # The owner's save asked for it: not held to the interval.
+                self._collage_by_owner = True
             if new.region != self.config.region:
                 # The plate on the glass may now come from another folio: the
                 # next tick draws it again (never in the request that saved).
@@ -1460,7 +1525,7 @@ class FeatherframeService:
         stamp = on_date.isoformat()
         if self.db.get("quiet_collage_for") == stamp:
             return  # already rendered this window's collage
-        if self._build_collage(now, on_date):
+        if self._build_collage(now, on_date, nightly=True):
             self.db.set("quiet_collage_for", stamp)
 
     def _collage_result(self, on_date: ddate,
@@ -1486,12 +1551,16 @@ class FeatherframeService:
         today's cached sheet unless repaint buys a fresh one."""
         now = self._clock()
         on_date = self._collage_date(now)
-        return self._build_collage(now, on_date, force_generated=repaint)
+        return self._build_collage(now, on_date, force_generated=repaint, owner=True)
 
     def _build_collage(self, now: datetime, on_date: ddate,
-                       force_generated: bool = False) -> bool:
-        """Draw the collage picture for `on_date`."""
-        composed = self._collage_composer(now, on_date)
+                       force_generated: bool = False, owner: bool = False,
+                       nightly: bool = False) -> bool:
+        """Draw the collage picture for `on_date`. `owner`: the owner asked
+        (a button, a settings save); `nightly`: the quiet-hours sheet."""
+        owner = owner or self._collage_by_owner
+        self._collage_by_owner = False
+        composed = self._collage_composer(now, on_date, owner=owner, nightly=nightly)
         if composed is None:
             # Not enough for a grid: fall back to a plate for the day. This
             # runs on every tick while the day has one species, so skip the
@@ -1547,7 +1616,8 @@ class FeatherframeService:
                         "text": f"{day:%a} {day.day} {day:%b}"})
         return out[:COLLAGE_DAYS_KEPT]
 
-    def _collage_composer(self, now: datetime, on_date: ddate):
+    def _collage_composer(self, now: datetime, on_date: ddate, owner: bool = False,
+                          nightly: bool = False):
         """(compose, note) for the day's collage, or None when fewer than two
         species qualify. `compose(color, force=False) -> (sheet, label)`. The
         one collage (W-830): the frame's and a viewer's are drawn by this."""
@@ -1580,7 +1650,10 @@ class FeatherframeService:
                 sheet = self.genart.day_composite(top, on_date, force=force,
                                                   southern=southern,
                                                   branch=self.config.collage_branch,
-                                                  location=loc)
+                                                  location=loc,
+                                                  auto=not (owner or force),
+                                                  nightly=nightly,
+                                                  interval_s=self.config.collage_interval_hours * 3600)
                 if sheet is not None:
                     # The key must name what was PAINTED: on a cache hit the cells
                     # come from the sheet's sidecar, not tonight's fresh tally.
@@ -2993,6 +3066,7 @@ class FeatherframeService:
             "plates_loaded": self.plates.species_count,
             "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
             "imagegen_error": self.imagegen_error_view(now),
+            "ai": self.ai_view(now),
             "config": self._masked_config(),
             # Every screen this server draws for, one shape each. The page
             # renders the same row component for all of them, and the Health

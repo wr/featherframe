@@ -352,7 +352,14 @@ Ten samples through today's pipeline (`plate.extract`, `tight=True`, then
    mask; names through GBIF and then checked by hand, starting with every
    synonym and fuzzy match.
 
-Open questions for Wells: one picture a day, or more in a rich month? Fruit,
-the first to flower, or the collage in winter? Britton & Brown beside
-Walcott, or Walcott only? Is a garden list (and *Curtis's* for it) part of the
-first version?
+Wells's answers (2 Oct 2026):
+
+- **What a frame shows is the owner's choice**, as it is for birds: each
+  month and place has a list of the species in flower with a plate, and a
+  frame shows one of them at an update interval the owner picks (hourly to
+  daily), or the collage, drawn or generated.
+- **Winter** stays open: fruit, the first to flower and the collage are all
+  candidates.
+- **Britton & Brown beside Walcott**: no preference yet.
+- **Wild plants only.** No garden list, so *Curtis's* and Redouté drop out
+  of the first version.

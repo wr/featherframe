@@ -137,6 +137,17 @@ describe("PageCache", () => {
     expect(await (await c.respond(c.find(kp.key)!, "GET"))!.text()).toBe("old page");
   });
 
+  it("a refresh whose rows a save cleared meanwhile leaves nothing behind in R2", async () => {
+    const { b, c } = make();
+    const kp = cacheKey(U("/"), route, {}, "b");
+    await c.store(kp.key, "changing", kp.ask, page("old"), T);
+    c.touch(kp.key, T);
+    const ok = await c.refresh(async () => { await c.clear("changing"); return page("new"); }, T + 1);
+    expect(ok).toBe(true);
+    expect(c.find(kp.key)).toBeNull();
+    expect(b.m.size).toBe(0);
+  });
+
   it("knows when the copies someone reads are stale", async () => {
     const { c } = make();
     const kp = cacheKey(U("/"), route, {}, "b");

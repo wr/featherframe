@@ -142,11 +142,16 @@ export class PageCache {
     }
     const generation = Number(this.sql.exec("SELECT coalesce(max(generation), 0) AS g FROM page_cache")
       .toArray()[0].g) + 1;
+    // A row cleared while the asks were out (a save) stays cleared: its new
+    // copy goes, with the old ones.
+    const unused: string[] = [];
     for (const f of fresh) {
-      this.sql.exec("UPDATE page_cache SET object = ?, headers = ?, generation = ?, filled_at = ? WHERE key = ?",
+      const r = this.sql.exec("UPDATE page_cache SET object = ?, headers = ?, generation = ?, filled_at = ? WHERE key = ?",
         f.object, f.headers, generation, now, f.e.key);
+      r.toArray();                       // run it to the end, so rowsWritten is final
+      if (!r.rowsWritten) unused.push(f.object);
     }
-    const old = fresh.map((f) => f.e.object).filter((o): o is string => !!o);
+    const old = fresh.map((f) => f.e.object).filter((o): o is string => !!o).concat(unused);
     if (old.length) await this.bucket.delete(old.map((o) => this.prefix + o));
     const unread = this.sql.exec(
       "SELECT object FROM page_cache WHERE read_at < ?", now - UNREAD_DROP_MS).toArray() as { object: string | null }[];

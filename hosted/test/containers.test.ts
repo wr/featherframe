@@ -112,6 +112,17 @@ describe("SleepingContainer", () => {
 // The activity timeout runs from a request's start, so a tick longer than it
 // was stopped part way (W-917): the server is stopped only once it is idle.
 describe("HouseholdServer", () => {
+  it("says it is running only while up and not on its way out", async () => {
+    const c = fakeContainer();
+    const h = household(c);
+    expect(await h.running()).toBe(true);
+    const stopping = h.stop();
+    expect(await h.running()).toBe(false);
+    c.exit();
+    await stopping;
+    expect(await h.running()).toBe(false);
+  });
+
   it("is not stopped while the server is working", async () => {
     const c = fakeContainer();
     const box = household(c);

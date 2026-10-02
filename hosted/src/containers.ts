@@ -94,6 +94,12 @@ export class HouseholdServer extends SleepingContainer {
     await this.stop();
   }
 
+  /** Up and not on its way out (W-946): a stopping server counts as asleep,
+   * so the cache answers rather than waiting out the stop and a new start. */
+  async running(): Promise<boolean> {
+    return !!this.ctx.container?.running && !this.stopping;
+  }
+
   private async working(): Promise<boolean> {
     try {
       const res = await this.containerFetch(new Request("http://server/api/hosted/busy"), this.defaultPort);

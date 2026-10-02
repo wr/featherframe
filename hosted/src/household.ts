@@ -9,6 +9,8 @@ import { firmwareWaiting, isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 import { lastDays, type UsageDay } from "./usage";
 import { due, nextAlarm, type WakeState } from "./wakes";
+import { answerRead, type Ask, PageCache } from "./pagecache";
+import { loadingPage } from "./loading";
 
 // The household's server is woken only for news (W-847). The front door looks
 // for it: a BirdWeather station every POLL_MS, or a push (BirdNET-Pi's Apprise,
@@ -81,6 +83,13 @@ export class Household extends DurableObject<Env> {
     this.spend = new SpendBook(this.sql);
   }
 
+  private _cache?: PageCache;
+  /** The webapp's reads, kept (W-946); bodies under the household's own prefix. */
+  get cache(): PageCache {
+    return this._cache ??= new PageCache(this.sql, this.env.DATA, `households/${this.meta("hid")}/cache/`);
+  }
+  refreshing: Promise<void> | null = null;
+
   meta(k: string): string | null {
     const r = this.sql.exec<{ v: string }>("SELECT v FROM meta WHERE k = ?", k).toArray();
     return r.length ? r[0].v : null;
@@ -119,6 +128,10 @@ export class Household extends DurableObject<Env> {
     if (request.method === "POST" && /^\/api\/ingest\/(apprise|birdnet-go)(\/[^/]*)?$/.test(url.pathname)) {
       return this.ingest(request, url);
     }
+    if (url.pathname === "/api/warm" && request.method === "POST") return this.warm();
+    if (url.pathname === "/api/page/ready" && request.method === "GET") return this.pageReady(request, url);
+    const cached = await answerRead(request, url, this.readDeps(request));
+    if (cached) return cached;
     return this.proxy(request);
   }
 
@@ -191,6 +204,7 @@ export class Household extends DurableObject<Env> {
       deviceId, -1, JSON.stringify(body));
     this.setMeta("news", "1");
     this.setMeta("wake_ms", "0");        // pairing is worth a wake at once
+    await this.cache.clear("changing");     // the reload after pairing shows the new frame
     await this.ctx.storage.setAlarm(Date.now() + 500);
   }
 
@@ -257,13 +271,69 @@ export class Household extends DurableObject<Env> {
     // 500 "Container suddenly disconnected"; seen once, mid first render after
     // a cold start). A read is safe to ask again, once; a write is not.
     const again = request.method === "GET" || request.method === "HEAD";
+    if (request.method === "POST") this.setMeta("post_pending", "1");
     const res = await stub.fetch(again ? forward.clone() : forward);
     if (removing && res.ok) await this.unpair(removing);
+    // A change the owner made: the next reads ask the server (W-946).
+    if (request.method === "POST" && res.status < 400) await this.cache.clear("changing");
     if (again && res.status === 500 && (await res.clone().text()).startsWith("Container suddenly disconnected")) {
       console.warn("container link dropped; asking again", new URL(request.url).pathname);
       return stub.fetch(forward);
     }
     return res;
+  }
+
+  // -- the webapp's reads, from the cache (W-946) ------------------------------
+  readDeps(request: Request) {
+    return {
+      cache: this.cache, now: Date.now(), build: this.meta("page_build") || "",
+      today: localIso(this.meta("tz") || "UTC").slice(0, 10),
+      // Asked without configure(): a read must not cost the server DO a write.
+      running: async () => this.env.SERVER.getByName(this.meta("hid")!).running(),
+      ask: (a: Ask) => this.askServer(a),
+      proxy: () => this.proxy(request),
+      look: () => this.look(),
+      loading: () => loadingPage(),
+    };
+  }
+
+  /** Straight to the server, not through proxy(): a refresh or a cache fill
+   * is not someone using the page, and must not hold the server up. */
+  async askServer(a: Ask): Promise<Response> {
+    const stub = await this.server();
+    const q = new URLSearchParams(a.query).toString();
+    const headers = new Headers({ "X-FF-Hosted": "1", ...a.account });
+    return stub.fetch(new Request(`http://server${a.path}${q ? `?${q}` : ""}`, { headers }));
+  }
+
+  /** The loading page's question: is / kept for this account yet? When it is
+   * not but the server is up, keep it now. */
+  async pageReady(request: Request, url: URL): Promise<Response> {
+    const res = await answerRead(new Request(new URL("/", url), { headers: request.headers }), new URL("/", url),
+      { ...this.readDeps(request), loading: () => new Response(null, { status: 204 }), look: async () => {} });
+    return Response.json({ ready: !!res && res.status === 200 }, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  /** The owner started an edit (W-946): start the server now, so the save
+   * meets it up. Counted as page activity; never for a suspended household. */
+  async warm(): Promise<Response> {
+    if (!this.meta("suspended")) {
+      this.setMeta("page_ms", String(Date.now()));
+      this.ctx.waitUntil((async () => {
+        try { await (await this.server()).fetch("http://server/api/hosted/busy"); } catch { /* the save will start it */ }
+      })());
+    }
+    return new Response(null, { status: 204 });
+  }
+
+  /** Ask the server again for the copies someone reads, one refresh at a time. */
+  async refreshCache(): Promise<void> {
+    if (this.refreshing) return this.refreshing;
+    this.refreshing = (async () => {
+      try { await this.cache.refresh((a) => this.askServer(a), Date.now()); }
+      catch (err) { console.error("cache refresh", err); }
+    })().finally(() => { this.refreshing = null; });
+    return this.refreshing;
   }
 
   /** The frame a page request removes from this household, if it is one: a
@@ -339,6 +409,8 @@ export class Household extends DurableObject<Env> {
         this.sql.exec("DELETE FROM ingest WHERE seq = ?", q.seq);
       }
       await stub.fetch("http://server/api/hosted/run", { method: "POST" });
+      // Copies someone reads that this wake did not refresh, while it is up.
+      if (this.cache.stale(Date.now())) await this.refreshCache();
       if (Date.now() - Number(this.meta("page_ms") || 0) > PAGE_ACTIVE_MS) await stub.sleepWhenIdle();
     } catch (err) {
       console.error("wake failed", err);
@@ -630,8 +702,14 @@ export class Household extends DurableObject<Env> {
       paper?: boolean; short?: string }>;
     next_wake_epoch?: number | null;
     poll?: boolean;
+    page_build?: string;
     source?: { kind?: string; station?: string; token?: string };
   }): Promise<void> {
+    const shown = (): string => JSON.stringify([
+      this.sql.exec("SELECT id, status, etag, headers FROM frames ORDER BY id").toArray(),
+      this.sql.exec("SELECT id, status, name FROM viewers ORDER BY id").toArray()]);
+    const shownBefore = shown();
+    const buildBefore = this.meta("page_build");
     const before = new Map(this.sql.exec<FrameRow>("SELECT * FROM frames").toArray().map((r) => [r.id, r]));
     this.sql.exec("DELETE FROM frames");
     for (const [id, f] of Object.entries(state.frames || {})) {
@@ -666,6 +744,16 @@ export class Household extends DurableObject<Env> {
         .bind(src.token || null, this.meta("hid")).run();
     }
     this.setMeta("apprise_token", src.token ?? null);
+    // A new server image draws a new page: nothing kept from the old one.
+    if ((state.page_build || null) !== buildBefore) {
+      this.setMeta("page_build", state.page_build || null);
+      await this.cache.clear("all");
+    }
+    // While the server is up, refresh what someone reads when the page would
+    // show something new, or after the owner changed something.
+    const afterPost = this.meta("post_pending") === "1";
+    this.setMeta("post_pending", null);
+    if (afterPost || shown() !== shownBefore) this.ctx.waitUntil(this.refreshCache());
     await this.schedule();
   }
 }

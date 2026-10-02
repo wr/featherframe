@@ -1,6 +1,6 @@
 // The front door's copy of the webapp's reads (W-946, src/pagecache.ts).
 import { describe, expect, it } from "vitest";
-import { answerRead, cacheKey, FRESH_MS, MAX_BODY, PageCache, READ_WINDOW_MS, routeOf } from "../src/pagecache";
+import { answerRead, cacheKey, FRESH_MS, MAX_BODY, PageCache, READ_WINDOW_MS, routeOf, SHOWN_AGE_MS } from "../src/pagecache";
 import { nodeSql } from "./sql";
 
 function bucket() {
@@ -230,6 +230,9 @@ describe("PageCache", () => {
     expect(c.readSince(T - READ_WINDOW_MS)).toBe(true);
     expect(c.stale(T + FRESH_MS - 1)).toBe(false);
     expect(c.stale(T + FRESH_MS)).toBe(true);
+    // Update now's wake (W-952): a copy the page calls old is stale to it.
+    expect(c.stale(T + SHOWN_AGE_MS - 1, SHOWN_AGE_MS)).toBe(false);
+    expect(c.stale(T + SHOWN_AGE_MS, SHOWN_AGE_MS)).toBe(true);
   });
 });
 

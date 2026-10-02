@@ -7,6 +7,9 @@ import type { SqlLike } from "./spend";
 import { randomHex } from "./util";
 
 export const FRESH_MS = 15 * 60_000;
+/** Past this the page says how old it is, with Update now (W-950; the
+ * page's own STALE_MS). */
+export const SHOWN_AGE_MS = 5 * 60_000;
 export const READ_WINDOW_MS = 2 * 60 * 60_000;
 export const UNREAD_DROP_MS = 30 * 24 * 60 * 60_000;
 export const MAX_BODY = 5 * 1024 * 1024;
@@ -118,10 +121,10 @@ export class PageCache {
     return this.sql.exec(
       "SELECT count(*) AS n FROM page_cache WHERE kind = 'changing' AND read_at >= ?", since).toArray()[0].n > 0;
   }
-  /** Some changing copy someone reads is older than FRESH_MS. */
-  stale(now: number): boolean {
+  /** Some changing copy someone reads is older than `age` (FRESH_MS). */
+  stale(now: number, age = FRESH_MS): boolean {
     return this.sql.exec(`SELECT count(*) AS n FROM page_cache WHERE kind = 'changing'
-      AND read_at >= ? AND (filled_at IS NULL OR filled_at <= ?)`, now - READ_WINDOW_MS, now - FRESH_MS)
+      AND read_at >= ? AND (filled_at IS NULL OR filled_at <= ?)`, now - READ_WINDOW_MS, now - age)
       .toArray()[0].n > 0;
   }
 

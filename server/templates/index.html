@@ -2376,7 +2376,7 @@
   function applyStatus(st) {
     var cur = st.current || {}, frames = (st.frames && st.frames.list) || [];
     var moving = frames.some(function (f) { return f.firmware && UPDATE_MOVING[f.firmware.stage]; });
-    if (moving && !quickPoll) quickPoll = setTimeout(function () { quickPoll = null; pollStatus(); }, 2000);
+    if (moving && !quickPoll) quickPoll = setTimeout(function () { quickPoll = null; pollStatus(true); }, 2000);
     if (plate) { plate.dataset.hasFrame = cur.etag ? '1' : ''; if (cur.etag) plate.classList.remove('empty'); }
     // A frame added, answered or unplugged changes which rows exist: the rows
     // are server-rendered, so take the new page rather than build them twice.
@@ -2605,9 +2605,9 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
   })();
 
-  function pollStatus() {
+  function pollStatus(live) {
     if (document.hidden) return;
-    jsonFetch('/api/status').then(function (st) {
+    jsonFetch(live ? '/api/status?live=1' : '/api/status').then(function (st) {
       statusFailures = 0; statusLastOk = new Date();
       liveCards.forEach(function (c) { c.classList.remove('stale'); });
       if (flashKind === 'offline') hideFlash();
@@ -2710,7 +2710,9 @@
       var tick = sw.closest('.frow-ctl').querySelector('.saved-tick');
       var body = new URLSearchParams();
       body.append(sw.name, '0'); if (sw.checked) body.append(sw.name, '1');
-      fetch('/settings', { method: 'POST', body: body, credentials: 'same-origin' }).then(function (r) {
+      // It flips at once and saves behind it; the request outlives the page (W-946).
+      if (tick) { tick.textContent = 'Saving…'; tick.classList.remove('bad'); tick.classList.add('on'); clearTimeout(tick._h); }
+      fetch('/settings', { method: 'POST', body: body, credentials: 'same-origin', keepalive: true }).then(function (r) {
         if (!r.ok || /[?&]error=/.test(r.url)) throw new Error('not saved');
         if (tick) { tick.textContent = 'Saved'; tick.classList.remove('bad'); }
       }).catch(function () {
@@ -2721,6 +2723,12 @@
         tick.classList.add('on'); clearTimeout(tick._h);
         tick._h = setTimeout(function () { tick.classList.remove('on'); }, 1600);
       });
+    });
+  });
+  document.querySelectorAll('form.set-form').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      var b = e.submitter || f.querySelector('button[type="submit"]');
+      if (b && !e.defaultPrevented) { b.textContent = 'Saving…'; b.disabled = true; }
     });
   });
   window.addEventListener('beforeunload', function (e) {
@@ -3481,7 +3489,7 @@
       });
       if ((listing.regenerating || []).length === 0 && timer) { clearInterval(timer); timer = null; }
     }
-    function poll() { if (document.hidden) return; jsonFetch('/api/generated').then(apply).catch(function () {}); }
+    function poll() { if (document.hidden) return; jsonFetch('/api/generated?live=1').then(apply).catch(function () {}); }
     function startPolling() { if (!timer) timer = setInterval(poll, POLL_MS); }
     document.querySelectorAll('.regen-form').forEach(function (regenForm) {
       regenForm.addEventListener('submit', function (e) {
@@ -3575,7 +3583,7 @@
       Object.keys(forms).forEach(function (task) { if (running.indexOf(task) === -1) idleUI(task); else if (!active) beginUI(task); });
       if (running.length === 0) finish(state.errors);
     }
-    function poll() { if (document.hidden) return; jsonFetch('/api/tasks').then(apply).catch(function () {}); }
+    function poll() { if (document.hidden) return; jsonFetch('/api/tasks?live=1').then(apply).catch(function () {}); }
     function startPolling() { if (!timer) timer = setInterval(poll, POLL_MS); }
     document.querySelectorAll('.task-form').forEach(function (taskForm) {
       var task = taskForm.getAttribute('data-task');
@@ -3850,8 +3858,13 @@
           dl.dispatchEvent(new Event('ff:options'));   // let an open combo refresh
         }).catch(function () { dl.innerHTML = ''; dl.dispatchEvent(new Event('ff:options')); });
     }
-    prov.addEventListener('change', load);
-    load();
+    // Asked for when the model field is used, not as the page loads: on
+    // Featherframe Cloud a load must not start the server (W-946).
+    var loaded = false;
+    function loadOnce() { if (!loaded) { loaded = true; load(); } }
+    prov.addEventListener('change', function () { loaded = true; load(); });
+    var field = $('ig-model');
+    if (field) field.addEventListener('focus', loadOnce);
   })();
 
   // -- text-model provider: show key / endpoint fields for the chosen provider
@@ -3942,6 +3955,27 @@
   })();
   // For the hosted page's USB pairing (its own script, below).
   window.ffPage = { showFlash: showFlash, jsonFetch: jsonFetch, errText: errText };
+  {% if hosted %}
+  // The owner started an edit (W-946): Featherframe Cloud starts the
+  // household's server now, so the save meets it up. Again at most every 20 s.
+  (function () {
+    var last = 0;
+    function warm() {
+      if (Date.now() - last < 20000) return;
+      last = Date.now();
+      fetch('/api/warm', { method: 'POST', credentials: 'same-origin', keepalive: true }).catch(function () {});
+    }
+    ['input', 'change', 'focusin'].forEach(function (t) {
+      document.addEventListener(t, function (e) {
+        var el = e.target;
+        if (el && el.closest && el.closest('form.set-form, .fr-body') && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) warm();
+      }, true);
+    });
+    document.querySelectorAll('dialog').forEach(function (d) {
+      new MutationObserver(function () { if (d.open) warm(); }).observe(d, { attributes: true, attributeFilter: ['open'] });
+    });
+  })();
+  {% endif %}
 })();
 </script>
 {% if hosted %}

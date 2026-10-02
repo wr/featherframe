@@ -58,3 +58,34 @@ def test_the_page_says_ages_itself_and_applies_the_status_on_load(tmp_path, monk
     assert 'data-frames="' in html
     assert "pollStatus();\n" in html
     assert "PREVIEW_MS" not in html
+
+
+@pytest.mark.parametrize("hosted", [False, True])
+def test_live_polls_and_warming(tmp_path, monkeypatch, hosted):
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    from featherframe.app import app
+    from featherframe.service import FeatherframeService
+    monkeypatch.setattr(app.state, "service", FeatherframeService(), raising=False)
+    monkeypatch.setattr(app.state, "hosted", object() if hosted else None, raising=False)
+    html = TestClient(app).get("/").text
+    assert "jsonFetch('/api/tasks?live=1')" in html
+    assert "jsonFetch('/api/generated?live=1')" in html
+    assert "keepalive: true" in html
+    assert ("fetch('/api/warm'" in html) is hosted
+
+
+def test_the_model_list_is_asked_for_only_when_the_field_is_used(tmp_path, monkeypatch):
+    """On Featherframe Cloud every read the page makes as it loads must come
+    from the front door's cache (W-946): the image models' live list is the
+    server asking OpenAI, so it is asked for when the model field is used."""
+    monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
+    from featherframe.app import app
+    from featherframe.service import FeatherframeService
+    monkeypatch.setattr(app.state, "service", FeatherframeService(), raising=False)
+    html = TestClient(app).get("/").text
+    i = html.index("-- image-model suggestions")
+    block = html[i:html.index("})();", i)]
+    assert "addEventListener('focus', loadOnce)" in block
+    assert "\n    load();\n" not in block

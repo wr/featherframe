@@ -36,6 +36,8 @@
 #     Both come from Gould's Birds of Great Britain instead (gould_britain.yaml).
 #   - A pale bird on white paper defeats the tight crop, which finds only its
 #     legs and perch: 276, 307 and 438 carry a hand-placed crop_box.
+#   - Two figures set well apart defeat it too, keeping only the larger:
+#     119's female sits below the male, so 119 carries a crop_box as well.
 #   - The grey-headed "caniceps" goldfinch in Gould's Birds of Asia is not the
 #     European Goldfinch (docs/plate-sources.md); plate 196 here is.
 
@@ -477,7 +479,7 @@ species:
   # wing edge. Cetti's, the White Wagtail and the Common Snipe keep their main
   # plates; Gould's second figures of them are not pinned.
   - {common: "Imperial Eagle", scientific: "Aquila heliaca", plate: 5, gould_title: "Imperial Eagle, Aquila Imperialis", volume: birdsEuropeIGoul, leaf: 46, margins: [0.02, 0.02, 0.98, 0.867]}
-  - {common: "Western Orphean Warbler", scientific: "Curruca hortensis", plate: 119, gould_title: "Orpheus Warbler, Curruca Orphea", volume: birdsEuropeIIGoul, leaf: 288, margins: [0.02, 0.02, 0.98, 0.873]}
+  - {common: "Western Orphean Warbler", scientific: "Curruca hortensis", plate: 119, gould_title: "Orpheus Warbler, Curruca Orphea", volume: birdsEuropeIIGoul, leaf: 288, margins: [0.02, 0.02, 0.98, 0.873], crop_box: [0.282, 0.198, 0.541, 0.629]}
   - {common: "Icterine Warbler", scientific: "Hippolais icterina", plate: 133, gould_title: "Melodious Willow Wren, Sylvia Hippolais", volume: birdsEuropeIIGoul, leaf: 340, margins: [0.02, 0.02, 0.98, 0.827]}
   - {common: "Western Bonelli's Warbler", scientific: "Phylloscopus bonelli", plate: 134, gould_title: "Natterer's Warbler, Sylvia Nattereri", volume: birdsEuropeIIGoul, leaf: 348, margins: [0.02, 0.02, 0.98, 0.801]}
   - {common: "Pallas's Leaf Warbler", scientific: "Phylloscopus proregulus", plate: 149, gould_title: "Dalmatian Regulus, Regulus modestus", volume: birdsEuropeIIGoul, leaf: 408, margins: [0.02, 0.02, 0.98, 0.792]}

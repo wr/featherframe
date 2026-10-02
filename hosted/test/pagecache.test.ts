@@ -132,7 +132,7 @@ describe("PageCache", () => {
     await c.store(kp.key, "changing", kp.ask, page("old page"), T);
     await c.store(ks.key, "changing", ks.ask, page("old status"), T);
     c.touch(kp.key, T); c.touch(ks.key, T);
-    const ok = await c.refresh(async (a) => a.path === "/" ? page("new page") : page("down", "text/plain", 500), T + 1);
+    const ok = await c.refresh(async (a) => a.path === "/" ? page("new page") : page("asleep", "text/plain", 503), T + 1);
     expect(ok).toBe(false);
     expect(await (await c.respond(c.find(kp.key)!, "GET"))!.text()).toBe("old page");
   });
@@ -198,6 +198,20 @@ describe("PageCache", () => {
     expect(await c.refresh(async () => { if (n++) throw new Error("gone"); return page("new"); }, T + 1)).toBe(false);
     expect(b.m.size).toBe(before);
     expect(await (await c.respond(c.find(kp.key)!, "GET"))!.text()).toBe("old page");
+  });
+
+  it("a part the server cannot draw (a 404) is skipped; the rest still swap", async () => {
+    const { c } = make();
+    const kp = cacheKey(U("/"), route, {}, "b");
+    c.note(kp.key, "changing", kp.ask, T);
+    const parts = ["/api/status", "/api/frames/AA/preview.png"]
+      .map((p) => ({ ...cacheKey(U(p), routeOf(p, "d")!, {}, "b"), kind: "changing" as const }));
+    const ok = await c.refresh(async (a) => a.path.endsWith("preview.png") ? page("nothing drawn", "text/plain", 404) : page("x"),
+                               T + 1, parts);
+    expect(ok).toBe(true);
+    expect(c.find(kp.key)?.object).toBeTruthy();
+    expect(c.find(parts[0].key)?.object).toBeTruthy();
+    expect(c.find(parts[1].key)?.object).toBeNull();
   });
 
   it("knows when the copies someone reads are stale", async () => {

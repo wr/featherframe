@@ -419,6 +419,9 @@ export class Household extends DurableObject<Env> {
       if (!waiting) return;
     }
     this.setMeta("look", "1");
+    // No page at all: the owner is looking at the loading page, so the wake
+    // does not wait out the gap (as a frame just paired does not).
+    if (urgent) this.setMeta("wake_ms", "0");
     await this.schedule();
   }
 

@@ -152,7 +152,11 @@ export class PageCache {
       for (const e of rows) {
         const res = await ask(JSON.parse(e.ask) as Ask);
         const body = await res.arrayBuffer();
-        if (res.status !== 200 || body.byteLength > MAX_BODY) { await drop(); return false; }
+        // The server gone (asleep, or stopped part way): nothing changes.
+        if (res.status === 503) { await drop(); return false; }
+        // One read it cannot draw now (a frame's preview not drawn yet): that
+        // row keeps what it has; the page and the rest still move on.
+        if (res.status !== 200 || body.byteLength > MAX_BODY) continue;
         const object = randomHex(16);
         await this.bucket.put(this.prefix + object, body);
         fresh.push({ e, object, headers: JSON.stringify(kept(res.headers)) });

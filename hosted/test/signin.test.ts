@@ -5,7 +5,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { login } from "../src/signin";
+import { auth } from "../src/accounts";
+import { checkCode, login, showCode } from "../src/signin";
 import { sha256 } from "../src/util";
 
 function d1(db: DatabaseSync) {
@@ -142,5 +143,122 @@ describe("emailing a sign-in", () => {
     const res = await ask("not an email");
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("Enter an email address.");
+  });
+});
+
+const page = (id: string, q = "") => showCode(
+  new Request(`https://${HOST}/login/code${q}`, { headers: { Cookie: `ff_signin=${id}` } }), env,
+  new URL(`https://${HOST}/login/code${q}`));
+
+async function enter(id: string, code: string, origin = `https://${HOST}`) {
+  return checkCode(new Request(`https://${HOST}/login/code`, {
+    method: "POST", body: new URLSearchParams({ code }), headers: { Cookie: `ff_signin=${id}`, Origin: origin },
+  }), env);
+}
+
+describe("the code page", () => {
+  it("is found by this browser's cookie, and a reload sends nothing", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    for (let i = 0; i < 2; i++) {
+      const html = await (await page(id)).text();
+      expect(html).toContain("If w@example.com has an invitation or an account, we sent it a code.");
+      expect(html).toContain('autocomplete="one-time-code"');
+      expect(html).toContain("Send a new code");
+    }
+    expect(mails).toHaveLength(1);
+  });
+
+  it("goes to /login with no cookie or someone else's", async () => {
+    expect((await showCode(new Request(`https://${HOST}/login/code`), env, new URL(`https://${HOST}/login/code`)))
+      .headers.get("Location")).toBe("/login");
+    expect((await page("ab".repeat(32))).headers.get("Location")).toBe("/login");
+  });
+
+  it("says a code has expired", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    db.prepare("UPDATE signin_requests SET expires_at = ?").run(NOW - 1);
+    expect(await (await page(id)).text()).toContain("That code has expired. Send a new code.");
+    expect((await enter(id, codeIn(mails[0].text))).headers.get("Location")).toBe("/login/code?e=expired");
+  });
+});
+
+describe("checking a code", () => {
+  it("signs in with the right code, once", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    const res = await enter(id, codeIn(mails[0].text));
+    expect(res.headers.get("Location")).toBe("/");
+    const cookies = res.headers.get("Set-Cookie")!;
+    expect(cookies).toContain("ff_session=");
+    expect(cookies).toContain("ff_signin=; Path=/login; Max-Age=0");
+    expect(one("SELECT used_at FROM login_links").used_at).not.toBeNull();
+    expect((await enter(id, codeIn(mails[0].text))).headers.get("Location")).toBe("/login");
+  });
+
+  it("takes the code with a space in it", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    const c = codeIn(mails[0].text);
+    expect((await enter(id, `${c.slice(0, 3)} ${c.slice(3)}`)).headers.get("Location")).toBe("/");
+  });
+
+  it("counts wrong codes; the fifth ends it, even before the right one", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    const right = codeIn(mails[0].text);
+    const wrong = right === "000000" ? "111111" : "000000";
+    for (let i = 0; i < 4; i++) expect((await enter(id, wrong)).headers.get("Location")).toBe("/login/code?e=wrong");
+    expect((await enter(id, wrong)).headers.get("Location")).toBe("/login/code?e=tries");
+    expect((await enter(id, right)).headers.get("Location")).toBe("/login/code?e=tries");
+    expect(await (await page(id, "?e=wrong")).text()).toContain("That code doesn&#39;t match.");
+  });
+
+  it("answers any code for an address that was sent nothing as a wrong one", async () => {
+    const id = idOf(await ask("new@example.com"));
+    expect((await enter(id, "123456")).headers.get("Location")).toBe("/login/code?e=wrong");
+  });
+
+  it("works only in the browser that asked", async () => {
+    account();
+    await ask("w@example.com");
+    expect((await enter("cd".repeat(32), codeIn(mails[0].text))).headers.get("Location")).toBe("/login");
+  });
+
+  it("the newest of two requests is the one that works", async () => {
+    account();
+    await ask("w@example.com");
+    const second = idOf(await ask("w@example.com"));
+    expect((await enter(second, codeIn(mails[1].text))).headers.get("Location")).toBe("/");
+  });
+
+  it("the link and the code use each other up", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    const link = linkIn(mails[0].text);
+    expect((await auth(new Request(link), env, link)).headers.get("Location")).toBe("/");
+    expect((await enter(id, codeIn(mails[0].text))).headers.get("Location")).toBe("/login");
+
+    const id2 = idOf(await ask("w@example.com"));
+    expect((await enter(id2, codeIn(mails[1].text))).headers.get("Location")).toBe("/");
+    const link2 = linkIn(mails[1].text);
+    expect(await (await auth(new Request(link2), env, link2)).text()).toContain("That link has expired");
+  });
+
+  it("an invitation's first sign-in by code makes the household, as the link does", async () => {
+    db.prepare("INSERT INTO invites (email, created_at) VALUES ('new@example.com', ?)").run(NOW);
+    const id = idOf(await ask("new@example.com"));
+    expect((await enter(id, codeIn(mails[0].text))).headers.get("Location")).toBe("/");
+    const u = one("SELECT household_id, verified_at FROM users WHERE email = 'new@example.com'");
+    expect(u.verified_at).not.toBeNull();
+    expect(inits.map((i) => i[0])).toEqual([u.household_id]);
+    expect(one("SELECT used_at FROM invites").used_at).not.toBeNull();
+  });
+
+  it("refuses a code posted from another site", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    expect((await enter(id, codeIn(mails[0].text), "https://evil.example")).status).toBe(403);
   });
 });

@@ -59,17 +59,26 @@ export async function makeLoginLink(env: Env, email: string, tz: string | null,
   return (await createLink(env, email, tz, pairCode))?.url ?? null;
 }
 
-/** The link from the email: sign in, and on an invitation's first use, make
- * the household. */
+export type LinkRow = { email: string; tz: string | null; expires_at: number; used_at: number | null;
+                        pair_code: string | null };
+
+/** The link from the email. Using it uses up the code sent beside it (W-947). */
 export async function auth(request: Request, env: Env, url: URL): Promise<Response> {
-  const token = url.searchParams.get("t") || "";
+  const hash = await sha256(url.searchParams.get("t") || "");
   const row = await env.DB.prepare(
     "SELECT email, tz, expires_at, used_at, pair_code FROM login_links WHERE token_hash = ?")
-    .bind(await sha256(token)).first<{ email: string; tz: string | null; expires_at: number; used_at: number | null;
-                                       pair_code: string | null }>();
+    .bind(hash).first<LinkRow>();
   if (!row || row.used_at || row.expires_at < now()) return linkExpiredPage();
-  await env.DB.prepare("UPDATE login_links SET used_at = ? WHERE token_hash = ?").bind(now(), await sha256(token)).run();
+  const used = await env.DB.prepare("UPDATE login_links SET used_at = ? WHERE token_hash = ? AND used_at IS NULL")
+    .bind(now(), hash).run();
+  if (!used.meta.changes) return linkExpiredPage();
+  await env.DB.prepare("DELETE FROM signin_requests WHERE link_hash = ?").bind(hash).run();
+  return finishSignIn(env, row);
+}
 
+/** Sign in as a used link's email, whether by the link or its code: on an
+ * invitation's first use the household is made. */
+export async function finishSignIn(env: Env, row: Pick<LinkRow, "email" | "tz" | "pair_code">): Promise<Response> {
   let user = await env.DB.prepare("SELECT id, household_id FROM users WHERE email = ?")
     .bind(row.email).first<{ id: string; household_id: string }>();
   if (!user) {
@@ -87,7 +96,7 @@ export async function auth(request: Request, env: Env, url: URL): Promise<Respon
     await env.HOUSEHOLD.getByName(hid).init(hid, tz);
     user = { id: uid, household_id: hid };
   }
-  // Following an emailed link proves the address (W-889).
+  // Following an emailed link, or typing its code, proves the address (W-889).
   await env.DB.prepare("UPDATE users SET verified_at = ? WHERE id = ? AND verified_at IS NULL").bind(now(), user.id).run();
   // A link from the setup page (W-888): the frame whose code was scanned
   // joins this account, if it is still showing that code.

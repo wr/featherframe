@@ -5,10 +5,10 @@
 // the browser reloads or restores never sends again.
 
 import type { Env } from "./index";
-import { createLink, joinWaitlist, LOGIN_LINKS_PER_HOUR, normEmail, rateHit, realSessionUser,
-         sendMail } from "./accounts";
-import { addFrameEmail, loginPage, signInEmail } from "./pages";
-import { randomHex, sha256, validTz } from "./util";
+import { createLink, finishSignIn, joinWaitlist, type LinkRow, LOGIN_LINKS_PER_HOUR, normEmail, rateHit,
+         realSessionUser, sendMail } from "./accounts";
+import { addFrameEmail, codeEntryPage, loginPage, signInEmail } from "./pages";
+import { cookie, randomHex, sha256, validTz } from "./util";
 
 export const SIGNIN_COOKIE = "ff_signin";
 export const SIGNIN_TTL_S = 15 * 60;
@@ -104,4 +104,60 @@ export async function login(request: Request, env: Env, ctx: ExecutionContext): 
   if (!email) return loginPage("Enter an email address.");
   return startSignIn(env, ctx, { email, kind: "login", tz: validTz(String(form.get("tz") || "")),
                                  pairCode: null, frame: "", back: "/login" });
+}
+
+type Row = {
+  id_hash: string; email: string; kind: Kind; link_hash: string | null; code_hash: string | null;
+  attempts: number; tz: string | null; pair_code: string | null; frame: string | null; back: string | null;
+  expires_at: number;
+};
+
+const ERRORS: Record<string, string> = {
+  wrong: "That code doesn't match.",
+  tries: "Too many tries. Send a new code.",
+  expired: "That code has expired. Send a new code.",
+  limited: "Already sent a few times. Check your email, or try again in an hour.",
+};
+
+export async function requestOf(request: Request, env: Env): Promise<Row | null> {
+  const id = cookie(request, SIGNIN_COOKIE) || "";
+  if (!/^[0-9a-f]{64}$/.test(id)) return null;
+  return env.DB.prepare("SELECT * FROM signin_requests WHERE id_hash = ?").bind(await sha256(id)).first<Row>();
+}
+
+/** GET /login/code: where the code is typed. */
+export async function showCode(request: Request, env: Env, url: URL): Promise<Response> {
+  if (await realSessionUser(request, env)) return redirect("/");
+  const row = await requestOf(request, env);
+  if (!row) return redirect("/login");
+  const e = row.expires_at <= now() ? "expired" : url.searchParams.get("e") || "";
+  return codeEntryPage({ email: row.email, kind: row.kind, back: row.back || "/login",
+                         error: ERRORS[e] || "", sent: !e && url.searchParams.get("sent") === "1" });
+}
+
+/** POST /login/code. A request that sent nothing (an address that may not
+ * sign in) answers every code as a wrong one. */
+export async function checkCode(request: Request, env: Env): Promise<Response> {
+  if (foreign(request, env)) return new Response("forbidden", { status: 403 });
+  const row = await requestOf(request, env);
+  if (!row) return redirect("/login");
+  if (row.expires_at <= now()) return redirect("/login/code?e=expired");
+  if (row.attempts >= CODE_TRIES) return redirect("/login/code?e=tries");
+  const code = String((await request.formData()).get("code") || "").replace(/\D/g, "");
+  const right = !!row.code_hash && code.length === 6 && (await sha256(row.id_hash + code)) === row.code_hash;
+  if (!right) {
+    await env.DB.prepare("UPDATE signin_requests SET attempts = attempts + 1 WHERE id_hash = ?").bind(row.id_hash).run();
+    return redirect(`/login/code?e=${row.attempts + 1 >= CODE_TRIES ? "tries" : "wrong"}`);
+  }
+  // The code and its link are one sign-in: whichever is used first takes both.
+  const taken = await env.DB.prepare("DELETE FROM signin_requests WHERE id_hash = ?").bind(row.id_hash).run();
+  const used = await env.DB.prepare(
+    "UPDATE login_links SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?")
+    .bind(now(), row.link_hash, now()).run();
+  if (!taken.meta.changes || !used.meta.changes) return redirect("/login");
+  const link = await env.DB.prepare("SELECT email, tz, pair_code FROM login_links WHERE token_hash = ?")
+    .bind(row.link_hash).first<Pick<LinkRow, "email" | "tz" | "pair_code">>();
+  const res = await finishSignIn(env, link!);
+  res.headers.append("Set-Cookie", signinCookie("", 0));
+  return res;
 }

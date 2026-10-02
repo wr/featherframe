@@ -102,7 +102,7 @@ def estimate_usd(kind: str, model: Optional[str], quality: Optional[str]) -> flo
         return DESCRIBE_USD
     if kind == "weather":
         return WEATHER_USD
-    base = IMAGE_USD.get(quality or "", UNMEASURED_USD) if m.startswith("gpt-image") \
+    base = IMAGE_USD.get(quality or "", UNMEASURED_USD) if m.startswith("gpt-image-2.5") \
         else UNMEASURED_USD
     return round(base * (COLLAGE_FACTOR if kind == "collage" else 1.0), 4)
 
@@ -384,8 +384,10 @@ class LocalStore:
                         resumed_at=float(self._db.get(_RESUMED_KEY) or 0.0))
 
     def resume(self, now: float) -> None:
-        self._db.set(_PAUSE_KEY, None)
+        # The resume first: a reserve between the two writes must not count
+        # the hour that tripped the pause.
         self._db.set(_RESUMED_KEY, now)
+        self._db.set(_PAUSE_KEY, None)
 
     def _import_ledger(self, path: Path) -> None:
         """The W-859 ledger (`spend.jsonl`), carried over once as settled
@@ -399,18 +401,18 @@ class LocalStore:
             try:
                 e = json.loads(raw)
                 at = datetime.fromisoformat(str(e["at"])).astimezone()
-            except (ValueError, KeyError, TypeError):
+                kind = str(e.get("kind") or "plate")
+                est = estimate_usd(kind, e.get("model"), e.get("quality"))
+                cost = e.get("cost_usd")
+                row = asdict(Record(id=f"ledger-{n}", at=at.timestamp(),
+                                    month=at.strftime("%Y-%m"), day=at.strftime("%Y-%m-%d"),
+                                    kind=kind, subject=str(e.get("subject") or ""), auto=True,
+                                    model=str(e.get("model") or "unknown"),
+                                    quality=e.get("quality"), est_usd=est,
+                                    cost_usd=float(cost) if isinstance(cost, (int, float)) else est,
+                                    state="settled"))
+            except Exception:  # noqa: BLE001 — one odd line never stops the import
                 continue
-            kind = str(e.get("kind") or "plate")
-            est = estimate_usd(kind, e.get("model"), e.get("quality"))
-            cost = e.get("cost_usd")
-            row = asdict(Record(id=f"ledger-{n}", at=at.timestamp(), month=at.strftime("%Y-%m"),
-                                day=at.strftime("%Y-%m-%d"), kind=kind,
-                                subject=str(e.get("subject") or ""), auto=True,
-                                model=str(e.get("model") or "unknown"),
-                                quality=e.get("quality"), est_usd=est,
-                                cost_usd=float(cost) if isinstance(cost, (int, float)) else est,
-                                state="settled"))
             rows.append(row)
         if rows:
             self._db.spend_import(rows, _IMPORTED_KEY)

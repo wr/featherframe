@@ -81,6 +81,20 @@ def test_the_old_ledger_is_carried_over_once(tmp_path):
     assert brief.cost_usd == pytest.approx(spend.DESCRIBE_USD)
 
 
+def test_an_odd_ledger_line_is_skipped(tmp_path):
+    ledger = tmp_path / "spend.jsonl"
+    ledger.write_text("\n".join(json.dumps(e) for e in [
+        {"at": "2026-09-27T11:51:21+00:00", "kind": "plate", "subject": "x", "model": 5},
+        {"at": "2026-09-27T11:52:00+00:00", "kind": "plate", "subject": "y",
+         "model": "gpt-image-2.5-sunburst", "quality": ["max"]},
+        {"at": "2026-09-26T01:57:08+00:00", "kind": "describe", "subject": "Green-winged Teal",
+         "model": "gpt-5.6-luna", "quality": None, "usage": None, "cost_usd": None},
+    ]))
+    db = Database(tmp_path / "ff.db")
+    spend.LocalStore(db, ledger_path=ledger)
+    assert [r.subject for r in spend.LocalStore(db).snapshot(0).rows] == ["Green-winged Teal"]
+
+
 def test_an_interrupted_import_finishes_on_the_next_start(tmp_path):
     ledger = tmp_path / "spend.jsonl"
     ledger.write_text("\n".join(json.dumps(e) for e in [

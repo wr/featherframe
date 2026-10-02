@@ -27,7 +27,7 @@ def test_decide(case):
     ("plate", "gpt-image-2.5-sunburst", "medium", 0.039),
     ("plate", "gpt-image-2.5-sunburst", "max", 0.194),
     ("collage", "gpt-image-2.5-sunburst", "max", 0.2134),
-    ("plate", "gpt-image-2", "high", 0.070),
+    ("plate", "gpt-image-2", "high", 0.21),
     ("plate", "gpt-image-2.5-sunburst", "auto", 0.21),
     ("plate", "gemini-2.5-flash-image", None, 0.21),
     ("collage", "black-forest-labs/flux-kontext-pro", None, 0.231),

@@ -65,7 +65,8 @@ HERE = Path(__file__).resolve().parent
 SERVER_DIR = Path(os.environ.get("FEATHERFRAME_SERVER_DIR", HERE.parent.parent.parent / "server"))
 sys.path.insert(0, str(SERVER_DIR))
 
-from featherframe import paths  # noqa: E402
+from featherframe import paths, spend  # noqa: E402
+from featherframe.db import Database  # noqa: E402
 from featherframe.render import genart, plate  # noqa: E402
 
 ART = HERE / "art"
@@ -225,6 +226,10 @@ def generate(args) -> None:
             print(f"\n==== {s} ====\n" + PROMPTS[s])
         return
     model = genart.OpenAIImageModel(api_key(args), model=args.model, quality=args.quality)
+    # Every paid call goes through a spend gate (W-938): this tool's records
+    # go in a scratch DB beside its output, with no limit (Wells's own key).
+    gate = spend.Gate(spend.LocalStore(Database(out / "spend.db"), ledger_path=out / "none.jsonl"),
+                      limit_usd=lambda: float("inf"), runaway_per_hour=None)
     base = Path(args.base) if args.base else out / "base.png"
     perch = Path(args.perch) if args.perch else out / "perch.png"
     for step in steps:
@@ -244,7 +249,11 @@ def generate(args) -> None:
             prompt = PROMPTS[step]
             started = time.time()
             print(f"drawing {dest.name} ({model.name}, {model.quality}) …", flush=True)
-            png = model.generate(prompt, GEN_SIZE, step_refs)
+            with gate.purchase("plate", f"boot-{step}", model=model.name,
+                               quality=model.quality, auto=False) as buy:
+                png = model.generate(prompt, GEN_SIZE, step_refs)
+                buy.settle(model.last_usage,
+                           genart.estimate_cost_usd(model.name, model.last_usage))
             Image.open(io.BytesIO(png)).verify()
             dest.write_bytes(png)
             _sidecar(dest, step=step, model=model.name, quality=model.quality,

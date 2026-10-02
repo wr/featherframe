@@ -156,12 +156,15 @@ def test_a_collage_setting_redraws_the_collage_at_once(client, monkeypatch, form
     assert svc._collage_redraw is True
     assert kicked == [("collage", svc.tick)]   # not the collage's next interval
 
-    # The tick draws the collage again, of the day it is already of.
+    # The tick draws the collage again, of the day it is already of, as the
+    # owner's save (W-938).
     redrawn = []
-    monkeypatch.setattr(svc, "_rerender_picture", redrawn.append)
+    monkeypatch.setattr(svc, "_rerender_picture",
+                        lambda kind, owner=False: redrawn.append((kind, owner)))
     svc.pictures["collage"].etag = "abc"
     svc._tick_pictures()
-    assert redrawn == ["collage"] and svc._collage_redraw is False
+    assert redrawn == [("collage", True)] and svc._collage_redraw is False
+    assert svc._collage_by_owner is False
 
 
 def test_a_collage_setting_left_alone_redraws_nothing(client, monkeypatch):

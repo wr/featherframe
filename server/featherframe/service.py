@@ -1079,8 +1079,10 @@ class FeatherframeService:
                 self._rerender_picture(PLATES)
         if self._collage_redraw:
             self._collage_redraw = False
+            # The owner's save is this redraw's, and ends with it (W-938).
+            by_owner, self._collage_by_owner = self._collage_by_owner, False
             if self.pictures[COLLAGE].etag is not None:
-                self._rerender_picture(COLLAGE)
+                self._rerender_picture(COLLAGE, owner=by_owner)
         now = self._clock()
         available = self.source.available()
         # Computed first so any render this tick — including the flips below —
@@ -1558,8 +1560,6 @@ class FeatherframeService:
                        nightly: bool = False) -> bool:
         """Draw the collage picture for `on_date`. `owner`: the owner asked
         (a button, a settings save); `nightly`: the quiet-hours sheet."""
-        owner = owner or self._collage_by_owner
-        self._collage_by_owner = False
         composed = self._collage_composer(now, on_date, owner=owner, nightly=nightly)
         if composed is None:
             # Not enough for a grid: fall back to a plate for the day. This
@@ -2886,8 +2886,9 @@ class FeatherframeService:
         what a settings save or a colour screen's arrival asks for."""
         self._rerender_picture(self._shown)
 
-    def _rerender_picture(self, kind: str) -> None:
-        """Draw one picture again, of whatever it is already of."""
+    def _rerender_picture(self, kind: str, owner: bool = False) -> None:
+        """Draw one picture again, of whatever it is already of. `owner`: the
+        owner's save asked for it (a collage only)."""
         with self._lock:
             meta = dict(self.pictures[kind].meta)
         now = self._clock()
@@ -2897,7 +2898,7 @@ class FeatherframeService:
         if meta.get("mode") == "collage":
             # The same day it is already of, so a re-render of the nightly
             # collage after midnight does not become this morning's.
-            self._build_collage(now, self._collage_day(now))
+            self._build_collage(now, self._collage_day(now), owner=owner)
             return
         if not meta.get("label"):
             return

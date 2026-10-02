@@ -90,3 +90,37 @@ def test_the_missing_species_switch_reaches_the_provider(svc):
 
 def test_status_carries_the_view(svc):
     assert svc.status()["ai"]["summary"] == "OpenAI \u00b7 $0.00 of $10.00"
+
+
+def test_the_owner_flag_ends_with_the_tick_that_took_the_redraw(svc, monkeypatch):
+    from datetime import date
+
+    from featherframe.config import load_config
+    from featherframe.pictures import COLLAGE
+    # The owner saves a new branch while no collage has been drawn yet.
+    saved = load_config(svc.db)
+    saved.collage_branch = "bare"
+    save_config(svc.db, saved)
+    svc.reload_config()
+    assert svc._collage_redraw and svc._collage_by_owner
+    assert svc.pictures[COLLAGE].etag is None
+    svc._tick_pictures()
+    assert svc._collage_redraw is False
+    assert svc._collage_by_owner is False
+
+    class _Stop(Exception):
+        pass
+
+    seen = []
+
+    def day_composite(*args, **kwargs):
+        seen.append(kwargs)
+        raise _Stop
+
+    monkeypatch.setattr(svc.genart, "day_composite", day_composite)
+    monkeypatch.setattr(svc.source, "top_species_today", lambda *a, **k: [
+        {"common": "Barn Owl", "scientific": "Tyto alba", "count": 3},
+        {"common": "Blue Jay", "scientific": "Cyanocitta cristata", "count": 4}])
+    with pytest.raises(_Stop):
+        svc._build_collage(svc._clock(), date(2026, 10, 14), nightly=True)
+    assert seen and seen[0]["auto"] is True

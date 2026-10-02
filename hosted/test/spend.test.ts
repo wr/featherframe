@@ -61,6 +61,17 @@ describe("SpendBook", () => {
     expect(last.alerts.map((a) => a.reason)).toContain("backstop");
   });
 
+  it("says the owner's limit when that is what stopped it, not the backstop", () => {
+    // With the default $10 limit every backstop trip is also a limit trip: the
+    // server's own rule stopped it, so the admin is not told it did not.
+    const book = new SpendBook(nodeSql());
+    const ten = { limit_usd: 10, runaway_per_hour: null, window_s: null };
+    for (let i = 0; i < 51; i++) expect(book.reserve(rec({ at: T + i, auto: false }), ten, T + i).ok).toBe(true);
+    const next = book.reserve(rec({ at: T + 99, auto: false }), ten, T + 99);   // $9.89 + $0.19
+    expect(next.reason).toBe("limit");
+    expect(next.alerts.map((a) => a.reason)).not.toContain("backstop");
+  });
+
   it("counts the backstop's day on the front door's clock, not the server's", () => {
     const book = new SpendBook(nodeSql());
     const big = { limit_usd: 1e6, runaway_per_hour: null, window_s: null };

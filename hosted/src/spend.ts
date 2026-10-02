@@ -102,13 +102,12 @@ export class SpendBook {
     const dayTotal = rows.filter((r) => utcDay(r.at) === today).reduce((a, r) => a + spent(r), 0);
     const alerts: Alert[] = [];
     const paused = this.get("pause") !== null;
-    let reason: string | null = null;
-    // A pause is its own answer: a paused household is never told it hit the backstop.
-    if (!paused && rec.est_usd > 0 && dayTotal + rec.est_usd > BACKSTOP_USD_PER_DAY + 1e-9) {
+    // The server's rule first: a backstop refusal says its own checks did not
+    // stop it, so a pause or the owner's limit is never reported as one.
+    let reason = decide(rows, paused, Number(this.get("resumed_at") || 0), rec, rule, rec.at);
+    if (reason === "runaway") this.set("pause", JSON.stringify({ at: rec.at, count: rule.runaway_per_hour }));
+    if (reason === null && rec.est_usd > 0 && dayTotal + rec.est_usd > BACKSTOP_USD_PER_DAY + 1e-9) {
       reason = "backstop";
-    } else {
-      reason = decide(rows, paused, Number(this.get("resumed_at") || 0), rec, rule, rec.at);
-      if (reason === "runaway") this.set("pause", JSON.stringify({ at: rec.at, count: rule.runaway_per_hour }));
     }
     if (reason === null) this.insert({ ...rec, state: "open", cost_usd: null });
     const after = dayTotal + (reason === null ? rec.est_usd : 0);

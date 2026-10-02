@@ -202,6 +202,20 @@ describe("setting up", () => {
     expect(adopts.map((a) => a[0])).toEqual(["h1"]);
   });
 
+  it("a signed-in owner who scans a frame adds it, and is sent nothing", async () => {
+    db.prepare("INSERT INTO households (id, tz, created_at) VALUES ('h1', 'UTC', ?)").run(NOW);
+    db.prepare("INSERT INTO users (id, email, household_id, created_at) VALUES ('u1', 'old@example.com', 'h1', ?)").run(NOW);
+    const token = "s".repeat(64);
+    db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, 'u1', ?)").run(await sha256(token), NOW + 3600);
+    const f = await frameShowing();
+    const res = await post(f, {}, "203.0.113.1", { Cookie: `ff_session=${token}` });
+    await Promise.all(waits);
+    expect(res.headers.get("Location")).toBe(`https://${HOST}/?paired=1`);
+    expect(one("SELECT household_id FROM frames WHERE device_id = ?", f.device).household_id).toBe("h1");
+    expect(mails).toHaveLength(0);
+    expect(one("SELECT count(*) AS n FROM signin_requests").n).toBe(0);
+  });
+
   it("the add-a-frame link still works on its own", async () => {
     db.prepare("INSERT INTO households (id, tz, created_at) VALUES ('h1', 'UTC', ?)").run(NOW);
     db.prepare("INSERT INTO users (id, email, household_id, created_at) VALUES ('u1', 'old@example.com', 'h1', ?)").run(NOW);

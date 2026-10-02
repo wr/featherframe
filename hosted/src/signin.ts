@@ -112,12 +112,13 @@ type Row = {
   expires_at: number;
 };
 
-const ERRORS: Record<string, string> = {
-  wrong: "That code doesn't match.",
-  tries: "Too many tries. Send a new code.",
-  expired: "That code has expired. Send a new code.",
-  limited: "Already sent a few times. Check your email, or try again in an hour.",
-};
+// A Map, so a mangled ?e= (constructor, __proto__) finds nothing.
+const ERRORS = new Map<string, string>([
+  ["wrong", "That code doesn't match."],
+  ["tries", "Too many tries. Send a new code."],
+  ["expired", "That code has expired. Send a new code."],
+  ["limited", "Already sent a few times. Check your email, or try again in an hour."],
+]);
 
 export async function requestOf(request: Request, env: Env): Promise<Row | null> {
   const id = cookie(request, SIGNIN_COOKIE) || "";
@@ -132,7 +133,7 @@ export async function showCode(request: Request, env: Env, url: URL): Promise<Re
   if (!row) return redirect("/login");
   const e = row.expires_at <= now() ? "expired" : url.searchParams.get("e") || "";
   return codeEntryPage({ email: row.email, kind: row.kind, back: row.back || "/login",
-                         error: ERRORS[e] || "", sent: !e && url.searchParams.get("sent") === "1" });
+                         error: ERRORS.get(e) ?? "", sent: !e && url.searchParams.get("sent") === "1" });
 }
 
 /** POST /login/code. A request that sent nothing (an address that may not

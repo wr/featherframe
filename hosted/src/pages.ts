@@ -502,8 +502,8 @@ export function codeEntryPage(v: { email: string; kind: "login" | "setup"; back:
     ${v.error ? `<p class="bad">${e(v.error)}</p>` : v.sent ? `<p>Sent a new code.</p>` : ""}
     <form method="post" action="/login/code" id="code-form">
       <label for="code">Code</label>
-      <input type="text" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}"
-        maxlength="7" required autofocus style="letter-spacing:.2em">
+      <input type="text" id="code" name="code" inputmode="numeric" autocomplete="one-time-code"
+        maxlength="12" required autofocus style="letter-spacing:.2em">
       <button type="submit">${setup ? "Add this frame" : "Sign in"}</button>
     </form>
     <p class="muted" style="margin:16px 0">The code and the link in the email work once, for 15 minutes.</p>

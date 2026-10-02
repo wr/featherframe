@@ -332,3 +332,31 @@ describe("deleting a household", () => {
     expect(one("SELECT count(*) AS n FROM signin_requests").n).toBe(0);
   });
 });
+
+describe("found in review", () => {
+  it("a mangled error in the URL is no error, never a 500", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    for (const e of ["constructor", "__proto__", "toString", "nonsense"]) {
+      const res = await page(id, `?e=${e}`);
+      expect(res.status).toBe(200);
+      expect(await res.text()).not.toContain('class="bad"');
+    }
+  });
+
+  it("lets the browser submit a code with a dash or a space: the server reads the digits", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    expect(await (await page(id)).text()).not.toContain(" pattern=");
+    const c = codeIn(mails[0].text);
+    expect((await enter(id, `${c.slice(0, 3)}-${c.slice(3)}`)).headers.get("Location")).toBe("/");
+  });
+
+  it("the code page sends a signed-in browser to the webapp", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    const res = await showCode(new Request(`https://${HOST}/login/code`,
+      { headers: { Cookie: `ff_signin=${id}; ${await session()}` } }), env, new URL(`https://${HOST}/login/code`));
+    expect(res.headers.get("Location")).toBe("/");
+  });
+});

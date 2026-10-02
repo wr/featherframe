@@ -1217,8 +1217,8 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
             error = "No saved illustration by that name."
         elif listing[slug].get("regenerating"):
             error = "Already regenerating."
-        elif svc.ai_refusal():
-            error = _AI_REFUSED[svc.ai_refusal()]
+        elif (refusal := svc.ai_refusal()):
+            error = _AI_REFUSED[refusal]
         elif svc.regen_limited():
             error = "Too many repaints this hour. Try again later."
         else:

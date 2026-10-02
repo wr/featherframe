@@ -7,12 +7,14 @@ import { deviceId } from "./util";
 // frame is RL_AUTH; a frame and a detector are keyed by who they are, so a
 // household behind one IP is not one bucket; the rest is RL_PAGE.
 const AUTH_PATHS = /^\/(login|auth|logout|account\/|admin\/|_admin\/|api\/pair|api\/waitlist)/i;
+// Pages an owner only looks at (the sign-in form, the code page and its
+// signed-in check, the admin page) are ordinary browsing.
+const PAGE_GETS = /^\/(login|login\/code|login\/state|admin)$/i;
 
 export function limiterFor(request: Request, url: URL, isFramePath: (path: string) => boolean): { name: "RL_AUTH" | "RL_PAGE" | "RL_FRAME"; key: string } {
   const path = url.pathname;
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-  if (AUTH_PATHS.test(path) && !(path.toLowerCase() === "/login" && request.method === "GET")
-      && !(path === "/admin" && request.method === "GET")) return { name: "RL_AUTH", key: `ip:${ip}` };
+  if (AUTH_PATHS.test(path) && !(request.method === "GET" && PAGE_GETS.test(path))) return { name: "RL_AUTH", key: `ip:${ip}` };
   if (/^\/setup(\/|$)/i.test(path) && request.method === "POST") return { name: "RL_AUTH", key: `ip:${ip}` };
   if (isFramePath(path)) {
     const who = deviceId(request) || url.searchParams.get("id") || request.headers.get("ID") || ip;

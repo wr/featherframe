@@ -293,6 +293,10 @@ describe("rate limits", () => {
                  new URL(`https://${HOST}${path}`), (p) => /^\/api\/frame/.test(p));
     expect(r("/login", "POST").name).toBe("RL_AUTH");
     expect(r("/login").name).toBe("RL_PAGE");
+    expect(r("/login/code").name).toBe("RL_PAGE");
+    expect(r("/login/state").name).toBe("RL_PAGE");
+    expect(r("/login/code", "POST").name).toBe("RL_AUTH");
+    expect(r("/login/resend", "POST").name).toBe("RL_AUTH");
     expect(r("/auth?t=x").name).toBe("RL_AUTH");
     expect(r("/setup/abcdef/0123456789ab", "POST").name).toBe("RL_AUTH");
     expect(r("/api/pair", "POST").name).toBe("RL_AUTH");

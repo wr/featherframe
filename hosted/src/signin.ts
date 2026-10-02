@@ -161,3 +161,26 @@ export async function checkCode(request: Request, env: Env): Promise<Response> {
   res.headers.append("Set-Cookie", signinCookie("", 0));
   return res;
 }
+
+/** POST /login/resend: the same request, a new code and a new link. The
+ * old email's link keeps working until it expires; its code does not. */
+export async function resendCode(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  if (foreign(request, env)) return new Response("forbidden", { status: 403 });
+  const row = await requestOf(request, env);
+  if (!row) return redirect("/login");
+  const ask: Ask = { email: row.email, kind: row.kind, tz: row.tz, pairCode: row.pair_code,
+                     frame: row.frame || "", back: row.back || "/login" };
+  const { linkHash, codeHash, limited } = await issue(env, ctx, ask, row.id_hash);
+  if (limited) return redirect("/login/code?e=limited");
+  await env.DB.prepare(
+    "UPDATE signin_requests SET link_hash = ?, code_hash = ?, attempts = 0, expires_at = ? WHERE id_hash = ?")
+    .bind(linkHash, codeHash, now() + SIGNIN_TTL_S, row.id_hash).run();
+  return redirect("/login/code?sent=1", signinCookie(cookie(request, SIGNIN_COOKIE)!));
+}
+
+/** GET /login/state: whether this browser is signed in, for a code page left
+ * open while the emailed link signed it in from another tab. */
+export async function signInState(request: Request, env: Env): Promise<Response> {
+  return Response.json({ signedIn: !!(await realSessionUser(request, env)) },
+                       { headers: { "Cache-Control": "no-store" } });
+}

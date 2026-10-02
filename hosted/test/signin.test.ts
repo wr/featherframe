@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { auth } from "../src/accounts";
-import { checkCode, login, showCode } from "../src/signin";
+import { checkCode, login, resendCode, showCode, signInState } from "../src/signin";
 import { sha256 } from "../src/util";
 
 function d1(db: DatabaseSync) {
@@ -260,5 +260,64 @@ describe("checking a code", () => {
     account();
     const id = idOf(await ask("w@example.com"));
     expect((await enter(id, codeIn(mails[0].text), "https://evil.example")).status).toBe(403);
+  });
+});
+
+async function resend(id: string) {
+  const res = await resendCode(new Request(`https://${HOST}/login/resend`, {
+    method: "POST", headers: { Cookie: `ff_signin=${id}`, Origin: `https://${HOST}` },
+  }), env, ctx);
+  await Promise.all(waits);
+  return res;
+}
+
+describe("sending a new code", () => {
+  it("sends a new code; the old code stops working, the old link does not", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    const res = await resend(id);
+    expect(res.headers.get("Location")).toBe("/login/code?sent=1");
+    expect(res.headers.get("Set-Cookie")).toContain(`ff_signin=${id}; Path=/login; Max-Age=900`);
+    expect(mails).toHaveLength(2);
+    expect(await (await page(id, "?sent=1")).text()).toContain("Sent a new code.");
+    const old = codeIn(mails[0].text), fresh = codeIn(mails[1].text);
+    if (old !== fresh) expect((await enter(id, old)).headers.get("Location")).toBe("/login/code?e=wrong");
+    const link = linkIn(mails[0].text);
+    expect((await auth(new Request(link), env, link)).headers.get("Location")).toBe("/");
+  });
+
+  it("resets the tries", async () => {
+    account();
+    const id = idOf(await ask("w@example.com"));
+    for (let i = 0; i < 5; i++) await enter(id, "000000");
+    await resend(id);
+    expect((await enter(id, codeIn(mails[1].text))).headers.get("Location")).toBe("/");
+  });
+
+  it("over the hourly limit, says so and sends nothing", async () => {
+    account();
+    let id = "";
+    for (let i = 0; i < 5; i++) id = idOf(await ask("w@example.com"));
+    expect((await resend(id)).headers.get("Location")).toBe("/login/code?e=limited");
+    expect(mails).toHaveLength(5);
+    expect(await (await page(id, "?e=limited")).text())
+      .toContain("Already sent a few times. Check your email, or try again in an hour.");
+  });
+
+  it("answers an uninvited address the same, and sends nothing", async () => {
+    const id = idOf(await ask("new@example.com"));
+    expect((await resend(id)).headers.get("Location")).toBe("/login/code?sent=1");
+    expect(mails).toHaveLength(0);
+  });
+});
+
+describe("/login/state", () => {
+  it("says whether this browser is signed in", async () => {
+    account();
+    const no = await signInState(new Request(`https://${HOST}/login/state`), env);
+    expect(await no.json()).toEqual({ signedIn: false });
+    expect(no.headers.get("Cache-Control")).toBe("no-store");
+    const yes = await signInState(new Request(`https://${HOST}/login/state`, { headers: { Cookie: await session() } }), env);
+    expect(await yes.json()).toEqual({ signedIn: true });
   });
 });

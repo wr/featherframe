@@ -277,8 +277,12 @@ the interval a frame on the collage, quiet hours a frame on individual
 detections, both with no frame yet; `collage_timings`, live on the page as
 Content changes; a hidden one keeps its value; quiet hours IS the overnight
 collage, `Config.quiet_hours_render_collage` is a property), AI
-image generation (a dot + provider, or "No API key"; its two AI switches, which
-live in Illustrations and Collage, are `locked` until a key is stored), then
+image generation (its first row is the master switch, `imagegen_enabled`; then
+a **Monthly limit** in dollars; the summary is one state from
+`service.ai_view`: Off, No API key, Key rejected, Out of credits, Paused, Limit
+reached, or "OpenAI · $1.20 of $10.00"; its two AI switches, which live in
+Illustrations and Collage, are `locked` until a key is stored and while the
+master switch is off), then
 Generated illustrations and Generated collages (each kept day's collage, same
 list). Every section is its own `/settings` form carrying a `section` field:
 `/settings` takes only the fields posted (a switch posts a hidden 0 before its
@@ -447,7 +451,7 @@ search (`OpenAITextModel.search_json`, the Responses API's `web_search`,
 `max_tool_calls` 2; the owner's key, so no weather service of ours to
 license), at the source's `location()` rounded to 0.01°, only when a sheet is
 bought and at most once per `weather.REASK_S` (6 h) a day
-(`collages/weather.json`), billed to the spend ledger as `weather`. An answer
+(`collages/weather.json`), bought through the spend gate as `weather`. An answer
 counts only when it names a source: `heavy_snow` (≥ 15 cm fell) / `snowing` / `snow` (lying) / `rain` / "",
 recorded as the sidecar's `weather`; once it is known, snow comes from it
 alone, so a dry winter day is bare wood; unknown (no location, not OpenAI, a

@@ -166,7 +166,7 @@ Owner actions skip the subject rule, never the switch, the pause or the limit.
 
 ### Runaway pause
 
-More than `RUNAWAY_PER_HOUR` = 6 automatic purchases in a rolling hour trips
+More than `RUNAWAY_PER_HOUR` = 6 automatic image purchases in a rolling hour trips
 the pause: the purchase that would be the 7th is refused, and the pause is
 stored with its time and count. It holds until the owner presses **Resume**;
 after a resume only purchases after it count. With the subject rules in place

@@ -451,7 +451,6 @@ SNAPSHOT_TIMEOUT_S = (3, 5)
 SNAPSHOT_TTL_S = 15.0
 #: After a snapshot fails, the next ones fail at once for this long.
 SNAPSHOT_RETRY_S = 20.0
-_AT_DOOR_KEY = "spend_rows_at_door"
 
 
 class FrontDoorStore:
@@ -475,25 +474,25 @@ class FrontDoorStore:
 
     def _import_local(self) -> None:
         """The server's own records, from before the front door kept them,
-        go over once, ahead of the first reservation: its count must include
-        them. A failure raises, and the next reservation tries again."""
+        go over once a process, ahead of its first reservation: the count
+        must include them. Not once a DB: during a rollout an older image may
+        run in between and record more. The front door keeps each record
+        once. A failure raises, and the next reservation tries again."""
         if self._imported:
             return
         with self._import_lock:
             if self._imported:
                 return
             db = self._local_db
-            if not db.get(_AT_DOOR_KEY):
-                rows = db.spend_rows(0.0)
-                # A pause from before the front door kept the count goes too.
-                pause, resumed_at = db.get(_PAUSE_KEY), db.get(_RESUMED_KEY) or 0
-                if rows or pause is not None or resumed_at:
-                    r = self._link.http.post(self._link._url("spend/import"),
-                                             json={"rows": rows, "pause": pause,
-                                                   "resumed_at": resumed_at},
-                                             timeout=FRONT_DOOR_TIMEOUT_S)
-                    r.raise_for_status()
-                db.set(_AT_DOOR_KEY, True)
+            rows = db.spend_rows(0.0)
+            # A pause from before the front door kept the count goes too.
+            pause, resumed_at = db.get(_PAUSE_KEY), db.get(_RESUMED_KEY) or 0
+            if rows or pause is not None or resumed_at:
+                r = self._link.http.post(self._link._url("spend/import"),
+                                         json={"rows": rows, "pause": pause,
+                                               "resumed_at": resumed_at},
+                                         timeout=FRONT_DOOR_TIMEOUT_S)
+                r.raise_for_status()
             self._imported = True
 
     def _post(self, op: str, body: dict) -> dict:

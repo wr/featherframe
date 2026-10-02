@@ -135,7 +135,9 @@ def _local_record(db):
         p.settle(None, 0.05)
 
 
-def test_the_servers_own_records_go_to_the_door_once(link, tmp_path):
+def test_the_servers_own_records_go_to_the_door_once_a_start(link, tmp_path):
+    """Once a process, not once a DB: an older image may have run in between
+    (a rollout) and recorded more. The door keeps each record once."""
     door, ln = link
     db = Database(tmp_path / "ff.db")
     _local_record(db)
@@ -143,12 +145,13 @@ def test_the_servers_own_records_go_to_the_door_once(link, tmp_path):
     second = spend.FrontDoorStore(ln, local_db=db)
     assert door.state.imported == []              # building a store asks nothing of the door
     rule = spend.Rule(limit_usd=10, runaway_per_hour=None, window_s=None)
-    for n, store in enumerate((first, second)):
+    for n, store in enumerate((first, first, second)):
         rec = spend.Record(id=f"r{n}", at=T0.timestamp(), month="2026-09", day="2026-09-27",
                            kind="plate", subject=f"s{n}", auto=False, model="m", quality=None,
                            est_usd=0.07)
         assert store.reserve(rec, rule) is None
-    assert [r["subject"] for r in door.state.imported] == ["tyto-alba"]
+    assert [r["subject"] for r in door.state.imported] == ["tyto-alba", "tyto-alba"]
+    assert [r.subject for r in door.state.book.snapshot(0).rows].count("tyto-alba") == 1
 
 
 def test_a_pause_from_before_the_front_door_stays_on(link, tmp_path):
@@ -205,12 +208,10 @@ def test_a_door_that_is_away_buys_nothing_and_the_import_waits_for_it(tmp_path, 
             raise AssertionError("bought on a door that was away")
     assert e.value.reason == "unreachable"
     assert door.state.book.snapshot(0).rows == [] and door.state.imported == []
-    assert not db.get("spend_rows_at_door")
     session.down = False                          # the door is back
     with gate.purchase("plate", "strix-varia", model="m") as p:
         p.settle(None, 0.07)
     assert [r["subject"] for r in door.state.imported] == ["tyto-alba"]
-    assert db.get("spend_rows_at_door") is True
     with gate.purchase("plate", "bubo-virginianus", model="m"):
         pass
     assert len(door.state.imported) == 1          # once

@@ -274,6 +274,18 @@ def _stucki_kernel():
     return _KERNEL
 
 
+def warm_kernel() -> bool:
+    """Compile the loop now, for the types a frame's render passes it. The
+    hosted image runs this when it is built, so Numba's cache ships in it and
+    a Container's start loads the loop instead of compiling it, ~3 s of a
+    1/4 vCPU on every wake that draws for a colour kit (W-948). False where
+    Numba is not installed."""
+    if _stucki_kernel() is None:
+        return False
+    _diffuse_stucki(np.full((2, 2, 3), 0.5, dtype=np.float32), np.full((2, 2), 63, dtype=np.uint8))
+    return True
+
+
 def _diffuse_stucki_py(mapped: np.ndarray, inkset: np.ndarray) -> np.ndarray:
     """Stucki error diffusion to the six inks, serpentine. The error is carried
     in linear light (so the average stays true); the nearest ink is judged on

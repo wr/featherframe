@@ -9,6 +9,13 @@ COPY server/requirements.txt server/requirements-optional.txt ./
 RUN pip install --no-cache-dir -r requirements.txt -r requirements-optional.txt
 
 COPY server/featherframe ./featherframe
+# The colour dither is compiled here, once, into the image (W-948): compiled
+# at a start, it cost every wake that draws for a colour kit ~3 s. A cache
+# built for "generic" carries no host CPU features, so it matches whatever
+# machine the Container lands on.
+ENV NUMBA_CACHE_DIR=/app/.numba-cache \
+    NUMBA_CPU_NAME=generic
+RUN python -c "from featherframe.render import spectra; assert spectra.warm_kernel()"
 COPY server/templates ./templates
 COPY server/static ./static
 COPY server/scripts ./scripts

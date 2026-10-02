@@ -460,28 +460,35 @@ export function suspendedPage(): Response {
     <form method="post" action="/logout"><button type="submit">Sign out</button></form>`);
 }
 
-export function loginPage(error = "", codeError = "", code = ""): Response {
+export function loginPage(error = ""): Response {
   const e = escapeHtml;
   return page("Sign in · Featherframe", `
     <h1>Sign in</h1>
     ${error ? `<p class="bad">${e(error)}</p>` : ""}
     <form method="post" action="/login">
       <label for="email">Email</label>
-      <input type="email" id="email" name="email" autocomplete="email" required${codeError ? "" : " autofocus"}>
+      <input type="email" id="email" name="email" autocomplete="email" required autofocus>
       <input type="hidden" name="tz" id="tz">
-      <button type="submit">Email me a link</button>
+      <button type="submit">Email me a code</button>
     </form>
-    <hr style="border:0;border-top:1px solid var(--border);margin:22px 0 18px">
+    <p class="muted" style="margin:16px 0 0"><a href="/setup">Set up a new frame</a></p>
+    <script>try{document.getElementById("tz").value=Intl.DateTimeFormat().resolvedOptions().timeZone}catch(e){}</script>`);
+}
+
+/** A frame's six letters, typed (W-891): its own page since W-947. */
+export function setupCodePage(error = "", code = ""): Response {
+  const e = escapeHtml;
+  return page("Set up a new frame · Featherframe", `
     <h1>Set up a new frame</h1>
     <p>Enter the code on your frame's screen.</p>
-    ${codeError ? `<p class="bad">${e(codeError)}</p>` : ""}
+    ${error ? `<p class="bad">${e(error)}</p>` : ""}
     <form method="post" action="/setup">
       <label for="code">Code</label>
       <input type="text" id="code" name="code" required autocomplete="off" autocapitalize="characters" spellcheck="false"
-        maxlength="9" placeholder="ABC-DEF" value="${e(code)}"${codeError ? " autofocus" : ""} style="text-transform:uppercase;letter-spacing:.08em">
+        maxlength="9" placeholder="ABC-DEF" value="${e(code)}" autofocus style="text-transform:uppercase;letter-spacing:.08em">
       <button type="submit">Continue</button>
     </form>
-    <script>try{document.getElementById("tz").value=Intl.DateTimeFormat().resolvedOptions().timeZone}catch(e){}</script>`);
+    <p class="muted" style="margin:16px 0 0"><a href="/login">Sign in</a></p>`);
 }
 
 /** Where the code is typed (W-947). The same page for every address. */
@@ -508,13 +515,6 @@ export function codeEntryPage(v: { email: string; kind: "login" | "setup"; back:
       function look(){if(document.hidden)return;fetch("/login/state",{credentials:"same-origin"})
         .then(function(r){return r.json();}).then(function(s){if(s.signedIn)location.replace("/");}).catch(function(){});}
       document.addEventListener("visibilitychange",look);window.addEventListener("focus",look);})();</script>`);
-}
-
-export function checkEmailPage(email: string): Response {
-  return page("Check your email · Featherframe", `
-    <h1>Check your email</h1>
-    <p>If ${escapeHtml(email)} has an invitation or an account, a sign-in link is on its way. It works once, for 15 minutes.</p>
-    <p><a href="/login">Use a different email</a> · <a href="https://featherframe.app/help/account">Help</a></p>`);
 }
 
 export function linkExpiredPage(): Response {
@@ -709,17 +709,6 @@ export function setupLimitedPage(): Response {
   return page("Try again later · Featherframe", `
     <h1>Too many tries</h1>
     <p>Try again in an hour.</p>`);
-}
-
-/** After setup for an email that could not make an account here: one that
- * has an account (sent a link that adds this frame), or one with no
- * invitation (nothing sent). The same page for both (W-892). */
-export function setupLinkSentPage(email: string): Response {
-  return page("Check your email · Featherframe", `
-    <h1>Check your email</h1>
-    <p>If ${escapeHtml(email)} has a Featherframe Cloud account, we sent it a link that adds this frame.</p>
-    <p>Built this frame yourself? Featherframe Cloud is invite-only for now. <a href="https://featherframe.app">Join the waitlist</a>, and we'll email you an invitation.</p>
-    <p><a href="https://featherframe.app/help/account">Help</a></p>`);
 }
 
 type Mail = { subject: string; text: string; html: string };

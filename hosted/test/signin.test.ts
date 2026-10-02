@@ -321,3 +321,14 @@ describe("/login/state", () => {
     expect(await yes.json()).toEqual({ signedIn: true });
   });
 });
+
+describe("deleting a household", () => {
+  it("drops its login's sign-in requests", async () => {
+    account();
+    await ask("w@example.com");
+    env.HOUSEHOLD = { getByName: () => ({ destroy: async () => 0 }) };
+    const { deleteHousehold } = await import("../src/accounts");
+    await deleteHousehold(env, "h1");
+    expect(one("SELECT count(*) AS n FROM signin_requests").n).toBe(0);
+  });
+});

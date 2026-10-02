@@ -256,6 +256,7 @@ export async function deleteHousehold(env: Env, hid: string): Promise<{ frames: 
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id),
     env.DB.prepare("DELETE FROM email_changes WHERE user_id = ?").bind(user.id),
     env.DB.prepare("DELETE FROM email_verifications WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM signin_requests WHERE email = ?").bind(user.email),
     env.DB.prepare("DELETE FROM login_links WHERE email = ?").bind(user.email),
     env.DB.prepare("DELETE FROM invites WHERE email = ?").bind(user.email),
     env.DB.prepare("DELETE FROM waitlist WHERE email = ?").bind(user.email),

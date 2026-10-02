@@ -540,8 +540,11 @@ A crop's key includes a folio's own `margins`, so Havell's keys never move.
 
 **Hosted (W-841–W-847, `hosted/`); owners read "Featherframe Cloud" (W-890), and the rest is "self-hosted".** One host, `cloud.featherframe.app` (the
 apex is the marketing page, not routed; `plates.` is the W-842 library). The
-Worker (`hosted/src/index.ts`) routes the page by session (magic link from
-Resend, `accounts.ts`; invite-only; one login per household; D1 `featherframe`
+Worker (`hosted/src/index.ts`) routes the page by session (a magic link from
+Resend, or the six-digit code emailed beside it, typed in the browser that
+asked, `accounts.ts`, `signin.ts`, W-947; every form that emails answers
+with a redirect to `/login/code`, so a reloaded tab sends nothing;
+invite-only; one login per household; D1 `featherframe`
 holds households, users, invites, sessions, the frame registry and pairing
 codes) and a frame by the registry: its `X-Device-Id` plus `X-FF-Key`, a key
 the firmware makes once at first boot (NVS `ffkey`) — a MAC alone gets

@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { auth, confirmVerification, sessionUser } from "../src/accounts";
 import { releaseFrame, setupRoute } from "../src/setup";
+import { checkCode, showCode } from "../src/signin";
 import { rankStations, regionFor } from "../src/stations";
 import { setupToken, setupUrl } from "../src/pairing";
 import { sha256 } from "../src/util";
@@ -86,6 +87,10 @@ function post(f: { code: string; token: string }, fields: Record<string, string>
 
 const one = (sql: string, ...a: unknown[]) => db.prepare(sql).get(...a) as any;
 
+const codePage = async (res: Response) => (await showCode(
+  new Request(`https://${HOST}/login/code`, { headers: { Cookie: res.headers.get("Set-Cookie")!.split(";")[0] } }),
+  env, new URL(`https://${HOST}/login/code`))).text();
+
 describe("the setup page", () => {
   it("needs the code's secret, not just its six letters", async () => {
     const f = await frameShowing();
@@ -155,9 +160,13 @@ describe("setting up", () => {
     db.prepare("INSERT INTO households (id, tz, created_at) VALUES ('h1', 'UTC', ?)").run(NOW);
     db.prepare("INSERT INTO users (id, email, household_id, created_at) VALUES ('u1', 'old@example.com', 'h1', ?)").run(NOW);
     const f = await frameShowing();
-    const stranger = await (await post(f, { email: "new@example.com" })).text();
+    const strangerRes = await post(f, { email: "new@example.com" });
     const g = await frameShowing("GHJKMN", "112233445566");
-    const owner = await (await post(g, { email: "old@example.com" }, "203.0.113.2")).text();
+    const ownerRes = await post(g, { email: "old@example.com" }, "203.0.113.2");
+    expect(strangerRes.status).toBe(ownerRes.status);
+    expect(strangerRes.headers.get("Location")).toBe(ownerRes.headers.get("Location"));
+    const stranger = (await codePage(strangerRes)).replace(/\/setup\/[a-z]+\/[0-9a-z]+/gi, "BACK");
+    const owner = (await codePage(ownerRes)).replace(/\/setup\/[a-z]+\/[0-9a-z]+/gi, "BACK");
     expect(stranger.replace(/new@example\.com/g, "X")).toBe(owner.replace(/old@example\.com/g, "X"));
     expect(one("SELECT source FROM waitlist WHERE email = 'new@example.com'").source).toBe("setup");
     expect(one("SELECT count(*) AS n FROM users").n).toBe(1);
@@ -172,18 +181,35 @@ describe("setting up", () => {
     db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
     const res = await post(f, { email: "old@example.com" });
     await Promise.all(waits);
-    const page = await res.text();
-    expect(page).toContain("If old@example.com has a Featherframe Cloud account");
+    expect(res.status).toBe(303);
+    expect(res.headers.get("Location")).toBe("/login/code");
+    const page = await codePage(res);
+    expect(page).toContain("If old@example.com has a Featherframe Cloud account, we sent it a code that adds this frame.");
+    expect(page).toContain(">Add this frame</button>");
     expect(page).toContain('href="https://featherframe.app/help/account"');
+    expect(page).toContain(`href="/setup/${f.code}/${f.token}"`);
     expect(one("SELECT count(*) AS n FROM households").n).toBe(1);
     expect(one("SELECT used_at FROM kits").used_at).toBeNull();
-    expect(mails.map((m) => m.subject)).toEqual([expect.stringMatching(/^Your code to add a frame to Featherframe: /)]);
-    // Following it signs in and adds the frame.
-    const link = new URL(mails[0].text.match(/https:\/\/\S+/)![0]);
-    const signed = await auth(new Request(link), env, link);
+    expect(mails.map((m) => m.subject)).toEqual([expect.stringMatching(/^Your code to add a frame to Featherframe: \d{6}$/)]);
+    // Typing the code signs in and adds the frame.
+    const code = mails[0].text.match(/enter the code (\d{6})/)![1];
+    const signed = await checkCode(new Request(`https://${HOST}/login/code`, {
+      method: "POST", body: new URLSearchParams({ code }),
+      headers: { Cookie: res.headers.get("Set-Cookie")!.split(";")[0], Origin: `https://${HOST}` },
+    }), env);
     expect(signed.headers.get("Location")).toBe("/?paired=1");
     expect(one("SELECT household_id FROM frames WHERE device_id = ?", f.device).household_id).toBe("h1");
     expect(adopts.map((a) => a[0])).toEqual(["h1"]);
+  });
+
+  it("the add-a-frame link still works on its own", async () => {
+    db.prepare("INSERT INTO households (id, tz, created_at) VALUES ('h1', 'UTC', ?)").run(NOW);
+    db.prepare("INSERT INTO users (id, email, household_id, created_at) VALUES ('u1', 'old@example.com', 'h1', ?)").run(NOW);
+    const f = await frameShowing();
+    await post(f, { email: "old@example.com" });
+    await Promise.all(waits);
+    const link = new URL(mails[0].text.match(/https:\/\/\S+/)![0]);
+    expect((await auth(new Request(link), env, link)).headers.get("Location")).toBe("/?paired=1");
   });
 
   it("asks a new account on BirdWeather for its station, and makes nothing without one", async () => {
@@ -306,6 +332,18 @@ describe("rate limits", () => {
 });
 
 describe("a code typed on the sign-in page", () => {
+  it("has its own page, and the sign-in page links to it", async () => {
+    const page = await (await setupRoute(new Request(`https://${HOST}/setup`), env, new URL(`https://${HOST}/setup`), ctx)).text();
+    expect(page).toContain("<h1>Set up a new frame</h1>");
+    expect(page).toContain("Enter the code on your frame's screen.");
+    expect(page).toContain('href="/login"');
+    const { loginPage } = await import("../src/pages");
+    const signIn = await loginPage().text();
+    expect(signIn).toContain('<a href="/setup">Set up a new frame</a>');
+    expect(signIn).toContain(">Email me a code</button>");
+    expect(signIn).not.toContain('name="code"');
+  });
+
   const typeCode = (code: string, ip = "192.0.2.5") => setupRoute(new Request(`https://${HOST}/setup`, {
     method: "POST", body: new URLSearchParams({ code }), headers: { Origin: `https://${HOST}`, "CF-Connecting-IP": ip },
   }), env, new URL(`https://${HOST}/setup`), ctx);

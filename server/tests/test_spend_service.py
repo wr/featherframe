@@ -124,3 +124,14 @@ def test_the_owner_flag_ends_with_the_tick_that_took_the_redraw(svc, monkeypatch
     with pytest.raises(_Stop):
         svc._build_collage(svc._clock(), date(2026, 10, 14), nightly=True)
     assert seen and seen[0]["auto"] is True
+
+
+def test_the_fallback_carries_no_ai_note_when_missing_species_are_not_bought(svc):
+    svc.db.set("imagegen_error", {"at": "2026-10-14T11:00:00", "reason": "credits",
+                                  "detail": ""})
+    assert svc._fallback_note() == "Out of OpenAI credits"
+    svc.db.set("ai_pause", {"at": 1.0, "count": 6})
+    assert svc._fallback_note() == "AI paused"
+    svc.genart.buy_new = False
+    assert svc._fallback_note() is None
+    assert svc._imagegen_glass_note() == "AI paused"     # the collage grid's is unchanged

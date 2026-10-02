@@ -901,6 +901,11 @@ class FeatherframeService:
             return f"{name} AI key rejected"
         return None
 
+    def _fallback_note(self) -> Optional[str]:
+        """The typographic fallback's footnote: the image model's, but only
+        while a missing species' illustration would be bought (W-938)."""
+        return self._imagegen_glass_note() if self.genart.buy_new else None
+
     def ai_refusal(self) -> Optional[str]:
         """Why an owner's repaint would be refused now, or None."""
         if not self.config.imagegen_enabled:
@@ -1474,7 +1479,7 @@ class FeatherframeService:
                           first_seen=first_seen, note=note,
                           note_kind=self._note_kind() if note else None,
                           first_ever=novelty == "first-ever",
-                          fallback_note=self._imagegen_glass_note())
+                          fallback_note=self._fallback_note())
         recompose = self._single_in_color(spec)
         etag = self._commit(
             PLATES, now, sheet=compose_mod.render_single(spec, self.provider, color=False),

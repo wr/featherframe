@@ -5,7 +5,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { confirmWaitlist, joinWaitlist, login } from "../src/accounts";
+import { confirmWaitlist, joinWaitlist } from "../src/accounts";
+import { login } from "../src/signin";
 import { waitlistRoute } from "../src/admin";
 import { httpsRedirect } from "../src/util";
 
@@ -167,7 +168,8 @@ describe("confirming", () => {
 describe("an uninvited sign-in", () => {
   it("joins pending and is not emailed", async () => {
     await login(new Request("https://cloud.featherframe.app/login",
-      { method: "POST", body: new URLSearchParams({ email: "k@example.com" }) }), env);
+      { method: "POST", body: new URLSearchParams({ email: "k@example.com" }) }), env,
+      { waitUntil: () => {} } as any);
     expect(row("k@example.com")).toMatchObject({ source: "login", confirmed_at: null });
     expect(mails).toHaveLength(0);
     // A later sign-up from the site does send the link.

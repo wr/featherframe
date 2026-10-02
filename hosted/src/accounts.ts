@@ -3,8 +3,8 @@
 
 import type { Env } from "./index";
 import { verifiedPage, verifyEmail, verifyExpiredPage } from "./pages";
-import { checkEmailPage, confirmEmailEmail, inviteEmail, linkExpiredPage, loginPage, signInEmail, waitlistConfirmEmail,
-         waitlistConfirmedPage, waitlistExpiredPage } from "./pages";
+import { confirmEmailEmail, inviteEmail, linkExpiredPage, waitlistConfirmEmail, waitlistConfirmedPage,
+         waitlistExpiredPage } from "./pages";
 import { cookie, randomHex, sha256, validTz } from "./util";
 import { pairLinked } from "./setup";
 
@@ -38,32 +38,25 @@ export async function sendMail(env: Env, to: string, mail: { subject: string; te
   }
 }
 
-/** A sign-in link for `email`, or null when it may not sign in. `pairCode`
- * ("CODE:device"): following it also adds the frame showing that code (W-888). */
-export async function makeLoginLink(env: Env, email: string, tz: string | null,
-                                    pairCode: string | null = null): Promise<string | null> {
+/** A sign-in link for `email` and its token's hash, or null when it may not
+ * sign in. `pairCode` ("CODE:device"): following it also adds the frame
+ * showing that code (W-888). */
+export async function createLink(env: Env, email: string, tz: string | null,
+                                 pairCode: string | null = null): Promise<{ url: string; hash: string } | null> {
   const known = await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first();
   const invited = await env.DB.prepare("SELECT 1 FROM invites WHERE email = ? AND used_at IS NULL").bind(email).first();
   if (!known && !invited) return null;
   const token = randomHex(32);
+  const hash = await sha256(token);
   await env.DB.prepare("INSERT INTO login_links (token_hash, email, tz, expires_at, pair_code) VALUES (?, ?, ?, ?, ?)")
-    .bind(await sha256(token), email, tz, now() + LINK_TTL_S, pairCode).run();
-  return `https://${env.APP_HOST}/auth?t=${token}`;
+    .bind(hash, email, tz, now() + LINK_TTL_S, pairCode).run();
+  return { url: `https://${env.APP_HOST}/auth?t=${token}`, hash };
 }
 
-export async function login(request: Request, env: Env): Promise<Response> {
-  if (request.method === "GET") return loginPage();
-  const form = await request.formData();
-  const email = normEmail(form.get("email"));
-  if (!email) return loginPage("Enter an email address.");
-  // A sign-in link at most 5 times an hour to one address (W-890): past that
-  // the page answers the same and nothing is sent.
-  if (!(await rateHit(env, `login:${await sha256(email)}`, LOGIN_LINKS_PER_HOUR, 3600))) return checkEmailPage(email);
-  const link = await makeLoginLink(env, email, validTz(String(form.get("tz") || "")));
-  if (link) await sendMail(env, email, signInEmail(link));
-  else await joinWaitlist(env, email, "login");   // asked to come in: pending, and not emailed
-  // The same answer either way: the page does not say who has an account.
-  return checkEmailPage(email);
+/** The link alone, for the admin API's `link`. */
+export async function makeLoginLink(env: Env, email: string, tz: string | null,
+                                    pairCode: string | null = null): Promise<string | null> {
+  return (await createLink(env, email, tz, pairCode))?.url ?? null;
 }
 
 /** The link from the email: sign in, and on an invitation's first use, make

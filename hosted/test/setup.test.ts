@@ -177,7 +177,7 @@ describe("setting up", () => {
     expect(page).toContain('href="https://featherframe.app/help/account"');
     expect(one("SELECT count(*) AS n FROM households").n).toBe(1);
     expect(one("SELECT used_at FROM kits").used_at).toBeNull();
-    expect(mails.map((m) => m.subject)).toEqual(["Add a frame to Featherframe"]);
+    expect(mails.map((m) => m.subject)).toEqual([expect.stringMatching(/^Your code to add a frame to Featherframe: /)]);
     // Following it signs in and adds the frame.
     const link = new URL(mails[0].text.match(/https:\/\/\S+/)![0]);
     const signed = await auth(new Request(link), env, link);

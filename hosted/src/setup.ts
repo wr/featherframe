@@ -167,7 +167,7 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
     // Their account, their inbox: the link adds the frame once followed.
     if (await rateHit(env, `setup:link:${await sha256(email)}`, LINKS_PER_ADDRESS, 3600)) {
       const link = await makeLoginLink(env, email, tz, `${row.code}:${row.device_id}`);
-      if (link) ctx.waitUntil(sendMail(env, email, addFrameEmail(link, row.device_id.slice(-6))));
+      if (link) ctx.waitUntil(sendMail(env, email, addFrameEmail(link, row.device_id.slice(-6), "")));
     }
     return setupLinkSentPage(email);
   }

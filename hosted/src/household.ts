@@ -9,7 +9,7 @@ import { firmwareWaiting, isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 import { lastDays, type UsageDay } from "./usage";
 import { due, nextAlarm, type WakeState } from "./wakes";
-import { answerRead, type Ask, cacheKey, type Kind, PageCache, routeOf } from "./pagecache";
+import { answerRead, type Ask, cacheKey, FRESH_MS, type Kind, PageCache, routeOf, SHOWN_AGE_MS } from "./pagecache";
 import { loadingPage } from "./loading";
 
 // The household's server is woken only for news (W-847). The front door looks
@@ -425,8 +425,10 @@ export class Household extends DurableObject<Env> {
     }
     this.setMeta("look", "1");
     // No page at all: the owner is looking at the loading page, so the wake
-    // does not wait out the gap (as a frame just paired does not).
-    if (urgent) this.setMeta("wake_ms", "0");
+    // does not wait out the gap (as a frame just paired does not). And the
+    // wake refills any copy the page would call old (W-952), not only those
+    // past FRESH_MS: Update now reloads only on a fresh one.
+    if (urgent) { this.setMeta("wake_ms", "0"); this.setMeta("look_now", "1"); }
     await this.schedule();
   }
 
@@ -439,6 +441,8 @@ export class Household extends DurableObject<Env> {
     this.setMeta("wake_ms", String(t0));
     this.setMeta("news", "0");
     this.setMeta("look", null);
+    const age = this.meta("look_now") ? SHOWN_AGE_MS : FRESH_MS;
+    this.setMeta("look_now", null);
     try {
       const stub = await this.server();
       const queued = this.sql.exec<{ seq: number; path: string; body: string }>(
@@ -451,7 +455,7 @@ export class Household extends DurableObject<Env> {
       }
       await stub.fetch("http://server/api/hosted/run", { method: "POST" });
       // Copies someone reads that this wake did not refresh, while it is up.
-      if (this.cache.stale(Date.now())) await this.refreshCache();
+      if (this.cache.stale(Date.now(), age)) await this.refreshCache();
       if (Date.now() - Number(this.meta("page_ms") || 0) > PAGE_ACTIVE_MS) await stub.sleepWhenIdle();
     } catch (err) {
       console.error("wake failed", err);

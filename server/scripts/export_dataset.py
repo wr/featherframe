@@ -806,9 +806,15 @@ def asia_ku(species: list[dict], tax: Taxonomy) -> list[dict]:
 # --- commands --------------------------------------------------------------
 
 def havell_catalog(plates_dir: Optional[Path]) -> list[dict]:
+    """The mirror's data.json, with fetch_plates' fixes for plates whose file
+    is not the Havell plate (W-943)."""
+    import fetch_plates
     if plates_dir and (plates_dir / "data.json").exists():
-        return json.loads((plates_dir / "data.json").read_text())
-    return json.loads(_get("https://raw.githubusercontent.com/nathanbuchar/audubon-bird-plates/master/data.json"))
+        raw = json.loads((plates_dir / "data.json").read_text())
+    else:
+        raw = json.loads(_get("https://raw.githubusercontent.com/nathanbuchar/audubon-bird-plates/master/data.json"))
+    fixed = fetch_plates.apply_fixes({int(c["plate"]): c for c in raw})
+    return [fixed[int(c["plate"])] for c in raw]
 
 
 def export(out: Path, tax: Taxonomy, plates_dir: Optional[Path]) -> None:

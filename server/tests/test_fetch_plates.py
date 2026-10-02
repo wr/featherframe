@@ -263,3 +263,38 @@ def test_a_scan_bhl_cannot_serve_comes_from_the_dataset_release(fp, tmp_path, mo
     assert (tmp_path / records[0]["image"]).read_bytes() == good
     assert records[1]["image"] is None                      # a wrong checksum is never stored
     assert sess.calls.count(f"{rel}/manifest.json") == 1
+
+
+def test_a_fixed_plate_comes_from_its_own_source(fp, tmp_path, monkeypatch):
+    """W-943: audubon.org's 165 is the octavo lithograph. The catalog takes
+    the fix's file name and source, so a cached copy of the wrong file is
+    never used, and the fix is stored only when its sha256 matches."""
+    import hashlib
+    monkeypatch.setattr(fp, "RETRY_BACKOFF_S", 0)
+    good, bad = b"h" * 4096, b"o" * 4096
+    fix = {"fileName": "plate-165-fixed.jpg", "url": "https://gh/rel/sheet-165.jpg",
+           "sha256": hashlib.sha256(good).hexdigest()}
+    monkeypatch.setattr(fp, "HAVELL_FIXES", {165: fix})
+    cache = tmp_path / "data.json"
+    cache.write_text(json.dumps([{"plate": 165, "name": "Bachmans Finch",
+                                  "fileName": "plate-165-bachmans-finch.jpg"}]))
+    cat = fp.load_catalog(FakeSession({}), cache)
+    assert cat[165]["fileName"] == "plate-165-fixed.jpg"
+    (tmp_path / "plate-165-bachmans-finch.jpg").write_bytes(b"x" * 2048)   # the wrong file, cached
+    assert not fp._cached(cat[165], tmp_path)
+
+    sess = FakeSession({fix["url"]: [_Resp(200, bad)]})
+    assert fp.download_plate(sess, 165, cat, tmp_path, force=False) is None
+    assert not (tmp_path / "plate-165-fixed.jpg").exists()
+    assert sess.calls == [fix["url"]]                       # never the mirror or audubon.org
+
+    sess = FakeSession({fix["url"]: [_Resp(200, good)]})
+    assert fp.download_plate(sess, 165, cat, tmp_path, force=False) == "plate-165-fixed.jpg"
+    assert (tmp_path / "plate-165-fixed.jpg").read_bytes() == good
+
+
+def test_the_shipped_fix_is_the_dataset_release_sheet(fp):
+    fix = fp.HAVELL_FIXES[165]
+    assert fix["url"].endswith("/havell-v2/sheet-165.jpg")
+    assert fix["fileName"] != "plate-165-bachmans-finch.jpg"
+    assert len(fix["sha256"]) == 64

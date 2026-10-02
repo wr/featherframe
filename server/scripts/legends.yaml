@@ -573,11 +573,10 @@ legends:
     - Wild Orange.
   165:
     lines:
-    - Male.
-    - Pinckneya pubescens.
-    note: Scan is the Bowen octavo lithograph ('Bachman's Pinewood-Finch', Lith. Printed & Col. by J.T. Bowen, Philad.), not
-      the Havell plate; faint text.
-    uncertain: true
+    - Male,
+    - Pinckneya Pubens.
+    note: Read off the Havell plate (the University of Pittsburgh's copy, from the dataset's havell-v2, W-943); audubon.org's
+      file is the Bowen octavo lithograph, 'Bachman's Pinewood-Finch'.
   166:
     lines:
     - Male.

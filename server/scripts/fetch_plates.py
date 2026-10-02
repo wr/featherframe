@@ -74,6 +74,15 @@ POLITE_PAUSE_S = 0.15
 # Below this many missing plates in one part, ask the mirror per plate first
 # rather than pull the whole part.
 PART_MIN_MISSING = 8
+# Plates whose mirror and audubon.org file is not the Havell plate (W-943):
+# audubon.org's 165 is the octavo edition's lithograph. Each is taken from the
+# dataset's release instead, only once its sha256 matches, and under a name of
+# its own, so a cached copy of the wrong file is never taken for it.
+HAVELL_FIXES = {
+    165: {"fileName": "plate-165-bachmans-finch-havell.jpg",
+          "url": "https://github.com/wr/historical-bird-plates/releases/download/havell-v2/sheet-165.jpg",
+          "sha256": "9d3c1ae9218f0ebdce9000cfe1aacc48dba0f12ca855defe8ab2022c6b0ce5e8"},
+}
 
 
 def _bucket(plate: int) -> str:
@@ -100,9 +109,14 @@ def load_catalog(session: requests.Session, cache: Path, force: bool = False,
             raw = resp.json()
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(raw))
-    catalog = {int(e["plate"]): e for e in raw}
+    catalog = apply_fixes({int(e["plate"]): e for e in raw})
     _warn_name_file_disagreements(catalog)
     return catalog
+
+
+def apply_fixes(catalog: dict[int, dict]) -> dict[int, dict]:
+    """The catalog with HAVELL_FIXES laid over the plates they replace."""
+    return {p: {**m, **HAVELL_FIXES.get(p, {})} for p, m in catalog.items()}
 
 
 def _warn_name_file_disagreements(catalog: dict[int, dict]) -> None:
@@ -212,11 +226,21 @@ def download_plate(session: requests.Session, plate: int, catalog: dict[int, dic
     if dest.exists() and dest.stat().st_size > 0 and not force:
         return filename
 
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    if meta.get("url"):
+        # A fixed plate (HAVELL_FIXES) comes from its own source only.
+        tmp = dest.with_name(dest.name + ".fix")
+        if _fetch_to(session, meta["url"], tmp):
+            if hashlib.sha256(tmp.read_bytes()).hexdigest() == meta["sha256"]:
+                tmp.replace(dest)
+                return filename
+            print(f"  !  plate {plate}: {meta['url']} does not match its sha256")
+        tmp.unlink(missing_ok=True)
+        return None
     urls = [
         f"{RAW_BASE}/plates/{_bucket(plate)}/{filename}",
         f"{AUDUBON_MEDIA}/{filename}",
     ]
-    dest_dir.mkdir(parents=True, exist_ok=True)
     for url in urls:
         if _fetch_to(session, url, dest):
             return filename

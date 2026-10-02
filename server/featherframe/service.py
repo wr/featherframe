@@ -408,6 +408,15 @@ def _within(stamp: Optional[str], now: datetime, seconds: float) -> bool:
         return False
 
 
+def _heard_at(stamp: Optional[str]) -> float:
+    """When a check-in was heard (an ISO time), as a timestamp; one we cannot
+    read counts as now."""
+    try:
+        return datetime.fromisoformat(str(stamp)).timestamp()
+    except (ValueError, TypeError):
+        return float("inf")
+
+
 def _served_words(result: Optional[str]) -> Optional[str]:
     if result == "304":
         return "up to date (304)"
@@ -2667,13 +2676,18 @@ class FeatherframeService:
                     # Updated with no progress kept (a hosted server that slept
                     # through it): the new version is the news all the same.
                     row["fw_updated"] = {"version": now_on, "at": stamp}
-                if now_on and prog and prog.get("stage") in ("restarting", "sending", "interrupted"):
+                if now_on and prog:
                     if now_on == prog.get("target"):
-                        # Back on the new version: done, and said so for a while.
+                        # Back on the new version: done, and said so for a while,
+                        # whatever the row said meanwhile.
                         row["fw_updated"] = {"version": now_on, "at": stamp}
                         self._fw_progress.pop(frame_id, None)
-                    elif now_on == was and prog.get("stage") == "restarting":
-                        # Came back on the old one (a rolled-back image).
+                    elif (now_on == was and prog.get("stage") == "restarting"
+                          and _heard_at(stamp) >= float(prog.get("at") or 0)):
+                        # Came back on the old one (a rolled-back image). Only a
+                        # check-in heard after the image went out says so: on
+                        # Featherframe Cloud the one just before the download
+                        # reaches us later, while the frame installs (W-953).
                         prog["stage"] = "failed"
                 if told is not None:
                     row["told_s"] = int(told)

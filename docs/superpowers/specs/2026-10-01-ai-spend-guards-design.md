@@ -195,16 +195,15 @@ its own SQLite (`spend` table, the same columns) and the pause. The server
 has no count of its own on Cloud. Routes under `/_internal/<hid>/spend/`, on
 the server's existing key:
 
-- `POST reserve` `{id, month, day, kind, subject, auto, est_usd, limit_usd,
-  subject_rule, runaway_per_hour}` → `{ok: true}` or `{ok: false, reason}`,
+- `POST reserve` `{record, rule}` → `{ok: true}` or `{ok: false, reason}`,
   `reason` one of `paused`, `limit`, `subject`, `runaway`, `backstop`. One
-  DO transaction: check, then insert. The numbers come in the request, so the
-  rules stay in Python; the front door counts.
-- `POST settle` `{id, state, cost_usd, usage}`.
-- `GET summary?month=` → month totals (settled, open at estimate), purchase
-  counts by kind for the last 30 days, the pause. The page's status reads it
-  (cached 30 s).
-- `POST resume`.
+  DO transaction: check, then insert. The numbers come in the request; the
+  front door runs a port of `decide()`, held to the same cases file.
+- `POST settle` `{id, state, cost_usd}`.
+- `GET snapshot?since=` → `{rows, pause, resumed_at}`. The server keeps it
+  15 s.
+- `POST resume` `{now}`.
+- `POST import` `{rows}` → `{added}`.
 
 The front door adds one rule of its own, a platform backstop: at most
 `BACKSTOP_USD_PER_DAY` = $10 of reservations per household per UTC day,

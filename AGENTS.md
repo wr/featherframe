@@ -594,20 +594,22 @@ per-key failure cooldown is kept in the DB (`imagegen_cooldowns`, cleared
 with `imagegen_error` on a new key), so a fresh Container does not ask a
 failed paid generation again early.
 
-The household's AI spend is kept at its front door (W-938, `hosted/src/spend.ts`):
-`spend.FrontDoorStore` reserves every paid call at `/_internal/<hid>/spend/reserve`
-before the server makes it, and settles it after. A front door it cannot reach
-buys nothing, and the webapp shows AI image generation as *Unavailable* until
-it can. The front door runs `spend.decide`'s port (held to
-`server/tests/fixtures/spend-cases.json`) with the insert, plus one rule of its
-own: a $10 backstop per UTC day by its own clock. It emails `ADMIN_EMAILS` once
-a reason a day when a household pauses, passes $3 in a UTC day, or hits the
-backstop, and the admin households table shows each one's AI spend this month.
-The server's own rows (and the W-859 `spend.jsonl`) reach the front door once,
-on the first purchase after the switch.
+The household's AI spend is kept at its front door (W-938,
+`hosted/src/spend.ts`): `spend.FrontDoorStore` reserves every paid call at
+`/_internal/<household>/spend/reserve` before the server makes it, and settles
+it after. A front door it cannot reach buys nothing, and the webapp shows AI
+image generation as *Unavailable* until it can. The front door runs
+`spend.decide`'s port (held to `server/tests/fixtures/spend-cases.json`) with
+the insert, plus one rule of its own: a $10 backstop per UTC day by its own
+clock. It emails `ADMIN_EMAILS` once a reason a day when a household pauses,
+passes $3 in a UTC day, or hits the backstop, and the admin households table
+shows each one's AI spend this month. The server's own rows (and the W-859
+`spend.jsonl`) reach the front door once, before the first reservation it makes
+there.
 
-`HouseholdServer` is THIS Python server in a Container: there is no TS
-copy of any rule. Hosted mode (`featherframe/hosted.py`, on with
+`HouseholdServer` is THIS Python server in a Container: there is no TS copy of
+any rule but the spend gate's `decide`, above, held to the same cases. Hosted
+mode (`featherframe/hosted.py`, on with
 `FEATHERFRAME_HOSTED_URL`/`_KEY`) pulls the data dir from
 `/_internal/<household>/` before the DB opens, pushes changes after every
 tick and POST, applies check-ins through `app.parse_checkin` →

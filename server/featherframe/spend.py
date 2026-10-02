@@ -370,8 +370,9 @@ _LOOKBACK_S = 36 * 3600.0
 
 
 class LocalStore:
-    """The records in our own SQLite (`db.Database`). On Cloud this DB
-    reaches the front door after every tick; part 2 moves the count there."""
+    """The records in our own SQLite (`db.Database`). On Cloud
+    `FrontDoorStore` keeps the count, and this store's rows are imported
+    there once."""
 
     def __init__(self, db, ledger_path: Optional[Path] = None) -> None:
         self._db = db

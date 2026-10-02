@@ -104,3 +104,5 @@ def test_only_featherframe_cloud_says_how_old_the_page_is(tmp_path, monkeypatch,
     assert ('id="stale-note"' in html) is hosted
     assert (">Update now</button>" in html) is hosted
     assert ("fetch('/api/page/update'" in html) is hosted
+    # W-954: on both, a status older than the one shown is not applied.
+    assert "function ffPageAge()" in html and "if (!res.current) return;" in html

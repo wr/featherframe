@@ -95,6 +95,15 @@ const STYLE = `
   .dlg-foot .btn { padding:9px 16px; font-size:14px; }
   .btn:disabled { opacity:.45; cursor:default; }
   .btn.danger { background:var(--bad); color:#fff; }
+  /* A pressed action (W-955): its button spins until the next page loads. */
+  button.busy { cursor:progress; }
+  button.busy::after { content:""; display:inline-block; width:.85em; height:.85em; margin-left:7px; vertical-align:-.12em;
+    border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:ff-spin .7s linear infinite; }
+  .btn.busy:disabled { opacity:.75; }
+  .more-btn.busy svg { display:none; }
+  .more-btn.busy::after { margin:0; vertical-align:0; }
+  @keyframes ff-spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce) { button.busy::after { animation-duration:2.4s; } }
   /* The page's toast (W-863): the Featherframe page's own flash, pinned to the
      top of the viewport and gone after five seconds. */
   .toast { position:fixed; top:16px; left:50%; z-index:40; display:flex; align-items:flex-start; gap:9px;
@@ -292,8 +301,26 @@ const DOTS = `<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" 
 /** The page's ⋯ menus and dialogs: a menu is placed under its button and
  * closes on a click elsewhere, Escape, scroll or resize; a dialog closes on
  * Cancel, Escape or a click on its backdrop, and a typed confirmation keeps
- * its button off until the name matches. */
+ * its button off until the name matches. A pressed action's button (and a
+ * menu item's ⋯) spins, and nothing else is sent until the next page loads
+ * (W-955). */
 const ADMIN_SCRIPT = `<script>(function(){
+  var sent=false;
+  function busy(b,on){if(!b)return;b.classList.toggle("busy",on);b.disabled=on;
+    if(on)b.setAttribute("aria-busy","true");else b.removeAttribute("aria-busy")}
+  document.addEventListener("submit",function(e){
+    if(e.defaultPrevented)return;
+    if(sent){e.preventDefault();return}
+    sent=true;
+    var b=e.submitter||e.target.querySelector("button[type=submit]"),menu=b&&b.closest(".menu");
+    busy(b,true);
+    if(menu)busy(document.querySelector('[aria-controls="'+menu.id+'"]'),true);
+  });
+  window.addEventListener("pageshow",function(e){
+    if(!e.persisted)return;
+    sent=false;document.querySelectorAll("button.busy").forEach(function(b){busy(b,false)});
+    document.querySelectorAll("[data-match]").forEach(function(i){i.dispatchEvent(new Event("input"))});
+  });
   var open=null;
   function close(){if(!open)return;open.menu.hidden=true;open.btn.setAttribute("aria-expanded","false");open=null}
   document.querySelectorAll(".more-btn").forEach(function(btn){

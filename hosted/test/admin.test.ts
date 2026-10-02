@@ -312,3 +312,19 @@ describe("the households table", () => {
     expect(html).not.toMatch(/main\.wide \.card \{[^}]*overflow:hidden/);
   });
 });
+
+describe("the admin page's actions", () => {
+  it("spin once pressed, and send nothing more until the next page (W-955)", async () => {
+    const { adminPage } = await import("../src/pages");
+    const html = await adminPage({ waitlist: [], invites: [], log: [], kits: [], households: [],
+      growth: { signups: [], invites: [], households: [] },
+      usage: { meters: [], bill: 5, projected: 5, month: "2026-10", live: true, measured: true, days: [] },
+    } as never, null).text();
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    const admin = scripts.find((js) => js.includes('addEventListener("submit"'));
+    expect(admin).toBeDefined();
+    expect(() => new Function(admin!)).not.toThrow();              // it parses
+    expect(admin).toContain("if(sent){e.preventDefault();return}");
+    expect(html).toMatch(/button\.busy::after \{[^}]*animation:ff-spin/);
+  });
+});

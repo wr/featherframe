@@ -99,8 +99,8 @@ describe("PageCache", () => {
     await c.store(k1.key, route.kind, k1.ask, page("p"), T);
     await c.store(k2.key, fixed.kind, k2.ask, page("h", "image/png"), T);
     await c.clear("changing");
-    expect(c.find(k1.key)).toBeNull();
-    expect(c.find(k2.key)).not.toBeNull();
+    expect(c.find(k1.key)?.object).toBeNull();      // the row stays, for the next refresh
+    expect(c.find(k2.key)?.object).not.toBeNull();
     expect(b.m.size).toBe(1);
     await c.clear("all");
     expect(b.m.size).toBe(0);
@@ -144,8 +144,60 @@ describe("PageCache", () => {
     c.touch(kp.key, T);
     const ok = await c.refresh(async () => { await c.clear("changing"); return page("new"); }, T + 1);
     expect(ok).toBe(true);
-    expect(c.find(kp.key)).toBeNull();
+    expect(c.find(kp.key)?.object).toBeNull();
     expect(b.m.size).toBe(0);
+  });
+
+  it("a save empties the copies but keeps the rows, so the next refresh fills them all", async () => {
+    const { c } = make();
+    const kp = cacheKey(U("/"), route, {}, "b");
+    const kh = cacheKey(U("/api/history"), routeOf("/api/history", "d")!, {}, "b");
+    await c.store(kp.key, "changing", kp.ask, page("p"), T);
+    await c.store(kh.key, "changing", kh.ask, page("h"), T);
+    c.touch(kp.key, T); c.touch(kh.key, T);
+    await c.clear("changing");
+    expect(c.stale(T + 1)).toBe(true);
+    const asked: string[] = [];
+    await c.refresh(async (a) => { asked.push(a.path); return page("x"); }, T + 2);
+    expect(asked.sort()).toEqual(["/", "/api/history"]);
+  });
+
+  it("refreshing / brings the page's parts, read or not", async () => {
+    const { c } = make();
+    const kp = cacheKey(U("/"), route, {}, "b");
+    c.note(kp.key, "changing", kp.ask, T);
+    const parts = ["/api/status", "/api/tasks", "/api/history", "/api/frames/AA/preview.png"]
+      .map((p) => ({ ...cacheKey(U(p), routeOf(p, "d")!, {}, "b"), kind: "changing" as const }));
+    const asked: string[] = [];
+    await c.refresh(async (a) => { asked.push(a.path); return page("x"); }, T + 1, parts);
+    expect(asked.sort()).toEqual(["/", "/api/frames/AA/preview.png", "/api/history", "/api/status", "/api/tasks"]);
+    for (const p of parts) expect(c.find(p.key)?.object).toBeTruthy();
+  });
+
+  it("a refresh never overwrites a newer copy stored while it was asking", async () => {
+    const { c } = make();
+    const kp = cacheKey(U("/"), route, {}, "b");
+    await c.store(kp.key, "changing", kp.ask, page("before the save"), T);
+    c.touch(kp.key, T);
+    await c.refresh(async (a) => {
+      await c.store(kp.key, "changing", kp.ask, page("after the save"), T + 1);   // a miss filled meanwhile
+      return page("asked before the save");
+    }, T + 2);
+    expect(await (await c.respond(c.find(kp.key)!, "GET"))!.text()).toBe("after the save");
+  });
+
+  it("an ask that throws leaves nothing behind and changes nothing", async () => {
+    const { b, c } = make();
+    const kp = cacheKey(U("/"), route, {}, "b");
+    const ks = cacheKey(U("/api/status"), routeOf("/api/status", "d")!, {}, "b");
+    await c.store(kp.key, "changing", kp.ask, page("old page"), T);
+    await c.store(ks.key, "changing", ks.ask, page("old status"), T);
+    c.touch(kp.key, T); c.touch(ks.key, T);
+    const before = b.m.size;
+    let n = 0;
+    expect(await c.refresh(async () => { if (n++) throw new Error("gone"); return page("new"); }, T + 1)).toBe(false);
+    expect(b.m.size).toBe(before);
+    expect(await (await c.respond(c.find(kp.key)!, "GET"))!.text()).toBe("old page");
   });
 
   it("knows when the copies someone reads are stale", async () => {

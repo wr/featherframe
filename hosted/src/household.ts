@@ -9,7 +9,7 @@ import { firmwareWaiting, isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 import { lastDays, type UsageDay } from "./usage";
 import { due, nextAlarm, type WakeState } from "./wakes";
-import { answerRead, type Ask, PageCache } from "./pagecache";
+import { answerRead, type Ask, cacheKey, type Kind, PageCache, routeOf } from "./pagecache";
 import { loadingPage } from "./loading";
 
 // The household's server is woken only for news (W-847). The front door looks
@@ -89,6 +89,7 @@ export class Household extends DurableObject<Env> {
     return this._cache ??= new PageCache(this.sql, this.env.DATA, `households/${this.meta("hid")}/cache/`);
   }
   refreshing: Promise<void> | null = null;
+  refreshAgain = false;
 
   meta(k: string): string | null {
     const r = this.sql.exec<{ v: string }>("SELECT v FROM meta WHERE k = ?", k).toArray();
@@ -326,14 +327,45 @@ export class Household extends DurableObject<Env> {
     return new Response(null, { status: 204 });
   }
 
-  /** Ask the server again for the copies someone reads, one refresh at a time. */
+  /** Ask the server again for the copies someone reads, one refresh at a
+   * time; one asked for while another runs runs once more after it, so a
+   * refresh begun before a save is followed by one after it. */
   async refreshCache(): Promise<void> {
-    if (this.refreshing) return this.refreshing;
+    if (this.refreshing) { this.refreshAgain = true; return this.refreshing; }
     this.refreshing = (async () => {
-      try { await this.cache.refresh((a) => this.askServer(a), Date.now()); }
-      catch (err) { console.error("cache refresh", err); }
+      do {
+        this.refreshAgain = false;
+        try { await this.cache.refresh((a) => this.askIfUp(a), Date.now(), this.pageParts()); }
+        catch (err) { console.error("cache refresh", err); }
+      } while (this.refreshAgain);
     })().finally(() => { this.refreshing = null; });
     return this.refreshing;
+  }
+
+  /** A refresh never starts the server: asleep (or stopping), it answers 503
+   * and the refresh leaves every copy as it was. */
+  async askIfUp(a: Ask): Promise<Response> {
+    if (!(await this.env.SERVER.getByName(this.meta("hid")!).running())) return new Response("asleep", { status: 503 });
+    return this.askServer(a);
+  }
+
+  /** What the page asks for as it loads, refreshed with `/` read or not: its
+   * status, tasks and history, and each frame's preview (the picture itself
+   * when there is no frame). */
+  pageParts(): { key: string; kind: Kind; ask: Ask }[] {
+    const build = this.meta("page_build") || "";
+    const ids = [
+      ...this.sql.exec<{ id: string }>("SELECT id FROM frames WHERE status = 'on'").toArray(),
+      ...this.sql.exec<{ id: string }>("SELECT id FROM viewers WHERE status = 'on'").toArray(),
+    ].map((r) => r.id);
+    const paths = ["/api/status", "/api/tasks", "/api/history",
+      ...(ids.length ? ids.map((id) => `/api/frames/${encodeURIComponent(id)}/preview.png`) : ["/api/preview.png"])];
+    const today = localIso(this.meta("tz") || "UTC").slice(0, 10);
+    return paths.map((p) => {
+      const url = new URL(p, "https://page");
+      const route = routeOf(url.pathname, today)!;
+      return { ...cacheKey(url, route, {}, build), kind: route.kind };
+    });
   }
 
   /** The frame a page request removes from this household, if it is one: a

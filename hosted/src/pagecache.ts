@@ -99,11 +99,15 @@ export class PageCache {
     return out;
   }
 
+  /** A save empties the changing copies but keeps their rows (and when they
+   * were read), so the next refresh fills them all again; a new page build
+   * drops everything. */
   async clear(which: "changing" | "all"): Promise<void> {
     const where = which === "all" ? "" : " WHERE kind = 'changing'";
     const objects = this.sql.exec(`SELECT object FROM page_cache${where}`).toArray()
       .map((r) => r.object as string | null).filter((o): o is string => !!o);
-    this.sql.exec(`DELETE FROM page_cache${where}`);
+    if (which === "all") this.sql.exec("DELETE FROM page_cache");
+    else this.sql.exec("UPDATE page_cache SET object = NULL, headers = NULL, filled_at = NULL WHERE kind = 'changing'");
     if (objects.length) await this.bucket.delete(objects.map((o) => this.prefix + o));
   }
 
@@ -120,43 +124,58 @@ export class PageCache {
   }
 
   /** Ask the server again for every changing copy read in the last 2 hours,
-   * and every row with no copy. Only when every ask answers 200 do the rows
-   * move to the new copies, together (no await between the updates, so no
-   * other request sees half of them); else nothing changes. True when it
-   * swapped. */
-  async refresh(ask: (a: Ask) => Promise<Response>, now: number): Promise<boolean> {
-    const rows = this.sql.exec(`SELECT * FROM page_cache WHERE kind = 'changing' AND (read_at >= ? OR object IS NULL)`,
-      now - READ_WINDOW_MS).toArray() as Entry[];
+   * every row with no copy, and, when `/` is among them, the page's `parts`
+   * (its status, tasks, history and previews), read or not. Only when every
+   * ask answers 200 do the rows move to the new copies, together (no await
+   * between the updates, so no other request sees half of them); else
+   * nothing changes. A row a save emptied, or a miss filled anew, while the
+   * asks were out keeps what it has. True when it swapped. */
+  async refresh(ask: (a: Ask) => Promise<Response>, now: number,
+                parts: { key: string; kind: Kind; ask: Ask }[] = []): Promise<boolean> {
+    const due = `kind = 'changing' AND (read_at >= ? OR object IS NULL)`;
+    const pageDue = this.sql.exec(`SELECT ask FROM page_cache WHERE ${due}`, now - READ_WINDOW_MS).toArray()
+      .some((r) => (JSON.parse(String(r.ask)) as Ask).path === "/");
+    const extra = pageDue ? parts : [];
+    for (const p of extra) {
+      this.sql.exec(`INSERT INTO page_cache (key, kind, ask, read_at) VALUES (?, ?, ?, ?) ON CONFLICT (key) DO NOTHING`,
+        p.key, p.kind, JSON.stringify(p.ask), now);
+    }
+    const keys = extra.map((p) => p.key);
+    const rows = this.sql.exec(`SELECT * FROM page_cache WHERE ${due}${keys.length ? ` OR key IN (${keys.map(() => "?").join(",")})` : ""}`,
+      now - READ_WINDOW_MS, ...keys).toArray() as Entry[];
     if (!rows.length) return true;
     const fresh: { e: Entry; object: string; headers: string }[] = [];
-    for (const e of rows) {
-      const res = await ask(JSON.parse(e.ask) as Ask);
-      const body = await res.arrayBuffer();
-      if (res.status !== 200 || body.byteLength > MAX_BODY) {
-        if (fresh.length) await this.bucket.delete(fresh.map((f) => this.prefix + f.object));
-        return false;
+    const drop = async () => {
+      if (fresh.length) await this.bucket.delete(fresh.map((f) => this.prefix + f.object));
+    };
+    try {
+      for (const e of rows) {
+        const res = await ask(JSON.parse(e.ask) as Ask);
+        const body = await res.arrayBuffer();
+        if (res.status !== 200 || body.byteLength > MAX_BODY) { await drop(); return false; }
+        const object = randomHex(16);
+        await this.bucket.put(this.prefix + object, body);
+        fresh.push({ e, object, headers: JSON.stringify(kept(res.headers)) });
       }
-      const object = randomHex(16);
-      await this.bucket.put(this.prefix + object, body);
-      fresh.push({ e, object, headers: JSON.stringify(kept(res.headers)) });
+    } catch (err) {
+      console.error("cache refresh ask", err);
+      await drop();
+      return false;
     }
     const generation = Number(this.sql.exec("SELECT coalesce(max(generation), 0) AS g FROM page_cache")
       .toArray()[0].g) + 1;
-    // A row cleared while the asks were out (a save) stays cleared: its new
-    // copy goes, with the old ones.
-    const unused: string[] = [];
+    const gone: string[] = [];
     for (const f of fresh) {
-      const r = this.sql.exec("UPDATE page_cache SET object = ?, headers = ?, generation = ?, filled_at = ? WHERE key = ?",
-        f.object, f.headers, generation, now, f.e.key);
+      const r = this.sql.exec(`UPDATE page_cache SET object = ?, headers = ?, generation = ?, filled_at = ?
+        WHERE key = ? AND object IS ?`, f.object, f.headers, generation, now, f.e.key, f.e.object);
       r.toArray();                       // run it to the end, so rowsWritten is final
-      if (!r.rowsWritten) unused.push(f.object);
+      if (r.rowsWritten) { if (f.e.object) gone.push(f.e.object); }
+      else gone.push(f.object);          // the row moved on while we asked: keep what it has
     }
-    const old = fresh.map((f) => f.e.object).filter((o): o is string => !!o).concat(unused);
-    if (old.length) await this.bucket.delete(old.map((o) => this.prefix + o));
     const unread = this.sql.exec(
       "SELECT object FROM page_cache WHERE read_at < ?", now - UNREAD_DROP_MS).toArray() as { object: string | null }[];
     this.sql.exec("DELETE FROM page_cache WHERE read_at < ?", now - UNREAD_DROP_MS);
-    const gone = unread.map((r) => r.object).filter((o): o is string => !!o);
+    gone.push(...unread.map((r) => r.object).filter((o): o is string => !!o));
     if (gone.length) await this.bucket.delete(gone.map((o) => this.prefix + o));
     return true;
   }

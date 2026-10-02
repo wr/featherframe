@@ -932,7 +932,9 @@ async def collage_now(request: Request):
     svc = _svc(request)
     form = await request.form()
     repaint = "repaint" in form
-    refusal = svc.ai_refusal() if (repaint and svc.config.collage_generated) else None
+    # Threadpool: on Cloud this asks the front door, which may be slow to answer.
+    refusal = (await run_in_threadpool(svc.ai_refusal)
+               if (repaint and svc.config.collage_generated) else None)
     if refusal:
         return JSONResponse({"ok": False, "error": _AI_REFUSED_TASK[refusal]}, status_code=409)
     # Fire-and-forget: a fresh sheet is a ~1-2 minute generation. Same contract
@@ -1212,7 +1214,8 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
     svc = _svc(request)
     # Fire-and-forget: the generation runs in a service worker thread and the
     # page polls /api/generated for the outcome, so this returns immediately.
-    # Threadpool only for the small cache-listing read (SD cards stall).
+    # Threadpool for the small cache-listing read (SD cards stall) and the
+    # spend check (on Cloud, the front door).
     ok, error = False, "Not a valid illustration name."
     if _valid_slug(slug):
         listing = {m.get("slug"): m for m in await run_in_threadpool(svc.generated_listing)}
@@ -1220,7 +1223,7 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
             error = "No saved illustration by that name."
         elif listing[slug].get("regenerating"):
             error = "Already regenerating."
-        elif (refusal := svc.ai_refusal()):
+        elif (refusal := await run_in_threadpool(svc.ai_refusal)):
             error = _AI_REFUSED[refusal]
         elif svc.regen_limited():
             error = "Too many repaints this hour. Try again later."

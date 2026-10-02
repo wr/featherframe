@@ -2,6 +2,7 @@
 reserves there, and a front door it cannot reach buys nothing."""
 from __future__ import annotations
 
+import asyncio
 import itertools
 import json
 from dataclasses import asdict
@@ -141,6 +142,7 @@ class Flaky:
 
     def __init__(self, inner) -> None:
         self.inner, self.down, self.headers = inner, False, {}
+        self.gets: list = []                      # the timeout of each GET asked
 
     def post(self, *a, **kw):
         if self.down:
@@ -148,6 +150,7 @@ class Flaky:
         return self.inner.post(*a, **kw)
 
     def get(self, *a, **kw):
+        self.gets.append(kw.get("timeout"))
         if self.down:
             raise requests.ConnectionError("door away")
         return self.inner.get(*a, **kw)
@@ -339,6 +342,39 @@ def test_a_summary_it_cannot_read_is_the_last_good_one_or_an_empty_one(tmp_path)
     assert last["unreachable"] is True and last["usd"] == pytest.approx(0.05) and last["count"] == 1
 
 
+def test_a_read_that_failed_is_not_asked_again_for_a_while(tmp_path):
+    """A door that hangs costs one short wait, not one per poll and per page."""
+    flaky = Flaky(TestClient(fake_door()))
+    ln = hosted.HostedLink("http://door/h", "k", tmp_path / "data", session=flaky)
+    clock = [1000.0]
+    gate = spend.Gate(spend.FrontDoorStore(ln, clock=lambda: clock[0]), now=lambda: T0)
+    flaky.down = True
+    assert gate.summary()["unreachable"] is True
+    clock[0] += spend.SNAPSHOT_RETRY_S - 1
+    assert gate.summary()["unreachable"] is True
+    assert flaky.gets == [spend.SNAPSHOT_TIMEOUT_S]    # one GET, with the read's own short wait
+    flaky.down = False
+    clock[0] += 2
+    assert gate.summary()["unreachable"] is False
+    assert len(flaky.gets) == 2
+
+
+def test_a_write_clears_a_failed_read(tmp_path):
+    flaky = Flaky(TestClient(fake_door()))
+    ln = hosted.HostedLink("http://door/h", "k", tmp_path / "data", session=flaky)
+    store = spend.FrontDoorStore(ln, clock=lambda: 1000.0)
+    flaky.down = True
+    with pytest.raises(requests.ConnectionError):
+        store.snapshot(0.0)
+    with pytest.raises(requests.ConnectionError):
+        store.snapshot(0.0)
+    assert len(flaky.gets) == 1
+    flaky.down = False
+    store.resume(T0.timestamp())
+    assert store.snapshot(0.0).resumed_at == T0.timestamp()
+    assert len(flaky.gets) == 2
+
+
 @pytest.fixture
 def dead(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
@@ -390,6 +426,26 @@ def test_a_repaint_says_the_door_is_away(dead, client, monkeypatch):
     r = client.post("/api/collage/now", data={"repaint": "1"}, headers=ORIGIN)
     assert r.status_code == 409
     assert r.json() == {"ok": False, "error": "AI generation is unavailable right now"}
+
+
+def test_the_repaint_checks_ask_the_door_off_the_event_loop(dead, client, monkeypatch):
+    """A door that hangs must not stop every other request with it."""
+    on_loop = []
+
+    def refusal():
+        try:
+            asyncio.get_running_loop()
+            on_loop.append(True)
+        except RuntimeError:
+            on_loop.append(False)
+        return "unreachable"
+
+    monkeypatch.setattr(dead, "ai_refusal", refusal)
+    monkeypatch.setattr(dead, "generated_listing", lambda: [{"slug": "tyto-alba"}])
+    client.post("/api/generated/regenerate", data={"slug": "tyto-alba"}, headers=ORIGIN)
+    dead.config.collage_generated = True
+    client.post("/api/collage/now", data={"repaint": "1"}, headers=ORIGIN)
+    assert on_loop == [False, False]
 
 
 def test_resume_says_try_again_when_the_door_is_away(client):

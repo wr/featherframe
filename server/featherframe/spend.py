@@ -441,11 +441,16 @@ class LocalStore:
             self._db.spend_import(rows, _IMPORTED_KEY)
 
 
-#: A reservation waits this long for the front door, then the gate refuses.
+#: A reservation, a settle or a resume waits this long for the front door to
+#: connect, and this long again for its answer; then the gate refuses.
 FRONT_DOOR_TIMEOUT_S = 10
+#: A snapshot waits less (to connect, for its answer): a page is waiting on it.
+SNAPSHOT_TIMEOUT_S = (3, 5)
 #: A snapshot is kept this long: the page polls `Gate.summary` every 30 s and
 #: a tab left open must not ask the front door twice a poll.
 SNAPSHOT_TTL_S = 15.0
+#: After a snapshot fails, the next ones fail at once for this long.
+SNAPSHOT_RETRY_S = 20.0
 _AT_DOOR_KEY = "spend_rows_at_door"
 
 
@@ -465,6 +470,7 @@ class FrontDoorStore:
         self._import_lock = threading.Lock()
         self._kept: Optional[tuple] = None   # (when, since, Snapshot)
         self._writes = 0                     # bumped by every write
+        self._failed_at: Optional[float] = None   # when a snapshot last failed
         self._kept_lock = threading.Lock()
 
     def _import_local(self) -> None:
@@ -494,7 +500,7 @@ class FrontDoorStore:
             return r.json()
         finally:
             with self._kept_lock:            # even a failed write may have landed
-                self._kept, self._writes = None, self._writes + 1
+                self._kept, self._writes, self._failed_at = None, self._writes + 1, None
 
     def reserve(self, rec: Record, rule: Rule) -> Optional[str]:
         self._import_local()
@@ -508,7 +514,11 @@ class FrontDoorStore:
     def snapshot(self, since: float) -> Snapshot:
         now = self._clock()
         with self._kept_lock:
-            kept, writes = self._kept, self._writes
+            kept, writes, failed = self._kept, self._writes, self._failed_at
+        # A front door that just failed to answer is not asked again for a
+        # while: the page and every repaint check would each wait on it.
+        if failed is not None and now - failed < SNAPSHOT_RETRY_S:
+            raise requests.ConnectionError("front door unreachable (cached)")
         # `Gate.summary` asks since = now - 30 days, which moves with every
         # call: a kept snapshot serves any `since` at or after its own.
         if kept is not None and now - kept[0] < SNAPSHOT_TTL_S and since >= kept[1]:
@@ -517,13 +527,21 @@ class FrontDoorStore:
                 return snap
             return Snapshot(rows=[r for r in snap.rows if r.at >= since],
                             pause=snap.pause, resumed_at=snap.resumed_at)
-        r = self._link.http.get(self._link._url("spend/snapshot"), params={"since": since},
-                                timeout=FRONT_DOOR_TIMEOUT_S)
-        r.raise_for_status()
-        body = r.json()
-        snap = Snapshot(rows=[Record(**x) for x in body.get("rows") or []],
-                        pause=body.get("pause"), resumed_at=float(body.get("resumed_at") or 0.0))
+        try:
+            r = self._link.http.get(self._link._url("spend/snapshot"), params={"since": since},
+                                    timeout=SNAPSHOT_TIMEOUT_S)
+            r.raise_for_status()
+            body = r.json()
+            snap = Snapshot(rows=[Record(**x) for x in body.get("rows") or []],
+                            pause=body.get("pause"),
+                            resumed_at=float(body.get("resumed_at") or 0.0))
+        except Exception:
+            with self._kept_lock:
+                if self._writes == writes:   # a write since then says it answers
+                    self._failed_at = now
+            raise
         with self._kept_lock:
+            self._failed_at = None
             if self._writes == writes:       # not if a write landed while it was read
                 self._kept = (now, since, snap)
         return snap

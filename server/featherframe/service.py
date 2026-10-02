@@ -651,7 +651,7 @@ class FeatherframeService:
         self._collage_redraw = False    # so does a change to how the collage is drawn
         # Every paid AI call goes through this gate (W-938).
         self.spend_gate = spend.Gate(
-            spend.LocalStore(self.db),
+            self._spend_store(),
             enabled=lambda: self.config.imagegen_enabled,
             limit_usd=lambda: self.config.ai_monthly_limit_usd,
             now=lambda: self._clock())
@@ -854,6 +854,18 @@ class FeatherframeService:
         return POLL_SECONDS
 
     # -- providers ---------------------------------------------------------
+    def _spend_store(self):
+        """On Cloud the front door keeps the records (W-938); else our DB.
+        The local store is built first on Cloud too: it carries the W-859
+        ledger into the DB, and the front door's store sends those rows over
+        before its first reservation. The door being away at start changes
+        nothing here; its reservations refuse until it answers."""
+        link = hosted.link()
+        if link is None:
+            return spend.LocalStore(self.db)
+        spend.LocalStore(self.db)
+        return spend.FrontDoorStore(link, local_db=self.db)
+
     def _build_provider(self, config: Config) -> ArtProvider:
         """Audubon first, AI-generated second, typographic fallback implied.
         The generated link always serves already-bought plates from its cache;
@@ -889,6 +901,8 @@ class FeatherframeService:
         if getattr(self.genart, "_model", None) is None:
             return None
         refusal = self.ai_refusal()
+        if refusal == "unreachable":
+            return None         # transient: nothing to fix, no footnote
         if refusal == "paused":
             return "AI paused"
         if refusal == "limit":
@@ -911,6 +925,8 @@ class FeatherframeService:
         if not self.config.imagegen_enabled:
             return "off"
         s = self.spend_gate.summary()
+        if s["unreachable"]:
+            return "unreachable"
         if s["paused"]:
             return "paused"
         est = spend.estimate_usd("plate", self.config.imagegen_model, self.config.imagegen_quality)
@@ -918,8 +934,14 @@ class FeatherframeService:
             return "limit"
         return None
 
-    def resume_ai(self) -> None:
-        self.spend_gate.resume()
+    def resume_ai(self) -> bool:
+        """Resume after a pause. False when the records could not be reached."""
+        try:
+            self.spend_gate.resume()
+        except Exception:
+            log.warning("could not resume AI generation", exc_info=True)
+            return False
+        return True
 
     def ai_view(self, now: datetime) -> dict:
         """The AI image generation row as the page shows it: one state, the
@@ -937,6 +959,10 @@ class FeatherframeService:
         if err and err["reason"] in ("key", "credits"):
             return {**out, "state": "bad", "summary": err["summary"], "notice": "error",
                     "text": err["text"], "detail": err["detail"]}
+        if s["unreachable"]:
+            return {**out, "state": "warn", "summary": "Unavailable", "notice": "error",
+                    "text": ("AI generation is unavailable right now, so nothing is "
+                             "bought. It resumes on its own.")}
         if s["paused"]:
             n = int(s["paused"].get("count") or spend.RUNAWAY_PER_HOUR)
             return {**out, "state": "bad", "summary": "Paused", "notice": "paused",

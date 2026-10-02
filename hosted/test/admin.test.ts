@@ -50,7 +50,7 @@ beforeEach(() => {
     HOUSEHOLD: { getByName: (hid: string) => ({
       destroy: async (id: string) => { destroyed.push(id); return 7; },
       suspend: async (on: boolean) => { suspended.push([hid, on]); },
-      summary: async () => ({ frames: [], usage: [], month_ms: 0, last_wake: null, source: null, suspended: false }),
+      summary: async () => ({ frames: [], usage: [], month_ms: 0, last_wake: null, source: null, suspended: false, ai: { usd: 0, limit: null, paused: false, count: 0 } }),
     }) },
   };
   vi.stubGlobal("fetch", vi.fn(async () => new Response("{}")));

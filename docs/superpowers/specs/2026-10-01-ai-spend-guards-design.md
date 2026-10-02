@@ -166,15 +166,15 @@ Owner actions skip the subject rule, never the switch, the pause or the limit.
 
 ### Runaway pause
 
-More than `RUNAWAY_PER_HOUR` = 6 automatic image purchases in a rolling hour trips
-the pause: the purchase that would be the 7th is refused, and the pause is
-stored with its time and count. It holds until the owner presses **Resume**;
-after a resume only purchases after it count. With the subject rules in place
-a household never comes near 6 an hour, even on hourly collages. It counts
-automatic collages, and an automatic illustration only when it buys a species
-again within a day of buying it; a first illustration of a new species is
-bounded by the monthly limit, not the pause. Briefs and weather cost cents, and
-a day's collage can need a dozen briefs.
+More than `RUNAWAY_PER_HOUR` = 6 automatic collages and re-bought illustrations
+in a rolling hour trips the pause: the purchase that would be the 7th is
+refused, and the pause is stored with its time and count. It holds until the
+owner presses **Resume**; after a resume only purchases after it count. With the
+subject rules in place a household never comes near 6 an hour, even on hourly
+collages. It counts automatic collages, and an automatic illustration only when
+it buys a species again within a day of buying it; a first illustration of a new
+species is bounded by the monthly limit, not the pause. Briefs and weather cost
+cents, and a day's collage can need a dozen briefs.
 
 ## Where the records live
 
@@ -195,22 +195,26 @@ its own SQLite (`spend` table, the same columns) and the pause. The server
 has no count of its own on Cloud. Routes under `/_internal/<hid>/spend/`, on
 the server's existing key:
 
-- `POST reserve` `{id, month, day, kind, subject, auto, est_usd, limit_usd,
-  subject_rule, runaway_per_hour}` → `{ok: true}` or `{ok: false, reason}`,
+- `POST reserve` `{record, rule}` → `{ok: true}` or `{ok: false, reason}`,
   `reason` one of `paused`, `limit`, `subject`, `runaway`, `backstop`. One
-  DO transaction: check, then insert. The numbers come in the request, so the
-  rules stay in Python; the front door counts.
-- `POST settle` `{id, state, cost_usd, usage}`.
-- `GET summary?month=` → month totals (settled, open at estimate), purchase
-  counts by kind for the last 30 days, the pause. The page's status reads it
-  (cached 30 s).
-- `POST resume`.
+  DO transaction: check, then insert. The numbers come in the request; the
+  front door runs a port of `decide()`, held to the same cases file.
+- `POST settle` `{id, state, cost_usd}`.
+- `GET snapshot?since=` → `{rows, pause, resumed_at}`. The server keeps it
+  15 s.
+- `POST resume` `{now}`.
+- `POST import` `{rows, pause, resumed_at}` → `{added}`: the server's own
+  records and pause, at each start. The front door keeps the later resume, and
+  takes the pause unless it has its own or was resumed since.
 
 The front door adds one rule of its own, a platform backstop: at most
 `BACKSTOP_USD_PER_DAY` = $10 of reservations per household per UTC day,
-whatever the request says. Any `backstop` refusal means the server's own
-checks failed, and it alerts (below). A front door that cannot be reached
-refuses: nothing is bought.
+whatever the request says. It is asked only after the ported rule says yes,
+so any `backstop` refusal means the server's own checks failed, and it alerts
+(below). A front door that cannot be reached
+refuses: nothing is bought. The webapp then shows AI image generation as
+*Unavailable*, and the frame shows no footnote for it. The backstop's day is
+the front door's own UTC day, not the server's.
 
 ## Admin alerts (Cloud)
 

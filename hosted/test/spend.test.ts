@@ -1,0 +1,333 @@
+// @ts-nocheck: node:fs has no types under the Worker's tsconfig.
+// The front door's side of the spend guards (W-938): the same rule as the
+// server's, held to the same cases, plus the backstop and the alerts.
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
+import { alertMail, BACKSTOP_USD_PER_DAY, decide, SpendBook } from "../src/spend";
+import { nodeSql } from "./sql";
+
+const CASES = JSON.parse(readFileSync(new URL("../../server/tests/fixtures/spend-cases.json", import.meta.url), "utf8"));
+
+describe("decide", () => {
+  for (const c of CASES) {
+    it(c.name, () => {
+      expect(decide(c.rows, c.paused, c.resumed_at, c.rec, c.rule, c.now)).toBe(c.expect);
+    });
+  }
+
+  it("counts a settled record with no cost at all at its estimate", () => {
+    const { cost_usd, ...settled } = rec({ est_usd: 0.5, state: "settled", auto: false });
+    expect(decide([settled], false, 0, rec({ est_usd: 0.6, auto: false }), { ...RULE, limit_usd: 1 }, T)).toBe("limit");
+  });
+});
+
+const T = 1790000000;                       // 2026-09-21 (UTC)
+let n = 0;
+function rec(over: Record<string, unknown> = {}) {
+  n++;
+  return { id: `r${n}`, at: T, month: "2026-09", day: "2026-09-21", kind: "plate", subject: `s${n}`,
+           auto: true, model: "gpt-image-2.5-sunburst", quality: "max", est_usd: 0.194,
+           cost_usd: null, state: "open", ...over };
+}
+const RULE = { limit_usd: 1000, runaway_per_hour: 6, window_s: null };
+
+describe("SpendBook", () => {
+  it("inserts what the rule allows and settles it", () => {
+    const book = new SpendBook(nodeSql());
+    const r = rec();
+    expect(book.reserve(r, RULE).ok).toBe(true);
+    book.settle(r.id, "settled", 0.2);
+    const snap = book.snapshot(0);
+    expect(snap.rows.map((x) => [x.state, x.cost_usd, x.auto])).toEqual([["settled", 0.2, true]]);
+  });
+
+  it("trips the pause at the seventh image in an hour and keeps it until resumed", () => {
+    // Collages with a date each: a first illustration of a species does not count (W-938).
+    const book = new SpendBook(nodeSql());
+    const out = [];
+    for (let i = 0; i < 8; i++) out.push(book.reserve(rec({ at: T + i * 300, kind: "collage", subject: `d${i}` }), RULE));
+    expect(out.map((o) => o.reason)).toEqual([null, null, null, null, null, null, "runaway", "paused"]);
+    expect(out[6].alerts.map((a) => a.reason)).toEqual(["paused"]);
+    expect(book.snapshot(0).pause).toEqual({ at: T + 1800, count: 6 });
+    book.resume(T + 2400);
+    expect(book.reserve(rec({ at: T + 2500, kind: "collage", subject: "d9" }), RULE).ok).toBe(true);
+  });
+
+  it("refuses past the backstop whatever the request's limit", () => {
+    const book = new SpendBook(nodeSql());
+    const big = { limit_usd: 1e6, runaway_per_hour: null, window_s: null };
+    let spent = 0;
+    for (let i = 0; spent + 0.194 <= BACKSTOP_USD_PER_DAY; i++) {
+      expect(book.reserve(rec({ at: T + i, auto: false }), big, T + i).ok).toBe(true);
+      spent += 0.194;
+    }
+    const last = book.reserve(rec({ at: T + 999, auto: false }), big, T + 999);
+    expect(last.reason).toBe("backstop");
+    expect(last.alerts.map((a) => a.reason)).toContain("backstop");
+  });
+
+  it("says the owner's limit when that is what stopped it, not the backstop", () => {
+    // With the default $10 limit every backstop trip is also a limit trip: the
+    // server's own rule stopped it, so the admin is not told it did not.
+    const book = new SpendBook(nodeSql());
+    const ten = { limit_usd: 10, runaway_per_hour: null, window_s: null };
+    for (let i = 0; i < 51; i++) expect(book.reserve(rec({ at: T + i, auto: false }), ten, T + i).ok).toBe(true);
+    const next = book.reserve(rec({ at: T + 99, auto: false }), ten, T + 99);   // $9.89 + $0.19
+    expect(next.reason).toBe("limit");
+    expect(next.alerts.map((a) => a.reason)).not.toContain("backstop");
+  });
+
+  it("counts the backstop's day on the front door's clock, not the server's", () => {
+    const book = new SpendBook(nodeSql());
+    const big = { limit_usd: 1e6, runaway_per_hour: null, window_s: null };
+    for (let i = 0; i < 51; i++) book.reserve(rec({ at: T + i, auto: false }), big, T + i);   // $9.89 today
+    // A server whose clock is days behind, or weeks ahead (into another month), still meets today's total.
+    const wrong = [{ at: T - 5 * 86400, month: "2026-09", day: "2026-09-16" },
+                   { at: T + 20 * 86400, month: "2026-10", day: "2026-10-11" }];
+    wrong.forEach((w, i) => {
+      const out = book.reserve(rec({ ...w, auto: false }), big, T + 100);
+      expect(out.reason, w.day).toBe("backstop");
+      expect(out.alerts.map((a) => a.reason)).toEqual(i === 0 ? ["backstop"] : []);   // once a day
+    });
+  });
+
+  it("says a paused household is paused, not that it hit the backstop", () => {
+    const book = new SpendBook(nodeSql());
+    for (let i = 0; i < 7; i++) book.reserve(rec({ at: T + i * 300, kind: "collage", subject: `d${i}` }), RULE, T + i * 300);
+    expect(book.snapshot(0).pause).not.toBeNull();
+    const huge = book.reserve(rec({ at: T + 2400, est_usd: 20 }), RULE, T + 2400);
+    expect(huge.reason).toBe("paused");
+    expect(huge.alerts.map((a) => a.reason)).not.toContain("backstop");
+  });
+
+  it("says once a day that a household passed $3", () => {
+    const book = new SpendBook(nodeSql());
+    const free = { limit_usd: 1e6, runaway_per_hour: null, window_s: null };
+    const alerts = [];
+    for (let i = 0; i < 20; i++) alerts.push(...book.reserve(rec({ at: T + i, auto: false }), free, T + i).alerts);
+    expect(alerts.filter((a) => a.reason === "day")).toHaveLength(1);
+  });
+
+  it("imports the server's own records once", () => {
+    const book = new SpendBook(nodeSql());
+    const rows = [rec({ state: "settled", cost_usd: 0.2 }), rec({ state: "settled", cost_usd: 0.1 })];
+    expect(book.importRows(rows)).toBe(2);
+    expect(book.importRows(rows)).toBe(0);
+    expect(book.monthSummary("2026-09").usd).toBeCloseTo(0.3);
+  });
+
+  it("takes the server's own pause with its records", () => {
+    const book = new SpendBook(nodeSql());
+    book.importRows([], { at: T, count: 6 }, T - 3600);
+    expect(book.snapshot(0)).toMatchObject({ pause: { at: T, count: 6 }, resumed_at: T - 3600 });
+    expect(book.reserve(rec({ at: T + 60, auto: false }), RULE, T + 60).reason).toBe("paused");
+  });
+
+  it("keeps a pause of its own over the server's", () => {
+    const book = new SpendBook(nodeSql());
+    for (let i = 0; i < 7; i++) book.reserve(rec({ at: T + i * 300, kind: "collage", subject: `d${i}` }), RULE, T + i * 300);
+    book.importRows([], { at: T - 600, count: 3 }, 0);
+    expect(book.snapshot(0).pause).toEqual({ at: T + 1800, count: 6 });
+  });
+
+  it("keeps the later resume", () => {
+    const book = new SpendBook(nodeSql());
+    book.resume(T + 100);
+    book.importRows([], null, T + 50);
+    expect(book.snapshot(0).resumed_at).toBe(T + 100);
+    book.importRows([], null, T + 200);
+    expect(book.snapshot(0).resumed_at).toBe(T + 200);
+  });
+
+  it("does not take a pause the owner has since resumed here", () => {
+    // The server sends its old pause on every start: a resume here must hold.
+    const book = new SpendBook(nodeSql());
+    book.importRows([], { at: T, count: 6 }, 0);
+    book.resume(T + 100);
+    book.importRows([], { at: T, count: 6 }, 0);
+    expect(book.snapshot(0).pause).toBeNull();
+  });
+
+  it("refuses without writing anything", () => {
+    const book = new SpendBook(nodeSql());
+    book.importRows([], { at: T, count: 6 }, 0);
+    expect(book.reserve(rec({ at: T + 60, auto: false }), RULE, T + 60).reason).toBe("paused");
+    expect(book.snapshot(0).rows).toEqual([]);
+  });
+
+  it("throws rather than say yes to a record it did not write", () => {
+    const book = new SpendBook(nodeSql());
+    const r = rec({ auto: false });
+    expect(book.reserve(r, RULE, T).ok).toBe(true);
+    expect(() => book.reserve(r, RULE, T)).toThrow();
+    expect(book.snapshot(0).rows).toHaveLength(1);
+  });
+
+  it("sums the month for the admin page", () => {
+    const book = new SpendBook(nodeSql());
+    book.reserve(rec({ est_usd: 0.5 }), { ...RULE, limit_usd: 10 });
+    const s = book.monthSummary("2026-09");
+    expect(s).toEqual({ usd: 0.5, limit: 10, paused: false, count: 1 });
+  });
+});
+
+describe("alertMail", () => {
+  it("names the household and the numbers", () => {
+    const m = alertMail("h1", "cloud.featherframe.app",
+      { reason: "paused", lastHour: 6, today: 1.2, month: 4.5, limit: 10 });
+    expect(m.subject).toBe("Featherframe Cloud: h1 AI paused");
+    expect(m.text).toContain("h1 bought more AI images in an hour than the pause allows.");
+    expect(m.text).toContain("Last hour: 6 images. Today (UTC): $1.20. This month: $4.50 of $10.00.");
+    expect(m.text).toContain("https://cloud.featherframe.app/admin");
+  });
+});
+
+vi.mock("cloudflare:workers", () => ({
+  DurableObject: class { ctx: unknown; env: unknown; constructor(ctx: unknown, env: unknown) { this.ctx = ctx; this.env = env; } },
+}));
+vi.mock("../src/viewers", () => ({ display: vi.fn(), lobbyPng: vi.fn(), shortOf: vi.fn(), trmnlHeaders: vi.fn() }));
+
+describe("the front door's spend routes", () => {
+  async function door() {
+    const { Household } = await import("../src/household");
+    const sql = nodeSql();
+    const mail: string[] = [];
+    const waits: Promise<unknown>[] = [];          // what the route left running after it answered
+    const h = new Household({ storage: { sql }, getWebSockets: () => [], waitUntil: (p) => { waits.push(p); } } as never,
+      { ADMIN_EMAILS: "a@x.test, b@x.test", APP_HOST: "cloud.featherframe.app", RESEND_API_KEY: "" } as never);
+    h.setMeta("hid", "h1");
+    h.setMeta("key", "k");
+    (h as never as { mailer: (to: string, m: { subject: string }) => Promise<boolean> }).mailer =
+      async (to, m) => { mail.push(`${to}: ${m.subject}`); return true; };
+    return { h, mail, waits };
+  }
+  const call = (h, path, body?) => h.internal(new Request(`https://x/_internal/h1/${path}`,
+    body === undefined ? {} : { method: "POST", body: JSON.stringify(body) }), path);
+
+  it("reserves, settles, and tells the admin when a household pauses", async () => {
+    const { h, mail, waits } = await door();
+    for (let i = 0; i < 6; i++) {
+      const r = await call(h, "spend/reserve", { record: rec({ at: T + i * 300, kind: "collage", subject: `d${i}` }), rule: RULE });
+      expect(await r.json()).toEqual({ ok: true });
+    }
+    const seventh = await call(h, "spend/reserve",
+      { record: rec({ at: T + 1800, kind: "collage", subject: "d6" }), rule: RULE });
+    expect(await seventh.json()).toEqual({ ok: false, reason: "runaway" });
+    await Promise.all(waits);
+    expect(mail).toEqual(["a@x.test: Featherframe Cloud: h1 AI paused", "b@x.test: Featherframe Cloud: h1 AI paused"]);
+    const snap = await (await h.internal(new Request("https://x/_internal/h1/spend/snapshot?since=0"),
+      "spend/snapshot")).json();
+    expect(snap.pause).toEqual({ at: T + 1800, count: 6 });
+    await call(h, "spend/resume", { now: T + 2000 });
+    expect(h.summary().ai.paused).toBe(false);
+  });
+
+  it("imports the server's records and its pause", async () => {
+    const { h } = await door();
+    const r = await call(h, "spend/import",
+      { rows: [rec({ state: "settled", cost_usd: 0.2 })], pause: { at: T, count: 6 }, resumed_at: T - 60 });
+    expect(await r.json()).toEqual({ added: 1 });
+    expect(h.summary().ai.paused).toBe(true);
+    expect(h.spend.monthSummary("2026-09").count).toBe(1);
+  });
+
+  it("turns away a reservation that is not one, and stores nothing", async () => {
+    const { h } = await door();
+    for (const record of [rec({ est_usd: null }), rec({ est_usd: -1 }), rec({ auto: "yes" }), rec({ quality: undefined }),
+                          rec({ id: 7 }), rec({ at: "now" })]) {
+      const r = await call(h, "spend/reserve", { record, rule: RULE });
+      expect(r.status, JSON.stringify(record)).toBe(400);
+      expect(await r.json()).toEqual({ error: "bad reserve" });
+    }
+    for (const rule of [{ ...RULE, limit_usd: null }, { ...RULE, runaway_per_hour: "6" }, { limit_usd: 10, runaway_per_hour: 6 }]) {
+      expect((await call(h, "spend/reserve", { record: rec(), rule })).status).toBe(400);
+    }
+    expect((await call(h, "spend/reserve", { rule: RULE })).status).toBe(400);
+    expect(h.spend.snapshot(0).rows).toEqual([]);
+  });
+
+  it("turns away a settle that is not one", async () => {
+    const { h } = await door();
+    const r = rec({ auto: false });
+    await call(h, "spend/reserve", { record: r, rule: RULE });
+    for (const body of [{ id: r.id, state: "open", cost_usd: 0.1 }, { id: r.id, state: "settled", cost_usd: "0.1" },
+                        { id: r.id, state: "settled" }]) {
+      const out = await call(h, "spend/settle", body);
+      expect(out.status, JSON.stringify(body)).toBe(400);
+      expect(await out.json()).toEqual({ error: "bad settle" });
+    }
+    expect(h.spend.snapshot(0).rows.map((x) => x.state)).toEqual(["open"]);
+    expect((await call(h, "spend/settle", { id: r.id, state: "settled", cost_usd: null })).status).toBe(200);
+    expect(h.spend.snapshot(0).rows.map((x) => x.state)).toEqual(["settled"]);
+  });
+
+  it("answers 500 to a reservation it could not write", async () => {
+    const { h } = await door();
+    const r = rec({ auto: false });
+    expect((await call(h, "spend/reserve", { record: r, rule: RULE })).status).toBe(200);
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect((await call(h, "spend/reserve", { record: r, rule: RULE })).status).toBe(500);
+    } finally {
+      err.mockRestore();
+    }
+  });
+
+  it("asks for the server's key", async () => {
+    const { h } = await door();
+    const ask = (key: string) => h.fetch(new Request("https://x/_internal/h1/spend/reserve", {
+      method: "POST", headers: { "X-FF-Household": "h1", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ record: rec({ auto: false }), rule: RULE }) }));
+    expect((await ask("wrong")).status).toBe(403);
+    expect(h.spend.snapshot(0).rows).toEqual([]);
+    expect((await ask("k")).status).toBe(200);
+  });
+
+  it("answers the reservation without waiting for the mail", async () => {
+    const { h, waits } = await door();
+    const tried: string[] = [];
+    (h as never as { mailer: (to: string) => Promise<boolean> }).mailer = async (to) => {
+      tried.push(to);
+      if (to === "a@x.test") throw new Error("resend away");
+      return new Promise<boolean>(() => {});      // never answers
+    };
+    for (let i = 0; i < 6; i++) await call(h, "spend/reserve", { record: rec({ at: T + i * 300, kind: "collage", subject: `d${i}` }), rule: RULE });
+    const seventh = await call(h, "spend/reserve",
+      { record: rec({ at: T + 1800, kind: "collage", subject: "d6" }), rule: RULE });
+    expect(await seventh.json()).toEqual({ ok: false, reason: "runaway" });
+    expect(waits).toHaveLength(1);
+    expect(tried).toEqual(["a@x.test", "b@x.test"]);   // one failing address does not stop the next
+  });
+});
+
+describe("sendMail", () => {
+  it("gives up after a few seconds and says it did not send", async () => {
+    const { sendMail } = await import("../src/accounts");
+    const seen: RequestInit[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_u: string, init: RequestInit) => {
+      seen.push(init);
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const ok = await sendMail({ RESEND_API_KEY: "re_x", MAIL_FROM: "f@x.test" } as never, "a@x.test",
+        { subject: "s", text: "t", html: "h" });
+      expect(ok).toBe(false);
+      expect(seen[0].signal).toBeInstanceOf(AbortSignal);
+      expect(err).toHaveBeenCalled();
+    } finally {
+      err.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+import { aiCell } from "../src/pages";
+
+describe("the admin's AI column", () => {
+  it("reads as the webapp's summary does", () => {
+    expect(aiCell({ usd: 1.2, limit: 10, paused: false, count: 3 })).toBe("$1.20 of $10.00");
+    expect(aiCell({ usd: 1.2, limit: 10, paused: true, count: 3 })).toBe("Paused · $1.20 of $10.00");
+    expect(aiCell({ usd: 0, limit: null, paused: false, count: 0 })).toBe("—");
+  });
+});

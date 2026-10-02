@@ -179,6 +179,14 @@ Wells`,
 }
 
 // -- the admin page (W-850) -------------------------------------------------------
+
+/** A household's AI spend this month, as the webapp's AI row reads (W-938). */
+export function aiCell(ai: { usd: number; limit: number | null; paused: boolean; count: number }): string {
+  if (!ai.count && !ai.paused) return "—";
+  const money = `$${ai.usd.toFixed(2)}${ai.limit === null ? "" : ` of $${ai.limit.toFixed(2)}`}`;
+  return ai.paused ? `Paused · ${money}` : money;
+}
+
 export type AdminData = {
   waitlist: { email: string; source: string | null; created_at: number; invited_at: number | null; confirmed_at: number | null }[];
   invites: { email: string; created_at: number; used_at: number | null }[];
@@ -188,6 +196,7 @@ export type AdminData = {
     frames: { id: string; status: string; seen: number | null }[];
     usage: UsageDay[];
     last_wake: number | null; source: string | null;
+    ai: { usd: number; limit: number | null; paused: boolean; count: number };
   }[];
   usage: Usage;
   log: { at: number; admin: string; action: string; target: string | null; ok: number; result: string }[];
@@ -359,7 +368,7 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false, o
     series: [{ label: "Wakes", color: "--r3", values: srv.wake },
              { label: "Page open", color: "--r1", values: srv.page },
              ...(srv.total.some((v) => v > 0) ? [{ label: "Total only", color: "--r-rest", values: srv.total }] : [])] }) : "";
-  const households = d.households.length ? `<table><thead><tr><th>Household</th><th>Frames</th><th>Server, 7 days</th><th>Last wake</th><th class="actions"></th></tr></thead><tbody>
+  const households = d.households.length ? `<table><thead><tr><th>Household</th><th>Frames</th><th>Server, 7 days</th><th>AI this month</th><th>Last wake</th><th class="actions"></th></tr></thead><tbody>
     ${d.households.map((h, n) => {
       const t = serverTime(h.usage.filter((u) => u.day >= week));
       const note = [
@@ -401,6 +410,7 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false, o
       return `<tr><td>${e(h.email || "(no login)")}${own ? ` <span class="muted">· you</span>` : ""}${h.suspended_at ? ` <span class="badge">Suspended</span>` : ""}<br><span class="muted hid">${e(h.id)}${h.source ? ` · ${e(h.source)}` : ""}</span></td>
         <td>${frames}</td>
         <td class="num">${minutes(t.wake_ms)} in ${t.wakes} wakes<br><span class="muted srv-note">${note}</span></td>
+        <td>${e(aiCell(h.ai))}</td>
         <td class="num muted">${ago(h.last_wake)}</td>
         <td class="actions">${actions}</td></tr>`;
     }).join("")}

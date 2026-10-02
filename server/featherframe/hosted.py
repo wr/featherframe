@@ -311,6 +311,11 @@ def activate(link: Optional[HostedLink]) -> None:
     _active = link
 
 
+def link() -> Optional[HostedLink]:
+    """The link this process pulled with, or None off hosted."""
+    return _active
+
+
 def _rel(path: Path) -> Optional[str]:
     if _active is None:
         return None

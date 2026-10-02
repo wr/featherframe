@@ -961,8 +961,8 @@ class FeatherframeService:
                     "text": err["text"], "detail": err["detail"]}
         if s["unreachable"]:
             return {**out, "state": "warn", "summary": "Unavailable", "notice": "error",
-                    "text": ("Nothing is bought until Featherframe Cloud can check this "
-                             "month's AI spend. It resumes on its own.")}
+                    "text": ("AI generation is unavailable right now, so nothing is "
+                             "bought. It resumes on its own.")}
         if s["paused"]:
             n = int(s["paused"].get("count") or spend.RUNAWAY_PER_HOUR)
             return {**out, "state": "bad", "summary": "Paused", "notice": "paused",

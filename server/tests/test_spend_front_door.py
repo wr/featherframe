@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import pytest
 import requests
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from starlette.testclient import TestClient
 
 from featherframe import hosted, spend
@@ -24,7 +25,7 @@ def fake_door():
     door = FastAPI()
     book = spend.MemoryStore()
     door.state.book, door.state.imported, door.state.snapshots = book, [], 0
-    door.state.import_bodies = []
+    door.state.import_bodies, door.state.import_fails = [], False
 
     @door.post("/h/spend/reserve")
     async def reserve(request: Request):
@@ -51,6 +52,8 @@ def fake_door():
 
     @door.post("/h/spend/import")
     async def imp(request: Request):
+        if door.state.import_fails:
+            return JSONResponse({"error": "down"}, status_code=500)
         body = await request.json()
         rows = body["rows"]
         door.state.imported.extend(rows)
@@ -173,6 +176,45 @@ def test_a_pause_from_before_the_front_door_stays_on(link, tmp_path):
     later = spend.Gate(spend.FrontDoorStore(ln, local_db=db), now=lambda: T0 + timedelta(minutes=1))
     with later.purchase("collage", "2026-09-27", model="m") as p:
         p.settle(None, 0.2)
+
+
+def test_the_month_figure_has_the_servers_own_records_before_any_purchase(link, tmp_path):
+    door, ln = link
+    db = Database(tmp_path / "ff.db")
+    _local_record(db)
+    gate = spend.Gate(spend.FrontDoorStore(ln, local_db=db), now=lambda: T0)
+    s = gate.summary()
+    assert s["unreachable"] is False and s["usd"] == pytest.approx(0.05) and s["count"] == 1
+    assert [r["subject"] for r in door.state.imported] == ["tyto-alba"]
+
+
+def test_a_summary_stands_when_the_import_fails(link, tmp_path):
+    door, ln = link
+    door.state.import_fails = True
+    db = Database(tmp_path / "ff.db")
+    _local_record(db)
+    ticks = itertools.count(0, 100)               # every read is past the kept one's TTL
+    gate = spend.Gate(spend.FrontDoorStore(ln, local_db=db, clock=lambda: next(ticks)),
+                      now=lambda: T0)
+    assert gate.summary()["unreachable"] is False
+    door.state.import_fails = False               # the next read tries it again
+    assert gate.summary()["unreachable"] is False
+    assert [r["subject"] for r in door.state.imported] == ["tyto-alba"]
+
+
+def test_a_snapshot_reads_records_with_fields_it_does_not_know(tmp_path):
+    """A newer front door may keep more about each record."""
+    door = FastAPI()
+    row = {**asdict(spend.Record(id="r1", at=T0.timestamp(), month="2026-09", day="2026-09-27",
+                                 kind="plate", subject="tyto-alba", auto=True, model="m",
+                                 quality=None, est_usd=0.07)), "billed_by": "openai"}
+
+    @door.get("/h/spend/snapshot")
+    async def snapshot():
+        return {"rows": [row], "pause": None, "resumed_at": 0}
+
+    ln = hosted.HostedLink("http://door/h", "k", tmp_path / "data", session=TestClient(door))
+    assert [r.subject for r in spend.FrontDoorStore(ln).snapshot(0.0).rows] == ["tyto-alba"]
 
 
 class Flaky:
@@ -439,8 +481,8 @@ ORIGIN = {"Origin": "http://testserver"}
 def test_the_page_and_the_status_stand_without_the_door(dead, client):
     ai = dead.status()["ai"]
     assert ai["summary"] == "Unavailable" and ai["state"] == "warn" and ai["notice"] == "error"
-    assert ai["text"] == ("Nothing is bought until Featherframe Cloud can check this month's "
-                          "AI spend. It resumes on its own.")
+    assert ai["text"] == ("AI generation is unavailable right now, so nothing is bought. "
+                          "It resumes on its own.")
     assert client.get("/").status_code == 200
     assert client.get("/api/status").json()["ai"]["summary"] == "Unavailable"
 

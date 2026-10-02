@@ -472,12 +472,12 @@ class FrontDoorStore:
         self._failed_at: Optional[float] = None   # when a snapshot last failed
         self._kept_lock = threading.Lock()
 
-    def _import_local(self) -> None:
+    def _import_local(self, timeout=FRONT_DOOR_TIMEOUT_S) -> None:
         """The server's own records, from before the front door kept them,
-        go over once a process, ahead of its first reservation: the count
-        must include them. Not once a DB: during a rollout an older image may
-        run in between and record more. The front door keeps each record
-        once. A failure raises, and the next reservation tries again."""
+        go over once a process, ahead of its first reservation or snapshot:
+        the count must include them. Not once a DB: during a rollout an older
+        image may run in between and record more. The front door keeps each
+        record once. A failure raises, and the next reservation tries again."""
         if self._imported:
             return
         with self._import_lock:
@@ -491,7 +491,7 @@ class FrontDoorStore:
                 r = self._link.http.post(self._link._url("spend/import"),
                                          json={"rows": rows, "pause": pause,
                                                "resumed_at": resumed_at},
-                                         timeout=FRONT_DOOR_TIMEOUT_S)
+                                         timeout=timeout)
                 r.raise_for_status()
             self._imported = True
 
@@ -530,12 +530,21 @@ class FrontDoorStore:
                 return snap
             return Snapshot(rows=[r for r in snap.rows if r.at >= since],
                             pause=snap.pause, resumed_at=snap.resumed_at)
+        # The month's figure includes the server's own records from the first
+        # read, not only after the first purchase. Best effort: the read
+        # stands without it, and the next one tries again.
+        try:
+            self._import_local(timeout=SNAPSHOT_TIMEOUT_S)
+        except Exception as exc:  # noqa: BLE001
+            log.info("spend records not sent to the front door yet: %s", exc)
         try:
             r = self._link.http.get(self._link._url("spend/snapshot"), params={"since": since},
                                     timeout=SNAPSHOT_TIMEOUT_S)
             r.raise_for_status()
             body = r.json()
-            snap = Snapshot(rows=[Record(**x) for x in body.get("rows") or []],
+            # Only the fields a Record has: a newer front door may keep more.
+            snap = Snapshot(rows=[Record(**{k: x[k] for k in Record.__dataclass_fields__ if k in x})
+                                  for x in body.get("rows") or []],
                             pause=body.get("pause"),
                             resumed_at=float(body.get("resumed_at") or 0.0))
         except Exception:

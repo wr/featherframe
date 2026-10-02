@@ -34,7 +34,7 @@ from PIL import Image
 from . import auth, firmware_release, hosted, spend
 from . import plate_library, thumbs
 from . import frames as frames_mod
-from . import panels, paths
+from . import page_build, panels, paths
 from . import pictures as pictures_mod
 from .push import PushHub
 from .pictures import COLLAGE, PLATES, Pictures
@@ -525,7 +525,7 @@ def frame_card(reported: dict, wake_interval_minutes: int,
             "overdue_text": ("Overdue — checks in every few seconds" if awake
                              else f"Overdue — wakes every {wake_interval_minutes} min"),
             "last_seen": None,
-            "last_checkin_iso": None, "battery": None, "battery_low": False,
+            "last_checkin_iso": None, "last_checkin_ts": None, "battery": None, "battery_low": False,
             "battery_critical": False,
             "battery_percent": None, "battery_voltage": None,
             "power": {"state": "unknown", "text": ""},
@@ -537,6 +537,7 @@ def frame_card(reported: dict, wake_interval_minutes: int,
     card["seen"] = True
     card["last_seen"] = _ago(then, now)
     card["last_checkin_iso"] = then.isoformat(timespec="seconds")
+    card["last_checkin_ts"] = int(then.timestamp())
     card["overdue"] = (now - then).total_seconds() > expected * 60
     if device.battery_voltage is not None and device.battery_voltage >= _BATTERY_ABSENT_V:
         # Display the last few minutes' median, not the single newest reading,
@@ -2553,7 +2554,9 @@ class FeatherframeService:
                 # itself — it polls a BirdWeather station, or takes the pushes
                 # (Apprise from BirdNET-Pi, a webhook from BirdNET-Go) — and
                 # wakes this only when there is some.
-                "source": self._hosted_source()}
+                "source": self._hosted_source(),
+                # The webapp's own build (W-946): the front door's cache key.
+                "page_build": page_build.build()}
 
     def _hosted_source(self) -> dict:
         cfg = self.config
@@ -2768,6 +2771,7 @@ class FeatherframeService:
                 # (the socket's own pings end it when the frame goes quiet).
                 card["overdue"] = False
                 card["last_seen"] = "just now"
+                card["last_checkin_ts"] = int(self._clock().timestamp())
         # The one place the row's status dot is decided.
         card["state"] = ("bad" if card["battery_critical"] else
                          ("warn" if card["overdue"] else
@@ -2812,6 +2816,7 @@ class FeatherframeService:
         except (ValueError, TypeError):
             seen = "never"
         fresh = Config.defaults_for(frames_mod.panel_for(row).key) if kit else None
+        queued = self._queued_seconds(row, now) if kit and on else None
         return {
             "id": fid,
             "short": self.frame_short(fid),
@@ -2831,7 +2836,13 @@ class FeatherframeService:
                                            schedule=self._schedule_text(shows)),
             "picture_etag": self.picture_etag(shows) if on else None,
             "output_etag": self._output_etag(fid) if kit else None,
-            "queued_s": self._queued_seconds(row, now) if kit and on else None,
+            "queued_s": queued,
+            # When a held change paints, for a countdown that a copy served
+            # later still gets right (W-946).
+            "queued_until": int(now.timestamp()) + queued if queued else None,
+            # What the page's preview of this frame shows: it reloads only when this moves.
+            "preview_etag": ((self._output_etag(fid) if kit else self.pictures[self._kind_for(shows, now)].etag)
+                             if on else None),
             "preview_url": f"/api/frames/{quote(fid, safe='')}/preview.png" if on else None,
             "capabilities": {**caps, "rotations": list(caps["rotations"])},
             "settings": {
@@ -3089,6 +3100,9 @@ class FeatherframeService:
                 **{k: v for k, v in heard.items() if k != "ts"},
                 "when_text": (_ago(datetime.fromisoformat(heard["ts"]), now)
                               if heard.get("ts") else ""),
+                # The page says the age itself, from this (W-946).
+                "at_ts": (int(datetime.fromisoformat(heard["ts"]).timestamp())
+                          if heard.get("ts") else None),
             } if heard else None,
             "quiet": quiet,
             "source_outage": outage,

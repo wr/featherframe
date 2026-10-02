@@ -213,34 +213,42 @@ A standard stale-while-revalidate cache, kept by the front door. It keeps the
 last answer the server gave to each read the webapp makes (the page, its JSON,
 the pictures on it) and answers the next ask for it at once, without the
 server. A copy older than 15 minutes is still answered, and the front door
-asks for a wake in the background; the page takes the new copy on its next
-30-second status check. Every wake ends by refreshing the copies someone is
-reading while the server is up anyway, so a household whose detections wake
-the server often rarely has an old one. A save clears the cache, so the owner
-always sees their own change.
+asks for a wake in the background; the page takes the new copy on a later
+30-second status check. While the server is up anyway (a wake, a save, its
+own ticks), the front door refreshes the copies someone is reading, so they
+are rarely old. A save clears the copies it can change, so the owner always
+sees their own change.
 
 The trade: when nothing has woken the server for 15 minutes (at night,
-mostly), the page shows a copy up to 15 minutes old for the half minute after
-it opens. In return, looking at the webapp never starts the server just to
-look.
+mostly), the page opens on a copy up to 15 minutes old. It is replaced on the
+next status check after the wake that look asks for, which is under a minute
+unless a wake ran in the last 5 minutes (`MIN_GAP_MS`), then up to 5. In
+return, looking at the webapp never starts the server just to look.
 
 ### What is cached
 
 Only GETs from the signed-in webapp, on these paths, answered 200, under
 5 MB:
 
-| Path | Query that counts | Kind |
+| Path | Query in the key | Kind |
 |---|---|---|
 | `/` | none (the rest is the page's own flash messages) | changing |
 | `/api/status`, `/api/history`, `/api/tasks` | none | changing |
 | `/api/battery` | `frame`, `hours` | changing |
 | `/api/frames/<id>/preview.png`, `/api/preview.png` | none | changing |
-| `/api/history/<etag>.png`, `.jpg` | none | fixed: the name is its content's hash |
-| `/api/generated/<slug>.png`, `/api/collages/<day>.png` | `thumb` | fixed until a POST replaces one, which clears the cache |
+| `/api/collages/<today>.png` | `thumb` | changing (the tick redraws today's) |
+| `/api/collages/<earlier day>.png` | `thumb` | fixed |
+| `/api/generated/<slug>.png` | `thumb`, `v` (its `created_at`: a repaint is a new key) | fixed |
+| `/api/history/<etag>.png`, `.jpg` | none | fixed (the name is its content's hash) |
+| `/static/*` | none | fixed |
 
-Any other query parameter (the page's cache-busters `t`, `v` and `w` among
-them) is not part of the key. A request with `live=1` skips the cache.
-Everything else, every POST and every other GET, goes to the server as today.
+Any other query parameter (the page's cache-busters `t` and `w` among them)
+is left out of the key. A request with `live=1` skips the cache. Every POST,
+and every GET not listed (`/api/imagegen/models`, `/api/generated/export`, the
+USB dialog's `/api/flash/*`: things an owner does, not looks at), goes to the
+server as today. The time function the page needs
+(`server/static/js/page-time.js`) is inlined into the page, so loading it is
+no request at all.
 
 The key also carries:
 
@@ -248,50 +256,94 @@ The key also carries:
   address waiting for confirmation, whether it is confirmed), so the account
   row and the "Confirm your email address" banner are right for whoever is
   signed in, with nothing rewritten;
-- the Worker's deployment id (the `version_metadata` binding), so a deploy
-  starts every household's cache empty and no page from an older build is
-  served against a newer server.
+- the server's page build: the first 12 hex of the sha256 of `templates/`
+  and `static/`, computed once at start and reported in `hosted_state()`
+  (`page_build`). A new server image empties the cache when it first reports,
+  so its copies are never from an older page. A Worker-only deploy empties
+  nothing.
 
-The bodies live in R2 at `households/<hid>/cache/<sha256 of the key>`
-(deleted with the household, like everything under that prefix), indexed in
-the front door's SQLite: `page_cache (key PRIMARY KEY, object, path, type,
-filled_at, read_at)`. The browser gets the server's own headers.
+Storage: the bodies in R2 at `households/<hid>/cache/<random id>` (deleted
+with the household, like everything under that prefix), indexed in the front
+door's SQLite:
+
+```sql
+page_cache (key PRIMARY KEY, kind, request, object, type, headers,
+            generation, filled_at, read_at)
+```
+
+`request` is what to ask the server again: path, the query in the key, and
+for `/` the account headers. `object` is NULL until a copy is stored. The
+browser gets the server's own headers. Rows unread for 30 days, and their
+objects, go at the next refresh; a build change deletes them all.
 
 ### Reads
 
 - **Fresh** (filled under 15 minutes ago): answered from R2. The server is not
   asked.
 - **Stale**: answered from R2 just the same, and the front door asks for a
-  wake: `refresh = 1` and an alarm 500 ms out, as `adopt()` does, subject to
-  `MIN_GAP_MS` (5 minutes between wakes) and `suspended`. Two tabs asking at
-  once set the same alarm.
-- **Missing, server running** (`HouseholdServer.running()`, a new method that
-  reads `ctx.container.running`): asked of the server, stored, answered.
-- **Missing, server asleep**: `/` answers the loading page (below) and asks
-  for a wake; any other path is asked of the server as today.
+  wake (below).
+- **Missing, server running**: asked of the server (straight, never through
+  `proxy()`, so it does not count as page activity), stored, answered.
+  "Running" is a new `HouseholdServer.running()`: `ctx.container.running` and
+  not on its way out (`!this.stopping`, containers.ts), so a server stopping
+  counts as asleep.
+- **Missing, server asleep**: the row is written with `object` NULL so the
+  next refresh fills it. `/` answers the loading page (below) and asks for a
+  wake; any other path is asked of the server as today.
 
-Every hit sets `read_at`, so the front door knows which copies someone is
-reading.
+Every hit sets `read_at`.
 
-### Every wake refreshes what is being read
+### Asking for a wake
 
-At the end of `wake()`, after `/api/hosted/run` and before `sleepWhenIdle`,
-the front door asks the server again for every "changing" copy read in the
-last 24 hours, one at a time, and stores the answers. The server is up
-already, so this costs a render of the page (a few seconds of a ¼ vCPU) and
-no start.
+A new meta flag, `look`. A stale read, or a miss on `/`, sets it and sets the
+alarm to `max(now + 500 ms, last wake + MIN_GAP_MS)`. `alarm()`'s `due` and
+`schedule()` both read it: due when it is set and `MIN_GAP_MS` has passed
+since the last wake. `wake()` clears it. It never sets `news` or zeroes
+`wake_ms`, so it cannot jump the gap. `suspended` stops it as it stops every
+wake.
 
-A wake asked for by a stale read is an ordinary wake: it hands the server the
-queued detections and check-ins first, so the refreshed page has them.
+In quiet hours (`poll = 0`) a look asks for a wake only when the front door
+holds check-ins or detections the server has not taken: in quiet hours
+nothing else can have changed.
+
+A wake asked for by a look is an ordinary wake: it hands the server the
+queued detections and check-ins first, so the refreshed copies have them.
+
+### Refreshing while the server is up
+
+The server already tells the front door each time it settles
+(`report()` → `takeState`: after a wake's tick, a POST, and its own ticks
+while it is up). That report decides the refresh:
+
+- **When:** a report that changed what the page shows (a frame's or viewer's
+  picture, status or settings, the set of frames, the page build), every
+  report that follows a proxied POST, and the end of every wake if the copies
+  are more than 15 minutes old. Nothing else: the copies are not redrawn for
+  a tick that changed nothing.
+- **Which:** every changing row read in the last 2 hours, plus rows with
+  `object` NULL. When `/` qualifies, `/api/status`, `/api/tasks`,
+  `/api/history` and each frame's preview are refreshed with it, read or not,
+  so a page and its parts always come from one refresh.
+- **How:** asked of the server straight (not `proxy()`, so not page
+  activity), in `ctx.waitUntil` from `takeState`, one at a time, into new
+  objects. The rows then all move to the new `generation` in one SQLite
+  transaction and the old objects are deleted, so a page never meets a status
+  from another refresh.
+
+A household nobody has looked at in 2 hours gets no refreshes. One whose
+owner looked an hour ago gets at most one every 15 minutes, plus one per
+picture change.
 
 ### What clears it
 
-- A POST the server answers with a status under 400 clears the household's
-  cache before the answer leaves. The redirect after a save, and the next
-  reads, are then misses while the server is up: asked of it, and stored.
-- `adopt()` (a frame paired by code or over USB) clears it, so the reload
-  after pairing shows the new frame once its wake has drawn it.
-- A deploy, through the deployment id in the key.
+- A POST the front door proxies, answered under 400, clears the household's
+  changing copies before the answer leaves. The redirect after a save, and the
+  reads after it, are then misses while the server is up: asked of it, and
+  stored. Fixed copies stay. `/api/warm` and the other routes the front door
+  answers itself are not proxied POSTs.
+- `adopt()` (a frame paired by code or over USB) clears the changing copies,
+  so the reload after pairing shows the new frame once its wake has drawn it.
+- A new page build clears everything.
 
 ### The page
 
@@ -305,10 +357,13 @@ queued detections and check-ins first, so the refreshed page has them.
   `_ago` and STYLE.md; a shared fixture
   (`server/tests/fixtures/page-time-cases.json`) holds both to the same
   answers (pytest on `_ago`, a vitest in `hosted/test` on
-  `server/static/js/page-time.js`, which the page loads).
+  `server/static/js/page-time.js`).
 - **Status applied at load.** The page asks `/api/status` once as it loads (a
-  cache hit, tens of milliseconds), so a copy refreshed since the page itself
-  was cached shows at once.
+  cache hit, tens of milliseconds).
+- **The set of frames** that `applyStatus` compares (`knownFrames`) starts
+  from the rows the page rendered, not the first status. A status whose
+  frames differ reloads the page, which then comes from the same refresh as
+  that status.
 - **Live polls.** The task and regenerate polls, and the 2 s poll while a
   firmware update is moving, ask `live=1`. The on-load `/api/tasks` ask is a
   cached read.
@@ -338,80 +393,97 @@ starts one.
 ### The loading page
 
 `/` with nothing cached and the server asleep: a new household (setup lands
-on `/?welcome=1` while its first wake runs), or the first visit after a
-deploy. A page bundled in the Worker shows the webapp's header and the two
-columns' cards as gray blocks, with no text. It asks `GET /api/page/ready`
-(the front door alone: is `/` cached?) every 2 s, and reloads with its query
-and hash kept once it is. The preview area shows the same gray block until
-its image loads, on every page.
+on `/?welcome=1` while its first wake runs), or the first visit after a new
+server image. A page bundled in the Worker shows the webapp's header and the
+two columns' cards as gray blocks, with no text. It asks
+`GET /api/page/ready` every 2 s. The front door answers that itself: ready
+when `/` is cached; and when it is not but the server is running, it asks the
+server for `/` first and stores it. The loading page then reloads with its
+query and hash kept. The preview area shows the same gray block until its
+image loads, on every page.
 
 ### What runs the server, before and after
 
 | Event | Today | After |
 |---|---|---|
-| Open the webapp | starts it; held 30 s+ | nothing if a wake refreshed the cache in the last 15 min; else one wake, at most every 5 min |
+| Open the webapp | starts it; held 30 s+ | nothing if the copies are under 15 min old; else one wake, at most every 5 min (in quiet hours only if check-ins or detections are waiting) |
 | Tab open, visible, untouched under 10 min | held up the whole time | nothing |
 | Hover a battery cell | starts it | nothing once cached |
 | Start editing | already up from the visit | starts it; held until 30 s after the last edit |
 | Save | proxied | proxied (usually warm by then) |
-| Each wake | — | a few seconds longer when a page was read in the last day |
+| A wake or tick while someone looked in the last 2 h | — | a refresh of the page's copies when the picture changed, or once every 15 min: one page render on a server already running |
 
 ### Self-hosted
 
 No cache. The page's own changes (times in the browser, status applied at
-load, the preview on its etag, live polls) run the same on the box.
+load, `knownFrames` from the rendered rows, the preview on its etag, live
+polls) run the same on the box.
 
 ## Testing
 
 - **pytest.** An ISO time beside every relative time the page shows;
-  `queued_until` and `expires_at`; `_ago` against the shared fixture.
+  `queued_until` and `expires_at`; `_ago` against the shared fixture;
+  `hosted_state()` carries `page_build`, which changes with the template.
 - **vitest (hosted).**
   - A fresh hit is answered without a Container fetch (the stub throws if
     called).
-  - A stale hit is answered and sets the alarm, but not when suspended, and
-    the wake waits out `MIN_GAP_MS`.
-  - A miss while running is asked of the server and stored. A miss while
-    asleep answers `/` with the loading page and sets the alarm; on other
-    paths it is asked of the server.
-  - The key drops `t`/`v`/`w`, keeps `thumb`/`frame`/`hours`, carries the
-    account headers for `/` and the deployment id. Only a 200 under 5 MB is
-    stored. `live=1` skips the cache.
-  - A POST under 400 clears the cache before answering; `adopt()` clears it.
-  - A wake refreshes the changing copies read in the last 24 hours, and no
-    others.
-  - `/api/page/ready`; `/api/warm`, and not for a suspended household; the
-    page time function against the shared fixture.
+  - A stale hit is answered and sets `look`; `alarm()` wakes for it only
+    after `MIN_GAP_MS`, never when suspended, and in quiet hours only with
+    check-ins or detections queued; `wake()` clears it. Written against the
+    real `alarm()` and `schedule()`.
+  - A miss while running is asked of the server, stored, and does not move
+    `page_ms`; `running()` is false while stopping. A miss while asleep writes
+    a NULL row; on `/` it answers the loading page and sets `look`.
+  - The key keeps `thumb`/`frame`/`hours`/`v`, drops `t`/`w`, carries the
+    account headers for `/` and the page build. Only a 200 under 5 MB is
+    stored. `live=1` skips the cache. Today's collage is changing, earlier
+    days fixed.
+  - A proxied POST under 400 clears changing copies before answering and
+    keeps fixed ones; `/api/warm` clears nothing; `adopt()` clears; a new
+    page build clears all.
+  - `takeState` refreshes on a change, after a POST, and at a wake's end when
+    the copies are over 15 min old; not for a tick that changed nothing;
+    only rows read in 2 h (plus NULL rows, plus `/`'s companions); the rows
+    move to the new generation together.
+  - `/api/page/ready` fills `/` when the server is running; `/api/warm`, and
+    not for a suspended household; the page time function against the
+    shared fixture.
 - **vitest (sign-in).** As in part 1.
 - **On Cloud.** A test household signed in with the admin API's link:
   `curl -w` time to first byte for `/` with the server stopped and a fresh
-  copy cached (target under 300 ms); the admin page's server time for that
-  household over an hour with a tab open (target: none from the tab). Wells
-  on the phone: the Firefox tab switcher sends no email; whether an iPhone
-  offers the code from Mail.
+  copy cached (target under 300 ms); Container time and starts for that
+  household (W-915's diagnostics) over a day with the page looked at hourly,
+  before and after; a tab left open an hour starts nothing. Wells on the
+  phone: the Firefox tab switcher sends no email; whether an iPhone offers
+  the code from Mail.
 
 ## Rollout
 
 1. W-947 (sign-in): migration `0010`, then `wrangler deploy`. Worker only.
 2. W-946 (cache): one `wrangler deploy` (the server image for the page's
-   changes, the Worker for the cache). Every household's first visit after it
-   shows the loading page while its first fill runs.
+   changes and `page_build`, the Worker for the cache). Every household's
+   first visit after its new server reports shows the loading page while its
+   first fill runs.
 
 ## Risks
 
-- **Up to 15 minutes old** for about half a minute after opening, when
-  nothing has woken the server in that time. The accepted trade.
-- **Longer wakes.** The refresh adds a render of the page to each wake while
-  someone has read it in the last day: seconds of a server already running.
-- **R2 operations.** A write per refreshed copy per wake: fractions of a cent
-  a month at this scale.
+- **Up to 15 minutes old** for under a minute after opening (up to 5 minutes
+  right after another wake), when nothing has woken the server in that time.
+  The accepted trade.
+- **Refreshes cost Container time.** Each is a page render (`status()` asks
+  BirdWeather up to three times) on a server already running, at most once
+  every 15 minutes plus once per picture change, and only for 2 hours after
+  someone looked. Measured on Cloud before and after (Testing).
 - **What is cached** is what the page shows (the masked API key, frames' IP
   addresses), under the household's own R2 prefix, served only to its
   signed-in owner, as the page itself is.
+- An admin looking at a suspended household (`ff_as`) can still start its
+  server through a miss, as today.
 
 ## Changes after review
 
-Fable reviewed the first draft adversarially on 2 Oct 2026; each finding was
-checked against the code.
+Fable reviewed the first draft adversarially on 2 Oct 2026, and part 2 again
+after it became a cache; each finding was checked against the code.
 
 **Part 1** took these:
 
@@ -420,20 +492,35 @@ checked against the code.
 - `limiterFor` changes, not cited.
 - Apple Mail's autofill is tested on the phone, not claimed.
 
-**Part 2** was then replaced the same day: the snapshot the server wrote on
-every settle became this cache. It is a standard pattern with far fewer
-parts, and it trades up to 15 minutes of staleness when nothing has woken the
-server. The findings that still apply are carried here:
+**Part 2** was replaced the same day: the snapshot the server wrote on every
+settle became this cache, a standard pattern with far fewer parts, trading up
+to 15 minutes of staleness when nothing has woken the server. From the first
+review it keeps: the on-load `/api/tasks` ask is cached; cache-busters are
+outside the key; task and firmware polls ask `live=1`; wakes go by alarm and
+check `suspended`; the loading page keeps its query; switches don't wait;
+times and countdowns read absolute times.
 
-- The on-load `/api/tasks` ask is cached.
-- The cache-busters `t`, `v` and `w` are outside the key.
-- Task and firmware polls ask `live=1`.
-- Wakes go by alarm, checked against `suspended`.
-- The loading page keeps its query.
-- Switches don't wait on a cold start.
-- Relative times and countdowns read absolute times.
+The second review, of the cache, changed:
 
-The rest went with the snapshot: its render cost and throttles, the
-middleware settle, `_VIEWS_MAX`, the health timeline (and the AGENTS.md
-rule-copy amendment), `PAGE_BUILD`, failed-settle detection, and the ETag
-over per-request additions.
+- **A cleared or new household could never fill `/`:** a miss writes a NULL
+  row the next refresh fills, `/` brings its companions, and
+  `/api/page/ready` fills `/` itself when the server is running.
+- **A stale look's wake didn't fit `alarm()`:** a `look` flag that `due` and
+  `schedule()` read, cleared by `wake()`, never jumping `MIN_GAP_MS`.
+- **Copies refreshed one by one could disagree:** one generation, swapped in
+  one transaction; `knownFrames` starts from the rendered rows.
+- **Reads that would still start the server:** `page-time.js` inlined;
+  `/static/*` cached; fixed copies survive a POST.
+- **Changes made by the server's own ticks:** refreshes now follow
+  `takeState`, which the server already calls on every settle.
+- **Generated and collage images changed under their key:** `v` is in the
+  key; today's collage is changing.
+- **Cost:** refresh only on a change or every 15 minutes, only for rows read
+  in 2 hours, never as page activity; measured on Cloud.
+- **`version_metadata` was not bound, and a Worker deploy is the wrong
+  signal:** the key carries the server's own page build instead.
+- **`running()` raced a stop:** a stopping server counts as asleep.
+- **Quiet hours:** a look wakes the server only when something is waiting.
+- **The index could not replay a request:** it keeps `request`.
+- **The wait after a look** is up to 5 minutes right after another wake, and
+  says so.

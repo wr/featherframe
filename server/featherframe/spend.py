@@ -259,6 +259,12 @@ class Gate:
             reason = self.store.reserve(rec, rule)
         except Exception as exc:
             log.warning("spend record for %s %s could not be written: %s", kind, subject, exc)
+            # A reservation that timed out may have landed at the front door
+            # all the same. Nothing was sent to the vendor, so it is released.
+            try:
+                self.store.settle(rec.id, "released", 0.0, None)
+            except Exception:  # noqa: BLE001 — best effort; the refusal stands either way
+                pass
             raise Refused("unreachable") from exc
         if reason:
             raise Refused(reason)

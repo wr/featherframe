@@ -23,13 +23,19 @@ export function normEmail(e: unknown): string {
 
 export async function sendMail(env: Env, to: string, mail: { subject: string; text: string; html: string }): Promise<boolean> {
   if (!env.RESEND_API_KEY) return false;
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: env.MAIL_FROM, to: [to], subject: mail.subject, text: mail.text, html: mail.html }),
-  });
-  if (!r.ok) console.error("resend", r.status, await r.text());
-  return r.ok;
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: env.MAIL_FROM, to: [to], subject: mail.subject, text: mail.text, html: mail.html }),
+      signal: AbortSignal.timeout(5000),     // a Resend that hangs never holds up the caller
+    });
+    if (!r.ok) console.error("resend", r.status, await r.text());
+    return r.ok;
+  } catch (e) {
+    console.error("resend", e);
+    return false;
+  }
 }
 
 /** A sign-in link for `email`, or null when it may not sign in. `pairCode`

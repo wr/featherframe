@@ -140,19 +140,20 @@ describe("the front door's spend routes", () => {
     const { Household } = await import("../src/household");
     const sql = nodeSql();
     const mail: string[] = [];
-    const h = new Household({ storage: { sql }, getWebSockets: () => [] } as never,
-      { ADMIN_EMAILS: "a@x.test", APP_HOST: "cloud.featherframe.app", RESEND_API_KEY: "" } as never);
+    const waits: Promise<unknown>[] = [];          // what the route left running after it answered
+    const h = new Household({ storage: { sql }, getWebSockets: () => [], waitUntil: (p) => { waits.push(p); } } as never,
+      { ADMIN_EMAILS: "a@x.test, b@x.test", APP_HOST: "cloud.featherframe.app", RESEND_API_KEY: "" } as never);
     h.setMeta("hid", "h1");
     h.setMeta("key", "k");
     (h as never as { mailer: (to: string, m: { subject: string }) => Promise<boolean> }).mailer =
       async (to, m) => { mail.push(`${to}: ${m.subject}`); return true; };
-    return { h, mail };
+    return { h, mail, waits };
   }
   const call = (h, path, body?) => h.internal(new Request(`https://x/_internal/h1/${path}`,
     body === undefined ? {} : { method: "POST", body: JSON.stringify(body) }), path);
 
   it("reserves, settles, and tells the admin when a household pauses", async () => {
-    const { h, mail } = await door();
+    const { h, mail, waits } = await door();
     for (let i = 0; i < 6; i++) {
       const r = await call(h, "spend/reserve", { record: rec({ at: T + i * 300, kind: "collage", subject: `d${i}` }), rule: RULE });
       expect(await r.json()).toEqual({ ok: true });
@@ -160,12 +161,51 @@ describe("the front door's spend routes", () => {
     const seventh = await call(h, "spend/reserve",
       { record: rec({ at: T + 1800, kind: "collage", subject: "d6" }), rule: RULE });
     expect(await seventh.json()).toEqual({ ok: false, reason: "runaway" });
-    expect(mail).toEqual(["a@x.test: Featherframe Cloud: h1 AI paused"]);
+    await Promise.all(waits);
+    expect(mail).toEqual(["a@x.test: Featherframe Cloud: h1 AI paused", "b@x.test: Featherframe Cloud: h1 AI paused"]);
     const snap = await (await h.internal(new Request("https://x/_internal/h1/spend/snapshot?since=0"),
       "spend/snapshot")).json();
     expect(snap.pause).toEqual({ at: T + 1800, count: 6 });
     await call(h, "spend/resume", { now: T + 2000 });
     expect(h.summary().ai.paused).toBe(false);
+  });
+
+  it("answers the reservation without waiting for the mail", async () => {
+    const { h, waits } = await door();
+    const tried: string[] = [];
+    (h as never as { mailer: (to: string) => Promise<boolean> }).mailer = async (to) => {
+      tried.push(to);
+      if (to === "a@x.test") throw new Error("resend away");
+      return new Promise<boolean>(() => {});      // never answers
+    };
+    for (let i = 0; i < 6; i++) await call(h, "spend/reserve", { record: rec({ at: T + i * 300, kind: "collage", subject: `d${i}` }), rule: RULE });
+    const seventh = await call(h, "spend/reserve",
+      { record: rec({ at: T + 1800, kind: "collage", subject: "d6" }), rule: RULE });
+    expect(await seventh.json()).toEqual({ ok: false, reason: "runaway" });
+    expect(waits).toHaveLength(1);
+    expect(tried).toEqual(["a@x.test", "b@x.test"]);   // one failing address does not stop the next
+  });
+});
+
+describe("sendMail", () => {
+  it("gives up after a few seconds and says it did not send", async () => {
+    const { sendMail } = await import("../src/accounts");
+    const seen: RequestInit[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_u: string, init: RequestInit) => {
+      seen.push(init);
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const ok = await sendMail({ RESEND_API_KEY: "re_x", MAIL_FROM: "f@x.test" } as never, "a@x.test",
+        { subject: "s", text: "t", html: "h" });
+      expect(ok).toBe(false);
+      expect(seen[0].signal).toBeInstanceOf(AbortSignal);
+      expect(err).toHaveBeenCalled();
+    } finally {
+      err.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 });
 

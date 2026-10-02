@@ -570,7 +570,8 @@ export class Household extends DurableObject<Env> {
     if (op === "reserve" && request.method === "POST") {
       const { record, rule } = await request.json<{ record: SpendRow; rule: Rule }>();
       const out = this.spend.reserve(record, rule);
-      for (const a of out.alerts) await this.alert(a);
+      // The server waits on this answer before it buys: the mail goes after it.
+      if (out.alerts.length) this.ctx.waitUntil(Promise.allSettled(out.alerts.map((a) => this.alert(a))));
       return Response.json(out.ok ? { ok: true } : { ok: false, reason: out.reason });
     }
     if (op === "settle" && request.method === "POST") {
@@ -594,13 +595,13 @@ export class Household extends DurableObject<Env> {
     return new Response("not found", { status: 404 });
   }
 
-  /** One email per admin; SpendBook already keeps it to once a reason a day. */
+  /** One email per admin, all at once; SpendBook already keeps it to once a reason a day. */
   async alert(a: Alert): Promise<void> {
     const hid = this.meta("hid") || "?";
     const mail = alertMail(hid, this.env.APP_HOST, a);
-    for (const to of (this.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim()).filter(Boolean)) {
-      try { await this.mailer(to, mail); } catch (e) { console.error("spend alert", e); }
-    }
+    const to = (this.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim()).filter(Boolean);
+    const sent = await Promise.allSettled(to.map(async (t) => this.mailer(t, mail)));
+    for (const s of sent) if (s.status === "rejected") console.error("spend alert", s.reason);
   }
 
   async takeState(state: {

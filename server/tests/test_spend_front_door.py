@@ -95,6 +95,25 @@ def test_an_unreachable_door_buys_nothing(tmp_path, monkeypatch):
     assert e.value.reason == "unreachable"
 
 
+class AnswerLost(spend.MemoryStore):
+    """A front door that took the reservation, but whose answer never came back."""
+
+    def reserve(self, rec, rule):
+        super().reserve(rec, rule)
+        raise requests.ReadTimeout("door slow")
+
+
+def test_a_reservation_whose_answer_was_lost_is_released():
+    """The vendor was never called, so nothing holds the subject or the money."""
+    store = AnswerLost()
+    gate = spend.Gate(store, now=lambda: T0)
+    with pytest.raises(spend.Refused) as e:
+        with gate.purchase("plate", "tyto-alba", model="m"):
+            raise AssertionError("bought on a reservation the door never answered")
+    assert e.value.reason == "unreachable"
+    assert [(r.state, r.cost_usd) for r in store.snapshot(0).rows] == [("released", 0.0)]
+
+
 def _local_record(db):
     local = spend.Gate(spend.LocalStore(db), now=lambda: T0)
     with local.purchase("plate", "tyto-alba", model="m") as p:

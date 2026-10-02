@@ -132,7 +132,7 @@ describe("PageCache", () => {
     await c.store(kp.key, "changing", kp.ask, page("old page"), T);
     await c.store(ks.key, "changing", ks.ask, page("old status"), T);
     c.touch(kp.key, T); c.touch(ks.key, T);
-    const ok = await c.refresh(async (a) => a.path === "/" ? page("new page") : page("down", "text/plain", 500), T + 1);
+    const ok = await c.refresh(async (a) => a.path === "/" ? page("new page") : page("asleep", "text/plain", 503), T + 1);
     expect(ok).toBe(false);
     expect(await (await c.respond(c.find(kp.key)!, "GET"))!.text()).toBe("old page");
   });
@@ -200,6 +200,20 @@ describe("PageCache", () => {
     expect(await (await c.respond(c.find(kp.key)!, "GET"))!.text()).toBe("old page");
   });
 
+  it("a part the server cannot draw (a 404) is skipped; the rest still swap", async () => {
+    const { c } = make();
+    const kp = cacheKey(U("/"), route, {}, "b");
+    c.note(kp.key, "changing", kp.ask, T);
+    const parts = ["/api/status", "/api/frames/AA/preview.png"]
+      .map((p) => ({ ...cacheKey(U(p), routeOf(p, "d")!, {}, "b"), kind: "changing" as const }));
+    const ok = await c.refresh(async (a) => a.path.endsWith("preview.png") ? page("nothing drawn", "text/plain", 404) : page("x"),
+                               T + 1, parts);
+    expect(ok).toBe(true);
+    expect(c.find(kp.key)?.object).toBeTruthy();
+    expect(c.find(parts[0].key)?.object).toBeTruthy();
+    expect(c.find(parts[1].key)?.object).toBeNull();
+  });
+
   it("knows when the copies someone reads are stale", async () => {
     const { c } = make();
     const kp = cacheKey(U("/"), route, {}, "b");
@@ -214,13 +228,13 @@ describe("PageCache", () => {
 describe("answerRead", () => {
   function deps(over: Record<string, unknown> = {}) {
     const b = bucket();
-    const calls = { ask: 0, proxy: 0, look: 0 };
+    const calls = { ask: 0, proxy: 0, look: 0, urgent: 0 };
     const d = {
       cache: new PageCache(nodeSql(), b, "p/"), now: T, build: "b", today: "2026-10-02",
       running: async () => false,
       ask: async () => { calls.ask++; return page("from server"); },
       proxy: async () => { calls.proxy++; return page("proxied"); },
-      look: async () => { calls.look++; },
+      look: async (urgent?: boolean) => { calls.look++; if (urgent) calls.urgent++; },
       loading: () => new Response("loading"),
       ...over,
     };
@@ -252,6 +266,16 @@ describe("answerRead", () => {
     // …and leaves a row the next refresh fills.
     const key = cacheKey(U("/"), routeOf("/", "d")!, {}, "b").key;
     expect(d.cache.find(key)?.object).toBeNull();
+  });
+
+  it("a missing page asks for an urgent look; a stale copy for an ordinary one", async () => {
+    const { d, calls } = deps();
+    await answerRead(get("/"), U("/"), d);                       // nothing kept: the loading page
+    expect(calls).toMatchObject({ look: 1, urgent: 1 });
+    const up = deps({ running: async () => true });
+    await answerRead(get("/"), U("/"), up.d);
+    await answerRead(get("/"), U("/"), { ...up.d, now: T + FRESH_MS }); // a stale copy
+    expect(up.calls).toMatchObject({ look: 1, urgent: 0 });
   });
 
   it("with the server asleep, asks it for any other read and keeps the answer", async () => {

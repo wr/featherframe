@@ -2,11 +2,13 @@
 
 The folios in scripts/folios/ are Featherframe's source of truth for what is
 pinned; the dataset is the public record of every plate, pinned or not, with
-modern identifiers a reader outside Featherframe can use. This script writes a
-folio's two tables into the dataset repo, checks the repo against the folios,
-and builds a scanned folio's release images.
+modern identifiers a reader outside Featherframe can use. Since W-926 the
+dataset repo is also the source of truth for its identifications: they are
+corrected there (tools/identify.py), not here, so `export` only bootstraps an
+empty folder and refuses to overwrite a dataset. This script checks the repo
+against the folios and builds a scanned folio's release images.
 
-    export_dataset.py export  DATASET_DIR   # write havell/ and gould-{europe,australia,britain}/ tables
+    export_dataset.py export  DATASET_DIR --bootstrap  # write the tables into an empty folder
     export_dataset.py check   DATASET_DIR   # every pin is in species.csv, and back
     export_dataset.py assets  OUT_DIR --dataset DIR [--folio gould-australia]  # cleaned sheets + crops + manifest
     export_dataset.py assets  OUT_DIR --folio havell   # Havell: audubon.org's scans + lettering-free crops
@@ -812,6 +814,9 @@ def havell_catalog(plates_dir: Optional[Path]) -> list[dict]:
 
 
 def export(out: Path, tax: Taxonomy, plates_dir: Optional[Path]) -> None:
+    if (out / "havell" / "species.csv").exists():
+        sys.exit(f"{out} already has tables. The dataset repo keeps its own identifications now (W-926): "
+                 "change them there with tools/identify.py. Export only into an empty folder.")
     hp, hs = havell_tables(tax, havell_catalog(plates_dir))
     write_csv(out / "havell" / "plates.csv", HAVELL_PLATE_COLUMNS, hp)
     write_csv(out / "havell" / "species.csv", SPECIES_COLUMNS, hs)
@@ -849,8 +854,8 @@ def check(out: Path) -> list[str]:
     """Every pin in the folios is a row in species.csv. Names are compared as
     the pin wrote them: the BirdNET label's binomial, or the dataset's own
     when it has none (and Australia's modern name for its BirdNET label).
-    Where only the pins were read against their captions (Europe, Britain),
-    every caption-checked row is also a pin."""
+    Where only the pins were read against their captions (Europe), every
+    caption-checked row is also a pin."""
     errors = []
     folios = [("havell", "havell", None)] + [(g.name, g.folder, g) for g in GOULD.values()]
     for folio_name, folder, g in folios:
@@ -874,7 +879,7 @@ def check(out: Path) -> list[str]:
                        aliases.get((k, sci))} - {None}
             if not any((k, s) in have for s in options):
                 errors.append(f"{folder}: pin {e['common']} ({sci}) on plate {plate_label(k)} is not in species.csv")
-        if folio_name in ("gould_europe", "gould_britain"):
+        if folio_name == "gould_europe":
             pinset = {(key(e), e["scientific"]) for e in pins}
             for r in rows:
                 if r["caption_checked"] == "yes" and not any((key(r), n) in pinset for n in names(r)):
@@ -889,12 +894,19 @@ WHOLE_CROPS = {
 }
 
 
-def unpinned_margins(g: Gould, header: dict) -> dict:
+def unpinned_margins(g: Gould, header: dict, dataset: Optional[Path] = None) -> dict:
     """The margins for a leaf no pin has cut, by (barcode, leaf): an upright
     Australia plate stops above its caption and clear of the binding line,
-    as its pins do (docs/gould-australia/README.md); the rest take the
+    as its pins do (docs/gould-australia/README.md), and so does every Great
+    Britain plate whose caption was read (the dataset's
+    gould-britain/sources/plate-leaves.csv, W-877); the rest take the
     folio's own."""
     out = {}
+    if g.folder == "gould-britain" and dataset:
+        for r in read_csv(dataset / "gould-britain" / "sources" / "plate-leaves.csv"):
+            if r["caption_top"]:
+                right = 0.955 if r["orientation"] == "portrait" else 0.98
+                out[(r["ia_id"], int(r["leaf"]))] = [0.02, 0.02, right, round(float(r["caption_top"]) - 0.006, 3)]
     if g.folder == "gould-australia":
         for r in read_csv(g.docs / "plate-leaves.csv"):
             if r["orientation"] == "portrait" and r["caption_top"]:
@@ -929,7 +941,7 @@ def assets(out: Path, dataset: Path, plates_dir: Path, work: Path, folder: str =
     params = {}
     for e in pinned(folio):
         params.setdefault((str(e["volume"]), int(e["leaf"])), e)
-    fallback = unpinned_margins(g, header)
+    fallback = unpinned_margins(g, header, dataset)
     out.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
     manifest = {}
@@ -1058,12 +1070,15 @@ def main() -> int:
     ap.add_argument("dir", type=Path, help="the dataset repo (export, check) or the assets folder")
     ap.add_argument("--cache", type=Path, default=Path.home() / ".cache" / "historical-bird-plates")
     ap.add_argument("--offline", action="store_true", help="export without the outside sources")
+    ap.add_argument("--bootstrap", action="store_true", help="export: write tables into an empty folder")
     ap.add_argument("--dataset", type=Path, help="assets: the dataset repo whose plates.csv to follow")
     ap.add_argument("--plates-dir", type=Path, help="a Featherframe plates dir with sheets already fetched")
     ap.add_argument("--folio", default="gould-europe", choices=[*GOULD, "havell"],
                     help="assets, thumbs: which folio")
     args = ap.parse_args()
     if args.command == "export":
+        if not args.bootstrap:
+            ap.error("export only bootstraps an empty folder now (W-926); pass --bootstrap to confirm")
         export(args.dir, Taxonomy(None if args.offline else args.cache), args.plates_dir)
     if args.command in ("export", "check"):
         errors = check(args.dir)

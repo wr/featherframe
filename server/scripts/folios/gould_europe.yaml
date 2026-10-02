@@ -36,6 +36,8 @@
 #     Both come from Gould's Birds of Great Britain instead (gould_britain.yaml).
 #   - A pale bird on white paper defeats the tight crop, which finds only its
 #     legs and perch: 276, 307 and 438 carry a hand-placed crop_box.
+#   - Two figures set well apart defeat it too, keeping only the larger:
+#     119's female sits below the male, so 119 carries a crop_box as well.
 #   - The grey-headed "caniceps" goldfinch in Gould's Birds of Asia is not the
 #     European Goldfinch (docs/plate-sources.md); plate 196 here is.
 
@@ -151,7 +153,8 @@ species:
   - {common: "Mistle Thrush", scientific: "Turdus viscivorus", plate: 77, gould_title: "Missel Thrush, Turdus viscivorus", volume: birdsEuropeIIGoul, leaf: 120, margins: [0.02, 0.02, 0.98, 0.804]}
   - {common: "Redwing", scientific: "Turdus iliacus", plate: 78, gould_title: "Redwing, Turdus Iliacus", volume: birdsEuropeIIGoul, leaf: 124, margins: [0.02, 0.02, 0.98, 0.807], composite: true, legend: ["2. Redwing."]}
   - {common: "Song Thrush", scientific: "Turdus philomelos", plate: 78, gould_title: "Song Thrush, Turdus musicus", volume: birdsEuropeIIGoul, leaf: 124, margins: [0.02, 0.02, 0.98, 0.807], composite: true, legend: ["1. Song Thrush."], sci_synonyms: ["Turdus musicus"]}
-  - {common: "Naumann's Thrush", scientific: "Turdus naumanni", plate: 79, gould_title: "Naumann's Thrush, Turdus Naumannii", volume: birdsEuropeIIGoul, leaf: 128, margins: [0.02, 0.02, 0.98, 0.803]}
+  # 79's blackish, white-scaled breast is the Dusky Thrush (Seebohm, Dresser), split from Naumann's (W-936).
+  - {common: "Dusky Thrush", scientific: "Turdus eunomus", plate: 79, gould_title: "Naumann's Thrush, Turdus Naumannii", volume: birdsEuropeIIGoul, leaf: 128, margins: [0.02, 0.02, 0.98, 0.803]}
   - {common: "White's Thrush", scientific: "Zoothera aurea", plate: 81, gould_title: "White's Thrush, Turdus Whitei", volume: birdsEuropeIIGoul, leaf: 136, margins: [0.02, 0.02, 0.98, 0.799], sci_synonyms: ["Zoothera dauma"]}
   - {common: "Siberian Thrush", scientific: "Geokichla sibirica", plate: 82, gould_title: "Siberian Thrush, Turdus Sibericus", volume: birdsEuropeIIGoul, leaf: 140, margins: [0.02, 0.02, 0.98, 0.887], sci_synonyms: ["Zoothera sibirica"]}
   - {common: "White-throated Dipper", scientific: "Cinclus cinclus", plate: 83, gould_title: "Water Ouzel, Cinclus aquaticus", volume: birdsEuropeIIGoul, leaf: 144, rotate: 270}
@@ -476,16 +479,12 @@ species:
   # wing edge. Cetti's, the White Wagtail and the Common Snipe keep their main
   # plates; Gould's second figures of them are not pinned.
   - {common: "Imperial Eagle", scientific: "Aquila heliaca", plate: 5, gould_title: "Imperial Eagle, Aquila Imperialis", volume: birdsEuropeIGoul, leaf: 46, margins: [0.02, 0.02, 0.98, 0.867]}
-  - {common: "Western Orphean Warbler", scientific: "Curruca hortensis", plate: 119, gould_title: "Orpheus Warbler, Curruca Orphea", volume: birdsEuropeIIGoul, leaf: 288, margins: [0.02, 0.02, 0.98, 0.873]}
-  - {common: "Eastern Orphean Warbler", scientific: "Curruca crassirostris", plate: 119, gould_title: "Orpheus Warbler, Curruca Orphea", volume: birdsEuropeIIGoul, leaf: 288, margins: [0.02, 0.02, 0.98, 0.873]}
+  - {common: "Western Orphean Warbler", scientific: "Curruca hortensis", plate: 119, gould_title: "Orpheus Warbler, Curruca Orphea", volume: birdsEuropeIIGoul, leaf: 288, margins: [0.02, 0.02, 0.98, 0.873], crop_box: [0.282, 0.198, 0.541, 0.629]}
   - {common: "Icterine Warbler", scientific: "Hippolais icterina", plate: 133, gould_title: "Melodious Willow Wren, Sylvia Hippolais", volume: birdsEuropeIIGoul, leaf: 340, margins: [0.02, 0.02, 0.98, 0.827]}
-  - {common: "Melodious Warbler", scientific: "Hippolais polyglotta", plate: 133, gould_title: "Melodious Willow Wren, Sylvia Hippolais", volume: birdsEuropeIIGoul, leaf: 340, margins: [0.02, 0.02, 0.98, 0.827]}
   - {common: "Western Bonelli's Warbler", scientific: "Phylloscopus bonelli", plate: 134, gould_title: "Natterer's Warbler, Sylvia Nattereri", volume: birdsEuropeIIGoul, leaf: 348, margins: [0.02, 0.02, 0.98, 0.801]}
-  - {common: "Eastern Bonelli's Warbler", scientific: "Phylloscopus orientalis", plate: 134, gould_title: "Natterer's Warbler, Sylvia Nattereri", volume: birdsEuropeIIGoul, leaf: 348, margins: [0.02, 0.02, 0.98, 0.801]}
   - {common: "Pallas's Leaf Warbler", scientific: "Phylloscopus proregulus", plate: 149, gould_title: "Dalmatian Regulus, Regulus modestus", volume: birdsEuropeIIGoul, leaf: 408, margins: [0.02, 0.02, 0.98, 0.792]}
   - {common: "Dark-eyed Junco", scientific: "Junco hyemalis", plate: 190, gould_title: "Winter Finch, Fringilla hyemalis", volume: birdsEuropeIIIGoul, leaf: 174, margins: [0.02, 0.02, 0.98, 0.786]}
   - {common: "Iberian Magpie", scientific: "Cyanopica cooki", plate: 217, gould_title: "Azure-winged Magpie, Pica cyanea", volume: birdsEuropeIIIGoul, leaf: 282, margins: [0.02, 0.02, 0.98, 0.713]}
-  - {common: "Azure-winged Magpie", scientific: "Cyanopica cyanus", plate: 217, gould_title: "Azure-winged Magpie, Pica cyanea", volume: birdsEuropeIIIGoul, leaf: 282, margins: [0.02, 0.02, 0.98, 0.713]}
   - {common: "Eurasian Treecreeper", scientific: "Certhia familiaris", plate: 237, gould_title: "Common Creeper, Certhia familiaris", volume: birdsEuropeIIIGoul, leaf: 362, margins: [0.02, 0.02, 0.98, 0.78]}
   - {common: "Short-billed Dowitcher", scientific: "Limnodromus griseus", plate: 323, gould_title: "Grey Snipe, Macroramphus griseus", volume: birdsEuropeIVGoul, leaf: 334, rotate: 270}
   - {common: "White-rumped Sandpiper", scientific: "Calidris fuscicollis", plate: 330, gould_title: "Schinz's Sandpiper, Tringa Schinzii", volume: birdsEuropeIVGoul, leaf: 362, rotate: 270}

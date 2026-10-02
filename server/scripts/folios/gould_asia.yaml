@@ -174,7 +174,8 @@ species:
   - {common: "Asian Fairy-bluebird", scientific: "Irena puella", volume_no: 3, plate: 21, gould_title: "Indian Fairy Bluebird, Irena puella", volume: BirdsAsiaJohnGoIIIGoul, leaf: 92}
   - {common: "Philippine Fairy-bluebird", scientific: "Irena cyanogastra", volume_no: 3, plate: 22, gould_title: "Blue-mantled Fairy Bluebird, Irena cyanogastra", volume: BirdsAsiaJohnGoIIIGoul, leaf: 96}
   - {common: "Oriental Magpie-Robin", scientific: "Copsychus saularis", volume_no: 3, plate: 24, gould_title: "Dial Bird, Copsychus saularis", volume: BirdsAsiaJohnGoIIIGoul, leaf: 104, margins: [0.12, 0.02, 0.96, 0.912]}
-  - {common: "Philippine Magpie-Robin", scientific: "Copsychus mindanensis", volume_no: 3, plate: 25, gould_title: "Malaccan Dial Bird, Copsychus Mindanensis", volume: BirdsAsiaJohnGoIIIGoul, leaf: 108, margins: [0.12, 0.02, 0.96, 0.913]}
+  # III.25, "Malaccan Dial Bird", is the Oriental Magpie-Robin's Malayan race musicus, already pinned at III.24;
+  # Gould never saw it from the Philippines (W-936).
   - {common: "Taiwan Whistling-Thrush", scientific: "Myophonus insularis", volume_no: 3, plate: 28, gould_title: "Formosan Whistling Thrush, Myiophoneus insularis", volume: BirdsAsiaJohnGoIIIGoul, leaf: 120, margins: [0.12, 0.02, 0.96, 0.912]}
   - {common: "White-bellied Sholakili", scientific: "Sholicola albiventris", volume_no: 3, plate: 29, gould_title: "White-bellied Callene, Callene albiventris", volume: BirdsAsiaJohnGoIIIGoul, leaf: 124, margins: [0.12, 0.02, 0.96, 0.926]}
   - {common: "Rufous-backed Sibia", scientific: "Leioptila annectens", volume_no: 3, plate: 30, gould_title: "Slender-billed Chat-Thrush, Leioptila annectens", volume: BirdsAsiaJohnGoIIIGoul, leaf: 128, margins: [0.12, 0.02, 0.96, 0.916]}
@@ -223,7 +224,8 @@ species:
   - {common: "Blue-winged Minla", scientific: "Actinodura cyanouroptera", volume_no: 4, plate: 19, gould_title: "Blue-winged Siva, Siva cyanouroptera", volume: BirdsAsiaJohnGoIVGoul, leaf: 84, margins: [0.12, 0.02, 0.96, 0.914]}
   - {common: "Brown Dipper", scientific: "Cinclus pallasii", volume_no: 4, plate: 22, gould_title: "Pallas's Water-Ouzel, Cinclus Pallasi", volume: BirdsAsiaJohnGoIVGoul, leaf: 96, rotate: 270, margins: [0.02, 0.1, 0.98, 0.97]}
   - {common: "Pied Wheatear", scientific: "Oenanthe pleschanka", volume_no: 4, plate: 29, gould_title: "Black-and-White Stone-Chat, Saxicola leucomela", volume: BirdsAsiaJohnGoIVGoul, leaf: 124}
-  - {common: "White-capped Redstart", scientific: "Phoenicurus leucocephalus", volume_no: 4, plate: 36, gould_title: "Great White-capped Redstart, Ruticilla erythrogastra", volume: BirdsAsiaJohnGoIVGoul, leaf: 152}
+  # IV.36, Ruticilla erythrogastra, is Güldenstädt's (White-winged) Redstart: white wing patch,
+  # brown female. Not the White-capped Redstart its English title suggests, and not in BirdNET.
   - {common: "Siberian Rubythroat", scientific: "Calliope calliope", volume_no: 4, plate: 38, gould_title: "Siberian Ruby-throat, Calliope camtschatkensis", volume: BirdsAsiaJohnGoIVGoul, leaf: 160, margins: [0.12, 0.02, 0.96, 0.925]}
   - {common: "Himalayan Rubythroat", scientific: "Calliope pectoralis", volume_no: 4, plate: 39, gould_title: "Himalayan Ruby-throat, Calliope pectoralis", volume: BirdsAsiaJohnGoIVGoul, leaf: 164, margins: [0.12, 0.02, 0.96, 0.921]}
   - {common: "Chinese Rubythroat", scientific: "Calliope tschebaiewi", volume_no: 4, plate: 40, gould_title: "Mongolian Ruby-throat, Calliope tschebaiewi", volume: BirdsAsiaJohnGoIVGoul, leaf: 168, margins: [0.12, 0.02, 0.96, 0.912]}
@@ -292,7 +294,11 @@ species:
   - {common: "Giant Pitta", scientific: "Hydrornis caeruleus", volume_no: 5, plate: 81, gould_title: "Cerulean Pitta, Pitta caerulea", volume: BirdsAsiaJohnGoVGoul, leaf: 332, rotate: 270, margins: [0.02, 0.13, 0.98, 0.97]}
 
   # --- Volume VI
-  - {common: "Plum-headed Parakeet", scientific: "Psittacula cyanocephala", volume_no: 6, plate: 3, gould_title: "Burmese Parrakeet, Paleornis cyanocephala", volume: BirdsAsiaJohnGoVIGoul, leaf: 20}
+  # VI.2 and VI.3 carry each other's names (Gould says so in the VI.2 text: Blyth named the plates
+  # before the synonymy was worked out). VI.2, printed Paleornis rosa, is the Plum-headed: emerald
+  # ring under the collar, white tail tip, yellow-collared female. VI.3 is the Blossom-headed, not
+  # in BirdNET.
+  - {common: "Plum-headed Parakeet", scientific: "Psittacula cyanocephala", volume_no: 6, plate: 2, gould_title: "Blossom-headed Parrakeet, Paleornis rosa", volume: BirdsAsiaJohnGoVIGoul, leaf: 16}
   - {common: "Malabar Parakeet", scientific: "Psittacula columboides", volume_no: 6, plate: 7, gould_title: "Blue-winged Parrakeet, Paleornis Columboides", volume: BirdsAsiaJohnGoVIGoul, leaf: 36, margins: [0.02, 0.02, 0.96, 0.93]}
   - {common: "Slaty-headed Parakeet", scientific: "Psittacula himalayana", volume_no: 6, plate: 8, gould_title: "Slaty-headed Parrakeet, Paleornis schisticeps", volume: BirdsAsiaJohnGoVIGoul, leaf: 40, margins: [0.02, 0.02, 0.96, 0.932]}
   - {common: "Long-tailed Parakeet", scientific: "Psittacula longicauda", volume_no: 6, plate: 10, gould_title: "Malacca Parrakeet, Paleornis Malaccensis", volume: BirdsAsiaJohnGoVIGoul, leaf: 48}
@@ -340,7 +346,10 @@ species:
   # out: one plate per species.
   - {common: "Ring-necked Pheasant", scientific: "Phasianus colchicus", volume_no: 7, plate: 39, gould_title: "Chinese Ring-necked Pheasant, Phasianus torquatus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 164, rotate: 270, preferred: true}
   - {common: "Blood Pheasant", scientific: "Ithaginis cruentus", volume_no: 7, plate: 43, gould_title: "Sanguine Francolin, Ithaginis cruentus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 180, rotate: 270}
-  - {common: "Gray Peacock-Pheasant", scientific: "Polyplectron bicalcaratum", volume_no: 7, plate: 51, gould_title: "Malayan Peacock Pheasant, Polyplectron bicalcaratum", volume: BirdsAsiaJohnGoVIIGoul, leaf: 212, rotate: 270}
+  # Gould's bicalcaratum (VII.51) is "the Malayan bird": browner, larger ocelli, greenish crest, the
+  # Malayan Peacock-Pheasant. His Gray Peacock-Pheasant is VII.50, printed chinquis (W-931).
+  - {common: "Gray Peacock-Pheasant", scientific: "Polyplectron bicalcaratum", volume_no: 7, plate: 50, gould_title: "Assam Peacock Pheasant, Polyplectron chinquis", volume: BirdsAsiaJohnGoVIIGoul, leaf: 208, rotate: 270}
+  - {common: "Malayan Peacock-Pheasant", scientific: "Polyplectron malacense", volume_no: 7, plate: 51, gould_title: "Malayan Peacock Pheasant, Polyplectron bicalcaratum", volume: BirdsAsiaJohnGoVIIGoul, leaf: 212, rotate: 270}
   - {common: "Great Argus", scientific: "Argusianus argus", volume_no: 7, plate: 52, gould_title: "Argus Pheasant, Argusianus argus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 216, rotate: 270}
   - {common: "Himalayan Monal", scientific: "Lophophorus impejanus", volume_no: 7, plate: 53, gould_title: "Monaul, Lophophorus Impeyanus", volume: BirdsAsiaJohnGoVIIGoul, leaf: 220, rotate: 270}
   - {common: "Gray Junglefowl", scientific: "Gallus sonneratii", volume_no: 7, plate: 56, gould_title: "Sonnerat's Jungle-fowl, Gallus Sonnerati", volume: BirdsAsiaJohnGoVIIGoul, leaf: 232, rotate: 270}

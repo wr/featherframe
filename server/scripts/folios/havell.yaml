@@ -272,7 +272,10 @@ species:
   - {common: "Blue Grosbeak", scientific: "Passerina caerulea", plate: 122, audubon_title: "Blue Grosbeak"}
   - {common: "Wilson's Warbler", scientific: "Cardellina pusilla", plate: 124, audubon_title: "Green Black-capt Flycatcher"}
   - {common: "Brown-headed Nuthatch", scientific: "Sitta pusilla", plate: 125, audubon_title: "Brown-headed Nuthatch"}
-  - {common: "American Three-toed Woodpecker", scientific: "Picoides dorsalis", plate: 132, audubon_title: "Three-toed Woodpecker"}
+  # 132, lettered "Three-toed Woodpecker", is the Black-backed: solid black backs, no white behind the eye;
+  # Audubon himself called it Swainson's Apternus arcticus (Orn. Biog. v, 538). The American Three-toed is 417 figs. 3-4 (W-936).
+  - {common: "Black-backed Woodpecker", scientific: "Picoides arcticus", plate: 132, audubon_title: "Three-toed Woodpecker"}
+  - {common: "American Three-toed Woodpecker", scientific: "Picoides dorsalis", plate: 417, audubon_title: "Three-toed Woodpecker (composite)", composite: true}
   - {common: "Eastern Meadowlark", scientific: "Sturnella magna", plate: 136, audubon_title: "Meadow Lark"}
   - {common: "Yellow-breasted Chat", scientific: "Icteria virens", plate: 137, audubon_title: "Yellow-breasted Chat"}
   - {common: "Connecticut Warbler", scientific: "Oporornis agilis", plate: 138, audubon_title: "Connecticut Warbler"}
@@ -333,7 +336,8 @@ species:
   - {common: "Black-legged Kittiwake", scientific: "Rissa tridactyla", plate: 224, audubon_title: "Kittiwake Gull"}
   - {common: "Whooping Crane", scientific: "Grus americana", plate: 226, audubon_title: "Hooping Crane"}
   - {common: "Northern Pintail", scientific: "Anas acuta", plate: 227, audubon_title: "Pin tailed Duck"}
-  - {common: "Greater Scaup", scientific: "Aythya marila", plate: 229, audubon_title: "Scaup Duck"}
+  # Audubon wrote in 1844 that the scaup "figured in my large plates" was the smaller species (W-936).
+  - {common: "Lesser Scaup", scientific: "Aythya affinis", plate: 229, audubon_title: "Scaup Duck"}
   - {common: "Sanderling", scientific: "Calidris alba", plate: 230, audubon_title: "Ruddy Plover"}
   - {common: "Long-billed Curlew", scientific: "Numenius americanus", plate: 231, audubon_title: "Long-billed Curlew"}
   - {common: "Hooded Merganser", scientific: "Lophodytes cucullatus", plate: 232, audubon_title: "Hooded Merganser"}
@@ -495,7 +499,10 @@ species:
   - {common: "Scarlet Ibis", scientific: "Eudocimus ruber", plate: 397, audubon_title: "Scarlet Ibis"}
   - {common: "Lazuli Bunting", scientific: "Passerina amoena", plate: 398, audubon_title: "Lazuli Finch, Clay-coloured Finch and Oregon Snow Finch (composite)", composite: true}
   - {common: "Black-throated Green Warbler", scientific: "Setophaga virens", plate: 399, audubon_title: "Black-throated green Warbler, Blackburnian and Mourning Warbler (composite)", composite: true}
-  - {common: "Mourning Warbler", scientific: "Geothlypis philadelphia", plate: 399, audubon_title: "Black-throated green Warbler, Blackburnian and Mourning Warbler (composite)", composite: true}
+  # Figs. 4-5, lettered "Mourning Warbler", are MacGillivray's: in 1839 (Orn. Biog. v) Audubon wrote
+  # that these Columbia River birds were misnamed on the plate and named them Sylvia macgillivrayi.
+  # Audubon has no plate of the true Mourning Warbler.
+  - {common: "MacGillivray's Warbler", scientific: "Geothlypis tolmiei", plate: 399, audubon_title: "Black-throated green Warbler, Blackburnian and Mourning Warbler (composite)", composite: true}
   - {common: "Lesser Goldfinch", scientific: "Spinus psaltria", plate: 400, audubon_title: "Arkansaw Siskin, Mealy Red-poll, Louisiana Tanager, Townsend's Finch and Buff-breasted Finch (composite)", composite: true}
   - {common: "Smith's Longspur", scientific: "Calcarius pictus", plate: 400, audubon_title: "Arkansaw Siskin, Mealy Red-poll, Louisiana Tanager, Townsend's Finch and Buff-breasted Finch (composite)", composite: true}
   - {common: "Red-breasted Merganser", scientific: "Mergus serrator", plate: 401, audubon_title: "Red-breasted Merganser"}

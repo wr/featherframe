@@ -132,7 +132,7 @@ II,94,Microeca flavigaster,Yellow-bellied Micrœca,Microeca flavigaster,Microeca
 II,95,Monarcha carinata,Carinated Flycatcher,Monarcha melanopsis,Monarcha melanopsis,Black-faced Monarch,high,carinata = Black-faced Monarch
 II,96,Monarcha trivirgata,Black-fronted Flycatcher,Symposiachrus trivirgatus,Symposiachrus trivirgatus,Spectacled Monarch,high,Spectacled Monarch
 II,97,Gerygone albogularis,White-throated Gerygone,Gerygone olivacea,Gerygone olivacea,White-throated Gerygone,high,albogularis = White-throated Gerygone
-II,98,Gerygone fuscus,Fuscous Gerygone,Gerygone fusca,Gerygone fusca,Western Gerygone,high,Psilopus fuscus Gould = Western Gerygone
+II,98,Gerygone fuscus,Fuscous Gerygone,Gerygone mouki,Gerygone mouki,Brown Gerygone,judged,"no white tail base, coastal NSW birds: the Brown Gerygone (W-936)"
 II,99,Gerygone culicivorus,Western Gerygone,Gerygone fusca,Gerygone fusca,Western Gerygone,high,culicivorus = SW WA Western Gerygone
 II,100,Gerygone magnirostris,Great-billed Gerygone,Gerygone magnirostris,Gerygone magnirostris,Large-billed Gerygone,high,Large-billed Gerygone
 II,101,Gerygone laevigaster,Buff-breasted Gerygone,Gerygone levigaster,Gerygone levigaster,Mangrove Gerygone,high,Mangrove Gerygone
@@ -253,7 +253,7 @@ IV,14,Oriolus flavo-cinctus,Crescent-marked Oriole,Oriolus flavocinctus,Oriolus 
 IV,15,Sphecotheres Australis,Australian Sphecotheres,Sphecotheres vieilloti,Sphecotheres vieilloti,Australasian Figbird,high,australis = Australasian Figbird
 IV,16,Corcorax leucopterus,White-winged Chough,Corcorax melanorhamphos,Corcorax melanorhamphos,White-winged Chough,high,leucopterus = White-winged Chough
 IV,17,Struthidea cinerea,Grey Struthidea,Struthidea cinerea,Struthidea cinerea,Apostlebird,high,Apostlebird
-IV,18,Corvus Coronoides,White-eyed Crow,Corvus coronoides,Corvus coronoides,Australian Raven,medium,Gould's coronoides spanned all Australian corvids; the name and likely figure are the Australian Raven
+IV,18,Corvus Coronoides,White-eyed Crow,Corvus tasmanicus,Corvus tasmanicus,Forest Raven,judged,a male killed in Van Diemen's Land: the Forest Raven (W-936)
 IV,19,Neomorpha Gouldii,Gould’s Neomorpha,Heteralocha acusirostris,,,high,Neomorpha gouldii = Huia (extinct); not in BirdNET
 IV,20,Pomatorhinus temporalis,Temporal Pomatorhinus,Pomatostomus temporalis,Pomatostomus temporalis,Gray-crowned Babbler,high,Grey-crowned Babbler
 IV,21,Pomatorhinus rubeculus,Red-breasted Pomatorhinus,Pomatostomus temporalis,Pomatostomus temporalis,Gray-crowned Babbler,high,rubeculus = N/W race of Grey-crowned Babbler

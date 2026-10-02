@@ -263,7 +263,7 @@ IV,32,136,Black-and-White Bush-Chat,Rhodophila melanoleuca,yes,probable,Saxicola
 IV,33,140,White-tailed Bush-Chat,Pratincola leucura,yes,not_in_birdnet,,,none,,,ku-gould:16608,Saxicola leucura,Saxicola leucura,left out (not in BirdNET),
 IV,34,144,Indian Furze-Chat,Pratincola Indica,yes,none,,,none,,,ku-gould:16604,Saxicola torquatus,Saxicola torquatus,left out (no modern name),
 IV,35,148,Celestial Grandala,Grandala coelicolor,yes,not_in_birdnet,,,none,,,ku-gould:16600,Grandala coelicolor,Grandala,left out (not in BirdNET),
-IV,36,152,Great White-capped Redstart,Ruticilla erythrogastra,yes,probable,Phoenicurus leucocephalus,,high,Phoenicurus leucocephalus,White-capped Redstart,ku-gould:16596,Chaimarrornis leucocephalus,White-capped Redstart,pinned,
+IV,36,152,Great White-capped Redstart,Ruticilla erythrogastra,yes,probable,Phoenicurus erythrogastrus,,high,,,ku-gould:16596,Chaimarrornis leucocephalus,White-capped Redstart,left out (not in BirdNET),"Güldenstädt's (White-winged) Redstart, not the White-capped (W-926)"
 IV,37,156,Coal-black Redstart,Ruticilla erythroprocta,yes,not_in_birdnet,,,none,,,ku-gould:16592,Phoenicurus ochruros,Black Redstart,left out (not in BirdNET),
 IV,38,160,Siberian Ruby-throat,Calliope camtschatkensis,yes,probable,Calliope calliope,,high,Calliope calliope,Siberian Rubythroat,ku-gould:16588,Luscinia calliope,Siberian Rubythroat,pinned,
 IV,39,164,Himalayan Ruby-throat,Calliope pectoralis,yes,exact,Calliope pectoralis,,high,Calliope pectoralis,Himalayan Rubythroat,ku-gould:16584,Luscinia pectoralis,White-tailed Rubythroat,pinned,
@@ -384,8 +384,8 @@ V,81,332,Cerulean Pitta,Pitta caerulea,yes,probable,Hydrornis caeruleus,,high,Hy
 V,82,336,Hooded Pitta,Pitta cucullata,yes,form,Pitta sordida,subspecies,medium,Pitta sordida,Hooded Pitta,ku-gould:16107,Pitta sordida cucullata,Hooded Pitta,left out (form),
 V,83,340,Van der Bosch's Pitta,Pitta Boschii,yes,none,,,none,,,ku-gould:16103,Pitta guajana,Banded Pitta,left out (no modern name),
 VI,1,12,Mrs. Layard's Parrakeet,Palaeornis Calthropae,genus only,not_in_birdnet,,,none,,,ku-gould:16081,Psittacula calthropae,Layard's Parakeet,left out (not in BirdNET),
-VI,2,16,Blossom-headed Parrakeet,Paleornis rosa,yes,not_in_birdnet,,,none,,,ku-gould:16077,Psittacula roseata,Blossom-headed Parakeet,left out (not in BirdNET),
-VI,3,20,Burmese Parrakeet,Paleornis cyanocephala,genus only,probable,Psittacula cyanocephala,,high,Psittacula cyanocephala,Plum-headed Parakeet,ku-gould:16073,Psittacula cyanocephala,Plum-headed Parakeet,pinned,
+VI,2,16,Blossom-headed Parrakeet,Paleornis rosa,yes,not_in_birdnet,Psittacula cyanocephala,,high,Psittacula cyanocephala,Plum-headed Parakeet,ku-gould:16077,Psittacula roseata,Blossom-headed Parakeet,pinned,Blyth's names for VI.2 and VI.3 are swapped (Gould's VI.2 text): this is the Plum-headed Parakeet (W-930)
+VI,3,20,Burmese Parrakeet,Paleornis cyanocephala,genus only,probable,Psittacula roseata,,high,,,ku-gould:16073,Psittacula cyanocephala,Plum-headed Parakeet,left out (not in BirdNET),the Blossom-headed Parakeet; Blyth's names for VI.2 and VI.3 are swapped (W-930)
 VI,4,24,Bonaparte's Parrakeet,Paleornis Luciani,yes,form,Psittacula alexandri,subspecies,low,Psittacula alexandri,Red-breasted Parakeet,ku-gould:16069,Psittacula longicauda,Long-tailed Parakeet,left out (form),the survey's form assignment; the Kansas catalogue reads Psittacula longicauda (Long-tailed Parakeet)
 VI,5,28,Grey-headed Parrakeet,Paleornis caniceps,yes,not_in_birdnet,,,none,,,ku-gould:16065,Psittacula caniceps,Nicobar Parakeet,left out (not in BirdNET),
 VI,6,32,Nicobar Parrakeet,Paleornis Nicobaricus,yes,form,Psittacula longicauda,subspecies,medium,Psittacula longicauda,Long-tailed Parakeet,ku-gould:16061,Psittacula longicauda nicobarica,Long-tailed Parakeet,left out (form),
@@ -507,8 +507,8 @@ VII,46,192,Temminck's Horned Pheasant,Ceriornis Temmincki,yes,not_in_birdnet,,,n
 VII,47,196,Blyth's Horned Pheasant,Ceriornis Blythi,yes,not_in_birdnet,,,none,,,ku-gould:15579,Tragopan blythii,"Blyth's Tragopan, Blyth's Tragopan Pheasant",left out (not in BirdNET),
 VII,48,200,Dr. Cabot's Horned Pheasant,Ceriornis Caboti,yes,not_in_birdnet,,,none,,,ku-gould:15575,Tragopan caboti,"Cabot's Tragopan, Cabot's Tragopan Pheasant",left out (not in BirdNET),
 VII,49,204,Nipaulese Horned Pheasant,Ceriornis Satyra,yes,not_in_birdnet,,,none,,,ku-gould:15571,Tragopan satyra,Satyr Tragopan,left out (not in BirdNET),
-VII,50,208,Assam Peacock Pheasant,Polyplectron chinquis,yes,form,Polyplectron bicalcaratum,subspecies,medium,Polyplectron bicalcaratum,Gray Peacock-Pheasant,ku-gould:15567,Polyplectron bicalcaratum,Grey Peacock-Pheasant,left out (form),
-VII,51,212,Malayan Peacock Pheasant,Polyplectron bicalcaratum,yes,exact,Polyplectron bicalcaratum,,high,Polyplectron bicalcaratum,Gray Peacock-Pheasant,ku-gould:15563,Polyplectron bicalcaratum,Grey Peacock-Pheasant,pinned,
+VII,50,208,Assam Peacock Pheasant,Polyplectron chinquis,yes,form,Polyplectron bicalcaratum,subspecies,high,Polyplectron bicalcaratum,Gray Peacock-Pheasant,ku-gould:15567,Polyplectron bicalcaratum,Grey Peacock-Pheasant,pinned,chinquis is the Gray Peacock-Pheasant (W-931)
+VII,51,212,Malayan Peacock Pheasant,Polyplectron bicalcaratum,yes,exact,Polyplectron malacense,,high,Polyplectron malacense,Malayan Peacock-Pheasant,ku-gould:15563,Polyplectron bicalcaratum,Grey Peacock-Pheasant,pinned,Gould's bicalcaratum is the Malayan bird (W-931)
 VII,52,216,Argus Pheasant,Argusianus argus,yes,exact,Argusianus argus,,high,Argusianus argus,Great Argus,ku-gould:15559,Argusianus argus,Great Argus,pinned,
 VII,53,220,Monaul,Lophophorus Impeyanus,yes,probable,Lophophorus impejanus,,high,Lophophorus impejanus,Himalayan Monal,ku-gould:15555,Lophophorus impejanus,Himalayan Monal,pinned,
 VII,54,224,De L'Huys's Monaul,Lophophorus l'Huysi,yes,not_in_birdnet,,,none,,,ku-gould:15551,Lophophorus lhuysii,Chinese Monal,left out (not in BirdNET),

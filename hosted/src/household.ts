@@ -293,7 +293,7 @@ export class Household extends DurableObject<Env> {
       running: async () => this.env.SERVER.getByName(this.meta("hid")!).running(),
       ask: (a: Ask) => this.askServer(a),
       proxy: () => this.proxy(request),
-      look: () => this.look(),
+      look: (urgent?: boolean) => this.look(urgent),
       loading: () => loadingPage(),
     };
   }
@@ -409,10 +409,11 @@ export class Household extends DurableObject<Env> {
   }
 
   /** Someone opened a stale page (W-946): one wake by the alarm, never in
-   * the request. In quiet hours, only when something is waiting for it. */
-  async look(): Promise<void> {
+   * the request. In quiet hours, only when something is waiting for it,
+   * unless there is no page at all (`urgent`): the loading page needs one. */
+  async look(urgent = false): Promise<void> {
     if (this.meta("suspended")) return;
-    if (this.meta("poll") === "0") {
+    if (this.meta("poll") === "0" && !urgent) {
       const waiting = this.sql.exec<{ n: number }>(
         "SELECT (SELECT count(*) FROM checkins) + (SELECT count(*) FROM ingest) AS n").one().n;
       if (!waiting) return;

@@ -214,13 +214,13 @@ describe("PageCache", () => {
 describe("answerRead", () => {
   function deps(over: Record<string, unknown> = {}) {
     const b = bucket();
-    const calls = { ask: 0, proxy: 0, look: 0 };
+    const calls = { ask: 0, proxy: 0, look: 0, urgent: 0 };
     const d = {
       cache: new PageCache(nodeSql(), b, "p/"), now: T, build: "b", today: "2026-10-02",
       running: async () => false,
       ask: async () => { calls.ask++; return page("from server"); },
       proxy: async () => { calls.proxy++; return page("proxied"); },
-      look: async () => { calls.look++; },
+      look: async (urgent?: boolean) => { calls.look++; if (urgent) calls.urgent++; },
       loading: () => new Response("loading"),
       ...over,
     };
@@ -252,6 +252,16 @@ describe("answerRead", () => {
     // …and leaves a row the next refresh fills.
     const key = cacheKey(U("/"), routeOf("/", "d")!, {}, "b").key;
     expect(d.cache.find(key)?.object).toBeNull();
+  });
+
+  it("a missing page asks for an urgent look; a stale copy for an ordinary one", async () => {
+    const { d, calls } = deps();
+    await answerRead(get("/"), U("/"), d);                       // nothing kept: the loading page
+    expect(calls).toMatchObject({ look: 1, urgent: 1 });
+    const up = deps({ running: async () => true });
+    await answerRead(get("/"), U("/"), up.d);
+    await answerRead(get("/"), U("/"), { ...up.d, now: T + FRESH_MS }); // a stale copy
+    expect(up.calls).toMatchObject({ look: 1, urgent: 0 });
   });
 
   it("with the server asleep, asks it for any other read and keeps the answer", async () => {

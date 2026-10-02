@@ -195,7 +195,7 @@ export interface ReadDeps {
   running(): Promise<boolean>; // the server is up and not on its way out
   ask(a: Ask): Promise<Response>;   // straight to the server: not page activity
   proxy(): Promise<Response>;       // today's path, which starts the server
-  look(): Promise<void>;            // a wake by the alarm
+  look(urgent?: boolean): Promise<void>;  // a wake by the alarm; urgent: there is no copy at all
   loading(): Response;              // the bundled loading page
 }
 
@@ -221,7 +221,7 @@ export async function answerRead(request: Request, url: URL, d: ReadDeps): Promi
   d.cache.note(key, route.kind, ask, d.now);
   if (await d.running()) return d.cache.store(key, route.kind, ask, await d.ask(ask), d.now);
   if (url.pathname === "/") {
-    await d.look();
+    await d.look(true);                  // no page at all: quiet hours or not, it needs the server
     return d.loading();
   }
   return d.cache.store(key, route.kind, ask, await d.proxy(), d.now);

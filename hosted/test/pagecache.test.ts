@@ -1,6 +1,6 @@
 // The front door's copy of the webapp's reads (W-946, src/pagecache.ts).
 import { describe, expect, it } from "vitest";
-import { cacheKey, FRESH_MS, MAX_BODY, PageCache, READ_WINDOW_MS, routeOf } from "../src/pagecache";
+import { answerRead, cacheKey, FRESH_MS, MAX_BODY, PageCache, READ_WINDOW_MS, routeOf } from "../src/pagecache";
 import { nodeSql } from "./sql";
 
 function bucket() {
@@ -145,5 +145,72 @@ describe("PageCache", () => {
     expect(c.readSince(T - READ_WINDOW_MS)).toBe(true);
     expect(c.stale(T + FRESH_MS - 1)).toBe(false);
     expect(c.stale(T + FRESH_MS)).toBe(true);
+  });
+});
+
+describe("answerRead", () => {
+  function deps(over: Record<string, unknown> = {}) {
+    const b = bucket();
+    const calls = { ask: 0, proxy: 0, look: 0 };
+    const d = {
+      cache: new PageCache(nodeSql(), b, "p/"), now: T, build: "b", today: "2026-10-02",
+      running: async () => false,
+      ask: async () => { calls.ask++; return page("from server"); },
+      proxy: async () => { calls.proxy++; return page("proxied"); },
+      look: async () => { calls.look++; },
+      loading: () => new Response("loading"),
+      ...over,
+    };
+    return { d, calls };
+  }
+  const get = (p: string, headers: Record<string, string> = {}) => new Request(`https://cloud.featherframe.app${p}`, { headers });
+
+  it("leaves to the server what it does not cache: writes, live reads, other paths", async () => {
+    const { d } = deps();
+    expect(await answerRead(new Request("https://cloud.featherframe.app/settings", { method: "POST" }), U("/settings"), d)).toBeNull();
+    expect(await answerRead(get("/api/status?live=1"), U("/api/status?live=1"), d)).toBeNull();
+    expect(await answerRead(get("/api/frame"), U("/api/frame"), d)).toBeNull();
+  });
+
+  it("answers a fresh copy without the server, and a stale one while asking for a look", async () => {
+    const { d, calls } = deps({ running: async () => true });
+    expect(await (await answerRead(get("/"), U("/"), d))!.text()).toBe("from server");   // a miss, server up
+    expect(calls.ask).toBe(1);
+    expect(await (await answerRead(get("/"), U("/"), { ...d, now: T + 1 }))!.text()).toBe("from server");
+    expect(calls).toMatchObject({ ask: 1, look: 0 });
+    await answerRead(get("/"), U("/"), { ...d, now: T + FRESH_MS });
+    expect(calls).toMatchObject({ ask: 1, look: 1 });
+  });
+
+  it("with the server asleep, answers / with the loading page and asks for a look", async () => {
+    const { d, calls } = deps();
+    expect(await (await answerRead(get("/?welcome=1"), U("/?welcome=1"), d))!.text()).toBe("loading");
+    expect(calls).toMatchObject({ ask: 0, proxy: 0, look: 1 });
+    // …and leaves a row the next refresh fills.
+    const key = cacheKey(U("/"), routeOf("/", "d")!, {}, "b").key;
+    expect(d.cache.find(key)?.object).toBeNull();
+  });
+
+  it("with the server asleep, asks it for any other read and keeps the answer", async () => {
+    const { d, calls } = deps();
+    expect(await (await answerRead(get("/api/battery?frame=A&hours=24"), U("/api/battery?frame=A&hours=24"), d))!.text())
+      .toBe("proxied");
+    expect(calls.proxy).toBe(1);
+    await answerRead(get("/api/battery?hours=24&frame=A"), U("/api/battery?hours=24&frame=A"), { ...d, now: T + 1 });
+    expect(calls.proxy).toBe(1);
+  });
+
+  it("keys / by the account it was drawn for", async () => {
+    const { d, calls } = deps({ running: async () => true });
+    await answerRead(get("/", { "X-FF-Account-Email": "w@example.com" }), U("/"), d);
+    await answerRead(get("/", { "X-FF-Account-Email": "w@example.com", "X-FF-Account-Unverified": "1" }), U("/"), d);
+    expect(calls.ask).toBe(2);
+  });
+
+  it("answers a HEAD with headers and no body", async () => {
+    const { d } = deps({ running: async () => true });
+    await answerRead(get("/api/status"), U("/api/status"), d);
+    const res = await answerRead(new Request("https://cloud.featherframe.app/api/status", { method: "HEAD" }), U("/api/status"), d);
+    expect(res!.body).toBeNull();
   });
 });

@@ -162,3 +162,43 @@ function kept(h: Headers): Record<string, string> {
   for (const k of KEEP_HEADERS) { const v = h.get(k); if (v) out[k] = v; }
   return out;
 }
+
+export interface ReadDeps {
+  cache: PageCache;
+  now: number;
+  build: string;              // the server's page build (meta page_build), "" before the first report
+  today: string;              // the household's date, YYYY-MM-DD
+  running(): Promise<boolean>; // the server is up and not on its way out
+  ask(a: Ask): Promise<Response>;   // straight to the server: not page activity
+  proxy(): Promise<Response>;       // today's path, which starts the server
+  look(): Promise<void>;            // a wake by the alarm
+  loading(): Response;              // the bundled loading page
+}
+
+/** A webapp read answered from the cache, or null when the cache does not
+ * keep it (a write, `live=1`, a path not in the table). */
+export async function answerRead(request: Request, url: URL, d: ReadDeps): Promise<Response | null> {
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  if (url.searchParams.get("live") === "1") return null;
+  const route = routeOf(url.pathname, d.today);
+  if (!route) return null;
+  const account: Record<string, string> = {};
+  for (const h of ACCOUNT_HEADERS) account[h] = request.headers.get(h) || "";
+  const { key, ask } = cacheKey(url, route, account, d.build);
+  const e = d.cache.find(key);
+  if (e) {
+    const hit = await d.cache.respond(e, request.method);
+    if (hit) {
+      d.cache.touch(key, d.now);
+      if (route.kind === "changing" && !d.cache.fresh(e, d.now)) await d.look();
+      return hit;
+    }
+  }
+  d.cache.note(key, route.kind, ask, d.now);
+  if (await d.running()) return d.cache.store(key, route.kind, ask, await d.ask(ask), d.now);
+  if (url.pathname === "/") {
+    await d.look();
+    return d.loading();
+  }
+  return d.cache.store(key, route.kind, ask, await d.proxy(), d.now);
+}

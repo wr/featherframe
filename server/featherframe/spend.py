@@ -416,3 +416,76 @@ class LocalStore:
             rows.append(row)
         if rows:
             self._db.spend_import(rows, _IMPORTED_KEY)
+
+
+#: A reservation waits this long for the front door, then the gate refuses.
+FRONT_DOOR_TIMEOUT_S = 10
+#: A snapshot is kept this long: the page polls `Gate.summary` every 30 s and
+#: a tab left open must not ask the front door twice a poll.
+SNAPSHOT_TTL_S = 15.0
+_AT_DOOR_KEY = "spend_rows_at_door"
+
+
+class FrontDoorStore:
+    """The records at the household's front door (W-938, part 2): they
+    outlive a Container stopped mid-call. The front door runs `decide()`'s
+    port with the insert and adds a backstop of its own. Anything it cannot
+    answer raises, and the gate turns that into `Refused("unreachable")`."""
+
+    def __init__(self, link, local_db=None, clock: Callable[[], float] = time.monotonic) -> None:
+        self._link = link
+        self._clock = clock
+        self._kept: Optional[tuple] = None   # (when, since, Snapshot)
+        self._writes = 0                     # bumped by every write
+        self._kept_lock = threading.Lock()
+        if local_db is not None and not local_db.get(_AT_DOOR_KEY):
+            rows = local_db.spend_rows(0.0)
+            if rows:
+                r = link.http.post(link._url("spend/import"), json={"rows": rows},
+                                   timeout=FRONT_DOOR_TIMEOUT_S)
+                r.raise_for_status()
+            local_db.set(_AT_DOOR_KEY, True)
+
+    def _post(self, op: str, body: dict) -> dict:
+        try:
+            r = self._link.http.post(self._link._url(f"spend/{op}"), json=body,
+                                     timeout=FRONT_DOOR_TIMEOUT_S)
+            r.raise_for_status()
+            return r.json()
+        finally:
+            with self._kept_lock:            # even a failed write may have landed
+                self._kept, self._writes = None, self._writes + 1
+
+    def reserve(self, rec: Record, rule: Rule) -> Optional[str]:
+        body = self._post("reserve", {"record": asdict(rec), "rule": asdict(rule)})
+        return None if body.get("ok") else str(body.get("reason") or "unreachable")
+
+    def settle(self, rec_id: str, state: str, cost_usd: Optional[float],
+               usage: Optional[dict]) -> None:
+        self._post("settle", {"id": rec_id, "state": state, "cost_usd": cost_usd})
+
+    def snapshot(self, since: float) -> Snapshot:
+        now = self._clock()
+        with self._kept_lock:
+            kept, writes = self._kept, self._writes
+        # `Gate.summary` asks since = now - 30 days, which moves with every
+        # call: a kept snapshot serves any `since` at or after its own.
+        if kept is not None and now - kept[0] < SNAPSHOT_TTL_S and since >= kept[1]:
+            snap = kept[2]
+            if since == kept[1]:
+                return snap
+            return Snapshot(rows=[r for r in snap.rows if r.at >= since],
+                            pause=snap.pause, resumed_at=snap.resumed_at)
+        r = self._link.http.get(self._link._url("spend/snapshot"), params={"since": since},
+                                timeout=FRONT_DOOR_TIMEOUT_S)
+        r.raise_for_status()
+        body = r.json()
+        snap = Snapshot(rows=[Record(**x) for x in body.get("rows") or []],
+                        pause=body.get("pause"), resumed_at=float(body.get("resumed_at") or 0.0))
+        with self._kept_lock:
+            if self._writes == writes:       # not if a write landed while it was read
+                self._kept = (now, since, snap)
+        return snap
+
+    def resume(self, now: float) -> None:
+        self._post("resume", {"now": now})

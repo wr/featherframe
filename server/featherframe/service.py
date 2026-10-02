@@ -651,7 +651,7 @@ class FeatherframeService:
         self._collage_redraw = False    # so does a change to how the collage is drawn
         # Every paid AI call goes through this gate (W-938).
         self.spend_gate = spend.Gate(
-            spend.LocalStore(self.db),
+            self._spend_store(),
             enabled=lambda: self.config.imagegen_enabled,
             limit_usd=lambda: self.config.ai_monthly_limit_usd,
             now=lambda: self._clock())
@@ -854,6 +854,17 @@ class FeatherframeService:
         return POLL_SECONDS
 
     # -- providers ---------------------------------------------------------
+    def _spend_store(self):
+        """On Cloud the front door keeps the records (W-938); else our DB."""
+        link = hosted.link()
+        if link is not None:
+            try:
+                return spend.FrontDoorStore(link, local_db=self.db)
+            except Exception:
+                log.warning("front door spend records unavailable; using the local ones",
+                            exc_info=True)
+        return spend.LocalStore(self.db)
+
     def _build_provider(self, config: Config) -> ArtProvider:
         """Audubon first, AI-generated second, typographic fallback implied.
         The generated link always serves already-bought plates from its cache;

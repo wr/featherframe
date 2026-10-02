@@ -14,7 +14,8 @@ export type Alert = { reason: "paused" | "day" | "backstop"; lastHour: number; t
                       month: number; limit: number };
 /** What of the Durable Object's `ctx.storage.sql` this needs (and of the test stand-in). */
 export interface SqlLike {
-  exec(q: string, ...a: any[]): { toArray(): Record<string, any>[]; one(): Record<string, any> | undefined };
+  exec(q: string, ...a: any[]): { toArray(): Record<string, any>[]; one(): Record<string, any> | undefined;
+                                  readonly rowsWritten: number };
 }
 
 export const OPEN_HOLD_S = 86400;
@@ -27,7 +28,7 @@ export const ALERT_USD_PER_DAY = 3;
 const LOOKBACK_S = 36 * 3600;
 
 const spent = (r: SpendRow) =>
-  r.state === "released" ? 0 : r.state === "settled" && r.cost_usd !== null ? r.cost_usd : r.est_usd;
+  r.state === "released" ? 0 : r.state === "settled" && r.cost_usd != null ? r.cost_usd : r.est_usd;
 const utcDay = (at: number) => new Date(at * 1000).toISOString().slice(0, 10);
 
 /** Collages always; an illustration only when it buys a species again
@@ -58,6 +59,29 @@ export function decide(rows: SpendRow[], paused: boolean, resumedAt: number, rec
   return null;
 }
 
+const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const isStr = (v: unknown): v is string => typeof v === "string";
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+
+/** A reservation as the server sends it (`spend/reserve`), or null. */
+export function reserveBody(b: unknown): { record: SpendRow; rule: Rule } | null {
+  if (!isObj(b) || !isObj(b.record) || !isObj(b.rule)) return null;
+  const r = b.record, u = b.rule;
+  const ok = ["id", "month", "day", "kind", "subject", "model"].every((k) => isStr(r[k]))
+    && isNum(r.at) && isNum(r.est_usd) && r.est_usd >= 0 && typeof r.auto === "boolean"
+    && (r.quality === null || isStr(r.quality))
+    && isNum(u.limit_usd) && (u.runaway_per_hour === null || isNum(u.runaway_per_hour))
+    && (u.window_s === null || isNum(u.window_s));
+  return ok ? { record: r as SpendRow, rule: u as Rule } : null;
+}
+
+/** A settle as the server sends it (`spend/settle`), or null. */
+export function settleBody(b: unknown): { id: string; state: "settled" | "released"; cost_usd: number | null } | null {
+  if (!isObj(b) || !isStr(b.id) || (b.state !== "settled" && b.state !== "released")) return null;
+  if (!(b.cost_usd === null || isNum(b.cost_usd))) return null;
+  return { id: b.id, state: b.state, cost_usd: b.cost_usd };
+}
+
 type Raw = Omit<SpendRow, "auto"> & { auto: number };
 
 export class SpendBook {
@@ -67,6 +91,7 @@ export class SpendBook {
         day TEXT NOT NULL, kind TEXT NOT NULL, subject TEXT NOT NULL, auto INTEGER NOT NULL,
         model TEXT, quality TEXT, est_usd REAL NOT NULL, cost_usd REAL, state TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS spend_at ON spend(at);
+      CREATE INDEX IF NOT EXISTS spend_month ON spend(month);
       CREATE TABLE IF NOT EXISTS spend_meta (k TEXT PRIMARY KEY, v TEXT);
     `);
   }
@@ -83,11 +108,14 @@ export class SpendBook {
     return (this.sql.exec("SELECT * FROM spend WHERE at >= ? OR month = ? ORDER BY at", since, month)
       .toArray() as Raw[]).map((r) => ({ ...r, auto: !!r.auto }));
   }
-  private insert(r: SpendRow): void {
-    this.sql.exec(`INSERT OR IGNORE INTO spend (id, at, month, day, kind, subject, auto, model, quality,
+  /** Whether the row was written: not when its id is already here. */
+  private insert(r: SpendRow): boolean {
+    const c = this.sql.exec(`INSERT OR IGNORE INTO spend (id, at, month, day, kind, subject, auto, model, quality,
       est_usd, cost_usd, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       r.id, r.at, r.month, r.day, r.kind, r.subject, r.auto ? 1 : 0, r.model, r.quality,
       r.est_usd, r.cost_usd, r.state);
+    c.toArray();                             // run it to the end before counting
+    return c.rowsWritten > 0;
   }
 
   /** Check and insert as one step: a Durable Object runs one request at a
@@ -109,7 +137,10 @@ export class SpendBook {
     if (reason === null && rec.est_usd > 0 && dayTotal + rec.est_usd > BACKSTOP_USD_PER_DAY + 1e-9) {
       reason = "backstop";
     }
-    if (reason === null) this.insert({ ...rec, state: "open", cost_usd: null });
+    // A yes the record was not written for would let the server buy uncounted.
+    if (reason === null && !this.insert({ ...rec, state: "open", cost_usd: null })) {
+      throw new Error(`spend record ${rec.id} was not written`);
+    }
     const after = dayTotal + (reason === null ? rec.est_usd : 0);
     const want: Alert["reason"][] = [];
     if (reason === "runaway") want.push("paused");
@@ -148,10 +179,7 @@ export class SpendBook {
   importRows(rows: SpendRow[], pause: { at: number; count: number | null } | null = null,
              resumedAt = 0): number {
     let added = 0;
-    for (const r of rows) {
-      const had = this.sql.exec("SELECT 1 FROM spend WHERE id = ?", r.id).toArray().length;
-      if (!had) { this.insert(r); added++; }
-    }
+    for (const r of rows) if (this.insert(r)) added++;
     const own = Number(this.get("resumed_at") || 0);
     const resumed = Math.max(own, Number.isFinite(resumedAt) ? resumedAt : 0);
     if (resumed > own) this.set("resumed_at", String(resumed));

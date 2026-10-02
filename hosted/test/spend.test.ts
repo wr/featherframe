@@ -14,6 +14,11 @@ describe("decide", () => {
       expect(decide(c.rows, c.paused, c.resumed_at, c.rec, c.rule, c.now)).toBe(c.expect);
     });
   }
+
+  it("counts a settled record with no cost at all at its estimate", () => {
+    const { cost_usd, ...settled } = rec({ est_usd: 0.5, state: "settled", auto: false });
+    expect(decide([settled], false, 0, rec({ est_usd: 0.6, auto: false }), { ...RULE, limit_usd: 1 }, T)).toBe("limit");
+  });
 });
 
 const T = 1790000000;                       // 2026-09-21 (UTC)
@@ -143,6 +148,21 @@ describe("SpendBook", () => {
     expect(book.snapshot(0).pause).toBeNull();
   });
 
+  it("refuses without writing anything", () => {
+    const book = new SpendBook(nodeSql());
+    book.importRows([], { at: T, count: 6 }, 0);
+    expect(book.reserve(rec({ at: T + 60, auto: false }), RULE, T + 60).reason).toBe("paused");
+    expect(book.snapshot(0).rows).toEqual([]);
+  });
+
+  it("throws rather than say yes to a record it did not write", () => {
+    const book = new SpendBook(nodeSql());
+    const r = rec({ auto: false });
+    expect(book.reserve(r, RULE, T).ok).toBe(true);
+    expect(() => book.reserve(r, RULE, T)).toThrow();
+    expect(book.snapshot(0).rows).toHaveLength(1);
+  });
+
   it("sums the month for the admin page", () => {
     const book = new SpendBook(nodeSql());
     book.reserve(rec({ est_usd: 0.5 }), { ...RULE, limit_usd: 10 });
@@ -209,6 +229,58 @@ describe("the front door's spend routes", () => {
     expect(await r.json()).toEqual({ added: 1 });
     expect(h.summary().ai.paused).toBe(true);
     expect(h.spend.monthSummary("2026-09").count).toBe(1);
+  });
+
+  it("turns away a reservation that is not one, and stores nothing", async () => {
+    const { h } = await door();
+    for (const record of [rec({ est_usd: null }), rec({ est_usd: -1 }), rec({ auto: "yes" }), rec({ quality: undefined }),
+                          rec({ id: 7 }), rec({ at: "now" })]) {
+      const r = await call(h, "spend/reserve", { record, rule: RULE });
+      expect(r.status, JSON.stringify(record)).toBe(400);
+      expect(await r.json()).toEqual({ error: "bad reserve" });
+    }
+    for (const rule of [{ ...RULE, limit_usd: null }, { ...RULE, runaway_per_hour: "6" }, { limit_usd: 10, runaway_per_hour: 6 }]) {
+      expect((await call(h, "spend/reserve", { record: rec(), rule })).status).toBe(400);
+    }
+    expect((await call(h, "spend/reserve", { rule: RULE })).status).toBe(400);
+    expect(h.spend.snapshot(0).rows).toEqual([]);
+  });
+
+  it("turns away a settle that is not one", async () => {
+    const { h } = await door();
+    const r = rec({ auto: false });
+    await call(h, "spend/reserve", { record: r, rule: RULE });
+    for (const body of [{ id: r.id, state: "open", cost_usd: 0.1 }, { id: r.id, state: "settled", cost_usd: "0.1" },
+                        { id: r.id, state: "settled" }]) {
+      const out = await call(h, "spend/settle", body);
+      expect(out.status, JSON.stringify(body)).toBe(400);
+      expect(await out.json()).toEqual({ error: "bad settle" });
+    }
+    expect(h.spend.snapshot(0).rows.map((x) => x.state)).toEqual(["open"]);
+    expect((await call(h, "spend/settle", { id: r.id, state: "settled", cost_usd: null })).status).toBe(200);
+    expect(h.spend.snapshot(0).rows.map((x) => x.state)).toEqual(["settled"]);
+  });
+
+  it("answers 500 to a reservation it could not write", async () => {
+    const { h } = await door();
+    const r = rec({ auto: false });
+    expect((await call(h, "spend/reserve", { record: r, rule: RULE })).status).toBe(200);
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect((await call(h, "spend/reserve", { record: r, rule: RULE })).status).toBe(500);
+    } finally {
+      err.mockRestore();
+    }
+  });
+
+  it("asks for the server's key", async () => {
+    const { h } = await door();
+    const ask = (key: string) => h.fetch(new Request("https://x/_internal/h1/spend/reserve", {
+      method: "POST", headers: { "X-FF-Household": "h1", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ record: rec({ auto: false }), rule: RULE }) }));
+    expect((await ask("wrong")).status).toBe(403);
+    expect(h.spend.snapshot(0).rows).toEqual([]);
+    expect((await ask("k")).status).toBe(200);
   });
 
   it("answers the reservation without waiting for the mail", async () => {

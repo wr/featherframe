@@ -4,7 +4,7 @@ import { DurableObject } from "cloudflare:workers";
 import { sendMail } from "./accounts";
 import type { Env } from "./index";
 import { releaseFrame } from "./setup";
-import { alertMail, type Alert, type Rule, SpendBook, type SpendRow } from "./spend";
+import { alertMail, type Alert, reserveBody, settleBody, SpendBook, type SpendRow } from "./spend";
 import { firmwareWaiting, isDetection, localIso, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 import { lastDays, type UsageDay } from "./usage";
@@ -568,15 +568,23 @@ export class Household extends DurableObject<Env> {
   // -- AI spend (W-938) ----------------------------------------------------------
   async spendRoute(request: Request, op: string): Promise<Response> {
     if (op === "reserve" && request.method === "POST") {
-      const { record, rule } = await request.json<{ record: SpendRow; rule: Rule }>();
-      const out = this.spend.reserve(record, rule);
+      const body = reserveBody(await request.json().catch(() => null));
+      if (!body) return Response.json({ error: "bad reserve" }, { status: 400 });
+      let out: ReturnType<SpendBook["reserve"]>;
+      try {
+        out = this.spend.reserve(body.record, body.rule);
+      } catch (e) {
+        console.error("spend reserve", e);   // the server refuses on a 500
+        return Response.json({ error: "not recorded" }, { status: 500 });
+      }
       // The server waits on this answer before it buys: the mail goes after it.
       if (out.alerts.length) this.ctx.waitUntil(Promise.allSettled(out.alerts.map((a) => this.alert(a))));
       return Response.json(out.ok ? { ok: true } : { ok: false, reason: out.reason });
     }
     if (op === "settle" && request.method === "POST") {
-      const { id, state, cost_usd } = await request.json<{ id: string; state: "settled" | "released"; cost_usd: number | null }>();
-      this.spend.settle(id, state, cost_usd);
+      const body = settleBody(await request.json().catch(() => null));
+      if (!body) return Response.json({ error: "bad settle" }, { status: 400 });
+      this.spend.settle(body.id, body.state, body.cost_usd);
       return Response.json({ ok: true });
     }
     if (op.startsWith("snapshot") && request.method === "GET") {

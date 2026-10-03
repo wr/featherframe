@@ -2,8 +2,9 @@
 // (the viewer is a lazy chunk), every file under models/ renamed with a hash of
 // its contents (models are cached for a week, so a new model needs a new name),
 // and the Web Analytics beacon injected when analytics.json ({"token": "…"})
-// exists.
+// exists. The sitemap is dated by git.
 import { build } from 'esbuild';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 
@@ -32,6 +33,18 @@ writeFileSync(speciesPath, species);
   const page = `${here}dist/index.html`;
   const og = createHash('sha256').update(readFileSync(`${here}dist/img/og.jpg`)).digest('hex').slice(0, 8);
   writeFileSync(page, readFileSync(page, 'utf8').replaceAll('https://featherframe.app/img/og.jpg"', `https://featherframe.app/img/og.jpg?v=${og}"`));
+}
+
+// The sitemap's lastmod is the day index.html last changed in git, never the build's: Google ignores a
+// date that moves on every deploy (W-961). Outside a git checkout the sitemap goes without one.
+{
+  let day = '';
+  try {
+    day = execFileSync('git', ['log', '-1', '--format=%cs', '--', 'public/index.html'], { cwd: here, encoding: 'utf8' }).trim();
+  } catch {}
+  const sitemap = `${here}dist/sitemap.xml`;
+  const home = '<loc>https://featherframe.app/</loc>';
+  if (day) writeFileSync(sitemap, readFileSync(sitemap, 'utf8').replace(home, `${home}<lastmod>${day}</lastmod>`));
 }
 
 await build({

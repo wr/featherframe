@@ -67,6 +67,14 @@ export default {
       && (FRAME_PATHS.test(url.pathname) || url.pathname.startsWith("/_internal/"));
     if (url.hostname !== env.APP_HOST && !legacy) return new Response("not found", { status: 404 });
     const path = url.pathname;
+    // Nothing here is for a search engine: the page is behind sign-in and a
+    // setup link carries a frame's token. featherframe.app is the page to
+    // index (W-961).
+    if (path === "/robots.txt") {
+      return new Response("User-agent: *\nDisallow: /\n", {
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=86400" },
+      });
+    }
     const slow = await rateLimited(request, env, url);
     if (slow) return slow;
 

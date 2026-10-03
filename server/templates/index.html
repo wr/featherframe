@@ -2610,8 +2610,16 @@
   })();
 
   // Every status answer has a time, and one older than the status the page
-  // shows is not applied (page-age.js, W-954).
-  var pageAge = ffPageAge(), onStatus = [];
+  // shows is not applied (page-age.js, W-954). A reload of an old page
+  // updates it, and the page's own reload after an update says so (W-956).
+  var pageAge = ffPageAge(pageLoad()), onStatus = [];
+  function pageLoad() {
+    var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+    var reloaded = nav.type ? nav.type === 'reload' : !!(performance.navigation && performance.navigation.type === 1);
+    var updated = false;
+    try { updated = sessionStorage.getItem('ff-updated') === '1'; sessionStorage.removeItem('ff-updated'); } catch (e) {}
+    return { reloaded: reloaded, updated: updated };
+  }
   function statusFetch(url) {
     return fetch(url).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
@@ -3974,8 +3982,9 @@
   window.ffPage = { showFlash: showFlash, jsonFetch: jsonFetch, errText: errText };
   {% if hosted %}
   // How old the page is (W-950, W-954): Featherframe Cloud answers from a
-  // copy, and the header says what page-age.js says. Update now asks for a
-  // wake at once; the page reloads when a current answer arrives.
+  // copy, and the header says what page-age.js says. Update now, or a reload
+  // of an old page (W-956), asks for a wake at once; the page reloads when a
+  // current answer arrives, and says "Up to date ✓".
   (function () {
     var note = $('stale-note'), text = $('stale-text'), act = $('stale-act'), btn = $('stale-update');
     if (!note) return;
@@ -3984,12 +3993,7 @@
       note.hidden = !n;
       if (n) { text.textContent = n.text; act.hidden = !n.act; }
     }
-    onStatus.push(function () {
-      if (pageAge.reload(Date.now())) { location.reload(); return; }
-      render();
-      setTimeout(render, pageAge.CONFIRM);
-    });
-    btn.addEventListener('click', function () {
+    function update() {
       pageAge.update(Date.now());
       render();
       fetch('/api/page/update', { method: 'POST', credentials: 'same-origin' }).catch(function () {});
@@ -3998,7 +4002,18 @@
         pollStatus();
         setTimeout(again, 3000);
       })();
+    }
+    onStatus.push(function () {
+      if (pageAge.reload(Date.now())) {
+        try { sessionStorage.setItem('ff-updated', '1'); } catch (e) {}
+        location.reload();
+        return;
+      }
+      if (pageAge.wantsUpdate()) { update(); return; }
+      render();
+      setTimeout(render, pageAge.CONFIRM);
     });
+    btn.addEventListener('click', update);
     setInterval(render, 30000);
   })();
 

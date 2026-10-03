@@ -17,7 +17,7 @@ describe("ffPageAge", () => {
     expect(a.note(T)).toEqual({ text: "Updated 12 min ago", act: true });
     // A live answer (a firmware update under way): current, and said so.
     expect(a.answer(null, date(T + 2000), T + 2000)).toBe(true);
-    expect(a.note(T + 2000)).toEqual({ text: "Updated just now", act: false });
+    expect(a.note(T + 2000)).toEqual({ text: "Up to date ✓", act: false });
     // The next ordinary poll gets the old copy back: not applied.
     expect(a.answer(String(T - 12 * MIN), date(T + 30_000), T + 30_000)).toBe(false);
     expect(a.note(T + 30_000)).toBeNull();
@@ -30,7 +30,7 @@ describe("ffPageAge", () => {
     a.answer(String(T - 8 * MIN), date(T), T);
     expect(a.note(T)!.text).toBe("Updated 8 min ago");
     expect(a.answer(String(T + MIN - 1000), date(T + MIN), T + MIN)).toBe(true);
-    expect(a.note(T + MIN)).toEqual({ text: "Updated just now", act: false });
+    expect(a.note(T + MIN)).toEqual({ text: "Up to date ✓", act: false });
     expect(a.note(T + MIN + a.CONFIRM)).toBeNull();
   });
 
@@ -58,6 +58,40 @@ describe("ffPageAge", () => {
     b.update(T);
     expect(b.isUpdating(T + 2 * MIN + 1)).toBe(false);
     expect(b.note(T + 2 * MIN + 1)).toEqual({ text: "Updated 12 min ago", act: true });
+  });
+
+  it("a reload of an old page updates it at once (W-956)", () => {
+    const a = ffPageAge({ reloaded: true });
+    a.answer(String(T - 9 * MIN), date(T), T);
+    expect(a.wantsUpdate()).toBe(true);
+    expect(a.wantsUpdate()).toBe(false);                         // once
+    a.update(T);
+    expect(a.note(T)).toEqual({ text: "Updating…", act: false });
+    a.answer(String(T + 20_000), date(T + 21_000), T + 21_000);
+    expect(a.reload(T + 21_000)).toBe(true);
+  });
+
+  it("a reload of a current page, or an ordinary visit to an old one, does not (W-956)", () => {
+    const fresh = ffPageAge({ reloaded: true });
+    fresh.answer(String(T - 2 * MIN), date(T), T);
+    expect(fresh.wantsUpdate()).toBe(false);
+    expect(fresh.note(T)).toBeNull();
+    const visit = ffPageAge();
+    visit.answer(String(T - 9 * MIN), date(T), T);
+    expect(visit.wantsUpdate()).toBe(false);
+    expect(visit.note(T)).toEqual({ text: "Updated 9 min ago", act: true });
+  });
+
+  it("the page's own reload after an update says Up to date, and never updates again (W-956)", () => {
+    const a = ffPageAge({ reloaded: true, updated: true });
+    a.answer(String(T - 20_000), date(T), T);
+    expect(a.wantsUpdate()).toBe(false);
+    expect(a.note(T)).toEqual({ text: "Up to date ✓", act: false });
+    expect(a.note(T + a.CONFIRM)).toBeNull();
+    const late = ffPageAge({ reloaded: true, updated: true });     // somehow old again: no loop
+    late.answer(String(T - 6 * MIN), date(T), T);
+    expect(late.wantsUpdate()).toBe(false);
+    expect(late.note(T)).toEqual({ text: "Updated 6 min ago", act: true });
   });
 
   it("an answer with neither a copy time nor a Date is now", () => {

@@ -1994,6 +1994,7 @@
   // below carries our own static SVG markup keyed by ids we define.
 
 {% include "page-time.js" %}
+{% include "page-age.js" %}
   var $ = function (id) { return document.getElementById(id); };
   var POLL_MS = 4000;          // background-job pollers (regenerate, tasks)
   var STATUS_MS = 30000;       // Frame card refresh
@@ -2608,25 +2609,25 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
   })();
 
-  // When the copy the front door answered was filled (W-950): 0 for an
-  // answer from the server itself.
-  var copyAt = 0, onStatus = [];
+  // Every status answer has a time, and one older than the status the page
+  // shows is not applied (page-age.js, W-954).
+  var pageAge = ffPageAge(), onStatus = [];
   function statusFetch(url) {
     return fetch(url).then(function (r) {
-      copyAt = Number(r.headers.get('X-FF-Copy-At')) || 0;
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok) { var e = new Error(data.error || ('server error ' + r.status)); e.status = r.status; throw e; }
-        return data;
+        return { st: data, current: pageAge.answer(r.headers.get('X-FF-Copy-At'), r.headers.get('Date'), Date.now()) };
       });
     });
   }
   function pollStatus(live) {
     if (document.hidden) return;
-    statusFetch(live ? '/api/status?live=1' : '/api/status').then(function (st) {
+    statusFetch(live ? '/api/status?live=1' : '/api/status').then(function (res) {
       statusFailures = 0; statusLastOk = new Date();
       liveCards.forEach(function (c) { c.classList.remove('stale'); });
       if (flashKind === 'offline') hideFlash();
-      applyStatus(st);
+      if (!res.current) return;
+      applyStatus(res.st);
       onStatus.forEach(function (f) { f(); });
     }).catch(function () {
       // Two misses in a row (a minute) before we call it: one can be a blip.
@@ -3972,31 +3973,28 @@
   // For the hosted page's USB pairing (its own script, below).
   window.ffPage = { showFlash: showFlash, jsonFetch: jsonFetch, errText: errText };
   {% if hosted %}
-  // How old the page is (W-950): Featherframe Cloud answers from a copy, and
-  // past 5 minutes the header says so. Update now asks for a wake at once;
-  // the page reloads when a fresh copy arrives, or shows the age again after
-  // 2 minutes.
+  // How old the page is (W-950, W-954): Featherframe Cloud answers from a
+  // copy, and the header says what page-age.js says. Update now asks for a
+  // wake at once; the page reloads when a current answer arrives.
   (function () {
     var note = $('stale-note'), text = $('stale-text'), act = $('stale-act'), btn = $('stale-update');
     if (!note) return;
-    var STALE_MS = 5 * 60000, updating = 0;
     function render() {
-      if (updating && Date.now() - updating > 120000) updating = 0;
-      var old = copyAt ? Date.now() - copyAt : 0;
-      note.hidden = !updating && old <= STALE_MS;
-      if (updating) { text.textContent = 'Updating…'; act.hidden = true; }
-      else if (copyAt) { text.textContent = 'Updated ' + ffAgo(copyAt / 1000, Date.now() / 1000); act.hidden = false; }
+      var n = pageAge.note(Date.now());
+      note.hidden = !n;
+      if (n) { text.textContent = n.text; act.hidden = !n.act; }
     }
     onStatus.push(function () {
-      if (updating && (!copyAt || Date.now() - copyAt <= STALE_MS)) { location.reload(); return; }
+      if (pageAge.reload(Date.now())) { location.reload(); return; }
       render();
+      setTimeout(render, pageAge.CONFIRM);
     });
     btn.addEventListener('click', function () {
-      updating = Date.now();
+      pageAge.update(Date.now());
       render();
       fetch('/api/page/update', { method: 'POST', credentials: 'same-origin' }).catch(function () {});
       (function again() {
-        if (!updating) return;
+        if (!pageAge.isUpdating(Date.now())) { render(); return; }
         pollStatus();
         setTimeout(again, 3000);
       })();

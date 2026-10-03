@@ -464,3 +464,37 @@ def test_a_frame_that_comes_back_on_the_old_version_failed(client):
     assert _ask(c).status_code == 200
     svc._record_checkin(FID, {"fw_version": "2026.09.20+abc1234"})   # a rolled-back image
     assert (_fw(svc)["stage"], _fw(svc)["label"]) == ("failed", "Update failed · will retry")
+
+
+def test_a_check_in_from_before_the_download_is_not_a_failed_update(client):
+    """W-953: on Featherframe Cloud the frame's check-in just before it asks
+    for the image is queued at the front door and reaches the server later —
+    after the server has sent the image, while the frame is still installing
+    it. Still on the old version, it is not a rolled-back image."""
+    c, svc = client
+    svc.releases.check(NOW)
+    _kit(svc)
+    svc.update_frame(FID, {"update_firmware": True})
+    svc.releases.app_for_board(BOARD, download=True)
+    before = (NOW - timedelta(seconds=2)).isoformat(timespec="seconds")
+    assert _ask(c).status_code == 200
+    assert _fw(svc)["label"] == "Restarting…"
+    svc._record_checkin(FID, {"fw_version": "2026.09.20+abc1234"}, stamp=before)
+    assert _fw(svc)["label"] == "Restarting…"
+    svc._record_checkin(FID, {"fw_version": "1.3.0"})
+    assert (_fw(svc)["stage"], _fw(svc)["label"]) == ("done", "Updated to 1.3.0")
+
+
+def test_a_frame_on_the_new_version_is_updated_whatever_the_row_said(client):
+    """W-953: a row that read failed (the restart took longer than the wait)
+    still says Updated once the frame checks in on the release."""
+    c, svc = client
+    svc.releases.check(NOW)
+    _kit(svc)
+    svc.update_frame(FID, {"update_firmware": True})
+    svc.releases.app_for_board(BOARD, download=True)
+    assert _ask(c).status_code == 200
+    svc._record_checkin(FID, {"fw_version": "2026.09.20+abc1234"})   # rolled back
+    assert _fw(svc)["stage"] == "failed"
+    svc._record_checkin(FID, {"fw_version": "1.3.0"})                # the retry took
+    assert (_fw(svc)["stage"], _fw(svc)["label"]) == ("done", "Updated to 1.3.0")

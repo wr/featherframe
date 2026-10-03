@@ -15,6 +15,16 @@ test('the apex is served from the assets', async () => {
   assert.equal(await res.text(), 'asset /');
 });
 
+test('only the apex is indexed: workers.dev and preview aliases say noindex', async () => {
+  const apex = await worker.fetch(new Request('https://featherframe.app/'), env);
+  assert.equal(apex.headers.get('X-Robots-Tag'), null);
+  for (const host of ['featherframe-site.wells.workers.dev', 'w-961-featherframe-site.wells.workers.dev']) {
+    const res = await worker.fetch(new Request(`https://${host}/`), env);
+    assert.equal(res.headers.get('X-Robots-Tag'), 'noindex', host);
+    assert.equal(await res.text(), 'asset /', host);
+  }
+});
+
 const WIKI = 'https://github.com/wr/featherframe/wiki';
 
 test('/help goes to the wiki, a topic to its page and heading', async () => {

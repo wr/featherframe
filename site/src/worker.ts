@@ -20,6 +20,16 @@ export function helpTarget(pathname: string): string | null {
   return `${HELP.wiki}/${t.page}${t.heading ? `#${slug(t.heading)}` : ''}`;
 }
 
+/** Only the apex is indexed: workers.dev and every preview alias serve the
+ * same page, and a search engine should list it once (W-961). */
+async function indexedOnApex(url: URL, response: Promise<Response>): Promise<Response> {
+  const res = await response;
+  if (url.hostname === 'featherframe.app') return res;
+  const tagged = new Response(res.body, res);
+  tagged.headers.set('X-Robots-Tag', 'noindex');
+  return tagged;
+}
+
 export default {
   fetch(request: Request, env: Env): Promise<Response> | Response {
     const url = new URL(request.url);
@@ -39,8 +49,8 @@ export default {
     // the icon crawlers ask for by convention
     if (url.pathname === '/favicon.ico') {
       url.pathname = '/favicon.png';
-      return env.ASSETS.fetch(new Request(url.toString(), request));
+      return indexedOnApex(url, env.ASSETS.fetch(new Request(url.toString(), request)));
     }
-    return env.ASSETS.fetch(request);
+    return indexedOnApex(url, env.ASSETS.fetch(request));
   },
 };

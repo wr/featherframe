@@ -82,9 +82,11 @@ def test_telemetry_outside_plausible_range_is_dropped(client, svc):
 
 def test_device_string_headers_are_bounded(client, svc):
     client.get("/api/frame", headers={"X-FF-Version": "v" * 5000,
-                                      "X-Wake-Detail": "d" * 5000})
+                                      "X-Wake-Detail": "d" * 5000,
+                                      "X-FF-Diag": "g" * 5000})
     assert len(device(svc, svc.LEGACY_FRAME).fw_version or "") <= 120
     assert len(device(svc, svc.LEGACY_FRAME).wake_detail or "") <= 120
+    assert len(device(svc, svc.LEGACY_FRAME).diag or "") == 240
 
 
 # -- settings form -----------------------------------------------------------

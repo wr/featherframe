@@ -26,6 +26,7 @@ using namespace fs;        // arduino-esp32 v3, so pull fs:: into scope before i
 #include <esp_sleep.h>
 #include <esp_task_wdt.h>
 #include <esp_ota_ops.h>
+#include <esp_heap_caps.h>
 #include <driver/rtc_io.h>
 
 #include "ff_config.h"
@@ -363,6 +364,91 @@ RTC_DATA_ATTR int8_t   g_bandStage = -1;    // its retry-line stage
 static uint32_t g_lastSuccessMs = 0;        // always-awake model: for g_failMinutes
 
 static void bumpFail() { if (g_failCount < 30000) g_failCount++; }
+
+// ---------------------------------------------------------------- diagnostics
+// W-970: both kits have gone hours on Wi-Fi without reaching their server,
+// loop() still turning (the watchdog never fired), until something restarted
+// them. What was failing rides every check-in as X-FF-Diag. The last failure
+// is also kept in RTC_NOINIT memory, which a panic, a watchdog or a software
+// restart leaves alone (a power cut does not), so the first check-in after a
+// restart says what the boot before it saw.
+#define FF_FAIL_MAGIC 0xFF970001u
+struct FailNote {
+  uint32_t magic;
+  uint32_t upMin;      // uptime at that boot's last failed fetch
+  int16_t  fails;      // failed fetches in a row then
+  int16_t  http;       // HTTPClient's code: negative = no answer at all
+  int32_t  tls;        // mbedTLS's last error, 0 if none
+  uint16_t heapMinK;   // lowest free internal heap that boot, KB
+  uint16_t heapBigK;   // largest free internal block then, KB
+};
+RTC_NOINIT_ATTR FailNote g_failNote;
+static FailNote g_prevNote = {};            // the boot before this one's, if it had failed
+static esp_reset_reason_t g_resetReason = ESP_RST_UNKNOWN;
+static int16_t  g_lastHttp = 0;             // the last fetch's HTTPClient code…
+static int32_t  g_lastTls = 0;              // …and its handshake's mbedTLS error
+static uint16_t g_wsOpens = 0, g_wsDrops = 0;
+static uint16_t g_wifiDrops = 0;
+static uint8_t  g_wifiReason = 0;           // the last disconnect's 802.11 reason
+
+static void diagBoot() {
+  g_resetReason = esp_reset_reason();
+  if (g_failNote.magic == FF_FAIL_MAGIC) g_prevNote = g_failNote;
+  g_failNote.magic = 0;
+}
+
+static uint16_t heapK(size_t b) { return b / 1024 > 65535 ? 65535 : (uint16_t)(b / 1024); }
+
+// A resident fetch failed (g_failCount already counts it): keep what it saw.
+static void noteFailure() {
+  g_failNote = {FF_FAIL_MAGIC, millis() / 60000, g_failCount, g_lastHttp, g_lastTls,
+                heapK(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)),
+                heapK(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL))};
+}
+
+static const char* resetName(esp_reset_reason_t r) {
+  switch (r) {
+    case ESP_RST_POWERON:   return "power";
+    case ESP_RST_EXT:       return "ext";
+    case ESP_RST_SW:        return "sw";
+    case ESP_RST_PANIC:     return "panic";
+    case ESP_RST_INT_WDT:   return "iwdt";
+    case ESP_RST_TASK_WDT:  return "twdt";
+    case ESP_RST_WDT:       return "wdt";
+    case ESP_RST_DEEPSLEEP: return "sleep";
+    case ESP_RST_BROWNOUT:  return "brownout";
+    case ESP_RST_USB:       return "usb";
+    default:                return "other";
+  }
+}
+
+// "rst=panic up=812m heap=41/12/28k ws=14/13 wifi=2/200 ap=8c88/6
+//  fail=7/-1/-30592 prev=812m/7/-1/-30592/12/8k" — fail= only while fetches are
+// failing (this check-in is the first one through), prev= only after a restart.
+static String diagLine() {
+  char s[240];
+  int n = snprintf(s, sizeof(s), "rst=%s up=%lum heap=%u/%u/%uk ws=%u/%u wifi=%u/%u",
+                   resetName(g_resetReason), (unsigned long)(millis() / 60000),
+                   heapK(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
+                   heapK(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)),
+                   heapK(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)),
+                   g_wsOpens, g_wsDrops, g_wifiDrops, g_wifiReason);
+  const uint8_t* b = WiFi.BSSID();
+  if (b && n < (int)sizeof(s))
+    n += snprintf(s + n, sizeof(s) - n, " ap=%02x%02x/%d", b[4], b[5], (int)WiFi.channel());
+  if (g_failCount > 0 && n < (int)sizeof(s))
+    n += snprintf(s + n, sizeof(s) - n, " fail=%d/%d/%ld", g_failCount, g_lastHttp, (long)g_lastTls);
+  if (g_prevNote.magic == FF_FAIL_MAGIC && n < (int)sizeof(s))
+    snprintf(s + n, sizeof(s) - n, " prev=%lum/%d/%d/%ld/%u/%uk", (unsigned long)g_prevNote.upMin,
+             g_prevNote.fails, g_prevNote.http, (long)g_prevNote.tls,
+             g_prevNote.heapMinK, g_prevNote.heapBigK);
+  return String(s);
+}
+
+static void onWifiDiag(arduino_event_id_t, arduino_event_info_t info) {
+  if (g_wifiDrops < 65535) g_wifiDrops++;
+  g_wifiReason = info.wifi_sta_disconnected.reason;
+}
 
 // The last painted frame body, kept so a cleared toast can restore the band
 // it covered byte-for-byte (a windowed DU, no flash, no white scar). Lost
@@ -819,7 +905,11 @@ bool ensureWifi(bool openPortal, bool showBoot) {
 #endif
   });
   static bool ledEvents = false;
-  if (!ledEvents) { WiFi.onEvent(onWifiLed); ledEvents = true; }
+  if (!ledEvents) {
+    WiFi.onEvent(onWifiLed);
+    WiFi.onEvent(onWifiDiag, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+    ledEvents = true;
+  }
   // A network chosen on the portal: joining it (a form without one is only
   // the server field, and joins nothing).
   wm.setPreSaveConfigCallback([]() {
@@ -1633,9 +1723,16 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   // boot art; the splash uses displayFrame directly without going through here.)
   freeScreenBuffers();
   RadioAwake radio;                          // full-power Wi-Fi for the transfer
-  HTTPClient http;
   String url = String(g_serverUrl) + path;
-  if (!http.begin(url)) return FETCH_ERROR;
+  // Our own client, as HTTPClient would make it (no CA: setInsecure), so a
+  // failed handshake's mbedTLS error can be read back (W-970). Declared
+  // before `http`, which stops it on the way out.
+  bool tls = strncmp(url.c_str(), "https://", 8) == 0;
+  NetworkClientSecure secure;
+  NetworkClient plain;
+  if (tls) secure.setInsecure();
+  HTTPClient http;
+  if (!http.begin(tls ? (NetworkClient&)secure : plain, url)) return FETCH_ERROR;
   http.setTimeout(HTTP_TIMEOUT_MS);
   http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
   http.setUserAgent("Featherframe-ESP32/1.0");
@@ -1674,11 +1771,19 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   // socket is open and the next plain check-in is a heartbeat N s away.
   if (g_alwaysAwake)
     http.addHeader("X-FF-Push", pushLive() ? String(FF_PUSH_HEARTBEAT_MS / 1000) : String("0"));
+  http.addHeader("X-FF-Diag", diagLine());          // what has been failing, if anything (W-970)
   const char* collect[] = {"ETag", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation", "X-FF-Mat"};
   http.collectHeaders(collect, 8);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
+  g_lastHttp = (int16_t)code;
+  g_lastTls = 0;
+  if (code < 0 && tls) {
+    char e[64];
+    g_lastTls = secure.lastError(e, sizeof(e));
+    if (g_lastTls) Serial.printf("TLS: %s\n", e);
+  }
   // The server announces which way up the frame hangs on every response;
   // remember it for the baked screens/tiles (the plates arrive already turned).
   String rot = http.header("X-FF-Rotation");
@@ -1886,6 +1991,7 @@ void noteFetchOutcome(FetchResult r) {
   if (r == FETCH_NOFRAME && pairingOnGlass()) return;   // paired; its picture is being drawn
   if (r == FETCH_STUCK) return;                         // the panel's, not the server's (X-Wake-Detail)
   bumpFail();
+  if (r == FETCH_ERROR) noteFailure();
   int kind = (WiFi.status() != WL_CONNECTED) ? ERRK_WIFI
            : r == FETCH_NOFRAME ? ERRK_NOFRAME
            : r == FETCH_PENDING ? ERRK_PENDING : ERRK_SERVER;
@@ -1987,6 +2093,7 @@ static bool resumeGlass(bool forcePortal) {
 // ---------------------------------------------------------------- setup
 void setup() {
   Serial.begin(115200);
+  diagBoot();
 #if FF_PANEL_RAIL_CUT
   panelRailRelease();   // held off through the last deep sleep
 #endif
@@ -2223,11 +2330,13 @@ static uint32_t pushRetryMs() { return FF_PUSH_RETRY_MS + (esp_random() % FF_PUS
 static void onPush(WStype_t type, uint8_t* payload, size_t len) {
   switch (type) {
     case WStype_CONNECTED:
+      if (g_wsOpens < 65535) g_wsOpens++;
       g_pushUp = true; g_pushTried = false;
       Serial.println("push: connected");
       break;
     case WStype_DISCONNECTED:
       if (g_pushUp) {
+        if (g_wsDrops < 65535) g_wsDrops++;
         // An open socket closed: ask now what the server makes of us, rather
         // than wait out the timer (removed → a pairing code; down → the first
         // of the failed checks that lead to the offline mark).

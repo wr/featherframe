@@ -190,6 +190,9 @@ class DeviceStatus:
     # (it polls as before); N > 0 = a socket is open and its next plain check-in
     # is N seconds away, a heartbeat — a change reaches it over the socket.
     push_s: Optional[int] = None
+    # X-FF-Diag (W-970): reset reason, uptime, heap, socket and Wi-Fi drops,
+    # and what the last failed fetches saw. Debug only; never on the page.
+    diag: Optional[str] = None
 
 
 # Plausible telemetry, (lo, hi). Values are device-reported over the LAN and
@@ -205,6 +208,7 @@ _DEVICE_RANGES = {
     "push_s": (0, 86400),
 }
 _DEVICE_STR_MAX = 120
+_DEVICE_STR_LIMITS = {"diag": 240}
 
 
 def _clean_device_fields(raw: Optional[dict]) -> dict:
@@ -226,7 +230,7 @@ def _clean_device_fields(raw: Optional[dict]) -> dict:
                 continue
             out[k] = f if k == "battery_voltage" else int(f)
         elif isinstance(v, str):
-            out[k] = v[:_DEVICE_STR_MAX] or None
+            out[k] = v[:_DEVICE_STR_LIMITS.get(k, _DEVICE_STR_MAX)] or None
     return out
 
 

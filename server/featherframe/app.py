@@ -277,6 +277,7 @@ def parse_checkin(headers) -> dict:
         "sketch_md5": _str_header(headers.get("x-ff-sketch-md5")),
         "last_wake": wake,
         "wake_detail": _str_header(headers.get("x-wake-detail")),
+        "diag": _str_header(headers.get("x-ff-diag"), 240),
         "boot_count": _ranged_int(headers.get("x-boot-count"), 0, 2**31),
         "refresh_count": _ranged_int(headers.get("x-refresh-count"), 0, 2**31),
         "panel": _str_header(headers.get("x-panel")),

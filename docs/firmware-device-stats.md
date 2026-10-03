@@ -218,6 +218,25 @@ is cosmetic — skip unless you expect more than one hardware variant.
 | `X-Boot-Count` / `X-Refresh-Count` | Refreshes | §5 |
 | `X-Panel` / `X-Board` | Panel / Board | §6 (optional) |
 | `X-Panel-Width` / `X-Panel-Height` / `X-Panel-Format` / `X-Panel-Rotations` | (what the server renders for) | see below |
+| `X-FF-Diag` | (none: `reported.diag`, debug) | see below |
+
+### Diagnostics (W-970)
+
+`X-FF-Diag` is kept on the frame's row as `reported.diag` (240 characters) and
+shown nowhere. It is there to explain a kit that stops reaching its server:
+
+`rst=panic up=812m heap=41/12/28k ws=14/13 wifi=2/200 ap=8c88/6 fail=7/-1/-30592 prev=812m/7/-1/-30592/12/8k`
+
+| Field | Meaning |
+|---|---|
+| `rst` | why this boot started: `power`, `ext`, `sw`, `panic`, `iwdt`, `twdt`, `wdt`, `sleep`, `brownout`, `usb`, `other` |
+| `up` | minutes since this boot |
+| `heap` | internal heap in KB: free now / lowest this boot / largest free block |
+| `ws` | push socket opens / drops this boot |
+| `wifi` | Wi-Fi disconnects this boot / the last one's 802.11 reason |
+| `ap` | the access point's BSSID (last two bytes) / channel |
+| `fail` | only on the first check-in after failed fetches: how many / HTTPClient's code (negative: no answer) / mbedTLS's error |
+| `prev` | only after a restart that kept RTC memory (not a power cut): the boot before's last failure, as uptime / fails / code / TLS error / lowest heap / largest block |
 
 ### The panel, as facts (W-813)
 

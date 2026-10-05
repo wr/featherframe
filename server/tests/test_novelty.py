@@ -269,10 +269,10 @@ class _Art(ArtProvider):
 _LEFT = (theme.CORNER_INSET, theme.MARKS_BASELINE - 40, theme.CORNER_INSET + 420, theme.MARKS_BASELINE + 8)
 
 
-def test_the_corner_names_the_artist_or_says_ai():
+def test_the_corner_names_the_artist_or_the_model():
     audubon = compose.render_single(_spec(), _Art(plate=159, artist="John James Audubon"))
     gould = compose.render_single(_spec(), _Art(plate=18, volume_no=2, artist="John Gould"))
-    ai = compose.render_single(_spec(), _Art(generated=True))
+    ai = compose.render_single(_spec(), _Art(generated=True, model="gpt-image-2.5-sunburst"))
     for img in (audubon, gould, ai):
         assert _ink(img, _LEFT) > 200
     assert len({img.crop(_LEFT).tobytes() for img in (audubon, gould, ai)}) == 3

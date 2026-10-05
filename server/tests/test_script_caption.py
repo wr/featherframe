@@ -182,8 +182,9 @@ def test_the_old_first_recorded_line_is_still_there_behind_the_theme_switch(monk
     assert compose.caption_height(2, first_ever=True) - compose.caption_height(2) == theme.LEGEND_PITCH
 
 
-# -- provenance (W-733): a generated plate carries ✦ before its number; a scan
-# does not, and the caption is the plate's own either way ---------------------
+# -- provenance (W-733, W-984): a generated sheet leads its maker's corner with
+# ✦ and its model, and has no number; a scan has neither, and the caption is
+# the plate's own either way ---------------------------------------------------
 def _provenance(monkeypatch, provider, **spec):
     seen = {}
 
@@ -192,7 +193,7 @@ def _provenance(monkeypatch, provider, **spec):
         seen["top"] = top_y
         return top_y
 
-    def mark_spy(field, right_x):
+    def mark_spy(field, right_x, baseline=theme.MARKS_BASELINE, size=theme.CORNER_SIZE):
         seen["mark_right"] = right_x
 
     monkeypatch.setattr(typography, "caption", caption_spy)
@@ -201,20 +202,30 @@ def _provenance(monkeypatch, provider, **spec):
     return seen
 
 
-def test_generated_art_gets_the_star_where_a_scan_has_its_number(monkeypatch):
+def test_generated_art_gets_the_star_in_the_makers_corner(monkeypatch):
     gen = _provenance(monkeypatch, _Art(Image.new("L", (600, 400), 255), LEGEND, generated=True))
     assert gen["lines"] == LEGEND                      # the caption is the plate's own
-    assert gen["mark_right"] == theme.WIDTH - theme.CORNER_INSET   # Audubon never numbered it
+    assert gen["mark_right"] < theme.WIDTH / 4         # the left corner, not the number's
     scan = _provenance(monkeypatch, _blank(LEGEND))
     assert "mark_right" not in scan
     assert scan["top"] == gen["top"]                   # and nothing moves
 
 
-def test_the_star_sits_on_the_marks_line_inside_the_panel():
-    out = compose.render_single(_spec(), _Art(Image.new("L", (600, 400), 255), LEGEND, generated=True))
-    y0, y1 = theme.MARKS_BASELINE - 30, theme.MARKS_BASELINE + 2
-    x1 = theme.WIDTH - theme.CORNER_INSET
-    assert _ink(out, (int(x1) - 30, y0, int(x1) + 1, y1)) > 60
+_LEFT = (theme.CORNER_INSET, theme.MARKS_BASELINE - 30, theme.CORNER_INSET + 420, theme.MARKS_BASELINE + 2)
+_RIGHT = (theme.WIDTH - theme.CORNER_INSET - 200, theme.MARKS_BASELINE - 30,
+          theme.WIDTH - theme.CORNER_INSET + 1, theme.MARKS_BASELINE + 8)
+
+
+def test_a_generated_sheet_names_its_model_and_has_no_number():
+    def gen(model):
+        class P(ArtProvider):
+            def artwork(self, c, s):
+                return Artwork(image=Image.new("L", (600, 400), 255), generated=True, plate=131,
+                               model=model)
+        return compose.render_single(_spec(), P())
+    named, bare = gen("gpt-image-2.5-sunburst"), gen(None)
+    assert _ink(named, _RIGHT) == 0 and _ink(bare, _RIGHT) == 0
+    assert _ink(named, _LEFT) > _ink(bare, _LEFT) > 60       # the star alone, with no model on record
 
 
 def test_fallback_plate_has_no_corner_number():

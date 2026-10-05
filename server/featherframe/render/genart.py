@@ -960,22 +960,14 @@ the id starts with rather than dropping the estimate."""
     return IMAGE_RATES_USD_PER_M[max(hit, key=len)] if hit else None
 
 
-def vendor_label(model: Optional[str]) -> Optional[str]:
-    """The name that goes on the plate's "Generated using …" line, from a
-    model id: the vendor when the id says so, else the id itself (a
-    Replicate or self-hosted model is best named by its model). None for
-    nothing."""
-    if not model:
-        return None
-    m = str(model).strip()
-    low = m.lower()
-    if low.startswith(("gpt-image", "dall-e", "openai/")):
-        return "OpenAI"
-    if low.startswith(("imagen", "gemini", "google/")):
-        return "Google"
-    if low.startswith("local:"):
-        return m[len("local:"):] or None
-    return m
+def model_slug(model: Optional[str]) -> Optional[str]:
+    """A model id as a generated sheet's corner names it (W-984): the id
+    after its last "/" (a Replicate owner off) and without a "local:"
+    prefix. None for nothing."""
+    m = str(model or "").strip().rsplit("/", 1)[-1].strip()
+    if m.lower().startswith("local:"):
+        m = m[len("local:"):].strip()
+    return m or None
 
 
 def estimate_cost_usd(model: str, usage: Optional[dict]) -> Optional[float]:
@@ -1996,17 +1988,19 @@ class GeneratedArtProvider(ArtProvider):
                     return None
         png = self._png(slug)
         return Artwork(image=img, composite=False, generated=True,
-                       generated_by=self._cached_vendor(slug), legend=self._cached_legend(slug),
+                       model=self._cached_model(slug), legend=self._cached_legend(slug),
                        color_loader=lambda: plate.extract_generated_color(png))
 
-    def _cached_vendor(self, slug: str) -> Optional[str]:
-        """Who drew the cached sheet, from the sidecar's model id, for the
-        plate's "Generated using …" line. None for a sidecar without one."""
+    def _cached_model(self, slug: str) -> Optional[str]:
+        """The model that drew the cached sheet, as its corner names it
+        (W-984): the sidecar's model id, without a Replicate owner
+        ("black-forest-labs/flux-kontext-pro" is "flux-kontext-pro"). None for
+        a sidecar without one."""
         try:
             meta = json.loads(self._sidecar(slug).read_text())
         except (OSError, ValueError):
             return None
-        return vendor_label(meta.get("model"))
+        return model_slug(meta.get("model"))
 
     def _cached_legend(self, slug: str) -> list[str]:
         """The sidecar's legend; a sidecar from before W-709 yields the plant

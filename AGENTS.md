@@ -521,14 +521,16 @@ the artist and "Plate CLIX" sit in the bottom corners. The left names who
 made the illustration, never when the species was heard (W-984): the folio
 header's `artist` up to its first comma (`SpeciesIndex.artist`, as
 `Artwork.artist`: "John James Audubon", "John and Elizabeth Gould"), or on a
-generated sheet `theme.GENERATED_BYLINE`, "AI illustration after Audubon".
+generated sheet a ✦ and the model that drew it in the engraved face
+(`Artwork.model`, the sidecar's id through `genart.model_slug`:
+"✦ gpt-image-2.5-sunburst"; the ✦ alone for a sidecar with no model).
 So a repeat of the species shown is the same sheet, and the gone-quiet
 footnote is what says a frame has gone stale. The right is the folio's own
 plate number (`Artwork.plate`, W-821; Havell's for
 an Audubon plate), "Plate" in
 the same script and the roman numeral in the engraved capitals, since a run
-of script capitals is unreadable. A generated sheet carries a ✦ there
-instead, and the bough of a species with no plate carries nothing in either. `theme.py` holds all geometry/tone constants.
+of script capitals is unreadable. A generated sheet has no number there, and
+the bough of a species with no plate carries nothing in either corner. `theme.py` holds all geometry/tone constants.
 
 **The plate library (W-842, `plate_library.py`)** is the scans' crops taken
 once: `library.json` (index.json's species, each naming its crop by

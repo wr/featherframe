@@ -83,9 +83,12 @@ MAX_VOLUME_PLATE = 110
 # The left mark names who made the illustration (W-984): its room is the
 # widest of these at CORNER_SIZE, and a longer name is set smaller, down to
 # ARTIST_MARK_MIN_SIZE.
-# A generated sheet says what it is there, on every frame that shows it.
-GENERATED_BYLINE = "AI illustration after Audubon"
-ARTIST_MARK_WIDEST = ("John and Elizabeth Gould", GENERATED_BYLINE)
+# A generated sheet says what it is there instead, on every frame that shows
+# it: a ✦ and the model that drew it ("✦ gpt-image-2.5-sunburst"), the id in
+# the engraved face, STAR_GAP (of the size) after the star.
+ARTIST_MARK_WIDEST = ("John and Elizabeth Gould",)
+MODEL_MARK_WIDEST = "gpt-image-2.5-sunburst"
+STAR_GAP = 0.30
 ARTIST_MARK_MIN_SIZE = 20
 CORNER_SEP = "·"               # between the parts of a footer line
 COLON_KERN = 0.0               # pulls the run after a colon in, fraction of size

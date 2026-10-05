@@ -314,29 +314,67 @@ def caption(field: Image.Image, top_y: float, common_name: str, scientific_name:
     return baseline
 
 
-def artist_mark(field: Image.Image, text: str) -> float:
-    """Who made the illustration, in the corner marks' script, tucked into the
-    bottom-left corner (W-984): the folio's artist on a scan ("John James
-    Audubon"), the disclosure on a generated sheet. It names the art, never
-    the detection, so a repeat of the species on show draws the same sheet.
-    A name wider than the widest folio's is set smaller, never into the
-    footnote's room. Returns the mark's width."""
+def artist_mark(field: Image.Image, text: str, star: bool = False) -> float:
+    """Who made the illustration, tucked into the bottom-left corner (W-984):
+    the folio's artist on a scan ("John James Audubon"), in the corner marks'
+    script; on a generated sheet a ✦ and the model that drew it
+    ("✦ gpt-image-2.5-sunburst"), the id in the engraved face, since it is a
+    name no hand ever wrote. It names the art, never the detection, so a
+    repeat of the species on show draws the same sheet. A mark wider than the
+    widest folio's is set smaller, never into the footnote's room. Returns
+    the mark's width."""
     size = theme.CORNER_SIZE
     while size > theme.ARTIST_MARK_MIN_SIZE and \
-            script_width(text, size) > artist_mark_max_width():
+            _artist_mark_width(text, star, size) > artist_mark_max_width():
         size -= 1
+    x = theme.CORNER_INSET
+    if star:
+        x += _star_width(size)
+        generated_mark(field, x, size=size)
+        if not text:
+            return x - theme.CORNER_INSET
+        x += size * theme.STAR_GAP
+        font = engraved(_model_size(size))
+        if font is not None:
+            ImageDraw.Draw(field).text((x, theme.MARKS_BASELINE), text, font=font,
+                                       fill=theme.INK_MEDIUM, anchor="ls")
+            return x + _len(font, text) - theme.CORNER_INSET
+        return x - theme.CORNER_INSET + draw_script(
+            field, x, theme.MARKS_BASELINE, text, size, theme.INK_MEDIUM,
+            stroke=theme.LEGEND_STROKE, anchor="ls")
     # A script capital's swash reaches back past its own origin (the J of
     # John): start the ink, not the origin, at the inset.
     overhang = max(0.0, -script_font(size).getbbox(text[:1], anchor="ls")[0]) + theme.LEGEND_STROKE
-    return overhang + draw_script(field, theme.CORNER_INSET + overhang, theme.MARKS_BASELINE,
+    return overhang + draw_script(field, x + overhang, theme.MARKS_BASELINE,
                                   text, size, theme.INK_MEDIUM, stroke=theme.LEGEND_STROKE,
                                   anchor="ls")
+
+
+def _star_width(size: float) -> float:
+    return size * 0.80                                   # generated_mark's 2r
+
+
+def _model_size(size: float) -> int:
+    """The model id's engraved size beside the corner script at `size`, in
+    the ratio "Plate" keeps to its numeral."""
+    return max(12, round(size * theme.PLATE_NUMERAL_SIZE / theme.CORNER_SIZE))
+
+
+def _artist_mark_width(text: str, star: bool, size: int) -> float:
+    if not star:
+        return script_width(text, size)
+    if not text:
+        return _star_width(size)
+    font = engraved(_model_size(size))
+    tw = _len(font, text) if font is not None else script_width(text, size)
+    return _star_width(size) + size * theme.STAR_GAP + tw
 
 
 @lru_cache(maxsize=1)
 def artist_mark_max_width() -> float:
     """The room the left mark may take: the widest it is ever set."""
-    return max(script_width(t, theme.CORNER_SIZE) for t in theme.ARTIST_MARK_WIDEST)
+    return max(max(script_width(t, theme.CORNER_SIZE) for t in theme.ARTIST_MARK_WIDEST),
+               _artist_mark_width(theme.MODEL_MARK_WIDEST, True, theme.CORNER_SIZE))
 
 
 def roman(n: int) -> str:
@@ -435,8 +473,9 @@ def generated_mark(field: Image.Image, right_x: float,
                    baseline: float = theme.MARKS_BASELINE, size: float = theme.CORNER_SIZE) -> None:
     """A four-point star (✦) in the corner marks' ink, its right edge at
     `right_x`, on the marks' line (or the line at `baseline`, set at `size`):
-    this sheet was generated. Audubon never numbered it, so the star has the
-    corner to itself."""
+    this sheet was generated. On a single sheet it leads the maker's corner,
+    before the model's id (W-984); a generated collage sets it at the end of
+    its date line."""
     r = size * 0.40
     cx, cy = right_x - r, baseline - size * 0.36
     k = 0.28                                            # waist of the four points

@@ -692,6 +692,9 @@ class FeatherframeService:
         self._color_asked_at: Optional[datetime] = None   # cache of the DB's color_viewer_at
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        # Whether the scheduler ticks on its own clock; a hosted server's
+        # ticks are asked for by its front door (W-985).
+        self.ticks_itself = True
 
         # Background regenerations (config page). The page polls the listing
         # for this state, so it must be readable from any thread — and it is
@@ -860,6 +863,12 @@ class FeatherframeService:
         except Exception:  # never let the loop die
             log.exception("initial frame failed")
         while not self._stop.is_set():
+            if not self.ticks_itself:
+                # Hosted: the front door is the clock. Each wake asks for one
+                # tick (POST /api/hosted/run), and a tick every POLL_SECONDS
+                # while a wake is up would buy CPU and a sync apiece (W-985).
+                self._stop.wait()
+                break
             try:
                 self.tick()
             except Exception:

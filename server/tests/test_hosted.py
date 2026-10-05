@@ -103,6 +103,80 @@ def test_the_data_dir_comes_down_and_only_what_changed_goes_back(env):
     assert link.push() == 0 and door.state.calls == []
 
 
+def _write(data, rel, body):
+    (data / rel).parent.mkdir(parents=True, exist_ok=True)
+    (data / rel).write_bytes(body)
+
+
+def test_small_files_travel_as_a_few_archives(env, tmp_path):
+    """W-985: a start fetched ~85 small files one request apiece."""
+    door, link, data = env
+    link.pull()
+    _write(data, "generated/blue-jay.json", b"{}")
+    _write(data, "generated/thumbs/blue-jay.jpg", b"thumb")
+    _write(data, "bluenoise64.npy", b"noise")
+    _write(data, "frames/history/0123456789abcdef.png", b"past")
+    _write(data, "frames/out/x.fff", b"FFF1")                    # the front door reads it
+    _write(data, "frames/pictures/plates/sheet.png", b"sheet")   # changes with every picture
+    _write(data, "big.npy", b"x" * (hosted.BUNDLE_MAX_BYTES + 1))
+    door.state.calls.clear()
+    link.push()
+    assert sorted(door.state.calls) == [("PUT", "big.npy"), ("PUT", "bundles/files.tar"),
+                                        ("PUT", "bundles/history.tar"), ("PUT", "frames/out/x.fff"),
+                                        ("PUT", "frames/pictures/plates/sheet.png")]
+    # A new Container gets them all back, one request per archive.
+    fresh = tmp_path / "fresh"
+    link2 = hosted.HostedLink("http://door/h", "k", fresh, session=TestClient(door))
+    door.state.calls.clear()
+    link2.pull()
+    assert sorted(c for c in door.state.calls if c[1].startswith("bundles/")) == [
+        ("GET", "bundles/files.tar"), ("GET", "bundles/history.tar")]
+    assert len(door.state.calls) == 5
+    for rel in ("generated/blue-jay.json", "generated/thumbs/blue-jay.jpg", "bluenoise64.npy",
+                "frames/history/0123456789abcdef.png", "big.npy", "frames/out/x.fff"):
+        assert (fresh / rel).read_bytes() == (data / rel).read_bytes()
+    # A new picture's history PNG sends that archive again, not the rest.
+    _write(fresh, "frames/history/fedcba9876543210.png", b"newer")
+    door.state.calls.clear()
+    assert link2.push() == 1
+    assert door.state.calls == [("PUT", "bundles/history.tar")]
+    door.state.calls.clear()
+    assert link2.push() == 0 and door.state.calls == []
+    # A file removed leaves its archive; an archive left empty goes.
+    (fresh / "frames/history/0123456789abcdef.png").unlink()
+    (fresh / "frames/history/fedcba9876543210.png").unlink()
+    link2.push()
+    assert "bundles/history.tar" not in door.state.files
+
+
+def test_files_sent_one_by_one_before_are_sent_in_an_archive_and_removed(env):
+    """A household from before W-985: its small files are each their own
+    object. They come down as before, then go back as an archive, and the
+    single copies are removed after it."""
+    door, link, data = env
+    door.state.files = {"generated/blue-jay.json": b"{}", "collages/2026-10-01.json": b"[]"}
+    link.pull()
+    door.state.calls.clear()
+    link.push()
+    assert door.state.calls[0] == ("PUT", "bundles/files.tar")
+    assert sorted(door.state.calls[1:]) == [("DELETE", "collages/2026-10-01.json"),
+                                            ("DELETE", "generated/blue-jay.json")]
+    assert set(door.state.files) == {"bundles/files.tar"}
+
+
+def test_an_archive_wins_over_a_file_of_the_same_path(env, tmp_path):
+    """A push stopped between sending an archive and removing the single
+    copies it replaced leaves both: the archive is the newer."""
+    door, link, data = env
+    _write(data, "generated/blue-jay.json", b"new")
+    link.pull()
+    link.push()
+    door.state.files["generated/blue-jay.json"] = b"old"
+    fresh = tmp_path / "fresh"
+    hosted.HostedLink("http://door/h", "k", fresh, session=TestClient(door)).pull()
+    assert (fresh / "generated/blue-jay.json").read_bytes() == b"new"
+
+
 def test_a_path_from_the_front_door_stays_inside_the_data_dir(env):
     door, link, data = env
     door.state.files = {"../escape.txt": b"no", "ok.txt": b"yes"}
@@ -463,6 +537,7 @@ def test_a_start_leaves_what_is_read_one_at_a_time_at_the_front_door(env):
     assert link.pull() == len(_LAZY_FILES) - len(_WAITING)
     for rel in _LAZY_FILES:
         assert (data / rel).exists() is (rel not in _WAITING), rel
+    link.push()                    # the small files go back as archives (W-985)
     # Nothing changed: a push sends nothing, reads nothing back, and drops
     # nothing that waits at the front door.
     door.state.calls.clear()
@@ -472,7 +547,7 @@ def test_a_start_leaves_what_is_read_one_at_a_time_at_the_front_door(env):
         assert link.push() == 0 and door.state.calls == []
     finally:
         hosted._sha = real_sha
-    assert set(door.state.files) == set(_LAZY_FILES)
+    assert _WAITING <= set(door.state.files)
 
 
 def test_a_waiting_file_is_seen_fetched_and_removed_like_any_other(env):
@@ -485,6 +560,7 @@ def test_a_waiting_file_is_seen_fetched_and_removed_like_any_other(env):
     assert [p.name for p in hosted.glob(days, "*.png")] == ["2026-09-21.png"]
     hist = data / "frames" / "history" / "aaaaaaaaaaaaaaaa.jpg"
     assert hosted.local(hist).read_bytes() == b"full"
+    link.push()                    # the small files go back as archives (W-985)
     door.state.calls.clear()
     assert link.push() == 0 and door.state.calls == []        # fetched, not changed
     hosted.remove(days / "2026-09-21.png")                      # never fetched, removed
@@ -556,7 +632,8 @@ def test_an_illustration_the_front_door_cannot_hand_over_is_not_bought(env, monk
     gen = genart.GeneratedArtProvider(_NoPurchase())
     assert gen.artwork("Blue Jay", "Cyanocitta cristata") is None     # the fallback, this once
     link.push()
-    assert {"generated/cyanocitta-cristata.png", "generated/cyanocitta-cristata.json"} <= set(door.state.files)
+    assert "generated/cyanocitta-cristata.png" in door.state.files
+    assert "generated/cyanocitta-cristata.json" in hosted._untar(door.state.files["bundles/files.tar"])
 
 
 def test_a_detection_handed_over_by_a_wake_does_not_sync_on_its_own(env, monkeypatch):
@@ -578,6 +655,32 @@ def test_a_detection_handed_over_by_a_wake_does_not_sync_on_its_own(env, monkeyp
     # A change made on the page still reaches the front door at once.
     assert client.post("/api/ingest/token", headers={"X-FF-Hosted": "1"}).status_code < 400
     assert settled
+
+
+def test_a_wake_ticks_and_syncs_once(env, monkeypatch):
+    """W-985: the wake's tick syncs through its own hook; the request that
+    asked for it does not sync again, and the scheduler does not tick on a
+    clock of its own while the wake is up."""
+    from featherframe.app import app
+    door, link, data = env
+    svc = _service()
+    svc.ticks_itself = False
+    ticks, settled = [], []
+    real_tick = svc.tick
+    monkeypatch.setattr(svc, "tick", lambda: (ticks.append(1), real_tick())[1])
+    monkeypatch.setattr(link, "settle", lambda *a, **kw: settled.append(1))
+    monkeypatch.setattr(link, "take", lambda *a, **kw: None)
+    svc.after_tick.append(lambda: link.settle(svc))
+    monkeypatch.setattr(app.state, "service", svc, raising=False)
+    monkeypatch.setattr(app.state, "hosted", link, raising=False)
+    svc._etag = "resident"                       # the start's own first picture is drawn
+    svc.start()
+    try:
+        assert TestClient(app).post("/api/hosted/run").status_code == 200
+        svc._stop.wait(0.2)
+        assert ticks == [1] and settled == [1]
+    finally:
+        svc.stop(1)
 
 
 # -- stopped only when idle (W-917) ------------------------------------------------

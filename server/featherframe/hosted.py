@@ -26,14 +26,26 @@ one at a time — a generated illustration, a day's collage sheet, a kept
 collage, a past picture full size, a firmware image — stay at the front door
 until then: `local()` fetches one, `exists()`, `glob()` and `remove()` see the
 ones still there. Off hosted each is the plain filesystem call.
+
+The small files a start does read (sidecars, thumbnails, history's PNGs, the
+caches) travel as a few archives, `bundles/*.tar`, one request each way
+apiece instead of one per file (W-985): ~85 requests a start became ~15.
+History's PNGs, which change with every picture, have an archive of their
+own, so the rest is sent again only when one of them changes. What the front
+door serves itself (`frames/out/`, `frames/views/`), the pictures, the
+database and anything over BUNDLE_MAX_BYTES stay files of their own. An
+archive is newer than a file of the same path at the front door: the push
+sends the archives before it removes what they replaced.
 """
 from __future__ import annotations
 
 import fnmatch
 import hashlib
+import io
 import logging
 import os
 import sqlite3
+import tarfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -66,6 +78,49 @@ def is_lazy(rel: str) -> bool:
     return "/thumbs/" not in rel and any(rel.startswith(d) and rel.endswith(s) for d, s in _LAZY)
 
 
+# The archives the small files travel in (W-985), by the folder they are in;
+# the rest go in REST_BUNDLE.
+BUNDLE_DIR = "bundles/"
+BUNDLE_MAX_BYTES = 256 * 1024
+REST_BUNDLE = BUNDLE_DIR + "files.tar"
+_BUNDLES = (("frames/history/", BUNDLE_DIR + "history.tar"),)
+# Files of their own whatever their size: what the front door reads itself,
+# and the pictures, which change with every one.
+_OWN_FILES = ("frames/out/", "frames/views/", "frames/pictures/", BUNDLE_DIR)
+
+
+def bundle_of(rel: str, size: int) -> Optional[str]:
+    """The archive `rel` travels in, or None for a file of its own."""
+    if rel == DB_NAME or is_lazy(rel) or size > BUNDLE_MAX_BYTES or rel.startswith(_OWN_FILES):
+        return None
+    return next((name for prefix, name in _BUNDLES if rel.startswith(prefix)), REST_BUNDLE)
+
+
+def _tar(files: dict[str, Path]) -> bytes:
+    """An archive of `files` (path in the data dir -> file), the same bytes
+    for the same contents: sorted, and no times or owners."""
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w", format=tarfile.GNU_FORMAT) as tar:
+        for rel in sorted(files):
+            body = files[rel].read_bytes()
+            info = tarfile.TarInfo(rel)
+            info.size, info.mode, info.mtime = len(body), 0o644, 0
+            tar.addfile(info, io.BytesIO(body))
+    return out.getvalue()
+
+
+def _untar(body: bytes) -> dict[str, bytes]:
+    """An archive's files, by path; anything but a plain file is skipped."""
+    out = {}
+    with tarfile.open(fileobj=io.BytesIO(body), mode="r:") as tar:
+        for info in tar:
+            if info.isfile():
+                f = tar.extractfile(info)
+                if f is not None:
+                    out[info.name] = f.read()
+    return out
+
+
 def config_from_env() -> Optional[tuple[str, str]]:
     """(base URL, key) when this server is a hosted household's."""
     base = os.environ.get("FEATHERFRAME_HOSTED_URL", "").strip().rstrip("/")
@@ -89,6 +144,7 @@ class HostedLink:
         self.http = session or requests.Session()
         self.http.headers["Authorization"] = f"Bearer {key}"
         self._remote: dict[str, str] = {}              # path -> sha, as the front door has it
+        self._bundles: dict[str, dict[str, str]] = {}  # archive -> {path: sha} it holds there
         self._stat: dict[str, tuple] = {}              # path -> (size, mtime_ns, sha)
         self._lazy: set[str] = set()                   # at the front door, not fetched yet
         self._lock = threading.RLock()                 # one sync at a time
@@ -104,9 +160,15 @@ class HostedLink:
             r = self.http.get(self._url("files"), timeout=TIMEOUT_S)
             r.raise_for_status()
             remote = dict(r.json().get("files") or {})
+            self._bundles, bundled = {}, set()
+            for name in sorted(n for n in remote if n.startswith(BUNDLE_DIR)):
+                got = self.http.get(self._url("files/" + quote(name)), timeout=TIMEOUT_S)
+                got.raise_for_status()
+                self._bundles[name] = self._unpack(_untar(got.content))
+                bundled |= set(self._bundles[name])
             todo, lazy = [], set()
             for rel, sha in remote.items():
-                if not _safe(rel):
+                if not _safe(rel) or rel.startswith(BUNDLE_DIR) or rel in bundled:
                     continue
                 dest = self.data_dir / rel
                 if dest.exists() and _sha(dest) == sha:
@@ -120,9 +182,27 @@ class HostedLink:
             with ThreadPoolExecutor(max_workers=PULL_WORKERS) as pool:
                 list(pool.map(lambda job: self._fetch(*job), todo))
             self._remote, self._lazy = remote, lazy
-            log.info("hosted: pulled %d of %d files (%d left until read)",
-                     len(todo), len(remote), len(lazy))
+            log.info("hosted: pulled %d of %d files and %d in %d archive(s) (%d left until read)",
+                     len(todo), len(remote), len(bundled), len(self._bundles), len(lazy))
             return len(todo)
+
+    def _unpack(self, files: dict[str, bytes]) -> dict[str, str]:
+        """Write an archive's files into the data dir; {path: sha} of them."""
+        held = {}
+        for rel, body in files.items():
+            if not _safe(rel):
+                continue
+            sha = hashlib.sha256(body).hexdigest()
+            dest = self.data_dir / rel
+            if not (dest.exists() and _sha(dest) == sha):
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                tmp = dest.with_name(dest.name + ".tmp")
+                tmp.write_bytes(body)
+                os.replace(tmp, dest)
+            st = dest.stat()
+            self._stat[rel] = (st.st_size, st.st_mtime_ns, sha)
+            held[rel] = sha
+        return held
 
     def _fetch(self, rel: str, sha: str) -> None:
         got = self.http.get(self._url("files/" + quote(rel)), timeout=TIMEOUT_S)
@@ -207,10 +287,35 @@ class HostedLink:
         is gone. Returns the number of files written or removed."""
         with self._lock:
             local = self._local()
-            n = 0
+            own: dict[str, tuple[Path, str]] = {}
+            groups: dict[str, dict[str, tuple[Path, str]]] = {}
             for rel, p in local.items():
                 self._lazy.discard(rel)           # written here since: this copy is the one
                 sha = self._hash(rel, p)
+                name = bundle_of(rel, p.stat().st_size)
+                (groups.setdefault(name, {}) if name else own)[rel] = (p, sha)
+            n = 0
+            # The archives first: one replaces the files of its own it held
+            # before (the removals below), never the other way round.
+            for name in sorted(set(groups) | set(self._bundles)):
+                want = {rel: sha for rel, (_, sha) in groups.get(name, {}).items()}
+                if want == self._bundles.get(name):
+                    continue
+                if want:
+                    body = _tar({rel: p for rel, (p, _) in groups[name].items()})
+                    sha = hashlib.sha256(body).hexdigest()
+                    r = self.http.put(self._url("files/" + quote(name)), data=body,
+                                      headers={"X-SHA256": sha}, timeout=TIMEOUT_S)
+                    r.raise_for_status()
+                    self._remote[name], self._bundles[name] = sha, want
+                else:
+                    r = self.http.delete(self._url("files/" + quote(name)), timeout=TIMEOUT_S)
+                    if r.status_code not in (200, 204, 404):
+                        r.raise_for_status()
+                    self._remote.pop(name, None)
+                    self._bundles.pop(name, None)
+                n += 1
+            for rel, (p, sha) in own.items():
                 if self._remote.get(rel) == sha:
                     continue
                 r = self.http.put(self._url("files/" + quote(rel)), data=p.read_bytes(),
@@ -218,12 +323,15 @@ class HostedLink:
                 r.raise_for_status()
                 self._remote[rel] = sha
                 n += 1
-            for rel in [r for r in self._remote if r not in local and r not in self._lazy]:
+            # Gone here, or sent in an archive now: the file of its own goes.
+            for rel in [r for r in self._remote
+                        if r not in own and r not in self._bundles and r not in self._lazy]:
                 r = self.http.delete(self._url("files/" + quote(rel)), timeout=TIMEOUT_S)
                 if r.status_code not in (200, 204, 404):
                     r.raise_for_status()
                 self._remote.pop(rel, None)
-                self._stat.pop(rel, None)
+                if rel not in local:
+                    self._stat.pop(rel, None)
                 n += 1
             if n:
                 log.info("hosted: pushed %d change(s)", n)

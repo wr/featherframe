@@ -66,7 +66,7 @@ describe("signing up", () => {
     expect(r.confirmed_at).toBeNull();
     expect(r.source).toBe("site");
     expect(mails).toHaveLength(1);
-    expect(mails[0].subject).toBe("Confirm your Featherframe updates");
+    expect(mails[0].subject).toBe("Confirm your email for Featherframe updates");
     const link = linkIn(mails[0].text);
     expect(link.pathname).toBe("/api/waitlist/confirm");
     // Only a hash is kept.
@@ -143,7 +143,7 @@ describe("confirming", () => {
     await signUp("i@example.com");
     const link = linkIn(mails[0].text);
     const ok = await confirmWaitlist(env, link);
-    expect(await ok.text()).toContain("I'll write once, when the frames have shipped.");
+    expect(await ok.text()).toContain("You're signed up");
     const r = row("i@example.com");
     expect(r.confirmed_at).not.toBeNull();
     expect(r.token_hash).toBeNull();

@@ -160,8 +160,8 @@ export function waitlistThanksPage(error = "", status = 400): Response {
 }
 
 export function waitlistConfirmedPage(): Response {
-  return page("You're on the list · Featherframe", `<h1>You're on the list</h1>
-    <p>I'll write once, when the frames have shipped.</p><p><a href="https://featherframe.app">Back to Featherframe</a></p>`);
+  return page("You're signed up · Featherframe", `<h1>You're signed up</h1>
+    <p><a href="https://featherframe.app">Back to Featherframe</a></p>`);
 }
 
 export function waitlistExpiredPage(): Response {
@@ -172,21 +172,18 @@ export function waitlistExpiredPage(): Response {
 export function waitlistConfirmEmail(link: string): { subject: string; text: string; html: string } {
   const l = escapeHtml(link);
   return {
-    subject: "Confirm your Featherframe updates",
-    text: `Someone asked for Featherframe updates at this address. To confirm it was you, open this link:
+    subject: "Confirm your email for Featherframe updates",
+    text: `Someone signed up for Featherframe updates with this address. To confirm it was you, open this link:
 
 ${link}
 
-I'll write once, when the frames have shipped.
+If it wasn't you, ignore this email and you won't hear from us again. The link works for 7 days.
 
-If it wasn't you, ignore this email and you won't hear from me again. The link works for 7 days.
-
-Wells`,
-    html: `<p>Someone asked for Featherframe updates at this address. To confirm it was you:</p>
+Featherframe`,
+    html: `<p>Someone signed up for Featherframe updates with this address. To confirm it was you:</p>
 <p><a href="${l}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#6b4a2c;color:#f7efe2;font-weight:600;text-decoration:none">Confirm</a></p>
-<p>I'll write once, when the frames have shipped.</p>
-<p style="color:#827e76">If it wasn't you, ignore this email and you won't hear from me again. The link works for 7 days.</p>
-<p>Wells</p>`,
+<p style="color:#827e76">If it wasn't you, ignore this email and you won't hear from us again. The link works for 7 days.</p>
+<p>Featherframe</p>`,
   };
 }
 

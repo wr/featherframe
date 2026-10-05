@@ -107,6 +107,40 @@ describe("SleepingContainer", () => {
     await box.stop();
     expect(c.signals).toEqual([]);
   });
+
+  // A pending timer keeps a Durable Object from hibernating, so it is billed
+  // until the timer fires: the grace left running cost a minute of the
+  // server's object after every stop (W-986).
+  it("leaves no timer behind once the process has exited", async () => {
+    vi.useFakeTimers();
+    try {
+      const c = fakeContainer();
+      const box = new Lobby({ container: c } as never, {} as never);
+      const stopping = box.stop();
+      c.exit();
+      await stopping;
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("destroys a process that outlives the grace", async () => {
+    vi.useFakeTimers();
+    try {
+      const c = fakeContainer();
+      const box = new Lobby({ container: c } as never, {} as never);
+      const stopping = box.stop();
+      await vi.advanceTimersByTimeAsync(59_000);
+      expect(c.destroyed).toBe(0);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await stopping;
+      expect(c.destroyed).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 // The activity timeout runs from a request's start, so a tick longer than it

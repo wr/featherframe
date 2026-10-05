@@ -518,9 +518,13 @@ Latin name, and the plate's own legend lines from
 per Havell plate; `featherframe/legends.py` reduces a composite sheet to the
 detected species' line);
 the artist and "Plate CLIX" sit in the bottom corners. The left names who
-made the illustration, never when the species was heard (W-984): the folio
-header's `artist` up to its first comma (`SpeciesIndex.artist`, as
-`Artwork.artist`: "John James Audubon", "John and Elizabeth Gould"), or on a
+made the illustration, never when the species was heard (W-984): who drew
+that plate, by its own credit line as the open dataset reads it
+(`featherframe/credits.py`, `plate_credits.json` written from each folio's
+`credits.csv` by `export_dataset.py credits`, which `check` holds to the
+dataset; as `Artwork.artist`: "John James Audubon", "Lucy Audubon" on Havell
+64, "Edward Lear", "John & Elizabeth Gould", "John Gould & H. C. Richter"),
+nothing on a plate whose credit line was not read, or on a
 generated sheet a ✦ and the model that drew it in the engraved face
 (`Artwork.model`, the sidecar's id through `genart.model_slug`:
 "✦ gpt-image-2.5-sunburst"; the ✦ alone for a sidecar with no model).
@@ -774,6 +778,10 @@ Container restarts); D1 schema in `hosted/migrations/`.
   tables lead with `volume` and key a plate by volume and number; Australia's
   record is `docs/gould-australia/`, Britain's is the survey (only its pins are
   caption-checked; the rest is published as open). Asia is exported too (W-871).
+  The dataset is where each plate's credit lines are read (`imprint`, parsed
+  into `credits.csv`); Featherframe ships the "drew" credits as
+  `featherframe/plate_credits.json` for the illustration's corner: after the
+  credits change there, run `export_dataset.py credits DATASET_DIR`.
   `gould_asia.yaml` is Gould's *Birds of Asia* (W-871, numbered per volume;
   the record is `docs/gould-asia/`): no pencil numbers, so each plate was
   paired by the text leaf bound after it, which names the species. 16% of its

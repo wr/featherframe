@@ -86,7 +86,7 @@ MAX_VOLUME_PLATE = 110
 # A generated sheet says what it is there instead, on every frame that shows
 # it: a ✦ and the model that drew it ("✦ gpt-image-2.5-sunburst"), the id in
 # the engraved face, STAR_GAP (of the size) after the star.
-ARTIST_MARK_WIDEST = ("John and Elizabeth Gould",)
+ARTIST_MARK_WIDEST = ("Joseph Wolf & H. C. Richter",)   # the widest credit on 2+ plates
 MODEL_MARK_WIDEST = "gpt-image-2.5-sunburst"
 STAR_GAP = 0.30
 ARTIST_MARK_MIN_SIZE = 20

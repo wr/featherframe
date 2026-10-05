@@ -26,6 +26,8 @@ It works with [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), [BirdNET-
 
 ## Shopping list
 
+Rather not build one? A [finished Featherframe](https://shop.wells.ee/products/featherframe/?ref=gh-featherframe) comes framed in walnut with the firmware installed.
+
 - **[Seeed XIAO ePaper DIY Kit EE03](https://www.seeedstudio.com/XIAO-ePaper-DIY-Kit-EE03-for-10-3-Monochrome-ePaper-Display.html?sensecap_affiliate=aVzGKGh)**: 10.3", grayscale. Or the **[EE02](https://www.seeedstudio.com/XIAO-ePaper-DIY-Kit-EE02-for-13-3-Spectratm-6-E-Ink.html?sensecap_affiliate=aVzGKGh)** kit: 13.3", color.
 - **[A frame](https://amzn.to/3V1nJFo)**
 - **A USB-C power supply**

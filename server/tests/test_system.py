@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw
 
 from featherframe.render import compose, system, theme, typography, welcome
 from featherframe.render.compose import SingleSpec
-from featherframe.render.genart import vendor_label
+from featherframe.render.genart import model_slug
 from featherframe.render.provider import ArtProvider, Artwork
 
 
@@ -61,7 +61,7 @@ def test_note_pill_sits_between_the_corner_marks():
 
     out = compose.render_single(spec, _Blank())
     marks = _field()
-    typography.artist_mark(marks, theme.GENERATED_BYLINE); typography.plate_mark(marks, 388)
+    typography.artist_mark(marks, theme.MODEL_MARK_WIDEST, star=True); typography.plate_mark(marks, 388)
     only = _field(); typography.note_line(only, spec.note, max_w=compose.note_width(), kind="quiet")
     note_px = np.asarray(only) < 128
     assert note_px.any() and not ((np.asarray(marks) < 128) & note_px).any()
@@ -105,9 +105,8 @@ def test_welcome_uses_the_system_voice_not_the_script():
     assert _ink(down, (0, theme.HEIGHT - 80, 300, theme.HEIGHT)) == 0
 
 
-def test_vendor_label_names_the_drawer():
-    assert vendor_label("gpt-image-2.5-sunburst") == "OpenAI"
-    assert vendor_label("imagen-4.0") == "Google"
-    assert vendor_label("black-forest-labs/flux-1.1-pro") == "black-forest-labs/flux-1.1-pro"
-    assert vendor_label("local:sdxl") == "sdxl"
-    assert vendor_label(None) is None and vendor_label("") is None
+def test_the_corner_names_the_model_by_its_id():
+    assert model_slug("gpt-image-2.5-sunburst") == "gpt-image-2.5-sunburst"
+    assert model_slug("black-forest-labs/flux-1.1-pro") == "flux-1.1-pro"
+    assert model_slug("local:sdxl") == "sdxl"
+    assert model_slug(None) is None and model_slug("") is None

@@ -44,9 +44,10 @@ def test_a_havell_plate_carries_its_number():
     assert _right_corner_ink(other) > _right_corner_ink(numbered)     # a longer numeral
 
 
-def test_a_generated_plate_carries_the_star_alone_and_a_bough_nothing():
-    star = _right_corner_ink(compose.render_single(SPEC, _Art(plate=None, generated=True)))
-    assert 0 < star < _right_corner_ink(compose.render_single(SPEC, _Art(plate=1)))
+def test_a_generated_plate_and_a_bough_carry_no_number():
+    """A generated sheet's ✦ leads its maker's corner (W-984): the number's
+    corner is empty, as on the bough of a species with no plate."""
+    assert _right_corner_ink(compose.render_single(SPEC, _Art(plate=None, generated=True))) == 0
     assert _right_corner_ink(compose.render_single(SPEC, _Art(plate=None))) == 0
 
 

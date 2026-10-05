@@ -197,16 +197,16 @@ def _render_art(spec: SingleSpec, art: Artwork, color: bool = False) -> Image.Im
 
     typography.caption(field, caption_top, spec.common_name, spec.scientific_name, lines)
     # The corners say where the sheet came from, never when the species was
-    # heard (W-984): the artist and the folio's own plate number on a scan;
-    # the disclosure and a ✦ on a generated sheet, which never passes as one
-    # (W-733). The bough of a species with no plate at all carries neither.
-    byline = theme.GENERATED_BYLINE if art.generated else art.artist
-    if byline:
-        typography.artist_mark(field, byline)
-    if art.plate:
+    # heard (W-984): the artist and the folio's own plate number on a scan; a
+    # ✦ and the model that drew it on a generated sheet, which never passes
+    # as a plate (W-733) and has no number. The bough of a species with no
+    # plate at all carries neither.
+    if art.generated:
+        typography.artist_mark(field, art.model or "", star=True)
+    elif art.artist:
+        typography.artist_mark(field, art.artist)
+    if art.plate and not art.generated:
         typography.plate_mark(field, art.plate, art.volume_no)
-    elif art.generated:
-        typography.generated_mark(field, theme.WIDTH - theme.CORNER_INSET)
     if spec.first_ever and not first_line:
         typography.first_ever_rule(field)
     if spec.note:

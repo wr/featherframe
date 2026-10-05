@@ -44,6 +44,7 @@ export interface Env {
   ADMIN_TOKEN: string;    // secret
   ADMIN_EMAILS: string;   // secret: who sees /admin, comma separated
   RESEND_API_KEY: string; // secret
+  TURNSTILE_SECRET: string; // secret: the waitlist form's Turnstile widget (W-991)
   CF_ACCOUNT_ID: string;  // the admin page's usage meters (W-860)
   CF_API_TOKEN: string;   // secret: Account Analytics Read, for the same
   RL_AUTH?: RateLimit;    // unused: sign-in and setup go to LIMITER, which is exact

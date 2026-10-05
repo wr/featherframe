@@ -247,7 +247,31 @@ async function gather(env: Env): Promise<AdminData> {
 
 // -- the marketing page's form ---------------------------------------------------
 // featherframe.app posts here: a plain form (answered with a page) or JSON from
-// its script (answered with JSON, with CORS for that origin).
+// its script (answered with JSON, with CORS for that origin). Every sign-up
+// carries a Cloudflare Turnstile token (W-991): a bot was signing real people's
+// addresses up, so each was emailed a link it never asked for.
+
+const SITEVERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+export const TURNSTILE_ACTION = "waitlist";
+
+/** Whether Turnstile passed this token, issued for the form's own action. */
+export async function turnstilePassed(env: Env, token: string, ip: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const r = await fetch(SITEVERIFY, {
+      method: "POST",
+      body: new URLSearchParams({ secret: env.TURNSTILE_SECRET || "", response: token, remoteip: ip }),
+      signal: AbortSignal.timeout(5000),
+    });
+    const out = await r.json<{ success?: boolean; action?: string; "error-codes"?: string[] }>();
+    if (!out.success) console.log("turnstile", out["error-codes"]);
+    return out.success === true && out.action === TURNSTILE_ACTION;
+  } catch (e) {
+    console.error("turnstile", e);
+    return false;
+  }
+}
+
 export async function waitlistRoute(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin") || "";
   const allowed = [`https://${env.ZONE}`, `https://www.${env.ZONE}`].includes(origin) ? origin : "";
@@ -258,9 +282,14 @@ export async function waitlistRoute(request: Request, env: Env): Promise<Respons
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (request.method !== "POST") return new Response(null, { status: 405 });
   const json = (request.headers.get("Content-Type") || "").includes("json");
-  let raw: unknown = "";
+  let raw: unknown = "", token: unknown = "";
   try {
-    raw = json ? (await request.json<{ email?: string }>()).email : (await request.formData()).get("email");
+    if (json) ({ email: raw, token } = await request.json<{ email?: string; token?: string }>());
+    else {
+      const form = await request.formData();
+      raw = form.get("email");
+      token = form.get("cf-turnstile-response");
+    }
   } catch { /* an empty or odd body: no email */ }
   const email = normEmail(raw);
   if (!email) {
@@ -268,6 +297,10 @@ export async function waitlistRoute(request: Request, env: Env): Promise<Respons
                 : waitlistThanksPage("Enter an email address.");
   }
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  if (!(await turnstilePassed(env, typeof token === "string" ? token : "", ip))) {
+    const error = "That didn’t go through. Reload the page and try again.";
+    return json ? Response.json({ ok: false, error }, { status: 403, headers: cors }) : waitlistThanksPage(error, 403);
+  }
   if (await signUpWaitlist(env, email, ip) === "limited") {
     const error = "Too many sign-ups from here. Try again in an hour.";
     return json ? Response.json({ ok: false, error }, { status: 429, headers: cors }) : waitlistThanksPage(error, 429);

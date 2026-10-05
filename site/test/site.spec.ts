@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 test('social card and search basics', async ({ page, request }) => {
   await page.goto('/');
@@ -340,21 +340,48 @@ test('with reduced motion nothing cycles', async ({ page }) => {
   expect(await page.locator('#stage').getAttribute('data-shown')).toBeNull();
 });
 
+// Turnstile's script, stood in for (W-991): each render or reset hands out the next token.
+const fakeTurnstile = (page: Page) => page.route('https://challenges.cloudflare.com/turnstile/v0/api.js*', (route) =>
+  route.fulfill({ contentType: 'text/javascript', body: `
+    let n = 0, opts;
+    const issue = () => setTimeout(() => opts.callback('tok-' + (++n)), 10);
+    window.turnstile = { render(el, o) { opts = o; window.tsAction = o.action; issue(); return 'w1'; }, reset() { issue(); } };
+    window[new URL(document.currentScript.src).searchParams.get('onload')]();` }));
+
 test('Keep me posted signs up without leaving the page', async ({ page }) => {
-  let body = '';
+  const bodies: string[] = [];
+  await fakeTurnstile(page);
   await page.route('https://cloud.featherframe.app/api/waitlist', async (route) => {
-    body = route.request().postData() || '';
+    bodies.push(route.request().postData() || '');
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
   });
   await page.goto('/');
   await page.fill('#email', 'ada@example.com');
   await page.click('#keep-posted button[type=submit]');
   await expect(page.locator('#keep-posted .form-note')).toHaveText('Almost there. Check your email for a link to confirm.');
-  expect(JSON.parse(body)).toEqual({ email: 'ada@example.com' });
+  expect(JSON.parse(bodies[0])).toEqual({ email: 'ada@example.com', token: 'tok-1' });
+  expect(await page.evaluate(() => (window as unknown as { tsAction: string }).tsAction)).toBe('waitlist');
   await expect(page).toHaveURL(/127\.0\.0\.1:4321\/$/);
+  // A token is used once: a second sign-up carries the next one.
+  await page.fill('#email', 'grace@example.com');
+  await page.click('#keep-posted button[type=submit]');
+  await expect.poll(() => bodies.length).toBe(2);
+  expect(JSON.parse(bodies[1])).toEqual({ email: 'grace@example.com', token: 'tok-2' });
+});
+
+test('Turnstile loads only once someone starts on the form', async ({ page }) => {
+  const asked: string[] = [];
+  page.on('request', (r) => { if (r.url().startsWith('https://challenges.cloudflare.com/')) asked.push(r.url()); });
+  await fakeTurnstile(page);
+  await page.goto('/');
+  await page.waitForTimeout(1000);
+  expect(asked).toEqual([]);
+  await page.focus('#email');
+  await expect.poll(() => asked.length).toBe(1);
 });
 
 test('Keep me posted says when it did not go through', async ({ page }) => {
+  await fakeTurnstile(page);
   await page.route('https://cloud.featherframe.app/api/waitlist', (route) => route.abort());
   await page.goto('/');
   await page.fill('#email', 'ada@example.com');

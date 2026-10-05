@@ -28,6 +28,8 @@ const MIGRATIONS = new URL("../migrations/", import.meta.url);
 let db: DatabaseSync;
 let env: any;
 let mails: { to: string; subject: string; text: string }[];
+let verifies: URLSearchParams[];
+let siteverifyDown: boolean;
 
 beforeEach(() => {
   db = new DatabaseSync(":memory:");
@@ -35,9 +37,22 @@ beforeEach(() => {
     db.exec(readFileSync(new URL(f, MIGRATIONS), "utf8"));
   }
   env = { DB: d1(db), ZONE: "featherframe.app", APP_HOST: "cloud.featherframe.app",
-          MAIL_FROM: "Featherframe <hello@featherframe.app>", RESEND_API_KEY: "re_test" };
+          MAIL_FROM: "Featherframe <hello@featherframe.app>", RESEND_API_KEY: "re_test",
+          TURNSTILE_SECRET: "ts_test" };
   mails = [];
-  vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+  verifies = [];
+  siteverifyDown = false;
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    // Turnstile: "pass" passes, "other-action" passes for another form, anything else fails.
+    if (url.includes("/turnstile/v0/siteverify")) {
+      if (siteverifyDown) throw new TypeError("network");
+      const p = new URLSearchParams(String(init.body));
+      verifies.push(p);
+      const r = p.get("response");
+      return Response.json(r === "pass" || r === "other-action"
+        ? { success: true, action: r === "pass" ? "waitlist" : "login" }
+        : { success: false, "error-codes": ["invalid-input-response"] });
+    }
     const b = JSON.parse(String(init.body));
     mails.push({ to: b.to[0], subject: b.subject, text: b.text });
     return new Response("{}", { status: 200 });
@@ -48,10 +63,11 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const signUp = (email: string, { ip = "203.0.113.1", form = false } = {}) => waitlistRoute(new Request(
+const signUp = (email: string, { ip = "203.0.113.1", form = false, token = "pass" as string | null } = {}) => waitlistRoute(new Request(
   "https://cloud.featherframe.app/api/waitlist", form
-    ? { method: "POST", body: new URLSearchParams({ email }), headers: { "CF-Connecting-IP": ip, Origin: "https://featherframe.app" } }
-    : { method: "POST", body: JSON.stringify({ email }),
+    ? { method: "POST", body: new URLSearchParams({ email, ...(token === null ? {} : { "cf-turnstile-response": token }) }),
+        headers: { "CF-Connecting-IP": ip, Origin: "https://featherframe.app" } }
+    : { method: "POST", body: JSON.stringify({ email, token }),
         headers: { "Content-Type": "application/json", "CF-Connecting-IP": ip, Origin: "https://featherframe.app" } }), env);
 const row = (email: string) => db.prepare("SELECT * FROM waitlist WHERE email = ?").get(email) as any;
 const linkIn = (text: string) => new URL(text.match(/https:\/\/\S+/)![0]);
@@ -135,6 +151,44 @@ describe("signing up", () => {
     }
     // Five in the hour are emailed; the sixth (55 min in) is answered the same, and not emailed.
     expect(mails).toHaveLength(5);
+  });
+});
+
+describe("the Turnstile check (W-991)", () => {
+  it("asks siteverify with the secret, the token and the IP", async () => {
+    await signUp("t1@example.com", { ip: "203.0.113.9" });
+    expect(verifies).toHaveLength(1);
+    expect(Object.fromEntries(verifies[0])).toEqual({ secret: "ts_test", response: "pass", remoteip: "203.0.113.9" });
+  });
+
+  for (const [what, token] of [["no token", null], ["a failed token", "bot"], ["a token for another form", "other-action"]] as const) {
+    it(`turns away ${what}: nothing stored, nothing sent`, async () => {
+      const res = await signUp("t2@example.com", { token });
+      expect(res.status).toBe(403);
+      expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://featherframe.app");
+      expect(await res.json()).toEqual({ ok: false, error: "That didn\u2019t go through. Reload the page and try again." });
+      expect(row("t2@example.com")).toBeUndefined();
+      expect(mails).toHaveLength(0);
+    });
+  }
+
+  it("turns away a sign-up when siteverify cannot be reached", async () => {
+    siteverifyDown = true;
+    expect((await signUp("t3@example.com")).status).toBe(403);
+    expect(row("t3@example.com")).toBeUndefined();
+    expect(mails).toHaveLength(0);
+  });
+
+  it("the form without script and without a token gets the error page", async () => {
+    const res = await signUp("t4@example.com", { form: true, token: null });
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain("Reload the page and try again.");
+    expect(mails).toHaveLength(0);
+  });
+
+  it("a turned-away sign-up does not count against the IP's hourly limit", async () => {
+    for (let i = 0; i < 6; i++) await signUp(`t5${i}@example.com`, { token: "bot" });
+    for (let i = 0; i < 5; i++) expect((await signUp(`t6${i}@example.com`)).status).toBe(200);
   });
 });
 

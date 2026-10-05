@@ -16,6 +16,19 @@ const MAX_WORK_S = 10 * 60;
 
 const after = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
 
+/** `p`, or nothing after `ms`, whichever comes first, and no timer left
+ * behind: a pending setTimeout keeps a Durable Object from hibernating, so it
+ * is billed until the timer fires. A bare race with `after(STOP_GRACE_MS)`
+ * kept the server's object billed for a minute after every stop (W-986). */
+async function within<T>(p: Promise<T>, ms: number): Promise<T | void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([p, new Promise<void>(res => { timer = setTimeout(res, ms); })]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 /** A Container whose stop() returns once the process has gone, and whose
  * fetch() waits that out rather than proxying into it.
  *
@@ -36,7 +49,7 @@ class SleepingContainer extends Container<Env> {
       this.stopping = (async () => {
         const exited = c.monitor().catch(() => undefined);
         await super.stop(signal);
-        await Promise.race([exited, after(STOP_GRACE_MS)]);
+        await within(exited, STOP_GRACE_MS);
         if (c.running) {
           console.warn("container did not exit in time; destroying it");
           await c.destroy();
@@ -65,7 +78,7 @@ class SleepingContainer extends Container<Env> {
       if (!text.startsWith("Failed to start container") || !text.includes("not running")) return res;
       console.warn(`container gone under a start; asking again (${attempt + 1})`);
       const c = this.ctx.container!;
-      if (c.running) await Promise.race([c.monitor().catch(() => undefined), after(5000)]);
+      if (c.running) await within(c.monitor().catch(() => undefined), 5000);
       for (let i = 0; c.running && i < 20; i++) await after(100);
     }
   }

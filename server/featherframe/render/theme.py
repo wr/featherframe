@@ -70,7 +70,7 @@ FIRST_EVER_LABEL_PAD = 18      # pill side padding
 FIRST_EVER_PILL_H = 44
 FIRST_EVER_PILL_GAP = 14       # paper between the pill and the rule on either side
 
-CORNER_SIZE = 28               # date · time (left) and "Plate CLIX" (right)
+CORNER_SIZE = 28               # the artist (left) and "Plate CLIX" (right)
 CORNER_INSET = 36              # from the side edges
 MARKS_BASELINE = HEIGHT - 30
 PLATE_PREFIX = "Plate"         # then the folio's plate number, in roman as engraved
@@ -80,7 +80,14 @@ MAX_PLATE = 449                # the highest plate number in any folio (Gould's 
 # plates in one (Gould's Australia II and IV have 104).
 VOLUMES = tuple(range(1, 9)) + ("Supp.",)
 MAX_VOLUME_PLATE = 110
-CORNER_SEP = "·"               # between date and time ("1 Sep · 8:14 am")
+# The left mark names who made the illustration (W-984): its room is the
+# widest of these at CORNER_SIZE, and a longer name is set smaller, down to
+# ARTIST_MARK_MIN_SIZE.
+# A generated sheet says what it is there, on every frame that shows it.
+GENERATED_BYLINE = "AI illustration after Audubon"
+ARTIST_MARK_WIDEST = ("John and Elizabeth Gould", GENERATED_BYLINE)
+ARTIST_MARK_MIN_SIZE = 20
+CORNER_SEP = "·"               # between the parts of a footer line
 COLON_KERN = 0.0               # pulls the run after a colon in, fraction of size
                                # (Kapakana needed -0.12; Pinyon is kerned, so 0)
 

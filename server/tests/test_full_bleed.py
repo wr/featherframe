@@ -64,7 +64,8 @@ class _Art(ArtProvider):
         self._img, self._composite = img, composite
 
     def artwork(self, common_name, scientific_name):
-        return Artwork(image=self._img, plate=121, composite=self._composite)
+        return Artwork(image=self._img, plate=121, artist="John James Audubon",
+                       composite=self._composite)
 
 
 def _spec(**kw):

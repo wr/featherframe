@@ -61,7 +61,7 @@ def test_note_pill_sits_between_the_corner_marks():
 
     out = compose.render_single(spec, _Blank())
     marks = _field()
-    typography.date_mark(marks, spec.when); typography.plate_mark(marks, 388)
+    typography.artist_mark(marks, theme.GENERATED_BYLINE); typography.plate_mark(marks, 388)
     only = _field(); typography.note_line(only, spec.note, max_w=compose.note_width(), kind="quiet")
     note_px = np.asarray(only) < 128
     assert note_px.any() and not ((np.asarray(marks) < 128) & note_px).any()

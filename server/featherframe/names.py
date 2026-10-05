@@ -120,6 +120,11 @@ class _Folio:
         return self.by_sci.get(normalize(scientific_name)) or self.by_common.get(normalize(common_name))
 
 
+# Havell's plates were drawn by Audubon (engraved by Havell): the corner's
+# name when an index carries no folio headers.
+HAVELL_ARTIST = "John James Audubon"
+
+
 class SpeciesIndex:
     """Loads the curated plate index written by fetch_plates and matches
     detections against it. Construct from a dict (tests) or from disk.
@@ -137,10 +142,23 @@ class SpeciesIndex:
         # Each folio's region, from its header (the index's `folios` block).
         self._regions = {k: str((h or {}).get("region") or "")
                          for k, h in (folios or {}).items()}
+        self._artists = {k: str((h or {}).get("artist") or "")
+                         for k, h in (folios or {}).items()}
 
     @property
     def folios(self) -> list[str]:
         return list(self._folios)
+
+    def artist(self, folio: Optional[str]) -> Optional[str]:
+        """The folio's artist as the corner names them (W-984): its header's
+        `artist` up to the first comma, which is where each header turns to
+        engravers and assistants ("John Gould, with Edward Lear"). Havell's,
+        for an index from before folio headers; None for an unknown folio."""
+        folio = folio or DEFAULT_FOLIO
+        name = self._artists.get(folio, "").split(",")[0].strip()
+        if not name and folio == DEFAULT_FOLIO:
+            name = HAVELL_ARTIST
+        return name or None
 
     def order(self, region: Optional[str] = None) -> list[str]:
         """The folios in the order a species is looked for: the region's own

@@ -517,12 +517,18 @@ Latin name, and the plate's own legend lines from
 `scripts/legends.yaml` (Audubon's printed figure key and plant, transcribed
 per Havell plate; `featherframe/legends.py` reduces a composite sheet to the
 detected species' line);
-the date · time and "Plate CLIX" sit in the bottom
-corners: the folio's own plate number (`Artwork.plate`, W-821; Havell's for
+the artist and "Plate CLIX" sit in the bottom corners. The left names who
+made the illustration, never when the species was heard (W-984): the folio
+header's `artist` up to its first comma (`SpeciesIndex.artist`, as
+`Artwork.artist`: "John James Audubon", "John and Elizabeth Gould"), or on a
+generated sheet `theme.GENERATED_BYLINE`, "AI illustration after Audubon".
+So a repeat of the species shown is the same sheet, and the gone-quiet
+footnote is what says a frame has gone stale. The right is the folio's own
+plate number (`Artwork.plate`, W-821; Havell's for
 an Audubon plate), "Plate" in
 the same script and the roman numeral in the engraved capitals, since a run
 of script capitals is unreadable. A generated sheet carries a ✦ there
-instead, and the bough of a species with no plate carries nothing. `theme.py` holds all geometry/tone constants.
+instead, and the bough of a species with no plate carries nothing in either. `theme.py` holds all geometry/tone constants.
 
 **The plate library (W-842, `plate_library.py`)** is the scans' crops taken
 once: `library.json` (index.json's species, each naming its crop by
@@ -593,7 +599,10 @@ Per household, `Household` (`household.ts`) is the front door: it answers
 detectors' pushes (routed by token; a BirdNET-Go body that is not a
 detection is dropped) until the server takes them, and wakes the
 server only for news (a BirdWeather look every 2 min, a push, the server's
-own `next_wake_epoch`; ≥ 5 min apart; none in quiet hours), stopping it right
+own `next_wake_epoch`; ≥ 5 min apart; none in quiet hours; none for a
+detection the server named in `hosted_state()["unchanged"]`, W-984: the
+species whose sheet is shown and the blocked ones, or `"*"` while no frame
+shows detections, read from a push by `util.pushedNames`), stopping it right
 after — but only once it is idle (W-917): the Containers library's activity
 timeout (`sleepAfter`, 30 s) runs from a request's start and knows nothing of
 the server's own work, so `HouseholdServer.onActivityExpired` and `wake()`
@@ -815,7 +824,9 @@ Container restarts); D1 schema in `hosted/migrations/`.
   the floor is for sources with none), both alarm thresholds and the
   corroboration numbers live as named constants at the top of `service.py`;
   saturation is `spectra.SATURATION`. Single mode always shows the latest
-  qualifying detection, the most novel of a tick's first. Think twice before turning one back into a field.
+  qualifying detection, the most novel of a tick's first; one whose sheet
+  would be the one shown is not drawn again (`_drawn_from`, W-984), unless
+  that sheet lacks art an illustration could now give it. Think twice before turning one back into a field.
 - **Dithering** is the panel's own (`Panel.dither`, `panels.py`); the only
   override is `pipeline.DITHER_OVERRIDE` (`preview.py --dither`, and tests
   that want a cheap render). Gray: blue-noise (vectorized, Pi-friendly); Stucki there is a

@@ -11,6 +11,7 @@ device, and the ingest cursor is persisted so we don't replay history.
 """
 from __future__ import annotations
 
+import json
 import logging
 import math
 import os
@@ -151,6 +152,15 @@ def _as_time(v) -> dtime:
         return v
     hh, mm = (int(x) for x in v.split(":"))
     return dtime(hh, mm)
+
+
+def _drawn_from(spec: SingleSpec) -> str:
+    """Everything a single sheet is drawn from but its art, as one string: two
+    detections with the same one draw the same sheet (W-984). The date counts
+    only where the fallback prints it ("First recorded …")."""
+    first = spec.first_seen or (spec.when.date().isoformat() if spec.when else None)
+    return json.dumps([spec.common_name, spec.scientific_name, spec.first_ever, spec.note,
+                       spec.note_kind, spec.fallback_note, first])
 
 
 def collage_date_for(now: datetime, quiet_start, quiet_end) -> ddate:
@@ -1506,7 +1516,9 @@ class FeatherframeService:
         self._render_single(candidate, now, reason="detection")
 
     def _render_single(self, det: Detection, now: datetime, reason: str) -> None:
-        """Draw the plates picture of this detection."""
+        """Draw the plates picture of this detection. A detection whose sheet
+        would be the one already shown is not drawn again (W-984): the sheet
+        names the artist, never the time, so a repeat changes nothing."""
         first_seen = self._first_seen(det.scientific_name)
         novelty = self._novelty(det, now)
         note = self._note_text()
@@ -1516,15 +1528,53 @@ class FeatherframeService:
                           note_kind=self._note_kind() if note else None,
                           first_ever=novelty == "first-ever",
                           fallback_note=self._fallback_note())
-        recompose = self._single_in_color(spec)
-        etag = self._commit(
-            PLATES, now, sheet=compose_mod.render_single(spec, self.provider, color=False),
-            mode="single", species_key=det.key, label=det.common_name, note=note,
-            novelty=novelty, key=f"{det.key}@{det.rowid}", recompose=recompose)
-        log.info("rendered single %s (%s, %s), etag=%s", det.common_name, reason, novelty, etag)
+        drawn = _drawn_from(spec)
+        if reason == "detection" and self._is_shown(drawn):
+            log.info("single %s: a repeat of the sheet shown, not drawn again", det.common_name)
+        else:
+            art = self.provider.artwork(det.common_name, det.scientific_name)
+            etag = self._commit(
+                PLATES, now, sheet=compose_mod.render_for(spec, art, color=False),
+                mode="single", species_key=det.key, label=det.common_name, note=note,
+                novelty=novelty, key=f"{det.key}@{det.rowid}",
+                extra={"drawn": drawn, "art": art is not None,
+                       "names": [det.common_name.strip().lower(), det.key]},
+                recompose=self._single_in_color(spec))
+            log.info("rendered single %s (%s, %s), etag=%s", det.common_name, reason, novelty, etag)
         # The bird the page said it was waiting on is now on a screen.
         if self._pending and self._pending.get("key") == det.key:
             self._set_pending(None)
+
+    def _is_shown(self, drawn: str) -> bool:
+        """The plates picture is already the sheet `drawn` describes, and a
+        new draw could not give it art it lacks (an illustration bought since)."""
+        pic = self.pictures[PLATES]
+        return (pic.etag is not None and PLATES not in self._recolor
+                and pic.meta.get("drawn") == drawn
+                and (bool(pic.meta.get("art")) or not self._art_could_arrive()))
+
+    def _art_could_arrive(self) -> bool:
+        """A species drawn without art could be drawn with it next time: an
+        illustration would be bought for it."""
+        return getattr(self.genart, "_model", None) is not None and bool(self.genart.buy_new)
+
+    def news_unchanged(self, now: Optional[datetime] = None):
+        """Which detections would change no picture right now (W-984), for the
+        front door, which then keeps such a push for the next wake without
+        starting this server for it: "*" when no frame shows detections (the
+        collage is redrawn on its own clock), else the names (lowercased common
+        and scientific) of the species whose sheet is shown, and the blocked
+        ones."""
+        now = now or self._clock()
+        if PLATES not in self._kinds_shown(now):
+            return "*"
+        names = [b.strip().lower() for b in self.config.species_blocklist if b.strip()]
+        pic = self.pictures[PLATES]
+        if pic.etag is not None and pic.meta.get("mode") == "single" and \
+                PLATES not in self._recolor and \
+                (pic.meta.get("art") or not self._art_could_arrive()):
+            names += [str(n) for n in pic.meta.get("names") or [] if n]
+        return sorted(set(names))
 
     # -- the collage picture -----------------------------------------------
     def _maybe_daytime_collage(self, now: datetime) -> None:
@@ -2559,6 +2609,9 @@ class FeatherframeService:
                 # quiet hours nothing is drawn but what next_wake_at already
                 # names, so the front door need not wake this to look.
                 "poll": not self.in_quiet_hours(self._clock()),
+                # Which detections would change nothing (W-984): kept for the
+                # next wake without one of their own.
+                "unchanged": self.news_unchanged(),
                 # Where news comes from (W-847): the front door looks for it
                 # itself — it polls a BirdWeather station, or takes the pushes
                 # (Apprise from BirdNET-Pi, a webhook from BirdNET-Go) — and

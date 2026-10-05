@@ -67,8 +67,10 @@ class _Art(ArtProvider):
         self._generated = generated
 
     def artwork(self, common_name, scientific_name):
-        # A scan carries its Havell number; a generated sheet has none.
+        # A scan carries its Havell number and its artist; a generated sheet
+        # has neither.
         return Artwork(image=self._img, plate=None if self._generated else 131,
+                       artist=None if self._generated else "John James Audubon",
                        composite=self._composite,
                        generated=self._generated, legend=list(self._legend))
 
@@ -123,7 +125,7 @@ def test_legend_lines_are_drawn_under_the_latin_name():
     assert _ink(with_legend, band) > 500
     # On the no-legend plate nothing sits between the Latin name and the
     # corner marks (which are outside this x-range).
-    clear = theme.CORNER_INSET + typography.date_mark_max_width() + 20
+    clear = theme.CORNER_INSET + typography.artist_mark_max_width() + 20
     assert _ink(without, (clear, theme.HEIGHT - 72, theme.WIDTH - clear, theme.HEIGHT - 44)) == 0
 
 
@@ -140,7 +142,7 @@ def test_note_sits_between_the_corner_marks_without_touching_them():
     note = "Nothing heard since 11:27 pm on a long, long, long, long quiet evening"
     out = compose.render_single(_spec(note=note), _blank(LEGEND))
     scratch = Image.new("L", out.size, 255)
-    typography.date_mark(scratch, _spec().when)
+    typography.artist_mark(scratch, theme.ARTIST_MARK_WIDEST[0])
     typography.plate_mark(scratch, 388)
     marks = np.asarray(scratch) < 128
     only_note = Image.new("L", out.size, 255)

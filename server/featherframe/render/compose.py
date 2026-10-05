@@ -2,7 +2,7 @@
 
 Field + full-bleed bird art (seamlessly darken-composited so the plate's paper
 melts into our field) + the script caption (title, Latin name, the plate's own
-legend lines) + the date and 'Plate CLIX' marks in the bottom corners. When the
+legend lines) + the artist and 'Plate CLIX' marks in the bottom corners. When the
 provider has no art, we render a typographic fallback plate instead — never a
 wrong bird.
 
@@ -39,7 +39,7 @@ COVER_MAX_LOSS = 0.25
 class SingleSpec:
     common_name: str
     scientific_name: str
-    when: Optional[datetime] = None
+    when: Optional[datetime] = None       # when heard: only the fallback's "First recorded" reads it
     first_seen: Optional[str] = None      # 'YYYY-MM-DD', for the fallback plate
     # A species never heard before today. The service sets it from the
     # novelty class (not derived from first_seen here, because a source that
@@ -121,8 +121,8 @@ def _cover_loss(art: Image.Image, box: tuple[int, int, int, int]) -> float:
 
 
 def note_width() -> float:
-    """Room for the footnote between the widest possible date and plate marks."""
-    reserve = max(typography.date_mark_max_width(), typography.plate_mark_max_width())
+    """Room for the footnote between the widest possible artist and plate marks."""
+    reserve = max(typography.artist_mark_max_width(), typography.plate_mark_max_width())
     return theme.WIDTH - 2 * (theme.CORNER_INSET + reserve + theme.NOTE_MARK_GAP)
 
 
@@ -143,7 +143,11 @@ FIRST_EVER_LINE = "First recorded today."
 
 def render_single(spec: SingleSpec, provider: ArtProvider,
                   color: bool = False) -> Image.Image:
-    art = provider.artwork(spec.common_name, spec.scientific_name)
+    return render_for(spec, provider.artwork(spec.common_name, spec.scientific_name), color)
+
+
+def render_for(spec: SingleSpec, art: Optional[Artwork], color: bool = False) -> Image.Image:
+    """`render_single` with the art already in hand: None draws the fallback."""
     if art is None:
         return render_fallback(spec, color=color)
     return _render_art(spec, art, color)
@@ -192,11 +196,13 @@ def _render_art(spec: SingleSpec, art: Artwork, color: bool = False) -> Image.Im
         _place_art(target, placed, art_box)
 
     typography.caption(field, caption_top, spec.common_name, spec.scientific_name, lines)
-    if spec.when:
-        typography.date_mark(field, spec.when)
-    # The right corner says where the sheet came from: Havell's own plate
-    # number on a scan, a ✦ on a synthetic sheet, which never passes as one
+    # The corners say where the sheet came from, never when the species was
+    # heard (W-984): the artist and the folio's own plate number on a scan;
+    # the disclosure and a ✦ on a generated sheet, which never passes as one
     # (W-733). The bough of a species with no plate at all carries neither.
+    byline = theme.GENERATED_BYLINE if art.generated else art.artist
+    if byline:
+        typography.artist_mark(field, byline)
     if art.plate:
         typography.plate_mark(field, art.plate, art.volume_no)
     elif art.generated:

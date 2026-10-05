@@ -61,6 +61,59 @@ export function isDetection(body: string): boolean {
   }
 }
 
+/** The species a push names, lowercased, common and scientific (W-984):
+ * BirdNET-Go's webhook (`metadata`), or BirdNET-Pi's Apprise (our JSON in
+ * `message`, or the fields at the top). Read only to match the server's
+ * `unchanged` list; empty when the body names none. */
+export function pushedNames(kind: string, body: string): string[] {
+  let o: any;
+  try { o = JSON.parse(body); } catch { return []; }
+  if (o === null || typeof o !== "object") return [];
+  let fields: any = o;
+  if (kind === "birdnet_go") {
+    fields = o.metadata && typeof o.metadata === "object" ? { common: o.metadata.species, scientific: o.metadata.scientific_name } : {};
+  } else if (typeof o.message === "string" && o.message.includes("{") && o.message.includes("}")) {
+    try {
+      const inner = JSON.parse(o.message.slice(o.message.indexOf("{"), o.message.lastIndexOf("}") + 1));
+      if (inner && typeof inner === "object") fields = inner;
+    } catch { /* the fields at the top, if any */ }
+  }
+  const pick = (...vs: unknown[]) => vs.find((v) => typeof v === "string" && v.trim()) as string | undefined;
+  return [pick(fields.comname, fields.common, fields.commonName),
+          pick(fields.sciname, fields.scientific, fields.scientificName)]
+    .filter((v): v is string => !!v).map((v) => v.trim().toLowerCase());
+}
+
+/** A detection that changes no picture (W-984): the server's last report
+ * named it, by either name, or named every species ("*"). One that names no
+ * species is always news. `unchanged` is that report as stored (JSON). */
+export function changesNothing(unchanged: string | null, names: string[]): boolean {
+  if (!unchanged) return false;
+  let list: unknown;
+  try { list = JSON.parse(unchanged); } catch { return false; }
+  if (list === "*") return true;
+  return Array.isArray(list) && names.some((n) => list.includes(n));
+}
+
+/** A BirdWeather look (newest first): whether its detections since `lastId`
+ * hold news, and the newest id. The first look (no `lastId`) only learns
+ * where the station is; a page with nothing older than `lastId` on it may
+ * have missed some, so it is news. */
+export function birdweatherNews(rows: { id?: number | string; species?: { commonName?: string; scientificName?: string } }[],
+                                lastId: string | null, unchanged: string | null): { news: boolean; last: string | null } {
+  const ids = rows.map((r) => Number(r.id)).filter((n) => Number.isFinite(n));
+  if (!ids.length) return { news: false, last: lastId };
+  const newest = String(Math.max(...ids));
+  if (lastId === null) return { news: false, last: newest };
+  const fresh = rows.filter((r) => Number(r.id) > Number(lastId));
+  if (!fresh.length) return { news: false, last: lastId };
+  const all = fresh.length === rows.length;
+  const news = all || fresh.some((r) => !changesNothing(unchanged,
+    [r.species?.commonName, r.species?.scientificName]
+      .filter((v): v is string => typeof v === "string" && !!v.trim()).map((v) => v.trim().toLowerCase())));
+  return { news, last: newest };
+}
+
 /** Plain http is sent to https, before anything else (wrangler dev on
  * localhost stays http). */
 export function httpsRedirect(url: URL): Response | null {

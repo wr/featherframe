@@ -28,6 +28,7 @@ class Artwork:
     plate: Optional[int] = None   # the folio's own plate number, if any
     volume_no: Optional[Union[int, str]] = None   # its volume, where a folio numbers per volume (2, "Supp.")
     folio: Optional[str] = None   # the folio the plate is from ("havell"), if any
+    artist: Optional[str] = None  # who made it, as the corner names them ("John James Audubon")
     composite: bool = False
     generated: bool = False     # True when the art is AI-generated, not a scan
     generated_by: Optional[str] = None   # who drew it ("OpenAI"), for the provenance line
@@ -110,7 +111,7 @@ class PlateProvider(ArtProvider):
                         common_name, match.image_path, exc)
             return None
         return Artwork(image=img, plate=match.plate_number, volume_no=match.volume_no, folio=match.folio,
-                       composite=match.composite,
+                       artist=self._index.artist(match.folio), composite=match.composite,
                        legend=list(match.legend),
                        color_loader=lambda: plate.extract_color(
                            match.image_path, composite=match.composite,

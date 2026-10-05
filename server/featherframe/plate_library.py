@@ -213,7 +213,7 @@ class LibraryProvider(ArtProvider):
                 log.warning("library plate %s unavailable for %s: %s", key, common_name, exc)
                 return None
             return Artwork(image=gray, plate=int(entry["plate"]), volume_no=entry.get("volume_no"),
-                           folio=folio_of(entry),
+                           folio=folio_of(entry), artist=self.library.index().artist(folio_of(entry)),
                            composite=bool(entry.get("composite")),
                            legend=[str(x) for x in (entry.get("legend") or [])],
                            color_loader=lambda: color_pair_from_raw(self.library.image(key, "color")))

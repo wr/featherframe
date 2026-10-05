@@ -178,13 +178,13 @@ def _is_coloured(png: bytes) -> bool:
     return bool((np.abs(px[..., 0] - px[..., 1]) > 60).any())
 
 
-def _show_cardinal(svc):
+def _show_cardinal(svc, reason="detection"):
     from featherframe.sources import Detection
     svc.provider = _ColourArt()
     det = Detection(rowid=1, date="2026-09-20", time="08:00:00",
                     common_name="Northern Cardinal",
                     scientific_name="Cardinalis cardinalis", confidence=0.9)
-    svc._render_single(det, svc._clock(), reason="detection")
+    svc._render_single(det, svc._clock(), reason=reason)
 
 
 def test_nobody_asking_for_colour_costs_the_render_nothing(client, tmp_path):
@@ -207,7 +207,7 @@ def test_the_first_colour_ask_gets_colour_and_later_renders_keep_it(client, tmp_
     assert frame_bytes(svc) == wall
     # A later render composes the twin without being asked again.
     svc.pictures["plates"].color_sheet_path.unlink()
-    _show_cardinal(svc)
+    _show_cardinal(svc, reason="refresh")
     assert svc.pictures["plates"].has_color()
     # And a gray viewer of the same frame is still gray.
     assert not _is_coloured(client.get("/api/view.png?w=600&h=800&format=gray256").content)
@@ -220,7 +220,7 @@ def test_colour_stops_being_composed_when_no_colour_viewer_has_asked_for_a_month
     client.get("/api/view.png?w=600&h=800&format=color")
     svc._clock = lambda: datetime(2026, 11, 1, 8, 0)
     svc._color_asked_at = None   # as after a restart: only the DB remembers
-    _show_cardinal(svc)
+    _show_cardinal(svc, reason="refresh")
     assert not svc.pictures["plates"].has_color()
 
 

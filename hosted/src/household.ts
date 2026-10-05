@@ -5,7 +5,7 @@ import { sendMail } from "./accounts";
 import type { Env } from "./index";
 import { releaseFrame } from "./setup";
 import { alertMail, type Alert, reserveBody, settleBody, SpendBook, type SpendRow } from "./spend";
-import { firmwareWaiting, isDetection, localIso, randomHex } from "./util";
+import { birdweatherNews, changesNothing, firmwareWaiting, isDetection, localIso, pushedNames, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 import { lastDays, type UsageDay } from "./usage";
 import { due, nextAlarm, type WakeState } from "./wakes";
@@ -20,6 +20,9 @@ import { loadingPage } from "./loading";
 // A page used this recently keeps the server up after a wake.
 const PAGE_ACTIVE_MS = 60 * 1000;
 const MAX_INGEST_BYTES = 16 * 1024;
+// A BirdWeather look reads this many of the station's newest detections, to
+// tell whether any since the last look would change a picture (W-984).
+const BW_LOOK_ROWS = 25;
 // A frame's check-ins are kept one per this window until the server takes
 // them: the battery log keeps one row per 5 min anyway.
 const CHECKIN_BUCKET_S = 300;
@@ -470,17 +473,17 @@ export class Household extends DurableObject<Env> {
     const station = this.meta("bw_station");
     if (!station) return;
     try {
-      const r = await fetch(`https://app.birdweather.com/api/v1/stations/${encodeURIComponent(station)}/detections?limit=1`);
+      const r = await fetch(`https://app.birdweather.com/api/v1/stations/${encodeURIComponent(station)}/detections?limit=${BW_LOOK_ROWS}`);
       if (!r.ok) return;
-      const body = await r.json<{ detections?: { id?: number }[] } | { id?: number }[]>();
+      type Row = { id?: number; species?: { commonName?: string; scientificName?: string } };
+      const body = await r.json<{ detections?: Row[] } | Row[]>();
       const rows = Array.isArray(body) ? body : (body.detections || []);
-      const id = rows.length && rows[0].id != null ? String(rows[0].id) : null;
-      if (id && id !== this.meta("bw_last_id")) {
-        // The first look only learns where the station is: the server read
-        // everything up to now on its own last wake.
-        if (this.meta("bw_last_id") !== null) this.setMeta("news", "1");
-        this.setMeta("bw_last_id", id);
-      }
+      // The first look only learns where the station is: the server read
+      // everything up to now on its own last wake. A detection the server
+      // said would change nothing waits for the next wake (W-984).
+      const look = birdweatherNews(rows, this.meta("bw_last_id"), this.meta("unchanged"));
+      if (look.news) this.setMeta("news", "1");
+      this.setMeta("bw_last_id", look.last);
     } catch (err) {
       console.error("birdweather look failed", err);
     }
@@ -514,8 +517,12 @@ export class Household extends DurableObject<Env> {
     // detection is news, so nothing else is kept or wakes the server.
     if (kind === "birdnet_go" && !isDetection(body)) return Response.json({ ok: false, ignored: true });
     this.sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", url.pathname, body);
-    // In quiet hours a detection changes nothing: it waits for the next wake.
-    if (this.meta("poll") !== "0") this.setMeta("news", "1");
+    // In quiet hours a detection changes nothing, nor does one the server
+    // named (the species shown, a blocked one; W-984): it waits for the next
+    // wake.
+    if (this.meta("poll") !== "0" && !changesNothing(this.meta("unchanged"), pushedNames(kind, body))) {
+      this.setMeta("news", "1");
+    }
     await this.schedule();
     return Response.json({ ok: true, queued: true });
   }
@@ -747,6 +754,7 @@ export class Household extends DurableObject<Env> {
       paper?: boolean; short?: string }>;
     next_wake_epoch?: number | null;
     poll?: boolean;
+    unchanged?: string[] | "*";
     page_build?: string;
     source?: { kind?: string; station?: string; token?: string };
   }): Promise<void> {
@@ -778,6 +786,7 @@ export class Household extends DurableObject<Env> {
     }
     this.setMeta("next_wake_epoch", state.next_wake_epoch ? String(state.next_wake_epoch) : null);
     this.setMeta("poll", state.poll === false ? "0" : "1");
+    this.setMeta("unchanged", state.unchanged == null ? null : JSON.stringify(state.unchanged));
     const src = state.source || {};
     if (src.kind !== this.meta("source_kind") || (src.station || null) !== this.meta("bw_station")) {
       this.setMeta("bw_last_id", null);    // a new source: learn where it is first

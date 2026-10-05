@@ -16,7 +16,6 @@ import functools
 import logging
 
 
-from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Sequence
@@ -193,24 +192,6 @@ def draw_smallcaps(draw: ImageDraw.ImageDraw, center_x: float, baseline_y: float
     return total
 
 
-# -- date formatting -------------------------------------------------------
-def format_when(when: datetime) -> str:
-    month = when.strftime("%B")
-    hour = when.hour % 12 or 12
-    ampm = "AM" if when.hour < 12 else "PM"
-    return f"{when.day} {month} {when.year}  ·  {hour}:{when.minute:02d} {ampm}"
-
-
-def _when_parts(when: datetime) -> tuple[str, str]:
-    """(date, time) runs: the date keeps its case ("17 May 2026" in true
-    italic), the time's lowercase am/pm becomes small caps under ``smcp``;
-    ``onum`` gives the figures their old-style shapes."""
-    month = when.strftime("%B")
-    hour = when.hour % 12 or 12
-    ampm = "am" if when.hour < 12 else "pm"
-    return (f"{when.day} {month} {when.year}", f"{hour}:{when.minute:02d} {ampm}")
-
-
 # -- script caption (W-708, W-713, W-714) -----------------------------------
 # The caption's voice is a copperplate script: Pinyon Script (OFL, bundled),
 # chosen on the glass on 4 Sep 2026 — Kapakana had the look but no kerning
@@ -333,32 +314,29 @@ def caption(field: Image.Image, top_y: float, common_name: str, scientific_name:
     return baseline
 
 
-def _corner_parts(when: datetime) -> tuple[str, str]:
-    """("1 Sep", "8:14 am") for the date mark: day + abbreviated month, then
-    the time. The date is always shown so a three-day-old plate reads as
-    three days old, not as this morning's."""
-    _, clock = _when_parts(when)
-    return f"{when.day} {when.strftime('%b')}", clock
+def artist_mark(field: Image.Image, text: str) -> float:
+    """Who made the illustration, in the corner marks' script, tucked into the
+    bottom-left corner (W-984): the folio's artist on a scan ("John James
+    Audubon"), the disclosure on a generated sheet. It names the art, never
+    the detection, so a repeat of the species on show draws the same sheet.
+    A name wider than the widest folio's is set smaller, never into the
+    footnote's room. Returns the mark's width."""
+    size = theme.CORNER_SIZE
+    while size > theme.ARTIST_MARK_MIN_SIZE and \
+            script_width(text, size) > artist_mark_max_width():
+        size -= 1
+    # A script capital's swash reaches back past its own origin (the J of
+    # John): start the ink, not the origin, at the inset.
+    overhang = max(0.0, -script_font(size).getbbox(text[:1], anchor="ls")[0]) + theme.LEGEND_STROKE
+    return overhang + draw_script(field, theme.CORNER_INSET + overhang, theme.MARKS_BASELINE,
+                                  text, size, theme.INK_MEDIUM, stroke=theme.LEGEND_STROKE,
+                                  anchor="ls")
 
 
-def date_text(when: datetime) -> str:
-    date_part, clock = _corner_parts(when)
-    return f"{date_part} {theme.CORNER_SEP} {clock}"
-
-
-def date_mark(field: Image.Image, when: datetime) -> float:
-    """"4 Sep · 11:34 am" in the small script, tucked into the bottom-left
-    corner. Repeats of a species DO re-render (the owner wants the clock to
-    move with the bird), and a quiet frame can sit for days — so the
-    mark always carries the date: a stale plate must look stale. Returns
-    the mark's width."""
-    return draw_script(field, theme.CORNER_INSET, theme.MARKS_BASELINE, date_text(when),
-                       theme.CORNER_SIZE, theme.INK_MEDIUM, stroke=theme.LEGEND_STROKE,
-                       anchor="ls")
-
-
-def date_mark_max_width() -> float:
-    return script_width(f"30 Sep {theme.CORNER_SEP} 12:44 pm", theme.CORNER_SIZE)
+@lru_cache(maxsize=1)
+def artist_mark_max_width() -> float:
+    """The room the left mark may take: the widest it is ever set."""
+    return max(script_width(t, theme.CORNER_SIZE) for t in theme.ARTIST_MARK_WIDEST)
 
 
 def roman(n: int) -> str:

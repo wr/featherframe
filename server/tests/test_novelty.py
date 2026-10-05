@@ -15,9 +15,11 @@ from PIL import Image, ImageDraw
 from starlette.testclient import TestClient
 
 from featherframe.config import Config
+from featherframe.names import SpeciesIndex
 from featherframe.render import compose, pipeline, theme, typography
 from featherframe.render.compose import SingleSpec
 from featherframe.render.provider import ArtProvider, Artwork
+from featherframe.pictures import COLLAGE, PLATES
 from featherframe.service import FeatherframeService
 from featherframe.sources.base import Detection
 
@@ -247,24 +249,53 @@ def _spec(**kw):
     return SingleSpec(**base)
 
 
-def test_corner_mark_carries_the_date():
+def test_a_repeat_draws_the_same_sheet():
+    """The corner names the artist, never the time (W-984): a later detection
+    of the species shown is the same picture, so no frame repaints for it."""
     cfg = Config()
     a = pipeline.render_single(_spec(), _BlankArt(), cfg)
-    b = pipeline.render_single(_spec(when=datetime(2026, 8, 30, 8, 14)), _BlankArt(), cfg)
-    assert a.etag != b.etag                       # same time of day, different date: different plate
-    # The composition itself (before the mat inset moves everything): the
-    # mark region (bottom-left corner) has ink on both, and the two marks
-    # differ inside it.
-    ca = compose.render_single(_spec(), _BlankArt())
-    cb = compose.render_single(_spec(when=datetime(2026, 8, 30, 8, 14)), _BlankArt())
-    mark = (theme.CORNER_INSET, theme.MARKS_BASELINE - 40, theme.CORNER_INSET + 400, theme.MARKS_BASELINE + 6)
-    assert _ink(ca, mark) > 200 and _ink(cb, mark) > 200
-    assert ca.crop(mark).tobytes() != cb.crop(mark).tobytes()
+    b = pipeline.render_single(_spec(when=datetime(2026, 8, 30, 9, 31)), _BlankArt(), cfg)
+    assert a.etag == b.etag
 
 
-def test_corner_mark_text_is_day_month_and_time():
-    assert typography._corner_parts(datetime(2026, 9, 1, 8, 14)) == ("1 Sep", "8:14 am")
-    assert typography._corner_parts(datetime(2026, 12, 25, 23, 5)) == ("25 Dec", "11:05 pm")
+class _Art(ArtProvider):
+    def __init__(self, **kw):
+        self.kw = kw
+
+    def artwork(self, common_name, scientific_name):
+        return Artwork(image=Image.new("L", (600, 400), 255), **self.kw)
+
+
+_LEFT = (theme.CORNER_INSET, theme.MARKS_BASELINE - 40, theme.CORNER_INSET + 420, theme.MARKS_BASELINE + 8)
+
+
+def test_the_corner_names_the_artist_or_says_ai():
+    audubon = compose.render_single(_spec(), _Art(plate=159, artist="John James Audubon"))
+    gould = compose.render_single(_spec(), _Art(plate=18, volume_no=2, artist="John Gould"))
+    ai = compose.render_single(_spec(), _Art(generated=True))
+    for img in (audubon, gould, ai):
+        assert _ink(img, _LEFT) > 200
+    assert len({img.crop(_LEFT).tobytes() for img in (audubon, gould, ai)}) == 3
+    # Art with no one to name, and the fallback bough, carry no left mark.
+    assert _ink(compose.render_single(_spec(), _BlankArt()), _LEFT) == 0
+    assert _ink(compose.render_fallback(_spec()), _LEFT) == 0
+
+
+def test_a_long_artist_name_is_set_smaller_not_into_the_footnote():
+    scratch = Image.new("L", (theme.WIDTH, theme.HEIGHT), 255)
+    w = typography.artist_mark(scratch, "John Gould and Elizabeth Gould")
+    assert w <= typography.artist_mark_max_width() + 12          # + the swash's overhang
+
+
+def test_the_artist_is_the_folio_header_up_to_its_first_comma():
+    idx = SpeciesIndex([], folios={
+        "havell": {"artist": "John James Audubon, engraved by Robert Havell"},
+        "gould_australia": {"artist": "John and Elizabeth Gould, with H. C. Richter"}})
+    assert idx.artist("havell") == "John James Audubon"
+    assert idx.artist(None) == "John James Audubon"
+    assert idx.artist("gould_australia") == "John and Elizabeth Gould"
+    assert idx.artist("unknown") is None
+    assert SpeciesIndex([]).artist("havell") == "John James Audubon"   # an index with no headers
 
 
 def test_first_ever_plate_says_so_under_the_latin_name():
@@ -294,12 +325,12 @@ def test_first_ever_plate_says_so_under_the_latin_name():
 
 def test_render_single_sets_first_ever_from_the_novelty_class(svc, monkeypatch):
     seen = []
-    real = compose.render_single
+    real = compose.render_for
 
-    def spy(spec, provider, color=False):
+    def spy(spec, art, color=False):
         seen.append(spec)
-        return real(spec, provider, color)
-    monkeypatch.setattr(compose, "render_single", spy)
+        return real(spec, art, color)
+    monkeypatch.setattr(compose, "render_for", spy)
     svc.source = _GateSource([], first_seen={**KNOWN, EAGLE[1]: TODAY}, today=[_row(*ROBIN, 1)])
     svc._render_single(_det(1, *EAGLE, 0.9, NOW), NOW, reason="test")
     svc._render_single(_det(2, *ROBIN, 0.9, NOW), NOW, reason="test")
@@ -346,3 +377,56 @@ def test_a_birds_newness_wears_off(svc):
     src.today = [_row(*EAGLE, 4)]
     svc._render_single(_det(2, *EAGLE, 0.9, tomorrow), tomorrow, reason="test")
     assert svc._meta["novelty"] == "repeat"
+
+
+# -- a repeat changes nothing (W-984) -------------------------------------------
+class _ArtFor(ArtProvider):
+    """Art for every species, with an artist, so the sheet is a real plate."""
+
+    def artwork(self, common_name, scientific_name):
+        return Artwork(image=Image.new("L", (600, 400), 255), plate=131,
+                       artist="John James Audubon")
+
+
+def test_a_repeat_detection_is_not_drawn_again(svc):
+    svc.provider = _ArtFor()
+    svc.source = _GateSource([], first_seen=dict(KNOWN), today=[_row(*ROBIN, 2)])
+    svc._render_single(_det(1, *ROBIN, 0.9, NOW), NOW, reason="detection")
+    etag, renders = svc.pictures[PLATES].etag, len(svc.db.render_history(50))
+    later = NOW + timedelta(minutes=53)
+    svc._render_single(_det(2, *ROBIN, 0.9, later), later, reason="detection")
+    assert svc.pictures[PLATES].etag == etag
+    assert len(svc.db.render_history(50)) == renders           # no history row for it
+    # The owner's Refresh still draws it; another species is drawn.
+    svc._render_single(_det(2, *ROBIN, 0.9, later), later, reason="refresh")
+    assert len(svc.db.render_history(50)) == renders + 1
+    svc._render_single(_det(3, *EAGLE, 0.9, later), later, reason="detection")
+    assert svc.pictures[PLATES].meta["label"] == EAGLE[0]
+
+
+def test_a_repeat_of_a_sheet_without_art_is_drawn_while_art_could_come(svc):
+    """The bough shown for want of an illustration is drawn again on a repeat
+    while one would be bought: this time it may arrive."""
+    svc.source = _GateSource([], first_seen=dict(KNOWN), today=[_row(*ROBIN, 2)])
+    svc._render_single(_det(1, *ROBIN, 0.9, NOW), NOW, reason="detection")
+    renders = len(svc.db.render_history(50))
+    svc._art_could_arrive = lambda: True
+    svc._render_single(_det(2, *ROBIN, 0.9, NOW), NOW, reason="detection")
+    assert len(svc.db.render_history(50)) == renders + 1
+    svc._art_could_arrive = lambda: False
+    svc._render_single(_det(3, *ROBIN, 0.9, NOW), NOW, reason="detection")
+    assert len(svc.db.render_history(50)) == renders + 1
+
+
+def test_the_front_door_is_told_which_detections_change_nothing(svc):
+    from tests._frames import add_kit
+    svc.provider = _ArtFor()
+    svc.config.species_blocklist = ["House Sparrow"]
+    svc.source = _GateSource([], first_seen=dict(KNOWN), today=[_row(*ROBIN, 1)])
+    add_kit(svc, shows=PLATES)
+    assert svc.news_unchanged() == ["house sparrow"]               # nothing shown yet
+    svc._render_single(_det(1, *ROBIN, 0.9, NOW), NOW, reason="detection")
+    assert svc.news_unchanged() == sorted(["house sparrow", ROBIN[0].lower(), ROBIN[1].lower()])
+    assert svc.hosted_state()["unchanged"] == svc.news_unchanged()
+    add_kit(svc, shows=COLLAGE)                                    # the same kit, now on the collage
+    assert svc.news_unchanged() == "*"

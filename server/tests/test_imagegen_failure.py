@@ -233,8 +233,8 @@ def test_an_alarm_about_detections_comes_first_on_the_branch(monkeypatch):
 
 def _specs(svc, monkeypatch):
     seen = []
-    monkeypatch.setattr(compose_mod, "render_single",
-                        lambda spec, provider, color=False: seen.append(spec)
+    monkeypatch.setattr(compose_mod, "render_for",
+                        lambda spec, art, color=False: seen.append(spec)
                         or Image.new("L", (theme.WIDTH, theme.HEIGHT), 255))
     return seen
 

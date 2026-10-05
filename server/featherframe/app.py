@@ -99,6 +99,7 @@ async def lifespan(app: FastAPI):
     app.state.hosted = link
     if link is not None:
         service.after_tick.append(lambda: link.settle(service))
+        service.ticks_itself = False
     service.start()
     # Advertise _featherframe._tcp so a frame with no typed URL finds us
     # (W-763). __main__ exports the bound port; systemd sets it directly.
@@ -132,8 +133,11 @@ async def _hosted_settle(request: Request, call_next):
     response = await call_next(request)
     link = getattr(request.app.state, "hosted", None)
     # A detection is handed over by a wake, and the wake's own tick settles
-    # right after it: one sync per wake, not one per detection (W-915).
+    # right after it: one sync per wake, not one per detection (W-915), nor a
+    # second one for the wake itself (W-985).
     if request.url.path.startswith("/api/ingest/") and not request.headers.get("x-ff-hosted"):
+        return response
+    if request.url.path == "/api/hosted/run":
         return response
     if link is not None and request.method in ("POST", "PUT", "DELETE") and response.status_code < 400:
         await run_in_threadpool(link.settle, request.app.state.service, False)

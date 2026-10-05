@@ -651,7 +651,13 @@ mode (`featherframe/hosted.py`, on with
 `/_internal/<household>/` before the DB opens, pushes changes after every
 tick and POST, applies check-ins through `app.parse_checkin` →
 `service.apply_checkin` (`add` = paired), and reports `hosted_state()`; a wake
-is `POST /api/hosted/run`. Admin: `/admin` (W-850, `admin.ts`) for a
+is `POST /api/hosted/run`, its one tick and its one sync (W-985: a hosted
+server never ticks on its own clock, `service.ticks_itself`, and the run
+request does not sync again after its tick). The small files a start reads
+travel as archives, `bundles/files.tar` and `bundles/history.tar`
+(`hosted.bundle_of`): one request each, not one per file; what the front
+door serves itself, the pictures, the DB and anything over 256 KB stay files
+of their own, and an archive wins over a file of the same path. Admin: `/admin` (W-850, `admin.ts`) for a
 signed-in user whose email is in the `ADMIN_EMAILS` secret, 404 to anyone
 else — the waitlist (D1 `waitlist`: the marketing page's form posts
 `POST /api/waitlist`, form or JSON with CORS for the apex; double opt-in:

@@ -657,7 +657,13 @@ request does not sync again after its tick). The small files a start reads
 travel as archives, `bundles/files.tar` and `bundles/history.tar`
 (`hosted.bundle_of`): one request each, not one per file; what the front
 door serves itself, the pictures, the DB and anything over 256 KB stay files
-of their own, and an archive wins over a file of the same path. Admin: `/admin` (W-850, `admin.ts`) for a
+of their own, and an archive wins over a file of the same path. The image
+compiles ahead what every start used to (W-987, `hosted/Dockerfile`): the
+Stucki kernel's numba cache (`NUMBA_CPU_NAME=generic`, so it holds on any
+x86-64 host), Python's library and the server as bytecode, the page's
+templates into `FEATHERFRAME_TEMPLATE_CACHE` (Jinja loads with the first page,
+`app.page_templates()`, so a wake never imports it), and one BLAS thread;
+`tests/test_start_cost.py` holds them. Admin: `/admin` (W-850, `admin.ts`) for a
 signed-in user whose email is in the `ADMIN_EMAILS` secret, 404 to anyone
 else — the waitlist (D1 `waitlist`: the marketing page's form posts
 `POST /api/waitlist`, form or JSON with CORS for the apex; double opt-in:

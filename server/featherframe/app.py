@@ -18,15 +18,17 @@ import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, Request, Response, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
+
+if TYPE_CHECKING:
+    from fastapi.templating import Jinja2Templates
 
 from . import __version__, auth, discovery, hosted, panels, paths, thumbs, viewers
 from . import frames as frames_mod
@@ -54,8 +56,6 @@ _AI_REFUSED_TASK = {"off": "AI image generation is off",
                     "limit": "this month's AI limit is reached",
                     "unreachable": "AI generation is unavailable right now"}
 
-templates = Jinja2Templates(directory=str(paths.templates_dir()))
-
 
 def clock12(value) -> str:
     """A time as people write it (docs/STYLE.md): "22:00" or a datetime ->
@@ -75,12 +75,42 @@ def stamp(value) -> str:
         return str(value or "")
 
 
-templates.env.filters["clock12"] = clock12
-templates.env.filters["stamp"] = stamp
-# The page and the frame rows word the two schedules the same way (W-906).
-templates.env.globals["collage_every_words"] = COLLAGE_EVERY_WORDS
-templates.env.globals["collage_every_text"] = collage_every_text
-templates.env.globals["quiet_hours_text"] = quiet_hours_text
+_templates: Optional["Jinja2Templates"] = None
+
+
+def page_templates() -> "Jinja2Templates":
+    """The page's templates, loaded when the first page is served: a Cloud
+    wake serves none, so it no longer imports Jinja (W-987). Where
+    FEATHERFRAME_TEMPLATE_CACHE names a folder (Cloud's image), Jinja keeps
+    each template there compiled, checked against its source, so a start
+    that serves the page loads index.html instead of compiling it again."""
+    global _templates
+    if _templates is None:
+        from fastapi.templating import Jinja2Templates
+        found = Jinja2Templates(directory=str(paths.templates_dir()))
+        cache = os.environ.get("FEATHERFRAME_TEMPLATE_CACHE", "").strip()
+        if cache:
+            from jinja2 import FileSystemBytecodeCache
+            Path(cache).mkdir(parents=True, exist_ok=True)
+            found.env.bytecode_cache = FileSystemBytecodeCache(cache)
+        found.env.filters["clock12"] = clock12
+        found.env.filters["stamp"] = stamp
+        # The page and the frame rows word the two schedules the same way (W-906).
+        found.env.globals["collage_every_words"] = COLLAGE_EVERY_WORDS
+        found.env.globals["collage_every_text"] = collage_every_text
+        found.env.globals["quiet_hours_text"] = quiet_hours_text
+        _templates = found
+    return _templates
+
+
+def warm_templates() -> int:
+    """Compile every template now, into FEATHERFRAME_TEMPLATE_CACHE. Cloud's
+    image runs this when it is built (W-987). Returns how many there are."""
+    env = page_templates().env
+    names = env.list_templates()
+    for name in names:
+        env.get_template(name)
+    return len(names)
 
 
 @asynccontextmanager
@@ -183,7 +213,7 @@ async def login_page(request: Request, next: Optional[str] = None):
     gate = _local_gate(request)
     if gate is None or not gate.on or gate.allows(request.cookies.get(auth.COOKIE)):
         return RedirectResponse(auth.safe_next(next), status_code=303)
-    return templates.TemplateResponse(request, "login.html", {
+    return page_templates().TemplateResponse(request, "login.html", {
         "next": auth.safe_next(next), "email": _svc(request).config.owner_email, "error": ""})
 
 
@@ -201,7 +231,7 @@ async def login_submit(request: Request):
     owner = _svc(request).config.owner_email
 
     def page(error: str, status: int):
-        return templates.TemplateResponse(request, "login.html", {
+        return page_templates().TemplateResponse(request, "login.html", {
             "next": target, "email": email or owner, "error": error}, status_code=status)
 
     if gate.throttled():
@@ -715,7 +745,7 @@ async def index(request: Request):
     # `config` is the household's and only the household's (W-833): what a
     # frame is drawn with lives on that frame's own row, and the Frames card
     # is the only place any of it is set.
-    return templates.TemplateResponse(
+    return page_templates().TemplateResponse(
         request, "index.html",
         {"status": status, "config": svc.config, "version": __version__,
          "generated": generated, "spend": spend,
@@ -1458,8 +1488,8 @@ async def viewer_png(request: Request, viewer_id: str, name: str):
 # and how big, and is told which image to show and whether to go dark.
 @app.get("/view", response_class=HTMLResponse)
 async def view_page(request: Request):
-    return templates.TemplateResponse(request, "view.html",
-                                      {"poll_seconds": viewers.PAGE_POLL_SECONDS})
+    return page_templates().TemplateResponse(request, "view.html",
+                                             {"poll_seconds": viewers.PAGE_POLL_SECONDS})
 
 
 @app.get("/view.webmanifest", include_in_schema=False)

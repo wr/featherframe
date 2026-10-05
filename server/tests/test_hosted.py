@@ -199,6 +199,18 @@ def test_the_database_travels_as_a_snapshot_and_comes_back_whole(env, tmp_path, 
     assert svc2.frames.get(FRAME_ID)["status"] == frames_mod.ON
 
 
+def test_an_unchanged_database_is_not_sent_again(env):
+    door, link, data = env
+    svc = _service()
+    seed_frame(svc, etag="one")
+    link.push()
+    door.state.calls.clear()
+    assert link.push() == 0 and door.state.calls == []
+    svc.db.set("changed", 1)
+    link.push()
+    assert door.state.calls == [("PUT", hosted.DB_NAME)]
+
+
 def test_what_the_frames_said_while_it_slept_is_recorded_as_if_it_had_been_heard(env):
     door, link, data = env
     svc = _service()

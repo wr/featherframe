@@ -263,6 +263,10 @@ class HostedLink:
         if db.exists():
             snap = self.data_dir / ".hosted" / DB_NAME
             snap.parent.mkdir(exist_ok=True)
+            # Into a new file: a backup over the last one bumps its change
+            # counter, so an unchanged database hashed new and was sent again
+            # on every sync (W-985).
+            snap.unlink(missing_ok=True)
             src = sqlite3.connect(str(db))
             dst = sqlite3.connect(str(snap))
             try:

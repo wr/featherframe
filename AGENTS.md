@@ -538,6 +538,15 @@ build OUT_DIR` on a machine with every scan; for an update, `build OUT_DIR
 `upload OUT_DIR` puts them in the bucket (wrangler), `library.json` last.
 A crop's key includes a folio's own `margins`, so Havell's keys never move.
 
+**Featherframe Cloud is free to owners, so it is built to carry at least 500
+households at the least cost.** Weigh every hosted change at that scale: a
+household's month of container time, Durable Object requests and duration, R2
+operations, D1 rows and Worker requests, times 500, against the Workers Paid
+allowances (`hosted/src/usage.ts` prices each). Between two designs, take the
+one that starts the server less often, keeps it up for less time and makes
+fewer requests. Measure a change with the account's GraphQL Analytics, as
+`usage.ts` reads it, before calling it cheap.
+
 **Hosted (W-841–W-847, `hosted/`); owners read "Featherframe Cloud" (W-890), and the rest is "self-hosted".** One host, `cloud.featherframe.app` (the
 apex is the marketing page, not routed; `plates.` is the W-842 library). The
 Worker (`hosted/src/index.ts`) routes the page by session (a magic link from

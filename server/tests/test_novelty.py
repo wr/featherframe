@@ -15,7 +15,6 @@ from PIL import Image, ImageDraw
 from starlette.testclient import TestClient
 
 from featherframe.config import Config
-from featherframe.names import SpeciesIndex
 from featherframe.render import compose, pipeline, theme, typography
 from featherframe.render.compose import SingleSpec
 from featherframe.render.provider import ArtProvider, Artwork
@@ -285,17 +284,6 @@ def test_a_long_artist_name_is_set_smaller_not_into_the_footnote():
     scratch = Image.new("L", (theme.WIDTH, theme.HEIGHT), 255)
     w = typography.artist_mark(scratch, "John Gould and Elizabeth Gould")
     assert w <= typography.artist_mark_max_width() + 12          # + the swash's overhang
-
-
-def test_the_artist_is_the_folio_header_up_to_its_first_comma():
-    idx = SpeciesIndex([], folios={
-        "havell": {"artist": "John James Audubon, engraved by Robert Havell"},
-        "gould_australia": {"artist": "John and Elizabeth Gould, with H. C. Richter"}})
-    assert idx.artist("havell") == "John James Audubon"
-    assert idx.artist(None) == "John James Audubon"
-    assert idx.artist("gould_australia") == "John and Elizabeth Gould"
-    assert idx.artist("unknown") is None
-    assert SpeciesIndex([]).artist("havell") == "John James Audubon"   # an index with no headers
 
 
 def test_first_ever_plate_says_so_under_the_latin_name():

@@ -41,7 +41,7 @@ from typing import Optional
 import requests
 from PIL import Image
 
-from . import paths
+from . import credits, paths
 from .names import SpeciesIndex, folio_of, has_plate
 from .render import plate
 from .render.provider import ArtProvider, Artwork
@@ -213,7 +213,8 @@ class LibraryProvider(ArtProvider):
                 log.warning("library plate %s unavailable for %s: %s", key, common_name, exc)
                 return None
             return Artwork(image=gray, plate=int(entry["plate"]), volume_no=entry.get("volume_no"),
-                           folio=folio_of(entry), artist=self.library.index().artist(folio_of(entry)),
+                           folio=folio_of(entry),
+                           artist=credits.drawn_by(folio_of(entry), int(entry["plate"]), entry.get("volume_no")),
                            composite=bool(entry.get("composite")),
                            legend=[str(x) for x in (entry.get("legend") or [])],
                            color_loader=lambda: color_pair_from_raw(self.library.image(key, "color")))

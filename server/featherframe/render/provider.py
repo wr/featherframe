@@ -16,6 +16,7 @@ from typing import Callable, Optional, Union
 
 from PIL import Image
 
+from .. import credits
 from ..names import SpeciesIndex
 from . import plate
 
@@ -111,7 +112,8 @@ class PlateProvider(ArtProvider):
                         common_name, match.image_path, exc)
             return None
         return Artwork(image=img, plate=match.plate_number, volume_no=match.volume_no, folio=match.folio,
-                       artist=self._index.artist(match.folio), composite=match.composite,
+                       artist=credits.drawn_by(match.folio, match.plate_number, match.volume_no),
+                       composite=match.composite,
                        legend=list(match.legend),
                        color_loader=lambda: plate.extract_color(
                            match.image_path, composite=match.composite,

@@ -13,6 +13,7 @@ against the folios and builds a scanned folio's release images.
     export_dataset.py assets  OUT_DIR --dataset DIR [--folio gould-australia]  # cleaned sheets + crops + manifest
     export_dataset.py assets  OUT_DIR --folio havell   # Havell: audubon.org's scans + lettering-free crops
     export_dataset.py thumbs  OUT_DIR --dataset DIR [--folio …]  # contact sheets of the crops, for the README
+    export_dataset.py credits DATASET_DIR   # who drew each plate, into featherframe/plate_credits.json
 
 `export` asks three outside sources once and caches them (--cache): the eBird
 taxonomy (the dataset's modern names and codes), BirdNET's V2.4 labels (only
@@ -856,6 +857,35 @@ def export(out: Path, tax: Taxonomy, plates_dir: Optional[Path]) -> None:
               + (f", {len(ku)} Kansas disagreements" if ku is not None else ""))
 
 
+CREDITS_JSON = REPO / "server" / "featherframe" / "plate_credits.json"
+
+
+def plate_credits(dataset: Path) -> dict:
+    """Who drew each plate, from the dataset's credit lines (W-984): {folio:
+    {plate label: [name, …]}}, in the order the plate names them, for every
+    plate with a "drew" credit read. The corner of an illustration names
+    them; the dataset is where they are read and corrected (W-926)."""
+    out = {}
+    folios = [("havell", "havell", None)] + [(g.name, g.folder, g) for g in GOULD.values()]
+    for folio_name, folder, g in folios:
+        drew: dict[str, list[str]] = {}
+        for r in read_csv(dataset / folder / "credits.csv"):
+            if r["role"] != "drew":
+                continue
+            label = plate_label(plate_key(g, r) if g else (int(r["plate"]),))
+            names = drew.setdefault(label, [])
+            if r["name"] not in names:
+                names.append(r["name"])
+        out[folio_name] = drew
+    return out
+
+
+def write_credits(dataset: Path, path: Path = CREDITS_JSON) -> int:
+    credits = plate_credits(dataset)
+    path.write_text(json.dumps(credits, indent=0, sort_keys=True, ensure_ascii=False) + "\n")
+    return sum(len(v) for v in credits.values())
+
+
 def check(out: Path) -> list[str]:
     """Every pin in the folios is a row in species.csv. Names are compared as
     the pin wrote them: the BirdNET label's binomial, or the dataset's own
@@ -891,6 +921,11 @@ def check(out: Path) -> list[str]:
                 if r["caption_checked"] == "yes" and not any((key(r), n) in pinset for n in names(r)):
                     errors.append(f"{folder}: plate {plate_label(key(r))} {r['scientific']} "
                                   "is caption-checked but not pinned")
+    if (out / "havell" / "credits.csv").exists():
+        shipped = json.loads(CREDITS_JSON.read_text()) if CREDITS_JSON.exists() else None
+        if shipped != plate_credits(out):
+            errors.append(f"{CREDITS_JSON.relative_to(REPO)} differs from the dataset's credits.csv: "
+                          "run export_dataset.py credits")
     return errors
 
 
@@ -1072,7 +1107,7 @@ def thumbs(dataset: Path, assets_dir: Path, folder: str = "gould-europe") -> lis
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["export", "check", "assets", "thumbs"])
+    ap.add_argument("command", choices=["export", "check", "assets", "thumbs", "credits"])
     ap.add_argument("dir", type=Path, help="the dataset repo (export, check) or the assets folder")
     ap.add_argument("--cache", type=Path, default=Path.home() / ".cache" / "historical-bird-plates")
     ap.add_argument("--offline", action="store_true", help="export without the outside sources")
@@ -1086,6 +1121,9 @@ def main() -> int:
         if not args.bootstrap:
             ap.error("export only bootstraps an empty folder now (W-926); pass --bootstrap to confirm")
         export(args.dir, Taxonomy(None if args.offline else args.cache), args.plates_dir)
+    if args.command == "credits":
+        print(f"{write_credits(args.dir)} plates' artists written to {CREDITS_JSON.relative_to(REPO)}")
+        return 0
     if args.command in ("export", "check"):
         errors = check(args.dir)
         for e in errors:

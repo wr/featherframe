@@ -209,6 +209,26 @@ _STUCKI = ((1, 0, 8), (2, 0, 4),
            (-2, 2, 1), (-1, 2, 2), (0, 2, 4), (1, 2, 2), (2, 2, 1))
 
 
+_CELLS_CACHE: tuple | None = None
+
+
+def _cells() -> tuple[np.ndarray, np.ndarray]:
+    """Every cell of the ink table, mapped once (W-997): its colour pulled onto
+    the ink gamut, in panel-normalised linear RGB [64³, 3], and its ink set as
+    a bitmask [64³]. A frame's colours each fall in one cell, so mapping one is
+    two lookups a pixel, not a gather, a diff and a matrix product each."""
+    global _CELLS_CACHE
+    if _CELLS_CACHE is None:
+        pal = _palette_linear()
+        pal_n = (pal - pal[BLACK]) / (pal[WHITE] - pal[BLACK])
+        cum = _lut().reshape(-1, len(pal)).astype(np.float32) / 255.0
+        wts = np.diff(cum, axis=1, prepend=0.0)
+        bits = (1 << np.arange(len(pal))).astype(np.uint8)
+        _CELLS_CACHE = ((wts @ pal_n).astype(np.float32),
+                        ((wts > 0) * bits).sum(axis=1).astype(np.uint8))
+    return _CELLS_CACHE
+
+
 def _gamut_mapped(img: Image.Image, saturation: float) -> tuple[np.ndarray, np.ndarray]:
     """The frame in panel-normalised linear RGB (0 = black ink, 1 = white ink
     per channel), every colour already pulled onto the ink gamut by the same
@@ -216,13 +236,10 @@ def _gamut_mapped(img: Image.Image, saturation: float) -> tuple[np.ndarray, np.n
     inks its colour is a mix of). Diffusing an in-gamut image is what keeps
     the error bounded: an unreachable red would otherwise push its shortfall
     across the sheet as a smear."""
-    lut = _lut()
-    pal = _palette_linear()
-    pal_n = (pal - pal[BLACK]) / (pal[WHITE] - pal[BLACK])
+    mapped, sets = _cells()
     h, w = img.height, img.width
     out = np.empty((h, w, 3), dtype=np.float32)
     inkset = np.empty((h, w), dtype=np.uint8)
-    bits = (1 << np.arange(len(pal))).astype(np.uint8)
     band = 256
     for y0 in range(0, h, band):
         rgb = np.asarray(img.crop((0, y0, w, min(h, y0 + band))), dtype=np.float32)
@@ -230,10 +247,9 @@ def _gamut_mapped(img: Image.Image, saturation: float) -> tuple[np.ndarray, np.n
             luma = rgb @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
             rgb = np.clip(luma[..., None] + (rgb - luma[..., None]) * saturation, 0, 255)
         q = np.clip(np.round(_to_linear(rgb) * (_LUT_N - 1)).astype(np.int32), 0, _LUT_N - 1)
-        cum = lut[q[..., 0], q[..., 1], q[..., 2]].astype(np.float32) / 255.0
-        wts = np.diff(cum, axis=2, prepend=0.0)
-        out[y0:y0 + rgb.shape[0]] = wts @ pal_n
-        inkset[y0:y0 + rgb.shape[0]] = ((wts > 0) * bits).sum(axis=2).astype(np.uint8)
+        cell = (q[..., 0] * _LUT_N + q[..., 1]) * _LUT_N + q[..., 2]
+        out[y0:y0 + rgb.shape[0]] = mapped[cell]
+        inkset[y0:y0 + rgb.shape[0]] = sets[cell]
     return out, inkset
 
 

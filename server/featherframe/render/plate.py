@@ -222,6 +222,24 @@ def _norm_box(gray: Image.Image, box: list[float]) -> tuple[int, int, int, int]:
     return (int(x * w), int(y * h), int((x + bw) * w), int((y + bh) * h))
 
 
+def _curve(values: np.ndarray, lo, hi) -> np.ndarray:
+    """The levels stretch and shallow S-curve paper_normalize applies, on
+    `values` (float32): ink deepened, paper brightened, the midtone engraving
+    lines mostly left alone; as uint8."""
+    norm = np.clip((values - lo) / (hi - lo), 0, 1)
+    # Shallow S-curve (blend toward smoothstep): darkens the ink, brightens the
+    # paper, leaves the midtone engraving lines mostly alone.
+    s = norm * norm * (3.0 - 2.0 * norm)
+    norm = norm * 0.62 + s * 0.38
+    out = 6 + norm * (255 - 6)                  # deep black point, paper -> pure white
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
+# Every value a channel can hold, for _curve to run once per value rather than
+# once per pixel (W-997): the same arithmetic, so the same pixels.
+_LEVELS = np.arange(256, dtype=np.float32)
+
+
 def paper_normalize(gray: Image.Image) -> Image.Image:
     """Levels stretch + gentle S-curve: lift aged cream to clean paper and deepen
     the ink so the plate reads with punch on e-ink (the flat 16-level panel
@@ -232,13 +250,8 @@ def paper_normalize(gray: Image.Image) -> Image.Image:
     hi = np.percentile(arr, 90.0)              # clip more paper to pure white
     if hi - lo < 1e-3:
         return gray
-    norm = np.clip((arr - lo) / (hi - lo), 0, 1)
-    # Shallow S-curve (blend toward smoothstep): darkens the ink, brightens the
-    # paper, leaves the midtone engraving lines mostly alone.
-    s = norm * norm * (3.0 - 2.0 * norm)
-    norm = norm * 0.62 + s * 0.38
-    out = 6 + norm * (255 - 6)                  # deep black point, paper -> pure white
-    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="L")
+    table = _curve(_LEVELS, lo, hi)
+    return Image.fromarray(table[np.asarray(gray.convert("L"))], mode="L")
 
 
 def paper_normalize_color(rgb: Image.Image) -> Image.Image:
@@ -252,11 +265,12 @@ def paper_normalize_color(rgb: Image.Image) -> Image.Image:
     hi = np.percentile(arr.reshape(-1, 3), 90.0, axis=0)
     if (hi - lo).min() < 1e-3:
         return rgb
-    norm = np.clip((arr - lo) / (hi - lo), 0, 1)
-    s = norm * norm * (3.0 - 2.0 * norm)
-    norm = norm * 0.62 + s * 0.38
-    out = 6 + norm * (255 - 6)
-    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="RGB")
+    table = _curve(_LEVELS[:, None], lo, hi)    # [256, 3]: each channel its own white
+    px = np.asarray(rgb.convert("RGB"))
+    out = np.empty_like(px)
+    for c in range(3):
+        out[..., c] = table[px[..., c], c]
+    return Image.fromarray(out, mode="RGB")
 
 
 # The part of a Havell sheet kept, as (left, top, right, bottom) fractions.

@@ -3502,8 +3502,9 @@ class FeatherframeService:
                 sheet.reduce(_HISTORY_SCALE).save(target)
             full = hist / f"{etag}.jpg"
             if not full.exists():
+                # No optimize pass: it halves the encode's CPU for 2 % of size.
                 sheet.convert("RGB" if sheet.mode == "RGB" else "L").save(
-                    full, quality=_HISTORY_FULL_QUALITY, optimize=True)
+                    full, quality=_HISTORY_FULL_QUALITY)
             thumbs = sorted((p for p in hist.glob("*.png") if _ETAG_RE.match(p.stem)),
                             key=lambda p: p.stat().st_mtime, reverse=True)
             for stale in thumbs[_HISTORY_MAX:]:

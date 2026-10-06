@@ -80,14 +80,15 @@ def _service():
 
 def test_the_data_dir_comes_down_and_only_what_changed_goes_back(env):
     door, link, data = env
-    door.state.files = {"generated/blue-jay.png": b"plate", "frames/out/x.fff": b"FFF1old"}
-    assert link.pull() == 1                                   # the illustration waits to be read
+    door.state.files = {"generated/blue-jay.png": b"plate", "frames/drawn/out/x.fff": b"FFF1old"}
+    assert link.pull() == 0                   # both wait to be read (W-915, W-999)
     hosted.activate(link)
     assert hosted.local(data / "generated" / "blue-jay.png").read_bytes() == b"plate"
+    assert hosted.local(data / "frames" / "drawn" / "out" / "x.fff").read_bytes() == b"FFF1old"
     assert link.pull() == 0                                   # already here
-    (data / "frames" / "out" / "x.fff").write_bytes(b"FFF1new")
-    (data / "frames" / "pictures").mkdir(parents=True)
-    (data / "frames" / "pictures" / "sheet.png").write_bytes(b"sheet")
+    (data / "frames" / "drawn" / "out" / "x.fff").write_bytes(b"FFF1new")
+    (data / "frames" / "drawn" / "sheets").mkdir(parents=True)
+    (data / "frames" / "drawn" / "sheets" / "e.png").write_bytes(b"sheet")
     (data / "generated" / "blue-jay.png").unlink()
     (data / "plate-library").mkdir(parents=True)
     (data / "plate-library" / "lib.png").write_bytes(b"a cache, not state")
@@ -96,8 +97,8 @@ def test_the_data_dir_comes_down_and_only_what_changed_goes_back(env):
     door.state.calls.clear()
     assert link.push() == 4
     assert sorted(door.state.calls) == [("DELETE", "generated/blue-jay.png"),
-                                        ("PUT", "frames/out/x.fff"),
-                                        ("PUT", "frames/pictures/sheet.png"),
+                                        ("PUT", "frames/drawn/out/x.fff"),
+                                        ("PUT", "frames/drawn/sheets/e.png"),
                                         ("PUT", "frames/views/v.png")]
     door.state.calls.clear()
     assert link.push() == 0 and door.state.calls == []
@@ -116,14 +117,15 @@ def test_small_files_travel_as_a_few_archives(env, tmp_path):
     _write(data, "generated/thumbs/blue-jay.jpg", b"thumb")
     _write(data, "bluenoise64.npy", b"noise")
     _write(data, "frames/history/0123456789abcdef.png", b"past")
-    _write(data, "frames/out/x.fff", b"FFF1")                    # the front door reads it
-    _write(data, "frames/pictures/plates/sheet.png", b"sheet")   # changes with every picture
+    _write(data, "frames/drawn/out/x.fff", b"FFF1")              # the front door reads it
+    _write(data, "frames/drawn/sheets/e.png", b"sheet")          # read when drawn from
     _write(data, "big.npy", b"x" * (hosted.BUNDLE_MAX_BYTES + 1))
     door.state.calls.clear()
     link.push()
     assert sorted(door.state.calls) == [("PUT", "big.npy"), ("PUT", "bundles/files.tar"),
-                                        ("PUT", "bundles/history.tar"), ("PUT", "frames/out/x.fff"),
-                                        ("PUT", "frames/pictures/plates/sheet.png")]
+                                        ("PUT", "bundles/history.tar"),
+                                        ("PUT", "frames/drawn/out/x.fff"),
+                                        ("PUT", "frames/drawn/sheets/e.png")]
     # A new Container gets them all back, one request per archive.
     fresh = tmp_path / "fresh"
     link2 = hosted.HostedLink("http://door/h", "k", fresh, session=TestClient(door))
@@ -131,9 +133,9 @@ def test_small_files_travel_as_a_few_archives(env, tmp_path):
     link2.pull()
     assert sorted(c for c in door.state.calls if c[1].startswith("bundles/")) == [
         ("GET", "bundles/files.tar"), ("GET", "bundles/history.tar")]
-    assert len(door.state.calls) == 5
+    assert len(door.state.calls) == 3          # what is drawn waits to be read (W-999)
     for rel in ("generated/blue-jay.json", "generated/thumbs/blue-jay.jpg", "bluenoise64.npy",
-                "frames/history/0123456789abcdef.png", "big.npy", "frames/out/x.fff"):
+                "frames/history/0123456789abcdef.png", "big.npy"):
         assert (fresh / rel).read_bytes() == (data / rel).read_bytes()
     # A new picture's history PNG sends that archive again, not the rest.
     _write(fresh, "frames/history/fedcba9876543210.png", b"newer")
@@ -233,7 +235,8 @@ def test_what_the_frames_said_while_it_slept_is_recorded_as_if_it_had_been_heard
     state = door.state.states[-1]
     assert "CC:CC:CC:00:00:01" not in state["frames"]
     mine = state["frames"][FRAME_ID]
-    assert mine["etag"] == "one" and mine["file"] == "frames/out/AA_AA_AA_00_00_03.fff"
+    assert mine["etag"] == "one" and mine["file"] == svc._out[FRAME_ID]["file"]
+    assert mine["file"].startswith("frames/drawn/out/")
     assert mine["headers"]["X-Power-Mode"] == "awake" and mine["push"]["etag"] == "one"
     assert door.state.files[mine["file"]] == (data / mine["file"]).read_bytes()
 
@@ -394,7 +397,7 @@ def test_a_viewer_its_owner_paired_is_added_and_its_image_is_drawn_ahead(env):
     assert frames_mod.reported_of(row)["battery_volts"] == 4.0
     v = door.state.states[-1]["viewers"]["AA:BB:CC:00:00:01"]
     assert v["status"] == "on" and v["name"].startswith(svc.pictures["plates"].etag)
-    assert v["file"] == f"frames/views/{v['name']}.png" and v["file"] in door.state.files
+    assert v["file"] == f"frames/drawn/views/{v['name']}.png" and v["file"] in door.state.files
     assert v["paper"] is True and v["refresh"] > 0
 
 
@@ -408,7 +411,7 @@ def test_a_tablet_page_reports_its_size_through_the_front_door(env):
     row = svc.frames.get("PAGE-0A1B2C3D")
     assert row["transport"] == "page" and frames_mod.reported_of(row)["model"] == "iPad"
     v = door.state.states[-1]["viewers"]["PAGE-0A1B2C3D"]
-    assert v["paper"] is False and v["name"].endswith("1536x2048-color-0")
+    assert v["paper"] is False and "-1536x2048-color-0-" in v["name"]
 
 
 def test_a_viewer_nobody_paired_is_not_recorded(env):
@@ -537,10 +540,12 @@ _LAZY_FILES = {
     "frames/collage-days/2026-09-21.png": b"kept", "frames/collage-days/thumbs/2026-09-21.jpg": b"t",
     "frames/history/aaaaaaaaaaaaaaaa.png": b"small", "frames/history/aaaaaaaaaaaaaaaa.jpg": b"full",
     "firmware/0.2.10/ee03.bin": b"app",
-    "frames/out/x.fff": b"FFF1", "frames/pictures/plates/sheet.png": b"sheet",
+    "frames/drawn/out/x.fff": b"FFF1", "frames/drawn/sheets/e.png": b"sheet",
+    "frames/views/waiting-x.png": b"waiting",
 }
 _WAITING = {"generated/blue-jay.png", "collages/2026-09-21.png", "frames/collage-days/2026-09-21.png",
-            "frames/history/aaaaaaaaaaaaaaaa.jpg", "firmware/0.2.10/ee03.bin"}
+            "frames/history/aaaaaaaaaaaaaaaa.jpg", "firmware/0.2.10/ee03.bin",
+            "frames/drawn/out/x.fff", "frames/drawn/sheets/e.png"}
 
 
 def test_a_start_leaves_what_is_read_one_at_a_time_at_the_front_door(env):
@@ -802,3 +807,35 @@ def test_a_failed_generation_waits_out_its_cooldown_across_a_restart(env):
     again.config.imagegen_api_key = "sk-old"
     again.reload_config()
     assert not again.genart._in_cooldown(f"collage-{day.isoformat()}")
+
+
+# -- the drawn store (W-999) ---------------------------------------------------
+def test_the_front_door_is_told_what_it_serves_before_the_old_file_goes(env):
+    door, link, data = env
+    door.state.files = {"frames/drawn/out/old.fff": b"FFF1old"}
+    link.pull()
+    hosted.activate(link)
+    hosted.remove(data / "frames" / "drawn" / "out" / "old.fff")
+    _write(data, "frames/drawn/out/new.fff", b"FFF1new")
+    report = link.report
+    link.report = lambda state: door.state.calls.append(("POST", "state")) or report(state)
+
+    class _Service:
+        def hosted_state(self):
+            return {"frames": {"X": {"file": "frames/drawn/out/new.fff"}}}
+    door.state.calls.clear()
+    link.settle(_Service(), apply_checkins=False)
+    assert door.state.calls == [("PUT", "frames/drawn/out/new.fff"), ("POST", "state"),
+                                ("DELETE", "frames/drawn/out/old.fff")]
+
+
+def test_a_start_downloads_nothing_drawn(env):
+    door, link, data = env
+    door.state.files = {"frames/drawn/sheets/e.png": b"s", "frames/drawn/out/e-k.fff": b"FFF1",
+                        "frames/drawn/out/e-k.png": b"p", "frames/drawn/views/e-v.png": b"v"}
+    door.state.calls.clear()
+    assert link.pull() == 0 and door.state.calls == []
+    hosted.activate(link)
+    assert hosted.exists(data / "frames/drawn/out/e-k.fff")
+    assert hosted.local(data / "frames/drawn/views/e-v.png").read_bytes() == b"v"
+    assert door.state.calls == [("GET", "frames/drawn/views/e-v.png")]

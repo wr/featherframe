@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
+from featherframe import drawn
 from featherframe import frames as frames_mod
 from featherframe import service as service_mod
 from featherframe.service import device_of
@@ -57,9 +58,9 @@ def add_kit(svc, frame_id: str = FRAME_ID, panel: str = EE03_PANEL,
 def give_output(svc, frame_id: str = FRAME_ID, body: bytes = b"FFF1" + bytes(12),
                 etag: str = "abc123") -> str:
     """Put bytes on one frame's glass without rendering anything."""
-    fff, _png = svc._out_paths(frame_id)
+    fff, _png = drawn.out_paths("0" * drawn.ETAG_LEN, drawn.okey(f"test|{frame_id}"))
     fff.write_bytes(body)
-    svc._out[frame_id] = {"etag": etag, "src": "test"}
+    svc._out[frame_id] = {"etag": etag, "src": "test", "file": drawn.rel(fff)}
     svc._save_outputs()
     return etag
 

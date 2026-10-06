@@ -20,7 +20,7 @@ from typing import Optional
 from PIL import Image, ImageChops, ImageDraw
 
 from . import theme, typography
-from .compose import _fit, _new_field, merge_color, new_color_layer
+from .compose import _fit, _new_field, art_sig, merge_color, new_color_layer
 from .provider import ArtProvider
 
 
@@ -289,6 +289,7 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
     cell_w = (grid_right - grid_left - gutter_x * (cols - 1)) / cols
     cell_h = (grid_bottom - grid_top - gutter_y * (rows - 1)) / rows
 
+    sigs, missing = [], False
     for i, cell in enumerate(cells):
         r, c = divmod(i, cols)
         x0 = grid_left + c * (cell_w + gutter_x)
@@ -301,6 +302,8 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
         _figure_numeral(draw, art_box, i + 1)
         art = provider.artwork(cell.common_name, cell.scientific_name)
         pair = art.color_pair() if (art is not None and color) else None
+        sigs.append(art_sig(art))
+        missing = missing or (color and art is not None and pair is None)
         if pair is not None:
             _paste_art(layer, pair[1], art_box, v_align=0.5)
         elif art is not None:
@@ -316,4 +319,8 @@ def render_collage(cells: list[CollageCell], provider: ArtProvider,
             typography.draw_engraved(draw, ccx, midy + sci_size * theme.ENGRAVED_CAP / 2,
                                      sci, sci_size, theme.INK_SOFT)
 
-    return merge_color(field, layer) if color else field
+    out = merge_color(field, layer) if color else field
+    # As compose's single sheet: a twin is kept only if every cell's colour
+    # loaded and it is the same art as the gray grid (W-999).
+    out.info.update(ff_art=tuple(sigs), **({"ff_color": not missing} if color else {}))
+    return out

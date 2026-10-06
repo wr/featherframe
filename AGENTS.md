@@ -155,9 +155,9 @@ picture it shows: the owner's choice, else its panel's own default.
 once, as a sheet, whatever any frame's panel is.
 
 *An output* is one frame's picture finished for that frame: fitted, matted,
-dithered and packed with `frame_config(row)`, kept as `data/frames/out/<id>.fff`
-(+ `.png` preview) and redrawn only when its picture or its settings change
-(`_out[id].src` names both). `/api/frame` resolves the asking frame's row and
+dithered and packed with `frame_config(row)`, kept in the drawn store (below)
+and pointed at by `_out[id].file`, and redrawn only when its picture or its
+settings change (`_out[id].src` names both). `/api/frame` resolves the asking frame's row and
 serves its bytes, its ETag, its own `X-FF-Rotation` / `X-Power-Mode` /
 `X-Wake-Minutes` / `X-Poll-Seconds`, and its button views drawn with its
 config. Its two intervals are `service.frame_intervals`: on plates the owner's,
@@ -199,11 +199,11 @@ before the panel fit, the mat and the dither) as the picture's `sheet.png`, and
 `GET /api/view.png?w=&h=&format=&rotation=` (`service.view_png` →
 `pipeline.render_view`) draws it again at the asked size: `gray16`/`gray2`/
 `mono` blue-noise dithered, `gray256`/`color` smooth, no mat, a PNG. Its ETag
-is the picture's plus the variant; renders are cached in `data/frames/views/`
-(a handful, dropped with the picture). A view never touches a frame's
+is its name in the drawn store (the sheet it is drawn from, the variant and
+the finishing version); waiting plates alone stay in `data/frames/views/`. A view never touches a frame's
 output, its row or the cursor. `gray16` at 1404×1872 is the EE03
 preview pixel for pixel (a test holds it): TRMNL X is the same glass. Colour
-for a gray frame's server is a second sheet (the picture's `sheet_color.png`),
+for a gray frame's server is a second sheet (the picture's colour twin),
 never any frame's pixels: every render hands `_commit` a `recompose` (the same
 spec, art in colour), drawn while a colour kit shows that picture or a colour
 viewer has asked within `COLOR_VIEWER_DAYS` (`color_viewer_at` in the DB). The
@@ -330,8 +330,8 @@ it. `status()["frames"]["list"]` is the whole of it, one shape per frame;
 `status()["current"]` is what the pictures are of, not any frame's view.
 **Two pictures (`pictures.py`).** There are exactly
 two, `plates` and `collage`, and they are the same kind of thing: each owns its
-meta, its ETag, and its composed sheet (`data/frames/pictures/<kind>/
-sheet[_color].png`; the `pictures` kv row holds the rest). A picture is drawn
+meta, its ETag, and its composed sheet (named by its ETag in the drawn store;
+the `pictures` kv row holds the rest). A picture is drawn
 only while some frame shows it — a kit per `frames.shows_of`, a viewer per
 `viewers.shows_of` and only if it asked within `VIEWER_SHOWS_DAYS` — and is
 dropped when the last one looks away (`_kinds_shown`, `_drop_picture`, which
@@ -345,6 +345,24 @@ that same collage picture for the rest of the window (`_kind_for`). Nothing
 holds a picture (W-904); the blocklist is global; a frame's ETag/filename is
 its own picture's (`picture_etag`), so a TRMNL on the collage does not repaint
 for a new plate.
+**The drawn store (W-999, `drawn.py`).** Everything drawn is kept once,
+named by what it was drawn from, under `data/frames/drawn/`: `sheets/<etag>.png`
+(a picture's gray sheet; the ETag is its pixels' hash) and its colour twin
+`sheets/<etag>-c<COLOR_VERSION>.png`, `out/<etag>-<okey>.fff|.png` (a frame's
+output; `okey` hashes its `src` and `fkey`), `views/<sheet>-<view>-<fkey>.png`.
+Pictures, frames and viewers point at files and never delete one; a species
+that comes back composes its gray sheet, lands on the same ETag and finds its
+twin, outputs and views. A twin is kept only if its colour loaded and its art
+is the gray sheet's (`ff_art`, `_same_art`). Refresh deletes nothing: a new
+token in the kv row `drawn` redraws that picture's files in place. The
+pruner (`_prune_drawn`, after every commit) keeps what is pointed at (per
+file) and the 40 most recent pictures. **Bump `compose.COLOR_VERSION` when
+the colour path changes its pixels, and `pipeline.FINISH_VERSION` when
+finishing does** (fit, mat, dither, pack, views): a kept drawing is reused
+by name. `tests/test_drawn_versions.py` fails when the pixels move without
+them (record with `FF_RECORD_DRAWN=1`). On hosted the folder is lazy, and a
+sync uploads, reports, then deletes. Forward only from the old layout
+(`_migrate_drawn`).
 **Adding and removing frames.** A kit names itself with `X-Device-Id` (its
 MAC). **Every frame of every transport is approved on the server**, the first
 kit on a fresh install included: a new row is `asking` until the owner answers
@@ -597,7 +615,7 @@ cached in R2) and the page shows it in its HTML (`code` in `/api/view/state`).
 Claimed, every ask goes to the household's front door, which answers from its
 `viewers` table — each on viewer's image drawn ahead by the server
 (`service.ensure_view`, in `hosted_state()["viewers"]`, pushed with
-`frames/views/`) — and keeps the ask for the server (`apply_viewer_checkin`),
+`frames/drawn/`) — and keeps the ask for the server (`apply_viewer_checkin`),
 so a tablet asking every 20 s never wakes it. An image URL carries `t`, the
 first 32 hex of the hash of the device's key. `/view`, its manifest and icons
 and `/fonts/script.ttf` are bundled into the Worker (`rules` in

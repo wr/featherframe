@@ -13,6 +13,7 @@ import pytest
 from PIL import Image
 from starlette.testclient import TestClient
 
+from featherframe import drawn
 from featherframe.render import pipeline
 from tests._fixtures import create_birds_db, make_row
 from tests._frames import FRAME_ID, add_kit, add_page, add_trmnl, frame_bytes, pin_today
@@ -64,7 +65,12 @@ def _drawn(svc) -> list:
 
 
 def _sheets(svc, kind) -> list:
-    return sorted(f.name for f in svc.pictures[kind].dir.glob("*.png"))
+    """The sheets a picture points at, by what they are."""
+    pic = svc.pictures[kind]
+    if not pic.etag:
+        return []
+    names = {drawn.sheet_path(pic.etag): "sheet.png", drawn.twin_path(pic.etag): "sheet_color.png"}
+    return sorted(names[p] for p in pic.sheets(color=True))
 
 
 def test_a_viewer_follows_the_frame_until_it_is_told_otherwise(client):

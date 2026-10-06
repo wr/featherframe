@@ -304,6 +304,7 @@ def test_a_collage_is_kept_a_week_to_download(client, svc):
     from featherframe.service import COLLAGE_DAYS_KEPT
     from PIL import Image
     pic = svc.pictures["collage"]
+    pic.etag = "c" * 16
     Image.new("L", (8, 8), 200).save(pic.sheet_path)
     start = date(2026, 9, 1)
     for i in range(COLLAGE_DAYS_KEPT + 3):
@@ -328,6 +329,7 @@ def test_the_colour_collage_is_the_one_kept(svc):
     from featherframe import paths
     from PIL import Image
     pic = svc.pictures["collage"]
+    pic.etag = "c" * 16
     Image.new("L", (8, 8), 200).save(pic.sheet_path)
     Image.new("RGB", (8, 8), (200, 0, 0)).save(pic.color_sheet_path)
     svc._keep_collage_day(date(2026, 9, 22))

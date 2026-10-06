@@ -349,9 +349,12 @@ def test_a_torn_output_is_not_served(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     db = Database()
-    db.set("frame_outputs", {"AA:BB": {"etag": "deadbeefcafef00d", "src": "x"}})
+    from featherframe import drawn
+    fff = drawn.out_paths("0" * 16, "x")[0]
+    db.set("frame_outputs", {"AA:BB": {"etag": "deadbeefcafef00d", "src": "x",
+                                       "file": drawn.rel(fff)}})
     service = FeatherframeService(db)
-    service._out_paths("AA:BB")[0].write_bytes(b"FFF1" + b"\x00" * 200)
+    fff.write_bytes(b"FFF1" + b"\x00" * 200)
     assert FeatherframeService(db)._out == {}
     assert frame_bytes(service, "AA:BB") is None
 

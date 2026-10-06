@@ -32,7 +32,6 @@ class Artwork:
     artist: Optional[str] = None  # who made it, as the corner names them ("John James Audubon")
     composite: bool = False
     generated: bool = False     # True when the art is AI-generated, not a scan
-    model: Optional[str] = None   # a generated sheet's model id, as its corner names it
     legend: list = field(default_factory=list)   # printed figure key / plant lines
     # For a colour panel: loads (gray, colour) of the same art, lazily so a
     # gray panel never pays for it. None = this art has no colour.

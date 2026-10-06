@@ -528,9 +528,8 @@ Aububon"; as `Artwork.artist`: "J. J. Audubon", "Lucy Audubon" on Havell 64,
 "E. Lear", "J. & E. Gould", "J. Gould & H. C. Richter", every one at full
 size),
 nothing on a plate whose credit line was not read, or on a
-generated sheet a ✦ and the model that drew it in the engraved face
-(`Artwork.model`, the sidecar's id through `genart.model_slug`:
-"✦ gpt-image-2.5-sunburst"; the ✦ alone for a sidecar with no model).
+generated sheet "✦ AI generated", the words in the engraved face
+(`theme.GENERATED_MARK`).
 So a repeat of the species shown is the same sheet, and the gone-quiet
 footnote is what says a frame has gone stale. The right is the folio's own
 plate number (`Artwork.plate`, W-821; Havell's for

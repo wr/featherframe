@@ -216,16 +216,13 @@ _RIGHT = (theme.WIDTH - theme.CORNER_INSET - 200, theme.MARKS_BASELINE - 30,
           theme.WIDTH - theme.CORNER_INSET + 1, theme.MARKS_BASELINE + 8)
 
 
-def test_a_generated_sheet_names_its_model_and_has_no_number():
-    def gen(model):
-        class P(ArtProvider):
-            def artwork(self, c, s):
-                return Artwork(image=Image.new("L", (600, 400), 255), generated=True, plate=131,
-                               model=model)
-        return compose.render_single(_spec(), P())
-    named, bare = gen("gpt-image-2.5-sunburst"), gen(None)
-    assert _ink(named, _RIGHT) == 0 and _ink(bare, _RIGHT) == 0
-    assert _ink(named, _LEFT) > _ink(bare, _LEFT) > 60       # the star alone, with no model on record
+def test_a_generated_sheet_says_so_and_has_no_number():
+    class P(ArtProvider):
+        def artwork(self, c, s):
+            return Artwork(image=Image.new("L", (600, 400), 255), generated=True, plate=131)
+    out = compose.render_single(_spec(), P())
+    assert _ink(out, _RIGHT) == 0
+    assert _ink(out, _LEFT) > 200                       # "✦ AI generated"
 
 
 def test_fallback_plate_has_no_corner_number():

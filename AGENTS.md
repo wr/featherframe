@@ -522,8 +522,11 @@ made the illustration, never when the species was heard (W-984): who drew
 that plate, by its own credit line as the open dataset reads it
 (`featherframe/credits.py`, `plate_credits.json` written from each folio's
 `credits.csv` by `export_dataset.py credits`, which `check` holds to the
-dataset; as `Artwork.artist`: "John James Audubon", "Lucy Audubon" on Havell
-64, "Edward Lear", "John & Elizabeth Gould", "John Gould & H. C. Richter"),
+dataset), each artist as the plates engrave them, one form a person
+(`credits.CORNER_NAMES`, since a plate's own line can carry a slip, "J. J.
+Aububon"; as `Artwork.artist`: "J. J. Audubon", "Lucy Audubon" on Havell 64,
+"E. Lear", "J. & E. Gould", "J. Gould & H. C. Richter", every one at full
+size),
 nothing on a plate whose credit line was not read, or on a
 generated sheet a ✦ and the model that drew it in the engraved face
 (`Artwork.model`, the sidecar's id through `genart.model_slug`:

@@ -21,10 +21,21 @@ from .names import DEFAULT_FOLIO
 
 _PATH = Path(__file__).with_name("plate_credits.json")
 
-# How the corner writes a name, where the plate's own form is shorter than
-# the full one and is the one the man is known by.
-CORNER_NAMES = {"Henry Constantine Richter": "H. C. Richter",
-                "William Matthew Hart": "William Hart"}
+# Each artist as the plates engrave them (W-984), one form a person: a
+# plate's own line can carry an engraver's slip ("J. J. Aububon", "I. Gould",
+# "C. H. Richter"), which on a frame would read as ours. Every name the
+# credits hold has one here (a test holds it).
+CORNER_NAMES = {
+    "John James Audubon": "J. J. Audubon",
+    "Lucy Audubon": "Lucy Audubon",
+    "John Gould": "J. Gould",
+    "Elizabeth Gould": "E. Gould",
+    "Edward Lear": "E. Lear",
+    "Henry Constantine Richter": "H. C. Richter",
+    "Joseph Wolf": "J. Wolf",
+    "William Matthew Hart": "W. Hart",
+    "Benjamin Waterhouse Hawkins": "Waterhouse Hawkins",
+}
 
 _ROMAN = {1: "I", 2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI", 7: "VII", 8: "VIII"}
 
@@ -46,17 +57,26 @@ def plate_label(plate: int, volume_no: Union[int, str, None] = None) -> str:
     return f"{v}.{int(plate)}"
 
 
+def corner_name(name: str) -> str:
+    """One artist as the plates engrave them: CORNER_NAMES, else the given
+    names as initials ("Joseph Wolf" would be "J. Wolf")."""
+    if name in CORNER_NAMES:
+        return CORNER_NAMES[name]
+    *given, last = name.split()
+    return " ".join([f"{g[0]}." for g in given] + [last])
+
+
 def byline(names: list[str]) -> Optional[str]:
-    """The names as the corner sets them: "John James Audubon", "John Gould &
-    H. C. Richter", and two of one surname as "John & Elizabeth Gould"."""
-    names = [CORNER_NAMES.get(n, n) for n in names if n]
-    if not names:
+    """The names as the corner sets them, the plates' way: "J. J. Audubon",
+    "J. Gould & H. C. Richter", and two of one surname as "J. & E. Gould"."""
+    forms = [corner_name(n) for n in names if n]
+    if not forms:
         return None
-    if len(names) == 2:
-        (*a, last_a), (*b, last_b) = names[0].split(), names[1].split()
+    if len(forms) == 2:
+        (*a, last_a), (*b, last_b) = forms[0].split(), forms[1].split()
         if last_a == last_b and a and b:
             return f"{' '.join(a)} & {' '.join(b)} {last_a}"
-    return " & ".join(names)
+    return " & ".join(forms)
 
 
 def drawn_by(folio: Optional[str], plate: Optional[int],

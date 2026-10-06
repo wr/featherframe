@@ -317,8 +317,8 @@ def caption(field: Image.Image, top_y: float, common_name: str, scientific_name:
 def artist_mark(field: Image.Image, text: str, star: bool = False) -> float:
     """Who made the illustration, tucked into the bottom-left corner (W-984):
     the folio's artist on a scan ("John James Audubon"), in the corner marks'
-    script; on a generated sheet "✦ AI generated", the words in the engraved
-    face, since no hand drew it. It names the art, never the detection, so a
+    script; on a generated sheet "✦ AI GENERATED", in the engraved capitals,
+    since no hand drew it. It names the art, never the detection, so a
     repeat of the species on show draws the same sheet. A mark wider than the
     widest folio's is set smaller, never into the footnote's room. Returns
     the mark's width."""

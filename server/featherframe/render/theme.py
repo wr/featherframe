@@ -84,10 +84,11 @@ MAX_VOLUME_PLATE = 110
 # widest of these at CORNER_SIZE, and a longer name is set smaller, down to
 # ARTIST_MARK_MIN_SIZE.
 # A generated sheet says what it is there instead, on every frame that shows
-# it: "✦ AI generated", the words in the engraved face, STAR_GAP (of the size)
-# after the star.
+# it: "✦ AI GENERATED", in the engraved capitals of "Plate CLIX" (all
+# capitals: the face sets lowercase as small caps, so "AI generated" came out
+# in two sizes), STAR_GAP (of the size) after the star.
 ARTIST_MARK_WIDEST = ("J. Gould & H. C. Richter",)   # the widest credit (a test holds it)
-GENERATED_MARK = "AI generated"
+GENERATED_MARK = "AI GENERATED"
 STAR_GAP = 0.30
 ARTIST_MARK_MIN_SIZE = 20
 CORNER_SEP = "·"               # between the parts of a footer line

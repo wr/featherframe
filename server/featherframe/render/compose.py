@@ -198,7 +198,7 @@ def _render_art(spec: SingleSpec, art: Artwork, color: bool = False) -> Image.Im
     typography.caption(field, caption_top, spec.common_name, spec.scientific_name, lines)
     # The corners say where the sheet came from, never when the species was
     # heard (W-984): the artist and the folio's own plate number on a scan;
-    # "✦ AI generated" on a generated sheet, which never passes as a plate
+    # "✦ AI GENERATED" on a generated sheet, which never passes as a plate
     # (W-733) and has no number. The bough of a species with no plate at all
     # carries neither.
     if art.generated:

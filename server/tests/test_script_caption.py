@@ -222,7 +222,7 @@ def test_a_generated_sheet_says_so_and_has_no_number():
             return Artwork(image=Image.new("L", (600, 400), 255), generated=True, plate=131)
     out = compose.render_single(_spec(), P())
     assert _ink(out, _RIGHT) == 0
-    assert _ink(out, _LEFT) > 200                       # "✦ AI generated"
+    assert _ink(out, _LEFT) > 200                       # "✦ AI GENERATED"
 
 
 def test_fallback_plate_has_no_corner_number():

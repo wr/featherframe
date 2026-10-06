@@ -21,8 +21,8 @@ downloads none of it, and a file comes down only when something reads it
 from __future__ import annotations
 
 import hashlib
+import itertools
 import os
-import threading
 from pathlib import Path
 from typing import Optional
 
@@ -37,7 +37,8 @@ ETAG_LEN = 16
 # output or view was drawn under: one drawn before its picture's last Refresh
 # is drawn again, in place.
 KV = "drawn"
-KEEP_ETAGS = 40                 # the most recently used pictures kept, besides those in use
+KEEP_ETAGS = 25                 # the most recently used pictures kept, besides those in use:
+                                # 94-96 % of returns found on 21 days of one site (W-999)
 OUTS_PER_ETAG = 4               # a mat being tuned must not fill the store
 VIEWS_PER_ETAG = 8
 
@@ -147,15 +148,13 @@ def open_image(path: Path) -> Optional[Image.Image]:
         return None
 
 
-_TMP = threading.local()
+_TMP = itertools.count(1)
 
 
 def _tmp(target: Path) -> Path:
-    # Unique per thread: two threads drawing the same ETag must never write
-    # one temporary file.
-    n = getattr(_TMP, "n", 0) + 1
-    _TMP.n = n
-    return target.with_name(f"{target.name}.{os.getpid()}-{threading.get_ident()}-{n}.tmp")
+    # Unique in this process (a thread's ident is reused once it ends): two
+    # threads drawing the same ETag must never write one temporary file.
+    return target.with_name(f"{target.name}.{os.getpid()}-{next(_TMP)}.tmp")
 
 
 def write_image(target: Path, img: Image.Image, compress_level: Optional[int] = 1) -> None:

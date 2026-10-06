@@ -126,12 +126,18 @@ before any file is written), `outs: {okey: {pic, etag, at, f}}`,
 `views: {name: {at, f}}` and `fresh: {etag: token}`. After a commit, list
 `drawn/` (`hosted.glob`) and keep every file a picture, a frame or an `on`
 viewer points at (pinned per file, so five kits on one picture keep five
-outputs), every ETag they point at, then the 40 most recently used ETags; of
+outputs), every ETag they point at, then the 25 most recently used ETags; of
 each kept ETag at most 4 outputs and 8 views besides the pinned ones, newest
 first by the record's time (a lazy file has no mtime). A file no record names
 goes too (a lost write), unless it is here and younger than 10 minutes:
-another thread may be drawing it. Temporary names are never touched. About 6 MB an ETag for a gray + colour
-household (240 MB at the cap), about 2.5 MB for gray only.
+another thread may be drawing it. Temporary names are never touched. About
+6.3 MB an ETag for a gray + colour household (about 170 MB at the cap), about
+2.7 MB for one gray kit (about 70 MB).
+
+Why 25: replaying 21 days of one site's detections (15 Sep to 6 Oct 2026,
+35 species, daytime, three collages a day), a return found everything kept
+83 % of the time at 10, 93 % at 20, 94 % at 25, 95 % at 40 and 96 % with no
+limit at all. 25 leaves room for a spring site.
 
 ## Migration (forward only)
 
@@ -186,7 +192,7 @@ too.
 - Refresh draws again in place, deletes nothing, and the frames are finished
   before it returns.
 - Nothing but the pruner deletes; pruning keeps what is pointed at and the
-  40 most recent, caps unpinned variants, sweeps unknown files but not young
+  25 most recent, caps unpinned variants, sweeps unknown files but not young
   ones or temporary names.
 - Two threads drawing the same ETag never mix pictures in one file.
 - A torn output or sheet on self-hosted is drawn again, not served.

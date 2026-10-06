@@ -356,7 +356,7 @@ twin, outputs and views. A twin is kept only if its colour loaded and its art
 is the gray sheet's (`ff_art`, `_same_art`). Refresh deletes nothing: a new
 token in the kv row `drawn` redraws that picture's files in place. The
 pruner (`_prune_drawn`, after every commit) keeps what is pointed at (per
-file) and the 40 most recent pictures. **Bump `compose.COLOR_VERSION` when
+file) and the 25 most recent pictures (`drawn.KEEP_ETAGS`). **Bump `compose.COLOR_VERSION` when
 the colour path changes its pixels, and `pipeline.FINISH_VERSION` when
 finishing does** (fit, mat, dither, pack, views): a kept drawing is reused
 by name. `tests/test_drawn_versions.py` fails when the pixels move without

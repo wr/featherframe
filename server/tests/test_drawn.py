@@ -229,13 +229,14 @@ def _etag(i):
 
 def test_the_pruner_keeps_what_is_pointed_at_and_the_most_recent(svc):
     state = {"used": {}, "outs": {}, "views": {}}
-    for i in range(50):
+    n = drawn.KEEP_ETAGS + 10
+    for i in range(n):
         state["used"][_etag(i)] = f"2026-10-01T00:{i:02d}:00"
         _put(drawn.sheet_path(_etag(i)))
     pinned = _etag(0)                                   # the oldest, but shown
     drawn.prune(state, {pinned}, set(), time.time())
     left = {p.stem for p in (drawn.root() / "sheets").glob("*.png")}
-    assert left == {pinned} | {_etag(i) for i in range(10, 50)}
+    assert left == {pinned} | {_etag(i) for i in range(10, n)}
     assert set(state["used"]) == left
 
 
@@ -278,7 +279,7 @@ def test_only_the_pruner_deletes_in_the_store(svc, monkeypatch):
     assert removed == []
 
 
-def test_two_threads_never_write_one_temporary_file():
+def test_two_threads_never_write_one_temporary_file(svc):
     target = drawn.root() / "sheets" / "x.png"
     names = []
     threads = [threading.Thread(target=lambda: names.append(drawn._tmp(target))) for _ in range(8)]

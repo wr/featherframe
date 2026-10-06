@@ -317,9 +317,8 @@ def caption(field: Image.Image, top_y: float, common_name: str, scientific_name:
 def artist_mark(field: Image.Image, text: str, star: bool = False) -> float:
     """Who made the illustration, tucked into the bottom-left corner (W-984):
     the folio's artist on a scan ("John James Audubon"), in the corner marks'
-    script; on a generated sheet a ✦ and the model that drew it
-    ("✦ gpt-image-2.5-sunburst"), the id in the engraved face, since it is a
-    name no hand ever wrote. It names the art, never the detection, so a
+    script; on a generated sheet "✦ AI generated", the words in the engraved
+    face, since no hand drew it. It names the art, never the detection, so a
     repeat of the species on show draws the same sheet. A mark wider than the
     widest folio's is set smaller, never into the footnote's room. Returns
     the mark's width."""
@@ -355,8 +354,8 @@ def _star_width(size: float) -> float:
 
 
 def _model_size(size: float) -> int:
-    """The model id's engraved size beside the corner script at `size`, in
-    the ratio "Plate" keeps to its numeral."""
+    """The engraved size of the words after a ✦, beside the corner script at
+    `size`, in the ratio "Plate" keeps to its numeral."""
     return max(12, round(size * theme.PLATE_NUMERAL_SIZE / theme.CORNER_SIZE))
 
 
@@ -374,7 +373,7 @@ def _artist_mark_width(text: str, star: bool, size: int) -> float:
 def artist_mark_max_width() -> float:
     """The room the left mark may take: the widest it is ever set."""
     return max(max(script_width(t, theme.CORNER_SIZE) for t in theme.ARTIST_MARK_WIDEST),
-               _artist_mark_width(theme.MODEL_MARK_WIDEST, True, theme.CORNER_SIZE))
+               _artist_mark_width(theme.GENERATED_MARK, True, theme.CORNER_SIZE))
 
 
 def roman(n: int) -> str:

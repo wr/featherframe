@@ -960,16 +960,6 @@ the id starts with rather than dropping the estimate."""
     return IMAGE_RATES_USD_PER_M[max(hit, key=len)] if hit else None
 
 
-def model_slug(model: Optional[str]) -> Optional[str]:
-    """A model id as a generated sheet's corner names it (W-984): the id
-    after its last "/" (a Replicate owner off) and without a "local:"
-    prefix. None for nothing."""
-    m = str(model or "").strip().rsplit("/", 1)[-1].strip()
-    if m.lower().startswith("local:"):
-        m = m[len("local:"):].strip()
-    return m or None
-
-
 def estimate_cost_usd(model: str, usage: Optional[dict]) -> Optional[float]:
     """An estimate of one image call from the rate table, or None when the
     model is not priced or no usage was reported. Without the input split
@@ -1988,19 +1978,8 @@ class GeneratedArtProvider(ArtProvider):
                     return None
         png = self._png(slug)
         return Artwork(image=img, composite=False, generated=True,
-                       model=self._cached_model(slug), legend=self._cached_legend(slug),
+                       legend=self._cached_legend(slug),
                        color_loader=lambda: plate.extract_generated_color(png))
-
-    def _cached_model(self, slug: str) -> Optional[str]:
-        """The model that drew the cached sheet, as its corner names it
-        (W-984): the sidecar's model id, without a Replicate owner
-        ("black-forest-labs/flux-kontext-pro" is "flux-kontext-pro"). None for
-        a sidecar without one."""
-        try:
-            meta = json.loads(self._sidecar(slug).read_text())
-        except (OSError, ValueError):
-            return None
-        return model_slug(meta.get("model"))
 
     def _cached_legend(self, slug: str) -> list[str]:
         """The sidecar's legend; a sidecar from before W-709 yields the plant

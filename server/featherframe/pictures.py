@@ -17,12 +17,11 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
 from typing import Optional
 
 from PIL import Image
 
-from . import paths
+from . import drawn, paths
 
 log = logging.getLogger("featherframe.pictures")
 
@@ -48,20 +47,28 @@ def etag_for(sheet: Image.Image) -> str:
     return hashlib.sha256(sheet.tobytes()).hexdigest()[:16]
 
 
-def write_sheet(target, sheet: Optional[Image.Image]) -> None:
-    """Keep (or clear) one sheet on disk. Best-effort, like a thumbnail:
-    without it a screen's render falls back to the preview, and a half-written
-    file would be worse than none."""
-    try:
-        if sheet is None:
-            target.unlink(missing_ok=True)
-            return
-        tmp = target.with_suffix(".tmp")
-        sheet.save(tmp, format="PNG", compress_level=1)
-        os.replace(tmp, target)
-    except Exception:  # noqa: BLE001
-        log.warning("%s not saved", target.name, exc_info=True)
-        target.unlink(missing_ok=True)
+def keep_sheets(etag: str, sheet: Optional[Image.Image] = None,
+                color_sheet: Optional[Image.Image] = None, fresh: bool = False) -> None:
+    """Keep a picture's sheets in the drawn store, unless they are kept
+    already, whole (`fresh`: the owner's Refresh writes them again in place).
+    Best-effort, like a thumbnail: without one a screen's render falls back
+    to the preview, and a half-written file would be worse."""
+    for target, img in ((drawn.sheet_path(etag), sheet), (drawn.twin_path(etag), color_sheet)):
+        if img is None or (not fresh and drawn.whole(target)):
+            continue
+        try:
+            drawn.write_image(target, img)
+        except Exception:  # noqa: BLE001
+            log.warning("%s not saved", target.name, exc_info=True)
+
+
+def sheets_for(etag: Optional[str], color: bool = False) -> list:
+    """The files a picture of this ETag can be drawn again from, best first.
+    A colour ask falls back to the gray sheet: colour is a nicety."""
+    if not etag:
+        return []
+    want = ([drawn.twin_path(etag)] if color else []) + [drawn.sheet_path(etag)]
+    return [p for p in want if drawn.exists(p)]
 
 
 class Picture:
@@ -81,51 +88,51 @@ class Picture:
         self.recompose = None
 
     # -- on disk -----------------------------------------------------------
+    # A picture points at its sheets in the drawn store (W-999), named by its
+    # ETag; it never holds a copy and never deletes one (the store's pruner
+    # does). On hosted they may still be at the front door: `drawn.open_image`.
     @property
-    def dir(self):
-        d = paths.frames_dir() / "pictures" / self.kind
-        d.mkdir(parents=True, exist_ok=True)
-        return d
+    def legacy_dir(self):
+        """Where a picture kept its sheets before W-999 (migration only)."""
+        return paths.frames_dir() / "pictures" / self.kind
 
     @property
     def sheet_path(self):
-        return self.dir / "sheet.png"
+        return drawn.sheet_path(self.etag) if self.etag else None
 
     @property
     def color_sheet_path(self):
-        return self.dir / "sheet_color.png"
+        return drawn.twin_path(self.etag) if self.etag else None
 
     def sheets(self, color: bool = False) -> list:
-        """The files this picture can be drawn again from, best first. A
-        colour ask falls back to the gray sheet: colour is a nicety."""
-        want = ([self.color_sheet_path] if color else []) + [self.sheet_path]
-        return [p for p in want if p.exists()]
+        return sheets_for(self.etag, color)
 
     def has_color(self) -> bool:
-        return self.color_sheet_path.exists()
+        return bool(self.etag) and drawn.exists(self.color_sheet_path)
 
     # -- state -------------------------------------------------------------
     def commit(self, meta: dict, etag: str, now, key: Optional[str] = None,
                sheet: Optional[Image.Image] = None,
-               color_sheet: Optional[Image.Image] = None, recompose=None) -> None:
-        """This picture is now `sheet`. Finishing it for a frame's panel is
-        that frame's own business (`service._draw_frame`)."""
+               color_sheet: Optional[Image.Image] = None, recompose=None,
+               fresh: bool = False) -> None:
+        """This picture is now `sheet`. The sheets are kept before the ETag
+        moves to them (a frame drawing meanwhile reads the old picture whole),
+        and only if they are not kept already: an identical sheet is never
+        written, so never uploaded, again. Finishing it for a frame's panel
+        is that frame's own business (`service._draw_frame`)."""
+        keep_sheets(etag, sheet, color_sheet, fresh=fresh)
         self.meta = meta
         self.etag = etag
         self.key = key
         self.at = now.isoformat(timespec="seconds")
         self.recompose = recompose
-        if sheet is not None or color_sheet is not None:
-            write_sheet(self.sheet_path, sheet)
-            write_sheet(self.color_sheet_path, color_sheet)
 
     def drop(self) -> None:
-        """Nobody shows it any more: stop paying for it."""
+        """Nobody shows it any more: stop paying for it. Its files stay in
+        the drawn store until the pruner lets them go."""
         self.meta = {}
         self.etag = self.key = self.at = None
         self.recompose = None
-        for f in (self.sheet_path, self.color_sheet_path):
-            f.unlink(missing_ok=True)
 
     # -- persistence -------------------------------------------------------
     def row(self) -> dict:

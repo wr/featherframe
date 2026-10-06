@@ -87,6 +87,11 @@ class RenderResult:
 # persisted, never set by the service.
 DITHER_OVERRIDE: "str | None" = None
 
+# Bumped whenever finishing a sheet for a panel (fit, mat, dither, pack,
+# preview) changes its bytes: a frame's finished output is kept under this
+# (drawn.okey, W-999), so an old one is never reused.
+FINISH_VERSION = "1"
+
 
 def _dither(config: Config) -> str:
     return DITHER_OVERRIDE or config.panel_spec.dither

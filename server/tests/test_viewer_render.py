@@ -130,7 +130,7 @@ def test_a_view_never_touches_the_frame(client):
     assert svc._etag == resident.etag
 
 
-def test_a_new_frame_is_a_new_view_and_the_old_ones_are_dropped(client, tmp_path):
+def test_a_new_frame_is_a_new_view_and_the_old_one_is_kept(client, tmp_path):
     svc = client.app.state.service
     _commit(svc, "one")
     first = client.get("/api/view.png?w=300&h=400").headers["etag"]
@@ -139,8 +139,10 @@ def test_a_new_frame_is_a_new_view_and_the_old_ones_are_dropped(client, tmp_path
     second = client.get("/api/view.png?w=300&h=400")
     assert second.headers["etag"] != first
     assert np.asarray(Image.open(io.BytesIO(second.content))).max() < 60
-    views = list((tmp_path / "data" / "frames" / "views").glob("*.png"))
-    assert len(views) == 1
+    # Each kept in the drawn store under its picture's ETag (W-999): the first
+    # picture coming back finds its view.
+    views = sorted(p.stem for p in (tmp_path / "data" / "frames" / "drawn" / "views").glob("*.png"))
+    assert views == sorted(e.strip('"') for e in (first, second.headers["etag"]))
 
 
 def test_a_picture_with_no_sheet_yet_has_no_view(client, tmp_path):
@@ -220,8 +222,10 @@ def test_colour_stops_being_composed_when_no_colour_viewer_has_asked_for_a_month
     client.get("/api/view.png?w=600&h=800&format=color")
     svc._clock = lambda: datetime(2026, 11, 1, 8, 0)
     svc._color_asked_at = None   # as after a restart: only the DB remembers
+    composed = []
+    svc._compose_color = lambda recompose: composed.append(1)
     _show_cardinal(svc, reason="refresh")
-    assert not svc.pictures["plates"].has_color()
+    assert composed == []
 
 
 def test_after_a_restart_the_first_colour_ask_renders_the_resident_subject_again(client):

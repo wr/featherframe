@@ -34,6 +34,11 @@ from .provider import ArtProvider, Artwork
 COVER_EDGE_INK = 0.25
 COVER_MAX_LOSS = 0.25
 
+# Bumped whenever the colour twin of a sheet changes its pixels (the colour
+# crop, its correction, the colour compose): a kept twin is named by its gray
+# sheet's ETag and this, so an old one is never reused (W-999).
+COLOR_VERSION = 1
+
 
 @dataclass
 class SingleSpec:
@@ -211,7 +216,23 @@ def _render_art(spec: SingleSpec, art: Artwork, color: bool = False) -> Image.Im
         typography.first_ever_rule(field)
     if spec.note:
         typography.note_line(field, spec.note, max_w=note_width(), kind=spec.note_kind)
-    return merge_color(field, layer) if color else field
+    if not color:
+        field.info["ff_art"] = art_sig(art)
+        return field
+    out = merge_color(field, layer)
+    # Whether the colour art truly loaded (a failed colour load still gives
+    # an RGB sheet, of gray art), and which art it is: a twin is kept only
+    # when both say it is its gray sheet in colour (W-999).
+    out.info.update(ff_color=twin is not None, ff_art=art_sig(art))
+    return out
+
+
+def art_sig(art: Optional[Artwork]) -> tuple:
+    """Which art a sheet was drawn from, as far as a twin must agree with its
+    gray sheet: the folio's plate, or an illustration, or none (the bough)."""
+    if art is None:
+        return ()
+    return (art.folio, art.plate, art.volume_no, art.generated, art.artist)
 
 
 @lru_cache(maxsize=1)

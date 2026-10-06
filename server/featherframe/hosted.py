@@ -61,8 +61,9 @@ log = logging.getLogger("featherframe.hosted")
 TIMEOUT_S = 60
 PULL_WORKERS = 8
 DB_NAME = "featherframe.db"
-# Caches, not state: rebuilt on demand, never pushed. (frames/views/ is
-# pushed: the front door serves a viewer's image from it, W-849.)
+# Caches, not state: rebuilt on demand, never pushed. (frames/drawn/ is
+# pushed: the front door serves a frame's output and a viewer's image from
+# it, W-849, W-999.)
 _SKIP_PREFIXES = ("plate-library/",)
 # What stays at the front door until it is read (W-915): the folder and the
 # files in it. Sidecars, thumbnails and history's small PNGs come down with
@@ -71,6 +72,7 @@ _LAZY = (("generated/", (".png",)),               # read when its species is dra
          ("collages/", (".png",)),                # read when that day's collage is drawn
          ("frames/collage-days/", (".png",)),     # read when downloaded
          ("frames/history/", (".jpg",)),          # read when zoomed
+         ("frames/drawn/", (".png", ".fff")),     # read when drawn from or served (W-999)
          ("firmware/", (".bin",)))                # read when a frame updates
 
 
@@ -86,7 +88,7 @@ REST_BUNDLE = BUNDLE_DIR + "files.tar"
 _BUNDLES = (("frames/history/", BUNDLE_DIR + "history.tar"),)
 # Files of their own whatever their size: what the front door reads itself,
 # and the pictures, which change with every one.
-_OWN_FILES = ("frames/out/", "frames/views/", "frames/pictures/", BUNDLE_DIR)
+_OWN_FILES = ("frames/drawn/", "frames/views/", BUNDLE_DIR)
 
 
 def bundle_of(rel: str, size: int) -> Optional[str]:
@@ -147,6 +149,7 @@ class HostedLink:
         self._bundles: dict[str, dict[str, str]] = {}  # archive -> {path: sha} it holds there
         self._stat: dict[str, tuple] = {}              # path -> (size, mtime_ns, sha)
         self._lazy: set[str] = set()                   # at the front door, not fetched yet
+        self._sent: Optional[tuple] = None             # what the last upload found here
         self._lock = threading.RLock()                 # one sync at a time
 
     def _url(self, rel: str = "") -> str:
@@ -290,6 +293,12 @@ class HostedLink:
         """Send the front door whatever changed since it last had it; drop what
         is gone. Returns the number of files written or removed."""
         with self._lock:
+            return self._upload() + self._remove_gone()
+
+    def _upload(self) -> int:
+        """Everything new or changed, sent; nothing removed yet (W-999: the
+        front door is told what it now serves before the old file goes)."""
+        with self._lock:
             local = self._local()
             own: dict[str, tuple[Path, str]] = {}
             groups: dict[str, dict[str, tuple[Path, str]]] = {}
@@ -300,24 +309,17 @@ class HostedLink:
                 (groups.setdefault(name, {}) if name else own)[rel] = (p, sha)
             n = 0
             # The archives first: one replaces the files of its own it held
-            # before (the removals below), never the other way round.
-            for name in sorted(set(groups) | set(self._bundles)):
-                want = {rel: sha for rel, (_, sha) in groups.get(name, {}).items()}
+            # before (the removals, after), never the other way round.
+            for name in sorted(groups):
+                want = {rel: sha for rel, (_, sha) in groups[name].items()}
                 if want == self._bundles.get(name):
                     continue
-                if want:
-                    body = _tar({rel: p for rel, (p, _) in groups[name].items()})
-                    sha = hashlib.sha256(body).hexdigest()
-                    r = self.http.put(self._url("files/" + quote(name)), data=body,
-                                      headers={"X-SHA256": sha}, timeout=TIMEOUT_S)
-                    r.raise_for_status()
-                    self._remote[name], self._bundles[name] = sha, want
-                else:
-                    r = self.http.delete(self._url("files/" + quote(name)), timeout=TIMEOUT_S)
-                    if r.status_code not in (200, 204, 404):
-                        r.raise_for_status()
-                    self._remote.pop(name, None)
-                    self._bundles.pop(name, None)
+                body = _tar({rel: p for rel, (p, _) in groups[name].items()})
+                sha = hashlib.sha256(body).hexdigest()
+                r = self.http.put(self._url("files/" + quote(name)), data=body,
+                                  headers={"X-SHA256": sha}, timeout=TIMEOUT_S)
+                r.raise_for_status()
+                self._remote[name], self._bundles[name] = sha, want
                 n += 1
             for rel, (p, sha) in own.items():
                 if self._remote.get(rel) == sha:
@@ -327,7 +329,28 @@ class HostedLink:
                 r.raise_for_status()
                 self._remote[rel] = sha
                 n += 1
-            # Gone here, or sent in an archive now: the file of its own goes.
+            self._sent = (set(own), set(groups), set(local))
+            if n:
+                log.info("hosted: pushed %d change(s)", n)
+            return n
+
+    def _remove_gone(self) -> int:
+        """What the last upload found gone here, or sent in an archive now,
+        removed at the front door."""
+        with self._lock:
+            sent = self._sent
+            if sent is None:
+                return 0
+            own, groups, local = sent
+            self._sent = None
+            n = 0
+            for name in [b for b in self._bundles if b not in groups]:
+                r = self.http.delete(self._url("files/" + quote(name)), timeout=TIMEOUT_S)
+                if r.status_code not in (200, 204, 404):
+                    r.raise_for_status()
+                self._remote.pop(name, None)
+                self._bundles.pop(name, None)
+                n += 1
             for rel in [r for r in self._remote
                         if r not in own and r not in self._bundles and r not in self._lazy]:
                 r = self.http.delete(self._url("files/" + quote(rel)), timeout=TIMEOUT_S)
@@ -338,7 +361,7 @@ class HostedLink:
                     self._stat.pop(rel, None)
                 n += 1
             if n:
-                log.info("hosted: pushed %d change(s)", n)
+                log.info("hosted: removed %d file(s)", n)
             return n
 
     # -- the front door ----------------------------------------------------------
@@ -368,10 +391,14 @@ class HostedLink:
             if apply_checkins:
                 self._apply_checkins(service)
             # The state first: it draws each viewer's image (W-849), which the
-            # push then takes along with everything else.
+            # push then takes along with everything else. Then the files, then
+            # the state, then the removals: the front door is never pointed at
+            # a file already gone (W-999).
             state = service.hosted_state()
-            self.push()
-            self.report(state)
+            with self._lock:
+                self._upload()
+                self.report(state)
+                self._remove_gone()
         except (requests.RequestException, OSError, ValueError, sqlite3.Error):
             log.warning("hosted: sync with the front door failed", exc_info=True)
 

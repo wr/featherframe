@@ -32,7 +32,7 @@ from urllib.parse import quote
 
 from PIL import Image
 
-from . import auth, firmware_release, hosted, spend
+from . import auth, drawn, firmware_release, hosted, spend
 from . import plate_library, thumbs
 from . import frames as frames_mod
 from . import page_build, panels, paths
@@ -59,8 +59,8 @@ from .render.provider import ArtProvider, ChainedProvider, PlateProvider
 
 log = logging.getLogger("featherframe.service")
 
-_OUT_KEY = "frame_outputs"            # frame id -> {"etag", "src"}
-_VIEWS_MAX = 8                         # cached renders of one picture
+_OUT_KEY = "frame_outputs"            # frame id -> {"etag", "src", "file"}
+_VIEWS_MAX = 8                         # waiting plates kept
 # A picture is drawn only while some frame shows it, and a screen that has not
 # asked in this long is not a frame any more — it was unplugged.
 VIEWER_SHOWS_DAYS = 30
@@ -685,6 +685,12 @@ class FeatherframeService:
 
         self._lock = threading.RLock()
         self._view_lock = threading.Lock()   # one viewer render at a time
+        # The drawn store's record (W-999): what each kept file is, and when
+        # it was last used. Changed under its own lock, from any thread.
+        self._drawn_lock = threading.Lock()
+        rec = self.db.get(drawn.KV, {})
+        self._drawn: dict = rec if isinstance(rec, dict) else {}
+        self._refreshing = threading.local()   # the owner's Refresh, in this thread
         self._recolor: set = set()      # pictures owed a redraw (a colour screen arrived)
         # Per picture, the ETag whose colour twin was last attempted: a
         # picture with no colour to give must not be recomposed per ask.
@@ -717,7 +723,11 @@ class FeatherframeService:
         # what one frame's picture looks like finished for that frame's panel.
         self.pictures = Pictures(self.db)
         out = self.db.get(_OUT_KEY, {})
-        self._out: dict = out if isinstance(out, dict) else {}   # frame id -> {etag, src}
+        self._out: dict = out if isinstance(out, dict) else {}   # frame id -> {etag, src, file}
+        try:
+            self._migrate_drawn()
+        except Exception:  # noqa: BLE001 — a frame that is not moved is drawn again
+            log.warning("drawn store: migration failed", exc_info=True)
         self._load_outputs()
         # Verify the persisted ingest cursor isn't stale on the first single-tick
         # after start (see _single_tick); cheaper than checking every tick.
@@ -1693,7 +1703,7 @@ class FeatherframeService:
                 return
             days = paths.collage_days_dir()
             tmp = days / f"{on_date.isoformat()}.tmp"
-            shutil.copyfile(src[0], tmp)
+            shutil.copyfile(hosted.local(src[0]), tmp)
             os.replace(tmp, days / f"{on_date.isoformat()}.png")
             kept = sorted(p for p in hosted.glob(days, "*.png") if _DATE_RE.match(p.stem))
             for old in kept[:-COLLAGE_DAYS_KEPT]:
@@ -2372,19 +2382,24 @@ class FeatherframeService:
     # The picture a frame shows, finished with that frame's own config: its
     # panel, rotation, mat and depth. Drawn in the tick, never in a request,
     # and only when its picture or its settings changed — so a handler that
-    # answers /api/frame only ever reads bytes off disk.
+    # answers /api/frame only ever reads bytes off disk. Outputs are kept in
+    # the drawn store (W-999) under what they were finished from; a frame
+    # points at one (`_out[id]["file"]`), so a picture that comes back finds
+    # every frame's output already made.
     def _out_paths(self, frame_id: str):
-        safe = re.sub(r"[^0-9A-Za-z_-]", "_", frame_id)
-        d = paths.frames_dir() / "out"
-        d.mkdir(parents=True, exist_ok=True)
-        return d / f"{safe}.fff", d / f"{safe}.png"
+        """(.fff, .png) of the output this frame points at, or (None, None)."""
+        f = (self._out.get(frame_id) or {}).get("file")
+        if not f:
+            return None, None
+        fff = paths.data_dir() / f
+        return fff, fff.with_suffix(".png")
 
     def _output_bytes(self, frame_id: str) -> Optional[bytes]:
         state = self._out.get(frame_id)
         if not state or not state.get("etag"):
             return None
         fff = self._out_paths(frame_id)[0]
-        return fff.read_bytes() if fff.exists() else None
+        return drawn.read_bytes(fff) if fff is not None else None
 
     def _output_etag(self, frame_id: str) -> Optional[str]:
         return (self._out.get(frame_id) or {}).get("etag")
@@ -2393,11 +2408,11 @@ class FeatherframeService:
         self.db.set(_OUT_KEY, self._out)
 
     def _drop_output(self, frame_id: str) -> None:
+        """This frame no longer points at an output. The file stays in the
+        drawn store until the pruner lets it go: another frame may show it."""
         with self._lock:
             if self._out.pop(frame_id, None) is not None:
                 self._save_outputs()
-        for f in self._out_paths(frame_id):
-            f.unlink(missing_ok=True)
 
     def _rename_output(self, old_id: str, new_id: str) -> None:
         """Older firmware sent its first X-Device-Id: the same frame, so it
@@ -2407,26 +2422,36 @@ class FeatherframeService:
             return
         self._out[new_id] = state
         self._save_outputs()
-        for src, dst in zip(self._out_paths(old_id), self._out_paths(new_id)):
-            if src.exists():
-                os.replace(src, dst)
 
     def _load_outputs(self) -> None:
-        """Keep only outputs whose file is on disk and whole. A crash mid-write
+        """Keep only outputs whose file is kept and whole. A crash mid-write
         (or a rolled-back data dir) must never hand a device a torn container
-        on every wake; without one, the next tick simply draws it again."""
+        on every wake; without one, the next tick simply draws it again. A
+        file still at the front door is whole (R2 keeps whole objects)."""
         kept = {}
         for fid, state in self._out.items():
             fff = self._out_paths(fid)[0]
-            data = fff.read_bytes() if fff.exists() else b""
+            if fff is None or not drawn.exists(fff):
+                continue
+            if not fff.exists():
+                kept[fid] = state            # at the front door, not fetched
+                continue
+            data = fff.read_bytes()
             if framebuffer.is_complete(data) and framebuffer.etag_for(data) == state.get("etag"):
                 kept[fid] = state
-            elif data:
+            else:
                 log.warning("%s is not a complete frame (%d bytes); re-drawing",
                             fff.name, len(data))
         if kept != self._out:
             self._out = kept
             self._save_outputs()
+
+    @staticmethod
+    def _src_of(kind: str, etag: str, source: Path, cfg: Config) -> str:
+        return "|".join(str(x) for x in (kind, etag, source.name, cfg.panel,
+                                         cfg.panel_rotation, cfg.mat_inset_pct,
+                                         cfg.mat_offset_x_px, cfg.mat_offset_y_px,
+                                         cfg.mat_guide, cfg.bit_depth))
 
     def _output_src(self, row: dict, now: datetime) -> Optional[str]:
         """What this frame's output was drawn from: its picture, the sheet
@@ -2434,15 +2459,127 @@ class FeatherframeService:
         redraw. None when the picture has no sheet to draw from yet."""
         cfg = self.frame_config(row)
         pic = self.picture_for(frames_mod.shows_of(row), now)
-        if not pic.etag:
-            return None
-        source = next(iter(pic.sheets(cfg.panel_spec.color)), None)
+        with self._lock:
+            etag = pic.etag
+        source = next(iter(pictures_mod.sheets_for(etag, cfg.panel_spec.color)), None)
         if source is None:
             return None
-        return "|".join(str(x) for x in (pic.kind, pic.etag, source.name, cfg.panel,
-                                         cfg.panel_rotation, cfg.mat_inset_pct,
-                                         cfg.mat_offset_x_px, cfg.mat_offset_y_px,
-                                         cfg.mat_guide, cfg.bit_depth))
+        return self._src_of(pic.kind, etag, source, cfg)
+
+    # -- the drawn store (W-999) ---------------------------------------------
+    def _drawn_note(self, change) -> None:
+        """Change the drawn store's record, and keep it."""
+        with self._drawn_lock:
+            change(self._drawn)
+            self.db.set(drawn.KV, self._drawn)
+
+    def _drawn_token(self, etag: Optional[str]) -> str:
+        """The owner's last Refresh of this picture: anything drawn of it
+        under another token is drawn again, in place."""
+        return str((self._drawn.get("fresh") or {}).get(etag or "", ""))
+
+    def _prune_drawn(self) -> None:
+        """Let go of what no picture, frame or viewer points at, past the
+        most recent few (`drawn.prune`)."""
+        pinned, files = set(), set()
+        with self._lock:
+            for kind in pictures_mod.KINDS:
+                etag = self.pictures[kind].etag
+                if etag:
+                    pinned.add(etag)
+                    files |= {drawn.rel(drawn.sheet_path(etag)), drawn.rel(drawn.twin_path(etag))}
+            for state in self._out.values():
+                f = state.get("file")
+                if f:
+                    pinned.add(drawn.etag_of(f))
+                    files |= {f, f[:-len(".fff")] + ".png"}
+        for row in self.frames.by_transport(*viewers_mod.KINDS):
+            if row.get("status") != frames_mod.ON:
+                continue
+            pic = self.picture_for(viewers_mod.shows_of(row))
+            _, _, name = self._view_of_pic(pic, viewers_mod.view_of(row))
+            if name:
+                pinned.add(name[:drawn.ETAG_LEN])
+                files.add(drawn.rel(drawn.view_path(name)))
+        with self._drawn_lock:
+            n = drawn.prune(self._drawn, pinned, files, time.time())
+            self.db.set(drawn.KV, self._drawn)
+        if n:
+            log.info("drawn store: let %d file(s) go", n)
+
+    def _migrate_drawn(self) -> None:
+        """From before W-999: each picture kept its sheets in
+        frames/pictures/<kind>/, each frame its output in frames/out/<id>.*,
+        each viewer its image in frames/views/. What is still good moves into
+        the drawn store, named by what it was drawn from, so no frame paints
+        again; the rest goes. Forward only: an older server finds none of it."""
+        base = paths.frames_dir()
+        legacy_pics, legacy_out = base / "pictures", base / "out"
+        old_views = [p for p in paths.views_dir().glob("*.png")
+                     if not p.name.startswith(self.WAITING_PREFIX)]
+        if not (legacy_pics.exists() or legacy_out.exists() or old_views
+                or any(not st.get("file") for st in self._out.values())):
+            return
+        stamp = self._clock().isoformat(timespec="seconds")
+        moved = []
+        for kind in pictures_mod.KINDS:
+            etag = self.pictures[kind].etag
+            gray, color = legacy_pics / kind / "sheet.png", legacy_pics / kind / "sheet_color.png"
+            if not etag or not gray.exists():
+                continue
+            try:
+                with Image.open(gray) as im:
+                    im.load()
+                    same = pictures_mod.etag_for(im) == etag
+            except Exception:  # noqa: BLE001 — a torn sheet is drawn again
+                same = False
+            if not same:
+                continue
+            os.replace(gray, drawn.sheet_path(etag))
+            moved.append(etag)
+            if color.exists():
+                # Drawn by the colour path this build calls version 1.
+                os.replace(color, drawn.sheet_path(etag).with_name(f"{etag}-c1.png"))
+        outs = {}
+        for fid, state in list(self._out.items()):
+            if state.get("file"):
+                continue
+            self._out.pop(fid)
+            parts = str(state.get("src") or "").split("|")
+            safe = re.sub(r"[^0-9A-Za-z_-]", "_", fid)
+            old_fff, old_png = legacy_out / f"{safe}.fff", legacy_out / f"{safe}.png"
+            if len(parts) != 10 or parts[2] not in ("sheet.png", "sheet_color.png") \
+                    or not (old_fff.exists() and old_png.exists()):
+                continue
+            etag = parts[1]
+            parts[2] = f"{etag}.png" if parts[2] == "sheet.png" else f"{etag}-c1.png"
+            data = old_fff.read_bytes()
+            if not (framebuffer.is_complete(data)
+                    and framebuffer.etag_for(data) == state.get("etag")):
+                continue
+            src = "|".join(parts)
+            key = drawn.okey(src)
+            fff, png = drawn.out_paths(etag, key)
+            os.replace(old_fff, fff)
+            os.replace(old_png, png)
+            self._out[fid] = {"etag": state["etag"], "src": src, "file": drawn.rel(fff)}
+            outs[key] = {"pic": etag, "etag": state["etag"], "at": stamp, "f": ""}
+            moved.append(etag)
+        self._save_outputs()
+
+        def record(st):
+            for e in moved:
+                drawn.touch(st, e, stamp)
+            st.setdefault("outs", {}).update(outs)
+        self._drawn_note(record)
+        gone = [p for d in (legacy_pics, legacy_out) if d.exists()
+                for p in d.rglob("*") if p.is_file()] + old_views
+        for p in gone:
+            hosted.remove(p)
+        for d in (legacy_pics, legacy_out):
+            shutil.rmtree(d, ignore_errors=True)
+        log.info("drawn store: moved %d output(s) and %d sheet(s), let %d old file(s) go",
+                 len(outs), len(moved) - len(outs), len(gone))
 
     def _tick_frames(self) -> None:
         """Keep every frame's output in step with the picture it shows. One
@@ -2461,32 +2598,63 @@ class FeatherframeService:
         fid = str(row["id"])
         cfg = self.frame_config(row)
         pic = self.picture_for(frames_mod.shows_of(row), now)
-        if not pic.etag:
-            return
         if cfg.panel_spec.color:
             # A colour frame reads the picture's colour twin; asking keeps it
             # composed. Gray is what a picture is kept in — a twin is extra.
             self._want_color(pic, viewer=False)
-        source = next(iter(pic.sheets(cfg.panel_spec.color)), None)
-        if source is None:
-            return   # a picture from before sheets were kept: the next render has one
-        variant = self._output_src(row, now)
-        fff, png = self._out_paths(fid)
-        if (self._out.get(fid) or {}).get("src") == variant and fff.exists():
-            return
-        with Image.open(source) as sheet:
-            sheet.load()
-        result = pipeline.render_image(sheet, cfg, pic.meta.get("mode") or "single",
-                                       pic.meta.get("label") or "")
-        tmp = fff.with_suffix(".tmp")
-        tmp.write_bytes(result.frame)
-        os.replace(tmp, fff)
-        result.preview.save(png)
+        # The picture's ETag read once: what follows is drawn from its files,
+        # which never change under it, whatever another thread commits.
         with self._lock:
-            self._out[fid] = {"etag": result.etag, "src": variant}
+            etag, mode, label = pic.etag, pic.meta.get("mode"), pic.meta.get("label")
+        source = next(iter(pictures_mod.sheets_for(etag, cfg.panel_spec.color)), None)
+        if source is None:
+            return   # no picture yet, or no sheet kept: the next render has one
+        src = self._src_of(pic.kind, etag, source, cfg)
+        key = drawn.okey(src)
+        fff, png = drawn.out_paths(etag, key)
+        token = self._drawn_token(etag)
+        state = self._out.get(fid) or {}
+        rec = (self._drawn.get("outs") or {}).get(key) or {}
+        if rec.get("f") != token:
+            rec = {}                         # drawn before the owner's Refresh
+        if state.get("src") == src and state.get("file") == drawn.rel(fff) \
+                and rec and drawn.exists(fff):
+            return
+        out_etag = self._kept_output(fff, png, rec)
+        if out_etag is None:
+            sheet = drawn.open_image(source)
+            if sheet is None:
+                return
+            result = pipeline.render_image(sheet, cfg, mode or "single", label or "")
+            drawn.write_bytes(fff, result.frame)
+            drawn.write_image(png, result.preview, compress_level=None)
+            out_etag = result.etag
+            stamp = now.isoformat(timespec="seconds")
+            self._drawn_note(lambda st: st.setdefault("outs", {}).__setitem__(
+                key, {"pic": etag, "etag": out_etag, "at": stamp, "f": token}))
+            log.info("drew the %s picture for frame %s (%s), etag=%s",
+                     pic.kind, fid[-6:], cfg.panel, out_etag)
+        else:
+            log.info("the %s picture for frame %s was drawn before, etag=%s",
+                     pic.kind, fid[-6:], out_etag)
+        with self._lock:
+            self._out[fid] = {"etag": out_etag, "src": src, "file": drawn.rel(fff)}
             self._save_outputs()
-        log.info("drew the %s picture for frame %s (%s), etag=%s",
-                 pic.kind, fid[-6:], cfg.panel, result.etag)
+
+    @staticmethod
+    def _kept_output(fff: Path, png: Path, rec: dict) -> Optional[str]:
+        """The ETag of an output already kept, or None to draw it. A file here
+        is read whole (a Pi that lost power can tear one); one still at the
+        front door is whole, and its ETag is the record's."""
+        if not rec or not (drawn.exists(fff) and drawn.exists(png)):
+            return None
+        if not fff.exists():
+            return rec.get("etag")
+        try:
+            data = fff.read_bytes()
+        except OSError:
+            return None
+        return framebuffer.etag_for(data) if framebuffer.is_complete(data) else None
 
     def _queued_seconds(self, row: dict, now: datetime) -> Optional[int]:
         """How long a frame on push will hold a change it has been told of:
@@ -2587,7 +2755,7 @@ class FeatherframeService:
                 fff = self._out_paths(fid)[0]
                 entry.update({
                     "etag": self._output_etag(fid),
-                    "file": fff.relative_to(paths.data_dir()).as_posix(),
+                    "file": drawn.rel(fff) if fff is not None else None,
                     "headers": {"X-FF-Invert": "0", "X-FF-Rotation": str(cfg.panel_rotation),
                                 "X-FF-Mat": frames_mod.mat_header(cfg),
                                 "X-Power-Mode": cfg.power_mode,
@@ -2605,7 +2773,7 @@ class FeatherframeService:
                 if name:
                     entry.update({
                         "name": name,
-                        "file": (paths.views_dir() / f"{name}.png").relative_to(paths.data_dir()).as_posix(),
+                        "file": drawn.rel(drawn.view_path(name)),
                         "refresh": self.viewer_refresh_seconds(row),
                         "paper": viewers_mod.view_of(row).fmt != "color"})
             seen[vid] = entry
@@ -2774,13 +2942,14 @@ class FeatherframeService:
         """The picture itself, as composed: what the page shows before any
         frame is picked, and on a server with no frames at all. One frame's own
         output is `frame_png_bytes`."""
-        sheet = self.pictures[self._shown].sheet_path
-        return sheet.read_bytes() if sheet.exists() else None
+        with self._lock:
+            etag = self.pictures[self._shown].etag
+        return drawn.read_bytes(drawn.sheet_path(etag)) if etag else None
 
     def frame_png_bytes(self, frame_id: str) -> Optional[bytes]:
         """One kit's own output, as the preview on the page."""
         png = self._out_paths(frame_id)[1]
-        return png.read_bytes() if png.exists() else None
+        return drawn.read_bytes(png) if png is not None else None
 
     def current_etag(self) -> Optional[str]:
         with self._lock:
@@ -3033,7 +3202,18 @@ class FeatherframeService:
     def refresh_now(self) -> None:
         """Manual Refresh button: re-decide what the page's picture should
         be of and draw that. Unlike rerender_current (which keeps the subject),
-        this also recovers from a stale held collage once plates are due again."""
+        this also recovers from a stale held collage once plates are due again.
+        Everything drawn of that picture is drawn again (W-999), in place, and
+        every frame's output with it before this returns."""
+        self._refreshing.on = True
+        try:
+            self._refresh_pictures()
+        finally:
+            self._refreshing.on = False
+        with self._tick_lock:
+            self._tick_frames()
+
+    def _refresh_pictures(self) -> None:
         self.reload_config()
         now = self._clock()
         if self.in_quiet_hours(now):
@@ -3231,27 +3411,47 @@ class FeatherframeService:
     def _commit(self, kind: str, now: datetime, sheet: Image.Image, mode: str,
                 species_key: Optional[str], label: str, key: Optional[str] = None,
                 note: Optional[str] = None, novelty: Optional[str] = None,
-                extra: Optional[dict] = None, recompose=None) -> str:
+                extra: Optional[dict] = None, recompose=None, fresh: bool = False) -> str:
         """This picture is now `sheet`. Composing is all a picture is: it is
         fitted, matted, dithered and packed once per frame that shows it, in
         the tick. `extra`: mode-specific keys carried in the meta (the welcome
         plate's `source_ok`). `recompose`: draws this same sheet again with the
         art in colour, for the screens that show it in colour; kept so the
-        first one to ask need not draw the subject a second time."""
-        # Before the lock: composing takes seconds and a frame is polling.
-        twin = (self._compose_color(recompose)
-                if (recompose is not None and self._color_wanted(kind, now)) else None)
+        first one to ask need not draw the subject a second time.
+
+        A sheet drawn before (the same ETag) finds its twin, its frames'
+        outputs and its views in the drawn store (W-999); `fresh` (the owner's
+        Refresh) makes them all again instead."""
         etag = pictures_mod.etag_for(sheet)
+        fresh = fresh or getattr(self._refreshing, "on", False)
+        stamp = now.isoformat(timespec="seconds")
+
+        def record(st):
+            # Before any file is written: the pruner keeps what is in use.
+            drawn.touch(st, etag, stamp)
+            if fresh:
+                st.setdefault("fresh", {})[etag] = os.urandom(4).hex()
+        self._drawn_note(record)
+        # Before the lock: composing takes seconds and a frame is polling.
+        twin = None
+        if recompose is not None:
+            recompose = self._same_art(recompose, sheet)
+            if self._color_wanted(kind, now) and (fresh or not drawn.whole(drawn.twin_path(etag))):
+                twin = self._compose_color(recompose)
         with self._lock:
             pic = self.pictures[kind]
             meta = self._picture_meta(pic, now, etag, mode, species_key, label,
                                       note, novelty, extra)
             pic.commit(meta, etag, now, key=key, sheet=sheet, color_sheet=twin,
-                       recompose=recompose)
+                       recompose=recompose, fresh=fresh)
             self._recolor.discard(kind)
             self.pictures.save()
         self.db.log_render(now.isoformat(timespec="seconds"), mode, label, etag)
         self._save_history_thumb(etag, sheet)
+        try:
+            self._prune_drawn()
+        except Exception:  # noqa: BLE001 — a full store is never worth a failed commit
+            log.warning("drawn store: prune failed", exc_info=True)
         return etag
 
     # -- viewers (W-822) ---------------------------------------------------
@@ -3340,13 +3540,32 @@ class FeatherframeService:
         return now - asked < timedelta(days=COLOR_VIEWER_DAYS)
 
     @staticmethod
+    def _same_art(recompose, sheet: Image.Image):
+        """`recompose`, kept only when it draws the art the gray sheet was
+        drawn from: it asks the providers again, maybe much later, and an
+        illustration bought meanwhile must not become this sheet's twin."""
+        sig = sheet.info.get("ff_art")
+
+        def checked():
+            twin = recompose()
+            if twin is not None and twin.info.get("ff_art") != sig:
+                log.info("colour sheet drawn from other art than its gray one; not kept")
+                return None
+            return twin
+        return checked
+
+    @staticmethod
     def _compose_color(recompose) -> Optional[Image.Image]:
         try:
             sheet = recompose()
         except Exception:  # noqa: BLE001 — colour is a nicety; the frame is the job
             log.warning("colour sheet not composed", exc_info=True)
             return None
-        return sheet if sheet is not None and sheet.mode == "RGB" else None
+        if sheet is None or sheet.mode != "RGB" or sheet.info.get("ff_color") is False:
+            # No colour, or colour art that did not load: never a twin that
+            # is gray art in RGB, which the drawn store would keep (W-999).
+            return None
+        return sheet
 
     def _note_color_viewer(self) -> None:
         """A colour viewer is asking: remember it (once a day is enough)."""
@@ -3373,9 +3592,8 @@ class FeatherframeService:
                 mode = pic.meta.get("mode")
             if recompose is not None:
                 sheet = self._compose_color(recompose)
-                with self._lock:
-                    if sheet is not None and pic.etag == etag:   # still that picture
-                        pictures_mod.write_sheet(pic.color_sheet_path, sheet)
+                if sheet is not None and etag:
+                    pictures_mod.keep_sheets(etag, color_sheet=sheet)
                 return
         if mode in ("single", "collage"):
             # A restart forgot the recompose: draw the subject again, which
@@ -3417,76 +3635,78 @@ class FeatherframeService:
         """One picture for one screen: (status, png, etag). Which picture is
         `picture_for`'s decision and nothing else's. Read-only by design: a
         screen fed this way never moves the frame, the device card, the panel
-        or the ingest cursor. Rendered once per (picture, variant) and kept on
-        disk; a new picture drops the old one's views."""
+        or the ingest cursor. Drawn once per (sheet, variant) and kept in the
+        drawn store (W-999), so a picture that comes back is found, not drawn."""
         pic = self.picture_for(shows)
         if view.fmt == "color":
             self._want_color(pic)
-        with self._lock:
-            picture = pic.etag
-        if not picture:
+        etag, source, name = self._view_of_pic(pic, view)
+        if name is None:
             return 404, None, None
-        etag = f"{picture}-{view.key}"
-        if if_none_match == etag:
-            return 304, None, etag
-        cached = paths.views_dir() / f"{etag}.png"
-        if cached.exists():
-            return 200, cached.read_bytes(), etag
-        png = self._draw_view(pic, view, cached)
-        return (200, png, etag) if png is not None else (404, None, None)
+        if if_none_match == name:
+            return 304, None, name
+        png = drawn.read_bytes(drawn.view_path(name)) if self._view_kept(etag, name) else None
+        if png is None:
+            png = self._draw_view(etag, source, view, name)
+        return (200, png, name) if png is not None else (404, None, None)
 
-    def _draw_view(self, pic: "pictures_mod.Picture", view: "pipeline.View",
-                   cached: Path) -> Optional[bytes]:
-        """Draw one view of a picture into the cache; its bytes, or None when
-        the picture has no sheet to draw from."""
+    def _view_of_pic(self, pic: "pictures_mod.Picture", view: "pipeline.View") -> tuple:
+        """(picture ETag, sheet, view name) of this view of the picture as it
+        is now; the name is None when there is no sheet to draw it from."""
+        with self._lock:
+            etag = pic.etag
+        source = next(iter(pictures_mod.sheets_for(etag, view.fmt == "color")), None)
+        return etag, source, (drawn.view_name(source, view.key) if source else None)
+
+    def _view_kept(self, etag: str, name: str) -> bool:
+        rec = (self._drawn.get("views") or {}).get(name) or {}
+        return (rec.get("f") or "") == self._drawn_token(etag) and drawn.exists(drawn.view_path(name))
+
+    def _draw_view(self, etag: str, source: Path, view: "pipeline.View",
+                   name: str) -> Optional[bytes]:
+        """Draw one view of a sheet into the drawn store; its bytes, or None
+        when the sheet cannot be read."""
+        path = drawn.view_path(name)
         with self._view_lock:   # one viewer render at a time (Pi Zero: memory)
-            if cached.exists():
-                return cached.read_bytes()
-            sources = pic.sheets(view.fmt == "color")
-            source = next((p for p in sources if p.exists()), None)
-            if source is None:
+            if self._view_kept(etag, name):
+                png = drawn.read_bytes(path)
+                if png is not None:
+                    return png
+            sheet = drawn.open_image(source)
+            if sheet is None:
                 return None
-            with Image.open(source) as sheet:
-                sheet.load()
             png = pipeline.encode_png(pipeline.render_view(sheet, view), view.fmt)
+            token, stamp = self._drawn_token(etag), self._clock().isoformat(timespec="seconds")
             try:
-                tmp = cached.with_suffix(".tmp")
-                tmp.write_bytes(png)
-                os.replace(tmp, cached)
-                self._prune_views()
+                drawn.write_bytes(path, png)
+                self._drawn_note(lambda st: st.setdefault("views", {}).__setitem__(
+                    name, {"at": stamp, "f": token}))
             except OSError:
-                log.warning("view %s not cached", cached.stem, exc_info=True)
+                log.warning("view %s not kept", name, exc_info=True)
         return png
 
     def ensure_view(self, row: dict) -> Optional[str]:
         """A viewer's image drawn ahead of its ask (hosted, W-849: the front
-        door answers it while this server sleeps). Its name — the picture's
-        ETag and the variant — or None when there is no picture yet."""
+        door answers it while this server sleeps). Its name, or None when
+        there is no picture yet. One already kept is not read, only named."""
         view, shows = viewers_mod.view_of(row), viewers_mod.shows_of(row)
         pic = self.picture_for(shows)
         if view.fmt == "color":
             self._want_color(pic, viewer=False)
-        with self._lock:
-            picture = pic.etag
-        if not picture:
+        etag, source, name = self._view_of_pic(pic, view)
+        if name is None:
             return None
-        name = f"{picture}-{view.key}"
-        cached = paths.views_dir() / f"{name}.png"
-        if cached.exists() or self._draw_view(pic, view, cached) is not None:
+        if self._view_kept(etag, name) or self._draw_view(etag, source, view, name) is not None:
             return name
         return None
 
     def _prune_views(self) -> None:
-        """A handful of renders per live picture, plus a handful of waiting
-        plates — which belong to no picture, and which a screen still asking
-        must not re-render on every poll."""
-        views = paths.views_dir()
-        live = tuple(f"{p.etag}-" for p in self.pictures.values() if p.etag)
-        def newest(files):
-            return sorted(files, key=lambda f: f.stat().st_mtime, reverse=True)[:_VIEWS_MAX]
-        keep = set(newest([f for f in views.glob("*.png") if live and f.name.startswith(live)]))
-        keep |= set(newest(list(views.glob(f"{self.WAITING_PREFIX}*.png"))))
-        for stale in set(views.glob("*.png")) - keep:
+        """A handful of waiting plates, which belong to no picture, and which
+        a screen still asking must not re-render on every poll. Views of a
+        picture are the drawn store's (W-999)."""
+        waiting = sorted(paths.views_dir().glob(f"{self.WAITING_PREFIX}*.png"),
+                         key=lambda f: f.stat().st_mtime, reverse=True)
+        for stale in waiting[_VIEWS_MAX:]:
             stale.unlink(missing_ok=True)
 
     @staticmethod
@@ -3500,8 +3720,10 @@ class FeatherframeService:
             target = hist / f"{etag}.png"
             if not target.exists():
                 sheet.reduce(_HISTORY_SCALE).save(target)
+            else:
+                os.utime(target)   # shown again: newest, so the prune keeps it
             full = hist / f"{etag}.jpg"
-            if not full.exists():
+            if not hosted.exists(full):   # on hosted, likely still at the front door
                 # No optimize pass: it halves the encode's CPU for 2 % of size.
                 sheet.convert("RGB" if sheet.mode == "RGB" else "L").save(
                     full, quality=_HISTORY_FULL_QUALITY)

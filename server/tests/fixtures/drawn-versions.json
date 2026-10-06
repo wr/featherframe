@@ -1,0 +1,29 @@
+{
+  "libs": "12.3.0,2.5.1,-",
+  "COLOR_VERSION": 1,
+  "FINISH_VERSION": "1",
+  "colour": {
+    "library pair": [
+      "0dfc9c4d37fad363",
+      "0f02f7938899ed09"
+    ],
+    "paper": "0f02f7938899ed09",
+    "twin": "62296ad8540833d4",
+    "bough twin": "8e237b4340a343fd"
+  },
+  "finish": {
+    "ee03": [
+      "8cb1e683e259e868",
+      "8e7465a8acd49f98"
+    ],
+    "ee02": [
+      "e564299df61de4a1",
+      "79f37fd123ae2a67"
+    ],
+    "view gray16": "06552fca792d0025",
+    "view gray2": "851a7bfcb2a22415",
+    "view mono": "27f6e621af3be6f4",
+    "view gray256": "19d68639368bba23",
+    "view color": "c2717408ec7393a5"
+  }
+}

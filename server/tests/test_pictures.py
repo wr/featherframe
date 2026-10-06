@@ -90,7 +90,8 @@ def test_a_picture_nobody_shows_is_never_drawn_and_is_dropped(svc):
     svc.update_frame("PAGE-IPAD", {"shows": ""})
     svc.tick()
     assert svc.pictures["collage"].etag is None
-    assert not svc.pictures["collage"].sheet_path.exists()
+    # Its sheet stays in the drawn store until the pruner lets it go (W-999).
+    assert svc.pictures["collage"].sheets(color=True) == []
 
 
 def test_another_frames_picture_never_touches_the_wall(svc):

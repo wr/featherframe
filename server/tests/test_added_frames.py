@@ -131,14 +131,14 @@ def test_nothing_is_redrawn_until_its_picture_changes(client):
     assert svc._out == drawn
 
 
-def test_forgetting_it_takes_its_files_and_its_picture_with_it(client, tmp_path):
+def test_forgetting_it_takes_its_output_and_its_picture_with_it(client):
     svc = client.app.state.service
     _add(client)
-    out = tmp_path / "data" / "frames" / "out"
-    assert len(list(out.glob("*.fff"))) == 2      # one per frame
+    assert len({st["file"] for st in svc._out.values()}) == 2      # one per frame
     client.post("/api/frames", data={"id": EE02["X-Device-Id"], "action": "forget"})
     svc.tick()
-    assert len(list(out.glob("*.fff"))) == 1 and EE02["X-Device-Id"] not in svc._out
+    # Its output stays in the drawn store until the pruner lets it go (W-999).
+    assert len(svc._out) == 1 and EE02["X-Device-Id"] not in svc._out
     assert svc.pictures["collage"].etag is None
     assert client.get("/api/frame", headers=EE02).status_code == 403     # it asks again
 

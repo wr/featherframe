@@ -44,7 +44,7 @@ from PIL import Image
 from . import credits, paths
 from .names import SpeciesIndex, folio_of, has_plate
 from .render import plate
-from .render.provider import ArtProvider, Artwork
+from .render.provider import ArtProvider, Artwork, art_ref
 
 log = logging.getLogger("featherframe.plate_library")
 
@@ -202,6 +202,20 @@ class LibraryProvider(ArtProvider):
     def species_count(self) -> int:
         return self.library.index().count
 
+    def ref(self, common_name: str, scientific_name: str) -> Optional[str]:
+        for entry in self.library.index().entries(common_name, scientific_name, self.region):
+            if entry.get("library"):
+                return self._ref(entry)
+        return ""
+
+    @staticmethod
+    def _ref(entry: dict) -> str:
+        """The crop's key names its pixels; the rest is what its caption says."""
+        plate_no, volume = int(entry["plate"]), entry.get("volume_no")
+        return art_ref("plate", entry["library"], folio_of(entry), plate_no, volume,
+                       bool(entry.get("composite")), [str(x) for x in (entry.get("legend") or [])],
+                       credits.drawn_by(folio_of(entry), plate_no, volume))
+
     def artwork(self, common_name: str, scientific_name: str) -> Optional[Artwork]:
         for entry in self.library.index().entries(common_name, scientific_name, self.region):
             key = entry.get("library")
@@ -216,7 +230,7 @@ class LibraryProvider(ArtProvider):
                            folio=folio_of(entry),
                            artist=credits.drawn_by(folio_of(entry), int(entry["plate"]), entry.get("volume_no")),
                            composite=bool(entry.get("composite")),
-                           legend=[str(x) for x in (entry.get("legend") or [])],
+                           legend=[str(x) for x in (entry.get("legend") or [])], ref=self._ref(entry),
                            color_loader=lambda: color_pair_from_raw(self.library.image(key, "color")))
         return None
 

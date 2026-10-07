@@ -376,3 +376,137 @@ def test_the_library_versions_are_the_modules_own():
     drawn._libs.cache_clear()
     assert drawn._libs() == f"{PILImage.__version__},{numpy.__version__},{nb}"
     assert metadata.version("Pillow") == PILImage.__version__
+
+
+# -- a sheet drawn before is not composed again (W-1012) ----------------------
+class _RefArt(_Art):
+    """`_Art` that names the art it would give without drawing it."""
+
+    def __init__(self):
+        super().__init__()
+        self.loaded = []
+
+    def ref(self, common, scientific):
+        return f"stub:{common}:{SPECIES[common][2] + self.plate_offset}"
+
+    def artwork(self, common, scientific):
+        self.loaded.append(common)
+        art = super().artwork(common, scientific)
+        art.ref = f"stub:{common}:{SPECIES[common][2] + self.plate_offset}"
+        return art
+
+
+@pytest.fixture
+def reuse(svc):
+    svc.provider = _RefArt()
+    return svc
+
+
+def _composed(monkeypatch) -> list:
+    """The gray sheets composed (a colour twin is its own compose)."""
+    calls, render_for = [], compose.render_for
+
+    def spy(spec, art, color=False):
+        if not color:
+            calls.append(spec.common_name)
+        return render_for(spec, art, color)
+    monkeypatch.setattr(compose, "render_for", spy)
+    return calls
+
+
+def _back_again(svc) -> tuple:
+    """The cardinal, the jay, then the cardinal's ETag and outputs and the store."""
+    _show(svc, "Northern Cardinal")
+    first, outputs = svc.pictures["plates"].etag, dict(svc._out)
+    served = {fid: frame_bytes(svc, fid) for fid in (GRAY, COLOUR)}
+    _show(svc, "Blue Jay")
+    return first, outputs, served, _store(svc)
+
+
+def test_a_sheet_drawn_before_is_shown_without_composing_it_or_loading_its_art(reuse, monkeypatch):
+    first, outputs, served, kept = _back_again(reuse)
+    composed, spy = _composed(monkeypatch), _Spy(monkeypatch, reuse)
+    reuse.provider.loaded.clear()
+    _show(reuse, "Northern Cardinal")
+    assert reuse.pictures["plates"].etag == first
+    assert (composed, reuse.provider.loaded) == ([], [])
+    assert (spy.finished, spy.composed) == ([], [])
+    assert reuse._out == outputs and _store(reuse) == kept
+    assert {fid: frame_bytes(reuse, fid) for fid in (GRAY, COLOUR)} == served
+    assert reuse.pictures["plates"].meta["label"] == "Northern Cardinal"
+    assert reuse.pictures["plates"].meta["art"] is True
+
+
+def test_other_art_is_composed(reuse, monkeypatch):
+    first, *_ = _back_again(reuse)
+    composed = _composed(monkeypatch)
+    reuse.provider.plate_offset = 1        # a new crop, a new credit: another ref
+    _show(reuse, "Northern Cardinal")
+    assert composed == ["Northern Cardinal"]
+    assert reuse.pictures["plates"].etag != first
+
+
+def test_a_new_sheet_version_composes_again(reuse, monkeypatch):
+    _back_again(reuse)
+    composed = _composed(monkeypatch)
+    monkeypatch.setattr(compose, "SHEET_VERSION", compose.SHEET_VERSION + 1)
+    _show(reuse, "Northern Cardinal")
+    assert composed == ["Northern Cardinal"]
+
+
+def test_art_other_than_the_ref_named_is_never_kept_under_it(reuse, monkeypatch):
+    reuse.provider.ref = lambda common, scientific: "stub:something else"
+    _back_again(reuse)
+    composed = _composed(monkeypatch)
+    _show(reuse, "Northern Cardinal")
+    assert composed == ["Northern Cardinal"]
+
+
+def test_a_provider_that_cannot_say_composes_every_time(reuse, monkeypatch):
+    reuse.provider.ref = lambda common, scientific: None    # it would buy one
+    first, *_ = _back_again(reuse)
+    composed = _composed(monkeypatch)
+    _show(reuse, "Northern Cardinal")
+    assert composed == ["Northern Cardinal"]
+    assert reuse.pictures["plates"].etag == first           # and lands where it did
+
+
+def test_refresh_composes_again(reuse, monkeypatch):
+    _back_again(reuse)
+    composed = _composed(monkeypatch)
+    reuse._refreshing.on = True
+    try:
+        _show(reuse, "Northern Cardinal")
+    finally:
+        reuse._refreshing.on = False
+    assert composed == ["Northern Cardinal"]
+
+
+def test_a_kept_sheet_whose_file_went_is_composed_again(reuse, monkeypatch):
+    first, *_ = _back_again(reuse)
+    drawn.sheet_path(first).unlink()
+    composed = _composed(monkeypatch)
+    _show(reuse, "Northern Cardinal")
+    assert composed == ["Northern Cardinal"]
+    assert reuse.pictures["plates"].etag == first and drawn.whole(drawn.sheet_path(first))
+
+
+def test_a_kept_sheet_gets_its_colour_twin_and_history_back(reuse, monkeypatch):
+    from featherframe import paths
+    first, *_ = _back_again(reuse)
+    drawn.twin_path(first).unlink()
+    for ext in ("png", "jpg"):
+        (paths.history_dir() / f"{first}.{ext}").unlink()
+    composed, spy = _composed(monkeypatch), _Spy(monkeypatch, reuse)
+    _show(reuse, "Northern Cardinal")
+    assert spy.composed == [1] and reuse.pictures["plates"].has_color()
+    assert composed == []
+    assert all((paths.history_dir() / f"{first}.{ext}").exists() for ext in ("png", "jpg"))
+
+
+def test_the_pruner_forgets_the_sheets_it_let_go():
+    a, b = "a" * 16, "b" * 16
+    state = {"used": {a: "2026-10-07T09:00:00"},
+             "sheets": {"k1": {"etag": a, "art": []}, "k2": {"etag": b, "art": []}}}
+    drawn.prune(state, set(), set(), time.time())
+    assert list(state["sheets"]) == ["k1"]

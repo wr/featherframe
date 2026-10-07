@@ -9,9 +9,12 @@ caller then renders the typographic fallback — never a wrong bird).
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable, Optional, Union
 
 from PIL import Image
@@ -21,6 +24,16 @@ from ..names import SpeciesIndex
 from . import plate
 
 log = logging.getLogger("featherframe.provider")
+
+# The ref of no art at all: the typographic fallback on the empty bough.
+FALLBACK_REF = "fallback"
+
+
+def art_ref(kind: str, *parts) -> str:
+    """A piece of art's ref (W-1012): everything about it that reaches a
+    sheet, as one short string. Two Artworks with one ref draw one sheet."""
+    body = json.dumps(parts, sort_keys=True, default=str)
+    return f"{kind}:{hashlib.sha256(body.encode()).hexdigest()[:16]}"
 
 
 @dataclass
@@ -36,6 +49,9 @@ class Artwork:
     # For a colour panel: loads (gray, colour) of the same art, lazily so a
     # gray panel never pays for it. None = this art has no colour.
     color_loader: Optional[Callable[[], tuple]] = None
+    # What this art is (`art_ref`), as the provider's `ref` names it; None
+    # when the provider cannot say.
+    ref: Optional[str] = None
 
     def color_pair(self) -> Optional[tuple]:
         """(gray 'L', colour 'RGB') at identical size, or None."""
@@ -56,6 +72,12 @@ class ArtProvider(ABC):
         """Return bird artwork for the species, or None if unavailable."""
         raise NotImplementedError
 
+    def ref(self, common_name: str, scientific_name: str) -> Optional[str]:
+        """The ref of the art `artwork` would return, said without loading
+        it or buying it (W-1012): "" when this provider has none for the
+        species, None when it cannot say without drawing."""
+        return None
+
 
 class ChainedProvider(ArtProvider):
     """First provider with art wins. The chain preserves the never-a-wrong-bird
@@ -73,6 +95,13 @@ class ChainedProvider(ArtProvider):
             if art is not None:
                 return art
         return None
+
+    def ref(self, common_name: str, scientific_name: str) -> Optional[str]:
+        for p in self.providers:
+            ref = p.ref(common_name, scientific_name)
+            if ref is None or ref:
+                return ref
+        return FALLBACK_REF
 
 
 class PlateProvider(ArtProvider):
@@ -97,6 +126,17 @@ class PlateProvider(ArtProvider):
     def species_count(self) -> int:
         return self._index.count
 
+    def ref(self, common_name: str, scientific_name: str) -> Optional[str]:
+        match = self._index.match(common_name, scientific_name, self.region)
+        return "" if match is None else self._ref(match)
+
+    @staticmethod
+    def _ref(match) -> str:
+        return art_ref("scan", Path(match.image_path).name, match.crop_box, match.margins,
+                       match.mask, match.tight, match.composite, match.folio,
+                       match.plate_number, match.volume_no, list(match.legend),
+                       credits.drawn_by(match.folio, match.plate_number, match.volume_no))
+
     def artwork(self, common_name: str, scientific_name: str) -> Optional[Artwork]:
         match = self._index.match(common_name, scientific_name, self.region)
         if match is None:
@@ -113,7 +153,7 @@ class PlateProvider(ArtProvider):
         return Artwork(image=img, plate=match.plate_number, volume_no=match.volume_no, folio=match.folio,
                        artist=credits.drawn_by(match.folio, match.plate_number, match.volume_no),
                        composite=match.composite,
-                       legend=list(match.legend),
+                       legend=list(match.legend), ref=self._ref(match),
                        color_loader=lambda: plate.extract_color(
                            match.image_path, composite=match.composite,
                            crop_box=match.crop_box, margins=match.margins,

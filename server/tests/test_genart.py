@@ -799,3 +799,20 @@ def test_style_references_are_havell_plates_only(data_dir, monkeypatch, tmp_path
     monkeypatch.setattr(paths, "plate_index_path", lambda: index)
     from featherframe.render.genart import pick_reference_plates
     assert pick_reference_plates("Song Sparrow") == [tmp_path / "havell.jpg"]
+
+
+def test_a_kept_illustration_is_named_by_its_sidecar(data_dir):
+    """W-1012: a sheet kept from an illustration is shown again only while the
+    illustration is the one it was drawn from; a new drawing rewrites the
+    sidecar. One that would be bought cannot be named before it is."""
+    provider = GeneratedArtProvider(FakeModel())
+    assert provider.ref("House Sparrow", "Passer domesticus") is None
+    art = provider.artwork("House Sparrow", "Passer domesticus")
+    assert art.ref and art.ref == provider.ref("House Sparrow", "Passer domesticus")
+    sidecar = data_dir / "generated" / "passer-domesticus.json"
+    meta = json.loads(sidecar.read_text())
+    sidecar.write_text(json.dumps(dict(meta, created_at="2026-10-08T00:00:00+00:00")))
+    assert provider.ref("House Sparrow", "Passer domesticus") not in (None, art.ref)
+    assert GeneratedArtProvider(None).ref("Any Bird", "Avis quaevis") == ""
+    provider.buy_new = False
+    assert provider.ref("Any Bird", "Avis quaevis") == ""

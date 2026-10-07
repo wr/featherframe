@@ -55,7 +55,7 @@ from .render.compose import SingleSpec
 from .render.genart import (GeneratedArtProvider, failure_reason, make_image_model,
                             make_text_model)
 from .render.pipeline import RenderResult
-from .render.provider import ArtProvider, ChainedProvider, PlateProvider
+from .render.provider import FALLBACK_REF, ArtProvider, ChainedProvider, PlateProvider
 
 log = logging.getLogger("featherframe.service")
 
@@ -1548,22 +1548,53 @@ class FeatherframeService:
                           note_kind=self._note_kind() if note else None,
                           first_ever=novelty == "first-ever",
                           fallback_note=self._fallback_note())
-        drawn = _drawn_from(spec)
-        if reason == "detection" and self._is_shown(drawn):
+        drawn_from = _drawn_from(spec)
+        if reason == "detection" and self._is_shown(drawn_from):
             log.info("single %s: a repeat of the sheet shown, not drawn again", det.common_name)
         else:
-            art = self.provider.artwork(det.common_name, det.scientific_name)
-            etag = self._commit(
-                PLATES, now, sheet=compose_mod.render_for(spec, art, color=False),
-                mode="single", species_key=det.key, label=det.common_name, note=note,
-                novelty=novelty, key=f"{det.key}@{det.rowid}",
-                extra={"drawn": drawn, "art": art is not None,
-                       "names": [det.common_name.strip().lower(), det.key]},
-                recompose=self._single_in_color(spec))
-            log.info("rendered single %s (%s, %s), etag=%s", det.common_name, reason, novelty, etag)
+            commit = dict(mode="single", species_key=det.key, label=det.common_name, note=note,
+                          novelty=novelty, key=f"{det.key}@{det.rowid}",
+                          recompose=self._single_in_color(spec))
+            names = [det.common_name.strip().lower(), det.key]
+            # A sheet drawn before from the same spec and art is shown again
+            # without composing it, or loading its art (W-1012).
+            ref = self._art_ref(det)
+            skey = drawn.sheet_key(drawn_from, ref) if ref is not None else None
+            kept = self._kept_sheet(skey)
+            if kept is not None:
+                etag = self._commit(PLATES, now, etag=kept[0], art_sig=kept[1],
+                                    extra={"drawn": drawn_from, "art": ref != FALLBACK_REF,
+                                           "names": names}, **commit)
+                log.info("showed single %s (%s, %s), drawn before, etag=%s",
+                         det.common_name, reason, novelty, etag)
+            else:
+                art = self.provider.artwork(det.common_name, det.scientific_name)
+                sheet = compose_mod.render_for(spec, art, color=False)
+                etag = self._commit(PLATES, now, sheet=sheet,
+                                    extra={"drawn": drawn_from, "art": art is not None,
+                                           "names": names}, **commit)
+                # Kept by its key only if the art drawn is the art the key named.
+                if skey is not None and (art.ref if art is not None else FALLBACK_REF) == ref:
+                    sig = compose_mod.art_sig(art)
+                    self._drawn_note(lambda st: drawn.remember_sheet(st, skey, etag, sig))
+                log.info("rendered single %s (%s, %s), etag=%s", det.common_name, reason, novelty, etag)
         # The bird the page said it was waiting on is now on a screen.
         if self._pending and self._pending.get("key") == det.key:
             self._set_pending(None)
+
+    def _art_ref(self, det: Detection) -> Optional[str]:
+        """The ref of the art this detection would be drawn with, or None
+        when the providers cannot say without drawing (W-1012)."""
+        ref = getattr(self.provider, "ref", None)
+        return ref(det.common_name, det.scientific_name) if ref is not None else None
+
+    def _kept_sheet(self, skey: Optional[str]) -> Optional[tuple]:
+        """(etag, art signature) of the sheet kept under `skey`; never for the
+        owner's Refresh, which draws everything again."""
+        if skey is None or getattr(self._refreshing, "on", False):
+            return None
+        with self._drawn_lock:
+            return drawn.kept_sheet(self._drawn, skey)
 
     def _is_shown(self, drawn: str) -> bool:
         """The plates picture is already the sheet `drawn` describes, and a
@@ -3410,10 +3441,12 @@ class FeatherframeService:
             **(extra or {}),
         }
 
-    def _commit(self, kind: str, now: datetime, sheet: Image.Image, mode: str,
+    def _commit(self, kind: str, now: datetime, mode: str,
                 species_key: Optional[str], label: str, key: Optional[str] = None,
                 note: Optional[str] = None, novelty: Optional[str] = None,
-                extra: Optional[dict] = None, recompose=None, fresh: bool = False) -> str:
+                extra: Optional[dict] = None, recompose=None, fresh: bool = False,
+                sheet: Optional[Image.Image] = None, etag: Optional[str] = None,
+                art_sig: tuple = ()) -> str:
         """This picture is now `sheet`. Composing is all a picture is: it is
         fitted, matted, dithered and packed once per frame that shows it, in
         the tick. `extra`: mode-specific keys carried in the meta (the welcome
@@ -3423,8 +3456,10 @@ class FeatherframeService:
 
         A sheet drawn before (the same ETag) finds its twin, its frames'
         outputs and its views in the drawn store (W-999); `fresh` (the owner's
-        Refresh) makes them all again instead."""
-        etag = pictures_mod.etag_for(sheet)
+        Refresh) makes them all again instead. A sheet kept already comes as
+        its `etag` and the signature of its art, without its pixels (W-1012)."""
+        if sheet is not None:
+            etag, art_sig = pictures_mod.etag_for(sheet), sheet.info.get("ff_art")
         fresh = fresh or getattr(self._refreshing, "on", False)
         stamp = now.isoformat(timespec="seconds")
 
@@ -3437,7 +3472,7 @@ class FeatherframeService:
         # Before the lock: composing takes seconds and a frame is polling.
         twin = None
         if recompose is not None:
-            recompose = self._same_art(recompose, sheet)
+            recompose = self._same_art(recompose, art_sig)
             if self._color_wanted(kind, now) and (fresh or not drawn.whole(drawn.twin_path(etag))):
                 twin = self._compose_color(recompose)
         with self._lock:
@@ -3542,11 +3577,11 @@ class FeatherframeService:
         return now - asked < timedelta(days=COLOR_VIEWER_DAYS)
 
     @staticmethod
-    def _same_art(recompose, sheet: Image.Image):
+    def _same_art(recompose, sig):
         """`recompose`, kept only when it draws the art the gray sheet was
-        drawn from: it asks the providers again, maybe much later, and an
-        illustration bought meanwhile must not become this sheet's twin."""
-        sig = sheet.info.get("ff_art")
+        drawn from (`sig`, its `ff_art`): it asks the providers again, maybe
+        much later, and an illustration bought meanwhile must not become this
+        sheet's twin."""
 
         def checked():
             twin = recompose()
@@ -3715,22 +3750,26 @@ class FeatherframeService:
             if f.stem not in names:
                 f.unlink(missing_ok=True)
 
-    def _save_history_thumb(self, etag: str, sheet: Image.Image) -> None:
+    def _save_history_thumb(self, etag: str, sheet: Optional[Image.Image]) -> None:
         """A 1/8-scale thumbnail under frames/history/<etag>.png and the sheet
         full size as <etag>.jpg, keeping the _HISTORY_MAX pictures shown last.
+        No `sheet`: one kept in the drawn store, read only if either is missing.
         Best-effort: a full card or a bad file must never block the commit the
         device is waiting on."""
         try:
             hist = paths.history_dir()
             # Same content, same file: a re-render of identical pixels is free.
             target = hist / f"{etag}.png"
-            if not target.exists():
-                sheet.reduce(_HISTORY_SCALE).save(target)
             full = hist / f"{etag}.jpg"
-            if not hosted.exists(full):   # on hosted, likely still at the front door
-                # No optimize pass: it halves the encode's CPU for 2 % of size.
-                sheet.convert("RGB" if sheet.mode == "RGB" else "L").save(
-                    full, quality=_HISTORY_FULL_QUALITY)
+            if sheet is None and not (target.exists() and hosted.exists(full)):
+                sheet = drawn.open_image(drawn.sheet_path(etag))
+            if sheet is not None:
+                if not target.exists():
+                    sheet.reduce(_HISTORY_SCALE).save(target)
+                if not hosted.exists(full):   # on hosted, likely still at the front door
+                    # No optimize pass: it halves the encode's CPU for 2 % of size.
+                    sheet.convert("RGB" if sheet.mode == "RGB" else "L").save(
+                        full, quality=_HISTORY_FULL_QUALITY)
             # Which were shown last is the render log's to say. A Cloud start
             # unpacks history's PNGs in path order, so a file's time follows
             # its ETag's hex, and the lowest went, to be drawn and sent again

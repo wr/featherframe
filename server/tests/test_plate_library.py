@@ -152,3 +152,41 @@ def test_a_build_against_a_published_library_takes_only_what_it_lacks(plates, tm
     assert stats["made"] == 0 and not list((out / "lib").iterdir())
     data = json.loads((out / "library.json").read_text())
     assert {e.get("library") for e in data["species"]} - {None} == have    # still named
+
+
+def test_a_plate_is_named_without_loading_it(plates, tmp_path, monkeypatch):
+    """W-1012: a sheet kept from this art is found by its ref, so the crop is
+    never fetched for a species shown before."""
+    index, img = plates
+    out = tmp_path / "library"
+    plate_library.build(out, index, img)
+    lib = plate_library.LibraryProvider(plate_library.PlateLibrary(str(out), tmp_path / "cache"))
+    scans = PlateProvider(SpeciesIndex(ENTRIES, images_dir=img))
+    loaded, image = [], lib.library.image
+    monkeypatch.setattr(lib.library, "image", lambda *a: loaded.append(a) or image(*a))
+    for common, sci in [(e["common"], e["scientific"]) for e in ENTRIES[:4]]:
+        ref = lib.ref(common, sci)
+        assert ref and loaded == []
+        assert lib.artwork(common, sci).ref == ref
+        loaded.clear()
+        assert scans.ref(common, sci) == scans.artwork(common, sci).ref
+    assert lib.ref("Canada Jay", "Perisoreus canadensis") != lib.ref("Blue Jay", "Cyanocitta cristata")
+    assert lib.ref("Veery", "Catharus fuscescens") == ""       # a folio's "no plate"
+    assert lib.ref("House Sparrow", "Passer domesticus") == ""
+
+
+def test_a_chain_names_the_art_it_would_give():
+    from featherframe.render.provider import FALLBACK_REF, ArtProvider, ChainedProvider
+
+    class Says(ArtProvider):
+        def __init__(self, ref):
+            self._ref = ref
+
+        def artwork(self, common, scientific):
+            return None
+
+        def ref(self, common, scientific):
+            return self._ref
+    assert ChainedProvider([Says(""), Says("b")]).ref("x", "y") == "b"
+    assert ChainedProvider([Says(None), Says("b")]).ref("x", "y") is None
+    assert ChainedProvider([Says(""), Says("")]).ref("x", "y") == FALLBACK_REF

@@ -2,10 +2,10 @@
 
 Everything drawn is kept under a name that says what it is, and pictures,
 frames and viewers point at it instead of holding a copy. A species that
-comes back is composed again (cheap, and deterministic, so it lands on the
-same ETag) and everything after that is found, not made: its colour twin,
-each frame's finished output, each viewer's image. Nothing already uploaded
-is uploaded again.
+comes back finds its sheet by what it was drawn from (`sheet_key`, W-1012)
+and everything after that is found, not made: its colour twin, each frame's
+finished output, each viewer's image. Nothing already uploaded is uploaded
+again.
 
     frames/drawn/sheets/<etag>.png            a picture's gray sheet: its ETag is
                                               the hash of these pixels
@@ -36,9 +36,11 @@ from .render import compose, pipeline
 
 ETAG_LEN = 16
 # The record: {used: {etag: iso}, outs: {okey: {pic, etag, at, f}},
-# views: {name: {at, f}}, fresh: {etag: token}}. `f` is the Refresh token an
-# output or view was drawn under: one drawn before its picture's last Refresh
-# is drawn again, in place.
+# views: {name: {at, f}}, fresh: {etag: token}, sheets: {skey: {etag, art}}}.
+# `f` is the Refresh token an output or view was drawn under: one drawn before
+# its picture's last Refresh is drawn again, in place. `sheets` names each
+# kept single sheet by what it was drawn from (`sheet_key`), with its art's
+# signature (`compose.art_sig`) for its colour twin.
 KV = "drawn"
 KEEP_ETAGS = 25                 # the most recently used pictures kept, besides those in use:
                                 # 94-96 % of returns found on 21 days of one site (W-999)
@@ -84,6 +86,28 @@ def fkey() -> str:
     view's name, so neither outlives a change to how it is drawn."""
     h = hashlib.sha256(f"{pipeline.FINISH_VERSION}|{pipeline.DITHER_OVERRIDE}|{_libs()}".encode())
     return h.hexdigest()[:6]
+
+
+def sheet_key(drawn_from: str, ref: str) -> str:
+    """A single sheet's key (W-1012): what it is drawn from but its art
+    (`service._drawn_from`), its art's ref, the compose code and the
+    libraries. Two detections with one key draw one sheet."""
+    body = f"{compose.SHEET_VERSION}|{_libs()}|{ref}|{drawn_from}"
+    return hashlib.sha256(body.encode()).hexdigest()[:16]
+
+
+def remember_sheet(state: dict, key: str, etag: str, art: tuple) -> None:
+    state.setdefault("sheets", {})[key] = {"etag": etag, "art": list(art)}
+
+
+def kept_sheet(state: dict, key: str) -> Optional[tuple]:
+    """(etag, art signature) of the sheet kept under `key`, while its file is
+    kept whole; else None, and it is composed."""
+    hit = (state.get("sheets") or {}).get(key)
+    etag = hit.get("etag") if isinstance(hit, dict) else None
+    if not etag or etag not in (state.get("used") or {}) or not whole(sheet_path(etag)):
+        return None
+    return etag, tuple(hit.get("art") or ())
 
 
 def okey(src: str) -> str:
@@ -262,4 +286,7 @@ def prune(state: dict, pinned: set, pinned_files: set, now: float) -> int:
     fresh = state.get("fresh") or {}
     for e in [e for e in fresh if e not in used]:
         fresh.pop(e)
+    sheets = state.get("sheets") or {}
+    for k in [k for k, v in sheets.items() if not isinstance(v, dict) or v.get("etag") not in used]:
+        sheets.pop(k)
     return removed

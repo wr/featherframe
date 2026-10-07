@@ -38,6 +38,10 @@ COVER_MAX_LOSS = 0.25
 # crop, its correction, the colour compose): a kept twin is named by its gray
 # sheet's ETag and this, so an old one is never reused (W-999).
 COLOR_VERSION = 1
+# Bumped whenever a gray single sheet changes its pixels for the same spec
+# and art (the layout, the type, the fonts, the bough): a kept sheet is shown
+# again by what it was drawn from and this, without composing it (W-1012).
+SHEET_VERSION = 1
 
 
 @dataclass

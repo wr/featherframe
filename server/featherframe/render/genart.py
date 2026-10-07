@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import base64
 import io
+import hashlib
 import json
 import logging
 import os
@@ -40,7 +41,7 @@ from .. import hosted, paths, spend, thumbs
 from ..names import DEFAULT_FOLIO, folio_of
 from . import plate
 from .collage import CollageCell, same_species, sheet_art_size
-from .provider import ArtProvider, Artwork
+from .provider import ArtProvider, Artwork, art_ref
 from . import weather as weather_mod
 from .season import season_phrase, tree_state
 
@@ -1551,6 +1552,25 @@ class GeneratedArtProvider(ArtProvider):
             log.exception("generated artwork failed for %s", scientific_name)
             return None
 
+    def ref(self, common_name: str, scientific_name: str) -> Optional[str]:
+        """A kept illustration's ref is its sidecar's, which a new drawing of
+        it rewrites. One that would be bought cannot be named before it is."""
+        slug = self._slug_for(common_name, scientific_name)
+        if not slug:
+            return ""
+        if hosted.exists(self._png(slug)):
+            return self._ref(slug)
+        if self._model is None or not self.buy_new or self._in_cooldown(slug):
+            return ""
+        return None
+
+    def _ref(self, slug: str) -> Optional[str]:
+        try:
+            side = self._sidecar(slug).read_bytes()
+        except OSError:
+            return None
+        return art_ref("generated", slug, hashlib.sha256(side).hexdigest())
+
     # -- cache management (config page) ------------------------------------
     def regenerate(self, common_name: str, scientific_name: str) -> bool:
         """Explicit user request: buy a fresh plate. Keeps the old one on
@@ -1978,7 +1998,7 @@ class GeneratedArtProvider(ArtProvider):
                     return None
         png = self._png(slug)
         return Artwork(image=img, composite=False, generated=True,
-                       legend=self._cached_legend(slug),
+                       legend=self._cached_legend(slug), ref=self._ref(slug),
                        color_loader=lambda: plate.extract_generated_color(png))
 
     def _cached_legend(self, slug: str) -> list[str]:

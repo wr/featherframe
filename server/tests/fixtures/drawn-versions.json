@@ -2,6 +2,7 @@
   "libs": "12.3.0,2.5.1,-",
   "COLOR_VERSION": 1,
   "FINISH_VERSION": "1",
+  "SHEET_VERSION": 1,
   "colour": {
     "library pair": [
       "0dfc9c4d37fad363",
@@ -25,5 +26,9 @@
     "view mono": "27f6e621af3be6f4",
     "view gray256": "19d68639368bba23",
     "view color": "c2717408ec7393a5"
+  },
+  "sheet": {
+    "plate": "a85b438b4060feaa",
+    "bough": "915aa1a2301ce442"
   }
 }

@@ -136,6 +136,24 @@ def test_the_waiting_plate_is_drawn_once_and_kept(client, tmp_path):
     assert len(kept) == 1
 
 
+def test_the_waiting_plates_kept_are_the_last_drawn(client):
+    """A Cloud start writes every file fresh, in no useful order: the prune
+    reads the server's own record of what it drew, not the files' times."""
+    import os
+    from featherframe import paths
+    from featherframe.service import _VIEWS_MAX
+    svc = client.app.state.service
+    views = paths.views_dir()
+    for i in range(_VIEWS_MAX + 3):
+        svc.waiting_png(pipeline.View(64 + i, 64), "00:01")
+    for f in views.glob("waiting-*.png"):            # the last drawn, the oldest file
+        w = int(f.stem.split("-")[2].split("x")[0])
+        os.utime(f, (1_700_000_000 - w, 1_700_000_000 - w))
+    svc.waiting_png(pipeline.View(64 + _VIEWS_MAX + 3, 64), "00:01")
+    kept = sorted(int(f.stem.split("-")[2].split("x")[0]) - 64 for f in views.glob("waiting-*.png"))
+    assert kept == list(range(4, _VIEWS_MAX + 4))
+
+
 # -- nothing is drawn for a screen nobody answered for -------------------------
 def test_a_screen_that_is_only_asking_makes_no_picture_wanted(client):
     svc = client.app.state.service

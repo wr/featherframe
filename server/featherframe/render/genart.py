@@ -1648,7 +1648,7 @@ class GeneratedArtProvider(ArtProvider):
                     out["skipped"] += 1
                     continue
                 self._dir().mkdir(parents=True, exist_ok=True)
-                self._write_atomic(self._png(slug), png)
+                self._write_png(slug, png)
                 self._write_atomic(self._sidecar(slug), sidecar)
                 self._failed_at.pop(slug, None)
                 out["restored"] += 1
@@ -2090,7 +2090,7 @@ class GeneratedArtProvider(ArtProvider):
                 # frame serves but the gallery can't see or manage.
                 self._dir().mkdir(parents=True, exist_ok=True)
                 self._write_atomic(self._sidecar(slug), sidecar_payload.encode())
-                self._write_atomic(self._png(slug), png_bytes)
+                self._write_png(slug, png_bytes)
             except OSError as exc:
                 # The image is already paid for; without the cooldown a full
                 # disk would re-bill on every detection until it frees.
@@ -2109,6 +2109,12 @@ class GeneratedArtProvider(ArtProvider):
             log.info("generated plate for %s in %.1fs", scientific_name,
                      time.time() - started)
             return True
+
+    def _write_png(self, slug: str, data: bytes) -> None:
+        """The illustration itself. Its thumbnail was drawn from the one it
+        replaces, so it goes too."""
+        self._write_atomic(self._png(slug), data)
+        thumbs.drop_thumb(self._png(slug))
 
     @staticmethod
     def _write_atomic(dest: Path, data: bytes) -> None:

@@ -134,6 +134,16 @@ def test_regenerate_replaces_cache(data_dir):
     assert isinstance(provider.artwork("House Sparrow", "Passer domesticus"), Artwork)
 
 
+def test_a_new_illustration_drops_the_old_thumbnail(data_dir):
+    from featherframe import thumbs
+    provider = GeneratedArtProvider(FakeModel())
+    provider.artwork("House Sparrow", "Passer domesticus")
+    thumb = thumbs.thumb_for(data_dir / "generated" / "passer-domesticus.png")
+    assert thumb.exists()
+    assert provider.regenerate("House Sparrow", "Passer domesticus") is True
+    assert not thumb.exists()
+
+
 def test_delete_removes_cache(data_dir):
     provider = GeneratedArtProvider(FakeModel())
     provider.artwork("House Sparrow", "Passer domesticus")

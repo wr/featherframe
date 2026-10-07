@@ -61,6 +61,7 @@ log = logging.getLogger("featherframe.service")
 
 _OUT_KEY = "frame_outputs"            # frame id -> {"etag", "src", "file"}
 _VIEWS_MAX = 8                         # waiting plates kept
+_WAITING_KV = "waiting_views"          # their names, the last drawn last
 # A picture is drawn only while some frame shows it, and a screen that has not
 # asked in this long is not a frame any more — it was unplugged.
 VIEWER_SHOWS_DAYS = 30
@@ -1705,6 +1706,7 @@ class FeatherframeService:
             tmp = days / f"{on_date.isoformat()}.tmp"
             shutil.copyfile(hosted.local(src[0]), tmp)
             os.replace(tmp, days / f"{on_date.isoformat()}.png")
+            thumbs.drop_thumb(days / f"{on_date.isoformat()}.png")
             kept = sorted(p for p in hosted.glob(days, "*.png") if _DATE_RE.match(p.stem))
             for old in kept[:-COLLAGE_DAYS_KEPT]:
                 hosted.remove(old)
@@ -3625,7 +3627,7 @@ class FeatherframeService:
                 tmp = cached.with_suffix(".tmp")
                 tmp.write_bytes(png)
                 os.replace(tmp, cached)
-                self._prune_views()
+                self._prune_views(etag)
             except OSError:
                 log.warning("waiting view %s not cached", etag, exc_info=True)
         return 200, png, etag
@@ -3700,38 +3702,50 @@ class FeatherframeService:
             return name
         return None
 
-    def _prune_views(self) -> None:
+    def _prune_views(self, drawn_now: str) -> None:
         """A handful of waiting plates, which belong to no picture, and which
         a screen still asking must not re-render on every poll. Views of a
-        picture are the drawn store's (W-999)."""
-        waiting = sorted(paths.views_dir().glob(f"{self.WAITING_PREFIX}*.png"),
-                         key=lambda f: f.stat().st_mtime, reverse=True)
-        for stale in waiting[_VIEWS_MAX:]:
-            stale.unlink(missing_ok=True)
+        picture are the drawn store's (W-999). The last _VIEWS_MAX drawn are
+        kept, by the server's own record: a Cloud start writes every file
+        fresh, so a file's time says nothing."""
+        names = [n for n in self.db.get(_WAITING_KV, None) or [] if n != drawn_now]
+        names = (names + [drawn_now])[-_VIEWS_MAX:]
+        self.db.set(_WAITING_KV, names)
+        for f in paths.views_dir().glob(f"{self.WAITING_PREFIX}*.png"):
+            if f.stem not in names:
+                f.unlink(missing_ok=True)
 
-    @staticmethod
-    def _save_history_thumb(etag: str, sheet: Image.Image) -> None:
+    def _save_history_thumb(self, etag: str, sheet: Image.Image) -> None:
         """A 1/8-scale thumbnail under frames/history/<etag>.png and the sheet
-        full size as <etag>.jpg, pruning the oldest past _HISTORY_MAX. Best-effort: a full card or a bad file must
-        never block the commit the device is waiting on."""
+        full size as <etag>.jpg, keeping the _HISTORY_MAX pictures shown last.
+        Best-effort: a full card or a bad file must never block the commit the
+        device is waiting on."""
         try:
             hist = paths.history_dir()
             # Same content, same file: a re-render of identical pixels is free.
             target = hist / f"{etag}.png"
             if not target.exists():
                 sheet.reduce(_HISTORY_SCALE).save(target)
-            else:
-                os.utime(target)   # shown again: newest, so the prune keeps it
             full = hist / f"{etag}.jpg"
             if not hosted.exists(full):   # on hosted, likely still at the front door
                 # No optimize pass: it halves the encode's CPU for 2 % of size.
                 sheet.convert("RGB" if sheet.mode == "RGB" else "L").save(
                     full, quality=_HISTORY_FULL_QUALITY)
-            thumbs = sorted((p for p in hist.glob("*.png") if _ETAG_RE.match(p.stem)),
-                            key=lambda p: p.stat().st_mtime, reverse=True)
-            for stale in thumbs[_HISTORY_MAX:]:
-                stale.unlink(missing_ok=True)
-                hosted.remove(stale.with_suffix(".jpg"))
+            # Which were shown last is the render log's to say. A Cloud start
+            # unpacks history's PNGs in path order, so a file's time follows
+            # its ETag's hex, and the lowest went, to be drawn and sent again
+            # when its species came back.
+            keep = {etag}
+            for row in self.db.render_history(self.db.RENDER_LOG_KEEP):
+                if len(keep) >= _HISTORY_MAX:
+                    break
+                keep.add(str(row.get("etag") or ""))
+            for p in hist.glob("*.png"):
+                if _ETAG_RE.match(p.stem) and p.stem not in keep:
+                    p.unlink(missing_ok=True)
+            for p in hosted.glob(hist, "*.jpg"):
+                if _ETAG_RE.match(p.stem) and p.stem not in keep:
+                    hosted.remove(p)
         except Exception:  # noqa: BLE001 — a thumbnail is never worth a failed commit
             log.warning("history thumbnail for %s not saved", etag, exc_info=True)
 

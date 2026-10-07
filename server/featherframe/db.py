@@ -97,6 +97,8 @@ class Database:
             self._conn.commit()
 
     # -- render log --------------------------------------------------------
+    RENDER_LOG_KEEP = 200
+
     def log_render(self, rendered_at: str, mode: str, species: str | None, etag: str) -> None:
         with self._lock:
             self._conn.execute(
@@ -106,7 +108,7 @@ class Database:
             # keep the log small
             self._conn.execute(
                 "DELETE FROM render_log WHERE id NOT IN "
-                "(SELECT id FROM render_log ORDER BY id DESC LIMIT 200)"
+                "(SELECT id FROM render_log ORDER BY id DESC LIMIT ?)", (self.RENDER_LOG_KEEP,)
             )
             self._conn.commit()
 

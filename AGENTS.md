@@ -683,7 +683,10 @@ request does not sync again after its tick). The small files a start reads
 travel as archives, `bundles/files.tar` and `bundles/history.tar`
 (`hosted.bundle_of`): one request each, not one per file; what the front
 door serves itself, the pictures, the DB and anything over 256 KB stay files
-of their own, and an archive wins over a file of the same path. The image
+of their own, and an archive wins over a file of the same path. A start
+writes every file fresh, so nothing may order files by their times (W-1009):
+history keeps what the render log shows last, waiting plates the last drawn
+(kv `waiting_views`), and whatever replaces an image drops its thumbnail. The image
 compiles ahead what every start used to (W-987, `hosted/Dockerfile`): the
 Stucki kernel's numba cache (`NUMBA_CPU_NAME=generic`, so it holds on any
 x86-64 host), Python's library and the server as bytecode, the page's

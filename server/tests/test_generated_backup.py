@@ -67,6 +67,16 @@ def test_import_never_replaces_a_newer_plate(prov):
     assert (prov._dir() / "starling.png").read_bytes() == PNG + b"backup"
 
 
+def test_a_restored_plate_drops_the_old_thumbnail(prov):
+    _plate(prov._dir(), "starling", "2026-08-01T10:00:00+00:00", body=PNG + b"old")
+    thumb = prov._dir() / "thumbs" / "starling.jpg"
+    thumb.parent.mkdir()
+    thumb.write_bytes(b"the old one, small")
+    backup = _zip({"starling.png": PNG, "starling.json": _sidecar("starling", "2026-09-01T10:00:00+00:00")})
+    assert prov.import_from(backup) == {"restored": 1, "kept": 0, "skipped": 0}
+    assert not thumb.exists()
+
+
 def test_import_leaves_a_plate_that_is_regenerating(prov):
     _plate(prov._dir(), "veery", "2026-08-01T10:00:00+00:00", body=PNG + b"mine")
     backup = _zip({"veery.png": PNG, "veery.json": _sidecar("veery", "2026-09-01T10:00:00+00:00")})

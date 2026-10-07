@@ -100,24 +100,26 @@ def test_commit_writes_thumbnail_and_history_lists_it(client, svc):
     assert "max-age=86400" in r.headers["cache-control"]
 
 
-def test_history_thumbnails_are_capped_at_the_strip(svc):
+def test_history_keeps_the_newest_pictures_by_the_render_log(svc):
+    """A Cloud start unpacks history's PNGs in path order, so their times go
+    up with the ETag's hex, not with when each was shown. The prune reads the
+    render log; the files' times decide nothing."""
+    import os
     from PIL import Image
     hist = paths.history_dir()
     for i in range(70):
         p = hist / f"{i:016x}.png"
         Image.new("L", (4, 4), 255).save(p)
         Image.new("L", (4, 4), 255).save(p.with_suffix(".jpg"))
-        # distinct mtimes so "oldest" is well defined
-        import os
-        os.utime(p, (1_700_000_000 + i, 1_700_000_000 + i))
+        os.utime(p, (1_700_000_000 + i, 1_700_000_000 + i))   # as an unpack leaves them
+    # Shown highest hex first, so the lowest are the newest; 1 is shown twice.
+    for i in [*range(69, -1, -1), 1]:
+        svc.db.log_render("2026-10-06T10:00:00", "single", "Blue Jay", f"{i:016x}")
+    Image.new("L", (4, 4), 255).save(hist / f"{99:016x}.jpg")   # its thumbnail already gone
     svc.force_test_detection("Northern Cardinal", "Cardinalis cardinalis")
-    left = sorted(hist.glob("*.png"))
-    assert len(left) == 24
-    assert (hist / f"{svc.current_etag()}.png") in left
-    assert not (hist / f"{0:016x}.png").exists()      # the oldest went first
-    assert (hist / f"{69:016x}.png").exists()
-    assert len(list(hist.glob("*.jpg"))) == 24            # full sizes go with them
-    assert not (hist / f"{0:016x}.jpg").exists()
+    kept = sorted([svc.current_etag()] + [f"{i:016x}" for i in range(23)])
+    assert sorted(p.stem for p in hist.glob("*.png")) == kept
+    assert sorted(p.stem for p in hist.glob("*.jpg")) == kept   # full sizes go with them
 
 
 def test_history_png_404s_for_bad_or_missing_etag(client):
@@ -322,6 +324,21 @@ def test_a_collage_is_kept_a_week_to_download(client, svc):
     # Kept under Settings, in the same list as generated illustrations (W-878).
     kept = html.split('id="set-collages"')[1]
     assert ">Generated collages<" in kept and 'download="featherframe-collage-2026-09-10.png"' in kept
+
+
+def test_a_redrawn_collage_drops_the_kept_one_s_thumbnail(svc):
+    """A thumbnail is drawn once; the image's replacement drops it."""
+    from datetime import date
+    from featherframe import thumbs
+    from PIL import Image
+    pic = svc.pictures["collage"]
+    pic.etag = "c" * 16
+    Image.new("L", (8, 8), 200).save(pic.sheet_path)
+    svc._keep_collage_day(date(2026, 9, 22))
+    thumb = thumbs.thumb_for(paths.collage_days_dir() / "2026-09-22.png")
+    assert thumb.exists()
+    svc._keep_collage_day(date(2026, 9, 22))
+    assert not thumb.exists()
 
 
 def test_the_colour_collage_is_the_one_kept(svc):

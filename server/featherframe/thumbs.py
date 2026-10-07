@@ -2,9 +2,10 @@
 
 A generated illustration or a kept collage is a PNG of a megabyte or more;
 the Settings lists show each at 64×85. `thumb_for` draws one JPEG per image,
-once, into a `thumbs/` folder beside it, and draws it again only when the
-image is newer (a regenerate). Best-effort: None if it cannot be drawn, and
-the caller serves the full image instead.
+once, into a `thumbs/` folder beside it; whatever replaces the image (a
+regenerate, the day's collage redrawn) drops it with `drop_thumb`. A file's
+time decides nothing: a Cloud start writes every file fresh. Best-effort:
+None if it cannot be drawn, and the caller serves the full image instead.
 """
 from __future__ import annotations
 
@@ -25,12 +26,10 @@ THUMB_DIR = "thumbs"
 
 
 def thumb_for(src: Path) -> Optional[Path]:
-    """The thumbnail of `src`, drawn if it is missing or older than `src`."""
+    """The thumbnail of `src`, drawn if it is missing."""
     dest = src.parent / THUMB_DIR / f"{src.stem}.jpg"
     try:
-        # A source still at the front door (W-915) has not changed since its
-        # thumbnail was drawn: a new one is written here.
-        if dest.exists() and (not src.exists() or dest.stat().st_mtime >= src.stat().st_mtime):
+        if dest.exists():
             return dest
         with Image.open(hosted.local(src)) as im:
             im.thumbnail(THUMB_SIZE, Image.LANCZOS)

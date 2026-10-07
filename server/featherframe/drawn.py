@@ -21,8 +21,11 @@ downloads none of it, and a file comes down only when something reads it
 from __future__ import annotations
 
 import hashlib
+import importlib
 import itertools
 import os
+from functools import lru_cache
+from importlib import metadata
 from pathlib import Path
 from typing import Optional
 
@@ -61,14 +64,18 @@ def twin_path(etag: str) -> Path:
     return _dir("sheets") / f"{etag}-c{compose.COLOR_VERSION}.png"
 
 
+@lru_cache(maxsize=1)
 def _libs() -> str:
-    import numpy
-    try:
-        import numba
-        nb = numba.__version__
-    except Exception:  # noqa: BLE001 — no numba: the Python diffusion
-        nb = "-"
-    return f"{Image.__version__},{numpy.__version__},{nb}"
+    """The drawing libraries' versions, from their installed metadata: every
+    wake names its frames' outputs, and importing numba to ask cost a Cloud
+    wake ~0.7 CPU-s (W-1012). No numba: the Python diffusion, "-"."""
+    found = []
+    for dist, module in (("Pillow", "PIL"), ("numpy", "numpy"), ("numba", None)):
+        try:
+            found.append(metadata.version(dist))
+        except metadata.PackageNotFoundError:
+            found.append(importlib.import_module(module).__version__ if module else "-")
+    return ",".join(found)
 
 
 def fkey() -> str:

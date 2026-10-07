@@ -351,15 +351,21 @@ named by what it was drawn from, under `data/frames/drawn/`: `sheets/<etag>.png`
 `sheets/<etag>-c<COLOR_VERSION>.png`, `out/<etag>-<okey>.fff|.png` (a frame's
 output; `okey` hashes its `src` and `fkey`), `views/<sheet>-<view>-<fkey>.png`.
 Pictures, frames and viewers point at files and never delete one; a species
-that comes back composes its gray sheet, lands on the same ETag and finds its
-twin, outputs and views. A twin is kept only if its colour loaded and its art
-is the gray sheet's (`ff_art`, `_same_art`). Refresh deletes nothing: a new
+that comes back finds its gray sheet by what it is drawn from (W-1012: the
+kv row's `sheets`, keyed by `drawn.sheet_key`: `_drawn_from`, the art's
+`ref`, `SHEET_VERSION` and the libraries), so it is shown without composing
+it or loading its art, and then finds its twin, outputs and views. Every
+provider names its art without drawing it (`ArtProvider.ref`: "" none, None
+can't say, which composes as before), and a sheet is kept under a key only
+when the art it was drawn with is the art the key named. A twin is kept only
+if its colour loaded and its art is the gray sheet's (`ff_art`, `_same_art`). Refresh deletes nothing: a new
 token in the kv row `drawn` redraws that picture's files in place. The
 pruner (`_prune_drawn`, after every commit) keeps what is pointed at (per
 file) and the 25 most recent pictures (`drawn.KEEP_ETAGS`). **Bump `compose.COLOR_VERSION` when
-the colour path changes its pixels, and `pipeline.FINISH_VERSION` when
-finishing does** (fit, mat, dither, pack, views): a kept drawing is reused
-by name. `tests/test_drawn_versions.py` fails when the pixels move without
+the colour path changes its pixels, `compose.SHEET_VERSION` when a gray
+single sheet does (layout, type, fonts, the bough), and
+`pipeline.FINISH_VERSION` when finishing does** (fit, mat, dither, pack,
+views): a kept drawing is reused by name. `tests/test_drawn_versions.py` fails when the pixels move without
 them (record with `FF_RECORD_DRAWN=1`). On hosted the folder is lazy, and a
 sync uploads, reports, then deletes. Forward only from the old layout
 (`_migrate_drawn`).

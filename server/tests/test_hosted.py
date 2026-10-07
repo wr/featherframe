@@ -839,3 +839,12 @@ def test_a_start_downloads_nothing_drawn(env):
     assert hosted.exists(data / "frames/drawn/out/e-k.fff")
     assert hosted.local(data / "frames/drawn/views/e-v.png").read_bytes() == b"v"
     assert door.state.calls == [("GET", "frames/drawn/views/e-v.png")]
+
+
+def test_the_cpu_report_says_what_it_can_and_never_raises(monkeypatch):
+    """W-1008: one line per start and stop, set beside Cloud's billed CPU.
+    Without /proc (a Mac, a test) it still reports the process's own CPU."""
+    line = hosted.vm_report(first=True)
+    assert "proc_cpu=" in line and "ncpu=" in line
+    monkeypatch.setattr(hosted, "_read", lambda path: "garbage")
+    assert "proc_cpu=" in hosted.vm_report(first=True)

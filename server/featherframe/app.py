@@ -121,9 +121,11 @@ async def lifespan(app: FastAPI):
     link = None
     conf = hosted.config_from_env()
     if conf:
+        log.info("hosted: start %s", hosted.vm_report(first=True))
         link = hosted.HostedLink(*conf)
         await run_in_threadpool(link.pull)
         hosted.activate(link)
+        log.info("hosted: pulled %s", hosted.vm_report())
     service = FeatherframeService()
     app.state.service = service
     app.state.hosted = link
@@ -150,6 +152,7 @@ async def lifespan(app: FastAPI):
             # A hosted server is stopped straight after its work (W-847):
             # whatever the last moment changed reaches the front door first.
             await run_in_threadpool(link.settle, service, False)
+            log.info("hosted: stop %s", hosted.vm_report())
 
 
 app = FastAPI(title="Featherframe", version=__version__, lifespan=lifespan)

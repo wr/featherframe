@@ -345,3 +345,34 @@ def test_a_sheet_that_is_not_its_picture_is_not_moved(svc):
     new = FeatherframeService(Database())
     assert not drawn.sheet_path(etag).exists()
     assert new.pictures["plates"].sheets() == []
+
+
+# -- what naming a drawing costs ----------------------------------------------
+def test_naming_an_output_imports_no_drawing_library():
+    """W-1012: every wake names each frame's output, and asking numba for its
+    version by importing it cost a Cloud wake ~0.7 CPU-s. The versions come
+    from the installed packages' metadata, the same strings."""
+    import importlib.util
+    import subprocess
+    import sys
+    if importlib.util.find_spec("numba") is None:
+        pytest.skip("numba is not installed here")
+    code = ("import sys; from featherframe import drawn; drawn.fkey(); "
+            "print(','.join(m for m in ('numba', 'numpy') if m in sys.modules))")
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                         check=True, cwd=os.path.dirname(os.path.dirname(__file__)))
+    assert "numba" not in out.stdout
+
+
+def test_the_library_versions_are_the_modules_own():
+    from importlib import metadata
+    import numpy
+    from PIL import Image as PILImage
+    try:
+        import numba
+        nb = numba.__version__
+    except ImportError:
+        nb = "-"
+    drawn._libs.cache_clear()
+    assert drawn._libs() == f"{PILImage.__version__},{numpy.__version__},{nb}"
+    assert metadata.version("Pillow") == PILImage.__version__

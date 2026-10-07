@@ -123,6 +123,58 @@ def _untar(body: bytes) -> dict[str, bytes]:
     return out
 
 
+def _read(path: str) -> str:
+    try:
+        return Path(path).read_text()
+    except OSError:
+        return ""
+
+
+def vm_report(first: bool = False) -> str:
+    """One log line on where this machine's CPU has gone (W-1008): the VM's
+    uptime and busy CPU since it booted, and this process's own CPU and when
+    it started after boot. Cloud bills a wake's CPU from outside the VM;
+    set beside that, these say how much of it is ours. `first` adds what
+    the machine is. Never raises: without /proc it says less."""
+    tick = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
+    out: dict[str, object] = {}
+    try:
+        up, idle = _read("/proc/uptime").split()[:2]
+        out["vm_up"], out["vm_idle"] = float(up), float(idle)
+    except ValueError:
+        pass
+    try:
+        # user nice system idle iowait irq softirq steal
+        f = [int(x) for x in _read("/proc/stat").split("\n", 1)[0].split()[1:9]]
+        out["vm_busy"] = (f[0] + f[1] + f[2] + f[5] + f[6]) / tick
+        out["vm_steal"] = f[7] / tick
+    except (ValueError, IndexError):
+        pass
+    try:
+        out["proc_born"] = int(_read("/proc/self/stat").rsplit(")", 1)[1].split()[19]) / tick
+    except (ValueError, IndexError):
+        pass
+    try:
+        import resource
+        me = resource.getrusage(resource.RUSAGE_SELF)
+        kids = resource.getrusage(resource.RUSAGE_CHILDREN)
+        out["proc_cpu"] = me.ru_utime + me.ru_stime
+        out["kids_cpu"] = kids.ru_utime + kids.ru_stime
+    except (ImportError, OSError):
+        pass
+    if first:
+        out["ncpu"] = os.cpu_count()
+        out["quota"] = _read("/sys/fs/cgroup/cpu.max").strip().replace(" ", "/") or None
+        out["idle"] = _read("/sys/devices/system/cpu/cpuidle/current_driver").strip() or None
+        out["cmdline_idle"] = next((t for t in _read("/proc/cmdline").split()
+                                    if t.startswith(("idle=", "cpuidle"))), None)
+        model = next((ln.split(":", 1)[1].strip() for ln in _read("/proc/cpuinfo").splitlines()
+                      if ln.startswith("model name")), None)
+        out["model"] = model.replace(" ", "_") if model else None
+    return " ".join(f"{k}={v:.2f}" if isinstance(v, float) else f"{k}={v}"
+                    for k, v in out.items() if v is not None)
+
+
 def config_from_env() -> Optional[tuple[str, str]]:
     """(base URL, key) when this server is a hosted household's."""
     base = os.environ.get("FEATHERFRAME_HOSTED_URL", "").strip().rstrip("/")

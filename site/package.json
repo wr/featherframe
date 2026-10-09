@@ -19,6 +19,6 @@
     "@playwright/test": "^1.56.0",
     "@types/three": "^0.185.4",
     "esbuild": "^0.25.0",
-    "wrangler": "^4.40.0"
+    "wrangler": "^4.149.0"
   }
 }

@@ -498,7 +498,7 @@ def test_add_over_usb_is_in_the_frames_menu(client):
     head = client.get("/").text.split('<div class="grp-head">')[1].split('id="frames-card"')[0]
     assert '<h2 class="grp-title">Frames</h2>' in head
     assert 'role="menu" hidden' in head and ">USB firmware update</button>" in head and ">Check for updates</button>" in head
-    assert 'href="https://shop.wells.ee/products/featherframe/"' in head and ">Buy a frame<" in head
+    assert 'href="https://featherframe.app/#waitlist"' in head and ">Buy a frame<" in head
     assert 'href="https://featherframe.app/help/build"' in head and ">DIY instructions<" in head
 
 

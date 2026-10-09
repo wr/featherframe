@@ -1,7 +1,7 @@
 # Featherframe server dependencies.
 # Kept deliberately lean — this runs alongside BirdNET-Pi's tflite analyzer,
 # possibly on a Pi Zero 2W (512MB). Targets Python 3.9+.
-fastapi>=0.110
+starlette>=0.37      # the web app (W-1019: FastAPI's import was a third of a Cloud start's)
 uvicorn>=0.29
 jinja2>=3.1
 pillow>=10.2

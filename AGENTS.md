@@ -24,7 +24,7 @@ Link owners to help through `featherframe.app/help/<topic>`
 Featherframe: a wall-mounted e-paper frame that renders the birds your BirdNET-Pi
 hears as Audubon lithograph plates. Two components in one repo:
 
-- **`server/`** — Python/FastAPI, runs *on the BirdNET-Pi* as a systemd service in
+- **`server/`** — Python/Starlette, runs *on the BirdNET-Pi* as a systemd service in
   its own venv. Owns all logic and all image processing.
 - **`firmware/`** — ESP32-S3 (PlatformIO), a deliberately dumb deep-sleep client
   that fetches a pre-packed framebuffer and pushes it to the panel.

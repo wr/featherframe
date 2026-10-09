@@ -13,17 +13,17 @@ from __future__ import annotations
 
 import argparse
 
-from fastapi import FastAPI, Response
-from fastapi.concurrency import run_in_threadpool
+from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Route
 
 from . import frames as frames_mod
 from . import viewers as viewers_mod
 from .config import Config
 from .render import pipeline
 from .render import welcome
-
-app = FastAPI(title="Featherframe lobby")
-
 
 def render_pairing(code: str, panel: str = "", facts: dict | None = None,
                    rotation: int | None = None, expires: str = "", url: str = "") -> pipeline.RenderResult:
@@ -39,12 +39,16 @@ def render_pairing(code: str, panel: str = "", facts: dict | None = None,
     return pipeline.render_image(sheet, cfg, "welcome", ""), cfg
 
 
-@app.get("/render")
-async def render(code: str, panel: str = "", w: str = "", h: str = "", fmt: str = "", rot: str = "",
-                 cur: str = "", expires: str = "", url: str = ""):
+async def render(request: Request):
+    q = request.query_params
+    code = q.get("code")
+    if code is None:
+        return Response(status_code=422, content=b"code is required")
+    cur = q.get("cur", "")
     rotation = int(cur) if cur.isdigit() else None
-    result, cfg = await run_in_threadpool(render_pairing, code, panel,
-                                          {"w": w, "h": h, "fmt": fmt, "rot": rot}, rotation, expires, url)
+    facts = {k: q.get(k, "") for k in ("w", "h", "fmt", "rot")}
+    result, cfg = await run_in_threadpool(render_pairing, code, q.get("panel", ""), facts, rotation,
+                                          q.get("expires", ""), q.get("url", ""))
     return Response(result.frame, media_type="application/octet-stream",
                     headers={"ETag": f'"{result.etag}"', "X-FF-Rotation": str(cfg.panel_rotation)})
 
@@ -59,11 +63,15 @@ def render_viewer_pairing(code: str, report: dict, expires: str = "") -> bytes:
     return pipeline.encode_png(pipeline.render_view(sheet, view), view.fmt)
 
 
-@app.get("/render-view")
-async def render_view(code: str = "", w: str = "", h: str = "", model: str = "", expires: str = ""):
-    report = viewers_mod.trmnl_report({"width": w, "height": h, "model": model})
-    png = await run_in_threadpool(render_viewer_pairing, code, report, expires)
+async def render_view(request: Request):
+    q = request.query_params
+    report = viewers_mod.trmnl_report({"width": q.get("w", ""), "height": q.get("h", ""),
+                                       "model": q.get("model", "")})
+    png = await run_in_threadpool(render_viewer_pairing, q.get("code", ""), report, q.get("expires", ""))
     return Response(png, media_type="image/png")
+
+
+app = Starlette(routes=[Route("/render", render), Route("/render-view", render_view)])
 
 
 def main() -> None:

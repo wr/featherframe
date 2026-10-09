@@ -58,8 +58,8 @@ Server (`server/requirements.txt`, installed by pip into a venv):
 
 | Package | Licence |
 |---|---|
-| FastAPI, PyYAML | MIT |
-| Uvicorn, Jinja2, NumPy | BSD-3-Clause |
+| PyYAML | MIT |
+| Starlette, Uvicorn, Jinja2, NumPy | BSD-3-Clause |
 | Pillow | MIT-CMU (HPND) |
 | Requests, python-multipart | Apache-2.0 |
 | zeroconf | LGPL-2.1-or-later (used as an unmodified, separately installed library) |

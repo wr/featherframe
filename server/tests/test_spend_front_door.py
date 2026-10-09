@@ -10,19 +10,20 @@ from datetime import datetime, timedelta
 
 import pytest
 import requests
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 from starlette.testclient import TestClient
 
 from featherframe import hosted, spend
 from featherframe.db import Database
+from tests._door import Door
 
 T0 = datetime(2026, 9, 27, 18, 40)
 
 
 def fake_door():
     """The routes of hosted/src/household.ts spendRoute, on a MemoryStore."""
-    door = FastAPI()
+    door = Door()
     book = spend.MemoryStore()
     door.state.book, door.state.imported, door.state.snapshots = book, [], 0
     door.state.import_bodies, door.state.import_fails = [], False
@@ -204,7 +205,7 @@ def test_a_summary_stands_when_the_import_fails(link, tmp_path):
 
 def test_a_snapshot_reads_records_with_fields_it_does_not_know(tmp_path):
     """A newer front door may keep more about each record."""
-    door = FastAPI()
+    door = Door()
     row = {**asdict(spend.Record(id="r1", at=T0.timestamp(), month="2026-09", day="2026-09-27",
                                  kind="plate", subject="tyto-alba", auto=True, model="m",
                                  quality=None, est_usd=0.07)), "billed_by": "openai"}
@@ -261,7 +262,7 @@ def test_a_door_that_is_away_buys_nothing_and_the_import_waits_for_it(tmp_path, 
 
 def test_the_door_saying_ok_is_not_enough_unless_it_says_true(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
-    door = FastAPI()
+    door = Door()
 
     @door.post("/h/spend/reserve")
     async def reserve():

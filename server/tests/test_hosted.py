@@ -7,12 +7,14 @@ import hashlib
 from datetime import datetime, timedelta
 
 import pytest
-from fastapi import FastAPI, Request, Response
+from starlette.requests import Request
+from starlette.responses import Response
 from starlette.testclient import TestClient
 
 from featherframe import frames as frames_mod
 from featherframe import hosted
 from featherframe.render import pipeline
+from tests._door import Door
 from tests._frames import EE03_BOARD, EE03_PANEL, FRAME_ID, add_kit, give_output, seed_frame
 
 NOW = datetime(2026, 9, 22, 12, 0, 0)
@@ -21,7 +23,7 @@ KIT = {"X-Device-Id": FRAME_ID, "X-Panel": EE03_PANEL, "X-Board": EE03_BOARD}
 
 def front_door():
     """The household's front door, as far as this server can tell."""
-    door = FastAPI()
+    door = Door()
     door.state.files, door.state.states, door.state.queue, door.state.calls = {}, [], [], []
 
     def ok(request):
@@ -319,7 +321,7 @@ def test_the_lobby_draws_a_code_for_the_panel_that_asks():
 def test_a_new_frame_starts_the_way_up_it_already_hangs(env):
     """W-851: a frame moved from another server says which way up it hangs;
     its new row starts there, and a rotation its panel cannot do is not taken."""
-    from fastapi.testclient import TestClient as TC
+    from starlette.testclient import TestClient as TC
     from featherframe.app import app
     svc = _service()
     app.state.service, app.state.hosted = svc, None
@@ -338,7 +340,7 @@ def test_a_new_frame_starts_with_the_mat_it_kept(env):
     """A frame removed and added again (here, or on another server) says the
     mat it kept in NVS; its new row starts there, clamped as the page clamps,
     and nothing it says afterwards undoes the owner's choice."""
-    from fastapi.testclient import TestClient as TC
+    from starlette.testclient import TestClient as TC
     from featherframe import frames as frames_mod
     from featherframe.app import app
     svc = _service()
@@ -453,7 +455,7 @@ def test_a_hosted_page_offers_no_local_database_source(tmp_path, monkeypatch, ho
 def test_a_wake_adds_a_paired_frame_before_it_draws(env, monkeypatch):
     """A pairing wakes the server; the frame it adds must be drawn for in that
     same wake, not the next one (up to five minutes later)."""
-    from fastapi.testclient import TestClient as _TC
+    from starlette.testclient import TestClient as _TC
     from featherframe.app import app
     door, link, data = env
     svc = _service()

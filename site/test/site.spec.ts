@@ -424,7 +424,7 @@ test('the waitlist says what went wrong, and keeps the field', async ({ page }) 
   await expect(page.locator('.cover .wl-status')).toHaveText('That didn’t go through. Try again.');
 });
 
-test('with no sitekey the waitlist loads no Turnstile', async ({ page }) => {
+test('off featherframe.app the waitlist loads no Turnstile', async ({ page }) => {
   const asked: string[] = [];
   page.on('request', (r) => { if (r.url().startsWith('https://challenges.cloudflare.com/')) asked.push(r.url()); });
   await page.goto('/');

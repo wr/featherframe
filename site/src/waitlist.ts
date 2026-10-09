@@ -2,8 +2,9 @@
 // sale and in its early hour, opens the one follow-up dialog (size, gift) with the token the answer carries. A port of
 // the shop's src/lib/waitlist-form.ts. Turnstile loads only once someone starts on a form.
 
-// The Turnstile widget shared with shop.wells.ee, filled in at rollout (W-1016). An empty key sends no token.
-const SITEKEY = '';
+// The Turnstile widget shared with shop.wells.ee (W-1016). It allows only featherframe.app and shop.wells.ee, so
+// anywhere else (a local build, the tests) there is no widget and no token, which the live shop refuses.
+const SITEKEY = /(^|\.)featherframe\.app$/.test(location.hostname) ? '0x4AAAAAAFOfJDjggtLNspib' : '';
 const SHOP = 'https://shop.wells.ee';
 
 type Answer = { ok?: boolean; error?: string; details?: string; state?: string };

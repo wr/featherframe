@@ -163,10 +163,6 @@ h2 { font-weight: 400; text-wrap: balance; }
 .stage.live .poster { opacity: 0; transition: opacity .6s ease; }
 .cover .cta .wl { position: relative; z-index: 2; }
 .cover .copy > p { font-size: var(--t-lede); line-height: var(--lh-lede); margin: 0 0 26px; text-wrap: pretty; }
-/* the waitlist: the field and its button over the price, the old prices struck through in the faint ink */
-.cta { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
-.cta .it { color: var(--graphite); }
-.cta s, .ho figcaption s { color: var(--faint); }
 
 /* I. The art: a spread, the frame showing the flamingo in its left half,
    pinned there, centred below the running head, while the text scrolls past. */
@@ -573,7 +569,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 
 /* A landscape (or square) window: the headline, the sentence with the waitlist under it, and the frame are one unit, measured on the
    B&W frame, the one the page opens on. The headline's cap line is the frame's top edge (from 1100px; narrower, the
-   second line's), the price's last baseline is its foot on the table, and the frame's right edge is the content's.
+   second line's), the waitlist field's bottom edge is its foot on the table, and the frame's right edge is the content's.
    The headline is as large as the window lets the three be; the unit sits a little above the middle of the first
    screen.
    The numbers: EB Garamond's cap height is .653em, so at line-height .86 the cap line is .1306em below the h1's top
@@ -581,18 +577,18 @@ h2 { font-weight: 400; text-wrap: balance; }
    indent is 3.844em wide, and .2em clears it of the frame's box. The box is the 13.3-inch's (975 × 1244 of the
    poster); the B&W frame is drawn to scale in it, its top edge .2235 down the box, its foot (the corner nearer the
    words) .9614, its sides .1026 and .1036 in: so its height is .7379 of the box's, and the box's width .9521 of the
-   frame's height once its right edge is the content's. --gnd is the sentence, the waitlist's field and the price at --measure, the
-   paragraph's top to the price's last baseline. The headline's size is the least of: the headline and the frame
+   frame's height once its right edge is the content's. --gnd is the sentence and the waitlist's field at --measure, the
+   paragraph's top to the field's bottom edge. The headline's size is the least of: the headline and the frame
    filling the width, the sentence and the frame filling it, and the words filling the first screen's height. */
 @media (min-width: 701px) and (min-aspect-ratio: 1/1) {
   .cover {
     --W: calc(100vw - 2 * var(--edge));
     --V: calc(100svh - var(--nav));
     /* under 1000px the sentence is set at the body size, so the frame has room beside it */
-    --gnd: 292px; --measure: 400px;
+    --gnd: 192px; --measure: 400px;
     --F: clamp(72px, min((var(--W) - .9521 * var(--gnd)) / 5.0466, (var(--W) - var(--measure) - .9521 * var(--gnd)) / 1.2026,
                          (var(--V) - 112px - var(--gnd)) / 1.913), 240px);
-    --ht: calc(1.913 * var(--F) + var(--gnd));       /* the words: the headline's cap line to the price's baseline */
+    --ht: calc(1.913 * var(--F) + var(--gnd));       /* the words: the headline's cap line to the field's bottom edge */
     --fh: calc(1.053 * var(--F) + var(--gnd));       /* the B&W frame: from the second line's cap line */
     --ch: clamp(calc(var(--ht) + 112px), var(--V), calc(var(--ht) + 360px));
     --y0: max(64px, (var(--ch) - var(--ht)) * .45);
@@ -602,7 +598,7 @@ h2 { font-weight: 400; text-wrap: balance; }
     height: var(--ch);
   }
   .cover h1 { position: absolute; left: 0; top: calc(var(--y0) - .1306 * var(--F)); font-size: var(--F); pointer-events: none; }
-  .cover .copy { position: absolute; left: 0; bottom: calc(var(--ch) - var(--y0) - var(--ht) - 9px); width: var(--measure); }
+  .cover .copy { position: absolute; left: 0; bottom: calc(var(--ch) - var(--y0) - var(--ht)); width: var(--measure); }
   .cover .copy > p { font-size: var(--t-body); }
   .frame { top: var(--fy); right: calc(-.1036 * var(--wb)); width: var(--wb); height: var(--hb); }
   /* Color's frame is the 13.3-inch, to scale: taller, from the same foot. Where that would reach the running head it
@@ -615,10 +611,10 @@ h2 { font-weight: 400; text-wrap: balance; }
   }
 }
 @media (max-width: 820px) and (min-aspect-ratio: 1/1) {
-  .cover { --gnd: 283px; }
+  .cover { --gnd: 186px; }
 }
 @media (min-width: 1000px) and (min-aspect-ratio: 1/1) {
-  .cover { --gnd: 320px; --measure: calc(17.7 * var(--t-lede)); }
+  .cover { --gnd: 220px; --measure: calc(17.7 * var(--t-lede)); }
   .cover .copy > p { font-size: var(--t-lede); }
 }
 @media (min-width: 1100px) and (min-aspect-ratio: 1/1) {
@@ -628,7 +624,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   }
 }
 @media (min-width: 1200px) and (min-aspect-ratio: 1/1) {
-  .cover { --gnd: 251px; --measure: calc(22 * var(--t-lede)); }
+  .cover { --gnd: 183px; --measure: calc(22 * var(--t-lede)); }
 }
 
 /* A portrait window or a tablet: the phone's order, the headline
@@ -644,7 +640,7 @@ h2 { font-weight: 400; text-wrap: balance; }
     --pad: 40px;
     --g1: calc(.3 * var(--F));   /* the headline's last baseline to the frame's top edge */
     --g2: 40px;                  /* the frame's foot to the sentence */
-    --words: 260px;              /* the sentence, the waitlist's field and the price (241px under 821px) */
+    --words: 183px;              /* the sentence and the waitlist's field (166px under 821px) */
     --fh: min(max(.4 * var(--V), var(--V) - 2 * var(--pad) - 1.513 * var(--F) - var(--g1) - var(--g2) - var(--words)), .72 * var(--W) / .843);
     --hb: calc(var(--fh) / .7379);
     --wb: calc(var(--hb) * .78376);
@@ -665,7 +661,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   }
 }
 @media (min-width: 701px) and (max-width: 820px) and (aspect-ratio < 1) {
-  .cover { --words: 241px; }
+  .cover { --words: 166px; }
 }
 
 @media (max-width: 820px) {

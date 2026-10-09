@@ -9,6 +9,11 @@ test('social card and search basics', async ({ page, request }) => {
   // Google names the result from the WebSite entry, so it says Featherframe, not the workshop
   const ld = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent() ?? '{}');
   expect(ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'WebSite')).toMatchObject({ name: 'Featherframe', url: 'https://featherframe.app/' });
+  // no price, availability or date in the structured data (W-1020): the product carries no offer
+  const product = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'Product');
+  expect(product).toMatchObject({ name: 'Featherframe', url: 'https://featherframe.app/' });
+  expect(product).not.toHaveProperty('offers');
+  await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. No subscription.');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://featherframe.app/');
   expect((await request.get('/robots.txt')).ok()).toBe(true);
   expect((await request.get('/sitemap.xml')).ok()).toBe(true);
@@ -63,11 +68,11 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#specs .spec dd').nth(6)).toHaveText('Open source. See it on GitHub');
   await expect(page.locator('#specs .spec dd').nth(6).getByRole('link', { name: 'See it on GitHub' })).toHaveAttribute('href', 'https://github.com/wr/featherframe');
   await expect(page.locator('#specs .spec')).not.toContainText('Service');
-  // the prices: the hero, each size, the close
-  await expect(page.locator('.cover .cta .it')).toHaveText('A limited run of 100 frames, in time for the holidays. On sale Black Friday only, November\u00a027: $349\u00a0$299 and $479\u00a0$379.');
-  await expect(page.locator('.cover .cta .it s')).toHaveText(['$349', '$479']);
-  await expect(page.locator('#specs .ho figcaption')).toHaveText(['10.3-inch · B&W$349 $299', '13.3-inch · Color$479 $379']);
-  await expect(page.locator('#specs .ho figcaption s')).toHaveText(['$349', '$479']);
+  // no price, sale or date anywhere (W-1020): the hero holds the signup alone, and each size is named for its display
+  await expect(page.locator('.cover .cta > *')).toHaveCount(1);
+  await expect(page.locator('#specs .ho figcaption')).toHaveText(['10.3-inch · B&W', '13.3-inch · Color']);
+  await expect(page.locator('s')).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText(/Black Friday|November|December|holiday|\$(299|379|349|479)/i);
   await expect(page.locator('#specs .ho .diag span')).toHaveText(['10.3-inch display', '13.3-inch display']);
   await expect(page.locator('#specs .dim')).toHaveCount(0);
   // the close says the cover's line again
@@ -78,11 +83,11 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#specs h2')).toHaveText(['Technical details']);
   await expect(page.locator('#faq h2')).toHaveText('FAQ');
   await expect(page.locator('.wall .folio')).toHaveText('From the collection');
-  await expect(page.locator('.close .words > p')).toHaveText('A limited run of 100 frames, with no subscription. On sale Black Friday only, November\u00a027. US orders ship by December\u00a012.');
+  await expect(page.locator('.close .words > p')).toHaveText('A framed e-paper display with no subscription.');
   await expect(page.locator('body')).not.toContainText('Reserve');
   await expect(page.locator('.cover .copy > p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display, no subscription.');
-  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. $299 on Black Friday only, a run of 100, no subscription.');
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. No subscription.');
   // no exploded drawing anywhere: the reservation is its headline, the frame on its kickstand, its line and button
   await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
   await expect(page.locator('.close > *')).toHaveCount(2);
@@ -104,7 +109,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#faq dd').nth(2).locator('li')).toHaveText(['B&W (10.3-inch): about a second.', 'Color (13.3-inch): about fifteen seconds, and it flickers as the inks settle. It suits the collage, which changes once a day.']);
   await expect(page.locator('#faq a.fnref')).toHaveCount(2);
   await expect(page.locator('body')).not.toContainText('listening station');
-  await expect(page.locator('#faq dd').nth(0)).toHaveText('Yes. Nothing needs setting up before you wrap it. The person you give it to connects it to their Wi-Fi and chooses a detection source, all from their phone. US orders from the Black Friday run ship by December\u00a012.');
+  await expect(page.locator('#faq dd').nth(0)).toHaveText('Yes. Nothing needs setting up before you wrap it. The person you give it to connects it to their Wi-Fi and chooses a detection source, all from their phone.');
   await expect(page.locator('#faq dd').nth(3)).toHaveText('No. The frame can use any public BirdWeather station, and there are stations across North America, Europe and beyond. If none is close, choose one near a place you love. To see the birds in your own yard, you can add a station of your own.');
   await expect(page.locator('#faq dd').nth(4)).toHaveText('Yes. Gould’s books cover the birds of Europe, Asia and Australia, and the frame picks the book that illustrated your species.');
   await expect(page.locator('#faq dd').nth(6)).toHaveText('No. Without AI, the day is laid out in the original illustrations, numbered and keyed like a page in an old natural history book. With AI illustration¹ turned on, the day’s species are painted together in one scene, marked ✦.');
@@ -355,28 +360,31 @@ const shopRoute = (page: Page, path: string, answer: object, bodies: unknown[]) 
   await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify(answer) });
 });
 
-test('the waitlist signs up, then asks two questions for the early link', async ({ page }) => {
+test('the waitlist signs up, then asks which size', async ({ page }) => {
   const signups: Record<string, unknown>[] = [], answers: Record<string, unknown>[] = [];
-  await shopRoute(page, 'waitlist', { ok: true, details: 'tok-1', state: 'before' }, signups);
+  await shopRoute(page, 'waitlist', { ok: true, details: 'tok-1', state: 'interest', count: 3 }, signups);
   await shopRoute(page, 'waitlist/details', { ok: true }, answers);
   await page.goto('/');
   await page.fill('#wl-hero-email', 'ada@example.com');
   await page.click('.cover .wl button[type=submit]');
   await expect.poll(() => signups.length).toBe(1);
   expect(signups[0]).toMatchObject({ slug: 'featherframe', source: 'featherframe', email: 'ada@example.com', website: '', turnstile: '' });
-  await expect(page.locator('.cover .wl-status')).toHaveText('You are on the waitlist. A confirmation is on its way.');
+  await expect(page.locator('.cover .wl-status')).toHaveText('You will be emailed when Featherframe is available.');
   await expect(page.locator('.cover .wl .field')).toBeHidden();
   const dialog = page.locator('dialog.wl-dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('h2')).toHaveText('Answer two questions to get an early link, emailed at 11:00 PM Eastern on November 26, an hour before the public sale.');
-  await expect(dialog.locator('legend')).toHaveText(['Which size?', 'Is it a gift?']);
+  await expect(dialog.locator('h2')).toHaveText('Which size would you want?');
+  // one question, one group (the heading is its label), and no gift question
+  await expect(dialog.locator('fieldset')).toHaveCount(1);
+  await expect(dialog.locator('input[name="build"]')).toHaveCount(3);
+  await expect(dialog.locator('input[name="gift"], input[name="size"]')).toHaveCount(0);
   await expect(dialog.locator('fieldset').first().locator('label')).toHaveText(['10.3-inch', '13.3-inch', 'Not sure yet']);
+  expect(await dialog.locator('input[name="build"]').evaluateAll((is) => is.map((i) => (i as HTMLInputElement).value))).toEqual(['gray-10', 'color-13', 'unsure']);
   await dialog.getByLabel('13.3-inch').check();
-  await dialog.getByLabel('Yes').check();
-  await dialog.getByRole('button', { name: 'Send answers' }).click();
+  await dialog.getByRole('button', { name: 'Send' }).click();
   await expect.poll(() => answers.length).toBe(1);
-  expect(answers[0]).toEqual({ details: 'tok-1', size: 'color-13', gift: true });
-  await expect(dialog.locator('h2')).toHaveText('Thanks. Your early link will be emailed at 11:00 PM Eastern on November 26.');
+  expect(answers[0]).toEqual({ details: 'tok-1', build: 'color-13' });
+  await expect(dialog.locator('h2')).toHaveText('Thanks.');
   await expect(dialog.locator('fieldset').first()).toBeHidden();
   await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused();
   await dialog.getByRole('button', { name: 'Close' }).click();
@@ -387,7 +395,7 @@ test('the waitlist signs up, then asks two questions for the early link', async 
 
 test('the waitlist\'s Skip closes the questions unanswered', async ({ page }) => {
   const answers: unknown[] = [];
-  await shopRoute(page, 'waitlist', { ok: true, details: 'tok-1', state: 'early' }, []);
+  await shopRoute(page, 'waitlist', { ok: true, details: 'tok-1', state: 'interest', count: 1 }, []);
   await shopRoute(page, 'waitlist/details', { ok: true }, answers);
   await page.goto('/');
   await page.fill('#wl-close-email', 'ada@example.com');
@@ -399,12 +407,12 @@ test('the waitlist\'s Skip closes the questions unanswered', async ({ page }) =>
   expect(answers).toEqual([]);
 });
 
-test('once the sale is open the waitlist sends the link, and asks nothing', async ({ page }) => {
+test('an answer that is not for interest asks nothing', async ({ page }) => {
   await shopRoute(page, 'waitlist', { ok: true, details: 'tok-1', state: 'open' }, []);
   await page.goto('/');
   await page.fill('#wl-hero-email', 'ada@example.com');
   await page.click('.cover .wl button[type=submit]');
-  await expect(page.locator('.cover .wl-status')).toHaveText('The link is on its way to your inbox.');
+  await expect(page.locator('.cover .wl-status')).toHaveText('You will be emailed when Featherframe is available.');
   await page.waitForTimeout(300);
   await expect(page.locator('dialog.wl-dialog')).toBeHidden();
 });
@@ -1467,10 +1475,10 @@ test('the switch shows only near a frame', async ({ page }) => {
   await expect(page.locator('.tone.pill')).toHaveCSS('opacity', '0');
 });
 
-test('on a tablet the cover\'s sentence and price are on top of the room', async ({ page }) => {
+test('on a tablet the cover\'s sentence and signup are on top of the room', async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 1024 });
   await page.goto('/');
-  for (const sel of ['.cover .copy > p', '.cover .cta .it']) {
+  for (const sel of ['.cover .copy > p', '.cover .cta .field']) {
     const hit = await page.locator(sel).evaluate((e) => { const b = e.getBoundingClientRect(); const x = document.elementFromPoint(b.x + 8, b.y + b.height / 2); return !!x && (x === e || e.contains(x)); });
     expect(hit, sel).toBe(true);
   }
@@ -1537,10 +1545,6 @@ test('one corner for every button, the switch and the field; the footer drawn in
   const hair = await page.locator('.head').evaluate((e) => getComputedStyle(e).borderBottomColor);
   await expect(page.locator('.colophon')).toHaveCSS('border-top-color', hair);
   for (const fill of await page.locator('.colophon .ww-logo path').evaluateAll((ps) => ps.map((p) => p.getAttribute('fill')))) expect(fill).toBe('currentColor');
-  // the price under the closing line wraps rather than running the page's width
-  const lines = await page.locator('.close .words > p').evaluate((p) => { const r = document.createRange(); r.selectNodeContents(p); return new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size; });
-  expect(lines).toBeGreaterThanOrEqual(2);
-  expect(lines).toBeLessThanOrEqual(3);
 });
 
 test("B&W's captions line up with its smaller frames", async ({ page }) => {
@@ -1575,19 +1579,19 @@ const coverLines = () => {
   const h1 = document.querySelector('.cover h1')!;
   const F = parseFloat(getComputedStyle(h1).fontSize), top = h1.getBoundingClientRect().top;
   const f = document.querySelector('.cover .frame')!.getBoundingClientRect();
-  const it = document.querySelector('.cover .cta .it')!, cs = getComputedStyle(it), fs = parseFloat(cs.fontSize);
+  const field = document.querySelector('.cover .cta .field')!;
   const copy = document.querySelector('.cover .copy')!.getBoundingClientRect();
   return {
     cap1: top + .1306 * F, cap2: top + .9906 * F, base2: top + 1.6436 * F,
     bwTop: f.top + .2235 * f.height, feet: f.top + .9614 * f.height, bwRight: f.right - .1036 * f.width, boxLeft: f.left,
-    price: it.getBoundingClientRect().bottom - ((parseFloat(cs.lineHeight) - 1.3057 * fs) / 2 + .2993 * fs),
+    fieldFoot: field.getBoundingClientRect().bottom,
     copyTop: copy.top, copyRight: copy.right, copyBottom: copy.bottom,
     contentRight: document.querySelector('.head')!.getBoundingClientRect().right, vh: innerHeight,
   };
 };
 
 // a landscape window: the headline's cap line is the frame's top edge (narrower than 1100px, its second line's), the
-// price's last baseline the frame's foot, the frame's right edge the content's, the sentence clear of the frame, and
+// signup field's bottom edge the frame's foot, the frame's right edge the content's, the sentence clear of the frame, and
 // all of it on the first screen (W-916)
 for (const [w, h, line] of [[1440, 900, 1], [1920, 1080, 1], [1600, 645, 1], [1250, 1000, 1], [1280, 800, 1], [1024, 768, 2], [900, 700, 2]] as const) {
   test(`at ${w} × ${h} the cover's headline, sentence and frame share their lines`, async ({ page }) => {
@@ -1596,7 +1600,7 @@ for (const [w, h, line] of [[1440, 900, 1], [1920, 1080, 1], [1600, 645, 1], [12
     await page.evaluate(() => document.fonts.ready);
     const g = await page.evaluate(coverLines);
     expect(Math.abs((line === 1 ? g.cap1 : g.cap2) - g.bwTop)).toBeLessThan(2);
-    expect(Math.abs(g.price - g.feet)).toBeLessThan(2);
+    expect(Math.abs(g.fieldFoot - g.feet)).toBeLessThan(2);
     expect(Math.abs(g.bwRight - g.contentRight)).toBeLessThan(2);
     expect(g.copyRight).toBeLessThan(g.boxLeft);
     expect(g.copyBottom).toBeLessThanOrEqual(g.vh);

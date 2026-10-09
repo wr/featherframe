@@ -1,6 +1,6 @@
-// The Black Friday waitlist (W-1017): each form.wl posts its address to the shop's /api/waitlist, then, before the
-// sale and in its early hour, opens the one follow-up dialog (size, gift) with the token the answer carries. A port of
-// the shop's src/lib/waitlist-form.ts. Turnstile loads only once someone starts on a form.
+// The signup for Featherframe while it gathers interest (W-1017, W-1020): each form.wl posts its address to the shop's
+// /api/waitlist, then opens the one follow-up dialog (which size) with the token the answer carries. A port of the
+// shop's src/lib/waitlist-form.ts. Turnstile loads only once someone starts on a form.
 
 // The Turnstile widget shared with shop.wells.ee (W-1016). It allows only featherframe.app and shop.wells.ee, so
 // anywhere else (a local build, the tests) there is no widget and no token, which the live shop refuses.
@@ -152,9 +152,9 @@ export function initWaitlist(root: ParentNode = document): void {
         const data = (await res.json().catch(() => ({}))) as Answer;
         if (res.ok && data.ok) {
           form.querySelectorAll<HTMLElement>('label, .field').forEach((el) => (el.hidden = true));
-          say(status, data.state === 'open' ? 'The link is on its way to your inbox.' : 'You are on the waitlist. A confirmation is on its way.');
-          // Before the sale and in its early hour the follow-up earns the early link; later there is nothing to ask for.
-          if (dialog && details && data.details && (data.state === 'before' || data.state === 'early')) {
+          say(status, 'You will be emailed when Featherframe is available.');
+          // The follow-up asks which size while the shop gathers interest ('before' and 'early' are an older shop's sale states).
+          if (dialog && details && data.details && (data.state === 'before' || data.state === 'early' || data.state === 'interest')) {
             token = data.details;
             opener = status;
             if (!dialog.open) dialog.showModal();
@@ -186,9 +186,8 @@ export function initWaitlist(root: ParentNode = document): void {
   details.addEventListener('submit', async (e) => {
     e.preventDefault();
     const dstatus = details.querySelector<HTMLElement>('.wl-status');
-    const size = details.querySelector<HTMLInputElement>('input[name="size"]:checked')?.value;
-    const gift = details.querySelector<HTMLInputElement>('input[name="gift"]:checked')?.value;
-    if (!size || !gift) return;
+    const build = details.querySelector<HTMLInputElement>('input[name="build"]:checked')?.value;
+    if (!build) return;
     const send = details.querySelector<HTMLButtonElement>('button[type="submit"]');
     say(dstatus, '');
     if (send) send.disabled = true;
@@ -196,7 +195,7 @@ export function initWaitlist(root: ParentNode = document): void {
       const res = await fetch(`${SHOP}/api/waitlist/details`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ details: token, size, gift: gift === 'yes' }),
+        body: JSON.stringify({ details: token, build }),
       });
       const data = (await res.json().catch(() => ({}))) as Answer;
       if (res.ok && data.ok) {

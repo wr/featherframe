@@ -183,7 +183,14 @@ test('every section and its key copy is there', async ({ page }) => {
     await expect(page.locator(`${sel} .field input`)).toHaveCSS('border-top-style', 'solid');
     await expect(page.locator(`${sel} .field .btn`)).toHaveText('Join the waitlist');
     await expect(page.locator(`${sel} .field input`)).toHaveAttribute('placeholder', 'you@example.com');
+    // the note under the field says the one email, upright where the status that replaces it is italic (W-1021)
+    await expect(page.locator(`${sel} .wl-note`)).toHaveText('One email when Featherframe is available, and nothing else.');
+    await expect(page.locator(`${sel} .wl-note`)).toBeVisible();
+    await expect(page.locator(`${sel} .wl-note`)).toHaveCSS('font-style', 'normal');
+    const [field, note] = [await page.locator(`${sel} .field`).boundingBox(), await page.locator(`${sel} .wl-note`).boundingBox()];
+    expect(note!.y).toBeGreaterThanOrEqual(field!.y + field!.height);
   }
+  await expect(page.locator('.wl .wl-note')).toHaveCount(2);
   await expect(page.locator('.wl label.sr')).toHaveText(['Email', 'Email']);
   const body = (await page.locator('body').innerText()).toLowerCase();
   for (const banned of ['plate', 'on the wall', 'on the glass']) expect(body).not.toContain(banned);
@@ -365,12 +372,15 @@ test('the waitlist signs up, then asks which size', async ({ page }) => {
   await shopRoute(page, 'waitlist', { ok: true, details: 'tok-1', state: 'interest', count: 3 }, signups);
   await shopRoute(page, 'waitlist/details', { ok: true }, answers);
   await page.goto('/');
+  await expect(page.locator('.cover .wl-note')).toHaveText('One email when Featherframe is available, and nothing else.');
   await page.fill('#wl-hero-email', 'ada@example.com');
   await page.click('.cover .wl button[type=submit]');
   await expect.poll(() => signups.length).toBe(1);
   expect(signups[0]).toMatchObject({ slug: 'featherframe', source: 'featherframe', email: 'ada@example.com', website: '', turnstile: '' });
   await expect(page.locator('.cover .wl-status')).toHaveText('You will be emailed when Featherframe is available.');
   await expect(page.locator('.cover .wl .field')).toBeHidden();
+  // the status line says it again, so the note under the field goes (W-1021)
+  await expect(page.locator('.cover .wl-note')).toBeHidden();
   const dialog = page.locator('dialog.wl-dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('h2')).toHaveText('Which size would you want?');
@@ -398,9 +408,12 @@ test('the waitlist\'s Skip closes the questions unanswered', async ({ page }) =>
   await shopRoute(page, 'waitlist', { ok: true, details: 'tok-1', state: 'interest', count: 1 }, []);
   await shopRoute(page, 'waitlist/details', { ok: true }, answers);
   await page.goto('/');
+  await expect(page.locator('.close .wl-note')).toHaveText('One email when Featherframe is available, and nothing else.');
   await page.fill('#wl-close-email', 'ada@example.com');
   await page.click('.close .wl button[type=submit]');
   await expect(page.locator('dialog.wl-dialog')).toBeVisible();
+  await expect(page.locator('.close .wl .field')).toBeHidden();
+  await expect(page.locator('.close .wl-note')).toBeHidden();
   await page.getByRole('button', { name: 'Skip' }).click();
   await expect(page.locator('dialog.wl-dialog')).toBeHidden();
   await expect(page.locator('.close .wl-status')).toBeFocused();
@@ -426,6 +439,7 @@ test('the waitlist says what went wrong, and keeps the field', async ({ page }) 
   await page.click('.cover .wl button[type=submit]');
   await expect(page.locator('.cover .wl-status')).toHaveText('That email address does not look right.');
   await expect(page.locator('.cover .wl .field')).toBeVisible();
+  await expect(page.locator('.cover .wl-note')).toBeVisible();
   await page.unroute('https://shop.wells.ee/api/waitlist');
   await page.route('https://shop.wells.ee/api/waitlist', (route) => route.abort());
   await page.click('.cover .wl button[type=submit]');
@@ -1478,7 +1492,7 @@ test('the switch shows only near a frame', async ({ page }) => {
 test('on a tablet the cover\'s sentence and signup are on top of the room', async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 1024 });
   await page.goto('/');
-  for (const sel of ['.cover .copy > p', '.cover .cta .field']) {
+  for (const sel of ['.cover .copy > p', '.cover .cta .field', '.cover .cta .wl-note']) {
     const hit = await page.locator(sel).evaluate((e) => { const b = e.getBoundingClientRect(); const x = document.elementFromPoint(b.x + 8, b.y + b.height / 2); return !!x && (x === e || e.contains(x)); });
     expect(hit, sel).toBe(true);
   }
@@ -1575,24 +1589,29 @@ for (const [w, h] of [[1920, 1080], [1440, 900], [1280, 800], [1024, 768]]) {
 // The cover's headline, sentence and frame are one unit, measured on the B&W frame (drawn to scale in the 13.3-inch's
 // box: its top edge .2235 down it, its foot .9614, its right side .1036 in). EB Garamond's cap line is .1306em under
 // the h1's top at line-height .86, the second line's .86em lower, its baseline 1.6436em down.
+// The words end in the note under the signup field: its last baseline is the frame's foot. EB Garamond's content area
+// is 1.3057em and its descent .2993em, so the baseline is the half-leading and the descent above the box's bottom.
 const coverLines = () => {
   const h1 = document.querySelector('.cover h1')!;
   const F = parseFloat(getComputedStyle(h1).fontSize), top = h1.getBoundingClientRect().top;
   const f = document.querySelector('.cover .frame')!.getBoundingClientRect();
-  const field = document.querySelector('.cover .cta .field')!;
+  const field = document.querySelector('.cover .cta .field')!.getBoundingClientRect();
+  const note = document.querySelector('.cover .cta .wl-note')!, ncs = getComputedStyle(note), nfs = parseFloat(ncs.fontSize);
+  const noteBox = note.getBoundingClientRect();
   const copy = document.querySelector('.cover .copy')!.getBoundingClientRect();
   return {
     cap1: top + .1306 * F, cap2: top + .9906 * F, base2: top + 1.6436 * F,
     bwTop: f.top + .2235 * f.height, feet: f.top + .9614 * f.height, bwRight: f.right - .1036 * f.width, boxLeft: f.left,
-    fieldFoot: field.getBoundingClientRect().bottom,
+    fieldFoot: field.bottom, noteTop: noteBox.top,
+    noteFoot: noteBox.bottom - ((parseFloat(ncs.lineHeight) - 1.3057 * nfs) / 2 + .2993 * nfs),
     copyTop: copy.top, copyRight: copy.right, copyBottom: copy.bottom,
     contentRight: document.querySelector('.head')!.getBoundingClientRect().right, vh: innerHeight,
   };
 };
 
 // a landscape window: the headline's cap line is the frame's top edge (narrower than 1100px, its second line's), the
-// signup field's bottom edge the frame's foot, the frame's right edge the content's, the sentence clear of the frame, and
-// all of it on the first screen (W-916)
+// signup note's last baseline the frame's foot (the field above it), the frame's right edge the content's, the sentence
+// clear of the frame, and all of it on the first screen (W-916, W-1021)
 for (const [w, h, line] of [[1440, 900, 1], [1920, 1080, 1], [1600, 645, 1], [1250, 1000, 1], [1280, 800, 1], [1024, 768, 2], [900, 700, 2]] as const) {
   test(`at ${w} × ${h} the cover's headline, sentence and frame share their lines`, async ({ page }) => {
     await page.setViewportSize({ width: w, height: h });
@@ -1600,7 +1619,8 @@ for (const [w, h, line] of [[1440, 900, 1], [1920, 1080, 1], [1600, 645, 1], [12
     await page.evaluate(() => document.fonts.ready);
     const g = await page.evaluate(coverLines);
     expect(Math.abs((line === 1 ? g.cap1 : g.cap2) - g.bwTop)).toBeLessThan(2);
-    expect(Math.abs(g.fieldFoot - g.feet)).toBeLessThan(2);
+    expect(Math.abs(g.noteFoot - g.feet)).toBeLessThan(2);
+    expect(g.fieldFoot).toBeLessThanOrEqual(g.noteTop);
     expect(Math.abs(g.bwRight - g.contentRight)).toBeLessThan(2);
     expect(g.copyRight).toBeLessThan(g.boxLeft);
     expect(g.copyBottom).toBeLessThanOrEqual(g.vh);
@@ -1618,6 +1638,7 @@ for (const [w, h] of [[943, 1333], [1100, 1300], [834, 1194], [768, 1024]]) {
     expect(g.bwTop).toBeGreaterThan(g.base2);
     expect(g.bwTop - g.base2).toBeLessThan(80);
     expect(g.copyTop).toBeGreaterThan(g.feet);
+    expect(g.fieldFoot).toBeLessThanOrEqual(g.noteTop);
     expect(g.copyBottom).toBeLessThanOrEqual(g.vh);
   });
 }

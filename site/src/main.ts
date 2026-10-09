@@ -1,4 +1,4 @@
-// featherframe.app's first-paint script: the cardinal's song, the Keep me posted form, the wall's Color / B&W
+// featherframe.app's first-paint script: the cardinal's song, the waitlist forms, the wall's Color / B&W
 // switch, and — when WebGL is there and motion is welcome — the 3D frame, loaded after the page has painted. On a
 // desktop the frame travels down the page (choreo.ts); a phone keeps the cover's poster (the 3D frame's model and
 // screens cost megabytes for a picture a few hundred pixels wide).
@@ -7,6 +7,7 @@ import { startSheen } from './sheen';
 import { startSeasons } from './seasons';
 import { startNight } from './night';
 import { startLightbox } from './lightbox';
+import { initWaitlist } from './waitlist';
 
 const params = new URLSearchParams(location.search);
 const holdMs = params.has('hold') ? Number(params.get('hold')) : undefined;
@@ -411,69 +412,4 @@ addEventListener('load', () => {
   if (sec) void document.fonts.ready.then(() => scrollTo({ top: landing(sec) }));
 }, { once: true });
 
-
-const form = document.getElementById('keep-posted') as HTMLFormElement;
-const note = form.querySelector('.form-note')!;
-
-// Every sign-up carries a Cloudflare Turnstile token (W-991): a bot was signing
-// real people's addresses up. The widget is invisible, and its script loads only
-// once someone starts on the form, so a visit that never does fetches nothing.
-const TURNSTILE_SITEKEY = '0x4AAAAAAFOfJDjggtLNspib';
-type Turnstile = { render(el: HTMLElement, opts: object): string; reset(id: string): void };
-const ts = { token: '', widget: '', loading: false, waiting: [] as ((t: string) => void)[] };
-function loadTurnstile() {
-  if (ts.loading) return;
-  ts.loading = true;
-  (window as unknown as { ffTurnstile: () => void }).ffTurnstile = () => {
-    const box = form.appendChild(document.createElement('div'));
-    ts.widget = (window as unknown as { turnstile: Turnstile }).turnstile.render(box, {
-      sitekey: TURNSTILE_SITEKEY,
-      action: 'waitlist',
-      callback: (t: string) => { ts.token = t; ts.waiting.splice(0).forEach((f) => f(t)); },
-      'expired-callback': () => { ts.token = ''; },
-    });
-  };
-  const s = document.createElement('script');
-  s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=ffTurnstile';
-  s.async = true;
-  document.head.append(s);
-}
-function turnstileToken(): Promise<string> {
-  loadTurnstile();
-  if (ts.token) return Promise.resolve(ts.token);
-  return new Promise((resolve, reject) => {
-    ts.waiting.push(resolve);
-    setTimeout(() => reject(new Error('turnstile')), 20_000);
-  });
-}
-// A token is good for one sign-up: ask for the next one.
-function nextTurnstile() {
-  ts.token = '';
-  if (ts.widget) (window as unknown as { turnstile: Turnstile }).turnstile.reset(ts.widget);
-}
-form.addEventListener('focusin', loadTurnstile, { once: true });
-
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = (form.elements.namedItem('email') as HTMLInputElement).value.trim();
-  const button = form.querySelector('button')!;
-  button.disabled = true;
-  let sent = false;
-  try {
-    const token = await turnstileToken();
-    sent = true;
-    const res = await fetch(form.action, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, token }),
-    });
-    const out = await res.json() as { ok: boolean; error?: string };
-    if (out.ok) { note.textContent = 'Almost there. Check your email for a link to confirm.'; form.reset(); }
-    else note.textContent = out.error || 'That didn’t go through. Try again.';
-  } catch {
-    note.textContent = 'That didn’t go through. Try again.';
-  } finally {
-    button.disabled = false;
-    if (sent) nextTurnstile();
-  }
-});
+initWaitlist();

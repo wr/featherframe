@@ -136,7 +136,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .head nav a.sc:hover { color: var(--ink); }
 .head .btn { height: 36px; padding: 0 18px; }
 
-/* Cover: the headline, the sentence with Pre-order, and the frame, set as one unit (a landscape window, a portrait
+/* Cover: the headline, the sentence with the waitlist, and the frame, set as one unit (a landscape window, a portrait
    one and a phone each have their own setting of it, further down) */
 .cover { position: relative; }
 .cover h1 { position: relative; z-index: 2; margin: 0; font-weight: 400; line-height: .86; letter-spacing: -.035em; }
@@ -161,10 +161,12 @@ h2 { font-weight: 400; text-wrap: balance; }
 .stage canvas:active { cursor: grabbing; }
 .stage.live canvas { opacity: 1; }
 .stage.live .poster { opacity: 0; transition: opacity .6s ease; }
-.cover .cta .btn { position: relative; z-index: 2; }
-.cover .copy p { font-size: var(--t-lede); line-height: var(--lh-lede); margin: 0 0 26px; text-wrap: pretty; }
-.cta { display: flex; align-items: center; gap: 20px; }
+.cover .cta .wl { position: relative; z-index: 2; }
+.cover .copy > p { font-size: var(--t-lede); line-height: var(--lh-lede); margin: 0 0 26px; text-wrap: pretty; }
+/* the waitlist: the field and its button over the price, the old prices struck through in the faint ink */
+.cta { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
 .cta .it { color: var(--graphite); }
+.cta s, .ho figcaption s { color: var(--faint); }
 
 /* I. The art: a spread, the frame showing the flamingo in its left half,
    pinned there, centred below the running head, while the text scrolls past. */
@@ -496,7 +498,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 }
 .close .big { margin: 0; }
 .close .big i { display: block; margin-left: .42em; }
-.close p { max-width: 22em; margin: var(--s-block) 0; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); text-wrap: balance; }
+.close .words > p { max-width: 22em; margin: var(--s-block) 0; font-size: var(--t-lede); line-height: var(--lh-lede); color: var(--graphite); text-wrap: balance; }
 /* (the table's still carries room for its shadow round the frame) */
 .close .stand { justify-self: center; width: min(100%, calc(70vh * 637 / 760)); }
 .close .stand img { width: 100%; }
@@ -507,9 +509,8 @@ h2 { font-weight: 400; text-wrap: balance; }
   margin-top: var(--s-chapter); padding: 40px 0 90px; border-top: 1px solid var(--hair); row-gap: 56px;
   color: var(--text); font-size: var(--t-small);
 }
-.colophon .a { grid-column: 1 / 5; }
-.colophon .b { grid-column: 6 / 9; }
-.colophon .c { grid-column: 10 / 13; }
+.colophon .b { grid-column: 1 / 5; }
+.colophon .c { grid-column: 6 / 9; }
 .colophon .d { grid-column: 1 / 13; padding-top: 28px; border-top: 1px solid var(--hair); font-size: var(--t-fine); color: var(--graphite); }
 /* the credits, set on the colophon's own columns: the books, then each recording and each video, a name over its source */
 .credits { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: var(--gutter); }
@@ -526,7 +527,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .colophon .c li + li { margin-top: 6px; }
 .colophon .ww-logo { display: block; height: 22px; width: auto; }
 .colophon .signin { display: block; width: max-content; margin-top: 12px; color: var(--ink); }
-/* Keep me posted: a boxed field with its button joined to it */
+/* The waitlist's field: a box with its button joined to it */
 .field { display: flex; height: 48px; max-width: 420px; }
 .field input {
   flex: 1; min-width: 0; height: 100%; padding: 0 14px; border: 1px solid var(--faint); border-right: 0; border-radius: var(--radius) 0 0 var(--radius);
@@ -536,9 +537,30 @@ h2 { font-weight: 400; text-wrap: balance; }
 .field input:focus { border-color: var(--ink); }
 .field .btn { height: 100%; padding: 0 22px; border: 0; border-radius: 0 var(--radius) var(--radius) 0; cursor: pointer; }
 .field .btn:disabled { background: var(--faint); cursor: default; }
-.form-why { margin: 0 0 4px; font: italic var(--t-small)/var(--lh-lede) var(--serif); color: var(--graphite); }
-.form-note { margin: 8px 0 0; font: italic var(--t-small) var(--serif); color: var(--graphite); }
-.form-note:empty { display: none; }
+.wl-status { margin: 0; font: italic var(--t-small)/var(--lh-lede) var(--serif); color: var(--graphite); outline: none; }
+.wl [hidden], .wl-dialog [hidden] { display: none; }
+/* (people never see the honeypot; a bot fills it in) */
+.trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* The follow-up after a signup: two questions on paper, over the page dimmed */
+.wl-dialog {
+  width: min(28rem, calc(100vw - 2rem)); max-width: none; max-height: calc(100dvh - 2rem); margin: auto; padding: 28px; overflow-y: auto;
+  border: 0; border-radius: var(--radius-frame); background: var(--paper); color: var(--ink); box-shadow: var(--shadow-float);
+  font-size: var(--t-small); line-height: var(--lh-lede);
+}
+.wl-dialog::backdrop { background: rgba(0, 0, 0, .4); }
+.wl-details { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; }
+.wl-title { margin: 0; font-size: var(--t-body); line-height: var(--lh-title); outline: none; }
+.wl-q { display: flex; flex-direction: column; gap: 20px; }
+.wl-q fieldset { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; border: 0; }
+.wl-q legend { margin-bottom: 8px; padding: 0; font-style: italic; color: var(--graphite); }
+.wl-q label { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; cursor: pointer; }
+.wl-q input { margin: 0; accent-color: var(--ink); }
+.wl-actions { display: flex; align-items: center; gap: 22px; }
+.wl-dialog .btn { border: 0; cursor: pointer; }
+.wl-dialog .btn:disabled { background: var(--faint); cursor: default; }
+.wl-skip { padding: 0; border: 0; border-bottom: 1px solid var(--hair); background: none; font: inherit; color: var(--graphite); cursor: pointer; }
+.wl-skip:hover { color: var(--ink); border-color: var(--ink); }
 
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .field input:focus-visible { outline: none; }
@@ -549,7 +571,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   .head nav a.sc { letter-spacing: .14em; }
 }
 
-/* A landscape (or square) window: the headline, the sentence with Pre-order under it, and the frame are one unit, measured on the
+/* A landscape (or square) window: the headline, the sentence with the waitlist under it, and the frame are one unit, measured on the
    B&W frame, the one the page opens on. The headline's cap line is the frame's top edge (from 1100px; narrower, the
    second line's), the price's last baseline is its foot on the table, and the frame's right edge is the content's.
    The headline is as large as the window lets the three be; the unit sits a little above the middle of the first
@@ -559,15 +581,15 @@ h2 { font-weight: 400; text-wrap: balance; }
    indent is 3.844em wide, and .2em clears it of the frame's box. The box is the 13.3-inch's (975 × 1244 of the
    poster); the B&W frame is drawn to scale in it, its top edge .2235 down the box, its foot (the corner nearer the
    words) .9614, its sides .1026 and .1036 in: so its height is .7379 of the box's, and the box's width .9521 of the
-   frame's height once its right edge is the content's. --gnd is the sentence and Pre-order at --measure, the
+   frame's height once its right edge is the content's. --gnd is the sentence, the waitlist's field and the price at --measure, the
    paragraph's top to the price's last baseline. The headline's size is the least of: the headline and the frame
    filling the width, the sentence and the frame filling it, and the words filling the first screen's height. */
 @media (min-width: 701px) and (min-aspect-ratio: 1/1) {
   .cover {
     --W: calc(100vw - 2 * var(--edge));
     --V: calc(100svh - var(--nav));
-    /* under 1000px the sentence is set at the body size, the price under Pre-order, so the frame has room beside it */
-    --gnd: 260px; --measure: 400px;
+    /* under 1000px the sentence is set at the body size, so the frame has room beside it */
+    --gnd: 292px; --measure: 400px;
     --F: clamp(72px, min((var(--W) - .9521 * var(--gnd)) / 5.0466, (var(--W) - var(--measure) - .9521 * var(--gnd)) / 1.2026,
                          (var(--V) - 112px - var(--gnd)) / 1.913), 240px);
     --ht: calc(1.913 * var(--F) + var(--gnd));       /* the words: the headline's cap line to the price's baseline */
@@ -581,9 +603,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   }
   .cover h1 { position: absolute; left: 0; top: calc(var(--y0) - .1306 * var(--F)); font-size: var(--F); pointer-events: none; }
   .cover .copy { position: absolute; left: 0; bottom: calc(var(--ch) - var(--y0) - var(--ht) - 9px); width: var(--measure); }
-  .cover .copy p { font-size: var(--t-body); }
-  .cta { flex-wrap: wrap; row-gap: 12px; }
-  .cta .it { flex-basis: 100%; }
+  .cover .copy > p { font-size: var(--t-body); }
   .frame { top: var(--fy); right: calc(-.1036 * var(--wb)); width: var(--wb); height: var(--hb); }
   /* Color's frame is the 13.3-inch, to scale: taller, from the same foot. Where that would reach the running head it
      stands nearer, its top edge clear of the switch (in a short window its foot then passes the first screen's). */
@@ -595,13 +615,11 @@ h2 { font-weight: 400; text-wrap: balance; }
   }
 }
 @media (max-width: 820px) and (min-aspect-ratio: 1/1) {
-  .cover { --gnd: 252px; }
+  .cover { --gnd: 283px; }
 }
 @media (min-width: 1000px) and (min-aspect-ratio: 1/1) {
-  .cover { --gnd: 260px; --measure: calc(17.7 * var(--t-lede)); }
-  .cover .copy p { font-size: var(--t-lede); }
-  .cta { flex-wrap: nowrap; }
-  .cta .it { flex-basis: auto; }
+  .cover { --gnd: 320px; --measure: calc(17.7 * var(--t-lede)); }
+  .cover .copy > p { font-size: var(--t-lede); }
 }
 @media (min-width: 1100px) and (min-aspect-ratio: 1/1) {
   .cover {
@@ -610,11 +628,11 @@ h2 { font-weight: 400; text-wrap: balance; }
   }
 }
 @media (min-width: 1200px) and (min-aspect-ratio: 1/1) {
-  .cover { --gnd: 191px; --measure: calc(22 * var(--t-lede)); }
+  .cover { --gnd: 251px; --measure: calc(22 * var(--t-lede)); }
 }
 
 /* A portrait window or a tablet: the phone's order, the headline
-   across the page, the frame under it, the sentence and Pre-order under that. The frame's top edge is a little under
+   across the page, the frame under it, the sentence and the waitlist under that. The frame's top edge is a little under
    the headline's last baseline, its right edge the content's (under "in."); the headline takes a seventh of the first
    screen and the frame what is left of it. Color's taller frame keeps its top edge on the same line and moves the
    words down. */
@@ -626,7 +644,7 @@ h2 { font-weight: 400; text-wrap: balance; }
     --pad: 40px;
     --g1: calc(.3 * var(--F));   /* the headline's last baseline to the frame's top edge */
     --g2: 40px;                  /* the frame's foot to the sentence */
-    --words: 200px;              /* the sentence and Pre-order (241px under 821px, the price under the button) */
+    --words: 260px;              /* the sentence, the waitlist's field and the price (241px under 821px) */
     --fh: min(max(.4 * var(--V), var(--V) - 2 * var(--pad) - 1.513 * var(--F) - var(--g1) - var(--g2) - var(--words)), .72 * var(--W) / .843);
     --hb: calc(var(--fh) / .7379);
     --wb: calc(var(--hb) * .78376);
@@ -661,9 +679,6 @@ h2 { font-weight: 400; text-wrap: balance; }
   .head .lockup .ww { display: none; }
   .head nav { gap: 14px; }
   .head .btn { height: 44px; padding: 0 14px; }
-
-  .cta { flex-wrap: wrap; row-gap: 12px; }
-  .cta .it { flex-basis: 100%; }
 
   .spread { display: block; }
   .spread .plate { position: static; width: 86%; margin: 0 auto; }
@@ -804,7 +819,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .lightbox:hover .lb-nav, .lb-nav:focus-visible { opacity: 1; }
 .lb-nav:hover { background: var(--hair); }
 @media (hover: none), (pointer: coarse) { .lb-nav { opacity: 1; } }
-/* the running head never shows through the lightbox (its Close sat on the head's Pre-order) */
+/* the running head never shows through the lightbox (its Close sat on the head's button) */
 .lb-open .head, .lb-open .tone.pill { visibility: hidden; }
 .lightbox { touch-action: pan-y pinch-zoom; }
 .lightbox figure { grid-area: 1 / 1; } /* the outgoing and incoming frames cross-fade in one place */
@@ -812,15 +827,18 @@ h2 { font-weight: 400; text-wrap: balance; }
 /* a section's link lands its eyebrow just under the running head (main.ts does the same, and knows the journey) */
 main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 
-/* Below 1000 px the section links give way to the switch and Pre-order. */
+/* Below 1000 px the section links give way to the switch and Join the waitlist. */
 @media (max-width: 1000px) {
   .head nav a.sc { display: none; }
 }
-/* A phone's head holds the script, the switch and Pre-order on one line: each a little tighter. */
+/* A phone's head holds the script, the switch and Join the waitlist on one line: each a little tighter. */
 @media (max-width: 520px) {
   .head .brand { flex-shrink: 0; }
   .head nav { gap: 12px; }
   .head .btn { padding: 0 10px; font-size: 12px; letter-spacing: .12em; }
+  /* the waitlist's button closes up so its field keeps room for an address */
+  .field .btn { padding: 0 14px; letter-spacing: .12em; }
+  .field input { padding: 0 10px; }
 }
 @media (max-width: 380px) {
   .head .lockup { height: 24px; width: 94px; }
@@ -841,12 +859,12 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 .maker p:last-child { margin: 0; font-style: italic; color: var(--text); }
 @media (max-width: 820px) {
   /* the close stacked as the cover is on a phone: the headline, the frame, the line and the button */
-  .close { grid-template-columns: 1fr; grid-template-areas: "h" "fig" "p" "cta"; align-items: start; align-content: center;
+  .close { grid-template-columns: minmax(0, 1fr); grid-template-areas: "h" "fig" "p" "cta"; align-items: start; align-content: center;
            min-height: calc(100svh - var(--nav)); }
   .close .words { display: contents; }
   .close .big { grid-area: h; }
-  .close p { grid-area: p; }
-  .close .btn { grid-area: cta; justify-self: start; }
+  .close .words > p { grid-area: p; }
+  .close .wl { grid-area: cta; }
   .close .stand { grid-area: fig; width: 86%; margin: var(--s-block) 0 0; }
 }
 
@@ -858,7 +876,6 @@ main section[id] { scroll-margin-top: calc(var(--nav) + 24px); }
 /* a frame's canvas while the other tone's frame is the one on the page */
 .ff3d.empty { visibility: hidden; }
 .spectro { padding-right: 70px; }
-.nb { white-space: nowrap; }
 /* the sections whose eyebrow is their heading (the collection, the details, the maker's note) */
 h2.eyebrow, .maker h2.sc { margin: 0; font-weight: 400; }
 /* the video's own Pause, top right: two bars, or a triangle once paused */

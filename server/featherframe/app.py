@@ -1,4 +1,4 @@
-"""FastAPI app: the device endpoint and the LAN config page.
+"""The web app: the device endpoint and the LAN config page.
 
 No auth (LAN-only — see the README). No SPA, no build step: one server-rendered
 page and a handful of endpoints.
@@ -21,14 +21,23 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 from urllib.parse import quote
 
-from fastapi import FastAPI, File, Form, Request, Response, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
+# Starlette, not FastAPI (W-1019): every handler reads its own request, and
+# FastAPI's import (pydantic, the OpenAPI models) was over a third of a Cloud
+# start's import CPU.
+from starlette.applications import Starlette
 from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
+from starlette.routing import Mount, Route, WebSocketRoute
+from starlette.staticfiles import StaticFiles
+from starlette.websockets import WebSocket, WebSocketDisconnect
 
 if TYPE_CHECKING:
-    from fastapi.templating import Jinja2Templates
+    from starlette.templating import Jinja2Templates
 
 from . import __version__, auth, discovery, hosted, panels, paths, thumbs, viewers
 from . import frames as frames_mod
@@ -86,7 +95,7 @@ def page_templates() -> "Jinja2Templates":
     that serves the page loads index.html instead of compiling it again."""
     global _templates
     if _templates is None:
-        from fastapi.templating import Jinja2Templates
+        from starlette.templating import Jinja2Templates
         found = Jinja2Templates(directory=str(paths.templates_dir()))
         cache = os.environ.get("FEATHERFRAME_TEMPLATE_CACHE", "").strip()
         if cache:
@@ -114,7 +123,7 @@ def warm_templates() -> int:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: Starlette):
     # A hosted household's server (W-844) starts from the household's own data
     # dir, pulled before the database is opened. A pull that fails stops the
     # start: an empty server would push a fresh install over the household.
@@ -155,10 +164,33 @@ async def lifespan(app: FastAPI):
             log.info("hosted: stop %s", hosted.vm_report())
 
 
-app = FastAPI(title="Featherframe", version=__version__, lifespan=lifespan)
+_routes: list = []
 
 
-@app.middleware("http")
+def _route(path: str, methods: list[str]):
+    """Register a handler for `path`. It is called with the request and the
+    path's own values by name: `/api/frames/{frame_id}` calls
+    `handler(request, frame_id=…)`. Query and form values it reads itself."""
+    def add(fn):
+        async def endpoint(request: Request):
+            return await fn(request, **request.path_params)
+        _routes.append(Route(path, endpoint, methods=methods, name=fn.__name__))
+        return fn
+    return add
+
+
+def _get(path: str):
+    return _route(path, ["GET"])
+
+
+def _post(path: str):
+    return _route(path, ["POST"])
+
+
+def _query_int(request: Request, key: str, default: int) -> int:
+    return _to_int(request.query_params.get(key), default)
+
+
 async def _hosted_settle(request: Request, call_next):
     """On a hosted household's server, a request that changed something (a
     save, an answer) reaches the front door at once rather than on the next
@@ -177,7 +209,6 @@ async def _hosted_settle(request: Request, call_next):
     return response
 
 
-@app.middleware("http")
 async def _page_password(request: Request, call_next):
     """The page's optional password (W-773): a signed-in session for every
     route but the ones screens use, and never on a hosted household, which
@@ -211,8 +242,9 @@ def _local_gate(request: Request):
     return _svc(request).password
 
 
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request, next: Optional[str] = None):
+@_get("/login")
+async def login_page(request: Request):
+    next = request.query_params.get("next")
     gate = _local_gate(request)
     if gate is None or not gate.on or gate.allows(request.cookies.get(auth.COOKIE)):
         return RedirectResponse(auth.safe_next(next), status_code=303)
@@ -220,7 +252,7 @@ async def login_page(request: Request, next: Optional[str] = None):
         "next": auth.safe_next(next), "email": _svc(request).config.owner_email, "error": ""})
 
 
-@app.post("/login")
+@_post("/login")
 async def login_submit(request: Request):
     gate = _local_gate(request)
     if gate is None or not gate.on:
@@ -250,17 +282,13 @@ async def login_submit(request: Request):
     return response
 
 
-@app.post("/logout")
+@_post("/logout")
 async def logout(request: Request):
     if not _same_origin(request):
         return _forbidden_cross_origin()
     response = RedirectResponse("/login", status_code=303)
     _session_cookie(response, request, None)
     return response
-
-
-if paths.static_dir().exists():
-    app.mount("/static", StaticFiles(directory=str(paths.static_dir())), name="static")
 
 
 def _svc(request: Request) -> FeatherframeService:
@@ -340,8 +368,9 @@ def parse_checkin(headers) -> dict:
             "device_extra": device_extra, "panel_facts": panel_facts}
 
 
-@app.get("/api/frame")
-async def api_frame(request: Request, view: Optional[str] = None):
+@_get("/api/frame")
+async def api_frame(request: Request):
+    view = request.query_params.get("view")
     svc = _svc(request)
     inm = _strip_etag(request.headers.get("if-none-match"))
     c = parse_checkin(request.headers)
@@ -437,7 +466,6 @@ async def _until_closed(ws: WebSocket) -> None:
 GONE_MESSAGE = {"etag": None, "rotation": None, "power": None, "ota": False}
 
 
-@app.websocket("/api/frame/push")
 async def api_frame_push(ws: WebSocket):
     """Push, don't poll (W-841). A kit on USB holds this socket with the same
     identity headers it sends to /api/frame. It is told its message
@@ -491,7 +519,7 @@ async def api_frame_push(ws: WebSocket):
         log.info("frame %s off push", fid[-6:])
 
 
-@app.post("/api/hosted/run")
+@_post("/api/hosted/run")
 async def api_hosted_run(request: Request):
     """A hosted household's wake (W-844): one tick, synced, answered when it is
     done — the Container sleeps soon after, so the work has to happen inside
@@ -507,7 +535,7 @@ async def api_hosted_run(request: Request):
     return JSONResponse({"ok": True, "next_wake_at": svc.next_wake_at()})
 
 
-@app.get("/api/hosted/busy")
+@_get("/api/hosted/busy")
 async def api_hosted_busy(request: Request):
     """Whether this server is working (W-917): a tick, a task, the push after
     it. Its front door stops the Container only once it is not, since the
@@ -522,7 +550,7 @@ async def api_hosted_busy(request: Request):
 _SEED_FIELDS = ("detection_backend", "birdweather_station_id", "region")
 
 
-@app.post("/api/hosted/seed")
+@_post("/api/hosted/seed")
 async def api_hosted_seed(request: Request):
     """A household set up from the phone (W-888): the detection source and
     Region its owner chose there, queued by the front door ahead of its first
@@ -554,7 +582,7 @@ def _announce_panel(request: Request, svc) -> None:
 # The device offers its running sketch MD5 on every wake. If data/firmware.bin
 # exists and differs, it gets the new build; otherwise 304. Deploy = drop a new
 # firmware.bin in the data dir (`make ota` does build + copy).
-@app.get("/api/firmware")
+@_get("/api/firmware")
 async def api_firmware(request: Request):
     svc = _svc(request)
     board_hdr = _str_header(request.headers.get("x-board"))
@@ -618,7 +646,7 @@ async def api_firmware(request: Request):
                                       "Content-Length": str(total)})
 
 
-@app.post("/api/firmware/check")
+@_post("/api/firmware/check")
 async def api_firmware_check(request: Request):
     """Ask GitHub for the latest official release now (the ⋯ menu's Check for updates)."""
     if not _same_origin(request):
@@ -631,7 +659,7 @@ async def api_firmware_check(request: Request):
 # esp-web-tools (vendored in static/flash/). Web Serial needs a secure page,
 # so on plain http the page sends the owner to the same flasher on GitHub
 # Pages instead; these serve the in-page one.
-@app.get("/api/flash/{kit}/manifest.json")
+@_get("/api/flash/{kit}/manifest.json")
 async def api_flash_manifest(request: Request, kit: str):
     man = _svc(request).releases.flash_manifest(kit)
     if man is None:
@@ -639,7 +667,7 @@ async def api_flash_manifest(request: Request, kit: str):
     return JSONResponse(man, headers={"Cache-Control": "no-store"})
 
 
-@app.get("/api/flash/{kit}/{name}")
+@_get("/api/flash/{kit}/{name}")
 async def api_flash_part(request: Request, kit: str, name: str):
     path = await run_in_threadpool(_svc(request).releases.part, kit, name)
     if path is None:
@@ -712,8 +740,8 @@ def _hosted_firmware_md5(bin_path) -> Optional[str]:
 
 # Browsers ask for /favicon.ico regardless of the page's <link>s; a 404 in
 # the log on every visit is noise, so serve the ICO from the static dir.
-@app.get("/favicon.ico", include_in_schema=False)
-async def favicon():
+@_get("/favicon.ico")
+async def favicon(request: Request):
     ico = paths.static_dir() / "favicon.ico"
     if not ico.is_file():
         return Response(status_code=404)
@@ -724,8 +752,8 @@ async def favicon():
 # The dashboard's wordmark is set in the plates' script; serve the bundled
 # face so the page and the frame share one file. If it is ever missing the
 # CSS falls back to Garamond italic, exactly as the plates themselves do.
-@app.get("/fonts/script.ttf", include_in_schema=False)
-async def script_font():
+@_get("/fonts/script.ttf")
+async def script_font(request: Request):
     if not typography.has_script_font():
         return Response(status_code=404)
     return FileResponse(typography.script_font_path(), media_type="font/ttf",
@@ -733,7 +761,7 @@ async def script_font():
 
 
 # -- config page -----------------------------------------------------------
-@app.get("/", response_class=HTMLResponse)
+@_get("/")
 async def index(request: Request):
     svc = _svc(request)
     # Threadpool: status() probes the detection source (a 5 s-timeout HTTP
@@ -773,7 +801,7 @@ async def index(request: Request):
          "kit_names": {k: p.title for k, p in panels.PANELS.items() if p.title}})
 
 
-@app.post("/settings")
+@_post("/settings")
 async def save_settings(request: Request):
     if not _same_origin(request):
         return _forbidden_cross_origin()
@@ -919,7 +947,7 @@ def _adjusted_fields(form, cfg: Config) -> list[str]:
     return out
 
 
-@app.post("/api/test-detection")
+@_post("/api/test-detection")
 async def test_detection(request: Request):
     if not _same_origin(request):
         return _forbidden_cross_origin()
@@ -962,7 +990,7 @@ def _known_scientific(svc, common: str) -> Optional[str]:
     return None
 
 
-@app.post("/api/collage/now")
+@_post("/api/collage/now")
 async def collage_now(request: Request):
     if not _same_origin(request):
         return _forbidden_cross_origin()
@@ -982,7 +1010,7 @@ async def collage_now(request: Request):
     return JSONResponse({"ok": True, "running": True})
 
 
-@app.post("/api/ai/resume")
+@_post("/api/ai/resume")
 async def ai_resume(request: Request):
     """The owner's Resume after a runaway pause (W-938)."""
     if not _same_origin(request):
@@ -992,7 +1020,7 @@ async def ai_resume(request: Request):
     return JSONResponse({"ok": True})
 
 
-@app.post("/api/refresh")
+@_post("/api/refresh")
 async def api_refresh(request: Request):
     """Re-render the frame that should be showing right now (per config), so its
     bytes (and ETag) are rebuilt — and so it recovers from a stale held collage.
@@ -1012,7 +1040,7 @@ async def api_refresh(request: Request):
                          "rendered_at": cur["rendered_at"]})
 
 
-@app.post("/api/frames")
+@_post("/api/frames")
 async def api_frames(request: Request):
     """The owner's answer about a kit that is not on yet: `action=add` (draw
     for it too), `ignore` (park it), `forget` (drop it, so it asks again).
@@ -1031,7 +1059,7 @@ async def api_frames(request: Request):
     return JSONResponse({"ok": True, "frames": svc.frames_list()})
 
 
-@app.post("/api/frames/{frame_id}")
+@_post("/api/frames/{frame_id}")
 async def api_frame_settings(request: Request, frame_id: str):
     """One frame's own settings, whatever it is fed over: its name, what it
     shows, which way up it hangs, its mat, its power, how it is drawn.
@@ -1067,7 +1095,7 @@ async def api_frame_settings(request: Request, frame_id: str):
     return JSONResponse({"ok": True, "frames": frames, "timings": collage_timings(frames)})
 
 
-@app.get("/api/frames/{frame_id}/preview.png")
+@_get("/api/frames/{frame_id}/preview.png")
 async def api_frame_preview(request: Request, frame_id: str):
     """What THIS frame is showing, upright and filling the preview box: a kit's
     own output, a viewer's own view drawn the way it draws — but never the
@@ -1118,7 +1146,7 @@ def _upright(row: dict) -> pipeline.View:
 # -- block what's showing (W-735) ---------------------------------------------
 
 
-@app.post("/api/block-current")
+@_post("/api/block-current")
 async def api_block_current(request: Request):
     """Blocklist the species on the glass and move past it."""
     if not _same_origin(request):
@@ -1134,7 +1162,7 @@ async def api_block_current(request: Request):
                          "changed": cur["etag"] != before})
 
 
-@app.post("/api/unblock")
+@_post("/api/unblock")
 async def api_unblock(request: Request):
     """Undo for block-current: take one name off the blocklist."""
     if not _same_origin(request):
@@ -1152,7 +1180,7 @@ async def api_unblock(request: Request):
 _INGEST_KINDS = {"apprise": "apprise", "birdnet-go": "birdnet_go"}
 
 
-@app.post("/api/ingest/token")
+@_post("/api/ingest/token")
 async def ingest_token_new(request: Request):
     """A new secret for the push URLs (W-865): the old URL stops working, so
     only the page, same-origin, may ask for it. Saved at once, so the URL the
@@ -1167,8 +1195,8 @@ async def ingest_token_new(request: Request):
     return JSONResponse({"ok": True, "token": new.ingest_token})
 
 
-@app.post("/api/ingest/{kind}")
-@app.post("/api/ingest/{kind}/{token}")
+@_post("/api/ingest/{kind}")
+@_post("/api/ingest/{kind}/{token}")
 async def ingest_push(request: Request, kind: str, token: str = ""):
     """Webhook for the push sources: BirdNET-Pi's Apprise notification
     (json://<host>/api/ingest/apprise[/<token>]) and BirdNET-Go's webhook
@@ -1212,7 +1240,7 @@ def _valid_slug(slug: str) -> bool:
     return bool(slug) and slug.replace("-", "").isalnum()
 
 
-@app.get("/api/generated")
+@_get("/api/generated")
 async def generated_list(request: Request):
     svc = _svc(request)
     # Each entry carries regenerating/regen_error; the top-level list is what
@@ -1223,8 +1251,9 @@ async def generated_list(request: Request):
                                           if m.get("regenerating")]})
 
 
-@app.get("/api/generated/{slug}.png")
-async def generated_png(request: Request, slug: str, thumb: int = 0):
+@_get("/api/generated/{slug}.png")
+async def generated_png(request: Request, slug: str):
+    thumb = _query_int(request, "thumb", 0)
     svc = _svc(request)
     if not _valid_slug(slug):
         return Response(status_code=404)
@@ -1244,10 +1273,11 @@ async def generated_png(request: Request, slug: str, thumb: int = 0):
                         headers={"Cache-Control": "max-age=300"})
 
 
-@app.post("/api/generated/regenerate")
-async def generated_regenerate(request: Request, slug: str = Form(...)):
+@_post("/api/generated/regenerate")
+async def generated_regenerate(request: Request):
     if not _same_origin(request):
         return _forbidden_cross_origin()
+    slug = await _form_str(request, "slug")
     svc = _svc(request)
     # Fire-and-forget: the generation runs in a service worker thread and the
     # page polls /api/generated for the outcome, so this returns immediately.
@@ -1272,10 +1302,11 @@ async def generated_regenerate(request: Request, slug: str = Form(...)):
     return JSONResponse({"ok": ok, "error": error})
 
 
-@app.post("/api/generated/delete")
-async def generated_delete(request: Request, slug: str = Form(...)):
+@_post("/api/generated/delete")
+async def generated_delete(request: Request):
     if not _same_origin(request):
         return _forbidden_cross_origin()
+    slug = await _form_str(request, "slug")
     svc = _svc(request)
     ok, error = False, "Not a valid illustration name."
     if _valid_slug(slug):
@@ -1290,7 +1321,7 @@ async def generated_delete(request: Request, slug: str = Form(...)):
     return JSONResponse({"ok": ok, "error": error})
 
 
-@app.get("/api/generated/export")
+@_get("/api/generated/export")
 async def generated_export(request: Request):
     """The generated-plate cache as one zip (W-765): each plate cost an image,
     and data/generated/ otherwise lives only on this box."""
@@ -1325,14 +1356,17 @@ def _import_upload(svc: FeatherframeService, backup: UploadFile) -> dict:
         return svc.import_generated(tmp)
 
 
-@app.post("/api/generated/import")
-async def generated_import(request: Request, backup: UploadFile = File(...)):
+@_post("/api/generated/import")
+async def generated_import(request: Request):
     if not _same_origin(request):
         return _forbidden_cross_origin()
     svc = _svc(request)
     result = {"restored": 0, "kept": 0, "skipped": 0}
     error = None
-    if not svc.genart:
+    backup = (await request.form()).get("backup")
+    if not isinstance(backup, UploadFile):
+        error = "Choose a backup file to restore."
+    elif not svc.genart:
         error = "Generated illustrations are not available on this install."
     else:
         try:
@@ -1344,7 +1378,7 @@ async def generated_import(request: Request, backup: UploadFile = File(...)):
     return JSONResponse({"ok": error is None, "error": error, **result})
 
 
-@app.get("/api/preview.png")
+@_get("/api/preview.png")
 async def preview_png(request: Request):
     svc = _svc(request)
     png = svc.current_png_bytes()
@@ -1355,14 +1389,14 @@ async def preview_png(request: Request):
 
 
 # -- viewers (W-822) ---------------------------------------------------------
-@app.get("/api/view.png")
-async def view_png(request: Request, w: Optional[str] = None, h: Optional[str] = None,
-                   format: Optional[str] = None, rotation: Optional[str] = None):
+@_get("/api/view.png")
+async def view_png(request: Request):
     """What the frame is showing, for another screen: a PNG `w`x`h`, in
     `format` (gray16 | gray2 | mono are dithered; gray256 | color are smooth),
     the upright picture turned `rotation` inside it. Read-only: asking never
     moves the frame."""
-    view = pipeline.View.parse(w, h, format, rotation)
+    q = request.query_params
+    view = pipeline.View.parse(q.get("w"), q.get("h"), q.get("format"), q.get("rotation"))
     if view is None:
         return JSONResponse({"error": "w and h (64-4096) are required; format is one of "
                              + ", ".join(pipeline.VIEW_FORMATS) + "; rotation 0, 90, 180 or 270"},
@@ -1389,7 +1423,7 @@ def _viewer_image_url(request: Request, viewer_id: str, filename: str) -> str:
             + f"/api/viewers/{quote(viewer_id, safe='')}/{filename}.png")
 
 
-@app.get("/api/setup")
+@_get("/api/setup")
 async def trmnl_setup(request: Request):
     svc = _svc(request)
     viewer_id = viewers.clean_id(request.headers.get("id"))
@@ -1406,7 +1440,7 @@ async def trmnl_setup(request: Request):
                          "image_url": "", "message": "Welcome to Featherframe"})
 
 
-@app.get("/api/display")
+@_get("/api/display")
 async def trmnl_display(request: Request):
     svc = _svc(request)
     viewer_id = viewers.clean_id(request.headers.get("id"))
@@ -1448,7 +1482,7 @@ async def trmnl_display(request: Request):
                          "special_function": "none"})
 
 
-@app.post("/api/log")
+@_post("/api/log")
 async def trmnl_log(request: Request):
     body = (await request.body())[:4096]
     log.debug("viewer %s log: %s", viewers.clean_id(request.headers.get("id")) or "?",
@@ -1456,7 +1490,7 @@ async def trmnl_log(request: Request):
     return Response(status_code=204)
 
 
-@app.get("/api/viewers/{viewer_id}/{name}.png")
+@_get("/api/viewers/{viewer_id}/{name}.png")
 async def viewer_png(request: Request, viewer_id: str, name: str):
     """A viewer's image. The name is only what made the device fetch (and what
     keeps a cache honest); which picture it is, is `picture_for`'s call. The
@@ -1489,14 +1523,14 @@ async def viewer_png(request: Request, viewer_id: str, name: str):
 # The kiosk page (W-825): the plate edge to edge in a browser, for a tablet on
 # a stand. The page is dumb on purpose (old iPads run it): it says who it is
 # and how big, and is told which image to show and whether to go dark.
-@app.get("/view", response_class=HTMLResponse)
+@_get("/view")
 async def view_page(request: Request):
     return page_templates().TemplateResponse(request, "view.html",
                                              {"poll_seconds": viewers.PAGE_POLL_SECONDS})
 
 
-@app.get("/view.webmanifest", include_in_schema=False)
-async def view_manifest():
+@_get("/view.webmanifest")
+async def view_manifest(request: Request):
     return JSONResponse({
         "name": "Featherframe", "short_name": "Featherframe", "start_url": "/view",
         "display": "fullscreen", "orientation": "any",
@@ -1505,12 +1539,12 @@ async def view_manifest():
     }, media_type="application/manifest+json")
 
 
-@app.get("/api/view/state")
-async def view_state(request: Request, viewer: Optional[str] = None, w: Optional[str] = None,
-                     h: Optional[str] = None, device: Optional[str] = None):
+@_get("/api/view/state")
+async def view_state(request: Request):
     svc = _svc(request)
-    viewer_id = viewers.clean_id(viewer)
-    reported = viewers.page_report(w, h, device)
+    q = request.query_params
+    viewer_id = viewers.clean_id(q.get("viewer"))
+    reported = viewers.page_report(q.get("w"), q.get("h"), q.get("device"))
     if viewer_id is None or reported is None:
         return JSONResponse({"error": "viewer, w and h are required"}, status_code=400)
     row = await run_in_threadpool(svc.checkin_viewer, viewer_id, svc._clock(), "page", reported,
@@ -1537,18 +1571,19 @@ async def view_state(request: Request, viewer: Optional[str] = None, w: Optional
     }, headers={"Cache-Control": "no-store"})
 
 
-@app.get("/api/battery")
-async def api_battery(request: Request, hours: int = 24, frame: Optional[str] = None):
+@_get("/api/battery")
+async def api_battery(request: Request):
     """One frame's voltage readings for its trend line, plus the power state
     the server infers from them (there is no USB-present line on the board).
     Every frame is named: `frame` is its id."""
     svc = _svc(request)
-    hours = max(1, min(int(hours), 24 * 7))
+    hours = max(1, min(_query_int(request, "hours", 24), 24 * 7))
+    frame = request.query_params.get("frame")
     return JSONResponse(await run_in_threadpool(svc.battery_view, hours,
                                                 (frame or "")[:40] or None))
 
 
-@app.get("/api/status")
+@_get("/api/status")
 async def status(request: Request):
     # Threadpool: status() probes the detection source (network for the
     # HTTP backends) — never on the loop.
@@ -1562,13 +1597,13 @@ async def status(request: Request):
 _ETAG_RE = re.compile(r"^[0-9a-f]{16}$")
 
 
-@app.get("/api/history")
+@_get("/api/history")
 async def history(request: Request):
     # Threadpool: a DB read plus one stat per thumbnail on the SD card.
     return JSONResponse({"items": await run_in_threadpool(_svc(request).render_history)})
 
 
-@app.get("/api/history/{etag}.png")
+@_get("/api/history/{etag}.png")
 async def history_png(request: Request, etag: str):
     # The ETag is a content hash and the only path segment we accept, so the
     # file is immutable and safe to cache for a day.
@@ -1581,7 +1616,7 @@ async def history_png(request: Request, etag: str):
                         headers={"Cache-Control": "max-age=86400"})
 
 
-@app.get("/api/history/{etag}.jpg")
+@_get("/api/history/{etag}.jpg")
 async def history_jpg(request: Request, etag: str):
     # The same frame full size, for the page's zoom.
     if not _ETAG_RE.match(etag):
@@ -1598,8 +1633,9 @@ async def history_jpg(request: Request, etag: str):
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
-@app.get("/api/collages/{day}.png")
-async def collage_day_png(request: Request, day: str, thumb: int = 0):
+@_get("/api/collages/{day}.png")
+async def collage_day_png(request: Request, day: str):
+    thumb = _query_int(request, "thumb", 0)
     # A download: the day's finished collage, named for the day.
     if not _DATE_RE.match(day):
         return Response(status_code=404)
@@ -1657,10 +1693,8 @@ def _source_test(source, backend: str) -> dict:
         return {"ok": False, "detail": f"{type(exc).__name__}: {exc}"[:160]}
 
 
-@app.post("/api/source/test")
-async def source_test(request: Request, backend: Optional[str] = Form(None),
-                      birdweather_station_id: Optional[str] = Form(None),
-                      birdnet_db_path: Optional[str] = Form(None)):
+@_post("/api/source/test")
+async def source_test(request: Request):
     """Test a detection source using the values currently typed on the config
     page — no save required. Builds a throwaway source from the posted fields
     layered over a copy of the saved config. Only non-secret connection fields
@@ -1672,6 +1706,11 @@ async def source_test(request: Request, backend: Optional[str] = Form(None),
     import dataclasses
     from .sources import make_source
     svc = _svc(request)
+    form = await request.form()
+    backend, birdweather_station_id, birdnet_db_path = (
+        v if isinstance(v, str) else None
+        for v in (form.get("backend"), form.get("birdweather_station_id"),
+                  form.get("birdnet_db_path")))
     overrides = {}
     if backend:
         overrides["detection_backend"] = backend
@@ -1690,13 +1729,14 @@ async def source_test(request: Request, backend: Optional[str] = Form(None),
     return JSONResponse(await run_in_threadpool(run))
 
 
-@app.get("/api/imagegen/models")
-async def imagegen_models(request: Request, provider: Optional[str] = None):
+@_get("/api/imagegen/models")
+async def imagegen_models(request: Request):
     """Model choices for the image-generation dropdown. Only the saved
     provider can be queried live (we hold only its key); a different provider
     passed by the switching UI gets the static fallback list."""
     from .render import genart
     svc = _svc(request)
+    provider = request.query_params.get("provider")
     if provider and provider != svc.config.imagegen_provider:
         fb = genart._MODEL_FALLBACKS.get(provider, [])  # noqa: SLF001
         return JSONResponse({"models": fb, "live": False, "free_text": provider == "a1111"})
@@ -1704,11 +1744,17 @@ async def imagegen_models(request: Request, provider: Optional[str] = None):
     return JSONResponse(out)
 
 
-@app.get("/api/tasks")
+@_get("/api/tasks")
 async def tasks(request: Request):
     # Live state of the background one-shot jobs (test detection, collage)
     # so the config page can show progress and clear its spinner on completion.
     return JSONResponse(_svc(request).task_status())
+
+
+async def _form_str(request: Request, key: str) -> str:
+    """One text field of a posted form, or "" when it is missing or a file."""
+    value = (await request.form()).get(key)
+    return value if isinstance(value, str) else ""
 
 
 # -- header parsing helpers -----------------------------------------------
@@ -1755,3 +1801,16 @@ def _to_int(v, default):
         return int(f)
     except (OverflowError, ValueError):
         return default
+
+
+_middleware = [
+    # The outer one first: the password gate decides before anything is
+    # settled with a hosted household's front door.
+    Middleware(BaseHTTPMiddleware, dispatch=_page_password),
+    Middleware(BaseHTTPMiddleware, dispatch=_hosted_settle),
+]
+_routes.append(WebSocketRoute("/api/frame/push", api_frame_push))
+if paths.static_dir().exists():
+    _routes.append(Mount("/static", StaticFiles(directory=str(paths.static_dir())), name="static"))
+
+app = Starlette(routes=_routes, middleware=_middleware, lifespan=lifespan)

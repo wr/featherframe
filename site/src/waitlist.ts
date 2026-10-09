@@ -151,7 +151,7 @@ export function initWaitlist(root: ParentNode = document): void {
         });
         const data = (await res.json().catch(() => ({}))) as Answer;
         if (res.ok && data.ok) {
-          form.querySelectorAll<HTMLElement>('label, .field').forEach((el) => (el.hidden = true));
+          form.querySelectorAll<HTMLElement>('label, .field, .wl-note').forEach((el) => (el.hidden = true));
           say(status, 'You will be emailed when Featherframe is available.');
           // The follow-up asks which size while the shop gathers interest ('before' and 'early' are an older shop's sale states).
           if (dialog && details && data.details && (data.state === 'before' || data.state === 'early' || data.state === 'interest')) {

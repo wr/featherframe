@@ -8,7 +8,8 @@ import { alertMail, type Alert, reserveBody, settleBody, SpendBook, type SpendRo
 import { birdweatherNews, changesNothing, firmwareWaiting, isDetection, localIso, pushedNames, randomHex } from "./util";
 import { display, lobbyPng, shortOf, trmnlHeaders } from "./viewers";
 import { lastDays, type UsageDay } from "./usage";
-import { due, nextAlarm, type WakeState } from "./wakes";
+import { due, nextAlarm, onlyDetections, type WakeState } from "./wakes";
+import { choose, kindOf, MARKER, parse, type Queued, type SwitchTable } from "./switch";
 import { answerRead, type Ask, cacheKey, FRESH_MS, type Kind, PageCache, routeOf, SHOWN_AGE_MS } from "./pagecache";
 import { loadingPage } from "./loading";
 
@@ -79,8 +80,13 @@ export class Household extends DurableObject<Env> {
     // Wake time and page time apart (W-907); server_ms stays their sum. A day
     // from before has only the sum, and both of these at 0.
     const cols = new Set(this.sql.exec("SELECT * FROM usage LIMIT 0").columnNames);
-    for (const c of ["wake_ms", "page_ms"]) {
+    // And the screens this front door switched itself that day (W-1025).
+    for (const c of ["wake_ms", "page_ms", "switches"]) {
       if (!cols.has(c)) this.sql.exec(`ALTER TABLE usage ADD COLUMN ${c} INTEGER NOT NULL DEFAULT 0`);
+    }
+    // What the server has taken from the queue but not yet acknowledged (W-1025).
+    if (!new Set(this.sql.exec("SELECT * FROM ingest LIMIT 0").columnNames).has("taken")) {
+      this.sql.exec("ALTER TABLE ingest ADD COLUMN taken INTEGER NOT NULL DEFAULT 0");
     }
     // The household's AI spend (W-938): the server reserves each paid call here first.
     this.spend = new SpendBook(this.sql);
@@ -162,20 +168,26 @@ export class Household extends DurableObject<Env> {
   summary(): { frames: { id: string; status: string; seen: number | null }[];
                usage: UsageDay[]; month_ms: number;
                last_wake: number | null; source: string | null; suspended: boolean;
-               ai: { usd: number; limit: number | null; paused: boolean; count: number } } {
+               ai: { usd: number; limit: number | null; paused: boolean; count: number };
+               switches: number; mismatches: number } {
     const seen = new Map(this.sql.exec<{ id: string; at: number }>("SELECT id, at FROM seen").toArray()
       .map((r) => [r.id, r.at]));
     const frames = this.sql.exec<{ id: string; status: string }>("SELECT id, status FROM frames ORDER BY id")
       .toArray().map((f) => ({ id: f.id, status: f.status, seen: seen.get(f.id) ?? null }));
     // 30 days for the admin page's chart (W-923); its table's column is the last 7.
     const usage = this.sql.exec<UsageDay>(
-      "SELECT day, wakes, server_ms, wake_ms, page_ms FROM usage WHERE day >= ? ORDER BY day DESC", lastDays(30)[0]).toArray();
+      "SELECT day, wakes, server_ms, wake_ms, page_ms, switches FROM usage WHERE day >= ? ORDER BY day DESC", lastDays(30)[0]).toArray();
     const wake = Number(this.meta("wake_ms") || 0);
     const month_ms = this.sql.exec<{ ms: number }>("SELECT coalesce(sum(server_ms), 0) AS ms FROM usage WHERE day >= ?",
       new Date().toISOString().slice(0, 8) + "01").one().ms;
+    // Switches made here this month, and the ones the server later chose
+    // otherwise (W-1025): the admin page shows both.
+    const switches = this.sql.exec<{ n: number }>("SELECT coalesce(sum(switches), 0) AS n FROM usage WHERE day >= ?",
+      new Date().toISOString().slice(0, 8) + "01").one().n;
     return { frames, usage, month_ms, last_wake: wake || null, source: this.meta("source_kind"),
              suspended: !!this.meta("suspended"),
-             ai: this.spend.monthSummary(new Date().toISOString().slice(0, 7)) };
+             ai: this.spend.monthSummary(new Date().toISOString().slice(0, 7)),
+             switches, mismatches: Number(this.meta("switch_mismatches") || 0) };
   }
 
   /** A new household (made at sign-up), or one given its login later. */
@@ -410,8 +422,10 @@ export class Household extends DurableObject<Env> {
   wakeState(now = Date.now()): WakeState {
     return {
       now, lastWake: Number(this.meta("wake_ms") || 0),
+      lastSwitch: Number(this.meta("switch_ms") || 0),
       named: Number(this.meta("next_wake_epoch") || 0) * 1000,
-      news: this.meta("news") === "1", look: this.meta("look") === "1",
+      news: this.meta("news") === "1", pushNews: this.meta("push_news") === "1",
+      look: this.meta("look") === "1",
       birdweather: this.meta("source_kind") === "birdweather" && this.meta("poll") !== "0",
     };
   }
@@ -435,27 +449,22 @@ export class Household extends DurableObject<Env> {
     await this.schedule();
   }
 
-  /** Start the server (its lifespan pulls), hand it the pushes that landed
-   * while it slept, run one tick (which reports), and stop it again once it
-   * is idle, unless someone is on the page. */
+  /** Start the server (its lifespan pulls), run one tick (which reports), and
+   * stop it again once it is idle, unless someone is on the page. The pushes
+   * that landed while it slept are the server's to take (W-1025). */
   async wake(): Promise<void> {
     if (this.meta("suspended")) return;
     const t0 = Date.now();
     this.setMeta("wake_ms", String(t0));
     this.setMeta("news", "0");
+    this.setMeta("push_news", null);
     this.setMeta("look", null);
     const age = this.meta("look_now") ? SHOWN_AGE_MS : FRESH_MS;
     this.setMeta("look_now", null);
     try {
       const stub = await this.server();
-      const queued = this.sql.exec<{ seq: number; path: string; body: string }>(
-        "SELECT seq, path, body FROM ingest ORDER BY seq").toArray();
-      for (const q of queued) {
-        await stub.fetch(`http://server${q.path}`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: q.body,
-        });
-        this.sql.exec("DELETE FROM ingest WHERE seq = ?", q.seq);
-      }
+      // The server takes the queue itself, before its tick and before any
+      // report it makes (W-1025): nothing is sent from here.
       await stub.fetch("http://server/api/hosted/run", { method: "POST" });
       // Copies someone reads that this wake did not refresh, while it is up.
       if (this.cache.stale(Date.now(), age)) await this.refreshCache();
@@ -492,8 +501,77 @@ export class Household extends DurableObject<Env> {
   async alarm(): Promise<void> {
     if (this.meta("suspended")) return;
     await this.lookForNews();
-    if (due(this.wakeState())) await this.wake();
-    else await this.schedule();
+    const s = this.wakeState();
+    if (!due(s)) return this.schedule();
+    // Detections alone, and the server said what each screen would show:
+    // switch them here and let the server catch up when it next starts (W-1025).
+    if (onlyDetections(s) && await this.decideAlone()) return this.schedule();
+    await this.wake();
+  }
+
+  /** The server's switch table, as its last report gave it, or null. */
+  switchTable(): SwitchTable | null {
+    const raw = this.meta("switches");
+    if (!raw) return null;
+    try { const t = JSON.parse(raw); return t && t.species ? t : null; } catch { return null; }
+  }
+
+  /** Detections were the only reason to wake the server (W-1025). When the
+   * server said what each screen would show for every species in the batch,
+   * switch them here: the frames' rows, their sockets, the viewers, and a
+   * marker in the queue right after the detections it decided over, which the
+   * server replays as the tick it stands for. True when it decided. */
+  async decideAlone(): Promise<boolean> {
+    const table = this.switchTable();
+    if (!table || Date.now() / 1000 >= table.valid_until) return false;
+    if (await this.env.SERVER.getByName(this.meta("hid")!).running()) return false;
+    // From here to the marker: no await, so no push lands in between.
+    const rows = this.sql.exec<{ seq: number; path: string; body: string }>(
+      "SELECT seq, path, body FROM ingest WHERE taken = 0 ORDER BY seq").toArray();
+    // Everything queued was taken already (a page started the server, which
+    // took it and slept): what it took it has yet to draw, so it decides.
+    if (!rows.length) return false;
+    const queued: Queued[] = [];
+    for (const r of rows) {
+      if (r.path === MARKER) { queued.push({ marker: true }); continue; }
+      const kind = kindOf(r.path);
+      if (!kind) return false;                       // a seed: the server's to apply
+      queued.push({ push: parse(kind, r.body) });
+    }
+    const choice = choose(table, queued);
+    if (choice === "wake") return false;
+    const entry = choice === "same" ? null : table.species[choice];
+    if (entry) {
+      for (const [id, f] of Object.entries(entry.frames)) {
+        const push = JSON.stringify(f.push);
+        this.sql.exec("UPDATE frames SET etag = ?, file = ?, push = ? WHERE id = ?", f.etag, f.file, push, id);
+        for (const ws of this.ctx.getWebSockets(id)) ws.send(push);
+      }
+      for (const [id, v] of Object.entries(entry.viewers)) {
+        this.sql.exec("UPDATE viewers SET name = ?, file = ? WHERE id = ?", v.name, v.file, id);
+      }
+      this.setMeta("unchanged", JSON.stringify([...table.blocked, entry.common, choice]));
+      // The screens now show this species' own sheet, whole: the next batch
+      // is chosen against that, not against what the server last reported.
+      this.setMeta("switches", JSON.stringify({ ...table, shown: choice, shown_clean: true }));
+    }
+    this.sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", MARKER, JSON.stringify({
+      at: localIso(this.meta("tz") || "UTC"), choice, etag: entry ? entry.etag : null,
+      upto: rows[rows.length - 1].seq }));
+    this.setMeta("switch_ms", String(Date.now()));
+    this.setMeta("push_news", null);
+    this.addSwitch();
+    // The page's copies show the old picture now, and are kept: the next look
+    // serves one and asks for a wake.
+    if (entry) this.cache.age();
+    return true;
+  }
+
+  /** A switch made here, counted by UTC day beside the wakes (W-1025). */
+  addSwitch(): void {
+    const day = new Date().toISOString().slice(0, 10);
+    this.sql.exec(`INSERT INTO usage (day, switches) VALUES (?, 1)
+      ON CONFLICT (day) DO UPDATE SET switches = switches + 1`, day);
   }
 
   async schedule(): Promise<void> {
@@ -519,9 +597,10 @@ export class Household extends DurableObject<Env> {
     this.sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", url.pathname, body);
     // In quiet hours a detection changes nothing, nor does one the server
     // named (the species shown, a blocked one; W-984): it waits for the next
-    // wake.
+    // wake. Kept apart from `news` (W-1025): a pairing or a BirdWeather look
+    // has to wake the server, detections alone the front door may answer itself.
     if (this.meta("poll") !== "0" && !changesNothing(this.meta("unchanged"), pushedNames(kind, body))) {
-      this.setMeta("news", "1");
+      this.setMeta("push_news", "1");
     }
     await this.schedule();
     return Response.json({ ok: true, queued: true });
@@ -694,6 +773,19 @@ export class Household extends DurableObject<Env> {
       this.sql.exec("DELETE FROM checkins");
       return Response.json({ checkins: rows.map((r) => JSON.parse(r.body)) });
     }
+    // The server takes the queue itself (W-1025): everything in it, marked
+    // taken, and forgets it only once the server says it is in R2.
+    if (path === "ingest/take" && request.method === "POST") {
+      const rows = this.sql.exec<{ seq: number; path: string; body: string }>(
+        "SELECT seq, path, body FROM ingest ORDER BY seq").toArray();
+      this.sql.exec("UPDATE ingest SET taken = 1");
+      return Response.json({ rows });
+    }
+    if (path === "ingest/ack" && request.method === "POST") {
+      const upto = Number((await request.json<{ upto?: number }>().catch(() => ({} as { upto?: number }))).upto || 0);
+      this.sql.exec("DELETE FROM ingest WHERE taken = 1 AND seq <= ?", upto);
+      return Response.json({ ok: true });
+    }
     if (path.startsWith("spend/")) return this.spendRoute(request, path.slice("spend/".length));
     return new Response("not found", { status: 404 });
   }
@@ -755,38 +847,56 @@ export class Household extends DurableObject<Env> {
     next_wake_epoch?: number | null;
     poll?: boolean;
     unchanged?: string[] | "*";
+    switches?: SwitchTable | Record<string, never>;
+    switch_mismatches?: number;
+    applied_seq?: number;
     page_build?: string;
     source?: { kind?: string; station?: string; token?: string };
   }): Promise<void> {
+    // A report that does not yet show a marker (W-1025) is behind the front
+    // door's last switch: its run took the queue before the marker was written,
+    // or has taken it and not applied it. The frames, viewers and table stay
+    // as the front door left them, and a wake soon brings the server up to
+    // date. `applied_seq` is the last queue row whose effects the report
+    // shows; an older image reports none, and left no marker to be behind.
+    const behind = typeof state.applied_seq === "number" && this.sql.exec<{ n: number }>(
+      "SELECT count(*) AS n FROM ingest WHERE path = ? AND seq > ?", MARKER, state.applied_seq).one().n > 0;
     const shown = (): string => JSON.stringify([
       this.sql.exec("SELECT id, status, etag, headers FROM frames ORDER BY id").toArray(),
       this.sql.exec("SELECT id, status, name FROM viewers ORDER BY id").toArray()]);
     const shownBefore = shown();
     const buildBefore = this.meta("page_build");
-    const before = new Map(this.sql.exec<FrameRow>("SELECT * FROM frames").toArray().map((r) => [r.id, r]));
-    this.sql.exec("DELETE FROM frames");
-    for (const [id, f] of Object.entries(state.frames || {})) {
-      const push = f.push ? JSON.stringify(f.push) : null;
-      this.sql.exec("INSERT INTO frames (id, status, etag, file, headers, push) VALUES (?, ?, ?, ?, ?, ?)",
-        id, f.status, f.etag ?? null, f.file ?? null, f.headers ? JSON.stringify(f.headers) : null, push);
-      // Every socket for this frame hears a changed message; a frame no longer
-      // on is let go, and keeps polling to be let in.
-      for (const ws of this.ctx.getWebSockets(id)) {
-        if (f.status !== "on" || !push) goodbye(ws, "not on");
-        else if (before.get(id)?.push !== push) ws.send(push);
+    if (!behind) {
+      const before = new Map(this.sql.exec<FrameRow>("SELECT * FROM frames").toArray().map((r) => [r.id, r]));
+      this.sql.exec("DELETE FROM frames");
+      for (const [id, f] of Object.entries(state.frames || {})) {
+        const push = f.push ? JSON.stringify(f.push) : null;
+        this.sql.exec("INSERT INTO frames (id, status, etag, file, headers, push) VALUES (?, ?, ?, ?, ?, ?)",
+          id, f.status, f.etag ?? null, f.file ?? null, f.headers ? JSON.stringify(f.headers) : null, push);
+        // Every socket for this frame hears a changed message; a frame no longer
+        // on is let go, and keeps polling to be let in.
+        for (const ws of this.ctx.getWebSockets(id)) {
+          if (f.status !== "on" || !push) goodbye(ws, "not on");
+          else if (before.get(id)?.push !== push) ws.send(push);
+        }
       }
+      for (const id of before.keys()) {
+        if (!(id in (state.frames || {}))) for (const ws of this.ctx.getWebSockets(id)) goodbye(ws, "gone");
+      }
+      this.sql.exec("DELETE FROM viewers");
+      for (const [id, v] of Object.entries(state.viewers || {})) {
+        this.sql.exec("INSERT INTO viewers (id, status, name, file, refresh, paper, short) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          id, v.status, v.name ?? null, v.file ?? null, v.refresh ?? null, v.paper ? 1 : 0, v.short ?? null);
+      }
+      this.setMeta("unchanged", state.unchanged == null ? null : JSON.stringify(state.unchanged));
+      // The table is as old as the report: none from a server that has none to give.
+      this.setMeta("switches", state.switches && "species" in state.switches ? JSON.stringify(state.switches) : null);
+    } else {
+      this.setMeta("news", "1");
     }
-    for (const id of before.keys()) {
-      if (!(id in (state.frames || {}))) for (const ws of this.ctx.getWebSockets(id)) goodbye(ws, "gone");
-    }
-    this.sql.exec("DELETE FROM viewers");
-    for (const [id, v] of Object.entries(state.viewers || {})) {
-      this.sql.exec("INSERT INTO viewers (id, status, name, file, refresh, paper, short) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        id, v.status, v.name ?? null, v.file ?? null, v.refresh ?? null, v.paper ? 1 : 0, v.short ?? null);
-    }
+    this.setMeta("switch_mismatches", state.switch_mismatches ? String(state.switch_mismatches) : null);
     this.setMeta("next_wake_epoch", state.next_wake_epoch ? String(state.next_wake_epoch) : null);
     this.setMeta("poll", state.poll === false ? "0" : "1");
-    this.setMeta("unchanged", state.unchanged == null ? null : JSON.stringify(state.unchanged));
     const src = state.source || {};
     if (src.kind !== this.meta("source_kind") || (src.station || null) !== this.meta("bw_station")) {
       this.setMeta("bw_last_id", null);    // a new source: learn where it is first

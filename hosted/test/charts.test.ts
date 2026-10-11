@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { chart, dayLabel, fmt, growth, serverByDay, ticks } from "../src/charts";
 
 const day = (d: string, wake_ms: number, page_ms: number, server_ms = wake_ms + page_ms) =>
-  ({ day: d, wakes: 1, server_ms, wake_ms, page_ms });
+  ({ day: d, wakes: 1, server_ms, wake_ms, page_ms, switches: 0 });
 
 describe("serverByDay", () => {
   it("adds every household's day together, and a day from before the split as its total", () => {

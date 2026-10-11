@@ -116,6 +116,13 @@ export class PageCache {
     if (objects.length) await this.bucket.delete(objects.map((o) => this.prefix + o));
   }
 
+  /** Every changing copy is old, but kept (W-1025): the next read serves it
+   * while a look asks for a wake, as after any change. `clear()` would leave
+   * nothing to serve, and the next poll would start the server itself. */
+  age(): void {
+    this.sql.exec("UPDATE page_cache SET filled_at = 0 WHERE kind = 'changing' AND filled_at IS NOT NULL");
+  }
+
   /** Someone read a changing copy since `since`. */
   readSince(since: number): boolean {
     return this.sql.exec(

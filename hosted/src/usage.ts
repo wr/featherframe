@@ -25,8 +25,10 @@ export type Usage = { meters: Meter[]; bill: number; projected: number; month: s
                       measured: boolean;   // the Containers meters are Cloudflare's, not our estimate
                       days: SpendDay[] };
 
-/** One household's server time on one UTC day (the front door's count). */
-export type UsageDay = { day: string; wakes: number; server_ms: number; wake_ms: number; page_ms: number };
+/** One household's server time on one UTC day (the front door's count), and
+ * how many times the front door switched the screens itself that day (W-1025). */
+export type UsageDay = { day: string; wakes: number; server_ms: number; wake_ms: number; page_ms: number;
+                         switches: number };
 
 /** A household's server time over its last days, wakes apart from pages
  * (W-907). A day from before the split has only its total, so it is left

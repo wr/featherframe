@@ -42,7 +42,7 @@ describe("containerMeters", () => {
 
 describe("serverTime", () => {
   const day = (d: string, wakes: number, wake_ms: number, page_ms: number, server_ms = wake_ms + page_ms) =>
-    ({ day: d, wakes, server_ms, wake_ms, page_ms });
+    ({ day: d, wakes, server_ms, wake_ms, page_ms, switches: 0 });
   it("keeps wakes apart from the page", () => {
     expect(serverTime([day("2026-09-29", 40, 800e3, 0), day("2026-09-28", 45, 900e3, 600e3)]))
       .toEqual({ wakes: 85, wake_ms: 1700e3, page_ms: 600e3, since: null });

@@ -32,7 +32,7 @@ from urllib.parse import quote
 
 from PIL import Image
 
-from . import auth, drawn, firmware_release, hosted, spend
+from . import auth, drawn, firmware_release, hosted, spend, switching
 from . import plate_library, thumbs
 from . import frames as frames_mod
 from . import page_build, panels, paths
@@ -3936,7 +3936,7 @@ class FeatherframeService:
                        by_novelty: bool) -> Optional[Detection]:
         pending: Optional[dict] = None
         chosen: Optional[Detection] = None
-        best = -1
+        ranked: list = []
         for d in detections:
             if self.config.is_blocked(d.common_name, d.scientific_name):
                 continue
@@ -3949,10 +3949,12 @@ class FeatherframeService:
                 chosen = d
                 break
             rank = _NOVELTY_RANK[self._novelty(d, now)]
-            if rank > best:           # strictly: newest wins within a class
-                chosen, best = d, rank
-            if best == max(_NOVELTY_RANK.values()):
+            ranked.append((rank, d))
+            if rank == max(_NOVELTY_RANK.values()):
                 break                 # nothing older can outrank a first-ever
+        if by_novelty:
+            # One order for the server and the front door's port (W-1025).
+            chosen = switching.best(ranked)
         if pending is not None:
             self._set_pending(pending)
         return chosen

@@ -19,12 +19,12 @@ date. BirdNET-Pi's body says neither, so its first-seen answers stay unknown.
 """
 from __future__ import annotations
 
-import json
 import logging
 import threading
 from datetime import date as ddate, datetime, timedelta
 from typing import Optional
 
+from .. import switching
 from .base import Detection, DetectionSource, valid_location
 
 log = logging.getLogger("featherframe.pushed")
@@ -32,10 +32,6 @@ log = logging.getLogger("featherframe.pushed")
 KINDS = ("apprise", "birdnet_go")
 _MAX_ITEMS = 1000   # retained window; oldest trimmed past this
 _TALLY_DAYS = 7     # days of per-species counts kept
-_NAME_MAX = 200     # a species name; anything longer is not one
-# What BirdNET-Go's *Test* button on a notification channel posts. It is how an
-# owner checks the channel; it is never a bird.
-_GO_TEST_SPECIES = "testus birdicus"
 
 # BirdNET-Pi's $date/$time formats aren't guaranteed; normalize to the canonical
 # strings the rest of the app (and top_species_today's day match) expect.
@@ -61,24 +57,6 @@ def _norm_time(value: str, now: datetime) -> str:
     return now.strftime("%H:%M:%S")
 
 
-def _name(*candidates) -> str:
-    """The first candidate that is a non-blank string, trimmed and bounded.
-    A list or object under a name key is not a bird (str() of it would be
-    rendered as one) — it is skipped, never coerced."""
-    for v in candidates:
-        if isinstance(v, str) and v.strip():
-            return v.strip()[:_NAME_MAX]
-    return ""
-
-
-def _confidence(value) -> float:
-    try:
-        c = float(value)
-    except (TypeError, ValueError):
-        return 0.0
-    return c if 0.0 <= c <= 1.0 else 0.0
-
-
 def _local(stamp) -> Optional[datetime]:
     """An RFC 3339 time as local wall-clock time, or None."""
     if not isinstance(stamp, str) or not stamp.strip():
@@ -92,26 +70,14 @@ def _local(stamp) -> Optional[datetime]:
 
 # -- the two bodies --------------------------------------------------------
 def _parse_apprise(payload) -> Optional[dict]:
-    """BirdNET-Pi's Apprise notification. Apprise posts {version, title,
-    message, type} with our JSON body in `message`; BirdNET-Pi may append text
-    after it, so extract the {...} span rather than parse whole. Falls back to
-    a top-level object if someone posts the fields directly."""
-    if not isinstance(payload, dict):
+    """BirdNET-Pi's Apprise notification (see switching.apprise_body)."""
+    who = switching.parse("apprise", payload)
+    if who is None:
         return None
-    body = payload
-    msg = payload.get("message")
-    if isinstance(msg, str) and "{" in msg and "}" in msg:
-        try:
-            obj = json.loads(msg[msg.index("{"): msg.rindex("}") + 1])
-            if isinstance(obj, dict):
-                body = obj
-        except ValueError:
-            pass
+    body = switching.apprise_body(payload)
     now = datetime.now()
-    return {"common": _name(body.get("comname"), body.get("common"), body.get("commonName")),
-            "scientific": _name(body.get("sciname"), body.get("scientific"),
-                                body.get("scientificName")),
-            "confidence": _confidence(body.get("confidence")),
+    return {"common": who["common"], "scientific": who["scientific"],
+            "confidence": who["confidence"],
             "date": _norm_date(str(body.get("date") or "").strip(), now),
             "time": _norm_time(str(body.get("time") or "").strip(), now)}
 
@@ -120,26 +86,22 @@ def _parse_birdnet_go(payload) -> Optional[dict]:
     """BirdNET-Go's webhook channel, as it posts by default: {id, type, title,
     message, timestamp, metadata}, the detection in `metadata`. Anything that
     is not a detection (a stream warning on the same channel) is None."""
-    if not isinstance(payload, dict) or payload.get("type") != "detection":
+    who = switching.parse("birdnet_go", payload)
+    if who is None:
         return None
-    md = payload.get("metadata")
-    if not isinstance(md, dict):
-        return None
+    md = payload["metadata"]
     now = _local(payload.get("timestamp")) or datetime.now()
-    item = {"common": _name(md.get("species")),
-            "scientific": _name(md.get("scientific_name")),
-            "confidence": _confidence(md.get("confidence")),
+    item = {"common": who["common"], "scientific": who["scientific"],
+            "confidence": who["confidence"],
             "date": _norm_date(str(md.get("bg_detection_date") or "").strip(), now),
             "time": _norm_time(str(md.get("bg_detection_time") or "").strip(), now)}
-    note = md.get("note_id")
-    if isinstance(note, (int, str)) and not isinstance(note, bool) and str(note).strip():
-        item["note"] = str(note).strip()[:40]
+    if who["note"]:
+        item["note"] = who["note"]
     loc = valid_location(md.get("bg_latitude"), md.get("bg_longitude"))
     if loc is not None:
         item["loc"] = list(loc)
-    days = md.get("days_since_first_seen")
-    if isinstance(days, int) and not isinstance(days, bool) and 0 <= days < 100000:
-        item["first_days"] = days
+    if who["first_days"] is not None:
+        item["first_days"] = who["first_days"]
     return item
 
 
@@ -210,13 +172,13 @@ class PushedSource(DetectionSource):
     def ingest(self, payload) -> Optional[Detection]:
         """Normalize one pushed body, queue its detection, and return it — or
         None if it carries no usable species (guards 'never a wrong bird')."""
-        item = self._parse(payload)
-        if not item or not (item["common"] or item["scientific"]):
-            return None
-        if item["scientific"].lower() == _GO_TEST_SPECIES:
+        if switching.is_test(self.kind, payload):
             with self._lock:
                 self.test_at = datetime.now().isoformat(timespec="seconds")
                 self._persist()
+            return None
+        item = self._parse(payload)
+        if not item or not (item["common"] or item["scientific"]):
             return None
         with self._lock:
             note = item.get("note")

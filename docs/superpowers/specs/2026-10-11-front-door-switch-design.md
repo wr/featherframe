@@ -128,9 +128,10 @@ within a class. The part the front door needs moves into
 
 1. Drop a push below `floor`, one whose `note` repeats an earlier push's
    or is in `notes`, and a blocked species (by either name).
-2. Resolve each push to an entry by its scientific name; with none, by its
-   common name only if exactly one entry has it. If any push resolves to no
-   entry, or BirdNET-Go says `days_since_first_seen == 0`: **wake**.
+2. Resolve each push to an entry by its scientific name. A push with no
+   scientific name wakes the server: it would draw its sheet with no Latin
+   name, which is another sheet than any entry names. If any push resolves
+   to no entry, or BirdNET-Go says `days_since_first_seen == 0`: **wake**.
 3. Each push ranks 1 if its entry is `first_today` and that species appears
    exactly once in the queued detections, else 0: `_novelty`'s
    `count <= 1`, counted over what the server has not yet taken.
@@ -281,9 +282,10 @@ VM's own CPU lines.
 - `switch-cases.json`, run by `tests/test_switching.py` and
   `hosted/test/switch.test.ts`: the raw-body parse cases above; blocked,
   below the floor, a repeated `note_id` within the queue and from `notes`,
-  a species with no entry, a new species, a common-name-only push, first-
-  today beats a newer repeat, a species heard twice ranks as a repeat, the
-  shown species clean (same) and not clean (switch), an empty batch.
+  a species with no entry, a new species, a push with only a common name
+  (it wakes), first-today beats a newer repeat, a species heard twice ranks
+  as a repeat, the shown species clean (same) and not clean (switch), an
+  empty batch.
 - Server: the table lists exactly the species a detection would show from a
   kept sheet, with every on screen's output; none for a missing output, a
   new species, or a frame on the collage; `first_today` equals `_novelty`;

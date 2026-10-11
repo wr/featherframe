@@ -74,14 +74,13 @@ export function parse(kind: "apprise" | "birdnet_go", body: string): Pushed | nu
   return out;
 }
 
-// The table's key for a push: by its scientific name, as the server keys a
-// species; with none, by its common name only if one entry alone has it.
+// The table's key for a push: its scientific name, as the server keys a
+// species. A push with none has no entry (W-1025): the server would draw its
+// sheet with no Latin name, another sheet than any entry names, so the front
+// door leaves it to the server.
 function entry(t: SwitchTable, p: Pushed): string | null {
   const sci = p.scientific.trim().toLowerCase();
-  if (sci) return Object.hasOwn(t.species, sci) ? sci : null;   // W-1025: not `in`, or "constructor" is a species
-  const common = p.common.trim().toLowerCase();
-  const hits = Object.keys(t.species).filter((k) => t.species[k].common === common);
-  return hits.length === 1 ? hits[0] : null;
+  return sci && Object.hasOwn(t.species, sci) ? sci : null;   // W-1025: not `in`, or "constructor" is a species
 }
 
 /** "wake", "same", or the species key every screen is switched to. `queued` is

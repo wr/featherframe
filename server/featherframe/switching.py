@@ -102,15 +102,13 @@ def best(ranked: list) -> Optional[T]:
 
 
 def _entry(table: dict, push: dict) -> Optional[str]:
-    """The table's key for a push: by its scientific name, as the server keys a
-    species; with none, by its common name only if one entry alone has it."""
+    """The table's key for a push: its scientific name, as the server keys a
+    species. A push with none has no entry (W-1025): the server would draw its
+    sheet with no Latin name, another sheet than any entry names, so the front
+    door leaves it to the server."""
     species = table.get("species") or {}
     sci = (push.get("scientific") or "").strip().lower()
-    if sci:
-        return sci if sci in species else None
-    common = (push.get("common") or "").strip().lower()
-    hits = [k for k, e in species.items() if e.get("common") == common]
-    return hits[0] if len(hits) == 1 else None
+    return sci if sci and sci in species else None
 
 
 def choose(table: dict, queued: list) -> str:

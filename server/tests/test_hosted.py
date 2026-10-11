@@ -1059,6 +1059,9 @@ def test_a_row_that_cannot_be_applied_does_not_stop_the_rows_behind_it(env, monk
     link.take(svc)
     assert [d.common_name for d in svc.source.new_since(0)] == ["Blue Jay"]
     assert svc.db.get("queue_seq") == 2 and link._ack_upto == 2
+    # A marker whose replay fails is a switch the server could not check:
+    # counted with the ones it disagreed with (W-1025). A push that fails is not.
+    assert svc.hosted_state()["switch_mismatches"] == 1
 
 
 def test_taking_the_queue_is_work_under_way_and_holds_the_tick_lock(env, monkeypatch):

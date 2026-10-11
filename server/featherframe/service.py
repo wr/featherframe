@@ -2973,6 +2973,11 @@ class FeatherframeService:
                             ingest(payload)
                 except Exception:  # noqa: BLE001 — one bad row must not wedge the queue behind it
                     log.warning("queued row %s (%s) not applied", seq, path, exc_info=True)
+                    if path == "marker":
+                        # The front door switched the screens and this server
+                        # could not say whether it would have (W-1025): counted
+                        # with the ones it disagreed with.
+                        self._count_mismatch()
                 self.db.set("queue_seq", seq)
             if marked:
                 # A switch the front door made is a picture here, but a frame's
@@ -3010,7 +3015,10 @@ class FeatherframeService:
             agrees = pic.etag == str(marker["etag"])
         if not agrees:
             log.warning("front door chose %s at %s; this server shows %s", want, at, shown or "nothing")
-            self.db.set("switch_mismatches", int(self.db.get("switch_mismatches", 0) or 0) + 1)
+            self._count_mismatch()
+
+    def _count_mismatch(self) -> None:
+        self.db.set("switch_mismatches", int(self.db.get("switch_mismatches", 0) or 0) + 1)
 
     def apply_seed(self, body: dict) -> None:
         """A household set up from the phone (W-888): its source and Region,

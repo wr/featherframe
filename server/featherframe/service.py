@@ -670,6 +670,10 @@ class FeatherframeService:
         self._fw_progress: dict = {}
         # Called after every tick, e.g. a hosted household's sync (W-844).
         self.after_tick: list = []
+        # The last queue seq whose effects, the frames' outputs included, are
+        # in this process (W-1025). A previous process applied everything the
+        # database holds; `apply_queue` moves it only when a take is done.
+        self._applied_seq = int(self.db.get("queue_seq", 0) or 0)
         self._tick_lock = threading.Lock()
         # Work under way (W-917): a tick, a task, a repaint, a firmware fetch,
         # each with when it began. A hosted Container is stopped only once
@@ -2967,6 +2971,7 @@ class FeatherframeService:
                     self._tick_frames()
                 except Exception:  # noqa: BLE001 — the queue is applied; a frame is drawn by the next tick
                     log.warning("frames not drawn after the queue", exc_info=True)
+            self._applied_seq = top
         return top
 
     def _replay_marker(self, marker: dict) -> None:
@@ -3008,6 +3013,8 @@ class FeatherframeService:
         """What the front door needs to answer every kit without this server:
         each one's status, its output (the file and its ETag), the headers that
         ride on /api/frame, and its push message."""
+        # Read first: the outputs below are at least as new as this (W-1025).
+        applied = self._applied_seq
         out = {}
         for row in self.frames.by_transport("kit"):
             fid = str(row["id"])
@@ -3058,6 +3065,10 @@ class FeatherframeService:
                 # How often a switch the front door made differed from what this
                 # server then chose (W-1025): the admin page shows it.
                 "switch_mismatches": int(self.db.get("switch_mismatches", 0) or 0),
+                # The last queue seq whose effects, the frames included, this
+                # report shows (W-1025): the front door keeps the screens it
+                # switched itself while any of its markers is past it.
+                "applied_seq": applied,
                 # Where news comes from (W-847): the front door looks for it
                 # itself — it polls a BirdWeather station, or takes the pushes
                 # (Apprise from BirdNET-Pi, a webhook from BirdNET-Go) — and

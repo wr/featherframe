@@ -1158,3 +1158,57 @@ def test_a_report_acknowledges_only_what_was_taken_before_its_state_was_built(en
     assert door.state.acked == [3] and link._ack_upto == 5
     link.settle(svc, False)
     assert door.state.acked == [3, 5] and link._ack_upto == 0
+
+
+# -- fix round 2: each report says how far through the queue it is (W-1025) --
+def test_a_report_says_how_far_through_the_queue_it_is(env):
+    door, link, svc, tok = _queue_svc(env)
+    assert svc.hosted_state()["applied_seq"] == 0
+    door.state.ingest = [
+        {"seq": 4, "path": f"/api/ingest/birdnet-go/{tok}", "body": _go("Blue Jay", "Cyanocitta cristata")},
+        {"seq": 6, "path": "marker", "body": json.dumps({"at": NOW.isoformat(), "choice": "cyanocitta cristata",
+                                                         "etag": None, "upto": 4})}]
+    link.take(svc)
+    assert svc.hosted_state()["applied_seq"] == 6
+    link.take(svc)                                  # the same rows again: nothing moves
+    assert svc.hosted_state()["applied_seq"] == 6
+
+
+def test_a_fresh_service_reports_what_a_previous_process_applied(env):
+    first = _service()
+    first.db.set("queue_seq", 7)
+    assert _service().hosted_state()["applied_seq"] == 7
+
+
+def test_a_report_built_between_a_replay_and_the_frames_does_not_claim_it(env, monkeypatch):
+    """A save's settle beside a run's take can build its report after a
+    marker is replayed and before the frames follow it: it shows the seq before."""
+    import threading
+    from featherframe import service as service_mod
+    door, link, svc, tok = _queue_svc(env)
+    svc.tick()
+    seed_frame(svc, shows="plates", etag="old")
+    door.state.ingest = [{"seq": 1, "path": f"/api/ingest/birdnet-go/{tok}", "body": _go("Blue Jay", "Cyanocitta cristata")}]
+    link.take(svc)
+    assert svc.hosted_state()["applied_seq"] == 1
+    door.state.ingest = [
+        {"seq": 2, "path": f"/api/ingest/birdnet-go/{tok}", "body": _go("Blue Jay", "Cyanocitta cristata")},
+        {"seq": 3, "path": "marker", "body": json.dumps({"at": NOW.isoformat(), "choice": "cyanocitta cristata",
+                                                         "etag": None, "upto": 2})}]
+    entered, release = threading.Event(), threading.Event()
+    frames = svc._tick_frames
+
+    def held():
+        entered.set()
+        assert release.wait(10)                     # the marker is replayed, the frames are not
+        frames()
+
+    monkeypatch.setattr(svc, "_tick_frames", held)
+    monkeypatch.setattr(service_mod, "SWITCH_LOCK_WAIT_S", 0.05)   # the report does not wait for the take
+    taker = threading.Thread(target=link.take, args=(svc,))
+    taker.start()
+    assert entered.wait(10)
+    assert svc.hosted_state()["applied_seq"] == 1
+    release.set()
+    taker.join(10)
+    assert svc.hosted_state()["applied_seq"] == 3

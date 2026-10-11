@@ -7,6 +7,7 @@ tests/fixtures/switch-cases.json. The server's own batch rule
 from __future__ import annotations
 
 import json
+import re
 from typing import Optional, TypeVar
 
 T = TypeVar("T")
@@ -14,6 +15,17 @@ T = TypeVar("T")
 NAME_MAX = 200     # a species name; anything longer is not one
 # What BirdNET-Go's *Test* button on a notification channel posts (W-865).
 GO_TEST_SPECIES = "testus birdicus"
+_PATH = re.compile(r"^/api/ingest/(apprise|birdnet-go)(/|$)")
+
+
+PATH_KINDS = {"apprise": "apprise", "birdnet-go": "birdnet_go"}
+
+
+def kind_of(path: str) -> Optional[str]:
+    """The detector a queued ingest path is for, in the sources' naming, or
+    None for any other path (the front door's `kindOf`, W-1025)."""
+    m = _PATH.match(path)
+    return PATH_KINDS[m.group(1)] if m else None
 
 
 def name(*candidates) -> str:

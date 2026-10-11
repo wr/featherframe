@@ -182,6 +182,22 @@ describe("the front door's own switch", () => {
     expect(h.frameRow("K1").etag).toBe("out-robin");
   });
 
+  it("drops a push of the other detector's kind, queued before the source changed", async () => {
+    // The route refuses one now (409); one already in the queue is still there.
+    // The server skips it, so choosing over it would be a guaranteed mismatch.
+    const { h, sql } = await door();
+    const apprise = JSON.stringify({ message: JSON.stringify({ comname: "American Robin", sciname: "Turdus migratorius", confidence: 0.9 }) });
+    sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", "/api/ingest/apprise/tok", apprise);
+    expect(await h.decideAlone()).toBe(true);
+    expect(h.frameRow("K1").etag).toBe("out-finch");
+    expect(JSON.parse(rows(sql).at(-1).body)).toMatchObject({ choice: "same", etag: null });
+    // Beside one of this household's own, it is the own that is chosen over.
+    await push(h, GO("American Robin", "Turdus migratorius"));
+    h.setMeta("switch_ms", null);
+    expect(await h.decideAlone()).toBe(true);
+    expect(h.frameRow("K1").etag).toBe("out-robin");
+  });
+
   it("wakes for a seed row, which is the server's to apply", async () => {
     const { h, sql } = await door();
     sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", "/api/hosted/seed", "{}");

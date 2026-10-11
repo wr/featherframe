@@ -546,7 +546,10 @@ export class Household extends DurableObject<Env> {
       if (r.path === MARKER) { queued.push({ marker: true }); continue; }
       const kind = kindOf(r.path);
       if (!kind) return false;                       // a seed: the server's to apply
-      queued.push({ push: parse(kind, r.body) });
+      // A push of the other detector's kind (queued before the household
+      // changed its source; the route would refuse it now) is skipped by the
+      // server, as the old 409 did: dropped here too, never chosen over (W-1025).
+      queued.push({ push: kind === this.meta("source_kind") ? parse(kind, r.body) : null });
     }
     const choice = choose(table, queued);
     if (choice === "wake") return false;

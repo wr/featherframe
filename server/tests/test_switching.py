@@ -41,3 +41,12 @@ def test_the_test_button_is_known_before_it_is_parsed():
     assert not switching.is_test("birdnet_go", {"type": "detection", "metadata": {"scientific_name": "Turdus migratorius"}})
     # A warning on the same channel is not the Test button, whatever it names.
     assert not switching.is_test("birdnet_go", {"type": "warning", "metadata": {"scientific_name": "Testus birdicus"}})
+
+
+def test_a_queued_path_names_its_detector():
+    assert switching.kind_of("/api/ingest/birdnet-go/tok") == "birdnet_go"
+    assert switching.kind_of("/api/ingest/apprise") == "apprise"
+    assert switching.kind_of("/api/hosted/seed") is None
+    # A longer name is not a push, and neither is the token route.
+    assert switching.kind_of("/api/ingest/apprise-x/tok") is None
+    assert switching.kind_of("/api/ingest/token") is None

@@ -2964,8 +2964,12 @@ class FeatherframeService:
                     elif path == "/api/hosted/seed":
                         self.apply_seed(payload)
                     elif path.startswith("/api/ingest/"):
+                        # Only the kind of push the source takes: the route
+                        # refused another with a 409, and one queued before the
+                        # household changed its source is still in the queue
+                        # (W-1025). The front door drops it from its choice too.
                         ingest = getattr(self.source, "ingest", None)
-                        if callable(ingest):
+                        if callable(ingest) and switching.kind_of(path) == getattr(self.source, "kind", None):
                             ingest(payload)
                 except Exception:  # noqa: BLE001 — one bad row must not wedge the queue behind it
                     log.warning("queued row %s (%s) not applied", seq, path, exc_info=True)

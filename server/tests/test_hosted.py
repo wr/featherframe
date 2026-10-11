@@ -937,6 +937,29 @@ def test_a_seed_in_the_queue_is_applied_like_the_route(env):
     assert load_config(svc.db).region == "europe"     # this test's service does not reload
 
 
+def test_a_push_of_the_other_detectors_kind_is_not_applied(env):
+    """A push queued before the household changed its source: the route refused
+    it with a 409, and the front door drops it from its choice (W-1025). The
+    body here is one either parser would read, so only the path decides."""
+    from featherframe.sources.pushed import PushedSource
+    door, link, svc, tok = _queue_svc(env)
+    both = json.dumps({"type": "detection", "comname": "Blue Jay", "sciname": "Cyanocitta cristata",
+                       "confidence": 0.9, "date": NOW.strftime("%Y-%m-%d"), "time": NOW.strftime("%H:%M:%S"),
+                       "metadata": {"species": "Blue Jay", "scientific_name": "Cyanocitta cristata",
+                                    "confidence": 0.9}})
+    door.state.ingest = [{"seq": 1, "path": f"/api/ingest/apprise/{tok}", "body": both},
+                         {"seq": 2, "path": f"/api/ingest/birdnet-go/{tok}", "body": _go("Northern Cardinal", "Cardinalis cardinalis")}]
+    link.take(svc)
+    assert [d.common_name for d in svc.source.new_since(0)] == ["Northern Cardinal"]
+    assert svc.db.get("queue_seq") == 2 and link._ack_upto == 2        # applied: acknowledged all the same
+    # And the other way round.
+    svc.source = PushedSource("apprise", svc.db)
+    door.state.ingest = [{"seq": 3, "path": f"/api/ingest/birdnet-go/{tok}", "body": both},
+                         {"seq": 4, "path": f"/api/ingest/apprise/{tok}", "body": both}]
+    link.take(svc)
+    assert [d.common_name for d in svc.source.new_since(0)] == ["Blue Jay"]
+
+
 def test_a_report_waits_for_the_starts_take(env, monkeypatch):
     import threading
     door, link, svc, tok = _queue_svc(env)

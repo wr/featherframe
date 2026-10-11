@@ -26,6 +26,8 @@ def name(*candidates) -> str:
 
 
 def confidence(value) -> float:
+    if isinstance(value, bool):    # W-1025: true is not a confidence, and the front door reads it as 0 too
+        return 0.0
     try:
         c = float(value)
     except (TypeError, ValueError):

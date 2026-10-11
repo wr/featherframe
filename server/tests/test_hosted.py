@@ -1069,3 +1069,92 @@ def test_a_start_takes_the_queue_before_it_reports_anything(env, monkeypatch):
             time.sleep(0.1)
         assert link.queue_ready.is_set()
     assert order[:2] == ["take", "report"] and door.state.acked == [1]
+
+
+# -- fix round: the queue is applied once, and a switch reaches the frames first (W-1025) --
+def test_two_takes_given_the_same_rows_apply_them_once(env, monkeypatch):
+    """A start's take and a run's take are both handed every row not yet
+    acknowledged; the second must read what the first applied, not what the
+    database held before it began."""
+    import threading
+    door, link, svc, tok = _queue_svc(env)
+    door.state.ingest = [{"seq": n, "path": f"/api/ingest/birdnet-go/{tok}",
+                          "body": _go("Blue Jay", "Cyanocitta cristata")} for n in (1, 2, 3)]
+    entered, release, calls = threading.Event(), threading.Event(), []
+    real = svc.source.ingest
+
+    def held(payload):
+        calls.append(1)
+        if len(calls) == 1:
+            entered.set()
+            assert release.wait(10)               # the first take, held inside a row
+        return real(payload)
+
+    monkeypatch.setattr(svc.source, "ingest", held)
+    first = threading.Thread(target=link.take, args=(svc,))
+    first.start()
+    assert entered.wait(10)
+    second = threading.Thread(target=link.take, args=(svc,))
+    second.start()
+    second.join(0.5)                              # it has the rows and waits for the lock
+    release.set()
+    first.join(10)
+    second.join(10)
+    assert len(svc.source.new_since(0)) == 3 and len(calls) == 3
+    assert svc.db.get("queue_seq") == 3 and link._ack_upto == 3
+
+
+def test_a_replayed_switch_reaches_the_frames_before_any_report(env):
+    """The take leaves each frame's output on the picture the marker made, so a
+    settle with no run after it does not put the frames back."""
+    door, link, svc, tok = _queue_svc(env)
+    svc.tick()
+    seed_frame(svc, shows="plates", etag="old")
+    before = svc.hosted_state()["frames"][FRAME_ID]
+    assert before["etag"] == "old"
+    door.state.ingest = [
+        {"seq": 1, "path": f"/api/ingest/birdnet-go/{tok}", "body": _go("Blue Jay", "Cyanocitta cristata")},
+        {"seq": 2, "path": "marker", "body": json.dumps({"at": NOW.isoformat(), "choice": "cyanocitta cristata",
+                                                         "etag": None, "upto": 1})}]
+    link.take(svc)
+    pic = svc.pictures["plates"]
+    after = svc.hosted_state()["frames"][FRAME_ID]
+    assert after["etag"] != "old"
+    assert after["file"].startswith(f"frames/drawn/out/{pic.etag}-")
+    assert after["push"]["etag"] == after["etag"]
+
+
+def test_a_failing_frame_draw_after_the_queue_is_logged_not_raised(env, monkeypatch):
+    door, link, svc, tok = _queue_svc(env)
+    svc.tick()
+
+    def broken():
+        raise RuntimeError("no")
+
+    monkeypatch.setattr(svc, "_tick_frames", broken)
+    door.state.ingest = [
+        {"seq": 1, "path": f"/api/ingest/birdnet-go/{tok}", "body": _go("Blue Jay", "Cyanocitta cristata")},
+        {"seq": 2, "path": "marker", "body": json.dumps({"at": NOW.isoformat(), "choice": "cyanocitta cristata",
+                                                         "etag": None, "upto": 1})}]
+    link.take(svc)
+    assert svc.db.get("queue_seq") == 2 and link._ack_upto == 2
+
+
+def test_a_report_acknowledges_only_what_was_taken_before_its_state_was_built(env, monkeypatch):
+    """A take that ends while a settle builds its state (a run's take beside a
+    save's settle) is acknowledged by the next settle, not this one."""
+    door, link, svc, tok = _queue_svc(env)
+    door.state.ingest = [{"seq": 3, "path": f"/api/ingest/birdnet-go/{tok}", "body": _go("Blue Jay", "Cyanocitta cristata")}]
+    link.take(svc)
+    real, once = svc.hosted_state, [True]
+
+    def state():
+        if once[0]:
+            once[0], link._ack_upto = False, 5     # a take ended after the settle began
+        return real()
+
+    monkeypatch.setattr(svc, "hosted_state", state)
+    link.settle(svc, False)
+    assert door.state.acked == [3] and link._ack_upto == 5
+    link.settle(svc, False)
+    assert door.state.acked == [3, 5] and link._ack_upto == 0

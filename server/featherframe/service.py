@@ -2928,10 +2928,13 @@ class FeatherframeService:
         own switches as a plates tick at its time. A row at or below the last
         seq applied was applied before a stop that lost its acknowledgement.
         Returns the highest seq seen. It holds the tick lock, so nothing here
-        may ask for a report (`hosted_state` waits for the same lock)."""
-        last = int(self.db.get("queue_seq", 0) or 0)
-        top = last
+        may ask for a report (`hosted_state` waits for the same lock). The last
+        seq is read under it: a start's take and a run's take are given the
+        same rows, and the second must see what the first applied."""
+        marked = False
         with self._working(), self._tick_lock:
+            last = int(self.db.get("queue_seq", 0) or 0)
+            top = last
             for row in sorted(rows, key=lambda r: int(r.get("seq") or 0)):
                 seq = int(row.get("seq") or 0)
                 top = max(top, seq)
@@ -2944,6 +2947,7 @@ class FeatherframeService:
                     payload = {}
                 try:
                     if path == "marker":
+                        marked = True
                         self._replay_marker(payload if isinstance(payload, dict) else {})
                     elif path == "/api/hosted/seed":
                         self.apply_seed(payload)
@@ -2954,6 +2958,15 @@ class FeatherframeService:
                 except Exception:  # noqa: BLE001 — one bad row must not wedge the queue behind it
                     log.warning("queued row %s (%s) not applied", seq, path, exc_info=True)
                 self.db.set("queue_seq", seq)
+            if marked:
+                # A switch the front door made is a picture here, but a frame's
+                # output follows it only in a tick; a report before one would
+                # put the frames back on the old picture (W-1025). Each output
+                # is already drawn, so this finds them and points the frames.
+                try:
+                    self._tick_frames()
+                except Exception:  # noqa: BLE001 — the queue is applied; a frame is drawn by the next tick
+                    log.warning("frames not drawn after the queue", exc_info=True)
         return top
 
     def _replay_marker(self, marker: dict) -> None:

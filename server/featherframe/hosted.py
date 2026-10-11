@@ -473,6 +473,9 @@ class HostedLink:
         # A report must never be older than what the front door already shows
         # (W-1025): it waits for the start's take of the queue.
         self.queue_ready.wait(QUEUE_WAIT_S)
+        # What is acknowledged is what this report was built after: read before
+        # the state, so a take that ends meanwhile waits for the next settle.
+        upto = self._ack_upto
         try:
             if apply_checkins:
                 self._apply_checkins(service)
@@ -482,10 +485,6 @@ class HostedLink:
             # a file already gone (W-999).
             state = service.hosted_state()
             with self._lock:
-                # Read before the upload: the database it sends holds every row
-                # up to this one, and one taken meanwhile waits for the next
-                # settle (W-1025).
-                upto = self._ack_upto
                 self._upload()
                 self.report(state)
                 if upto:

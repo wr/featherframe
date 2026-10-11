@@ -25,9 +25,9 @@ def test_parse(case):
 
 @pytest.mark.parametrize("case", CASES["choose"], ids=lambda c: c["name"])
 def test_choose(case):
-    queued = [{"marker": True} if q.get("marker") else
-              {"push": {"note": None, "first_days": None, **q["push"]}} for q in case["queued"]]
-    assert switching.choose(_table(case["table"]), queued) == case["expect"]
+    # Read as the file says (its "_doc"): no defaults filled in here, so the
+    # front door's harness and this one see the same queue.
+    assert switching.choose(_table(case["table"]), case["queued"]) == case["expect"]
 
 
 def test_best_is_the_highest_rank_newest_first():

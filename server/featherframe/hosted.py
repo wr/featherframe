@@ -210,6 +210,12 @@ class HostedLink:
         self._lazy: set[str] = set()                   # at the front door, not fetched yet
         self._sent: Optional[tuple] = None             # what the last upload found here
         self._lock = threading.RLock()                 # one sync at a time
+        # One report at a time, built and sent under it (W-1025): a save's
+        # report built during a run's tick must not reach the front door after
+        # the run's own and put its older frames back. Apart from `_lock` on
+        # purpose: building the state asks for the tick lock, and a tick holds
+        # that while it asks for `_lock` (`hosted.fetch`, `glob`, `remove`).
+        self._report_lock = threading.RLock()
         # Set once the front door's queue is taken (W-1025); a report waits for
         # it. The lifespan clears it before the start's take; a link built
         # elsewhere (a test) has nothing to wait for.
@@ -478,27 +484,32 @@ class HostedLink:
         # A report must never be older than what the front door already shows
         # (W-1025): it waits for the start's take of the queue.
         self.queue_ready.wait(QUEUE_WAIT_S)
-        # What is acknowledged is what this report was built after: read before
-        # the state, so a take that ends meanwhile waits for the next settle.
-        upto = self._ack_upto
-        try:
-            if apply_checkins:
-                self._apply_checkins(service)
-            # The state first: it draws each viewer's image (W-849), which the
-            # push then takes along with everything else. Then the files, then
-            # the state, then the removals: the front door is never pointed at
-            # a file already gone (W-999).
-            state = service.hosted_state()
-            with self._lock:
-                self._upload()
-                self.report(state)
-                if upto:
-                    self.ack_queue(upto)      # the database holding them is in R2
-                    if self._ack_upto == upto:
-                        self._ack_upto = 0
-                self._remove_gone()
-        except (requests.RequestException, OSError, ValueError, sqlite3.Error):
-            log.warning("hosted: sync with the front door failed", exc_info=True)
+        # And never older than another report (W-1025): the state is built and
+        # sent under one lock, so two settles reach the front door in the
+        # order their states were built.
+        with self._report_lock:
+            # What is acknowledged is what this report was built after: read
+            # before the state, so a take that ends meanwhile waits for the
+            # next settle.
+            upto = self._ack_upto
+            try:
+                if apply_checkins:
+                    self._apply_checkins(service)
+                # The state first: it draws each viewer's image (W-849), which
+                # the push then takes along with everything else. Then the
+                # files, then the state, then the removals: the front door is
+                # never pointed at a file already gone (W-999).
+                state = service.hosted_state()
+                with self._lock:
+                    self._upload()
+                    self.report(state)
+                    if upto:
+                        self.ack_queue(upto)      # the database holding them is in R2
+                        if self._ack_upto == upto:
+                            self._ack_upto = 0
+                    self._remove_gone()
+            except (requests.RequestException, OSError, ValueError, sqlite3.Error):
+                log.warning("hosted: sync with the front door failed", exc_info=True)
 
     def _apply_checkins(self, service) -> None:
         """Hosted, a frame joins a household only by pairing (its code, or

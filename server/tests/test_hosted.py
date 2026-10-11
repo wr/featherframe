@@ -996,6 +996,57 @@ def test_a_queue_that_cannot_be_taken_does_not_skip_the_check_ins(env, monkeypat
     assert any("queue" in r.getMessage() and r.levelno == logging.WARNING for r in caplog.records)
 
 
+def test_reports_reach_the_front_door_in_the_order_their_states_were_built(env, monkeypatch):
+    """A save's settle that built its state before a run's tick must not report
+    after the run's own: the front door would keep the older frames with the
+    newer table (W-1025)."""
+    import itertools
+    import threading
+    door, link, svc, tok = _queue_svc(env)
+    built, real = itertools.count(1), svc.hosted_state
+    first_built, release = threading.Event(), threading.Event()
+
+    def state():
+        out = {**real(), "n": next(built)}
+        if out["n"] == 1:
+            first_built.set()
+            assert release.wait(10)               # slow between its build and its report
+        return out
+
+    monkeypatch.setattr(svc, "hosted_state", state)
+    save = threading.Thread(target=link.settle, args=(svc, False))
+    save.start()
+    assert first_built.wait(10)
+    run = threading.Thread(target=link.settle, args=(svc, False))
+    run.start()
+    run.join(0.3)                                 # it has to wait: its state would be built after the first's
+    release.set()
+    save.join(10)
+    run.join(10)
+    assert [s["n"] for s in door.state.states] == [1, 2]
+
+
+def test_a_report_builds_its_state_holding_no_lock_a_tick_needs(env, monkeypatch):
+    """The state asks for the tick lock, and a tick holds that while it reads
+    through `hosted.fetch` and `glob`, which take the link's `_lock`: the
+    ordering of reports cannot be that lock (W-1025)."""
+    import threading
+    door, link, svc, tok = _queue_svc(env)
+    real, free = svc.hosted_state, []
+
+    def state():
+        got = []
+        t = threading.Thread(target=lambda: got.append(link._lock.acquire(timeout=2)) or link._lock.release())
+        t.start()
+        t.join(5)
+        free.append(bool(got and got[0]))
+        return real()
+
+    monkeypatch.setattr(svc, "hosted_state", state)
+    link.settle(svc, False)
+    assert free == [True]
+
+
 def test_a_report_waits_for_the_starts_take(env, monkeypatch):
     import threading
     door, link, svc, tok = _queue_svc(env)

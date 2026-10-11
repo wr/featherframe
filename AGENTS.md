@@ -658,22 +658,36 @@ species with a kept sheet drawn for every screen on plates, and not new today,
 what each frame and viewer would be switched to, with a `valid_until` (the
 sooner of midnight and the next quiet hours) after which nothing is decided;
 `{}` whenever the front door must not decide (not a push source, quiet hours,
-no frame on plates), and an older image reports none. It also carries
+no frame on plates, or detections the server holds that no tick has decided
+over: a page's start takes the queue and stops with no tick, and the replay of
+the next marker would choose over them), and an older image reports none. It also carries
 `applied_seq` and `switch_mismatches`, the server's running count of markers it
 disagreed with, which the admin page shows. The rule is pure:
 `featherframe/switching.py` (`parse`, `best`, which the server's own
 `_pick_showable` ranks with, and `choose`) is ported to `hosted/src/switch.ts`,
 both held to `server/tests/fixtures/switch-cases.json` as `spend.decide` is to
-`spend-cases.json`. On a species it writes the frame and viewer rows, tells the
+`spend-cases.json`. `server/tests/test_switch_e2e.py` holds the two halves
+together: a Python `FrontDoor` (`decideAlone`, the queue routes and `takeState`'s
+rule) drives a real service through scripted batches with page starts between,
+and the server's replay must agree. When `decideAlone` or `takeState` changes,
+so does that class. On a species it writes the frame and viewer rows, tells the
 sockets last, sets `unchanged`, counts the switch (`usage.switches`) and ages the
 page's copies (`PageCache.age`: dated back and kept, since `clear()` leaves
 nothing to serve and the next poll starts the server); on that or `same` (what
 the frames already show) it writes a `marker` row into the queue after the
 detections it decided over. A species with no entry (one the server has not
-drawn, or new today), a first-seen date of today, a seed row in the queue, an
-expired table or an error is a wake, as before. The five-minute
+drawn, or new today), a push with no scientific name (the server would draw
+another sheet than any entry names), a first-seen date of today, a seed row in
+the queue, a row the server took and has not acknowledged (it counts that row
+and `decideAlone` would not), an expired table or an error is a wake, as
+before. A push of the other detector's kind than the household's `source_kind`
+(queued before it changed its source) is dropped from the choice, and
+`apply_queue` skips it, as the route's 409 did. The five-minute
 gap for detections counts from the later of `wake_ms` (the server's last wake,
-which the daily wake and the admin page read) and `switch_ms`. `takeState`
+which the daily wake and the admin page read) and `switch_ms`. `nextAlarm`
+alarms for a named time whenever there is one, even one that came due while
+`decideAlone` awaited the server; one a wake has since failed to move is
+retried after `MIN_GAP_MS`, not every second. `takeState`
 keeps the rows the front door switched, and its table, while a marker is past
 the report's `applied_seq` (the report is older than the switch), and asks for
 a wake.
@@ -732,8 +746,13 @@ seeds and markers in `seq` order under the tick lock, skipping any at or below
 `queue_seq` (a take repeated after a crash applies nothing twice); a marker is
 the plates part of a tick at its own time (`_replay_marker`), so History, the
 cursor and the counts come out as if the server had been awake, and its choice
-is checked against the server's own: a disagreement is counted in
-`switch_mismatches` and the server's picture stands. `applied_seq` is read
+is checked against the server's own: a disagreement, or a replay that raises,
+is counted in `switch_mismatches` and the server's picture stands. The take
+applies the check-ins and the queue each on its own, so one failing costs the
+other nothing, and `settle` builds its state and sends it under
+`HostedLink._report_lock`, so two reports reach the front door in the order
+their states were built (not `_lock`: building the state asks for the tick
+lock, which a tick holds while it asks for `_lock`). `applied_seq` is read
 before the report's outputs, so they are at least as new as it says. The small
 files a start reads travel as archives, `bundles/files.tar` and
 `bundles/history.tar` (`hosted.bundle_of`): one request each, not one per file;

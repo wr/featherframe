@@ -1689,6 +1689,14 @@ class FeatherframeService:
         """The table itself, under the tick lock with a fresh memo (W-1025):
         one entry for each species the push feed has heard whose sheet, and
         every screen's finish of it, is already kept."""
+        # Detections this server holds that no tick has decided over (a page's
+        # start takes the queue and stops with no tick) are in the replay of
+        # the next marker, whatever the front door counts: a table now would let
+        # it choose over less than the server does (W-1025). None: a source new
+        # to this server, which the next tick starts at its tail.
+        cursor = self._cursor()
+        if cursor is None or self.source.new_since(cursor, CONFIDENCE_FLOOR, limit=1):
+            return {}
         fallback = self._fallback_note()
         kits = [r for r in self._kits_on()
                 if self._kind_for(frames_mod.shows_of(r), now) == PLATES]

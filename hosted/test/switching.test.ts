@@ -164,6 +164,24 @@ describe("the front door's own switch", () => {
     expect(rows(sql).map((r) => r.path)).toEqual(["/api/ingest/birdnet-go/tok"]);
   });
 
+  it("decides nothing while the server holds rows it took and has not acknowledged", async () => {
+    // A stop that never reported, or a report that failed after the take: the
+    // server counts the taken rows in its replay and this would not, so the two
+    // would choose over different batches (W-1025).
+    const { h, sql } = await door();
+    await push(h, GO("Blue Jay", "Cyanocitta cristata"));
+    await call(h, "ingest/take");
+    await push(h, GO("American Robin", "Turdus migratorius"));
+    expect(rows(sql).map((r) => r.taken)).toEqual([1, 0]);
+    expect(await h.decideAlone()).toBe(false);
+    expect(h.frameRow("K1").etag).toBe("out-finch");
+    expect(rows(sql).map((r) => r.path)).toEqual(["/api/ingest/birdnet-go/tok", "/api/ingest/birdnet-go/tok"]);
+    // Acknowledged, the rest is the front door's to decide again.
+    await call(h, "ingest/ack", { upto: rows(sql)[0].seq });
+    expect(await h.decideAlone()).toBe(true);
+    expect(h.frameRow("K1").etag).toBe("out-robin");
+  });
+
   it("wakes for a seed row, which is the server's to apply", async () => {
     const { h, sql } = await door();
     sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", "/api/hosted/seed", "{}");

@@ -532,10 +532,14 @@ export class Household extends DurableObject<Env> {
     if (!table || !(Date.now() / 1000 < table.valid_until)) return false;
     if (await this.env.SERVER.getByName(this.meta("hid")!).running()) return false;
     // From here to the marker: no await, so no push lands in between.
+    // Rows the server took and has not acknowledged (a start that was lost
+    // before it reported, a report that failed): its replay counts them and
+    // this would not, so the two would choose over different batches (W-1025).
+    if (this.sql.exec("SELECT 1 FROM ingest WHERE taken = 1 LIMIT 1").toArray().length) return false;
     const rows = this.sql.exec<{ seq: number; path: string; body: string }>(
       "SELECT seq, path, body FROM ingest WHERE taken = 0 ORDER BY seq").toArray();
-    // Everything queued was taken already (a page started the server, which
-    // took it and slept): what it took it has yet to draw, so it decides.
+    // Nothing waits that the server has not taken (a page started it, which
+    // took the queue and slept): what it took it has yet to draw, so it decides.
     if (!rows.length) return false;
     const queued: Queued[] = [];
     for (const r of rows) {

@@ -1,6 +1,7 @@
 """What the server tells its front door it may switch to alone (W-1025)."""
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timedelta
 
@@ -16,6 +17,7 @@ from tests._frames import EE02_PANEL, EE03_PANEL, add_kit
 from tests.test_drawn import COLOUR, GRAY, NOW, SPECIES, _RefArt
 
 VIEWER = "AA:BB:CC:00:00:01"
+CARDINAL = "cardinalis cardinalis"
 
 
 def GO(common, sci, note=None, at=NOW, days=30):
@@ -177,6 +179,40 @@ def test_nothing_while_no_frame_shows_detections(svc):
     assert svc.switch_table() == {}
 
 
+def test_nothing_while_detections_wait_that_no_tick_has_decided_over(svc):
+    """A page's start takes the queue and stops with no tick (W-1025). The next
+    marker is replayed over those detections too, so a table the front door
+    chooses against would be a choice over less than the server will."""
+    _hear(svc, "Northern Cardinal")
+    _hear(svc, "Blue Jay")
+    assert CARDINAL in svc.switch_table()["species"]
+    svc.source.ingest(GO("Blue Jay", SPECIES["Blue Jay"][0]))
+    assert svc.switch_table() == {}
+    assert svc.hosted_state()["switches"] == {}
+    svc._tick_memo = {}
+    svc.tick()                                          # decided over: a table again
+    assert CARDINAL in svc.switch_table()["species"]
+
+
+def test_nothing_before_a_tick_has_set_the_cursor(svc):
+    assert svc._cursor() is None
+    assert svc.switch_table() == {}
+    svc.tick()
+    assert svc._cursor() is not None
+    assert "floor" in svc.switch_table()
+
+
+def test_a_detection_below_the_floor_is_not_waiting(svc):
+    """The tick never looks at it, so it never waits to be decided over."""
+    svc.source = PushedSource("apprise", svc.db)
+    svc.tick()
+    svc.source.ingest({"title": "x", "message": json.dumps({
+        "comname": "Blue Jay", "sciname": "Cyanocitta cristata", "confidence": CONFIDENCE_FLOOR / 2,
+        "date": NOW.strftime("%Y-%m-%d"), "time": NOW.strftime("%H:%M:%S")})})
+    assert svc.source.new_since(svc._cursor(), 0.0)         # the source holds it
+    assert "floor" in svc.switch_table()
+
+
 def test_a_blocked_species_has_no_entry_and_is_listed(svc):
     _hear(svc, "Northern Cardinal")
     _hear(svc, "Blue Jay")
@@ -187,6 +223,7 @@ def test_a_blocked_species_has_no_entry_and_is_listed(svc):
 
 
 def test_the_floor_is_the_sources_own(svc):
+    _hear(svc, "Northern Cardinal")                     # a tick has set the cursor
     assert svc.switch_table()["floor"] == 0.0           # BirdNET-Go's threshold wins
     svc.source = PushedSource("apprise", svc.db)
     assert svc.switch_table()["floor"] == CONFIDENCE_FLOOR
@@ -228,7 +265,6 @@ def test_the_report_carries_it(svc):
 
 
 # -- what a real switch would have to compose or buy (W-1025) ------------------
-CARDINAL = "cardinalis cardinalis"
 
 
 def _file_under(svc, common, ref, etag):

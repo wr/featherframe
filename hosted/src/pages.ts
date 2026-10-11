@@ -206,6 +206,9 @@ export type AdminData = {
     usage: UsageDay[];
     last_wake: number | null; source: string | null;
     ai: { usd: number; limit: number | null; paused: boolean; count: number };
+    // The pictures the front door switched to without a wake this month, and the
+    // switches the server later chose otherwise (W-1025).
+    switches: number; mismatches: number;
   }[];
   usage: Usage;
   log: { at: number; admin: string; action: string; target: string | null; ok: number; result: string }[];
@@ -400,6 +403,8 @@ export function adminPage(d: AdminData, toast: Toast | null, actingAs = false, o
       const t = serverTime(h.usage.filter((u) => u.day >= week));
       const note = [
         t.wakes ? `${Math.round(t.wake_ms / t.wakes / 1000)} s a wake` : "",
+        h.switches ? `${h.switches} switch${h.switches === 1 ? "" : "es"} without a wake` : "",
+        h.mismatches ? `${h.mismatches} mismatch${h.mismatches === 1 ? "" : "es"}` : "",
         t.page_ms ? `${minutes(t.page_ms)} on the page` : "page not opened",
         t.since ? `since ${new Date(`${t.since}T00:00:00Z`).toLocaleDateString("en-GB",
           { day: "numeric", month: "short", timeZone: "UTC" })}` : "",

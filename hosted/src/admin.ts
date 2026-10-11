@@ -235,7 +235,7 @@ async function gather(env: Env): Promise<AdminData> {
       return { ...h, ...(await env.HOUSEHOLD.getByName(h.id).summary()) };
     } catch {
       return { ...h, frames: [], usage: [], month_ms: 0, last_wake: null, source: null, suspended: false,
-              ai: { usd: 0, limit: null, paused: false, count: 0 } };
+              ai: { usd: 0, limit: null, paused: false, count: 0 }, switches: 0, mismatches: 0 };
     }
   }));
   const usage = await cloudflareUsage(env, rows.reduce((a, h) => a + h.month_ms, 0));

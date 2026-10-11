@@ -50,7 +50,7 @@ beforeEach(() => {
     HOUSEHOLD: { getByName: (hid: string) => ({
       destroy: async (id: string) => { destroyed.push(id); return 7; },
       suspend: async (on: boolean) => { suspended.push([hid, on]); },
-      summary: async () => ({ frames: [], usage: [], month_ms: 0, last_wake: null, source: null, suspended: false, ai: { usd: 0, limit: null, paused: false, count: 0 } }),
+      summary: async () => ({ frames: [], usage: [], month_ms: 0, last_wake: null, source: null, suspended: false, ai: { usd: 0, limit: null, paused: false, count: 0 }, switches: 0, mismatches: 0 }),
     }) },
   };
   vi.stubGlobal("fetch", vi.fn(async () => new Response("{}")));
@@ -310,6 +310,30 @@ describe("the households table", () => {
     expect(html).toContain("main.wide { max-width:1040px; }");
     expect(html).toMatch(/main\.wide \.card \{[^}]*overflow-x:auto/);
     expect(html).not.toMatch(/main\.wide \.card \{[^}]*overflow:hidden/);
+  });
+
+  it("counts a household's switches without a wake, and any the server disagreed with (W-1025)", async () => {
+    const { adminPage } = await import("../src/pages");
+    const row = (id: string, switches: number, mismatches: number) => ({
+      id, created_at: 1, email: `${id}@example.com`, paired: 0, suspended_at: null, frames: [],
+      usage: [], last_wake: null, source: null, ai: { usd: 0, limit: null, paused: false, count: 0 },
+      month_ms: 0, suspended: false, switches, mismatches,
+    });
+    const page = (households: ReturnType<typeof row>[]) => adminPage({ waitlist: [], invites: [], log: [], kits: [],
+      households, growth: { signups: [], invites: [], households: [] },
+      usage: { meters: [], bill: 5, projected: 5, month: "2026-10", live: true, measured: true, days: [] },
+    } as never, null).text();
+    const busy = await page([row("h1", 40, 1)]);
+    expect(busy).toContain("40 switches without a wake");
+    expect(busy).toContain("1 mismatch");
+    expect(busy).not.toContain("1 mismatches");
+    const one = await page([row("h2", 1, 2)]);
+    expect(one).toContain("1 switch without a wake");
+    expect(one).not.toContain("1 switches");
+    expect(one).toContain("2 mismatches");
+    const quiet = await page([row("h3", 0, 0)]);
+    expect(quiet).not.toContain("without a wake");
+    expect(quiet).not.toContain("mismatch");
   });
 });
 

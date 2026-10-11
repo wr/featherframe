@@ -277,6 +277,36 @@ class PushedSource(DetectionSource):
                if float(i["confidence"]) >= floor]
         return out[:limit]
 
+    def heard(self) -> list:
+        """(common, scientific) of every species in the retained window,
+        newest first, once each: what the front door may hear next (W-1025)."""
+        with self._lock:
+            items = list(self._items)
+        seen, out = set(), []
+        for i in reversed(items):
+            key = (i.get("scientific") or "").strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                out.append((i.get("common") or "", i.get("scientific") or ""))
+        return out
+
+    def notes_since(self, seconds: int, now: Optional[datetime] = None) -> list:
+        """BirdNET-Go note ids taken in the last `seconds` before `now` (the
+        service's clock): a push that repeats one is the same detection, sent
+        again for another rule (W-1025)."""
+        cutoff = (now or datetime.now()) - timedelta(seconds=seconds)
+        with self._lock:
+            items = list(self._items)
+        out = []
+        for i in items:
+            try:
+                at = datetime.fromisoformat(f"{i['date']}T{i['time']}")
+            except (KeyError, ValueError):
+                continue
+            if i.get("note") and at >= cutoff:
+                out.append(str(i["note"]))
+        return out
+
     def all_time_species_count(self) -> int:
         with self._lock:
             seen = {str(i["scientific"]).lower() for i in self._items if i.get("scientific")}

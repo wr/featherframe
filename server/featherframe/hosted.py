@@ -452,17 +452,22 @@ class HostedLink:
     def take(self, service) -> None:
         """What the frames said and what the front door queued (W-1025): a
         wake takes both before its tick, so a frame just paired is added and
-        drawn for in that same tick. Whatever happens, this take is over and
+        drawn for in that same tick. Each is taken on its own, so one that
+        fails costs the other nothing. Whatever happens, this take is over and
         reports may go: a front door that cannot hand the queue over (one from
         before it kept one) has given nothing, and the queue is still there."""
         try:
-            self._apply_checkins(service)
-            rows = self.take_queue()
-            if rows:
-                upto = service.apply_queue(rows)
-                self._ack_upto = max(self._ack_upto, upto)
-        except (requests.RequestException, OSError, ValueError, sqlite3.Error):
-            log.warning("hosted: taking what the front door kept failed", exc_info=True)
+            try:
+                self._apply_checkins(service)
+            except (requests.RequestException, OSError, ValueError, sqlite3.Error):
+                log.warning("hosted: taking the check-ins failed", exc_info=True)
+            try:
+                rows = self.take_queue()
+                if rows:
+                    upto = service.apply_queue(rows)
+                    self._ack_upto = max(self._ack_upto, upto)
+            except (requests.RequestException, OSError, ValueError, sqlite3.Error):
+                log.warning("hosted: taking the front door's queue failed", exc_info=True)
         finally:
             self.queue_ready.set()
 

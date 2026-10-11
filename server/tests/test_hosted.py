@@ -960,6 +960,42 @@ def test_a_push_of_the_other_detectors_kind_is_not_applied(env):
     assert [d.common_name for d in svc.source.new_since(0)] == ["Blue Jay"]
 
 
+def test_a_take_of_check_ins_that_fails_does_not_skip_the_queue(env, monkeypatch, caplog):
+    """W-1025: each is taken on its own, and the take is over either way."""
+    import logging
+    door, link, svc, tok = _queue_svc(env)
+    door.state.ingest = [{"seq": 1, "path": f"/api/ingest/birdnet-go/{tok}", "body": _go("Blue Jay", "Cyanocitta cristata")}]
+
+    def down():
+        raise hosted.requests.ConnectionError("no check-ins today")
+
+    monkeypatch.setattr(link, "take_checkins", down)
+    link.queue_ready.clear()
+    with caplog.at_level(logging.WARNING, logger="featherframe.hosted"):
+        link.take(svc)
+    assert [d.common_name for d in svc.source.new_since(0)] == ["Blue Jay"]
+    assert link.queue_ready.is_set() and link._ack_upto == 1
+    assert any("check-ins" in r.getMessage() and r.levelno == logging.WARNING for r in caplog.records)
+
+
+def test_a_queue_that_cannot_be_taken_does_not_skip_the_check_ins(env, monkeypatch, caplog):
+    import logging
+    door, link, svc, tok = _queue_svc(env)
+    door.state.queue = [{"id": "aa:bb:cc:00:00:01", "add": True, "at": "2026-09-22T11:59:00",
+                         "viewer": {"transport": "trmnl", "headers": {"Model": "x", "Width": "1872", "Height": "1404"}}}]
+
+    def down():
+        raise hosted.requests.ConnectionError("no queue today")
+
+    monkeypatch.setattr(link, "take_queue", down)
+    link.queue_ready.clear()
+    with caplog.at_level(logging.WARNING, logger="featherframe.hosted"):
+        link.take(svc)
+    assert svc.frames.get("AA:BB:CC:00:00:01")["status"] == frames_mod.ON
+    assert link.queue_ready.is_set() and link._ack_upto == 0
+    assert any("queue" in r.getMessage() and r.levelno == logging.WARNING for r in caplog.records)
+
+
 def test_a_report_waits_for_the_starts_take(env, monkeypatch):
     import threading
     door, link, svc, tok = _queue_svc(env)

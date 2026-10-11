@@ -1,12 +1,16 @@
 """What the server tells its front door it may switch to alone (W-1025)."""
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 
 import pytest
 
+from featherframe import drawn
+from featherframe import service as service_mod
 from featherframe.render import pipeline
-from featherframe.service import CONFIDENCE_FLOOR
+from featherframe.service import CONFIDENCE_FLOOR, _drawn_from
+from featherframe.sources import Detection
 from featherframe.sources.pushed import PushedSource
 from tests._frames import EE02_PANEL, EE03_PANEL, add_kit
 from tests.test_drawn import COLOUR, GRAY, NOW, SPECIES, _RefArt
@@ -14,10 +18,10 @@ from tests.test_drawn import COLOUR, GRAY, NOW, SPECIES, _RefArt
 VIEWER = "AA:BB:CC:00:00:01"
 
 
-def GO(common, sci, note=None, at=NOW):
+def GO(common, sci, note=None, at=NOW, days=30):
     return {"type": "detection", "metadata": {
         "species": common, "scientific_name": sci, "confidence": 0.9, "note_id": note,
-        "days_since_first_seen": 30,
+        "days_since_first_seen": days,
         "bg_detection_date": at.strftime("%Y-%m-%d"), "bg_detection_time": at.strftime("%H:%M:%S")}}
 
 
@@ -39,8 +43,8 @@ def svc(tmp_path, monkeypatch):
     return s
 
 
-def _hear(s, common, note=None):
-    s.source.ingest(GO(common, SPECIES[common][0], note))
+def _hear(s, common, note=None, days=30):
+    s.source.ingest(GO(common, SPECIES[common][0], note, days=days))
     # A tick's memo is keyed by its moment; this clock is frozen, so each tick
     # starts without the last one's tally, as a real one does.
     s._tick_memo = {}
@@ -127,7 +131,6 @@ def test_first_today_is_what_novelty_says_of_a_fresh_detection(svc):
     tomorrow = svc._clock()
     entry = svc.switch_table()["species"]["cardinalis cardinalis"]
     assert entry["first_today"] is True
-    from featherframe.sources import Detection
     det = Detection(rowid=0, date=tomorrow.strftime("%Y-%m-%d"), time="08:00:00",
                     common_name="Northern Cardinal", scientific_name="Cardinalis cardinalis",
                     confidence=1.0)
@@ -222,3 +225,141 @@ def test_the_report_carries_it(svc):
     _hear(svc, "Northern Cardinal")
     _hear(svc, "Blue Jay")
     assert "cardinalis cardinalis" in svc.hosted_state()["switches"]["species"]
+
+
+# -- what a real switch would have to compose or buy (W-1025) ------------------
+CARDINAL = "cardinalis cardinalis"
+
+
+def _file_under(svc, common, ref, etag):
+    """Keep `etag` under the key a detection of `common` would look up with
+    this art ref: a sheet kept where a real tick would find it."""
+    svc._tick_memo = {}
+    spec = svc._fresh_spec(common, SPECIES[common][0], NOW, "first-today", None, None,
+                           svc._fallback_note())
+    key = drawn.sheet_key(_drawn_from(spec), ref)
+    svc._drawn_note(lambda st: drawn.remember_sheet(st, key, etag, ()))
+    assert svc._kept_sheet(key) == (etag, ())
+
+
+def test_a_species_new_today_has_no_entry_whatever_is_kept(svc):
+    _hear(svc, "Blue Jay")
+    _hear(svc, "Northern Cardinal", days=0)             # first heard today
+    assert svc.pictures["plates"].meta["novelty"] == "first-ever"
+    # File its sheet where a repeat would look, so only its being new keeps it out.
+    _file_under(svc, "Northern Cardinal", svc.provider.ref("Northern Cardinal", ""),
+                svc.pictures["plates"].etag)
+    _hear(svc, "Blue Jay")
+    assert CARDINAL not in svc.switch_table()["species"]
+    # The control: were it not new, the kept sheet would be an entry.
+    svc._is_new_species = lambda *a: False
+    assert CARDINAL in svc.switch_table()["species"]
+
+
+def test_a_sheet_whose_colour_twin_is_missing_has_no_entry(svc):
+    svc.provider.colour_fails = True                    # the colour kit is drawn from the gray sheet
+    _hear(svc, "Northern Cardinal")
+    _hear(svc, "Blue Jay")
+    etag = svc._output_etag(COLOUR)
+    assert etag and not drawn.whole(drawn.twin_path(svc.picture_for("plates").etag))
+    # Its output is kept, so only the twin a real switch would compose holds it back.
+    svc.provider.colour_fails = False
+    assert CARDINAL not in svc.switch_table()["species"]
+
+
+def test_a_colour_viewer_that_asked_lately_holds_back_a_sheet_with_no_twin(svc):
+    svc.frames.forget(COLOUR)                           # only a gray kit shows plates
+    _hear(svc, "Northern Cardinal")
+    _hear(svc, "Blue Jay")
+    assert CARDINAL in svc.switch_table()["species"]
+    # A colour viewer asked, then went away: the next commit composes a twin
+    # for it (`_color_wanted`), which a switch cannot do without this server.
+    svc.db.set("color_viewer_at", NOW.isoformat(timespec="seconds"))
+    svc._color_asked_at = None
+    assert not drawn.whole(drawn.twin_path(svc.pictures["plates"].etag))
+    assert CARDINAL not in svc.switch_table()["species"]
+
+
+@pytest.mark.parametrize("ref", [None, ""])
+def test_art_that_would_be_bought_or_composed_has_no_entry(svc, ref):
+    _hear(svc, "Northern Cardinal")
+    _hear(svc, "Blue Jay")
+    etag = svc.switch_table()["species"][CARDINAL]["etag"]
+    # None: the providers cannot say without drawing; "": no art, and an
+    # illustration could arrive. Filed where a real tick would find it.
+    svc.provider.ref = lambda common, scientific: ref
+    svc._art_could_arrive = lambda: True
+    _file_under(svc, "Northern Cardinal", ref, etag)
+    assert CARDINAL not in svc.switch_table()["species"]
+    # The control: with art that is there, the same kept sheet is an entry.
+    svc.provider.ref = lambda common, scientific: ref or "stub:filed"
+    _file_under(svc, "Northern Cardinal", ref or "stub:filed", etag)
+    assert CARDINAL in svc.switch_table()["species"]
+
+
+def test_the_shown_sheet_is_not_clean_when_it_carries_a_footnote(svc):
+    _hear(svc, "Northern Cardinal")
+    _hear(svc, "Blue Jay")
+    assert svc.switch_table()["shown_clean"] is True
+    # The cardinal again, drawn under a gone-quiet note: another sheet than the
+    # one a fresh detection of it draws.
+    svc._quiet = {"since": (NOW - timedelta(hours=7)).isoformat(timespec="seconds")}
+    svc._tick_memo = {}
+    svc._render_single(Detection(1, "2026-10-06", "08:00:00", "Northern Cardinal",
+                                 SPECIES["Northern Cardinal"][0], 0.9), NOW, reason="detection")
+    svc._tick_frames()
+    svc._quiet = None
+    t = svc.switch_table()
+    assert t["shown"] == CARDINAL and CARDINAL in t["species"]
+    assert t["species"][CARDINAL]["etag"] != svc.pictures["plates"].etag
+    assert t["shown_clean"] is False
+
+
+def test_the_shown_sheet_is_not_clean_while_it_waits_for_colour(svc):
+    _hear(svc, "Northern Cardinal")
+    _hear(svc, "Blue Jay")
+    svc._recolor.add("plates")
+    assert svc.switch_table()["shown_clean"] is False
+
+
+def test_the_shown_sheet_is_not_clean_without_art_that_could_arrive(svc):
+    _hear(svc, "Northern Cardinal")
+    _hear(svc, "Blue Jay")
+    svc.pictures["plates"].meta["art"] = False
+    assert svc.switch_table()["shown_clean"] is True     # nothing could arrive
+    svc._art_could_arrive = lambda: True
+    assert svc.switch_table()["shown_clean"] is False
+
+
+# -- a report never fails or hangs on the table (W-1025) -------------------------
+def test_a_table_that_fails_to_build_is_none_and_a_warning(svc, caplog):
+    _hear(svc, "Northern Cardinal")
+    _hear(svc, "Blue Jay")
+    memo = svc._tick_memo
+
+    def boom(now, src):
+        raise RuntimeError("no table today")
+    svc._switch_table = boom
+    with caplog.at_level(logging.WARNING, logger="featherframe.service"):
+        assert svc.switch_table() == {}
+        assert svc.hosted_state()["switches"] == {}
+    assert any("switch table" in r.getMessage() and r.levelno == logging.WARNING
+               for r in caplog.records)
+    # Neither the lock nor the memo is left as the failure found them.
+    assert svc._tick_lock.acquire(blocking=False)
+    svc._tick_lock.release()
+    assert svc._tick_memo is memo
+
+
+def test_a_tick_that_outlasts_the_wait_leaves_the_table_empty(svc, monkeypatch, caplog):
+    _hear(svc, "Northern Cardinal")
+    _hear(svc, "Blue Jay")
+    monkeypatch.setattr(service_mod, "SWITCH_LOCK_WAIT_S", 0.05)
+    svc._tick_lock.acquire()                            # a tick that has not finished
+    try:
+        with caplog.at_level(logging.WARNING, logger="featherframe.service"):
+            assert svc.switch_table() == {}
+        assert any("a tick still runs" in r.getMessage() for r in caplog.records)
+    finally:
+        svc._tick_lock.release()
+    assert "cardinalis cardinalis" in svc.switch_table()["species"]

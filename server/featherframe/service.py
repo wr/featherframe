@@ -149,6 +149,10 @@ _TODAY_SCAN = 200
 # How far back the switch table lists the BirdNET-Go notes the server took
 # (W-1025): a push that repeats one is the same detection sent again.
 SWITCH_NOTES_S = 3600
+# How long a report waits for a tick in progress before it says no table
+# (W-1025). An empty table only wakes the server, which is always safe; a
+# report that blocked would hold up everything the front door is told.
+SWITCH_LOCK_WAIT_S = 30
 
 
 def _as_time(v) -> dtime:
@@ -1643,20 +1647,34 @@ class FeatherframeService:
         """What the front door may switch every screen to by itself when a
         species is heard next (W-1025), or {} when it must wake this server.
         Only a sheet already kept, drawn for every screen that would show it,
-        for a species not new today: anything else composes, buys or gates."""
-        now = now or self._clock()
-        src = self.source
-        if (getattr(src, "kind", None) not in ("apprise", "birdnet_go")
-                or self.in_quiet_hours(now) or PLATES not in self._kinds_shown(now)):
-            return {}
-        # Read as a tick reads, and never beside one: today's counts fresh, the
-        # pictures still. A report holds no tick lock, so it waits for one.
-        with self._tick_lock:
-            before, self._tick_memo = self._tick_memo, {"now": now}
+        for a species not new today: anything else composes, buys or gates.
+        It never raises, and never waits long on a tick: an empty table only
+        wakes this server, so a report goes out without one rather than not at
+        all."""
+        try:
+            now = now or self._clock()
+            src = self.source
+            if (getattr(src, "kind", None) not in ("apprise", "birdnet_go")
+                    or self.in_quiet_hours(now) or PLATES not in self._kinds_shown(now)):
+                return {}
+            # Read as a tick reads, and never beside one: today's counts fresh,
+            # the pictures still. A report holds no tick lock, so it waits for
+            # one, but only so long: shutdown reports while a tick may still run.
+            if not self._tick_lock.acquire(timeout=SWITCH_LOCK_WAIT_S):
+                log.warning("switch table: a tick still runs after %ss; reporting none",
+                            SWITCH_LOCK_WAIT_S)
+                return {}
             try:
-                return self._switch_table(now, src)
+                before, self._tick_memo = self._tick_memo, {"now": now}
+                try:
+                    return self._switch_table(now, src)
+                finally:
+                    self._tick_memo = before      # a report leaves no memo behind
             finally:
-                self._tick_memo = before      # a report leaves no memo behind
+                self._tick_lock.release()
+        except Exception:  # noqa: BLE001 — a table that fails must not cost the report
+            log.warning("switch table: not built; reporting none", exc_info=True)
+            return {}
 
     def _switch_table(self, now: datetime, src) -> dict:
         """The table itself, under the tick lock with a fresh memo (W-1025):
@@ -1668,8 +1686,12 @@ class FeatherframeService:
         viewers = [r for r in self.frames.by_transport(*viewers_mod.KINDS)
                    if r.get("status") == frames_mod.ON
                    and self._kind_for(viewers_mod.shows_of(r), now) == PLATES]
-        color = any(self.frame_config(r).panel_spec.color for r in kits) or \
-            any(viewers_mod.view_of(r).fmt == "color" for r in viewers)
+        # A real switch composes the colour twin whenever `_commit` wants one,
+        # which a colour viewer's recent ask does even when none is on plates
+        # now; a viewer that is on plates is drawn a twin ahead by `ensure_view`.
+        color = self._color_wanted(PLATES, now) \
+            or any(self.frame_config(r).panel_spec.color for r in kits) \
+            or any(viewers_mod.view_of(r).fmt == "color" for r in viewers)
         today = self._today_counts(now) or {}
         species = {}
         for common, scientific in src.heard():

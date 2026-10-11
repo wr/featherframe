@@ -114,6 +114,30 @@ describe("PageCache", () => {
     expect(b.m.size).toBe(0);
   });
 
+  it("ages the changing copies to a stale time, keeping their bodies, older times and the fixed ones (W-1025)", async () => {
+    const { c } = make();
+    const fixed = routeOf("/api/history/0123456789abcdef.png", "d")!;
+    const kp = cacheKey(U("/"), route, {}, "b");
+    const ks = cacheKey(U("/api/status"), routeOf("/api/status", "d")!, {}, "b");
+    const kh = cacheKey(U("/api/history/0123456789abcdef.png"), fixed, {}, "b");
+    const kn = cacheKey(U("/api/battery?frame=A&hours=24"), routeOf("/api/battery", "d")!, {}, "b");
+    await c.store(kp.key, "changing", kp.ask, page("p"), T);
+    await c.store(ks.key, "changing", ks.ask, page("{}", "application/json"), T - 3 * FRESH_MS);
+    await c.store(kh.key, fixed.kind, kh.ask, page("h", "image/png"), T);
+    c.note(kn.key, "changing", kn.ask, T);                      // a row with no copy yet
+    c.age(T + 1000);
+    const e = c.find(kp.key)!;
+    expect(e.filled_at).toBe(T + 1000 - FRESH_MS);              // true to the page: 15 min old, not "now" and not 1970
+    expect(c.fresh(e, T + 1000)).toBe(false);
+    expect(c.stale(T + 1000)).toBe(true);
+    const hit = await c.respond(e, "GET");
+    expect(await hit!.text()).toBe("p");
+    expect(hit!.headers.get("X-FF-Copy-At")).toBe(String(T + 1000 - FRESH_MS));
+    expect(c.find(ks.key)!.filled_at).toBe(T - 3 * FRESH_MS);   // already older: as it was
+    expect(c.find(kh.key)!.filled_at).toBe(T);
+    expect(c.find(kn.key)!.filled_at).toBeNull();
+  });
+
   it("refreshes what was read in the last 2 hours and empty rows, all in one generation", async () => {
     const { c } = make();
     const kp = cacheKey(U("/"), route, {}, "b");

@@ -2,6 +2,7 @@
 // How old the page's status is (server/templates/page-age.js, W-954).
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { FRESH_MS } from "../src/pagecache";
 
 const read = (f: string) => readFileSync(new URL(`../../server/templates/${f}`, import.meta.url), "utf8");
 const ffPageAge = new Function(`${read("page-time.js")}\n${read("page-age.js")}; return ffPageAge;`)();
@@ -11,6 +12,14 @@ const MIN = 60_000;
 const date = (ms: number) => new Date(ms).toUTCString();
 
 describe("ffPageAge", () => {
+  it("says a copy the front door aged is old, which a copy time of 0 would not (W-1025)", () => {
+    const aged = ffPageAge();
+    aged.answer(String(T - FRESH_MS), date(T), T);
+    expect(aged.note(T)).toEqual({ text: "Updated 15 min ago", act: true });
+    const zero = ffPageAge();            // 0 is "no header": the answer's own Date, so it reads as current
+    zero.answer("0", date(T), T);
+    expect(zero.note(T)).toBeNull();
+  });
   it("never applies the front door's copy over a newer live answer, so the age does not come back", () => {
     const a = ffPageAge();
     expect(a.answer(String(T - 12 * MIN), date(T), T)).toBe(true);

@@ -26,7 +26,8 @@ export type Usage = { meters: Meter[]; bill: number; projected: number; month: s
                       days: SpendDay[] };
 
 /** One household's server time on one UTC day (the front door's count), and
- * how many times the front door switched the screens itself that day (W-1025). */
+ * how many pictures the front door switched the screens to that day without
+ * waking the server (W-1025). */
 export type UsageDay = { day: string; wakes: number; server_ms: number; wake_ms: number; page_ms: number;
                          switches: number };
 

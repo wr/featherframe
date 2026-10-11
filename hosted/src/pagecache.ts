@@ -116,11 +116,15 @@ export class PageCache {
     if (objects.length) await this.bucket.delete(objects.map((o) => this.prefix + o));
   }
 
-  /** Every changing copy is old, but kept (W-1025): the next read serves it
+  /** Every changing copy is stale, but kept (W-1025): the next read serves it
    * while a look asks for a wake, as after any change. `clear()` would leave
-   * nothing to serve, and the next poll would start the server itself. */
-  age(): void {
-    this.sql.exec("UPDATE page_cache SET filled_at = 0 WHERE kind = 'changing' AND filled_at IS NOT NULL");
+   * nothing to serve, and the next poll would start the server itself. A copy
+   * is dated FRESH_MS back, or its own time if that is older: the page reads
+   * the date (X-FF-Copy-At) as its age, and a 0 would read as no date at all,
+   * so as current. A row with no copy stays without one. */
+  age(now = Date.now()): void {
+    this.sql.exec("UPDATE page_cache SET filled_at = MIN(filled_at, ?) WHERE kind = 'changing' AND filled_at IS NOT NULL",
+      now - FRESH_MS);
   }
 
   /** Someone read a changing copy since `since`. */

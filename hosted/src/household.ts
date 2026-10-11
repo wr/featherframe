@@ -180,8 +180,8 @@ export class Household extends DurableObject<Env> {
     const wake = Number(this.meta("wake_ms") || 0);
     const month_ms = this.sql.exec<{ ms: number }>("SELECT coalesce(sum(server_ms), 0) AS ms FROM usage WHERE day >= ?",
       new Date().toISOString().slice(0, 8) + "01").one().ms;
-    // Switches made here this month, and the ones the server later chose
-    // otherwise (W-1025): the admin page shows both.
+    // Pictures switched to here this month without a wake, and the switches the
+    // server later chose otherwise (W-1025): the admin page shows both.
     const switches = this.sql.exec<{ n: number }>("SELECT coalesce(sum(switches), 0) AS n FROM usage WHERE day >= ?",
       new Date().toISOString().slice(0, 8) + "01").one().n;
     return { frames, usage, month_ms, last_wake: wake || null, source: this.meta("source_kind"),
@@ -505,7 +505,14 @@ export class Household extends DurableObject<Env> {
     if (!due(s)) return this.schedule();
     // Detections alone, and the server said what each screen would show:
     // switch them here and let the server catch up when it next starts (W-1025).
-    if (onlyDetections(s) && await this.decideAlone()) return this.schedule();
+    // Anything that goes wrong in deciding is a wake, never a dropped alarm.
+    let decided = false;
+    try {
+      decided = onlyDetections(s) && await this.decideAlone();
+    } catch (err) {
+      console.error("decideAlone failed", err);
+    }
+    if (decided) return this.schedule();
     await this.wake();
   }
 
@@ -523,7 +530,8 @@ export class Household extends DurableObject<Env> {
    * server replays as the tick it stands for. True when it decided. */
   async decideAlone(): Promise<boolean> {
     const table = this.switchTable();
-    if (!table || Date.now() / 1000 >= table.valid_until) return false;
+    // A table with no usable `valid_until` is expired (W-1025): it fails closed.
+    if (!table || !(Date.now() / 1000 < table.valid_until)) return false;
     if (await this.env.SERVER.getByName(this.meta("hid")!).running()) return false;
     // From here to the marker: no await, so no push lands in between.
     const rows = this.sql.exec<{ seq: number; path: string; body: string }>(
@@ -541,11 +549,17 @@ export class Household extends DurableObject<Env> {
     const choice = choose(table, queued);
     if (choice === "wake") return false;
     const entry = choice === "same" ? null : table.species[choice];
+    // Everything is written first and the sockets are told last (W-1025): a
+    // send that throws must not leave rows switched without their marker.
+    const marker = JSON.stringify({
+      at: localIso(this.meta("tz") || "UTC"), choice, etag: entry ? entry.etag : null,
+      upto: rows[rows.length - 1].seq });
+    const tell: [string, string][] = [];             // [frame id, its push message]
     if (entry) {
       for (const [id, f] of Object.entries(entry.frames)) {
         const push = JSON.stringify(f.push);
         this.sql.exec("UPDATE frames SET etag = ?, file = ?, push = ? WHERE id = ?", f.etag, f.file, push, id);
-        for (const ws of this.ctx.getWebSockets(id)) ws.send(push);
+        tell.push([id, push]);
       }
       for (const [id, v] of Object.entries(entry.viewers)) {
         this.sql.exec("UPDATE viewers SET name = ?, file = ? WHERE id = ?", v.name, v.file, id);
@@ -555,19 +569,25 @@ export class Household extends DurableObject<Env> {
       // is chosen against that, not against what the server last reported.
       this.setMeta("switches", JSON.stringify({ ...table, shown: choice, shown_clean: true }));
     }
-    this.sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", MARKER, JSON.stringify({
-      at: localIso(this.meta("tz") || "UTC"), choice, etag: entry ? entry.etag : null,
-      upto: rows[rows.length - 1].seq }));
+    this.sql.exec("INSERT INTO ingest (path, body) VALUES (?, ?)", MARKER, marker);
     this.setMeta("switch_ms", String(Date.now()));
     this.setMeta("push_news", null);
-    this.addSwitch();
-    // The page's copies show the old picture now, and are kept: the next look
-    // serves one and asks for a wake.
-    if (entry) this.cache.age();
+    if (entry) {
+      this.addSwitch();
+      // The page's copies show the old picture now, and are kept: the next look
+      // serves one and asks for a wake.
+      this.cache.age();
+    }
+    for (const [id, push] of tell) {
+      for (const ws of this.ctx.getWebSockets(id)) {
+        try { ws.send(push); } catch { /* closed: that frame asks again on its own */ }
+      }
+    }
     return true;
   }
 
-  /** A switch made here, counted by UTC day beside the wakes (W-1025). */
+  /** A picture switched to here, counted by UTC day beside the wakes (W-1025);
+   * a decision that changes nothing is not one. */
   addSwitch(): void {
     const day = new Date().toISOString().slice(0, 10);
     this.sql.exec(`INSERT INTO usage (day, switches) VALUES (?, 1)

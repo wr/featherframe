@@ -78,7 +78,7 @@ describe("the front door's own switch", () => {
     expect(h.frameRow("K1").etag).toBe("out-finch");
     expect(sent.length).toBe(told);
     expect(JSON.parse(rows(sql).at(-1).body)).toMatchObject({ choice: "same", etag: null });
-    expect(h.summary().switches).toBe(0);               // a switch is a picture changed, not a decision
+    expect(h.summary().usage.reduce((n, u) => n + u.switches, 0)).toBe(0);   // a switch is a picture changed, not a decision
     expect(Number(h.meta("switch_ms"))).toBeGreaterThan(0);   // but the gap counts from it
   });
 
@@ -335,7 +335,6 @@ describe("what the admin page counts", () => {
     await h.decideAlone();
     await h.takeState({ ...FINCH, switches: TABLE, switch_mismatches: 2 });
     const s = h.summary();
-    expect(s.switches).toBe(1);
     expect(s.mismatches).toBe(2);
     expect(s.usage[0]).toMatchObject({ switches: 1, wakes: 0 });
   });

@@ -169,7 +169,7 @@ export class Household extends DurableObject<Env> {
                usage: UsageDay[]; month_ms: number;
                last_wake: number | null; source: string | null; suspended: boolean;
                ai: { usd: number; limit: number | null; paused: boolean; count: number };
-               switches: number; mismatches: number } {
+               mismatches: number } {
     const seen = new Map(this.sql.exec<{ id: string; at: number }>("SELECT id, at FROM seen").toArray()
       .map((r) => [r.id, r.at]));
     const frames = this.sql.exec<{ id: string; status: string }>("SELECT id, status FROM frames ORDER BY id")
@@ -180,14 +180,12 @@ export class Household extends DurableObject<Env> {
     const wake = Number(this.meta("wake_ms") || 0);
     const month_ms = this.sql.exec<{ ms: number }>("SELECT coalesce(sum(server_ms), 0) AS ms FROM usage WHERE day >= ?",
       new Date().toISOString().slice(0, 8) + "01").one().ms;
-    // Pictures switched to here this month without a wake, and the switches the
-    // server later chose otherwise (W-1025): the admin page shows both.
-    const switches = this.sql.exec<{ n: number }>("SELECT coalesce(sum(switches), 0) AS n FROM usage WHERE day >= ?",
-      new Date().toISOString().slice(0, 8) + "01").one().n;
+    // The switches the server later chose otherwise, a running total (W-1025):
+    // the admin page shows it beside each day's `switches` in `usage`.
     return { frames, usage, month_ms, last_wake: wake || null, source: this.meta("source_kind"),
              suspended: !!this.meta("suspended"),
              ai: this.spend.monthSummary(new Date().toISOString().slice(0, 7)),
-             switches, mismatches: Number(this.meta("switch_mismatches") || 0) };
+             mismatches: Number(this.meta("switch_mismatches") || 0) };
   }
 
   /** A new household (made at sign-up), or one given its login later. */

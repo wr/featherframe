@@ -758,8 +758,9 @@ trying to sign in joins it pending, and is not emailed; the admin counts only
 confirmed ones), invitations, and every household
 (frames and when each was last seen, from the front door's `summary()`, and
 rough server time by UTC day: its wakes, apart from the time a page kept it
-up, W-907; and this month's switches the front door made without a wake and
-the ones the server disagreed with, W-1025).
+up, W-907; and the last 7 days' switches the front door made without a wake,
+summed from the same `usage` days, with a running count of the ones the server
+disagreed with, W-1025).
 W-860 added this month's Cloudflare usage against the Workers Paid allowances
 and the bill so far (`usage.ts`: GraphQL Analytics with the `CF_API_TOKEN`
 secret, one query per dataset so a missing field costs one meter; Containers

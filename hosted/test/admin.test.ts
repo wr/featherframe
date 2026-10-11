@@ -50,7 +50,7 @@ beforeEach(() => {
     HOUSEHOLD: { getByName: (hid: string) => ({
       destroy: async (id: string) => { destroyed.push(id); return 7; },
       suspend: async (on: boolean) => { suspended.push([hid, on]); },
-      summary: async () => ({ frames: [], usage: [], month_ms: 0, last_wake: null, source: null, suspended: false, ai: { usd: 0, limit: null, paused: false, count: 0 }, switches: 0, mismatches: 0 }),
+      summary: async () => ({ frames: [], usage: [], month_ms: 0, last_wake: null, source: null, suspended: false, ai: { usd: 0, limit: null, paused: false, count: 0 }, mismatches: 0 }),
     }) },
   };
   vi.stubGlobal("fetch", vi.fn(async () => new Response("{}")));
@@ -312,26 +312,37 @@ describe("the households table", () => {
     expect(html).not.toMatch(/main\.wide \.card \{[^}]*overflow:hidden/);
   });
 
-  it("counts a household's switches without a wake, and any the server disagreed with (W-1025)", async () => {
+  it("counts the last 7 days' switches without a wake, and any the server disagreed with (W-1025)", async () => {
     const { adminPage } = await import("../src/pages");
-    const row = (id: string, switches: number, mismatches: number) => ({
+    const { lastDays } = await import("../src/usage");
+    // The note's server time is the last 7 days (today and six before it): a
+    // day eight days back is outside both.
+    const week = lastDays(7), outside = lastDays(8)[0];
+    const day = (d: string, switches: number) => ({ day: d, wakes: 0, server_ms: 0, wake_ms: 0, page_ms: 0, switches });
+    const row = (id: string, usage: ReturnType<typeof day>[], mismatches: number) => ({
       id, created_at: 1, email: `${id}@example.com`, paired: 0, suspended_at: null, frames: [],
-      usage: [], last_wake: null, source: null, ai: { usd: 0, limit: null, paused: false, count: 0 },
-      month_ms: 0, suspended: false, switches, mismatches,
+      usage, last_wake: null, source: null, ai: { usd: 0, limit: null, paused: false, count: 0 },
+      month_ms: 0, suspended: false, mismatches,
     });
     const page = (households: ReturnType<typeof row>[]) => adminPage({ waitlist: [], invites: [], log: [], kits: [],
       households, growth: { signups: [], invites: [], households: [] },
       usage: { meters: [], bill: 5, projected: 5, month: "2026-10", live: true, measured: true, days: [] },
     } as never, null).text();
-    const busy = await page([row("h1", 40, 1)]);
+    // Two days inside add up; the one outside does not.
+    const busy = await page([row("h1", [day(week[6], 25), day(week[3], 15), day(outside, 100)], 1)]);
     expect(busy).toContain("40 switches without a wake");
+    expect(busy).not.toContain("140 switches");
+    expect(busy).not.toContain("100 switches");
     expect(busy).toContain("1 mismatch");
     expect(busy).not.toContain("1 mismatches");
-    const one = await page([row("h2", 1, 2)]);
+    const one = await page([row("h2", [day(week[0], 1), day(outside, 5)], 2)]);
     expect(one).toContain("1 switch without a wake");
     expect(one).not.toContain("1 switches");
+    expect(one).not.toContain("6 switches");
     expect(one).toContain("2 mismatches");
-    const quiet = await page([row("h3", 0, 0)]);
+    // Switches only outside the 7 days, or none at all, show nothing; and
+    // mismatches are a running total, not a day's.
+    const quiet = await page([row("h3", [day(outside, 9)], 0), row("h4", [], 0)]);
     expect(quiet).not.toContain("without a wake");
     expect(quiet).not.toContain("mismatch");
   });

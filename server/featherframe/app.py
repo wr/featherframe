@@ -15,6 +15,7 @@ import os
 import re
 import shutil
 import tempfile
+import threading
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -132,6 +133,7 @@ async def lifespan(app: Starlette):
     if conf:
         log.info("hosted: start %s", hosted.vm_report(first=True))
         link = hosted.HostedLink(*conf)
+        link.queue_ready.clear()   # no report until the start's take is done (W-1025)
         await run_in_threadpool(link.pull)
         hosted.activate(link)
         log.info("hosted: pulled %s", hosted.vm_report())
@@ -142,6 +144,11 @@ async def lifespan(app: Starlette):
         service.after_tick.append(lambda: link.settle(service))
         service.ticks_itself = False
     service.start()
+    if link is not None:
+        # The front door's queue (W-1025) is taken beside the start, not in
+        # front of it: the Container library gives a start 20 s to answer on
+        # its port. Every report waits for it (`HostedLink.settle`).
+        threading.Thread(target=link.take, args=(service,), name="hosted-take", daemon=True).start()
     # Advertise _featherframe._tcp so a frame with no typed URL finds us
     # (W-763). __main__ exports the bound port; systemd sets it directly.
     advertiser = discovery.Advertiser(
@@ -547,9 +554,6 @@ async def api_hosted_busy(request: Request):
     return JSONResponse({"busy": busy is not None, "for_s": round(busy or 0)})
 
 
-_SEED_FIELDS = ("detection_backend", "birdweather_station_id", "region")
-
-
 @_post("/api/hosted/seed")
 async def api_hosted_seed(request: Request):
     """A household set up from the phone (W-888): the detection source and
@@ -565,10 +569,7 @@ async def api_hosted_seed(request: Request):
         body = None
     if not isinstance(body, dict):
         return JSONResponse({"error": "bad seed"}, status_code=400)
-    svc = _svc(request)
-    cur = svc.config.to_dict()
-    cur.update({k: str(body[k]) for k in _SEED_FIELDS if isinstance(body.get(k), str)})
-    await run_in_threadpool(svc.update_config, Config.from_dict(cur).sanitize())
+    await run_in_threadpool(_svc(request).apply_seed, body)
     return JSONResponse({"ok": True})
 
 

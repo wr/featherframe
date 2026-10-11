@@ -151,8 +151,13 @@ _TODAY_SCAN = 200
 SWITCH_NOTES_S = 3600
 # How long a report waits for a tick in progress before it says no table
 # (W-1025). An empty table only wakes the server, which is always safe; a
-# report that blocked would hold up everything the front door is told.
-SWITCH_LOCK_WAIT_S = 30
+# report that blocked would hold up everything the front door is told. At a
+# stop the final report has about 15 s of the front door's grace left, once
+# `stop` has waited out the work under way, so it must fit in that.
+SWITCH_LOCK_WAIT_S = 10
+# What a seed from the phone's setup may set (W-888): the detection source and
+# the Region, and nothing else a body might carry.
+SEED_FIELDS = ("detection_backend", "birdweather_station_id", "region")
 
 
 def _as_time(v) -> dtime:
@@ -2917,6 +2922,75 @@ class FeatherframeService:
         future = [w for w in when if w > now]
         return min(future).isoformat(timespec="seconds") if future else None
 
+    def apply_queue(self, rows: list) -> int:
+        """The front door's queue, in order (W-1025): each detection to the push
+        feed, a seed as the settings save it is, and each of the front door's
+        own switches as a plates tick at its time. A row at or below the last
+        seq applied was applied before a stop that lost its acknowledgement.
+        Returns the highest seq seen. It holds the tick lock, so nothing here
+        may ask for a report (`hosted_state` waits for the same lock)."""
+        last = int(self.db.get("queue_seq", 0) or 0)
+        top = last
+        with self._working(), self._tick_lock:
+            for row in sorted(rows, key=lambda r: int(r.get("seq") or 0)):
+                seq = int(row.get("seq") or 0)
+                top = max(top, seq)
+                if seq <= last:
+                    continue
+                path, body = str(row.get("path") or ""), str(row.get("body") or "")
+                try:
+                    payload = json.loads(body) if body else {}
+                except ValueError:
+                    payload = {}
+                try:
+                    if path == "marker":
+                        self._replay_marker(payload if isinstance(payload, dict) else {})
+                    elif path == "/api/hosted/seed":
+                        self.apply_seed(payload)
+                    elif path.startswith("/api/ingest/"):
+                        ingest = getattr(self.source, "ingest", None)
+                        if callable(ingest):
+                            ingest(payload)
+                except Exception:  # noqa: BLE001 — one bad row must not wedge the queue behind it
+                    log.warning("queued row %s (%s) not applied", seq, path, exc_info=True)
+                self.db.set("queue_seq", seq)
+        return top
+
+    def _replay_marker(self, marker: dict) -> None:
+        """One of the front door's switches, as the tick it stands for, at its
+        own time: the source's alarms as `_tick_pictures` reads them, then the
+        plates picture. Its choice is checked; ours stands (W-1025)."""
+        try:
+            at = datetime.fromisoformat(str(marker.get("at")))
+            if at.tzinfo is not None:      # this server keeps local time
+                at = at.astimezone().replace(tzinfo=None)
+        except (TypeError, ValueError):
+            at = self._clock()
+        available = self.source.available()
+        self._track_source(at, available)
+        self._quiet = self.quiet_state(at, available=available)
+        self._outage = self.outage_state(at)
+        before = self.pictures[PLATES].etag
+        self._single_tick(at)
+        pic = self.pictures[PLATES]
+        want = str(marker.get("choice") or "")
+        shown = str(pic.meta.get("species_key") or "")
+        agrees = (pic.etag == before) if want == "same" else (shown == want)
+        if agrees and marker.get("etag"):
+            agrees = pic.etag == str(marker["etag"])
+        if not agrees:
+            log.warning("front door chose %s at %s; this server shows %s", want, at, shown or "nothing")
+            self.db.set("switch_mismatches", int(self.db.get("switch_mismatches", 0) or 0) + 1)
+
+    def apply_seed(self, body: dict) -> None:
+        """A household set up from the phone (W-888): its source and Region,
+        as a settings save of those fields, so a repeat changes nothing."""
+        if not isinstance(body, dict):
+            return
+        cur = self.config.to_dict()
+        cur.update({k: str(body[k]) for k in SEED_FIELDS if isinstance(body.get(k), str)})
+        self.update_config(Config.from_dict(cur).sanitize())
+
     def hosted_state(self) -> dict:
         """What the front door needs to answer every kit without this server:
         each one's status, its output (the file and its ETag), the headers that
@@ -2968,6 +3042,9 @@ class FeatherframeService:
                 # What the front door may switch every screen to without waking
                 # this server (W-1025).
                 "switches": self.switch_table(),
+                # How often a switch the front door made differed from what this
+                # server then chose (W-1025): the admin page shows it.
+                "switch_mismatches": int(self.db.get("switch_mismatches", 0) or 0),
                 # Where news comes from (W-847): the front door looks for it
                 # itself — it polls a BirdWeather station, or takes the pushes
                 # (Apprise from BirdNET-Pi, a webhook from BirdNET-Go) — and

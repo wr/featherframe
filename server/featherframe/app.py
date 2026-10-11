@@ -1803,7 +1803,27 @@ def _to_int(v, default):
         return default
 
 
+class _ReadinessPing:
+    """Cloud's container library asks a starting server whether it is up with
+    `GET http://ping/` (W-1024). Answered here, before any route: as the page,
+    it built the whole webapp, Jinja and all, on every wake (W-987)."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"] == "/" and \
+                dict(scope["headers"]).get(b"host", b"").split(b":")[0] == b"ping":
+            # 204, so the access log tells it from a page (the library reads
+            # no status: an answer is "ready").
+            await send({"type": "http.response.start", "status": 204, "headers": []})
+            await send({"type": "http.response.body", "body": b""})
+            return
+        await self.app(scope, receive, send)
+
+
 _middleware = [
+    Middleware(_ReadinessPing),
     # The outer one first: the password gate decides before anything is
     # settled with a hosted household's front door.
     Middleware(BaseHTTPMiddleware, dispatch=_page_password),

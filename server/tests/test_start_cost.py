@@ -40,6 +40,16 @@ def client(tmp_path, monkeypatch):
     return TestClient(app_mod.app)
 
 
+def test_the_readiness_check_serves_no_page(client):
+    """Cloud's container library asks `GET http://ping/` on every start
+    (W-1024): it is answered before any route, so a wake loads no template."""
+    from featherframe import app as app_mod
+    r = client.get("http://ping/")
+    assert r.status_code == 204 and r.content == b""
+    assert app_mod._templates is None
+    assert "Featherframe" in client.get("/").text    # any other host is the page
+
+
 def test_the_image_compiled_page_is_the_page(client, tmp_path, monkeypatch):
     """Built with FEATHERFRAME_TEMPLATE_CACHE, a start loads every template
     the image compiled instead of compiling it, and serves the same page."""

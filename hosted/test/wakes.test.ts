@@ -32,6 +32,15 @@ describe("nextAlarm", () => {
   it("gives two looks the same alarm", () => {
     expect(nextAlarm(s({ look: true }))).toBe(nextAlarm(s({ look: true })));
   });
+  it("alarms for a named time that came due before anything alarmed for it", () => {
+    // It came due while the front door was deciding over a push (W-1025): the
+    // alarm that follows is for it, a second away, not for the next event.
+    expect(nextAlarm(s({ named: T - 1 }))).toBe(T + 1000);
+    expect(nextAlarm(s({ named: T + 5000 }))).toBe(T + 5000);
+  });
+  it("retries a named time a wake has since failed to move after the gap, not every second", () => {
+    expect(nextAlarm(s({ named: T - 120_000, lastWake: T - 60_000 }))).toBe(T - 60_000 + MIN_GAP_MS);
+  });
   it("keeps the BirdWeather poll and the daily wake as before", () => {
     expect(nextAlarm(s({ birdweather: true }))).toBe(T + POLL_MS);
     expect(nextAlarm(s())).toBe(T - 60_000 + SAFETY_MS);

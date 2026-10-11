@@ -38,7 +38,12 @@ export function onlyDetections(s: WakeState): boolean {
 
 export function nextAlarm(s: WakeState): number {
   const times = [s.lastWake + SAFETY_MS];
-  if (s.named > s.now) times.push(s.named);
+  // A named time is alarmed for whenever there is one (W-1025): it can come
+  // due while the front door is deciding over a push, after `due` was asked,
+  // and must not wait for the next event. One that a wake has run since is a
+  // wake that failed to move the schedule: retried after the gap, not every
+  // second (the floor below).
+  if (s.named > 0) times.push(s.named > s.lastWake ? s.named : s.lastWake + MIN_GAP_MS);
   if (s.news || s.look) times.push(Math.max(s.now, s.lastWake + MIN_GAP_MS));
   if (s.pushNews) times.push(Math.max(s.now, pushGap(s)));
   if (s.birdweather) times.push(s.now + POLL_MS);

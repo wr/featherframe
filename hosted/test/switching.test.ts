@@ -28,21 +28,22 @@ const FINCH = { frames: { K1: { status: "on", etag: "out-finch", file: "frames/d
 async function door({ running = false, realWake = false } = {}) {
   const { Household } = await import("../src/household");
   const sql = nodeSql();
-  const control = { running: running as boolean | "throws" };
+  const control = { running: running as boolean | "throws", during: (() => {}) as () => void };
   const sent: string[] = [];
   const woken: string[] = [];
   const asked: string[] = [];
+  const alarms: number[] = [];
   const sockets = [{ send: (m: string) => sent.push(m), close: () => {} }];
-  const h = new Household({ storage: { sql, setAlarm: async () => {}, deleteAlarm: async () => {} },
+  const h = new Household({ storage: { sql, setAlarm: async (t: number) => { alarms.push(t); }, deleteAlarm: async () => {} },
                             getWebSockets: () => sockets, waitUntil: () => {} } as never,
     { APP_HOST: "cloud.featherframe.app", DATA: { delete: async () => {} },
-      SERVER: { getByName: () => ({ running: async () => { if (control.running === "throws") throw new Error("link dropped"); return control.running; }, configure: async () => {}, sleepWhenIdle: async () => {},
+      SERVER: { getByName: () => ({ running: async () => { control.during(); if (control.running === "throws") throw new Error("link dropped"); return control.running; }, configure: async () => {}, sleepWhenIdle: async () => {},
                                      fetch: async (url: string) => { asked.push(String(url)); return new Response("{}"); } }) } } as never);
   h.setMeta("hid", "h1"); h.setMeta("key", "k"); h.setMeta("tz", "UTC");
   h.setMeta("source_kind", "birdnet_go"); h.setMeta("apprise_token", "tok");
   if (!realWake) h.wake = async () => { woken.push("wake"); };
   await h.takeState({ ...FINCH, switches: TABLE });
-  return { h, sql, sent, woken, asked, sockets, control };
+  return { h, sql, sent, woken, asked, sockets, control, alarms };
 }
 const push = (h, body: string) => h.ingest(new Request("https://x/api/ingest/birdnet-go/tok", { method: "POST", body }),
   new URL("https://x/api/ingest/birdnet-go/tok"));
@@ -349,6 +350,20 @@ describe("the alarm", () => {
     await h.alarm();
     expect(h.frameRow("K1").etag).toBe("out-finch");
     expect(woken).toEqual(["wake"]);
+  });
+
+  it("alarms at once for a named wake that came due while it was deciding", async () => {
+    const { h, woken, control, alarms } = await door();
+    ripe(h);
+    h.setMeta("next_wake_epoch", String(Math.floor(Date.now() / 1000) + 60));   // the schedule, a minute off
+    await push(h, GO("American Robin", "Turdus migratorius"));
+    // The minute passes during the await on the server, after `due` was asked.
+    control.during = () => h.setMeta("next_wake_epoch", String(Math.floor(Date.now() / 1000) - 1));
+    const before = Date.now();
+    await h.alarm();
+    expect(h.frameRow("K1").etag).toBe("out-robin");
+    expect(woken).toEqual([]);
+    expect(alarms.at(-1)).toBeLessThan(before + 5000);   // a second away, not a day
   });
 
   it("waits out the gap from its own last switch", async () => {

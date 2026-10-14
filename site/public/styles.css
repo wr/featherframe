@@ -169,7 +169,7 @@ h2 { font-weight: 400; text-wrap: balance; }
 .cover .facts li { display: flex; align-items: flex-start; gap: 10px; text-wrap: pretty; }
 .cover .facts li + li { margin-top: 6px; }
 .cover .facts .icon { margin-top: 0; color: var(--ink); }
-.cover .facts .icon .solid { fill: currentColor; } /* Connecticut's heart, the bird's eye */
+.cover .facts .icon .solid { fill: currentColor; } /* Connecticut's heart; the bird's eye and its note */
 
 /* I. The art: a spread, the frame showing the flamingo in its left half,
    pinned there, centred below the running head, while the text scrolls past. */

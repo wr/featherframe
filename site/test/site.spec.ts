@@ -188,7 +188,7 @@ test('every section and its key copy is there', async ({ page }) => {
     await expect(page.locator(`${sel} .field .btn`)).toHaveText('Join the waitlist');
     await expect(page.locator(`${sel} .field input`)).toHaveAttribute('placeholder', 'you@example.com');
     // the note under the field says the one email, upright where the status that replaces it is italic (W-1021)
-    await expect(page.locator(`${sel} .wl-note`)).toHaveText(sel === '.cover' ? 'The first batch is small. The waitlist hears first. No spam.' : 'One email when Featherframe is available, and nothing else.');
+    await expect(page.locator(`${sel} .wl-note`)).toHaveText(sel === '.cover' ? 'The first batch is just 50 frames. The waitlist hears first. No spam.' : 'One email when Featherframe is available, and nothing else.');
     await expect(page.locator(`${sel} .wl-note`)).toBeVisible();
     await expect(page.locator(`${sel} .wl-note`)).toHaveCSS('font-style', 'normal');
     const [field, note] = [await page.locator(`${sel} .field`).boundingBox(), await page.locator(`${sel} .wl-note`).boundingBox()];
@@ -376,7 +376,7 @@ test('the waitlist signs up, then asks which size', async ({ page }) => {
   await shopRoute(page, 'waitlist', { ok: true, details: 'tok-1', state: 'interest', count: 3 }, signups);
   await shopRoute(page, 'waitlist/details', { ok: true }, answers);
   await page.goto('/');
-  await expect(page.locator('.cover .wl-note')).toHaveText('The first batch is small. The waitlist hears first. No spam.');
+  await expect(page.locator('.cover .wl-note')).toHaveText('The first batch is just 50 frames. The waitlist hears first. No spam.');
   await page.fill('#wl-hero-email', 'ada@example.com');
   await page.click('.cover .wl button[type=submit]');
   await expect.poll(() => signups.length).toBe(1);

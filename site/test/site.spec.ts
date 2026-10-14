@@ -57,14 +57,14 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#collage h2')).toHaveText('Each night, a portrait of the day.');
   // "Each night," roman, "a portrait of the day." italic
   await expect(page.locator('#collage h2 i')).toHaveText('a portrait of the day.');
-  await expect(page.locator('#collage .lede')).toHaveText(['During quiet hours, your frame gathers every species heard that day onto a single canvas, numbered and labeled like a page in an old natural history book.', 'Turn on AI illustration¹ and the day’s species are painted together in one scene that changes with the season and the weather.']);
+  await expect(page.locator('#collage .lede')).toHaveText(['During quiet hours, your frame lays out every species heard that day in the original illustrations, numbered and labeled like a page in an old natural history book.', 'With AI illustration¹ turned on, the day’s species are painted together in one scene that changes with the season and the weather. The four below were made this way.']);
   await expect(page.locator('#fn-ai')).toHaveText('¹ Off by default. Needs your own image-generation API key (OpenAI, Gemini or Replicate), billed by that provider, not by Wells Workshop. Every generated picture is marked ✦. Collages don’t need it.');
-  await expect(page.locator('#how .closing .lede').last()).toHaveText('Set up a BirdNET detector in your own yard, or choose a BirdWeather station near you, or anywhere in the world.');
+  await expect(page.locator('#how .closing .lede').last()).toHaveText('To see the birds in your own yard, add a BirdNET detector: free software from the Cornell Lab of Ornithology and Chemnitz University of Technology that identifies birds by their songs.');
   await expect(page.locator('#specs .folio')).toHaveText('Technical details');
   await expect(page.locator('#specs .spec dt')).toHaveText(['Display', 'Frame', 'Size', 'Power', 'Connectivity', 'Detections', 'Software']);
   // inches first, millimetres after
   await expect(page.locator('#specs .spec dd').nth(2)).toHaveText('10.3-inch: an 8.5 × 11 in frame, 1.1 in deep13.3-inch: an 11 × 14 in frame, 1.1 in deepThe mat’s opening is slightly smaller than the display.');
-  await expect(page.locator('#specs .spec dd').nth(5)).toHaveText('Your own backyard BirdNET device, or a BirdWeather station near you');
+  await expect(page.locator('#specs .spec dd').nth(5)).toHaveText('A BirdWeather station near you, or your own backyard BirdNET device');
   await expect(page.locator('#specs .spec dd').nth(6)).toHaveText('Open source. See it on GitHub');
   await expect(page.locator('#specs .spec dd').nth(6).getByRole('link', { name: 'See it on GitHub' })).toHaveAttribute('href', 'https://github.com/wr/featherframe');
   await expect(page.locator('#specs .spec')).not.toContainText('Service');
@@ -78,7 +78,8 @@ test('every section and its key copy is there', async ({ page }) => {
   // the close says the cover's line again
   await expect(page.locator('.close h2')).toHaveText('Let the outside in.');
   await expect(page.locator('.close h2 i')).toHaveText('outside in.');
-  await expect(page.locator('.maker p').last()).toContainText('Hi, I’m Wells Riley.');
+  await expect(page.locator('.maker p').first()).toContainText('Hi, I’m Wells Riley.');
+  await expect(page.locator('.maker p').last()).toContainText('free for anyone to use');
   // the details' eyebrow is its heading, no display line under it
   await expect(page.locator('#specs h2')).toHaveText(['Technical details']);
   await expect(page.locator('#faq h2')).toHaveText('FAQ');

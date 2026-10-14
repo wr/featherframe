@@ -89,7 +89,7 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('.close .words > p')).toHaveText('A framed e-paper display with no subscription.');
   await expect(page.locator('body')).not.toContainText('Reserve');
   await expect(page.locator('.cover .copy > p')).toHaveText('A picture frame that shows the birds singing near your home, each in its hand-painted portrait from the 1800s.');
-  await expect(page.locator('.cover .facts li')).toHaveText(['Hand-assembled in New England.', 'Sets up from your phone. No extra hardware needed.', 'From $349. No subscription, no camera, no surprises.']);
+  await expect(page.locator('.cover .facts li')).toHaveText(['Hand-assembled in New England.', 'Sets up from your phone. No extra hardware needed.', 'Works almost anywhere: 7,000+ public bird stations worldwide.', 'From $349. No subscription, no camera, no surprises.']);
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'A picture frame that shows the birds singing near your home, each in its hand-painted portrait from the 1800s. From $349, no subscription.');
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'A picture frame that shows the birds singing near your home, each in its hand-painted portrait from the 1800s. From $349, no subscription.');
   // no exploded drawing anywhere: the reservation is its headline, the frame on its kickstand, its line and button

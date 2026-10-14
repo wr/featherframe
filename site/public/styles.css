@@ -163,6 +163,15 @@ h2 { font-weight: 400; text-wrap: balance; }
 .stage.live .poster { opacity: 0; transition: opacity .6s ease; }
 .cover .cta .wl { position: relative; z-index: 2; }
 .cover .copy > p { font-size: var(--t-lede); line-height: var(--lh-lede); margin: 0 0 26px; text-wrap: pretty; }
+/* what a buyer asks first, under the sentence: the price, the gift, who makes it. A check before each, the field's
+   ink, set small and upright. */
+.cover .facts { list-style: none; margin: -8px 0 26px; padding: 0; font-size: var(--t-small); line-height: var(--lh-lede); }
+.cover .facts li { position: relative; padding-left: 24px; text-wrap: pretty; }
+.cover .facts li + li { margin-top: 4px; }
+.cover .facts li::before {
+  content: ""; position: absolute; left: 2px; top: .42em; width: 10px; height: 5px;
+  border-left: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg);
+}
 
 /* I. The art: a spread, the frame showing the flamingo in its left half,
    pinned there, centred below the running head, while the text scrolls past. */
@@ -588,7 +597,7 @@ h2 { font-weight: 400; text-wrap: balance; }
     --W: calc(100vw - 2 * var(--edge));
     --V: calc(100svh - var(--nav));
     /* under 1000px the sentence is set at the body size, so the frame has room beside it */
-    --gnd: 220px; --measure: 400px;
+    --gnd: 287px; --measure: 400px;
     --F: clamp(72px, min((var(--W) - .9521 * var(--gnd)) / 5.0466, (var(--W) - var(--measure) - .9521 * var(--gnd)) / 1.2026,
                          (var(--V) - 112px - var(--gnd)) / 1.913), 240px);
     --ht: calc(1.913 * var(--F) + var(--gnd));       /* the words: the headline's cap line to the note's last baseline */
@@ -614,10 +623,10 @@ h2 { font-weight: 400; text-wrap: balance; }
   }
 }
 @media (max-width: 820px) and (min-aspect-ratio: 1/1) {
-  .cover { --gnd: 214px; }
+  .cover { --gnd: 283px; }
 }
 @media (min-width: 1000px) and (min-aspect-ratio: 1/1) {
-  .cover { --gnd: 248px; --measure: calc(17.7 * var(--t-lede)); }
+  .cover { --gnd: 308px; --measure: calc(17.7 * var(--t-lede)); }
   .cover .copy > p { font-size: var(--t-lede); }
 }
 @media (min-width: 1100px) and (min-aspect-ratio: 1/1) {
@@ -627,7 +636,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   }
 }
 @media (min-width: 1200px) and (min-aspect-ratio: 1/1) {
-  .cover { --gnd: 211px; --measure: calc(22 * var(--t-lede)); }
+  .cover { --gnd: 272px; --measure: calc(22 * var(--t-lede)); }
 }
 
 /* A portrait window or a tablet: the phone's order, the headline
@@ -643,8 +652,8 @@ h2 { font-weight: 400; text-wrap: balance; }
     --pad: 40px;
     --g1: calc(.3 * var(--F));   /* the headline's last baseline to the frame's top edge */
     --g2: 40px;                  /* the frame's foot to the sentence */
-    --words: 217px;              /* the sentence, the waitlist's field and the note under it (200px under 821px) */
-    --fh: min(max(.4 * var(--V), var(--V) - 2 * var(--pad) - 1.513 * var(--F) - var(--g1) - var(--g2) - var(--words)), .72 * var(--W) / .843);
+    --words: 278px;              /* the sentence, the facts, the waitlist's field and the note under it (267px under 821px) */
+    --fh: min(max(.38 * var(--V), var(--V) - 2 * var(--pad) - 1.513 * var(--F) - var(--g1) - var(--g2) - var(--words)), .72 * var(--W) / .843);
     --hb: calc(var(--fh) / .7379);
     --wb: calc(var(--hb) * .78376);
     display: flex; flex-direction: column; justify-content: center; min-height: var(--V); padding: var(--pad) 0;
@@ -664,7 +673,7 @@ h2 { font-weight: 400; text-wrap: balance; }
   }
 }
 @media (min-width: 701px) and (max-width: 820px) and (aspect-ratio < 1) {
-  .cover { --words: 200px; }
+  .cover { --words: 267px; }
 }
 
 @media (max-width: 820px) {

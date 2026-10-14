@@ -15,7 +15,7 @@ A [detector](https://github.com/wr/featherframe/wiki/Detection-sources) identifi
 It works with [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), [BirdNET-Go](https://github.com/tphakala/birdnet-go), or a [BirdWeather](https://www.birdweather.com) station.
 
 - **Human-drawn illustrations.** Audubon's *The Birds of America*, and John Gould's *The Birds of Europe*, *The Birds of Australia* and *The Birds of Asia*, matted like prints. Your **Region** picks which book comes first; the others fill in the species it doesn't have.
-- **Generate missing species.** With an OpenAI key, Featherframe can generate a new illustration in Audubon's style instead (optional).
+- **Generate missing species.** With your own image-generation API key (OpenAI, Gemini or Replicate), Featherframe can generate a new illustration in Audubon's style instead (optional).
 - **A daily collage.** One sheet shows every species heard that day.
 - **Other screens.** A TRMNL, a Kobo, a Kindle, or an iPad can also show the pictures.
 

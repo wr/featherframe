@@ -13,7 +13,7 @@ test('social card and search basics', async ({ page, request }) => {
   const product = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'Product');
   expect(product).toMatchObject({ name: 'Featherframe', url: 'https://featherframe.app/' });
   expect(product).not.toHaveProperty('offers');
-  await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. No subscription.');
+  await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute('content', 'A picture frame that shows the birds singing near your home, each in its hand-painted portrait from the 1800s. From $349, no subscription.');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://featherframe.app/');
   expect((await request.get('/robots.txt')).ok()).toBe(true);
   expect((await request.get('/sitemap.xml')).ok()).toBe(true);
@@ -68,11 +68,13 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('#specs .spec dd').nth(6)).toHaveText('Open source. See it on GitHub');
   await expect(page.locator('#specs .spec dd').nth(6).getByRole('link', { name: 'See it on GitHub' })).toHaveAttribute('href', 'https://github.com/wr/featherframe');
   await expect(page.locator('#specs .spec')).not.toContainText('Service');
-  // no price, sale or date anywhere (W-1020): the hero holds the signup alone, and each size is named for its display
+  // no sale or date anywhere (W-1020); the one price is the hero's "From $349", for buyers who ask what it costs first.
+  // The signup holds the form alone, and each size is named for its display
   await expect(page.locator('.cover .cta > *')).toHaveCount(1);
   await expect(page.locator('#specs .ho figcaption')).toHaveText(['10.3-inch · B&W', '13.3-inch · Color']);
   await expect(page.locator('s')).toHaveCount(0);
-  await expect(page.locator('body')).not.toContainText(/Black Friday|November|December|holiday|\$(299|379|349|479)/i);
+  await expect(page.locator('body')).not.toContainText(/Black Friday|November|December|holiday|\$(299|379|479)/i);
+  await expect(page.locator('.cover .facts')).toContainText('$349');
   await expect(page.locator('#specs .ho .diag span')).toHaveText(['10.3-inch display', '13.3-inch display']);
   await expect(page.locator('#specs .dim')).toHaveCount(0);
   // the close says the cover's line again
@@ -86,9 +88,10 @@ test('every section and its key copy is there', async ({ page }) => {
   await expect(page.locator('.wall .folio')).toHaveText('From the collection');
   await expect(page.locator('.close .words > p')).toHaveText('A framed e-paper display with no subscription.');
   await expect(page.locator('body')).not.toContainText('Reserve');
-  await expect(page.locator('.cover .copy > p')).toHaveText('Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display with no subscription.');
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. A framed e-paper display, no subscription.');
-  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'Your neighborhood birds, shown as they’re heard, in illustrations from the finest natural history books of the 1800s. No subscription.');
+  await expect(page.locator('.cover .copy > p')).toHaveText('A picture frame that shows the birds singing near your home, each in its hand-painted portrait from the 1800s.');
+  await expect(page.locator('.cover .facts li')).toHaveText(['Hand-assembled in New England.', 'Sets up from your phone. No extra hardware needed.', 'Works almost anywhere: 7,000+ public bird stations worldwide.', 'From $349. No subscription, no camera, no surprises.']);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', 'A picture frame that shows the birds singing near your home, each in its hand-painted portrait from the 1800s. From $349, no subscription.');
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', 'A picture frame that shows the birds singing near your home, each in its hand-painted portrait from the 1800s. From $349, no subscription.');
   // no exploded drawing anywhere: the reservation is its headline, the frame on its kickstand, its line and button
   await expect(page.locator('.exploded, img[src*="exploded"]')).toHaveCount(0);
   await expect(page.locator('.close > *')).toHaveCount(2);
@@ -185,7 +188,7 @@ test('every section and its key copy is there', async ({ page }) => {
     await expect(page.locator(`${sel} .field .btn`)).toHaveText('Join the waitlist');
     await expect(page.locator(`${sel} .field input`)).toHaveAttribute('placeholder', 'you@example.com');
     // the note under the field says the one email, upright where the status that replaces it is italic (W-1021)
-    await expect(page.locator(`${sel} .wl-note`)).toHaveText('One email when Featherframe is available, and nothing else.');
+    await expect(page.locator(`${sel} .wl-note`)).toHaveText(sel === '.cover' ? 'The first batch is just 50 frames. The waitlist hears first. No spam.' : 'One email when Featherframe is available, and nothing else.');
     await expect(page.locator(`${sel} .wl-note`)).toBeVisible();
     await expect(page.locator(`${sel} .wl-note`)).toHaveCSS('font-style', 'normal');
     const [field, note] = [await page.locator(`${sel} .field`).boundingBox(), await page.locator(`${sel} .wl-note`).boundingBox()];
@@ -373,7 +376,7 @@ test('the waitlist signs up, then asks which size', async ({ page }) => {
   await shopRoute(page, 'waitlist', { ok: true, details: 'tok-1', state: 'interest', count: 3 }, signups);
   await shopRoute(page, 'waitlist/details', { ok: true }, answers);
   await page.goto('/');
-  await expect(page.locator('.cover .wl-note')).toHaveText('One email when Featherframe is available, and nothing else.');
+  await expect(page.locator('.cover .wl-note')).toHaveText('The first batch is just 50 frames. The waitlist hears first. No spam.');
   await page.fill('#wl-hero-email', 'ada@example.com');
   await page.click('.cover .wl button[type=submit]');
   await expect.poll(() => signups.length).toBe(1);

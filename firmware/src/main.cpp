@@ -923,6 +923,21 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   return connected;
 }
 
+// An always-awake frame joins Wi-Fi once, above, and is then kept on it by the
+// core's auto-reconnect alone, which retries only some disconnect reasons and
+// stops for good on the rest (W-1056: both kits sat off a working network,
+// slashed Wi-Fi mark up, until they were unplugged). While the station is
+// down, join again every FF_WIFI_REJOIN_MS, whatever the core decided.
+static void keepWifi() {
+  static uint32_t downSince = 0;     // 0 = connected
+  if (WiFi.status() == WL_CONNECTED || g_portalOpen) { downSince = 0; return; }
+  if (!downSince) { downSince = millis() | 1; return; }   // the core's own retry goes first
+  if (millis() - downSince < FF_WIFI_REJOIN_MS) return;
+  downSince = millis() | 1;
+  Serial.println("wifi: down, joining again");
+  WiFi.begin();                      // the saved network; starts the station if it stopped
+}
+
 // ---------------------------------------------------------------- display
 // The server sends the framebuffer already in the panel's NATIVE landscape
 // orientation (1872x1404) and in the panel's exact packing:
@@ -2377,6 +2392,7 @@ void loop() {
     Serial.println("power: switching to deep sleep");
     goToSleep(g_wakeMinutes);
   }
+  keepWifi();
   int k = pollButton();
   if (k == 2) {
     // KEY2: hold PORTAL_HOLD_MS -> setup portal; a quick tap -> status view.

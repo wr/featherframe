@@ -248,6 +248,9 @@
 // Always-awake model: failed polls back off to this interval after
 // FF_MARK_FAILS consecutive failures.
 #define FF_POLL_BACKOFF_MS  60000
+// Always-awake model: with Wi-Fi down, join the saved network again this often
+// (W-1056). One join, an all-channel scan included, takes a few seconds.
+#define FF_WIFI_REJOIN_MS   30000UL
 
 // --- Panel ---
 // -DFF_BOARD_EE02 (the ee02 envs) builds for the EE02 board's 13.3" Spectra 6

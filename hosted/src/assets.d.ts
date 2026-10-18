@@ -3,3 +3,5 @@
 declare module "*.html" { const text: string; export default text; }
 declare module "*.png" { const data: ArrayBuffer; export default data; }
 declare module "*.ico" { const data: ArrayBuffer; export default data; }
+declare module "*.webp" { const data: ArrayBuffer; export default data; }
+declare module "*.mp4" { const data: ArrayBuffer; export default data; }

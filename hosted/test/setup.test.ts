@@ -6,11 +6,11 @@ import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { auth, confirmVerification, sessionUser } from "../src/accounts";
-import { releaseFrame, setupRoute } from "../src/setup";
+import { colorKit, releaseFrame, setupRoute } from "../src/setup";
 import { checkCode, showCode } from "../src/signin";
 import { rankStations, regionFor } from "../src/stations";
 import { setupToken, setupUrl } from "../src/pairing";
-import { sha256 } from "../src/util";
+import { rangeResponse, sha256 } from "../src/util";
 
 function d1(db: DatabaseSync) {
   const stmt = (sql: string, args: unknown[] = []) => ({
@@ -226,12 +226,71 @@ describe("setting up", () => {
     expect((await auth(new Request(link), env, link)).headers.get("Location")).toBe("/?paired=1");
   });
 
+  it("is a welcome, then a station near them (or their own detector), then the email", async () => {
+    const f = await frameShowing();
+    const url = `https://${HOST}/setup/${f.code.toLowerCase()}/${f.token}`;
+    const page = await (await setupRoute(new Request(url), env, new URL(url), ctx)).text();
+    const steps = [...page.matchAll(/<section class="screen[^"]*" data-step="(\w+)"/g)].map((m) => m[1]);
+    expect(steps).toEqual(["welcome", "source", "email"]);
+    expect(page).toContain('data-start="welcome"');
+    expect(page).toContain("I already have an account");
+    // A station is the way in; a detector of their own is a link off it (W-1073).
+    expect(page).toContain('<div id="bw">');
+    expect(page).toContain('<div id="own" hidden>');
+    expect(page).toContain("I have my own BirdNET station");
+    // The gray kit's own frame, its screen apart so only the screen repaints.
+    expect(page).toContain('<span class="wall gray"');
+    expect(page).toContain('src="/_ff/setup-screen-10-cardinal.webp"');
+    expect(page).toContain('src="/_ff/setup-frame-10.webp"');
+    expect(page).toContain("Your email address will never be shared or sold to anyone.");
+    // Still one form: every field posts together, whichever step is showing.
+    expect(page.match(/<form /g)!.length).toBe(1);
+    expect(page).toContain('<button type="submit" id="go">Set up frame</button>');
+    // A missing email opens the page again on the email step.
+    const res = await post(f, { email: "", source: "birdweather", station: "7033" });
+    expect(await res.text()).toContain('data-start="email"');
+    // Shown again with their own detector chosen, it keeps that panel open.
+    const mine = await (await post(f, { email: "", source: "birdnet_go" }, "198.51.100.30")).text();
+    expect(mine).toContain('<div id="own">');
+    expect(mine).toContain('<div id="bw" hidden>');
+    expect(mine).toMatch(/value="birdnet_go" data-name="BirdNET-Go" checked/);
+    // ...and says what comes next for it.
+    expect(mine).toContain('<div class="then" id="then" aria-live="polite">');
+    expect(mine).toContain('<span id="then-nm">BirdNET-Go</span>');
+  });
+
+  it("shows the colour kit its own frame", async () => {
+    const f = await frameShowing("GHIJKL", "112233445566");
+    db.prepare("UPDATE pairing SET report = ? WHERE code = ?")
+      .run(JSON.stringify({ "x-panel": "T133A01 1200x1600 spectra6", "x-panel-format": "spectra6", "x-board": "XIAO-ESP32S3 EE02" }), f.code);
+    const url = `https://${HOST}/setup/${f.code.toLowerCase()}/${f.token}`;
+    const page = await (await setupRoute(new Request(url), env, new URL(url), ctx)).text();
+    expect(page).toContain('<span class="wall"');
+    expect(page).toContain('src="/_ff/setup-screen-13-cardinal.webp"');
+    expect(page).toContain('src="/_ff/setup-frame-13.webp"');
+    expect(page).not.toContain("setup-frame-10");
+  });
+
+  it("tells the colour kit from the gray one by what it says of its panel", () => {
+    expect(colorKit(JSON.stringify({ "x-panel-format": "spectra6" }))).toBe(true);
+    expect(colorKit(JSON.stringify({ "x-panel": "T133A01 1200x1600 spectra6" }))).toBe(true);
+    expect(colorKit(JSON.stringify({ "x-board": "XIAO-ESP32S3 EE02" }))).toBe(true);
+    expect(colorKit(JSON.stringify({ "x-panel": "ED103TC2 1404x1872 gray16", "x-panel-format": "gray16" }))).toBe(false);
+    expect(colorKit("")).toBe(false);
+    expect(colorKit("not json")).toBe(false);
+  });
+
   it("asks a new account on BirdWeather for its station, and makes nothing without one", async () => {
     const f = await frameShowing();
     db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
     const res = await post(f, { email: "rural@example.com", source: "birdweather", station: "" });
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain("Choose a BirdWeather station, or another detection source.");
+    const again = await res.text();
+    expect(again).toContain("Choose a BirdWeather station, or another detection source.");
+    // The page opens again on the step the error is about (W-1073), with the email kept.
+    expect(again).toContain('data-start="source"');
+    expect(again).toContain('<div id="bw">');
+    expect(again).toContain('value="rural@example.com"');
     expect(one("SELECT count(*) AS n FROM users").n).toBe(0);
     expect(one("SELECT used_at FROM kits").used_at).toBeNull();
     // Its own detector needs no station.
@@ -374,5 +433,30 @@ describe("a code typed on the sign-in page", () => {
     expect(await (await typeCode("AB")).text()).toContain("A code is six letters");
     for (let i = 0; i < 18; i++) await typeCode("XYZ-XYZ");
     expect(await (await typeCode("XYZ-XYZ")).text()).toContain("Too many tries");
+  });
+});
+
+describe("the welcome's video, by range (W-1073)", () => {
+  const bytes = new Uint8Array([...Array(100).keys()]).buffer;
+  const ask = (range?: string, method = "GET") =>
+    rangeResponse(new Request("https://x/v.mp4", { method, headers: range ? { Range: range } : {} }), bytes, "video/mp4");
+
+  it("answers the whole file, saying it takes ranges", async () => {
+    const r = ask();
+    expect(r.status).toBe(200);
+    expect(r.headers.get("Accept-Ranges")).toBe("bytes");
+    expect((await r.arrayBuffer()).byteLength).toBe(100);
+  });
+
+  it("answers each range Safari asks for", async () => {
+    const first = ask("bytes=0-1");
+    expect(first.status).toBe(206);
+    expect(first.headers.get("Content-Range")).toBe("bytes 0-1/100");
+    expect([...new Uint8Array(await first.arrayBuffer())]).toEqual([0, 1]);
+    expect(ask("bytes=90-").headers.get("Content-Range")).toBe("bytes 90-99/100");
+    expect(ask("bytes=-10").headers.get("Content-Range")).toBe("bytes 90-99/100");
+    expect(ask("bytes=50-500").headers.get("Content-Range")).toBe("bytes 50-99/100");
+    expect(ask("bytes=200-300").status).toBe(416);
+    expect(ask("bytes=0-1", "HEAD").body).toBeNull();
   });
 });

@@ -14,12 +14,39 @@
 
 import type { Env } from "./index";
 import { LOBBY_DRAWING, expiryText, pairingCode } from "./pairing";
-import { randomHex, sha256 } from "./util";
+import { randomHex, rangeResponse, sha256 } from "./util";
 import viewPage from "../../server/templates/view.html";
 import favicon192 from "../../server/static/favicon-192.png";
 import favicon32 from "../../server/static/favicon-32.png";
 import faviconIco from "../../server/static/favicon.ico";
 import touchIcon from "../../server/static/apple-touch-icon.png";
+// The phone setup page's pictures (W-1073), the marketing page's own: a
+// still of its cardinal video (U.S. Fish and Wildlife Service, public domain)
+// for a poster, its four birds' videos joined into one 24 s loop (six seconds
+// each, cropped to 4:3, 720 wide, no sound), and each kit's walnut frame
+// (site/public/img/wall's renders) cut in two: the frame with its screen
+// open, and the screen showing each bird (the renders' own, or laid in from
+// site/public/models/screens, toned to match), so only the screen repaints.
+import setupPhoto from "./art/setup-photo.webp";
+import setupVideo from "./art/setup-birds.mp4";
+import frame13 from "./art/frame-13.webp";
+import frame10 from "./art/frame-10.webp";
+import screen13Cardinal from "./art/screen-13-cardinal.webp";
+import screen13Bluebird from "./art/screen-13-bluebird.webp";
+import screen13Titmouse from "./art/screen-13-titmouse.webp";
+import screen13Chickadee from "./art/screen-13-chickadee.webp";
+import screen10Cardinal from "./art/screen-10-cardinal.webp";
+import screen10Bluebird from "./art/screen-10-bluebird.webp";
+import screen10Titmouse from "./art/screen-10-titmouse.webp";
+import screen10Chickadee from "./art/screen-10-chickadee.webp";
+
+const SETUP_ART = new Map<string, ArrayBuffer>(Object.entries({
+  "frame-13": frame13, "frame-10": frame10,
+  "screen-13-cardinal": screen13Cardinal, "screen-13-bluebird": screen13Bluebird,
+  "screen-13-titmouse": screen13Titmouse, "screen-13-chickadee": screen13Chickadee,
+  "screen-10-cardinal": screen10Cardinal, "screen-10-bluebird": screen10Bluebird,
+  "screen-10-titmouse": screen10Titmouse, "screen-10-chickadee": screen10Chickadee,
+}).map(([name, bytes]) => [`/_ff/setup-${name}.webp`, bytes]));
 
 // While a viewer waits to be claimed it asks this often (a TRMNL on battery
 // too: pairing is a minute or two, once).
@@ -212,10 +239,17 @@ function manifest(): Response {
 /** The page's icons, for a browser with no session (a tablet on a wall), and
  * so that a browser asking for /favicon.ico (the admin page, any tab) never
  * wakes a household's server for it (W-915). */
+/** The setup welcome's video, by range (Safari plays nothing otherwise). */
+export function setupMedia(request: Request, path: string): Response | null {
+  return path === "/_ff/setup-birds.mp4" ? rangeResponse(request, setupVideo, "video/mp4") : null;
+}
+
 export function pageIcon(path: string): Response | null {
   const [body, type] = path === "/static/favicon-192.png" ? [favicon192, "image/png"]
     : path === "/static/favicon-32.png" ? [favicon32, "image/png"]
     : path === "/static/apple-touch-icon.png" ? [touchIcon, "image/png"]
-    : path === "/favicon.ico" ? [faviconIco, "image/x-icon"] : [null, ""];
+    : path === "/favicon.ico" ? [faviconIco, "image/x-icon"]
+    : path === "/_ff/setup-photo.webp" ? [setupPhoto, "image/webp"]
+    : SETUP_ART.has(path) ? [SETUP_ART.get(path)!, "image/webp"] : [null, ""];
   return body ? new Response(body, { headers: { "Content-Type": type, "Cache-Control": "max-age=86400" } }) : null;
 }

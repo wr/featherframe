@@ -17,7 +17,7 @@ import { confirmVerification, resendVerification } from "./accounts";
 import { auth, confirmEmailChange, confirmWaitlist, logout, pendingEmail, sessionUser, settingsForm } from "./accounts";
 import { checkCode, login, resendCode, showCode, signInState } from "./signin";
 import { adminRoute, apiRoute, waitlistRoute } from "./admin";
-import { isViewerPath, pageIcon, viewerRoute } from "./viewers";
+import { isViewerPath, pageIcon, setupMedia, viewerRoute } from "./viewers";
 import { LOBBY_DRAWING, expiryText, pairingCode, setupUrl } from "./pairing";
 import { Household } from "./household";
 import { isSetupPath, setupRoute } from "./setup";
@@ -85,6 +85,8 @@ export default {
     if (path === "/_ff/script.ttf" || path === "/fonts/script.ttf") {
       return plates(request, env, new URL("/assets/script.ttf", url));
     }
+    const media = setupMedia(request, path);
+    if (media) return media;
     const icon = pageIcon(path);
     if (icon) return icon;
     if (path === "/login") return login(request, env, ctx);

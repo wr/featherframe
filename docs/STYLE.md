@@ -45,6 +45,13 @@ page is a copy of this file; this file wins if they disagree.
 - **Typography.** Sentence case for headings, labels and buttons. En dash
   for number ranges (1–5). Curly quotes are optional; be consistent within
   a page.
+- **Future tense for what comes next.** "After you save, your frame will
+  show a code", not "your frame shows a code". What is always true stays in
+  the present: "the frame shows the latest detection". A "when" clause stays
+  present too: "When the frame shows a code, scan it."
+- **Sign-up and sign-in read like everyone else's.** "Create your account",
+  "Email", "We'll send you a link to confirm your account." Not "You'll sign in with
+  it to manage your frame."
 - **Times, as people write them.** A 12-hour clock with AM and PM: 7:00 PM,
   6:30 AM. A span of time takes an arrow: 10:00 PM → 6:00 AM, Sunset →
   Sunrise. A recent moment is relative: just now, 4 min ago, 2 hours ago,
@@ -88,8 +95,10 @@ of Asia*, *The Birds of Great Britain*.
 
 **"Bird."** In the webapp, never use "bird" for a detection, a species or an
 update: "a new detection reaches the frame", not "a new bird shows up".
-Names and titles that contain the word are fine. The wiki, README and
-marketing page may say "bird" where a person would.
+Names and titles that contain the word are fine. The wiki, README,
+marketing page and the first-run setup pages (the kit's Wi-Fi page, Cloud's
+"Set up your frame") may say "bird" where a person would: "Your frame will
+show the birds heard by a station near you."
 
 **"Plate."** A plate is a numbered sheet of a printed book. The webapp never
 says it (an owner sees illustrations). Docs may, once the page has said what
@@ -119,6 +128,12 @@ a plate is, and the corner mark cites one ("Plate CLIX").
 - **Errors say what to do**, not what broke inside.
 - **No architecture.** A section never opens with an intro about how the
   system works.
+- **First run is written for someone who has never heard of BirdNET** (a kit
+  opened as a gift). The default path needs no technical word and can be
+  taken with confidence. A technical choice (a detector of your own, a
+  server of your own) is a link off the default, for those who know to look
+  for it: "I have my own BirdNET station". Never make "No" the default
+  answer.
 
 ## The frame's own screens
 

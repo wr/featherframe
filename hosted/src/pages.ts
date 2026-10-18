@@ -14,7 +14,7 @@ const STYLE = `
     --bg:#171614; --surface:#211f1c; --ink:#ecebe7; --ink-2:#c9c6bf; --muted:#8f8b83;
     --border:#34312c; --border-strong:#4a463f; --field:#2c2b27; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); --bad:#d9705a; --good:#7fae66;
     --sh-card:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28); --sh-sm:0 1px 1px rgba(0,0,0,.25); color-scheme:dark; } }
-  @font-face { font-family:"Featherframe Script"; src:url("/_ff/script.ttf") format("truetype"); font-display:swap; }
+  @font-face { font-family:"Featherframe Script"; src:url("/_ff/script.ttf") format("truetype"); font-display:block; }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
     background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
@@ -143,6 +143,7 @@ function page(title: string, body: string): Response {
 function shell(title: string, main: string, style = ""): Response {
   return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>
+<link rel="preload" href="/_ff/script.ttf" as="font" type="font/ttf" crossorigin>
 <style>${STYLE}${style}</style></head><body>${main}</body></html>`,
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
@@ -586,140 +587,422 @@ export function confirmEmailEmail(link: string): { subject: string; text: string
 }
 
 // -- setting up a frame from the phone (W-888, W-889) ---------------------------------
-const SETUP_STYLE = `<style>
-  .hint { font-size:13px; color:var(--muted); margin:6px 0 0; }
-  .field { margin-bottom:18px; }
-  .code-in { text-transform:uppercase; letter-spacing:.08em; }
-  fieldset { border:0; margin:0 0 6px; padding:0; }
-  legend { font-size:15px; font-weight:600; margin:4px 0 8px; padding:0; }
-  .choices, .stations { list-style:none; margin:0; padding:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-  .stations { margin-top:10px; }
+const SETUP_STYLE = `
+  /* Setting up from the phone (W-1073): full screens, as a phone app's setup
+     is drawn. A welcome on the scene the marketing page tells it with, then
+     one question a screen: a big title, a line, its field, and the button
+     at the bottom. A column on a computer. */
+  /* The accent's fill: walnut a shade lighter at the top, with a faint top
+     edge (Wells's pick of the colorways, W-1073). The tint of a chosen row
+     is warm enough to stand apart from the page's gray. */
+  :root { --accent-fill:linear-gradient(180deg, #7b5735 0%, #64452a 100%);
+    --accent-lift:inset 0 1px 0 rgba(255,244,228,.13), 0 1px 1px rgba(35,22,8,.18); --on-accent-shadow:none; --accent-tint:#f4ece3; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --accent-fill:linear-gradient(180deg, #bc9670 0%, #a37e59 100%);
+    --accent-lift:inset 0 1px 0 rgba(255,250,240,.2), 0 1px 1px rgba(0,0,0,.35); --accent-tint:#33291f; } }
+  body { display:block; min-height:0; padding:0; }
+  main.flow { max-width:440px; margin:0 auto; }
+  .screen { display:flex; flex-direction:column; min-height:100vh; min-height:100svh; padding:0 24px; }
+  .screen h1 { font-size:28px; font-weight:650; line-height:1.15; letter-spacing:-.01em; margin:0 0 10px; outline:none; text-wrap:balance; }
+  .lede { font-size:17px; line-height:1.45; color:var(--ink-2); margin:0 0 22px; }
+  .top { display:flex; align-items:center; justify-content:space-between; height:56px; margin:0 -8px 6px; }
+  .count { font-size:14px; color:var(--muted); margin-right:8px; font-variant-numeric:tabular-nums; }
+  button.backarrow { width:40px; height:40px; margin:0; padding:0; display:grid; place-items:center; background:none; color:var(--ink); border-radius:50%; }
+  button.backarrow svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .bottom { position:sticky; bottom:0; margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:18px 0 calc(18px + env(safe-area-inset-bottom, 0px)); background:linear-gradient(to bottom, transparent, var(--bg) 22px); }
+  /* The main button stands in the same place on every screen, link or not. */
+  .bottom:not(:has(.link))::after { content:""; height:39px; }
+  .bottom button[type=submit], .bottom [data-next] { margin:0; width:100%; padding:15px 12px; font-size:17px; border-radius:12px; }
+  .bottom button[type=submit], .bottom [data-next], .find > button { background:var(--accent-fill); box-shadow:var(--accent-lift); text-shadow:var(--on-accent-shadow); }
+  button.link { width:auto; margin:0; padding:8px 4px; background:none; border:0; color:var(--accent); font-weight:500; font-size:16px; }
+  /* While a field has the keyboard up, the button follows the form, so the
+     keyboard never covers it. */
+  form.typing .bottom { position:static; margin-top:24px; padding-top:0; background:none; }
+  form.typing .bottom::after { display:none; }
+  button:disabled { opacity:.5; cursor:default; }
+  [hidden] { display:none !important; }
+  .sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); border:0; }
+  label { font-size:15px; font-weight:500; color:var(--ink-2); margin:0 0 8px; }
+  input[type=text], input[type=email] { padding:14px 15px; font-size:17px; border-radius:12px; }
+  .hint { font-size:15px; line-height:1.45; color:var(--muted); margin:10px 0 0; }
+  .bad { margin:16px 0 0; }
+
+  /* The welcome: the scene, the wordmark, one line, Get started. */
+  .welcome { padding:0; }
+  .welcome .body { padding:0 24px; }
+  .welcome .wordmark { font-size:30px; text-align:left; margin:0 0 10px; }
+  .welcome .bottom { padding-left:24px; padding-right:24px; }
+  .hero { position:relative; margin-bottom:30px; }
+  .hero .media { aspect-ratio:4 / 3; overflow:hidden; background:#cfcdc8 url("/_ff/setup-photo.webp") center / cover no-repeat; }
+  .hero video { display:block; width:100%; height:100%; object-fit:cover; }
+  .hero .ping { position:absolute; left:14px; top:calc(14px + env(safe-area-inset-top, 0px)); display:flex; align-items:center; gap:10px;
+    padding:8px 14px 8px 8px; max-width:calc(100% - 28px); background:#fff; border-radius:14px; box-shadow:0 8px 22px rgba(20,16,10,.25); color:#121212;
+    transition:opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1); }
+  .hero.live .ping { opacity:0; transform:translateY(-8px); }
+  .hero.live .ping.on { opacity:1; transform:none; }
+  .hero .ping .ic { flex:none; display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:#121212; }
+  .hero .ping .ic svg { width:18px; height:18px; fill:none; stroke:#fff; stroke-width:2; stroke-linecap:round; }
+  .hero .ping .tx { display:flex; flex-direction:column; min-width:0; }
+  .hero .ping .k { font-size:12px; line-height:1.3; color:#6b6b69; }
+  .hero .ping .nm { display:block; font-size:15px; font-weight:600; line-height:1.3; white-space:nowrap; }
+  .hero .ping .nm.swap { animation:swapname .5s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes swapname { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .hero .ping .when { align-self:flex-start; margin-left:10px; font-size:12px; line-height:1.3; color:#6b6b69; white-space:nowrap; }
+  .hero .credit { position:absolute; left:12px; right:calc(min(32%, 138px) + 32px); bottom:8px; transition:opacity .35s ease; font-size:10px; line-height:1.3; color:rgba(255,255,255,.88);
+    text-shadow:0 1px 3px rgba(0,0,0,.7); }
+  .hero .credit.out { opacity:0; }
+  .hero .wall { position:absolute; right:20px; bottom:-46px; width:32%; max-width:138px; aspect-ratio:300 / 377; filter:drop-shadow(0 12px 18px rgba(20,16,10,.38)); }
+  .hero .wall.gray { aspect-ratio:300 / 383; }
+  .hero .wall > img { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  /* Only the screen repaints, as e-paper does: dark, then light, then the
+     illustration. The walnut and the mat stay put. */
+  .hero .wall .pane { position:absolute; left:17%; top:16.98%; width:66%; height:66.05%; overflow:hidden; background:#e8e7e3; }
+  .hero .wall.gray .pane { left:18.67%; top:16.71%; width:62.67%; height:66.06%; }
+  .hero .wall .pane img { position:absolute; inset:0; width:100%; height:100%; display:block; opacity:0; }
+  .hero .wall .pane img.on { opacity:1; }
+  .hero .wall .pane img.paint { animation:repaint .9s ease; }
+  @keyframes repaint { 0% { opacity:0; } 22% { opacity:1; filter:brightness(.12); } 48% { filter:brightness(2.2) contrast(.35); } 100% { opacity:1; filter:none; } }
+  @media (min-width:480px) { main.flow { padding-top:24px; } .hero { margin:0 24px 30px; } .hero .media { border-radius:16px; } }
+
+  /* A station near you, or their own detector. */
+  .find { display:flex; gap:8px; }
+  .searchbox { position:relative; flex:1 1 auto; min-width:0; }
+  .searchbox input { padding-right:44px; }
+  button.loc { position:absolute; top:0; right:0; bottom:0; width:44px; margin:0; padding:0; display:flex; align-items:center; justify-content:center;
+    background:none; color:var(--accent); border-radius:0 10px 10px 0; }
+  button.loc svg { width:19px; height:19px; fill:currentColor; }
+  /* Looking: the page's own spinner in the arrow's place. */
+  button.loc.busy svg { display:none; }
+  button.loc.busy::after { margin:0; vertical-align:0; }
+  /* What stops the location button is said beside it, over the page, so
+     nothing below moves. */
+  .tip { position:absolute; left:-4px; right:-4px; bottom:calc(100% + 12px); z-index:5; padding:12px 14px;
+    border-radius:12px; background:var(--ink); color:var(--bg); font-size:15px; line-height:1.4; box-shadow:0 10px 28px rgba(0,0,0,.28);
+    animation:pop .22s cubic-bezier(.2, .8, .2, 1); }
+  .tip::after { content:""; position:absolute; top:100%; right:18px; border:8px solid transparent; border-top-color:var(--ink); }
+  .tip b { display:block; font-weight:600; }
+  .tip span { display:block; text-wrap:balance; opacity:.85; }
+  @keyframes pop { from { opacity:0; transform:translateY(6px) scale(.97); } to { opacity:1; transform:none; } }
+  .find > button { margin:0; width:auto; flex:none; padding:0 18px; border-radius:10px; }
+  .near { font-size:14px; color:var(--muted); margin:16px 0 8px; }
+  /* Something to do differently is a notice; only what failed on our side is
+     a warning. */
+  .oops { display:flex; gap:10px; margin:16px 0 10px; padding:13px 14px; border-radius:12px; font-size:15px; line-height:1.4; color:var(--ink-2);
+    background:var(--surface); border:1px solid var(--border-strong); }
+  .oops svg { flex:none; width:20px; height:20px; margin-top:1px; fill:none; stroke:var(--ink-2); stroke-width:2; stroke-linecap:round; }
+  .oops b { display:block; font-weight:600; color:var(--ink); }
+  .oops span { display:block; text-wrap:balance; }
+  .oops.warn { background:rgba(182,71,46,.08); background:color-mix(in srgb, var(--bad) 9%, var(--surface));
+    border-color:rgba(182,71,46,.3); border-color:color-mix(in srgb, var(--bad) 32%, transparent); }
+  .oops.warn svg { stroke:var(--bad); }
+  .oops.warn b { color:var(--bad); }
+  .choices, .stations { list-style:none; margin:0; padding:0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface); }
   .stations:empty { display:none; }
   .choices li + li, .stations li + li { border-top:1px solid var(--border); }
-  .choices label, .stations label { display:flex; gap:10px; align-items:flex-start; margin:0; padding:10px 12px;
-    font-size:14px; color:var(--ink); cursor:pointer; }
-  .choices input, .stations input { margin:3px 0 0; accent-color:var(--accent); flex:none; }
-  .meta { display:block; font-size:12.5px; color:var(--muted); }
-  .find { display:flex; gap:8px; margin-top:14px; }
-  .find input { flex:1 1 auto; min-width:0; }
-  .find button { margin:0; width:auto; flex:none; }
-  .btn2 { margin-top:8px; width:100%; background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
-  .near { font-size:13px; color:var(--muted); margin:12px 0 0; }
-  button:disabled { opacity:.6; cursor:default; }
-  [hidden] { display:none !important; }
-</style>`;
+  .choices label, .stations label { display:flex; gap:12px; align-items:flex-start; margin:0; padding:15px 14px; font-size:17px; font-weight:400; color:var(--ink); cursor:pointer; }
+  .choices input, .stations input { -webkit-appearance:none; appearance:none; margin:1px 0 0; width:22px; height:22px; flex:none; border-radius:50%;
+    border:2px solid var(--border-strong); background:var(--field); }
+  .choices input:checked, .stations input:checked { border:0; background:radial-gradient(circle, var(--on-accent) 0 3.5px, transparent 4px), var(--accent-fill);
+    box-shadow:var(--accent-lift); }
+  .choices input:focus-visible, .stations input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .meta { display:block; margin-top:2px; font-size:14px; color:var(--muted); }
+  /* The chosen row is plain at a glance: a warm tint, and its radio filled. */
+  .choices label:has(input:checked), .stations label:has(input:checked) { background:var(--accent-tint); }
+  .stations label { align-items:center; }
+  .stations input { margin:0; }
+  .stations .nm { flex:1 1 auto; min-width:0; }
+  .stations .far { flex:none; margin-left:4px; text-align:right; font-size:17px; font-weight:600; line-height:1.15; font-variant-numeric:tabular-nums; }
+  .stations .far small { display:block; font-size:13px; font-weight:400; color:var(--muted); }
+  .closest { display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px; background:var(--accent-fill); color:var(--on-accent); text-shadow:var(--on-accent-shadow);
+    font-size:11.5px; font-weight:600; line-height:1.4; vertical-align:2px; white-space:nowrap; }
+  .then { margin:18px 0 0; padding:14px 16px; border-radius:12px; background:var(--surface); border:1px solid var(--border);
+    font-size:15px; line-height:1.45; color:var(--ink-2); animation:rise .35s ease; }
+  .then p { margin:0 0 6px; font-weight:600; color:var(--ink); }
+  .then ol { margin:0; padding-left:20px; }
+  .then li + li { margin-top:4px; }
+  @keyframes rise { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+`;
 
 export interface SetupView {
   code: string; token: string; error?: string;
   email?: string; miles: boolean; place: string; country: string; source?: string;
+  /** Which step a re-shown page opens on: the one its error is about. */
+  step?: "source" | "station" | "email";
+  /** The kit asking is the colour one (EE02): the page shows that frame. */
+  color?: boolean;
 }
 
+// Setting up from the phone (W-1073), for someone who has never heard of
+// BirdNET: a welcome, a station near them, their email. Their own detector
+// is a link off the station; "I already have an account" goes straight to the
+// email. One form and one POST; without its script every screen shows.
 export function setupPage(v: SetupView): Response {
   const e = escapeHtml;
   const action = `/setup/${e(v.code.toLowerCase())}/${e(v.token)}`;
   const src = v.source || "birdweather";
-  const choice = (value: string, name: string, meta: string) => `<li><label>
-    <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}>
-    <span>${name}<span class="meta">${meta}</span></span></label></li>`;
+  const own = src !== "birdweather";
+  const detector = (value: string, name: string) => `<li><label>
+            <input type="radio" name="source" value="${value}" data-name="${name}"${src === value ? " checked" : ""}><span>${name}</span></label></li>`;
+  const chosen = src === "apprise" ? "BirdNET-Pi" : src === "birdnet_go" ? "BirdNET-Go" : "";
+  // The kit's own frame: the 13" colour one, or the 10" gray one.
+  const kit = v.color ? "13" : "10";
   const us = v.country === "US";
-  return page("Set up your frame · Featherframe", `${SETUP_STYLE}
-    <h1>Set up your frame</h1>
-    ${v.error ? `<p class="bad">${e(v.error)}</p>` : ""}
-    <form method="post" action="${action}" id="setup">
-      <div class="field">
-        <label for="email">Email address</label>
-        <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
-        <p class="hint">This is the email you'll use to sign in to Featherframe to manage your frame and change settings.</p>
-      </div>
-
-      <fieldset>
-        <legend>Detection source</legend>
-        <ul class="choices">
-          ${choice("birdweather", "A BirdWeather station near me", "No equipment needed")}
-          ${choice("apprise", "My BirdNET-Pi", "You'll connect it in Settings after setup")}
-          ${choice("birdnet_go", "My BirdNET-Go", "You'll connect it in Settings after setup")}
-        </ul>
-      </fieldset>
-      <div id="bw"${src === "birdweather" ? "" : " hidden"}>
-        <p class="hint">Choose a station near where the frame will hang.</p>
-        <div class="find">
-          <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "ZIP code or town" : "Postcode or town"}"
-            aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
-          <button type="button" id="findbtn">Find</button>
+  const start = v.step === "email" ? "email" : v.step ? "source" : "welcome";
+  const back = `<button type="button" class="backarrow" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>`;
+  const error = v.error ? `<p class="bad">${e(v.error)}</p>` : "";
+  // The scene the marketing page tells it with, and its four birds: each one's
+  // video, then the phone's "New detection" for it, then the frame, hanging
+  // off the video's foot, repainting to its illustration. The page follows the
+  // video's clock (six seconds a bird). With reduced motion, or no script, it
+  // is the cardinal, still.
+  // Each clip's credit as the marketing page gives it; three are CC BY-SA, so
+  // the one playing is always named.
+  const BIRDS: [string, string, string][] = [
+    ["cardinal", "Northern Cardinal", "Video by Courtney Celley, U.S. Fish and Wildlife Service"],
+    ["bluebird", "Eastern Bluebird", "Video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0 (excerpt)"],
+    ["titmouse", "Tufted Titmouse", "Video by Víctor Martínez, Wikimedia Commons, CC BY-SA 4.0 (excerpt)"],
+    ["chickadee", "Black-capped Chickadee", "Video by Cephas, Wikimedia Commons, CC BY-SA 3.0 (excerpt)"]];
+  const scene = `<div class="hero" id="hero" data-birds="${BIRDS.map((b) => b[1]).join("|")}" data-credits="${e(BIRDS.map((b) => b[2]).join("|"))}">
+          <div class="media" aria-hidden="true"><video id="scene" muted playsinline loop preload="auto" poster="/_ff/setup-photo.webp" width="720" height="540"><source src="/_ff/setup-birds.mp4" type="video/mp4"></video></div>
+          <span class="credit" id="credit">${BIRDS[0][2]}</span>
+          <span class="ping" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3.5 10.5v3M7 7.5v9M10.5 4.5v15M14 8v8M17.5 9.5v5M21 11v2"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm" id="ping-nm">Northern Cardinal</span></span><span class="when">Just now</span></span>
+          <span class="wall${v.color ? "" : " gray"}" aria-hidden="true"><span class="pane">${BIRDS.map(([slug], i) => `<img${i === 0 ? ' class="on"' : ""} src="/_ff/setup-screen-${kit}-${slug}.webp" alt="">`).join("")}</span><img src="/_ff/setup-frame-${kit}.webp" alt="" width="300" height="${v.color ? 377 : 383}"></span>
+        </div>`;
+  return shell("Set up your frame · Featherframe", `<main class="flow">
+    <form method="post" action="${action}" id="setup" data-start="${start}">
+      <section class="screen welcome" data-step="welcome">
+        ${scene}
+        <div class="body">
+          <p class="wordmark">Featherframe</p>
+          <h1 tabindex="-1">Hear a bird outside. See it on your frame.</h1>
+          <p class="lede">Your frame will show the latest bird heard near you, as a 19th-century illustration. Setting it up takes about two minutes.</p>
         </div>
-        <button type="button" class="btn2" id="locate">Use my location</button>
-        <p class="near" id="status" hidden></p>
-        <ul class="stations" id="stations"></ul>
-      </div>
-      <input type="hidden" name="tz" id="tz">
-      <input type="hidden" name="km" id="km">
-      <button type="submit" id="go">Set up frame</button>
+        <div class="bottom">
+          <button type="button" data-next>Get started</button>
+          <button type="button" class="link" id="have-account">I already have an account</button>
+        </div>
+      </section>
+      <section class="screen" data-step="source">
+        <div class="top">${back}<span class="count">1 of 2</span></div>
+        ${v.step === "station" ? error : ""}
+        <div id="bw"${own ? " hidden" : ""}>
+          <input type="radio" name="source" value="birdweather" id="src-bw" class="sr"${own ? "" : " checked"} tabindex="-1" aria-hidden="true">
+          <h1 tabindex="-1">Choose a station near you</h1>
+          <p class="lede">Your frame will show the birds heard by a station near you. Stations are microphones that people set up at home and share on BirdWeather.</p>
+          <div class="find">
+            <div class="searchbox">
+              <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "ZIP code or town" : "Postcode or town"}"
+                aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
+              <div class="tip" id="tip" role="status" hidden><b id="tip-t"></b><span id="tip-x"></span></div>
+              <button type="button" class="loc" id="locate" aria-label="Use current location" title="Use current location"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5 3.8 10.4c-.6.3-.6 1.2.1 1.4l6.4 1.9 1.9 6.4c.2.7 1.1.7 1.4.1z"/></svg></button>
+            </div>
+            <button type="button" id="findbtn">Find</button>
+          </div>
+          <p class="near" id="status" hidden></p>
+          <div class="oops" id="oops" role="alert" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path id="oops-i" d=""/></svg><div><b id="oops-t"></b><span id="oops-x"></span></div></div>
+          <ul class="stations" id="stations"></ul>
+        </div>
+        <div id="own"${own ? "" : " hidden"}>
+          <h1 tabindex="-1" id="own-q">Your BirdNET station</h1>
+          <p class="lede">Your frame will show the birds your station hears. Which one do you have?</p>
+          <ul class="choices" role="radiogroup" aria-labelledby="own-q">
+            ${detector("apprise", "BirdNET-Pi")}
+            ${detector("birdnet_go", "BirdNET-Go")}
+          </ul>
+          <div class="then" id="then" aria-live="polite"${chosen ? "" : " hidden"}>
+            <p>What happens next</p>
+            <ol>
+              <li>You'll create your account.</li>
+              <li>The Featherframe webapp will show you how to connect your <span id="then-nm">${chosen}</span>. It takes a few minutes.</li>
+              <li>Your frame will show the next bird your station hears.</li>
+            </ol>
+          </div>
+        </div>
+        <div class="bottom">
+          <button type="button" data-next>Continue</button>
+          <button type="button" class="link" id="swap">${own ? "Use a station near me instead" : "I have my own BirdNET station"}</button>
+        </div>
+      </section>
+      <section class="screen" data-step="email">
+        <div class="top">${back}<span class="count" id="count2">2 of 2</span></div>
+        ${v.step === "email" ? error : ""}
+        <h1 tabindex="-1" id="acct-h">Create your account</h1>
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
+        <p class="hint" id="acct-hint">We'll send you a link to confirm your account. Your email address will never be shared or sold to anyone.</p>
+        <input type="hidden" name="tz" id="tz">
+        <input type="hidden" name="km" id="km">
+        <div class="bottom"><button type="submit" id="go">Set up frame</button></div>
+      </section>
     </form>
+    </main>
     <script>
     (function () {
       var base = ${JSON.stringify(`/api/setup/stations?c=${v.code}&t=${v.token}`)}, miles = ${v.miles ? "true" : "false"};
       var $ = function (id) { return document.getElementById(id); };
-      var list = $("stations"), status = $("status"), km = $("km"), place = $("place");
+      var form = $("setup"), list = $("stations"), status = $("status"), km = $("km"), place = $("place");
       try { $("tz").value = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
-      function say(text) { status.textContent = text; status.hidden = !text; }
+      // A line of status, or a callout when something needs them to act.
+      function say(text) { status.textContent = text; status.hidden = !text; $("oops").hidden = true; }
+      // A notice ("i") asks them to do something else; a warning ("!") is a failure.
+      // The last two words are held together, so none stands alone on a line.
+      function oops(title, text, warn) {
+        say(""); var o = $("oops");
+        o.className = warn ? "oops warn" : "oops";
+        $("oops-i").setAttribute("d", warn ? "M12 7.5v5.5M12 16.6v.01" : "M12 11v5.5M12 7.6v.01");
+        $("oops-t").textContent = title; $("oops-x").textContent = text.replace(/ (\S+)$/, "\u00a0$1"); o.hidden = false;
+      }
       function dist(k) { return miles ? Math.round(k * 0.621371) + " mi" : k + " km"; }
-      function show(b) {
-        var rows = b.stations || [];
+      function source() { var r = document.querySelector("input[name=source]:checked"); return r ? r.value : ""; }
+      function station() { return document.querySelector("input[name=station]:checked"); }
+      function mine() { return !$("own").hidden; }
+
+      // The screens, and where Back goes: "I already have an account" skips
+      // the station, so its Back is the welcome.
+      var screens = Array.prototype.slice.call(form.querySelectorAll("section.screen")), at = 0, signin = false;
+      var vid = $("scene"), still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // The scene: a bird every six seconds of the video; its card a moment
+      // after it lands, its illustration on the frame a moment after that.
+      var hero = $("hero"), names = hero.getAttribute("data-birds").split("|"), ping = hero.querySelector(".ping"), nm = $("ping-nm");
+      var credits = hero.getAttribute("data-credits").split("|"), credit = $("credit"), playing = 0;
+      var frames = hero.querySelectorAll(".pane img"), carded = -1, painted = 0;
+      function paint(i) {
+        if (i === painted) return;
+        frames[painted].classList.remove("on", "paint"); frames[i].classList.add("on", "paint"); painted = i;
+      }
+      function follow() {
+        var t = vid.currentTime || 0, bird = Math.floor(t / 6) % names.length, into = t % 6;
+        if (bird !== playing) {
+          playing = bird; credit.classList.add("out");
+          setTimeout(function () { credit.textContent = credits[playing]; credit.classList.remove("out"); }, 350);
+        }
+        if (into >= 0.9 && carded !== bird) {
+          carded = bird; nm.textContent = names[bird];
+          nm.classList.remove("swap"); void nm.offsetWidth; nm.classList.add("swap"); ping.classList.add("on");
+        }
+        if (into >= 2 && carded === bird) paint(bird);
+      }
+      if (vid && !still) {
+        hero.classList.add("live"); paint(names.length - 1); frames[0].classList.remove("on");
+        frames[names.length - 1].classList.remove("paint");
+        vid.addEventListener("timeupdate", follow);
+      }
+      function show(i, focus) {
+        at = Math.max(0, Math.min(i, screens.length - 1));
+        screens.forEach(function (s, k) { s.hidden = k !== at; });
+        if (vid && !still) { if (at === 0) { var go = vid.play(); if (go && go.catch) go.catch(function () {}); } else vid.pause(); }
+        ready();
+        // The email step starts in its field, keyboard up; the others on their title.
+        if (focus) { var h = screens[at].querySelector("h1:not([hidden])"), p = screens[at].querySelector("#bw:not([hidden]) h1, #own:not([hidden]) h1");
+          window.scrollTo(0, 0); (at === 2 ? $("email") : p || h).focus(); }
+      }
+      function account(asSignin) {
+        signin = asSignin;
+        $("acct-h").textContent = signin ? "Sign in" : "Create your account";
+        $("acct-hint").textContent = signin ? "We'll email you a code to add this frame." : "We'll send you a link to confirm your account. Your email address will never be shared or sold to anyone.";
+        $("go").textContent = signin ? "Continue" : "Set up frame";
+        $("count2").hidden = signin;
+      }
+      form.classList.add("stepped");
+      // Typing: the button follows the form (see .typing). It stays put a
+      // moment after the field lets go, so a tap on it lands where it was.
+      var typing = function (on) { form.classList.toggle("typing", on); };
+      form.addEventListener("focusin", function (ev) { if (ev.target.matches("input[type=text], input[type=email]")) typing(true); });
+      form.addEventListener("focusout", function () {
+        setTimeout(function () { var a = document.activeElement; typing(!!(a && a.matches && a.matches("input[type=text], input[type=email]"))); }, 300);
+      });
+      form.addEventListener("click", function (ev) {
+        var t = ev.target.closest ? ev.target.closest("button") : ev.target;
+        if (!t) return;
+        if (t.hasAttribute("data-next")) { if (!t.disabled) { if (at === 0) account(false); show(at + 1, true); } }
+        else if (t.hasAttribute("data-back")) show(at === 2 && signin ? 0 : at - 1, true);
+      });
+      $("have-account").onclick = function () { account(true); show(2, true); };
+      // Their own detector, or back to a station: the same screen, the other half.
+      $("swap").onclick = function () {
+        var to = !mine();
+        $("bw").hidden = to; $("own").hidden = !to; $("src-bw").checked = !to;
+        $("swap").textContent = to ? "Use a station near me instead" : "I have my own BirdNET station";
+        ready(); (to ? $("own") : $("bw")).querySelector("h1").focus();
+      };
+
+      function rows(b) {
+        var found = b.stations || [];
         list.innerHTML = ""; km.value = "";
-        say(rows.length ? (b.place ? "Near " + b.place : "Near you")
-          : (b.found === false ? "Couldn't find that place. Check the spelling, or try a ZIP code."
-             : "No BirdWeather stations within about " + (miles ? "35 miles" : "55 km") + ". Try a town further away, or choose another detection source."));
-        rows.forEach(function (s, i) {
+        if (found.length) say(b.place ? "Near " + b.place : "Near you");
+        else if (b.found === false) oops("Couldn't find that place", "Check the spelling, or try a ZIP code.");
+        else oops("No stations nearby", "There are none within about " + (miles ? "35 miles" : "55 km") + ". Try a larger town nearby.");
+        // Nearest first: the first is tagged, and each says how far it is.
+        found.forEach(function (s, i) {
           var li = document.createElement("li"), lab = document.createElement("label"), r = document.createElement("input");
           r.type = "radio"; r.name = "station"; r.value = s.id; r.checked = i === 0;
-          r.onchange = function () { km.value = s.km; };
-          var t = document.createElement("span"); t.textContent = s.name;
+          r.onchange = function () { km.value = s.km; ready(); };
+          var t = document.createElement("span"); t.className = "nm"; t.textContent = s.name;
+          if (i === 0 && found.length > 1) { var tag = document.createElement("span"); tag.className = "closest"; tag.textContent = "Closest"; t.appendChild(tag); }
           var m = document.createElement("span"); m.className = "meta";
-          m.textContent = [s.state, dist(s.km), s.species + " species in the last 7 days"].filter(Boolean).join(" · ");
-          t.appendChild(m); lab.appendChild(r); lab.appendChild(t); li.appendChild(lab); list.appendChild(li);
+          m.textContent = s.species + (s.species === 1 ? " kind of bird" : " kinds of birds") + " this week";
+          var f = document.createElement("span"); f.className = "far"; f.textContent = dist(s.km);
+          var a = document.createElement("small"); a.textContent = "away"; f.appendChild(a);
+          t.appendChild(m); lab.appendChild(r); lab.appendChild(t); lab.appendChild(f); li.appendChild(lab); list.appendChild(li);
           if (i === 0) km.value = s.km;
         });
         ready();
       }
-      // With BirdWeather chosen, setting up waits for a station: without one
-      // the frame would have no source at all.
+      // The station screen's Continue waits for its choice: a station, or a detector.
       function ready() {
-        var bw = document.querySelector("input[name=source]:checked");
-        $("go").disabled = !!(bw && bw.value === "birdweather" && !document.querySelector("input[name=station]:checked"));
+        var next = form.querySelector("[data-step=source] [data-next]");
+        next.disabled = mine() ? !(source() === "apprise" || source() === "birdnet_go") : !station();
       }
       function load(q) {
-        say("Finding stations…"); list.innerHTML = "";
+        say("Finding stations…"); list.innerHTML = ""; ready();
         var x = new XMLHttpRequest();
         x.open("GET", base + q);
-        x.onload = function () { try { show(JSON.parse(x.responseText)); } catch (e) { show({}); } };
-        x.onerror = function () { say("Couldn't reach BirdWeather. Try again in a moment."); };
+        x.onload = function () { try { rows(JSON.parse(x.responseText)); } catch (e) { rows({}); } };
+        x.onerror = function () { oops("Couldn't find stations just now", "Check your connection, then try again.", true); };
         x.send();
       }
-      function find() { var p = place.value.trim(); if (p.length > 1) load("&place=" + encodeURIComponent(p)); }
+      // The keyboard goes down so the stations show.
+      function find() { var p = place.value.trim(); if (p.length > 1) { place.blur(); load("&place=" + encodeURIComponent(p)); } }
       $("findbtn").onclick = find;
       place.onkeydown = function (ev) { if (ev.key === "Enter") { ev.preventDefault(); find(); } };
-      $("locate").onclick = function () {
-        if (!navigator.geolocation) { say("This browser can't share its location. Enter your ZIP code or town instead."); return; }
-        say("Finding your location…");
+      // The location button: a spinner while it looks, and what stops
+      // it is a tooltip over the field, gone at the next tap or keystroke.
+      var loc = $("locate"), tipBox = $("tip");
+      function tip(title, text) {
+        $("tip-t").textContent = title; $("tip-x").textContent = text.replace(/ (\S+)$/, "\u00a0$1"); tipBox.hidden = false;
+      }
+      document.addEventListener("pointerdown", function (ev) { if (!tipBox.hidden && !loc.contains(ev.target)) tipBox.hidden = true; }, true);
+      place.addEventListener("input", function () { tipBox.hidden = true; });
+      loc.onclick = function () {
+        tipBox.hidden = true;
+        if (!navigator.geolocation) { tip("This browser can't share your location", "Enter your ZIP code or town instead."); return; }
+        loc.classList.add("busy");
         navigator.geolocation.getCurrentPosition(function (p) {
-          place.value = "";
+          loc.classList.remove("busy"); place.value = "";
           load("&lat=" + p.coords.latitude.toFixed(3) + "&lon=" + p.coords.longitude.toFixed(3));
         }, function (err) {
-          say(err && err.code === 1
-            ? "Location is off for this browser. Turn it on in your phone's settings, or enter your ZIP code or town."
-            : "Couldn't find your location. Enter your ZIP code or town instead.");
+          loc.classList.remove("busy");
+          if (err && err.code === 1) tip("Location is off", "Turn on location for this browser in your phone's settings, or enter your ZIP code or town.");
+          else tip("Couldn't find your location", "Enter your ZIP code or town instead.");
         }, { enableHighAccuracy: false, timeout: 20000, maximumAge: 600000 });
       };
       var radios = document.querySelectorAll("input[name=source]");
       for (var i = 0; i < radios.length; i++) radios[i].onchange = function () {
-        $("bw").hidden = this.value !== "birdweather";
+        var n = this.getAttribute("data-name");
+        if (n) { $("then-nm").textContent = n; $("then").hidden = false; }
         ready();
       };
-      ready();
+      // Enter before the last screen goes on; it never sends a half-filled form.
+      form.addEventListener("submit", function (ev) {
+        if (at < 2) { ev.preventDefault(); var n = screens[at].querySelector("[data-next]"); if (n && !n.disabled) show(at + 1, true); return; }
+        $("go").disabled = true; $("go").textContent = signin ? "Sending…" : "Setting up…";
+      });
+      var first = form.getAttribute("data-start");
+      show(first === "email" ? 2 : first === "source" ? 1 : 0, first !== "welcome");
       if (place.value) find();
-      $("setup").onsubmit = function () { $("go").disabled = true; $("go").textContent = "Setting up…"; };
     })();
-    </script>`);
+    </script>`, SETUP_STYLE);
 }
 
 export function setupAddPage(code: string, token: string, email: string): Response {
@@ -753,7 +1036,7 @@ export function welcomeEmail(station: { name: string; distance: string } | null)
   const opening = station
     ? `Your frame is set up. It shows the latest species heard by ${station.name}, a BirdWeather station ${station.distance ? `${station.distance} from you` : "near you"}, as a 19th-century illustration.`
     : "Your frame is set up. One step is left: connect your detector. Open the Featherframe webapp, go to Settings → Detection source and follow the steps there. Once it is connected, the frame shows the latest species your detector hears as a 19th-century illustration.";
-  const first = station ? "Its first picture appears within a minute." : "";
+  const first = station ? "Its first picture will appear within a minute." : "";
   const more = "There you can name the frame and set its rotation and update interval, change the detection source, switch Content to Collage (every species heard today on one sheet), set quiet hours (overnight, every frame shows the day's collage), add an OpenAI API key under Settings → AI image generation for species with no historical illustration, and add more frames.";
   const signIn = "To sign in, enter your email. We send you a link. There is no password.";
   const help = "Help: featherframe.app/help";

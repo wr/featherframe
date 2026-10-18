@@ -14,7 +14,7 @@ const STYLE = `
     --bg:#171614; --surface:#211f1c; --ink:#ecebe7; --ink-2:#c9c6bf; --muted:#8f8b83;
     --border:#34312c; --border-strong:#4a463f; --field:#2c2b27; --accent:#b08a63; --on-accent:#1b140d; --ring:rgba(176,138,99,.3); --bad:#d9705a; --good:#7fae66;
     --sh-card:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.28); --sh-sm:0 1px 1px rgba(0,0,0,.25); color-scheme:dark; } }
-  @font-face { font-family:"Featherframe Script"; src:url("/_ff/script.ttf") format("truetype"); font-display:swap; }
+  @font-face { font-family:"Featherframe Script"; src:url("/_ff/script.ttf") format("truetype"); font-display:block; }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
     background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
@@ -143,6 +143,7 @@ function page(title: string, body: string): Response {
 function shell(title: string, main: string, style = ""): Response {
   return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>
+<link rel="preload" href="/_ff/script.ttf" as="font" type="font/ttf" crossorigin>
 <style>${STYLE}${style}</style></head><body>${main}</body></html>`,
     { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
@@ -595,23 +596,27 @@ const SETUP_STYLE = `
   main.flow { max-width:440px; margin:0 auto; }
   .screen { display:flex; flex-direction:column; min-height:100vh; min-height:100svh; padding:0 24px; }
   .screen h1 { font-size:28px; font-weight:650; line-height:1.15; letter-spacing:-.01em; margin:0 0 10px; outline:none; text-wrap:balance; }
-  .lede { font-size:15.5px; line-height:1.5; color:var(--ink-2); margin:0 0 22px; }
+  .lede { font-size:17px; line-height:1.45; color:var(--ink-2); margin:0 0 22px; }
   .top { display:flex; align-items:center; justify-content:space-between; height:56px; margin:0 -8px 6px; }
-  .count { font-size:13px; color:var(--muted); margin-right:8px; font-variant-numeric:tabular-nums; }
+  .count { font-size:14px; color:var(--muted); margin-right:8px; font-variant-numeric:tabular-nums; }
   button.backarrow { width:40px; height:40px; margin:0; padding:0; display:grid; place-items:center; background:none; color:var(--ink); border-radius:50%; }
   button.backarrow svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .bottom { position:sticky; bottom:0; margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:6px;
     padding:18px 0 calc(18px + env(safe-area-inset-bottom, 0px)); background:linear-gradient(to bottom, transparent, var(--bg) 22px); }
   /* The main button stands in the same place on every screen, link or not. */
-  .bottom:not(:has(.link))::after { content:""; height:37px; }
-  .bottom button[type=submit], .bottom [data-next] { margin:0; width:100%; padding:14px 12px; font-size:16px; border-radius:12px; }
-  button.link { width:auto; margin:0; padding:8px 4px; background:none; border:0; color:var(--accent); font-weight:500; font-size:15px; }
+  .bottom:not(:has(.link))::after { content:""; height:39px; }
+  .bottom button[type=submit], .bottom [data-next] { margin:0; width:100%; padding:15px 12px; font-size:17px; border-radius:12px; }
+  button.link { width:auto; margin:0; padding:8px 4px; background:none; border:0; color:var(--accent); font-weight:500; font-size:16px; }
+  /* While a field has the keyboard up, the button follows the form, so the
+     keyboard never covers it. */
+  form.typing .bottom { position:static; margin-top:24px; padding-top:0; background:none; }
+  form.typing .bottom::after { display:none; }
   button:disabled { opacity:.5; cursor:default; }
   [hidden] { display:none !important; }
   .sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); border:0; }
-  label { font-size:13px; color:var(--muted); margin:0 0 6px; }
-  input[type=text], input[type=email] { padding:13px 14px; font-size:16px; border-radius:10px; }
-  .hint { font-size:13.5px; color:var(--muted); margin:8px 0 0; }
+  label { font-size:15px; font-weight:500; color:var(--ink-2); margin:0 0 8px; }
+  input[type=text], input[type=email] { padding:14px 15px; font-size:17px; border-radius:12px; }
+  .hint { font-size:15px; line-height:1.45; color:var(--muted); margin:10px 0 0; }
   .bad { margin:16px 0 0; }
 
   /* The welcome: the scene, the wordmark, one line, Get started. */
@@ -635,8 +640,9 @@ const SETUP_STYLE = `
   .hero .ping .nm.swap { animation:swapname .5s cubic-bezier(.2, .8, .2, 1); }
   @keyframes swapname { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
   .hero .ping .when { align-self:flex-start; margin-left:10px; font-size:12px; line-height:1.3; color:#6b6b69; white-space:nowrap; }
-  .hero .credit { position:absolute; left:12px; bottom:8px; max-width:calc(68% - 24px); font-size:10px; line-height:1.3; color:rgba(255,255,255,.88);
+  .hero .credit { position:absolute; left:12px; right:calc(min(32%, 138px) + 32px); bottom:8px; transition:opacity .35s ease; font-size:10px; line-height:1.3; color:rgba(255,255,255,.88);
     text-shadow:0 1px 3px rgba(0,0,0,.7); }
+  .hero .credit.out { opacity:0; }
   .hero .wall { position:absolute; right:20px; bottom:-46px; width:32%; max-width:138px; aspect-ratio:300 / 377; filter:drop-shadow(0 12px 18px rgba(20,16,10,.38)); }
   .hero .wall.gray { aspect-ratio:300 / 383; }
   .hero .wall > img { position:absolute; inset:0; width:100%; height:100%; display:block; }
@@ -658,28 +664,36 @@ const SETUP_STYLE = `
     background:none; color:var(--accent); border-radius:0 10px 10px 0; }
   button.loc svg { width:19px; height:19px; fill:currentColor; }
   .find > button { margin:0; width:auto; flex:none; padding:0 18px; border-radius:10px; }
-  .near { font-size:13px; color:var(--muted); margin:16px 0 8px; }
-  .oops { display:flex; gap:10px; margin:16px 0 10px; padding:12px 14px; border-radius:12px; font-size:14.5px; line-height:1.4; color:var(--ink);
-    background:rgba(182,71,46,.08); background:color-mix(in srgb, var(--bad) 9%, var(--surface));
-    border:1px solid rgba(182,71,46,.3); border-color:color-mix(in srgb, var(--bad) 32%, transparent); }
-  .oops svg { flex:none; width:20px; height:20px; margin-top:1px; fill:none; stroke:var(--bad); stroke-width:2; stroke-linecap:round; }
-  .oops b { display:block; font-weight:600; color:var(--bad); }
+  .near { font-size:14px; color:var(--muted); margin:16px 0 8px; }
+  /* Something to do differently is a notice; only what failed on our side is
+     a warning. */
+  .oops { display:flex; gap:10px; margin:16px 0 10px; padding:13px 14px; border-radius:12px; font-size:15px; line-height:1.4; color:var(--ink-2);
+    background:var(--surface); border:1px solid var(--border-strong); }
+  .oops svg { flex:none; width:20px; height:20px; margin-top:1px; fill:none; stroke:var(--ink-2); stroke-width:2; stroke-linecap:round; }
+  .oops b { display:block; font-weight:600; color:var(--ink); }
+  .oops span { display:block; text-wrap:balance; }
+  .oops.warn { background:rgba(182,71,46,.08); background:color-mix(in srgb, var(--bad) 9%, var(--surface));
+    border-color:rgba(182,71,46,.3); border-color:color-mix(in srgb, var(--bad) 32%, transparent); }
+  .oops.warn svg { stroke:var(--bad); }
+  .oops.warn b { color:var(--bad); }
   .choices, .stations { list-style:none; margin:0; padding:0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface); }
   .stations:empty { display:none; }
   .choices li + li, .stations li + li { border-top:1px solid var(--border); }
-  .choices label, .stations label { display:flex; gap:12px; align-items:flex-start; margin:0; padding:14px; font-size:15.5px; color:var(--ink); cursor:pointer; }
+  .choices label, .stations label { display:flex; gap:12px; align-items:flex-start; margin:0; padding:15px 14px; font-size:17px; font-weight:400; color:var(--ink); cursor:pointer; }
   .choices input, .stations input { margin:3px 0 0; width:18px; height:18px; accent-color:var(--accent); flex:none; }
-  .meta { display:block; margin-top:2px; font-size:13px; color:var(--muted); }
-  .choices label:has(input:checked), .stations label:has(input:checked) { background:rgba(107,74,44,.06); background:color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+  .meta { display:block; margin-top:2px; font-size:14px; color:var(--muted); }
+  /* The chosen row is plain at a glance: tinted, and ringed in the accent. */
+  .choices label:has(input:checked), .stations label:has(input:checked) { background:rgba(107,74,44,.12); background:color-mix(in srgb, var(--accent) 12%, var(--surface));
+    box-shadow:inset 0 0 0 2px var(--accent); }
   .stations label { align-items:center; }
   .stations input { margin:0; }
   .stations .nm { flex:1 1 auto; min-width:0; }
   .stations .far { flex:none; margin-left:4px; text-align:right; font-size:17px; font-weight:600; line-height:1.15; font-variant-numeric:tabular-nums; }
-  .stations .far small { display:block; font-size:12px; font-weight:400; color:var(--muted); }
+  .stations .far small { display:block; font-size:13px; font-weight:400; color:var(--muted); }
   .closest { display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px; background:var(--accent); color:var(--on-accent);
     font-size:11.5px; font-weight:600; line-height:1.4; vertical-align:2px; white-space:nowrap; }
   .then { margin:18px 0 0; padding:14px 16px; border-radius:12px; background:var(--surface); border:1px solid var(--border);
-    font-size:14.5px; line-height:1.45; color:var(--ink-2); animation:rise .35s ease; }
+    font-size:15px; line-height:1.45; color:var(--ink-2); animation:rise .35s ease; }
   .then p { margin:0 0 6px; font-weight:600; color:var(--ink); }
   .then ol { margin:0; padding-left:20px; }
   .then li + li { margin-top:4px; }
@@ -761,7 +775,7 @@ export function setupPage(v: SetupView): Response {
             <button type="button" id="findbtn">Find</button>
           </div>
           <p class="near" id="status" hidden></p>
-          <div class="oops" id="oops" role="alert" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.6v.01"/></svg><div><b id="oops-t"></b><span id="oops-x"></span></div></div>
+          <div class="oops" id="oops" role="alert" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path id="oops-i" d=""/></svg><div><b id="oops-t"></b><span id="oops-x"></span></div></div>
           <ul class="stations" id="stations"></ul>
         </div>
         <div id="own"${own ? "" : " hidden"}>
@@ -806,7 +820,14 @@ export function setupPage(v: SetupView): Response {
       try { $("tz").value = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
       // A line of status, or a callout when something needs them to act.
       function say(text) { status.textContent = text; status.hidden = !text; $("oops").hidden = true; }
-      function oops(title, text) { say(""); $("oops-t").textContent = title; $("oops-x").textContent = text; $("oops").hidden = false; }
+      // A notice ("i") asks them to do something else; a warning ("!") is a failure.
+      // The last two words are held together, so none stands alone on a line.
+      function oops(title, text, warn) {
+        say(""); var o = $("oops");
+        o.className = warn ? "oops warn" : "oops";
+        $("oops-i").setAttribute("d", warn ? "M12 7.5v5.5M12 16.6v.01" : "M12 11v5.5M12 7.6v.01");
+        $("oops-t").textContent = title; $("oops-x").textContent = text.replace(/ (\S+)$/, "\u00a0$1"); o.hidden = false;
+      }
       function dist(k) { return miles ? Math.round(k * 0.621371) + " mi" : k + " km"; }
       function source() { var r = document.querySelector("input[name=source]:checked"); return r ? r.value : ""; }
       function station() { return document.querySelector("input[name=station]:checked"); }
@@ -827,7 +848,10 @@ export function setupPage(v: SetupView): Response {
       }
       function follow() {
         var t = vid.currentTime || 0, bird = Math.floor(t / 6) % names.length, into = t % 6;
-        if (bird !== playing) { playing = bird; credit.textContent = credits[bird]; }
+        if (bird !== playing) {
+          playing = bird; credit.classList.add("out");
+          setTimeout(function () { credit.textContent = credits[playing]; credit.classList.remove("out"); }, 350);
+        }
         if (into >= 0.9 && carded !== bird) {
           carded = bird; nm.textContent = names[bird];
           nm.classList.remove("swap"); void nm.offsetWidth; nm.classList.add("swap"); ping.classList.add("on");
@@ -844,8 +868,9 @@ export function setupPage(v: SetupView): Response {
         screens.forEach(function (s, k) { s.hidden = k !== at; });
         if (vid && !still) { if (at === 0) { var go = vid.play(); if (go && go.catch) go.catch(function () {}); } else vid.pause(); }
         ready();
+        // The email step starts in its field, keyboard up; the others on their title.
         if (focus) { var h = screens[at].querySelector("h1:not([hidden])"), p = screens[at].querySelector("#bw:not([hidden]) h1, #own:not([hidden]) h1");
-          (p || h).focus(); window.scrollTo(0, 0); }
+          window.scrollTo(0, 0); (at === 2 ? $("email") : p || h).focus(); }
       }
       function account(asSignin) {
         signin = asSignin;
@@ -855,6 +880,13 @@ export function setupPage(v: SetupView): Response {
         $("count2").hidden = signin;
       }
       form.classList.add("stepped");
+      // Typing: the button follows the form (see .typing). It stays put a
+      // moment after the field lets go, so a tap on it lands where it was.
+      var typing = function (on) { form.classList.toggle("typing", on); };
+      form.addEventListener("focusin", function (ev) { if (ev.target.matches("input[type=text], input[type=email]")) typing(true); });
+      form.addEventListener("focusout", function () {
+        setTimeout(function () { var a = document.activeElement; typing(!!(a && a.matches && a.matches("input[type=text], input[type=email]"))); }, 300);
+      });
       form.addEventListener("click", function (ev) {
         var t = ev.target.closest ? ev.target.closest("button") : ev.target;
         if (!t) return;
@@ -902,10 +934,11 @@ export function setupPage(v: SetupView): Response {
         var x = new XMLHttpRequest();
         x.open("GET", base + q);
         x.onload = function () { try { rows(JSON.parse(x.responseText)); } catch (e) { rows({}); } };
-        x.onerror = function () { oops("Couldn't find stations just now", "Check your connection, then try again."); };
+        x.onerror = function () { oops("Couldn't find stations just now", "Check your connection, then try again.", true); };
         x.send();
       }
-      function find() { var p = place.value.trim(); if (p.length > 1) load("&place=" + encodeURIComponent(p)); }
+      // The keyboard goes down so the stations show.
+      function find() { var p = place.value.trim(); if (p.length > 1) { place.blur(); load("&place=" + encodeURIComponent(p)); } }
       $("findbtn").onclick = find;
       place.onkeydown = function (ev) { if (ev.key === "Enter") { ev.preventDefault(); find(); } };
       $("locate").onclick = function () {

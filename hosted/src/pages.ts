@@ -616,10 +616,12 @@ const SETUP_STYLE = `
 
   /* The welcome: the scene, the wordmark, one line, Get started. */
   .welcome { padding:0; }
-  .welcome .body { padding:22px 24px 0; }
+  .welcome .body { padding:0 24px; }
   .welcome .wordmark { font-size:30px; text-align:left; margin:0 0 10px; }
   .welcome .bottom { padding-left:24px; padding-right:24px; }
-  .hero { position:relative; aspect-ratio:4 / 3; background:#cfcdc8 url("/_ff/setup-photo.webp") 30% 50% / cover no-repeat; }
+  .hero { position:relative; margin-bottom:30px; }
+  .hero .media { aspect-ratio:4 / 3; overflow:hidden; background:#cfcdc8 url("/_ff/setup-photo.webp") center / cover no-repeat; }
+  .hero video { display:block; width:100%; height:100%; object-fit:cover; }
   .hero .ping { position:absolute; left:14px; top:calc(14px + env(safe-area-inset-top, 0px)); display:flex; align-items:center; gap:10px;
     padding:8px 14px 8px 8px; max-width:calc(100% - 28px); background:#fff; border-radius:14px; box-shadow:0 8px 22px rgba(20,16,10,.25); color:#121212;
     opacity:0; transform:translateY(-8px); animation:ping .5s cubic-bezier(.2, .8, .2, 1) .8s forwards; }
@@ -630,12 +632,12 @@ const SETUP_STYLE = `
   .hero .ping .nm { font-size:15px; font-weight:600; line-height:1.3; white-space:nowrap; }
   .hero .ping .when { align-self:flex-start; margin-left:10px; font-size:12px; line-height:1.3; color:#6b6b69; white-space:nowrap; }
   @keyframes ping { to { opacity:1; transform:none; } }
-  .hero .wall { position:absolute; right:16px; bottom:14px; width:31%; max-width:132px; aspect-ratio:300 / 377; filter:drop-shadow(0 10px 16px rgba(20,16,10,.4)); }
+  .hero .wall { position:absolute; right:20px; bottom:-46px; width:32%; max-width:138px; aspect-ratio:300 / 377; filter:drop-shadow(0 12px 18px rgba(20,16,10,.38)); }
   .hero .wall img { position:absolute; inset:0; width:100%; height:100%; display:block; }
   .hero .wall img.to { opacity:0; animation:repaint .7s ease 2s forwards; }
   @keyframes repaint { 0% { opacity:0; filter:brightness(1); } 35% { opacity:1; filter:brightness(.15); } 100% { opacity:1; filter:none; } }
   @media (prefers-reduced-motion: reduce) { .hero .ping, .hero .wall img.to { animation:none; opacity:1; transform:none; } }
-  @media (min-width:480px) { main.flow { padding-top:24px; } .hero { border-radius:16px; overflow:hidden; margin:0 24px; } .welcome .body { padding-top:24px; } }
+  @media (min-width:480px) { main.flow { padding-top:24px; } .hero { margin:0 24px 30px; } .hero .media { border-radius:16px; } }
 
   /* A station near you, or their own detector. */
   .find { display:flex; gap:8px; }
@@ -676,10 +678,13 @@ export function setupPage(v: SetupView): Response {
   const start = v.step === "email" ? "email" : v.step ? "source" : "welcome";
   const back = `<button type="button" class="backarrow" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>`;
   const error = v.error ? `<p class="bad">${e(v.error)}</p>` : "";
-  // The scene the marketing page tells it with: a cardinal at a feeder, the
-  // phone's "New detection", the frame repainting from the Carolina Wren to
-  // the cardinal. It plays once; with reduced motion it is its end.
+  // The scene the marketing page tells it with: its cardinal at a feeder (the
+  // video, looping), the phone's "New detection", and the frame, hanging off
+  // the video's foot, repainting from the Carolina Wren to the cardinal. The
+  // card and the frame play once; with reduced motion they are their end and
+  // the video is its poster.
   const scene = `<div class="hero" aria-hidden="true">
+          <div class="media"><video id="scene" muted playsinline loop preload="auto" poster="/_ff/setup-photo.webp" width="720" height="540"><source src="/_ff/setup-cardinal.mp4" type="video/mp4"></video></div>
           <span class="ping"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3.5 10.5v3M7 7.5v9M10.5 4.5v15M14 8v8M17.5 9.5v5M21 11v2"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm">Northern Cardinal</span></span><span class="when">Just now</span></span>
           <span class="wall"><img src="/_ff/setup-frame-wren.webp" alt="" width="300" height="377"><img class="to" src="/_ff/setup-frame-cardinal.webp" alt="" width="300" height="377"></span>
         </div>`;
@@ -756,9 +761,11 @@ export function setupPage(v: SetupView): Response {
       // The screens, and where Back goes: "I already have an account" skips
       // the station, so its Back is the welcome.
       var screens = Array.prototype.slice.call(form.querySelectorAll(".screen")), at = 0, signin = false;
+      var vid = $("scene"), still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
       function show(i, focus) {
         at = Math.max(0, Math.min(i, screens.length - 1));
         screens.forEach(function (s, k) { s.hidden = k !== at; });
+        if (vid && !still) { if (at === 0) { var go = vid.play(); if (go && go.catch) go.catch(function () {}); } else vid.pause(); }
         ready();
         if (focus) { var h = screens[at].querySelector("h1:not([hidden])"), p = screens[at].querySelector("#bw:not([hidden]) h1, #own:not([hidden]) h1");
           (p || h).focus(); window.scrollTo(0, 0); }

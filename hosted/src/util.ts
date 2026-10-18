@@ -137,3 +137,23 @@ export function firmwareWaiting(push: string | null, files: string[]): boolean {
   }
   return files.some((f) => f === "firmware.bin" || /^firmware-[^/]*\.bin$/.test(f));
 }
+
+/** A file answered by byte range (W-1073): Safari asks for a video in ranges
+ * and plays nothing from a server that answers each with the whole file. */
+export function rangeResponse(request: Request, bytes: ArrayBuffer, type: string): Response {
+  const size = bytes.byteLength;
+  const headers: Record<string, string> = { "Content-Type": type, "Accept-Ranges": "bytes", "Cache-Control": "max-age=86400" };
+  const head = request.method === "HEAD";
+  const m = /^bytes=(\d*)-(\d*)$/.exec((request.headers.get("Range") || "").trim());
+  if (!m || (m[1] === "" && m[2] === "")) {
+    return new Response(head ? null : bytes, { headers: { ...headers, "Content-Length": String(size) } });
+  }
+  const start = m[1] === "" ? Math.max(0, size - Number(m[2])) : Number(m[1]);
+  const end = m[1] === "" || m[2] === "" ? size - 1 : Math.min(Number(m[2]), size - 1);
+  if (!(start <= end && start < size)) {
+    return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${size}` } });
+  }
+  return new Response(head ? null : bytes.slice(start, end + 1), {
+    status: 206, headers: { ...headers, "Content-Range": `bytes ${start}-${end}/${size}`, "Content-Length": String(end - start + 1) },
+  });
+}

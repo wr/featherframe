@@ -10,7 +10,7 @@ import { releaseFrame, setupRoute } from "../src/setup";
 import { checkCode, showCode } from "../src/signin";
 import { rankStations, regionFor } from "../src/stations";
 import { setupToken, setupUrl } from "../src/pairing";
-import { sha256 } from "../src/util";
+import { rangeResponse, sha256 } from "../src/util";
 
 function d1(db: DatabaseSync) {
   const stmt = (sql: string, args: unknown[] = []) => ({
@@ -405,5 +405,30 @@ describe("a code typed on the sign-in page", () => {
     expect(await (await typeCode("AB")).text()).toContain("A code is six letters");
     for (let i = 0; i < 18; i++) await typeCode("XYZ-XYZ");
     expect(await (await typeCode("XYZ-XYZ")).text()).toContain("Too many tries");
+  });
+});
+
+describe("the welcome's video, by range (W-1073)", () => {
+  const bytes = new Uint8Array([...Array(100).keys()]).buffer;
+  const ask = (range?: string, method = "GET") =>
+    rangeResponse(new Request("https://x/v.mp4", { method, headers: range ? { Range: range } : {} }), bytes, "video/mp4");
+
+  it("answers the whole file, saying it takes ranges", async () => {
+    const r = ask();
+    expect(r.status).toBe(200);
+    expect(r.headers.get("Accept-Ranges")).toBe("bytes");
+    expect((await r.arrayBuffer()).byteLength).toBe(100);
+  });
+
+  it("answers each range Safari asks for", async () => {
+    const first = ask("bytes=0-1");
+    expect(first.status).toBe(206);
+    expect(first.headers.get("Content-Range")).toBe("bytes 0-1/100");
+    expect([...new Uint8Array(await first.arrayBuffer())]).toEqual([0, 1]);
+    expect(ask("bytes=90-").headers.get("Content-Range")).toBe("bytes 90-99/100");
+    expect(ask("bytes=-10").headers.get("Content-Range")).toBe("bytes 90-99/100");
+    expect(ask("bytes=50-500").headers.get("Content-Range")).toBe("bytes 50-99/100");
+    expect(ask("bytes=200-300").status).toBe(416);
+    expect(ask("bytes=0-1", "HEAD").body).toBeNull();
   });
 });

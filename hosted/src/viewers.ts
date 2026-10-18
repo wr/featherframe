@@ -14,7 +14,7 @@
 
 import type { Env } from "./index";
 import { LOBBY_DRAWING, expiryText, pairingCode } from "./pairing";
-import { randomHex, sha256 } from "./util";
+import { randomHex, rangeResponse, sha256 } from "./util";
 import viewPage from "../../server/templates/view.html";
 import favicon192 from "../../server/static/favicon-192.png";
 import favicon32 from "../../server/static/favicon-32.png";
@@ -27,6 +27,9 @@ import touchIcon from "../../server/static/apple-touch-icon.png";
 import setupPhoto from "./art/setup-photo.webp";
 import setupFrameWren from "./art/setup-frame-wren.webp";
 import setupFrameCardinal from "./art/setup-frame-cardinal.webp";
+// …and the marketing page's cardinal video itself, cropped to 4:3, 720 wide,
+// no sound (ffmpeg -crf 30), for the welcome's scene.
+import setupVideo from "./art/setup-cardinal.mp4";
 
 // While a viewer waits to be claimed it asks this often (a TRMNL on battery
 // too: pairing is a minute or two, once).
@@ -219,6 +222,11 @@ function manifest(): Response {
 /** The page's icons, for a browser with no session (a tablet on a wall), and
  * so that a browser asking for /favicon.ico (the admin page, any tab) never
  * wakes a household's server for it (W-915). */
+/** The setup welcome's video, by range (Safari plays nothing otherwise). */
+export function setupMedia(request: Request, path: string): Response | null {
+  return path === "/_ff/setup-cardinal.mp4" ? rangeResponse(request, setupVideo, "video/mp4") : null;
+}
+
 export function pageIcon(path: string): Response | null {
   const [body, type] = path === "/static/favicon-192.png" ? [favicon192, "image/png"]
     : path === "/static/favicon-32.png" ? [favicon32, "image/png"]

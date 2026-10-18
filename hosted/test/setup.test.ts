@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { auth, confirmVerification, sessionUser } from "../src/accounts";
-import { releaseFrame, setupRoute } from "../src/setup";
+import { colorKit, releaseFrame, setupRoute } from "../src/setup";
 import { checkCode, showCode } from "../src/signin";
 import { rankStations, regionFor } from "../src/stations";
 import { setupToken, setupUrl } from "../src/pairing";
@@ -238,7 +238,11 @@ describe("setting up", () => {
     expect(page).toContain('<div id="bw">');
     expect(page).toContain('<div id="own" hidden>');
     expect(page).toContain("I have my own BirdNET station");
-    expect(page).toContain('src="/_ff/setup-frame-cardinal.webp"');
+    // The gray kit's own frame, its screen apart so only the screen repaints.
+    expect(page).toContain('<span class="wall gray"');
+    expect(page).toContain('src="/_ff/setup-screen-10-cardinal.webp"');
+    expect(page).toContain('src="/_ff/setup-frame-10.webp"');
+    expect(page).toContain("Your email address will never be shared or sold to anyone.");
     // Still one form: every field posts together, whichever step is showing.
     expect(page.match(/<form /g)!.length).toBe(1);
     expect(page).toContain('<button type="submit" id="go">Set up frame</button>');
@@ -249,7 +253,31 @@ describe("setting up", () => {
     const mine = await (await post(f, { email: "", source: "birdnet_go" }, "198.51.100.30")).text();
     expect(mine).toContain('<div id="own">');
     expect(mine).toContain('<div id="bw" hidden>');
-    expect(mine).toMatch(/value="birdnet_go" checked/);
+    expect(mine).toMatch(/value="birdnet_go" data-name="BirdNET-Go" checked/);
+    // ...and says what comes next for it.
+    expect(mine).toContain('<div class="then" id="then" aria-live="polite">');
+    expect(mine).toContain('<span id="then-nm">BirdNET-Go</span>');
+  });
+
+  it("shows the colour kit its own frame", async () => {
+    const f = await frameShowing("GHIJKL", "112233445566");
+    db.prepare("UPDATE pairing SET report = ? WHERE code = ?")
+      .run(JSON.stringify({ "x-panel": "T133A01 1200x1600 spectra6", "x-panel-format": "spectra6", "x-board": "XIAO-ESP32S3 EE02" }), f.code);
+    const url = `https://${HOST}/setup/${f.code.toLowerCase()}/${f.token}`;
+    const page = await (await setupRoute(new Request(url), env, new URL(url), ctx)).text();
+    expect(page).toContain('<span class="wall"');
+    expect(page).toContain('src="/_ff/setup-screen-13-cardinal.webp"');
+    expect(page).toContain('src="/_ff/setup-frame-13.webp"');
+    expect(page).not.toContain("setup-frame-10");
+  });
+
+  it("tells the colour kit from the gray one by what it says of its panel", () => {
+    expect(colorKit(JSON.stringify({ "x-panel-format": "spectra6" }))).toBe(true);
+    expect(colorKit(JSON.stringify({ "x-panel": "T133A01 1200x1600 spectra6" }))).toBe(true);
+    expect(colorKit(JSON.stringify({ "x-board": "XIAO-ESP32S3 EE02" }))).toBe(true);
+    expect(colorKit(JSON.stringify({ "x-panel": "ED103TC2 1404x1872 gray16", "x-panel-format": "gray16" }))).toBe(false);
+    expect(colorKit("")).toBe(false);
+    expect(colorKit("not json")).toBe(false);
   });
 
   it("asks a new account on BirdWeather for its station, and makes nothing without one", async () => {

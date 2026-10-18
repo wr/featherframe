@@ -99,6 +99,14 @@ export async function pairLinked(env: Env, pairCode: string, hid: string): Promi
   return true;
 }
 
+/** Which kit is asking, from what it said of its panel: the colour kit
+ * (EE02, Spectra 6) or the gray one. The page shows that frame. */
+export function colorKit(report: string): boolean {
+  let r: Record<string, string> = {};
+  try { r = JSON.parse(report || "{}"); } catch { /* an odd report is the gray kit's page */ }
+  return r["x-panel-format"] === "spectra6" || /spectra6|T133A01/i.test(r["x-panel"] || "") || /EE02/i.test(r["x-board"] || "");
+}
+
 async function registeredKit(env: Env, row: PairingRow): Promise<boolean> {
   return !!(await env.DB.prepare("SELECT 1 FROM kits WHERE device_id = ? AND key_hash = ? AND used_at IS NULL")
     .bind(row.device_id, row.key_hash).first());
@@ -133,7 +141,7 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
     if (!row) return setupExpiredPage();
     const user = await sessionUser(request, env);
     if (user?.hid) return setupAddPage(code, token, user.email);
-    return setupPage({ code, token, miles: miles(request),
+    return setupPage({ code, token, miles: miles(request), color: colorKit(row.report),
                        place: placeGuess(request), country: cfOf(request).country || "" });
   }
   if (request.method !== "POST") return new Response(null, { status: 405 });
@@ -156,7 +164,7 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
   const kit = await registeredKit(env, row);
   const source = SOURCES.includes(String(form.get("source"))) ? String(form.get("source")) : "birdweather";
   const again = (error: string, step: "station" | "email") => setupPage({ code, token, error, step,
-                                               email: String(form.get("email") || ""), miles: miles(request), source,
+                                               email: String(form.get("email") || ""), miles: miles(request), source, color: colorKit(row.report),
                                                place: placeGuess(request), country: cfOf(request).country || "" });
   if (!email) return again("Enter an email address.", "email");
 

@@ -50,7 +50,7 @@ page is a copy of this file; this file wins if they disagree.
   the present: "the frame shows the latest detection". A "when" clause stays
   present too: "When the frame shows a code, scan it."
 - **Sign-up and sign-in read like everyone else's.** "Create your account",
-  "Email", "We'll send you a link to confirm it." Not "You'll sign in with
+  "Email", "We'll send you a link to confirm your account." Not "You'll sign in with
   it to manage your frame."
 - **Times, as people write them.** A 12-hour clock with AM and PM: 7:00 PM,
   6:30 AM. A span of time takes an arrow: 10:00 PM → 6:00 AM, Sunset →

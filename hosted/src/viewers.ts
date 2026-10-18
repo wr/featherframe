@@ -23,15 +23,30 @@ import touchIcon from "../../server/static/apple-touch-icon.png";
 // The phone setup page's pictures (W-1073), the marketing page's own: a
 // still of its cardinal video (U.S. Fish and Wildlife Service, public domain)
 // for a poster, its four birds' videos joined into one 24 s loop (six seconds
-// each, cropped to 4:3, 720 wide, no sound), and the walnut frame showing
-// each (site/public/img/wall's renders; the bluebird's and the chickadee's
-// laid onto the cardinal's from site/public/models/screens, toned to match).
+// each, cropped to 4:3, 720 wide, no sound), and each kit's walnut frame
+// (site/public/img/wall's renders) cut in two: the frame with its screen
+// open, and the screen showing each bird (the renders' own, or laid in from
+// site/public/models/screens, toned to match), so only the screen repaints.
 import setupPhoto from "./art/setup-photo.webp";
 import setupVideo from "./art/setup-birds.mp4";
-import frameCardinal from "./art/setup-frame-cardinal.webp";
-import frameBluebird from "./art/setup-frame-bluebird.webp";
-import frameTitmouse from "./art/setup-frame-titmouse.webp";
-import frameChickadee from "./art/setup-frame-chickadee.webp";
+import frame13 from "./art/frame-13.webp";
+import frame10 from "./art/frame-10.webp";
+import screen13Cardinal from "./art/screen-13-cardinal.webp";
+import screen13Bluebird from "./art/screen-13-bluebird.webp";
+import screen13Titmouse from "./art/screen-13-titmouse.webp";
+import screen13Chickadee from "./art/screen-13-chickadee.webp";
+import screen10Cardinal from "./art/screen-10-cardinal.webp";
+import screen10Bluebird from "./art/screen-10-bluebird.webp";
+import screen10Titmouse from "./art/screen-10-titmouse.webp";
+import screen10Chickadee from "./art/screen-10-chickadee.webp";
+
+const SETUP_ART = new Map<string, ArrayBuffer>(Object.entries({
+  "frame-13": frame13, "frame-10": frame10,
+  "screen-13-cardinal": screen13Cardinal, "screen-13-bluebird": screen13Bluebird,
+  "screen-13-titmouse": screen13Titmouse, "screen-13-chickadee": screen13Chickadee,
+  "screen-10-cardinal": screen10Cardinal, "screen-10-bluebird": screen10Bluebird,
+  "screen-10-titmouse": screen10Titmouse, "screen-10-chickadee": screen10Chickadee,
+}).map(([name, bytes]) => [`/_ff/setup-${name}.webp`, bytes]));
 
 // While a viewer waits to be claimed it asks this often (a TRMNL on battery
 // too: pairing is a minute or two, once).
@@ -235,9 +250,6 @@ export function pageIcon(path: string): Response | null {
     : path === "/static/apple-touch-icon.png" ? [touchIcon, "image/png"]
     : path === "/favicon.ico" ? [faviconIco, "image/x-icon"]
     : path === "/_ff/setup-photo.webp" ? [setupPhoto, "image/webp"]
-    : path === "/_ff/setup-frame-cardinal.webp" ? [frameCardinal, "image/webp"]
-    : path === "/_ff/setup-frame-bluebird.webp" ? [frameBluebird, "image/webp"]
-    : path === "/_ff/setup-frame-titmouse.webp" ? [frameTitmouse, "image/webp"]
-    : path === "/_ff/setup-frame-chickadee.webp" ? [frameChickadee, "image/webp"] : [null, ""];
+    : SETUP_ART.has(path) ? [SETUP_ART.get(path)!, "image/webp"] : [null, ""];
   return body ? new Response(body, { headers: { "Content-Type": type, "Cache-Control": "max-age=86400" } }) : null;
 }

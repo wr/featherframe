@@ -638,10 +638,16 @@ const SETUP_STYLE = `
   .hero .credit { position:absolute; left:12px; bottom:8px; max-width:calc(68% - 24px); font-size:10px; line-height:1.3; color:rgba(255,255,255,.88);
     text-shadow:0 1px 3px rgba(0,0,0,.7); }
   .hero .wall { position:absolute; right:20px; bottom:-46px; width:32%; max-width:138px; aspect-ratio:300 / 377; filter:drop-shadow(0 12px 18px rgba(20,16,10,.38)); }
-  .hero .wall img { position:absolute; inset:0; width:100%; height:100%; display:block; opacity:0; }
-  .hero .wall img.on { opacity:1; }
-  .hero .wall img.paint { animation:repaint .7s ease; }
-  @keyframes repaint { 0% { opacity:0; filter:brightness(1); } 35% { opacity:1; filter:brightness(.15); } 100% { opacity:1; filter:none; } }
+  .hero .wall.gray { aspect-ratio:300 / 383; }
+  .hero .wall > img { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  /* Only the screen repaints, as e-paper does: dark, then light, then the
+     illustration. The walnut and the mat stay put. */
+  .hero .wall .pane { position:absolute; left:17%; top:16.98%; width:66%; height:66.05%; overflow:hidden; background:#e8e7e3; }
+  .hero .wall.gray .pane { left:18.67%; top:16.71%; width:62.67%; height:66.06%; }
+  .hero .wall .pane img { position:absolute; inset:0; width:100%; height:100%; display:block; opacity:0; }
+  .hero .wall .pane img.on { opacity:1; }
+  .hero .wall .pane img.paint { animation:repaint .9s ease; }
+  @keyframes repaint { 0% { opacity:0; } 22% { opacity:1; filter:brightness(.12); } 48% { filter:brightness(2.2) contrast(.35); } 100% { opacity:1; filter:none; } }
   @media (min-width:480px) { main.flow { padding-top:24px; } .hero { margin:0 24px 30px; } .hero .media { border-radius:16px; } }
 
   /* A station near you, or their own detector. */
@@ -653,12 +659,31 @@ const SETUP_STYLE = `
   button.loc svg { width:19px; height:19px; fill:currentColor; }
   .find > button { margin:0; width:auto; flex:none; padding:0 18px; border-radius:10px; }
   .near { font-size:13px; color:var(--muted); margin:16px 0 8px; }
+  .oops { display:flex; gap:10px; margin:16px 0 10px; padding:12px 14px; border-radius:12px; font-size:14.5px; line-height:1.4; color:var(--ink);
+    background:rgba(182,71,46,.08); background:color-mix(in srgb, var(--bad) 9%, var(--surface));
+    border:1px solid rgba(182,71,46,.3); border-color:color-mix(in srgb, var(--bad) 32%, transparent); }
+  .oops svg { flex:none; width:20px; height:20px; margin-top:1px; fill:none; stroke:var(--bad); stroke-width:2; stroke-linecap:round; }
+  .oops b { display:block; font-weight:600; color:var(--bad); }
   .choices, .stations { list-style:none; margin:0; padding:0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface); }
   .stations:empty { display:none; }
   .choices li + li, .stations li + li { border-top:1px solid var(--border); }
   .choices label, .stations label { display:flex; gap:12px; align-items:flex-start; margin:0; padding:14px; font-size:15.5px; color:var(--ink); cursor:pointer; }
   .choices input, .stations input { margin:3px 0 0; width:18px; height:18px; accent-color:var(--accent); flex:none; }
   .meta { display:block; margin-top:2px; font-size:13px; color:var(--muted); }
+  .choices label:has(input:checked), .stations label:has(input:checked) { background:rgba(107,74,44,.06); background:color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+  .stations label { align-items:center; }
+  .stations input { margin:0; }
+  .stations .nm { flex:1 1 auto; min-width:0; }
+  .stations .far { flex:none; margin-left:4px; text-align:right; font-size:17px; font-weight:600; line-height:1.15; font-variant-numeric:tabular-nums; }
+  .stations .far small { display:block; font-size:12px; font-weight:400; color:var(--muted); }
+  .closest { display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px; background:var(--accent); color:var(--on-accent);
+    font-size:11.5px; font-weight:600; line-height:1.4; vertical-align:2px; white-space:nowrap; }
+  .then { margin:18px 0 0; padding:14px 16px; border-radius:12px; background:var(--surface); border:1px solid var(--border);
+    font-size:14.5px; line-height:1.45; color:var(--ink-2); animation:rise .35s ease; }
+  .then p { margin:0 0 6px; font-weight:600; color:var(--ink); }
+  .then ol { margin:0; padding-left:20px; }
+  .then li + li { margin-top:4px; }
+  @keyframes rise { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 `;
 
 export interface SetupView {
@@ -666,6 +691,8 @@ export interface SetupView {
   email?: string; miles: boolean; place: string; country: string; source?: string;
   /** Which step a re-shown page opens on: the one its error is about. */
   step?: "source" | "station" | "email";
+  /** The kit asking is the colour one (EE02): the page shows that frame. */
+  color?: boolean;
 }
 
 // Setting up from the phone (W-1073), for someone who has never heard of
@@ -678,7 +705,10 @@ export function setupPage(v: SetupView): Response {
   const src = v.source || "birdweather";
   const own = src !== "birdweather";
   const detector = (value: string, name: string) => `<li><label>
-            <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}><span>${name}</span></label></li>`;
+            <input type="radio" name="source" value="${value}" data-name="${name}"${src === value ? " checked" : ""}><span>${name}</span></label></li>`;
+  const chosen = src === "apprise" ? "BirdNET-Pi" : src === "birdnet_go" ? "BirdNET-Go" : "";
+  // The kit's own frame: the 13" colour one, or the 10" gray one.
+  const kit = v.color ? "13" : "10";
   const us = v.country === "US";
   const start = v.step === "email" ? "email" : v.step ? "source" : "welcome";
   const back = `<button type="button" class="backarrow" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>`;
@@ -699,7 +729,7 @@ export function setupPage(v: SetupView): Response {
           <div class="media" aria-hidden="true"><video id="scene" muted playsinline loop preload="auto" poster="/_ff/setup-photo.webp" width="720" height="540"><source src="/_ff/setup-birds.mp4" type="video/mp4"></video></div>
           <span class="credit" id="credit">${BIRDS[0][2]}</span>
           <span class="ping" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3.5 10.5v3M7 7.5v9M10.5 4.5v15M14 8v8M17.5 9.5v5M21 11v2"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm" id="ping-nm">Northern Cardinal</span></span><span class="when">Just now</span></span>
-          <span class="wall" aria-hidden="true">${BIRDS.map(([slug], i) => `<img${i === 0 ? ' class="on"' : ""} src="/_ff/setup-frame-${slug}.webp" alt="" width="300" height="377">`).join("")}</span>
+          <span class="wall${v.color ? "" : " gray"}" aria-hidden="true"><span class="pane">${BIRDS.map(([slug], i) => `<img${i === 0 ? ' class="on"' : ""} src="/_ff/setup-screen-${kit}-${slug}.webp" alt="">`).join("")}</span><img src="/_ff/setup-frame-${kit}.webp" alt="" width="300" height="${v.color ? 377 : 383}"></span>
         </div>`;
   return shell("Set up your frame · Featherframe", `<main class="flow">
     <form method="post" action="${action}" id="setup" data-start="${start}">
@@ -731,15 +761,24 @@ export function setupPage(v: SetupView): Response {
             <button type="button" id="findbtn">Find</button>
           </div>
           <p class="near" id="status" hidden></p>
+          <div class="oops" id="oops" role="alert" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.6v.01"/></svg><div><b id="oops-t"></b><span id="oops-x"></span></div></div>
           <ul class="stations" id="stations"></ul>
         </div>
         <div id="own"${own ? "" : " hidden"}>
           <h1 tabindex="-1" id="own-q">Your BirdNET station</h1>
-          <p class="lede">You'll connect it in Settings after setup.</p>
+          <p class="lede">Your frame will show the birds your station hears. Which one do you have?</p>
           <ul class="choices" role="radiogroup" aria-labelledby="own-q">
             ${detector("apprise", "BirdNET-Pi")}
             ${detector("birdnet_go", "BirdNET-Go")}
           </ul>
+          <div class="then" id="then" aria-live="polite"${chosen ? "" : " hidden"}>
+            <p>What happens next</p>
+            <ol>
+              <li>You'll create your account.</li>
+              <li>The Featherframe webapp will show you how to connect your <span id="then-nm">${chosen}</span>. It takes a few minutes.</li>
+              <li>Your frame will show the next bird your station hears.</li>
+            </ol>
+          </div>
         </div>
         <div class="bottom">
           <button type="button" data-next>Continue</button>
@@ -752,7 +791,7 @@ export function setupPage(v: SetupView): Response {
         <h1 tabindex="-1" id="acct-h">Create your account</h1>
         <label for="email">Email</label>
         <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
-        <p class="hint" id="acct-hint">We'll send you a link to confirm it.</p>
+        <p class="hint" id="acct-hint">We'll send you a link to confirm your account. Your email address will never be shared or sold to anyone.</p>
         <input type="hidden" name="tz" id="tz">
         <input type="hidden" name="km" id="km">
         <div class="bottom"><button type="submit" id="go">Set up frame</button></div>
@@ -765,7 +804,9 @@ export function setupPage(v: SetupView): Response {
       var $ = function (id) { return document.getElementById(id); };
       var form = $("setup"), list = $("stations"), status = $("status"), km = $("km"), place = $("place");
       try { $("tz").value = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
-      function say(text) { status.textContent = text; status.hidden = !text; }
+      // A line of status, or a callout when something needs them to act.
+      function say(text) { status.textContent = text; status.hidden = !text; $("oops").hidden = true; }
+      function oops(title, text) { say(""); $("oops-t").textContent = title; $("oops-x").textContent = text; $("oops").hidden = false; }
       function dist(k) { return miles ? Math.round(k * 0.621371) + " mi" : k + " km"; }
       function source() { var r = document.querySelector("input[name=source]:checked"); return r ? r.value : ""; }
       function station() { return document.querySelector("input[name=station]:checked"); }
@@ -773,13 +814,13 @@ export function setupPage(v: SetupView): Response {
 
       // The screens, and where Back goes: "I already have an account" skips
       // the station, so its Back is the welcome.
-      var screens = Array.prototype.slice.call(form.querySelectorAll(".screen")), at = 0, signin = false;
+      var screens = Array.prototype.slice.call(form.querySelectorAll("section.screen")), at = 0, signin = false;
       var vid = $("scene"), still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
       // The scene: a bird every six seconds of the video; its card a moment
       // after it lands, its illustration on the frame a moment after that.
       var hero = $("hero"), names = hero.getAttribute("data-birds").split("|"), ping = hero.querySelector(".ping"), nm = $("ping-nm");
       var credits = hero.getAttribute("data-credits").split("|"), credit = $("credit"), playing = 0;
-      var frames = hero.querySelectorAll(".wall img"), carded = -1, painted = 0;
+      var frames = hero.querySelectorAll(".pane img"), carded = -1, painted = 0;
       function paint(i) {
         if (i === painted) return;
         frames[painted].classList.remove("on", "paint"); frames[i].classList.add("on", "paint"); painted = i;
@@ -809,7 +850,7 @@ export function setupPage(v: SetupView): Response {
       function account(asSignin) {
         signin = asSignin;
         $("acct-h").textContent = signin ? "Sign in" : "Create your account";
-        $("acct-hint").textContent = signin ? "We'll email you a code to add this frame." : "We'll send you a link to confirm it.";
+        $("acct-hint").textContent = signin ? "We'll email you a code to add this frame." : "We'll send you a link to confirm your account. Your email address will never be shared or sold to anyone.";
         $("go").textContent = signin ? "Continue" : "Set up frame";
         $("count2").hidden = signin;
       }
@@ -832,17 +873,21 @@ export function setupPage(v: SetupView): Response {
       function rows(b) {
         var found = b.stations || [];
         list.innerHTML = ""; km.value = "";
-        say(found.length ? (b.place ? "Near " + b.place : "Near you")
-          : (b.found === false ? "Couldn't find that place. Check the spelling, or try a ZIP code."
-             : "No stations within about " + (miles ? "35 miles" : "55 km") + ". Try a larger town nearby."));
+        if (found.length) say(b.place ? "Near " + b.place : "Near you");
+        else if (b.found === false) oops("Couldn't find that place", "Check the spelling, or try a ZIP code.");
+        else oops("No stations nearby", "There are none within about " + (miles ? "35 miles" : "55 km") + ". Try a larger town nearby.");
+        // Nearest first: the first is tagged, and each says how far it is.
         found.forEach(function (s, i) {
           var li = document.createElement("li"), lab = document.createElement("label"), r = document.createElement("input");
           r.type = "radio"; r.name = "station"; r.value = s.id; r.checked = i === 0;
           r.onchange = function () { km.value = s.km; ready(); };
-          var t = document.createElement("span"); t.textContent = s.name;
+          var t = document.createElement("span"); t.className = "nm"; t.textContent = s.name;
+          if (i === 0 && found.length > 1) { var tag = document.createElement("span"); tag.className = "closest"; tag.textContent = "Closest"; t.appendChild(tag); }
           var m = document.createElement("span"); m.className = "meta";
-          m.textContent = [dist(s.km) + " away", s.species + (s.species === 1 ? " kind of bird" : " kinds of birds") + " this week"].join(" · ");
-          t.appendChild(m); lab.appendChild(r); lab.appendChild(t); li.appendChild(lab); list.appendChild(li);
+          m.textContent = s.species + (s.species === 1 ? " kind of bird" : " kinds of birds") + " this week";
+          var f = document.createElement("span"); f.className = "far"; f.textContent = dist(s.km);
+          var a = document.createElement("small"); a.textContent = "away"; f.appendChild(a);
+          t.appendChild(m); lab.appendChild(r); lab.appendChild(t); lab.appendChild(f); li.appendChild(lab); list.appendChild(li);
           if (i === 0) km.value = s.km;
         });
         ready();
@@ -857,26 +902,29 @@ export function setupPage(v: SetupView): Response {
         var x = new XMLHttpRequest();
         x.open("GET", base + q);
         x.onload = function () { try { rows(JSON.parse(x.responseText)); } catch (e) { rows({}); } };
-        x.onerror = function () { say("Couldn't find stations just now. Try again in a moment."); };
+        x.onerror = function () { oops("Couldn't find stations just now", "Check your connection, then try again."); };
         x.send();
       }
       function find() { var p = place.value.trim(); if (p.length > 1) load("&place=" + encodeURIComponent(p)); }
       $("findbtn").onclick = find;
       place.onkeydown = function (ev) { if (ev.key === "Enter") { ev.preventDefault(); find(); } };
       $("locate").onclick = function () {
-        if (!navigator.geolocation) { say("This browser can't share its location. Enter your ZIP code or town instead."); return; }
+        if (!navigator.geolocation) { oops("This browser can't share your location", "Enter your ZIP code or town instead."); return; }
         say("Finding your location…");
         navigator.geolocation.getCurrentPosition(function (p) {
           place.value = "";
           load("&lat=" + p.coords.latitude.toFixed(3) + "&lon=" + p.coords.longitude.toFixed(3));
         }, function (err) {
-          say(err && err.code === 1
-            ? "Location is off for this browser. Turn it on in your phone's settings, or enter your ZIP code or town."
-            : "Couldn't find your location. Enter your ZIP code or town instead.");
+          if (err && err.code === 1) oops("Location is off", "Turn on location for this browser in your phone's settings, or enter your ZIP code or town.");
+          else oops("Couldn't find your location", "Enter your ZIP code or town instead.");
         }, { enableHighAccuracy: false, timeout: 20000, maximumAge: 600000 });
       };
       var radios = document.querySelectorAll("input[name=source]");
-      for (var i = 0; i < radios.length; i++) radios[i].onchange = ready;
+      for (var i = 0; i < radios.length; i++) radios[i].onchange = function () {
+        var n = this.getAttribute("data-name");
+        if (n) { $("then-nm").textContent = n; $("then").hidden = false; }
+        ready();
+      };
       // Enter before the last screen goes on; it never sends a half-filled form.
       form.addEventListener("submit", function (ev) {
         if (at < 2) { ev.preventDefault(); var n = screens[at].querySelector("[data-next]"); if (n && !n.disabled) show(at + 1, true); return; }

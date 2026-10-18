@@ -624,19 +624,22 @@ const SETUP_STYLE = `
   .hero video { display:block; width:100%; height:100%; object-fit:cover; }
   .hero .ping { position:absolute; left:14px; top:calc(14px + env(safe-area-inset-top, 0px)); display:flex; align-items:center; gap:10px;
     padding:8px 14px 8px 8px; max-width:calc(100% - 28px); background:#fff; border-radius:14px; box-shadow:0 8px 22px rgba(20,16,10,.25); color:#121212;
-    opacity:0; transform:translateY(-8px); animation:ping .5s cubic-bezier(.2, .8, .2, 1) .8s forwards; }
+    transition:opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1); }
+  .hero.live .ping { opacity:0; transform:translateY(-8px); }
+  .hero.live .ping.on { opacity:1; transform:none; }
   .hero .ping .ic { flex:none; display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:#121212; }
   .hero .ping .ic svg { width:18px; height:18px; fill:none; stroke:#fff; stroke-width:2; stroke-linecap:round; }
   .hero .ping .tx { display:flex; flex-direction:column; min-width:0; }
   .hero .ping .k { font-size:12px; line-height:1.3; color:#6b6b69; }
-  .hero .ping .nm { font-size:15px; font-weight:600; line-height:1.3; white-space:nowrap; }
+  .hero .ping .nm { display:block; font-size:15px; font-weight:600; line-height:1.3; white-space:nowrap; }
+  .hero .ping .nm.swap { animation:swapname .5s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes swapname { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
   .hero .ping .when { align-self:flex-start; margin-left:10px; font-size:12px; line-height:1.3; color:#6b6b69; white-space:nowrap; }
-  @keyframes ping { to { opacity:1; transform:none; } }
   .hero .wall { position:absolute; right:20px; bottom:-46px; width:32%; max-width:138px; aspect-ratio:300 / 377; filter:drop-shadow(0 12px 18px rgba(20,16,10,.38)); }
-  .hero .wall img { position:absolute; inset:0; width:100%; height:100%; display:block; }
-  .hero .wall img.to { opacity:0; animation:repaint .7s ease 2s forwards; }
+  .hero .wall img { position:absolute; inset:0; width:100%; height:100%; display:block; opacity:0; }
+  .hero .wall img.on { opacity:1; }
+  .hero .wall img.paint { animation:repaint .7s ease; }
   @keyframes repaint { 0% { opacity:0; filter:brightness(1); } 35% { opacity:1; filter:brightness(.15); } 100% { opacity:1; filter:none; } }
-  @media (prefers-reduced-motion: reduce) { .hero .ping, .hero .wall img.to { animation:none; opacity:1; transform:none; } }
   @media (min-width:480px) { main.flow { padding-top:24px; } .hero { margin:0 24px 30px; } .hero .media { border-radius:16px; } }
 
   /* A station near you, or their own detector. */
@@ -678,15 +681,17 @@ export function setupPage(v: SetupView): Response {
   const start = v.step === "email" ? "email" : v.step ? "source" : "welcome";
   const back = `<button type="button" class="backarrow" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>`;
   const error = v.error ? `<p class="bad">${e(v.error)}</p>` : "";
-  // The scene the marketing page tells it with: its cardinal at a feeder (the
-  // video, looping), the phone's "New detection", and the frame, hanging off
-  // the video's foot, repainting from the Carolina Wren to the cardinal. The
-  // card and the frame play once; with reduced motion they are their end and
-  // the video is its poster.
-  const scene = `<div class="hero" aria-hidden="true">
-          <div class="media"><video id="scene" muted playsinline loop preload="auto" poster="/_ff/setup-photo.webp" width="720" height="540"><source src="/_ff/setup-cardinal.mp4" type="video/mp4"></video></div>
-          <span class="ping"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3.5 10.5v3M7 7.5v9M10.5 4.5v15M14 8v8M17.5 9.5v5M21 11v2"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm">Northern Cardinal</span></span><span class="when">Just now</span></span>
-          <span class="wall"><img src="/_ff/setup-frame-wren.webp" alt="" width="300" height="377"><img class="to" src="/_ff/setup-frame-cardinal.webp" alt="" width="300" height="377"></span>
+  // The scene the marketing page tells it with, and its four birds: each one's
+  // video, then the phone's "New detection" for it, then the frame, hanging
+  // off the video's foot, repainting to its illustration. The page follows the
+  // video's clock (six seconds a bird). With reduced motion, or no script, it
+  // is the cardinal, still.
+  const BIRDS: [string, string][] = [["cardinal", "Northern Cardinal"], ["bluebird", "Eastern Bluebird"],
+    ["titmouse", "Tufted Titmouse"], ["chickadee", "Black-capped Chickadee"]];
+  const scene = `<div class="hero" id="hero" aria-hidden="true" data-birds="${BIRDS.map((b) => b[1]).join("|")}">
+          <div class="media"><video id="scene" muted playsinline loop preload="auto" poster="/_ff/setup-photo.webp" width="720" height="540"><source src="/_ff/setup-birds.mp4" type="video/mp4"></video></div>
+          <span class="ping"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3.5 10.5v3M7 7.5v9M10.5 4.5v15M14 8v8M17.5 9.5v5M21 11v2"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm" id="ping-nm">Northern Cardinal</span></span><span class="when">Just now</span></span>
+          <span class="wall">${BIRDS.map(([slug], i) => `<img${i === 0 ? ' class="on"' : ""} src="/_ff/setup-frame-${slug}.webp" alt="" width="300" height="377">`).join("")}</span>
         </div>`;
   return shell("Set up your frame · Featherframe", `<main class="flow">
     <form method="post" action="${action}" id="setup" data-start="${start}">
@@ -762,6 +767,27 @@ export function setupPage(v: SetupView): Response {
       // the station, so its Back is the welcome.
       var screens = Array.prototype.slice.call(form.querySelectorAll(".screen")), at = 0, signin = false;
       var vid = $("scene"), still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // The scene: a bird every six seconds of the video; its card a moment
+      // after it lands, its illustration on the frame a moment after that.
+      var hero = $("hero"), names = hero.getAttribute("data-birds").split("|"), ping = hero.querySelector(".ping"), nm = $("ping-nm");
+      var frames = hero.querySelectorAll(".wall img"), carded = -1, painted = 0;
+      function paint(i) {
+        if (i === painted) return;
+        frames[painted].classList.remove("on", "paint"); frames[i].classList.add("on", "paint"); painted = i;
+      }
+      function follow() {
+        var t = vid.currentTime || 0, bird = Math.floor(t / 6) % names.length, into = t % 6;
+        if (into >= 0.9 && carded !== bird) {
+          carded = bird; nm.textContent = names[bird];
+          nm.classList.remove("swap"); void nm.offsetWidth; nm.classList.add("swap"); ping.classList.add("on");
+        }
+        if (into >= 2 && carded === bird) paint(bird);
+      }
+      if (vid && !still) {
+        hero.classList.add("live"); paint(names.length - 1); frames[0].classList.remove("on");
+        frames[names.length - 1].classList.remove("paint");
+        vid.addEventListener("timeupdate", follow);
+      }
       function show(i, focus) {
         at = Math.max(0, Math.min(i, screens.length - 1));
         screens.forEach(function (s, k) { s.hidden = k !== at; });

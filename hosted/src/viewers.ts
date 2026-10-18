@@ -21,15 +21,17 @@ import favicon32 from "../../server/static/favicon-32.png";
 import faviconIco from "../../server/static/favicon.ico";
 import touchIcon from "../../server/static/apple-touch-icon.png";
 // The phone setup page's pictures (W-1073), the marketing page's own: a
-// still of the U.S. Fish and Wildlife Service's cardinal at a feeder (public
-// domain, Courtney Celley), and the walnut frame as site/public/img/wall
-// renders it with the Carolina Wren and the Northern Cardinal.
+// still of its cardinal video (U.S. Fish and Wildlife Service, public domain)
+// for a poster, its four birds' videos joined into one 24 s loop (six seconds
+// each, cropped to 4:3, 720 wide, no sound), and the walnut frame showing
+// each (site/public/img/wall's renders; the bluebird's and the chickadee's
+// laid onto the cardinal's from site/public/models/screens, toned to match).
 import setupPhoto from "./art/setup-photo.webp";
-import setupFrameWren from "./art/setup-frame-wren.webp";
-import setupFrameCardinal from "./art/setup-frame-cardinal.webp";
-// …and the marketing page's cardinal video itself, cropped to 4:3, 720 wide,
-// no sound (ffmpeg -crf 30), for the welcome's scene.
-import setupVideo from "./art/setup-cardinal.mp4";
+import setupVideo from "./art/setup-birds.mp4";
+import frameCardinal from "./art/setup-frame-cardinal.webp";
+import frameBluebird from "./art/setup-frame-bluebird.webp";
+import frameTitmouse from "./art/setup-frame-titmouse.webp";
+import frameChickadee from "./art/setup-frame-chickadee.webp";
 
 // While a viewer waits to be claimed it asks this often (a TRMNL on battery
 // too: pairing is a minute or two, once).
@@ -224,7 +226,7 @@ function manifest(): Response {
  * wakes a household's server for it (W-915). */
 /** The setup welcome's video, by range (Safari plays nothing otherwise). */
 export function setupMedia(request: Request, path: string): Response | null {
-  return path === "/_ff/setup-cardinal.mp4" ? rangeResponse(request, setupVideo, "video/mp4") : null;
+  return path === "/_ff/setup-birds.mp4" ? rangeResponse(request, setupVideo, "video/mp4") : null;
 }
 
 export function pageIcon(path: string): Response | null {
@@ -233,7 +235,9 @@ export function pageIcon(path: string): Response | null {
     : path === "/static/apple-touch-icon.png" ? [touchIcon, "image/png"]
     : path === "/favicon.ico" ? [faviconIco, "image/x-icon"]
     : path === "/_ff/setup-photo.webp" ? [setupPhoto, "image/webp"]
-    : path === "/_ff/setup-frame-wren.webp" ? [setupFrameWren, "image/webp"]
-    : path === "/_ff/setup-frame-cardinal.webp" ? [setupFrameCardinal, "image/webp"] : [null, ""];
+    : path === "/_ff/setup-frame-cardinal.webp" ? [frameCardinal, "image/webp"]
+    : path === "/_ff/setup-frame-bluebird.webp" ? [frameBluebird, "image/webp"]
+    : path === "/_ff/setup-frame-titmouse.webp" ? [frameTitmouse, "image/webp"]
+    : path === "/_ff/setup-frame-chickadee.webp" ? [frameChickadee, "image/webp"] : [null, ""];
   return body ? new Response(body, { headers: { "Content-Type": type, "Cache-Control": "max-age=86400" } }) : null;
 }

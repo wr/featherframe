@@ -586,76 +586,73 @@ export function confirmEmailEmail(link: string): { subject: string; text: string
 }
 
 // -- setting up a frame from the phone (W-888, W-889) ---------------------------------
-const SETUP_STYLE = `<style>
-  .hint { font-size:13px; color:var(--muted); margin:6px 0 0; }
-  .field { margin-bottom:18px; }
-  .code-in { text-transform:uppercase; letter-spacing:.08em; }
-  fieldset { border:0; margin:0 0 6px; padding:0; }
-  legend { font-size:15px; font-weight:600; margin:4px 0 8px; padding:0; }
-  .choices, .stations { list-style:none; margin:0; padding:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-  .stations { margin-top:10px; }
+const SETUP_STYLE = `
+  /* Setting up from the phone (W-1073): full screens, as a phone app's setup
+     is drawn. A welcome on the scene the marketing page tells it with, then
+     one question a screen: a big title, a line, its field, and the button
+     at the bottom. A column on a computer. */
+  body { display:block; min-height:0; padding:0; }
+  main.flow { max-width:440px; margin:0 auto; }
+  .screen { display:flex; flex-direction:column; min-height:100vh; min-height:100svh; padding:0 24px; }
+  .screen h1 { font-size:28px; font-weight:650; line-height:1.15; letter-spacing:-.01em; margin:0 0 10px; outline:none; text-wrap:balance; }
+  .lede { font-size:15.5px; line-height:1.5; color:var(--ink-2); margin:0 0 22px; }
+  .top { display:flex; align-items:center; justify-content:space-between; height:56px; margin:0 -8px 6px; }
+  .count { font-size:13px; color:var(--muted); margin-right:8px; font-variant-numeric:tabular-nums; }
+  button.backarrow { width:40px; height:40px; margin:0; padding:0; display:grid; place-items:center; background:none; color:var(--ink); border-radius:50%; }
+  button.backarrow svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .bottom { position:sticky; bottom:0; margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:18px 0 calc(18px + env(safe-area-inset-bottom, 0px)); background:linear-gradient(to bottom, transparent, var(--bg) 22px); }
+  /* The main button stands in the same place on every screen, link or not. */
+  .bottom:not(:has(.link))::after { content:""; height:37px; }
+  .bottom button[type=submit], .bottom [data-next] { margin:0; width:100%; padding:14px 12px; font-size:16px; border-radius:12px; }
+  button.link { width:auto; margin:0; padding:8px 4px; background:none; border:0; color:var(--accent); font-weight:500; font-size:15px; }
+  button:disabled { opacity:.5; cursor:default; }
+  [hidden] { display:none !important; }
+  .sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); border:0; }
+  label { font-size:13px; color:var(--muted); margin:0 0 6px; }
+  input[type=text], input[type=email] { padding:13px 14px; font-size:16px; border-radius:10px; }
+  .hint { font-size:13.5px; color:var(--muted); margin:8px 0 0; }
+  .bad { margin:16px 0 0; }
+
+  /* The welcome: the scene, the wordmark, one line, Get started. */
+  .welcome { padding:0; }
+  .welcome .body { padding:22px 24px 0; }
+  .welcome .wordmark { font-size:30px; text-align:left; margin:0 0 10px; }
+  .welcome .bottom { padding-left:24px; padding-right:24px; }
+  .hero { position:relative; aspect-ratio:4 / 3; background:#cfcdc8 url("/_ff/setup-photo.webp") 30% 50% / cover no-repeat; }
+  .hero .ping { position:absolute; left:14px; top:calc(14px + env(safe-area-inset-top, 0px)); display:flex; align-items:center; gap:10px;
+    padding:8px 14px 8px 8px; max-width:calc(100% - 28px); background:#fff; border-radius:14px; box-shadow:0 8px 22px rgba(20,16,10,.25); color:#121212;
+    opacity:0; transform:translateY(-8px); animation:ping .5s cubic-bezier(.2, .8, .2, 1) .8s forwards; }
+  .hero .ping .ic { flex:none; display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:#121212; }
+  .hero .ping .ic svg { width:18px; height:18px; fill:none; stroke:#fff; stroke-width:2; stroke-linecap:round; }
+  .hero .ping .tx { display:flex; flex-direction:column; min-width:0; }
+  .hero .ping .k { font-size:12px; line-height:1.3; color:#6b6b69; }
+  .hero .ping .nm { font-size:15px; font-weight:600; line-height:1.3; white-space:nowrap; }
+  .hero .ping .when { align-self:flex-start; margin-left:10px; font-size:12px; line-height:1.3; color:#6b6b69; white-space:nowrap; }
+  @keyframes ping { to { opacity:1; transform:none; } }
+  .hero .wall { position:absolute; right:16px; bottom:14px; width:31%; max-width:132px; aspect-ratio:300 / 377; filter:drop-shadow(0 10px 16px rgba(20,16,10,.4)); }
+  .hero .wall img { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .hero .wall img.to { opacity:0; animation:repaint .7s ease 2s forwards; }
+  @keyframes repaint { 0% { opacity:0; filter:brightness(1); } 35% { opacity:1; filter:brightness(.15); } 100% { opacity:1; filter:none; } }
+  @media (prefers-reduced-motion: reduce) { .hero .ping, .hero .wall img.to { animation:none; opacity:1; transform:none; } }
+  @media (min-width:480px) { main.flow { padding-top:24px; } .hero { border-radius:16px; overflow:hidden; margin:0 24px; } .welcome .body { padding-top:24px; } }
+
+  /* A station near you, or their own detector. */
+  .find { display:flex; gap:8px; }
+  .searchbox { position:relative; flex:1 1 auto; min-width:0; }
+  .searchbox input { padding-right:44px; }
+  button.loc { position:absolute; top:0; right:0; bottom:0; width:44px; margin:0; padding:0; display:flex; align-items:center; justify-content:center;
+    background:none; color:var(--accent); border-radius:0 10px 10px 0; }
+  button.loc svg { width:19px; height:19px; fill:currentColor; }
+  .find > button { margin:0; width:auto; flex:none; padding:0 18px; border-radius:10px; }
+  .near { font-size:13px; color:var(--muted); margin:16px 0 8px; }
+  .choices, .stations { list-style:none; margin:0; padding:0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface); }
   .stations:empty { display:none; }
   .choices li + li, .stations li + li { border-top:1px solid var(--border); }
-  .choices label, .stations label { display:flex; gap:10px; align-items:flex-start; margin:0; padding:10px 12px;
-    font-size:14px; color:var(--ink); cursor:pointer; }
-  .choices input, .stations input { margin:3px 0 0; accent-color:var(--accent); flex:none; }
-  .meta { display:block; font-size:12.5px; color:var(--muted); }
-  .find { display:flex; gap:8px; margin:0; }
-  .find input { flex:1 1 auto; min-width:0; }
-  .find button { margin:0; width:auto; flex:none; }
-  .btn2 { margin-top:8px; width:100%; background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
-  .near { font-size:13px; color:var(--muted); margin:12px 0 0; }
-  button:disabled { opacity:.6; cursor:default; }
-  [hidden] { display:none !important; }
-  /* The card stays put from step to step: the page starts at the top, not the
-     middle, under a smaller wordmark. */
-  body { align-items:flex-start; padding-top:24px; }
-  .wordmark { font-size:32px; margin:0 0 14px; }
-  .card { overflow:hidden; }
-  /* The picture is printed on paper in either theme: white, ink drawn on it. */
-  .art { margin:-24px -24px 16px; background:#fff; }
-  .hero { position:relative; height:198px; background:#cfcdc8 url("/_ff/setup-photo.webp") 30% 50% / cover no-repeat; }
-  .hero.done { background:#f1eee8; display:flex; align-items:center; justify-content:center; }
-  .hero .ping { position:absolute; left:12px; top:12px; display:flex; align-items:center; gap:9px; padding:7px 12px 7px 7px; max-width:calc(100% - 24px);
-    background:#fff; border-radius:11px; box-shadow:0 6px 18px rgba(20,16,10,.22); color:#121212;
-    opacity:0; transform:translate(-10px, -6px); animation:ping .5s cubic-bezier(.2, .8, .2, 1) .7s forwards; }
-  .hero .ping .ic { flex:none; display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:#121212; }
-  .hero .ping .ic svg { width:16px; height:16px; fill:none; stroke:#fff; stroke-width:2; stroke-linecap:round; }
-  .hero .ping .tx { display:flex; flex-direction:column; min-width:0; }
-  .hero .ping .k { font-size:11px; line-height:1.3; color:#6b6b69; }
-  .hero .ping .nm { font-size:14px; font-weight:600; line-height:1.3; white-space:nowrap; }
-  .hero .ping .when { align-self:flex-start; margin-left:8px; font-size:11px; line-height:1.3; color:#6b6b69; white-space:nowrap; }
-  @keyframes ping { to { opacity:1; transform:none; } }
-  .hero .wall { position:absolute; right:14px; bottom:10px; width:96px; aspect-ratio:300 / 377; filter:drop-shadow(0 8px 14px rgba(20,16,10,.35)); }
-  .hero.done .wall { position:relative; right:auto; bottom:auto; width:118px; }
-  .hero .wall img { position:absolute; inset:0; width:100%; height:100%; display:block; }
-  .hero .wall img.to { opacity:0; animation:repaint .7s ease 1.9s forwards; }
-  @keyframes repaint { 0% { opacity:0; filter:brightness(1); } 35% { opacity:1; filter:brightness(.15); } 100% { opacity:1; filter:none; } }
-  @media (prefers-reduced-motion: reduce) {
-    .hero .ping, .hero .wall img.to { animation:none; opacity:1; transform:none; }
-  }
-  .step + .step { margin-top:22px; }
-  .stepped .step + .step { margin-top:0; }
-  .head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:0 0 6px; }
-  .step h2 { font-size:19px; font-weight:600; line-height:1.3; margin:0; outline:none; }
-  .dots { display:flex; gap:5px; flex:none; }
-  .dots i { width:6px; height:6px; border-radius:50%; background:var(--border-strong); }
-  .dots i.on { background:var(--accent); }
-  .searchbox { position:relative; flex:1 1 auto; min-width:0; }
-  .searchbox input { padding-right:42px; }
-  button.loc { position:absolute; top:0; right:0; bottom:0; width:42px; margin:0; padding:0; display:flex; align-items:center; justify-content:center;
-    background:none; color:var(--accent); border-radius:0 8px 8px 0; }
-  button.loc svg { width:18px; height:18px; fill:currentColor; }
-  .head + .hint { margin:0 0 14px; }
-  .nav { display:flex; gap:10px; margin-top:20px; }
-  .nav button { margin:0; flex:1 1 auto; }
-  .nav .back { flex:0 0 auto; width:auto; padding:10px 16px; background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
-  form:not(.stepped) .nav [data-next], form:not(.stepped) .nav .back { display:none; }
-  .sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); border:0; }
-  .aside { margin:16px 0 0; text-align:center; }
-  button.link { width:auto; margin:0; padding:4px 2px; background:none; border:0; color:var(--accent); font-weight:500; font-size:14px; text-decoration:underline; text-underline-offset:3px; }
-
-</style>`;
+  .choices label, .stations label { display:flex; gap:12px; align-items:flex-start; margin:0; padding:14px; font-size:15.5px; color:var(--ink); cursor:pointer; }
+  .choices input, .stations input { margin:3px 0 0; width:18px; height:18px; accent-color:var(--accent); flex:none; }
+  .meta { display:block; margin-top:2px; font-size:13px; color:var(--muted); }
+`;
 
 export interface SetupView {
   code: string; token: string; error?: string;
@@ -664,40 +661,49 @@ export interface SetupView {
   step?: "source" | "station" | "email";
 }
 
-// Two steps (W-1073), written for someone who has never heard of BirdNET: a
-// station near them, then their email. Their own detector is a link off the
-// first step for those who have one. Still one form and one POST; without its
-// script both steps show at once.
+// Setting up from the phone (W-1073), for someone who has never heard of
+// BirdNET: a welcome, a station near them, their email. Their own detector
+// is a link off the station; "I already have an account" goes straight to the
+// email. One form and one POST; without its script every screen shows.
 export function setupPage(v: SetupView): Response {
   const e = escapeHtml;
   const action = `/setup/${e(v.code.toLowerCase())}/${e(v.token)}`;
   const src = v.source || "birdweather";
   const own = src !== "birdweather";
   const detector = (value: string, name: string) => `<li><label>
-    <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}><span>${name}</span></label></li>`;
+            <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}><span>${name}</span></label></li>`;
   const us = v.country === "US";
-  const start = v.step === "email" ? "email" : "source";
-  // Step 1 says what the frame does the way the marketing page does (W-1073):
-  // a cardinal at a feeder, the phone's "New detection", and the frame on the
-  // shelf turning to it. It plays once; with reduced motion it is its end.
-  const wall = (to: boolean) => `<span class="wall">${to ? "" : `<img src="/_ff/setup-frame-wren.webp" alt="" width="300" height="377">`}<img class="${to ? "" : "to"}" src="/_ff/setup-frame-cardinal.webp" alt="" width="300" height="377"></span>`;
-  const art = (name: string) => name === "account"
-    ? `<div class="art hero done" aria-hidden="true">${wall(true)}</div>`
-    : `<div class="art hero" aria-hidden="true">
-            <span class="ping"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3.5 10.5v3M7 7.5v9M10.5 4.5v15M14 8v8M17.5 9.5v5M21 11v2"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm">Northern Cardinal</span></span><span class="when">Just now</span></span>
-            ${wall(false)}
-          </div>`;
-  const head = (n: number, title: string, id = "") => `<div class="head"><h2 tabindex="-1"${id ? ` id="${id}"` : ""}><span class="sr">Step ${n} of 2. </span>${title}</h2>
-          <span class="dots" aria-hidden="true"><i class="on"></i><i${n === 2 ? ' class="on"' : ""}></i></span></div>`;
-  return page("Set up your frame · Featherframe", `${SETUP_STYLE}
-    ${v.error ? `<p class="bad">${e(v.error)}</p>` : ""}
+  const start = v.step === "email" ? "email" : v.step ? "source" : "welcome";
+  const back = `<button type="button" class="backarrow" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>`;
+  const error = v.error ? `<p class="bad">${e(v.error)}</p>` : "";
+  // The scene the marketing page tells it with: a cardinal at a feeder, the
+  // phone's "New detection", the frame repainting from the Carolina Wren to
+  // the cardinal. It plays once; with reduced motion it is its end.
+  const scene = `<div class="hero" aria-hidden="true">
+          <span class="ping"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3.5 10.5v3M7 7.5v9M10.5 4.5v15M14 8v8M17.5 9.5v5M21 11v2"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm">Northern Cardinal</span></span><span class="when">Just now</span></span>
+          <span class="wall"><img src="/_ff/setup-frame-wren.webp" alt="" width="300" height="377"><img class="to" src="/_ff/setup-frame-cardinal.webp" alt="" width="300" height="377"></span>
+        </div>`;
+  return shell("Set up your frame · Featherframe", `<main class="flow">
     <form method="post" action="${action}" id="setup" data-start="${start}">
-      <section class="step" data-step="source">
+      <section class="screen welcome" data-step="welcome">
+        ${scene}
+        <div class="body">
+          <p class="wordmark">Featherframe</p>
+          <h1 tabindex="-1">Hear a bird outside. See it on your frame.</h1>
+          <p class="lede">Your frame will show the latest bird heard near you, as a 19th-century illustration. Setting it up takes about two minutes.</p>
+        </div>
+        <div class="bottom">
+          <button type="button" data-next>Get started</button>
+          <button type="button" class="link" id="have-account">I already have an account</button>
+        </div>
+      </section>
+      <section class="screen" data-step="source">
+        <div class="top">${back}<span class="count">1 of 2</span></div>
+        ${v.step === "station" ? error : ""}
         <div id="bw"${own ? " hidden" : ""}>
           <input type="radio" name="source" value="birdweather" id="src-bw" class="sr"${own ? "" : " checked"} tabindex="-1" aria-hidden="true">
-          ${art("station")}
-          ${head(1, "Choose a station near you")}
-          <p class="hint">Your frame will show the birds heard by a station near you. Stations are microphones that people set up at home and share on BirdWeather.</p>
+          <h1 tabindex="-1">Choose a station near you</h1>
+          <p class="lede">Your frame will show the birds heard by a station near you. Stations are microphones that people set up at home and share on BirdWeather.</p>
           <div class="find">
             <div class="searchbox">
               <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "ZIP code or town" : "Postcode or town"}"
@@ -708,32 +714,33 @@ export function setupPage(v: SetupView): Response {
           </div>
           <p class="near" id="status" hidden></p>
           <ul class="stations" id="stations"></ul>
-          <div class="nav"><button type="button" data-next>Continue</button></div>
-          <p class="aside"><button type="button" class="link" id="to-own">I have my own BirdNET station</button></p>
         </div>
         <div id="own"${own ? "" : " hidden"}>
-          ${art("station")}
-          ${head(1, "Your BirdNET station", "own-q")}
-          <p class="hint">You'll connect it in Settings after setup.</p>
+          <h1 tabindex="-1" id="own-q">Your BirdNET station</h1>
+          <p class="lede">You'll connect it in Settings after setup.</p>
           <ul class="choices" role="radiogroup" aria-labelledby="own-q">
             ${detector("apprise", "BirdNET-Pi")}
             ${detector("birdnet_go", "BirdNET-Go")}
           </ul>
-          <div class="nav"><button type="button" data-next>Continue</button></div>
-          <p class="aside"><button type="button" class="link" id="to-bw">Use a station near me instead</button></p>
+        </div>
+        <div class="bottom">
+          <button type="button" data-next>Continue</button>
+          <button type="button" class="link" id="swap">${own ? "Use a station near me instead" : "I have my own BirdNET station"}</button>
         </div>
       </section>
-      <section class="step" data-step="email">
-        ${art("account")}
-        ${head(2, "Create your account")}
+      <section class="screen" data-step="email">
+        <div class="top">${back}<span class="count" id="count2">2 of 2</span></div>
+        ${v.step === "email" ? error : ""}
+        <h1 tabindex="-1" id="acct-h">Create your account</h1>
         <label for="email">Email</label>
         <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
-        <p class="hint">We'll send you a link to confirm it.</p>
+        <p class="hint" id="acct-hint">We'll send you a link to confirm it.</p>
         <input type="hidden" name="tz" id="tz">
         <input type="hidden" name="km" id="km">
-        <div class="nav"><button type="button" class="back" data-back>Back</button><button type="submit" id="go">Set up frame</button></div>
+        <div class="bottom"><button type="submit" id="go">Set up frame</button></div>
       </section>
     </form>
+    </main>
     <script>
     (function () {
       var base = ${JSON.stringify(`/api/setup/stations?c=${v.code}&t=${v.token}`)}, miles = ${v.miles ? "true" : "false"};
@@ -744,29 +751,40 @@ export function setupPage(v: SetupView): Response {
       function dist(k) { return miles ? Math.round(k * 0.621371) + " mi" : k + " km"; }
       function source() { var r = document.querySelector("input[name=source]:checked"); return r ? r.value : ""; }
       function station() { return document.querySelector("input[name=station]:checked"); }
+      function mine() { return !$("own").hidden; }
 
-      var steps = Array.prototype.slice.call(form.querySelectorAll(".step")), at = 0;
+      // The screens, and where Back goes: "I already have an account" skips
+      // the station, so its Back is the welcome.
+      var screens = Array.prototype.slice.call(form.querySelectorAll(".screen")), at = 0, signin = false;
       function show(i, focus) {
-        at = Math.max(0, Math.min(i, steps.length - 1));
-        steps.forEach(function (s, k) { s.classList.toggle("on", k === at); s.hidden = k !== at; });
+        at = Math.max(0, Math.min(i, screens.length - 1));
+        screens.forEach(function (s, k) { s.hidden = k !== at; });
         ready();
-        if (focus) { var h = steps[at].querySelector("h2:not([hidden])"); var panel = steps[at].querySelector("#bw:not([hidden]), #own:not([hidden])");
-          if (panel) h = panel.querySelector("h2"); if (h) h.focus(); window.scrollTo(0, 0); }
+        if (focus) { var h = screens[at].querySelector("h1:not([hidden])"), p = screens[at].querySelector("#bw:not([hidden]) h1, #own:not([hidden]) h1");
+          (p || h).focus(); window.scrollTo(0, 0); }
+      }
+      function account(asSignin) {
+        signin = asSignin;
+        $("acct-h").textContent = signin ? "Sign in" : "Create your account";
+        $("acct-hint").textContent = signin ? "We'll email you a code to add this frame." : "We'll send you a link to confirm it.";
+        $("go").textContent = signin ? "Continue" : "Set up frame";
+        $("count2").hidden = signin;
       }
       form.classList.add("stepped");
       form.addEventListener("click", function (ev) {
-        var t = ev.target;
-        if (t.hasAttribute("data-next")) { if (!t.disabled) show(at + 1, true); }
-        else if (t.hasAttribute("data-back")) show(at - 1, true);
+        var t = ev.target.closest ? ev.target.closest("button") : ev.target;
+        if (!t) return;
+        if (t.hasAttribute("data-next")) { if (!t.disabled) { if (at === 0) account(false); show(at + 1, true); } }
+        else if (t.hasAttribute("data-back")) show(at === 2 && signin ? 0 : at - 1, true);
       });
-      // Their own detector, or back to a station: the same step, the other panel.
-      function panel(mine) {
-        $("bw").hidden = mine; $("own").hidden = !mine;
-        if (mine) { $("src-bw").checked = false; } else { $("src-bw").checked = true; }
-        ready(); (mine ? $("own") : $("bw")).querySelector("h2").focus();
-      }
-      $("to-own").onclick = function () { panel(true); };
-      $("to-bw").onclick = function () { panel(false); };
+      $("have-account").onclick = function () { account(true); show(2, true); };
+      // Their own detector, or back to a station: the same screen, the other half.
+      $("swap").onclick = function () {
+        var to = !mine();
+        $("bw").hidden = to; $("own").hidden = !to; $("src-bw").checked = !to;
+        $("swap").textContent = to ? "Use a station near me instead" : "I have my own BirdNET station";
+        ready(); (to ? $("own") : $("bw")).querySelector("h1").focus();
+      };
 
       function rows(b) {
         var found = b.stations || [];
@@ -786,10 +804,10 @@ export function setupPage(v: SetupView): Response {
         });
         ready();
       }
-      // Each panel's Continue waits for its choice: a station, or a detector.
+      // The station screen's Continue waits for its choice: a station, or a detector.
       function ready() {
-        $("bw").querySelector("[data-next]").disabled = !station();
-        $("own").querySelector("[data-next]").disabled = !(source() === "apprise" || source() === "birdnet_go");
+        var next = form.querySelector("[data-step=source] [data-next]");
+        next.disabled = mine() ? !(source() === "apprise" || source() === "birdnet_go") : !station();
       }
       function load(q) {
         say("Finding stations…"); list.innerHTML = ""; ready();
@@ -816,15 +834,16 @@ export function setupPage(v: SetupView): Response {
       };
       var radios = document.querySelectorAll("input[name=source]");
       for (var i = 0; i < radios.length; i++) radios[i].onchange = ready;
-      // Enter on the first step goes on to the next; it never sends a half-filled form.
+      // Enter before the last screen goes on; it never sends a half-filled form.
       form.addEventListener("submit", function (ev) {
-        if (at === 0) { ev.preventDefault(); var n = form.querySelector("#bw:not([hidden]) [data-next], #own:not([hidden]) [data-next]"); if (n && !n.disabled) show(1, true); return; }
-        $("go").disabled = true; $("go").textContent = "Setting up…";
+        if (at < 2) { ev.preventDefault(); var n = screens[at].querySelector("[data-next]"); if (n && !n.disabled) show(at + 1, true); return; }
+        $("go").disabled = true; $("go").textContent = signin ? "Sending…" : "Setting up…";
       });
-      show(form.getAttribute("data-start") === "email" ? 1 : 0, form.getAttribute("data-start") === "email");
+      var first = form.getAttribute("data-start");
+      show(first === "email" ? 2 : first === "source" ? 1 : 0, first !== "welcome");
       if (place.value) find();
     })();
-    </script>`);
+    </script>`, SETUP_STYLE);
 }
 
 export function setupAddPage(code: string, token: string, email: string): Response {

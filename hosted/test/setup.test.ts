@@ -226,13 +226,14 @@ describe("setting up", () => {
     expect((await auth(new Request(link), env, link)).headers.get("Location")).toBe("/?paired=1");
   });
 
-  it("is two steps: a station near them (or their own detector), then the email", async () => {
+  it("is a welcome, then a station near them (or their own detector), then the email", async () => {
     const f = await frameShowing();
     const url = `https://${HOST}/setup/${f.code.toLowerCase()}/${f.token}`;
     const page = await (await setupRoute(new Request(url), env, new URL(url), ctx)).text();
-    const steps = [...page.matchAll(/<section class="step" data-step="(\w+)"/g)].map((m) => m[1]);
-    expect(steps).toEqual(["source", "email"]);
-    expect(page).toContain('data-start="source"');
+    const steps = [...page.matchAll(/<section class="screen[^"]*" data-step="(\w+)"/g)].map((m) => m[1]);
+    expect(steps).toEqual(["welcome", "source", "email"]);
+    expect(page).toContain('data-start="welcome"');
+    expect(page).toContain("I already have an account");
     // A station is the way in; a detector of their own is a link off it (W-1073).
     expect(page).toContain('<div id="bw">');
     expect(page).toContain('<div id="own" hidden>');

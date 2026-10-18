@@ -133,7 +133,7 @@ def test_history_thumb_is_null_when_file_is_gone(client, svc):
     (paths.history_dir() / f"{svc.current_etag()}.png").unlink()
     items = client.get("/api/history").json()["items"]
     assert items[0]["thumb"] is None
-    assert "Nothing rendered yet." in client.get("/").text
+    assert 'id="hist-empty" >None yet.' in client.get("/").text
 
 
 def test_page_renders_history_strip(client, svc):

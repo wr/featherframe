@@ -27,6 +27,9 @@ def svc(tmp_path, monkeypatch):
     # The gone-quiet alarm stays out of these unless a test lets it back in.
     monkeypatch.setattr(service_mod, "QUIET_ALARM_HOURS", 10 ** 6)
     service.config.quiet_hours_mode = "off"
+    # A path the owner typed: missing is a fault. The default path, missing,
+    # is a source not set up yet, which raises no alarm (W-880).
+    service.config.birdnet_db_path = str(tmp_path / "missing.db")
     service.update_config(service.config)
     yield service
 
@@ -112,6 +115,8 @@ def test_outage_clock_survives_a_restart(tmp_path, monkeypatch):
     monkeypatch.setenv("FEATHERFRAME_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("FEATHERFRAME_PLATES_DIR", str(tmp_path / "plates"))
     first = FeatherframeService()
+    first.config.birdnet_db_path = str(tmp_path / "missing.db")   # typed, so a fault
+    first.update_config(first.config)
     first._track_source(datetime(2026, 9, 2, 15, 0), available=False)
     second = FeatherframeService()
     assert second.outage_state(datetime(2026, 9, 2, 17, 0))["since_text"] == "3:00 PM"

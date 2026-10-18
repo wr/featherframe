@@ -390,7 +390,7 @@
 
     /* toggle — green when on. The visible text is a <label for>, so the whole
        label is a tap target. */
-    .hint a { color:var(--accent); }
+    .hint a, .intro a { color:var(--accent); }
     .switch { position:relative; display:inline-block; width:42px; height:25px; flex:none; cursor:pointer; }
     .switch input { opacity:0; width:0; height:0; }
     .switch .track { position:absolute; inset:0; background:var(--switch-off); border-radius:999px; transition:background .16s; box-shadow:inset 0 0 0 1px rgba(74,54,28,.08), inset 0 1px 2px rgba(74,54,28,.1); }
@@ -398,6 +398,10 @@
     .switch input:checked + .track { background:var(--good); }
     .switch input:checked + .track::before { transform:translateX(17px); }
     .switch input:focus-visible + .track { box-shadow:0 0 0 3px var(--accent-ring); }
+    /* A locked switch does nothing, whatever it keeps, so it reads off
+       (W-880). The stored value is untouched and shows once it unlocks. */
+    .frow.locked .switch input:checked + .track { background:var(--switch-off); }
+    .frow.locked .switch input:checked + .track::before { transform:none; }
 
     /* buttons — one base size for every inline action; .lg for the form's Save;
        .primary for the walnut fill; .icon for a square glyph; .danger tints red */
@@ -796,6 +800,7 @@
     .fr-empty ol { margin:0; padding-left:1.25em; display:flex; flex-direction:column; gap:10px; }
     .fr-empty strong { color:var(--ink); }
     .fr-empty .addr { font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:13px; color:var(--ink); }
+    .fr-empty .fr-empty-act { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin:14px 0 0; }
     .adv-reset { display:flex; align-items:center; justify-content:flex-end; gap:14px; padding-top:16px; }
     .adv-reset .hint { margin:0; }
     .test-box a.tb-link { color:var(--accent); text-decoration:underline; white-space:nowrap; }
@@ -1041,7 +1046,7 @@
             <a class="plate-link" href="{{ picked.preview_url if picked else '/api/preview.png' }}" target="_blank" rel="noopener">
               <img id="preview" src="{{ picked.preview_url if picked else '/api/preview.png' }}" alt="{{ ('Current frame: ' ~ status.current.title) if status.current.title else 'Current frame' }}">
             </a>
-            <div class="plate-empty">Nothing rendered yet.<br>The first detection will appear here.</div>
+            <div class="plate-empty">The first detection will appear here.</div>
           </div>
           <div class="frame-pick" id="frame-pick" role="group" aria-label="Which frame this shows" {{ '' if previewable|length > 1 else 'hidden' }}>
             {% for fr in previewable %}
@@ -1100,7 +1105,7 @@
             </a>
             {% endfor %}
           </div>
-          <div class="hist-empty" id="hist-empty" {{ 'hidden' if shown else '' }}>Nothing rendered yet.</div>
+          <div class="hist-empty" id="hist-empty" {{ 'hidden' if shown else '' }}>None yet.</div>
         </div>
       </div>
     </div>
@@ -1305,10 +1310,11 @@
       <section class="sec">
         {# A kit this server has not been told about. Nothing changes until the
            owner answers; until then it is shown "Add this frame on the
-           Featherframe webapp" and keeps asking. #}
+           Featherframe webapp" and keeps asking. Good news, not a fault: a
+           plain notice, not a warning (W-880). #}
         {% for fr in asking %}
-        <div class="test-box warn show fr-note panel-note" role="status">
-          <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-warn"/></svg></span>
+        <div class="test-box show fr-note panel-note" role="status">
+          <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ic-info"/></svg></span>
           <span class="test-msg">
             <strong>{{ fr.what }} wants to connect</strong>
             <span class="ign-meta tnum">{{ fr.short }}{% if fr.ip %} · {{ fr.ip }}{% endif %}</span>
@@ -1324,13 +1330,24 @@
           {% for fr in on_frames %}{{ frame_row(fr, loop.index) }}{% endfor %}
         </ul>
         {% elif not asking %}
-        {# An invitation, not an apology: two roads to a first screen. #}
+        {# An invitation, not an apology: two roads to a first screen. Each
+           ends the way this server meets a new frame: on Cloud it shows a
+           code to pair, self-hosted it asks to be added here (W-880). The
+           kit's choices are named as its setup page names them. #}
         <div class="fr-empty">
           <p>No frames yet. There are two ways to start.</p>
           <ol>
-            <li><strong>A screen you already own.</strong> Open <span class="addr" id="fr-view-url">/view</span> in a browser on a tablet or an old phone, and it becomes a frame.</li>
-            <li><strong>The kit.</strong> Build it and power it on. It opens a Wi-Fi network called <strong>Featherframe-Setup</strong> — join it, point it at this server, and it appears here.</li>
+            <li><strong>A screen you already own.</strong> Open <span class="addr" id="fr-view-url">/view</span> in a browser on a tablet or an old phone.</li>
+            <li><strong>The kit.</strong> Plug it in and join the Wi-Fi network it opens, <strong>Featherframe-Setup</strong>. Choose your Wi-Fi and <strong>{{ 'Featherframe Cloud' if hosted else 'Self-hosted' }}</strong>.</li>
           </ol>
+          {% if hosted %}
+          <div class="fr-empty-act">
+            <span>Either one then shows a code.</span>
+            <button class="btn primary" type="button" data-pair-open>Pair a frame</button>
+          </div>
+          {% else %}
+          <p class="fr-empty-act">Either one then asks to be added here.</p>
+          {% endif %}
         </div>
         {% endif %}
         {% if ignored %}
@@ -1416,10 +1433,11 @@
     {% set ai_lock_note = '' if ai_live else ('Needs an API key' if not ig_ready else 'AI image generation is off') %}
     {% set ai = status.ai %}
     {% set ps = push_setup %}
-    {% set src_push = _src in ('apprise', 'birdnet_go') %}
-    {% set src_unset = src_push and not (ps and (ps.received or ps.test_at)) %}
-    {% set src_state = 'bad' if (status.source_outage or not status.birdnet_available or src_unset)
-                       else ('warn' if status.quiet else 'good') %}
+    {# A source not set up yet is gray, not red: nothing has failed (W-880). #}
+    {% set src_state = 'bad' if status.source_outage
+                       else ('off' if status.source_unset
+                       else ('bad' if not status.birdnet_available
+                       else ('warn' if status.quiet else 'good'))) %}
     {% set region_names = {'north-america': ('Audubon', 'North America'), 'europe': ('Gould', 'Europe'),
                            'australia': ('Gould', 'Australia'), 'asia': ('Gould', 'Asia')} %}
     {% set rg = region_names.get(config.region, ('Audubon', 'North America')) %}
@@ -1497,7 +1515,7 @@
 
       {# -- Detection source ------------------------------------------------- #}
       {# A source that is not working, or not set up, opens itself. #}
-      <details class="disc set" id="set-source" data-state="{{ src_state }}" {{ 'data-unset' if src_unset else '' }} {{ 'open' if src_state != 'good' else '' }}>
+      <details class="disc set" id="set-source" data-state="{{ src_state }}" {{ 'open' if src_state != 'good' else '' }}>
         {% call set_summary('ic-waveform', 'Detection source') %}<span class="d {{ src_state }}" id="src-dot"></span>{{ _srcnames.get(_src, 'Source') }}{% endcall %}
         <div class="disc-body"><div class="set-body">
         <form class="set-form" method="post" action="/settings">
@@ -1552,7 +1570,7 @@
             </div>
           </div>
           <details class="disc adv guide" data-src="birdnet_go" {{ '' if _src=='birdnet_go' else 'hidden' }} {{ '' if guide_done else 'open' }}>
-            <summary><span>Setup instructions</span><span class="disc-end"><span class="disc-count">{{ 'Done' if guide_done else 'Waiting for a test' }}</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></span></summary>
+            <summary><span>Setup instructions</span><span class="disc-end"><span class="disc-count" data-wait="Waiting for a test">{{ 'Done' if guide_done else 'Waiting for a test' }}</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></span></summary>
             <div class="disc-body"><div class="adv-body">
               <ol class="guide-steps">
                 <li>
@@ -1574,7 +1592,7 @@
                   <div class="gs-title">Send a test</div>
                   <div class="gs-path"><span>Notifications</span><span>Channels</span></div>
                   <p>Click <strong>Test Provider</strong>.</p>
-                  <div class="gs-wait{{ ' ok' if guide_done else '' }}"><span class="gs-dot {{ 'ok' if guide_done else 'wait' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></span><span>{{ arrived }}</span></div>
+                  <div class="gs-wait{{ ' ok' if guide_done else '' }}" data-wait="Waiting for the test…"><span class="gs-dot {{ 'ok' if guide_done else 'wait' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></span><span data-guide-text>{{ arrived }}</span></div>
                 </li>
               </ol>
             </div></div>
@@ -1590,7 +1608,7 @@
             </div>
           </div>
           <details class="disc adv guide" data-src="apprise" {{ '' if _src=='apprise' else 'hidden' }} {{ '' if guide_done else 'open' }}>
-            <summary><span>Setup instructions</span><span class="disc-end"><span class="disc-count">{{ 'Done' if guide_done else 'Waiting for a detection' }}</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></span></summary>
+            <summary><span>Setup instructions</span><span class="disc-end"><span class="disc-count" data-wait="Waiting for a detection">{{ 'Done' if guide_done else 'Waiting for a detection' }}</span><svg class="chev" viewBox="0 0 12 8" aria-hidden="true"><use href="#ic-caret"/></svg></span></summary>
             <div class="disc-body"><div class="adv-body">
               <ol class="guide-steps">
                 <li>
@@ -1609,7 +1627,7 @@
                 <li>
                   <div class="gs-title">Save</div>
                   <p>New detections arrive on their own.</p>
-                  <div class="gs-wait{{ ' ok' if guide_done else '' }}"><span class="gs-dot {{ 'ok' if guide_done else 'wait' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></span><span>{{ arrived if guide_done else 'Waiting for the first detection…' }}</span></div>
+                  <div class="gs-wait{{ ' ok' if guide_done else '' }}" data-wait="Waiting for the first detection…"><span class="gs-dot {{ 'ok' if guide_done else 'wait' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-check"/></svg></span><span data-guide-text>{{ arrived if guide_done else 'Waiting for the first detection…' }}</span></div>
                 </li>
               </ol>
             </div></div>
@@ -1779,13 +1797,15 @@
         <form class="set-form" method="post" action="/settings">
           <input type="hidden" name="section" value="imagegen">
           <button type="submit" class="default-submit" tabindex="-1" aria-hidden="true"></button>
-          <p class="intro"><a href="https://featherframe.app/help/ai" target="_blank" rel="noopener">Learn</a> how image generation works, as well as estimated API costs.</p>
+          <p class="intro">See <a href="https://featherframe.app/help/ai" target="_blank" rel="noopener">how image generation works</a> and what it costs.</p>
           <div class="test-box {{ ig_state }} src-alarm{{ ' show' if ai.notice else '' }}" id="ig-banner" role="status" aria-live="polite" data-provider-name="{{ ig_names.get(config.imagegen_provider, config.imagegen_provider) }}">
             <span class="test-ic" aria-hidden="true"><svg viewBox="0 0 16 16"><use href="#ic-warn"/></svg></span>
             <span class="test-msg" id="ig-text" title="{{ ai.detail }}">{{ ai.text }}</span>
             <button class="btn sm" type="button" id="ai-resume" {{ '' if ai.notice == 'paused' else 'hidden' }}>Resume</button>
           </div>
-          <div class="frow toggle{{ '' if ig_ready else ' locked' }}">
+          {# The master switch only means something once there is a key
+             (W-880): until then it would read as on and doing nothing. #}
+          <div class="frow toggle{{ '' if ig_ready else ' locked' }} ig-needs-key" {{ '' if ig_ready else 'hidden' }}>
             <div class="frow-text"><label class="lab" for="ai-on">AI image generation</label><div class="hint" data-needs-key-only>{{ '' if ig_ready else 'Needs an API key' }}</div></div>
             <div class="frow-ctl">{{ instant_switch('ai-on', 'imagegen_enabled', config.imagegen_enabled, not ig_ready) }}</div>
           </div>
@@ -1937,7 +1957,11 @@
           <button class="btn" type="button" id="gen-import-btn">Restore from a backup…</button>
         </form>
       </div>
+      {# Only with something to back up, and only self-hosted: Cloud keeps
+         them, and there is nothing to reinstall (W-880). #}
+      {% if generated and not hosted %}
       <p class="hint">Generated illustrations live only on this server, and each one cost an image. Download a backup before you reinstall or move it. Restoring never replaces a newer illustration.</p>
+      {% endif %}
         </div></div>
       </details>
 
@@ -2401,13 +2425,32 @@
       }
     });
     syncTimings(st.frames && st.frames.timings);
-    // The source's dot: red when it cannot be reached (or a push source has
-    // received nothing yet), amber when it has gone quiet, else green.
+    // The source's dot: red when it cannot be reached, gray while it is not
+    // set up yet (W-880), amber when it has gone quiet, else green.
     var srcRow = $('set-source'), srcDot = $('src-dot');
     if (srcRow && srcDot) {
-      var unset = srcRow.dataset.state === 'bad' && srcRow.hasAttribute('data-unset');
-      var state = (st.source_outage || !st.birdnet_available || unset) ? 'bad' : (st.quiet ? 'warn' : 'good');
+      var state = st.source_outage ? 'bad' : st.source_unset ? 'off'
+                : !st.birdnet_available ? 'bad' : (st.quiet ? 'warn' : 'good');
       srcDot.className = 'd ' + state;
+      srcRow.dataset.state = state;
+    }
+    // A push source's setup steps tick themselves off when its test or a
+    // first detection arrives (W-880), as a reload would show them.
+    var ps = st.push_setup;
+    if (ps) {
+      var done = !!(ps.received || ps.test_at);
+      var arrived = ps.test_at ? 'Test received at ' + ps.test_at + '.'
+                  : ps.received + (ps.received === 1 ? ' detection' : ' detections') + ' received.';
+      document.querySelectorAll('details.guide').forEach(function (g) {
+        var count = g.querySelector('.disc-count[data-wait]'), wait = g.querySelector('.gs-wait[data-wait]');
+        if (count) count.textContent = done ? 'Done' : count.getAttribute('data-wait');
+        if (!wait) return;
+        wait.classList.toggle('ok', done);
+        var dot = wait.querySelector('.gs-dot');
+        if (dot) { dot.classList.toggle('ok', done); dot.classList.toggle('wait', !done); }
+        var text = wait.querySelector('[data-guide-text]');
+        if (text) text.textContent = done ? arrived : wait.getAttribute('data-wait');
+      });
     }
     var ld = st.last_detection, heard = $('fc-heard');
     if (heard) {
@@ -3254,10 +3297,13 @@
       note.hidden = true;
     }
     input.addEventListener('input', tidy);
-    open.addEventListener('click', function () {
-      var menu = $('fr-menu'); if (menu) menu.hidden = true;
-      input.value = ''; tidy();
-      dlg.showModal(); input.focus();
+    // The ⋯ menu's item, and the empty Frames card's own button (W-880).
+    [open].concat([].slice.call(document.querySelectorAll('[data-pair-open]'))).forEach(function (b) {
+      b.addEventListener('click', function () {
+        var menu = $('fr-menu'); if (menu) menu.hidden = true;
+        input.value = ''; tidy();
+        dlg.showModal(); input.focus();
+      });
     });
     // A lead line, and optionally troubleshooting tips: each tip a list of
     // text and {b: text} (bold) pieces, built as nodes.

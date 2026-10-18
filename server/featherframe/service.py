@@ -1192,7 +1192,8 @@ class FeatherframeService:
             # The welcome plate (W-734) is not a subject: no footnotes. It
             # re-renders only when what it says would change, else the
             # decision path below may replace it.
-            if bool(self._meta.get("source_ok")) != available:
+            if (bool(self._meta.get("source_ok")) != available
+                    or bool(self._meta.get("source_unset")) != self.source_unset()):
                 self._render_welcome(now, available)
                 settled = {self._shown}
         elif self._meta.pop("dark", False) and subject:
@@ -1372,7 +1373,9 @@ class FeatherframeService:
         hours = QUIET_ALARM_HOURS
         if available is None:
             available = self.source.available()
-        if not available:
+        # …and a source not set up yet has heard nothing because nothing
+        # reaches it: its setup steps say so (W-880).
+        if not available or self.source_unset():
             return None
         latest = self.source.latest(CONFIDENCE_FLOOR)
         since = latest.timestamp if latest else self._started_at
@@ -1400,11 +1403,31 @@ class FeatherframeService:
         return active
 
     # -- source-outage note ------------------------------------------------
+    def source_unset(self) -> bool:
+        """True while the owner has not set the source up yet (W-880): a push
+        source nothing has reached (no detection, no channel test),
+        BirdWeather with no station, or no BirdNET-Pi database at the default
+        path. Not a fault: the page shows it gray, and it raises no alarm."""
+        cfg, src = self.config, self.source
+        try:
+            if cfg.detection_backend in ("apprise", "birdnet_go"):
+                return not (src.max_rowid() or getattr(src, "test_at", None))
+            if cfg.detection_backend == "birdweather":
+                return not cfg.birdweather_station_id
+            if cfg.detection_backend == "custom":
+                return (cfg.birdnet_db_path == Config.birdnet_db_path
+                        and not Path(cfg.birdnet_db_path).expanduser().exists()
+                        and not src.available())
+        except Exception:  # noqa: BLE001 — a source that can't say is set up
+            log.debug("source_unset: the source could not say", exc_info=True)
+        return False
+
     def _track_source(self, now: datetime, available: bool) -> None:
         """Start the outage clock on the first unreachable tick, stop it on
         the first good one. Persisted so a restart mid-outage (the usual
-        shape: the whole box rebooted) keeps counting from the real start."""
-        if available:
+        shape: the whole box rebooted) keeps counting from the real start.
+        A source not set up yet is not down (W-880)."""
+        if available or self.source_unset():
             if self._source_down_since is not None:
                 self._source_down_since = None
                 self.db.set("source_down_since", None)
@@ -3582,11 +3605,15 @@ class FeatherframeService:
 
     def render_history(self, limit: int = _HISTORY_MAX) -> list[dict]:
         """Newest-first past frames for the config page: the render log rows
-        with a display title and, where the file still exists, a thumb URL."""
+        with a display title and, where the file still exists, a thumb URL.
+        The welcome plate is what hangs before the first detection, not a
+        picture of one: History leaves it out (W-880)."""
         now = self._clock()
         hist = paths.history_dir()
         out = []
         for row in self.db.render_history(limit):
+            if row.get("mode") == "welcome":
+                continue
             etag = str(row.get("etag") or "")
             has_thumb = bool(_ETAG_RE.match(etag)) and (hist / f"{etag}.png").exists()
             has_full = has_thumb and hosted.exists(hist / f"{etag}.jpg")
@@ -3664,6 +3691,7 @@ class FeatherframeService:
             "source_outage": outage,
             "pending": self.pending_view(now),
             "birdnet_available": self.source.available(),
+            "source_unset": self.source_unset(),
             "species_all_time": species,
             "plates_loaded": self.plates.species_count,
             "generated_cached": len(self.genart.cached_species()) if self.genart else 0,
@@ -4082,9 +4110,12 @@ class FeatherframeService:
         if not since:
             since = now.isoformat(timespec="seconds")
             self.db.set("welcome_since", since)
-        img = welcome_mod.render_welcome(datetime.fromisoformat(since), available, now)
+        unset = self.source_unset()
+        img = welcome_mod.render_welcome(datetime.fromisoformat(since), available, now,
+                                         unset=unset)
         etag = self._commit(PLATES, now, sheet=img, mode="welcome", species_key=None,
-                            label=welcome_mod.LABEL, extra={"source_ok": available})
+                            label=welcome_mod.LABEL,
+                            extra={"source_ok": available, "source_unset": unset})
         log.info("rendered welcome plate (source %s), etag=%s",
                  "up" if available else "down", etag)
 

@@ -592,10 +592,14 @@ const SETUP_STYLE = `
      is drawn. A welcome on the scene the marketing page tells it with, then
      one question a screen: a big title, a line, its field, and the button
      at the bottom. A column on a computer. */
-  /* The accent's fill (a gradient, if it has one), its lift, and the tint of
-     a chosen row, warm enough to stand apart from the page's gray. */
-  :root { --accent-fill:var(--accent); --accent-lift:none; --on-accent-shadow:none; --accent-tint:#f5ebe1; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --accent-tint:#33291f; } }
+  /* The accent's fill: walnut a shade lighter at the top, with a faint top
+     edge (Wells's pick of the colorways, W-1073). The tint of a chosen row
+     is warm enough to stand apart from the page's gray. */
+  :root { --accent-fill:linear-gradient(180deg, #7b5735 0%, #64452a 100%);
+    --accent-lift:inset 0 1px 0 rgba(255,244,228,.13), 0 1px 1px rgba(35,22,8,.18); --on-accent-shadow:none; --accent-tint:#f4ece3; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --accent-fill:linear-gradient(180deg, #bc9670 0%, #a37e59 100%);
+    --accent-lift:inset 0 1px 0 rgba(255,250,240,.2), 0 1px 1px rgba(0,0,0,.35); --accent-tint:#33291f; } }
   body { display:block; min-height:0; padding:0; }
   main.flow { max-width:440px; margin:0 auto; }
   .screen { display:flex; flex-direction:column; min-height:100vh; min-height:100svh; padding:0 24px; }

@@ -48,12 +48,11 @@
 // - The Wi-Fi page: a heading with Refresh beside it, then the networks as a
 //   dropdown (W-1073, strongest first, as the scan sorts them; "Other…" shows
 //   a Network name field for a hidden network), Password (Show inside the
-//   field; gone for an open network), then the server as a choice: Featherframe
-//   Cloud (Recommended) or Self-hosted (Advanced), the frame's own current
-//   server chosen, else the one this build starts on. On Cloud the choice is
-//   folded behind a link under Save: a new owner sees only their Wi-Fi.
-//   Self-hosted takes an address, or blank to find the server on the network
-//   (posted as "find").
+//   field; gone for an open network). The server is the frame's own current
+//   one, else the one this build starts on. On Cloud a new owner sees only
+//   their Wi-Fi: "I have my own Featherframe server" under Save opens one
+//   address field (blank finds the server on the network, posted as "find")
+//   and becomes "Use Featherframe Cloud instead".
 //   Under Save, what the frame shows next for that choice: its picture again
 //   for a frame already set up that stays on its server (W-903).
 // - The page after Save asks the frame how joining goes (/ffstate) and says
@@ -124,22 +123,17 @@ if(oth&&list._u)ssid.focus();list._u=1;}
 list.onchange=net;net();}
 var rf=q('form[action*="refresh"]',card);if(rf){var rb=q('button',rf);rb.className='ffbtn';if(!list)rb.textContent='Show networks';hd.appendChild(rf);}
 var inp=q('#server');if(!inp)return;var f=inp.form,cur=inp.value.replace(/\/+$/,'');
-var pick=cur==CLOUD?'cloud':(cur?'self':DEF),box=el('div','ffserver');
-function opt(v,name,tag){return '<label><input type="radio" name="ffserver" value="'+v+'"><span>'+name+'</span><span class="fftag '+v+'">'+tag+'</span></label>';}
-box.innerHTML='<div class="fflab">Server</div><div class="ffchoices"><div>'+opt('cloud','Featherframe Cloud','Recommended')+'</div><div>'+opt('self','Self-hosted','Advanced')+
-'<div id="ffself"><input id="ffurl" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://birdnet.local:8181">'+
-'<small>Your server’s address. Leave blank to find it on your network.</small></div></div></div>';
+var pick=cur==CLOUD?'cloud':(cur?'self':DEF),mode=pick,box=el('div','ffserver');
+box.innerHTML='<label for="ffurl">Your Featherframe server</label><input id="ffurl" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://birdnet.local:8181">'+
+'<small>Leave it blank to find it on your network.</small>';
 inp.parentNode.insertBefore(box,inp);inp.type='hidden';gone(q('label[for="server"]'));
-var url=q('#ffurl'),self=q('#ffself'),after=el('p','ffnote');
+var url=q('#ffurl'),after=el('p','ffnote'),sw=el('button','fflink');sw.type='button';
 if(pick=='self')url.value=cur;
 function next(c){return window.ffAdded&&c==pick&&(c=='cloud'||url.value.trim().replace(/\/+$/,'')==cur)?'back':c;}
-function show(){var c=q('input[name=ffserver]:checked',f).value;self.style.display=c=='self'?'':'none';after.textContent=AFTER[next(c)];}
-var rs=qa('input[name=ffserver]',box);for(i=0;i<rs.length;i++){rs[i].checked=rs[i].value==pick;rs[i].onchange=show;}
-url.oninput=show;show();var sv=q('button[type=submit]',f);if(sv)f.insertBefore(after,sv);
-if(pick=='cloud'&&sv){box.style.display='none';var own=el('button','fflink');own.type='button';txt(own,'I have my own Featherframe server');
-sv.parentNode.insertBefore(own,sv.nextSibling);own.onclick=function(){box.style.display='';gone(own);};}
-f.addEventListener('submit',function(){var c=q('input[name=ffserver]:checked',f).value;
-inp.value=c=='cloud'?CLOUD:(url.value.trim()||'find');try{st&&st.setItem('ffserver',next(c));}catch(e){}});});</script>)JS"
+function show(){box.style.display=mode=='self'?'':'none';sw.textContent=mode=='self'?'Use Featherframe Cloud instead':'I have my own Featherframe server';after.textContent=AFTER[next(mode)];}
+sw.onclick=function(){mode=mode=='self'?'cloud':'self';show();if(mode=='self')url.focus();};
+url.oninput=show;var sv=q('button[type=submit]',f);if(sv){f.insertBefore(after,sv);sv.parentNode.insertBefore(sw,sv.nextSibling);}show();
+f.addEventListener('submit',function(){inp.value=mode=='cloud'?CLOUD:(url.value.trim()||'find');try{st&&st.setItem('ffserver',next(mode));}catch(e){}});});</script>)JS"
 
 // The webapp's own tokens (server/templates/index.html), light and dark,
 // after WiFiManager's stock sheet so these rules win. The stock sheet pads and
@@ -191,16 +185,9 @@ button.ffshow{position:absolute;top:0;right:0;bottom:0;width:auto;padding:0 14px
 .ffpw input:disabled+.ffshow{display:none}
 #showpass{margin:12px 6px 0 2px;vertical-align:middle}
 label[for=showpass]{display:inline-block;margin:12px 0 0;vertical-align:middle;color:var(--ink-2)}
-.ffchoices{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--field)}
-.ffchoices>div+div{border-top:1px solid var(--hair)}
-.ffchoices label{display:flex;align-items:center;gap:10px;margin:0;padding:12px;font-size:15px;color:var(--ink);cursor:pointer}
-.ffchoices input[type=radio]{flex:none;width:18px;height:18px;margin:0}
 button.fflink{display:block;width:auto;margin:14px auto 0;padding:4px 2px;font-size:14px;font-weight:500;color:var(--accent);background:none;text-decoration:underline;text-underline-offset:3px}
 button.fflink:hover{background:none;color:var(--accent-press)}
-.fftag{margin-left:auto;flex:none;padding:2px 8px;font-size:12px;font-weight:600;line-height:1.5;border-radius:999px;color:var(--muted);background:var(--inset)}
-.fftag.cloud{color:var(--good);background:var(--ok-bg)}
-#ffself{padding:0 12px 12px 40px}
-#ffself small{display:block;margin-top:6px;font-size:13px;line-height:1.45;color:var(--muted)}
+.ffserver small{display:block;margin-top:6px;font-size:13px;line-height:1.45;color:var(--muted)}
 .ffnote{font-size:13px;line-height:1.45;color:var(--muted);margin:14px 0 0}
 .ffhead+.ffnote{margin:0}
 .msg{display:block;width:auto;margin:0 0 16px;padding:10px 12px;font-size:14px;line-height:1.45;color:var(--ink);background:var(--inset);border:1px solid var(--border);border-radius:8px}

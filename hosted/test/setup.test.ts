@@ -236,7 +236,8 @@ describe("setting up", () => {
     // A station is the way in; a detector of their own is a link off it (W-1073).
     expect(page).toContain('<div id="bw">');
     expect(page).toContain('<div id="own" hidden>');
-    expect(page).toContain("I have a BirdNET-Pi or BirdNET-Go");
+    expect(page).toContain("I have my own BirdNET station");
+    expect(page).toContain('src="/_ff/setup-station.webp"');
     // Still one form: every field posts together, whichever step is showing.
     expect(page.match(/<form /g)!.length).toBe(1);
     expect(page).toContain('<button type="submit" id="go">Set up frame</button>');

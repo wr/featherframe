@@ -132,7 +132,7 @@ a plate is, and the corner mark cites one ("Plate CLIX").
   opened as a gift). The default path needs no technical word and can be
   taken with confidence. A technical choice (a detector of your own, a
   server of your own) is a link off the default, for those who know to look
-  for it: "I have a BirdNET-Pi or BirdNET-Go". Never make "No" the default
+  for it: "I have my own BirdNET station". Never make "No" the default
   answer.
 
 ## The frame's own screens

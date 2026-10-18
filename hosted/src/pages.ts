@@ -600,25 +600,33 @@ const SETUP_STYLE = `<style>
     font-size:14px; color:var(--ink); cursor:pointer; }
   .choices input, .stations input { margin:3px 0 0; accent-color:var(--accent); flex:none; }
   .meta { display:block; font-size:12.5px; color:var(--muted); }
-  .find { display:flex; gap:8px; margin-top:10px; }
+  .find { display:flex; gap:8px; margin:0; }
   .find input { flex:1 1 auto; min-width:0; }
   .find button { margin:0; width:auto; flex:none; }
   .btn2 { margin-top:8px; width:100%; background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
   .near { font-size:13px; color:var(--muted); margin:12px 0 0; }
   button:disabled { opacity:.6; cursor:default; }
   [hidden] { display:none !important; }
-  /* The card stays put from step to step: the page starts at the top, not the middle. */
-  body { align-items:flex-start; padding-top:max(40px, 7vh); }
-  .progress { display:flex; gap:6px; margin:12px 0 20px; }
-  .progress:empty { display:none; }
-  .progress span { flex:1; height:3px; border-radius:2px; background:var(--border); }
-  .progress span.on { background:var(--accent); }
+  /* The card stays put from step to step: the page starts at the top, not the
+     middle, under a smaller wordmark. */
+  body { align-items:flex-start; padding-top:24px; }
+  .wordmark { font-size:32px; margin:0 0 14px; }
+  .card { overflow:hidden; }
+  .art { margin:-24px -24px 16px; background:#fff; }
+  .art img { display:block; width:100%; height:auto; }
   .step + .step { margin-top:22px; }
   .stepped .step + .step { margin-top:0; }
-  .stepof { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 4px; }
-  .stepof:empty { display:none; }
-  .step h2 { font-size:17px; font-weight:600; line-height:1.3; margin:0 0 12px; outline:none; }
-  .step h2 + .hint { margin:-6px 0 14px; }
+  .head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:0 0 6px; }
+  .step h2 { font-size:19px; font-weight:600; line-height:1.3; margin:0; outline:none; }
+  .dots { display:flex; gap:5px; flex:none; }
+  .dots i { width:6px; height:6px; border-radius:50%; background:var(--border-strong); }
+  .dots i.on { background:var(--accent); }
+  .searchbox { position:relative; flex:1 1 auto; min-width:0; }
+  .searchbox input { padding-right:42px; }
+  button.loc { position:absolute; top:0; right:0; bottom:0; width:42px; margin:0; padding:0; display:flex; align-items:center; justify-content:center;
+    background:none; color:var(--accent); border-radius:0 8px 8px 0; }
+  button.loc svg { width:18px; height:18px; fill:currentColor; }
+  .head + .hint { margin:0 0 14px; }
   .nav { display:flex; gap:10px; margin-top:20px; }
   .nav button { margin:0; flex:1 1 auto; }
   .nav .back { flex:0 0 auto; width:auto; padding:10px 16px; background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
@@ -626,9 +634,7 @@ const SETUP_STYLE = `<style>
   .sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); border:0; }
   .aside { margin:16px 0 0; text-align:center; }
   button.link { width:auto; margin:0; padding:4px 2px; background:none; border:0; color:var(--accent); font-weight:500; font-size:14px; text-decoration:underline; text-underline-offset:3px; }
-  #bw .stations { margin:0 0 12px; }
-  #bw .near + .stations { margin-top:8px; }
-  #bw .btn2 { margin-top:0; }
+
 </style>`;
 
 export interface SetupView {
@@ -651,30 +657,35 @@ export function setupPage(v: SetupView): Response {
     <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}><span>${name}</span></label></li>`;
   const us = v.country === "US";
   const start = v.step === "email" ? "email" : "source";
+  // Each step opens on the setup screens' own wren: arriving, then perched.
+  const art = (name: string) => `<div class="art"><img src="/_ff/setup-${name}.webp" alt="" width="640" height="359"></div>`;
+  const head = (n: number, title: string, id = "") => `<div class="head"><h2 tabindex="-1"${id ? ` id="${id}"` : ""}><span class="sr">Step ${n} of 2. </span>${title}</h2>
+          <span class="dots" aria-hidden="true"><i class="on"></i><i${n === 2 ? ' class="on"' : ""}></i></span></div>`;
   return page("Set up your frame · Featherframe", `${SETUP_STYLE}
-    <h1>Set up your frame</h1>
-    <div class="progress" id="progress" aria-hidden="true"></div>
     ${v.error ? `<p class="bad">${e(v.error)}</p>` : ""}
     <form method="post" action="${action}" id="setup" data-start="${start}">
       <section class="step" data-step="source">
-        <p class="stepof"></p>
         <div id="bw"${own ? " hidden" : ""}>
           <input type="radio" name="source" value="birdweather" id="src-bw" class="sr"${own ? "" : " checked"} tabindex="-1" aria-hidden="true">
-          <h2 tabindex="-1">Choose a station near you</h2>
+          ${art("station")}
+          ${head(1, "Choose a station near you")}
           <p class="hint">Your frame will show the birds heard by a station near you. Stations are microphones that people set up at home and share on BirdWeather.</p>
-          <p class="near" id="status" hidden></p>
-          <ul class="stations" id="stations"></ul>
-          <button type="button" class="btn2" id="locate">Find stations near me</button>
           <div class="find">
-            <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "Or enter a ZIP code or town" : "Or enter a postcode or town"}"
-              aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
+            <div class="searchbox">
+              <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "ZIP code or town" : "Postcode or town"}"
+                aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
+              <button type="button" class="loc" id="locate" aria-label="Use current location" title="Use current location"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5 3.8 10.4c-.6.3-.6 1.2.1 1.4l6.4 1.9 1.9 6.4c.2.7 1.1.7 1.4.1z"/></svg></button>
+            </div>
             <button type="button" id="findbtn">Find</button>
           </div>
+          <p class="near" id="status" hidden></p>
+          <ul class="stations" id="stations"></ul>
           <div class="nav"><button type="button" data-next>Continue</button></div>
-          <p class="aside"><button type="button" class="link" id="to-own">I have a BirdNET-Pi or BirdNET-Go</button></p>
+          <p class="aside"><button type="button" class="link" id="to-own">I have my own BirdNET station</button></p>
         </div>
         <div id="own"${own ? "" : " hidden"}>
-          <h2 tabindex="-1" id="own-q">Your detector</h2>
+          ${art("station")}
+          ${head(1, "Your BirdNET station", "own-q")}
           <p class="hint">You'll connect it in Settings after setup.</p>
           <ul class="choices" role="radiogroup" aria-labelledby="own-q">
             ${detector("apprise", "BirdNET-Pi")}
@@ -685,8 +696,8 @@ export function setupPage(v: SetupView): Response {
         </div>
       </section>
       <section class="step" data-step="email">
-        <p class="stepof"></p>
-        <h2 tabindex="-1">Create your account</h2>
+        ${art("account")}
+        ${head(2, "Create your account")}
         <label for="email">Email</label>
         <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
         <p class="hint">We'll send you a link to confirm it.</p>
@@ -710,9 +721,6 @@ export function setupPage(v: SetupView): Response {
       function show(i, focus) {
         at = Math.max(0, Math.min(i, steps.length - 1));
         steps.forEach(function (s, k) { s.classList.toggle("on", k === at); s.hidden = k !== at; });
-        var bar = $("progress"); bar.innerHTML = "";
-        for (var k = 0; k < steps.length; k++) { var seg = document.createElement("span"); if (k <= at) seg.className = "on"; bar.appendChild(seg); }
-        steps[at].querySelector(".stepof").textContent = "Step " + (at + 1) + " of " + steps.length;
         ready();
         if (focus) { var h = steps[at].querySelector("h2:not([hidden])"); var panel = steps[at].querySelector("#bw:not([hidden]), #own:not([hidden])");
           if (panel) h = panel.querySelector("h2"); if (h) h.focus(); window.scrollTo(0, 0); }

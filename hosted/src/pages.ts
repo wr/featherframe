@@ -614,36 +614,25 @@ const SETUP_STYLE = `<style>
   .card { overflow:hidden; }
   /* The picture is printed on paper in either theme: white, ink drawn on it. */
   .art { margin:-24px -24px 16px; background:#fff; }
-  .story { display:flex; align-items:center; height:172px; padding:12px 20px 14px; }
-  .story.done { justify-content:center; }
-  .story .bird { flex:none; height:140px; width:auto; }
-  .story .wire { position:relative; flex:1 1 0; align-self:stretch; min-width:18px; }
-  .story .sing { position:absolute; left:0; width:11px; height:15px; opacity:0; fill:#5d5348; stroke:#5d5348;
-    animation:sing 1.5s ease-out forwards; }
-  .story .sing svg { display:block; width:100%; height:100%; }
-  .story .n1 { top:30%; --to:62%; animation-delay:.5s; }
-  .story .n2 { top:48%; --to:34%; animation-delay:.85s; }
-  .story .n3 { top:36%; --to:6%; animation-delay:1.2s; }
-  @keyframes sing { from { left:0; opacity:0; transform:translateY(6px); } 25% { opacity:.9; } to { left:var(--to); opacity:.9; transform:none; } }
-  .story .station { position:relative; flex:none; width:26px; }
-  .story .station svg { display:block; width:100%; height:auto; stroke:#2a2723; fill:none; }
-  .story .station::after { content:""; position:absolute; left:50%; top:24%; width:36px; height:36px; margin:-18px 0 0 -18px; border-radius:50%;
-    border:1.5px solid #6b4a2c; opacity:0; animation:ring 1s ease-out 2.3s forwards; }
-  @keyframes ring { from { transform:scale(.4); opacity:.8; } to { transform:scale(1.5); opacity:0; } }
-  .story .data::before { content:""; position:absolute; left:4px; right:4px; top:calc(50% - 1px); border-top:2px dotted #bdb5a8; }
-  .story .dot { position:absolute; top:calc(50% - 4px); left:0; width:8px; height:8px; border-radius:50%; background:#6b4a2c; opacity:0;
-    animation:dot .8s ease-in-out 2.6s forwards; }
-  @keyframes dot { from { left:0; opacity:0; } 15% { opacity:1; } 85% { opacity:1; } to { left:calc(100% - 8px); opacity:0; } }
-  .story .pframe { flex:none; width:84px; padding:5px; background:#1d1b18; border-radius:2px; box-shadow:0 2px 6px rgba(40,30,15,.25); }
-  .story.done .pframe { width:110px; padding:6px; }
-  .story .pmat { position:relative; display:block; aspect-ratio:3 / 4; background:#fbfaf6; }
-  .story .pmat img { position:absolute; inset:0; width:100%; height:100%; display:block; }
-  .story .pmat img.swap { opacity:0; animation:swap .6s ease 3.3s forwards; }
-  @keyframes swap { to { opacity:1; } }
+  .hero { position:relative; height:198px; background:#cfcdc8 url("/_ff/setup-photo.webp") 30% 50% / cover no-repeat; }
+  .hero.done { background:#f1eee8; display:flex; align-items:center; justify-content:center; }
+  .hero .ping { position:absolute; left:12px; top:12px; display:flex; align-items:center; gap:9px; padding:7px 12px 7px 7px; max-width:calc(100% - 24px);
+    background:#fff; border-radius:11px; box-shadow:0 6px 18px rgba(20,16,10,.22); color:#121212;
+    opacity:0; transform:translate(-10px, -6px); animation:ping .5s cubic-bezier(.2, .8, .2, 1) .7s forwards; }
+  .hero .ping .ic { flex:none; display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:#121212; }
+  .hero .ping .ic svg { width:16px; height:16px; fill:none; stroke:#fff; stroke-width:2; stroke-linecap:round; }
+  .hero .ping .tx { display:flex; flex-direction:column; min-width:0; }
+  .hero .ping .k { font-size:11px; line-height:1.3; color:#6b6b69; }
+  .hero .ping .nm { font-size:14px; font-weight:600; line-height:1.3; white-space:nowrap; }
+  .hero .ping .when { align-self:flex-start; margin-left:8px; font-size:11px; line-height:1.3; color:#6b6b69; white-space:nowrap; }
+  @keyframes ping { to { opacity:1; transform:none; } }
+  .hero .wall { position:absolute; right:14px; bottom:10px; width:96px; aspect-ratio:300 / 377; filter:drop-shadow(0 8px 14px rgba(20,16,10,.35)); }
+  .hero.done .wall { position:relative; right:auto; bottom:auto; width:118px; }
+  .hero .wall img { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .hero .wall img.to { opacity:0; animation:repaint .7s ease 1.9s forwards; }
+  @keyframes repaint { 0% { opacity:0; filter:brightness(1); } 35% { opacity:1; filter:brightness(.15); } 100% { opacity:1; filter:none; } }
   @media (prefers-reduced-motion: reduce) {
-    .story .sing, .story .dot, .story .station::after, .story .pmat img.swap { animation:none; }
-    .story .sing { left:var(--to); opacity:.9; }
-    .story .pmat img.swap { opacity:1; }
+    .hero .ping, .hero .wall img.to { animation:none; opacity:1; transform:none; }
   }
   .step + .step { margin-top:22px; }
   .stepped .step + .step { margin-top:0; }
@@ -688,21 +677,16 @@ export function setupPage(v: SetupView): Response {
     <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}><span>${name}</span></label></li>`;
   const us = v.country === "US";
   const start = v.step === "email" ? "email" : "source";
-  // Step 1 tells the whole idea in one picture (W-1073): a bird sings near a
-  // station, the station knows it, and the frame turns to that bird's
-  // illustration. It plays once; with reduced motion it is the last frame.
-  const NOTE = `<svg viewBox="0 0 12 16"><ellipse cx="4.2" cy="12.6" rx="3.2" ry="2.4" transform="rotate(-22 4.2 12.6)"/><path d="M7.1 12.4V1.6c2.6.6 4 2.2 4.1 4.6" fill="none" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-  const frame = (wren: boolean) => `<span class="pframe"><span class="pmat">${
-    wren ? "" : `<img src="/_ff/setup-frame-cardinal.webp" alt="" width="240" height="320">`}<img class="${wren ? "" : "swap"}" src="/_ff/setup-frame-wren.webp" alt="" width="240" height="320"></span></span>`;
-  const story = () => `<div class="art story" aria-hidden="true">
-            <img class="bird" src="/_ff/setup-wren.webp" alt="" width="300" height="453">
-            <span class="wire song"><i class="sing n1">${NOTE}</i><i class="sing n2">${NOTE}</i><i class="sing n3">${NOTE}</i></span>
-            <span class="station"><svg viewBox="0 0 40 64"><rect x="12" y="3" width="16" height="27" rx="8" fill="none" stroke-width="2.2"/><path d="M15.5 11h3M15.5 16h3M15.5 21h3" stroke-width="1.5" stroke-linecap="round"/><path d="M7 21v3a13 13 0 0 0 26 0v-3M20 37v19M12 58h16" fill="none" stroke-width="2.2" stroke-linecap="round"/></svg></span>
-            <span class="wire data"><i class="dot"></i></span>
-            ${frame(false)}
-          </div>`;
+  // Step 1 says what the frame does the way the marketing page does (W-1073):
+  // a cardinal at a feeder, the phone's "New detection", and the frame on the
+  // shelf turning to it. It plays once; with reduced motion it is its end.
+  const wall = (to: boolean) => `<span class="wall">${to ? "" : `<img src="/_ff/setup-frame-wren.webp" alt="" width="300" height="377">`}<img class="${to ? "" : "to"}" src="/_ff/setup-frame-cardinal.webp" alt="" width="300" height="377"></span>`;
   const art = (name: string) => name === "account"
-    ? `<div class="art story done" aria-hidden="true">${frame(true)}</div>` : story();
+    ? `<div class="art hero done" aria-hidden="true">${wall(true)}</div>`
+    : `<div class="art hero" aria-hidden="true">
+            <span class="ping"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3.5 10.5v3M7 7.5v9M10.5 4.5v15M14 8v8M17.5 9.5v5M21 11v2"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm">Northern Cardinal</span></span><span class="when">Just now</span></span>
+            ${wall(false)}
+          </div>`;
   const head = (n: number, title: string, id = "") => `<div class="head"><h2 tabindex="-1"${id ? ` id="${id}"` : ""}><span class="sr">Step ${n} of 2. </span>${title}</h2>
           <span class="dots" aria-hidden="true"><i class="on"></i><i${n === 2 ? ' class="on"' : ""}></i></span></div>`;
   return page("Set up your frame · Featherframe", `${SETUP_STYLE}

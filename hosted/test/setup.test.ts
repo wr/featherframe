@@ -237,7 +237,7 @@ describe("setting up", () => {
     expect(page).toContain('<div id="bw">');
     expect(page).toContain('<div id="own" hidden>');
     expect(page).toContain("I have my own BirdNET station");
-    expect(page).toContain('src="/_ff/setup-wren.webp"');
+    expect(page).toContain('src="/_ff/setup-frame-cardinal.webp"');
     // Still one form: every field posts together, whichever step is showing.
     expect(page.match(/<form /g)!.length).toBe(1);
     expect(page).toContain('<button type="submit" id="go">Set up frame</button>');

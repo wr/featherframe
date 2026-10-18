@@ -20,10 +20,11 @@ import favicon192 from "../../server/static/favicon-192.png";
 import favicon32 from "../../server/static/favicon-32.png";
 import faviconIco from "../../server/static/favicon.ico";
 import touchIcon from "../../server/static/apple-touch-icon.png";
-// The phone setup page's pictures (W-1073): the singing wren of Havell
-// plate 78 (cut from the scan, its paper evened to white), and that plate and
-// the Northern Cardinal as the gray kit draws them (featherframe.preview).
-import setupWren from "./art/setup-wren.webp";
+// The phone setup page's pictures (W-1073), the marketing page's own: a
+// still of the U.S. Fish and Wildlife Service's cardinal at a feeder (public
+// domain, Courtney Celley), and the walnut frame as site/public/img/wall
+// renders it with the Carolina Wren and the Northern Cardinal.
+import setupPhoto from "./art/setup-photo.webp";
 import setupFrameWren from "./art/setup-frame-wren.webp";
 import setupFrameCardinal from "./art/setup-frame-cardinal.webp";
 
@@ -223,7 +224,7 @@ export function pageIcon(path: string): Response | null {
     : path === "/static/favicon-32.png" ? [favicon32, "image/png"]
     : path === "/static/apple-touch-icon.png" ? [touchIcon, "image/png"]
     : path === "/favicon.ico" ? [faviconIco, "image/x-icon"]
-    : path === "/_ff/setup-wren.webp" ? [setupWren, "image/webp"]
+    : path === "/_ff/setup-photo.webp" ? [setupPhoto, "image/webp"]
     : path === "/_ff/setup-frame-wren.webp" ? [setupFrameWren, "image/webp"]
     : path === "/_ff/setup-frame-cardinal.webp" ? [setupFrameCardinal, "image/webp"] : [null, ""];
   return body ? new Response(body, { headers: { "Content-Type": type, "Cache-Control": "max-age=86400" } }) : null;

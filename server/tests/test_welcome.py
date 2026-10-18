@@ -75,3 +75,26 @@ def test_welcome_plate_says_when_and_whether_the_source_is_up():
     assert _ink(down) > 2000 and _ink(up) > 2000
     assert down.tobytes() != up.tobytes()
     assert welcome.since_words(since) == "Listening since 11 September, 11:32 pm"
+
+
+def test_a_source_not_set_up_is_a_plain_line_not_an_error_pill():
+    """W-880: nothing has failed on a fresh install, so the glass asks for a
+    source in the same quiet line it uses once one is up."""
+    since = datetime(2026, 10, 17, 9, 0)
+    down = welcome.render_welcome(since, source_ok=False, now=since)
+    unset = welcome.render_welcome(since, source_ok=False, now=since, unset=True)
+    up = welcome.render_welcome(since, source_ok=True, now=since)
+    assert unset.tobytes() not in (down.tobytes(), up.tobytes())
+    assert _ink(unset) < _ink(down)          # no black pill
+    assert abs(_ink(unset) - _ink(up)) < 3000   # one line, as when the source is up
+
+
+def test_the_welcome_redraws_once_the_source_is_set_up(svc, monkeypatch):
+    monkeypatch.setattr(svc, "source_unset", lambda: True)
+    svc._ensure_initial_frame()
+    assert svc._meta["source_unset"] is True and svc._meta["source_ok"] is False
+    before = svc.current_etag()
+    monkeypatch.setattr(svc, "source_unset", lambda: False)   # a path typed, still missing
+    svc.tick()
+    assert svc.current_etag() != before
+    assert svc._meta["mode"] == "welcome" and svc._meta["source_unset"] is False

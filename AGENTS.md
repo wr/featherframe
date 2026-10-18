@@ -259,7 +259,8 @@ rotation: a TRMNL's is stood up and a page's is the sheet at 3:4) and the plate'
 tools, which are the previewed frame's picture's (`frame_view`'s `picture`, the
 night rule included) and say they act on every frame showing it (W-861): Refresh
 and Manual override, one line each (W-878: Block left the page; Hold, and the
-automatic 90-minute dwell with its "Just now:" footnote, went in W-904); then History. **There is no Health
+automatic 90-minute dwell with its "Just now:" footnote, went in W-904); then History, which
+leaves out the welcome plate (W-880). **There is no Health
 card**: a frame's health is the frame's row, and the source's is its row below.
 Right, wide: two groups, each a heading over its card (W-878). *Frames*, with
 a ⋯ menu holding *USB firmware update*, *Check for updates* (asks for the latest release now, `POST /api/firmware/check`; otherwise daily), *Buy a frame* and *DIY instructions* (and *Pair a frame* on hosted), then the list.
@@ -269,8 +270,11 @@ opens, as a frame row's does): General (email, password, firmware auto-update),
 Detection source (its status dot + name; open, the gone-quiet and outage
 warnings, Last detection / Species heard / Pending, the source, a push source's
 Webhook URL and *Setup instructions* — Done once `_push_setup` says a test or a
-detection arrived — and Blocked species; a source that is failing or not set up
-opens itself), Illustrations (Region, "Audubon · North America"), Collage
+detection arrived, live from `/api/status` — and Blocked species; a source that
+is failing or not set up opens itself; not set up, `service.source_unset` (a
+push source nothing reached, BirdWeather with no station, no BirdNET-Pi database
+at the default path), it is gray, raises neither alarm, and the welcome plate
+asks for it in a plain line instead of the "unreachable" pill, W-880), Illustrations (Region, "Audubon · North America"), Collage
 (interval and quiet hours, "Every 6 hours · Sunset → Sunrise", each shown —
 in the summary and as a row — only while some added frame follows it, W-906:
 the interval a frame on the collage, quiet hours a frame on individual
@@ -323,9 +327,11 @@ rows' hover backgrounds reach the card's edges. Saving posts JSON to
 `POST /api/frames/<id>` and updates the row in place; the status poll keeps
 every summary, dot, badge and reading current and reloads only when the set of
 frames itself changes. A kit that is asking is a notice at the top of the card
-(*{what it is} wants to connect*, *Add* / *Ignore*), ignored ones fold at the
-bottom, and with no frames at all the card is an invitation: `<host>/view` on a
-tablet, or build the kit. There are no per-frame banners: the row's badges say
+(*{what it is} wants to connect*, *Add* / *Ignore*; a plain notice, not a
+warning, W-880), ignored ones fold at the bottom, and with no frames at all the
+card is an invitation: `<host>/view` on a tablet, or the kit, each ending as
+this server meets a new frame (self-hosted, it will ask to be added here; on
+Cloud it will show a code, with *Pair a frame* in the card). There are no per-frame banners: the row's badges say
 it. `status()["frames"]["list"]` is the whole of it, one shape per frame;
 `status()["current"]` is what the pictures are of, not any frame's view.
 **Two pictures (`pictures.py`).** There are exactly

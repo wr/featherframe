@@ -1591,6 +1591,9 @@ async def status(request: Request):
     body = await run_in_threadpool(_svc(request).status)
     adv = getattr(request.app.state, "advertiser", None)
     body["mdns"] = adv.status() if adv else None
+    # A push source's setup steps tick themselves off when its test arrives
+    # (W-880): the page reads what it has received from here.
+    body["push_setup"] = _push_setup(_svc(request).source)
     return JSONResponse(body)
 
 

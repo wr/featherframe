@@ -24,6 +24,8 @@ HEADLINE = "No detections yet"
 SOURCE_DOWN = "Detection source unreachable"
 SOURCE_DOWN_HINT = "Check the detection source in Settings"
 SOURCE_UP_HINT = "The first detection will appear here"
+# A source not set up yet is not a fault (W-880): a plain line, no error pill.
+SOURCE_UNSET_HINT = "Set up the detection source in Settings"
 
 # What a screen that has not been added yet shows (W-833). The same sentence
 # the kit's own baked screen carries, so the answer is the same wherever the
@@ -170,7 +172,7 @@ def render_pairing(code: str, color: bool = False, expires: str = "",
 
 
 def render_welcome(since: datetime, source_ok: bool,
-                   now: Optional[datetime] = None) -> Image.Image:
+                   now: Optional[datetime] = None, unset: bool = False) -> Image.Image:
     now = now or datetime.now()
     field = Image.new("L", (theme.WIDTH, theme.HEIGHT), theme.FIELD)
     draw = ImageDraw.Draw(field)
@@ -190,8 +192,9 @@ def render_welcome(since: datetime, source_ok: bool,
     lines = [(HEADLINE, 54, 600), (since_words(since), 38, 500)]
     _, card_h = system.card_size(lines)
     system.card(draw, cx, (theme.HEIGHT - card_h) / 2, lines)
-    if source_ok:
-        system.line(draw, cx, system.PILL_CY + system.RETRY_TEXT * 0.36, SOURCE_UP_HINT, size=system.RETRY_TEXT)
+    if source_ok or unset:
+        hint = SOURCE_UP_HINT if source_ok else SOURCE_UNSET_HINT
+        system.line(draw, cx, system.PILL_CY + system.RETRY_TEXT * 0.36, hint, size=system.RETRY_TEXT)
     else:
         system.pill(draw, cx, system.PILL_CY, SOURCE_DOWN,
                     icon="cloud", max_w=theme.CONTENT_W)

@@ -330,8 +330,8 @@ frames itself changes. A kit that is asking is a notice at the top of the card
 (*{what it is} wants to connect*, *Add* / *Ignore*; a plain notice, not a
 warning, W-880), ignored ones fold at the bottom, and with no frames at all the
 card is an invitation: `<host>/view` on a tablet, or the kit, each ending as
-this server meets a new frame (self-hosted, it asks to be added here; on Cloud
-it shows a code, with *Pair a frame* in the card). There are no per-frame banners: the row's badges say
+this server meets a new frame (self-hosted, it will ask to be added here; on
+Cloud it will show a code, with *Pair a frame* in the card). There are no per-frame banners: the row's badges say
 it. `status()["frames"]["list"]` is the whole of it, one shape per frame;
 `status()["current"]` is what the pictures are of, not any frame's view.
 **Two pictures (`pictures.py`).** There are exactly

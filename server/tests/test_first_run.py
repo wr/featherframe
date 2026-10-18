@@ -128,7 +128,7 @@ def test_no_frames_self_hosted_ends_with_the_frame_asking_here(client):
     empty = html.split('<div class="fr-empty">')[1].split("</div>")[0]
     assert "No frames yet. There are two ways to start." in empty
     assert "<strong>Self-hosted</strong>" in empty
-    assert "Either one then asks to be added here." in empty
+    assert "Either one will then ask to be added here." in empty
     assert "data-pair-open>" not in html
 
 
@@ -137,9 +137,9 @@ def test_no_frames_on_cloud_ends_with_a_code_and_the_pair_button(client):
     html = client.get("/").text
     empty = html.split('<div class="fr-empty">')[1].split('<details class="sc-more')[0]
     assert "<strong>Featherframe Cloud</strong>" in empty
-    assert "Either one then shows a code." in empty
+    assert "Either one will then show a code." in empty
     assert '<button class="btn primary" type="button" data-pair-open>Pair a frame</button>' in empty
-    assert "asks to be added here" not in empty
+    assert "ask to be added here" not in empty
 
 
 def test_a_frame_asking_is_a_plain_notice_not_a_warning(client):

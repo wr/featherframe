@@ -50,8 +50,10 @@
 //   a Network name field for a hidden network), Password (Show inside the
 //   field; gone for an open network), then the server as a choice: Featherframe
 //   Cloud (Recommended) or Self-hosted (Advanced), the frame's own current
-//   server chosen, else the one this build starts on. Self-hosted takes an
-//   address, or blank to find the server on the network (posted as "find").
+//   server chosen, else the one this build starts on. On Cloud the choice is
+//   folded behind a link under Save: a new owner sees only their Wi-Fi.
+//   Self-hosted takes an address, or blank to find the server on the network
+//   (posted as "find").
 //   Under Save, what the frame shows next for that choice: its picture again
 //   for a frame already set up that stays on its server (W-903).
 // - The page after Save asks the frame how joining goes (/ffstate) and says
@@ -134,6 +136,8 @@ function next(c){return window.ffAdded&&c==pick&&(c=='cloud'||url.value.trim().r
 function show(){var c=q('input[name=ffserver]:checked',f).value;self.style.display=c=='self'?'':'none';after.textContent=AFTER[next(c)];}
 var rs=qa('input[name=ffserver]',box);for(i=0;i<rs.length;i++){rs[i].checked=rs[i].value==pick;rs[i].onchange=show;}
 url.oninput=show;show();var sv=q('button[type=submit]',f);if(sv)f.insertBefore(after,sv);
+if(pick=='cloud'&&sv){box.style.display='none';var own=el('button','fflink');own.type='button';txt(own,'I have my own Featherframe server');
+sv.parentNode.insertBefore(own,sv.nextSibling);own.onclick=function(){box.style.display='';gone(own);};}
 f.addEventListener('submit',function(){var c=q('input[name=ffserver]:checked',f).value;
 inp.value=c=='cloud'?CLOUD:(url.value.trim()||'find');try{st&&st.setItem('ffserver',next(c));}catch(e){}});});</script>)JS"
 
@@ -191,6 +195,8 @@ label[for=showpass]{display:inline-block;margin:12px 0 0;vertical-align:middle;c
 .ffchoices>div+div{border-top:1px solid var(--hair)}
 .ffchoices label{display:flex;align-items:center;gap:10px;margin:0;padding:12px;font-size:15px;color:var(--ink);cursor:pointer}
 .ffchoices input[type=radio]{flex:none;width:18px;height:18px;margin:0}
+button.fflink{display:block;width:auto;margin:14px auto 0;padding:4px 2px;font-size:14px;font-weight:500;color:var(--accent);background:none;text-decoration:underline;text-underline-offset:3px}
+button.fflink:hover{background:none;color:var(--accent-press)}
 .fftag{margin-left:auto;flex:none;padding:2px 8px;font-size:12px;font-weight:600;line-height:1.5;border-radius:999px;color:var(--muted);background:var(--inset)}
 .fftag.cloud{color:var(--good);background:var(--ok-bg)}
 #ffself{padding:0 12px 12px 40px}

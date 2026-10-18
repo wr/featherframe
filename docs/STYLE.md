@@ -95,8 +95,10 @@ of Asia*, *The Birds of Great Britain*.
 
 **"Bird."** In the webapp, never use "bird" for a detection, a species or an
 update: "a new detection reaches the frame", not "a new bird shows up".
-Names and titles that contain the word are fine. The wiki, README and
-marketing page may say "bird" where a person would.
+Names and titles that contain the word are fine. The wiki, README,
+marketing page and the first-run setup pages (the kit's Wi-Fi page, Cloud's
+"Set up your frame") may say "bird" where a person would: "Your frame will
+show the birds heard by a station near you."
 
 **"Plate."** A plate is a numbered sheet of a printed book. The webapp never
 says it (an owner sees illustrations). Docs may, once the page has said what
@@ -126,6 +128,12 @@ a plate is, and the corner mark cites one ("Plate CLIX").
 - **Errors say what to do**, not what broke inside.
 - **No architecture.** A section never opens with an intro about how the
   system works.
+- **First run is written for someone who has never heard of BirdNET** (a kit
+  opened as a gift). The default path needs no technical word and can be
+  taken with confidence. A technical choice (a detector of your own, a
+  server of your own) is a link off the default, for those who know to look
+  for it: "I have a BirdNET-Pi or BirdNET-Go". Never make "No" the default
+  answer.
 
 ## The frame's own screens
 

@@ -600,7 +600,7 @@ const SETUP_STYLE = `<style>
     font-size:14px; color:var(--ink); cursor:pointer; }
   .choices input, .stations input { margin:3px 0 0; accent-color:var(--accent); flex:none; }
   .meta { display:block; font-size:12.5px; color:var(--muted); }
-  .find { display:flex; gap:8px; margin-top:14px; }
+  .find { display:flex; gap:8px; margin-top:10px; }
   .find input { flex:1 1 auto; min-width:0; }
   .find button { margin:0; width:auto; flex:none; }
   .btn2 { margin-top:8px; width:100%; background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
@@ -619,12 +619,16 @@ const SETUP_STYLE = `<style>
   .stepof:empty { display:none; }
   .step h2 { font-size:17px; font-weight:600; line-height:1.3; margin:0 0 12px; outline:none; }
   .step h2 + .hint { margin:-6px 0 14px; }
-  .step .hint + .btn2 { margin-top:0; }
-  .step .btn2 + .find { margin-top:10px; }
   .nav { display:flex; gap:10px; margin-top:20px; }
   .nav button { margin:0; flex:1 1 auto; }
   .nav .back { flex:0 0 auto; width:auto; padding:10px 16px; background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
   form:not(.stepped) .nav [data-next], form:not(.stepped) .nav .back { display:none; }
+  .sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); border:0; }
+  .aside { margin:16px 0 0; text-align:center; }
+  button.link { width:auto; margin:0; padding:4px 2px; background:none; border:0; color:var(--accent); font-weight:500; font-size:14px; text-decoration:underline; text-underline-offset:3px; }
+  #bw .stations { margin:0 0 12px; }
+  #bw .near + .stations { margin-top:8px; }
+  #bw .btn2 { margin-top:0; }
 </style>`;
 
 export interface SetupView {
@@ -634,48 +638,51 @@ export interface SetupView {
   step?: "source" | "station" | "email";
 }
 
-// One question a step (W-1073): the detection source, then a station for
-// BirdWeather, then the email. It is still one form and one POST; without its
-// script every step shows at once.
+// Two steps (W-1073), written for someone who has never heard of BirdNET: a
+// station near them, then their email. Their own detector is a link off the
+// first step for those who have one. Still one form and one POST; without its
+// script both steps show at once.
 export function setupPage(v: SetupView): Response {
   const e = escapeHtml;
   const action = `/setup/${e(v.code.toLowerCase())}/${e(v.token)}`;
   const src = v.source || "birdweather";
-  const choice = (value: string, name: string, meta: string) => `<li><label>
-    <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}>
-    <span>${name}<span class="meta">${meta}</span></span></label></li>`;
+  const own = src !== "birdweather";
+  const detector = (value: string, name: string) => `<li><label>
+    <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}><span>${name}</span></label></li>`;
   const us = v.country === "US";
-  const nav = (last: boolean, first = false) => `<div class="nav">${first ? "" : `<button type="button" class="back" data-back>Back</button>`}${
-    last ? `<button type="submit" id="go">Set up frame</button>` : `<button type="button" data-next>Continue</button>`}</div>`;
+  const start = v.step === "email" ? "email" : "source";
   return page("Set up your frame · Featherframe", `${SETUP_STYLE}
     <h1>Set up your frame</h1>
     <div class="progress" id="progress" aria-hidden="true"></div>
     ${v.error ? `<p class="bad">${e(v.error)}</p>` : ""}
-    <form method="post" action="${action}" id="setup" data-start="${e(v.step || "source")}">
+    <form method="post" action="${action}" id="setup" data-start="${start}">
       <section class="step" data-step="source">
         <p class="stepof"></p>
-        <h2 tabindex="-1" id="src-q">Do you have a bird detector?</h2>
-        <p class="hint">Such as BirdNET-Pi or BirdNET-Go.</p>
-        <ul class="choices" role="radiogroup" aria-labelledby="src-q">
-          ${choice("birdweather", "No", "Your frame will show what a BirdWeather station near you hears. No equipment needed.")}
-          ${choice("apprise", "Yes, BirdNET-Pi", "You'll connect it in Settings after setup.")}
-          ${choice("birdnet_go", "Yes, BirdNET-Go", "You'll connect it in Settings after setup.")}
-        </ul>
-        ${nav(false, true)}
-      </section>
-      <section class="step" data-step="station" id="bw"${src === "birdweather" ? "" : " hidden"}>
-        <p class="stepof"></p>
-        <h2 tabindex="-1">Choose a station</h2>
-        <p class="hint">BirdWeather is a public network of bird detectors that people run at home. Choose one near where your frame will hang.</p>
-        <button type="button" class="btn2" id="locate">Find stations near me</button>
-        <div class="find">
-          <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "Or enter a ZIP code or town" : "Or enter a postcode or town"}"
-            aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
-          <button type="button" id="findbtn">Find</button>
+        <div id="bw"${own ? " hidden" : ""}>
+          <input type="radio" name="source" value="birdweather" id="src-bw" class="sr"${own ? "" : " checked"} tabindex="-1" aria-hidden="true">
+          <h2 tabindex="-1">Choose a station near you</h2>
+          <p class="hint">Your frame will show the birds heard by a station near you. Stations are microphones that people set up at home and share on BirdWeather.</p>
+          <p class="near" id="status" hidden></p>
+          <ul class="stations" id="stations"></ul>
+          <button type="button" class="btn2" id="locate">Find stations near me</button>
+          <div class="find">
+            <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "Or enter a ZIP code or town" : "Or enter a postcode or town"}"
+              aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
+            <button type="button" id="findbtn">Find</button>
+          </div>
+          <div class="nav"><button type="button" data-next>Continue</button></div>
+          <p class="aside"><button type="button" class="link" id="to-own">I have a BirdNET-Pi or BirdNET-Go</button></p>
         </div>
-        <p class="near" id="status" hidden></p>
-        <ul class="stations" id="stations"></ul>
-        ${nav(false)}
+        <div id="own"${own ? "" : " hidden"}>
+          <h2 tabindex="-1" id="own-q">Your detector</h2>
+          <p class="hint">You'll connect it in Settings after setup.</p>
+          <ul class="choices" role="radiogroup" aria-labelledby="own-q">
+            ${detector("apprise", "BirdNET-Pi")}
+            ${detector("birdnet_go", "BirdNET-Go")}
+          </ul>
+          <div class="nav"><button type="button" data-next>Continue</button></div>
+          <p class="aside"><button type="button" class="link" id="to-bw">Use a station near me instead</button></p>
+        </div>
       </section>
       <section class="step" data-step="email">
         <p class="stepof"></p>
@@ -685,7 +692,7 @@ export function setupPage(v: SetupView): Response {
         <p class="hint">We'll send you a link to confirm it.</p>
         <input type="hidden" name="tz" id="tz">
         <input type="hidden" name="km" id="km">
-        ${nav(true)}
+        <div class="nav"><button type="button" class="back" data-back>Back</button><button type="submit" id="go">Set up frame</button></div>
       </section>
     </form>
     <script>
@@ -699,56 +706,61 @@ export function setupPage(v: SetupView): Response {
       function source() { var r = document.querySelector("input[name=source]:checked"); return r ? r.value : ""; }
       function station() { return document.querySelector("input[name=station]:checked"); }
 
-      // The steps: the station's only for BirdWeather.
-      var all = Array.prototype.slice.call(form.querySelectorAll(".step")), at = 0;
-      function steps() { return all.filter(function (s) { return s.getAttribute("data-step") !== "station" || source() === "birdweather"; }); }
+      var steps = Array.prototype.slice.call(form.querySelectorAll(".step")), at = 0;
       function show(i, focus) {
-        var list = steps(); at = Math.max(0, Math.min(i, list.length - 1));
-        all.forEach(function (s) { s.classList.toggle("on", s === list[at]); s.hidden = s !== list[at]; });
+        at = Math.max(0, Math.min(i, steps.length - 1));
+        steps.forEach(function (s, k) { s.classList.toggle("on", k === at); s.hidden = k !== at; });
         var bar = $("progress"); bar.innerHTML = "";
-        for (var k = 0; k < list.length; k++) { var seg = document.createElement("span"); if (k <= at) seg.className = "on"; bar.appendChild(seg); }
-        list[at].querySelector(".stepof").textContent = "Step " + (at + 1) + " of " + list.length;
+        for (var k = 0; k < steps.length; k++) { var seg = document.createElement("span"); if (k <= at) seg.className = "on"; bar.appendChild(seg); }
+        steps[at].querySelector(".stepof").textContent = "Step " + (at + 1) + " of " + steps.length;
         ready();
-        if (focus) { var h = list[at].querySelector("h2"); if (h) h.focus(); window.scrollTo(0, 0); }
+        if (focus) { var h = steps[at].querySelector("h2:not([hidden])"); var panel = steps[at].querySelector("#bw:not([hidden]), #own:not([hidden])");
+          if (panel) h = panel.querySelector("h2"); if (h) h.focus(); window.scrollTo(0, 0); }
       }
-      function current() { return steps()[at]; }
       form.classList.add("stepped");
       form.addEventListener("click", function (ev) {
         var t = ev.target;
         if (t.hasAttribute("data-next")) { if (!t.disabled) show(at + 1, true); }
         else if (t.hasAttribute("data-back")) show(at - 1, true);
       });
+      // Their own detector, or back to a station: the same step, the other panel.
+      function panel(mine) {
+        $("bw").hidden = mine; $("own").hidden = !mine;
+        if (mine) { $("src-bw").checked = false; } else { $("src-bw").checked = true; }
+        ready(); (mine ? $("own") : $("bw")).querySelector("h2").focus();
+      }
+      $("to-own").onclick = function () { panel(true); };
+      $("to-bw").onclick = function () { panel(false); };
 
       function rows(b) {
         var found = b.stations || [];
         list.innerHTML = ""; km.value = "";
         say(found.length ? (b.place ? "Near " + b.place : "Near you")
           : (b.found === false ? "Couldn't find that place. Check the spelling, or try a ZIP code."
-             : "No BirdWeather stations within about " + (miles ? "35 miles" : "55 km") + ". Try a town further away, or choose another detection source."));
+             : "No stations within about " + (miles ? "35 miles" : "55 km") + ". Try a larger town nearby."));
         found.forEach(function (s, i) {
           var li = document.createElement("li"), lab = document.createElement("label"), r = document.createElement("input");
           r.type = "radio"; r.name = "station"; r.value = s.id; r.checked = i === 0;
-          r.onchange = function () { km.value = s.km; };
+          r.onchange = function () { km.value = s.km; ready(); };
           var t = document.createElement("span"); t.textContent = s.name;
           var m = document.createElement("span"); m.className = "meta";
-          m.textContent = [s.state, dist(s.km), s.species + " species in the last 7 days"].filter(Boolean).join(" · ");
+          m.textContent = [dist(s.km) + " away", s.species + (s.species === 1 ? " kind of bird" : " kinds of birds") + " this week"].join(" · ");
           t.appendChild(m); lab.appendChild(r); lab.appendChild(t); li.appendChild(lab); list.appendChild(li);
           if (i === 0) km.value = s.km;
         });
         ready();
       }
-      // The station step waits for a station: without one the frame would
-      // have no source at all.
+      // Each panel's Continue waits for its choice: a station, or a detector.
       function ready() {
-        var next = $("bw").querySelector("[data-next]");
-        if (next) next.disabled = source() === "birdweather" && !station();
+        $("bw").querySelector("[data-next]").disabled = !station();
+        $("own").querySelector("[data-next]").disabled = !(source() === "apprise" || source() === "birdnet_go");
       }
       function load(q) {
         say("Finding stations…"); list.innerHTML = ""; ready();
         var x = new XMLHttpRequest();
         x.open("GET", base + q);
         x.onload = function () { try { rows(JSON.parse(x.responseText)); } catch (e) { rows({}); } };
-        x.onerror = function () { say("Couldn't reach BirdWeather. Try again in a moment."); };
+        x.onerror = function () { say("Couldn't find stations just now. Try again in a moment."); };
         x.send();
       }
       function find() { var p = place.value.trim(); if (p.length > 1) load("&place=" + encodeURIComponent(p)); }
@@ -767,14 +779,13 @@ export function setupPage(v: SetupView): Response {
         }, { enableHighAccuracy: false, timeout: 20000, maximumAge: 600000 });
       };
       var radios = document.querySelectorAll("input[name=source]");
-      for (var i = 0; i < radios.length; i++) radios[i].onchange = function () { show(at); };
-      // Enter before the last step goes on to the next one; it never sends a half-filled form.
+      for (var i = 0; i < radios.length; i++) radios[i].onchange = ready;
+      // Enter on the first step goes on to the next; it never sends a half-filled form.
       form.addEventListener("submit", function (ev) {
-        if (current().getAttribute("data-step") !== "email") { ev.preventDefault(); var n = current().querySelector("[data-next]"); if (n && !n.disabled) show(at + 1, true); return; }
+        if (at === 0) { ev.preventDefault(); var n = form.querySelector("#bw:not([hidden]) [data-next], #own:not([hidden]) [data-next]"); if (n && !n.disabled) show(1, true); return; }
         $("go").disabled = true; $("go").textContent = "Setting up…";
       });
-      var start = steps().map(function (s) { return s.getAttribute("data-step"); }).indexOf(form.getAttribute("data-start"));
-      show(start < 0 ? 0 : start, start > 0);
+      show(form.getAttribute("data-start") === "email" ? 1 : 0, form.getAttribute("data-start") === "email");
       if (place.value) find();
     })();
     </script>`);

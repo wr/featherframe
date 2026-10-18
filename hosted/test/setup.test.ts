@@ -226,19 +226,28 @@ describe("setting up", () => {
     expect((await auth(new Request(link), env, link)).headers.get("Location")).toBe("/?paired=1");
   });
 
-  it("asks one question a step: the source, a station for BirdWeather, then the email", async () => {
+  it("is two steps: a station near them (or their own detector), then the email", async () => {
     const f = await frameShowing();
     const url = `https://${HOST}/setup/${f.code.toLowerCase()}/${f.token}`;
     const page = await (await setupRoute(new Request(url), env, new URL(url), ctx)).text();
     const steps = [...page.matchAll(/<section class="step" data-step="(\w+)"/g)].map((m) => m[1]);
-    expect(steps).toEqual(["source", "station", "email"]);
+    expect(steps).toEqual(["source", "email"]);
     expect(page).toContain('data-start="source"');
+    // A station is the way in; a detector of their own is a link off it (W-1073).
+    expect(page).toContain('<div id="bw">');
+    expect(page).toContain('<div id="own" hidden>');
+    expect(page).toContain("I have a BirdNET-Pi or BirdNET-Go");
     // Still one form: every field posts together, whichever step is showing.
     expect(page.match(/<form /g)!.length).toBe(1);
     expect(page).toContain('<button type="submit" id="go">Set up frame</button>');
     // A missing email opens the page again on the email step.
     const res = await post(f, { email: "", source: "birdweather", station: "7033" });
     expect(await res.text()).toContain('data-start="email"');
+    // Shown again with their own detector chosen, it keeps that panel open.
+    const mine = await (await post(f, { email: "", source: "birdnet_go" }, "198.51.100.30")).text();
+    expect(mine).toContain('<div id="own">');
+    expect(mine).toContain('<div id="bw" hidden>');
+    expect(mine).toMatch(/value="birdnet_go" checked/);
   });
 
   it("asks a new account on BirdWeather for its station, and makes nothing without one", async () => {
@@ -249,7 +258,8 @@ describe("setting up", () => {
     const again = await res.text();
     expect(again).toContain("Choose a BirdWeather station, or another detection source.");
     // The page opens again on the step the error is about (W-1073), with the email kept.
-    expect(again).toContain('data-start="station"');
+    expect(again).toContain('data-start="source"');
+    expect(again).toContain('<div id="bw">');
     expect(again).toContain('value="rural@example.com"');
     expect(one("SELECT count(*) AS n FROM users").n).toBe(0);
     expect(one("SELECT used_at FROM kits").used_at).toBeNull();

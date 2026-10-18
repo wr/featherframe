@@ -635,6 +635,8 @@ const SETUP_STYLE = `
   .hero .ping .nm.swap { animation:swapname .5s cubic-bezier(.2, .8, .2, 1); }
   @keyframes swapname { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
   .hero .ping .when { align-self:flex-start; margin-left:10px; font-size:12px; line-height:1.3; color:#6b6b69; white-space:nowrap; }
+  .hero .credit { position:absolute; left:12px; bottom:8px; max-width:calc(68% - 24px); font-size:10px; line-height:1.3; color:rgba(255,255,255,.88);
+    text-shadow:0 1px 3px rgba(0,0,0,.7); }
   .hero .wall { position:absolute; right:20px; bottom:-46px; width:32%; max-width:138px; aspect-ratio:300 / 377; filter:drop-shadow(0 12px 18px rgba(20,16,10,.38)); }
   .hero .wall img { position:absolute; inset:0; width:100%; height:100%; display:block; opacity:0; }
   .hero .wall img.on { opacity:1; }
@@ -686,12 +688,18 @@ export function setupPage(v: SetupView): Response {
   // off the video's foot, repainting to its illustration. The page follows the
   // video's clock (six seconds a bird). With reduced motion, or no script, it
   // is the cardinal, still.
-  const BIRDS: [string, string][] = [["cardinal", "Northern Cardinal"], ["bluebird", "Eastern Bluebird"],
-    ["titmouse", "Tufted Titmouse"], ["chickadee", "Black-capped Chickadee"]];
-  const scene = `<div class="hero" id="hero" aria-hidden="true" data-birds="${BIRDS.map((b) => b[1]).join("|")}">
-          <div class="media"><video id="scene" muted playsinline loop preload="auto" poster="/_ff/setup-photo.webp" width="720" height="540"><source src="/_ff/setup-birds.mp4" type="video/mp4"></video></div>
-          <span class="ping"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3.5 10.5v3M7 7.5v9M10.5 4.5v15M14 8v8M17.5 9.5v5M21 11v2"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm" id="ping-nm">Northern Cardinal</span></span><span class="when">Just now</span></span>
-          <span class="wall">${BIRDS.map(([slug], i) => `<img${i === 0 ? ' class="on"' : ""} src="/_ff/setup-frame-${slug}.webp" alt="" width="300" height="377">`).join("")}</span>
+  // Each clip's credit as the marketing page gives it; three are CC BY-SA, so
+  // the one playing is always named.
+  const BIRDS: [string, string, string][] = [
+    ["cardinal", "Northern Cardinal", "Video by Courtney Celley, U.S. Fish and Wildlife Service"],
+    ["bluebird", "Eastern Bluebird", "Video by Paul Danese, Wikimedia Commons, CC BY-SA 4.0 (excerpt)"],
+    ["titmouse", "Tufted Titmouse", "Video by Víctor Martínez, Wikimedia Commons, CC BY-SA 4.0 (excerpt)"],
+    ["chickadee", "Black-capped Chickadee", "Video by Cephas, Wikimedia Commons, CC BY-SA 3.0 (excerpt)"]];
+  const scene = `<div class="hero" id="hero" data-birds="${BIRDS.map((b) => b[1]).join("|")}" data-credits="${e(BIRDS.map((b) => b[2]).join("|"))}">
+          <div class="media" aria-hidden="true"><video id="scene" muted playsinline loop preload="auto" poster="/_ff/setup-photo.webp" width="720" height="540"><source src="/_ff/setup-birds.mp4" type="video/mp4"></video></div>
+          <span class="credit" id="credit">${BIRDS[0][2]}</span>
+          <span class="ping" aria-hidden="true"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3.5 10.5v3M7 7.5v9M10.5 4.5v15M14 8v8M17.5 9.5v5M21 11v2"/></svg></span><span class="tx"><span class="k">New detection</span><span class="nm" id="ping-nm">Northern Cardinal</span></span><span class="when">Just now</span></span>
+          <span class="wall" aria-hidden="true">${BIRDS.map(([slug], i) => `<img${i === 0 ? ' class="on"' : ""} src="/_ff/setup-frame-${slug}.webp" alt="" width="300" height="377">`).join("")}</span>
         </div>`;
   return shell("Set up your frame · Featherframe", `<main class="flow">
     <form method="post" action="${action}" id="setup" data-start="${start}">
@@ -770,6 +778,7 @@ export function setupPage(v: SetupView): Response {
       // The scene: a bird every six seconds of the video; its card a moment
       // after it lands, its illustration on the frame a moment after that.
       var hero = $("hero"), names = hero.getAttribute("data-birds").split("|"), ping = hero.querySelector(".ping"), nm = $("ping-nm");
+      var credits = hero.getAttribute("data-credits").split("|"), credit = $("credit"), playing = 0;
       var frames = hero.querySelectorAll(".wall img"), carded = -1, painted = 0;
       function paint(i) {
         if (i === painted) return;
@@ -777,6 +786,7 @@ export function setupPage(v: SetupView): Response {
       }
       function follow() {
         var t = vid.currentTime || 0, bird = Math.floor(t / 6) % names.length, into = t % 6;
+        if (bird !== playing) { playing = bird; credit.textContent = credits[bird]; }
         if (into >= 0.9 && carded !== bird) {
           carded = bird; nm.textContent = names[bird];
           nm.classList.remove("swap"); void nm.offsetWidth; nm.classList.add("swap"); ping.classList.add("on");

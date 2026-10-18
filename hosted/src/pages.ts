@@ -607,13 +607,36 @@ const SETUP_STYLE = `<style>
   .near { font-size:13px; color:var(--muted); margin:12px 0 0; }
   button:disabled { opacity:.6; cursor:default; }
   [hidden] { display:none !important; }
+  /* The card stays put from step to step: the page starts at the top, not the middle. */
+  body { align-items:flex-start; padding-top:max(40px, 7vh); }
+  .progress { display:flex; gap:6px; margin:12px 0 20px; }
+  .progress:empty { display:none; }
+  .progress span { flex:1; height:3px; border-radius:2px; background:var(--border); }
+  .progress span.on { background:var(--accent); }
+  .step + .step { margin-top:22px; }
+  .stepped .step + .step { margin-top:0; }
+  .stepof { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 4px; }
+  .stepof:empty { display:none; }
+  .step h2 { font-size:17px; font-weight:600; line-height:1.3; margin:0 0 12px; outline:none; }
+  .step h2 label { font:inherit; color:inherit; margin:0; }
+  .step h2 + .hint { margin:-6px 0 14px; }
+  .step .hint + .find { margin-top:0; }
+  .nav { display:flex; gap:10px; margin-top:20px; }
+  .nav button { margin:0; flex:1 1 auto; }
+  .nav .back { flex:0 0 auto; width:auto; padding:10px 16px; background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
+  form:not(.stepped) .nav [data-next], form:not(.stepped) .nav .back { display:none; }
 </style>`;
 
 export interface SetupView {
   code: string; token: string; error?: string;
   email?: string; miles: boolean; place: string; country: string; source?: string;
+  /** Which step a re-shown page opens on: the one its error is about. */
+  step?: "source" | "station" | "email";
 }
 
+// One question a step (W-1073): the detection source, then a station for
+// BirdWeather, then the email. It is still one form and one POST; without its
+// script every step shows at once.
 export function setupPage(v: SetupView): Response {
   const e = escapeHtml;
   const action = `/setup/${e(v.code.toLowerCase())}/${e(v.token)}`;
@@ -622,26 +645,27 @@ export function setupPage(v: SetupView): Response {
     <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}>
     <span>${name}<span class="meta">${meta}</span></span></label></li>`;
   const us = v.country === "US";
+  const nav = (last: boolean, first = false) => `<div class="nav">${first ? "" : `<button type="button" class="back" data-back>Back</button>`}${
+    last ? `<button type="submit" id="go">Set up frame</button>` : `<button type="button" data-next>Continue</button>`}</div>`;
   return page("Set up your frame · Featherframe", `${SETUP_STYLE}
     <h1>Set up your frame</h1>
+    <div class="progress" id="progress" aria-hidden="true"></div>
     ${v.error ? `<p class="bad">${e(v.error)}</p>` : ""}
-    <form method="post" action="${action}" id="setup">
-      <div class="field">
-        <label for="email">Email address</label>
-        <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
-        <p class="hint">This is the email you'll use to sign in to Featherframe to manage your frame and change settings.</p>
-      </div>
-
-      <fieldset>
-        <legend>Detection source</legend>
-        <ul class="choices">
+    <form method="post" action="${action}" id="setup" data-start="${e(v.step || "source")}">
+      <section class="step" data-step="source">
+        <p class="stepof"></p>
+        <h2 tabindex="-1">Detection source</h2>
+        <ul class="choices" role="radiogroup" aria-label="Detection source">
           ${choice("birdweather", "A BirdWeather station near me", "No equipment needed")}
           ${choice("apprise", "My BirdNET-Pi", "You'll connect it in Settings after setup")}
           ${choice("birdnet_go", "My BirdNET-Go", "You'll connect it in Settings after setup")}
         </ul>
-      </fieldset>
-      <div id="bw"${src === "birdweather" ? "" : " hidden"}>
-        <p class="hint">Choose a station near where the frame will hang.</p>
+        ${nav(false, true)}
+      </section>
+      <section class="step" data-step="station" id="bw"${src === "birdweather" ? "" : " hidden"}>
+        <p class="stepof"></p>
+        <h2 tabindex="-1">BirdWeather station</h2>
+        <p class="hint">Choose one near where the frame will hang.</p>
         <div class="find">
           <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "ZIP code or town" : "Postcode or town"}"
             aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
@@ -650,26 +674,56 @@ export function setupPage(v: SetupView): Response {
         <button type="button" class="btn2" id="locate">Use my location</button>
         <p class="near" id="status" hidden></p>
         <ul class="stations" id="stations"></ul>
-      </div>
-      <input type="hidden" name="tz" id="tz">
-      <input type="hidden" name="km" id="km">
-      <button type="submit" id="go">Set up frame</button>
+        ${nav(false)}
+      </section>
+      <section class="step" data-step="email">
+        <p class="stepof"></p>
+        <h2 tabindex="-1"><label for="email">Email address</label></h2>
+        <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
+        <p class="hint">You'll sign in with it to manage your frame. There is no password.</p>
+        <input type="hidden" name="tz" id="tz">
+        <input type="hidden" name="km" id="km">
+        ${nav(true)}
+      </section>
     </form>
     <script>
     (function () {
       var base = ${JSON.stringify(`/api/setup/stations?c=${v.code}&t=${v.token}`)}, miles = ${v.miles ? "true" : "false"};
       var $ = function (id) { return document.getElementById(id); };
-      var list = $("stations"), status = $("status"), km = $("km"), place = $("place");
+      var form = $("setup"), list = $("stations"), status = $("status"), km = $("km"), place = $("place");
       try { $("tz").value = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
       function say(text) { status.textContent = text; status.hidden = !text; }
       function dist(k) { return miles ? Math.round(k * 0.621371) + " mi" : k + " km"; }
-      function show(b) {
-        var rows = b.stations || [];
+      function source() { var r = document.querySelector("input[name=source]:checked"); return r ? r.value : ""; }
+      function station() { return document.querySelector("input[name=station]:checked"); }
+
+      // The steps: the station's only for BirdWeather.
+      var all = Array.prototype.slice.call(form.querySelectorAll(".step")), at = 0;
+      function steps() { return all.filter(function (s) { return s.getAttribute("data-step") !== "station" || source() === "birdweather"; }); }
+      function show(i, focus) {
+        var list = steps(); at = Math.max(0, Math.min(i, list.length - 1));
+        all.forEach(function (s) { s.classList.toggle("on", s === list[at]); s.hidden = s !== list[at]; });
+        var bar = $("progress"); bar.innerHTML = "";
+        for (var k = 0; k < list.length; k++) { var seg = document.createElement("span"); if (k <= at) seg.className = "on"; bar.appendChild(seg); }
+        list[at].querySelector(".stepof").textContent = "Step " + (at + 1) + " of " + list.length;
+        ready();
+        if (focus) { var h = list[at].querySelector("h2"); if (h) h.focus(); window.scrollTo(0, 0); }
+      }
+      function current() { return steps()[at]; }
+      form.classList.add("stepped");
+      form.addEventListener("click", function (ev) {
+        var t = ev.target;
+        if (t.hasAttribute("data-next")) { if (!t.disabled) show(at + 1, true); }
+        else if (t.hasAttribute("data-back")) show(at - 1, true);
+      });
+
+      function rows(b) {
+        var found = b.stations || [];
         list.innerHTML = ""; km.value = "";
-        say(rows.length ? (b.place ? "Near " + b.place : "Near you")
+        say(found.length ? (b.place ? "Near " + b.place : "Near you")
           : (b.found === false ? "Couldn't find that place. Check the spelling, or try a ZIP code."
              : "No BirdWeather stations within about " + (miles ? "35 miles" : "55 km") + ". Try a town further away, or choose another detection source."));
-        rows.forEach(function (s, i) {
+        found.forEach(function (s, i) {
           var li = document.createElement("li"), lab = document.createElement("label"), r = document.createElement("input");
           r.type = "radio"; r.name = "station"; r.value = s.id; r.checked = i === 0;
           r.onchange = function () { km.value = s.km; };
@@ -681,17 +735,17 @@ export function setupPage(v: SetupView): Response {
         });
         ready();
       }
-      // With BirdWeather chosen, setting up waits for a station: without one
-      // the frame would have no source at all.
+      // The station step waits for a station: without one the frame would
+      // have no source at all.
       function ready() {
-        var bw = document.querySelector("input[name=source]:checked");
-        $("go").disabled = !!(bw && bw.value === "birdweather" && !document.querySelector("input[name=station]:checked"));
+        var next = $("bw").querySelector("[data-next]");
+        if (next) next.disabled = source() === "birdweather" && !station();
       }
       function load(q) {
-        say("Finding stations…"); list.innerHTML = "";
+        say("Finding stations…"); list.innerHTML = ""; ready();
         var x = new XMLHttpRequest();
         x.open("GET", base + q);
-        x.onload = function () { try { show(JSON.parse(x.responseText)); } catch (e) { show({}); } };
+        x.onload = function () { try { rows(JSON.parse(x.responseText)); } catch (e) { rows({}); } };
         x.onerror = function () { say("Couldn't reach BirdWeather. Try again in a moment."); };
         x.send();
       }
@@ -711,13 +765,15 @@ export function setupPage(v: SetupView): Response {
         }, { enableHighAccuracy: false, timeout: 20000, maximumAge: 600000 });
       };
       var radios = document.querySelectorAll("input[name=source]");
-      for (var i = 0; i < radios.length; i++) radios[i].onchange = function () {
-        $("bw").hidden = this.value !== "birdweather";
-        ready();
-      };
-      ready();
+      for (var i = 0; i < radios.length; i++) radios[i].onchange = function () { show(at); };
+      // Enter before the last step goes on to the next one; it never sends a half-filled form.
+      form.addEventListener("submit", function (ev) {
+        if (current().getAttribute("data-step") !== "email") { ev.preventDefault(); var n = current().querySelector("[data-next]"); if (n && !n.disabled) show(at + 1, true); return; }
+        $("go").disabled = true; $("go").textContent = "Setting up…";
+      });
+      var start = steps().map(function (s) { return s.getAttribute("data-step"); }).indexOf(form.getAttribute("data-start"));
+      show(start < 0 ? 0 : start, start > 0);
       if (place.value) find();
-      $("setup").onsubmit = function () { $("go").disabled = true; $("go").textContent = "Setting up…"; };
     })();
     </script>`);
 }

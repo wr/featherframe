@@ -45,11 +45,12 @@
 // - Every page: one card under the wordmark. WiFiManager's status line goes to
 //   the top of it, said plainly after a failed join, and not at all when no
 //   network is saved yet ("No AP set").
-// - The Wi-Fi page: a heading with Refresh beside it, the networks as one list
-//   (the webapp's Wi-Fi glyph for signal, a lock where a password is needed),
-//   Network and Password (Show inside the field), then the server as a choice:
-//   Featherframe Cloud or self-hosted, whichever this build starts on marked
-//   (default), the frame's own current server chosen. Self-hosted takes an
+// - The Wi-Fi page: a heading with Refresh beside it, then the networks as a
+//   dropdown (W-1073, strongest first, as the scan sorts them; "Other…" shows
+//   a Network name field for a hidden network), Password (Show inside the
+//   field; gone for an open network), then the server as a choice: Featherframe
+//   Cloud (Recommended) or Self-hosted (Advanced), the frame's own current
+//   server chosen, else the one this build starts on. Self-hosted takes an
 //   address, or blank to find the server on the network (posted as "find").
 //   Under Save, what the frame shows next for that choice: its picture again
 //   for a frame already set up that stays on its server (W-903).
@@ -96,27 +97,34 @@ var NAMES={'/wifi':'Connect to Wi-Fi','/0wifi':'Connect to Wi-Fi','/info':'Info'
 var fs=qa('form',card);for(var i=0;i<fs.length;i++){var a=fs[i].getAttribute('action'),bt=q('button',fs[i]);
 if(bt&&NAMES[a]){bt.textContent=NAMES[a];fs[i].className='ffmenu';if(!/wifi$/.test(a))bt.className+=' ff2';}}
 var ssid=q('#s');if(!ssid)return;
-var LOCK='<svg class="fflock" viewBox="0 0 12 14" aria-hidden="true"><path d="M3.2 6.2V4.6a2.8 2.8 0 0 1 5.6 0v1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="1.2" y="6" width="9.6" height="7.2" rx="1.8" fill="currentColor"/></svg>';
-function glyph(n){var a=['M2 7.3a15 15 0 0 1 20 0','M5.2 11.2a11 11 0 0 1 13.6 0','M8.6 15a6 6 0 0 1 6.8 0'],s='<svg class="ffwifi" viewBox="0 0 24 22" fill="none" stroke-width="2.3" stroke-linecap="round" aria-hidden="true">';
-for(var k=0;k<3;k++)s+='<path class="arc'+(n>=4-k?' lit':'')+'" d="'+a[k]+'"/>';return s+'<circle class="dot" cx="12" cy="18.6" r="1.4"/></svg>';}
 var hd=el('div','ffhead');txt(hd.appendChild(el('h2')),'Connect to Wi-Fi');card.insertBefore(hd,card.firstChild);
-var as=qa('a[data-ssid]',card),list=null;
-if(as.length){list=el('div','ffnets');card.insertBefore(list,as[0].parentNode);
-for(i=0;i<as.length;i++){var row=as[i].parentNode,qi=q('.q[role=img]',row);list.appendChild(row);
-if(qi){var lv=/q-(\d)/.exec(qi.className);qi.innerHTML=(/(^|\s)l(\s|$)/.test(qi.className)?LOCK:'')+glyph(lv?+lv[1]:0);qi.className+=' ffq';}}
-var c0=window.c;window.c=function(a){c0(a);var rs=list.childNodes;for(var j=0;j<rs.length;j++)rs[j].className=rs[j]==a.parentNode?'on':'';};}
+var as=qa('a[data-ssid]',card),list=null,ls=q('label[for=s]'),pw=q('#p'),lp=q('label[for=p]');
 for(i=0;i<card.childNodes.length;i++){var tn=card.childNodes[i];if(tn.nodeType==3&&/No networks found/.test(tn.textContent)){
 var none=el('p','ffnote');txt(none,'No networks found.');card.replaceChild(none,tn);list=none;}}
-var rf=q('form[action*="refresh"]',card);if(rf){var rb=q('button',rf);rb.className='ffbtn';if(!list)rb.textContent='Show networks';hd.appendChild(rf);}
-var ls=q('label[for=s]');if(ls)ls.textContent='Network';
-var pw=q('#p');if(pw){var pb=el('div','ffpw');pw.parentNode.insertBefore(pb,pw);pb.appendChild(pw);
+if(ls)ls.textContent='Network';
+if(pw){var pb=el('div','ffpw');pw.parentNode.insertBefore(pb,pw);pb.appendChild(pw);
 var sb=el('button','ffshow');sb.type='button';txt(sb,'Show');pb.appendChild(sb);
 sb.onclick=function(){var h=pw.type=='password';pw.type=h?'text':'password';sb.textContent=h?'Hide':'Show';};
 gone(q('#showpass'));gone(q('label[for=showpass]'));}
+if(as.length&&ls){list=el('select','ffsel');list.id='ffnet';list.required=true;
+var lk={},o=el('option');o.value='';o.disabled=true;txt(o,'Choose a network');list.appendChild(o);
+for(i=0;i<as.length;i++){var nm=as[i].getAttribute('data-ssid')||as[i].textContent,qi=q('.q[role=img]',as[i].parentNode);
+if(qi&&/(^|\s)l(\s|$)/.test(qi.className))lk[nm]=1;o=el('option');o.value=nm;txt(o,nm);list.appendChild(o);gone(as[i].parentNode);}
+o=el('option');o.value='';o.setAttribute('data-other','1');txt(o,'Other…');list.appendChild(o);
+var nl=el('label');nl.htmlFor='ffnet';txt(nl,'Network');ls.parentNode.insertBefore(nl,ls);ls.parentNode.insertBefore(list,ls);
+txt((ls.innerHTML='',ls),'Network name');
+var pick0=ssid.value||ssid.placeholder,hit=0;for(i=1;i<list.options.length-1;i++)if(list.options[i].value==pick0){list.selectedIndex=i;hit=1;}
+if(!hit)list.selectedIndex=ssid.value?list.options.length-1:0;
+function net(){var op=list.options[list.selectedIndex],oth=!!op.getAttribute('data-other'),on=list.selectedIndex>0;
+ls.style.display=ssid.style.display=oth?'':'none';ssid.required=oth;if(!oth)ssid.value=op.value;
+var open=on&&!oth&&!lk[op.value];if(pw){pb.style.display=lp.style.display=open?'none':'';if(open)pw.value='';}
+if(oth&&list._u)ssid.focus();list._u=1;}
+list.onchange=net;net();}
+var rf=q('form[action*="refresh"]',card);if(rf){var rb=q('button',rf);rb.className='ffbtn';if(!list)rb.textContent='Show networks';hd.appendChild(rf);}
 var inp=q('#server');if(!inp)return;var f=inp.form,cur=inp.value.replace(/\/+$/,'');
 var pick=cur==CLOUD?'cloud':(cur?'self':DEF),box=el('div','ffserver');
-function opt(v,name){return '<label><input type="radio" name="ffserver" value="'+v+'"><span>'+name+(DEF==v?' <span class="ffmeta">(default)</span>':'')+'</span></label>';}
-box.innerHTML='<div class="fflab">Server</div><div class="ffchoices"><div>'+opt('cloud','Featherframe Cloud')+'</div><div>'+opt('self','Self-hosted')+
+function opt(v,name,tag){return '<label><input type="radio" name="ffserver" value="'+v+'"><span>'+name+'</span><span class="fftag '+v+'">'+tag+'</span></label>';}
+box.innerHTML='<div class="fflab">Server</div><div class="ffchoices"><div>'+opt('cloud','Featherframe Cloud','Recommended')+'</div><div>'+opt('self','Self-hosted','Advanced')+
 '<div id="ffself"><input id="ffurl" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://birdnet.local:8181">'+
 '<small>Your server’s address. Leave blank to find it on your network.</small></div></div></div>';
 inp.parentNode.insertBefore(box,inp);inp.type='hidden';gone(q('label[for="server"]'));
@@ -170,19 +178,9 @@ button.ff2:hover,button.ffbtn:hover{color:var(--ink);background:linear-gradient(
 button.ffbtn{width:auto;padding:6px 12px;font-size:13px}
 button.D{color:var(--bad);background:none;border:1px solid var(--bad);margin-top:12px}
 .ffmenu~.ffmenu{margin-top:10px}
-.ffnets{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--field)}
-.ffnets>div{position:relative;display:flex;align-items:center;gap:10px;min-height:46px;padding:0 12px}
-.ffnets>div+div{border-top:1px solid var(--hair)}
-.ffnets>div.on{background:var(--inset)}
-@media (hover:hover){.ffnets>div:hover{background:var(--inset)}}
-.ffnets a{flex:1;min-width:0;padding:12px 0;color:var(--ink);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ffnets a:after{content:'';position:absolute;top:0;right:0;bottom:0;left:0}
-.q{float:none;display:flex;align-items:center;gap:7px;flex:none;height:auto;min-width:0;margin:0;padding:0;color:var(--muted)}
-.q.h{display:none}
-.ffq:before,.ffq:after{display:none}
-.fflock{display:block;width:10px;height:12px}
-.ffwifi{display:block;width:18px;height:16px}
-.ffwifi .arc{stroke:var(--border-strong)}.ffwifi .arc.lit{stroke:var(--ink-2)}.ffwifi .dot{fill:var(--ink-2)}
+select{padding-right:38px;background:var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23827e76' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center/12px 8px}
+select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+select:invalid{color:var(--faint)}select option{color:var(--ink)}
 .ffpw{position:relative}
 .ffpw input{padding-right:66px}
 button.ffshow{position:absolute;top:0;right:0;bottom:0;width:auto;padding:0 14px;font-size:14px;color:var(--accent);background:none;border-radius:0 8px 8px 0}
@@ -193,7 +191,8 @@ label[for=showpass]{display:inline-block;margin:12px 0 0;vertical-align:middle;c
 .ffchoices>div+div{border-top:1px solid var(--hair)}
 .ffchoices label{display:flex;align-items:center;gap:10px;margin:0;padding:12px;font-size:15px;color:var(--ink);cursor:pointer}
 .ffchoices input[type=radio]{flex:none;width:18px;height:18px;margin:0}
-.ffmeta{color:var(--muted)}
+.fftag{margin-left:auto;flex:none;padding:2px 8px;font-size:12px;font-weight:600;line-height:1.5;border-radius:999px;color:var(--muted);background:var(--inset)}
+.fftag.cloud{color:var(--good);background:var(--ok-bg)}
 #ffself{padding:0 12px 12px 40px}
 #ffself small{display:block;margin-top:6px;font-size:13px;line-height:1.45;color:var(--muted)}
 .ffnote{font-size:13px;line-height:1.45;color:var(--muted);margin:14px 0 0}

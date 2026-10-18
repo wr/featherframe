@@ -155,10 +155,10 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
   const email = normEmail(form.get("email"));
   const kit = await registeredKit(env, row);
   const source = SOURCES.includes(String(form.get("source"))) ? String(form.get("source")) : "birdweather";
-  const again = (error: string) => setupPage({ code, token, error, email: String(form.get("email") || ""),
-                                               miles: miles(request), source,
+  const again = (error: string, step: "station" | "email") => setupPage({ code, token, error, step,
+                                               email: String(form.get("email") || ""), miles: miles(request), source,
                                                place: placeGuess(request), country: cfOf(request).country || "" });
-  if (!email) return again("Enter an email address.");
+  if (!email) return again("Enter an email address.", "email");
 
   const tz = validTz(String(form.get("tz") || ""));
   // The code page's "Use a different email" comes back here.
@@ -182,7 +182,7 @@ export async function setupRoute(request: Request, env: Env, url: URL, ctx: Exec
   // A new account on BirdWeather needs its station, or the frame would have
   // no source at all.
   if (source === "birdweather" && !String(form.get("station") || "").trim()) {
-    return again("Choose a BirdWeather station, or another detection source.");
+    return again("Choose a BirdWeather station, or another detection source.", "station");
   }
 
   // A new account. The invitation is taken first, and given back if the

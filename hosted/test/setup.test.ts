@@ -226,12 +226,31 @@ describe("setting up", () => {
     expect((await auth(new Request(link), env, link)).headers.get("Location")).toBe("/?paired=1");
   });
 
+  it("asks one question a step: the source, a station for BirdWeather, then the email", async () => {
+    const f = await frameShowing();
+    const url = `https://${HOST}/setup/${f.code.toLowerCase()}/${f.token}`;
+    const page = await (await setupRoute(new Request(url), env, new URL(url), ctx)).text();
+    const steps = [...page.matchAll(/<section class="step" data-step="(\w+)"/g)].map((m) => m[1]);
+    expect(steps).toEqual(["source", "station", "email"]);
+    expect(page).toContain('data-start="source"');
+    // Still one form: every field posts together, whichever step is showing.
+    expect(page.match(/<form /g)!.length).toBe(1);
+    expect(page).toContain('<button type="submit" id="go">Set up frame</button>');
+    // A missing email opens the page again on the email step.
+    const res = await post(f, { email: "", source: "birdweather", station: "7033" });
+    expect(await res.text()).toContain('data-start="email"');
+  });
+
   it("asks a new account on BirdWeather for its station, and makes nothing without one", async () => {
     const f = await frameShowing();
     db.prepare("INSERT INTO kits (device_id, key_hash, kit, registered_at) VALUES (?, ?, 'ee03', ?)").run(f.device, f.keyHash, NOW);
     const res = await post(f, { email: "rural@example.com", source: "birdweather", station: "" });
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain("Choose a BirdWeather station, or another detection source.");
+    const again = await res.text();
+    expect(again).toContain("Choose a BirdWeather station, or another detection source.");
+    // The page opens again on the step the error is about (W-1073), with the email kept.
+    expect(again).toContain('data-start="station"');
+    expect(again).toContain('value="rural@example.com"');
     expect(one("SELECT count(*) AS n FROM users").n).toBe(0);
     expect(one("SELECT used_at FROM kits").used_at).toBeNull();
     // Its own detector needs no station.

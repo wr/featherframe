@@ -70,12 +70,12 @@ function gone(e){if(e&&e.parentNode)e.parentNode.removeChild(e);}
 d.title='Featherframe';
 var mark=q('.ffmark');if(!mark)return;
 var card=el('div','ffcard');while(mark.nextSibling)card.appendChild(mark.nextSibling);mark.parentNode.appendChild(card);
-var NEXT={cloud:'Featherframe-Setup will close, and your phone goes back to its usual Wi‑Fi. Then scan the QR code on your frame with your phone’s camera to finish setting up.',
-self:'Featherframe-Setup will close, and your phone goes back to its usual Wi‑Fi. Then add the frame in your Featherframe webapp.',
-back:'Featherframe-Setup will close, and your phone goes back to its usual Wi‑Fi. Your frame goes back to its picture.'};
-var AFTER={cloud:'After you save, your frame shows a QR code. Scan it with your phone’s camera to finish setting up.',
-self:'After you save, your frame asks to connect in your Featherframe webapp.',
-back:'After you save, your frame goes back to its picture.'};
+var NEXT={cloud:'Featherframe-Setup will close, and your phone will go back to its usual Wi‑Fi. Then scan the QR code on your frame with your phone’s camera to finish setting up.',
+self:'Featherframe-Setup will close, and your phone will go back to its usual Wi‑Fi. Then add the frame in your Featherframe webapp.',
+back:'Featherframe-Setup will close, and your phone will go back to its usual Wi‑Fi. Your frame will go back to its picture.'};
+var AFTER={cloud:'After you save, your frame will show a QR code. Scan it with your phone’s camera to finish setting up.',
+self:'After you save, your frame will ask to connect in your Featherframe webapp.',
+back:'After you save, your frame will go back to its picture.'};
 if(p=='/wifisave'){var m=q('.msg',card);if(!m)return;card.className+=' ffsaved';
 var ch=(st&&st.getItem('ffserver'))||(window.ffAdded?'back':DEF);
 m.className='msg ffwait';m.textContent='Connecting to your Wi‑Fi…';

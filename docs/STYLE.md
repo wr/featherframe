@@ -45,6 +45,13 @@ page is a copy of this file; this file wins if they disagree.
 - **Typography.** Sentence case for headings, labels and buttons. En dash
   for number ranges (1–5). Curly quotes are optional; be consistent within
   a page.
+- **Future tense for what comes next.** "After you save, your frame will
+  show a code", not "your frame shows a code". What is always true stays in
+  the present: "the frame shows the latest detection". A "when" clause stays
+  present too: "When the frame shows a code, scan it."
+- **Sign-up and sign-in read like everyone else's.** "Create your account",
+  "Email", "We'll send you a link to confirm it." Not "You'll sign in with
+  it to manage your frame."
 - **Times, as people write them.** A 12-hour clock with AM and PM: 7:00 PM,
   6:30 AM. A span of time takes an arrow: 10:00 PM → 6:00 AM, Sunset →
   Sunrise. A recent moment is relative: just now, 4 min ago, 2 hours ago,

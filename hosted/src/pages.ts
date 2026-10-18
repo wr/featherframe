@@ -618,9 +618,9 @@ const SETUP_STYLE = `<style>
   .stepof { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 4px; }
   .stepof:empty { display:none; }
   .step h2 { font-size:17px; font-weight:600; line-height:1.3; margin:0 0 12px; outline:none; }
-  .step h2 label { font:inherit; color:inherit; margin:0; }
   .step h2 + .hint { margin:-6px 0 14px; }
-  .step .hint + .find { margin-top:0; }
+  .step .hint + .btn2 { margin-top:0; }
+  .step .btn2 + .find { margin-top:10px; }
   .nav { display:flex; gap:10px; margin-top:20px; }
   .nav button { margin:0; flex:1 1 auto; }
   .nav .back { flex:0 0 auto; width:auto; padding:10px 16px; background:transparent; color:var(--ink-2); border:1px solid var(--border); font-weight:500; }
@@ -654,33 +654,35 @@ export function setupPage(v: SetupView): Response {
     <form method="post" action="${action}" id="setup" data-start="${e(v.step || "source")}">
       <section class="step" data-step="source">
         <p class="stepof"></p>
-        <h2 tabindex="-1">Detection source</h2>
-        <ul class="choices" role="radiogroup" aria-label="Detection source">
-          ${choice("birdweather", "A BirdWeather station near me", "No equipment needed")}
-          ${choice("apprise", "My BirdNET-Pi", "You'll connect it in Settings after setup")}
-          ${choice("birdnet_go", "My BirdNET-Go", "You'll connect it in Settings after setup")}
+        <h2 tabindex="-1" id="src-q">Do you have a bird detector?</h2>
+        <p class="hint">Such as BirdNET-Pi or BirdNET-Go.</p>
+        <ul class="choices" role="radiogroup" aria-labelledby="src-q">
+          ${choice("birdweather", "No", "Your frame will show what a BirdWeather station near you hears. No equipment needed.")}
+          ${choice("apprise", "Yes, BirdNET-Pi", "You'll connect it in Settings after setup.")}
+          ${choice("birdnet_go", "Yes, BirdNET-Go", "You'll connect it in Settings after setup.")}
         </ul>
         ${nav(false, true)}
       </section>
       <section class="step" data-step="station" id="bw"${src === "birdweather" ? "" : " hidden"}>
         <p class="stepof"></p>
-        <h2 tabindex="-1">BirdWeather station</h2>
-        <p class="hint">Choose one near where the frame will hang.</p>
+        <h2 tabindex="-1">Choose a station</h2>
+        <p class="hint">BirdWeather is a public network of bird detectors that people run at home. Choose one near where your frame will hang.</p>
+        <button type="button" class="btn2" id="locate">Find stations near me</button>
         <div class="find">
-          <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "ZIP code or town" : "Postcode or town"}"
+          <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "Or enter a ZIP code or town" : "Or enter a postcode or town"}"
             aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
           <button type="button" id="findbtn">Find</button>
         </div>
-        <button type="button" class="btn2" id="locate">Use my location</button>
         <p class="near" id="status" hidden></p>
         <ul class="stations" id="stations"></ul>
         ${nav(false)}
       </section>
       <section class="step" data-step="email">
         <p class="stepof"></p>
-        <h2 tabindex="-1"><label for="email">Email address</label></h2>
+        <h2 tabindex="-1">Create your account</h2>
+        <label for="email">Email</label>
         <input type="email" id="email" name="email" autocomplete="email" required value="${e(v.email || "")}">
-        <p class="hint">You'll sign in with it to manage your frame. There is no password.</p>
+        <p class="hint">We'll send you a link to confirm it.</p>
         <input type="hidden" name="tz" id="tz">
         <input type="hidden" name="km" id="km">
         ${nav(true)}
@@ -809,7 +811,7 @@ export function welcomeEmail(station: { name: string; distance: string } | null)
   const opening = station
     ? `Your frame is set up. It shows the latest species heard by ${station.name}, a BirdWeather station ${station.distance ? `${station.distance} from you` : "near you"}, as a 19th-century illustration.`
     : "Your frame is set up. One step is left: connect your detector. Open the Featherframe webapp, go to Settings → Detection source and follow the steps there. Once it is connected, the frame shows the latest species your detector hears as a 19th-century illustration.";
-  const first = station ? "Its first picture appears within a minute." : "";
+  const first = station ? "Its first picture will appear within a minute." : "";
   const more = "There you can name the frame and set its rotation and update interval, change the detection source, switch Content to Collage (every species heard today on one sheet), set quiet hours (overnight, every frame shows the day's collage), add an OpenAI API key under Settings → AI image generation for species with no historical illustration, and add more frames.";
   const signIn = "To sign in, enter your email. We send you a link. There is no password.";
   const help = "Help: featherframe.app/help";

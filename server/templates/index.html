@@ -2128,7 +2128,6 @@
     var sheet = $('ws-sheet'), back = $('ws-back');
     if (!sheet) return;
     sheet.hidden = false; back.hidden = false;
-    requestAnimationFrame(function () { requestAnimationFrame(function () { sheet.classList.add('on'); back.classList.add('on'); }); });
     var mat = sheet.querySelector('.ws-mat'), src = ($('preview') || {}).src, tries = 0;
     function look() {
       if (!src || tries++ > 20 || !sheet.classList.contains('on')) return;
@@ -2137,7 +2136,10 @@
       img.onerror = function () { setTimeout(look, 3000); };
       img.src = src + (src.indexOf('?') < 0 ? '?' : '&') + 'w=' + Date.now();
     }
-    look();
+    // The first look once the sheet is on: before, it stops at once (W-880).
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      sheet.classList.add('on'); back.classList.add('on'); look();
+    }); });
     $('ws-go').onclick = function () {
       sheet.classList.remove('on'); back.classList.remove('on');
       setTimeout(function () { sheet.hidden = true; back.hidden = true; }, 500);

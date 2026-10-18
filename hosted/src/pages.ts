@@ -592,6 +592,10 @@ const SETUP_STYLE = `
      is drawn. A welcome on the scene the marketing page tells it with, then
      one question a screen: a big title, a line, its field, and the button
      at the bottom. A column on a computer. */
+  /* The accent's fill (a gradient, if it has one), its lift, and the tint of
+     a chosen row, warm enough to stand apart from the page's gray. */
+  :root { --accent-fill:var(--accent); --accent-lift:none; --on-accent-shadow:none; --accent-tint:#f5ebe1; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --accent-tint:#33291f; } }
   body { display:block; min-height:0; padding:0; }
   main.flow { max-width:440px; margin:0 auto; }
   .screen { display:flex; flex-direction:column; min-height:100vh; min-height:100svh; padding:0 24px; }
@@ -606,6 +610,7 @@ const SETUP_STYLE = `
   /* The main button stands in the same place on every screen, link or not. */
   .bottom:not(:has(.link))::after { content:""; height:39px; }
   .bottom button[type=submit], .bottom [data-next] { margin:0; width:100%; padding:15px 12px; font-size:17px; border-radius:12px; }
+  .bottom button[type=submit], .bottom [data-next], .find > button { background:var(--accent-fill); box-shadow:var(--accent-lift); text-shadow:var(--on-accent-shadow); }
   button.link { width:auto; margin:0; padding:8px 4px; background:none; border:0; color:var(--accent); font-weight:500; font-size:16px; }
   /* While a field has the keyboard up, the button follows the form, so the
      keyboard never covers it. */
@@ -663,6 +668,18 @@ const SETUP_STYLE = `
   button.loc { position:absolute; top:0; right:0; bottom:0; width:44px; margin:0; padding:0; display:flex; align-items:center; justify-content:center;
     background:none; color:var(--accent); border-radius:0 10px 10px 0; }
   button.loc svg { width:19px; height:19px; fill:currentColor; }
+  /* Looking: the page's own spinner in the arrow's place. */
+  button.loc.busy svg { display:none; }
+  button.loc.busy::after { margin:0; vertical-align:0; }
+  /* What stops the location button is said beside it, over the page, so
+     nothing below moves. */
+  .tip { position:absolute; left:-4px; right:-4px; bottom:calc(100% + 12px); z-index:5; padding:12px 14px;
+    border-radius:12px; background:var(--ink); color:var(--bg); font-size:15px; line-height:1.4; box-shadow:0 10px 28px rgba(0,0,0,.28);
+    animation:pop .22s cubic-bezier(.2, .8, .2, 1); }
+  .tip::after { content:""; position:absolute; top:100%; right:18px; border:8px solid transparent; border-top-color:var(--ink); }
+  .tip b { display:block; font-weight:600; }
+  .tip span { display:block; text-wrap:balance; opacity:.85; }
+  @keyframes pop { from { opacity:0; transform:translateY(6px) scale(.97); } to { opacity:1; transform:none; } }
   .find > button { margin:0; width:auto; flex:none; padding:0 18px; border-radius:10px; }
   .near { font-size:14px; color:var(--muted); margin:16px 0 8px; }
   /* Something to do differently is a notice; only what failed on our side is
@@ -680,17 +697,20 @@ const SETUP_STYLE = `
   .stations:empty { display:none; }
   .choices li + li, .stations li + li { border-top:1px solid var(--border); }
   .choices label, .stations label { display:flex; gap:12px; align-items:flex-start; margin:0; padding:15px 14px; font-size:17px; font-weight:400; color:var(--ink); cursor:pointer; }
-  .choices input, .stations input { margin:3px 0 0; width:18px; height:18px; accent-color:var(--accent); flex:none; }
+  .choices input, .stations input { -webkit-appearance:none; appearance:none; margin:1px 0 0; width:22px; height:22px; flex:none; border-radius:50%;
+    border:2px solid var(--border-strong); background:var(--field); }
+  .choices input:checked, .stations input:checked { border:0; background:radial-gradient(circle, var(--on-accent) 0 3.5px, transparent 4px), var(--accent-fill);
+    box-shadow:var(--accent-lift); }
+  .choices input:focus-visible, .stations input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .meta { display:block; margin-top:2px; font-size:14px; color:var(--muted); }
-  /* The chosen row is plain at a glance: tinted, and ringed in the accent. */
-  .choices label:has(input:checked), .stations label:has(input:checked) { background:rgba(107,74,44,.12); background:color-mix(in srgb, var(--accent) 12%, var(--surface));
-    box-shadow:inset 0 0 0 2px var(--accent); }
+  /* The chosen row is plain at a glance: a warm tint, and its radio filled. */
+  .choices label:has(input:checked), .stations label:has(input:checked) { background:var(--accent-tint); }
   .stations label { align-items:center; }
   .stations input { margin:0; }
   .stations .nm { flex:1 1 auto; min-width:0; }
   .stations .far { flex:none; margin-left:4px; text-align:right; font-size:17px; font-weight:600; line-height:1.15; font-variant-numeric:tabular-nums; }
   .stations .far small { display:block; font-size:13px; font-weight:400; color:var(--muted); }
-  .closest { display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px; background:var(--accent); color:var(--on-accent);
+  .closest { display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px; background:var(--accent-fill); color:var(--on-accent); text-shadow:var(--on-accent-shadow);
     font-size:11.5px; font-weight:600; line-height:1.4; vertical-align:2px; white-space:nowrap; }
   .then { margin:18px 0 0; padding:14px 16px; border-radius:12px; background:var(--surface); border:1px solid var(--border);
     font-size:15px; line-height:1.45; color:var(--ink-2); animation:rise .35s ease; }
@@ -770,6 +790,7 @@ export function setupPage(v: SetupView): Response {
             <div class="searchbox">
               <input type="text" id="place" autocomplete="postal-code" placeholder="${us ? "ZIP code or town" : "Postcode or town"}"
                 aria-label="${us ? "ZIP code or town" : "Postcode or town"}" value="${e(v.place)}" enterkeyhint="search">
+              <div class="tip" id="tip" role="status" hidden><b id="tip-t"></b><span id="tip-x"></span></div>
               <button type="button" class="loc" id="locate" aria-label="Use current location" title="Use current location"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5 3.8 10.4c-.6.3-.6 1.2.1 1.4l6.4 1.9 1.9 6.4c.2.7 1.1.7 1.4.1z"/></svg></button>
             </div>
             <button type="button" id="findbtn">Find</button>
@@ -941,15 +962,25 @@ export function setupPage(v: SetupView): Response {
       function find() { var p = place.value.trim(); if (p.length > 1) { place.blur(); load("&place=" + encodeURIComponent(p)); } }
       $("findbtn").onclick = find;
       place.onkeydown = function (ev) { if (ev.key === "Enter") { ev.preventDefault(); find(); } };
-      $("locate").onclick = function () {
-        if (!navigator.geolocation) { oops("This browser can't share your location", "Enter your ZIP code or town instead."); return; }
-        say("Finding your location…");
+      // The location button: a spinner while it looks, and what stops
+      // it is a tooltip over the field, gone at the next tap or keystroke.
+      var loc = $("locate"), tipBox = $("tip");
+      function tip(title, text) {
+        $("tip-t").textContent = title; $("tip-x").textContent = text.replace(/ (\S+)$/, "\u00a0$1"); tipBox.hidden = false;
+      }
+      document.addEventListener("pointerdown", function (ev) { if (!tipBox.hidden && !loc.contains(ev.target)) tipBox.hidden = true; }, true);
+      place.addEventListener("input", function () { tipBox.hidden = true; });
+      loc.onclick = function () {
+        tipBox.hidden = true;
+        if (!navigator.geolocation) { tip("This browser can't share your location", "Enter your ZIP code or town instead."); return; }
+        loc.classList.add("busy");
         navigator.geolocation.getCurrentPosition(function (p) {
-          place.value = "";
+          loc.classList.remove("busy"); place.value = "";
           load("&lat=" + p.coords.latitude.toFixed(3) + "&lon=" + p.coords.longitude.toFixed(3));
         }, function (err) {
-          if (err && err.code === 1) oops("Location is off", "Turn on location for this browser in your phone's settings, or enter your ZIP code or town.");
-          else oops("Couldn't find your location", "Enter your ZIP code or town instead.");
+          loc.classList.remove("busy");
+          if (err && err.code === 1) tip("Location is off", "Turn on location for this browser in your phone's settings, or enter your ZIP code or town.");
+          else tip("Couldn't find your location", "Enter your ZIP code or town instead.");
         }, { enableHighAccuracy: false, timeout: 20000, maximumAge: 600000 });
       };
       var radios = document.querySelectorAll("input[name=source]");

@@ -612,8 +612,39 @@ const SETUP_STYLE = `<style>
   body { align-items:flex-start; padding-top:24px; }
   .wordmark { font-size:32px; margin:0 0 14px; }
   .card { overflow:hidden; }
+  /* The picture is printed on paper in either theme: white, ink drawn on it. */
   .art { margin:-24px -24px 16px; background:#fff; }
-  .art img { display:block; width:100%; height:auto; }
+  .story { display:flex; align-items:center; height:172px; padding:12px 20px 14px; }
+  .story.done { justify-content:center; }
+  .story .bird { flex:none; height:140px; width:auto; }
+  .story .wire { position:relative; flex:1 1 0; align-self:stretch; min-width:18px; }
+  .story .sing { position:absolute; left:0; width:11px; height:15px; opacity:0; fill:#5d5348; stroke:#5d5348;
+    animation:sing 1.5s ease-out forwards; }
+  .story .sing svg { display:block; width:100%; height:100%; }
+  .story .n1 { top:30%; --to:62%; animation-delay:.5s; }
+  .story .n2 { top:48%; --to:34%; animation-delay:.85s; }
+  .story .n3 { top:36%; --to:6%; animation-delay:1.2s; }
+  @keyframes sing { from { left:0; opacity:0; transform:translateY(6px); } 25% { opacity:.9; } to { left:var(--to); opacity:.9; transform:none; } }
+  .story .station { position:relative; flex:none; width:26px; }
+  .story .station svg { display:block; width:100%; height:auto; stroke:#2a2723; fill:none; }
+  .story .station::after { content:""; position:absolute; left:50%; top:24%; width:36px; height:36px; margin:-18px 0 0 -18px; border-radius:50%;
+    border:1.5px solid #6b4a2c; opacity:0; animation:ring 1s ease-out 2.3s forwards; }
+  @keyframes ring { from { transform:scale(.4); opacity:.8; } to { transform:scale(1.5); opacity:0; } }
+  .story .data::before { content:""; position:absolute; left:4px; right:4px; top:calc(50% - 1px); border-top:2px dotted #bdb5a8; }
+  .story .dot { position:absolute; top:calc(50% - 4px); left:0; width:8px; height:8px; border-radius:50%; background:#6b4a2c; opacity:0;
+    animation:dot .8s ease-in-out 2.6s forwards; }
+  @keyframes dot { from { left:0; opacity:0; } 15% { opacity:1; } 85% { opacity:1; } to { left:calc(100% - 8px); opacity:0; } }
+  .story .pframe { flex:none; width:84px; padding:5px; background:#1d1b18; border-radius:2px; box-shadow:0 2px 6px rgba(40,30,15,.25); }
+  .story.done .pframe { width:110px; padding:6px; }
+  .story .pmat { position:relative; display:block; aspect-ratio:3 / 4; background:#fbfaf6; }
+  .story .pmat img { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .story .pmat img.swap { opacity:0; animation:swap .6s ease 3.3s forwards; }
+  @keyframes swap { to { opacity:1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .story .sing, .story .dot, .story .station::after, .story .pmat img.swap { animation:none; }
+    .story .sing { left:var(--to); opacity:.9; }
+    .story .pmat img.swap { opacity:1; }
+  }
   .step + .step { margin-top:22px; }
   .stepped .step + .step { margin-top:0; }
   .head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:0 0 6px; }
@@ -657,8 +688,21 @@ export function setupPage(v: SetupView): Response {
     <input type="radio" name="source" value="${value}"${src === value ? " checked" : ""}><span>${name}</span></label></li>`;
   const us = v.country === "US";
   const start = v.step === "email" ? "email" : "source";
-  // Each step opens on the setup screens' own wren: arriving, then perched.
-  const art = (name: string) => `<div class="art"><img src="/_ff/setup-${name}.webp" alt="" width="640" height="359"></div>`;
+  // Step 1 tells the whole idea in one picture (W-1073): a bird sings near a
+  // station, the station knows it, and the frame turns to that bird's
+  // illustration. It plays once; with reduced motion it is the last frame.
+  const NOTE = `<svg viewBox="0 0 12 16"><ellipse cx="4.2" cy="12.6" rx="3.2" ry="2.4" transform="rotate(-22 4.2 12.6)"/><path d="M7.1 12.4V1.6c2.6.6 4 2.2 4.1 4.6" fill="none" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+  const frame = (wren: boolean) => `<span class="pframe"><span class="pmat">${
+    wren ? "" : `<img src="/_ff/setup-frame-cardinal.webp" alt="" width="240" height="320">`}<img class="${wren ? "" : "swap"}" src="/_ff/setup-frame-wren.webp" alt="" width="240" height="320"></span></span>`;
+  const story = () => `<div class="art story" aria-hidden="true">
+            <img class="bird" src="/_ff/setup-wren.webp" alt="" width="300" height="453">
+            <span class="wire song"><i class="sing n1">${NOTE}</i><i class="sing n2">${NOTE}</i><i class="sing n3">${NOTE}</i></span>
+            <span class="station"><svg viewBox="0 0 40 64"><rect x="12" y="3" width="16" height="27" rx="8" fill="none" stroke-width="2.2"/><path d="M15.5 11h3M15.5 16h3M15.5 21h3" stroke-width="1.5" stroke-linecap="round"/><path d="M7 21v3a13 13 0 0 0 26 0v-3M20 37v19M12 58h16" fill="none" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+            <span class="wire data"><i class="dot"></i></span>
+            ${frame(false)}
+          </div>`;
+  const art = (name: string) => name === "account"
+    ? `<div class="art story done" aria-hidden="true">${frame(true)}</div>` : story();
   const head = (n: number, title: string, id = "") => `<div class="head"><h2 tabindex="-1"${id ? ` id="${id}"` : ""}><span class="sr">Step ${n} of 2. </span>${title}</h2>
           <span class="dots" aria-hidden="true"><i class="on"></i><i${n === 2 ? ' class="on"' : ""}></i></span></div>`;
   return page("Set up your frame · Featherframe", `${SETUP_STYLE}

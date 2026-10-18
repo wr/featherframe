@@ -20,12 +20,12 @@ import favicon192 from "../../server/static/favicon-192.png";
 import favicon32 from "../../server/static/favicon-32.png";
 import faviconIco from "../../server/static/favicon.ico";
 import touchIcon from "../../server/static/apple-touch-icon.png";
-// The phone setup page's two pictures (W-1073): the setup screens' wren,
-// cut from firmware/tools/screens/art (the bough with the flying, then the
-// perched, wren pasted at plate_layout.json's places, cropped to 110,40-930,500
-// and scaled to 640 wide).
-import setupStation from "./art/setup-station.webp";
-import setupAccount from "./art/setup-account.webp";
+// The phone setup page's pictures (W-1073): the singing wren of Havell
+// plate 78 (cut from the scan, its paper evened to white), and that plate and
+// the Northern Cardinal as the gray kit draws them (featherframe.preview).
+import setupWren from "./art/setup-wren.webp";
+import setupFrameWren from "./art/setup-frame-wren.webp";
+import setupFrameCardinal from "./art/setup-frame-cardinal.webp";
 
 // While a viewer waits to be claimed it asks this often (a TRMNL on battery
 // too: pairing is a minute or two, once).
@@ -223,7 +223,8 @@ export function pageIcon(path: string): Response | null {
     : path === "/static/favicon-32.png" ? [favicon32, "image/png"]
     : path === "/static/apple-touch-icon.png" ? [touchIcon, "image/png"]
     : path === "/favicon.ico" ? [faviconIco, "image/x-icon"]
-    : path === "/_ff/setup-station.webp" ? [setupStation, "image/webp"]
-    : path === "/_ff/setup-account.webp" ? [setupAccount, "image/webp"] : [null, ""];
+    : path === "/_ff/setup-wren.webp" ? [setupWren, "image/webp"]
+    : path === "/_ff/setup-frame-wren.webp" ? [setupFrameWren, "image/webp"]
+    : path === "/_ff/setup-frame-cardinal.webp" ? [setupFrameCardinal, "image/webp"] : [null, ""];
   return body ? new Response(body, { headers: { "Content-Type": type, "Cache-Control": "max-age=86400" } }) : null;
 }

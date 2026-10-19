@@ -641,8 +641,10 @@ export class Household extends DurableObject<Env> {
   firmwareFor(request: Request): boolean {
     const id = (request.headers.get("X-Device-Id") || "").trim().slice(0, 40);
     const push = id ? this.frameRow(id)?.push ?? null : null;
+    // A range of the primary key, so a check-in reads the firmware rows
+    // alone, not every file the household keeps.
     const files = this.sql.exec<{ path: string }>(
-      "SELECT path FROM files WHERE path LIKE 'firmware%.bin'").toArray().map((r) => r.path);
+      "SELECT path FROM files WHERE path >= 'firmware' AND path < 'firmwarf'").toArray().map((r) => r.path);
     return firmwareWaiting(push, files);
   }
 
@@ -714,10 +716,13 @@ export class Household extends DurableObject<Env> {
     const id = (request.headers.get("X-Device-Id") || "").trim().slice(0, 40) || "legacy";
     this.sql.exec("INSERT OR REPLACE INTO seen (id, at) VALUES (?, ?)", id, Date.now());
     const row = this.frameRow(id);
+    // Whether its /api/firmware would get past this door (W-921): a battery
+    // frame asks only then, so a check-in is one request, not two.
+    const update = this.firmwareFor(request) ? "1" : "0";
     if (row?.status === "ignored") {
       this.queueCheckin(request, id, "403", null);
       return new Response("this frame has not been added here", {
-        status: 403, headers: { "Cache-Control": "no-store", "X-FF-Frame": "ignored" },
+        status: 403, headers: { "Cache-Control": "no-store", "X-FF-Frame": "ignored", "X-FF-Update": update },
       });
     }
     if (!row || row.status !== "on") {
@@ -725,9 +730,10 @@ export class Household extends DurableObject<Env> {
       // household (W-848): the server just has not added it yet. "Try again"
       // — a 403 would send the firmware looking for another server on its LAN.
       this.queueCheckin(request, id, "403", null);
-      return new Response("not added yet", { status: 503, headers: { "Cache-Control": "no-store" } });
+      return new Response("not added yet", { status: 503, headers: { "Cache-Control": "no-store", "X-FF-Update": update } });
     }
     const headers = new Headers(JSON.parse(row.headers || "{}"));
+    headers.set("X-FF-Update", update);
     if (!row.etag || !row.file) return new Response("no frame yet", { status: 503, headers });
     headers.set("ETag", `"${row.etag}"`);
     headers.set("Cache-Control", "no-cache");

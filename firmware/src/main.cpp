@@ -12,6 +12,7 @@
 #include "TFT_eSPI.h"      // Seeed_GFX is a TFT_eSPI fork; EPaper lives here
 
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <HTTPClient.h>
 #include <WebSocketsClient.h>
 #include <ESPmDNS.h>
@@ -144,6 +145,22 @@ volatile bool g_pushUp = false;   // the socket is open (set by the push task)
 volatile bool g_pushWake = false; // the server said something changed: fetch now
 volatile bool g_pushOta = false;  // …and a firmware update is waiting for us
 static bool pushLive();         // the socket is up and its task is turning (W-853)
+
+// The last check-in's X-FF-Update (W-921): 1 an update waits, 0 none, -1 the
+// server did not say (one from before it did), so the frame asks as it used to.
+int8_t   g_updateWaiting = -1;
+// This wake ends in deep sleep, and once its check-in is answered it is done
+// with the network (goOffline, W-921): the radio is off for the paint.
+bool     g_sleepWake = false;
+bool     g_offline = false;
+bool     g_wasOnline = false;   // Wi-Fi was up when it went off
+static bool wifiUp() { return g_offline ? g_wasOnline : WiFi.status() == WL_CONNECTED; }
+// How long the last deep-sleep wake was up and took to join, both in ms, "q"
+// a quick rejoin and "s" a scan: rides X-Wake-Detail on the next check-in, so
+// a wake's cost is read off the server, not a serial cable (W-921).
+static uint32_t g_joinMs = 0;
+static bool     g_joinQuick = false;
+RTC_DATA_ATTR char g_lastUp[28] = "";
 
 // The server URL as typed into the portal is user input: trim it, give it a
 // scheme (HTTPClient::begin() rejects a bare host:port), and drop trailing
@@ -634,6 +651,9 @@ void goToSleep(uint32_t minutes) {
   if (minutes > FF_MAX_SLEEP_MINUTES) minutes = FF_MAX_SLEEP_MINUTES;
   esp_sleep_enable_timer_wakeup((uint64_t)minutes * 60ULL * 1000000ULL);
 
+  if (g_sleepWake)
+    snprintf(g_lastUp, sizeof(g_lastUp), "up=%lu join=%lu%c", (unsigned long)millis(),
+             (unsigned long)g_joinMs, g_joinQuick ? 'q' : 's');
   ledSleep();
   Serial.printf("Sleeping for %u min (or button)\n", minutes);
   Serial.flush();
@@ -732,6 +752,60 @@ static void onWifiLed(arduino_event_id_t ev, arduino_event_info_t) {
     default:
       break;
   }
+}
+
+// A wake out of deep sleep joins the access point the last wake used, by its
+// BSSID and channel, with no scan (W-921): the all-channel scan below costs a
+// second or two of radio on every check-in. Kept in RTC memory, so only a
+// deep-sleep wake has one. The pinned join is this wake's alone: from here to
+// the sleep the Wi-Fi config is held in RAM, even after a failed try, or the
+// core's own reconnect (an event, on its own task) could save it over the
+// owner's network, and a channel change would then strand the frame on every
+// join after a restart. Only Improv saves again (ff_improv.cpp).
+RTC_DATA_ATTR uint8_t g_apBssid[6];
+RTC_DATA_ATTR uint8_t g_apChannel = 0;     // 0: none known, scan
+RTC_DATA_ATTR time_t  g_apScannedAt = 0;   // when a scan chose it (system time runs through deep sleep)
+
+static bool quickJoin() {
+  const esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+  if (cause != ESP_SLEEP_WAKEUP_TIMER && cause != ESP_SLEEP_WAKEUP_EXT1) return false;
+  const time_t now = time(nullptr);
+  if (!g_apChannel || now < g_apScannedAt || now - g_apScannedAt >= (time_t)FF_QUICK_JOIN_MAX_S)
+    return false;
+  wifi_config_t saved, pinned;
+  if (esp_wifi_get_config(WIFI_IF_STA, &saved) != ESP_OK || !saved.sta.ssid[0]) return false;
+  pinned = saved;
+  pinned.sta.bssid_set = 1;
+  memcpy(pinned.sta.bssid, g_apBssid, 6);
+  pinned.sta.channel = g_apChannel;
+  pinned.sta.scan_method = WIFI_FAST_SCAN;
+  esp_wifi_set_storage(WIFI_STORAGE_RAM);
+  esp_wifi_set_config(WIFI_IF_STA, &pinned);
+  const uint32_t t0 = millis();
+  WiFi.begin();                               // the config just set
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < FF_QUICK_JOIN_MS) delay(10);
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.printf("wifi: rejoined ch %u in %lu ms\n", g_apChannel, (unsigned long)(millis() - t0));
+    return true;
+  }
+  // Gone or moved (a channel change, W-1056): the owner's network as saved,
+  // and the scan.
+  Serial.println("wifi: rejoin failed, scanning");
+  WiFi.disconnect();
+  esp_wifi_set_config(WIFI_IF_STA, &saved);
+  g_apChannel = 0;
+  return false;
+}
+
+// The access point this wake is on, for the next one. A weak one is not
+// kept: the next wake scans for a better.
+static void rememberAp(bool quick) {
+  const uint8_t* b = WiFi.BSSID();
+  if (!b) return;
+  memcpy(g_apBssid, b, 6);
+  g_apChannel = WiFi.channel();
+  if (!quick) g_apScannedAt = time(nullptr);
+  if (WiFi.RSSI() < FF_QUICK_JOIN_MIN_RSSI) g_apChannel = 0;
 }
 
 bool ensureWifi(bool openPortal, bool showBoot) {
@@ -852,9 +926,14 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
 
   bool ok;
+  bool quick = false;
   if (openPortal) {
     ok = wm.startConfigPortal("Featherframe-Setup");
   } else {
+    // A wake out of deep sleep tries the last access point first; joined,
+    // autoConnect finds the frame already on the network and returns.
+    const uint32_t joinAt = millis();
+    if (!showBoot) quick = quickJoin();
     // Deep-sleep wakes connect silently (showBoot false): the resident plate
     // stays on the glass and a 304 wake never repaints anything.
 #if FF_FULL_REFRESH
@@ -871,6 +950,8 @@ bool ensureWifi(bool openPortal, bool showBoot) {
     if (showBoot) showScreen(FF_SCR_BOOT_WIFI);   // "Connecting to Wi-Fi"
 #endif
     ok = wm.autoConnect("Featherframe-Setup");
+    g_joinMs = millis() - joinAt;
+    g_joinQuick = quick;
   }
   // First run: no network saved yet — keep the portal open until one is. The
   // loop lives HERE because serverParam is stack-allocated and WiFiManager
@@ -912,6 +993,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
   }
   bool connected = ok && WiFi.status() == WL_CONNECTED;
   if (connected) markFirmwareGood();   // a build that gets this far is not a brick
+  if (connected) rememberAp(quick);
   // Joined: green breathes until the server answers (noteFetchOutcome). A
   // wake out of deep sleep stays dark.
   if (!connected) ledSet(LED_NO_WIFI);
@@ -1641,6 +1723,8 @@ static void applyServedPower(const String& mode, const String& minutes, const St
   }
 }
 
+static void goOffline(float vbat, bool askUpdate);   // with the OTA check, below
+
 static FetchResult fetchFrame(const char* path, bool resident, float vbat, int pct) {
   // Release the boot-art buffers first: the IT8951 full-image write needs ~1.31 MB of
   // contiguous PSRAM for its mirror buffer, and if the boot buffers still hold it the
@@ -1664,6 +1748,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   http.addHeader("X-Wake", g_wakeToken);            // stable token (spec §3)
   // cause=N keys=0xM + ADC diag + last transfer + last mDNS + stuck refreshes (debug)
   http.addHeader("X-Wake-Detail", String(g_wakeInfo) + " " + g_battRaw + " " + g_lastXfer
+                                  + (g_lastUp[0] ? String(" ") + g_lastUp : String(""))
                                   + (g_mdnsNote[0] ? String(" ") + g_mdnsNote : String(""))
                                   + (g_stuckCount ? String(" panel=stuck") + String((int)g_stuckCount)
                                                     + (panelHeldOff() ? "+held" : "") : String("")));
@@ -1689,11 +1774,14 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
   // socket is open and the next plain check-in is a heartbeat N s away.
   if (g_alwaysAwake)
     http.addHeader("X-FF-Push", pushLive() ? String(FF_PUSH_HEARTBEAT_MS / 1000) : String("0"));
-  const char* collect[] = {"ETag", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation", "X-FF-Mat"};
-  http.collectHeaders(collect, 8);
+  const char* collect[] = {"ETag", "X-Power-Mode", "X-Wake-Minutes", "X-Poll-Seconds", "X-FF-Frame", "X-FF-Server", "X-FF-Rotation", "X-FF-Mat", "X-FF-Update"};
+  http.collectHeaders(collect, 9);
 
   int code = http.GET();
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
+  // Whether /api/firmware has an image for us (W-921): asked only then.
+  String upd = http.header("X-FF-Update");
+  g_updateWaiting = upd == "1" ? 1 : upd == "0" ? 0 : -1;
   // The server announces which way up the frame hangs on every response;
   // remember it for the baked screens/tiles (the plates arrive already turned).
   String rot = http.header("X-FF-Rotation");
@@ -1782,6 +1870,7 @@ static FetchResult fetchFrame(const char* path, bool resident, float vbat, int p
                 ms ? got / 1.024f / ms : 0.0f, why ? " " : "", why ? why : "");
   if (got != len) { free(buf); return FETCH_ERROR; }
 
+  goOffline(vbat, true);                         // a deep-sleep wake paints with the radio off
   bool painted = displayFrame(buf, len, true);   // retain: the toast band restores from it
   free(buf);
   if (!painted) return g_paintOk ? FETCH_REJECTED : FETCH_STUCK;   // keep the ETag unset so we retry
@@ -1881,7 +1970,7 @@ static bool toastOnFreshPlate(int t, float vbat, int pct) {
 // connected (green, then off); no answer is no Wi-Fi or no server.
 static void noteLedOutcome(FetchResult r) {
   if (r == FETCH_STUCK || r == FETCH_REJECTED) return;   // the panel's or the image's, not the link's
-  if (r == FETCH_ERROR) ledSet(WiFi.status() != WL_CONNECTED ? LED_NO_WIFI : LED_NO_SERVER);
+  if (r == FETCH_ERROR) ledSet(!wifiUp() ? LED_NO_WIFI : LED_NO_SERVER);
   else if (r == FETCH_PENDING || pairingOnGlass()) ledSet(LED_PAIRING);
   else ledSet(LED_PAIRED);
 }
@@ -1901,7 +1990,7 @@ void noteFetchOutcome(FetchResult r) {
   if (r == FETCH_NOFRAME && pairingOnGlass()) return;   // paired; its picture is being drawn
   if (r == FETCH_STUCK) return;                         // the panel's, not the server's (X-Wake-Detail)
   bumpFail();
-  int kind = (WiFi.status() != WL_CONNECTED) ? ERRK_WIFI
+  int kind = !wifiUp() ? ERRK_WIFI
            : r == FETCH_NOFRAME ? ERRK_NOFRAME
            : r == FETCH_PENDING ? ERRK_PENDING : ERRK_SERVER;
   showErrorState(kind);
@@ -1931,6 +2020,9 @@ void markFirmwareGood() {
 }
 
 void maybeOTA(float vbat) {
+  if (g_offline) return;               // asked already, before the radio went off
+  // The check-in said there is nothing for us (W-921): no second connection.
+  if (g_updateWaiting == 0) return;
   // A flash write is the one thing worth refusing on a weak cell.
   if (vbat > FF_BATT_ABSENT_V && vbat < FF_OTA_MIN_BATT_V) {
     Serial.printf("OTA skipped: battery %.2f V\n", vbat);
@@ -1985,6 +2077,23 @@ void maybeOTA(float vbat) {
   // the server) and must be retried, not remembered forever.
   if (md5.length() && written == (size_t)len && err != UPDATE_ERROR_MD5)
     prefs.putString("ota_bad", md5);
+}
+
+// A deep-sleep wake is done with the network once its check-in is answered
+// (W-921): the update check comes first (a new image restarts the frame, which
+// then paints the plate), then the radio goes off for whatever the glass shows
+// next, and only the sleep follows. The Spectra's ~27 s refresh is a wait on
+// the panel, so its CPU is slowed for it too.
+static void goOffline(float vbat, bool askUpdate) {
+  if (!g_sleepWake || g_offline) return;
+  if (askUpdate) maybeOTA(vbat);
+  g_wasOnline = WiFi.status() == WL_CONNECTED;
+  g_offline = true;
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+#if FF_PANEL_SPECTRA6
+  setCpuFrequencyMhz(80);
+#endif
 }
 
 // A restart that finds its plate on the glass leaves it there (full-refresh
@@ -2128,6 +2237,7 @@ void setup() {
 
   // --- Deep-sleep model: decode the waking button, act once, sleep.
   armWatchdog();                            // reboot if a wake cycle hangs
+  g_sleepWake = true;
 
   uint64_t keyBits = buttonWake ? esp_sleep_get_ext1_wakeup_status() : 0;
   bool keyCheck   = keyBits & (1ULL << PIN_KEY0);
@@ -2156,6 +2266,7 @@ void setup() {
     if (buttonWake) ackBlink(4);
     bumpFail();
     uint32_t mins = retryDelayMinutes();
+    goOffline(vbat, false);                 // the station gives up joining for the paint
     showErrorState(ERRK_WIFI);
     uint32_t nm = (uint32_t)g_failMinutes + mins;
     g_failMinutes = nm > 65535 ? 65535 : (uint16_t)nm;
@@ -2186,18 +2297,20 @@ void setup() {
 #endif
   }
   if (buttonWake && (r == FETCH_ERROR || r == FETCH_REJECTED || r == FETCH_NOFRAME || r == FETCH_STUCK)) ackBlink(4);
+  // The update check, if the server answered (unreachable: don't burn a second
+  // connect timeout), then the radio off for any error screen or clean
+  // repaint. A new plate went offline before its paint, in fetchFrame.
+  goOffline(vbat, r != FETCH_ERROR);
   if (residentFetch) {
     noteFetchOutcome(r);
     if (r != FETCH_UPDATED && r != FETCH_NOCHANGE) {
       uint32_t mins = retryDelayMinutes();
       uint32_t nm = (uint32_t)g_failMinutes + mins;
       g_failMinutes = nm > 65535 ? 65535 : (uint16_t)nm;
-      if (r != FETCH_ERROR) maybeOTA(vbat);   // the server answered (404/503): worth the check
       goToSleep(mins);
       return;
     }
   }
-  maybeOTA(vbat);
   if (g_alwaysAwake) {
     // The server switched us to always-awake during this wake. The awake
     // model wants its own panel init (begin(0)) and boot flow; a restart is

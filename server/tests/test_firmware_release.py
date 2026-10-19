@@ -335,6 +335,50 @@ def test_a_dev_image_hosted_before_the_update_does_not_undo_it(client, tmp_path)
     assert _ask(c).content == _image(tag=b"dev")
 
 
+# -- X-FF-Update (W-921) ---------------------------------------------------------
+# A battery frame asks /api/firmware only when its check-in says an image waits,
+# so the check-in's answer must be exactly whether that ask would get one.
+def _check_in(client, md5="0" * 32, fid=FID, board=BOARD):
+    return client.get("/api/frame", headers={"X-Device-Id": fid, "X-Board": board,
+                                             "X-FF-Sketch-MD5": md5})
+
+
+def _agree(client, **kw):
+    """The check-in's X-FF-Update, held to what /api/firmware answers."""
+    said = _check_in(client, **kw).headers.get("X-FF-Update")
+    assert said == ("1" if _ask(client, **kw).status_code == 200 else "0")
+    return said
+
+
+def test_a_check_in_says_when_the_release_waits(client):
+    c, svc = client
+    svc.releases.check(NOW)
+    _kit(svc)
+    assert _agree(c) == "0"                                  # not pressed
+    _kit(svc, update_firmware=True)
+    assert _agree(c) == "0"                                  # pressed, the image not here yet
+    svc._tick_firmware()
+    assert _check_in(c).headers["X-FF-Update"] == "1"
+    assert "release_served_at" not in svc.frames.get(FID)    # saying so is not handing it over
+    assert _agree(c) == "1"
+    assert _agree(c, md5=hashlib.md5(_image()).hexdigest()) == "0"   # it runs it already
+    assert _agree(c, fid="BB:BB:BB:00:00:04") == "0"         # another frame, not pressed
+
+
+def test_a_check_in_says_when_a_dev_image_waits(client, tmp_path):
+    c, svc = client
+    _kit(svc)
+    assert _agree(c) == "0"                                  # nothing hosted
+    dev = tmp_path / "data" / "firmware.bin"
+    dev.parent.mkdir(parents=True, exist_ok=True)
+    dev.write_bytes(_image(tag=b"dev"))
+    assert _agree(c) == "1"
+    assert _agree(c, md5=hashlib.md5(_image(tag=b"dev")).hexdigest()) == "0"
+    assert _agree(c, board=OTHER) == "0"                     # another board's image
+    r = _check_in(c, fid="CC:CC:CC:00:00:05")                # a frame not added yet
+    assert r.status_code == 403 and r.headers["X-FF-Update"] == "1"
+
+
 def test_the_household_switch_is_on_the_settings_form(client):
     c, svc = client
     from featherframe.config import load_config

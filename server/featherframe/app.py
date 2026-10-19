@@ -395,7 +395,8 @@ async def api_frame(request: Request):
     frame_id = (_str_header(request.headers.get("x-device-id")) or "")[:40] or svc.LEGACY_FRAME
     if status != "on":
         headers = {"Cache-Control": "no-store",
-                   "X-FF-Frame": "pending" if status == "asking" else "ignored"}
+                   "X-FF-Frame": "pending" if status == "asking" else "ignored",
+                   "X-FF-Update": _update_header(svc, _str_header(request.headers.get("x-device-id")), device_extra)}
         # If another instance on the LAN draws for this frame's panel, say so:
         # the frame moves there instead of waiting here to be added.
         adv = getattr(request.app.state, "advertiser", None)
@@ -426,7 +427,9 @@ async def api_frame(request: Request):
                       "X-Power-Mode": cfg.power_mode,
                       # On the collage both follow the collage's next redraw.
                       "X-Wake-Minutes": str(wake_min),
-                      "X-Poll-Seconds": str(poll_s)}
+                      "X-Poll-Seconds": str(poll_s),
+                      # Whether /api/firmware has an image for it (W-921).
+                      "X-FF-Update": _update_header(svc, _str_header(request.headers.get("x-device-id")), device_extra)}
     telemetry = {**device_extra, "battery_voltage": volt, "battery_percent": pct,
                  "wifi_rssi": rssi, "ip": client_ip,
                  "user_agent": request.headers.get("user-agent", "") or None}
@@ -583,36 +586,59 @@ def _announce_panel(request: Request, svc) -> None:
 # The device offers its running sketch MD5 on every wake. If data/firmware.bin
 # exists and differs, it gets the new build; otherwise 304. Deploy = drop a new
 # firmware.bin in the data dir (`make ota` does build + copy).
-@_get("/api/firmware")
-async def api_firmware(request: Request):
-    svc = _svc(request)
-    board_hdr = _str_header(request.headers.get("x-board"))
-    frame_id = _str_header(request.headers.get("x-device-id"))
+def _firmware_answer(svc, frame_id: Optional[str], board: Optional[str],
+                     running_md5: Optional[str], note: bool = True):
+    """What GET /api/firmware answers a frame: (200, image path, md5, whether
+    it is a release), or (304 | 404, why, None, False). The one rule for both
+    asks: a check-in says whether an update waits (X-FF-Update, W-921) by
+    asking this with `note` off, and the frame asks /api/firmware only then,
+    so the two can never disagree."""
     # An official release the owner asked this frame to take (W-838) comes
     # first; otherwise a dev image hosted by `make ota`, unless this frame was
     # handed a release after that image was put there.
-    bin_path = svc.release_image_for(frame_id, board_hdr)
+    bin_path = svc.release_image_for(frame_id, board, note=note)
     release = bin_path is not None
     if bin_path is None:
-        bin_path = _firmware_for(board_hdr)
+        bin_path = _firmware_for(board)
         if bin_path is not None and svc.dev_image_superseded(frame_id, bin_path.stat().st_mtime):
-            return Response(status_code=304)
+            return 304, b"", None, False
     if bin_path is None:
-        return Response(status_code=404, content=b"no firmware hosted")
+        return 404, b"no firmware hosted", None, False
     md5 = _hosted_firmware_md5(bin_path)
     if md5 is None:
-        return Response(status_code=404, content=b"no firmware hosted")
-    if request.headers.get("x-firmware-md5", "").lower() == md5:
-        return Response(status_code=304)
+        return 404, b"no firmware hosted", None, False
+    if (running_md5 or "").strip().lower() == md5:
+        return 304, b"", None, False
     # A frame names its board (X-Board) and every build carries that string, so
     # an image built for the other board is never handed over: an EE03 image
     # on an EE02 boots, joins Wi-Fi, passes the rollback bar — and drives the
     # wrong panel until someone reflashes it over USB.
-    board = (request.headers.get("x-board") or "").strip()
     if board and not _firmware_is_for(bin_path, board):
-        log.warning("hosted firmware.bin is not a %r build: not serving it to %s",
-                    board, request.client.host if request.client else "?")
-        return Response(status_code=404, content=b"hosted firmware is for another board")
+        return 404, b"hosted firmware is for another board", None, False
+    return 200, bin_path, md5, release
+
+
+def _update_header(svc, frame_id: Optional[str], extra: dict) -> str:
+    """X-FF-Update for a check-in: "1" when its next /api/firmware would hand
+    it an image (W-921). A battery frame asks only then; a second TLS
+    connection on every wake was most of a 304 wake's cost."""
+    code = _firmware_answer(svc, frame_id, extra.get("board"), extra.get("sketch_md5"),
+                            note=False)[0]
+    return "1" if code == 200 else "0"
+
+
+@_get("/api/firmware")
+async def api_firmware(request: Request):
+    svc = _svc(request)
+    board = _str_header(request.headers.get("x-board"))
+    frame_id = _str_header(request.headers.get("x-device-id"))
+    code, bin_path, md5, release = _firmware_answer(
+        svc, frame_id, board, request.headers.get("x-firmware-md5"))
+    if code != 200:
+        if code == 404 and bin_path == b"hosted firmware is for another board":
+            log.warning("hosted firmware.bin is not a %r build: not serving it to %s",
+                        board, request.client.host if request.client else "?")
+        return Response(status_code=code, content=bin_path or None)
     log.info("serving firmware.bin (%d bytes, md5=%s) to %s",
              bin_path.stat().st_size, md5, request.headers.get("user-agent", "?"))
     if not release:

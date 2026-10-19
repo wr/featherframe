@@ -792,7 +792,14 @@ static bool quickJoin() {
   // and the scan.
   Serial.println("wifi: rejoin failed, scanning");
   WiFi.disconnect();
-  esp_wifi_set_config(WIFI_IF_STA, &saved);
+  // The driver refuses a new config while it is still connecting, which the
+  // core's own retry of the failed join may have started: try until it holds.
+  for (int i = 0; i < 20; i++) {
+    wifi_config_t now;
+    if (esp_wifi_set_config(WIFI_IF_STA, &saved) == ESP_OK &&
+        esp_wifi_get_config(WIFI_IF_STA, &now) == ESP_OK && !now.sta.bssid_set) break;
+    delay(50);
+  }
   g_apChannel = 0;
   return false;
 }
@@ -933,7 +940,7 @@ bool ensureWifi(bool openPortal, bool showBoot) {
     // A wake out of deep sleep tries the last access point first; joined,
     // autoConnect finds the frame already on the network and returns.
     const uint32_t joinAt = millis();
-    if (!showBoot) quick = quickJoin();
+    if (!showBoot && g_sleepWake) quick = quickJoin();
     // Deep-sleep wakes connect silently (showBoot false): the resident plate
     // stays on the glass and a 304 wake never repaints anything.
 #if FF_FULL_REFRESH

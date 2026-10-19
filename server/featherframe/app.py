@@ -396,7 +396,7 @@ async def api_frame(request: Request):
     if status != "on":
         headers = {"Cache-Control": "no-store",
                    "X-FF-Frame": "pending" if status == "asking" else "ignored",
-                   "X-FF-Update": _update_header(svc, _str_header(request.headers.get("x-device-id")), device_extra)}
+                   **_update_header(svc, _str_header(request.headers.get("x-device-id")), device_extra)}
         # If another instance on the LAN draws for this frame's panel, say so:
         # the frame moves there instead of waiting here to be added.
         adv = getattr(request.app.state, "advertiser", None)
@@ -429,7 +429,7 @@ async def api_frame(request: Request):
                       "X-Wake-Minutes": str(wake_min),
                       "X-Poll-Seconds": str(poll_s),
                       # Whether /api/firmware has an image for it (W-921).
-                      "X-FF-Update": _update_header(svc, _str_header(request.headers.get("x-device-id")), device_extra)}
+                      **_update_header(svc, _str_header(request.headers.get("x-device-id")), device_extra)}
     telemetry = {**device_extra, "battery_voltage": volt, "battery_percent": pct,
                  "wifi_rssi": rssi, "ip": client_ip,
                  "user_agent": request.headers.get("user-agent", "") or None}
@@ -618,13 +618,19 @@ def _firmware_answer(svc, frame_id: Optional[str], board: Optional[str],
     return 200, bin_path, md5, release
 
 
-def _update_header(svc, frame_id: Optional[str], extra: dict) -> str:
+def _update_header(svc, frame_id: Optional[str], extra: dict) -> dict:
     """X-FF-Update for a check-in: "1" when its next /api/firmware would hand
     it an image (W-921). A battery frame asks only then; a second TLS
-    connection on every wake was most of a 304 wake's cost."""
-    code = _firmware_answer(svc, frame_id, extra.get("board"), extra.get("sketch_md5"),
-                            note=False)[0]
-    return "1" if code == 200 else "0"
+    connection on every wake was most of a 304 wake's cost. If the answer
+    fails, the header is left out and the frame asks as it used to: the
+    picture is never held up by the update check."""
+    try:
+        code = _firmware_answer(svc, frame_id, extra.get("board"), extra.get("sketch_md5"),
+                                note=False)[0]
+    except Exception:
+        log.debug("X-FF-Update: no answer", exc_info=True)
+        return {}
+    return {"X-FF-Update": "1" if code == 200 else "0"}
 
 
 @_get("/api/firmware")

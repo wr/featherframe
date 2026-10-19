@@ -379,6 +379,18 @@ def test_a_check_in_says_when_a_dev_image_waits(client, tmp_path):
     assert r.status_code == 403 and r.headers["X-FF-Update"] == "1"
 
 
+def test_a_failed_update_check_never_holds_up_the_picture(client, monkeypatch):
+    from featherframe import app as app_mod
+    c, svc = client
+    _kit(svc)
+
+    def boom(*a, **kw):
+        raise OSError("firmware.bin went away")
+    monkeypatch.setattr(app_mod, "_firmware_answer", boom)
+    r = _check_in(c)
+    assert r.status_code in (200, 304, 503) and "X-FF-Update" not in r.headers   # the frame asks as before
+
+
 def test_the_household_switch_is_on_the_settings_form(client):
     c, svc = client
     from featherframe.config import load_config

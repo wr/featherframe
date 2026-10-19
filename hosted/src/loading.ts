@@ -1,12 +1,17 @@
 // The webapp before there is a copy of it (W-946): its header and its cards
-// as gray blocks, no text. It asks the front door whether the page is ready
-// and reloads with its own query and hash once it is.
+// as blocks on its field, no text. It asks the front door whether the page is
+// ready and reloads with its own query and hash once it is. It takes the
+// webapp's theme, the footer's Light / Dark / System kept as `ff-theme` in
+// this browser, and its colours (`--bg`, `--surface` in index.html), so
+// nothing changes at the swap (W-1075).
 
 const HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Featherframe</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>Featherframe</title>
+<script>(function(){try{var t=localStorage.getItem('ff-theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <style>
-  :root { --bg:#f6f4ef; --block:#e7e3da; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#171614; --block:#262420; } }
+  :root { --bg:#ececea; --block:#fcfcfb; color-scheme:light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#1a1916; --block:#232220; color-scheme:dark; } }
+  :root[data-theme="dark"] { --bg:#1a1916; --block:#232220; color-scheme:dark; }
   body { margin:0; background:var(--bg); }
   header { height:64px; max-width:1180px; margin:0 auto; padding:0 16px; display:flex; align-items:center; }
   .mark { width:150px; height:30px; border-radius:6px; background:var(--block); }

@@ -2533,10 +2533,12 @@ class FeatherframeService:
                         own.pop("update_firmware", None)
                         rows[fid]["set"] = own
 
-    def release_image_for(self, frame_id: Optional[str], board: Optional[str]):
+    def release_image_for(self, frame_id: Optional[str], board: Optional[str],
+                          note: bool = True):
         """The verified release image a frame is owed right now, or None:
         the frame is on, an update is pending for it, and the image for the
-        board it names is already here. Noting it, so a dev image hosted
+        board it names is already here. Noting it (unless `note` is False, a
+        check-in asking whether one waits, W-921), so a dev image hosted
         before the update does not take the frame straight back."""
         row = self.frames.get(frame_id) if frame_id else None
         if (row is None or row.get("status") != frames_mod.ON
@@ -2549,7 +2551,7 @@ class FeatherframeService:
         if not fw or not fw["pending"]:
             return None
         path = self.releases.app_for_board(board or rep.get("board"))
-        if path is not None:
+        if path is not None and note:
             stamp = self._clock().isoformat(timespec="seconds")
             with self._lock, self.frames.mutate() as rows:
                 if frame_id in rows:

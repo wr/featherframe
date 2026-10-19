@@ -159,8 +159,10 @@ dithered and packed with `frame_config(row)`, kept in the drawn store (below)
 and pointed at by `_out[id].file`, and redrawn only when its picture or its
 settings change (`_out[id].src` names both). `/api/frame` resolves the asking frame's row and
 serves its bytes, its ETag, its own `X-FF-Rotation` / `X-Power-Mode` /
-`X-Wake-Minutes` / `X-Poll-Seconds`, and its button views drawn with its
-config. Its two intervals are `service.frame_intervals`: on plates the owner's,
+`X-Wake-Minutes` / `X-Poll-Seconds`, `X-FF-Update` (W-921: `1` when its
+`/api/firmware` would hand it an image, `app._firmware_answer`, the one rule
+for both asks; the front door's is `firmwareFor`), and its button views drawn
+with its config. Its two intervals are `service.frame_intervals`: on plates the owner's,
 on the collage the wait to just after `collage_next_at`, so a frame on the
 collage checks in when there is something new and never on a clock of its own.
 **Push, don't poll (W-841).** A kit on USB also holds a WebSocket to
@@ -1003,7 +1005,15 @@ theme sizes.
 **Firmware (`firmware/src/main.cpp`).** Deep-sleep model: all logic in `setup()`,
 `loop()` empty. Wake → Wi-Fi (WiFiManager captive portal on first boot / held
 button) → `GET /api/frame` with stored ETag → 304 sleeps, else `pushImage` +
-`update()` (full refresh) → deep sleep (timer + button ext1 wake). Uses Seeed's
+`update()` (full refresh) → deep sleep (timer + button ext1 wake). A wake
+spends as little radio as it can (W-921): it rejoins the last access point
+by BSSID and channel from RTC memory (`quickJoin`; the all-channel scan only
+when that fails, daily, or after a weak join, and the Wi-Fi config held in
+RAM for the wake so the pin is never saved), asks `/api/firmware` only when
+the check-in's `X-FF-Update` says `1` (absent, an older server: as before),
+and once the check-in is answered it is done with the network (`goOffline`:
+the update check, then the radio off, and the EE02's CPU at 80 MHz, before
+any paint). Uses Seeed's
 `Seeed_GFX` via `TFT_eSPI.h`; `begin(1)` is the fast re-init after a sleep wake.
 Panel/board selection is `lib/driver/driver.h` (combo 511). Battery voltage is
 `analogReadMilliVolts(A0) * 2 * VBAT_TRIM` (10k/10k divider; raw counts flatten

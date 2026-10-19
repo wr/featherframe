@@ -256,6 +256,8 @@ async function pairingScreen(request: Request, env: Env, id: string, key: string
   const headers = new Headers({
     ETag: `"${etag}"`, "Cache-Control": "no-cache",
     "X-Poll-Seconds": String(PAIRING_POLL_S), "X-FF-Pair-Code": shown,
+    // Its /api/firmware is a 304 until it is claimed (W-921).
+    "X-FF-Update": "0",
   });
   const inm = (request.headers.get("If-None-Match") || "").replace(/"/g, "").trim();
 

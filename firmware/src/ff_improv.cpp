@@ -5,6 +5,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <esp_wifi.h>
 
 namespace {
 
@@ -115,6 +116,7 @@ void join(const char* ssid, const char* pass) {
   Serial.printf("Improv: joining \"%s\"\n", ssid);
   WiFi.persistent(true);                      // kept in NVS, as the portal keeps it
   if (!(WiFi.getMode() & WIFI_STA)) WiFi.mode(WIFI_AP_STA);   // the portal's AP stays up
+  esp_wifi_set_storage(WIFI_STORAGE_FLASH);   // a deep-sleep wake's quick join held it in RAM (W-921)
   WiFi.begin(ssid, pass);
   uint32_t t0 = millis();
   while (!connected() && millis() - t0 < JOIN_TIMEOUT_MS) vTaskDelay(pdMS_TO_TICKS(100));

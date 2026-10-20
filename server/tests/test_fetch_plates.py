@@ -30,6 +30,17 @@ class _Resp:
     def iter_content(self, chunk_size=1 << 16):
         yield self._body
 
+    @property
+    def text(self) -> str:
+        return self._body.decode()
+
+    def json(self):
+        return json.loads(self._body)
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
     def __enter__(self):
         return self
 
@@ -157,25 +168,94 @@ def test_species_legend_reduces_a_composite_to_the_species_key(fp):
     assert fp.species_legend(card, None, plate_legends) == []
 
 
-def test_release_restore_skips_a_part_for_a_few_missing_plates(fp, tmp_path, monkeypatch):
-    """An upgrade that needs one new plate must not pull a whole part: only a
-    part missing at least `min_missing` wanted plates is fetched (W-764)."""
-    asked: list[set[int]] = []
+# --- The dataset release (W-816) ----------------------------------------------
 
-    def fake_fetch(session, base, wanted, catalog, images_dir):
-        asked.append(set(wanted))
-        return set(wanted)
+REL = "https://gh/havell-v2"
+TABLE = "https://raw/v1.2.0/havell/plates.csv"
+PLATES_CSV = (
+    "plate,title,legend,imprint,image_url,sheet_asset,crop_asset,notes\n"
+    "1,Wild Turkey,Male.,,https://www.audubon.org/boa_plates/plate-1-wild-turkey.jpg,"
+    "sheet-001.jpg,crop-001.jpg,\n"
+    '361,"Long-tailed, or Dusky Grous",,,'
+    "https://www.audubon.org/boa_plates/plate-361-long-tailed-or-dusky-grous.jpg,"
+    "sheet-361.jpg,crop-361.jpg,\n")
 
-    monkeypatch.setattr(fp.plate_release, "fetch_parts", fake_fetch)
-    cat = _catalog(1, 2, 3, 150)
-    (tmp_path / cat[3]["fileName"]).write_bytes(b"x" * 2048)  # already cached
-    got = fp.restore_from_release(FakeSession({}), "https://r.test", {1, 2, 3, 150},
-                                  cat, tmp_path, min_missing=2)
-    assert asked == [{1, 2}] and got == {1, 2}  # 150 is alone in its part; 3 is on disk
-    # The last resort after a mirror failure asks for a single plate.
-    fp.restore_from_release(FakeSession({}), "https://r.test", {150}, cat, tmp_path, min_missing=1)
-    assert asked[-1] == {150}
-    assert fp.restore_from_release(FakeSession({}), None, {150}, cat, tmp_path) == set()
+
+def _manifest(**sheets: bytes) -> _Resp:
+    import hashlib
+    files = {name.replace("_", "-") + ".jpg": {"sha256": hashlib.sha256(body).hexdigest()}
+             for name, body in sheets.items()}
+    return _Resp(200, json.dumps({"files": files}).encode())
+
+
+def test_a_havell_plate_comes_from_the_dataset_release_first(fp, tmp_path, monkeypatch):
+    """The release is asked before the mirror, and a sheet is kept only when
+    its sha256 matches the manifest: a wrong one falls through to the mirror."""
+    monkeypatch.setattr(fp, "RETRY_BACKOFF_S", 0)
+    cat = _catalog(7, 8)
+    good, bad = b"r" * 4096, b"w" * 4096
+    mirror8 = f"{fp.RAW_BASE}/plates/1-99/{cat[8]['fileName']}"
+    sess = FakeSession({
+        f"{REL}/manifest.json": [_manifest(sheet_007=good, sheet_008=good)],
+        f"{REL}/sheet-007.jpg": [_Resp(200, good)],
+        f"{REL}/sheet-008.jpg": [_Resp(200, bad)],
+        mirror8: [_Resp(200, b"m" * 4096)],
+    })
+    manifests: dict = {}
+    assert fp.download_plate(sess, 7, cat, tmp_path, False, REL, manifests) == cat[7]["fileName"]
+    assert (tmp_path / cat[7]["fileName"]).read_bytes() == good
+    assert not any(fp.RAW_BASE in c for c in sess.calls)          # the mirror never asked
+    assert fp.download_plate(sess, 8, cat, tmp_path, False, REL, manifests) == cat[8]["fileName"]
+    assert (tmp_path / cat[8]["fileName"]).read_bytes() == b"m" * 4096
+    assert sess.calls.count(f"{REL}/manifest.json") == 1
+    assert sorted(p.name for p in tmp_path.iterdir()) == sorted(m["fileName"] for m in cat.values())
+
+
+def test_an_unreachable_release_costs_one_request(fp, tmp_path, monkeypatch):
+    monkeypatch.setattr(fp.time, "sleep", lambda s: None)
+    cat = _catalog(1, 2, 3)
+    script = {f"{fp.RAW_BASE}/plates/1-99/{cat[p]['fileName']}": [_Resp(200, b"p" * 4096)]
+              for p in cat}
+    sess = FakeSession(script)                                    # the release 404s
+    stats = fp.cache_all(sess, cat, tmp_path, False, release=REL, manifests={})
+    assert stats == {"downloaded": 3, "present": 0, "failed": 0}
+    assert [c for c in sess.calls if c.startswith(REL)] == [f"{REL}/manifest.json"]
+
+
+def test_the_plate_list_comes_from_the_dataset(fp, tmp_path):
+    """A fresh install reads the dataset's plates.csv, keeps it as served, and
+    never writes data.json, which stays the mirror's own (export_dataset)."""
+    cache = tmp_path / "data.json"
+    sess = FakeSession({TABLE: [_Resp(200, PLATES_CSV.encode())]})
+    cat = fp.load_catalog(sess, cache, table=TABLE)
+    assert cat[1] == {"plate": 1, "name": "Wild Turkey", "fileName": "plate-1-wild-turkey.jpg"}
+    assert cat[361]["name"] == "Long-tailed, or Dusky Grous"
+    assert cat[361]["fileName"] == "plate-361-long-tailed-or-dusky-grous.jpg"
+    assert (tmp_path / fp.TABLE_CACHE).read_text() == PLATES_CSV
+    assert not cache.exists()
+    assert fp.load_catalog(FakeSession({}), cache, table=TABLE) == cat   # offline from the cache
+
+
+def test_the_plate_list_falls_back_to_the_mirror(fp, tmp_path):
+    cache = tmp_path / "data.json"
+    mirror = [{"plate": 2, "name": "Yellow-billed Cuckoo", "fileName": "plate-2-yellow-billed-cuckoo.jpg"}]
+    sess = FakeSession({fp.DATA_JSON_URL: [_Resp(200, json.dumps(mirror).encode())]})
+    cat = fp.load_catalog(sess, cache, table=TABLE)               # the table 404s
+    assert list(cat) == [2] and json.loads(cache.read_text()) == mirror
+    # An install that already has the mirror's list keeps it, with no request.
+    sess = FakeSession({})
+    assert fp.load_catalog(sess, cache, table=TABLE) == cat and sess.calls == []
+
+
+def test_the_havell_folio_names_the_dataset_release(fp):
+    """The release and the plate list are the dataset's, the list pinned at a
+    tag so a change there never moves an install's plate files."""
+    import yaml
+    header = yaml.safe_load((fp.DEFAULT_FOLIOS_DIR / "havell.yaml").read_text())["folio"]
+    assert header["release"].endswith("/wr/historical-bird-plates/releases/download/havell-v2")
+    assert header["plates_csv"].startswith("https://raw.githubusercontent.com/wr/historical-bird-plates/v")
+    assert header["plates_csv"].endswith("/havell/plates.csv")
+    assert fp.HAVELL_FIXES[165]["url"] == f"{header['release']}/sheet-165.jpg"
 
 
 # --- Scanned folios (W-702) ---------------------------------------------------

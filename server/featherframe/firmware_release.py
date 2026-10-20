@@ -153,7 +153,7 @@ class ReleaseStore:
             assets = {a.get("name"): a.get("browser_download_url")
                       for a in rel.get("assets") or [] if isinstance(a, dict)}
             if MANIFEST_NAME not in assets:
-                # A release with no firmware in it (plates-v1): nothing to offer.
+                # A release with no firmware in it: nothing to offer.
                 self.db.set(KEY, {**st, "checked_at": stamp, "error": None})
                 return st.get("manifest")
             man = self._get_json(assets[MANIFEST_NAME])

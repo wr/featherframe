@@ -8,13 +8,14 @@ detection into a plate. Every index entry names its `folio`; the index's
 `folios` block carries each folio's header (title, artist, years, credit).
 
 Havell's scans:
-Sources, in order: this repo's `plates-v1` GitHub Release (the whole Havell
-edition as checksummed tarballs — featherframe/plate_release.py), then
+Sources, in order: the open dataset's release (the folio header's `release`,
+github.com/wr/historical-bird-plates, W-868: every sheet, each kept only once
+its sha256 matches the release's manifest; W-816), then
 github.com/nathanbuchar/audubon-bird-plates (mirrors audubon.org's
 public-domain scans, with a plate index at data.json), then media.audubon.org.
-A part is only worth its few hundred MB when several plates are missing, so a
-fresh install restores from the release and an upgrade that needs one new
-plate asks the mirror — and falls back to the release if the mirror is down.
+The plate list is the dataset's `havell/plates.csv` (the header's
+`plates_csv`), else the mirror's data.json, so a fresh install needs nothing
+of the mirror.
 
 Usage:
     python scripts/fetch_plates.py                # download every folio's species
@@ -22,7 +23,7 @@ Usage:
     python scripts/fetch_plates.py --folios other_dir/
     python scripts/fetch_plates.py --force        # re-download even if present
     python scripts/fetch_plates.py --all          # also cache every plate in the catalog (~2.9 GB)
-    python scripts/fetch_plates.py --no-release   # skip the release tarballs, mirror only
+    python scripts/fetch_plates.py --no-release   # skip the dataset release, mirror only
 
 `--all` caches the whole Havell edition, not just the curated species, so adding
 a species to folios/havell.yaml later is an index rewrite with no network, and every
@@ -36,7 +37,9 @@ the one to preserve when displaying its plates.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
+import io
 import json
 import os
 import re
@@ -50,7 +53,7 @@ import yaml
 
 # Make the featherframe package importable when run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from featherframe import legends, paths, plate_release  # noqa: E402
+from featherframe import legends, paths  # noqa: E402
 from featherframe.names import fuzzy_resolve_plate  # noqa: E402
 
 RAW_BASE = os.environ.get(
@@ -71,9 +74,9 @@ RETRIES = 3
 RETRY_BACKOFF_S = 2.0
 MIN_PLATE_BYTES = 1024  # anything smaller is an error page, not a scan
 POLITE_PAUSE_S = 0.15
-# Below this many missing plates in one part, ask the mirror per plate first
-# rather than pull the whole part.
-PART_MIN_MISSING = 8
+# The dataset's plate list, cached beside the mirror's data.json as it was
+# served: data.json stays the mirror's own (export_dataset reads its names).
+TABLE_CACHE = "havell-plates.csv"
 # Plates whose mirror and audubon.org file is not the Havell plate (W-943):
 # audubon.org's 165 is the octavo edition's lithograph. Each is taken from the
 # dataset's release instead, only once its sha256 matches, and under a name of
@@ -95,23 +98,53 @@ def _bucket(plate: int) -> str:
 
 
 def load_catalog(session: requests.Session, cache: Path, force: bool = False,
-                 release: str | None = None) -> dict[int, dict]:
-    """Return {plate_number: {plate, name, slug, fileName}} from the plate index
-    (the release's copy first, then the mirror's), caching data.json locally so
-    re-runs work offline."""
-    if cache.exists() and not force:
-        raw = json.loads(cache.read_text())
-    else:
-        raw = plate_release.fetch_catalog(session, release) if release else None
-        if raw is None:
-            resp = session.get(DATA_JSON_URL, timeout=30)
-            resp.raise_for_status()
-            raw = resp.json()
+                 table: str | None = None) -> dict[int, dict]:
+    """Return {plate_number: {plate, name, fileName}} from the plate list: the
+    dataset's havell/plates.csv at `table` first, then the mirror's data.json
+    at `cache`. Each is cached as it was served, so re-runs work offline."""
+    table_cache = cache.with_name(TABLE_CACHE)
+    raw = None
+    if not force:
+        if table and table_cache.exists():
+            raw = table_rows(table_cache.read_text())
+        elif cache.exists():
+            raw = json.loads(cache.read_text())
+    if raw is None and table:
+        text = _get_text(session, table)
+        raw = table_rows(text) if text else None
+        if raw:
+            table_cache.parent.mkdir(parents=True, exist_ok=True)
+            table_cache.write_text(text)
+    if raw is None:
+        resp = session.get(DATA_JSON_URL, timeout=30)
+        resp.raise_for_status()
+        raw = resp.json()
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(raw))
     catalog = apply_fixes({int(e["plate"]): e for e in raw})
     _warn_name_file_disagreements(catalog)
     return catalog
+
+
+def _get_text(session: requests.Session, url: str) -> str | None:
+    try:
+        r = session.get(url, timeout=30)
+        return r.text if r.status_code == 200 else None
+    except requests.RequestException:
+        return None
+
+
+def table_rows(text: str) -> list[dict] | None:
+    """The dataset's havell/plates.csv as data.json's rows: each plate's title,
+    and its file named as audubon.org names it (the end of its image_url), so
+    a plate cached from the mirror is the same file. None if it isn't one."""
+    try:
+        rows = [{"plate": int(r["plate"]), "name": r["title"],
+                 "fileName": r["image_url"].rsplit("/", 1)[-1]}
+                for r in csv.DictReader(io.StringIO(text))]
+    except (KeyError, ValueError, AttributeError, csv.Error):
+        return None
+    return rows or None
 
 
 def apply_fixes(catalog: dict[int, dict]) -> dict[int, dict]:
@@ -215,8 +248,11 @@ def _fetch_to(session: requests.Session, url: str, dest: Path) -> bool:
 
 
 def download_plate(session: requests.Session, plate: int, catalog: dict[int, dict],
-                   dest_dir: Path, force: bool) -> str | None:
-    """Download plate image, return the stored filename (or None on failure)."""
+                   dest_dir: Path, force: bool, release: str | None = None,
+                   manifests: dict | None = None) -> str | None:
+    """Download plate image, return the stored filename (or None on failure).
+    The dataset's `release` is asked first; `manifests` keeps its manifest
+    across calls."""
     meta = catalog.get(plate)
     if not meta:
         print(f"  !  plate {plate} not in catalog")
@@ -227,6 +263,9 @@ def download_plate(session: requests.Session, plate: int, catalog: dict[int, dic
         return filename
 
     dest_dir.mkdir(parents=True, exist_ok=True)
+    if release and release_file(session, release, f"sheet-{plate:03d}.jpg", dest,
+                                {} if manifests is None else manifests):
+        return filename
     if meta.get("url"):
         # A fixed plate (HAVELL_FIXES) comes from its own source only.
         tmp = dest.with_name(dest.name + ".fix")
@@ -248,29 +287,14 @@ def download_plate(session: requests.Session, plate: int, catalog: dict[int, dic
     return None
 
 
-def restore_from_release(session: requests.Session, release: str | None, wanted: set[int],
-                         catalog: dict[int, dict], images_dir: Path,
-                         min_missing: int = PART_MIN_MISSING) -> set[int]:
-    """Pull release parts for the `wanted` plates that aren't on disk. Only
-    parts missing at least `min_missing` of them are fetched; returns the
-    plates restored."""
-    if not release:
-        return set()
-    missing = {p for p in wanted if p in catalog and not _cached(catalog[p], images_dir)}
-    by_part: dict[str, set[int]] = {}
-    for p in missing:
-        by_part.setdefault(plate_release.part_name(p), set()).add(p)
-    worth = set().union(*(ps for ps in by_part.values() if len(ps) >= min_missing))
-    return plate_release.fetch_parts(session, release, worth, catalog, images_dir)
-
-
 def _cached(meta: dict, images_dir: Path) -> bool:
     f = images_dir / meta.get("fileName", "")
     return bool(meta.get("fileName")) and f.exists() and f.stat().st_size > 0
 
 
 def cache_all(session: requests.Session, catalog: dict[int, dict], images_dir: Path,
-              force: bool, dry_run: bool = False) -> dict[str, int]:
+              force: bool, dry_run: bool = False, release: str | None = None,
+              manifests: dict | None = None) -> dict[str, int]:
     """Fetch every plate in the catalog that isn't on disk yet. Returns counts."""
     stats = {"downloaded": 0, "present": 0, "failed": 0}
     todo = [p for p, m in sorted(catalog.items()) if force or not _cached(m, images_dir)]
@@ -280,7 +304,7 @@ def cache_all(session: requests.Session, catalog: dict[int, dict], images_dir: P
               f"{len(todo)} to fetch (dry-run)")
         return stats
     for i, plate in enumerate(todo, 1):
-        if download_plate(session, plate, catalog, images_dir, force):
+        if download_plate(session, plate, catalog, images_dir, force, release, manifests):
             stats["downloaded"] += 1
         else:
             stats["failed"] += 1
@@ -325,18 +349,12 @@ def fetch_havell(session: requests.Session, species: list, args, images_dir: Pat
     its catalog). The mirror, the release and data.json's quirks stay here."""
     catalog_cache = paths.plates_dir() / "data.json"
     print(f"Loading plate catalog…")
-    release = None if args.no_release else plate_release.base_url()
-    catalog = load_catalog(session, catalog_cache, force=args.force, release=release)
+    release = None if args.no_release else header.get("release")
+    table = None if args.no_release else header.get("plates_csv")
+    catalog = load_catalog(session, catalog_cache, force=args.force, table=table)
     print(f"Catalog has {len(catalog)} plates. Processing {len(species)} species.\n")
 
-    # --force means "re-download from the source scans", so it skips the release.
-    wanted = set(catalog) if args.all else {
-        p for p in (resolve_plate(e, catalog, quiet=True) for e in species) if p is not None}
-    if not args.dry_run and not args.force:
-        restored = restore_from_release(session, release, wanted, catalog, images_dir)
-        if restored:
-            print(f"  ✓  {len(restored)} plates restored from the {plate_release.RELEASE_TAG} release\n")
-
+    manifests: dict = {}
     records = []
     counts = {"downloaded": 0, "fallback": 0, "failed": 0}
     for entry in species:
@@ -370,11 +388,8 @@ def fetch_havell(session: requests.Session, species: list, args, images_dir: Pat
             continue
 
         on_disk = _cached(catalog.get(plate, {}), images_dir) and not args.force
-        filename = download_plate(session, plate, catalog, images_dir, args.force)
-        if not filename and plate in catalog:
-            # Mirror and audubon.org both failed: the release part is the last resort.
-            if restore_from_release(session, release, {plate}, catalog, images_dir, min_missing=1):
-                filename = catalog[plate]["fileName"]
+        filename = download_plate(session, plate, catalog, images_dir, args.force,
+                                  release, manifests)
         if filename:
             record["image"] = filename
             counts["downloaded"] += 1
@@ -387,10 +402,8 @@ def fetch_havell(session: requests.Session, species: list, args, images_dir: Pat
 
     if args.all:
         print(f"\nCaching the full catalog ({len(catalog)} plates)…")
-        all_stats = cache_all(session, catalog, images_dir, args.force, dry_run=args.dry_run)
-        if all_stats["failed"]:
-            all_stats["failed"] -= len(restore_from_release(
-                session, release, set(catalog), catalog, images_dir, min_missing=1))
+        all_stats = cache_all(session, catalog, images_dir, args.force, dry_run=args.dry_run,
+                              release=release, manifests=manifests)
         counts["failed"] += all_stats["failed"]
 
     rows = catalog_rows(catalog, images_dir)
@@ -487,7 +500,16 @@ def from_release(session: requests.Session, header: dict, entry: dict, dest: Pat
     github.com/wr/historical-bird-plates, W-868) when the scan's own source
     fails. The release holds exactly what store_scan makes of the scan, so it
     is stored as it comes, once its sha256 matches the release's manifest."""
-    base = (header.get("release") or "").rstrip("/")
+    fname = f"sheet-{entry['volume']}-{int(entry['leaf']):04d}.jpg"
+    return release_file(session, header.get("release"), fname, dest, manifests)
+
+
+def release_file(session: requests.Session, base: str | None, fname: str, dest: Path,
+                 manifests: dict) -> bool:
+    """`fname` from a dataset release at `base`, stored at `dest` only once its
+    sha256 matches the release's manifest.json (`manifests` keeps each
+    release's, so it is asked once; one that can't be read is asked no more)."""
+    base = (base or "").rstrip("/")
     if not base:
         return False
     if base not in manifests:
@@ -496,7 +518,6 @@ def from_release(session: requests.Session, header: dict, entry: dict, dest: Pat
             manifests[base] = r.json().get("files", {}) if r.status_code == 200 else {}
         except (requests.RequestException, ValueError):
             manifests[base] = {}
-    fname = f"sheet-{entry['volume']}-{int(entry['leaf']):04d}.jpg"
     want = (manifests[base].get(fname) or {}).get("sha256")
     if not want:
         return False
@@ -597,7 +618,7 @@ def main() -> int:
     ap.add_argument("--all", action="store_true",
                     help="also cache every Havell plate, not just the curated species (~2.9 GB)")
     ap.add_argument("--no-release", action="store_true",
-                    help="skip the release tarballs; fetch plate by plate from the mirror")
+                    help="skip the dataset release; fetch Havell's plates from the mirror")
     args = ap.parse_args()
 
     folios = load_folios(args.folios)

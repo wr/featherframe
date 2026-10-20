@@ -178,7 +178,9 @@ PLATES_CSV = (
     "sheet-001.jpg,crop-001.jpg,\n"
     '361,"Long-tailed, or Dusky Grous",,,'
     "https://www.audubon.org/boa_plates/plate-361-long-tailed-or-dusky-grous.jpg,"
-    "sheet-361.jpg,crop-361.jpg,\n")
+    "sheet-361.jpg,crop-361.jpg,\n"
+    "165,Bachman's Finch,,,https://upload.wikimedia.org/commons/d/dd/165_Bachmans_Finch.jpg,"
+    "sheet-165.jpg,crop-165.jpg,\n")
 
 
 def _manifest(**sheets: bytes) -> _Resp:
@@ -222,7 +224,7 @@ def test_an_unreachable_release_costs_one_request(fp, tmp_path, monkeypatch):
     assert [c for c in sess.calls if c.startswith(REL)] == [f"{REL}/manifest.json"]
 
 
-def test_the_plate_list_comes_from_the_dataset(fp, tmp_path):
+def test_the_plate_list_comes_from_the_dataset(fp, tmp_path, capsys):
     """A fresh install reads the dataset's plates.csv, keeps it as served, and
     never writes data.json, which stays the mirror's own (export_dataset)."""
     cache = tmp_path / "data.json"
@@ -231,6 +233,8 @@ def test_the_plate_list_comes_from_the_dataset(fp, tmp_path):
     assert cat[1] == {"plate": 1, "name": "Wild Turkey", "fileName": "plate-1-wild-turkey.jpg"}
     assert cat[361]["name"] == "Long-tailed, or Dusky Grous"
     assert cat[361]["fileName"] == "plate-361-long-tailed-or-dusky-grous.jpg"
+    assert cat[165]["fileName"] == fp.HAVELL_FIXES[165]["fileName"]
+    assert "disagrees" not in capsys.readouterr().out          # the dataset's titles are right
     assert (tmp_path / fp.TABLE_CACHE).read_text() == PLATES_CSV
     assert not cache.exists()
     assert fp.load_catalog(FakeSession({}), cache, table=TABLE) == cat   # offline from the cache

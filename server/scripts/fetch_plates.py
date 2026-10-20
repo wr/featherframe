@@ -161,7 +161,7 @@ def _warn_name_file_disagreements(catalog: dict[int, dict]) -> None:
     bad = []
     for plate, meta in sorted(catalog.items()):
         m = _re.match(r"plate-\d+-(.+)\.jpg", meta.get("fileName", ""))
-        if not m:
+        if not m or plate in HAVELL_FIXES:     # a fix's file is named by us
             continue
         slug_words = m.group(1).split("-")
         name_words = _re.sub(r"[^a-z0-9]+", " ", meta.get("name", "").lower()).split()

@@ -728,6 +728,33 @@ before its first read or reservation there; it keeps each row once. Its server
 image rolls forward only: an older image would not see the front door's
 records.
 
+The owner's AI keys are the front door's too (W-937, `server/featherframe/keys.py`,
+`hosted/src/gate.ts`). On Cloud the image key and the text key live only in
+the household's front door (`ai_keys`, AES-GCM under the `AI_KEY_SECRET`
+Worker secret, bound to the household and the slot, `vault.ts`); the DB keeps
+a stand-in, `held:<mask>:<fingerprint>` (`keys.stand_in`), and `keys.key_id`
+makes a key and its stand-in the same key, so moving one clears no cooldown
+and buys no collage again. A model with a held key sends its request to the
+vendor's own path on `<vendor>.vendor.internal` (`keys.Vendor`), naming the
+key in `X-FF-Key` and, inside a purchase, the purchase in `X-FF-Purchase`.
+`HouseholdServer` intercepts `*.vendor.internal` on its Container
+(`ctx.container.interceptOutboundHttp`, set at `configure` before a start and
+again `onStart`) into `VendorGate` (`vendorgate.ts`), a Worker entrypoint with
+the household in its props, never read from the request. It asks the front
+door for the sealed key (`Household.vendorKey`: a POST needs a spend record
+that is open), opens it, adds it, and forwards only the paths `gate.ts` lists;
+its own refusals carry `X-FF-Gate`. A Worker, not the front door: a Durable
+Object is billed while it waits on a fetch, and an image takes minutes. A key
+the owner types passes through the server once, in the settings POST, and
+goes straight to `PUT /_internal/<hid>/keys/<slot>` (`service._held_keys`; a
+save the front door does not take saves nothing). A key from before moves at
+a start (`service.hold_keys`, from `HostedLink.take`, after the queue) only
+once `keys.gate_agrees`, the vendor answering it through the gate as it does
+directly; then the DB is VACUUMed, because a SQLite backup copies free pages.
+Cloud offers no Self-hosted image provider and no Local text provider: a
+Container cannot reach the owner's machine. Self-hosted is unchanged: the key
+is the owner's, in the owner's DB, sent by the server itself.
+
 `HouseholdServer` is THIS Python server in a Container: there is no TS copy of
 any rule but the spend gate's `decide` and the front door's switch rule
 `choose` (W-1025, above), each held to its Python side's cases. Hosted

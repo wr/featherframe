@@ -37,7 +37,7 @@ from typing import Callable, Optional
 import requests
 from PIL import Image
 
-from .. import hosted, paths, spend, thumbs
+from .. import hosted, keys, paths, spend, thumbs
 from ..names import DEFAULT_FOLIO, folio_of
 from . import plate
 from .collage import CollageCell, same_species, sheet_art_size
@@ -750,19 +750,17 @@ class TextModel(ABC):
 
 
 class OpenAITextModel(TextModel):
-    API_BASE = "https://api.openai.com/v1"
-
     def __init__(self, api_key: str, model: str = "gpt-5.6-luna",
-                 timeout_s: float = 60.0) -> None:
-        self.api_key = api_key
+                 timeout_s: float = 60.0, slot: str = "text") -> None:
+        self.vendor = keys.Vendor("openai", api_key, slot)
         self.model = model
         self.timeout_s = timeout_s
         self.name = model
 
     def complete_json(self, prompt: str) -> dict:
         r = requests.post(
-            f"{self.API_BASE}/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            self.vendor.url("/v1/chat/completions"),
+            headers=self.vendor.headers(),
             json={"model": self.model,
                   "messages": [{"role": "user", "content": prompt}],
                   "response_format": {"type": "json_object"}},
@@ -783,8 +781,8 @@ class OpenAITextModel(TextModel):
         """The model's JSON reply after searching the web (the Responses API's
         web_search tool). `last_usage` counts the searches too. May raise."""
         r = requests.post(
-            f"{self.API_BASE}/responses",
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            self.vendor.url("/v1/responses"),
+            headers=self.vendor.headers(),
             json={"model": self.model, "input": prompt,
                   "tools": [{"type": "web_search"}],
                   "max_tool_calls": self.SEARCH_MAX_CALLS},
@@ -806,11 +804,9 @@ class OpenAITextModel(TextModel):
 class GeminiTextModel(TextModel):
     """Gemini writes the naturalist's brief (JSON mode) for Gemini image users."""
 
-    API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-
     def __init__(self, api_key: str, model: str = "gemini-2.5-flash",
-                 timeout_s: float = 60.0) -> None:
-        self.api_key = api_key
+                 timeout_s: float = 60.0, slot: str = "text") -> None:
+        self.vendor = keys.Vendor("gemini", api_key, slot)
         # The shared imagegen_text_model default is an OpenAI id; fall back to a
         # real Gemini text model unless the user set a gemini-* one.
         self.model = model if model.startswith("gemini") else "gemini-2.5-flash"
@@ -819,8 +815,8 @@ class GeminiTextModel(TextModel):
 
     def complete_json(self, prompt: str) -> dict:
         r = requests.post(
-            f"{self.API_BASE}/models/{self.model}:generateContent",
-            headers={"x-goog-api-key": self.api_key},
+            self.vendor.url(f"/v1beta/models/{self.model}:generateContent"),
+            headers=self.vendor.headers(),
             json={"contents": [{"parts": [{"text": prompt}]}],
                   "generationConfig": {"responseMimeType": "application/json"}},
             timeout=self.timeout_s)
@@ -846,18 +842,17 @@ class AnthropicTextModel(TextModel):
     """Claude writes the naturalist's brief via the Messages API (raw HTTP, to
     match the other providers here rather than pull in the SDK)."""
 
-    API_BASE = "https://api.anthropic.com/v1"
-
-    def __init__(self, api_key: str, model: str = "claude-opus-5", timeout_s: float = 60.0) -> None:
-        self.api_key = api_key
+    def __init__(self, api_key: str, model: str = "claude-opus-5", timeout_s: float = 60.0,
+                 slot: str = "text") -> None:
+        self.vendor = keys.Vendor("anthropic", api_key, slot)
         self.model = model if model.startswith("claude") else "claude-opus-5"
         self.timeout_s = timeout_s
         self.name = self.model
 
     def complete_json(self, prompt: str) -> dict:
         r = requests.post(
-            f"{self.API_BASE}/messages",
-            headers={"x-api-key": self.api_key, "anthropic-version": "2023-06-01",
+            self.vendor.url("/v1/messages"),
+            headers={**self.vendor.headers(), "anthropic-version": "2023-06-01",
                      "content-type": "application/json"},
             json={"model": self.model, "max_tokens": 2048,
                   "system": "Reply with only the JSON object requested, no prose.",
@@ -885,7 +880,7 @@ class LocalTextModel(TextModel):
 
     def complete_json(self, prompt: str) -> dict:
         headers = {"content-type": "application/json"}
-        if self.api_key:
+        if self.api_key and not keys.is_held(self.api_key):
             headers["Authorization"] = f"Bearer {self.api_key}"
         r = requests.post(
             f"{self.base_url}/v1/chat/completions", headers=headers,
@@ -1022,8 +1017,6 @@ class OpenAIImageModel(ImageModel):
     """OpenAI Images API. Uses /v1/images/edits with real plates as style
     references when available, else /v1/images/generations."""
 
-    API_BASE = "https://api.openai.com/v1"
-
     #: Qualities only the 2.5 line accepts. Sent to an older model they are a
     #: 400, and a config can outlive the model it was chosen for (switch back
     #: to gpt-image-2 and the stored quality comes along), so they are clamped
@@ -1031,8 +1024,8 @@ class OpenAIImageModel(ImageModel):
     EXTRA_QUALITIES = ("xhigh", "max")
 
     def __init__(self, api_key: str, model: str = "gpt-image-2.5-sunburst",
-                 quality: str = "medium", timeout_s: float = 240.0) -> None:
-        self.api_key = api_key
+                 quality: str = "medium", timeout_s: float = 240.0, slot: str = "image") -> None:
+        self.vendor = keys.Vendor("openai", api_key, slot)
         self.model = model
         self.quality = quality
         self.timeout_s = timeout_s
@@ -1049,7 +1042,7 @@ class OpenAIImageModel(ImageModel):
 
     # -- HTTP --------------------------------------------------------------
     def _headers(self) -> dict:
-        return {"Authorization": f"Bearer {self.api_key}"}
+        return self.vendor.headers()
 
     @staticmethod
     def _ref_bytes(path: Path) -> bytes:
@@ -1078,14 +1071,14 @@ class OpenAIImageModel(ImageModel):
             # 2.5 always process references at high fidelity, and 2 rejects it.
             if self.model.startswith(("gpt-image-1", "gpt-image-1.5")):
                 data["input_fidelity"] = "high"
-            resp = requests.post(f"{self.API_BASE}/images/edits",
+            resp = requests.post(self.vendor.url("/v1/images/edits"),
                                  headers=self._headers(), data=data, files=files,
                                  timeout=self.timeout_s)
         else:
             body = {"model": self.model, "prompt": prompt, "size": size,
                     "quality": self.effective_quality, "n": 1,
                     "output_format": "png", "moderation": "low"}
-            resp = requests.post(f"{self.API_BASE}/images/generations",
+            resp = requests.post(self.vendor.url("/v1/images/generations"),
                                  headers=self._headers(), json=body,
                                  timeout=self.timeout_s)
 
@@ -1110,11 +1103,9 @@ class GeminiImageModel(ImageModel):
     """Google Gemini image generation (the "Nano Banana" line) via
     generateContent, with reference plates passed as inline images."""
 
-    API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-
     def __init__(self, api_key: str, model: str = "gemini-2.5-flash-image",
-                 timeout_s: float = 240.0) -> None:
-        self.api_key = api_key
+                 timeout_s: float = 240.0, slot: str = "image") -> None:
+        self.vendor = keys.Vendor("gemini", api_key, slot)
         self.model = model
         self.timeout_s = timeout_s
         self.name = model
@@ -1125,8 +1116,8 @@ class GeminiImageModel(ImageModel):
             parts.append({"inline_data": {"mime_type": "image/jpeg",
                                           "data": _ref_jpeg_b64(p)}})
         resp = requests.post(
-            f"{self.API_BASE}/models/{self.model}:generateContent",
-            headers={"x-goog-api-key": self.api_key},
+            self.vendor.url(f"/v1beta/models/{self.model}:generateContent"),
+            headers=self.vendor.headers(),
             json={"contents": [{"parts": parts}],
                   "generationConfig": {"responseModalities": ["IMAGE"]}},
             timeout=self.timeout_s)
@@ -1149,17 +1140,15 @@ class ReplicateImageModel(ImageModel):
     """Replicate — one key, many models (default FLUX.1 Kontext). Creates a
     prediction, polls to completion, downloads the resulting image."""
 
-    API_BASE = "https://api.replicate.com/v1"
-
     def __init__(self, api_key: str, model: str = "black-forest-labs/flux-kontext-pro",
-                 timeout_s: float = 240.0) -> None:
-        self.api_key = api_key
+                 timeout_s: float = 240.0, slot: str = "image") -> None:
+        self.vendor = keys.Vendor("replicate", api_key, slot)
         self.model = model
         self.timeout_s = timeout_s
         self.name = model
 
     def _headers(self) -> dict:
-        return {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}
+        return {**self.vendor.headers(), "Content-Type": "application/json"}
 
     def generate(self, prompt: str, size: str, refs: list[Path]) -> bytes:
         inp: dict = {"prompt": prompt}
@@ -1167,9 +1156,9 @@ class ReplicateImageModel(ImageModel):
             inp["input_image"] = f"data:image/jpeg;base64,{_ref_jpeg_b64(refs[0])}"
         # "owner/name" -> the model's own endpoint; a bare version hash -> predictions.
         if "/" in self.model and ":" not in self.model:
-            url, body = f"{self.API_BASE}/models/{self.model}/predictions", {"input": inp}
+            url, body = self.vendor.url(f"/v1/models/{self.model}/predictions"), {"input": inp}
         else:
-            url, body = f"{self.API_BASE}/predictions", {"version": self.model, "input": inp}
+            url, body = self.vendor.url("/v1/predictions"), {"version": self.model, "input": inp}
         resp = requests.post(url, headers=self._headers(), json=body, timeout=self.timeout_s)
         if resp.status_code not in (200, 201):
             raise GenerationError(f"HTTP {resp.status_code}: {resp.text[:300]}")
@@ -1178,6 +1167,7 @@ class ReplicateImageModel(ImageModel):
         try:
             pred = resp.json()
             get_url = (pred.get("urls") or {}).get("get")
+            get_url = self.vendor.rebase(get_url) if get_url else get_url
             for _ in range(60):  # ~2 min at 2s
                 status = pred.get("status")
                 if status == "succeeded":
@@ -1247,16 +1237,18 @@ def make_text_model(config) -> Optional[TextModel]:
         tp = getattr(config, "imagegen_provider", "openai")
         key = (getattr(config, "imagegen_api_key", "") or "").strip()
         base = (getattr(config, "imagegen_base_url", "") or "").strip()
+        slot = "image"
     else:
         key = (getattr(config, "imagegen_text_key", "") or "").strip()
         base = (getattr(config, "imagegen_text_base_url", "") or "").strip()
+        slot = "text"
     model = getattr(config, "imagegen_text_model", "gpt-5.6-luna")
     if tp == "openai" and key:
-        return OpenAITextModel(key, model=model)
+        return OpenAITextModel(key, model=model, slot=slot)
     if tp == "gemini" and key:
-        return GeminiTextModel(key, model=model)
+        return GeminiTextModel(key, model=model, slot=slot)
     if tp == "anthropic" and key:
-        return AnthropicTextModel(key, model=model)
+        return AnthropicTextModel(key, model=model, slot=slot)
     if tp == "local" and base:
         return LocalTextModel(base, api_key=key, model=model)
     return None
@@ -1326,16 +1318,16 @@ def _query_image_models(provider: str, key: str, base: str) -> dict:
     fallback = _MODEL_FALLBACKS.get(provider, [])
     try:
         if provider == "openai" and key:
-            r = requests.get("https://api.openai.com/v1/models",
-                             headers={"Authorization": f"Bearer {key}"}, timeout=8)
+            v = keys.Vendor("openai", key, "image")
+            r = requests.get(v.url("/v1/models"), headers=v.headers(), timeout=8)
             if r.status_code == 200:
                 ids = sorted(m["id"] for m in r.json().get("data", [])
                              if str(m.get("id", "")).startswith("gpt-image"))
                 if ids:
                     return {"models": ids, "live": True, "free_text": False}
         elif provider == "gemini" and key:
-            r = requests.get("https://generativelanguage.googleapis.com/v1beta/models",
-                             headers={"x-goog-api-key": key}, timeout=8)
+            v = keys.Vendor("gemini", key, "image")
+            r = requests.get(v.url("/v1beta/models"), headers=v.headers(), timeout=8)
             if r.status_code == 200:
                 ids = sorted(m["name"].split("/")[-1] for m in r.json().get("models", [])
                              if "image" in str(m.get("name", "")))

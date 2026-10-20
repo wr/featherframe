@@ -12,6 +12,8 @@ import { due, nextAlarm, onlyDetections, type WakeState } from "./wakes";
 import { choose, kindOf, MARKER, parse, type Queued, type SwitchTable } from "./switch";
 import { answerRead, type Ask, cacheKey, FRESH_MS, type Kind, PageCache, routeOf, SHOWN_AGE_MS } from "./pagecache";
 import { loadingPage } from "./loading";
+import { type KeyAnswer, type Slot, SLOTS } from "./gate";
+import { seal } from "./vault";
 
 // The household's server is woken only for news (W-847). The front door looks
 // for it: a BirdWeather station every POLL_MS, or a push (BirdNET-Pi's Apprise,
@@ -76,6 +78,7 @@ export class Household extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS usage (day TEXT PRIMARY KEY, wakes INTEGER NOT NULL DEFAULT 0,
         server_ms INTEGER NOT NULL DEFAULT 0, wake_ms INTEGER NOT NULL DEFAULT 0,
         page_ms INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE IF NOT EXISTS ai_keys (slot TEXT PRIMARY KEY, sealed TEXT NOT NULL, at INTEGER NOT NULL);
     `);
     // Wake time and page time apart (W-907); server_ms stays their sum. A day
     // from before has only the sum, and both of these at 0.
@@ -812,7 +815,37 @@ export class Household extends DurableObject<Env> {
       return Response.json({ ok: true });
     }
     if (path.startsWith("spend/")) return this.spendRoute(request, path.slice("spend/".length));
+    if (path.startsWith("keys/")) return this.keyRoute(request, path.slice("keys/".length));
     return new Response("not found", { status: 404 });
+  }
+
+  // -- the owner's AI keys (W-937) -------------------------------------------------
+  /** The server hands over a key the owner typed (or one from before), and
+   * keeps only its stand-in; it never reads one back. */
+  async keyRoute(request: Request, slot: string): Promise<Response> {
+    if (!SLOTS.includes(slot as Slot)) return new Response("not found", { status: 404 });
+    if (request.method === "PUT") {
+      const { key } = await request.json<{ key?: unknown }>().catch(() => ({ key: undefined }));
+      if (typeof key !== "string" || !key.trim() || key.length > 512) return Response.json({ error: "bad key" }, { status: 400 });
+      const sealed = await seal(this.env.AI_KEY_SECRET, key.trim(), `${this.meta("hid")}:${slot}`);
+      this.sql.exec("INSERT OR REPLACE INTO ai_keys (slot, sealed, at) VALUES (?, ?, ?)", slot, sealed, Date.now());
+      return new Response(null, { status: 204 });
+    }
+    if (request.method === "DELETE") {
+      this.sql.exec("DELETE FROM ai_keys WHERE slot = ?", slot);
+      return new Response(null, { status: 204 });
+    }
+    return new Response("not found", { status: 404 });
+  }
+
+  /** The gate's one question (gate.ts): the sealed key for this slot, and,
+   * for a paid call, only while its purchase is open in the spend book. */
+  async vendorKey(hid: string, slot: Slot, purchase: string | null): Promise<KeyAnswer> {
+    if (!hid || this.meta("hid") !== hid) return { ok: false, status: 404, reason: "no household" };
+    const row = this.sql.exec<{ sealed: string }>("SELECT sealed FROM ai_keys WHERE slot = ?", slot).toArray();
+    if (!row.length) return { ok: false, status: 404, reason: "no key" };
+    if (purchase !== null && !this.spend.isOpen(purchase)) return { ok: false, status: 403, reason: "no open purchase" };
+    return { ok: true, sealed: row[0].sealed };
   }
 
   // -- AI spend (W-938) ----------------------------------------------------------

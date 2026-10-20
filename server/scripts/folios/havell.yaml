@@ -41,6 +41,8 @@ folio:
   region: north-america
   source: "github.com/nathanbuchar/audubon-bird-plates"
   credit: "Courtesy of the John James Audubon Center at Mill Grove, Montgomery County Audubon Collection, and Zebra Publishing."
+  release: "https://github.com/wr/historical-bird-plates/releases/download/havell-v2"
+  plates_csv: "https://raw.githubusercontent.com/wr/historical-bird-plates/v1.2.0/havell/plates.csv"
 
 species:
   # --- The stars: cardinals, jays, chickadees, titmice ------------------

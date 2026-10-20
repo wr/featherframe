@@ -25,6 +25,6 @@ firmware/src/ff_screens_bench.h
 
 # OS
 .DS_Store
-# Packed plate release assets (scripts/pack_plates.py)
+# Release workflow output
 dist/
 .wrangler/

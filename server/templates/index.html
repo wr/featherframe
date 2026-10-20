@@ -1817,7 +1817,8 @@
                 <option value="openai" data-icon="ic-openai" {{ 'selected' if config.imagegen_provider=='openai' else '' }}>OpenAI</option>
                 <option value="gemini" data-icon="ic-gemini" {{ 'selected' if config.imagegen_provider=='gemini' else '' }}>Google Gemini</option>
                 <option value="replicate" data-icon="ic-replicate" {{ 'selected' if config.imagegen_provider=='replicate' else '' }}>Replicate</option>
-                <option value="a1111" data-icon="ic-chip" {{ 'selected' if config.imagegen_provider=='a1111' else '' }}>Self-hosted</option>
+                {# A Cloud server cannot reach the owner's own machine, and its keys go only to the four vendors (W-937). #}
+                {% if not hosted or config.imagegen_provider=='a1111' %}<option value="a1111" data-icon="ic-chip" {{ 'selected' if config.imagegen_provider=='a1111' else '' }}>Self-hosted</option>{% endif %}
               </select>
               </div>
             </div>
@@ -1873,7 +1874,7 @@
                     <option value="openai" data-icon="ic-openai" {{ 'selected' if config.imagegen_text_provider=='openai' else '' }}>OpenAI</option>
                     <option value="gemini" data-icon="ic-gemini" {{ 'selected' if config.imagegen_text_provider=='gemini' else '' }}>Google Gemini</option>
                     <option value="anthropic" data-icon="ic-anthropic" {{ 'selected' if config.imagegen_text_provider=='anthropic' else '' }}>Anthropic — Claude</option>
-                    <option value="local" data-icon="ic-chip" {{ 'selected' if config.imagegen_text_provider=='local' else '' }}>Local — OpenAI-compatible</option>
+                    {% if not hosted or config.imagegen_text_provider=='local' %}<option value="local" data-icon="ic-chip" {{ 'selected' if config.imagegen_text_provider=='local' else '' }}>Local — OpenAI-compatible</option>{% endif %}
                   </select>
                   </div>
                 </div>

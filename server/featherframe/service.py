@@ -22,6 +22,7 @@ import threading
 import time
 from collections.abc import MutableMapping
 from contextlib import contextmanager
+import dataclasses
 from dataclasses import dataclass
 from datetime import date as ddate
 from datetime import datetime, timedelta
@@ -32,7 +33,7 @@ from urllib.parse import quote
 
 from PIL import Image
 
-from . import auth, drawn, firmware_release, hosted, spend, switching
+from . import auth, drawn, firmware_release, hosted, keys, spend, switching
 from . import plate_library, thumbs
 from . import frames as frames_mod
 from . import page_build, panels, paths
@@ -1065,11 +1066,13 @@ class FeatherframeService:
 
     @staticmethod
     def _imagegen_fields(config: Config) -> tuple:
+        # A key by its fingerprint: the one moved to the front door is the
+        # same key (W-937), and buys nothing again.
         return (config.imagegen_enabled, config.imagegen_provider,
                 config.imagegen_model, config.imagegen_quality,
-                config.imagegen_text_model, config.imagegen_api_key,
+                config.imagegen_text_model, keys.key_id(config.imagegen_api_key),
                 config.imagegen_base_url, config.imagegen_text_provider,
-                config.imagegen_text_key, config.imagegen_text_base_url)
+                keys.key_id(config.imagegen_text_key), config.imagegen_text_base_url)
 
     @staticmethod
     def _collage_fields(config: Config) -> tuple:
@@ -1125,9 +1128,83 @@ class FeatherframeService:
         log.info("detection source changed: starting from a clean slate")
 
     def update_config(self, config: Config) -> None:
+        config, scrub = self._held_keys(config)
         with self._lock:
             save_config(self.db, config)
+        if scrub:
+            self.db.vacuum()
         self.reload_config()
+
+    def _held_keys(self, config: Config) -> tuple[Config, bool]:
+        """On Cloud a key the owner has just typed goes to the front door and
+        the DB keeps its stand-in (W-937); a held key cleared on the page is
+        dropped there too. A key already in the DB stays put until
+        `hold_keys` has seen the vendor answer it through the front door.
+        Also whether a key in the DB is being replaced, which leaves its old
+        value in the file's free pages until it is compacted."""
+        link = hosted.link()
+        if link is None:
+            return config, False
+        changes, scrub = {}, False
+        for slot, field in keys.SLOTS.items():
+            new, old = getattr(config, field), getattr(self.config, field)
+            if new == old:
+                continue
+            scrub = scrub or bool(old and not keys.is_held(old))
+            try:
+                if new and not keys.is_held(new):
+                    link.hold_key(slot, new)
+                    changes[field] = keys.stand_in(new)
+                elif not new and keys.is_held(old):
+                    link.drop_key(slot)
+            except Exception as exc:  # noqa: BLE001 — the page says so; nothing is saved
+                log.warning("keys: the front door did not take the %s key: %s", slot, exc)
+                raise RuntimeError("the API key could not be stored. Try again.") from None
+        return (dataclasses.replace(config, **changes) if changes else config), scrub
+
+    def hold_keys(self) -> bool:
+        """Move a key still in the DB to the front door (W-937). Each moves
+        only once the vendor answers it through the front door's gate as it
+        answers it directly: a gate that cannot reach the vendor leaves the
+        key here, working, for the next start to try again. Then the DB is
+        compacted, since SQLite keeps a replaced value in its free pages and
+        the copy sent to the front door would carry it. True once nothing is
+        left to move."""
+        link = hosted.link()
+        if link is None:
+            return True
+        cfg, moved, left = self.config, {}, False
+        for slot, field in keys.SLOTS.items():
+            key = getattr(cfg, field)
+            if not key or keys.is_held(key):
+                continue
+            vendor = keys.slot_vendor(cfg, slot)
+            try:
+                link.hold_key(slot, key)
+                if vendor and not keys.gate_agrees(vendor, slot, key):
+                    link.drop_key(slot)
+                    left = True
+                    continue
+            except Exception as exc:  # noqa: BLE001 — the key stays and works; next start
+                log.warning("keys: could not move the %s key to the front door: %s", slot, exc)
+                left = True
+                continue
+            moved[field] = key
+        if not moved:
+            return not left
+        with self._lock:
+            # Only what still holds the key that moved: a save meanwhile wins.
+            changes = {f: keys.stand_in(k) for f, k in moved.items()
+                       if getattr(self.config, f) == k}
+            if changes:
+                new = dataclasses.replace(self.config, **changes)
+                save_config(self.db, new)
+                self.config = new
+                self.provider = self._build_provider(new)
+        if changes:
+            self.db.vacuum()
+            log.info("keys: the front door now holds %s", ", ".join(sorted(changes)))
+        return not left
 
     # -- the decision loop -------------------------------------------------
     def tick(self) -> None:
@@ -3708,14 +3785,8 @@ class FeatherframeService:
     def _masked_config(self) -> dict:
         """Config for display: never leak the API key past this process."""
         cfg = self.config.to_dict()
-
-        def _mask(key: str) -> str:
-            if len(key) > 12:
-                return f"{key[:5]}…{key[-4:]}"
-            return f"…{key[-4:]}" if key else ""
-
-        cfg["imagegen_api_key"] = _mask(cfg.get("imagegen_api_key") or "")
-        cfg["imagegen_text_key"] = _mask(cfg.get("imagegen_text_key") or "")
+        for field in keys.SLOTS.values():
+            cfg[field] = keys.mask(cfg.get(field) or "")
         return cfg
 
     # -- committing a picture ---------------------------------------------

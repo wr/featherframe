@@ -4,6 +4,7 @@
 
 import { Container } from "@cloudflare/containers";
 import type { Env } from "./index";
+import { GATE_DOMAIN } from "./gate";
 
 // How long a SIGTERM is given before the process is killed: uvicorn closes
 // its port at once, waits out open connections, then the server's shutdown
@@ -136,6 +137,35 @@ export class HouseholdServer extends SleepingContainer {
   async configure(vars: Record<string, string>): Promise<void> {
     this.envVars = vars;
     await this.ctx.storage.put("vars", vars);
+    await this.gate();
+  }
+
+  private gated = false;
+
+  /** The household's own gate for its AI requests (W-937, gate.ts): every
+   * `<vendor>.vendor.internal` the server asks reaches it, and the owner's
+   * key is added there. An intercept lasts as long as its container, so it
+   * is set before each start (`configure` comes first) and again once one
+   * is up. A failure leaves the server's AI requests unanswered, never its
+   * start. */
+  private async gate(force = false): Promise<void> {
+    const hid = /\/_internal\/([0-9a-z]+)$/.exec((this.envVars as Record<string, string>).FEATHERFRAME_HOSTED_URL || "")?.[1];
+    if (!hid || !this.ctx.container || (this.gated && !force)) return;
+    try {
+      await this.ctx.container.interceptOutboundHttp(`*.${GATE_DOMAIN}`,
+        this.ctx.exports.VendorGate({ props: { hid } }));
+      this.gated = true;
+    } catch (e) {
+      console.warn("could not set the AI gate", String(e));
+    }
+  }
+
+  override async onStart(): Promise<void> {
+    await this.gate(true);
+  }
+
+  override onStop(): void {
+    this.gated = false;
   }
 
   /** Its household was deleted (W-860): stop, and keep nothing. */

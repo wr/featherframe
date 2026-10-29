@@ -28,3 +28,6 @@ firmware/src/ff_screens_bench.h
 # Release workflow output
 dist/
 .wrangler/
+
+# Plans and specs live in a private notes repo, not here
+docs/superpowers/

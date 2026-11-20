@@ -130,7 +130,7 @@ Ranked by coverage of what this frame actually hears per unit of effort:
 Northern Rough-winged Swallow is the one bird best served by Audubon himself:
 royal octavo plate 51 (1840), outside the Havell mirror but on BHL item 124833.
 
-### Shape of a second provider (built as folios in W-702; see AGENTS.md)
+### Shape of a second provider (built as folios; see docs/folios.md)
 
 - Generalise the crosswalk: a `species.yaml` entry gains `source:` (default
   `havell`) so one species can say `{source: gould_europe, plate: 217}`;

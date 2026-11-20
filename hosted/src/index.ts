@@ -23,12 +23,13 @@ import { Household } from "./household";
 import { isSetupPath, setupRoute } from "./setup";
 import { limiterFor } from "./ratelimit";
 import { HouseholdServer, Lobby } from "./containers";
+import { VendorGate } from "./vendorgate";
 import { suspendedPage } from "./pages";
 import { deviceId, escapeHtml, frameKey, httpsRedirect, sha256 } from "./util";
 
 import { Limiter } from "./limiter";
 
-export { Household, HouseholdServer, Lobby, Limiter };
+export { Household, HouseholdServer, Lobby, Limiter, VendorGate };
 
 export interface Env {
   HOUSEHOLD: DurableObjectNamespace<Household>;
@@ -47,6 +48,7 @@ export interface Env {
   TURNSTILE_SECRET: string; // secret: the waitlist form's Turnstile widget (W-991)
   CF_ACCOUNT_ID: string;  // the admin page's usage meters (W-860)
   CF_API_TOKEN: string;   // secret: Account Analytics Read, for the same
+  AI_KEY_SECRET: string;  // secret: 32 random bytes, base64; seals the owners' AI keys (W-937)
   RL_AUTH?: RateLimit;    // unused: sign-in and setup go to LIMITER, which is exact
   RL_PAGE: RateLimit;     // everything else a browser asks: 300 a minute per IP
   RL_FRAME: RateLimit;    // a frame, a viewer or a detector's push: 60 a minute each

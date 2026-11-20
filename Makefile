@@ -4,14 +4,13 @@
 PY := server/.venv/bin/python
 PIP := server/.venv/bin/pip
 
-.PHONY: help venv plates plates-all plates-pack preview preview-all preview-collage preview-ee02 preview-views preview-fallback serve test clean
+.PHONY: help venv plates plates-all preview preview-all preview-collage preview-ee02 preview-views preview-fallback serve test clean ota ota-ee02 deploy-target
 
 help:
 	@echo "Featherframe targets:"
 	@echo "  make venv             create the server venv and install deps"
 	@echo "  make plates           download the folios' plates (scripts/folios/)"
 	@echo "  make plates-all       cache every Havell plate (~2.9 GB, idempotent)"
-	@echo "  make plates-pack      pack the cached edition into release tarballs (dist/plates)"
 	@echo "  make preview          render a fake Northern Cardinal -> PNG + .fff in test_output/"
 	@echo "  make preview-all      render every curated species"
 	@echo "  make preview-collage  render a daily collage"
@@ -20,6 +19,8 @@ help:
 	@echo "  make preview-fallback render the typographic fallback plate"
 	@echo "  make serve            run the server locally on :8181 (FEATHERFRAME_NO_MDNS=1 for a dev copy)"
 	@echo "  make test             run the unit tests"
+	@echo "  make ota              build the EE03 firmware and host it on your server (ota-ee02: the EE02)"
+	@echo "                        needs FEATHERFRAME_DEPLOY_HOST and FEATHERFRAME_DEPLOY_CT; see the Makefile"
 	@echo "  make clean            remove venv, previews, and runtime state"
 
 venv:
@@ -31,10 +32,6 @@ plates:
 # The whole edition, so a new folios/havell.yaml entry never needs the network.
 plates-all:
 	cd server && ../$(PY) scripts/fetch_plates.py --all
-
-# Release assets for the plates-v1 GitHub release (dist/plates; add --publish by hand).
-plates-pack:
-	cd server && ../$(PY) scripts/pack_plates.py
 
 # The headline deliverable: end-to-end, no hardware.
 preview:
@@ -65,29 +62,40 @@ serve:
 test:
 	cd server && ../$(PY) -m pytest
 
-# Build the firmware and host it on the server box; the frame flashes itself on
-# its next check-in (right after a boot fetch, then every 15 min). No USB needed.
-# The box is an LXC on Proxmox: copy to the host, then `pct push` into the
-# container. Override BOX_HOST / BOX_CT / BOX_DATA for another install.
-BOX_HOST ?= pve
-BOX_CT   ?= 113
-BOX_DATA ?= /opt/featherframe/data
-ota:
+# Build the firmware and host it on a self-hosted server; the frame flashes
+# itself on its next check-in (right after a boot fetch, then every 15 min). No
+# USB needed. The server runs in a Proxmox container: the image is copied to the
+# Proxmox host, then `pct push`ed into the container. Set, in the environment:
+#   FEATHERFRAME_DEPLOY_HOST  the Proxmox host, as ssh reaches it
+#   FEATHERFRAME_DEPLOY_CT    the container's id
+#   FEATHERFRAME_DEPLOY_DIR   the install directory in it (default /opt/featherframe)
+# scripts/deploy.sh reads the same variables.
+FEATHERFRAME_DEPLOY_DIR ?= /opt/featherframe
+DEPLOY_HOST = $(FEATHERFRAME_DEPLOY_HOST)
+DEPLOY_CT   = $(FEATHERFRAME_DEPLOY_CT)
+DEPLOY_DATA = $(FEATHERFRAME_DEPLOY_DIR)/data
+
+deploy-target:
+	@if [ -z "$(DEPLOY_HOST)" ] || [ -z "$(DEPLOY_CT)" ]; then \
+	  echo "Set FEATHERFRAME_DEPLOY_HOST (the Proxmox host) and FEATHERFRAME_DEPLOY_CT (the container id) first." >&2; \
+	  exit 1; fi
+
+ota: deploy-target
 	cd firmware && pio run -e xiao_ee03
 	# Push to a temp name and rename: a device fetching mid-copy must never see a torn image.
-	scp -q firmware/.pio/build/xiao_ee03/firmware.bin $(BOX_HOST):/tmp/ff-firmware.bin
-	ssh $(BOX_HOST) 'pct push $(BOX_CT) /tmp/ff-firmware.bin $(BOX_DATA)/firmware.bin.tmp \
-	  && pct exec $(BOX_CT) -- mv $(BOX_DATA)/firmware.bin.tmp $(BOX_DATA)/firmware.bin'
+	scp -q firmware/.pio/build/xiao_ee03/firmware.bin $(DEPLOY_HOST):/tmp/ff-firmware.bin
+	ssh $(DEPLOY_HOST) 'pct push $(DEPLOY_CT) /tmp/ff-firmware.bin $(DEPLOY_DATA)/firmware.bin.tmp \
+	  && pct exec $(DEPLOY_CT) -- mv $(DEPLOY_DATA)/firmware.bin.tmp $(DEPLOY_DATA)/firmware.bin'
 	@echo "Hosted. The frame updates itself on its next check-in."
 
 # The EE02 colour frame is a second kit on the same server (W-832): its image
 # sits beside the EE03's as firmware-ee02.bin, and the server hands each board
 # its own (it matches the board string inside the image, and refuses the rest).
-ota-ee02:
+ota-ee02: deploy-target
 	cd firmware && pio run -e ee02
-	scp -q firmware/.pio/build/ee02/firmware.bin $(BOX_HOST):/tmp/ff-firmware-ee02.bin
-	ssh $(BOX_HOST) 'pct push $(BOX_CT) /tmp/ff-firmware-ee02.bin $(BOX_DATA)/firmware-ee02.bin.tmp \
-	  && pct exec $(BOX_CT) -- mv $(BOX_DATA)/firmware-ee02.bin.tmp $(BOX_DATA)/firmware-ee02.bin'
+	scp -q firmware/.pio/build/ee02/firmware.bin $(DEPLOY_HOST):/tmp/ff-firmware-ee02.bin
+	ssh $(DEPLOY_HOST) 'pct push $(DEPLOY_CT) /tmp/ff-firmware-ee02.bin $(DEPLOY_DATA)/firmware-ee02.bin.tmp \
+	  && pct exec $(DEPLOY_CT) -- mv $(DEPLOY_DATA)/firmware-ee02.bin.tmp $(DEPLOY_DATA)/firmware-ee02.bin'
 	@echo "Hosted. The EE02 updates itself on its next check-in."
 
 clean:

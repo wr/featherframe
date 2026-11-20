@@ -162,8 +162,8 @@ What the glass says when there is no picture: boot, pairing, errors, toasts.
 - **No jargon on user pages**: ETag, mDNS, venv, dither, framebuffer, NVS,
   endpoint. The Develop pages (How it works, Porting to another panel,
   Development) may use them.
-- The wiki's first-person pages (Why Featherframe, AI illustrations) are
-  Wells's voice; keep them his.
+- The wiki's first-person pages (Why Featherframe, AI illustrations) are in
+  the maker's own voice; keep them in it.
 - Link an owner to help through `https://featherframe.app/help/<topic>` (the
   table in `site/src/help.json`), never to a wiki page directly: the card in
   the box and the webapp print these, and the pages behind them can move. A
@@ -191,8 +191,8 @@ What the glass says when there is no picture: boot, pairing, errors, toasts.
   left. Detail lives here, not in chat.
 - **Linear tickets** are cited as ID and title together in inline code:
   `W-876 Status LED`. Never a bare ID.
-- **Reports to Wells** are six lines or fewer: what shipped with its link,
-  what Wells must do, what is broken. No walkthroughs, no restating the
+- **Reports to the maintainer** are six lines or fewer: what shipped with its
+  link, what the maintainer must do, what is broken. No walkthroughs, no restating the
   spec.
 - Explain options in product terms, not engineering ones.
 - Dates are absolute: 25 Sep 2026, never "yesterday".

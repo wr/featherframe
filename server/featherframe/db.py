@@ -76,6 +76,13 @@ class Database:
             self._conn.commit()
 
     # -- generic kv --------------------------------------------------------
+    def vacuum(self) -> None:
+        """Rewrite the file without its free pages, where SQLite leaves the
+        old value of whatever a write replaced (W-937: an owner's key)."""
+        with self._lock:
+            self._conn.commit()
+            self._conn.execute("VACUUM")
+
     def get(self, key: str, default: Any = None) -> Any:
         with self._lock:
             row = self._conn.execute("SELECT value FROM kv WHERE key=?", (key,)).fetchone()

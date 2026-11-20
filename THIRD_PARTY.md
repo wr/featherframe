@@ -25,7 +25,9 @@ renderings made with these fonts, not font software.
 - **Audubon's plates.** The Havell edition of *The Birds of America* is in the
   public domain. The scans come from the National Audubon Society by way of
   [nathanbuchar/audubon-bird-plates](https://github.com/nathanbuchar/audubon-bird-plates),
-  and are redistributed in this repo's `plates-v1` release. Credit line to keep
+  and are redistributed in the `havell-v2` release of
+  [wr/historical-bird-plates](https://github.com/wr/historical-bird-plates),
+  where install fetches them first. Credit line to keep
   when displaying them: *Courtesy of the John James Audubon Center at Mill
   Grove, Montgomery County Audubon Collection, and Zebra Publishing.* The
   plates themselves are not in the git tree.

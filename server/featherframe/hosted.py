@@ -222,6 +222,7 @@ class HostedLink:
         self.queue_ready = threading.Event()
         self.queue_ready.set()
         self._ack_upto = 0                             # the queue taken, not yet acknowledged
+        self._keys_held = False                        # nothing left in the DB to move (W-937)
 
     def _url(self, rel: str = "") -> str:
         return f"{self.base}/{rel}" if rel else self.base
@@ -454,6 +455,16 @@ class HostedLink:
         r = self.http.post(self._url("ingest/ack"), json={"upto": upto}, timeout=TIMEOUT_S)
         r.raise_for_status()
 
+    # -- the owner's AI keys (W-937) -------------------------------------------
+    def hold_key(self, slot: str, key: str) -> None:
+        """The front door keeps the key; this server keeps only its stand-in."""
+        r = self.http.put(self._url(f"keys/{slot}"), json={"key": key}, timeout=TIMEOUT_S)
+        r.raise_for_status()
+
+    def drop_key(self, slot: str) -> None:
+        r = self.http.delete(self._url(f"keys/{slot}"), timeout=TIMEOUT_S)
+        r.raise_for_status()
+
     # -- one call from the service ---------------------------------------------
     def take(self, service) -> None:
         """What the frames said and what the front door queued (W-1025): a
@@ -476,6 +487,13 @@ class HostedLink:
                 log.warning("hosted: taking the front door's queue failed", exc_info=True)
         finally:
             self.queue_ready.set()
+        # A key from before the front door held them moves there (W-937),
+        # after the queue: a report never waits on it.
+        if not self._keys_held:
+            try:
+                self._keys_held = service.hold_keys()
+            except Exception:  # noqa: BLE001 — the key stays where it is; next take
+                log.warning("hosted: moving the AI keys to the front door failed", exc_info=True)
 
     def settle(self, service, apply_checkins: bool = True) -> None:
         """Take what the frames said, then push what changed and say what the

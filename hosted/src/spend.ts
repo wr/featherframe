@@ -118,6 +118,14 @@ export class SpendBook {
     return c.rowsWritten > 0;
   }
 
+  /** Whether a paid call may go out under this reservation (W-937): it is
+   * still open, and no older than the day an open record holds its subject. */
+  isOpen(id: string, now = Date.now() / 1000): boolean {
+    if (!id) return false;
+    const r = this.sql.exec("SELECT state, at FROM spend WHERE id = ?", id).toArray();
+    return r.length > 0 && r[0].state === "open" && now - Number(r[0].at) < OPEN_HOLD_S;
+  }
+
   /** Check and insert as one step: a Durable Object runs one request at a
    * time, and nothing here awaits. The backstop and the alerts count the UTC
    * day on `now`, the front door's own clock: the backstop is for when the

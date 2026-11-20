@@ -251,6 +251,13 @@
 // Always-awake model: with Wi-Fi down, join the saved network again this often
 // (W-1056). One join, an all-channel scan included, takes a few seconds.
 #define FF_WIFI_REJOIN_MS   30000UL
+// Deep-sleep wakes rejoin the access point the last wake used, by its BSSID
+// and channel, with no scan (W-921). A join that takes longer than this falls
+// back to the all-channel scan. The scan is taken again at least daily, and
+// on the next wake after a join this weak, so a better access point is found.
+#define FF_QUICK_JOIN_MS        5000UL
+#define FF_QUICK_JOIN_MAX_S     (24UL * 3600UL)
+#define FF_QUICK_JOIN_MIN_RSSI  (-75)
 
 // --- Panel ---
 // -DFF_BOARD_EE02 (the ee02 envs) builds for the EE02 board's 13.3" Spectra 6

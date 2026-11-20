@@ -83,8 +83,10 @@ dithered and packed with `frame_config(row)`, kept in the drawn store (below)
 and pointed at by `_out[id].file`, and redrawn only when its picture or its
 settings change (`_out[id].src` names both). `/api/frame` resolves the asking frame's row and
 serves its bytes, its ETag, its own `X-FF-Rotation` / `X-Power-Mode` /
-`X-Wake-Minutes` / `X-Poll-Seconds`, and its button views drawn with its
-config. Its two intervals are `service.frame_intervals`: on plates the owner's,
+`X-Wake-Minutes` / `X-Poll-Seconds`, `X-FF-Update` (`1` when its
+`/api/firmware` would hand it an image: `app._firmware_answer`, the one rule
+for both asks; on Cloud the front door's `firmwareFor`), and its button views
+drawn with its config. Its two intervals are `service.frame_intervals`: on plates the owner's,
 on the collage the wait to just after `collage_next_at`, so a frame on the
 collage checks in when there is something new and never on a clock of its own.
 

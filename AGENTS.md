@@ -109,6 +109,9 @@ make test              # pytest
 make site-test         # featherframe.app build, unit and Playwright tests
 ```
 
+`make venv` installs runtime dependencies only; tests also need
+`server/.venv/bin/pip install pytest httpx` (CI does the same).
+
 `make preview` is the headline verification path: the whole art pipeline
 with no hardware and no detections. Run it after any render change and look
 at `test_output/`.
